@@ -1,0 +1,10 @@
+[package]
+name = "policy"
+description = "Agent policies and the run harness that drives a World with them"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+fx = { path = "../fx" }
+sim = { path = "../sim" }

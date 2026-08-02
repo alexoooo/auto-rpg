@@ -1,0 +1,187 @@
+use crate::entity::{Faction, UnitKind};
+use crate::rules::Stats;
+use fx::{Fx, Hash64, Rng, Vec2};
+
+/// One unit's starting condition. Spawn positions are explicit, never rolled
+/// at world-construction time: a [`Scenario`] is a complete, inspectable
+/// description of a starting state, so [`World::new`] is a pure function of it.
+///
+/// [`World::new`]: crate::World::new
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct UnitSpec {
+    pub kind: UnitKind,
+    pub faction: Faction,
+    pub stats: Stats,
+    pub spawn: Vec2,
+}
+
+/// A fully specified match setup.
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct Scenario {
+    pub name: String,
+    /// Arena extent; the playable area is `(0,0)..arena`.
+    pub arena: Vec2,
+    pub units: Vec<UnitSpec>,
+    /// Runs longer than this are declared a draw. Part of the scenario rather
+    /// than the runner so a replay reproduces the same cutoff.
+    pub max_ticks: u32,
+}
+
+impl Scenario {
+    /// A fixed, hand-placed one-on-one. No randomness at all -- this is the
+    /// scenario tests use when they need to reason about exact positions.
+    pub fn duel() -> Scenario {
+        Scenario {
+            name: "duel".to_string(),
+            arena: Vec2::from_ints(24, 16),
+            max_ticks: 60 * 60,
+            units: vec![
+                UnitSpec {
+                    kind: UnitKind::Warrior,
+                    faction: Faction::Heroes,
+                    stats: UnitKind::Warrior.base_stats(),
+                    spawn: Vec2::from_ints(6, 8),
+                },
+                UnitSpec {
+                    kind: UnitKind::Brute,
+                    faction: Faction::Monsters,
+                    stats: UnitKind::Brute.base_stats(),
+                    spawn: Vec2::from_ints(18, 8),
+                },
+            ],
+        }
+    }
+
+    /// A seeded skirmish: heroes spawn in the left third, monsters in the
+    /// right third, both jittered.
+    ///
+    /// The vertical band is deliberately narrower than the arena. Sight range
+    /// is around 10 units and the arena is 28 tall, so spawning across the full
+    /// height produces fights where the two sides walk straight past each other
+    /// and time out. Search behaviour is a real design problem, but it is not
+    /// this milestone's, and an experiment harness whose runs mostly end in
+    /// "nobody found anybody" measures nothing.
+    ///
+    /// The RNG is consumed here and then discarded -- the scenario it produces
+    /// is a plain value. Two runs of the same seed are identical because the
+    /// *setup* is identical, not because the world re-rolls the same numbers.
+    pub fn skirmish(seed: u64, heroes: u32, monsters: u32) -> Scenario {
+        let arena = Vec2::from_ints(40, 28);
+        let mut rng = Rng::new(seed);
+        let mut units = Vec::with_capacity((heroes + monsters) as usize);
+
+        for _ in 0..heroes {
+            let kind = if rng.chance(1, 3) {
+                UnitKind::Scout
+            } else {
+                UnitKind::Warrior
+            };
+            units.push(UnitSpec {
+                kind,
+                faction: Faction::Heroes,
+                stats: kind.base_stats(),
+                spawn: Vec2::new(
+                    rng.range(Fx::from_int(3), Fx::from_int(12)),
+                    rng.range(Fx::from_int(8), arena.y - Fx::from_int(8)),
+                ),
+            });
+        }
+
+        for _ in 0..monsters {
+            let kind = if rng.chance(1, 4) {
+                UnitKind::Brute
+            } else {
+                UnitKind::Skitterer
+            };
+            units.push(UnitSpec {
+                kind,
+                faction: Faction::Monsters,
+                stats: kind.base_stats(),
+                spawn: Vec2::new(
+                    rng.range(arena.x - Fx::from_int(12), arena.x - Fx::from_int(3)),
+                    rng.range(Fx::from_int(8), arena.y - Fx::from_int(8)),
+                ),
+            });
+        }
+
+        Scenario {
+            name: format!("skirmish-{heroes}v{monsters}"),
+            arena,
+            units,
+            max_ticks: 90 * 60,
+        }
+    }
+
+    /// Fingerprint, so a replay can refuse to play against a scenario that has
+    /// been edited underneath it.
+    pub fn fingerprint(&self) -> u64 {
+        let mut h = Hash64::new();
+        h.write_bytes(self.name.as_bytes());
+        h.write_i32(self.arena.x.raw());
+        h.write_i32(self.arena.y.raw());
+        h.write_u32(self.max_ticks);
+        h.write_u32(self.units.len() as u32);
+        for u in &self.units {
+            u.kind.hash_into(&mut h);
+            h.write_u8(u.faction.index() as u8);
+            u.stats.hash_into(&mut h);
+            h.write_i32(u.spawn.x.raw());
+            h.write_i32(u.spawn.y.raw());
+        }
+        h.finish()
+    }
+
+    pub fn count(&self, faction: Faction) -> usize {
+        self.units.iter().filter(|u| u.faction == faction).count()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn skirmish_is_a_pure_function_of_its_seed() {
+        assert_eq!(Scenario::skirmish(42, 3, 5), Scenario::skirmish(42, 3, 5));
+        assert_ne!(Scenario::skirmish(42, 3, 5), Scenario::skirmish(43, 3, 5));
+        assert_eq!(
+            Scenario::skirmish(42, 3, 5).fingerprint(),
+            Scenario::skirmish(42, 3, 5).fingerprint()
+        );
+    }
+
+    #[test]
+    fn skirmish_spawns_the_requested_units_inside_the_arena() {
+        let s = Scenario::skirmish(7, 4, 9);
+        assert_eq!(s.count(Faction::Heroes), 4);
+        assert_eq!(s.count(Faction::Monsters), 9);
+        for u in &s.units {
+            assert!(
+                u.spawn.x > Fx::ZERO && u.spawn.x < s.arena.x,
+                "{:?}",
+                u.spawn
+            );
+            assert!(
+                u.spawn.y > Fx::ZERO && u.spawn.y < s.arena.y,
+                "{:?}",
+                u.spawn
+            );
+        }
+        // Factions start apart, so a run begins with an approach phase.
+        let hero_max_x = s
+            .units
+            .iter()
+            .filter(|u| u.faction == Faction::Heroes)
+            .map(|u| u.spawn.x)
+            .max()
+            .unwrap();
+        let monster_min_x = s
+            .units
+            .iter()
+            .filter(|u| u.faction == Faction::Monsters)
+            .map(|u| u.spawn.x)
+            .min()
+            .unwrap();
+        assert!(hero_max_x < monster_min_x);
+    }
+}

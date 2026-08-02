@@ -1,0 +1,10 @@
+[package]
+name = "fx"
+description = "Deterministic 16.16 fixed-point math, vectors, angles and RNG"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+# Intentionally none. Every bit of arithmetic in the simulation bottoms out
+# here, so this crate must never depend on anything that could change.

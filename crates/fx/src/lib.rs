@@ -1,0 +1,47 @@
+//! Deterministic math primitives.
+//!
+//! Everything the simulation computes runs through this crate, and it exists
+//! for exactly one reason: **the same inputs must produce bit-identical
+//! outputs on every platform we build for** -- x86-64 native, aarch64 native,
+//! and wasm32 in a browser.
+//!
+//! IEEE-754 guarantees that `+ - * /` and `sqrt` are bit-exact everywhere, so
+//! plain floats would *nearly* work. What breaks is everything else:
+//!
+//! * `sin`/`cos`/`exp`/`ln`/`powf` are libm implementations, and the libm
+//!   compiled into a wasm binary is not the one in your platform's C library.
+//!   A one-ULP difference is enough to diverge a chaotic simulation.
+//! * FMA contraction (`a * b + c` fused into one instruction) changes results
+//!   and is applied opportunistically per target.
+//! * Auto-vectorised reductions change summation order.
+//!
+//! So the sim uses no floats at all. [`Fx`] is a 16.16 fixed-point number,
+//! [`Angle`] is a 16-bit binary angle resolved through a committed sine table,
+//! and [`Rng`] is a PCG32 with explicitly threaded state. `f32` appears in
+//! exactly one place -- [`Fx::to_f32`] -- which is for rendering and printing
+//! only and must never feed back into simulation state.
+//!
+//! ## Saturating, not wrapping
+//!
+//! Every operator saturates at [`Fx::MIN`]/[`Fx::MAX`] instead of wrapping or
+//! panicking. This matters more than it looks: with wrapping arithmetic a
+//! debug build panics where a release build silently wraps, so the two builds
+//! would produce different histories. Saturating gives one behaviour in all
+//! profiles. Saturation is still a bug -- it just fails loudly in the sim's
+//! own assertions rather than in the arithmetic.
+
+#![forbid(unsafe_code)]
+
+mod angle;
+mod fixed;
+mod hash;
+mod rng;
+mod sin_table;
+mod vec2;
+
+pub use angle::{atan2, Angle};
+pub use fixed::{isqrt64, Fx, FRAC_BITS, ONE_RAW};
+pub use hash::Hash64;
+pub use rng::Rng;
+pub use sin_table::{SIN_TABLE, SIN_TABLE_LEN};
+pub use vec2::Vec2;

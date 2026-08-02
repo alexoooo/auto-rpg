@@ -1,0 +1,9 @@
+[package]
+name = "sim"
+description = "Deterministic headless simulation core -- no engine, no renderer, no floats"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+fx = { path = "../fx" }

@@ -1,0 +1,15 @@
+[package]
+name = "lab"
+description = "Headless experiment harness: batch rollouts, determinism checks, evolution"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+fx = { path = "../fx" }
+sim = { path = "../sim" }
+policy = { path = "../policy" }
+
+# No rayon, no clap. Parallelism is `std::thread::scope` and argument parsing
+# is forty lines, which keeps the whole workspace buildable offline and free of
+# anything that could change behaviour under us between versions.
