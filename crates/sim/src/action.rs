@@ -1,39 +1,112 @@
 use crate::entity::EntityId;
-use fx::{Hash64, Vec2};
+use crate::hand::{HANDS, SHIELD, SWORD};
+use fx::{Angle, Fx, Hash64, Vec2};
+
+/// Where an agent wants one hand to be.
+///
+/// The bearing is **absolute**, not relative to the body's facing. Two reasons,
+/// and both bite immediately if you get it wrong: `facing` is derived from the
+/// feet, so a facing-relative command would swing the blade bodily around every
+/// time the character strafed; and absolute is exactly what a mouse bearing
+/// gives you, so a human and a policy speak the same language here.
+///
+/// Commanding a bearing is not the same as reaching it. The hand accelerates
+/// toward it under a torque cap and *brakes onto it*, arriving at rest -- so a
+/// blade commanded straight at an enemy lands with no speed and does no damage.
+/// See [`crate::hand`] for why that is the model rather than a bug.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
+pub struct HandCommand {
+    pub angle: Angle,
+    /// Desired extension. Clamped to `0..=1` by the sim, so a policy handing
+    /// back nonsense produces a tucked or a fully committed hand and never a
+    /// panic.
+    pub reach: Fx,
+}
+
+impl HandCommand {
+    /// A hand held in against the body, pointing nowhere in particular.
+    pub const TUCKED: HandCommand = HandCommand {
+        angle: Angle::ZERO,
+        reach: Fx::ZERO,
+    };
+
+    pub const fn new(angle: Angle, reach: Fx) -> HandCommand {
+        HandCommand { angle, reach }
+    }
+}
 
 /// What an agent decided to do. This is the *entire* output side of the agent
-/// boundary -- a hand-written utility AI, a neural policy and a replay log all
-/// produce exactly this and nothing else.
+/// boundary -- a hand-written utility AI, a neural policy, a replay log and a
+/// human at a mouse all produce exactly this and nothing else.
 ///
 /// An action persists until the agent's next decision tick, so a slow-witted
 /// character keeps executing a stale plan while a sharp one re-plans up to 60
-/// times a second.
+/// times a second. With hands on the action that cuts deeper than it used to:
+/// a stale plan is now a stale *swing*, still travelling.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
 pub struct Action {
     /// Desired movement direction. Magnitude above 1 is clamped, so this is
     /// effectively "which way, and how hard".
     pub move_dir: Vec2,
     pub intent: Intent,
+    /// Where to drive each hand, indexed by [`SWORD`] and [`SHIELD`].
+    pub hands: [HandCommand; HANDS],
 }
 
 impl Action {
     pub const HOLD: Action = Action {
         move_dir: Vec2::ZERO,
         intent: Intent::Hold,
+        hands: [HandCommand::TUCKED; HANDS],
     };
 
     pub const fn moving(dir: Vec2) -> Action {
         Action {
             move_dir: dir,
             intent: Intent::Hold,
+            hands: [HandCommand::TUCKED; HANDS],
         }
     }
 
+    /// Closes on a target with both hands tucked.
+    ///
+    /// Kept for the many call sites that only care about movement and
+    /// targeting. It does **not** swing: damage is geometric now, so an
+    /// `Intent::Attack` with tucked hands closes the distance and then stands
+    /// there. Use [`Action::swinging`] to actually fight.
     pub const fn attacking(dir: Vec2, target: EntityId) -> Action {
         Action {
             move_dir: dir,
             intent: Intent::Attack(target),
+            hands: [HandCommand::TUCKED; HANDS],
         }
+    }
+
+    /// The full form: move, target, and drive both hands.
+    pub const fn swinging(
+        dir: Vec2,
+        target: EntityId,
+        sword: HandCommand,
+        shield: HandCommand,
+    ) -> Action {
+        let mut hands = [HandCommand::TUCKED; HANDS];
+        hands[SWORD] = sword;
+        hands[SHIELD] = shield;
+        Action {
+            move_dir: dir,
+            intent: Intent::Attack(target),
+            hands,
+        }
+    }
+
+    #[inline]
+    pub const fn sword(&self) -> HandCommand {
+        self.hands[SWORD]
+    }
+
+    #[inline]
+    pub const fn shield(&self) -> HandCommand {
+        self.hands[SHIELD]
     }
 
     pub(crate) fn hash_into(self, h: &mut Hash64) {
@@ -47,6 +120,14 @@ impl Action {
             }
             Intent::Flee => h.write_u8(2),
         }
+        // Appended after the intent block, so the bytes an `Order` contributes
+        // are untouched. Hand commands are the difference between a fight and
+        // two people standing next to each other, so a replay that dropped them
+        // would reproduce the walking and none of the swordplay.
+        for hand in self.hands {
+            h.write_u16(hand.angle.raw());
+            h.write_i32(hand.reach.raw());
+        }
     }
 }
 
@@ -55,12 +136,16 @@ pub enum Intent {
     /// Move (or stand) without engaging.
     #[default]
     Hold,
-    /// Close on the target and strike whenever it is in reach and the weapon
-    /// is off cooldown. Approach and attack are one intent on purpose: the
+    /// Close on the target. Approach and attack are one intent on purpose: the
     /// agent commits to a target rather than re-deciding every tick.
+    ///
+    /// Note what this no longer does: it does not cause damage. Blows are
+    /// resolved from blade geometry, so an intent is a *statement about who is
+    /// being fought*, which the renderer, the fitness function and target
+    /// memory all want, and not a request to hit anything.
     Attack(EntityId),
-    /// Disengage. Mechanically identical to `Hold` today; carried separately
-    /// so the renderer and the fitness function can tell retreat from advance.
+    /// Disengage. Like [`Intent::Hold`] mechanically; carried separately so the
+    /// renderer and the fitness function can tell retreat from advance.
     Flee,
 }
 
@@ -212,6 +297,39 @@ mod tests {
         ] {
             assert_eq!(hashed(order), want, "{order:?} hashes differently now");
         }
+    }
+
+    #[test]
+    fn hand_commands_reach_the_action_hash() {
+        // Same shape as `goto_hashes_its_destination`, and for the same reason:
+        // state the sim acts on but the hash ignores makes two different runs
+        // indistinguishable to replay verification. Two swings in opposite
+        // directions are about as different as two runs get.
+        let hashed = |a: Action| {
+            let mut h = Hash64::new();
+            a.hash_into(&mut h);
+            h.finish()
+        };
+        let target = EntityId::new(2, 0);
+        let east = HandCommand::new(Angle::ZERO, Fx::ONE);
+        let west = HandCommand::new(Angle::HALF, Fx::ONE);
+        let tucked = HandCommand::TUCKED;
+
+        assert_ne!(
+            hashed(Action::swinging(Vec2::ZERO, target, east, tucked)),
+            hashed(Action::swinging(Vec2::ZERO, target, west, tucked)),
+            "two opposite swings are indistinguishable to the state hash"
+        );
+        assert_ne!(
+            hashed(Action::swinging(Vec2::ZERO, target, east, tucked)),
+            hashed(Action::swinging(Vec2::ZERO, target, tucked, east)),
+            "sword and shield commands are interchangeable to the state hash"
+        );
+        assert_ne!(
+            hashed(Action::swinging(Vec2::ZERO, target, east, tucked)),
+            hashed(Action::attacking(Vec2::ZERO, target)),
+            "an extended blade hashes the same as a tucked one"
+        );
     }
 
     #[test]

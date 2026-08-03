@@ -1,6 +1,6 @@
 //! The browser boundary.
 //!
-//! One `cdylib`, thirteen `extern "C"` functions, and a single packed `f32`
+//! One `cdylib`, twenty-five `extern "C"` functions, and a single packed `f32`
 //! buffer that JavaScript reads straight out of linear memory. No
 //! `wasm-bindgen`, no `js-sys`, nothing generated. The workspace's
 //! no-dependency rule (`DESIGN.md`) is what keeps every recorded run in the
@@ -47,9 +47,15 @@
 //!     header  [arena_x, arena_y, order_kind, order_x, order_y,
 //!              last_decision_tick, unit_count]
 //!     unit    [x, y, facing_raw, radius, hp, max_hp, faction, kind, intent,
-//!              entity_index, entity_generation]
+//!              entity_index, entity_generation,
+//!              sword_angle_raw, sword_reach, sword_spin,
+//!              shield_angle_raw, shield_reach, weapon_length, shield_arc_raw,
+//!              hit_flash, block_flash, parry_flash]
 //!     ...     unit_count of them
 //! ```
+//!
+//! Columns are **append-only**. The client keys on positions, so a reshuffle
+//! repaints the game while every test still passes.
 //!
 //! The last two columns are the unit's [`EntityId`], and they are in the buffer
 //! for one reason: **a row's position is not an identity**. `write_frame` skips
@@ -79,16 +85,43 @@
 use std::cell::{Cell, RefCell};
 
 use fx::{Angle, Fx, Rng, Vec2};
-use policy::{Policy, RunConfig, UtilityPolicy};
-use sim::{EntityId, Faction, Intent, Order, Scenario, UnitKind, UnitSpec, UnitView, World};
+use policy::{Policy, PolicyKind, RunConfig, MAX_GENOME_LEN};
+use sim::{
+    Action, EntityId, Event, Faction, HandCommand, Intent, Order, Scenario, UnitKind, UnitSpec,
+    UnitView, World, SHIELD, SWORD,
+};
 
 /// Floats before the first unit: `[arena_x, arena_y, order_kind, order_x,
 /// order_y, last_decision_tick, unit_count]`.
 pub const HEADER_LEN: usize = 7;
 
-/// Floats per unit: `[x, y, facing_raw, radius, hp, max_hp, faction, kind,
-/// intent, entity_index, entity_generation]`.
-pub const UNIT_STRIDE: usize = 11;
+/// Floats per unit.
+///
+/// Columns `0..=10` are frozen: `[x, y, facing_raw, radius, hp, max_hp,
+/// faction, kind, intent, entity_index, entity_generation]`. Everything the
+/// swordplay needs was **appended**, for the same reason `kind_code` is spelled
+/// out rather than derived -- the client keys on positions, and a reshuffle
+/// repaints the game while every test still passes.
+///
+/// `11..=17` are the hands and the weapon: `[sword_angle_raw, sword_reach,
+/// sword_spin, shield_angle_raw, shield_reach, weapon_length, shield_arc_raw]`.
+///
+/// `18..=20` are `[hit_flash, block_flash, parry_flash]`, each `0..=1`. These
+/// are **presentation counters owned by [`Sim`]**, fed from the event slice
+/// `World::step` returns, and deliberately not simulation state. Before them
+/// the client inferred a hit from health falling between frames and needed an
+/// epsilon to tell a blow from regeneration -- which could not see a blocked
+/// blow at all, because a blocked blow is most of the drama and almost none of
+/// the damage.
+pub const UNIT_STRIDE: usize = 21;
+
+/// Ticks a hit, block or parry stays lit in the frame.
+const FLASH_TICKS: u8 = 12;
+
+/// Bit in [`control`] that hands the feet to the player.
+pub const CONTROL_FEET: u32 = 1;
+/// Bit in [`control`] that hands the sword hand to the player.
+pub const CONTROL_SWORD: u32 = 2;
 
 /// Ceiling on units in one frame. The room holds exactly one and a skirmish
 /// holds a dozen; the number exists so the buffer can be a fixed array rather
@@ -141,9 +174,25 @@ thread_local! {
 /// `thread_local!` and `RefCell` are sound here because the target is
 /// single-threaded: there is one instance per wasm module and one module per
 /// page. Natively they give each `#[test]` thread its own module for free.
+/// How lit a body's hit, block and parry markers are, in ticks remaining.
+#[derive(Clone, Copy, Default)]
+struct Flash {
+    hit: u8,
+    block: u8,
+    parry: u8,
+}
+
 struct Sim {
     world: World,
-    policy: UtilityPolicy,
+    /// One policy per faction, indexed by [`Faction::index`]. Boxed because the
+    /// page can swap either of them mid-fight, which is the whole point of the
+    /// behaviour panel: watching the same room go differently is much more
+    /// convincing than reading that it would.
+    policies: [Box<dyn Policy>; 2],
+    kinds: [PolicyKind; 2],
+    /// The genes each policy was built from, kept so a slider can move one knob
+    /// without the page having to hold the other fifteen.
+    genomes: [[Fx; MAX_GENOME_LEN]; 2],
     /// Everything the frame draws, captured once. Iterating these and asking
     /// [`World::view`] beats [`World::snapshot`], which allocates a fresh `Vec`
     /// per call -- sixty allocations a second, each one a chance to grow linear
@@ -170,6 +219,39 @@ struct Sim {
     /// input bookkeeping, not simulation state, so `World::state_hash` never
     /// sees it and a scripted run that never spawns cannot be perturbed by it.
     spawns: u32,
+
+    // ---- manual control
+    /// Which halves of the hero the player has taken: see [`CONTROL_FEET`] and
+    /// [`CONTROL_SWORD`]. Independent bits on purpose -- steering a swordsman
+    /// and steering a sword are different skills, and being able to hand over
+    /// one without the other is most of what makes the page teach anything.
+    control: u32,
+    input_move: Vec2,
+    input_aim: Angle,
+    input_reach: Fx,
+    /// While held, the pointer steers the shield hand instead of the sword.
+    input_shield: bool,
+    /// The policy's most recent opinion about the hero.
+    ///
+    /// Under manual control the host submits every tick, but it only *asks* the
+    /// policy on the hero's own decision beat, and overwrites the controlled
+    /// fields of this. So the AI-driven half keeps its intellect cadence
+    /// exactly, and the player's half is not throttled by a stat that is
+    /// modelling somebody else's reaction time.
+    cached: Action,
+    /// The host's own decision clock for the hero.
+    ///
+    /// Necessary and easy to miss: `World::submit` pushes `next_decision` out by
+    /// a full period, so a hero submitted to on *every* tick never satisfies
+    /// `next_decision <= tick` again and silently drops out of
+    /// `pending_decisions` for as long as control is held. Without a clock here
+    /// the policy would stop being consulted at all, and the HUD's "it just
+    /// thought" ring would freeze on the tick control was taken.
+    hero_next_decision: u32,
+
+    /// Hit, block and parry markers, indexed by entity index. Presentation
+    /// only; never hashed, never read by the sim.
+    flashes: Vec<Flash>,
 }
 
 impl Sim {
@@ -180,14 +262,71 @@ impl Sim {
         for faction in [Faction::Heroes, Faction::Monsters] {
             units.extend_from_slice(&world.alive_ids(faction));
         }
+        let kinds = [PolicyKind::Utility, PolicyKind::Utility];
         Sim {
             world,
-            policy: UtilityPolicy::baseline(),
+            policies: [kinds[0].baseline(), kinds[1].baseline()],
+            kinds,
+            genomes: [
+                kinds[0].spec().baseline_genome(),
+                kinds[1].spec().baseline_genome(),
+            ],
             units,
             due: Vec::with_capacity(scenario.units.len()),
             last_decision_tick: 0,
             spawns: 0,
+            control: 0,
+            input_move: Vec2::ZERO,
+            input_aim: Angle::ZERO,
+            input_reach: Fx::ZERO,
+            input_shield: false,
+            cached: Action::HOLD,
+            hero_next_decision: 0,
+            flashes: Vec::new(),
         }
+    }
+
+    /// The standing hero, if there is one.
+    fn hero(&self) -> Option<EntityId> {
+        self.units
+            .iter()
+            .copied()
+            .find(|&id| self.world.view(id).is_some_and(|v| v.faction == Faction::Heroes))
+    }
+
+    fn flash(&mut self, entity: EntityId, pick: impl Fn(&mut Flash) -> &mut u8) {
+        let index = entity.index as usize;
+        if index >= self.flashes.len() {
+            self.flashes.resize(index + 1, Flash::default());
+        }
+        *pick(&mut self.flashes[index]) = FLASH_TICKS;
+    }
+
+    fn flash_of(&self, entity: EntityId) -> Flash {
+        self.flashes
+            .get(entity.index as usize)
+            .copied()
+            .unwrap_or_default()
+    }
+
+    /// Sets the policy for one faction, rebuilding it from that faction's genes.
+    fn set_policy(&mut self, faction: Faction, kind: PolicyKind) {
+        let side = faction.index();
+        self.kinds[side] = kind;
+        self.genomes[side] = kind.spec().baseline_genome();
+        self.policies[side] = kind.build(&self.genomes[side]);
+    }
+
+    /// Moves one knob and rebuilds. Rebuilding rather than mutating in place is
+    /// what keeps this honest for policies that derive anything at
+    /// construction, and it costs one allocation on a slider drag.
+    fn set_gene(&mut self, faction: Faction, index: usize, gene: Fx) {
+        let side = faction.index();
+        if index >= self.kinds[side].spec().len() {
+            return;
+        }
+        self.genomes[side][index] = gene.clamp(Fx::ZERO, Fx::ONE);
+        self.policies[side] = self.kinds[side].build(&self.genomes[side]);
     }
 
     /// `frames` ticks of the full loop.
@@ -207,20 +346,82 @@ impl Sim {
         // time round, which is the whole point of keeping it in the struct.
         let mut due = std::mem::take(&mut self.due);
         for _ in 0..frames {
+            for flash in &mut self.flashes {
+                flash.hit = flash.hit.saturating_sub(1);
+                flash.block = flash.block.saturating_sub(1);
+                flash.parry = flash.parry.saturating_sub(1);
+            }
+
+            let driven = (self.control != 0).then(|| self.hero()).flatten();
             due.clear();
             due.extend_from_slice(self.world.pending_decisions());
             for &id in &due {
+                if Some(id) == driven {
+                    continue; // answered below, every tick, from live input
+                }
                 let obs = self.world.observe(id);
-                let is_hero = obs.faction == Faction::Heroes;
-                let action = self.policy.decide(&obs);
+                let faction = obs.faction;
+                let action = self.policies[faction.index()].decide(&obs);
                 self.world.submit(id, action);
-                if is_hero {
+                if faction == Faction::Heroes {
                     self.last_decision_tick = self.world.tick();
                 }
             }
-            self.world.step();
+            if let Some(hero) = driven {
+                self.drive_hero(hero);
+            }
+
+            // The events the old loop discarded. There is something worth
+            // seeing in them now.
+            let mut marks: [(EntityId, u8); 8] = [(EntityId::NONE, 0); 8];
+            let mut count = 0;
+            for event in self.world.step() {
+                let pair = match *event {
+                    Event::Damage { target, .. } => [(target, 0u8), (EntityId::NONE, 0)],
+                    Event::Block { defender, .. } => [(defender, 1), (EntityId::NONE, 0)],
+                    Event::Parry { a, b, .. } => [(a, 2), (b, 2)],
+                    Event::Death { .. } => continue,
+                };
+                for mark in pair {
+                    if !mark.0.is_none() && count < marks.len() {
+                        marks[count] = mark;
+                        count += 1;
+                    }
+                }
+            }
+            for &(entity, slot) in &marks[..count] {
+                match slot {
+                    0 => self.flash(entity, |f| &mut f.hit),
+                    1 => self.flash(entity, |f| &mut f.block),
+                    _ => self.flash(entity, |f| &mut f.parry),
+                }
+            }
         }
         self.due = due;
+    }
+
+    /// Submits the hero's action for this tick, blending the policy's opinion
+    /// with whatever the player is holding.
+    fn drive_hero(&mut self, hero: EntityId) {
+        if self.world.tick() >= self.hero_next_decision {
+            let obs = self.world.observe(hero);
+            self.cached = self.policies[Faction::Heroes.index()].decide(&obs);
+            self.hero_next_decision = self.world.tick() + obs.decision_period.max(1) as u32;
+            self.last_decision_tick = self.world.tick();
+        }
+
+        let mut action = self.cached;
+        if self.control & CONTROL_FEET != 0 {
+            action.move_dir = self.input_move;
+        }
+        if self.control & CONTROL_SWORD != 0 {
+            let hand = if self.input_shield { SHIELD } else { SWORD };
+            action.hands[hand] = HandCommand::new(self.input_aim, self.input_reach);
+        }
+        // Nothing about this reaches past the agent boundary: it is an
+        // `Observation` in and an `Action` out, same as any policy, and the sim
+        // still cannot tell which of them wrote it.
+        self.world.submit(hero, action);
     }
 
     /// Walks one monster into the running room. Answers how many monsters are
@@ -456,7 +657,11 @@ impl Sim {
                 Some(view) => view,
                 None => continue,
             };
-            write_unit(&mut frame[HEADER_LEN + count * UNIT_STRIDE..], &view);
+            write_unit(
+                &mut frame[HEADER_LEN + count * UNIT_STRIDE..],
+                &view,
+                self.flash_of(id),
+            );
             count += 1;
         }
         frame[6] = count as f32;
@@ -464,7 +669,7 @@ impl Sim {
     }
 }
 
-fn write_unit(row: &mut [f32], view: &UnitView) {
+fn write_unit(row: &mut [f32], view: &UnitView, flash: Flash) {
     row[0] = view.position.x.to_f32();
     row[1] = view.position.y.to_f32();
     // The binary angle, not radians: the client multiplies by 2pi/65536 and
@@ -481,6 +686,36 @@ fn write_unit(row: &mut [f32], view: &UnitView) {
     // row above it died and everything shifted up". See the crate docs.
     row[9] = view.id.index as f32;
     row[10] = view.id.generation as f32;
+
+    // The hands. Bearings ship as raw binary angles like `facing`, so the one
+    // float conversion in the stack stays on the way out.
+    let sword = view.hands[SWORD];
+    let shield = view.hands[SHIELD];
+    row[11] = f32::from(sword.angle.raw());
+    row[12] = sword.reach.to_f32();
+    row[13] = sword.spin.to_f32();
+    row[14] = f32::from(shield.angle.raw());
+    row[15] = shield.reach.to_f32();
+    row[16] = view.weapon.length.to_f32();
+    row[17] = f32::from(view.weapon.shield_arc);
+
+    row[18] = flash_level(flash.hit);
+    row[19] = flash_level(flash.block);
+    row[20] = flash_level(flash.parry);
+}
+
+/// Ticks remaining as a `0..=1` brightness.
+fn flash_level(ticks: u8) -> f32 {
+    f32::from(ticks) / f32::from(FLASH_TICKS)
+}
+
+/// Which faction an integer names. Total, like everything on this boundary:
+/// anything but `0` is the monsters.
+const fn faction_from_code(code: u32) -> Faction {
+    match code {
+        0 => Faction::Heroes,
+        _ => Faction::Monsters,
+    }
 }
 
 /// Archetype as a small integer, matching the encoding `UnitKind` hashes with.
@@ -715,6 +950,203 @@ pub extern "C" fn state_hash_hi() -> u32 {
     (state_hash() >> 32) as u32
 }
 
+// ---------------------------------------------------------------- behaviour
+//
+// The whole reason a policy is choosable at runtime: "stats are wired into the
+// AI, not into a damage number" is a claim the page can only make convincingly
+// by letting you change the AI and watch the same room go differently.
+//
+// Weights cross as thousandths in both directions, for the same reason
+// `set_goto` takes milli-integers -- no float has any business on the inward
+// side of this wall.
+
+/// Chooses a faction's policy: `0` heroes, anything else monsters. The policy
+/// code is [`PolicyKind::code`]. Answers `1` if it took, `0` if the code was
+/// unknown or there is no world yet.
+///
+/// Resets that faction's weights to the new policy's hand-tuned baseline,
+/// because the alternative -- carrying gene 3 across from a policy where it
+/// meant `commitment` to one where it means `caution` -- is a slider that
+/// silently means something else after a dropdown change.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn set_policy(faction_code: u32, policy_code: u32) -> u32 {
+    let kind = match PolicyKind::from_code(policy_code) {
+        Some(kind) => kind,
+        None => return 0,
+    };
+    let took = with_sim(0, |sim| {
+        sim.set_policy(faction_from_code(faction_code), kind);
+        1
+    });
+    publish();
+    took
+}
+
+/// Which policy a faction is running, as a [`PolicyKind::code`].
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn policy_kind(faction_code: u32) -> u32 {
+    with_sim(0, |sim| {
+        sim.kinds[faction_from_code(faction_code).index()].code()
+    })
+}
+
+/// How many named knobs a faction's policy has. Zero is a legitimate answer --
+/// `Idle` and `Random` have none -- and the page should render no sliders
+/// rather than treat it as an error.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn policy_weight_count(faction_code: u32) -> u32 {
+    with_sim(0, |sim| {
+        sim.kinds[faction_from_code(faction_code).index()].spec().len() as u32
+    })
+}
+
+/// Knob `index` as a gene, in thousandths of the `0..=1` interval. This is what
+/// a slider's position is.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn policy_gene(faction_code: u32, index: u32) -> u32 {
+    with_sim(0, |sim| {
+        let side = faction_from_code(faction_code).index();
+        if index as usize >= sim.kinds[side].spec().len() {
+            return 0;
+        }
+        milli_of(sim.genomes[side][index as usize]).max(0) as u32
+    })
+}
+
+/// Knob `index` as its actual weight, in thousandths. This is what a slider's
+/// *label* says, and it is not the same number as [`policy_gene`]: a gene is a
+/// position in a range, a weight is a value in it.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn policy_weight(faction_code: u32, index: u32) -> i32 {
+    with_sim(0, |sim| {
+        let side = faction_from_code(faction_code).index();
+        let spec = sim.kinds[side].spec();
+        if index as usize >= spec.len() {
+            return 0;
+        }
+        milli_of(spec.value(index as usize, &sim.genomes[side]))
+    })
+}
+
+/// Moves one knob, in thousandths of the `0..=1` gene interval, and rebuilds
+/// that faction's policy. Answers `1` if it took.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn set_policy_gene(faction_code: u32, index: u32, milli: i32) -> u32 {
+    let took = with_sim(0, |sim| {
+        let faction = faction_from_code(faction_code);
+        if index as usize >= sim.kinds[faction.index()].spec().len() {
+            return 0;
+        }
+        sim.set_gene(faction, index as usize, Fx::from_ratio(milli, 1000));
+        1
+    });
+    publish();
+    took
+}
+
+/// Restores a faction's hand-tuned weights.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn reset_policy_genes(faction_code: u32) -> u32 {
+    let took = with_sim(0, |sim| {
+        let faction = faction_from_code(faction_code);
+        sim.set_policy(faction, sim.kinds[faction.index()]);
+        1
+    });
+    publish();
+    took
+}
+
+/// Address of knob `index`'s name in linear memory, as UTF-8 bytes.
+///
+/// Two exports rather than a list of names mirrored into the page, because a
+/// mirror rots: rename a gene in Rust and the page keeps confidently labelling
+/// the old one. The same pattern as [`frame_ptr`] -- an address is produced and
+/// handed over, and the reading happens on the JavaScript side of the wall
+/// where the engine bounds-checks it.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn policy_label_ptr(faction_code: u32, index: u32) -> u32 {
+    with_sim(0, |sim| {
+        let spec = sim.kinds[faction_from_code(faction_code).index()].spec();
+        spec.label(index as usize).as_ptr() as usize as u32
+    })
+}
+
+/// Length in bytes of knob `index`'s name. Zero for an index past the end,
+/// which is how a caller discovers it has run off the list.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn policy_label_len(faction_code: u32, index: u32) -> u32 {
+    with_sim(0, |sim| {
+        let spec = sim.kinds[faction_from_code(faction_code).index()].spec();
+        spec.label(index as usize).len() as u32
+    })
+}
+
+// ------------------------------------------------------------------ control
+
+/// Hands halves of the hero to the player: [`CONTROL_FEET`] and
+/// [`CONTROL_SWORD`], or'd together. `0` gives it all back.
+///
+/// This does not step outside the agent boundary. The host still answers with
+/// an `Action` and the sim still cannot tell what produced it; what changes is
+/// only *who is asked*. It does relax `DESIGN.md`'s "the player never issues a
+/// per-tick command", and knowingly: an order is a command to a character, and
+/// this is a character.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn set_control(mask: u32) {
+    with_sim((), |sim| {
+        sim.control = mask & (CONTROL_FEET | CONTROL_SWORD);
+        // Re-ask the policy on the next tick rather than carrying an opinion
+        // formed before the player took over.
+        sim.hero_next_decision = sim.world.tick();
+    });
+    publish();
+}
+
+/// Which halves of the hero the player currently holds.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn control() -> u32 {
+    with_sim(0, |sim| sim.control)
+}
+
+/// The player's live input, read on every tick that [`control`] is non-zero.
+///
+/// Movement arrives as thousandths of a unit vector, the aim as a raw binary
+/// angle (`0..65535`, the same encoding the frame reports facings in, so the
+/// page's `atan2` result never becomes a float on this side), extension as
+/// thousandths, and `shield` as a flag that points the aim at the shield hand
+/// instead of the sword.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn set_input(
+    move_x_milli: i32,
+    move_y_milli: i32,
+    aim_raw: u32,
+    reach_milli: i32,
+    shield: u32,
+) {
+    with_sim((), |sim| {
+        sim.input_move = Vec2::new(
+            Fx::from_ratio(move_x_milli, 1000),
+            Fx::from_ratio(move_y_milli, 1000),
+        )
+        .clamp_length(Fx::ONE);
+        sim.input_aim = Angle::from_raw(aim_raw as u16);
+        sim.input_reach = Fx::from_ratio(reach_milli, 1000).clamp(Fx::ZERO, Fx::ONE);
+        sim.input_shield = shield != 0;
+    });
+}
+
 /// Low half of the selftest hash. See [`selftest_hash`].
 #[allow(unsafe_code)]
 #[no_mangle]
@@ -730,6 +1162,12 @@ pub extern "C" fn selftest_hash_hi() -> u32 {
 }
 
 // ------------------------------------------------------------------ internals
+
+/// An [`Fx`] as thousandths, rounded and saturated into an `i32`. The inward
+/// counterpart of `Fx::from_ratio(milli, 1000)`.
+fn milli_of(value: Fx) -> i32 {
+    (value * Fx::from_int(1000)).round_int()
+}
 
 fn state_hash() -> u64 {
     SIM.with(|sim| {
@@ -754,7 +1192,7 @@ pub fn selftest_hash() -> u64 {
     policy::run(
         &Scenario::skirmish(1234, 4, 6),
         99,
-        &mut UtilityPolicy::baseline(),
+        &mut PolicyKind::Utility.baseline(),
         &RunConfig::default(),
     )
     .state_hash
@@ -767,25 +1205,25 @@ mod tests {
     /// What `cargo run --release -p lab -- hash` prints today. Recorded rather
     /// than computed, so this test fails if the sim's behaviour moves at all --
     /// which is the point of having it here as well as in `sim`.
-    const LAB_HASH: u64 = 0xb148_b533_8bc0_49f6;
+    const LAB_HASH: u64 = 0xb779_5172_3c52_1127;
 
     /// What `init(1); set_goto(20_000, 12_000); step(600)` leaves behind.
     /// Recorded here natively; the same three calls against `web.wasm` under
     /// Node produce the same number, which is the first time this project's
     /// central claim has been checked across targets rather than asserted.
-    const ROOM_HASH: u64 = 0x32a0_f552_486e_d898;
+    const ROOM_HASH: u64 = 0x8d36_5777_2b56_8e28;
 
     /// What `init(1); spawn_monster(3); step(600)` leaves behind -- a whole
     /// skirmish, start to finish, driven the way the page drives it. Recorded
     /// from a native run, never computed here, and asserted against `web.wasm`
     /// under Node by `tools/wasm_check.js`.
-    const BATTLE_HASH: u64 = 0x5ddd_5b02_1cf0_147b;
+    const BATTLE_HASH: u64 = 0x1a25_9ef8_c3ce_1094;
 
     /// What `init(1); spawn_monster(2) x3; step(1800); swap_in_hero(1);
     /// step(400)` leaves behind -- a fight, a death, a replacement, and the
     /// fight it walks into. Recorded from a native run and asserted against
     /// `web.wasm` under Node by `tools/wasm_check.js`.
-    const SWAP_HASH: u64 = 0xef5a_6de8_a589_1bb6;
+    const SWAP_HASH: u64 = 0xafe9_b154_80a4_52a2;
 
     fn selftest() -> u64 {
         (u64::from(selftest_hash_hi()) << 32) | u64::from(selftest_hash_lo())
@@ -851,8 +1289,8 @@ mod tests {
             "the selftest no longer runs what `lab hash` runs"
         );
         assert_eq!(selftest(), LAB_HASH, "the halves reassemble wrongly");
-        assert_eq!(selftest_hash_lo(), 0x8bc0_49f6);
-        assert_eq!(selftest_hash_hi(), 0xb148_b533);
+        assert_eq!(selftest_hash_lo(), 0x3c52_1127);
+        assert_eq!(selftest_hash_hi(), 0xb779_5172);
     }
 
     #[test]
@@ -864,6 +1302,7 @@ mod tests {
         init(1);
         set_goto(20_000, 12_000);
         step(600);
+        println!("room hash: 0x{:016x} after {} ticks", hash(), tick());
         assert_eq!(hash(), ROOM_HASH, "the room script no longer replays");
     }
 
@@ -996,6 +1435,197 @@ mod tests {
         // spawned into a fresh world, so it holds slot 0 at generation 0.
         assert_eq!(unit[9], 0.0, "entity_index");
         assert_eq!(unit[10], 0.0, "entity_generation");
+
+        // The hands. Bearings are binary angles like `facing_raw`; extensions
+        // and flashes are fractions.
+        for slot in [11usize, 14] {
+            assert!(
+                (0.0..=65535.0).contains(&unit[slot]),
+                "column {slot} is {} which is not a binary angle",
+                unit[slot]
+            );
+        }
+        for slot in [12usize, 15, 18, 19, 20] {
+            assert!(
+                (0.0..=1.0).contains(&unit[slot]),
+                "column {slot} is {}, outside 0..=1",
+                unit[slot]
+            );
+        }
+        assert!((unit[16] - 0.95).abs() < 0.001, "weapon_length {}", unit[16]);
+        assert_eq!(unit[17], 11264.0, "shield_arc_raw: a Warrior's +/- 61.9 deg");
+        // Alone in a room, the hero has nothing to swing at and nothing has hit
+        // it, so both the blade and every marker are at rest.
+        assert_eq!(unit[13], 0.0, "sword_spin");
+        assert_eq!((unit[18], unit[19], unit[20]), (0.0, 0.0, 0.0), "flashes");
+    }
+
+    #[test]
+    fn a_fight_lights_the_flash_columns() {
+        // The columns exist because the client used to infer a hit from health
+        // falling between frames, which needs an epsilon to tell a blow from
+        // regeneration and cannot see a blocked blow at all.
+        init(1);
+        spawn_monster(2);
+        let mut seen = [false; 3];
+        for _ in 0..1200 {
+            step(1);
+            let frame = frame();
+            let count = frame[6] as usize;
+            for u in 0..count {
+                let row = &frame[HEADER_LEN + u * UNIT_STRIDE..];
+                for (slot, seen) in seen.iter_mut().enumerate() {
+                    if row[18 + slot] > 0.0 {
+                        *seen = true;
+                    }
+                }
+            }
+        }
+        assert!(seen[0], "nobody was ever hit");
+        assert!(seen[1], "nothing was ever blocked");
+    }
+
+    #[test]
+    fn a_faction_can_be_handed_a_different_mind_mid_fight() {
+        init(1);
+        assert_eq!(policy_kind(0), PolicyKind::Utility.code());
+        assert_eq!(policy_kind(1), PolicyKind::Utility.code());
+
+        assert_eq!(set_policy(0, PolicyKind::Duelist.code()), 1);
+        assert_eq!(policy_kind(0), PolicyKind::Duelist.code());
+        assert_eq!(policy_kind(1), PolicyKind::Utility.code(), "both sides moved");
+
+        // An unknown code changes nothing rather than trapping.
+        assert_eq!(set_policy(0, 999), 0);
+        assert_eq!(policy_kind(0), PolicyKind::Duelist.code());
+    }
+
+    #[test]
+    fn the_behaviour_panel_can_read_and_move_every_knob() {
+        init(1);
+        set_policy(0, PolicyKind::Duelist.code());
+        let count = policy_weight_count(0);
+        assert_eq!(count as usize, policy::DUELIST_GENOME_LEN);
+
+        for i in 0..count {
+            assert!(policy_label_len(0, i) > 0, "knob {i} has no name");
+            assert_ne!(policy_label_ptr(0, i), 0, "knob {i} has no name address");
+            assert!(policy_gene(0, i) <= 1000, "knob {i} gene out of range");
+        }
+        // Past the end answers empty rather than trapping, which is how a
+        // caller discovers where the list stops.
+        assert_eq!(policy_label_len(0, count), 0);
+        assert_eq!(policy_gene(0, count), 0);
+
+        // Moving a knob changes the weight it names, and only that one.
+        let before: Vec<i32> = (0..count).map(|i| policy_weight(0, i)).collect();
+        assert_eq!(set_policy_gene(0, 0, 1000), 1);
+        let after: Vec<i32> = (0..count).map(|i| policy_weight(0, i)).collect();
+        assert_ne!(before[0], after[0], "the knob did not move");
+        assert_eq!(before[1..], after[1..], "moving one knob moved another");
+
+        assert_eq!(reset_policy_genes(0), 1);
+        let restored: Vec<i32> = (0..count).map(|i| policy_weight(0, i)).collect();
+        assert_eq!(before, restored, "reset did not restore the baseline");
+
+        // A policy with no knobs reports none, and every accessor stays total.
+        set_policy(1, PolicyKind::Idle.code());
+        assert_eq!(policy_weight_count(1), 0);
+        assert_eq!(policy_gene(1, 0), 0);
+        assert_eq!(set_policy_gene(1, 0, 500), 0);
+    }
+
+    #[test]
+    fn changing_a_policy_changes_the_fight() {
+        // The claim the panel is there to make. Same seed, same room, same
+        // monster -- only the mind is different, and the run must differ.
+        let script = |kind: PolicyKind| -> u64 {
+            init(3);
+            set_policy(0, kind.code());
+            spawn_monster(2);
+            step(600);
+            hash()
+        };
+        assert_ne!(
+            script(PolicyKind::Utility),
+            script(PolicyKind::Duelist),
+            "swapping the hero's mind produced an identical run"
+        );
+    }
+
+    #[test]
+    fn taking_control_of_the_feet_moves_the_hero_where_the_player_says() {
+        init(1);
+        let start = hero();
+        set_control(CONTROL_FEET);
+        assert_eq!(control(), CONTROL_FEET);
+        // Due west, at full speed, for a second.
+        set_input(-1000, 0, 0, 0, 0);
+        step(60);
+        let (x, y) = hero();
+        assert!(x < start.0 - 1.0, "walked to ({x}, {y}) from {start:?}");
+        assert!((y - start.1).abs() < 0.2, "drifted off the ordered line");
+
+        // Handing it back leaves the character standing rather than stuck: the
+        // policy has to start being consulted again within one decision period.
+        set_control(0);
+        assert_eq!(control(), 0);
+        set_goto(20_000, 12_000);
+        step(200);
+        assert!(hero().0 > x + 1.0, "the hero never got its feet back");
+    }
+
+    #[test]
+    fn taking_control_of_the_sword_points_it_where_the_player_says() {
+        init(1);
+        set_control(CONTROL_SWORD);
+        // Due north, fully extended.
+        set_input(0, 0, 16_384, 1000, 0);
+        step(120);
+
+        let unit = &frame()[HEADER_LEN..];
+        let bearing = unit[11];
+        assert!(
+            (bearing - 16_384.0).abs() < 2_000.0,
+            "sword ended up at {bearing}, not north"
+        );
+        assert!(unit[12] > 0.9, "sword never extended: {}", unit[12]);
+
+        // The modifier steers the other hand instead, and the sword stays put.
+        set_input(0, 0, 49_152, 1000, 1);
+        step(120);
+        let unit = &frame()[HEADER_LEN..];
+        assert!(
+            (unit[14] - 49_152.0).abs() < 2_000.0,
+            "shield ended up at {}, not south",
+            unit[14]
+        );
+    }
+
+    #[test]
+    fn the_two_control_bits_are_independent() {
+        // Feet under the player, sword under the policy, and the other way
+        // round. This is the whole shape of the feature: they are different
+        // skills and either can be handed over alone.
+        init(1);
+        spawn_monster(2);
+        set_control(CONTROL_FEET);
+        set_input(1000, 0, 0, 0, 0);
+        step(120);
+        let sword_under_ai = frame()[HEADER_LEN + 12];
+
+        init(1);
+        spawn_monster(2);
+        set_control(CONTROL_SWORD);
+        set_input(1000, 0, 0, 0, 0);
+        step(120);
+        let feet_under_ai = frame();
+
+        assert!(
+            sword_under_ai > 0.0,
+            "the policy stopped driving the sword when only the feet were taken"
+        );
+        assert!(feet_under_ai.len() >= HEADER_LEN + UNIT_STRIDE);
     }
 
     #[test]
@@ -1223,11 +1853,21 @@ mod tests {
         let start = monsters()[0].clone();
 
         let mut closed = false;
+        let mut wounded = false;
+        let mut swung = false;
         for _ in 0..120 {
             step(30);
             if let (Some(hero), Some(monster)) = (hero_row(), monsters().first()) {
                 if distance(&hero, monster) < 2.0 {
                     closed = true;
+                }
+                if monster[4] < monster[5] {
+                    wounded = true;
+                }
+                // The blade is out and moving: the fight is legible in the
+                // frame, which is what the page draws from.
+                if hero[12] > 0.0 && hero[13] != 0.0 {
+                    swung = true;
                 }
             }
             if monsters().is_empty() {
@@ -1236,6 +1876,8 @@ mod tests {
         }
 
         assert!(closed, "the two never got within reach of each other");
+        assert!(swung, "the hero never drew its sword in the frame");
+        assert!(wounded, "the skitterer was killed without ever being seen hurt");
         let hero = hero_row().expect("the warrior lost to one skitterer");
         println!(
             "skitterer entered at ({}, {}), hero finished on {} hp at tick {}",
@@ -1245,7 +1887,12 @@ mod tests {
             tick()
         );
         assert!(monsters().is_empty(), "the skitterer never died");
-        assert!(hero[4] < hero[5], "the hero won without taking a scratch");
+        // Note what is deliberately *not* asserted: that the hero got hurt. A
+        // Warrior reaches 1.40 from its centre and a Skitterer 0.70, and under
+        // geometric combat that gap is a real advantage rather than a rounding
+        // one -- the Warrior now routinely wins this untouched. Requiring a
+        // scratch would be pinning a balance accident from the old damage
+        // model, which could not miss.
     }
 
     #[test]

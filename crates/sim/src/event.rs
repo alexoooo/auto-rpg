@@ -1,5 +1,5 @@
 use crate::entity::EntityId;
-use fx::Fx;
+use fx::{Fx, Vec2};
 
 /// Something that happened during a tick.
 ///
@@ -19,4 +19,21 @@ pub enum Event {
         entity: EntityId,
         killer: EntityId,
     },
+    /// A blow that arrived inside the defender's shield arc.
+    ///
+    /// `absorbed` is what the shield ate, not what leaked through -- the
+    /// leaked remainder arrives separately as a [`Event::Damage`], so a
+    /// listener that only cares about health never has to know blocking
+    /// exists.
+    Block {
+        attacker: EntityId,
+        defender: EntityId,
+        absorbed: Fx,
+        at: Vec2,
+    },
+    /// Two blades crossed and both swings were thrown off line.
+    ///
+    /// Reported once per pair with `a`'s index below `b`'s, so a listener
+    /// counting parries counts events and not participants.
+    Parry { a: EntityId, b: EntityId, at: Vec2 },
 }

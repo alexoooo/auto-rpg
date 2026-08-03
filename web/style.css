@@ -323,6 +323,88 @@ button:active {
   transform: translateY(1px);
 }
 
+/* A toggle reads as held-down when it is on, because "who is driving" is a
+   state the player has to be able to check at a glance mid-fight. */
+button.toggle[aria-pressed="true"] {
+  background: #16233a;
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* -------------------------------------------------------------------- minds */
+
+.mind {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 6px;
+  font-size: 11.5px;
+  color: var(--ink-dim);
+}
+
+.mind span {
+  flex: 0 0 62px;
+}
+
+.mind select {
+  flex: 1 1 auto;
+  font: inherit;
+  font-size: 12.5px;
+  padding: 5px 7px;
+  border-radius: 7px;
+  border: 1px solid var(--panel-line);
+  background: #0d1119;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.mind select:hover {
+  border-color: #33405a;
+}
+
+.genes {
+  margin: 0 0 12px;
+}
+
+.gene {
+  display: grid;
+  /* Name, track, value. The value column is fixed so a rack of sliders does not
+     jitter sideways as the numbers under it change width. */
+  grid-template-columns: 74px 1fr 34px;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 3px;
+}
+
+.gene-name {
+  font-size: 10.5px;
+  color: var(--ink-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gene-value {
+  font-variant-numeric: tabular-nums;
+  font-size: 10.5px;
+  color: var(--ink-dim);
+  text-align: right;
+}
+
+.gene input[type="range"] {
+  width: 100%;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.gene-none {
+  margin: 0;
+  font-size: 10.5px;
+  color: var(--ink-faint);
+}
+
 .footnote {
   margin: 0;
   font-size: 11.5px;

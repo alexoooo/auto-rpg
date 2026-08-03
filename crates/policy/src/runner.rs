@@ -1,6 +1,6 @@
 use crate::Policy;
 use fx::{Fx, Vec2};
-use sim::{EntityId, Faction, Order, Outcome, Replay, Scenario, World};
+use sim::{EntityId, Event, Faction, Order, Outcome, Replay, Scenario, World};
 
 /// How to drive a run.
 #[derive(Clone, Debug)]
@@ -42,6 +42,16 @@ pub struct RunResult {
     pub hero_damage: Fx,
     pub monster_damage: Fx,
     pub decisions: u64,
+    /// Blows that landed, blows a shield stopped, and blade-on-blade crossings.
+    ///
+    /// Tallied from the event slice `World::step` returns, which this loop
+    /// discarded before there was anything interesting in it. They are what
+    /// makes a claim about *swordsmanship* measurable rather than a claim about
+    /// who happened to win: two policies can post identical win rates and get
+    /// there by completely different means.
+    pub blows: u32,
+    pub blocks: u32,
+    pub parries: u32,
     pub replay: Option<Replay>,
 }
 
@@ -79,6 +89,7 @@ pub fn run(
     }
     let mut due: Vec<EntityId> = Vec::new();
     let mut decisions = 0u64;
+    let (mut blows, mut blocks, mut parries) = (0u32, 0u32, 0u32);
 
     while world.outcome().is_none() && world.tick() < limit {
         due.clear();
@@ -91,7 +102,14 @@ pub fn run(
             world.submit(id, action);
             decisions += 1;
         }
-        world.step();
+        for event in world.step() {
+            match event {
+                Event::Damage { .. } => blows += 1,
+                Event::Block { .. } => blocks += 1,
+                Event::Parry { .. } => parries += 1,
+                Event::Death { .. } => {}
+            }
+        }
     }
 
     let ticks = world.tick();
@@ -108,6 +126,9 @@ pub fn run(
         hero_damage: world.damage_dealt(Faction::Heroes),
         monster_damage: world.damage_dealt(Faction::Monsters),
         decisions,
+        blows,
+        blocks,
+        parries,
         replay,
     }
 }

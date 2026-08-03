@@ -34,16 +34,16 @@ const BUILD = ["cargo", "build", "--release", "--target", "wasm32-unknown-unknow
 // is what tells the two failure modes apart -- see `divergence` below.
 
 // `lab hash`: skirmish(1234, 4, 6), seed 99, baseline policy, run to a finish.
-const LAB_HASH = 0xb148b5338bc049f6n;
+const LAB_HASH = 0xb77951723c521127n;
 
 // `init(1); set_goto(20_000, 12_000); step(600)`: the path a player drives.
-const ROOM_HASH = 0x32a0f552486ed898n;
+const ROOM_HASH = 0x8d3657772b568e28n;
 
 // `init(1); spawn_monster(3); step(600)`: a whole fight, start to finish. Worth
 // its own number because it reaches arithmetic the walk never does -- the spawn
 // point comes out of `Rng::from_stream` and the committed sine table, and every
 // approach measures a distance through `isqrt64`.
-const BATTLE_HASH = 0x5ddd5b021cf0147bn;
+const BATTLE_HASH = 0x1a259ef8c3ce1094n;
 
 // `init(1); spawn_monster(2) x3; step(1800); swap_in_hero(1); step(400)`: a
 // fight, a death, a replacement, and the fight the replacement walks into. The
@@ -51,11 +51,11 @@ const BATTLE_HASH = 0x5ddd5b021cf0147bn;
 // sim across the death of an entity and the *reuse* of its slot -- the
 // generational free list is exactly the kind of index bookkeeping that a 32-bit
 // usize could quietly do differently.
-const SWAP_HASH = 0xef5a6de8a5891bb6n;
+const SWAP_HASH = 0xafe9b15480a452a2n;
 
 // The frame header, as the client reads it.
 const HEADER_LEN = 7;
-const UNIT_STRIDE = 11;
+const UNIT_STRIDE = 21;
 const ARENA = [24, 16];
 
 // ------------------------------------------------------------------ the module
@@ -241,6 +241,18 @@ test("the boundary exports everything the client calls", () => {
     "state_hash_hi",
     "selftest_hash_lo",
     "selftest_hash_hi",
+    "set_policy",
+    "policy_kind",
+    "policy_weight_count",
+    "policy_gene",
+    "policy_weight",
+    "set_policy_gene",
+    "reset_policy_genes",
+    "policy_label_ptr",
+    "policy_label_len",
+    "set_control",
+    "control",
+    "set_input",
   ];
   for (const name of exports) {
     assert.equal(typeof wasm[name], "function", `web.wasm does not export ${name}()`);
@@ -313,6 +325,76 @@ test("the frame buffer still has the layout the client reads", () => {
   // The identity columns the client keys its per-body animations on. The room's
   // hero is the first entity ever spawned, so it holds slot 0 at generation 0.
   assert.deepEqual([unit[9], unit[10]], [0, 0], "entity_index, entity_generation");
+
+  // The appended swordplay columns. Bearings are binary angles like `facing`;
+  // extensions and flash markers are fractions; the weapon columns are the
+  // Warrior's. A column added in the middle would leave every hash identical
+  // and draw a blade out of a hit-point total.
+  for (const i of [11, 14]) {
+    assert.ok(unit[i] >= 0 && unit[i] <= 65535, `column ${i} (${unit[i]}) is not a binary angle`);
+  }
+  for (const i of [12, 15, 18, 19, 20]) {
+    assert.ok(unit[i] >= 0 && unit[i] <= 1, `column ${i} (${unit[i]}) is outside 0..=1`);
+  }
+  assert.ok(Math.abs(unit[16] - 0.95) < 0.001, `weapon_length ${unit[16]}`);
+  assert.equal(unit[17], 11264, "shield_arc_raw: a Warrior guards +/- 61.9 degrees");
+});
+
+test("a policy can be chosen and tuned across the boundary", () => {
+  // The behaviour panel's whole surface, checked in wasm rather than only
+  // natively: these are the twelve newest exports and the ones most likely to
+  // be renamed on one side of the wall and not the other.
+  wasm.init(1);
+  assert.equal(wasm.policy_kind(0), 0, "heroes should open on the baseline");
+
+  assert.equal(wasm.set_policy(0, 1), 1, "could not select the duelist");
+  assert.equal(wasm.policy_kind(0), 1);
+  assert.equal(wasm.policy_kind(1), 0, "selecting one side moved the other");
+  assert.equal(wasm.set_policy(0, 999), 0, "an unknown policy code was accepted");
+
+  const knobs = wasm.policy_weight_count(0);
+  assert.ok(knobs > 0, "the duelist reports no knobs at all");
+
+  // Names come out of linear memory rather than being mirrored into the page,
+  // so the page cannot end up labelling a gene that has been renamed.
+  const bytes = new Uint8Array(wasm.memory.buffer, wasm.policy_label_ptr(0, 0), wasm.policy_label_len(0, 0));
+  const first = new TextDecoder().decode(bytes);
+  assert.ok(first.length > 0, "the first knob has no name");
+  assert.equal(wasm.policy_label_len(0, knobs), 0, "an index past the end named something");
+
+  const before = wasm.policy_weight(0, 0);
+  assert.equal(wasm.set_policy_gene(0, 0, 1000), 1);
+  assert.notEqual(wasm.policy_weight(0, 0), before, "the knob did not move");
+  assert.equal(wasm.reset_policy_genes(0), 1);
+  assert.equal(wasm.policy_weight(0, 0), before, "reset did not restore the baseline");
+
+  // And a policy with nothing to tune stays total rather than trapping.
+  wasm.set_policy(1, 2);
+  assert.equal(wasm.policy_weight_count(1), 0);
+  assert.equal(wasm.set_policy_gene(1, 0, 500), 0);
+  console.log(`behaviour      ${knobs} knobs, first is "${first}"`);
+});
+
+test("the player can take the feet and the sword independently", () => {
+  wasm.init(1);
+  assert.equal(wasm.control(), 0);
+
+  wasm.set_control(1); // feet
+  assert.equal(wasm.control(), 1);
+  wasm.set_input(-1000, 0, 0, 0, 0);
+  wasm.step(60);
+  assert.ok(frame()[HEADER_LEN] < 11, "the hero did not walk west when told to");
+
+  wasm.set_control(2); // sword only
+  assert.equal(wasm.control(), 2);
+  wasm.set_input(0, 0, 16_384, 1000, 0);
+  wasm.step(120);
+  const unit = frame().slice(HEADER_LEN);
+  assert.ok(Math.abs(unit[11] - 16_384) < 2_000, `sword ended at ${unit[11]}, not north`);
+  assert.ok(unit[12] > 0.9, `sword never extended: ${unit[12]}`);
+
+  wasm.set_control(0);
+  assert.equal(wasm.control(), 0);
 });
 
 test("a monster walks in and takes the next row of the frame", () => {

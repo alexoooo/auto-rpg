@@ -52,6 +52,55 @@ impl Scenario {
         }
     }
 
+    /// A seeded one-on-one between two chosen archetypes.
+    ///
+    /// The pair is placed on a ring about the arena centre at a rolled bearing,
+    /// diametrically opposite each other. That the *bearing* is what the seed
+    /// changes is the whole point: with a fixed east-west placement every duel
+    /// of the same matchup is the same fight, differing only in perception
+    /// noise, so a win rate measured over a thousand seeds is really one sample
+    /// repeated a thousand times. Rotating the engagement gives the approach,
+    /// the walls and the swing geometry something to vary.
+    ///
+    /// [`Scenario::duel`] stays as it is -- fixed and hand-placed -- because
+    /// tests that reason about exact positions need it to be.
+    pub fn duel_of(hero: UnitKind, villain: UnitKind, seed: u64) -> Scenario {
+        let arena = Vec2::from_ints(24, 16);
+        let centre = arena * Fx::HALF;
+        let mut rng = Rng::new(seed);
+        let bearing = rng.angle();
+        // Six units apart, which is inside the *shortest* sight range in the
+        // game (a Brute's 7.8), so both fighters see each other on the first
+        // tick. That is deliberate and it is what makes this a duel harness:
+        // spawn them further apart and the pair spends the run failing to find
+        // each other, because the standing order that would bring them together
+        // points along a fixed axis while this placement is rotated. Search is
+        // a real and unsolved problem, and measuring it by accident inside a
+        // swordsmanship measurement is how you end up tuning combat to fix
+        // navigation.
+        let apart = Vec2::from_angle(bearing) * Fx::from_int(3);
+
+        Scenario {
+            name: format!("duel-{}-vs-{}", hero.name(), villain.name()),
+            arena,
+            max_ticks: 90 * 60,
+            units: vec![
+                UnitSpec {
+                    kind: hero,
+                    faction: Faction::Heroes,
+                    stats: hero.base_stats(),
+                    spawn: centre - apart,
+                },
+                UnitSpec {
+                    kind: villain,
+                    faction: Faction::Monsters,
+                    stats: villain.base_stats(),
+                    spawn: centre + apart,
+                },
+            ],
+        }
+    }
+
     /// An empty room with a single hero. No opposition, no time limit: the
     /// sandbox the browser build opens with, and the scenario the navigation
     /// tests use.
@@ -170,6 +219,35 @@ mod tests {
             Scenario::skirmish(42, 3, 5).fingerprint(),
             Scenario::skirmish(42, 3, 5).fingerprint()
         );
+    }
+
+    #[test]
+    fn a_seeded_duel_rotates_the_engagement() {
+        let a = Scenario::duel_of(UnitKind::Scout, UnitKind::Brute, 1);
+        let b = Scenario::duel_of(UnitKind::Scout, UnitKind::Brute, 2);
+        assert_ne!(
+            a.units[0].spawn, b.units[0].spawn,
+            "the seed must change the geometry, not only the noise"
+        );
+        assert_eq!(a, Scenario::duel_of(UnitKind::Scout, UnitKind::Brute, 1));
+
+        for s in [&a, &b] {
+            assert_eq!(s.count(Faction::Heroes), 1);
+            assert_eq!(s.count(Faction::Monsters), 1);
+            for u in &s.units {
+                assert!(u.spawn.x > Fx::ONE && u.spawn.x < s.arena.x - Fx::ONE);
+                assert!(u.spawn.y > Fx::ONE && u.spawn.y < s.arena.y - Fx::ONE);
+            }
+            // Opposite each other, and inside the shortest sight range in the
+            // game, so a duel starts as a duel rather than as a search.
+            let gap = (s.units[0].spawn - s.units[1].spawn).length();
+            assert!((gap - Fx::from_int(6)).abs() < Fx::ONE, "gap {gap}");
+            let shortest = UnitKind::ALL
+                .iter()
+                .map(|k| k.base_stats().sight_range())
+                .fold(Fx::MAX, Fx::min);
+            assert!(gap < shortest, "gap {gap} exceeds the shortest sight {shortest}");
+        }
     }
 
     #[test]

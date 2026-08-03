@@ -20,8 +20,8 @@ use args::Args;
 use evolve::{describe, evolve, EvolveConfig};
 use fitness::{fitness, Summary, Tally};
 use fx::Fx;
-use policy::{run, RunConfig, RunResult, UtilityPolicy};
-use sim::Scenario;
+use policy::{run, PolicyKind, RunConfig, RunResult};
+use sim::{Scenario, UnitKind};
 use std::time::Instant;
 
 fn main() {
@@ -31,6 +31,7 @@ fn main() {
         "verify" => verify(&args),
         "hash" => hash(&args),
         "evolve" => evolution(&args),
+        "duel" => duel(&args),
         "" | "help" => usage(),
         other => {
             eprintln!("unknown command '{other}'\n");
@@ -57,10 +58,33 @@ fn usage() {
           Prints the state fingerprint of a canonical run. The same number must
           come back from a wasm build and from every other architecture.
 
+  duel    --seeds N --hero KIND --villain KIND --policy P --opponent P
+          One-on-one, repeated across seeds, reporting a win rate and how the
+          fight was actually won. This is where a claim like \"a clever policy
+          can beat a brute\" stops being an opinion.
+
   evolve  --gens N --pop N --elite N --seeds N --sigma-pct N --threads N
-          Evolves the utility weights against the hand-tuned baseline."
+          --policy P --opponent P
+          Evolves a policy's weights against a hand-tuned opponent.
+
+  KIND is one of warrior, scout, brute, skitterer.
+  P    is one of utility, duelist, idle, random."
     );
 }
+
+const POLICIES: [(&str, PolicyKind); 4] = [
+    ("utility", PolicyKind::Utility),
+    ("duelist", PolicyKind::Duelist),
+    ("idle", PolicyKind::Idle),
+    ("random", PolicyKind::Random),
+];
+
+const KINDS: [(&str, UnitKind); 4] = [
+    ("warrior", UnitKind::Warrior),
+    ("scout", UnitKind::Scout),
+    ("brute", UnitKind::Brute),
+    ("skitterer", UnitKind::Skitterer),
+];
 
 fn default_threads() -> usize {
     std::thread::available_parallelism()
@@ -73,7 +97,13 @@ fn default_threads() -> usize {
 /// Each thread owns its own policy instance, so nothing is shared and nothing
 /// needs locking. Results are written by index, so the output is identical
 /// whatever order the threads finish in.
-fn parallel_runs(seeds: &[u64], heroes: u32, monsters: u32, threads: usize) -> Vec<RunResult> {
+fn parallel_runs(
+    seeds: &[u64],
+    heroes: u32,
+    monsters: u32,
+    threads: usize,
+    kind: PolicyKind,
+) -> Vec<RunResult> {
     let mut slots: Vec<Option<RunResult>> = vec![None; seeds.len()];
     if seeds.is_empty() {
         return Vec::new();
@@ -85,7 +115,7 @@ fn parallel_runs(seeds: &[u64], heroes: u32, monsters: u32, threads: usize) -> V
         for (chunk_seeds, out) in seeds.chunks(chunk).zip(slots.chunks_mut(chunk)) {
             scope.spawn(move || {
                 let config = RunConfig::default();
-                let mut policy = UtilityPolicy::baseline();
+                let mut policy = kind.baseline();
                 for (i, &seed) in chunk_seeds.iter().enumerate() {
                     let scenario = Scenario::skirmish(seed, heroes, monsters);
                     out[i] = Some(run(&scenario, seed, &mut policy, &config));
@@ -105,27 +135,42 @@ fn bench(args: &Args) {
     let threads = args.usize("threads", default_threads());
     let heroes = args.u32("heroes", 4);
     let monsters = args.u32("monsters", 6);
+    let kind = args.choice("policy", PolicyKind::Utility, &POLICIES);
     let seeds: Vec<u64> = (0..count as u64).collect();
 
-    println!("running {count} rollouts of {heroes}v{monsters} across {threads} threads");
+    println!(
+        "running {count} rollouts of {heroes}v{monsters} across {threads} threads ({})",
+        kind.name()
+    );
     let started = Instant::now();
-    let results = parallel_runs(&seeds, heroes, monsters, threads);
+    let results = parallel_runs(&seeds, heroes, monsters, threads, kind);
     let elapsed = started.elapsed();
 
     let mut tally = Tally::default();
     let mut scores = Vec::with_capacity(results.len());
     let mut ticks = 0u64;
     let mut decisions = 0u64;
+    let (mut blows, mut blocks, mut parries) = (0u64, 0u64, 0u64);
     for result in &results {
         tally.add(result);
         scores.push(fitness(result));
         ticks += result.ticks as u64;
         decisions += result.decisions;
+        blows += result.blows as u64;
+        blocks += result.blocks as u64;
+        parries += result.parries as u64;
     }
 
     let seconds = elapsed.as_secs_f64().max(1e-9);
+    let runs = results.len().max(1) as f64;
     println!("fitness  {}", Summary::of(&scores));
     println!("outcomes {tally}");
+    println!(
+        "swordplay {:.1} blows, {:.1} blocks, {:.1} parries per fight",
+        blows as f64 / runs,
+        blocks as f64 / runs,
+        parries as f64 / runs
+    );
 
     // Draws are the failure mode worth understanding: two healthy sides that
     // timed out never found each other, whereas a badly wounded one was in a
@@ -159,6 +204,7 @@ fn verify(args: &Args) {
     let count = args.u32("seeds", 50) as u64;
     let heroes = args.u32("heroes", 4);
     let monsters = args.u32("monsters", 6);
+    let kind = args.choice("policy", PolicyKind::Utility, &POLICIES);
     let config = RunConfig {
         record: true,
         ..RunConfig::default()
@@ -168,8 +214,8 @@ fn verify(args: &Args) {
     let mut failures = 0;
     for seed in 0..count {
         let scenario = Scenario::skirmish(seed, heroes, monsters);
-        let first = run(&scenario, seed, &mut UtilityPolicy::baseline(), &config);
-        let again = run(&scenario, seed, &mut UtilityPolicy::baseline(), &config);
+        let first = run(&scenario, seed, &mut kind.baseline(), &config);
+        let again = run(&scenario, seed, &mut kind.baseline(), &config);
 
         if verbose {
             println!(
@@ -221,7 +267,7 @@ fn hash(args: &Args) {
     let result = run(
         &scenario,
         seed,
-        &mut UtilityPolicy::baseline(),
+        &mut PolicyKind::Utility.baseline(),
         &RunConfig::default(),
     );
 
@@ -234,6 +280,91 @@ fn hash(args: &Args) {
     println!();
     println!("This number must match on every platform the sim is built for.");
     println!("If a wasm build disagrees, something in the stack is not portable.");
+}
+
+/// One-on-one across many seeds.
+///
+/// The point of this command is that "a clever policy can beat a brute" is a
+/// *measurement*, not a design intention. It also reports how the fight was
+/// won, because two policies can post the same win rate for completely
+/// different reasons -- one out-trading and one refusing every trade -- and
+/// only the second is swordsmanship.
+fn duel(args: &Args) {
+    let count = args.u32("seeds", 200) as u64;
+    let threads = args.usize("threads", default_threads());
+    let hero_kind = args.choice("hero", UnitKind::Scout, &KINDS);
+    let villain_kind = args.choice("villain", UnitKind::Brute, &KINDS);
+    let hero_policy = args.choice("policy", PolicyKind::Duelist, &POLICIES);
+    let villain_policy = args.choice("opponent", PolicyKind::Utility, &POLICIES);
+
+    println!(
+        "{count} duels: {} {} vs {} {}",
+        hero_policy.name(),
+        hero_kind.name(),
+        villain_policy.name(),
+        villain_kind.name()
+    );
+
+    let seeds: Vec<u64> = (0..count).collect();
+    let mut slots: Vec<Option<RunResult>> = vec![None; seeds.len()];
+    let chunk = seeds.len().div_ceil(threads.max(1)).max(1);
+    let started = Instant::now();
+
+    std::thread::scope(|scope| {
+        for (chunk_seeds, out) in seeds.chunks(chunk).zip(slots.chunks_mut(chunk)) {
+            scope.spawn(move || {
+                let config = RunConfig::default();
+                let mut hero = hero_policy.baseline();
+                let mut villain = villain_policy.baseline();
+                for (i, &seed) in chunk_seeds.iter().enumerate() {
+                    let scenario = Scenario::duel_of(hero_kind, villain_kind, seed);
+                    let team = policy::TeamPolicy::new(&mut hero, &mut villain);
+                    out[i] = Some(run(&scenario, seed, team, &config));
+                }
+            });
+        }
+    });
+
+    let results: Vec<RunResult> = slots.into_iter().flatten().collect();
+    let runs = results.len().max(1);
+    let mut tally = Tally::default();
+    let (mut wins, mut draws, mut ticks) = (0usize, 0usize, 0u64);
+    let (mut blows, mut blocks, mut parries) = (0u64, 0u64, 0u64);
+    let mut surviving = Vec::with_capacity(runs);
+    for result in &results {
+        tally.add(result);
+        if result.heroes_won() {
+            wins += 1;
+        }
+        if result.outcome == sim::Outcome::Draw {
+            draws += 1;
+        }
+        ticks += result.ticks as u64;
+        blows += result.blows as u64;
+        blocks += result.blocks as u64;
+        parries += result.parries as u64;
+        surviving.push(result.hero_health);
+    }
+
+    let pct = |n: usize| 100.0 * n as f64 / runs as f64;
+    println!("outcomes  {tally}");
+    println!(
+        "win rate  {:.1}%  (draws {:.1}%)",
+        pct(wins),
+        pct(draws)
+    );
+    println!(
+        "fights    {:.0} ticks mean, hero ends on {} health",
+        ticks as f64 / runs as f64,
+        Summary::of(&surviving).mean
+    );
+    println!(
+        "swordplay {:.1} blows, {:.1} blocks, {:.1} parries per fight",
+        blows as f64 / runs as f64,
+        blocks as f64 / runs as f64,
+        parries as f64 / runs as f64
+    );
+    println!("          {:.2}s wall", started.elapsed().as_secs_f64());
 }
 
 fn evolution(args: &Args) {
@@ -249,13 +380,19 @@ fn evolution(args: &Args) {
         master_seed: args.number("master-seed", 1),
         heroes: args.u32("heroes", 4),
         monsters: args.u32("monsters", 6),
+        kind: args.choice("policy", PolicyKind::Utility, &POLICIES),
+        opponent: args.choice("opponent", PolicyKind::Utility, &POLICIES),
     };
 
     println!(
-        "evolving {} genomes for {} generations, {} scenarios each, sigma {}",
-        config.population, config.generations, config.seeds, config.sigma
+        "evolving {} {} genomes for {} generations, {} scenarios each, sigma {}",
+        config.population,
+        config.kind.name(),
+        config.generations,
+        config.seeds,
+        config.sigma
     );
-    println!("opponent: the hand-tuned baseline\n");
+    println!("opponent: the hand-tuned {}\n", config.opponent.name());
 
     let started = Instant::now();
     let best = evolve(&config);
@@ -263,16 +400,15 @@ fn evolution(args: &Args) {
         "\nbest genome after {:.1}s",
         started.elapsed().as_secs_f64()
     );
-    println!("  {}", describe(&best));
+    println!("  {}", describe(config.kind, &best));
 
     // Score the winner and the incumbent on a fresh seed set neither has seen,
     // because a genome that only wins on its training seeds has learned the
     // seeds, not the game.
     let holdout: Vec<u64> = (900_000..900_016).collect();
-    let baseline = policy::UtilityWeights::BASELINE.to_genome();
-    let best_score = crate::evolve::evaluate(&best, &holdout, config.heroes, config.monsters);
-    let baseline_score =
-        crate::evolve::evaluate(&baseline, &holdout, config.heroes, config.monsters);
+    let baseline = config.kind.spec().baseline_genome();
+    let best_score = crate::evolve::evaluate(&best, &holdout, &config);
+    let baseline_score = crate::evolve::evaluate(&baseline, &holdout, &config);
     println!("\nheld-out fitness over {} fresh scenarios:", holdout.len());
     println!("  evolved   {best_score}");
     println!("  baseline  {baseline_score}");

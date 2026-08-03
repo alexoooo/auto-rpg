@@ -50,6 +50,112 @@ pub const REGEN_DELAY: u32 = 3 * TICKS_PER_SECOND;
 /// return) instead of a slow-motion draw.
 pub const REGEN_PER_TICK: Fx = Fx::from_ratio(1, 1800);
 
+// ------------------------------------------------------------------ the swing
+
+/// A weapon's physical character.
+///
+/// This is where a Brute stops being a Warrior with bigger numbers and becomes
+/// something you have to fight *differently*. Reach, inertia and recovery are
+/// separate knobs, so "long and slow" and "short and quick" are genuinely
+/// different problems for an opponent rather than two points on one difficulty
+/// axis.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct Weapon {
+    /// Blade length beyond the body surface at full extension, world units.
+    pub length: Fx,
+    /// Angular acceleration cap, raw angle units per tick squared.
+    pub torque: Fx,
+    /// Angular speed cap, raw angle units per tick.
+    pub max_spin: Fx,
+    /// How much `reach` may change per tick.
+    pub extend_rate: Fx,
+    /// Damage multiplier per unit of impact speed above [`IMPACT_THRESHOLD`].
+    pub weight: Fx,
+    /// Shield arc half-width at full extension, raw angle units.
+    pub shield_arc: u16,
+}
+
+/// How much a hand's torque, top speed and extension scale with agility.
+///
+/// The ceiling is not tidiness. Blade-versus-body uses a closest-approach test
+/// rather than a swept one, which is only correct while a tip cannot cross a
+/// whole body in one tick; see `no_blade_can_outrun_the_smallest_body`. At an
+/// unclamped multiplier a high-agility character's tip covers several units per
+/// tick and sails straight through a Skitterer. `2.00` keeps the worst case at
+/// 0.537 against a 0.60 budget.
+pub const fn agility_multiplier(agility: u8) -> Fx {
+    let scaled = Fx::from_ratio(70 + 4 * agility as i32, 100);
+    scaled.clamp(Fx::from_ratio(55, 100), Fx::TWO)
+}
+
+/// Damage scaling from the power stat: `0.55 + 0.075 * power`, capped at 3.
+pub const fn power_multiplier(power: u8) -> Fx {
+    let scaled = Fx::from_ratio(550 + 75 * power as i32, 1000);
+    scaled.clamp(Fx::from_ratio(55, 100), Fx::from_int(3))
+}
+
+/// Closing speed below which a blow does nothing at all, world units per tick.
+///
+/// Chosen above every archetype's [`Stats::move_speed`] (the fastest is a
+/// Scout's 0.0657), so a *stationary* blade carried into someone by walking is
+/// never a weapon. Without this, standing still with a sword out would kill,
+/// and the entire swing model would be decoration.
+pub const IMPACT_THRESHOLD: Fx = Fx::from_ratio(9, 100);
+
+/// Damage per world-unit-per-tick of impact above [`IMPACT_THRESHOLD`], before
+/// weapon weight and the power stat. Calibrated so a mid-blade blow lands
+/// within a fifth of what the old flat damage did, which keeps the *feel* of a
+/// trade while changing everything about when one happens.
+pub const IMPACT_TO_DAMAGE: Fx = Fx::from_int(60);
+
+/// Fraction of a blow that leaks through a shield.
+///
+/// Not zero on purpose: a Brute's blow should still be felt through a buckler,
+/// so turtling is a discount rather than an off switch and a defender cannot
+/// simply park behind its shield forever.
+pub const BLOCK_LEAK: Fx = Fx::from_ratio(15, 100);
+
+/// Fraction of its spin an attacker keeps, reversed, when a shield stops it.
+/// This plus the torque cap *is* the punish window.
+pub const BLOCK_REBOUND: Fx = Fx::from_ratio(35, 100);
+
+/// Fraction of a blocked blow's speed that shoves the blocking shield hand.
+/// A shield stops a blow; it does not stop it for free.
+pub const BLOCK_SHIELD_KNOCK: Fx = Fx::from_ratio(40, 100);
+
+/// Restitution on a blade-on-blade crossing. Higher than [`BLOCK_REBOUND`]:
+/// meeting steel with steel throws a swing further off line than catching it on
+/// a braced shield does.
+pub const PARRY_REBOUND: Fx = Fx::from_ratio(60, 100);
+
+/// Ticks a hand is dead after landing a blow. Stops one continuous swing from
+/// billing damage on every tick it spends inside a body.
+pub const HAND_REFRACTORY: u16 = 9;
+
+/// Ticks a hand is dead after being stopped by a shield.
+pub const BLOCK_REFRACTORY: u16 = 14;
+
+/// Ticks both hands are dead after their blades cross.
+pub const PARRY_REFRACTORY: u16 = 12;
+
+/// Combined spin, raw angle units per tick, below which two crossed blades are
+/// merely touching rather than parrying. Without a floor, a pair that happens to
+/// line up reports a parry on every tick it stays lined up.
+pub const PARRY_MIN_SPIN: Fx = Fx::from_int(200);
+
+/// Extension below which a blade is not a hitbox at all. Makes "tucked" mean
+/// something mechanically rather than only visually, and doubles as the early
+/// out that keeps the geometry off the hot path.
+pub const MIN_STRIKE_REACH: Fx = Fx::from_ratio(15, 100);
+
+/// Extension below which a shield covers nothing.
+pub const MIN_BLOCK_REACH: Fx = Fx::from_ratio(20, 100);
+
+/// How much of a hand's torque a full extension costs it: a committed blade
+/// corrects at `1 - REACH_DRAG` of a tucked one. This is what makes "tuck to
+/// reposition, extend to strike" a decision instead of flavour text.
+pub const REACH_DRAG: Fx = Fx::from_ratio(45, 100);
+
 /// A character's attributes. Deliberately `u8` and small: these are meant to
 /// be legible on a character sheet, not tuned to three decimal places.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
@@ -99,16 +205,6 @@ impl Stats {
             250 + 12 * self.agility as i32,
             100 * TICKS_PER_SECOND as i32,
         )
-    }
-
-    /// Ticks between attacks: `40 - agility`, floored at 8 (7.5 hits/second).
-    pub const fn attack_period(self) -> u16 {
-        clamp_i32(40 - self.agility as i32, 8, 240) as u16
-    }
-
-    /// Reach *beyond* the two colliding radii.
-    pub const fn attack_range(self) -> Fx {
-        Fx::from_ratio(9, 10)
     }
 
     /// **The intellect stat.** Ticks between decisions: `20 - intellect`,
@@ -191,7 +287,6 @@ mod tests {
             assert!(s.max_hp() > Fx::ZERO);
             assert!(s.damage() > Fx::ZERO);
             assert!(s.move_speed() > Fx::ZERO);
-            assert!(s.attack_period() >= 8);
             assert!(s.decision_period() >= 1);
             assert!(s.sight_range() > Fx::ZERO);
             assert!(s.perception_noise() >= Fx::ZERO);

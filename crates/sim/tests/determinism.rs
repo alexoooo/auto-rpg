@@ -6,15 +6,42 @@
 //! The policy used here is deliberately trivial and defined inline: these
 //! tests pin the *simulation*, not the behaviour crate.
 
-use fx::{Fx, Vec2};
-use sim::{Action, Faction, Observation, Order, Replay, Scenario, World};
+use fx::{Angle, Fx, Vec2};
+use sim::{Action, Faction, HandCommand, Observation, Order, Replay, Scenario, World};
 
-/// Charge the nearest visible enemy; otherwise advance toward the enemy side
-/// while drifting to the arena's centre line, so the two sides actually meet
-/// instead of sliding past each other into opposite walls.
+/// How far past a target this policy aims, in raw angle units (67.5 deg).
+const OVERSHOOT: i32 = 12_288;
+
+/// Charge the nearest visible enemy and windmill a blade through it; otherwise
+/// advance toward the enemy side while drifting to the arena's centre line, so
+/// the two sides actually meet instead of sliding past each other into opposite
+/// walls.
+///
+/// The swing has to aim *past* the target, because a hand brakes onto its
+/// commanded bearing and arrives at rest -- a blade aimed straight at someone
+/// touches them at walking pace and does nothing. Which side to swing from is
+/// read out of the blade's own angle and spin rather than remembered, so this
+/// stays a plain function: the deadband is what stops it reversing the instant
+/// it crosses the target and dithering there forever.
 fn greedy(obs: &Observation) -> Action {
     match obs.nearest_enemy() {
-        Some(contact) => Action::attacking(contact.offset.normalize(), contact.id),
+        Some(contact) => {
+            let bearing = contact.offset.angle();
+            let delta = obs.sword().angle.delta(bearing);
+            let side = if delta > OVERSHOOT * 3 / 4 {
+                -1
+            } else if delta < -OVERSHOOT * 3 / 4 || obs.sword().spin.is_positive() {
+                1
+            } else {
+                -1
+            };
+            Action::swinging(
+                contact.offset.normalize(),
+                contact.id,
+                HandCommand::new(bearing + Angle::from_raw((side * OVERSHOOT) as u16), Fx::ONE),
+                HandCommand::new(bearing, Fx::ONE),
+            )
+        }
         None => {
             let forward = match obs.faction {
                 Faction::Heroes => Fx::ONE,
@@ -196,7 +223,7 @@ fn player_orders_change_the_outcome_without_breaking_determinism() {
 /// ```
 ///
 /// -- or a portability bug, in which case do not.
-const GOLDEN_STATE_HASH: u64 = 0x2cf6_fb5e_0b7d_a331;
+const GOLDEN_STATE_HASH: u64 = 0xe9f4_597b_a40d_1526;
 
 #[test]
 fn golden_hash() {

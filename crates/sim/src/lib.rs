@@ -48,17 +48,21 @@ pub use fx;
 mod action;
 mod entity;
 mod event;
+mod hand;
 mod obs;
 mod replay;
 mod rules;
 mod scenario;
 mod world;
 
-pub use action::{Action, Intent, Order};
+pub use action::{Action, HandCommand, Intent, Order};
 pub use entity::{EntityId, Faction, UnitKind};
 pub use event::Event;
+pub use hand::{Hand, HANDS, SHIELD, SWORD};
 pub use obs::{Contact, Observation, FEATURE_COUNT, FEATURE_LAYOUT_VERSION};
 pub use replay::{ActionRecord, OrderRecord, Replay};
-pub use rules::{Stats, DT, MAX_CONTACTS, TICKS_PER_SECOND};
+pub use rules::{
+    agility_multiplier, power_multiplier, Stats, Weapon, DT, MAX_CONTACTS, TICKS_PER_SECOND,
+};
 pub use scenario::{Scenario, UnitSpec};
 pub use world::{Outcome, Snapshot, UnitView, World};

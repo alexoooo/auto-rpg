@@ -1,3 +1,5 @@
+use crate::genome::PolicySpec;
+use crate::swing;
 use crate::Policy;
 use fx::{Fx, Vec2};
 use sim::{Action, Contact, EntityId, Intent, Observation, Order};
@@ -33,6 +35,17 @@ pub struct UtilityWeights {
     pub wall_fear: Fx,
 }
 
+const LABELS: [&str; GENOME_LEN] = [
+    "aggression",
+    "bloodlust",
+    "obedience",
+    "commitment",
+    "caution",
+    "spacing",
+    "cohesion",
+    "wall_fear",
+];
+
 /// `(min, max)` for each gene, in field order.
 const GENE_RANGES: [(Fx, Fx); GENOME_LEN] = [
     (Fx::ZERO, Fx::from_int(2)),              // aggression
@@ -45,28 +58,39 @@ const GENE_RANGES: [(Fx, Fx); GENOME_LEN] = [
     (Fx::ZERO, Fx::from_int(1)),              // wall_fear
 ];
 
+const BASELINE_VALUES: [Fx; GENOME_LEN] = [
+    Fx::from_ratio(10, 10),
+    Fx::from_ratio(6, 10),
+    Fx::from_ratio(15, 10),
+    Fx::from_ratio(3, 10),
+    Fx::from_ratio(2, 10),
+    Fx::from_ratio(85, 100),
+    Fx::from_ratio(25, 100),
+    Fx::from_ratio(3, 10),
+];
+
 impl UtilityWeights {
+    /// This policy's knobs, for evolution, for reporting and for the browser's
+    /// sliders.
+    pub const SPEC: PolicySpec = PolicySpec::new(&LABELS, &GENE_RANGES, &BASELINE_VALUES);
+
     /// Hand-tuned starting point. Evolution should beat this; if it cannot,
     /// something is wrong with the fitness function, not the search.
     pub const BASELINE: UtilityWeights = UtilityWeights {
-        aggression: Fx::from_ratio(10, 10),
-        bloodlust: Fx::from_ratio(6, 10),
-        obedience: Fx::from_ratio(15, 10),
-        commitment: Fx::from_ratio(3, 10),
-        caution: Fx::from_ratio(2, 10),
-        spacing: Fx::from_ratio(85, 100),
-        cohesion: Fx::from_ratio(25, 100),
-        wall_fear: Fx::from_ratio(3, 10),
+        aggression: BASELINE_VALUES[0],
+        bloodlust: BASELINE_VALUES[1],
+        obedience: BASELINE_VALUES[2],
+        commitment: BASELINE_VALUES[3],
+        caution: BASELINE_VALUES[4],
+        spacing: BASELINE_VALUES[5],
+        cohesion: BASELINE_VALUES[6],
+        wall_fear: BASELINE_VALUES[7],
     };
 
     /// Maps `GENOME_LEN` genes in `0..=1` onto weight ranges. Values outside
     /// `0..=1` are clamped, so a mutation operator never has to care.
     pub fn from_genome(genes: &[Fx]) -> UtilityWeights {
-        let gene = |i: usize| -> Fx {
-            let (lo, hi) = GENE_RANGES[i];
-            let t = genes.get(i).copied().unwrap_or(Fx::HALF);
-            lo + (hi - lo) * t.clamp(Fx::ZERO, Fx::ONE)
-        };
+        let gene = |i: usize| UtilityWeights::SPEC.value(i, genes);
         UtilityWeights {
             aggression: gene(0),
             bloodlust: gene(1),
@@ -98,23 +122,13 @@ impl UtilityWeights {
         let fields = self.values();
         let mut genes = [Fx::ZERO; GENOME_LEN];
         for (i, value) in fields.iter().enumerate() {
-            let (lo, hi) = GENE_RANGES[i];
-            genes[i] = ((*value - lo) / (hi - lo)).clamp(Fx::ZERO, Fx::ONE);
+            genes[i] = UtilityWeights::SPEC.gene(i, *value);
         }
         genes
     }
 
     pub fn labels() -> [&'static str; GENOME_LEN] {
-        [
-            "aggression",
-            "bloodlust",
-            "obedience",
-            "commitment",
-            "caution",
-            "spacing",
-            "cohesion",
-            "wall_fear",
-        ]
+        LABELS
     }
 }
 
@@ -344,13 +358,37 @@ impl UtilityPolicy {
         Action {
             move_dir: (away + self.cohesion(obs) + self.open_ground(obs)).clamp_length(Fx::ONE),
             intent: Intent::Flee,
+            // Overwritten by `hands` before this leaves `decide`.
+            ..Action::HOLD
         }
+    }
+
+    /// Where to put both hands, given everything else is already decided.
+    ///
+    /// Called last and applied over the top of whatever the movement logic
+    /// produced, so adding swordplay to this policy did not move a single
+    /// footstep -- `march_behaviour_is_byte_identical` is the proof, and it is
+    /// worth keeping that way. It is a windmill: sweep the blade back and forth
+    /// through whatever is nearest, and hold the shield toward it. Not clever,
+    /// and not meant to be. This is the opponent a clever policy has to beat.
+    fn hands(&self, obs: &Observation, action: &mut Action) {
+        let threat = match obs.nearest_enemy() {
+            Some(c) => c,
+            None => return, // nothing about: both hands stay tucked
+        };
+        let bearing = threat.offset.angle();
+        action.hands[sim::SWORD] = swing::swing(obs, bearing, Fx::ONE);
+        // Guard pointed at the enemy rather than at the blow. That is the
+        // simplest thing that could work and it is measurably wrong -- a swing
+        // arriving at an angle lands well round the body from where its wielder
+        // is standing -- which is exactly the read a better policy makes.
+        action.hands[sim::SHIELD] = sim::HandCommand::new(bearing, Fx::ONE);
     }
 
     fn engage(&self, obs: &Observation) -> Action {
         let target = self.pick_target(obs);
-        // The agent knows its own reach exactly: its stats plus both bodies.
-        let reach = obs.radius + target.radius + obs.attack_range;
+        // The agent knows its own reach exactly: its weapon plus both bodies.
+        let reach = obs.full_reach() + target.radius;
         let ideal = reach * self.weights.spacing;
         let toward = target.offset.normalize();
 
@@ -365,19 +403,21 @@ impl UtilityPolicy {
         Action {
             move_dir: (approach + self.cohesion(obs) + self.open_ground(obs)).clamp_length(Fx::ONE),
             intent: Intent::Attack(target.id),
+            ..Action::HOLD
         }
     }
 }
 
 impl Policy for UtilityPolicy {
     fn decide(&mut self, obs: &Observation) -> Action {
-        let action = if obs.enemies().is_empty() {
+        let mut action = if obs.enemies().is_empty() {
             self.march(obs)
         } else if obs.hp_frac < self.weights.caution {
             self.disengage(obs)
         } else {
             self.engage(obs)
         };
+        self.hands(obs, &mut action);
         if let Intent::Attack(target) = action.intent {
             self.remember(obs.me, target);
         }
@@ -401,6 +441,13 @@ mod tests {
             distance: Vec2::from_ints(x, y).length(),
             hp_frac: hp,
             radius: Fx::from_ratio(4, 10),
+            weapon_length: Fx::from_ratio(9, 10),
+            facing: fx::Angle::ZERO,
+            sword_angle: fx::Angle::ZERO,
+            sword_reach: Fx::ZERO,
+            sword_spin: Fx::ZERO,
+            shield_angle: fx::Angle::ZERO,
+            shield_reach: Fx::ZERO,
         }
     }
 
@@ -416,7 +463,7 @@ mod tests {
         obs.hp_frac = Fx::ONE;
         obs.attack_ready = Fx::ONE;
         obs.radius = Fx::from_ratio(45, 100);
-        obs.attack_range = Fx::from_ratio(9, 10);
+        obs.weapon_length = Fx::from_ratio(9, 10);
         obs.sight_range = Fx::from_int(10);
         obs.move_speed = Fx::from_ratio(5, 100);
         // A Warrior's reaction speed. Set explicitly because `blank` defaults

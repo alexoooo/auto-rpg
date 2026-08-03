@@ -1,6 +1,6 @@
 use crate::Policy;
-use fx::Rng;
-use sim::{Action, Intent, Observation};
+use fx::{Fx, Rng};
+use sim::{Action, HandCommand, Intent, Observation, HANDS};
 
 /// Does nothing. The control condition: any evolved policy that cannot beat
 /// this is not learning, and any fitness function that cannot tell them apart
@@ -38,7 +38,18 @@ impl Policy for RandomPolicy {
         } else {
             Intent::Attack(enemies[self.rng.below(enemies.len() as u32) as usize].id)
         };
-        Action { move_dir, intent }
+        // Hands flail too. A fuzzer that left them tucked would never exercise
+        // the swing, parry or block paths at all, which are now most of the
+        // interesting state transitions in the sim.
+        let mut hands = [HandCommand::TUCKED; HANDS];
+        for hand in &mut hands {
+            *hand = HandCommand::new(self.rng.angle(), self.rng.range(Fx::ZERO, Fx::ONE));
+        }
+        Action {
+            move_dir,
+            intent,
+            hands,
+        }
     }
 }
 

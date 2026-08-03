@@ -74,18 +74,96 @@ would be a destination that moved every time you looked at it.
 network. Nothing uses it yet. It exists now because the *layout* is the contract
 a trained network gets frozen against, and changing it later means retraining.
 
-That bill has been paid once, deliberately. Adding `Order::Goto` and
-`decision_period` moved the vector from 73 to 75 slots and changed what the
-order-direction slot *means* (it is now normalised, and for a `Goto` it is the
-offset to the destination clamped to sight range rather than a heading). Doing it
-while no weights exist costs nothing; doing it afterwards costs a training run.
+That bill has been paid twice, deliberately, and both times while no weights
+existed. Adding `Order::Goto` and `decision_period` moved the vector from 73 to
+75 slots (version 2) and changed what the order-direction slot *means*. Two-handed
+combat then moved it from 75 to 205 (version 3): a contact went from five numbers
+to fifteen, because a defender that cannot see where an enemy's blade is pointing
+and how fast it is turning cannot block, dodge, or punish a recovery. Doing this
+now costs nothing; doing it after a training run costs the training run.
 `FEATURE_LAYOUT_VERSION` exists so that a future frozen network can refuse to
 load against a shifted layout rather than quietly reading the wrong number out of
 every slot.
 
+Every angle enters that vector as a `(cos, sin)` pair rather than as a number. A
+raw angle is discontinuous at the wrap, so a blade at 359 degrees and one at 1
+degree look maximally different in a slot nothing can learn across.
+
 Actions persist until the agent's next decision tick. A slow-witted character
 keeps executing a stale plan; a sharp one re-plans up to sixty times a second.
-That is the whole of "intellect makes you faster".
+That is the whole of "intellect makes you faster" — and with hands on the action
+it cuts deeper than it used to, because a stale plan is now a stale *swing*,
+still travelling.
+
+### The one exception: taking the controls
+
+`DESIGN.md` used to say the player never issues a per-tick command. The browser
+build now lets you take the hero's feet, its sword, or both, and drives them from
+live input every tick.
+
+That is a smaller change than it reads as, and worth being precise about. It does
+not add a channel: the host still answers with an `Action`, the sim still cannot
+tell what produced it, and `Observation` in / `Action` out is untouched. What
+changes is only *who is asked*. An `Order` remains what it was — a command to a
+faction, degraded by nothing, interpreted by whatever wits the character has —
+and manual control is a policy that happens to be a person.
+
+Two things follow that are easy to miss. `World::submit` pushes `next_decision`
+out by a full period, so an entity submitted to on every tick never satisfies
+`next_decision <= tick` again and drops out of `pending_decisions` entirely; the
+host therefore keeps its own decision clock for the hero, and consults the policy
+on that beat for whichever half the player has *not* taken. And a page that ever
+grows a "save this fight" button must record those per-tick submissions, because
+`policy::run` only records inside the pending loop and would otherwise lose the
+run.
+
+## The swing
+
+A character has two hands. An agent does not attack — it *commands a bearing*
+for each, and the hand accelerates toward it under a torque cap. Everything else
+falls out of that:
+
+- A swing takes time, so it can be read and answered.
+- A swing cannot be reversed instantly, so overcommitting is punishable.
+- Damage is the blade's speed at contact, so **where on the arc you meet it
+  matters as much as whether you meet it at all**.
+
+That last one is the property the whole design rests on, and nothing encodes it.
+Impact is `spin × arm`, so a Brute's blow is worth about 16 at mid-blade and
+about 31 at the tip — and *nothing at all* within 1.27 units of its shoulder,
+where its blade has no room left to build speed. Every weapon has such a dead
+zone. Getting inside one and staying there is the strongest answer to a heavy
+weapon in the game; getting inside your *own* is how a Skitterer ends up
+immune and harmless at the same time.
+
+Two consequences worth stating because they are counterintuitive:
+
+**The angular window in which a blade reaches a body narrows with distance.**
+At the tip of a Brute's arc it is about 7 degrees wide and at close quarters
+about 23. So a distant target is hit rarely and hard, and a near one often and
+weakly, and the two effects pull against each other. Choosing a range is a
+decision rather than a lookup.
+
+**A shield covers where the blow lands, which is not where the enemy is.** A
+blade sweeping in at an angle first touches the body well round from its
+wielder — an overhead swing lands on top of you. Pointing a guard at the
+swordsman is therefore not the same as pointing it at the blow, and the
+difference is most of what separates the two policies in `crates/policy`.
+
+### Perception is a fighting stat now
+
+Positional error scales with range: exact at arm's length, full at the edge of
+sight. A flat error is the obvious model and it is wrong in a way that only
+appears once aiming is geometric — half a unit of uncertainty is nothing at ten
+paces and is thirty degrees of aiming error at two, against a window sixteen
+degrees wide. Every archetype stood nose to nose and missed, and the fights timed
+out.
+
+Enemy *hand* bearings are blurred separately and are not scaled that way, because
+they are the new perceptual skill: blocking and dodging are bets on where a blade
+will be in a few ticks, and the inputs to that bet are `sword_angle` and
+`sword_spin`. A dim character does not merely block late. It blocks the wrong
+line.
 
 ## Replays
 
@@ -105,8 +183,10 @@ flips on a near-tie, and the whole run diverges. Recording decisions means
 playback never runs inference — the sim is fed exactly what it was fed the first
 time.
 
-Cost: roughly 180 records/second at thirty agents, a few hundred KB for a long
-fight before compression. Worth it.
+Cost: roughly 180 records/second at thirty agents. An `Action` grew from 12 bytes
+to 36 when it gained two hand commands, so a long fight is now closer to a
+megabyte than to a few hundred KB before compression. Still worth it: the
+alternative is a replay that reproduces the walking and none of the swordplay.
 
 `lab verify` is the standing check: it runs a batch, re-runs each fight, and
 replays each fight, requiring all three to agree bit for bit. 200/200 at the
@@ -125,16 +205,45 @@ scenario actually needs hundreds — and when it does, the hash must produce
 results identical to the brute-force version, which is a test worth writing
 first.
 
+**Closest-approach hit detection, not swept.** A blade is tested where it *is*,
+not along the path it took since the last tick, which is wrong in exactly one
+circumstance: a tip that crosses a whole body inside one tick. Rather than pay
+for a quadratic solve on every pair, the sim makes that circumstance
+unreachable — `rules::agility_multiplier` is clamped at 2.00, which holds the
+worst tip speed in the game to 0.537 units per tick against a smallest-body
+budget of 0.60. That clamp is load-bearing rather than tidy, and
+`no_blade_can_outrun_the_smallest_body` sweeps all 256 agility values of all four
+archetypes to keep it honest. A comment would not have survived someone widening
+the range.
+
+**Impact is a magnitude for the blade and a projection for the bodies.** Damage
+is the blade's own speed through the flesh, which is tangential to its arc, plus
+the signed closing speed of the two bodies. Projecting the blade term onto the
+surface normal as well is the tidier-looking model and it says something oddly
+specific — that only a thrust counts — with a degenerate case at the heart of it:
+a blade buried dead centre at full speed is, at that instant, travelling exactly
+perpendicular to the way in, and would do nothing at all. The body term stays a
+projection because walking has a direction and retreating from a blow should take
+something off it.
+
 **No dependencies.** Not even `rand` or `rayon`. A generator that "improves" in
 a point release invalidates every recorded run in the repository. `std::thread::scope`
 covers the parallelism this needs.
 
 This survived contact with the browser. `crates/web` is a hand-rolled wasm ABI —
-a dozen `extern "C"` functions passing `u32`/`i32`, plus one packed `f32` buffer
-JavaScript reads straight out of linear memory — rather than `wasm-bindgen`. It
-is about two hundred lines, it has zero `unsafe {}` blocks, and the module links
-with an *empty* import list, so the page instantiates it with `{}`. The `web/`
-page and the two Node tools are vanilla and dependency-free for the same reason.
+twenty-five `extern "C"` functions passing `u32`/`i32`, plus one packed `f32`
+buffer JavaScript reads straight out of linear memory — rather than
+`wasm-bindgen`. It has zero `unsafe {}` blocks, and the module links with an
+*empty* import list, so the page instantiates it with `{}`. The `web/` page and
+the two Node tools are vanilla and dependency-free for the same reason.
+
+It survived the behaviour panel too, which is where a binding generator would
+have been most tempting. Gene values cross as thousandths in both directions,
+like a click does; gene *names* cross as a pointer and a length into the
+`&'static str` the policy crate already holds, and the page decodes them with
+`TextDecoder`. Two exports rather than a list of names mirrored into JavaScript,
+because a mirror rots — rename a gene in Rust and the page goes on confidently
+labelling the old one.
 
 ## Performance notes
 

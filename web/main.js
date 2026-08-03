@@ -31,9 +31,27 @@ const MAX_CATCHUP_TICKS = 8;
 
 // The frame layout, from crates/web/src/lib.rs. Header first, then one row per
 // unit: [x, y, facing_raw, radius, hp, max_hp, faction, kind, intent,
-// entity_index, entity_generation].
+// entity_index, entity_generation, sword_angle_raw, sword_reach, sword_spin,
+// shield_angle_raw, shield_reach, weapon_length, shield_arc_raw, hit_flash,
+// block_flash, parry_flash].
 const HEADER_LEN = 7;
-const UNIT_STRIDE = 11;
+const UNIT_STRIDE = 21;
+
+// Bits accepted by `set_control`, from crates/web/src/lib.rs.
+const CONTROL_FEET = 1;
+const CONTROL_SWORD = 2;
+
+// `PolicyKind::code`, from crates/policy/src/lib.rs. Append-only.
+const POLICIES = [
+  { code: 0, name: "utility", label: "Baseline" },
+  { code: 1, name: "duelist", label: "Duelist" },
+  { code: 2, name: "idle", label: "Idle" },
+  { code: 3, name: "random", label: "Random" },
+];
+
+// `Faction::index()`, and which side each dropdown drives.
+const SIDE_HEROES = 0;
+const SIDE_MONSTERS = 1;
 
 // `Order` discriminants, from crates/sim/src/action.rs.
 const ORDER_HOLD = 0;
@@ -53,16 +71,13 @@ const KIND_SCOUT = 1;
 const KIND_BRUTE = 2;
 const KIND_SKITTERER = 3;
 
-/** Reach beyond the two bodies, from `Stats::attack_range` in
- *  crates/sim/src/rules.rs -- a flat 0.9 for every archetype. Mirrored here for
- *  the same reason `ARCHETYPES` is: to draw a ring showing what a unit can
- *  touch. Nothing computed from it goes back across the boundary. */
-const ATTACK_RANGE = 0.9;
-
-/** How long a body stays lit after losing health, and how long its corpse
- *  lingers. Milliseconds of wall clock, not ticks: these are animations, and
- *  the sim has no opinion about either. */
-const FLASH_MS = 140;
+/** How long a corpse lingers. Milliseconds of wall clock, not ticks: this is an
+ *  animation and the sim has no opinion about it.
+ *
+ *  Hit, block and parry markers used to be timed here too, inferred from health
+ *  falling between frames. They now arrive as frame columns from the sim, which
+ *  is both simpler and the only way to see a *blocked* blow -- most of the drama
+ *  and almost none of the damage. */
 const CORPSE_MS = 520;
 
 /** The seed for the room. Nothing in an empty room is random, but the number
@@ -77,10 +92,13 @@ const SEED = 1;
  * anything, it can only be out of date on screen.
  */
 const ARCHETYPES = [
-  { name: "warrior", power: 6, agility: 6, intellect: 8, perception: 6, vitality: 8 },
-  { name: "scout", power: 4, agility: 12, intellect: 10, perception: 14, vitality: 4 },
-  { name: "brute", power: 12, agility: 2, intellect: 2, perception: 3, vitality: 14 },
-  { name: "skitterer", power: 3, agility: 9, intellect: 12, perception: 5, vitality: 2 },
+  // stats, then the weapon: reach beyond the body, top swing speed in raw angle
+  // units per tick, and shield arc half-width in degrees. Mirrored from
+  // `UnitKind::weapon` in crates/sim/src/entity.rs.
+  { name: "warrior", power: 6, agility: 6, intellect: 8, perception: 6, vitality: 8, reach: 0.95, spin: 2000, arc: 62 },
+  { name: "scout", power: 4, agility: 12, intellect: 10, perception: 14, vitality: 4, reach: 0.55, spin: 3000, arc: 45 },
+  { name: "brute", power: 12, agility: 2, intellect: 2, perception: 3, vitality: 14, reach: 1.45, spin: 950, arc: 23 },
+  { name: "skitterer", power: 3, agility: 9, intellect: 12, perception: 5, vitality: 2, reach: 0.40, spin: 2600, arc: 17 },
 ];
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
@@ -91,12 +109,37 @@ function derived(a) {
     decisionPeriod: clamp(20 - a.intellect, 1, 120),
     // "(250 + 12 * agility) / 100" units per second, held per tick in the sim.
     moveSpeed: (250 + 12 * a.agility) / (100 * TICKS_PER_SECOND),
-    attackPeriod: clamp(40 - a.agility, 8, 240),
     sight: (60 + 6 * a.perception) / 10,
     noise: clamp(15 - a.perception, 0, 15) / 10,
-    damage: (20 + 12 * a.power) / 10,
     maxHp: 20 + 8 * a.vitality,
+    // Agility drives the hands as well as the feet: "clamp(0.70 + 0.04 *
+    // agility, 0.55, 2.00)" scales torque, top spin and extension alike. The
+    // half-turn time is what a swing actually costs, which is the number that
+    // decides whether an opponent can answer it.
+    swing: halfTurnTicks(a),
+    // Damage is impact speed now, not a constant, so what power buys is a
+    // multiplier on however hard you happened to be swinging:
+    // "clamp(0.55 + 0.075 * power, 0.55, 3.0)".
+    powerMultiplier: clamp(0.55 + 0.075 * a.power, 0.55, 3.0),
   };
+}
+
+/** Ticks to bring a blade half a turn, bang-bang: ramp to the ceiling, coast,
+ *  brake. Mirrors `Hand::drive`, and like the rest of `derived` it is for the
+ *  panel only -- nothing computed here goes back across the boundary. */
+function halfTurnTicks(a) {
+  const mult = clamp(0.7 + 0.04 * a.agility, 0.55, 2.0);
+  // Torque is quoted at a tucked hand; a committed blade turns at 55% of it.
+  const torque = archetypeTorque(a.name) * mult * 0.55;
+  const ceiling = a.spin * mult;
+  const half = 32768;
+  const rampUnits = (ceiling * ceiling) / (2 * torque);
+  if (2 * rampUnits >= half) return Math.round(2 * Math.sqrt(half / (2 * torque)));
+  return Math.round((2 * ceiling) / torque + (half - 2 * rampUnits) / ceiling);
+}
+
+function archetypeTorque(name) {
+  return { warrior: 190, scout: 400, brute: 48, skitterer: 330 }[name] || 190;
 }
 
 // --------------------------------------------------------------- the module
@@ -125,6 +168,18 @@ const EXPORTS = [
   "state_hash_hi",
   "selftest_hash_lo",
   "selftest_hash_hi",
+  "set_policy",
+  "policy_kind",
+  "policy_weight_count",
+  "policy_gene",
+  "policy_weight",
+  "set_policy_gene",
+  "reset_policy_genes",
+  "policy_label_ptr",
+  "policy_label_len",
+  "set_control",
+  "control",
+  "set_input",
 ];
 
 /**
@@ -226,6 +281,19 @@ function readUnit(f, u) {
     // a dead unit's slot is handed to the next spawn: the index alone would
     // read as the same creature getting up again. See the crate docs.
     id: `${f[u + 9]}:${f[u + 10]}`,
+    // The hands. Bearings arrive as binary angles like `facing`, for the same
+    // reason: no trigonometry crosses the boundary.
+    swordAngle: (f[u + 11] / 65536) * TAU,
+    swordReach: f[u + 12],
+    swordSpin: f[u + 13],
+    shieldAngle: (f[u + 14] / 65536) * TAU,
+    shieldReach: f[u + 15],
+    weaponLength: f[u + 16],
+    shieldArc: (f[u + 17] / 65536) * TAU,
+    // Already-decayed 0..1 markers, computed by the sim from its own events.
+    hitFlash: f[u + 18],
+    blockFlash: f[u + 19],
+    parryFlash: f[u + 20],
   };
 }
 
@@ -401,6 +469,21 @@ function milli(value, limit) {
   return Math.round(clamp(value, 0, limit) * 1000);
 }
 
+/**
+ * Thousandths of a *direction* component, which is signed.
+ *
+ * Separate from `milli` rather than a parameter on it, because `milli` clamps
+ * from zero: it exists for arena coordinates, which are never negative. Passing
+ * a movement component through it silently floors every westward and northward
+ * step to nothing, and the character then walks only south-east however you
+ * hold the keys -- which reads as the input being ignored rather than as being
+ * half-applied, and is a lot harder to see than it sounds.
+ */
+function milliSigned(value) {
+  if (!Number.isFinite(value)) return 0;
+  return Math.round(clamp(value, -1, 1) * 1000);
+}
+
 function order(point) {
   wasm.set_goto(milli(point.x, arena.x), milli(point.y, arena.y));
 }
@@ -518,7 +601,112 @@ function restart() {
   lastDecisionSeen = -1;
   orderKey = "";
   orderAcknowledged = false;
+  // `init` builds a fresh `Sim`, which starts with both sides on the baseline
+  // and nothing under manual control. The page has to agree, or its dropdowns
+  // and toggles describe a module that no longer exists.
+  held.clear();
+  shieldModifier = false;
+  controlMask = 0;
+  updateControlButtons();
+  syncBehaviourPanel();
   hint("Room restarted at tick 0.");
+}
+
+/** Points the panel at whatever the module currently believes. */
+function syncBehaviourPanel() {
+  for (const side of [SIDE_HEROES, SIDE_MONSTERS]) {
+    const select = document.getElementById(side === SIDE_HEROES ? "policy-heroes" : "policy-monsters");
+    if (select) select.value = String(wasm.policy_kind(side));
+    buildSliders(side);
+  }
+}
+
+// ------------------------------------------------------------------ control
+//
+// Two independent halves. Steering a swordsman and steering a sword are
+// different skills, and either can be handed over without the other -- which is
+// most of what makes this page teach anything about the fight.
+
+/** Which halves the player holds, mirrored so the page can label its toggles
+ *  without asking wasm every frame. `wasm.control()` remains the truth. */
+let controlMask = 0;
+
+/** Keys currently held, for the feet. */
+const held = new Set();
+
+/** Where the pointer last was, in world units, for the sword. */
+let pointer = { x: 0, y: 0, inside: false };
+
+/** While held, the pointer steers the shield hand instead of the sword. */
+let shieldModifier = false;
+
+function setControl(mask) {
+  controlMask = mask & (CONTROL_FEET | CONTROL_SWORD);
+  wasm.set_control(controlMask);
+  if (controlMask & CONTROL_FEET) intent = "manual";
+  updateControlButtons();
+  hint(controlDescription());
+}
+
+function controlDescription() {
+  const feet = controlMask & CONTROL_FEET;
+  const sword = controlMask & CONTROL_SWORD;
+  if (feet && sword) return "You have the feet and the sword. WASD to move, mouse to aim, hold Shift to guard.";
+  if (feet) return "You have the feet. WASD to move; the character fights for itself.";
+  if (sword) return "You have the sword. Aim with the mouse, hold Shift to steer the shield instead.";
+  return DEFAULT_HINT;
+}
+
+function updateControlButtons() {
+  const feet = document.getElementById("btn-control-feet");
+  const sword = document.getElementById("btn-control-sword");
+  if (feet) feet.setAttribute("aria-pressed", String(!!(controlMask & CONTROL_FEET)));
+  if (sword) sword.setAttribute("aria-pressed", String(!!(controlMask & CONTROL_SWORD)));
+}
+
+/**
+ * Pushes the player's live input across, once per frame.
+ *
+ * Everything crosses as integers -- thousandths for the vectors, a raw binary
+ * angle for the aim -- for the same reason a click does: no float has any
+ * business on the inward side of that wall.
+ */
+function pushInput(state) {
+  if (!controlMask) return;
+  let mx = 0;
+  let my = 0;
+  if (held.has("a")) mx -= 1;
+  if (held.has("d")) mx += 1;
+  // Screen y grows downward and world y grows downward with it, so "w" is -y.
+  if (held.has("w")) my -= 1;
+  if (held.has("s")) my += 1;
+  const len = Math.hypot(mx, my);
+  if (len > 1) {
+    mx /= len;
+    my /= len;
+  }
+
+  // Aim: the bearing from the character to the pointer, and how far out it is
+  // as an extension. Pulling the mouse in tucks the blade; pushing it out
+  // commits -- two degrees of freedom from one pointer, which is as close to
+  // Die by the Sword's mouse as a top-down view gets.
+  let aim = 0;
+  let reach = 0;
+  if (state.hero && pointer.inside) {
+    const dx = pointer.x - state.hero.x;
+    const dy = pointer.y - state.hero.y;
+    aim = Math.round((Math.atan2(dy, dx) / TAU) * 65536) & 0xffff;
+    const full = state.hero.radius + state.hero.weaponLength;
+    reach = clamp(Math.hypot(dx, dy) / Math.max(full, 0.001), 0, 1);
+  }
+
+  wasm.set_input(
+    milliSigned(mx),
+    milliSigned(my),
+    aim,
+    Math.round(clamp(reach, 0, 1) * 1000),
+    shieldModifier ? 1 : 0
+  );
 }
 
 function bindInput() {
@@ -533,21 +721,53 @@ function bindInput() {
       event.preventDefault();
       standDown(state);
     } else if (event.button === 0) {
-      goTo(pointerToWorld(event), state);
+      // Under manual sword control a click is not an order -- the pointer is
+      // already saying something every tick, and a `Goto` on top of it would
+      // fight the feet the player may also be holding.
+      if (!(controlMask & CONTROL_SWORD)) goTo(pointerToWorld(event), state);
     }
+  });
+
+  canvas.addEventListener("mousemove", (event) => {
+    const p = pointerToWorld(event);
+    pointer = { x: p.x, y: p.y, inside: true };
+  });
+  canvas.addEventListener("mouseleave", () => {
+    pointer.inside = false;
   });
 
   canvas.addEventListener("contextmenu", (event) => event.preventDefault());
 
+  window.addEventListener("keyup", (event) => {
+    held.delete(event.key.toLowerCase());
+    if (event.key === "Shift") shieldModifier = false;
+  });
+  window.addEventListener("blur", () => {
+    held.clear();
+    shieldModifier = false;
+  });
+
   window.addEventListener("keydown", (event) => {
     if (dead || event.metaKey || event.ctrlKey || event.altKey) return;
     const key = event.key.toLowerCase();
+    if (event.key === "Shift") shieldModifier = true;
+    // WASD is only movement while the player holds the feet; otherwise "s" is
+    // still the spawn key it has always been.
+    if (controlMask & CONTROL_FEET && "wasd".includes(key)) {
+      held.add(key);
+      event.preventDefault();
+      return;
+    }
     if (event.key === "Escape") {
       standDown(parseFrame(readFrame()));
     } else if (key === "f") {
       freeWill();
     } else if (key === "r") {
       restart();
+    } else if (key === "c") {
+      if (!event.repeat) setControl(controlMask ^ CONTROL_FEET);
+    } else if (key === "v") {
+      if (!event.repeat) setControl(controlMask ^ CONTROL_SWORD);
     } else if (key === "s" || key === "b") {
       // The repeat guard is load-bearing rather than polite: held down, the
       // operating system's autorepeat would empty the frame's 64-row budget
@@ -576,6 +796,109 @@ function bindInput() {
   document.getElementById("btn-swap-scout").addEventListener("click", () => {
     if (!dead) swapInHero(KIND_SCOUT);
   });
+  document.getElementById("btn-control-feet").addEventListener("click", () => {
+    if (!dead) setControl(controlMask ^ CONTROL_FEET);
+  });
+  document.getElementById("btn-control-sword").addEventListener("click", () => {
+    if (!dead) setControl(controlMask ^ CONTROL_SWORD);
+  });
+
+  bindBehaviour();
+}
+
+// ---------------------------------------------------------------- behaviour
+//
+// A dropdown and a rack of sliders per side. The labels and ranges are read out
+// of wasm rather than mirrored here, because a mirrored list rots: rename a
+// gene in Rust and a mirror keeps confidently labelling the old one.
+
+/** Reads a knob's name out of linear memory. */
+const decoder = new TextDecoder();
+
+function labelOf(side, index) {
+  const ptr = wasm.policy_label_ptr(side, index);
+  const len = wasm.policy_label_len(side, index);
+  if (!ptr || !len) return "";
+  return decoder.decode(new Uint8Array(memory.buffer, ptr, len));
+}
+
+function buildSliders(side) {
+  const host = document.getElementById(side === SIDE_HEROES ? "genes-heroes" : "genes-monsters");
+  if (!host) return;
+  host.textContent = "";
+  const count = wasm.policy_weight_count(side);
+  for (let i = 0; i < count; i++) {
+    const row = document.createElement("label");
+    row.className = "gene";
+
+    const name = document.createElement("span");
+    name.className = "gene-name";
+    name.textContent = labelOf(side, i);
+
+    const slider = document.createElement("input");
+    slider.type = "range";
+    slider.min = "0";
+    slider.max = "1000";
+    slider.step = "1";
+    slider.value = String(wasm.policy_gene(side, i));
+
+    const value = document.createElement("span");
+    value.className = "gene-value";
+
+    const show = () => {
+      value.textContent = (wasm.policy_weight(side, i) / 1000).toFixed(2);
+    };
+    slider.addEventListener("input", () => {
+      wasm.set_policy_gene(side, i, Number(slider.value) | 0);
+      show();
+    });
+    show();
+
+    row.appendChild(name);
+    row.appendChild(slider);
+    row.appendChild(value);
+    host.appendChild(row);
+  }
+  if (count === 0) {
+    const none = document.createElement("p");
+    none.className = "gene-none";
+    none.textContent = "Nothing to tune.";
+    host.appendChild(none);
+  }
+}
+
+function bindBehaviour() {
+  for (const side of [SIDE_HEROES, SIDE_MONSTERS]) {
+    const id = side === SIDE_HEROES ? "policy-heroes" : "policy-monsters";
+    const select = document.getElementById(id);
+    if (!select) continue;
+    for (const policy of POLICIES) {
+      const option = document.createElement("option");
+      option.value = String(policy.code);
+      option.textContent = policy.label;
+      select.appendChild(option);
+    }
+    select.value = String(wasm.policy_kind(side));
+    select.addEventListener("change", () => {
+      if (dead) return;
+      wasm.set_policy(side, Number(select.value) | 0);
+      buildSliders(side);
+      hint(`${side === SIDE_HEROES ? "Heroes" : "Monsters"} now think like ${select.options[select.selectedIndex].textContent}.`);
+    });
+    buildSliders(side);
+  }
+
+  const reset = document.getElementById("btn-reset-genes");
+  if (reset) {
+    reset.addEventListener("click", () => {
+      if (dead) return;
+      for (const side of [SIDE_HEROES, SIDE_MONSTERS]) {
+        wasm.reset_policy_genes(side);
+        buildSliders(side);
+      }
+      hint("Weights restored to the hand-tuned baseline.");
+    });
+  }
 }
 
 // --------------------------------------------------------------------- draw
@@ -736,9 +1059,13 @@ function skinOf(unit) {
   return unit.faction === FACTION_HEROES ? HERO_SKIN : MONSTER_SKIN;
 }
 
-/** What a unit can touch: its own body plus its reach. Drawn only while it is
- *  committed to an attack, so the ring appearing is the moment the character
- *  stopped travelling and started fighting. */
+/** What a unit could touch at full extension. Drawn only while it is committed
+ *  to an attack, so the ring appearing is the moment the character stopped
+ *  travelling and started fighting.
+ *
+ *  The radius comes from the frame now rather than from a mirrored constant,
+ *  because reach stopped being one number for everybody: a Brute reaches 1.45
+ *  past a 0.70 body and a Skitterer 0.40 past a 0.30 one. */
 function drawReach(unit, skin, now) {
   if (unit.intent !== INTENT_ATTACK) return;
   const beat = (Math.sin(now / 260) + 1) / 2;
@@ -747,9 +1074,121 @@ function drawReach(unit, skin, now) {
   ctx.lineWidth = 1.2;
   ctx.setLineDash([3, 5]);
   ctx.beginPath();
-  ctx.arc(px(unit.x), px(unit.y), px(unit.radius + ATTACK_RANGE), 0, TAU);
+  ctx.arc(px(unit.x), px(unit.y), px(unit.radius + unit.weaponLength), 0, TAU);
   ctx.stroke();
   ctx.restore();
+}
+
+/** Spin, in raw angle units per tick, at which a blade is drawn at full heat.
+ *  Roughly a Warrior's working speed. */
+const HOT_SPIN = 1500;
+
+/**
+ * The swordplay: a blade on one side, a guard on the other.
+ *
+ * This is the whole point of drawing anything. Damage is geometric now -- it is
+ * decided by where this segment is and how fast it is moving -- so a page that
+ * drew only bodies would be hiding the entire game. The blade brightens with
+ * its own speed, because speed *is* the damage, and the guard is drawn as the
+ * arc it actually covers rather than as a shape, because that arc is exactly
+ * what the block test asks about.
+ */
+function drawHands(unit, skin) {
+  const x = px(unit.x);
+  const y = px(unit.y);
+  const r = px(unit.radius);
+
+  ctx.save();
+  ctx.translate(x, y);
+
+  // The shield, as the wedge of body it is covering. A tucked shield covers
+  // nothing and is drawn as nothing, which is honest: `blocks` scales the arc
+  // by extension, so a hand held in really does guard less.
+  if (unit.shieldReach > 0.2) {
+    const half = (unit.shieldArc * unit.shieldReach) / 2;
+    ctx.rotate(unit.shieldAngle);
+    ctx.fillStyle = `rgba(${skin.wedge},${(0.13 + 0.17 * unit.shieldReach).toFixed(3)})`;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.arc(0, 0, r * 1.55, -half, half);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = `rgba(${skin.wedge},${(0.45 * unit.shieldReach).toFixed(3)})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 1.55, -half, half);
+    ctx.stroke();
+    ctx.rotate(-unit.shieldAngle);
+  }
+
+  // The blade. Hilt at the body's surface, tip at `radius + length * reach`,
+  // which is precisely the segment `World::blade` builds and tests against.
+  if (unit.swordReach > 0.05) {
+    const heat = clamp(Math.abs(unit.swordSpin) / HOT_SPIN, 0, 1);
+    const hilt = r;
+    const tip = px(unit.radius + unit.weaponLength * unit.swordReach);
+    ctx.rotate(unit.swordAngle);
+    ctx.lineCap = "round";
+    // A trailing smear opposite the swing, so which way it is travelling is
+    // readable at a glance -- which is the read the whole fight turns on.
+    if (heat > 0.05) {
+      const sweep = Math.sign(unit.swordSpin) * -heat * 0.55;
+      ctx.strokeStyle = `rgba(255,255,255,${(0.16 * heat).toFixed(3)})`;
+      ctx.lineWidth = Math.max(2, r * 0.5);
+      ctx.beginPath();
+      ctx.arc(0, 0, (hilt + tip) / 2, 0, sweep, sweep > 0);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = `rgba(255,255,255,${(0.5 + 0.5 * heat).toFixed(3)})`;
+    ctx.lineWidth = Math.max(1.6, r * 0.22);
+    ctx.beginPath();
+    ctx.moveTo(hilt, 0);
+    ctx.lineTo(tip, 0);
+    ctx.stroke();
+    ctx.rotate(-unit.swordAngle);
+  }
+  ctx.restore();
+}
+
+/** Hit, block and parry markers, straight from the frame.
+ *
+ *  Three distinguishable things rather than one flash, because "you were hit",
+ *  "your shield stopped it" and "your blades crossed" are three different
+ *  outcomes and telling them apart is how the swordplay becomes readable. */
+function drawMarks(unit) {
+  const x = px(unit.x);
+  const y = px(unit.y);
+  const r = px(unit.radius);
+
+  if (unit.blockFlash > 0) {
+    ctx.save();
+    ctx.strokeStyle = `rgba(180,220,255,${(0.85 * unit.blockFlash).toFixed(3)})`;
+    ctx.lineWidth = 2.5;
+    ctx.translate(x, y);
+    ctx.rotate(unit.shieldAngle);
+    const half = Math.max(0.35, (unit.shieldArc * unit.shieldReach) / 2);
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 1.7 + 4 * (1 - unit.blockFlash), -half, half);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  if (unit.parryFlash > 0) {
+    ctx.save();
+    ctx.strokeStyle = `rgba(255,235,150,${(0.9 * unit.parryFlash).toFixed(3)})`;
+    ctx.lineWidth = 2;
+    ctx.translate(x, y);
+    ctx.rotate(unit.swordAngle);
+    const at = px(unit.radius + unit.weaponLength * unit.swordReach);
+    const spark = 3 + 7 * (1 - unit.parryFlash);
+    for (const angle of [-0.8, -0.25, 0.25, 0.8]) {
+      ctx.beginPath();
+      ctx.moveTo(at, 0);
+      ctx.lineTo(at + Math.cos(angle) * spark, Math.sin(angle) * spark);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
 }
 
 function drawUnit(unit, now) {
@@ -790,12 +1229,11 @@ function drawUnit(unit, now) {
   ctx.arc(0, 0, r, 0, TAU);
   ctx.fill();
 
-  // The blow landing. `bodies` is the only place the page has any history, and
-  // this is what it is for.
-  const seen = bodies.get(unit.id);
-  const flash = seen ? seen.flashUntil - now : 0;
-  if (flash > 0) {
-    ctx.fillStyle = `rgba(255,255,255,${(0.75 * (flash / FLASH_MS)).toFixed(3)})`;
+  // The blow landing. Straight from the frame now: the sim counts it down from
+  // its own `Event::Damage`, so the page no longer has to tell a blow from
+  // regeneration by watching health fall.
+  if (unit.hitFlash > 0) {
+    ctx.fillStyle = `rgba(255,255,255,${(0.75 * unit.hitFlash).toFixed(3)})`;
     ctx.beginPath();
     ctx.arc(0, 0, r, 0, TAU);
     ctx.fill();
@@ -805,6 +1243,9 @@ function drawUnit(unit, now) {
   ctx.lineWidth = 1.5;
   ctx.stroke();
   ctx.restore();
+
+  drawHands(unit, skin);
+  drawMarks(unit);
 }
 
 /** A health bar above the body. Drawn once anything is wounded or anything
@@ -872,10 +1313,11 @@ function fillStats(kind) {
   const d = derived(a);
   const rows = [
     ["intellect", a.intellect, `thinks every ${d.decisionPeriod} ticks (${(d.decisionPeriod / TICKS_PER_SECOND).toFixed(2)} s)`],
-    ["agility", a.agility, `${(d.moveSpeed * TICKS_PER_SECOND).toFixed(2)} units/s · swings every ${d.attackPeriod}`],
-    ["perception", a.perception, `sees ${d.sight.toFixed(1)} units, ±${d.noise.toFixed(1)} error`],
-    ["power", a.power, `${d.damage.toFixed(1)} damage a hit`],
+    ["agility", a.agility, `${(d.moveSpeed * TICKS_PER_SECOND).toFixed(2)} units/s · half a turn in ${d.swing} ticks`],
+    ["perception", a.perception, `sees ${d.sight.toFixed(1)} units, ±${d.noise.toFixed(1)} error at range`],
+    ["power", a.power, `×${d.powerMultiplier.toFixed(2)} on impact speed`],
     ["vitality", a.vitality, `${d.maxHp} health`],
+    ["weapon", `${a.reach.toFixed(2)}`, `reach past the body · guards ±${a.arc}°`],
   ];
   el.stats.replaceChildren();
   for (const [name, value, effect] of rows) {
@@ -1001,27 +1443,27 @@ function fillStatsIfChanged(state) {
 /**
  * The page's entire memory, refreshed once a frame.
  *
- * A frame is a snapshot with no history in it, so a blow landing and a body
- * going down are both differences between two frames rather than anything the
- * module reports. Keyed on the entity handle, never the row: `write_frame`
- * omits the dead, so one monster falling shifts every row below it up by one
- * and a row-keyed version of this would flash and bury the wrong bodies.
+ * Only deaths live here now. A blow landing used to as well, inferred from
+ * health falling between two frames and guarded by an epsilon so that
+ * out-of-combat regeneration did not read as one -- which still could not see a
+ * blocked blow, because a blocked blow barely moves health at all. The sim
+ * reports all three outcomes as frame columns instead, and this is left with
+ * the one thing a frame genuinely cannot say: that a body which was here is
+ * not any more.
+ *
+ * Keyed on the entity handle, never the row: `write_frame` omits the dead, so
+ * one monster falling shifts every row below it up by one and a row-keyed
+ * version of this would bury the wrong bodies.
  */
 function syncBodies(state, now, elapsed) {
   const live = new Set();
   for (const unit of state.units) {
     live.add(unit.id);
-    const seen = bodies.get(unit.id);
-    // A hit is health *falling*. The epsilon is what keeps out-of-combat
-    // regeneration, which creeps upward every tick, from reading as one.
-    const struck = seen && unit.hp < seen.hp - 0.001;
     bodies.set(unit.id, {
-      hp: unit.hp,
       x: unit.x,
       y: unit.y,
       radius: unit.radius,
       faction: unit.faction,
-      flashUntil: struck ? now + FLASH_MS : seen ? seen.flashUntil : 0,
     });
   }
 
@@ -1054,6 +1496,9 @@ function loop(now) {
   } else {
     accumulator -= ticks * TICK_MS;
   }
+  // Before stepping, not after: whatever the player is holding has to be in
+  // place for the ticks that are about to run, or every input is one frame late.
+  if (controlMask) pushInput(parseFrame(readFrame()));
   if (ticks > 0) wasm.step(ticks);
   if (dead) return;
 

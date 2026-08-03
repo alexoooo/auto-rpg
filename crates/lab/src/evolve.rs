@@ -1,10 +1,18 @@
 use crate::fitness::{fitness, Summary};
 use fx::{Fx, Rng};
-use policy::{run, RunConfig, TeamPolicy, UtilityPolicy, UtilityWeights, GENOME_LEN};
+use policy::{run, PolicyKind, RunConfig, TeamPolicy, MAX_GENOME_LEN};
 use sim::Scenario;
 
-pub type Genome = [Fx; GENOME_LEN];
+/// A genome, sized for the largest policy in the crate.
+///
+/// Fixed width rather than a `Vec` so it stays `Copy` and the evolution loop
+/// keeps allocating nothing. Genes past a policy's own gene count are carried
+/// along untouched and never read -- [`PolicySpec`] ignores them.
+///
+/// [`PolicySpec`]: policy::PolicySpec
+pub type Genome = [Fx; MAX_GENOME_LEN];
 
+#[derive(Clone, Copy)]
 pub struct EvolveConfig {
     pub generations: u32,
     pub population: usize,
@@ -19,6 +27,27 @@ pub struct EvolveConfig {
     pub master_seed: u64,
     pub heroes: u32,
     pub monsters: u32,
+    /// Which policy is being evolved, and what it is being evolved against.
+    pub kind: PolicyKind,
+    pub opponent: PolicyKind,
+}
+
+impl Default for EvolveConfig {
+    fn default() -> Self {
+        EvolveConfig {
+            generations: 20,
+            population: 24,
+            elite: 6,
+            seeds: 8,
+            sigma: Fx::from_ratio(12, 100),
+            threads: 4,
+            master_seed: 1,
+            heroes: 4,
+            monsters: 6,
+            kind: PolicyKind::Utility,
+            opponent: PolicyKind::Utility,
+        }
+    }
 }
 
 /// Evolves the utility weights against a fixed baseline opponent.
@@ -39,13 +68,14 @@ pub fn evolve(config: &EvolveConfig) -> Genome {
     let mut rng = Rng::new(config.master_seed);
     let elite_count = config.elite.clamp(1, config.population.max(1));
 
+    let spec = config.kind.spec();
     let mut population: Vec<Genome> = Vec::with_capacity(config.population);
     // Seed the population with the hand-tuned weights, so evolution starts
     // from something competent and any improvement is a real improvement.
-    population.push(UtilityWeights::BASELINE.to_genome());
+    population.push(spec.baseline_genome());
     while population.len() < config.population {
-        let mut genome = [Fx::ZERO; GENOME_LEN];
-        for gene in genome.iter_mut() {
+        let mut genome = [Fx::HALF; MAX_GENOME_LEN];
+        for gene in genome.iter_mut().take(spec.len()) {
             *gene = rng.unit();
         }
         population.push(genome);
@@ -73,7 +103,7 @@ pub fn evolve(config: &EvolveConfig) -> Genome {
             Summary::of(&scores)
         );
         if generation + 1 == config.generations || generation % 10 == 0 {
-            println!("            {}", describe(&population[champion]));
+            println!("            {}", describe(config.kind, &population[champion]));
         }
 
         let elites: Vec<Genome> = ranking
@@ -87,6 +117,7 @@ pub fn evolve(config: &EvolveConfig) -> Genome {
             next.push(mutate(
                 &elites[parent % elites.len()],
                 config.sigma,
+                spec.len(),
                 &mut rng,
             ));
             parent += 1;
@@ -103,16 +134,16 @@ pub fn evolve(config: &EvolveConfig) -> Genome {
 /// plays the monsters, so fitness measures "better than the thing we wrote by
 /// hand", which is the question worth asking. Self-play would measure something
 /// more interesting and is a natural next step once this works.
-pub fn evaluate(genome: &Genome, seeds: &[u64], heroes: u32, monsters: u32) -> Fx {
-    let config = RunConfig::default();
-    let mut candidate = UtilityPolicy::from_genome(genome);
-    let mut incumbent = UtilityPolicy::baseline();
+pub fn evaluate(genome: &Genome, seeds: &[u64], config: &EvolveConfig) -> Fx {
+    let run_config = RunConfig::default();
+    let mut candidate = config.kind.build(genome);
+    let mut incumbent = config.opponent.baseline();
     let mut total: i64 = 0;
 
     for &seed in seeds {
-        let scenario = Scenario::skirmish(seed, heroes, monsters);
+        let scenario = Scenario::skirmish(seed, config.heroes, config.monsters);
         let team = TeamPolicy::new(&mut candidate, &mut incumbent);
-        total += fitness(&run(&scenario, seed, team, &config)).raw() as i64;
+        total += fitness(&run(&scenario, seed, team, &run_config)).raw() as i64;
     }
 
     if seeds.is_empty() {
@@ -129,16 +160,16 @@ fn evaluate_population(population: &[Genome], seeds: &[u64], config: &EvolveConf
     }
     let threads = config.threads.max(1);
     let chunk = population.len().div_ceil(threads);
-    let (heroes, monsters) = (config.heroes, config.monsters);
 
     // Chunked rather than one thread per individual: rollouts are milliseconds
     // and thread spawn is not free. Results land in index order regardless of
     // which thread finished first, so the run stays reproducible.
     std::thread::scope(|scope| {
         for (genomes, out) in population.chunks(chunk).zip(scores.chunks_mut(chunk)) {
+            let config = *config;
             scope.spawn(move || {
                 for (i, genome) in genomes.iter().enumerate() {
-                    out[i] = evaluate(genome, seeds, heroes, monsters);
+                    out[i] = evaluate(genome, seeds, &config);
                 }
             });
         }
@@ -147,20 +178,24 @@ fn evaluate_population(population: &[Genome], seeds: &[u64], config: &EvolveConf
     scores
 }
 
-fn mutate(genome: &Genome, sigma: Fx, rng: &mut Rng) -> Genome {
+/// Perturbs only the genes the policy actually reads.
+///
+/// Mutating the tail would burn RNG draws on nothing and, worse, make two
+/// otherwise identical runs of a narrow policy diverge in their random stream
+/// depending on `MAX_GENOME_LEN` -- which is a constant nobody expects to be
+/// load bearing.
+fn mutate(genome: &Genome, sigma: Fx, genes: usize, rng: &mut Rng) -> Genome {
     let mut child = *genome;
-    for gene in child.iter_mut() {
+    for gene in child.iter_mut().take(genes) {
         *gene = (*gene + rng.gaussian(sigma)).clamp(Fx::ZERO, Fx::ONE);
     }
     child
 }
 
-pub fn describe(genome: &Genome) -> String {
-    let weights = UtilityWeights::from_genome(genome);
-    UtilityWeights::labels()
-        .iter()
-        .zip(weights.values())
-        .map(|(label, value)| format!("{label}={value}"))
+pub fn describe(kind: PolicyKind, genome: &Genome) -> String {
+    let spec = kind.spec();
+    (0..spec.len())
+        .map(|i| format!("{}={}", spec.label(i), spec.value(i, genome)))
         .collect::<Vec<_>>()
         .join("  ")
 }
@@ -183,6 +218,7 @@ mod tests {
             master_seed: 4242,
             heroes: 2,
             monsters: 2,
+            ..EvolveConfig::default()
         };
         let single = evolve(&base);
         let many = evolve(&EvolveConfig { threads: 4, ..base });
@@ -191,12 +227,41 @@ mod tests {
 
     #[test]
     fn identical_genomes_score_identically() {
-        let genome = UtilityWeights::BASELINE.to_genome();
+        let config = EvolveConfig {
+            heroes: 3,
+            monsters: 3,
+            ..EvolveConfig::default()
+        };
+        let genome = config.kind.spec().baseline_genome();
         let seeds = [1u64, 2, 3];
         assert_eq!(
-            evaluate(&genome, &seeds, 3, 3),
-            evaluate(&genome, &seeds, 3, 3)
+            evaluate(&genome, &seeds, &config),
+            evaluate(&genome, &seeds, &config)
         );
+    }
+
+    #[test]
+    fn every_policy_kind_can_be_evolved() {
+        // The registry and the evolution loop have to agree about gene counts,
+        // and a policy with no knobs at all must degrade to a no-op search
+        // rather than panicking on an empty range.
+        for kind in PolicyKind::ALL {
+            let config = EvolveConfig {
+                generations: 1,
+                population: 3,
+                elite: 1,
+                seeds: 1,
+                threads: 1,
+                heroes: 2,
+                monsters: 2,
+                kind,
+                ..EvolveConfig::default()
+            };
+            let evolved = evolve(&config);
+            assert_eq!(evolved.len(), MAX_GENOME_LEN);
+            let text = describe(kind, &evolved);
+            assert_eq!(text.is_empty(), kind.spec().is_empty(), "{}", kind.name());
+        }
     }
 
     #[test]
@@ -209,22 +274,22 @@ mod tests {
         // baseline beats random genomes. It frequently does not -- a random
         // draw beat it in generation 0 of the first run of `lab evolve`, which
         // is a fact about how good eight hand-picked numbers are, not a bug.
+        let config = EvolveConfig {
+            heroes: 4,
+            monsters: 4,
+            ..EvolveConfig::default()
+        };
         let seeds: Vec<u64> = (0..6).collect();
         let mut rng = Rng::new(90210);
         let mut scores = Vec::new();
         for _ in 0..8 {
-            let mut genome = [Fx::ZERO; GENOME_LEN];
+            let mut genome = [Fx::HALF; MAX_GENOME_LEN];
             for gene in genome.iter_mut() {
                 *gene = rng.unit();
             }
-            scores.push(evaluate(&genome, &seeds, 4, 4));
+            scores.push(evaluate(&genome, &seeds, &config));
         }
-        scores.push(evaluate(
-            &UtilityWeights::BASELINE.to_genome(),
-            &seeds,
-            4,
-            4,
-        ));
+        scores.push(evaluate(&config.kind.spec().baseline_genome(), &seeds, &config));
 
         let best = scores.iter().copied().fold(Fx::MIN, Fx::max);
         let worst = scores.iter().copied().fold(Fx::MAX, Fx::min);
@@ -250,12 +315,13 @@ mod tests {
             master_seed: 7,
             heroes: 4,
             monsters: 4,
+            ..EvolveConfig::default()
         };
         let evolved = evolve(&config);
         let holdout: Vec<u64> = (5000..5008).collect();
-        let start = UtilityWeights::BASELINE.to_genome();
-        let evolved_score = evaluate(&evolved, &holdout, 4, 4);
-        let start_score = evaluate(&start, &holdout, 4, 4);
+        let start = config.kind.spec().baseline_genome();
+        let evolved_score = evaluate(&evolved, &holdout, &config);
+        let start_score = evaluate(&start, &holdout, &config);
         assert!(
             evolved_score >= start_score - Fx::from_int(25),
             "four generations left us far behind the starting point \

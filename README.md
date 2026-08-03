@@ -37,8 +37,32 @@ ten ticks instead of twelve and sees 14.4 units instead of 9.6, and falls over a
 differently is the shortest demonstration this project has that stats are wired
 into the AI rather than into a damage number.
 
+And they fight with their hands. Inspired by *Die by the Sword*, in 2D: a sword
+hand and a shield hand, each commanded as a *bearing* rather than as an attack,
+each accelerating toward it under a torque cap. A swing therefore takes time, it
+cannot be reversed instantly, and its damage is the blade's speed where it
+happens to connect — so a Brute's blow is worth 16 at mid-blade, 31 at the tip,
+and nothing at all inside 1.27 units of its shoulder, where the blade has no room
+left to build speed. Nothing encodes any of that. It falls out of `spin × arm`,
+and it is what gives a light fighter something to do about a heavy one.
+
+So there is a second mind to choose from. The **Duelist** scores eight competing
+stances every time it is allowed to think — close, trade, circle to the guard's
+blind side, step off the swing plane, brace the shield on the line the blade will
+actually arrive along, punish a recovery, feint, break off — and picks one, with
+hysteresis so it commits instead of dithering. Against a Brute it wins 86% where
+the baseline wins 79%, and it does it while drawing a third as often. Pick either
+mind for either side from the HUD, and drag the sliders under it: those are the
+same genome `lab evolve` searches, live.
+
+And you can take over. Two independent toggles, `C` and `V`: the feet, the sword,
+or both. WASD steers; the mouse steers the blade, with pointer distance setting
+how far it is committed and `Shift` switching to the shield hand. Whichever half
+you do not hold, the AI keeps fighting with — on its own reaction clock, because
+that is a stat.
+
 And the number matches. `web.wasm` and the native lab produce the *same 64-bit
-state hash* for the same run — `0xb148b5338bc049f6` — so the fixed-point
+state hash* for the same run — `0xb77951723c521127` — so the fixed-point
 simulation really is bit-identical across MSVC x86-64 and wasm32, rather than
 merely designed to be.
 
@@ -79,23 +103,32 @@ node tools/serve.js                               # builds the wasm, serves the 
 Then open the printed URL. Click to send the character somewhere; right-click or
 `Esc` to make it hold its ground; `F` to withdraw the order entirely and watch it
 decide for itself; `S` and `B` to send in a skitterer or a brute; `1` and `2` to
-send in a new character once yours has fallen; `R` to open a fresh room. A server
-is needed because a `file://` page cannot instantiate wasm — that is the only
-reason.
+send in a new character once yours has fallen; `C` and `V` to take its feet or
+its sword; `R` to open a fresh room. A server is needed because a `file://` page
+cannot instantiate wasm — that is the only reason.
 
 To work on it:
 
 ```
-cargo test                                        # 130 tests, under a second
+cargo test                                        # 197 tests, under a second
 cargo run --release -p lab -- bench   --seeds 2000
 cargo run --release -p lab -- verify  --seeds 200
+cargo run --release -p lab -- duel    --seeds 400
 cargo run --release -p lab -- hash
-cargo run --release -p lab -- evolve  --gens 30 --pop 24 --seeds 8
+cargo run --release -p lab -- evolve  --gens 30 --pop 24 --seeds 8 --policy duelist
 node --test tools/wasm_check.js                   # wasm must equal native
 ```
 
 `verify` is the interesting one: it runs a batch of fights, re-runs each of
 them, replays each of them, and requires all three to agree bit for bit.
+
+`duel` is the newest one, and it exists so that "a clever policy can beat a
+brute" is a measurement rather than an opinion. It runs one-on-one across many
+seeds and reports not just a win rate but *how* the fight was won — blows,
+blocks, parries — because two policies can post the same win rate by completely
+different means, and only one of them is swordsmanship. There is a fuller matchup
+sweep behind `cargo test --release -p policy --test duel -- --ignored --nocapture
+sweep`, which prints every archetype pairing under every policy.
 
 `wasm_check` is the other one. It instantiates the wasm module under Node and
 asserts four hashes against numbers recorded from a native build — one from a
@@ -164,15 +197,20 @@ wits they have.
 | Stat | Effect |
 |------|--------|
 | intellect | ticks between decisions (20 → 1, so 3/second up to 60/second) |
-| perception | sight range, positional noise, how many contacts fit in an observation |
-| agility | movement speed, attack cadence |
-| power | damage |
+| perception | sight range, positional noise, how well it can read an enemy's blade |
+| agility | movement speed, and how hard and fast a hand can be swung |
+| power | multiplier on impact speed |
 | vitality | health |
 
 One trained policy will serve every character build. A dim character is not
 running a worse network — it is running the same network on a blurrier picture,
 less often. That is legible on a character sheet, cheap to balance (these are
 knobs, not retraining runs), and it gives the lab an obvious axis to sweep.
+
+Perception earned a second job when combat became geometric. Blocking and
+dodging are bets on where a blade will be in a few ticks, and their inputs are
+the enemy's `sword_angle` and `sword_spin` — both degraded by the same stat. A
+dim character does not merely block late. It blocks the wrong line.
 
 ## Where this goes next
 
@@ -183,11 +221,19 @@ knobs, not retraining runs), and it gives the lab an obvious axis to sweep.
    `node --test tools/wasm_check.js`.
 3. A tiny fixed-size MLP behind the same `Policy` trait, trained by the
    evolution loop that already exists. The feature vector it will be frozen
-   against is already there and already versioned.
-4. Per-unit orders. An order is currently per-faction, which is exactly right
+   against is already there and already versioned, and it now carries what a
+   defender needs to answer a swing rather than only what a walker needs to find
+   one.
+4. Stance scoring that knows about time-to-kill. The Duelist's weakest matchup is
+   a Skitterer against a Brute, where it loses to the baseline badly: with a
+   2.4-damage weapon against a 132-health target it needs some fifty-five blows,
+   and every defensive stance it chooses costs tempo it cannot afford. Nothing in
+   the scoring can see that, which is a real limitation rather than a tuning
+   accident — `lab duel` measures it and the sweep prints it.
+5. Per-unit orders. An order is currently per-faction, which is exactly right
    for one hero and obviously wrong for a party — and it is why the page refuses
    to put a second character in the room rather than have one click send both.
-5. Spatial partitioning, when a scenario needs hundreds of entities rather than
+6. Spatial partitioning, when a scenario needs hundreds of entities rather than
    dozens. Not before.
 
 See [DESIGN.md](DESIGN.md) for the rules that keep the determinism guarantee

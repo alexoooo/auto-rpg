@@ -68,6 +68,20 @@ impl Fx {
         self.0 >> FRAC_BITS
     }
 
+    /// Truncates toward zero.
+    ///
+    /// Distinct from [`Fx::floor_int`], and the distinction is load-bearing
+    /// wherever a value is integrated over time: this one is an *odd* function,
+    /// so accumulating `+s` and `-s` produce exactly mirrored results, while
+    /// `floor_int` biases every negative step by one raw unit. The sine table
+    /// already pays for that property (see `round_shift_6`); the hand
+    /// integrator in `sim` needs it for the same reason -- a mirror match must
+    /// not drift.
+    #[inline]
+    pub const fn trunc_int(self) -> i32 {
+        self.0 / ONE_RAW
+    }
+
     /// Rounds half away from negative infinity (i.e. `floor(x + 0.5)`).
     #[inline]
     pub const fn round_int(self) -> i32 {
@@ -152,6 +166,49 @@ impl Fx {
     pub fn to_f32(self) -> f32 {
         self.0 as f32 / ONE_RAW as f32
     }
+}
+
+/// `sqrt(a * b)`, with no intermediate that can saturate.
+///
+/// `a.raw() * b.raw()` is `a*b * 2^32`, so `isqrt64` of it is already
+/// `sqrt(a*b) * 2^16` -- the raw form of the answer, with no shift at all. That
+/// is the whole point: the naive `(a * b).sqrt()` saturates the moment the
+/// product exceeds 32768, and it does so silently. The braking cap in the sim's
+/// hand controller is `sqrt(2 * torque * |error|)`, whose product reaches
+/// ~3.1e7, so the naive form would clamp it to a constant and every hand would
+/// brake identically.
+///
+/// Non-positive inputs give zero, like [`Fx::sqrt`].
+pub fn sqrt_product(a: Fx, b: Fx) -> Fx {
+    if a.0 <= 0 || b.0 <= 0 {
+        return Fx::ZERO;
+    }
+    // Both factors are positive `i32`, so the product is under 2^62.
+    let r = isqrt64(a.0 as u64 * b.0 as u64);
+    Fx(if r > i32::MAX as u64 {
+        i32::MAX
+    } else {
+        r as i32
+    })
+}
+
+/// Speed, in world units per tick, of a point `radius` from a pivot spinning at
+/// `spin` **raw angle units per tick**.
+///
+/// `speed = spin * (2*pi / 65536) * radius`, and the whole conversion is one
+/// staged `u64` chain so nothing rounds twice: `2*pi ~= 411775 / 2^16`
+/// (relative error 8e-7), which folds the angle-unit scale and the fixed-point
+/// scale into a single multiply and a single shift.
+///
+/// Always non-negative -- the sign of a swing is the caller's business, because
+/// only the caller knows which tangent the contact point is on.
+pub fn tangential_speed(spin: Fx, radius: Fx) -> Fx {
+    let s = spin.0.unsigned_abs() as u64;
+    let r = if radius.0 > 0 { radius.0 as u64 } else { 0 };
+    // `s * r` is `spin * radius * 2^32`; the shift brings it back to `2^16`,
+    // and the multiply-then-shift applies `2*pi` without leaving raw space.
+    let prod = s.saturating_mul(r) >> FRAC_BITS;
+    Fx((prod.saturating_mul(411_775) >> 32).min(i32::MAX as u64) as i32)
 }
 
 /// Integer square root, floor semantics, no floats involved.
@@ -354,6 +411,69 @@ mod tests {
         }
         assert_eq!(Fx::from_int(144).sqrt(), Fx::from_int(12));
         assert_eq!(Fx::from_int(-4).sqrt(), Fx::ZERO);
+    }
+
+    #[test]
+    fn trunc_int_is_odd_where_floor_int_is_not() {
+        // The whole reason `trunc_int` exists. `floor_int` biases every
+        // negative value by one, so integrating a mirrored pair drifts.
+        for raw in [1i32, 100, 65_535, 65_536, 70_000, 1_000_000] {
+            let v = Fx::from_raw(raw);
+            assert_eq!((-v).trunc_int(), -v.trunc_int(), "trunc_int(-{v})");
+        }
+        assert_eq!(Fx::from_ratio(-3, 2).trunc_int(), -1);
+        assert_eq!(Fx::from_ratio(-3, 2).floor_int(), -2);
+        assert_eq!(Fx::from_ratio(3, 2).trunc_int(), 1);
+    }
+
+    #[test]
+    fn sqrt_product_survives_products_that_would_saturate() {
+        // The hand controller's actual worst case: 2 * torque * |error| with
+        // torque 472 and a half-turn of error.
+        let a = Fx::from_int(2) * Fx::from_int(472);
+        let b = Fx::from_int(32_767);
+        assert_eq!((a * b), Fx::MAX, "the naive product is expected to saturate");
+        let want = Fx::from_ratio(556_166, 100); // sqrt(944 * 32767) = 5561.66
+        assert!(
+            (sqrt_product(a, b) - want).abs() < Fx::ONE,
+            "sqrt_product = {}",
+            sqrt_product(a, b)
+        );
+
+        assert_eq!(sqrt_product(Fx::from_int(4), Fx::from_int(9)), Fx::from_int(6));
+        assert_eq!(sqrt_product(Fx::ONE, Fx::ONE), Fx::ONE);
+        assert_eq!(sqrt_product(Fx::from_int(-4), Fx::from_int(9)), Fx::ZERO);
+        assert_eq!(sqrt_product(Fx::ZERO, Fx::MAX), Fx::ZERO);
+        assert_eq!(sqrt_product(Fx::MAX, Fx::MAX), Fx::MAX);
+    }
+
+    #[test]
+    fn tangential_speed_matches_the_hand_calculation() {
+        // 2000 angle units/tick is 10.986 deg/tick = 0.19175 rad/tick, so at
+        // radius 1 the tip covers 0.19175 world units per tick.
+        let v = tangential_speed(Fx::from_int(2000), Fx::ONE);
+        assert!(
+            (v - Fx::from_ratio(19_175, 100_000)).abs() < Fx::from_ratio(1, 1000),
+            "got {v}"
+        );
+
+        // Linear in both arguments, and blind to the sign of the spin.
+        let half = tangential_speed(Fx::from_int(1000), Fx::ONE);
+        assert!((v - half * Fx::TWO).abs() < Fx::from_ratio(1, 1000));
+        assert_eq!(
+            tangential_speed(Fx::from_int(-2000), Fx::ONE),
+            tangential_speed(Fx::from_int(2000), Fx::ONE)
+        );
+        assert_eq!(
+            tangential_speed(Fx::from_int(2000), Fx::from_int(2)),
+            tangential_speed(Fx::from_int(4000), Fx::ONE)
+        );
+
+        assert_eq!(tangential_speed(Fx::ZERO, Fx::from_int(3)), Fx::ZERO);
+        assert_eq!(tangential_speed(Fx::from_int(2000), -Fx::ONE), Fx::ZERO);
+        // Total at the extremes rather than panicking or wrapping.
+        let _ = tangential_speed(Fx::MAX, Fx::MAX);
+        let _ = tangential_speed(Fx::MIN, Fx::MAX);
     }
 
     #[test]

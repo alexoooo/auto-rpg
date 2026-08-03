@@ -86,6 +86,25 @@ impl Args {
     pub fn u32(&self, key: &str, default: u32) -> u32 {
         self.number(key, default as u64) as u32
     }
+
+    /// A named choice out of a fixed list. Exits with the list on a typo, for
+    /// the same reason [`Args::number`] does: `--policy duellist` silently
+    /// running the default is an afternoon wasted comparing a policy against
+    /// itself.
+    pub fn choice<T: Copy>(&self, key: &str, default: T, options: &[(&str, T)]) -> T {
+        let text = match self.raw(key) {
+            None => return default,
+            Some(text) => text,
+        };
+        match options.iter().find(|(name, _)| *name == text) {
+            Some((_, value)) => *value,
+            None => {
+                let names: Vec<&str> = options.iter().map(|(n, _)| *n).collect();
+                eprintln!("--{key} expects one of {}, got '{text}'", names.join(", "));
+                std::process::exit(2);
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -105,6 +124,14 @@ mod tests {
         assert!(a.flag("verbose"));
         assert!(!a.flag("quiet"));
         assert_eq!(a.number("missing", 7), 7);
+    }
+
+    #[test]
+    fn a_choice_resolves_by_name_and_falls_back_when_absent() {
+        let options = [("utility", 0u32), ("duelist", 1)];
+        let a = args("duel --policy duelist");
+        assert_eq!(a.choice("policy", 0, &options), 1);
+        assert_eq!(a.choice("opponent", 0, &options), 0);
     }
 
     #[test]

@@ -47,6 +47,17 @@
               <kbd>1</kbd><kbd>2</kbd>
               <span>Send in a warrior or a scout &mdash; once yours has fallen.</span>
             </li>
+            <li>
+              <kbd>C</kbd><kbd>V</kbd>
+              <span>Take the feet or the sword &mdash; either alone, or both.</span>
+            </li>
+            <li>
+              <kbd>WASD</kbd><kbd>mouse</kbd>
+              <span>
+                Move and aim, once you have taken them. Pointer distance sets how far the
+                blade is committed; hold <kbd>Shift</kbd> to steer the shield instead.
+              </span>
+            </li>
             <li><kbd>R</kbd><span>Restart the room.</span></li>
           </ul>
           <div class="buttons">
@@ -54,6 +65,14 @@
             <button type="button" id="btn-spawn-brute">Spawn brute</button>
             <button type="button" id="btn-standdown">Stand down</button>
             <button type="button" id="btn-freewill">Free will</button>
+          </div>
+          <div class="buttons">
+            <button type="button" class="toggle" id="btn-control-feet" aria-pressed="false">
+              Take the feet
+            </button>
+            <button type="button" class="toggle" id="btn-control-sword" aria-pressed="false">
+              Take the sword
+            </button>
           </div>
         </section>
 
@@ -112,6 +131,29 @@
             <dt>standing</dt>
             <dd id="battle-roster">1 hero, 0 monsters</dd>
           </dl>
+        </section>
+
+        <section class="panel">
+          <h2>Minds</h2>
+          <!-- The claim the rest of the page keeps making, made checkable:
+               stats are wired into the AI rather than into a damage number, so
+               changing the AI has to change the fight. Set the monsters to
+               Idle and watch one stop. The sliders are the same genome the
+               experiment lab evolves -- their names and ranges are read out of
+               the module, never mirrored here, so they cannot drift. -->
+          <label class="mind">
+            <span>heroes</span>
+            <select id="policy-heroes"></select>
+          </label>
+          <div class="genes" id="genes-heroes"></div>
+          <label class="mind">
+            <span>monsters</span>
+            <select id="policy-monsters"></select>
+          </label>
+          <div class="genes" id="genes-monsters"></div>
+          <div class="buttons">
+            <button type="button" id="btn-reset-genes">Reset weights</button>
+          </div>
         </section>
 
         <section class="panel">
