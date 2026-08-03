@@ -64,9 +64,19 @@ pub struct World {
     /// This tick's displacement, including any shove from [`World::separate`].
     /// A real column and not a derivation, because impact speed is a *closing*
     /// speed and the shove genuinely contributed to it.
+    /// Integrated velocity, world units per tick. **State**, not a measurement:
+    /// it used to be recomputed each tick as `pos - start_pos` purely so a blow
+    /// could read a closing speed, and a body could therefore reverse it
+    /// outright between two ticks. It now carries across ticks, is bounded by
+    /// [`Stats::traction`], and is what a collision or a blow actually changes.
     vel: Vec<Vec2>,
     facing: Vec<Angle>,
     radius: Vec<Fx>,
+    /// Body mass, with a Warrior as the unit. Cached beside [`World::radius`]
+    /// for the same reason: it is fixed for the life of the entity and read in
+    /// the tick's innermost loops. Derived from [`World::kind`], so it is not
+    /// hashed -- what is hashed is the kind it came from.
+    mass: Vec<Fx>,
     hp: Vec<Fx>,
     max_hp: Vec<Fx>,
     hands: Vec<[Hand; HANDS]>,
@@ -90,6 +100,12 @@ pub struct World {
     blows: Vec<Blow>,
     impulses: Vec<Impulse>,
     start_pos: Vec<Vec2>,
+    /// Where each sword blade was before this tick's motion, so
+    /// [`World::resolve_swings`] can sweep the segment rather than sample it.
+    /// `None` for a hand that was too tucked to be a hitbox, which is also how
+    /// a blade that has only just come out reports: it has no history to sweep
+    /// through, so it is tested where it is.
+    blade_was: Vec<Option<(Vec2, Vec2)>>,
 }
 
 /// A landed blow, collected during the read-only pass and applied afterwards.
@@ -135,6 +151,7 @@ impl World {
             vel: Vec::with_capacity(n),
             facing: Vec::with_capacity(n),
             radius: Vec::with_capacity(n),
+            mass: Vec::with_capacity(n),
             hp: Vec::with_capacity(n),
             max_hp: Vec::with_capacity(n),
             hands: Vec::with_capacity(n),
@@ -150,6 +167,7 @@ impl World {
             blows: Vec::new(),
             impulses: Vec::new(),
             start_pos: Vec::with_capacity(n),
+            blade_was: Vec::with_capacity(n),
         };
         for spec in &scenario.units {
             world.spawn(spec);
@@ -173,6 +191,7 @@ impl World {
                 self.vel.push(Vec2::ZERO);
                 self.facing.push(Angle::ZERO);
                 self.radius.push(spec.kind.radius());
+                self.mass.push(spec.kind.mass());
                 self.hp.push(max_hp);
                 self.max_hp.push(max_hp);
                 self.hands.push([Hand::default(); HANDS]);
@@ -183,6 +202,7 @@ impl World {
                 self.regen_left.push(Fx::ZERO);
                 self.damage_dealt.push(Fx::ZERO);
                 self.start_pos.push(Vec2::ZERO);
+                self.blade_was.push(None);
                 self.generation.len() - 1
             }
         };
@@ -203,6 +223,7 @@ impl World {
         // Monster start mirrored, which is the same asymmetry `facing` has.
         self.hands[i] = [Hand::resting(bearing); HANDS];
         self.radius[i] = spec.kind.radius();
+        self.mass[i] = spec.kind.mass();
         self.hp[i] = max_hp;
         self.max_hp[i] = max_hp;
         self.next_decision[i] = self.tick;
@@ -254,6 +275,8 @@ impl World {
         obs.hands = self.hands[i];
         obs.sight_range = stats.sight_range();
         obs.move_speed = stats.move_speed();
+        obs.traction = stats.traction();
+        obs.velocity = self.vel[i];
         obs.decision_period = stats.decision_period();
         // `1` only if a cut could begin this tick, and otherwise how far through
         // whatever is stopping it. A hand back at guard but not re-armed reports
@@ -261,13 +284,12 @@ impl World {
         // and that is a distinction worth being able to see.
         obs.attack_ready = {
             let sword = self.hands[i][SWORD];
-            let agility = rules::agility_multiplier(stats.agility);
             match sword.swing {
                 Swing::Guard if sword.armed => Fx::ONE,
                 Swing::Guard => Fx::ZERO,
                 // Capped below one so no unready phase can ever claim to be
                 // ready, however close to the end of itself it is.
-                _ => sword.phase_progress(weapon, agility) * Fx::from_ratio(9, 10),
+                _ => sword.phase_progress(self.arm(i)) * Fx::from_ratio(9, 10),
             }
         };
         obs.wall_clearance = [
@@ -368,7 +390,6 @@ impl World {
         self.regenerate();
         self.apply_movement();
         self.separate();
-        self.record_velocity();
         self.drive_hands();
         self.resolve_parries();
         self.resolve_swings();
@@ -453,39 +474,44 @@ impl World {
         false
     }
 
+    /// Steers each body toward the velocity its action asked for, then moves it.
+    ///
+    /// The commanded direction is a request for a *velocity*, not a
+    /// displacement, and [`Stats::traction`] bounds how much of the difference
+    /// can be paid off in one tick. One rule covers three things that used to
+    /// be free: getting up to speed, stopping, and shedding a shove -- a body
+    /// with no order is asking for zero and brakes toward it at the same rate
+    /// it would accelerate.
+    ///
+    /// What this replaces was `pos += dir * move_speed`, which is to say a body
+    /// that reached full speed instantly and could reverse it in a tick. Under
+    /// that rule an approach could always be recalled, so there was nothing to
+    /// read: the only way to be caught out of position was to be somewhere bad
+    /// *right now*, never to have committed to going there.
     fn apply_movement(&mut self) {
         for i in 0..self.alive.len() {
             if !self.alive[i] {
+                self.vel[i] = Vec2::ZERO;
                 continue;
             }
             self.start_pos[i] = self.pos[i];
             let dir = self.action[i].move_dir.clamp_length(Fx::ONE);
-            if dir.is_zero() {
-                continue;
+            let want = dir * self.stats[i].move_speed();
+            let change = (want - self.vel[i]).clamp_length(self.stats[i].traction());
+            self.vel[i] += change;
+            self.clamp_body(i, self.pos[i] + self.vel[i]);
+            if !dir.is_zero() {
+                // `facing` is where the feet are going, and nothing else. It is
+                // not consulted by any combat rule -- blows are decided by blade
+                // geometry -- so a character can back away from a fight while
+                // still swinging into it.
+                //
+                // Read off the *order* rather than off the velocity, which now
+                // differ: a body that has asked to reverse is still drifting the
+                // old way for a few ticks, and pointing it backwards through
+                // those would be reporting the momentum as the intention.
+                self.facing[i] = dir.angle();
             }
-            let step = dir * self.stats[i].move_speed();
-            self.pos[i] = self.clamp_to_arena(self.pos[i] + step, self.radius[i]);
-            // `facing` is where the feet are going, and nothing else. It is not
-            // consulted by any combat rule -- blows are decided by blade
-            // geometry -- so a character can back away from a fight while still
-            // swinging into it.
-            self.facing[i] = dir.angle();
-        }
-    }
-
-    /// What each body actually covered this tick, shove included.
-    ///
-    /// Separation counts on purpose: being barged into a blade genuinely hurts
-    /// more than standing next to one. It is also the only way a crowd can
-    /// produce a blow nobody swung, which is why [`rules::IMPACT_THRESHOLD`]
-    /// sits above every archetype's walking speed.
-    fn record_velocity(&mut self) {
-        for i in 0..self.alive.len() {
-            self.vel[i] = if self.alive[i] {
-                self.pos[i] - self.start_pos[i]
-            } else {
-                Vec2::ZERO
-            };
         }
     }
 
@@ -499,13 +525,17 @@ impl World {
     fn drive_hands(&mut self) {
         for i in 0..self.alive.len() {
             if !self.alive[i] {
+                self.blade_was[i] = None;
                 continue;
             }
-            let weapon = self.kind[i].weapon();
-            let agility = rules::agility_multiplier(self.stats[i].agility);
+            // Snapshot before stepping: the body has already moved this tick but
+            // the hand has not, so this pair is exactly where the blade was when
+            // the last tick ended.
+            self.blade_was[i] = self.blade_from(i, self.start_pos[i], self.hands[i][SWORD]);
+            let arm = self.arm(i);
             let commands = self.action[i].hands;
-            self.hands[i][SWORD].wield(commands[SWORD], weapon, agility);
-            self.hands[i][SHIELD].brace(commands[SHIELD], weapon, agility);
+            self.hands[i][SWORD].wield(commands[SWORD], arm);
+            self.hands[i][SHIELD].brace(commands[SHIELD], arm);
         }
     }
 
@@ -528,7 +558,28 @@ impl World {
                 if distance >= overlap {
                     continue;
                 }
-                let push = (overlap - distance) * Fx::HALF;
+                // Split by inverse mass, which is to say each body yields the
+                // share of the overlap the *other* one's weight accounts for.
+                // A 50/50 split was the old rule and it made a Skitterer able to
+                // shoulder a Brute off its feet -- which quietly made crowding a
+                // heavy weapon the strongest answer in the game, because getting
+                // inside its dead zone cost nothing to hold.
+                //
+                // Each share is computed independently rather than one being
+                // `total - other`, so a mirrored pair gets mirrored shoves. The
+                // two may fail to close the last raw unit of overlap between
+                // them; the old rule did not close it either, and the next tick
+                // takes another bite.
+                let gap = overlap - distance;
+                let total = self.mass[i] + self.mass[j];
+                let (share_i, share_j) = if total.is_positive() {
+                    (
+                        fx::mul_div(gap, self.mass[j], total),
+                        fx::mul_div(gap, self.mass[i], total),
+                    )
+                } else {
+                    (gap * Fx::HALF, gap * Fx::HALF)
+                };
                 let dir = if distance.is_zero() {
                     // Exactly coincident. Pick a direction from the index pair
                     // so the pair unsticks deterministically instead of
@@ -542,9 +593,27 @@ impl World {
                 } else {
                     delta.normalize()
                 };
-                let shove = dir * push;
-                self.pos[i] = self.clamp_to_arena(self.pos[i] - shove, self.radius[i]);
-                self.pos[j] = self.clamp_to_arena(self.pos[j] + shove, self.radius[j]);
+                self.clamp_body(i, self.pos[i] - dir * share_i);
+                self.clamp_body(j, self.pos[j] + dir * share_j);
+
+                // Un-overlapping them is not the whole of a collision. Without
+                // an impulse the positional fix is undone next tick by the same
+                // velocities that caused it, and two bodies grind against each
+                // other at full walking speed forever -- which is also a free
+                // way to hold ground you have no business holding.
+                //
+                // Standard normal impulse against the reduced mass. Only for a
+                // pair that is *closing*: two bodies already separating have
+                // been dealt with, and reflecting them again would pull them
+                // back together.
+                let closing = (self.vel[j] - self.vel[i]).dot(dir);
+                if closing.is_positive() || !total.is_positive() {
+                    continue;
+                }
+                let reduced = fx::mul_div(self.mass[i], self.mass[j], total);
+                let impulse = -(Fx::ONE + rules::BODY_RESTITUTION) * closing * reduced;
+                self.vel[i] = self.vel[i] - dir * (impulse / self.mass[i]);
+                self.vel[j] = self.vel[j] + dir * (impulse / self.mass[j]);
             }
         }
     }
@@ -660,9 +729,19 @@ impl World {
                 Some(seg) => seg,
                 None => continue,
             };
+            // A blade with no history is tested where it is, which is what the
+            // un-swept version did for everything.
+            let (was_base, was_tip) = self.blade_was[i].unwrap_or((base, tip));
             let weapon = self.kind[i].weapon();
             let sweep = self.radius[i] + weapon.length;
             let power = rules::power_multiplier(self.stats[i].power);
+            let travelled = self.pos[i] - self.start_pos[i];
+            // What this blade has to be worth here to count as a cut rather
+            // than a scrape. See `rules::GRAZE_FRACTION`: below it the blade
+            // passes through, which costs the swinger nothing and is the only
+            // thing standing between a weapon and having every cut it throws
+            // spent on the hilt end of its own arc.
+            let graze = rules::graze_floor(self.arm(i), self.stats[i]);
 
             for j in 0..self.alive.len() {
                 if i == j || !self.alive[j] || self.faction[j] == self.faction[i] {
@@ -671,10 +750,25 @@ impl World {
                 // Bounding circle before anything expensive. The geometry below
                 // runs several integer square roots per pair and this is the
                 // hot loop of the whole tick.
-                if (self.pos[j] - self.pos[i]).length() > sweep + self.radius[j] {
+                //
+                // Widened by the relative travel, because the two bodies were
+                // somewhere else at the start of the tick: distance between two
+                // linearly moving points is convex, so it is *smallest* in the
+                // middle, and a bound taken at the end alone would reject the
+                // exact pairs the sweep exists to catch.
+                let closing = (travelled - (self.pos[j] - self.start_pos[j])).length();
+                if (self.pos[j] - self.pos[i]).length() > sweep + self.radius[j] + closing {
                     continue;
                 }
-                let hit = match fx::segment_circle(base, tip, self.pos[j], self.radius[j]) {
+                let hit = match fx::swept_segment_circle(
+                    was_base,
+                    was_tip,
+                    base,
+                    tip,
+                    self.start_pos[j],
+                    self.pos[j],
+                    self.radius[j],
+                ) {
                     Some(h) => h,
                     None => continue,
                 };
@@ -684,7 +778,10 @@ impl World {
                     continue; // resting, withdrawing, or merely leaning on them
                 }
 
-                let mut full = weapon.weight * over * rules::IMPACT_TO_DAMAGE * power;
+                let mut full = weapon.mass * over * rules::IMPACT_TO_DAMAGE * power;
+                if full < graze {
+                    continue; // caught it with the wrong part of the blade
+                }
                 // A body committed to a spent swing is turned into the blow and
                 // cannot give ground with it. This is the only term in the
                 // damage model that depends on what the *target* is doing, and
@@ -792,9 +889,8 @@ impl World {
         self.impulses.sort_by_key(|im| (im.entity, im.hand));
         for k in 0..self.impulses.len() {
             let im = self.impulses[k];
-            let weapon = self.kind[im.entity].weapon();
-            let agility = rules::agility_multiplier(self.stats[im.entity].agility);
-            let ceiling = weapon.max_spin * agility;
+            let arm = self.arm(im.entity);
+            let ceiling = arm.cap;
             let hand = &mut self.hands[im.entity][im.hand];
             hand.spin = (hand.spin * im.scale + im.add).clamp(-ceiling, ceiling);
             if let Some(extra) = im.recover {
@@ -808,7 +904,7 @@ impl World {
                 } else {
                     0
                 };
-                hand.recover(weapon, agility, extra);
+                hand.recover(arm, extra);
                 hand.swing_left = hand.swing_left.max(already);
             }
         }
@@ -1035,7 +1131,16 @@ impl World {
     /// fighter knows how hard it can swing) and to everyone else blurred
     /// ([`Contact::min_strike_range`] -- judging someone else's is the skill).
     fn dead_zone(&self, i: usize) -> Fx {
-        rules::dead_zone(self.kind[i].weapon(), self.stats[i].agility)
+        rules::dead_zone(self.arm(i))
+    }
+
+    /// `i`'s weapon resolved against `i`'s body and stats.
+    ///
+    /// Cheap enough to build per call -- four multiplies -- and building it per
+    /// call is what keeps it impossible to hold a stale one, which matters
+    /// because it is derived from three separate arrays.
+    fn arm(&self, i: usize) -> rules::Arm {
+        rules::Arm::resolve(self.kind[i].weapon(), self.stats[i], self.radius[i])
     }
 
     /// The hardest single blow `i` can land: tip, top spin, nothing in the way.
@@ -1046,8 +1151,7 @@ impl World {
     /// axe is a third of a Warrior and three quarters of a Skitterer, and that
     /// ratio is the thing worth perceiving.
     fn peak_damage(&self, i: usize) -> Fx {
-        let weapon = self.kind[i].weapon();
-        rules::peak_damage(weapon, self.stats[i], self.radius[i] + weapon.length)
+        rules::peak_damage(self.arm(i), self.stats[i])
     }
 
     /// `i`'s blade as a world-space segment, base to tip, or `None` if the hand
@@ -1056,12 +1160,20 @@ impl World {
     /// The early out is both the semantics and the fast path: "tucked" means
     /// something mechanically, and it costs nothing to check.
     fn blade(&self, i: usize) -> Option<(Vec2, Vec2)> {
-        let hand = self.hands[i][SWORD];
+        self.blade_from(i, self.pos[i], self.hands[i][SWORD])
+    }
+
+    /// [`World::blade`] for a body and hand that are not the current ones.
+    ///
+    /// Exists so the previous tick's segment can be reconstructed from
+    /// [`World::start_pos`] and the un-stepped hand, which is the other end of
+    /// the sweep in [`World::resolve_swings`].
+    fn blade_from(&self, i: usize, pos: Vec2, hand: Hand) -> Option<(Vec2, Vec2)> {
         if hand.reach < rules::MIN_STRIKE_REACH {
             return None;
         }
         let along = Vec2::from_angle(hand.angle);
-        let base = self.pos[i] + along * self.radius[i];
+        let base = pos + along * self.radius[i];
         let tip = base + along * (self.kind[i].weapon().length * hand.reach);
         Some((base, tip))
     }
@@ -1132,6 +1244,29 @@ impl World {
         )
     }
 
+    /// Puts `i` inside the arena and takes the momentum the wall absorbed.
+    ///
+    /// Position alone is not enough now that velocity persists. A body walking
+    /// into a wall used to stop because its *displacement* was clipped every
+    /// tick; with integrated velocity it stops moving but stays convinced it is
+    /// travelling at full speed, and that phantom velocity is read by
+    /// [`World::impact_speed`] as a closing speed and by [`World::separate`] as
+    /// something to bounce a neighbour off. A fighter pinned against a wall
+    /// would shove anyone who came near it, forever, without moving an inch.
+    ///
+    /// Only the clipped axis is zeroed, so a body sliding *along* a wall keeps
+    /// doing so.
+    fn clamp_body(&mut self, i: usize, p: Vec2) {
+        let clamped = self.clamp_to_arena(p, self.radius[i]);
+        if clamped.x != p.x {
+            self.vel[i].x = Fx::ZERO;
+        }
+        if clamped.y != p.y {
+            self.vel[i].y = Fx::ZERO;
+        }
+        self.pos[i] = clamped;
+    }
+
     fn contact(&self, observer: usize, target: usize, noise: Fx, rng: &mut Rng) -> Contact {
         let mut offset = self.pos[target] - self.pos[observer];
         let mut hp_frac = self.hp_frac(target);
@@ -1142,6 +1277,7 @@ impl World {
         let mut sword_line = hands[SWORD].line;
         let mut sword_left = Fx::from_int(hands[SWORD].swing_left as i32);
         let mut shield_angle = hands[SHIELD].angle;
+        let mut velocity = self.vel[target];
         let mut min_strike_range = self.dead_zone(target);
         let mut threat = self.peak_damage(target) / self.max_hp[observer];
         let mut frailty = self.peak_damage(observer) / self.max_hp[target];
@@ -1190,6 +1326,16 @@ impl World {
             shield_angle = blur(shield_angle, rng);
             sword_spin += rng.gaussian(noise * Fx::from_int(300));
 
+            // Where it is going, and the error is absolute rather than
+            // proportional. Reading a walk is a question about a body, not
+            // about a capability: a fast enemy is not harder to see moving than
+            // a slow one, and scaling the error by the speed would say a
+            // stationary fighter's stillness is perfectly legible while a
+            // sprint is a blur. Scaled off top speed so it means the same thing
+            // whatever the roster is tuned to.
+            let drift = noise * self.stats[target].move_speed() * rules::VELOCITY_JUDGEMENT;
+            velocity += Vec2::new(rng.gaussian(drift), rng.gaussian(drift));
+
             // The timing read, and the one number a dim fighter gets most
             // wrong. At `perception 0` this is a standard deviation of about
             // twelve ticks against a Brute's thirty-three-tick telegraph: not
@@ -1225,6 +1371,7 @@ impl World {
             min_strike_range,
             threat,
             frailty,
+            velocity,
             facing,
             sword_angle,
             sword_reach: hands[SWORD].reach,
@@ -1847,35 +1994,43 @@ mod tests {
     #[test]
     fn crowding_a_heavy_weapon_takes_most_of_its_bite_away() {
         // The sharpest edge of the damage model, pinned deliberately rather
-        // than left to be discovered -- and it has changed *kind* since it was
-        // first written, which is the part worth reading.
+        // than left to be discovered -- and it has changed *kind* twice since it
+        // was first written, which is the part worth reading.
         //
         // Impact is `spin * arm`, so a weapon has a minimum effective radius:
-        // inside it even a blade at full speed cannot reach
-        // `IMPACT_THRESHOLD`. A Brute tops out at 741 angle units per tick, so
-        // that radius is about 0.85 units. It used to be 1.27, which was
-        // *outside* the 1.15 at which a Warrior's body and a Brute's stop being
-        // able to approach -- meaning a fighter who got close became flatly
-        // immune, and a small enough one became immune and harmless at the same
-        // time while the fight timed out.
+        // inside it even a blade at full speed is worth no more than a graze.
+        // That radius used to be 1.27 for a Brute, *outside* the 1.15 at which a
+        // Warrior's body and a Brute's stop being able to approach -- meaning a
+        // fighter who got close became flatly immune, and a small enough one
+        // became immune and harmless at the same time while the fight timed out.
+        // Dropping `IMPACT_THRESHOLD` to 0.06 pulled it to 0.85 and turned the
+        // circle into a gradient.
         //
-        // Now the circle is unreachable and what is left is the gradient. Damage
-        // is linear in the arm, so crowding still takes most of a heavy blow
-        // away; it no longer takes all of it, and there is no longer a distance
-        // at which the fight stops being a fight.
+        // **The bound below is the one that matters, and it is the one Phase 3
+        // broke.** Deriving the spin cap from grip raised a Brute's top spin
+        // from 741 to 911, which pulled the dead zone to 0.687 -- *inside* its
+        // own 0.70 body radius. Nothing was immune any more, which sounds
+        // harmless and was not: a blow of any size ends the swing that threw it,
+        // so with no harmless band left on the blade every cut a Brute threw was
+        // spent on a hilt scratch worth 1-3 damage against a peak of 24.8. The
+        // naive Warrior's win rate against it went from 10% to 76%. See
+        // `rules::GRAZE_FRACTION`, which is what put the band back.
+        //
+        // This asserted the same thing before and missed it, because it derived
+        // the dead zone inline from `IMPACT_THRESHOLD` instead of asking
+        // `rules::dead_zone`. Ask the sim.
         let brute = UnitKind::Brute;
-        let ceiling = brute.weapon().max_spin * rules::agility_multiplier(brute.base_stats().agility);
-        let mut safe = Fx::ZERO;
-        let mut step = Fx::from_ratio(1, 100);
-        while step < Fx::from_int(3) {
-            if fx::tangential_speed(ceiling, step) < rules::IMPACT_THRESHOLD {
-                safe = step;
-            }
-            step += Fx::from_ratio(1, 100);
-        }
+        let arm = rules::Arm::resolve(brute.weapon(), brute.base_stats(), brute.radius());
+        let safe = rules::dead_zone(arm);
         assert!(
-            safe > brute.radius() && safe < brute.radius() + brute.weapon().length,
-            "the dead zone is {safe}, which is not inside the blade's own span"
+            safe > brute.radius(),
+            "a Brute's dead zone is {safe} against a body radius of {} -- with no \
+             part of the blade harmless, every cut it throws is spent on a scratch",
+            brute.radius()
+        );
+        assert!(
+            safe < brute.radius() + brute.weapon().length,
+            "the dead zone is {safe}, which swallows the blade's own span"
         );
 
         // And the gradient is real in a running fight, not just on paper: the
@@ -1916,6 +2071,18 @@ mod tests {
             pressed * Fx::TWO < at_range,
             "crowding in took a {pressed} blow against {at_range} at range -- \
              getting inside a heavy weapon is supposed to be worth doing"
+        );
+
+        // And the floor is wired into the sim and not only into `dead_zone`:
+        // whatever does get through at body contact clears `graze_floor`, so no
+        // cut is ever spent on a touch worth less than that. Checked end to end
+        // because the arithmetic above cannot tell whether `resolve_swings`
+        // actually asks -- and for one release it did not.
+        let floor = rules::graze_floor(arm, brute.base_stats());
+        assert!(
+            !pressed.is_positive() || pressed >= floor,
+            "a blow of {pressed} landed against a graze floor of {floor}, so the \
+             swing that threw it was spent on a scratch"
         );
     }
 
@@ -2097,10 +2264,11 @@ mod tests {
         scenario.units[0].spawn = Vec2::from_ints(14, 8);
         scenario.units[1].spawn = Vec2::from_ints(18, 8);
 
-        let truth = rules::dead_zone(
+        let truth = rules::dead_zone(rules::Arm::resolve(
             UnitKind::Brute.weapon(),
-            UnitKind::Brute.base_stats().agility,
-        );
+            UnitKind::Brute.base_stats(),
+            UnitKind::Brute.radius(),
+        ));
 
         // A sharp eye reads it exactly...
         let sharp = {
@@ -2137,7 +2305,11 @@ mod tests {
         let hero = w.alive_ids(Faction::Heroes)[0];
         assert_eq!(
             w.observe(hero).min_strike_range,
-            rules::dead_zone(UnitKind::Warrior.weapon(), 6)
+            rules::dead_zone(rules::Arm::resolve(
+                UnitKind::Warrior.weapon(),
+                Stats::new(6, 6, 8, 0, 8),
+                UnitKind::Warrior.radius(),
+            ))
         );
     }
 
@@ -2344,6 +2516,222 @@ mod tests {
             w.health_fraction(Faction::Heroes),
             w.health_fraction(Faction::Monsters)
         );
+    }
+
+    #[test]
+    fn getting_going_and_stopping_both_take_time() {
+        // Momentum, at its plainest. A body used to reach full speed on the
+        // tick it was told to and stop on the tick it was told to, which is
+        // what made spacing a question about position rather than commitment.
+        let mut w = duel_world();
+        let hero = w.alive_ids(Faction::Heroes)[0];
+        let i = hero.index as usize;
+        let top = w.stats[i].move_speed();
+
+        w.pos[i] = Vec2::new(w.arena.x * Fx::HALF, w.arena.y * Fx::HALF);
+        w.action[i] = Action::moving(Vec2::X);
+        w.apply_movement();
+        let after_one = w.vel[i].length();
+        assert!(
+            after_one < top * Fx::from_ratio(3, 10),
+            "one tick got it to {after_one} of a {top} top speed"
+        );
+
+        for _ in 0..40 {
+            w.apply_movement();
+        }
+        let cruising = w.vel[i].length();
+        assert!(
+            (cruising - top).abs() < Fx::from_ratio(1, 1000),
+            "settled at {cruising} instead of {top}"
+        );
+
+        // And it cannot simply stop. Ordered to hold, it slides.
+        w.action[i] = Action::HOLD;
+        let braking_from = w.pos[i];
+        for _ in 0..40 {
+            w.apply_movement();
+        }
+        assert!(w.vel[i].length() < Fx::from_ratio(1, 1000), "never stopped");
+        let slide = (w.pos[i] - braking_from).length();
+        assert!(
+            slide > Fx::from_ratio(25, 100),
+            "stopped in {slide} units, which is no commitment at all"
+        );
+    }
+
+    #[test]
+    fn a_wall_takes_the_momentum_it_stops() {
+        // Position used to be the only thing a wall clipped, which was harmless
+        // while velocity was recomputed from displacement every tick. With
+        // velocity carried across ticks it is not: a body pinned against a wall
+        // stays convinced it is running at full speed, and both `impact_speed`
+        // and `separate` believe it. The symptom was a 4v6 that could not
+        // finish, with the survivors shoving each other off a wall forever.
+        let mut w = duel_world();
+        let i = w.alive_ids(Faction::Heroes)[0].index as usize;
+
+        // Hard against the western wall, still being told to walk west, and
+        // drifting north along it.
+        w.pos[i] = Vec2::new(w.radius[i], w.arena.y * Fx::HALF);
+        w.action[i] = Action::moving(Vec2::new(-Fx::ONE, Fx::ONE).normalize());
+        for _ in 0..30 {
+            w.apply_movement();
+        }
+
+        assert_eq!(w.vel[i].x, Fx::ZERO, "the wall banked the momentum");
+        assert!(w.vel[i].y.is_positive(), "sliding along a wall must still work");
+        assert_eq!(w.pos[i].x, w.radius[i]);
+    }
+
+    #[test]
+    fn charging_a_heavier_body_costs_the_charger_more() {
+        // Barging is now a decision with a price, and the price scales with who
+        // you barge. Both are thrown, and the light one is thrown further.
+        let mut w = World::new(&Scenario::duel_of(UnitKind::Skitterer, UnitKind::Brute, 1), 1);
+        let light = w.alive_ids(Faction::Heroes)[0].index as usize;
+        let heavy = w.alive_ids(Faction::Monsters)[0].index as usize;
+
+        let middle = Vec2::new(w.arena.x * Fx::HALF, w.arena.y * Fx::HALF);
+        w.pos[light] = middle;
+        w.pos[heavy] = middle + Vec2::new(w.radius[light] + w.radius[heavy], Fx::ZERO);
+        // Both walking into each other at their own top speeds.
+        w.vel[light] = Vec2::new(w.stats[light].move_speed(), Fx::ZERO);
+        w.vel[heavy] = Vec2::new(-w.stats[heavy].move_speed(), Fx::ZERO);
+        // Just overlapping, so `separate` engages.
+        w.pos[heavy] -= Vec2::new(Fx::from_ratio(1, 100), Fx::ZERO);
+
+        w.separate();
+
+        assert!(
+            !w.vel[light].x.is_positive(),
+            "the Skitterer kept driving through a Brute at {}",
+            w.vel[light].x
+        );
+        // Momentum is conserved along the normal: what one side loses the other
+        // gains, in proportion to mass.
+        let before = w.stats[light].move_speed() * w.mass[light]
+            - w.stats[heavy].move_speed() * w.mass[heavy];
+        let after = w.vel[light].x * w.mass[light] + w.vel[heavy].x * w.mass[heavy];
+        assert!(
+            (before - after).abs() < Fx::from_ratio(1, 1000),
+            "momentum along the normal went from {before} to {after}"
+        );
+    }
+
+    #[test]
+    fn the_lighter_body_gives_more_ground() {
+        // Crowding a heavy weapon is the strongest answer to one, and it used
+        // to be free to hold: the overlap was split down the middle, so a
+        // Skitterer pressed against a Brute shoved exactly as hard as it was
+        // shoved. Now the ground each yields is the *other* one's weight.
+        let mut w = World::new(&Scenario::duel_of(UnitKind::Skitterer, UnitKind::Brute, 1), 1);
+        let light = w.alive_ids(Faction::Heroes)[0].index as usize;
+        let heavy = w.alive_ids(Faction::Monsters)[0].index as usize;
+        assert!(w.mass[heavy] > w.mass[light], "premise");
+
+        // Overlapping by a quarter of a unit, along the x axis so the shove is
+        // one component and the arena walls are nowhere near.
+        let touching = w.radius[light] + w.radius[heavy];
+        let middle = Vec2::new(w.arena.x * Fx::HALF, w.arena.y * Fx::HALF);
+        w.pos[light] = middle;
+        w.pos[heavy] = middle + Vec2::new(touching - Fx::from_ratio(25, 100), Fx::ZERO);
+        let (was_light, was_heavy) = (w.pos[light], w.pos[heavy]);
+
+        w.separate();
+
+        let moved_light = (w.pos[light] - was_light).length();
+        let moved_heavy = (w.pos[heavy] - was_heavy).length();
+        assert!(moved_light.is_positive() && moved_heavy.is_positive());
+        assert!(
+            moved_light > moved_heavy * Fx::TWO,
+            "the Skitterer gave {moved_light} and the Brute {moved_heavy}"
+        );
+        // Momentum, in the only sense a positional correction has one: the
+        // shoves are in inverse proportion to the masses, so mass times
+        // displacement matches on both sides.
+        let a = moved_light * w.mass[light];
+        let b = moved_heavy * w.mass[heavy];
+        assert!(
+            (a - b).abs() < Fx::from_ratio(1, 1000),
+            "mass-weighted displacement did not balance: {a} vs {b}"
+        );
+    }
+
+    #[test]
+    fn equal_bodies_still_split_a_shove_evenly() {
+        // The mirror case the old rule got right and the new one must not
+        // break: two identical fighters must each give exactly half, or a
+        // symmetric duel picks a winner out of the collision solver.
+        let mut w = World::new(&Scenario::duel_of(UnitKind::Warrior, UnitKind::Warrior, 1), 1);
+        let (a, b) = (
+            w.alive_ids(Faction::Heroes)[0].index as usize,
+            w.alive_ids(Faction::Monsters)[0].index as usize,
+        );
+        let middle = Vec2::new(w.arena.x * Fx::HALF, w.arena.y * Fx::HALF);
+        w.pos[a] = middle;
+        w.pos[b] = middle + Vec2::new(Fx::from_ratio(60, 100), Fx::ZERO);
+        let (was_a, was_b) = (w.pos[a], w.pos[b]);
+
+        w.separate();
+
+        assert_eq!((w.pos[a] - was_a).length(), (w.pos[b] - was_b).length());
+    }
+
+    #[test]
+    fn a_blade_that_crosses_a_body_inside_one_tick_still_bills_a_blow() {
+        // The sweep, end to end.
+        //
+        // A hand turning fast enough can put its tip on the far side of a body
+        // between two samples, and a closest-approach test then sees a blade
+        // that was never near anyone. It used to be held off by capping how
+        // fast a hand may turn -- a *physics* limit imposed by a hit test,
+        // which is exactly backwards, and a cap that has to go the moment a
+        // blow can throw a body faster than it walks.
+        let mut w = duel_world();
+        let brute = w.alive_ids(Faction::Monsters)[0];
+        let hero = w.alive_ids(Faction::Heroes)[0];
+        let (i, j) = (brute.index as usize, hero.index as usize);
+
+        // Hero two units due east of the brute, well inside its 2.15 of reach.
+        // Nobody is walking, so the only motion in the tick is the arm's.
+        w.pos[i] = w.pos[j] - Vec2::new(Fx::TWO, Fx::ZERO);
+        w.start_pos[i] = w.pos[i];
+        w.start_pos[j] = w.pos[j];
+        w.hands[i][SWORD].reach = Fx::ONE;
+        w.hands[i][SWORD].swing = Swing::Strike;
+        w.hands[i][SWORD].spin = Fx::from_int(4_000);
+
+        // A quarter turn in one tick: 22.5 degrees short of the hero to 22.5
+        // degrees past it. The blade is clear of the body at *both* ends and
+        // squarely through it in the middle.
+        w.hands[i][SWORD].angle = Angle::from_raw(61_440);
+        let before = w.blade(i).expect("the blade is out");
+        w.hands[i][SWORD].angle = Angle::from_raw(4_096);
+        let after = w.blade(i).expect("the blade is out");
+
+        for (label, (base, tip)) in [("before", before), ("after", after)] {
+            assert!(
+                fx::segment_circle(base, tip, w.pos[j], w.radius[j]).is_none(),
+                "premise: the {label} sample should miss, or this proves nothing"
+            );
+        }
+
+        // Health, and not `self.blows`, because pass 2 drains that buffer
+        // before it returns -- asserting on it would pass for both outcomes.
+        let full = w.hp[j];
+
+        // A blade with no history is tested where it is, and misses. This is
+        // precisely what the old code did on every tick of every fight.
+        w.blade_was[i] = None;
+        w.resolve_swings();
+        assert_eq!(w.hp[j], full, "premise: nothing to sweep, nothing to hit");
+
+        w.hands[i][SWORD].swing = Swing::Strike;
+        w.hands[i][SWORD].spin = Fx::from_int(4_000);
+        w.blade_was[i] = Some(before);
+        w.resolve_swings();
+        assert!(w.hp[j] < full, "the blade passed clean through a body");
     }
 
     #[test]

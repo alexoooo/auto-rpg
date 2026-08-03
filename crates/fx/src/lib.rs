@@ -41,8 +41,11 @@ mod sin_table;
 mod vec2;
 
 pub use angle::{atan2, Angle};
-pub use fixed::{isqrt64, sqrt_product, tangential_speed, Fx, FRAC_BITS, ONE_RAW};
-pub use geom::{closest_point_on_segment, segment_circle, segment_segment, SegmentHit};
+pub use fixed::{energy, isqrt64, mul_div, sqrt_product, tangential_speed, Fx, FRAC_BITS, ONE_RAW};
+pub use geom::{
+    closest_point_on_segment, segment_circle, segment_segment, swept_segment_circle, SegmentHit,
+    SWEEP_SUBSTEPS_MAX,
+};
 pub use hash::Hash64;
 pub use rng::Rng;
 pub use sin_table::{SIN_TABLE, SIN_TABLE_LEN};

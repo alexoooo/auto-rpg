@@ -80,14 +80,29 @@ pub const REGEN_BUDGET: Fx = Fx::ONE;
 pub struct Weapon {
     /// Blade length beyond the body surface at full extension, world units.
     pub length: Fx,
-    /// Angular acceleration cap, raw angle units per tick squared.
-    pub torque: Fx,
-    /// Angular speed cap, raw angle units per tick.
-    pub max_spin: Fx,
-    /// How much `reach` may change per tick.
-    pub extend_rate: Fx,
-    /// Damage multiplier per unit of impact speed above [`IMPACT_THRESHOLD`].
-    pub weight: Fx,
+    /// How heavy it is, with a Warrior's body as the unit -- the same scale
+    /// [`crate::UnitKind::mass`] uses, because the two are weighed against each
+    /// other constantly once a blow can throw a body.
+    ///
+    /// **This is the whole of what "heavy" means now.** It used to be a damage
+    /// multiplier and nothing else, sitting beside a separately authored
+    /// `torque` and `max_spin` that were meant to represent the same fact --
+    /// three hand-correlated numbers that nothing stopped you contradicting.
+    /// Swing speed is derived from this and [`Weapon::balance`] now, so a
+    /// heavier weapon is slower because it is heavier.
+    pub mass: Fx,
+    /// Where the mass sits along the weapon: `0` at the hilt, `1` at the tip.
+    ///
+    /// The single best knob for how a weapon *feels*, because moment of inertia
+    /// goes as the square of it. A tip-heavy axe and a hilt-heavy rapier of
+    /// identical mass and length are completely different things to swing: the
+    /// axe is slower to start, slower to stop, and carries more at the tip when
+    /// it gets there.
+    ///
+    /// It is also what replaced `REACH_DRAG`. An extended blade is slow to turn
+    /// because extending it moves the mass further from the shoulder, which is
+    /// a fact about levers rather than a constant somebody chose.
+    pub balance: Fx,
     /// Shield arc half-width at full extension, raw angle units.
     pub shield_arc: u16,
     /// **The telegraph.** Ticks the blade spends cocked back before a cut comes
@@ -105,38 +120,256 @@ pub struct Weapon {
     pub recovery: u16,
 }
 
+/// A weapon resolved against the body swinging it: everything
+/// [`crate::Hand::track`] needs, and nothing it has to look up.
+///
+/// It exists because swing dynamics stopped being a property of the weapon. A
+/// blade's angular acceleration is `muscle / inertia`, and both halves come from
+/// somewhere else -- the muscle from `power` and `agility`, the inertia from the
+/// weapon's mass and balance *and the radius of the body it pivots around*. A
+/// Brute's axe on a Skitterer's shoulders would be a different weapon, which is
+/// the correct answer and one the old table could not express.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct Arm {
+    pub weapon: Weapon,
+    /// This wielder's [`agility_multiplier`], resolved. Carried so the phase
+    /// clocks and the swing dynamics travel together as one argument.
+    pub agility: Fx,
+    /// Torque this wielder can put into the swing.
+    pub muscle: Fx,
+    /// Top angular speed, raw units per tick. **A property of the wielder, not
+    /// of the weapon** -- see [`MUSCLE_SPIN`], where the reason is the whole
+    /// design.
+    pub cap: Fx,
+    /// How much `reach` may change per tick.
+    pub extend_rate: Fx,
+    /// Distance from the shoulder to the base of the blade: the body's radius.
+    pub pivot: Fx,
+    /// How far the weapon's mass centre sits past the blade's base at full
+    /// extension. `balance * length`, pre-multiplied.
+    pub span: Fx,
+}
+
+impl Arm {
+    pub fn resolve(weapon: Weapon, stats: Stats, body_radius: Fx) -> Arm {
+        let agility = agility_multiplier(stats.agility);
+        let power = power_multiplier(stats.power);
+        Arm {
+            weapon,
+            agility,
+            muscle: MUSCLE_TORQUE * power * agility,
+            cap: MUSCLE_SPIN * agility * grip_limit(weapon, body_radius),
+            // A heavy weapon is slow to push out for the same reason it is slow
+            // to turn, so this is a force divided by a mass rather than an
+            // authored rate.
+            extend_rate: EXTEND_FORCE * power * agility / weapon.mass.max(Fx::EPSILON),
+            pivot: body_radius,
+            span: weapon.balance * weapon.length,
+        }
+    }
+
+    /// Distance from the shoulder to the weapon's mass centre at this extension.
+    pub fn lever(self, reach: Fx) -> Fx {
+        self.pivot + self.span * reach.clamp(Fx::ZERO, Fx::ONE)
+    }
+
+    /// Moment of inertia about the shoulder, `m * r^2`, plus the arm's own.
+    ///
+    /// [`ARM_INERTIA`] is not a rounding guard, though it is that too: a hand
+    /// tucked to zero reach with a weightless weapon would divide by zero and
+    /// accelerate infinitely. It is also the reason a *very* light weapon does
+    /// not simply become a teleporting blade -- past some point you are limited
+    /// by how fast you can move your own arm.
+    pub fn inertia(self, reach: Fx) -> Fx {
+        let lever = self.lever(reach);
+        lever * lever * self.weapon.mass + ARM_INERTIA
+    }
+
+    /// Angular acceleration available at this extension, raw units per tick
+    /// squared. `torque / I`, which is the whole of the model.
+    pub fn accel(self, reach: Fx) -> Fx {
+        (self.muscle / self.inertia(reach)).max(Fx::from_ratio(1, 100))
+    }
+
+    /// The fastest this blade will actually be going by the end of a full cut.
+    ///
+    /// **Not the cap.** A cut is a fixed arc under a fixed torque, so a heavy
+    /// weapon runs out of arc before it runs out of speed and never reaches the
+    /// wielder's ceiling at all. That separation is the entire weight mechanic:
+    /// a light weapon is *speed*-limited and a heavy one is *work*-limited, and
+    /// only the second gets more dangerous for being heavier.
+    ///
+    /// Everything that asks "how hard can this thing hit" reads this rather than
+    /// the cap -- [`dead_zone`] and [`peak_damage`] both -- because a ceiling a
+    /// weapon cannot reach is not a fact about the weapon.
+    pub fn reachable_spin(self) -> Fx {
+        let arc = Fx::from_int(WINDUP_ARC + STRIKE_SPENT_ARC);
+        fx::sqrt_product(self.accel(Fx::ONE) * Fx::TWO, arc).min(self.cap)
+    }
+}
+
+/// Torque a wielder of `power 6` and `agility 6` puts into a swing, raw angle
+/// units per tick squared times inertia.
+///
+/// Sets the scale of the whole swing model. Paired with [`MUSCLE_SPIN`] below,
+/// and the pair is chosen so the four archetypes land within a few ticks of the
+/// phase timings the difficulty ladder was measured at.
+pub const MUSCLE_TORQUE: Fx = Fx::from_int(100);
+
+/// Top angular speed for a weapon at the reference grip, raw units per tick,
+/// before [`agility_multiplier`] and [`grip_limit`] scale it.
+///
+/// **The line that took three attempts to get right**, and both wrong answers
+/// are worth keeping written down because each is the obvious one from where it
+/// was reached.
+///
+/// *Authored per weapon*, as it used to be, and swing speed is disconnected
+/// from weapon mass -- three hand-correlated numbers nothing stops you
+/// contradicting. That is what this whole change set out to fix.
+///
+/// *Derived from the weapon's inertia*, the obvious move once there is an
+/// inertia to derive from, and weapon mass cancels out of damage **entirely**.
+/// A swing is a fixed torque over a fixed arc, so the work is `torque * arc`
+/// whatever is being swung; rotational energy at the end of the arc is
+/// therefore identical for every weapon, and a cap derived from inertia makes
+/// it identical at the cap too. Every weapon would hit exactly as hard as every
+/// other.
+///
+/// *Flat, owned by the arm*, which splits the two regimes apart -- and puts
+/// every heavy weapon so far into the work-limited one that its blade is still
+/// accelerating when it arrives. Measured: a Brute's *peak* damage was
+/// unchanged and its **typical** damage fell by two thirds, because peak is the
+/// tip at the end of the arc and contact happens in the middle of it. The
+/// difficulty ladder collapsed to 100% wins from `intellect 3` upward.
+///
+/// What is actually true is that you cannot *hold on* to a heavy weapon swung
+/// fast: keeping mass `m` on a lever `r` at angular speed `w` needs a grip of
+/// `m * r * w^2`. So the ceiling is weapon-dependent after all, but through the
+/// hand rather than through the torque -- see [`grip_limit`].
+pub const MUSCLE_SPIN: Fx = Fx::from_int(2000);
+
+/// Weapon's mass-times-lever at which [`MUSCLE_SPIN`] is the whole answer.
+/// A Warrior's arming sword, so the reference wielder is the reference build.
+pub const REFERENCE_GRIP: Fx = Fx::from_ratio(1206, 1000);
+
+/// How much of [`MUSCLE_SPIN`] a wielder keeps, given what it is holding.
+///
+/// `sqrt(reference / (mass * lever))`, from `F = m * r * w^2`. A light weapon
+/// close to the hand can be whipped around; a heavy one held out at the end of
+/// a long haft cannot, and the limit is the hand rather than the shoulder.
+///
+/// This is what makes weapon mass matter *twice*, in opposite directions, which
+/// is what a real trade looks like: heavier means slower to accelerate
+/// (through [`Arm::inertia`]) and slower at the ceiling (through here), but
+/// more momentum and more energy at whatever speed it does reach.
+pub fn grip_limit(weapon: Weapon, body_radius: Fx) -> Fx {
+    let lever = body_radius + weapon.balance * weapon.length;
+    let load = weapon.mass * lever;
+    if load.is_positive() {
+        (REFERENCE_GRIP / load).sqrt()
+    } else {
+        Fx::ONE
+    }
+}
+
+/// Moment of inertia of the empty arm, so a weightless weapon is still swung by
+/// a limb with mass. See [`Arm::inertia`].
+pub const ARM_INERTIA: Fx = Fx::from_ratio(5, 100);
+
+/// Force available for pushing a blade out to full extension, before the
+/// weapon's mass divides it. See [`Arm::extend_rate`].
+pub const EXTEND_FORCE: Fx = Fx::from_ratio(133, 1000);
+
 /// How much a hand's torque, top speed and extension scale with agility.
 ///
-/// The ceiling is not tidiness. Blade-versus-body uses a closest-approach test
-/// rather than a swept one, which is only correct while a tip cannot cross a
-/// whole body in one tick; see `no_blade_can_outrun_the_smallest_body`. At an
-/// unclamped multiplier a high-agility character's tip covers several units per
-/// tick and sails straight through a Skitterer. `2.00` keeps the worst case at
-/// 0.537 against a 0.60 budget.
+/// The ceiling used to be a physics limit imposed by a hit test: blade-versus-
+/// body sampled closest approach at one instant, which is correct only while a
+/// tip cannot cross a whole body in a tick, and `2.00` was whatever kept the
+/// worst case (0.537) under that budget (0.60). That was the wrong way round --
+/// a geometry shortcut deciding how fast a character may be allowed to move --
+/// and `fx::swept_segment_circle` removed the constraint.
+///
+/// It stays at `2.00` as a **balance** choice rather than a correctness one.
+/// Agility already buys reaction, sight, footspeed and swing speed, and a stat
+/// with four jobs and no ceiling is the shortest path to one dominant build.
+/// Raise it deliberately, with the ladder re-measured; nothing will break if
+/// you do.
 pub const fn agility_multiplier(agility: u8) -> Fx {
     let scaled = Fx::from_ratio(70 + 4 * agility as i32, 100);
     scaled.clamp(Fx::from_ratio(55, 100), Fx::TWO)
 }
 
-/// The radius inside which no swing of `weapon` at `agility` can reach
-/// [`IMPACT_THRESHOLD`], however hard it is thrown. **The dead zone.**
+/// The radius inside which no swing of `weapon` at `agility` is worth more than
+/// a graze, however hard it is thrown. **The dead zone.**
 ///
 /// Impact is `spin x arm`, so the whole speed curve is fixed by one point on
 /// it: whatever the blade manages at one unit of reach scales exactly.
-/// Inverting that gives the radius at which it reaches the threshold and no
-/// further down.
+/// Inverting that gives the radius at which it reaches the bar and no further
+/// down.
+///
+/// The bar is [`graze_floor`] rather than [`IMPACT_THRESHOLD`] itself, so this
+/// stays the honest answer to "how close do I have to be to be safe" -- see
+/// [`GRAZE_FRACTION`], which is what a contact below it costs the swinger.
 ///
 /// Public because it is the number a fighter needs about *everyone* and not
 /// only about itself -- see [`crate::Contact::min_strike_range`], which is this
 /// figure blurred by the observer's perception.
-pub fn dead_zone(weapon: Weapon, agility: u8) -> Fx {
-    let at_one_unit = fx::tangential_speed(weapon.max_spin * agility_multiplier(agility), Fx::ONE);
-    if at_one_unit.is_positive() {
-        IMPACT_THRESHOLD / at_one_unit
-    } else {
-        Fx::MAX
+pub fn dead_zone(arm: Arm) -> Fx {
+    let spin = arm.reachable_spin();
+    let at_one_unit = fx::tangential_speed(spin, Fx::ONE);
+    if !at_one_unit.is_positive() {
+        return Fx::MAX;
     }
+    // Damage is linear in `impact - IMPACT_THRESHOLD` and every other term in
+    // it is the same at the tip as here, so the fraction of peak damage a
+    // contact is worth is the fraction of peak *excess speed* it carries. That
+    // inverts to a radius without needing the damage numbers at all.
+    let tip = fx::tangential_speed(spin, arm.pivot + arm.weapon.length);
+    let bite = if tip > IMPACT_THRESHOLD {
+        IMPACT_THRESHOLD + (tip - IMPACT_THRESHOLD) * GRAZE_FRACTION
+    } else {
+        IMPACT_THRESHOLD
+    };
+    bite / at_one_unit
 }
+
+/// What a contact must be worth, in damage, to count as a cut at all.
+///
+/// A share of what this fighter's own best blow would do, so it scales with the
+/// weapon instead of being one more flat number that every archetype meets at a
+/// different point on its arc. See [`GRAZE_FRACTION`].
+pub fn graze_floor(arm: Arm, stats: Stats) -> Fx {
+    peak_damage(arm, stats) * GRAZE_FRACTION
+}
+
+/// Share of its own [`peak_damage`] a contact has to be worth before it counts
+/// as a blow. Below it, the blade passes through: no wound, and **the cut is
+/// not spent**.
+///
+/// This exists because a blow of any size ends the swing that threw it, and
+/// that made [`IMPACT_THRESHOLD`] a cliff rather than a floor. A contact one
+/// unit above the threshold did essentially no damage and still cost its owner
+/// the entire cut, so whether a weapon was viable turned on whether its typical
+/// contact landed a hair above the bar or a hair below -- and *below* was
+/// strictly better, because a blade that touched nothing kept swinging into the
+/// part of its arc where it was actually dangerous.
+///
+/// The Brute found the bad side of that cliff and it is worth recording how
+/// narrowly. Contacts happen at body-to-body range whatever the blade length,
+/// which for a Warrior against a Brute is 1.15 units from the Brute's centre --
+/// about a third of the way along a 1.45 blade. Reaching the threshold there
+/// needs 60% of the Brute's top spin, and cuts land at 66% of it. Deriving the
+/// spin cap from grip in Phase 3 moved that top spin from 741 to 911 and with it
+/// the dead zone from 0.845 to 0.687 -- *inside* the Brute's own 0.70 body
+/// radius, so no part of its blade could touch anyone harmlessly any more. Every
+/// cut was spent on a scratch worth 1-3 damage against a peak of 24.8, the naive
+/// Warrior's win rate went from 10% to 76%, and none of the derived weapon
+/// numbers moved enough to show it: tip speed, strike budget and build-up rate
+/// all changed by a few percent in the Brute's *favour*.
+///
+/// With a graze band the cliff becomes a ramp, and the model stops caring where
+/// exactly a weapon's dead zone falls relative to the body swinging it.
+pub const GRAZE_FRACTION: Fx = Fx::from_ratio(12, 100);
 
 /// The most one blow from this fighter can be worth: struck with the tip, at
 /// the top spin its weapon and agility allow.
@@ -154,14 +387,61 @@ pub fn dead_zone(weapon: Weapon, agility: u8) -> Fx {
 /// decides whether the fight is worth having. It ignores blocking and
 /// [`RECOVERY_EXPOSURE`] for the same reason: those are properties of the
 /// exchange, not of the enemy.
-pub fn peak_damage(weapon: Weapon, stats: Stats, reach: Fx) -> Fx {
-    let spin = weapon.max_spin * agility_multiplier(stats.agility);
-    let impact = fx::tangential_speed(spin, reach);
+pub fn peak_damage(arm: Arm, stats: Stats) -> Fx {
+    let tip = arm.pivot + arm.weapon.length;
+    let impact = fx::tangential_speed(arm.reachable_spin(), tip);
     if impact <= IMPACT_THRESHOLD {
         return Fx::ZERO;
     }
-    weapon.weight * (impact - IMPACT_THRESHOLD) * IMPACT_TO_DAMAGE * power_multiplier(stats.power)
+    arm.weapon.mass * (impact - IMPACT_THRESHOLD) * IMPACT_TO_DAMAGE * power_multiplier(stats.power)
 }
+
+// -------------------------------------------------------------------- the feet
+
+/// Change in velocity available per tick at agility multiplier 1, world units
+/// per tick squared. See [`Stats::traction`].
+///
+/// Set from the number that actually matters, which is not acceleration but
+/// **stopping distance**: `v^2 / 2a` comes out between 0.33 and 0.45 units
+/// across the roster, or close enough to one body radius that misjudging a step
+/// costs about a body of ground. That is the whole point of the change. A body
+/// used to reach its top speed and reverse it in a single tick, so spacing was
+/// a question about *position* -- stand at the right distance and you were
+/// safe, arbitrarily late. Now it is a question about *prediction*, because
+/// where you will be in ten ticks is already mostly decided.
+///
+/// It works out to roughly [`TRACTION_TICKS`] ticks from rest to top speed for
+/// every archetype, which is a coincidence worth knowing about rather than a
+/// design goal: [`Stats::move_speed`] and [`agility_multiplier`] are both very
+/// nearly linear in agility, so their ratio barely moves. Break either and the
+/// spread appears.
+pub const TRACTION_BASE: Fx = Fx::from_ratio(41, 10_000);
+
+/// About how long a body takes to reach its top speed, at any agility.
+/// Documentation for [`TRACTION_BASE`] rather than an input to it -- the sim
+/// never reads this, and `traction_reaches_top_speed_in_about_the_advertised_time`
+/// is what keeps it honest.
+pub const TRACTION_TICKS: u16 = 14;
+
+/// Error in a fighter's read of how fast *someone else* is moving, as a
+/// fraction of that body's top speed, per unit of perception noise.
+///
+/// Its own constant rather than a reuse of [`CAPABILITY_JUDGEMENT`], because it
+/// is a different kind of mistake. A dead zone or a peak blow is a judgement
+/// about what an opponent *can* do -- sizing up a stranger -- and it does not
+/// get easier as you close. Velocity is a plain observation of a body in front
+/// of you, so it blurs with range like a position does, and it is scaled off
+/// top speed rather than off the reading so that standing still is not
+/// perceived with perfect certainty while a walk is a blur.
+pub const VELOCITY_JUDGEMENT: Fx = Fx::from_ratio(35, 100);
+
+/// How much of a closing speed two colliding bodies give back to each other.
+///
+/// Low on purpose: people are not billiard balls, and a fight in which bodies
+/// bounce off each other reads as comedy. What it has to be is *non-zero*, so
+/// that walking into someone heavier costs you the ground you were making and a
+/// charge is a decision rather than a free way to occupy a square.
+pub const BODY_RESTITUTION: Fx = Fx::from_ratio(15, 100);
 
 /// Damage scaling from the power stat: `0.55 + 0.075 * power`, capped at 3.
 pub const fn power_multiplier(power: u8) -> Fx {
@@ -326,7 +606,7 @@ pub const STRIKE_SPENT_ARC: i32 = FOLLOW_THROUGH * 3 / 4;
 ///
 /// The limit is [`strike_ticks`] now, computed per weapon, and this is only the
 /// stop of last resort.
-pub const STRIKE_TIMEOUT: u16 = 120;
+pub const STRIKE_TIMEOUT: u16 = 150;
 
 /// How long a cut with this weapon stays live: long enough to carry the blade
 /// through its whole arc, and no longer.
@@ -341,17 +621,26 @@ pub const STRIKE_TIMEOUT: u16 = 120;
 /// [`STRIKE_SLACK`] covers what the closed form leaves out: a hand entering the
 /// strike still carries the windup's momentum the wrong way and has to pay it
 /// off first.
-pub fn strike_ticks(weapon: Weapon, agility: Fx) -> u16 {
+pub fn strike_ticks(arm: Arm) -> u16 {
     let arc = Fx::from_int(WINDUP_ARC + STRIKE_SPENT_ARC);
     let floor = Fx::from_ratio(1, 100);
-    let accel = (weapon.torque * agility * (Fx::ONE - REACH_DRAG)).max(floor);
-    let cap = (weapon.max_spin * agility).max(floor);
+    // At full extension, which is where a cut spends its useful arc.
+    let accel = arm.accel(Fx::ONE).max(floor);
+    let cap = arm.cap.max(floor);
 
     let to_cap = cap / accel;
-    // `cap * cap / (2 * accel)`, grouped so the intermediate stays inside `Fx`.
-    // A weapon quick enough to overflow it is one whose cap never binds, and
-    // saturating high picks the un-capped branch below, which is that answer.
-    let while_accelerating = cap * to_cap * Fx::HALF;
+    // `cap^2 / (2 * accel)`: the arc covered getting up to the ceiling.
+    //
+    // Through `mul_div` rather than as `cap * to_cap * HALF`, and the
+    // difference is not cosmetic. That form saturates whenever `to_cap` is
+    // large -- a slow weapon under a high ceiling, which is *every* heavy
+    // weapon now that the ceiling belongs to the arm -- and it saturates
+    // **low**, at 32768, which is under the arc. So the branch below picked the
+    // capped case for exactly the weapons whose cap never binds, and a Brute's
+    // cut was billed 140 ticks instead of 53. Staged in `i64` the overflow goes
+    // the other way, and saturating high is the correct answer: a ceiling that
+    // cannot be reached inside the arc is a ceiling that does not apply.
+    let while_accelerating = fx::mul_div(cap, cap, accel * Fx::TWO);
     let ticks = if arc <= while_accelerating {
         fx::sqrt_product(arc / accel * Fx::TWO, Fx::ONE)
     } else {
@@ -469,11 +758,6 @@ pub const MIN_STRIKE_REACH: Fx = Fx::from_ratio(15, 100);
 /// Extension below which a shield covers nothing.
 pub const MIN_BLOCK_REACH: Fx = Fx::from_ratio(20, 100);
 
-/// How much of a hand's torque a full extension costs it: a committed blade
-/// corrects at `1 - REACH_DRAG` of a tucked one. This is what makes "tuck to
-/// reposition, extend to strike" a decision instead of flavour text.
-pub const REACH_DRAG: Fx = Fx::from_ratio(45, 100);
-
 /// Proportional error in a fighter's read of what *someone else* can do, per
 /// unit of [`Stats::perception_noise`].
 ///
@@ -543,11 +827,32 @@ impl Stats {
 
     /// World units per tick. Kept per-tick rather than per-second so movement
     /// never pays a rounding tax multiplying by [`DT`].
+    ///
+    /// The speed a body will *settle* at, not the speed it has. Reaching it
+    /// costs about [`TRACTION_TICKS`] ticks and leaving it costs the same
+    /// again; see [`traction`].
     pub const fn move_speed(self) -> Fx {
         Fx::from_ratio(
             250 + 12 * self.agility as i32,
             100 * TICKS_PER_SECOND as i32,
         )
+    }
+
+    /// How much this body may change its velocity in one tick, world units per
+    /// tick squared. **Grip, not weight.**
+    ///
+    /// Mass is deliberately absent. Ground friction is `mu * m * g` and the
+    /// acceleration it buys is `mu * g` -- the mass cancels, and a heavy runner
+    /// does not accelerate worse than a light one for being heavy. What decides
+    /// it is how well a body can dig in, which is agility, and a Brute is
+    /// ponderous here because it has `agility 2` rather than because a fudge
+    /// factor says heavy things are slow.
+    ///
+    /// Weight is not being let off; it is charged where nothing cancels it --
+    /// what a collision does to you, what a blow throws you, and what your own
+    /// swing drags you into.
+    pub fn traction(self) -> Fx {
+        TRACTION_BASE * agility_multiplier(self.agility)
     }
 
     /// **The intellect stat.** Ticks between decisions, floored at 1: from 30
@@ -699,6 +1004,40 @@ mod tests {
     }
 
     #[test]
+    fn traction_reaches_top_speed_in_about_the_advertised_time() {
+        // `TRACTION_TICKS` claims every archetype needs roughly the same time to
+        // get going, whatever its top speed. That falls out of `move_speed` and
+        // `agility_multiplier` both being near-linear in agility, and it is
+        // exactly the sort of coincidence that quietly stops being true when
+        // somebody retunes one of them.
+        for agility in 0..=40u8 {
+            let s = Stats::new(5, agility, 5, 5, 5);
+            let ticks = (s.move_speed() / s.traction()).round_int();
+            assert!(
+                (11..=17).contains(&ticks),
+                "agility {agility} needs {ticks} ticks to reach its top speed, \
+                 against an advertised {TRACTION_TICKS}"
+            );
+        }
+    }
+
+    #[test]
+    fn stopping_distance_is_about_a_body() {
+        // The number the whole change is tuned around. Much shorter and a
+        // committed approach can still be recalled, which is the old game;
+        // much longer and a fighter cannot hold a line at all.
+        for agility in 2..=12u8 {
+            let s = Stats::new(5, agility, 5, 5, 5);
+            let v = s.move_speed();
+            let distance = fx::mul_div(v, v, s.traction() * Fx::TWO);
+            assert!(
+                distance > Fx::from_ratio(25, 100) && distance < Fx::from_ratio(55, 100),
+                "agility {agility} slides {distance} units before it stops"
+            );
+        }
+    }
+
+    #[test]
     fn derived_values_never_go_degenerate() {
         for v in [0u8, 1, 7, 20, 100, 255] {
             let s = Stats::new(v, v, v, v, v);
@@ -709,6 +1048,63 @@ mod tests {
             assert!(s.sight_range() > Fx::ZERO);
             assert!(s.perception_noise() >= Fx::ZERO);
             assert!((1..=MAX_CONTACTS).contains(&s.tracked_contacts()));
+        }
+    }
+
+    #[test]
+    fn no_weapon_swallows_its_own_blade_or_gives_up_its_graze_band() {
+        // Two properties of the dead zone, swept across agility rather than
+        // checked on each archetype's own sheet, because the dead zone moves
+        // with agility and a roster that holds at its authored stats and fails
+        // two points either side will break the next time the ladder is retuned.
+        //
+        // **The band is the half that Phase 3 broke.** A blow of any size ends
+        // the swing that threw it, so a blade with no harmless region near the
+        // hilt spends every cut on the first body that brushes it, at a fraction
+        // of what the same cut would have done a few ticks later further along
+        // its own arc. A Brute lost 90% of its damage output to exactly that and
+        // no derived weapon number showed it: tip speed, strike budget, build-up
+        // rate and dead zone all moved in the Brute's *favour*. See
+        // `GRAZE_FRACTION`, which is what put the band back.
+        //
+        // Note what is *not* asserted: that the band reaches past the wielder's
+        // own body. It does for a Brute (0.86 against a 0.70 radius) and that is
+        // load-bearing -- see `world::tests::crowding_a_heavy_weapon_takes_most_
+        // _of_its_bite_away`, which pins it -- but a Scout's dead zone is 0.27
+        // inside a 0.35 body and always has been. A short quick blade really is
+        // dangerous along its whole length, and demanding otherwise would need
+        // `GRAZE_FRACTION` above 0.43, which measurably flattens the difficulty
+        // ladder. The scale-free guarantee is the one below.
+        for kind in crate::entity::UnitKind::ALL {
+            for agility in [0u8, 1, 2, 4, 8, 16, 40, 255] {
+                let base = kind.base_stats();
+                let stats = Stats::new(
+                    base.power,
+                    agility,
+                    base.intellect,
+                    base.perception,
+                    base.vitality,
+                );
+                let arm = Arm::resolve(kind.weapon(), stats, kind.radius());
+                let safe = dead_zone(arm);
+                assert!(
+                    safe < kind.radius() + kind.weapon().length,
+                    "{kind:?} at agility {agility} has a dead zone of {safe}, which \
+                     swallows its own blade: it cannot hurt anything at all"
+                );
+                // The band, stated the way the sim enforces it: whatever the
+                // stats, a contact worth less than `GRAZE_FRACTION` of this
+                // fighter's best blow is not a cut and does not spend the swing.
+                let floor = graze_floor(arm, stats);
+                assert!(
+                    floor > Fx::ZERO,
+                    "{kind:?} at agility {agility} has no graze floor at all"
+                );
+                assert!(
+                    floor < peak_damage(arm, stats),
+                    "{kind:?} at agility {agility} cannot clear its own graze floor"
+                );
+            }
         }
     }
 

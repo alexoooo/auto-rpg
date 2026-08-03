@@ -74,15 +74,31 @@ three at the same Brute:
 
 | wits            | wins | health it finishes on |
 |-----------------|-----:|----------------------:|
-| int 1 / per 2   |  45% |                  0.32 |
-| int 8 / per 6   |  97% |                  0.60 |
-| int 19 / per 18 | 100% |                  0.82 |
+| int 1 / per 2   |  53% |                  0.15 |
+| int 8 / per 6   |  99% |                  0.57 |
+| int 19 / per 18 | 100% |                  0.73 |
 
-Same body, same weights, same opponent. A dull swordsman loses more often than it
-wins; a capable one wins at the cost of half of itself; a sharp one wins every
-time and barely gets touched. **That range is the whole claim** — levelling
-intellect is not a damage multiplier, it is thinking more often, and levelling
-perception is not a sight radius, it is knowing where the blade will be.
+Same body, same weights, same opponent. A dull swordsman loses about as often as
+it wins and finishes on fumes; a capable one wins at the cost of half of itself;
+a sharp one wins every time and pays a quarter. **That range is the whole claim**
+— levelling intellect is
+not a damage multiplier, it is thinking more often, and levelling perception is
+not a sight radius, it is knowing where the blade will be.
+
+And bodies have weight now. A character does not reach its walking speed on the
+tick it is told to, or stop on the tick it is told to: it needs about a quarter
+of a second either way, which works out to a body's width of ground before it
+comes to rest. That one change moves spacing from a question about *position* —
+stand at the right distance and you were safe, arbitrarily late — to a question
+about *commitment*, because where a fighter will be shortly is already mostly
+decided. Bodies also collide by mass rather than politely splitting the
+difference, so a Skitterer can no longer shoulder a Brute off its feet.
+
+It cost the top of the ladder something, and honestly: a sharp swordsman used to
+finish on 0.82 and now finishes on 0.69, because being nearly untouchable
+depended on stepping out of an arc *after* reading it, and now stepping takes
+time. Dodging lost ground to blocking and out-tempoing. That is the physics
+being right rather than a regression to tune away.
 
 Two reads carry most of it. A declared cut travels along a line, and a line can
 miss — so the duellist replays the cut it can see and asks whether it is even
@@ -98,7 +114,7 @@ switches the pointer to the shield hand. Whichever half you do not hold, the AI
 keeps fighting with — on its own reaction clock, because that is a stat.
 
 And the number matches. `web.wasm` and the native lab produce the *same 64-bit
-state hash* for the same run — `0xc702db64562de0a6` — so the fixed-point
+state hash* for the same run — `0x7d01d836f4f91537` — so the fixed-point
 simulation really is bit-identical across MSVC x86-64 and wasm32, rather than
 merely designed to be.
 

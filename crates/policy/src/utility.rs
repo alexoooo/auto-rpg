@@ -400,13 +400,48 @@ impl UtilityPolicy {
                 // one lands it. The brake is load-bearing rather than polish --
                 // without it the character ping-pongs across the destination
                 // forever at an amplitude of one tick of travel.
-                let stride = obs.move_speed * (obs.decision_period.max(1) as i32);
-                let brake = (distance / stride).min(Fx::ONE);
+                // A decision has to survive the whole period *and* leave room to
+                // stop, and the character cannot re-brake until it is allowed
+                // to think again. Budgeting only the travel -- the whole rule
+                // while a body could stop dead -- lands it on the mark still
+                // moving, with its next chance to reconsider several ticks
+                // after it has sailed past.
+                //
+                // Two bounds, because the body may be going faster or slower
+                // than what is about to be asked of it, and each covers the
+                // case the other misses:
+                //
+                //   settled: `v*P + v^2/2a <= d`  ->  a * (sqrt(P^2 + 2d/a) - P)
+                //   braking: `v0*P + v^2/2a <= d` ->  sqrt(2a * (d - v0*P))
+                //
+                // The first assumes the request is already in force, which is
+                // wrong while the body is still shedding a faster speed -- the
+                // deceleration ramp covers ground the formula never counted,
+                // and that is exactly the overshoot. The second charges the
+                // whole period at the speed it is *actually* doing. Neither
+                // alone is safe; the tighter of the two always is.
+                //
+                // This is the intellect stat as navigation, and more sharply
+                // than before: `P` sets how far ahead a character has to plan,
+                // so a dim one approaches visibly more carefully than a sharp
+                // one, and neither overshoots.
+                //
+                // `2d/a` saturates past about 28 units at the slowest traction
+                // in the range. That is a long way off, the answer there is "go
+                // flat out", and the clamp below already says so.
+                let period = Fx::from_int(obs.decision_period.max(1) as i32);
+                let root = (period * period + distance * Fx::TWO / obs.traction).sqrt();
+                let settled = obs.traction * (root - period);
+                let committed = distance - obs.velocity.length() * period;
+                let braking = fx::sqrt_product(obs.traction * Fx::TWO, committed);
+                let safe = settled.min(braking);
+
                 // Normalise first, *then* scale, so the brake is the whole
                 // magnitude. The trailing clamp is defensive: `normalize`
                 // truncates component-wise and can come back marginally over
                 // one, and `decisions_never_exceed_unit_movement` should hold
                 // unconditionally.
+                let brake = (safe / obs.move_speed.max(Fx::EPSILON)).min(Fx::ONE);
                 return Action::moving((to.normalize() * brake).clamp_length(Fx::ONE));
             }
 
@@ -534,6 +569,7 @@ mod tests {
             // lopsided fixture would only invite someone to assert on it.
             threat: Fx::from_ratio(25, 100),
             frailty: Fx::from_ratio(25, 100),
+            velocity: Vec2::ZERO,
             facing: fx::Angle::ZERO,
             sword_angle: fx::Angle::ZERO,
             sword_reach: Fx::ZERO,

@@ -94,6 +94,19 @@ pub struct Contact {
     /// and `0.05` to a Skitterer.
     pub frailty: Fx,
     /// Which way the body is heading, as perceived.
+    /// Where this contact is going, world units per tick, blurred by
+    /// perception like everything else about it.
+    ///
+    /// A *world-frame* velocity rather than a closing rate, because
+    /// [`Observation::velocity`] is right there and the difference of the two is
+    /// the closing rate -- while the reverse, recovering an absolute velocity
+    /// from a closing one, is not possible at all. It is the raw quantity.
+    ///
+    /// This is what makes a moving enemy hittable. A cut takes its windup and
+    /// its strike to arrive, an enemy at a walk covers most of a body in that
+    /// time, and a fighter aiming at where its opponent *is* will keep cutting
+    /// through the space behind it.
+    pub velocity: Vec2,
     pub facing: Angle,
     /// Perceived bearing of the enemy's sword hand.
     pub sword_angle: Angle,
@@ -150,6 +163,9 @@ pub struct Observation {
     pub faction: Faction,
     /// Own position, known exactly. Proprioception is free.
     pub position: Vec2,
+    /// Own velocity, world units per tick. Exact rather than perceived: a body
+    /// knows what its own feet are doing.
+    pub velocity: Vec2,
     pub hp_frac: Fx,
     /// `0` the hand is dead from a blow just landed, `1` free to strike.
     pub attack_ready: Fx,
@@ -178,6 +194,13 @@ pub struct Observation {
     pub sight_range: Fx,
     /// World units per tick.
     pub move_speed: Fx,
+    /// How much of [`Observation::velocity`] this body can change in one tick.
+    ///
+    /// The other half of [`Observation::move_speed`], and the one that decides
+    /// whether a plan is still cancellable. `v^2 / 2a` is the distance a body
+    /// needs to stop, which is what a fighter has to hold in mind before it
+    /// steps toward anything.
+    pub traction: Fx,
     /// Ticks between this character's decisions -- its own reaction speed.
     ///
     /// Self-knowledge of the same class as [`Observation::position`]:
@@ -218,7 +241,7 @@ pub struct Observation {
 /// phases are not points on a scale -- a recovery is not "more" than a windup --
 /// and encoding them as 0, 1/3, 2/3, 1 would ask a network to learn that the
 /// most dangerous state and the most punishable one sit next to each other.
-const FEATURES_PER_CONTACT: usize = 18 + crate::hand::Swing::COUNT + 3;
+const FEATURES_PER_CONTACT: usize = 20 + crate::hand::Swing::COUNT + 3;
 
 /// Own-state values: health, attack readiness, radius, weapon length, minimum
 /// strike range, decision rate, shield arc, then both hands as direction (2),
@@ -230,7 +253,7 @@ const FEATURES_PER_CONTACT: usize = 18 + crate::hand::Swing::COUNT + 3;
 /// and spin say where it is and how fast, and neither says how long it has been
 /// *there*, which is what decides whether it stops a blow or is merely near
 /// one.
-const SELF_FEATURES: usize = 7 + 4 * crate::hand::HANDS + crate::hand::Swing::COUNT + 3;
+const SELF_FEATURES: usize = 10 + 4 * crate::hand::HANDS + crate::hand::Swing::COUNT + 3;
 
 /// Width of the flattened feature vector produced by
 /// [`Observation::write_features`].
@@ -272,7 +295,24 @@ pub const FEATURE_COUNT: usize =
 ///
 /// Paid now, while there are still no weights: the same bill after a training
 /// run is the training run.
-pub const FEATURE_LAYOUT_VERSION: u32 = 6;
+/// Version 7 is momentum. Bodies carry velocity across ticks now, so where
+/// something *is* stopped being the whole story about where it will be, and
+/// three numbers per contact and three about the self exist to close that gap:
+/// [`Observation::velocity`], [`Observation::traction`] and
+/// [`Contact::velocity`].
+///
+/// The version bump is doing real work here rather than bookkeeping. Every
+/// earlier layout described a world in which a body could stop dead on any
+/// tick, so a policy trained against one has no representation for commitment
+/// at all -- not a missing input, a missing *concept*. Its notion of "I can
+/// step back if this goes wrong" is simply false in version 7, and it would
+/// fail in a way that looks like bad tactics rather than like a stale contract.
+pub const FEATURE_LAYOUT_VERSION: u32 = 7;
+
+/// Speed, in world units per tick, that normalises to `1` in the feature
+/// vector. Comfortably above any archetype's top speed, so it is the knockback
+/// case that approaches the clamp rather than ordinary walking.
+const SPEED_SCALE: Fx = Fx::from_ratio(25, 100);
 
 /// Spin, in raw angle units per tick, that normalises to `1` in the feature
 /// vector. Above the fastest weapon in the game, so the clamp is a guard rather
@@ -311,6 +351,7 @@ impl Observation {
             me,
             faction,
             position,
+            velocity: Vec2::ZERO,
             hp_frac: Fx::ONE,
             attack_ready: Fx::ONE,
             radius: Fx::ZERO,
@@ -320,6 +361,10 @@ impl Observation {
             shield_arc: 0,
             sight_range: Fx::ONE,
             move_speed: Fx::ZERO,
+            // Never zero, for the same reason `decision_period` is not: a
+            // policy dividing by it to get a stopping distance would saturate
+            // rather than fail.
+            traction: Fx::ONE,
             // One, never zero. `Fx` division by zero saturates to `Fx::MAX`
             // rather than panicking, so a zero period would turn a policy's
             // "how far can I travel before my next thought" term into a
@@ -443,6 +488,14 @@ impl Observation {
         i += 1;
         out[i] = arc_fraction(self.shield_arc);
         i += 1;
+        out[i] = (self.velocity.x / SPEED_SCALE).clamp(-Fx::ONE, Fx::ONE);
+        out[i + 1] = (self.velocity.y / SPEED_SCALE).clamp(-Fx::ONE, Fx::ONE);
+        i += 2;
+        // Traction against top speed, which is the reciprocal of "ticks to get
+        // going" and lands near 0.07. The absolute figure would be four decimal
+        // places of nothing; the ratio is the quantity a policy acts on.
+        out[i] = (self.traction / self.move_speed.max(Fx::EPSILON)).min(Fx::ONE);
+        i += 1;
 
         for hand in self.hands {
             let dir = Vec2::from_angle(hand.angle);
@@ -524,14 +577,19 @@ impl Observation {
                     // nothing can act on.
                     out[base + 16] = c.threat.min(Fx::ONE);
                     out[base + 17] = c.frailty.min(Fx::ONE);
+                    // Where it is going. On the same scale as the self block's
+                    // velocity, so the two subtract into a closing rate without
+                    // anything having to learn a conversion first.
+                    out[base + 18] = (c.velocity.x / SPEED_SCALE).clamp(-Fx::ONE, Fx::ONE);
+                    out[base + 19] = (c.velocity.y / SPEED_SCALE).clamp(-Fx::ONE, Fx::ONE);
 
                     // The attack read. The line is a separate pair from
                     // `sword` above on purpose: during a windup the blade is
                     // cocked away from where the cut is going, so the two point
                     // in different directions and collapsing them would hide
                     // the only thing worth knowing.
-                    out[base + 18 + c.sword_swing.discriminant()] = Fx::ONE;
-                    let read = base + 18 + crate::hand::Swing::COUNT;
+                    out[base + 20 + c.sword_swing.discriminant()] = Fx::ONE;
+                    let read = base + 20 + crate::hand::Swing::COUNT;
                     out[read] = (c.sword_left / TICK_SCALE).clamp(Fx::ZERO, Fx::ONE);
                     let line = Vec2::from_angle(c.sword_line);
                     out[read + 1] = line.x;

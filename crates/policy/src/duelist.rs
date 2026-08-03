@@ -756,13 +756,30 @@ impl DuelistPolicy {
         // Keep station: push out when too close, pull in when too far. The
         // deadband is a tenth of the range so a duellist is not permanently
         // correcting by a hair.
+        //
+        // The *pace* is the new half, and it is not a refinement. This used to
+        // drive at the preferred range flat out and stop dead on arrival, which
+        // a body with momentum cannot do: full speed into a deadband a tenth of
+        // a unit wide overshoots it, reverses, overshoots the other way, and
+        // leaves a duellist permanently sliding through the one distance it
+        // wanted to be standing at.
+        //
+        // `sqrt(2 * a * d)` is the fastest approach from which a stop is still
+        // possible. It is the same braking law `Hand::track` runs on the arm --
+        // the arm has had momentum since the beginning, and this is the feet
+        // catching up to it.
         let band = ideal * Fx::from_ratio(1, 10);
-        let station = if foe.distance > ideal + band {
-            toward
-        } else if foe.distance < ideal - band {
-            -toward
-        } else {
+        let error = foe.distance - ideal;
+        let station = if error.abs() <= band {
             Vec2::ZERO
+        } else {
+            let brakeable = fx::sqrt_product(obs.traction * Fx::TWO, error.abs() - band);
+            let pace = (brakeable / obs.move_speed.max(Fx::EPSILON)).min(Fx::ONE);
+            if error.is_positive() {
+                toward * pace
+            } else {
+                -toward * pace
+            }
         };
 
         let orbit = swing::shield_free_side(foe);
@@ -903,9 +920,11 @@ mod tests {
     /// One clean blow from `by`, as a fraction of `to`'s health bar. The
     /// observer in these fixtures is a Scout; see `situation`.
     fn exchange(by: UnitKind, to: UnitKind) -> Fx {
-        let weapon = by.weapon();
-        sim::peak_damage(weapon, by.base_stats(), by.radius() + weapon.length)
-            / to.base_stats().max_hp()
+        sim::peak_damage(arm_of(by), by.base_stats()) / to.base_stats().max_hp()
+    }
+
+    fn arm_of(kind: UnitKind) -> sim::Arm {
+        sim::Arm::resolve(kind.weapon(), kind.base_stats(), kind.radius())
     }
 
     fn contact(kind: UnitKind, x: i32, y: i32) -> Contact {
@@ -920,9 +939,10 @@ mod tests {
             // The real figures, unblurred: these fixtures are testing what a
             // policy does with a correct read, and the tests that care about a
             // wrong one set it themselves.
-            min_strike_range: sim::dead_zone(kind.weapon(), kind.base_stats().agility),
+            min_strike_range: sim::dead_zone(arm_of(kind)),
             threat: exchange(kind, UnitKind::Scout),
             frailty: exchange(UnitKind::Scout, kind),
+            velocity: Vec2::ZERO,
             facing: Angle::HALF,
             sword_angle: Angle::HALF,
             sword_reach: Fx::ONE,

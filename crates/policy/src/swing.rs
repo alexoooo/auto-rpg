@@ -278,13 +278,15 @@ mod tests {
             hp_frac: Fx::ONE,
             radius: Fx::from_ratio(45, 100),
             weapon_length: Fx::from_ratio(95, 100),
-            min_strike_range: sim::dead_zone(
+            min_strike_range: sim::dead_zone(sim::Arm::resolve(
                 UnitKind::Warrior.weapon(),
-                UnitKind::Warrior.base_stats().agility,
-            ),
+                UnitKind::Warrior.base_stats(),
+                UnitKind::Warrior.radius(),
+            )),
             // A Warrior seen by the Scout in `observer`, both ways round.
             threat: Fx::from_ratio(277, 1000),
             frailty: Fx::from_ratio(126, 1000),
+            velocity: Vec2::ZERO,
             facing: Angle::ZERO,
             sword_angle: Angle::ZERO,
             sword_reach: Fx::ONE,

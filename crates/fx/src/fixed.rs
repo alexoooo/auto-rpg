@@ -192,6 +192,54 @@ pub fn sqrt_product(a: Fx, b: Fx) -> Fx {
     })
 }
 
+/// `a * b / c`, with no intermediate that can saturate.
+///
+/// The workhorse of every impulse in the sim, because momentum exchange is
+/// nothing but `a * b / c` -- an impulse scaled by an inverse mass, a velocity
+/// split by a mass ratio, a spin divided by a moment of inertia. Written the
+/// obvious way, `a * b` saturates at 32768 and takes the answer with it: a
+/// weapon inertia of 10 and a spin of 4000 is not an unusual pair, and their
+/// product is off the end of [`Fx`] by two orders of magnitude.
+///
+/// `a.raw() * b.raw()` is `a*b * 2^32`, so dividing by `c.raw()` -- which is
+/// `c * 2^16` -- lands on `a*b/c * 2^16`, the raw form of the answer, with no
+/// shift at all. Same trick as [`sqrt_product`], and for the same reason.
+///
+/// **Truncates toward zero**, unlike [`Fx`]'s `Mul`, which floors. That is
+/// deliberate: truncation is odd-symmetric, so a mirrored pair of fighters
+/// exchanging mirrored impulses gets mirrored answers instead of drifting apart
+/// by a raw unit on whichever side happens to be negative. `Hand::track` makes
+/// the same choice for the same reason.
+///
+/// `c == 0` saturates in the sign of the numerator rather than panicking; the
+/// sim must be total. Callers that can divide by zero must guard.
+pub fn mul_div(a: Fx, b: Fx, c: Fx) -> Fx {
+    if c.0 == 0 {
+        let negative = (a.0 < 0) != (b.0 < 0);
+        return if negative { Fx::MIN } else { Fx::MAX };
+    }
+    // Both factors are `i32`, so the product is under `2^62` and exact.
+    Fx(sat(a.0 as i64 * b.0 as i64 / c.0 as i64))
+}
+
+/// `1/2 * mass * speed^2` -- the kinetic energy a blow carries.
+///
+/// Staged through raw space in two steps because the naive form saturates
+/// twice over. `speed` is signed for convenience and squared, so the sign is
+/// discarded; a negative `mass` is meaningless and answers zero.
+///
+/// Extreme inputs saturate rather than wrap. A mass and a speed large enough to
+/// reach that are already outside anything the roster can produce -- the sim's
+/// own assertions are what catch a table that drifts there, not this function.
+pub fn energy(mass: Fx, speed: Fx) -> Fx {
+    let m = if mass.0 > 0 { mass.0 as i64 } else { return Fx::ZERO };
+    let v = speed.0.unsigned_abs() as u64 as i64;
+    // `v * v` is `v^2 * 2^32`; the shift brings it back to the raw form of
+    // `v^2`. Exact: `v` is under `2^31`, so the product is under `2^62`.
+    let vv = v.saturating_mul(v) >> FRAC_BITS;
+    Fx(sat((m.saturating_mul(vv) >> FRAC_BITS) >> 1))
+}
+
 /// Speed, in world units per tick, of a point `radius` from a pivot spinning at
 /// `spin` **raw angle units per tick**.
 ///
@@ -367,6 +415,72 @@ mod tests {
         assert_eq!(Fx::from_int(-3).floor_int(), -3);
         assert_eq!(Fx::from_ratio(3, 2), Fx::ONE + Fx::HALF);
         assert_eq!(Fx::from_ratio(-1, 2), -Fx::HALF);
+    }
+
+    #[test]
+    fn mul_div_survives_products_that_saturate_fx() {
+        // The case the sim actually hits: a spin of 4000 against an inertia of
+        // 10. Written as `(spin * restitution) / inertia` the first product is
+        // fine, but `spin * inertia` -- which the obvious impulse form
+        // produces -- is 40000 and clamps to 32767.99998.
+        let spin = Fx::from_int(4000);
+        let inertia = Fx::from_int(10);
+        assert_eq!(spin * inertia, Fx::MAX, "premise: the naive form saturates");
+        assert_eq!(mul_div(spin, inertia, Fx::from_int(100)), Fx::from_int(400));
+
+        // Exactness on values that do fit, so it is a drop-in for `a * b / c`.
+        let a = Fx::from_ratio(5, 2);
+        let b = Fx::from_ratio(3, 4);
+        assert_eq!(mul_div(a, b, Fx::from_int(3)), a * b / Fx::from_int(3));
+    }
+
+    #[test]
+    fn mul_div_truncates_toward_zero_so_mirrored_impulses_mirror() {
+        // The property `Mul` does not have. A mirrored pair of fighters must
+        // get answers that are exact negations, or they drift apart by a raw
+        // unit per tick on whichever side is turning negative.
+        for n in [1, 3, 7, 11, 65_535, 65_537] {
+            let a = Fx::from_raw(n);
+            let plus = mul_div(a, Fx::from_ratio(1, 3), Fx::from_int(7));
+            let minus = mul_div(-a, Fx::from_ratio(1, 3), Fx::from_int(7));
+            assert_eq!(plus, -minus, "asymmetric at raw {n}");
+        }
+    }
+
+    #[test]
+    fn mul_div_is_total() {
+        assert_eq!(mul_div(Fx::ONE, Fx::ONE, Fx::ZERO), Fx::MAX);
+        assert_eq!(mul_div(-Fx::ONE, Fx::ONE, Fx::ZERO), Fx::MIN);
+        assert_eq!(mul_div(-Fx::ONE, -Fx::ONE, Fx::ZERO), Fx::MAX);
+        // Saturates rather than wrapping when the answer genuinely does not fit.
+        assert_eq!(mul_div(Fx::MAX, Fx::MAX, Fx::EPSILON), Fx::MAX);
+        assert_eq!(mul_div(Fx::MIN, Fx::MAX, Fx::EPSILON), Fx::MIN);
+    }
+
+    #[test]
+    fn energy_is_half_m_v_squared() {
+        // 1/2 * 4 * 3^2 = 18
+        assert_eq!(energy(Fx::from_int(4), Fx::from_int(3)), Fx::from_int(18));
+        // Sign of the speed is irrelevant -- a backswing carries the same energy.
+        assert_eq!(
+            energy(Fx::from_int(4), Fx::from_int(-3)),
+            energy(Fx::from_int(4), Fx::from_int(3))
+        );
+        // Quadratic, which is the whole point of choosing it as the damage law.
+        // On exactly representable speeds, so this pins the law and not the
+        // rounding: a tenth is not a 16.16 number and squaring one loses a bit.
+        let slow = energy(Fx::ONE, Fx::from_ratio(1, 4));
+        let fast = energy(Fx::ONE, Fx::HALF);
+        assert_eq!(fast, slow * Fx::from_int(4));
+
+        // Blade-scale values keep real resolution rather than collapsing to
+        // zero: this is the range every blow in the game is billed from.
+        let blow = energy(Fx::from_ratio(33, 10), Fx::from_ratio(158, 1000));
+        assert!(blow > Fx::ZERO && blow < Fx::ONE, "{blow}");
+
+        assert_eq!(energy(Fx::ZERO, Fx::from_int(5)), Fx::ZERO);
+        assert_eq!(energy(-Fx::ONE, Fx::from_int(5)), Fx::ZERO);
+        let _ = energy(Fx::MAX, Fx::MAX);
     }
 
     #[test]

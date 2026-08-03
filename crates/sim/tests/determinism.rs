@@ -221,7 +221,7 @@ fn player_orders_change_the_outcome_without_breaking_determinism() {
 // budgeted, and `Advance` is a patrol rather than a march into a wall. Every
 // recorded run predating that is void, so this is a fresh number rather than a
 // corrected one.
-const GOLDEN_STATE_HASH: u64 = 0xae9a_6935_cbcf_9785;
+const GOLDEN_STATE_HASH: u64 = 0x1d8c_9607_975f_d859;
 
 #[test]
 fn golden_hash() {
@@ -251,7 +251,14 @@ fn a_run_actually_resolves_rather_than_timing_out() {
     // a stalemate at tick 0, most of this file would still pass.
     let scenario = Scenario::skirmish(1234, 4, 6);
     let (world, replay, _) = run(&scenario, 99);
-    assert!(world.outcome().is_some(), "the fight never resolved");
+    assert!(
+        world.outcome().is_some(),
+        "the fight never resolved: {} ticks of a {} limit, {} heroes and {} monsters still up",
+        world.tick(),
+        scenario.max_ticks,
+        world.alive_ids(Faction::Heroes).len(),
+        world.alive_ids(Faction::Monsters).len(),
+    );
     assert!(world.tick() > 30, "resolved suspiciously fast");
     assert!(replay.len() > 50, "hardly any decisions were made");
 }

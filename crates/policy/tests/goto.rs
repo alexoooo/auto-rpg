@@ -133,6 +133,18 @@ impl Room {
 /// backslide the add-then-clamp steering bug produces.
 const EPS: Fx = Fx::from_ratio(1, 1000);
 
+/// How close counts as *settled*, for the assertions about where a walk ends
+/// rather than how it got there.
+///
+/// One tick of travel, which is also the arrival deadband the policy itself
+/// uses, so this asserts the character stopped inside its own definition of
+/// arrival. It was `EPS` while a click into a wall ended with the body pressed
+/// against the boundary and pinned there exactly; with momentum the character
+/// brakes to a halt where it decided to, a couple of hundredths short, and
+/// grinding into the wall to shave that off would be worse behaviour rather
+/// than better. `EPS` still guards backslide, which is genuinely zero.
+const SETTLE: Fx = Fx::from_ratio(55, 1000);
+
 #[test]
 fn a_click_on_open_ground_is_walked_to_and_not_merely_approached() {
     let mut room = Room::warrior();
@@ -232,7 +244,7 @@ fn a_click_inside_a_wall_arrives_as_close_as_a_body_can_get() {
         );
         assert!(arrival.tick.is_some(), "never arrived at {click:?}");
         assert!(
-            arrival.distance < EPS,
+            arrival.distance < SETTLE,
             "{click:?} settled {} from the closest reachable point",
             arrival.distance
         );

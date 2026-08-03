@@ -136,6 +136,87 @@ pub fn segment_circle(a: Vec2, b: Vec2, c: Vec2, r: Fx) -> Option<SegmentHit> {
     }
 }
 
+/// Most sub-steps [`swept_segment_circle`] will ever take.
+///
+/// A backstop and not a tuning knob. At the speeds the sim produces the count
+/// derived below is one or two; reaching eight means a blade and a body are
+/// closing at eight body-radii per tick, which nothing in the roster can do.
+/// Capping rather than growing keeps the cost of the hot loop bounded and keeps
+/// the function total -- an uncapped count derived from a saturated length
+/// would be a thirty-two-thousand-iteration loop inside per-pair collision
+/// resolution.
+pub const SWEEP_SUBSTEPS_MAX: u32 = 8;
+
+/// [`segment_circle`], but over a whole tick of motion rather than at one
+/// instant.
+///
+/// The closest-approach test is correct only while nothing crosses a whole body
+/// between two samples, and that invariant is expensive: it is what pins
+/// `rules::agility_multiplier` to a ceiling of `2.00`, and it holds today with
+/// about a tenth of a body-radius to spare *while ignoring body motion
+/// entirely*. Once a blow can knock a body faster than it walks, the margin is
+/// gone and blades start passing through people.
+///
+/// Rather than solve the quadratic -- correct, and the kind of fixed-point
+/// derivation that fails once a year as an unreproducible desync -- this walks
+/// the pair through `n` sub-steps and runs the existing exact predicate at each.
+/// `n` comes from **relative** travel measured in radii of the body being
+/// tested, so it adapts to the closing speed and is a pure integer function of
+/// the inputs: exactly as deterministic as the single test it replaces, and
+/// auditable by reading it.
+///
+/// The endpoints are used verbatim at `k == n` rather than interpolated, so a
+/// pair that needs only one sub-step gives bit-identical results to a plain
+/// [`segment_circle`] on the end state. That equivalence is what let this land
+/// without moving a single hash.
+///
+/// Reports the **first** sub-step that connects, which is the earliest contact
+/// and therefore the one that should bill the blow.
+#[allow(clippy::too_many_arguments)]
+pub fn swept_segment_circle(
+    base0: Vec2,
+    tip0: Vec2,
+    base1: Vec2,
+    tip1: Vec2,
+    centre0: Vec2,
+    centre1: Vec2,
+    radius: Fx,
+) -> Option<SegmentHit> {
+    let drift = centre1 - centre0;
+    // What the blade did *in the body's frame*. A blade and a body moving
+    // together at any speed have not closed at all and need no sub-steps.
+    let travel = ((base1 - base0) - drift)
+        .length()
+        .max(((tip1 - tip0) - drift).length());
+
+    let steps = if radius.raw() <= 0 {
+        1
+    } else {
+        // Ceiling of `travel / radius`: one sub-step per body-radius covered,
+        // so no sub-step can step over the body it is testing against.
+        let ratio = travel / radius;
+        let ceiling = (ratio.raw() as i64 + (crate::fixed::ONE_RAW as i64 - 1)) >> FRAC_BITS;
+        ceiling.clamp(1, SWEEP_SUBSTEPS_MAX as i64) as u32
+    };
+
+    for k in 1..=steps {
+        let (a, b, c) = if k == steps {
+            (base1, tip1, centre1)
+        } else {
+            let t = Fx::from_ratio(k as i32, steps as i32);
+            (
+                Vec2::lerp(base0, base1, t),
+                Vec2::lerp(tip0, tip1, t),
+                Vec2::lerp(centre0, centre1, t),
+            )
+        };
+        if let Some(hit) = segment_circle(a, b, c, radius) {
+            return Some(hit);
+        }
+    }
+    None
+}
+
 /// Where `p..pe` crosses `q..qe`, if it does.
 ///
 /// Parallel and collinear pairs answer `None` on purpose. Two blades sliding
@@ -224,6 +305,94 @@ mod tests {
         // not the infinite line's.
         assert!(segment_circle(a, b, v(14, 0), Fx::from_int(3)).is_none());
         assert!(segment_circle(a, b, v(12, 0), Fx::from_int(3)).is_some());
+    }
+
+    /// The whole reason the swept form exists.
+    #[test]
+    fn a_blade_that_crosses_a_body_in_one_tick_still_lands() {
+        let centre = v(5, 0);
+        let r = Fx::from_ratio(5, 10);
+
+        // A vertical blade that starts two units short of the body and ends two
+        // units past it. Nothing was ever *at* the body on either sample.
+        let (base0, tip0) = (v(3, -2), v(3, 2));
+        let (base1, tip1) = (v(7, -2), v(7, 2));
+
+        assert!(
+            segment_circle(base1, tip1, centre, r).is_none(),
+            "the un-swept test should miss this -- that is the bug"
+        );
+        let hit = swept_segment_circle(base0, tip0, base1, tip1, centre, centre, r);
+        assert!(hit.is_some(), "the swept test missed a body it passed through");
+        assert!(hit.unwrap().distance <= r);
+    }
+
+    /// The equivalence that let this land without moving a hash.
+    #[test]
+    fn a_single_substep_is_exactly_the_old_answer() {
+        let centre = v(5, 2);
+        let r = Fx::from_int(3);
+        // Travel well under one radius, so the derived count is 1.
+        let (base0, tip0) = (v(0, 0), v(10, 0));
+        let base1 = base0 + Vec2::new(Fx::from_ratio(1, 100), Fx::ZERO);
+        let tip1 = tip0 + Vec2::new(Fx::from_ratio(1, 100), Fx::ZERO);
+
+        let swept = swept_segment_circle(base0, tip0, base1, tip1, centre, centre, r).unwrap();
+        let plain = segment_circle(base1, tip1, centre, r).unwrap();
+        assert_eq!(swept, plain);
+    }
+
+    #[test]
+    fn a_body_carried_along_with_the_blade_never_closes() {
+        // Both cross half the arena together. In the body's frame nothing moved,
+        // so this must cost one sub-step and report exactly the end state.
+        let shift = Vec2::from_ints(12, 5);
+        let r = Fx::ONE;
+        let (base0, tip0) = (v(0, 0), v(4, 0));
+        let centre0 = v(2, 3);
+
+        let swept = swept_segment_circle(
+            base0,
+            tip0,
+            base0 + shift,
+            tip0 + shift,
+            centre0,
+            centre0 + shift,
+            r,
+        );
+        assert!(swept.is_none(), "a body three units off the blade was hit");
+
+        // And the same pair with the body within reach does report, once.
+        let near = v(2, 1);
+        let hit = swept_segment_circle(base0, tip0, base0 + shift, tip0 + shift, near, near + shift, r);
+        assert_eq!(hit, segment_circle(base0 + shift, tip0 + shift, near + shift, r));
+    }
+
+    #[test]
+    fn a_sweep_reports_the_first_contact_and_not_the_last() {
+        // A blade that passes clean through and ends on the far side. The hit
+        // that bills damage should be the entry, so the blow is credited where
+        // the blade actually met the body.
+        let centre = v(5, 0);
+        let r = Fx::from_int(1);
+        let (base0, tip0) = (v(2, -3), v(2, 3));
+        let (base1, tip1) = (v(8, -3), v(8, 3));
+
+        let hit = swept_segment_circle(base0, tip0, base1, tip1, centre, centre, r).unwrap();
+        // Entry side, so left of the centre rather than right of it.
+        assert!(hit.point.x <= centre.x, "reported the exit: {:?}", hit.point);
+    }
+
+    #[test]
+    fn the_substep_count_is_capped_however_wild_the_input() {
+        // A saturated travel must not turn the loop into a thirty-thousand-step
+        // walk. Correctness here is "it returns"; the cap is the contract.
+        let big = Fx::MAX;
+        let lo = Vec2::new(Fx::MIN, Fx::MIN);
+        let hi = Vec2::new(big, big);
+        let _ = swept_segment_circle(lo, hi, hi, lo, Vec2::ZERO, hi, Fx::EPSILON);
+        let _ = swept_segment_circle(lo, lo, hi, hi, lo, hi, Fx::ZERO);
+        let _ = swept_segment_circle(lo, hi, lo, hi, hi, lo, big);
     }
 
     #[test]

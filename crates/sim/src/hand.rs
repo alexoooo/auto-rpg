@@ -59,7 +59,7 @@
 //! again with extra steps.
 
 use crate::action::{HandCommand, Strike};
-use crate::rules::{self, Weapon, REACH_DRAG};
+use crate::rules::{self, Arm};
 use fx::{Angle, Fx};
 
 /// Hands per character.
@@ -247,12 +247,12 @@ impl Hand {
     /// Reported against the phase's *nominal* length rather than against what
     /// is left of it, so it means the same thing to a fast character and a slow
     /// one.
-    pub fn phase_progress(self, weapon: Weapon, agility: Fx) -> Fx {
+    pub fn phase_progress(self, arm: Arm) -> Fx {
         let full = match self.swing {
             Swing::Guard => return Fx::ONE,
-            Swing::Windup => rules::phase_ticks(weapon.windup, agility),
-            Swing::Strike => rules::strike_ticks(weapon, agility),
-            Swing::Recover => rules::phase_ticks(weapon.recovery, agility),
+            Swing::Windup => rules::phase_ticks(arm.weapon.windup, arm.agility),
+            Swing::Strike => rules::strike_ticks(arm),
+            Swing::Recover => rules::phase_ticks(arm.weapon.recovery, arm.agility),
         };
         if full == 0 {
             return Fx::ONE;
@@ -266,19 +266,19 @@ impl Hand {
     /// wherever it is pointed, and the skill in it was never a matter of timing:
     /// a blow lands somewhere other than where its wielder is standing, so
     /// covering the swordsman and covering the cut are different bets.
-    pub(crate) fn brace(&mut self, cmd: HandCommand, weapon: Weapon, agility: Fx) {
-        self.track(cmd.angle, cmd.reach, weapon, agility);
+    pub(crate) fn brace(&mut self, cmd: HandCommand, arm: Arm) {
+        self.track(cmd.angle, cmd.reach, arm);
     }
 
     /// Advances a **sword** hand one tick: step the attack, then chase whatever
     /// bearing and extension that phase asks for.
-    pub(crate) fn wield(&mut self, cmd: HandCommand, weapon: Weapon, agility: Fx) {
-        let (bearing, reach) = self.step_attack(cmd, weapon, agility);
-        self.track(bearing, reach, weapon, agility);
+    pub(crate) fn wield(&mut self, cmd: HandCommand, arm: Arm) {
+        let (bearing, reach) = self.step_attack(cmd, arm);
+        self.track(bearing, reach, arm);
     }
 
     /// Runs the phase machine one tick and reports what the hand should chase.
-    fn step_attack(&mut self, cmd: HandCommand, weapon: Weapon, agility: Fx) -> (Angle, Fx) {
+    fn step_attack(&mut self, cmd: HandCommand, arm: Arm) -> (Angle, Fx) {
         // The release. Any command that is not asking to attack re-arms the
         // hand, in any phase -- including mid-cut, so a policy can queue the
         // next attack by releasing while the current one is still travelling.
@@ -289,7 +289,7 @@ impl Hand {
         match self.swing {
             Swing::Guard => {
                 if self.armed && cmd.strike.is_attack() {
-                    self.begin(cmd.angle, cmd.strike, weapon, agility);
+                    self.begin(cmd.angle, cmd.strike, arm);
                     self.windup_target()
                 } else {
                     (cmd.angle, rules::GUARD_REACH)
@@ -327,7 +327,7 @@ impl Hand {
                 self.swing_left = self.swing_left.saturating_sub(1);
                 if self.swing_left == 0 {
                     self.swing = Swing::Strike;
-                    self.swing_left = rules::strike_ticks(weapon, agility);
+                    self.swing_left = rules::strike_ticks(arm);
                     self.strike_target()
                 } else {
                     self.windup_target()
@@ -345,7 +345,7 @@ impl Hand {
                     // `World::apply_impulses` on the tick they land, so a swing
                     // that survives to run out its own arc is by construction a
                     // swing that met no one -- no flag needed to know it.
-                    self.recover(weapon, agility, rules::WHIFF_RECOVERY);
+                    self.recover(arm, rules::WHIFF_RECOVERY);
                     (cmd.angle, rules::GUARD_REACH)
                 } else {
                     self.strike_target()
@@ -365,7 +365,7 @@ impl Hand {
     }
 
     /// Commits to a cut through `line`.
-    fn begin(&mut self, line: Angle, strike: Strike, weapon: Weapon, agility: Fx) {
+    fn begin(&mut self, line: Angle, strike: Strike, arm: Arm) {
         self.line = line;
         self.side = match strike.side() {
             0 => {
@@ -390,18 +390,18 @@ impl Hand {
             s => s as i8,
         };
         self.swing = Swing::Windup;
-        self.swing_left = rules::phase_ticks(weapon.windup, agility).max(1);
+        self.swing_left = rules::phase_ticks(arm.weapon.windup, arm.agility).max(1);
         self.armed = false;
     }
 
     /// Ends the running cut and starts bringing the blade back. `extra` is the
     /// penalty for having been stopped rather than having simply finished.
-    pub(crate) fn recover(&mut self, weapon: Weapon, agility: Fx, extra: u16) {
+    pub(crate) fn recover(&mut self, arm: Arm, extra: u16) {
         self.swing = Swing::Recover;
         // The penalty is scaled with the weapon's own recovery rather than added
         // flat afterwards, so agility buys back a share of the punishment for
         // being blocked exactly as it buys back the rest of the recovery.
-        self.swing_left = rules::phase_ticks(weapon.recovery.saturating_add(extra), agility).max(1);
+        self.swing_left = rules::phase_ticks(arm.weapon.recovery.saturating_add(extra), arm.agility).max(1);
     }
 
     /// Whether the running cut has travelled far enough past its line to be
@@ -429,18 +429,22 @@ impl Hand {
     /// The physics: accelerate toward `bearing` under a torque cap, braking so
     /// as to arrive at rest, and rate-limit the extension toward `want_reach`.
     ///
-    /// `agility` is the wielder's [`crate::rules::agility_multiplier`], already
-    /// resolved, so this stays a pure function of the hand and its weapon.
-    fn track(&mut self, bearing: Angle, want_reach: Fx, weapon: Weapon, agility: Fx) {
+    /// `arm` is the weapon already resolved against the body swinging it, so
+    /// this stays a pure function of the hand and what is in it.
+    fn track(&mut self, bearing: Angle, want_reach: Fx, arm: Arm) {
         let want_reach = want_reach.clamp(Fx::ZERO, Fx::ONE);
 
         // An extended blade resists being turned. This is what makes the phases
         // physical rather than scripted: a cut is slower to place *because* it
         // is committed, so the windup's half extension is not a cosmetic pose --
         // it is what lets the blade get cocked inside the telegraph at all.
-        let drag = Fx::ONE - REACH_DRAG * self.reach;
-        let torque = weapon.torque * agility * drag;
-        let ceiling = weapon.max_spin * agility;
+        //
+        // It falls out of the lever arm now rather than out of a constant:
+        // extending moves the weapon's mass away from the shoulder, inertia
+        // goes as the square of that, and `torque / I` drops accordingly. The
+        // old `REACH_DRAG` was a linear approximation of exactly this.
+        let torque = arm.accel(self.reach);
+        let ceiling = arm.cap;
 
         // Bang-bang with a braking cap: run at the ceiling while there is room,
         // then decelerate onto the mark. `sqrt(2 * torque * |error|)` is the
@@ -449,7 +453,7 @@ impl Hand {
         // the square root would run.
         let error = bearing.delta(self.angle);
         let magnitude = Fx::from_int(error.abs());
-        let brake = fx::sqrt_product(weapon.torque * agility * Fx::TWO, magnitude);
+        let brake = fx::sqrt_product(torque * Fx::TWO, magnitude);
         let target = brake.min(ceiling);
         let target = if error < 0 { -target } else { target };
 
@@ -465,7 +469,7 @@ impl Hand {
         self.angle = self.angle + Angle::from_raw(whole as u16);
         self.residue = advance - Fx::from_int(whole);
 
-        let rate = weapon.extend_rate * agility;
+        let rate = arm.extend_rate;
         let gap = want_reach - self.reach;
         self.reach = (self.reach + gap.clamp(-rate, rate)).clamp(Fx::ZERO, Fx::ONE);
 
@@ -516,11 +520,15 @@ mod tests {
         rules::agility_multiplier(kind.base_stats().agility)
     }
 
+    fn arm_of(kind: UnitKind) -> Arm {
+        Arm::resolve(kind.weapon(), kind.base_stats(), kind.radius())
+    }
+
     /// Runs a sword hand for `ticks` under one standing command.
     fn wield(kind: UnitKind, cmd: HandCommand, ticks: u32) -> Hand {
         let mut hand = Hand::resting(Angle::ZERO);
         for _ in 0..ticks {
-            hand.wield(cmd, kind.weapon(), agility_of(kind));
+            hand.wield(cmd, arm_of(kind));
         }
         hand
     }
@@ -529,7 +537,7 @@ mod tests {
     fn brace(kind: UnitKind, cmd: HandCommand, ticks: u32) -> Hand {
         let mut hand = Hand::resting(Angle::ZERO);
         for _ in 0..ticks {
-            hand.brace(cmd, kind.weapon(), agility_of(kind));
+            hand.brace(cmd, arm_of(kind));
         }
         hand
     }
@@ -568,18 +576,17 @@ mod tests {
         // real time between "he has decided to hit me" and "the blade is
         // dangerous", and it is long enough to answer.
         let kind = UnitKind::Brute;
-        let weapon = kind.weapon();
-        let agility = agility_of(kind);
-        let telegraph = rules::phase_ticks(weapon.windup, agility);
+        let arm = arm_of(kind);
+        let telegraph = rules::phase_ticks(arm.weapon.windup, arm.agility);
         assert!(telegraph > 20, "a Brute's telegraph is only {telegraph} ticks");
 
         let mut hand = Hand::resting(Angle::ZERO);
         for tick in 0..telegraph {
-            hand.wield(cut(0), weapon, agility);
+            hand.wield(cut(0), arm);
             assert_eq!(hand.swing, Swing::Windup, "tick {tick}");
             assert!(!hand.swing.is_live(), "the cut went live during its windup");
         }
-        hand.wield(cut(0), weapon, agility);
+        hand.wield(cut(0), arm);
         assert_eq!(hand.swing, Swing::Strike);
         assert!(hand.swing.is_live());
     }
@@ -587,13 +594,12 @@ mod tests {
     #[test]
     fn a_windup_draws_the_blade_off_the_line_and_the_cut_crosses_it_at_speed() {
         let kind = UnitKind::Warrior;
-        let weapon = kind.weapon();
-        let agility = agility_of(kind);
+        let arm = arm_of(kind);
         let mut hand = Hand::resting(Angle::ZERO);
 
         // Wind up: the blade goes *away* from the line, which is the read.
-        for _ in 0..rules::phase_ticks(weapon.windup, agility) {
-            hand.wield(cut(0), weapon, agility);
+        for _ in 0..rules::phase_ticks(arm.weapon.windup, arm.agility) {
+            hand.wield(cut(0), arm);
         }
         let cocked = hand.angle.delta(Angle::ZERO);
         assert!(
@@ -606,8 +612,8 @@ mod tests {
         // it is moving hard as it goes through.
         let mut fastest = Fx::ZERO;
         let mut crossed = false;
-        for _ in 0..rules::strike_ticks(weapon, agility) {
-            hand.wield(cut(0), weapon, agility);
+        for _ in 0..rules::strike_ticks(arm) {
+            hand.wield(cut(0), arm);
             if hand.angle.delta(Angle::ZERO).signum() != cocked.signum() {
                 crossed = true;
             }
@@ -616,7 +622,7 @@ mod tests {
             }
         }
         assert!(crossed, "the cut never reached the line");
-        let arm = kind.radius() + weapon.length;
+        let arm = kind.radius() + arm.weapon.length;
         assert!(
             fx::tangential_speed(fastest, arm) > rules::IMPACT_THRESHOLD * Fx::TWO,
             "crossed the line at {fastest} raw units per tick, which barely registers"
@@ -629,14 +635,13 @@ mod tests {
         // is meant to be met as a failing test rather than as a fight that will
         // not end: an agent that never releases attacks exactly once.
         let kind = UnitKind::Scout;
-        let weapon = kind.weapon();
-        let agility = agility_of(kind);
+        let arm = arm_of(kind);
 
         let mut hand = Hand::resting(Angle::ZERO);
         let mut lives = 0;
         let mut was_live = false;
         for _ in 0..600 {
-            hand.wield(cut(0), weapon, agility);
+            hand.wield(cut(0), arm);
             if hand.swing.is_live() && !was_live {
                 lives += 1;
             }
@@ -645,10 +650,10 @@ mod tests {
         assert_eq!(lives, 1, "holding the command down threw {lives} attacks");
 
         // Release for one tick and it is a swordsman again.
-        hand.wield(guard(0), weapon, agility);
+        hand.wield(guard(0), arm);
         assert!(hand.armed);
         for _ in 0..600 {
-            hand.wield(cut(0), weapon, agility);
+            hand.wield(cut(0), arm);
             if hand.swing.is_live() && !was_live {
                 lives += 1;
             }
@@ -660,16 +665,15 @@ mod tests {
     #[test]
     fn a_windup_can_be_cancelled_which_is_what_a_feint_is() {
         let kind = UnitKind::Brute;
-        let weapon = kind.weapon();
-        let agility = agility_of(kind);
+        let arm = arm_of(kind);
         let mut hand = Hand::resting(Angle::ZERO);
 
         for _ in 0..4 {
-            hand.wield(cut(0), weapon, agility);
+            hand.wield(cut(0), arm);
         }
         assert_eq!(hand.swing, Swing::Windup);
 
-        hand.wield(guard(0), weapon, agility);
+        hand.wield(guard(0), arm);
         assert_eq!(hand.swing, Swing::Guard, "a windup could not be called off");
         assert!(hand.armed, "calling off a windup left the hand unable to attack");
     }
@@ -679,17 +683,16 @@ mod tests {
         // The other half of the same rule, and the one that makes the punish
         // window exist: past the telegraph, the decision is spent.
         let kind = UnitKind::Brute;
-        let weapon = kind.weapon();
-        let agility = agility_of(kind);
+        let arm = arm_of(kind);
         let mut hand = Hand::resting(Angle::ZERO);
-        for _ in 0..=rules::phase_ticks(weapon.windup, agility) {
-            hand.wield(cut(0), weapon, agility);
+        for _ in 0..=rules::phase_ticks(arm.weapon.windup, arm.agility) {
+            hand.wield(cut(0), arm);
         }
         assert_eq!(hand.swing, Swing::Strike);
 
         // Ask for the opposite line, and to stop attacking, and neither lands.
         let frozen = hand.line;
-        hand.wield(guard(180), weapon, agility);
+        hand.wield(guard(180), arm);
         assert_eq!(hand.swing, Swing::Strike, "a live cut was recalled");
         assert_eq!(hand.line, frozen, "a live cut was re-aimed");
     }
@@ -697,14 +700,13 @@ mod tests {
     #[test]
     fn a_spent_cut_recovers_and_is_helpless_while_it_does() {
         let kind = UnitKind::Brute;
-        let weapon = kind.weapon();
-        let agility = agility_of(kind);
+        let arm = arm_of(kind);
         let mut hand = Hand::resting(Angle::ZERO);
 
         // Throw one cut and let it run itself out.
         let mut spent_at = None;
         for tick in 0..400 {
-            hand.wield(cut(0), weapon, agility);
+            hand.wield(cut(0), arm);
             if hand.swing == Swing::Recover {
                 spent_at = Some(tick);
                 break;
@@ -717,7 +719,7 @@ mod tests {
         let mut recovering = 0;
         let mut reached_guard = false;
         for _ in 0..400 {
-            hand.wield(guard(0), weapon, agility);
+            hand.wield(guard(0), arm);
             match hand.swing {
                 Swing::Recover => {
                     recovering += 1;
@@ -751,11 +753,10 @@ mod tests {
         // of its arc -- which is why standing in front of one was safe, and why
         // the whole difficulty range sat above 60%.
         for kind in UnitKind::ALL {
-            let weapon = kind.weapon();
-            let agility = agility_of(kind);
+            let arm = arm_of(kind);
             let mut hand = Hand::resting(Angle::ZERO);
-            for _ in 0..rules::phase_ticks(weapon.windup, agility) {
-                hand.wield(cut(0), weapon, agility);
+            for _ in 0..rules::phase_ticks(arm.weapon.windup, arm.agility) {
+                hand.wield(cut(0), arm);
             }
             assert_eq!(hand.swing, Swing::Windup, "{}", kind.name());
 
@@ -763,11 +764,11 @@ mod tests {
             // `STRIKE_SPENT_ARC` past its own line -- and not because the clock
             // on it ran out, which is what the flat constant used to guarantee
             // for the two heavy archetypes.
-            let window = rules::strike_ticks(weapon, agility);
+            let window = rules::strike_ticks(arm);
             let mut ticks = 0;
             let mut furthest = 0;
             while hand.swing != Swing::Recover && ticks < 400 {
-                hand.wield(cut(0), weapon, agility);
+                hand.wield(cut(0), arm);
                 furthest = furthest.max(hand.angle.delta(Angle::ZERO) * -(hand.side as i32));
                 ticks += 1;
             }
@@ -796,21 +797,20 @@ mod tests {
         // it early from `World::apply_impulses` -- so the recovery it earns is
         // the weapon's own plus `WHIFF_RECOVERY`.
         let kind = UnitKind::Warrior;
-        let weapon = kind.weapon();
-        let agility = agility_of(kind);
+        let arm = arm_of(kind);
 
         let mut hand = Hand::resting(Angle::ZERO);
         while hand.swing != Swing::Recover {
-            hand.wield(cut(0), weapon, agility);
+            hand.wield(cut(0), arm);
         }
         let whiffed = hand.swing_left;
 
         // Against a cut stopped on contact, which is what the world hands back.
         let mut connected = Hand::resting(Angle::ZERO);
         while connected.swing != Swing::Strike {
-            connected.wield(cut(0), weapon, agility);
+            connected.wield(cut(0), arm);
         }
-        connected.recover(weapon, agility, 0);
+        connected.recover(arm, 0);
 
         assert!(
             whiffed > connected.swing_left,
@@ -828,8 +828,7 @@ mod tests {
         // the two are the same shield and answering a windup early buys nothing
         // that flicking the guard across at the last instant does not.
         let kind = UnitKind::Warrior;
-        let weapon = kind.weapon();
-        let agility = agility_of(kind);
+        let arm = arm_of(kind);
 
         // Settled on a bearing, extended, for a good while.
         let planted = brace(kind, guard(0), 120);
@@ -840,7 +839,7 @@ mod tests {
         // to get up to speed -- and once it is moving it is not a guard.
         let mut swinging = planted;
         for _ in 0..6 {
-            swinging.brace(guard(90), weapon, agility);
+            swinging.brace(guard(90), arm);
         }
         assert_eq!(swinging.braced, 0, "a hand thrown across counted as braced");
         assert_eq!(rules::block_leak(swinging.braced), rules::BLOCK_LEAK_SNAP);
@@ -848,7 +847,7 @@ mod tests {
 
         // ...and it plants again once it arrives.
         for _ in 0..200 {
-            swinging.brace(guard(90), weapon, agility);
+            swinging.brace(guard(90), arm);
         }
         assert!(swinging.braced >= rules::BRACE_TICKS);
         assert_eq!(rules::block_leak(swinging.braced), rules::BLOCK_LEAK_BRACED);
@@ -871,15 +870,14 @@ mod tests {
         // would say nothing about skill. `BRACE_SPIN` is loose enough to cover
         // ordinary tracking and far below the thousand-odd a re-aim runs at.
         let kind = UnitKind::Warrior;
-        let weapon = kind.weapon();
-        let agility = agility_of(kind);
+        let arm = arm_of(kind);
         let mut hand = brace(kind, guard(0), 120);
 
         // Two degrees a tick is a brisk orbit at close quarters.
         let mut bearing = 0;
         for _ in 0..200 {
             bearing += 2;
-            hand.brace(guard(bearing), weapon, agility);
+            hand.brace(guard(bearing), arm);
         }
         assert!(
             hand.braced >= rules::BRACE_TICKS,
@@ -891,19 +889,18 @@ mod tests {
     #[test]
     fn a_swing_cannot_be_reversed_instantly() {
         let kind = UnitKind::Warrior;
-        let weapon = kind.weapon();
-        let agility = agility_of(kind);
+        let arm = arm_of(kind);
 
         // Wind it up to speed the long way round.
         let mut hand = Hand::resting(Angle::ZERO);
         for _ in 0..20 {
-            hand.brace(guard(180), weapon, agility);
+            hand.brace(guard(180), arm);
         }
         let travelling = hand.spin;
         assert!(travelling.abs() > Fx::from_int(100), "never got moving");
 
         // Now demand the opposite. Momentum has to be paid off first.
-        hand.brace(guard(0), weapon, agility);
+        hand.brace(guard(0), arm);
         assert_eq!(
             hand.spin.signum(),
             travelling.signum(),
@@ -956,19 +953,28 @@ mod tests {
         // angle unit per tick must still rotate: without the carried fraction,
         // `angle += trunc(spin)` discards the whole motion every tick and the
         // hand is frozen while claiming to be moving.
-        let feeble = Weapon {
-            length: Fx::ONE,
-            torque: Fx::from_ratio(1, 10),
-            max_spin: Fx::from_ratio(6, 10),
+        // Built directly rather than resolved from a weapon, because what is
+        // under test is the integrator and not the roster: a hand that can
+        // barely move, however it came to be that way.
+        let feeble = Arm {
+            weapon: crate::rules::Weapon {
+                length: Fx::ONE,
+                mass: Fx::ONE,
+                balance: Fx::HALF,
+                shield_arc: 8192,
+                windup: 10,
+                recovery: 10,
+            },
+            agility: Fx::ONE,
+            muscle: Fx::from_ratio(1, 10),
+            cap: Fx::from_ratio(6, 10),
             extend_rate: Fx::from_ratio(1, 10),
-            weight: Fx::ONE,
-            shield_arc: 8192,
-            windup: 10,
-            recovery: 10,
+            pivot: Fx::HALF,
+            span: Fx::HALF,
         };
         let mut hand = Hand::resting(Angle::ZERO);
         for _ in 0..200 {
-            hand.brace(HandCommand::new(Angle::from_degrees(90), Fx::ZERO), feeble, Fx::ONE);
+            hand.brace(HandCommand::new(Angle::from_degrees(90), Fx::ZERO), feeble);
         }
         assert!(hand.spin.abs() < Fx::ONE, "not a sub-unit spin: {}", hand.spin);
         assert!(
@@ -984,20 +990,17 @@ mod tests {
         // `trunc_int` buys over `floor_int`, and it has to survive the phase
         // machine: mirrored sides, mirrored windups, mirrored cuts.
         let kind = UnitKind::Warrior;
-        let weapon = kind.weapon();
-        let agility = agility_of(kind);
+        let arm = arm_of(kind);
         let mut left = Hand::resting(Angle::ZERO);
         let mut right = Hand::resting(Angle::ZERO);
         for _ in 0..200 {
             left.wield(
                 HandCommand::attack(Angle::from_degrees(120), Strike::Widdershins),
-                weapon,
-                agility,
+                arm,
             );
             right.wield(
                 HandCommand::attack(Angle::from_degrees(-120), Strike::Sunwise),
-                weapon,
-                agility,
+                arm,
             );
             assert_eq!(left.angle.delta(Angle::ZERO), -right.angle.delta(Angle::ZERO));
             assert_eq!(left.spin, -right.spin);
@@ -1010,24 +1013,22 @@ mod tests {
     #[test]
     fn the_nearest_side_is_the_short_way_round() {
         let kind = UnitKind::Warrior;
-        let weapon = kind.weapon();
-        let agility = agility_of(kind);
+        let arm = arm_of(kind);
 
         // Blade sitting counter-clockwise of the line: cock further that way.
         let mut hand = Hand::resting(Angle::from_degrees(40));
-        hand.wield(cut(0), weapon, agility);
+        hand.wield(cut(0), arm);
         assert_eq!(hand.side, 1);
 
         let mut hand = Hand::resting(Angle::from_degrees(-40));
-        hand.wield(cut(0), weapon, agility);
+        hand.wield(cut(0), arm);
         assert_eq!(hand.side, -1);
 
         // And a named side is honoured whatever the blade is doing.
         let mut hand = Hand::resting(Angle::from_degrees(40));
         hand.wield(
             HandCommand::attack(Angle::ZERO, Strike::Sunwise),
-            weapon,
-            agility,
+            arm,
         );
         assert_eq!(hand.side, -1);
     }

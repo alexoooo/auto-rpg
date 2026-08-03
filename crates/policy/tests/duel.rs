@@ -235,13 +235,32 @@ fn the_same_swordsman_on_three_character_sheets_spans_a_real_difficulty_range() 
     //
     // | wits            | wins | health it finishes on |
     // |-----------------|------|-----------------------|
-    // | int 0  / per 0  |   9% |                  0.31 |
-    // | int 1  / per 2  |  45% |                  0.32 |
-    // | int 2  / per 2  |  58% |                  0.35 |
-    // | int 3  / per 3  |  85% |                  0.47 |
-    // | int 8  / per 6  |  97% |                  0.60 |
+    // | int 0  / per 0  |  29% |                  0.08 |
+    // | int 1  / per 2  |  53% |                  0.15 |
+    // | int 2  / per 2  |  73% |                  0.22 |
+    // | int 3  / per 3  |  88% |                  0.36 |
+    // | int 8  / per 6  |  99% |                  0.57 |
     // | int 12 / per 10 | 100% |                  0.70 |
-    // | int 19 / per 18 | 100% |                  0.82 |
+    // | int 19 / per 18 | 100% |                  0.73 |
+    //
+    // Re-measured when bodies gained momentum, and the top of the range paid
+    // for it: the sharp sheet used to finish on 0.82 and now finishes on 0.73.
+    // That is the physics rather than a regression to chase. Being nearly
+    // untouchable depended on stepping out of an arc after reading it, and a
+    // body that needs fourteen ticks to reach its own top speed cannot -- swept
+    // at the sharp sheet, `evasion` is *identical* from 0.0 to 0.76 (the stance
+    // is never chosen) and collapses the fight to 20% at 1.2. Dodging lost to
+    // blocking and out-tempoing, which is both realistic and a live question
+    // for the next evolution run rather than a settled one.
+    //
+    // Re-measured again when weapons became physical. Wins rose at every rung
+    // and health fell at the dim end, so the spread now lives mostly in the
+    // health column: the dull sheet scrapes through on 0.15 where it used to win
+    // comfortably on 0.33. The bounds below still pin ordering and spread rather
+    // than these numbers, but note that `dull.win_rate() < 0.55` is the tightest
+    // of them -- it measured 53% over 240 seeds and this test runs 96. If it
+    // starts flapping, the fix is a stronger Brute (knockback is what its reach
+    // is waiting on), not a looser bound.
     //
     // Dull loses more often than it wins, capable wins on about half its
     // health, and sharp wins every time and barely gets touched. None of that
@@ -297,9 +316,9 @@ fn the_same_swordsman_on_three_character_sheets_spans_a_real_difficulty_range() 
          at about the cost of half of itself"
     );
     assert!(
-        sharp_toll > 0.75,
+        sharp_toll > 0.62,
         "the sharp sheet finished on {sharp_toll:.2}; reading a fight properly \
-         is supposed to make it nearly free"
+         is supposed to make it cheap"
     );
 
     // Every rung has to *resolve*. A difficulty setting whose bottom end wanders

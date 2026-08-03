@@ -381,13 +381,38 @@ seeds a row, and not one draw anywhere on it:
 
 | `intellect` / `perception` | decisions | noise | win rate | health when it wins |
 |----------------------------|-----------|-------|----------|---------------------|
-| 0 / 0                      | every 30  | 2.25  | 10%      | 0.28                |
-| 1 / 2                      | every 24  | 1.55  | 43%      | 0.32                |
-| 2 / 2                      | every 18  | 1.55  | 55%      | 0.37                |
-| 3 / 3                      | every 17  | 1.20  | 83%      | 0.48                |
-| 8 / 6 (a stock Warrior)    | every 12  | 0.90  | 97%      | 0.60                |
+| 0 / 0                      | every 30  | 2.25  | 29%      | 0.08                |
+| 1 / 2                      | every 24  | 1.55  | 53%      | 0.15                |
+| 2 / 2                      | every 18  | 1.55  | 73%      | 0.22                |
+| 3 / 3                      | every 17  | 1.20  | 88%      | 0.36                |
+| 8 / 6 (a stock Warrior)    | every 12  | 0.90  | 99%      | 0.57                |
 | 12 / 10                    | every 8   | 0.50  | 100%     | 0.70                |
-| 19 / 18                    | every 1   | 0.00  | 100%     | 0.82                |
+| 19 / 18                    | every 1   | 0.00  | 100%     | 0.73                |
+
+Re-measured twice, and both times the shape changed in a way worth recording
+rather than smoothing over.
+
+**When bodies gained momentum**, the bottom rung came *up* (10% to 19%) and the
+top came *down* on health (0.82 to 0.69), narrowing the range. Both moves have
+the same cause: a body that needs fourteen ticks to reach its top speed cannot
+step out of an arc it has just read, so the reward for reading well is smaller
+and the punishment for reading badly is too.
+
+**When weapons became physical**, the win-rate column rose across the board and
+the health column *fell* at the dim end and rose at the sharp end — the range
+widened again, on health rather than on wins. A dull swordsman now scrapes
+through at 0.15 rather than winning comfortably at 0.33. Wins saturate early
+enough (99% by the stock sheet) that health is doing most of the work of
+distinguishing the top three rungs, which is thinner than it should be and is a
+tuning target for the impulse and energy phases rather than something to fix by
+moving a constant here.
+
+Swept at the sharp sheet, `evasion` produces **identical** results anywhere from
+0.0 to 0.76 — the stance is simply never chosen — and collapses the fight to 20%
+at 1.2. Dodging lost to blocking and out-tempoing. That is a defensible answer
+and it is not obviously the *best* answer, because the weights it was measured on
+were evolved against instantaneous movement. Re-evolving under momentum is the
+open question, not a settled result.
 
 The policy axis is still there and still steep — a random policy loses every
 time, and the naive one is far below any of these — but the row above is the
@@ -421,6 +446,192 @@ before:
    parallel lines twenty units apart until the clock stops. That was one duel in
    six at the dim end, both fighters at full health. One byte of memory per
    entity (`utility::Patrol`) fixed it, and took the draw rate to zero.
+
+## Weight, momentum and inertia
+
+The arm was physical from the beginning — `Hand` carries angular velocity across
+ticks, accelerates under a torque cap, brakes so as to arrive at rest, and has
+its spin reversed by a parry. The body was not. `apply_movement` was
+`pos += dir * move_speed`: full speed on the tick it was told, reversed on the
+tick it was told, and `vel` was not state at all but a measurement recomputed
+each tick as `pos - start_pos`, purely so a blow could read a closing speed.
+
+The two halves are now the same kind of thing.
+
+### Mass is geometry unless stated otherwise
+
+`UnitKind::mass()` is `density * radius^2`, normalised so a Warrior weighs 1.00.
+Area and not volume: a cube law puts a Brute at four Warriors and a Skitterer at
+a third of one, and at that spread the light archetypes cannot hold ground at
+all. `density` is the one dial that says an archetype is *built* differently
+rather than merely scaled — a Brute is meat and plate at 1.15, a Skitterer is a
+light thing for its footprint at 0.80.
+
+Mass is deliberately **not** a stat. Stats are the difficulty ladder's knobs, and
+a mass that moved with them would tie every physical interaction in the game to
+the dial that decides how well a fighter *uses* them. A dim Brute and a sharp one
+weigh the same.
+
+### Traction is grip, not weight
+
+`Stats::traction` has no mass term, and that is physics rather than an omission:
+ground friction is `mu * m * g` and the acceleration it buys is `mu * g`, so the
+mass cancels. What decides how fast a body can change direction is how well it
+digs in, which is agility. A Brute is ponderous because it has `agility 2`.
+
+Weight is not being let off. It is charged where nothing cancels it — what a
+collision does to you, and (once the rest of this lands) what a blow throws you
+and what your own swing drags you into.
+
+`TRACTION_BASE` is tuned against **stopping distance** rather than acceleration:
+`v^2 / 2a` comes out between 0.33 and 0.45 units across the roster, or about one
+body radius. That is the whole point. Spacing used to be a question about
+position — stand at the right distance and you were safe, arbitrarily late — and
+is now a question about commitment.
+
+### What it broke, and what that says
+
+Three things fell over immediately, and each was a latent bug that instantaneous
+movement had been hiding:
+
+1. **A wall banked momentum.** `clamp_to_arena` clipped position and left
+   velocity alone, which was harmless while velocity was re-derived from
+   displacement. With velocity carried across ticks, a body pinned against a wall
+   stayed convinced it was running at full speed — and both `impact_speed` and
+   `separate` believed it, so it shoved anyone who came near it, forever, without
+   moving. The symptom was a 4v6 that could not finish. `clamp_body` now zeroes
+   the clipped axis only, so sliding along a wall still works.
+2. **Bang-bang control oscillates.** The duellist drove at its preferred range
+   flat out and expected to stop dead on arrival, so it slid back and forth
+   through the one distance it wanted to be standing at. It now paces the
+   approach by `sqrt(2 a d)` — the same braking law `Hand::track` has always run
+   on the arm. Worth 10 points of win rate on its own.
+3. **`Goto` overshot by design.** The stride brake budgeted the travel a decision
+   commits to before the next thought, which was the whole story while a body
+   could stop dead. It now solves for a speed that covers the open-loop period
+   *and* leaves room to stop, bounded twice — once assuming the request is
+   already in force, once charging the whole period at the speed the body is
+   actually doing, because the deceleration ramp covers ground the first bound
+   never counts. Measured backslide across every test target: exactly zero.
+
+### The hit test had to stop being a physics limit
+
+`segment_circle` samples closest approach at one instant, which is correct only
+while nothing crosses a whole body between two samples. That invariant is what
+pinned `agility_multiplier` to a ceiling of 2.00 — a *geometry shortcut deciding
+how fast a character may move* — and it already held with only a tenth of a body
+radius to spare while ignoring body motion entirely. A blow that can throw a body
+would have ended it.
+
+`fx::swept_segment_circle` walks the pair through `n` sub-steps and runs the
+existing exact predicate at each, with `n` derived from relative travel measured
+in radii of the body being tested. A fixed integer count from a fixed rule, so it
+is exactly as deterministic as the single test it replaced, and auditable by
+reading it rather than by trusting a quadratic solve in fixed point. At `n = 1`
+it is bit-identical to the old call on the end state.
+
+It found real blows that were being missed: wiring it in moved `LAB_HASH` on its
+own, with nothing else changed. The agility ceiling stays at 2.00, but it is a
+balance choice now — agility already buys reaction, sight, footspeed and swing
+speed, and a stat with four jobs and no ceiling is the shortest path to one
+dominant build.
+
+### What the agent can see (layout version 7)
+
+`Observation::velocity` and `Contact::velocity` in world units per tick, plus
+`Observation::traction`. World-frame rather than closing rates, because the
+difference of the two *is* the closing rate while the reverse cannot be
+recovered. Enemy velocity blurs by `VELOCITY_JUDGEMENT`, which is its own
+constant rather than a reuse of `CAPABILITY_JUDGEMENT`: sizing up what a stranger
+*can* do is a different kind of mistake from watching a body move, and the second
+gets easier as you close while the first does not.
+
+The version bump is load-bearing. Every earlier layout described a world in which
+a body could stop dead on any tick, so a policy frozen against one has no
+representation for commitment at all — not a missing input, a missing *concept*.
+
+### A measured negative: leading a target does not pay
+
+The obvious first use of `Contact::velocity` is to throw a cut at where an enemy
+will be rather than where it is. It was implemented as a gene and swept over 240
+duels against both opponents, and it is **worse at every value**: 91% at zero
+ticks of lead, 89% at twelve, 69% at twenty-eight, 49% at forty. A cut sweeps a
+90-degree arc and the sim already aims the far end past the target, so the swept
+area barely moves — while the lead itself is computed from a *perceived* velocity
+and adds its error to an aim that was fine. The gene was removed rather than
+shipped at zero: an unused knob costs every future evolution run a dimension.
+
+The percept stays. It is in the vector for a network to use, and knockback will
+give it a second job.
+
+### Weapons became physical, and one cliff came with it
+
+`Weapon` used to carry `torque`, `max_spin`, `extend_rate` and `weight` as four
+independently authored numbers all meant to express the same fact, plus a
+`REACH_DRAG` constant approximating a lever arm. It now carries `length`, `mass`
+and `balance`, and `Arm::resolve` derives the rest against the body doing the
+swinging:
+
+```
+lever(reach) = body_radius + balance * length * reach
+I            = mass * lever^2 + ARM_INERTIA
+accel        = MUSCLE_TORQUE * power * agility / I
+cap          = MUSCLE_SPIN * agility * grip_limit(weapon, body_radius)
+```
+
+An extended blade is slow because its mass is further from the shoulder, which
+is what `REACH_DRAG` was always a linear approximation of. A Brute's axe on a
+Skitterer's shoulders is a different weapon — the correct answer, and one the old
+table could not express.
+
+The spin cap is the part worth reading, because two obvious derivations are
+wrong. Deriving it from an energy budget makes weapon mass **cancel out of damage
+entirely**: a fixed torque over a fixed arc does fixed work, so every weapon would
+arrive carrying the same energy. Making it a flat property of the arm puts every
+heavy weapon so far into the work-limited regime that its blade is still
+accelerating when it lands. What is actually right is a *grip* limit,
+`sqrt(REFERENCE_GRIP / (mass * lever))` — you cannot hold a heavy weapon swung
+fast — and the failed models are recorded in `grip_limit`'s doc comment so the
+next person does not re-derive them.
+
+**And then the Brute stopped working, with every derived number saying it should
+be stronger.** Tip speed up (0.188 against 0.153), strike budget unchanged, dead
+zone *smaller*, peak damage within 7% — and the naive Warrior's win rate against
+it went from 10% to 76%. The cause took several wrong hypotheses to find and it
+is a cliff rather than a slope:
+
+> A blow of any size ends the swing that threw it. So `IMPACT_THRESHOLD` was not
+> a floor, it was a **discontinuity**: a contact one unit above it did essentially
+> no damage and still cost its owner an entire cut, and landing *below* it was
+> strictly better, because a blade that touched nothing kept swinging into the
+> part of its arc where it was actually dangerous.
+
+Contacts happen at body-to-body range whatever the blade length — measured, both
+fighters in a duel contact at about 1.17 units from their own centre, because
+that is where the other body is. For a Warrior that is 83% of the way to the tip;
+for a Brute with a 1.45 blade it is a third. Deriving the cap from grip moved a
+Brute's top spin from 741 to 911 and its dead zone from 0.845 to 0.687 — *inside*
+its own 0.70 body radius — so no part of its blade could touch anyone harmlessly
+any more. Every cut it threw was spent on a hilt scratch worth 1–3 damage against
+a peak of 24.8.
+
+`GRAZE_FRACTION` turns the cliff into a ramp: a contact worth less than 12% of
+that fighter's own `peak_damage` is not a cut, deals nothing, and **does not spend
+the swing**. It is scale-free, so it does not need re-deriving per archetype, and
+it took the Brute's damage per landed blow from 1.24 back to 4.29.
+
+Two things it deliberately does not do. It does not guarantee the harmless band
+reaches past the wielder's own body — that holds for a Brute (0.86 against 0.70)
+and is load-bearing there, but a Scout's dead zone is 0.27 inside a 0.35 body and
+always has been, because a short quick blade really is dangerous along its whole
+length. Forcing otherwise needs `GRAZE_FRACTION` above 0.43, which measurably
+flattens the difficulty ladder. And it does not make reach pay: a long blade whose
+first third is all anyone ever touches is still mostly decoration. That is what
+knockback is for, and it is the next phase.
+
+The regression test that would have caught this existed and did not, because it
+re-derived the dead zone inline from `IMPACT_THRESHOLD` instead of asking
+`rules::dead_zone`. It asks now.
 
 ## Replays
 
