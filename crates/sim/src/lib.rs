@@ -57,7 +57,7 @@ mod world;
 pub use action::{Action, Intent, Order};
 pub use entity::{EntityId, Faction, UnitKind};
 pub use event::Event;
-pub use obs::{Contact, Observation, FEATURE_COUNT};
+pub use obs::{Contact, Observation, FEATURE_COUNT, FEATURE_LAYOUT_VERSION};
 pub use replay::{ActionRecord, OrderRecord, Replay};
 pub use rules::{Stats, DT, MAX_CONTACTS, TICKS_PER_SECOND};
 pub use scenario::{Scenario, UnitSpec};

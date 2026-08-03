@@ -52,6 +52,28 @@ impl Scenario {
         }
     }
 
+    /// An empty room with a single hero. No opposition, no time limit: the
+    /// sandbox the browser build opens with, and the scenario the navigation
+    /// tests use.
+    ///
+    /// `max_ticks` is effectively unbounded because there is no fight here to
+    /// time out -- nothing multiplies it, and [`Scenario::fingerprint`] only
+    /// hashes it. Nothing the lab iterates should be pointed at this: the
+    /// fitness function and the runner both assume two populated sides.
+    pub fn room() -> Scenario {
+        Scenario {
+            name: "room".to_string(),
+            arena: Vec2::from_ints(24, 16),
+            max_ticks: u32::MAX,
+            units: vec![UnitSpec {
+                kind: UnitKind::Warrior,
+                faction: Faction::Heroes,
+                stats: UnitKind::Warrior.base_stats(),
+                spawn: Vec2::from_ints(12, 8),
+            }],
+        }
+    }
+
     /// A seeded skirmish: heroes spawn in the left third, monsters in the
     /// right third, both jittered.
     ///
@@ -148,6 +170,16 @@ mod tests {
             Scenario::skirmish(42, 3, 5).fingerprint(),
             Scenario::skirmish(42, 3, 5).fingerprint()
         );
+    }
+
+    #[test]
+    fn the_room_is_one_hero_alone_inside_the_arena() {
+        let s = Scenario::room();
+        assert_eq!(s.count(Faction::Heroes), 1);
+        assert_eq!(s.count(Faction::Monsters), 0);
+        let hero = s.units[0];
+        assert!(hero.spawn.x > Fx::ZERO && hero.spawn.x < s.arena.x);
+        assert!(hero.spawn.y > Fx::ZERO && hero.spawn.y < s.arena.y);
     }
 
     #[test]

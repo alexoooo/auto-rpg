@@ -1,0 +1,381 @@
+/* Dark, quiet, and entirely self-contained: no font, sheet or image is
+   fetched from anywhere. System font stacks only -- a web font would be the
+   first external dependency in this repository. */
+
+:root {
+  --bg: #090b10;
+  --panel: #11141c;
+  --panel-line: #1e2331;
+  --ink: #e7ecf4;
+  --ink-dim: #8f9bb0;
+  --ink-faint: #5d6779;
+  --accent: #6ee7ff; /* the character, and its orders */
+  --accent-warm: #ffcf70; /* thinking */
+  --mono: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
+  --sans: ui-sans-serif, system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(1200px 700px at 22% -10%, #141a26 0%, transparent 60%),
+    var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.5;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.bar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: baseline;
+  gap: 18px;
+  padding: 11px 22px 10px;
+  border-bottom: 1px solid var(--panel-line);
+}
+
+.bar h1 {
+  margin: 0;
+  font-size: 19px;
+  letter-spacing: 0.14em;
+  text-transform: lowercase;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.tagline {
+  margin: 0;
+  color: var(--ink-dim);
+  font-size: 13.5px;
+  max-width: 105ch;
+}
+
+.tagline em {
+  color: var(--accent);
+  font-style: normal;
+}
+
+main {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  gap: 16px;
+  padding: 14px 22px 16px;
+}
+
+/* ---------------------------------------------------------------- arena */
+
+.stage {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* The canvas is sized from this box, so it has to be the only flexible thing
+   in the column: everything under it takes its natural height first. */
+.canvas-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#arena {
+  display: block;
+  border-radius: 10px;
+  cursor: crosshair;
+  /* The canvas draws its own floor; this is the light spilling off it. */
+  box-shadow:
+    0 0 0 1px #242b3a,
+    0 24px 60px -24px #000;
+  touch-action: none;
+}
+
+.hint {
+  margin: 0;
+  min-height: 1.4em;
+  font-size: 13px;
+  text-align: center;
+  color: var(--ink-faint);
+  transition: color 160ms ease;
+}
+
+.hint.live {
+  color: var(--accent-warm);
+}
+
+/* ------------------------------------------------------------------ hud */
+
+.hud {
+  flex: 0 0 348px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+}
+
+.panel {
+  background: linear-gradient(180deg, #131722 0%, var(--panel) 100%);
+  border: 1px solid var(--panel-line);
+  border-radius: 10px;
+  padding: 10px 13px 12px;
+}
+
+.panel h2 {
+  margin: 0 0 8px;
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  font-weight: 600;
+}
+
+.who {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.who .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 10px var(--accent);
+}
+
+.who .hp {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-dim);
+}
+
+.stats {
+  margin: 9px 0 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 3px 10px;
+  font-size: 12px;
+}
+
+.stats dt {
+  font-family: var(--mono);
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.stats dt b {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.stats dd {
+  margin: 0;
+  color: var(--ink-dim);
+}
+
+.readout {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 12px;
+  font-size: 12px;
+}
+
+.readout dt {
+  color: var(--ink-faint);
+}
+
+.readout dd {
+  margin: 0;
+  font-family: var(--mono);
+  color: var(--ink);
+  text-align: right;
+}
+
+.mono-small {
+  font-size: 11px;
+  color: var(--ink-dim) !important;
+}
+
+.state {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--accent);
+}
+
+.state.idle {
+  color: var(--ink-dim);
+}
+
+.state.free {
+  color: var(--accent-warm);
+}
+
+/* -------------------------------------------------------------- controls */
+
+/* A single strip under the arena, so the controls are on the first screen
+   rather than below a fold. */
+.controls {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 9px 12px;
+}
+
+.keys {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 18px;
+  font-size: 12.5px;
+  flex: 1 1 auto;
+}
+
+.keys li {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.keys span {
+  color: var(--ink-dim);
+}
+
+kbd {
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--panel-line);
+  background: #0c0f16;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.buttons {
+  display: flex;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+button {
+  flex: 1 1 auto;
+  font: inherit;
+  font-size: 12.5px;
+  padding: 6px 8px;
+  border-radius: 7px;
+  border: 1px solid var(--panel-line);
+  background: #0d1119;
+  color: var(--ink);
+  cursor: pointer;
+  transition:
+    border-color 120ms ease,
+    color 120ms ease;
+}
+
+button:hover {
+  border-color: #33405a;
+  color: var(--accent);
+}
+
+button:active {
+  transform: translateY(1px);
+}
+
+.footnote {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--ink-faint);
+  text-align: center;
+}
+
+.footnote em {
+  color: var(--ink-dim);
+  font-style: normal;
+}
+
+/* -------------------------------------------------------------- overlay */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(6, 8, 12, 0.86);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.overlay[hidden] {
+  display: none;
+}
+
+.overlay-card {
+  max-width: 640px;
+  background: var(--panel);
+  border: 1px solid #45324a;
+  border-left: 3px solid #ff7b72;
+  border-radius: 10px;
+  padding: 18px 20px;
+}
+
+.overlay-card h2 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  color: #ff9d94;
+}
+
+.overlay-card p {
+  margin: 0;
+  color: var(--ink-dim);
+  font-size: 13.5px;
+}
+
+.overlay-card pre {
+  margin: 12px 0 0;
+  padding: 10px;
+  background: #0b0e14;
+  border-radius: 6px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--ink-faint);
+  white-space: pre-wrap;
+  overflow-x: auto;
+}
+
+@media (max-width: 900px) {
+  main {
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  .hud {
+    flex: 0 0 auto;
+    overflow: visible;
+  }
+}

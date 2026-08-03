@@ -81,25 +81,46 @@ pub enum Order {
     Regroup,
     /// Concentrate on one enemy.
     Focus(EntityId),
+    /// Walk to a point in the arena and stand there.
+    Goto(Vec2),
 }
 
 impl Order {
-    /// One-hot index used by the neural feature encoder.
+    /// One-hot index used by the neural feature encoder. Append-only: the
+    /// numbers are part of the feature layout a trained network is frozen
+    /// against, so a new kind takes the next free index and never a reshuffle.
     pub const fn discriminant(self) -> usize {
         match self {
             Order::Hold => 0,
             Order::Advance(_) => 1,
             Order::Regroup => 2,
             Order::Focus(_) => 3,
+            Order::Goto(_) => 4,
         }
     }
 
     /// Number of distinct order kinds; the width of the one-hot block.
-    pub const COUNT: usize = 4;
+    pub const COUNT: usize = 5;
 
+    /// The heading an order pushes in, if it is a heading at all.
+    ///
+    /// [`Order::Goto`] deliberately gives [`Vec2::ZERO`]: its payload is a
+    /// world-space destination, and a destination read as a heading sends the
+    /// character marching off toward the far corner from wherever it happens
+    /// to stand. Conflating the two is the exact bug that variant exists to
+    /// prevent, so use [`Order::point`] when you want the payload without a
+    /// claim about what it means.
     pub const fn direction(self) -> Vec2 {
         match self {
             Order::Advance(dir) => dir,
+            _ => Vec2::ZERO,
+        }
+    }
+
+    /// The `Vec2` an order carries, whatever it means.
+    pub const fn point(self) -> Vec2 {
+        match self {
+            Order::Advance(v) | Order::Goto(v) => v,
             _ => Vec2::ZERO,
         }
     }
@@ -111,13 +132,101 @@ impl Order {
         }
     }
 
+    /// Spelled out as an explicit match rather than routed through
+    /// [`Order::point`] on purpose. This layout is the only part of `Order`
+    /// that reaches [`World::state_hash`], so every recorded run in the
+    /// repository depends on it byte for byte. Written this way, a new variant
+    /// does not compile until someone has chosen where its payload lands --
+    /// which is the alternative to a `Goto` whose destination silently never
+    /// reaches the hash, leaving two different destinations indistinguishable
+    /// to replay verification.
+    ///
+    /// [`World::state_hash`]: crate::World::state_hash
     pub(crate) fn hash_into(self, h: &mut Hash64) {
         h.write_u8(self.discriminant() as u8);
-        let d = self.direction();
-        h.write_i32(d.x.raw());
-        h.write_i32(d.y.raw());
-        if let Order::Focus(id) = self {
-            id.hash_into(h);
+        match self {
+            Order::Hold | Order::Regroup => {
+                h.write_i32(0);
+                h.write_i32(0);
+            }
+            Order::Advance(v) | Order::Goto(v) => {
+                h.write_i32(v.x.raw());
+                h.write_i32(v.y.raw());
+            }
+            Order::Focus(id) => {
+                h.write_i32(0);
+                h.write_i32(0);
+                id.hash_into(h);
+            }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use fx::Fx;
+
+    fn hashed(order: Order) -> u64 {
+        let mut h = Hash64::new();
+        order.hash_into(&mut h);
+        h.finish()
+    }
+
+    /// The byte sequence `hash_into` is required to produce, written out
+    /// independently of the code under test.
+    fn expected(discriminant: u8, x: Fx, y: Fx, focus: Option<EntityId>) -> u64 {
+        let mut h = Hash64::new();
+        h.write_u8(discriminant);
+        h.write_i32(x.raw());
+        h.write_i32(y.raw());
+        if let Some(id) = focus {
+            id.hash_into(&mut h);
+        }
+        h.finish()
+    }
+
+    #[test]
+    fn discriminants_are_append_only() {
+        assert_eq!(Order::Hold.discriminant(), 0);
+        assert_eq!(Order::Advance(Vec2::X).discriminant(), 1);
+        assert_eq!(Order::Regroup.discriminant(), 2);
+        assert_eq!(Order::Focus(EntityId::NONE).discriminant(), 3);
+        assert_eq!(Order::Goto(Vec2::X).discriminant(), 4);
+        assert_eq!(Order::COUNT, 5);
+    }
+
+    #[test]
+    fn order_hash_layout_is_frozen() {
+        // Every variant that existed before `Goto` must hash exactly as it did
+        // then, or `GOLDEN_STATE_HASH` and every recorded replay are void. The
+        // expectation is spelled out rather than recorded, so this fails at the
+        // line that moved instead of as a mismatched constant three crates away.
+        let v = Vec2::new(Fx::from_ratio(3, 2), Fx::from_int(-7));
+        let id = EntityId::new(9, 3);
+        for (order, want) in [
+            (Order::Hold, expected(0, Fx::ZERO, Fx::ZERO, None)),
+            (Order::Advance(v), expected(1, v.x, v.y, None)),
+            (Order::Regroup, expected(2, Fx::ZERO, Fx::ZERO, None)),
+            (Order::Focus(id), expected(3, Fx::ZERO, Fx::ZERO, Some(id))),
+        ] {
+            assert_eq!(hashed(order), want, "{order:?} hashes differently now");
+        }
+    }
+
+    #[test]
+    fn goto_hashes_its_destination() {
+        let a = Vec2::from_ints(3, 4);
+        let b = Vec2::from_ints(4, 3);
+        assert_ne!(
+            hashed(Order::Goto(a)),
+            hashed(Order::Goto(b)),
+            "two destinations are indistinguishable to the state hash"
+        );
+        assert_ne!(
+            hashed(Order::Goto(a)),
+            hashed(Order::Advance(a)),
+            "a destination and a heading are indistinguishable to the state hash"
+        );
     }
 }

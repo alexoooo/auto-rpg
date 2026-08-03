@@ -1,0 +1,23 @@
+[package]
+name = "web"
+description = "The browser boundary: a hand-rolled C ABI over the sim, with no bindgen"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+# `cdylib` is the artifact the browser loads. `rlib` is what makes
+# `cargo test -p web` possible, so the boundary's own logic -- the frame layout,
+# the decision loop, the selftest hash -- is checked natively on every
+# `cargo test` rather than only by opening a page.
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+fx = { path = "../fx" }
+sim = { path = "../sim" }
+policy = { path = "../policy" }
+
+# No wasm-bindgen, no js-sys, no web-sys. The workspace's no-dependency rule is
+# what keeps every recorded run in the repository valid across time, and it
+# applies here too: this boundary is a dozen functions passing integers, which
+# is small enough to hand roll and small enough to read in one sitting.

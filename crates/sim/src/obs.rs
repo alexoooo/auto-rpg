@@ -47,7 +47,19 @@ pub struct Observation {
     pub sight_range: Fx,
     /// World units per tick.
     pub move_speed: Fx,
+    /// Ticks between this character's decisions -- its own reaction speed.
+    ///
+    /// Self-knowledge of the same class as [`Observation::position`]:
+    /// proprioception is free. It is the one number that tells a policy how
+    /// long it will be stuck with whatever it decides now, without which an
+    /// agent cannot pace a final stride, because a stale action keeps running
+    /// until the next decision tick.
+    pub decision_period: u16,
     /// The player's standing order for this faction.
+    ///
+    /// A command, not a percept: it comes from the player rather than from the
+    /// world, so unlike everything else here it is exact and untouched by
+    /// perception noise.
     pub order: Order,
 
     enemy_slots: [Contact; MAX_CONTACTS],
@@ -66,7 +78,16 @@ pub struct Observation {
 const FEATURES_PER_CONTACT: usize = 5;
 
 pub const FEATURE_COUNT: usize =
-    3 + Order::COUNT + 2 + (MAX_CONTACTS * FEATURES_PER_CONTACT) * 2 + 4;
+    4 + Order::COUNT + 2 + (MAX_CONTACTS * FEATURES_PER_CONTACT) * 2 + 4;
+
+/// Bumped whenever the layout of [`Observation::write_features`] changes shape
+/// or meaning.
+///
+/// The layout is the contract a trained network is frozen against, so a change
+/// here is a retraining bill. Recording the version is what lets a future
+/// frozen network refuse to load against a vector it was not trained on,
+/// instead of quietly reading the wrong number out of every slot.
+pub const FEATURE_LAYOUT_VERSION: u32 = 2;
 
 impl Observation {
     /// An observation of an empty battlefield.
@@ -95,6 +116,11 @@ impl Observation {
             attack_range: Fx::ZERO,
             sight_range: Fx::ONE,
             move_speed: Fx::ZERO,
+            // One, never zero. `Fx` division by zero saturates to `Fx::MAX`
+            // rather than panicking, so a zero period would turn a policy's
+            // "how far can I travel before my next thought" term into a
+            // silently disabled brake with nothing failing anywhere.
+            decision_period: 1,
             order,
             enemy_slots: [Contact::default(); MAX_CONTACTS],
             enemy_count: 0,
@@ -164,13 +190,32 @@ impl Observation {
         i += 1;
         out[i] = self.radius;
         i += 1;
+        // The decision *rate*, not the tick count: a period of 12 would blow
+        // the -1..=1 invariant on its own, and "how often do I get to think"
+        // is the quantity a network can act on anyway.
+        out[i] = Fx::ONE / Fx::from_int(self.decision_period.max(1) as i32);
+        i += 1;
 
         out[i + self.order.discriminant()] = Fx::ONE;
         i += Order::COUNT;
 
-        let dir = self.order.direction();
-        out[i] = dir.x;
-        out[i + 1] = dir.y;
+        // Where the order points, relative to here and measured in sight
+        // ranges. `Advance` carries a heading, so it normalises; `Goto` carries
+        // a world-space destination, and putting one of those in the vector
+        // straight would break the -1..=1 invariant the moment the arena is
+        // wider than a unit -- and would make the same order mean different
+        // things at different positions.
+        let pointing = match self.order {
+            Order::Advance(dir) => dir.normalize(),
+            Order::Goto(dest) => {
+                let sight = self.sight_range.max(Fx::ONE);
+                let to = (dest - self.position).clamp_length(sight);
+                Vec2::new(to.x / sight, to.y / sight)
+            }
+            Order::Hold | Order::Regroup | Order::Focus(_) => Vec2::ZERO,
+        };
+        out[i] = pointing.x;
+        out[i + 1] = pointing.y;
         i += 2;
 
         for group in [self.enemies(), self.allies()] {

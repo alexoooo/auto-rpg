@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>auto-rpg &mdash; a room, a character, and a click</title>
+    <meta
+      name="description"
+      content="A deterministic fixed-point auto-battler running in WebAssembly. Click the floor; the character's own AI decides how to get there."
+    />
+    <link rel="stylesheet" href="style.css" />
+    <!-- No favicon request: this page has no dependency on anything it did not ship with. -->
+    <link rel="icon" href="data:," />
+  </head>
+  <body>
+    <header class="bar">
+      <h1>auto&#8209;rpg</h1>
+      <p class="tagline">
+        You give rough directions. The character decides how to follow them &mdash; and its
+        <em>stats</em> are what make that decision, not a difficulty slider.
+      </p>
+    </header>
+
+    <main>
+      <section class="stage">
+        <div class="canvas-wrap" id="canvas-wrap">
+          <canvas id="arena" aria-label="The arena. Click to send the character somewhere."></canvas>
+        </div>
+        <p class="hint" id="hint"></p>
+
+        <section class="panel controls">
+          <ul class="keys">
+            <li><kbd>click</kbd><span>Go there &mdash; a standing order, not a waypoint.</span></li>
+            <li>
+              <kbd>right click</kbd><kbd>Esc</kbd>
+              <span>Stand down &mdash; hold this ground.</span>
+            </li>
+            <li>
+              <kbd>F</kbd>
+              <span>Free will &mdash; no order at all; the character decides for itself.</span>
+            </li>
+            <li><kbd>R</kbd><span>Restart the room.</span></li>
+          </ul>
+          <div class="buttons">
+            <button type="button" id="btn-standdown">Stand down</button>
+            <button type="button" id="btn-freewill">Free will</button>
+          </div>
+        </section>
+
+        <p class="footnote">
+          A click is a standing order, so the character acts on it at its next decision &mdash; up to
+          12 ticks away for this one. The marker stays dim until it does, and that delay
+          <em>is</em> the intellect stat.
+        </p>
+      </section>
+
+      <aside class="hud">
+        <section class="panel">
+          <h2>Character</h2>
+          <div class="who">
+            <span class="dot"></span>
+            <span id="unit-name">warrior</span>
+            <span class="hp" id="unit-hp">84 / 84 hp</span>
+          </div>
+          <!-- The point of the whole page: every row is a stat, and every stat
+               names the thing about the AI that it changes. -->
+          <dl class="stats" id="stats"></dl>
+        </section>
+
+        <section class="panel">
+          <h2>Order</h2>
+          <p class="state" id="order-state">no order</p>
+          <dl class="readout">
+            <dt>destination</dt>
+            <dd id="order-dest">&mdash;</dd>
+            <dt>distance left</dt>
+            <dd id="order-distance">&mdash;</dd>
+            <dt>last decision</dt>
+            <dd id="order-decision">&mdash;</dd>
+          </dl>
+        </section>
+
+        <section class="panel">
+          <h2>Simulation</h2>
+          <dl class="readout">
+            <dt>tick</dt>
+            <dd id="sim-tick">0</dd>
+            <dt>position</dt>
+            <dd id="sim-position">&mdash;</dd>
+            <dt>state hash</dt>
+            <dd id="sim-hash" class="mono-small">&mdash;</dd>
+          </dl>
+        </section>
+
+      </aside>
+    </main>
+
+    <div class="overlay" id="overlay" hidden>
+      <div class="overlay-card" role="alert">
+        <h2 id="overlay-title">The simulation stopped</h2>
+        <p id="overlay-body"></p>
+        <pre id="overlay-detail"></pre>
+      </div>
+    </div>
+
+    <script src="main.js"></script>
+  </body>
+</html>

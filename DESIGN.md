@@ -63,9 +63,25 @@ world holds ground truth, and `World::observe` degrades it by the observer's
 stats before handing it over. A policy cannot reach past it, which is what makes
 `perception` a meaningful stat instead of a damage multiplier.
 
+The one exception is the standing `Order`, and it is an exception on purpose: an
+order is a *command*, not a percept. It comes from the player rather than from
+the world, so there is nothing for perception to have been imperfect about, and
+it arrives exact. That is what lets an agent compute `destination - position`
+exactly and actually arrive somewhere — a `Goto` degraded by positional noise
+would be a destination that moved every time you looked at it.
+
 `Observation::write_features` flattens to a fixed-width vector for a future
 network. Nothing uses it yet. It exists now because the *layout* is the contract
 a trained network gets frozen against, and changing it later means retraining.
+
+That bill has been paid once, deliberately. Adding `Order::Goto` and
+`decision_period` moved the vector from 73 to 75 slots and changed what the
+order-direction slot *means* (it is now normalised, and for a `Goto` it is the
+offset to the destination clamped to sight range rather than a heading). Doing it
+while no weights exist costs nothing; doing it afterwards costs a training run.
+`FEATURE_LAYOUT_VERSION` exists so that a future frozen network can refuse to
+load against a shifted layout rather than quietly reading the wrong number out of
+every slot.
 
 Actions persist until the agent's next decision tick. A slow-witted character
 keeps executing a stale plan; a sharp one re-plans up to sixty times a second.
@@ -113,8 +129,12 @@ first.
 a point release invalidates every recorded run in the repository. `std::thread::scope`
 covers the parallelism this needs.
 
-**No renderer yet.** It is the easiest piece and the one that would have shaped
-everything else if it came first.
+This survived contact with the browser. `crates/web` is a hand-rolled wasm ABI —
+a dozen `extern "C"` functions passing `u32`/`i32`, plus one packed `f32` buffer
+JavaScript reads straight out of linear memory — rather than `wasm-bindgen`. It
+is about two hundred lines, it has zero `unsafe {}` blocks, and the module links
+with an *empty* import list, so the page instantiates it with `{}`. The `web/`
+page and the two Node tools are vanilla and dependency-free for the same reason.
 
 ## Performance notes
 
@@ -146,6 +166,38 @@ ticks to 921.
 **The wall sweep** in `UtilityPolicy::march`. An agent ordered to advance that
 has reached the far wall used to grind into it. It now sweeps along the wall
 toward whichever side has more room, which turns a stall into a patrol.
+
+**Braking and an arrival band** for `Order::Goto`. A destination order needs a
+rule for *stopping*, and both of the above are actively wrong for arriving — the
+wall sweep walks past a destination near an edge, and `open_ground`'s wall-fear
+bias is a search heuristic for an agent that has nowhere particular to be, so
+against an explicit destination it is fighting the player. Worse, it is added
+before `clamp_length`, and `clamp_length` only ever *shortens*: a short sum passes
+through untouched, so the bias never shrinks as the approach slows. That is a
+stable fixed point roughly 0.2 units short of every click, anywhere in the arena.
+The `Goto` arm therefore drops both and does two things instead:
+
+- **Brake by the stride, not the tick.** An action persists until the agent's
+  next decision, so the vector is scaled by `distance / (move_speed ×
+  decision_period)`. This is the intellect stat again, from the other side: a
+  dim character commits to a longer stride and has to creep in, a sharp one
+  lands on the point. Without it the hero ping-pongs across the destination
+  forever at an amplitude of one tick of travel.
+- **Stop inside one tick of travel.** The band is `move_speed` rather than a
+  constant, so it scales with agility. It cannot be much tighter: a direction
+  component below raw 19 multiplies to *zero* displacement, so a band near zero
+  never terminates, and below one tick of travel `apply_movement` still updates
+  `facing` from a `dir` that moves nothing — leaving the character spinning on
+  the spot. `Action::HOLD` short-circuits on a zero direction and freezes the
+  arrival facing.
+
+A click within one body radius of a wall is unreachable, because
+`clamp_to_arena` pins bodies to `[radius, arena - radius]`. The agent clamps the
+destination into its own reachable box — it knows its radius and its clearance in
+all four directions — so it stops as close as a body can get instead of pressing
+into the wall and never satisfying the arrival test. That belongs in the AI, not
+in the renderer: the renderer would have to reimplement collision rules in float
+to know it.
 
 The general lesson: a fight that cannot end is worse than a fight that ends
 badly. A draw scores zero, tells evolution nothing, and costs a full tick limit

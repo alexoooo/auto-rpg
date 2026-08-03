@@ -244,6 +244,73 @@ impl UtilityPolicy {
         let heading = match obs.order {
             Order::Advance(dir) => dir.normalize(),
             Order::Regroup => self.ally_centre(obs).normalize(),
+
+            // Arriving somewhere is not a variation on marching, and both of
+            // the steering behaviours below are actively wrong for it, which is
+            // why this arm returns before reaching either of them.
+            //
+            // The wall sweep exists to stop an advancing line grinding into a
+            // wall; applied to a destination near an edge it walks straight
+            // past the click. And `open_ground` is a *search* urge for an agent
+            // with nowhere in particular to be -- against an explicit
+            // destination it is by construction fighting the player. It cannot
+            // be tapered back in either: added before `clamp_length`, which
+            // only ever shortens, a short sum passes through untouched, so the
+            // bias never shrinks as the brake does and the two balance at a
+            // stable fixed point `wall_fear * stride` short of the target --
+            // 0.193 units short of every click at baseline, anywhere in the
+            // arena. At the top of `wall_fear`'s evolvable range it is worse:
+            // magnitude 1.0 exactly cancels the unit heading and the character
+            // stops dead mid-room.
+            Order::Goto(dest) => {
+                // `wall_clearance` is un-noised ground truth, so the reachable
+                // box is exactly recoverable: the world pins bodies to
+                // `[radius, arena - radius]`, which makes a click within one
+                // body radius of a wall unreachable. Without this the character
+                // presses into the wall and never satisfies its own arrival
+                // test.
+                let wc = obs.wall_clearance;
+                let lo = Vec2::new(
+                    obs.position.x - wc[0] + obs.radius,
+                    obs.position.y - wc[2] + obs.radius,
+                );
+                let hi = Vec2::new(
+                    obs.position.x + wc[1] - obs.radius,
+                    obs.position.y + wc[3] - obs.radius,
+                );
+                let to = dest.clamp_box(lo, hi) - obs.position;
+                let distance = to.length();
+
+                // Arrival deadband: one tick of travel. It scales itself with
+                // agility instead of being a magic constant, and it clears by
+                // some 400x the hard floor below which a direction component is
+                // too small to move the body at all -- a deadband under that
+                // floor never terminates. Stopping via `Action::HOLD` matters
+                // too: below one tick of travel the sim would still turn the
+                // character to face a step that moves nothing, leaving it
+                // spinning on the spot, whereas a zero direction freezes the
+                // arrival facing.
+                if distance <= obs.move_speed {
+                    return Action::HOLD;
+                }
+
+                // An action persists until the next decision, so pace the
+                // stride by how much ground gets covered before the next
+                // thought. This is the intellect stat as navigation: a dim
+                // character commits to a longer stride and creeps in, a sharp
+                // one lands it. The brake is load-bearing rather than polish --
+                // without it the character ping-pongs across the destination
+                // forever at an amplitude of one tick of travel.
+                let stride = obs.move_speed * (obs.decision_period.max(1) as i32);
+                let brake = (distance / stride).min(Fx::ONE);
+                // Normalise first, *then* scale, so the brake is the whole
+                // magnitude. The trailing clamp is defensive: `normalize`
+                // truncates component-wise and can come back marginally over
+                // one, and `decisions_never_exceed_unit_movement` should hold
+                // unconditionally.
+                return Action::moving((to.normalize() * brake).clamp_length(Fx::ONE));
+            }
+
             Order::Hold | Order::Focus(_) => Vec2::ZERO,
         };
 
@@ -325,7 +392,7 @@ impl Policy for UtilityPolicy {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sim::Faction;
+    use sim::{Faction, Scenario, Stats, World};
 
     fn contact(index: u32, x: i32, y: i32, hp: Fx) -> Contact {
         Contact {
@@ -352,6 +419,11 @@ mod tests {
         obs.attack_range = Fx::from_ratio(9, 10);
         obs.sight_range = Fx::from_int(10);
         obs.move_speed = Fx::from_ratio(5, 100);
+        // A Warrior's reaction speed. Set explicitly because `blank` defaults
+        // it to 1, and a fixture left on that default would quietly test a
+        // character that re-plans every tick -- which is not the character any
+        // of these numbers were chosen for. Stride is 12 x 0.05 = 0.6 units.
+        obs.decision_period = 12;
         obs.wall_clearance = [
             Fx::from_int(20),
             Fx::from_int(20),
@@ -564,6 +636,156 @@ mod tests {
         assert!(
             escape.x > Fx::ZERO && escape.y > Fx::ZERO,
             "did not leave the corner: {escape:?}"
+        );
+    }
+
+    /// A `Goto` order for a point `offset` away from where the agent stands.
+    fn heading_for(offset: Vec2) -> Observation {
+        let mut obs = situation(&[]);
+        obs.order = Order::Goto(obs.position + offset);
+        obs
+    }
+
+    #[test]
+    fn goto_brakes_instead_of_overshooting() {
+        // Half a stride out. An action persists for `decision_period` ticks, so
+        // the quantity that must not exceed the remaining distance is the whole
+        // committed walk, not one tick of it.
+        let target = Fx::from_ratio(3, 10);
+        let obs = heading_for(Vec2::new(target, Fx::ZERO));
+        let moved = UtilityPolicy::baseline().decide(&obs).move_dir;
+
+        let committed = moved.length() * obs.move_speed * (obs.decision_period as i32);
+        assert!(
+            committed <= target + Fx::from_ratio(1, 1000),
+            "committed to walking {committed} to cover {target}"
+        );
+        assert!(committed.is_positive(), "braked to a standstill: {moved:?}");
+    }
+
+    #[test]
+    fn goto_holds_inside_the_deadband() {
+        let obs = heading_for(Vec2::ZERO);
+        let action = UtilityPolicy::baseline().decide(&obs);
+        // Exactly `Action::HOLD`, not merely a short step: below one tick of
+        // travel the sim still turns a character to face a step that moves it
+        // nowhere, so anything but a zero direction leaves it spinning.
+        assert_eq!(action.move_dir, Vec2::ZERO, "fidgeted on arrival");
+        assert_eq!(action.intent, Intent::Hold);
+    }
+
+    #[test]
+    fn goto_runs_flat_out_when_far() {
+        let obs = heading_for(Vec2::from_ints(10, 0));
+        let moved = UtilityPolicy::baseline().decide(&obs).move_dir;
+        assert!(
+            (moved.length() - Fx::ONE).abs() < Fx::from_ratio(1, 1000),
+            "dawdled sixteen strides from the target: {moved:?}"
+        );
+    }
+
+    #[test]
+    fn goto_ignores_the_wall_sweep() {
+        // The agent stands 0.5 from the left wall -- close enough that an
+        // `Advance` in that direction sweeps along the wall instead of grinding
+        // into it. A `Goto` past the same wall must not: the sweep would walk
+        // the character sideways past the click.
+        let near_wall = [
+            Fx::from_ratio(5, 10),
+            Fx::from_int(39),
+            Fx::from_int(14),
+            Fx::from_int(14),
+        ];
+
+        let mut obs = situation(&[]);
+        obs.wall_clearance = near_wall;
+        obs.order = Order::Goto(Vec2::from_ints(10, 14));
+        // The click is past the wall, so it clamps to the reachable box and
+        // leaves only clearance minus radius = 0.05 of travel -- a whisker over
+        // the 0.049988 deadband, which is the whole point: the character should
+        // still take that whisker rather than sweep.
+        let arriving = UtilityPolicy::baseline().decide(&obs).move_dir;
+        assert!(
+            arriving.x < Fx::ZERO,
+            "did not head for the click: {arriving:?}"
+        );
+        assert_eq!(
+            arriving.y,
+            Fx::ZERO,
+            "swept along the wall on the way to a destination: {arriving:?}"
+        );
+
+        obs.order = Order::Advance(-Vec2::X);
+        let sweeping = UtilityPolicy::baseline().decide(&obs).move_dir;
+        assert!(
+            sweeping.y.abs() > sweeping.x.abs(),
+            "an advance into the wall stopped sweeping: {sweeping:?}"
+        );
+        assert!(
+            sweeping.x >= Fx::ZERO,
+            "an advance into the wall kept pushing into it: {sweeping:?}"
+        );
+    }
+
+    #[test]
+    fn march_behaviour_is_byte_identical() {
+        // `Goto` shares `march` with every order that came before it, and the
+        // four of them are what every recorded run and every evolved genome in
+        // the repository was measured on. Pinned raw values rather than a state
+        // hash three crates away, so a regression fails at the line that moved.
+        // Recorded from `march` as it stood before `Goto` was navigable.
+        let mut policy = UtilityPolicy::baseline();
+        let focus = Order::Focus(EntityId::new(1, 0));
+
+        // Dead centre: the wall clearances cancel, so these are the steering
+        // terms with `open_ground` contributing nothing.
+        for (order, x, y) in [
+            (Order::Hold, 0, 0),
+            (Order::Advance(Vec2::X), 65536, 0),
+            (Order::Regroup, 0, 0),
+            (focus, 0, 0),
+        ] {
+            let mut obs = situation(&[]);
+            obs.order = order;
+            let moved = policy.decide(&obs).move_dir;
+            assert_eq!((moved.x.raw(), moved.y.raw()), (x, y), "{order:?} moved");
+        }
+
+        // Jammed into the bottom-left corner with an ally behind it, so that
+        // `open_ground`, the wall sweep and `ally_centre` all contribute.
+        for (order, x, y) in [
+            (Order::Hold, 16194, 11146),
+            (Order::Advance(Vec2::X), 64935, 8855),
+            (Order::Advance(-Vec2::X), 16194, -54390),
+            (Order::Regroup, 57112, -32142),
+            (focus, 16194, 11146),
+        ] {
+            let mut obs = situation(&[]);
+            obs.order = order;
+            obs.wall_clearance = [
+                Fx::from_ratio(5, 10),
+                Fx::from_int(39),
+                Fx::from_ratio(5, 10),
+                Fx::from_int(27),
+            ];
+            obs.set_allies(&[contact(9, -6, -6, Fx::ONE)]);
+            let moved = policy.decide(&obs).move_dir;
+            assert_eq!((moved.x.raw(), moved.y.raw()), (x, y), "{order:?} moved");
+        }
+    }
+
+    #[test]
+    fn decision_period_reaches_the_policy() {
+        // The brake is paced by this number, and `Observation::blank` defaults
+        // it to 1. If the world ever stopped filling it in, every `Goto` would
+        // silently commit to a stride twelve times too short and the failure
+        // would look like sluggishness, not like a bug.
+        let world = World::new(&Scenario::room(), 1);
+        let hero = world.alive_ids(Faction::Heroes)[0];
+        assert_eq!(world.observe(hero).decision_period, 12);
+        assert_eq!(
+            world.observe(hero).decision_period,
+            Stats::decision_period(world.view(hero).unwrap().stats)
         );
     }
 

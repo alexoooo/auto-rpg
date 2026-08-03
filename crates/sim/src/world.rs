@@ -181,6 +181,7 @@ impl World {
         obs.attack_range = stats.attack_range();
         obs.sight_range = stats.sight_range();
         obs.move_speed = stats.move_speed();
+        obs.decision_period = stats.decision_period();
         obs.attack_ready = if self.attack_cd[i] == 0 {
             Fx::ONE
         } else {
@@ -884,15 +885,42 @@ mod tests {
 
     #[test]
     fn feature_vector_has_a_stable_width() {
-        let w = World::new(&Scenario::skirmish(11, 2, 3), 4);
+        let mut w = World::new(&Scenario::skirmish(11, 2, 3), 4);
         let mut buffer = vec![Fx::ZERO; crate::obs::FEATURE_COUNT];
-        for id in w.pending_decisions() {
-            let written = w.observe(*id).write_features(&mut buffer);
-            assert_eq!(written, crate::obs::FEATURE_COUNT);
-            for (k, v) in buffer.iter().enumerate() {
-                assert!(v.abs() <= Fx::from_int(2), "feature {k} out of range: {v}");
+        // Every order kind, because the order slot is the one part of the
+        // layout whose value depends on which variant is standing. The `Goto`
+        // destination sits far outside the arena on purpose: it is the case
+        // where an unclamped world-space point would leave the range.
+        for order in [
+            Order::Hold,
+            Order::Advance(Vec2::from_ints(30, -40)),
+            Order::Regroup,
+            Order::Focus(EntityId::NONE),
+            Order::Goto(Vec2::from_ints(400, -400)),
+        ] {
+            w.set_order(Faction::Heroes, order);
+            w.set_order(Faction::Monsters, order);
+            for id in w.pending_decisions() {
+                let written = w.observe(*id).write_features(&mut buffer);
+                assert_eq!(written, crate::obs::FEATURE_COUNT);
+                for (k, v) in buffer.iter().enumerate() {
+                    assert!(
+                        v.abs() <= Fx::from_int(2),
+                        "feature {k} out of range under {order:?}: {v}"
+                    );
+                }
             }
         }
+    }
+
+    #[test]
+    fn a_character_knows_its_own_reaction_speed() {
+        let w = World::new(&Scenario::room(), 1);
+        let hero = w.alive_ids(Faction::Heroes)[0];
+        assert_eq!(
+            w.observe(hero).decision_period,
+            Stats::decision_period(w.view(hero).unwrap().stats)
+        );
     }
 
     #[test]

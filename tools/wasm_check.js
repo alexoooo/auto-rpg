@@ -1,0 +1,283 @@
+// Checks that web.wasm computes exactly what the native build computes.
+//
+// This is the project's central claim, under test for the first time: the same
+// scenario, the same seed and the same decisions produce the same run on every
+// target, forever. `cargo run --release -p lab -- hash` prints a 64-bit number
+// on MSVC x86-64. The identical simulation compiled to wasm32 and driven from
+// Node has to produce that number and not one bit else, or "deterministic" is
+// a word this repository uses rather than a property it has. Run with:
+//
+//     node --test tools/wasm_check.js
+//
+// or plain `node tools/wasm_check.js` -- node:test runs the file's tests
+// either way, the second with less ceremony around the output. No npm, no
+// dependencies: `tools/gen_sin_table.js` is the precedent, and the reasoning
+// is the same one DESIGN.md gives for the Rust side.
+//
+// The artifact is checked as it was built, and built only if it is missing --
+// so after touching crates/, rebuild before believing a pass:
+//
+//     cargo build --release --target wasm32-unknown-unknown -p web
+//
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+const { spawnSync } = require("node:child_process");
+const { test } = require("node:test");
+
+const ROOT = path.join(__dirname, "..");
+const WASM = path.join(ROOT, "target", "wasm32-unknown-unknown", "release", "web.wasm");
+const BUILD = ["cargo", "build", "--release", "--target", "wasm32-unknown-unknown", "-p", "web"];
+
+// Both recorded from the native build and pinned again in crates/web/src/lib.rs,
+// so a change in the sim's behaviour fails there as well as here. That pairing
+// is what tells the two failure modes apart -- see `divergence` below.
+
+// `lab hash`: skirmish(1234, 4, 6), seed 99, baseline policy, run to a finish.
+const LAB_HASH = 0xb148b5338bc049f6n;
+
+// `init(1); set_goto(20_000, 12_000); step(600)`: the path a player drives.
+const ROOM_HASH = 0x32a0f552486ed898n;
+
+// The frame header, as the client reads it.
+const HEADER_LEN = 7;
+const UNIT_STRIDE = 9;
+const ARENA = [24, 16];
+
+// ------------------------------------------------------------------ the module
+
+function wasmBytes() {
+  if (!fs.existsSync(WASM)) {
+    build();
+  }
+  return fs.readFileSync(WASM);
+}
+
+function build() {
+  process.stderr.write(`${path.relative(ROOT, WASM)} is missing; building it once.\n`);
+  const [cargo, ...args] = BUILD;
+  const built = spawnSync(cargo, args, { cwd: ROOT, stdio: "inherit" });
+  if (built.status === 0) {
+    return;
+  }
+  const why = built.error
+    ? `\`${cargo}\` could not be run (${built.error.code}).`
+    : `the build exited ${built.status}.`;
+  throw new Error(
+    [
+      "",
+      `There is no wasm build to check: ${why}`,
+      "",
+      "Build it with:",
+      "",
+      `    ${BUILD.join(" ")}`,
+      "",
+      "`-p web`, not a bare workspace build: lab uses std::thread::scope and has",
+      "no business being compiled for wasm. If rustc has never seen the target,",
+      "it needs one-time, online setup first:",
+      "",
+      "    rustup target add wasm32-unknown-unknown",
+      "",
+    ].join("\n"),
+  );
+}
+
+// Stubs whatever the module asks for.
+//
+// It currently asks for nothing -- a cdylib with no wasm-bindgen links with an
+// empty import list on this toolchain, which is the whole reason the boundary
+// could be hand-rolled. This loop is insurance, not plumbing: the day some
+// dependency drags in an import, the failure should be a line on stderr naming
+// it, not a bare LinkError from the instantiate call.
+function importsFor(mod) {
+  const imports = {};
+  for (const { module: from, name, kind } of WebAssembly.Module.imports(mod)) {
+    process.stderr.write(`stubbing an unexpected ${kind} import: ${from}.${name}\n`);
+    imports[from] ??= {};
+    imports[from][name] = stub(kind);
+  }
+  return imports;
+}
+
+function stub(kind) {
+  switch (kind) {
+    case "function":
+      return () => 0;
+    case "memory":
+      return new WebAssembly.Memory({ initial: 1 });
+    case "table":
+      return new WebAssembly.Table({ initial: 0, element: "anyfunc" });
+    case "global":
+      return new WebAssembly.Global({ value: "i32", mutable: true }, 0);
+    default:
+      throw new Error(`no stub for a ${kind} import`);
+  }
+}
+
+const compiled = new WebAssembly.Module(wasmBytes());
+const wasm = new WebAssembly.Instance(compiled, importsFor(compiled)).exports;
+
+// ------------------------------------------------------------------ reading it
+
+// wasm i32 arrives in JavaScript signed. Every number this boundary hands back
+// is unsigned, so every one of them goes through here first -- a hash half past
+// 0x7fffffff read as negative would turn a match into a spectacular mismatch.
+const u32 = (n) => n >>> 0;
+
+const hash64 = (lo, hi) => (BigInt(u32(hi)) << 32n) | BigInt(u32(lo));
+const hex = (v) => `0x${v.toString(16).padStart(16, "0")}`;
+
+const selftestHash = () => hash64(wasm.selftest_hash_lo(), wasm.selftest_hash_hi());
+const stateHash = () => hash64(wasm.state_hash_lo(), wasm.state_hash_hi());
+
+// The live frame, copied out.
+//
+// Never hold a typed array across a wasm call, not one call and not one line:
+// any allocating call can grow linear memory, and growing it detaches the
+// buffer every existing view points into. The frame is a fixed array whose
+// address never moves, so this is belt and braces here -- but web/main.js runs
+// the same rule at sixty frames a second, where it is the difference between a
+// renderer and a silently empty canvas.
+function frame() {
+  const view = new Float32Array(wasm.memory.buffer, u32(wasm.frame_ptr()), u32(wasm.frame_len()));
+  return Array.from(view);
+}
+
+// The message that matters more than the assertion it is attached to.
+function divergence(what, native, measured) {
+  return [
+    "",
+    `${what} does not match the number the native build produces.`,
+    "",
+    `    native  ${hex(native)}`,
+    `    wasm    ${hex(measured)}`,
+    "",
+    "The fixed-point simulation is NOT bit-identical between native (MSVC",
+    "x86-64) and wasm32. That is this project's central claim -- the same inputs",
+    "produce the same run, everywhere, forever -- and it is the reason the sim is",
+    "16.16 fixed point with a committed sine table instead of floats. Do not",
+    "edit the constant to make this pass; one of these two runs is wrong.",
+    "",
+    "First, which half moved? crates/web/src/lib.rs pins these same two numbers",
+    "natively:",
+    "",
+    "    cargo test -p web",
+    "",
+    "  fails too -> the sim's behaviour changed and wasm is merely agreeing with",
+    "               native about the new behaviour. Both constants get re-recorded,",
+    "               deliberately, in the commit that changed it.",
+    "  passes    -> the two targets genuinely disagree. Read on.",
+    "",
+    "Then, which system? The two hashes here exercise different code:",
+    "selftest_hash runs a canned 4v6 fight (combat, perception noise, fitness),",
+    "the room script runs click-to-move (the order channel, the decision loop,",
+    "Order::Goto and the arrival rule). One failing alone names the system; both",
+    "failing points at crates/fx, underneath everything.",
+    "",
+    "Where the targets can actually diverge, in the order worth checking:",
+    "",
+    "  - A float that reached simulation state. Fx::to_f32 is a one-way door",
+    "    (DESIGN.md); a value that crossed back in makes the host's rounding a",
+    "    gameplay input, and x86 and wasm need not agree.",
+    "  - usize width: 64 bits natively, 32 in wasm. A length, capacity or index",
+    "    that reaches a hash, or that saturates an Fx, produces exactly this",
+    "    failure and no other symptom.",
+    "  - crates/fx arithmetic: isqrt64, the i64 intermediates in Fx multiply and",
+    "    divide, shifts of negative values, and every saturating boundary.",
+    "  - Iteration order, which is required to be by ascending entity index with",
+    "    index tie-breaks, and Rng::from_stream, which must not depend on it.",
+    "",
+    "Then bisect it. Drive step(1) in a loop here and against the same script",
+    "natively, comparing state_hash tick by tick: the first tick that differs",
+    "names the system far faster than reading the diff does.",
+    "",
+  ].join("\n");
+}
+
+// ------------------------------------------------------------------ the checks
+
+test("the boundary exports everything the client calls", () => {
+  // A rename is a LinkError in the browser and a silent `undefined is not a
+  // function` here, so it is worth one cheap assertion up front.
+  const exports = [
+    "init",
+    "set_goto",
+    "clear_order",
+    "step",
+    "frame_ptr",
+    "frame_len",
+    "tick",
+    "state_hash_lo",
+    "state_hash_hi",
+    "selftest_hash_lo",
+    "selftest_hash_hi",
+  ];
+  for (const name of exports) {
+    assert.equal(typeof wasm[name], "function", `web.wasm does not export ${name}()`);
+  }
+  assert.ok(wasm.memory instanceof WebAssembly.Memory, "LLD did not export memory");
+
+  const imports = WebAssembly.Module.imports(compiled);
+  console.log(`web.wasm: ${fs.statSync(WASM).size} bytes, ${imports.length} imports`);
+});
+
+test("the selftest hash is the number the lab prints natively", () => {
+  // Independent of init() and of anything else in this file: selftest_hash
+  // builds its own world, runs it to a conclusion and throws it away. It runs
+  // exactly what `cargo run --release -p lab -- hash` runs, which is what makes
+  // comparing against a number copied out of that command's output honest.
+  const measured = selftestHash();
+  // `ok`, not `equal`: assert.equal would append its own diff of the two values
+  // in decimal, which is nineteen digits of noise under a message that already
+  // prints both of them in hex.
+  assert.ok(measured === LAB_HASH, divergence("The selftest hash", LAB_HASH, measured));
+  console.log(`selftest hash  ${hex(measured)}  == native`);
+});
+
+test("a scripted walk leaves the world in the state native recorded", () => {
+  // The more interesting half. The selftest is one canned fight; this is the
+  // code path a player drives -- a click crossing as integer thousandths, the
+  // per-faction order channel, the decision loop that has to answer as well as
+  // step, and the arrival rule that has to stop the hero on the spot native
+  // stopped it on.
+  wasm.init(1);
+  wasm.set_goto(20_000, 12_000);
+  wasm.step(600);
+
+  const measured = stateHash();
+  assert.equal(wasm.tick(), 600, "step(600) did not simulate 600 ticks");
+  assert.ok(measured === ROOM_HASH, divergence("The room-run state hash", ROOM_HASH, measured));
+  console.log(`room-run hash  ${hex(measured)}  == native`);
+});
+
+test("the frame buffer still has the layout the client reads", () => {
+  // Cheap, and it catches the failure mode that is invisible from the hashes: a
+  // header field added or a unit column reordered leaves the simulation
+  // bit-identical and repaints the game wrong.
+  wasm.init(1);
+  wasm.set_goto(20_000, 12_000);
+  wasm.step(60);
+
+  const live = frame();
+  const units = live[6];
+  assert.equal(units, 1, "the room holds exactly one hero");
+  assert.equal(
+    live.length,
+    HEADER_LEN + UNIT_STRIDE * units,
+    `frame_len() is ${live.length}, not ${HEADER_LEN} + ${UNIT_STRIDE} * ${units}`,
+  );
+  assert.deepEqual([live[0], live[1]], ARENA, "arena_x, arena_y");
+  assert.equal(live[2], 4, "order_kind: Goto is discriminant 4");
+  assert.deepEqual([live[3], live[4]], [20, 12], "order_x, order_y: 20_000 thousandths is 20.0");
+  assert.ok(live[5] > 0 && live[5] <= wasm.tick(), `last_decision_tick ${live[5]}`);
+
+  // The hero, drawn from the one row there is. Checking a couple of columns by
+  // value is what distinguishes "the row is there" from "the row is shifted by
+  // one", which is a facing wedge drawn out of a hit-point total.
+  const unit = live.slice(HEADER_LEN);
+  assert.ok(unit[0] > 12 && unit[1] > 8, `x, y ${unit[0]}, ${unit[1]}: the hero set off`);
+  assert.ok(unit[2] >= 0 && unit[2] <= 65535, `facing_raw ${unit[2]} is not a binary angle`);
+  assert.ok(Math.abs(unit[3] - 0.45) < 0.001, `radius ${unit[3]}`);
+  assert.equal(unit[5], 84, "max_hp: 20 + 8 * vitality 8");
+  assert.equal(unit[6], 0, "faction: Heroes");
+});
