@@ -36,11 +36,40 @@ pub struct Contact {
     pub facing: Angle,
     /// Perceived bearing of the enemy's sword hand.
     pub sword_angle: Angle,
-    /// Perceived angular velocity of that hand, raw angle units per tick. The
-    /// telegraph: sign says which way the swing is coming, magnitude says how
-    /// much it will hurt and how long the recovery will be.
+    /// Perceived angular velocity of that hand, raw angle units per tick.
     pub sword_reach: Fx,
     pub sword_spin: Fx,
+    /// **What the enemy's sword hand is doing.** Arrives *exact*.
+    ///
+    /// Deliberately not blurred, and the asymmetry is the design. A blade
+    /// hauled back over a shoulder is not a subtle cue -- anyone can see that a
+    /// blow is coming. What separates fighters is knowing *when* it lands and
+    /// *where*, and those two are blurred hard. A dim character is not blind to
+    /// the attack; it is late and it guesses the line wrong, which is a much
+    /// more interesting way to lose than not noticing.
+    pub sword_swing: crate::hand::Swing,
+    /// Perceived ticks left in that phase, and the single most valuable number
+    /// in the observation.
+    ///
+    /// In [`Swing::Windup`] it is how long there is to answer -- to step off the
+    /// line, get the shield across, or land something first. In
+    /// [`Swing::Recover`] it is how long the enemy is helpless, which is the
+    /// whole of a punish. Blurred in proportion to perception noise, so a dim
+    /// character commits to its dodge at the wrong moment.
+    ///
+    /// [`Swing::Windup`]: crate::hand::Swing::Windup
+    /// [`Swing::Recover`]: crate::hand::Swing::Recover
+    pub sword_left: Fx,
+    /// Perceived line the running attack is aimed along.
+    ///
+    /// Not the same as [`Contact::sword_angle`], and confusing the two is the
+    /// mistake this field exists to prevent: during a windup the blade is
+    /// *cocked away* from where it is going, so a defender that covers the
+    /// blade covers the one bearing the cut is guaranteed not to arrive from.
+    /// Reading the line off the pose is something a fighter genuinely can do, so
+    /// the sim hands it over rather than making every policy reverse-engineer
+    /// it -- blurred, because reading it well is the skill.
+    pub sword_line: Angle,
     /// Perceived bearing of the enemy's shield hand, and how far it is braced.
     /// Between them these say where the enemy *cannot* be hit.
     pub shield_angle: Angle,
@@ -114,19 +143,26 @@ pub struct Observation {
 
 /// Values per contact in the feature vector: direction (2), range, health,
 /// size, weapon length, facing (2), sword direction (2), sword spin, sword
-/// reach, shield direction (2), shield reach.
+/// reach, shield direction (2), shield reach, then the attack read -- swing
+/// phase one-hot (4), ticks left in it, and the attack line (2).
 ///
 /// Every angle enters as a `(cos, sin)` pair rather than as a number, and that
 /// is not a rounding detail: a raw angle is discontinuous at the wrap, so a
 /// blade at 359 degrees and one at 1 degree would look maximally different to
 /// anything trying to learn from the slot. Two continuous components have no
 /// seam to learn across.
-const FEATURES_PER_CONTACT: usize = 15;
+///
+/// The phase is a one-hot block and not a number for the same reason. The four
+/// phases are not points on a scale -- a recovery is not "more" than a windup --
+/// and encoding them as 0, 1/3, 2/3, 1 would ask a network to learn that the
+/// most dangerous state and the most punishable one sit next to each other.
+const FEATURES_PER_CONTACT: usize = 15 + crate::hand::Swing::COUNT + 3;
 
 /// Own-state values: health, attack readiness, radius, weapon length, minimum
 /// strike range, decision rate, shield arc, then both hands as direction (2),
-/// spin and reach.
-const SELF_FEATURES: usize = 7 + 4 * crate::hand::HANDS;
+/// spin and reach, then the sword's own attack state -- phase one-hot (4),
+/// ticks left, and whether the hand is armed.
+const SELF_FEATURES: usize = 7 + 4 * crate::hand::HANDS + crate::hand::Swing::COUNT + 2;
 
 /// Width of the flattened feature vector produced by
 /// [`Observation::write_features`].
@@ -140,12 +176,22 @@ pub const FEATURE_COUNT: usize =
 /// here is a retraining bill. Recording the version is what lets a future
 /// frozen network refuse to load against a vector it was not trained on,
 /// instead of quietly reading the wrong number out of every slot.
-pub const FEATURE_LAYOUT_VERSION: u32 = 3;
+///
+/// Version 4 is the phased attack. A contact went from fifteen numbers to
+/// twenty-two, because a defender that can see a blade's bearing and speed but
+/// cannot see whether that blade is *committed* has no way to tell a feint from
+/// a cut, or a recovery from a guard. Paid now, while there are still no
+/// weights: the same bill after a training run is the training run.
+pub const FEATURE_LAYOUT_VERSION: u32 = 4;
 
 /// Spin, in raw angle units per tick, that normalises to `1` in the feature
 /// vector. Above the fastest weapon in the game, so the clamp is a guard rather
 /// than a routine flattening of the signal.
 const SPIN_SCALE: Fx = Fx::from_int(4000);
+
+/// Ticks that normalise to `1`. One second, which comfortably covers the
+/// longest phase in the game (a Brute's 44-tick recovery).
+const TICK_SCALE: Fx = Fx::from_int(60);
 
 /// A shield arc half-width as a fraction of a half turn, so it lands inside the
 /// vector's `-1..=1` invariant like everything else.
@@ -227,6 +273,18 @@ impl Observation {
         self.hands[crate::hand::SHIELD]
     }
 
+    /// Whether a strike command would actually start a cut this tick.
+    ///
+    /// Both halves matter and a policy that checks only one is broken in a way
+    /// that is hard to see from a fight: the hand must be back at guard *and*
+    /// re-armed by a command that was not asking to attack. Asking to attack
+    /// forever throws one attack; see [`crate::Hand::armed`].
+    #[inline]
+    pub fn can_strike(&self) -> bool {
+        let sword = self.sword();
+        sword.swing == crate::hand::Swing::Guard && sword.armed
+    }
+
     /// How far the observer's blade reaches from its own centre right now, at
     /// its current extension. What a policy needs to answer "can I hit that
     /// from here"; [`Observation::full_reach`] answers "could I ever".
@@ -305,6 +363,18 @@ impl Observation {
             i += 4;
         }
 
+        // The character's own attack, exactly. `armed` is not introspection for
+        // its own sake: it is the difference between a policy that fights and
+        // one that throws a single cut and then stands holding the button down
+        // forever, and nothing else in the vector implies it.
+        let sword = self.sword();
+        out[i + sword.swing.discriminant()] = Fx::ONE;
+        i += crate::hand::Swing::COUNT;
+        out[i] = (Fx::from_int(sword.swing_left as i32) / TICK_SCALE).min(Fx::ONE);
+        i += 1;
+        out[i] = if sword.armed { Fx::ONE } else { Fx::ZERO };
+        i += 1;
+
         out[i + self.order.discriminant()] = Fx::ONE;
         i += Order::COUNT;
 
@@ -351,6 +421,18 @@ impl Observation {
                     out[base + 12] = shield.x;
                     out[base + 13] = shield.y;
                     out[base + 14] = c.shield_reach;
+
+                    // The attack read. The line is a separate pair from
+                    // `sword` above on purpose: during a windup the blade is
+                    // cocked away from where the cut is going, so the two point
+                    // in different directions and collapsing them would hide
+                    // the only thing worth knowing.
+                    out[base + 15 + c.sword_swing.discriminant()] = Fx::ONE;
+                    let read = base + 15 + crate::hand::Swing::COUNT;
+                    out[read] = (c.sword_left / TICK_SCALE).clamp(Fx::ZERO, Fx::ONE);
+                    let line = Vec2::from_angle(c.sword_line);
+                    out[read + 1] = line.x;
+                    out[read + 2] = line.y;
                 }
             }
             i += MAX_CONTACTS * FEATURES_PER_CONTACT;

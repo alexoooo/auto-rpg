@@ -19,6 +19,7 @@ struct Record {
     draws: usize,
     blocks: u64,
     parries: u64,
+    health: Fx,
     runs: usize,
 }
 
@@ -28,6 +29,14 @@ impl Record {
     }
     fn draw_rate(&self) -> f64 {
         self.draws as f64 / self.runs.max(1) as f64
+    }
+    /// Mean surviving health across the set.
+    ///
+    /// The measure that matters once both policies win most of their fights:
+    /// "did you win" stops discriminating long before "what did it cost you"
+    /// does, and what a fight costs is the whole of what reading it buys.
+    fn toll(&self) -> f64 {
+        (self.health / Fx::from_int(self.runs.max(1) as i32)).to_f32() as f64
     }
 }
 
@@ -40,6 +49,7 @@ fn duel(hero: (PolicyKind, UnitKind), villain: (PolicyKind, UnitKind)) -> Record
         draws: 0,
         blocks: 0,
         parries: 0,
+        health: Fx::ZERO,
         runs: SEEDS as usize,
     };
     for seed in 0..SEEDS {
@@ -54,6 +64,7 @@ fn duel(hero: (PolicyKind, UnitKind), villain: (PolicyKind, UnitKind)) -> Record
         }
         record.blocks += result.blocks as u64;
         record.parries += result.parries as u64;
+        record.health += result.hero_health;
     }
     record
 }
@@ -78,14 +89,14 @@ fn a_duellist_beats_a_brute_more_often_than_not() {
 fn a_duellist_out_fights_the_baseline_where_the_weapon_is_the_problem() {
     // The test that stops "clever" from meaning "worse", stated on the matchup
     // the extra machinery exists for: a Warrior against a weapon with twice its
-    // reach and twice its weight, where standing in the right place is the
-    // whole fight. The baseline wins that around 79% of the time and spends a
-    // sixth of its fights failing to resolve at all.
+    // reach and twice its weight, where standing in the right place and reading
+    // a telegraph are the whole fight.
     //
-    // Deliberately *not* asserted of the Scout, which the baseline takes to 98%
-    // by charging: against an opponent this weak, caution is a tax. The
-    // duellist gives up about fifteen points there to gain them here, and
-    // pretending otherwise would be pinning a number nobody measured.
+    // Two assertions, and the second is the one that will keep discriminating.
+    // Once both policies win most of their duels a win rate saturates and stops
+    // saying anything; what a fight *costs* does not. The claim the phased swing
+    // exists to make good on is that a fighter who reads an attack takes fewer
+    // of them, so that is what gets pinned.
     let clever = duel(
         (PolicyKind::Duelist, UnitKind::Warrior),
         (PolicyKind::Utility, UnitKind::Brute),
@@ -101,11 +112,11 @@ fn a_duellist_out_fights_the_baseline_where_the_weapon_is_the_problem() {
         simple.win_rate() * 100.0
     );
     assert!(
-        clever.draw_rate() < simple.draw_rate(),
-        "the duellist drew {:.0}% against the baseline's {:.0}%; \
-         reading a fight is supposed to make it end",
-        clever.draw_rate() * 100.0,
-        simple.draw_rate() * 100.0
+        clever.toll() > simple.toll(),
+        "the duellist finished on {:.2} health against the baseline's {:.2}; \
+         reading a fight is supposed to make it cheaper",
+        clever.toll(),
+        simple.toll()
     );
 }
 

@@ -33,9 +33,19 @@ const MAX_CATCHUP_TICKS = 8;
 // unit: [x, y, facing_raw, radius, hp, max_hp, faction, kind, intent,
 // entity_index, entity_generation, sword_angle_raw, sword_reach, sword_spin,
 // shield_angle_raw, shield_reach, weapon_length, shield_arc_raw, hit_flash,
-// block_flash, parry_flash].
+// block_flash, parry_flash, sword_swing, sword_swing_left, sword_line_raw].
 const HEADER_LEN = 7;
-const UNIT_STRIDE = 21;
+const UNIT_STRIDE = 24;
+
+// `Swing::discriminant`, from crates/sim/src/hand.rs. Append-only.
+const SWING_GUARD = 0;
+const SWING_WINDUP = 1;
+const SWING_STRIKE = 2;
+const SWING_RECOVER = 3;
+
+// `Strike`, from crates/sim/src/action.rs, as `set_input` takes it.
+const STRIKE_NONE = 0;
+const STRIKE_NEAREST = 1;
 
 // Bits accepted by `set_control`, from crates/web/src/lib.rs.
 const CONTROL_FEET = 1;
@@ -294,6 +304,13 @@ function readUnit(f, u) {
     hitFlash: f[u + 18],
     blockFlash: f[u + 19],
     parryFlash: f[u + 20],
+    // The attack. `swordLine` is where the cut is aimed, which during a windup
+    // is a long way from where the blade is pointing -- the gap between the two
+    // is the tell, and drawing it is the only reason the player can learn to
+    // read one.
+    swing: f[u + 21],
+    swingLeft: f[u + 22],
+    swordLine: (f[u + 23] / 65536) * TAU,
   };
 }
 
@@ -742,6 +759,18 @@ let pointer = { x: 0, y: 0, inside: false };
 /** While held, the pointer steers the shield hand instead of the sword. */
 let shieldModifier = false;
 
+/** Whether the attack button is down.
+ *
+ *  A button and not a bearing, which is the whole shape of the swing model: the
+ *  pointer says where to cut, this says when, and the sim owns everything in
+ *  between -- the windup, the arc, the extension, the recovery.
+ *
+ *  Releasing matters as much as pressing. An attack starts only on a press that
+ *  follows a release, so holding this down throws exactly one cut and then
+ *  waits. That is deliberate: the alternative is a blade that chains attacks
+ *  back to back forever, which is the windmill this model exists to end. */
+let striking = false;
+
 function setControl(mask) {
   controlMask = mask & (CONTROL_FEET | CONTROL_SWORD);
   wasm.set_control(controlMask);
@@ -753,9 +782,9 @@ function setControl(mask) {
 function controlDescription() {
   const feet = controlMask & CONTROL_FEET;
   const sword = controlMask & CONTROL_SWORD;
-  if (feet && sword) return "You have the feet and the sword. WASD to move, mouse to aim, hold Shift to guard.";
+  if (feet && sword) return "You have the feet and the sword. WASD to move, mouse to aim, click to cut, hold Shift to steer the shield.";
   if (feet) return "You have the feet. WASD to move; the character fights for itself.";
-  if (sword) return "You have the sword. Aim with the mouse, hold Shift to steer the shield instead.";
+  if (sword) return "You have the sword. Aim with the mouse and click to cut -- one click, one attack. Hold Shift to steer the shield instead.";
   return DEFAULT_HINT;
 }
 
@@ -788,10 +817,11 @@ function pushInput(state) {
     my /= len;
   }
 
-  // Aim: the bearing from the character to the pointer, and how far out it is
-  // as an extension. Pulling the mouse in tucks the blade; pushing it out
-  // commits -- two degrees of freedom from one pointer, which is as close to
-  // Die by the Sword's mouse as a top-down view gets.
+  // Aim: the bearing from the character to the pointer. For the sword that is
+  // the *line* a cut is thrown through and nothing else -- how far the blade
+  // extends belongs to the attack now, not to the mouse. Distance from the
+  // character still means something while the shield modifier is held, where
+  // pulling in drops the guard and pushing out braces it.
   let aim = 0;
   let reach = 0;
   if (state.hero && pointer.inside) {
@@ -807,7 +837,12 @@ function pushInput(state) {
     milliSigned(my),
     aim,
     Math.round(clamp(reach, 0, 1) * 1000),
-    shieldModifier ? 1 : 0
+    shieldModifier ? 1 : 0,
+    // The side is left to the sim. Picking it is a real decision -- a cut from
+    // the flank a guard is not on is much harder to answer -- but it is a
+    // decision that wants its own control, and one the page does not have a
+    // spare button for yet.
+    striking && !shieldModifier ? STRIKE_NEAREST : STRIKE_NONE
   );
 }
 
@@ -823,11 +858,24 @@ function bindInput() {
       event.preventDefault();
       standDown(state);
     } else if (event.button === 0) {
-      // Under manual sword control a click is not an order -- the pointer is
-      // already saying something every tick, and a `Goto` on top of it would
-      // fight the feet the player may also be holding.
-      if (!(controlMask & CONTROL_SWORD)) goTo(pointerToWorld(event), state);
+      // Under manual sword control a click is a *cut*, not an order: the
+      // pointer is already saying where every tick, and a `Goto` on top of it
+      // would fight the feet the player may also be holding.
+      if (controlMask & CONTROL_SWORD) striking = true;
+      else goTo(pointerToWorld(event), state);
     }
+  });
+
+  // Release on the window rather than the canvas, and unconditionally. A button
+  // released off-canvas or after control was handed back would otherwise stay
+  // logically down, and a held attack button is a hand that never re-arms --
+  // one cut and then a swordsman standing there for the rest of the fight.
+  window.addEventListener("mouseup", (event) => {
+    if (event.button === 0) striking = false;
+  });
+  window.addEventListener("blur", () => {
+    striking = false;
+    held.clear();
   });
 
   canvas.addEventListener("mousemove", (event) => {
@@ -1248,15 +1296,33 @@ function drawReach(unit, skin, now) {
  *  Roughly a Warrior's working speed. */
 const HOT_SPIN = 1500;
 
+/** Blade colour by attack phase.
+ *
+ *  Four states and they have to be four *looks*, not four shades of one. Only a
+ *  striking blade can hurt anybody, so a page that drew every blade the same
+ *  would be showing a fight in which everything is dangerous all the time --
+ *  which is precisely the fight this model was built to stop being. */
+const SWING_SKIN = {
+  [SWING_GUARD]: { line: "rgba(210,220,235,0.45)", width: 0.16 },
+  [SWING_WINDUP]: { line: "rgba(255,196,92,0.95)", width: 0.24 },
+  [SWING_STRIKE]: { line: "rgba(255,255,255,1)", width: 0.30 },
+  [SWING_RECOVER]: { line: "rgba(150,160,180,0.40)", width: 0.14 },
+};
+
 /**
  * The swordplay: a blade on one side, a guard on the other.
  *
- * This is the whole point of drawing anything. Damage is geometric now -- it is
+ * This is the whole point of drawing anything. Damage is geometric -- it is
  * decided by where this segment is and how fast it is moving -- so a page that
- * drew only bodies would be hiding the entire game. The blade brightens with
- * its own speed, because speed *is* the damage, and the guard is drawn as the
- * arc it actually covers rather than as a shape, because that arc is exactly
- * what the block test asks about.
+ * drew only bodies would be hiding the entire game.
+ *
+ * What the blade shows is its **phase**, and that matters more than its speed
+ * now. A blade chambered at guard is furniture; the same blade three ticks into
+ * a windup is an attack you have most of a second to answer. Those two look
+ * nothing alike here, and the amber line marking where a windup is *aimed* is
+ * the single most useful thing on the canvas: during a windup the blade is
+ * cocked away from that line, so a player who watches the blade covers the one
+ * bearing the cut cannot arrive from.
  */
 function drawHands(unit, skin) {
   const x = px(unit.x);
@@ -1286,17 +1352,40 @@ function drawHands(unit, skin) {
     ctx.rotate(-unit.shieldAngle);
   }
 
+  // The declared line, drawn only while a cut is actually declared. This is the
+  // telegraph made visible: an arrow along the bearing the blade is about to
+  // sweep through, fading in as the windup runs out so "soon" and "now" look
+  // different.
+  if (unit.swing === SWING_WINDUP || unit.swing === SWING_STRIKE) {
+    const imminent =
+      unit.swing === SWING_STRIKE ? 1 : clamp(1 - unit.swingLeft / 30, 0.15, 1);
+    const out = px(unit.radius + unit.weaponLength);
+    ctx.rotate(unit.swordLine);
+    ctx.strokeStyle = `rgba(255,176,64,${(0.20 + 0.45 * imminent).toFixed(3)})`;
+    ctx.lineWidth = Math.max(1, r * 0.12);
+    ctx.setLineDash([Math.max(3, r * 0.3), Math.max(3, r * 0.35)]);
+    ctx.beginPath();
+    ctx.moveTo(r * 0.6, 0);
+    ctx.lineTo(out, 0);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.rotate(-unit.swordLine);
+  }
+
   // The blade. Hilt at the body's surface, tip at `radius + length * reach`,
   // which is precisely the segment `World::blade` builds and tests against.
   if (unit.swordReach > 0.05) {
+    const phase = SWING_SKIN[unit.swing] || SWING_SKIN[SWING_GUARD];
     const heat = clamp(Math.abs(unit.swordSpin) / HOT_SPIN, 0, 1);
     const hilt = r;
     const tip = px(unit.radius + unit.weaponLength * unit.swordReach);
     ctx.rotate(unit.swordAngle);
     ctx.lineCap = "round";
     // A trailing smear opposite the swing, so which way it is travelling is
-    // readable at a glance -- which is the read the whole fight turns on.
-    if (heat > 0.05) {
+    // readable at a glance. Only on a live cut: a blade drifting back to guard
+    // trails nothing worth watching, and smearing it would make a recovery --
+    // the most punishable moment in the game -- look like a threat.
+    if (unit.swing === SWING_STRIKE && heat > 0.05) {
       const sweep = Math.sign(unit.swordSpin) * -heat * 0.55;
       ctx.strokeStyle = `rgba(255,255,255,${(0.16 * heat).toFixed(3)})`;
       ctx.lineWidth = Math.max(2, r * 0.5);
@@ -1304,8 +1393,8 @@ function drawHands(unit, skin) {
       ctx.arc(0, 0, (hilt + tip) / 2, 0, sweep, sweep > 0);
       ctx.stroke();
     }
-    ctx.strokeStyle = `rgba(255,255,255,${(0.5 + 0.5 * heat).toFixed(3)})`;
-    ctx.lineWidth = Math.max(1.6, r * 0.22);
+    ctx.strokeStyle = phase.line;
+    ctx.lineWidth = Math.max(1.6, r * phase.width);
     ctx.beginPath();
     ctx.moveTo(hilt, 0);
     ctx.lineTo(tip, 0);

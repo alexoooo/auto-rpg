@@ -55,14 +55,15 @@ mod rules;
 mod scenario;
 mod world;
 
-pub use action::{Action, HandCommand, Intent, Order};
+pub use action::{Action, HandCommand, Intent, Order, Strike};
 pub use entity::{EntityId, Faction, UnitKind};
 pub use event::Event;
-pub use hand::{Hand, HANDS, SHIELD, SWORD};
+pub use hand::{Hand, Swing, HANDS, SHIELD, SWORD};
 pub use obs::{Contact, Observation, FEATURE_COUNT, FEATURE_LAYOUT_VERSION};
 pub use replay::{ActionRecord, OrderRecord, Replay};
 pub use rules::{
-    agility_multiplier, power_multiplier, Stats, Weapon, DT, MAX_CONTACTS, TICKS_PER_SECOND,
+    agility_multiplier, phase_ticks, power_multiplier, Stats, Weapon, DT, FOLLOW_THROUGH,
+    MAX_CONTACTS, STRIKE_TIMEOUT, TICKS_PER_SECOND, WINDUP_ARC,
 };
 pub use scenario::{Scenario, UnitSpec};
 pub use world::{Outcome, Snapshot, UnitView, World};

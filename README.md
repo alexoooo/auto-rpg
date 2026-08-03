@@ -37,32 +37,53 @@ ten ticks instead of twelve and sees 14.4 units instead of 9.6, and falls over a
 differently is the shortest demonstration this project has that stats are wired
 into the AI rather than into a damage number.
 
-And they fight with their hands. Inspired by *Die by the Sword*, in 2D: a sword
-hand and a shield hand, each commanded as a *bearing* rather than as an attack,
-each accelerating toward it under a torque cap. A swing therefore takes time, it
-cannot be reversed instantly, and its damage is the blade's speed where it
-happens to connect — so a Brute's blow is worth 16 at mid-blade, 31 at the tip,
-and nothing at all inside 1.27 units of its shoulder, where the blade has no room
-left to build speed. Nothing encodes any of that. It falls out of `spin × arm`,
-and it is what gives a light fighter something to do about a heavy one.
+And they fight with their hands. Inspired by *Die by the Sword*, in 2D: a shield
+hand held wherever it is pointed, and a sword hand that does not take a bearing
+at all. It takes a **line** and a **release**, and runs four phases against them
+— guard, windup, strike, recovery. An attack therefore *announces itself*: a
+Brute spends 33 ticks with its axe cocked back before the blade is dangerous,
+which is two or three chances for a Warrior to notice and answer, and none at all
+for another Brute. Past the telegraph the cut commits and the line freezes. Miss,
+and the recovery is a window in which the hand can do nothing at all.
+
+That shape is deliberate and it replaced something worse. When an agent could
+command the blade's bearing every tick, the optimal play — for a policy, for
+evolution, and for a person with a mouse — was to hold the sword out and spin it.
+Not because windmilling was strong, but because there was no instant at which an
+attack *began*, and so no instant at which one could be read, dodged or punished.
+Only a striking blade deals damage now, so a blade rotating outside its window is
+furniture.
+
+Damage is still the blade's speed where it happens to connect, and nothing
+encodes that either — it falls out of `spin × arm`, so every weapon hits hardest
+at the tip and every weapon has a radius inside which it cannot hurt anyone at
+all. Crowding a heavy weapon takes about three quarters of its bite away. It is
+what gives a light fighter something to do about a heavy one.
 
 So there is a second mind to choose from. The **Duelist** scores eight competing
 stances every time it is allowed to think — close, trade, circle to the guard's
 blind side, step off the swing plane, brace the shield on the line the blade will
 actually arrive along, punish a recovery, feint, break off — and picks one, with
-hysteresis so it commits instead of dithering. Against a Brute it wins 86% where
-the baseline wins 79%, and it does it while drawing a third as often. Pick either
-mind for either side from the details panel, and drag the sliders under it: those
-are the same genome `lab evolve` searches, live.
+hysteresis so it commits instead of dithering. Against a Brute it wins **92% and
+finishes on 0.73 health** where the naive policy wins 72% and finishes on 0.50,
+and a random one loses every time. Skill is the difference between those rows,
+not stats: all three drive the identical Warrior.
+
+Most of that gap comes from one read. A declared cut travels along a line, and a
+line can miss — so the duellist replays the cut it can see and asks whether it is
+even aimed at it before deciding to defend. Adding that took it from 21% to 88%
+in a mirror match. What did *not* help was reading telegraphs early: every
+increment of that gene made it worse, because an opponent who declares an attack
+on nearly every tick turns every answer into a cut you did not throw.
 
 And you can take over. Two independent toggles, `C` and `V`: the feet, the sword,
-or both. WASD steers; the mouse steers the blade, with pointer distance setting
-how far it is committed and `Shift` switching to the shield hand. Whichever half
-you do not hold, the AI keeps fighting with — on its own reaction clock, because
-that is a stat.
+or both. WASD steers; the mouse aims the line and **click to cut** — one click,
+one attack, with the same windup and the same recovery the AI pays. `Shift`
+switches the pointer to the shield hand. Whichever half you do not hold, the AI
+keeps fighting with — on its own reaction clock, because that is a stat.
 
 And the number matches. `web.wasm` and the native lab produce the *same 64-bit
-state hash* for the same run — `0xb77951723c521127` — so the fixed-point
+state hash* for the same run — `0x39bbe356c7f5035e` — so the fixed-point
 simulation really is bit-identical across MSVC x86-64 and wasm32, rather than
 merely designed to be.
 
@@ -214,10 +235,14 @@ running a worse network — it is running the same network on a blurrier picture
 less often. That is legible on a character sheet, cheap to balance (these are
 knobs, not retraining runs), and it gives the lab an obvious axis to sweep.
 
-Perception earned a second job when combat became geometric. Blocking and
-dodging are bets on where a blade will be in a few ticks, and their inputs are
-the enemy's `sword_angle` and `sword_spin` — both degraded by the same stat. A
-dim character does not merely block late. It blocks the wrong line.
+Perception earned a second job when combat became geometric, and the split it
+settled into is the interesting part. *That* an enemy is winding up arrives
+**exact** — a blade hauled back over a shoulder is not a subtle cue, and anyone
+can see a blow is coming. *When* it lands and *along which line* are blurred
+hard: at `perception 0` the timing read is off by about twelve ticks against a
+Brute's thirty-three-tick telegraph. A dim character is not blind to the attack.
+It is late, and it guesses the line wrong, which is a much more interesting way
+to lose than not noticing.
 
 ## Where this goes next
 

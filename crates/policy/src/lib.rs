@@ -30,7 +30,10 @@ pub use duelist::{DuelistPolicy, DuelistWeights, Stance, DUELIST_GENOME_LEN};
 pub use genome::{PolicySpec, MAX_GENOME_LEN};
 pub use random::{IdlePolicy, RandomPolicy};
 pub use runner::{run, RunConfig, RunResult};
-pub use swing::OVERSHOOT;
+pub use swing::{
+    blade_bearing_in, blade_tip_in, feint, guard, incoming, open_side, overcommitted, press,
+    shield_free_side,
+};
 pub use utility::{UtilityPolicy, UtilityWeights, GENOME_LEN};
 
 use fx::Fx;

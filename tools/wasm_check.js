@@ -34,16 +34,16 @@ const BUILD = ["cargo", "build", "--release", "--target", "wasm32-unknown-unknow
 // is what tells the two failure modes apart -- see `divergence` below.
 
 // `lab hash`: skirmish(1234, 4, 6), seed 99, baseline policy, run to a finish.
-const LAB_HASH = 0xb77951723c521127n;
+const LAB_HASH = 0x39bbe356c7f5035en;
 
 // `init(1); set_goto(20_000, 12_000); step(600)`: the path a player drives.
-const ROOM_HASH = 0x8d3657772b568e28n;
+const ROOM_HASH = 0x4319613a79790090n;
 
 // `init(1); spawn_monster(3); step(600)`: a whole fight, start to finish. Worth
 // its own number because it reaches arithmetic the walk never does -- the spawn
 // point comes out of `Rng::from_stream` and the committed sine table, and every
 // approach measures a distance through `isqrt64`.
-const BATTLE_HASH = 0x1a259ef8c3ce1094n;
+const BATTLE_HASH = 0x3cf07ce81931a060n;
 
 // `init(1); spawn_monster(2) x3; step(1800); swap_in_hero(1); step(400)`: a
 // fight, a death, a replacement, and the fight the replacement walks into. The
@@ -51,11 +51,11 @@ const BATTLE_HASH = 0x1a259ef8c3ce1094n;
 // sim across the death of an entity and the *reuse* of its slot -- the
 // generational free list is exactly the kind of index bookkeeping that a 32-bit
 // usize could quietly do differently.
-const SWAP_HASH = 0xafe9b15480a452a2n;
+const SWAP_HASH = 0x79d7ad263b7a70d2n;
 
 // The frame header, as the client reads it.
 const HEADER_LEN = 7;
-const UNIT_STRIDE = 21;
+const UNIT_STRIDE = 24;
 const ARENA = [24, 16];
 
 // ------------------------------------------------------------------ the module
@@ -381,17 +381,34 @@ test("the player can take the feet and the sword independently", () => {
 
   wasm.set_control(1); // feet
   assert.equal(wasm.control(), 1);
-  wasm.set_input(-1000, 0, 0, 0, 0);
+  wasm.set_input(-1000, 0, 0, 0, 0, 0);
   wasm.step(60);
   assert.ok(frame()[HEADER_LEN] < 11, "the hero did not walk west when told to");
 
   wasm.set_control(2); // sword only
   assert.equal(wasm.control(), 2);
-  wasm.set_input(0, 0, 16_384, 1000, 0);
+  // Guard due north, attacking nothing.
+  wasm.set_input(0, 0, 16_384, 0, 0, 0);
   wasm.step(120);
   const unit = frame().slice(HEADER_LEN);
   assert.ok(Math.abs(unit[11] - 16_384) < 2_000, `sword ended at ${unit[11]}, not north`);
-  assert.ok(unit[12] > 0.9, `sword never extended: ${unit[12]}`);
+  assert.equal(unit[21], 0, "a chambered blade was not in guard");
+
+  // The attack button, and the property the whole swing model exists for: the
+  // cut announces itself before it goes live, and the frame says so.
+  wasm.set_input(0, 0, 16_384, 0, 0, 1);
+  let sawWindup = false;
+  let sawStrike = false;
+  for (let i = 0; i < 90; i += 1) {
+    wasm.step(1);
+    const swing = frame()[HEADER_LEN + 21];
+    if (swing === 1) sawWindup = true;
+    if (swing === 2) {
+      assert.ok(sawWindup, "the cut went live without announcing itself");
+      sawStrike = true;
+    }
+  }
+  assert.ok(sawWindup && sawStrike, "the attack button threw nothing");
 
   wasm.set_control(0);
   assert.equal(wasm.control(), 0);

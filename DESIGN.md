@@ -74,14 +74,25 @@ would be a destination that moved every time you looked at it.
 network. Nothing uses it yet. It exists now because the *layout* is the contract
 a trained network gets frozen against, and changing it later means retraining.
 
-That bill has been paid twice, deliberately, and both times while no weights
-existed. Adding `Order::Goto` and `decision_period` moved the vector from 73 to
-75 slots (version 2) and changed what the order-direction slot *means*. Two-handed
-combat then moved it from 75 to 205 (version 3): a contact went from five numbers
-to fifteen, because a defender that cannot see where an enemy's blade is pointing
-and how fast it is turning cannot block, dodge, or punish a recovery. Doing this
-now costs nothing; doing it after a training run costs the training run.
-`FEATURE_LAYOUT_VERSION` exists so that a future frozen network can refuse to
+That bill has been paid three times, deliberately, and all three times while no
+weights existed. Adding `Order::Goto` and `decision_period` moved the vector from
+73 to 75 slots (version 2) and changed what the order-direction slot *means*.
+Two-handed combat then moved it from 75 to 205 (version 3): a contact went from
+five numbers to fifteen, because a defender that cannot see where an enemy's
+blade is pointing and how fast it is turning cannot block, dodge, or punish a
+recovery. The phased attack moved it again (version 4): a contact went from
+fifteen numbers to twenty-two, because a defender that can see a blade's bearing
+and speed but not whether it is *committed* has no way to tell a feint from a
+cut, or a recovery from a guard.
+
+The phase block is a one-hot and not a number, for the same reason every angle is
+a `(cos, sin)` pair. The four phases are not points on a scale — a recovery is
+not "more" than a windup — and encoding them 0, ⅓, ⅔, 1 would ask a network to
+learn that the most dangerous state and the most punishable one sit next to each
+other.
+
+Doing this now costs nothing; doing it after a training run costs the training
+run. `FEATURE_LAYOUT_VERSION` exists so that a future frozen network can refuse to
 load against a shifted layout rather than quietly reading the wrong number out of
 every slot.
 
@@ -101,6 +112,14 @@ still travelling.
 build now lets you take the hero's feet, its sword, or both, and drives them from
 live input every tick.
 
+Note what the player is *not* given. The pointer used to set the blade's bearing
+and its extension directly, which is the same interface a policy had and led to
+the same place: a stick held at full length and waved. It now sets the **line**,
+and the mouse button is the **cut**. Everything between the two — the windup, the
+arc, the extension, the recovery — belongs to the attack. That is a smaller
+vocabulary and a much larger game, and it is the same vocabulary the AI has, so
+the two remain comparable.
+
 That is a smaller change than it reads as, and worth being precise about. It does
 not add a channel: the host still answers with an `Action`, the sim still cannot
 tell what produced it, and `Observation` in / `Action` out is untouched. What
@@ -119,38 +138,111 @@ run.
 
 ## The swing
 
-A character has two hands. An agent does not attack — it *commands a bearing*
-for each, and the hand accelerates toward it under a torque cap. Everything else
-falls out of that:
+A character has two hands, and they take different kinds of order.
 
-- A swing takes time, so it can be read and answered.
-- A swing cannot be reversed instantly, so overcommitting is punishable.
-- Damage is the blade's speed at contact, so **where on the arc you meet it
-  matters as much as whether you meet it at all**.
+The **shield** takes a bearing and an extension, and accelerates toward it under
+a torque cap. That has not changed and does not need to.
 
-That last one is the property the whole design rests on, and nothing encodes it.
-Impact is `spin × arm`, so a Brute's blow is worth about 16 at mid-blade and
-about 31 at the tip — and *nothing at all* within 1.27 units of its shoulder,
-where its blade has no room left to build speed. Every weapon has such a dead
-zone. Getting inside one and staying there is the strongest answer to a heavy
-weapon in the game; getting inside your *own* is how a Skitterer ends up
-immune and harmless at the same time.
+The **sword** takes a *line* and a *release*, and the sim runs four phases
+against them:
+
+```text
+ Guard  — blade chambered on the commanded line, inert
+   │ strike command, and the hand is armed
+ Windup — cocked 67.5° off the line. Visible. Cancellable. The line still tracks.
+   │ the telegraph runs out
+ Strike — driving to 78.75° past the line, at speed.
+   │        LIVE. The line is frozen; the command cannot recall it.
+   │ spent on its own arc, or STRIKE_TIMEOUT
+Recover — bringing the blade back. Inert, and cannot attack.
+   │ the weapon's recovery, plus a penalty if it was stopped
+ Guard
+```
+
+### Why it is a state machine and not a bearing
+
+The first version of this model let an agent command the blade's bearing every
+tick. That is a strictly more expressive interface, and it produced exactly one
+strategy: hold the blade at full extension and rotate it as fast as the torque
+cap allows. Nothing charged for it, every tick of rotation was a live hitbox, and
+so the optimal play — for a hand-written policy, for evolution, and for a person
+with a mouse — was a windmill.
+
+The deeper problem was not that windmilling was strong. It was that there was no
+instant at which an attack *began*, which meant there was no instant at which one
+could be read, dodged, or punished. A combat model in which nothing can be
+anticipated has no skill ceiling to have a gradient along.
+
+Three properties replace it, and they are the whole point:
+
+- **An attack announces itself.** The windup is real time on the clock — 33 ticks
+  for a Brute, 7 for a Scout — and it is in the defender's observation. What a
+  fighter can answer is set by how often it is allowed to think, so a Brute's
+  telegraph buys a Warrior two or three decisions and a Skitterer four, while a
+  Scout's telegraph buys a Brute *none at all*.
+- **An attack commits.** Momentum was always unreversible; now the decision is
+  too. Past the telegraph the line is frozen and the command is not read.
+- **A miss costs.** Recovery is a window in which the hand cannot attack, cannot
+  parry, and cannot be recalled — and it is longer when a shield or a blade
+  stopped the cut.
+
+Damage is gated on `Swing::Strike` and on nothing else. That one line is what
+ended the windmill: a blade rotating outside its strike window is furniture.
+Extension is not the gate and never was a good one — a fighter has every reason
+to keep a guard chambered, and a guard that cuts is a guard nobody would drop.
+
+**A windup tracks; a strike does not.** This is the correction that made heavy
+weapons playable rather than merely slow. Freezing the line at the start of the
+telegraph reads as the principled choice and is quietly fatal: a Brute announces
+for 33 ticks, over which a Warrior walks 1.8 units — further than the Brute's
+entire blade — so every heavy attack in the game missed by ambient movement, and
+the archetype lost to everything at every skill level. Tracking also spends the
+intellect stat a second time, because an action persists until its owner's next
+decision: a Brute re-aims twice inside its own windup and a Scout thirty times.
+Dodging a sharp fighter means beating a cut that is following you.
+
+**Holding the button down throws one attack.** An attack begins only on a strike
+command that follows a non-strike command. Without that, attacks chain back to
+back and the windmill returns with extra steps. It is a trap for policy authors,
+and it is pinned as a test name rather than left to be discovered.
+
+### Where you stand still decides what it costs
+
+Damage is the blade's speed at contact, so **where on the arc you meet it matters
+as much as whether you meet it at all**. Nothing encodes this: impact is
+`spin × arm`, so every weapon has a radius inside which even a full-speed blade
+cannot reach `IMPACT_THRESHOLD`.
+
+That dead zone changed *kind* when the threshold came down from 0.09 to 0.06, and
+the change is worth recording. The threshold used to have two jobs — the dead
+zone, and stopping a blade carried into someone by walking from being a weapon.
+The phase gate does the second job now, so the threshold could come down; and it
+had to, because at 0.09 a Brute's dead zone reached 1.27 units, which is *outside*
+the 1.15 at which a Warrior's body and its own stop being able to approach. A
+fighter that got close became flatly immune, a small enough one became immune and
+harmless at the same time, and the fight timed out. At 0.85 the circle is
+unreachable and what is left is the gradient: crowding a heavy weapon still takes
+about three quarters of its bite away, and there is no longer a distance at which
+the fight stops being a fight.
 
 Two consequences worth stating because they are counterintuitive:
 
-**The angular window in which a blade reaches a body narrows with distance.**
-At the tip of a Brute's arc it is about 7 degrees wide and at close quarters
-about 23. So a distant target is hit rarely and hard, and a near one often and
-weakly, and the two effects pull against each other. Choosing a range is a
-decision rather than a lookup.
+**The angular window in which a blade reaches a body narrows with distance.** So
+a distant target is hit rarely and hard, and a near one often and weakly, and the
+two effects pull against each other. Choosing a range is a decision rather than a
+lookup.
 
-**A shield covers where the blow lands, which is not where the enemy is.** A
-blade sweeping in at an angle first touches the body well round from its
-wielder — an overhead swing lands on top of you. Pointing a guard at the
-swordsman is therefore not the same as pointing it at the blow, and the
-difference is most of what separates the two policies in `crates/policy`.
+**A shield covers where the blow lands, which is not where the enemy is — and is
+not where the blade is either.** A cut sweeps in and first touches a body well
+round from its wielder; an overhead swing lands on top of you. And during a
+windup the blade is cocked *away* from the line it will travel, so covering the
+blade covers the one bearing the cut cannot arrive from. `policy::swing::landing`
+replays the declared cut to answer both questions at once, including the one that
+matters most: *is it even aimed at me?* Adding that gate took the duelling policy
+from 21% to 88% against the naive one in a mirror match. A fighter that treats
+every attack in its vicinity as its own problem never wins anything.
 
-### Perception is a fighting stat now
+### Perception is a fighting stat, and the split is deliberate
 
 Positional error scales with range: exact at arm's length, full at the edge of
 sight. A flat error is the obvious model and it is wrong in a way that only
@@ -159,11 +251,50 @@ paces and is thirty degrees of aiming error at two, against a window sixteen
 degrees wide. Every archetype stood nose to nose and missed, and the fights timed
 out.
 
-Enemy *hand* bearings are blurred separately and are not scaled that way, because
-they are the new perceptual skill: blocking and dodging are bets on where a blade
-will be in a few ticks, and the inputs to that bet are `sword_angle` and
-`sword_spin`. A dim character does not merely block late. It blocks the wrong
-line.
+The attack phase itself arrives **exact**, and its *timing* and its *line* are
+blurred hard. That asymmetry is the design. A blade hauled back over a shoulder
+is not a subtle cue — anyone can see a blow is coming. What separates fighters is
+knowing when it lands and along which line, and at `perception 0` the timing read
+has a standard deviation of about twelve ticks against a Brute's thirty-three
+tick telegraph. A dim character is not blind to the attack. It is late, and it
+guesses the line wrong, which is a far more interesting way to lose.
+
+### What measurement said, including where it disagreed
+
+Two findings were surprises, and both are recorded where they will be met:
+
+**Reading telegraphs early is a losing strategy.** Every value of the duellist's
+`read_ahead` gene above its floor made it worse, over 120 seeds against a Brute:
+
+| `read_ahead` | win rate | mean surviving health |
+|--------------|----------|-----------------------|
+| 0.3 (floor)  | 92%      | 0.73                  |
+| 0.8          | 77%      | 0.50                  |
+| 1.4          | 57%      | 0.37                  |
+
+Against an opponent that declares an attack on nearly every tick, every answer is
+a cut you did not throw. What beats a Brute is keeping the guard on the right
+line and continuing to attack — the shield is braced every tick regardless of
+stance, so defending and pressing are not the alternatives they look like. That
+is worth knowing because it is the opposite of the intuition the telegraph was
+built on, and the duellist's tests say so at the point where someone will next
+try to "fix" it.
+
+**Committing matters more than choosing well.** A defensive stance commands the
+blade back to guard, and that cancels a running windup. A duellist that re-read
+the situation every few ticks started a cut, disliked something, called it off,
+started another, and landed nothing: one duel in ten against the policy it is
+supposed to beat. Evolution independently pushed `resolve` to the top of its
+range for the same reason.
+
+The gradient those buy, over 120 seeds, all three driving the identical Warrior
+against a Brute on a fixed naive policy:
+
+| hero policy | win rate | mean surviving health |
+|-------------|----------|-----------------------|
+| random      | 0%       | 0.00                  |
+| naive       | 72%      | 0.50                  |
+| duellist    | 92%      | 0.73                  |
 
 ## Replays
 
@@ -187,6 +318,11 @@ Cost: roughly 180 records/second at thirty agents. An `Action` grew from 12 byte
 to 36 when it gained two hand commands, so a long fight is now closer to a
 megabyte than to a few hundred KB before compression. Still worth it: the
 alternative is a replay that reproduces the walking and none of the swordplay.
+
+`HandCommand::strike` is hashed on **both** hands even though only the sword
+reads it. The alternative is a hash that depends on which slot a command landed
+in, and a replay that cannot tell "attack" from "guard" apart reproduces the
+footwork and none of the fight.
 
 `lab verify` is the standing check: it runs a batch, re-runs each fight, and
 replays each fight, requiring all three to agree bit for bit. 200/200 at the
@@ -276,6 +412,17 @@ ticks to 921.
 has reached the far wall used to grind into it. It now sweeps along the wall
 toward whichever side has more room, which turns a stall into a patrol.
 
+**Damage per impact, and the skirmish tick limit**, both raised when the sword
+became a phase machine. A windmill billed a blow every nine ticks; a measured
+attack is a windup, a cut and a recovery, and a Warrior gets through one about
+every fifty. The same constants therefore produced a game that could not finish:
+two thirds of duels timed out with both sides walking wounded, healing between
+exchanges faster than they could land them. `IMPACT_TO_DAMAGE` went from 60 to
+135 and the skirmish limit from ninety seconds to two and a half minutes,
+calibrated to put a duel at roughly a dozen exchanges and twenty seconds — short
+enough that one misread matters and long enough that one does not decide
+everything.
+
 **Braking and an arrival band** for `Order::Goto`. A destination order needs a
 rule for *stopping*, and both of the above are actively wrong for arriving — the
 wall sweep walks past a destination near an edge, and `open_ground`'s wall-fear
@@ -327,3 +474,19 @@ something more interesting and introduces the usual instabilities.
 health, then damage, with a small time penalty. The time penalty is load
 bearing: without it, "run away and survive to the tick limit" outscores
 "attack and sometimes die", and evolution will find that out long before you do.
+
+**One `standoff` gene cannot serve every body.** Preferred range interpolates
+between body contact and the end of the fighter's own reach, which is the right
+shape and still one number for four archetypes against four others. It is tuned
+where it matters most and it is visibly wrong somewhere: a duelling Skitterer
+takes a Brute worse than the naive policy does, because 36 health against a
+weapon that lands 40 at the tip wants a range nothing else does. The honest fix
+is a range chosen from the *threat's* geometry rather than the holder's, and the
+observation does not currently carry enough to compute one — a `Contact` says how
+long an enemy's blade is but not how fast it can be swung, so its dead zone is
+not derivable. Worth fixing before this policy is asked to carry a whole roster.
+
+**The side a cut comes from is a decision the player cannot make.** `Strike`
+carries three options and the page only ever sends `Nearest`. Choosing the flank
+a guard is not on is one of the sharper reads in the model, the AI makes it, and
+there is no second mouse button left to spend on it.

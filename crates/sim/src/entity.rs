@@ -109,12 +109,21 @@ impl UnitKind {
     ///
     /// The four rows are meant to be four *problems*, not four difficulties.
     /// A Brute reaches 1.45 units past its own considerable body and hits like
-    /// nothing else, but takes the better part of a second to bring its blade
-    /// around and guards a mere 22.5 degrees of arc; a Scout has half the reach
-    /// and a third of the mass but can change its mind four times inside one of
-    /// those swings. Beating a Brute is a matter of standing somewhere its tip
-    /// is not, and that is a decision its opponent gets to make about fifty
-    /// times per swing.
+    /// nothing else, but announces every cut for more than half a second and
+    /// guards a mere 22.5 degrees of arc; a Scout has half the reach and a third
+    /// of the mass but throws three attacks inside one of those.
+    ///
+    /// The two phase columns are where an archetype's difficulty actually
+    /// lives, and they are best read against the *opponent's*
+    /// [`Stats::decision_period`] rather than against each other. A Brute's
+    /// 33-tick telegraph gives a Warrior (period 12) two or three chances to
+    /// answer and a Skitterer (period 8) four; a Scout's 7-tick telegraph gives
+    /// a Brute (period 18) *none at all*. That asymmetry is deliberate and it is
+    /// the whole skill gradient: what a fighter can answer is decided by how
+    /// often it is allowed to think, so the same policy on a sharper character
+    /// is a genuinely better swordsman rather than a faster one.
+    ///
+    /// [`Stats::decision_period`]: crate::rules::Stats::decision_period
     pub const fn weapon(self) -> Weapon {
         match self {
             UnitKind::Warrior => Weapon {
@@ -124,6 +133,8 @@ impl UnitKind {
                 extend_rate: Fx::from_ratio(100, 1000),
                 weight: Fx::from_ratio(125, 100),
                 shield_arc: 11_264, // +/- 61.9 deg
+                windup: 14,
+                recovery: 16,
             },
             UnitKind::Scout => Weapon {
                 length: Fx::from_ratio(55, 100),
@@ -132,6 +143,8 @@ impl UnitKind {
                 extend_rate: Fx::from_ratio(140, 1000),
                 weight: Fx::from_ratio(85, 100),
                 shield_arc: 8_192, // +/- 45.0 deg
+                windup: 8,
+                recovery: 9,
             },
             UnitKind::Brute => Weapon {
                 length: Fx::from_ratio(145, 100),
@@ -140,6 +153,8 @@ impl UnitKind {
                 extend_rate: Fx::from_ratio(55, 1000),
                 weight: Fx::from_ratio(330, 100),
                 shield_arc: 4_096, // +/- 22.5 deg
+                windup: 26,
+                recovery: 34,
             },
             UnitKind::Skitterer => Weapon {
                 length: Fx::from_ratio(40, 100),
@@ -148,6 +163,8 @@ impl UnitKind {
                 extend_rate: Fx::from_ratio(130, 1000),
                 weight: Fx::from_ratio(120, 100),
                 shield_arc: 3_072, // +/- 16.9 deg
+                windup: 7,
+                recovery: 8,
             },
         }
     }

@@ -2,7 +2,69 @@ use crate::entity::EntityId;
 use crate::hand::{HANDS, SHIELD, SWORD};
 use fx::{Angle, Fx, Hash64, Vec2};
 
-/// Where an agent wants one hand to be.
+/// Whether a sword hand is being asked to attack, and from which side.
+///
+/// The sides are named for the direction the blade **winds up** in, which is the
+/// opposite of the direction it cuts: a cut has to start somewhere the target is
+/// not in order to arrive somewhere it is, at speed. [`Strike::Widdershins`]
+/// therefore cocks counter-clockwise and cuts clockwise through the line.
+///
+/// Choosing a side is a real decision and not a detail. A shield covers an arc,
+/// so a cut thrown from the side the guard is *not* on arrives at a bearing the
+/// defender has to move to cover -- and moving a guard takes as long as moving
+/// anything else. [`Strike::Nearest`] declines the decision and takes the
+/// shortest windup, which is what a fighter with nothing clever to say does.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
+pub enum Strike {
+    /// No attack. Hold the line and guard.
+    ///
+    /// This is also what **re-arms** the hand: an attack begins only on a
+    /// command that asked for one after a command that did not, so a policy
+    /// that says "attack" forever throws exactly one attack. See
+    /// [`crate::Hand::armed`] -- that rule is the whole of what stops the
+    /// windmill from coming back as a slower windmill.
+    #[default]
+    None,
+    /// Attack through the commanded line, winding up from whichever side the
+    /// blade already happens to be on.
+    Nearest,
+    /// Wind up counter-clockwise of the line and cut clockwise through it.
+    Widdershins,
+    /// Wind up clockwise of the line and cut counter-clockwise through it.
+    Sunwise,
+}
+
+impl Strike {
+    /// Which way the windup goes: `+1` counter-clockwise, `-1` clockwise, `0`
+    /// for [`Strike::None`]. [`Strike::Nearest`] resolves to `0` here and is
+    /// settled by the sim against the blade's live position.
+    pub const fn side(self) -> i32 {
+        match self {
+            Strike::None | Strike::Nearest => 0,
+            Strike::Widdershins => 1,
+            Strike::Sunwise => -1,
+        }
+    }
+
+    pub const fn is_attack(self) -> bool {
+        !matches!(self, Strike::None)
+    }
+
+    /// One-hot index for the neural feature encoder. Append-only, like
+    /// [`Order::discriminant`].
+    pub const fn discriminant(self) -> usize {
+        match self {
+            Strike::None => 0,
+            Strike::Nearest => 1,
+            Strike::Widdershins => 2,
+            Strike::Sunwise => 3,
+        }
+    }
+
+    pub const COUNT: usize = 4;
+}
+
+/// What an agent wants one hand to do.
 ///
 /// The bearing is **absolute**, not relative to the body's facing. Two reasons,
 /// and both bite immediately if you get it wrong: `facing` is derived from the
@@ -10,17 +72,26 @@ use fx::{Angle, Fx, Hash64, Vec2};
 /// time the character strafed; and absolute is exactly what a mouse bearing
 /// gives you, so a human and a policy speak the same language here.
 ///
-/// Commanding a bearing is not the same as reaching it. The hand accelerates
-/// toward it under a torque cap and *brakes onto it*, arriving at rest -- so a
-/// blade commanded straight at an enemy lands with no speed and does no damage.
-/// See [`crate::hand`] for why that is the model rather than a bug.
+/// The two hands read different halves of this struct, which is the price of
+/// keeping one type at the boundary:
+///
+/// * The **shield** reads `angle` and `reach` and ignores `strike`. It is a
+///   braced guard, held wherever it is pointed, exactly as it always was.
+/// * The **sword** reads `angle` and `strike` and ignores `reach`. `angle` is
+///   the line it guards along, and the line an attack is thrown *through*;
+///   `reach` is not an agent's business any more, because a blade's extension is
+///   decided by which phase of an attack it is in. Letting a policy pin it at
+///   full extension forever is exactly how the blade became a stick that
+///   dangled.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
 pub struct HandCommand {
     pub angle: Angle,
-    /// Desired extension. Clamped to `0..=1` by the sim, so a policy handing
-    /// back nonsense produces a tucked or a fully committed hand and never a
-    /// panic.
+    /// Desired extension, **shield only**. Clamped to `0..=1` by the sim, so a
+    /// policy handing back nonsense produces a tucked or a fully braced hand
+    /// and never a panic.
     pub reach: Fx,
+    /// Whether to attack along `angle`, **sword only**.
+    pub strike: Strike,
 }
 
 impl HandCommand {
@@ -28,10 +99,27 @@ impl HandCommand {
     pub const TUCKED: HandCommand = HandCommand {
         angle: Angle::ZERO,
         reach: Fx::ZERO,
+        strike: Strike::None,
     };
 
+    /// A braced hand. The shield's whole vocabulary; for the sword this is a
+    /// guard along `angle` that declines to attack, and therefore also the
+    /// command that re-arms it.
     pub const fn new(angle: Angle, reach: Fx) -> HandCommand {
-        HandCommand { angle, reach }
+        HandCommand {
+            angle,
+            reach,
+            strike: Strike::None,
+        }
+    }
+
+    /// A sword hand asked to cut through `line`.
+    pub const fn attack(line: Angle, strike: Strike) -> HandCommand {
+        HandCommand {
+            angle: line,
+            reach: Fx::ONE,
+            strike,
+        }
     }
 }
 
@@ -124,9 +212,15 @@ impl Action {
         // are untouched. Hand commands are the difference between a fight and
         // two people standing next to each other, so a replay that dropped them
         // would reproduce the walking and none of the swordplay.
+        //
+        // `strike` is hashed even though only the sword hand reads it, because
+        // the alternative is a hash that depends on which slot a command landed
+        // in -- and a replay that cannot tell "attack" from "guard" apart
+        // reproduces the footwork and none of the fight.
         for hand in self.hands {
             h.write_u16(hand.angle.raw());
             h.write_i32(hand.reach.raw());
+            h.write_u8(hand.strike.discriminant() as u8);
         }
     }
 }

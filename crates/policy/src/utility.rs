@@ -368,20 +368,30 @@ impl UtilityPolicy {
     /// Called last and applied over the top of whatever the movement logic
     /// produced, so adding swordplay to this policy did not move a single
     /// footstep -- `march_behaviour_is_byte_identical` is the proof, and it is
-    /// worth keeping that way. It is a windmill: sweep the blade back and forth
-    /// through whatever is nearest, and hold the shield toward it. Not clever,
-    /// and not meant to be. This is the opponent a clever policy has to beat.
+    /// worth keeping that way.
+    ///
+    /// **This is the naive swordsman, and it is meant to be beaten.** It attacks
+    /// whenever it is able to, at whatever is nearest, from whichever side is
+    /// nearest, and holds its guard at the enemy. Every one of those is a
+    /// mistake a better fighter gets to punish:
+    ///
+    /// * It never chooses *not* to attack, so it spends its life in windups and
+    ///   recoveries and can be hit at leisure by anyone who waits for one.
+    /// * It cuts from the nearest side rather than the open one, so its blows
+    ///   arrive wherever the geometry happens to put them.
+    /// * It guards at the swordsman rather than at the blow, and a cut arriving
+    ///   at an angle lands well round the body from where its wielder stands.
+    ///
+    /// Before the sword became a phase machine this was a windmill, and the
+    /// list of what it did wrong was one item long, because there was only one
+    /// thing to do.
     fn hands(&self, obs: &Observation, action: &mut Action) {
         let threat = match obs.nearest_enemy() {
             Some(c) => c,
             None => return, // nothing about: both hands stay tucked
         };
         let bearing = threat.offset.angle();
-        action.hands[sim::SWORD] = swing::swing(obs, bearing, Fx::ONE);
-        // Guard pointed at the enemy rather than at the blow. That is the
-        // simplest thing that could work and it is measurably wrong -- a swing
-        // arriving at an angle lands well round the body from where its wielder
-        // is standing -- which is exactly the read a better policy makes.
+        action.hands[sim::SWORD] = swing::press(obs, bearing, sim::Strike::Nearest);
         action.hands[sim::SHIELD] = sim::HandCommand::new(bearing, Fx::ONE);
     }
 
@@ -446,6 +456,9 @@ mod tests {
             sword_angle: fx::Angle::ZERO,
             sword_reach: Fx::ZERO,
             sword_spin: Fx::ZERO,
+            sword_swing: sim::Swing::Guard,
+            sword_left: Fx::ZERO,
+            sword_line: fx::Angle::ZERO,
             shield_angle: fx::Angle::ZERO,
             shield_reach: Fx::ZERO,
         }

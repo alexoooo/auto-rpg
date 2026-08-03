@@ -6,39 +6,31 @@
 //! The policy used here is deliberately trivial and defined inline: these
 //! tests pin the *simulation*, not the behaviour crate.
 
-use fx::{Angle, Fx, Vec2};
-use sim::{Action, Faction, HandCommand, Observation, Order, Replay, Scenario, World};
+use fx::{Fx, Vec2};
+use sim::{Action, Faction, HandCommand, Observation, Order, Replay, Scenario, Strike, World};
 
-/// How far past a target this policy aims, in raw angle units (67.5 deg).
-const OVERSHOOT: i32 = 12_288;
-
-/// Charge the nearest visible enemy and windmill a blade through it; otherwise
-/// advance toward the enemy side while drifting to the arena's centre line, so
-/// the two sides actually meet instead of sliding past each other into opposite
-/// walls.
+/// Charge the nearest visible enemy and cut at it; otherwise advance toward the
+/// enemy side while drifting to the arena's centre line, so the two sides
+/// actually meet instead of sliding past each other into opposite walls.
 ///
-/// The swing has to aim *past* the target, because a hand brakes onto its
-/// commanded bearing and arrives at rest -- a blade aimed straight at someone
-/// touches them at walking pace and does nothing. Which side to swing from is
-/// read out of the blade's own angle and spin rather than remembered, so this
-/// stays a plain function: the deadband is what stops it reversing the instant
-/// it crosses the target and dithering there forever.
+/// The three-armed match on the attack state is the whole contract, and getting
+/// it wrong is silent: letting the command lapse mid-windup cancels the attack,
+/// and holding it through a recovery leaves the hand disarmed forever after one
+/// cut. [`Observation::can_strike`] answers the first half; the phase answers
+/// the rest.
 fn greedy(obs: &Observation) -> Action {
     match obs.nearest_enemy() {
         Some(contact) => {
             let bearing = contact.offset.angle();
-            let delta = obs.sword().angle.delta(bearing);
-            let side = if delta > OVERSHOOT * 3 / 4 {
-                -1
-            } else if delta < -OVERSHOOT * 3 / 4 || obs.sword().spin.is_positive() {
-                1
+            let sword = if obs.can_strike() || obs.sword().swing.is_attacking() {
+                HandCommand::attack(bearing, Strike::Nearest)
             } else {
-                -1
+                HandCommand::new(bearing, Fx::ZERO)
             };
             Action::swinging(
                 contact.offset.normalize(),
                 contact.id,
-                HandCommand::new(bearing + Angle::from_raw((side * OVERSHOOT) as u16), Fx::ONE),
+                sword,
                 HandCommand::new(bearing, Fx::ONE),
             )
         }
@@ -223,7 +215,11 @@ fn player_orders_change_the_outcome_without_breaking_determinism() {
 /// ```
 ///
 /// -- or a portability bug, in which case do not.
-const GOLDEN_STATE_HASH: u64 = 0xe9f4_597b_a40d_1526;
+// Reset when the sword hand became a phase machine: damage is gated on the
+// strike window now, so the old value described a game in which a windmill
+// killed people. Every recorded run predating that change is void, which is why
+// this is a fresh number rather than a corrected one.
+const GOLDEN_STATE_HASH: u64 = 0x819f_17f8_ba25_e602;
 
 #[test]
 fn golden_hash() {

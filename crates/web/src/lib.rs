@@ -88,7 +88,7 @@ use fx::{Angle, Fx, Rng, Vec2};
 use policy::{Policy, PolicyKind, RunConfig, MAX_GENOME_LEN};
 use sim::{
     Action, EntityId, Event, Faction, HandCommand, Intent, Order, Scenario, UnitKind, UnitSpec,
-    UnitView, World, SHIELD, SWORD,
+    UnitView, World, Strike, SHIELD, SWORD,
 };
 
 /// Floats before the first unit: `[arena_x, arena_y, order_kind, order_x,
@@ -113,7 +113,19 @@ pub const HEADER_LEN: usize = 7;
 /// epsilon to tell a blow from regeneration -- which could not see a blocked
 /// blow at all, because a blocked blow is most of the drama and almost none of
 /// the damage.
-pub const UNIT_STRIDE: usize = 21;
+///
+/// `21..=23` are the attack: `[sword_swing, sword_swing_left, sword_line_raw]`.
+/// The phase codes match [`sim::Swing::discriminant`] -- `0` guard, `1` windup,
+/// `2` strike, `3` recover.
+///
+/// These are in the frame for the same reason the flashes are, and it is the
+/// stronger case of the two. A windup is the moment the whole combat model
+/// turns on, and it is *invisible* in the columns that were already here: the
+/// blade is drawn back and moving slowly, which looks exactly like a blade
+/// being repositioned. A page that cannot draw the difference is a page where
+/// every attack appears out of nowhere, and the player has no way to learn a
+/// tell the AI is being scored on reading.
+pub const UNIT_STRIDE: usize = 24;
 
 /// Ticks a hit, block or parry stays lit in the frame.
 const FLASH_TICKS: u8 = 12;
@@ -229,6 +241,9 @@ struct Sim {
     input_move: Vec2,
     input_aim: Angle,
     input_reach: Fx,
+    /// The attack button. A *button*, not a bearing: the pointer says where to
+    /// cut and this says when.
+    input_strike: Strike,
     /// While held, the pointer steers the shield hand instead of the sword.
     input_shield: bool,
     /// The policy's most recent opinion about the hero.
@@ -279,6 +294,7 @@ impl Sim {
             input_move: Vec2::ZERO,
             input_aim: Angle::ZERO,
             input_reach: Fx::ZERO,
+            input_strike: Strike::None,
             input_shield: false,
             cached: Action::HOLD,
             hero_next_decision: 0,
@@ -415,8 +431,18 @@ impl Sim {
             action.move_dir = self.input_move;
         }
         if self.control & CONTROL_SWORD != 0 {
-            let hand = if self.input_shield { SHIELD } else { SWORD };
-            action.hands[hand] = HandCommand::new(self.input_aim, self.input_reach);
+            if self.input_shield {
+                // The modifier steers the guard: a bearing and how far it is
+                // braced, exactly as the shield has always worked.
+                action.hands[SHIELD] = HandCommand::new(self.input_aim, self.input_reach);
+            } else {
+                // The pointer is the line and the button is the cut. Note what
+                // the player does *not* get to say: how far the blade extends,
+                // or where it goes between phases. Those belong to the attack,
+                // and handing them over is exactly how the blade became a stick
+                // that dangled at full length forever.
+                action.hands[SWORD] = HandCommand::attack(self.input_aim, self.input_strike);
+            }
         }
         // Nothing about this reaches past the agent boundary: it is an
         // `Observation` in and an `Action` out, same as any policy, and the sim
@@ -702,6 +728,14 @@ fn write_unit(row: &mut [f32], view: &UnitView, flash: Flash) {
     row[18] = flash_level(flash.hit);
     row[19] = flash_level(flash.block);
     row[20] = flash_level(flash.parry);
+
+    // The attack, so the page can draw a telegraph rather than a blow that
+    // arrives out of nowhere. `line` is where the cut is aimed, which during a
+    // windup is nowhere near where the blade is pointing -- that gap is the
+    // read, and it is the one thing worth drawing.
+    row[21] = sword.swing.discriminant() as f32;
+    row[22] = f32::from(sword.swing_left);
+    row[23] = f32::from(sword.line.raw());
 }
 
 /// Ticks remaining as a `0..=1` brightness.
@@ -1126,6 +1160,17 @@ pub extern "C" fn control() -> u32 {
 /// page's `atan2` result never becomes a float on this side), extension as
 /// thousandths, and `shield` as a flag that points the aim at the shield hand
 /// instead of the sword.
+///
+/// `strike` is the attack button: `0` released, `1` cut from whichever side is
+/// nearer, `2` counter-clockwise, `3` clockwise. It is a *button* and not a
+/// bearing, which is the whole shape of the change that made the sword a phase
+/// machine -- the pointer says where to cut and the button says when, and the
+/// sim decides what the blade does in between.
+///
+/// Releasing matters as much as pressing, and a page that never sends `0` is
+/// broken in a way that looks like the game ignoring it: an attack begins only
+/// on a press that follows a release, so holding the button down throws exactly
+/// one cut. That is deliberate; see [`sim::Hand::armed`].
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn set_input(
@@ -1134,6 +1179,7 @@ pub extern "C" fn set_input(
     aim_raw: u32,
     reach_milli: i32,
     shield: u32,
+    strike: u32,
 ) {
     with_sim((), |sim| {
         sim.input_move = Vec2::new(
@@ -1144,6 +1190,14 @@ pub extern "C" fn set_input(
         sim.input_aim = Angle::from_raw(aim_raw as u16);
         sim.input_reach = Fx::from_ratio(reach_milli, 1000).clamp(Fx::ZERO, Fx::ONE);
         sim.input_shield = shield != 0;
+        // Anything unrecognised reads as "not attacking". The boundary is
+        // hand-rolled, so every value that can cross it has to mean something.
+        sim.input_strike = match strike {
+            1 => Strike::Nearest,
+            2 => Strike::Widdershins,
+            3 => Strike::Sunwise,
+            _ => Strike::None,
+        };
     });
 }
 
@@ -1205,25 +1259,25 @@ mod tests {
     /// What `cargo run --release -p lab -- hash` prints today. Recorded rather
     /// than computed, so this test fails if the sim's behaviour moves at all --
     /// which is the point of having it here as well as in `sim`.
-    const LAB_HASH: u64 = 0xb779_5172_3c52_1127;
+    const LAB_HASH: u64 = 0x39bb_e356_c7f5_035e;
 
     /// What `init(1); set_goto(20_000, 12_000); step(600)` leaves behind.
     /// Recorded here natively; the same three calls against `web.wasm` under
     /// Node produce the same number, which is the first time this project's
     /// central claim has been checked across targets rather than asserted.
-    const ROOM_HASH: u64 = 0x8d36_5777_2b56_8e28;
+    const ROOM_HASH: u64 = 0x4319_613a_7979_0090;
 
     /// What `init(1); spawn_monster(3); step(600)` leaves behind -- a whole
     /// skirmish, start to finish, driven the way the page drives it. Recorded
     /// from a native run, never computed here, and asserted against `web.wasm`
     /// under Node by `tools/wasm_check.js`.
-    const BATTLE_HASH: u64 = 0x1a25_9ef8_c3ce_1094;
+    const BATTLE_HASH: u64 = 0x3cf0_7ce8_1931_a060;
 
     /// What `init(1); spawn_monster(2) x3; step(1800); swap_in_hero(1);
     /// step(400)` leaves behind -- a fight, a death, a replacement, and the
     /// fight it walks into. Recorded from a native run and asserted against
     /// `web.wasm` under Node by `tools/wasm_check.js`.
-    const SWAP_HASH: u64 = 0xafe9_b154_80a4_52a2;
+    const SWAP_HASH: u64 = 0x79d7_ad26_3b7a_70d2;
 
     fn selftest() -> u64 {
         (u64::from(selftest_hash_hi()) << 32) | u64::from(selftest_hash_lo())
@@ -1289,8 +1343,8 @@ mod tests {
             "the selftest no longer runs what `lab hash` runs"
         );
         assert_eq!(selftest(), LAB_HASH, "the halves reassemble wrongly");
-        assert_eq!(selftest_hash_lo(), 0x3c52_1127);
-        assert_eq!(selftest_hash_hi(), 0xb779_5172);
+        assert_eq!(selftest_hash_lo(), 0xc7f5_035e);
+        assert_eq!(selftest_hash_hi(), 0x39bb_e356);
     }
 
     #[test]
@@ -1465,10 +1519,16 @@ mod tests {
         // The columns exist because the client used to infer a hit from health
         // falling between frames, which needs an epsilon to tell a blow from
         // regeneration and cannot see a blocked blow at all.
+        // Three monsters and twice the running time, because attacks are
+        // discrete now: a Warrior throws a cut roughly every fifty ticks rather
+        // than landing one every nine, so a single duel can be over before a
+        // blocked blow happens at all.
         init(1);
         spawn_monster(2);
+        spawn_monster(2);
+        spawn_monster(3);
         let mut seen = [false; 3];
-        for _ in 0..1200 {
+        for _ in 0..2400 {
             step(1);
             let frame = frame();
             let count = frame[6] as usize;
@@ -1560,7 +1620,7 @@ mod tests {
         set_control(CONTROL_FEET);
         assert_eq!(control(), CONTROL_FEET);
         // Due west, at full speed, for a second.
-        set_input(-1000, 0, 0, 0, 0);
+        set_input(-1000, 0, 0, 0, 0, 0);
         step(60);
         let (x, y) = hero();
         assert!(x < start.0 - 1.0, "walked to ({x}, {y}) from {start:?}");
@@ -1579,8 +1639,8 @@ mod tests {
     fn taking_control_of_the_sword_points_it_where_the_player_says() {
         init(1);
         set_control(CONTROL_SWORD);
-        // Due north, fully extended.
-        set_input(0, 0, 16_384, 1000, 0);
+        // Guard due north, attacking nothing.
+        set_input(0, 0, 16_384, 0, 0, 0);
         step(120);
 
         let unit = &frame()[HEADER_LEN..];
@@ -1589,10 +1649,30 @@ mod tests {
             (bearing - 16_384.0).abs() < 2_000.0,
             "sword ended up at {bearing}, not north"
         );
-        assert!(unit[12] > 0.9, "sword never extended: {}", unit[12]);
+        assert_eq!(unit[21], 0.0, "chambered blade was not in guard");
 
-        // The modifier steers the other hand instead, and the sword stays put.
-        set_input(0, 0, 49_152, 1000, 1);
+        // The button throws a cut, and the page can see it coming: the phase
+        // goes to windup before it goes to strike, and the two are distinct in
+        // the frame. This is the whole of what the columns were added for.
+        set_input(0, 0, 16_384, 0, 0, 1);
+        let mut saw_windup = false;
+        let mut saw_strike = false;
+        for _ in 0..90 {
+            step(1);
+            match frame()[HEADER_LEN + 21] as i32 {
+                1 => saw_windup = true,
+                2 => {
+                    saw_strike = true;
+                    assert!(saw_windup, "the cut went live without announcing itself");
+                }
+                _ => {}
+            }
+        }
+        assert!(saw_windup && saw_strike, "the button threw no attack");
+
+        // The modifier steers the other hand instead, and the sword goes back
+        // to guarding because the pointer stopped asking it to attack.
+        set_input(0, 0, 49_152, 1000, 1, 0);
         step(120);
         let unit = &frame()[HEADER_LEN..];
         assert!(
@@ -1610,14 +1690,14 @@ mod tests {
         init(1);
         spawn_monster(2);
         set_control(CONTROL_FEET);
-        set_input(1000, 0, 0, 0, 0);
+        set_input(1000, 0, 0, 0, 0, 0);
         step(120);
         let sword_under_ai = frame()[HEADER_LEN + 12];
 
         init(1);
         spawn_monster(2);
         set_control(CONTROL_SWORD);
-        set_input(1000, 0, 0, 0, 0);
+        set_input(1000, 0, 0, 0, 0, 0);
         step(120);
         let feet_under_ai = frame();
 

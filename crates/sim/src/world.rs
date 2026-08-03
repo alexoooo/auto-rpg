@@ -1,7 +1,7 @@
 use crate::action::{Action, Intent, Order};
 use crate::entity::{EntityId, Faction, UnitKind};
 use crate::event::Event;
-use crate::hand::{Hand, HANDS, SHIELD, SWORD};
+use crate::hand::{Hand, Swing, HANDS, SHIELD, SWORD};
 use crate::obs::{Contact, Observation};
 use crate::rules::{self, Stats, Weapon, MAX_CONTACTS};
 use crate::scenario::{Scenario, UnitSpec};
@@ -96,7 +96,10 @@ struct Impulse {
     scale: Fx,
     /// Added after scaling, in raw angle units per tick.
     add: Fx,
-    refractory: u16,
+    /// Extra recovery ticks to end the running attack with, if this impulse
+    /// ends one at all. `None` leaves the phase machine alone -- which is what
+    /// a shoved *shield* wants, having no attack to interrupt.
+    recover: Option<u16>,
 }
 
 impl World {
@@ -245,13 +248,19 @@ impl World {
         obs.sight_range = stats.sight_range();
         obs.move_speed = stats.move_speed();
         obs.decision_period = stats.decision_period();
+        // `1` only if a cut could begin this tick, and otherwise how far through
+        // whatever is stopping it. A hand back at guard but not re-armed reports
+        // *zero* rather than one: it is physically ready and the policy is not,
+        // and that is a distinction worth being able to see.
         obs.attack_ready = {
-            let left = self.hands[i][SWORD].refractory;
-            if left == 0 {
-                Fx::ONE
-            } else {
-                let full = rules::BLOCK_REFRACTORY.max(rules::HAND_REFRACTORY);
-                (Fx::ONE - Fx::from_ratio(left as i32, full as i32)).clamp(Fx::ZERO, Fx::ONE)
+            let sword = self.hands[i][SWORD];
+            let agility = rules::agility_multiplier(stats.agility);
+            match sword.swing {
+                Swing::Guard if sword.armed => Fx::ONE,
+                Swing::Guard => Fx::ZERO,
+                // Capped below one so no unready phase can ever claim to be
+                // ready, however close to the end of itself it is.
+                _ => sword.phase_progress(weapon, agility) * Fx::from_ratio(9, 10),
             }
         };
         obs.wall_clearance = [
@@ -349,7 +358,6 @@ impl World {
     pub fn step(&mut self) -> &[Event] {
         self.events.clear();
         self.expire_unanswered_decisions();
-        self.tick_cooldowns();
         self.regenerate();
         self.apply_movement();
         self.separate();
@@ -373,17 +381,6 @@ impl World {
                 if self.next_decision[i] <= self.tick {
                     self.next_decision[i] = self.tick + self.stats[i].decision_period() as u32;
                 }
-            }
-        }
-    }
-
-    fn tick_cooldowns(&mut self) {
-        for i in 0..self.alive.len() {
-            if !self.alive[i] {
-                continue;
-            }
-            for hand in &mut self.hands[i] {
-                hand.refractory = hand.refractory.saturating_sub(1);
             }
         }
     }
@@ -440,6 +437,13 @@ impl World {
         }
     }
 
+    /// Steps both hands: the sword through its attack phases, the shield
+    /// straight at whatever bearing it was pointed.
+    ///
+    /// This is also where every attack clock ticks down, which is why there is
+    /// no cooldown phase in [`World::step`] any more. Putting the countdown
+    /// anywhere else would let a hand be observed in a phase it had already
+    /// left, or bill a blow on a windup that ran out earlier in the same tick.
     fn drive_hands(&mut self) {
         for i in 0..self.alive.len() {
             if !self.alive[i] {
@@ -448,9 +452,8 @@ impl World {
             let weapon = self.kind[i].weapon();
             let agility = rules::agility_multiplier(self.stats[i].agility);
             let commands = self.action[i].hands;
-            for (hand, command) in self.hands[i].iter_mut().zip(commands) {
-                hand.drive(command, weapon, agility);
-            }
+            self.hands[i][SWORD].wield(commands[SWORD], weapon, agility);
+            self.hands[i][SHIELD].brace(commands[SHIELD], weapon, agility);
         }
     }
 
@@ -499,11 +502,20 @@ impl World {
     /// Its own pass with an `i < j` loop for the same reason
     /// [`World::separate`] has one: a pairwise interaction resolved inside a
     /// per-entity loop resolves twice, and asymmetrically.
+    ///
+    /// **At least one of the two blades has to be mid-cut.** Two chambered
+    /// guards brushing past each other is not a parry, however fast the bodies
+    /// happen to be turning -- and without that rule, a pair of fighters
+    /// standing close would trade rebounds forever on blades neither of them
+    /// swung. The other blade may be a guard, though, and that is the point:
+    /// catching a cut on your own steel is the answer available to a fighter
+    /// whose shield is on the wrong side. It is not free, because a parry ends
+    /// with *both* hands recovering.
     fn resolve_parries(&mut self) {
         self.impulses.clear();
         let n = self.alive.len();
         for i in 0..n {
-            if !self.alive[i] || self.hands[i][SWORD].refractory > 0 {
+            if !self.alive[i] || !self.can_parry(i) {
                 continue;
             }
             let (ia, ib) = match self.blade(i) {
@@ -511,10 +523,11 @@ impl World {
                 None => continue,
             };
             for j in (i + 1)..n {
-                if !self.alive[j]
-                    || self.faction[j] == self.faction[i]
-                    || self.hands[j][SWORD].refractory > 0
-                {
+                if !self.alive[j] || self.faction[j] == self.faction[i] || !self.can_parry(j) {
+                    continue;
+                }
+                // Somebody has to have actually swung.
+                if !self.hands[i][SWORD].swing.is_live() && !self.hands[j][SWORD].swing.is_live() {
                     continue;
                 }
                 // Two blades merely resting against each other are not a parry.
@@ -538,7 +551,7 @@ impl World {
                         hand: SWORD,
                         scale: -rules::PARRY_REBOUND,
                         add: Fx::ZERO,
-                        refractory: rules::PARRY_REFRACTORY,
+                        recover: Some(rules::PARRY_RECOVERY),
                     });
                 }
                 self.events.push(Event::Parry {
@@ -551,7 +564,27 @@ impl World {
         self.apply_impulses();
     }
 
+    /// Whether `i`'s blade is in any state to meet another.
+    ///
+    /// A recovering hand is not. That phase is the punish window, and a blade
+    /// that could still swat cuts aside on its way back to guard would not be
+    /// much of one.
+    #[inline]
+    fn can_parry(&self, i: usize) -> bool {
+        self.hands[i][SWORD].swing != Swing::Recover
+    }
+
     /// Blade against body: the whole of damage.
+    ///
+    /// **Only a blade in [`Swing::Strike`] can hurt anybody.** That one line is
+    /// what ended the windmill. Under the old model every tick of rotation was
+    /// a live hitbox, so the dominant strategy -- for a hand-written policy, for
+    /// evolution, and for a person with a mouse -- was to hold the blade out and
+    /// spin it, and there was no instant at which an attack could be said to
+    /// have *started*, which meant there was no instant at which one could be
+    /// read or answered. Extension is not the gate and never was a good one: a
+    /// fighter has every reason to keep a guard chambered, and a guard that
+    /// cuts is a guard nobody would drop.
     ///
     /// Two passes, and the split is not tidiness. The old `resolve_attacks`
     /// wrote only health and cooldowns, which no other attacker read, so it
@@ -560,13 +593,15 @@ impl World {
     /// change the second attacker's blow, making a mutual exchange depend on
     /// entity index. Collecting the outcomes and applying them afterwards *is*
     /// the snapshot; no extra buffer is needed.
+    ///
+    /// [`Swing::Strike`]: crate::Swing::Strike
     fn resolve_swings(&mut self) {
         self.blows.clear();
         self.impulses.clear();
 
         // ---- pass 1: read-only
         for i in 0..self.alive.len() {
-            if !self.alive[i] || self.hands[i][SWORD].refractory > 0 {
+            if !self.alive[i] || !self.hands[i][SWORD].swing.is_live() {
                 continue;
             }
             let (base, tip) = match self.blade(i) {
@@ -613,28 +648,33 @@ impl World {
                     // The swing comes back off the shield, and the shield is
                     // shoved the way the blow was travelling. That pairing is
                     // the punish window: the attacker has to pay off a reversed
-                    // swing while the defender's guard is out of position too.
+                    // swing *and* the extra recovery, while the defender's guard
+                    // is out of position too. Blocking is not free either.
                     self.impulses.push(Impulse {
                         entity: i,
                         hand: SWORD,
                         scale: -rules::BLOCK_REBOUND,
                         add: Fx::ZERO,
-                        refractory: rules::BLOCK_REFRACTORY,
+                        recover: Some(rules::BLOCK_RECOVERY),
                     });
                     self.impulses.push(Impulse {
                         entity: j,
                         hand: SHIELD,
                         scale: Fx::ONE,
                         add: self.hands[i][SWORD].spin * rules::BLOCK_SHIELD_KNOCK,
-                        refractory: 0,
+                        recover: None,
                     });
                 } else {
+                    // A cut that went home is spent, and the hand starts back.
+                    // This is what stops one swing billing damage on every tick
+                    // it spends inside a body -- the old hand refractory, now
+                    // expressed as the thing it always meant.
                     self.impulses.push(Impulse {
                         entity: i,
                         hand: SWORD,
                         scale: Fx::ONE,
                         add: Fx::ZERO,
-                        refractory: rules::HAND_REFRACTORY,
+                        recover: Some(0),
                     });
                 }
             }
@@ -678,15 +718,35 @@ impl World {
     /// The order is fixed rather than incidental: `Fx` addition saturates, and
     /// saturating addition is commutative but not associative at the boundary,
     /// so two impulses landing on one hand must always combine the same way.
+    ///
+    /// An impulse carrying a recovery ends the running attack outright. Two
+    /// arriving on the same hand in one tick -- a cut that is blocked by one
+    /// enemy and parried by another -- take the longer of the two recoveries,
+    /// which is the same "worst of" rule the old refractory used and keeps the
+    /// result independent of which landed first.
     fn apply_impulses(&mut self) {
         self.impulses.sort_by_key(|im| (im.entity, im.hand));
         for k in 0..self.impulses.len() {
             let im = self.impulses[k];
-            let ceiling = self.kind[im.entity].weapon().max_spin
-                * rules::agility_multiplier(self.stats[im.entity].agility);
+            let weapon = self.kind[im.entity].weapon();
+            let agility = rules::agility_multiplier(self.stats[im.entity].agility);
+            let ceiling = weapon.max_spin * agility;
             let hand = &mut self.hands[im.entity][im.hand];
             hand.spin = (hand.spin * im.scale + im.add).clamp(-ceiling, ceiling);
-            hand.refractory = hand.refractory.max(im.refractory);
+            if let Some(extra) = im.recover {
+                // Only a hand *already* recovering has a countdown worth
+                // keeping. Reading `swing_left` off a live cut instead would
+                // hand the attacker whatever was left of `STRIKE_TIMEOUT` as
+                // its recovery, which is both far too long and backwards --
+                // the earlier a cut is stopped, the longer it would be punished.
+                let already = if hand.swing == Swing::Recover {
+                    hand.swing_left
+                } else {
+                    0
+                };
+                hand.recover(weapon, agility, extra);
+                hand.swing_left = hand.swing_left.max(already);
+            }
         }
         self.impulses.clear();
     }
@@ -950,6 +1010,8 @@ impl World {
         let mut facing = self.facing[target];
         let mut sword_angle = hands[SWORD].angle;
         let mut sword_spin = hands[SWORD].spin;
+        let mut sword_line = hands[SWORD].line;
+        let mut sword_left = Fx::from_int(hands[SWORD].swing_left as i32);
         let mut shield_angle = hands[SHIELD].angle;
 
         // Error grows with range. A flat error is the obvious model and it is
@@ -986,8 +1048,17 @@ impl World {
             };
             facing = blur(facing, rng);
             sword_angle = blur(sword_angle, rng);
+            sword_line = blur(sword_line, rng);
             shield_angle = blur(shield_angle, rng);
             sword_spin += rng.gaussian(noise * Fx::from_int(300));
+
+            // The timing read, and the one number a dim fighter gets most
+            // wrong. At `perception 0` this is a standard deviation of about
+            // twelve ticks against a Brute's thirty-three-tick telegraph: not
+            // enough to miss that a blow is coming, easily enough to dodge into
+            // it. Clamped at zero because a negative count would read as a cut
+            // that already landed.
+            sword_left = (sword_left + rng.gaussian(noise * Fx::from_int(8))).max(Fx::ZERO);
         }
 
         Contact {
@@ -1001,6 +1072,13 @@ impl World {
             sword_angle,
             sword_reach: hands[SWORD].reach,
             sword_spin,
+            // Exact, unlike everything around it. A blade hauled back over a
+            // shoulder is not a subtle cue; what a dim fighter gets wrong is
+            // when it arrives and along which line, and both of those are
+            // blurred above.
+            sword_swing: hands[SWORD].swing,
+            sword_left,
+            sword_line,
             shield_angle,
             shield_reach: hands[SHIELD].reach,
         }
@@ -1095,7 +1173,7 @@ impl Nearest {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::action::HandCommand;
+    use crate::action::{HandCommand, Strike};
 
     fn duel_world() -> World {
         World::new(&Scenario::duel(), 1)
@@ -1155,21 +1233,31 @@ mod tests {
         );
     }
 
-    /// How far past a target these tests aim, in raw angle units (67.5 deg).
-    const OVERSHOOT: i32 = 12_288;
-
-    fn swept(side: i32, about: Angle) -> HandCommand {
-        HandCommand::new(about + Angle::from_raw((side * OVERSHOOT) as u16), Fx::ONE)
+    /// Keeps one entity's sword cutting through `bearing`, forever.
+    ///
+    /// **Every test below that wants a blow to land goes through this**, and the
+    /// four-line match is the whole contract a policy has to satisfy. It is
+    /// worth reading once, because three of the four arms are mistakes waiting
+    /// to happen:
+    ///
+    /// * Asking to attack while the hand is at guard *and armed* starts a cut.
+    /// * Asking to attack during a windup or a cut **must continue** -- letting
+    ///   the command lapse there cancels the windup, which is the feint, and a
+    ///   test that does it by accident simply never hits anything.
+    /// * Asking to attack during a recovery leaves the hand disarmed when the
+    ///   recovery ends, so it throws one cut and then stands there forever.
+    ///   Releasing is what re-arms it.
+    fn cutting(w: &World, id: EntityId, bearing: Angle, side: Strike) -> HandCommand {
+        let sword = w.view(id).unwrap().hands[SWORD];
+        match sword.swing {
+            Swing::Guard if sword.armed => HandCommand::attack(bearing, side),
+            Swing::Windup | Swing::Strike => HandCommand::attack(bearing, side),
+            _ => HandCommand::new(bearing, Fx::ZERO),
+        }
     }
 
-    /// The minimum viable swordsman: drive the blade *past* the enemy so it
-    /// crosses at speed, flipping side once it has gone by.
-    ///
-    /// Every test below that wants a fight to actually happen goes through
-    /// this, because a blade commanded straight at someone arrives at rest and
-    /// does nothing. Keeping it in one place means the tests exercise the same
-    /// shape a real policy has to use.
-    fn windmill(obs: &Observation, target: EntityId, side: &mut i32) -> Action {
+    /// A minimum viable swordsman: hold the preferred range and keep cutting.
+    fn duellist(w: &World, obs: &Observation, target: EntityId) -> Action {
         let enemy = match obs.enemies().first() {
             Some(c) => *c,
             // Nothing in sight: walk to the middle of the room and look again.
@@ -1178,15 +1266,6 @@ mod tests {
             None => return Action::moving((Vec2::from_ints(12, 8) - obs.position).normalize()),
         };
         let bearing = enemy.offset.angle();
-        // Reverse only once the blade has actually reached the far end of its
-        // arc -- not merely once it has crossed the target. Flipping on the
-        // crossing looks right and is the classic way to build a swordsman that
-        // never hurts anyone: decisions arrive every several ticks, so the
-        // command reverses again mid-return and the blade dithers around the
-        // target at walking pace forever.
-        if obs.sword().angle.delta(bearing) * *side > OVERSHOOT * 3 / 4 {
-            *side = -*side;
-        }
         // Stand inside the tip band rather than at the very edge of reach: at
         // maximum extension only a blade pointed almost exactly at the target
         // touches it at all.
@@ -1199,25 +1278,20 @@ mod tests {
         Action::swinging(
             approach,
             target,
-            swept(*side, bearing),
+            cutting(w, obs.me, bearing, Strike::Nearest),
             HandCommand::new(bearing, Fx::ONE),
         )
     }
 
-    /// Runs a duel to a conclusion with both sides windmilling.
+    /// Runs a duel to a conclusion with both sides attacking.
     fn fight(w: &mut World, ticks: u32) -> Option<Outcome> {
         let hero = w.alive_ids(Faction::Heroes)[0];
         let monster = w.alive_ids(Faction::Monsters)[0];
-        let mut sides = [1i32, -1];
         for _ in 0..ticks {
             for id in w.pending_decisions().to_vec() {
-                let (target, slot) = if id == hero {
-                    (monster, 0)
-                } else {
-                    (hero, 1)
-                };
+                let target = if id == hero { monster } else { hero };
                 let obs = w.observe(id);
-                let action = windmill(&obs, target, &mut sides[slot]);
+                let action = duellist(w, &obs, target);
                 w.submit(id, action);
             }
             w.step();
@@ -1232,9 +1306,95 @@ mod tests {
     fn units_close_and_kill_each_other() {
         let mut w = duel_world();
         assert!(
-            fight(&mut w, 60 * 120).is_some(),
-            "the duel never resolved -- two swordsmen swinging at each other \
-             for two minutes should produce a body"
+            fight(&mut w, 60 * 180).is_some(),
+            "the duel never resolved -- two swordsmen attacking each other \
+             for three minutes should produce a body"
+        );
+    }
+
+    #[test]
+    fn a_blade_that_is_not_striking_is_furniture() {
+        // The property the whole redesign was for, stated as bluntly as it can
+        // be. Two Warriors nose to nose, both sweeping their blades through
+        // each other as hard as the torque cap allows and never once asking to
+        // attack. Under the old model this was the dominant strategy in the
+        // game. It now does nothing at all.
+        let mut scenario = Scenario::duel();
+        scenario.units[1].kind = UnitKind::Warrior;
+        scenario.units[1].stats = UnitKind::Warrior.base_stats();
+        scenario.units[1].spawn = Vec2::from_ints(7, 8);
+        let mut w = World::new(&scenario, 1);
+        let a = w.alive_ids(Faction::Heroes)[0];
+        let b = w.alive_ids(Faction::Monsters)[0];
+
+        let mut spun = Fx::ZERO;
+        for tick in 0..900u32 {
+            // A bearing that sweeps right round, twice a second: the fastest
+            // windmill the old interface could express.
+            let bearing = Angle::from_raw((tick.wrapping_mul(2184) & 0xFFFF) as u16);
+            let whirl = HandCommand::new(bearing, Fx::ONE);
+            w.submit(a, Action::swinging(Vec2::ZERO, b, whirl, HandCommand::TUCKED));
+            w.submit(b, Action::swinging(Vec2::ZERO, a, whirl, HandCommand::TUCKED));
+            w.step();
+            spun = spun.max(w.hands[a.index as usize][SWORD].spin.abs());
+        }
+        assert!(
+            spun > Fx::from_int(500),
+            "the blades never got moving, so this proves nothing: {spun}"
+        );
+        assert_eq!(
+            w.damage_dealt(Faction::Heroes),
+            Fx::ZERO,
+            "a windmill still draws blood"
+        );
+        assert_eq!(w.damage_dealt(Faction::Monsters), Fx::ZERO);
+    }
+
+    #[test]
+    fn an_attack_can_be_answered_because_it_arrives_late() {
+        // The dodge window, measured rather than asserted. Between the tick a
+        // Brute commits and the tick its blade goes live there is a stretch of
+        // real time, and it has to be long enough for a Warrior to notice on one
+        // decision and act on the next.
+        // Close enough that the hero can see the Brute at all: a Warrior sees
+        // 9.6 units and the duel scenario spawns the pair twelve apart.
+        let mut scenario = Scenario::duel();
+        scenario.units[1].spawn = Vec2::from_ints(9, 8);
+        let mut w = World::new(&scenario, 1);
+        let brute = w.alive_ids(Faction::Monsters)[0];
+        let hero = w.alive_ids(Faction::Heroes)[0];
+        let period = w.view(hero).unwrap().stats.decision_period() as u32;
+
+        let mut announced = None;
+        let mut live = None;
+        for tick in 0..200u32 {
+            let cmd = HandCommand::attack(Angle::HALF, Strike::Widdershins);
+            w.submit(brute, Action::swinging(Vec2::ZERO, hero, cmd, HandCommand::TUCKED));
+            w.submit(hero, Action::HOLD);
+            w.step();
+            let swing = w.hands[brute.index as usize][SWORD].swing;
+            if swing == Swing::Windup && announced.is_none() {
+                announced = Some(tick);
+                // And the hero can see it. This is not the same claim: the
+                // phase reaching the observation is what makes the window
+                // usable rather than merely present.
+                let seen = w.observe(hero);
+                assert_eq!(
+                    seen.enemies()[0].sword_swing,
+                    Swing::Windup,
+                    "the telegraph never reached the defender's observation"
+                );
+            }
+            if swing == Swing::Strike && live.is_none() {
+                live = Some(tick);
+                break;
+            }
+        }
+        let warning = live.expect("the cut never went live") - announced.expect("never announced");
+        assert!(
+            warning > period * 2,
+            "a Brute gave {warning} ticks of warning to a Warrior that thinks \
+             every {period} -- not enough to read and answer"
         );
     }
 
@@ -1258,29 +1418,16 @@ mod tests {
             } else {
                 w.alive_ids(Faction::Monsters)[0]
             };
-            let mut side = 1;
-            for tick in 0..600u32 {
-                if tick % 24 == 0 {
-                    side = -side;
+            for _ in 0..900u32 {
+                // Stop the moment somebody falls over. The hostile control
+                // script draws real blood now, and `cutting` reads a live view.
+                if w.outcome().is_some() {
+                    break;
                 }
-                w.submit(
-                    a,
-                    Action::swinging(
-                        Vec2::ZERO,
-                        b,
-                        swept(side, Angle::ZERO),
-                        HandCommand::TUCKED,
-                    ),
-                );
-                w.submit(
-                    b,
-                    Action::swinging(
-                        Vec2::ZERO,
-                        a,
-                        swept(side, Angle::HALF),
-                        HandCommand::TUCKED,
-                    ),
-                );
+                let cut_a = cutting(&w, a, Angle::ZERO, Strike::Nearest);
+                let cut_b = cutting(&w, b, Angle::HALF, Strike::Nearest);
+                w.submit(a, Action::swinging(Vec2::ZERO, b, cut_a, HandCommand::TUCKED));
+                w.submit(b, Action::swinging(Vec2::ZERO, a, cut_b, HandCommand::TUCKED));
                 w.step();
             }
             (
@@ -1367,23 +1514,33 @@ mod tests {
 
     #[test]
     fn a_swing_through_a_body_lands_once() {
-        // A blade crossing a body occupies it for several ticks. Without the
-        // hand refractory it would bill damage on every one of them, and a
-        // single swing would delete anything it touched.
+        // A blade crossing a body occupies it for several ticks. Without ending
+        // the cut the moment it lands, it would bill damage on every one of
+        // them, and a single swing would delete anything it touched.
+        //
+        // 1.6 units apart and deliberately not touching: a Warrior with its
+        // chest against a Brute meets that body at an arm of 0.45, which is
+        // inside its own dead zone and does nothing at all. That is the damage
+        // model working exactly as intended, and it makes for a test that
+        // measures the wrong thing.
         let mut scenario = Scenario::duel();
-        scenario.units[1].spawn = Vec2::from_ints(7, 8);
+        scenario.units[1].spawn = Vec2::new(Fx::from_ratio(76, 10), Fx::from_int(8));
         let mut w = World::new(&scenario, 1);
         let a = w.alive_ids(Faction::Heroes)[0];
         let b = w.alive_ids(Faction::Monsters)[0];
 
-        // Wind up well clear of the target, then sweep once through it.
+        // Exactly one cut, start to finish. Holding the command down throws a
+        // single attack, so the loop only has to run until the hand is back at
+        // guard to have covered the whole of it.
         let mut blows = 0;
-        for tick in 0..40u32 {
-            let cmd = if tick < 20 {
-                swept(-1, Angle::ZERO)
-            } else {
-                swept(1, Angle::ZERO)
-            };
+        let mut started = false;
+        for _ in 0..300u32 {
+            let sword = w.view(a).unwrap().hands[SWORD];
+            if started && sword.swing == Swing::Guard {
+                break;
+            }
+            started |= sword.swing.is_attacking();
+            let cmd = HandCommand::attack(Angle::ZERO, Strike::Widdershins);
             w.submit(a, Action::swinging(Vec2::ZERO, b, cmd, HandCommand::TUCKED));
             w.submit(b, Action::HOLD);
             for event in w.step() {
@@ -1394,8 +1551,9 @@ mod tests {
                 }
             }
         }
+        assert!(started, "the attack never began");
         assert!(blows > 0, "the sweep never connected");
-        assert!(blows <= 2, "one sweep billed {blows} separate blows");
+        assert_eq!(blows, 1, "one sweep billed {blows} separate blows");
     }
 
     #[test]
@@ -1421,15 +1579,14 @@ mod tests {
                 Some(at) => HandCommand::new(at, Fx::ONE),
                 None => HandCommand::TUCKED,
             };
-            let mut side = 1;
-            for tick in 0..600u32 {
-                if tick % 30 == 0 {
-                    side = -side;
-                }
-                w.submit(
-                    a,
-                    Action::swinging(Vec2::ZERO, b, swept(side, Angle::ZERO), HandCommand::TUCKED),
-                );
+            // One named side, every cut. `Strike::Nearest` alternates as the
+            // blade ends up on one side and then the other, which lands blows
+            // on both flanks and turns a single-variable test into a test of
+            // whether one guard can cover two lines. It cannot, and that is not
+            // what is being asked here.
+            for _ in 0..900u32 {
+                let cut = cutting(&w, a, Angle::ZERO, Strike::Widdershins);
+                w.submit(a, Action::swinging(Vec2::ZERO, b, cut, HandCommand::TUCKED));
                 w.submit(b, Action::swinging(Vec2::ZERO, a, HandCommand::TUCKED, guard));
                 w.step();
             }
@@ -1442,8 +1599,8 @@ mod tests {
         // Sweep the guard around and find the best and worst bearings.
         let mut best = Fx::MAX;
         let mut worst = Fx::ZERO;
-        for step in 0..8 {
-            let taken = landed(Some(Angle::from_raw((step * 8192) as u16)));
+        for step in 0..16 {
+            let taken = landed(Some(Angle::from_raw((step * 4096) as u16)));
             best = best.min(taken);
             worst = worst.max(taken);
         }
@@ -1490,21 +1647,10 @@ mod tests {
             let mut w = World::new(&scenario, 1);
             let hero = w.alive_ids(Faction::Heroes)[0];
             let brute = w.alive_ids(Faction::Monsters)[0];
-            let mut side = 1;
             let mut worst = Fx::ZERO;
-            for tick in 0..900u32 {
-                if tick % 60 == 0 {
-                    side = -side;
-                }
-                w.submit(
-                    brute,
-                    Action::swinging(
-                        Vec2::ZERO,
-                        hero,
-                        swept(side, Angle::HALF),
-                        HandCommand::TUCKED,
-                    ),
-                );
+            for _ in 0..1800u32 {
+                let cut = cutting(&w, brute, Angle::HALF, Strike::Nearest);
+                w.submit(brute, Action::swinging(Vec2::ZERO, hero, cut, HandCommand::TUCKED));
                 w.submit(hero, Action::HOLD);
                 for event in w.step() {
                     if let Event::Damage { amount, .. } = event {
@@ -1530,19 +1676,24 @@ mod tests {
     }
 
     #[test]
-    fn hugging_a_heavy_weapon_disarms_it_completely() {
+    fn crowding_a_heavy_weapon_takes_most_of_its_bite_away() {
         // The sharpest edge of the damage model, pinned deliberately rather
-        // than left to be discovered.
+        // than left to be discovered -- and it has changed *kind* since it was
+        // first written, which is the part worth reading.
         //
-        // Impact is `spin * arm`, so a weapon has a *minimum* effective radius:
-        // inside it, even a blade at full speed cannot reach
+        // Impact is `spin * arm`, so a weapon has a minimum effective radius:
+        // inside it even a blade at full speed cannot reach
         // `IMPACT_THRESHOLD`. A Brute tops out at 741 angle units per tick, so
-        // its blade is harmless within about 1.27 units of its own shoulder --
-        // it simply has no room to build speed. Getting inside that circle and
-        // staying there is the single strongest answer to a heavy weapon in the
-        // game, and it is meant to be: it costs a light fighter every scrap of
-        // safety margin to hold that distance against something that only has
-        // to take one step back.
+        // that radius is about 0.85 units. It used to be 1.27, which was
+        // *outside* the 1.15 at which a Warrior's body and a Brute's stop being
+        // able to approach -- meaning a fighter who got close became flatly
+        // immune, and a small enough one became immune and harmless at the same
+        // time while the fight timed out.
+        //
+        // Now the circle is unreachable and what is left is the gradient. Damage
+        // is linear in the arm, so crowding still takes most of a heavy blow
+        // away; it no longer takes all of it, and there is no longer a distance
+        // at which the fight stops being a fight.
         let brute = UnitKind::Brute;
         let ceiling = brute.weapon().max_spin * rules::agility_multiplier(brute.base_stats().agility);
         let mut safe = Fx::ZERO;
@@ -1558,26 +1709,45 @@ mod tests {
             "the dead zone is {safe}, which is not inside the blade's own span"
         );
 
-        // And it really is a dead zone in a running fight, not just on paper.
-        let mut scenario = Scenario::duel();
-        scenario.units[0].spawn = Vec2::new(Fx::from_ratio(1710, 100), Fx::from_int(8));
-        scenario.units[1].spawn = Vec2::from_ints(18, 8);
-        let mut w = World::new(&scenario, 1);
-        let hero = w.alive_ids(Faction::Heroes)[0];
-        let villain = w.alive_ids(Faction::Monsters)[0];
-        let mut side = 1;
-        for tick in 0..900u32 {
-            if tick % 60 == 0 {
-                side = -side;
+        // And the gradient is real in a running fight, not just on paper: the
+        // worst blow a Brute lands on someone pressed against it against the
+        // worst it lands at the end of its arc.
+        let worst_at = |gap: i32| -> Fx {
+            let mut scenario = Scenario::duel();
+            scenario.units[0].spawn =
+                Vec2::new(Fx::from_int(18) - Fx::from_ratio(gap, 100), Fx::from_int(8));
+            scenario.units[1].spawn = Vec2::from_ints(18, 8);
+            let mut w = World::new(&scenario, 1);
+            let hero = w.alive_ids(Faction::Heroes)[0];
+            let villain = w.alive_ids(Faction::Monsters)[0];
+            let mut worst = Fx::ZERO;
+            for _ in 0..1800u32 {
+                if w.outcome().is_some() {
+                    break;
+                }
+                let cut = cutting(&w, villain, Angle::HALF, Strike::Nearest);
+                w.submit(villain, Action::swinging(Vec2::ZERO, hero, cut, HandCommand::TUCKED));
+                // Pinned in place: this is a test of geometry, and a hero that
+                // walked would be measuring its own footwork.
+                w.submit(hero, Action::HOLD);
+                for event in w.step() {
+                    if let Event::Damage { amount, .. } = event {
+                        worst = worst.max(*amount);
+                    }
+                }
             }
-            w.submit(
-                villain,
-                Action::swinging(Vec2::ZERO, hero, swept(side, Angle::HALF), HandCommand::TUCKED),
-            );
-            w.submit(hero, Action::HOLD);
-            w.step();
-        }
-        assert_eq!(w.damage_dealt(Faction::Monsters), Fx::ZERO);
+            worst
+        };
+
+        // 1.15 is body contact for this pair; 2.40 is out at the tip.
+        let pressed = worst_at(115);
+        let at_range = worst_at(240);
+        assert!(at_range.is_positive(), "the tip band never connected");
+        assert!(
+            pressed * Fx::TWO < at_range,
+            "crowding in took a {pressed} blow against {at_range} at range -- \
+             getting inside a heavy weapon is supposed to be worth doing"
+        );
     }
 
     #[test]
@@ -1591,31 +1761,39 @@ mod tests {
         let a = w.alive_ids(Faction::Heroes)[0];
         let b = w.alive_ids(Faction::Monsters)[0];
 
+        // Mirrored sides, so the two blades sweep *toward* each other. Matching
+        // sides about opposing bearings is the subtle failure here: the pair
+        // stays exactly antiparallel for the whole cut, which means the two
+        // segments are parallel lines that never properly cross, and no parry
+        // is ever reported however long the test runs.
         let mut parries = 0;
-        let mut side = 1;
-        for tick in 0..600u32 {
-            if tick % 26 == 0 {
-                side = -side;
-            }
-            w.submit(
-                a,
-                Action::swinging(Vec2::ZERO, b, swept(side, Angle::ZERO), HandCommand::TUCKED),
-            );
-            // `-side` about the opposite bearing, so the two blades sweep
-            // *toward* each other. Matching signs about opposing bearings point
-            // them apart, and they never meet at all.
-            w.submit(
-                b,
-                Action::swinging(Vec2::ZERO, a, swept(-side, Angle::HALF), HandCommand::TUCKED),
-            );
+        let mut ended_an_attack = false;
+        for _ in 0..1800u32 {
+            let cut_a = cutting(&w, a, Angle::ZERO, Strike::Widdershins);
+            let cut_b = cutting(&w, b, Angle::HALF, Strike::Sunwise);
+            w.submit(a, Action::swinging(Vec2::ZERO, b, cut_a, HandCommand::TUCKED));
+            w.submit(b, Action::swinging(Vec2::ZERO, a, cut_b, HandCommand::TUCKED));
+            let mut parried_here = false;
             for event in w.step() {
                 if let Event::Parry { a: x, b: y, .. } = event {
                     assert!(x.index < y.index, "a parry was reported unordered");
                     parries += 1;
+                    parried_here = true;
                 }
+            }
+            if parried_here {
+                // Crossing steel does not merely deflect a swing now, it ends
+                // it: both hands go to recovery, which is what makes catching a
+                // cut on your own blade worth the tempo it costs.
+                ended_an_attack |= w.hands[a.index as usize][SWORD].swing == Swing::Recover
+                    && w.hands[b.index as usize][SWORD].swing == Swing::Recover;
             }
         }
         assert!(parries > 0, "blades swept through each other without meeting");
+        assert!(
+            ended_an_attack,
+            "a parry left an attack still running on one side or the other"
+        );
     }
 
     #[test]
@@ -1626,28 +1804,51 @@ mod tests {
         let mut scenario = Scenario::duel();
         scenario.units[1].kind = UnitKind::Warrior;
         scenario.units[1].stats = UnitKind::Warrior.base_stats();
-        scenario.units[0].spawn = Vec2::from_ints(11, 8);
-        scenario.units[1].spawn = Vec2::from_ints(13, 8);
+        // 1.7 apart, symmetric about x = 12. Two units puts each Warrior's body
+        // 1.55 from the other's centre against a blade that reaches 1.40, so
+        // the pair swings all day and never touches -- and a symmetry test
+        // between two zeros passes without proving anything.
+        scenario.units[0].spawn = Vec2::new(Fx::from_ratio(1115, 100), Fx::from_int(8));
+        scenario.units[1].spawn = Vec2::new(Fx::from_ratio(1285, 100), Fx::from_int(8));
         let mut w = World::new(&scenario, 1);
         let a = w.alive_ids(Faction::Heroes)[0];
         let b = w.alive_ids(Faction::Monsters)[0];
 
-        let mut side = 1;
-        for tick in 0..900u32 {
-            if tick % 22 == 0 {
-                side = -side;
-            }
-            // Mirrored through the vertical axis: `a` swings from +side about
-            // east, `b` from -side about west.
-            w.submit(
-                a,
-                Action::swinging(Vec2::ZERO, b, swept(side, Angle::ZERO), HandCommand::TUCKED),
-            );
-            w.submit(
-                b,
-                Action::swinging(Vec2::ZERO, a, swept(-side, Angle::HALF), HandCommand::TUCKED),
-            );
+        // Symmetric under a half turn about the midpoint rather than under a
+        // reflection, and the difference decides whether this test measures
+        // anything. Reflected sides send the two blades head-on into each
+        // other, so the pair parries every exchange and trades no damage at
+        // all -- symmetric, and vacuous. Rotated sides keep the blades exactly
+        // antiparallel, which never cross, so both cuts land and the assertion
+        // has something to compare.
+        //
+        // The sides are named rather than left to `Strike::Nearest`, which is
+        // the one command that cannot answer a perfectly symmetric situation
+        // differently for the two fighters; see `Hand::begin`.
+        let mut outcome = None;
+        for _ in 0..1800u32 {
+            let cut_a = cutting(&w, a, Angle::ZERO, Strike::Widdershins);
+            let cut_b = cutting(&w, b, Angle::HALF, Strike::Widdershins);
+            w.submit(a, Action::swinging(Vec2::ZERO, b, cut_a, HandCommand::TUCKED));
+            w.submit(b, Action::swinging(Vec2::ZERO, a, cut_b, HandCommand::TUCKED));
             w.step();
+            if let Some(o) = w.outcome() {
+                outcome = Some(o);
+                break;
+            }
+        }
+        assert!(
+            w.damage_dealt(Faction::Heroes).is_positive(),
+            "the symmetric pair never landed anything, so this proves nothing"
+        );
+        // If it ended at all it has to have ended in a draw. Anything else means
+        // one index resolved before the other somewhere in the tick loop.
+        if let Some(o) = outcome {
+            assert_eq!(
+                o,
+                Outcome::MutualDestruction,
+                "a symmetric exchange produced a winner"
+            );
         }
         assert_eq!(
             w.damage_dealt(Faction::Heroes),

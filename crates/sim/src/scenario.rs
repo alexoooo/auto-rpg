@@ -179,7 +179,14 @@ impl Scenario {
             name: format!("skirmish-{heroes}v{monsters}"),
             arena,
             units,
-            max_ticks: 90 * 60,
+            // Two and a half minutes, up from ninety seconds. A phased attack is
+            // a windup, a cut and a recovery where a windmill was a blow every
+            // nine ticks, so a fight of this size takes about twice as long as
+            // it used to and a fifth of them were timing out with both sides
+            // still standing. A draw scores zero, teaches evolution nothing and
+            // costs a full limit of compute -- it is the most expensive possible
+            // way to learn nothing, and buying the extra time back is cheap.
+            max_ticks: 150 * 60,
         }
     }
 

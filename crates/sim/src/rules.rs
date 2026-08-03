@@ -73,6 +73,19 @@ pub struct Weapon {
     pub weight: Fx,
     /// Shield arc half-width at full extension, raw angle units.
     pub shield_arc: u16,
+    /// **The telegraph.** Ticks the blade spends cocked back before a cut comes
+    /// forward, at agility multiplier 1; see [`phase_ticks`].
+    ///
+    /// This number *is* the difficulty of the archetype, read from the other
+    /// side. It is how long an opponent has to notice, decide and answer, and
+    /// it is measured against that opponent's [`Stats::decision_period`]: a
+    /// Brute's telegraph is nearly six times a Warrior's reaction and a third
+    /// of a dim Skitterer's. Widen it and the archetype becomes a puzzle;
+    /// narrow it and it becomes a coin flip.
+    pub windup: u16,
+    /// Ticks the hand needs to bring a spent blade back to guard, at agility
+    /// multiplier 1. The punish window, and the price of missing.
+    pub recovery: u16,
 }
 
 /// How much a hand's torque, top speed and extension scale with agility.
@@ -96,17 +109,47 @@ pub const fn power_multiplier(power: u8) -> Fx {
 
 /// Closing speed below which a blow does nothing at all, world units per tick.
 ///
-/// Chosen above every archetype's [`Stats::move_speed`] (the fastest is a
-/// Scout's 0.0657), so a *stationary* blade carried into someone by walking is
-/// never a weapon. Without this, standing still with a sword out would kill,
-/// and the entire swing model would be decoration.
-pub const IMPACT_THRESHOLD: Fx = Fx::from_ratio(9, 100);
+/// It used to have two jobs and now has one, which is why it came down.
+///
+/// The job it lost: keeping a *stationary* blade carried into someone by
+/// walking from being a weapon. That mattered when any moving blade billed
+/// damage, and the threshold had to sit above every archetype's
+/// [`Stats::move_speed`] to hold the line. Damage is gated on [`Swing::Strike`]
+/// now, so a carried blade is not a weapon because it is not attacking, and the
+/// threshold does not have to defend that on its own.
+///
+/// The job it kept is the interesting one: impact is `spin x arm`, so a
+/// threshold gives every weapon a **dead zone** -- a radius inside which even a
+/// full-speed blade cannot reach it. Getting inside one is the strongest answer
+/// to a heavy weapon in the game.
+///
+/// At 0.09 that dead zone swallowed a Brute out to 1.27 units, which is most of
+/// the way to its own tip. It could only hurt anything in the last third of its
+/// reach, landed about one blow per fight, and lost to every archetype at every
+/// skill level -- including to policies that ignored it completely.
+///
+/// 0.06 puts a Brute's dead zone at 0.85, which is *inside* the 1.15 at which a
+/// Warrior's body and its own stop being able to get closer. That is a
+/// deliberate change of kind and not only of degree: crowding a heavy weapon is
+/// no longer a magic circle you step into and become immune, it is a steep
+/// gradient. Damage is linear in the arm, so a Warrior pressed to body contact
+/// still takes about a quarter of what one at the Brute's tip does -- the
+/// tactic survives, and the degenerate state it used to lead to (a Skitterer
+/// hugging a Brute, immune and harmless, while the fight timed out) does not.
+pub const IMPACT_THRESHOLD: Fx = Fx::from_ratio(6, 100);
 
 /// Damage per world-unit-per-tick of impact above [`IMPACT_THRESHOLD`], before
-/// weapon weight and the power stat. Calibrated so a mid-blade blow lands
-/// within a fifth of what the old flat damage did, which keeps the *feel* of a
-/// trade while changing everything about when one happens.
-pub const IMPACT_TO_DAMAGE: Fx = Fx::from_int(60);
+/// weapon weight and the power stat.
+///
+/// It more than doubled when the sword became a phase machine, and the
+/// arithmetic behind that is worth keeping. A windmill billed a blow every nine
+/// ticks; a measured attack is a windup, a cut and a recovery, and a Warrior
+/// gets through one about every fifty ticks -- so the same constant produced
+/// fights that could not finish, and two thirds of duels timed out with both
+/// sides walking wounded. Calibrated to put a duel at roughly a dozen exchanges
+/// and twenty seconds, which is short enough for one misread to matter and long
+/// enough that one does not decide everything.
+pub const IMPACT_TO_DAMAGE: Fx = Fx::from_int(135);
 
 /// Fraction of a blow that leaks through a shield.
 ///
@@ -128,15 +171,79 @@ pub const BLOCK_SHIELD_KNOCK: Fx = Fx::from_ratio(40, 100);
 /// a braced shield does.
 pub const PARRY_REBOUND: Fx = Fx::from_ratio(60, 100);
 
-/// Ticks a hand is dead after landing a blow. Stops one continuous swing from
-/// billing damage on every tick it spends inside a body.
-pub const HAND_REFRACTORY: u16 = 9;
+// ------------------------------------------------------------- the attack
 
-/// Ticks a hand is dead after being stopped by a shield.
-pub const BLOCK_REFRACTORY: u16 = 14;
+/// How far back from the line a blade cocks before a cut, raw angle units
+/// (67.5 degrees).
+///
+/// The whole telegraph is here: a blade held at the line is ambiguous, and a
+/// blade pulled a clear two-thirds of a right angle off it is a declaration.
+/// It also sets how much runway the cut has to build speed on, so it is the
+/// same knob twice -- shorten it and attacks become both harder to read and
+/// weaker, which is the wrong trade in both directions at once.
+pub const WINDUP_ARC: i32 = 12_288;
 
-/// Ticks both hands are dead after their blades cross.
-pub const PARRY_REFRACTORY: u16 = 12;
+/// How far past the line a cut drives before it is spent (78.75 degrees).
+///
+/// Larger than [`WINDUP_ARC`] on purpose. The blade must still be travelling
+/// when it crosses the line -- a cut that decelerates onto its target arrives
+/// at rest and does nothing, which is the trap `hand::tests` has pinned since
+/// the first version of this model. Aiming the far end past the target is what
+/// keeps the crossing fast.
+pub const FOLLOW_THROUGH: i32 = 14_336;
+
+/// How far past the line a cut must travel before it counts as spent and the
+/// hand starts recovering. Three quarters of the follow-through, so a cut ends
+/// on its own arc rather than waiting out [`STRIKE_TIMEOUT`].
+pub const STRIKE_SPENT_ARC: i32 = FOLLOW_THROUGH * 3 / 4;
+
+/// Ticks a cut may stay live before it is spent regardless of where the blade
+/// got to.
+///
+/// The backstop for a swing that cannot finish its arc: a blade jammed against
+/// a body it cannot push through, or one whose spin was reversed by a parry
+/// into an angle it will never reach. Without it such a hand stays live
+/// forever, which is the windmill coming back through the side door.
+pub const STRIKE_TIMEOUT: u16 = 45;
+
+/// Extension a blade is held at between attacks.
+///
+/// Above [`MIN_STRIKE_REACH`], so a guarding blade is still a *segment* and can
+/// be crossed -- catching a cut on your own blade is a real answer, and it is
+/// the one available to a fighter whose shield is on the wrong side. It deals
+/// no damage regardless, because damage is gated on the strike phase and not on
+/// extension.
+pub const GUARD_REACH: Fx = Fx::from_ratio(30, 100);
+
+/// Extension a blade is drawn back to during a windup.
+///
+/// Halfway out: far enough that a cocked blade is unmistakable at a glance and
+/// has somewhere to be caught, short enough that [`REACH_DRAG`] does not stop
+/// the hand from getting there inside the telegraph.
+pub const WINDUP_REACH: Fx = Fx::from_ratio(50, 100);
+
+/// Extra recovery ticks when a cut is stopped by a shield. This plus the
+/// weapon's own recovery *is* the reward for blocking.
+pub const BLOCK_RECOVERY: u16 = 14;
+
+/// Extra recovery ticks when two blades cross.
+pub const PARRY_RECOVERY: u16 = 12;
+
+/// How long a phase lasts for a wielder of the given agility multiplier.
+///
+/// Agility already scales torque, top speed and extension, so a nimble fighter
+/// swings a faster blade. Scaling the phases by it as well is what makes the
+/// stat mean *cadence* rather than only speed: a quick Brute does not merely
+/// move its axe faster, it spends less time announcing the blow and less time
+/// picking it back up. Floored at one tick, because a zero-length phase would
+/// let an attack skip its own telegraph.
+pub fn phase_ticks(base: u16, agility: Fx) -> u16 {
+    if base == 0 {
+        return 0;
+    }
+    let scaled = Fx::from_int(base as i32) / agility.max(Fx::from_ratio(1, 4));
+    scaled.round_int().clamp(1, 600) as u16
+}
 
 /// Combined spin, raw angle units per tick, below which two crossed blades are
 /// merely touching rather than parrying. Without a floor, a pair that happens to

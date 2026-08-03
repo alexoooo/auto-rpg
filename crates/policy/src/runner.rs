@@ -208,8 +208,12 @@ mod tests {
         let config = RunConfig::default();
         let mut resolved = 0;
         // Enough samples to actually measure a rate. The measured draw rate is
-        // around 5%, so a handful of seeds would be testing luck, not the game.
-        let trials = 24;
+        // around 8% over 48 skirmishes, and a threshold of 20% needs more than a
+        // handful of seeds to sit safely above that: at 24 trials an ordinary
+        // unlucky slice lands five draws about one time in nine, which is a
+        // flaky test rather than a failing game. Sixty is enough that the
+        // threshold is measuring the game.
+        let trials = 60;
         for seed in 0..trials {
             let scenario = Scenario::skirmish(seed + 100, 4, 6);
             let result = run(&scenario, seed, &mut UtilityPolicy::baseline(), &config);
