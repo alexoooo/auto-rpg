@@ -1259,7 +1259,7 @@ mod tests {
     /// What `cargo run --release -p lab -- hash` prints today. Recorded rather
     /// than computed, so this test fails if the sim's behaviour moves at all --
     /// which is the point of having it here as well as in `sim`.
-    const LAB_HASH: u64 = 0xaeb2_d6b1_3af2_2324;
+    const LAB_HASH: u64 = 0xc702_db64_562d_e0a6;
 
     /// What `init(1); set_goto(20_000, 12_000); step(600)` leaves behind.
     /// Recorded here natively; the same three calls against `web.wasm` under
@@ -1277,7 +1277,7 @@ mod tests {
     /// step(400)` leaves behind -- a fight, a death, a replacement, and the
     /// fight it walks into. Recorded from a native run and asserted against
     /// `web.wasm` under Node by `tools/wasm_check.js`.
-    const SWAP_HASH: u64 = 0x329b_2592_3d73_af1d;
+    const SWAP_HASH: u64 = 0x34ea_3a55_595d_8328;
 
     fn selftest() -> u64 {
         (u64::from(selftest_hash_hi()) << 32) | u64::from(selftest_hash_lo())
@@ -1343,8 +1343,8 @@ mod tests {
             "the selftest no longer runs what `lab hash` runs"
         );
         assert_eq!(selftest(), LAB_HASH, "the halves reassemble wrongly");
-        assert_eq!(selftest_hash_lo(), 0x3af2_2324);
-        assert_eq!(selftest_hash_hi(), 0xaeb2_d6b1);
+        assert_eq!(selftest_hash_lo(), 0x562d_e0a6);
+        assert_eq!(selftest_hash_hi(), 0xc702_db64);
     }
 
     #[test]

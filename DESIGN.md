@@ -94,6 +94,23 @@ braced the shield is, which nothing else implies: a bearing and a spin say where
 a guard is and how fast, and neither says how long it has been *there*, which is
 what decides whether it stops a blow or is merely near one.
 
+Version 6 adds two numbers to each contact, and they are the first entries in the
+vector that are neither a measurement nor a state — they are the **stakes**.
+`Contact::threat` is what one clean blow from that enemy costs as a fraction of
+your own bar; `Contact::frailty` is the same blow the other way. Everything a
+policy could previously read was scale-free by construction (positions, angles,
+health fractions), which was the right instinct and left exactly one hole:
+`power`, `weapon.weight` and `max_hp` are all absolute, all correctly kept out of
+an observation, and between them they decide whether an exchange is a scratch or
+a third of the fight. A Brute's axe is 0.32 of a Warrior, 0.74 of a Skitterer,
+and a Skitterer's knife is 0.08 of that same Warrior. A fighter that cannot tell
+those apart except by blade length is not reading the fight, and no amount of
+perception was ever going to fix it.
+
+Neither is much use alone, which is why both landed at once: knowing you are two
+blows from death is half a decision, and the answer is completely different
+depending on whether the thing in front of you is five blows from death or one.
+
 The phase block is a one-hot and not a number, for the same reason every angle is
 a `(cos, sin)` pair. The four phases are not points on a scale — a recovery is
 not "more" than a windup — and encoding them 0, ⅓, ⅔, 1 would ask a network to
@@ -364,10 +381,10 @@ seeds a row, and not one draw anywhere on it:
 
 | `intellect` / `perception` | decisions | noise | win rate | health when it wins |
 |----------------------------|-----------|-------|----------|---------------------|
-| 0 / 0                      | every 30  | 2.25  | 9%       | 0.31                |
-| 1 / 2                      | every 24  | 1.55  | 45%      | 0.32                |
-| 2 / 2                      | every 18  | 1.55  | 58%      | 0.35                |
-| 3 / 3                      | every 17  | 1.20  | 85%      | 0.47                |
+| 0 / 0                      | every 30  | 2.25  | 10%      | 0.28                |
+| 1 / 2                      | every 24  | 1.55  | 43%      | 0.32                |
+| 2 / 2                      | every 18  | 1.55  | 55%      | 0.37                |
+| 3 / 3                      | every 17  | 1.20  | 83%      | 0.48                |
 | 8 / 6 (a stock Warrior)    | every 12  | 0.90  | 97%      | 0.60                |
 | 12 / 10                    | every 8   | 0.50  | 100%     | 0.70                |
 | 19 / 18                    | every 1   | 0.00  | 100%     | 0.82                |
@@ -627,6 +644,29 @@ refuse every exchange, orbit a slower opponent, win 99% of duels over seventy
 seconds — which erases the skill range, because a fighter that never trades needs
 neither reaction speed nor an eye for a blade.
 
+**The duel arena's opponent decides the answer, and the fitness function cannot
+tell.** Evolved against a *duellist* Brute rather than a naive one, four
+genuinely independent runs all returned `standoff` between 0.68 and 0.99 with
+`evasion` pinned at its ceiling, scoring 100% and 0.76 surviving health. Those
+same genomes win 19% to 45% against the naive Brute. Standing off beats an
+opponent that reads you and hesitates and is suicide against one that walks in
+swinging, because the tip of the arc is the worst place on it — so what evolution
+found was not a better fighter but a counter to one opponent, at a fitness score
+that looked like a clear win over the hand-tuned weights. The shipped genome is
+the hand-tuned one for that reason. This is the same shape of problem as the
+kiting collapse below, and neither is fixed by shaping fitness harder: a single
+fixed opponent is the thing being overfit.
+
+**~~A policy cannot tell an axe from a knife.~~** Answered. `Contact::threat` and
+`Contact::frailty` carry what one clean blow is worth in each direction as a
+fraction of the bar it comes off, which is the relative form of three absolute
+quantities (`power`, `weapon.weight`, `max_hp`) that are correctly kept out of an
+observation. The first thing it bought: breaking off is now counted in blows
+rather than in health. `hp_frac < caution` was a decision about yourself and not
+about the fight — 20% of a Warrior is two more knife cuts or most of one axe blow,
+and one number cannot mean both — and it is now `blows_left < caution`, with a
+second clause that refuses to run from someone closer to dead than you are.
+
 **The difficulty range is measured on one matchup.** Warrior against Brute, which
 is the fight the swing model was designed around and the one with the widest
 gradient in it. Whether `intellect` and `perception` buy as much against a Scout
@@ -642,11 +682,23 @@ band in which a fighter can reach and cannot be reached — a Skitterer has abou
 twentieth of a unit of it against a Brute and a Warrior has none at all and must
 trade, which is a real asymmetry that falls straight out of the geometry.
 
-The gene came back at **0.000** in four independent evolution runs, which is the
-least ambiguous result the lab has produced and reads like an extreme until you
-notice it no longer means "how close to its body". It means how far outside the
-safest place you can still fight from to stand, and zero is the considered
-answer.
+The gene ships at **0.000**, which reads like an extreme until you notice it no
+longer means "how close to its body". It means how far outside the safest place
+you can still fight from to stand, and zero is the considered answer. Swept
+directly against a naive Brute over 240 duels it is not close:
+
+| `standoff` | 0.000 | 0.200 | 0.400 | 0.600 | 0.800 | 1.000 |
+|------------|-------|-------|-------|-------|-------|-------|
+| win rate   | 98%   | 87%   | 72%   | 40%   | 25%   | 17%   |
+| health won | 0.60  | 0.44  | 0.37  | 0.32  | 0.23  | 0.24  |
+
+An earlier note here claimed the value came back at 0.000 in four independent
+evolution runs. It did not: `lab evolve` takes `--master-seed` and the runs were
+launched with `--seed`, which it ignores, so those were one run reported four
+times. The sweep above is the real evidence and it is stronger than the claim it
+replaces — but the mistake is worth leaving on the record, because "four runs
+agreed" is exactly the kind of statement that sounds like independent
+confirmation and can be neither.
 
 The error in that read is asymmetric on purpose, and it is where most of the
 difficulty range lives. Guess the enemy's dead zone *low* and a policy's own

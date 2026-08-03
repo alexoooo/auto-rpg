@@ -530,6 +530,10 @@ mod tests {
             radius: Fx::from_ratio(4, 10),
             weapon_length: Fx::from_ratio(9, 10),
             min_strike_range: Fx::from_ratio(5, 10),
+            // An even trade, since nothing in `UtilityPolicy` reads these and a
+            // lopsided fixture would only invite someone to assert on it.
+            threat: Fx::from_ratio(25, 100),
+            frailty: Fx::from_ratio(25, 100),
             facing: fx::Angle::ZERO,
             sword_angle: fx::Angle::ZERO,
             sword_reach: Fx::ZERO,

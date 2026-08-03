@@ -64,7 +64,8 @@ fn usage() {
           can beat a brute\" stops being an opinion.
 
   evolve  --gens N --pop N --elite N --seeds N --sigma-pct N --threads N
-          --policy P --opponent P --arena skirmish|duel --hero KIND --villain KIND
+          --master-seed N --policy P --opponent P
+          --arena skirmish|duel --hero KIND --villain KIND
           Evolves a policy's weights against a hand-tuned opponent. The arena
           decides what \"better\" means: a genome tuned on crowds keeps a spacing
           no duellist should accept, and vice versa.

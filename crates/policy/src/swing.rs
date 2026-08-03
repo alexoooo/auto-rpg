@@ -282,6 +282,9 @@ mod tests {
                 UnitKind::Warrior.weapon(),
                 UnitKind::Warrior.base_stats().agility,
             ),
+            // A Warrior seen by the Scout in `observer`, both ways round.
+            threat: Fx::from_ratio(277, 1000),
+            frailty: Fx::from_ratio(126, 1000),
             facing: Angle::ZERO,
             sword_angle: Angle::ZERO,
             sword_reach: Fx::ONE,

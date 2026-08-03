@@ -59,6 +59,40 @@ pub struct Contact {
     /// fighter respects a big weapon's reach and dies to it; a sharp one knows
     /// the thing is at its worst up close.
     pub min_strike_range: Fx,
+    /// **What one clean blow from this enemy costs, as a fraction of the
+    /// observer's own maximum health.**
+    ///
+    /// The exchange rate, from the receiving side. `0.32` is what a Brute's axe
+    /// takes off a Warrior; the same axe against a Skitterer is `0.74`, and a
+    /// Skitterer's knife against that Warrior is `0.08`. Those are four-to-one
+    /// differences in what an exchange is worth risking, and until this field
+    /// existed a policy could not tell them apart at all -- `power`, `weight`
+    /// and `max_hp` are all absolute, none of them is in the observation, and
+    /// none of them should be. This is the relative figure they exist to
+    /// produce.
+    ///
+    /// Peak rather than expected: the tip, at top spin, through no shield. What
+    /// a blow actually costs depends on where on the arc it lands and what the
+    /// defender does about it, and those are the fight. This is the number you
+    /// can size up before it starts.
+    ///
+    /// May exceed `1`, which reads as "this can kill you outright from full
+    /// health" and is worth being able to say. Blurred by the **un-scaled**
+    /// noise, for the reason argued at [`Contact::min_strike_range`].
+    pub threat: Fx,
+    /// **What one clean blow from the observer costs this enemy, as a fraction
+    /// of *its* maximum health.**
+    ///
+    /// [`Contact::threat`] mirrored. Together they are the exchange rate in
+    /// both directions, and neither is much use alone: knowing you are two
+    /// blows from death is only half of the decision, because the answer is
+    /// completely different depending on whether the thing in front of you is
+    /// five blows from death or one.
+    ///
+    /// Note this is a fact about the *pairing* and not about the enemy, exactly
+    /// as [`Contact::offset`] is. The same Brute is `0.11` frail to a Warrior
+    /// and `0.05` to a Skitterer.
+    pub frailty: Fx,
     /// Which way the body is heading, as perceived.
     pub facing: Angle,
     /// Perceived bearing of the enemy's sword hand.
@@ -170,8 +204,9 @@ pub struct Observation {
 
 /// Values per contact in the feature vector: direction (2), range, health,
 /// size, weapon length, facing (2), sword direction (2), sword spin, sword
-/// reach, shield direction (2), shield reach, dead zone, then the attack read
-/// -- swing phase one-hot (4), ticks left in it, and the attack line (2).
+/// reach, shield direction (2), shield reach, dead zone, the exchange rate in
+/// both directions (2), then the attack read -- swing phase one-hot (4), ticks
+/// left in it, and the attack line (2).
 ///
 /// Every angle enters as a `(cos, sin)` pair rather than as a number, and that
 /// is not a rounding detail: a raw angle is discontinuous at the wrap, so a
@@ -183,7 +218,7 @@ pub struct Observation {
 /// phases are not points on a scale -- a recovery is not "more" than a windup --
 /// and encoding them as 0, 1/3, 2/3, 1 would ask a network to learn that the
 /// most dangerous state and the most punishable one sit next to each other.
-const FEATURES_PER_CONTACT: usize = 16 + crate::hand::Swing::COUNT + 3;
+const FEATURES_PER_CONTACT: usize = 18 + crate::hand::Swing::COUNT + 3;
 
 /// Own-state values: health, attack readiness, radius, weapon length, minimum
 /// strike range, decision rate, shield arc, then both hands as direction (2),
@@ -223,9 +258,21 @@ pub const FEATURE_COUNT: usize =
 /// has been planted on a line from one still travelling toward it, and those
 /// two block very differently.
 ///
+/// Version 6 adds two numbers to each contact, and they are the first entries
+/// in the vector that are neither a measurement nor a state -- they are the
+/// *stakes*. [`Contact::threat`] and [`Contact::frailty`] say what one clean
+/// blow is worth in each direction, as a fraction of the bar it comes off.
+/// Everything a policy could previously read was scale-free by construction
+/// (positions, angles, health fractions), which was the right instinct and left
+/// one hole: `power`, `weapon.weight` and `max_hp` are all absolute, all
+/// correctly kept out of the observation, and between them they decide whether
+/// a given exchange is a scratch or a third of the fight. A fighter that cannot
+/// tell a Brute's axe from a Skitterer's knife except by its length is not
+/// reading the fight, and no amount of perception was going to fix that.
+///
 /// Paid now, while there are still no weights: the same bill after a training
 /// run is the training run.
-pub const FEATURE_LAYOUT_VERSION: u32 = 5;
+pub const FEATURE_LAYOUT_VERSION: u32 = 6;
 
 /// Spin, in raw angle units per tick, that normalises to `1` in the feature
 /// vector. Above the fastest weapon in the game, so the clamp is a guard rather
@@ -470,14 +517,21 @@ impl Observation {
                     // distance like `radius` and `weapon_length` beside it, and
                     // on the same scale, so the three can be compared.
                     out[base + 15] = c.min_strike_range;
+                    // The stakes, both ways. Clamped at one because past that
+                    // the distinction stops mattering -- a blow worth 1.4 bars
+                    // and one worth 1.0 are both simply fatal -- and the
+                    // vector's -1..=1 invariant is worth more than a difference
+                    // nothing can act on.
+                    out[base + 16] = c.threat.min(Fx::ONE);
+                    out[base + 17] = c.frailty.min(Fx::ONE);
 
                     // The attack read. The line is a separate pair from
                     // `sword` above on purpose: during a windup the blade is
                     // cocked away from where the cut is going, so the two point
                     // in different directions and collapsing them would hide
                     // the only thing worth knowing.
-                    out[base + 16 + c.sword_swing.discriminant()] = Fx::ONE;
-                    let read = base + 16 + crate::hand::Swing::COUNT;
+                    out[base + 18 + c.sword_swing.discriminant()] = Fx::ONE;
+                    let read = base + 18 + crate::hand::Swing::COUNT;
                     out[read] = (c.sword_left / TICK_SCALE).clamp(Fx::ZERO, Fx::ONE);
                     let line = Vec2::from_angle(c.sword_line);
                     out[read + 1] = line.x;

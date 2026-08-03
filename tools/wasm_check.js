@@ -34,7 +34,7 @@ const BUILD = ["cargo", "build", "--release", "--target", "wasm32-unknown-unknow
 // is what tells the two failure modes apart -- see `divergence` below.
 
 // `lab hash`: skirmish(1234, 4, 6), seed 99, baseline policy, run to a finish.
-const LAB_HASH = 0xaeb2d6b13af22324n;
+const LAB_HASH = 0xc702db64562de0a6n;
 
 // `init(1); set_goto(20_000, 12_000); step(600)`: the path a player drives.
 const ROOM_HASH = 0x8e5d50cea6522ac8n;
@@ -51,7 +51,7 @@ const BATTLE_HASH = 0xcacb1d600b10bd7bn;
 // sim across the death of an entity and the *reuse* of its slot -- the
 // generational free list is exactly the kind of index bookkeeping that a 32-bit
 // usize could quietly do differently.
-const SWAP_HASH = 0x329b25923d73af1dn;
+const SWAP_HASH = 0x34ea3a55595d8328n;
 
 // The frame header, as the client reads it.
 const HEADER_LEN = 7;

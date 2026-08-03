@@ -138,6 +138,31 @@ pub fn dead_zone(weapon: Weapon, agility: u8) -> Fx {
     }
 }
 
+/// The most one blow from this fighter can be worth: struck with the tip, at
+/// the top spin its weapon and agility allow.
+///
+/// The counterpart to [`dead_zone`]. That one says where a blade stops being
+/// dangerous; this says how dangerous it is where it is worst. Between them
+/// they are the whole of what one fighter needs to know about another's sword
+/// without watching it swing.
+///
+/// Deliberately the *peak* and not the current or the expected blow. A
+/// fighter's current spin is already in the observation
+/// ([`crate::Contact::sword_spin`]), and what a policy is missing is the
+/// stationary fact underneath it -- what this opponent is capable of -- which
+/// is the thing you can size up before the fight starts and the thing that
+/// decides whether the fight is worth having. It ignores blocking and
+/// [`RECOVERY_EXPOSURE`] for the same reason: those are properties of the
+/// exchange, not of the enemy.
+pub fn peak_damage(weapon: Weapon, stats: Stats, reach: Fx) -> Fx {
+    let spin = weapon.max_spin * agility_multiplier(stats.agility);
+    let impact = fx::tangential_speed(spin, reach);
+    if impact <= IMPACT_THRESHOLD {
+        return Fx::ZERO;
+    }
+    weapon.weight * (impact - IMPACT_THRESHOLD) * IMPACT_TO_DAMAGE * power_multiplier(stats.power)
+}
+
 /// Damage scaling from the power stat: `0.55 + 0.075 * power`, capped at 3.
 pub const fn power_multiplier(power: u8) -> Fx {
     let scaled = Fx::from_ratio(550 + 75 * power as i32, 1000);
@@ -449,8 +474,16 @@ pub const MIN_BLOCK_REACH: Fx = Fx::from_ratio(20, 100);
 /// reposition, extend to strike" a decision instead of flavour text.
 pub const REACH_DRAG: Fx = Fx::from_ratio(45, 100);
 
-/// Proportional error in a fighter's read of *someone else's* dead zone, per
+/// Proportional error in a fighter's read of what *someone else* can do, per
 /// unit of [`Stats::perception_noise`].
+///
+/// Covers the two judgements about a stranger's capability rather than about
+/// its position: [`crate::Contact::min_strike_range`] (how close it has to be
+/// to hurt you) and [`crate::Contact::threat`] / [`crate::Contact::frailty`]
+/// (how much it takes off you, and you off it, when it connects). All three are
+/// guesses about what a body in front of you is *able* to do, which is why they
+/// share a constant and why none of them scales with range: standing nose to
+/// nose with someone tells you nothing new about how hard they can swing.
 ///
 /// At `perception 0` that is a standard deviation of about 45% of the true
 /// figure -- a Brute's 0.85 read as anything from half a unit to one and a
@@ -459,7 +492,7 @@ pub const REACH_DRAG: Fx = Fx::from_ratio(45, 100);
 /// a Brute's stops biting at 1.30, so the two nearly coincide, and an error of a
 /// tenth of a unit is the difference between crowding a heavy weapon and
 /// standing in the worst place on its arc.
-pub const DEAD_ZONE_JUDGEMENT: Fx = Fx::from_ratio(20, 100);
+pub const CAPABILITY_JUDGEMENT: Fx = Fx::from_ratio(20, 100);
 
 /// Intellect at or below which [`Stats::decision_period`] degrades faster.
 ///
@@ -506,11 +539,6 @@ impl Stats {
     /// `20 + 8 * vitality`
     pub const fn max_hp(self) -> Fx {
         Fx::from_int(20 + 8 * self.vitality as i32)
-    }
-
-    /// `2.0 + 1.2 * power` per hit.
-    pub const fn damage(self) -> Fx {
-        Fx::from_ratio(20 + 12 * self.power as i32, 10)
     }
 
     /// World units per tick. Kept per-tick rather than per-second so movement
@@ -585,15 +613,6 @@ impl Stats {
     /// see less far -- it cannot hold as much of the battlefield in mind.
     pub const fn tracked_contacts(self) -> usize {
         clamp_i32(2 + self.perception as i32 / 3, 1, MAX_CONTACTS as i32) as usize
-    }
-
-    /// Sum of all attributes; a crude "level" for scenario generation.
-    pub const fn total(self) -> u32 {
-        self.power as u32
-            + self.agility as u32
-            + self.intellect as u32
-            + self.perception as u32
-            + self.vitality as u32
     }
 
     pub(crate) fn hash_into(self, h: &mut fx::Hash64) {
@@ -684,7 +703,7 @@ mod tests {
         for v in [0u8, 1, 7, 20, 100, 255] {
             let s = Stats::new(v, v, v, v, v);
             assert!(s.max_hp() > Fx::ZERO);
-            assert!(s.damage() > Fx::ZERO);
+            assert!(power_multiplier(s.power) > Fx::ZERO);
             assert!(s.move_speed() > Fx::ZERO);
             assert!(s.decision_period() >= 1);
             assert!(s.sight_range() > Fx::ZERO);

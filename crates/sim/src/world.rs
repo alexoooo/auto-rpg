@@ -1038,6 +1038,18 @@ impl World {
         rules::dead_zone(self.kind[i].weapon(), self.stats[i].agility)
     }
 
+    /// The hardest single blow `i` can land: tip, top spin, nothing in the way.
+    ///
+    /// Absolute health, so it never leaves this crate in this form -- the two
+    /// places it surfaces ([`Contact::threat`], [`Contact::frailty`]) both
+    /// divide it by a maximum first. Which maximum is the whole point: the same
+    /// axe is a third of a Warrior and three quarters of a Skitterer, and that
+    /// ratio is the thing worth perceiving.
+    fn peak_damage(&self, i: usize) -> Fx {
+        let weapon = self.kind[i].weapon();
+        rules::peak_damage(weapon, self.stats[i], self.radius[i] + weapon.length)
+    }
+
     /// `i`'s blade as a world-space segment, base to tip, or `None` if the hand
     /// is too tucked to be a hitbox.
     ///
@@ -1131,12 +1143,14 @@ impl World {
         let mut sword_left = Fx::from_int(hands[SWORD].swing_left as i32);
         let mut shield_angle = hands[SHIELD].angle;
         let mut min_strike_range = self.dead_zone(target);
+        let mut threat = self.peak_damage(target) / self.max_hp[observer];
+        let mut frailty = self.peak_damage(observer) / self.max_hp[target];
 
         // How hard someone else can swing does not get easier to judge as you
-        // close, so this one error is taken from the raw stat before the range
+        // close, so these errors are taken from the raw stat before the range
         // scaling below touches it. Captured here because that line shadows
         // `noise`; see `Contact::min_strike_range` for the argument.
-        let judgement = noise * rules::DEAD_ZONE_JUDGEMENT;
+        let judgement = noise * rules::CAPABILITY_JUDGEMENT;
 
         // Error grows with range. A flat error is the obvious model and it is
         // wrong in a way that only shows up once aiming is geometric: half a
@@ -1191,6 +1205,14 @@ impl World {
             // from inside its own hilt.
             min_strike_range =
                 (min_strike_range + rng.gaussian(judgement * min_strike_range)).max(Fx::ZERO);
+
+            // Proportional for the same reason, and each has exactly one
+            // unknown factor in it: `threat` is a guess about how hard the
+            // other one hits, `frailty` a guess about how much it can take.
+            // Own damage and own health are proprioception and arrive clean, so
+            // the two are symmetric and share the error.
+            threat = (threat + rng.gaussian(judgement * threat)).max(Fx::ZERO);
+            frailty = (frailty + rng.gaussian(judgement * frailty)).max(Fx::ZERO);
         }
 
         Contact {
@@ -1201,6 +1223,8 @@ impl World {
             radius: self.radius[target],
             weapon_length: self.kind[target].weapon().length,
             min_strike_range,
+            threat,
+            frailty,
             facing,
             sword_angle,
             sword_reach: hands[SWORD].reach,
@@ -2114,6 +2138,100 @@ mod tests {
         assert_eq!(
             w.observe(hero).min_strike_range,
             rules::dead_zone(UnitKind::Warrior.weapon(), 6)
+        );
+    }
+
+    /// A duel between two arbitrary archetypes, seen through a sharp hero's
+    /// eyes. Returns the hero's read of the villain.
+    fn sizing_up(hero: UnitKind, villain: UnitKind) -> Contact {
+        let mut s = Scenario::duel();
+        s.units[0].kind = hero;
+        s.units[0].stats = Stats::new(
+            hero.base_stats().power,
+            hero.base_stats().agility,
+            hero.base_stats().intellect,
+            18, // clean eyes: this is about the figure, not about the blur
+            hero.base_stats().vitality,
+        );
+        s.units[0].spawn = Vec2::from_ints(14, 8);
+        s.units[1].kind = villain;
+        s.units[1].stats = villain.base_stats();
+        s.units[1].spawn = Vec2::from_ints(18, 8);
+        let w = World::new(&s, 3);
+        let id = w.alive_ids(Faction::Heroes)[0];
+        w.observe(id).enemies()[0]
+    }
+
+    #[test]
+    fn the_same_weapon_is_a_different_threat_to_a_different_body() {
+        // The whole reason the field is a fraction. `power`, `weapon.weight` and
+        // `max_hp` are all absolute and none of them is in an observation --
+        // correctly, because an absolute number is not something one fighter can
+        // read off another. What *is* readable is the ratio, and the ratio is
+        // what decides whether an exchange is a scratch or a third of the fight.
+        let to_warrior = sizing_up(UnitKind::Warrior, UnitKind::Brute).threat;
+        let to_skitterer = sizing_up(UnitKind::Skitterer, UnitKind::Brute).threat;
+
+        assert!(
+            to_skitterer > to_warrior * Fx::TWO,
+            "the same axe reads as {to_skitterer} to a Skitterer and {to_warrior} \
+             to a Warrior; it should be far worse news for the smaller body"
+        );
+        // And a knife is not an axe, whoever is holding it.
+        let knife = sizing_up(UnitKind::Warrior, UnitKind::Skitterer).threat;
+        assert!(
+            knife * Fx::TWO < to_warrior,
+            "a Warrior rates a Skitterer's knife at {knife} against a Brute's \
+             axe at {to_warrior}"
+        );
+    }
+
+    #[test]
+    fn one_fighters_threat_is_the_others_frailty() {
+        // The two fields are one quantity read from opposite ends, and a policy
+        // comparing "blows I can take" against "blows it can take" is relying on
+        // exactly that. If they ever drift apart the comparison is nonsense.
+        for (hero, villain) in [
+            (UnitKind::Warrior, UnitKind::Brute),
+            (UnitKind::Skitterer, UnitKind::Scout),
+            (UnitKind::Brute, UnitKind::Brute),
+        ] {
+            let ours = sizing_up(hero, villain);
+            let theirs = sizing_up(villain, hero);
+            assert_eq!(
+                ours.threat, theirs.frailty,
+                "{hero:?} vs {villain:?}: what the villain does to us and what \
+                 it thinks we take from it are the same blow"
+            );
+            assert_eq!(ours.frailty, theirs.threat, "{hero:?} vs {villain:?}");
+        }
+    }
+
+    #[test]
+    fn what_a_blow_will_cost_is_judged_rather_than_known() {
+        let mut scenario = Scenario::duel();
+        scenario.units[0].spawn = Vec2::from_ints(14, 8);
+        scenario.units[1].spawn = Vec2::from_ints(18, 8);
+
+        let truth = sizing_up(UnitKind::Warrior, UnitKind::Brute).threat;
+
+        // A dim fighter does not merely dodge late -- it misprices the fight it
+        // is in, which is a much more interesting way to lose. And the error is
+        // proportional, so it never reads a blow as free.
+        let mut worst = Fx::ZERO;
+        for seed in 0..64u64 {
+            let mut s = scenario.clone();
+            s.units[0].stats = Stats::new(6, 6, 8, 0, 8);
+            let w = World::new(&s, seed);
+            let hero = w.alive_ids(Faction::Heroes)[0];
+            let seen = w.observe(hero).enemies()[0];
+            assert!(seen.threat >= Fx::ZERO, "read a negative threat");
+            assert!(seen.frailty >= Fx::ZERO, "read a negative frailty");
+            worst = worst.max((seen.threat - truth).abs());
+        }
+        assert!(
+            worst > truth * Fx::from_ratio(2, 10),
+            "a blind observer's worst read was off by only {worst} on {truth}"
         );
     }
 
