@@ -1,6 +1,6 @@
 //! The browser boundary.
 //!
-//! One `cdylib`, eleven `extern "C"` functions, and a single packed `f32`
+//! One `cdylib`, twelve `extern "C"` functions, and a single packed `f32`
 //! buffer that JavaScript reads straight out of linear memory. No
 //! `wasm-bindgen`, no `js-sys`, nothing generated. The workspace's
 //! no-dependency rule (`DESIGN.md`) is what keeps every recorded run in the
@@ -21,6 +21,7 @@
 //! ```text
 //!     init(seed);                  // one hero, one empty room
 //!     set_goto(x_milli, y_milli);  // a click, in thousandths of a world unit
+//!     spawn_monster(kind);         // something to fight, placed on this side
 //!     step(n);                     // n ticks of think-and-move
 //!     frame_ptr(), frame_len();    // what to draw
 //! ```
@@ -44,9 +45,20 @@
 //! ```text
 //!     header  [arena_x, arena_y, order_kind, order_x, order_y,
 //!              last_decision_tick, unit_count]
-//!     unit    [x, y, facing_raw, radius, hp, max_hp, faction, kind, intent]
+//!     unit    [x, y, facing_raw, radius, hp, max_hp, faction, kind, intent,
+//!              entity_index, entity_generation]
 //!     ...     unit_count of them
 //! ```
+//!
+//! The last two columns are the unit's [`EntityId`], and they are in the buffer
+//! for one reason: **a row's position is not an identity**. `write_frame` skips
+//! units that have died, so when one of three monsters falls, every row after it
+//! shifts up by one. A client that keyed anything on the row index -- "this body
+//! just lost health", "this body was here last frame and is gone now" -- would
+//! attribute the blow and the corpse to the wrong monster. Both halves are
+//! needed, not just the index: a dead unit's slot is handed to the next spawn,
+//! so an index on its own reads as the same creature coming back to life. Both
+//! are small integers and exact in an `f32`.
 //!
 //! `facing` ships as [`Angle::raw`](fx::Angle::raw) and the client turns it into
 //! radians (`raw / 65536 * 2pi`), so no trigonometry crosses the boundary and
@@ -65,17 +77,17 @@
 
 use std::cell::{Cell, RefCell};
 
-use fx::{Fx, Vec2};
+use fx::{Angle, Fx, Rng, Vec2};
 use policy::{Policy, RunConfig, UtilityPolicy};
-use sim::{EntityId, Faction, Intent, Order, Scenario, UnitKind, UnitView, World};
+use sim::{EntityId, Faction, Intent, Order, Scenario, UnitKind, UnitSpec, UnitView, World};
 
 /// Floats before the first unit: `[arena_x, arena_y, order_kind, order_x,
 /// order_y, last_decision_tick, unit_count]`.
 pub const HEADER_LEN: usize = 7;
 
 /// Floats per unit: `[x, y, facing_raw, radius, hp, max_hp, faction, kind,
-/// intent]`.
-pub const UNIT_STRIDE: usize = 9;
+/// intent, entity_index, entity_generation]`.
+pub const UNIT_STRIDE: usize = 11;
 
 /// Ceiling on units in one frame. The room holds exactly one and a skirmish
 /// holds a dozen; the number exists so the buffer can be a fixed array rather
@@ -84,6 +96,37 @@ pub const MAX_UNITS: usize = 64;
 
 /// Length of the frame buffer. [`frame_len`] reports how much of it is live.
 pub const FRAME_MAX: usize = HEADER_LEN + MAX_UNITS * UNIT_STRIDE;
+
+/// Closest a newcomer may be placed to the hero, and the floor the arc sweep
+/// in [`Sim::spawn_point`] accepts against. Far enough that you watch it come.
+const SPAWN_NEAR: Fx = Fx::from_int(6);
+
+/// Furthest a newcomer may be placed from the hero.
+///
+/// Nine, and the number is measured rather than picked: a Warrior sees
+/// `6.0 + 0.6 * perception 6 = 9.6` units, so a monster placed at the far end of
+/// this band is inside sight but only just, and the hero notices it on its
+/// *next* decision -- up to twelve ticks away. That delay is the intellect stat,
+/// which is the thing this page exists to make visible.
+///
+/// The ceiling matters more than it looks. Beyond sight, a monster carries no
+/// standing order (`Order::Hold` is what a faction nobody commands has), so
+/// `UtilityPolicy` falls through to its open-ground drift and the two may simply
+/// never meet. A spawn button that sometimes produces no fight reads as broken.
+const SPAWN_FAR: Fx = Fx::from_int(9);
+
+/// Bearings tried before giving up, and the step between them. `65536 / 16` is
+/// exact, so the sweep closes the circle instead of drifting off it.
+const SPAWN_ARCS: u16 = 16;
+const SPAWN_ARC_STEP: u16 = 4096;
+
+/// Domain tag for the spawn RNG stream.
+///
+/// `World::observe` already draws from `Rng::from_stream` keyed on the tick and
+/// an entity, so the top bit is set here to keep perception noise and spawn
+/// placement out of each other's sequences. No entity index reaches `1 << 63`,
+/// so the tag cannot collide.
+const SPAWN_STREAM: u64 = 1 << 63;
 
 thread_local! {
     static SIM: RefCell<Option<Sim>> = const { RefCell::new(None) };
@@ -108,10 +151,22 @@ struct Sim {
     /// Scratch for the decision loop. Held across calls so the loop allocates
     /// once for the life of the page rather than once a frame.
     due: Vec<EntityId>,
-    /// The tick some unit last answered a decision on, recorded here rather
+    /// The tick the *hero* last answered a decision on, recorded here rather
     /// than in `sim` because it is a presentation detail: it is what lets the
     /// page *show* intellect as reaction speed.
+    ///
+    /// Hero-only, and that qualifier is load-bearing rather than tidy. The page
+    /// reads this twice: once to flash a ring when the character thinks, and
+    /// once to decide whether an order has been *acted on* yet. A Skitterer
+    /// re-plans every eight ticks, so counting monsters here would light the
+    /// ring for somebody else's thinking and would tell the player their order
+    /// had landed before the character had so much as looked at it.
     last_decision_tick: u32,
+    /// How many times the spawn button has been answered. Keys the placement
+    /// RNG, and lives here rather than in [`World`] on purpose: it is input
+    /// bookkeeping, not simulation state, so `World::state_hash` never sees it
+    /// and a scripted run that never spawns cannot be perturbed by it.
+    spawns: u32,
 }
 
 impl Sim {
@@ -128,6 +183,7 @@ impl Sim {
             units,
             due: Vec::with_capacity(scenario.units.len()),
             last_decision_tick: 0,
+            spawns: 0,
         }
     }
 
@@ -151,13 +207,126 @@ impl Sim {
             due.clear();
             due.extend_from_slice(self.world.pending_decisions());
             for &id in &due {
-                let action = self.policy.decide(&self.world.observe(id));
+                let obs = self.world.observe(id);
+                let is_hero = obs.faction == Faction::Heroes;
+                let action = self.policy.decide(&obs);
                 self.world.submit(id, action);
-                self.last_decision_tick = self.world.tick();
+                if is_hero {
+                    self.last_decision_tick = self.world.tick();
+                }
             }
             self.world.step();
         }
         self.due = due;
+    }
+
+    /// Walks one monster into the running room. Answers how many monsters are
+    /// now alive, which is zero only when nothing arrived.
+    fn spawn_monster(&mut self, kind: UnitKind) -> u32 {
+        // Dead handles first. `write_frame` merely *skips* an id that no longer
+        // resolves, so without this the roster grows for the life of the page
+        // and a long session of spawning and killing reaches the ceiling on
+        // ghosts. Disjoint fields, so the borrow checker sees through it.
+        let world = &self.world;
+        self.units.retain(|&id| world.is_alive(id));
+        if self.units.len() >= MAX_UNITS {
+            // Refusing beats spawning something the frame has no room for,
+            // which would be a monster the player cannot see hitting a hero
+            // they can.
+            return 0;
+        }
+
+        // Bumped before the roll and on every answered press, so a refused
+        // press does not leave the next one standing where the refused one
+        // would have. `wrapping_add` because `overflow-checks` is on in release
+        // as well as debug, and a panic on wasm32 poisons the instance for good.
+        let roll = self.spawns;
+        self.spawns = self.spawns.wrapping_add(1);
+
+        // Keyed on both the tick and the counter. The tick alone would put two
+        // presses inside one animation frame on the same pixel; the counter
+        // alone would make *when* you pressed irrelevant.
+        let mut rng = Rng::from_stream(
+            self.world.seed(),
+            u64::from(self.world.tick()),
+            u64::from(roll) | SPAWN_STREAM,
+        );
+
+        let spawn = self.spawn_point(kind, &mut rng);
+        let id = self.world.spawn(&UnitSpec {
+            kind,
+            faction: Faction::Monsters,
+            stats: kind.base_stats(),
+            spawn,
+        });
+        // The step that is easy to miss: a spawned entity thinks, moves and
+        // fights whether or not it is in this vector. It is simply invisible
+        // until it is.
+        self.units.push(id);
+        self.world.alive_count(Faction::Monsters) as u32
+    }
+
+    /// Somewhere on a ring around the hero, inside the box a body can stand in.
+    ///
+    /// One bearing and one reach are rolled, and the bearing is then swept in
+    /// sixteenths of a turn until the point survives being clamped into the
+    /// arena. Sweeping rather than re-rolling is what makes this terminate
+    /// honestly: `clamp_box` only ever *shortens*, so a candidate that needed no
+    /// clamping is accepted on the first try and the loop is the wall case
+    /// alone. Rejection-sampling the whole room would do most of its work in
+    /// exactly the situation that matters least -- with the hero cornered, most
+    /// of the arena is the wrong distance away.
+    fn spawn_point(&self, kind: UnitKind, rng: &mut Rng) -> Vec2 {
+        let arena = self.world.arena();
+        let radius = kind.radius();
+        let lo = Vec2::new(radius, radius);
+        let hi = Vec2::new(arena.x - radius, arena.y - radius);
+        let hero = self.hero_position();
+
+        let start = rng.angle();
+        let reach = rng.range(SPAWN_NEAR, SPAWN_FAR);
+        for step in 0..SPAWN_ARCS {
+            let bearing = start + Angle::from_raw(step.wrapping_mul(SPAWN_ARC_STEP));
+            let point = (hero + Vec2::from_angle(bearing) * reach).clamp_box(lo, hi);
+            if point.distance(hero) >= SPAWN_NEAR {
+                return point;
+            }
+        }
+
+        // Every bearing was against a wall, which takes a hero pinned in a
+        // corner of a room barely bigger than the ring. The far corner of the
+        // reachable box is half an arena away from wherever it is standing.
+        //
+        // Two monsters can still be placed on the same spot, here or above.
+        // `World::separate` unsticks exactly-coincident bodies from their index
+        // pair without an RNG -- that degenerate case is what it was written
+        // for -- so this needs no code of its own.
+        Vec2::new(
+            if hero.x * Fx::TWO < arena.x {
+                hi.x
+            } else {
+                lo.x
+            },
+            if hero.y * Fx::TWO < arena.y {
+                hi.y
+            } else {
+                lo.y
+            },
+        )
+    }
+
+    /// Where to place a newcomer relative to. Falls back to the middle of the
+    /// arena, because the button keeps working after the hero has fallen and
+    /// there is then nothing left to place anything relative to.
+    fn hero_position(&self) -> Vec2 {
+        for &id in &self.units {
+            if let Some(view) = self.world.view(id) {
+                if view.faction == Faction::Heroes {
+                    return view.position;
+                }
+            }
+        }
+        self.world.arena() * Fx::HALF
     }
 
     /// Fills `frame` and returns how much of it is live.
@@ -205,6 +374,10 @@ fn write_unit(row: &mut [f32], view: &UnitView) {
     row[6] = view.faction.index() as f32;
     row[7] = kind_code(view.kind) as f32;
     row[8] = intent_code(view.intent) as f32;
+    // The identity, so the client can tell "this body lost health" from "the
+    // row above it died and everything shifted up". See the crate docs.
+    row[9] = view.id.index as f32;
+    row[10] = view.id.generation as f32;
 }
 
 /// Archetype as a small integer, matching the encoding `UnitKind` hashes with.
@@ -216,6 +389,20 @@ const fn kind_code(kind: UnitKind) -> u32 {
         UnitKind::Scout => 1,
         UnitKind::Brute => 2,
         UnitKind::Skitterer => 3,
+    }
+}
+
+/// The inverse of [`kind_code`], for the one integer the client sends inward.
+///
+/// Total, like everything else on this boundary: an unrecognised code is a
+/// Skitterer rather than a panic, because the alternative is a typo in the page
+/// poisoning the module for the rest of the session.
+const fn kind_from_code(code: u32) -> UnitKind {
+    match code {
+        0 => UnitKind::Warrior,
+        1 => UnitKind::Scout,
+        2 => UnitKind::Brute,
+        _ => UnitKind::Skitterer,
     }
 }
 
@@ -296,6 +483,34 @@ pub extern "C" fn clear_order() {
         sim.world.set_order(Faction::Heroes, Order::Hold);
     });
     publish();
+}
+
+/// Walks one monster into the running room. Answers how many monsters are now
+/// alive, or `0` if nothing arrived -- there is no world yet, or the frame is
+/// already carrying [`MAX_UNITS`] bodies.
+///
+/// `kind_code` is the same small integer the frame's `kind` column uses
+/// (`2` a Brute, `3` a Skitterer); anything unrecognised is a Skitterer. The
+/// caller chooses *what*, and deliberately not *where*: a position invented in
+/// JavaScript would be a float walking into simulation state through the front
+/// door, and the same page would then produce a different fight on every
+/// machine. The point is rolled on this side from the world's own seed.
+///
+/// Nothing else has to be done to start the fight. `UtilityPolicy` engages the
+/// moment an enemy is visible, and it does so in preference to the player's
+/// standing order -- so the character breaks off whatever walk it was on and
+/// turns to meet this. That is the thesis of the project, not a bug in the
+/// order channel.
+///
+/// The newcomer does not decide until the tick *after* this one, because
+/// `World::refresh_pending` runs at the end of a step. On screen that reads as
+/// the thing pausing in the doorway, which is the correct impression.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn spawn_monster(kind_code: u32) -> u32 {
+    let standing = with_sim(0, |sim| sim.spawn_monster(kind_from_code(kind_code)));
+    publish();
+    standing
 }
 
 /// Advances `frames` ticks and republishes the frame.
@@ -416,6 +631,12 @@ mod tests {
     /// central claim has been checked across targets rather than asserted.
     const ROOM_HASH: u64 = 0x32a0_f552_486e_d898;
 
+    /// What `init(1); spawn_monster(3); step(600)` leaves behind -- a whole
+    /// skirmish, start to finish, driven the way the page drives it. Recorded
+    /// from a native run, never computed here, and asserted against `web.wasm`
+    /// under Node by `tools/wasm_check.js`.
+    const BATTLE_HASH: u64 = 0x5ddd_5b02_1cf0_147b;
+
     fn selftest() -> u64 {
         (u64::from(selftest_hash_hi()) << 32) | u64::from(selftest_hash_lo())
     }
@@ -431,9 +652,40 @@ mod tests {
         FRAME.with(|frame| frame.borrow()[..len].to_vec())
     }
 
-    fn hero() -> (f32, f32) {
+    /// The live frame split into unit rows.
+    fn rows() -> Vec<Vec<f32>> {
         let frame = frame();
-        (frame[HEADER_LEN], frame[HEADER_LEN + 1])
+        let count = frame[6] as usize;
+        (0..count)
+            .map(|i| frame[HEADER_LEN + i * UNIT_STRIDE..][..UNIT_STRIDE].to_vec())
+            .collect()
+    }
+
+    /// Searched for by faction rather than taken from row zero. Once the hero
+    /// can die and the rows above a corpse can shift up, "row 0 is the hero" is
+    /// an assumption a test has no business making.
+    fn hero_row() -> Option<Vec<f32>> {
+        rows().into_iter().find(|row| row[6] == 0.0)
+    }
+
+    fn monsters() -> Vec<Vec<f32>> {
+        rows().into_iter().filter(|row| row[6] == 1.0).collect()
+    }
+
+    fn hero() -> (f32, f32) {
+        let row = hero_row().expect("the hero is gone");
+        (row[0], row[1])
+    }
+
+    fn distance(a: &[f32], b: &[f32]) -> f32 {
+        ((a[0] - b[0]).powi(2) + (a[1] - b[1]).powi(2)).sqrt()
+    }
+
+    /// How many handles the roster is holding, live or not. Reaching into the
+    /// private field is the only way to see the prune working: a stale handle is
+    /// invisible from the frame precisely because `write_frame` skips it.
+    fn roster_len() -> usize {
+        SIM.with(|sim| sim.borrow().as_ref().map_or(0, |sim| sim.units.len()))
     }
 
     fn distance_from_hero(x: f32, y: f32) -> f32 {
@@ -491,6 +743,11 @@ mod tests {
             set_goto(1_000, 1_000);
             clear_order();
             step(10);
+            assert_eq!(
+                spawn_monster(3),
+                0,
+                "spawned into a world that is not there"
+            );
             assert_eq!(tick(), 0);
             assert_eq!(frame_len(), HEADER_LEN as u32);
         })
@@ -580,6 +837,10 @@ mod tests {
         assert_eq!(unit[6], 0.0, "faction: Heroes");
         assert_eq!(unit[7], 0.0, "kind: Warrior");
         assert_eq!(unit[8], 0.0, "intent: Hold");
+        // The identity columns. The room's hero is the first entity ever
+        // spawned into a fresh world, so it holds slot 0 at generation 0.
+        assert_eq!(unit[9], 0.0, "entity_index");
+        assert_eq!(unit[10], 0.0, "entity_generation");
     }
 
     #[test]
@@ -642,5 +903,284 @@ mod tests {
         assert_eq!(FRAME_MAX, HEADER_LEN + MAX_UNITS * UNIT_STRIDE);
         assert!(Scenario::room().units.len() <= MAX_UNITS);
         assert!(Scenario::skirmish(1234, 4, 6).units.len() <= MAX_UNITS);
+    }
+
+    // ------------------------------------------------------------- spawning
+
+    const BRUTE: u32 = 2;
+    const SKITTERER: u32 = 3;
+
+    #[test]
+    fn a_monster_walks_in_and_takes_the_next_row_of_the_frame() {
+        init(1);
+        assert_eq!(frame()[6], 1.0, "the room did not open with one hero");
+
+        assert_eq!(spawn_monster(SKITTERER), 1, "nothing arrived");
+        let live = frame();
+        assert_eq!(live[6], 2.0, "unit_count");
+        assert_eq!(live.len(), HEADER_LEN + 2 * UNIT_STRIDE);
+        assert_eq!(frame_len() as usize, live.len());
+
+        let monster = &monsters()[0];
+        assert_eq!(monster[6], 1.0, "faction: Monsters");
+        assert_eq!(monster[7], 3.0, "kind: Skitterer");
+        assert_eq!(monster[4], monster[5], "arrived already wounded");
+        assert!((monster[3] - 0.30).abs() < 0.001, "radius {}", monster[3]);
+        // A fresh slot, so a fresh index -- and a generation of zero, which is
+        // what tells the client this is not a reused handle.
+        assert_eq!(monster[9], 1.0, "entity_index");
+        assert_eq!(monster[10], 0.0, "entity_generation");
+
+        assert_eq!(spawn_monster(BRUTE), 2, "the second one did not arrive");
+        assert_eq!(frame()[6], 3.0);
+        assert_eq!(monsters()[1][7], 2.0, "kind: Brute");
+    }
+
+    #[test]
+    fn an_unrecognised_kind_code_is_a_skitterer_rather_than_a_trap() {
+        init(1);
+        assert_eq!(spawn_monster(9_999), 1);
+        assert_eq!(monsters()[0][7], 3.0, "kind: Skitterer");
+    }
+
+    #[test]
+    fn a_newcomer_lands_a_walk_away_and_inside_the_wall() {
+        // Swept rather than spot-checked, because the interesting case is the
+        // one the arc sweep exists for: a hero pinned in a corner, where most
+        // bearings put the ring outside the room entirely.
+        let corners = [(0, 0), (24_000, 0), (0, 16_000), (24_000, 16_000)];
+        for seed in 1..12u32 {
+            for (i, &(cx, cy)) in corners.iter().enumerate() {
+                init(seed);
+                set_goto(cx, cy);
+                step(200 + i as u32 * 7);
+                let hero = hero_row().expect("the hero is gone");
+
+                for kind in [BRUTE, SKITTERER] {
+                    assert!(spawn_monster(kind) > 0);
+                    let monster = monsters().last().expect("nothing arrived").clone();
+                    let d = distance(&monster, &hero);
+                    let radius = monster[3];
+
+                    assert!(
+                        d >= 6.0 - 0.001,
+                        "seed {seed} corner {i}: landed {d} from the hero, on top of it",
+                    );
+                    // The upper bound is the ring plus one, not the ring: the
+                    // clamp pins a body to *its own* reachable box, and a Brute's
+                    // box is 0.25 tighter than a Warrior's on every side, so a
+                    // hero standing against a wall can be pushed marginally
+                    // further from a newcomer than the roll asked for.
+                    assert!(
+                        d <= 10.0,
+                        "seed {seed} corner {i}: landed {d} away, out of the band",
+                    );
+                    assert!(
+                        monster[0] >= radius - 0.001
+                            && monster[0] <= 24.0 - radius + 0.001
+                            && monster[1] >= radius - 0.001
+                            && monster[1] <= 16.0 - radius + 0.001,
+                        "seed {seed} corner {i}: landed inside a wall at \
+                         ({}, {}) with radius {radius}",
+                        monster[0],
+                        monster[1],
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn two_presses_on_one_tick_are_two_different_monsters() {
+        // The counter's whole job. Keyed on the tick alone, both of these would
+        // be rolled from the same stream and land on the same pixel -- and two
+        // presses inside one animation frame is not a contrived case, it is what
+        // a double click is.
+        init(1);
+        spawn_monster(SKITTERER);
+        spawn_monster(SKITTERER);
+        let monsters = monsters();
+        assert_eq!(monsters.len(), 2);
+        assert!(
+            distance(&monsters[0], &monsters[1]) > 0.001,
+            "both landed at ({}, {})",
+            monsters[0][0],
+            monsters[0][1],
+        );
+    }
+
+    #[test]
+    fn the_same_presses_at_the_same_ticks_produce_the_same_room() {
+        fn script() -> (u32, u64, Vec<f32>) {
+            init(3);
+            step(37);
+            spawn_monster(SKITTERER);
+            step(120);
+            spawn_monster(BRUTE);
+            step(300);
+            (tick(), hash(), frame())
+        }
+        assert_eq!(script(), script(), "the same run diverged from itself");
+
+        // And *when* the button was pressed is part of the run, not incidental.
+        init(3);
+        step(38);
+        spawn_monster(SKITTERER);
+        step(119);
+        spawn_monster(BRUTE);
+        step(300);
+        assert_ne!(hash(), script().1, "the tick a monster arrives on is free");
+    }
+
+    #[test]
+    fn a_spawn_moves_the_world_and_the_scripted_walk_still_does_not() {
+        // The additivity check, in one test. A spawn *must* change the state
+        // hash -- a new body is new state -- and the recorded script that never
+        // spawns must be untouched by the fact that spawning now exists.
+        init(1);
+        set_goto(20_000, 12_000);
+        step(600);
+        assert_eq!(hash(), ROOM_HASH);
+
+        spawn_monster(SKITTERER);
+        assert_ne!(hash(), ROOM_HASH, "a new body left the world unchanged");
+
+        // Run again from scratch. This is the half that would catch a spawn
+        // counter that had been put in `World` instead of beside it.
+        init(1);
+        set_goto(20_000, 12_000);
+        step(600);
+        assert_eq!(
+            hash(),
+            ROOM_HASH,
+            "spawning perturbed a run that never spawned"
+        );
+    }
+
+    #[test]
+    fn the_hero_and_a_newcomer_close_and_trade_blows() {
+        // The test that would have caught the trap in `spawn_monster`: an entity
+        // that is never pushed onto `Sim::units` still thinks, moves and fights,
+        // so the only way to see the mistake is to look at the frame rather than
+        // at the world -- which is exactly what the player does.
+        init(1);
+        spawn_monster(SKITTERER);
+        let start = monsters()[0].clone();
+
+        let mut closed = false;
+        for _ in 0..120 {
+            step(30);
+            if let (Some(hero), Some(monster)) = (hero_row(), monsters().first()) {
+                if distance(&hero, monster) < 2.0 {
+                    closed = true;
+                }
+            }
+            if monsters().is_empty() {
+                break;
+            }
+        }
+
+        assert!(closed, "the two never got within reach of each other");
+        let hero = hero_row().expect("the warrior lost to one skitterer");
+        println!(
+            "skitterer entered at ({}, {}), hero finished on {} hp at tick {}",
+            start[0],
+            start[1],
+            hero[4],
+            tick()
+        );
+        assert!(monsters().is_empty(), "the skitterer never died");
+        assert!(hero[4] < hero[5], "the hero won without taking a scratch");
+    }
+
+    #[test]
+    fn enough_monsters_kill_the_hero_and_the_frame_still_has_something_to_draw() {
+        // The page has to say something when the character falls, so the state
+        // it says it about needs to be reachable. Six brutes is not subtle, and
+        // it should not be: the assertion is that death is representable, not
+        // that any particular fight is balanced.
+        init(1);
+        for _ in 0..6 {
+            spawn_monster(BRUTE);
+        }
+        for _ in 0..200 {
+            step(60);
+            if hero_row().is_none() {
+                break;
+            }
+        }
+
+        println!("the hero fell at tick {}", tick());
+        assert!(
+            hero_row().is_none(),
+            "six brutes could not kill one warrior"
+        );
+        assert!(frame()[6] > 0.0, "nothing left to draw");
+        // Every remaining row is a monster, and the frame is still well formed.
+        assert_eq!(frame().len(), HEADER_LEN + monsters().len() * UNIT_STRIDE);
+    }
+
+    #[test]
+    fn the_room_stops_taking_monsters_when_the_frame_is_full() {
+        init(1);
+        let mut refused = 0;
+        for _ in 0..100 {
+            if spawn_monster(SKITTERER) == 0 {
+                refused += 1;
+            }
+        }
+        assert_eq!(
+            frame()[6],
+            MAX_UNITS as f32,
+            "the frame is holding more or fewer than its ceiling"
+        );
+        // One hero plus MAX_UNITS - 1 monsters fills it; the rest bounce.
+        assert_eq!(refused, 100 - (MAX_UNITS - 1));
+        assert!(frame_len() as usize <= FRAME_MAX);
+    }
+
+    #[test]
+    fn dead_monsters_stop_holding_a_place_in_the_roster() {
+        // Without the prune the roster only grows, so a long session of
+        // spawning and killing hits the ceiling on handles that resolve to
+        // nothing -- a full room with two bodies in it.
+        init(1);
+        spawn_monster(SKITTERER);
+        assert_eq!(roster_len(), 2);
+
+        for _ in 0..120 {
+            step(30);
+            if monsters().is_empty() {
+                break;
+            }
+        }
+        assert!(monsters().is_empty(), "the skitterer outlived the fight");
+        assert_eq!(
+            roster_len(),
+            2,
+            "the dead handle is still there, as expected"
+        );
+
+        spawn_monster(SKITTERER);
+        assert_eq!(
+            roster_len(),
+            2,
+            "the corpse was not swept up before the spawn"
+        );
+        assert_eq!(frame()[6], 2.0);
+    }
+
+    #[test]
+    fn a_battle_replays() {
+        // The cross-target claim, extended from a walk to a fight. This is the
+        // number `tools/wasm_check.js` runs against `web.wasm`, and it exercises
+        // arithmetic the walk never touches: `Rng::from_stream`, the committed
+        // sine table by way of `Vec2::from_angle`, and `isqrt64` inside
+        // `Vec2::distance`.
+        init(1);
+        spawn_monster(SKITTERER);
+        step(600);
+        println!("battle hash: 0x{:016x}", hash());
+        assert_eq!(hash(), BATTLE_HASH, "the battle script no longer replays");
     }
 }

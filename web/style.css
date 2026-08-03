@@ -11,6 +11,7 @@
   --ink-faint: #5d6779;
   --accent: #6ee7ff; /* the character, and its orders */
   --accent-warm: #ffcf70; /* thinking */
+  --enemy: #ff8a7a; /* whatever walked in */
   --mono: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
   --sans: ui-sans-serif, system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
@@ -229,6 +230,10 @@ main {
 
 .state.free {
   color: var(--accent-warm);
+}
+
+.state.dead {
+  color: var(--enemy);
 }
 
 /* -------------------------------------------------------------- controls */

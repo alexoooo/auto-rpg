@@ -39,9 +39,15 @@
               <kbd>F</kbd>
               <span>Free will &mdash; no order at all; the character decides for itself.</span>
             </li>
+            <li>
+              <kbd>S</kbd><kbd>B</kbd>
+              <span>Send in a skitterer or a brute &mdash; the fight starts itself.</span>
+            </li>
             <li><kbd>R</kbd><span>Restart the room.</span></li>
           </ul>
           <div class="buttons">
+            <button type="button" id="btn-spawn-skitterer">Spawn skitterer</button>
+            <button type="button" id="btn-spawn-brute">Spawn brute</button>
             <button type="button" id="btn-standdown">Stand down</button>
             <button type="button" id="btn-freewill">Free will</button>
           </div>
@@ -50,7 +56,8 @@
         <p class="footnote">
           A click is a standing order, so the character acts on it at its next decision &mdash; up to
           12 ticks away for this one. The marker stays dim until it does, and that delay
-          <em>is</em> the intellect stat.
+          <em>is</em> the intellect stat. Send something in and it will break off the walk to
+          fight: a visible enemy outranks your order, and that is the whole idea.
         </p>
       </section>
 
@@ -77,6 +84,18 @@
             <dd id="order-distance">&mdash;</dd>
             <dt>last decision</dt>
             <dd id="order-decision">&mdash;</dd>
+          </dl>
+        </section>
+
+        <section class="panel">
+          <h2>Battle</h2>
+          <!-- Nobody commands the monsters. They fight because the same
+               UtilityPolicy the lab evolves decides they should, which is why a
+               spawn button is all it takes to start one. -->
+          <p class="state idle" id="battle-state">quiet &mdash; nothing in the room to fight</p>
+          <dl class="readout">
+            <dt>standing</dt>
+            <dd id="battle-roster">1 hero, 0 monsters</dd>
           </dl>
         </section>
 

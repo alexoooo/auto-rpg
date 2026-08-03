@@ -21,6 +21,13 @@ utility AI works out how to get there, when to brake, and that a click inside a
 wall means "as close as a body can stand". You are giving directions to something
 that decides for itself, which is the whole game.
 
+And there is something to fight. `S` and `B` send in a skitterer or a brute, and
+the fight runs itself under the same `UtilityPolicy` the lab evolves — no set
+piece, no script. Watch what it does to your order: a visible enemy *outranks* a
+`Goto`, so the character breaks off the walk and turns to meet the thing. That is
+not the order channel leaking; it is the character having its own judgement about
+what matters more, which is the point.
+
 And the number matches. `web.wasm` and the native lab produce the *same 64-bit
 state hash* for the same run — `0xb148b5338bc049f6` — so the fixed-point
 simulation really is bit-identical across MSVC x86-64 and wasm32, rather than
@@ -62,8 +69,9 @@ node tools/serve.js                               # builds the wasm, serves the 
 
 Then open the printed URL. Click to send the character somewhere; right-click or
 `Esc` to make it hold its ground; `F` to withdraw the order entirely and watch it
-decide for itself. A server is needed because a `file://` page cannot instantiate
-wasm — that is the only reason.
+decide for itself; `S` and `B` to send in a skitterer or a brute; `R` to open a
+fresh room. A server is needed because a `file://` page cannot instantiate wasm —
+that is the only reason.
 
 To work on it:
 
@@ -80,10 +88,11 @@ node --test tools/wasm_check.js                   # wasm must equal native
 them, replays each of them, and requires all three to agree bit for bit.
 
 `wasm_check` is the other one. It instantiates the wasm module under Node and
-asserts two hashes against numbers recorded from a native build — one from a
-canned 4v6 fight, one from a scripted click-and-walk. If either moves, the claim
-this whole architecture is built to support has stopped being true, and the
-failure message says so rather than making you work it out.
+asserts three hashes against numbers recorded from a native build — one from a
+canned 4v6 fight, one from a scripted click-and-walk, and one from a monster sent
+into the room and fought to a finish. If any of them moves, the claim this whole
+architecture is built to support has stopped being true, and the failure message
+says so rather than making you work it out.
 
 Measured on a 20-thread desktop:
 

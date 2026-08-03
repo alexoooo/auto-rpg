@@ -39,9 +39,15 @@ const LAB_HASH = 0xb148b5338bc049f6n;
 // `init(1); set_goto(20_000, 12_000); step(600)`: the path a player drives.
 const ROOM_HASH = 0x32a0f552486ed898n;
 
+// `init(1); spawn_monster(3); step(600)`: a whole fight, start to finish. Worth
+// its own number because it reaches arithmetic the walk never does -- the spawn
+// point comes out of `Rng::from_stream` and the committed sine table, and every
+// approach measures a distance through `isqrt64`.
+const BATTLE_HASH = 0x5ddd5b021cf0147bn;
+
 // The frame header, as the client reads it.
 const HEADER_LEN = 7;
-const UNIT_STRIDE = 9;
+const UNIT_STRIDE = 11;
 const ARENA = [24, 16];
 
 // ------------------------------------------------------------------ the module
@@ -203,6 +209,7 @@ test("the boundary exports everything the client calls", () => {
     "init",
     "set_goto",
     "clear_order",
+    "spawn_monster",
     "step",
     "frame_ptr",
     "frame_len",
@@ -280,4 +287,42 @@ test("the frame buffer still has the layout the client reads", () => {
   assert.ok(Math.abs(unit[3] - 0.45) < 0.001, `radius ${unit[3]}`);
   assert.equal(unit[5], 84, "max_hp: 20 + 8 * vitality 8");
   assert.equal(unit[6], 0, "faction: Heroes");
+  // The identity columns the client keys its per-body animations on. The room's
+  // hero is the first entity ever spawned, so it holds slot 0 at generation 0.
+  assert.deepEqual([unit[9], unit[10]], [0, 0], "entity_index, entity_generation");
+});
+
+test("a monster walks in and takes the next row of the frame", () => {
+  wasm.init(1);
+  assert.equal(wasm.spawn_monster(3), 1, "nothing arrived");
+
+  const live = frame();
+  assert.equal(live[6], 2, "unit_count");
+  assert.equal(
+    live.length,
+    HEADER_LEN + UNIT_STRIDE * 2,
+    `frame_len() is ${live.length}, not ${HEADER_LEN} + ${UNIT_STRIDE} * 2`,
+  );
+
+  const monster = live.slice(HEADER_LEN + UNIT_STRIDE);
+  assert.equal(monster[6], 1, "faction: Monsters");
+  assert.equal(monster[7], 3, "kind: Skitterer");
+  assert.equal(monster[4], monster[5], "arrived already wounded");
+  // A fresh slot at generation zero, and not the hero's.
+  assert.deepEqual([monster[9], monster[10]], [1, 0], "entity_index, entity_generation");
+});
+
+test("a battle replays the way native recorded it", () => {
+  // The cross-target claim, extended from a walk to a fight. If this number
+  // differs from the one `cargo test -p web` pins, then two builds of the same
+  // fixed-point code disagree about a fight -- which is the whole thing this
+  // project claims cannot happen.
+  wasm.init(1);
+  wasm.spawn_monster(3);
+  wasm.step(600);
+
+  const measured = stateHash();
+  assert.equal(wasm.tick(), 600, "step(600) did not simulate 600 ticks");
+  assert.ok(measured === BATTLE_HASH, divergence("The battle state hash", BATTLE_HASH, measured));
+  console.log(`battle hash    ${hex(measured)}  == native`);
 });
