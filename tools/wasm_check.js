@@ -45,6 +45,14 @@ const ROOM_HASH = 0x32a0f552486ed898n;
 // approach measures a distance through `isqrt64`.
 const BATTLE_HASH = 0x5ddd5b021cf0147bn;
 
+// `init(1); spawn_monster(2) x3; step(1800); swap_in_hero(1); step(400)`: a
+// fight, a death, a replacement, and the fight the replacement walks into. The
+// longest arc the page can drive, and the only one of these four that runs the
+// sim across the death of an entity and the *reuse* of its slot -- the
+// generational free list is exactly the kind of index bookkeeping that a 32-bit
+// usize could quietly do differently.
+const SWAP_HASH = 0xef5a6de8a5891bb6n;
+
 // The frame header, as the client reads it.
 const HEADER_LEN = 7;
 const UNIT_STRIDE = 11;
@@ -149,6 +157,18 @@ function frame() {
   return Array.from(view);
 }
 
+// The hero's row, searched for by faction rather than taken from row zero.
+// `write_frame` omits the dead, so once the character can fall, every row after
+// a corpse shifts up by one -- and after a swap the newcomer is the last row,
+// not the first. Answers null when there is nobody on that side.
+function heroRow(live) {
+  for (let i = 0; i < live[6]; i++) {
+    const row = live.slice(HEADER_LEN + i * UNIT_STRIDE, HEADER_LEN + (i + 1) * UNIT_STRIDE);
+    if (row[6] === 0) return row;
+  }
+  return null;
+}
+
 // The message that matters more than the assertion it is attached to.
 function divergence(what, native, measured) {
   return [
@@ -174,11 +194,13 @@ function divergence(what, native, measured) {
     "               deliberately, in the commit that changed it.",
     "  passes    -> the two targets genuinely disagree. Read on.",
     "",
-    "Then, which system? The two hashes here exercise different code:",
+    "Then, which system? The four hashes here exercise different code:",
     "selftest_hash runs a canned 4v6 fight (combat, perception noise, fitness),",
     "the room script runs click-to-move (the order channel, the decision loop,",
-    "Order::Goto and the arrival rule). One failing alone names the system; both",
-    "failing points at crates/fx, underneath everything.",
+    "Order::Goto and the arrival rule), the battle script runs a spawn (the",
+    "placement roll and the sine table), and the swap script runs a death and a",
+    "reused entity slot. One failing alone names the system; all of them failing",
+    "points at crates/fx, underneath everything.",
     "",
     "Where the targets can actually diverge, in the order worth checking:",
     "",
@@ -210,6 +232,7 @@ test("the boundary exports everything the client calls", () => {
     "set_goto",
     "clear_order",
     "spawn_monster",
+    "swap_in_hero",
     "step",
     "frame_ptr",
     "frame_len",
@@ -325,4 +348,30 @@ test("a battle replays the way native recorded it", () => {
   assert.equal(wasm.tick(), 600, "step(600) did not simulate 600 ticks");
   assert.ok(measured === BATTLE_HASH, divergence("The battle state hash", BATTLE_HASH, measured));
   console.log(`battle hash    ${hex(measured)}  == native`);
+});
+
+test("a death and a replacement replay the way native recorded them", () => {
+  // Everything the other three miss: an entity dying, its slot going back on
+  // the free list, and a new one coming out of that same slot at the next
+  // generation. Index bookkeeping is where a 64-bit native usize and a 32-bit
+  // wasm one would part company without anything else looking wrong.
+  wasm.init(1);
+  for (let i = 0; i < 3; i++) wasm.spawn_monster(2);
+  wasm.step(1_800);
+
+  assert.equal(heroRow(frame()), null, "three brutes no longer finish the warrior in 1800 ticks");
+  assert.equal(wasm.swap_in_hero(1), 1, "nobody arrived");
+
+  const live = frame();
+  const hero = heroRow(live);
+  assert.ok(hero, "the frame has no hero in it");
+  assert.equal(hero[7], 1, "kind: Scout");
+  assert.equal(hero[5], 52, "max_hp: 20 + 8 * vitality 4");
+  assert.equal(live[2], 0, "order_kind: the replacement inherited an order");
+
+  wasm.step(400);
+  const measured = stateHash();
+  assert.equal(wasm.tick(), 2_200, "the swap moved the clock");
+  assert.ok(measured === SWAP_HASH, divergence("The swap state hash", SWAP_HASH, measured));
+  console.log(`swap hash      ${hex(measured)}  == native`);
 });

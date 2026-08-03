@@ -28,6 +28,15 @@ piece, no script. Watch what it does to your order: a visible enemy *outranks* a
 not the order channel leaking; it is the character having its own judgement about
 what matters more, which is the point.
 
+And you can lose. When your character falls the room does not reset: the things
+that killed it are still standing exactly where they were, and you send in a
+replacement — `1` for a warrior, `2` for a scout — to walk into the fight in
+progress. Which is worth choosing rather than defaulting. A scout thinks every
+ten ticks instead of twelve and sees 14.4 units instead of 9.6, and falls over at
+52 health instead of 84; the same policy runs both. Watching the same room go
+differently is the shortest demonstration this project has that stats are wired
+into the AI rather than into a damage number.
+
 And the number matches. `web.wasm` and the native lab produce the *same 64-bit
 state hash* for the same run — `0xb148b5338bc049f6` — so the fixed-point
 simulation really is bit-identical across MSVC x86-64 and wasm32, rather than
@@ -69,14 +78,15 @@ node tools/serve.js                               # builds the wasm, serves the 
 
 Then open the printed URL. Click to send the character somewhere; right-click or
 `Esc` to make it hold its ground; `F` to withdraw the order entirely and watch it
-decide for itself; `S` and `B` to send in a skitterer or a brute; `R` to open a
-fresh room. A server is needed because a `file://` page cannot instantiate wasm —
-that is the only reason.
+decide for itself; `S` and `B` to send in a skitterer or a brute; `1` and `2` to
+send in a new character once yours has fallen; `R` to open a fresh room. A server
+is needed because a `file://` page cannot instantiate wasm — that is the only
+reason.
 
 To work on it:
 
 ```
-cargo test                                        # 111 tests, under a second
+cargo test                                        # 130 tests, under a second
 cargo run --release -p lab -- bench   --seeds 2000
 cargo run --release -p lab -- verify  --seeds 200
 cargo run --release -p lab -- hash
@@ -88,11 +98,12 @@ node --test tools/wasm_check.js                   # wasm must equal native
 them, replays each of them, and requires all three to agree bit for bit.
 
 `wasm_check` is the other one. It instantiates the wasm module under Node and
-asserts three hashes against numbers recorded from a native build — one from a
-canned 4v6 fight, one from a scripted click-and-walk, and one from a monster sent
-into the room and fought to a finish. If any of them moves, the claim this whole
-architecture is built to support has stopped being true, and the failure message
-says so rather than making you work it out.
+asserts four hashes against numbers recorded from a native build — one from a
+canned 4v6 fight, one from a scripted click-and-walk, one from a monster sent
+into the room and fought to a finish, and one that runs on past the character's
+death to the replacement coming in on its recycled entity slot. If any of them
+moves, the claim this whole architecture is built to support has stopped being
+true, and the failure message says so rather than making you work it out.
 
 Measured on a 20-thread desktop:
 
@@ -174,7 +185,8 @@ knobs, not retraining runs), and it gives the lab an obvious axis to sweep.
    evolution loop that already exists. The feature vector it will be frozen
    against is already there and already versioned.
 4. Per-unit orders. An order is currently per-faction, which is exactly right
-   for one hero and obviously wrong for a party.
+   for one hero and obviously wrong for a party — and it is why the page refuses
+   to put a second character in the room rather than have one click send both.
 5. Spatial partitioning, when a scenario needs hundreds of entities rather than
    dozens. Not before.
 

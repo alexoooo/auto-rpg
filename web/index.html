@@ -43,6 +43,10 @@
               <kbd>S</kbd><kbd>B</kbd>
               <span>Send in a skitterer or a brute &mdash; the fight starts itself.</span>
             </li>
+            <li>
+              <kbd>1</kbd><kbd>2</kbd>
+              <span>Send in a warrior or a scout &mdash; once yours has fallen.</span>
+            </li>
             <li><kbd>R</kbd><span>Restart the room.</span></li>
           </ul>
           <div class="buttons">
@@ -57,7 +61,9 @@
           A click is a standing order, so the character acts on it at its next decision &mdash; up to
           12 ticks away for this one. The marker stays dim until it does, and that delay
           <em>is</em> the intellect stat. Send something in and it will break off the walk to
-          fight: a visible enemy outranks your order, and that is the whole idea.
+          fight: a visible enemy outranks your order, and that is the whole idea. Lose, and
+          the room stays as it is &mdash; send in a warrior or a scout and watch the same
+          fight go differently on the same stats.
         </p>
       </section>
 
@@ -93,6 +99,15 @@
                UtilityPolicy the lab evolves decides they should, which is why a
                spawn button is all it takes to start one. -->
           <p class="state idle" id="battle-state">quiet &mdash; nothing in the room to fight</p>
+          <!-- Not on the page until it means something. The module refuses a
+               second character while the first is standing: an order belongs to
+               the faction rather than to the body, so two heroes would share
+               one click. This is a replacement, not a restart -- the monsters
+               stay exactly where they were, and so does the clock. -->
+          <div class="buttons swap" id="swap-row" hidden>
+            <button type="button" id="btn-swap-warrior">Send in a warrior</button>
+            <button type="button" id="btn-swap-scout">Send in a scout</button>
+          </div>
           <dl class="readout">
             <dt>standing</dt>
             <dd id="battle-roster">1 hero, 0 monsters</dd>

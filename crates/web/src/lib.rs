@@ -1,6 +1,6 @@
 //! The browser boundary.
 //!
-//! One `cdylib`, twelve `extern "C"` functions, and a single packed `f32`
+//! One `cdylib`, thirteen `extern "C"` functions, and a single packed `f32`
 //! buffer that JavaScript reads straight out of linear memory. No
 //! `wasm-bindgen`, no `js-sys`, nothing generated. The workspace's
 //! no-dependency rule (`DESIGN.md`) is what keeps every recorded run in the
@@ -23,6 +23,7 @@
 //!     set_goto(x_milli, y_milli);  // a click, in thousandths of a world unit
 //!     spawn_monster(kind);         // something to fight, placed on this side
 //!     step(n);                     // n ticks of think-and-move
+//!     swap_in_hero(kind);          // a replacement, once yours has fallen
 //!     frame_ptr(), frame_len();    // what to draw
 //! ```
 //!
@@ -162,10 +163,12 @@ struct Sim {
     /// ring for somebody else's thinking and would tell the player their order
     /// had landed before the character had so much as looked at it.
     last_decision_tick: u32,
-    /// How many times the spawn button has been answered. Keys the placement
-    /// RNG, and lives here rather than in [`World`] on purpose: it is input
-    /// bookkeeping, not simulation state, so `World::state_hash` never sees it
-    /// and a scripted run that never spawns cannot be perturbed by it.
+    /// How many times a body has been walked into the room -- monsters and
+    /// replacement characters alike, from one counter, so that a spawn and a
+    /// swap on the same tick cannot be rolled from the same stream. Keys the
+    /// placement RNG, and lives here rather than in [`World`] on purpose: it is
+    /// input bookkeeping, not simulation state, so `World::state_hash` never
+    /// sees it and a scripted run that never spawns cannot be perturbed by it.
     spawns: u32,
 }
 
@@ -236,22 +239,7 @@ impl Sim {
             return 0;
         }
 
-        // Bumped before the roll and on every answered press, so a refused
-        // press does not leave the next one standing where the refused one
-        // would have. `wrapping_add` because `overflow-checks` is on in release
-        // as well as debug, and a panic on wasm32 poisons the instance for good.
-        let roll = self.spawns;
-        self.spawns = self.spawns.wrapping_add(1);
-
-        // Keyed on both the tick and the counter. The tick alone would put two
-        // presses inside one animation frame on the same pixel; the counter
-        // alone would make *when* you pressed irrelevant.
-        let mut rng = Rng::from_stream(
-            self.world.seed(),
-            u64::from(self.world.tick()),
-            u64::from(roll) | SPAWN_STREAM,
-        );
-
+        let mut rng = self.placement_rng();
         let spawn = self.spawn_point(kind, &mut rng);
         let id = self.world.spawn(&UnitSpec {
             kind,
@@ -264,6 +252,64 @@ impl Sim {
         // until it is.
         self.units.push(id);
         self.world.alive_count(Faction::Monsters) as u32
+    }
+
+    /// Walks a replacement character into the room. Answers `1` if one arrived
+    /// and `0` if the room would not take it.
+    ///
+    /// Refused while a character is still standing, and that is the contract
+    /// rather than a missing feature. An [`Order`] belongs to a *faction*, not
+    /// to a body -- the one input channel this page has would be shared by two
+    /// characters, and a click would send both of them. Per-unit orders are the
+    /// next thing this project owes itself; until then, one at a time.
+    fn swap_in_hero(&mut self, kind: UnitKind) -> u32 {
+        let world = &self.world;
+        self.units.retain(|&id| world.is_alive(id));
+        if self.world.alive_count(Faction::Heroes) > 0 || self.units.len() >= MAX_UNITS {
+            return 0;
+        }
+
+        let mut rng = self.placement_rng();
+        let spawn = self.entry_point(kind, &mut rng);
+        let id = self.world.spawn(&UnitSpec {
+            kind,
+            faction: Faction::Heroes,
+            stats: kind.base_stats(),
+            spawn,
+        });
+        self.units.push(id);
+
+        // The dead character's standing order outlived it, for the same reason
+        // the refusal above exists: the order is the faction's. Inheriting it
+        // would have a newcomer set off for wherever the last one was walking
+        // when it was killed -- which, nine times in ten, is into the thing that
+        // killed it. `Hold` hands it back to its own judgement, and that is also
+        // what the page's order panel then honestly reads.
+        self.world.set_order(Faction::Heroes, Order::Hold);
+        // This character has not thought yet, and the page flashes a ring every
+        // time the number below changes. Left as it was, the newcomer would
+        // arrive taking credit for the dead one's last decision.
+        self.last_decision_tick = 0;
+        1
+    }
+
+    /// The stream a newcomer's position is rolled from.
+    ///
+    /// Keyed on both the tick and a counter. The tick alone would put two
+    /// presses inside one animation frame on the same pixel; the counter alone
+    /// would make *when* you pressed irrelevant. The counter is bumped before
+    /// the roll and on every answered press, so a refused press does not leave
+    /// the next one standing where the refused one would have. `wrapping_add`
+    /// because `overflow-checks` is on in release as well as debug, and a panic
+    /// on wasm32 poisons the instance for good.
+    fn placement_rng(&mut self) -> Rng {
+        let roll = self.spawns;
+        self.spawns = self.spawns.wrapping_add(1);
+        Rng::from_stream(
+            self.world.seed(),
+            u64::from(self.world.tick()),
+            u64::from(roll) | SPAWN_STREAM,
+        )
     }
 
     /// Somewhere on a ring around the hero, inside the box a body can stand in.
@@ -313,6 +359,63 @@ impl Sim {
                 lo.y
             },
         )
+    }
+
+    /// Where a replacement character comes in.
+    ///
+    /// Not the ring [`Sim::spawn_point`] uses, and the difference is the whole
+    /// point: the last character died where the fight was, so anywhere measured
+    /// from *it* is the middle of the mob. The same sixteen bearings are swept
+    /// around the centre of the room instead, and the candidate standing
+    /// furthest from the nearest monster wins.
+    ///
+    /// Furthest, not merely far enough: a replacement arriving inside somebody's
+    /// reach is dead before it has taken a decision, and a swap button that
+    /// hands you a corpse is worse than no swap button. It is a fair entry
+    /// rather than a generous one -- it says nothing about which way the
+    /// monsters walk next, and they will have noticed by the time it thinks.
+    ///
+    /// With nothing hostile in the room every candidate is equally clear, the
+    /// strict comparison never fires, and the answer is the middle of the floor
+    /// -- exactly where [`init`] puts the first one.
+    fn entry_point(&self, kind: UnitKind, rng: &mut Rng) -> Vec2 {
+        let arena = self.world.arena();
+        let radius = kind.radius();
+        let lo = Vec2::new(radius, radius);
+        let hi = Vec2::new(arena.x - radius, arena.y - radius);
+        let centre = (arena * Fx::HALF).clamp_box(lo, hi);
+
+        let start = rng.angle();
+        let reach = rng.range(SPAWN_NEAR, SPAWN_FAR);
+        let mut best = centre;
+        let mut clearest = self.clearance(centre);
+        for step in 0..SPAWN_ARCS {
+            let bearing = start + Angle::from_raw(step.wrapping_mul(SPAWN_ARC_STEP));
+            let point = (centre + Vec2::from_angle(bearing) * reach).clamp_box(lo, hi);
+            let clearance = self.clearance(point);
+            // Strictly greater, so the first bearing of the sweep wins a tie and
+            // the answer stays a function of the roll rather than of how many
+            // candidates happened to clamp onto the same wall.
+            if clearance > clearest {
+                best = point;
+                clearest = clearance;
+            }
+        }
+        best
+    }
+
+    /// How far `point` is from the nearest living monster, or [`Fx::MAX`] when
+    /// there is none. A sentinel only -- nothing is ever computed from it.
+    fn clearance(&self, point: Vec2) -> Fx {
+        let mut nearest = Fx::MAX;
+        for &id in &self.units {
+            if let Some(view) = self.world.view(id) {
+                if view.faction == Faction::Monsters {
+                    nearest = nearest.min(point.distance(view.position));
+                }
+            }
+        }
+        nearest
     }
 
     /// Where to place a newcomer relative to. Falls back to the middle of the
@@ -403,6 +506,20 @@ const fn kind_from_code(code: u32) -> UnitKind {
         1 => UnitKind::Scout,
         2 => UnitKind::Brute,
         _ => UnitKind::Skitterer,
+    }
+}
+
+/// Which archetype a replacement character is: `0` a Warrior, `1` a Scout.
+///
+/// Separate from [`kind_from_code`] because the two hero builds are the only
+/// sensible answers here and the default has to be one of them. Falling through
+/// to a Skitterer would put a monster archetype on the player's side of the
+/// room -- a hero the HUD describes with a monster's stat block, which is a much
+/// more confusing failure than the typo that caused it.
+const fn hero_from_code(code: u32) -> UnitKind {
+    match code {
+        1 => UnitKind::Scout,
+        _ => UnitKind::Warrior,
     }
 }
 
@@ -513,6 +630,32 @@ pub extern "C" fn spawn_monster(kind_code: u32) -> u32 {
     standing
 }
 
+/// Walks a replacement character into the room. Answers `1` if one arrived and
+/// `0` if not -- there is no world, a character is still standing, or the frame
+/// is already carrying [`MAX_UNITS`] bodies.
+///
+/// `kind_code` is `0` for a Warrior and `1` for a Scout; anything else is a
+/// Warrior. Which is worth choosing rather than defaulting: a Scout thinks every
+/// ten ticks instead of twelve and sees 14.4 units instead of 9.6, but falls
+/// over at 52 health instead of 84. The same policy runs both, and watching the
+/// same room go differently is the clearest demonstration this page has that
+/// stats are wired into the AI rather than into a damage number.
+///
+/// The room is left exactly as it was found: the monsters that killed the last
+/// character are still standing, still where they were, and still remember what
+/// they were doing. This is a replacement, not a restart -- [`init`] is the
+/// restart, and the page keeps both because they answer different questions.
+///
+/// The newcomer arrives under no order at all, and does not decide until the
+/// tick after this one. See [`Sim::swap_in_hero`].
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn swap_in_hero(kind_code: u32) -> u32 {
+    let arrived = with_sim(0, |sim| sim.swap_in_hero(hero_from_code(kind_code)));
+    publish();
+    arrived
+}
+
 /// Advances `frames` ticks and republishes the frame.
 ///
 /// The caller owns the pacing, and must clamp it: this runs exactly as many
@@ -542,7 +685,8 @@ pub extern "C" fn frame_ptr() -> u32 {
     FRAME.with(|frame| frame.borrow().as_ptr() as usize as u32)
 }
 
-/// How many `f32`s of the buffer are live: `7 + 9 * unit_count`.
+/// How many `f32`s of the buffer are live: `HEADER_LEN + UNIT_STRIDE *
+/// unit_count`.
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn frame_len() -> u32 {
@@ -636,6 +780,12 @@ mod tests {
     /// from a native run, never computed here, and asserted against `web.wasm`
     /// under Node by `tools/wasm_check.js`.
     const BATTLE_HASH: u64 = 0x5ddd_5b02_1cf0_147b;
+
+    /// What `init(1); spawn_monster(2) x3; step(1800); swap_in_hero(1);
+    /// step(400)` leaves behind -- a fight, a death, a replacement, and the
+    /// fight it walks into. Recorded from a native run and asserted against
+    /// `web.wasm` under Node by `tools/wasm_check.js`.
+    const SWAP_HASH: u64 = 0xef5a_6de8_a589_1bb6;
 
     fn selftest() -> u64 {
         (u64::from(selftest_hash_hi()) << 32) | u64::from(selftest_hash_lo())
@@ -747,6 +897,11 @@ mod tests {
                 spawn_monster(3),
                 0,
                 "spawned into a world that is not there"
+            );
+            assert_eq!(
+                swap_in_hero(0),
+                0,
+                "swapped a character into a world that is not there"
             );
             assert_eq!(tick(), 0);
             assert_eq!(frame_len(), HEADER_LEN as u32);
@@ -1182,5 +1337,220 @@ mod tests {
         step(600);
         println!("battle hash: 0x{:016x}", hash());
         assert_eq!(hash(), BATTLE_HASH, "the battle script no longer replays");
+    }
+
+    // ------------------------------------------------------------ swapping in
+
+    const WARRIOR: u32 = 0;
+    const SCOUT: u32 = 1;
+
+    /// Six brutes and however long it takes. Answers the tick the character
+    /// fell on, which is the state every test below starts from.
+    fn fall_to_brutes() -> u32 {
+        for _ in 0..6 {
+            spawn_monster(BRUTE);
+        }
+        for _ in 0..300 {
+            step(30);
+            if hero_row().is_none() {
+                return tick();
+            }
+        }
+        panic!("six brutes could not kill one warrior");
+    }
+
+    #[test]
+    fn a_replacement_walks_into_the_room_the_last_one_died_in() {
+        init(1);
+        let fallen = hero_row().expect("the room did not open with a hero");
+        let at = fall_to_brutes();
+        let standing = monsters().len();
+        assert!(standing > 0, "nothing survived to be swapped in against");
+
+        assert_eq!(swap_in_hero(WARRIOR), 1, "nobody arrived");
+        let hero = hero_row().expect("the frame has no hero in it");
+        assert_eq!(hero[6], 0.0, "faction: Heroes");
+        assert_eq!(hero[7], 0.0, "kind: Warrior");
+        assert_eq!(hero[4], 84.0, "hp: 20 + 8 * vitality 8");
+        assert_eq!(hero[4], hero[5], "arrived already wounded");
+
+        // The point of a swap rather than a restart: the room is exactly as it
+        // was left, monsters and all, and the clock never went back to zero.
+        assert_eq!(monsters().len(), standing, "the swap emptied the room");
+        assert_eq!(tick(), at, "the swap moved the clock");
+        assert_eq!(frame()[6], standing as f32 + 1.0, "unit_count");
+
+        // A different body, and the identity columns have to say so. A slot
+        // freed by a death is handed straight back out, so the index alone can
+        // repeat -- it is the generation beside it that makes this readable as
+        // a new character rather than the old one getting up.
+        assert_ne!(
+            (hero[9], hero[10]),
+            (fallen[9], fallen[10]),
+            "the replacement is wearing the dead character's handle"
+        );
+    }
+
+    #[test]
+    fn the_room_refuses_a_replacement_while_a_character_is_still_standing() {
+        // Not a missing feature: one order channel, one character. Two heroes
+        // would share the player's clicks, which is a worse thing to discover
+        // mid-fight than a button that declines.
+        init(1);
+        assert_eq!(swap_in_hero(SCOUT), 0, "two characters, one order channel");
+        assert_eq!(frame()[6], 1.0, "unit_count");
+        assert_eq!(hero_row().expect("the hero is gone")[7], 0.0, "kind");
+
+        // Still refused with the room full of enemies, which is exactly when a
+        // player would press it hardest.
+        spawn_monster(BRUTE);
+        step(120);
+        assert_eq!(swap_in_hero(WARRIOR), 0);
+        assert_eq!(frame()[6], 2.0, "unit_count");
+    }
+
+    #[test]
+    fn a_replacement_can_be_a_different_build_entirely() {
+        // The reason this takes an archetype rather than just bringing the
+        // warrior back. Same room, same monsters, same policy -- and a
+        // character that thinks faster, sees further and dies sooner.
+        init(1);
+        fall_to_brutes();
+        assert_eq!(swap_in_hero(SCOUT), 1, "nobody arrived");
+
+        let hero = hero_row().expect("the frame has no hero in it");
+        assert_eq!(hero[7], 1.0, "kind: Scout");
+        assert_eq!(hero[5], 52.0, "max_hp: 20 + 8 * vitality 4");
+        assert!((hero[3] - 0.35).abs() < 0.001, "radius {}", hero[3]);
+    }
+
+    #[test]
+    fn an_unrecognised_hero_code_is_a_warrior_rather_than_a_monster() {
+        // `kind_from_code` would answer Skitterer here, which would put a
+        // monster archetype on the player's side of the room. Falling through
+        // to a hero build instead is the whole reason the two decoders are
+        // separate functions.
+        init(1);
+        fall_to_brutes();
+        assert_eq!(swap_in_hero(9_999), 1);
+        assert_eq!(hero_row().expect("nobody arrived")[7], 0.0, "kind: Warrior");
+        assert_eq!(monsters().iter().filter(|m| m[6] == 0.0).count(), 0);
+    }
+
+    #[test]
+    fn a_replacement_arrives_under_no_order_at_all() {
+        // An order belongs to the faction, so it outlives the body it was given
+        // to. Inheriting it would have the newcomer set off for wherever the
+        // last one was headed when it was killed -- which is where the things
+        // that killed it are standing.
+        init(1);
+        set_goto(23_000, 15_000);
+        step(60);
+        fall_to_brutes();
+        assert_eq!(
+            frame()[2],
+            4.0,
+            "the dead character's order should outlive it"
+        );
+
+        assert_eq!(swap_in_hero(WARRIOR), 1);
+        assert_eq!(frame()[2], 0.0, "order_kind: Hold, not the dead one's Goto");
+        assert_eq!(
+            frame()[5],
+            0.0,
+            "last_decision_tick: the newcomer took credit for a decision it \
+             did not make"
+        );
+
+        // And it does start thinking, so the page's ring is not stuck at zero.
+        step(30);
+        assert!(frame()[5] > 0.0, "the replacement never took a decision");
+    }
+
+    #[test]
+    fn a_replacement_lands_clear_of_the_monsters_and_inside_the_wall() {
+        // The assertion that matters is the clearance one. A brute reaches
+        // 0.70 + 0.45 + 0.9 = 2.05 between centres, so anything at or under
+        // that arrives already inside somebody's swing -- a swap button that
+        // hands the player a corpse.
+        let mut tightest = f32::INFINITY;
+        for seed in 1..9u32 {
+            init(seed);
+            fall_to_brutes();
+            assert_eq!(swap_in_hero(WARRIOR), 1, "seed {seed}: nobody arrived");
+
+            let hero = hero_row().expect("the frame has no hero in it");
+            let radius = hero[3];
+            assert!(
+                hero[0] >= radius - 0.001
+                    && hero[0] <= 24.0 - radius + 0.001
+                    && hero[1] >= radius - 0.001
+                    && hero[1] <= 16.0 - radius + 0.001,
+                "seed {seed}: arrived inside a wall at ({}, {})",
+                hero[0],
+                hero[1],
+            );
+
+            for monster in monsters() {
+                tightest = tightest.min(distance(&monster, &hero));
+            }
+        }
+        println!("closest arrival across eight seeds: {tightest}");
+        assert!(
+            tightest > 2.05,
+            "arrived {tightest} from a monster, inside its reach",
+        );
+    }
+
+    #[test]
+    fn a_swap_replays() {
+        // The cross-target claim over the whole arc the page can now show: a
+        // fight, a death, a replacement, and the fight the replacement walks
+        // into. This is the number `tools/wasm_check.js` runs against
+        // `web.wasm`.
+        fn script() -> u64 {
+            init(1);
+            for _ in 0..3 {
+                spawn_monster(BRUTE);
+            }
+            step(1_800);
+            assert!(
+                hero_row().is_none(),
+                "three brutes no longer finish the warrior inside 1800 ticks"
+            );
+            assert_eq!(swap_in_hero(SCOUT), 1, "nobody arrived");
+            step(400);
+            hash()
+        }
+        let measured = script();
+        println!("swap hash: 0x{measured:016x}");
+        assert_eq!(measured, SWAP_HASH, "the swap script no longer replays");
+        assert_eq!(script(), measured, "the same run diverged from itself");
+    }
+
+    #[test]
+    fn a_swap_consumes_a_placement_roll() {
+        // Only one can be answered at a time, so the counter's effect here is
+        // invisible from the outside -- except that a swap has to *consume* a
+        // roll, or a monster spawned on the same tick afterwards would be
+        // placed exactly where one spawned before the swap would have been.
+        init(1);
+        fall_to_brutes();
+        swap_in_hero(WARRIOR);
+        let after_swap = monsters().len();
+        spawn_monster(SKITTERER);
+        let with = monsters()[after_swap].clone();
+
+        init(1);
+        fall_to_brutes();
+        spawn_monster(SKITTERER);
+        let without = monsters()[after_swap].clone();
+
+        assert!(
+            distance(&with, &without) > 0.001,
+            "the swap did not consume a roll: both landed at ({}, {})",
+            with[0],
+            with[1],
+        );
     }
 }

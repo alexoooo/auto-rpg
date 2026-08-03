@@ -45,6 +45,11 @@ const INTENT_ATTACK = 1;
 const INTENT_FLEE = 2;
 
 // `UnitKind` codes, as `kind_code` in crates/web/src/lib.rs spells them out.
+// The first two are also what `swap_in_hero` accepts, and it accepts nothing
+// else: a hero built from a monster archetype is a character the HUD would
+// describe with the wrong stat block.
+const KIND_WARRIOR = 0;
+const KIND_SCOUT = 1;
 const KIND_BRUTE = 2;
 const KIND_SKITTERER = 3;
 
@@ -111,6 +116,7 @@ const EXPORTS = [
   "set_goto",
   "clear_order",
   "spawn_monster",
+  "swap_in_hero",
   "step",
   "frame_ptr",
   "frame_len",
@@ -271,6 +277,7 @@ const el = {
   orderDecision: document.getElementById("order-decision"),
   battleState: document.getElementById("battle-state"),
   battleRoster: document.getElementById("battle-roster"),
+  swapRow: document.getElementById("swap-row"),
   simTick: document.getElementById("sim-tick"),
   simPosition: document.getElementById("sim-position"),
   simHash: document.getElementById("sim-hash"),
@@ -470,6 +477,36 @@ function spawnMonster(kindCode) {
   );
 }
 
+/**
+ * A new character, into the room the last one died in.
+ *
+ * Not a restart. `restart()` opens a fresh room at tick zero; this leaves every
+ * monster exactly where it was standing, still remembering what it was doing,
+ * and drops somebody new in at the clearest spot on the floor. The module
+ * refuses while a character is still up -- an order belongs to the faction, so
+ * two heroes would share one click -- which is why the buttons this calls are
+ * not on the page until yours has fallen.
+ */
+function swapInHero(kindCode) {
+  if (!wasm.swap_in_hero(kindCode)) {
+    hint("There is already a character in the room.", true);
+    return;
+  }
+  intent = "none";
+  // Everything from here down is the page's memory of the character that fell:
+  // the path it walked, the rings its thinking left, and the fact that we have
+  // already said it died. `bodies` and `corpses` are deliberately *not* cleared
+  // -- the corpse should go on fading where it dropped.
+  trail = [];
+  pulses = [];
+  announcedFall = false;
+  // The module puts `last_decision_tick` back to zero for a character that has
+  // not thought yet. Recording that here first is what stops the change from
+  // reading as a decision and flashing a ring nobody took.
+  lastDecisionSeen = 0;
+  hint(`A ${ARCHETYPES[kindCode].name} takes over. The monsters are where you left them.`, true);
+}
+
 function restart() {
   wasm.init(SEED);
   intent = "none";
@@ -489,7 +526,7 @@ function bindInput() {
     if (dead) return;
     const state = parseFrame(readFrame());
     if (!state.hero) {
-      hint("There is nobody left to give orders to. Press R for a new room.", true);
+      hint("There is nobody left to give orders to. Send in a new character, or press R.", true);
       return;
     }
     if (event.button === 2) {
@@ -516,6 +553,8 @@ function bindInput() {
       // operating system's autorepeat would empty the frame's 64-row budget
       // into the room in about two seconds.
       if (!event.repeat) spawnMonster(key === "s" ? KIND_SKITTERER : KIND_BRUTE);
+    } else if (key === "1" || key === "2") {
+      if (!event.repeat) swapInHero(key === "1" ? KIND_WARRIOR : KIND_SCOUT);
     }
   });
 
@@ -530,6 +569,12 @@ function bindInput() {
   });
   document.getElementById("btn-spawn-brute").addEventListener("click", () => {
     if (!dead) spawnMonster(KIND_BRUTE);
+  });
+  document.getElementById("btn-swap-warrior").addEventListener("click", () => {
+    if (!dead) swapInHero(KIND_WARRIOR);
+  });
+  document.getElementById("btn-swap-scout").addEventListener("click", () => {
+    if (!dead) swapInHero(KIND_SCOUT);
   });
 }
 
@@ -857,9 +902,14 @@ function updateBattle(state) {
   const monsters = `${standing} monster${standing === 1 ? "" : "s"}`;
   setText(el.battleRoster, `${state.hero ? "1 hero" : "no hero"}, ${monsters}`);
 
+  // The swap control lives in this panel rather than in the strip under the
+  // arena because this is where the player is already looking when it starts to
+  // mean anything, and it means nothing every other second of the session.
+  el.swapRow.hidden = state.hero !== null;
+
   if (!state.hero) {
     el.battleState.className = "state dead";
-    setText(el.battleState, "the character has fallen — press R for a new room");
+    setText(el.battleState, "the character has fallen — send in a new one, or press R for a new room");
   } else if (standing === 0) {
     el.battleState.className = "state idle";
     setText(el.battleState, "quiet — nothing in the room to fight");
@@ -1018,7 +1068,7 @@ function loop(now) {
 
   if (!state.hero && !announcedFall) {
     announcedFall = true;
-    hint("The character has fallen. Press R to open the room again.", true);
+    hint("The character has fallen. Send in a new one and the fight goes on, or press R to start over.", true);
   }
 
   // A new order (any change to the header's order slot) restarts the "has it

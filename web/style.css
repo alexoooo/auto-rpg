@@ -287,6 +287,18 @@ kbd {
   flex: 0 0 auto;
 }
 
+/* The `hidden` attribute is a UA `display: none`, which the rule above would
+   otherwise win against. Same reason `.overlay[hidden]` exists. */
+.buttons[hidden] {
+  display: none;
+}
+
+/* The swap control, inside the Battle panel and under the line that says the
+   character has fallen. */
+.buttons.swap {
+  margin: 0 0 9px;
+}
+
 button {
   flex: 1 1 auto;
   font: inherit;
