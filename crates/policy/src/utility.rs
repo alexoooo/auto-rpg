@@ -7,6 +7,92 @@ use sim::{Action, Contact, EntityId, Intent, Observation, Order};
 /// Number of genes in the evolvable representation of [`UtilityWeights`].
 pub const GENOME_LEN: usize = 8;
 
+/// How much lateral drift a patrol takes on when it turns at a wall.
+///
+/// Not a gene, because it is not a preference. A patrol that retraces exactly
+/// the same line back and forth sweeps a line; one that steps sideways at each
+/// end sweeps a band, and a band is what finds somebody. Shared with
+/// [`crate::DuelistPolicy`], which needs it for the same reason.
+pub const SWEEP_LATERAL: Fx = Fx::from_ratio(6, 10);
+
+/// How much room the ordered direction needs before a patrol turns around.
+///
+/// Roughly two body-lengths, so the turn happens at the wall rather than in
+/// open ground where it would look like indecision.
+pub const PATROL_TURN_CLEARANCE: Fx = Fx::from_int(2);
+
+/// Which way along its standing order an agent is currently walking.
+///
+/// **One bit of memory, and it is what turns `Advance` into a search.** Without
+/// it the rule has to be a pure function of position, and a memoryless agent at
+/// a wall is stuck: whatever makes it step away from the wall stops applying the
+/// moment it has stepped away, so it twitches on the spot in a band a unit and a
+/// half wide. Measured on duels at the dim end of the skill range, two fighters
+/// ordered to advance *at* each other cross over, arrive at opposite edges, and
+/// pace two parallel lines twenty units apart for the rest of the run -- one
+/// duel in six ended that way, at full health, with the clock stopped.
+///
+/// Remembering which way you were going costs a byte and turns that into a
+/// fighter that walks back and finds the other one.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub struct Patrol(i8);
+
+impl Patrol {
+    /// `+1` while following the order as given, `-1` on the return leg.
+    #[inline]
+    pub fn sign(self) -> Fx {
+        if self.0 < 0 {
+            -Fx::ONE
+        } else {
+            Fx::ONE
+        }
+    }
+
+    #[inline]
+    pub fn reverse(&mut self) {
+        self.0 = if self.0 < 0 { 1 } else { -1 };
+    }
+}
+
+/// Turns a standing heading into this tick's patrol leg, reversing at the wall.
+///
+/// Shared by both hand-authored policies so that "advance" means one thing.
+/// Returns the direction to walk; `patrol` is updated in place when the leg
+/// turns.
+pub(crate) fn patrol_heading(obs: &Observation, heading: Vec2, patrol: &mut Patrol) -> Vec2 {
+    if heading.is_zero() {
+        return heading;
+    }
+    let leg = heading * patrol.sign();
+    let clearance = {
+        let horizontal = if leg.x.is_positive() {
+            obs.wall_clearance[1]
+        } else {
+            obs.wall_clearance[0]
+        };
+        let vertical = if leg.y.is_positive() {
+            obs.wall_clearance[3]
+        } else {
+            obs.wall_clearance[2]
+        };
+        horizontal * leg.x.abs() + vertical * leg.y.abs()
+    };
+    if clearance >= PATROL_TURN_CLEARANCE {
+        return leg;
+    }
+
+    // At the end of the leg: turn, and step sideways on the way round so the
+    // return sweeps new ground rather than retracing the outbound line.
+    patrol.reverse();
+    let along = leg.perp();
+    let along = if obs.wall_clearance[3] >= obs.wall_clearance[2] {
+        along
+    } else {
+        -along
+    };
+    (-leg + along * SWEEP_LATERAL).normalize()
+}
+
 /// The knobs behind the hand-authored behaviour.
 ///
 /// Every field is exposed as a gene in `0..=1` and mapped into the range below,
@@ -148,6 +234,8 @@ impl Default for UtilityWeights {
 pub struct UtilityPolicy {
     pub weights: UtilityWeights,
     last_target: Vec<EntityId>,
+    /// Which leg of its patrol each entity is on; see [`Patrol`].
+    patrol: Vec<Patrol>,
 }
 
 impl UtilityPolicy {
@@ -155,7 +243,19 @@ impl UtilityPolicy {
         UtilityPolicy {
             weights,
             last_target: Vec::new(),
+            patrol: Vec::new(),
         }
+    }
+
+    /// The patrol leg for `me`, growing the table on demand. Keyed by entity
+    /// index like every other scrap of memory here, so it stays deterministic
+    /// under any iteration order.
+    fn patrol_of(&mut self, me: EntityId) -> &mut Patrol {
+        let index = me.index as usize;
+        if index >= self.patrol.len() {
+            self.patrol.resize(index + 1, Patrol::default());
+        }
+        &mut self.patrol[index]
     }
 
     pub fn baseline() -> UtilityPolicy {
@@ -238,23 +338,8 @@ impl UtilityPolicy {
         }
     }
 
-    /// How much room is left in `direction` before the arena edge.
-    fn clearance_toward(&self, obs: &Observation, direction: Vec2) -> Fx {
-        let horizontal = if direction.x.is_positive() {
-            obs.wall_clearance[1]
-        } else {
-            obs.wall_clearance[0]
-        };
-        let vertical = if direction.y.is_positive() {
-            obs.wall_clearance[3]
-        } else {
-            obs.wall_clearance[2]
-        };
-        horizontal * direction.x.abs() + vertical * direction.y.abs()
-    }
-
     /// Nothing in sight: do what the player asked.
-    fn march(&self, obs: &Observation) -> Action {
+    fn march(&self, obs: &Observation, patrol: &mut Patrol) -> Action {
         let heading = match obs.order {
             Order::Advance(dir) => dir.normalize(),
             Order::Regroup => self.ally_centre(obs).normalize(),
@@ -328,24 +413,12 @@ impl UtilityPolicy {
             Order::Hold | Order::Focus(_) => Vec2::ZERO,
         };
 
-        // Once the ordered direction runs into a wall, sweep along it instead
-        // of grinding into it. This is the difference between a fight and a
-        // timeout: without it, the last survivors of each side push to opposite
-        // edges, stand there, and the run ends in a draw -- which is both bad
-        // to watch and useless as a fitness signal. Sweeping toward whichever
-        // side has more room turns it into a patrol that eventually finds
-        // whatever is left alive.
-        let heading = if !heading.is_zero() && self.clearance_toward(obs, heading) < Fx::from_int(2)
-        {
-            let along = heading.perp();
-            if obs.wall_clearance[3] >= obs.wall_clearance[2] {
-                along
-            } else {
-                -along
-            }
-        } else {
-            heading
-        };
+        // Once the ordered direction runs out of arena, turn and come back
+        // rather than grinding into the wall. This is the difference between a
+        // fight and a timeout: without it, the last survivors of each side push
+        // to opposite edges, stand there, and the run ends in a draw -- which is
+        // both bad to watch and useless as a fitness signal.
+        let heading = patrol_heading(obs, heading, patrol);
 
         Action::moving((heading + self.open_ground(obs)).clamp_length(Fx::ONE))
     }
@@ -421,7 +494,10 @@ impl UtilityPolicy {
 impl Policy for UtilityPolicy {
     fn decide(&mut self, obs: &Observation) -> Action {
         let mut action = if obs.enemies().is_empty() {
-            self.march(obs)
+            let mut patrol = *self.patrol_of(obs.me);
+            let action = self.march(obs, &mut patrol);
+            *self.patrol_of(obs.me) = patrol;
+            action
         } else if obs.hp_frac < self.weights.caution {
             self.disengage(obs)
         } else {
@@ -436,6 +512,7 @@ impl Policy for UtilityPolicy {
 
     fn reset(&mut self) {
         self.last_target.clear();
+        self.patrol.clear();
     }
 }
 
@@ -452,6 +529,7 @@ mod tests {
             hp_frac: hp,
             radius: Fx::from_ratio(4, 10),
             weapon_length: Fx::from_ratio(9, 10),
+            min_strike_range: Fx::from_ratio(5, 10),
             facing: fx::Angle::ZERO,
             sword_angle: fx::Angle::ZERO,
             sword_reach: Fx::ZERO,
@@ -775,16 +853,72 @@ mod tests {
             "swept along the wall on the way to a destination: {arriving:?}"
         );
 
+        // ...whereas an `Advance` that has run out of arena turns the patrol
+        // round and comes back, with a lateral step so the return leg sweeps
+        // new ground instead of retracing the outbound line.
         obs.order = Order::Advance(-Vec2::X);
-        let sweeping = UtilityPolicy::baseline().decide(&obs).move_dir;
+        let turning = UtilityPolicy::baseline().decide(&obs).move_dir;
         assert!(
-            sweeping.y.abs() > sweeping.x.abs(),
-            "an advance into the wall stopped sweeping: {sweeping:?}"
+            turning.x > Fx::ZERO,
+            "an advance into the wall kept pushing into it: {turning:?}"
         );
         assert!(
-            sweeping.x >= Fx::ZERO,
-            "an advance into the wall kept pushing into it: {sweeping:?}"
+            turning.y.abs() > Fx::ZERO,
+            "the turn took no lateral step, so the return leg retraces: {turning:?}"
         );
+        assert!(
+            turning.x.abs() > turning.y.abs(),
+            "the turn was more sideways than backwards: {turning:?}"
+        );
+    }
+
+    #[test]
+    fn a_patrol_turns_at_the_wall_and_comes_back() {
+        // The one bit of memory in this policy, and what it is for. Two sides
+        // ordered to advance *at* each other cross over, reach opposite edges,
+        // and -- without a patrol leg to remember -- pace two parallel lines
+        // twenty units apart until the clock runs out. Measured at the dim end
+        // of the skill range that was one duel in six, both fighters at full
+        // health, scored a draw because by then it was one.
+        let mut policy = UtilityPolicy::baseline();
+        let mut obs = situation(&[]);
+        obs.order = Order::Advance(Vec2::X);
+
+        // Open ground: follow the order as given.
+        assert!(policy.decide(&obs).move_dir.x > Fx::ZERO);
+
+        // Up against the far wall: turn.
+        obs.wall_clearance = [
+            Fx::from_int(39),
+            Fx::from_ratio(5, 10),
+            Fx::from_int(14),
+            Fx::from_int(14),
+        ];
+        assert!(
+            policy.decide(&obs).move_dir.x < Fx::ZERO,
+            "ground into the wall instead of turning"
+        );
+
+        // ...and it *stays* turned once it is back in open ground, which is the
+        // whole point of remembering. A rule that is a pure function of position
+        // flips back the moment the wall is no longer close, and the character
+        // twitches on the spot in a band a unit and a half wide.
+        obs.wall_clearance = [
+            Fx::from_int(20),
+            Fx::from_int(20),
+            Fx::from_int(14),
+            Fx::from_int(14),
+        ];
+        for _ in 0..8 {
+            assert!(
+                policy.decide(&obs).move_dir.x < Fx::ZERO,
+                "forgot which way it was walking as soon as it left the wall"
+            );
+        }
+
+        // A fresh run starts a fresh patrol.
+        policy.reset();
+        assert!(policy.decide(&obs).move_dir.x > Fx::ZERO);
     }
 
     #[test]
@@ -812,14 +946,23 @@ mod tests {
         }
 
         // Jammed into the bottom-left corner with an ally behind it, so that
-        // `open_ground`, the wall sweep and `ally_centre` all contribute.
+        // `open_ground`, the patrol turn and `ally_centre` all contribute.
+        //
+        // Two rows moved, and both moved on purpose: `Advance(-X)` and
+        // `Regroup` are the two headings that run into the corner here, and a
+        // heading that has run out of arena used to sweep along the wall and now
+        // turns the patrol round. `Hold`, `Focus` and the advance *away* from
+        // the corner are untouched, which is the claim this test exists to
+        // make -- giving `march` a memory was not allowed to disturb the cases
+        // that did not need one.
         for (order, x, y) in [
             (Order::Hold, 16194, 11146),
             (Order::Advance(Vec2::X), 64935, 8855),
-            (Order::Advance(-Vec2::X), 16194, -54390),
-            (Order::Regroup, 57112, -32142),
+            (Order::Advance(-Vec2::X), 62565, -19507),
+            (Order::Regroup, 62067, 21039),
             (focus, 16194, 11146),
         ] {
+            let mut policy = UtilityPolicy::baseline();
             let mut obs = situation(&[]);
             obs.order = order;
             obs.wall_clearance = [

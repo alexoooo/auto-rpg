@@ -32,6 +32,33 @@ pub struct Contact {
     /// about the object rather than about its state, so it arrives clean: you
     /// can see how long a sword is well before you can read where it is going.
     pub weapon_length: Fx,
+    /// **Distance from this enemy's centre inside which its blade cannot reach
+    /// the speed a blow requires** -- its dead zone, as judged from here.
+    ///
+    /// The single most valuable geometric fact about an opponent, and until now
+    /// the one thing a fighter could not work out. Impact is `spin x arm`, so
+    /// every weapon is harmless close in and worst at the tip; a `Contact` said
+    /// how *long* an enemy's blade was but nothing about how fast it could be
+    /// swung, so its dead zone was not derivable and a policy had to be told
+    /// where to stand by a hand-set gene. That was the open question in
+    /// `DESIGN.md`, and this is the answer to it.
+    ///
+    /// Perceived, and blurred by the **un-scaled** perception noise rather than
+    /// the range-scaled figure everything around it uses. That is deliberate
+    /// and it is the one asymmetry in this struct worth arguing about: every
+    /// other field here is a *measurement*, and measurements genuinely get
+    /// easier as you close. This is a judgement about a capability, and
+    /// standing nose to nose with someone tells you nothing new about how hard
+    /// they can swing.
+    ///
+    /// The error it produces is asymmetric in a way that is worth knowing
+    /// about, because it is the whole of what perception buys in a duel. Guess
+    /// *low* and the floor in a policy's own spacing rule protects you. Guess
+    /// *high* and you stand off a weapon you could have crowded, which against
+    /// a Brute is the difference between four points a blow and thirty. A dim
+    /// fighter respects a big weapon's reach and dies to it; a sharp one knows
+    /// the thing is at its worst up close.
+    pub min_strike_range: Fx,
     /// Which way the body is heading, as perceived.
     pub facing: Angle,
     /// Perceived bearing of the enemy's sword hand.
@@ -143,8 +170,8 @@ pub struct Observation {
 
 /// Values per contact in the feature vector: direction (2), range, health,
 /// size, weapon length, facing (2), sword direction (2), sword spin, sword
-/// reach, shield direction (2), shield reach, then the attack read -- swing
-/// phase one-hot (4), ticks left in it, and the attack line (2).
+/// reach, shield direction (2), shield reach, dead zone, then the attack read
+/// -- swing phase one-hot (4), ticks left in it, and the attack line (2).
 ///
 /// Every angle enters as a `(cos, sin)` pair rather than as a number, and that
 /// is not a rounding detail: a raw angle is discontinuous at the wrap, so a
@@ -156,13 +183,19 @@ pub struct Observation {
 /// phases are not points on a scale -- a recovery is not "more" than a windup --
 /// and encoding them as 0, 1/3, 2/3, 1 would ask a network to learn that the
 /// most dangerous state and the most punishable one sit next to each other.
-const FEATURES_PER_CONTACT: usize = 15 + crate::hand::Swing::COUNT + 3;
+const FEATURES_PER_CONTACT: usize = 16 + crate::hand::Swing::COUNT + 3;
 
 /// Own-state values: health, attack readiness, radius, weapon length, minimum
 /// strike range, decision rate, shield arc, then both hands as direction (2),
 /// spin and reach, then the sword's own attack state -- phase one-hot (4),
-/// ticks left, and whether the hand is armed.
-const SELF_FEATURES: usize = 7 + 4 * crate::hand::HANDS + crate::hand::Swing::COUNT + 2;
+/// ticks left, whether the hand is armed -- and finally how braced the shield
+/// is.
+///
+/// That last one is not derivable from anything else here. A shield's bearing
+/// and spin say where it is and how fast, and neither says how long it has been
+/// *there*, which is what decides whether it stops a blow or is merely near
+/// one.
+const SELF_FEATURES: usize = 7 + 4 * crate::hand::HANDS + crate::hand::Swing::COUNT + 3;
 
 /// Width of the flattened feature vector produced by
 /// [`Observation::write_features`].
@@ -177,12 +210,22 @@ pub const FEATURE_COUNT: usize =
 /// frozen network refuse to load against a vector it was not trained on,
 /// instead of quietly reading the wrong number out of every slot.
 ///
-/// Version 4 is the phased attack. A contact went from fifteen numbers to
+/// Version 4 was the phased attack. A contact went from fifteen numbers to
 /// twenty-two, because a defender that can see a blade's bearing and speed but
 /// cannot see whether that blade is *committed* has no way to tell a feint from
-/// a cut, or a recovery from a guard. Paid now, while there are still no
-/// weights: the same bill after a training run is the training run.
-pub const FEATURE_LAYOUT_VERSION: u32 = 4;
+/// a cut, or a recovery from a guard.
+///
+/// Version 5 adds one number to each contact and one to the self block, and
+/// both are about where to stand. [`Contact::min_strike_range`] is the enemy's
+/// dead zone, without which the strongest answer to a heavy weapon in the game
+/// is not derivable from the observation at all; the self block gains how
+/// braced the shield is, without which a network could not tell a guard that
+/// has been planted on a line from one still travelling toward it, and those
+/// two block very differently.
+///
+/// Paid now, while there are still no weights: the same bill after a training
+/// run is the training run.
+pub const FEATURE_LAYOUT_VERSION: u32 = 5;
 
 /// Spin, in raw angle units per tick, that normalises to `1` in the feature
 /// vector. Above the fastest weapon in the game, so the clamp is a guard rather
@@ -374,6 +417,8 @@ impl Observation {
         i += 1;
         out[i] = if sword.armed { Fx::ONE } else { Fx::ZERO };
         i += 1;
+        out[i] = self.shield().brace_fraction();
+        i += 1;
 
         out[i + self.order.discriminant()] = Fx::ONE;
         i += Order::COUNT;
@@ -421,14 +466,18 @@ impl Observation {
                     out[base + 12] = shield.x;
                     out[base + 13] = shield.y;
                     out[base + 14] = c.shield_reach;
+                    // Where this enemy's blade stops being dangerous. A raw
+                    // distance like `radius` and `weapon_length` beside it, and
+                    // on the same scale, so the three can be compared.
+                    out[base + 15] = c.min_strike_range;
 
                     // The attack read. The line is a separate pair from
                     // `sword` above on purpose: during a windup the blade is
                     // cocked away from where the cut is going, so the two point
                     // in different directions and collapsing them would hide
                     // the only thing worth knowing.
-                    out[base + 15 + c.sword_swing.discriminant()] = Fx::ONE;
-                    let read = base + 15 + crate::hand::Swing::COUNT;
+                    out[base + 16 + c.sword_swing.discriminant()] = Fx::ONE;
+                    let read = base + 16 + crate::hand::Swing::COUNT;
                     out[read] = (c.sword_left / TICK_SCALE).clamp(Fx::ZERO, Fx::ONE);
                     let line = Vec2::from_angle(c.sword_line);
                     out[read + 1] = line.x;

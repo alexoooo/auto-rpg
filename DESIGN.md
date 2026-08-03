@@ -74,7 +74,7 @@ would be a destination that moved every time you looked at it.
 network. Nothing uses it yet. It exists now because the *layout* is the contract
 a trained network gets frozen against, and changing it later means retraining.
 
-That bill has been paid three times, deliberately, and all three times while no
+That bill has been paid four times, deliberately, and all four times while no
 weights existed. Adding `Order::Goto` and `decision_period` moved the vector from
 73 to 75 slots (version 2) and changed what the order-direction slot *means*.
 Two-handed combat then moved it from 75 to 205 (version 3): a contact went from
@@ -84,6 +84,15 @@ recovery. The phased attack moved it again (version 4): a contact went from
 fifteen numbers to twenty-two, because a defender that can see a blade's bearing
 and speed but not whether it is *committed* has no way to tell a feint from a
 cut, or a recovery from a guard.
+
+Version 5 adds one number to each contact and one to the self block, and both are
+about *where to stand and when to move*. `Contact::min_strike_range` is the
+enemy's dead zone, without which the strongest answer to a heavy weapon in the
+game is not derivable from an observation at all — a contact said how long a
+blade was and nothing about how fast it could be swung. The self block gains how
+braced the shield is, which nothing else implies: a bearing and a spin say where
+a guard is and how fast, and neither says how long it has been *there*, which is
+what decides whether it stops a blow or is merely near one.
 
 The phase block is a one-hot and not a number, for the same reason every angle is
 a `(cos, sin)` pair. The four phases are not points on a scale — a recovery is
@@ -184,7 +193,26 @@ Three properties replace it, and they are the whole point:
   too. Past the telegraph the line is frozen and the command is not read.
 - **A miss costs.** Recovery is a window in which the hand cannot attack, cannot
   parry, and cannot be recalled — and it is longer when a shield or a blade
-  stopped the cut.
+  stopped the cut, longer still when the cut touched *nothing at all*
+  (`WHIFF_RECOVERY`), and a blow landing into it does half again its damage
+  (`RECOVERY_EXPOSURE`).
+
+The strike window is computed per weapon (`strike_ticks`) and not a constant, and
+that correction is worth recording because the constant version was a bug wearing
+tuning's clothes. A flat 45 ticks is ample for a Warrior and nowhere near enough
+for a Brute: an extended blade turns at `torque × agility × (1 - REACH_DRAG)`,
+20.6 raw units per tick squared, against 23,040 units of arc. **Every heavy
+attack in the game was cut off eight degrees short of its own line**,
+mid-acceleration, having never crossed the point it was aimed at — so a Brute
+could only hurt what it met on the approach side of its swing, standing in front
+of one was safe, and the archetype the entire telegraph model was built around
+was the easiest thing in the game to fight. It was invisible because the fights
+still *looked* right; only the damage was missing.
+
+The slack on that calculation is measured rather than reasoned, and it went the
+opposite way to the intuition: the *lightest* weapons need the most, because a
+quick hand overshoots its windup further relative to the arc it then has to
+cover.
 
 Damage is gated on `Swing::Strike` and on nothing else. That one line is what
 ended the windmill: a blade rotating outside its strike window is furniture.
@@ -221,9 +249,18 @@ had to, because at 0.09 a Brute's dead zone reached 1.27 units, which is *outsid
 the 1.15 at which a Warrior's body and its own stop being able to approach. A
 fighter that got close became flatly immune, a small enough one became immune and
 harmless at the same time, and the fight timed out. At 0.85 the circle is
-unreachable and what is left is the gradient: crowding a heavy weapon still takes
-about three quarters of its bite away, and there is no longer a distance at which
-the fight stops being a fight.
+unreachable and what is left is the gradient — but the gradient is *steep*, and
+steeper than that sentence used to admit. Measured end to end on a stationary
+Warrior, a Brute's worst blow is 26.5 at the tip of its arc against 2.0 pressed
+against its chest: thirteen to one, from spacing alone, with no read and no
+timing involved.
+
+That number is the reason `Contact::min_strike_range` had to exist. A single
+scalar worth 13× is not a tactic, it is a lookup — and while it was not derivable
+from an observation, it was a lookup only the *author* of a policy could perform,
+by hand, once, for every matchup. Making it a percept turns it back into a
+decision: a sharp fighter finds the line and a dim one misjudges it by a tenth of
+a unit, which against a Brute is four points a blow against thirty.
 
 Two consequences worth stating because they are counterintuitive:
 
@@ -241,6 +278,18 @@ replays the declared cut to answer both questions at once, including the one tha
 matters most: *is it even aimed at me?* Adding that gate took the duelling policy
 from 21% to 88% against the naive one in a mirror match. A fighter that treats
 every attack in its vicinity as its own problem never wins anything.
+
+**And a shield has to be *planted* to be worth anything.** Covering the right
+bearing used to be instantaneous: a guard was in the arc or it was not, and one
+flung across at the last tick stopped exactly as much as one that had been
+waiting there. That made the telegraph worthless — the whole point of half a
+second of warning is time to *finish moving*, and there was nothing to finish, so
+every measurement said reading an attack early was a waste of tempo. A hand now
+carries `braced`, the ticks it has been settled, and a guard leaks
+`BLOCK_LEAK_SNAP` while travelling against `BLOCK_LEAK_BRACED` planted — five to
+one. `BRACE_SPIN` is deliberately loose enough that a guard tracking a walking
+enemy stays braced; tighten it and nobody is ever braced, and the rule becomes a
+flat nerf to blocking instead of a statement about timing.
 
 ### Perception is a fighting stat, and the split is deliberate
 
@@ -261,40 +310,100 @@ guesses the line wrong, which is a far more interesting way to lose.
 
 ### What measurement said, including where it disagreed
 
-Two findings were surprises, and both are recorded where they will be met:
-
-**Reading telegraphs early is a losing strategy.** Every value of the duellist's
-`read_ahead` gene above its floor made it worse, over 120 seeds against a Brute:
-
-| `read_ahead` | win rate | mean surviving health |
-|--------------|----------|-----------------------|
-| 0.3 (floor)  | 92%      | 0.73                  |
-| 0.8          | 77%      | 0.50                  |
-| 1.4          | 57%      | 0.37                  |
-
-Against an opponent that declares an attack on nearly every tick, every answer is
-a cut you did not throw. What beats a Brute is keeping the guard on the right
-line and continuing to attack — the shield is braced every tick regardless of
-stance, so defending and pressing are not the alternatives they look like. That
-is worth knowing because it is the opposite of the intuition the telegraph was
-built on, and the duellist's tests say so at the point where someone will next
-try to "fix" it.
-
 **Committing matters more than choosing well.** A defensive stance commands the
 blade back to guard, and that cancels a running windup. A duellist that re-read
 the situation every few ticks started a cut, disliked something, called it off,
 started another, and landed nothing: one duel in ten against the policy it is
 supposed to beat. Evolution independently pushed `resolve` to the top of its
-range for the same reason.
+range for the same reason, and has done so in every run since.
 
-The gradient those buy, over 120 seeds, all three driving the identical Warrior
-against a Brute on a fixed naive policy:
+**Reading telegraphs early used to be a losing strategy, and is now the best
+thing a fighter does.** This one reversed, and it is worth keeping both halves
+because the reversal is the clearest evidence that the mechanics underneath
+actually changed rather than merely moved.
 
-| hero policy | win rate | mean surviving health |
-|-------------|----------|-----------------------|
-| random      | 0%       | 0.00                  |
-| naive       | 72%      | 0.50                  |
-| duellist    | 92%      | 0.73                  |
+The old finding was real: every value of `read_ahead` above its floor made the
+duellist worse, 92% down to 57% as it rose. The reason was not that reading is
+useless but that *nothing was for sale*. A shield covered an arc or it did not,
+and covering was instantaneous — so answering a windup early bought nothing that
+flicking the guard across on the last tick did not also buy, while costing every
+cut you did not throw. The whole telegraph existed to be answered, and answering
+it was strictly a waste of tempo.
+
+A guard has mass now. It has to be *planted* — see `Hand::braced` — and a shield
+still travelling toward the bearing a blow arrives on leaks five times what a
+settled one does. That is the thing the telegraph was always supposed to be
+selling: not information, but time to finish moving. Evolution now pins
+`read_ahead` to the **top** of its range, and reading late is worse than not
+reading at all, which is a far better shape for a skill than a free lookup.
+
+**A miss has to cost, or a dodge is worth nothing.** `evasion` evolved to zero
+under the old rules and `guard` beat it ten to one, which read as "the shield is
+the reliable answer" and was really "stepping off a line is unpaid work". A cut
+that touches nothing now pays `WHIFF_RECOVERY` on top of its weapon's own
+recovery, and a blow landing into a recovery does half again its damage
+(`RECOVERY_EXPOSURE`) — so a dodge is no longer merely *not being hit*, it is the
+setup for the best exchange available. `evasion` and `punish` both come back
+high now.
+
+**Refusing to fight erases the skill gradient, so it has to be priced.** Given a
+weak enough time penalty, evolution found the obvious hole: maximum evasion,
+maximum flank, no guard, orbit a Brute that walks 17% slower than you do and
+grind it down over seventy seconds. It won 99% of its duels that way. The problem
+is not that it is dull — it is that *a fighter which refuses to trade needs no
+reaction speed and no eye for a blade*, so `intellect 19` and `intellect 8`
+posted the same win rate and the same surviving health, and the entire difficulty
+range collapsed into one rung. Skill lives in the exchange. `lab::fitness`
+charges a point per 150 ticks for exactly this reason.
+
+### The difficulty range, which is what all of it is for
+
+One `DuelistPolicy`, one set of weights, one Warrior body, three values of
+intellect and perception, against an unchanged Brute on the naive policy. 240
+seeds a row, and not one draw anywhere on it:
+
+| `intellect` / `perception` | decisions | noise | win rate | health when it wins |
+|----------------------------|-----------|-------|----------|---------------------|
+| 0 / 0                      | every 30  | 2.25  | 9%       | 0.31                |
+| 1 / 2                      | every 24  | 1.55  | 45%      | 0.32                |
+| 2 / 2                      | every 18  | 1.55  | 58%      | 0.35                |
+| 3 / 3                      | every 17  | 1.20  | 85%      | 0.47                |
+| 8 / 6 (a stock Warrior)    | every 12  | 0.90  | 97%      | 0.60                |
+| 12 / 10                    | every 8   | 0.50  | 100%     | 0.70                |
+| 19 / 18                    | every 1   | 0.00  | 100%     | 0.82                |
+
+The policy axis is still there and still steep — a random policy loses every
+time, and the naive one is far below any of these — but the row above is the
+claim worth making, because every row runs the *same* swordsman. Levelling
+intellect is not a damage multiplier; it is being allowed to think more often.
+Levelling perception is not a sight radius; it is knowing where the blade will
+be, and how close you can safely get to the one holding it.
+
+Five things had to be true at once for that table to exist, and none of them were
+before:
+
+1. **A heavy weapon has to be able to finish its swing.** A flat 45-tick strike
+   window meant a Brute's cut was cut off eight degrees short of its own line,
+   every time it swung — so the archetype the whole telegraph model was built
+   around could only hurt what it met on the *approach* side of its arc, and
+   standing in front of one was safe. `strike_ticks` computes the window from the
+   weapon instead. This was the single biggest cause: the dim end of the range
+   used to *win* two fights in three.
+2. **The health axis needs resolution.** At `IMPACT_TO_DAMAGE` 135 a duel was
+   three or four landed blows, so "won on half its health" and "won almost
+   untouched" were one blow apart and read as luck. At 60 it is a dozen a side.
+3. **Losing has to be reachable.** The stat curves gained a steeper stretch below
+   the dimmest archetype (`DIM_INTELLECT`, `DIM_PERCEPTION`), so a character can
+   be built worse than anything in the roster without any archetype moving.
+4. **A bad fighter has to lose rather than wander off.** Three separate rules:
+   regeneration is gated on line of sight rather than on a timer, it is budgeted
+   at one bar per fight so a retreat cannot un-lose an exchange, and a timeout is
+   decided on remaining health instead of thrown away as a draw.
+5. **`Advance` has to be a patrol.** Two sides ordered to advance at each other
+   cross over, reach opposite walls, and — with a memoryless sweep — pace two
+   parallel lines twenty units apart until the clock stops. That was one duel in
+   six at the dim end, both fighters at full health. One byte of memory per
+   entity (`utility::Patrol`) fixed it, and took the draw rate to zero.
 
 ## Replays
 
@@ -408,20 +517,55 @@ sides of walking wounded. Regeneration turns retreating into a real tactic
 (withdraw, recover, return). Draws fell to 3%, and mean fight length from 1330
 ticks to 921.
 
-**The wall sweep** in `UtilityPolicy::march`. An agent ordered to advance that
-has reached the far wall used to grind into it. It now sweeps along the wall
-toward whichever side has more room, which turns a stall into a patrol.
+It has since been fenced twice, because the rule that stops a fight stalling will
+happily stop it *ending*:
 
-**Damage per impact, and the skirmish tick limit**, both raised when the sword
-became a phase machine. A windmill billed a blow every nine ticks; a measured
-attack is a windup, a cut and a recovery, and a Warrior gets through one about
-every fifty. The same constants therefore produced a game that could not finish:
-two thirds of duels timed out with both sides walking wounded, healing between
-exchanges faster than they could land them. `IMPACT_TO_DAMAGE` went from 60 to
-135 and the skirmish limit from ninety seconds to two and a half minutes,
-calibrated to put a duel at roughly a dozen exchanges and twenty seconds — short
-enough that one misread matters and long enough that one does not decide
-everything.
+- **Out of combat means out of contact.** Timing it from the last blow alone is
+  the obvious reading and it is wrong: an exchange takes a couple of seconds and
+  `REGEN_DELAY` is three, so two fighters circling each other at arm's length
+  heal between every trade and a bad one can never be ground down. It reads badly
+  too — wounds closing while an enemy stands four feet away with a sword out.
+  `World::enemy_in_sight` is the gate.
+- **`REGEN_BUDGET` bounds the whole fight at one bar.** Unbudgeted regeneration
+  does not heal a fighter, it *resets the fight*: withdraw, wait, and the
+  exchange you just lost never happened. At the dim end of the skill range one
+  duel in five ended with both fighters at full health and the clock stopped —
+  scored a draw, correctly and uselessly, because by then it was one. Retreating
+  to recover is now a resource rather than a reset.
+
+**A timeout is decided on points**, to whichever side holds more of the health it
+started with (`World::timeout` → `Outcome::Decision`). A draw was the honest
+answer while the clock was the only thing that could end a fight neither side was
+winning, and it is the wrong answer for a difficulty ladder: every step *down*
+that ladder converts a loss into a timeout rather than into a defeat, and the
+bottom of the range stops meaning "loses" and starts meaning "wanders off".
+`Outcome::is_decisive` keeps a decision distinguishable from a kill, and
+`lab::fitness` prices it at 55 against 100 — enough to beat dying, not enough to
+make chipping once and running out the clock a strategy.
+
+**`Order::Advance` is a patrol, not a march.** An agent that reached the far wall
+used to sweep along it, which turns a stall into a patrol of a *line* — and two
+sides ordered to advance at each other cross over, arrive at opposite edges, and
+pace two parallel lines twenty units apart for the rest of the run. One duel in
+six at the dim end of the skill range ended that way, both fighters at full
+health, out of each other's sight for eight thousand of nine thousand ticks.
+
+The fix needed one bit of state (`utility::Patrol`), and needing state is the
+interesting part: a memoryless rule cannot do it. Whatever makes an agent step
+away from a wall stops applying the moment it has stepped away, so it twitches on
+the spot in a band a unit and a half wide. Remembering which way you were walking
+costs a byte and took the draw rate to zero.
+
+**Damage per impact, and the tick limits.** `IMPACT_TO_DAMAGE` went 60 → 135 when
+the sword became a phase machine, because a windmill billed a blow every nine
+ticks and a measured attack is a windup, a cut and a recovery. It has come most
+of the way back down, to 60, and the reason is **resolution** rather than pace: at
+135 a Brute's blow was worth up to 57 against a Warrior's 84 health, so a duel was
+three or four landed blows and "won on half its health" and "won almost
+untouched" were one blow apart. That is not enough rungs to hang a difficulty
+range on. At 60 a duel is a dozen blows a side, one misread is a visible dent
+rather than a third of the fight, and both tick limits sit at two and a half
+minutes.
 
 **Braking and an arrival band** for `Order::Goto`. A destination order needs a
 rule for *stopping*, and both of the above are actively wrong for arriving — the
@@ -461,30 +605,54 @@ of compute — the most expensive possible way to learn nothing.
 
 ## Open questions
 
-**Search behaviour.** The wall sweep is not search — agents still have no memory
-of where they have looked. Skirmish spawns are confined to a vertical band
-because across the full arena the two sides can walk past each other. Papered
-over, not solved.
+**Search behaviour.** A patrol is still not search — an agent remembers which way
+it is walking and nothing about *where it has already looked*. It is enough that
+two fighters in a duel arena reliably find each other again, which is what the
+draw rate needed, and it is not enough to spawn a skirmish across the full arena:
+those spawns are still confined to a vertical band. Better than papered over,
+short of solved.
 
 **Self-play.** Evolution currently scores candidates against a fixed hand-tuned
 opponent, which measures "better than what we wrote by hand". Self-play measures
-something more interesting and introduces the usual instabilities.
+something more interesting and introduces the usual instabilities. It would also
+answer a question this milestone left open: every number in the difficulty table
+is measured against a *naive* Brute, so what the range really shows is one
+swordsman's wits against a fixed opponent, not against a good one.
 
-**Fitness shaping.** The current function rewards winning, then surviving
-health, then damage, with a small time penalty. The time penalty is load
-bearing: without it, "run away and survive to the tick limit" outscores
-"attack and sometimes die", and evolution will find that out long before you do.
+**Fitness shaping.** The current function rewards winning, then surviving health,
+then damage, with a time penalty. The time penalty is load bearing twice over.
+Without it at all, "run away and survive to the tick limit" outscores "attack and
+sometimes die". And with it merely *weak*, evolution finds the subtler version:
+refuse every exchange, orbit a slower opponent, win 99% of duels over seventy
+seconds — which erases the skill range, because a fighter that never trades needs
+neither reaction speed nor an eye for a blade.
 
-**One `standoff` gene cannot serve every body.** Preferred range interpolates
-between body contact and the end of the fighter's own reach, which is the right
-shape and still one number for four archetypes against four others. It is tuned
-where it matters most and it is visibly wrong somewhere: a duelling Skitterer
-takes a Brute worse than the naive policy does, because 36 health against a
-weapon that lands 40 at the tip wants a range nothing else does. The honest fix
-is a range chosen from the *threat's* geometry rather than the holder's, and the
-observation does not currently carry enough to compute one — a `Contact` says how
-long an enemy's blade is but not how fast it can be swung, so its dead zone is
-not derivable. Worth fixing before this policy is asked to carry a whole roster.
+**The difficulty range is measured on one matchup.** Warrior against Brute, which
+is the fight the swing model was designed around and the one with the widest
+gradient in it. Whether `intellect` and `perception` buy as much against a Scout
+— seven ticks of telegraph, which is under a stock Warrior's reaction time — is
+not something the table above answers, and the honest guess is "much less".
+
+**~~One `standoff` gene cannot serve every body.~~** Answered.
+`Contact::min_strike_range` carries the threat's dead zone, so preferred range is
+chosen from the *threat's* geometry: the larger of "where my own blade starts to
+bite" and "where its blade stops biting", with `standoff` spending the distance
+out toward arm's length. Sometimes the second is beyond the first and there is a
+band in which a fighter can reach and cannot be reached — a Skitterer has about a
+twentieth of a unit of it against a Brute and a Warrior has none at all and must
+trade, which is a real asymmetry that falls straight out of the geometry.
+
+The gene came back at **0.000** in four independent evolution runs, which is the
+least ambiguous result the lab has produced and reads like an extreme until you
+notice it no longer means "how close to its body". It means how far outside the
+safest place you can still fight from to stand, and zero is the considered
+answer.
+
+The error in that read is asymmetric on purpose, and it is where most of the
+difficulty range lives. Guess the enemy's dead zone *low* and a policy's own
+floor protects you. Guess it *high* and you stand off a weapon you could have
+crowded, which against a Brute is four points a blow against thirty. A dim
+fighter respects a big weapon's reach and is killed by it.
 
 **The side a cut comes from is a decision the player cannot make.** `Strike`
 carries three options and the page only ever sends `Nearest`. Choosing the flank

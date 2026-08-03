@@ -83,7 +83,15 @@ impl Scenario {
         Scenario {
             name: format!("duel-{}-vs-{}", hero.name(), villain.name()),
             arena,
-            max_ticks: 90 * 60,
+            // Two and a half minutes, up from ninety seconds, for the same
+            // reason `skirmish` needed it: a duel is roughly a dozen landed
+            // blows a side now rather than three or four, so it takes about
+            // twice as long. At the old limit the tail of slow fights was being
+            // cut off mid-exchange, and because a disengaged fighter heals back
+            // to full, those came back as *ties* -- 20% of the dim end of the
+            // skill range was two fully-healed characters standing in opposite
+            // corners with the clock stopped.
+            max_ticks: 150 * 60,
             units: vec![
                 UnitSpec {
                     kind: hero,

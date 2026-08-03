@@ -215,11 +215,13 @@ fn player_orders_change_the_outcome_without_breaking_determinism() {
 /// ```
 ///
 /// -- or a portability bug, in which case do not.
-// Reset when the sword hand became a phase machine: damage is gated on the
-// strike window now, so the old value described a game in which a windmill
-// killed people. Every recorded run predating that change is void, which is why
-// this is a fresh number rather than a corrected one.
-const GOLDEN_STATE_HASH: u64 = 0x819f_17f8_ba25_e602;
+// Reset a second time, for the difficulty-range work: `strike_ticks` lets a
+// heavy weapon finish its swing, a shield has to be braced before it blocks
+// well, a whiffed cut and a punished recovery both cost, regeneration is
+// budgeted, and `Advance` is a patrol rather than a march into a wall. Every
+// recorded run predating that is void, so this is a fresh number rather than a
+// corrected one.
+const GOLDEN_STATE_HASH: u64 = 0xae9a_6935_cbcf_9785;
 
 #[test]
 fn golden_hash() {

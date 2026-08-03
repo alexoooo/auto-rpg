@@ -129,17 +129,21 @@ pub struct DuelistWeights {
     pub obedience: Fx,
     /// Health fraction below which it breaks off.
     pub caution: Fx,
-    /// **The gene that decides the Brute fight.** Where to fight, from `0` at
-    /// body contact to `1` at the end of its own reach.
+    /// **The gene that decides the Brute fight.** How much reach to buy with
+    /// exposure: `0` is the safest place this fighter can still strike from,
+    /// `1` is the end of its own arm.
     ///
-    /// Both ends are traps, which is why it is a gene and not a constant.
-    /// Damage rises with distance from the shoulder, so crowding in is the
-    /// strongest answer to a heavy weapon there is -- right up until it is the
-    /// answer to nothing, because past `min_strike_range` a fighter is inside
-    /// its *own* dead zone and cannot hurt what it is standing on top of. The
-    /// floor in [`DuelistPolicy::preferred_range`] is what keeps zero from being
-    /// suicide for the small archetypes, whose whole sword is shorter than a
-    /// Brute's dead zone.
+    /// It used to be measured from body contact, which made it a guess about
+    /// where the enemy's weapon stopped biting. That figure is now *derived*
+    /// from the perceived dead zone -- see `DuelistPolicy::preferred_range` --
+    /// so the gene means the trade rather than the guess: impact is linear in
+    /// the arm on both sides, so standing further out costs and pays at once.
+    ///
+    /// Four independent evolution runs against a Brute returned **0.000**, which
+    /// is the least ambiguous result the lab has produced and is not the corner
+    /// of the range it looks like: zero means "stand where its blade cannot
+    /// reach and mine just can", and against a heavy weapon that is simply the
+    /// right answer.
     pub standoff: Fx,
     /// Willingness to close the last of the distance to strike.
     pub lunge: Fx,
@@ -214,61 +218,60 @@ const GENE_RANGES: [(Fx, Fx); DUELIST_GENOME_LEN] = [
     (Fx::ZERO, Fx::ONE),                            // wall_fear
 ];
 
-/// The starting point, and no longer a hand-tuned one: these came out of
-/// `lab evolve` against the naive policy after the sword became a phase machine,
-/// and beat the hand-tuned set they replaced on held-out scenarios by 122 to 73.
+/// The starting point, from `lab evolve --arena duel --hero warrior --villain
+/// brute`, four independent runs of sixty generations.
 ///
-/// Three of them are worth reading, because evolution said things the author did
-/// not expect:
+/// **Two of these reverse what the previous set said, and the reversals are the
+/// point** -- they are the measurement that the mechanics underneath actually
+/// changed rather than merely moved.
 ///
-/// * `resolve` went to the very top of its range. With discrete attacks,
-///   changing your mind is far more expensive than it used to be -- a stance
-///   change can cancel a windup you have already paid most of the cost of.
-/// * `read_ahead` went to the *bottom* of its range. Reading a telegraph early
-///   is worth much less than it sounds against an opponent that declares
-///   something on nearly every tick: a fighter that answers all of them never
-///   throws a cut of its own. What matters is answering the ones about to land.
-/// * `guard` beat `evasion` by more than ten to one. Stepping off a cut is the
-///   more elegant answer and the shield is the more reliable one, because a
-///   guard that ends up on the wrong line still leaks only what it leaks, while
-///   a sidestep that reads the line wrong is a clean hit.
+/// * `read_ahead` went from the *bottom* of its range to the *top*. The old
+///   note here recorded, correctly for its time, that answering telegraphs was
+///   a losing strategy: a shield covered an arc or it did not, covering was
+///   instantaneous, and so reading a windup early bought nothing that flicking
+///   the guard across at the last moment did not also buy -- while costing every
+///   cut you did not throw. A guard has mass now
+///   ([`sim::Hand::braced`]), and the telegraph buys the one thing that was
+///   missing: time to *finish* moving. Reading early is the whole of blocking
+///   well.
+/// * `evasion` went from switched-off to real, and `punish` stayed high, for
+///   the matching reason. A cut that touches nothing now costs its owner twenty
+///   extra ticks of recovery, and a blow landing into a recovery does half again
+///   its damage -- so stepping off a line is no longer merely *not being hit*,
+///   it is the setup for the best exchange in the game.
 ///
-/// Three values are nudged off what evolution returned, and this is the honest
-/// note about it: `evasion`, `caution` and `wall_fear` came back at or near
-/// zero, which switches whole stances off. They are set low but non-zero
-/// instead, because a duel across sixteen scenarios is not the only thing this
-/// policy is asked to do, and a stance that never fires is a stance nobody will
-/// notice has rotted.
+/// `standoff` came back at **0.000** in all four runs, which is the least
+/// ambiguous result in the file and needs saying plainly: against a heavy
+/// weapon, stand as close as your own blade allows. It reads like an extreme and
+/// it is not one, because the gene no longer means "how close to its body" -- it
+/// means how far *outside the safest place you can still fight from* to stand,
+/// and that place is computed from the enemy's own dead zone. Zero is the
+/// considered answer, not the corner of the range; see
+/// `DuelistPolicy::preferred_range`.
 ///
-/// `standoff` remains the load-bearing one, and it has a trap at *each* end,
-/// which is the reason it is a gene rather than a constant.
-///
-/// A blade's speed rises with distance from the shoulder, so crowding inside a
-/// heavy weapon's arc is the safest place in the arena -- and crowd too far and
-/// you are inside your *own* minimum effective radius, where your blade cannot
-/// reach the impact threshold either. At 0.72 a Skitterer parked 1.0 from a
-/// Brute contacted at arm 0.31, worth 0.082 against a threshold of 0.09: a
-/// fighter that could not be hurt and could not hurt anything, which cost it
-/// fifty points of win rate against an opponent the baseline beats handily.
-/// 0.85 sits outside that on every archetype. The band between the two traps is
-/// what evolution is being asked to find.
+/// Two values are nudged off what evolution returned, and this is the honest
+/// note about it: `caution` and `sidestep` came back at 0.03 and 0.01, which
+/// switch off breaking away and turn an evade into backing straight into the
+/// swing. They are set low but real instead, because a duel against one
+/// archetype is not the only thing this policy is asked to do, and a stance that
+/// never fires is a stance nobody will notice has rotted.
 const BASELINE_VALUES: [Fx; DUELIST_GENOME_LEN] = [
-    Fx::from_ratio(1506, 1000), // aggression
-    Fx::from_ratio(218, 1000),  // bloodlust
-    Fx::from_ratio(2340, 1000), // obedience
-    Fx::from_ratio(120, 1000),  // caution
-    Fx::from_ratio(500, 1000),  // standoff
-    Fx::from_ratio(499, 1000),  // lunge
-    Fx::from_ratio(1892, 1000), // guard
-    Fx::from_ratio(300, 1000),  // read_ahead
-    Fx::from_ratio(150, 1000),  // evasion
-    Fx::from_ratio(951, 1000),  // sidestep
-    Fx::from_ratio(873, 1000),  // flank
-    Fx::from_ratio(2350, 1000), // punish
-    Fx::from_ratio(842, 1000),  // feint
+    Fx::from_ratio(1828, 1000), // aggression
+    Fx::from_ratio(1297, 1000), // bloodlust
+    Fx::from_ratio(1282, 1000), // obedience
+    Fx::from_ratio(100, 1000),  // caution
+    Fx::from_ratio(0, 1000),    // standoff
+    Fx::from_ratio(1000, 1000), // lunge
+    Fx::from_ratio(912, 1000),  // guard
+    Fx::from_ratio(3000, 1000), // read_ahead
+    Fx::from_ratio(759, 1000),  // evasion
+    Fx::from_ratio(200, 1000),  // sidestep
+    Fx::from_ratio(560, 1000),  // flank
+    Fx::from_ratio(2296, 1000), // punish
+    Fx::from_ratio(637, 1000),  // feint
     Fx::from_ratio(1000, 1000), // resolve
-    Fx::from_ratio(420, 1000),  // cohesion
-    Fx::from_ratio(100, 1000),  // wall_fear
+    Fx::from_ratio(719, 1000),  // cohesion
+    Fx::from_ratio(557, 1000),  // wall_fear
 ];
 
 impl DuelistWeights {
@@ -362,6 +365,10 @@ impl Default for DuelistWeights {
 struct Memory {
     target: EntityId,
     stance: Option<Stance>,
+    /// Which leg of its patrol this entity is on when nothing is in sight; see
+    /// [`crate::utility::Patrol`]. Deliberately *not* cleared when a stance is
+    /// forgotten -- losing sight of an enemy is precisely when it matters.
+    patrol: crate::utility::Patrol,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -455,7 +462,7 @@ impl DuelistPolicy {
     }
 
     /// Nothing in sight: do as the player asked.
-    fn march(&self, obs: &Observation) -> Action {
+    fn march(&self, obs: &Observation, patrol: &mut crate::utility::Patrol) -> Action {
         let heading = match obs.order {
             Order::Advance(dir) => dir.normalize(),
             Order::Regroup => self.ally_centre(obs).normalize(),
@@ -481,64 +488,58 @@ impl DuelistPolicy {
             Order::Hold | Order::Focus(_) => Vec2::ZERO,
         };
 
-        // Sweep along a wall rather than grinding into it.
-        let heading = if !heading.is_zero() {
-            let clearance = {
-                let horizontal = if heading.x.is_positive() {
-                    obs.wall_clearance[1]
-                } else {
-                    obs.wall_clearance[0]
-                };
-                let vertical = if heading.y.is_positive() {
-                    obs.wall_clearance[3]
-                } else {
-                    obs.wall_clearance[2]
-                };
-                horizontal * heading.x.abs() + vertical * heading.y.abs()
-            };
-            if clearance < Fx::from_int(2) {
-                let along = heading.perp();
-                if obs.wall_clearance[3] >= obs.wall_clearance[2] {
-                    along
-                } else {
-                    -along
-                }
-            } else {
-                heading
-            }
-        } else {
-            heading
-        };
+        // Turn at the wall and come back, rather than grinding into it. Shared
+        // with `UtilityPolicy` so that "advance" means one thing whichever
+        // policy is driving.
+        let heading = crate::utility::patrol_heading(obs, heading, patrol);
 
         Action::moving((heading + self.open_ground(obs)).clamp_length(Fx::ONE))
     }
 
     /// How far this duellist wants to be from `threat`'s centre.
     ///
-    /// Interpolated between the two distances that actually mean something --
-    /// body contact and the end of its own reach -- rather than taken as a
-    /// fraction of the second. The difference only shows up against a big
-    /// enemy, and there it decides the fight: scaling the whole distance scales
-    /// the *enemy's bulk* along with the blade, so 0.83 of `(own reach + Brute
-    /// radius)` puts a Skitterer at 1.17 when its body could be at 1.00, and a
-    /// Brute's blow at 1.17 is worth half again as much. Measured: the duellist
-    /// took a Skitterer to 14% against a Brute where the policy it is supposed
-    /// to beat scored 30%, purely by standing a sixth of a unit too far out.
+    /// Three distances decide this, and all three are computed rather than
+    /// guessed:
     ///
-    /// Interpolating instead makes the gene mean one legible thing at both ends
-    /// -- press in at zero, fight at the tip at one -- whatever the two bodies
-    /// happen to be.
+    /// * **The floor.** `min_strike_range x STRIKE_MARGIN + threat.radius` --
+    ///   inside this a fighter is within its *own* dead zone and cannot hurt
+    ///   what it is standing on top of. Exact, because proprioception is free.
+    /// * **The lee.** `threat.min_strike_range + obs.radius` -- inside this the
+    ///   enemy's blade cannot reach the impact threshold at the nearest surface
+    ///   of this body. **Perceived**, and this is the whole of what
+    ///   [`Contact::min_strike_range`] bought.
+    /// * **Arm's length.** The far end of its own reach, where its own blows
+    ///   land hardest and so do the enemy's.
+    ///
+    /// The safest place a fighter can still fight from is the larger of the
+    /// first two, and `standoff` spends the distance between there and arm's
+    /// length -- buying damage with exposure, since impact is linear in the arm
+    /// on *both* sides.
+    ///
+    /// Sometimes the lee is beyond the floor and there is a genuine band in
+    /// which a fighter can reach and cannot be reached. That band is not a
+    /// fiction and it is not the same for everybody: a Skitterer has about a
+    /// twentieth of a unit of it against a Brute, and a Warrior has none at all
+    /// and must trade. Reading which of those you are in is now a decision the
+    /// observation supports.
+    ///
+    /// The error is asymmetric on purpose, and it is where the difficulty
+    /// ladder lives. Underestimate the lee and the floor catches you.
+    /// Overestimate it and you stand off a weapon you could have crowded, which
+    /// against a Brute is four points a blow against thirty. A dim fighter
+    /// respects a big weapon's reach and is killed by it.
     fn preferred_range(&self, obs: &Observation, threat: &Contact) -> Fx {
-        let touching = obs.radius + threat.radius;
+        let floor = obs.min_strike_range * STRIKE_MARGIN + threat.radius;
+        let lee = threat.min_strike_range + obs.radius;
         let arms_length = obs.full_reach() + threat.radius;
-        let wanted = touching + (arms_length - touching) * self.weights.standoff;
-        // Never closer than its own blade can do anything from. Crowding in is
-        // the answer to a heavy weapon right up until it is the answer to
-        // nothing: past this line a fighter is inside its *own* dead zone,
-        // unable to hurt what it is standing on top of. The floor is what lets
-        // `standoff` be aggressive without being suicidal for the small
-        // archetypes, whose whole sword is shorter than a Brute's dead zone.
-        wanted.max(obs.min_strike_range * STRIKE_MARGIN + threat.radius)
+
+        let safest = lee.max(floor);
+        let wanted = safest + (arms_length - safest).max(Fx::ZERO) * self.weights.standoff;
+        // Clamped rather than merely floored: a wildly overestimated lee could
+        // otherwise park a fighter beyond its own reach, where it is being hit
+        // by something it cannot answer -- which is a way to lose, not a way to
+        // fight badly.
+        wanted.clamp(floor, arms_length.max(floor))
     }
 
     /// Scores every stance and returns the winner.
@@ -802,11 +803,13 @@ impl Policy for DuelistPolicy {
     fn decide(&mut self, obs: &Observation) -> Action {
         if obs.enemies().is_empty() {
             // Losing sight resets the read. Whatever it was doing was about a
-            // blade it can no longer see.
+            // blade it can no longer see. The patrol leg survives, because that
+            // is the memory this branch exists to use.
             let mut memory = self.recall(obs.me);
             memory.stance = None;
+            let action = self.march(obs, &mut memory.patrol);
             self.remember(obs.me, memory);
-            return self.march(obs);
+            return action;
         }
 
         let mut memory = self.recall(obs.me);
@@ -839,6 +842,10 @@ mod tests {
             hp_frac: Fx::ONE,
             radius: kind.radius(),
             weapon_length: kind.weapon().length,
+            // The real figure, unblurred: these fixtures are testing what a
+            // policy does with a correct read, and the tests that care about a
+            // wrong one set it themselves.
+            min_strike_range: sim::dead_zone(kind.weapon(), kind.base_stats().agility),
             facing: Angle::HALF,
             sword_angle: Angle::HALF,
             sword_reach: Fx::ONE,

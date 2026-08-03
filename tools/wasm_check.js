@@ -34,16 +34,16 @@ const BUILD = ["cargo", "build", "--release", "--target", "wasm32-unknown-unknow
 // is what tells the two failure modes apart -- see `divergence` below.
 
 // `lab hash`: skirmish(1234, 4, 6), seed 99, baseline policy, run to a finish.
-const LAB_HASH = 0x39bbe356c7f5035en;
+const LAB_HASH = 0xaeb2d6b13af22324n;
 
 // `init(1); set_goto(20_000, 12_000); step(600)`: the path a player drives.
-const ROOM_HASH = 0x4319613a79790090n;
+const ROOM_HASH = 0x8e5d50cea6522ac8n;
 
 // `init(1); spawn_monster(3); step(600)`: a whole fight, start to finish. Worth
 // its own number because it reaches arithmetic the walk never does -- the spawn
 // point comes out of `Rng::from_stream` and the committed sine table, and every
 // approach measures a distance through `isqrt64`.
-const BATTLE_HASH = 0x3cf07ce81931a060n;
+const BATTLE_HASH = 0xcacb1d600b10bd7bn;
 
 // `init(1); spawn_monster(2) x3; step(1800); swap_in_hero(1); step(400)`: a
 // fight, a death, a replacement, and the fight the replacement walks into. The
@@ -51,7 +51,7 @@ const BATTLE_HASH = 0x3cf07ce81931a060n;
 // sim across the death of an entity and the *reuse* of its slot -- the
 // generational free list is exactly the kind of index bookkeeping that a 32-bit
 // usize could quietly do differently.
-const SWAP_HASH = 0x79d7ad263b7a70d2n;
+const SWAP_HASH = 0x329b25923d73af1dn;
 
 // The frame header, as the client reads it.
 const HEADER_LEN = 7;

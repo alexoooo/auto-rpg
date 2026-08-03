@@ -1259,25 +1259,25 @@ mod tests {
     /// What `cargo run --release -p lab -- hash` prints today. Recorded rather
     /// than computed, so this test fails if the sim's behaviour moves at all --
     /// which is the point of having it here as well as in `sim`.
-    const LAB_HASH: u64 = 0x39bb_e356_c7f5_035e;
+    const LAB_HASH: u64 = 0xaeb2_d6b1_3af2_2324;
 
     /// What `init(1); set_goto(20_000, 12_000); step(600)` leaves behind.
     /// Recorded here natively; the same three calls against `web.wasm` under
     /// Node produce the same number, which is the first time this project's
     /// central claim has been checked across targets rather than asserted.
-    const ROOM_HASH: u64 = 0x4319_613a_7979_0090;
+    const ROOM_HASH: u64 = 0x8e5d_50ce_a652_2ac8;
 
     /// What `init(1); spawn_monster(3); step(600)` leaves behind -- a whole
     /// skirmish, start to finish, driven the way the page drives it. Recorded
     /// from a native run, never computed here, and asserted against `web.wasm`
     /// under Node by `tools/wasm_check.js`.
-    const BATTLE_HASH: u64 = 0x3cf0_7ce8_1931_a060;
+    const BATTLE_HASH: u64 = 0xcacb_1d60_0b10_bd7b;
 
     /// What `init(1); spawn_monster(2) x3; step(1800); swap_in_hero(1);
     /// step(400)` leaves behind -- a fight, a death, a replacement, and the
     /// fight it walks into. Recorded from a native run and asserted against
     /// `web.wasm` under Node by `tools/wasm_check.js`.
-    const SWAP_HASH: u64 = 0x79d7_ad26_3b7a_70d2;
+    const SWAP_HASH: u64 = 0x329b_2592_3d73_af1d;
 
     fn selftest() -> u64 {
         (u64::from(selftest_hash_hi()) << 32) | u64::from(selftest_hash_lo())
@@ -1343,8 +1343,8 @@ mod tests {
             "the selftest no longer runs what `lab hash` runs"
         );
         assert_eq!(selftest(), LAB_HASH, "the halves reassemble wrongly");
-        assert_eq!(selftest_hash_lo(), 0xc7f5_035e);
-        assert_eq!(selftest_hash_hi(), 0x39bb_e356);
+        assert_eq!(selftest_hash_lo(), 0x3af2_2324);
+        assert_eq!(selftest_hash_hi(), 0xaeb2_d6b1);
     }
 
     #[test]

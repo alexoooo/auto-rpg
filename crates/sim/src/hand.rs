@@ -180,6 +180,19 @@ pub struct Hand {
     /// Which way the running attack wound up: `+1` counter-clockwise, `-1`
     /// clockwise. The cut travels the other way.
     pub side: i8,
+    /// Consecutive ticks this hand has been settled: extended, and turning
+    /// slower than [`crate::BRACE_SPIN`].
+    ///
+    /// Only the shield reads it, and it is what makes a guard something you
+    /// *place* rather than something you have. A shield still travelling toward
+    /// the bearing a blow is about to arrive on leaks
+    /// [`crate::BLOCK_LEAK_SNAP`] of it; one planted for [`crate::BRACE_TICKS`]
+    /// leaks [`crate::BLOCK_LEAK_BRACED`]. The whole value of reading a
+    /// telegraph early is here -- see [`crate::block_leak`].
+    ///
+    /// Carried on both hands for the same reason [`Hand::swing`] is: one type at
+    /// the boundary beats two that differ by a field.
+    pub braced: u16,
     /// Whether a strike command would be honoured.
     ///
     /// Cleared when an attack begins and set by any command that is not asking
@@ -209,8 +222,23 @@ impl Hand {
             swing_left: 0,
             line: bearing,
             side: 1,
+            // A fresh character is on guard rather than caught mid-movement, so
+            // its shield starts planted. Spawning everyone with a snap-block
+            // penalty would charge the first exchange of every fight for a
+            // motion nobody made.
+            braced: rules::BRACE_TICKS,
             armed: true,
         }
+    }
+
+    /// How braced this hand is, `0..=1`. What [`crate::block_leak`] interpolates
+    /// over, and what the feature vector carries.
+    #[inline]
+    pub fn brace_fraction(self) -> Fx {
+        Fx::from_ratio(
+            self.braced.min(rules::BRACE_TICKS) as i32,
+            rules::BRACE_TICKS as i32,
+        )
     }
 
     /// How far through the current phase this hand is, `0..=1`, where `1` is
@@ -223,7 +251,7 @@ impl Hand {
         let full = match self.swing {
             Swing::Guard => return Fx::ONE,
             Swing::Windup => rules::phase_ticks(weapon.windup, agility),
-            Swing::Strike => rules::STRIKE_TIMEOUT,
+            Swing::Strike => rules::strike_ticks(weapon, agility),
             Swing::Recover => rules::phase_ticks(weapon.recovery, agility),
         };
         if full == 0 {
@@ -299,7 +327,7 @@ impl Hand {
                 self.swing_left = self.swing_left.saturating_sub(1);
                 if self.swing_left == 0 {
                     self.swing = Swing::Strike;
-                    self.swing_left = rules::STRIKE_TIMEOUT;
+                    self.swing_left = rules::strike_ticks(weapon, agility);
                     self.strike_target()
                 } else {
                     self.windup_target()
@@ -312,7 +340,12 @@ impl Hand {
                 // committing would make overcommitting free.
                 self.swing_left = self.swing_left.saturating_sub(1);
                 if self.swing_left == 0 || self.is_spent() {
-                    self.recover(weapon, agility, 0);
+                    // **Reaching here at all means the cut touched nothing.** A
+                    // blow, a block and a parry all end the strike from
+                    // `World::apply_impulses` on the tick they land, so a swing
+                    // that survives to run out its own arc is by construction a
+                    // swing that met no one -- no flag needed to know it.
+                    self.recover(weapon, agility, rules::WHIFF_RECOVERY);
                     (cmd.angle, rules::GUARD_REACH)
                 } else {
                     self.strike_target()
@@ -435,6 +468,18 @@ impl Hand {
         let rate = weapon.extend_rate * agility;
         let gap = want_reach - self.reach;
         self.reach = (self.reach + gap.clamp(-rate, rate)).clamp(Fx::ZERO, Fx::ONE);
+
+        // Settled, or travelling. Read off the state *after* this tick's motion,
+        // so a hand that has just been given a new bearing is unbraced on the
+        // same tick the command arrived rather than one tick later -- the whole
+        // mechanic is about a blow that lands during the move, and a tick of
+        // grace at the front is a tick of free cover.
+        self.braced = if self.spin.abs() <= rules::BRACE_SPIN && self.reach >= rules::MIN_BLOCK_REACH
+        {
+            self.braced.saturating_add(1)
+        } else {
+            0
+        };
     }
 
     pub(crate) fn hash_into(self, h: &mut fx::Hash64) {
@@ -449,6 +494,7 @@ impl Hand {
         h.write_u16(self.swing_left);
         h.write_u16(self.line.raw());
         h.write_u8(self.side as u8);
+        h.write_u16(self.braced);
         h.write_u8(self.armed as u8);
     }
 }
@@ -560,7 +606,7 @@ mod tests {
         // it is moving hard as it goes through.
         let mut fastest = Fx::ZERO;
         let mut crossed = false;
-        for _ in 0..rules::STRIKE_TIMEOUT {
+        for _ in 0..rules::strike_ticks(weapon, agility) {
             hand.wield(cut(0), weapon, agility);
             if hand.angle.delta(Angle::ZERO).signum() != cocked.signum() {
                 crossed = true;
@@ -689,6 +735,156 @@ mod tests {
             recovering >= 30,
             "a Brute recovered from a spent cut in {recovering} ticks, \
              which is no punish window at all"
+        );
+    }
+
+    #[test]
+    fn every_weapon_can_finish_the_swing_it_starts() {
+        // **The invariant `strike_ticks` exists to hold**, and the bug it was
+        // written to fix. A flat 45-tick strike window is fine for a Warrior and
+        // nowhere near enough for a Brute: an extended blade turns at
+        // `torque * agility * (1 - REACH_DRAG)`, which is 20.6 raw units per
+        // tick squared for a Brute against 23,040 units of arc to cover, so
+        // every heavy cut in the game was cut off eight degrees short of its own
+        // line, mid-acceleration, having never crossed the point it was aimed
+        // at. The archetype could only hurt what it met on the *approach* side
+        // of its arc -- which is why standing in front of one was safe, and why
+        // the whole difficulty range sat above 60%.
+        for kind in UnitKind::ALL {
+            let weapon = kind.weapon();
+            let agility = agility_of(kind);
+            let mut hand = Hand::resting(Angle::ZERO);
+            for _ in 0..rules::phase_ticks(weapon.windup, agility) {
+                hand.wield(cut(0), weapon, agility);
+            }
+            assert_eq!(hand.swing, Swing::Windup, "{}", kind.name());
+
+            // Run the cut out. It must end because it is *spent* -- it reached
+            // `STRIKE_SPENT_ARC` past its own line -- and not because the clock
+            // on it ran out, which is what the flat constant used to guarantee
+            // for the two heavy archetypes.
+            let window = rules::strike_ticks(weapon, agility);
+            let mut ticks = 0;
+            let mut furthest = 0;
+            while hand.swing != Swing::Recover && ticks < 400 {
+                hand.wield(cut(0), weapon, agility);
+                furthest = furthest.max(hand.angle.delta(Angle::ZERO) * -(hand.side as i32));
+                ticks += 1;
+            }
+            assert_eq!(hand.swing, Swing::Recover, "{} never finished", kind.name());
+            assert!(
+                ticks < window as i32,
+                "a {} cut used all {window} ticks of its window, which means it \
+                 was stopped by the clock rather than by finishing",
+                kind.name()
+            );
+            assert!(
+                furthest >= rules::STRIKE_SPENT_ARC,
+                "a {} cut reached {furthest} raw units past its line, short of \
+                 the {} it is supposed to travel",
+                kind.name(),
+                rules::STRIKE_SPENT_ARC
+            );
+        }
+    }
+
+    #[test]
+    fn a_cut_that_touches_nothing_pays_for_it() {
+        // The price of a miss and the reward for a dodge, and the two are the
+        // same rule read from opposite sides. A swing that runs its whole arc
+        // has by construction met no one -- a blow, a block and a parry all end
+        // it early from `World::apply_impulses` -- so the recovery it earns is
+        // the weapon's own plus `WHIFF_RECOVERY`.
+        let kind = UnitKind::Warrior;
+        let weapon = kind.weapon();
+        let agility = agility_of(kind);
+
+        let mut hand = Hand::resting(Angle::ZERO);
+        while hand.swing != Swing::Recover {
+            hand.wield(cut(0), weapon, agility);
+        }
+        let whiffed = hand.swing_left;
+
+        // Against a cut stopped on contact, which is what the world hands back.
+        let mut connected = Hand::resting(Angle::ZERO);
+        while connected.swing != Swing::Strike {
+            connected.wield(cut(0), weapon, agility);
+        }
+        connected.recover(weapon, agility, 0);
+
+        assert!(
+            whiffed > connected.swing_left,
+            "a cut that hit nothing recovered in {whiffed} ticks against {} for \
+             one that landed -- missing is supposed to cost more than hitting",
+            connected.swing_left
+        );
+    }
+
+    #[test]
+    fn a_guard_has_to_be_planted_before_it_is_worth_anything() {
+        // What makes reading a telegraph pay. A shield still travelling toward
+        // the bearing a blow arrives on leaks `BLOCK_LEAK_SNAP`; one that has
+        // been there for `BRACE_TICKS` leaks `BLOCK_LEAK_BRACED`. Without this
+        // the two are the same shield and answering a windup early buys nothing
+        // that flicking the guard across at the last instant does not.
+        let kind = UnitKind::Warrior;
+        let weapon = kind.weapon();
+        let agility = agility_of(kind);
+
+        // Settled on a bearing, extended, for a good while.
+        let planted = brace(kind, guard(0), 120);
+        assert_eq!(planted.braced.min(rules::BRACE_TICKS), rules::BRACE_TICKS);
+        assert_eq!(rules::block_leak(planted.braced), rules::BLOCK_LEAK_BRACED);
+
+        // Now fling it a quarter turn. A hand has mass, so it takes a few ticks
+        // to get up to speed -- and once it is moving it is not a guard.
+        let mut swinging = planted;
+        for _ in 0..6 {
+            swinging.brace(guard(90), weapon, agility);
+        }
+        assert_eq!(swinging.braced, 0, "a hand thrown across counted as braced");
+        assert_eq!(rules::block_leak(swinging.braced), rules::BLOCK_LEAK_SNAP);
+        assert!(rules::BLOCK_LEAK_SNAP > rules::BLOCK_LEAK_BRACED * Fx::TWO);
+
+        // ...and it plants again once it arrives.
+        for _ in 0..200 {
+            swinging.brace(guard(90), weapon, agility);
+        }
+        assert!(swinging.braced >= rules::BRACE_TICKS);
+        assert_eq!(rules::block_leak(swinging.braced), rules::BLOCK_LEAK_BRACED);
+
+        // The whole point, stated as the number a defender actually pays: a
+        // guard that arrives with the blow lets through more than five times
+        // what a planted one does.
+        assert!(
+            rules::block_leak(0) > rules::block_leak(rules::BRACE_TICKS) * Fx::from_int(5),
+            "bracing barely matters, so reading a telegraph early buys nothing"
+        );
+    }
+
+    #[test]
+    fn a_guard_tracking_a_walking_enemy_stays_braced() {
+        // The other half of the bracing rule, and the one that keeps it from
+        // being a flat nerf to blocking. A fighter whose enemy is merely moving
+        // has to turn its guard a little every tick, and if that counted as
+        // "still travelling" then nobody would ever be braced and the mechanic
+        // would say nothing about skill. `BRACE_SPIN` is loose enough to cover
+        // ordinary tracking and far below the thousand-odd a re-aim runs at.
+        let kind = UnitKind::Warrior;
+        let weapon = kind.weapon();
+        let agility = agility_of(kind);
+        let mut hand = brace(kind, guard(0), 120);
+
+        // Two degrees a tick is a brisk orbit at close quarters.
+        let mut bearing = 0;
+        for _ in 0..200 {
+            bearing += 2;
+            hand.brace(guard(bearing), weapon, agility);
+        }
+        assert!(
+            hand.braced >= rules::BRACE_TICKS,
+            "a guard following a walking enemy lost its brace ({} ticks)",
+            hand.braced
         );
     }
 

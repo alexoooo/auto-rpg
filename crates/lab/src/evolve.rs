@@ -1,7 +1,39 @@
 use crate::fitness::{fitness, Summary};
 use fx::{Fx, Rng};
 use policy::{run, PolicyKind, RunConfig, TeamPolicy, MAX_GENOME_LEN};
-use sim::Scenario;
+use sim::{Scenario, UnitKind};
+
+/// What kind of fight a candidate is scored on.
+///
+/// Evolution used to score skirmishes and nothing else, which measures "good in
+/// a melee" and quietly leaves the *duel* -- the fight the whole swing model was
+/// built for, and the one every claim in `DESIGN.md` is stated about -- to be
+/// tuned by hand afterwards. The two want different things: spacing that is
+/// right against a line of Skitterers is wrong against one Brute, and a genome
+/// evolved on crowds will happily sit at a range no duellist should accept.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Arena {
+    Skirmish { heroes: u32, monsters: u32 },
+    Duel { hero: UnitKind, villain: UnitKind },
+}
+
+impl Arena {
+    fn scenario(self, seed: u64) -> Scenario {
+        match self {
+            Arena::Skirmish { heroes, monsters } => Scenario::skirmish(seed, heroes, monsters),
+            Arena::Duel { hero, villain } => Scenario::duel_of(hero, villain, seed),
+        }
+    }
+
+    pub fn describe(self) -> String {
+        match self {
+            Arena::Skirmish { heroes, monsters } => format!("{heroes}v{monsters} skirmishes"),
+            Arena::Duel { hero, villain } => {
+                format!("{} vs {} duels", hero.name(), villain.name())
+            }
+        }
+    }
+}
 
 /// A genome, sized for the largest policy in the crate.
 ///
@@ -25,8 +57,8 @@ pub struct EvolveConfig {
     pub sigma: Fx,
     pub threads: usize,
     pub master_seed: u64,
-    pub heroes: u32,
-    pub monsters: u32,
+    /// The fight candidates are scored on.
+    pub arena: Arena,
     /// Which policy is being evolved, and what it is being evolved against.
     pub kind: PolicyKind,
     pub opponent: PolicyKind,
@@ -42,8 +74,10 @@ impl Default for EvolveConfig {
             sigma: Fx::from_ratio(12, 100),
             threads: 4,
             master_seed: 1,
-            heroes: 4,
-            monsters: 6,
+            arena: Arena::Skirmish {
+                heroes: 4,
+                monsters: 6,
+            },
             kind: PolicyKind::Utility,
             opponent: PolicyKind::Utility,
         }
@@ -141,7 +175,7 @@ pub fn evaluate(genome: &Genome, seeds: &[u64], config: &EvolveConfig) -> Fx {
     let mut total: i64 = 0;
 
     for &seed in seeds {
-        let scenario = Scenario::skirmish(seed, config.heroes, config.monsters);
+        let scenario = config.arena.scenario(seed);
         let team = TeamPolicy::new(&mut candidate, &mut incumbent);
         total += fitness(&run(&scenario, seed, team, &run_config)).raw() as i64;
     }
@@ -216,8 +250,7 @@ mod tests {
             sigma: Fx::from_ratio(2, 10),
             threads: 1,
             master_seed: 4242,
-            heroes: 2,
-            monsters: 2,
+            arena: Arena::Skirmish { heroes: 2, monsters: 2 },
             ..EvolveConfig::default()
         };
         let single = evolve(&base);
@@ -228,8 +261,7 @@ mod tests {
     #[test]
     fn identical_genomes_score_identically() {
         let config = EvolveConfig {
-            heroes: 3,
-            monsters: 3,
+            arena: Arena::Skirmish { heroes: 3, monsters: 3 },
             ..EvolveConfig::default()
         };
         let genome = config.kind.spec().baseline_genome();
@@ -252,8 +284,7 @@ mod tests {
                 elite: 1,
                 seeds: 1,
                 threads: 1,
-                heroes: 2,
-                monsters: 2,
+                arena: Arena::Skirmish { heroes: 2, monsters: 2 },
                 kind,
                 ..EvolveConfig::default()
             };
@@ -275,8 +306,7 @@ mod tests {
         // draw beat it in generation 0 of the first run of `lab evolve`, which
         // is a fact about how good eight hand-picked numbers are, not a bug.
         let config = EvolveConfig {
-            heroes: 4,
-            monsters: 4,
+            arena: Arena::Skirmish { heroes: 4, monsters: 4 },
             ..EvolveConfig::default()
         };
         let seeds: Vec<u64> = (0..6).collect();
@@ -313,8 +343,7 @@ mod tests {
             sigma: Fx::from_ratio(15, 100),
             threads: 2,
             master_seed: 7,
-            heroes: 4,
-            monsters: 4,
+            arena: Arena::Skirmish { heroes: 4, monsters: 4 },
             ..EvolveConfig::default()
         };
         let evolved = evolve(&config);

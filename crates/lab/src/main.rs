@@ -17,7 +17,7 @@ mod evolve;
 mod fitness;
 
 use args::Args;
-use evolve::{describe, evolve, EvolveConfig};
+use evolve::{describe, evolve, Arena, EvolveConfig};
 use fitness::{fitness, Summary, Tally};
 use fx::Fx;
 use policy::{run, PolicyKind, RunConfig, RunResult};
@@ -64,8 +64,10 @@ fn usage() {
           can beat a brute\" stops being an opinion.
 
   evolve  --gens N --pop N --elite N --seeds N --sigma-pct N --threads N
-          --policy P --opponent P
-          Evolves a policy's weights against a hand-tuned opponent.
+          --policy P --opponent P --arena skirmish|duel --hero KIND --villain KIND
+          Evolves a policy's weights against a hand-tuned opponent. The arena
+          decides what \"better\" means: a genome tuned on crowds keeps a spacing
+          no duellist should accept, and vice versa.
 
   KIND is one of warrior, scout, brute, skitterer.
   P    is one of utility, duelist, idle, random."
@@ -378,18 +380,31 @@ fn evolution(args: &Args) {
         sigma: Fx::from_ratio(args.u32("sigma-pct", 12) as i32, 100),
         threads: args.usize("threads", default_threads()),
         master_seed: args.number("master-seed", 1),
-        heroes: args.u32("heroes", 4),
-        monsters: args.u32("monsters", 6),
+        // Skirmish by default, because that is what every genome in the
+        // repository was measured on; `--arena duel` scores the fight the swing
+        // model was actually built for.
+        arena: if args.choice("arena", 0u32, &[("skirmish", 0), ("duel", 1)]) == 1 {
+            Arena::Duel {
+                hero: args.choice("hero", UnitKind::Warrior, &KINDS),
+                villain: args.choice("villain", UnitKind::Brute, &KINDS),
+            }
+        } else {
+            Arena::Skirmish {
+                heroes: args.u32("heroes", 4),
+                monsters: args.u32("monsters", 6),
+            }
+        },
         kind: args.choice("policy", PolicyKind::Utility, &POLICIES),
         opponent: args.choice("opponent", PolicyKind::Utility, &POLICIES),
     };
 
     println!(
-        "evolving {} {} genomes for {} generations, {} scenarios each, sigma {}",
+        "evolving {} {} genomes for {} generations, {} {} each, sigma {}",
         config.population,
         config.kind.name(),
         config.generations,
         config.seeds,
+        config.arena.describe(),
         config.sigma
     );
     println!("opponent: the hand-tuned {}\n", config.opponent.name());

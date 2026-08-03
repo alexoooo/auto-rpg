@@ -278,6 +278,10 @@ mod tests {
             hp_frac: Fx::ONE,
             radius: Fx::from_ratio(45, 100),
             weapon_length: Fx::from_ratio(95, 100),
+            min_strike_range: sim::dead_zone(
+                UnitKind::Warrior.weapon(),
+                UnitKind::Warrior.base_stats().agility,
+            ),
             facing: Angle::ZERO,
             sword_angle: Angle::ZERO,
             sword_reach: Fx::ONE,

@@ -118,7 +118,10 @@ pub fn run(
     }
 
     RunResult {
-        outcome: world.outcome().unwrap_or(Outcome::Draw),
+        // A fight that ran out of clock is scored on points rather than thrown
+        // away; see `World::timeout`. `Outcome::Draw` still comes back for a
+        // genuine tie, so "the two sides never found each other" stays visible.
+        outcome: world.outcome().unwrap_or_else(|| world.timeout()),
         ticks,
         state_hash: world.state_hash(),
         hero_health: world.health_fraction(Faction::Heroes),

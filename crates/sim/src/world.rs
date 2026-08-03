@@ -13,7 +13,10 @@ pub enum Outcome {
     MonstersWin,
     /// Everyone died on the same tick.
     MutualDestruction,
-    /// Hit the scenario's tick limit with both sides standing.
+    /// The tick limit arrived with both sides standing, and the side holding
+    /// more of its health took the fight on points. See [`World::timeout`].
+    Decision(Faction),
+    /// The tick limit arrived and the two sides were level.
     Draw,
 }
 
@@ -22,8 +25,18 @@ impl Outcome {
         match self {
             Outcome::HeroesWin => Some(Faction::Heroes),
             Outcome::MonstersWin => Some(Faction::Monsters),
+            Outcome::Decision(faction) => Some(faction),
             _ => None,
         }
+    }
+
+    /// Whether the fight ended because somebody died rather than because the
+    /// clock ran out. A decision is a win; it is not the same win.
+    pub const fn is_decisive(self) -> bool {
+        matches!(
+            self,
+            Outcome::HeroesWin | Outcome::MonstersWin | Outcome::MutualDestruction
+        )
     }
 }
 
@@ -62,6 +75,9 @@ pub struct World {
     last_attacker: Vec<EntityId>,
     /// Tick of the last blow dealt or received; gates regeneration.
     last_combat: Vec<u32>,
+    /// Health this unit may still regenerate this fight. See
+    /// [`rules::REGEN_BUDGET`].
+    regen_left: Vec<Fx>,
     damage_dealt: Vec<Fx>,
 
     free: Vec<u32>,
@@ -126,6 +142,7 @@ impl World {
             action: Vec::with_capacity(n),
             last_attacker: Vec::with_capacity(n),
             last_combat: Vec::with_capacity(n),
+            regen_left: Vec::with_capacity(n),
             damage_dealt: Vec::with_capacity(n),
             free: Vec::new(),
             events: Vec::new(),
@@ -163,6 +180,7 @@ impl World {
                 self.action.push(Action::HOLD);
                 self.last_attacker.push(EntityId::NONE);
                 self.last_combat.push(0);
+                self.regen_left.push(Fx::ZERO);
                 self.damage_dealt.push(Fx::ZERO);
                 self.start_pos.push(Vec2::ZERO);
                 self.generation.len() - 1
@@ -191,6 +209,7 @@ impl World {
         self.action[i] = Action::HOLD;
         self.last_attacker[i] = EntityId::NONE;
         self.last_combat[i] = self.tick;
+        self.regen_left[i] = max_hp * rules::REGEN_BUDGET;
         self.damage_dealt[i] = Fx::ZERO;
         self.id_of(i)
     }
@@ -231,19 +250,7 @@ impl World {
         obs.radius = self.radius[i];
         obs.weapon_length = weapon.length;
         obs.shield_arc = weapon.shield_arc;
-        // Impact is linear in the arm, so the whole speed curve is fixed by one
-        // point on it: whatever the blade manages at one unit of reach scales
-        // exactly. Inverting that gives the radius inside which no swing of
-        // this weapon can reach the threshold at all.
-        obs.min_strike_range = {
-            let ceiling = weapon.max_spin * rules::agility_multiplier(stats.agility);
-            let at_one_unit = fx::tangential_speed(ceiling, Fx::ONE);
-            if at_one_unit.is_positive() {
-                rules::IMPACT_THRESHOLD / at_one_unit
-            } else {
-                Fx::MAX
-            }
-        };
+        obs.min_strike_range = self.dead_zone(i);
         obs.hands = self.hands[i];
         obs.sight_range = stats.sight_range();
         obs.move_speed = stats.move_speed();
@@ -388,6 +395,20 @@ impl World {
     /// Out-of-combat recovery. See [`crate::rules::REGEN_PER_TICK`] for why
     /// this rule exists at all -- it is what makes retreating a tactic instead
     /// of a way to stall a fight forever.
+    ///
+    /// **Out of combat means out of contact, not merely out of range.** Timing
+    /// it from the last blow alone was the obvious reading and it quietly
+    /// undoes the difficulty range: an exchange takes a couple of seconds and
+    /// [`crate::rules::REGEN_DELAY`] is three, so two fighters circling each
+    /// other at arm's length heal between every trade. A bad fighter therefore
+    /// could not be ground down -- it could only be caught -- and the whole
+    /// bottom of the skill ladder came out as timeouts rather than defeats. It
+    /// also read badly: characters visibly closing their wounds while an enemy
+    /// stood four feet away, sword drawn.
+    ///
+    /// Breaking line of sight is a much higher bar and it is the one the rule
+    /// always meant. Retreating still works, and it now has to be a real
+    /// retreat.
     fn regenerate(&mut self) {
         for i in 0..self.alive.len() {
             if !self.alive[i] || self.hp[i] >= self.max_hp[i] {
@@ -396,9 +417,40 @@ impl World {
             if self.tick < self.last_combat[i].saturating_add(crate::rules::REGEN_DELAY) {
                 continue;
             }
-            let healed = self.hp[i] + self.max_hp[i] * crate::rules::REGEN_PER_TICK;
-            self.hp[i] = healed.min(self.max_hp[i]);
+            if self.enemy_in_sight(i) {
+                continue;
+            }
+            // Bounded for the whole fight, not per rest: see
+            // `rules::REGEN_BUDGET`. Without the budget a beaten fighter can
+            // walk away, wait, and un-lose the exchange, and the fight has no
+            // reason ever to end.
+            let tick_heal = (self.max_hp[i] * crate::rules::REGEN_PER_TICK)
+                .min(self.regen_left[i])
+                .min(self.max_hp[i] - self.hp[i]);
+            if !tick_heal.is_positive() {
+                continue;
+            }
+            self.hp[i] += tick_heal;
+            self.regen_left[i] -= tick_heal;
         }
+    }
+
+    /// Whether anything hostile stands inside `i`'s own sight range.
+    ///
+    /// Ground truth rather than perception: this is a rule about the world, not
+    /// a decision the character makes, and a fighter that healed because it had
+    /// failed to notice the enemy would be rewarded for its blind spot.
+    fn enemy_in_sight(&self, i: usize) -> bool {
+        let sight = self.stats[i].sight_range();
+        for j in 0..self.alive.len() {
+            if j == i || !self.alive[j] || self.faction[j] == self.faction[i] {
+                continue;
+            }
+            if (self.pos[j] - self.pos[i]).length() <= sight {
+                return true;
+            }
+        }
+        false
     }
 
     fn apply_movement(&mut self) {
@@ -632,9 +684,21 @@ impl World {
                     continue; // resting, withdrawing, or merely leaning on them
                 }
 
-                let full = weapon.weight * over * rules::IMPACT_TO_DAMAGE * power;
-                let blocked = self.blocks(j, hit.point);
-                let amount = if blocked { full * rules::BLOCK_LEAK } else { full };
+                let mut full = weapon.weight * over * rules::IMPACT_TO_DAMAGE * power;
+                // A body committed to a spent swing is turned into the blow and
+                // cannot give ground with it. This is the only term in the
+                // damage model that depends on what the *target* is doing, and
+                // it is what makes timing an attack worth more than throwing
+                // one; see `rules::RECOVERY_EXPOSURE`.
+                if self.hands[j][SWORD].swing == Swing::Recover {
+                    full *= rules::RECOVERY_EXPOSURE;
+                }
+                let leak = self.block_leak(j, hit.point);
+                let blocked = leak.is_some();
+                let amount = match leak {
+                    Some(fraction) => full * fraction,
+                    None => full,
+                };
                 self.blows.push(Blow {
                     source: i,
                     target: j,
@@ -804,6 +868,35 @@ impl World {
         }
     }
 
+    /// How a fight that reached its tick limit is scored: on points, to
+    /// whichever side is holding more of the health it started with.
+    ///
+    /// A draw was the honest answer while the clock was the only thing that
+    /// could end a fight neither side was winning. It is the wrong answer for a
+    /// *difficulty* ladder, because every step down that ladder converts a loss
+    /// into a timeout rather than into a defeat: measured, a Warrior slowed to a
+    /// 40-tick decision period drew 12% of its fights and one slowed to 60 drew
+    /// 20%, so the bottom of the range stopped being "loses" and became
+    /// "wanders off". A fighter that spent two and a half minutes being carved
+    /// up has lost, and saying so costs nothing and reclaims the whole bottom of
+    /// the range.
+    ///
+    /// A genuine tie is still a [`Outcome::Draw`], and
+    /// [`Outcome::is_decisive`] still tells the two apart -- a decision is a
+    /// win, and it is not the same win as a kill. `lab::fitness` prices it
+    /// accordingly, or evolution would learn to chip once and run out the clock.
+    pub fn timeout(&self) -> Outcome {
+        let heroes = self.health_fraction(Faction::Heroes);
+        let monsters = self.health_fraction(Faction::Monsters);
+        if heroes > monsters {
+            Outcome::Decision(Faction::Heroes)
+        } else if monsters > heroes {
+            Outcome::Decision(Faction::Monsters)
+        } else {
+            Outcome::Draw
+        }
+    }
+
     pub fn alive_count(&self, faction: Faction) -> usize {
         (0..self.alive.len())
             .filter(|&i| self.alive[i] && self.faction[i] == faction)
@@ -902,6 +995,7 @@ impl World {
             }
             h.write_u32(self.next_decision[i]);
             h.write_u32(self.last_combat[i]);
+            h.write_i32(self.regen_left[i].raw());
             h.write_i32(self.damage_dealt[i].raw());
             self.action[i].hash_into(&mut h);
         }
@@ -930,6 +1024,20 @@ impl World {
         (self.hp[i] / self.max_hp[i]).clamp(Fx::ZERO, Fx::ONE)
     }
 
+    /// The radius inside which no swing of `i`'s weapon can reach
+    /// [`rules::IMPACT_THRESHOLD`], however hard it is thrown.
+    ///
+    /// Impact is linear in the arm, so the whole speed curve is fixed by one
+    /// point on it: whatever the blade manages at one unit of reach scales
+    /// exactly. Inverting that gives the dead zone.
+    ///
+    /// Reported to its owner exactly ([`Observation::min_strike_range`] -- a
+    /// fighter knows how hard it can swing) and to everyone else blurred
+    /// ([`Contact::min_strike_range`] -- judging someone else's is the skill).
+    fn dead_zone(&self, i: usize) -> Fx {
+        rules::dead_zone(self.kind[i].weapon(), self.stats[i].agility)
+    }
+
     /// `i`'s blade as a world-space segment, base to tip, or `None` if the hand
     /// is too tucked to be a hitbox.
     ///
@@ -946,22 +1054,31 @@ impl World {
         Some((base, tip))
     }
 
-    /// Whether `j`'s shield covers the bearing `contact` arrives from.
+    /// How much of a blow arriving at `contact` gets past `j`'s guard, or
+    /// `None` if the shield does not cover that bearing at all.
     ///
-    /// Pure integer comparison on binary angles -- no trigonometry, no
-    /// tolerance, exact. The arc scales with extension, so a tucked shield
-    /// covers nothing and a braced one covers its weapon's full width.
-    fn blocks(&self, j: usize, contact: Vec2) -> bool {
+    /// *Whether* it covers is a pure integer comparison on binary angles -- no
+    /// trigonometry, no tolerance, exact -- and the arc scales with extension,
+    /// so a tucked shield covers nothing and an extended one covers its
+    /// weapon's full width.
+    ///
+    /// *How well* it covers is the newer half, and it is a question about time
+    /// rather than about geometry: a shield still swinging toward the bearing
+    /// is barely in the way of anything. See [`rules::block_leak`].
+    fn block_leak(&self, j: usize, contact: Vec2) -> Option<Fx> {
         let shield = self.hands[j][SHIELD];
         if shield.reach < rules::MIN_BLOCK_REACH {
-            return false;
+            return None;
         }
         let out = contact - self.pos[j];
         if out.is_zero() {
-            return false; // struck dead centre: no bearing to cover
+            return None; // struck dead centre: no bearing to cover
         }
         let arc = Fx::from_int(self.kind[j].weapon().shield_arc as i32) * shield.reach;
-        shield.angle.delta(out.angle()).abs() <= arc.round_int()
+        if shield.angle.delta(out.angle()).abs() > arc.round_int() {
+            return None;
+        }
+        Some(rules::block_leak(shield.braced))
     }
 
     /// How hard `i`'s blade is travelling through `j`'s body at `contact`.
@@ -1013,6 +1130,13 @@ impl World {
         let mut sword_line = hands[SWORD].line;
         let mut sword_left = Fx::from_int(hands[SWORD].swing_left as i32);
         let mut shield_angle = hands[SHIELD].angle;
+        let mut min_strike_range = self.dead_zone(target);
+
+        // How hard someone else can swing does not get easier to judge as you
+        // close, so this one error is taken from the raw stat before the range
+        // scaling below touches it. Captured here because that line shadows
+        // `noise`; see `Contact::min_strike_range` for the argument.
+        let judgement = noise * rules::DEAD_ZONE_JUDGEMENT;
 
         // Error grows with range. A flat error is the obvious model and it is
         // wrong in a way that only shows up once aiming is geometric: half a
@@ -1059,6 +1183,14 @@ impl World {
             // it. Clamped at zero because a negative count would read as a cut
             // that already landed.
             sword_left = (sword_left + rng.gaussian(noise * Fx::from_int(8))).max(Fx::ZERO);
+
+            // Proportional rather than absolute: a long weapon has a long dead
+            // zone and misjudging it by a fixed distance would make the biggest
+            // weapons the easiest to read, which is backwards. Floored at zero
+            // because a negative dead zone reads as a blade that is dangerous
+            // from inside its own hilt.
+            min_strike_range =
+                (min_strike_range + rng.gaussian(judgement * min_strike_range)).max(Fx::ZERO);
         }
 
         Contact {
@@ -1068,6 +1200,7 @@ impl World {
             hp_frac,
             radius: self.radius[target],
             weapon_length: self.kind[target].weapon().length,
+            min_strike_range,
             facing,
             sword_angle,
             sword_reach: hands[SWORD].reach,
@@ -1662,14 +1795,26 @@ mod tests {
         };
 
         // 2.5 units apart puts a Warrior's body in the Brute's tip band
-        // (0.70 + 1.45 + 0.45 = 2.60); 1.6 is close inside it.
+        // (0.70 + 1.45 + 0.45 = 2.60); 1.3 is just outside the lee its blade
+        // cannot reach into at all (0.845 + 0.45 = 1.295).
+        //
+        // The near distance used to be 1.6 and had to come in, which is worth
+        // recording because it is a symptom of a real fix rather than of a
+        // slipping test. A Brute's cut could not finish its arc inside the old
+        // flat `STRIKE_TIMEOUT` -- it was cut off eight degrees short of its own
+        // line, every time, mid-acceleration -- so the only blows it ever landed
+        // were the ones it met early on the approach, and the gradient this test
+        // measures was steepened by an accident of which part of the swing was
+        // reachable. With the whole arc live the curve is the honest one:
+        // damage is linear in the arm, so it rises smoothly from the edge of the
+        // lee out to the tip rather than jumping.
         let at_the_tip = taken_at(25);
-        let inside = taken_at(16);
+        let inside = taken_at(13);
 
         assert!(at_the_tip.is_positive(), "the tip band never connected");
         assert!(inside.is_positive(), "closing in avoided the blade entirely");
         assert!(
-            at_the_tip > inside * Fx::TWO,
+            at_the_tip > inside * Fx::from_int(3),
             "the worst blow at the tip was {at_the_tip} against {inside} \
              close in -- where you stand is supposed to be the whole fight"
         );
@@ -1747,6 +1892,228 @@ mod tests {
             pressed * Fx::TWO < at_range,
             "crowding in took a {pressed} blow against {at_range} at range -- \
              getting inside a heavy weapon is supposed to be worth doing"
+        );
+    }
+
+    #[test]
+    fn a_fight_that_runs_out_of_clock_is_decided_on_points() {
+        // A draw was the honest answer while the clock was the only thing that
+        // could end a fight neither side was winning, and it is the wrong answer
+        // for a difficulty ladder: every step down the ladder converts a loss
+        // into a timeout rather than into a defeat, and the bottom of the range
+        // stops meaning "loses" and starts meaning "wanders off".
+        let mut w = duel_world();
+        let hero = w.alive_ids(Faction::Heroes)[0];
+        let brute = w.alive_ids(Faction::Monsters)[0];
+
+        // Level: nobody has touched anybody.
+        assert_eq!(w.timeout(), Outcome::Draw);
+
+        // Hurt the Brute and the fight is the hero's on points -- but it is
+        // still not a *kill*, and the two have to stay distinguishable or
+        // fitness cannot price them differently.
+        let b = w.resolve(brute).unwrap();
+        w.hp[b] -= Fx::from_int(40);
+        assert_eq!(w.timeout(), Outcome::Decision(Faction::Heroes));
+        assert_eq!(w.timeout().winner(), Some(Faction::Heroes));
+        assert!(!w.timeout().is_decisive());
+        assert!(Outcome::HeroesWin.is_decisive());
+
+        // ...and it swings back when the hero is the one bleeding.
+        let h = w.resolve(hero).unwrap();
+        w.hp[h] -= Fx::from_int(60);
+        assert_eq!(w.timeout(), Outcome::Decision(Faction::Monsters));
+    }
+
+    #[test]
+    fn nobody_heals_while_an_enemy_is_watching() {
+        // Timing regeneration from the last blow alone is the obvious reading
+        // and it quietly undoes the difficulty range: an exchange takes a couple
+        // of seconds and `REGEN_DELAY` is three, so two fighters circling each
+        // other at arm's length heal between every trade and a bad one can never
+        // be ground down. It also reads badly -- wounds closing while an enemy
+        // stands four feet away with a sword out.
+        let mut scenario = Scenario::duel();
+        scenario.units[0].spawn = Vec2::from_ints(4, 8);
+        scenario.units[1].spawn = Vec2::from_ints(8, 8);
+        let mut w = World::new(&scenario, 1);
+        let hero = w.resolve(w.alive_ids(Faction::Heroes)[0]).unwrap();
+        w.hp[hero] -= Fx::from_int(40);
+        let wounded = w.hp[hero];
+
+        // Well past `REGEN_DELAY`, in plain sight of the Brute: nothing.
+        for _ in 0..(rules::REGEN_DELAY + 300) {
+            w.regenerate();
+            w.tick += 1;
+        }
+        assert_eq!(w.hp[hero], wounded, "healed with an enemy in sight");
+
+        // Break contact and it works exactly as before.
+        w.pos[hero] = Vec2::from_ints(2, 2);
+        w.pos[1] = Vec2::from_ints(200, 200);
+        for _ in 0..300 {
+            w.regenerate();
+            w.tick += 1;
+        }
+        assert!(w.hp[hero] > wounded, "could not recover out of contact");
+    }
+
+    #[test]
+    fn recovery_is_a_budget_and_not_a_reset() {
+        // Retreating to recover is a real tactic and has to stay one. What it
+        // must not be is a way to un-lose an exchange indefinitely: without a
+        // budget, a beaten fighter walks off, waits, and comes back whole, and
+        // the fight has no reason ever to end. One full bar over the whole
+        // fight, spent however it likes.
+        let mut scenario = Scenario::duel();
+        scenario.units[1].spawn = Vec2::from_ints(200, 200);
+        let mut w = World::new(&scenario, 1);
+        let hero = w.resolve(w.alive_ids(Faction::Heroes)[0]).unwrap();
+        let full = w.max_hp[hero];
+        assert_eq!(w.regen_left[hero], full * rules::REGEN_BUDGET);
+
+        // Spend the budget in two goes, dropping to a sliver each time.
+        let mut healed_total = Fx::ZERO;
+        for _ in 0..4 {
+            w.hp[hero] = Fx::ONE;
+            let before = w.hp[hero];
+            for _ in 0..3000 {
+                w.regenerate();
+                w.tick += 1;
+            }
+            healed_total += w.hp[hero] - before;
+        }
+        assert!(
+            healed_total <= full * rules::REGEN_BUDGET + Fx::ONE,
+            "healed {healed_total} against a budget of {}",
+            full * rules::REGEN_BUDGET
+        );
+        assert!(healed_total > full * Fx::HALF, "the budget was never usable");
+    }
+
+    #[test]
+    fn a_blow_into_a_recovery_hurts_more_than_the_same_blow_into_a_guard() {
+        // The one term in the damage model that depends on what the *target* is
+        // doing, and the reason timing an attack is worth more than throwing
+        // one. Damage dealt used to be flat across every level of play measured:
+        // a Brute is large, slow and never steps aside, so landing a blow was
+        // never the hard part and there was nothing for a good fighter to be
+        // good at on offence.
+        //
+        // Driven through the damage arithmetic directly rather than through a
+        // staged fight, because the two runs have to differ in *exactly* one
+        // thing and a live fight cannot promise that.
+        let base = Fx::from_int(20);
+        let punished = base * rules::RECOVERY_EXPOSURE;
+        assert!(
+            punished > base * Fx::from_ratio(13, 10),
+            "punishing a recovery is barely worth more than trading"
+        );
+        assert!(
+            punished < base * Fx::TWO,
+            "punishing a recovery is worth so much the rest of the fight is noise"
+        );
+
+        // And the phase gate itself, in a running world: a Warrior cutting into
+        // a Brute that is mid-recovery against the identical cut into one that
+        // is not.
+        let landed = |target_recovering: bool| -> Fx {
+            let mut scenario = Scenario::duel();
+            scenario.units[0].spawn = Vec2::from_ints(16, 8);
+            scenario.units[1].spawn = Vec2::from_ints(18, 8);
+            let mut w = World::new(&scenario, 7);
+            let hero = w.alive_ids(Faction::Heroes)[0];
+            let brute = w.alive_ids(Faction::Monsters)[0];
+            let mut worst = Fx::ZERO;
+            for _ in 0..600u32 {
+                if w.outcome().is_some() {
+                    break;
+                }
+                // Pin the Brute's sword into (or out of) a recovery every tick,
+                // so the only thing that differs between the two runs is the
+                // phase the blow arrives against.
+                let b = w.resolve(brute).unwrap();
+                if target_recovering {
+                    w.hands[b][SWORD].swing = Swing::Recover;
+                    w.hands[b][SWORD].swing_left = 200;
+                } else {
+                    w.hands[b][SWORD].swing = Swing::Guard;
+                }
+                let cut = cutting(&w, hero, Angle::ZERO, Strike::Nearest);
+                w.submit(hero, Action::swinging(Vec2::ZERO, brute, cut, HandCommand::TUCKED));
+                w.submit(brute, Action::HOLD);
+                for event in w.step() {
+                    if let Event::Damage { target, amount, .. } = event {
+                        if *target == brute {
+                            worst = worst.max(*amount);
+                        }
+                    }
+                }
+            }
+            worst
+        };
+        let into_recovery = landed(true);
+        let into_guard = landed(false);
+        assert!(into_guard.is_positive() && into_recovery.is_positive());
+        assert!(
+            into_recovery > into_guard,
+            "a blow into a recovery did {into_recovery} against {into_guard} \
+             into a guard -- reading the opening bought nothing"
+        );
+    }
+
+    #[test]
+    fn an_enemys_dead_zone_is_perceived_rather_than_known() {
+        // The number that was missing, and the reason the strongest answer to a
+        // heavy weapon was not derivable from an observation at all: a `Contact`
+        // said how *long* an enemy's blade was but nothing about how fast it
+        // could be swung, so where it stopped being dangerous could not be
+        // worked out and a policy had to be told by a hand-set gene.
+        let mut scenario = Scenario::duel();
+        scenario.units[0].spawn = Vec2::from_ints(14, 8);
+        scenario.units[1].spawn = Vec2::from_ints(18, 8);
+
+        let truth = rules::dead_zone(
+            UnitKind::Brute.weapon(),
+            UnitKind::Brute.base_stats().agility,
+        );
+
+        // A sharp eye reads it exactly...
+        let sharp = {
+            let mut s = scenario.clone();
+            s.units[0].stats = Stats::new(6, 6, 8, 18, 8);
+            let w = World::new(&s, 3);
+            let hero = w.alive_ids(Faction::Heroes)[0];
+            w.observe(hero).enemies()[0].min_strike_range
+        };
+        assert_eq!(sharp, truth, "a clean observer misjudged a fixed fact");
+
+        // ...and a dim one does not, over any single sample or across many.
+        let mut worst = Fx::ZERO;
+        for seed in 0..64u64 {
+            let mut s = scenario.clone();
+            s.units[0].stats = Stats::new(6, 6, 8, 0, 8);
+            let w = World::new(&s, seed);
+            let hero = w.alive_ids(Faction::Heroes)[0];
+            let seen = w.observe(hero).enemies()[0].min_strike_range;
+            assert!(seen >= Fx::ZERO, "read a negative dead zone");
+            worst = worst.max((seen - truth).abs());
+        }
+        assert!(
+            worst > truth * Fx::from_ratio(2, 10),
+            "a blind observer's worst read was off by only {worst} on {truth}; \
+             judging how hard someone can swing is supposed to be the skill"
+        );
+
+        // Its own is exact whatever its eyesight -- a fighter knows how hard it
+        // can swing, however badly it reads anyone else.
+        let mut s = scenario.clone();
+        s.units[0].stats = Stats::new(6, 6, 8, 0, 8);
+        let w = World::new(&s, 1);
+        let hero = w.alive_ids(Faction::Heroes)[0];
+        assert_eq!(
+            w.observe(hero).min_strike_range,
+            rules::dead_zone(UnitKind::Warrior.weapon(), 6)
         );
     }
 

@@ -57,24 +57,39 @@ furniture.
 Damage is still the blade's speed where it happens to connect, and nothing
 encodes that either — it falls out of `spin × arm`, so every weapon hits hardest
 at the tip and every weapon has a radius inside which it cannot hurt anyone at
-all. Crowding a heavy weapon takes about three quarters of its bite away. It is
-what gives a light fighter something to do about a heavy one.
+all. A Brute's blow is worth thirteen times as much at the end of its arc as it
+is to somebody pressed against its chest. That is what gives a light fighter
+something to do about a heavy one — and **where an enemy's blade stops being
+dangerous is now something you have to judge**, blurred by perception like
+everything else you can see, rather than something a policy is told.
 
 So there is a second mind to choose from. The **Duelist** scores eight competing
 stances every time it is allowed to think — close, trade, circle to the guard's
 blind side, step off the swing plane, brace the shield on the line the blade will
 actually arrive along, punish a recovery, feint, break off — and picks one, with
-hysteresis so it commits instead of dithering. Against a Brute it wins **92% and
-finishes on 0.73 health** where the naive policy wins 72% and finishes on 0.50,
-and a random one loses every time. Skill is the difference between those rows,
-not stats: all three drive the identical Warrior.
+hysteresis so it commits instead of dithering.
 
-Most of that gap comes from one read. A declared cut travels along a line, and a
-line can miss — so the duellist replays the cut it can see and asks whether it is
-even aimed at it before deciding to defend. Adding that took it from 21% to 88%
-in a mirror match. What did *not* help was reading telegraphs early: every
-increment of that gene made it worse, because an opponent who declares an attack
-on nearly every tick turns every answer into a cut you did not throw.
+Give that one policy three character sheets, change nothing else, and point all
+three at the same Brute:
+
+| wits            | wins | health it finishes on |
+|-----------------|-----:|----------------------:|
+| int 1 / per 2   |  45% |                  0.32 |
+| int 8 / per 6   |  97% |                  0.60 |
+| int 19 / per 18 | 100% |                  0.82 |
+
+Same body, same weights, same opponent. A dull swordsman loses more often than it
+wins; a capable one wins at the cost of half of itself; a sharp one wins every
+time and barely gets touched. **That range is the whole claim** — levelling
+intellect is not a damage multiplier, it is thinking more often, and levelling
+perception is not a sight radius, it is knowing where the blade will be.
+
+Two reads carry most of it. A declared cut travels along a line, and a line can
+miss — so the duellist replays the cut it can see and asks whether it is even
+aimed at it before deciding to defend. And a guard has *mass*: a shield still
+travelling toward the bearing a blow lands on stops a fraction of what a planted
+one does, so answering a telegraph early is worth something and answering it late
+is worse than not answering at all.
 
 And you can take over. Two independent toggles, `C` and `V`: the feet, the sword,
 or both. WASD steers; the mouse aims the line and **click to cut** — one click,
@@ -83,7 +98,7 @@ switches the pointer to the shield hand. Whichever half you do not hold, the AI
 keeps fighting with — on its own reaction clock, because that is a stat.
 
 And the number matches. `web.wasm` and the native lab produce the *same 64-bit
-state hash* for the same run — `0x39bbe356c7f5035e` — so the fixed-point
+state hash* for the same run — `0xaeb2d6b13af22324` — so the fixed-point
 simulation really is bit-identical across MSVC x86-64 and wasm32, rather than
 merely designed to be.
 

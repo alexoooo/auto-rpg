@@ -62,8 +62,10 @@ pub use hand::{Hand, Swing, HANDS, SHIELD, SWORD};
 pub use obs::{Contact, Observation, FEATURE_COUNT, FEATURE_LAYOUT_VERSION};
 pub use replay::{ActionRecord, OrderRecord, Replay};
 pub use rules::{
-    agility_multiplier, phase_ticks, power_multiplier, Stats, Weapon, DT, FOLLOW_THROUGH,
-    MAX_CONTACTS, STRIKE_TIMEOUT, TICKS_PER_SECOND, WINDUP_ARC,
+    agility_multiplier, block_leak, dead_zone, phase_ticks, power_multiplier, strike_ticks, Stats,
+    Weapon, BLOCK_LEAK_BRACED, BLOCK_LEAK_SNAP, BLOCK_RECOVERY, BRACE_SPIN, BRACE_TICKS, DIM_INTELLECT,
+    DIM_PERCEPTION, DT, FOLLOW_THROUGH, IMPACT_THRESHOLD, MAX_CONTACTS, RECOVERY_EXPOSURE,
+    STRIKE_SLACK, STRIKE_SPENT_ARC, STRIKE_TIMEOUT, TICKS_PER_SECOND, WHIFF_RECOVERY, WINDUP_ARC,
 };
 pub use scenario::{Scenario, UnitSpec};
 pub use world::{Outcome, Snapshot, UnitView, World};
