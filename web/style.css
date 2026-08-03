@@ -14,6 +14,10 @@
   --enemy: #ff8a7a; /* whatever walked in */
   --mono: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
   --sans: ui-sans-serif, system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  /* One number for how far the HUD sits from the edge of the glass, so the
+     four corners cannot drift apart as the page is resized. */
+  --gutter: clamp(10px, 1.5vmin, 20px);
+  --scrim: rgba(9, 11, 16, 0.72);
 }
 
 * {
@@ -27,92 +31,80 @@ body {
 
 body {
   margin: 0;
+  /* The void the room stands in. The canvas is transparent outside the floor,
+     so this is what shows past the wall. */
   background:
-    radial-gradient(1200px 700px at 22% -10%, #141a26 0%, transparent 60%),
+    radial-gradient(1200px 700px at 50% 42%, #141a26 0%, transparent 70%),
     var(--bg);
   color: var(--ink);
   font-family: var(--sans);
   font-size: 15px;
   line-height: 1.5;
-  display: flex;
-  flex-direction: column;
   overflow: hidden;
 }
 
-.bar {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: baseline;
-  gap: 18px;
-  padding: 11px 22px 10px;
-  border-bottom: 1px solid var(--panel-line);
-}
+/* ---------------------------------------------------------------- the room */
 
-.bar h1 {
-  margin: 0;
-  font-size: 19px;
-  letter-spacing: 0.14em;
-  text-transform: lowercase;
-  font-weight: 600;
-  color: var(--ink);
-}
-
-.tagline {
-  margin: 0;
-  color: var(--ink-dim);
-  font-size: 13.5px;
-  max-width: 105ch;
-}
-
-.tagline em {
-  color: var(--accent);
-  font-style: normal;
-}
-
-main {
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-  gap: 16px;
-  padding: 14px 22px 16px;
-}
-
-/* ---------------------------------------------------------------- arena */
-
-.stage {
-  flex: 1 1 auto;
-  min-width: 0;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-/* The canvas is sized from this box, so it has to be the only flexible thing
-   in the column: everything under it takes its natural height first. */
+/* The canvas is the page. It fills the glass at every size, and the arena's
+   own edge is drawn *inside* it by `drawFloor` -- a CSS border here would
+   frame the screen rather than the room. */
 .canvas-wrap {
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  position: fixed;
+  inset: 0;
 }
 
 #arena {
   display: block;
-  border-radius: 10px;
   cursor: crosshair;
-  /* The canvas draws its own floor; this is the light spilling off it. */
-  box-shadow:
-    0 0 0 1px #242b3a,
-    0 24px 60px -24px #000;
   touch-action: none;
 }
 
+/* ------------------------------------------------------------------- hud */
+
+/* A layer of glass over the room. It is `pointer-events: none` all the way
+   down, and only the things that are genuinely controls turn it back on -- so
+   a click on the empty space beside the character's name is a click on the
+   floor underneath it, which is where the player was aiming. */
+.hud {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: var(--gutter);
+  pointer-events: none;
+}
+
+.hud-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.hud-top-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.brand {
+  font-size: clamp(13px, 1.5vmin, 16px);
+  letter-spacing: 0.14em;
+  text-transform: lowercase;
+  font-weight: 600;
+  color: var(--ink-dim);
+}
+
+/* `margin-top: auto` here is what pins everything below it to the floor of the
+   window without a second absolutely-positioned box to keep in sync. */
 .hint {
-  margin: 0;
+  margin: auto 0 0;
   min-height: 1.4em;
-  font-size: 13px;
+  font-size: clamp(12px, 1.3vmin, 13.5px);
   text-align: center;
   color: var(--ink-faint);
   transition: color 160ms ease;
@@ -122,14 +114,208 @@ main {
   color: var(--accent-warm);
 }
 
-/* ------------------------------------------------------------------ hud */
+.hud-bottom {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
 
-.hud {
-  flex: 0 0 348px;
+.hud-vitals {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.hud-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.who {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: clamp(13px, 1.4vmin, 15px);
+  text-shadow: 0 1px 3px #000;
+}
+
+.who .dot {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 10px var(--accent);
+}
+
+.who .hp {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-dim);
+}
+
+.hp-bar {
+  flex: 0 0 auto;
+  width: clamp(90px, 14vw, 170px);
+  height: 7px;
+  border-radius: 4px;
+  background: rgba(9, 11, 16, 0.75);
+  box-shadow: inset 0 0 0 1px var(--panel-line);
+  overflow: hidden;
+}
+
+#hp-fill {
+  display: block;
+  height: 100%;
+  width: 100%;
+  border-radius: 4px;
+  background: var(--accent);
+  transition: width 140ms linear;
+}
+
+/* Under a third, the bar stops being an amount and starts being a warning --
+   the same threshold the health bars on the canvas use. */
+#hp-fill.low {
+  background: #ff5f52;
+}
+
+/* Both of these have their class attribute rewritten wholesale by `updateHud`,
+   so `.state` has to carry everything: it cannot be paired with a layout
+   class that would be wiped on the next frame. */
+.state {
+  margin: 0;
+  font-size: clamp(12px, 1.3vmin, 13.5px);
+  color: var(--accent);
+  text-shadow: 0 1px 3px #000;
+}
+
+.state.idle {
+  color: var(--ink-dim);
+}
+
+.state.free {
+  color: var(--accent-warm);
+}
+
+.state.dead {
+  color: var(--enemy);
+}
+
+/* ----------------------------------------------------------------- chips */
+
+/* The compact overlay control: everything the player might press without
+   opening the drawer. `flex: 0 0 auto` because the shared `button` rule below
+   grows to fill a row, which is right inside a panel and wrong out here. */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  font: inherit;
+  font-size: clamp(11px, 1.2vmin, 12.5px);
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--panel-line);
+  background: var(--scrim);
+  color: var(--ink-dim);
+  cursor: pointer;
+  pointer-events: auto;
+  backdrop-filter: blur(6px);
+  transition:
+    border-color 120ms ease,
+    color 120ms ease;
+}
+
+.chip:hover {
+  border-color: #33405a;
+  color: var(--accent);
+}
+
+.chip kbd {
+  font-size: 10px;
+  padding: 0 4px;
+  background: transparent;
+  border-color: transparent;
+  color: var(--ink-faint);
+}
+
+/* A readout, not a control. */
+.chip.static {
+  cursor: default;
+  pointer-events: none;
+  font-family: var(--mono);
+  color: var(--ink-faint);
+}
+
+.chip-key {
+  color: var(--ink-faint);
+  font-family: var(--sans);
+}
+
+/* A toggle reads as held-down when it is on, because "who is driving" is a
+   state the player has to be able to check at a glance mid-fight. */
+.chip.toggle[aria-pressed="true"],
+button.toggle[aria-pressed="true"] {
+  background: #16233a;
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ---------------------------------------------------------------- drawer */
+
+/* Everything worth reading but not worth watching. Off-canvas rather than
+   `display: none` so it slides in both directions; `visibility` is what keeps
+   its buttons and sliders out of the tab order while it is shut. */
+.drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  width: min(380px, 92vw);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: linear-gradient(180deg, rgba(11, 14, 20, 0.97) 0%, rgba(9, 11, 16, 0.97) 100%);
+  border-left: 1px solid var(--panel-line);
+  box-shadow: -24px 0 60px -30px #000;
+  backdrop-filter: blur(10px);
+  transform: translateX(101%);
+  visibility: hidden;
+  transition:
+    transform 180ms ease,
+    visibility 0s linear 180ms;
+}
+
+.drawer.open {
+  transform: none;
+  visibility: visible;
+  transition:
+    transform 180ms ease,
+    visibility 0s;
+}
+
+.drawer-inner {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  overflow-y: auto;
+  padding: 14px;
+}
+
+.tagline {
+  margin: 0;
+  color: var(--ink-dim);
+  font-size: 13px;
+}
+
+.tagline em {
+  color: var(--accent);
+  font-style: normal;
 }
 
 .panel {
@@ -148,30 +334,8 @@ main {
   font-weight: 600;
 }
 
-.who {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-}
-
-.who .dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 10px var(--accent);
-}
-
-.who .hp {
-  margin-left: auto;
-  font-family: var(--mono);
-  font-size: 12px;
-  color: var(--ink-dim);
-}
-
 .stats {
-  margin: 9px 0 0;
+  margin: 0;
   display: grid;
   grid-template-columns: auto 1fr;
   gap: 3px 10px;
@@ -218,73 +382,13 @@ main {
   color: var(--ink-dim) !important;
 }
 
-.state {
-  margin: 0 0 8px;
-  font-size: 13px;
-  color: var(--accent);
-}
-
-.state.idle {
-  color: var(--ink-dim);
-}
-
-.state.free {
-  color: var(--accent-warm);
-}
-
-.state.dead {
-  color: var(--enemy);
-}
-
-/* -------------------------------------------------------------- controls */
-
-/* A single strip under the arena, so the controls are on the first screen
-   rather than below a fold. */
-.controls {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 9px 12px;
-}
-
-.keys {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 6px 18px;
-  font-size: 12.5px;
-  flex: 1 1 auto;
-}
-
-.keys li {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-}
-
-.keys span {
-  color: var(--ink-dim);
-}
-
-kbd {
-  font-family: var(--mono);
-  font-size: 11px;
-  padding: 1px 6px;
-  border-radius: 4px;
-  border: 1px solid var(--panel-line);
-  background: #0c0f16;
-  color: var(--ink);
-  white-space: nowrap;
-}
+/* ---------------------------------------------------------------- buttons */
 
 .buttons {
   display: flex;
   gap: 8px;
   flex: 0 0 auto;
+  pointer-events: auto;
 }
 
 /* The `hidden` attribute is a UA `display: none`, which the rule above would
@@ -293,10 +397,13 @@ kbd {
   display: none;
 }
 
-/* The swap control, inside the Battle panel and under the line that says the
-   character has fallen. */
+/* The swap control, under the line that says the character has fallen. */
 .buttons.swap {
-  margin: 0 0 9px;
+  margin: 4px 0 0;
+}
+
+.panel .buttons {
+  margin-top: 9px;
 }
 
 button {
@@ -323,15 +430,40 @@ button:active {
   transform: translateY(1px);
 }
 
-/* A toggle reads as held-down when it is on, because "who is driving" is a
-   state the player has to be able to check at a glance mid-fight. */
-button.toggle[aria-pressed="true"] {
-  background: #16233a;
-  border-color: var(--accent);
-  color: var(--accent);
+kbd {
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--panel-line);
+  background: #0c0f16;
+  color: var(--ink);
+  white-space: nowrap;
 }
 
-/* -------------------------------------------------------------------- minds */
+/* ---------------------------------------------------------------- controls */
+
+.keys {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.keys li {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.keys span {
+  color: var(--ink-dim);
+}
+
+/* ------------------------------------------------------------------ minds */
 
 .mind {
   display: flex;
@@ -410,7 +542,6 @@ button.toggle[aria-pressed="true"] {
   font-size: 11.5px;
   line-height: 1.45;
   color: var(--ink-faint);
-  text-align: center;
 }
 
 .footnote em {
@@ -423,6 +554,7 @@ button.toggle[aria-pressed="true"] {
 .overlay {
   position: fixed;
   inset: 0;
+  z-index: 3;
   background: rgba(6, 8, 12, 0.86);
   display: flex;
   align-items: center;
@@ -467,14 +599,27 @@ button.toggle[aria-pressed="true"] {
   overflow-x: auto;
 }
 
-@media (max-width: 900px) {
-  main {
+/* The canvas is full-bleed at every size, so the only thing narrow enough to
+   need help is the bottom strip: stack it rather than let the vitals and the
+   chips fight over one row. */
+@media (max-width: 640px) {
+  .hud-bottom {
     flex-direction: column;
-    overflow-y: auto;
+    align-items: stretch;
   }
 
-  .hud {
-    flex: 0 0 auto;
-    overflow: visible;
+  .hud-actions {
+    justify-content: flex-start;
+  }
+
+  .drawer {
+    width: 100vw;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drawer,
+  #hp-fill {
+    transition: none;
   }
 }

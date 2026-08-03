@@ -52,8 +52,8 @@ blind side, step off the swing plane, brace the shield on the line the blade wil
 actually arrive along, punish a recovery, feint, break off — and picks one, with
 hysteresis so it commits instead of dithering. Against a Brute it wins 86% where
 the baseline wins 79%, and it does it while drawing a third as often. Pick either
-mind for either side from the HUD, and drag the sliders under it: those are the
-same genome `lab evolve` searches, live.
+mind for either side from the details panel, and drag the sliders under it: those
+are the same genome `lab evolve` searches, live.
 
 And you can take over. Two independent toggles, `C` and `V`: the feet, the sword,
 or both. WASD steers; the mouse steers the blade, with pointer distance setting
@@ -104,8 +104,15 @@ Then open the printed URL. Click to send the character somewhere; right-click or
 `Esc` to make it hold its ground; `F` to withdraw the order entirely and watch it
 decide for itself; `S` and `B` to send in a skitterer or a brute; `1` and `2` to
 send in a new character once yours has fallen; `C` and `V` to take its feet or
-its sword; `R` to open a fresh room. A server is needed because a `file://` page
-cannot instantiate wasm — that is the only reason.
+its sword; the wheel to zoom; `Tab` for the details panel; `R` to open a fresh
+room. A server is needed because a `file://` page cannot instantiate wasm — that
+is the only reason.
+
+The room is the page. The camera is centred on your character and clamped to the
+walls, so walking into a corner stops the view rather than showing you the void
+past it — and everything that is worth reading but not worth watching lives
+behind `Tab` instead of in a sidebar that used to leave the arena a postage
+stamp on a 1080p display.
 
 To work on it:
 

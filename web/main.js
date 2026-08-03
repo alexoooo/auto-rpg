@@ -338,6 +338,7 @@ const overlay = document.getElementById("overlay");
 const el = {
   unitName: document.getElementById("unit-name"),
   unitHp: document.getElementById("unit-hp"),
+  hpFill: document.getElementById("hp-fill"),
   stats: document.getElementById("stats"),
   orderState: document.getElementById("order-state"),
   orderDest: document.getElementById("order-dest"),
@@ -351,7 +352,28 @@ const el = {
   simHash: document.getElementById("sim-hash"),
 };
 
+const drawer = document.getElementById("drawer");
+const menuButton = document.getElementById("btn-menu");
+
 const DEFAULT_HINT = "Click the floor. The character walks there its own way.";
+
+/**
+ * The drawer holding everything that is worth reading but not worth watching.
+ *
+ * A class rather than the `hidden` attribute, because it has to slide in both
+ * directions and `display: none` cannot be animated. The stylesheet takes
+ * `visibility` with it, which is what keeps the sliders inside out of the tab
+ * order while it is shut -- otherwise `Tab` would open the panel and then walk
+ * straight into controls nobody can see.
+ */
+function setDrawer(open) {
+  drawer.classList.toggle("open", open);
+  menuButton.setAttribute("aria-expanded", open ? "true" : "false");
+}
+
+function drawerOpen() {
+  return drawer.classList.contains("open");
+}
 
 /** What the player last asked for. The frame is the truth about the order; this
  *  only distinguishes two things the sim cannot tell apart -- a walk somewhere
@@ -362,8 +384,30 @@ let intent = "none"; // "goto" | "stand" | "free" | "none"
 let rafId = 0;
 
 let arena = { x: 24, y: 16 };
-let cssWidth = 0;
-let cssHeight = 0;
+
+/**
+ * The camera.
+ *
+ * The page used to have none: the canvas was letterboxed to the arena's aspect
+ * and the whole room was always on screen, which is why the arena shrank to a
+ * postage stamp the moment the HUD wanted room. Now the canvas is the page and
+ * the view is a window onto the room, centred on the character.
+ *
+ * `VIEW_UNITS_Y` is the framing, and it is stated in *world units* rather than
+ * in pixels because that is the thing that is actually being chosen: how much
+ * of the room you can see, on any display. A Warrior sees 9.6 units, so eleven
+ * is a shade more than its own sight -- close enough to read a blade, wide
+ * enough that nothing arrives from somewhere the character could not have seen
+ * it coming from.
+ */
+const VIEW_UNITS_Y = 11;
+const ZOOM_MAX = 2.5; // multiples of the default framing
+const CAMERA_TAU_MS = 90; // exponential follow constant
+
+let viewport = { w: 0, h: 0 }; // the canvas, in CSS pixels
+let dpr = 1; // stored, because `render` re-establishes the base matrix each frame
+let zoom = 1; // the player's wheel adjustment, re-clamped on every resize
+let cam = { x: 12, y: 8 }; // the centre of the view, in world units
 let scale = 1; // CSS pixels per world unit
 
 let trail = [];
@@ -422,38 +466,92 @@ function die(title, body, err) {
 
 function resize() {
   const box = stage.getBoundingClientRect();
-  const available = { w: Math.max(120, box.width), h: Math.max(120, box.height) };
-  const aspect = arena.x / arena.y;
-  let w = available.w;
-  let h = w / aspect;
-  if (h > available.h) {
-    h = available.h;
-    w = h * aspect;
-  }
-  cssWidth = Math.max(1, Math.floor(w));
-  cssHeight = Math.max(1, Math.floor(h));
-  scale = cssWidth / arena.x;
+  viewport = {
+    w: Math.max(1, Math.floor(Math.max(120, box.width))),
+    h: Math.max(1, Math.floor(Math.max(120, box.height))),
+  };
+
+  // Two bounds and a preference. `fit` is the scale at which the whole room is
+  // on screen, and it is the zoomed-out limit: past it you would be looking at
+  // void for no reason. `base` is the framing chosen above. `fit` is always
+  // below `base` -- h/16 < h/11 whatever the window is -- so the bounds cannot
+  // cross however the page is dragged about.
+  const fit = Math.min(viewport.w / arena.x, viewport.h / arena.y);
+  const base = viewport.h / VIEW_UNITS_Y;
+  scale = clamp(base * zoom, fit, base * ZOOM_MAX);
+  // Writing the clamped value back is load-bearing rather than tidy: without
+  // it, twenty notches of wheel past the limit have to be paid back before the
+  // next notch moves anything, and the zoom reads as stuck.
+  zoom = scale / base;
 
   // Cap the device pixel ratio: a 4x display would otherwise quadruple the
   // fill cost of every frame for no visible gain.
-  const dpr = clamp(window.devicePixelRatio || 1, 1, 3);
-  canvas.style.width = `${cssWidth}px`;
-  canvas.style.height = `${cssHeight}px`;
-  canvas.width = Math.round(cssWidth * dpr);
-  canvas.height = Math.round(cssHeight * dpr);
+  dpr = clamp(window.devicePixelRatio || 1, 1, 3);
+  canvas.style.width = `${viewport.w}px`;
+  canvas.style.height = `${viewport.h}px`;
+  canvas.width = Math.round(viewport.w * dpr);
+  canvas.height = Math.round(viewport.h * dpr);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+// ------------------------------------------------------------------- camera
+
+/**
+ * Where the camera wants to be: the character, pulled back inside the walls.
+ *
+ * The clamp is what keeps the room's edge meaningful. Walk into a corner and
+ * the view stops while the character keeps going, which is the ordinary ARPG
+ * read of "you are against the wall" -- and it is why void is only ever visible
+ * on an axis the view is genuinely wider than the room on.
+ */
+function cameraTarget(state) {
+  const anchor = state.hero || cam;
+  const halfW = viewport.w / scale / 2;
+  const halfH = viewport.h / scale / 2;
+  return {
+    x: halfW * 2 >= arena.x ? arena.x / 2 : clamp(anchor.x, halfW, arena.x - halfW),
+    y: halfH * 2 >= arena.y ? arena.y / 2 : clamp(anchor.y, halfH, arena.y - halfH),
+  };
+}
+
+/** Presentation only, and therefore wall-clock rather than ticks -- the same
+ *  convention `trail`, `pulses` and `corpses` follow. The exponential is what
+ *  makes the follow look identical at 60 and at 144 Hz. */
+function updateCamera(state, elapsed) {
+  const target = cameraTarget(state);
+  const k = 1 - Math.exp(-elapsed / CAMERA_TAU_MS);
+  cam.x += (target.x - cam.x) * k;
+  cam.y += (target.y - cam.y) * k;
+}
+
+/** No interpolation. A restart, a replacement character or a change of arena is
+ *  a cut, not a pan: sliding the camera across the room would read as the view
+ *  chasing something that is not there. */
+function snapCamera(state) {
+  cam = cameraTarget(state);
 }
 
 // -------------------------------------------------------------------- input
 
-/** A click, in world units. `getBoundingClientRect` is CSS pixels -- *not* the
- *  DPR-scaled backing store -- so this must divide by the rect, never by
- *  `canvas.width`. */
+/**
+ * A click, in world units: the exact inverse of the matrix `render` sets up.
+ *
+ * `getBoundingClientRect` is CSS pixels -- *not* the DPR-scaled backing store --
+ * so this must divide by the rect, never by `canvas.width`. It used to read the
+ * fraction across the rect and multiply by the arena, which was only correct
+ * while the canvas showed the whole room and nothing else. With a camera the
+ * pointer is an offset from the centre of the view, and the centre of the view
+ * is `cam`.
+ *
+ * Nothing is clamped here. A `Goto` is clamped into the arena by `milli`, so a
+ * click out in the void parks the order against the wall exactly as a click
+ * near the edge already did; the sword wants the raw bearing.
+ */
 function pointerToWorld(event) {
   const rect = canvas.getBoundingClientRect();
   return {
-    x: ((event.clientX - rect.left) / rect.width) * arena.x,
-    y: ((event.clientY - rect.top) / rect.height) * arena.y,
+    x: cam.x + (event.clientX - rect.left - rect.width / 2) / scale,
+    y: cam.y + (event.clientY - rect.top - rect.height / 2) / scale,
   };
 }
 
@@ -587,6 +685,9 @@ function swapInHero(kindCode) {
   // not thought yet. Recording that here first is what stops the change from
   // reading as a decision and flashing a ring nobody took.
   lastDecisionSeen = 0;
+  // The replacement drops in at the clearest spot on the floor, which can be
+  // right across the room from where the last one fell. Cut to it.
+  snapCamera(parseFrame(readFrame()));
   hint(`A ${ARCHETYPES[kindCode].name} takes over. The monsters are where you left them.`, true);
 }
 
@@ -609,6 +710,7 @@ function restart() {
   controlMask = 0;
   updateControlButtons();
   syncBehaviourPanel();
+  snapCamera(parseFrame(readFrame()));
   hint("Room restarted at tick 0.");
 }
 
@@ -736,6 +838,21 @@ function bindInput() {
     pointer.inside = false;
   });
 
+  // `passive: false` is what makes `preventDefault` allowed here; without it
+  // the browser scrolls the page instead, and the page has nowhere to scroll.
+  canvas.addEventListener(
+    "wheel",
+    (event) => {
+      if (dead) return;
+      event.preventDefault();
+      // Exponential, so a notch is the same proportional change wherever you
+      // are in the range. `resize` re-clamps and writes the result back.
+      zoom *= Math.exp(-event.deltaY * 0.0015);
+      resize();
+    },
+    { passive: false }
+  );
+
   canvas.addEventListener("contextmenu", (event) => event.preventDefault());
 
   window.addEventListener("keyup", (event) => {
@@ -750,6 +867,25 @@ function bindInput() {
   window.addEventListener("keydown", (event) => {
     if (dead || event.metaKey || event.ctrlKey || event.altKey) return;
     const key = event.key.toLowerCase();
+
+    // Tab is the drawer, everywhere. It has to be taken off the browser before
+    // it moves focus, and it is deliberately handled before the guard below so
+    // the panel can still be shut from inside itself.
+    if (event.key === "Tab") {
+      event.preventDefault();
+      setDrawer(!drawerOpen());
+      return;
+    }
+
+    // A focused slider or dropdown is typing, not playing. Without this, `S` in
+    // a gene slider spawns a skitterer and the arrow keys do two things at
+    // once -- true before the drawer existed, and much easier to hit now that
+    // there is a panel full of controls one keystroke away.
+    if (event.target instanceof Element && event.target.closest("input, select, textarea")) {
+      if (event.key === "Escape") event.target.blur();
+      return;
+    }
+
     if (event.key === "Shift") shieldModifier = true;
     // WASD is only movement while the player holds the feet; otherwise "s" is
     // still the spawn key it has always been.
@@ -759,7 +895,11 @@ function bindInput() {
       return;
     }
     if (event.key === "Escape") {
-      standDown(parseFrame(readFrame()));
+      // The drawer first. Escape means "back out of the thing that is open",
+      // and standing the character down while a panel is covering half the
+      // room is not what the player was asking for.
+      if (drawerOpen()) setDrawer(false);
+      else standDown(parseFrame(readFrame()));
     } else if (key === "f") {
       freeWill();
     } else if (key === "r") {
@@ -777,6 +917,8 @@ function bindInput() {
       if (!event.repeat) swapInHero(key === "1" ? KIND_WARRIOR : KIND_SCOUT);
     }
   });
+
+  menuButton.addEventListener("click", () => setDrawer(!drawerOpen()));
 
   document.getElementById("btn-standdown").addEventListener("click", () => {
     if (!dead) standDown(parseFrame(readFrame()));
@@ -917,33 +1059,56 @@ function roundRect(x, y, w, h, r) {
   ctx.closePath();
 }
 
+/**
+ * The room, as a lit rectangle standing in the dark.
+ *
+ * This used to fill the canvas, which was true only while the canvas *was* the
+ * arena. Now the floor is drawn at its own size in world units and the canvas
+ * is left transparent everywhere else, so the page's background shows through
+ * as void and the wall is a boundary you can actually see the character stop
+ * against.
+ */
 function drawFloor() {
+  const w = px(arena.x);
+  const h = px(arena.y);
+
   ctx.save();
-  roundRect(0, 0, cssWidth, cssHeight, 10);
+  roundRect(0, 0, w, h, 10);
   ctx.clip();
 
-  const floor = ctx.createLinearGradient(0, 0, cssWidth * 0.6, cssHeight);
+  const floor = ctx.createLinearGradient(0, 0, w * 0.6, h);
   floor.addColorStop(0, "#161b26");
   floor.addColorStop(1, "#0f131c");
   ctx.fillStyle = floor;
-  ctx.fillRect(0, 0, cssWidth, cssHeight);
+  ctx.fillRect(0, 0, w, h);
 
   // One line per world unit, brighter every four: the grid is the scale bar.
+  // The half-pixel offsets still land on a device pixel because `render` snaps
+  // the camera translation to one before any of this is drawn.
   ctx.lineWidth = 1;
   for (let x = 1; x < arena.x; x++) {
     ctx.strokeStyle = x % 4 === 0 ? "rgba(150,180,230,0.14)" : "rgba(150,180,230,0.06)";
     ctx.beginPath();
     ctx.moveTo(Math.round(px(x)) + 0.5, 0);
-    ctx.lineTo(Math.round(px(x)) + 0.5, cssHeight);
+    ctx.lineTo(Math.round(px(x)) + 0.5, h);
     ctx.stroke();
   }
   for (let y = 1; y < arena.y; y++) {
     ctx.strokeStyle = y % 4 === 0 ? "rgba(150,180,230,0.14)" : "rgba(150,180,230,0.06)";
     ctx.beginPath();
     ctx.moveTo(0, Math.round(px(y)) + 0.5);
-    ctx.lineTo(cssWidth, Math.round(px(y)) + 0.5);
+    ctx.lineTo(w, Math.round(px(y)) + 0.5);
     ctx.stroke();
   }
+  ctx.restore();
+
+  // The wall. This was a CSS box-shadow on the canvas, which drew a line round
+  // the *screen* the moment the canvas stopped being the room.
+  ctx.save();
+  ctx.strokeStyle = "#242b3a";
+  ctx.lineWidth = 1.5;
+  roundRect(0, 0, w, h, 10);
+  ctx.stroke();
   ctx.restore();
 }
 
@@ -1284,7 +1449,20 @@ function drawCorpses() {
 }
 
 function render(state, now, arrived) {
-  ctx.clearRect(0, 0, cssWidth, cssHeight);
+  // The camera, and the only place it is applied. Every draw below is written
+  // in world-scaled space with the origin at the room's corner -- `px` is a
+  // length, not a position -- so panning the view is a translation of the
+  // matrix and nothing else has to know the camera exists.
+  //
+  // Snapped to a whole device pixel: a fractional offset would smear the grid,
+  // which is drawn on half-pixel boundaries precisely so it stays crisp.
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, viewport.w, viewport.h);
+  ctx.translate(
+    Math.round((viewport.w / 2 - px(cam.x)) * dpr) / dpr,
+    Math.round((viewport.h / 2 - px(cam.y)) * dpr) / dpr
+  );
+
   drawFloor();
   drawReachable(state.hero ? state.hero.radius : 0);
   drawTrail();
@@ -1367,6 +1545,11 @@ function updateHud(state, stats, distance, arrived, settled) {
   setText(el.simHash, hex64(wasm.state_hash_hi(), wasm.state_hash_lo()));
   setText(el.simPosition, hero ? `${hero.x.toFixed(2)}, ${hero.y.toFixed(2)}` : "—");
   setText(el.unitHp, hero ? `${Math.round(hero.hp)} / ${Math.round(hero.maxHp)} hp` : "fallen");
+  // The bar the eye reads, next to the number the eye checks. Same third-full
+  // threshold the bars on the canvas turn red at.
+  const health = hero && hero.maxHp > 0 ? clamp(hero.hp / hero.maxHp, 0, 1) : 0;
+  el.hpFill.style.width = `${(health * 100).toFixed(1)}%`;
+  el.hpFill.classList.toggle("low", health <= 0.35);
   setText(
     el.orderDecision,
     state.decisionTick > 0 ? `tick ${state.decisionTick} (every ${stats.decisionPeriod})` : "—"
@@ -1506,6 +1689,7 @@ function loop(now) {
   if (state.arenaX !== arena.x || state.arenaY !== arena.y) {
     arena = { x: state.arenaX, y: state.arenaY };
     resize();
+    snapCamera(state);
   }
 
   const stats = fillStatsIfChanged(state);
@@ -1566,6 +1750,7 @@ function loop(now) {
     }
   }
 
+  updateCamera(state, elapsed);
   render(state, now, arrived || settled);
   updateHud(state, stats, distance, arrived, settled);
 
@@ -1634,9 +1819,18 @@ async function boot() {
   arena = { x: first.arenaX, y: first.arenaY };
   fillStatsIfChanged(first);
   resize();
+  snapCamera(first);
   bindInput();
   hintEl.textContent = DEFAULT_HINT;
 
+  // The element, not just the window: the canvas host can change size without
+  // the window doing anything -- a drawer opening, a scrollbar appearing -- and
+  // a stale `scale` puts every click somewhere other than where it was made.
+  if (typeof ResizeObserver === "function") {
+    new ResizeObserver(() => resize()).observe(stage);
+  }
+  // Still needed alongside it: `devicePixelRatio` changes when the window moves
+  // between monitors, and the element's box does not.
   window.addEventListener("resize", resize);
   document.addEventListener("visibilitychange", () => {
     // Coming back from a hidden tab, the accumulator would otherwise hold

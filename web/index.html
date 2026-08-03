@@ -13,110 +13,39 @@
     <link rel="icon" href="data:," />
   </head>
   <body>
-    <header class="bar">
-      <h1>auto&#8209;rpg</h1>
-      <p class="tagline">
-        You give rough directions. The character decides how to follow them &mdash; and its
-        <em>stats</em> are what make that decision, not a difficulty slider.
-      </p>
-    </header>
+    <!-- The room is the page. Everything else is drawn over it, and the two
+         layers below this one are `pointer-events: none` except where they are
+         genuinely something to click, so a click that misses the HUD lands on
+         the floor rather than being swallowed by a panel. -->
+    <div class="canvas-wrap" id="canvas-wrap">
+      <canvas id="arena" aria-label="The arena. Click to send the character somewhere."></canvas>
+    </div>
 
-    <main>
-      <section class="stage">
-        <div class="canvas-wrap" id="canvas-wrap">
-          <canvas id="arena" aria-label="The arena. Click to send the character somewhere."></canvas>
+    <div class="hud">
+      <div class="hud-top">
+        <span class="brand">auto&#8209;rpg</span>
+        <div class="hud-top-right">
+          <span class="chip static"><span class="chip-key">tick</span> <span id="sim-tick">0</span></span>
+          <button type="button" class="chip" id="btn-menu" aria-expanded="false" aria-controls="drawer">
+            <span aria-hidden="true">&#9776;</span> Details <kbd>Tab</kbd>
+          </button>
         </div>
-        <p class="hint" id="hint"></p>
+      </div>
 
-        <section class="panel controls">
-          <ul class="keys">
-            <li><kbd>click</kbd><span>Go there &mdash; a standing order, not a waypoint.</span></li>
-            <li>
-              <kbd>right click</kbd><kbd>Esc</kbd>
-              <span>Stand down &mdash; hold this ground.</span>
-            </li>
-            <li>
-              <kbd>F</kbd>
-              <span>Free will &mdash; no order at all; the character decides for itself.</span>
-            </li>
-            <li>
-              <kbd>S</kbd><kbd>B</kbd>
-              <span>Send in a skitterer or a brute &mdash; the fight starts itself.</span>
-            </li>
-            <li>
-              <kbd>1</kbd><kbd>2</kbd>
-              <span>Send in a warrior or a scout &mdash; once yours has fallen.</span>
-            </li>
-            <li>
-              <kbd>C</kbd><kbd>V</kbd>
-              <span>Take the feet or the sword &mdash; either alone, or both.</span>
-            </li>
-            <li>
-              <kbd>WASD</kbd><kbd>mouse</kbd>
-              <span>
-                Move and aim, once you have taken them. Pointer distance sets how far the
-                blade is committed; hold <kbd>Shift</kbd> to steer the shield instead.
-              </span>
-            </li>
-            <li><kbd>R</kbd><span>Restart the room.</span></li>
-          </ul>
-          <div class="buttons">
-            <button type="button" id="btn-spawn-skitterer">Spawn skitterer</button>
-            <button type="button" id="btn-spawn-brute">Spawn brute</button>
-            <button type="button" id="btn-standdown">Stand down</button>
-            <button type="button" id="btn-freewill">Free will</button>
-          </div>
-          <div class="buttons">
-            <button type="button" class="toggle" id="btn-control-feet" aria-pressed="false">
-              Take the feet
-            </button>
-            <button type="button" class="toggle" id="btn-control-sword" aria-pressed="false">
-              Take the sword
-            </button>
-          </div>
-        </section>
+      <p class="hint" id="hint"></p>
 
-        <p class="footnote">
-          A click is a standing order, so the character acts on it at its next decision &mdash; up to
-          12 ticks away for this one. The marker stays dim until it does, and that delay
-          <em>is</em> the intellect stat. Send something in and it will break off the walk to
-          fight: a visible enemy outranks your order, and that is the whole idea. Lose, and
-          the room stays as it is &mdash; send in a warrior or a scout and watch the same
-          fight go differently on the same stats.
-        </p>
-      </section>
-
-      <aside class="hud">
-        <section class="panel">
-          <h2>Character</h2>
+      <div class="hud-bottom">
+        <div class="hud-vitals">
           <div class="who">
             <span class="dot"></span>
             <span id="unit-name">warrior</span>
+            <span class="hp-bar"><span id="hp-fill"></span></span>
             <span class="hp" id="unit-hp">84 / 84 hp</span>
           </div>
-          <!-- The point of the whole page: every row is a stat, and every stat
-               names the thing about the AI that it changes. -->
-          <dl class="stats" id="stats"></dl>
-        </section>
-
-        <section class="panel">
-          <h2>Order</h2>
+          <!-- The two lines that answer "what is it doing" and "is anything
+               happening". Both have their class attribute rewritten wholesale
+               by `updateHud`, so neither can carry a layout class. -->
           <p class="state" id="order-state">no order</p>
-          <dl class="readout">
-            <dt>destination</dt>
-            <dd id="order-dest">&mdash;</dd>
-            <dt>distance left</dt>
-            <dd id="order-distance">&mdash;</dd>
-            <dt>last decision</dt>
-            <dd id="order-decision">&mdash;</dd>
-          </dl>
-        </section>
-
-        <section class="panel">
-          <h2>Battle</h2>
-          <!-- Nobody commands the monsters. They fight because the same
-               UtilityPolicy the lab evolves decides they should, which is why a
-               spawn button is all it takes to start one. -->
           <p class="state idle" id="battle-state">quiet &mdash; nothing in the room to fight</p>
           <!-- Not on the page until it means something. The module refuses a
                second character while the first is standing: an order belongs to
@@ -127,6 +56,63 @@
             <button type="button" id="btn-swap-warrior">Send in a warrior</button>
             <button type="button" id="btn-swap-scout">Send in a scout</button>
           </div>
+        </div>
+
+        <!-- The only controls that stay on screen: the two that start a fight,
+             and the two that say who is driving. That last pair has to be
+             readable at a glance mid-fight, which is the whole reason it is not
+             behind the drawer with everything else. -->
+        <div class="hud-actions">
+          <button type="button" class="chip" id="btn-spawn-skitterer">Skitterer <kbd>S</kbd></button>
+          <button type="button" class="chip" id="btn-spawn-brute">Brute <kbd>B</kbd></button>
+          <button type="button" class="chip toggle" id="btn-control-feet" aria-pressed="false">
+            Feet <kbd>C</kbd>
+          </button>
+          <button type="button" class="chip toggle" id="btn-control-sword" aria-pressed="false">
+            Sword <kbd>V</kbd>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Everything that is worth reading but not worth watching. It was a
+         348px rail that never went away, which is how the arena ended up a
+         postage stamp on a 1080p display. -->
+    <aside class="drawer" id="drawer" aria-label="Details">
+      <div class="drawer-inner">
+        <p class="tagline">
+          You give rough directions. The character decides how to follow them &mdash; and its
+          <em>stats</em> are what make that decision, not a difficulty slider.
+        </p>
+
+        <section class="panel">
+          <h2>Character</h2>
+          <!-- The point of the whole page: every row is a stat, and every stat
+               names the thing about the AI that it changes. -->
+          <dl class="stats" id="stats"></dl>
+        </section>
+
+        <section class="panel">
+          <h2>Order</h2>
+          <dl class="readout">
+            <dt>destination</dt>
+            <dd id="order-dest">&mdash;</dd>
+            <dt>distance left</dt>
+            <dd id="order-distance">&mdash;</dd>
+            <dt>last decision</dt>
+            <dd id="order-decision">&mdash;</dd>
+          </dl>
+          <div class="buttons">
+            <button type="button" id="btn-standdown">Stand down</button>
+            <button type="button" id="btn-freewill">Free will</button>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>Battle</h2>
+          <!-- Nobody commands the monsters. They fight because the same
+               UtilityPolicy the lab evolves decides they should, which is why a
+               spawn button is all it takes to start one. -->
           <dl class="readout">
             <dt>standing</dt>
             <dd id="battle-roster">1 hero, 0 monsters</dd>
@@ -157,10 +143,48 @@
         </section>
 
         <section class="panel">
+          <h2>Controls</h2>
+          <ul class="keys">
+            <li><kbd>click</kbd><span>Go there &mdash; a standing order, not a waypoint.</span></li>
+            <li>
+              <kbd>right click</kbd><kbd>Esc</kbd>
+              <span>Stand down &mdash; hold this ground.</span>
+            </li>
+            <li>
+              <kbd>F</kbd>
+              <span>Free will &mdash; no order at all; the character decides for itself.</span>
+            </li>
+            <li>
+              <kbd>S</kbd><kbd>B</kbd>
+              <span>Send in a skitterer or a brute &mdash; the fight starts itself.</span>
+            </li>
+            <li>
+              <kbd>1</kbd><kbd>2</kbd>
+              <span>Send in a warrior or a scout &mdash; once yours has fallen.</span>
+            </li>
+            <li>
+              <kbd>C</kbd><kbd>V</kbd>
+              <span>Take the feet or the sword &mdash; either alone, or both.</span>
+            </li>
+            <li>
+              <kbd>WASD</kbd><kbd>mouse</kbd>
+              <span>
+                Move and aim, once you have taken them. Pointer distance sets how far the
+                blade is committed; hold <kbd>Shift</kbd> to steer the shield instead.
+              </span>
+            </li>
+            <li>
+              <kbd>wheel</kbd>
+              <span>Zoom, between the whole room and close in over the character's shoulder.</span>
+            </li>
+            <li><kbd>Tab</kbd><span>Open and close this panel.</span></li>
+            <li><kbd>R</kbd><span>Restart the room.</span></li>
+          </ul>
+        </section>
+
+        <section class="panel">
           <h2>Simulation</h2>
           <dl class="readout">
-            <dt>tick</dt>
-            <dd id="sim-tick">0</dd>
             <dt>position</dt>
             <dd id="sim-position">&mdash;</dd>
             <dt>state hash</dt>
@@ -168,8 +192,16 @@
           </dl>
         </section>
 
-      </aside>
-    </main>
+        <p class="footnote">
+          A click is a standing order, so the character acts on it at its next decision &mdash; up to
+          12 ticks away for this one. The marker stays dim until it does, and that delay
+          <em>is</em> the intellect stat. Send something in and it will break off the walk to
+          fight: a visible enemy outranks your order, and that is the whole idea. Lose, and
+          the room stays as it is &mdash; send in a warrior or a scout and watch the same
+          fight go differently on the same stats.
+        </p>
+      </div>
+    </aside>
 
     <div class="overlay" id="overlay" hidden>
       <div class="overlay-card" role="alert">
