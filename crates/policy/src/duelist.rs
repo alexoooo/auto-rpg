@@ -25,7 +25,7 @@ use sim::{
     SWORD,
 };
 
-pub const DUELIST_GENOME_LEN: usize = 16;
+pub const DUELIST_GENOME_LEN: usize = 18;
 
 /// How few ticks of its own telegraph may be left before a feint is called off.
 ///
@@ -36,12 +36,19 @@ const FEINT_COMMIT: u16 = 3;
 
 /// How far outside its own dead zone a fighter insists on standing.
 ///
-/// A margin, not a rounding allowance. `min_strike_range` is where a blow
-/// begins to *register*, and damage there is zero by construction -- impact
-/// minus the threshold is the whole of it. Standing exactly on that line is
+/// A margin, not a rounding allowance. `min_strike_range` is where a blow falls
+/// to a twelfth of what the same blade does at its tip, which is a scratch that
+/// does not even spend the cut. Standing exactly on that line is
 /// indistinguishable from standing inside it, which is how a Skitterer ended up
 /// hugging a Brute at 1.04 units, immune and harmless, losing sixty points of
 /// win rate to a baseline that simply stood a little further back.
+///
+/// 1.25 survived the switch to a squared damage law without moving, and that is
+/// a stronger result than it looks. The margin is worth whatever *damage* it
+/// buys, and it buys the same: at 1.25 dead zones a blow is worth 22% of peak
+/// under the old speed-linear law and 22% under the energy law. Swept at 1.00
+/// and 1.10 afterwards, both were worse -- a Brute gives up its whole matchup
+/// against a Scout at 1.00.
 const STRIKE_MARGIN: Fx = Fx::from_ratio(125, 100);
 
 /// How much an arriving blade suppresses the urge to close.
@@ -163,8 +170,10 @@ pub struct DuelistWeights {
     /// It used to be measured from body contact, which made it a guess about
     /// where the enemy's weapon stopped biting. That figure is now *derived*
     /// from the perceived dead zone -- see `DuelistPolicy::preferred_range` --
-    /// so the gene means the trade rather than the guess: impact is linear in
-    /// the arm on both sides, so standing further out costs and pays at once.
+    /// so the gene means the trade rather than the guess: a blow grows with the
+    /// arm on both sides, so standing further out costs and pays at once. It
+    /// grows with the *square* of the arm now, which sharpens the trade without
+    /// changing its direction -- both ends of it steepened together.
     ///
     /// Four independent evolution runs against a Brute returned **0.000**, which
     /// is the least ambiguous result the lab has produced and is not the corner
@@ -205,6 +214,22 @@ pub struct DuelistWeights {
     pub cohesion: Fx,
     /// Preference for open ground over corners.
     pub wall_fear: Fx,
+    /// **How much of its own recoil to stand inside of.**
+    ///
+    /// Swinging drags you, and [`sim::Observation::recoil_drift`] says how far.
+    /// This is what fraction of that a fighter sets up inside its mark for, so
+    /// that the drift lands it where it wanted to be instead of carrying it out
+    /// past its own reach.
+    pub footing: Fx,
+    /// **Weight on guarding against being moved, rather than against being
+    /// hurt.**
+    ///
+    /// The second thing a planted shield buys ([`sim::BRACE_ANCHOR`]), and it
+    /// needs its own gene because it ranks the roster differently from the
+    /// first: the blow that hurts most is not the blow that throws you furthest,
+    /// and a fighter light enough to be sent flying by a cut it could otherwise
+    /// afford to eat has a reason to plant that `guard` alone cannot express.
+    pub anchor: Fx,
 }
 
 const LABELS: [&str; DUELIST_GENOME_LEN] = [
@@ -224,6 +249,8 @@ const LABELS: [&str; DUELIST_GENOME_LEN] = [
     "resolve",
     "cohesion",
     "wall_fear",
+    "footing",
+    "anchor",
 ];
 
 const GENE_RANGES: [(Fx, Fx); DUELIST_GENOME_LEN] = [
@@ -243,86 +270,109 @@ const GENE_RANGES: [(Fx, Fx); DUELIST_GENOME_LEN] = [
     (Fx::ZERO, Fx::ONE),                            // resolve
     (Fx::ZERO, Fx::ONE),                            // cohesion
     (Fx::ZERO, Fx::ONE),                            // wall_fear
+    (Fx::ZERO, Fx::ONE),                            // footing
+    (Fx::ZERO, Fx::from_int(3)),                    // anchor
 ];
 
-/// The starting point, from `lab evolve --arena duel --hero warrior --villain
-/// brute`, four independent runs of sixty generations.
+/// From `lab evolve --arena roster --cross --cross-with duelist`, thirty
+/// generations of twenty-eight, on four **genuinely** independent master seeds.
 ///
-/// **Two of these reverse what the previous set said, and the reversals are the
-/// point** -- they are the measurement that the mechanics underneath actually
-/// changed rather than merely moved.
+/// Both of those flags are load-bearing and both exist because of mistakes this
+/// comment used to record as successes. `--arena roster` scores all sixteen
+/// archetype pairings, because one set of weights ships to the whole roster and a
+/// single-pairing fitness cannot see what it trades away: the geometry fix below
+/// took a duelling Scout from 18% to 99% against a Warrior and cost a Brute half
+/// its matchup against the same Warrior, and `--arena duel` would have scored
+/// that as a clean win. `--cross` plays every seed set twice, against the naive
+/// policy and against a duellist, and keeps the **worse** average -- because the
+/// previous round's winners beat a duelling Brute 100% while winning 19% to 45%
+/// against a naive one, and called that a better fighter.
 ///
-/// * `read_ahead` went from the *bottom* of its range to the *top*. The old
-///   note here recorded, correctly for its time, that answering telegraphs was
-///   a losing strategy: a shield covered an arc or it did not, covering was
-///   instantaneous, and so reading a windup early bought nothing that flicking
-///   the guard across at the last moment did not also buy -- while costing every
-///   cut you did not throw. A guard has mass now
-///   ([`sim::Hand::braced`]), and the telegraph buys the one thing that was
-///   missing: time to *finish* moving. Reading early is the whole of blocking
-///   well.
-/// * `evasion` went from switched-off to real, and `punish` stayed high, for
-///   the matching reason. A cut that touches nothing now costs its owner twenty
-///   extra ticks of recovery, and a blow landing into a recovery does half again
-///   its damage -- so stepping off a line is no longer merely *not being hit*,
-///   it is the setup for the best exchange in the game.
+/// **What four independent runs agreed about**, which is the part worth trusting:
 ///
-/// `standoff` is **0.000**, and it is worth saying plainly: against a heavy
-/// weapon, stand as close as your own blade allows. It reads like an extreme and
-/// it is not one, because the gene no longer means "how close to its body" -- it
-/// means how far *outside the safest place you can still fight from* to stand,
-/// and that place is computed from the enemy's own dead zone. Zero is the
-/// considered answer, not the corner of the range; see
-/// `DuelistPolicy::preferred_range`. Held directly against the alternatives over
-/// 240 duels with a naive Brute -- the fight the difficulty table is measured on
-/// -- it is not close:
+/// * `standoff` is **positive now, 0.23 to 0.49**, where it was 0.000 across the
+///   previous set. That is the geometry correction in
+///   [`DuelistPolicy::preferred_range`] showing up as behaviour: 0.000 was the
+///   right answer to a floor computed as a sum, which stood every fighter up to
+///   half a body further out than it meant to. Given the true distance, a
+///   duellist buys some reach back.
+/// * `punish` stays at the top, 1.79 to 3.00, as it has through every rebuild of
+///   the physics. Hitting something that cannot answer is the best exchange in
+///   the game and nothing has made it less so.
+/// * `sidestep` came back at 0.98, 1.00, 1.00 and 0.31. It used to need
+///   hand-setting off 0.01 -- which turned an evade into backing straight into
+///   the swing -- and no longer does.
+/// * **`read_ahead` collapsed to the floor of its range**, 0.30 to 0.90, having
+///   been pinned at the *ceiling* of 3.00 in the previous set. It is the second
+///   time this gene has reversed and the second time the reversal is a
+///   measurement rather than noise. It went to the top when a guard gained mass,
+///   because a telegraph bought time to *finish* moving the shield. It has come
+///   back down now that `Trade` is damped by how blunted the blade is and
+///   `standoff` is positive: a fighter standing further out with a reason to keep
+///   cutting has less use for a stance whose whole content is *not attacking*.
+/// * `lead` came back **0.000, 0.000, 0.059, 0.000** and was removed. See
+///   [`DuelistPolicy::act`].
+/// * `barge` came back 0.35, 0.69, 0.83 and 2.07 -- four values with no
+///   agreement between them, which is the signature of a gene evolution had *no
+///   gradient on*. It turned out the stance could not be chosen at any value in
+///   its range, so every one of those four numbers was noise. Removed; the
+///   reasoning is in [`DuelistPolicy::choose`]. Worth remembering as a reading
+///   skill: four runs disagreeing wildly is not a weak signal, it is usually no
+///   signal, and the difference matters.
+///
+/// **Three values are hand-set off what evolution returned, and each is a
+/// different kind of reason.**
+///
+/// `caution` comes back near zero on every run, for a reason about the arena
+/// rather than about fighting: in a duel there is nowhere to break off *to* and
+/// the clock is scored against you, so the gene is free. `0.32` blows is what an
+/// older `0.10` health fraction worked out to against a Brute, so the shipped
+/// behaviour is unchanged where it was measured and is now also right against
+/// everything else. A stance that never fires is a stance nobody will notice has
+/// rotted.
+///
+/// `standoff` at **0.25** and `resolve` at **0.70** are chosen against a
+/// criterion the fitness function does not contain, and this is the honest note
+/// about it. Fitness measures *how good the policy is*. The difficulty ladder
+/// measures *how much its quality depends on the character's wits* — and
+/// maximising the first flattens the second, because a policy that fights well
+/// with bad reads is exactly a policy whose dim sheet wins. Taken raw, the best
+/// genome here puts the `int 1 / per 1` rung at 48% where the product wants it
+/// under 55% and falling from there, and one run put it at 74%.
+///
+/// Both were picked off measured sweeps, and the choice cost nothing:
 ///
 /// ```text
-///   standoff   0.000  0.200  0.400  0.600  0.800  1.000
-///   win rate     98%    87%    72%    40%    25%    17%
-///   health      0.60   0.44   0.37   0.32   0.23   0.24
+///   standoff 0.25, resolve   0.38   0.55   0.70   0.85   1.00
+///   matrix mean               71%    71%    70%    67%    68%
+///   dull rung (int 1/per 1)   68%    55%    35%    19%    30%
+///   worst mirror draw rate     0%     1%     0%     0%     0%
 /// ```
 ///
-/// **The opponent decides that answer completely, and this is the trap in the
-/// duel arena.** Evolved against a *duellist* Brute rather than a naive one,
-/// four independently seeded runs all came back with `standoff` between 0.68 and
-/// 0.99 and `evasion` pinned at its ceiling, scoring 100% and 0.76 health -- and
-/// those same genomes win 19% to 45% against the naive Brute. Standing off works
-/// on an opponent that reads you and hesitates, and is suicide against one that
-/// simply walks in swinging, because the tip of the arc is the worst place on it.
-/// The evolved genomes are not better fighters, they are counters to one
-/// opponent, and the fitness function cannot tell the difference. That is a
-/// property of this arena worth remembering before trusting the next run of it.
-///
-/// Two values are nudged off what evolution returned, and this is the honest
-/// note about it. `sidestep` came back at 0.01, which turns an evade into
-/// backing straight into the swing. `caution` comes back near zero on every run
-/// for a reason that is really about the arena rather than about fighting: in a
-/// duel there is nowhere to break off *to*, and the clock is scored against you,
-/// so the gene is free. `0.32` blows is what the previous set's `0.10` health
-/// fraction worked out to against a Brute, so the shipped behaviour is
-/// unchanged where it was measured and is now *also* right against everything
-/// else. Measured across `0.16` to `0.48` the duel result does not move
-/// (97%/0.60), so this is a free choice inside a flat region and it is spent on
-/// keeping the stance alive: a stance that never fires is a stance nobody will
-/// notice has rotted.
+/// At 0.70 the roster mean is a point *above* the raw genome's 69% and the ladder
+/// is monotone with no draws on it. `standoff` 0.25 is doing the second half of
+/// the job: at the evolved 0.49 a Scout mirror stalls, drawing one duel in ten at
+/// 59% health, and the draw rate climbs to 29% by 0.56. Standing at the tip of
+/// your own arc is where two symmetric fighters stop resolving.
 const BASELINE_VALUES: [Fx; DUELIST_GENOME_LEN] = [
-    Fx::from_ratio(1828, 1000), // aggression
-    Fx::from_ratio(1297, 1000), // bloodlust
-    Fx::from_ratio(1282, 1000), // obedience
-    Fx::from_ratio(320, 1000),  // caution, in clean blows rather than health
-    Fx::from_ratio(0, 1000),    // standoff
-    Fx::from_ratio(1000, 1000), // lunge
-    Fx::from_ratio(912, 1000),  // guard
-    Fx::from_ratio(3000, 1000), // read_ahead
-    Fx::from_ratio(759, 1000),  // evasion
-    Fx::from_ratio(200, 1000),  // sidestep
-    Fx::from_ratio(560, 1000),  // flank
-    Fx::from_ratio(2296, 1000), // punish
-    Fx::from_ratio(637, 1000),  // feint
-    Fx::from_ratio(1000, 1000), // resolve
-    Fx::from_ratio(719, 1000),  // cohesion
-    Fx::from_ratio(557, 1000),  // wall_fear
+    Fx::from_ratio(1854, 1000), // aggression
+    Fx::from_ratio(2000, 1000), // bloodlust
+    Fx::from_ratio(275, 1000),  // obedience
+    Fx::from_ratio(320, 1000),  // caution, hand-set: in clean blows, not health
+    Fx::from_ratio(250, 1000),  // standoff, hand-set for the ladder
+    Fx::from_ratio(244, 1000),  // lunge
+    Fx::from_ratio(1501, 1000), // guard
+    Fx::from_ratio(905, 1000),  // read_ahead
+    Fx::from_ratio(2204, 1000), // evasion
+    Fx::from_ratio(1000, 1000), // sidestep
+    Fx::from_ratio(667, 1000),  // flank
+    Fx::from_ratio(1786, 1000), // punish
+    Fx::from_ratio(626, 1000),  // feint
+    Fx::from_ratio(700, 1000),  // resolve, hand-set for the ladder
+    Fx::from_ratio(919, 1000),  // cohesion
+    Fx::from_ratio(474, 1000),  // wall_fear
+    Fx::from_ratio(768, 1000),  // footing
+    Fx::from_ratio(456, 1000),  // anchor
 ];
 
 impl DuelistWeights {
@@ -345,6 +395,8 @@ impl DuelistWeights {
         resolve: BASELINE_VALUES[13],
         cohesion: BASELINE_VALUES[14],
         wall_fear: BASELINE_VALUES[15],
+        footing: BASELINE_VALUES[16],
+        anchor: BASELINE_VALUES[17],
     };
 
     pub fn from_genome(genes: &[Fx]) -> DuelistWeights {
@@ -366,6 +418,8 @@ impl DuelistWeights {
             resolve: g(13),
             cohesion: g(14),
             wall_fear: g(15),
+            footing: g(16),
+            anchor: g(17),
         }
     }
 
@@ -387,6 +441,8 @@ impl DuelistWeights {
             self.resolve,
             self.cohesion,
             self.wall_fear,
+            self.footing,
+            self.anchor,
         ]
     }
 
@@ -552,20 +608,54 @@ impl DuelistPolicy {
     /// Three distances decide this, and all three are computed rather than
     /// guessed:
     ///
-    /// * **The floor.** `min_strike_range x STRIKE_MARGIN + foe.radius` --
-    ///   inside this a fighter is within its *own* dead zone and cannot hurt
-    ///   what it is standing on top of. Exact, because proprioception is free.
-    /// * **The lee.** `foe.min_strike_range + obs.radius` -- inside this the
-    ///   enemy's blade cannot reach the impact threshold at the nearest surface
-    ///   of this body. **Perceived**, and this is the whole of what
+    /// * **The floor.** Inside this a fighter is within its *own* dead zone and
+    ///   cannot hurt what it is standing on top of. Exact, because
+    ///   proprioception is free.
+    /// * **The lee.** Inside this the enemy's blade cannot reach past a graze on
+    ///   this body. **Perceived**, and this is the whole of what
     ///   [`Contact::min_strike_range`] bought.
     /// * **Arm's length.** The far end of its own reach, where its own blows
     ///   land hardest and so do the enemy's.
     ///
+    /// **The first two are hypotenuses and not sums, and that correction is the
+    /// whole of what this phase fixed here.**
+    ///
+    /// They were sums, on the reading that a blow lands on the nearest surface of
+    /// the body it strikes -- a body at distance `D` struck at `D - r` along the
+    /// arm. That is not what the sim bills. `fx::segment_circle` measures to the
+    /// body's *centre*, and a sweep bills the first sub-step that connects, which
+    /// is while the blade is still `arcsin(r/D)` off the line of centres -- so the
+    /// blow lands at `sqrt(D^2 - r^2)`, capped by the tip. Each distance is
+    /// therefore a *leg* of a right triangle whose hypotenuse is the range, and
+    /// adding the legs overstates it by up to a body radius. Measured against the
+    /// predicate itself to three decimals: a Scout crowding a Warrior strikes at
+    /// 0.663 and not at 0.350.
+    ///
+    /// It was a Phase 3 bug and it survived two phases because small dead zones
+    /// hid it. The energy damage law grew every dead zone by about a third and
+    /// made it expensive: a duellist Scout's matchup against a naive Warrior fell
+    /// from 97% to 18% on the percept alone, with the damage law held fixed.
+    /// Correcting it against the *old* genes made things worse across the roster
+    /// -- mirrors ran out the clock untouched -- which is why the fix and the
+    /// re-evolution of `standoff` had to land together, and did.
+    ///
     /// The safest place a fighter can still fight from is the larger of the
     /// first two, and `standoff` spends the distance between there and arm's
-    /// length -- buying damage with exposure, since impact is linear in the arm
-    /// on *both* sides.
+    /// length -- buying damage with exposure, since a blow grows with the arm on
+    /// *both* sides.
+    ///
+    /// **Then it stands inside that by what its own swing is about to cost it.**
+    /// Recoil drags a swinging body along its own arc, which is across the line
+    /// to the enemy rather than along it -- and a lateral step off a circle of
+    /// radius `d` lands you at `sqrt(d^2 + s^2)`, which is *further out*, never
+    /// nearer. So a fighter that swings and does not allow for it drifts
+    /// steadily toward the far end of its own reach, which is the one place its
+    /// spacing decision was trying not to be. `footing` is how much of
+    /// [`sim::Observation::recoil_drift`] to set up inside for; the exact
+    /// correction is second order in `s/d` and this is first order in it, so the
+    /// gene is absorbing a shape as well as a scale. Floored at `floor` like
+    /// everything else, because no amount of drift is worth standing inside your
+    /// own hilt for.
     ///
     /// Sometimes the lee is beyond the floor and there is a genuine band in
     /// which a fighter can reach and cannot be reached. That band is not a
@@ -580,17 +670,45 @@ impl DuelistPolicy {
     /// against a Brute is four points a blow against thirty. A dim fighter
     /// respects a big weapon's reach and is killed by it.
     fn preferred_range(&self, obs: &Observation, foe: &Contact) -> Fx {
-        let floor = obs.min_strike_range * STRIKE_MARGIN + foe.radius;
-        let lee = foe.min_strike_range + obs.radius;
+        // Bodies do not pass through each other, and a fighter that asks for a
+        // distance shorter than the two radii is asking for something the sim
+        // will spend every tick undoing. Correcting the floor to a hypotenuse
+        // made that reachable for the first time -- `hypot(a, b)` is smaller
+        // than `a + b`, and for the light archetypes it came out *inside*
+        // contact, so a Scout mirror drove permanently into itself, ground along
+        // `World::separate`'s impulse at walking pace, and timed out at full
+        // health on both sides.
+        let touching = obs.radius + foe.radius;
+        let floor = self.bite_range(obs, foe).max(touching);
+        let lee = Vec2::new(foe.min_strike_range, obs.radius).length();
         let arms_length = obs.full_reach() + foe.radius;
 
         let safest = lee.max(floor);
         let wanted = safest + (arms_length - safest).max(Fx::ZERO) * self.weights.standoff;
+        let wanted = wanted - obs.recoil_drift * obs.radius * self.weights.footing;
         // Clamped rather than merely floored: a wildly overestimated lee could
         // otherwise park a fighter beyond its own reach, where it is being hit
         // by something it cannot answer -- which is a way to lose, not a way to
         // fight badly.
         wanted.clamp(floor, arms_length.max(floor))
+    }
+
+    /// **The nearest range from which this fighter's own blade still bites.**
+    ///
+    /// Its own dead zone plus [`STRIKE_MARGIN`], as a distance between *centres*
+    /// -- so it is a hypotenuse, for the reason set out at
+    /// [`DuelistPolicy::preferred_range`]: the sim bills a blow at
+    /// `sqrt(D^2 - r^2)` and each of the two terms here is a leg of that
+    /// triangle.
+    ///
+    /// Deliberately **not** floored at body contact, unlike the floor in
+    /// `preferred_range` that is built from it. This one answers "is my sword
+    /// doing anything from here", and the honest answer against a big weapon and
+    /// a small opponent is sometimes no even when the two are touching. Flooring
+    /// it would quietly report that a fighter who cannot possibly be crowded any
+    /// harder is not crowded at all.
+    fn bite_range(&self, obs: &Observation, foe: &Contact) -> Fx {
+        Vec2::new(obs.min_strike_range * STRIKE_MARGIN, foe.radius).length()
     }
 
     /// Scores every stance and returns the winner.
@@ -614,6 +732,29 @@ impl DuelistPolicy {
         // achieves nothing because its hand is mid-recovery, and stands in
         // range doing it.
         let can_open = obs.can_strike() || obs.sword().swing.is_attacking();
+        // **How far inside its own dead zone this fighter is standing**, and a
+        // fact it has always had and never used: every stance that swings has
+        // scored the same whether the blade could reach past a graze or not.
+        //
+        // Small, and worth saying how small rather than implying otherwise. Body
+        // contact is as crowded as anyone can get, and for twelve of the sixteen
+        // pairings the two bodies touching still leaves the blade outside its own
+        // dead zone -- so this is exactly zero there. It reaches 0.13 for a Brute
+        // with a Skitterer against its chest and 0.09 with a Scout, and nothing
+        // else in the roster gets past 0.04.
+        //
+        // Kept anyway, because it is the correct model of a real effect that this
+        // roster's body sizes happen to suppress, it costs one multiply, and the
+        // alternative is a policy that is confidently wrong the moment a weapon
+        // with a longer dead zone or a body with a smaller radius is authored.
+        let blunted = {
+            let bite = self.bite_range(obs, foe);
+            if bite.is_positive() {
+                (Fx::ONE - foe.distance / bite).clamp(Fx::ZERO, Fx::ONE)
+            } else {
+                Fx::ZERO
+            }
+        };
 
         let mut scores = [Fx::ZERO; 8];
         // Out of reach, closing is the only thing worth doing, and it scales
@@ -633,13 +774,26 @@ impl DuelistPolicy {
         // Trading is the default, and it has to be: every other stance is a
         // reason *not* to hit someone, and a fighter needs a reason to.
         scores[Stance::Trade.index()] = if in_reach && can_open {
-            Fx::from_ratio(14, 10) - danger * Fx::HALF
+            (Fx::from_ratio(14, 10) - danger * Fx::HALF) * (Fx::ONE - blunted)
         } else {
             Fx::ZERO
         };
         scores[Stance::Circle.index()] = self.weights.flank * (Fx::ONE - danger);
         scores[Stance::Evade.index()] = self.weights.evasion * danger;
-        scores[Stance::Guard.index()] = self.weights.guard * danger;
+        // **Two reasons to plant a shield, and they are not the same reason.**
+        //
+        // `guard` is the old one: a braced guard leaks a fifth of what a
+        // travelling one does, so covering the line is worth what the blow
+        // costs in *health*. `anchor` is the other half of what bracing buys --
+        // `sim::BRACE_ANCHOR` takes seven tenths of the shove out of a blow the
+        // shield caught -- and it needs its own term because the roster ranks
+        // the two differently on purpose. A Skitterer's knife is among the least
+        // dangerous things in the game and the second heaviest for its speed:
+        // eating one costs a Warrior almost nothing and moves it further than
+        // its own sword moves anybody. Folding this into `guard` would say those
+        // are the same decision.
+        scores[Stance::Guard.index()] =
+            danger * (self.weights.guard + self.weights.anchor * foe.knockback_taken.min(Fx::ONE));
         // The whole reward for reading a fight. An enemy in recovery cannot
         // attack, cannot parry and cannot get its guard back in time, and this
         // is the only stance that knows it.
@@ -674,6 +828,33 @@ impl DuelistPolicy {
         } else {
             Fx::ZERO
         };
+        // **There is no body-check here, and that is a measured result rather
+        // than an omission.**
+        //
+        // A ninth stance was built for it: walk through somebody who has come
+        // inside the distance you chose and weighs less than you do, scored
+        // `barge * crowded * lighter` with `lighter = 1 - heft`, because
+        // `World::separate` splits a collision on the mass ratio and nothing
+        // else. It never fires, and it cannot -- the ceiling is algebra, not
+        // tuning. `crowded` is largest when bodies are touching, which is as
+        // close as anyone can get, and even there it reaches only 0.32 (a Brute
+        // with a Skitterer against its chest); `lighter` is zero in nine of the
+        // sixteen pairings, because most of what you meet is not lighter than
+        // you. The best product available anywhere in the roster, with the gene
+        // at the top of its range, is **0.838** against `Trade` sitting at 1.4.
+        //
+        // The reason underneath it is the interesting part, and it is the same
+        // fact `blunted` is built on: **you cannot be crowded into uselessness
+        // in this roster, because bodies are wider than the gap.** A shoulder
+        // beats a sword only where the sword has stopped working, and the sword
+        // never quite stops -- a Brute with a Skitterer pressed against it is
+        // still swinging at 1.08 dead zones, worth a seventh of its best blow
+        // rather than nothing. Trading is the right answer and the score says so.
+        //
+        // `Contact::heft` stays in the observation, exactly as
+        // `Contact::velocity` stayed after leading a target was measured and
+        // removed. The percept is a fact about the world; the gene was a bet
+        // about what to do with it.
 
         // Hysteresis. Without it a duellist flickers between two stances that
         // score within a hair of each other and does neither -- which looks
@@ -746,6 +927,31 @@ impl DuelistPolicy {
         }
     }
 
+    /// **A duellist cuts at where the enemy is standing, and there is no gene for
+    /// doing otherwise. That is a measurement, not an oversight.**
+    ///
+    /// Leading a target was implemented here as a `lead` gene and a horizon built
+    /// from the two delays the observation can state -- the telegraph still to
+    /// run, exact off this fighter's own hand, and the wait for its own next
+    /// thought -- with the range running to 2 so the gene could carry the third
+    /// delay, the front of the cut, which nothing in an [`Observation`] states.
+    /// The drift was relative rather than the enemy's alone, so it also covered
+    /// this fighter's own footwork and its own recoil.
+    ///
+    /// Four evolution runs on genuinely independent master seeds returned
+    /// **0.000, 0.000, 0.059, 0.000**, and a direct sweep is monotonically
+    /// non-positive: 48% mean win rate at zero, 47% at a quarter, 45% at a half,
+    /// 44% at one, 29% at two. The gene was removed rather than shipped at zero,
+    /// for the reason the first version of it was removed two phases ago -- an
+    /// unused knob costs every future evolution run a dimension.
+    ///
+    /// The mechanism is the same one that killed it the first time and it is
+    /// worth keeping written down: a cut sweeps 146 degrees and the sim already
+    /// aims the far end of the arc past the target, so the swept area barely
+    /// moves -- while the lead is computed partly from a *perceived* velocity and
+    /// adds its error to an aim that was fine. [`sim::Contact::velocity`] stays in
+    /// the observation for a network to find a use for.
+    ///
     /// Turns a stance into feet and hands.
     fn act(&self, obs: &Observation, foe: &Contact, stance: Stance) -> Action {
         let toward = foe.offset.normalize();
@@ -927,6 +1133,14 @@ mod tests {
         sim::Arm::resolve(kind.weapon(), kind.base_stats(), kind.radius())
     }
 
+    /// Ground one clean blow from `by` costs `to`, in `to`'s body radii.
+    /// `World::knockback`, re-derived here so the fixture stays a fixture.
+    fn ground(by: UnitKind, to: UnitKind) -> Fx {
+        let dv = sim::peak_impulse(arm_of(by)) / to.mass();
+        let stop = fx::mul_div(dv, dv, to.base_stats().traction() * Fx::TWO);
+        stop / to.radius()
+    }
+
     fn contact(kind: UnitKind, x: i32, y: i32) -> Contact {
         let offset = Vec2::from_ints(x, y);
         Contact {
@@ -942,6 +1156,9 @@ mod tests {
             min_strike_range: sim::dead_zone(arm_of(kind)),
             threat: exchange(kind, UnitKind::Scout),
             frailty: exchange(UnitKind::Scout, kind),
+            knockback_taken: ground(kind, UnitKind::Scout),
+            knockback_dealt: ground(UnitKind::Scout, kind),
+            heft: kind.mass() / UnitKind::Scout.mass(),
             velocity: Vec2::ZERO,
             facing: Angle::HALF,
             sword_angle: Angle::HALF,
@@ -1278,6 +1495,158 @@ mod tests {
         assert!(
             policy.preferred_range(&obs, &contact(UnitKind::Brute, 5, 0))
                 > policy.preferred_range(&obs, &contact(UnitKind::Skitterer, 5, 0))
+        );
+    }
+
+    #[test]
+    fn the_preferred_range_is_never_inside_the_two_bodies() {
+        // The trap in correcting the floor to a hypotenuse: `hypot(a, b)` is
+        // smaller than `a + b`, and for the light end of the roster it comes out
+        // *inside contact* -- a distance the sim spends every tick undoing. A
+        // Scout mirror asking for it drove permanently into itself and timed out
+        // at full health on both sides, which reads as a policy that will not
+        // fight and was a policy asking for somewhere it could not stand.
+        let policy = DuelistPolicy::baseline();
+        let obs = situation(&[]);
+        for kind in UnitKind::ALL {
+            let foe = contact(kind, 5, 0);
+            let ideal = policy.preferred_range(&obs, &foe);
+            assert!(
+                ideal >= obs.radius + foe.radius,
+                "against a {} it wants {ideal}, inside the {} the two bodies take up",
+                kind.name(),
+                obs.radius + foe.radius
+            );
+        }
+    }
+
+    #[test]
+    fn a_moving_enemy_is_still_cut_at_where_it_is_standing() {
+        // **Pins a measured negative**, which is the only reason a test asserts
+        // that nothing happens. Leading a target was built here twice and
+        // measured worse both times; see `DuelistPolicy::act` for the numbers.
+        // Without this, the next person to notice `Contact::velocity` sitting
+        // unused rediscovers it, and the arc is wide enough that the loss is
+        // small enough to miss.
+        let mut walking = contact(UnitKind::Warrior, 2, 0);
+        walking.velocity = Vec2::new(Fx::ZERO, Fx::from_ratio(6, 100));
+        let still = contact(UnitKind::Warrior, 2, 0);
+
+        let mut policy = DuelistPolicy::baseline();
+        let moving_aim = policy.decide(&situation(&[walking])).sword().angle;
+        policy.reset();
+        let still_aim = policy.decide(&situation(&[still])).sword().angle;
+        assert_eq!(
+            moving_aim, still_aim,
+            "led a moving target, which four evolution runs and a direct sweep \
+             both say costs win rate"
+        );
+    }
+
+    #[test]
+    fn a_fighter_sets_up_inside_the_mark_its_own_swing_will_drift_it_out_of() {
+        // Recoil drags a swinging body along its own arc, which is *across* the
+        // line to the enemy -- and a lateral step off a circle of radius `d`
+        // lands you at `sqrt(d^2 + s^2)`, further out and never nearer. A
+        // fighter that does not allow for it drifts steadily toward the far end
+        // of its own reach.
+        //
+        // `standoff` is off the floor here on purpose: at zero the fighter is
+        // already standing as close as it can and the clamp has the last word,
+        // which is the correct behaviour and would make this test vacuous.
+        let foe = contact(UnitKind::Warrior, 3, 0);
+        let mut obs = situation(&[foe]);
+        obs.recoil_drift = Fx::ONE; // a whole body radius of ground
+
+        let spendthrift = DuelistPolicy::new(DuelistWeights {
+            standoff: Fx::HALF,
+            footing: Fx::ZERO,
+            ..DuelistWeights::BASELINE
+        });
+        let careful = DuelistPolicy::new(DuelistWeights {
+            standoff: Fx::HALF,
+            footing: Fx::ONE,
+            ..DuelistWeights::BASELINE
+        });
+        assert!(
+            careful.preferred_range(&obs, &foe) < spendthrift.preferred_range(&obs, &foe),
+            "budgeted no ground at all for a swing worth a body radius of it"
+        );
+
+        // And a fighter whose weapon does not move it stands where it always did.
+        obs.recoil_drift = Fx::ZERO;
+        assert_eq!(
+            careful.preferred_range(&obs, &foe),
+            spendthrift.preferred_range(&obs, &foe)
+        );
+    }
+
+    #[test]
+    fn nobody_can_be_crowded_far_enough_in_for_a_shoulder_to_beat_a_sword() {
+        // **Pins the second measured negative of the phase.** A body-check was
+        // built as a ninth stance -- walk through somebody inside the distance
+        // you chose who weighs less than you -- and it never fires. The ceiling
+        // is algebra rather than tuning, and this is that algebra, held against
+        // the roster so it fails if the roster ever moves far enough to make the
+        // stance worth rebuilding.
+        //
+        // The most crowded anyone can be is bodies touching. `Trade` scores 1.4.
+        let policy = DuelistPolicy::baseline();
+        let mut best = Fx::ZERO;
+        for me in UnitKind::ALL {
+            let mut obs = situation(&[]);
+            obs.radius = me.radius();
+            obs.weapon_length = me.weapon().length;
+            obs.min_strike_range = sim::dead_zone(arm_of(me));
+            for them in UnitKind::ALL {
+                let mut foe = contact(them, 5, 0);
+                foe.heft = them.mass() / me.mass();
+                foe.distance = obs.radius + foe.radius; // touching
+                let ideal = policy.preferred_range(&obs, &foe);
+                let crowded = (Fx::ONE - foe.distance / ideal).clamp(Fx::ZERO, Fx::ONE);
+                let lighter = (Fx::ONE - foe.heft).clamp(Fx::ZERO, Fx::ONE);
+                best = best.max(Fx::from_int(3) * crowded * lighter);
+            }
+        }
+        assert!(
+            best < Fx::from_ratio(14, 10),
+            "a body-check is worth {best} at the top of its range against a \
+             Trade score of 1.4 -- the roster has moved and the stance removed \
+             in the policy phase is worth rebuilding"
+        );
+    }
+
+
+    #[test]
+    fn a_blow_that_throws_you_is_worth_planting_for_even_when_it_barely_hurts() {
+        // The second thing a braced shield buys. `sim::BRACE_ANCHOR` takes seven
+        // tenths of the shove out of a blow the guard caught, and the roster
+        // ranks *hurting* and *moving* differently on purpose -- so a fighter
+        // reading only `threat` has no reason to plant against a weapon that
+        // will not wound it and will send it across the arena.
+        // A Brute rather than something actually light, because the archetype is
+        // beside the point and its reach is not: at this range a Warrior's cut
+        // does not arrive, `swing::landing` correctly says so, and there would
+        // be nothing to plant against.
+        let mut light = winding_up(UnitKind::Brute, 2, 0, Angle::HALF, 3);
+        light.threat = Fx::from_ratio(2, 100); // a scratch
+        light.knockback_taken = Fx::ZERO;
+        let mut heavy = light;
+        heavy.knockback_taken = Fx::ONE; // ...that puts you a body away
+
+        let mut anchored = DuelistPolicy::new(DuelistWeights {
+            guard: Fx::ZERO,
+            evasion: Fx::ZERO,
+            anchor: Fx::from_int(3),
+            read_ahead: Fx::from_int(3),
+            ..DuelistWeights::BASELINE
+        });
+        assert_eq!(stance_for(&mut anchored, &situation(&[heavy])), Stance::Guard);
+        anchored.reset();
+        assert_ne!(
+            stance_for(&mut anchored, &situation(&[light])),
+            Stance::Guard,
+            "planted against a blow that neither hurt it nor moved it"
         );
     }
 

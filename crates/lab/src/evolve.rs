@@ -13,15 +13,46 @@ use sim::{Scenario, UnitKind};
 /// evolved on crowds will happily sit at a range no duellist should accept.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Arena {
-    Skirmish { heroes: u32, monsters: u32 },
-    Duel { hero: UnitKind, villain: UnitKind },
+    Skirmish {
+        heroes: u32,
+        monsters: u32,
+    },
+    Duel {
+        hero: UnitKind,
+        villain: UnitKind,
+    },
+    /// **Every archetype against every archetype**, all sixteen pairings on each
+    /// seed.
+    ///
+    /// The arena that exists because a policy's weights are one set of numbers
+    /// shipped to the whole roster. `Duel` scores a single pairing, and a genome
+    /// tuned on one is a counter to one opponent wearing one body -- which is the
+    /// same overfitting `Arena::Duel` was added to catch one level down, and it
+    /// bit just as hard: a change that took a duelling Scout against a Warrior
+    /// from 18% to 99% cost a Brute half its matchup against the same Warrior,
+    /// and no single-pairing fitness can see the trade it is making.
+    ///
+    /// All sixteen per seed rather than one drawn from it, so coverage is exact
+    /// rather than approximately even, and so two candidates on the same seed set
+    /// are compared on identical work.
+    Roster,
 }
 
 impl Arena {
-    fn scenario(self, seed: u64) -> Scenario {
+    fn scenarios(self, seed: u64, out: &mut Vec<Scenario>) {
+        out.clear();
         match self {
-            Arena::Skirmish { heroes, monsters } => Scenario::skirmish(seed, heroes, monsters),
-            Arena::Duel { hero, villain } => Scenario::duel_of(hero, villain, seed),
+            Arena::Skirmish { heroes, monsters } => {
+                out.push(Scenario::skirmish(seed, heroes, monsters))
+            }
+            Arena::Duel { hero, villain } => out.push(Scenario::duel_of(hero, villain, seed)),
+            Arena::Roster => {
+                for hero in UnitKind::ALL {
+                    for villain in UnitKind::ALL {
+                        out.push(Scenario::duel_of(hero, villain, seed));
+                    }
+                }
+            }
         }
     }
 
@@ -31,6 +62,7 @@ impl Arena {
             Arena::Duel { hero, villain } => {
                 format!("{} vs {} duels", hero.name(), villain.name())
             }
+            Arena::Roster => "full-roster rounds (16 duels each)".into(),
         }
     }
 }
@@ -62,6 +94,20 @@ pub struct EvolveConfig {
     /// Which policy is being evolved, and what it is being evolved against.
     pub kind: PolicyKind,
     pub opponent: PolicyKind,
+    /// **A second opponent every candidate must also beat**, scored on the same
+    /// seeds and combined by taking the *worse* of the two.
+    ///
+    /// The duel arena overfits to its opponent and fitness cannot see it. Last
+    /// round's winners scored 134 against the hand-tuned 121 while winning 19% to
+    /// 45% against a *naive* Brute where the baseline won 98%: standing off works
+    /// against an opponent that reads you and hesitates, and is suicide against
+    /// one that simply walks in swinging. Both genomes are good fighters by their
+    /// own fitness and only one of them can fight.
+    ///
+    /// The minimum and not the mean, because "must clear both" is the claim being
+    /// made. A mean lets a genome buy a collapse against one opponent with a rout
+    /// of the other, which is exactly the trade that produced the bogus result.
+    pub cross: Option<PolicyKind>,
 }
 
 impl Default for EvolveConfig {
@@ -80,6 +126,7 @@ impl Default for EvolveConfig {
             },
             kind: PolicyKind::Utility,
             opponent: PolicyKind::Utility,
+            cross: None,
         }
     }
 }
@@ -168,22 +215,40 @@ pub fn evolve(config: &EvolveConfig) -> Genome {
 /// plays the monsters, so fitness measures "better than the thing we wrote by
 /// hand", which is the question worth asking. Self-play would measure something
 /// more interesting and is a natural next step once this works.
+///
+/// With [`EvolveConfig::cross`] set, the whole seed set is played twice, once
+/// against each opponent, and the **worse** of the two averages is returned. See
+/// that field for why the worse and not the mean.
 pub fn evaluate(genome: &Genome, seeds: &[u64], config: &EvolveConfig) -> Fx {
+    let mut score = against(genome, seeds, config, config.opponent);
+    if let Some(cross) = config.cross {
+        score = score.min(against(genome, seeds, config, cross));
+    }
+    score
+}
+
+/// Mean fitness of `genome` over `seeds` against one named opponent.
+fn against(genome: &Genome, seeds: &[u64], config: &EvolveConfig, opponent: PolicyKind) -> Fx {
     let run_config = RunConfig::default();
     let mut candidate = config.kind.build(genome);
-    let mut incumbent = config.opponent.baseline();
+    let mut incumbent = opponent.baseline();
     let mut total: i64 = 0;
+    let mut rounds: i64 = 0;
+    let mut scenarios = Vec::new();
 
     for &seed in seeds {
-        let scenario = config.arena.scenario(seed);
-        let team = TeamPolicy::new(&mut candidate, &mut incumbent);
-        total += fitness(&run(&scenario, seed, team, &run_config)).raw() as i64;
+        config.arena.scenarios(seed, &mut scenarios);
+        for scenario in &scenarios {
+            let team = TeamPolicy::new(&mut candidate, &mut incumbent);
+            total += fitness(&run(scenario, seed, team, &run_config)).raw() as i64;
+            rounds += 1;
+        }
     }
 
-    if seeds.is_empty() {
+    if rounds == 0 {
         Fx::ZERO
     } else {
-        Fx::from_raw((total / seeds.len() as i64) as i32)
+        Fx::from_raw((total / rounds) as i32)
     }
 }
 

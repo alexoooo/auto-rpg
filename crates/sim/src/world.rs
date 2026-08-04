@@ -106,6 +106,10 @@ pub struct World {
     /// a blade that has only just come out reports: it has no history to sweep
     /// through, so it is tested where it is.
     blade_was: Vec<Option<(Vec2, Vec2)>>,
+    /// Each sword's momentum along its own travel direction at the top of the
+    /// tick. Differenced against the same figure at the bottom of the tick to
+    /// bill the body for the reaction; see [`World::apply_recoil`].
+    blade_p: Vec<Fx>,
 }
 
 /// A landed blow, collected during the read-only pass and applied afterwards.
@@ -117,6 +121,12 @@ struct Blow {
     absorbed: Fx,
     blocked: bool,
     at: Vec2,
+    /// Velocity the blow adds to the target, world units per tick. Carried on
+    /// the blow rather than applied where it is computed because the first pass
+    /// is read-only: [`World::impact_speed`] reads `vel`, so a shove written
+    /// there would change what the *next* attacker's blow is worth and make a
+    /// mutual exchange depend on entity index.
+    shove: Vec2,
 }
 
 /// A change to a hand's motion, likewise deferred.
@@ -168,6 +178,7 @@ impl World {
             impulses: Vec::new(),
             start_pos: Vec::with_capacity(n),
             blade_was: Vec::with_capacity(n),
+            blade_p: Vec::with_capacity(n),
         };
         for spec in &scenario.units {
             world.spawn(spec);
@@ -203,6 +214,7 @@ impl World {
                 self.damage_dealt.push(Fx::ZERO);
                 self.start_pos.push(Vec2::ZERO);
                 self.blade_was.push(None);
+                self.blade_p.push(Fx::ZERO);
                 self.generation.len() - 1
             }
         };
@@ -232,6 +244,8 @@ impl World {
         self.last_combat[i] = self.tick;
         self.regen_left[i] = max_hp * rules::REGEN_BUDGET;
         self.damage_dealt[i] = Fx::ZERO;
+        self.blade_was[i] = None;
+        self.blade_p[i] = Fx::ZERO;
         self.id_of(i)
     }
 
@@ -277,6 +291,7 @@ impl World {
         obs.move_speed = stats.move_speed();
         obs.traction = stats.traction();
         obs.velocity = self.vel[i];
+        obs.recoil_drift = self.recoil_drift(i);
         obs.decision_period = stats.decision_period();
         // `1` only if a cut could begin this tick, and otherwise how far through
         // whatever is stopping it. A hand back at guard but not re-armed reports
@@ -384,6 +399,12 @@ impl World {
     /// * **Parries resolve before blows.** A parry is the event that *prevents*
     ///   a blow, so it has to be able to change a swing's spin before the
     ///   damage pass reads it.
+    /// * **Recoil is billed last**, after everything that can change a blade's
+    ///   speed has changed it. A swing's reaction on its own wielder is the
+    ///   difference between the blade's momentum at the top of the tick and at
+    ///   the bottom, and a parry or a block moves that as surely as the muscle
+    ///   does -- so taking the difference any earlier would charge a fighter for
+    ///   the swing it meant to throw rather than the one it got.
     pub fn step(&mut self) -> &[Event] {
         self.events.clear();
         self.expire_unanswered_decisions();
@@ -393,6 +414,7 @@ impl World {
         self.drive_hands();
         self.resolve_parries();
         self.resolve_swings();
+        self.apply_recoil();
         self.reap_dead();
         self.tick += 1;
         self.refresh_pending();
@@ -526,12 +548,14 @@ impl World {
         for i in 0..self.alive.len() {
             if !self.alive[i] {
                 self.blade_was[i] = None;
+                self.blade_p[i] = Fx::ZERO;
                 continue;
             }
             // Snapshot before stepping: the body has already moved this tick but
             // the hand has not, so this pair is exactly where the blade was when
             // the last tick ended.
             self.blade_was[i] = self.blade_from(i, self.start_pos[i], self.hands[i][SWORD]);
+            self.blade_p[i] = self.blade_momentum(i);
             let arm = self.arm(i);
             let commands = self.action[i].hands;
             self.hands[i][SWORD].wield(commands[SWORD], arm);
@@ -666,12 +690,18 @@ impl World {
                     Some(p) => p,
                     None => continue,
                 };
-                for e in [i, j] {
+                // Steel on steel is the same collision a block is, with two
+                // blades in it instead of a blade and a guard -- so the heavier
+                // weapon wins the crossing, which is what a parry ought to be a
+                // question about and previously was not.
+                let (mine, theirs) =
+                    self.deflect(i, SWORD, j, SWORD, at, rules::PARRY_RESTITUTION);
+                for (e, add) in [(i, mine), (j, theirs)] {
                     self.impulses.push(Impulse {
                         entity: e,
                         hand: SWORD,
-                        scale: -rules::PARRY_REBOUND,
-                        add: Fx::ZERO,
+                        scale: Fx::ONE,
+                        add,
                         recover: Some(rules::PARRY_RECOVERY),
                     });
                 }
@@ -773,12 +803,11 @@ impl World {
                     None => continue,
                 };
 
-                let over = self.impact_speed(i, j, hit.point) - rules::IMPACT_THRESHOLD;
-                if !over.is_positive() {
+                let impact = self.impact_speed(i, j, hit.point);
+                let mut full = rules::blow_damage(weapon.mass, impact, power);
+                if !full.is_positive() {
                     continue; // resting, withdrawing, or merely leaning on them
                 }
-
-                let mut full = weapon.mass * over * rules::IMPACT_TO_DAMAGE * power;
                 if full < graze {
                     continue; // caught it with the wrong part of the blade
                 }
@@ -803,6 +832,7 @@ impl World {
                     absorbed: full - amount,
                     blocked,
                     at: hit.point,
+                    shove: self.shove(i, j, hit.point, blocked),
                 });
 
                 if blocked {
@@ -811,18 +841,25 @@ impl World {
                     // the punish window: the attacker has to pay off a reversed
                     // swing *and* the extra recovery, while the defender's guard
                     // is out of position too. Blocking is not free either.
+                    //
+                    // Both halves are one collision between two arms now rather
+                    // than two independent fractions, so the guard that swats a
+                    // knife aside is thrown wide open by an axe -- see
+                    // `World::deflect`.
+                    let (rebound, knock) =
+                        self.deflect(i, SWORD, j, SHIELD, hit.point, rules::BLOCK_RESTITUTION);
                     self.impulses.push(Impulse {
                         entity: i,
                         hand: SWORD,
-                        scale: -rules::BLOCK_REBOUND,
-                        add: Fx::ZERO,
+                        scale: Fx::ONE,
+                        add: rebound,
                         recover: Some(rules::BLOCK_RECOVERY),
                     });
                     self.impulses.push(Impulse {
                         entity: j,
                         hand: SHIELD,
                         scale: Fx::ONE,
-                        add: self.hands[i][SWORD].spin * rules::BLOCK_SHIELD_KNOCK,
+                        add: knock,
                         recover: None,
                     });
                 } else {
@@ -856,6 +893,8 @@ impl World {
                     at: blow.at,
                 });
             }
+
+            self.vel[j] += blow.shove;
 
             let effective = blow.amount.min(self.hp[j].max(Fx::ZERO));
             self.hp[j] -= blow.amount;
@@ -909,6 +948,75 @@ impl World {
             }
         }
         self.impulses.clear();
+    }
+
+    /// Bills every body for the reaction to its own sword.
+    ///
+    /// **Your own attack moves you.** A blade is mass on the end of an arm, and
+    /// getting it moving has to push the shoulder the other way; letting it go
+    /// again has to haul the shoulder after it. The sim gets that for free by
+    /// differencing the weapon's momentum across the tick, because whatever
+    /// changed it -- the muscle, a shield, another blade -- changed it by pushing
+    /// on the body through the arm.
+    ///
+    /// Three consequences, in rising order of how much they matter:
+    ///
+    /// * A swing that runs its whole arc is very nearly momentum-neutral. It
+    ///   starts and ends at rest, so the impulses cancel; what does *not* cancel
+    ///   is the ground covered in between, because the blade points somewhere
+    ///   different at the end than it did at the start and traction is shedding
+    ///   the drift the whole time.
+    /// * A cut that is **stopped** is not neutral at all. A blocked blade
+    ///   reverses in one tick, and the whole of that momentum change lands on the
+    ///   attacker as a shove backwards along its own swing. Being blocked already
+    ///   cost tempo; it now costs ground.
+    /// * A fighter cannot swing and hold a position exactly. Spacing was a
+    ///   decision you made with your feet and now it is one you make with the
+    ///   whole body, which is the entire point of the phase.
+    ///
+    /// Only the sword hand. A shield has no mass of its own in this model -- it
+    /// is the arm alone -- and billing the body for [`Weapon::mass`] twice would
+    /// say every character is carrying two axes.
+    ///
+    /// [`Weapon::mass`]: crate::Weapon::mass
+    fn apply_recoil(&mut self) {
+        for i in 0..self.alive.len() {
+            if !self.alive[i] {
+                continue;
+            }
+            let change = self.blade_momentum(i) - self.blade_p[i];
+            if change.is_zero() {
+                continue;
+            }
+            // Newton's third law, with the ground taking the rest of it: see
+            // `rules::RECOIL_TRANSFER`.
+            let mass = self.mass[i].max(Fx::EPSILON);
+            let recoil = fx::mul_div(change, rules::RECOIL_TRANSFER, mass);
+
+            // What the feet hold. Static friction, and the same budget
+            // `apply_movement` spends on steering, because it is the same
+            // friction -- so a swing worth less than a tick of footwork does not
+            // move a planted fighter at all, and one worth more does.
+            //
+            // Not a refinement: without it the model is unusable. A swing
+            // accelerates its blade the same way for twenty or forty ticks
+            // running, so every tick of recoil points *the same way* and they
+            // add, while traction can only shed a fixed amount per tick. At a
+            // quarter transfer that came to well over a body's top speed
+            // accumulated across a single cut -- a fighter physically could not
+            // close on anything while swinging at it, Scout mirror duels stopped
+            // landing blows, and 86% of them ended in a draw at full health.
+            // With a threshold the smooth part of a swing is simply held, which
+            // is the correct answer and the one every swordsman demonstrates.
+            let slipped = recoil.abs() - self.stats[i].traction();
+            if !slipped.is_positive() {
+                continue;
+            }
+            // Along where the blade is pointing *now*: the impulse is billed at
+            // the bottom of the tick, so it is billed where the blade ended up.
+            let along = Vec2::from_angle(self.hands[i][SWORD].angle).perp();
+            self.vel[i] -= along * (slipped * recoil.signum());
+        }
     }
 
     fn reap_dead(&mut self) {
@@ -1120,12 +1228,12 @@ impl World {
         (self.hp[i] / self.max_hp[i]).clamp(Fx::ZERO, Fx::ONE)
     }
 
-    /// The radius inside which no swing of `i`'s weapon can reach
-    /// [`rules::IMPACT_THRESHOLD`], however hard it is thrown.
+    /// The radius inside which no swing of `i`'s weapon is worth more than a
+    /// graze, however hard it is thrown.
     ///
-    /// Impact is linear in the arm, so the whole speed curve is fixed by one
-    /// point on it: whatever the blade manages at one unit of reach scales
-    /// exactly. Inverting that gives the dead zone.
+    /// Impact is linear in the arm and energy is its square, so the whole curve
+    /// is fixed by one point on it: whatever the blade carries at one unit of
+    /// reach scales by `r^2`. Inverting that gives the dead zone.
     ///
     /// Reported to its owner exactly ([`Observation::min_strike_range`] -- a
     /// fighter knows how hard it can swing) and to everyone else blurred
@@ -1152,6 +1260,66 @@ impl World {
     /// ratio is the thing worth perceiving.
     fn peak_damage(&self, i: usize) -> Fx {
         rules::peak_damage(self.arm(i), self.stats[i])
+    }
+
+    /// How much ground `j` loses to one clean blow from `i`, in `j`'s own body
+    /// radii.
+    ///
+    /// [`World::peak_damage`] on the momentum side, and expressed as a
+    /// **distance** for the same reason that one is expressed as a fraction of a
+    /// health bar: the raw figure is meaningless without the thing it is
+    /// measured against. A velocity of 0.05 says nothing; three quarters of a
+    /// body of ground, shed over the dozen ticks it takes traction to pay it
+    /// off, is a sentence about spacing -- and spacing is what every number
+    /// around it in a [`Contact`] is for.
+    ///
+    /// Stopping distance rather than peak speed, `v^2 / 2a`, against the
+    /// target's *own* traction: the same quantity a fighter already has to hold
+    /// in mind about its own footwork ([`Observation::traction`]), so the two
+    /// are directly comparable. Being light costs twice over, once in taking
+    /// more speed from the blow and again in needing further to shed it, which
+    /// is why the spread here is so much wider than the damage one.
+    fn knockback(&self, attacker: usize, target: usize) -> Fx {
+        let dv = rules::peak_impulse(self.arm(attacker)) / self.mass[target].max(Fx::EPSILON);
+        self.stopping_distance(target, dv)
+    }
+
+    /// **How much ground `i`'s own hardest cut costs `i`**, in its own body
+    /// radii. [`World::knockback`] turned around to face the fighter throwing
+    /// the blow.
+    ///
+    /// The same question in the same unit as [`Contact::knockback_taken`], which
+    /// is the point of computing it this way: a fighter deciding whether to
+    /// commit to a cut is weighing what the cut costs it in position against
+    /// what standing still costs it, and those two have to be comparable or the
+    /// comparison is a units error.
+    ///
+    /// It is the one number a fighter cannot work out for itself from anything
+    /// else in the observation. Recoil goes as `weapon_mass / body_mass`, and
+    /// neither of those is a percept -- `weapon_length` and `radius` are the
+    /// visible proxies and both lie, because balance and density are real and
+    /// independent. A Skitterer's knife is the second-heaviest thing in the game
+    /// for its speed on the lightest body in it.
+    ///
+    /// [`Contact::knockback_taken`]: crate::Contact::knockback_taken
+    fn recoil_drift(&self, i: usize) -> Fx {
+        let dv = rules::peak_recoil(self.arm(i)) / self.mass[i].max(Fx::EPSILON);
+        self.stopping_distance(i, dv)
+    }
+
+    /// How far `i` travels shedding `dv`, in `i`'s own body radii.
+    ///
+    /// `v^2 / 2a` against the body's own traction, so it is directly comparable
+    /// with [`Observation::traction`] -- the same quantity a fighter already has
+    /// to hold in mind about its own footwork.
+    ///
+    /// [`Observation::traction`]: crate::Observation::traction
+    fn stopping_distance(&self, i: usize, dv: Fx) -> Fx {
+        let brake = self.stats[i].traction() * Fx::TWO;
+        if !brake.is_positive() {
+            return Fx::ZERO;
+        }
+        fx::mul_div(dv, dv, brake) / self.radius[i].max(Fx::EPSILON)
     }
 
     /// `i`'s blade as a world-space segment, base to tip, or `None` if the hand
@@ -1237,6 +1405,139 @@ impl World {
         blade + closing
     }
 
+    /// Momentum of `i`'s weapon along the direction it is travelling, signed by
+    /// which way the hand is turning.
+    ///
+    /// The weapon's mass centre sits on [`Arm::lever`] from the shoulder and is
+    /// carried around by the hand's spin, so its velocity is tangential and its
+    /// momentum is that times [`Weapon::mass`].
+    ///
+    /// **A speed and not a velocity, and that is the whole subtlety here.** A
+    /// blade held at constant spin has a constant *speed* and a momentum vector
+    /// that swings all the way round the compass, so differencing the vector
+    /// bills the body for a centripetal reaction on every tick of every swing --
+    /// which is real physics and completely swamps the model. Measured at a
+    /// quarter transfer it came to a *sustained* 38% of a Scout's top speed per
+    /// tick, pushing outward from wherever its blade happened to be; Scout mirror
+    /// duels stopped being able to land a blow at all and ended 98% in draws at
+    /// full health.
+    ///
+    /// It is the honest term to drop. Holding a weapon out against its own
+    /// circle is a pull straight down the arm and into the shoulder, and leaning
+    /// against that is what a stance *is* -- a hammer thrower does not get
+    /// dragged sideways, they lean back. What a fighter genuinely cannot brace
+    /// against is the blade changing *speed*, which is the term that survives.
+    ///
+    /// Extension is dropped for a duller reason: pushing a blade out moves its
+    /// mass centre too, and that reaction is an order of magnitude below the
+    /// swing's -- [`Arm::extend_rate`] is a fraction of a unit of *reach* per
+    /// tick against a lever measured in whole units.
+    ///
+    /// [`Arm::lever`]: crate::Arm::lever
+    /// [`Arm::extend_rate`]: crate::Arm::extend_rate
+    /// [`Weapon::mass`]: crate::Weapon::mass
+    fn blade_momentum(&self, i: usize) -> Fx {
+        let hand = self.hands[i][SWORD];
+        let arm = self.arm(i);
+        let speed = fx::tangential_speed(hand.spin, arm.lever(hand.reach)) * hand.spin.signum();
+        speed * arm.weapon.mass
+    }
+
+    /// Velocity a blow from `i` landing at `contact` adds to `j`.
+    ///
+    /// **Along the way the blade is travelling**, which in a top-down arc is
+    /// across the target rather than through it, and that is the honest answer
+    /// rather than a convenient one: a cut sweeps, and what it does to a body is
+    /// carry it along the sweep. Pushing the target directly away from its
+    /// attacker would be the intuitive model and it describes a thrust, which is
+    /// not what any weapon in this roster is doing.
+    ///
+    /// The consequence is worth stating because it is the reason to want this at
+    /// all. A fighter that has crowded inside a heavy weapon is not pushed back
+    /// out of its dead zone -- it is dragged *around* the arc, which costs it the
+    /// one thing crowding is made of, which is a position held exactly. Reach
+    /// stops being decoration for the fighter who can throw people around with
+    /// it.
+    fn shove(&self, i: usize, j: usize, contact: Vec2, blocked: bool) -> Vec2 {
+        let out = contact - self.pos[i];
+        if out.is_zero() {
+            return Vec2::ZERO;
+        }
+        let hand = self.hands[i][SWORD];
+        let speed = fx::tangential_speed(hand.spin, out.length()) * hand.spin.signum();
+        let carried = self.kind[i].weapon().mass * speed * rules::KNOCKBACK_TRANSFER;
+
+        // A guard that is merely in the way transmits the whole of it; one that
+        // has been planted puts most of it into the ground. See
+        // `rules::BRACE_ANCHOR` -- this is the second thing bracing buys, and
+        // without it a fighter who could not stop the blow anyway got nothing
+        // for having read it.
+        let taken = if blocked {
+            Fx::ONE - rules::BRACE_ANCHOR * self.hands[j][SHIELD].brace_fraction()
+        } else {
+            Fx::ONE
+        };
+
+        let mass = self.mass[j].max(Fx::EPSILON);
+        let dv = fx::mul_div(carried, taken, mass);
+        out.normalize().perp() * dv
+    }
+
+    /// Two arms meeting at `at`: how much spin each one gains.
+    ///
+    /// A real collision between two rotating bodies, resolved from both moments
+    /// of inertia and a coefficient of restitution, replacing the pair of flat
+    /// fractions that used to stand in for it. It is what makes a Brute's axe
+    /// shrug off a guard that stops a Scout's blade dead -- the same fact from
+    /// both sides, out of one calculation, instead of two constants that had no
+    /// idea the other existed.
+    ///
+    /// The whole thing resolves in **spin units at `i`'s contact radius**, which
+    /// is the trick that keeps it to a handful of `mul_div`s. Every quantity in a
+    /// collision is linear in the relative velocity, and the conversion from spin
+    /// to world speed is a constant times the radius, so working in one arm's
+    /// units lets the constant cancel out of every term and never appear.
+    ///
+    /// `align` is the cosine between the two arms, and it does two jobs at once.
+    /// It projects `j`'s hand speed onto the direction `i`'s blade is travelling,
+    /// and it is the moment arm by which an impulse along that direction turns
+    /// `j`'s hand -- so it enters `j`'s effective inertia **squared**. At zero the
+    /// blow points straight through `j`'s shoulder: infinitely stiff, nothing
+    /// rotates, and the guard holds absolutely. That is not a special case in the
+    /// code and it falls out correctly on its own.
+    fn deflect(&self, i: usize, hi: usize, j: usize, hj: usize, at: Vec2, restitution: Fx) -> (Fx, Fx) {
+        let out_i = at - self.pos[i];
+        let out_j = at - self.pos[j];
+        let r_i = out_i.length();
+        let r_j = out_j.length();
+        if !r_i.is_positive() || !r_j.is_positive() {
+            // Struck dead centre on one side or the other: no lever, no torque,
+            // and the divisions below would saturate.
+            return (Fx::ZERO, Fx::ZERO);
+        }
+        let align = out_i.normalize().dot(out_j.normalize());
+        let inertia_i = self.arm(i).inertia(self.hands[i][hi].reach);
+        let inertia_j = self.arm(j).inertia(self.hands[j][hj].reach);
+
+        // `j`'s contact speed, as the spin `i` would need to match it. Their
+        // tangents point different ways, which is what `align` corrects for.
+        let mirrored = fx::mul_div(self.hands[j][hj].spin * align, r_j, r_i);
+        let closing = (Fx::ONE + restitution) * (self.hands[i][hi].spin - mirrored);
+
+        // `j`'s arm referred to `i`'s contact radius. `inertia_j` is already in
+        // those units by construction -- it is the thing being compared against.
+        let referred = fx::mul_div(inertia_i * align * align, r_j * r_j, r_i * r_i);
+        let total = referred + inertia_j;
+        if !total.is_positive() {
+            return (Fx::ZERO, Fx::ZERO);
+        }
+        // The share of the meeting speed each side gives up is the *other* one's
+        // weight in the total, which is the whole of a collision.
+        let gained = -fx::mul_div(closing, inertia_j, total);
+        let thrown = fx::mul_div(closing, fx::mul_div(inertia_i * align, r_j * r_j, r_i), total);
+        (gained, thrown)
+    }
+
     fn clamp_to_arena(&self, p: Vec2, radius: Fx) -> Vec2 {
         p.clamp_box(
             Vec2::new(radius, radius),
@@ -1281,6 +1582,9 @@ impl World {
         let mut min_strike_range = self.dead_zone(target);
         let mut threat = self.peak_damage(target) / self.max_hp[observer];
         let mut frailty = self.peak_damage(observer) / self.max_hp[target];
+        let mut knockback_taken = self.knockback(target, observer);
+        let mut knockback_dealt = self.knockback(observer, target);
+        let mut heft = self.mass[target] / self.mass[observer].max(Fx::EPSILON);
 
         // How hard someone else can swing does not get easier to judge as you
         // close, so these errors are taken from the raw stat before the range
@@ -1359,6 +1663,24 @@ impl World {
             // the two are symmetric and share the error.
             threat = (threat + rng.gaussian(judgement * threat)).max(Fx::ZERO);
             frailty = (frailty + rng.gaussian(judgement * frailty)).max(Fx::ZERO);
+
+            // The same judgement, about the same pairing, on the momentum side.
+            // Drawn separately rather than sharing `threat`'s error because they
+            // are separately wrong: a weapon that is heavy for its speed throws
+            // people further than it wounds them, and a fighter that could infer
+            // one figure from the other would be reading a correlation the roster
+            // deliberately does not have.
+            knockback_taken =
+                (knockback_taken + rng.gaussian(judgement * knockback_taken)).max(Fx::ZERO);
+            knockback_dealt =
+                (knockback_dealt + rng.gaussian(judgement * knockback_dealt)).max(Fx::ZERO);
+
+            // Sizing somebody up, which is the oldest judgement in fighting and
+            // the least improved by walking closer -- so it takes `judgement`
+            // like the four above rather than the range-scaled noise. Floored
+            // just above zero: a heft of zero would read as an opponent with no
+            // weight at all, which is a thing a policy would divide by.
+            heft = (heft + rng.gaussian(judgement * heft)).max(Fx::EPSILON);
         }
 
         Contact {
@@ -1371,6 +1693,9 @@ impl World {
             min_strike_range,
             threat,
             frailty,
+            knockback_taken,
+            knockback_dealt,
+            heft,
             velocity,
             facing,
             sword_angle,
@@ -1792,9 +2117,15 @@ mod tests {
 
     #[test]
     fn a_shove_alone_cannot_land_a_blow() {
-        // Separation moves bodies, and that movement feeds impact speed. The
-        // only thing stopping a crowd from mincing itself is that
-        // `IMPACT_THRESHOLD` sits above every archetype's walking speed.
+        // Separation moves bodies, and that movement feeds impact speed. What
+        // stops a crowd from mincing itself is the `Swing::Strike` gate: a
+        // carried blade is not a weapon because it is not attacking.
+        //
+        // Worth stating because the obvious guard is *not* the one holding.
+        // `rules::ENERGY_FLOOR` would not do it alone -- a Brute's axe carried
+        // at a Brute's walking pace is worth 0.0023 against a floor of 0.0022,
+        // and would bill a scratch every tick it touched anyone. Weight is
+        // exactly what makes the energy law unable to defend this on its own.
         let mut scenario = Scenario::duel();
         scenario.units[1].spawn = scenario.units[0].spawn;
         let mut w = World::new(&scenario, 1);
@@ -1940,9 +2271,17 @@ mod tests {
         // target is hit rarely and hard and a near one often and weakly. Both
         // effects are real and they pull against each other -- which is what
         // makes choosing a range a decision rather than a lookup.
-        // Both feet pinned and the Brute's blade swept about an exact bearing
+        // Both feet still and the Brute's blade swept about an exact bearing
         // rather than a perceived one. This is a test of the geometry, so its
         // aim must not be at the mercy of a Brute's eyesight.
+        //
+        // **The first blow, not the worst of many**, and the change is forced:
+        // a blow moves a body now, so the gap this function is named after only
+        // exists until one lands. Sampling 1800 ticks used to average an arc and
+        // now averages a *retreat* -- the near sample drifts out of the crowd it
+        // was placed in and starts reporting the very tip band the far sample is
+        // there to measure, which flattened the measured ratio from 3.4 to 1.9
+        // without a thing changing about where a blade is dangerous.
         let taken_at = |gap: i32| -> Fx {
             let mut scenario = Scenario::duel();
             scenario.units[0].spawn =
@@ -1951,18 +2290,17 @@ mod tests {
             let mut w = World::new(&scenario, 1);
             let hero = w.alive_ids(Faction::Heroes)[0];
             let brute = w.alive_ids(Faction::Monsters)[0];
-            let mut worst = Fx::ZERO;
             for _ in 0..1800u32 {
                 let cut = cutting(&w, brute, Angle::HALF, Strike::Nearest);
                 w.submit(brute, Action::swinging(Vec2::ZERO, hero, cut, HandCommand::TUCKED));
                 w.submit(hero, Action::HOLD);
                 for event in w.step() {
                     if let Event::Damage { amount, .. } = event {
-                        worst = worst.max(*amount);
+                        return *amount;
                     }
                 }
             }
-            worst
+            Fx::ZERO
         };
 
         // 2.5 units apart puts a Warrior's body in the Brute's tip band
@@ -1977,8 +2315,8 @@ mod tests {
         // were the ones it met early on the approach, and the gradient this test
         // measures was steepened by an accident of which part of the swing was
         // reachable. With the whole arc live the curve is the honest one:
-        // damage is linear in the arm, so it rises smoothly from the edge of the
-        // lee out to the tip rather than jumping.
+        // damage grows with the square of the arm, so it rises smoothly from
+        // the edge of the lee out to the tip rather than jumping.
         let at_the_tip = taken_at(25);
         let inside = taken_at(13);
 
@@ -1997,14 +2335,15 @@ mod tests {
         // than left to be discovered -- and it has changed *kind* twice since it
         // was first written, which is the part worth reading.
         //
-        // Impact is `spin * arm`, so a weapon has a minimum effective radius:
-        // inside it even a blade at full speed is worth no more than a graze.
-        // That radius used to be 1.27 for a Brute, *outside* the 1.15 at which a
-        // Warrior's body and a Brute's stop being able to approach -- meaning a
-        // fighter who got close became flatly immune, and a small enough one
-        // became immune and harmless at the same time while the fight timed out.
-        // Dropping `IMPACT_THRESHOLD` to 0.06 pulled it to 0.85 and turned the
-        // circle into a gradient.
+        // Impact is `spin * arm` and energy is its square, so a weapon has a
+        // minimum effective radius: inside it even a blade at full speed is
+        // worth no more than a graze. That radius used to be 1.27 for a Brute,
+        // *outside* the 1.15 at which a Warrior's body and a Brute's stop being
+        // able to approach -- meaning a fighter who got close became flatly
+        // immune, and a small enough one became immune and harmless at the same
+        // time while the fight timed out. Dropping the old speed threshold to
+        // 0.06 pulled it to 0.85 and turned the circle into a gradient; the
+        // energy law put it at 0.88, which is the same answer.
         //
         // **The bound below is the one that matters, and it is the one Phase 3
         // broke.** Deriving the spin cap from grip raised a Brute's top spin
@@ -2017,8 +2356,8 @@ mod tests {
         // `rules::GRAZE_FRACTION`, which is what put the band back.
         //
         // This asserted the same thing before and missed it, because it derived
-        // the dead zone inline from `IMPACT_THRESHOLD` instead of asking
-        // `rules::dead_zone`. Ask the sim.
+        // the dead zone inline from the damage law instead of asking
+        // `rules::dead_zone`. Ask the sim -- the law has changed again since.
         let brute = UnitKind::Brute;
         let arm = rules::Arm::resolve(brute.weapon(), brute.base_stats(), brute.radius());
         let safe = rules::dead_zone(arm);
@@ -2377,6 +2716,350 @@ mod tests {
             );
             assert_eq!(ours.frailty, theirs.threat, "{hero:?} vs {villain:?}");
         }
+    }
+
+    #[test]
+    fn one_fighters_knockback_dealt_is_the_others_taken() {
+        // `threat`/`frailty` mirrored, on the momentum side, and it has to hold
+        // for the same reason: a fighter deciding whether to trade shoves is
+        // comparing the two ends of one quantity, and a pair that drifts apart
+        // makes the comparison meaningless.
+        for (hero, villain) in [
+            (UnitKind::Warrior, UnitKind::Brute),
+            (UnitKind::Skitterer, UnitKind::Scout),
+            (UnitKind::Brute, UnitKind::Brute),
+        ] {
+            let ours = sizing_up(hero, villain);
+            let theirs = sizing_up(villain, hero);
+            assert_eq!(
+                ours.knockback_taken, theirs.knockback_dealt,
+                "{hero:?} vs {villain:?}: the ground the villain takes off us \
+                 and the ground it thinks it takes are the same blow"
+            );
+            assert_eq!(
+                ours.knockback_dealt, theirs.knockback_taken,
+                "{hero:?} vs {villain:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn how_heavy_someone_looks_is_the_reciprocal_of_how_heavy_you_look_to_them() {
+        // `heft` is a ratio and the two ends of it are the same ratio inverted,
+        // which is what makes "can I move this" and "can it move me" one
+        // question rather than two. A pair that drifts apart would let both
+        // fighters believe they are the heavier one, and both would charge.
+        for (hero, villain) in [
+            (UnitKind::Skitterer, UnitKind::Brute),
+            (UnitKind::Warrior, UnitKind::Scout),
+            (UnitKind::Brute, UnitKind::Brute),
+        ] {
+            let ours = sizing_up(hero, villain).heft;
+            let theirs = sizing_up(villain, hero).heft;
+            assert!(
+                (ours * theirs - Fx::ONE).abs() < Fx::from_ratio(1, 100),
+                "{hero:?} vs {villain:?}: {ours} and {theirs} do not multiply to one"
+            );
+        }
+        // ...and it is not readable off body size, which is the whole reason it
+        // is a percept. A Brute is 15% denser than it looks and a Skitterer 20%
+        // lighter, so the pairing lands well clear of the radius ratio squared.
+        let seen = sizing_up(UnitKind::Skitterer, UnitKind::Brute).heft;
+        let looks = {
+            let (r, s) = (UnitKind::Brute.radius(), UnitKind::Skitterer.radius());
+            fx::mul_div(r, r, s * s)
+        };
+        assert!(
+            (seen - looks).abs() > Fx::from_ratio(1, 2),
+            "a Brute weighs {seen} Skitterers and looks like {looks} of one -- \
+             close enough that `radius` would have done the job"
+        );
+    }
+
+    #[test]
+    fn a_fighters_own_swing_costs_it_ground_and_it_can_see_how_much() {
+        // The percept `recoil_drift` exists for, and the invariant that keeps it
+        // honest: it is the same stopping-distance question as
+        // `Contact::knockback_taken`, asked about your own weapon, so the two are
+        // directly comparable and a policy weighing "what this cut costs me" against
+        // "what standing here costs me" is comparing like with like.
+        let mut s = Scenario::duel();
+        s.units[0].kind = UnitKind::Brute;
+        s.units[0].stats = UnitKind::Brute.base_stats();
+        s.units[1].kind = UnitKind::Skitterer;
+        s.units[1].stats = UnitKind::Skitterer.base_stats();
+        let w = World::new(&s, 3);
+
+        for i in 0..2 {
+            let drift = w.recoil_drift(i);
+            assert!(
+                drift.is_positive() && drift < Fx::from_int(100),
+                "{:?} reads its own recoil as {drift}",
+                w.kind[i]
+            );
+        }
+        // Every archetype, so nothing in the roster can go degenerate quietly,
+        // and the observation carries it.
+        for kind in UnitKind::ALL {
+            let obs = sizing_up_own(kind);
+            assert!(obs.recoil_drift.is_positive(), "{kind:?} swings for free");
+        }
+    }
+
+    /// The observation a `kind` has of itself, for the self-percept tests.
+    fn sizing_up_own(kind: UnitKind) -> crate::Observation {
+        let mut s = Scenario::duel();
+        s.units[0].kind = kind;
+        s.units[0].stats = kind.base_stats();
+        let w = World::new(&s, 3);
+        w.observe(w.id_of(0))
+    }
+
+    #[test]
+    fn weight_decides_what_a_blow_moves_rather_than_what_it_costs() {
+        // **The point of the whole phase, stated as a comparison**, and the
+        // interesting half is which end of the exchange carries it.
+        //
+        // Not the weapon. Damage is bounded by the muscle -- a swing is a fixed
+        // torque over a fixed arc -- and so, it turns out, is most of the
+        // momentum: a Brute's axe out-shoves a Skitterer's knife by about the
+        // same factor it out-wounds it, because the knife is dense and hafted
+        // forward and the axe is swung slowly.
+        //
+        // The **target** is where the spread lives, and it is a hundredfold
+        // where damage has none at all: one identical blow is one identical
+        // number of points off whoever takes it, and moves a Skitterer twenty
+        // times as far as it moves a Brute. Weight is a defence no stat buys and
+        // no skill answers, and it is the reason both figures are in the
+        // observation rather than one being inferred from the other.
+        let by_axe = sizing_up(UnitKind::Warrior, UnitKind::Brute);
+        let by_knife = sizing_up(UnitKind::Warrior, UnitKind::Skitterer);
+        assert!(
+            by_axe.knockback_taken > by_knife.knockback_taken * Fx::TWO,
+            "an axe moved a Warrior {} against a knife's {} -- a weapon's weight \
+             is supposed to be worth something here even if it is not worth much",
+            by_axe.knockback_taken,
+            by_knife.knockback_taken
+        );
+
+        let vs_brute = sizing_up(UnitKind::Brute, UnitKind::Warrior).knockback_taken;
+        let vs_skitterer = sizing_up(UnitKind::Skitterer, UnitKind::Warrior).knockback_taken;
+        assert!(
+            vs_skitterer > vs_brute * Fx::from_int(20),
+            "one Warrior blow moved a Skitterer {vs_skitterer} and a Brute \
+             {vs_brute}; being heavy is supposed to be a defence no stat buys"
+        );
+    }
+
+    #[test]
+    fn a_blow_moves_what_it_lands_on_and_a_planted_guard_takes_less_of_it() {
+        // Two claims in one fixture because they need the same setup: a landed
+        // blow shoves, and bracing is worth something beyond the damage
+        // discount. Before this, a fighter who could not stop a blow anyway got
+        // nothing at all for having read it coming.
+        // A shield bearing has to be *found* rather than guessed, and the
+        // reason is the same one `a_shield_covers_a_direction_and_only_that_direction`
+        // records: a blade sweeps in and first bites well round the body from
+        // where its wielder is standing, so pointing a guard at the enemy is not
+        // pointing it at the blow. Sixteen bearings, and the ones that actually
+        // caught something are the sample.
+        let shoved = |braced: bool, guard: Option<Angle>| -> (Fx, bool) {
+            let mut scenario = Scenario::duel();
+            // Clear of each other: the two radii sum to 1.15, and a pair that
+            // starts overlapping is shoved apart by `separate`, which would put
+            // a velocity on both bodies that has nothing to do with the blow.
+            scenario.units[0].spawn = Vec2::new(Fx::from_ratio(165, 10), Fx::from_int(8));
+            scenario.units[1].spawn = Vec2::from_ints(18, 8);
+            let mut w = World::new(&scenario, 1);
+            let hero = w.alive_ids(Faction::Heroes)[0];
+            let brute = w.alive_ids(Faction::Monsters)[0];
+            let h = w.resolve(hero).unwrap();
+            // Enough health that the fixture survives to be measured.
+            w.hp[h] = Fx::from_int(4000);
+            w.max_hp[h] = Fx::from_int(4000);
+            if !braced {
+                w.hands[h][SHIELD].braced = 0;
+            }
+            let shield = match guard {
+                Some(at) => HandCommand::new(at, Fx::ONE),
+                None => HandCommand::TUCKED,
+            };
+            for _ in 0..400u32 {
+                let cut = cutting(&w, brute, Angle::HALF, Strike::Nearest);
+                w.submit(brute, Action::swinging(Vec2::ZERO, hero, cut, HandCommand::TUCKED));
+                w.submit(
+                    hero,
+                    Action::swinging(Vec2::ZERO, EntityId::NONE, HandCommand::TUCKED, shield),
+                );
+                if !braced {
+                    w.hands[h][SHIELD].braced = 0;
+                }
+                let events = w.step();
+                let landed = events.iter().any(|e| matches!(e, Event::Damage { .. }));
+                let blocked = events.iter().any(|e| matches!(e, Event::Block { .. }));
+                if landed {
+                    return (w.vel[h].length(), blocked);
+                }
+            }
+            (Fx::ZERO, false)
+        };
+
+        let (open, _) = shoved(false, None);
+        assert!(
+            open.is_positive(),
+            "a blow that went home did not move the body it landed on"
+        );
+
+        let (mut snapped, mut planted) = (Fx::MAX, Fx::MAX);
+        for step in 0..16u32 {
+            let at = Angle::from_raw((step * 4096) as u16);
+            if let (shove, true) = shoved(false, Some(at)) {
+                snapped = snapped.min(shove);
+            }
+            if let (shove, true) = shoved(true, Some(at)) {
+                planted = planted.min(shove);
+            }
+        }
+        assert!(
+            snapped < Fx::MAX && planted < Fx::MAX,
+            "no bearing caught the blow at all, so this proves nothing about \
+             what catching it is worth"
+        );
+        assert!(
+            planted < snapped,
+            "a shield planted for BRACE_TICKS took {planted} of shove against a \
+             travelling one's {snapped}; setting your feet is supposed to be \
+             worth something"
+        );
+        assert!(
+            planted.is_positive(),
+            "a braced guard cancelled the shove outright; a heavy blow is meant \
+             to be felt through a shield, not switched off by one"
+        );
+    }
+
+    #[test]
+    fn a_heavy_blade_throws_a_guard_aside_and_a_light_one_bounces_off_it() {
+        // **The inversion this phase exists to fix.** The old rule shoved a
+        // blocking shield by a flat fraction of the *attacker's spin*, with no
+        // mass anywhere in it -- so a Scout's whippy 3461 disturbed a guard
+        // nearly four times as hard as a Brute's 911, and the heaviest weapon in
+        // the game was the one a shield had the easiest time holding.
+        //
+        // Both numbers come out of one collision between two arms now, so they
+        // cannot contradict each other by construction: whatever the heavy blade
+        // fails to give back to itself, it gave to the guard.
+        let against = |attacker: UnitKind| -> (Fx, Fx) {
+            let mut s = Scenario::duel();
+            s.units[0].kind = UnitKind::Warrior;
+            s.units[0].stats = UnitKind::Warrior.base_stats();
+            s.units[0].spawn = Vec2::from_ints(14, 8);
+            s.units[1].kind = attacker;
+            s.units[1].stats = attacker.base_stats();
+            s.units[1].spawn = Vec2::from_ints(18, 8);
+            let w = World::new(&s, 3);
+            // Contact on the defender's near shoulder, about where a sweeping
+            // cut first bites rather than dead on the line between them.
+            let at = w.pos[0] + Vec2::new(Fx::from_ratio(30, 100), Fx::from_ratio(30, 100));
+            let arm = w.arm(1);
+            let mut w = w;
+            w.hands[1][SWORD].spin = arm.reachable_spin();
+            w.hands[1][SWORD].reach = Fx::ONE;
+            w.hands[0][SHIELD].reach = Fx::ONE;
+            let (rebound, knock) = w.deflect(1, SWORD, 0, SHIELD, at, rules::BLOCK_RESTITUTION);
+            // As fractions of the swing that threw it, so the two archetypes are
+            // comparable despite a four-fold difference in spin.
+            let spin = w.hands[1][SWORD].spin;
+            (rebound / spin, knock / spin)
+        };
+
+        let (brute_back, brute_knock) = against(UnitKind::Brute);
+        let (scout_back, scout_knock) = against(UnitKind::Scout);
+
+        assert!(
+            brute_knock.abs() > scout_knock.abs(),
+            "an axe moved the guard by {brute_knock} of its own swing and a \
+             short blade by {scout_knock} -- the heavy weapon is supposed to be \
+             the hard one to hold off"
+        );
+        assert!(
+            scout_back.abs() > brute_back.abs(),
+            "the light blade kept {scout_back} of its swing and the heavy one \
+             {brute_back}; meeting a guard is supposed to stop the small weapon \
+             and barely trouble the big one"
+        );
+    }
+
+    #[test]
+    fn a_swing_costs_footing_only_when_something_stops_it() {
+        // Recoil, and the threshold that makes it usable. A blade accelerates
+        // the same way for tens of ticks running, so the reaction to a *smooth*
+        // swing points one way the whole time and adds up; left unbounded it
+        // came to more than a body's top speed across one cut and a fighter
+        // could not close on anything it was swinging at. Static friction is the
+        // answer, and it is the answer every swordsman demonstrates by not
+        // sliding across the floor.
+        //
+        // What survives the threshold is the interesting half: a blade *stopped*
+        // reverses in a single tick, and no footing holds that.
+        let swing = |guard: Option<Angle>| -> Fx {
+            let mut scenario = Scenario::duel();
+            // Clear of each other: the two radii sum to 1.15, and a pair that
+            // starts overlapping is shoved apart by `separate`, which would put
+            // a velocity on both bodies that has nothing to do with the blow.
+            scenario.units[0].spawn = Vec2::new(Fx::from_ratio(165, 10), Fx::from_int(8));
+            scenario.units[1].spawn = Vec2::from_ints(18, 8);
+            let mut w = World::new(&scenario, 1);
+            let hero = w.alive_ids(Faction::Heroes)[0];
+            let brute = w.alive_ids(Faction::Monsters)[0];
+            let h = w.resolve(hero).unwrap();
+            let b = w.resolve(brute).unwrap();
+            w.hp[h] = Fx::from_int(4000);
+            w.max_hp[h] = Fx::from_int(4000);
+            // Either a Warrior standing there with a guard up, or nobody home.
+            let shield = match guard {
+                Some(at) => HandCommand::new(at, Fx::ONE),
+                None => {
+                    w.pos[h] = Vec2::from_ints(2, 2);
+                    HandCommand::TUCKED
+                }
+            };
+            let mut worst = Fx::ZERO;
+            for _ in 0..400u32 {
+                let cut = cutting(&w, brute, Angle::HALF, Strike::Nearest);
+                w.submit(brute, Action::swinging(Vec2::ZERO, hero, cut, HandCommand::TUCKED));
+                w.submit(
+                    hero,
+                    Action::swinging(Vec2::ZERO, EntityId::NONE, HandCommand::TUCKED, shield),
+                );
+                w.step();
+                worst = worst.max(w.vel[b].length());
+            }
+            worst
+        };
+
+        let free = swing(None);
+        // The bearing that actually catches the cut has to be found rather than
+        // assumed; see the sweep in
+        // `a_blow_moves_what_it_lands_on_and_a_planted_guard_takes_less_of_it`.
+        let mut stopped = Fx::ZERO;
+        for step in 0..16u32 {
+            stopped = stopped.max(swing(Some(Angle::from_raw((step * 4096) as u16))));
+        }
+        let top = UnitKind::Brute.base_stats().move_speed();
+        assert!(
+            free < rules::TRACTION_BASE,
+            "a Brute swinging at empty air drifted at {free} a tick against a \
+             footing of {}; a planted fighter's own smooth swing is supposed to \
+             be held by its feet",
+            rules::TRACTION_BASE
+        );
+        assert!(
+            stopped > free && stopped > top / Fx::from_int(8),
+            "being stopped moved the attacker {stopped} against {free} for a \
+             clean swing and a top speed of {top} -- a cut that meets a shield \
+             is supposed to cost ground"
+        );
     }
 
     #[test]

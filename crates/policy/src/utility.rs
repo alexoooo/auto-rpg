@@ -569,6 +569,9 @@ mod tests {
             // lopsided fixture would only invite someone to assert on it.
             threat: Fx::from_ratio(25, 100),
             frailty: Fx::from_ratio(25, 100),
+            knockback_taken: Fx::from_ratio(4, 10),
+            knockback_dealt: Fx::from_ratio(4, 10),
+            heft: Fx::ONE,
             velocity: Vec2::ZERO,
             facing: fx::Angle::ZERO,
             sword_angle: fx::Angle::ZERO,

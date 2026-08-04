@@ -307,7 +307,7 @@ pub const fn agility_multiplier(agility: u8) -> Fx {
 /// Inverting that gives the radius at which it reaches the bar and no further
 /// down.
 ///
-/// The bar is [`graze_floor`] rather than [`IMPACT_THRESHOLD`] itself, so this
+/// The bar is [`graze_floor`] rather than [`ENERGY_FLOOR`] itself, so this
 /// stays the honest answer to "how close do I have to be to be safe" -- see
 /// [`GRAZE_FRACTION`], which is what a contact below it costs the swinger.
 ///
@@ -316,21 +316,25 @@ pub const fn agility_multiplier(agility: u8) -> Fx {
 /// figure blurred by the observer's perception.
 pub fn dead_zone(arm: Arm) -> Fx {
     let spin = arm.reachable_spin();
-    let at_one_unit = fx::tangential_speed(spin, Fx::ONE);
-    if !at_one_unit.is_positive() {
+    let mass = arm.weapon.mass;
+    // Impact is `spin x arm`, so energy is `spin^2 x arm^2`: one point on the
+    // curve fixes all of it, and a contact at radius `r` carries `unit * r^2`.
+    // Everything else in the damage law is the same here as at the tip and
+    // divides out, so the radius falls out of the energies alone.
+    let unit = fx::energy(mass, fx::tangential_speed(spin, Fx::ONE));
+    if !unit.is_positive() {
         return Fx::MAX;
     }
-    // Damage is linear in `impact - IMPACT_THRESHOLD` and every other term in
-    // it is the same at the tip as here, so the fraction of peak damage a
-    // contact is worth is the fraction of peak *excess speed* it carries. That
-    // inverts to a radius without needing the damage numbers at all.
-    let tip = fx::tangential_speed(spin, arm.pivot + arm.weapon.length);
-    let bite = if tip > IMPACT_THRESHOLD {
-        IMPACT_THRESHOLD + (tip - IMPACT_THRESHOLD) * GRAZE_FRACTION
-    } else {
-        IMPACT_THRESHOLD
-    };
-    bite / at_one_unit
+    let tip = fx::energy(mass, fx::tangential_speed(spin, arm.pivot + arm.weapon.length));
+    if tip <= ENERGY_FLOOR {
+        return Fx::MAX; // cannot reach the bar anywhere, tip included
+    }
+    // The bar is a share of the *damage* at the tip, and damage is energy less
+    // the floor, so the floor has to be added back before inverting -- this is
+    // where the old law's habit of working in speed would have quietly given
+    // the wrong radius.
+    let bite = ENERGY_FLOOR + (tip - ENERGY_FLOOR) * GRAZE_FRACTION;
+    (bite / unit).sqrt()
 }
 
 /// What a contact must be worth, in damage, to count as a cut at all.
@@ -347,12 +351,21 @@ pub fn graze_floor(arm: Arm, stats: Stats) -> Fx {
 /// not spent**.
 ///
 /// This exists because a blow of any size ends the swing that threw it, and
-/// that made [`IMPACT_THRESHOLD`] a cliff rather than a floor. A contact one
-/// unit above the threshold did essentially no damage and still cost its owner
-/// the entire cut, so whether a weapon was viable turned on whether its typical
-/// contact landed a hair above the bar or a hair below -- and *below* was
-/// strictly better, because a blade that touched nothing kept swinging into the
-/// part of its arc where it was actually dangerous.
+/// that made the damage floor a cliff rather than a floor. A contact one unit
+/// above the bar did essentially no damage and still cost its owner the entire
+/// cut, so whether a weapon was viable turned on whether its typical contact
+/// landed a hair above it or a hair below -- and *below* was strictly better,
+/// because a blade that touched nothing kept swinging into the part of its arc
+/// where it was actually dangerous.
+///
+/// The share is law-independent, which is why it did not move when damage
+/// became `1/2 m v^2`: it asks whether a cut was worth spending, and a twelfth
+/// of your best blow means the same thing whatever curve gets you there. What
+/// *did* move is where on the blade that twelfth falls. Under a linear law it
+/// was a third of the way out; under a squared one it is two fifths, because
+/// `sqrt(0.12)` is a longer walk than `0.12`. Every dead zone in the roster grew
+/// by about a third on that account alone -- see [`dead_zone`]. That is the
+/// squared law making reach pay, and it is the sharpest edge in this change.
 ///
 /// The Brute found the bad side of that cliff and it is worth recording how
 /// narrowly. Contacts happen at body-to-body range whatever the blade length,
@@ -390,10 +403,7 @@ pub const GRAZE_FRACTION: Fx = Fx::from_ratio(12, 100);
 pub fn peak_damage(arm: Arm, stats: Stats) -> Fx {
     let tip = arm.pivot + arm.weapon.length;
     let impact = fx::tangential_speed(arm.reachable_spin(), tip);
-    if impact <= IMPACT_THRESHOLD {
-        return Fx::ZERO;
-    }
-    arm.weapon.mass * (impact - IMPACT_THRESHOLD) * IMPACT_TO_DAMAGE * power_multiplier(stats.power)
+    blow_damage(arm.weapon.mass, impact, power_multiplier(stats.power))
 }
 
 // -------------------------------------------------------------------- the feet
@@ -449,56 +459,88 @@ pub const fn power_multiplier(power: u8) -> Fx {
     scaled.clamp(Fx::from_ratio(55, 100), Fx::from_int(3))
 }
 
-/// Closing speed below which a blow does nothing at all, world units per tick.
+/// Blade speed below which a swing is not yet a swing, world units per tick.
 ///
-/// It used to have two jobs and now has one, which is why it came down.
+/// **No longer part of the damage law.** Damage is kinetic energy against
+/// [`ENERGY_FLOOR`] now, and a floor in energy is the only one that treats a
+/// slow heavy weapon fairly -- see [`blow_damage`]. What is left here is the
+/// question this number was always good at answering, which is a question about
+/// a *hand* rather than about a blow: is this blade moving fast enough to be
+/// doing anything at all? [`crate::Hand`] asks it twice, once to confirm a hand
+/// commanded at a target arrives harmless (which is why a cut aims past the
+/// line) and once to confirm a live strike crosses that line with speed to
+/// spare.
 ///
-/// The job it lost: keeping a *stationary* blade carried into someone by
-/// walking from being a weapon. That mattered when any moving blade billed
-/// damage, and the threshold had to sit above every archetype's
-/// [`Stats::move_speed`] to hold the line. Damage is gated on [`Swing::Strike`]
-/// now, so a carried blade is not a weapon because it is not attacking, and the
-/// threshold does not have to defend that on its own.
-///
-/// The job it kept is the interesting one: impact is `spin x arm`, so a
-/// threshold gives every weapon a **dead zone** -- a radius inside which even a
-/// full-speed blade cannot reach it. Getting inside one is the strongest answer
-/// to a heavy weapon in the game.
-///
-/// At 0.09 that dead zone swallowed a Brute out to 1.27 units, which is most of
-/// the way to its own tip. It could only hurt anything in the last third of its
-/// reach, landed about one blow per fight, and lost to every archetype at every
-/// skill level -- including to policies that ignored it completely.
-///
-/// 0.06 puts a Brute's dead zone at 0.85, which is *inside* the 1.15 at which a
-/// Warrior's body and its own stop being able to get closer. That is a
-/// deliberate change of kind and not only of degree: crowding a heavy weapon is
-/// no longer a magic circle you step into and become immune, it is a steep
-/// gradient. Damage is linear in the arm, so a Warrior pressed to body contact
-/// still takes about a quarter of what one at the Brute's tip does -- the
-/// tactic survives, and the degenerate state it used to lead to (a Skitterer
-/// hugging a Brute, immune and harmless, while the fight timed out) does not.
+/// It kept its value through the change because nothing about those two
+/// questions moved. The dead zone it used to define now comes out of
+/// [`dead_zone`] against the energy floor instead, and lands within a body
+/// radius of where it used to.
 pub const IMPACT_THRESHOLD: Fx = Fx::from_ratio(6, 100);
 
-/// Damage per world-unit-per-tick of impact above [`IMPACT_THRESHOLD`], before
-/// weapon weight and the power stat.
+/// Kinetic energy a blow has to carry before it is a wound rather than a
+/// scrape, in the sim's own mass-times-speed-squared units.
 ///
-/// It more than doubled when the sword became a phase machine, and the
-/// arithmetic behind that is worth keeping. A windmill billed a blow every nine
-/// ticks; a measured attack is a windup, a cut and a recovery, and a Warrior
-/// gets through one about every fifty ticks -- so the same constant produced
-/// fights that could not finish, and two thirds of duels timed out with both
-/// sides walking wounded.
+/// **Subtracted in energy, and the distinction is the whole point.** The old law
+/// took a speed threshold off the impact first and multiplied by mass after, so
+/// a slow heavy weapon paid the toll twice: once in speed, where it is worst,
+/// and again in having that shortfall scaled up by the very mass that made it
+/// slow. Taking it in energy charges every weapon the same admission fee and
+/// lets each pay it in whatever currency it has -- a Brute's axe clears the bar
+/// at 0.045 units per tick, a Scout's knife not until 0.072.
 ///
-/// It came most of the way back down when [`strike_ticks`] let heavy weapons
-/// finish their swings, and the reason is **resolution** rather than pace. At
-/// 135 a Brute's blow was worth up to 57 against a Warrior's 84 health: a duel
-/// was three or four landed blows, so "won with half its health" and "won
-/// almost untouched" were one blow apart and read as luck rather than as skill.
-/// A difficulty ladder needs more rungs than that. At 60 a duel is a dozen
-/// blows a side, one misread is a visible dent rather than a third of the fight,
-/// and the health a fighter finishes on means something.
-pub const IMPACT_TO_DAMAGE: Fx = Fx::from_int(60);
+/// The value is the old bar for the weapon the old bar was set against:
+/// `1/2 * 1.24 * 0.06^2`, a Warrior's arming sword at [`IMPACT_THRESHOLD`]. So
+/// the reference weapon's dead zone barely moves and the rest of the roster
+/// moves relative to it for a reason.
+pub const ENERGY_FLOOR: Fx = Fx::from_ratio(22, 10_000);
+
+/// Damage per unit of kinetic energy above [`ENERGY_FLOOR`], before the power
+/// stat.
+///
+/// Set to hold a Warrior's best blow at the 14.3 it was worth under the old
+/// linear law, because what that number is really pinning is **resolution**
+/// rather than pace. At 135-per-unit-of-speed a duel was three or four landed
+/// blows, so "won with half its health" and "won almost untouched" were one blow
+/// apart and read as luck rather than as skill; a difficulty ladder needs more
+/// rungs than that. A dozen blows a side is the figure the ladder was measured
+/// at and the figure this holds.
+///
+/// Switching laws moved the roster around that anchor but did not spread it out:
+/// against a Warrior's 1.00, a Brute went 1.74 -> 1.44 and a Skitterer
+/// 0.49 -> 0.37. The narrowing is [`MUSCLE_SPIN`]'s doing and not this
+/// constant's -- see [`blow_damage`] for why weapon mass cancels.
+pub const ENERGY_TO_DAMAGE: Fx = Fx::from_int(384);
+
+/// What one contact is worth: `(1/2 m v^2 - ENERGY_FLOOR) * ENERGY_TO_DAMAGE`,
+/// scaled by the wielder's [`power_multiplier`], floored at zero.
+///
+/// The one place the damage law is written down. [`peak_damage`] and the sim's
+/// own contact resolution both come through here, so `threat` and `frailty` are
+/// answers to the same question the blow will be.
+///
+/// **Weapon mass cancels out of this, and that is not a bug.** A swing is a
+/// fixed torque over a fixed arc, so the work is the same whatever is being
+/// swung; and the ceiling that stops a light weapon short is a grip limit,
+/// `sqrt(REFERENCE_GRIP / (mass * lever))`, whose mass term cancels the `m` in
+/// `1/2 m v^2` exactly. Both regimes land in the same place: energy at the tip is
+/// `1/2 k^2 MUSCLE_SPIN^2 * agility^2 * REFERENCE_GRIP * tip^2 / lever`, in which
+/// no weapon mass appears at all.
+///
+/// So the damage spread across the roster is bought with **reach, balance,
+/// agility and power** -- and it is bought, at 0.37 to 1.44 of a Warrior across
+/// the four archetypes. Mass is paid for elsewhere and paid well: it is what
+/// makes a swing slow to start ([`Arm::inertia`]), slow at the ceiling
+/// ([`grip_limit`]), and heavy when it lands ([`peak_impulse`], where nothing
+/// cancels it). Piling mass onto the axe would not make it hit harder; it would
+/// make it slower for the same energy, which is what the plan for this work
+/// predicted before any of it was written.
+pub fn blow_damage(mass: Fx, impact: Fx, power: Fx) -> Fx {
+    let energy = fx::energy(mass, impact);
+    if energy <= ENERGY_FLOOR {
+        return Fx::ZERO;
+    }
+    (energy - ENERGY_FLOOR) * ENERGY_TO_DAMAGE * power
+}
 
 /// Fraction of a blow that leaks through a shield **that has been planted**.
 ///
@@ -548,18 +590,116 @@ pub fn block_leak(settled: u16) -> Fx {
     BLOCK_LEAK_SNAP + (BLOCK_LEAK_BRACED - BLOCK_LEAK_SNAP) * braced
 }
 
-/// Fraction of its spin an attacker keeps, reversed, when a shield stops it.
-/// This plus the torque cap *is* the punish window.
-pub const BLOCK_REBOUND: Fx = Fx::from_ratio(35, 100);
+/// Coefficient of restitution when a blade meets a shield: how much of the
+/// speed the two meet at they give back to each other. This plus the torque cap
+/// *is* the punish window.
+///
+/// It used to be a *fraction of the attacker's spin, reversed*, applied flat --
+/// which is the same number in the limit where the guard is immovable
+/// (`v' = -e * v`) and nothing like it anywhere else. Flat meant the blade's
+/// rebound did not depend on what stopped it and the shield's shove did not
+/// depend on what threw it, and the second of those was inverted outright: the
+/// old shield knock scaled the attacker's *spin* with no mass term in it, so a
+/// Scout's whippy 3461 disturbed a guard nearly four times as hard as a Brute's
+/// 911, and the heaviest weapon in the game was the one a shield had the easiest
+/// time holding. Both sides come out of the same collision now, resolved from
+/// the two arms' moments of inertia -- see [`crate::World`]'s `deflect`.
+pub const BLOCK_RESTITUTION: Fx = Fx::from_ratio(35, 100);
 
-/// Fraction of a blocked blow's speed that shoves the blocking shield hand.
-/// A shield stops a blow; it does not stop it for free.
-pub const BLOCK_SHIELD_KNOCK: Fx = Fx::from_ratio(40, 100);
+/// Restitution on a blade-on-blade crossing. Higher than
+/// [`BLOCK_RESTITUTION`]: meeting steel with steel throws a swing further off
+/// line than catching it on a braced shield does.
+pub const PARRY_RESTITUTION: Fx = Fx::from_ratio(60, 100);
 
-/// Restitution on a blade-on-blade crossing. Higher than [`BLOCK_REBOUND`]:
-/// meeting steel with steel throws a swing further off line than catching it on
-/// a braced shield does.
-pub const PARRY_REBOUND: Fx = Fx::from_ratio(60, 100);
+// ------------------------------------------------------------------ the shove
+
+/// How much of a blade's momentum a body it lands on actually takes, before its
+/// own mass divides it.
+///
+/// **The reason weight matters at all.** Damage is bounded by the muscle -- a
+/// swing is a fixed torque over a fixed arc, so a heavier weapon buys energy
+/// only through the speed-cap crossover -- and momentum is bounded by nothing.
+/// `mass * speed` at the tip runs from a Skitterer's 0.23 to a Brute's 0.42, and
+/// the body it lands on divides that by *its* mass, which runs from 0.36 to
+/// 2.78. Between the two ends that is a factor of twenty in how far a blow moves
+/// somebody, against a factor of two in what it costs them.
+///
+/// Well under one because a person struck by a sword is not a billiard ball
+/// being hit by another: most of the momentum goes into the ground through their
+/// feet, and what is left over is what moves them. At 0.12 a Brute's best cut
+/// puts a Warrior on a course it needs about three quarters of a body radius to
+/// shed, sends a Skitterer four of its own body radii, and moves another Brute
+/// seven hundredths of one. Those three numbers are the whole mechanic.
+pub const KNOCKBACK_TRANSFER: Fx = Fx::from_ratio(12, 100);
+
+/// How much of the shove a fully braced shield takes out of a blow it caught.
+///
+/// The second thing planting a guard buys, and the plan was always for there to
+/// be one: [`block_leak`] already made a settled shield worth five times a
+/// travelling one *for damage*, which meant a fighter that could not stop the
+/// blow anyway got nothing at all for reading it. A braced fighter is set
+/// against the blow -- feet planted, weight behind the shield -- and that is
+/// exactly the posture that turns momentum into the ground instead of into
+/// travel.
+///
+/// Not 1: a Brute's axe moves you whatever you do about it.
+pub const BRACE_ANCHOR: Fx = Fx::from_ratio(70, 100);
+
+/// How much of the reaction to its own weapon's momentum a body actually feels.
+///
+/// **Your own attack moves you**, and this is how much. Swinging something heavy
+/// shoves you the other way while it is building speed and hauls you after it
+/// while it is stopping, so a cut is no longer free of the spacing problem --
+/// which is the single change here that most changes what a good fighter has to
+/// think about.
+///
+/// Small for the same reason [`KNOCKBACK_TRANSFER`] is: a swordsman's feet are
+/// on the ground and the ground takes most of the reaction. What is left is a
+/// drift of a few hundredths of a unit per tick against top speeds around 0.05,
+/// which is a nudge rather than a stagger -- and it accumulates over a whole
+/// arc, and it is *strongest exactly when the blade is fastest*, which is when
+/// the fighter can least afford to be somewhere it did not choose.
+pub const RECOIL_TRANSFER: Fx = Fx::from_ratio(12, 100);
+
+/// Momentum the hardest blow this arm can throw carries into whatever it lands
+/// on: the tip, at the top spin the weapon and the grip allow.
+///
+/// [`peak_damage`]'s counterpart on the momentum side, and it deliberately does
+/// **not** scale with `power`. Damage is what the muscle does to flesh and the
+/// power stat multiplies it; knockback is what the *weapon* carries, and the
+/// muscle has already had its say through [`Arm::reachable_spin`]. A strong
+/// fighter hits harder with the same axe; it does not throw people further with
+/// it.
+pub fn peak_impulse(arm: Arm) -> Fx {
+    let tip = arm.pivot + arm.weapon.length;
+    let speed = fx::tangential_speed(arm.reachable_spin(), tip);
+    arm.weapon.mass * speed * KNOCKBACK_TRANSFER
+}
+
+/// Momentum the fastest cut this arm can throw puts back into the body that
+/// threw it: [`peak_impulse`] seen from the other end of the arm.
+///
+/// Two differences from [`peak_impulse`], and both matter.
+///
+/// The lever is the weapon's **centre of mass** rather than its tip, because
+/// recoil is the reaction to accelerating the whole weapon and not to the point
+/// of it -- which is what `World::blade_momentum` integrates tick by tick. For a
+/// tip-heavy weapon the two are close and for a hilt-heavy one they are not.
+///
+/// It uses [`RECOIL_TRANSFER`] and not [`KNOCKBACK_TRANSFER`]. Those two
+/// constants are equal today and there is no law saying they must be: one is how
+/// much of a blow's momentum a struck body keeps rather than passing into the
+/// ground, and the other is how much of its own weapon's reaction a *swinging*
+/// body keeps. Writing this as a call to [`peak_impulse`] would tie them
+/// together where the model does not.
+///
+/// A ceiling and not an expectation, for the reason set out at
+/// `World::apply_recoil`: the smooth middle of a swing is held entirely by
+/// static friction, so what a real cut costs in ground is this or less.
+pub fn peak_recoil(arm: Arm) -> Fx {
+    let speed = fx::tangential_speed(arm.reachable_spin(), arm.lever(Fx::ONE));
+    arm.weapon.mass * speed * RECOIL_TRANSFER
+}
 
 // ------------------------------------------------------------- the attack
 
@@ -1106,6 +1246,104 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn energy_damage_never_saturates_at_the_extremes_of_the_roster() {
+        // `Fx` saturates silently, and a squared term is the shortest path to
+        // it: `blow_damage` squares a speed, multiplies by a mass, scales by 384
+        // and then by a power multiplier that runs to 3. Every one of those is
+        // fine on the authored sheets, which is exactly why this sweeps past
+        // them -- the sheets are not the contract, the stat range is.
+        //
+        // `Fx::MAX` is the tell. It is what every one of those stages collapses
+        // to on overflow, and a peak damage pinned there would silently make
+        // every archetype identical and infinitely lethal.
+        let mut most = Fx::ZERO;
+        for kind in crate::entity::UnitKind::ALL {
+            for power in [0u8, 6, 20, 100, 255] {
+                for agility in [0u8, 6, 20, 100, 255] {
+                    let base = kind.base_stats();
+                    let stats = Stats::new(
+                        power,
+                        agility,
+                        base.intellect,
+                        base.perception,
+                        base.vitality,
+                    );
+                    let arm = Arm::resolve(kind.weapon(), stats, kind.radius());
+                    let tip = arm.pivot + arm.weapon.length;
+                    let impact = fx::tangential_speed(arm.reachable_spin(), tip);
+                    // The blow itself, and then the same blow with the fastest
+                    // closing speed two bodies can add to it -- `impact_speed`
+                    // is a blade speed *plus* a closing speed, and knockback can
+                    // now push a body faster than it walks.
+                    for extra in [Fx::ZERO, Fx::ONE] {
+                        let hit = blow_damage(
+                            arm.weapon.mass,
+                            impact + extra,
+                            power_multiplier(stats.power),
+                        );
+                        assert!(
+                            hit < Fx::MAX,
+                            "{kind:?} at power {power} agility {agility} saturates: \
+                             impact {} + {extra} gives {hit}",
+                            impact
+                        );
+                        most = most.max(hit);
+                    }
+                }
+            }
+        }
+        // Not merely unsaturated but comfortably so, with room for the
+        // `RECOVERY_EXPOSURE` multiplier the sim applies afterwards. A blow this
+        // size is already absurd -- it is several hundred times a Warrior's
+        // whole health bar -- and the point is the headroom, not the number.
+        assert!(
+            most * RECOVERY_EXPOSURE < Fx::MAX,
+            "the worst blow in the stat range is {most}, which leaves no room"
+        );
+    }
+
+    #[test]
+    fn a_heavier_weapon_does_not_hit_harder_for_being_heavier() {
+        // The counter-intuitive consequence of the damage law, pinned so that
+        // nobody re-derives it by accident and nobody "fixes" it by hand.
+        //
+        // A swing is a fixed torque over a fixed arc, so the work is the same
+        // whatever is being swung; and the ceiling that stops a light weapon
+        // short is a grip limit whose `mass * lever` load cancels the `m` in
+        // `1/2 m v^2` exactly. Double a weapon's mass and it gets slower by
+        // precisely enough to arrive with the same energy.
+        //
+        // Weight is paid for in `peak_impulse`, where nothing cancels it. See
+        // `blow_damage`.
+        let stats = crate::entity::UnitKind::Warrior.base_stats();
+        let radius = crate::entity::UnitKind::Warrior.radius();
+        let light = crate::entity::UnitKind::Warrior.weapon();
+        let heavy = Weapon {
+            mass: light.mass * Fx::TWO,
+            ..light
+        };
+        let (a, b) = (
+            peak_damage(Arm::resolve(light, stats, radius), stats),
+            peak_damage(Arm::resolve(heavy, stats, radius), stats),
+        );
+        let drift = (a - b).abs() / a;
+        assert!(
+            drift < Fx::from_ratio(5, 100),
+            "doubling the mass moved peak damage {a} -> {b}, which is not a wash"
+        );
+        // And the half of the trade that does move: twice the mass at the same
+        // energy is more momentum, so it throws a body about half again as far.
+        let (pa, pb) = (
+            peak_impulse(Arm::resolve(light, stats, radius)),
+            peak_impulse(Arm::resolve(heavy, stats, radius)),
+        );
+        assert!(
+            pb > pa * Fx::from_ratio(13, 10),
+            "doubling the mass moved peak impulse {pa} -> {pb}, so weight buys nothing"
+        );
     }
 
     #[test]

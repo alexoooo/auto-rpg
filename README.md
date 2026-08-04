@@ -54,14 +54,16 @@ attack *began*, and so no instant at which one could be read, dodged or punished
 Only a striking blade deals damage now, so a blade rotating outside its window is
 furniture.
 
-Damage is still the blade's speed where it happens to connect, and nothing
-encodes that either — it falls out of `spin × arm`, so every weapon hits hardest
-at the tip and every weapon has a radius inside which it cannot hurt anyone at
-all. A Brute's blow is worth thirteen times as much at the end of its arc as it
-is to somebody pressed against its chest. That is what gives a light fighter
-something to do about a heavy one — and **where an enemy's blade stops being
-dangerous is now something you have to judge**, blurred by perception like
-everything else you can see, rather than something a policy is told.
+Damage is the blade's **kinetic energy** where it happens to connect — ½mv², with
+the speed falling out of `spin × arm` — so every weapon hits hardest at the tip,
+every weapon has a radius inside which it cannot hurt anyone at all, and what
+happens between those two is a square rather than a line. A Brute's blow is worth
+five times as much at the end of its arc as it is to a Warrior pressed against its
+chest, and the first two fifths of its haft are not worth swinging at all. That is
+what gives a light fighter something to do about a heavy one — and **where an
+enemy's blade stops being dangerous is now something you have to judge**, blurred
+by perception like everything else you can see, rather than something a policy is
+told.
 
 So there is a second mind to choose from. The **Duelist** scores eight competing
 stances every time it is allowed to think — close, trade, circle to the guard's
@@ -74,14 +76,14 @@ three at the same Brute:
 
 | wits            | wins | health it finishes on |
 |-----------------|-----:|----------------------:|
-| int 1 / per 2   |  53% |                  0.15 |
-| int 8 / per 6   |  99% |                  0.57 |
-| int 19 / per 18 | 100% |                  0.73 |
+| int 1 / per 1   |  35% |                  0.08 |
+| int 8 / per 6   | 100% |                  0.56 |
+| int 19 / per 18 | 100% |                  0.65 |
 
-Same body, same weights, same opponent. A dull swordsman loses about as often as
-it wins and finishes on fumes; a capable one wins at the cost of half of itself;
-a sharp one wins every time and pays a quarter. **That range is the whole claim**
-— levelling intellect is
+Same body, same weights, same opponent. A dull swordsman loses about two fights
+in three and finishes the ones it wins on fumes; a capable one wins at the cost
+of half of itself; a sharp one wins every time and pays a third. **That range is
+the whole claim** — levelling intellect is
 not a damage multiplier, it is thinking more often, and levelling perception is
 not a sight radius, it is knowing where the blade will be.
 
@@ -95,7 +97,7 @@ decided. Bodies also collide by mass rather than politely splitting the
 difference, so a Skitterer can no longer shoulder a Brute off its feet.
 
 It cost the top of the ladder something, and honestly: a sharp swordsman used to
-finish on 0.82 and now finishes on 0.69, because being nearly untouchable
+finish on 0.82 and now finishes on 0.65, because being nearly untouchable
 depended on stepping out of an arc *after* reading it, and now stepping takes
 time. Dodging lost ground to blocking and out-tempoing. That is the physics
 being right rather than a regression to tune away.
@@ -107,6 +109,60 @@ travelling toward the bearing a blow lands on stops a fraction of what a planted
 one does, so answering a telegraph early is worth something and answering it late
 is worse than not answering at all.
 
+Weapons have weight too, and it is worth being precise about what that buys,
+because it is not the obvious answer. It buys **no damage at all** — not a little,
+none, and the cancellation is exact. A swing is a fixed torque over a fixed arc,
+so the work is the same whatever you are swinging; and the ceiling that stops a
+light weapon short is how hard you can *hold on* to it, which goes as mass times
+lever and cancels the mass in ½mv² term for term. Double the axe and it arrives
+proportionally slower carrying exactly the same energy. Measured across a roster
+whose weapons span 2.6× in mass, blade energy came out at 0.0395, 0.0383 and
+0.0393 for three of the four.
+
+What weight buys is **momentum**, where nothing cancels it — and the biggest lever
+on it is not the weapon at all, it is the body being hit. One identical Brute cut
+sends a Skitterer seven of its own body-widths and moves another Brute a
+fourteenth of one: a hundredfold spread, where in damage it is the *same blow*.
+Being heavy is a defence that no stat buys and no skill answers.
+
+The two do not rank the roster the same way either, which is why both are in the
+observation. A Skitterer's knife is dense and hafted well forward and its wielder
+is feeble, so it shoves better than it cuts — a fighter that guessed how far
+something would throw it from how much it hurt would guess wrong in the one
+matchup where the answer matters most.
+
+The same collision decides what happens to the two arms. Catch an axe on a
+buckler and the axe barely notices while your guard is thrown wide open; catch a
+knife on a tower shield and the knife comes off it hard enough to be punished.
+Both numbers fall out of one calculation from the two moments of inertia, so
+they cannot contradict each other — which the pair of hand-set constants they
+replaced very much could, and did: the old rule had a Scout disturbing a guard
+nearly four times as hard as a Brute.
+
+And being stopped costs *ground*. A blade reversed by a shield in a single tick
+is a shove no footing holds, so a blocked cut staggers the fighter who threw it
+half a walking pace out of position. A clean swing costs nothing — static
+friction, the same reason a swordsman does not slide across the floor when they
+cut.
+
+The fighter who pays most for that is not the one you would guess. Recoil is a
+ratio — your weapon's mass against your body's — so the **heaviest** character in
+the game is the one its own axe moves least, four hundredths of a body radius,
+and the lightest is a Skitterer whose dense, forward-hafted knife costs it 1.6 of
+its own radii on one committed cut: four fifths of its own width, forty times what
+the Brute pays. A Skitterer that swings is a Skitterer that is somewhere else
+afterwards. Its fighter can see that number before it commits, which is the whole
+point of it being in the observation.
+
+Walking into somebody splits on the mass ratio too, so how much the other body
+weighs relative to yours is a thing your character can now judge — badly, if its
+perception is poor, since a Brute is denser than it looks and a Skitterer lighter.
+What it does *not* get is a body-check. That was built and measured and taken back
+out: shoving only beats swinging where swinging has stopped working, and in this
+roster it never quite does, because bodies are wider than the gap. A Brute with a
+Skitterer pressed against its chest is down to a seventh of its best blow and that
+is still better than a shove.
+
 And you can take over. Two independent toggles, `C` and `V`: the feet, the sword,
 or both. WASD steers; the mouse aims the line and **click to cut** — one click,
 one attack, with the same windup and the same recovery the AI pays. `Shift`
@@ -114,7 +170,7 @@ switches the pointer to the shield hand. Whichever half you do not hold, the AI
 keeps fighting with — on its own reaction clock, because that is a stat.
 
 And the number matches. `web.wasm` and the native lab produce the *same 64-bit
-state hash* for the same run — `0x7d01d836f4f91537` — so the fixed-point
+state hash* for the same run — `0x97d49e4d685c4dd0` — so the fixed-point
 simulation really is bit-identical across MSVC x86-64 and wasm32, rather than
 merely designed to be.
 

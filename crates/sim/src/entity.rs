@@ -174,9 +174,16 @@ impl UnitKind {
     pub const fn weapon(self) -> Weapon {
         match self {
             // A long two-handed axe, tip-heavy, with everything that follows
-            // from it: never reaches the arm's speed cap, so it is *work*
-            // limited rather than speed limited, and hits like nothing else
-            // when it arrives.
+            // from it. Six times a Warrior's blade inertia, so it accelerates
+            // at a quarter the rate and takes 91 ticks to get through a cut --
+            // and its wielder can only hold it at 911 raw units of spin against
+            // a Warrior's 1880, because you cannot keep that much mass on that
+            // long a lever going any faster. See `rules::grip_limit`.
+            //
+            // What it does *not* do is hit harder for being heavy. Mass cancels
+            // out of the damage law exactly (see `rules::blow_damage`); the axe
+            // hits hardest because it is long, and 2.15 units of arm squared is
+            // what a `1/2 m v^2` law rewards. Weight buys the shove instead.
             UnitKind::Brute => Weapon {
                 length: Fx::from_ratio(145, 100),
                 mass: Fx::from_ratio(223, 100),

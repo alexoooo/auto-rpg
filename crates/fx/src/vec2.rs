@@ -192,13 +192,29 @@ impl Neg for Vec2 {
     }
 }
 
+/// Scales a vector, **truncating toward zero** rather than flooring like
+/// [`Fx`]'s own `Mul`.
+///
+/// The difference is one raw unit and it is the difference between a fair
+/// mirror match and an unfair one. Flooring is not odd-symmetric --
+/// `(-v) * s` and `-(v * s)` land a raw unit apart whenever there is a fraction
+/// to drop -- so two fighters standing back to back and doing the identical
+/// thing in opposite directions drift apart, by one unit per scaled vector per
+/// tick, until one of them is measurably winning. It cost a mirrored exchange
+/// 62.5671 against 62.5717 before it was tracked down.
+///
+/// Truncation is odd, so the mirror holds exactly. [`fx::mul_div`] makes the
+/// same choice for the same reason, and `Hand::track` makes it a third time on
+/// its angle integration.
+///
+/// [`fx::mul_div`]: crate::mul_div
 impl Mul<Fx> for Vec2 {
     type Output = Vec2;
     #[inline]
     fn mul(self, rhs: Fx) -> Vec2 {
         Vec2 {
-            x: self.x * rhs,
-            y: self.y * rhs,
+            x: crate::mul_div(self.x, rhs, Fx::ONE),
+            y: crate::mul_div(self.y, rhs, Fx::ONE),
         }
     }
 }

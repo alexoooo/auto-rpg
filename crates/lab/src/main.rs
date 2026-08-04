@@ -65,10 +65,16 @@ fn usage() {
 
   evolve  --gens N --pop N --elite N --seeds N --sigma-pct N --threads N
           --master-seed N --policy P --opponent P
-          --arena skirmish|duel --hero KIND --villain KIND
+          --arena skirmish|duel|roster --hero KIND --villain KIND
+          --cross --cross-with P
           Evolves a policy's weights against a hand-tuned opponent. The arena
           decides what \"better\" means: a genome tuned on crowds keeps a spacing
-          no duellist should accept, and vice versa.
+          no duellist should accept, and vice versa. \"roster\" scores all sixteen
+          archetype pairings, which is what a policy shipped to the whole roster
+          is actually being asked to do. --cross scores every candidate against a
+          second opponent too and keeps the worse of the two, because a duel
+          arena will happily evolve a counter to one opponent and call it a
+          fighter.
 
   KIND is one of warrior, scout, brute, skitterer.
   P    is one of utility, duelist, idle, random."
@@ -384,19 +390,26 @@ fn evolution(args: &Args) {
         // Skirmish by default, because that is what every genome in the
         // repository was measured on; `--arena duel` scores the fight the swing
         // model was actually built for.
-        arena: if args.choice("arena", 0u32, &[("skirmish", 0), ("duel", 1)]) == 1 {
-            Arena::Duel {
+        arena: match args.choice("arena", 0u32, &[("skirmish", 0), ("duel", 1), ("roster", 2)]) {
+            1 => Arena::Duel {
                 hero: args.choice("hero", UnitKind::Warrior, &KINDS),
                 villain: args.choice("villain", UnitKind::Brute, &KINDS),
-            }
-        } else {
-            Arena::Skirmish {
+            },
+            2 => Arena::Roster,
+            _ => Arena::Skirmish {
                 heroes: args.u32("heroes", 4),
                 monsters: args.u32("monsters", 6),
-            }
+            },
         },
         kind: args.choice("policy", PolicyKind::Utility, &POLICIES),
         opponent: args.choice("opponent", PolicyKind::Utility, &POLICIES),
+        // Off unless asked for: it doubles the rollouts, and a run that is
+        // deliberately measuring one opponent should not silently pay for two.
+        cross: if args.flag("cross") {
+            Some(args.choice("cross-with", PolicyKind::Duelist, &POLICIES))
+        } else {
+            None
+        },
     };
 
     println!(

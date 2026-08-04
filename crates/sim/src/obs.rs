@@ -93,6 +93,56 @@ pub struct Contact {
     /// as [`Contact::offset`] is. The same Brute is `0.11` frail to a Warrior
     /// and `0.05` to a Skitterer.
     pub frailty: Fx,
+    /// **How much ground one clean blow from this enemy costs the observer**,
+    /// in the observer's own body radii.
+    ///
+    /// [`Contact::threat`] on the momentum side, and a genuinely different
+    /// question rather than the same one rescaled. Damage is bounded by the
+    /// muscle that throws the blow and knockback is bounded by nothing, so the
+    /// two rank the roster differently: a Brute's axe is worth about four times
+    /// a Skitterer's knife in damage and about thirty-five times as much in
+    /// ground, and the archetype that most needs to know the second figure --
+    /// the light one, which is the one that gets thrown -- is the one whose
+    /// perception is usually good enough to read it.
+    ///
+    /// Stopping distance and not peak speed: what a fighter has to decide is
+    /// whether it can afford to be somewhere else, and where it ends up is the
+    /// answer to that. Blurred by the **un-scaled** perception noise, for the
+    /// reason argued at [`Contact::min_strike_range`].
+    pub knockback_taken: Fx,
+    /// **How much ground one clean blow from the observer costs this enemy**, in
+    /// *its* body radii. [`Contact::knockback_taken`] mirrored, exactly as
+    /// [`Contact::frailty`] mirrors [`Contact::threat`].
+    ///
+    /// The number that decides whether shoving is worth anything against this
+    /// opponent, and it is much more lopsided than the damage pair: against a
+    /// Brute it is near zero for everybody, and against a Skitterer it is
+    /// several body-widths for everybody. Weight is a defence that no stat buys
+    /// and no skill answers, which is the point of having it.
+    pub knockback_dealt: Fx,
+    /// **What this enemy weighs, as a multiple of the observer's own weight.**
+    /// Above one is heavier than you.
+    ///
+    /// The question a body-check is about, and the pair above cannot answer it.
+    /// [`Contact::knockback_dealt`] says what a *blow* moves this enemy, and a
+    /// blow is a weapon hitting a body -- so it is a fact about the observer's
+    /// axe as much as about the enemy's weight. Walking into somebody is a body
+    /// hitting a body, and `World::separate` splits that collision on the mass
+    /// ratio and nothing else. A Skitterer and a Warrior with the same sword
+    /// deal identical knockback and shoulder each other very differently.
+    ///
+    /// Not derivable from [`Contact::radius`] either, which is the visible proxy
+    /// and the reason this field is perceived rather than exact: mass goes as
+    /// `density * radius^2` and density is real -- a Brute is 15% denser than it
+    /// looks and a Skitterer 20% lighter. Sizing somebody up is a judgement, and
+    /// like [`Contact::min_strike_range`] it is one that standing closer does not
+    /// improve, so it is blurred by the **un-scaled** noise.
+    ///
+    /// A ratio rather than an absolute weight for the same reason
+    /// [`Contact::threat`] is a fraction of a health bar: the observer's own mass
+    /// is not in the observation and should not be. What a fighter needs is not
+    /// how much the other one weighs but whether it can move them.
+    pub heft: Fx,
     /// Which way the body is heading, as perceived.
     /// Where this contact is going, world units per tick, blurred by
     /// perception like everything else about it.
@@ -201,6 +251,29 @@ pub struct Observation {
     /// needs to stop, which is what a fighter has to hold in mind before it
     /// steps toward anything.
     pub traction: Fx,
+    /// **How much ground this fighter's own hardest cut costs it**, in its own
+    /// body radii. [`Contact::knockback_taken`] with the fighter's own swing on
+    /// the other end of it.
+    ///
+    /// Swinging something moves you. That has been true since bodies got
+    /// momentum, and until now a policy could only find out *afterwards*, by
+    /// reading [`Observation::velocity`] and discovering it was somewhere it had
+    /// not chosen to be. This is the same fact in advance, which is the only form
+    /// of it a fighter can act on: the decision recoil belongs to is whether to
+    /// throw the cut at all.
+    ///
+    /// Derived and exact -- a fighter knows what its own weapon does to it -- and
+    /// genuinely not inferable from anything else here. Recoil goes as
+    /// `weapon_mass / body_mass` and neither of those is a percept, nor should
+    /// be; `weapon_length` and `radius` are the visible stand-ins and both lie.
+    ///
+    /// A ceiling rather than an expectation. Static friction holds the smooth
+    /// middle of a swing outright, so a cut that runs its whole arc costs less
+    /// than this, and a cut that is *blocked* -- where the blade reverses in one
+    /// tick and the whole momentum change arrives together -- costs close to it.
+    /// Reading it as "what this could cost me if it goes wrong" is the correct
+    /// reading rather than a pessimistic one.
+    pub recoil_drift: Fx,
     /// Ticks between this character's decisions -- its own reaction speed.
     ///
     /// Self-knowledge of the same class as [`Observation::position`]:
@@ -228,8 +301,9 @@ pub struct Observation {
 /// Values per contact in the feature vector: direction (2), range, health,
 /// size, weapon length, facing (2), sword direction (2), sword spin, sword
 /// reach, shield direction (2), shield reach, dead zone, the exchange rate in
-/// both directions (2), then the attack read -- swing phase one-hot (4), ticks
-/// left in it, and the attack line (2).
+/// both directions (2), the ground a blow costs in both directions (2), what it
+/// weighs relative to the observer, then the attack read -- swing phase one-hot
+/// (4), ticks left in it, and the attack line (2).
 ///
 /// Every angle enters as a `(cos, sin)` pair rather than as a number, and that
 /// is not a rounding detail: a raw angle is discontinuous at the wrap, so a
@@ -241,19 +315,20 @@ pub struct Observation {
 /// phases are not points on a scale -- a recovery is not "more" than a windup --
 /// and encoding them as 0, 1/3, 2/3, 1 would ask a network to learn that the
 /// most dangerous state and the most punishable one sit next to each other.
-const FEATURES_PER_CONTACT: usize = 20 + crate::hand::Swing::COUNT + 3;
+const FEATURES_PER_CONTACT: usize = 23 + crate::hand::Swing::COUNT + 3;
 
 /// Own-state values: health, attack readiness, radius, weapon length, minimum
-/// strike range, decision rate, shield arc, then both hands as direction (2),
-/// spin and reach, then the sword's own attack state -- phase one-hot (4),
-/// ticks left, whether the hand is armed -- and finally how braced the shield
-/// is.
+/// strike range, decision rate, shield arc, own velocity (2), traction against
+/// top speed, what its own swing costs it in ground, then both hands as
+/// direction (2), spin and reach, then the sword's own attack state -- phase
+/// one-hot (4), ticks left, whether the hand is armed -- and finally how braced
+/// the shield is.
 ///
 /// That last one is not derivable from anything else here. A shield's bearing
 /// and spin say where it is and how fast, and neither says how long it has been
 /// *there*, which is what decides whether it stops a blow or is merely near
 /// one.
-const SELF_FEATURES: usize = 10 + 4 * crate::hand::HANDS + crate::hand::Swing::COUNT + 3;
+const SELF_FEATURES: usize = 11 + 4 * crate::hand::HANDS + crate::hand::Swing::COUNT + 3;
 
 /// Width of the flattened feature vector produced by
 /// [`Observation::write_features`].
@@ -307,7 +382,37 @@ pub const FEATURE_COUNT: usize =
 /// at all -- not a missing input, a missing *concept*. Its notion of "I can
 /// step back if this goes wrong" is simply false in version 7, and it would
 /// fail in a way that looks like bad tactics rather than like a stale contract.
-pub const FEATURE_LAYOUT_VERSION: u32 = 7;
+///
+/// Version 8 is the shove. Blows move bodies now, and two numbers per contact
+/// say how far in each direction: [`Contact::knockback_taken`] and
+/// [`Contact::knockback_dealt`].
+///
+/// They are not derivable from the pair already there. A network holding
+/// [`Contact::threat`] knows what a blow *costs* and nothing about what it
+/// *moves*, and the roster ranks those differently on purpose -- a Skitterer's
+/// knife is the second-heaviest thing in the game for its speed and among the
+/// least dangerous, so any policy inferring one from the other would be reading
+/// a correlation that was deliberately broken. The pairing matters too: the same
+/// axe moves a Brute a fifteenth of a body and a Skitterer four of them, which is
+/// the difference between a shove being a tactic and being a waste of a swing.
+///
+/// Version 9 closes the two holes version 8 left on the momentum side, and both
+/// are holes in the same place: a fighter could see what a *blow* moved and
+/// nothing about what a *body* weighed or what its own swing cost it.
+///
+/// [`Observation::recoil_drift`] is the ground a fighter's own hardest cut costs
+/// it. Recoil has moved bodies since version 7 and no policy could read it in
+/// advance -- only afterwards, off [`Observation::velocity`], by which point the
+/// decision it belonged to was two dozen ticks gone.
+///
+/// [`Contact::heft`] is what the other body weighs relative to yours. Walking
+/// into somebody splits on the mass ratio and nothing else, and mass is
+/// `density * radius^2` with density real and independent -- so `radius`, the
+/// obvious stand-in, is wrong by a fifth in both directions across this roster.
+/// Without it "charge the light one, do not shoulder the heavy one" is not a
+/// decision the observation supports, which made a body-check something only the
+/// sim knew about.
+pub const FEATURE_LAYOUT_VERSION: u32 = 9;
 
 /// Speed, in world units per tick, that normalises to `1` in the feature
 /// vector. Comfortably above any archetype's top speed, so it is the knockback
@@ -365,6 +470,7 @@ impl Observation {
             // policy dividing by it to get a stopping distance would saturate
             // rather than fail.
             traction: Fx::ONE,
+            recoil_drift: Fx::ZERO,
             // One, never zero. `Fx` division by zero saturates to `Fx::MAX`
             // rather than panicking, so a zero period would turn a policy's
             // "how far can I travel before my next thought" term into a
@@ -496,6 +602,11 @@ impl Observation {
         // places of nothing; the ratio is the quantity a policy acts on.
         out[i] = (self.traction / self.move_speed.max(Fx::EPSILON)).min(Fx::ONE);
         i += 1;
+        // What a cut costs its owner in ground, on the same scale and clamped on
+        // the same argument as the knockback pair in a contact slot: past a whole
+        // body of drift the spacing question has already been decided.
+        out[i] = self.recoil_drift.min(Fx::ONE);
+        i += 1;
 
         for hand in self.hands {
             let dir = Vec2::from_angle(hand.angle);
@@ -582,14 +693,31 @@ impl Observation {
                     // anything having to learn a conversion first.
                     out[base + 18] = (c.velocity.x / SPEED_SCALE).clamp(-Fx::ONE, Fx::ONE);
                     out[base + 19] = (c.velocity.y / SPEED_SCALE).clamp(-Fx::ONE, Fx::ONE);
+                    // The ground a blow costs, both ways, in the body radii of
+                    // whoever is losing it. Clamped at one on the same argument
+                    // as the two above: past a whole body of ground the spacing
+                    // question has already been settled, and the difference
+                    // between losing two bodies and losing five is not one a
+                    // policy can act on differently.
+                    out[base + 20] = c.knockback_taken.min(Fx::ONE);
+                    out[base + 21] = c.knockback_dealt.min(Fx::ONE);
+                    // What it weighs, relative to the observer. A *ratio*, so it
+                    // enters as one either side of a half: below 0.5 is lighter
+                    // than you and above it heavier, and the widest pairing in
+                    // the roster (a Skitterer sizing up a Brute, 5.6x) still
+                    // lands inside the interval with room. Scaled rather than
+                    // clamped because the difference between "twice my weight"
+                    // and "five times it" is one a fighter acts on differently,
+                    // unlike the ground figures above.
+                    out[base + 22] = c.heft / (c.heft + Fx::ONE);
 
                     // The attack read. The line is a separate pair from
                     // `sword` above on purpose: during a windup the blade is
                     // cocked away from where the cut is going, so the two point
                     // in different directions and collapsing them would hide
                     // the only thing worth knowing.
-                    out[base + 20 + c.sword_swing.discriminant()] = Fx::ONE;
-                    let read = base + 20 + crate::hand::Swing::COUNT;
+                    out[base + 23 + c.sword_swing.discriminant()] = Fx::ONE;
+                    let read = base + 23 + crate::hand::Swing::COUNT;
                     out[read] = (c.sword_left / TICK_SCALE).clamp(Fx::ZERO, Fx::ONE);
                     let line = Vec2::from_angle(c.sword_line);
                     out[read + 1] = line.x;

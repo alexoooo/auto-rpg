@@ -221,7 +221,7 @@ fn player_orders_change_the_outcome_without_breaking_determinism() {
 // budgeted, and `Advance` is a patrol rather than a march into a wall. Every
 // recorded run predating that is void, so this is a fresh number rather than a
 // corrected one.
-const GOLDEN_STATE_HASH: u64 = 0x1d8c_9607_975f_d859;
+const GOLDEN_STATE_HASH: u64 = 0x1729_e677_e504_0377;
 
 #[test]
 fn golden_hash() {

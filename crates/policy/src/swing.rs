@@ -286,6 +286,14 @@ mod tests {
             // A Warrior seen by the Scout in `observer`, both ways round.
             threat: Fx::from_ratio(277, 1000),
             frailty: Fx::from_ratio(126, 1000),
+            // The same pairing on the momentum side: a Warrior's sword moves a
+            // Scout most of a body, and a Scout's moves a Warrior a quarter of
+            // one.
+            knockback_taken: Fx::from_ratio(1140, 1000),
+            knockback_dealt: Fx::from_ratio(276, 1000),
+            // ...and a Warrior is a little over a third heavier again than the
+            // Scout looking at it.
+            heft: UnitKind::Warrior.mass() / UnitKind::Scout.mass(),
             velocity: Vec2::ZERO,
             facing: Angle::ZERO,
             sword_angle: Angle::ZERO,
