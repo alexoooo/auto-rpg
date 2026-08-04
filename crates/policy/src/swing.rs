@@ -43,7 +43,12 @@ pub fn press(obs: &Observation, line: Angle, side: Strike) -> LimbCommand {
     // throw a cut instantly and hand back the `ready` ticks the swap was
     // supposed to cost. Every mind that changes what it is holding routes
     // through here, so the refund is closed once rather than per caller.
-    if !obs.role().is_live_capable() || limb.swing.is_dormant() {
+    // `can_attack` and not `is_live_capable`, and the difference is worth a
+    // comment because getting it wrong is invisible from a fight: a bow is not a
+    // blade, so under the narrower test this returns `guard(line)` forever and
+    // an archer draws, aims and never looses. No panic, no event, nothing to
+    // point at.
+    if !obs.role().can_attack() || limb.swing.is_dormant() {
         return guard(line);
     }
     match limb.swing {
@@ -175,6 +180,46 @@ pub fn landing(obs: &Observation, c: &Contact) -> Option<Vec2> {
     if !c.limb_swing.is_attacking() {
         return None;
     }
+
+    // **A shot is not a sweep**, and the replay below cannot see one at all.
+    //
+    // Everything after this walks an *arc* out to `radius + action_length`,
+    // which for a bow is the draw -- three quarters of a unit. So a drawn bow
+    // twelve units away would land nothing anywhere, `incoming` would report no
+    // threat, and no fighter in the crate would ever raise a guard against an
+    // archer or fear one enough to close. Bows would have measured far stronger
+    // than they are for a reason that has nothing to do with archery.
+    //
+    // What arrives is a point travelling along the declared line, so the
+    // question is whether that ray passes through this body. Ranged out to the
+    // observer's own sight, which is the honest guess available and very nearly
+    // the true one -- `World::loose` gives an arrow the *archer's* sight range,
+    // and if you can see each other at all the two are close.
+    if c.action.role() == sim::Role::Shoot {
+        let along = Vec2::from_angle(c.limb_line);
+        let hit = fx::closest_point_on_segment(
+            c.offset,
+            c.offset + along * obs.sight_range,
+            Vec2::ZERO,
+        );
+        if hit.distance > obs.radius {
+            return None;
+        }
+        // **Where it goes in, not where it comes closest.**
+        //
+        // Closest approach to a well-aimed arrow is very near the body's own
+        // centre, and the caller that matters takes `.angle()` of this point --
+        // so returning it hands `GuardMind` a bearing made of rounding noise and
+        // a shield pointed somewhere at random. Backing off the half-chord puts
+        // the answer on the surface the arrow actually crosses, which is the
+        // same quantity `World::block_leak` measures its arc against.
+        let half_chord = fx::sqrt_product(
+            obs.radius + hit.distance,
+            obs.radius - hit.distance,
+        );
+        return Some(hit.point - along * half_chord);
+    }
+
     let side = declared_side(c);
     // Where the cut ends, and therefore how much arc it has left to travel.
     let end = c.limb_line - Angle::from_raw((side * sim::FOLLOW_THROUGH) as u16);

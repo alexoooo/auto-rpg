@@ -82,7 +82,7 @@ const APPROACH_CAUTION: Fx = Fx::from_ratio(85, 100);
 /// which is the correct answer and not a degenerate one. Written out rather than
 /// left to `Fx`'s saturating division, because a reader should not have to know
 /// that to trust the line.
-fn blows_left(hp_frac: Fx, bite: Fx) -> Fx {
+pub(crate) fn blows_left(hp_frac: Fx, bite: Fx) -> Fx {
     if bite.is_positive() {
         hp_frac / bite
     } else {
@@ -1003,6 +1003,42 @@ impl DuelistPolicy {
     /// the observation for a network to find a use for.
     ///
     /// Turns a stance into feet and hands.
+    /// Footwork that holds `ideal` distance from `foe` and arrives at rest.
+    ///
+    /// Push out when too close, pull in when too far, with a deadband a tenth of
+    /// the range wide so a fighter is not permanently correcting by a hair.
+    ///
+    /// The *pace* is the load-bearing half. This used to drive at the preferred
+    /// range flat out and stop dead on arrival, which a body with momentum
+    /// cannot do: full speed into a tenth-of-a-unit deadband overshoots it,
+    /// reverses, overshoots the other way, and leaves a fighter permanently
+    /// sliding through the one distance it wanted to be standing at.
+    /// `sqrt(2 * a * d)` is the fastest approach from which a stop is still
+    /// possible -- the same braking law [`sim::Hand::track`] runs on the arm.
+    ///
+    /// **Lifted out of `drive_blade_stance` rather than copied into `BowMind`.**
+    /// An archer keeps station too, and the alternative was a second transcription
+    /// of this law in `minds.rs` -- which is precisely the drift that module's own
+    /// header warns about, and that `rules::MUSCLE_SPIN` has a post-mortem about.
+    ///
+    /// Reads `obs.move_speed`, which carries `ActionSpec::move_bonus`: a runner
+    /// paced against a walker's top speed would brake far too late.
+    pub(crate) fn station(obs: &Observation, foe: &Contact, ideal: Fx) -> Vec2 {
+        let band = ideal * Fx::from_ratio(1, 10);
+        let error = foe.distance - ideal;
+        if error.abs() <= band {
+            return Vec2::ZERO;
+        }
+        let toward = foe.offset.normalize();
+        let brakeable = fx::sqrt_product(obs.traction * Fx::TWO, error.abs() - band);
+        let pace = (brakeable / obs.move_speed.max(Fx::EPSILON)).min(Fx::ONE);
+        if error.is_positive() {
+            toward * pace
+        } else {
+            -toward * pace
+        }
+    }
+
     pub(crate) fn drive_blade_stance(weights: &DuelistWeights, obs: &Observation, foe: &Contact, stance: Stance) -> (Vec2, LimbCommand) {
         let toward = foe.offset.normalize();
         let bearing = foe.offset.angle();
@@ -1024,19 +1060,7 @@ impl DuelistPolicy {
         // possible. It is the same braking law `Hand::track` runs on the arm --
         // the arm has had momentum since the beginning, and this is the feet
         // catching up to it.
-        let band = ideal * Fx::from_ratio(1, 10);
-        let error = foe.distance - ideal;
-        let station = if error.abs() <= band {
-            Vec2::ZERO
-        } else {
-            let brakeable = fx::sqrt_product(obs.traction * Fx::TWO, error.abs() - band);
-            let pace = (brakeable / obs.move_speed.max(Fx::EPSILON)).min(Fx::ONE);
-            if error.is_positive() {
-                toward * pace
-            } else {
-                -toward * pace
-            }
-        };
+        let station = Self::station(obs, foe, ideal);
 
         let orbit = swing::shield_free_side(foe);
 

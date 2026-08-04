@@ -34,13 +34,18 @@ const MAX_CATCHUP_TICKS = 8;
 // entity_index, entity_generation, sword_angle_raw, sword_reach, sword_spin,
 // shield_angle_raw, shield_reach, weapon_length, shield_arc_raw, hit_flash,
 // block_flash, parry_flash, sword_swing, sword_swing_left, sword_line_raw].
-const HEADER_LEN = 7;
+const HEADER_LEN = 8;
 const UNIT_STRIDE = 27;
+
+/** Floats per arrow, in a block that follows the units: [x, y, heading_raw,
+ *  faction]. Arrows are not units -- no health, no loadout, no phase -- so they
+ *  get their own short row rather than twenty-three dead floats each. */
+const SHOT_STRIDE = 4;
 
 /** Frame layout this file is written against. Checked at boot against
  *  `frame_layout_version()`, and a mismatch stops the page rather than letting
  *  it paint a health bar out of a guard arc. */
-const FRAME_LAYOUT_VERSION = 2;
+const FRAME_LAYOUT_VERSION = 3;
 
 // `Swing::discriminant`, from crates/sim/src/hand.rs. Append-only.
 const SWING_GUARD = 0;
@@ -52,6 +57,8 @@ const SWING_SWAP = 4;
 // `Role::discriminant`, from crates/sim/src/action.rs. What the page draws from.
 const ROLE_STRIKE = 0;
 const ROLE_GUARD = 1;
+const ROLE_MOVE = 2;
+const ROLE_SHOOT = 3;
 
 /** An empty loadout slot, matching `Loadout::EMPTY`. */
 const SLOT_EMPTY = 255;
@@ -163,6 +170,7 @@ function loadRegistry() {
       recovery: wasm.action_stat(code, 2),
       length: wasm.action_stat(code, 3) / 1000,
       arc: wasm.action_stat(code, 4),
+      moveBonus: wasm.action_stat(code, 5) / 1000,
     });
   }
 }
@@ -246,6 +254,7 @@ const EXPORTS = [
   "set_input",
   "frame_layout_version",
   "unit_stride",
+  "shot_stride",
   "header_len",
   "action_count",
   "action_code",
@@ -400,8 +409,10 @@ function parseFrame(f) {
     orderY: f[4],
     decisionTick: f[5],
     unitCount: f[6],
+    shotCount: f[7],
     units: [],
     monsters: [],
+    shots: [],
     hero: null,
   };
   // Trust the buffer's length over the header's count. They agree, and the
@@ -417,6 +428,24 @@ function parseFrame(f) {
     } else {
       state.monsters.push(unit);
     }
+  }
+  // The arrows, in the block that starts wherever the units stopped. Based off
+  // `rows` rather than off `unitCount` for the same belt-and-braces reason: the
+  // two agree, and reading the section from the wrong offset would draw arrows
+  // out of somebody's health bar.
+  const base = HEADER_LEN + rows * UNIT_STRIDE;
+  const shots = Math.min(
+    state.shotCount | 0,
+    Math.floor((f.length - base) / SHOT_STRIDE)
+  );
+  for (let i = 0; i < shots; i++) {
+    const at = base + i * SHOT_STRIDE;
+    state.shots.push({
+      x: f[at],
+      y: f[at + 1],
+      heading: (f[at + 2] / 65536) * TAU,
+      faction: f[at + 3],
+    });
   }
   return state;
 }
@@ -1617,10 +1646,23 @@ function drawLimb(unit, skin) {
   // telegraph made visible: an arrow along the bearing the blade is about to
   // sweep through, fading in as the windup runs out so "soon" and "now" look
   // different.
-  if (unit.role === ROLE_STRIKE && (unit.swing === SWING_WINDUP || unit.swing === SWING_STRIKE)) {
+  //
+  // **A drawn bow is included, and it is the case that matters most.** A bow
+  // announces for thirty ticks and then puts a point across the room with no
+  // hitbox anywhere on the archer -- so this dashed line is the *only* warning
+  // the player ever gets, and it is precisely the tell the AI is scored on
+  // reading. Its line runs out to sight rather than to `actionLength`, because
+  // for a shot that field is the draw and not the reach.
+  if (
+    (unit.role === ROLE_STRIKE || unit.role === ROLE_SHOOT) &&
+    (unit.swing === SWING_WINDUP || unit.swing === SWING_STRIKE)
+  ) {
     const imminent =
       unit.swing === SWING_STRIKE ? 1 : clamp(1 - unit.swingLeft / 30, 0.15, 1);
-    const out = px(unit.radius + unit.actionLength);
+    const out =
+      unit.role === ROLE_SHOOT
+        ? px(unit.radius + unit.actionLength) * 4
+        : px(unit.radius + unit.actionLength);
     ctx.rotate(unit.limbLine);
     ctx.strokeStyle = `rgba(255,176,64,${(0.20 + 0.45 * imminent).toFixed(3)})`;
     ctx.lineWidth = Math.max(1, r * 0.12);
@@ -1663,6 +1705,27 @@ function drawLimb(unit, skin) {
     ctx.beginPath();
     ctx.moveTo(hilt, 0);
     ctx.lineTo(tip, 0);
+    ctx.stroke();
+    ctx.rotate(-unit.limbAngle);
+  }
+
+  // A bow, as a bow. **Never as a stick**: the sim gives a `Role::Shoot` limb no
+  // blade hitbox at all, so drawing one would advertise a melee threat that
+  // cannot exist -- the same lie the guard gate above exists to prevent. An arc
+  // across the bearing says "this thing throws something" without saying "this
+  // thing cuts", and it deepens as the draw runs out.
+  if (unit.role === ROLE_SHOOT && unit.swing !== SWING_SWAP) {
+    const out = px(unit.radius + unit.actionLength);
+    const drawn =
+      unit.swing === SWING_WINDUP ? clamp(1 - unit.swingLeft / 30, 0.2, 1) : 0.2;
+    ctx.rotate(unit.limbAngle);
+    ctx.strokeStyle =
+      unit.swing === SWING_STRIKE
+        ? "rgba(255,255,255,1)"
+        : `rgba(255,196,92,${(0.35 + 0.5 * drawn).toFixed(3)})`;
+    ctx.lineWidth = Math.max(1.6, r * 0.2);
+    ctx.beginPath();
+    ctx.arc(0, 0, out, -0.55, 0.55);
     ctx.stroke();
     ctx.rotate(-unit.limbAngle);
   }
@@ -1763,8 +1826,91 @@ function drawUnit(unit, now) {
   ctx.stroke();
   ctx.restore();
 
+  drawSprint(unit, skin, now);
   drawLimb(unit, skin);
   drawMarks(unit);
+}
+
+/**
+ * A runner, drawn as speed rather than as a stick.
+ *
+ * **Legs are not drawn in the hand, and that is deliberate.** `drawLimb` puts a
+ * segment on screen because damage is geometric and the segment *is* the
+ * hitbox; the sim refuses a `Role::Move` limb a blade at all
+ * (`Role::is_live_capable`), so painting one would advertise a threat that
+ * cannot exist -- the exact lie the role gates in `drawLimb` were added to
+ * prevent.
+ *
+ * What is mechanically true about a runner is that it covers 1.35 units of
+ * ground for every one everybody else covers, so that is what gets drawn:
+ * chevrons trailing the direction of travel, pulsed like `drawReach`'s ring so
+ * the two read as the same family of hint.
+ */
+function drawSprint(unit, skin, now) {
+  if (unit.role !== ROLE_MOVE) return;
+  const beat = (Math.sin(now / 150) + 1) / 2;
+  const r = px(unit.radius);
+  ctx.save();
+  ctx.translate(px(unit.x), px(unit.y));
+  ctx.rotate(unit.facing);
+  ctx.strokeStyle = `rgba(${skin.wedge},${(0.35 + 0.35 * beat).toFixed(3)})`;
+  ctx.lineWidth = 2;
+  ctx.lineCap = "round";
+  for (const back of [1.35, 1.85]) {
+    ctx.beginPath();
+    ctx.moveTo(-r * back + r * 0.45, -r * 0.55);
+    ctx.lineTo(-r * back, 0);
+    ctx.lineTo(-r * back + r * 0.45, r * 0.55);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/** How long an arrow is drawn, in world units. Presentation, not physics: the
+ *  sim's arrow is a point, and `resolve_shots` tests the segment it travelled
+ *  this tick rather than a shaft of any length. */
+const SHAFT = 0.34;
+
+/**
+ * Arrows in flight.
+ *
+ * The one thing on this canvas that is neither a body nor attached to one, and
+ * the reason the frame grew a section rather than a column. What it has to show
+ * is **where it is going**, because that is the whole of what a player can do
+ * about it: an arrow is dodged by not being on its line, and it carries no
+ * other tell once it has left the bow.
+ *
+ * Tinted by faction like everything else, so an arrow reads as belonging to
+ * whoever loosed it while it is still ambiguous which way it is crossing.
+ */
+function drawShots(shots) {
+  if (!shots.length) return;
+  ctx.save();
+  ctx.lineCap = "round";
+  for (const shot of shots) {
+    const skin = shot.faction === FACTION_HEROES ? HERO_SKIN : MONSTER_SKIN;
+    const x = px(shot.x);
+    const y = px(shot.y);
+    ctx.translate(x, y);
+    ctx.rotate(shot.heading);
+    // The shaft trails *behind* the point, so the bright end is the end that
+    // arrives -- which is the end a player has to judge.
+    ctx.strokeStyle = `rgba(${skin.wedge},0.55)`;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(-px(SHAFT), 0);
+    ctx.lineTo(0, 0);
+    ctx.stroke();
+    ctx.strokeStyle = "rgba(255,255,255,0.95)";
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(-px(SHAFT) * 0.28, 0);
+    ctx.lineTo(0, 0);
+    ctx.stroke();
+    ctx.rotate(-shot.heading);
+    ctx.translate(-x, -y);
+  }
+  ctx.restore();
 }
 
 /** A health bar above the body. Drawn once anything is wounded or anything
@@ -1831,6 +1977,8 @@ function render(state, now, arrived) {
   // end up underneath the thing attacking it.
   for (const unit of state.monsters) drawUnit(unit, now);
   if (state.hero) drawUnit(state.hero, now);
+  // Arrows over the bodies, so one crossing a fight is not hidden by it.
+  drawShots(state.shots);
 
   const fighting = state.monsters.length > 0;
   for (const unit of state.units) {
@@ -1848,18 +1996,26 @@ function fillStats(kind, held) {
   // What the thing in hand costs *on this body*. The registry quotes phases at
   // cadence 1 and every body scales them, which is the whole skill gradient --
   // the same club is a 26-tick announcement on paper and 33 on a Brute.
+  // One clause per role rather than a guard/everything-else ternary: legs have
+  // no reach and no telegraph, so the blade wording quoted a Run as "reaches
+  // 0.00 · announces for 0 ticks", which is three true numbers adding up to a
+  // lie about what the thing does.
+  const draw = action ? `${phaseTicks(action.ready, d.cadence)} to draw` : "";
   const kit = action
-    ? action.role === ROLE_GUARD
-      ? [
-          "holding",
-          action.name,
-          `guards ±${Math.round((action.arc / 65536) * 360)}° · ${phaseTicks(action.ready, d.cadence)} ticks to draw`,
-        ]
-      : [
-          "holding",
-          action.name,
-          `reaches ${action.length.toFixed(2)} · announces for ${phaseTicks(action.windup, d.cadence)} ticks · ${phaseTicks(action.ready, d.cadence)} to draw`,
-        ]
+    ? [
+        "holding",
+        action.name,
+        action.role === ROLE_GUARD
+          ? `guards ±${Math.round((action.arc / 65536) * 360)}° · ${draw}`
+          : action.role === ROLE_MOVE
+            ? `×${action.moveBonus.toFixed(2)} footspeed · no guard, no blade · ${draw}`
+            : action.role === ROLE_SHOOT
+              // `length` is the *draw* on a Shoot row, not the reach -- an arrow
+              // carries as far as its archer can see. Quoting it as reach would
+              // read as the shortest weapon in the game.
+              ? `shoots as far as it sees · draws for ${phaseTicks(action.windup, d.cadence)} ticks · ${draw}`
+              : `reaches ${action.length.toFixed(2)} · announces for ${phaseTicks(action.windup, d.cadence)} ticks · ${draw}`,
+      ]
     : ["holding", "nothing", "—"];
   const rows = [
     ["intellect", a.intellect, `thinks every ${d.decisionPeriod} ticks (${(d.decisionPeriod / TICKS_PER_SECOND).toFixed(2)} s)`],
@@ -2192,11 +2348,12 @@ async function boot() {
   if (
     version !== FRAME_LAYOUT_VERSION ||
     wasm.unit_stride() !== UNIT_STRIDE ||
+    wasm.shot_stride() !== SHOT_STRIDE ||
     wasm.header_len() !== HEADER_LEN
   ) {
     die(
       "the page and the module disagree about the frame",
-      `main.js is written against layout ${FRAME_LAYOUT_VERSION} (${HEADER_LEN} + ${UNIT_STRIDE}); web.wasm reports ${version} (${wasm.header_len()} + ${wasm.unit_stride()}). Rebuild the wasm.`
+      `main.js is written against layout ${FRAME_LAYOUT_VERSION} (${HEADER_LEN} + ${UNIT_STRIDE} + ${SHOT_STRIDE}); web.wasm reports ${version} (${wasm.header_len()} + ${wasm.unit_stride()} + ${wasm.shot_stride()}). Rebuild the wasm.`
     );
     return;
   }

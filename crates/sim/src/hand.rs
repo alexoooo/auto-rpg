@@ -429,8 +429,21 @@ impl Hand {
                 self.swing_left = self.swing_left.saturating_sub(1);
                 if self.swing_left == 0 {
                     self.swing = Swing::Strike;
-                    self.swing_left = rules::strike_ticks(arm);
-                    self.strike_target()
+                    if arm.spec.role.is_live_capable() {
+                        self.swing_left = rules::strike_ticks(arm);
+                        self.strike_target()
+                    } else {
+                        // **A shot leaves the instant the draw runs out.**
+                        //
+                        // No `strike_ticks`, which measures how long a blade
+                        // needs to carry itself through an arc, and no
+                        // `strike_target`, which aims `FOLLOW_THROUGH` *past*
+                        // the line so a blade crosses its mark at speed. A bow
+                        // comes forward onto the line and stops; the thing that
+                        // travels is the arrow, and it has already gone.
+                        self.swing_left = rules::SHOT_RELEASE_TICKS;
+                        (self.line, Fx::ONE)
+                    }
                 } else {
                     self.windup_target()
                 }
@@ -441,13 +454,25 @@ impl Hand {
                 // when the cut began, and a cut that could be re-aimed after
                 // committing would make overcommitting free.
                 self.swing_left = self.swing_left.saturating_sub(1);
-                if self.swing_left == 0 || self.is_spent() {
+                // `is_spent` measures blade travel past the frozen line, which a
+                // bow has none of -- asking it would end a shot's release
+                // whenever the hand happened to drift, or never.
+                let blade = arm.spec.role.is_live_capable();
+                if self.swing_left == 0 || (blade && self.is_spent()) {
                     // **Reaching here at all means the cut touched nothing.** A
                     // blow, a block and a parry all end the strike from
                     // `World::apply_impulses` on the tick they land, so a swing
                     // that survives to run out its own arc is by construction a
                     // swing that met no one -- no flag needed to know it.
-                    self.recover(arm, rules::WHIFF_RECOVERY);
+                    //
+                    // **That reasoning does not reach a bow, and it must not be
+                    // charged as though it did.** `WHIFF_RECOVERY` is the price
+                    // of a cut thrown at empty air; whether a shot connects is
+                    // settled a second later and several units away, so billing
+                    // it here would punish every arrow in the game for the
+                    // crime of having been loosed.
+                    let missed = if blade { rules::WHIFF_RECOVERY } else { 0 };
+                    self.recover(arm, missed);
                     (cmd.angle, rules::GUARD_REACH)
                 } else {
                     self.strike_target()
@@ -1258,6 +1283,149 @@ mod tests {
                 hand.swing,
                 Swing::Guard,
                 "a guard was talked into a {}",
+                hand.swing.name()
+            );
+        }
+    }
+
+    fn bow_arm_of(kind: Body) -> Arm {
+        Arm::resolve(
+            crate::action::ActionKind::Bow.spec(),
+            kind.base_stats(),
+            kind.radius(),
+        )
+    }
+
+    /// Runs a bow under one standing command and reports the tick each phase
+    /// began on, so a test can talk about the release rather than about a clock.
+    fn draw(kind: Body, cmd: LimbCommand, ticks: u32) -> Vec<(u32, Swing, Fx)> {
+        let arm = bow_arm_of(kind);
+        let mut hand = Hand::resting(Angle::ZERO);
+        let mut log = Vec::new();
+        let mut last = hand.swing;
+        for t in 0..ticks {
+            hand.drive(cmd, arm);
+            if hand.swing != last {
+                log.push((t, hand.swing, hand.spin));
+                last = hand.swing;
+            }
+        }
+        log
+    }
+
+    /// **The sharpest trap in the whole feature, pinned from the other side.**
+    ///
+    /// `track` brakes so as to arrive at rest on the bearing it was sent to, and
+    /// a bow at the end of its draw has arrived -- so the hand is very nearly
+    /// stationary at the exact instant `World::loose` runs. That is why
+    /// `rules::shot_speed` reads `Arm::reachable_spin` (the work the draw stored)
+    /// and not `limb.spin` (what the hand happens to be doing).
+    ///
+    /// Anyone "fixing" that to read the live spin makes every bow in the game
+    /// fire harmless arrows, with no number out of place and nothing to point
+    /// at. This test is the thing that fails instead.
+    #[test]
+    fn a_drawn_bow_is_at_rest_when_it_looses() {
+        let release = draw(Body::Fighter, cut(0), 200)
+            .into_iter()
+            .find(|(_, phase, _)| *phase == Swing::Strike)
+            .expect("the bow never loosed");
+        let (_, _, spin) = release;
+        let arm = bow_arm_of(Body::Fighter);
+
+        // Stated as what the mistake *costs*, which is the only form of this
+        // claim that cannot rot: energy goes as the square of speed, and the
+        // damage law takes `ENERGY_FLOOR` off the top before anything survives.
+        // An arrow launched at whatever the hand happens to be doing does not
+        // merely hit softly -- it does **nothing at all**, on every body in the
+        // roster, forever.
+        let nock = arm.pivot + arm.spec.length;
+        let live = rules::blow_damage(
+            arm.spec.mass,
+            fx::tangential_speed(spin.abs(), nock),
+            rules::power_multiplier(Body::Fighter.base_stats().power),
+        );
+        assert!(
+            !live.is_positive(),
+            "a bow drawing on the hand's live spin ({spin:?}) would still do {live:?} \
+             damage, so this test would not catch the substitution"
+        );
+
+        // And the number that is actually used is worth something.
+        let stored = rules::blow_damage(
+            arm.spec.mass,
+            rules::shot_speed(arm),
+            rules::power_multiplier(Body::Fighter.base_stats().power),
+        );
+        assert!(
+            stored.is_positive(),
+            "an arrow off the stored draw does no damage either"
+        );
+    }
+
+    /// A bow comes forward onto its line and stops. It does not windmill through
+    /// 146 degrees of arc the way a blade does, because the thing that travels
+    /// has already left.
+    #[test]
+    fn a_bow_looses_on_one_tick_and_never_sweeps() {
+        let log = draw(Body::Fighter, cut(0), 400);
+        let strike = log
+            .iter()
+            .position(|(_, phase, _)| *phase == Swing::Strike)
+            .expect("the bow never loosed");
+        let (at, _, _) = log[strike];
+        let (back, phase, _) = log[strike + 1];
+        assert_eq!(phase, Swing::Recover, "a spent bow went to {}", phase.name());
+        assert_eq!(
+            back - at,
+            u32::from(rules::SHOT_RELEASE_TICKS),
+            "the release lasted {} ticks",
+            back - at
+        );
+    }
+
+    /// `WHIFF_RECOVERY` is the price of a cut thrown at empty air. Whether an
+    /// arrow connects is settled a second later and several units away, so
+    /// charging it here would punish every shot in the game for being loosed.
+    #[test]
+    fn a_bow_that_loosed_is_not_charged_for_a_miss() {
+        let arm = bow_arm_of(Body::Fighter);
+        let mut hand = Hand::resting(Angle::ZERO);
+        for _ in 0..400 {
+            hand.drive(cut(0), arm);
+            if hand.swing == Swing::Recover {
+                break;
+            }
+        }
+        assert_eq!(hand.swing, Swing::Recover, "the bow never spent itself");
+        assert_eq!(
+            hand.swing_left,
+            rules::phase_ticks(arm.spec.recovery, arm.agility).max(1),
+            "a loosed arrow was billed as a miss"
+        );
+    }
+
+    /// The twin of the above for [`Role::Move`]. Legs have no attack either, and
+    /// the phase machine is what the whole of `Role` decides -- so a row that
+    /// landed in the wrong arm of `Hand::drive`'s match would show up here and
+    /// nowhere else until an archer started throwing punches.
+    #[test]
+    fn a_move_role_limb_never_leaves_guard() {
+        let run_arm = Arm::resolve(
+            crate::action::ActionKind::Run.spec(),
+            Body::Fighter.base_stats(),
+            Body::Fighter.radius(),
+        );
+        let mut hand = Hand::resting(Angle::ZERO);
+        for _ in 0..300 {
+            hand.drive(
+                LimbCommand::attack(Angle::from_degrees(90), Strike::Widdershins),
+                run_arm,
+            );
+            assert_eq!(
+                hand.swing,
+                Swing::Guard,
+                "legs were talked into a {}",
                 hand.swing.name()
             );
         }

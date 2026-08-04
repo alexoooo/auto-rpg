@@ -6,9 +6,9 @@
 //! seed set, with floors loose enough to survive tuning and tight enough to
 //! catch a policy that has stopped working.
 
-use fx::Fx;
+use fx::{Fx, Vec2};
 use policy::{run, PolicyKind, RunConfig, TeamPolicy};
-use sim::{Faction, Outcome, Scenario, Stats, Body};
+use sim::{ActionKind, Faction, Loadout, Outcome, Scenario, Stats, Body};
 
 /// Seeds are fixed rather than random: a flaky win-rate test is worse than no
 /// win-rate test, because it trains people to re-run the suite.
@@ -475,5 +475,202 @@ fn sweep_the_matchup_table() {
                 );
             }
         }
+    }
+}
+
+// --------------------------------------------------------- the two new rows
+//
+// `Run` and `Bow` are selectable but nobody walks in holding one, so neither
+// touches the ladder above. What they do need is the measurement that says they
+// are *options* -- something a fighter might reasonably carry -- rather than
+// either dead weight or a free win. Both failure modes have precedent here: the
+// shield was free before the loadout split, and every policy in the crate held
+// one permanently because nothing charged for it.
+
+fn duel_with(hero_kit: Loadout, villain_kit: Loadout) -> Record {
+    let config = RunConfig::default();
+    let mut hero_policy = PolicyKind::Duelist.baseline();
+    let mut villain_policy = PolicyKind::Duelist.baseline();
+    let mut record = Record::new();
+    for seed in 0..SEEDS {
+        let mut scenario = Scenario::duel_of(Body::Fighter, Body::Fighter, seed);
+        for unit in &mut scenario.units {
+            unit.loadout = if unit.faction == Faction::Heroes {
+                hero_kit
+            } else {
+                villain_kit
+            };
+        }
+        let team = TeamPolicy::new(&mut hero_policy, &mut villain_policy);
+        record.add(run(&scenario, seed, team, &config));
+    }
+    record
+}
+
+/// **Legs must not be a free option.**
+///
+/// `Run` costs four ticks to draw -- the second-cheapest row in the game -- so
+/// `thrift` barely prices it, and a fighter that over-values footspeed would
+/// spend the match sprinting with nothing in its hands. That is the exact shape
+/// of the bug the loadout split was built to fix, so it gets a number.
+///
+/// Against a mirror carrying the sword-and-board default, a sword-and-legs
+/// fighter should be able to win and able to lose.
+#[test]
+fn legs_are_an_option_and_not_a_free_win() {
+    let with_legs = duel_with(
+        Loadout::pair(ActionKind::Sword, ActionKind::Run),
+        Loadout::pair(ActionKind::Sword, ActionKind::Shield),
+    );
+    println!(
+        "sword+run vs sword+shield: {:.0}% wins, {:.0}% draws, toll {:.2}",
+        with_legs.win_rate() * 100.0,
+        with_legs.draw_rate() * 100.0,
+        with_legs.toll(),
+    );
+    assert!(
+        with_legs.win_rate() > 0.05,
+        "a fighter carrying legs won {:.0}% -- the slot is dead weight",
+        with_legs.win_rate() * 100.0
+    );
+    assert!(
+        with_legs.win_rate() < 0.90,
+        "a fighter carrying legs won {:.0}% -- footspeed is the free option a \
+         shield used to be",
+        with_legs.win_rate() * 100.0
+    );
+}
+
+/// **A bow must be worth carrying and must lose to a closing.**
+///
+/// Its intended price is tempo and helplessness: thirty ticks of draw, twenty-two
+/// of recovery, twenty-two to bring up, and no guard, no parry and no edge for
+/// the whole of it.
+///
+/// Measured at landing, over these 96 seeds, against a sword-and-board mirror
+/// that scores **47%** whatever it puts in its second slot:
+///
+/// | archer's kit  | wins | toll |
+/// |---------------|------|------|
+/// | bow + sword   |  59% | 0.18 |
+/// | bow alone     |  93% | 0.41 |
+///
+/// The first number is where it should be. **The second is not, and it is
+/// recorded rather than papered over**: a fighter that carries no answer for
+/// close quarters does *better* than one that does, which is exactly backwards
+/// and is the open problem this row ships with. Two things cause it, and neither
+/// is the bow's damage. A pure archer never spends the twenty-two ticks a swap
+/// costs; and even planted for the draw it repositions between shots, so a
+/// pursuer closing at the same footspeed mostly fails to arrive.
+///
+/// What it is *not* is a number to fix by shrinking `move_bonus` -- measured,
+/// that is a cliff and not a slope, and the reasoning is kept on the `Bow` row in
+/// `sim::ACTIONS`. The real gap is that a bow has no dead zone: every blade in
+/// the game is bad at its own hilt, and a bow is as good point-blank as at
+/// twenty units, so there is no range at which closing on one is a *win* rather
+/// than merely survivable. That is a mechanic, not a constant, and it wants the
+/// roster re-measure and re-evolution the plan already lists as its own step --
+/// the genome running here was evolved in a world with no bows in it.
+///
+/// The bounds below are deliberately loose. They are here to catch a bow that
+/// has stopped working or started one-shotting, not to assert a balance that has
+/// not been earned yet.
+#[test]
+fn a_bow_is_a_real_option_rather_than_a_dead_slot() {
+    let archer = duel_with(
+        Loadout::pair(ActionKind::Bow, ActionKind::Sword),
+        Loadout::pair(ActionKind::Sword, ActionKind::Shield),
+    );
+    println!(
+        "bow+sword vs sword+shield: {:.0}% wins, {:.0}% draws, toll {:.2}",
+        archer.win_rate() * 100.0,
+        archer.draw_rate() * 100.0,
+        archer.toll(),
+    );
+    assert!(
+        archer.win_rate() > 0.15,
+        "an archer won {:.0}% -- the bow has become a slot thrown away",
+        archer.win_rate() * 100.0
+    );
+    assert!(
+        archer.win_rate() < 0.85,
+        "an archer won {:.0}% -- carrying a sidearm should not be a free win",
+        archer.win_rate() * 100.0
+    );
+}
+
+/// **Distance is what a bow is for, so distance has to be what decides it.**
+///
+/// The comparison that looks obvious here -- an archer with a sidearm against an
+/// archer without one -- is not the one to make, and it is worth writing down
+/// why. It confounds two effects: whether a blade helps once the enemy arrives,
+/// *and* whether the meta-selector's swap is worth its twenty-two ticks. A
+/// bow-only fighter never pays a swap, so it can come out ahead for a reason
+/// that says nothing at all about archery. Measured, it does exactly that.
+///
+/// Starting distance isolates the claim. Same loadouts, same policy, same seeds:
+/// only the ground between them changes.
+#[test]
+fn a_bow_is_a_weapon_of_distance_and_nothing_else() {
+    fn archer_wins_from(apart: i32) -> Record {
+        let config = RunConfig::default();
+        let mut hero_policy = PolicyKind::Duelist.baseline();
+        let mut villain_policy = PolicyKind::Duelist.baseline();
+        let mut record = Record::new();
+        for seed in 0..SEEDS {
+            let mut scenario = Scenario::duel_of(Body::Fighter, Body::Fighter, seed);
+            // Re-placed along a fixed line so the only variable is the gap.
+            // `duel_of` spreads its pair on a seeded bearing, which is what
+            // makes it a good harness everywhere else and a poor one here.
+            let mid = scenario.arena * Fx::from_ratio(1, 2);
+            let half = Fx::from_ratio(apart, 2);
+            for unit in &mut scenario.units {
+                if unit.faction == Faction::Heroes {
+                    unit.loadout = Loadout::pair(ActionKind::Bow, ActionKind::Sword);
+                    unit.spawn = Vec2::new(mid.x - half, mid.y);
+                } else {
+                    unit.loadout = Loadout::pair(ActionKind::Sword, ActionKind::Shield);
+                    unit.spawn = Vec2::new(mid.x + half, mid.y);
+                }
+            }
+            let team = TeamPolicy::new(&mut hero_policy, &mut villain_policy);
+            record.add(run(&scenario, seed, team, &config));
+        }
+        record
+    }
+
+    let nose_to_nose = archer_wins_from(2);
+    let across_the_room = archer_wins_from(10);
+    println!(
+        "archer from 2 units: {:.0}%   from 10 units: {:.0}%",
+        nose_to_nose.win_rate() * 100.0,
+        across_the_room.win_rate() * 100.0,
+    );
+    assert!(
+        across_the_room.win_rate() > nose_to_nose.win_rate(),
+        "an archer starting in a swordsman's face won {:.0}% and one starting \
+         across the room won {:.0}% -- reach is not what is winning these",
+        nose_to_nose.win_rate() * 100.0,
+        across_the_room.win_rate() * 100.0,
+    );
+}
+
+/// A control, not a claim. Kept because the bow's first measurement was read
+/// wrongly without it: an archer beating sword-and-board 72% looks like reach
+/// being underpriced until you check what a plain second blade scores against
+/// the same opponent, and discover the shield is the variable.
+#[test]
+#[ignore = "diagnostic"]
+fn control_what_beats_sword_and_board() {
+    for (name, kit) in [
+        ("sword+shield", Loadout::pair(ActionKind::Sword, ActionKind::Shield)),
+        ("sword+sword ", Loadout::pair(ActionKind::Sword, ActionKind::Sword)),
+        ("sword+punch ", Loadout::pair(ActionKind::Sword, ActionKind::Punch)),
+        ("sword alone ", Loadout::single(ActionKind::Sword)),
+        ("bow+sword   ", Loadout::pair(ActionKind::Bow, ActionKind::Sword)),
+        ("bow alone   ", Loadout::single(ActionKind::Bow)),
+    ] {
+        let r = duel_with(kit, Loadout::pair(ActionKind::Sword, ActionKind::Shield));
+        println!("{name} vs sword+shield: {:>3.0}%  toll {:.2}", r.win_rate() * 100.0, r.toll());
     }
 }

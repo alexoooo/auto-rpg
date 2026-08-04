@@ -271,6 +271,14 @@ pub const fn agility_multiplier(agility: u8) -> Fx {
 /// only about itself -- see [`crate::Contact::min_strike_range`], which is this
 /// figure blurred by the observer's perception.
 pub fn dead_zone(arm: Arm) -> Fx {
+    // **A shot has none.** Every term below is about a blade building speed
+    // along an arm, and an arrow has left the arm -- it carries the same energy
+    // at four units as at one. Reporting the draw's dead zone through
+    // `Contact::min_strike_range` would tell an opponent that crowding an archer
+    // is safe, which is the one thing it is not.
+    if matches!(arm.spec.role, crate::action::Role::Shoot) {
+        return Fx::ZERO;
+    }
     let spin = arm.reachable_spin();
     let mass = arm.spec.mass;
     // Impact is `spin x arm`, so energy is `spin^2 x arm^2`: one point on the
@@ -711,6 +719,67 @@ pub const STRIKE_SPENT_ARC: i32 = FOLLOW_THROUGH * 3 / 4;
 /// The limit is [`strike_ticks`] now, computed per weapon, and this is only the
 /// stop of last resort.
 pub const STRIKE_TIMEOUT: u16 = 150;
+
+/// How long a [`crate::Role::Shoot`] limb stays in [`crate::Swing::Strike`].
+///
+/// One tick, because a loose is an instant and not an arc. A blade's strike is
+/// long because the blade *is* the attack and has to travel; a bow's attack
+/// leaves the bow, and what happens afterwards is the arrow's business and
+/// [`crate::World::resolve_shots`]'s. Long enough for the world to see the
+/// phase edge and put a shot in the air, and no longer -- the archer should be
+/// back at guard, or into its recovery, while its arrow is still crossing the
+/// room.
+pub const SHOT_RELEASE_TICKS: u16 = 1;
+
+/// Most arrows the world will carry at once.
+///
+/// A refusal and not a queue: a bow's draw-release-recover cycle is longer than
+/// its arrow's flight, so one archer has at most one shot up and nothing this
+/// project runs comes near the ceiling. It exists so the tick's cost and the
+/// state hash's width are bounded rather than as a rule anyone should feel.
+pub const MAX_SHOTS: usize = 32;
+
+/// **How fast an arrow leaves.**
+///
+/// The bow does the same work every other action does -- one wielder's muscle
+/// over one draw -- so the speed comes out of [`Arm::reachable_spin`], the same
+/// quantity [`peak_damage`] and [`dead_zone`] already read. That is why an
+/// archer's [`crate::Contact::threat`] and [`crate::Contact::knockback_taken`]
+/// are correct with no new percept and no new constant: the arrow *is* the
+/// blade's release, pointed forwards.
+///
+/// **Not the hand's live spin, and this is the sharpest trap in the feature.**
+/// [`crate::Hand::track`] brakes so as to arrive at rest on whatever bearing it
+/// was sent to, and a bow at the end of its draw has arrived -- so `limb.spin`
+/// at the release edge is very nearly *zero*. Reading it here would leave every
+/// bow in the game firing harmless arrows, with nothing failing anywhere and no
+/// number out of place to point at. Pinned by
+/// `hand::tests::a_drawn_bow_is_at_rest_when_it_looses`.
+pub fn shot_speed(arm: Arm) -> Fx {
+    fx::tangential_speed(arm.reachable_spin(), arm.pivot + arm.spec.length) * BOW_EFFICIENCY
+}
+
+/// How much of the draw reaches the arrow.
+///
+/// A bow is not a lever with the arrow on the end of it: limbs and string carry
+/// away a real share of the stored energy, and a nocked arrow leaves at less
+/// than the tip speed that threw it. Every other action in the registry hands
+/// its whole arc to the thing that lands, because for a blade the arc *is* the
+/// thing that lands.
+///
+/// **The value is a measurement.** At full transfer an archer beat a
+/// sword-and-board mirror 85% of the time -- and the reason is a subtler
+/// asymmetry than the damage figure suggests: a blade's contact happens
+/// somewhere in the middle of its arc, so a typical cut is well under
+/// [`peak_damage`], while **every arrow that arrives is a peak blow**. There is
+/// no dead zone on a shot, no hilt end, and no wrong part of the arc. Charging
+/// the same nominal damage therefore charges far more real damage, and this is
+/// where that is paid back.
+///
+/// Energy goes as the square of speed, so this is a much sharper knob than it
+/// looks: three quarters of the speed is a little over half the damage once
+/// [`ENERGY_FLOOR`] has taken its cut.
+pub const BOW_EFFICIENCY: Fx = Fx::from_ratio(75, 100);
 
 /// Ceiling on a [`crate::Swing::Swap`], in ticks. The stop of last resort, the
 /// same kind of thing [`STRIKE_TIMEOUT`] is.

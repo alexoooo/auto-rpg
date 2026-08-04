@@ -1,5 +1,5 @@
 use crate::entity::EntityId;
-use fx::{Fx, Vec2};
+use fx::{Angle, Fx, Vec2};
 
 /// Something that happened during a tick.
 ///
@@ -36,4 +36,22 @@ pub enum Event {
     /// Reported once per pair with `a`'s index below `b`'s, so a listener
     /// counting parries counts events and not participants.
     Parry { a: EntityId, b: EntityId, at: Vec2 },
+    /// An arrow left a bow.
+    ///
+    /// The flight itself is state, not an event -- a renderer finds the arrow in
+    /// the frame like it finds a body. What this carries is the *moment*, for a
+    /// string-snap and a flash at the nock, which is the same argument
+    /// `hit_flash` makes against inferring a blow from health falling between
+    /// frames. The lab reads it as the denominator of an accuracy figure.
+    ///
+    /// Deliberately without a partner for the arrow landing or expiring: a
+    /// landed shot is an [`Event::Damage`] and a stopped one is an
+    /// [`Event::Block`], so a listener that only cares about health never has to
+    /// learn that archery exists. Note only that such a `Damage`'s `source` may
+    /// name a fighter who has since died -- an arrow outlives the archer.
+    Loose {
+        source: EntityId,
+        at: Vec2,
+        line: Angle,
+    },
 }

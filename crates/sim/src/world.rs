@@ -1,5 +1,5 @@
 use crate::command::{Command, Intent, Order};
-use crate::action::{ActionKind, ActionSpec};
+use crate::action::{ActionKind, ActionSpec, Role};
 use crate::loadout::Loadout;
 use crate::entity::{EntityId, Faction, Body};
 use crate::event::Event;
@@ -96,6 +96,42 @@ pub struct World {
     regen_left: Vec<Fx>,
     damage_dealt: Vec<Fx>,
 
+    // ---- arrows in flight.
+    //
+    // Their own arrays and their own free list, because a projectile is not an
+    // entity: it has no health, no stats, no limb, no loadout and no decision
+    // clock, and putting it through `spawn` would mean giving it all five.
+    //
+    // Everything a blow needs is **frozen at the release**, for the same reason
+    // `Hand::line` is frozen when a cut commits: an arrow is a fact about the
+    // past. Its archer may have swapped the bow away, walked off, or died, and
+    // none of that may change what is already in the air.
+    /// Whether this slot holds a live arrow.
+    shot_alive: Vec<bool>,
+    /// Position at the end of the last tick. The previous position is not a
+    /// column: velocity is constant over a flight, so `resolve_shots` carries
+    /// the near end of the segment in a local.
+    shot_pos: Vec<Vec2>,
+    /// Constant for the life of the shot, world units per tick. Nothing slows an
+    /// arrow in this model -- no drag, no gravity -- so range is bounded by
+    /// [`World::shot_range`] rather than by the arrow running out of speed.
+    shot_vel: Vec<Vec2>,
+    /// World units of flight left, from the archer's [`Stats::sight_range`].
+    /// **Spent as distance rather than counted in ticks**, so a faster shot
+    /// reaches further within the same budget instead of merely arriving sooner.
+    shot_range: Vec<Fx>,
+    /// The bow's [`ActionSpec::mass`] and the archer's [`rules::power_multiplier`],
+    /// so `rules::blow_damage` can be called at impact exactly as a blade calls
+    /// it -- see [`World::loose`] for why the bow's own mass is the honest term.
+    shot_mass: Vec<Fx>,
+    shot_power: Vec<Fx>,
+    /// Who loosed it, and for whom. The faction is frozen *separately* from the
+    /// owner: an arrow whose archer is already dead still must not hit its own
+    /// side, and a dead owner's handle no longer resolves to a faction.
+    shot_owner: Vec<EntityId>,
+    shot_faction: Vec<Faction>,
+    shot_free: Vec<u32>,
+
     free: Vec<u32>,
     events: Vec<Event>,
     pending: Vec<EntityId>,
@@ -104,6 +140,7 @@ pub struct World {
     // the life of the fight rather than once per tick. Always empty by the time
     // anything can observe the world, so neither enters `state_hash`.
     blows: Vec<Blow>,
+    pierces: Vec<Pierce>,
     impulses: Vec<Impulse>,
     start_pos: Vec<Vec2>,
     /// Where each sword blade was before this tick's motion, so
@@ -132,6 +169,24 @@ struct Blow {
     /// is read-only: [`World::impact_speed`] reads `vel`, so a shove written
     /// there would change what the *next* attacker's blow is worth and make a
     /// mutual exchange depend on entity index.
+    shove: Vec2,
+}
+
+/// A landed arrow, collected during the read-only pass and applied afterwards.
+///
+/// [`Blow`]'s twin, and a separate type rather than a reuse because the source
+/// is a **handle** and not an index. An arrow outlives the archer that loosed
+/// it, so by the time it lands there may be no entity left to credit -- and the
+/// slot that owner occupied may belong to somebody else entirely.
+#[derive(Clone, Copy)]
+struct Pierce {
+    shot: usize,
+    target: usize,
+    source: EntityId,
+    amount: Fx,
+    absorbed: Fx,
+    blocked: bool,
+    at: Vec2,
     shove: Vec2,
 }
 
@@ -179,10 +234,20 @@ impl World {
             last_combat: Vec::with_capacity(n),
             regen_left: Vec::with_capacity(n),
             damage_dealt: Vec::with_capacity(n),
+            shot_alive: Vec::new(),
+            shot_pos: Vec::new(),
+            shot_vel: Vec::new(),
+            shot_range: Vec::new(),
+            shot_mass: Vec::new(),
+            shot_power: Vec::new(),
+            shot_owner: Vec::new(),
+            shot_faction: Vec::new(),
+            shot_free: Vec::new(),
             free: Vec::new(),
             events: Vec::new(),
             pending: Vec::with_capacity(n),
             blows: Vec::new(),
+            pierces: Vec::new(),
             impulses: Vec::new(),
             start_pos: Vec::with_capacity(n),
             blade_was: Vec::with_capacity(n),
@@ -300,7 +365,18 @@ impl World {
         obs.min_strike_range = self.dead_zone(i);
         obs.limb = self.limb[i];
         obs.sight_range = stats.sight_range();
-        obs.move_speed = stats.move_speed();
+        // **What this body will actually settle at**, which is what
+        // `apply_movement` computes and therefore what this field has always
+        // claimed to be. Missing the bonus is not a shortfall in a percept, it
+        // is the percept being wrong: `DuelistPolicy` divides by this in its
+        // `sqrt(2*a*d)` braking law to pace a final stride, so a running fighter
+        // would brake for a walk and slide straight through its own station.
+        //
+        // Moves nothing today -- `move_bonus` is exactly `Fx::ONE` for every row
+        // that was playable before `Run` landed, and a multiply by one is
+        // bit-exact -- which is what makes this safe to land ahead of the mind
+        // that will use it.
+        obs.move_speed = stats.move_speed() * spec.move_bonus;
         obs.traction = stats.traction();
         obs.velocity = self.vel[i];
         obs.recoil_drift = self.recoil_drift(i);
@@ -316,9 +392,11 @@ impl World {
         obs.attack_ready = {
             let limb = self.limb[i];
             match limb.swing {
-                // A limb with nothing to strike with is never ready, whatever
-                // phase it happens to be sitting in.
-                _ if !spec.role.is_live_capable() => Fx::ZERO,
+                // A limb with nothing to attack with is never ready, whatever
+                // phase it happens to be sitting in. `can_attack` and not
+                // `is_live_capable`: a drawn bow has no blade and is very much
+                // readying an attack.
+                _ if !spec.role.can_attack() => Fx::ZERO,
                 Swing::Guard if limb.armed => Fx::ONE,
                 Swing::Guard => Fx::ZERO,
                 // Capped below one so no unready phase can ever claim to be
@@ -451,6 +529,12 @@ impl World {
     /// * **Parries resolve before blows.** A parry is the event that *prevents*
     ///   a blow, so it has to be able to change a swing's spin before the
     ///   damage pass reads it.
+    /// * **Arrows fly after recoil and before the dead are reaped.** After,
+    ///   because `apply_recoil` differences a blade's momentum and an arrow
+    ///   changes no limb's speed, so that phase keeps its claim to be billed
+    ///   last over everything that could. Before, because an arrow and a cut
+    ///   landing on the same tick must both count -- which is the very first
+    ///   thing this list insists on.
     /// * **Recoil is billed last**, after everything that can change a blade's
     ///   speed has changed it. A swing's reaction on its own wielder is the
     ///   difference between the blade's momentum at the top of the tick and at
@@ -467,6 +551,7 @@ impl World {
         self.resolve_parries();
         self.resolve_swings();
         self.apply_recoil();
+        self.resolve_shots();
         self.reap_dead();
         self.tick += 1;
         self.refresh_pending();
@@ -642,8 +727,105 @@ impl World {
             // 3. Then drive, against whatever is in hand now.
             let arm = self.arm(i);
             let cmd = self.command[i].limb;
+            let before = self.limb[i].swing;
             self.limb[i].drive(cmd, arm);
+
+            // 4. And if that was a release, put an arrow in the air.
+            //
+            // **Detected here rather than flagged on the limb.** A `Hand` is
+            // pure arm physics with no idea projectiles exist, and giving it a
+            // `loosed` bit would be new state, new bytes in `Hand::hash_into`,
+            // and a concept living in the one type that must not know about it.
+            // The edge is perfectly visible from out here, and this function
+            // already runs the same snapshot-then-compare pattern for
+            // `blade_was` and `blade_p` two steps above.
+            if arm.spec.role == Role::Shoot
+                && before == Swing::Windup
+                && self.limb[i].swing == Swing::Strike
+            {
+                self.loose(i, arm);
+            }
         }
+    }
+
+    /// Puts an arrow in the air, and bills the archer for it.
+    ///
+    /// Called on the one tick a [`Role::Shoot`] limb crosses from
+    /// [`Swing::Windup`] into [`Swing::Strike`].
+    fn loose(&mut self, i: usize, arm: rules::Arm) {
+        // **Along the frozen line, not along the hand.**
+        //
+        // At this exact edge the hand is still back at the cocked bearing --
+        // `Hand::step_attack` only just commanded it forward -- so `limb.angle`
+        // points at very nearly the one direction the shot is guaranteed *not*
+        // to go. `line` is the plan and the pose is the tell, which is the same
+        // distinction `swing::landing` is built on.
+        let heading = self.limb[i].line;
+        let along = Vec2::from_angle(heading);
+        let nock = self.radius[i] + arm.spec.length;
+        let speed = rules::shot_speed(arm);
+
+        // Born clear of the archer's own body, so it cannot be tested against
+        // the thing that fired it on the tick it appears. `resolve_shots` skips
+        // the owner by handle as well; this is the geometric half of the same
+        // promise, and it is what makes the arrow visibly leave the bow.
+        let from = self.pos[i] + along * nock;
+
+        let Some(k) = self.free_shot() else {
+            return; // at the ceiling: the draw is spent, the arrow is not made
+        };
+        self.shot_alive[k] = true;
+        self.shot_pos[k] = from;
+        self.shot_vel[k] = along * speed;
+        self.shot_range[k] = self.stats[i].sight_range();
+        self.shot_mass[k] = arm.spec.mass;
+        self.shot_power[k] = rules::power_multiplier(self.stats[i].power);
+        self.shot_owner[k] = self.id_of(i);
+        self.shot_faction[k] = self.faction[i];
+
+        // Newton, at the string. **Not through `apply_recoil`**, which
+        // *differences* a blade's momentum across a tick and applies a traction
+        // threshold because a swing's reaction is sustained over a whole arc and
+        // static friction genuinely holds it. A release is a single-tick
+        // momentum change -- the same case as a blade reversing off a shield --
+        // and it is exactly what that threshold is meant to let through.
+        let kick = fx::mul_div(
+            arm.spec.mass * speed,
+            rules::RECOIL_TRANSFER,
+            self.mass[i].max(Fx::EPSILON),
+        );
+        self.vel[i] -= along * kick;
+
+        self.events.push(Event::Loose {
+            source: self.id_of(i),
+            at: from,
+            line: heading,
+        });
+    }
+
+    /// A free arrow slot, growing the arrays if there is room left under
+    /// [`rules::MAX_SHOTS`].
+    fn free_shot(&mut self) -> Option<usize> {
+        if let Some(k) = self.shot_free.pop() {
+            return Some(k as usize);
+        }
+        if self.shot_alive.len() >= rules::MAX_SHOTS {
+            return None;
+        }
+        self.shot_alive.push(false);
+        self.shot_pos.push(Vec2::ZERO);
+        self.shot_vel.push(Vec2::ZERO);
+        self.shot_range.push(Fx::ZERO);
+        self.shot_mass.push(Fx::ZERO);
+        self.shot_power.push(Fx::ZERO);
+        self.shot_owner.push(EntityId::NONE);
+        self.shot_faction.push(Faction::Heroes);
+        Some(self.shot_alive.len() - 1)
+    }
+
+    fn reap_shot(&mut self, k: usize) {
+        self.shot_alive[k] = false;
+        self.shot_free.push(k as u32);
     }
 
     /// Circle push-apart. O(n^2) and deliberately so for now: at a few dozen
@@ -1004,6 +1186,194 @@ impl World {
         self.apply_impulses();
     }
 
+    /// Flies every arrow one tick, and resolves whatever it met.
+    ///
+    /// The twin of [`World::resolve_swings`] and deliberately shaped like it,
+    /// down to the read-only first pass -- an arrow reads `vel` to work out its
+    /// closing speed, so a shove written where it is computed would change what
+    /// the *next* arrow's blow is worth and make a volley depend on slot order.
+    ///
+    /// Two things it deliberately does **not** do. It writes no
+    /// [`Impulse`]: a blocked blade rebounds off a shield and pays for it, but
+    /// an arrow that hits one does not travel back up the string, and there is
+    /// no swing left to interrupt. And it credits `damage_dealt` only if the
+    /// archer is still alive -- an arrow outlives its owner, and a slot that has
+    /// been recycled belongs to somebody else now.
+    fn resolve_shots(&mut self) {
+        if self.shot_alive.is_empty() {
+            return;
+        }
+        self.pierces.clear();
+
+        // ---- pass 1: read-only
+        for k in 0..self.shot_alive.len() {
+            if !self.shot_alive[k] {
+                continue;
+            }
+            let was = self.shot_pos[k];
+            let step = self.shot_vel[k];
+            let now = was + step;
+
+            // Whom it met first. **Nearest along the flight**, not first by
+            // index: `SegmentHit` reports where on the segment it touched, so
+            // the honest answer costs nothing extra, and the entity index breaks
+            // ties so the result never depends on scan order.
+            let mut first: Option<(Fx, usize, Vec2)> = None;
+            for j in 0..self.alive.len() {
+                if !self.alive[j] || self.faction[j] == self.shot_faction[k] {
+                    continue; // no friendly fire, ever -- before any geometry
+                }
+                if self.id_of(j) == self.shot_owner[k] {
+                    continue; // and never the archer, however the flight curves back
+                }
+                // **The arrow's own travel is the segment**, so this is already
+                // swept exactly along the flight and nothing can tunnel through
+                // a body lengthwise. What it does not sweep is the *target's*
+                // motion over the tick, and it does not have to: a body moves at
+                // most about 0.05 units a tick against a radius of at least
+                // 0.30, six times the margin `segment_circle`'s invariant asks
+                // for. Pinned by `an_arrow_cannot_tunnel_through_a_body`.
+                let Some(hit) = fx::segment_circle(was, now, self.pos[j], self.radius[j]) else {
+                    continue;
+                };
+                if first.is_none_or(|(t, best, _)| (hit.t, j) < (t, best)) {
+                    first = Some((hit.t, j, hit.point));
+                }
+            }
+
+            let Some((_, j, at)) = first else {
+                continue;
+            };
+
+            // Relative closing speed, and a magnitude rather than a projection
+            // onto the surface normal. `impact_speed` takes the projection for
+            // the *body* term of a cut and explains why the blade term must not
+            // be one: a hit dead centre has the way in perpendicular to the
+            // velocity, so projecting would make the cleanest possible contact
+            // worth exactly nothing. An arrow has the same geometry and the same
+            // answer.
+            let impact = (self.shot_vel[k] - self.vel[j]).length();
+            let mut full = rules::blow_damage(self.shot_mass[k], impact, self.shot_power[k]);
+            if !full.is_positive() {
+                continue;
+            }
+            // A body committed to a spent swing cannot give ground with the
+            // blow, whichever direction the blow came from. Same rule, same
+            // reason, same constant as a cut.
+            if self.limb[j].swing == Swing::Recover {
+                full *= rules::RECOVERY_EXPOSURE;
+            }
+            // **The same guard rule a blade meets**, deliberately, rather than a
+            // second defensive mechanic that would have to be balanced against
+            // the first. A planted shield leaks `BLOCK_LEAK_BRACED` of an arrow
+            // and a snapped one `BLOCK_LEAK_SNAP`, so reading a draw pays and
+            // flinching at it does not -- which is the whole point of a bow's
+            // very long telegraph.
+            let leak = self.block_leak(j, at);
+            let blocked = leak.is_some();
+            let amount = match leak {
+                Some(fraction) => full * fraction,
+                None => full,
+            };
+            self.pierces.push(Pierce {
+                shot: k,
+                target: j,
+                source: self.shot_owner[k],
+                amount,
+                absorbed: full - amount,
+                blocked,
+                at,
+                shove: self.shot_shove(k, j, blocked),
+            });
+        }
+
+        // ---- pass 2: apply, in ascending shot order
+        for p in 0..self.pierces.len() {
+            let pierce = self.pierces[p];
+            let j = pierce.target;
+            let target = self.id_of(j);
+
+            if pierce.blocked {
+                self.events.push(Event::Block {
+                    attacker: pierce.source,
+                    defender: target,
+                    absorbed: pierce.absorbed,
+                    at: pierce.at,
+                });
+            }
+
+            self.vel[j] += pierce.shove;
+
+            let effective = pierce.amount.min(self.hp[j].max(Fx::ZERO));
+            self.hp[j] -= pierce.amount;
+            self.last_attacker[j] = pierce.source;
+            self.last_combat[j] = self.tick;
+            // Credit and the combat clock, **only if the archer is still there**.
+            // The handle is generational, so a shot whose owner died and whose
+            // slot has been refilled resolves to `None` rather than paying the
+            // wrong fighter -- which is exactly why `shot_owner` is an
+            // `EntityId` and not an index.
+            if let Some(i) = self.resolve(pierce.source) {
+                self.damage_dealt[i] += effective;
+                self.last_combat[i] = self.tick;
+            }
+            self.events.push(Event::Damage {
+                source: pierce.source,
+                target,
+                amount: pierce.amount,
+                lethal: !self.hp[j].is_positive(),
+            });
+            // Spent on what it hit, blocked or not. An arrow stopped by a shield
+            // is still an arrow that has stopped.
+            self.reap_shot(pierce.shot);
+        }
+        self.pierces.clear();
+
+        // ---- and everything still in the air moves.
+        for k in 0..self.shot_alive.len() {
+            if !self.shot_alive[k] {
+                continue;
+            }
+            let step = self.shot_vel[k];
+            let now = self.shot_pos[k] + step;
+            self.shot_range[k] -= step.length();
+            let outside = now.x < Fx::ZERO
+                || now.y < Fx::ZERO
+                || now.x > self.arena.x
+                || now.y > self.arena.y;
+            // Range spent, or gone over the wall. An arrow does not bounce and
+            // does not stick: it simply stops being in the frame, which is what
+            // a miss looks like from the far side of a room.
+            if outside || !self.shot_range[k].is_positive() {
+                self.reap_shot(k);
+                continue;
+            }
+            self.shot_pos[k] = now;
+        }
+    }
+
+    /// Velocity an arrow adds to what it hits.
+    ///
+    /// **Along the flight**, which is where [`World::shove`] deliberately does
+    /// *not* point -- that function's whole argument is that a cut sweeps across
+    /// a body and carries it round the arc. A shot does not sweep. Same momentum
+    /// law, same [`rules::KNOCKBACK_TRANSFER`], and the same
+    /// [`rules::BRACE_ANCHOR`] discount for a guard that was planted to meet it.
+    fn shot_shove(&self, k: usize, j: usize, blocked: bool) -> Vec2 {
+        let vel = self.shot_vel[k];
+        if vel.is_zero() {
+            return Vec2::ZERO;
+        }
+        let carried = self.shot_mass[k] * vel.length() * rules::KNOCKBACK_TRANSFER;
+        let taken = if blocked {
+            Fx::ONE - rules::BRACE_ANCHOR * self.limb[j].brace_fraction()
+        } else {
+            Fx::ONE
+        };
+        let mass = self.mass[j].max(Fx::EPSILON);
+        vel.normalize() * fx::mul_div(carried, taken, mass)
+    }
+
     /// Applies collected impulses in ascending `(entity, hand)`.
     ///
     /// The order is fixed rather than incidental: `Fx` addition saturates, and
@@ -1065,11 +1435,15 @@ impl World {
     ///   decision you made with your feet and now it is one you make with the
     ///   whole body, which is the entire point of the phase.
     ///
-    /// Only the sword hand. A shield has no mass of its own in this model -- it
-    /// is the arm alone -- and billing the body for [`Weapon::mass`] twice would
-    /// say every character is carrying two axes.
+    /// **Every role, not only a blade.** [`World::blade_momentum`] has no role
+    /// gate and should not have one: what is being billed is mass on the end of
+    /// an arm being accelerated, and a guard, a bow and a pair of empty hands all
+    /// have that. It is why `RunMind` parks its limb rather than tucking it --
+    /// a limb hauled round the compass every tick costs footing whether or not
+    /// it can cut.
     ///
-    /// [`Weapon::mass`]: crate::Weapon::mass
+    /// A shot's own reaction is *not* billed here. This function differences
+    /// momentum across a tick, and a release is a one-off; see [`World::loose`].
     fn apply_recoil(&mut self) {
         for i in 0..self.alive.len() {
             if !self.alive[i] {
@@ -1253,7 +1627,24 @@ impl World {
                 .filter(|&i| self.alive[i])
                 .map(|i| self.view_at(i))
                 .collect(),
+            shots: self.shots().collect(),
         }
+    }
+
+    /// Arrows currently in the air, in ascending slot order.
+    ///
+    /// Borrowed and lazy so `web::write_frame` can walk it straight into the
+    /// frame buffer without allocating every tick; [`World::snapshot`] collects
+    /// it because a `Snapshot` owns its contents by definition.
+    pub fn shots(&self) -> impl Iterator<Item = ShotView> + '_ {
+        (0..self.shot_alive.len())
+            .filter(move |&k| self.shot_alive[k])
+            .map(move |k| ShotView {
+                position: self.shot_pos[k],
+                heading: self.shot_vel[k].angle(),
+                speed: self.shot_vel[k].length(),
+                faction: self.shot_faction[k],
+            })
     }
 
     /// Fingerprint of the complete simulation state.
@@ -1297,6 +1688,31 @@ impl World {
             h.write_i32(self.regen_left[i].raw());
             h.write_i32(self.damage_dealt[i].raw());
             self.command[i].hash_into(&mut h);
+        }
+        // Arrows. State the sim acts on like any other: two worlds identical but
+        // for one having a shot in the air diverge the moment it arrives.
+        //
+        // Written **unconditionally**, including the length when there are no
+        // arrows anywhere. Hashing the block only when it is non-empty would
+        // have spared a golden re-record and left a fingerprint that cannot see
+        // a broken projectile column until something is already flying -- which
+        // is precisely when a replay is hardest to reason about.
+        //
+        // `shot_free` is not hashed, following `World::free`'s precedent: the
+        // free list is reachable-state bookkeeping, and any two worlds with the
+        // same history have the same one.
+        h.write_u32(self.shot_alive.len() as u32);
+        for k in 0..self.shot_alive.len() {
+            h.write_bool(self.shot_alive[k]);
+            h.write_i32(self.shot_pos[k].x.raw());
+            h.write_i32(self.shot_pos[k].y.raw());
+            h.write_i32(self.shot_vel[k].x.raw());
+            h.write_i32(self.shot_vel[k].y.raw());
+            h.write_i32(self.shot_range[k].raw());
+            h.write_i32(self.shot_mass[k].raw());
+            h.write_i32(self.shot_power[k].raw());
+            h.write_u8(self.shot_faction[k].index() as u8);
+            self.shot_owner[k].hash_into(&mut h);
         }
         h.finish()
     }
@@ -1913,6 +2329,21 @@ pub struct Snapshot {
     pub tick: u32,
     pub arena: Vec2,
     pub units: Vec<UnitView>,
+    /// Arrows in the air. Not units: they have no health and nothing to decide.
+    pub shots: Vec<ShotView>,
+}
+
+/// One arrow, as much of it as a renderer needs.
+///
+/// Four fields and no owner, deliberately. Nothing on screen keys on who loosed
+/// a shot -- and by the time one lands that fighter may be dead, so a view
+/// carrying the handle would be inviting a lookup that returns `None`.
+#[derive(Clone, Copy, Debug)]
+pub struct ShotView {
+    pub position: Vec2,
+    pub heading: Angle,
+    pub speed: Fx,
+    pub faction: Faction,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -3956,6 +4387,459 @@ mod tests {
             "the attack never ran, so nothing was actually refused"
         );
         assert_eq!(w.slot[h], 1, "the swap was never honoured at all");
+    }
+
+    /// An archer at `apart` units, facing a defender holding `defence`.
+    ///
+    /// Its own scenario rather than `Scenario::duel`, whose twelve units of
+    /// separation is further than some bodies can see and therefore further than
+    /// their arrows carry.
+    fn archery_range(apart: i32, defence: ActionKind) -> (World, EntityId, EntityId) {
+        let scenario = Scenario {
+            name: "archery".to_string(),
+            arena: Vec2::from_ints(24, 16),
+            max_ticks: 60 * 60,
+            units: vec![
+                UnitSpec {
+                    kind: Body::Fighter,
+                    faction: Faction::Heroes,
+                    stats: Body::Fighter.base_stats(),
+                    loadout: Loadout::single(ActionKind::Bow),
+                    spawn: Vec2::from_ints(6, 8),
+                },
+                UnitSpec {
+                    kind: Body::Fighter,
+                    faction: Faction::Monsters,
+                    stats: Body::Fighter.base_stats(),
+                    loadout: Loadout::single(defence),
+                    spawn: Vec2::from_ints(6 + apart, 8),
+                },
+            ],
+        };
+        let w = World::new(&scenario, 1);
+        let archer = w.alive_ids(Faction::Heroes)[0];
+        let target = w.alive_ids(Faction::Monsters)[0];
+        (w, archer, target)
+    }
+
+    /// Holds both fighters still and makes the archer shoot down +x, returning
+    /// every event the fight produced.
+    ///
+    /// Everyone else stands their ground with the limb held out **back down the
+    /// line the arrows are coming along** -- 180 degrees, because the archer is
+    /// at lower `x` and a blow arriving from it touches the far side of the
+    /// body. That is the command a defender would actually give, and it is load
+    /// bearing for anything holding a guard: `block_leak` refuses a limb under
+    /// `MIN_BLOCK_REACH`, so a shield sent `Command::HOLD` is tucked, covers
+    /// nothing, and would make "a shield stops an arrow" fail for a reason that
+    /// has nothing to do with arrows.
+    fn shoot_for(w: &mut World, archer: EntityId, ticks: u32) -> Vec<Event> {
+        let mut seen = Vec::new();
+        for _ in 0..ticks {
+            for id in w.pending_decisions().to_vec() {
+                let cmd = if id == archer {
+                    Command::swinging(
+                        Vec2::ZERO,
+                        EntityId::NONE,
+                        LimbCommand::attack(Angle::ZERO, Strike::Nearest),
+                    )
+                } else {
+                    Command::swinging(
+                        Vec2::ZERO,
+                        EntityId::NONE,
+                        LimbCommand::new(Angle::from_degrees(180), Fx::ONE),
+                    )
+                };
+                w.submit(id, cmd);
+            }
+            seen.extend_from_slice(w.step());
+        }
+        seen
+    }
+
+    /// The numbers a bow is priced on, printed rather than asserted.
+    ///
+    /// `cargo test -p sim the_bow_numbers -- --nocapture`. Every figure here is
+    /// derived, so this is the table to read before touching the row.
+    #[test]
+    fn the_bow_numbers() {
+        for body in Body::ALL {
+            let stats = body.base_stats();
+            let arm = rules::Arm::resolve(ActionKind::Bow.spec(), stats, body.radius());
+            let speed = rules::shot_speed(arm);
+            let damage = rules::blow_damage(
+                arm.spec.mass,
+                speed,
+                rules::power_multiplier(stats.power),
+            );
+            let sword = rules::Arm::resolve(ActionKind::Sword.spec(), stats, body.radius());
+            let cycle = rules::phase_ticks(arm.spec.windup, arm.agility)
+                + rules::SHOT_RELEASE_TICKS
+                + rules::phase_ticks(arm.spec.recovery, arm.agility);
+            println!(
+                "{:<10} arrow {:>7.4}/tick  dmg {:>6.2} ({:>4.1}% of {:.0} hp)  \
+                 cycle {:>3}t  dps {:>5.2}  | sword peak {:>6.2}",
+                body.name(),
+                speed.to_f32(),
+                damage.to_f32(),
+                100.0 * damage.to_f32() / stats.max_hp().to_f32(),
+                stats.max_hp().to_f32(),
+                cycle,
+                damage.to_f32() * 60.0 / cycle as f32,
+                rules::peak_damage(sword, stats).to_f32(),
+            );
+        }
+    }
+
+    /// **The bow's whole claim**: it reaches somewhere no blade in the game can.
+    ///
+    /// Eight units apart is more than five times a Fighter's total reach, so a
+    /// blow landing at all here cannot have been a cut -- there is no geometry
+    /// by which a sword arrives, and the assertion needs no epsilon to say so.
+    #[test]
+    fn a_bow_puts_an_arrow_in_the_air_and_the_arrow_carries_the_blow() {
+        let (mut w, archer, target) = archery_range(8, ActionKind::Punch);
+        let a = w.resolve(archer).unwrap();
+        let t = w.resolve(target).unwrap();
+        let reach = w.radius[a] + ActionKind::Sword.spec().length + w.radius[t];
+        assert!(
+            (w.pos[t] - w.pos[a]).length() > reach * Fx::TWO,
+            "the harness put them inside a blade's length of each other"
+        );
+
+        let events = shoot_for(&mut w, archer, 200);
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(e, Event::Loose { source, .. } if *source == archer)),
+            "the bow never loosed"
+        );
+        let hits: Vec<_> = events
+            .iter()
+            .filter_map(|e| match e {
+                Event::Damage { target: to, amount, .. } if *to == target => Some(*amount),
+                _ => None,
+            })
+            .collect();
+        assert!(!hits.is_empty(), "every arrow missed a stationary target");
+        assert!(
+            hits.iter().all(|d| d.is_positive()),
+            "an arrow landed for nothing: {hits:?}"
+        );
+        assert!(w.hp[t] < w.max_hp[t], "the target took no damage");
+    }
+
+    /// An arrow is spent on the first thing it meets, and never on its own side.
+    #[test]
+    fn an_arrow_does_not_hit_its_own_side() {
+        let mut scenario = Scenario {
+            name: "crossfire".to_string(),
+            arena: Vec2::from_ints(24, 16),
+            max_ticks: 60 * 60,
+            units: vec![],
+        };
+        for (n, (faction, x)) in [
+            (Faction::Heroes, 6),  // the archer
+            (Faction::Heroes, 10), // a friend directly on the line
+            (Faction::Monsters, 14),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            scenario.units.push(UnitSpec {
+                kind: Body::Fighter,
+                faction,
+                stats: Body::Fighter.base_stats(),
+                loadout: Loadout::single(if n == 0 {
+                    ActionKind::Bow
+                } else {
+                    ActionKind::Punch
+                }),
+                spawn: Vec2::from_ints(x, 8),
+            });
+        }
+        let mut w = World::new(&scenario, 1);
+        let archer = w.alive_ids(Faction::Heroes)[0];
+        let friend = w.alive_ids(Faction::Heroes)[1];
+        let f = w.resolve(friend).unwrap();
+        let before = w.hp[f];
+
+        let events = shoot_for(&mut w, archer, 200);
+        assert!(
+            events.iter().any(|e| matches!(e, Event::Loose { .. })),
+            "the bow never loosed"
+        );
+        assert_eq!(w.hp[f], before, "an arrow went through a friend");
+        assert!(
+            !events
+                .iter()
+                .any(|e| matches!(e, Event::Damage { target, .. } if *target == friend)),
+            "a friend was billed for a blow"
+        );
+    }
+
+    /// **The same guard rule a blade meets**, which is the reason `resolve_shots`
+    /// calls `block_leak` rather than growing a second defensive mechanic.
+    #[test]
+    fn a_shield_stops_an_arrow() {
+        fn taken(defence: ActionKind) -> (Fx, usize) {
+            let (mut w, archer, target) = archery_range(8, defence);
+            let t = w.resolve(target).unwrap();
+            let before = w.hp[t];
+            let events = shoot_for(&mut w, archer, 300);
+            let blocks = events
+                .iter()
+                .filter(|e| matches!(e, Event::Block { defender, .. } if *defender == target))
+                .count();
+            (before - w.hp[t], blocks)
+        }
+
+        let (bare, no_blocks) = taken(ActionKind::Punch);
+        let (behind_shield, blocks) = taken(ActionKind::Shield);
+        assert_eq!(no_blocks, 0, "a fist blocked something");
+        assert!(blocks > 0, "a shield never registered stopping an arrow");
+        assert!(bare.is_positive(), "the unguarded control took nothing");
+        assert!(
+            behind_shield < bare,
+            "a shield let through {behind_shield:?} of the {bare:?} it faced bare"
+        );
+    }
+
+    /// An arrow that meets nobody stops being in the world, rather than
+    /// accumulating forever at the far wall.
+    #[test]
+    fn an_arrow_expires_rather_than_flying_forever() {
+        let scenario = Scenario {
+            name: "empty range".to_string(),
+            arena: Vec2::from_ints(24, 16),
+            max_ticks: 60 * 60,
+            units: vec![UnitSpec {
+                kind: Body::Fighter,
+                faction: Faction::Heroes,
+                stats: Body::Fighter.base_stats(),
+                loadout: Loadout::single(ActionKind::Bow),
+                spawn: Vec2::from_ints(4, 8),
+            }],
+        };
+        let mut w = World::new(&scenario, 1);
+        let archer = w.alive_ids(Faction::Heroes)[0];
+
+        let mut peak = 0usize;
+        for _ in 0..900 {
+            for id in w.pending_decisions().to_vec() {
+                w.submit(
+                    id,
+                    Command::swinging(
+                        Vec2::ZERO,
+                        EntityId::NONE,
+                        LimbCommand::attack(Angle::ZERO, Strike::Nearest),
+                    ),
+                );
+            }
+            w.step();
+            peak = peak.max(w.shots().count());
+        }
+        assert!(peak > 0, "fifteen seconds of shooting produced no arrow");
+        // One archer, one arrow: the draw-release-recover cycle is longer than
+        // the flight, which is the argument `rules::MAX_SHOTS` is sized on.
+        assert!(peak <= 2, "{peak} arrows up at once from a single bow");
+        assert!(
+            w.shot_alive.len() <= rules::MAX_SHOTS,
+            "the arrow pool grew past its ceiling"
+        );
+    }
+
+    /// An arrow is a fact about the past: it outlives the archer, keeps the
+    /// faction it was loosed for, and credits nobody once its owner is gone.
+    #[test]
+    fn an_arrow_outlives_the_fighter_that_loosed_it() {
+        let (mut w, archer, _target) = archery_range(10, ActionKind::Punch);
+        let a = w.resolve(archer).unwrap();
+
+        // Fly one arrow, then kill the archer while it is still crossing.
+        let mut launched = false;
+        for _ in 0..300 {
+            for id in w.pending_decisions().to_vec() {
+                let cmd = if id == archer {
+                    Command::swinging(
+                        Vec2::ZERO,
+                        EntityId::NONE,
+                        LimbCommand::attack(Angle::ZERO, Strike::Nearest),
+                    )
+                } else {
+                    Command::HOLD
+                };
+                w.submit(id, cmd);
+            }
+            if w.step().iter().any(|e| matches!(e, Event::Loose { .. })) {
+                launched = true;
+                break;
+            }
+        }
+        assert!(launched, "the bow never loosed");
+        assert_eq!(w.shots().count(), 1, "expected exactly one arrow up");
+
+        w.hp[a] = Fx::ZERO;
+        w.step(); // reaps the archer
+        assert!(!w.alive[a], "the archer survived being emptied");
+        assert_eq!(
+            w.shots().count(),
+            1,
+            "the arrow died with the hand that threw it"
+        );
+
+        // And it still arrives, still billed to a handle that no longer resolves.
+        let mut landed = false;
+        for _ in 0..300 {
+            for id in w.pending_decisions().to_vec() {
+                w.submit(id, Command::HOLD);
+            }
+            if w
+                .step()
+                .iter()
+                .any(|e| matches!(e, Event::Damage { source, .. } if *source == archer))
+            {
+                landed = true;
+                break;
+            }
+        }
+        assert!(landed, "a dead archer's arrow evaporated");
+        assert!(w.resolve(archer).is_none(), "the handle still resolves");
+    }
+
+    /// `segment_circle` is a closest-approach test and is exact only while the
+    /// *circle* does not cross itself between samples. The arrow's own travel is
+    /// the segment and so is swept exactly; what has to hold is the margin on
+    /// the body it is tested against.
+    #[test]
+    fn an_arrow_cannot_tunnel_through_a_body() {
+        for body in Body::ALL {
+            let arm = rules::Arm::resolve(
+                ActionKind::Bow.spec(),
+                body.base_stats(),
+                body.radius(),
+            );
+            let speed = rules::shot_speed(arm);
+            let smallest = Body::ALL
+                .iter()
+                .map(|b| b.radius())
+                .fold(Fx::MAX, |a, b| if b < a { b } else { a });
+            // The test that matters is the *body's* per-tick travel against its
+            // own radius, not the arrow's -- but an arrow that outran the sweep
+            // entirely would be the louder bug, so both are stated.
+            let walk = body.base_stats().move_speed();
+            assert!(
+                walk * Fx::TWO < smallest,
+                "{} covers {walk:?} a tick against a {smallest:?} body",
+                body.name()
+            );
+            assert!(
+                speed.is_positive(),
+                "{}'s arrow does not move",
+                body.name()
+            );
+        }
+    }
+
+    /// **The whole of what `Run` buys**, measured through a live world rather
+    /// than read off the registry -- `move_bonus` has been multiplied into
+    /// `apply_movement` since before there was a row that used it, and a
+    /// multiply by one proves nothing about a multiply by 1.35.
+    #[test]
+    fn a_running_fighter_actually_runs_faster() {
+        fn ground_covered(action: ActionKind) -> Fx {
+            let mut scenario = Scenario::duel();
+            scenario.units[0].loadout = Loadout::single(action);
+            let mut w = World::new(&scenario, 1);
+            let hero = w.alive_ids(Faction::Heroes)[0];
+            let h = w.resolve(hero).unwrap();
+            let from = w.pos[h];
+            // Straight down +y, away from the other fighter rather than along
+            // the line the two are placed on. Ninety ticks and not more: the
+            // hero spawns at y=8 in a 16-deep arena, so a runner reaches the
+            // wall around tick 105 and `clamp_body` would quietly cap the very
+            // measurement this test exists to take.
+            for _ in 0..90 {
+                w.submit(hero, Command::moving(Vec2::Y));
+                w.step();
+            }
+            (w.pos[h] - from).length()
+        }
+
+        let walked = ground_covered(ActionKind::Sword);
+        let ran = ground_covered(ActionKind::Run);
+        assert!(walked.is_positive(), "the walker never set off");
+        // The row is 1.35; traction has to pay for the extra speed on the way up
+        // to it, so the ratio over a fixed window is a little under the ceiling.
+        assert!(
+            ran > walked * Fx::from_ratio(13, 10),
+            "run covered {ran:?} against a walk's {walked:?}"
+        );
+    }
+
+    /// A fighter has to be able to see its own footspeed, or the braking law in
+    /// `DuelistPolicy` paces a run as though it were a walk and slides straight
+    /// through whatever mark it aimed at.
+    #[test]
+    fn a_runner_knows_its_own_footspeed() {
+        let mut scenario = Scenario::duel();
+        scenario.units[0].loadout = Loadout::single(ActionKind::Run);
+        let w = World::new(&scenario, 1);
+        let hero = w.alive_ids(Faction::Heroes)[0];
+        let h = w.resolve(hero).unwrap();
+        let base = w.stats[h].move_speed();
+
+        assert_eq!(
+            w.observe(hero).move_speed,
+            base * ActionKind::Run.spec().move_bonus,
+            "a runner reported a walker's speed"
+        );
+
+        // And the other rows are untouched, which is what made this safe to land
+        // without moving a hash.
+        let mut plain = Scenario::duel();
+        plain.units[0].loadout = Loadout::single(ActionKind::Sword);
+        let w = World::new(&plain, 1);
+        let hero = w.alive_ids(Faction::Heroes)[0];
+        assert_eq!(w.observe(hero).move_speed, base);
+    }
+
+    /// Legs are not a weapon and not a guard, and the price of holding them is
+    /// that they are neither. The twin of
+    /// `a_swapping_limb_neither_cuts_nor_blocks_nor_parries`, for a limb that is
+    /// helpless by loadout rather than by phase.
+    #[test]
+    fn a_run_limb_neither_cuts_nor_blocks_nor_parries() {
+        let mut scenario = Scenario::duel();
+        scenario.units[0].loadout = Loadout::single(ActionKind::Run);
+        let mut w = World::new(&scenario, 1);
+        let hero = w.alive_ids(Faction::Heroes)[0];
+        let h = w.resolve(hero).unwrap();
+
+        for tick in 0..60 {
+            // Asking for everything a blade could be asked for, every tick.
+            w.submit(
+                hero,
+                Command::swinging(
+                    Vec2::ZERO,
+                    EntityId::NONE,
+                    LimbCommand::attack(Angle::ZERO, Strike::Nearest),
+                ),
+            );
+            w.step();
+            assert!(w.blade(h).is_none(), "legs were a blade on tick {tick}");
+            assert!(
+                w.block_leak(h, w.pos[h] + Vec2::X).is_none(),
+                "legs covered a bearing on tick {tick}"
+            );
+            assert!(!w.can_parry(h), "legs could parry on tick {tick}");
+            assert_eq!(
+                w.limb[h].swing,
+                Swing::Guard,
+                "legs entered {} on tick {tick}",
+                w.limb[h].swing.name()
+            );
+        }
     }
 
     #[test]

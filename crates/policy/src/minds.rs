@@ -210,27 +210,212 @@ impl ActionMind for GuardMind {
     }
 }
 
-/// Neither cuts nor covers: keeps the limb tucked and the feet moving.
+/// Buys ground, and nothing else.
 ///
-/// The fallback for a role the crate has no real opinion about yet, so that
-/// handing a fighter a reserved action produces something inert rather than a
-/// panic or a fighter frozen mid-stride.
-pub struct IdleMind;
+/// The one loadout in the game that cannot answer anything at all: no blade, no
+/// guard, no parry. So its whole case has to be made out of distance -- either
+/// there is ground to cover before a fight can start, or there is a fight worth
+/// leaving. In every other situation this must lose, and lose clearly, to the
+/// thing that can actually hurt someone.
+pub struct RunMind {
+    pub weights: DuelistWeights,
+}
 
-impl ActionMind for IdleMind {
-    fn appraise(&self, _obs: &Observation, _foe: &Contact) -> Fx {
-        Fx::ZERO
+impl ActionMind for RunMind {
+    fn appraise(&self, obs: &Observation, foe: &Contact) -> Fx {
+        // A floor, like `BladeMind`'s and for the same reason: a slot that
+        // scores zero in every situation is a slot the fighter threw away.
+        let mut want = Fx::from_ratio(2, 10);
+
+        // **The gap, measured against the redraw.**
+        //
+        // Legs buy ground and nothing else, so they are worth what there is to
+        // cover -- but the ground has to be paid back. A fighter that runs until
+        // it arrives arrives *helpless*, and then stands in reach for the whole
+        // of its blade's `ready`. `move_speed` times `swap_ticks` is exactly how
+        // far it travels while drawing, so adding it to the mark makes the legs
+        // stop being worth holding a little **before** they stop being useful.
+        //
+        // This is the most important line in this mind, and it is the one that
+        // needs `obs.move_speed` to carry `move_bonus` -- it is a running
+        // fighter's own speed being asked about here, not a walking one's.
+        let reach = obs.full_reach() + foe.radius;
+        let redraw = obs.move_speed * Fx::from_int(obs.swap_ticks as i32);
+        let mark = reach + redraw;
+        if foe.distance > mark {
+            want += ((foe.distance - mark) / reach.max(Fx::EPSILON)).min(Fx::ONE)
+                * (Fx::ONE + self.weights.aggression);
+        }
+
+        // **Breaking off**, read exactly the way `Stance::Retreat` reads it so
+        // the two cannot come to different conclusions about whether this fight
+        // is worth having. This is the one case where legs genuinely beat steel:
+        // a fighter that has decided not to fight has nothing to do with a
+        // blade, and outrunning the pursuit is the whole plan.
+        if self.breaking_off(obs, foe) {
+            want += Fx::TWO;
+        }
+
+        // And what argues against it, which is everything else. The urgency term
+        // is strictly heavier than `BladeMind`'s -- that mind subtracts
+        // `urgency * guard` and this one subtracts more -- so a blade always
+        // outranks legs while something is actually arriving.
+        let (urgency, _) = swing::incoming(obs, foe);
+        want -= urgency * (self.weights.guard + Fx::ONE);
+        // Already in reach: there is nothing left to close and running is how
+        // you turn your back on a live blade.
+        if foe.distance <= reach {
+            want -= Fx::ONE;
+        }
+        want.max(Fx::from_ratio(1, 20))
     }
 
     fn drive(
         &self,
-        _obs: &Observation,
+        obs: &Observation,
         foe: &Contact,
-        _memory: &mut MindMemory,
+        memory: &mut MindMemory,
     ) -> (Vec2, LimbCommand) {
-        (foe.offset.normalize(), LimbCommand::TUCKED)
+        let toward = foe.offset.normalize();
+        let away = self.breaking_off(obs, foe);
+        // Recorded so `DuelistPolicy::decide` reports `Intent::Flee` and the page
+        // labels it honestly. A runner that shows "attack" while sprinting for
+        // the far wall is a HUD that lies about the one thing it can see.
+        memory.stance = Some(if away { Stance::Retreat } else { Stance::Close });
+
+        let feet = if away {
+            (-toward
+                + crate::DuelistPolicy::cohesion(&self.weights, obs)
+                + crate::DuelistPolicy::open_ground(&self.weights, obs))
+            .clamp_length(Fx::ONE)
+        } else {
+            // Flat out. There is no station to keep: closing is the entire
+            // reason this is in hand, and the blade it is closing *for* will do
+            // its own spacing once drawn.
+            (toward + crate::DuelistPolicy::open_ground(&self.weights, obs) * Fx::HALF)
+                .clamp_length(Fx::ONE)
+        };
+
+        // **Parked where it already is -- not `LimbCommand::TUCKED`.**
+        //
+        // `TUCKED` pins the bearing at zero, which would haul the arm right round
+        // the compass every time the fighter happened to be facing elsewhere.
+        // That is not free: `World::blade_momentum` has no role gate, so a limb
+        // with mass being spun costs footing through `apply_recoil` whether or
+        // not it is a blade. A runner shoving itself sideways with its own empty
+        // hand would read as physics and be a bug.
+        (feet, LimbCommand::new(obs.limb.angle, Fx::ZERO))
     }
 }
+
+impl RunMind {
+    /// Whether this fight is worth leaving, on the same reading
+    /// [`Stance::Retreat`] uses.
+    fn breaking_off(&self, obs: &Observation, foe: &Contact) -> bool {
+        let mine = crate::duelist::blows_left(obs.hp_frac, foe.threat);
+        let theirs = crate::duelist::blows_left(foe.hp_frac, foe.frailty);
+        mine < self.weights.caution && mine < theirs
+    }
+}
+
+/// How far outside a blade an archer tries to stand.
+///
+/// Far enough that closing on it costs a decision or two, near enough that the
+/// flight is short -- a bow aims at where its target *is*, not where it will be,
+/// so every unit of standoff is another unit the arrow can be walked out of.
+const KEEP_OUT: Fx = Fx::from_ratio(16, 10);
+
+/// Reach without a blade, paid for in telegraph.
+///
+/// A bow is worth exactly what standing outside somebody's sword is worth, and
+/// nothing at all once they have arrived: thirty ticks of draw with no guard, no
+/// parry and no edge is the most punishable thing in the game to be caught
+/// holding. So its whole case is the one distance a blade cannot argue for.
+pub struct BowMind {
+    pub weights: DuelistWeights,
+}
+
+impl ActionMind for BowMind {
+    fn appraise(&self, obs: &Observation, foe: &Contact) -> Fx {
+        let mut want = Fx::from_ratio(2, 10);
+
+        // **Where *their* blade stops** -- not `obs.full_reach()`, which for a
+        // bow is the draw and would claim this thing reaches 0.75 units. The
+        // only distance a bow's case is made of is the one it is safe at.
+        let theirs = obs.radius + foe.radius + foe.action_length;
+        if foe.distance > theirs {
+            // They cannot reach and this can. There is no range test on the far
+            // side, and there does not need to be one: an arrow carries the
+            // archer's own sight range, and a `Contact` exists only inside it.
+            want += Fx::ONE + foe.frailty.min(Fx::ONE) * self.weights.aggression * Fx::HALF;
+        } else {
+            // Inside a sword's length a bow is a stick.
+            want -= Fx::ONE;
+        }
+
+        // And nothing here can answer a blow that is already coming.
+        let (urgency, _) = swing::incoming(obs, foe);
+        want -= urgency * self.weights.guard;
+        want.max(Fx::from_ratio(1, 20))
+    }
+
+    fn drive(
+        &self,
+        obs: &Observation,
+        foe: &Contact,
+        memory: &mut MindMemory,
+    ) -> (Vec2, LimbCommand) {
+        memory.stance = Some(Stance::Trade);
+
+        // Stand off *their* blade. Not off this fighter's own dead zone, which
+        // `rules::dead_zone` now reports as zero for a bow precisely because an
+        // arrow does not care how far from the shoulder it lands. Capped inside
+        // sight, because an arrow that runs out of flight is a draw thrown away.
+        let theirs = obs.radius + foe.radius + foe.action_length;
+        let ideal = (theirs * KEEP_OUT).min(obs.sight_range * Fx::from_ratio(9, 10));
+
+        // **You cannot draw a bow and run at the same time**, and this line is
+        // the whole price of the row.
+        //
+        // It is the rule `GuardMind` already keeps -- feet still while the thing
+        // in your hands is doing its job -- and a bow needs it far more badly. An
+        // archer that repositions *while* drawing simply backs away at its
+        // pursuer's own speed and can never be caught: measured, that won 80%
+        // where every sword loadout in the game wins 47%.
+        //
+        // Slowing the row down instead was tried and is a cliff rather than a
+        // slope, because outrunning someone is a threshold -- see the `Bow` row
+        // in `sim::ACTIONS`. Planting is the honest cost: closing the ground is
+        // now something an archer *spends a shot* to undo, so reach and tempo
+        // trade against each other the way the telegraph always meant them to.
+        let drawing = obs.limb.swing.is_attacking();
+        let feet = if drawing {
+            Vec2::ZERO
+        } else {
+            crate::DuelistPolicy::station(obs, foe, ideal)
+                + crate::DuelistPolicy::open_ground(&self.weights, obs) * Fx::HALF
+        };
+
+        // Aimed at the man. `Strike::Nearest` because the side decides only
+        // which shoulder the draw comes over -- the arrow leaves along the line
+        // either way, so the shortest telegraph is free to take. And `press`
+        // rather than a hand-built command: it is what keeps the attack held
+        // down through the draw and released during the recovery, and it is the
+        // one call site that needed `Role::can_attack` to exist.
+        let limb = swing::press(obs, foe.offset.angle(), sim::Strike::Nearest);
+        (feet.clamp_length(Fx::ONE), limb)
+    }
+}
+
+// `IdleMind` lived here: an inert fallback that appraised to `Fx::ZERO` and kept
+// the limb tucked, so that a fighter handed one of the reserved rows produced
+// something harmless rather than a panic. Both reserved rows have landed and
+// every role now has a mind that means something, so the fallback is gone rather
+// than kept as a fifth arm nothing can reach.
+//
+// The property it was really protecting is not lost: `mind_for` matches every
+// variant explicitly, so a fifth `Role` fails to compile there rather than
+// silently inheriting a do-nothing.
 
 /// The mind for whatever `role` describes.
 ///
@@ -241,6 +426,7 @@ pub fn mind_for(role: Role, weights: DuelistWeights) -> Box<dyn ActionMind> {
     match role {
         Role::Strike => Box::new(BladeMind { weights }),
         Role::Guard => Box::new(GuardMind { weights }),
-        Role::Move | Role::Shoot => Box::new(IdleMind),
+        Role::Move => Box::new(RunMind { weights }),
+        Role::Shoot => Box::new(BowMind { weights }),
     }
 }

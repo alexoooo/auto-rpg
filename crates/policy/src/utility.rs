@@ -502,7 +502,7 @@ impl UtilityPolicy {
             None => return, // nothing about: the limb stays tucked
         };
         let bearing = threat.offset.angle();
-        command.limb = if obs.role().is_live_capable() {
+        command.limb = if obs.role().can_attack() {
             swing::press(obs, bearing, sim::Strike::Nearest)
         } else {
             // Holding something that cannot cut: point it at the enemy and brace

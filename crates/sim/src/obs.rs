@@ -597,7 +597,7 @@ impl Observation {
     /// asking a shield to attack and never notice.
     #[inline]
     pub fn can_strike(&self) -> bool {
-        self.role().is_live_capable()
+        self.role().can_attack()
             && self.limb.swing == crate::hand::Swing::Guard
             && self.limb.armed
     }

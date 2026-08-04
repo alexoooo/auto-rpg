@@ -34,16 +34,16 @@ const BUILD = ["cargo", "build", "--release", "--target", "wasm32-unknown-unknow
 // is what tells the two failure modes apart -- see `divergence` below.
 
 // `lab hash`: skirmish(1234, 4, 6), seed 99, baseline policy, run to a finish.
-const LAB_HASH = 0x7ba34660aecc7e8fn;
+const LAB_HASH = 0x3ff8c8736c5fb2ffn;
 
 // `init(1); set_goto(20_000, 12_000); step(600)`: the path a player drives.
-const ROOM_HASH = 0x3604699b7f77dc4fn;
+const ROOM_HASH = 0xa9fba0fa5f08ccbfn;
 
 // `init(1); spawn_monster(3); step(600)`: a whole fight, start to finish. Worth
 // its own number because it reaches arithmetic the walk never does -- the spawn
 // point comes out of `Rng::from_stream` and the committed sine table, and every
 // approach measures a distance through `isqrt64`.
-const BATTLE_HASH = 0x7bc035fea0538567n;
+const BATTLE_HASH = 0x56ec32495d993357n;
 
 // `init(1); spawn_monster(2) x3; step(1800); swap_in_hero(1); step(400)`: a
 // fight, a death, a replacement, and the fight the replacement walks into. The
@@ -51,11 +51,28 @@ const BATTLE_HASH = 0x7bc035fea0538567n;
 // sim across the death of an entity and the *reuse* of its slot -- the
 // generational free list is exactly the kind of index bookkeeping that a 32-bit
 // usize could quietly do differently.
-const SWAP_HASH = 0x881059e03eaf2037n;
+const SWAP_HASH = 0x41935ad8423ca327n;
+
+// `init(1); set_hero_loadout(0, BOW); spawn_monster(BRUTE); step(1200)`: the
+// only one of these five that ever puts an arrow in the air, and the only
+// reason it exists. The other four never touch the projectile path, which is a
+// good deal of arithmetic none of them exercise -- `Vec2::length` on every tick
+// of every flight, `segment_circle`'s i64-staged dot products, and the
+// saturating multiply in `tangential_speed` at the release. Portable
+// fixed-point is a claim about code that runs.
+const BOW_HASH = 0x7c0dd495e5afa023n;
 
 // The frame header, as the client reads it.
-const HEADER_LEN = 7;
+const HEADER_LEN = 8;
 const UNIT_STRIDE = 27;
+// Arrows, in a block after the units. `frame_len()` is therefore no longer a
+// function of the unit count alone, which is half of what `FRAME_LAYOUT_VERSION`
+// 3 announces -- the other half being the eighth header float that counts them.
+const SHOT_STRIDE = 4;
+
+// `ActionKind::code`, from crates/sim/src/action.rs. Append-only, so this is
+// safe to write down.
+const BOW_CODE = 6;
 const ARENA = [24, 16];
 
 // ------------------------------------------------------------------ the module
@@ -255,6 +272,7 @@ test("the boundary exports everything the client calls", () => {
     "set_input",
     "frame_layout_version",
     "unit_stride",
+    "shot_stride",
     "header_len",
     "action_count",
     "action_code",
@@ -321,8 +339,9 @@ test("the frame buffer still has the layout the client reads", () => {
   assert.equal(units, 1, "the room holds exactly one hero");
   assert.equal(
     live.length,
-    HEADER_LEN + UNIT_STRIDE * units,
-    `frame_len() is ${live.length}, not ${HEADER_LEN} + ${UNIT_STRIDE} * ${units}`,
+    HEADER_LEN + UNIT_STRIDE * units + SHOT_STRIDE * live[7],
+    `frame_len() is ${live.length}, not ${HEADER_LEN} + ${UNIT_STRIDE} * ${units}` +
+      ` + ${SHOT_STRIDE} * ${live[7]}`,
   );
   assert.deepEqual([live[0], live[1]], ARENA, "arena_x, arena_y");
   assert.equal(live[2], 4, "order_kind: Goto is discriminant 4");
@@ -442,8 +461,9 @@ test("a monster walks in and takes the next row of the frame", () => {
   assert.equal(live[6], 2, "unit_count");
   assert.equal(
     live.length,
-    HEADER_LEN + UNIT_STRIDE * 2,
-    `frame_len() is ${live.length}, not ${HEADER_LEN} + ${UNIT_STRIDE} * 2`,
+    HEADER_LEN + UNIT_STRIDE * 2 + SHOT_STRIDE * live[7],
+    `frame_len() is ${live.length}, not ${HEADER_LEN} + ${UNIT_STRIDE} * 2` +
+      ` + ${SHOT_STRIDE} * ${live[7]}`,
   );
 
   const monster = live.slice(HEADER_LEN + UNIT_STRIDE);
@@ -467,6 +487,40 @@ test("a battle replays the way native recorded it", () => {
   assert.equal(wasm.tick(), 600, "step(600) did not simulate 600 ticks");
   assert.ok(measured === BATTLE_HASH, divergence("The battle state hash", BATTLE_HASH, measured));
   console.log(`battle hash    ${hex(measured)}  == native`);
+});
+
+test("an arrow flies the way native recorded it", () => {
+  // The projectile path, across targets. Nothing above ever loosed a shot, so
+  // until this test every square root and staged multiply in `resolve_shots`
+  // was unclaimed territory -- and a fixed-point sim that is portable for
+  // swordplay and not for archery is not a portable sim.
+  wasm.init(1);
+  assert.equal(wasm.set_hero_loadout(0, BOW_CODE), 1, "the hero would not take a bow");
+  wasm.spawn_monster(2, 255, 255);
+  wasm.step(1_200);
+
+  const measured = stateHash();
+  assert.ok(measured === BOW_HASH, divergence("The bow state hash", BOW_HASH, measured));
+  console.log(`bow hash       ${hex(measured)}  == native`);
+
+  // And the frame can carry what the sim produced, which is the other half of a
+  // bow being usable at all: an arrow nobody can draw is an arrow nobody sees.
+  wasm.init(1);
+  wasm.set_hero_loadout(0, BOW_CODE);
+  wasm.spawn_monster(2, 255, 255);
+  let seen = 0;
+  for (let i = 0; i < 1_200; i++) {
+    wasm.step(1);
+    const live = frame();
+    const units = live[6];
+    assert.equal(
+      live.length,
+      HEADER_LEN + UNIT_STRIDE * units + SHOT_STRIDE * live[7],
+      `frame_len() disagrees with its own counts: ${units} units, ${live[7]} shots`,
+    );
+    seen = Math.max(seen, live[7]);
+  }
+  assert.ok(seen > 0, "twenty seconds of archery reached the frame as nothing");
 });
 
 test("a death and a replacement replay the way native recorded them", () => {

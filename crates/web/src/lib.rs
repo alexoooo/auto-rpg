@@ -92,8 +92,8 @@ use sim::{
 };
 
 /// Floats before the first unit: `[arena_x, arena_y, order_kind, order_x,
-/// order_y, last_decision_tick, unit_count]`.
-pub const HEADER_LEN: usize = 7;
+/// order_y, last_decision_tick, unit_count, shot_count]`.
+pub const HEADER_LEN: usize = 8;
 
 /// Floats per unit.
 ///
@@ -143,13 +143,32 @@ pub const HEADER_LEN: usize = 7;
 /// tell the AI is being scored on reading.
 pub const UNIT_STRIDE: usize = 27;
 
+/// Floats per arrow, in a block that follows the units: `[x, y, heading_raw,
+/// faction]`.
+///
+/// Four and no more. The speed is absent because a streak is presentation and
+/// the page may choose its own length; the archer is absent because nothing on
+/// screen keys on who loosed a shot, and by the time one lands that fighter may
+/// be dead -- carrying the handle would be inviting a lookup that returns
+/// nothing.
+///
+/// Arrows are **not** units and are deliberately not squeezed into
+/// [`UNIT_STRIDE`]. They have no health, no loadout, no limb and no phase, so
+/// they would be twenty-three dead floats each, and the health bars and reach
+/// rings the unit loop draws would all have to learn to skip them.
+pub const SHOT_STRIDE: usize = 4;
+
+/// Most arrows the frame will carry. Matches [`sim::MAX_SHOTS`], asserted in
+/// `the_frame_is_bounded_by_what_the_world_can_hold`.
+pub const MAX_SHOTS: usize = sim::MAX_SHOTS;
+
 /// Bumped whenever the frame changes shape or meaning.
 ///
 /// The page reads this before it reads anything else and refuses to draw a
 /// layout it was not written against. That is a weaker promise than the
 /// append-only convention it replaced and a much more useful one: append-only
 /// forbids the edit, this one makes the edit safe.
-pub const FRAME_LAYOUT_VERSION: u32 = 2;
+pub const FRAME_LAYOUT_VERSION: u32 = 3;
 
 /// Value in a loadout column meaning "this slot is empty". Matches
 /// [`sim::Loadout::EMPTY`], and is not a valid action code.
@@ -180,7 +199,7 @@ pub const CONTROL_SLOT: u32 = 4;
 pub const MAX_UNITS: usize = 64;
 
 /// Length of the frame buffer. [`frame_len`] reports how much of it is live.
-pub const FRAME_MAX: usize = HEADER_LEN + MAX_UNITS * UNIT_STRIDE;
+pub const FRAME_MAX: usize = HEADER_LEN + MAX_UNITS * UNIT_STRIDE + MAX_SHOTS * SHOT_STRIDE;
 
 /// Closest a newcomer may be placed to the hero, and the floor the arc sweep
 /// in [`Sim::spawn_point`] accepts against. Far enough that you watch it come.
@@ -443,7 +462,12 @@ impl Sim {
                     Event::Damage { target, .. } => [(target, 0u8), (EntityId::NONE, 0)],
                     Event::Block { defender, .. } => [(defender, 1), (EntityId::NONE, 0)],
                     Event::Parry { a, b, .. } => [(a, 2), (b, 2)],
-                    Event::Death { .. } => continue,
+                    // Both of these are already on screen without a flash. A
+                    // death removes a body; a loose *adds an arrow*, at the
+                    // nock, pointing where it is going -- which is a better
+                    // announcement than a one-frame glow could be, and unlike
+                    // `hit_flash` there is nothing here the frame cannot show.
+                    Event::Death { .. } | Event::Loose { .. } => continue,
                 };
                 for mark in pair {
                     if !mark.0.is_none() && count < marks.len() {
@@ -749,7 +773,28 @@ impl Sim {
             count += 1;
         }
         frame[6] = count as f32;
-        HEADER_LEN + count * UNIT_STRIDE
+
+        // Arrows, in a block of their own after the units. After rather than
+        // interleaved because the unit block is variable length and every unit
+        // row's internal offsets have to stay where the page expects them --
+        // only the base of this section moves.
+        let mut shots = 0;
+        for shot in self.world.shots() {
+            if shots == MAX_SHOTS {
+                break;
+            }
+            let row = &mut frame[HEADER_LEN + count * UNIT_STRIDE + shots * SHOT_STRIDE..];
+            row[0] = shot.position.x.to_f32();
+            row[1] = shot.position.y.to_f32();
+            // The binary angle raw, exactly as `limb_angle_raw` is carried: the
+            // client owns the conversion and no transcendental runs in here.
+            row[2] = shot.heading.raw() as f32;
+            row[3] = shot.faction.index() as f32;
+            shots += 1;
+        }
+        frame[7] = shots as f32;
+
+        HEADER_LEN + count * UNIT_STRIDE + shots * SHOT_STRIDE
     }
 }
 
@@ -1351,6 +1396,15 @@ pub extern "C" fn unit_stride() -> u32 {
     UNIT_STRIDE as u32
 }
 
+/// Floats per arrow row, in the block that follows the units. Paired with
+/// [`header_len`] and [`unit_stride`] for the same reason: three numbers the
+/// page must agree with, and none of them hardcoded on its side.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn shot_stride() -> u32 {
+    SHOT_STRIDE as u32
+}
+
 /// Floats before the first unit row.
 #[allow(unsafe_code)]
 #[no_mangle]
@@ -1413,7 +1467,8 @@ pub extern "C" fn action_role(code: u32) -> u32 {
 }
 
 /// One of an action's numbers, by index: `0` ready, `1` windup, `2` recovery,
-/// `3` length in thousandths, `4` guard arc in raw angle units.
+/// `3` length in thousandths, `4` guard arc in raw angle units, `5` footspeed
+/// multiplier in thousandths.
 ///
 /// One export with a selector rather than five, because these are a *table* and
 /// the page shows them as one -- and because five near-identical exports is five
@@ -1431,6 +1486,7 @@ pub extern "C" fn action_stat(code: u32, stat: u32) -> i32 {
         2 => i32::from(spec.recovery),
         3 => milli_of(spec.length),
         4 => i32::from(spec.arc),
+        5 => milli_of(spec.move_bonus),
         _ => 0,
     }
 }
@@ -1600,25 +1656,30 @@ mod tests {
     /// What `cargo run --release -p lab -- hash` prints today. Recorded rather
     /// than computed, so this test fails if the sim's behaviour moves at all --
     /// which is the point of having it here as well as in `sim`.
-    const LAB_HASH: u64 = 0x7ba3_4660_aecc_7e8f;
+    const LAB_HASH: u64 = 0x3ff8_c873_6c5f_b2ff;
 
     /// What `init(1); set_goto(20_000, 12_000); step(600)` leaves behind.
     /// Recorded here natively; the same three calls against `web.wasm` under
     /// Node produce the same number, which is the first time this project's
     /// central claim has been checked across targets rather than asserted.
-    const ROOM_HASH: u64 = 0x3604_699b_7f77_dc4f;
+    const ROOM_HASH: u64 = 0xa9fb_a0fa_5f08_ccbf;
 
     /// What `init(1); spawn_monster(3, SLOT_EMPTY, SLOT_EMPTY); step(600)` leaves behind -- a whole
     /// skirmish, start to finish, driven the way the page drives it. Recorded
     /// from a native run, never computed here, and asserted against `web.wasm`
     /// under Node by `tools/wasm_check.js`.
-    const BATTLE_HASH: u64 = 0x7bc0_35fe_a053_8567;
+    const BATTLE_HASH: u64 = 0x56ec_3249_5d99_3357;
 
     /// What `init(1); spawn_monster(2, SLOT_EMPTY, SLOT_EMPTY) x3; step(1800); swap_in_hero(1, SLOT_EMPTY, SLOT_EMPTY);
     /// step(400)` leaves behind -- a fight, a death, a replacement, and the
     /// fight it walks into. Recorded from a native run and asserted against
     /// `web.wasm` under Node by `tools/wasm_check.js`.
-    const SWAP_HASH: u64 = 0x8810_59e0_3eaf_2037;
+    const SWAP_HASH: u64 = 0x4193_5ad8_423c_a327;
+
+    // `init(1); swap_in_hero(FIGHTER, Bow, Sword); spawn_monster(BRUTE); step(1200)`:
+    // the only one of these that ever puts an arrow in the air, and therefore
+    // the only one that pins the projectile arithmetic across targets.
+    const BOW_HASH: u64 = 0x7c0d_d495_e5af_a023;
 
     fn selftest() -> u64 {
         (u64::from(selftest_hash_hi()) << 32) | u64::from(selftest_hash_lo())
@@ -1684,8 +1745,8 @@ mod tests {
             "the selftest no longer runs what `lab hash` runs"
         );
         assert_eq!(selftest(), LAB_HASH, "the halves reassemble wrongly");
-        assert_eq!(selftest_hash_lo(), 0xaecc_7e8f);
-        assert_eq!(selftest_hash_hi(), 0x7ba3_4660);
+        assert_eq!(selftest_hash_lo(), 0x6c5f_b2ff);
+        assert_eq!(selftest_hash_hi(), 0x3ff8_c873);
     }
 
     #[test]
@@ -2178,11 +2239,16 @@ mod tests {
 
     #[test]
     fn a_frame_can_never_outgrow_its_buffer() {
-        // `write_frame` indexes `HEADER_LEN + count * UNIT_STRIDE`, so the
-        // ceiling and the array length have to agree exactly.
-        assert_eq!(FRAME_MAX, HEADER_LEN + MAX_UNITS * UNIT_STRIDE);
+        // `write_frame` indexes past the units and then past the arrows, so the
+        // ceiling and the array length have to agree exactly across both blocks.
+        assert_eq!(
+            FRAME_MAX,
+            HEADER_LEN + MAX_UNITS * UNIT_STRIDE + MAX_SHOTS * SHOT_STRIDE
+        );
         assert!(Scenario::room().units.len() <= MAX_UNITS);
         assert!(Scenario::skirmish(1234, 4, 6).units.len() <= MAX_UNITS);
+        // The frame cannot be asked for more arrows than the world can hold.
+        assert_eq!(MAX_SHOTS, sim::MAX_SHOTS);
     }
 
     // ------------------------------------------------------------- spawning
@@ -2668,6 +2734,75 @@ mod tests {
         println!("swap hash: 0x{measured:016x}");
         assert_eq!(measured, SWAP_HASH, "the swap script no longer replays");
         assert_eq!(script(), measured, "the same run diverged from itself");
+    }
+
+    /// **The only script here that puts an arrow in the air**, and worth its own
+    /// number for exactly that reason.
+    ///
+    /// The other four never reach the projectile path, which is a good deal of
+    /// arithmetic none of them exercise: `Vec2::length` on every tick of every
+    /// flight (an `isqrt64`), `fx::segment_circle`'s `i64`-staged dot products,
+    /// and `tangential_speed`'s saturating multiply at the release. Portable
+    /// fixed-point is a claim about *code that runs*, and until this existed the
+    /// cross-target suite made no claim about any of it.
+    #[test]
+    fn a_bow_replays() {
+        fn script() -> u64 {
+            init(1);
+            // Through the loadout panel's own export rather than by spawning a
+            // fresh archer: `swap_in_hero` refuses while a hero is alive, and
+            // this is the path a player actually takes to pick up a bow.
+            assert_eq!(
+                set_hero_loadout(0, sim::ActionKind::Bow.code()),
+                1,
+                "the hero would not take a bow"
+            );
+            spawn_monster(BRUTE, SLOT_EMPTY, SLOT_EMPTY);
+            step(1_200);
+            hash()
+        }
+        let measured = script();
+        println!("bow hash: 0x{measured:016x}");
+        assert_eq!(measured, BOW_HASH, "the bow script no longer replays");
+        assert_eq!(script(), measured, "the same run diverged from itself");
+    }
+
+    /// A page that cannot draw an arrow is a page on which a bow does nothing
+    /// visible at all, so the frame carrying them is its own claim.
+    #[test]
+    fn the_frame_carries_arrows() {
+        init(1);
+        assert_eq!(
+            set_hero_loadout(0, sim::ActionKind::Bow.code()),
+            1,
+            "the hero would not take a bow"
+        );
+        spawn_monster(BRUTE, SLOT_EMPTY, SLOT_EMPTY);
+
+        let mut seen = 0usize;
+        for _ in 0..1_200 {
+            step(1);
+            let live = frame();
+            let units = live[6] as usize;
+            let shots = live[7] as usize;
+            assert_eq!(
+                live.len(),
+                HEADER_LEN + units * UNIT_STRIDE + shots * SHOT_STRIDE,
+                "the frame's length disagrees with its own two counts"
+            );
+            for s in 0..shots {
+                let row = &live[HEADER_LEN + units * UNIT_STRIDE + s * SHOT_STRIDE..];
+                assert!(
+                    row[0] >= 0.0 && row[0] <= 24.0 && row[1] >= 0.0 && row[1] <= 16.0,
+                    "an arrow was drawn outside the arena at ({}, {})",
+                    row[0],
+                    row[1]
+                );
+                assert!(row[3] == 0.0 || row[3] == 1.0, "faction {}", row[3]);
+            }
+            seen = seen.max(shots);
+        }
+        assert!(seen > 0, "twenty seconds of archery reached the frame as nothing");
     }
 
     #[test]

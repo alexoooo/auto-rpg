@@ -52,6 +52,9 @@ pub struct RunResult {
     pub blows: u32,
     pub blocks: u32,
     pub parries: u32,
+    /// Arrows loosed. The **denominator** of an accuracy figure and not a
+    /// success count: whether one arrived is already in `blows`.
+    pub shots: u32,
     pub replay: Option<Replay>,
 }
 
@@ -89,7 +92,7 @@ pub fn run(
     }
     let mut due: Vec<EntityId> = Vec::new();
     let mut decisions = 0u64;
-    let (mut blows, mut blocks, mut parries) = (0u32, 0u32, 0u32);
+    let (mut blows, mut blocks, mut parries, mut shots) = (0u32, 0u32, 0u32, 0u32);
 
     while world.outcome().is_none() && world.tick() < limit {
         due.clear();
@@ -107,6 +110,9 @@ pub fn run(
                 Event::Damage { .. } => blows += 1,
                 Event::Block { .. } => blocks += 1,
                 Event::Parry { .. } => parries += 1,
+                // Counted as a shot thrown, not as a shot landed -- whether it
+                // arrives comes back later as a `Damage` like anything else.
+                Event::Loose { .. } => shots += 1,
                 Event::Death { .. } => {}
             }
         }
@@ -132,6 +138,7 @@ pub fn run(
         blows,
         blocks,
         parries,
+        shots,
         replay,
     }
 }

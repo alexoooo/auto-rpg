@@ -235,7 +235,17 @@ fn player_orders_change_the_outcome_without_breaking_determinism() {
 // and a free shield hand, so nothing in this scenario blocks at all; the Rogue's
 // hilt-heavy shortblade retired into `ActionKind::Knife`; and the fixture policy
 // above stopped marching into walls. Every recorded run predating this is void.
-const GOLDEN_STATE_HASH: u64 = 0x2679_9389_72ae_4e81;
+// Re-recorded once more for `Run` and `Bow` landing, and for exactly one reason
+// out of the whole change: `World::state_hash` grew a projectile block, and it
+// writes the arrow count unconditionally -- so every world fingerprints
+// differently even though no scenario here has a bow in it and no fighter's
+// behaviour moved by a tick.
+//
+// That the rest of the feature moved nothing was checked rather than assumed:
+// unlocking the two rows, `move_bonus` reaching the observation, `Role::can_attack`,
+// a zero dead zone for a shot, the `Hand` release branch and `resolve_shots`
+// itself were all landed ahead of this line and left every golden standing.
+const GOLDEN_STATE_HASH: u64 = 0x465b_ed8f_8d16_3311;
 
 #[test]
 fn golden_hash() {

@@ -35,8 +35,10 @@ pub enum Role {
     Guard,
     /// Neither. Buys footspeed through [`ActionSpec::move_bonus`].
     Move,
-    /// Reserved. Runs a phase machine like [`Role::Strike`], but spends the
-    /// strike on a projectile rather than on a segment sweep.
+    /// Runs a phase machine like [`Role::Strike`], but spends the strike on a
+    /// projectile rather than on a segment sweep: one tick of release, and then
+    /// the arrow is [`crate::World::resolve_shots`]'s problem. No blade hitbox,
+    /// so it can neither cut nor parry nor be parried.
     Shoot,
 }
 
@@ -57,11 +59,29 @@ impl Role {
     /// Number of distinct roles; the width of the one-hot block.
     pub const COUNT: usize = 4;
 
-    /// Whether a limb holding this can deal a blow at all. The gate that
-    /// replaced "every unit has a blade because every unit has a `Body`".
+    /// Whether a limb holding this is a **blade segment**: something that can
+    /// cut, be crossed, and be parried. The gate that replaced "every unit has a
+    /// blade because every unit has a `Body`".
+    ///
+    /// Deliberately narrower than [`Role::can_attack`]. The two coincided while
+    /// every attack was a swing, and [`Role::Shoot`] is what separates them: a
+    /// bow attacks and has no hitbox anywhere on it.
     #[inline]
     pub const fn is_live_capable(self) -> bool {
         matches!(self, Role::Strike)
+    }
+
+    /// Whether a limb holding this runs the four-phase attack machine at all.
+    ///
+    /// Asks "can this thing attack", where [`Role::is_live_capable`] asks "is
+    /// this thing a blade". Conflating them is the same class of mistake
+    /// [`Role::blocks`] exists to have already fixed, and it has one especially
+    /// quiet failure: `policy::swing::press` gates on this, so a role that
+    /// attacks but reports otherwise would draw, aim, and never loose -- with
+    /// nothing failing anywhere.
+    #[inline]
+    pub const fn can_attack(self) -> bool {
+        matches!(self, Role::Strike | Role::Shoot)
     }
 
     /// Whether a limb holding this blocks. **The one line that makes blocking a
@@ -87,10 +107,11 @@ impl Role {
 /// feature vector, and reach [`crate::World::state_hash`]; a reshuffle voids
 /// every recorded run and every trained network at once.
 ///
-/// [`ActionKind::Run`] and [`ActionKind::Bow`] are named and priced here but not
-/// yet implemented -- they are reserved *now*, deliberately, so that landing them
-/// later moves no discriminant, no feature layout and no frame stride. Ask
-/// [`ActionKind::PLAYABLE`] for what the sim will actually run today.
+/// [`ActionKind::Run`] and [`ActionKind::Bow`] were named and priced here a
+/// release before they had rules, so that landing them moved no discriminant, no
+/// feature layout and no frame stride. It worked -- `FEATURE_LAYOUT_VERSION` did
+/// not move for either -- which is the argument for reserving the next one the
+/// same way. Ask [`ActionKind::PLAYABLE`] for what the sim will actually run.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Default)]
 pub enum ActionKind {
     /// The floor. No weapon at all, barely reaches past the knuckles, and
@@ -107,9 +128,11 @@ pub enum ActionKind {
     Club,
     /// A guard. Covers an arc, brakes a blow, and cannot answer one.
     Shield,
-    /// *Reserved.* Footspeed, and nothing in your hands.
+    /// Footspeed, and nothing in your hands. The only loadout in the game that
+    /// can neither cut, block nor parry.
     Run,
-    /// *Reserved.* Reach without a blade, paid for in telegraph.
+    /// Reach without a blade, paid for in telegraph -- and in standing still to
+    /// draw it, which is where the price actually lands. See `BowMind`.
     Bow,
     /// Hilt-heavy and short: the lowest inertia of anything with a real edge, so
     /// it is the one blade that reaches the arm's ceiling early and coasts.
@@ -143,13 +166,19 @@ impl ActionKind {
     /// Everything the sim will actually run today. The UI reads this rather than
     /// [`ActionKind::ALL`], so a reserved row cannot be handed to a fighter that
     /// has no rule for it.
-    pub const PLAYABLE: [ActionKind; 6] = [
+    ///
+    /// Appended to rather than re-ordered when a row lands, because
+    /// `web::action_code` hands the page an *index* into this array and a
+    /// reshuffle would move every menu entry sideways.
+    pub const PLAYABLE: [ActionKind; 8] = [
         ActionKind::Punch,
         ActionKind::Knife,
         ActionKind::Sword,
         ActionKind::Club,
         ActionKind::Shield,
         ActionKind::Shortsword,
+        ActionKind::Run,
+        ActionKind::Bow,
     ];
 
     /// Number of distinct actions; the width of the one-hot block.
@@ -187,9 +216,15 @@ impl ActionKind {
         }
     }
 
-    /// Whether the sim has a rule for this yet. `false` for the reserved rows.
+    /// Whether the sim has a rule for this yet.
+    ///
+    /// Every row is playable as of `Run` and `Bow` landing, so this is `true`
+    /// throughout. **Kept anyway, along with [`ActionKind::PLAYABLE`]**: the
+    /// seam is what lets the next row be priced, hashed and feature-encoded a
+    /// release before it has a rule, which is the whole reason those two landed
+    /// without moving a discriminant or a layout version.
     pub const fn is_playable(self) -> bool {
-        !matches!(self, ActionKind::Run | ActionKind::Bow)
+        true
     }
 
     #[inline]
@@ -408,8 +443,29 @@ pub const ACTIONS: [ActionSpec; ActionKind::COUNT] = [
         ready: 4,
         move_bonus: Fx::from_ratio(135, 100),
     },
-    // Bow -- RESERVED, not yet implemented. Needs projectile entities the world
-    // does not have; `length` is the draw, not the range.
+    // Bow. `length` is the **draw**, not the range: an arrow carries as far as
+    // its archer can see (`World::loose`), so reach is bought with perception
+    // rather than with a column here.
+    //
+    // **`move_bonus` stays at one, and that is a measured decision rather than a
+    // default.** Landing this row, an archer beat a sword-and-board mirror 80%
+    // of the time where every sword loadout scores 47%, and the cause was
+    // kiting: `BowMind` keeps station about three units out, and a fighter
+    // backing away at exactly its pursuer's speed can never be closed on, so
+    // thirty ticks of draw and twenty-two of recovery were being charged to an
+    // account that never came due.
+    //
+    // Slowing the row down was the obvious answer and it is a trap. Measured
+    // across three values it is a **cliff, not a slope** -- 0.70 wins 80%, 0.50
+    // wins 16%, 0.35 wins 2% -- because outrunning a pursuer is a threshold and
+    // not a gradient. Any number here is either "uncatchable" or "dead", there
+    // is no defensible middle, and the row would be hypersensitive to a footspeed
+    // change made anywhere else in the game for any other reason.
+    //
+    // The price belongs where the guard's already is: a drawing archer plants
+    // its feet, exactly as `GuardMind` does and for the same reason -- see
+    // `BowMind::drive`. Repositioning and shooting become alternatives, which is
+    // the trade this row was always supposed to be about.
     ActionSpec {
         role: Role::Shoot,
         length: Fx::from_ratio(30, 100),
@@ -541,14 +597,24 @@ mod tests {
                     assert_eq!(spec.arc, 0, "{} is not a guard", kind.name());
                 }
             }
+            // **Only a movement action may make you faster.** The bound is
+            // one-sided rather than an equality: a `Bow` is deliberately slower
+            // than empty hands, because an archer that retreats at its pursuer's
+            // speed can never be closed on and its telegraph costs it nothing.
+            // What must stay impossible is a row that quietly buys footspeed
+            // without being about footspeed.
             if !matches!(spec.role, Role::Move) {
-                assert_eq!(
-                    spec.move_bonus,
-                    Fx::ONE,
-                    "{} quietly changes footspeed",
+                assert!(
+                    spec.move_bonus <= Fx::ONE,
+                    "{} quietly buys footspeed without being a movement action",
                     kind.name()
                 );
             }
+            assert!(
+                spec.move_bonus.is_positive(),
+                "{} cannot be moved in at all",
+                kind.name()
+            );
         }
     }
 }
