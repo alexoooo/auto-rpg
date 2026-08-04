@@ -1,6 +1,6 @@
 use crate::Policy;
 use fx::{Fx, Rng};
-use sim::{Action, HandCommand, Intent, Observation, HANDS};
+use sim::{Command, Intent, LimbCommand, Observation};
 
 /// Does nothing. The control condition: any evolved policy that cannot beat
 /// this is not learning, and any fitness function that cannot tell them apart
@@ -9,13 +9,13 @@ use sim::{Action, HandCommand, Intent, Observation, HANDS};
 pub struct IdlePolicy;
 
 impl Policy for IdlePolicy {
-    fn decide(&mut self, _obs: &Observation) -> Action {
-        Action::HOLD
+    fn decide(&mut self, _obs: &Observation) -> Command {
+        Command::HOLD
     }
 }
 
 /// Flails. Useful as a noise floor and as a fuzzer -- a run against random
-/// actions exercises state transitions a sensible policy never reaches.
+/// commands exercises state transitions a sensible policy never reaches.
 #[derive(Clone, Debug)]
 pub struct RandomPolicy {
     rng: Rng,
@@ -30,7 +30,7 @@ impl RandomPolicy {
 }
 
 impl Policy for RandomPolicy {
-    fn decide(&mut self, obs: &Observation) -> Action {
+    fn decide(&mut self, obs: &Observation) -> Command {
         let move_dir = self.rng.unit_vec();
         let enemies = obs.enemies();
         let intent = if enemies.is_empty() || self.rng.chance(1, 4) {
@@ -38,17 +38,18 @@ impl Policy for RandomPolicy {
         } else {
             Intent::Attack(enemies[self.rng.below(enemies.len() as u32) as usize].id)
         };
-        // Hands flail too. A fuzzer that left them tucked would never exercise
-        // the swing, parry or block paths at all, which are now most of the
+        // The limb flails too. A fuzzer that left it tucked would never exercise
+        // the swing, parry or block paths at all, which are most of the
         // interesting state transitions in the sim.
-        let mut hands = [HandCommand::TUCKED; HANDS];
-        for hand in &mut hands {
-            *hand = HandCommand::new(self.rng.angle(), self.rng.range(Fx::ZERO, Fx::ONE));
-        }
-        Action {
+        let limb = LimbCommand::new(self.rng.angle(), self.rng.range(Fx::ZERO, Fx::ONE));
+        Command {
             move_dir,
             intent,
-            hands,
+            // Rolls a slot too. The swap gate is the newest state machine in the
+            // sim and this is the only thing in the crate that will hammer it
+            // from illegal phases on purpose.
+            slot: self.rng.below(2) as u8,
+            limb,
         }
     }
 }
@@ -84,8 +85,8 @@ mod tests {
             Vec2::ZERO,
             Order::Hold,
         );
-        let action = IdlePolicy.decide(&obs);
-        assert_eq!(action.move_dir.length(), Fx::ZERO);
-        assert_eq!(action.intent, Intent::Hold);
+        let command = IdlePolicy.decide(&obs);
+        assert_eq!(command.move_dir.length(), Fx::ZERO);
+        assert_eq!(command.intent, Intent::Hold);
     }
 }

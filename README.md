@@ -30,19 +30,20 @@ what matters more, which is the point.
 
 And you can lose. When your character falls the room does not reset: the things
 that killed it are still standing exactly where they were, and you send in a
-replacement — `1` for a warrior, `2` for a scout — to walk into the fight in
-progress. Which is worth choosing rather than defaulting. A scout thinks every
+replacement — `1` for a fighter, `2` for a rogue — to walk into the fight in
+progress. Which is worth choosing rather than defaulting. A rogue thinks every
 ten ticks instead of twelve and sees 14.4 units instead of 9.6, and falls over at
 52 health instead of 84; the same policy runs both. Watching the same room go
 differently is the shortest demonstration this project has that stats are wired
 into the AI rather than into a damage number.
 
-And they fight with their hands. Inspired by *Die by the Sword*, in 2D: a shield
-hand held wherever it is pointed, and a sword hand that does not take a bearing
-at all. It takes a **line** and a **release**, and runs four phases against them
-— guard, windup, strike, recovery. An attack therefore *announces itself*: a
+And they fight with **one hand**, holding one thing at a time. Inspired by *Die
+by the Sword*, in 2D: a body is a size and a stat sheet, and what it fights with
+is a separate choice -- a **loadout** of up to two actions, one of them in hand.
+A blade takes a **line** and a **release** and runs four phases against them --
+guard, windup, strike, recovery. An attack therefore *announces itself*: a
 Brute spends 33 ticks with its axe cocked back before the blade is dangerous,
-which is two or three chances for a Warrior to notice and answer, and none at all
+which is two or three chances for a Fighter to notice and answer, and none at all
 for another Brute. Past the telegraph the cut commits and the line freezes. Miss,
 and the recovery is a window in which the hand can do nothing at all.
 
@@ -58,7 +59,7 @@ Damage is the blade's **kinetic energy** where it happens to connect — ½mv²,
 the speed falling out of `spin × arm` — so every weapon hits hardest at the tip,
 every weapon has a radius inside which it cannot hurt anyone at all, and what
 happens between those two is a square rather than a line. A Brute's blow is worth
-five times as much at the end of its arc as it is to a Warrior pressed against its
+five times as much at the end of its arc as it is to a Fighter pressed against its
 chest, and the first two fifths of its haft are not worth swinging at all. That is
 what gives a light fighter something to do about a heavy one — and **where an
 enemy's blade stops being dangerous is now something you have to judge**, blurred
@@ -136,7 +137,7 @@ buckler and the axe barely notices while your guard is thrown wide open; catch a
 knife on a tower shield and the knife comes off it hard enough to be punished.
 Both numbers fall out of one calculation from the two moments of inertia, so
 they cannot contradict each other — which the pair of hand-set constants they
-replaced very much could, and did: the old rule had a Scout disturbing a guard
+replaced very much could, and did: the old rule had a Rogue disturbing a guard
 nearly four times as hard as a Brute.
 
 And being stopped costs *ground*. A blade reversed by a shield in a single tick
@@ -163,10 +164,11 @@ roster it never quite does, because bodies are wider than the gap. A Brute with 
 Skitterer pressed against its chest is down to a seventh of its best blow and that
 is still better than a shove.
 
-And you can take over. Two independent toggles, `C` and `V`: the feet, the sword,
-or both. WASD steers; the mouse aims the line and **click to cut** — one click,
-one attack, with the same windup and the same recovery the AI pays. `Shift`
-switches the pointer to the shield hand. Whichever half you do not hold, the AI
+And you can take over. Three independent toggles, `C`, `V` and `X`: the feet, the
+attack, and the choice of what to hold. WASD steers; the mouse aims the line and
+**click to cut** -- one click, one attack, with the same windup and the same
+recovery the AI pays. `1` and `2` change what is in your hand, and the swap costs
+the same ticks it costs the AI. Whichever half you do not hold, the AI
 keeps fighting with — on its own reaction clock, because that is a stat.
 
 And the number matches. `web.wasm` and the native lab produce the *same 64-bit
@@ -301,7 +303,7 @@ loop {
 }
 ```
 
-`Observation` in, `Action` out. A hand-authored utility AI, a neural policy, a
+`Observation` in, `Command` out. A hand-authored utility AI, a neural policy, a
 recorded log and a human all enter through the same door, and the sim cannot
 tell them apart. The player's "rough directions" are just another field on the
 observation — a standing `Order` per faction that agents interpret with whatever

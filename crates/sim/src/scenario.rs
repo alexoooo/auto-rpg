@@ -1,4 +1,5 @@
-use crate::entity::{Faction, UnitKind};
+use crate::entity::{Body, Faction};
+use crate::loadout::Loadout;
 use crate::rules::Stats;
 use fx::{Fx, Hash64, Rng, Vec2};
 
@@ -9,10 +10,33 @@ use fx::{Fx, Hash64, Rng, Vec2};
 /// [`World::new`]: crate::World::new
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct UnitSpec {
-    pub kind: UnitKind,
+    pub kind: Body,
     pub faction: Faction,
     pub stats: Stats,
+    /// What this unit brings to the fight, and which of it starts in hand
+    /// (always the primary). A body no longer implies a weapon, so this is the
+    /// other half of what used to be a single `kind`.
+    pub loadout: Loadout,
     pub spawn: Vec2,
+}
+
+impl UnitSpec {
+    /// Swaps in a different body, taking its stat sheet and its default loadout
+    /// with it.
+    ///
+    /// Exists because `spec.kind = other` is a **half-change** now, and a quiet
+    /// one. A body carries no weapon any more, so a bare assignment leaves the
+    /// new body holding whatever the old one brought -- which is a legal thing
+    /// to want and a terrible thing to get by accident. The first test that
+    /// tried it put a Fighter's sword in a Skitterer's hand and then asserted
+    /// things about "a Skitterer's knife".
+    ///
+    /// Override `stats` or `loadout` afterwards when that is the point.
+    pub fn set_body(&mut self, body: Body) {
+        self.kind = body;
+        self.stats = body.base_stats();
+        self.loadout = body.default_loadout();
+    }
 }
 
 /// A fully specified match setup.
@@ -37,15 +61,17 @@ impl Scenario {
             max_ticks: 60 * 60,
             units: vec![
                 UnitSpec {
-                    kind: UnitKind::Warrior,
+                    kind: Body::Fighter,
                     faction: Faction::Heroes,
-                    stats: UnitKind::Warrior.base_stats(),
+                    stats: Body::Fighter.base_stats(),
+                    loadout: Body::Fighter.default_loadout(),
                     spawn: Vec2::from_ints(6, 8),
                 },
                 UnitSpec {
-                    kind: UnitKind::Brute,
+                    kind: Body::Brute,
                     faction: Faction::Monsters,
-                    stats: UnitKind::Brute.base_stats(),
+                    stats: Body::Brute.base_stats(),
+                    loadout: Body::Brute.default_loadout(),
                     spawn: Vec2::from_ints(18, 8),
                 },
             ],
@@ -64,7 +90,7 @@ impl Scenario {
     ///
     /// [`Scenario::duel`] stays as it is -- fixed and hand-placed -- because
     /// tests that reason about exact positions need it to be.
-    pub fn duel_of(hero: UnitKind, villain: UnitKind, seed: u64) -> Scenario {
+    pub fn duel_of(hero: Body, villain: Body, seed: u64) -> Scenario {
         let arena = Vec2::from_ints(24, 16);
         let centre = arena * Fx::HALF;
         let mut rng = Rng::new(seed);
@@ -97,12 +123,14 @@ impl Scenario {
                     kind: hero,
                     faction: Faction::Heroes,
                     stats: hero.base_stats(),
+                    loadout: hero.default_loadout(),
                     spawn: centre - apart,
                 },
                 UnitSpec {
                     kind: villain,
                     faction: Faction::Monsters,
                     stats: villain.base_stats(),
+                    loadout: villain.default_loadout(),
                     spawn: centre + apart,
                 },
             ],
@@ -123,9 +151,10 @@ impl Scenario {
             arena: Vec2::from_ints(24, 16),
             max_ticks: u32::MAX,
             units: vec![UnitSpec {
-                kind: UnitKind::Warrior,
+                kind: Body::Fighter,
                 faction: Faction::Heroes,
-                stats: UnitKind::Warrior.base_stats(),
+                stats: Body::Fighter.base_stats(),
+                loadout: Body::Fighter.default_loadout(),
                 spawn: Vec2::from_ints(12, 8),
             }],
         }
@@ -151,14 +180,15 @@ impl Scenario {
 
         for _ in 0..heroes {
             let kind = if rng.chance(1, 3) {
-                UnitKind::Scout
+                Body::Rogue
             } else {
-                UnitKind::Warrior
+                Body::Fighter
             };
             units.push(UnitSpec {
                 kind,
                 faction: Faction::Heroes,
                 stats: kind.base_stats(),
+                loadout: kind.default_loadout(),
                 spawn: Vec2::new(
                     rng.range(Fx::from_int(3), Fx::from_int(12)),
                     rng.range(Fx::from_int(8), arena.y - Fx::from_int(8)),
@@ -168,14 +198,15 @@ impl Scenario {
 
         for _ in 0..monsters {
             let kind = if rng.chance(1, 4) {
-                UnitKind::Brute
+                Body::Brute
             } else {
-                UnitKind::Skitterer
+                Body::Skitterer
             };
             units.push(UnitSpec {
                 kind,
                 faction: Faction::Monsters,
                 stats: kind.base_stats(),
+                loadout: kind.default_loadout(),
                 spawn: Vec2::new(
                     rng.range(arena.x - Fx::from_int(12), arena.x - Fx::from_int(3)),
                     rng.range(Fx::from_int(8), arena.y - Fx::from_int(8)),
@@ -238,13 +269,13 @@ mod tests {
 
     #[test]
     fn a_seeded_duel_rotates_the_engagement() {
-        let a = Scenario::duel_of(UnitKind::Scout, UnitKind::Brute, 1);
-        let b = Scenario::duel_of(UnitKind::Scout, UnitKind::Brute, 2);
+        let a = Scenario::duel_of(Body::Rogue, Body::Brute, 1);
+        let b = Scenario::duel_of(Body::Rogue, Body::Brute, 2);
         assert_ne!(
             a.units[0].spawn, b.units[0].spawn,
             "the seed must change the geometry, not only the noise"
         );
-        assert_eq!(a, Scenario::duel_of(UnitKind::Scout, UnitKind::Brute, 1));
+        assert_eq!(a, Scenario::duel_of(Body::Rogue, Body::Brute, 1));
 
         for s in [&a, &b] {
             assert_eq!(s.count(Faction::Heroes), 1);
@@ -257,7 +288,7 @@ mod tests {
             // game, so a duel starts as a duel rather than as a search.
             let gap = (s.units[0].spawn - s.units[1].spawn).length();
             assert!((gap - Fx::from_int(6)).abs() < Fx::ONE, "gap {gap}");
-            let shortest = UnitKind::ALL
+            let shortest = Body::ALL
                 .iter()
                 .map(|k| k.base_stats().sight_range())
                 .fold(Fx::MAX, Fx::min);

@@ -38,7 +38,7 @@
         <div class="hud-vitals">
           <div class="who">
             <span class="dot"></span>
-            <span id="unit-name">warrior</span>
+            <span id="unit-name">fighter</span>
             <span class="hp-bar"><span id="hp-fill"></span></span>
             <span class="hp" id="unit-hp">84 / 84 hp</span>
           </div>
@@ -53,8 +53,8 @@
                one click. This is a replacement, not a restart -- the monsters
                stay exactly where they were, and so does the clock. -->
           <div class="buttons swap" id="swap-row" hidden>
-            <button type="button" id="btn-swap-warrior">Send in a warrior</button>
-            <button type="button" id="btn-swap-scout">Send in a scout</button>
+            <button type="button" id="btn-swap-fighter">Send in a fighter</button>
+            <button type="button" id="btn-swap-rogue">Send in a rogue</button>
           </div>
         </div>
 
@@ -68,8 +68,25 @@
           <button type="button" class="chip toggle" id="btn-control-feet" aria-pressed="false">
             Feet <kbd>C</kbd>
           </button>
-          <button type="button" class="chip toggle" id="btn-control-sword" aria-pressed="false">
-            Sword <kbd>V</kbd>
+          <button type="button" class="chip toggle" id="btn-control-limb" aria-pressed="false">
+            Attack <kbd>V</kbd>
+          </button>
+          <!-- Separate from Attack because choosing what to hold and choosing
+               when to swing are different decisions, and being able to take one
+               without the other is most of what this page teaches. Taking the
+               attack switches this on too -- a player who could swing but not
+               choose would watch the AI put a shield in their hand mid-cut. -->
+          <button type="button" class="chip toggle" id="btn-control-slot" aria-pressed="false">
+            Action <kbd>X</kbd>
+          </button>
+          <!-- Which of the two things in the bag is in the hand. Reads off the
+               frame rather than off what was last clicked, because the sim
+               refuses a swap mid-cut and the chip has to show what is true. -->
+          <button type="button" class="chip toggle" id="btn-slot-0" aria-pressed="true">
+            <span id="slot-0-name">primary</span> <kbd>1</kbd>
+          </button>
+          <button type="button" class="chip toggle" id="btn-slot-1" aria-pressed="false">
+            <span id="slot-1-name">secondary</span> <kbd>2</kbd>
           </button>
         </div>
       </div>
@@ -90,6 +107,47 @@
           <!-- The point of the whole page: every row is a stat, and every stat
                names the thing about the AI that it changes. -->
           <dl class="stats" id="stats"></dl>
+        </section>
+
+        <!-- What the character is carrying. A body is a size and a stat sheet
+             now; what it fights with is a separate choice, and this is where it
+             is made. Two slots, one in hand at a time, and the swap between them
+             costs real ticks -- which is the whole reason the choice is
+             interesting rather than a menu. -->
+        <section class="panel">
+          <h2>Loadout</h2>
+          <div class="mind">
+            <label for="loadout-0">Primary</label>
+            <select id="loadout-0"></select>
+          </div>
+          <div class="mind">
+            <label for="loadout-1">Secondary</label>
+            <select id="loadout-1"></select>
+          </div>
+          <dl class="readout" id="loadout-readout"></dl>
+        </section>
+
+        <!-- A body and a kit, chosen separately. The pairing is the point: the
+             question "what does a Brute with a knife play like" had no
+             representation at all before, and this is where it gets asked. -->
+        <section class="panel">
+          <h2>Spawn</h2>
+          <div class="mind">
+            <label for="spawn-body">Body</label>
+            <select id="spawn-body"></select>
+          </div>
+          <div class="mind">
+            <label for="spawn-primary">Primary</label>
+            <select id="spawn-primary"></select>
+          </div>
+          <div class="mind">
+            <label for="spawn-secondary">Secondary</label>
+            <select id="spawn-secondary"></select>
+          </div>
+          <div class="buttons">
+            <button type="button" id="btn-spawn">Send one in</button>
+            <button type="button" id="btn-swap-in">Take this body</button>
+          </div>
         </section>
 
         <section class="panel">
@@ -160,18 +218,25 @@
             </li>
             <li>
               <kbd>1</kbd><kbd>2</kbd>
-              <span>Send in a warrior or a scout &mdash; once yours has fallen.</span>
+              <span>
+                Choose which of the two things you are carrying is in your hand. The swap
+                costs real ticks and is refused mid-cut, so it is a decision and not a menu.
+              </span>
             </li>
             <li>
-              <kbd>C</kbd><kbd>V</kbd>
-              <span>Take the feet or the sword &mdash; either alone, or both.</span>
+              <kbd>C</kbd><kbd>V</kbd><kbd>X</kbd>
+              <span>
+                Take the feet, the attack, or the choice of what to hold &mdash; any of them
+                alone, or all three. Taking the attack takes the choice with it.
+              </span>
             </li>
             <li>
               <kbd>WASD</kbd><kbd>mouse</kbd>
               <span>
                 Move and aim, once you have taken them. Click to cut along the line you are
                 pointing at &mdash; one click, one attack, with a windup you can be punished
-                during. Hold <kbd>Shift</kbd> to steer the shield instead.
+                during. Holding a guard instead of a blade is a matter of what is in your
+                hand, not a modifier key &mdash; see the Loadout panel.
               </span>
             </li>
             <li>
@@ -198,7 +263,7 @@
           12 ticks away for this one. The marker stays dim until it does, and that delay
           <em>is</em> the intellect stat. Send something in and it will break off the walk to
           fight: a visible enemy outranks your order, and that is the whole idea. Lose, and
-          the room stays as it is &mdash; send in a warrior or a scout and watch the same
+          the room stays as it is &mdash; send in a fighter or a rogue and watch the same
           fight go differently on the same stats.
         </p>
       </div>

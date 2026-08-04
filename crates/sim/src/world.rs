@@ -1,9 +1,11 @@
-use crate::action::{Action, Intent, Order};
-use crate::entity::{EntityId, Faction, UnitKind};
+use crate::command::{Command, Intent, Order};
+use crate::action::{ActionKind, ActionSpec};
+use crate::loadout::Loadout;
+use crate::entity::{EntityId, Faction, Body};
 use crate::event::Event;
-use crate::hand::{Hand, Swing, HANDS, SHIELD, SWORD};
+use crate::hand::{Hand, Swing};
 use crate::obs::{Contact, Observation};
-use crate::rules::{self, Stats, Weapon, MAX_CONTACTS};
+use crate::rules::{self, Stats, MAX_CONTACTS};
 use crate::scenario::{Scenario, UnitSpec};
 use fx::{Angle, Fx, Hash64, Rng, Vec2};
 
@@ -57,7 +59,7 @@ pub struct World {
 
     generation: Vec<u32>,
     alive: Vec<bool>,
-    kind: Vec<UnitKind>,
+    kind: Vec<Body>,
     faction: Vec<Faction>,
     stats: Vec<Stats>,
     pos: Vec<Vec2>,
@@ -72,16 +74,20 @@ pub struct World {
     vel: Vec<Vec2>,
     facing: Vec<Angle>,
     radius: Vec<Fx>,
-    /// Body mass, with a Warrior as the unit. Cached beside [`World::radius`]
+    /// Body mass, with a Fighter as the unit. Cached beside [`World::radius`]
     /// for the same reason: it is fixed for the life of the entity and read in
     /// the tick's innermost loops. Derived from [`World::kind`], so it is not
     /// hashed -- what is hashed is the kind it came from.
     mass: Vec<Fx>,
     hp: Vec<Fx>,
     max_hp: Vec<Fx>,
-    hands: Vec<[Hand; HANDS]>,
+    limb: Vec<Hand>,
+    /// What each unit brought. See `crate::Loadout`.
+    loadout: Vec<Loadout>,
+    /// Which loadout slot is in hand. Always `0` until the swap lands.
+    slot: Vec<u8>,
     next_decision: Vec<u32>,
-    action: Vec<Action>,
+    command: Vec<Command>,
     last_attacker: Vec<EntityId>,
     /// Tick of the last blow dealt or received; gates regeneration.
     last_combat: Vec<u32>,
@@ -133,7 +139,7 @@ struct Blow {
 #[derive(Clone, Copy)]
 struct Impulse {
     entity: usize,
-    hand: usize,
+
     /// Multiplies the existing spin. Negative values reverse the swing.
     scale: Fx,
     /// Added after scaling, in raw angle units per tick.
@@ -164,9 +170,11 @@ impl World {
             mass: Vec::with_capacity(n),
             hp: Vec::with_capacity(n),
             max_hp: Vec::with_capacity(n),
-            hands: Vec::with_capacity(n),
+            limb: Vec::with_capacity(n),
+            loadout: Vec::with_capacity(n),
+            slot: Vec::with_capacity(n),
             next_decision: Vec::with_capacity(n),
-            action: Vec::with_capacity(n),
+            command: Vec::with_capacity(n),
             last_attacker: Vec::with_capacity(n),
             last_combat: Vec::with_capacity(n),
             regen_left: Vec::with_capacity(n),
@@ -205,9 +213,11 @@ impl World {
                 self.mass.push(spec.kind.mass());
                 self.hp.push(max_hp);
                 self.max_hp.push(max_hp);
-                self.hands.push([Hand::default(); HANDS]);
+                self.limb.push(Hand::default());
+                self.loadout.push(Loadout::single(ActionKind::Punch));
+                self.slot.push(0);
                 self.next_decision.push(0);
-                self.action.push(Action::HOLD);
+                self.command.push(Command::HOLD);
                 self.last_attacker.push(EntityId::NONE);
                 self.last_combat.push(0);
                 self.regen_left.push(Fx::ZERO);
@@ -233,13 +243,15 @@ impl World {
         // Both hands start at rest along the body's bearing, so a fresh
         // character is on guard rather than mid-swing -- and a Hero and a
         // Monster start mirrored, which is the same asymmetry `facing` has.
-        self.hands[i] = [Hand::resting(bearing); HANDS];
+        self.limb[i] = Hand::resting(bearing);
+        self.loadout[i] = spec.loadout;
+        self.slot[i] = 0;
         self.radius[i] = spec.kind.radius();
         self.mass[i] = spec.kind.mass();
         self.hp[i] = max_hp;
         self.max_hp[i] = max_hp;
         self.next_decision[i] = self.tick;
-        self.action[i] = Action::HOLD;
+        self.command[i] = Command::HOLD;
         self.last_attacker[i] = EntityId::NONE;
         self.last_combat[i] = self.tick;
         self.regen_left[i] = max_hp * rules::REGEN_BUDGET;
@@ -251,7 +263,7 @@ impl World {
 
     // ---------------------------------------------------------------- agent boundary
 
-    /// Entities whose decision clock has come due. Ask each one for an action
+    /// Entities whose decision clock has come due. Ask each one for a command
     /// via [`World::observe`] + [`World::submit`], then [`World::step`].
     #[inline]
     pub fn pending_decisions(&self) -> &[EntityId] {
@@ -280,13 +292,13 @@ impl World {
             self.orders[self.faction[i].index()],
         );
 
-        let weapon = self.kind[i].weapon();
+        let spec = self.action_of(i).spec();
         obs.hp_frac = self.hp_frac(i);
         obs.radius = self.radius[i];
-        obs.weapon_length = weapon.length;
-        obs.shield_arc = weapon.shield_arc;
+        obs.action_length = spec.length;
+        obs.action_arc = spec.arc;
         obs.min_strike_range = self.dead_zone(i);
-        obs.hands = self.hands[i];
+        obs.limb = self.limb[i];
         obs.sight_range = stats.sight_range();
         obs.move_speed = stats.move_speed();
         obs.traction = stats.traction();
@@ -297,14 +309,21 @@ impl World {
         // whatever is stopping it. A hand back at guard but not re-armed reports
         // *zero* rather than one: it is physically ready and the policy is not,
         // and that is a distinction worth being able to see.
+        obs.held = self.action_of(i);
+        obs.slot = self.slot[i];
+        obs.stowed = self.stowed_of(i);
+        obs.swap_ticks = self.swap_ticks(i);
         obs.attack_ready = {
-            let sword = self.hands[i][SWORD];
-            match sword.swing {
-                Swing::Guard if sword.armed => Fx::ONE,
+            let limb = self.limb[i];
+            match limb.swing {
+                // A limb with nothing to strike with is never ready, whatever
+                // phase it happens to be sitting in.
+                _ if !spec.role.is_live_capable() => Fx::ZERO,
+                Swing::Guard if limb.armed => Fx::ONE,
                 Swing::Guard => Fx::ZERO,
                 // Capped below one so no unready phase can ever claim to be
                 // ready, however close to the end of itself it is.
-                _ => sword.phase_progress(self.arm(i)) * Fx::from_ratio(9, 10),
+                _ => limb.phase_progress(self.arm(i)) * Fx::from_ratio(9, 10),
             }
         };
         obs.wall_clearance = [
@@ -362,9 +381,9 @@ impl World {
 
     /// Records `id`'s decision and pushes its next decision tick out by its
     /// [`Stats::decision_period`]. Stale handles are ignored.
-    pub fn submit(&mut self, id: EntityId, action: Action) {
+    pub fn submit(&mut self, id: EntityId, command: Command) {
         if let Some(i) = self.resolve(id) {
-            self.action[i] = action;
+            self.command[i] = command;
             self.next_decision[i] = self.tick + self.stats[i].decision_period() as u32;
         }
     }
@@ -378,6 +397,39 @@ impl World {
 
     pub fn order(&self, faction: Faction) -> Order {
         self.orders[faction.index()]
+    }
+
+    /// What `id` is carrying.
+    pub fn loadout(&self, id: EntityId) -> Option<Loadout> {
+        self.resolve(id).map(|i| self.loadout[i])
+    }
+
+    /// Which loadout slot `id` currently has in hand, and what that is.
+    pub fn held(&self, id: EntityId) -> Option<(u8, ActionKind)> {
+        self.resolve(id).map(|i| (self.slot[i], self.action_of(i)))
+    }
+
+    /// Rewrites what `id` is carrying.
+    ///
+    /// Input bookkeeping, exactly as [`World::set_order`] is: the page owns a
+    /// character's kit and the sim only carries it. Answers `false` for a handle
+    /// that no longer resolves.
+    ///
+    /// The slot is **not** reset. Rewriting the stowed slot leaves a fighter
+    /// holding what it was holding, which is the whole point of being able to do
+    /// it mid-fight; rewriting the held slot changes the thing in its hand on
+    /// the spot, and it is the caller's business whether that is fair.
+    pub fn set_loadout(&mut self, id: EntityId, loadout: Loadout) -> bool {
+        match self.resolve(id) {
+            Some(i) => {
+                self.loadout[i] = loadout;
+                if !loadout.holds(self.slot[i] as usize) {
+                    self.slot[i] = 0;
+                }
+                true
+            }
+            None => false,
+        }
     }
 
     // ---------------------------------------------------------------- the tick
@@ -411,7 +463,7 @@ impl World {
         self.regenerate();
         self.apply_movement();
         self.separate();
-        self.drive_hands();
+        self.drive_limbs();
         self.resolve_parries();
         self.resolve_swings();
         self.apply_recoil();
@@ -422,7 +474,7 @@ impl World {
     }
 
     /// An agent that was offered a decision and given none keeps its standing
-    /// action, but its clock still advances -- otherwise it would be re-offered
+    /// command, but its clock still advances -- otherwise it would be re-offered
     /// every tick forever.
     fn expire_unanswered_decisions(&mut self) {
         for k in 0..self.pending.len() {
@@ -496,7 +548,7 @@ impl World {
         false
     }
 
-    /// Steers each body toward the velocity its action asked for, then moves it.
+    /// Steers each body toward the velocity its command asked for, then moves it.
     ///
     /// The commanded direction is a request for a *velocity*, not a
     /// displacement, and [`Stats::traction`] bounds how much of the difference
@@ -517,8 +569,13 @@ impl World {
                 continue;
             }
             self.start_pos[i] = self.pos[i];
-            let dir = self.action[i].move_dir.clamp_length(Fx::ONE);
-            let want = dir * self.stats[i].move_speed();
+            let dir = self.command[i].move_dir.clamp_length(Fx::ONE);
+            // What is in hand can buy footspeed. `move_bonus` is exactly
+            // `Fx::ONE` for every action that is not a movement one, so this
+            // multiply is the identity for the whole current roster and moves no
+            // hash -- it is here so that landing `Run` is a one-row edit to the
+            // registry rather than a change to the movement rule.
+            let want = dir * self.stats[i].move_speed() * self.action_of(i).spec().move_bonus;
             let change = (want - self.vel[i]).clamp_length(self.stats[i].traction());
             self.vel[i] += change;
             self.clamp_body(i, self.pos[i] + self.vel[i]);
@@ -537,29 +594,55 @@ impl World {
         }
     }
 
-    /// Steps both hands: the sword through its attack phases, the shield
-    /// straight at whatever bearing it was pointed.
+    /// Steps every limb against whatever it is holding.
     ///
     /// This is also where every attack clock ticks down, which is why there is
     /// no cooldown phase in [`World::step`] any more. Putting the countdown
-    /// anywhere else would let a hand be observed in a phase it had already
+    /// anywhere else would let a limb be observed in a phase it had already
     /// left, or bill a blow on a windup that ran out earlier in the same tick.
-    fn drive_hands(&mut self) {
+    fn drive_limbs(&mut self) {
         for i in 0..self.alive.len() {
             if !self.alive[i] {
                 self.blade_was[i] = None;
                 self.blade_p[i] = Fx::ZERO;
                 continue;
             }
-            // Snapshot before stepping: the body has already moved this tick but
-            // the hand has not, so this pair is exactly where the blade was when
-            // the last tick ended.
-            self.blade_was[i] = self.blade_from(i, self.start_pos[i], self.hands[i][SWORD]);
+            // 1. Snapshot before anything, and **against the outgoing action**.
+            //
+            // The body has already moved this tick but the limb has not, so
+            // this pair is exactly where the blade was when the last tick
+            // ended. Order matters more than it looks: a chambered blade sits
+            // at `GUARD_REACH` (0.30), which is above `MIN_STRIKE_REACH`, so it
+            // is a real segment that `resolve_parries` will test. Flipping the
+            // slot first would sweep a club-length segment from where a knife
+            // was and bill a parry on a blade that never existed.
+            self.blade_was[i] = self.blade_from(i, self.start_pos[i], self.limb[i]);
             self.blade_p[i] = self.blade_momentum(i);
+
+            // 2. Then honour a swap request, if the limb is in any state to
+            //    hear one. Three ways to be refused, and all three are silent:
+            //    a slot this fighter does not carry, the slot already in hand,
+            //    or a limb that is mid-attack. The last is the load-bearing one
+            //    -- a swap out of a committed cut would make overcommitting
+            //    free, and the punish window is half the model.
+            let want = self.command[i].slot as usize;
+            if want != self.slot[i] as usize
+                && self.limb[i].swing == Swing::Guard
+                && self.loadout[i].holds(want)
+            {
+                // The slot flips *now*, not when the swap lands. `Swing::Swap`
+                // alone carries "nothing is live", and resolving the arm
+                // against the incoming action is what makes its `ready` cost
+                // and its extend rate the numbers that actually run.
+                self.slot[i] = want as u8;
+                let incoming = self.arm(i);
+                self.limb[i].begin_swap(incoming);
+            }
+
+            // 3. Then drive, against whatever is in hand now.
             let arm = self.arm(i);
-            let commands = self.action[i].hands;
-            self.hands[i][SWORD].wield(commands[SWORD], arm);
-            self.hands[i][SHIELD].brace(commands[SHIELD], arm);
+            let cmd = self.command[i].limb;
+            self.limb[i].drive(cmd, arm);
         }
     }
 
@@ -672,13 +755,13 @@ impl World {
                     continue;
                 }
                 // Somebody has to have actually swung.
-                if !self.hands[i][SWORD].swing.is_live() && !self.hands[j][SWORD].swing.is_live() {
+                if !self.limb[i].swing.is_live() && !self.limb[j].swing.is_live() {
                     continue;
                 }
                 // Two blades merely resting against each other are not a parry.
                 // Without a speed floor a crossed pair would fire an event
                 // every tick for as long as they stayed lined up.
-                let closing = self.hands[i][SWORD].spin.abs() + self.hands[j][SWORD].spin.abs();
+                let closing = self.limb[i].spin.abs() + self.limb[j].spin.abs();
                 if closing < rules::PARRY_MIN_SPIN {
                     continue;
                 }
@@ -695,11 +778,11 @@ impl World {
                 // weapon wins the crossing, which is what a parry ought to be a
                 // question about and previously was not.
                 let (mine, theirs) =
-                    self.deflect(i, SWORD, j, SWORD, at, rules::PARRY_RESTITUTION);
+                    self.deflect(i, j, at, rules::PARRY_RESTITUTION);
                 for (e, add) in [(i, mine), (j, theirs)] {
                     self.impulses.push(Impulse {
                         entity: e,
-                        hand: SWORD,
+
                         scale: Fx::ONE,
                         add,
                         recover: Some(rules::PARRY_RECOVERY),
@@ -720,9 +803,17 @@ impl World {
     /// A recovering hand is not. That phase is the punish window, and a blade
     /// that could still swat cuts aside on its way back to guard would not be
     /// much of one.
+    ///
+    /// Neither is a guard, and that consequence is worth stating plainly because
+    /// it is a real cost rather than a technicality: **a shield cannot parry**.
+    /// A fighter behind one has no answer to a crossed blade except to take it
+    /// on the arc, and no way to punish the crossing. That is what the loadout
+    /// is *for* -- if a guard could do both jobs there would be nothing to
+    /// choose between.
     #[inline]
     fn can_parry(&self, i: usize) -> bool {
-        self.hands[i][SWORD].swing != Swing::Recover
+        self.action_of(i).spec().role.is_live_capable()
+            && !matches!(self.limb[i].swing, Swing::Recover | Swing::Swap)
     }
 
     /// Blade against body: the whole of damage.
@@ -752,7 +843,7 @@ impl World {
 
         // ---- pass 1: read-only
         for i in 0..self.alive.len() {
-            if !self.alive[i] || !self.hands[i][SWORD].swing.is_live() {
+            if !self.alive[i] || !self.limb[i].swing.is_live() {
                 continue;
             }
             let (base, tip) = match self.blade(i) {
@@ -762,8 +853,8 @@ impl World {
             // A blade with no history is tested where it is, which is what the
             // un-swept version did for everything.
             let (was_base, was_tip) = self.blade_was[i].unwrap_or((base, tip));
-            let weapon = self.kind[i].weapon();
-            let sweep = self.radius[i] + weapon.length;
+            let spec = self.action_of(i).spec();
+            let sweep = self.radius[i] + spec.length;
             let power = rules::power_multiplier(self.stats[i].power);
             let travelled = self.pos[i] - self.start_pos[i];
             // What this blade has to be worth here to count as a cut rather
@@ -804,7 +895,7 @@ impl World {
                 };
 
                 let impact = self.impact_speed(i, j, hit.point);
-                let mut full = rules::blow_damage(weapon.mass, impact, power);
+                let mut full = rules::blow_damage(spec.mass, impact, power);
                 if !full.is_positive() {
                     continue; // resting, withdrawing, or merely leaning on them
                 }
@@ -816,7 +907,7 @@ impl World {
                 // damage model that depends on what the *target* is doing, and
                 // it is what makes timing an attack worth more than throwing
                 // one; see `rules::RECOVERY_EXPOSURE`.
-                if self.hands[j][SWORD].swing == Swing::Recover {
+                if self.limb[j].swing == Swing::Recover {
                     full *= rules::RECOVERY_EXPOSURE;
                 }
                 let leak = self.block_leak(j, hit.point);
@@ -847,17 +938,17 @@ impl World {
                     // knife aside is thrown wide open by an axe -- see
                     // `World::deflect`.
                     let (rebound, knock) =
-                        self.deflect(i, SWORD, j, SHIELD, hit.point, rules::BLOCK_RESTITUTION);
+                        self.deflect(i, j, hit.point, rules::BLOCK_RESTITUTION);
                     self.impulses.push(Impulse {
                         entity: i,
-                        hand: SWORD,
+
                         scale: Fx::ONE,
                         add: rebound,
                         recover: Some(rules::BLOCK_RECOVERY),
                     });
                     self.impulses.push(Impulse {
                         entity: j,
-                        hand: SHIELD,
+
                         scale: Fx::ONE,
                         add: knock,
                         recover: None,
@@ -869,7 +960,7 @@ impl World {
                     // expressed as the thing it always meant.
                     self.impulses.push(Impulse {
                         entity: i,
-                        hand: SWORD,
+
                         scale: Fx::ONE,
                         add: Fx::ZERO,
                         recover: Some(0),
@@ -925,12 +1016,12 @@ impl World {
     /// which is the same "worst of" rule the old refractory used and keeps the
     /// result independent of which landed first.
     fn apply_impulses(&mut self) {
-        self.impulses.sort_by_key(|im| (im.entity, im.hand));
+        self.impulses.sort_by_key(|im| im.entity);
         for k in 0..self.impulses.len() {
             let im = self.impulses[k];
             let arm = self.arm(im.entity);
             let ceiling = arm.cap;
-            let hand = &mut self.hands[im.entity][im.hand];
+            let hand = &mut self.limb[im.entity];
             hand.spin = (hand.spin * im.scale + im.add).clamp(-ceiling, ceiling);
             if let Some(extra) = im.recover {
                 // Only a hand *already* recovering has a countdown worth
@@ -1004,7 +1095,7 @@ impl World {
             // add, while traction can only shed a fixed amount per tick. At a
             // quarter transfer that came to well over a body's top speed
             // accumulated across a single cut -- a fighter physically could not
-            // close on anything while swinging at it, Scout mirror duels stopped
+            // close on anything while swinging at it, Rogue mirror duels stopped
             // landing blows, and 86% of them ended in a draw at full health.
             // With a threshold the smooth part of a swing is simply held, which
             // is the correct answer and the one every swordsman demonstrates.
@@ -1014,7 +1105,7 @@ impl World {
             }
             // Along where the blade is pointing *now*: the impulse is billed at
             // the bottom of the tick, so it is billed where the blade ended up.
-            let along = Vec2::from_angle(self.hands[i][SWORD].angle).perp();
+            let along = Vec2::from_angle(self.limb[i].angle).perp();
             self.vel[i] -= along * (slipped * recoil.signum());
         }
     }
@@ -1028,7 +1119,7 @@ impl World {
             let killer = self.last_attacker[i];
             self.alive[i] = false;
             self.generation[i] = self.generation[i].wrapping_add(1);
-            self.action[i] = Action::HOLD;
+            self.command[i] = Command::HOLD;
             self.free.push(i as u32);
             self.events.push(Event::Death { entity, killer });
         }
@@ -1078,7 +1169,7 @@ impl World {
     /// A draw was the honest answer while the clock was the only thing that
     /// could end a fight neither side was winning. It is the wrong answer for a
     /// *difficulty* ladder, because every step down that ladder converts a loss
-    /// into a timeout rather than into a defeat: measured, a Warrior slowed to a
+    /// into a timeout rather than into a defeat: measured, a Fighter slowed to a
     /// 40-tick decision period drew 12% of its fights and one slowed to 60 drew
     /// 20%, so the bottom of the range stopped being "loses" and became
     /// "wanders off". A fighter that spent two and a half minutes being carved
@@ -1167,7 +1258,7 @@ impl World {
 
     /// Fingerprint of the complete simulation state.
     ///
-    /// This is the determinism test. Run the same scenario, seed and action
+    /// This is the determinism test. Run the same scenario, seed and command
     /// sequence natively and in wasm; if these two numbers differ, something
     /// in the stack is not as portable as it claims.
     pub fn state_hash(&self) -> u64 {
@@ -1194,14 +1285,18 @@ impl World {
             // in phase produce different angles one tick later, and a replay
             // that did not fingerprint it would diverge with nothing to point
             // at.
-            for hand in self.hands[i] {
-                hand.hash_into(&mut h);
-            }
+            self.limb[i].hash_into(&mut h);
+            // The loadout and the slot are state the sim acts on, and the page
+            // can change both -- so a run in which a fighter swapped and one in
+            // which it did not must not fingerprint alike. The same argument
+            // `Order::hash_into` makes for a destination.
+            self.loadout[i].hash_into(&mut h);
+            h.write_u8(self.slot[i]);
             h.write_u32(self.next_decision[i]);
             h.write_u32(self.last_combat[i]);
             h.write_i32(self.regen_left[i].raw());
             h.write_i32(self.damage_dealt[i].raw());
-            self.action[i].hash_into(&mut h);
+            self.command[i].hash_into(&mut h);
         }
         h.finish()
     }
@@ -1242,13 +1337,55 @@ impl World {
         rules::dead_zone(self.arm(i))
     }
 
-    /// `i`'s weapon resolved against `i`'s body and stats.
+    /// **What `i` is holding.**
+    ///
+    /// The single lookup that replaced `kind.weapon()`. Everything that used to
+    /// ask a unit's archetype what it fights with asks this instead, and the
+    /// answer can now change mid-fight.
+    ///
+    /// Falls back to the primary for a slot that is somehow empty. That cannot
+    /// happen -- a slot is only ever set to one the loadout holds -- but this is
+    /// on the path a corrupt replay takes, and the sim is total by policy: a
+    /// nonsense slot produces a fighter holding its main weapon rather than a
+    /// panic three frames into playback.
+    #[inline]
+    fn action_of(&self, i: usize) -> ActionKind {
+        self.loadout[i]
+            .slot(self.slot[i] as usize)
+            .unwrap_or(self.loadout[i].primary)
+    }
+
+    /// What `i` has in its other slot, if it has one.
+    #[inline]
+    fn stowed_of(&self, i: usize) -> Option<ActionKind> {
+        let other = 1 - self.slot[i].min(1);
+        self.loadout[i].slot(other as usize)
+    }
+
+    /// Ticks it would cost `i` to bring its stowed action out, resolved against
+    /// its agility. Zero when there is nothing to swap to.
+    ///
+    /// Charged against the *incoming* action rather than the outgoing one: you
+    /// drop what you are holding instantly and pay for what you are drawing,
+    /// which is why a club is slow to bring up and quick to abandon.
+    fn swap_ticks(&self, i: usize) -> u16 {
+        match self.stowed_of(i) {
+            Some(next) => rules::phase_ticks(
+                next.spec().ready,
+                rules::agility_multiplier(self.stats[i].agility),
+            ),
+            None => 0,
+        }
+    }
+
+    /// `i`'s action resolved against `i`'s body and stats.
     ///
     /// Cheap enough to build per call -- four multiplies -- and building it per
-    /// call is what keeps it impossible to hold a stale one, which matters
-    /// because it is derived from three separate arrays.
+    /// call is what keeps it impossible to hold a stale one. That mattered when
+    /// it was derived from three separate arrays; it matters more now that one
+    /// of them is a slot a fighter can change while the arm is being used.
     fn arm(&self, i: usize) -> rules::Arm {
-        rules::Arm::resolve(self.kind[i].weapon(), self.stats[i], self.radius[i])
+        rules::Arm::resolve(self.action_of(i).spec(), self.stats[i], self.radius[i])
     }
 
     /// The hardest single blow `i` can land: tip, top spin, nothing in the way.
@@ -1256,7 +1393,7 @@ impl World {
     /// Absolute health, so it never leaves this crate in this form -- the two
     /// places it surfaces ([`Contact::threat`], [`Contact::frailty`]) both
     /// divide it by a maximum first. Which maximum is the whole point: the same
-    /// axe is a third of a Warrior and three quarters of a Skitterer, and that
+    /// axe is a third of a Fighter and three quarters of a Skitterer, and that
     /// ratio is the thing worth perceiving.
     fn peak_damage(&self, i: usize) -> Fx {
         rules::peak_damage(self.arm(i), self.stats[i])
@@ -1296,7 +1433,7 @@ impl World {
     ///
     /// It is the one number a fighter cannot work out for itself from anything
     /// else in the observation. Recoil goes as `weapon_mass / body_mass`, and
-    /// neither of those is a percept -- `weapon_length` and `radius` are the
+    /// neither of those is a percept -- `action_length` and `radius` are the
     /// visible proxies and both lie, because balance and density are real and
     /// independent. A Skitterer's knife is the second-heaviest thing in the game
     /// for its speed on the lightest body in it.
@@ -1328,7 +1465,7 @@ impl World {
     /// The early out is both the semantics and the fast path: "tucked" means
     /// something mechanically, and it costs nothing to check.
     fn blade(&self, i: usize) -> Option<(Vec2, Vec2)> {
-        self.blade_from(i, self.pos[i], self.hands[i][SWORD])
+        self.blade_from(i, self.pos[i], self.limb[i])
     }
 
     /// [`World::blade`] for a body and hand that are not the current ones.
@@ -1337,40 +1474,75 @@ impl World {
     /// [`World::start_pos`] and the un-stepped hand, which is the other end of
     /// the sweep in [`World::resolve_swings`].
     fn blade_from(&self, i: usize, pos: Vec2, hand: Hand) -> Option<(Vec2, Vec2)> {
+        let spec = self.action_of(i).spec();
+        // **A guard is not a blade.** It has a length and it is out in front of
+        // the body, and neither of those makes it a hitbox. `MIN_STRIKE_REACH`
+        // used to be the only thing separating "tucked" from "dangerous", which
+        // was fine while every unit in the game held a sword; the role is the
+        // honest separator now that some of them hold a shield.
+        if !spec.role.is_live_capable() {
+            return None;
+        }
+        // Mid-swap there is nothing in the hand yet. The tucked reach below
+        // would catch this anyway, on the tick after the swap begins; saying it
+        // outright means the blade vanishes on the *same* tick the fighter
+        // reached for something else, which is what "nothing is live" has to
+        // mean if the swap is going to be a real price.
+        if hand.swing.is_dormant() {
+            return None;
+        }
         if hand.reach < rules::MIN_STRIKE_REACH {
             return None;
         }
         let along = Vec2::from_angle(hand.angle);
         let base = pos + along * self.radius[i];
-        let tip = base + along * (self.kind[i].weapon().length * hand.reach);
+        let tip = base + along * (spec.length * hand.reach);
         Some((base, tip))
     }
 
     /// How much of a blow arriving at `contact` gets past `j`'s guard, or
-    /// `None` if the shield does not cover that bearing at all.
+    /// `None` if `j` does not cover that bearing -- or is not holding a guard at
+    /// all.
     ///
     /// *Whether* it covers is a pure integer comparison on binary angles -- no
     /// trigonometry, no tolerance, exact -- and the arc scales with extension,
-    /// so a tucked shield covers nothing and an extended one covers its
-    /// weapon's full width.
+    /// so a tucked guard covers nothing and an extended one covers its full
+    /// width.
     ///
-    /// *How well* it covers is the newer half, and it is a question about time
-    /// rather than about geometry: a shield still swinging toward the bearing
-    /// is barely in the way of anything. See [`rules::block_leak`].
+    /// *How well* it covers is a question about time rather than about geometry:
+    /// a guard still swinging toward the bearing is barely in the way of
+    /// anything. See [`rules::block_leak`].
     fn block_leak(&self, j: usize, contact: Vec2) -> Option<Fx> {
-        let shield = self.hands[j][SHIELD];
-        if shield.reach < rules::MIN_BLOCK_REACH {
+        let spec = self.action_of(j).spec();
+        // **The one line that makes blocking a choice.**
+        //
+        // The arc used to come off `kind[j].weapon()`, so every character in the
+        // game had one whether or not it had done anything to deserve it -- and
+        // since holding it out cost nothing, every policy did, permanently. A
+        // fighter blocks now only while it is holding something that blocks, and
+        // it cannot swing that thing. That is the entire trade the loadout
+        // exists to make.
+        if !spec.role.blocks() {
+            return None;
+        }
+        let guard = self.limb[j];
+        // Reaching for the shield is not the same as holding it, and this is
+        // the tick that difference is worth something to the attacker.
+        if guard.swing.is_dormant() {
+            return None;
+        }
+        if guard.reach < rules::MIN_BLOCK_REACH {
             return None;
         }
         let out = contact - self.pos[j];
         if out.is_zero() {
             return None; // struck dead centre: no bearing to cover
         }
-        let arc = Fx::from_int(self.kind[j].weapon().shield_arc as i32) * shield.reach;
-        if shield.angle.delta(out.angle()).abs() > arc.round_int() {
+        let arc = Fx::from_int(spec.arc as i32) * guard.reach;
+        if guard.angle.delta(out.angle()).abs() > arc.round_int() {
             return None;
         }
-        Some(rules::block_leak(shield.braced))
+        Some(rules::block_leak(guard.braced))
     }
 
     /// How hard `i`'s blade is travelling through `j`'s body at `contact`.
@@ -1394,7 +1566,7 @@ impl World {
     ///   settled by geometry long before this function is reached.
     fn impact_speed(&self, i: usize, j: usize, contact: Vec2) -> Fx {
         let arm = contact - self.pos[i];
-        let blade = fx::tangential_speed(self.hands[i][SWORD].spin, arm.length());
+        let blade = fx::tangential_speed(self.limb[i].spin, arm.length());
 
         let out = contact - self.pos[j];
         let closing = if out.is_zero() {
@@ -1417,8 +1589,8 @@ impl World {
     /// that swings all the way round the compass, so differencing the vector
     /// bills the body for a centripetal reaction on every tick of every swing --
     /// which is real physics and completely swamps the model. Measured at a
-    /// quarter transfer it came to a *sustained* 38% of a Scout's top speed per
-    /// tick, pushing outward from wherever its blade happened to be; Scout mirror
+    /// quarter transfer it came to a *sustained* 38% of a Rogue's top speed per
+    /// tick, pushing outward from wherever its blade happened to be; Rogue mirror
     /// duels stopped being able to land a blow at all and ended 98% in draws at
     /// full health.
     ///
@@ -1437,10 +1609,10 @@ impl World {
     /// [`Arm::extend_rate`]: crate::Arm::extend_rate
     /// [`Weapon::mass`]: crate::Weapon::mass
     fn blade_momentum(&self, i: usize) -> Fx {
-        let hand = self.hands[i][SWORD];
+        let hand = self.limb[i];
         let arm = self.arm(i);
         let speed = fx::tangential_speed(hand.spin, arm.lever(hand.reach)) * hand.spin.signum();
-        speed * arm.weapon.mass
+        speed * arm.spec.mass
     }
 
     /// Velocity a blow from `i` landing at `contact` adds to `j`.
@@ -1463,9 +1635,9 @@ impl World {
         if out.is_zero() {
             return Vec2::ZERO;
         }
-        let hand = self.hands[i][SWORD];
+        let hand = self.limb[i];
         let speed = fx::tangential_speed(hand.spin, out.length()) * hand.spin.signum();
-        let carried = self.kind[i].weapon().mass * speed * rules::KNOCKBACK_TRANSFER;
+        let carried = self.action_of(i).spec().mass * speed * rules::KNOCKBACK_TRANSFER;
 
         // A guard that is merely in the way transmits the whole of it; one that
         // has been planted puts most of it into the ground. See
@@ -1473,7 +1645,7 @@ impl World {
         // without it a fighter who could not stop the blow anyway got nothing
         // for having read it.
         let taken = if blocked {
-            Fx::ONE - rules::BRACE_ANCHOR * self.hands[j][SHIELD].brace_fraction()
+            Fx::ONE - rules::BRACE_ANCHOR * self.limb[j].brace_fraction()
         } else {
             Fx::ONE
         };
@@ -1488,7 +1660,7 @@ impl World {
     /// A real collision between two rotating bodies, resolved from both moments
     /// of inertia and a coefficient of restitution, replacing the pair of flat
     /// fractions that used to stand in for it. It is what makes a Brute's axe
-    /// shrug off a guard that stops a Scout's blade dead -- the same fact from
+    /// shrug off a guard that stops a Rogue's blade dead -- the same fact from
     /// both sides, out of one calculation, instead of two constants that had no
     /// idea the other existed.
     ///
@@ -1505,7 +1677,7 @@ impl World {
     /// blow points straight through `j`'s shoulder: infinitely stiff, nothing
     /// rotates, and the guard holds absolutely. That is not a special case in the
     /// code and it falls out correctly on its own.
-    fn deflect(&self, i: usize, hi: usize, j: usize, hj: usize, at: Vec2, restitution: Fx) -> (Fx, Fx) {
+    fn deflect(&self, i: usize, j: usize, at: Vec2, restitution: Fx) -> (Fx, Fx) {
         let out_i = at - self.pos[i];
         let out_j = at - self.pos[j];
         let r_i = out_i.length();
@@ -1516,13 +1688,13 @@ impl World {
             return (Fx::ZERO, Fx::ZERO);
         }
         let align = out_i.normalize().dot(out_j.normalize());
-        let inertia_i = self.arm(i).inertia(self.hands[i][hi].reach);
-        let inertia_j = self.arm(j).inertia(self.hands[j][hj].reach);
+        let inertia_i = self.arm(i).inertia(self.limb[i].reach);
+        let inertia_j = self.arm(j).inertia(self.limb[j].reach);
 
         // `j`'s contact speed, as the spin `i` would need to match it. Their
         // tangents point different ways, which is what `align` corrects for.
-        let mirrored = fx::mul_div(self.hands[j][hj].spin * align, r_j, r_i);
-        let closing = (Fx::ONE + restitution) * (self.hands[i][hi].spin - mirrored);
+        let mirrored = fx::mul_div(self.limb[j].spin * align, r_j, r_i);
+        let closing = (Fx::ONE + restitution) * (self.limb[i].spin - mirrored);
 
         // `j`'s arm referred to `i`'s contact radius. `inertia_j` is already in
         // those units by construction -- it is the thing being compared against.
@@ -1571,13 +1743,13 @@ impl World {
     fn contact(&self, observer: usize, target: usize, noise: Fx, rng: &mut Rng) -> Contact {
         let mut offset = self.pos[target] - self.pos[observer];
         let mut hp_frac = self.hp_frac(target);
-        let hands = self.hands[target];
+        let limb = self.limb[target];
         let mut facing = self.facing[target];
-        let mut sword_angle = hands[SWORD].angle;
-        let mut sword_spin = hands[SWORD].spin;
-        let mut sword_line = hands[SWORD].line;
-        let mut sword_left = Fx::from_int(hands[SWORD].swing_left as i32);
-        let mut shield_angle = hands[SHIELD].angle;
+        let mut limb_angle = limb.angle;
+        let mut limb_spin = limb.spin;
+        let mut limb_line = limb.line;
+        let mut limb_left = Fx::from_int(limb.swing_left as i32);
+
         let mut velocity = self.vel[target];
         let mut min_strike_range = self.dead_zone(target);
         let mut threat = self.peak_damage(target) / self.max_hp[observer];
@@ -1625,10 +1797,10 @@ impl World {
                 a + Angle::from_raw(rng.gaussian(bearing_noise).trunc_int() as u16)
             };
             facing = blur(facing, rng);
-            sword_angle = blur(sword_angle, rng);
-            sword_line = blur(sword_line, rng);
-            shield_angle = blur(shield_angle, rng);
-            sword_spin += rng.gaussian(noise * Fx::from_int(300));
+            limb_angle = blur(limb_angle, rng);
+            limb_line = blur(limb_line, rng);
+
+            limb_spin += rng.gaussian(noise * Fx::from_int(300));
 
             // Where it is going, and the error is absolute rather than
             // proportional. Reading a walk is a question about a body, not
@@ -1646,7 +1818,7 @@ impl World {
             // enough to miss that a blow is coming, easily enough to dodge into
             // it. Clamped at zero because a negative count would read as a cut
             // that already landed.
-            sword_left = (sword_left + rng.gaussian(noise * Fx::from_int(8))).max(Fx::ZERO);
+            limb_left = (limb_left + rng.gaussian(noise * Fx::from_int(8))).max(Fx::ZERO);
 
             // Proportional rather than absolute: a long weapon has a long dead
             // zone and misjudging it by a fixed distance would make the biggest
@@ -1689,7 +1861,7 @@ impl World {
             distance: offset.length(),
             hp_frac,
             radius: self.radius[target],
-            weapon_length: self.kind[target].weapon().length,
+            action_length: self.action_of(target).spec().length,
             min_strike_range,
             threat,
             frailty,
@@ -1698,18 +1870,19 @@ impl World {
             heft,
             velocity,
             facing,
-            sword_angle,
-            sword_reach: hands[SWORD].reach,
-            sword_spin,
+            limb_angle,
+            limb_reach: limb.reach,
+            limb_spin,
             // Exact, unlike everything around it. A blade hauled back over a
             // shoulder is not a subtle cue; what a dim fighter gets wrong is
             // when it arrives and along which line, and both of those are
             // blurred above.
-            sword_swing: hands[SWORD].swing,
-            sword_left,
-            sword_line,
-            shield_angle,
-            shield_reach: hands[SHIELD].reach,
+            limb_swing: limb.swing,
+            limb_left,
+            limb_line,
+            action: self.action_of(target),
+            action_arc: self.action_of(target).spec().arc,
+
         }
     }
 
@@ -1724,9 +1897,12 @@ impl World {
             radius: self.radius[i],
             hp: self.hp[i].max(Fx::ZERO),
             max_hp: self.max_hp[i],
-            intent: self.action[i].intent,
-            hands: self.hands[i],
-            weapon: self.kind[i].weapon(),
+            intent: self.command[i].intent,
+            limb: self.limb[i],
+            action: self.action_of(i),
+            spec: self.action_of(i).spec(),
+            loadout: self.loadout[i],
+            slot: self.slot[i],
         }
     }
 }
@@ -1742,7 +1918,7 @@ pub struct Snapshot {
 #[derive(Clone, Copy, Debug)]
 pub struct UnitView {
     pub id: EntityId,
-    pub kind: UnitKind,
+    pub kind: Body,
     pub faction: Faction,
     pub stats: Stats,
     pub position: Vec2,
@@ -1751,9 +1927,16 @@ pub struct UnitView {
     pub hp: Fx,
     pub max_hp: Fx,
     pub intent: Intent,
-    /// Both hands, so a renderer can draw the swordplay rather than infer it.
-    pub hands: [Hand; HANDS],
-    pub weapon: Weapon,
+    /// The limb, so a renderer can draw the swordplay rather than infer it.
+    pub limb: Hand,
+    /// What is in hand, and its resolved numbers. Both, because a renderer wants
+    /// the name and the geometry and neither implies the other cheaply.
+    pub action: ActionKind,
+    pub spec: ActionSpec,
+    /// What this unit is carrying, and which slot is up. Enough for a page to
+    /// show a loadout without keeping a second copy of one that can go stale.
+    pub loadout: Loadout,
+    pub slot: u8,
 }
 
 /// Bounded "k nearest" accumulator: insertion sort into a fixed array, ties
@@ -1802,7 +1985,7 @@ impl Nearest {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::action::{HandCommand, Strike};
+    use crate::command::{LimbCommand, Strike};
 
     fn duel_world() -> World {
         World::new(&Scenario::duel(), 1)
@@ -1825,11 +2008,11 @@ mod tests {
         let brute_period = Stats::decision_period(w.view(brute).unwrap().stats) as u32;
         assert!(
             hero_period < brute_period,
-            "the warrior should out-think the brute"
+            "the fighter should out-think the brute"
         );
 
-        w.submit(hero, Action::HOLD);
-        w.submit(brute, Action::HOLD);
+        w.submit(hero, Command::HOLD);
+        w.submit(brute, Command::HOLD);
 
         let mut hero_decisions = 0;
         let mut brute_decisions = 0;
@@ -1840,7 +2023,7 @@ mod tests {
                 } else {
                     brute_decisions += 1;
                 }
-                w.submit(id, Action::HOLD);
+                w.submit(id, Command::HOLD);
             }
             w.step();
         }
@@ -1876,39 +2059,39 @@ mod tests {
     /// * Asking to attack during a recovery leaves the hand disarmed when the
     ///   recovery ends, so it throws one cut and then stands there forever.
     ///   Releasing is what re-arms it.
-    fn cutting(w: &World, id: EntityId, bearing: Angle, side: Strike) -> HandCommand {
-        let sword = w.view(id).unwrap().hands[SWORD];
+    fn cutting(w: &World, id: EntityId, bearing: Angle, side: Strike) -> LimbCommand {
+        let sword = w.view(id).unwrap().limb;
         match sword.swing {
-            Swing::Guard if sword.armed => HandCommand::attack(bearing, side),
-            Swing::Windup | Swing::Strike => HandCommand::attack(bearing, side),
-            _ => HandCommand::new(bearing, Fx::ZERO),
+            Swing::Guard if sword.armed => LimbCommand::attack(bearing, side),
+            Swing::Windup | Swing::Strike => LimbCommand::attack(bearing, side),
+            _ => LimbCommand::new(bearing, Fx::ZERO),
         }
     }
 
     /// A minimum viable swordsman: hold the preferred range and keep cutting.
-    fn duellist(w: &World, obs: &Observation, target: EntityId) -> Action {
+    fn duellist(w: &World, obs: &Observation, target: EntityId) -> Command {
         let enemy = match obs.enemies().first() {
             Some(c) => *c,
             // Nothing in sight: walk to the middle of the room and look again.
             // The duel scenario spawns the pair 12 units apart and nobody sees
             // further than 9.6, so without this they stand still forever.
-            None => return Action::moving((Vec2::from_ints(12, 8) - obs.position).normalize()),
+            None => return Command::moving((Vec2::from_ints(12, 8) - obs.position).normalize()),
         };
         let bearing = enemy.offset.angle();
         // Stand inside the tip band rather than at the very edge of reach: at
         // maximum extension only a blade pointed almost exactly at the target
         // touches it at all.
-        let ideal = obs.radius + obs.weapon_length * Fx::from_ratio(6, 10) + enemy.radius;
+        let ideal = obs.radius + obs.action_length * Fx::from_ratio(6, 10) + enemy.radius;
         let approach = if enemy.distance > ideal {
             enemy.offset.normalize()
         } else {
             Vec2::ZERO
         };
-        Action::swinging(
+        Command::swinging(
             approach,
             target,
             cutting(w, obs.me, bearing, Strike::Nearest),
-            HandCommand::new(bearing, Fx::ONE),
+
         )
     }
 
@@ -1920,8 +2103,8 @@ mod tests {
             for id in w.pending_decisions().to_vec() {
                 let target = if id == hero { monster } else { hero };
                 let obs = w.observe(id);
-                let action = duellist(w, &obs, target);
-                w.submit(id, action);
+                let command = duellist(w, &obs, target);
+                w.submit(id, command);
             }
             w.step();
             if let Some(o) = w.outcome() {
@@ -1949,8 +2132,8 @@ mod tests {
         // attack. Under the old model this was the dominant strategy in the
         // game. It now does nothing at all.
         let mut scenario = Scenario::duel();
-        scenario.units[1].kind = UnitKind::Warrior;
-        scenario.units[1].stats = UnitKind::Warrior.base_stats();
+        scenario.units[1].set_body(Body::Fighter);
+        scenario.units[1].stats = Body::Fighter.base_stats();
         scenario.units[1].spawn = Vec2::from_ints(7, 8);
         let mut w = World::new(&scenario, 1);
         let a = w.alive_ids(Faction::Heroes)[0];
@@ -1961,11 +2144,11 @@ mod tests {
             // A bearing that sweeps right round, twice a second: the fastest
             // windmill the old interface could express.
             let bearing = Angle::from_raw((tick.wrapping_mul(2184) & 0xFFFF) as u16);
-            let whirl = HandCommand::new(bearing, Fx::ONE);
-            w.submit(a, Action::swinging(Vec2::ZERO, b, whirl, HandCommand::TUCKED));
-            w.submit(b, Action::swinging(Vec2::ZERO, a, whirl, HandCommand::TUCKED));
+            let whirl = LimbCommand::new(bearing, Fx::ONE);
+            w.submit(a, Command::swinging(Vec2::ZERO, b, whirl));
+            w.submit(b, Command::swinging(Vec2::ZERO, a, whirl));
             w.step();
-            spun = spun.max(w.hands[a.index as usize][SWORD].spin.abs());
+            spun = spun.max(w.limb[a.index as usize].spin.abs());
         }
         assert!(
             spun > Fx::from_int(500),
@@ -1983,9 +2166,9 @@ mod tests {
     fn an_attack_can_be_answered_because_it_arrives_late() {
         // The dodge window, measured rather than asserted. Between the tick a
         // Brute commits and the tick its blade goes live there is a stretch of
-        // real time, and it has to be long enough for a Warrior to notice on one
+        // real time, and it has to be long enough for a Fighter to notice on one
         // decision and act on the next.
-        // Close enough that the hero can see the Brute at all: a Warrior sees
+        // Close enough that the hero can see the Brute at all: a Fighter sees
         // 9.6 units and the duel scenario spawns the pair twelve apart.
         let mut scenario = Scenario::duel();
         scenario.units[1].spawn = Vec2::from_ints(9, 8);
@@ -1997,11 +2180,11 @@ mod tests {
         let mut announced = None;
         let mut live = None;
         for tick in 0..200u32 {
-            let cmd = HandCommand::attack(Angle::HALF, Strike::Widdershins);
-            w.submit(brute, Action::swinging(Vec2::ZERO, hero, cmd, HandCommand::TUCKED));
-            w.submit(hero, Action::HOLD);
+            let cmd = LimbCommand::attack(Angle::HALF, Strike::Widdershins);
+            w.submit(brute, Command::swinging(Vec2::ZERO, hero, cmd));
+            w.submit(hero, Command::HOLD);
             w.step();
-            let swing = w.hands[brute.index as usize][SWORD].swing;
+            let swing = w.limb[brute.index as usize].swing;
             if swing == Swing::Windup && announced.is_none() {
                 announced = Some(tick);
                 // And the hero can see it. This is not the same claim: the
@@ -2009,7 +2192,7 @@ mod tests {
                 // usable rather than merely present.
                 let seen = w.observe(hero);
                 assert_eq!(
-                    seen.enemies()[0].sword_swing,
+                    seen.enemies()[0].limb_swing,
                     Swing::Windup,
                     "the telegraph never reached the defender's observation"
                 );
@@ -2022,16 +2205,16 @@ mod tests {
         let warning = live.expect("the cut never went live") - announced.expect("never announced");
         assert!(
             warning > period * 2,
-            "a Brute gave {warning} ticks of warning to a Warrior that thinks \
+            "a Brute gave {warning} ticks of warning to a Fighter that thinks \
              every {period} -- not enough to read and answer"
         );
     }
 
     #[test]
     fn friendly_fire_is_impossible() {
-        // Both units placed a single unit apart, well inside a Warrior's reach,
+        // Both units placed a single unit apart, well inside a Fighter's reach,
         // and both windmilling their blades straight through each other. The
-        // old version of this test submitted `Action::attacking` with tucked
+        // old version of this test submitted `Command::attacking` with tucked
         // hands, which under geometric damage passes while proving nothing:
         // no blade ever left its scabbard.
         let script = |allied: bool| -> (usize, Fx, Fx) {
@@ -2055,8 +2238,8 @@ mod tests {
                 }
                 let cut_a = cutting(&w, a, Angle::ZERO, Strike::Nearest);
                 let cut_b = cutting(&w, b, Angle::HALF, Strike::Nearest);
-                w.submit(a, Action::swinging(Vec2::ZERO, b, cut_a, HandCommand::TUCKED));
-                w.submit(b, Action::swinging(Vec2::ZERO, a, cut_b, HandCommand::TUCKED));
+                w.submit(a, Command::swinging(Vec2::ZERO, b, cut_a));
+                w.submit(b, Command::swinging(Vec2::ZERO, a, cut_b));
                 w.step();
             }
             (
@@ -2093,15 +2276,15 @@ mod tests {
         let a = w.alive_ids(Faction::Heroes)[0];
         let b = w.alive_ids(Faction::Monsters)[0];
 
-        let held = Action::swinging(
+        let held = Command::swinging(
             Vec2::ZERO,
             b,
-            HandCommand::new(Angle::ZERO, Fx::ONE),
-            HandCommand::TUCKED,
+            LimbCommand::new(Angle::ZERO, Fx::ONE),
+
         );
         for _ in 0..300 {
             w.submit(a, held);
-            w.submit(b, Action::HOLD);
+            w.submit(b, Command::HOLD);
             w.step();
         }
         // The blade is genuinely inside the target, not merely short of it.
@@ -2135,11 +2318,11 @@ mod tests {
             // Blades out, hands still: only the shove is moving anything.
             w.submit(
                 a,
-                Action::swinging(Vec2::ZERO, b, HandCommand::new(Angle::ZERO, Fx::ONE), HandCommand::TUCKED),
+                Command::swinging(Vec2::ZERO, b, LimbCommand::new(Angle::ZERO, Fx::ONE)),
             );
             w.submit(
                 b,
-                Action::swinging(Vec2::ZERO, a, HandCommand::new(Angle::HALF, Fx::ONE), HandCommand::TUCKED),
+                Command::swinging(Vec2::ZERO, a, LimbCommand::new(Angle::HALF, Fx::ONE)),
             );
             w.step();
         }
@@ -2153,7 +2336,7 @@ mod tests {
         // the cut the moment it lands, it would bill damage on every one of
         // them, and a single swing would delete anything it touched.
         //
-        // 1.6 units apart and deliberately not touching: a Warrior with its
+        // 1.6 units apart and deliberately not touching: a Fighter with its
         // chest against a Brute meets that body at an arm of 0.45, which is
         // inside its own dead zone and does nothing at all. That is the damage
         // model working exactly as intended, and it makes for a test that
@@ -2170,14 +2353,14 @@ mod tests {
         let mut blows = 0;
         let mut started = false;
         for _ in 0..300u32 {
-            let sword = w.view(a).unwrap().hands[SWORD];
+            let sword = w.view(a).unwrap().limb;
             if started && sword.swing == Swing::Guard {
                 break;
             }
             started |= sword.swing.is_attacking();
-            let cmd = HandCommand::attack(Angle::ZERO, Strike::Widdershins);
-            w.submit(a, Action::swinging(Vec2::ZERO, b, cmd, HandCommand::TUCKED));
-            w.submit(b, Action::HOLD);
+            let cmd = LimbCommand::attack(Angle::ZERO, Strike::Widdershins);
+            w.submit(a, Command::swinging(Vec2::ZERO, b, cmd));
+            w.submit(b, Command::HOLD);
             for event in w.step() {
                 if let Event::Damage { source, .. } = event {
                     if *source == a {
@@ -2204,15 +2387,21 @@ mod tests {
         // blow, which is exactly the read a good policy has to make.
         let landed = |shield: Option<Angle>| -> Fx {
             let mut scenario = Scenario::duel();
-            scenario.units[1].kind = UnitKind::Warrior;
-            scenario.units[1].stats = UnitKind::Warrior.base_stats();
+            scenario.units[1].set_body(Body::Fighter);
+            scenario.units[1].stats = Body::Fighter.base_stats();
+            // **Holding a guard, and only a guard.** Handing the defender its
+            // default Sword instead measures something else entirely: a
+            // chambered blade is still a segment, so it parries, and at the
+            // right bearing it takes the incoming cut to zero. That is a real
+            // mechanic and it is not this one.
+            scenario.units[1].loadout = Loadout::single(ActionKind::Shield);
             scenario.units[1].spawn = Vec2::from_ints(7, 8);
             let mut w = World::new(&scenario, 1);
             let a = w.alive_ids(Faction::Heroes)[0];
             let b = w.alive_ids(Faction::Monsters)[0];
             let guard = match shield {
-                Some(at) => HandCommand::new(at, Fx::ONE),
-                None => HandCommand::TUCKED,
+                Some(at) => LimbCommand::new(at, Fx::ONE),
+                None => LimbCommand::TUCKED,
             };
             // One named side, every cut. `Strike::Nearest` alternates as the
             // blade ends up on one side and then the other, which lands blows
@@ -2221,8 +2410,8 @@ mod tests {
             // what is being asked here.
             for _ in 0..900u32 {
                 let cut = cutting(&w, a, Angle::ZERO, Strike::Widdershins);
-                w.submit(a, Action::swinging(Vec2::ZERO, b, cut, HandCommand::TUCKED));
-                w.submit(b, Action::swinging(Vec2::ZERO, a, HandCommand::TUCKED, guard));
+                w.submit(a, Command::swinging(Vec2::ZERO, b, cut));
+                w.submit(b, Command::swinging(Vec2::ZERO, a, guard));
                 w.step();
             }
             w.damage_dealt(Faction::Heroes)
@@ -2292,8 +2481,8 @@ mod tests {
             let brute = w.alive_ids(Faction::Monsters)[0];
             for _ in 0..1800u32 {
                 let cut = cutting(&w, brute, Angle::HALF, Strike::Nearest);
-                w.submit(brute, Action::swinging(Vec2::ZERO, hero, cut, HandCommand::TUCKED));
-                w.submit(hero, Action::HOLD);
+                w.submit(brute, Command::swinging(Vec2::ZERO, hero, cut));
+                w.submit(hero, Command::HOLD);
                 for event in w.step() {
                     if let Event::Damage { amount, .. } = event {
                         return *amount;
@@ -2303,7 +2492,7 @@ mod tests {
             Fx::ZERO
         };
 
-        // 2.5 units apart puts a Warrior's body in the Brute's tip band
+        // 2.5 units apart puts a Fighter's body in the Brute's tip band
         // (0.70 + 1.45 + 0.45 = 2.60); 1.3 is just outside the lee its blade
         // cannot reach into at all (0.845 + 0.45 = 1.295).
         //
@@ -2338,7 +2527,7 @@ mod tests {
         // Impact is `spin * arm` and energy is its square, so a weapon has a
         // minimum effective radius: inside it even a blade at full speed is
         // worth no more than a graze. That radius used to be 1.27 for a Brute,
-        // *outside* the 1.15 at which a Warrior's body and a Brute's stop being
+        // *outside* the 1.15 at which a Fighter's body and a Brute's stop being
         // able to approach -- meaning a fighter who got close became flatly
         // immune, and a small enough one became immune and harmless at the same
         // time while the fight timed out. Dropping the old speed threshold to
@@ -2352,14 +2541,14 @@ mod tests {
         // harmless and was not: a blow of any size ends the swing that threw it,
         // so with no harmless band left on the blade every cut a Brute threw was
         // spent on a hilt scratch worth 1-3 damage against a peak of 24.8. The
-        // naive Warrior's win rate against it went from 10% to 76%. See
+        // naive Fighter's win rate against it went from 10% to 76%. See
         // `rules::GRAZE_FRACTION`, which is what put the band back.
         //
         // This asserted the same thing before and missed it, because it derived
         // the dead zone inline from the damage law instead of asking
         // `rules::dead_zone`. Ask the sim -- the law has changed again since.
-        let brute = UnitKind::Brute;
-        let arm = rules::Arm::resolve(brute.weapon(), brute.base_stats(), brute.radius());
+        let brute = Body::Brute;
+        let arm = rules::Arm::resolve(ActionKind::Club.spec(), brute.base_stats(), brute.radius());
         let safe = rules::dead_zone(arm);
         assert!(
             safe > brute.radius(),
@@ -2368,7 +2557,7 @@ mod tests {
             brute.radius()
         );
         assert!(
-            safe < brute.radius() + brute.weapon().length,
+            safe < brute.radius() + ActionKind::Club.spec().length,
             "the dead zone is {safe}, which swallows the blade's own span"
         );
 
@@ -2389,10 +2578,10 @@ mod tests {
                     break;
                 }
                 let cut = cutting(&w, villain, Angle::HALF, Strike::Nearest);
-                w.submit(villain, Action::swinging(Vec2::ZERO, hero, cut, HandCommand::TUCKED));
+                w.submit(villain, Command::swinging(Vec2::ZERO, hero, cut));
                 // Pinned in place: this is a test of geometry, and a hero that
                 // walked would be measuring its own footwork.
-                w.submit(hero, Action::HOLD);
+                w.submit(hero, Command::HOLD);
                 for event in w.step() {
                     if let Event::Damage { amount, .. } = event {
                         worst = worst.max(*amount);
@@ -2544,7 +2733,7 @@ mod tests {
             "punishing a recovery is worth so much the rest of the fight is noise"
         );
 
-        // And the phase gate itself, in a running world: a Warrior cutting into
+        // And the phase gate itself, in a running world: a Fighter cutting into
         // a Brute that is mid-recovery against the identical cut into one that
         // is not.
         let landed = |target_recovering: bool| -> Fx {
@@ -2564,14 +2753,14 @@ mod tests {
                 // phase the blow arrives against.
                 let b = w.resolve(brute).unwrap();
                 if target_recovering {
-                    w.hands[b][SWORD].swing = Swing::Recover;
-                    w.hands[b][SWORD].swing_left = 200;
+                    w.limb[b].swing = Swing::Recover;
+                    w.limb[b].swing_left = 200;
                 } else {
-                    w.hands[b][SWORD].swing = Swing::Guard;
+                    w.limb[b].swing = Swing::Guard;
                 }
                 let cut = cutting(&w, hero, Angle::ZERO, Strike::Nearest);
-                w.submit(hero, Action::swinging(Vec2::ZERO, brute, cut, HandCommand::TUCKED));
-                w.submit(brute, Action::HOLD);
+                w.submit(hero, Command::swinging(Vec2::ZERO, brute, cut));
+                w.submit(brute, Command::HOLD);
                 for event in w.step() {
                     if let Event::Damage { target, amount, .. } = event {
                         if *target == brute {
@@ -2604,9 +2793,9 @@ mod tests {
         scenario.units[1].spawn = Vec2::from_ints(18, 8);
 
         let truth = rules::dead_zone(rules::Arm::resolve(
-            UnitKind::Brute.weapon(),
-            UnitKind::Brute.base_stats(),
-            UnitKind::Brute.radius(),
+            ActionKind::Club.spec(),
+            Body::Brute.base_stats(),
+            Body::Brute.radius(),
         ));
 
         // A sharp eye reads it exactly...
@@ -2645,18 +2834,18 @@ mod tests {
         assert_eq!(
             w.observe(hero).min_strike_range,
             rules::dead_zone(rules::Arm::resolve(
-                UnitKind::Warrior.weapon(),
+                ActionKind::Sword.spec(),
                 Stats::new(6, 6, 8, 0, 8),
-                UnitKind::Warrior.radius(),
+                Body::Fighter.radius(),
             ))
         );
     }
 
     /// A duel between two arbitrary archetypes, seen through a sharp hero's
     /// eyes. Returns the hero's read of the villain.
-    fn sizing_up(hero: UnitKind, villain: UnitKind) -> Contact {
+    fn sizing_up(hero: Body, villain: Body) -> Contact {
         let mut s = Scenario::duel();
-        s.units[0].kind = hero;
+        s.units[0].set_body(hero);
         s.units[0].stats = Stats::new(
             hero.base_stats().power,
             hero.base_stats().agility,
@@ -2665,7 +2854,7 @@ mod tests {
             hero.base_stats().vitality,
         );
         s.units[0].spawn = Vec2::from_ints(14, 8);
-        s.units[1].kind = villain;
+        s.units[1].set_body(villain);
         s.units[1].stats = villain.base_stats();
         s.units[1].spawn = Vec2::from_ints(18, 8);
         let w = World::new(&s, 3);
@@ -2680,19 +2869,19 @@ mod tests {
         // correctly, because an absolute number is not something one fighter can
         // read off another. What *is* readable is the ratio, and the ratio is
         // what decides whether an exchange is a scratch or a third of the fight.
-        let to_warrior = sizing_up(UnitKind::Warrior, UnitKind::Brute).threat;
-        let to_skitterer = sizing_up(UnitKind::Skitterer, UnitKind::Brute).threat;
+        let to_warrior = sizing_up(Body::Fighter, Body::Brute).threat;
+        let to_skitterer = sizing_up(Body::Skitterer, Body::Brute).threat;
 
         assert!(
             to_skitterer > to_warrior * Fx::TWO,
             "the same axe reads as {to_skitterer} to a Skitterer and {to_warrior} \
-             to a Warrior; it should be far worse news for the smaller body"
+             to a Fighter; it should be far worse news for the smaller body"
         );
         // And a knife is not an axe, whoever is holding it.
-        let knife = sizing_up(UnitKind::Warrior, UnitKind::Skitterer).threat;
+        let knife = sizing_up(Body::Fighter, Body::Skitterer).threat;
         assert!(
             knife * Fx::TWO < to_warrior,
-            "a Warrior rates a Skitterer's knife at {knife} against a Brute's \
+            "a Fighter rates a Skitterer's knife at {knife} against a Brute's \
              axe at {to_warrior}"
         );
     }
@@ -2703,9 +2892,9 @@ mod tests {
         // comparing "blows I can take" against "blows it can take" is relying on
         // exactly that. If they ever drift apart the comparison is nonsense.
         for (hero, villain) in [
-            (UnitKind::Warrior, UnitKind::Brute),
-            (UnitKind::Skitterer, UnitKind::Scout),
-            (UnitKind::Brute, UnitKind::Brute),
+            (Body::Fighter, Body::Brute),
+            (Body::Skitterer, Body::Rogue),
+            (Body::Brute, Body::Brute),
         ] {
             let ours = sizing_up(hero, villain);
             let theirs = sizing_up(villain, hero);
@@ -2725,9 +2914,9 @@ mod tests {
         // comparing the two ends of one quantity, and a pair that drifts apart
         // makes the comparison meaningless.
         for (hero, villain) in [
-            (UnitKind::Warrior, UnitKind::Brute),
-            (UnitKind::Skitterer, UnitKind::Scout),
-            (UnitKind::Brute, UnitKind::Brute),
+            (Body::Fighter, Body::Brute),
+            (Body::Skitterer, Body::Rogue),
+            (Body::Brute, Body::Brute),
         ] {
             let ours = sizing_up(hero, villain);
             let theirs = sizing_up(villain, hero);
@@ -2750,9 +2939,9 @@ mod tests {
         // question rather than two. A pair that drifts apart would let both
         // fighters believe they are the heavier one, and both would charge.
         for (hero, villain) in [
-            (UnitKind::Skitterer, UnitKind::Brute),
-            (UnitKind::Warrior, UnitKind::Scout),
-            (UnitKind::Brute, UnitKind::Brute),
+            (Body::Skitterer, Body::Brute),
+            (Body::Fighter, Body::Rogue),
+            (Body::Brute, Body::Brute),
         ] {
             let ours = sizing_up(hero, villain).heft;
             let theirs = sizing_up(villain, hero).heft;
@@ -2764,9 +2953,9 @@ mod tests {
         // ...and it is not readable off body size, which is the whole reason it
         // is a percept. A Brute is 15% denser than it looks and a Skitterer 20%
         // lighter, so the pairing lands well clear of the radius ratio squared.
-        let seen = sizing_up(UnitKind::Skitterer, UnitKind::Brute).heft;
+        let seen = sizing_up(Body::Skitterer, Body::Brute).heft;
         let looks = {
-            let (r, s) = (UnitKind::Brute.radius(), UnitKind::Skitterer.radius());
+            let (r, s) = (Body::Brute.radius(), Body::Skitterer.radius());
             fx::mul_div(r, r, s * s)
         };
         assert!(
@@ -2784,10 +2973,10 @@ mod tests {
         // directly comparable and a policy weighing "what this cut costs me" against
         // "what standing here costs me" is comparing like with like.
         let mut s = Scenario::duel();
-        s.units[0].kind = UnitKind::Brute;
-        s.units[0].stats = UnitKind::Brute.base_stats();
-        s.units[1].kind = UnitKind::Skitterer;
-        s.units[1].stats = UnitKind::Skitterer.base_stats();
+        s.units[0].set_body(Body::Brute);
+        s.units[0].stats = Body::Brute.base_stats();
+        s.units[1].set_body(Body::Skitterer);
+        s.units[1].stats = Body::Skitterer.base_stats();
         let w = World::new(&s, 3);
 
         for i in 0..2 {
@@ -2800,16 +2989,16 @@ mod tests {
         }
         // Every archetype, so nothing in the roster can go degenerate quietly,
         // and the observation carries it.
-        for kind in UnitKind::ALL {
+        for kind in Body::ALL {
             let obs = sizing_up_own(kind);
             assert!(obs.recoil_drift.is_positive(), "{kind:?} swings for free");
         }
     }
 
     /// The observation a `kind` has of itself, for the self-percept tests.
-    fn sizing_up_own(kind: UnitKind) -> crate::Observation {
+    fn sizing_up_own(kind: Body) -> crate::Observation {
         let mut s = Scenario::duel();
-        s.units[0].kind = kind;
+        s.units[0].set_body(kind);
         s.units[0].stats = kind.base_stats();
         let w = World::new(&s, 3);
         w.observe(w.id_of(0))
@@ -2832,21 +3021,21 @@ mod tests {
         // times as far as it moves a Brute. Weight is a defence no stat buys and
         // no skill answers, and it is the reason both figures are in the
         // observation rather than one being inferred from the other.
-        let by_axe = sizing_up(UnitKind::Warrior, UnitKind::Brute);
-        let by_knife = sizing_up(UnitKind::Warrior, UnitKind::Skitterer);
+        let by_axe = sizing_up(Body::Fighter, Body::Brute);
+        let by_knife = sizing_up(Body::Fighter, Body::Skitterer);
         assert!(
             by_axe.knockback_taken > by_knife.knockback_taken * Fx::TWO,
-            "an axe moved a Warrior {} against a knife's {} -- a weapon's weight \
+            "an axe moved a Fighter {} against a knife's {} -- a weapon's weight \
              is supposed to be worth something here even if it is not worth much",
             by_axe.knockback_taken,
             by_knife.knockback_taken
         );
 
-        let vs_brute = sizing_up(UnitKind::Brute, UnitKind::Warrior).knockback_taken;
-        let vs_skitterer = sizing_up(UnitKind::Skitterer, UnitKind::Warrior).knockback_taken;
+        let vs_brute = sizing_up(Body::Brute, Body::Fighter).knockback_taken;
+        let vs_skitterer = sizing_up(Body::Skitterer, Body::Fighter).knockback_taken;
         assert!(
             vs_skitterer > vs_brute * Fx::from_int(20),
-            "one Warrior blow moved a Skitterer {vs_skitterer} and a Brute \
+            "one Fighter blow moved a Skitterer {vs_skitterer} and a Brute \
              {vs_brute}; being heavy is supposed to be a defence no stat buys"
         );
     }
@@ -2870,6 +3059,10 @@ mod tests {
             // a velocity on both bodies that has nothing to do with the blow.
             scenario.units[0].spawn = Vec2::new(Fx::from_ratio(165, 10), Fx::from_int(8));
             scenario.units[1].spawn = Vec2::from_ints(18, 8);
+            // The defender is here to be blocked *through*, so it has to be
+            // holding a guard rather than its default sword. `BRACE_ANCHOR` is
+            // only ever charged against a limb that actually caught the blow.
+            scenario.units[0].loadout = Loadout::single(ActionKind::Shield);
             let mut w = World::new(&scenario, 1);
             let hero = w.alive_ids(Faction::Heroes)[0];
             let brute = w.alive_ids(Faction::Monsters)[0];
@@ -2878,21 +3071,21 @@ mod tests {
             w.hp[h] = Fx::from_int(4000);
             w.max_hp[h] = Fx::from_int(4000);
             if !braced {
-                w.hands[h][SHIELD].braced = 0;
+                w.limb[h].braced = 0;
             }
             let shield = match guard {
-                Some(at) => HandCommand::new(at, Fx::ONE),
-                None => HandCommand::TUCKED,
+                Some(at) => LimbCommand::new(at, Fx::ONE),
+                None => LimbCommand::TUCKED,
             };
             for _ in 0..400u32 {
                 let cut = cutting(&w, brute, Angle::HALF, Strike::Nearest);
-                w.submit(brute, Action::swinging(Vec2::ZERO, hero, cut, HandCommand::TUCKED));
+                w.submit(brute, Command::swinging(Vec2::ZERO, hero, cut));
                 w.submit(
                     hero,
-                    Action::swinging(Vec2::ZERO, EntityId::NONE, HandCommand::TUCKED, shield),
+                    Command::swinging(Vec2::ZERO, EntityId::NONE, shield),
                 );
                 if !braced {
-                    w.hands[h][SHIELD].braced = 0;
+                    w.limb[h].braced = 0;
                 }
                 let events = w.step();
                 let landed = events.iter().any(|e| matches!(e, Event::Damage { .. }));
@@ -2942,19 +3135,19 @@ mod tests {
     fn a_heavy_blade_throws_a_guard_aside_and_a_light_one_bounces_off_it() {
         // **The inversion this phase exists to fix.** The old rule shoved a
         // blocking shield by a flat fraction of the *attacker's spin*, with no
-        // mass anywhere in it -- so a Scout's whippy 3461 disturbed a guard
+        // mass anywhere in it -- so a Rogue's whippy 3461 disturbed a guard
         // nearly four times as hard as a Brute's 911, and the heaviest weapon in
         // the game was the one a shield had the easiest time holding.
         //
         // Both numbers come out of one collision between two arms now, so they
         // cannot contradict each other by construction: whatever the heavy blade
         // fails to give back to itself, it gave to the guard.
-        let against = |attacker: UnitKind| -> (Fx, Fx) {
+        let against = |attacker: Body| -> (Fx, Fx) {
             let mut s = Scenario::duel();
-            s.units[0].kind = UnitKind::Warrior;
-            s.units[0].stats = UnitKind::Warrior.base_stats();
+            s.units[0].set_body(Body::Fighter);
+            s.units[0].stats = Body::Fighter.base_stats();
             s.units[0].spawn = Vec2::from_ints(14, 8);
-            s.units[1].kind = attacker;
+            s.units[1].set_body(attacker);
             s.units[1].stats = attacker.base_stats();
             s.units[1].spawn = Vec2::from_ints(18, 8);
             let w = World::new(&s, 3);
@@ -2963,18 +3156,18 @@ mod tests {
             let at = w.pos[0] + Vec2::new(Fx::from_ratio(30, 100), Fx::from_ratio(30, 100));
             let arm = w.arm(1);
             let mut w = w;
-            w.hands[1][SWORD].spin = arm.reachable_spin();
-            w.hands[1][SWORD].reach = Fx::ONE;
-            w.hands[0][SHIELD].reach = Fx::ONE;
-            let (rebound, knock) = w.deflect(1, SWORD, 0, SHIELD, at, rules::BLOCK_RESTITUTION);
+            w.limb[1].spin = arm.reachable_spin();
+            w.limb[1].reach = Fx::ONE;
+            w.limb[0].reach = Fx::ONE;
+            let (rebound, knock) = w.deflect(1, 0, at, rules::BLOCK_RESTITUTION);
             // As fractions of the swing that threw it, so the two archetypes are
             // comparable despite a four-fold difference in spin.
-            let spin = w.hands[1][SWORD].spin;
+            let spin = w.limb[1].spin;
             (rebound / spin, knock / spin)
         };
 
-        let (brute_back, brute_knock) = against(UnitKind::Brute);
-        let (scout_back, scout_knock) = against(UnitKind::Scout);
+        let (brute_back, brute_knock) = against(Body::Brute);
+        let (scout_back, scout_knock) = against(Body::Rogue);
 
         assert!(
             brute_knock.abs() > scout_knock.abs(),
@@ -3009,6 +3202,10 @@ mod tests {
             // a velocity on both bodies that has nothing to do with the blow.
             scenario.units[0].spawn = Vec2::new(Fx::from_ratio(165, 10), Fx::from_int(8));
             scenario.units[1].spawn = Vec2::from_ints(18, 8);
+            // What stops the cut has to be a guard: a blade in the way would
+            // parry it instead, and a parry is a blade-on-blade collision with
+            // its own restitution rather than the block this measures.
+            scenario.units[0].loadout = Loadout::single(ActionKind::Shield);
             let mut w = World::new(&scenario, 1);
             let hero = w.alive_ids(Faction::Heroes)[0];
             let brute = w.alive_ids(Faction::Monsters)[0];
@@ -3016,21 +3213,21 @@ mod tests {
             let b = w.resolve(brute).unwrap();
             w.hp[h] = Fx::from_int(4000);
             w.max_hp[h] = Fx::from_int(4000);
-            // Either a Warrior standing there with a guard up, or nobody home.
+            // Either a Fighter standing there with a guard up, or nobody home.
             let shield = match guard {
-                Some(at) => HandCommand::new(at, Fx::ONE),
+                Some(at) => LimbCommand::new(at, Fx::ONE),
                 None => {
                     w.pos[h] = Vec2::from_ints(2, 2);
-                    HandCommand::TUCKED
+                    LimbCommand::TUCKED
                 }
             };
             let mut worst = Fx::ZERO;
             for _ in 0..400u32 {
                 let cut = cutting(&w, brute, Angle::HALF, Strike::Nearest);
-                w.submit(brute, Action::swinging(Vec2::ZERO, hero, cut, HandCommand::TUCKED));
+                w.submit(brute, Command::swinging(Vec2::ZERO, hero, cut));
                 w.submit(
                     hero,
-                    Action::swinging(Vec2::ZERO, EntityId::NONE, HandCommand::TUCKED, shield),
+                    Command::swinging(Vec2::ZERO, EntityId::NONE, shield),
                 );
                 w.step();
                 worst = worst.max(w.vel[b].length());
@@ -3046,7 +3243,7 @@ mod tests {
         for step in 0..16u32 {
             stopped = stopped.max(swing(Some(Angle::from_raw((step * 4096) as u16))));
         }
-        let top = UnitKind::Brute.base_stats().move_speed();
+        let top = Body::Brute.base_stats().move_speed();
         assert!(
             free < rules::TRACTION_BASE,
             "a Brute swinging at empty air drifted at {free} a tick against a \
@@ -3068,7 +3265,7 @@ mod tests {
         scenario.units[0].spawn = Vec2::from_ints(14, 8);
         scenario.units[1].spawn = Vec2::from_ints(18, 8);
 
-        let truth = sizing_up(UnitKind::Warrior, UnitKind::Brute).threat;
+        let truth = sizing_up(Body::Fighter, Body::Brute).threat;
 
         // A dim fighter does not merely dodge late -- it misprices the fight it
         // is in, which is a much more interesting way to lose. And the error is
@@ -3094,8 +3291,8 @@ mod tests {
     fn crossed_blades_deflect_both_swings() {
         // Two Warriors nose to nose, blades sweeping through the same space.
         let mut scenario = Scenario::duel();
-        scenario.units[1].kind = UnitKind::Warrior;
-        scenario.units[1].stats = UnitKind::Warrior.base_stats();
+        scenario.units[1].set_body(Body::Fighter);
+        scenario.units[1].stats = Body::Fighter.base_stats();
         scenario.units[1].spawn = Vec2::from_ints(7, 8);
         let mut w = World::new(&scenario, 1);
         let a = w.alive_ids(Faction::Heroes)[0];
@@ -3111,8 +3308,8 @@ mod tests {
         for _ in 0..1800u32 {
             let cut_a = cutting(&w, a, Angle::ZERO, Strike::Widdershins);
             let cut_b = cutting(&w, b, Angle::HALF, Strike::Sunwise);
-            w.submit(a, Action::swinging(Vec2::ZERO, b, cut_a, HandCommand::TUCKED));
-            w.submit(b, Action::swinging(Vec2::ZERO, a, cut_b, HandCommand::TUCKED));
+            w.submit(a, Command::swinging(Vec2::ZERO, b, cut_a));
+            w.submit(b, Command::swinging(Vec2::ZERO, a, cut_b));
             let mut parried_here = false;
             for event in w.step() {
                 if let Event::Parry { a: x, b: y, .. } = event {
@@ -3125,8 +3322,8 @@ mod tests {
                 // Crossing steel does not merely deflect a swing now, it ends
                 // it: both hands go to recovery, which is what makes catching a
                 // cut on your own blade worth the tempo it costs.
-                ended_an_attack |= w.hands[a.index as usize][SWORD].swing == Swing::Recover
-                    && w.hands[b.index as usize][SWORD].swing == Swing::Recover;
+                ended_an_attack |= w.limb[a.index as usize].swing == Swing::Recover
+                    && w.limb[b.index as usize].swing == Swing::Recover;
             }
         }
         assert!(parries > 0, "blades swept through each other without meeting");
@@ -3142,9 +3339,9 @@ mod tests {
         // This is the test that catches an in-place resolution loop: resolve
         // spin changes as you go and the lower entity index quietly wins.
         let mut scenario = Scenario::duel();
-        scenario.units[1].kind = UnitKind::Warrior;
-        scenario.units[1].stats = UnitKind::Warrior.base_stats();
-        // 1.7 apart, symmetric about x = 12. Two units puts each Warrior's body
+        scenario.units[1].set_body(Body::Fighter);
+        scenario.units[1].stats = Body::Fighter.base_stats();
+        // 1.7 apart, symmetric about x = 12. Two units puts each Fighter's body
         // 1.55 from the other's centre against a blade that reaches 1.40, so
         // the pair swings all day and never touches -- and a symmetry test
         // between two zeros passes without proving anything.
@@ -3169,8 +3366,8 @@ mod tests {
         for _ in 0..1800u32 {
             let cut_a = cutting(&w, a, Angle::ZERO, Strike::Widdershins);
             let cut_b = cutting(&w, b, Angle::HALF, Strike::Widdershins);
-            w.submit(a, Action::swinging(Vec2::ZERO, b, cut_a, HandCommand::TUCKED));
-            w.submit(b, Action::swinging(Vec2::ZERO, a, cut_b, HandCommand::TUCKED));
+            w.submit(a, Command::swinging(Vec2::ZERO, b, cut_a));
+            w.submit(b, Command::swinging(Vec2::ZERO, a, cut_b));
             w.step();
             if let Some(o) = w.outcome() {
                 outcome = Some(o);
@@ -3212,7 +3409,7 @@ mod tests {
         let top = w.stats[i].move_speed();
 
         w.pos[i] = Vec2::new(w.arena.x * Fx::HALF, w.arena.y * Fx::HALF);
-        w.action[i] = Action::moving(Vec2::X);
+        w.command[i] = Command::moving(Vec2::X);
         w.apply_movement();
         let after_one = w.vel[i].length();
         assert!(
@@ -3230,7 +3427,7 @@ mod tests {
         );
 
         // And it cannot simply stop. Ordered to hold, it slides.
-        w.action[i] = Action::HOLD;
+        w.command[i] = Command::HOLD;
         let braking_from = w.pos[i];
         for _ in 0..40 {
             w.apply_movement();
@@ -3257,7 +3454,7 @@ mod tests {
         // Hard against the western wall, still being told to walk west, and
         // drifting north along it.
         w.pos[i] = Vec2::new(w.radius[i], w.arena.y * Fx::HALF);
-        w.action[i] = Action::moving(Vec2::new(-Fx::ONE, Fx::ONE).normalize());
+        w.command[i] = Command::moving(Vec2::new(-Fx::ONE, Fx::ONE).normalize());
         for _ in 0..30 {
             w.apply_movement();
         }
@@ -3271,7 +3468,7 @@ mod tests {
     fn charging_a_heavier_body_costs_the_charger_more() {
         // Barging is now a decision with a price, and the price scales with who
         // you barge. Both are thrown, and the light one is thrown further.
-        let mut w = World::new(&Scenario::duel_of(UnitKind::Skitterer, UnitKind::Brute, 1), 1);
+        let mut w = World::new(&Scenario::duel_of(Body::Skitterer, Body::Brute, 1), 1);
         let light = w.alive_ids(Faction::Heroes)[0].index as usize;
         let heavy = w.alive_ids(Faction::Monsters)[0].index as usize;
 
@@ -3308,7 +3505,7 @@ mod tests {
         // to be free to hold: the overlap was split down the middle, so a
         // Skitterer pressed against a Brute shoved exactly as hard as it was
         // shoved. Now the ground each yields is the *other* one's weight.
-        let mut w = World::new(&Scenario::duel_of(UnitKind::Skitterer, UnitKind::Brute, 1), 1);
+        let mut w = World::new(&Scenario::duel_of(Body::Skitterer, Body::Brute, 1), 1);
         let light = w.alive_ids(Faction::Heroes)[0].index as usize;
         let heavy = w.alive_ids(Faction::Monsters)[0].index as usize;
         assert!(w.mass[heavy] > w.mass[light], "premise");
@@ -3346,7 +3543,7 @@ mod tests {
         // The mirror case the old rule got right and the new one must not
         // break: two identical fighters must each give exactly half, or a
         // symmetric duel picks a winner out of the collision solver.
-        let mut w = World::new(&Scenario::duel_of(UnitKind::Warrior, UnitKind::Warrior, 1), 1);
+        let mut w = World::new(&Scenario::duel_of(Body::Fighter, Body::Fighter, 1), 1);
         let (a, b) = (
             w.alive_ids(Faction::Heroes)[0].index as usize,
             w.alive_ids(Faction::Monsters)[0].index as usize,
@@ -3381,16 +3578,16 @@ mod tests {
         w.pos[i] = w.pos[j] - Vec2::new(Fx::TWO, Fx::ZERO);
         w.start_pos[i] = w.pos[i];
         w.start_pos[j] = w.pos[j];
-        w.hands[i][SWORD].reach = Fx::ONE;
-        w.hands[i][SWORD].swing = Swing::Strike;
-        w.hands[i][SWORD].spin = Fx::from_int(4_000);
+        w.limb[i].reach = Fx::ONE;
+        w.limb[i].swing = Swing::Strike;
+        w.limb[i].spin = Fx::from_int(4_000);
 
         // A quarter turn in one tick: 22.5 degrees short of the hero to 22.5
         // degrees past it. The blade is clear of the body at *both* ends and
         // squarely through it in the middle.
-        w.hands[i][SWORD].angle = Angle::from_raw(61_440);
+        w.limb[i].angle = Angle::from_raw(61_440);
         let before = w.blade(i).expect("the blade is out");
-        w.hands[i][SWORD].angle = Angle::from_raw(4_096);
+        w.limb[i].angle = Angle::from_raw(4_096);
         let after = w.blade(i).expect("the blade is out");
 
         for (label, (base, tip)) in [("before", before), ("after", after)] {
@@ -3410,8 +3607,8 @@ mod tests {
         w.resolve_swings();
         assert_eq!(w.hp[j], full, "premise: nothing to sweep, nothing to hit");
 
-        w.hands[i][SWORD].swing = Swing::Strike;
-        w.hands[i][SWORD].spin = Fx::from_int(4_000);
+        w.limb[i].swing = Swing::Strike;
+        w.limb[i].spin = Fx::from_int(4_000);
         w.blade_was[i] = Some(before);
         w.resolve_swings();
         assert!(w.hp[j] < full, "the blade passed clean through a body");
@@ -3426,16 +3623,16 @@ mod tests {
         let brute = w.alive_ids(Faction::Monsters)[0];
         let hero = w.alive_ids(Faction::Heroes)[0];
         let (i, j) = (brute.index as usize, hero.index as usize);
-        w.hands[i][SWORD].reach = Fx::ONE;
+        w.limb[i].reach = Fx::ONE;
         // Brute two units east of the hero; contact on the hero's eastern
         // surface, which is the side the blow is coming from. "Away" is then
         // due west, and the sign of the closing term is unambiguous.
         w.pos[i] = w.pos[j] + Vec2::new(Fx::TWO, Fx::ZERO);
         let contact = w.pos[j] + Vec2::new(w.radius[j], Fx::ZERO);
 
-        w.hands[i][SWORD].spin = Fx::from_int(900);
+        w.limb[i].spin = Fx::from_int(900);
         let clockwise = w.impact_speed(i, j, contact);
-        w.hands[i][SWORD].spin = Fx::from_int(-900);
+        w.limb[i].spin = Fx::from_int(-900);
         let widdershins = w.impact_speed(i, j, contact);
         assert!(clockwise.is_positive(), "a moving blade registered nothing");
         assert_eq!(clockwise, widdershins, "the backswing is not a cut");
@@ -3585,5 +3782,220 @@ mod tests {
         let got: Vec<usize> = n.items().iter().map(|&(_, i)| i).collect();
         // 1@1 and 1@4 tie on distance; the lower index wins.
         assert_eq!(got, vec![1, 4, 3]);
+    }
+
+    // ---------------------------------------------------------------- the swap
+
+    /// A Fighter at striking distance carrying sword-and-shield, and an attacker
+    /// of `body` pressing **one** cut into it. Returns whether that cut was
+    /// blocked.
+    ///
+    /// The defender reaches for its shield the first time it *notices* a windup,
+    /// and it only notices on its own decision ticks -- every
+    /// `Stats::decision_period`, which for a Fighter is 12. That latency is not
+    /// a handicap invented for the test; it is the whole of what `intellect`
+    /// buys in this game, and a fighter that reacted on the exact tick a blade
+    /// moved would not be a fighter.
+    ///
+    /// Worth knowing, because the naive arithmetic is wrong in a way that
+    /// flatters the defender: the budget is **not** just the telegraph. A cut
+    /// also has to travel, and contact happens some way into the strike phase,
+    /// so the true window is windup plus part of the swing. Reaching at tick
+    /// zero, a Fighter can get a shield up inside even a knife. It is reaction
+    /// latency that makes a fast weapon unanswerable, not the telegraph alone --
+    /// which is a better fact than the one the tuning was designed around, and
+    /// it is why this is measured through a live world instead of on paper.
+    fn answered_by_a_swap(attacker: Body, guard_at: Angle) -> bool {
+        let mut scenario = Scenario::duel();
+        scenario.units[0].set_body(Body::Fighter);
+        scenario.units[0].loadout = Loadout::pair(ActionKind::Sword, ActionKind::Shield);
+        scenario.units[0].spawn = Vec2::from_ints(17, 8);
+        scenario.units[1].set_body(attacker);
+        scenario.units[1].spawn = Vec2::from_ints(18, 8);
+        let mut w = World::new(&scenario, 1);
+        let hero = w.alive_ids(Faction::Heroes)[0];
+        let foe = w.alive_ids(Faction::Monsters)[0];
+        // Enough health to survive being measured.
+        let h = w.resolve(hero).unwrap();
+        w.hp[h] = Fx::from_int(4000);
+        w.max_hp[h] = Fx::from_int(4000);
+
+        let period = Body::Fighter.base_stats().decision_period() as u32;
+        let mut reaching = false;
+        let mut committed = false;
+        let mut saw_windup_at: Option<u32> = None;
+        for tick in 0..400u32 {
+            let cut = cutting(&w, foe, Angle::HALF, Strike::Nearest);
+            w.submit(foe, Command::swinging(Vec2::ZERO, hero, cut));
+
+            // The read, on this fighter's own clock. It sees the blade cocked,
+            // and acts on it at its next decision.
+            let phase = w.view(foe).unwrap().limb.swing;
+            if phase == Swing::Windup && saw_windup_at.is_none() {
+                saw_windup_at = Some(tick);
+            }
+            if let Some(seen) = saw_windup_at {
+                if tick >= seen + period {
+                    reaching = true;
+                }
+            }
+            if phase.is_attacking() {
+                committed = true;
+            }
+            let mut answer = Command::swinging(
+                Vec2::ZERO,
+                EntityId::NONE,
+                LimbCommand::new(guard_at, Fx::ONE),
+            );
+            answer.slot = if reaching { 1 } else { 0 };
+            w.submit(hero, answer);
+
+            if w.step().iter().any(|e| matches!(e, Event::Block { .. })) {
+                return true;
+            }
+            // **Measure exactly one cut.** Left running, the defender ends up
+            // standing behind a shield it drew during the first telegraph and
+            // blocks the fifth attack -- which says nothing about whether the
+            // telegraph could be answered, and would let a knife pass this by
+            // being thrown repeatedly.
+            if committed && w.view(foe).unwrap().limb.swing == Swing::Guard {
+                return false;
+            }
+        }
+        false
+    }
+
+    /// **Constraint 1 of the swap tuning, through a live world.**
+    ///
+    /// A club announces for 33 ticks on the Brute that carries one, and a
+    /// Fighter draws a shield in 9 plus two of extension. Reading the telegraph
+    /// and reaching for the guard is therefore a real answer to a heavy weapon,
+    /// and it is the play the whole loadout exists to make possible.
+    #[test]
+    fn a_club_can_be_answered_by_swapping_to_a_guard() {
+        // The bearing a cut first bites on is not the bearing the attacker
+        // stands at -- see `a_shield_covers_a_direction_and_only_that_direction`
+        // -- so the guard has to be swept for rather than guessed.
+        let caught = (0..16u32).any(|step| {
+            answered_by_a_swap(Body::Brute, Angle::from_raw((step * 4096) as u16))
+        });
+        assert!(
+            caught,
+            "no bearing answered a club by swapping to a shield; a heavy weapon \
+             is supposed to be slow enough to read, and if it is not then the \
+             guard is a slot nobody would ever spend"
+        );
+    }
+
+    /// **Constraint 2, and it holds by construction rather than by tuning.**
+    ///
+    /// A knife announces for 7 ticks. The fastest shield draw in the game is 9
+    /// on a Fighter and 7 on a Rogue, before the two ticks of extension it takes
+    /// to cover anything -- so no amount of reading beats it, at any bearing,
+    /// with zero reaction latency. That is what makes a fast weapon worth
+    /// holding, and it is the other half of the ladder the club test opens.
+    #[test]
+    fn a_knife_cannot_be_answered_by_swapping_to_a_guard() {
+        let caught = (0..16u32).any(|step| {
+            answered_by_a_swap(Body::Skitterer, Angle::from_raw((step * 4096) as u16))
+        });
+        assert!(
+            !caught,
+            "a knife was blocked by a fighter that started reaching only when \
+             the telegraph began; fast weapons are supposed to be unanswerable \
+             and that is the whole reason to carry one"
+        );
+    }
+
+    #[test]
+    fn a_swap_is_refused_unless_the_limb_is_at_guard() {
+        let mut scenario = Scenario::duel();
+        scenario.units[0].loadout = Loadout::pair(ActionKind::Sword, ActionKind::Shield);
+        let mut w = World::new(&scenario, 1);
+        let hero = w.alive_ids(Faction::Heroes)[0];
+        let h = w.resolve(hero).unwrap();
+
+        // Throw a cut, and ask to swap on every tick once it is under way. The
+        // request must be ignored for as long as the attack is running -- a
+        // swap out of a committed cut would make overcommitting free.
+        //
+        // The slot request is withheld until the blade is actually moving,
+        // because at guard it would simply be granted and there would be no
+        // attack left to refuse it during.
+        let mut refused_during = 0u32;
+        for _ in 0..200u32 {
+            let mut cmd = Command::swinging(
+                Vec2::ZERO,
+                EntityId::NONE,
+                LimbCommand::attack(Angle::ZERO, Strike::Nearest),
+            );
+            cmd.slot = if w.limb[h].swing == Swing::Guard && refused_during == 0 {
+                0
+            } else {
+                1
+            };
+            w.submit(hero, cmd);
+            w.step();
+            if matches!(
+                w.limb[h].swing,
+                Swing::Windup | Swing::Strike | Swing::Recover
+            ) {
+                refused_during += 1;
+                assert_eq!(
+                    w.slot[h], 0,
+                    "the slot changed while the limb was mid-{}",
+                    w.limb[h].swing.name()
+                );
+            }
+            if w.limb[h].swing.is_dormant() {
+                break;
+            }
+        }
+        assert!(
+            refused_during > 5,
+            "the attack never ran, so nothing was actually refused"
+        );
+        assert_eq!(w.slot[h], 1, "the swap was never honoured at all");
+    }
+
+    #[test]
+    fn a_swapping_limb_neither_cuts_nor_blocks_nor_parries() {
+        let mut scenario = Scenario::duel();
+        scenario.units[0].loadout = Loadout::pair(ActionKind::Sword, ActionKind::Club);
+        let mut w = World::new(&scenario, 1);
+        let hero = w.alive_ids(Faction::Heroes)[0];
+        let h = w.resolve(hero).unwrap();
+
+        let mut cmd = Command::swinging(
+            Vec2::ZERO,
+            EntityId::NONE,
+            LimbCommand::new(Angle::ZERO, Fx::ONE),
+        );
+        cmd.slot = 1;
+        w.submit(hero, cmd);
+        w.step();
+        assert!(w.limb[h].swing.is_dormant(), "the swap never began");
+
+        let mut ticks = 0u32;
+        while w.limb[h].swing.is_dormant() {
+            assert!(
+                w.blade(h).is_none(),
+                "a swapping limb was still a blade on tick {ticks}"
+            );
+            assert!(
+                w.block_leak(h, w.pos[h] + Vec2::X).is_none(),
+                "a swapping limb still covered a bearing on tick {ticks}"
+            );
+            assert!(
+                !w.can_parry(h),
+                "a swapping limb could still parry on tick {ticks}"
+            );
+            w.submit(hero, cmd);
+            w.step();
+            ticks += 1;
+            assert!(ticks < 200, "the swap never finished");
+        }
+        // And on the far side it is a club, not a sword.
+        assert_eq!(w.action_of(h), ActionKind::Club);
     }
 }

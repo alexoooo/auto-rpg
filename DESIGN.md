@@ -56,7 +56,7 @@ required of `World`, not of whatever decided the actions.
 
 ## The agent boundary
 
-`Observation` in, `Action` out. That is the entire interface.
+`Observation` in, `Command` out. That is the entire interface.
 
 The observation is not a view of the world; it is *what perception allows*. The
 world holds ground truth, and `World::observe` degrades it by the observer's
@@ -102,8 +102,8 @@ policy could previously read was scale-free by construction (positions, angles,
 health fractions), which was the right instinct and left exactly one hole:
 `power`, `weapon.weight` and `max_hp` are all absolute, all correctly kept out of
 an observation, and between them they decide whether an exchange is a scratch or
-a third of the fight. A Brute's axe is 0.32 of a Warrior, 0.74 of a Skitterer,
-and a Skitterer's knife is 0.08 of that same Warrior. A fighter that cannot tell
+a third of the fight. A Brute's axe is 0.32 of a Fighter, 0.74 of a Skitterer,
+and a Skitterer's knife is 0.08 of that same Fighter. A fighter that cannot tell
 those apart except by blade length is not reading the fight, and no amount of
 perception was ever going to fix it.
 
@@ -147,8 +147,8 @@ vocabulary and a much larger game, and it is the same vocabulary the AI has, so
 the two remain comparable.
 
 That is a smaller change than it reads as, and worth being precise about. It does
-not add a channel: the host still answers with an `Action`, the sim still cannot
-tell what produced it, and `Observation` in / `Action` out is untouched. What
+not add a channel: the host still answers with an `Command`, the sim still cannot
+tell what produced it, and `Observation` in / `Command` out is untouched. What
 changes is only *who is asked*. An `Order` remains what it was — a command to a
 faction, degraded by nothing, interpreted by whatever wits the character has —
 and manual control is a policy that happens to be a person.
@@ -164,12 +164,25 @@ run.
 
 ## The swing
 
-A character has two hands, and they take different kinds of order.
+A character has **one** limb, and what it does with an order depends on what is
+in it.
 
-The **shield** takes a bearing and an extension, and accelerates toward it under
-a torque cap. That has not changed and does not need to.
+It used to have two — a sword hand and a shield hand — and that was a worse
+model than it looked. Nothing charged for the second one. A shield held at full
+reach cost no tempo, no attack and no ground, so every policy in the crate held
+one out permanently, unconditionally, in all eight stances. Defending was never
+an *alternative* to pressing; it was something you got for free while pressing,
+and the test that measured "answering a telegraph" as a losing strategy was
+measuring exactly that.
 
-The **sword** takes a *line* and a *release*, and the sim runs four phases
+So a character now carries a **loadout** of up to two [actions](#actions-and-
+loadouts) and holds one at a time. Which one is the decision the fight turns on,
+and it is paid for in ticks.
+
+A **guard** action takes a bearing and an extension, and accelerates toward it
+under a torque cap. That half of the model is unchanged.
+
+A **strike** action takes a *line* and a *release*, and the sim runs four phases
 against them:
 
 ```text
@@ -184,6 +197,76 @@ Recover — bringing the blade back. Inert, and cannot attack.
    │ the weapon's recovery, plus a penalty if it was stopped
  Guard
 ```
+
+### Actions and loadouts
+
+A **body** is a size, a weight and a stat sheet. It is not a swordsman.
+
+That distinction did not exist until recently. `UnitKind` carried a radius, a
+density, a stat template, a weapon *and* a shield arc as one indivisible fact, so
+a Skitterer did not carry a knife — it *was* one, and "what does a Brute with a
+knife play like" was a question with no representation anywhere in the codebase.
+
+Now there are two things. `Body` is the four rows above. `ActionKind` is a
+registry of mechanics — punch, knife, shortsword, sword, club, shield, and two
+reserved rows for run and bow — and each is an `ActionSpec`: a role, a length, a
+mass, a balance, a guard arc, a windup, a recovery, and a `ready` cost. The role
+is the only thing the sim branches on:
+
+| role | blade hitbox | blocks | phases |
+|---|---|---|---|
+| `Strike` | yes | no | the four above |
+| `Guard` | no | yes, over `arc` | none; sits at `Guard` |
+| `Move` | no | no | none; buys footspeed |
+
+`Arm::resolve(spec, stats, radius)` is where the two halves meet, and it is
+rebuilt on every call so it cannot go stale when a fighter changes its mind
+mid-fight.
+
+#### The swap, and why it costs what it costs
+
+Changing what is in your hand enters a fifth phase, `Swing::Swap`, in which
+**nothing is live** — no blade, no guard, no parry. It is entered only from
+`Guard`, so a swap is never an escape hatch out of a cut that has already
+committed, and it costs `phase_ticks(incoming.ready, agility)`: you drop what you
+are holding for free and pay for what you are drawing.
+
+The number that matters is `Shield.ready`, and getting it right took one wrong
+answer worth recording. The first pass set it against the **telegraphs**: a club
+announces for 33 ticks and a knife for 7, so 8 looked generous against one and
+impossible against the other. Both figures are real and neither is the operative
+one — a cut has to *travel* after it is declared, and contact lands well into the
+strike phase. Measured through a live world, the window from declaration to
+contact is **24 ticks for a knife and 62 for a club**, nearly triple the
+telegraph. Against those, a fighter drawing in 8 could get a guard up against
+anything in the game, and the ladder had no rungs on it at all.
+
+At `ready: 14` a Fighter spends 12 ticks noticing (its decision period) and 15
+drawing, which puts a guard up around tick 27: inside a club's 62 with most of
+the brace still to spend, and outside a knife's 24. So **heavy weapons are
+blockable and fast ones are not**, which is the whole reason to carry either. A
+Rogue — thinking every 10 and drawing in 12 — lands right on the knife's edge,
+which is the correct shape for the quick body.
+
+Those constraints are asserted through a live `World` in
+`world::tests::a_club_can_be_answered_by_swapping_to_a_guard` and its twin,
+rather than on paper, because on paper is exactly how they were got wrong.
+
+#### What this cost, honestly
+
+Taking away free blocking made every fighter worse, and the difficulty ladder
+moved down with them: the three character sheets that used to win 33 / 91 / 99
+percent of their duels now win 14 / 73 / 88. The ordering and the spread are what
+that test pins now, because those are the claims worth making and the absolute
+floors were the part that rotted.
+
+One further finding is worth keeping, because it nearly shipped. Loadout
+hysteresis applied *per decision* means a sharp fighter, re-deciding twelve times
+as often as a dim one, flips its loadout twelve times as readily and spends the
+fight mid-swap — measured at dull 14%, capable 73%, sharp **46%**. More intellect
+made a worse fighter, which inverts every stat in the game. A swap costs the same
+ticks whoever throws it, so what has to be constant is flips per *second*; see
+`REFERENCE_PERIOD` in `duelist.rs`.
 
 ### Why it is a state machine and not a bearing
 
@@ -202,10 +285,10 @@ anticipated has no skill ceiling to have a gradient along.
 Three properties replace it, and they are the whole point:
 
 - **An attack announces itself.** The windup is real time on the clock — 33 ticks
-  for a Brute, 7 for a Scout — and it is in the defender's observation. What a
+  for a Brute, 7 for a Rogue — and it is in the defender's observation. What a
   fighter can answer is set by how often it is allowed to think, so a Brute's
-  telegraph buys a Warrior two or three decisions and a Skitterer four, while a
-  Scout's telegraph buys a Brute *none at all*.
+  telegraph buys a Fighter two or three decisions and a Skitterer four, while a
+  Rogue's telegraph buys a Brute *none at all*.
 - **An attack commits.** Momentum was always unreversible; now the decision is
   too. Past the telegraph the line is frozen and the command is not read.
 - **A miss costs.** Recovery is a window in which the hand cannot attack, cannot
@@ -216,7 +299,7 @@ Three properties replace it, and they are the whole point:
 
 The strike window is computed per weapon (`strike_ticks`) and not a constant, and
 that correction is worth recording because the constant version was a bug wearing
-tuning's clothes. A flat 45 ticks is ample for a Warrior and nowhere near enough
+tuning's clothes. A flat 45 ticks is ample for a Fighter and nowhere near enough
 for a Brute: an extended blade turns at `torque × agility × (1 - REACH_DRAG)`,
 20.6 raw units per tick squared, against 23,040 units of arc. **Every heavy
 attack in the game was cut off eight degrees short of its own line**,
@@ -239,11 +322,11 @@ to keep a guard chambered, and a guard that cuts is a guard nobody would drop.
 **A windup tracks; a strike does not.** This is the correction that made heavy
 weapons playable rather than merely slow. Freezing the line at the start of the
 telegraph reads as the principled choice and is quietly fatal: a Brute announces
-for 33 ticks, over which a Warrior walks 1.8 units — further than the Brute's
+for 33 ticks, over which a Fighter walks 1.8 units — further than the Brute's
 entire blade — so every heavy attack in the game missed by ambient movement, and
 the archetype lost to everything at every skill level. Tracking also spends the
 intellect stat a second time, because an action persists until its owner's next
-decision: a Brute re-aims twice inside its own windup and a Scout thirty times.
+decision: a Brute re-aims twice inside its own windup and a Rogue thirty times.
 Dodging a sharp fighter means beating a cut that is following you.
 
 **Holding the button down throws one attack.** An attack begins only on a strike
@@ -263,12 +346,12 @@ the change is worth recording. The threshold used to have two jobs — the dead
 zone, and stopping a blade carried into someone by walking from being a weapon.
 The phase gate does the second job now, so the threshold could come down; and it
 had to, because at 0.09 a Brute's dead zone reached 1.27 units, which is *outside*
-the 1.15 at which a Warrior's body and its own stop being able to approach. A
+the 1.15 at which a Fighter's body and its own stop being able to approach. A
 fighter that got close became flatly immune, a small enough one became immune and
 harmless at the same time, and the fight timed out. At 0.85 the circle is
 unreachable and what is left is the gradient — but the gradient is *steep*, and
 steeper than that sentence used to admit. Measured end to end on a stationary
-Warrior, a Brute's worst blow is 26.5 at the tip of its arc against 2.0 pressed
+Fighter, a Brute's worst blow is 26.5 at the tip of its arc against 2.0 pressed
 against its chest: thirteen to one, from spacing alone, with no read and no
 timing involved.
 
@@ -375,7 +458,7 @@ charges a point per 150 ticks for exactly this reason.
 
 ### The difficulty range, which is what all of it is for
 
-One `DuelistPolicy`, one set of weights, one Warrior body, three values of
+One `DuelistPolicy`, one set of weights, one Fighter body, three values of
 intellect and perception, against an unchanged Brute on the naive policy. 240
 seeds a row, and not one draw anywhere on it:
 
@@ -386,7 +469,7 @@ seeds a row, and not one draw anywhere on it:
 | 1 / 2                      | every 24  | 1.55  | 52%      | 0.16                  |
 | 2 / 2                      | every 18  | 1.55  | 86%      | 0.32                  |
 | 3 / 3                      | every 17  | 1.20  | 90%      | 0.36                  |
-| 8 / 6 (a stock Warrior)    | every 12  | 0.90  | 100%     | 0.56                  |
+| 8 / 6 (a stock Fighter)    | every 12  | 0.90  | 100%     | 0.56                  |
 | 12 / 10                    | every 8   | 0.50  | 100%     | 0.61                  |
 | 19 / 18                    | every 1   | 0.00  | 100%     | 0.65                  |
 
@@ -482,8 +565,8 @@ The two halves are now the same kind of thing.
 
 ### Mass is geometry unless stated otherwise
 
-`UnitKind::mass()` is `density * radius^2`, normalised so a Warrior weighs 1.00.
-Area and not volume: a cube law puts a Brute at four Warriors and a Skitterer at
+`Body::mass()` is `density * radius^2`, normalised so a Fighter weighs 1.00.
+Area and not volume: a cube law puts a Brute at four Fighters and a Skitterer at
 a third of one, and at that spread the light archetypes cannot hold ground at
 all. `density` is the one dial that says an archetype is *built* differently
 rather than merely scaled — a Brute is meat and plate at 1.15, a Skitterer is a
@@ -682,7 +765,7 @@ next person does not re-derive them.
 
 **And then the Brute stopped working, with every derived number saying it should
 be stronger.** Tip speed up (0.188 against 0.153), strike budget unchanged, dead
-zone *smaller*, peak damage within 7% — and the naive Warrior's win rate against
+zone *smaller*, peak damage within 7% — and the naive Fighter's win rate against
 it went from 10% to 76%. The cause took several wrong hypotheses to find and it
 is a cliff rather than a slope:
 
@@ -694,7 +777,7 @@ is a cliff rather than a slope:
 
 Contacts happen at body-to-body range whatever the blade length — measured, both
 fighters in a duel contact at about 1.17 units from their own centre, because
-that is where the other body is. For a Warrior that is 83% of the way to the tip;
+that is where the other body is. For a Fighter that is 83% of the way to the tip;
 for a Brute with a 1.45 blade it is a third. Deriving the cap from grip moved a
 Brute's top spin from 741 to 911 and its dead zone from 0.845 to 0.687 — *inside*
 its own 0.70 body radius — so no part of its blade could touch anyone harmlessly
@@ -708,7 +791,7 @@ it took the Brute's damage per landed blow from 1.24 back to 4.29.
 
 Two things it deliberately does not do. It does not guarantee the harmless band
 reaches past the wielder's own body — that holds for a Brute (0.86 against 0.70)
-and is load-bearing there, but a Scout's dead zone is 0.27 inside a 0.35 body and
+and is load-bearing there, but a Rogue's dead zone is 0.27 inside a 0.35 body and
 always has been, because a short quick blade really is dangerous along its whole
 length. Forcing otherwise needs `GRAZE_FRACTION` above 0.43, which measurably
 flattens the difficulty ladder. And it does not make reach pay: a long blade whose
@@ -738,17 +821,17 @@ a thrust, which is not what anything in this roster is doing.
 one collision resolved from both arms' moments of inertia and a restitution
 constant. The pair they replaced could contradict each other and did:
 `BLOCK_SHIELD_KNOCK` scaled the *attacker's spin* with no mass term anywhere in
-it, so a Scout's whippy 3461 disturbed a guard nearly four times as hard as a
+it, so a Rogue's whippy 3461 disturbed a guard nearly four times as hard as a
 Brute's 911 — the heaviest weapon in the game was the one a shield had the
-easiest time holding. Measured against a Warrior's guard, before and after:
+easiest time holding. Measured against a Fighter's guard, before and after:
 
 | attacker | old knock | new knock | old rebound | new rebound |
 |----------|----------:|----------:|------------:|------------:|
 | brute    |       364 |       512 |       −0.35 |       −0.02 |
-| warrior  |       752 |       292 |       −0.35 |       −0.26 |
-| scout    |      1384 |       164 |       −0.35 |       −0.32 |
+| fighter  |       752 |       292 |       −0.35 |       −0.26 |
+| rogue    |      1384 |       164 |       −0.35 |       −0.32 |
 
-A Brute's axe now throws the guard aside and barely deflects; a Scout's is
+A Brute's axe now throws the guard aside and barely deflects; a Rogue's is
 stopped nearly dead and moves it very little. Neither number was authored — they
 are the two halves of one impulse, so whatever the heavy blade fails to give back
 to itself it gave to the guard.
@@ -776,8 +859,8 @@ shield or another blade, is billed to the body that owns it.
 *Differencing the momentum **vector*** bills the body for the centripetal
 reaction on every tick of every swing. That is real physics and it completely
 swamps the model: at a quarter transfer it came to a **sustained** 38% of a
-Scout's top speed per tick, pushing outward from wherever its blade happened to
-be. Scout mirror duels stopped landing blows at all and 98% of them ended in a
+Rogue's top speed per tick, pushing outward from wherever its blade happened to
+be. Rogue mirror duels stopped landing blows at all and 98% of them ended in a
 draw at full health. Dropping it is the honest call — holding a weapon out
 against its own circle is a pull straight down the arm and into the shoulder, and
 leaning against that is what a stance *is*. A hammer thrower does not get dragged
@@ -787,7 +870,7 @@ sideways; they lean back.
 reason. A cut accelerates its blade the same way for twenty or forty ticks
 running, so every tick of recoil points the same way and they **add**, while
 traction can only shed a fixed amount per tick. Swept at 0.25, 0.12, 0.08, 0.04
-and 0.02, a duelling Scout against a naive Warrior scored 41 / 96 / 89 / 94 / 95
+and 0.02, a duelling Rogue against a naive Fighter scored 41 / 96 / 89 / 94 / 95
 percent against a 98 before the change — recoil was either large enough to stop a
 fighter closing on anything it was swinging at, or small enough to do nothing.
 
@@ -805,7 +888,7 @@ pairs with the punish window instead of taxing every swing.
 The matchup matrix moved very little, which is the point — the four couplings are
 meant to add depth rather than to rebalance. Duellist-versus-naive across all
 sixteen archetype pairings is within a few points everywhere except
-Brute-versus-Scout, which went from **4% to 15%**: the inversion above, fixed.
+Brute-versus-Rogue, which went from **4% to 15%**: the inversion above, fixed.
 
 Two honest negatives:
 
@@ -834,7 +917,7 @@ per scaled vector per tick until one of them is measurably winning. It cost a
 mirrored exchange 62.5671 against 62.5717. `mul_div` and `Hand::track` had already
 made the same choice for the same reason; the operator had not.
 
-Fixing it uncovered something the bug had been hiding: **a duellist Scout mirror
+Fixing it uncovered something the bug had been hiding: **a duellist Rogue mirror
 is a stalemate.** Two of them time out at near-full health 58% of the time, where
 before the fix they resolved every fight. Verified against the *pre-phase* sim
 with only the rounding change applied, so it is not the new physics — it is what
@@ -847,12 +930,12 @@ That is worse than a draw, not better, so the rounding change stands. The
 stalemate is real and belongs to the policy: eight stances scored off a
 near-symmetric read have no tie-breaker in them, and the other three archetypes
 resolve only because their perception is poor enough for noise to separate them.
-Nothing in the difficulty ladder or the shipped tests goes through a Scout mirror
+Nothing in the difficulty ladder or the shipped tests goes through a Rogue mirror
 — they measure a duellist against a *naive* opponent — so this is recorded rather
 than patched, and it is a question for the evolution phase.
 
 *It did not survive to the evolution phase.* The energy damage law below resolved
-it without being aimed at it: Scout mirrors now go 53% / 0% draws at 0.08 health
+it without being aimed at it: Rogue mirrors now go 53% / 0% draws at 0.08 health
 over 2372 ticks, where they were 17% / 58% at 0.77 health over 8400. The dead
 zones a squared law produces are wide enough that spacing decides the fight, and
 spacing is the one thing two symmetric reads disagree about as soon as either
@@ -867,7 +950,7 @@ energy and not in speed**: taking a speed threshold off first and multiplying by
 mass after charged a slow heavy weapon twice, once where it is weakest and again
 by scaling that shortfall up by the very mass that made it slow. In energy every
 weapon pays the same admission fee in whatever currency it has — a Brute's axe
-clears the bar at 0.045 units per tick, a Scout's knife not until 0.072.
+clears the bar at 0.045 units per tick, a Rogue's knife not until 0.072.
 
 **Weapon mass cancels out of damage exactly, and that is a property of the model
 rather than an oversight.** A swing is a fixed torque over a fixed arc, so the
@@ -888,12 +971,12 @@ spread". **That instruction was wrong and worth recording as wrong.** It is a
 scalar and it multiplies all four energies equally, so it cannot produce a
 spread; and pushed far enough to matter it moves weapons out of the grip-limited
 regime into the work-limited one, where the shape becomes `tip²/lever²` instead
-of `tip²/lever` and the roster *inverts* — a Scout's knife becomes the hardest
-hitter in the game at 1.68× a Warrior. The constant was left where Phase 3 put
+of `tip²/lever` and the roster *inverts* — a Rogue's knife becomes the hardest
+hitter in the game at 1.68× a Fighter. The constant was left where Phase 3 put
 it.
 
 So the damage spread is bought with **reach, balance, agility and power**, and it
-is bought: 0.37 / 0.82 / 1.00 / 1.44 across Skitterer, Scout, Warrior, Brute. It
+is bought: 0.37 / 0.82 / 1.00 / 1.44 across Skitterer, Rogue, Fighter, Brute. It
 is narrower than the old law's 0.49 / 0.73 / 1.00 / 1.74, and the narrowing is
 carried entirely by the power stat. Mass is paid for elsewhere and paid well — it
 is what makes a swing slow to start, slow at the ceiling, and heavy when it lands,
@@ -915,8 +998,8 @@ about a third on that account alone:
 
 | | dead zone, linear | dead zone, energy | tip |
 |---|---|---|---|
-| Warrior | 0.46 | 0.58 | 1.40 |
-| Scout | 0.27 | 0.37 | 0.90 |
+| Fighter | 0.46 | 0.58 | 1.40 |
+| Rogue | 0.27 | 0.37 | 0.90 |
 | Brute | 0.86 | 0.88 | 2.15 |
 | Skitterer | 0.29 | 0.32 | 0.70 |
 
@@ -927,10 +1010,10 @@ measurement taken before the law changed.
 
 #### A Phase 3 bug that only became expensive here
 
-Widening the dead zones cost a duellist Scout its matchup against a naive Warrior,
+Widening the dead zones cost a duellist Rogue its matchup against a naive Fighter,
 97% → 18%, and the cause turned out to be neither the damage law nor the dead
 zone. A/B'd by running the *new* dead zone against the *old* damage law: the
-Scout fell to 11%, so the collapse is entirely a response to the percept.
+Rogue fell to 11%, so the collapse is entirely a response to the percept.
 
 `DuelistPolicy::preferred_range` computes two distances as sums —
 `own_dead_zone·margin + foe.radius`, and `foe.dead_zone + own.radius` — on the
@@ -939,16 +1022,16 @@ body at distance `D` is struck at `D − r` along the arm. That is not what the 
 bills. `segment_circle` measures to the body's *centre*, and a sweep bills the
 first sub-step that connects, which is while the blade is still `arcsin(r/D)` off
 the line of centres — so the blow lands at `sqrt(D² − r²)`, capped by the tip.
-Measured against the predicate itself, to three decimals: a Scout crowding a
-Warrior strikes at 0.663 and not at 0.350. Both distances are legs of a right
+Measured against the predicate itself, to three decimals: a Rogue crowding a
+Fighter strikes at 0.663 and not at 0.350. Both distances are legs of a right
 triangle whose hypotenuse is the range, and adding the legs overstates it by up
 to a body radius.
 
 **The fix is one line per distance and it makes the roster worse, so it is not
-in.** Correcting both rescues the Scout (18% → 99%) and wrecks everything else:
-every mirror runs out the clock untouched and a Scout mirror draws 100% at full
+in.** Correcting both rescues the Rogue (18% → 99%) and wrecks everything else:
+every mirror runs out the clock untouched and a Rogue mirror draws 100% at full
 health. Correcting only the floor costs a Brute half its win rate against a
-Warrior. These distances are what the stance scorer's entire tuning sits on and
+Fighter. These distances are what the stance scorer's entire tuning sits on and
 the genes were evolved against the sums. It is a real bug with a known fix,
 blocked on a re-tune and not on a diagnosis, and it belongs to the evolution
 phase along with the rest of the policy work. It read as a regression this phase
@@ -967,12 +1050,12 @@ let lee   = Vec2::new(foe.min_strike_range, obs.radius).length();
 ```
 
 Applied on its own it reproduced exactly the wreckage the previous phase
-measured — every mirror timing out, a Scout mirror drawing 100% at full health —
+measured — every mirror timing out, a Rogue mirror drawing 100% at full health —
 and the reason turned out to be a *second* bug that the sums had been hiding, in
 the same way small dead zones had hidden the first one.
 
 `hypot(a, b)` is smaller than `a + b`. For the light end of the roster the
-corrected floor comes out **inside body contact**: a Scout facing a Scout wants
+corrected floor comes out **inside body contact**: a Rogue facing a Rogue wants
 0.581 between centres, and two Scouts take up 0.700. So both fighters spent every
 tick driving into a distance the sim spends every tick undoing, ground against
 `World::separate`'s impulse at walking pace, and ran out the clock untouched.
@@ -981,8 +1064,8 @@ to stand somewhere that does not exist.
 
 | observer / foe | old sum | hypotenuse | bodies touching | floor now |
 |---|---:|---:|---:|---:|
-| warrior / brute | 1.419 | 1.004 | 1.150 | 1.150 |
-| scout / scout | 0.814 | 0.581 | 0.700 | 0.700 |
+| fighter / brute | 1.419 | 1.004 | 1.150 | 1.150 |
+| rogue / rogue | 0.814 | 0.581 | 0.700 | 0.700 |
 | brute / skitterer | 1.405 | 1.145 | 1.000 | 1.145 |
 | skitterer / brute | 1.105 | 0.809 | 1.000 | 1.000 |
 
@@ -1026,8 +1109,8 @@ number a fighter could not work out for itself — recoil goes as
 
 | | body mass | weapon mass | own drift, body radii |
 |---|---:|---:|---:|
-| warrior | 1.00 | 1.24 | 0.197 |
-| scout | 0.60 | 0.86 | 0.370 |
+| fighter | 1.00 | 1.24 | 0.197 |
+| rogue | 0.60 | 0.86 | 0.370 |
 | brute | 2.78 | 2.23 | **0.040** |
 | skitterer | 0.36 | 1.25 | **1.634** |
 
@@ -1051,7 +1134,7 @@ the stance is gone again. `Contact::heft` stays: it is what the other body weigh
 relative to yours, and `World::separate` splits a collision on the mass ratio and
 nothing else. Neither knockback figure would have done, and both were right there
 — those are facts about *a weapon meeting a body*, and this is a body meeting a
-body; a Skitterer and a Warrior carrying the same sword deal identical knockback
+body; a Skitterer and a Fighter carrying the same sword deal identical knockback
 and shoulder each other very differently. Nor is it readable off `radius`, since
 mass is `density · radius²` and density is real: a Brute is 15% denser than it
 looks and a Skitterer 20% lighter, so a Skitterer sizing up a Brute reads 7.83
@@ -1086,7 +1169,7 @@ out of a caught blow since the impulse phase, and no policy had a reason to care
 *hurts*. `anchor` is the second reason to plant, and it needs its own gene because
 the roster ranks the two differently on purpose — a Skitterer's knife is among the
 least dangerous things in the game and the second heaviest for its speed, so
-eating one costs a Warrior almost nothing and moves it further than its own sword
+eating one costs a Fighter almost nothing and moves it further than its own sword
 moves anybody. Folding it into `guard` would have said those are the same
 decision.
 
@@ -1127,16 +1210,16 @@ landing perfectly well.
 Sixteen duellist-versus-naive pairings, 240 seeds each, before and after the
 phase. Rows are the duellist's archetype, columns the naive opponent's.
 
-|          | vs warrior | vs scout | vs brute | vs skitterer |
+|          | vs fighter | vs rogue | vs brute | vs skitterer |
 |----------|-----------:|---------:|---------:|-------------:|
-| warrior  | 92 → **100** | 100 → 99 | 100 → **100** | 100 → 100 |
-| scout    | **18 → 50** | 63 → **95** | 99 → 76 | 100 → 100 |
+| fighter  | 92 → **100** | 100 → 99 | 100 → **100** | 100 → 100 |
+| rogue    | **18 → 50** | 63 → **95** | 99 → 76 | 100 → 100 |
 | brute    | 56 → **82** | 10 → 13 | 84 → **92** | 100 → 100 |
 | skitterer| 0 → 0 | 0 → 0 | 0 → 0 | **19 → 93** |
 
 Mean 59% → 69%. The regression the previous phase shipped knowingly — a duelling
-Scout at 18% against a naive Warrior — is the cell the geometry fix was diagnosed
-from and it is repaired. Two cells got worse, and one of them is the Scout's
+Rogue at 18% against a naive Fighter — is the cell the geometry fix was diagnosed
+from and it is repaired. Two cells got worse, and one of them is the Rogue's
 matchup against a Brute (99 → 76): a positive `standoff` is worth a great deal
 against most things and is the wrong answer to the longest weapon in the game,
 which is the same trade the `standoff` sweep has measured every time it has been
@@ -1171,7 +1254,7 @@ chosen on a read, so a fighter with bad reads commits harder to worse plans:
   dull rung (int 1/per 1)   68%    55%    35%    19%    30%
 ```
 
-`standoff` 0.25 does the other half: at the evolved 0.49 a Scout mirror stalls,
+`standoff` 0.25 does the other half: at the evolved 0.49 a Rogue mirror stalls,
 drawing one duel in ten at 59% health, climbing to 29% by 0.56. Standing at the
 tip of your own arc is where two symmetric fighters stop resolving.
 
@@ -1199,12 +1282,12 @@ flips on a near-tie, and the whole run diverges. Recording decisions means
 playback never runs inference — the sim is fed exactly what it was fed the first
 time.
 
-Cost: roughly 180 records/second at thirty agents. An `Action` grew from 12 bytes
+Cost: roughly 180 records/second at thirty agents. An `Command` grew from 12 bytes
 to 36 when it gained two hand commands, so a long fight is now closer to a
 megabyte than to a few hundred KB before compression. Still worth it: the
 alternative is a replay that reproduces the walking and none of the swordplay.
 
-`HandCommand::strike` is hashed on **both** hands even though only the sword
+`LimbCommand::strike` is hashed on **both** hands even though only the sword
 reads it. The alternative is a hash that depends on which slot a command landed
 in, and a replay that cannot tell "attack" from "guard" apart reproduces the
 footwork and none of the fight.
@@ -1336,7 +1419,7 @@ costs a byte and took the draw rate to zero.
 when the sword became a phase machine, because a windmill billed a blow every
 nine ticks and a measured attack is a windup, a cut and a recovery. It came most
 of the way back down, to 60, and the reason is **resolution** rather than pace: at
-135 a Brute's blow was worth up to 57 against a Warrior's 84 health, so a duel was
+135 a Brute's blow was worth up to 57 against a Fighter's 84 health, so a duel was
 three or four landed blows and "won on half its health" and "won almost
 untouched" were one blow apart. That is not enough rungs to hang a difficulty
 range on. At 60 a duel is a dozen blows a side, one misread is a visible dent
@@ -1344,10 +1427,10 @@ rather than a third of the fight, and both tick limits sit at two and a half
 minutes.
 
 Damage is kinetic energy now and the constant is `ENERGY_TO_DAMAGE` at 384, set
-by holding a Warrior's best blow at the 14.3 the old law gave it — so what is
+by holding a Fighter's best blow at the 14.3 the old law gave it — so what is
 really pinned is that resolution and not the number. Switching laws moved the
 roster around that anchor without spreading it out: a Brute went 1.74 → 1.44 of a
-Warrior and a Skitterer 0.49 → 0.37.
+Fighter and a Skitterer 0.49 → 0.37.
 
 **Braking and an arrival band** for `Order::Goto`. A destination order needs a
 rule for *stopping*, and both of the above are actively wrong for arriving — the
@@ -1370,7 +1453,7 @@ The `Goto` arm therefore drops both and does two things instead:
   component below raw 19 multiplies to *zero* displacement, so a band near zero
   never terminates, and below one tick of travel `apply_movement` still updates
   `facing` from a `dir` that moves nothing — leaving the character spinning on
-  the spot. `Action::HOLD` short-circuits on a zero direction and freezes the
+  the spot. `Command::HOLD` short-circuits on a zero direction and freezes the
   arrival facing.
 
 A click within one body radius of a wall is unreachable, because
@@ -1438,12 +1521,12 @@ trade that produced the bogus result.
 
 There was a second copy of the same mistake one level up, and it took the same
 fix. A policy's weights are *one set of numbers shipped to the whole roster*, and
-`--arena duel` scores a single pairing — so a genome tuned on Warrior-versus-Brute
+`--arena duel` scores a single pairing — so a genome tuned on Fighter-versus-Brute
 is a counter to one opponent wearing one body. `--arena roster` runs all sixteen
 archetype pairings on every seed. That is 32× the rollouts of a single duel with
 `--cross` on, which is affordable and was not optional: the change that took a
-duelling Scout against a Warrior from 18% to 99% cost a Brute half its matchup
-against the same Warrior, and no single-pairing fitness can see the trade it is
+duelling Rogue against a Fighter from 18% to 99% cost a Brute half its matchup
+against the same Fighter, and no single-pairing fitness can see the trade it is
 making.
 
 What is *not* answered is self-play, below. Both opponents here are still fixed.
@@ -1454,7 +1537,7 @@ fraction of the bar it comes off, which is the relative form of three absolute
 quantities (`power`, `weapon.weight`, `max_hp`) that are correctly kept out of an
 observation. The first thing it bought: breaking off is now counted in blows
 rather than in health. `hp_frac < caution` was a decision about yourself and not
-about the fight — 20% of a Warrior is two more knife cuts or most of one axe blow,
+about the fight — 20% of a Fighter is two more knife cuts or most of one axe blow,
 and one number cannot mean both — and it is now `blows_left < caution`, with a
 second clause that refuses to run from someone closer to dead than you are.
 
@@ -1490,10 +1573,10 @@ uselessness here because bodies are wider than the gap between contact and the
 dead zone, so trading is always worth more than shoving. The percept stayed. See
 "Four things a fighter can now do about weight".
 
-**The difficulty range is measured on one matchup.** Warrior against Brute, which
+**The difficulty range is measured on one matchup.** Fighter against Brute, which
 is the fight the swing model was designed around and the one with the widest
-gradient in it. Whether `intellect` and `perception` buy as much against a Scout
-— seven ticks of telegraph, which is under a stock Warrior's reaction time — is
+gradient in it. Whether `intellect` and `perception` buy as much against a Rogue
+— seven ticks of telegraph, which is under a stock Fighter's reaction time — is
 not something the table above answers, and the honest guess is "much less".
 
 **~~One `standoff` gene cannot serve every body.~~** Answered.
@@ -1502,7 +1585,7 @@ chosen from the *threat's* geometry: the larger of "where my own blade starts to
 bite" and "where its blade stops biting", with `standoff` spending the distance
 out toward arm's length. Sometimes the second is beyond the first and there is a
 band in which a fighter can reach and cannot be reached — a Skitterer has about a
-twentieth of a unit of it against a Brute and a Warrior has none at all and must
+twentieth of a unit of it against a Brute and a Fighter has none at all and must
 trade, which is a real asymmetry that falls straight out of the geometry.
 
 The gene shipped at **0.000** for two phases, which read like an extreme until you
@@ -1539,8 +1622,8 @@ fighter respects a big weapon's reach and is killed by it.
 They are sums — `own_dead_zone·margin + foe.radius` and `foe.dead_zone +
 own.radius` — where the sim bills a blow at `sqrt(D² − r²)` and not at `D − r`,
 so each is a leg of a right triangle whose hypotenuse is the range. Measured
-against `segment_circle` itself: a Scout crowding a Warrior strikes at 0.663, not
-0.350. Correcting both rescues a duellist Scout against a naive Warrior (18% →
+against `segment_circle` itself: a Rogue crowding a Fighter strikes at 0.663, not
+0.350. Correcting both rescues a duellist Rogue against a naive Fighter (18% →
 99%) and wrecks the rest of the matrix — every mirror runs out the clock
 untouched. The stance scorer's whole tuning sits on these distances and the genes
 were evolved against the sums, so this is blocked on a re-evolution rather than

@@ -1,4 +1,5 @@
-use crate::action::Order;
+use crate::action::{ActionKind, Role};
+use crate::command::Order;
 use crate::entity::{EntityId, Faction};
 use crate::hand::Hand;
 use crate::rules::MAX_CONTACTS;
@@ -13,7 +14,7 @@ use fx::{Angle, Fx, Vec2};
 ///
 /// That last part is what makes `perception` a fighting stat rather than a
 /// scouting one. Blocking and dodging are both bets on where a blade will be in
-/// a few ticks, and the inputs to that bet are `sword_angle` and `sword_spin`.
+/// a few ticks, and the inputs to that bet are `limb_angle` and `limb_spin`.
 /// A dim character does not merely block late; it blocks the wrong line.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub struct Contact {
@@ -31,7 +32,7 @@ pub struct Contact {
     /// Blade length beyond the body at full extension. Like `radius`, a fact
     /// about the object rather than about its state, so it arrives clean: you
     /// can see how long a sword is well before you can read where it is going.
-    pub weapon_length: Fx,
+    pub action_length: Fx,
     /// **Distance from this enemy's centre inside which its blade cannot reach
     /// the speed a blow requires** -- its dead zone, as judged from here.
     ///
@@ -63,8 +64,8 @@ pub struct Contact {
     /// observer's own maximum health.**
     ///
     /// The exchange rate, from the receiving side. `0.32` is what a Brute's axe
-    /// takes off a Warrior; the same axe against a Skitterer is `0.74`, and a
-    /// Skitterer's knife against that Warrior is `0.08`. Those are four-to-one
+    /// takes off a Fighter; the same axe against a Skitterer is `0.74`, and a
+    /// Skitterer's knife against that Fighter is `0.08`. Those are four-to-one
     /// differences in what an exchange is worth risking, and until this field
     /// existed a policy could not tell them apart at all -- `power`, `weight`
     /// and `max_hp` are all absolute, none of them is in the observation, and
@@ -90,7 +91,7 @@ pub struct Contact {
     /// five blows from death or one.
     ///
     /// Note this is a fact about the *pairing* and not about the enemy, exactly
-    /// as [`Contact::offset`] is. The same Brute is `0.11` frail to a Warrior
+    /// as [`Contact::offset`] is. The same Brute is `0.11` frail to a Fighter
     /// and `0.05` to a Skitterer.
     pub frailty: Fx,
     /// **How much ground one clean blow from this enemy costs the observer**,
@@ -128,7 +129,7 @@ pub struct Contact {
     /// blow is a weapon hitting a body -- so it is a fact about the observer's
     /// axe as much as about the enemy's weight. Walking into somebody is a body
     /// hitting a body, and `World::separate` splits that collision on the mass
-    /// ratio and nothing else. A Skitterer and a Warrior with the same sword
+    /// ratio and nothing else. A Skitterer and a Fighter with the same sword
     /// deal identical knockback and shoulder each other very differently.
     ///
     /// Not derivable from [`Contact::radius`] either, which is the visible proxy
@@ -159,10 +160,10 @@ pub struct Contact {
     pub velocity: Vec2,
     pub facing: Angle,
     /// Perceived bearing of the enemy's sword hand.
-    pub sword_angle: Angle,
+    pub limb_angle: Angle,
     /// Perceived angular velocity of that hand, raw angle units per tick.
-    pub sword_reach: Fx,
-    pub sword_spin: Fx,
+    pub limb_reach: Fx,
+    pub limb_spin: Fx,
     /// **What the enemy's sword hand is doing.** Arrives *exact*.
     ///
     /// Deliberately not blurred, and the asymmetry is the design. A blade
@@ -171,7 +172,7 @@ pub struct Contact {
     /// *where*, and those two are blurred hard. A dim character is not blind to
     /// the attack; it is late and it guesses the line wrong, which is a much
     /// more interesting way to lose than not noticing.
-    pub sword_swing: crate::hand::Swing,
+    pub limb_swing: crate::hand::Swing,
     /// Perceived ticks left in that phase, and the single most valuable number
     /// in the observation.
     ///
@@ -183,21 +184,31 @@ pub struct Contact {
     ///
     /// [`Swing::Windup`]: crate::hand::Swing::Windup
     /// [`Swing::Recover`]: crate::hand::Swing::Recover
-    pub sword_left: Fx,
+    pub limb_left: Fx,
     /// Perceived line the running attack is aimed along.
     ///
-    /// Not the same as [`Contact::sword_angle`], and confusing the two is the
+    /// Not the same as [`Contact::limb_angle`], and confusing the two is the
     /// mistake this field exists to prevent: during a windup the blade is
     /// *cocked away* from where it is going, so a defender that covers the
     /// blade covers the one bearing the cut is guaranteed not to arrive from.
     /// Reading the line off the pose is something a fighter genuinely can do, so
     /// the sim hands it over rather than making every policy reverse-engineer
     /// it -- blurred, because reading it well is the skill.
-    pub sword_line: Angle,
-    /// Perceived bearing of the enemy's shield hand, and how far it is braced.
-    /// Between them these say where the enemy *cannot* be hit.
-    pub shield_angle: Angle,
-    pub shield_reach: Fx,
+    pub limb_line: Angle,
+    /// **What this enemy is holding.** Arrives *exact*, like [`Contact::limb_swing`]
+    /// and for the same reason: a shield is a shield at a glance, and a club is
+    /// obviously not a knife. What a dim fighter gets wrong is still *when* the
+    /// blow lands and along which line, and both of those stay blurred.
+    ///
+    /// Deliberately **not** accompanied by what the enemy has stowed. You see
+    /// what is in their hand and nothing else, which is what makes a loadout a
+    /// real bluff: the fighter behind that guard might have a club or a punch
+    /// waiting, and you find out when it comes out.
+    pub action: ActionKind,
+    /// Guard arc half-width of what it is holding, raw angle units. Zero unless
+    /// that is a guard, which is exactly how a policy tells "it cannot be hit
+    /// from there" from "it cannot block at all".
+    pub action_arc: u16,
 }
 
 /// Everything an agent knows when it decides.
@@ -223,7 +234,7 @@ pub struct Observation {
     /// compute exactly how close it must get to land a hit.
     pub radius: Fx,
     /// Own blade length beyond the two radii, at full extension.
-    pub weapon_length: Fx,
+    pub action_length: Fx,
     /// Distance from its own centre inside which its blade cannot reach the
     /// speed a blow requires, however hard it swings.
     ///
@@ -234,13 +245,32 @@ pub struct Observation {
     ///
     /// Derived rather than perceived: a fighter knows how hard it can swing.
     pub min_strike_range: Fx,
-    /// Own hands, exactly. Proprioception is free: you always know where your
-    /// own sword is and how fast it is travelling, however dim you are.
-    pub hands: [Hand; crate::hand::HANDS],
-    /// Half-width of the observer's own shield arc at full extension, raw angle
-    /// units. Fixed by the weapon, so a policy can work out what it is actually
-    /// covering before it commits to covering it.
-    pub shield_arc: u16,
+    /// Own limb, exactly. Proprioception is free: you always know where your
+    /// own hand is and how fast it is travelling, however dim you are.
+    pub limb: Hand,
+    /// Half-width of the observer's own guard arc at full extension, raw angle
+    /// units. Zero unless it is actually holding a guard, so a policy can work
+    /// out what it is covering before it commits to covering it.
+    pub action_arc: u16,
+    /// **What is in hand right now.**
+    pub held: ActionKind,
+    /// Which loadout slot [`Observation::held`] came from.
+    pub slot: u8,
+    /// What the other slot holds, if there is one.
+    ///
+    /// Both this and `held` are in the observation because the loadout decision
+    /// is a *comparison*: a fighter that could only see what it was holding
+    /// could never work out whether putting it away was worth doing.
+    pub stowed: Option<ActionKind>,
+    /// What swapping to [`Observation::stowed`] would cost this body, in ticks,
+    /// already resolved against its agility.
+    ///
+    /// Exact, because proprioception is free, and separate because it is not
+    /// inferable from `stowed` alone -- it is `phase_ticks(ready, agility)`, and
+    /// a fighter's own agility is not a percept either. This is the one number
+    /// the whole loadout decision is priced in, which is why it is handed over
+    /// rather than left to be reconstructed.
+    pub swap_ticks: u16,
     pub sight_range: Fx,
     /// World units per tick.
     pub move_speed: Fx,
@@ -265,7 +295,7 @@ pub struct Observation {
     /// Derived and exact -- a fighter knows what its own weapon does to it -- and
     /// genuinely not inferable from anything else here. Recoil goes as
     /// `weapon_mass / body_mass` and neither of those is a percept, nor should
-    /// be; `weapon_length` and `radius` are the visible stand-ins and both lie.
+    /// be; `action_length` and `radius` are the visible stand-ins and both lie.
     ///
     /// A ceiling rather than an expectation. Static friction holds the smooth
     /// middle of a swing outright, so a cut that runs its whole arc costs less
@@ -279,7 +309,7 @@ pub struct Observation {
     /// Self-knowledge of the same class as [`Observation::position`]:
     /// proprioception is free. It is the one number that tells a policy how
     /// long it will be stuck with whatever it decides now, without which an
-    /// agent cannot pace a final stride, because a stale action keeps running
+    /// agent cannot pace a final stride, because a stale command keeps running
     /// until the next decision tick.
     pub decision_period: u16,
     /// The player's standing order for this faction.
@@ -299,11 +329,18 @@ pub struct Observation {
 }
 
 /// Values per contact in the feature vector: direction (2), range, health,
-/// size, weapon length, facing (2), sword direction (2), sword spin, sword
-/// reach, shield direction (2), shield reach, dead zone, the exchange rate in
-/// both directions (2), the ground a blow costs in both directions (2), what it
-/// weighs relative to the observer, then the attack read -- swing phase one-hot
-/// (4), ticks left in it, and the attack line (2).
+/// size, action length, facing (2), limb direction (2), limb spin, limb reach,
+/// dead zone, the exchange rate in both directions (2), velocity (2), the ground
+/// a blow costs in both directions (2), what it weighs relative to the observer,
+/// its guard arc, the role of what it is holding as a one-hot (4), then the
+/// attack read -- swing phase one-hot (4), ticks left in it, and the attack
+/// line (2).
+///
+/// The shield pair that used to sit here is gone with the second hand. What
+/// replaced it is the *role* block, and that is a strictly better question to
+/// ask: "where is their shield" only ever mattered as a proxy for "can they stop
+/// this", and now that a fighter holds one thing at a time the honest answer is
+/// a property of what they are holding.
 ///
 /// Every angle enters as a `(cos, sin)` pair rather than as a number, and that
 /// is not a rounding detail: a raw angle is discontinuous at the wrap, so a
@@ -315,20 +352,26 @@ pub struct Observation {
 /// phases are not points on a scale -- a recovery is not "more" than a windup --
 /// and encoding them as 0, 1/3, 2/3, 1 would ask a network to learn that the
 /// most dangerous state and the most punishable one sit next to each other.
-const FEATURES_PER_CONTACT: usize = 23 + crate::hand::Swing::COUNT + 3;
+const FEATURES_PER_CONTACT: usize = 21 + Role::COUNT + crate::hand::Swing::COUNT + 3;
 
-/// Own-state values: health, attack readiness, radius, weapon length, minimum
-/// strike range, decision rate, shield arc, own velocity (2), traction against
-/// top speed, what its own swing costs it in ground, then both hands as
-/// direction (2), spin and reach, then the sword's own attack state -- phase
-/// one-hot (4), ticks left, whether the hand is armed -- and finally how braced
-/// the shield is.
+/// Own-state values: health, attack readiness, radius, action length, minimum
+/// strike range, decision rate, guard arc, own velocity (2), traction against
+/// top speed, what its own swing costs it in ground, then the limb as direction
+/// (2), spin and reach, then its attack state -- phase one-hot (4), ticks left,
+/// whether it is armed, and how braced it is -- and finally the loadout: the
+/// held action as a one-hot, the stowed one as another, and what the swap
+/// between them would cost.
 ///
-/// That last one is not derivable from anything else here. A shield's bearing
+/// The brace count is not derivable from anything else here. A guard's bearing
 /// and spin say where it is and how fast, and neither says how long it has been
-/// *there*, which is what decides whether it stops a blow or is merely near
-/// one.
-const SELF_FEATURES: usize = 11 + 4 * crate::hand::HANDS + crate::hand::Swing::COUNT + 3;
+/// *there*, which is what decides whether it stops a blow or is merely near one.
+///
+/// Nor is the loadout block. A network with no representation for "the thing in
+/// my hand can change" cannot learn to change it -- that is a missing *concept*
+/// rather than a missing input, and it is the reason this layout revision is not
+/// backward compatible with any weights trained against version 9.
+const SELF_FEATURES: usize =
+    11 + 4 + crate::hand::Swing::COUNT + 3 + 2 * ActionKind::COUNT + 1;
 
 /// Width of the flattened feature vector produced by
 /// [`Observation::write_features`].
@@ -412,7 +455,7 @@ pub const FEATURE_COUNT: usize =
 /// Without it "charge the light one, do not shoulder the heavy one" is not a
 /// decision the observation supports, which made a body-check something only the
 /// sim knew about.
-pub const FEATURE_LAYOUT_VERSION: u32 = 9;
+pub const FEATURE_LAYOUT_VERSION: u32 = 10;
 
 /// Speed, in world units per tick, that normalises to `1` in the feature
 /// vector. Comfortably above any archetype's top speed, so it is the knockback
@@ -460,10 +503,14 @@ impl Observation {
             hp_frac: Fx::ONE,
             attack_ready: Fx::ONE,
             radius: Fx::ZERO,
-            weapon_length: Fx::ZERO,
+            action_length: Fx::ZERO,
             min_strike_range: Fx::ZERO,
-            hands: [Hand::default(); crate::hand::HANDS],
-            shield_arc: 0,
+            limb: Hand::default(),
+            held: ActionKind::Punch,
+            slot: 0,
+            stowed: None,
+            swap_ticks: 0,
+            action_arc: 0,
             sight_range: Fx::ONE,
             move_speed: Fx::ZERO,
             // Never zero, for the same reason `decision_period` is not: a
@@ -502,16 +549,40 @@ impl Observation {
         self.enemies().first()
     }
 
-    /// The observer's own sword hand.
+    /// The role of whatever is in hand: whether this fighter can currently cut,
+    /// block, or neither.
     #[inline]
-    pub fn sword(&self) -> Hand {
-        self.hands[crate::hand::SWORD]
+    pub fn role(&self) -> Role {
+        self.held.role()
     }
 
-    /// The observer's own shield hand.
+    /// What is in loadout slot `i`, from this fighter's point of view.
+    ///
+    /// The observation carries the two slots as `held` and `stowed` rather than
+    /// as an array, because which one is in hand is the fact that matters and a
+    /// pair of parallel fields cannot get out of step. This puts the array shape
+    /// back for the one caller that genuinely wants to iterate: a selector
+    /// scoring every option has to be able to say "slot 1" in the command it
+    /// produces, and `Command::slot` is an index.
     #[inline]
-    pub fn shield(&self) -> Hand {
-        self.hands[crate::hand::SHIELD]
+    pub fn loadout_slot(&self, i: u8) -> Option<ActionKind> {
+        if i == self.slot {
+            Some(self.held)
+        } else if i < 2 {
+            self.stowed
+        } else {
+            None
+        }
+    }
+
+    /// Whether the limb could begin a swap this tick.
+    ///
+    /// A swap is honoured only from [`crate::Swing::Guard`], so asking mid-cut
+    /// is refused rather than queued -- which is what stops a swap from being an
+    /// escape hatch out of an attack that has already committed.
+    #[inline]
+    pub fn can_swap(&self) -> bool {
+        self.stowed.is_some() && self.limb.swing == crate::hand::Swing::Guard
     }
 
     /// Whether a strike command would actually start a cut this tick.
@@ -520,10 +591,15 @@ impl Observation {
     /// that is hard to see from a fight: the hand must be back at guard *and*
     /// re-armed by a command that was not asking to attack. Asking to attack
     /// forever throws one attack; see [`crate::Hand::armed`].
+    ///
+    /// Three halves now, not two: a limb holding a guard has nothing to strike
+    /// *with*, and a policy that skipped the role check would spend a fight
+    /// asking a shield to attack and never notice.
     #[inline]
     pub fn can_strike(&self) -> bool {
-        let sword = self.sword();
-        sword.swing == crate::hand::Swing::Guard && sword.armed
+        self.role().is_live_capable()
+            && self.limb.swing == crate::hand::Swing::Guard
+            && self.limb.armed
     }
 
     /// How far the observer's blade reaches from its own centre right now, at
@@ -531,13 +607,13 @@ impl Observation {
     /// from here"; [`Observation::full_reach`] answers "could I ever".
     #[inline]
     pub fn reach_now(&self) -> Fx {
-        self.radius + self.weapon_length * self.sword().reach
+        self.radius + self.action_length * self.limb.reach
     }
 
     /// Reach from the observer's centre at full extension.
     #[inline]
     pub fn full_reach(&self) -> Fx {
-        self.radius + self.weapon_length
+        self.radius + self.action_length
     }
 
     /// Replaces the perceived enemies. Extra contacts beyond [`MAX_CONTACTS`]
@@ -583,7 +659,7 @@ impl Observation {
         i += 1;
         out[i] = self.radius;
         i += 1;
-        out[i] = self.weapon_length;
+        out[i] = self.action_length;
         i += 1;
         out[i] = self.min_strike_range;
         i += 1;
@@ -592,7 +668,7 @@ impl Observation {
         // is the quantity a network can act on anyway.
         out[i] = Fx::ONE / Fx::from_int(self.decision_period.max(1) as i32);
         i += 1;
-        out[i] = arc_fraction(self.shield_arc);
+        out[i] = arc_fraction(self.action_arc);
         i += 1;
         out[i] = (self.velocity.x / SPEED_SCALE).clamp(-Fx::ONE, Fx::ONE);
         out[i + 1] = (self.velocity.y / SPEED_SCALE).clamp(-Fx::ONE, Fx::ONE);
@@ -608,27 +684,38 @@ impl Observation {
         out[i] = self.recoil_drift.min(Fx::ONE);
         i += 1;
 
-        for hand in self.hands {
-            let dir = Vec2::from_angle(hand.angle);
-            out[i] = dir.x;
-            out[i + 1] = dir.y;
-            out[i + 2] = (hand.spin / SPIN_SCALE).clamp(-Fx::ONE, Fx::ONE);
-            out[i + 3] = hand.reach;
-            i += 4;
-        }
+        let dir = Vec2::from_angle(self.limb.angle);
+        out[i] = dir.x;
+        out[i + 1] = dir.y;
+        out[i + 2] = (self.limb.spin / SPIN_SCALE).clamp(-Fx::ONE, Fx::ONE);
+        out[i + 3] = self.limb.reach;
+        i += 4;
 
         // The character's own attack, exactly. `armed` is not introspection for
         // its own sake: it is the difference between a policy that fights and
         // one that throws a single cut and then stands holding the button down
         // forever, and nothing else in the vector implies it.
-        let sword = self.sword();
-        out[i + sword.swing.discriminant()] = Fx::ONE;
+        out[i + self.limb.swing.discriminant()] = Fx::ONE;
         i += crate::hand::Swing::COUNT;
-        out[i] = (Fx::from_int(sword.swing_left as i32) / TICK_SCALE).min(Fx::ONE);
+        out[i] = (Fx::from_int(self.limb.swing_left as i32) / TICK_SCALE).min(Fx::ONE);
         i += 1;
-        out[i] = if sword.armed { Fx::ONE } else { Fx::ZERO };
+        out[i] = if self.limb.armed { Fx::ONE } else { Fx::ZERO };
         i += 1;
-        out[i] = self.shield().brace_fraction();
+        out[i] = self.limb.brace_fraction();
+        i += 1;
+
+        // The loadout. Two one-hot blocks rather than two scalars, on the same
+        // argument the phase block is one-hot for: actions are not points on a
+        // scale, and a knife is not "less" than a club.
+        out[i + self.held.code() as usize] = Fx::ONE;
+        i += ActionKind::COUNT;
+        // An empty second slot writes an all-zero block, which reads correctly
+        // as "there is nothing to swap to" and needs no sentinel row.
+        if let Some(stowed) = self.stowed {
+            out[i + stowed.code() as usize] = Fx::ONE;
+        }
+        i += ActionKind::COUNT;
+        out[i] = (Fx::from_int(self.swap_ticks as i32) / TICK_SCALE).min(Fx::ONE);
         i += 1;
 
         out[i + self.order.discriminant()] = Fx::ONE;
@@ -660,47 +747,43 @@ impl Observation {
                     let unit = c.offset.normalize();
                     let range = (c.distance / self.sight_range).clamp(Fx::ZERO, Fx::ONE);
                     let facing = Vec2::from_angle(c.facing);
-                    let sword = Vec2::from_angle(c.sword_angle);
-                    let shield = Vec2::from_angle(c.shield_angle);
+                    let limb = Vec2::from_angle(c.limb_angle);
                     out[base] = unit.x;
                     out[base + 1] = unit.y;
                     out[base + 2] = range;
                     out[base + 3] = c.hp_frac;
                     out[base + 4] = c.radius;
-                    out[base + 5] = c.weapon_length;
+                    out[base + 5] = c.action_length;
                     out[base + 6] = facing.x;
                     out[base + 7] = facing.y;
-                    out[base + 8] = sword.x;
-                    out[base + 9] = sword.y;
-                    out[base + 10] = (c.sword_spin / SPIN_SCALE).clamp(-Fx::ONE, Fx::ONE);
-                    out[base + 11] = c.sword_reach;
-                    out[base + 12] = shield.x;
-                    out[base + 13] = shield.y;
-                    out[base + 14] = c.shield_reach;
+                    out[base + 8] = limb.x;
+                    out[base + 9] = limb.y;
+                    out[base + 10] = (c.limb_spin / SPIN_SCALE).clamp(-Fx::ONE, Fx::ONE);
+                    out[base + 11] = c.limb_reach;
                     // Where this enemy's blade stops being dangerous. A raw
-                    // distance like `radius` and `weapon_length` beside it, and
+                    // distance like `radius` and `action_length` beside it, and
                     // on the same scale, so the three can be compared.
-                    out[base + 15] = c.min_strike_range;
+                    out[base + 12] = c.min_strike_range;
                     // The stakes, both ways. Clamped at one because past that
                     // the distinction stops mattering -- a blow worth 1.4 bars
                     // and one worth 1.0 are both simply fatal -- and the
                     // vector's -1..=1 invariant is worth more than a difference
                     // nothing can act on.
-                    out[base + 16] = c.threat.min(Fx::ONE);
-                    out[base + 17] = c.frailty.min(Fx::ONE);
+                    out[base + 13] = c.threat.min(Fx::ONE);
+                    out[base + 14] = c.frailty.min(Fx::ONE);
                     // Where it is going. On the same scale as the self block's
                     // velocity, so the two subtract into a closing rate without
                     // anything having to learn a conversion first.
-                    out[base + 18] = (c.velocity.x / SPEED_SCALE).clamp(-Fx::ONE, Fx::ONE);
-                    out[base + 19] = (c.velocity.y / SPEED_SCALE).clamp(-Fx::ONE, Fx::ONE);
+                    out[base + 15] = (c.velocity.x / SPEED_SCALE).clamp(-Fx::ONE, Fx::ONE);
+                    out[base + 16] = (c.velocity.y / SPEED_SCALE).clamp(-Fx::ONE, Fx::ONE);
                     // The ground a blow costs, both ways, in the body radii of
                     // whoever is losing it. Clamped at one on the same argument
                     // as the two above: past a whole body of ground the spacing
                     // question has already been settled, and the difference
                     // between losing two bodies and losing five is not one a
                     // policy can act on differently.
-                    out[base + 20] = c.knockback_taken.min(Fx::ONE);
-                    out[base + 21] = c.knockback_dealt.min(Fx::ONE);
+                    out[base + 17] = c.knockback_taken.min(Fx::ONE);
+                    out[base + 18] = c.knockback_dealt.min(Fx::ONE);
                     // What it weighs, relative to the observer. A *ratio*, so it
                     // enters as one either side of a half: below 0.5 is lighter
                     // than you and above it heavier, and the widest pairing in
@@ -709,17 +792,28 @@ impl Observation {
                     // clamped because the difference between "twice my weight"
                     // and "five times it" is one a fighter acts on differently,
                     // unlike the ground figures above.
-                    out[base + 22] = c.heft / (c.heft + Fx::ONE);
+                    out[base + 19] = c.heft / (c.heft + Fx::ONE);
+                    // How wide a guard it has up, if it has one at all. Zero for
+                    // everything that is not a guard, which makes this and the
+                    // role block below say the same thing two ways -- one as a
+                    // magnitude the spacing logic can use, one as a category.
+                    out[base + 20] = arc_fraction(c.action_arc);
+                    // What kind of thing it is holding. The block that replaced
+                    // "where is their shield": with one limb, whether an enemy
+                    // can stop a cut at all is a fact about their *action*, and
+                    // it is the first thing a fighter reads before choosing one.
+                    out[base + 21 + c.action.role().discriminant()] = Fx::ONE;
 
                     // The attack read. The line is a separate pair from
-                    // `sword` above on purpose: during a windup the blade is
+                    // `limb` above on purpose: during a windup the blade is
                     // cocked away from where the cut is going, so the two point
                     // in different directions and collapsing them would hide
                     // the only thing worth knowing.
-                    out[base + 23 + c.sword_swing.discriminant()] = Fx::ONE;
-                    let read = base + 23 + crate::hand::Swing::COUNT;
-                    out[read] = (c.sword_left / TICK_SCALE).clamp(Fx::ZERO, Fx::ONE);
-                    let line = Vec2::from_angle(c.sword_line);
+                    let phase = base + 21 + Role::COUNT;
+                    out[phase + c.limb_swing.discriminant()] = Fx::ONE;
+                    let read = phase + crate::hand::Swing::COUNT;
+                    out[read] = (c.limb_left / TICK_SCALE).clamp(Fx::ZERO, Fx::ONE);
+                    let line = Vec2::from_angle(c.limb_line);
                     out[read + 1] = line.x;
                     out[read + 2] = line.y;
                 }

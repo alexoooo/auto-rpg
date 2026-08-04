@@ -1,444 +1,554 @@
-use crate::entity::EntityId;
-use crate::hand::{HANDS, SHIELD, SWORD};
-use fx::{Angle, Fx, Hash64, Vec2};
+//! What a fighter is holding, and what that does.
+//!
+//! A [`crate::Body`] is a size, a weight and a stat sheet. It is not a swordsman
+//! and it is not a shield-bearer -- it fights with whatever is in its hand, and
+//! *that* is an [`ActionKind`]. One action is active at a time, which is the
+//! whole of what this module exists to say.
+//!
+//! The split fixes two things the old model could not express.
+//!
+//! **A Skitterer used to *be* a knife.** Body size, density, stats, weapon and
+//! shield arc all hung off one enum variant, so "what does a Brute with a knife
+//! play like" was a question with no representation. Now it is a loadout.
+//!
+//! **Blocking used to be free.** The shield was a passive geometry query against
+//! an off-hand nothing charged for, so every policy held it out permanently, in
+//! every stance, forever. A guard is an [`ActionKind`] now: holding one means
+//! *not* holding a blade, and the swap between them is paid for in
+//! [`ActionSpec::ready`] ticks. Defending and pressing are finally alternatives.
 
-/// Whether a sword hand is being asked to attack, and from which side.
+use fx::Fx;
+
+/// What kind of thing an action is.
 ///
-/// The sides are named for the direction the blade **winds up** in, which is the
-/// opposite of the direction it cuts: a cut has to start somewhere the target is
-/// not in order to arrive somewhere it is, at speed. [`Strike::Widdershins`]
-/// therefore cocks counter-clockwise and cuts clockwise through the line.
-///
-/// Choosing a side is a real decision and not a detail. A shield covers an arc,
-/// so a cut thrown from the side the guard is *not* on arrives at a bearing the
-/// defender has to move to cover -- and moving a guard takes as long as moving
-/// anything else. [`Strike::Nearest`] declines the decision and takes the
-/// shortest windup, which is what a fighter with nothing clever to say does.
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
-pub enum Strike {
-    /// No attack. Hold the line and guard.
-    ///
-    /// This is also what **re-arms** the hand: an attack begins only on a
-    /// command that asked for one after a command that did not, so a policy
-    /// that says "attack" forever throws exactly one attack. See
-    /// [`crate::Hand::armed`] -- that rule is the whole of what stops the
-    /// windmill from coming back as a slower windmill.
-    #[default]
-    None,
-    /// Attack through the commanded line, winding up from whichever side the
-    /// blade already happens to be on.
-    Nearest,
-    /// Wind up counter-clockwise of the line and cut clockwise through it.
-    Widdershins,
-    /// Wind up clockwise of the line and cut counter-clockwise through it.
-    Sunwise,
+/// Decides which of the sim's limb rules applies, and nothing else -- every
+/// number lives in the [`ActionSpec`]. Kept deliberately coarse: a role is a
+/// branch in `World`, and a fifth one is a fifth code path through the tick.
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+pub enum Role {
+    /// A blade that deals blows in [`crate::Swing::Strike`]. Runs the phase
+    /// machine. Cannot block.
+    Strike,
+    /// A guard that covers [`ActionSpec::arc`] and can be braced. No blade
+    /// hitbox and no phases: a guard-role limb sits in [`crate::Swing::Guard`]
+    /// until it is swapped away.
+    Guard,
+    /// Neither. Buys footspeed through [`ActionSpec::move_bonus`].
+    Move,
+    /// Reserved. Runs a phase machine like [`Role::Strike`], but spends the
+    /// strike on a projectile rather than on a segment sweep.
+    Shoot,
 }
 
-impl Strike {
-    /// Which way the windup goes: `+1` counter-clockwise, `-1` clockwise, `0`
-    /// for [`Strike::None`]. [`Strike::Nearest`] resolves to `0` here and is
-    /// settled by the sim against the blade's live position.
-    pub const fn side(self) -> i32 {
-        match self {
-            Strike::None | Strike::Nearest => 0,
-            Strike::Widdershins => 1,
-            Strike::Sunwise => -1,
-        }
-    }
-
-    pub const fn is_attack(self) -> bool {
-        !matches!(self, Strike::None)
-    }
+impl Role {
+    pub const ALL: [Role; 4] = [Role::Strike, Role::Guard, Role::Move, Role::Shoot];
 
     /// One-hot index for the neural feature encoder. Append-only, like
-    /// [`Order::discriminant`].
+    /// [`crate::Strike::discriminant`].
     pub const fn discriminant(self) -> usize {
         match self {
-            Strike::None => 0,
-            Strike::Nearest => 1,
-            Strike::Widdershins => 2,
-            Strike::Sunwise => 3,
+            Role::Strike => 0,
+            Role::Guard => 1,
+            Role::Move => 2,
+            Role::Shoot => 3,
         }
     }
 
+    /// Number of distinct roles; the width of the one-hot block.
     pub const COUNT: usize = 4;
-}
 
-/// What an agent wants one hand to do.
-///
-/// The bearing is **absolute**, not relative to the body's facing. Two reasons,
-/// and both bite immediately if you get it wrong: `facing` is derived from the
-/// feet, so a facing-relative command would swing the blade bodily around every
-/// time the character strafed; and absolute is exactly what a mouse bearing
-/// gives you, so a human and a policy speak the same language here.
-///
-/// The two hands read different halves of this struct, which is the price of
-/// keeping one type at the boundary:
-///
-/// * The **shield** reads `angle` and `reach` and ignores `strike`. It is a
-///   braced guard, held wherever it is pointed, exactly as it always was.
-/// * The **sword** reads `angle` and `strike` and ignores `reach`. `angle` is
-///   the line it guards along, and the line an attack is thrown *through*;
-///   `reach` is not an agent's business any more, because a blade's extension is
-///   decided by which phase of an attack it is in. Letting a policy pin it at
-///   full extension forever is exactly how the blade became a stick that
-///   dangled.
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
-pub struct HandCommand {
-    pub angle: Angle,
-    /// Desired extension, **shield only**. Clamped to `0..=1` by the sim, so a
-    /// policy handing back nonsense produces a tucked or a fully braced hand
-    /// and never a panic.
-    pub reach: Fx,
-    /// Whether to attack along `angle`, **sword only**.
-    pub strike: Strike,
-}
-
-impl HandCommand {
-    /// A hand held in against the body, pointing nowhere in particular.
-    pub const TUCKED: HandCommand = HandCommand {
-        angle: Angle::ZERO,
-        reach: Fx::ZERO,
-        strike: Strike::None,
-    };
-
-    /// A braced hand. The shield's whole vocabulary; for the sword this is a
-    /// guard along `angle` that declines to attack, and therefore also the
-    /// command that re-arms it.
-    pub const fn new(angle: Angle, reach: Fx) -> HandCommand {
-        HandCommand {
-            angle,
-            reach,
-            strike: Strike::None,
-        }
-    }
-
-    /// A sword hand asked to cut through `line`.
-    pub const fn attack(line: Angle, strike: Strike) -> HandCommand {
-        HandCommand {
-            angle: line,
-            reach: Fx::ONE,
-            strike,
-        }
-    }
-}
-
-/// What an agent decided to do. This is the *entire* output side of the agent
-/// boundary -- a hand-written utility AI, a neural policy, a replay log and a
-/// human at a mouse all produce exactly this and nothing else.
-///
-/// An action persists until the agent's next decision tick, so a slow-witted
-/// character keeps executing a stale plan while a sharp one re-plans up to 60
-/// times a second. With hands on the action that cuts deeper than it used to:
-/// a stale plan is now a stale *swing*, still travelling.
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
-pub struct Action {
-    /// Desired movement direction. Magnitude above 1 is clamped, so this is
-    /// effectively "which way, and how hard".
-    pub move_dir: Vec2,
-    pub intent: Intent,
-    /// Where to drive each hand, indexed by [`SWORD`] and [`SHIELD`].
-    pub hands: [HandCommand; HANDS],
-}
-
-impl Action {
-    pub const HOLD: Action = Action {
-        move_dir: Vec2::ZERO,
-        intent: Intent::Hold,
-        hands: [HandCommand::TUCKED; HANDS],
-    };
-
-    pub const fn moving(dir: Vec2) -> Action {
-        Action {
-            move_dir: dir,
-            intent: Intent::Hold,
-            hands: [HandCommand::TUCKED; HANDS],
-        }
-    }
-
-    /// Closes on a target with both hands tucked.
-    ///
-    /// Kept for the many call sites that only care about movement and
-    /// targeting. It does **not** swing: damage is geometric now, so an
-    /// `Intent::Attack` with tucked hands closes the distance and then stands
-    /// there. Use [`Action::swinging`] to actually fight.
-    pub const fn attacking(dir: Vec2, target: EntityId) -> Action {
-        Action {
-            move_dir: dir,
-            intent: Intent::Attack(target),
-            hands: [HandCommand::TUCKED; HANDS],
-        }
-    }
-
-    /// The full form: move, target, and drive both hands.
-    pub const fn swinging(
-        dir: Vec2,
-        target: EntityId,
-        sword: HandCommand,
-        shield: HandCommand,
-    ) -> Action {
-        let mut hands = [HandCommand::TUCKED; HANDS];
-        hands[SWORD] = sword;
-        hands[SHIELD] = shield;
-        Action {
-            move_dir: dir,
-            intent: Intent::Attack(target),
-            hands,
-        }
-    }
-
+    /// Whether a limb holding this can deal a blow at all. The gate that
+    /// replaced "every unit has a blade because every unit has a `Body`".
     #[inline]
-    pub const fn sword(&self) -> HandCommand {
-        self.hands[SWORD]
+    pub const fn is_live_capable(self) -> bool {
+        matches!(self, Role::Strike)
     }
 
+    /// Whether a limb holding this blocks. **The one line that makes blocking a
+    /// choice** -- see [`crate::World::block_leak`].
     #[inline]
-    pub const fn shield(&self) -> HandCommand {
-        self.hands[SHIELD]
+    pub const fn blocks(self) -> bool {
+        matches!(self, Role::Guard)
     }
 
-    pub(crate) fn hash_into(self, h: &mut Hash64) {
-        h.write_i32(self.move_dir.x.raw());
-        h.write_i32(self.move_dir.y.raw());
-        match self.intent {
-            Intent::Hold => h.write_u8(0),
-            Intent::Attack(id) => {
-                h.write_u8(1);
-                id.hash_into(h);
-            }
-            Intent::Flee => h.write_u8(2),
-        }
-        // Appended after the intent block, so the bytes an `Order` contributes
-        // are untouched. Hand commands are the difference between a fight and
-        // two people standing next to each other, so a replay that dropped them
-        // would reproduce the walking and none of the swordplay.
-        //
-        // `strike` is hashed even though only the sword hand reads it, because
-        // the alternative is a hash that depends on which slot a command landed
-        // in -- and a replay that cannot tell "attack" from "guard" apart
-        // reproduces the footwork and none of the fight.
-        for hand in self.hands {
-            h.write_u16(hand.angle.raw());
-            h.write_i32(hand.reach.raw());
-            h.write_u8(hand.strike.discriminant() as u8);
+    pub const fn name(self) -> &'static str {
+        match self {
+            Role::Strike => "strike",
+            Role::Guard => "guard",
+            Role::Move => "move",
+            Role::Shoot => "shoot",
         }
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
-pub enum Intent {
-    /// Move (or stand) without engaging.
-    #[default]
-    Hold,
-    /// Close on the target. Approach and attack are one intent on purpose: the
-    /// agent commits to a target rather than re-deciding every tick.
-    ///
-    /// Note what this no longer does: it does not cause damage. Blows are
-    /// resolved from blade geometry, so an intent is a *statement about who is
-    /// being fought*, which the renderer, the fitness function and target
-    /// memory all want, and not a request to hit anything.
-    Attack(EntityId),
-    /// Disengage. Like [`Intent::Hold`] mechanically; carried separately so the
-    /// renderer and the fitness function can tell retreat from advance.
-    Flee,
-}
-
-/// The player's input channel: a standing order for a whole faction.
+/// One mechanic, named.
 ///
-/// This is the "rough directions" half of the auto-battler contract. The
-/// player never issues a per-tick command; they set an order, it lands in
-/// every observation, and the agents interpret it with whatever wits they
-/// have. Interpretation is the policy's job -- the sim only carries it.
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
-pub enum Order {
-    /// Fight what comes, hold position.
+/// **Append-only.** These codes cross the wasm wall, key a one-hot block in the
+/// feature vector, and reach [`crate::World::state_hash`]; a reshuffle voids
+/// every recorded run and every trained network at once.
+///
+/// [`ActionKind::Run`] and [`ActionKind::Bow`] are named and priced here but not
+/// yet implemented -- they are reserved *now*, deliberately, so that landing them
+/// later moves no discriminant, no feature layout and no frame stride. Ask
+/// [`ActionKind::PLAYABLE`] for what the sim will actually run today.
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Default)]
+pub enum ActionKind {
+    /// The floor. No weapon at all, barely reaches past the knuckles, and
+    /// cheaper to bring up than anything else in the game.
     #[default]
-    Hold,
-    /// Push in a direction.
-    Advance(Vec2),
-    /// Fall back toward the faction's centre of mass.
-    Regroup,
-    /// Concentrate on one enemy.
-    Focus(EntityId),
-    /// Walk to a point in the arena and stand there.
-    Goto(Vec2),
+    Punch,
+    /// Short, dense, hafted well forward. The answer to another knife.
+    Knife,
+    /// The reference blade, and the reference everything: a Fighter holding one
+    /// is what every ratio in [`crate::rules`] is measured against.
+    Sword,
+    /// Long, heavy, tip-weighted. Announces itself for more than half a second
+    /// and makes you pay for the whole of it if you miss.
+    Club,
+    /// A guard. Covers an arc, brakes a blow, and cannot answer one.
+    Shield,
+    /// *Reserved.* Footspeed, and nothing in your hands.
+    Run,
+    /// *Reserved.* Reach without a blade, paid for in telegraph.
+    Bow,
+    /// Hilt-heavy and short: the lowest inertia of anything with a real edge, so
+    /// it is the one blade that reaches the arm's ceiling early and coasts.
+    ///
+    /// **Appended, not planned.** The Rogue's blade was to retire into
+    /// [`ActionKind::Knife`] and the body keep its identity through stats alone.
+    /// Measured, that put a duelling Rogue at 6.7% against a Brute -- 0.75 units
+    /// of total reach against 2.15 is not an archetype, it is a body that cannot
+    /// participate. Handing it a [`ActionKind::Sword`] instead fixed the number
+    /// (48%) and cost the thing the number was for: a Rogue swinging a Fighter's
+    /// arming sword is a small Fighter, not a quick one.
+    ///
+    /// So the retired Scout blade comes back as a row of its own, which is what
+    /// the registry is for -- a weapon nobody else in the roster wants is a line
+    /// of table rather than a special case in a body.
+    Shortsword,
 }
 
-impl Order {
-    /// One-hot index used by the neural feature encoder. Append-only: the
-    /// numbers are part of the feature layout a trained network is frozen
-    /// against, so a new kind takes the next free index and never a reshuffle.
-    pub const fn discriminant(self) -> usize {
+impl ActionKind {
+    pub const ALL: [ActionKind; 8] = [
+        ActionKind::Punch,
+        ActionKind::Knife,
+        ActionKind::Sword,
+        ActionKind::Club,
+        ActionKind::Shield,
+        ActionKind::Run,
+        ActionKind::Bow,
+        ActionKind::Shortsword,
+    ];
+
+    /// Everything the sim will actually run today. The UI reads this rather than
+    /// [`ActionKind::ALL`], so a reserved row cannot be handed to a fighter that
+    /// has no rule for it.
+    pub const PLAYABLE: [ActionKind; 6] = [
+        ActionKind::Punch,
+        ActionKind::Knife,
+        ActionKind::Sword,
+        ActionKind::Club,
+        ActionKind::Shield,
+        ActionKind::Shortsword,
+    ];
+
+    /// Number of distinct actions; the width of the one-hot block.
+    pub const COUNT: usize = 8;
+
+    /// Append-only. Indexes [`ACTIONS`], crosses the wasm wall, and is the byte
+    /// [`ActionKind::hash_into`] writes.
+    pub const fn code(self) -> u32 {
         match self {
-            Order::Hold => 0,
-            Order::Advance(_) => 1,
-            Order::Regroup => 2,
-            Order::Focus(_) => 3,
-            Order::Goto(_) => 4,
+            ActionKind::Punch => 0,
+            ActionKind::Knife => 1,
+            ActionKind::Sword => 2,
+            ActionKind::Club => 3,
+            ActionKind::Shield => 4,
+            ActionKind::Run => 5,
+            ActionKind::Bow => 6,
+            ActionKind::Shortsword => 7,
         }
     }
 
-    /// Number of distinct order kinds; the width of the one-hot block.
-    pub const COUNT: usize = 5;
-
-    /// The heading an order pushes in, if it is a heading at all.
-    ///
-    /// [`Order::Goto`] deliberately gives [`Vec2::ZERO`]: its payload is a
-    /// world-space destination, and a destination read as a heading sends the
-    /// character marching off toward the far corner from wherever it happens
-    /// to stand. Conflating the two is the exact bug that variant exists to
-    /// prevent, so use [`Order::point`] when you want the payload without a
-    /// claim about what it means.
-    pub const fn direction(self) -> Vec2 {
-        match self {
-            Order::Advance(dir) => dir,
-            _ => Vec2::ZERO,
-        }
-    }
-
-    /// The `Vec2` an order carries, whatever it means.
-    pub const fn point(self) -> Vec2 {
-        match self {
-            Order::Advance(v) | Order::Goto(v) => v,
-            _ => Vec2::ZERO,
-        }
-    }
-
-    pub const fn focus(self) -> Option<EntityId> {
-        match self {
-            Order::Focus(id) => Some(id),
+    /// Total, because this is what a replay and the page both come in through.
+    /// An unknown code is refused rather than clamped -- a corrupt loadout must
+    /// not silently become a punch.
+    pub const fn from_code(code: u32) -> Option<ActionKind> {
+        match code {
+            0 => Some(ActionKind::Punch),
+            1 => Some(ActionKind::Knife),
+            2 => Some(ActionKind::Sword),
+            3 => Some(ActionKind::Club),
+            4 => Some(ActionKind::Shield),
+            5 => Some(ActionKind::Run),
+            6 => Some(ActionKind::Bow),
+            7 => Some(ActionKind::Shortsword),
             _ => None,
         }
     }
 
-    /// Spelled out as an explicit match rather than routed through
-    /// [`Order::point`] on purpose. This layout is the only part of `Order`
-    /// that reaches [`World::state_hash`], so every recorded run in the
-    /// repository depends on it byte for byte. Written this way, a new variant
-    /// does not compile until someone has chosen where its payload lands --
-    /// which is the alternative to a `Goto` whose destination silently never
-    /// reaches the hash, leaving two different destinations indistinguishable
-    /// to replay verification.
-    ///
-    /// [`World::state_hash`]: crate::World::state_hash
-    pub(crate) fn hash_into(self, h: &mut Hash64) {
-        h.write_u8(self.discriminant() as u8);
+    /// Whether the sim has a rule for this yet. `false` for the reserved rows.
+    pub const fn is_playable(self) -> bool {
+        !matches!(self, ActionKind::Run | ActionKind::Bow)
+    }
+
+    #[inline]
+    pub const fn spec(self) -> ActionSpec {
+        ACTIONS[self.code() as usize]
+    }
+
+    #[inline]
+    pub const fn role(self) -> Role {
+        self.spec().role
+    }
+
+    pub const fn name(self) -> &'static str {
         match self {
-            Order::Hold | Order::Regroup => {
-                h.write_i32(0);
-                h.write_i32(0);
-            }
-            Order::Advance(v) | Order::Goto(v) => {
-                h.write_i32(v.x.raw());
-                h.write_i32(v.y.raw());
-            }
-            Order::Focus(id) => {
-                h.write_i32(0);
-                h.write_i32(0);
-                id.hash_into(h);
-            }
+            ActionKind::Punch => "punch",
+            ActionKind::Knife => "knife",
+            ActionKind::Sword => "sword",
+            ActionKind::Club => "club",
+            ActionKind::Shield => "shield",
+            ActionKind::Run => "run",
+            ActionKind::Bow => "bow",
+            ActionKind::Shortsword => "shortsword",
         }
     }
+
+    // Unused until the world grows a loadout column; written here so the
+    // registry arrives complete rather than half-defined.
+    #[allow(dead_code)]
+    pub(crate) fn hash_into(self, h: &mut fx::Hash64) {
+        h.write_u8(self.code() as u8);
+    }
 }
+
+/// An action's physical character.
+///
+/// This is the old `rules::Weapon` with the shield arc renamed, a [`Role`], and
+/// two new columns. Every field it inherited means exactly what it meant: reach,
+/// inertia and recovery are still separate knobs, so "long and slow" and "short
+/// and quick" are still genuinely different problems rather than two points on
+/// one difficulty axis.
+///
+/// What changed is who owns it. These numbers used to hang off the *archetype*,
+/// which made a body and its weapon the same fact. They hang off the action now,
+/// and [`crate::rules::Arm::resolve`] joins the two at the point of use.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct ActionSpec {
+    pub role: Role,
+    /// Blade -- or guard -- length beyond the body surface at full extension,
+    /// world units.
+    pub length: Fx,
+    /// How heavy it is, with a Fighter's body as the unit. Swing speed is
+    /// derived from this and [`ActionSpec::balance`], so a heavier thing is
+    /// slower because it is heavier. See [`crate::rules::grip_limit`].
+    pub mass: Fx,
+    /// Where the mass sits: `0` at the hilt, `1` at the tip. The single best
+    /// knob for how a weapon *feels*, because moment of inertia goes as its
+    /// square.
+    pub balance: Fx,
+    /// Guard arc half-width at full extension, raw angle units. **Zero unless
+    /// [`Role::Guard`].**
+    ///
+    /// This field is the whole reason for the split. It used to live on the
+    /// weapon, on the archetype, so every character in the game carried a shield
+    /// for free whether or not it was holding one.
+    pub arc: u16,
+    /// **The telegraph.** Ticks the blade spends cocked back before a cut comes
+    /// forward, at agility multiplier 1; see [`crate::rules::phase_ticks`].
+    ///
+    /// Best read against the *opponent's* [`crate::Stats::decision_period`]
+    /// rather than against the other rows: it is how long they have to notice,
+    /// decide and answer. Meaningless for [`Role::Guard`] and [`Role::Move`].
+    pub windup: u16,
+    /// Ticks to bring a spent limb back to guard, at agility multiplier 1. The
+    /// punish window, and the price of missing.
+    pub recovery: u16,
+    /// **What it costs to bring this into your hand**, in ticks of
+    /// [`crate::Swing::Swap`] at agility multiplier 1, during which nothing is
+    /// live -- no blade, no guard, no parry.
+    ///
+    /// The single knob that decides whether a swap is a read or a spam, and it
+    /// is set against the telegraphs above rather than against feel: a Fighter
+    /// can bring a shield up inside a Club's 33-tick announcement and cannot
+    /// inside a Knife's 7. Heavy weapons are therefore blockable *and*
+    /// punishable, fast ones are neither, and the answer to a knife is to be
+    /// holding one.
+    ///
+    /// Deliberately not spelled `windup`. A swap has no blow and no side, and
+    /// reusing that field would make [`crate::Hand::phase_progress`] mean two
+    /// different things depending on which phase asked.
+    pub ready: u16,
+    /// Multiplier on [`crate::Stats::move_speed`] while this is held. [`Fx::ONE`]
+    /// for everything that is not [`ActionKind::Run`]; the column exists now so
+    /// that landing `Run` is a table edit rather than a change to
+    /// `World::apply_movement`.
+    pub move_bonus: Fx,
+}
+
+/// The registry: one row per [`ActionKind`], indexed by [`ActionKind::code`].
+///
+/// `Knife`, `Sword` and `Club` are the retired Skitterer, Fighter and Brute
+/// weapons field for field, so the four default loadouts reproduce the old
+/// roster's damage, reach, spin, dead zone and telegraph exactly. The only
+/// things this split changes are *who may hold what* and *what a guard costs* --
+/// which is what makes the swap tuning below measurable against a known board
+/// rather than against a fresh one.
+pub const ACTIONS: [ActionSpec; ActionKind::COUNT] = [
+    // Punch. Barely past the knuckles, and the one action nobody can be
+    // disarmed of. Its `mass` is not flavour: at anything much lighter the grip
+    // limit lets a fast body whip the fist past half a body-width in a tick and
+    // the sweep test starts working for its living. See the tunnelling sweep in
+    // `entity.rs`.
+    ActionSpec {
+        role: Role::Strike,
+        length: Fx::from_ratio(18, 100),
+        mass: Fx::from_ratio(65, 100),
+        balance: Fx::from_ratio(30, 100),
+        arc: 0,
+        windup: 5,
+        recovery: 7,
+        ready: 2,
+        move_bonus: Fx::ONE,
+    },
+    // Knife -- the Skitterer's. Dense for its size and hafted well forward,
+    // which is what keeps a blade on a very short arm worth anything at all.
+    // Seven ticks of telegraph is less than the fastest swap in the game, so a
+    // knife is the one attack that cannot be answered by changing your mind.
+    ActionSpec {
+        role: Role::Strike,
+        length: Fx::from_ratio(40, 100),
+        mass: Fx::from_ratio(125, 100),
+        balance: Fx::from_ratio(75, 100),
+        arc: 0,
+        windup: 7,
+        recovery: 8,
+        ready: 5,
+        move_bonus: Fx::ONE,
+    },
+    // Sword -- the Fighter's arming sword, and the reference for everything.
+    ActionSpec {
+        role: Role::Strike,
+        length: Fx::from_ratio(95, 100),
+        mass: Fx::from_ratio(124, 100),
+        balance: Fx::from_ratio(55, 100),
+        arc: 0,
+        windup: 14,
+        recovery: 16,
+        ready: 10,
+        move_bonus: Fx::ONE,
+    },
+    // Club -- the Brute's long two-handed axe. Six times a sword's blade inertia
+    // and 33 ticks of announcement on the body that carries it by default. What
+    // it does *not* do is hit harder for being heavy: mass cancels out of
+    // `rules::blow_damage` exactly. It hits hardest because it is long, and
+    // weight buys the shove instead.
+    ActionSpec {
+        role: Role::Strike,
+        length: Fx::from_ratio(145, 100),
+        mass: Fx::from_ratio(223, 100),
+        balance: Fx::from_ratio(61, 100),
+        arc: 0,
+        windup: 26,
+        recovery: 34,
+        ready: 18,
+        move_bonus: Fx::ONE,
+    },
+    // Shield. The Fighter's old arc, now something you have to be holding.
+    //
+    // No windup and no recovery because it has no attack to have them for: a
+    // guard-role limb never leaves `Swing::Guard`. Its whole cost is `ready`,
+    // and this is the number the entire loadout design turns on.
+    //
+    // **It is set against the window a blow actually leaves, which is not the
+    // telegraph.** The first cut at this was `8`, derived from the windups in
+    // the rows above -- a Club announcing for 33 ticks and a Knife for 7. Both
+    // are real numbers and neither is the operative one: a cut has to *travel*
+    // after it is declared, and contact lands well into the strike phase. The
+    // measured windows from declaration to contact are **24 ticks for a knife
+    // and 62 for a club**, nearly triple the telegraph -- and against those, a
+    // Fighter drawing in 8 could get a guard up against anything in the game.
+    // The ladder had no rungs on it at all.
+    //
+    // At `14` a Fighter spends 12 ticks noticing (its decision period) and 15
+    // drawing, which puts a guard up around tick 27: comfortably inside a club's
+    // 62 with most of the brace still to spend, and comfortably outside a
+    // knife's 24. The separation is the point, and so is the margin -- `12` also
+    // separates them, by a single tick, which is luck rather than a design.
+    //
+    // A Rogue thinks every 10 and draws in 12, so it lands right on the knife's
+    // edge. That is the correct shape for the quick body: answering a fast
+    // weapon is *its* trick and nobody else's.
+    //
+    // Asserted in `World::tests::a_club_can_be_answered_by_swapping_to_a_guard`
+    // and its twin, through a live world rather than on paper, because on paper
+    // is exactly how it was got wrong the first time.
+    ActionSpec {
+        role: Role::Guard,
+        length: Fx::from_ratio(45, 100),
+        mass: Fx::from_ratio(90, 100),
+        balance: Fx::from_ratio(35, 100),
+        arc: 11_264, // +/- 61.9 deg
+        windup: 0,
+        recovery: 0,
+        ready: 14,
+        move_bonus: Fx::ONE,
+    },
+    // Run -- RESERVED, not yet implemented. Priced so the row does not move when
+    // it lands.
+    ActionSpec {
+        role: Role::Move,
+        length: Fx::ZERO,
+        mass: Fx::from_ratio(20, 100),
+        balance: Fx::ZERO,
+        arc: 0,
+        windup: 0,
+        recovery: 0,
+        ready: 4,
+        move_bonus: Fx::from_ratio(135, 100),
+    },
+    // Bow -- RESERVED, not yet implemented. Needs projectile entities the world
+    // does not have; `length` is the draw, not the range.
+    ActionSpec {
+        role: Role::Shoot,
+        length: Fx::from_ratio(30, 100),
+        mass: Fx::from_ratio(80, 100),
+        balance: Fx::from_ratio(50, 100),
+        arc: 0,
+        windup: 30,
+        recovery: 22,
+        ready: 22,
+        move_bonus: Fx::ONE,
+    },
+    // Shortsword -- the retired Scout blade. Hilt-heavy and short, so the
+    // lowest inertia of anything with an edge: speed limited rather than
+    // work limited, and therefore the lightest hitter of the real blades.
+    ActionSpec {
+        role: Role::Strike,
+        length: Fx::from_ratio(55, 100),
+        mass: Fx::from_ratio(86, 100),
+        balance: Fx::from_ratio(50, 100),
+        arc: 0,
+        windup: 8,
+        recovery: 9,
+        ready: 7,
+        move_bonus: Fx::ONE,
+    },
+];
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use fx::Fx;
 
-    fn hashed(order: Order) -> u64 {
-        let mut h = Hash64::new();
-        order.hash_into(&mut h);
-        h.finish()
-    }
-
-    /// The byte sequence `hash_into` is required to produce, written out
-    /// independently of the code under test.
-    fn expected(discriminant: u8, x: Fx, y: Fx, focus: Option<EntityId>) -> u64 {
-        let mut h = Hash64::new();
-        h.write_u8(discriminant);
-        h.write_i32(x.raw());
-        h.write_i32(y.raw());
-        if let Some(id) = focus {
-            id.hash_into(&mut h);
+    #[test]
+    fn the_registry_is_append_only_and_total() {
+        for (i, kind) in ActionKind::ALL.iter().enumerate() {
+            assert_eq!(kind.code() as usize, i, "{} moved", kind.name());
+            assert_eq!(ActionKind::from_code(kind.code()), Some(*kind));
         }
-        h.finish()
-    }
+        assert_eq!(ActionKind::ALL.len(), ActionKind::COUNT);
+        assert_eq!(ACTIONS.len(), ActionKind::COUNT);
+        // Total at the edges: this is what a replay and the page come in
+        // through, and a panic there is a poisoned wasm instance.
+        assert_eq!(ActionKind::from_code(ActionKind::COUNT as u32), None);
+        assert_eq!(ActionKind::from_code(u32::MAX), None);
 
-    #[test]
-    fn discriminants_are_append_only() {
-        assert_eq!(Order::Hold.discriminant(), 0);
-        assert_eq!(Order::Advance(Vec2::X).discriminant(), 1);
-        assert_eq!(Order::Regroup.discriminant(), 2);
-        assert_eq!(Order::Focus(EntityId::NONE).discriminant(), 3);
-        assert_eq!(Order::Goto(Vec2::X).discriminant(), 4);
-        assert_eq!(Order::COUNT, 5);
-    }
-
-    #[test]
-    fn order_hash_layout_is_frozen() {
-        // Every variant that existed before `Goto` must hash exactly as it did
-        // then, or `GOLDEN_STATE_HASH` and every recorded replay are void. The
-        // expectation is spelled out rather than recorded, so this fails at the
-        // line that moved instead of as a mismatched constant three crates away.
-        let v = Vec2::new(Fx::from_ratio(3, 2), Fx::from_int(-7));
-        let id = EntityId::new(9, 3);
-        for (order, want) in [
-            (Order::Hold, expected(0, Fx::ZERO, Fx::ZERO, None)),
-            (Order::Advance(v), expected(1, v.x, v.y, None)),
-            (Order::Regroup, expected(2, Fx::ZERO, Fx::ZERO, None)),
-            (Order::Focus(id), expected(3, Fx::ZERO, Fx::ZERO, Some(id))),
-        ] {
-            assert_eq!(hashed(order), want, "{order:?} hashes differently now");
+        for kind in ActionKind::PLAYABLE {
+            assert!(kind.is_playable(), "{} is playable but not marked so", kind.name());
+        }
+        for kind in ActionKind::ALL {
+            assert_eq!(
+                kind.is_playable(),
+                ActionKind::PLAYABLE.contains(&kind),
+                "{} disagrees with PLAYABLE",
+                kind.name()
+            );
         }
     }
 
+    /// The four rows the old roster is measured against must be numerically the
+    /// weapons it was measured with, or every balance figure in `DESIGN.md` is a
+    /// claim about a game that no longer exists.
+    ///
+    /// The arc is **deliberately excluded**: it moved off the weapon and onto
+    /// `Shield`, which is the entire point of the split. `Sword` carrying the
+    /// Fighter's 11264 would be the bug this refactor exists to fix.
     #[test]
-    fn hand_commands_reach_the_action_hash() {
-        // Same shape as `goto_hashes_its_destination`, and for the same reason:
-        // state the sim acts on but the hash ignores makes two different runs
-        // indistinguishable to replay verification. Two swings in opposite
-        // directions are about as different as two runs get.
-        let hashed = |a: Action| {
-            let mut h = Hash64::new();
-            a.hash_into(&mut h);
-            h.finish()
-        };
-        let target = EntityId::new(2, 0);
-        let east = HandCommand::new(Angle::ZERO, Fx::ONE);
-        let west = HandCommand::new(Angle::HALF, Fx::ONE);
-        let tucked = HandCommand::TUCKED;
-
-        assert_ne!(
-            hashed(Action::swinging(Vec2::ZERO, target, east, tucked)),
-            hashed(Action::swinging(Vec2::ZERO, target, west, tucked)),
-            "two opposite swings are indistinguishable to the state hash"
-        );
-        assert_ne!(
-            hashed(Action::swinging(Vec2::ZERO, target, east, tucked)),
-            hashed(Action::swinging(Vec2::ZERO, target, tucked, east)),
-            "sword and shield commands are interchangeable to the state hash"
-        );
-        assert_ne!(
-            hashed(Action::swinging(Vec2::ZERO, target, east, tucked)),
-            hashed(Action::attacking(Vec2::ZERO, target)),
-            "an extended blade hashes the same as a tucked one"
-        );
+    fn the_legacy_weapons_survived_the_split() {
+        let legacy = [
+            // (action, length, mass, balance, windup, recovery) from the retired
+            // `Body::weapon()` table.
+            (ActionKind::Knife, 40, 125, 75, 7, 8),
+            (ActionKind::Sword, 95, 124, 55, 14, 16),
+            (ActionKind::Club, 145, 223, 61, 26, 34),
+        ];
+        for (kind, length, mass, balance, windup, recovery) in legacy {
+            let spec = kind.spec();
+            assert_eq!(spec.length, Fx::from_ratio(length, 100), "{}", kind.name());
+            assert_eq!(spec.mass, Fx::from_ratio(mass, 100), "{}", kind.name());
+            assert_eq!(spec.balance, Fx::from_ratio(balance, 100), "{}", kind.name());
+            assert_eq!(spec.windup, windup, "{}", kind.name());
+            assert_eq!(spec.recovery, recovery, "{}", kind.name());
+            assert_eq!(spec.arc, 0, "{} kept a shield arc it should have lost", kind.name());
+        }
+        // The arc it lost, found where it belongs.
+        assert_eq!(ActionKind::Shield.spec().arc, 11_264);
     }
 
     #[test]
-    fn goto_hashes_its_destination() {
-        let a = Vec2::from_ints(3, 4);
-        let b = Vec2::from_ints(4, 3);
-        assert_ne!(
-            hashed(Order::Goto(a)),
-            hashed(Order::Goto(b)),
-            "two destinations are indistinguishable to the state hash"
-        );
-        assert_ne!(
-            hashed(Order::Goto(a)),
-            hashed(Order::Advance(a)),
-            "a destination and a heading are indistinguishable to the state hash"
-        );
+    fn a_role_decides_exactly_one_thing_about_a_limb() {
+        for role in Role::ALL {
+            // A role that both cut and blocked would make the loadout pointless,
+            // because one action would answer every question.
+            assert!(
+                !(role.is_live_capable() && role.blocks()),
+                "{} both cuts and blocks",
+                role.name()
+            );
+        }
+        for (i, role) in Role::ALL.iter().enumerate() {
+            assert_eq!(role.discriminant(), i, "{} moved", role.name());
+        }
+        assert_eq!(Role::ALL.len(), Role::COUNT);
+    }
+
+    /// Every row has to be physically resolvable, whatever holds it. A zero mass
+    /// is a division somewhere in `Arm`, and a guard with no arc covers nothing
+    /// while still costing a slot.
+    #[test]
+    fn no_row_is_degenerate() {
+        for kind in ActionKind::ALL {
+            let spec = kind.spec();
+            assert!(spec.mass.is_positive(), "{} weighs nothing", kind.name());
+            assert!(spec.ready > 0, "{} is free to draw", kind.name());
+            match spec.role {
+                Role::Strike | Role::Shoot => {
+                    assert!(spec.length.is_positive(), "{} has no reach", kind.name());
+                    assert!(spec.windup > 0, "{} does not announce", kind.name());
+                    assert!(spec.recovery > 0, "{} is free to miss with", kind.name());
+                    assert_eq!(spec.arc, 0, "{} is not a guard", kind.name());
+                }
+                Role::Guard => {
+                    assert!(spec.arc > 0, "{} covers nothing", kind.name());
+                }
+                Role::Move => {
+                    assert!(
+                        spec.move_bonus > Fx::ONE,
+                        "{} is a movement action that does not move",
+                        kind.name()
+                    );
+                    assert_eq!(spec.arc, 0, "{} is not a guard", kind.name());
+                }
+            }
+            if !matches!(spec.role, Role::Move) {
+                assert_eq!(
+                    spec.move_bonus,
+                    Fx::ONE,
+                    "{} quietly changes footspeed",
+                    kind.name()
+                );
+            }
+        }
     }
 }

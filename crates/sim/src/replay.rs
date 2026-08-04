@@ -1,14 +1,14 @@
-use crate::action::{Action, Order};
+use crate::command::{Command, Order};
 use crate::entity::{EntityId, Faction};
 use crate::scenario::Scenario;
 use crate::world::World;
 
 /// One decision, as it was made.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub struct ActionRecord {
+pub struct CommandRecord {
     pub tick: u32,
     pub entity: EntityId,
-    pub action: Action,
+    pub command: Command,
 }
 
 /// One standing order, as the player gave it.
@@ -24,7 +24,7 @@ pub struct OrderRecord {
 
 /// A complete, replayable run.
 ///
-/// # Why this records actions and not observations
+/// # Why this records commands and not observations
 ///
 /// The obvious design is to log the seed and re-run the policies. That works
 /// right up until a policy is a neural network, and then it stops: a matrix
@@ -33,7 +33,7 @@ pub struct OrderRecord {
 /// diverges from the run it claims to reproduce.
 ///
 /// Recording the *decisions* sidesteps that entirely. Playback never runs
-/// inference at all -- it feeds the sim exactly the actions the sim was fed the
+/// inference at all -- it feeds the sim exactly the commands the sim was fed the
 /// first time. So the portability requirement lands only on [`World`], which is
 /// pure fixed-point integer arithmetic and genuinely is bit-identical
 /// everywhere. The policy is free to be as unportable as it likes.
@@ -51,7 +51,7 @@ pub struct Replay {
     /// How many ticks the original run lasted. Playback stops here even if the
     /// last decisions came earlier.
     pub ticks: u32,
-    pub entries: Vec<ActionRecord>,
+    pub entries: Vec<CommandRecord>,
     /// Player orders, in the order they were issued.
     pub orders: Vec<OrderRecord>,
 }
@@ -68,11 +68,11 @@ impl Replay {
         }
     }
 
-    pub fn record(&mut self, tick: u32, entity: EntityId, action: Action) {
-        self.entries.push(ActionRecord {
+    pub fn record(&mut self, tick: u32, entity: EntityId, command: Command) {
+        self.entries.push(CommandRecord {
             tick,
             entity,
-            action,
+            command,
         });
     }
 
@@ -111,7 +111,7 @@ impl Replay {
 
     pub fn play_until(&self, ticks: u32) -> World {
         let mut world = World::new(&self.scenario, self.seed);
-        let mut next_action = 0;
+        let mut next_command = 0;
         let mut next_order = 0;
 
         loop {
@@ -125,11 +125,11 @@ impl Replay {
             if world.tick() >= ticks {
                 break;
             }
-            while next_action < self.entries.len() && self.entries[next_action].tick <= world.tick()
+            while next_command < self.entries.len() && self.entries[next_command].tick <= world.tick()
             {
-                let entry = self.entries[next_action];
-                world.submit(entry.entity, entry.action);
-                next_action += 1;
+                let entry = self.entries[next_command];
+                world.submit(entry.entity, entry.command);
+                next_command += 1;
             }
             world.step();
         }

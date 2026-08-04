@@ -2,7 +2,7 @@ use crate::genome::PolicySpec;
 use crate::swing;
 use crate::Policy;
 use fx::{Fx, Vec2};
-use sim::{Action, Contact, EntityId, Intent, Observation, Order};
+use sim::{Command, Contact, EntityId, Intent, Observation, Order};
 
 /// Number of genes in the evolvable representation of [`UtilityWeights`].
 pub const GENOME_LEN: usize = 8;
@@ -339,7 +339,7 @@ impl UtilityPolicy {
     }
 
     /// Nothing in sight: do what the player asked.
-    fn march(&self, obs: &Observation, patrol: &mut Patrol) -> Action {
+    fn march(&self, obs: &Observation, patrol: &mut Patrol) -> Command {
         let heading = match obs.order {
             Order::Advance(dir) => dir.normalize(),
             Order::Regroup => self.ally_centre(obs).normalize(),
@@ -384,16 +384,16 @@ impl UtilityPolicy {
                 // agility instead of being a magic constant, and it clears by
                 // some 400x the hard floor below which a direction component is
                 // too small to move the body at all -- a deadband under that
-                // floor never terminates. Stopping via `Action::HOLD` matters
+                // floor never terminates. Stopping via `Command::HOLD` matters
                 // too: below one tick of travel the sim would still turn the
                 // character to face a step that moves nothing, leaving it
                 // spinning on the spot, whereas a zero direction freezes the
                 // arrival facing.
                 if distance <= obs.move_speed {
-                    return Action::HOLD;
+                    return Command::HOLD;
                 }
 
-                // An action persists until the next decision, so pace the
+                // A command persists until the next decision, so pace the
                 // stride by how much ground gets covered before the next
                 // thought. This is the intellect stat as navigation: a dim
                 // character commits to a longer stride and creeps in, a sharp
@@ -442,7 +442,7 @@ impl UtilityPolicy {
                 // one, and `decisions_never_exceed_unit_movement` should hold
                 // unconditionally.
                 let brake = (safe / obs.move_speed.max(Fx::EPSILON)).min(Fx::ONE);
-                return Action::moving((to.normalize() * brake).clamp_length(Fx::ONE));
+                return Command::moving((to.normalize() * brake).clamp_length(Fx::ONE));
             }
 
             Order::Hold | Order::Focus(_) => Vec2::ZERO,
@@ -455,33 +455,35 @@ impl UtilityPolicy {
         // both bad to watch and useless as a fitness signal.
         let heading = patrol_heading(obs, heading, patrol);
 
-        Action::moving((heading + self.open_ground(obs)).clamp_length(Fx::ONE))
+        Command::moving((heading + self.open_ground(obs)).clamp_length(Fx::ONE))
     }
 
-    fn disengage(&self, obs: &Observation) -> Action {
+    fn disengage(&self, obs: &Observation) -> Command {
         let away = match obs.nearest_enemy() {
             Some(threat) => -threat.offset.normalize(),
             None => Vec2::ZERO,
         };
-        Action {
+        Command {
             move_dir: (away + self.cohesion(obs) + self.open_ground(obs)).clamp_length(Fx::ONE),
             intent: Intent::Flee,
-            // Overwritten by `hands` before this leaves `decide`.
-            ..Action::HOLD
+            // Overwritten by `limb` before this leaves `decide`.
+            ..Command::HOLD
         }
     }
 
-    /// Where to put both hands, given everything else is already decided.
+    /// Where to put the limb, given everything else is already decided.
     ///
     /// Called last and applied over the top of whatever the movement logic
     /// produced, so adding swordplay to this policy did not move a single
     /// footstep -- `march_behaviour_is_byte_identical` is the proof, and it is
-    /// worth keeping that way.
+    /// worth keeping that way. It survived the collapse to one limb for exactly
+    /// the same reason, and re-running it is the cheapest evidence that this
+    /// refactor did not disturb navigation.
     ///
     /// **This is the naive swordsman, and it is meant to be beaten.** It attacks
     /// whenever it is able to, at whatever is nearest, from whichever side is
-    /// nearest, and holds its guard at the enemy. Every one of those is a
-    /// mistake a better fighter gets to punish:
+    /// nearest, and otherwise holds its guard at the enemy. Every one of those
+    /// is a mistake a better fighter gets to punish:
     ///
     /// * It never chooses *not* to attack, so it spends its life in windups and
     ///   recoveries and can be hit at leisure by anyone who waits for one.
@@ -489,21 +491,28 @@ impl UtilityPolicy {
     ///   arrive wherever the geometry happens to put them.
     /// * It guards at the swordsman rather than at the blow, and a cut arriving
     ///   at an angle lands well round the body from where its wielder stands.
-    ///
-    /// Before the sword became a phase machine this was a windmill, and the
-    /// list of what it did wrong was one item long, because there was only one
-    /// thing to do.
-    fn hands(&self, obs: &Observation, action: &mut Action) {
+    /// * **It never changes what is in its hand.** It fights a whole battle with
+    ///   its primary, so a Fighter holding one of these never raises its shield
+    ///   and a fighter handed a shield as its primary never attacks at all.
+    ///   Choosing an action is the whole of the new skill, and declining to make
+    ///   that choice is what keeps this the baseline.
+    fn limb(&self, obs: &Observation, command: &mut Command) {
         let threat = match obs.nearest_enemy() {
             Some(c) => c,
-            None => return, // nothing about: both hands stay tucked
+            None => return, // nothing about: the limb stays tucked
         };
         let bearing = threat.offset.angle();
-        action.hands[sim::SWORD] = swing::press(obs, bearing, sim::Strike::Nearest);
-        action.hands[sim::SHIELD] = sim::HandCommand::new(bearing, Fx::ONE);
+        command.limb = if obs.role().is_live_capable() {
+            swing::press(obs, bearing, sim::Strike::Nearest)
+        } else {
+            // Holding something that cannot cut: point it at the enemy and brace
+            // it. For a guard that is the correct and only play; for anything
+            // else it is harmless.
+            sim::LimbCommand::new(bearing, Fx::ONE)
+        };
     }
 
-    fn engage(&self, obs: &Observation) -> Action {
+    fn engage(&self, obs: &Observation) -> Command {
         let target = self.pick_target(obs);
         // The agent knows its own reach exactly: its weapon plus both bodies.
         let reach = obs.full_reach() + target.radius;
@@ -518,31 +527,31 @@ impl UtilityPolicy {
             Vec2::ZERO
         };
 
-        Action {
+        Command {
             move_dir: (approach + self.cohesion(obs) + self.open_ground(obs)).clamp_length(Fx::ONE),
             intent: Intent::Attack(target.id),
-            ..Action::HOLD
+            ..Command::HOLD
         }
     }
 }
 
 impl Policy for UtilityPolicy {
-    fn decide(&mut self, obs: &Observation) -> Action {
-        let mut action = if obs.enemies().is_empty() {
+    fn decide(&mut self, obs: &Observation) -> Command {
+        let mut command = if obs.enemies().is_empty() {
             let mut patrol = *self.patrol_of(obs.me);
-            let action = self.march(obs, &mut patrol);
+            let command = self.march(obs, &mut patrol);
             *self.patrol_of(obs.me) = patrol;
-            action
+            command
         } else if obs.hp_frac < self.weights.caution {
             self.disengage(obs)
         } else {
             self.engage(obs)
         };
-        self.hands(obs, &mut action);
-        if let Intent::Attack(target) = action.intent {
+        self.limb(obs, &mut command);
+        if let Intent::Attack(target) = command.intent {
             self.remember(obs.me, target);
         }
-        action
+        command
     }
 
     fn reset(&mut self) {
@@ -563,7 +572,7 @@ mod tests {
             distance: Vec2::from_ints(x, y).length(),
             hp_frac: hp,
             radius: Fx::from_ratio(4, 10),
-            weapon_length: Fx::from_ratio(9, 10),
+            action_length: Fx::from_ratio(9, 10),
             min_strike_range: Fx::from_ratio(5, 10),
             // An even trade, since nothing in `UtilityPolicy` reads these and a
             // lopsided fixture would only invite someone to assert on it.
@@ -574,14 +583,15 @@ mod tests {
             heft: Fx::ONE,
             velocity: Vec2::ZERO,
             facing: fx::Angle::ZERO,
-            sword_angle: fx::Angle::ZERO,
-            sword_reach: Fx::ZERO,
-            sword_spin: Fx::ZERO,
-            sword_swing: sim::Swing::Guard,
-            sword_left: Fx::ZERO,
-            sword_line: fx::Angle::ZERO,
-            shield_angle: fx::Angle::ZERO,
-            shield_reach: Fx::ZERO,
+            limb_angle: fx::Angle::ZERO,
+            limb_reach: Fx::ZERO,
+            limb_spin: Fx::ZERO,
+            limb_swing: sim::Swing::Guard,
+            limb_left: Fx::ZERO,
+            limb_line: fx::Angle::ZERO,
+            action: sim::ActionKind::Sword,
+            action_arc: 0,
+
         }
     }
 
@@ -597,10 +607,10 @@ mod tests {
         obs.hp_frac = Fx::ONE;
         obs.attack_ready = Fx::ONE;
         obs.radius = Fx::from_ratio(45, 100);
-        obs.weapon_length = Fx::from_ratio(9, 10);
+        obs.action_length = Fx::from_ratio(9, 10);
         obs.sight_range = Fx::from_int(10);
         obs.move_speed = Fx::from_ratio(5, 100);
-        // A Warrior's reaction speed. Set explicitly because `blank` defaults
+        // A Fighter's reaction speed. Set explicitly because `blank` defaults
         // it to 1, and a fixture left on that default would quietly test a
         // character that re-plans every tick -- which is not the character any
         // of these numbers were chosen for. Stride is 12 x 0.05 = 0.6 units.
@@ -829,7 +839,7 @@ mod tests {
 
     #[test]
     fn goto_brakes_instead_of_overshooting() {
-        // Half a stride out. An action persists for `decision_period` ticks, so
+        // Half a stride out. A command persists for `decision_period` ticks, so
         // the quantity that must not exceed the remaining distance is the whole
         // committed walk, not one tick of it.
         let target = Fx::from_ratio(3, 10);
@@ -847,12 +857,12 @@ mod tests {
     #[test]
     fn goto_holds_inside_the_deadband() {
         let obs = heading_for(Vec2::ZERO);
-        let action = UtilityPolicy::baseline().decide(&obs);
-        // Exactly `Action::HOLD`, not merely a short step: below one tick of
+        let command = UtilityPolicy::baseline().decide(&obs);
+        // Exactly `Command::HOLD`, not merely a short step: below one tick of
         // travel the sim still turns a character to face a step that moves it
         // nowhere, so anything but a zero direction leaves it spinning.
-        assert_eq!(action.move_dir, Vec2::ZERO, "fidgeted on arrival");
-        assert_eq!(action.intent, Intent::Hold);
+        assert_eq!(command.move_dir, Vec2::ZERO, "fidgeted on arrival");
+        assert_eq!(command.intent, Intent::Hold);
     }
 
     #[test]
@@ -1048,11 +1058,11 @@ mod tests {
             let mut obs = situation(&enemies);
             obs.order = order;
             obs.set_allies(&[contact(9, -6, -6, Fx::ONE)]);
-            let action = policy.decide(&obs);
+            let command = policy.decide(&obs);
             assert!(
-                action.move_dir.length() <= Fx::ONE + Fx::from_ratio(1, 1000),
+                command.move_dir.length() <= Fx::ONE + Fx::from_ratio(1, 1000),
                 "{order:?} produced {:?}",
-                action.move_dir
+                command.move_dir
             );
         }
     }

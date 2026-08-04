@@ -1,4 +1,6 @@
-use crate::rules::{Stats, Weapon};
+use crate::action::{ActionKind, ActionSpec, Role};
+use crate::loadout::Loadout;
+use crate::rules::Stats;
 use fx::Fx;
 
 /// A generational handle into the world's entity arrays.
@@ -64,70 +66,81 @@ impl Faction {
     }
 }
 
-/// Unit archetypes: a body size, a stat template, and a weapon.
+/// A body: a size, a weight, and a stat template.
+///
+/// **It fights with whatever is in its hand**, which is the whole of what this
+/// type used to get wrong. It was `UnitKind`, and one variant carried the body,
+/// the stats, the weapon *and* the shield arc as a single indivisible fact --
+/// so a Skitterer did not *carry* a knife, it *was* one, and "what does a Brute
+/// with a knife play like" was a question with no representation. The weapon
+/// moved out to [`ActionKind`]; what is left here is only what a body is.
+///
+/// The variant order is load-bearing and unchanged from `UnitKind`:
+/// [`Body::hash_into`] writes it, so every recorded run in the repository
+/// depends on `Fighter` still sitting where `Warrior` did.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
-pub enum UnitKind {
+pub enum Body {
     /// Durable melee hero.
-    Warrior,
+    Fighter,
     /// Fragile, fast, sees far.
-    Scout,
+    Rogue,
     /// Slow, dim, hits like a truck.
     Brute,
     /// Weak swarm monster, quick to react.
     Skitterer,
 }
 
-impl UnitKind {
-    pub const ALL: [UnitKind; 4] = [
-        UnitKind::Warrior,
-        UnitKind::Scout,
-        UnitKind::Brute,
-        UnitKind::Skitterer,
+impl Body {
+    pub const ALL: [Body; 4] = [
+        Body::Fighter,
+        Body::Rogue,
+        Body::Brute,
+        Body::Skitterer,
     ];
 
     pub const fn radius(self) -> Fx {
         match self {
-            UnitKind::Warrior => Fx::from_ratio(45, 100),
-            UnitKind::Scout => Fx::from_ratio(35, 100),
-            UnitKind::Brute => Fx::from_ratio(70, 100),
-            UnitKind::Skitterer => Fx::from_ratio(30, 100),
+            Body::Fighter => Fx::from_ratio(45, 100),
+            Body::Rogue => Fx::from_ratio(35, 100),
+            Body::Brute => Fx::from_ratio(70, 100),
+            Body::Skitterer => Fx::from_ratio(30, 100),
         }
     }
 
-    /// How heavy this archetype is for its size, against a Warrior at `1.00`.
+    /// How heavy this archetype is for its size, against a Fighter at `1.00`.
     ///
     /// Exists so that "big" and "heavy" are the same fact **by default** and
-    /// different only on purpose. [`UnitKind::mass`] is otherwise pure geometry,
+    /// different only on purpose. [`Body::mass`] is otherwise pure geometry,
     /// which keeps the roster honest -- you cannot quietly give something a
     /// small body and a large one's momentum -- and this is the one dial that
     /// says an archetype is built differently rather than merely scaled.
     ///
-    /// A Brute is dense: it is not a large Warrior, it is meat and plate at the
+    /// A Brute is dense: it is not a large Fighter, it is meat and plate at the
     /// same volume. A Skitterer is the opposite, a light thing for its
     /// footprint, which is what makes crowding one work and standing in front
     /// of a Brute not.
     pub const fn density(self) -> Fx {
         match self {
-            UnitKind::Warrior => Fx::ONE,
-            UnitKind::Scout => Fx::ONE,
-            UnitKind::Brute => Fx::from_ratio(115, 100),
-            UnitKind::Skitterer => Fx::from_ratio(80, 100),
+            Body::Fighter => Fx::ONE,
+            Body::Rogue => Fx::ONE,
+            Body::Brute => Fx::from_ratio(115, 100),
+            Body::Skitterer => Fx::from_ratio(80, 100),
         }
     }
 
-    /// Body mass, with a Warrior as the unit.
+    /// Body mass, with a Fighter as the unit.
     ///
-    /// `density * radius^2`, normalised so a Warrior weighs `1.00`. Area rather
+    /// `density * radius^2`, normalised so a Fighter weighs `1.00`. Area rather
     /// than volume because the sim is two-dimensional and a mass that scaled as
-    /// the cube would put a Brute at four times a Warrior and a Skitterer at a
+    /// the cube would put a Brute at four times a Fighter and a Skitterer at a
     /// third of one -- a spread wide enough that the light archetypes stop being
     /// able to hold ground at all, which is a worse game than the one where
     /// crowding is a real tactic with a real price.
     ///
     /// | | radius | density | mass |
     /// |---|---|---|---|
-    /// | Warrior | 0.45 | 1.00 | 1.00 |
-    /// | Scout | 0.35 | 1.00 | 0.60 |
+    /// | Fighter | 0.45 | 1.00 | 1.00 |
+    /// | Rogue | 0.35 | 1.00 | 0.60 |
     /// | Brute | 0.70 | 1.15 | 2.78 |
     /// | Skitterer | 0.30 | 0.80 | 0.36 |
     ///
@@ -137,7 +150,7 @@ impl UnitKind {
     /// using them. A dim Brute and a sharp one weigh the same.
     pub fn mass(self) -> Fx {
         let r = self.radius();
-        let reference = UnitKind::Warrior.radius();
+        let reference = Body::Fighter.radius();
         fx::mul_div(r * r, self.density(), reference * reference)
     }
 
@@ -145,101 +158,113 @@ impl UnitKind {
     pub const fn base_stats(self) -> Stats {
         match self {
             //                    pow agi int per vit
-            UnitKind::Warrior => Stats::new(6, 6, 8, 6, 8),
-            UnitKind::Scout => Stats::new(4, 12, 10, 14, 4),
-            UnitKind::Brute => Stats::new(12, 2, 2, 3, 14),
-            UnitKind::Skitterer => Stats::new(3, 9, 12, 5, 2),
+            Body::Fighter => Stats::new(6, 6, 8, 6, 8),
+            Body::Rogue => Stats::new(4, 12, 10, 14, 4),
+            Body::Brute => Stats::new(12, 2, 2, 3, 14),
+            Body::Skitterer => Stats::new(3, 9, 12, 5, 2),
         }
     }
 
-    /// What this archetype fights with.
+    /// What this body walks in with.
     ///
-    /// The four rows are meant to be four *problems*, not four difficulties.
-    /// A Brute reaches 1.45 units past its own considerable body and hits like
-    /// nothing else, but announces every cut for more than half a second and
-    /// guards a mere 22.5 degrees of arc; a Scout has half the reach and a third
-    /// of the mass but throws three attacks inside one of those.
+    /// A **default**, not an identity -- that is the whole difference between
+    /// this and the `weapon()` it replaced. A scenario, the spawn panel or the
+    /// player may hand any body any loadout, and the interesting matchups are
+    /// mostly the ones this table does not list.
     ///
-    /// The two phase columns are where an archetype's difficulty actually
-    /// lives, and they are best read against the *opponent's*
-    /// [`Stats::decision_period`] rather than against each other. A Brute's
-    /// 33-tick telegraph gives a Warrior (period 12) two or three chances to
-    /// answer and a Skitterer (period 8) four; a Scout's 7-tick telegraph gives
-    /// a Brute (period 18) *none at all*. That asymmetry is deliberate and it is
-    /// the whole skill gradient: what a fighter can answer is decided by how
-    /// often it is allowed to think, so the same policy on a sharper character
-    /// is a genuinely better swordsman rather than a faster one.
+    /// The four rows are meant to be four *problems*, not four difficulties. A
+    /// Brute reaches 1.45 units past its own considerable body and hits like
+    /// nothing else, but announces every cut for more than half a second; a
+    /// Skitterer has a quarter of the reach and throws three attacks inside one
+    /// of those. A Fighter is the only one that walks in with a guard, and it
+    /// pays for that by having to put the sword away to use it.
+    ///
+    /// An action's phase columns are where difficulty actually lives, and they
+    /// are best read against the *opponent's* [`Stats::decision_period`] rather
+    /// than against each other. A Club's 33-tick telegraph gives a Fighter
+    /// (period 12) two or three chances to answer and a Skitterer (period 8)
+    /// four; a Knife's 7 gives a Brute (period 18) *none at all*. That asymmetry
+    /// is deliberate and it is the whole skill gradient: what a fighter can
+    /// answer is decided by how often it is allowed to think, so the same policy
+    /// on a sharper character is a genuinely better swordsman rather than a
+    /// faster one.
     ///
     /// [`Stats::decision_period`]: crate::rules::Stats::decision_period
-    pub const fn weapon(self) -> Weapon {
+    pub const fn default_loadout(self) -> Loadout {
         match self {
-            // A long two-handed axe, tip-heavy, with everything that follows
-            // from it. Six times a Warrior's blade inertia, so it accelerates
-            // at a quarter the rate and takes 91 ticks to get through a cut --
-            // and its wielder can only hold it at 911 raw units of spin against
-            // a Warrior's 1880, because you cannot keep that much mass on that
-            // long a lever going any faster. See `rules::grip_limit`.
-            //
-            // What it does *not* do is hit harder for being heavy. Mass cancels
-            // out of the damage law exactly (see `rules::blow_damage`); the axe
-            // hits hardest because it is long, and 2.15 units of arm squared is
-            // what a `1/2 m v^2` law rewards. Weight buys the shove instead.
-            UnitKind::Brute => Weapon {
-                length: Fx::from_ratio(145, 100),
-                mass: Fx::from_ratio(223, 100),
-                balance: Fx::from_ratio(61, 100),
-                shield_arc: 4_096, // +/- 22.5 deg
-                windup: 26,
-                recovery: 34,
-            },
-            UnitKind::Warrior => Weapon {
-                length: Fx::from_ratio(95, 100),
-                mass: Fx::from_ratio(124, 100),
-                balance: Fx::from_ratio(55, 100),
-                shield_arc: 11_264, // +/- 61.9 deg
-                windup: 14,
-                recovery: 16,
-            },
-            // Hilt-heavy and short: the lowest inertia in the roster, so it is
-            // the one weapon that gets to the arm's ceiling early and coasts.
-            // Speed limited, and therefore the lightest hitter of the three
-            // that carry a real blade.
-            UnitKind::Scout => Weapon {
-                length: Fx::from_ratio(55, 100),
-                mass: Fx::from_ratio(86, 100),
-                balance: Fx::from_ratio(50, 100),
-                shield_arc: 8_192, // +/- 45.0 deg
-                windup: 8,
-                recovery: 9,
-            },
-            // Dense for its size and hafted well forward, which is what keeps a
-            // knife on a very short arm worth anything at all.
-            UnitKind::Skitterer => Weapon {
-                length: Fx::from_ratio(40, 100),
-                mass: Fx::from_ratio(125, 100),
-                balance: Fx::from_ratio(75, 100),
-                shield_arc: 3_072, // +/- 16.9 deg
-                windup: 7,
-                recovery: 8,
-            },
+            // The only body that walks in able to defend, and the only one for
+            // which the loadout is a genuine dilemma every exchange.
+            Body::Fighter => Loadout::pair(ActionKind::Sword, ActionKind::Shield),
+            // Half the reach and a third of the mass, twice the cadence. The
+            // Rogue's old hilt-heavy shortblade retired into `Knife`; what it
+            // keeps is the body that swings one fastest -- and, because it both
+            // thinks and draws quicker than anything else, the only body for
+            // which reaching for a guard mid-exchange is reliably a good bet.
+            // Giving it a fist instead would be handing the quick body the one
+            // trick it is best at and then taking it away.
+            Body::Rogue => Loadout::pair(ActionKind::Shortsword, ActionKind::Shield),
+            // Long, slow, and with nothing to hide behind. A Brute that wants a
+            // guard has to be given one.
+            Body::Brute => Loadout::pair(ActionKind::Club, ActionKind::Punch),
+            Body::Skitterer => Loadout::pair(ActionKind::Knife, ActionKind::Punch),
+        }
+    }
+
+    /// The action this body walks in holding.
+    #[inline]
+    pub const fn default_action(self) -> ActionKind {
+        self.default_loadout().primary
+    }
+
+    /// **Scaffolding. Deleted when the world grows a loadout column.**
+    ///
+    /// The retired `UnitKind::weapon()` table, verbatim, returned as an
+    /// [`ActionSpec`] so the rest of the sim can be ported to the new type
+    /// before it is ported to the new *model*. It exists for exactly one step,
+    /// and its whole job is to keep every recorded hash in the repository
+    /// bit-identical across the rename -- which is what makes a hash that moves
+    /// later a fact about the model rather than about a find-and-replace.
+    ///
+    /// Do not read this for anything real. Two things here are wrong on purpose
+    /// and are what the next step fixes: the Rogue's hilt-heavy shortblade has
+    /// no row in [`crate::ACTIONS`] because it retires into
+    /// [`ActionKind::Knife`], and the `arc` column is a *shield* arc sitting on
+    /// a *weapon*, which is the misfiling this whole change exists to undo.
+    pub const fn legacy_weapon(self) -> ActionSpec {
+        let (length, mass, balance, arc, windup, recovery) = match self {
+            Body::Brute => (145, 223, 61, 4_096, 26, 34),
+            Body::Fighter => (95, 124, 55, 11_264, 14, 16),
+            Body::Rogue => (55, 86, 50, 8_192, 8, 9),
+            Body::Skitterer => (40, 125, 75, 3_072, 7, 8),
+        };
+        ActionSpec {
+            role: Role::Strike,
+            length: Fx::from_ratio(length, 100),
+            mass: Fx::from_ratio(mass, 100),
+            balance: Fx::from_ratio(balance, 100),
+            arc,
+            windup,
+            recovery,
+            ready: 0,
+            move_bonus: Fx::ONE,
         }
     }
 
     pub const fn name(self) -> &'static str {
         match self {
-            UnitKind::Warrior => "warrior",
-            UnitKind::Scout => "scout",
-            UnitKind::Brute => "brute",
-            UnitKind::Skitterer => "skitterer",
+            Body::Fighter => "fighter",
+            Body::Rogue => "rogue",
+            Body::Brute => "brute",
+            Body::Skitterer => "skitterer",
         }
     }
 
     pub(crate) fn hash_into(self, h: &mut fx::Hash64) {
         h.write_u8(match self {
-            UnitKind::Warrior => 0,
-            UnitKind::Scout => 1,
-            UnitKind::Brute => 2,
-            UnitKind::Skitterer => 3,
+            Body::Fighter => 0,
+            Body::Rogue => 1,
+            Body::Brute => 2,
+            Body::Skitterer => 3,
         });
     }
 }
@@ -268,15 +293,15 @@ mod tests {
     /// comment would not have caught someone widening it.
     #[test]
     fn no_blade_can_outrun_the_smallest_body() {
-        let smallest = UnitKind::ALL
+        let smallest = Body::ALL
             .iter()
             .map(|k| k.radius())
             .fold(Fx::MAX, Fx::min);
         let budget = smallest * Fx::TWO;
 
         let mut worst = Fx::ZERO;
-        for kind in UnitKind::ALL {
-            let weapon = kind.weapon();
+        for kind in Body::ALL {
+            let weapon = kind.legacy_weapon();
             let tip = kind.radius() + weapon.length;
             for agility in 0..=255u8 {
                 let mut stats = kind.base_stats();
@@ -300,27 +325,27 @@ mod tests {
 
     #[test]
     fn mass_is_the_body_squared_and_a_warrior_is_the_unit() {
-        assert_eq!(UnitKind::Warrior.mass(), Fx::ONE);
+        assert_eq!(Body::Fighter.mass(), Fx::ONE);
 
         // Doubling the radius quadruples the mass at equal density, which is
         // the whole claim the derivation makes.
-        let scout = UnitKind::Scout.mass();
+        let rogue = Body::Rogue.mass();
         let expected = Fx::from_ratio(35 * 35, 45 * 45);
-        assert!((scout - expected).abs() < Fx::from_ratio(1, 1000), "{scout}");
+        assert!((rogue - expected).abs() < Fx::from_ratio(1, 1000), "{rogue}");
 
         // The spread the physics is built on, in order and with room between.
-        let mut ordered = UnitKind::ALL;
+        let mut ordered = Body::ALL;
         ordered.sort_by_key(|k| k.mass());
         assert_eq!(
             ordered,
             [
-                UnitKind::Skitterer,
-                UnitKind::Scout,
-                UnitKind::Warrior,
-                UnitKind::Brute
+                Body::Skitterer,
+                Body::Rogue,
+                Body::Fighter,
+                Body::Brute
             ]
         );
-        let ratio = UnitKind::Brute.mass() / UnitKind::Skitterer.mass();
+        let ratio = Body::Brute.mass() / Body::Skitterer.mass();
         assert!(
             ratio > Fx::from_int(5) && ratio < Fx::from_int(10),
             "a Brute is {ratio} Skitterers -- the spread has drifted"
@@ -332,7 +357,7 @@ mod tests {
         // Every mass is a divisor somewhere in the impulse model. A zero here
         // is a saturated velocity there, and the sim would rather fail in this
         // assertion than in a fight.
-        for kind in UnitKind::ALL {
+        for kind in Body::ALL {
             assert!(kind.mass().is_positive(), "{} weighs nothing", kind.name());
             assert!(kind.density().is_positive(), "{}", kind.name());
         }
@@ -342,9 +367,9 @@ mod tests {
     fn every_archetype_reaches_further_than_it_is_wide() {
         // A weapon shorter than its wielder's body could never be brought to
         // bear on anything, because bodies separate before blades meet.
-        for kind in UnitKind::ALL {
+        for kind in Body::ALL {
             assert!(
-                kind.weapon().length > kind.radius() * Fx::HALF,
+                kind.legacy_weapon().length > kind.radius() * Fx::HALF,
                 "{} cannot reach past its own shoulders",
                 kind.name()
             );

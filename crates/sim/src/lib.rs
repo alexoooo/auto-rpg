@@ -22,7 +22,7 @@
 //!
 //! # Determinism
 //!
-//! Given the same [`Scenario`], seed, and sequence of submitted actions, every
+//! Given the same [`Scenario`], seed, and sequence of submitted commands, every
 //! tick produces byte-identical state on every platform we target. That holds
 //! because:
 //!
@@ -46,24 +46,28 @@
 pub use fx;
 
 mod action;
+mod command;
 mod entity;
 mod event;
 mod hand;
+mod loadout;
 mod obs;
 mod replay;
 mod rules;
 mod scenario;
 mod world;
 
-pub use action::{Action, HandCommand, Intent, Order, Strike};
-pub use entity::{EntityId, Faction, UnitKind};
+pub use action::{ActionKind, ActionSpec, Role, ACTIONS};
+pub use command::{Command, Intent, LimbCommand, Order, Strike};
+pub use entity::{EntityId, Faction, Body};
 pub use event::Event;
-pub use hand::{Hand, Swing, HANDS, SHIELD, SWORD};
+pub use hand::{Hand, Swing};
+pub use loadout::Loadout;
 pub use obs::{Contact, Observation, FEATURE_COUNT, FEATURE_LAYOUT_VERSION};
-pub use replay::{ActionRecord, OrderRecord, Replay};
+pub use replay::{CommandRecord, OrderRecord, Replay};
 pub use rules::{
     agility_multiplier, block_leak, blow_damage, dead_zone, peak_damage, peak_impulse, peak_recoil,
-    phase_ticks, power_multiplier, strike_ticks, Arm, Stats, Weapon, ARM_INERTIA, BLOCK_LEAK_BRACED,
+    phase_ticks, power_multiplier, strike_ticks, Arm, Stats, ARM_INERTIA, BLOCK_LEAK_BRACED,
     BLOCK_LEAK_SNAP, BLOCK_RECOVERY, BLOCK_RESTITUTION, BODY_RESTITUTION, BRACE_ANCHOR, BRACE_SPIN,
     BRACE_TICKS, CAPABILITY_JUDGEMENT, DIM_INTELLECT, DIM_PERCEPTION, DT, ENERGY_FLOOR,
     ENERGY_TO_DAMAGE, FOLLOW_THROUGH, IMPACT_THRESHOLD, KNOCKBACK_TRANSFER, MAX_CONTACTS,

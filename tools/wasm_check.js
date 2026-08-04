@@ -34,16 +34,16 @@ const BUILD = ["cargo", "build", "--release", "--target", "wasm32-unknown-unknow
 // is what tells the two failure modes apart -- see `divergence` below.
 
 // `lab hash`: skirmish(1234, 4, 6), seed 99, baseline policy, run to a finish.
-const LAB_HASH = 0x97d49e4d685c4dd0n;
+const LAB_HASH = 0x7ba34660aecc7e8fn;
 
 // `init(1); set_goto(20_000, 12_000); step(600)`: the path a player drives.
-const ROOM_HASH = 0xefb05af04d1ce5f3n;
+const ROOM_HASH = 0x3604699b7f77dc4fn;
 
 // `init(1); spawn_monster(3); step(600)`: a whole fight, start to finish. Worth
 // its own number because it reaches arithmetic the walk never does -- the spawn
 // point comes out of `Rng::from_stream` and the committed sine table, and every
 // approach measures a distance through `isqrt64`.
-const BATTLE_HASH = 0xee9cdc864897b793n;
+const BATTLE_HASH = 0x7bc035fea0538567n;
 
 // `init(1); spawn_monster(2) x3; step(1800); swap_in_hero(1); step(400)`: a
 // fight, a death, a replacement, and the fight the replacement walks into. The
@@ -51,11 +51,11 @@ const BATTLE_HASH = 0xee9cdc864897b793n;
 // sim across the death of an entity and the *reuse* of its slot -- the
 // generational free list is exactly the kind of index bookkeeping that a 32-bit
 // usize could quietly do differently.
-const SWAP_HASH = 0x35dca341a6c26bb8n;
+const SWAP_HASH = 0x881059e03eaf2037n;
 
 // The frame header, as the client reads it.
 const HEADER_LEN = 7;
-const UNIT_STRIDE = 24;
+const UNIT_STRIDE = 27;
 const ARENA = [24, 16];
 
 // ------------------------------------------------------------------ the module
@@ -253,6 +253,22 @@ test("the boundary exports everything the client calls", () => {
     "set_control",
     "control",
     "set_input",
+    "frame_layout_version",
+    "unit_stride",
+    "header_len",
+    "action_count",
+    "action_code",
+    "action_name_ptr",
+    "action_name_len",
+    "action_role",
+    "action_stat",
+    "body_count",
+    "body_name_ptr",
+    "body_name_len",
+    "body_stat",
+    "hero_loadout",
+    "hero_slot",
+    "set_hero_loadout",
   ];
   for (const name of exports) {
     assert.equal(typeof wasm[name], "function", `web.wasm does not export ${name}()`);
@@ -330,14 +346,16 @@ test("the frame buffer still has the layout the client reads", () => {
   // extensions and flash markers are fractions; the weapon columns are the
   // Warrior's. A column added in the middle would leave every hash identical
   // and draw a blade out of a hit-point total.
-  for (const i of [11, 14]) {
+  for (const i of [11]) {
     assert.ok(unit[i] >= 0 && unit[i] <= 65535, `column ${i} (${unit[i]}) is not a binary angle`);
   }
-  for (const i of [12, 15, 18, 19, 20]) {
+  for (const i of [12, 16, 17, 18]) {
     assert.ok(unit[i] >= 0 && unit[i] <= 1, `column ${i} (${unit[i]}) is outside 0..=1`);
   }
-  assert.ok(Math.abs(unit[16] - 0.95) < 0.001, `weapon_length ${unit[16]}`);
-  assert.equal(unit[17], 11264, "shield_arc_raw: a Warrior guards +/- 61.9 degrees");
+  assert.ok(Math.abs(unit[14] - 0.95) < 0.001, `action_length ${unit[14]}`);
+  // The guard arc of what is in hand. A Fighter walks in holding a sword, and
+  // a sword guards nothing -- the arc belongs to the shield action now.
+  assert.equal(unit[15], 0, "a sword is not a guard");
 });
 
 test("a policy can be chosen and tuned across the boundary", () => {
@@ -375,7 +393,7 @@ test("a policy can be chosen and tuned across the boundary", () => {
   console.log(`behaviour      ${knobs} knobs, first is "${first}"`);
 });
 
-test("the player can take the feet and the sword independently", () => {
+test("the player can take the feet, the limb and the choice", () => {
   wasm.init(1);
   assert.equal(wasm.control(), 0);
 
@@ -385,14 +403,16 @@ test("the player can take the feet and the sword independently", () => {
   wasm.step(60);
   assert.ok(frame()[HEADER_LEN] < 11, "the hero did not walk west when told to");
 
-  wasm.set_control(2); // sword only
-  assert.equal(wasm.control(), 2);
+  // Taking the limb implies taking action selection: a player who could swing
+  // but not choose would watch the AI put a shield in their hand mid-cut.
+  wasm.set_control(2);
+  assert.equal(wasm.control(), 2 | 4, "taking the limb has to imply taking the choice");
   // Guard due north, attacking nothing.
   wasm.set_input(0, 0, 16_384, 0, 0, 0);
   wasm.step(120);
   const unit = frame().slice(HEADER_LEN);
   assert.ok(Math.abs(unit[11] - 16_384) < 2_000, `sword ended at ${unit[11]}, not north`);
-  assert.equal(unit[21], 0, "a chambered blade was not in guard");
+  assert.equal(unit[19], 0, "a chambered blade was not in guard");
 
   // The attack button, and the property the whole swing model exists for: the
   // cut announces itself before it goes live, and the frame says so.
@@ -401,7 +421,7 @@ test("the player can take the feet and the sword independently", () => {
   let sawStrike = false;
   for (let i = 0; i < 90; i += 1) {
     wasm.step(1);
-    const swing = frame()[HEADER_LEN + 21];
+    const swing = frame()[HEADER_LEN + 19];
     if (swing === 1) sawWindup = true;
     if (swing === 2) {
       assert.ok(sawWindup, "the cut went live without announcing itself");
@@ -416,7 +436,7 @@ test("the player can take the feet and the sword independently", () => {
 
 test("a monster walks in and takes the next row of the frame", () => {
   wasm.init(1);
-  assert.equal(wasm.spawn_monster(3), 1, "nothing arrived");
+  assert.equal(wasm.spawn_monster(3, 255, 255), 1, "nothing arrived");
 
   const live = frame();
   assert.equal(live[6], 2, "unit_count");
@@ -440,7 +460,7 @@ test("a battle replays the way native recorded it", () => {
   // fixed-point code disagree about a fight -- which is the whole thing this
   // project claims cannot happen.
   wasm.init(1);
-  wasm.spawn_monster(3);
+  wasm.spawn_monster(3, 255, 255);
   wasm.step(600);
 
   const measured = stateHash();
@@ -455,11 +475,11 @@ test("a death and a replacement replay the way native recorded them", () => {
   // generation. Index bookkeeping is where a 64-bit native usize and a 32-bit
   // wasm one would part company without anything else looking wrong.
   wasm.init(1);
-  for (let i = 0; i < 3; i++) wasm.spawn_monster(2);
+  for (let i = 0; i < 3; i++) wasm.spawn_monster(2, 255, 255);
   wasm.step(1_800);
 
   assert.equal(heroRow(frame()), null, "three brutes no longer finish the warrior in 1800 ticks");
-  assert.equal(wasm.swap_in_hero(1), 1, "nobody arrived");
+  assert.equal(wasm.swap_in_hero(1, 255, 255), 1, "nobody arrived");
 
   const live = frame();
   const hero = heroRow(live);

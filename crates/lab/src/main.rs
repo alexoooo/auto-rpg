@@ -21,7 +21,7 @@ use evolve::{describe, evolve, Arena, EvolveConfig};
 use fitness::{fitness, Summary, Tally};
 use fx::Fx;
 use policy::{run, PolicyKind, RunConfig, RunResult};
-use sim::{Scenario, UnitKind};
+use sim::{Scenario, Body};
 use std::time::Instant;
 
 fn main() {
@@ -76,7 +76,7 @@ fn usage() {
           arena will happily evolve a counter to one opponent and call it a
           fighter.
 
-  KIND is one of warrior, scout, brute, skitterer.
+  KIND is one of fighter, rogue, brute, skitterer.
   P    is one of utility, duelist, idle, random."
     );
 }
@@ -88,11 +88,11 @@ const POLICIES: [(&str, PolicyKind); 4] = [
     ("random", PolicyKind::Random),
 ];
 
-const KINDS: [(&str, UnitKind); 4] = [
-    ("warrior", UnitKind::Warrior),
-    ("scout", UnitKind::Scout),
-    ("brute", UnitKind::Brute),
-    ("skitterer", UnitKind::Skitterer),
+const KINDS: [(&str, Body); 4] = [
+    ("fighter", Body::Fighter),
+    ("rogue", Body::Rogue),
+    ("brute", Body::Brute),
+    ("skitterer", Body::Skitterer),
 ];
 
 fn default_threads() -> usize {
@@ -301,8 +301,8 @@ fn hash(args: &Args) {
 fn duel(args: &Args) {
     let count = args.u32("seeds", 200) as u64;
     let threads = args.usize("threads", default_threads());
-    let hero_kind = args.choice("hero", UnitKind::Scout, &KINDS);
-    let villain_kind = args.choice("villain", UnitKind::Brute, &KINDS);
+    let hero_kind = args.choice("hero", Body::Rogue, &KINDS);
+    let villain_kind = args.choice("villain", Body::Brute, &KINDS);
     let hero_policy = args.choice("policy", PolicyKind::Duelist, &POLICIES);
     let villain_policy = args.choice("opponent", PolicyKind::Utility, &POLICIES);
 
@@ -392,8 +392,8 @@ fn evolution(args: &Args) {
         // model was actually built for.
         arena: match args.choice("arena", 0u32, &[("skirmish", 0), ("duel", 1), ("roster", 2)]) {
             1 => Arena::Duel {
-                hero: args.choice("hero", UnitKind::Warrior, &KINDS),
-                villain: args.choice("villain", UnitKind::Brute, &KINDS),
+                hero: args.choice("hero", Body::Fighter, &KINDS),
+                villain: args.choice("villain", Body::Brute, &KINDS),
             },
             2 => Arena::Roster,
             _ => Arena::Skirmish {

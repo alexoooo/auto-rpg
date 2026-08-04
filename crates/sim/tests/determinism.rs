@@ -7,43 +7,52 @@
 //! tests pin the *simulation*, not the behaviour crate.
 
 use fx::{Fx, Vec2};
-use sim::{Action, Faction, HandCommand, Observation, Order, Replay, Scenario, Strike, World};
+use sim::{Command, Faction, LimbCommand, Observation, Order, Replay, Scenario, Strike, World};
 
-/// Charge the nearest visible enemy and cut at it; otherwise advance toward the
-/// enemy side while drifting to the arena's centre line, so the two sides
-/// actually meet instead of sliding past each other into opposite walls.
+/// Charge the nearest visible enemy and cut at it; otherwise walk to the middle
+/// of the arena, so the two sides actually meet instead of sliding past each
+/// other into opposite walls.
 ///
 /// The three-armed match on the attack state is the whole contract, and getting
 /// it wrong is silent: letting the command lapse mid-windup cancels the attack,
 /// and holding it through a recovery leaves the hand disarmed forever after one
 /// cut. [`Observation::can_strike`] answers the first half; the phase answers
 /// the rest.
-fn greedy(obs: &Observation) -> Action {
+fn greedy(obs: &Observation) -> Command {
     match obs.nearest_enemy() {
         Some(contact) => {
             let bearing = contact.offset.angle();
-            let sword = if obs.can_strike() || obs.sword().swing.is_attacking() {
-                HandCommand::attack(bearing, Strike::Nearest)
+            let limb = if obs.can_strike() || obs.limb.swing.is_attacking() {
+                LimbCommand::attack(bearing, Strike::Nearest)
             } else {
-                HandCommand::new(bearing, Fx::ZERO)
+                LimbCommand::new(bearing, Fx::ZERO)
             };
-            Action::swinging(
-                contact.offset.normalize(),
-                contact.id,
-                sword,
-                HandCommand::new(bearing, Fx::ONE),
-            )
+            Command::swinging(contact.offset.normalize(), contact.id, limb)
         }
         None => {
-            let forward = match obs.faction {
-                Faction::Heroes => Fx::ONE,
-                Faction::Monsters => -Fx::ONE,
-            };
-            // wall_clearance is [-x, +x, -y, +y]; the difference points to the
-            // middle. Everything an agent knows comes through the observation,
-            // including this.
-            let centring = obs.wall_clearance[3] - obs.wall_clearance[2];
-            Action::moving(Vec2::new(forward, centring).normalize())
+            // **Converge on the middle**, on both axes. `wall_clearance` is
+            // `[-x, +x, -y, +y]`, so each difference is positive when there is
+            // more room that way and the pair points at the arena centre from
+            // anywhere in it. Everything an agent knows comes through the
+            // observation, including this.
+            //
+            // This used to push toward the *enemy's side* instead, which is the
+            // right heading only until you have crossed it -- after that the
+            // enemy is behind you. A balance change moved which units survived
+            // a 4v6, and the run stalled at full health with the survivors
+            // pinned against opposite walls forty units apart.
+            //
+            // Turning around at the wall does not fix it either, and the reason
+            // is worth knowing: a memoryless rule that reverses on a clearance
+            // threshold twitches across that threshold forever. That is exactly
+            // the failure `policy::Patrol` carries a byte of state to solve, and
+            // this fixture deliberately has no state to spend. A centre that
+            // attracts from both sides needs none -- there is no threshold to
+            // oscillate across, because the heading shrinks to zero as it
+            // arrives.
+            let x = obs.wall_clearance[1] - obs.wall_clearance[0];
+            let y = obs.wall_clearance[3] - obs.wall_clearance[2];
+            Command::moving(Vec2::new(x, y).normalize())
         }
     }
 }
@@ -73,9 +82,9 @@ fn run(scenario: &Scenario, seed: u64) -> (World, Replay, Vec<u64>) {
         due.clear();
         due.extend_from_slice(world.pending_decisions());
         for &id in &due {
-            let action = greedy(&world.observe(id));
-            replay.record(world.tick(), id, action);
-            world.submit(id, action);
+            let command = greedy(&world.observe(id));
+            replay.record(world.tick(), id, command);
+            world.submit(id, command);
         }
         world.step();
         hashes.push(world.state_hash());
@@ -186,11 +195,11 @@ fn player_orders_change_the_outcome_without_breaking_determinism() {
             for &id in &due {
                 let obs = world.observe(id);
                 // Interpret the order, so it actually influences the run.
-                let action = match obs.order {
-                    Order::Advance(dir) if obs.nearest_enemy().is_none() => Action::moving(dir),
+                let command = match obs.order {
+                    Order::Advance(dir) if obs.nearest_enemy().is_none() => Command::moving(dir),
                     _ => greedy(&obs),
                 };
-                world.submit(id, action);
+                world.submit(id, command);
             }
             world.step();
         }
@@ -221,7 +230,12 @@ fn player_orders_change_the_outcome_without_breaking_determinism() {
 // budgeted, and `Advance` is a patrol rather than a march into a wall. Every
 // recorded run predating that is void, so this is a fresh number rather than a
 // corrected one.
-const GOLDEN_STATE_HASH: u64 = 0x1729_e677_e504_0377;
+// Re-recorded again for the unit/action split. Three things moved at once and
+// all three are the point: a character has **one** limb rather than a sword hand
+// and a free shield hand, so nothing in this scenario blocks at all; the Rogue's
+// hilt-heavy shortblade retired into `ActionKind::Knife`; and the fixture policy
+// above stopped marching into walls. Every recorded run predating this is void.
+const GOLDEN_STATE_HASH: u64 = 0x2679_9389_72ae_4e81;
 
 #[test]
 fn golden_hash() {

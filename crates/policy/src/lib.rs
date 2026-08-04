@@ -3,7 +3,7 @@
 //! The [`Policy`] trait is the entire seam between the simulation and the AI:
 //!
 //! ```ignore
-//! fn decide(&mut self, obs: &Observation) -> Action
+//! fn decide(&mut self, obs: &Observation) -> Command
 //! ```
 //!
 //! Everything downstream of this crate -- a neural policy, an evolved
@@ -21,6 +21,7 @@
 
 mod duelist;
 mod genome;
+mod minds;
 mod random;
 mod runner;
 mod swing;
@@ -37,11 +38,11 @@ pub use swing::{
 pub use utility::{UtilityPolicy, UtilityWeights, GENOME_LEN};
 
 use fx::Fx;
-use sim::{Action, Faction, Observation};
+use sim::{Command, Faction, Observation};
 
 /// Turns an observation into a decision.
 pub trait Policy {
-    fn decide(&mut self, obs: &Observation) -> Action;
+    fn decide(&mut self, obs: &Observation) -> Command;
 
     /// Clears any per-run memory. The harness calls this before each run so a
     /// policy instance can be reused across thousands of rollouts without one
@@ -63,7 +64,7 @@ impl<H: Policy, M: Policy> TeamPolicy<H, M> {
 }
 
 impl<H: Policy, M: Policy> Policy for TeamPolicy<H, M> {
-    fn decide(&mut self, obs: &Observation) -> Action {
+    fn decide(&mut self, obs: &Observation) -> Command {
         match obs.faction {
             Faction::Heroes => self.heroes.decide(obs),
             Faction::Monsters => self.monsters.decide(obs),
@@ -77,7 +78,7 @@ impl<H: Policy, M: Policy> Policy for TeamPolicy<H, M> {
 }
 
 impl<P: Policy + ?Sized> Policy for &mut P {
-    fn decide(&mut self, obs: &Observation) -> Action {
+    fn decide(&mut self, obs: &Observation) -> Command {
         (**self).decide(obs)
     }
 
@@ -87,7 +88,7 @@ impl<P: Policy + ?Sized> Policy for &mut P {
 }
 
 impl<P: Policy + ?Sized> Policy for Box<P> {
-    fn decide(&mut self, obs: &Observation) -> Action {
+    fn decide(&mut self, obs: &Observation) -> Command {
         (**self).decide(obs)
     }
 
@@ -220,9 +221,9 @@ mod tests {
         );
         for kind in PolicyKind::ALL {
             let mut policy = kind.baseline();
-            let action = policy.decide(&obs);
+            let command = policy.decide(&obs);
             assert!(
-                action.move_dir.length() <= Fx::ONE + Fx::from_ratio(1, 1000),
+                command.move_dir.length() <= Fx::ONE + Fx::from_ratio(1, 1000),
                 "{} produced an over-long move", kind.name()
             );
             policy.reset();

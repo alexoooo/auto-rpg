@@ -17,15 +17,25 @@
 //! [`UtilityPolicy`]: crate::UtilityPolicy
 
 use crate::genome::PolicySpec;
+use crate::minds::{mind_for, MindMemory};
 use crate::swing;
 use crate::Policy;
 use fx::{Angle, Fx, Vec2};
 use sim::{
-    Action, Contact, EntityId, HandCommand, Intent, Observation, Order, Strike, Swing, SHIELD,
-    SWORD,
+    Command, Contact, EntityId, Intent, LimbCommand, Observation, Order, Strike, Swing,
+
 };
 
-pub const DUELIST_GENOME_LEN: usize = 18;
+pub const DUELIST_GENOME_LEN: usize = 20;
+
+/// Decision period the loadout hysteresis is calibrated at, in ticks.
+///
+/// A Fighter's, because a Fighter with a sword and a shield is the character
+/// the whole loadout question was designed around. Everything sharper gets
+/// proportionally stickier per decision and everything duller proportionally
+/// looser, so that "how often do I change what is in my hand" is a fact about
+/// the fighter rather than about how fast its clock runs.
+const REFERENCE_PERIOD: i32 = 12;
 
 /// How few ticks of its own telegraph may be left before a feint is called off.
 ///
@@ -48,7 +58,7 @@ const FEINT_COMMIT: u16 = 3;
 /// buys, and it buys the same: at 1.25 dead zones a blow is worth 22% of peak
 /// under the old speed-linear law and 22% under the energy law. Swept at 1.00
 /// and 1.10 afterwards, both were worse -- a Brute gives up its whole matchup
-/// against a Scout at 1.00.
+/// against a Rogue at 1.00.
 const STRIKE_MARGIN: Fx = Fx::from_ratio(125, 100);
 
 /// How much an arriving blade suppresses the urge to close.
@@ -230,6 +240,19 @@ pub struct DuelistWeights {
     /// and a fighter light enough to be sent flying by a cut it could otherwise
     /// afford to eat has a reason to plant that `guard` alone cannot express.
     pub anchor: Fx,
+    /// How much a fighter prefers to keep holding what it is already holding.
+    ///
+    /// Hysteresis on the loadout, and the direct analogue of `resolve` one
+    /// level up. Two actions scoring within a hair of each other would
+    /// otherwise have a fighter paying the draw cost every decision and
+    /// spending the fight holding nothing at all.
+    pub loyalty: Fx,
+    /// How dearly a fighter prices the ticks a swap costs it.
+    ///
+    /// Multiplies `Observation::swap_ticks`, so a body that draws slowly is
+    /// naturally more committed to what it brought than a quick one is --
+    /// without anything here having to know which body it is on.
+    pub thrift: Fx,
 }
 
 const LABELS: [&str; DUELIST_GENOME_LEN] = [
@@ -251,6 +274,8 @@ const LABELS: [&str; DUELIST_GENOME_LEN] = [
     "wall_fear",
     "footing",
     "anchor",
+    "loyalty",
+    "thrift",
 ];
 
 const GENE_RANGES: [(Fx, Fx); DUELIST_GENOME_LEN] = [
@@ -272,6 +297,8 @@ const GENE_RANGES: [(Fx, Fx); DUELIST_GENOME_LEN] = [
     (Fx::ZERO, Fx::ONE),                            // wall_fear
     (Fx::ZERO, Fx::ONE),                            // footing
     (Fx::ZERO, Fx::from_int(3)),                    // anchor
+    (Fx::ZERO, Fx::from_int(5)),                    // loyalty
+    (Fx::ZERO, Fx::from_int(5)),                    // thrift
 ];
 
 /// From `lab evolve --arena roster --cross --cross-with duelist`, thirty
@@ -281,8 +308,8 @@ const GENE_RANGES: [(Fx, Fx); DUELIST_GENOME_LEN] = [
 /// comment used to record as successes. `--arena roster` scores all sixteen
 /// archetype pairings, because one set of weights ships to the whole roster and a
 /// single-pairing fitness cannot see what it trades away: the geometry fix below
-/// took a duelling Scout from 18% to 99% against a Warrior and cost a Brute half
-/// its matchup against the same Warrior, and `--arena duel` would have scored
+/// took a duelling Rogue from 18% to 99% against a Fighter and cost a Brute half
+/// its matchup against the same Fighter, and `--arena duel` would have scored
 /// that as a clean win. `--cross` plays every seed set twice, against the naive
 /// policy and against a duellist, and keeps the **worse** average -- because the
 /// previous round's winners beat a duelling Brute 100% while winning 19% to 45%
@@ -351,7 +378,7 @@ const GENE_RANGES: [(Fx, Fx); DUELIST_GENOME_LEN] = [
 ///
 /// At 0.70 the roster mean is a point *above* the raw genome's 69% and the ladder
 /// is monotone with no draws on it. `standoff` 0.25 is doing the second half of
-/// the job: at the evolved 0.49 a Scout mirror stalls, drawing one duel in ten at
+/// the job: at the evolved 0.49 a Rogue mirror stalls, drawing one duel in ten at
 /// 59% health, and the draw rate climbs to 29% by 0.56. Standing at the tip of
 /// your own arc is where two symmetric fighters stop resolving.
 const BASELINE_VALUES: [Fx; DUELIST_GENOME_LEN] = [
@@ -373,6 +400,23 @@ const BASELINE_VALUES: [Fx; DUELIST_GENOME_LEN] = [
     Fx::from_ratio(474, 1000),  // wall_fear
     Fx::from_ratio(768, 1000),  // footing
     Fx::from_ratio(456, 1000),  // anchor
+    // Both hand-set, and both against the difficulty ladder rather than against
+    // fitness -- the same call the three values above record, for the same
+    // reason. A re-evolution over the full roster returned `loyalty 1.28,
+    // thrift 0.94` at a held-out fitness of 75 against this table's 41, and it
+    // was not adoptable: it also drove `evasion` to its ceiling and `caution` to
+    // zero, producing a fighter that wins the roster by running away. It drew a
+    // third of its mirror matches and its dim sheet won 68% of its duels, which
+    // is a difficulty ladder with the bottom rung above the top.
+    //
+    // What the search was right about is the shape: moderate hysteresis, not
+    // none. At `0.3` a fighter thrashes between blade and guard and pays the
+    // draw cost every decision (measured: 11% against a Brute). At `1.5` it
+    // never swaps at all and the guard is decorative (80%, and zero blocks).
+    // `0.6` sits where it blocks between one and two blows a fight and still
+    // out-fights the naive baseline nearly three to one.
+    Fx::from_ratio(600, 1000), // loyalty, hand-set for the ladder
+    Fx::from_ratio(600, 1000), // thrift, hand-set for the ladder
 ];
 
 impl DuelistWeights {
@@ -397,6 +441,8 @@ impl DuelistWeights {
         wall_fear: BASELINE_VALUES[15],
         footing: BASELINE_VALUES[16],
         anchor: BASELINE_VALUES[17],
+        loyalty: BASELINE_VALUES[18],
+        thrift: BASELINE_VALUES[19],
     };
 
     pub fn from_genome(genes: &[Fx]) -> DuelistWeights {
@@ -420,6 +466,8 @@ impl DuelistWeights {
             wall_fear: g(15),
             footing: g(16),
             anchor: g(17),
+            loyalty: g(18),
+            thrift: g(19),
         }
     }
 
@@ -443,6 +491,8 @@ impl DuelistWeights {
             self.wall_fear,
             self.footing,
             self.anchor,
+            self.loyalty,
+            self.thrift,
         ]
     }
 
@@ -538,16 +588,16 @@ impl DuelistPolicy {
     }
 
     /// Walk toward open ground; doubles as wall avoidance.
-    fn open_ground(&self, obs: &Observation) -> Vec2 {
+    pub(crate) fn open_ground(weights: &DuelistWeights, obs: &Observation) -> Vec2 {
         let bias = Vec2::new(
             obs.wall_clearance[1] - obs.wall_clearance[0],
             obs.wall_clearance[3] - obs.wall_clearance[2],
         );
-        let scaled = bias * (self.weights.wall_fear / obs.sight_range.max(Fx::ONE));
-        scaled.clamp_length(self.weights.wall_fear)
+        let scaled = bias * (weights.wall_fear / obs.sight_range.max(Fx::ONE));
+        scaled.clamp_length(weights.wall_fear)
     }
 
-    fn ally_centre(&self, obs: &Observation) -> Vec2 {
+    pub(crate) fn ally_centre(obs: &Observation) -> Vec2 {
         let allies = obs.allies();
         if allies.is_empty() {
             return Vec2::ZERO;
@@ -559,20 +609,20 @@ impl DuelistPolicy {
         sum * Fx::from_ratio(1, allies.len() as i32)
     }
 
-    fn cohesion(&self, obs: &Observation) -> Vec2 {
-        let centre = self.ally_centre(obs);
+    pub(crate) fn cohesion(weights: &DuelistWeights, obs: &Observation) -> Vec2 {
+        let centre = Self::ally_centre(obs);
         if centre.length() > Fx::from_int(3) {
-            centre.normalize() * self.weights.cohesion
+            centre.normalize() * weights.cohesion
         } else {
             Vec2::ZERO
         }
     }
 
     /// Nothing in sight: do as the player asked.
-    fn march(&self, obs: &Observation, patrol: &mut crate::utility::Patrol) -> Action {
+    fn march(&self, obs: &Observation, patrol: &mut crate::utility::Patrol) -> Command {
         let heading = match obs.order {
             Order::Advance(dir) => dir.normalize(),
-            Order::Regroup => self.ally_centre(obs).normalize(),
+            Order::Regroup => Self::ally_centre(obs).normalize(),
             Order::Goto(dest) => {
                 let wc = obs.wall_clearance;
                 let lo = Vec2::new(
@@ -586,11 +636,11 @@ impl DuelistPolicy {
                 let to = dest.clamp_box(lo, hi) - obs.position;
                 let distance = to.length();
                 if distance <= obs.move_speed {
-                    return Action::HOLD;
+                    return Command::HOLD;
                 }
                 let stride = obs.move_speed * (obs.decision_period.max(1) as i32);
                 let brake = (distance / stride).min(Fx::ONE);
-                return Action::moving((to.normalize() * brake).clamp_length(Fx::ONE));
+                return Command::moving((to.normalize() * brake).clamp_length(Fx::ONE));
             }
             Order::Hold | Order::Focus(_) => Vec2::ZERO,
         };
@@ -600,7 +650,7 @@ impl DuelistPolicy {
         // policy is driving.
         let heading = crate::utility::patrol_heading(obs, heading, patrol);
 
-        Action::moving((heading + self.open_ground(obs)).clamp_length(Fx::ONE))
+        Command::moving((heading + Self::open_ground(&self.weights, obs)).clamp_length(Fx::ONE))
     }
 
     /// How far this duellist wants to be from `foe`'s centre.
@@ -628,12 +678,12 @@ impl DuelistPolicy {
     /// blow lands at `sqrt(D^2 - r^2)`, capped by the tip. Each distance is
     /// therefore a *leg* of a right triangle whose hypotenuse is the range, and
     /// adding the legs overstates it by up to a body radius. Measured against the
-    /// predicate itself to three decimals: a Scout crowding a Warrior strikes at
+    /// predicate itself to three decimals: a Rogue crowding a Fighter strikes at
     /// 0.663 and not at 0.350.
     ///
     /// It was a Phase 3 bug and it survived two phases because small dead zones
     /// hid it. The energy damage law grew every dead zone by about a third and
-    /// made it expensive: a duellist Scout's matchup against a naive Warrior fell
+    /// made it expensive: a duellist Rogue's matchup against a naive Fighter fell
     /// from 97% to 18% on the percept alone, with the damage law held fixed.
     /// Correcting it against the *old* genes made things worse across the roster
     /// -- mirrors ran out the clock untouched -- which is why the fix and the
@@ -660,7 +710,7 @@ impl DuelistPolicy {
     /// Sometimes the lee is beyond the floor and there is a genuine band in
     /// which a fighter can reach and cannot be reached. That band is not a
     /// fiction and it is not the same for everybody: a Skitterer has about a
-    /// twentieth of a unit of it against a Brute, and a Warrior has none at all
+    /// twentieth of a unit of it against a Brute, and a Fighter has none at all
     /// and must trade. Reading which of those you are in is now a decision the
     /// observation supports.
     ///
@@ -669,23 +719,23 @@ impl DuelistPolicy {
     /// Overestimate it and you stand off a weapon you could have crowded, which
     /// against a Brute is four points a blow against thirty. A dim fighter
     /// respects a big weapon's reach and is killed by it.
-    fn preferred_range(&self, obs: &Observation, foe: &Contact) -> Fx {
+    pub(crate) fn preferred_range(weights: &DuelistWeights, obs: &Observation, foe: &Contact) -> Fx {
         // Bodies do not pass through each other, and a fighter that asks for a
         // distance shorter than the two radii is asking for something the sim
         // will spend every tick undoing. Correcting the floor to a hypotenuse
         // made that reachable for the first time -- `hypot(a, b)` is smaller
         // than `a + b`, and for the light archetypes it came out *inside*
-        // contact, so a Scout mirror drove permanently into itself, ground along
+        // contact, so a Rogue mirror drove permanently into itself, ground along
         // `World::separate`'s impulse at walking pace, and timed out at full
         // health on both sides.
         let touching = obs.radius + foe.radius;
-        let floor = self.bite_range(obs, foe).max(touching);
+        let floor = Self::bite_range(obs, foe).max(touching);
         let lee = Vec2::new(foe.min_strike_range, obs.radius).length();
         let arms_length = obs.full_reach() + foe.radius;
 
         let safest = lee.max(floor);
-        let wanted = safest + (arms_length - safest).max(Fx::ZERO) * self.weights.standoff;
-        let wanted = wanted - obs.recoil_drift * obs.radius * self.weights.footing;
+        let wanted = safest + (arms_length - safest).max(Fx::ZERO) * weights.standoff;
+        let wanted = wanted - obs.recoil_drift * obs.radius * weights.footing;
         // Clamped rather than merely floored: a wildly overestimated lee could
         // otherwise park a fighter beyond its own reach, where it is being hit
         // by something it cannot answer -- which is a way to lose, not a way to
@@ -707,14 +757,14 @@ impl DuelistPolicy {
     /// a small opponent is sometimes no even when the two are touching. Flooring
     /// it would quietly report that a fighter who cannot possibly be crowded any
     /// harder is not crowded at all.
-    fn bite_range(&self, obs: &Observation, foe: &Contact) -> Fx {
+    pub(crate) fn bite_range(obs: &Observation, foe: &Contact) -> Fx {
         Vec2::new(obs.min_strike_range * STRIKE_MARGIN, foe.radius).length()
     }
 
     /// Scores every stance and returns the winner.
-    fn choose(&self, obs: &Observation, foe: &Contact, running: Option<Stance>) -> Stance {
+    pub(crate) fn choose_blade_stance(weights: &DuelistWeights, obs: &Observation, foe: &Contact, running: Option<Stance>) -> Stance {
         let reach = obs.full_reach() + foe.radius;
-        let ideal = self.preferred_range(obs, foe);
+        let ideal = Self::preferred_range(weights, obs, foe);
 
         // How frightening the other blade is right now, and how open it is.
         // Both come straight off the attack phase now. The version this
@@ -723,7 +773,7 @@ impl DuelistPolicy {
         // bet on a perceived spin and -- worse -- could not tell a fighter who
         // had decided to attack from one whose blade happened to be moving.
         let (urgency, _) = swing::incoming(obs, foe);
-        let danger = (urgency * self.weights.read_ahead).min(Fx::ONE);
+        let danger = (urgency * weights.read_ahead).min(Fx::ONE);
         let exposed = swing::overcommitted(foe);
         let in_reach = foe.distance <= reach;
         // Nothing worth calling an attack can start from a hand that is not free
@@ -731,7 +781,7 @@ impl DuelistPolicy {
         // decision while it is busy. Without this a duellist picks Trade,
         // achieves nothing because its hand is mid-recovery, and stands in
         // range doing it.
-        let can_open = obs.can_strike() || obs.sword().swing.is_attacking();
+        let can_open = obs.can_strike() || obs.limb.swing.is_attacking();
         // **How far inside its own dead zone this fighter is standing**, and a
         // fact it has always had and never used: every stance that swings has
         // scored the same whether the blade could reach past a graze or not.
@@ -740,7 +790,7 @@ impl DuelistPolicy {
         // contact is as crowded as anyone can get, and for twelve of the sixteen
         // pairings the two bodies touching still leaves the blade outside its own
         // dead zone -- so this is exactly zero there. It reaches 0.13 for a Brute
-        // with a Skitterer against its chest and 0.09 with a Scout, and nothing
+        // with a Skitterer against its chest and 0.09 with a Rogue, and nothing
         // else in the roster gets past 0.04.
         //
         // Kept anyway, because it is the correct model of a real effect that this
@@ -748,7 +798,7 @@ impl DuelistPolicy {
         // alternative is a policy that is confidently wrong the moment a weapon
         // with a longer dead zone or a body with a smaller radius is authored.
         let blunted = {
-            let bite = self.bite_range(obs, foe);
+            let bite = Self::bite_range(obs, foe);
             if bite.is_positive() {
                 (Fx::ONE - foe.distance / bite).clamp(Fx::ZERO, Fx::ONE)
             } else {
@@ -778,8 +828,8 @@ impl DuelistPolicy {
         } else {
             Fx::ZERO
         };
-        scores[Stance::Circle.index()] = self.weights.flank * (Fx::ONE - danger);
-        scores[Stance::Evade.index()] = self.weights.evasion * danger;
+        scores[Stance::Circle.index()] = weights.flank * (Fx::ONE - danger);
+        scores[Stance::Evade.index()] = weights.evasion * danger;
         // **Two reasons to plant a shield, and they are not the same reason.**
         //
         // `guard` is the old one: a braced guard leaks a fifth of what a
@@ -789,21 +839,21 @@ impl DuelistPolicy {
         // shield caught -- and it needs its own term because the roster ranks
         // the two differently on purpose. A Skitterer's knife is among the least
         // dangerous things in the game and the second heaviest for its speed:
-        // eating one costs a Warrior almost nothing and moves it further than
+        // eating one costs a Fighter almost nothing and moves it further than
         // its own sword moves anybody. Folding this into `guard` would say those
         // are the same decision.
         scores[Stance::Guard.index()] =
-            danger * (self.weights.guard + self.weights.anchor * foe.knockback_taken.min(Fx::ONE));
+            danger * (weights.guard + weights.anchor * foe.knockback_taken.min(Fx::ONE));
         // The whole reward for reading a fight. An enemy in recovery cannot
         // attack, cannot parry and cannot get its guard back in time, and this
         // is the only stance that knows it.
         scores[Stance::Punish.index()] = if can_open {
-            self.weights.punish * exposed
+            weights.punish * exposed
         } else {
             Fx::ZERO
         };
-        scores[Stance::Feint.index()] = if in_reach && can_open && foe.shield_reach > Fx::HALF {
-            self.weights.feint * (Fx::ONE - danger)
+        scores[Stance::Feint.index()] = if in_reach && can_open && foe.limb_reach > Fx::HALF {
+            weights.feint * (Fx::ONE - danger)
         } else {
             Fx::ZERO
         };
@@ -811,7 +861,7 @@ impl DuelistPolicy {
         //
         // This used to be `hp_frac < caution` -- a flat fraction, the same
         // against everything -- and a flat fraction is not a decision about the
-        // fight, it is a decision about yourself. Twenty percent of a Warrior is
+        // fight, it is a decision about yourself. Twenty percent of a Fighter is
         // two more knife cuts from a Skitterer and most of the way through one
         // axe blow from a Brute. The same number cannot mean both.
         //
@@ -823,7 +873,7 @@ impl DuelistPolicy {
         // winning is how a duellist throws away a won fight.
         let mine = blows_left(obs.hp_frac, foe.threat);
         let theirs = blows_left(foe.hp_frac, foe.frailty);
-        scores[Stance::Retreat.index()] = if mine < self.weights.caution && mine < theirs {
+        scores[Stance::Retreat.index()] = if mine < weights.caution && mine < theirs {
             Fx::from_int(10) // decisive: nothing else is worth doing this close to dead
         } else {
             Fx::ZERO
@@ -860,7 +910,7 @@ impl DuelistPolicy {
         // score within a hair of each other and does neither -- which looks
         // exactly like the swing dithering one level down, and costs the same.
         if let Some(running) = running {
-            scores[running.index()] += self.weights.resolve;
+            scores[running.index()] += weights.resolve;
         }
 
         // **Commitment**, and it is the single most important term here.
@@ -879,13 +929,13 @@ impl DuelistPolicy {
         // the enemy's, calling off is simply wrong -- the blow lands first, and
         // whatever was frightening about the other blade is a problem for
         // somebody who is about to be hit.
-        let mine = obs.sword();
+        let mine = obs.limb;
         if mine.swing.is_attacking() {
             let left = Fx::from_int(mine.swing_left as i32);
             let spent = Fx::ONE - (left / Fx::from_int(30)).min(Fx::ONE);
             let lands_first = mine.swing == Swing::Strike
-                || !foe.sword_swing.is_attacking()
-                || left < foe.sword_left;
+                || !foe.limb_swing.is_attacking()
+                || left < foe.limb_left;
             let keep = spent + if lands_first { Fx::ONE } else { Fx::ZERO };
             scores[Stance::Trade.index()] += keep;
             scores[Stance::Punish.index()] += keep;
@@ -917,7 +967,7 @@ impl DuelistPolicy {
     /// The line is perceived, so this is a bet, and how good a bet it is depends
     /// on perception. That is the whole reason perception is a fighting stat: a
     /// dim character does not block late here, it blocks the wrong line.
-    fn guard_line(&self, obs: &Observation, foe: &Contact) -> Angle {
+    pub(crate) fn guard_line(obs: &Observation, foe: &Contact) -> Angle {
         let bearing = foe.offset.angle();
         match swing::landing(obs, foe) {
             // Nothing coming, or coming and going to miss: cover the man.
@@ -953,11 +1003,11 @@ impl DuelistPolicy {
     /// the observation for a network to find a use for.
     ///
     /// Turns a stance into feet and hands.
-    fn act(&self, obs: &Observation, foe: &Contact, stance: Stance) -> Action {
+    pub(crate) fn drive_blade_stance(weights: &DuelistWeights, obs: &Observation, foe: &Contact, stance: Stance) -> (Vec2, LimbCommand) {
         let toward = foe.offset.normalize();
         let bearing = foe.offset.angle();
-        let ideal = self.preferred_range(obs, foe);
-        let guard_line = self.guard_line(obs, foe);
+        let ideal = Self::preferred_range(weights, obs, foe);
+        let _guard_line = Self::guard_line(obs, foe);
 
         // Keep station: push out when too close, pull in when too far. The
         // deadband is a tenth of the range so a duellist is not permanently
@@ -1003,23 +1053,17 @@ impl DuelistPolicy {
         // Not the same as putting the sword away: a guarding blade is still a
         // segment and still catches things.
         let ready = swing::guard(bearing);
-        let cover = HandCommand::new(guard_line, Fx::ONE);
 
-        let (feet, sword, shield) = match stance {
+        let (feet, limb) = match stance {
             // Closing with the blade chambered rather than swinging on the way
             // in. An attack thrown from out of range is a telegraph given away
             // for nothing, and it arrives in range mid-recovery -- which is the
             // exact state this policy is built to punish other people for.
-            Stance::Close => (
-                toward * (Fx::HALF + self.weights.lunge),
-                ready,
-                cover,
-            ),
-            Stance::Trade => (station, attack, cover),
+            Stance::Close => (toward * (Fx::HALF + weights.lunge), ready),
+            Stance::Trade => (station, attack),
             Stance::Circle => (
-                (orbit * self.weights.flank + station * Fx::HALF).clamp_length(Fx::ONE),
+                (orbit * weights.flank + station * Fx::HALF).clamp_length(Fx::ONE),
                 ready,
-                cover,
             ),
             // Out of the arc, not merely away from it. Backing straight off is
             // the losing answer against anything with reach; the winning one is
@@ -1030,23 +1074,30 @@ impl DuelistPolicy {
             // a cut is worth doing because of the answer that follows it, and
             // the answer needs a hand that is free to throw one.
             Stance::Evade => (
-                (orbit * self.weights.sidestep - toward * (Fx::ONE - self.weights.sidestep))
+                (orbit * weights.sidestep - toward * (Fx::ONE - weights.sidestep))
                     .clamp_length(Fx::ONE),
                 ready,
-                cover,
             ),
-            // Stand your ground and get the shield onto the line. Feet still,
-            // because a braced guard that is walking is a guard in the wrong
-            // place by the time the blow lands.
+            // Stand your ground with the blade chambered. Feet still, because a
+            // guard that is walking is a guard in the wrong place by the time
+            // the blow lands.
             //
             // Commanding `ready` here is also a *cancel*: if this fighter was
             // mid-windup when it read the incoming cut, the windup is called off
             // and the hand comes back clean. Eating a blow while committed to a
             // slower one of your own is how duels are lost.
-            Stance::Guard => (Vec2::ZERO, ready, cover),
+            //
+            // **This stance is now nearly empty, and that is the finding rather
+            // than a regression.** It used to also brace a shield -- except the
+            // shield was braced in all eight stances regardless, so it never
+            // did. Defending was never an alternative to pressing, which is
+            // exactly why answering a telegraph measured as a losing play. The
+            // content this stance always should have had belongs to a guard
+            // action, and it gets it when the minds land.
+            Stance::Guard => (Vec2::ZERO, ready),
             // The blade has gone by and cannot come back yet. This is the only
             // stance that willingly gives up spacing.
-            Stance::Punish => (toward, attack, cover),
+            Stance::Punish => (toward, attack),
             // Show the cut on the side the guard is *already* nearest, so
             // answering it drags the shield further that way -- and then the
             // real attack goes to `open_side`, which is the other one.
@@ -1055,32 +1106,27 @@ impl DuelistPolicy {
                     Strike::Widdershins => Strike::Sunwise,
                     _ => Strike::Widdershins,
                 };
-                (
-                    station,
-                    swing::feint(obs, bearing, bait, FEINT_COMMIT),
-                    cover,
-                )
+                (station, swing::feint(obs, bearing, bait, FEINT_COMMIT))
             }
             Stance::Retreat => (
-                (-toward + self.cohesion(obs) + self.open_ground(obs)).clamp_length(Fx::ONE),
+                (-toward + Self::cohesion(weights, obs) + Self::open_ground(weights, obs)).clamp_length(Fx::ONE),
                 ready,
-                cover,
             ),
         };
 
-        let intent = if stance == Stance::Retreat {
-            Intent::Flee
-        } else {
-            Intent::Attack(foe.id)
-        };
-        let mut hands = [HandCommand::TUCKED; sim::HANDS];
-        hands[SWORD] = sword;
-        hands[SHIELD] = shield;
-        Action {
-            move_dir: (feet + self.open_ground(obs) * Fx::HALF).clamp_length(Fx::ONE),
-            intent,
-            hands,
-        }
+        (
+            (feet + Self::open_ground(weights, obs) * Fx::HALF).clamp_length(Fx::ONE),
+            limb,
+        )
+    }
+
+    /// Whether a stance means this fighter has decided to break off.
+    ///
+    /// Split out because the intent is a fact about the *stance* and the stance
+    /// is chosen inside a mind, while the intent has to be attached to the
+    /// command the selector assembles.
+    pub(crate) fn stance_is_flight(stance: Stance) -> bool {
+        stance == Stance::Retreat
     }
 
     /// The stance this policy last chose for `me`, for the HUD and for tests.
@@ -1090,27 +1136,103 @@ impl DuelistPolicy {
 }
 
 impl Policy for DuelistPolicy {
-    fn decide(&mut self, obs: &Observation) -> Action {
+    fn decide(&mut self, obs: &Observation) -> Command {
         if obs.enemies().is_empty() {
             // Losing sight resets the read. Whatever it was doing was about a
             // blade it can no longer see. The patrol leg survives, because that
             // is the memory this branch exists to use.
             let mut memory = self.recall(obs.me);
             memory.stance = None;
-            let action = self.march(obs, &mut memory.patrol);
+            let command = self.march(obs, &mut memory.patrol);
             self.remember(obs.me, memory);
-            return action;
+            return command;
         }
 
         let mut memory = self.recall(obs.me);
         let foe = *self.pick_target(obs, memory.target);
-        let stance = self.choose(obs, &foe, memory.stance);
-        let action = self.act(obs, &foe, stance);
+
+        // ---- the meta selector: what should be in this hand?
+        //
+        // Every filled slot is appraised by the mind that knows how to use it,
+        // and the two corrections below are what stop the raw scores from being
+        // acted on directly.
+        let mut mind_memory = MindMemory {
+            stance: memory.stance,
+        };
+        let mut best = obs.slot;
+        let mut best_score = Fx::MIN;
+        for slot in 0..2u8 {
+            let Some(kind) = obs.loadout_slot(slot) else {
+                continue;
+            };
+            let mut score = mind_for(kind.role(), self.weights).appraise(obs, &foe);
+            if slot == obs.slot {
+                // Hysteresis. Without it a fighter pays the draw cost over and
+                // over for two actions scoring within a hair of each other, and
+                // spends the whole fight with nothing in its hand -- the stance
+                // dithering the `resolve` gene exists to stop, except with a
+                // price tag attached to every flip.
+                //
+                // **Scaled against how often this fighter thinks**, and that is
+                // not a refinement -- without it the ladder inverts. Stickiness
+                // applied per *decision* means a sharp fighter, re-deciding
+                // twelve times as often as a dim one, flips its loadout twelve
+                // times as readily and spends the fight mid-swap. Measured on
+                // the three character sheets: dull 14%, capable 73%, sharp
+                // **46%**. More intellect made a worse fighter, which is the
+                // exact opposite of what every stat in this game is for.
+                //
+                // A swap costs the same number of ticks whoever throws it, so
+                // what has to be constant is flips per *second*, not per
+                // decision. `decision_period` is in the observation precisely so
+                // a policy can convert between the two.
+                // Floored at one, never below. Scaling *down* for a slow thinker
+                // is the mirror mistake and it is worse: a swap costs the same
+                // fifteen ticks whoever throws it, so a fighter deciding once
+                // every thirty ticks that flips half the time is dormant a
+                // quarter of the fight. Measured, unfloored, the dim sheet fell
+                // from 14% to 6%. The reference cadence is a floor on
+                // commitment, not a target to be scaled around.
+                let sharpness = (Fx::from_int(REFERENCE_PERIOD)
+                    / Fx::from_int(obs.decision_period.max(1) as i32))
+                .max(Fx::ONE);
+                score += self.weights.loyalty * sharpness;
+            } else {
+                // And the price itself. A swap that costs twenty-five ticks has
+                // to be worth twenty-five ticks; `swap_ticks` is in the
+                // observation precisely so this line can read it rather than
+                // assume a constant.
+                score -= self.weights.thrift * Fx::from_int(obs.swap_ticks as i32)
+                    / Fx::from_int(30);
+            }
+            if score > best_score {
+                best_score = score;
+                best = slot;
+            }
+        }
+
+        // ---- and then fight with what is actually in hand.
+        //
+        // **Not with the winner.** The two differ for the whole length of a
+        // swap, and driving the winner would mean issuing sword commands to a
+        // shield for fifteen ticks at a stretch.
+        let held = obs.held;
+        let (feet, limb) = mind_for(held.role(), self.weights).drive(obs, &foe, &mut mind_memory);
+
+        let intent = match mind_memory.stance {
+            Some(stance) if Self::stance_is_flight(stance) => Intent::Flee,
+            _ => Intent::Attack(foe.id),
+        };
 
         memory.target = foe.id;
-        memory.stance = Some(stance);
+        memory.stance = mind_memory.stance;
         self.remember(obs.me, memory);
-        action
+        Command {
+            move_dir: feet,
+            intent,
+            limb,
+            slot: best,
+        }
     }
 
     fn reset(&mut self) {
@@ -1121,27 +1243,27 @@ impl Policy for DuelistPolicy {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sim::{Faction, UnitKind};
+    use sim::{Faction, Body};
 
     /// One clean blow from `by`, as a fraction of `to`'s health bar. The
-    /// observer in these fixtures is a Scout; see `situation`.
-    fn exchange(by: UnitKind, to: UnitKind) -> Fx {
+    /// observer in these fixtures is a Rogue; see `situation`.
+    fn exchange(by: Body, to: Body) -> Fx {
         sim::peak_damage(arm_of(by), by.base_stats()) / to.base_stats().max_hp()
     }
 
-    fn arm_of(kind: UnitKind) -> sim::Arm {
-        sim::Arm::resolve(kind.weapon(), kind.base_stats(), kind.radius())
+    fn arm_of(kind: Body) -> sim::Arm {
+        sim::Arm::resolve(kind.legacy_weapon(), kind.base_stats(), kind.radius())
     }
 
     /// Ground one clean blow from `by` costs `to`, in `to`'s body radii.
     /// `World::knockback`, re-derived here so the fixture stays a fixture.
-    fn ground(by: UnitKind, to: UnitKind) -> Fx {
+    fn ground(by: Body, to: Body) -> Fx {
         let dv = sim::peak_impulse(arm_of(by)) / to.mass();
         let stop = fx::mul_div(dv, dv, to.base_stats().traction() * Fx::TWO);
         stop / to.radius()
     }
 
-    fn contact(kind: UnitKind, x: i32, y: i32) -> Contact {
+    fn contact(kind: Body, x: i32, y: i32) -> Contact {
         let offset = Vec2::from_ints(x, y);
         Contact {
             id: EntityId::new(1, 0),
@@ -1149,47 +1271,48 @@ mod tests {
             distance: offset.length(),
             hp_frac: Fx::ONE,
             radius: kind.radius(),
-            weapon_length: kind.weapon().length,
+            action_length: kind.legacy_weapon().length,
             // The real figures, unblurred: these fixtures are testing what a
             // policy does with a correct read, and the tests that care about a
             // wrong one set it themselves.
             min_strike_range: sim::dead_zone(arm_of(kind)),
-            threat: exchange(kind, UnitKind::Scout),
-            frailty: exchange(UnitKind::Scout, kind),
-            knockback_taken: ground(kind, UnitKind::Scout),
-            knockback_dealt: ground(UnitKind::Scout, kind),
-            heft: kind.mass() / UnitKind::Scout.mass(),
+            threat: exchange(kind, Body::Rogue),
+            frailty: exchange(Body::Rogue, kind),
+            knockback_taken: ground(kind, Body::Rogue),
+            knockback_dealt: ground(Body::Rogue, kind),
+            heft: kind.mass() / Body::Rogue.mass(),
             velocity: Vec2::ZERO,
             facing: Angle::HALF,
-            sword_angle: Angle::HALF,
-            sword_reach: Fx::ONE,
-            sword_spin: Fx::ZERO,
-            sword_swing: sim::Swing::Guard,
-            sword_left: Fx::ZERO,
-            sword_line: Angle::HALF,
-            shield_angle: Angle::HALF,
-            shield_reach: Fx::ONE,
+            limb_angle: Angle::HALF,
+            limb_reach: Fx::ONE,
+            limb_spin: Fx::ZERO,
+            limb_swing: sim::Swing::Guard,
+            limb_left: Fx::ZERO,
+            limb_line: Angle::HALF,
+
+            action: sim::ActionKind::Sword,
+            action_arc: 0,
         }
     }
 
     /// A contact mid-windup: a cut declared on `line`, `left` ticks from going
     /// live. The situation the whole policy exists to answer.
-    fn winding_up(kind: UnitKind, x: i32, y: i32, line: Angle, left: u16) -> Contact {
+    fn winding_up(kind: Body, x: i32, y: i32, line: Angle, left: u16) -> Contact {
         let mut c = contact(kind, x, y);
-        c.sword_swing = sim::Swing::Windup;
-        c.sword_left = Fx::from_int(left as i32);
-        c.sword_line = line;
+        c.limb_swing = sim::Swing::Windup;
+        c.limb_left = Fx::from_int(left as i32);
+        c.limb_line = line;
         // A cocked blade sits `WINDUP_ARC` off the line it is aimed along, which
         // is the trap a defender that covers the *blade* walks into.
-        c.sword_angle = line + Angle::from_raw(sim::WINDUP_ARC as u16);
+        c.limb_angle = line + Angle::from_raw(sim::WINDUP_ARC as u16);
         c
     }
 
     /// A contact that has just missed and cannot answer anything.
-    fn recovering(kind: UnitKind, x: i32, y: i32, left: u16) -> Contact {
+    fn recovering(kind: Body, x: i32, y: i32, left: u16) -> Contact {
         let mut c = contact(kind, x, y);
-        c.sword_swing = sim::Swing::Recover;
-        c.sword_left = Fx::from_int(left as i32);
+        c.limb_swing = sim::Swing::Recover;
+        c.limb_left = Fx::from_int(left as i32);
         c
     }
 
@@ -1202,10 +1325,10 @@ mod tests {
             Order::Hold,
         );
         obs.hp_frac = Fx::ONE;
-        obs.radius = UnitKind::Scout.radius();
-        obs.weapon_length = UnitKind::Scout.weapon().length;
-        obs.shield_arc = UnitKind::Scout.weapon().shield_arc;
-        // A Scout's real dead zone. Leaving it at the `blank` default of zero
+        obs.radius = Body::Rogue.radius();
+        obs.action_length = Body::Rogue.legacy_weapon().length;
+        obs.action_arc = Body::Rogue.legacy_weapon().arc;
+        // A Rogue's real dead zone. Leaving it at the `blank` default of zero
         // would test a fighter that believes it can hurt someone from inside
         // its own hilt.
         obs.min_strike_range = Fx::from_ratio(265, 1000);
@@ -1242,7 +1365,7 @@ mod tests {
 
     #[test]
     fn out_of_reach_it_closes() {
-        let far = contact(UnitKind::Brute, 9, 0);
+        let far = contact(Body::Brute, 9, 0);
         let obs = situation(&[far]);
         let mut policy = DuelistPolicy::baseline();
         assert_eq!(stance_for(&mut policy, &obs), Stance::Close);
@@ -1270,7 +1393,7 @@ mod tests {
         //
         // So this pins the *mechanism* rather than the tuning: a fighter that
         // wants to answer a cut can, and knows when there is one to answer.
-        let obs = situation(&[winding_up(UnitKind::Brute, 2, 0, Angle::HALF, 3)]);
+        let obs = situation(&[winding_up(Body::Brute, 2, 0, Angle::HALF, 3)]);
         let mut nervous = DuelistPolicy::new(DuelistWeights {
             guard: Fx::from_int(3),
             evasion: Fx::from_int(3),
@@ -1288,7 +1411,7 @@ mod tests {
         // running stance carries a full point of hysteresis into the next
         // decision and would answer this on its own.
         nervous.reset();
-        let calm = situation(&[contact(UnitKind::Brute, 2, 0)]);
+        let calm = situation(&[contact(Body::Brute, 2, 0)]);
         let stance = stance_for(&mut nervous, &calm);
         assert!(
             !matches!(stance, Stance::Evade | Stance::Guard),
@@ -1302,7 +1425,7 @@ mod tests {
         // wins anything. A Brute that has just started a windup is nearly a
         // second away from being dangerous, and a fighter that treats that as
         // an emergency spends the entire fight defending and lands nothing.
-        let obs = situation(&[winding_up(UnitKind::Brute, 2, 0, Angle::HALF, 40)]);
+        let obs = situation(&[winding_up(Body::Brute, 2, 0, Angle::HALF, 40)]);
         let mut policy = DuelistPolicy::baseline();
         let stance = stance_for(&mut policy, &obs);
         assert!(
@@ -1315,7 +1438,7 @@ mod tests {
     fn a_recovering_enemy_is_punished() {
         // A Brute that has just missed is helpless for three quarters of a
         // second and cannot attack, parry or move its guard in time.
-        let obs = situation(&[recovering(UnitKind::Brute, 2, 0, 40)]);
+        let obs = situation(&[recovering(Body::Brute, 2, 0, 40)]);
 
         let mut eager = DuelistPolicy::new(DuelistWeights {
             punish: Fx::from_int(3),
@@ -1325,7 +1448,7 @@ mod tests {
         // And it closes to do it, giving up spacing on purpose...
         assert!(eager.decide(&obs).move_dir.x > Fx::ZERO);
         // ...with an actual attack, not a pose.
-        assert!(eager.decide(&obs).sword().strike.is_attack());
+        assert!(eager.decide(&obs).limb.strike.is_attack());
     }
 
     #[test]
@@ -1335,7 +1458,7 @@ mod tests {
         // *off* the line it is going to travel, so covering where the blade is
         // covers the one bearing the cut cannot arrive from.
         let line = Angle::HALF;
-        let foe = winding_up(UnitKind::Brute, 2, 0, line, 3);
+        let foe = winding_up(Body::Brute, 2, 0, line, 3);
         let obs = situation(&[foe]);
 
         let mut policy = DuelistPolicy::new(DuelistWeights {
@@ -1343,14 +1466,14 @@ mod tests {
             evasion: Fx::ZERO,
             ..DuelistWeights::BASELINE
         });
-        let action = policy.decide(&obs);
+        let command = policy.decide(&obs);
         assert_eq!(policy.stance_of(obs.me), Some(Stance::Guard));
 
-        let covered = action.shield().angle;
+        let covered = command.limb.angle;
         assert!(
-            covered.delta(foe.sword_angle).abs() > 6_000,
+            covered.delta(foe.limb_angle).abs() > 6_000,
             "the guard went to the cocked blade at {:?} rather than to the line",
-            foe.sword_angle
+            foe.limb_angle
         );
     }
 
@@ -1359,37 +1482,59 @@ mod tests {
         // An attack thrown from out of range is a telegraph spent for nothing,
         // and it arrives in range mid-recovery -- which is precisely the state
         // this policy punishes other people for being in.
-        let obs = situation(&[contact(UnitKind::Brute, 9, 0)]);
+        let obs = situation(&[contact(Body::Brute, 9, 0)]);
         let mut policy = DuelistPolicy::baseline();
-        let action = policy.decide(&obs);
+        let command = policy.decide(&obs);
         assert_eq!(policy.stance_of(obs.me), Some(Stance::Close));
         assert!(
-            !action.sword().strike.is_attack(),
+            !command.limb.strike.is_attack(),
             "swung at something four body-lengths away"
         );
     }
 
     #[test]
     fn a_cut_is_thrown_at_the_side_the_guard_is_not_on() {
-        // Enemy due east with its guard swung well off the line between us.
-        // Two mirrored situations must produce two different sides, or the
+        // Enemy due east *holding a shield*, swung well off the line between
+        // us. Two mirrored situations must produce two different sides, or the
         // choice is not being made at all.
-        let mut left = contact(UnitKind::Warrior, 1, 0);
-        left.shield_angle = Angle::from_degrees(135);
-        let mut right = contact(UnitKind::Warrior, 1, 0);
-        right.shield_angle = Angle::from_degrees(-135);
+        //
+        // The enemy has to be holding a guard for this question to exist at
+        // all. With one limb there is no separate shield bearing to read, so
+        // "which side is open" is a question about a guard-role action -- and
+        // against a blade the honest answer is that there is no wrong side,
+        // which `a_cut_at_an_unguarded_enemy_takes_the_short_way_round` pins.
+        let guarded = |degrees: i32| {
+            let mut c = contact(Body::Fighter, 1, 0);
+            c.action = sim::ActionKind::Shield;
+            c.action_arc = sim::ActionKind::Shield.spec().arc;
+            c.limb_angle = Angle::from_degrees(degrees);
+            c
+        };
 
         let mut policy = DuelistPolicy::baseline();
-        let a = policy.decide(&situation(&[left])).sword().strike;
+        let a = policy.decide(&situation(&[guarded(135)])).limb.strike;
         policy.reset();
-        let b = policy.decide(&situation(&[right])).sword().strike;
+        let b = policy.decide(&situation(&[guarded(-135)])).limb.strike;
         assert!(a.is_attack() && b.is_attack(), "{a:?} / {b:?}");
         assert_ne!(a, b, "the same side was chosen against opposite guards");
     }
 
     #[test]
+    fn a_cut_at_an_unguarded_enemy_takes_the_short_way_round() {
+        // The other half of the rule above. An enemy holding a blade has no
+        // flank that is safer than the other, so committing to a side would
+        // cock the blade the long way round to answer a question nobody asked.
+        let mut c = contact(Body::Fighter, 1, 0);
+        c.action = sim::ActionKind::Sword;
+        c.limb_angle = Angle::from_degrees(135);
+        assert_eq!(swing::open_side(&c), Strike::Nearest);
+        c.limb_angle = Angle::from_degrees(-135);
+        assert_eq!(swing::open_side(&c), Strike::Nearest);
+    }
+
+    #[test]
     fn a_hurt_duellist_breaks_off_whatever_else_is_happening() {
-        let mut obs = situation(&[winding_up(UnitKind::Brute, 2, 0, Angle::HALF, 3)]);
+        let mut obs = situation(&[winding_up(Body::Brute, 2, 0, Angle::HALF, 3)]);
         obs.hp_frac = Fx::from_ratio(1, 20);
 
         // On the shipped weights on purpose. Breaking off is the one stance a
@@ -1398,16 +1543,16 @@ mod tests {
         // hand-set gene with no test on it is a gene that quietly rots.
         let mut policy = DuelistPolicy::baseline();
         assert_eq!(stance_for(&mut policy, &obs), Stance::Retreat);
-        let action = policy.decide(&obs);
-        assert_eq!(action.intent, Intent::Flee);
-        assert!(action.move_dir.x < Fx::ZERO, "fled toward the enemy");
+        let command = policy.decide(&obs);
+        assert_eq!(command.intent, Intent::Flee);
+        assert!(command.move_dir.x < Fx::ZERO, "fled toward the enemy");
     }
 
     #[test]
     fn breaking_off_is_counted_in_blows_and_not_in_health() {
         // The same fighter, the same wound, two different opponents. A flat
         // health threshold cannot tell these apart and that was the bug: 30% of
-        // a Scout is most of the way through one blow from a Brute and a
+        // a Rogue is most of the way through one blow from a Brute and a
         // comfortable two from a Skitterer, and only one of those is a reason to
         // leave.
         let mut careful = DuelistPolicy::new(DuelistWeights {
@@ -1421,9 +1566,9 @@ mod tests {
             careful.reset();
             stance_for(&mut careful, &obs)
         };
-        assert_eq!(against(UnitKind::Brute), Stance::Retreat);
+        assert_eq!(against(Body::Brute), Stance::Retreat);
         assert_ne!(
-            against(UnitKind::Skitterer),
+            against(Body::Skitterer),
             Stance::Retreat,
             "left a fight it was two clean blows from surviving"
         );
@@ -1440,7 +1585,7 @@ mod tests {
         });
 
         let mut against = |enemy_hp| {
-            let mut foe = contact(UnitKind::Brute, 2, 0);
+            let mut foe = contact(Body::Brute, 2, 0);
             foe.hp_frac = enemy_hp;
             let mut obs = situation(&[foe]);
             obs.hp_frac = Fx::from_ratio(3, 10);
@@ -1459,7 +1604,7 @@ mod tests {
     fn resolve_stops_the_stance_flickering() {
         // Two stances scoring within a hair of each other. With no hysteresis a
         // duellist alternates and does neither.
-        let obs = situation(&[winding_up(UnitKind::Warrior, 2, 0, Angle::HALF, 10)]);
+        let obs = situation(&[winding_up(Body::Fighter, 2, 0, Angle::HALF, 10)]);
 
         let mut steady = DuelistPolicy::new(DuelistWeights {
             resolve: Fx::ONE,
@@ -1473,16 +1618,16 @@ mod tests {
 
     #[test]
     fn the_preferred_range_is_always_somewhere_it_can_strike_from() {
-        // The bug this replaced: scaling by the *enemy's* reach parked a Scout
+        // The bug this replaced: scaling by the *enemy's* reach parked a Rogue
         // 1.55 units from a Brute, where its own 0.90 of reach only just
         // arrives on a 0.70 body and the Brute's blade is still moving fast
         // enough to hurt. A duellist must never choose a distance from which it
         // cannot fight back.
         let policy = DuelistPolicy::baseline();
         let obs = situation(&[]);
-        for kind in UnitKind::ALL {
+        for kind in Body::ALL {
             let foe = contact(kind, 5, 0);
-            let ideal = policy.preferred_range(&obs, &foe);
+            let ideal = DuelistPolicy::preferred_range(&policy.weights, &obs, &foe);
             assert!(
                 ideal <= obs.full_reach() + foe.radius,
                 "against a {} it wants {ideal}, past its own reach of {}",
@@ -1493,8 +1638,8 @@ mod tests {
         // A bigger body still pushes the whole band outward, so the enemy's
         // geometry has not stopped mattering -- it enters through the radius.
         assert!(
-            policy.preferred_range(&obs, &contact(UnitKind::Brute, 5, 0))
-                > policy.preferred_range(&obs, &contact(UnitKind::Skitterer, 5, 0))
+            DuelistPolicy::preferred_range(&policy.weights, &obs, &contact(Body::Brute, 5, 0))
+                > DuelistPolicy::preferred_range(&policy.weights, &obs, &contact(Body::Skitterer, 5, 0))
         );
     }
 
@@ -1503,14 +1648,14 @@ mod tests {
         // The trap in correcting the floor to a hypotenuse: `hypot(a, b)` is
         // smaller than `a + b`, and for the light end of the roster it comes out
         // *inside contact* -- a distance the sim spends every tick undoing. A
-        // Scout mirror asking for it drove permanently into itself and timed out
+        // Rogue mirror asking for it drove permanently into itself and timed out
         // at full health on both sides, which reads as a policy that will not
         // fight and was a policy asking for somewhere it could not stand.
         let policy = DuelistPolicy::baseline();
         let obs = situation(&[]);
-        for kind in UnitKind::ALL {
+        for kind in Body::ALL {
             let foe = contact(kind, 5, 0);
-            let ideal = policy.preferred_range(&obs, &foe);
+            let ideal = DuelistPolicy::preferred_range(&policy.weights, &obs, &foe);
             assert!(
                 ideal >= obs.radius + foe.radius,
                 "against a {} it wants {ideal}, inside the {} the two bodies take up",
@@ -1528,14 +1673,14 @@ mod tests {
         // Without this, the next person to notice `Contact::velocity` sitting
         // unused rediscovers it, and the arc is wide enough that the loss is
         // small enough to miss.
-        let mut walking = contact(UnitKind::Warrior, 2, 0);
+        let mut walking = contact(Body::Fighter, 2, 0);
         walking.velocity = Vec2::new(Fx::ZERO, Fx::from_ratio(6, 100));
-        let still = contact(UnitKind::Warrior, 2, 0);
+        let still = contact(Body::Fighter, 2, 0);
 
         let mut policy = DuelistPolicy::baseline();
-        let moving_aim = policy.decide(&situation(&[walking])).sword().angle;
+        let moving_aim = policy.decide(&situation(&[walking])).limb.angle;
         policy.reset();
-        let still_aim = policy.decide(&situation(&[still])).sword().angle;
+        let still_aim = policy.decide(&situation(&[still])).limb.angle;
         assert_eq!(
             moving_aim, still_aim,
             "led a moving target, which four evolution runs and a direct sweep \
@@ -1554,7 +1699,7 @@ mod tests {
         // `standoff` is off the floor here on purpose: at zero the fighter is
         // already standing as close as it can and the clamp has the last word,
         // which is the correct behaviour and would make this test vacuous.
-        let foe = contact(UnitKind::Warrior, 3, 0);
+        let foe = contact(Body::Fighter, 3, 0);
         let mut obs = situation(&[foe]);
         obs.recoil_drift = Fx::ONE; // a whole body radius of ground
 
@@ -1569,15 +1714,15 @@ mod tests {
             ..DuelistWeights::BASELINE
         });
         assert!(
-            careful.preferred_range(&obs, &foe) < spendthrift.preferred_range(&obs, &foe),
+            DuelistPolicy::preferred_range(&careful.weights, &obs, &foe) < DuelistPolicy::preferred_range(&spendthrift.weights, &obs, &foe),
             "budgeted no ground at all for a swing worth a body radius of it"
         );
 
         // And a fighter whose weapon does not move it stands where it always did.
         obs.recoil_drift = Fx::ZERO;
         assert_eq!(
-            careful.preferred_range(&obs, &foe),
-            spendthrift.preferred_range(&obs, &foe)
+            DuelistPolicy::preferred_range(&careful.weights, &obs, &foe),
+            DuelistPolicy::preferred_range(&spendthrift.weights, &obs, &foe)
         );
     }
 
@@ -1593,16 +1738,16 @@ mod tests {
         // The most crowded anyone can be is bodies touching. `Trade` scores 1.4.
         let policy = DuelistPolicy::baseline();
         let mut best = Fx::ZERO;
-        for me in UnitKind::ALL {
+        for me in Body::ALL {
             let mut obs = situation(&[]);
             obs.radius = me.radius();
-            obs.weapon_length = me.weapon().length;
+            obs.action_length = me.legacy_weapon().length;
             obs.min_strike_range = sim::dead_zone(arm_of(me));
-            for them in UnitKind::ALL {
+            for them in Body::ALL {
                 let mut foe = contact(them, 5, 0);
                 foe.heft = them.mass() / me.mass();
                 foe.distance = obs.radius + foe.radius; // touching
-                let ideal = policy.preferred_range(&obs, &foe);
+                let ideal = DuelistPolicy::preferred_range(&policy.weights, &obs, &foe);
                 let crowded = (Fx::ONE - foe.distance / ideal).clamp(Fx::ZERO, Fx::ONE);
                 let lighter = (Fx::ONE - foe.heft).clamp(Fx::ZERO, Fx::ONE);
                 best = best.max(Fx::from_int(3) * crowded * lighter);
@@ -1625,10 +1770,10 @@ mod tests {
         // reading only `threat` has no reason to plant against a weapon that
         // will not wound it and will send it across the arena.
         // A Brute rather than something actually light, because the archetype is
-        // beside the point and its reach is not: at this range a Warrior's cut
+        // beside the point and its reach is not: at this range a Fighter's cut
         // does not arrive, `swing::landing` correctly says so, and there would
         // be nothing to plant against.
-        let mut light = winding_up(UnitKind::Brute, 2, 0, Angle::HALF, 3);
+        let mut light = winding_up(Body::Brute, 2, 0, Angle::HALF, 3);
         light.threat = Fx::from_ratio(2, 100); // a scratch
         light.knockback_taken = Fx::ZERO;
         let mut heavy = light;
@@ -1652,7 +1797,7 @@ mod tests {
 
     #[test]
     fn losing_sight_forgets_the_read() {
-        let obs = situation(&[contact(UnitKind::Brute, 3, 0)]);
+        let obs = situation(&[contact(Body::Brute, 3, 0)]);
         let mut policy = DuelistPolicy::baseline();
         policy.decide(&obs);
         assert!(policy.stance_of(obs.me).is_some());
@@ -1672,18 +1817,18 @@ mod tests {
         // vector may exceed one.
         let mut policy = DuelistPolicy::baseline();
         for step in 0..64i32 {
-            let mut c = contact(UnitKind::Brute, step % 7 - 3, step % 5 - 2);
-            c.sword_angle = Angle::from_raw((step * 1024) as u16);
-            c.sword_spin = Fx::from_int((step - 32) * 200);
-            c.shield_angle = Angle::from_raw((step * 2048) as u16);
-            c.sword_reach = Fx::from_ratio(step % 4, 3);
+            let mut c = contact(Body::Brute, step % 7 - 3, step % 5 - 2);
+            c.limb_angle = Angle::from_raw((step * 1024) as u16);
+            c.limb_spin = Fx::from_int((step - 32) * 200);
+            c.limb_angle = Angle::from_raw((step * 2048) as u16);
+            c.limb_reach = Fx::from_ratio(step % 4, 3);
             let mut obs = situation(&[c]);
             obs.hp_frac = Fx::from_ratio(step % 11, 10);
-            let action = policy.decide(&obs);
+            let command = policy.decide(&obs);
             assert!(
-                action.move_dir.length() <= Fx::ONE + Fx::from_ratio(1, 1000),
+                command.move_dir.length() <= Fx::ONE + Fx::from_ratio(1, 1000),
                 "step {step}: {:?}",
-                action.move_dir
+                command.move_dir
             );
         }
     }

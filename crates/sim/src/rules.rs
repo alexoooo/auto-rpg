@@ -19,6 +19,7 @@
 //! cheap to balance (these are knobs, not retraining runs), and it gives the
 //! experiment lab an obvious axis to sweep.
 
+use crate::action::ActionSpec;
 use fx::Fx;
 
 /// Simulation ticks per second. The sim has no wall clock; this only fixes the
@@ -69,69 +70,24 @@ pub const REGEN_BUDGET: Fx = Fx::ONE;
 
 // ------------------------------------------------------------------ the swing
 
-/// A weapon's physical character.
-///
-/// This is where a Brute stops being a Warrior with bigger numbers and becomes
-/// something you have to fight *differently*. Reach, inertia and recovery are
-/// separate knobs, so "long and slow" and "short and quick" are genuinely
-/// different problems for an opponent rather than two points on one difficulty
-/// axis.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub struct Weapon {
-    /// Blade length beyond the body surface at full extension, world units.
-    pub length: Fx,
-    /// How heavy it is, with a Warrior's body as the unit -- the same scale
-    /// [`crate::UnitKind::mass`] uses, because the two are weighed against each
-    /// other constantly once a blow can throw a body.
-    ///
-    /// **This is the whole of what "heavy" means now.** It used to be a damage
-    /// multiplier and nothing else, sitting beside a separately authored
-    /// `torque` and `max_spin` that were meant to represent the same fact --
-    /// three hand-correlated numbers that nothing stopped you contradicting.
-    /// Swing speed is derived from this and [`Weapon::balance`] now, so a
-    /// heavier weapon is slower because it is heavier.
-    pub mass: Fx,
-    /// Where the mass sits along the weapon: `0` at the hilt, `1` at the tip.
-    ///
-    /// The single best knob for how a weapon *feels*, because moment of inertia
-    /// goes as the square of it. A tip-heavy axe and a hilt-heavy rapier of
-    /// identical mass and length are completely different things to swing: the
-    /// axe is slower to start, slower to stop, and carries more at the tip when
-    /// it gets there.
-    ///
-    /// It is also what replaced `REACH_DRAG`. An extended blade is slow to turn
-    /// because extending it moves the mass further from the shoulder, which is
-    /// a fact about levers rather than a constant somebody chose.
-    pub balance: Fx,
-    /// Shield arc half-width at full extension, raw angle units.
-    pub shield_arc: u16,
-    /// **The telegraph.** Ticks the blade spends cocked back before a cut comes
-    /// forward, at agility multiplier 1; see [`phase_ticks`].
-    ///
-    /// This number *is* the difficulty of the archetype, read from the other
-    /// side. It is how long an opponent has to notice, decide and answer, and
-    /// it is measured against that opponent's [`Stats::decision_period`]: a
-    /// Brute's telegraph is nearly six times a Warrior's reaction and a third
-    /// of a dim Skitterer's. Widen it and the archetype becomes a puzzle;
-    /// narrow it and it becomes a coin flip.
-    pub windup: u16,
-    /// Ticks the hand needs to bring a spent blade back to guard, at agility
-    /// multiplier 1. The punish window, and the price of missing.
-    pub recovery: u16,
-}
-
-/// A weapon resolved against the body swinging it: everything
+/// An action resolved against the body using it: everything
 /// [`crate::Hand::track`] needs, and nothing it has to look up.
 ///
 /// It exists because swing dynamics stopped being a property of the weapon. A
 /// blade's angular acceleration is `muscle / inertia`, and both halves come from
 /// somewhere else -- the muscle from `power` and `agility`, the inertia from the
-/// weapon's mass and balance *and the radius of the body it pivots around*. A
-/// Brute's axe on a Skitterer's shoulders would be a different weapon, which is
+/// action's mass and balance *and the radius of the body it pivots around*. A
+/// Brute's club on a Skitterer's shoulders would be a different weapon, which is
 /// the correct answer and one the old table could not express.
+///
+/// It is also the join point the unit/action split needed. A [`ActionSpec`] says
+/// what a thing *is*; [`Stats`] and a body radius say who is holding it; and
+/// this is the only place those two facts meet. It is rebuilt on every call
+/// rather than cached, so it cannot go stale when a fighter swaps what is in its
+/// hand mid-fight.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct Arm {
-    pub weapon: Weapon,
+    pub spec: ActionSpec,
     /// This wielder's [`agility_multiplier`], resolved. Carried so the phase
     /// clocks and the swing dynamics travel together as one argument.
     pub agility: Fx,
@@ -151,20 +107,20 @@ pub struct Arm {
 }
 
 impl Arm {
-    pub fn resolve(weapon: Weapon, stats: Stats, body_radius: Fx) -> Arm {
+    pub fn resolve(spec: ActionSpec, stats: Stats, body_radius: Fx) -> Arm {
         let agility = agility_multiplier(stats.agility);
         let power = power_multiplier(stats.power);
         Arm {
-            weapon,
+            spec,
             agility,
             muscle: MUSCLE_TORQUE * power * agility,
-            cap: MUSCLE_SPIN * agility * grip_limit(weapon, body_radius),
+            cap: MUSCLE_SPIN * agility * grip_limit(spec, body_radius),
             // A heavy weapon is slow to push out for the same reason it is slow
             // to turn, so this is a force divided by a mass rather than an
             // authored rate.
-            extend_rate: EXTEND_FORCE * power * agility / weapon.mass.max(Fx::EPSILON),
+            extend_rate: EXTEND_FORCE * power * agility / spec.mass.max(Fx::EPSILON),
             pivot: body_radius,
-            span: weapon.balance * weapon.length,
+            span: spec.balance * spec.length,
         }
     }
 
@@ -182,7 +138,7 @@ impl Arm {
     /// by how fast you can move your own arm.
     pub fn inertia(self, reach: Fx) -> Fx {
         let lever = self.lever(reach);
-        lever * lever * self.weapon.mass + ARM_INERTIA
+        lever * lever * self.spec.mass + ARM_INERTIA
     }
 
     /// Angular acceleration available at this extension, raw units per tick
@@ -249,7 +205,7 @@ pub const MUSCLE_TORQUE: Fx = Fx::from_int(100);
 pub const MUSCLE_SPIN: Fx = Fx::from_int(2000);
 
 /// Weapon's mass-times-lever at which [`MUSCLE_SPIN`] is the whole answer.
-/// A Warrior's arming sword, so the reference wielder is the reference build.
+/// A Fighter's arming sword, so the reference wielder is the reference build.
 pub const REFERENCE_GRIP: Fx = Fx::from_ratio(1206, 1000);
 
 /// How much of [`MUSCLE_SPIN`] a wielder keeps, given what it is holding.
@@ -262,9 +218,9 @@ pub const REFERENCE_GRIP: Fx = Fx::from_ratio(1206, 1000);
 /// is what a real trade looks like: heavier means slower to accelerate
 /// (through [`Arm::inertia`]) and slower at the ceiling (through here), but
 /// more momentum and more energy at whatever speed it does reach.
-pub fn grip_limit(weapon: Weapon, body_radius: Fx) -> Fx {
-    let lever = body_radius + weapon.balance * weapon.length;
-    let load = weapon.mass * lever;
+pub fn grip_limit(spec: ActionSpec, body_radius: Fx) -> Fx {
+    let lever = body_radius + spec.balance * spec.length;
+    let load = spec.mass * lever;
     if load.is_positive() {
         (REFERENCE_GRIP / load).sqrt()
     } else {
@@ -316,7 +272,7 @@ pub const fn agility_multiplier(agility: u8) -> Fx {
 /// figure blurred by the observer's perception.
 pub fn dead_zone(arm: Arm) -> Fx {
     let spin = arm.reachable_spin();
-    let mass = arm.weapon.mass;
+    let mass = arm.spec.mass;
     // Impact is `spin x arm`, so energy is `spin^2 x arm^2`: one point on the
     // curve fixes all of it, and a contact at radius `r` carries `unit * r^2`.
     // Everything else in the damage law is the same here as at the tip and
@@ -325,7 +281,7 @@ pub fn dead_zone(arm: Arm) -> Fx {
     if !unit.is_positive() {
         return Fx::MAX;
     }
-    let tip = fx::energy(mass, fx::tangential_speed(spin, arm.pivot + arm.weapon.length));
+    let tip = fx::energy(mass, fx::tangential_speed(spin, arm.pivot + arm.spec.length));
     if tip <= ENERGY_FLOOR {
         return Fx::MAX; // cannot reach the bar anywhere, tip included
     }
@@ -369,14 +325,14 @@ pub fn graze_floor(arm: Arm, stats: Stats) -> Fx {
 ///
 /// The Brute found the bad side of that cliff and it is worth recording how
 /// narrowly. Contacts happen at body-to-body range whatever the blade length,
-/// which for a Warrior against a Brute is 1.15 units from the Brute's centre --
+/// which for a Fighter against a Brute is 1.15 units from the Brute's centre --
 /// about a third of the way along a 1.45 blade. Reaching the threshold there
 /// needs 60% of the Brute's top spin, and cuts land at 66% of it. Deriving the
 /// spin cap from grip in Phase 3 moved that top spin from 741 to 911 and with it
 /// the dead zone from 0.845 to 0.687 -- *inside* the Brute's own 0.70 body
 /// radius, so no part of its blade could touch anyone harmlessly any more. Every
 /// cut was spent on a scratch worth 1-3 damage against a peak of 24.8, the naive
-/// Warrior's win rate went from 10% to 76%, and none of the derived weapon
+/// Fighter's win rate went from 10% to 76%, and none of the derived weapon
 /// numbers moved enough to show it: tip speed, strike budget and build-up rate
 /// all changed by a few percent in the Brute's *favour*.
 ///
@@ -394,16 +350,16 @@ pub const GRAZE_FRACTION: Fx = Fx::from_ratio(12, 100);
 ///
 /// Deliberately the *peak* and not the current or the expected blow. A
 /// fighter's current spin is already in the observation
-/// ([`crate::Contact::sword_spin`]), and what a policy is missing is the
+/// ([`crate::Contact::limb_spin`]), and what a policy is missing is the
 /// stationary fact underneath it -- what this opponent is capable of -- which
 /// is the thing you can size up before the fight starts and the thing that
 /// decides whether the fight is worth having. It ignores blocking and
 /// [`RECOVERY_EXPOSURE`] for the same reason: those are properties of the
 /// exchange, not of the enemy.
 pub fn peak_damage(arm: Arm, stats: Stats) -> Fx {
-    let tip = arm.pivot + arm.weapon.length;
+    let tip = arm.pivot + arm.spec.length;
     let impact = fx::tangential_speed(arm.reachable_spin(), tip);
-    blow_damage(arm.weapon.mass, impact, power_multiplier(stats.power))
+    blow_damage(arm.spec.mass, impact, power_multiplier(stats.power))
 }
 
 // -------------------------------------------------------------------- the feet
@@ -486,10 +442,10 @@ pub const IMPACT_THRESHOLD: Fx = Fx::from_ratio(6, 100);
 /// and again in having that shortfall scaled up by the very mass that made it
 /// slow. Taking it in energy charges every weapon the same admission fee and
 /// lets each pay it in whatever currency it has -- a Brute's axe clears the bar
-/// at 0.045 units per tick, a Scout's knife not until 0.072.
+/// at 0.045 units per tick, a Rogue's knife not until 0.072.
 ///
 /// The value is the old bar for the weapon the old bar was set against:
-/// `1/2 * 1.24 * 0.06^2`, a Warrior's arming sword at [`IMPACT_THRESHOLD`]. So
+/// `1/2 * 1.24 * 0.06^2`, a Fighter's arming sword at [`IMPACT_THRESHOLD`]. So
 /// the reference weapon's dead zone barely moves and the rest of the roster
 /// moves relative to it for a reason.
 pub const ENERGY_FLOOR: Fx = Fx::from_ratio(22, 10_000);
@@ -497,7 +453,7 @@ pub const ENERGY_FLOOR: Fx = Fx::from_ratio(22, 10_000);
 /// Damage per unit of kinetic energy above [`ENERGY_FLOOR`], before the power
 /// stat.
 ///
-/// Set to hold a Warrior's best blow at the 14.3 it was worth under the old
+/// Set to hold a Fighter's best blow at the 14.3 it was worth under the old
 /// linear law, because what that number is really pinning is **resolution**
 /// rather than pace. At 135-per-unit-of-speed a duel was three or four landed
 /// blows, so "won with half its health" and "won almost untouched" were one blow
@@ -506,7 +462,7 @@ pub const ENERGY_FLOOR: Fx = Fx::from_ratio(22, 10_000);
 /// at and the figure this holds.
 ///
 /// Switching laws moved the roster around that anchor but did not spread it out:
-/// against a Warrior's 1.00, a Brute went 1.74 -> 1.44 and a Skitterer
+/// against a Fighter's 1.00, a Brute went 1.74 -> 1.44 and a Skitterer
 /// 0.49 -> 0.37. The narrowing is [`MUSCLE_SPIN`]'s doing and not this
 /// constant's -- see [`blow_damage`] for why weapon mass cancels.
 pub const ENERGY_TO_DAMAGE: Fx = Fx::from_int(384);
@@ -527,7 +483,7 @@ pub const ENERGY_TO_DAMAGE: Fx = Fx::from_int(384);
 /// no weapon mass appears at all.
 ///
 /// So the damage spread across the roster is bought with **reach, balance,
-/// agility and power** -- and it is bought, at 0.37 to 1.44 of a Warrior across
+/// agility and power** -- and it is bought, at 0.37 to 1.44 of a Fighter across
 /// the four archetypes. Mass is paid for elsewhere and paid well: it is what
 /// makes a swing slow to start ([`Arm::inertia`]), slow at the ceiling
 /// ([`grip_limit`]), and heavy when it lands ([`peak_impulse`], where nothing
@@ -568,11 +524,19 @@ pub const BLOCK_LEAK_SNAP: Fx = Fx::from_ratio(45, 100);
 
 /// Ticks a shield must be settled to be fully braced.
 ///
-/// Set against the telegraphs it has to be answered inside: a Brute announces
-/// for 33 ticks and a Warrior for 14, so a fighter that commits its guard when
-/// the shoulder moves is planted by the time a heavy blow lands and is halfway
-/// there against a Warrior's. Answering a Scout's seven-tick declaration is
-/// mostly hopeless, which is the correct answer for that archetype.
+/// Set against the telegraphs it has to be answered inside. A Club announces for
+/// 33 ticks on the Brute that usually carries one and a Sword for 15 on a
+/// Fighter, so a fighter that commits its guard when the shoulder moves is
+/// planted by the time a heavy blow lands and part of the way there against a
+/// sword.
+///
+/// Answering a Knife's seven is hopeless **by construction** now rather than by
+/// tuning: the fastest shield in the game takes nine ticks to draw on a Fighter
+/// and seven on a Rogue, before the two ticks of extension, so no amount of stat
+/// drift makes it close. That is the whole reason a fast weapon is worth
+/// holding, and the exact tick budgets are asserted in
+/// `rules::tests::the_swap_budgets_are_what_the_design_claims` rather than
+/// written down here, because a number in a doc comment is a number that rots.
 pub const BRACE_TICKS: u16 = 18;
 
 /// Angular speed, raw units per tick, below which a hand counts as settled
@@ -600,7 +564,7 @@ pub fn block_leak(settled: u16) -> Fx {
 /// rebound did not depend on what stopped it and the shield's shove did not
 /// depend on what threw it, and the second of those was inverted outright: the
 /// old shield knock scaled the attacker's *spin* with no mass term in it, so a
-/// Scout's whippy 3461 disturbed a guard nearly four times as hard as a Brute's
+/// Rogue's whippy 3461 disturbed a guard nearly four times as hard as a Brute's
 /// 911, and the heaviest weapon in the game was the one a shield had the easiest
 /// time holding. Both sides come out of the same collision now, resolved from
 /// the two arms' moments of inertia -- see [`crate::World`]'s `deflect`.
@@ -627,7 +591,7 @@ pub const PARRY_RESTITUTION: Fx = Fx::from_ratio(60, 100);
 /// Well under one because a person struck by a sword is not a billiard ball
 /// being hit by another: most of the momentum goes into the ground through their
 /// feet, and what is left over is what moves them. At 0.12 a Brute's best cut
-/// puts a Warrior on a course it needs about three quarters of a body radius to
+/// puts a Fighter on a course it needs about three quarters of a body radius to
 /// shed, sends a Skitterer four of its own body radii, and moves another Brute
 /// seven hundredths of one. Those three numbers are the whole mechanic.
 pub const KNOCKBACK_TRANSFER: Fx = Fx::from_ratio(12, 100);
@@ -671,9 +635,9 @@ pub const RECOIL_TRANSFER: Fx = Fx::from_ratio(12, 100);
 /// fighter hits harder with the same axe; it does not throw people further with
 /// it.
 pub fn peak_impulse(arm: Arm) -> Fx {
-    let tip = arm.pivot + arm.weapon.length;
+    let tip = arm.pivot + arm.spec.length;
     let speed = fx::tangential_speed(arm.reachable_spin(), tip);
-    arm.weapon.mass * speed * KNOCKBACK_TRANSFER
+    arm.spec.mass * speed * KNOCKBACK_TRANSFER
 }
 
 /// Momentum the fastest cut this arm can throw puts back into the body that
@@ -698,7 +662,7 @@ pub fn peak_impulse(arm: Arm) -> Fx {
 /// static friction, so what a real cut costs in ground is this or less.
 pub fn peak_recoil(arm: Arm) -> Fx {
     let speed = fx::tangential_speed(arm.reachable_spin(), arm.lever(Fx::ONE));
-    arm.weapon.mass * speed * RECOIL_TRANSFER
+    arm.spec.mass * speed * RECOIL_TRANSFER
 }
 
 // ------------------------------------------------------------- the attack
@@ -747,6 +711,16 @@ pub const STRIKE_SPENT_ARC: i32 = FOLLOW_THROUGH * 3 / 4;
 /// The limit is [`strike_ticks`] now, computed per weapon, and this is only the
 /// stop of last resort.
 pub const STRIKE_TIMEOUT: u16 = 150;
+
+/// Ceiling on a [`crate::Swing::Swap`], in ticks. The stop of last resort, the
+/// same kind of thing [`STRIKE_TIMEOUT`] is.
+///
+/// Two seconds is far past any row in the registry -- the slowest real draw is a
+/// club on a Brute at 23 ticks -- so this never binds in a fight. What it bounds
+/// is the pathological corner: `agility_multiplier` floors at 0.55, and a
+/// hypothetical action with a large `ready` on a feeble body could otherwise
+/// take a fighter out of the fight for longer than the fight.
+pub const SWAP_MAX_TICKS: u16 = 120;
 
 /// How long a cut with this weapon stays live: long enough to carry the blade
 /// through its whole arc, and no longer.
@@ -804,8 +778,8 @@ pub fn strike_ticks(arm: Arm) -> u16 {
 /// | archetype | predicted | needs | ratio |
 /// |-----------|-----------|-------|-------|
 /// | brute     |        49 |    64 |  1.30 |
-/// | warrior   |        22 |    30 |  1.34 |
-/// | scout     |        15 |    23 |  1.49 |
+/// | fighter   |        22 |    30 |  1.34 |
+/// | rogue     |        15 |    23 |  1.49 |
 /// | skitterer |        17 |    28 |  1.66 |
 ///
 /// The *lightest* weapons need the most slack, which is the opposite of the
@@ -912,7 +886,7 @@ pub const MIN_BLOCK_REACH: Fx = Fx::from_ratio(20, 100);
 /// At `perception 0` that is a standard deviation of about 45% of the true
 /// figure -- a Brute's 0.85 read as anything from half a unit to one and a
 /// quarter -- and exact by `perception 15`. Set where it is because the band
-/// worth finding is narrow: a Warrior's own blade needs 1.32 units to bite and
+/// worth finding is narrow: a Fighter's own blade needs 1.32 units to bite and
 /// a Brute's stops biting at 1.30, so the two nearly coincide, and an error of a
 /// tenth of a unit is the difference between crowding a heavy weapon and
 /// standing in the worst place on its arc.
@@ -1002,12 +976,12 @@ impl Stats {
     /// Linear above [`DIM_INTELLECT`] and steeper below it, and the kink is the
     /// point rather than an artefact. The straight line `20 - intellect` gave
     /// the dimmest character in the game three decisions a second, which is
-    /// plenty: measured over 240 seeds, a Warrior at `intellect 0` and
+    /// plenty: measured over 240 seeds, a Fighter at `intellect 0` and
     /// `perception 0` still beat a Brute two fights in three under the *naive*
     /// policy. A difficulty range whose bottom rung wins is not a range.
     ///
     /// The extension sits entirely below the dimmest archetype, so it is new
-    /// headroom rather than a rebalance: every unit in [`crate::UnitKind`] keeps
+    /// headroom rather than a rebalance: every unit in [`crate::Body`] keeps
     /// the cadence it was tuned with, and what changes is only what a character
     /// *built* below them can be.
     pub const fn decision_period(self) -> u16 {
@@ -1034,7 +1008,7 @@ impl Stats {
     /// pair. Reaction speed degrades into *disengagement* -- a character too
     /// slow to hold station drifts out of the fight and the run times out --
     /// while blur degrades into losing, which is what a difficulty setting
-    /// wants. Measured, a duelling Warrior against a Brute falls from 65% at
+    /// wants. Measured, a duelling Fighter against a Brute falls from 65% at
     /// noise 1.5 to 32% at 2.5, along a smooth curve with no cliff in it.
     ///
     /// Like the intellect extension this sits below every archetype (a Brute's
@@ -1072,6 +1046,118 @@ impl Stats {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::action::ActionKind;
+    use crate::entity::Body;
+
+    /// The tuning the whole loadout design rests on, executable.
+    ///
+    /// [`ActionSpec::ready`] is not set by feel. It is set so that a swap is a
+    /// *read* against a heavy weapon and impossible against a fast one, and the
+    /// three constraints below are what that sentence means in ticks. They are
+    /// asserted rather than written down because every one of them is a
+    /// consequence of five separate numbers -- an action's `windup` and `ready`,
+    /// a body's `agility` and `intellect`, and `phase_ticks`'s rounding -- and
+    /// any of those moving silently re-balances the game.
+    ///
+    /// Run with `--nocapture` to see the table.
+    #[test]
+    fn the_swap_budgets_are_what_the_design_claims() {
+        let ticks = |body: Body, base: u16| {
+            phase_ticks(base, agility_multiplier(body.base_stats().agility))
+        };
+        let telegraph = |body: Body, a: ActionKind| ticks(body, a.spec().windup);
+        let draw = |body: Body, a: ActionKind| ticks(body, a.spec().ready);
+        // What a whiffed attack leaves its owner helpless for. The penalty is
+        // scaled with the recovery, not added flat -- see `Hand::recover`.
+        let whiff =
+            |body: Body, a: ActionKind| ticks(body, a.spec().recovery + WHIFF_RECOVERY);
+
+        println!("\n  body        club  sword  knife | draw shield  draw sword | dp");
+        for body in Body::ALL {
+            println!(
+                "  {:<10} {:>4} {:>6} {:>6} | {:>11} {:>11} | {:>2}",
+                body.name(),
+                telegraph(body, ActionKind::Club),
+                telegraph(body, ActionKind::Sword),
+                telegraph(body, ActionKind::Knife),
+                draw(body, ActionKind::Shield),
+                draw(body, ActionKind::Sword),
+                body.base_stats().decision_period(),
+            );
+        }
+
+        // **What this test does not assert, and why.**
+        //
+        // The obvious constraint to write here is "a Fighter can get a shield up
+        // inside a club's telegraph and not inside a knife's", and it would be
+        // wrong. A cut has to *travel* after it is declared, so the window a
+        // defender actually gets is the telegraph **plus** the part of the
+        // strike before contact -- measured at 24 ticks for a knife and 62 for a
+        // club, against telegraphs of 7 and 33. Nothing in this module can see
+        // that number: it depends on two bodies, a distance and a sweep.
+        //
+        // So the answerability ladder is asserted through a live world, in
+        // `world::tests::a_club_can_be_answered_by_swapping_to_a_guard` and
+        // `a_knife_cannot_be_answered_by_swapping_to_a_guard`. What is left here
+        // is what this module *can* honestly check: that the components those
+        // budgets are built from stay in the order the design needs.
+
+        // Drawing a guard is dearer than drawing the fastest weapon, or reaching
+        // for the shield would be a free reflex rather than a decision.
+        for body in Body::ALL {
+            assert!(
+                draw(body, ActionKind::Shield) > draw(body, ActionKind::Punch),
+                "a {} draws a shield faster than it throws a fist",
+                body.name()
+            );
+        }
+
+        // Heavier is slower to bring up, in the same order it is slower to
+        // swing. A club that came out as fast as a knife would make weight free.
+        for body in Body::ALL {
+            let (punch, knife, sword, club) = (
+                draw(body, ActionKind::Punch),
+                draw(body, ActionKind::Knife),
+                draw(body, ActionKind::Sword),
+                draw(body, ActionKind::Club),
+            );
+            assert!(
+                punch < knife && knife < sword && sword < club,
+                "{}: draw times {punch}/{knife}/{sword}/{club} are out of order",
+                body.name()
+            );
+        }
+
+        // The bait: hold a guard, draw the attack, and get a weapon back out and
+        // swung inside the recovery a miss costs. This one *is* checkable here,
+        // because both halves are phase clocks rather than geometry -- and it is
+        // conservative, since the real whiff window is what the attacker spends
+        // recovering plus whatever the cut had left to travel.
+        for defender in [Body::Fighter, Body::Rogue] {
+            let latency = defender.base_stats().decision_period();
+            let counter = latency
+                + draw(defender, ActionKind::Sword)
+                + telegraph(defender, ActionKind::Sword);
+            let window = whiff(Body::Brute, ActionKind::Club);
+            assert!(
+                counter <= window,
+                "a {} needs {counter} ticks to punish a whiffed club that is only \
+                 helpless for {window} -- baiting is not a strategy",
+                defender.name()
+            );
+        }
+
+        // Anti-spam: a round trip through a guard and back costs more than a
+        // club's whole telegraph, so a shield cannot be flickered up and down
+        // every time something moves.
+        let round_trip =
+            draw(Body::Fighter, ActionKind::Shield) + draw(Body::Fighter, ActionKind::Sword);
+        assert!(
+            round_trip > telegraph(Body::Brute, ActionKind::Club) / 2,
+            "a Fighter can cycle shield->sword->shield in {round_trip} ticks, \
+             which is cheap enough to hold a guard up permanently by flickering"
+        );
+    }
 
     #[test]
     fn intellect_monotonically_speeds_up_decisions() {
@@ -1093,7 +1179,7 @@ mod tests {
         // range by making the existing roster dumber would have re-tuned every
         // fight in the repository. The join sits at the dimmest archetype, so
         // the steep stretch is reachable only by a character built below them.
-        for kind in crate::UnitKind::ALL {
+        for kind in crate::Body::ALL {
             let stats = kind.base_stats();
             assert!(
                 stats.intellect >= DIM_INTELLECT,
@@ -1210,12 +1296,12 @@ mod tests {
         // Note what is *not* asserted: that the band reaches past the wielder's
         // own body. It does for a Brute (0.86 against a 0.70 radius) and that is
         // load-bearing -- see `world::tests::crowding_a_heavy_weapon_takes_most_
-        // _of_its_bite_away`, which pins it -- but a Scout's dead zone is 0.27
+        // _of_its_bite_away`, which pins it -- but a Rogue's dead zone is 0.27
         // inside a 0.35 body and always has been. A short quick blade really is
         // dangerous along its whole length, and demanding otherwise would need
         // `GRAZE_FRACTION` above 0.43, which measurably flattens the difficulty
         // ladder. The scale-free guarantee is the one below.
-        for kind in crate::entity::UnitKind::ALL {
+        for kind in crate::entity::Body::ALL {
             for agility in [0u8, 1, 2, 4, 8, 16, 40, 255] {
                 let base = kind.base_stats();
                 let stats = Stats::new(
@@ -1225,10 +1311,10 @@ mod tests {
                     base.perception,
                     base.vitality,
                 );
-                let arm = Arm::resolve(kind.weapon(), stats, kind.radius());
+                let arm = Arm::resolve(kind.legacy_weapon(), stats, kind.radius());
                 let safe = dead_zone(arm);
                 assert!(
-                    safe < kind.radius() + kind.weapon().length,
+                    safe < kind.radius() + kind.legacy_weapon().length,
                     "{kind:?} at agility {agility} has a dead zone of {safe}, which \
                      swallows its own blade: it cannot hurt anything at all"
                 );
@@ -1260,7 +1346,7 @@ mod tests {
         // to on overflow, and a peak damage pinned there would silently make
         // every archetype identical and infinitely lethal.
         let mut most = Fx::ZERO;
-        for kind in crate::entity::UnitKind::ALL {
+        for kind in crate::entity::Body::ALL {
             for power in [0u8, 6, 20, 100, 255] {
                 for agility in [0u8, 6, 20, 100, 255] {
                     let base = kind.base_stats();
@@ -1271,8 +1357,8 @@ mod tests {
                         base.perception,
                         base.vitality,
                     );
-                    let arm = Arm::resolve(kind.weapon(), stats, kind.radius());
-                    let tip = arm.pivot + arm.weapon.length;
+                    let arm = Arm::resolve(kind.legacy_weapon(), stats, kind.radius());
+                    let tip = arm.pivot + arm.spec.length;
                     let impact = fx::tangential_speed(arm.reachable_spin(), tip);
                     // The blow itself, and then the same blow with the fastest
                     // closing speed two bodies can add to it -- `impact_speed`
@@ -1280,7 +1366,7 @@ mod tests {
                     // now push a body faster than it walks.
                     for extra in [Fx::ZERO, Fx::ONE] {
                         let hit = blow_damage(
-                            arm.weapon.mass,
+                            arm.spec.mass,
                             impact + extra,
                             power_multiplier(stats.power),
                         );
@@ -1297,7 +1383,7 @@ mod tests {
         }
         // Not merely unsaturated but comfortably so, with room for the
         // `RECOVERY_EXPOSURE` multiplier the sim applies afterwards. A blow this
-        // size is already absurd -- it is several hundred times a Warrior's
+        // size is already absurd -- it is several hundred times a Fighter's
         // whole health bar -- and the point is the headroom, not the number.
         assert!(
             most * RECOVERY_EXPOSURE < Fx::MAX,
@@ -1318,10 +1404,10 @@ mod tests {
         //
         // Weight is paid for in `peak_impulse`, where nothing cancels it. See
         // `blow_damage`.
-        let stats = crate::entity::UnitKind::Warrior.base_stats();
-        let radius = crate::entity::UnitKind::Warrior.radius();
-        let light = crate::entity::UnitKind::Warrior.weapon();
-        let heavy = Weapon {
+        let stats = crate::entity::Body::Fighter.base_stats();
+        let radius = crate::entity::Body::Fighter.radius();
+        let light = crate::entity::Body::Fighter.legacy_weapon();
+        let heavy = ActionSpec {
             mass: light.mass * Fx::TWO,
             ..light
         };

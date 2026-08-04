@@ -1,7 +1,7 @@
 use crate::fitness::{fitness, Summary};
 use fx::{Fx, Rng};
 use policy::{run, PolicyKind, RunConfig, TeamPolicy, MAX_GENOME_LEN};
-use sim::{Scenario, UnitKind};
+use sim::{Scenario, Body};
 
 /// What kind of fight a candidate is scored on.
 ///
@@ -18,8 +18,8 @@ pub enum Arena {
         monsters: u32,
     },
     Duel {
-        hero: UnitKind,
-        villain: UnitKind,
+        hero: Body,
+        villain: Body,
     },
     /// **Every archetype against every archetype**, all sixteen pairings on each
     /// seed.
@@ -28,8 +28,8 @@ pub enum Arena {
     /// shipped to the whole roster. `Duel` scores a single pairing, and a genome
     /// tuned on one is a counter to one opponent wearing one body -- which is the
     /// same overfitting `Arena::Duel` was added to catch one level down, and it
-    /// bit just as hard: a change that took a duelling Scout against a Warrior
-    /// from 18% to 99% cost a Brute half its matchup against the same Warrior,
+    /// bit just as hard: a change that took a duelling Rogue against a Fighter
+    /// from 18% to 99% cost a Brute half its matchup against the same Fighter,
     /// and no single-pairing fitness can see the trade it is making.
     ///
     /// All sixteen per seed rather than one drawn from it, so coverage is exact
@@ -47,8 +47,8 @@ impl Arena {
             }
             Arena::Duel { hero, villain } => out.push(Scenario::duel_of(hero, villain, seed)),
             Arena::Roster => {
-                for hero in UnitKind::ALL {
-                    for villain in UnitKind::ALL {
+                for hero in Body::ALL {
+                    for villain in Body::ALL {
                         out.push(Scenario::duel_of(hero, villain, seed));
                     }
                 }

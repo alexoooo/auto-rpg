@@ -20,11 +20,11 @@
 //! other fighter.
 
 use fx::{Angle, Fx, Vec2};
-use sim::{Contact, HandCommand, Observation, Strike, Swing};
+use sim::{Contact, LimbCommand, Observation, Strike, Swing};
 
 /// Holds the attack command down on `line`.
 ///
-/// **Use this rather than building a [`HandCommand`] by hand.** The rhythm has
+/// **Use this rather than building a [`LimbCommand`] by hand.** The rhythm has
 /// three states and two of them are traps:
 ///
 /// * At guard and armed, asking to attack starts a cut.
@@ -36,11 +36,19 @@ use sim::{Contact, HandCommand, Observation, Strike, Swing};
 ///
 /// The recovery arm points the guard at `line` while it waits, so the blade
 /// comes back to somewhere useful rather than to wherever the last cut ended.
-pub fn press(obs: &Observation, line: Angle, side: Strike) -> HandCommand {
-    let sword = obs.sword();
-    match sword.swing {
-        Swing::Guard if sword.armed => HandCommand::attack(line, side),
-        Swing::Windup | Swing::Strike => HandCommand::attack(line, side),
+pub fn press(obs: &Observation, line: Angle, side: Strike) -> LimbCommand {
+    let limb = obs.limb;
+    // Nothing to press with. Asking anyway is not merely useless: a swap lands
+    // **armed**, so a command still saying "attack" on the tick it arrives would
+    // throw a cut instantly and hand back the `ready` ticks the swap was
+    // supposed to cost. Every mind that changes what it is holding routes
+    // through here, so the refund is closed once rather than per caller.
+    if !obs.role().is_live_capable() || limb.swing.is_dormant() {
+        return guard(line);
+    }
+    match limb.swing {
+        Swing::Guard if limb.armed => LimbCommand::attack(line, side),
+        Swing::Windup | Swing::Strike => LimbCommand::attack(line, side),
         // Guard-but-disarmed and Recover both want the same thing: a command
         // that is not an attack, which is what re-arms the hand.
         _ => guard(line),
@@ -51,8 +59,8 @@ pub fn press(obs: &Observation, line: Angle, side: Strike) -> HandCommand {
 ///
 /// Costs nothing, cannot be punished, and re-arms the hand for the next cut. A
 /// guarding blade is still a segment, so it can catch an incoming one.
-pub fn guard(line: Angle) -> HandCommand {
-    HandCommand::new(line, Fx::ZERO)
+pub fn guard(line: Angle) -> LimbCommand {
+    LimbCommand::new(line, Fx::ZERO)
 }
 
 /// Shows a cut on `line` and takes it back.
@@ -65,10 +73,10 @@ pub fn guard(line: Angle) -> HandCommand {
 /// `commit_within` is how few ticks of telegraph may be left before the feint is
 /// called off -- pull out too early and nobody believed it, too late and it
 /// stops being a feint and becomes an attack.
-pub fn feint(obs: &Observation, line: Angle, side: Strike, commit_within: u16) -> HandCommand {
-    let sword = obs.sword();
-    match sword.swing {
-        Swing::Windup if sword.swing_left <= commit_within => guard(line),
+pub fn feint(obs: &Observation, line: Angle, side: Strike, commit_within: u16) -> LimbCommand {
+    let limb = obs.limb;
+    match limb.swing {
+        Swing::Windup if limb.swing_left <= commit_within => guard(line),
         _ => press(obs, line, side),
     }
 }
@@ -86,12 +94,21 @@ pub fn feint(obs: &Observation, line: Angle, side: Strike, commit_within: u16) -
 ///   Sunwise      ->  lands counter-clockwise of it
 /// ```
 ///
-/// Pick the one whose landing flank the shield is not already on. Getting it
+/// Pick the one whose landing flank the guard is not already on. Getting it
 /// wrong is not neutral: it throws every attack into the middle of the guard.
+///
+/// Against an enemy holding something that does *not* block there is no wrong
+/// flank, so this falls back to [`Strike::Nearest`] -- the shortest telegraph
+/// available. Declining a decision that has stopped existing is cheaper than
+/// making it against a guard that is not there, which would cock the blade the
+/// long way round for nothing.
 pub fn open_side(c: &Contact) -> Strike {
+    if !c.action.role().blocks() {
+        return Strike::Nearest;
+    }
     // Bearing from the enemy back to us: the line the cut travels along.
     let toward_me = (-c.offset).angle();
-    if c.shield_angle.delta(toward_me) > 0 {
+    if c.limb_angle.delta(toward_me) > 0 {
         // Guard sits counter-clockwise of that line, so land the blow on the
         // clockwise flank.
         Strike::Widdershins
@@ -103,18 +120,18 @@ pub fn open_side(c: &Contact) -> Strike {
 /// Where `c`'s blade will be in `ticks` ticks, as a bearing.
 ///
 /// The multiply is staged through `i64` because it overflows [`Fx`] readily:
-/// a Scout spins at up to 3540 raw units per tick, and thirty ticks of that is
+/// a Rogue spins at up to 3540 raw units per tick, and thirty ticks of that is
 /// 106,200 against a ceiling of 32,768. Folding the result straight into an
 /// [`Angle`] is free -- angles wrap.
 pub fn blade_bearing_in(c: &Contact, ticks: u16) -> Angle {
-    let advance = (c.sword_spin.raw() as i64 * ticks as i64) >> 16;
-    c.sword_angle + Angle::from_raw(advance as i32 as u16)
+    let advance = (c.limb_spin.raw() as i64 * ticks as i64) >> 16;
+    c.limb_angle + Angle::from_raw(advance as i32 as u16)
 }
 
 /// Where `c`'s blade tip will be in `ticks` ticks, relative to the observer.
 pub fn blade_tip_in(c: &Contact, ticks: u16) -> Vec2 {
     let bearing = blade_bearing_in(c, ticks);
-    c.offset + Vec2::from_angle(bearing) * (c.radius + c.weapon_length * c.sword_reach)
+    c.offset + Vec2::from_angle(bearing) * (c.radius + c.action_length * c.limb_reach)
 }
 
 /// Which way a declared cut wound up: `+1` counter-clockwise, `-1` clockwise.
@@ -124,7 +141,7 @@ pub fn blade_tip_in(c: &Contact, ticks: u16) -> Vec2 {
 /// which way it is about to travel. Both numbers are perceived, so this is the
 /// first thing a dim fighter gets wrong.
 fn declared_side(c: &Contact) -> i32 {
-    if c.sword_angle.delta(c.sword_line) >= 0 {
+    if c.limb_angle.delta(c.limb_line) >= 0 {
         1
     } else {
         -1
@@ -155,22 +172,22 @@ fn declared_side(c: &Contact) -> i32 {
 /// the pose are both blurred by perception, so a dim fighter replays the wrong
 /// cut and covers the wrong bearing with complete confidence.
 pub fn landing(obs: &Observation, c: &Contact) -> Option<Vec2> {
-    if !c.sword_swing.is_attacking() {
+    if !c.limb_swing.is_attacking() {
         return None;
     }
     let side = declared_side(c);
     // Where the cut ends, and therefore how much arc it has left to travel.
-    let end = c.sword_line - Angle::from_raw((side * sim::FOLLOW_THROUGH) as u16);
-    let travel = (end.delta(c.sword_angle) * -side).max(0);
+    let end = c.limb_line - Angle::from_raw((side * sim::FOLLOW_THROUGH) as u16);
+    let travel = (end.delta(c.limb_angle) * -side).max(0);
 
     // Eight steps along the remaining arc, three points along the blade. The
     // blade is a segment and not a point: a cut can arrive hilt-first at close
     // quarters, which is the whole reason a heavy weapon has a dead zone.
     for step in 0..=8 {
-        let at = c.sword_angle - Angle::from_raw((side * travel * step / 8) as u16);
+        let at = c.limb_angle - Angle::from_raw((side * travel * step / 8) as u16);
         let out = Vec2::from_angle(at);
         for k in 1..=3 {
-            let along = c.radius + c.weapon_length * Fx::from_ratio(k, 3);
+            let along = c.radius + c.action_length * Fx::from_ratio(k, 3);
             let point = c.offset + out * along;
             if point.length() <= obs.radius {
                 return Some(point);
@@ -207,10 +224,10 @@ pub fn incoming(obs: &Observation, c: &Contact) -> (Fx, u16) {
     if landing(obs, c).is_none() {
         return (Fx::ZERO, 0);
     }
-    match c.sword_swing {
+    match c.limb_swing {
         Swing::Strike => (Fx::ONE, 0),
         Swing::Windup => {
-            let left = c.sword_left.max(Fx::ZERO);
+            let left = c.limb_left.max(Fx::ZERO);
             // A telegraph a full second out is barely a threat; one about to
             // finish is the whole of one. Scaled against a fixed second rather
             // than against the weapon's own windup, because a defender reading a
@@ -219,7 +236,11 @@ pub fn incoming(obs: &Observation, c: &Contact) -> (Fx, u16) {
             let urgency = Fx::ONE - (left / Fx::from_int(45)).min(Fx::ONE);
             (urgency, left.round_int().clamp(0, 600) as u16)
         }
-        Swing::Guard | Swing::Recover => (Fx::ZERO, 0),
+        // A limb mid-swap is threatening nothing at all -- it is not even
+        // holding what it is about to hold.
+        // A limb mid-swap threatens nothing at all -- it is not even holding
+        // the thing it is about to hold.
+        Swing::Guard | Swing::Recover | Swing::Swap => (Fx::ZERO, 0),
     }
 }
 
@@ -231,13 +252,19 @@ pub fn incoming(obs: &Observation, c: &Contact) -> (Fx, u16) {
 /// that is `(-offset).perp()`, not `offset.perp()`, which is the same line and
 /// the opposite way round. So: if the shield sits clockwise of where the
 /// observer stands, orbit counter-clockwise, and the guard falls further behind.
+/// Against an enemy holding no guard the question is empty and either way round
+/// is as good, so this orbits counter-clockwise by convention rather than
+/// pretending to have found an opening.
 pub fn shield_free_side(c: &Contact) -> Vec2 {
     // Counter-clockwise about the enemy, expressed in the observer's frame.
     let widdershins = (-c.offset).perp().normalize();
+    if !c.action.role().blocks() {
+        return widdershins;
+    }
     // Bearing from the enemy back to the observer.
     let toward_me = (-c.offset).angle();
-    if c.shield_angle.delta(toward_me) > 0 {
-        // Shield already counter-clockwise of us: go the other way.
+    if c.limb_angle.delta(toward_me) > 0 {
+        // Guard already counter-clockwise of us: go the other way.
         -widdershins
     } else {
         widdershins
@@ -249,7 +276,7 @@ pub fn shield_free_side(c: &Contact) -> Vec2 {
 /// A recovering hand cannot attack, cannot parry, and cannot be made to do
 /// anything about what happens next, and it says so in the observation. The
 /// measure is how much of that recovery is left, so a Brute that has just missed
-/// scores near one for the better part of a second and a Scout scores briefly.
+/// scores near one for the better part of a second and a Rogue scores briefly.
 ///
 /// Note what this no longer has to do. The previous version inferred the same
 /// thing from geometry -- how far past you the blade had swept, gated on it
@@ -257,18 +284,18 @@ pub fn shield_free_side(c: &Contact) -> Vec2 {
 /// than *speed* was the right term, because a heavy weapon crawls away slowly
 /// and is the most punishable thing in the game. That argument is still true and
 /// no longer needs making: recovery is measured in ticks, and a Brute's is
-/// nearly three times a Scout's because its weapon says so.
+/// nearly three times a Rogue's because its weapon says so.
 pub fn overcommitted(c: &Contact) -> Fx {
-    if c.sword_swing != Swing::Recover {
+    if c.limb_swing != Swing::Recover {
         return Fx::ZERO;
     }
-    (c.sword_left / Fx::from_int(45)).clamp(Fx::ZERO, Fx::ONE)
+    (c.limb_left / Fx::from_int(45)).clamp(Fx::ZERO, Fx::ONE)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sim::{EntityId, Faction, Order, UnitKind};
+    use sim::{EntityId, Faction, Order, Body};
 
     fn contact(x: i32, y: i32) -> Contact {
         Contact {
@@ -277,33 +304,34 @@ mod tests {
             distance: Vec2::from_ints(x, y).length(),
             hp_frac: Fx::ONE,
             radius: Fx::from_ratio(45, 100),
-            weapon_length: Fx::from_ratio(95, 100),
+            action_length: Fx::from_ratio(95, 100),
             min_strike_range: sim::dead_zone(sim::Arm::resolve(
-                UnitKind::Warrior.weapon(),
-                UnitKind::Warrior.base_stats(),
-                UnitKind::Warrior.radius(),
+                Body::Fighter.legacy_weapon(),
+                Body::Fighter.base_stats(),
+                Body::Fighter.radius(),
             )),
-            // A Warrior seen by the Scout in `observer`, both ways round.
+            // A Fighter seen by the Rogue in `observer`, both ways round.
             threat: Fx::from_ratio(277, 1000),
             frailty: Fx::from_ratio(126, 1000),
-            // The same pairing on the momentum side: a Warrior's sword moves a
-            // Scout most of a body, and a Scout's moves a Warrior a quarter of
+            // The same pairing on the momentum side: a Fighter's sword moves a
+            // Rogue most of a body, and a Rogue's moves a Fighter a quarter of
             // one.
             knockback_taken: Fx::from_ratio(1140, 1000),
             knockback_dealt: Fx::from_ratio(276, 1000),
-            // ...and a Warrior is a little over a third heavier again than the
-            // Scout looking at it.
-            heft: UnitKind::Warrior.mass() / UnitKind::Scout.mass(),
+            // ...and a Fighter is a little over a third heavier again than the
+            // Rogue looking at it.
+            heft: Body::Fighter.mass() / Body::Rogue.mass(),
             velocity: Vec2::ZERO,
             facing: Angle::ZERO,
-            sword_angle: Angle::ZERO,
-            sword_reach: Fx::ONE,
-            sword_spin: Fx::ZERO,
-            sword_swing: Swing::Guard,
-            sword_left: Fx::ZERO,
-            sword_line: Angle::ZERO,
-            shield_angle: Angle::ZERO,
-            shield_reach: Fx::ONE,
+            limb_angle: Angle::ZERO,
+            limb_reach: Fx::ONE,
+            limb_spin: Fx::ZERO,
+            limb_swing: Swing::Guard,
+            limb_left: Fx::ZERO,
+            limb_line: Angle::ZERO,
+            action: sim::ActionKind::Shield,
+            action_arc: sim::ActionKind::Shield.spec().arc,
+
         }
     }
 
@@ -315,8 +343,8 @@ mod tests {
             Vec2::from_ints(20, 14),
             Order::Hold,
         );
-        obs.radius = UnitKind::Scout.radius();
-        obs.weapon_length = UnitKind::Scout.weapon().length;
+        obs.radius = Body::Rogue.radius();
+        obs.action_length = Body::Rogue.legacy_weapon().length;
         obs.sight_range = Fx::from_int(14);
         obs
     }
@@ -324,15 +352,15 @@ mod tests {
     #[test]
     fn a_blade_is_extrapolated_forward_without_overflowing() {
         let mut c = contact(3, 0);
-        // A Scout's top speed for thirty ticks: 106,200 raw units, which is
+        // A Rogue's top speed for thirty ticks: 106,200 raw units, which is
         // three and a half times what `Fx` can hold.
-        c.sword_spin = Fx::from_int(3540);
+        c.limb_spin = Fx::from_int(3540);
         let soon = blade_bearing_in(&c, 30);
         let expected = Angle::from_raw(((3540i64 * 30) & 0xFFFF) as u16);
         assert!(soon.delta(expected).abs() <= 1, "{soon:?}");
 
         // And it runs backwards for a backswing.
-        c.sword_spin = Fx::from_int(-3540);
+        c.limb_spin = Fx::from_int(-3540);
         assert_eq!(blade_bearing_in(&c, 30), -expected);
     }
 
@@ -341,19 +369,19 @@ mod tests {
         // Enemy due east, its shield pointing west -- straight at the observer.
         // Either way round is equally bad, so this only has to be consistent.
         let mut c = contact(3, 0);
-        c.shield_angle = Angle::HALF;
+        c.limb_angle = Angle::HALF;
         let away = shield_free_side(&c);
         assert!(!away.is_zero());
 
         // Now swing its guard to the north-west. Circling south takes the
         // observer further from what the shield covers.
-        c.shield_angle = Angle::from_degrees(135);
+        c.limb_angle = Angle::from_degrees(135);
         assert!(
             shield_free_side(&c).y < Fx::ZERO,
             "circled into the shield: {:?}",
             shield_free_side(&c)
         );
-        c.shield_angle = Angle::from_degrees(-135);
+        c.limb_angle = Angle::from_degrees(-135);
         assert!(shield_free_side(&c).y > Fx::ZERO);
     }
 
@@ -362,21 +390,21 @@ mod tests {
         let mut c = contact(2, 0);
 
         // Guard, however fast the hand happens to be moving: not an opening.
-        c.sword_spin = Fx::from_int(2400);
+        c.limb_spin = Fx::from_int(2400);
         assert_eq!(overcommitted(&c), Fx::ZERO);
 
         // Mid-cut: emphatically not an opening.
-        c.sword_swing = Swing::Strike;
-        c.sword_left = Fx::from_int(20);
+        c.limb_swing = Swing::Strike;
+        c.limb_left = Fx::from_int(20);
         assert_eq!(overcommitted(&c), Fx::ZERO);
 
         // Recovering: the whole point.
-        c.sword_swing = Swing::Recover;
-        c.sword_left = Fx::from_int(30);
+        c.limb_swing = Swing::Recover;
+        c.limb_left = Fx::from_int(30);
         assert!(overcommitted(&c) > Fx::HALF);
 
         // ...and it closes as the recovery runs out.
-        c.sword_left = Fx::from_int(3);
+        c.limb_left = Fx::from_int(3);
         assert!(overcommitted(&c) < Fx::from_ratio(2, 10));
     }
 
@@ -384,23 +412,23 @@ mod tests {
     fn a_ponderous_weapon_offers_a_bigger_opening_than_a_quick_one() {
         // The property the old geometric version had to argue for and this one
         // gets from the clock: a Brute that has just missed is helpless for
-        // three times as long as a Scout that has.
-        let ticks = |kind: UnitKind| {
-            let w = kind.weapon();
+        // three times as long as a Rogue that has.
+        let ticks = |kind: Body| {
+            let w = kind.legacy_weapon();
             sim::phase_ticks(w.recovery, sim::agility_multiplier(kind.base_stats().agility))
         };
         let mut brute = contact(2, 0);
-        brute.sword_swing = Swing::Recover;
-        brute.sword_left = Fx::from_int(ticks(UnitKind::Brute) as i32);
-        let mut scout = contact(2, 0);
-        scout.sword_swing = Swing::Recover;
-        scout.sword_left = Fx::from_int(ticks(UnitKind::Scout) as i32);
+        brute.limb_swing = Swing::Recover;
+        brute.limb_left = Fx::from_int(ticks(Body::Brute) as i32);
+        let mut rogue = contact(2, 0);
+        rogue.limb_swing = Swing::Recover;
+        rogue.limb_left = Fx::from_int(ticks(Body::Rogue) as i32);
 
         assert!(
-            overcommitted(&brute) > overcommitted(&scout) * Fx::TWO,
-            "brute {} vs scout {}",
+            overcommitted(&brute) > overcommitted(&rogue) * Fx::TWO,
+            "brute {} vs rogue {}",
             overcommitted(&brute),
-            overcommitted(&scout)
+            overcommitted(&rogue)
         );
         assert!(overcommitted(&brute) > Fx::HALF);
     }
@@ -409,10 +437,10 @@ mod tests {
     /// along the line between us -- which is the one that actually arrives.
     fn declared_at_me(x: i32, y: i32) -> Contact {
         let mut c = contact(x, y);
-        c.sword_swing = Swing::Windup;
-        c.sword_line = (-c.offset).angle();
-        c.sword_angle = c.sword_line + Angle::from_raw(sim::WINDUP_ARC as u16);
-        c.sword_left = Fx::from_int(10);
+        c.limb_swing = Swing::Windup;
+        c.limb_line = (-c.offset).angle();
+        c.limb_angle = c.limb_line + Angle::from_raw(sim::WINDUP_ARC as u16);
+        c.limb_left = Fx::from_int(10);
         c
     }
 
@@ -421,21 +449,21 @@ mod tests {
         let obs = observer();
         let mut c = declared_at_me(1, 0);
 
-        c.sword_swing = Swing::Guard;
+        c.limb_swing = Swing::Guard;
         assert_eq!(incoming(&obs, &c).0, Fx::ZERO, "a guard is not an attack");
 
-        c.sword_swing = Swing::Windup;
-        c.sword_left = Fx::from_int(40);
+        c.limb_swing = Swing::Windup;
+        c.limb_left = Fx::from_int(40);
         let early = incoming(&obs, &c).0;
-        c.sword_left = Fx::from_int(4);
+        c.limb_left = Fx::from_int(4);
         let late = incoming(&obs, &c).0;
         assert!(late > early, "early {early} vs late {late}");
         assert!(early < Fx::HALF, "a distant telegraph already read as urgent");
 
-        c.sword_swing = Swing::Strike;
+        c.limb_swing = Swing::Strike;
         assert_eq!(incoming(&obs, &c).0, Fx::ONE);
 
-        c.sword_swing = Swing::Recover;
+        c.limb_swing = Swing::Recover;
         assert_eq!(incoming(&obs, &c).0, Fx::ZERO, "a spent cut still frightened");
     }
 
@@ -443,7 +471,7 @@ mod tests {
     fn a_cut_thrown_from_out_of_range_is_somebody_elses_problem() {
         let obs = observer();
         let mut far = declared_at_me(9, 0);
-        far.sword_swing = Swing::Strike;
+        far.limb_swing = Swing::Strike;
         assert_eq!(incoming(&obs, &far).0, Fx::ZERO);
         assert!(landing(&obs, &far).is_none());
     }
@@ -462,15 +490,15 @@ mod tests {
         // cover are the minority. That is not a flaw in the test -- it is why
         // spacing is worth anything, and why stepping *across* a swing beats
         // backing away from one.
-        wide.sword_line = wide.sword_line + Angle::from_degrees(150);
-        wide.sword_angle = wide.sword_line + Angle::from_raw(sim::WINDUP_ARC as u16);
+        wide.limb_line = wide.limb_line + Angle::from_degrees(150);
+        wide.limb_angle = wide.limb_line + Angle::from_raw(sim::WINDUP_ARC as u16);
         assert!(landing(&obs, &wide).is_none(), "a cut thrown wide still read as incoming");
         assert_eq!(incoming(&obs, &wide).0, Fx::ZERO);
 
         // ...and a quarter turn off is *not* enough to be safe at this range.
         let mut near_miss = declared_at_me(1, 0);
-        near_miss.sword_line = near_miss.sword_line + Angle::QUARTER;
-        near_miss.sword_angle = near_miss.sword_line + Angle::from_raw(sim::WINDUP_ARC as u16);
+        near_miss.limb_line = near_miss.limb_line + Angle::QUARTER;
+        near_miss.limb_angle = near_miss.limb_line + Angle::from_raw(sim::WINDUP_ARC as u16);
         assert!(landing(&obs, &near_miss).is_some());
     }
 
@@ -489,7 +517,7 @@ mod tests {
         let off = at.angle().delta(toward_enemy).abs();
         assert!(off > 1_000, "the blow landed dead on the line between us");
         assert!(
-            at.angle().delta(c.sword_angle).abs() > 8_000,
+            at.angle().delta(c.limb_angle).abs() > 8_000,
             "the landing point and the cocked blade are the same bearing"
         );
     }
@@ -501,28 +529,28 @@ mod tests {
         let mut obs = observer();
         let line = Angle::from_degrees(30);
 
-        obs.hands[sim::SWORD].swing = Swing::Guard;
-        obs.hands[sim::SWORD].armed = true;
+        obs.limb.swing = Swing::Guard;
+        obs.limb.armed = true;
         assert!(press(&obs, line, Strike::Nearest).strike.is_attack());
 
-        obs.hands[sim::SWORD].swing = Swing::Windup;
+        obs.limb.swing = Swing::Windup;
         assert!(
             press(&obs, line, Strike::Nearest).strike.is_attack(),
             "let go mid-windup, which cancels the attack"
         );
 
-        obs.hands[sim::SWORD].swing = Swing::Strike;
+        obs.limb.swing = Swing::Strike;
         assert!(press(&obs, line, Strike::Nearest).strike.is_attack());
 
-        obs.hands[sim::SWORD].swing = Swing::Recover;
+        obs.limb.swing = Swing::Recover;
         assert!(
             !press(&obs, line, Strike::Nearest).strike.is_attack(),
             "kept asking through the recovery, which leaves the hand disarmed"
         );
 
         // And the trap in its purest form: at guard but not re-armed.
-        obs.hands[sim::SWORD].swing = Swing::Guard;
-        obs.hands[sim::SWORD].armed = false;
+        obs.limb.swing = Swing::Guard;
+        obs.limb.armed = false;
         assert!(!press(&obs, line, Strike::Nearest).strike.is_attack());
     }
 
@@ -530,17 +558,17 @@ mod tests {
     fn a_feint_shows_the_blade_and_takes_it_back() {
         let mut obs = observer();
         let line = Angle::ZERO;
-        obs.hands[sim::SWORD].swing = Swing::Guard;
-        obs.hands[sim::SWORD].armed = true;
+        obs.limb.swing = Swing::Guard;
+        obs.limb.armed = true;
         assert!(feint(&obs, line, Strike::Nearest, 4).strike.is_attack());
 
         // Early in the windup it is still selling the lie.
-        obs.hands[sim::SWORD].swing = Swing::Windup;
-        obs.hands[sim::SWORD].swing_left = 12;
+        obs.limb.swing = Swing::Windup;
+        obs.limb.swing_left = 12;
         assert!(feint(&obs, line, Strike::Nearest, 4).strike.is_attack());
 
         // On the brink of committing, it pulls out.
-        obs.hands[sim::SWORD].swing_left = 3;
+        obs.limb.swing_left = 3;
         assert!(!feint(&obs, line, Strike::Nearest, 4).strike.is_attack());
     }
 
@@ -553,9 +581,9 @@ mod tests {
         // bearing. A guard at 135 degrees is *clockwise* of that line, so the
         // cut has to land counter-clockwise, which is a Sunwise windup.
         let mut c = contact(3, 0);
-        c.shield_angle = Angle::from_degrees(135);
+        c.limb_angle = Angle::from_degrees(135);
         assert_eq!(open_side(&c), Strike::Sunwise);
-        c.shield_angle = Angle::from_degrees(-135);
+        c.limb_angle = Angle::from_degrees(-135);
         assert_eq!(open_side(&c), Strike::Widdershins);
     }
 }

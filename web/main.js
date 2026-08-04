@@ -35,21 +35,35 @@ const MAX_CATCHUP_TICKS = 8;
 // shield_angle_raw, shield_reach, weapon_length, shield_arc_raw, hit_flash,
 // block_flash, parry_flash, sword_swing, sword_swing_left, sword_line_raw].
 const HEADER_LEN = 7;
-const UNIT_STRIDE = 24;
+const UNIT_STRIDE = 27;
+
+/** Frame layout this file is written against. Checked at boot against
+ *  `frame_layout_version()`, and a mismatch stops the page rather than letting
+ *  it paint a health bar out of a guard arc. */
+const FRAME_LAYOUT_VERSION = 2;
 
 // `Swing::discriminant`, from crates/sim/src/hand.rs. Append-only.
 const SWING_GUARD = 0;
 const SWING_WINDUP = 1;
 const SWING_STRIKE = 2;
 const SWING_RECOVER = 3;
+const SWING_SWAP = 4;
 
-// `Strike`, from crates/sim/src/action.rs, as `set_input` takes it.
+// `Role::discriminant`, from crates/sim/src/action.rs. What the page draws from.
+const ROLE_STRIKE = 0;
+const ROLE_GUARD = 1;
+
+/** An empty loadout slot, matching `Loadout::EMPTY`. */
+const SLOT_EMPTY = 255;
+
+// `Strike`, from crates/sim/src/command.rs, as `set_input` takes it.
 const STRIKE_NONE = 0;
 const STRIKE_NEAREST = 1;
 
 // Bits accepted by `set_control`, from crates/web/src/lib.rs.
 const CONTROL_FEET = 1;
-const CONTROL_SWORD = 2;
+const CONTROL_LIMB = 2;
+const CONTROL_SLOT = 4;
 
 // `PolicyKind::code`, from crates/policy/src/lib.rs. Append-only.
 const POLICIES = [
@@ -76,10 +90,10 @@ const INTENT_FLEE = 2;
 // The first two are also what `swap_in_hero` accepts, and it accepts nothing
 // else: a hero built from a monster archetype is a character the HUD would
 // describe with the wrong stat block.
-const KIND_WARRIOR = 0;
-const KIND_SCOUT = 1;
-const KIND_BRUTE = 2;
-const KIND_SKITTERER = 3;
+const BODY_FIGHTER = 0;
+const BODY_ROGUE = 1;
+const BODY_BRUTE = 2;
+const BODY_SKITTERER = 3;
 
 /** How long a corpse lingers. Milliseconds of wall clock, not ticks: this is an
  *  animation and the sim has no opinion about it.
@@ -94,25 +108,78 @@ const CORPSE_MS = 520;
  *  is what makes this run the same run every time it is opened. */
 const SEED = 1;
 
-/**
- * Stats, and what each one does to the AI -- the claim this page exists to
- * make visible. Mirrored from `crates/sim/src/entity.rs` (`base_stats`) and
- * `crates/sim/src/rules.rs` (the derivations), and used for presentation only:
- * nothing here is fed back into the simulation, so the copy cannot desync
- * anything, it can only be out of date on screen.
- */
-const ARCHETYPES = [
-  // stats, then the weapon: reach beyond the body, top swing speed in raw angle
-  // units per tick, and shield arc half-width in degrees. Mirrored from
-  // `UnitKind::weapon` in crates/sim/src/entity.rs.
-  { name: "warrior", power: 6, agility: 6, intellect: 8, perception: 6, vitality: 8, reach: 0.95, spin: 2000, arc: 62 },
-  { name: "scout", power: 4, agility: 12, intellect: 10, perception: 14, vitality: 4, reach: 0.55, spin: 3000, arc: 45 },
-  { name: "brute", power: 12, agility: 2, intellect: 2, perception: 3, vitality: 14, reach: 1.45, spin: 950, arc: 23 },
-  { name: "skitterer", power: 3, agility: 9, intellect: 12, perception: 5, vitality: 2, reach: 0.40, spin: 2600, arc: 17 },
-];
-
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 
+/**
+ * The roster and the registry, read out of wasm at boot.
+ *
+ * **This replaced a hand-written mirror, and the mirror was wrong.** It claimed
+ * a Warrior swung at 2000 raw units against a derived 1880, a Brute at 950
+ * against 911, and it computed torque from a `REACH_DRAG` model that had been
+ * deleted from the sim. Its own comment said the copy "can only be out of date
+ * on screen", which was true and turned out to be the whole problem: a panel
+ * that explains the AI is worth nothing if it explains numbers the AI is not
+ * using.
+ *
+ * Filled by `loadRegistry`, which asks the boundary how many rows there are and
+ * reads each name straight out of linear memory -- the same ptr/len pattern the
+ * behaviour panel already used for gene labels.
+ */
+const BODIES = [];
+const ACTIONS = [];
+
+/** Reads a `ptr`/`len` pair of UTF-8 bytes out of wasm memory. */
+function readString(ptr, len) {
+  if (!ptr || !len) return "";
+  return decoder.decode(new Uint8Array(memory.buffer, ptr, len));
+}
+
+/** Pulls the body and action tables across the boundary. Called once, at boot,
+ *  after `init`. */
+function loadRegistry() {
+  BODIES.length = 0;
+  for (let code = 0; code < wasm.body_count(); code += 1) {
+    BODIES.push({
+      code,
+      name: readString(wasm.body_name_ptr(code), wasm.body_name_len(code)),
+      power: wasm.body_stat(code, 0),
+      agility: wasm.body_stat(code, 1),
+      intellect: wasm.body_stat(code, 2),
+      perception: wasm.body_stat(code, 3),
+      vitality: wasm.body_stat(code, 4),
+      radius: wasm.body_stat(code, 5) / 1000,
+      mass: wasm.body_stat(code, 6) / 1000,
+    });
+  }
+  ACTIONS.length = 0;
+  for (let i = 0; i < wasm.action_count(); i += 1) {
+    const code = wasm.action_code(i);
+    ACTIONS.push({
+      code,
+      name: readString(wasm.action_name_ptr(code), wasm.action_name_len(code)),
+      role: wasm.action_role(code),
+      ready: wasm.action_stat(code, 0),
+      windup: wasm.action_stat(code, 1),
+      recovery: wasm.action_stat(code, 2),
+      length: wasm.action_stat(code, 3) / 1000,
+      arc: wasm.action_stat(code, 4),
+    });
+  }
+}
+
+/** An action row by its code, or `null` for an empty slot. */
+function actionOf(code) {
+  return ACTIONS.find((a) => a.code === code) || null;
+}
+
+/** A display name for an action code, including the empty slot. */
+function actionName(code) {
+  const action = actionOf(code);
+  return action ? action.name : "empty";
+}
+
+/** What a body's stats work out to. Derived here for the panel only -- nothing
+ *  computed in this file is ever fed back across the boundary. */
 function derived(a) {
   return {
     // "20 - intellect, floored at 1" -- ticks between decisions.
@@ -122,34 +189,21 @@ function derived(a) {
     sight: (60 + 6 * a.perception) / 10,
     noise: clamp(15 - a.perception, 0, 15) / 10,
     maxHp: 20 + 8 * a.vitality,
-    // Agility drives the hands as well as the feet: "clamp(0.70 + 0.04 *
-    // agility, 0.55, 2.00)" scales torque, top spin and extension alike. The
-    // half-turn time is what a swing actually costs, which is the number that
-    // decides whether an opponent can answer it.
-    swing: halfTurnTicks(a),
     // Damage is impact speed now, not a constant, so what power buys is a
     // multiplier on however hard you happened to be swinging:
     // "clamp(0.55 + 0.075 * power, 0.55, 3.0)".
     powerMultiplier: clamp(0.55 + 0.075 * a.power, 0.55, 3.0),
+    // Agility scales every phase clock alike: "clamp(0.70 + 0.04 * agility,
+    // 0.55, 2.00)". What that costs an opponent is measured in ticks of
+    // telegraph, so the panel quotes phases per action rather than a spin.
+    cadence: clamp(0.7 + 0.04 * a.agility, 0.55, 2.0),
   };
 }
 
-/** Ticks to bring a blade half a turn, bang-bang: ramp to the ceiling, coast,
- *  brake. Mirrors `Hand::drive`, and like the rest of `derived` it is for the
- *  panel only -- nothing computed here goes back across the boundary. */
-function halfTurnTicks(a) {
-  const mult = clamp(0.7 + 0.04 * a.agility, 0.55, 2.0);
-  // Torque is quoted at a tucked hand; a committed blade turns at 55% of it.
-  const torque = archetypeTorque(a.name) * mult * 0.55;
-  const ceiling = a.spin * mult;
-  const half = 32768;
-  const rampUnits = (ceiling * ceiling) / (2 * torque);
-  if (2 * rampUnits >= half) return Math.round(2 * Math.sqrt(half / (2 * torque)));
-  return Math.round((2 * ceiling) / torque + (half - 2 * rampUnits) / ceiling);
-}
-
-function archetypeTorque(name) {
-  return { warrior: 190, scout: 400, brute: 48, skitterer: 330 }[name] || 190;
+/** Ticks a phase of `base` length takes on a body with this cadence. Mirrors
+ *  `rules::phase_ticks`, for the panel only. */
+function phaseTicks(base, cadence) {
+  return base === 0 ? 0 : Math.max(1, Math.round(base / cadence));
 }
 
 // --------------------------------------------------------------- the module
@@ -190,6 +244,22 @@ const EXPORTS = [
   "set_control",
   "control",
   "set_input",
+  "frame_layout_version",
+  "unit_stride",
+  "header_len",
+  "action_count",
+  "action_code",
+  "action_name_ptr",
+  "action_name_len",
+  "action_role",
+  "action_stat",
+  "body_count",
+  "body_name_ptr",
+  "body_name_len",
+  "body_stat",
+  "hero_loadout",
+  "hero_slot",
+  "set_hero_loadout",
 ];
 
 /**
@@ -291,26 +361,33 @@ function readUnit(f, u) {
     // a dead unit's slot is handed to the next spawn: the index alone would
     // read as the same creature getting up again. See the crate docs.
     id: `${f[u + 9]}:${f[u + 10]}`,
-    // The hands. Bearings arrive as binary angles like `facing`, for the same
-    // reason: no trigonometry crosses the boundary.
-    swordAngle: (f[u + 11] / 65536) * TAU,
-    swordReach: f[u + 12],
-    swordSpin: f[u + 13],
-    shieldAngle: (f[u + 14] / 65536) * TAU,
-    shieldReach: f[u + 15],
-    weaponLength: f[u + 16],
-    shieldArc: (f[u + 17] / 65536) * TAU,
+    // The limb -- one, now. Bearings arrive as binary angles like `facing`, for
+    // the same reason: no trigonometry crosses the boundary.
+    limbAngle: (f[u + 11] / 65536) * TAU,
+    limbReach: f[u + 12],
+    limbSpin: f[u + 13],
+    actionLength: f[u + 14],
+    actionArc: (f[u + 15] / 65536) * TAU,
     // Already-decayed 0..1 markers, computed by the sim from its own events.
-    hitFlash: f[u + 18],
-    blockFlash: f[u + 19],
-    parryFlash: f[u + 20],
-    // The attack. `swordLine` is where the cut is aimed, which during a windup
+    hitFlash: f[u + 16],
+    blockFlash: f[u + 17],
+    parryFlash: f[u + 18],
+    // The attack. `limbLine` is where the cut is aimed, which during a windup
     // is a long way from where the blade is pointing -- the gap between the two
     // is the tell, and drawing it is the only reason the player can learn to
     // read one.
-    swing: f[u + 21],
-    swingLeft: f[u + 22],
-    swordLine: (f[u + 23] / 65536) * TAU,
+    swing: f[u + 19],
+    swingLeft: f[u + 20],
+    limbLine: (f[u + 21] / 65536) * TAU,
+    // What is in the hand and what else is in the bag. `role` is what decides
+    // whether this gets drawn as a blade or as an arc -- the page does not
+    // infer that from the numbers, because "a short thing with a wide arc" and
+    // "a guard" are the same numbers and very different pictures.
+    action: f[u + 22],
+    role: f[u + 23],
+    slot: f[u + 24],
+    slot0: f[u + 25],
+    slot1: f[u + 26],
   };
 }
 
@@ -367,6 +444,15 @@ const el = {
   simTick: document.getElementById("sim-tick"),
   simPosition: document.getElementById("sim-position"),
   simHash: document.getElementById("sim-hash"),
+  // The loadout panel, the spawn panel and the two slot chips.
+  loadout0: document.getElementById("loadout-0"),
+  loadout1: document.getElementById("loadout-1"),
+  loadoutReadout: document.getElementById("loadout-readout"),
+  spawnBody: document.getElementById("spawn-body"),
+  spawnPrimary: document.getElementById("spawn-primary"),
+  spawnSecondary: document.getElementById("spawn-secondary"),
+  slot0Name: document.getElementById("slot-0-name"),
+  slot1Name: document.getElementById("slot-1-name"),
 };
 
 const drawer = document.getElementById("drawer");
@@ -660,9 +746,9 @@ function freeWill() {
  * here would be a float entering simulation state, and the same page would then
  * produce a different fight on every machine.
  */
-function spawnMonster(kindCode) {
-  const name = ARCHETYPES[kindCode].name;
-  const standing = wasm.spawn_monster(kindCode);
+function spawnMonster(kindCode, primary = SLOT_EMPTY, secondary = SLOT_EMPTY) {
+  const name = BODIES[kindCode].name;
+  const standing = wasm.spawn_monster(kindCode, primary, secondary);
   if (!standing) {
     hint("The room is full. Nothing else fits.", true);
     return;
@@ -685,8 +771,8 @@ function spawnMonster(kindCode) {
  * two heroes would share one click -- which is why the buttons this calls are
  * not on the page until yours has fallen.
  */
-function swapInHero(kindCode) {
-  if (!wasm.swap_in_hero(kindCode)) {
+function swapInHero(kindCode, primary = SLOT_EMPTY, secondary = SLOT_EMPTY) {
+  if (!wasm.swap_in_hero(kindCode, primary, secondary)) {
     hint("There is already a character in the room.", true);
     return;
   }
@@ -705,7 +791,7 @@ function swapInHero(kindCode) {
   // The replacement drops in at the clearest spot on the floor, which can be
   // right across the room from where the last one fell. Cut to it.
   snapCamera(parseFrame(readFrame()));
-  hint(`A ${ARCHETYPES[kindCode].name} takes over. The monsters are where you left them.`, true);
+  hint(`A ${BODIES[kindCode].name} takes over. The monsters are where you left them.`, true);
 }
 
 function restart() {
@@ -723,7 +809,6 @@ function restart() {
   // and nothing under manual control. The page has to agree, or its dropdowns
   // and toggles describe a module that no longer exists.
   held.clear();
-  shieldModifier = false;
   controlMask = 0;
   updateControlButtons();
   syncBehaviourPanel();
@@ -756,8 +841,13 @@ const held = new Set();
 /** Where the pointer last was, in world units, for the sword. */
 let pointer = { x: 0, y: 0, inside: false };
 
-/** While held, the pointer steers the shield hand instead of the sword. */
-let shieldModifier = false;
+/** Which loadout slot the player is asking for, `0` or `1`.
+ *
+ *  A *request*, on exactly the same terms a policy's is: the sim honours it only
+ *  when the limb is at guard and the slot is filled. The page shows what the sim
+ *  actually did rather than what was asked for, which is why the chip reads off
+ *  the frame and not off this. */
+let wantSlot = 0;
 
 /** Whether the attack button is down.
  *
@@ -772,8 +862,11 @@ let shieldModifier = false;
 let striking = false;
 
 function setControl(mask) {
-  controlMask = mask & (CONTROL_FEET | CONTROL_SWORD);
-  wasm.set_control(controlMask);
+  wasm.set_control(mask & (CONTROL_FEET | CONTROL_LIMB | CONTROL_SLOT));
+  // Read it back rather than storing what was asked for: the module normalises
+  // the mask (taking the attack implies taking the choice), and a page that
+  // believed its own request would light the wrong chip.
+  controlMask = wasm.control();
   if (controlMask & CONTROL_FEET) intent = "manual";
   updateControlButtons();
   hint(controlDescription());
@@ -781,18 +874,20 @@ function setControl(mask) {
 
 function controlDescription() {
   const feet = controlMask & CONTROL_FEET;
-  const sword = controlMask & CONTROL_SWORD;
-  if (feet && sword) return "You have the feet and the sword. WASD to move, mouse to aim, click to cut, hold Shift to steer the shield.";
+  const limb = controlMask & CONTROL_LIMB;
+  const slot = controlMask & CONTROL_SLOT;
+  if (feet && limb) return "You have the feet and the attack. WASD to move, mouse to aim, click to cut, 1 and 2 to change what is in your hand.";
   if (feet) return "You have the feet. WASD to move; the character fights for itself.";
-  if (sword) return "You have the sword. Aim with the mouse and click to cut -- one click, one attack. Hold Shift to steer the shield instead.";
+  if (limb) return "You have the attack. Aim with the mouse and click to cut -- one click, one attack. 1 and 2 change what you are holding.";
+  if (slot) return "You choose what to hold with 1 and 2; the character decides when to use it.";
   return DEFAULT_HINT;
 }
 
 function updateControlButtons() {
   const feet = document.getElementById("btn-control-feet");
-  const sword = document.getElementById("btn-control-sword");
   if (feet) feet.setAttribute("aria-pressed", String(!!(controlMask & CONTROL_FEET)));
-  if (sword) sword.setAttribute("aria-pressed", String(!!(controlMask & CONTROL_SWORD)));
+  setPressed("btn-control-limb", controlMask & CONTROL_LIMB);
+  setPressed("btn-control-slot", controlMask & CONTROL_SLOT);
 }
 
 /**
@@ -828,7 +923,7 @@ function pushInput(state) {
     const dx = pointer.x - state.hero.x;
     const dy = pointer.y - state.hero.y;
     aim = Math.round((Math.atan2(dy, dx) / TAU) * 65536) & 0xffff;
-    const full = state.hero.radius + state.hero.weaponLength;
+    const full = state.hero.radius + state.hero.actionLength;
     reach = clamp(Math.hypot(dx, dy) / Math.max(full, 0.001), 0, 1);
   }
 
@@ -837,12 +932,12 @@ function pushInput(state) {
     milliSigned(my),
     aim,
     Math.round(clamp(reach, 0, 1) * 1000),
-    shieldModifier ? 1 : 0,
+    wantSlot,
     // The side is left to the sim. Picking it is a real decision -- a cut from
     // the flank a guard is not on is much harder to answer -- but it is a
     // decision that wants its own control, and one the page does not have a
     // spare button for yet.
-    striking && !shieldModifier ? STRIKE_NEAREST : STRIKE_NONE
+    striking ? STRIKE_NEAREST : STRIKE_NONE
   );
 }
 
@@ -861,7 +956,7 @@ function bindInput() {
       // Under manual sword control a click is a *cut*, not an order: the
       // pointer is already saying where every tick, and a `Goto` on top of it
       // would fight the feet the player may also be holding.
-      if (controlMask & CONTROL_SWORD) striking = true;
+      if (controlMask & CONTROL_LIMB) striking = true;
       else goTo(pointerToWorld(event), state);
     }
   });
@@ -905,12 +1000,10 @@ function bindInput() {
 
   window.addEventListener("keyup", (event) => {
     held.delete(event.key.toLowerCase());
-    if (event.key === "Shift") shieldModifier = false;
   });
   window.addEventListener("blur", () => {
     held.clear();
-    shieldModifier = false;
-  });
+    });
 
   window.addEventListener("keydown", (event) => {
     if (dead || event.metaKey || event.ctrlKey || event.altKey) return;
@@ -934,7 +1027,6 @@ function bindInput() {
       return;
     }
 
-    if (event.key === "Shift") shieldModifier = true;
     // WASD is only movement while the player holds the feet; otherwise "s" is
     // still the spawn key it has always been.
     if (controlMask & CONTROL_FEET && "wasd".includes(key)) {
@@ -955,14 +1047,19 @@ function bindInput() {
     } else if (key === "c") {
       if (!event.repeat) setControl(controlMask ^ CONTROL_FEET);
     } else if (key === "v") {
-      if (!event.repeat) setControl(controlMask ^ CONTROL_SWORD);
+      if (!event.repeat) setControl(controlMask ^ CONTROL_LIMB);
     } else if (key === "s" || key === "b") {
       // The repeat guard is load-bearing rather than polite: held down, the
       // operating system's autorepeat would empty the frame's 64-row budget
       // into the room in about two seconds.
-      if (!event.repeat) spawnMonster(key === "s" ? KIND_SKITTERER : KIND_BRUTE);
+      if (!event.repeat) spawnMonster(key === "s" ? BODY_SKITTERER : BODY_BRUTE);
     } else if (key === "1" || key === "2") {
-      if (!event.repeat) swapInHero(key === "1" ? KIND_WARRIOR : KIND_SCOUT);
+      // 1 and 2 now choose what is in the hand rather than which body walks in.
+      // Changing bodies moved to the spawn panel, where it belongs beside the
+      // kit -- a body without a loadout is only half a character now.
+      if (!event.repeat) selectSlot(key === "1" ? 0 : 1);
+    } else if (key === "x") {
+      if (!event.repeat) setControl(controlMask ^ CONTROL_SLOT);
     }
   });
 
@@ -975,24 +1072,28 @@ function bindInput() {
     if (!dead) freeWill();
   });
   document.getElementById("btn-spawn-skitterer").addEventListener("click", () => {
-    if (!dead) spawnMonster(KIND_SKITTERER);
+    if (!dead) spawnMonster(BODY_SKITTERER);
   });
   document.getElementById("btn-spawn-brute").addEventListener("click", () => {
-    if (!dead) spawnMonster(KIND_BRUTE);
+    if (!dead) spawnMonster(BODY_BRUTE);
   });
-  document.getElementById("btn-swap-warrior").addEventListener("click", () => {
-    if (!dead) swapInHero(KIND_WARRIOR);
+  document.getElementById("btn-swap-fighter").addEventListener("click", () => {
+    if (!dead) swapInHero(BODY_FIGHTER);
   });
-  document.getElementById("btn-swap-scout").addEventListener("click", () => {
-    if (!dead) swapInHero(KIND_SCOUT);
+  document.getElementById("btn-swap-rogue").addEventListener("click", () => {
+    if (!dead) swapInHero(BODY_ROGUE);
   });
   document.getElementById("btn-control-feet").addEventListener("click", () => {
     if (!dead) setControl(controlMask ^ CONTROL_FEET);
   });
-  document.getElementById("btn-control-sword").addEventListener("click", () => {
-    if (!dead) setControl(controlMask ^ CONTROL_SWORD);
+  document.getElementById("btn-control-limb").addEventListener("click", () => {
+    if (!dead) setControl(controlMask ^ CONTROL_LIMB);
+  });
+  document.getElementById("btn-control-slot").addEventListener("click", () => {
+    if (!dead) setControl(controlMask ^ CONTROL_SLOT);
   });
 
+  bindLoadout();
   bindBehaviour();
 }
 
@@ -1010,6 +1111,161 @@ function labelOf(side, index) {
   const len = wasm.policy_label_len(side, index);
   if (!ptr || !len) return "";
   return decoder.decode(new Uint8Array(memory.buffer, ptr, len));
+}
+
+// ------------------------------------------------------- loadout and spawn
+
+/** Fills a `<select>` with the playable actions. `allowEmpty` adds the "none"
+ *  row, which is how a fighter is given one thing and no way to change its
+ *  mind. */
+function fillActionSelect(select, allowEmpty) {
+  select.replaceChildren();
+  if (allowEmpty) {
+    const none = document.createElement("option");
+    none.value = String(SLOT_EMPTY);
+    none.textContent = "— none —";
+    select.append(none);
+  }
+  for (const action of ACTIONS) {
+    const option = document.createElement("option");
+    option.value = String(action.code);
+    option.textContent = action.name;
+    select.append(option);
+  }
+}
+
+/** Fills a `<select>` with the bodies. */
+function fillBodySelect(select) {
+  select.replaceChildren();
+  for (const body of BODIES) {
+    const option = document.createElement("option");
+    option.value = String(body.code);
+    option.textContent = body.name;
+    select.append(option);
+  }
+}
+
+/** Builds every menu on the page out of the registry. Called once, after the
+ *  tables have been read across. */
+function buildLoadoutPanels() {
+  fillActionSelect(el.loadout0, false);
+  fillActionSelect(el.loadout1, true);
+  fillActionSelect(el.spawnPrimary, false);
+  fillActionSelect(el.spawnSecondary, true);
+  fillBodySelect(el.spawnBody);
+  el.spawnBody.value = String(BODY_SKITTERER);
+  el.spawnPrimary.value = String(ACTIONS[0] ? ACTIONS[0].code : 0);
+  el.spawnSecondary.value = String(SLOT_EMPTY);
+  syncSpawnDefaults();
+}
+
+/** Points the spawn kit at whatever the chosen body would walk in with.
+ *
+ *  A default rather than a lock: the interesting pairings are the ones this
+ *  does not suggest, and the selects stay editable. It runs on a body change
+ *  only, so a kit the player has deliberately chosen is never overwritten by
+ *  anything except choosing a different body. */
+function syncSpawnDefaults() {
+  // There is no export for a body's default loadout -- spawning with
+  // `SLOT_EMPTY` asks the module for it, which is one fewer thing to mirror.
+  el.spawnPrimary.dataset.followBody = "1";
+}
+
+/** Reads what the spawn panel is currently asking for. */
+function spawnRequest() {
+  const body = Number(el.spawnBody.value) | 0;
+  if (el.spawnPrimary.dataset.followBody === "1") {
+    // Untouched since the body changed: let the module pick the body's own kit.
+    return [body, SLOT_EMPTY, SLOT_EMPTY];
+  }
+  return [body, Number(el.spawnPrimary.value) | 0, Number(el.spawnSecondary.value) | 0];
+}
+
+/** Mirrors the hero's real loadout into the panel and the two chips.
+ *
+ *  Reads the **frame**, not what was last clicked. The sim refuses a swap
+ *  mid-cut and refuses an edit to the slot in hand, so the only honest source
+ *  for "what is this character holding" is what came back. */
+function syncLoadout(state) {
+  const hero = state.hero;
+  const slot0 = hero ? hero.slot0 : SLOT_EMPTY;
+  const slot1 = hero ? hero.slot1 : SLOT_EMPTY;
+
+  if (document.activeElement !== el.loadout0) el.loadout0.value = String(slot0);
+  if (document.activeElement !== el.loadout1) el.loadout1.value = String(slot1);
+  el.loadout0.disabled = !hero;
+  el.loadout1.disabled = !hero;
+
+  el.slot0Name.textContent = actionName(slot0);
+  el.slot1Name.textContent = actionName(slot1);
+  const held = hero ? hero.slot : 0;
+  setPressed("btn-slot-0", held === 0);
+  setPressed("btn-slot-1", held === 1);
+  const btn1 = document.getElementById("btn-slot-1");
+  if (btn1) btn1.disabled = slot1 === SLOT_EMPTY;
+
+  const rows = [];
+  if (hero) {
+    const action = actionOf(hero.action);
+    rows.push(["in hand", action ? action.name : "nothing"]);
+    rows.push([
+      "phase",
+      hero.swing === SWING_SWAP
+        ? `changing — ${hero.swingLeft} ticks`
+        : ["guard", "windup", "strike", "recover", "swap"][hero.swing] || "—",
+    ]);
+    const stowed = held === 0 ? slot1 : slot0;
+    rows.push(["stowed", actionName(stowed)]);
+  }
+  el.loadoutReadout.replaceChildren();
+  for (const [name, value] of rows) {
+    const dt = document.createElement("dt");
+    dt.textContent = name;
+    const dd = document.createElement("dd");
+    dd.textContent = value;
+    el.loadoutReadout.append(dt, dd);
+  }
+}
+
+function setPressed(id, on) {
+  const node = document.getElementById(id);
+  if (node) node.setAttribute("aria-pressed", String(!!on));
+}
+
+/** Asks for a loadout slot to be in hand. A request, not a fact -- see
+ *  `wantSlot`. */
+function selectSlot(slot) {
+  wantSlot = slot;
+  if (!(controlMask & CONTROL_SLOT)) {
+    hint("Take the Action control first, or the character chooses for itself.", true);
+  }
+}
+
+function bindLoadout() {
+  el.loadout0.addEventListener("change", () => {
+    if (!wasm.set_hero_loadout(0, Number(el.loadout0.value) | 0)) {
+      hint("Not while that one is in the hand and moving.", true);
+    }
+  });
+  el.loadout1.addEventListener("change", () => {
+    if (!wasm.set_hero_loadout(1, Number(el.loadout1.value) | 0)) {
+      hint("Not while that one is in the hand and moving.", true);
+    }
+  });
+  el.spawnBody.addEventListener("change", syncSpawnDefaults);
+  for (const select of [el.spawnPrimary, el.spawnSecondary]) {
+    select.addEventListener("change", () => {
+      el.spawnPrimary.dataset.followBody = "0";
+    });
+  }
+  const spawn = document.getElementById("btn-spawn");
+  if (spawn) spawn.addEventListener("click", () => spawnMonster(...spawnRequest()));
+  const swapIn = document.getElementById("btn-swap-in");
+  if (swapIn) swapIn.addEventListener("click", () => swapInHero(...spawnRequest()));
+  const slot0 = document.getElementById("btn-slot-0");
+  if (slot0) slot0.addEventListener("click", () => selectSlot(0));
+  const slot1 = document.getElementById("btn-slot-1");
+  if (slot1) slot1.addEventListener("click", () => selectSlot(1));
 }
 
 function buildSliders(side) {
@@ -1287,7 +1543,7 @@ function drawReach(unit, skin, now) {
   ctx.lineWidth = 1.2;
   ctx.setLineDash([3, 5]);
   ctx.beginPath();
-  ctx.arc(px(unit.x), px(unit.y), px(unit.radius + unit.weaponLength), 0, TAU);
+  ctx.arc(px(unit.x), px(unit.y), px(unit.radius + unit.actionLength), 0, TAU);
   ctx.stroke();
   ctx.restore();
 }
@@ -1307,10 +1563,14 @@ const SWING_SKIN = {
   [SWING_WINDUP]: { line: "rgba(255,196,92,0.95)", width: 0.24 },
   [SWING_STRIKE]: { line: "rgba(255,255,255,1)", width: 0.30 },
   [SWING_RECOVER]: { line: "rgba(150,160,180,0.40)", width: 0.14 },
+  // Mid-swap: nothing is in the hand and nothing is drawn, but the stub that
+  // is left has to look inert rather than merely dim, because a fighter
+  // changing its mind is the most punishable it ever gets.
+  [SWING_SWAP]: { line: "rgba(120,128,145,0.25)", width: 0.10 },
 };
 
 /**
- * The swordplay: a blade on one side, a guard on the other.
+ * The swordplay: **one limb**, drawn as whatever is in it.
  *
  * This is the whole point of drawing anything. Damage is geometric -- it is
  * decided by where this segment is and how fast it is moving -- so a page that
@@ -1324,7 +1584,7 @@ const SWING_SKIN = {
  * cocked away from that line, so a player who watches the blade covers the one
  * bearing the cut cannot arrive from.
  */
-function drawHands(unit, skin) {
+function drawLimb(unit, skin) {
   const x = px(unit.x);
   const y = px(unit.y);
   const r = px(unit.radius);
@@ -1332,35 +1592,36 @@ function drawHands(unit, skin) {
   ctx.save();
   ctx.translate(x, y);
 
-  // The shield, as the wedge of body it is covering. A tucked shield covers
-  // nothing and is drawn as nothing, which is honest: `blocks` scales the arc
-  // by extension, so a hand held in really does guard less.
-  if (unit.shieldReach > 0.2) {
-    const half = (unit.shieldArc * unit.shieldReach) / 2;
-    ctx.rotate(unit.shieldAngle);
-    ctx.fillStyle = `rgba(${skin.wedge},${(0.13 + 0.17 * unit.shieldReach).toFixed(3)})`;
+  // A guard, as the wedge of body it is covering -- and **only** if what is in
+  // hand actually guards. A tucked one covers nothing and is drawn as nothing,
+  // which is honest: `block_leak` scales the arc by extension, so a hand held
+  // in really does cover less.
+  if (unit.role === ROLE_GUARD && unit.limbReach > 0.2 && unit.swing !== SWING_SWAP) {
+    const half = (unit.actionArc * unit.limbReach) / 2;
+    ctx.rotate(unit.limbAngle);
+    ctx.fillStyle = `rgba(${skin.wedge},${(0.13 + 0.17 * unit.limbReach).toFixed(3)})`;
     ctx.beginPath();
     ctx.moveTo(0, 0);
     ctx.arc(0, 0, r * 1.55, -half, half);
     ctx.closePath();
     ctx.fill();
-    ctx.strokeStyle = `rgba(${skin.wedge},${(0.45 * unit.shieldReach).toFixed(3)})`;
+    ctx.strokeStyle = `rgba(${skin.wedge},${(0.45 * unit.limbReach).toFixed(3)})`;
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.arc(0, 0, r * 1.55, -half, half);
     ctx.stroke();
-    ctx.rotate(-unit.shieldAngle);
+    ctx.rotate(-unit.limbAngle);
   }
 
   // The declared line, drawn only while a cut is actually declared. This is the
   // telegraph made visible: an arrow along the bearing the blade is about to
   // sweep through, fading in as the windup runs out so "soon" and "now" look
   // different.
-  if (unit.swing === SWING_WINDUP || unit.swing === SWING_STRIKE) {
+  if (unit.role === ROLE_STRIKE && (unit.swing === SWING_WINDUP || unit.swing === SWING_STRIKE)) {
     const imminent =
       unit.swing === SWING_STRIKE ? 1 : clamp(1 - unit.swingLeft / 30, 0.15, 1);
-    const out = px(unit.radius + unit.weaponLength);
-    ctx.rotate(unit.swordLine);
+    const out = px(unit.radius + unit.actionLength);
+    ctx.rotate(unit.limbLine);
     ctx.strokeStyle = `rgba(255,176,64,${(0.20 + 0.45 * imminent).toFixed(3)})`;
     ctx.lineWidth = Math.max(1, r * 0.12);
     ctx.setLineDash([Math.max(3, r * 0.3), Math.max(3, r * 0.35)]);
@@ -1369,24 +1630,28 @@ function drawHands(unit, skin) {
     ctx.lineTo(out, 0);
     ctx.stroke();
     ctx.setLineDash([]);
-    ctx.rotate(-unit.swordLine);
+    ctx.rotate(-unit.limbLine);
   }
 
   // The blade. Hilt at the body's surface, tip at `radius + length * reach`,
   // which is precisely the segment `World::blade` builds and tests against.
-  if (unit.swordReach > 0.05) {
+  //
+  // Gated on the role, so a guard is never drawn as a stick. That is not
+  // cosmetic: the sim refuses a guard a blade hitbox, and a page that drew one
+  // anyway would be teaching the player a threat that cannot exist.
+  if (unit.role === ROLE_STRIKE && unit.limbReach > 0.05 && unit.swing !== SWING_SWAP) {
     const phase = SWING_SKIN[unit.swing] || SWING_SKIN[SWING_GUARD];
-    const heat = clamp(Math.abs(unit.swordSpin) / HOT_SPIN, 0, 1);
+    const heat = clamp(Math.abs(unit.limbSpin) / HOT_SPIN, 0, 1);
     const hilt = r;
-    const tip = px(unit.radius + unit.weaponLength * unit.swordReach);
-    ctx.rotate(unit.swordAngle);
+    const tip = px(unit.radius + unit.actionLength * unit.limbReach);
+    ctx.rotate(unit.limbAngle);
     ctx.lineCap = "round";
     // A trailing smear opposite the swing, so which way it is travelling is
     // readable at a glance. Only on a live cut: a blade drifting back to guard
     // trails nothing worth watching, and smearing it would make a recovery --
     // the most punishable moment in the game -- look like a threat.
     if (unit.swing === SWING_STRIKE && heat > 0.05) {
-      const sweep = Math.sign(unit.swordSpin) * -heat * 0.55;
+      const sweep = Math.sign(unit.limbSpin) * -heat * 0.55;
       ctx.strokeStyle = `rgba(255,255,255,${(0.16 * heat).toFixed(3)})`;
       ctx.lineWidth = Math.max(2, r * 0.5);
       ctx.beginPath();
@@ -1399,7 +1664,7 @@ function drawHands(unit, skin) {
     ctx.moveTo(hilt, 0);
     ctx.lineTo(tip, 0);
     ctx.stroke();
-    ctx.rotate(-unit.swordAngle);
+    ctx.rotate(-unit.limbAngle);
   }
   ctx.restore();
 }
@@ -1419,8 +1684,8 @@ function drawMarks(unit) {
     ctx.strokeStyle = `rgba(180,220,255,${(0.85 * unit.blockFlash).toFixed(3)})`;
     ctx.lineWidth = 2.5;
     ctx.translate(x, y);
-    ctx.rotate(unit.shieldAngle);
-    const half = Math.max(0.35, (unit.shieldArc * unit.shieldReach) / 2);
+    ctx.rotate(unit.limbAngle);
+    const half = Math.max(0.35, (unit.actionArc * unit.limbReach) / 2);
     ctx.beginPath();
     ctx.arc(0, 0, r * 1.7 + 4 * (1 - unit.blockFlash), -half, half);
     ctx.stroke();
@@ -1432,8 +1697,8 @@ function drawMarks(unit) {
     ctx.strokeStyle = `rgba(255,235,150,${(0.9 * unit.parryFlash).toFixed(3)})`;
     ctx.lineWidth = 2;
     ctx.translate(x, y);
-    ctx.rotate(unit.swordAngle);
-    const at = px(unit.radius + unit.weaponLength * unit.swordReach);
+    ctx.rotate(unit.limbAngle);
+    const at = px(unit.radius + unit.actionLength * unit.limbReach);
     const spark = 3 + 7 * (1 - unit.parryFlash);
     for (const angle of [-0.8, -0.25, 0.25, 0.8]) {
       ctx.beginPath();
@@ -1498,7 +1763,7 @@ function drawUnit(unit, now) {
   ctx.stroke();
   ctx.restore();
 
-  drawHands(unit, skin);
+  drawLimb(unit, skin);
   drawMarks(unit);
 }
 
@@ -1575,16 +1840,34 @@ function render(state, now, arrived) {
 
 // ---------------------------------------------------------------------- hud
 
-function fillStats(kind) {
-  const a = ARCHETYPES[kind] || ARCHETYPES[0];
+function fillStats(kind, held) {
+  const a = BODIES[kind] || BODIES[0];
+  if (!a) return;
   const d = derived(a);
+  const action = actionOf(held);
+  // What the thing in hand costs *on this body*. The registry quotes phases at
+  // cadence 1 and every body scales them, which is the whole skill gradient --
+  // the same club is a 26-tick announcement on paper and 33 on a Brute.
+  const kit = action
+    ? action.role === ROLE_GUARD
+      ? [
+          "holding",
+          action.name,
+          `guards ±${Math.round((action.arc / 65536) * 360)}° · ${phaseTicks(action.ready, d.cadence)} ticks to draw`,
+        ]
+      : [
+          "holding",
+          action.name,
+          `reaches ${action.length.toFixed(2)} · announces for ${phaseTicks(action.windup, d.cadence)} ticks · ${phaseTicks(action.ready, d.cadence)} to draw`,
+        ]
+    : ["holding", "nothing", "—"];
   const rows = [
     ["intellect", a.intellect, `thinks every ${d.decisionPeriod} ticks (${(d.decisionPeriod / TICKS_PER_SECOND).toFixed(2)} s)`],
-    ["agility", a.agility, `${(d.moveSpeed * TICKS_PER_SECOND).toFixed(2)} units/s · half a turn in ${d.swing} ticks`],
+    ["agility", a.agility, `${(d.moveSpeed * TICKS_PER_SECOND).toFixed(2)} units/s · ×${d.cadence.toFixed(2)} on every phase clock`],
     ["perception", a.perception, `sees ${d.sight.toFixed(1)} units, ±${d.noise.toFixed(1)} error at range`],
     ["power", a.power, `×${d.powerMultiplier.toFixed(2)} on impact speed`],
     ["vitality", a.vitality, `${d.maxHp} health`],
-    ["weapon", `${a.reach.toFixed(2)}`, `reach past the body · guards ±${a.arc}°`],
+    kit,
   ];
   el.stats.replaceChildren();
   for (const [name, value, effect] of rows) {
@@ -1630,6 +1913,7 @@ function updateBattle(state) {
 
 function updateHud(state, stats, distance, arrived, settled) {
   const hero = state.hero;
+  syncLoadout(state);
   setText(el.simTick, String(wasm.tick()));
   setText(el.simHash, hex64(wasm.state_hash_hi(), wasm.state_hash_lo()));
   setText(el.simPosition, hero ? `${hero.x.toFixed(2)}, ${hero.y.toFixed(2)}` : "—");
@@ -1696,7 +1980,8 @@ let accumulator = 0;
 let lastFrameTime = 0;
 
 let statsCacheKind = -1;
-let statsCache = derived(ARCHETYPES[0]);
+let statsCacheHeld = -1;
+let statsCache = null;
 
 /** The stat panel only changes when the archetype does, so it is built once
  *  rather than sixty times a second. */
@@ -1705,11 +1990,15 @@ function fillStatsIfChanged(state) {
   // snapping back to the default: there is no new character to describe, and
   // the loop still reads `decisionPeriod` and `moveSpeed` off the cache.
   const kind = state.hero ? state.hero.kind : Math.max(statsCacheKind, 0);
-  if (kind !== statsCacheKind) {
+  // The held action is part of the key now: swapping to a shield changes what
+  // the panel has to say about the character without changing the character.
+  const held = state.hero ? state.hero.action : statsCacheHeld;
+  if (kind !== statsCacheKind || held !== statsCacheHeld) {
     statsCacheKind = kind;
-    statsCache = fillStats(kind);
+    statsCacheHeld = held;
+    statsCache = fillStats(kind, held);
   }
-  return statsCache;
+  return statsCache || derived(BODIES[0] || { intellect: 8, agility: 6, perception: 6, power: 6, vitality: 8 });
 }
 
 /**
@@ -1894,7 +2183,31 @@ async function boot() {
     return;
   }
 
+  // The layout handshake, before anything reads a frame. A stride mismatch
+  // paints a health bar out of a guard arc and looks like a rendering bug for
+  // an hour, so it stops the page instead. This is what replaced the
+  // append-only rule the frame used to be governed by: the rule forbade the
+  // edit, and this makes the edit safe.
+  const version = wasm.frame_layout_version();
+  if (
+    version !== FRAME_LAYOUT_VERSION ||
+    wasm.unit_stride() !== UNIT_STRIDE ||
+    wasm.header_len() !== HEADER_LEN
+  ) {
+    die(
+      "the page and the module disagree about the frame",
+      `main.js is written against layout ${FRAME_LAYOUT_VERSION} (${HEADER_LEN} + ${UNIT_STRIDE}); web.wasm reports ${version} (${wasm.header_len()} + ${wasm.unit_stride()}). Rebuild the wasm.`
+    );
+    return;
+  }
+
   wasm.init(SEED);
+
+  // The roster and the registry, read across once. Every table this file used
+  // to keep by hand now comes from here -- see `loadRegistry` for what the old
+  // mirror had drifted into claiming.
+  loadRegistry();
+  buildLoadoutPanels();
 
   // The project's central claim as one number: this is what
   // `cargo run --release -p lab -- hash` prints natively, computed here by the

@@ -95,11 +95,11 @@ pub fn run(
         due.clear();
         due.extend_from_slice(world.pending_decisions());
         for &id in &due {
-            let action = policy.decide(&world.observe(id));
+            let command = policy.decide(&world.observe(id));
             if let Some(replay) = replay.as_mut() {
-                replay.record(world.tick(), id, action);
+                replay.record(world.tick(), id, command);
             }
-            world.submit(id, action);
+            world.submit(id, command);
             decisions += 1;
         }
         for event in world.step() {
