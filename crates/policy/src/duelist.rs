@@ -1387,6 +1387,100 @@ mod tests {
         }
     }
 
+    /// Puts `held` in the observer's hand, with a sword in the other slot.
+    ///
+    /// `action_length` and `action_arc` move with it, because they are columns
+    /// of the thing being held and not of the body -- an observation claiming a
+    /// shield in hand and a sword's reach is a fighter no `World` can produce,
+    /// and every mind reads both.
+    fn holding(obs: &Observation, held: sim::ActionKind) -> Observation {
+        let mut obs = obs.clone();
+        let spec = held.spec();
+        obs.held = held;
+        obs.slot = 0;
+        obs.stowed = Some(sim::ActionKind::Sword);
+        obs.swap_ticks = spec.ready;
+        obs.action_length = spec.length;
+        obs.action_arc = spec.arc;
+        obs
+    }
+
+    /// **Legs run away.** The word means one thing, and the mind that answers
+    /// for it used to read the distance both ways and sprint *at* an enemy it
+    /// could not touch when it was far enough off. See `RunMind`.
+    #[test]
+    fn legs_carry_a_fighter_away_from_the_fight_and_never_into_it() {
+        let mut policy = DuelistPolicy::baseline();
+        // Every distance a contact can be at, including the ones the old mind
+        // treated as an argument for charging.
+        for x in [1, 3, 6, 9, 12] {
+            let obs = holding(&situation(&[contact(Body::Brute, x, 0)]), sim::ActionKind::Run);
+            let command = policy.decide(&obs);
+            assert!(
+                command.move_dir.x < Fx::ZERO,
+                "legs carried a fighter *toward* an enemy {x} units away: {:?}",
+                command.move_dir
+            );
+            // And it says so. A runner reported as attacking is a HUD lying
+            // about the one thing on screen it can see for itself.
+            assert_eq!(command.intent, Intent::Flee, "a fighter in flight reported otherwise");
+        }
+    }
+
+    /// **A guard never closes.** Giving ground is a judgement it is allowed to
+    /// make; walking in behind a shield is not one, because there is nothing on
+    /// the other side of that walk it could spend the distance on.
+    #[test]
+    fn a_guard_never_walks_into_the_blade_it_is_covering() {
+        let mut policy = DuelistPolicy::baseline();
+        for x in [1, 2, 3, 6, 9] {
+            for foe in [
+                contact(Body::Brute, x, 0),
+                // The case the footwork is actually about: a cut declared and
+                // on its way. `Angle::HALF` is the line back toward the
+                // observer, so this one is genuinely aimed.
+                winding_up(Body::Brute, x, 0, Angle::HALF, 20),
+                recovering(Body::Brute, x, 0, 10),
+            ] {
+                let obs = holding(&situation(&[foe]), sim::ActionKind::Shield);
+                let command = policy.decide(&obs);
+                assert!(
+                    command.move_dir.x <= Fx::ZERO,
+                    "a guard closed on an enemy {x} units away: {:?}",
+                    command.move_dir
+                );
+            }
+        }
+    }
+
+    /// The half of the guard's footwork that the damage law decides: a retreat
+    /// is worth making only when it finishes, because a blow is worth `1/2 m v^2`
+    /// at the radius it lands on and half a pace back slides the contact toward
+    /// the tip. See `GuardMind::drive`.
+    #[test]
+    fn a_guard_gives_ground_to_a_cut_it_can_clear_and_stands_to_one_it_cannot() {
+        let mut policy = DuelistPolicy::baseline();
+        // A Brute's club reaches 1.45 past two bodies, so a Rogue standing at 2
+        // is a little under a unit inside it. At 40 ticks of telegraph there is
+        // ground and time to spare; at 2 there is neither.
+        let long = winding_up(Body::Brute, 2, 0, Angle::HALF, 40);
+        let late = winding_up(Body::Brute, 2, 0, Angle::HALF, 2);
+
+        let early = policy.decide(&holding(&situation(&[long]), sim::ActionKind::Shield));
+        assert!(
+            early.move_dir.x < Fx::ZERO,
+            "a guard stood in front of a cut it had forty ticks to walk out of"
+        );
+
+        let caught = policy.decide(&holding(&situation(&[late]), sim::ActionKind::Shield));
+        assert_eq!(
+            caught.move_dir,
+            Vec2::ZERO,
+            "a guard took a step it could not finish, which lands the blow \
+             further out on the blade than standing still would have"
+        );
+    }
+
     #[test]
     fn out_of_reach_it_closes() {
         let far = contact(Body::Brute, 9, 0);

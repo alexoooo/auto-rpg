@@ -425,6 +425,15 @@ body {
   font-weight: 600;
 }
 
+/* The Hero rail with nobody standing. Same rows, different subject -- they
+   describe the character you send in next -- so the note that says so is lit
+   rather than dimmed. It is the one line on the panel that disambiguates it. */
+.rail-note.pending {
+  color: var(--accent);
+  border-left: 2px solid var(--accent);
+  padding-left: 8px;
+}
+
 /* Pinned to the outer face of the rail and explicitly `visible`, so it survives
    the `visibility: hidden` that takes the rest of the panel out of the tab
    order: the tab is the control that *opens* the thing, and it is the one
@@ -581,13 +590,12 @@ button.primary:hover {
   display: none;
 }
 
-/* Refused by the module, so it is refused on the page too, visibly. A control
-   that is present and does nothing reads as broken; one that is greyed reads as
-   "not now", which is the truth. */
-.mind.off,
-.attr.off {
-  opacity: 0.4;
-}
+/* `.mind.off` / `.attr.off` lived here: a grey for a row the module would
+   refuse, back when `set_hero_stat` answered `0` with nobody standing. Every
+   row on that rail writes the next spawn's plan now, so there is no longer a
+   moment at which one of them does nothing -- and a rule nothing applies is a
+   rule the next reader has to work out is dead. `setHeroRailLive` says which
+   character the rail is about instead. */
 
 .readout {
   margin: 0;
@@ -956,9 +964,11 @@ kbd {
   white-space: nowrap;
 }
 
-/* One segmented control, not five buttons: the five states are exclusive, and a
-   row of separate pills would invite the player to try holding two at once --
-   which is precisely the thing the module normalises away underneath them. */
+/* Three switches in one housing. The shared border says they are one control
+   and the dividers say they are three of them, which is the truth: any
+   combination of the three bits is legal, so the row must not read as a
+   segmented picker where exactly one thing is lit. `.seg[aria-checked]` below
+   is what carries that -- several can be on at once. */
 .control-group {
   display: flex;
   flex: 0 0 auto;
@@ -971,6 +981,9 @@ kbd {
 }
 
 .seg {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   flex: 0 0 auto;
   padding: 6px 11px;
   font-size: 11.5px;
@@ -980,6 +993,16 @@ kbd {
   background: transparent;
   color: var(--ink-dim);
   white-space: nowrap;
+}
+
+/* The key each switch answers to, on the switch. It was one `driving C` label
+   for the whole group while `C` cycled the group; three independent switches
+   have three keys, and a legend that named one of them would be naming the
+   wrong one two thirds of the time. */
+.seg kbd {
+  font-size: 9.5px;
+  padding: 1px 4px;
+  opacity: 0.75;
 }
 
 .seg:first-child {
@@ -1085,8 +1108,8 @@ kbd {
     grid-row: 2;
   }
 
-  /* The `C` hint moves into the keyboard card at this width; the five buttons
-     are the thing that has to survive. */
+  /* The word "driving" goes first at this width; the three switches are the
+     thing that has to survive, and each carries its own key. */
   .control-label {
     display: none;
   }

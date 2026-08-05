@@ -127,7 +127,8 @@ impl ActionMind for BladeMind {
     }
 }
 
-/// Holds a guard on the line a blow is actually going to arrive on.
+/// Gives ground, and holds a guard on the line a blow is actually going to
+/// arrive on.
 ///
 /// **This is `Stance::Guard` with the content it always should have had.** In
 /// the old model that stance stopped the feet and cancelled a windup, and did
@@ -138,6 +139,22 @@ impl ActionMind for BladeMind {
 /// pressing. It was something you got for free while pressing.
 ///
 /// Now it costs the attack, and it is a real bet.
+///
+/// ## Why the feet moved
+///
+/// This mind planted them, on the reading that a walking guard is a guard
+/// somewhere else by the time the blow lands, and that [`sim::BRACE_SPIN`]
+/// charges twice for the motion. **The second half of that was simply wrong
+/// about the sim.** `Hand::settle` gates the brace on the *hand's* angular
+/// speed, not on the body's -- `spin.abs() <= BRACE_SPIN` -- so a fighter
+/// backing straight away from an enemy holds its bearing constant, keeps every
+/// tick of its brace, and is asserted to by `hand.rs`'s
+/// `a_guard_tracking_a_walking_enemy_stays_braced`. Standing still bought
+/// nothing that walking away did not also buy.
+///
+/// What planting really produced was a defender that met every cut it could not
+/// avoid, and then a *charge* the moment the selector handed the blade back. A
+/// guard that costs the attack should be buying distance with it.
 pub struct GuardMind {
     pub weights: DuelistWeights,
 }
@@ -183,8 +200,9 @@ impl ActionMind for GuardMind {
         // Skitterer's knife and a Brute's club are not the same emergency even
         // when they are equally imminent.
         let stakes = foe.threat.min(Fx::ONE) + (Fx::ONE - obs.hp_frac) * self.weights.caution;
-        // Being thrown about is the other thing a planted guard buys, through
-        // `BRACE_ANCHOR`.
+        // Being thrown about is the other thing a settled guard buys, through
+        // `BRACE_ANCHOR` -- and it survives the retreat in `drive`, because the
+        // brace is a fact about the hand rather than about the feet.
         let footing = foe.knockback_taken.min(Fx::ONE) * self.weights.anchor;
         urgency * self.weights.read_ahead * (self.weights.guard + stakes + footing)
     }
@@ -193,7 +211,7 @@ impl ActionMind for GuardMind {
         &self,
         obs: &Observation,
         foe: &Contact,
-        _memory: &mut MindMemory,
+        memory: &mut MindMemory,
     ) -> (Vec2, LimbCommand) {
         // Cover the *blow*, not the man. A cut sweeps in and first bites well
         // round the body from where its wielder is standing, so a guard pointed
@@ -202,21 +220,122 @@ impl ActionMind for GuardMind {
             Some(at) if !at.is_zero() => at.angle(),
             _ => foe.offset.angle(),
         };
-        // Feet still. A guard that is walking is a guard somewhere else by the
-        // time the blow lands, and `BRACE_SPIN` charges for the motion twice --
-        // once in where it ends up, once in how planted it is when it gets
-        // there.
-        (Vec2::ZERO, LimbCommand::new(line, Fx::ONE))
+        // Recorded for the same reason `RunMind` records its own: the page reads
+        // the stance back and a HUD that says "trade" while the character
+        // backs off behind a shield is a HUD describing the blade it put down.
+        memory.stance = Some(Stance::Guard);
+
+        // **Where their blade stops** -- the only distance a guard's footwork is
+        // about, and the same figure `BowMind` stands off. Not `full_reach()`,
+        // which for a shield is a 0.45-unit plank and says nothing about what is
+        // being defended against.
+        let theirs = obs.radius + foe.radius + foe.action_length;
+
+        // **Step off the cut, but only when the step actually clears it.**
+        //
+        // This is the whole of the footwork, and the gate is not caution -- it
+        // is the damage law. A blow is worth `1/2 m v^2` at the radius it
+        // connects at and the speed comes out of `spin * arm`, so a blade hits
+        // **hardest at the tip**. Giving ground therefore slides the contact
+        // point outward: a retreat that does not finish is a retreat that made
+        // the blow *worse*. There is no gradient to walk down here and no safe
+        // half-measure, which is the opposite of how backing away reads.
+        //
+        // So the question asked is binary and quantitative: is there enough
+        // ground between here and the far edge of their arc to cover before the
+        // cut arrives? `ticks_left` is the telegraph alone, which is the
+        // conservative reading -- the real window is that plus however far the
+        // blade still has to travel, about 1.9x for a club and 3.4x for a knife
+        // -- so a retreat this accepts is one there is comfortably time for.
+        // Everything else stands its ground and catches the blow on the shield,
+        // which is what the shield is *for*.
+        //
+        // **Measured over 96 duels against a Brute** (`control_what_a_guard_does
+        // _with_its_feet`), against the planted version this replaces:
+        //
+        // ```text
+        //                    planted            steps off
+        //   Rogue    wins       68%                  69%
+        //            blocks     133                  141
+        //   Fighter  wins       73%                  67%
+        //            blocks     133                  121
+        // ```
+        //
+        // The Fighter's six points is the honest cost of the change and it is
+        // recorded rather than tuned away: it is the slower body, so more of its
+        // retreats are the marginal ones, and a marginal retreat is the case the
+        // paragraph above says is worst. Requiring a body-radius of clearance on
+        // top was tried and bought nothing -- 67% either way. Nothing else in
+        // the roster sweep moves by a single point, because nothing else in it
+        // ever has a guard in its hand.
+        let (urgency, ticks_left) = swing::incoming(obs, foe);
+        let gap = theirs - foe.distance;
+        let ground = obs.move_speed * Fx::from_int(i32::from(ticks_left));
+        let feet = if urgency.is_positive() && gap.is_positive() && ground > gap {
+            // Straight back, and flat out. Not a `station`: a station brakes to
+            // arrive at rest *on* the mark, and the mark here is the tip of the
+            // arc -- the one place in the fight worth least standing at.
+            -foe.offset.normalize() + crate::DuelistPolicy::open_ground(&self.weights, obs)
+        } else {
+            // **And never in.** A guard cannot cut, so there is nothing on the
+            // other side of that walk to collect: closing behind a shield is
+            // handing away the ground for free and arriving with the one thing
+            // in hand that cannot spend it. Pressing is what the blade in the
+            // other slot is for, and the selector will reach for it.
+            Vec2::ZERO
+        };
+
+        (feet.clamp_length(Fx::ONE), LimbCommand::new(line, Fx::ONE))
     }
 }
 
-/// Buys ground, and nothing else.
+/// **Legs are for leaving.**
 ///
 /// The one loadout in the game that cannot answer anything at all: no blade, no
-/// guard, no parry. So its whole case has to be made out of distance -- either
-/// there is ground to cover before a fight can start, or there is a fight worth
-/// leaving. In every other situation this must lose, and lose clearly, to the
-/// thing that can actually hurt someone.
+/// guard, no parry. So its whole case has to be made out of distance -- and out
+/// of the *one* direction of it that a fighter holding nothing can profit from.
+///
+/// ## Why it no longer closes
+///
+/// This mind used to read the gap both ways: far from the enemy, legs were worth
+/// holding because there was ground to cover, and it sprinted *at* whatever it
+/// could see. That is coherent on paper and it is the wrong thing to watch, for
+/// two reasons that turned out to be the same reason.
+///
+/// A charge with empty hands ends in the worst position in the game. The runner
+/// arrives inside a blade with nothing in its own hand and then stands there for
+/// the whole of its weapon's `ready` -- 10 ticks for a sword, 18 for a club --
+/// which is a punish window it walked into deliberately. The old appraisal knew
+/// this and tried to price it, by pushing the mark out by `move_speed *
+/// swap_ticks` so the legs went away slightly early. That is a correction to a
+/// plan that should not have been made: the fighter that wants to close should
+/// close *holding the blade*, which is exactly what [`Stance::Close`] already
+/// does, at a footspeed cost of 26% and with something in its hand on arrival.
+///
+/// And it read as nonsense. Put "run" in a character's hand and watch it sprint
+/// at the thing trying to kill it -- there is no reading of the word under which
+/// that is what was asked for.
+///
+/// So closing belongs to the blade, and this keeps the half nothing else can
+/// do. What it costs: a fighter can no longer buy the approach with its second
+/// slot. That is the trade, and it is the right way round -- the approach was
+/// never the part that needed a dedicated action.
+///
+/// **And here is the price, measured.** `sword+run` against a sword-and-board
+/// mirror now scores **47%** -- which is exactly what `sword+sword`,
+/// `sword+punch` and a bare `sword` all score against the same opponent. In a
+/// duel the legs have become indistinguishable from carrying nothing, because
+/// the only case they are held for is breaking off and a duel has nowhere to
+/// break off *to*: `caution` is 0.32 blows and the clock is scored against you.
+/// `legs_are_an_option_and_not_a_free_win` still passes, and it passes for a
+/// weaker reason than it used to.
+///
+/// That is a fact about the *arena* rather than about this mind -- the same one
+/// `DuelistWeights::caution` has a paragraph about -- and it is the shape to
+/// expect: a retreat is worth something when there is somewhere to retreat to
+/// and somebody to retreat toward, which is a skirmish, not a fenced pair. The
+/// honest way to make legs pay in a duel would be to give them something to do
+/// there, and the honest way to measure them is `--arena roster`.
 pub struct RunMind {
     pub weights: DuelistWeights,
 }
@@ -227,31 +346,11 @@ impl ActionMind for RunMind {
         // scores zero in every situation is a slot the fighter threw away.
         let mut want = Fx::from_ratio(2, 10);
 
-        // **The gap, measured against the redraw.**
-        //
-        // Legs buy ground and nothing else, so they are worth what there is to
-        // cover -- but the ground has to be paid back. A fighter that runs until
-        // it arrives arrives *helpless*, and then stands in reach for the whole
-        // of its blade's `ready`. `move_speed` times `swap_ticks` is exactly how
-        // far it travels while drawing, so adding it to the mark makes the legs
-        // stop being worth holding a little **before** they stop being useful.
-        //
-        // This is the most important line in this mind, and it is the one that
-        // needs `obs.move_speed` to carry `move_bonus` -- it is a running
-        // fighter's own speed being asked about here, not a walking one's.
-        let reach = obs.full_reach() + foe.radius;
-        let redraw = obs.move_speed * Fx::from_int(obs.swap_ticks as i32);
-        let mark = reach + redraw;
-        if foe.distance > mark {
-            want += ((foe.distance - mark) / reach.max(Fx::EPSILON)).min(Fx::ONE)
-                * (Fx::ONE + self.weights.aggression);
-        }
-
         // **Breaking off**, read exactly the way `Stance::Retreat` reads it so
         // the two cannot come to different conclusions about whether this fight
-        // is worth having. This is the one case where legs genuinely beat steel:
-        // a fighter that has decided not to fight has nothing to do with a
-        // blade, and outrunning the pursuit is the whole plan.
+        // is worth having. This is the case legs are *for*: a fighter that has
+        // decided not to fight has nothing to do with a blade, and outrunning
+        // the pursuit is the whole plan.
         if self.breaking_off(obs, foe) {
             want += Fx::TWO;
         }
@@ -259,11 +358,16 @@ impl ActionMind for RunMind {
         // And what argues against it, which is everything else. The urgency term
         // is strictly heavier than `BladeMind`'s -- that mind subtracts
         // `urgency * guard` and this one subtracts more -- so a blade always
-        // outranks legs while something is actually arriving.
+        // outranks legs while something is actually arriving. Turning your back
+        // on a declared cut is how the ground you bought gets charged to you at
+        // the tip of the arc, where a blow is worth most.
         let (urgency, _) = swing::incoming(obs, foe);
         want -= urgency * (self.weights.guard + Fx::ONE);
-        // Already in reach: there is nothing left to close and running is how
-        // you turn your back on a live blade.
+
+        // Already inside reach: leaving is no longer something the legs can do
+        // faster than the blade can be swung, so this is the one place they are
+        // worth less than nothing.
+        let reach = obs.full_reach() + foe.radius;
         if foe.distance <= reach {
             want -= Fx::ONE;
         }
@@ -277,24 +381,29 @@ impl ActionMind for RunMind {
         memory: &mut MindMemory,
     ) -> (Vec2, LimbCommand) {
         let toward = foe.offset.normalize();
-        let away = self.breaking_off(obs, foe);
         // Recorded so `DuelistPolicy::decide` reports `Intent::Flee` and the page
         // labels it honestly. A runner that shows "attack" while sprinting for
         // the far wall is a HUD that lies about the one thing it can see.
-        memory.stance = Some(if away { Stance::Retreat } else { Stance::Close });
+        //
+        // Unconditional now, where it used to depend on `breaking_off`. The two
+        // legs of that branch went in opposite directions, and the one that has
+        // survived is the one the word means.
+        memory.stance = Some(Stance::Retreat);
 
-        let feet = if away {
-            (-toward
-                + crate::DuelistPolicy::cohesion(&self.weights, obs)
-                + crate::DuelistPolicy::open_ground(&self.weights, obs))
-            .clamp_length(Fx::ONE)
-        } else {
-            // Flat out. There is no station to keep: closing is the entire
-            // reason this is in hand, and the blade it is closing *for* will do
-            // its own spacing once drawn.
-            (toward + crate::DuelistPolicy::open_ground(&self.weights, obs) * Fx::HALF)
-                .clamp_length(Fx::ONE)
-        };
+        // Away, always, and flat out -- there is no station to keep on the far
+        // side of a fight you have left. `cohesion` is what stops that being a
+        // straight line into the loneliest corner of the arena: running toward
+        // your own side is the difference between a withdrawal and a rout, and
+        // `open_ground` keeps it off the walls.
+        //
+        // Nothing here is conditioned on whether the retreat can succeed. A
+        // fighter that cannot outrun its pursuer should not be *holding* these
+        // -- and it is `appraise` that says so, one level up, which is the whole
+        // point of the two methods being separate.
+        let feet = (-toward
+            + crate::DuelistPolicy::cohesion(&self.weights, obs)
+            + crate::DuelistPolicy::open_ground(&self.weights, obs))
+        .clamp_length(Fx::ONE);
 
         // **Parked where it already is -- not `LimbCommand::TUCKED`.**
         //

@@ -22,8 +22,10 @@ wall means "as close as a body can stand". You are giving directions to somethin
 that decides for itself, which is the whole game.
 
 And there is something to fight. `S` and `B` send in a skitterer or a brute, and
-the fight runs itself under the same `UtilityPolicy` the lab evolves — no set
-piece, no script. Watch what it does to your order: a visible enemy *outranks* a
+the fight runs itself under the same policies the lab evolves — no set piece, no
+script. Your character opens on the **Duelist** and the monsters on the naive
+`UtilityPolicy` it is measured against, and either side can be handed the other
+from its own rail. Watch what it does to your order: a visible enemy *outranks* a
 `Goto`, so the character breaks off the walk and turns to meet the thing. That is
 not the order channel leaking; it is the character having its own judgement about
 what matters more, which is the point.
@@ -66,11 +68,27 @@ enemy's blade stops being dangerous is now something you have to judge**, blurre
 by perception like everything else you can see, rather than something a policy is
 told.
 
-So there is a second mind to choose from. The **Duelist** scores eight competing
-stances every time it is allowed to think — close, trade, circle to the guard's
-blind side, step off the swing plane, brace the shield on the line the blade will
-actually arrive along, punish a recovery, feint, break off — and picks one, with
-hysteresis so it commits instead of dithering.
+So there is a second mind to choose from, and it is the one your character
+arrives with. The **Duelist** scores eight competing stances every time it is
+allowed to think — close, trade, circle to the guard's blind side, step off the
+swing plane, brace the shield on the line the blade will actually arrive along,
+punish a recovery, feint, break off — and picks one, with hysteresis so it
+commits instead of dithering.
+
+It is also **a mind per thing you can hold**, which is what makes the loadout a
+decision about footwork and not only about damage. A blade closes and keeps
+station. A guard *never* closes — there is nothing on the other side of that walk
+it could spend the ground on — and it steps out of a declared cut when there is
+time to clear the arc, standing to catch the ones there is not. Legs run *away*;
+that is the whole of what legs are for, and the fighter that wants to close does
+it holding the blade.
+
+Which is worth being precise about, because the sim has an opinion here that
+contradicts the intuition. A blow is worth ½mv² at the radius it lands on, so
+every blade hits **hardest at the tip** — backing off a step slides the contact
+outward and makes the blow *worse*. There is no safe half-measure in giving
+ground: either you clear the arc or you should not have moved. Both of those are
+the same line of code, and it is a comparison rather than a preference.
 
 Give that one policy three character sheets, change nothing else, and point all
 three at the same Brute:
@@ -164,12 +182,17 @@ roster it never quite does, because bodies are wider than the gap. A Brute with 
 Skitterer pressed against its chest is down to a seventh of its best blow and that
 is still better than a shove.
 
-And you can take over. Three independent toggles, `C`, `V` and `X`: the feet, the
-attack, and the choice of what to hold. WASD steers; the mouse aims the line and
-**click to cut** -- one click, one attack, with the same windup and the same
-recovery the AI pays. `1` and `2` change what is in your hand, and the swap costs
-the same ticks it costs the AI. Whichever half you do not hold, the AI
-keeps fighting with — on its own reaction clock, because that is a stat.
+And you can take over. Three independent switches, `C`, `V` and `X` —
+**Movement**, **Action** and **Aim**: the feet, the choice of what to hold, and
+the attack. WASD steers; the mouse aims the line and **click to cut** — one
+click, one attack, with the same windup and the same recovery the AI pays. `1`
+and `2` change what is in your hand, and the swap costs the same ticks it costs
+the AI. Whichever of the three you do not hold, the AI keeps doing — on its own
+reaction clock, because that is a stat.
+
+Independent means all eight combinations, including the interesting one:
+**Aim** without **Action** hands you the cuts and leaves the weapon to the
+character, so you are throwing blows something else decided to arm you for.
 
 And the number matches. `web.wasm` and the native lab produce the *same 64-bit
 state hash* for the same run — `0x3c730bb2a5473a52` — so the fixed-point
@@ -213,10 +236,12 @@ node tools/serve.js                               # builds the wasm, serves the 
 Then open the printed URL. Click to send the character somewhere; right-click or
 `Esc` to make it hold its ground; `F` to withdraw the order entirely and watch it
 decide for itself; `S` and `B` to send in a skitterer or a brute; `1` and `2` to
-send in a new character once yours has fallen; `C` and `V` to take its feet or
-its sword; the wheel to zoom; `Tab` for the details panel; `R` to open a fresh
-room. A server is needed because a `file://` page cannot instantiate wasm — that
-is the only reason.
+choose which of the two things you are carrying is in your hand; `C`, `V` and `X`
+to take its movement, its choice of kit or its aim; `E` for the Hero rail, which
+stays live after your character falls so you can dress the next one — and keeps
+the attributes you set rather than handing them back to the archetype; the wheel
+to zoom; `R` to open a fresh room. A server is needed because a `file://` page
+cannot instantiate wasm — that is the only reason.
 
 The room is the page. The camera is centred on your character and clamped to the
 walls, so walking into a corner stops the view rather than showing you the void

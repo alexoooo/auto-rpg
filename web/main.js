@@ -581,7 +581,10 @@ const el = {
   // ids through the move out of the drawer: they still drive the same
   // `set_hero_loadout` export and still read back off the frame.
   heroBody: document.getElementById("hero-body"),
-  heroBodyRow: document.getElementById("hero-body-row"),
+  // Rewritten rather than static: this rail describes the character in the room
+  // while there is one and the next spawn while there is not, and the rows look
+  // identical in both. See `setHeroRailLive`.
+  heroRailNote: document.getElementById("hero-rail-note"),
   heroAttrs: document.getElementById("hero-attrs"),
   loadout0: document.getElementById("loadout-0"),
   loadout1: document.getElementById("loadout-1"),
@@ -1188,17 +1191,19 @@ function swapInHero(kindCode, primary = SLOT_EMPTY, secondary = SLOT_EMPTY) {
 /**
  * **[Re-Spawn]**, off the life globe: the body and kit the Hero rail is showing.
  *
- * Which is the body that fell, because `set_hero_body` is refused while there
- * is nobody to change and the rail greys that row out rather than pretending
- * otherwise. The rail freezes on the last character it read rather than
- * snapping back to a default, so what comes back is what the panel is still
- * describing -- and the panel is the only thing on screen that could answer.
+ * Read out of the module rather than off the page's cache. The rail is editable
+ * with the character down -- body, kit and every attribute -- and all of it
+ * lands on the module's plan for the next spawn, so the module is where the
+ * answer is. The page's own snapshot would be a second copy of it, and the copy
+ * would be the stale one exactly when the player had just changed their mind.
+ *
+ * The attributes are not passed here and do not need to be: `swap_in_hero` takes
+ * the sheet off the same plan. Which is the whole point -- a stat sheet is not
+ * something the player should have to re-enter because something killed them.
  */
 function respawnHero() {
-  const snapshot = heroCache;
-  const body = snapshot && BODIES[snapshot.body] ? snapshot.body : BODY_FIGHTER;
-  const slots = snapshot ? snapshot.slots : [SLOT_EMPTY, SLOT_EMPTY];
-  swapInHero(body, slots[0], slots[1]);
+  const body = wasm.hero_body();
+  swapInHero(BODIES[body] ? body : BODY_FIGHTER, wasm.hero_loadout(0), wasm.hero_loadout(1));
 }
 
 function restart() {
@@ -1243,9 +1248,10 @@ function syncBehaviourPanel() {
 
 // ------------------------------------------------------------------ control
 //
-// Two independent halves. Steering a swordsman and steering a sword are
-// different skills, and either can be handed over without the other -- which is
-// most of what makes this page teach anything about the fight.
+// Three independent thirds. Steering a swordsman, choosing what it holds and
+// swinging the thing are different skills, and any of them can be handed over
+// without the others -- which is most of what makes this page teach anything
+// about the fight.
 
 /** Which halves the player holds, mirrored so the page can label its toggles
  *  without asking wasm every frame. `wasm.control()` remains the truth. */
@@ -1278,102 +1284,105 @@ let wantSlot = 0;
 let striking = false;
 
 /**
- * The five states of "who is driving", over the module's 3-bit mask.
+ * The three halves of a character you can take, one switch each.
  *
- * Exclusive, and that is the whole reason the three bit-toggles retired. The
- * bits are not independent -- `set_control` normalises `LIMB` into
- * `LIMB | SLOT`, because a player who could swing but not choose would watch the
- * AI put a shield in their hand mid-cut -- so a row of three switches offered
- * eight combinations of which only five existed, and two of the other three
- * silently turned into a neighbour the moment you pressed them.
+ * **Independent, and that took a change on the other side of the wall.** These
+ * were five exclusive presets for one reason: `set_control` folded `LIMB` into
+ * `LIMB | SLOT`, so of the eight combinations three did not exist and two of
+ * them silently became a neighbour when pressed. A switch that lights itself is
+ * worse than no switch, so the page stopped offering them.
  *
- * One table: the label, the mask and the sentence the hint prints. Splitting
- * those apart is how a button ends up saying one thing and doing another.
+ * The module no longer folds anything, and the combination that fold existed to
+ * prevent is now a mode worth having: **Aim** without **Action** hands you the
+ * cuts and leaves the choice of weapon to the character -- which, since the
+ * hero's default mind has a per-action opinion, is something to watch rather
+ * than a bug.
+ *
+ * One table: the label, the bit, the key and the sentence the hint prints.
+ * Splitting those apart is how a switch ends up saying one thing and doing
+ * another.
  */
-const CONTROL_PRESETS = [
-  { mask: 0, label: "Auto", hint: DEFAULT_HINT },
+const CONTROL_TOGGLES = [
   {
-    mask: CONTROL_FEET,
-    label: "Control Movement",
-    hint: "You have the feet. WASD to move; the character fights for itself.",
+    bit: CONTROL_FEET,
+    label: "Movement",
+    key: "C",
+    on: "You have the feet. WASD to move; the character fights for itself.",
+    off: "The feet are the character's again.",
   },
   {
-    mask: CONTROL_SLOT,
+    bit: CONTROL_SLOT,
     label: "Action",
-    hint: "You choose what to hold with 1 and 2; the character decides when to use it.",
+    key: "V",
+    on: "You choose what to hold with 1 and 2; the character decides when to use it.",
+    off: "The character chooses what to hold again.",
   },
   {
-    mask: CONTROL_LIMB | CONTROL_SLOT,
-    label: "Act + Aim",
-    hint: "You have the attack. Aim with the mouse and click to cut -- one click, one attack. 1 and 2 change what you are holding.",
-  },
-  {
-    mask: CONTROL_FEET | CONTROL_LIMB | CONTROL_SLOT,
-    label: "Full Ctrl",
-    hint: "You have the feet and the attack. WASD to move, mouse to aim, click to cut, 1 and 2 to change what is in your hand.",
+    bit: CONTROL_LIMB,
+    label: "Aim",
+    key: "X",
+    on: "You have the attack. Aim with the mouse and click to cut -- one click, one attack.",
+    off: "The character aims and swings for itself again.",
   },
 ];
 
 function setControl(mask) {
   wasm.set_control(mask & (CONTROL_FEET | CONTROL_LIMB | CONTROL_SLOT));
-  // Read it back rather than storing what was asked for: the module normalises
-  // the mask (taking the attack implies taking the choice), and a group that lit
-  // its own request would show the wrong button.
+  // Read it back rather than storing what was asked for. The module has stopped
+  // normalising, so today the two agree -- and the discipline stays, because
+  // the day it starts again is the day a switch would otherwise start lying.
   controlMask = wasm.control();
   if (controlMask & CONTROL_FEET) intent = "manual";
   updateControlButtons();
-  hint(controlDescription());
 }
 
-/** Which preset the module's *answer* corresponds to, or `-1` for a mask no
- *  button on the page describes. Never derived from what was asked for. */
-function controlPresetIndex() {
-  return CONTROL_PRESETS.findIndex((preset) => preset.mask === controlMask);
+/** One switch, flipped. The hint names what actually changed rather than
+ *  reciting the whole mask, because the player pressed one thing. */
+function toggleControl(bit) {
+  const taking = !(controlMask & bit);
+  setControl(taking ? controlMask | bit : controlMask & ~bit);
+  const toggle = CONTROL_TOGGLES.find((t) => t.bit === bit);
+  // Off the read-back, never off `taking`: a switch reporting "you have the
+  // feet" for a bit the module declined would be the page describing a room it
+  // is not in. And with nothing left held there is nothing to say about the
+  // handover, so it goes back to saying what the floor is for.
+  if (!controlMask) hint(DEFAULT_HINT);
+  else if (toggle) hint(controlMask & bit ? toggle.on : toggle.off);
 }
 
-/** `C`, forward through the five. From the read-back rather than from a
- *  counter of its own, so the key and the buttons cannot drift; a mask the
- *  presets do not describe cycles to Auto, which is the honest place to land. */
-function cycleControl() {
-  const next = (controlPresetIndex() + 1) % CONTROL_PRESETS.length;
-  setControl(CONTROL_PRESETS[next].mask);
-}
-
-function controlDescription() {
-  const preset = CONTROL_PRESETS[controlPresetIndex()];
-  return preset ? preset.hint : DEFAULT_HINT;
-}
-
-/** Builds the segmented group out of `CONTROL_PRESETS`. Called once, at boot:
- *  the labels live in one place and the page reads them from there rather than
- *  the markup keeping a second copy. */
+/** Builds the switches out of `CONTROL_TOGGLES`. Called once, at boot: the
+ *  labels live in one place and the page reads them from there rather than the
+ *  markup keeping a second copy. */
 function buildControlGroup() {
   const host = document.getElementById("control-group");
   if (!host) return;
   host.replaceChildren();
-  CONTROL_PRESETS.forEach((preset, index) => {
+  CONTROL_TOGGLES.forEach((toggle, index) => {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "seg";
     button.id = `btn-control-${index}`;
-    button.setAttribute("role", "radio");
+    // `switch`, not `radio`: three of these can be on at once, and a screen
+    // reader told otherwise would announce a group that cannot exist.
+    button.setAttribute("role", "switch");
     button.setAttribute("aria-checked", "false");
-    button.textContent = preset.label;
+    const name = document.createElement("span");
+    name.textContent = toggle.label;
+    const key = document.createElement("kbd");
+    key.textContent = toggle.key;
+    button.append(name, key);
     button.addEventListener("click", () => {
-      if (!dead) setControl(preset.mask);
+      if (!dead) toggleControl(toggle.bit);
     });
     host.append(button);
   });
 }
 
-/** Lights the one preset `wasm.control()` came back with, and **none** if the
- *  answer matches no preset -- lighting the nearest would be the page telling
- *  the player it is in a state it is not. */
+/** Lights each switch from `wasm.control()`. Never from what was asked for. */
 function updateControlButtons() {
-  const lit = controlPresetIndex();
-  CONTROL_PRESETS.forEach((preset, index) => {
+  CONTROL_TOGGLES.forEach((toggle, index) => {
     const button = document.getElementById(`btn-control-${index}`);
-    if (button) button.setAttribute("aria-checked", String(index === lit));
+    if (button) button.setAttribute("aria-checked", String(Boolean(controlMask & toggle.bit)));
   });
 }
 
@@ -1532,10 +1541,13 @@ function bindInput() {
       freeWill();
     } else if (key === "r") {
       restart();
-    } else if (key === "c") {
-      // One key, five states, cycled forward. The old `C`/`V`/`X` bit-toggles
-      // retired with the three chips they drove -- see `CONTROL_PRESETS`.
-      if (!event.repeat) cycleControl();
+    } else if (key === "c" || key === "v" || key === "x") {
+      // One key per switch, back from the cycle-through-five-presets the
+      // exclusive group needed. Three independent things want three
+      // independent keys -- see `CONTROL_TOGGLES`, which is where the pairing
+      // lives so the key and the label on screen cannot drift apart.
+      const toggle = CONTROL_TOGGLES.find((t) => t.key.toLowerCase() === key);
+      if (toggle && !event.repeat) toggleControl(toggle.bit);
     } else if (key === "q") {
       if (!event.repeat) setRail("enemy", !railOpen("enemy"));
     } else if (key === "e") {
@@ -1781,9 +1793,13 @@ let heroRack = [];
 let enemyRack = [];
 
 /** The Hero rail's last honest read of the module, and the key that says
- *  whether anything moved. Frozen once the character falls: there is no new one
- *  to describe, the loop still wants `decisionPeriod`, and **[Re-Spawn]** has
- *  nowhere else to get a body and a kit from. */
+ *  whether anything moved.
+ *
+ *  No longer frozen when the character falls. The getters answer out of the
+ *  module's plan for the next spawn once there is nobody standing, so there is
+ *  still something true to read every frame -- and the player can still move it,
+ *  which a frozen snapshot could not have shown. **[Re-Spawn]** asks the module
+ *  directly rather than reading this. */
 let heroKey = "";
 let heroCache = null;
 let lastHeroSight = 0;
@@ -1818,7 +1834,7 @@ function buildRails() {
 // ------------------------------------------------------------- the Hero rail
 
 /**
- * Reads the hero's live body, kit and attributes back and repaints if any moved.
+ * Reads the hero's body, kit and attributes back and repaints if any moved.
  *
  * The attributes come from `hero_stat`, **not** from `BODIES[kind]`. That was
  * the body's baseline, and the moment a slider on this rail can move it the two
@@ -1829,20 +1845,32 @@ function buildRails() {
  * `sight` is the one number taken off the frame instead: it is a body's own
  * column, and `derived()` no longer computes it because a formula copied into
  * this file would be describing a perception the player has since moved.
+ *
+ * **It reads and repaints while the character is dead, too.** Those getters
+ * answer out of the module's plan for the next spawn once there is nobody
+ * standing, so the rail goes on describing something real -- and the something
+ * is exactly what the player is deciding about at that moment. This used to
+ * freeze on the last live read and grey every row out, which put the panel
+ * out of action at the one point in the session it had a decision to offer.
+ *
+ * Aliveness is off the *frame* rather than off `hero_body()`. The module used
+ * to answer `SLOT_EMPTY` there and the page took that as its death signal; the
+ * frame's own hero row is the same fact from the source the renderer is already
+ * drawing, so there is one answer to the question instead of two.
  */
 function syncHeroRail(state) {
+  const alive = state.hero !== null;
   const body = wasm.hero_body();
-  // `SLOT_EMPTY`, not `0`: the module says so precisely because "there is no
-  // hero" and "the hero is a Fighter" must not render the same.
-  const alive = body !== SLOT_EMPTY;
-  if (alive) {
+  if (body !== SLOT_EMPTY) {
     const slots = [wasm.hero_loadout(0), wasm.hero_loadout(1)];
     const attrs = ATTRIBUTES.map((attr) => wasm.hero_stat(attr.stat));
+    // A standing body's own sight column, or the archetype's while there is no
+    // body -- a plan has no sight range until somebody is wearing it.
     lastHeroSight = state.hero ? state.hero.sight : BODIES[body] ? BODIES[body].sight : 0;
-    const key = `${body}|${slots.join(",")}|${attrs.join(",")}|${lastHeroSight.toFixed(2)}`;
+    const key = `${body}|${slots.join(",")}|${attrs.join(",")}|${lastHeroSight.toFixed(2)}|${alive}`;
     if (key !== heroKey) {
       heroKey = key;
-      heroCache = { body, slots, attrs, d: derived(attrObject(attrs)) };
+      heroCache = { body, slots, attrs, alive, d: derived(attrObject(attrs)) };
       renderHeroRail();
     }
   }
@@ -1868,19 +1896,26 @@ function renderHeroRail() {
   setText(el.unitName, bodyName(body));
 }
 
-/** Greys the rows the module would refuse. `set_hero_body` and `set_hero_stat`
- *  both answer `0` when there is nobody standing, and a control that is present
- *  and does nothing reads as broken -- greyed reads as "not now", which is the
- *  truth. */
+/** Says which character the rail is describing.
+ *
+ *  Nothing is disabled any more, and that is the change rather than an
+ *  oversight: every row here now writes the module's plan for the next spawn as
+ *  well as the body in the room, so with the character dead all three of them
+ *  still do something -- they configure who comes back. Greying them out was
+ *  correct while `set_hero_stat` answered `0` with nobody standing, and became
+ *  a lie the moment it stopped.
+ *
+ *  What is left is the heading, which has to say *which* fighter is being
+ *  described, or the panel is ambiguous in the one state where the answer
+ *  matters. */
 function setHeroRailLive(alive) {
-  el.heroBody.disabled = !alive;
-  el.heroBodyRow.classList.toggle("off", !alive);
-  el.loadout0.disabled = !alive;
-  el.loadout1.disabled = !alive;
-  for (const row of heroRack) {
-    row.slider.disabled = !alive;
-    row.row.classList.toggle("off", !alive);
-  }
+  el.heroRailNote.classList.toggle("pending", !alive);
+  setText(
+    el.heroRailNote,
+    alive
+      ? "Every row here lands on the character standing in the room, immediately — body, kit and attributes alike. Nothing here waits for a respawn."
+      : "Nobody is standing. Every row here describes the character you send in next — it keeps what you set, so the sheet is yours rather than the archetype's."
+  );
 }
 
 /** The three lines under the kit: what is in the hand, what phase it is in, and
@@ -1954,10 +1989,15 @@ function syncKitReadout(state) {
 function bindHeroRail() {
   el.heroBody.addEventListener("change", () => {
     if (!wasm.set_hero_body(Number(el.heroBody.value) | 0)) {
-      hint("There is nobody in the room to change.", true);
+      // Only the *live* change can be refused now; the plan for the next spawn
+      // always takes. So this is "the body in the room would not change", not
+      // "there is nobody" -- which was the old message and is no longer a state
+      // this row can be in.
+      hint("The character in the room would not change body.", true);
     }
-    // The body reset the loadout with it (`World::set_body`), so the kit rows
-    // have to be re-read too -- not just the one dropdown that was touched.
+    // The body reset the loadout and the stat sheet with it
+    // (`UnitSpec::set_body`, `World::set_body`), so every row has to be re-read
+    // -- not just the one dropdown that was touched.
     heroKey = "";
   });
   el.loadout0.addEventListener("change", () => {
@@ -2096,7 +2136,7 @@ function bindActionBar() {
 function selectSlot(slot) {
   wantSlot = slot;
   if (!(controlMask & CONTROL_SLOT)) {
-    hint("Take the Action control first, or the character chooses for itself.", true);
+    hint("Flip the Action switch (V) first, or the character chooses for itself.", true);
   }
 }
 

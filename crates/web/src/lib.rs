@@ -241,10 +241,9 @@ pub const CONTROL_LIMB: u32 = 2;
 ///
 /// Separate from [`CONTROL_LIMB`] because choosing what to hold and choosing
 /// when to swing are different decisions, and being able to take one without the
-/// other is most of what this page teaches. Taking the swing does imply taking
-/// the choice, though -- see [`set_control`], which normalises that -- because a
-/// player who can attack but cannot decide what with would watch the AI put a
-/// shield in their hand mid-swing.
+/// other is most of what this page teaches. **Genuinely separate**: taking the
+/// swing used to imply taking the choice, and no longer does -- see
+/// [`set_control`] for what that fold cost and why it went.
 pub const CONTROL_SLOT: u32 = 4;
 
 /// Ceiling on units in one frame. The room holds exactly one and a skirmish
@@ -427,17 +426,77 @@ struct Sim {
     /// A Skitterer with its own kit, which is what the `S` hotkey has always
     /// sent, so the button starts where the page already was.
     spawn_spec: UnitSpec,
+
+    /// **What the next character walks in as.** The hero's other half of
+    /// [`Sim::spawn_spec`], and the reason a stat sheet survives a death.
+    ///
+    /// Every write through the Hero rail lands here as well as on the body
+    /// standing in the room, so the sheet the player built is the sheet the
+    /// replacement arrives wearing. Without it a respawn read
+    /// `Body::base_stats()` and every attribute the player had moved went back
+    /// to the archetype's default -- which reads as the game throwing away the
+    /// only thing on that panel it asked you to think about, and is worse the
+    /// more the panel is worth using.
+    ///
+    /// It is also what makes the rail *editable while dead*. There is no hero
+    /// to write to then, and a rail greyed out at exactly the moment the player
+    /// has a decision to make about the next one is a panel that is missing when
+    /// it is needed. `stats` here is a plan; `World::stats` is a fact; the two
+    /// agree while there is a body to agree about.
+    ///
+    /// **`spawn` is unread**, as it is in `spawn_spec` -- where a replacement
+    /// lands is [`Sim::entry_point`]'s decision, and a stored point would go
+    /// stale the moment anything moved.
+    hero_spec: UnitSpec,
 }
 
 impl Sim {
     fn new(seed: u64) -> Sim {
         let scenario = Scenario::room();
+        let hero_spec = scenario
+            .units
+            .iter()
+            .copied()
+            .find(|unit| unit.faction == Faction::Heroes)
+            // A room with no hero in it is not a scenario this module can be
+            // pointed at, but the fallback is a Fighter rather than a panic:
+            // `init` is `pub extern "C"` and a trap there poisons the instance
+            // for the life of the page.
+            .unwrap_or(UnitSpec {
+                kind: Body::Fighter,
+                faction: Faction::Heroes,
+                stats: Body::Fighter.base_stats(),
+                loadout: Body::Fighter.default_loadout(),
+                spawn: Vec2::ZERO,
+            });
         let world = World::new(&scenario, seed);
         let mut units = Vec::with_capacity(scenario.units.len());
         for faction in [Faction::Heroes, Faction::Monsters] {
             units.extend_from_slice(&world.alive_ids(faction));
         }
-        let kinds = [PolicyKind::Utility, PolicyKind::Utility];
+        // **The hero thinks; the monsters flail.** The two sides do not open on
+        // the same policy, and the asymmetry is the page's whole subject.
+        //
+        // [`PolicyKind::Utility`] is the naive baseline, and one of the things
+        // it is naive about is the loadout: it never changes what is in its
+        // hand, and its footwork does not look at what is in there either --
+        // `engage` closes to `full_reach * spacing` and swings, whether that
+        // hand holds a sword, a shield or nothing at all. Which is exactly right
+        // for the thing a better fighter is measured against, and exactly wrong
+        // for the character the player is dressing: put a guard in its hand from
+        // the Hero rail and it charges, put legs in and it sprints at the enemy
+        // barehanded, because nothing in that policy has an opinion about what a
+        // guard is *for*.
+        //
+        // [`PolicyKind::Duelist`] is the one that dispatches to `policy::minds`
+        // -- one mind per role, each with its own reading of the fight. That is
+        // what makes the Action control worth having: the loadout you choose
+        // changes how the character *moves*, not just what it swings.
+        //
+        // Both are still switchable from either rail, and the monsters stay
+        // naive so that the difference is something you can watch rather than
+        // something this comment asserts.
+        let kinds = [PolicyKind::Duelist, PolicyKind::Utility];
         Sim {
             world,
             policies: [kinds[0].baseline(), kinds[1].baseline()],
@@ -474,6 +533,12 @@ impl Sim {
                 // JavaScript is a float walking into simulation state.
                 spawn: Vec2::ZERO,
             },
+            // **Copied off the scenario rather than written out again.** The
+            // room's hero and the sheet a replacement inherits have to be the
+            // same fighter on tick zero, or the panel opens describing somebody
+            // who is not standing there -- and a second literal is how the two
+            // drift apart on the first edit to either.
+            hero_spec,
         }
     }
 
@@ -820,6 +885,14 @@ impl Sim {
     /// to a body -- the one input channel this page has would be shared by two
     /// characters, and a click would send both of them. Per-unit orders are the
     /// next thing this project owes itself; until then, one at a time.
+    ///
+    /// **The stat sheet comes out of [`Sim::hero_spec`], not out of
+    /// `Body::base_stats`.** A player who has spent the Hero rail deciding what
+    /// kind of fighter they want is not asking for that to be forgotten by the
+    /// thing that killed it; see the field for the whole of that argument. A
+    /// *body* change still resets the sheet, because `set_hero_body` writes the
+    /// plan through `UnitSpec::set_body` and a Rogue wearing a Fighter's
+    /// numbers is a different claim than "keep my attributes".
     fn swap_in_hero(&mut self, kind: Body, loadout: Loadout) -> u32 {
         let world = &self.world;
         self.units.retain(|&id| world.is_alive(id));
@@ -827,12 +900,21 @@ impl Sim {
             return 0;
         }
 
+        // The caller's body and kit are the *request*, and they become the plan
+        // -- so `1` and `2` walking a Rogue in do not leave the rail describing
+        // the Fighter that fell. Only the stat sheet is inherited, and only when
+        // the body it was written for is the body arriving.
+        if self.hero_spec.kind != kind {
+            self.hero_spec.set_body(kind);
+        }
+        self.hero_spec.loadout = loadout;
+
         let mut rng = self.placement_rng();
         let spawn = self.entry_point(kind, &mut rng);
         let id = self.world.spawn(&UnitSpec {
             kind,
             faction: Faction::Heroes,
-            stats: kind.base_stats(),
+            stats: self.hero_spec.stats,
             loadout,
             spawn,
         });
@@ -1580,16 +1662,23 @@ pub extern "C" fn policy_label_len(faction_code: u32, index: u32) -> u32 {
 #[no_mangle]
 pub extern "C" fn set_control(mask: u32) {
     with_sim((), |sim| {
-        let mut mask = mask & (CONTROL_FEET | CONTROL_LIMB | CONTROL_SLOT);
-        // **Taking the swing implies taking the choice.** Normalised here rather
-        // than left to the page, because the alternative is a player holding the
-        // attack button while the AI puts a shield in their hand -- which reads
-        // as the game ignoring the button, and is the one combination of these
-        // bits that cannot be made to feel like anything but a bug.
-        if mask & CONTROL_LIMB != 0 {
-            mask |= CONTROL_SLOT;
-        }
-        sim.control = mask;
+        // **Three bits, and nothing is normalised into anything else.**
+        //
+        // This used to fold `LIMB` into `LIMB | SLOT`, on the argument that a
+        // player who could swing but not choose would watch the AI put a shield
+        // in their hand mid-cut. That is a real thing to watch and it is not a
+        // bug: it is a *mode*, and now that the hero's default mind has an
+        // opinion about what to hold, it is an interesting one -- you throw the
+        // cuts, it picks the weapon.
+        //
+        // What the fold actually cost was the page. Eight combinations existed
+        // and only five were reachable, so a row of three switches had two that
+        // silently turned into a neighbour when pressed -- which is why the page
+        // gave up and shipped five exclusive presets instead. Three independent
+        // switches for three independent bits is the honest shape, and the
+        // module is where "independent" has to be true for the page to be able
+        // to say it.
+        sim.control = mask & (CONTROL_FEET | CONTROL_LIMB | CONTROL_SLOT);
         // Re-ask the policy on the next tick rather than carrying an opinion
         // formed before the player took over.
         sim.hero_next_decision = sim.world.tick();
@@ -1836,15 +1925,23 @@ pub extern "C" fn body_stat(code: u32, stat: u32) -> i32 {
 
 // ------------------------------------------------------------------ the loadout
 
-/// What the hero has in loadout slot `slot`, or [`SLOT_EMPTY`].
+/// What the hero has in loadout slot `slot`, or [`SLOT_EMPTY`] for a slot that
+/// is empty or does not exist.
+///
+/// Falls back to [`Sim::hero_spec`] with nobody standing, exactly as
+/// [`hero_body`] and [`hero_stat`] do and for the same reason: the kit the next
+/// character walks in with is a thing the player is choosing right then, and a
+/// rail that went blank the moment it mattered would be a rail with a hole in
+/// it.
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn hero_loadout(slot: u32) -> u32 {
     with_sim(SLOT_EMPTY, |sim| {
-        let Some(hero) = sim.hero() else {
-            return SLOT_EMPTY;
+        let loadout = match sim.hero().and_then(|hero| sim.world.loadout(hero)) {
+            Some(live) => live,
+            None => sim.hero_spec.loadout,
         };
-        match sim.world.loadout(hero).and_then(|l| l.slot(slot as usize)) {
+        match loadout.slot(slot as usize) {
             Some(kind) => kind.code(),
             None => SLOT_EMPTY,
         }
@@ -1869,14 +1966,14 @@ pub extern "C" fn hero_slot() -> u32 {
 /// the spot**, and is refused unless the limb is at guard. The alternative --
 /// letting the page swap a blade mid-cut -- is the one way this panel could
 /// produce a blow that visibly did not come from the weapon on screen.
+///
+/// The refusals are on the *live* write only. [`Sim::hero_spec`] takes the kit
+/// whatever the limb happens to be doing, because a plan for the next character
+/// cannot be mid-cut; and with nobody standing this writes the plan alone.
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn set_hero_loadout(slot: u32, action_code: u32) -> u32 {
     let took = with_sim(0, |sim| {
-        let Some(hero) = sim.hero() else { return 0 };
-        let Some(mut loadout) = sim.world.loadout(hero) else {
-            return 0;
-        };
         let action = if action_code == SLOT_EMPTY {
             None
         } else {
@@ -1887,6 +1984,18 @@ pub extern "C" fn set_hero_loadout(slot: u32, action_code: u32) -> u32 {
                 Some(kind) if kind.is_playable() => Some(kind),
                 _ => return 0,
             }
+        };
+        // The plan first, and unconditionally -- `Loadout::set` still refuses
+        // to empty slot 0, which is the one rule that holds on both sides.
+        let mut plan = sim.hero_spec.loadout;
+        if !plan.set(slot as usize, action) {
+            return 0;
+        }
+        sim.hero_spec.loadout = plan;
+
+        let Some(hero) = sim.hero() else { return 1 };
+        let Some(mut loadout) = sim.world.loadout(hero) else {
+            return 1;
         };
         let held = sim.world.held(hero).map_or(0, |(s, _)| u32::from(s));
         if slot == held && !sim.hero_limb_at_guard() {
@@ -1955,24 +2064,30 @@ fn set_stat_of(stats: &mut Stats, stat: u32, value: i32) -> bool {
     true
 }
 
-/// One of the standing hero's attributes, by the selector [`body_stat`] uses.
+/// One of the hero's attributes, by the selector [`body_stat`] uses.
 ///
-/// The *live* number, not the body's baseline: once the page can move a dial
-/// mid-fight the two stop agreeing, and a panel reading the baseline would go on
-/// describing a character that no longer exists. `0` when there is no hero.
+/// The *live* number while there is a character standing, not the body's
+/// baseline: once the page can move a dial mid-fight the two stop agreeing, and
+/// a panel reading the baseline would go on describing a character that no
+/// longer exists.
+///
+/// **And the plan when there is not** -- [`Sim::hero_spec`], the sheet the next
+/// character walks in wearing. That answer is not a consolation prize for a
+/// missing hero, it is the thing the panel is for at that moment: the player is
+/// deciding what to send in next, and a rail reading zero across the board
+/// would be describing nobody at all.
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn hero_stat(stat: u32) -> i32 {
     with_sim(0, |sim| {
-        let Some(hero) = sim.hero() else { return 0 };
-        match sim.world.stats(hero) {
+        match sim.hero().and_then(|hero| sim.world.stats(hero)) {
             Some(stats) => stat_of(stats, stat),
-            None => 0,
+            None => stat_of(sim.hero_spec.stats, stat),
         }
     })
 }
 
-/// Moves one of the standing hero's attributes. Answers `1` if it took.
+/// Moves one of the hero's attributes. Answers `1` if it took.
 ///
 /// Clamped into `0..=MAX_ATTRIBUTE` here rather than refused, so a slider
 /// dragged past its end pins instead of stopping responding -- and read back
@@ -1981,47 +2096,75 @@ pub extern "C" fn hero_stat(stat: u32) -> i32 {
 ///
 /// Health keeps its **fraction** across the write, not its absolute value; see
 /// [`World::set_stats`], where that decision lives and is argued.
+///
+/// **Two places, one call.** The write lands on the body in the room *and* on
+/// [`Sim::hero_spec`], so an attribute is a decision about this character and
+/// about the next one at the same time. Splitting those into two exports was
+/// the alternative and it is the worse one: the page would have to remember to
+/// call both, and the failure mode of forgetting is silent -- a sheet that
+/// works all fight and evaporates on the respawn.
+///
+/// It therefore takes with no hero standing, where it used to refuse. What it
+/// still refuses is a selector that names nothing, so a caller can tell
+/// "unknown attribute" from "clamped".
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn set_hero_stat(stat: u32, value: i32) -> u32 {
     let took = with_sim(0, |sim| {
-        let Some(hero) = sim.hero() else { return 0 };
-        let Some(mut stats) = sim.world.stats(hero) else {
-            return 0;
-        };
-        if !set_stat_of(&mut stats, stat, value) {
+        let mut plan = sim.hero_spec.stats;
+        if !set_stat_of(&mut plan, stat, value) {
             return 0;
         }
-        u32::from(sim.world.set_stats(hero, stats))
+        sim.hero_spec.stats = plan;
+        // On the living body too, when there is one. `set_stats` is what keeps
+        // the health *fraction* across a change in the bar's size, so this is
+        // deliberately not a copy of the plan onto the entity.
+        let Some(hero) = sim.hero() else { return 1 };
+        let Some(mut stats) = sim.world.stats(hero) else {
+            return 1;
+        };
+        set_stat_of(&mut stats, stat, value);
+        sim.world.set_stats(hero, stats);
+        1
     });
     publish();
     took
 }
 
-/// Which body the standing hero is wearing, as the same small integer the
-/// frame's `kind` column carries.
+/// Which body the hero is wearing, as the same small integer the frame's `kind`
+/// column carries -- the one standing in the room, or the one the next
+/// character walks in as when there is nobody there.
 ///
-/// [`SLOT_EMPTY`] when there is no hero, which the page needs to be able to tell
-/// apart from "a Fighter" -- `0` would have the body dropdown confidently name
-/// an archetype for a character that has fallen.
+/// [`SLOT_EMPTY`] only when there is **no world at all**, which is the state a
+/// page is in while it is still building its own DOM. It used to also mean "the
+/// character has fallen", and the page used it as its aliveness test; the frame
+/// already answers that question and answers it better, because it is the same
+/// row the renderer is drawing from.
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn hero_body() -> u32 {
     with_sim(SLOT_EMPTY, |sim| {
         match sim.hero().and_then(|hero| sim.world.view(hero)) {
             Some(view) => kind_code(view.kind),
-            None => SLOT_EMPTY,
+            None => kind_code(sim.hero_spec.kind),
         }
     })
 }
 
-/// Swaps the standing hero's body in place. Answers `1` if it took.
+/// Puts the hero in a different body. Answers `1` if it took.
 ///
-/// **Not a respawn.** The character keeps its handle, its position, its order
-/// and the fraction of its health -- what changes is its size, its weight, its
-/// stat sheet and the kit that comes with it. That is the whole point of the
-/// Hero rail's body row: watching the same fight from inside a different body,
-/// without the room resetting around you.
+/// **Not a respawn.** With a character standing this changes it in place: the
+/// handle, the position, the order and the fraction of its health all survive,
+/// and what moves is its size, its weight, its stat sheet and the kit that
+/// comes with it. That is the whole point of the Hero rail's body row --
+/// watching the same fight from inside a different body, without the room
+/// resetting around you.
+///
+/// With nobody standing it writes [`Sim::hero_spec`] alone, and that is the
+/// same call the player is making: *this* is the body I am sending in next.
+/// Either way the plan moves, through [`UnitSpec::set_body`] rather than a bare
+/// `kind` write, so the sheet and the kit follow the body -- a Rogue carrying a
+/// Fighter's attributes is a half-change and a quiet one.
 ///
 /// Decoded with [`kind_from_code`] rather than [`hero_from_code`], and
 /// deliberately: this is the setter paired with [`hero_body`]'s [`kind_code`]
@@ -2032,8 +2175,15 @@ pub extern "C" fn hero_body() -> u32 {
 #[no_mangle]
 pub extern "C" fn set_hero_body(code: u32) -> u32 {
     let took = with_sim(0, |sim| {
-        let Some(hero) = sim.hero() else { return 0 };
-        u32::from(sim.world.set_body(hero, kind_from_code(code)))
+        let body = kind_from_code(code);
+        sim.hero_spec.set_body(body);
+        let Some(hero) = sim.hero() else { return 1 };
+        // The live change can still be refused -- `World::set_body` is the
+        // authority on that -- and when it is, the plan has moved and the body
+        // has not. That is the honest split rather than a leak: the rail reads
+        // both back, and the next character is the one the player asked for
+        // even if this one could not become it.
+        u32::from(sim.world.set_body(hero, body))
     });
     publish();
     took
@@ -2217,24 +2367,33 @@ mod tests {
     /// Recorded here natively; the same three calls against `web.wasm` under
     /// Node produce the same number, which is the first time this project's
     /// central claim has been checked across targets rather than asserted.
-    const ROOM_HASH: u64 = 0x6f50_c629_2a24_a26c;
+    ///
+    /// **All four of the numbers below moved when the hero's default mind moved
+    /// to `Duelist`**, and that is the expected shape of that change rather
+    /// than a reason to be suspicious of it: every one of these scripts drives
+    /// the page's own hero, so a different policy is a different run from tick
+    /// one. What did *not* move is `LAB_HASH`, which names its policy
+    /// explicitly -- and that is the pair worth reading together, because a
+    /// change that moved the lab's number too would have been a change to the
+    /// simulation rather than to who is driving it.
+    const ROOM_HASH: u64 = 0x440a_9ac3_d9f0_de85;
 
     /// What `init(1); spawn_monster(3, SLOT_EMPTY, SLOT_EMPTY); step(600)` leaves behind -- a whole
     /// skirmish, start to finish, driven the way the page drives it. Recorded
     /// from a native run, never computed here, and asserted against `web.wasm`
     /// under Node by `tools/wasm_check.js`.
-    const BATTLE_HASH: u64 = 0xae0f_7466_db09_7985;
+    const BATTLE_HASH: u64 = 0xe040_b518_c7bc_4a2e;
 
     /// What `init(1); spawn_monster(2, SLOT_EMPTY, SLOT_EMPTY) x3; step(1800); swap_in_hero(1, SLOT_EMPTY, SLOT_EMPTY);
     /// step(400)` leaves behind -- a fight, a death, a replacement, and the
     /// fight it walks into. Recorded from a native run and asserted against
     /// `web.wasm` under Node by `tools/wasm_check.js`.
-    const SWAP_HASH: u64 = 0xd675_ea99_42a4_389c;
+    const SWAP_HASH: u64 = 0x3d01_f8a4_fc72_2db0;
 
     // `init(1); swap_in_hero(FIGHTER, Bow, Sword); spawn_monster(BRUTE); step(1200)`:
     // the only one of these that ever puts an arrow in the air, and therefore
     // the only one that pins the projectile arithmetic across targets.
-    const BOW_HASH: u64 = 0xe9ad_8b3f_92fb_ea54;
+    const BOW_HASH: u64 = 0x9ce8_9e07_a77f_1b7b;
 
     fn selftest() -> u64 {
         (u64::from(selftest_hash_hi()) << 32) | u64::from(selftest_hash_lo())
@@ -2615,16 +2774,21 @@ mod tests {
     #[test]
     fn a_faction_can_be_handed_a_different_mind_mid_fight() {
         init(1);
-        assert_eq!(policy_kind(0), PolicyKind::Utility.code());
+        // The room does **not** open on one mind for both sides: the hero gets
+        // the policy that has an opinion about what is in its hand, and the
+        // monsters get the naive baseline it is measured against. Asserted
+        // rather than assumed, because it is the difference the page exists to
+        // show and it is one line in `Sim::new` away from quietly reverting.
+        assert_eq!(policy_kind(0), PolicyKind::Duelist.code());
         assert_eq!(policy_kind(1), PolicyKind::Utility.code());
 
-        assert_eq!(set_policy(0, PolicyKind::Duelist.code()), 1);
-        assert_eq!(policy_kind(0), PolicyKind::Duelist.code());
+        assert_eq!(set_policy(0, PolicyKind::Utility.code()), 1);
+        assert_eq!(policy_kind(0), PolicyKind::Utility.code());
         assert_eq!(policy_kind(1), PolicyKind::Utility.code(), "both sides moved");
 
         // An unknown code changes nothing rather than trapping.
         assert_eq!(set_policy(0, 999), 0);
-        assert_eq!(policy_kind(0), PolicyKind::Duelist.code());
+        assert_eq!(policy_kind(0), PolicyKind::Utility.code());
     }
 
     #[test]
@@ -2753,7 +2917,12 @@ mod tests {
         // the hand, through the same request channel a policy uses. There is no
         // "shield modifier" any more -- steering a guard is a matter of holding
         // one, and holding one costs the sword.
-        assert_eq!(control() & CONTROL_SLOT, CONTROL_SLOT, "taking the limb has to imply taking the choice");
+        //
+        // Taken explicitly, because the limb no longer implies it: the three
+        // bits are three bits. Asserting that `CONTROL_LIMB` alone left the
+        // choice with the AI is `the_three_control_bits_are_independent`'s job.
+        assert_eq!(control(), CONTROL_LIMB, "the limb bit dragged another one in with it");
+        set_control(CONTROL_LIMB | CONTROL_SLOT);
         set_input(0, 0, 49_152, 1000, 1, 0);
         step(60);
         let unit = &frame()[HEADER_LEN..];
@@ -2770,10 +2939,10 @@ mod tests {
     }
 
     #[test]
-    fn the_two_control_bits_are_independent() {
+    fn the_three_control_bits_are_independent() {
         // Feet under the player, sword under the policy, and the other way
         // round. This is the whole shape of the feature: they are different
-        // skills and either can be handed over alone.
+        // skills and any of them can be handed over alone.
         init(1);
         spawn_monster(2, SLOT_EMPTY, SLOT_EMPTY);
         set_control(CONTROL_FEET);
@@ -2793,6 +2962,23 @@ mod tests {
             "the policy stopped driving the sword when only the feet were taken"
         );
         assert!(feet_under_ai.len() >= HEADER_LEN + UNIT_STRIDE);
+
+        // **All eight combinations, read back exactly as asked for.** The page
+        // draws three switches over these bits, so a mask that quietly gained a
+        // bit on the way in is a switch that lights itself: `set_control` used
+        // to fold `LIMB` into `LIMB | SLOT` and the page had to give up on
+        // switches entirely because of it.
+        init(1);
+        for mask in 0..8 {
+            set_control(mask);
+            assert_eq!(control(), mask, "mask {mask} did not survive the round trip");
+        }
+        // And nothing outside the three is remembered, rather than being stored
+        // and handed back as a control the page has no switch for.
+        set_control(u32::MAX);
+        assert_eq!(control(), CONTROL_FEET | CONTROL_LIMB | CONTROL_SLOT);
+        set_control(0);
+        assert_eq!(control(), 0);
     }
 
     #[test]
@@ -3095,28 +3281,88 @@ mod tests {
         // model, which could not miss.
     }
 
-    #[test]
-    fn enough_monsters_kill_the_hero_and_the_frame_still_has_something_to_draw() {
-        // The page has to say something when the character falls, so the state
-        // it says it about needs to be reachable. Six brutes is not subtle, and
-        // it should not be: the assertion is that death is representable, not
-        // that any particular fight is balanced.
-        init(1);
+    /// Kills whoever is standing on the hero's side, and answers whether it
+    /// worked. Six brutes is not subtle, and it should not be.
+    fn kill_the_hero() -> bool {
         for _ in 0..6 {
             spawn_monster(BRUTE, SLOT_EMPTY, SLOT_EMPTY);
         }
         for _ in 0..200 {
             step(60);
             if hero_row().is_none() {
-                break;
+                return true;
             }
         }
+        false
+    }
 
-        println!("the hero fell at tick {}", tick());
-        assert!(
-            hero_row().is_none(),
-            "six brutes could not kill one fighter"
+    /// **The sheet outlives the body.** An attribute is the one thing on the
+    /// Hero rail the player has to think about, and it used to be thrown away by
+    /// whatever killed them: `swap_in_hero` built its replacement out of
+    /// `Body::base_stats()`, so every dial went back to the archetype default.
+    #[test]
+    fn a_stat_sheet_outlives_the_character_wearing_it() {
+        init(1);
+        assert_eq!(set_hero_stat(3, 14), 1, "perception would not move");
+        assert_eq!(set_hero_stat(2, 17), 1, "intellect would not move");
+        assert_eq!(hero_stat(3), 14);
+
+        assert!(kill_the_hero(), "six brutes could not kill one fighter");
+
+        // Dead, and the rail is still describing something real: the sheet the
+        // next character walks in wearing, which is what the player is choosing
+        // between at exactly this moment.
+        assert_eq!(hero_stat(3), 14, "the sheet died with the character");
+        assert_eq!(hero_stat(2), 17);
+        assert_eq!(hero_body(), FIGHTER, "the body died with the character");
+        // And still editable, which is the other half of the point. There is
+        // nobody to write to, so this is the plan alone.
+        assert_eq!(set_hero_stat(0, 11), 1, "the rail went read-only with the corpse");
+        assert_eq!(hero_stat(0), 11);
+
+        assert_eq!(swap_in_hero(FIGHTER, SLOT_EMPTY, SLOT_EMPTY), 1, "nobody arrived");
+        assert_eq!(hero_stat(3), 14, "the replacement did not inherit the sheet");
+        assert_eq!(hero_stat(2), 17);
+        assert_eq!(hero_stat(0), 11, "an edit made while dead was thrown away");
+        // The live entity, not just the plan: the two have to agree once there
+        // is a body to agree about, or the rail is describing a fighter that is
+        // not the one in the room.
+        let hero = with_sim(None, |sim| sim.hero()).expect("no hero after a swap");
+        let stats = with_sim(None, |sim| sim.world.stats(hero)).expect("a hero with no stats");
+        assert_eq!(i32::from(stats.perception), 14);
+        assert_eq!(i32::from(stats.vitality), stat_of(stats, 4));
+    }
+
+    /// The one thing that *does* reset the sheet, and deliberately: a Rogue
+    /// wearing a Fighter's numbers is a different request from "keep my
+    /// attributes", and `UnitSpec::set_body` is where that is decided for both
+    /// rails at once.
+    #[test]
+    fn changing_the_body_rebuilds_the_sheet_it_is_a_sheet_for() {
+        init(1);
+        set_hero_stat(3, 14);
+        assert!(kill_the_hero(), "six brutes could not kill one fighter");
+
+        assert_eq!(set_hero_body(ROGUE), 1, "the plan would not take a Rogue");
+        assert_eq!(hero_body(), ROGUE);
+        assert_eq!(
+            hero_stat(3),
+            i32::from(Body::Rogue.base_stats().perception),
+            "a Rogue walked in wearing a Fighter's perception"
         );
+        assert_eq!(hero_loadout(0), sim::ActionKind::Shortsword.code(), "and its own kit");
+    }
+
+    #[test]
+    fn enough_monsters_kill_the_hero_and_the_frame_still_has_something_to_draw() {
+        // The page has to say something when the character falls, so the state
+        // it says it about needs to be reachable. The assertion is that death is
+        // representable, not that any particular fight is balanced.
+        init(1);
+        let fell = kill_the_hero();
+        println!("the hero fell at tick {}", tick());
+        assert!(fell, "six brutes could not kill one fighter");
+        assert!(hero_row().is_none());
         assert!(frame()[6] > 0.0, "nothing left to draw");
         // Every remaining row is a monster, and the frame is still well formed.
         // Through `frame_span` rather than the units alone: the last step that

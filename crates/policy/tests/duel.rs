@@ -674,3 +674,26 @@ fn control_what_beats_sword_and_board() {
         println!("{name} vs sword+shield: {:>3.0}%  toll {:.2}", r.win_rate() * 100.0, r.toll());
     }
 }
+
+/// The two cells in the whole roster sweep that a guard's footwork can move.
+///
+/// Kept because `GuardMind::drive` quotes its numbers. Every other pairing in
+/// `sweep_the_matchup_table` scores zero blocks -- nothing but a Fighter or a
+/// Rogue carries a shield, and only a Brute telegraphs long enough to be worth
+/// raising one against -- so changing what a guard does with its feet is
+/// invisible everywhere except here, and a change measured on the mean of the
+/// table would look like no change at all.
+#[test]
+#[ignore = "diagnostic"]
+fn control_what_a_guard_does_with_its_feet() {
+    let r = duel((PolicyKind::Duelist, Body::Rogue), (PolicyKind::Utility, Body::Brute));
+    println!(
+        "rogue(duelist) vs brute(utility): {:.0}% wins, {:.0}% draws, toll {:.2}, {} blocks",
+        r.win_rate() * 100.0, r.draw_rate() * 100.0, r.toll(), r.blocks
+    );
+    let f = duel((PolicyKind::Duelist, Body::Fighter), (PolicyKind::Utility, Body::Brute));
+    println!(
+        "fighter(duelist) vs brute(utility): {:.0}% wins, {:.0}% draws, toll {:.2}, {} blocks",
+        f.win_rate() * 100.0, f.draw_rate() * 100.0, f.toll(), f.blocks
+    );
+}

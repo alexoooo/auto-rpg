@@ -106,13 +106,14 @@
           </button>
         </div>
 
-        <!-- 4.5 -- who is driving, as five exclusive presets over the module's
-             3-bit mask. Built in JS from one table so the labels and the masks
-             cannot drift apart, and lit from `wasm.control()` rather than from
-             the click, because the module normalises the mask. -->
+        <!-- 4.5 -- who is driving, as one switch per bit of the module's 3-bit
+             mask. Built in JS from one table so the labels, the bits and the
+             keys cannot drift apart, and lit from `wasm.control()` rather than
+             from the click. Not a radiogroup: the three are independent, and
+             any combination of them is a room you can be in. -->
         <div class="control-wrap">
-          <span class="control-label">driving <kbd>C</kbd></span>
-          <div class="control-group" id="control-group" role="radiogroup" aria-label="Who is driving"></div>
+          <span class="control-label">driving</span>
+          <div class="control-group" id="control-group" role="group" aria-label="Who is driving"></div>
         </div>
       </div>
     </div>
@@ -190,18 +191,24 @@
       </button>
       <div class="rail-inner">
         <h2 class="rail-title">Hero</h2>
-        <p class="rail-note">
-          Every row here lands on the character standing in the room, <em>immediately</em> &mdash; body,
-          kit and attributes alike. Nothing here waits for a respawn.
+        <!-- Rewritten by `setHeroRailLive`, because this rail describes two
+             different things depending on whether anybody is standing: the
+             character in the room, or the one you send in next. The rows are
+             the same rows and they are never disabled -- what changes is who
+             they are about, and that has to be said rather than inferred. -->
+        <p class="rail-note" id="hero-rail-note">
+          Every row here lands on the character standing in the room, immediately &mdash; body, kit
+          and attributes alike. Nothing here waits for a respawn.
         </p>
 
         <section class="panel" id="hero-kit-panel">
           <h2>Body &amp; kit</h2>
           <!-- Live mutation in place: radius, mass and the whole stat sheet
                change under the character without the room resetting round it.
-               Refused when there is nobody there, which is why the row greys
-               out rather than letting a click do nothing silently. -->
-          <div class="mind" id="hero-body-row">
+               With nobody standing it writes the next spawn instead, which is
+               why this row no longer greys out -- there is always a character
+               for it to be about, and the note above says which one. -->
+          <div class="mind">
             <span>body</span>
             <select id="hero-body"></select>
           </div>
@@ -310,11 +317,12 @@
             </span>
           </li>
           <li>
-            <kbd>C</kbd>
+            <kbd>C</kbd><kbd>V</kbd><kbd>X</kbd>
             <span>
-              Cycle who is driving: Auto, the feet, the choice of what to hold, the attack, or all
-              of it. Taking the attack takes the choice with it, which is why the five are exclusive
-              rather than three switches.
+              Take the character's movement, its choice of what to hold, or its aim &mdash; three
+              switches, in any combination. Whichever you leave alone, it keeps doing for itself, on
+              its own reaction clock. <em>Aim</em> without <em>Action</em> is worth trying: you throw
+              the cuts and it picks the weapon.
             </span>
           </li>
           <li>

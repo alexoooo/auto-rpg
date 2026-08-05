@@ -37,13 +37,13 @@ const BUILD = ["cargo", "build", "--release", "--target", "wasm32-unknown-unknow
 const LAB_HASH = 0x3c730bb2a5473a52n;
 
 // `init(1); set_goto(20_000, 12_000); step(600)`: the path a player drives.
-const ROOM_HASH = 0x6f50c6292a24a26cn;
+const ROOM_HASH = 0x440a9ac3d9f0de85n;
 
 // `init(1); spawn_monster(3); step(600)`: a whole fight, start to finish. Worth
 // its own number because it reaches arithmetic the walk never does -- the spawn
 // point comes out of `Rng::from_stream` and the committed sine table, and every
 // approach measures a distance through `isqrt64`.
-const BATTLE_HASH = 0xae0f7466db097985n;
+const BATTLE_HASH = 0xe040b518c7bc4a2en;
 
 // `init(1); spawn_monster(2) x3; step(1800); swap_in_hero(1); step(400)`: a
 // fight, a death, a replacement, and the fight the replacement walks into. The
@@ -51,7 +51,7 @@ const BATTLE_HASH = 0xae0f7466db097985n;
 // sim across the death of an entity and the *reuse* of its slot -- the
 // generational free list is exactly the kind of index bookkeeping that a 32-bit
 // usize could quietly do differently.
-const SWAP_HASH = 0xd675ea9942a4389cn;
+const SWAP_HASH = 0x3d01f8a4fc722db0n;
 
 // `init(1); set_hero_loadout(0, BOW); spawn_monster(BRUTE); step(1200)`: the
 // only one of these five that ever puts an arrow in the air, and the only
@@ -60,7 +60,7 @@ const SWAP_HASH = 0xd675ea9942a4389cn;
 // of every flight, `segment_circle`'s i64-staged dot products, and the
 // saturating multiply in `tangential_speed` at the release. Portable
 // fixed-point is a claim about code that runs.
-const BOW_HASH = 0xe9ad8b3f92fbea54n;
+const BOW_HASH = 0x9ce89e07a77f1b7bn;
 
 // The frame header, as the client reads it.
 const HEADER_LEN = 9;
@@ -417,12 +417,17 @@ test("a policy can be chosen and tuned across the boundary", () => {
   // natively: these are the twelve newest exports and the ones most likely to
   // be renamed on one side of the wall and not the other.
   wasm.init(1);
-  assert.equal(wasm.policy_kind(0), 0, "heroes should open on the baseline");
+  // The two sides open on different minds: the hero on the duelist, which is
+  // the one that dispatches to a mind per action, and the monsters on the naive
+  // baseline it is measured against.
+  assert.equal(wasm.policy_kind(0), 1, "heroes should open on the duelist");
+  assert.equal(wasm.policy_kind(1), 0, "monsters should open on the baseline");
 
-  assert.equal(wasm.set_policy(0, 1), 1, "could not select the duelist");
-  assert.equal(wasm.policy_kind(0), 1);
+  assert.equal(wasm.set_policy(0, 0), 1, "could not select the baseline");
+  assert.equal(wasm.policy_kind(0), 0);
   assert.equal(wasm.policy_kind(1), 0, "selecting one side moved the other");
   assert.equal(wasm.set_policy(0, 999), 0, "an unknown policy code was accepted");
+  assert.equal(wasm.set_policy(0, 1), 1, "could not select the duelist");
 
   const knobs = wasm.policy_weight_count(0);
   assert.ok(knobs > 0, "the duelist reports no knobs at all");
@@ -457,10 +462,16 @@ test("the player can take the feet, the limb and the choice", () => {
   wasm.step(60);
   assert.ok(frame()[HEADER_LEN] < 11, "the hero did not walk west when told to");
 
-  // Taking the limb implies taking action selection: a player who could swing
-  // but not choose would watch the AI put a shield in their hand mid-cut.
+  // Three independent bits, and the page draws a switch over each. A mask that
+  // gained a bit on the way in would be a switch that lights itself, which is
+  // exactly what taking the limb used to do to the choice.
+  for (const mask of [0, 1, 2, 3, 4, 5, 6, 7]) {
+    wasm.set_control(mask);
+    assert.equal(wasm.control(), mask, `mask ${mask} did not survive the round trip`);
+  }
+
   wasm.set_control(2);
-  assert.equal(wasm.control(), 2 | 4, "taking the limb has to imply taking the choice");
+  assert.equal(wasm.control(), 2, "taking the limb dragged another bit in with it");
   // Guard due north, attacking nothing.
   wasm.set_input(0, 0, 16_384, 0, 0, 0);
   wasm.step(120);
