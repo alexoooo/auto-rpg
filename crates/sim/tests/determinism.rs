@@ -245,7 +245,14 @@ fn player_orders_change_the_outcome_without_breaking_determinism() {
 // unlocking the two rows, `move_bonus` reaching the observation, `Role::can_attack`,
 // a zero dead zone for a shot, the `Hand` release branch and `resolve_shots`
 // itself were all landed ahead of this line and left every golden standing.
-const GOLDEN_STATE_HASH: u64 = 0x465b_ed8f_8d16_3311;
+// Re-recorded once more for `World::set_stats` and `World::set_body`, and again
+// for exactly one reason out of the whole change: attributes, body, radius, mass
+// and maximum health are **inputs** now rather than facts about the scenario, so
+// `World::state_hash` writes all five -- and every world fingerprints
+// differently even though nothing in this file changes any of them and no
+// fighter's behaviour moved by a tick. The run below still resolves on the same
+// tick with the same outcome, which is what says the sim itself did not move.
+const GOLDEN_STATE_HASH: u64 = 0x3c5d_b1ca_4cae_afd8;
 
 #[test]
 fn golden_hash() {

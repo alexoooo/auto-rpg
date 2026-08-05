@@ -33,19 +33,37 @@ const MAX_CATCHUP_TICKS = 8;
 // unit: [x, y, facing_raw, radius, hp, max_hp, faction, kind, intent,
 // entity_index, entity_generation, sword_angle_raw, sword_reach, sword_spin,
 // shield_angle_raw, shield_reach, weapon_length, shield_arc_raw, hit_flash,
-// block_flash, parry_flash, sword_swing, sword_swing_left, sword_line_raw].
-const HEADER_LEN = 8;
-const UNIT_STRIDE = 27;
+// block_flash, parry_flash, sword_swing, sword_swing_left, sword_line_raw,
+// action_kind, action_role, slot, slot0_action, slot1_action, sight_range].
+const HEADER_LEN = 9;
+const UNIT_STRIDE = 28;
 
 /** Floats per arrow, in a block that follows the units: [x, y, heading_raw,
  *  faction]. Arrows are not units -- no health, no loadout, no phase -- so they
  *  get their own short row rather than twenty-three dead floats each. */
 const SHOT_STRIDE = 4;
 
+/** Floats per event, in a third block that follows the arrows:
+ *  [kind, x, y, amount, actor_index].
+ *
+ *  Things that *happened*, as opposed to things that are. Every other row in the
+ *  frame describes state that will still be there next frame; an event is gone
+ *  the moment it is read, and what the page does with it -- a floating number, a
+ *  callout bubble -- it then ages on its own wall clock, like `trail` and
+ *  `corpses`. */
+const EVENT_STRIDE = 5;
+
+/** Event `kind` codes, from crates/web/src/lib.rs. `amount` reads differently
+ *  under each: health lost, health absorbed, nothing, and an action code. */
+const EVENT_DAMAGE = 0;
+const EVENT_BLOCK = 1;
+const EVENT_PARRY = 2;
+const EVENT_DECLARE = 3;
+
 /** Frame layout this file is written against. Checked at boot against
  *  `frame_layout_version()`, and a mismatch stops the page rather than letting
  *  it paint a health bar out of a guard arc. */
-const FRAME_LAYOUT_VERSION = 3;
+const FRAME_LAYOUT_VERSION = 4;
 
 // `Swing::discriminant`, from crates/sim/src/hand.rs. Append-only.
 const SWING_GUARD = 0;
@@ -94,9 +112,11 @@ const INTENT_ATTACK = 1;
 const INTENT_FLEE = 2;
 
 // `UnitKind` codes, as `kind_code` in crates/web/src/lib.rs spells them out.
-// The first two are also what `swap_in_hero` accepts, and it accepts nothing
-// else: a hero built from a monster archetype is a character the HUD would
-// describe with the wrong stat block.
+// All four are accepted everywhere a body code crosses now -- `hero_from_code`
+// maps 2 and 3 as well, so the Hero rail can put the player inside a Brute and
+// `set_hero_body` can do it without the room resetting. Only the *fallback*
+// differs between the two decoders: garbage is a Fighter on the hero side and a
+// Skitterer on the spawn side.
 const BODY_FIGHTER = 0;
 const BODY_ROGUE = 1;
 const BODY_BRUTE = 2;
@@ -110,6 +130,17 @@ const BODY_SKITTERER = 3;
  *  is both simpler and the only way to see a *blocked* blow -- most of the drama
  *  and almost none of the damage. */
 const CORPSE_MS = 520;
+
+/**
+ * Below this fraction, health stops being an amount and starts being a warning.
+ *
+ * **One threshold, three places**, and this is the one: the bars over the bodies
+ * (`drawHealth`), the bar in the vitals line (`#hp-fill`) and the life globe all
+ * read it. It was written out as `0.35` in two of those and the third was about
+ * to make it three, which is how a number ends up meaning 35% in one corner of a
+ * screen and 30% in another.
+ */
+const LOW_HEALTH = 0.35;
 
 /** The seed for the room. Nothing in an empty room is random, but the number
  *  is what makes this run the same run every time it is opened. */
@@ -156,6 +187,13 @@ function loadRegistry() {
       vitality: wasm.body_stat(code, 4),
       radius: wasm.body_stat(code, 5) / 1000,
       mass: wasm.body_stat(code, 6) / 1000,
+      // How far this body sees, asked for rather than derived. `derived()`
+      // below used to compute it as `(60 + 6 * perception) / 10`, which was the
+      // last hand-copied sim formula left in this file and exactly what the
+      // block comment above is about. Anything standing on the floor gets its
+      // sight from its own frame column instead; this is for the roster
+      // preview, which describes a body nobody has spawned and so has no row.
+      sight: wasm.body_stat(code, 7) / 1000,
     });
   }
   ACTIONS.length = 0;
@@ -194,7 +232,11 @@ function derived(a) {
     decisionPeriod: clamp(20 - a.intellect, 1, 120),
     // "(250 + 12 * agility) / 100" units per second, held per tick in the sim.
     moveSpeed: (250 + 12 * a.agility) / (100 * TICKS_PER_SECOND),
-    sight: (60 + 6 * a.perception) / 10,
+    // Sight is *not* here. It was, as "(60 + 6 * perception) / 10", and it was
+    // the last mirrored sim formula in this file -- so it now crosses the
+    // boundary instead: `body_stat(code, 7)` for a body in the registry, and
+    // column 27 of a unit row for anything actually standing in the room. See
+    // the post-mortem above `BODIES`.
     noise: clamp(15 - a.perception, 0, 15) / 10,
     maxHp: 20 + 8 * a.vitality,
     // Damage is impact speed now, not a constant, so what power buys is a
@@ -255,6 +297,7 @@ const EXPORTS = [
   "frame_layout_version",
   "unit_stride",
   "shot_stride",
+  "event_stride",
   "header_len",
   "action_count",
   "action_code",
@@ -269,6 +312,23 @@ const EXPORTS = [
   "hero_loadout",
   "hero_slot",
   "set_hero_loadout",
+  // The Hero rail, editing a character that is standing in the room. Every one
+  // of these has a getter beside its setter on purpose: the module clamps and
+  // normalises, so the panel reads the value back rather than trusting its own
+  // request -- the same discipline `control()` sits beside `set_control()` for.
+  "hero_stat",
+  "set_hero_stat",
+  "hero_body",
+  "set_hero_body",
+  // The Enemy rail, describing something that does not exist yet. Editing the
+  // template changes nothing in the world until `spawn_from_template`.
+  "spawn_template_body",
+  "set_spawn_template_body",
+  "spawn_template_stat",
+  "set_spawn_template_stat",
+  "spawn_template_slot",
+  "set_spawn_template_slot",
+  "spawn_from_template",
 ];
 
 /**
@@ -370,6 +430,12 @@ function readUnit(f, u) {
     // a dead unit's slot is handed to the next spawn: the index alone would
     // read as the same creature getting up again. See the crate docs.
     id: `${f[u + 9]}:${f[u + 10]}`,
+    // The index on its own, which is the *only* thing an event row carries as
+    // `actor`. Kept beside `id` rather than parsed back out of it: a floater
+    // and a callout need to find which body a row was about, and splitting a
+    // string sixty times a second to answer that would be silly. It is a hint
+    // for grouping and not an identity -- `id` remains the only one of those.
+    index: f[u + 9],
     // The limb -- one, now. Bearings arrive as binary angles like `facing`, for
     // the same reason: no trigonometry crosses the boundary.
     limbAngle: (f[u + 11] / 65536) * TAU,
@@ -397,6 +463,12 @@ function readUnit(f, u) {
     slot: f[u + 24],
     slot0: f[u + 25],
     slot1: f[u + 26],
+    // How far this body can see, in world units, straight off its own stat
+    // sheet. Not derived here from `perception`, and not derived here ever
+    // again: the hero's attributes are a live dial now, so a formula copied
+    // into this file would be describing a character that has changed
+    // underneath it. See the post-mortem above `BODIES`.
+    sight: f[u + 27],
   };
 }
 
@@ -410,9 +482,11 @@ function parseFrame(f) {
     decisionTick: f[5],
     unitCount: f[6],
     shotCount: f[7],
+    eventCount: f[8],
     units: [],
     monsters: [],
     shots: [],
+    events: [],
     hero: null,
   };
   // Trust the buffer's length over the header's count. They agree, and the
@@ -447,6 +521,37 @@ function parseFrame(f) {
       faction: f[at + 3],
     });
   }
+  // Everything that happened during the ticks this frame just ran, in a third
+  // block after the arrows -- and based off `shots` for the same
+  // belt-and-braces reason the arrows are based off `rows`.
+  //
+  // One `step(n)` produces one feed, however many ticks `n` was: the module
+  // clears it per call, not per tick, so a frame that caught up eight ticks
+  // reports all eight. Note the corollary -- a frame that steps *no* ticks
+  // leaves the previous call's feed in place, so anything consuming these must
+  // do it once per `step`, not once per animation frame.
+  const eventBase = base + shots * SHOT_STRIDE;
+  const rowCount = Math.min(
+    state.eventCount | 0,
+    Math.floor((f.length - eventBase) / EVENT_STRIDE)
+  );
+  for (let i = 0; i < rowCount; i++) {
+    const at = eventBase + i * EVENT_STRIDE;
+    state.events.push({
+      // One of EVENT_DAMAGE / EVENT_BLOCK / EVENT_PARRY / EVENT_DECLARE, and
+      // `amount` means something different under each.
+      kind: f[at],
+      x: f[at + 1],
+      y: f[at + 2],
+      amount: f[at + 3],
+      // `EntityId::index` alone, deliberately without the generation: a row is
+      // consumed in the frame it arrives in, and a floater is keyed on the
+      // position it happened at rather than on who it happened to. This is a
+      // hint for grouping, not an identity -- `unit.id` is still the only one
+      // of those.
+      actor: f[at + 4],
+    });
+  }
   return state;
 }
 
@@ -462,49 +567,116 @@ const el = {
   unitName: document.getElementById("unit-name"),
   unitHp: document.getElementById("unit-hp"),
   hpFill: document.getElementById("hp-fill"),
-  stats: document.getElementById("stats"),
   orderState: document.getElementById("order-state"),
   orderDest: document.getElementById("order-dest"),
   orderDistance: document.getElementById("order-distance"),
   orderDecision: document.getElementById("order-decision"),
   battleState: document.getElementById("battle-state"),
   battleRoster: document.getElementById("battle-roster"),
-  swapRow: document.getElementById("swap-row"),
+  respawn: document.getElementById("btn-respawn"),
   simTick: document.getElementById("sim-tick"),
   simPosition: document.getElementById("sim-position"),
   simHash: document.getElementById("sim-hash"),
-  // The loadout panel, the spawn panel and the two slot chips.
+  // The Hero rail's body-and-kit rows. `loadout-0` and `loadout-1` kept their
+  // ids through the move out of the drawer: they still drive the same
+  // `set_hero_loadout` export and still read back off the frame.
+  heroBody: document.getElementById("hero-body"),
+  heroBodyRow: document.getElementById("hero-body-row"),
+  heroAttrs: document.getElementById("hero-attrs"),
   loadout0: document.getElementById("loadout-0"),
   loadout1: document.getElementById("loadout-1"),
   loadoutReadout: document.getElementById("loadout-readout"),
-  spawnBody: document.getElementById("spawn-body"),
-  spawnPrimary: document.getElementById("spawn-primary"),
-  spawnSecondary: document.getElementById("spawn-secondary"),
-  slot0Name: document.getElementById("slot-0-name"),
-  slot1Name: document.getElementById("slot-1-name"),
+  // The Enemy rail, which describes something that does not exist yet.
+  enemyBody: document.getElementById("enemy-body"),
+  enemySlot0: document.getElementById("enemy-slot-0"),
+  enemySlot1: document.getElementById("enemy-slot-1"),
+  enemyAttrs: document.getElementById("enemy-attrs"),
 };
 
-const drawer = document.getElementById("drawer");
-const menuButton = document.getElementById("btn-menu");
+/** The two rails, by the ids **session 5 measures**. Both are real fixed boxes
+ *  of `--rail-w`, so `getBoundingClientRect()` on either one is the rectangle
+ *  the camera has to keep the character out of. */
+const RAILS = {
+  enemy: document.getElementById("panel-enemy"),
+  hero: document.getElementById("panel-hero"),
+};
+
+const overlayKeys = document.getElementById("keys-overlay");
 
 const DEFAULT_HINT = "Click the floor. The character walks there its own way.";
 
 /**
- * The drawer holding everything that is worth reading but not worth watching.
+ * Opens or shuts one rail.
  *
  * A class rather than the `hidden` attribute, because it has to slide in both
  * directions and `display: none` cannot be animated. The stylesheet takes
  * `visibility` with it, which is what keeps the sliders inside out of the tab
- * order while it is shut -- otherwise `Tab` would open the panel and then walk
- * straight into controls nobody can see.
+ * order while it is shut -- otherwise `Tab` would walk straight into controls
+ * nobody can see. That is the drawer's arrangement, inherited whole.
+ *
+ * The matching class on `<body>` is what lets the stylesheet move the HUD's own
+ * gutters aside, so the life globe is not left sitting under the Enemy rail.
+ * Deliberately CSS rather than a JS style write: the rail's slide and the HUD's
+ * gutter then share one transition and cannot fall out of step.
  */
-function setDrawer(open) {
-  drawer.classList.toggle("open", open);
-  menuButton.setAttribute("aria-expanded", open ? "true" : "false");
+function setRail(which, open) {
+  const rail = RAILS[which];
+  if (!rail) return;
+  rail.classList.toggle("open", open);
+  document.body.classList.toggle(`rail-${which}-open`, open);
+  const tab = rail.querySelector(".rail-tab");
+  if (tab) tab.setAttribute("aria-expanded", open ? "true" : "false");
+  // No resize call, and no `transitionend` listener either. The canvas host did
+  // not change size -- the rails are `position: fixed` over it -- and the camera
+  // re-measures `railInsets()` every frame, so it picks the slide up while it is
+  // still happening rather than at whichever end of it a listener fired on.
 }
 
-function drawerOpen() {
-  return drawer.classList.contains("open");
+function railOpen(which) {
+  const rail = RAILS[which];
+  return !!rail && rail.classList.contains("open");
+}
+
+/**
+ * How much of the window each rail is currently covering, in CSS pixels.
+ *
+ * **This is what session 5's camera wants**, and it is measured rather than
+ * assumed: `getBoundingClientRect()` accounts for the slide transform, so a
+ * rail caught halfway through its 180 ms transition reports the strip it is
+ * actually covering at that instant, and the safe rect breathes with it instead
+ * of snapping.
+ *
+ * The tab is measured with the panel because the tab is also over the floor: it
+ * hangs off the rail's outer face and stays visible while the rail is shut, so a
+ * character parked at `x = 0` would be behind it.
+ */
+function railInsets() {
+  const width = window.innerWidth || viewport.w || 1;
+  const span = (rail) => {
+    const box = rail.getBoundingClientRect();
+    const tab = rail.querySelector(".rail-tab");
+    const tabBox = tab ? tab.getBoundingClientRect() : box;
+    return { min: Math.min(box.left, tabBox.left), max: Math.max(box.right, tabBox.right) };
+  };
+  const left = span(RAILS.enemy);
+  const right = span(RAILS.hero);
+  return {
+    left: clamp(left.max, 0, width),
+    right: clamp(width - right.min, 0, width),
+  };
+}
+
+/** The keyboard reference, behind the `?` in the top bar. A modal is read once
+ *  and shut; the panel it replaced was at the bottom of a drawer nobody
+ *  scrolled to. */
+function setKeysOverlay(open) {
+  overlayKeys.hidden = !open;
+  const button = document.getElementById("btn-keys");
+  if (button) button.setAttribute("aria-expanded", open ? "true" : "false");
+}
+
+function keysOverlayOpen() {
+  return !overlayKeys.hidden;
 }
 
 /** What the player last asked for. The frame is the truth about the order; this
@@ -536,14 +708,105 @@ const VIEW_UNITS_Y = 11;
 const ZOOM_MAX = 2.5; // multiples of the default framing
 const CAMERA_TAU_MS = 90; // exponential follow constant
 
+/**
+ * World units of void the view is allowed to run past the wall.
+ *
+ * A tuning number, not a rule. It is stated in world units rather than pixels
+ * because what it is buying is *room around the character*, and a pixel band
+ * would be a different amount of room at every zoom level. 1.5 is a little
+ * under two body diameters: enough that a character standing in a corner with
+ * both rails open is still clear of the panel, small enough that the strip of
+ * void reads as the edge of the room rather than as a bug.
+ */
+const CAMERA_OVERSCAN = 1.5;
+
 let viewport = { w: 0, h: 0 }; // the canvas, in CSS pixels
 let dpr = 1; // stored, because `render` re-establishes the base matrix each frame
 let zoom = 1; // the player's wheel adjustment, re-clamped on every resize
 let cam = { x: 12, y: 8 }; // the centre of the view, in world units
 let scale = 1; // CSS pixels per world unit
 
+/**
+ * The obstructed edges of the canvas, in CSS pixels.
+ *
+ * The rails are `position: fixed` *over* the glass, so `#canvas-wrap` is still
+ * `inset: 0` and neither the `ResizeObserver` nor `window.resize` has anything
+ * to say about one opening. The canvas did not change size; what changed is how
+ * much of it the player can see, and the camera is the only thing that has to
+ * learn it.
+ *
+ * `top` and `bottom` are carried but stay zero, and that is a decision rather
+ * than an omission: nothing spans those edges. The life globe, the action bar
+ * and the control group are three small clusters sitting in the bottom corners,
+ * and reserving a band as tall as the tallest of them would push the character
+ * up the screen across the entire width of the window to buy back two corners.
+ * The fields exist so a future full-width strip is a measurement rather than a
+ * refactor.
+ */
+let insets = { left: 0, right: 0, top: 0, bottom: 0 };
+
+/**
+ * The unobstructed strip of canvas: where the character is allowed to be.
+ *
+ * Everything with an opinion about where the view is centred reads this and
+ * nothing reads `viewport` directly -- `resize`, `cameraTarget` and
+ * `viewOrigin` (and through it `render` and `pointerToWorld`) all frame on the
+ * same rectangle, which is the only way they cannot disagree about it.
+ *
+ * The 120 px floor is not decoration. Under `max-width: 640px` the stylesheet
+ * gives a rail `width: 100vw`, so a single open rail covers the window and the
+ * two insets sum to more than there is: without the floor `w` goes negative,
+ * `scale` goes negative behind it and every division downstream produces an
+ * inverted view or a NaN. `x` and `y` are pulled back by the same amount the
+ * floor added, because a 120 px rect whose origin is still the far side of a
+ * full-window rail would centre the character off the edge of the screen.
+ */
+function safeRect() {
+  const w = Math.max(120, viewport.w - insets.left - insets.right);
+  const h = Math.max(120, viewport.h - insets.top - insets.bottom);
+  return {
+    x: clamp(insets.left, 0, Math.max(0, viewport.w - w)),
+    y: clamp(insets.top, 0, Math.max(0, viewport.h - h)),
+    w,
+    h,
+  };
+}
+
+/**
+ * Re-measures the rails. Answers whether anything actually moved.
+ *
+ * Measured, never assumed: `railInsets()` reads the rails' own
+ * `getBoundingClientRect()`, tabs included, so a stylesheet change to
+ * `--rail-w` moves the camera with it and the two cannot desync. A hardcoded
+ * width here would be a second copy of a number the layout owns.
+ *
+ * The half-pixel deadband is what stops this from re-running `resize` forever:
+ * the rects are fractional (a tab measures 32.25 px), and `===` on two floats
+ * that agree to a thousandth is a coin toss.
+ */
+function refreshInsets() {
+  const measured = railInsets();
+  const moved = Math.abs(measured.left - insets.left) > 0.5 || Math.abs(measured.right - insets.right) > 0.5;
+  insets = { left: measured.left, right: measured.right, top: 0, bottom: 0 };
+  return moved;
+}
+
 let trail = [];
-let pulses = [];
+
+/**
+ * Numbers coming off bodies, and the pills naming what a body just committed
+ * to. Both are seeded from `state.events` and both are aged in **milliseconds**,
+ * like `trail` and `corpses` and for the same reason: the sim has no opinion
+ * about how long a number hangs in the air, and a frame that runs no ticks must
+ * still let one finish rising.
+ *
+ * There is no event row for an attack *ending*, which is the other half of why
+ * these age on a clock rather than tracking a phase: the pill has to expire on
+ * its own or it would sit over a body forever the first time a swing was
+ * interrupted.
+ */
+let floaters = [];
+let callouts = [];
 
 /**
  * What each body looked like last frame, keyed by entity handle.
@@ -556,12 +819,14 @@ let pulses = [];
  */
 let bodies = new Map();
 
-/** Where a body was when it stopped being in the frame. Drawn fading, then
- *  dropped; purely a wall-clock animation, like the pulses. */
+/** Where a body was when it stopped being in the frame, and what it looked like
+ *  standing there. Drawn fading, then dropped; purely a wall-clock animation,
+ *  like the floaters. `kind` and `facing` are carried alongside the radius so a
+ *  corpse can settle as the same silhouette it fought as -- a Brute that fell
+ *  must not go down as a circle. */
 let corpses = [];
 
 let announcedFall = false;
-let lastDecisionSeen = -1;
 let stillSince = 0; // the tick the character last moved on
 let stillAt = { x: 0, y: 0 };
 let orderKey = ""; // the order as the frame reports it, to spot a new one
@@ -597,19 +862,28 @@ function die(title, body, err) {
 // ------------------------------------------------------------------- sizing
 
 function resize() {
+  // Before the framing, not after: every number below is derived from the safe
+  // rect now, and the safe rect is a measurement of the rails.
+  refreshInsets();
+
   const box = stage.getBoundingClientRect();
   viewport = {
     w: Math.max(1, Math.floor(Math.max(120, box.width))),
     h: Math.max(1, Math.floor(Math.max(120, box.height))),
   };
 
-  // Two bounds and a preference. `fit` is the scale at which the whole room is
-  // on screen, and it is the zoomed-out limit: past it you would be looking at
-  // void for no reason. `base` is the framing chosen above. `fit` is always
-  // below `base` -- h/16 < h/11 whatever the window is -- so the bounds cannot
-  // cross however the page is dragged about.
-  const fit = Math.min(viewport.w / arena.x, viewport.h / arena.y);
-  const base = viewport.h / VIEW_UNITS_Y;
+  // Two bounds and a preference, all three taken off the *safe* rect rather
+  // than the whole canvas: an open rail should zoom out to keep the same amount
+  // of room visible in the strip that is left, not crop a third of it away.
+  // `fit` is the scale at which the whole room is on screen, and it is the
+  // zoomed-out limit: past it you would be looking at void for no reason.
+  // `base` is the framing chosen above. `fit` is always below `base` --
+  // min(w/24, h/16) <= h/16 < h/11 whatever the window is and whatever the
+  // rails are doing -- so the bounds cannot cross however the page is dragged
+  // about.
+  const safe = safeRect();
+  const fit = Math.min(safe.w / arena.x, safe.h / arena.y);
+  const base = safe.h / VIEW_UNITS_Y;
   scale = clamp(base * zoom, fit, base * ZOOM_MAX);
   // Writing the clamped value back is load-bearing rather than tidy: without
   // it, twenty notches of wheel past the limit have to be paid back before the
@@ -621,34 +895,64 @@ function resize() {
   dpr = clamp(window.devicePixelRatio || 1, 1, 3);
   canvas.style.width = `${viewport.w}px`;
   canvas.style.height = `${viewport.h}px`;
-  canvas.width = Math.round(viewport.w * dpr);
-  canvas.height = Math.round(viewport.h * dpr);
+  // Guarded, because a rail sliding open now runs this on every frame of its
+  // 180 ms transition: *assigning* `canvas.width` reallocates and clears the
+  // bitmap even when the value it is given is the one already there, which is a
+  // dozen pointless backing-store allocations per rail toggle.
+  const backing = { w: Math.round(viewport.w * dpr), h: Math.round(viewport.h * dpr) };
+  if (canvas.width !== backing.w) canvas.width = backing.w;
+  if (canvas.height !== backing.h) canvas.height = backing.h;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 
 // ------------------------------------------------------------------- camera
 
 /**
- * Where the camera wants to be: the character, pulled back inside the walls.
+ * Where the camera wants to be: the character, centred in the *safe* rect and
+ * allowed to run a little past the walls.
  *
- * The clamp is what keeps the room's edge meaningful. Walk into a corner and
- * the view stops while the character keeps going, which is the ordinary ARPG
- * read of "you are against the wall" -- and it is why void is only ever visible
- * on an axis the view is genuinely wider than the room on.
+ * Both halves of that are reversals of what stood here before, and both come
+ * from the same argument: the character is the thing the player is watching,
+ * and every pixel spent proving where the room ends is spent hiding it.
+ *
+ * The half-extents are the safe rect's, so the character is centred in the
+ * strip of glass that is actually visible rather than in the canvas. With the
+ * Hero rail open that means walking east pans the view instead of sliding the
+ * character in under the panel.
+ *
+ * The clamp used to be hard, and its comment argued that stopping the view at
+ * the wall is the ordinary ARPG read of "you are against the wall". It is --
+ * right up until a corner, where a hard clamp parks the character in the
+ * outermost few hundred pixels of the screen, which is precisely where the rail
+ * and the HUD live. A narrow band of void past the wall is a much cheaper cost
+ * than losing sight of the thing you are controlling; `CAMERA_OVERSCAN` is how
+ * wide that band is.
+ *
+ * The "if the view is wider than the room, centre the room" branch survives
+ * unchanged in spirit -- it just measures the room as the walls plus both
+ * overscan bands now, so it hands over to the clamp at the point where the
+ * clamp still has somewhere to move.
  */
 function cameraTarget(state) {
   const anchor = state.hero || cam;
-  const halfW = viewport.w / scale / 2;
-  const halfH = viewport.h / scale / 2;
+  const safe = safeRect();
+  const halfW = safe.w / scale / 2;
+  const halfH = safe.h / scale / 2;
   return {
-    x: halfW * 2 >= arena.x ? arena.x / 2 : clamp(anchor.x, halfW, arena.x - halfW),
-    y: halfH * 2 >= arena.y ? arena.y / 2 : clamp(anchor.y, halfH, arena.y - halfH),
+    x:
+      halfW * 2 >= arena.x + 2 * CAMERA_OVERSCAN
+        ? arena.x / 2
+        : clamp(anchor.x, halfW - CAMERA_OVERSCAN, arena.x - halfW + CAMERA_OVERSCAN),
+    y:
+      halfH * 2 >= arena.y + 2 * CAMERA_OVERSCAN
+        ? arena.y / 2
+        : clamp(anchor.y, halfH - CAMERA_OVERSCAN, arena.y - halfH + CAMERA_OVERSCAN),
   };
 }
 
 /** Presentation only, and therefore wall-clock rather than ticks -- the same
- *  convention `trail`, `pulses` and `corpses` follow. The exponential is what
- *  makes the follow look identical at 60 and at 144 Hz. */
+ *  convention `trail`, `corpses`, `floaters` and `callouts` follow. The
+ *  exponential is what makes the follow look identical at 60 and at 144 Hz. */
 function updateCamera(state, elapsed) {
   const target = cameraTarget(state);
   const k = 1 - Math.exp(-elapsed / CAMERA_TAU_MS);
@@ -663,17 +967,47 @@ function snapCamera(state) {
   cam = cameraTarget(state);
 }
 
+/**
+ * Where world (0, 0) lands on the canvas, in CSS pixels: the camera as a
+ * translation.
+ *
+ * Called from exactly two places -- `render`, which hands it to `ctx.translate`,
+ * and `pointerToWorld`, which subtracts it back off. They are one matrix
+ * written twice, and the cheapest way to keep two copies of a matrix from
+ * drifting is to have only one. `cam` lands at the centre of the *safe* rect
+ * rather than the centre of the canvas, which is what an open rail changes.
+ *
+ * Snapped to a whole device pixel: a fractional offset smears the grid, which
+ * is drawn on half-pixel boundaries precisely so it stays crisp, and sets the
+ * baked flagstones crawling as the camera eases. The snap lives here rather
+ * than inside `render` so that the inverse is undone against the matrix that
+ * was actually used, not against the one it was rounded from.
+ */
+function viewOrigin() {
+  const safe = safeRect();
+  return {
+    x: Math.round((safe.x + safe.w / 2 - px(cam.x)) * dpr) / dpr,
+    y: Math.round((safe.y + safe.h / 2 - px(cam.y)) * dpr) / dpr,
+  };
+}
+
 // -------------------------------------------------------------------- input
 
 /**
  * A click, in world units: the exact inverse of the matrix `render` sets up.
  *
+ * It is the *same* matrix, read out of `viewOrigin()` rather than re-derived
+ * here, and that is the whole point of the function existing. The forward
+ * transform and this inverse are one thing written twice, and an inverse wrong
+ * by half a rail width puts every click somewhere other than where it was made
+ * -- most visibly at the screen edges, which is where the rails are.
+ *
  * `getBoundingClientRect` is CSS pixels -- *not* the DPR-scaled backing store --
  * so this must divide by the rect, never by `canvas.width`. It used to read the
  * fraction across the rect and multiply by the arena, which was only correct
  * while the canvas showed the whole room and nothing else. With a camera the
- * pointer is an offset from the centre of the view, and the centre of the view
- * is `cam`.
+ * pointer is an offset from the origin of the view; with a safe rect that
+ * origin is no longer the middle of the canvas.
  *
  * Nothing is clamped here. A `Goto` is clamped into the arena by `milli`, so a
  * click out in the void parks the order against the wall exactly as a click
@@ -681,9 +1015,10 @@ function snapCamera(state) {
  */
 function pointerToWorld(event) {
   const rect = canvas.getBoundingClientRect();
+  const origin = viewOrigin();
   return {
-    x: cam.x + (event.clientX - rect.left - rect.width / 2) / scale,
-    y: cam.y + (event.clientY - rect.top - rect.height / 2) / scale,
+    x: (event.clientX - rect.left - origin.x) / scale,
+    y: (event.clientY - rect.top - origin.y) / scale,
   };
 }
 
@@ -776,8 +1111,35 @@ function freeWill() {
  * produce a different fight on every machine.
  */
 function spawnMonster(kindCode, primary = SLOT_EMPTY, secondary = SLOT_EMPTY) {
-  const name = BODIES[kindCode].name;
-  const standing = wasm.spawn_monster(kindCode, primary, secondary);
+  announceSpawn(bodyName(kindCode), wasm.spawn_monster(kindCode, primary, secondary));
+}
+
+/**
+ * The Enemy rail's **[Spawn]**: whatever the template currently describes.
+ *
+ * Deliberately a second path rather than a flag on `spawnMonster`. `S` and `B`
+ * still walk in a body on its own default kit, and a hotkey that quietly meant
+ * something different after you touched a panel would be a worse surprise than
+ * two spawn functions -- which is the same argument `spawn_from_template`'s own
+ * doc comment makes on the Rust side.
+ *
+ * The body name is read back out of the module rather than off the dropdown,
+ * for the same reason everything else on that rail is: what walked in is the
+ * template the module is holding, not the one the page thinks it asked for.
+ */
+function spawnFromTemplate() {
+  announceSpawn(bodyName(wasm.spawn_template_body()), wasm.spawn_from_template());
+}
+
+/** A body's display name, safe for a code the roster does not describe --
+ *  `hero_body()` answers `SLOT_EMPTY` when there is nobody standing, and that
+ *  must not index the roster. */
+function bodyName(code) {
+  const body = BODIES[code];
+  return body ? body.name : "character";
+}
+
+function announceSpawn(name, standing) {
   if (!standing) {
     hint("The room is full. Nothing else fits.", true);
     return;
@@ -805,33 +1167,51 @@ function swapInHero(kindCode, primary = SLOT_EMPTY, secondary = SLOT_EMPTY) {
     hint("There is already a character in the room.", true);
     return;
   }
+  // The rail describes a character that has just been replaced. Forget the
+  // snapshot so the next frame re-reads body, kit and attributes rather than
+  // matching its cache key against the one that fell.
+  heroKey = "";
   intent = "none";
   // Everything from here down is the page's memory of the character that fell:
-  // the path it walked, the rings its thinking left, and the fact that we have
-  // already said it died. `bodies` and `corpses` are deliberately *not* cleared
-  // -- the corpse should go on fading where it dropped.
+  // the path it walked, and the fact that we have already said it died.
+  // `bodies`, `corpses`, `floaters` and `callouts` are deliberately *not*
+  // cleared -- the corpse should go on fading where it dropped, and the number
+  // that killed it should finish rising off it.
   trail = [];
-  pulses = [];
   announcedFall = false;
-  // The module puts `last_decision_tick` back to zero for a character that has
-  // not thought yet. Recording that here first is what stops the change from
-  // reading as a decision and flashing a ring nobody took.
-  lastDecisionSeen = 0;
   // The replacement drops in at the clearest spot on the floor, which can be
   // right across the room from where the last one fell. Cut to it.
   snapCamera(parseFrame(readFrame()));
-  hint(`A ${BODIES[kindCode].name} takes over. The monsters are where you left them.`, true);
+  hint(`A ${bodyName(kindCode)} takes over. The monsters are where you left them.`, true);
+}
+
+/**
+ * **[Re-Spawn]**, off the life globe: the body and kit the Hero rail is showing.
+ *
+ * Which is the body that fell, because `set_hero_body` is refused while there
+ * is nobody to change and the rail greys that row out rather than pretending
+ * otherwise. The rail freezes on the last character it read rather than
+ * snapping back to a default, so what comes back is what the panel is still
+ * describing -- and the panel is the only thing on screen that could answer.
+ */
+function respawnHero() {
+  const snapshot = heroCache;
+  const body = snapshot && BODIES[snapshot.body] ? snapshot.body : BODY_FIGHTER;
+  const slots = snapshot ? snapshot.slots : [SLOT_EMPTY, SLOT_EMPTY];
+  swapInHero(body, slots[0], slots[1]);
 }
 
 function restart() {
   wasm.init(SEED);
   intent = "none";
   trail = [];
-  pulses = [];
   bodies = new Map();
   corpses = [];
+  // A fresh room at tick zero: a number still climbing off a body that no
+  // longer exists would be the page remembering a fight the sim has forgotten.
+  floaters = [];
+  callouts = [];
   announcedFall = false;
-  lastDecisionSeen = -1;
   orderKey = "";
   orderAcknowledged = false;
   // `init` builds a fresh `Sim`, which starts with both sides on the baseline
@@ -841,6 +1221,13 @@ function restart() {
   controlMask = 0;
   updateControlButtons();
   syncBehaviourPanel();
+  // Both rails describe module state that `init` has just rebuilt -- a fresh
+  // hero and a fresh spawn template. Drop the cache keys so the next read is a
+  // real read rather than a match against a room that no longer exists.
+  heroKey = "";
+  enemyKey = "";
+  heroCache = null;
+  syncEnemyRail();
   snapCamera(parseFrame(readFrame()));
   hint("Room restarted at tick 0.");
 }
@@ -890,33 +1277,104 @@ let wantSlot = 0;
  *  back to back forever, which is the windmill this model exists to end. */
 let striking = false;
 
+/**
+ * The five states of "who is driving", over the module's 3-bit mask.
+ *
+ * Exclusive, and that is the whole reason the three bit-toggles retired. The
+ * bits are not independent -- `set_control` normalises `LIMB` into
+ * `LIMB | SLOT`, because a player who could swing but not choose would watch the
+ * AI put a shield in their hand mid-cut -- so a row of three switches offered
+ * eight combinations of which only five existed, and two of the other three
+ * silently turned into a neighbour the moment you pressed them.
+ *
+ * One table: the label, the mask and the sentence the hint prints. Splitting
+ * those apart is how a button ends up saying one thing and doing another.
+ */
+const CONTROL_PRESETS = [
+  { mask: 0, label: "Auto", hint: DEFAULT_HINT },
+  {
+    mask: CONTROL_FEET,
+    label: "Control Movement",
+    hint: "You have the feet. WASD to move; the character fights for itself.",
+  },
+  {
+    mask: CONTROL_SLOT,
+    label: "Action",
+    hint: "You choose what to hold with 1 and 2; the character decides when to use it.",
+  },
+  {
+    mask: CONTROL_LIMB | CONTROL_SLOT,
+    label: "Act + Aim",
+    hint: "You have the attack. Aim with the mouse and click to cut -- one click, one attack. 1 and 2 change what you are holding.",
+  },
+  {
+    mask: CONTROL_FEET | CONTROL_LIMB | CONTROL_SLOT,
+    label: "Full Ctrl",
+    hint: "You have the feet and the attack. WASD to move, mouse to aim, click to cut, 1 and 2 to change what is in your hand.",
+  },
+];
+
 function setControl(mask) {
   wasm.set_control(mask & (CONTROL_FEET | CONTROL_LIMB | CONTROL_SLOT));
   // Read it back rather than storing what was asked for: the module normalises
-  // the mask (taking the attack implies taking the choice), and a page that
-  // believed its own request would light the wrong chip.
+  // the mask (taking the attack implies taking the choice), and a group that lit
+  // its own request would show the wrong button.
   controlMask = wasm.control();
   if (controlMask & CONTROL_FEET) intent = "manual";
   updateControlButtons();
   hint(controlDescription());
 }
 
-function controlDescription() {
-  const feet = controlMask & CONTROL_FEET;
-  const limb = controlMask & CONTROL_LIMB;
-  const slot = controlMask & CONTROL_SLOT;
-  if (feet && limb) return "You have the feet and the attack. WASD to move, mouse to aim, click to cut, 1 and 2 to change what is in your hand.";
-  if (feet) return "You have the feet. WASD to move; the character fights for itself.";
-  if (limb) return "You have the attack. Aim with the mouse and click to cut -- one click, one attack. 1 and 2 change what you are holding.";
-  if (slot) return "You choose what to hold with 1 and 2; the character decides when to use it.";
-  return DEFAULT_HINT;
+/** Which preset the module's *answer* corresponds to, or `-1` for a mask no
+ *  button on the page describes. Never derived from what was asked for. */
+function controlPresetIndex() {
+  return CONTROL_PRESETS.findIndex((preset) => preset.mask === controlMask);
 }
 
+/** `C`, forward through the five. From the read-back rather than from a
+ *  counter of its own, so the key and the buttons cannot drift; a mask the
+ *  presets do not describe cycles to Auto, which is the honest place to land. */
+function cycleControl() {
+  const next = (controlPresetIndex() + 1) % CONTROL_PRESETS.length;
+  setControl(CONTROL_PRESETS[next].mask);
+}
+
+function controlDescription() {
+  const preset = CONTROL_PRESETS[controlPresetIndex()];
+  return preset ? preset.hint : DEFAULT_HINT;
+}
+
+/** Builds the segmented group out of `CONTROL_PRESETS`. Called once, at boot:
+ *  the labels live in one place and the page reads them from there rather than
+ *  the markup keeping a second copy. */
+function buildControlGroup() {
+  const host = document.getElementById("control-group");
+  if (!host) return;
+  host.replaceChildren();
+  CONTROL_PRESETS.forEach((preset, index) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "seg";
+    button.id = `btn-control-${index}`;
+    button.setAttribute("role", "radio");
+    button.setAttribute("aria-checked", "false");
+    button.textContent = preset.label;
+    button.addEventListener("click", () => {
+      if (!dead) setControl(preset.mask);
+    });
+    host.append(button);
+  });
+}
+
+/** Lights the one preset `wasm.control()` came back with, and **none** if the
+ *  answer matches no preset -- lighting the nearest would be the page telling
+ *  the player it is in a state it is not. */
 function updateControlButtons() {
-  const feet = document.getElementById("btn-control-feet");
-  if (feet) feet.setAttribute("aria-pressed", String(!!(controlMask & CONTROL_FEET)));
-  setPressed("btn-control-limb", controlMask & CONTROL_LIMB);
-  setPressed("btn-control-slot", controlMask & CONTROL_SLOT);
+  const lit = controlPresetIndex();
+  CONTROL_PRESETS.forEach((preset, index) => {
+    const button = document.getElementById(`btn-control-${index}`);
+    if (button) button.setAttribute("aria-checked", String(index === lit));
+  });
 }
 
 /**
@@ -1038,19 +1496,16 @@ function bindInput() {
     if (dead || event.metaKey || event.ctrlKey || event.altKey) return;
     const key = event.key.toLowerCase();
 
-    // Tab is the drawer, everywhere. It has to be taken off the browser before
-    // it moves focus, and it is deliberately handled before the guard below so
-    // the panel can still be shut from inside itself.
-    if (event.key === "Tab") {
-      event.preventDefault();
-      setDrawer(!drawerOpen());
-      return;
-    }
+    // `Tab` is the browser's again. It used to be the drawer, taken off the
+    // browser before it could move focus; with two rails there is no single
+    // panel for it to mean, and the thing it does natively -- walk the controls
+    // that are actually on screen -- is exactly what the rails' `visibility`
+    // handling exists to make correct. Q and E open them instead.
 
     // A focused slider or dropdown is typing, not playing. Without this, `S` in
     // a gene slider spawns a skitterer and the arrow keys do two things at
-    // once -- true before the drawer existed, and much easier to hit now that
-    // there is a panel full of controls one keystroke away.
+    // once -- and with two rails full of sliders this matters more than it did
+    // with one drawer, not less.
     if (event.target instanceof Element && event.target.closest("input, select, textarea")) {
       if (event.key === "Escape") event.target.blur();
       return;
@@ -1064,35 +1519,67 @@ function bindInput() {
       return;
     }
     if (event.key === "Escape") {
-      // The drawer first. Escape means "back out of the thing that is open",
-      // and standing the character down while a panel is covering half the
-      // room is not what the player was asking for.
-      if (drawerOpen()) setDrawer(false);
+      // Whatever is open, outermost first. Escape means "back out of the thing
+      // that is open", and standing the character down while a panel is
+      // covering a third of the room is not what the player was asking for.
+      if (keysOverlayOpen()) setKeysOverlay(false);
+      else if (railOpen("hero")) setRail("hero", false);
+      else if (railOpen("enemy")) setRail("enemy", false);
       else standDown(parseFrame(readFrame()));
+    } else if (event.key === "?") {
+      setKeysOverlay(!keysOverlayOpen());
     } else if (key === "f") {
       freeWill();
     } else if (key === "r") {
       restart();
     } else if (key === "c") {
-      if (!event.repeat) setControl(controlMask ^ CONTROL_FEET);
-    } else if (key === "v") {
-      if (!event.repeat) setControl(controlMask ^ CONTROL_LIMB);
+      // One key, five states, cycled forward. The old `C`/`V`/`X` bit-toggles
+      // retired with the three chips they drove -- see `CONTROL_PRESETS`.
+      if (!event.repeat) cycleControl();
+    } else if (key === "q") {
+      if (!event.repeat) setRail("enemy", !railOpen("enemy"));
+    } else if (key === "e") {
+      if (!event.repeat) setRail("hero", !railOpen("hero"));
     } else if (key === "s" || key === "b") {
       // The repeat guard is load-bearing rather than polite: held down, the
       // operating system's autorepeat would empty the frame's 64-row budget
       // into the room in about two seconds.
       if (!event.repeat) spawnMonster(key === "s" ? BODY_SKITTERER : BODY_BRUTE);
     } else if (key === "1" || key === "2") {
-      // 1 and 2 now choose what is in the hand rather than which body walks in.
-      // Changing bodies moved to the spawn panel, where it belongs beside the
-      // kit -- a body without a loadout is only half a character now.
+      // 1 and 2 choose what is in the hand rather than which body walks in.
       if (!event.repeat) selectSlot(key === "1" ? 0 : 1);
-    } else if (key === "x") {
-      if (!event.repeat) setControl(controlMask ^ CONTROL_SLOT);
+    } else if (key === "y") {
+      // The vision discs. A view toggle rather than a control -- it changes
+      // what the page shows and nothing about what the sim does, which is why
+      // it does not go anywhere near `set_control`.
+      if (!event.repeat) setVisionVisible(!visionShown());
     }
   });
 
-  menuButton.addEventListener("click", () => setDrawer(!drawerOpen()));
+  for (const which of ["enemy", "hero"]) {
+    const tab = RAILS[which].querySelector(".rail-tab");
+    if (tab) tab.addEventListener("click", () => setRail(which, !railOpen(which)));
+  }
+
+  const keysButton = document.getElementById("btn-keys");
+  if (keysButton) keysButton.addEventListener("click", () => setKeysOverlay(!keysOverlayOpen()));
+  const keysClose = document.getElementById("btn-keys-close");
+  if (keysClose) keysClose.addEventListener("click", () => setKeysOverlay(false));
+  // The scrim, not the card: clicking the sheet of glass round a modal is how
+  // everybody shuts one, and the card stops the click reaching here.
+  overlayKeys.addEventListener("click", (event) => {
+    if (event.target === overlayKeys) setKeysOverlay(false);
+  });
+
+  const devStrip = document.getElementById("dev-strip");
+  const devButton = document.getElementById("btn-dev");
+  if (devStrip && devButton) {
+    devButton.addEventListener("click", () => {
+      const open = !devStrip.classList.contains("open");
+      devStrip.classList.toggle("open", open);
+      devButton.setAttribute("aria-expanded", String(open));
+    });
+  }
 
   document.getElementById("btn-standdown").addEventListener("click", () => {
     if (!dead) standDown(parseFrame(readFrame()));
@@ -1100,29 +1587,13 @@ function bindInput() {
   document.getElementById("btn-freewill").addEventListener("click", () => {
     if (!dead) freeWill();
   });
-  document.getElementById("btn-spawn-skitterer").addEventListener("click", () => {
-    if (!dead) spawnMonster(BODY_SKITTERER);
-  });
-  document.getElementById("btn-spawn-brute").addEventListener("click", () => {
-    if (!dead) spawnMonster(BODY_BRUTE);
-  });
-  document.getElementById("btn-swap-fighter").addEventListener("click", () => {
-    if (!dead) swapInHero(BODY_FIGHTER);
-  });
-  document.getElementById("btn-swap-rogue").addEventListener("click", () => {
-    if (!dead) swapInHero(BODY_ROGUE);
-  });
-  document.getElementById("btn-control-feet").addEventListener("click", () => {
-    if (!dead) setControl(controlMask ^ CONTROL_FEET);
-  });
-  document.getElementById("btn-control-limb").addEventListener("click", () => {
-    if (!dead) setControl(controlMask ^ CONTROL_LIMB);
-  });
-  document.getElementById("btn-control-slot").addEventListener("click", () => {
-    if (!dead) setControl(controlMask ^ CONTROL_SLOT);
+  el.respawn.addEventListener("click", () => {
+    if (!dead) respawnHero();
   });
 
-  bindLoadout();
+  bindActionBar();
+  bindHeroRail();
+  bindEnemyRail();
   bindBehaviour();
 }
 
@@ -1174,91 +1645,450 @@ function fillBodySelect(select) {
   }
 }
 
-/** Builds every menu on the page out of the registry. Called once, after the
- *  tables have been read across. */
-function buildLoadoutPanels() {
+/** Drops one of session 3's 24x24 glyphs into an inline `<svg>` beside a
+ *  dropdown. Filled, never stroked -- every path in `ICON_PATHS` is a closed
+ *  outline, and a stroke-designed glyph renders as a blob under `fill`.
+ *  An empty slot gets no glyph at all rather than a stand-in. */
+function setKitIcon(select, code) {
+  const path = select.parentElement && select.parentElement.querySelector(".kit-icon path");
+  if (path) path.setAttribute("d", code === SLOT_EMPTY ? "" : iconPath(code));
+}
+
+// ------------------------------------------------------------- the two rails
+//
+// Left is a monster that has not arrived yet; right is the character on the
+// floor. Both follow the same three steps and it is not optional:
+//
+//   1. write across (`set_hero_stat`, `set_spawn_template_body`, ...);
+//   2. **read the value back** from the paired getter;
+//   3. render from what came back.
+//
+// The module clamps, normalises and sometimes refuses outright, so a panel that
+// rendered its own request would be showing the player a lie -- the same failure
+// `setControl` has always guarded against. In practice that means every handler
+// below writes and then drops its rail's cache key, and the next frame does a
+// real read: a *refused* write leaves the key unchanged, so without the drop the
+// dropdown would sit there showing a weapon the character never took.
+//
+// And rebuilt on change, never per frame: the racks and menus are built once and
+// the syncs below move values, so a rail full of sliders is a string compare a
+// frame rather than sixty DOM rebuilds a second.
+
+/**
+ * The five attributes, in the module's own selector order.
+ *
+ * `0` power, `1` agility, `2` intellect, `3` perception, `4` vitality -- shared
+ * by `body_stat`, `hero_stat` and `spawn_template_stat`, which is why one table
+ * drives both rails. An unknown selector is *refused* on the Rust side rather
+ * than quietly writing power, so an off-by-one here fails loudly.
+ */
+const ATTRIBUTES = [
+  { stat: 0, name: "power" },
+  { stat: 1, name: "agility" },
+  { stat: 2, name: "intellect" },
+  { stat: 3, name: "perception" },
+  { stat: 4, name: "vitality" },
+];
+
+/**
+ * The attribute ceiling, **discovered rather than mirrored**.
+ *
+ * There is no export for `MAX_ATTRIBUTE`, and a `20` written here would be
+ * exactly the sort of hand-copied constant the post-mortem above `BODIES` is
+ * about: raise it in Rust and every slider on this page silently stops half a
+ * dial short. So the module is asked instead. The spawn template is page-facing
+ * configuration and not simulation state -- `set_spawn_template_stat` does not
+ * even publish a frame -- so it can be pushed past any plausible ceiling, read
+ * back, and put straight back the way it was found.
+ */
+function probeMaxAttribute() {
+  const keep = wasm.spawn_template_stat(0);
+  wasm.set_spawn_template_stat(0, 1000000);
+  const max = wasm.spawn_template_stat(0);
+  wasm.set_spawn_template_stat(0, keep);
+  return max > 0 ? max : 20;
+}
+
+let maxAttribute = 20;
+
+/** Builds one rack of five sliders. `onInput` gets the module's selector and the
+ *  value asked for; what happens after that is the rail's business. */
+function buildAttrRack(host, onInput) {
+  host.replaceChildren();
+  return ATTRIBUTES.map((attr) => {
+    const row = document.createElement("div");
+    row.className = "attr";
+
+    const name = document.createElement("span");
+    name.className = "attr-name";
+    name.textContent = attr.name;
+
+    const slider = document.createElement("input");
+    slider.type = "range";
+    slider.min = "0";
+    slider.max = String(maxAttribute);
+    slider.step = "1";
+    slider.value = "0";
+    slider.setAttribute("aria-label", attr.name);
+
+    const value = document.createElement("span");
+    value.className = "attr-value";
+
+    const effect = document.createElement("span");
+    effect.className = "attr-effect";
+
+    slider.addEventListener("input", () => onInput(attr.stat, Number(slider.value) | 0));
+
+    row.append(name, slider, value, effect);
+    host.append(row);
+    return { stat: attr.stat, row, slider, value, effect };
+  });
+}
+
+/** What an attribute *does*, for the line under its track. The derived readouts
+ *  are the point of the Hero rail: an attribute that only ever showed a number
+ *  would be a difficulty dial, which is the one thing this project claims it is
+ *  not. `sight` is handed in rather than derived -- see `derived()`. */
+function attrEffect(stat, d, sight) {
+  switch (stat) {
+    case 0:
+      return `×${d.powerMultiplier.toFixed(2)} on impact speed`;
+    case 1:
+      return `${(d.moveSpeed * TICKS_PER_SECOND).toFixed(2)} units/s · ×${d.cadence.toFixed(2)} on every phase clock`;
+    case 2:
+      return `decides every ${d.decisionPeriod} ticks (${(d.decisionPeriod / TICKS_PER_SECOND).toFixed(2)} s)`;
+    case 3:
+      return `sees ${sight.toFixed(1)} units, ±${d.noise.toFixed(1)} error at range`;
+    case 4:
+      return `${d.maxHp} max hp`;
+    default:
+      return "";
+  }
+}
+
+/** The five numbers as `derived()` wants them. */
+function attrObject(values) {
+  return {
+    power: values[0],
+    agility: values[1],
+    intellect: values[2],
+    perception: values[3],
+    vitality: values[4],
+  };
+}
+
+let heroRack = [];
+let enemyRack = [];
+
+/** The Hero rail's last honest read of the module, and the key that says
+ *  whether anything moved. Frozen once the character falls: there is no new one
+ *  to describe, the loop still wants `decisionPeriod`, and **[Re-Spawn]** has
+ *  nowhere else to get a body and a kit from. */
+let heroKey = "";
+let heroCache = null;
+let lastHeroSight = 0;
+
+let enemyKey = "";
+
+/** Builds both rails out of the registry. Called once, after the tables have
+ *  been read across and after the attribute ceiling has been asked for. */
+function buildRails() {
+  fillBodySelect(el.heroBody);
   fillActionSelect(el.loadout0, false);
   fillActionSelect(el.loadout1, true);
-  fillActionSelect(el.spawnPrimary, false);
-  fillActionSelect(el.spawnSecondary, true);
-  fillBodySelect(el.spawnBody);
-  el.spawnBody.value = String(BODY_SKITTERER);
-  el.spawnPrimary.value = String(ACTIONS[0] ? ACTIONS[0].code : 0);
-  el.spawnSecondary.value = String(SLOT_EMPTY);
-  syncSpawnDefaults();
+  heroRack = buildAttrRack(el.heroAttrs, (stat, value) => {
+    wasm.set_hero_stat(stat, value);
+    heroKey = "";
+  });
+  buildKitReadout();
+
+  fillBodySelect(el.enemyBody);
+  // Slot 0 has no "none" row: `Loadout::set` refuses to empty it, because a
+  // fighter holding nothing has no rule to run.
+  fillActionSelect(el.enemySlot0, false);
+  fillActionSelect(el.enemySlot1, true);
+  enemyRack = buildAttrRack(el.enemyAttrs, (stat, value) => {
+    wasm.set_spawn_template_stat(stat, value);
+    enemyKey = "";
+    syncEnemyRail();
+  });
+  syncEnemyRail();
 }
 
-/** Points the spawn kit at whatever the chosen body would walk in with.
+// ------------------------------------------------------------- the Hero rail
+
+/**
+ * Reads the hero's live body, kit and attributes back and repaints if any moved.
  *
- *  A default rather than a lock: the interesting pairings are the ones this
- *  does not suggest, and the selects stay editable. It runs on a body change
- *  only, so a kit the player has deliberately chosen is never overwritten by
- *  anything except choosing a different body. */
-function syncSpawnDefaults() {
-  // There is no export for a body's default loadout -- spawning with
-  // `SLOT_EMPTY` asks the module for it, which is one fewer thing to mirror.
-  el.spawnPrimary.dataset.followBody = "1";
-}
-
-/** Reads what the spawn panel is currently asking for. */
-function spawnRequest() {
-  const body = Number(el.spawnBody.value) | 0;
-  if (el.spawnPrimary.dataset.followBody === "1") {
-    // Untouched since the body changed: let the module pick the body's own kit.
-    return [body, SLOT_EMPTY, SLOT_EMPTY];
-  }
-  return [body, Number(el.spawnPrimary.value) | 0, Number(el.spawnSecondary.value) | 0];
-}
-
-/** Mirrors the hero's real loadout into the panel and the two chips.
+ * The attributes come from `hero_stat`, **not** from `BODIES[kind]`. That was
+ * the body's baseline, and the moment a slider on this rail can move it the two
+ * stop agreeing -- a panel reading the baseline would go on describing a
+ * character that no longer exists, which is the exact failure the post-mortem
+ * above `BODIES` records.
  *
- *  Reads the **frame**, not what was last clicked. The sim refuses a swap
- *  mid-cut and refuses an edit to the slot in hand, so the only honest source
- *  for "what is this character holding" is what came back. */
-function syncLoadout(state) {
-  const hero = state.hero;
-  const slot0 = hero ? hero.slot0 : SLOT_EMPTY;
-  const slot1 = hero ? hero.slot1 : SLOT_EMPTY;
-
-  if (document.activeElement !== el.loadout0) el.loadout0.value = String(slot0);
-  if (document.activeElement !== el.loadout1) el.loadout1.value = String(slot1);
-  el.loadout0.disabled = !hero;
-  el.loadout1.disabled = !hero;
-
-  el.slot0Name.textContent = actionName(slot0);
-  el.slot1Name.textContent = actionName(slot1);
-  const held = hero ? hero.slot : 0;
-  setPressed("btn-slot-0", held === 0);
-  setPressed("btn-slot-1", held === 1);
-  const btn1 = document.getElementById("btn-slot-1");
-  if (btn1) btn1.disabled = slot1 === SLOT_EMPTY;
-
-  const rows = [];
-  if (hero) {
-    const action = actionOf(hero.action);
-    rows.push(["in hand", action ? action.name : "nothing"]);
-    rows.push([
-      "phase",
-      hero.swing === SWING_SWAP
-        ? `changing — ${hero.swingLeft} ticks`
-        : ["guard", "windup", "strike", "recover", "swap"][hero.swing] || "—",
-    ]);
-    const stowed = held === 0 ? slot1 : slot0;
-    rows.push(["stowed", actionName(stowed)]);
+ * `sight` is the one number taken off the frame instead: it is a body's own
+ * column, and `derived()` no longer computes it because a formula copied into
+ * this file would be describing a perception the player has since moved.
+ */
+function syncHeroRail(state) {
+  const body = wasm.hero_body();
+  // `SLOT_EMPTY`, not `0`: the module says so precisely because "there is no
+  // hero" and "the hero is a Fighter" must not render the same.
+  const alive = body !== SLOT_EMPTY;
+  if (alive) {
+    const slots = [wasm.hero_loadout(0), wasm.hero_loadout(1)];
+    const attrs = ATTRIBUTES.map((attr) => wasm.hero_stat(attr.stat));
+    lastHeroSight = state.hero ? state.hero.sight : BODIES[body] ? BODIES[body].sight : 0;
+    const key = `${body}|${slots.join(",")}|${attrs.join(",")}|${lastHeroSight.toFixed(2)}`;
+    if (key !== heroKey) {
+      heroKey = key;
+      heroCache = { body, slots, attrs, d: derived(attrObject(attrs)) };
+      renderHeroRail();
+    }
   }
+  setHeroRailLive(alive);
+  return heroCache ? heroCache.d : derived(attrObject(ATTRIBUTES.map(() => 6)));
+}
+
+function renderHeroRail() {
+  const { body, slots, attrs, d } = heroCache;
+  // Written unconditionally, including over a focused select: this is the
+  // read-back, and the whole reason it exists is to be visible when the module
+  // refused or clamped what the player asked for.
+  el.heroBody.value = String(body);
+  el.loadout0.value = String(slots[0]);
+  el.loadout1.value = String(slots[1]);
+  setKitIcon(el.loadout0, slots[0]);
+  setKitIcon(el.loadout1, slots[1]);
+  heroRack.forEach((row, i) => {
+    row.slider.value = String(attrs[i]);
+    setText(row.value, String(attrs[i]));
+    setText(row.effect, attrEffect(row.stat, d, lastHeroSight));
+  });
+  setText(el.unitName, bodyName(body));
+}
+
+/** Greys the rows the module would refuse. `set_hero_body` and `set_hero_stat`
+ *  both answer `0` when there is nobody standing, and a control that is present
+ *  and does nothing reads as broken -- greyed reads as "not now", which is the
+ *  truth. */
+function setHeroRailLive(alive) {
+  el.heroBody.disabled = !alive;
+  el.heroBodyRow.classList.toggle("off", !alive);
+  el.loadout0.disabled = !alive;
+  el.loadout1.disabled = !alive;
+  for (const row of heroRack) {
+    row.slider.disabled = !alive;
+    row.row.classList.toggle("off", !alive);
+  }
+}
+
+/** The three lines under the kit: what is in the hand, what phase it is in, and
+ *  what is stowed. Built once and rewritten in place -- `swingLeft` counts down
+ *  every tick, and rebuilding a `dl` sixty times a second for that would be the
+ *  pattern `fillStatsIfChanged` exists to avoid. */
+let kitReadout = null;
+
+function buildKitReadout() {
   el.loadoutReadout.replaceChildren();
-  for (const [name, value] of rows) {
+  const rows = {};
+  for (const name of ["in hand", "phase", "costs", "stowed"]) {
     const dt = document.createElement("dt");
     dt.textContent = name;
     const dd = document.createElement("dd");
-    dd.textContent = value;
+    dd.textContent = "—";
     el.loadoutReadout.append(dt, dd);
+    rows[name] = dd;
+  }
+  kitReadout = rows;
+}
+
+const SWING_NAMES = ["guard", "windup", "strike", "recover", "swap"];
+
+/**
+ * What the thing in hand costs **on this body**.
+ *
+ * The registry quotes every phase at cadence 1 and each body scales them, which
+ * is most of the skill gradient: the same club is a 26-tick announcement on
+ * paper and 33 on a Brute. One clause per role rather than a
+ * guard/everything-else ternary -- legs have no reach and no telegraph, so the
+ * blade wording once quoted a Run as "reaches 0.00 · announces for 0 ticks",
+ * which is three true numbers adding up to a lie about what the thing does.
+ */
+function actionCost(action, d) {
+  const draw = `${phaseTicks(action.ready, d.cadence)} to draw`;
+  if (action.role === ROLE_GUARD) {
+    return `guards ±${Math.round((action.arc / 65536) * 360)}° · ${draw}`;
+  }
+  if (action.role === ROLE_MOVE) {
+    return `×${action.moveBonus.toFixed(2)} footspeed · no guard, no blade · ${draw}`;
+  }
+  if (action.role === ROLE_SHOOT) {
+    // `length` is the *draw* on a Shoot row, not the reach -- an arrow carries
+    // as far as its archer can see. Quoting it as reach would read as the
+    // shortest weapon in the game.
+    return `shoots as far as it sees · draws for ${phaseTicks(action.windup, d.cadence)} ticks · ${draw}`;
+  }
+  return `reaches ${action.length.toFixed(2)} · announces for ${phaseTicks(action.windup, d.cadence)} ticks · ${draw}`;
+}
+
+function syncKitReadout(state) {
+  const hero = state.hero;
+  if (!kitReadout) return;
+  if (!hero) {
+    for (const key of Object.keys(kitReadout)) setText(kitReadout[key], "—");
+    return;
+  }
+  const action = actionOf(hero.action);
+  setText(kitReadout["in hand"], action ? action.name : "nothing");
+  setText(
+    kitReadout.phase,
+    hero.swing === SWING_SWAP ? `changing — ${hero.swingLeft} ticks` : SWING_NAMES[hero.swing] || "—"
+  );
+  // Quoted against the character's *live* cadence, not the body's baseline:
+  // raise agility on the rail above and this number moves with it.
+  setText(kitReadout.costs, action && heroCache ? actionCost(action, heroCache.d) : "—");
+  setText(kitReadout.stowed, actionName(hero.slot === 0 ? hero.slot1 : hero.slot0));
+}
+
+function bindHeroRail() {
+  el.heroBody.addEventListener("change", () => {
+    if (!wasm.set_hero_body(Number(el.heroBody.value) | 0)) {
+      hint("There is nobody in the room to change.", true);
+    }
+    // The body reset the loadout with it (`World::set_body`), so the kit rows
+    // have to be re-read too -- not just the one dropdown that was touched.
+    heroKey = "";
+  });
+  el.loadout0.addEventListener("change", () => {
+    if (!wasm.set_hero_loadout(0, Number(el.loadout0.value) | 0)) {
+      hint("Not while that one is in the hand and moving.", true);
+    }
+    heroKey = "";
+  });
+  el.loadout1.addEventListener("change", () => {
+    if (!wasm.set_hero_loadout(1, Number(el.loadout1.value) | 0)) {
+      hint("Not while that one is in the hand and moving.", true);
+    }
+    heroKey = "";
+  });
+}
+
+// ------------------------------------------------------------ the Enemy rail
+
+/**
+ * Reads the spawn template back and repaints if anything moved.
+ *
+ * Nothing standing in the room is touched by any of this. The template is what
+ * the **[Spawn]** button will send in, and that is the difference the whole rail
+ * turns on -- which is why it says so in a line at the top rather than leaving a
+ * player to raise a slider mid-fight and wonder why the thing swinging at them
+ * did not change.
+ */
+function syncEnemyRail() {
+  const body = wasm.spawn_template_body();
+  const slots = [wasm.spawn_template_slot(0), wasm.spawn_template_slot(1)];
+  const attrs = ATTRIBUTES.map((attr) => wasm.spawn_template_stat(attr.stat));
+  const key = `${body}|${slots.join(",")}|${attrs.join(",")}`;
+  if (key === enemyKey) return;
+  enemyKey = key;
+
+  el.enemyBody.value = String(body);
+  el.enemySlot0.value = String(slots[0]);
+  el.enemySlot1.value = String(slots[1]);
+  setKitIcon(el.enemySlot0, slots[0]);
+  setKitIcon(el.enemySlot1, slots[1]);
+  enemyRack.forEach((row, i) => {
+    row.slider.value = String(attrs[i]);
+    setText(row.value, String(attrs[i]));
+    // No derived line on this rail. Sight is a function of a perception the
+    // module has not been asked about for this template -- `body_stat(code, 7)`
+    // is the *body's* baseline, not the edited one -- and computing it here
+    // would be the mirrored formula house rule 3 exists to forbid.
+  });
+}
+
+function bindEnemyRail() {
+  el.enemyBody.addEventListener("change", () => {
+    wasm.set_spawn_template_body(Number(el.enemyBody.value) | 0);
+    // `UnitSpec::set_body` resets the stat sheet **and** the loadout together,
+    // so all seven values are re-read. A panel that kept the previous body's
+    // numbers here would be lying in seven rows at once.
+    enemyKey = "";
+    syncEnemyRail();
+  });
+  el.enemySlot0.addEventListener("change", () => {
+    if (!wasm.set_spawn_template_slot(0, Number(el.enemySlot0.value) | 0)) {
+      hint("That one cannot go in the first slot.", true);
+    }
+    enemyKey = "";
+    syncEnemyRail();
+  });
+  el.enemySlot1.addEventListener("change", () => {
+    if (!wasm.set_spawn_template_slot(1, Number(el.enemySlot1.value) | 0)) {
+      hint("The module refused that action.", true);
+    }
+    enemyKey = "";
+    syncEnemyRail();
+  });
+  const spawn = document.getElementById("btn-spawn-template");
+  if (spawn) {
+    spawn.addEventListener("click", () => {
+      if (!dead) spawnFromTemplate();
+    });
   }
 }
 
-function setPressed(id, on) {
-  const node = document.getElementById(id);
-  if (node) node.setAttribute("aria-pressed", String(!!on));
+// ------------------------------------------------------------ the action bar
+
+/**
+ * The two wide slots along the bottom of the screen.
+ *
+ * **Reads the frame, never the last click.** The sim refuses a swap mid-cut, so
+ * "what did I ask for" and "what is in the hand" are different questions and
+ * only the second one is worth a picture. Press `2` mid-swing and this bar goes
+ * on showing slot 0 lit, because slot 0 is what the character is holding.
+ *
+ * During `SWING_SWAP` both slots dim: nothing is in the hand at all, and a
+ * fighter changing its mind is the most punishable it ever gets.
+ *
+ * Under Auto the bar still shows what the AI is holding -- it is a readout
+ * before it is a control -- and a click on it hints that you need the Action
+ * control rather than doing nothing and looking broken.
+ */
+let actionBarKey = "";
+
+function syncActionBar(state) {
+  const hero = state.hero;
+  const slots = [hero ? hero.slot0 : SLOT_EMPTY, hero ? hero.slot1 : SLOT_EMPTY];
+  const held = hero ? hero.slot : 0;
+  const swapping = !!hero && hero.swing === SWING_SWAP;
+  const key = `${slots.join(",")}|${held}|${swapping ? 1 : 0}|${hero ? 1 : 0}`;
+  if (key === actionBarKey) return;
+  actionBarKey = key;
+
+  for (let slot = 0; slot < 2; slot++) {
+    const button = document.getElementById(`action-slot-${slot}`);
+    if (!button) continue;
+    const code = slots[slot];
+    const path = button.querySelector("path");
+    if (path) path.setAttribute("d", code === SLOT_EMPTY ? "" : iconPath(code));
+    const name = button.querySelector(".action-name");
+    if (name) setText(name, actionName(code));
+    // Lit from the frame's `slot` column, and not while the hand is empty
+    // mid-swap.
+    button.classList.toggle("held", !swapping && !!hero && held === slot);
+    button.classList.toggle("swapping", swapping);
+    button.setAttribute("aria-pressed", String(!swapping && !!hero && held === slot));
+    button.disabled = code === SLOT_EMPTY;
+  }
+}
+
+function bindActionBar() {
+  for (const slot of [0, 1]) {
+    const button = document.getElementById(`action-slot-${slot}`);
+    if (button) button.addEventListener("click", () => selectSlot(slot));
+  }
 }
 
 /** Asks for a loadout slot to be in hand. A request, not a fact -- see
@@ -1268,33 +2098,6 @@ function selectSlot(slot) {
   if (!(controlMask & CONTROL_SLOT)) {
     hint("Take the Action control first, or the character chooses for itself.", true);
   }
-}
-
-function bindLoadout() {
-  el.loadout0.addEventListener("change", () => {
-    if (!wasm.set_hero_loadout(0, Number(el.loadout0.value) | 0)) {
-      hint("Not while that one is in the hand and moving.", true);
-    }
-  });
-  el.loadout1.addEventListener("change", () => {
-    if (!wasm.set_hero_loadout(1, Number(el.loadout1.value) | 0)) {
-      hint("Not while that one is in the hand and moving.", true);
-    }
-  });
-  el.spawnBody.addEventListener("change", syncSpawnDefaults);
-  for (const select of [el.spawnPrimary, el.spawnSecondary]) {
-    select.addEventListener("change", () => {
-      el.spawnPrimary.dataset.followBody = "0";
-    });
-  }
-  const spawn = document.getElementById("btn-spawn");
-  if (spawn) spawn.addEventListener("click", () => spawnMonster(...spawnRequest()));
-  const swapIn = document.getElementById("btn-swap-in");
-  if (swapIn) swapIn.addEventListener("click", () => swapInHero(...spawnRequest()));
-  const slot0 = document.getElementById("btn-slot-0");
-  if (slot0) slot0.addEventListener("click", () => selectSlot(0));
-  const slot1 = document.getElementById("btn-slot-1");
-  if (slot1) slot1.addEventListener("click", () => selectSlot(1));
 }
 
 function buildSliders(side) {
@@ -1392,8 +2195,155 @@ function roundRect(x, y, w, h, r) {
   ctx.closePath();
 }
 
+// ---------------------------------------------------------------- the floor
+//
+// One flagstone tile, baked once into an offscreen canvas and repeated. The
+// room is 24x16 world units and a wheel notch can put eighty device pixels on a
+// world unit, so drawing the speckle live would be several thousand fills a
+// frame for a texture that never changes. The pattern's *own* matrix does the
+// zooming instead, which is a bitmap scale in the compositor rather than work
+// on this thread -- and it is why the floor does not re-tile visibly as you
+// zoom: the tile always covers exactly `TILE_WORLD` units whatever it was baked
+// at, so only its sharpness changes at a rebake, never its layout.
+
+/** World units across one baked tile. Four, so the tile seam falls exactly on a
+ *  grid line and the masonry and the scale bar never disagree about where a
+ *  stone ends. */
+const TILE_WORLD = 4;
+
+/** Courses per tile, and stones per course: a stone is half a world unit tall
+ *  and one wide -- about a Fighter's diameter across and half that deep. Two
+ *  world units to a stone was tried first and the room read as a brick wall
+ *  photographed from the side; at this size the eye takes it as ground. */
+const TILE_ROWS = 8;
+const TILE_COLS = 4;
+
+/** The baked tile, the pattern over it, and the device-pixel size it was baked
+ *  at. Rebuilt when that size changes bucket and at no other time. */
+let floorTile = null;
+let floorPattern = null;
+let floorTileSizeBaked = 0;
+
+/** How many times the tile has been baked this session. Exists so the claim
+ *  "the pattern is cached, not rebuilt per frame" can be *checked* from the
+ *  console instead of believed: it should sit in single digits after a minute
+ *  of wheeling the zoom about. */
+let floorBakes = 0;
+
 /**
- * The room, as a lit rectangle standing in the dark.
+ * A tiny xorshift, so the grain is a decision rather than a roll.
+ *
+ * Deliberately not the sim's PRNG, deliberately seeded from a constant, and
+ * deliberately on this side of the wall: this is presentation, it never crosses
+ * the boundary, and the only property it needs is that a rebake produces the
+ * *same* tile -- otherwise zooming through a bucket boundary would reshuffle
+ * every stone in the room under your feet.
+ */
+function grainRandom(seed) {
+  let s = seed >>> 0 || 1;
+  return () => {
+    s ^= s << 13;
+    s >>>= 0;
+    s ^= s >>> 17;
+    s ^= s << 5;
+    s >>>= 0;
+    return s / 4294967296;
+  };
+}
+
+/**
+ * Device pixels across the baked tile, bucketed.
+ *
+ * `Math.round(scale)` is the zoom in whole CSS pixels per world unit; the tile
+ * wants that times four world units times the device pixel ratio. Quantising
+ * the result to 64-pixel steps is what turns "rebake on every wheel notch" into
+ * "rebake at most six times ever", and the pattern matrix covers the difference
+ * in between.
+ */
+function floorTileSize() {
+  const want = Math.round(scale) * TILE_WORLD * dpr;
+  return clamp(Math.round(want / 64) * 64, 128, 512);
+}
+
+/** Bakes one seamlessly repeatable flagstone tile, `size` device pixels square. */
+function bakeFloorTile(size) {
+  const tile = document.createElement("canvas");
+  tile.width = size;
+  tile.height = size;
+  const g = tile.getContext("2d");
+  const rand = grainRandom(0x9e3779b9);
+
+  // The mortar, which is what every seam shows through to.
+  g.fillStyle = "#0c1017";
+  g.fillRect(0, 0, size, size);
+
+  const rowH = size / TILE_ROWS;
+  const colW = size / TILE_COLS;
+  // Both quoted against the tile rather than the stone: a mortar line that
+  // scaled with the course would swallow a third of a stone at eight courses.
+  const seam = Math.max(0.75, size * 0.0035);
+  const lip = Math.max(1, size * 0.003);
+  for (let row = 0; row < TILE_ROWS; row++) {
+    // Every other course is offset half a stone. The halves that fall off each
+    // end are drawn anyway and the canvas clips them: once the tile repeats,
+    // those two halves *are* the same stone, which is what keeps the vertical
+    // seam invisible.
+    const shift = row % 2 ? colW / 2 : 0;
+    for (let col = -1; col <= TILE_COLS; col++) {
+      const x = col * colW + shift;
+      const y = row * rowH;
+      const w = colW - 2 * seam;
+      const h = rowH - 2 * seam;
+      const tone = 20 + Math.floor(rand() * 11);
+      g.fillStyle = `rgb(${tone},${tone + 4},${tone + 12})`;
+      g.fillRect(x + seam, y + seam, w, h);
+      // A lit top edge and a shadowed bottom one. Two flat fills, but they are
+      // the difference between a stone with a face and a coloured rectangle.
+      g.fillStyle = "rgba(190,212,248,0.05)";
+      g.fillRect(x + seam, y + seam, w, lip);
+      g.fillStyle = "rgba(0,0,0,0.30)";
+      g.fillRect(x + seam, y + rowH - seam - lip, w, lip);
+    }
+  }
+
+  // The grain. Single device pixels, some lighter than the stone and some
+  // darker, and the only thing here that stops a flat fill reading as a swatch.
+  const grains = Math.round(size * size * 0.01);
+  for (let i = 0; i < grains; i++) {
+    const x = Math.floor(rand() * size);
+    const y = Math.floor(rand() * size);
+    g.fillStyle =
+      rand() < 0.5
+        ? `rgba(206,224,255,${(0.02 + rand() * 0.05).toFixed(3)})`
+        : `rgba(0,0,0,${(0.05 + rand() * 0.12).toFixed(3)})`;
+    g.fillRect(x, y, 1, 1);
+  }
+  return tile;
+}
+
+/**
+ * The floor pattern, baked on demand and re-aimed every frame.
+ *
+ * `setTransform` is the cheap half and it does run per frame: it is what makes
+ * one tile cover `TILE_WORLD` world units at *any* zoom, whatever pixel size it
+ * happens to have been baked at. Only the bake behind it is bucketed.
+ */
+function floorPatternNow() {
+  const size = floorTileSize();
+  if (!floorPattern || size !== floorTileSizeBaked) {
+    floorTile = bakeFloorTile(size);
+    floorPattern = ctx.createPattern(floorTile, "repeat");
+    floorTileSizeBaked = floorPattern ? size : 0;
+    floorBakes += 1;
+  }
+  if (floorPattern) {
+    floorPattern.setTransform(new DOMMatrix().scale(px(TILE_WORLD) / floorTile.width));
+  }
+  return floorPattern;
+}
+
+/**
+ * The room, as a lit stone floor standing in the dark.
  *
  * This used to fill the canvas, which was true only while the canvas *was* the
  * arena. Now the floor is drawn at its own size in world units and the canvas
@@ -1409,36 +2359,49 @@ function drawFloor() {
   roundRect(0, 0, w, h, 10);
   ctx.clip();
 
-  const floor = ctx.createLinearGradient(0, 0, w * 0.6, h);
-  floor.addColorStop(0, "#161b26");
-  floor.addColorStop(1, "#0f131c");
-  ctx.fillStyle = floor;
+  // The pattern is laid in the same space every other draw uses -- origin at
+  // the room's corner -- so the stones are nailed to the room rather than
+  // swimming under the camera, and `render`'s whole-device-pixel snap keeps
+  // them from crawling.
+  const pattern = floorPatternNow();
+  ctx.fillStyle = pattern || "#141a26";
   ctx.fillRect(0, 0, w, h);
 
-  // One line per world unit, brighter every four: the grid is the scale bar.
-  // The half-pixel offsets still land on a device pixel because `render` snaps
-  // the camera translation to one before any of this is drawn.
+  // Lit from the middle. Without this the stone reads as a swatch of texture
+  // rather than as a room with a light in it, and the wall stops being the
+  // darkest thing on the screen.
+  const cx = w / 2;
+  const cy = h / 2;
+  const vignette = ctx.createRadialGradient(cx, cy, Math.min(w, h) * 0.16, cx, cy, Math.max(w, h) * 0.62);
+  vignette.addColorStop(0, "rgba(9,11,16,0)");
+  vignette.addColorStop(0.6, "rgba(9,11,16,0.20)");
+  vignette.addColorStop(1, "rgba(9,11,16,0.62)");
+  ctx.fillStyle = vignette;
+  ctx.fillRect(0, 0, w, h);
+
+  // The scale bar, and *only* the scale bar: one line every four units, far
+  // fainter than the graph paper this replaced -- the stone carries the texture
+  // now, so the grid no longer has to pretend to. The half-pixel offsets still
+  // land on a device pixel because `render` snaps the camera translation to one
+  // before any of this is drawn.
   ctx.lineWidth = 1;
-  for (let x = 1; x < arena.x; x++) {
-    ctx.strokeStyle = x % 4 === 0 ? "rgba(150,180,230,0.14)" : "rgba(150,180,230,0.06)";
-    ctx.beginPath();
+  ctx.strokeStyle = "rgba(150,180,230,0.055)";
+  ctx.beginPath();
+  for (let x = TILE_WORLD; x < arena.x; x += TILE_WORLD) {
     ctx.moveTo(Math.round(px(x)) + 0.5, 0);
     ctx.lineTo(Math.round(px(x)) + 0.5, h);
-    ctx.stroke();
   }
-  for (let y = 1; y < arena.y; y++) {
-    ctx.strokeStyle = y % 4 === 0 ? "rgba(150,180,230,0.14)" : "rgba(150,180,230,0.06)";
-    ctx.beginPath();
+  for (let y = TILE_WORLD; y < arena.y; y += TILE_WORLD) {
     ctx.moveTo(0, Math.round(px(y)) + 0.5);
     ctx.lineTo(w, Math.round(px(y)) + 0.5);
-    ctx.stroke();
   }
+  ctx.stroke();
   ctx.restore();
 
   // The wall. This was a CSS box-shadow on the canvas, which drew a line round
   // the *screen* the moment the canvas stopped being the room.
   ctx.save();
-  ctx.strokeStyle = "#242b3a";
+  ctx.strokeStyle = "#2c3548";
   ctx.lineWidth = 1.5;
   roundRect(0, 0, w, h, 10);
   ctx.stroke();
@@ -1519,29 +2482,29 @@ function drawDestination(state, now, arrived) {
   ctx.restore();
 }
 
-/** The "it just thought" pulse: one ring per decision tick. At intellect 8
- *  that is five a second, and you can watch it slow down on a dimmer build. */
-function drawPulses(hero) {
-  if (!hero) return;
-  ctx.save();
-  for (const p of pulses) {
-    const t = p.age / 420;
-    if (t >= 1) continue;
-    ctx.strokeStyle = `rgba(255,207,112,${(0.30 * (1 - t)).toFixed(3)})`;
-    ctx.lineWidth = 1.4;
-    ctx.beginPath();
-    ctx.arc(px(hero.x), px(hero.y), px(hero.radius) + t * px(0.9), 0, TAU);
-    ctx.stroke();
-  }
-  ctx.restore();
-}
+// The "it just thought" pulse used to live here: one amber ring emanating from
+// the hero per decision tick. It went because it read as an ability firing
+// rather than as a clock ticking, and a ring is the most attention-grabbing
+// shape on a canvas -- it was pulling the eye off the swordplay sixty times a
+// minute to say nothing. `state.decisionTick` is still in the frame and still
+// drives the order-acknowledgement logic in `loop`; only the rings are gone.
 
 /** Faction, not archetype, drives the colour: which side a body is on is the
- *  thing you must never have to think about. Archetype is legible anyway from
- *  the radius, which is a sim value -- a brute is more than twice a skitterer. */
+ *  thing you must never have to think about. Archetype is legible from the
+ *  *shape* now -- one silhouette per `UnitKind` -- which is why these two
+ *  palettes never grew a third for a body type. */
+// `wedge` outlived the facing wedge that named it -- a silhouette with a head
+// on it has a facing, so the fan of light in front of every body went. The key
+// stays because the *colour role* did: it is the faction tint used for anything
+// drawn as a line or a hint rather than as flesh -- the rim light, the vision
+// disc, the reach ring, the sprint chevrons, an arrow in flight.
 const HERO_SKIN = {
   glow: "110,231,255",
   body: ["#bff2ff", "#4fb9d8"],
+  // The shaded end of the same hue. A silhouette painted in `body` alone came
+  // out so pale that the rim light -- which is the thing carrying the faction
+  // read at four pixels a body -- had nothing to be brighter than.
+  deep: "#1b566c",
   wedge: "110,231,255",
   bar: "#6ee7ff",
 };
@@ -1549,6 +2512,7 @@ const HERO_SKIN = {
 const MONSTER_SKIN = {
   glow: "255,138,122",
   body: ["#ffc0b3", "#c04b38"],
+  deep: "#67251a",
   wedge: "255,138,122",
   bar: "#ff8a7a",
 };
@@ -1564,6 +2528,56 @@ function skinOf(unit) {
  *  The radius comes from the frame now rather than from a mirrored constant,
  *  because reach stopped being one number for everybody: a Brute reaches 1.45
  *  past a 0.70 body and a Skitterer 0.40 past a 0.30 one. */
+/**
+ * How far a body can see, as a disc on the floor.
+ *
+ * The number is `unit.sight`, straight off the frame -- column 27, the one
+ * session 2 added precisely so this could exist without a formula on this side
+ * of the wall. It is the single most explanatory number in the game and it was
+ * completely invisible before: a Rogue sees 14.4 units and a Brute 7.8, which
+ * is the whole reason the Brute keeps blundering into fights it did not choose.
+ *
+ * Deliberately nothing like `drawReach`. That is the *attack* ring -- tight,
+ * dashed hard, and only there mid-swing -- and two rings meaning two different
+ * things must not look alike. This one is a soft filled disc that is always
+ * there, and the fill is kept almost to nothing because six of them overlap in
+ * a crowded room and the floor has to stay readable through all six.
+ */
+function drawVision(unit) {
+  if (!visionVisible || !(unit.sight > 0)) return;
+  const skin = skinOf(unit);
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(px(unit.x), px(unit.y), px(unit.sight), 0, TAU);
+  ctx.fillStyle = `rgba(${skin.wedge},0.032)`;
+  ctx.fill();
+  ctx.strokeStyle = `rgba(${skin.wedge},0.17)`;
+  ctx.lineWidth = 1;
+  ctx.setLineDash([7, 9]);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** Whether the vision discs are drawn. Default on, toggled with `Y`.
+ *
+ *  Read through `visionShown()` and written through `setVisionVisible()` rather
+ *  than poked directly, so the HUD can hang a button off the same switch the
+ *  keyboard uses and the two cannot drift apart. */
+let visionVisible = true;
+
+function visionShown() {
+  return visionVisible;
+}
+
+function setVisionVisible(on) {
+  visionVisible = !!on;
+  hint(
+    visionVisible
+      ? "Vision ranges shown. Each disc is exactly how far that body can see -- nothing outside it can be reacted to."
+      : "Vision ranges hidden."
+  );
+}
+
 function drawReach(unit, skin, now) {
   if (unit.intent !== INTENT_ATTACK) return;
   const beat = (Math.sin(now / 260) + 1) / 2;
@@ -1653,6 +2667,12 @@ function drawLimb(unit, skin) {
   // the player ever gets, and it is precisely the tell the AI is scored on
   // reading. Its line runs out to sight rather than to `actionLength`, because
   // for a shot that field is the draw and not the reach.
+  //
+  // And it now runs out to sight *literally*. This used to be
+  // `px(radius + actionLength) * 4` under a comment saying "runs out to sight",
+  // which was a guess that happened to look about right on a Rogue -- exactly
+  // the kind of eyeballed constant house rule 3 is about. `unit.sight` is the
+  // honest number the comment was describing, and it arrives in the frame.
   if (
     (unit.role === ROLE_STRIKE || unit.role === ROLE_SHOOT) &&
     (unit.swing === SWING_WINDUP || unit.swing === SWING_STRIKE)
@@ -1661,7 +2681,7 @@ function drawLimb(unit, skin) {
       unit.swing === SWING_STRIKE ? 1 : clamp(1 - unit.swingLeft / 30, 0.15, 1);
     const out =
       unit.role === ROLE_SHOOT
-        ? px(unit.radius + unit.actionLength) * 4
+        ? px(unit.sight)
         : px(unit.radius + unit.actionLength);
     ctx.rotate(unit.limbLine);
     ctx.strokeStyle = `rgba(255,176,64,${(0.20 + 0.45 * imminent).toFixed(3)})`;
@@ -1773,56 +2793,251 @@ function drawMarks(unit) {
   }
 }
 
-function drawUnit(unit, now) {
+// -------------------------------------------------------------- silhouettes
+//
+// One `Path2D` per `UnitKind`, built once at module scope in a coordinate space
+// where **the sim's own body circle is the unit circle** and +x is the way the
+// body is facing. `drawCharacter` scales that space by `px(unit.radius)` and
+// nothing else, which is what stops the art and the hitbox drifting apart: a
+// shoulder that overhangs the circle here overhangs it by the same fraction of
+// the *real* radius at every zoom on every body, and the circle underneath is
+// still drawn. House rule 4 -- the page never paints a shape the sim will treat
+// as somewhere you can be hit and then hides where the hitbox actually is.
+//
+// Every one of these is a closed outline meant to be filled. None of them says
+// anything about reach: what a body can touch is `drawLimb`'s business and it
+// is gated on the role, because the sim refuses a guard and a runner a blade.
+
+/** Broad shoulders, upright, square stance. Straight edges and cut corners, and
+ *  the flattest leading edge in the roster: the Fighter is the only body here
+ *  that squares up to what it is fighting. */
+function fighterPath() {
+  const p = new Path2D();
+  p.moveTo(0.80, -0.30);
+  p.lineTo(0.66, -0.86);
+  p.lineTo(0.30, -1.14);
+  p.lineTo(-0.40, -1.14);
+  p.lineTo(-0.80, -0.80);
+  p.lineTo(-0.80, 0.80);
+  p.lineTo(-0.40, 1.14);
+  p.lineTo(0.30, 1.14);
+  p.lineTo(0.66, 0.86);
+  p.lineTo(0.80, 0.30);
+  p.closePath();
+  return p;
+}
+
+/** Lean, hooded, narrow shoulders: half the beam of the Fighter and a third
+ *  again as long, pointed at the front, because the hood is the tell. */
+function roguePath() {
+  const p = new Path2D();
+  p.moveTo(1.08, 0);
+  p.quadraticCurveTo(0.44, -0.36, 0.08, -0.56);
+  p.lineTo(-0.54, -0.62);
+  p.quadraticCurveTo(-1.00, -0.32, -0.92, 0);
+  p.quadraticCurveTo(-1.00, 0.32, -0.54, 0.62);
+  p.lineTo(0.08, 0.56);
+  p.quadraticCurveTo(0.44, 0.36, 1.08, 0);
+  p.closePath();
+  return p;
+}
+
+/** Hulking, head sunk between two shoulder humps, wide base. The notch in the
+ *  middle of the leading edge is the whole read: the Brute has no neck, and the
+ *  head below sits down inside it. */
+function brutePath() {
+  const p = new Path2D();
+  p.moveTo(0.28, -1.26);
+  p.quadraticCurveTo(0.68, -0.76, 0.54, -0.38);
+  p.lineTo(0.42, 0);
+  p.lineTo(0.54, 0.38);
+  p.quadraticCurveTo(0.68, 0.76, 0.28, 1.26);
+  p.lineTo(-0.36, 1.30);
+  p.quadraticCurveTo(-1.04, 1.00, -0.98, 0);
+  p.quadraticCurveTo(-1.04, -1.00, -0.36, -1.30);
+  p.closePath();
+  return p;
+}
+
+/** A small central mass with six splayed legs. Nothing else in the roster has
+ *  anything sticking out of it, which is what makes this readable at four
+ *  pixels a body -- and four pixels is what a 0.30-radius Skitterer is at the
+ *  default framing. */
+function skittererPath() {
+  const p = new Path2D();
+  // Legs first, as their own closed sub-paths. Swept back rather than fanned
+  // evenly, so the shape still says which way it is going.
+  for (const angle of [-2.4, -1.62, -0.86, 0.86, 1.62, 2.4]) {
+    const c = Math.cos(angle);
+    const s = Math.sin(angle);
+    p.moveTo(c * 0.32 - s * 0.17, s * 0.32 + c * 0.17);
+    p.lineTo(c * 1.18, s * 1.18);
+    p.lineTo(c * 0.32 + s * 0.17, s * 0.32 - c * 0.17);
+    p.closePath();
+  }
+  p.moveTo(0.74, 0);
+  p.quadraticCurveTo(0.32, -0.50, -0.28, -0.48);
+  p.quadraticCurveTo(-0.76, -0.30, -0.72, 0);
+  p.quadraticCurveTo(-0.76, 0.30, -0.28, 0.48);
+  p.quadraticCurveTo(0.32, 0.50, 0.74, 0);
+  p.closePath();
+  return p;
+}
+
+const SILHOUETTES = {
+  [BODY_FIGHTER]: fighterPath(),
+  [BODY_ROGUE]: roguePath(),
+  [BODY_BRUTE]: brutePath(),
+  [BODY_SKITTERER]: skittererPath(),
+};
+
+/** Where each archetype carries its head, in body radii along the facing, and
+ *  how big it is. The Brute's is small and barely clear of its shoulders and
+ *  the Skitterer's is out in front of it; from directly above, that difference
+ *  is most of what tells two dark shapes apart. */
+const HEADS = {
+  [BODY_FIGHTER]: { at: 0.40, r: 0.32 },
+  [BODY_ROGUE]: { at: 0.44, r: 0.28 },
+  [BODY_BRUTE]: { at: 0.22, r: 0.30 },
+  [BODY_SKITTERER]: { at: 0.46, r: 0.22 },
+};
+
+/** A body the roster does not describe still has to draw as something. The
+ *  Fighter is the fallback because it is the roundest of the four: an unknown
+ *  archetype reads as "a body" rather than miming a Brute it is not. */
+function silhouetteOf(kind) {
+  return SILHOUETTES[kind] || SILHOUETTES[BODY_FIGHTER];
+}
+
+function headOf(kind) {
+  return HEADS[kind] || HEADS[BODY_FIGHTER];
+}
+
+/**
+ * A character, as a character.
+ *
+ * Six passes, and the order of the first two is the point of the whole
+ * function: the shadow separates the body from a floor that now has texture in
+ * it, and then **the sim's collision circle is drawn, under the art and again
+ * over it**. Every silhouette here overhangs that circle somewhere -- a Brute's
+ * shoulders by a quarter of a radius, a Skitterer's legs by more -- and a
+ * player who cannot see where the real edge is cannot read a shove, a wall stop
+ * or why a blade that visibly clipped a leg did nothing. House rule 4.
+ *
+ * Faction drives colour and archetype drives shape, and neither crosses over.
+ */
+function drawCharacter(unit, now) {
   const skin = skinOf(unit);
   const x = px(unit.x);
   const y = px(unit.y);
   const r = px(unit.radius);
+  const path = silhouetteOf(unit.kind);
+  const head = headOf(unit.kind);
+
+  if (!(r > 0)) return;
 
   ctx.save();
-  const glow = ctx.createRadialGradient(x, y, r * 0.3, x, y, r * 2.6);
-  glow.addColorStop(0, `rgba(${skin.glow},0.16)`);
-  glow.addColorStop(1, `rgba(${skin.glow},0)`);
-  ctx.fillStyle = glow;
-  ctx.beginPath();
-  ctx.arc(x, y, r * 2.6, 0, TAU);
-  ctx.fill();
-
-  // The facing wedge, drawn in the same frame the body moves in. Brighter when
-  // the unit is bearing down on something, thinner when it is backing off --
-  // the two halves of `UtilityPolicy`'s decision, on screen.
   ctx.translate(x, y);
-  ctx.rotate(unit.facing);
-  const committed = unit.intent === INTENT_ATTACK;
-  const spread = unit.intent === INTENT_FLEE ? 0.26 : 0.42;
-  ctx.fillStyle = `rgba(${skin.wedge},${committed ? 0.34 : 0.2})`;
-  ctx.beginPath();
-  ctx.moveTo(0, 0);
-  ctx.arc(0, 0, r * 2.1, -spread, spread);
-  ctx.closePath();
-  ctx.fill();
-  ctx.rotate(-unit.facing);
-
+  // The body gradient is built here, *before* the rotation, so the light stays
+  // where the room's light is instead of spinning with the character. It is in
+  // pixels rather than radii for the same reason -- it is the only thing in
+  // this function that does not belong to the body.
   const body = ctx.createLinearGradient(0, -r, 0, r);
-  body.addColorStop(0, skin.body[0]);
-  body.addColorStop(1, skin.body[1]);
-  ctx.fillStyle = body;
-  ctx.beginPath();
-  ctx.arc(0, 0, r, 0, TAU);
-  ctx.fill();
+  body.addColorStop(0, skin.body[1]);
+  body.addColorStop(1, skin.deep);
 
-  // The blow landing. Straight from the frame now: the sim counts it down from
-  // its own `Event::Damage`, so the page no longer has to tell a blow from
-  // regeneration by watching health fall.
+  ctx.rotate(unit.facing);
+  // Into the unit-radius space every path below is written in. Line widths go
+  // with it, which is why the strokes from here down are quoted in radii.
+  ctx.scale(r, r);
+
+  // 1. The ground shadow: **the silhouette itself**, dropped down the screen.
+  //    A plain ellipse was tried and a Brute -- two and a half radii across the
+  //    beam and one and a half front to back -- wore it as a dark crescent
+  //    sticking out of its chest whenever it turned side-on. The drop is
+  //    counter-rotated so it stays down the *screen*: the light belongs to the
+  //    room, not to the character, and must not spin when the body turns.
+  const drop = 0.28;
+  const sx = Math.sin(unit.facing) * drop;
+  const sy = Math.cos(unit.facing) * drop;
+  ctx.translate(sx, sy);
+  ctx.fillStyle = "rgba(0,0,0,0.42)";
+  ctx.fill(path);
+  ctx.beginPath();
+  ctx.arc(head.at, 0, head.r, 0, TAU);
+  ctx.fill();
+  ctx.translate(-sx, -sy);
+
+  // 2. The body circle, rimmed and not filled. It was filled dark to begin
+  //    with, and the Brute's notched front showed the fill through as a black
+  //    hole punched in its chest -- the art has to *sit on* the circle, not
+  //    stand in a well cut out of it. One device pixel wide whatever `r` is,
+  //    which is why the width is quoted as its reciprocal.
+  ctx.beginPath();
+  ctx.arc(0, 0, 1, 0, TAU);
+  ctx.strokeStyle = "rgba(150,180,230,0.30)";
+  ctx.lineWidth = 1 / r;
+  ctx.stroke();
+
+  // 3. The silhouette.
+  ctx.fillStyle = body;
+  ctx.fill(path);
+  ctx.strokeStyle = "rgba(9,11,16,0.85)";
+  ctx.lineWidth = 0.09;
+  ctx.stroke(path);
+
+  // 4. The head, forward along the facing and in the *pale* end of the palette:
+  //    it is the part of the body nearest the light, and painting it dark made
+  //    it read as a hole rather than as a head.
+  ctx.beginPath();
+  ctx.arc(head.at, 0, head.r, 0, TAU);
+  ctx.fillStyle = skin.body[0];
+  ctx.fill();
+  ctx.strokeStyle = "rgba(9,11,16,0.75)";
+  ctx.lineWidth = 0.07;
+  ctx.stroke();
+
+  // 5. The rim light, in the faction colour, along the leading edge.
+  //
+  //    Clipped to the silhouette so it is an inner rim rather than a halo, and
+  //    faded to nothing at the back, because at four pixels a body this line is
+  //    the only thing left saying which side the thing is on.
+  //
+  //    It also carries the intent, which is what retired the facing wedge: a
+  //    body bearing down burns at nearly full alpha and one backing off is
+  //    barely lit. The *hue* never moves -- shifting that would trade a read
+  //    you sometimes need for one you always do.
+  const heat = unit.intent === INTENT_ATTACK ? 1 : unit.intent === INTENT_FLEE ? 0 : 0.5;
+  ctx.save();
+  ctx.clip(path);
+  const rim = ctx.createLinearGradient(-0.7, 0, 1.05, 0);
+  rim.addColorStop(0, `rgba(${skin.wedge},0)`);
+  rim.addColorStop(1, `rgba(${skin.wedge},${(0.24 + 0.72 * heat).toFixed(3)})`);
+  ctx.strokeStyle = rim;
+  ctx.lineWidth = 0.20 + 0.20 * heat;
+  ctx.stroke(path);
+  ctx.restore();
+
+  // 6. The blow landing, clipped to the shapes that were actually drawn.
+  //    Straight from the frame: the sim counts it down from its own
+  //    `Event::Damage`, so the page no longer has to tell a blow from
+  //    regeneration by watching health fall.
   if (unit.hitFlash > 0) {
     ctx.fillStyle = `rgba(255,255,255,${(0.75 * unit.hitFlash).toFixed(3)})`;
+    ctx.fill(path);
     ctx.beginPath();
-    ctx.arc(0, 0, r, 0, TAU);
+    ctx.arc(head.at, 0, head.r, 0, TAU);
     ctx.fill();
   }
+  ctx.restore();
 
-  ctx.strokeStyle = "rgba(9,11,16,0.85)";
-  ctx.lineWidth = 1.5;
+  // The collision circle once more, over the art this time. Faint, and always
+  // there: see the block comment above.
+  ctx.save();
+  ctx.strokeStyle = "rgba(214,232,255,0.26)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, TAU);
   ctx.stroke();
   ctx.restore();
 
@@ -1927,23 +3142,340 @@ function drawHealth(unit, skin) {
   ctx.fillStyle = "rgba(9,11,16,0.72)";
   roundRect(x - 1, y - 1, w + 2, h + 2, 2);
   ctx.fill();
-  ctx.fillStyle = frac > 0.35 ? skin.bar : "#ff5f52";
+  ctx.fillStyle = frac > LOW_HEALTH ? skin.bar : "#ff5f52";
   ctx.fillRect(x, y, w * frac, h);
   ctx.restore();
 }
 
 function drawCorpses() {
-  ctx.save();
   for (const c of corpses) {
     const t = c.age / CORPSE_MS;
     if (t >= 1) continue;
     const skin = c.faction === FACTION_HEROES ? HERO_SKIN : MONSTER_SKIN;
-    ctx.fillStyle = `rgba(${skin.glow},${(0.4 * (1 - t)).toFixed(3)})`;
-    ctx.beginPath();
     // Settling as it fades, so a death reads as a body going down rather than
-    // a sprite being switched off.
-    ctx.arc(px(c.x), px(c.y), px(c.radius) * (1 - 0.45 * t), 0, TAU);
+    // a sprite being switched off. As its own silhouette, facing the way it was
+    // facing: a Brute that fell has to be recognisable as the Brute that fell,
+    // or the room after a fight is a scatter of anonymous smudges.
+    const r = px(c.radius) * (1 - 0.45 * t);
+    if (r < 0.4) continue;
+    ctx.save();
+    ctx.translate(px(c.x), px(c.y));
+    ctx.rotate(c.facing);
+    ctx.scale(r, r);
+    ctx.fillStyle = `rgba(${skin.glow},${(0.42 * (1 - t)).toFixed(3)})`;
+    ctx.fill(silhouetteOf(c.kind));
+    ctx.restore();
+  }
+}
+
+// -------------------------------------------------------------- action icons
+//
+// **One table, two consumers.** These are 24x24 viewBox path-data strings and
+// not draw calls, because the canvas is not the only thing that needs a picture
+// of a knife: the callout pill below builds a `Path2D` out of each one, and the
+// HUD's action bar and loadout selects inline the same string in an
+// `<svg viewBox="0 0 24 24">`. One table is what makes it impossible for the
+// canvas and the DOM to disagree about what a knife looks like.
+//
+// Every glyph is a **closed outline meant to be filled** -- `ctx.fill(path)` on
+// one side, a bare `<path d>` with the default fill on the other. Do not stroke
+// them; a stroke-designed glyph renders as a blob under `fill`, which is
+// exactly the sort of thing that only shows up in one of the two consumers.
+//
+// Keyed on the **action code from the registry** (`ActionKind::code`, which is
+// append-only), never on an index into `ACTIONS` and never on a name. A code
+// with no entry here falls through to `ICON_FALLBACK` rather than throwing, so
+// appending a ninth action in Rust adds an unlabelled ring to the page instead
+// of a blank canvas and a stack trace.
+const ICON_PATHS = {
+  // 0 Punch -- a fist, knuckles forward.
+  0: "M6 11h9c2.2 0 4 1.8 4 4v2c0 1.7-1.3 3-3 3H8c-1.7 0-3-1.3-3-3v-4l1-2z M7 10V7a1.5 1.5 0 0 1 3 0v3z M11 10V6a1.5 1.5 0 0 1 3 0v4z M15 10V7.2a1.5 1.5 0 0 1 3 0V10z",
+  // 1 Knife -- one straight edge and one slanted back, a small guard, no
+  // pommel. Asymmetric on purpose: that is what stops it reading as a short
+  // sword at sixteen pixels.
+  1: "M9.8 13.4V6.6L15 3.4v10z M7.4 14h9.2v1.7H7.4z M11 16.3h2.4v4.4H11z",
+  // 2 Sword -- the reference blade: long, narrow, double-edged, round pommel.
+  2: "M12 1.4l1.9 4.2v9h-3.8v-9z M5.6 15.2h12.8v1.9H5.6z M10.9 17.6h2.2v2.8h-2.2z M12 22.4a2 2 0 1 1 0-4 2 2 0 0 1 0 4z",
+  // 3 Club -- all the weight at the top, and a handle you can barely see.
+  3: "M12 1.6c3.1 0 5.4 2.2 5.4 5.2 0 2.6-1.3 4.2-2.2 5.6l-1 1.6h-4.4l-1-1.6C7.9 11 6.6 9.4 6.6 6.8c0-3 2.3-5.2 5.4-5.2z M10.6 15.4h2.8V22h-2.8z",
+  // 4 Shield -- a heater, and the only glyph in the table with no point on it.
+  4: "M12 2l8 3v7.2c0 4.6-3.3 8-8 10-4.7-2-8-5.4-8-10V5z",
+  // 5 Run -- a chevron pair, which is what the sprint marks on the floor are.
+  5: "M4.2 4l8.4 8-8.4 8-2.8-2.8L7 12 1.4 6.8z M13.6 4l8.4 8-8.4 8-2.8-2.8 5.6-5.2-5.6-5.2z",
+  // 6 Bow -- a curve and a string, and nothing else. No arrow: at sixteen
+  // pixels the third element is what turns a bow into a smudge.
+  6: "M7.6 2.4a10.5 10.5 0 0 1 0 19.2l-1.4-1.5a8.4 8.4 0 0 0 0-16.2z M7 2.2h1.2v19.6H7z",
+  // 7 Shortsword -- the Rogue's blade: broad, short, and stopped well before
+  // the top of the box, so the length difference against the Sword is the read.
+  7: "M12 3.6l2.5 4.6v5.2h-5V8.2z M6.6 14h10.8v1.9H6.6z M10.8 16.4h2.4v3.2h-2.4z M9.6 19.8h4.8v1.8H9.6z",
+};
+
+/** The glyph for a code the table does not know: a plain ring, drawn with the
+ *  inner circle wound the other way so the hole survives a non-zero fill. It
+ *  reads as "an action" and claims nothing about which one, which is the right
+ *  thing to say about a row this file has never heard of. */
+const ICON_FALLBACK =
+  "M4 12A8 8 0 0 1 20 12A8 8 0 0 1 4 12ZM7.5 12A4.5 4.5 0 0 0 16.5 12A4.5 4.5 0 0 0 7.5 12Z";
+
+/** The path data for an action code. This is the entry point session 4 wants:
+ *  it hands back a string to drop into a `<path d>`. */
+function iconPath(code) {
+  return ICON_PATHS[code] || ICON_FALLBACK;
+}
+
+/** The same glyph as a `Path2D`, built once per code and kept. Parsing path
+ *  data is not free and a callout would otherwise re-parse it sixty times a
+ *  second for the nine hundred milliseconds it is up. */
+const ICON_GLYPHS = new Map();
+
+function iconGlyph(code) {
+  let glyph = ICON_GLYPHS.get(code);
+  if (!glyph) {
+    glyph = new Path2D(iconPath(code));
+    ICON_GLYPHS.set(code, glyph);
+  }
+  return glyph;
+}
+
+// ------------------------------------------------------- floaters and pills
+//
+// Both of these are seeded from `state.events` and both are aged in wall-clock
+// milliseconds. Neither may be seeded from a frame that ran no ticks -- see
+// `consumeEvents`, which is the only place either list grows.
+
+/** The page's own copy of `--sans` from style.css:16. Repeated rather than read
+ *  because `ctx.font` takes a font shorthand and cannot see a custom property.
+ *  System faces only: a web font would be this repository's first external
+ *  dependency. House rule 1. */
+const SANS = 'ui-sans-serif, system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+
+/** How long a damage number lives, how far it climbs, and how many may be up at
+ *  once. The cap is the interesting one: the event feed holds 32 rows and a
+ *  crowded room can fill it, and thirty-two numbers on screen is not a readout,
+ *  it is a snowstorm. */
+const FLOATER_MS = 800;
+const FLOATER_RISE = 0.8; // world units
+const MAX_FLOATERS = 24;
+
+/** How long an action callout hangs over its actor, and how long a repeat of
+ *  the same action by the same actor is swallowed for. The second number is not
+ *  optional: a Skitterer's punch has a five-tick windup, so without it the pill
+ *  would strobe rather than read. */
+const CALLOUT_MS = 900;
+const CALLOUT_REPEAT_MS = 250;
+const MAX_CALLOUTS = 8;
+
+/**
+ * Which side an event's `actor_index` is on, or `null` if nobody knows.
+ *
+ * Needed because a damage row names its **target**, and "I hit it" and "it hit
+ * me" have to look different before the number is read. The unit rows answer it
+ * for anything still standing; a body killed by the very blow the row describes
+ * is already out of the frame, so the page's own memory of last frame answers
+ * for that one -- which is why this must run before `syncBodies` buries it.
+ */
+function factionOfActor(state, actor) {
+  for (const unit of state.units) {
+    if (unit.index === actor) return unit.faction;
+  }
+  const prefix = `${actor}:`;
+  for (const [id, seen] of bodies) {
+    if (id.startsWith(prefix)) return seen.faction;
+  }
+  return null;
+}
+
+/**
+ * One `step()`'s worth of events, turned into things on screen.
+ *
+ * **Called once per step, never once per animation frame.** The module clears
+ * the feed at the top of `step()` rather than per tick, so a frame that ran no
+ * ticks -- which at 144 Hz is most of them -- is still holding the previous
+ * call's rows, and reading those again prints every damage number twice. `loop`
+ * therefore guards this with the same `ticks > 0` that guards the step itself,
+ * and passes the frame parsed *after* it. (There is a second parse in `loop`,
+ * before the step, for the manual-control input push; consuming from that one
+ * would be the same bug a frame earlier.)
+ */
+function consumeEvents(state) {
+  for (let i = 0; i < state.events.length; i++) {
+    const event = state.events[i];
+    if (event.kind === EVENT_DAMAGE || event.kind === EVENT_BLOCK) {
+      floaters.push({
+        kind: event.kind,
+        x: event.x,
+        y: event.y,
+        amount: event.amount,
+        hurt: factionOfActor(state, event.actor) === FACTION_HEROES,
+        // Two blows on one tick land on the same handful of pixels often enough
+        // to matter -- a Skitterer pair on the same flank does it constantly --
+        // so each row is nudged sideways by its own place in the feed. From the
+        // index and not from `Math.random`, so a run looks the same twice.
+        jitter: ((i * 7) % 5) / 5 - 0.4,
+        age: 0,
+      });
+      while (floaters.length > MAX_FLOATERS) floaters.shift();
+    } else if (event.kind === EVENT_DECLARE) {
+      pushCallout(event);
+    }
+    // EVENT_PARRY is deliberately not floated. `drawMarks` already puts sparks
+    // on the blades that crossed, at the point they crossed at, and a second
+    // announcement of the same instant would be noise.
+  }
+}
+
+/** Ages every wall-clock effect. Called once a frame, before this frame's rows
+ *  are consumed, so a floater seeded now starts its life at zero rather than
+ *  one frame old. Both lists are pushed in time order, so dropping from the
+ *  front is dropping the oldest. */
+function ageEffects(elapsed) {
+  for (const f of floaters) f.age += elapsed;
+  while (floaters.length && floaters[0].age > FLOATER_MS) floaters.shift();
+  for (const c of callouts) c.age += elapsed;
+  while (callouts.length && callouts[0].age > CALLOUT_MS) callouts.shift();
+}
+
+function pushCallout(event) {
+  const action = event.amount | 0;
+  for (const c of callouts) {
+    if (c.actor === event.actor && c.action === action && c.age < CALLOUT_REPEAT_MS) return;
+  }
+  // `x, y` is where the swinger was standing when it declared, kept only as the
+  // fallback for after it falls: while it is alive the pill tracks it.
+  callouts.push({ actor: event.actor, action, x: event.x, y: event.y, age: 0 });
+  while (callouts.length > MAX_CALLOUTS) callouts.shift();
+}
+
+/**
+ * Damage numbers, over everything.
+ *
+ * The colour carries more than the number does: warm white when something else
+ * took it, red when the character did. A player has to be able to tell "I hit"
+ * from "I was hit" across a room without reading a digit, and in a fight that
+ * is decided in a second and a half there is not time to read one anyway.
+ *
+ * A **blocked** blow gets a tick instead of a number, and that is not a
+ * shortcut. A guard eats almost all of a blow and leaks a fraction of it, so
+ * the honest figure next to a real hit is something like `0.4` -- printing it
+ * would say "that did nothing" about the single most dramatic thing that
+ * happens in this game.
+ */
+function drawFloaters() {
+  if (!floaters.length) return;
+  const size = Math.round(clamp(px(0.42), 12, 20));
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = `700 ${size}px ${SANS}`;
+  ctx.lineJoin = "round";
+  for (const f of floaters) {
+    const t = f.age / FLOATER_MS;
+    if (t >= 1) continue;
+    // Eased out, so most of the climb happens in the first third and the number
+    // is clear of the body by the time the eye arrives at it.
+    const rise = (1 - (1 - t) * (1 - t)) * FLOATER_RISE;
+    // And fading only in the last third, for the same reason: one that starts
+    // fading immediately is one you have to already have been looking at.
+    const alpha = t < 0.66 ? 1 : Math.max(0, 1 - (t - 0.66) / 0.34);
+    const x = px(f.x + f.jitter * 0.3);
+    const y = px(f.y - rise);
+
+    if (f.kind === EVENT_BLOCK) {
+      ctx.strokeStyle = `rgba(180,220,255,${(0.9 * alpha).toFixed(3)})`;
+      ctx.lineWidth = 2.4;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(x - 5, y);
+      ctx.lineTo(x - 1, y + 4.5);
+      ctx.lineTo(x + 6, y - 5);
+      ctx.stroke();
+      continue;
+    }
+
+    // Floored at one rather than rounded to zero. A blow that took health off
+    // did *something*, and a floating "0" over a body that just lost a sliver
+    // is a worse lie than a rounded 1.
+    const text = String(Math.max(1, Math.round(f.amount)));
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = `rgba(6,8,13,${(0.85 * alpha).toFixed(3)})`;
+    ctx.strokeText(text, x, y);
+    ctx.fillStyle = f.hurt
+      ? `rgba(255,104,92,${alpha.toFixed(3)})`
+      : `rgba(255,241,214,${alpha.toFixed(3)})`;
+    ctx.fillText(text, x, y);
+  }
+  ctx.restore();
+}
+
+/**
+ * The "current action" pill: what a body has just committed to, named.
+ *
+ * Seeded from the declare rows, which the module derives from a per-entity
+ * `Swing` transition rather than the page watching for one -- a Punch's windup
+ * is five ticks and an animation frame is four, so a page polling for it would
+ * miss most of them outright.
+ *
+ * The name comes from `ACTIONS`, which is read out of the registry at boot.
+ * Never a hand-written list: `loadRegistry`'s block comment is about what
+ * happens to hand-written lists in this file.
+ */
+function drawCallouts(state) {
+  if (!callouts.length) return;
+  ctx.save();
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "left";
+  for (const c of callouts) {
+    const t = c.age / CALLOUT_MS;
+    if (t >= 1) continue;
+
+    // Track the actor while it is standing. `actor` is `EntityId::index` with
+    // no generation on it, which is a hint and not an identity -- but a slot
+    // cannot be freed and refilled twice inside the 900 ms this pill lives, so
+    // for this one purpose the hint is enough. Once the body is gone the pill
+    // finishes where the declaration happened.
+    let x = c.x;
+    let y = c.y;
+    let radius = 0.5;
+    for (const unit of state.units) {
+      if (unit.index === c.actor) {
+        x = unit.x;
+        y = unit.y;
+        radius = unit.radius;
+        break;
+      }
+    }
+
+    const alpha = t < 0.72 ? Math.min(1, t / 0.06) : Math.max(0, 1 - (t - 0.72) / 0.28);
+    const label = actionName(c.action);
+    const h = 20;
+    const icon = 14;
+    const padX = 7;
+    const gap = 5;
+    ctx.font = `600 12px ${SANS}`;
+    const w = padX * 2 + icon + gap + ctx.measureText(label).width;
+    const cx = px(x);
+    // Above the health bar rather than on it, and rising a few pixels as it
+    // goes, so two pills over two bodies standing close together separate.
+    const top = px(y) - px(radius) - 18 - h - 6 * (1 - (1 - t) * (1 - t));
+
+    ctx.globalAlpha = alpha;
+    roundRect(cx - w / 2, top, w, h, h / 2);
+    ctx.fillStyle = "rgba(10,13,20,0.88)";
     ctx.fill();
+    ctx.strokeStyle = "rgba(255,196,92,0.55)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.save();
+    ctx.translate(cx - w / 2 + padX, top + (h - icon) / 2);
+    ctx.scale(icon / 24, icon / 24);
+    ctx.fillStyle = "rgba(255,214,140,0.95)";
+    ctx.fill(iconGlyph(c.action));
+    ctx.restore();
+
+    ctx.fillStyle = "rgba(233,240,252,0.96)";
+    ctx.fillText(label, cx - w / 2 + padX + icon + gap, top + h / 2 + 0.5);
+    ctx.globalAlpha = 1;
   }
   ctx.restore();
 }
@@ -1954,29 +3486,42 @@ function render(state, now, arrived) {
   // length, not a position -- so panning the view is a translation of the
   // matrix and nothing else has to know the camera exists.
   //
-  // Snapped to a whole device pixel: a fractional offset would smear the grid,
-  // which is drawn on half-pixel boundaries precisely so it stays crisp.
+  // The translation itself comes from `viewOrigin()`, which `pointerToWorld`
+  // reads too: the device-pixel snap and the safe rect's centre both have to be
+  // in the inverse or clicks land somewhere other than where they were made.
+  // The clear is still the whole canvas, not the safe rect -- the rails are
+  // drawn over the glass rather than cut out of it, and a strip of last frame
+  // left showing behind a translucent panel is a smear.
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, viewport.w, viewport.h);
-  ctx.translate(
-    Math.round((viewport.w / 2 - px(cam.x)) * dpr) / dpr,
-    Math.round((viewport.h / 2 - px(cam.y)) * dpr) / dpr
-  );
+  const origin = viewOrigin();
+  ctx.translate(origin.x, origin.y);
 
+  // The compositing order, and it is the map of the whole layer:
+  //
+  //   ground -> reachable box -> trail -> destination -> vision discs
+  //          -> corpses -> reach rings -> monsters -> hero -> arrows
+  //          -> health bars -> floaters -> callouts
+  //
+  // Two of those placements are load-bearing. **Vision goes under the bodies**,
+  // because a disc drawn over one would put a wash of faction colour across the
+  // blade you are trying to read, and six of them overlap in a busy room.
+  // **Floaters and callouts go over everything**, including each other's
+  // bodies, because a number you cannot read is not a number.
   drawFloor();
   drawReachable(state.hero ? state.hero.radius : 0);
   drawTrail();
   // No marker once the character is gone: the order outlives it in the world,
   // but a destination nobody is walking to is a promise the page cannot keep.
   if (state.hero) drawDestination(state, now, arrived);
+  for (const unit of state.units) drawVision(unit);
   drawCorpses();
-  drawPulses(state.hero);
 
   for (const unit of state.units) drawReach(unit, skinOf(unit), now);
   // Monsters first, then the hero: the character you are commanding must never
   // end up underneath the thing attacking it.
-  for (const unit of state.monsters) drawUnit(unit, now);
-  if (state.hero) drawUnit(state.hero, now);
+  for (const unit of state.monsters) drawCharacter(unit, now);
+  if (state.hero) drawCharacter(state.hero, now);
   // Arrows over the bodies, so one crossing a fight is not hidden by it.
   drawShots(state.shots);
 
@@ -1984,60 +3529,140 @@ function render(state, now, arrived) {
   for (const unit of state.units) {
     if (fighting || unit.hp < unit.maxHp) drawHealth(unit, skinOf(unit));
   }
+
+  drawFloaters();
+  drawCallouts(state);
 }
 
 // ---------------------------------------------------------------------- hud
 
-function fillStats(kind, held) {
-  const a = BODIES[kind] || BODIES[0];
-  if (!a) return;
-  const d = derived(a);
-  const action = actionOf(held);
-  // What the thing in hand costs *on this body*. The registry quotes phases at
-  // cadence 1 and every body scales them, which is the whole skill gradient --
-  // the same club is a 26-tick announcement on paper and 33 on a Brute.
-  // One clause per role rather than a guard/everything-else ternary: legs have
-  // no reach and no telegraph, so the blade wording quoted a Run as "reaches
-  // 0.00 · announces for 0 ticks", which is three true numbers adding up to a
-  // lie about what the thing does.
-  const draw = action ? `${phaseTicks(action.ready, d.cadence)} to draw` : "";
-  const kit = action
-    ? [
-        "holding",
-        action.name,
-        action.role === ROLE_GUARD
-          ? `guards ±${Math.round((action.arc / 65536) * 360)}° · ${draw}`
-          : action.role === ROLE_MOVE
-            ? `×${action.moveBonus.toFixed(2)} footspeed · no guard, no blade · ${draw}`
-            : action.role === ROLE_SHOOT
-              // `length` is the *draw* on a Shoot row, not the reach -- an arrow
-              // carries as far as its archer can see. Quoting it as reach would
-              // read as the shortest weapon in the game.
-              ? `shoots as far as it sees · draws for ${phaseTicks(action.windup, d.cadence)} ticks · ${draw}`
-              : `reaches ${action.length.toFixed(2)} · announces for ${phaseTicks(action.windup, d.cadence)} ticks · ${draw}`,
-      ]
-    : ["holding", "nothing", "—"];
-  const rows = [
-    ["intellect", a.intellect, `thinks every ${d.decisionPeriod} ticks (${(d.decisionPeriod / TICKS_PER_SECOND).toFixed(2)} s)`],
-    ["agility", a.agility, `${(d.moveSpeed * TICKS_PER_SECOND).toFixed(2)} units/s · ×${d.cadence.toFixed(2)} on every phase clock`],
-    ["perception", a.perception, `sees ${d.sight.toFixed(1)} units, ±${d.noise.toFixed(1)} error at range`],
-    ["power", a.power, `×${d.powerMultiplier.toFixed(2)} on impact speed`],
-    ["vitality", a.vitality, `${d.maxHp} health`],
-    kit,
-  ];
-  el.stats.replaceChildren();
-  for (const [name, value, effect] of rows) {
-    const dt = document.createElement("dt");
-    dt.append(`${name} `);
-    const b = document.createElement("b");
-    b.textContent = String(value);
-    dt.append(b);
-    const dd = document.createElement("dd");
-    dd.textContent = effect;
-    el.stats.append(dt, dd);
+// ------------------------------------------------------------- the life globe
+//
+// A canvas rather than a stack of divs, because the surface moves: the liquid
+// has a wall-clock wobble on it, and a CSS keyframe would be an animation the
+// page has no way to stop when the sim does. It is presentation all the way
+// down -- house rule 6 -- so it is aged on `now` like `trail` and the floaters
+// and never on a tick.
+
+const globe = document.getElementById("globe");
+const globeCtx = globe.getContext("2d");
+
+/** The CSS size and device pixel ratio the backing store was last built for.
+ *  The globe is sized in `vmin`, so both of these move on their own. */
+let globeSize = 0;
+let globeDpr = 0;
+
+function drawGlobe(state, now) {
+  const css = Math.max(1, Math.round(globe.clientWidth));
+  if (css !== globeSize || dpr !== globeDpr) {
+    globeSize = css;
+    globeDpr = dpr;
+    globe.width = Math.round(css * dpr);
+    globe.height = Math.round(css * dpr);
   }
-  setText(el.unitName, a.name);
-  return d;
+
+  const g = globeCtx;
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, css, css);
+
+  const hero = state.hero;
+  const frac = hero && hero.maxHp > 0 ? clamp(hero.hp / hero.maxHp, 0, 1) : 0;
+  // The same threshold `drawHealth` and `#hp-fill` use, from the same constant.
+  const low = frac <= LOW_HEALTH;
+  const mid = css / 2;
+  const r = css / 2 - 3;
+
+  g.save();
+  g.beginPath();
+  g.arc(mid, mid, r, 0, TAU);
+  g.clip();
+
+  // The empty well behind the liquid. Lit from the same upper-left the room is.
+  const well = g.createRadialGradient(mid - r * 0.35, mid - r * 0.45, r * 0.08, mid, mid, r);
+  well.addColorStop(0, "#1a2230");
+  well.addColorStop(1, "#070910");
+  g.fillStyle = well;
+  g.fillRect(0, 0, css, css);
+
+  if (hero && frac > 0) {
+    // The liquid, filled from the bottom. Two sine waves at different rates so
+    // the surface never settles into an obvious loop -- one is a pendulum.
+    const top = mid + r - 2 * r * frac;
+    const amp = Math.max(1.1, r * 0.05);
+    g.beginPath();
+    g.moveTo(mid - r, css);
+    g.lineTo(mid - r, top);
+    for (let x = -r; x <= r; x += 2) {
+      const wobble =
+        Math.sin((x / r) * 2.6 + now / 520) * amp + Math.sin((x / r) * 4.7 - now / 310) * amp * 0.4;
+      g.lineTo(mid + x, top + wobble);
+    }
+    g.lineTo(mid + r, css);
+    g.closePath();
+
+    const liquid = g.createLinearGradient(0, top - r * 0.4, 0, css);
+    if (low) {
+      liquid.addColorStop(0, "#ff8a7a");
+      liquid.addColorStop(1, "#7a1c14");
+    } else {
+      liquid.addColorStop(0, "#8ff2ff");
+      liquid.addColorStop(1, "#14556c");
+    }
+    g.fillStyle = liquid;
+    g.fill();
+
+    // A brighter meniscus, so the top of the liquid reads as a surface rather
+    // than as the edge of a fill.
+    g.strokeStyle = low ? "rgba(255,220,210,0.75)" : "rgba(214,248,255,0.75)";
+    g.lineWidth = 1.6;
+    g.stroke();
+  }
+
+  // The inner shadow that turns a disc into a sphere.
+  const sphere = g.createRadialGradient(mid - r * 0.3, mid - r * 0.35, r * 0.2, mid, mid, r);
+  sphere.addColorStop(0, "rgba(255,255,255,0.10)");
+  sphere.addColorStop(0.55, "rgba(0,0,0,0)");
+  sphere.addColorStop(1, "rgba(0,0,0,0.55)");
+  g.fillStyle = sphere;
+  g.fillRect(0, 0, css, css);
+
+  // Fallen: the globe dims and the button over it becomes the only thing to
+  // look at. `updateBattle` is what reveals that button.
+  if (!hero) {
+    g.fillStyle = "rgba(9,11,16,0.72)";
+    g.fillRect(0, 0, css, css);
+  }
+  g.restore();
+
+  // The rim, which is the part that goes red. Two strokes: a wide soft one for
+  // the glow and a hard one for the edge.
+  const rim = !hero ? "90,100,120" : low ? "255,95,82" : "110,231,255";
+  g.strokeStyle = `rgba(${rim},0.22)`;
+  g.lineWidth = 5;
+  g.beginPath();
+  g.arc(mid, mid, r, 0, TAU);
+  g.stroke();
+  g.strokeStyle = `rgba(${rim},${hero ? 0.9 : 0.45})`;
+  g.lineWidth = 2;
+  g.beginPath();
+  g.arc(mid, mid, r, 0, TAU);
+  g.stroke();
+
+  // The number over it. Not drawn once the character is gone -- the [Re-Spawn]
+  // button is sitting there, and "0" under a button is a worse read than
+  // nothing at all.
+  if (hero) {
+    g.textAlign = "center";
+    g.textBaseline = "middle";
+    g.font = `700 ${Math.round(css * 0.28)}px ${SANS}`;
+    const text = String(Math.max(0, Math.round(hero.hp)));
+    g.lineJoin = "round";
+    g.lineWidth = 4;
+    g.strokeStyle = "rgba(6,8,13,0.85)";
+    g.strokeText(text, mid, mid - css * 0.02);
+    g.fillStyle = low ? "#ffd8d2" : "#eaf6ff";
+    g.fillText(text, mid, mid - css * 0.02);
+  }
 }
 
 function hex64(hi, lo) {
@@ -2050,10 +3675,12 @@ function updateBattle(state) {
   const monsters = `${standing} monster${standing === 1 ? "" : "s"}`;
   setText(el.battleRoster, `${state.hero ? "1 hero" : "no hero"}, ${monsters}`);
 
-  // The swap control lives in this panel rather than in the strip under the
-  // arena because this is where the player is already looking when it starts to
-  // mean anything, and it means nothing every other second of the session.
-  el.swapRow.hidden = state.hero !== null;
+  // [Re-Spawn], over the dimmed globe. The module refuses a second character
+  // while one is standing -- an order belongs to the faction, so two heroes
+  // would share one click -- so the button only exists in the fallen state
+  // anyway, and the globe is where the player is already looking when it
+  // starts to mean anything.
+  el.respawn.hidden = state.hero !== null;
 
   if (!state.hero) {
     el.battleState.className = "state dead";
@@ -2067,18 +3694,25 @@ function updateBattle(state) {
   }
 }
 
-function updateHud(state, stats, distance, arrived, settled) {
+function updateHud(state, stats, distance, arrived, settled, now) {
   const hero = state.hero;
-  syncLoadout(state);
+  // Everything the frame drives, in one place. The kit readout and the action
+  // bar read the frame; the Enemy rail reads the module's spawn template, which
+  // nothing but this page can move -- it is re-read anyway, because a panel that
+  // trusted its own last write is the failure 4.7 is about.
+  syncKitReadout(state);
+  syncActionBar(state);
+  syncEnemyRail();
+  drawGlobe(state, now);
   setText(el.simTick, String(wasm.tick()));
   setText(el.simHash, hex64(wasm.state_hash_hi(), wasm.state_hash_lo()));
   setText(el.simPosition, hero ? `${hero.x.toFixed(2)}, ${hero.y.toFixed(2)}` : "—");
   setText(el.unitHp, hero ? `${Math.round(hero.hp)} / ${Math.round(hero.maxHp)} hp` : "fallen");
-  // The bar the eye reads, next to the number the eye checks. Same third-full
-  // threshold the bars on the canvas turn red at.
+  // The bar the eye reads, next to the number the eye checks. Same threshold the
+  // bars on the canvas and the globe turn red at, from the same constant.
   const health = hero && hero.maxHp > 0 ? clamp(hero.hp / hero.maxHp, 0, 1) : 0;
   el.hpFill.style.width = `${(health * 100).toFixed(1)}%`;
-  el.hpFill.classList.toggle("low", health <= 0.35);
+  el.hpFill.classList.toggle("low", health <= LOW_HEALTH);
   setText(
     el.orderDecision,
     state.decisionTick > 0 ? `tick ${state.decisionTick} (every ${stats.decisionPeriod})` : "—"
@@ -2135,28 +3769,6 @@ function updateHud(state, stats, distance, arrived, settled) {
 let accumulator = 0;
 let lastFrameTime = 0;
 
-let statsCacheKind = -1;
-let statsCacheHeld = -1;
-let statsCache = null;
-
-/** The stat panel only changes when the archetype does, so it is built once
- *  rather than sixty times a second. */
-function fillStatsIfChanged(state) {
-  // With the hero gone the panel freezes on the archetype that fell rather than
-  // snapping back to the default: there is no new character to describe, and
-  // the loop still reads `decisionPeriod` and `moveSpeed` off the cache.
-  const kind = state.hero ? state.hero.kind : Math.max(statsCacheKind, 0);
-  // The held action is part of the key now: swapping to a shield changes what
-  // the panel has to say about the character without changing the character.
-  const held = state.hero ? state.hero.action : statsCacheHeld;
-  if (kind !== statsCacheKind || held !== statsCacheHeld) {
-    statsCacheKind = kind;
-    statsCacheHeld = held;
-    statsCache = fillStats(kind, held);
-  }
-  return statsCache || derived(BODIES[0] || { intellect: 8, agility: 6, perception: 6, power: 6, vitality: 8 });
-}
-
 /**
  * The page's entire memory, refreshed once a frame.
  *
@@ -2181,12 +3793,26 @@ function syncBodies(state, now, elapsed) {
       y: unit.y,
       radius: unit.radius,
       faction: unit.faction,
+      // Enough to draw the thing again after it has left the frame: which
+      // silhouette it was and which way it was pointing when it stopped being
+      // in one. `faction` earns a second keep here -- `factionOfActor` reads it
+      // to colour the number that did the killing.
+      kind: unit.kind,
+      facing: unit.facing,
     });
   }
 
   for (const [id, seen] of bodies) {
     if (live.has(id)) continue;
-    corpses.push({ x: seen.x, y: seen.y, radius: seen.radius, faction: seen.faction, age: 0 });
+    corpses.push({
+      x: seen.x,
+      y: seen.y,
+      radius: seen.radius,
+      faction: seen.faction,
+      kind: seen.kind,
+      facing: seen.facing,
+      age: 0,
+    });
     bodies.delete(id);
   }
 
@@ -2226,7 +3852,23 @@ function loop(now) {
     snapCamera(state);
   }
 
-  const stats = fillStatsIfChanged(state);
+  // The Hero rail, read back out of the module rather than off the frame's
+  // `kind` column: the attributes are a live dial now, so `BODIES[kind]` is the
+  // body's *baseline* and stops being the character the moment a slider moves.
+  // The loop reads `decisionPeriod` and `moveSpeed` off the same answer.
+  const stats = syncHeroRail(state);
+
+  // Age first, then seed: a floater created below starts its life at zero
+  // rather than one frame old.
+  ageEffects(elapsed);
+  // And seed **only from a frame that stepped**. `step()` clears the event feed
+  // per call rather than per tick, so a frame that ran no ticks is still
+  // looking at the previous call's rows -- consuming those a second time is
+  // every damage number printed twice, which is exactly what it looks like.
+  // This is also why it reads `state` and not the pre-step parse above.
+  if (ticks > 0) consumeEvents(state);
+  // After the events, never before: a body killed by a blow in that feed is
+  // already out of the frame, and this is the call that forgets it.
   syncBodies(state, now, elapsed);
 
   if (!state.hero && !announcedFall) {
@@ -2246,14 +3888,6 @@ function loop(now) {
   if (!orderAcknowledged && state.decisionTick !== orderIssuedAtDecision) {
     orderAcknowledged = true;
   }
-
-  if (state.decisionTick !== lastDecisionSeen) {
-    lastDecisionSeen = state.decisionTick;
-    if (pulses.length > 6) pulses.shift();
-    pulses.push({ age: 0 });
-  }
-  for (const p of pulses) p.age += elapsed;
-  while (pulses.length && pulses[0].age > 420) pulses.shift();
 
   let distance = 0;
   let arrived = true;
@@ -2284,9 +3918,26 @@ function loop(now) {
     }
   }
 
+  // The rails, re-measured. This is the *only* recompute trigger the camera
+  // needs, and it is here rather than on the rail toggle because a rail takes
+  // 180 ms to slide: measuring once when the class goes on reads the strip the
+  // rail is about to leave, and measuring again on `transitionend` snaps the
+  // safe rect a third of the window sideways in one frame, which throws the
+  // character across the screen. `railInsets()` reports the rect the rail is
+  // covering *at this instant*, so asking every frame is what makes the view
+  // breathe with the slide instead of teleporting at either end of it.
+  //
+  // `resize` only re-runs when something actually moved: it re-derives `scale`,
+  // whose zoomed-out limit is the safe rect's width, and `floorTileSize()`
+  // buckets on `scale` -- running it every frame would re-bake the flagstones
+  // for nothing. The `ResizeObserver` and `window.resize` are still wired: they
+  // catch the things the rails cannot, a stage that genuinely changed size and
+  // a `devicePixelRatio` that changed under a window that did not.
+  if (refreshInsets()) resize();
+
   updateCamera(state, elapsed);
   render(state, now, arrived || settled);
-  updateHud(state, stats, distance, arrived, settled);
+  updateHud(state, stats, distance, arrived, settled, now);
 
   if (hintUntil && now > hintUntil) {
     hintUntil = 0;
@@ -2349,11 +4000,14 @@ async function boot() {
     version !== FRAME_LAYOUT_VERSION ||
     wasm.unit_stride() !== UNIT_STRIDE ||
     wasm.shot_stride() !== SHOT_STRIDE ||
+    wasm.event_stride() !== EVENT_STRIDE ||
     wasm.header_len() !== HEADER_LEN
   ) {
+    const mine = `${HEADER_LEN} + ${UNIT_STRIDE} + ${SHOT_STRIDE} + ${EVENT_STRIDE}`;
+    const theirs = `${wasm.header_len()} + ${wasm.unit_stride()} + ${wasm.shot_stride()} + ${wasm.event_stride()}`;
     die(
       "the page and the module disagree about the frame",
-      `main.js is written against layout ${FRAME_LAYOUT_VERSION} (${HEADER_LEN} + ${UNIT_STRIDE} + ${SHOT_STRIDE}); web.wasm reports ${version} (${wasm.header_len()} + ${wasm.unit_stride()} + ${wasm.shot_stride()}). Rebuild the wasm.`
+      `main.js is written against layout ${FRAME_LAYOUT_VERSION} (${mine}); web.wasm reports ${version} (${theirs}). Rebuild the wasm.`
     );
     return;
   }
@@ -2364,7 +4018,13 @@ async function boot() {
   // to keep by hand now comes from here -- see `loadRegistry` for what the old
   // mirror had drifted into claiming.
   loadRegistry();
-  buildLoadoutPanels();
+  // The attribute ceiling is asked for rather than written down here -- see
+  // `probeMaxAttribute`. It has to happen before the racks are built, because
+  // it is the sliders' `max`.
+  maxAttribute = probeMaxAttribute();
+  buildRails();
+  buildControlGroup();
+  updateControlButtons();
 
   // The project's central claim as one number: this is what
   // `cargo run --release -p lab -- hash` prints natively, computed here by the
@@ -2376,7 +4036,7 @@ async function boot() {
 
   const first = parseFrame(readFrame());
   arena = { x: first.arenaX, y: first.arenaY };
-  fillStatsIfChanged(first);
+  syncHeroRail(first);
   resize();
   snapCamera(first);
   bindInput();

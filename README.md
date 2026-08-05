@@ -172,7 +172,7 @@ the same ticks it costs the AI. Whichever half you do not hold, the AI
 keeps fighting with — on its own reaction clock, because that is a stat.
 
 And the number matches. `web.wasm` and the native lab produce the *same 64-bit
-state hash* for the same run — `0x97d49e4d685c4dd0` — so the fixed-point
+state hash* for the same run — `0x3c730bb2a5473a52` — so the fixed-point
 simulation really is bit-identical across MSVC x86-64 and wasm32, rather than
 merely designed to be.
 

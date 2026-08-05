@@ -14,6 +14,14 @@ pub enum Event {
         amount: Fx,
         /// True if this blow reduced the target to zero.
         lethal: bool,
+        /// Where it landed, in world units.
+        ///
+        /// Carried rather than looked up, because by the time a listener reads
+        /// this the target may not exist: `World::reap_dead` recycles a lethal
+        /// blow's slot before `step` returns, so `World::view(target)` answers
+        /// `None` for exactly the blow a renderer most wants to draw. The same
+        /// argument [`Event::Loose`] makes for the moment of a release.
+        at: Vec2,
     },
     Death {
         entity: EntityId,

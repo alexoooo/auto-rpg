@@ -34,16 +34,16 @@ const BUILD = ["cargo", "build", "--release", "--target", "wasm32-unknown-unknow
 // is what tells the two failure modes apart -- see `divergence` below.
 
 // `lab hash`: skirmish(1234, 4, 6), seed 99, baseline policy, run to a finish.
-const LAB_HASH = 0x3ff8c8736c5fb2ffn;
+const LAB_HASH = 0x3c730bb2a5473a52n;
 
 // `init(1); set_goto(20_000, 12_000); step(600)`: the path a player drives.
-const ROOM_HASH = 0xa9fba0fa5f08ccbfn;
+const ROOM_HASH = 0x6f50c6292a24a26cn;
 
 // `init(1); spawn_monster(3); step(600)`: a whole fight, start to finish. Worth
 // its own number because it reaches arithmetic the walk never does -- the spawn
 // point comes out of `Rng::from_stream` and the committed sine table, and every
 // approach measures a distance through `isqrt64`.
-const BATTLE_HASH = 0x56ec32495d993357n;
+const BATTLE_HASH = 0xae0f7466db097985n;
 
 // `init(1); spawn_monster(2) x3; step(1800); swap_in_hero(1); step(400)`: a
 // fight, a death, a replacement, and the fight the replacement walks into. The
@@ -51,7 +51,7 @@ const BATTLE_HASH = 0x56ec32495d993357n;
 // sim across the death of an entity and the *reuse* of its slot -- the
 // generational free list is exactly the kind of index bookkeeping that a 32-bit
 // usize could quietly do differently.
-const SWAP_HASH = 0x41935ad8423ca327n;
+const SWAP_HASH = 0xd675ea9942a4389cn;
 
 // `init(1); set_hero_loadout(0, BOW); spawn_monster(BRUTE); step(1200)`: the
 // only one of these five that ever puts an arrow in the air, and the only
@@ -60,15 +60,23 @@ const SWAP_HASH = 0x41935ad8423ca327n;
 // of every flight, `segment_circle`'s i64-staged dot products, and the
 // saturating multiply in `tangential_speed` at the release. Portable
 // fixed-point is a claim about code that runs.
-const BOW_HASH = 0x7c0dd495e5afa023n;
+const BOW_HASH = 0xe9ad8b3f92fbea54n;
 
 // The frame header, as the client reads it.
-const HEADER_LEN = 8;
-const UNIT_STRIDE = 27;
+const HEADER_LEN = 9;
+const UNIT_STRIDE = 28;
 // Arrows, in a block after the units. `frame_len()` is therefore no longer a
 // function of the unit count alone, which is half of what `FRAME_LAYOUT_VERSION`
 // 3 announces -- the other half being the eighth header float that counts them.
 const SHOT_STRIDE = 4;
+// Events, in a third block after the arrows, counted by the ninth header float:
+// what `FRAME_LAYOUT_VERSION` 4 announces, along with the unit row's new
+// `sight_range` column. Three counts now, and `frame_len()` is the sum.
+const EVENT_STRIDE = 5;
+
+// How long the frame says it is, from its own three counts.
+const frameSpan = (live) =>
+  HEADER_LEN + UNIT_STRIDE * live[6] + SHOT_STRIDE * live[7] + EVENT_STRIDE * live[8];
 
 // `ActionKind::code`, from crates/sim/src/action.rs. Append-only, so this is
 // safe to write down.
@@ -273,6 +281,7 @@ test("the boundary exports everything the client calls", () => {
     "frame_layout_version",
     "unit_stride",
     "shot_stride",
+    "event_stride",
     "header_len",
     "action_count",
     "action_code",
@@ -287,11 +296,31 @@ test("the boundary exports everything the client calls", () => {
     "hero_loadout",
     "hero_slot",
     "set_hero_loadout",
+    "hero_stat",
+    "set_hero_stat",
+    "hero_body",
+    "set_hero_body",
+    "spawn_template_body",
+    "set_spawn_template_body",
+    "spawn_template_stat",
+    "set_spawn_template_stat",
+    "spawn_template_slot",
+    "set_spawn_template_slot",
+    "spawn_from_template",
   ];
   for (const name of exports) {
     assert.equal(typeof wasm[name], "function", `web.wasm does not export ${name}()`);
   }
   assert.ok(wasm.memory instanceof WebAssembly.Memory, "LLD did not export memory");
+
+  // The five numbers the page's boot handshake compares. Wrong here and the
+  // page stops with an overlay instead of painting a health bar out of a guard
+  // arc, which is the handshake working -- but it is cheaper to find out here.
+  assert.equal(wasm.frame_layout_version(), 4, "FRAME_LAYOUT_VERSION");
+  assert.equal(wasm.header_len(), HEADER_LEN);
+  assert.equal(wasm.unit_stride(), UNIT_STRIDE);
+  assert.equal(wasm.shot_stride(), SHOT_STRIDE);
+  assert.equal(wasm.event_stride(), EVENT_STRIDE);
 
   const imports = WebAssembly.Module.imports(compiled);
   console.log(`web.wasm: ${fs.statSync(WASM).size} bytes, ${imports.length} imports`);
@@ -339,10 +368,11 @@ test("the frame buffer still has the layout the client reads", () => {
   assert.equal(units, 1, "the room holds exactly one hero");
   assert.equal(
     live.length,
-    HEADER_LEN + UNIT_STRIDE * units + SHOT_STRIDE * live[7],
+    frameSpan(live),
     `frame_len() is ${live.length}, not ${HEADER_LEN} + ${UNIT_STRIDE} * ${units}` +
-      ` + ${SHOT_STRIDE} * ${live[7]}`,
+      ` + ${SHOT_STRIDE} * ${live[7]} + ${EVENT_STRIDE} * ${live[8]}`,
   );
+  assert.equal(live[8], 0, "event_count: nobody has hit anybody in an empty room");
   assert.deepEqual([live[0], live[1]], ARENA, "arena_x, arena_y");
   assert.equal(live[2], 4, "order_kind: Goto is discriminant 4");
   assert.deepEqual([live[3], live[4]], [20, 12], "order_x, order_y: 20_000 thousandths is 20.0");
@@ -375,6 +405,11 @@ test("the frame buffer still has the layout the client reads", () => {
   // The guard arc of what is in hand. A Fighter walks in holding a sword, and
   // a sword guards nothing -- the arc belongs to the shield action now.
   assert.equal(unit[15], 0, "a sword is not a guard");
+  // How far it sees: `6.0 + 0.6 * perception 6`, from the stat sheet rather
+  // than from a formula the page kept its own copy of. The registry answers the
+  // same number for a body nobody has spawned, in thousandths.
+  assert.ok(Math.abs(unit[27] - 9.6) < 0.001, `sight_range ${unit[27]}`);
+  assert.equal(wasm.body_stat(0, 7), 9_600, "body_stat(FIGHTER, sight)");
 });
 
 test("a policy can be chosen and tuned across the boundary", () => {
@@ -461,9 +496,9 @@ test("a monster walks in and takes the next row of the frame", () => {
   assert.equal(live[6], 2, "unit_count");
   assert.equal(
     live.length,
-    HEADER_LEN + UNIT_STRIDE * 2 + SHOT_STRIDE * live[7],
+    frameSpan(live),
     `frame_len() is ${live.length}, not ${HEADER_LEN} + ${UNIT_STRIDE} * 2` +
-      ` + ${SHOT_STRIDE} * ${live[7]}`,
+      ` + ${SHOT_STRIDE} * ${live[7]} + ${EVENT_STRIDE} * ${live[8]}`,
   );
 
   const monster = live.slice(HEADER_LEN + UNIT_STRIDE);
@@ -509,18 +544,36 @@ test("an arrow flies the way native recorded it", () => {
   wasm.set_hero_loadout(0, BOW_CODE);
   wasm.spawn_monster(2, 255, 255);
   let seen = 0;
+  let events = 0;
   for (let i = 0; i < 1_200; i++) {
     wasm.step(1);
     const live = frame();
     const units = live[6];
     assert.equal(
       live.length,
-      HEADER_LEN + UNIT_STRIDE * units + SHOT_STRIDE * live[7],
-      `frame_len() disagrees with its own counts: ${units} units, ${live[7]} shots`,
+      frameSpan(live),
+      `frame_len() disagrees with its own counts: ${units} units,` +
+        ` ${live[7]} shots, ${live[8]} events`,
     );
+    // And the third section, read from the base the two counts before it put it
+    // at -- which is the one thing about this layout that a wasm-only indexing
+    // bug could get wrong while every hash still matched.
+    const base = HEADER_LEN + UNIT_STRIDE * units + SHOT_STRIDE * live[7];
+    for (let e = 0; e < live[8]; e++) {
+      const row = live.slice(base + e * EVENT_STRIDE, base + (e + 1) * EVENT_STRIDE);
+      assert.ok(row[0] >= 0 && row[0] <= 3, `event kind ${row[0]}`);
+      assert.ok(
+        row[1] >= -2 && row[1] <= 26 && row[2] >= -2 && row[2] <= 18,
+        `an event happened outside the arena at (${row[1]}, ${row[2]})`,
+      );
+      assert.ok(row[4] >= 0 && row[4] < 64, `actor_index ${row[4]}`);
+      events += 1;
+    }
     seen = Math.max(seen, live[7]);
   }
   assert.ok(seen > 0, "twenty seconds of archery reached the frame as nothing");
+  assert.ok(events > 0, "a whole archery duel produced no events at all");
+  console.log(`event feed    ${events} rows over 1200 ticks`);
 });
 
 test("a death and a replacement replay the way native recorded them", () => {

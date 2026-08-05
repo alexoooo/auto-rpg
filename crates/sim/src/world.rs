@@ -75,9 +75,11 @@ pub struct World {
     facing: Vec<Angle>,
     radius: Vec<Fx>,
     /// Body mass, with a Fighter as the unit. Cached beside [`World::radius`]
-    /// for the same reason: it is fixed for the life of the entity and read in
-    /// the tick's innermost loops. Derived from [`World::kind`], so it is not
-    /// hashed -- what is hashed is the kind it came from.
+    /// for the same reason: it is read in the tick's innermost loops and derived
+    /// from [`World::kind`]. Not fixed for the life of the entity any more --
+    /// [`World::set_body`] rewrites all three together, which is why
+    /// [`World::state_hash`] now writes the cached column as well as the kind it
+    /// came from.
     mass: Vec<Fx>,
     hp: Vec<Fx>,
     max_hp: Vec<Fx>,
@@ -504,6 +506,82 @@ impl World {
                 if !loadout.holds(self.slot[i] as usize) {
                     self.slot[i] = 0;
                 }
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// What `id`'s attributes are.
+    pub fn stats(&self, id: EntityId) -> Option<Stats> {
+        self.resolve(id).map(|i| self.stats[i])
+    }
+
+    /// Rewrites `id`'s attributes.
+    ///
+    /// Input bookkeeping, exactly as [`World::set_loadout`] is: the page owns a
+    /// character's attributes and the sim only fights with them. Answers `false`
+    /// for a handle that no longer resolves.
+    ///
+    /// Health is rescaled to hold the **fraction**, not the absolute value.
+    /// Vitality is the only stat that moves the bar's length, and either of the
+    /// two obvious alternatives is a rule rather than an input: keeping the
+    /// absolute health gifts a full bar to anyone who raises vitality mid-fight,
+    /// and would kill outright anyone who lowers it. A fighter at half health is
+    /// a fighter at half health whatever body it is wearing.
+    ///
+    /// The decision clock is deliberately left alone. [`World::submit`]
+    /// re-derives it from the new [`Stats::decision_period`] at the very next
+    /// decision, so a character made sharper starts thinking faster one beat
+    /// later -- which is the correct lag, and a reset here would hand a free
+    /// out-of-turn decision to anyone touching the intellect dial mid-swing.
+    pub fn set_stats(&mut self, id: EntityId, stats: Stats) -> bool {
+        match self.resolve(id) {
+            Some(i) => {
+                // Read before the write, and clamped: `hp` runs negative for one
+                // phase between a lethal blow and `reap_dead`, and a negative
+                // fraction rescaled into a larger bar is a corpse getting
+                // *deader* the more vitality it is given.
+                let frac = self.hp_frac(i);
+                let max_hp = stats.max_hp();
+                self.stats[i] = stats;
+                self.max_hp[i] = max_hp;
+                self.hp[i] = max_hp * frac;
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// Rewrites `id`'s archetype.
+    ///
+    /// The live counterpart of [`UnitSpec::set_body`], and it exists for the
+    /// same reason that one does: a bare `kind` write is a **half-change**. A
+    /// body is a size, a weight and a stat sheet, and none of the three is
+    /// derivable from the others once they are separate columns -- so this takes
+    /// the whole archetype, its default loadout included, and a caller wanting a
+    /// Brute holding a bow says so afterwards with [`World::set_loadout`].
+    ///
+    /// Both halves that already have a home go through it: the stat sheet
+    /// through [`World::set_stats`], so the health fraction survives a change of
+    /// body and the rescale lives in exactly one place, and the kit through
+    /// [`World::set_loadout`], so a slot the new default cannot fill is put back
+    /// to the primary rather than left dangling.
+    ///
+    /// Finishes by putting the body back inside the arena. A Skitterer (radius
+    /// 0.30) standing against a wall and promoted to a Brute (0.70) is otherwise
+    /// left with four tenths of itself inside the masonry, and `clamp_body` also
+    /// zeroes the clipped velocity axis -- which is what stops a wall-pinned
+    /// body shoving everything that comes near it.
+    pub fn set_body(&mut self, id: EntityId, body: Body) -> bool {
+        match self.resolve(id) {
+            Some(i) => {
+                self.kind[i] = body;
+                self.radius[i] = body.radius();
+                self.mass[i] = body.mass();
+                self.set_stats(id, body.base_stats());
+                self.set_loadout(id, body.default_loadout());
+                self.clamp_body(i, self.pos[i]);
                 true
             }
             None => false,
@@ -1180,6 +1258,7 @@ impl World {
                 target,
                 amount: blow.amount,
                 lethal: !self.hp[j].is_positive(),
+                at: blow.at,
             });
         }
         self.blows.clear();
@@ -1317,11 +1396,21 @@ impl World {
                 self.damage_dealt[i] += effective;
                 self.last_combat[i] = self.tick;
             }
+            // **The body, not the rim.** A cut has a contact point worth
+            // carrying -- `blow.at` is where on the blade the two met, and where
+            // on the blade decides what the blow was worth. A pierce has no such
+            // point: the arrow is a point itself, and `resolve_shots` tests the
+            // whole segment it travelled this tick, so `pierce.at` is merely
+            // wherever along that segment the circle was first crossed. The
+            // honest answer to "where did this land" is the body it stopped in.
+            // `Event::Block` above keeps the rim, because a shield is struck at
+            // a place and that place is the whole of what a block is about.
             self.events.push(Event::Damage {
                 source: pierce.source,
                 target,
                 amount: pierce.amount,
                 lethal: !self.hp[j].is_positive(),
+                at: self.pos[j],
             });
             // Spent on what it hit, blocked or not. An arrow stopped by a shield
             // is still an arrow that has stopped.
@@ -1683,6 +1772,26 @@ impl World {
             // `Order::hash_into` makes for a destination.
             self.loadout[i].hash_into(&mut h);
             h.write_u8(self.slot[i]);
+            // And so are the body and the stat sheet, for exactly the same
+            // reason and only since `World::set_body` and `World::set_stats`
+            // landed. While these were fixed at spawn they were a fact about the
+            // *scenario*, already fingerprinted by `Scenario::fingerprint`, and
+            // hashing them here would have bought nothing. They are inputs now,
+            // so a run in which the page raised a fighter's vitality and one in
+            // which it did not must not fingerprint alike.
+            //
+            // `radius`, `mass` and `max_hp` are written even though all three
+            // are derived -- the first two from `kind` and the third from
+            // `stats` -- because they are *cached* derivations sitting in their
+            // own columns, and a mutator that updated one and forgot another is
+            // precisely the half-change `UnitSpec::set_body` exists to warn
+            // about. A fingerprint that cannot see the halves apart cannot catch
+            // it.
+            self.stats[i].hash_into(&mut h);
+            self.kind[i].hash_into(&mut h);
+            h.write_i32(self.radius[i].raw());
+            h.write_i32(self.mass[i].raw());
+            h.write_i32(self.max_hp[i].raw());
             h.write_u32(self.next_decision[i]);
             h.write_u32(self.last_combat[i]);
             h.write_i32(self.regen_left[i].raw());
@@ -4881,5 +4990,148 @@ mod tests {
         }
         // And on the far side it is a club, not a sword.
         assert_eq!(w.action_of(h), ActionKind::Club);
+    }
+
+    #[test]
+    fn set_stats_preserves_the_health_fraction() {
+        let mut w = duel_world();
+        let hero = w.alive_ids(Faction::Heroes)[0];
+        let h = w.resolve(hero).unwrap();
+        w.hp[h] = w.max_hp[h] * Fx::HALF;
+
+        // Up. The bar gets longer and the fighter does not get healthier: a
+        // vitality dial that handed out a full bar would be a heal button
+        // wearing an attribute's name.
+        let mut stats = w.stats(hero).unwrap();
+        stats.vitality += 10;
+        assert!(w.set_stats(hero, stats));
+        assert_eq!(w.max_hp[h], stats.max_hp(), "the bar did not follow vitality");
+        assert!(
+            w.max_hp[h] > Body::Fighter.base_stats().max_hp(),
+            "the bar never grew, so this proves nothing"
+        );
+        assert_eq!(w.hp_frac(h), Fx::HALF, "{} of {}", w.hp[h], w.max_hp[h]);
+
+        // And down, which is the direction that can kill. It must not.
+        stats.vitality = 1;
+        assert!(w.set_stats(hero, stats));
+        assert_eq!(w.max_hp[h], stats.max_hp());
+        assert_eq!(w.hp_frac(h), Fx::HALF, "{} of {}", w.hp[h], w.max_hp[h]);
+        assert!(w.hp[h].is_positive(), "lowering vitality killed a fighter");
+        assert!(w.is_alive(hero));
+
+        // The decision clock is left where it was; `submit` re-derives it from
+        // the new period on the next decision, and that one beat of lag is the
+        // point rather than an oversight.
+        stats.intellect = 19;
+        let before = w.next_decision[h];
+        assert!(w.set_stats(hero, stats));
+        assert_eq!(w.next_decision[h], before, "set_stats moved the clock");
+    }
+
+    #[test]
+    fn set_stats_is_refused_for_a_stale_handle() {
+        let mut w = duel_world();
+        let hero = w.alive_ids(Faction::Heroes)[0];
+        let h = w.resolve(hero).unwrap();
+        // The control: while the handle resolves, both are honoured.
+        assert!(w.set_stats(hero, Body::Rogue.base_stats()));
+        assert!(w.set_body(hero, Body::Rogue));
+
+        w.hp[h] = Fx::ZERO;
+        w.step();
+        assert!(!w.is_alive(hero), "the fighter survived being zeroed");
+
+        assert_eq!(w.stats(hero), None);
+        assert!(
+            !w.set_stats(hero, Body::Brute.base_stats()),
+            "a dead handle rewrote the attributes of whoever inherits its slot"
+        );
+        assert!(!w.set_body(hero, Body::Brute));
+        assert!(!w.set_stats(EntityId::NONE, Body::Brute.base_stats()));
+        assert!(!w.set_body(EntityId::NONE, Body::Brute));
+        // Nothing leaked into the slot the corpse left behind.
+        assert_eq!(w.stats[h], Body::Rogue.base_stats());
+    }
+
+    #[test]
+    fn set_body_moves_a_grown_body_out_of_the_wall() {
+        // Hard against the west wall at exactly its own radius, which is where
+        // `clamp_body` would have left it and therefore a legal place to stand.
+        let mut scenario = Scenario::duel();
+        scenario.units[0].set_body(Body::Skitterer);
+        scenario.units[0].spawn = Vec2::new(Body::Skitterer.radius(), Fx::from_int(8));
+        let mut w = World::new(&scenario, 1);
+        let hero = w.alive_ids(Faction::Heroes)[0];
+        let h = w.resolve(hero).unwrap();
+        assert!(
+            w.pos[h].x < Body::Brute.radius(),
+            "the body did not start inside the Brute it is about to become, \
+             so nothing here is being tested"
+        );
+
+        assert!(w.set_body(hero, Body::Brute));
+        let r = w.radius[h];
+        assert_eq!(r, Body::Brute.radius());
+        assert!(
+            w.pos[h].x >= r && w.pos[h].x <= w.arena.x - r,
+            "a promoted body was left in the masonry at {:?}",
+            w.pos[h]
+        );
+        assert!(w.pos[h].y >= r && w.pos[h].y <= w.arena.y - r, "{:?}", w.pos[h]);
+    }
+
+    #[test]
+    fn set_body_resets_the_loadout() {
+        // The half-change `UnitSpec::set_body` warns about, through a live
+        // world: promote the archer and it is holding a Brute's kit, not a
+        // Skitterer's bow on the end of a Brute's arm.
+        let mut scenario = Scenario::duel();
+        scenario.units[0].set_body(Body::Skitterer);
+        scenario.units[0].loadout = Loadout::single(ActionKind::Bow);
+        let mut w = World::new(&scenario, 1);
+        let hero = w.alive_ids(Faction::Heroes)[0];
+        let h = w.resolve(hero).unwrap();
+        assert_eq!(w.held(hero), Some((0, ActionKind::Bow)));
+
+        assert!(w.set_body(hero, Body::Brute));
+        assert_eq!(w.loadout(hero), Some(Body::Brute.default_loadout()));
+        assert_eq!(w.held(hero), Some((0, Body::Brute.default_action())));
+        assert_eq!(w.stats(hero), Some(Body::Brute.base_stats()));
+        // And the cached halves moved with it. A `kind` that walked off on its
+        // own is exactly the failure this method exists to make impossible.
+        assert_eq!(w.kind[h], Body::Brute);
+        assert_eq!(w.radius[h], Body::Brute.radius());
+        assert_eq!(w.mass[h], Body::Brute.mass());
+        assert_eq!(w.max_hp[h], Body::Brute.base_stats().max_hp());
+    }
+
+    #[test]
+    fn two_worlds_differing_only_in_stats_do_not_fingerprint_alike() {
+        let base = duel_world();
+        let hero = base.alive_ids(Faction::Heroes)[0];
+
+        // A single point of power moves nothing else at all -- not the bar, not
+        // the body, not a position -- so this is the narrowest the claim gets.
+        let mut sharper = base.clone();
+        let mut stats = sharper.stats(hero).unwrap();
+        stats.power += 1;
+        assert!(sharper.set_stats(hero, stats));
+        assert_ne!(
+            base.state_hash(),
+            sharper.state_hash(),
+            "a fighter given a point of power fingerprints as the fighter it was"
+        );
+
+        let mut promoted = base.clone();
+        assert!(promoted.set_body(hero, Body::Rogue));
+        assert_ne!(base.state_hash(), promoted.state_hash());
+        assert_ne!(sharper.state_hash(), promoted.state_hash());
+
+        // The other half of the claim: a rewrite that changes nothing must move
+        // no fingerprint either, or every one of these is merely noise.
+        let mut same = base.clone();
+        assert!(same.set_stats(hero, base.stats(hero).unwrap()));
+        assert_eq!(base.state_hash(), same.state_hash());
     }
 }

@@ -1,6 +1,6 @@
 //! The browser boundary.
 //!
-//! One `cdylib`, twenty-five `extern "C"` functions, and a single packed `f32`
+//! One `cdylib`, fifty-four `extern "C"` functions, and a single packed `f32`
 //! buffer that JavaScript reads straight out of linear memory. No
 //! `wasm-bindgen`, no `js-sys`, nothing generated. The workspace's
 //! no-dependency rule (`DESIGN.md`) is what keeps every recorded run in the
@@ -45,14 +45,22 @@
 //!
 //! ```text
 //!     header  [arena_x, arena_y, order_kind, order_x, order_y,
-//!              last_decision_tick, unit_count]
+//!              last_decision_tick, unit_count, shot_count, event_count]
 //!     unit    [x, y, facing_raw, radius, hp, max_hp, faction, kind, intent,
 //!              entity_index, entity_generation,
 //!              sword_angle_raw, limb_reach, limb_spin,
 //!              shield_angle_raw, shield_reach, action_length, shield_arc_raw,
-//!              hit_flash, block_flash, parry_flash]
+//!              hit_flash, block_flash, parry_flash, ..., sight_range]
 //!     ...     unit_count of them
+//!     shot    [x, y, heading_raw, faction]
+//!     ...     shot_count of them
+//!     event   [kind, x, y, amount, actor_index]
+//!     ...     event_count of them
 //! ```
+//!
+//! Three sections, each one starting where the last stopped, and they are in
+//! that order for one reason: only the *base* of a section moves as the counts
+//! change, so every row's internal offsets stay where the page expects them.
 //!
 //! Columns are **append-only**. The client keys on positions, so a reshuffle
 //! repaints the game while every test still passes.
@@ -87,13 +95,13 @@ use std::cell::{Cell, RefCell};
 use fx::{Angle, Fx, Rng, Vec2};
 use policy::{Policy, PolicyKind, RunConfig, MAX_GENOME_LEN};
 use sim::{
-    Command, EntityId, Event, Faction, LimbCommand, Intent, Order, Scenario, Body, UnitSpec,
-    Loadout, Strike, UnitView, World,
+    Command, EntityId, Event, Faction, LimbCommand, Intent, Order, Scenario, Body, Stats, Swing,
+    UnitSpec, Loadout, Strike, UnitView, World,
 };
 
 /// Floats before the first unit: `[arena_x, arena_y, order_kind, order_x,
-/// order_y, last_decision_tick, unit_count, shot_count]`.
-pub const HEADER_LEN: usize = 8;
+/// order_y, last_decision_tick, unit_count, shot_count, event_count]`.
+pub const HEADER_LEN: usize = 9;
 
 /// Floats per unit.
 ///
@@ -141,7 +149,15 @@ pub const HEADER_LEN: usize = 8;
 /// being repositioned. A page that cannot draw the difference is a page where
 /// every attack appears out of nowhere, and the player has no way to learn a
 /// tell the AI is being scored on reading.
-pub const UNIT_STRIDE: usize = 27;
+///
+/// `27` is `sight_range`, in world units, from [`sim::Stats::sight_range`].
+/// **It is here to kill the last mirrored formula in the page.** `main.js` used
+/// to write `(60 + 6 * perception) / 10` by hand, which is the exact species of
+/// copy the registry post-mortem in `loadRegistry` is about -- and it is now
+/// worse than it was, because a stat can be changed live and a body can be
+/// swapped underneath it, so the number the page draws a vision ring from has
+/// to be the number the observation code actually used.
+pub const UNIT_STRIDE: usize = 28;
 
 /// Floats per arrow, in a block that follows the units: `[x, y, heading_raw,
 /// faction]`.
@@ -162,13 +178,51 @@ pub const SHOT_STRIDE: usize = 4;
 /// `the_frame_is_bounded_by_what_the_world_can_hold`.
 pub const MAX_SHOTS: usize = sim::MAX_SHOTS;
 
+/// Floats per event, in a third block that follows the arrows: `[kind, x, y,
+/// amount, actor_index]`.
+///
+/// These are **things that happened**, not things that are. Every other row in
+/// the frame describes state a renderer can read again next frame; an event is
+/// gone the moment it is consumed, and the page turns it into a floater or a
+/// callout it then ages on its own wall clock.
+///
+/// `actor_index` is [`EntityId::index`] alone, deliberately without the
+/// generation. A row is consumed inside the frame it arrives in, and what the
+/// page keys a floating number on is the *position* it happened at -- so the
+/// index is a hint for grouping rows that share an actor and nothing more. It
+/// is emphatically not an identity, and the unit row's two-column handle stays
+/// the only thing that is.
+pub const EVENT_STRIDE: usize = 5;
+
+/// Most events one frame will carry.
+///
+/// The client caps itself at eight ticks of catch-up per animation frame
+/// (`MAX_CATCHUP_TICKS` in `main.js`), and a tick in a crowded room produces a
+/// blow or two and the odd declaration, so thirty-two is generous rather than
+/// tight. Overflow drops the tail -- see [`Sim::advance`] for why that is the
+/// right end to drop.
+pub const MAX_EVENTS: usize = 32;
+
+/// A blow that took health off. `amount` is the health lost, `x, y` the impact
+/// point (`Event::Damage.at`).
+pub const EVENT_DAMAGE: u32 = 0;
+/// A blow a guard ate. `amount` is what was absorbed, `x, y` the rim it landed
+/// on.
+pub const EVENT_BLOCK: u32 = 1;
+/// Two blades crossed. `amount` is `0`; `actor_index` is the lower-indexed of
+/// the pair, which is the one `Event::Parry` names first.
+pub const EVENT_PARRY: u32 = 2;
+/// A unit began an attack. `amount` is the [`sim::ActionKind::code`] it began,
+/// `x, y` the swinger's own position. See [`Sim::note_declares`].
+pub const EVENT_DECLARE: u32 = 3;
+
 /// Bumped whenever the frame changes shape or meaning.
 ///
 /// The page reads this before it reads anything else and refuses to draw a
 /// layout it was not written against. That is a weaker promise than the
 /// append-only convention it replaced and a much more useful one: append-only
 /// forbids the edit, this one makes the edit safe.
-pub const FRAME_LAYOUT_VERSION: u32 = 3;
+pub const FRAME_LAYOUT_VERSION: u32 = 4;
 
 /// Value in a loadout column meaning "this slot is empty". Matches
 /// [`sim::Loadout::EMPTY`], and is not a valid action code.
@@ -199,7 +253,8 @@ pub const CONTROL_SLOT: u32 = 4;
 pub const MAX_UNITS: usize = 64;
 
 /// Length of the frame buffer. [`frame_len`] reports how much of it is live.
-pub const FRAME_MAX: usize = HEADER_LEN + MAX_UNITS * UNIT_STRIDE + MAX_SHOTS * SHOT_STRIDE;
+pub const FRAME_MAX: usize =
+    HEADER_LEN + MAX_UNITS * UNIT_STRIDE + MAX_SHOTS * SHOT_STRIDE + MAX_EVENTS * EVENT_STRIDE;
 
 /// Closest a newcomer may be placed to the hero, and the floor the arc sweep
 /// in [`Sim::spawn_point`] accepts against. Far enough that you watch it come.
@@ -250,6 +305,26 @@ struct Flash {
     hit: u8,
     block: u8,
     parry: u8,
+}
+
+/// One row of the frame's third section, before it is flattened into `f32`s.
+///
+/// Held in the sim's own types and converted on the way out, exactly as a unit
+/// row is: [`Fx::to_f32`] is the one float conversion in the stack and it stays
+/// where it belongs.
+#[derive(Clone, Copy)]
+struct FrameEvent {
+    /// One of [`EVENT_DAMAGE`], [`EVENT_BLOCK`], [`EVENT_PARRY`],
+    /// [`EVENT_DECLARE`].
+    kind: u32,
+    at: Vec2,
+    /// Health lost, health absorbed, or an action code -- read according to
+    /// `kind`, which is why there is only one of these.
+    amount: Fx,
+    /// [`EntityId::index`] of the unit the row is *about*: the target of a
+    /// blow, the defender of a block, the first-named of a parried pair, the
+    /// swinger of a declaration.
+    actor: u32,
 }
 
 struct Sim {
@@ -325,6 +400,33 @@ struct Sim {
     /// Hit, block and parry markers, indexed by entity index. Presentation
     /// only; never hashed, never read by the sim.
     flashes: Vec<Flash>,
+
+    /// Everything worth announcing that happened during the last [`advance`],
+    /// in the order it happened. Presentation only, like `flashes`, and cleared
+    /// per *call* rather than per tick -- see [`Sim::advance`].
+    ///
+    /// [`advance`]: Sim::advance
+    events: Vec<FrameEvent>,
+
+    /// Each entity's swing phase as of the end of the last tick, indexed by
+    /// entity index like `flashes`.
+    ///
+    /// The whole of the `declare` feed. There is no sim event for "an attack
+    /// began" and there does not need to be one, because the phase is already
+    /// in the frame -- but the *transition* is not, and it is the transition
+    /// the page wants. Kept on this side because a Punch's windup is five
+    /// ticks (`action.rs`) and at 60 Hz that can begin and end entirely between
+    /// two `requestAnimationFrame` callbacks: JavaScript differencing successive
+    /// frames would simply never see it.
+    swings: Vec<Swing>,
+
+    /// What the next press of the enemy panel's spawn button walks into the
+    /// room. A *template*, not a live unit: the page edits it freely and
+    /// nothing in the world changes until it is used.
+    ///
+    /// A Skitterer with its own kit, which is what the `S` hotkey has always
+    /// sent, so the button starts where the page already was.
+    spawn_spec: UnitSpec,
 }
 
 impl Sim {
@@ -357,6 +459,21 @@ impl Sim {
             cached: Command::HOLD,
             hero_next_decision: 0,
             flashes: Vec::new(),
+            // Allocated once, at its ceiling, so no frame's event feed can grow
+            // linear memory and detach the typed array the client is about to
+            // read the frame through.
+            events: Vec::with_capacity(MAX_EVENTS),
+            swings: Vec::new(),
+            spawn_spec: UnitSpec {
+                kind: Body::Skitterer,
+                faction: Faction::Monsters,
+                stats: Body::Skitterer.base_stats(),
+                loadout: Body::Skitterer.default_loadout(),
+                // Overwritten at every spawn. The page chooses *what* and the
+                // module chooses *where*, because a position invented in
+                // JavaScript is a float walking into simulation state.
+                spawn: Vec2::ZERO,
+            },
         }
     }
 
@@ -427,6 +544,13 @@ impl Sim {
         // buffer and the world are disjoint. It is the same allocation each
         // time round, which is the whole point of keeping it in the struct.
         let mut due = std::mem::take(&mut self.due);
+        // **Cleared per call, not per tick.** One animation frame can be up to
+        // eight ticks of catch-up, and all eight ticks' worth of blows happened
+        // -- a page that only ever saw the last tick's would drop seven eighths
+        // of the damage numbers on any frame the browser was late for, which is
+        // exactly the frame a fight is most interesting on.
+        let mut events = std::mem::take(&mut self.events);
+        events.clear();
         for _ in 0..frames {
             for flash in &mut self.flashes {
                 flash.hit = flash.hit.saturating_sub(1);
@@ -459,9 +583,61 @@ impl Sim {
             let mut count = 0;
             for event in self.world.step() {
                 let pair = match *event {
-                    Event::Damage { target, .. } => [(target, 0u8), (EntityId::NONE, 0)],
-                    Event::Block { defender, .. } => [(defender, 1), (EntityId::NONE, 0)],
-                    Event::Parry { a, b, .. } => [(a, 2), (b, 2)],
+                    Event::Damage {
+                        target,
+                        amount,
+                        at,
+                        ..
+                    } => {
+                        // The numbers, kept rather than reduced to a flash. The
+                        // flash counters below say *that* something landed; a
+                        // damage row says how much and exactly where, which is
+                        // the difference between a body glowing red and a number
+                        // floating off it.
+                        push_event(
+                            &mut events,
+                            FrameEvent {
+                                kind: EVENT_DAMAGE,
+                                at,
+                                amount,
+                                actor: target.index,
+                            },
+                        );
+                        [(target, 0u8), (EntityId::NONE, 0)]
+                    }
+                    Event::Block {
+                        defender,
+                        absorbed,
+                        at,
+                        ..
+                    } => {
+                        push_event(
+                            &mut events,
+                            FrameEvent {
+                                kind: EVENT_BLOCK,
+                                at,
+                                amount: absorbed,
+                                actor: defender.index,
+                            },
+                        );
+                        [(defender, 1), (EntityId::NONE, 0)]
+                    }
+                    Event::Parry { a, b, at } => {
+                        // One row for the pair, not two: a parry is one thing
+                        // that happened between two fighters, and `Event::Parry`
+                        // already reports it once with `a` below `b`. Two rows
+                        // would put two sparks on one crossing.
+                        push_event(
+                            &mut events,
+                            FrameEvent {
+                                kind: EVENT_PARRY,
+                                at,
+                                amount: Fx::ZERO,
+                                actor: a.index,
+                            },
+                        );
+                        [(a, 2), (b, 2)]
+                    }
                     // Both of these are already on screen without a flash. A
                     // death removes a body; a loose *adds an arrow*, at the
                     // nock, pointing where it is going -- which is a better
@@ -483,8 +659,65 @@ impl Sim {
                     _ => self.flash(entity, |f| &mut f.parry),
                 }
             }
+
+            // After the tick, so the phases being compared are both settled
+            // ones. See [`Sim::note_declares`].
+            self.note_declares(&mut events);
         }
         self.due = due;
+        self.events = events;
+    }
+
+    /// Emits a `declare` row for every unit that just began an attack.
+    ///
+    /// The mockup's *"current action"* bubble: the popup that tells you which
+    /// action an enemy has just committed to. Derived here rather than in the
+    /// page, and the reason is timing rather than tidiness. A Punch has a
+    /// five-tick windup (`action.rs`), so at 60 Hz an attack can begin and end
+    /// entirely between two `requestAnimationFrame` callbacks -- a page
+    /// differencing the `limb_swing` column across successive frames would
+    /// never see it happen. The module sees every tick by construction.
+    ///
+    /// `Guard | Recover -> Windup | Strike` is the transition, and the second
+    /// half of each side is load-bearing. `Recover` because a fighter that
+    /// chains two cuts passes through recovery and not through guard, so
+    /// watching only for `Guard ->` would announce the first blow of a flurry
+    /// and none of the rest. `-> Strike` because a zero-windup action has no
+    /// telegraph phase at all and would otherwise never be announced.
+    fn note_declares(&mut self, events: &mut Vec<FrameEvent>) {
+        for i in 0..self.units.len() {
+            let id = self.units[i];
+            // A dead handle simply has no phase to compare. Its slot keeps
+            // whatever it last held, which the next occupant overwrites on its
+            // own first tick -- a stale `Strike` there could at worst *suppress*
+            // one announcement, never invent one.
+            let Some(view) = self.world.view(id) else {
+                continue;
+            };
+            let slot = id.index as usize;
+            if slot >= self.swings.len() {
+                self.swings.resize(slot + 1, Swing::Guard);
+            }
+            let was = self.swings[slot];
+            let now = view.limb.swing;
+            self.swings[slot] = now;
+            let began = matches!(was, Swing::Guard | Swing::Recover)
+                && matches!(now, Swing::Windup | Swing::Strike);
+            if began {
+                push_event(
+                    events,
+                    FrameEvent {
+                        kind: EVENT_DECLARE,
+                        at: view.position,
+                        // The action code, not the phase: what the bubble names
+                        // is the thing being swung, and the page already has a
+                        // name and an icon per code from the registry.
+                        amount: Fx::from_int(view.action.code() as i32),
+                        actor: id.index,
+                    },
+                );
+            }
+        }
     }
 
     /// Submits the hero's command for this tick, blending the policy's opinion
@@ -533,6 +766,26 @@ impl Sim {
     /// Walks one monster into the running room. Answers how many monsters are
     /// now alive, which is zero only when nothing arrived.
     fn spawn_monster(&mut self, kind: Body, loadout: Loadout) -> u32 {
+        self.walk_in(UnitSpec {
+            kind,
+            faction: Faction::Monsters,
+            stats: kind.base_stats(),
+            loadout,
+            // Rolled inside `walk_in`, not here. See [`Sim::spawn_point`].
+            spawn: Vec2::ZERO,
+        })
+    }
+
+    /// The body of a spawn, from a fully described [`UnitSpec`].
+    ///
+    /// Shared by the `S` hotkey's `spawn_monster` and the enemy panel's
+    /// [`spawn_from_template`], which differ only in where the spec came from --
+    /// a body's own defaults in one case and the page's edited template in the
+    /// other. Sharing it is what keeps the placement roll a single sequence: two
+    /// copies of this would be two copies of the prune-then-refuse-then-roll
+    /// order, and getting that order wrong is invisible until a recorded run
+    /// stops replaying.
+    fn walk_in(&mut self, mut spec: UnitSpec) -> u32 {
         // Dead handles first. `write_frame` merely *skips* an id that no longer
         // resolves, so without this the roster grows for the life of the page
         // and a long session of spawning and killing reaches the ceiling on
@@ -547,14 +800,11 @@ impl Sim {
         }
 
         let mut rng = self.placement_rng();
-        let spawn = self.spawn_point(kind, &mut rng);
-        let id = self.world.spawn(&UnitSpec {
-            kind,
-            faction: Faction::Monsters,
-            stats: kind.base_stats(),
-            loadout,
-            spawn,
-        });
+        spec.spawn = self.spawn_point(spec.kind, &mut rng);
+        // Whatever the caller asked for, a newcomer through this door is on the
+        // other side. The enemy panel is an *enemy* panel.
+        spec.faction = Faction::Monsters;
+        let id = self.world.spawn(&spec);
         // The step that is easy to miss: a spawned entity thinks, moves and
         // fights whether or not it is in this vector. It is simply invisible
         // until it is.
@@ -794,7 +1044,36 @@ impl Sim {
         }
         frame[7] = shots as f32;
 
-        HEADER_LEN + count * UNIT_STRIDE + shots * SHOT_STRIDE
+        // Events, in a third block after the arrows, and after them for exactly
+        // the argument the arrows make against being interleaved: only the base
+        // of a trailing section moves as the counts change. Last of the three
+        // because it is the newest and the one most likely to grow again.
+        let base = HEADER_LEN + count * UNIT_STRIDE + shots * SHOT_STRIDE;
+        let events = self.events.len().min(MAX_EVENTS);
+        for (i, event) in self.events[..events].iter().enumerate() {
+            let row = &mut frame[base + i * EVENT_STRIDE..];
+            row[0] = event.kind as f32;
+            row[1] = event.at.x.to_f32();
+            row[2] = event.at.y.to_f32();
+            row[3] = event.amount.to_f32();
+            row[4] = event.actor as f32;
+        }
+        frame[8] = events as f32;
+
+        base + events * EVENT_STRIDE
+    }
+}
+
+/// Appends a row unless the frame is already carrying [`MAX_EVENTS`] of them.
+///
+/// **Overflow drops the tail, on purpose.** The alternative -- a ring that
+/// keeps the newest -- would drop the *first* blows of a busy tick, and those
+/// are the ones the eye follows. Losing the thirty-third floating number in one
+/// animation frame is not something a player can notice; losing the one that
+/// started the exchange is.
+fn push_event(events: &mut Vec<FrameEvent>, event: FrameEvent) {
+    if events.len() < MAX_EVENTS {
+        events.push(event);
     }
 }
 
@@ -846,6 +1125,13 @@ fn write_unit(row: &mut [f32], view: &UnitView, flash: Flash) {
     row[24] = view.slot as f32;
     row[25] = slot_code(view.loadout.slot(0));
     row[26] = slot_code(view.loadout.slot(1));
+
+    // How far this body can see, in world units, straight from the stat sheet
+    // the observation code reads. The page drew a vision ring from its own copy
+    // of `(60 + 6 * perception) / 10` until this column existed, which was the
+    // last mirrored sim formula in `main.js` -- and the one with the shortest
+    // remaining life, because the hero's perception is a live dial now.
+    row[27] = view.stats.sight_range().to_f32();
 }
 
 /// An action code, or [`SLOT_EMPTY`] for a slot nothing is in.
@@ -1405,6 +1691,14 @@ pub extern "C" fn shot_stride() -> u32 {
     SHOT_STRIDE as u32
 }
 
+/// Floats per event row, in the block that follows the arrows. The fifth and
+/// last of the numbers the boot handshake compares.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn event_stride() -> u32 {
+    EVENT_STRIDE as u32
+}
+
 /// Floats before the first unit row.
 #[allow(unsafe_code)]
 #[no_mangle]
@@ -1513,7 +1807,15 @@ pub extern "C" fn body_name_len(code: u32) -> u32 {
 }
 
 /// One of a body's attributes, by index: `0` power, `1` agility, `2` intellect,
-/// `3` perception, `4` vitality. `5` and `6` are radius and mass in thousandths.
+/// `3` perception, `4` vitality. `5` and `6` are radius and mass in thousandths,
+/// and `7` is sight range in thousandths.
+///
+/// `7` is not an attribute but a *consequence* of one, and it is here for the
+/// panel that describes a body nobody has spawned yet -- there is no unit row to
+/// read a `sight_range` column off until one exists. The page used to derive it
+/// from `perception` with a hand-copied `(60 + 6 * p) / 10`, which is the same
+/// mistake, in the same file, that the whole registry exists to have stopped
+/// making. Anything already on the floor gets its sight from its own frame row.
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn body_stat(code: u32, stat: u32) -> i32 {
@@ -1527,6 +1829,7 @@ pub extern "C" fn body_stat(code: u32, stat: u32) -> i32 {
         4 => i32::from(stats.vitality),
         5 => milli_of(body.radius()),
         6 => milli_of(body.mass()),
+        7 => milli_of(stats.sight_range()),
         _ => 0,
     }
 }
@@ -1598,6 +1901,258 @@ pub extern "C" fn set_hero_loadout(slot: u32, action_code: u32) -> u32 {
     took
 }
 
+// ------------------------------------------------------ the hero, live
+//
+// The Hero rail edits a character that is standing in the room, mid-fight, and
+// every one of these follows `set_control`'s discipline: the page sends a
+// request and then **reads the value back**, because the module normalises and
+// clamps and a panel that trusted its own request would drift out of step with
+// the fighter it claims to describe.
+//
+// The clamping is not optional and it is not the page's job. An `i32` parameter
+// arrives through JavaScript's `ToInt32`, which **wraps**: a slider that emitted
+// 4294967296 would arrive here as 0 and a page-side clamp would never have seen
+// it.
+
+/// Ceiling on a hand-edited attribute.
+///
+/// Twenty, against a roster whose highest number is fourteen -- so the panel has
+/// real headroom above every archetype and the extremes are still somewhere the
+/// sim has been reasoned about. `Stats` is five `u8`s and the sim clamps every
+/// consequence it derives (`decision_period` at intellect 19, `agility_multiplier`
+/// proved safe across the whole `u8` range by `no_blade_can_outrun_the_smallest_body`),
+/// so this is a *design* ceiling rather than a safety one: a fighter thinking on
+/// every tick and seeing eighteen units is already past anything the roster
+/// poses as a problem.
+pub const MAX_ATTRIBUTE: i32 = 20;
+
+/// One attribute out of a stat sheet, by the same selector [`body_stat`] takes:
+/// `0` power, `1` agility, `2` intellect, `3` perception, `4` vitality.
+fn stat_of(stats: Stats, stat: u32) -> i32 {
+    match stat {
+        0 => i32::from(stats.power),
+        1 => i32::from(stats.agility),
+        2 => i32::from(stats.intellect),
+        3 => i32::from(stats.perception),
+        4 => i32::from(stats.vitality),
+        _ => 0,
+    }
+}
+
+/// Writes one attribute of a stat sheet by selector, clamped into
+/// `0..=MAX_ATTRIBUTE`. Answers `false` for a selector that names nothing, so a
+/// caller can tell "refused" from "clamped".
+fn set_stat_of(stats: &mut Stats, stat: u32, value: i32) -> bool {
+    let value = value.clamp(0, MAX_ATTRIBUTE) as u8;
+    match stat {
+        0 => stats.power = value,
+        1 => stats.agility = value,
+        2 => stats.intellect = value,
+        3 => stats.perception = value,
+        4 => stats.vitality = value,
+        _ => return false,
+    }
+    true
+}
+
+/// One of the standing hero's attributes, by the selector [`body_stat`] uses.
+///
+/// The *live* number, not the body's baseline: once the page can move a dial
+/// mid-fight the two stop agreeing, and a panel reading the baseline would go on
+/// describing a character that no longer exists. `0` when there is no hero.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn hero_stat(stat: u32) -> i32 {
+    with_sim(0, |sim| {
+        let Some(hero) = sim.hero() else { return 0 };
+        match sim.world.stats(hero) {
+            Some(stats) => stat_of(stats, stat),
+            None => 0,
+        }
+    })
+}
+
+/// Moves one of the standing hero's attributes. Answers `1` if it took.
+///
+/// Clamped into `0..=MAX_ATTRIBUTE` here rather than refused, so a slider
+/// dragged past its end pins instead of stopping responding -- and read back
+/// with [`hero_stat`] rather than assumed, which is the only way the page can
+/// see the clamp happen.
+///
+/// Health keeps its **fraction** across the write, not its absolute value; see
+/// [`World::set_stats`], where that decision lives and is argued.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn set_hero_stat(stat: u32, value: i32) -> u32 {
+    let took = with_sim(0, |sim| {
+        let Some(hero) = sim.hero() else { return 0 };
+        let Some(mut stats) = sim.world.stats(hero) else {
+            return 0;
+        };
+        if !set_stat_of(&mut stats, stat, value) {
+            return 0;
+        }
+        u32::from(sim.world.set_stats(hero, stats))
+    });
+    publish();
+    took
+}
+
+/// Which body the standing hero is wearing, as the same small integer the
+/// frame's `kind` column carries.
+///
+/// [`SLOT_EMPTY`] when there is no hero, which the page needs to be able to tell
+/// apart from "a Fighter" -- `0` would have the body dropdown confidently name
+/// an archetype for a character that has fallen.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn hero_body() -> u32 {
+    with_sim(SLOT_EMPTY, |sim| {
+        match sim.hero().and_then(|hero| sim.world.view(hero)) {
+            Some(view) => kind_code(view.kind),
+            None => SLOT_EMPTY,
+        }
+    })
+}
+
+/// Swaps the standing hero's body in place. Answers `1` if it took.
+///
+/// **Not a respawn.** The character keeps its handle, its position, its order
+/// and the fraction of its health -- what changes is its size, its weight, its
+/// stat sheet and the kit that comes with it. That is the whole point of the
+/// Hero rail's body row: watching the same fight from inside a different body,
+/// without the room resetting around you.
+///
+/// Decoded with [`kind_from_code`] rather than [`hero_from_code`], and
+/// deliberately: this is the setter paired with [`hero_body`]'s [`kind_code`]
+/// getter, so it has to be that function's exact inverse or
+/// `set_hero_body(hero_body())` would not be a no-op. The two agree on every
+/// code the getter can produce and differ only in what garbage falls through to.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn set_hero_body(code: u32) -> u32 {
+    let took = with_sim(0, |sim| {
+        let Some(hero) = sim.hero() else { return 0 };
+        u32::from(sim.world.set_body(hero, kind_from_code(code)))
+    });
+    publish();
+    took
+}
+
+// ------------------------------------------------- the enemy spawn template
+//
+// What the next press of the spawn button walks into the room. A template and
+// not a live unit: the Enemy rail describes something that does not exist yet,
+// so editing it changes nothing until it is used -- which is the difference the
+// decision record draws between the two rails.
+
+/// Which body the spawn template is built on, as a [`kind_code`].
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn spawn_template_body() -> u32 {
+    with_sim(kind_code(Body::Skitterer), |sim| {
+        kind_code(sim.spawn_spec.kind)
+    })
+}
+
+/// Rebuilds the spawn template on a different body. Answers `1` if it took.
+///
+/// Through [`UnitSpec::set_body`], so the stat sheet **and** the loadout reset
+/// together. A bare `kind` write is a half-change -- the first test that tried
+/// it put a Fighter's sword in a Skitterer's hand and then asserted things about
+/// "a Skitterer's knife" -- and a panel that let you pick Brute and kept the
+/// previous body's stats would be lying in five rows at once.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn set_spawn_template_body(code: u32) -> u32 {
+    with_sim(0, |sim| {
+        sim.spawn_spec.set_body(kind_from_code(code));
+        1
+    })
+}
+
+/// One of the spawn template's attributes, by the selector [`body_stat`] uses.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn spawn_template_stat(stat: u32) -> i32 {
+    with_sim(0, |sim| stat_of(sim.spawn_spec.stats, stat))
+}
+
+/// Moves one of the spawn template's attributes, clamped into
+/// `0..=MAX_ATTRIBUTE`. Answers `1` if it took.
+///
+/// Read back with [`spawn_template_stat`], for the same reason [`set_hero_stat`]
+/// is: the clamp is on this side and invisible from the page otherwise.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn set_spawn_template_stat(stat: u32, value: i32) -> u32 {
+    with_sim(0, |sim| {
+        u32::from(set_stat_of(&mut sim.spawn_spec.stats, stat, value))
+    })
+}
+
+/// What the spawn template carries in slot `slot`, or [`SLOT_EMPTY`].
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn spawn_template_slot(slot: u32) -> u32 {
+    with_sim(SLOT_EMPTY, |sim| {
+        match sim.spawn_spec.loadout.slot(slot as usize) {
+            Some(kind) => kind.code(),
+            None => SLOT_EMPTY,
+        }
+    })
+}
+
+/// Rewrites one of the spawn template's loadout slots. [`SLOT_EMPTY`] empties
+/// slot 1; slot 0 cannot be emptied, because a fighter holding nothing has no
+/// rule to run and `Loadout::set` already refuses it. Answers `1` if it took.
+///
+/// Unlike [`set_hero_loadout`] there is no guard-phase check to make, because
+/// there is no limb: nothing is holding this yet.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn set_spawn_template_slot(slot: u32, action_code: u32) -> u32 {
+    with_sim(0, |sim| {
+        let action = if action_code == SLOT_EMPTY {
+            None
+        } else {
+            match sim::ActionKind::from_code(action_code) {
+                // A row the sim has no rule for is refused rather than handed
+                // over, exactly as `set_hero_loadout` refuses it: `PLAYABLE` is
+                // what a menu offers and this is the wall behind that.
+                Some(kind) if kind.is_playable() => Some(kind),
+                _ => return 0,
+            }
+        };
+        u32::from(sim.spawn_spec.loadout.set(slot as usize, action))
+    })
+}
+
+/// Walks the spawn template into the running room. Answers how many monsters
+/// are now alive, or `0` if nothing arrived -- the same contract
+/// [`spawn_monster`] has.
+///
+/// The template says *what* and the module still says *where*: this reuses
+/// `Sim::spawn_point` and the placement stream unchanged, because a position
+/// invented in JavaScript is a float walking into simulation state through the
+/// front door, and the same page would then produce a different fight on every
+/// machine.
+///
+/// [`spawn_monster`] stays beside this rather than being folded into it. The
+/// `S` and `B` hotkeys still use it, and they deliberately do **not** read the
+/// template: a hotkey that quietly meant something different after you touched
+/// a panel would be a worse surprise than two spawn paths.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn spawn_from_template() -> u32 {
+    let standing = with_sim(0, |sim| {
+        let spec = sim.spawn_spec;
+        sim.walk_in(spec)
+    });
+    publish();
+    standing
+}
+
 /// Low half of the selftest hash. See [`selftest_hash`].
 #[allow(unsafe_code)]
 #[no_mangle]
@@ -1656,30 +2211,30 @@ mod tests {
     /// What `cargo run --release -p lab -- hash` prints today. Recorded rather
     /// than computed, so this test fails if the sim's behaviour moves at all --
     /// which is the point of having it here as well as in `sim`.
-    const LAB_HASH: u64 = 0x3ff8_c873_6c5f_b2ff;
+    const LAB_HASH: u64 = 0x3c73_0bb2_a547_3a52;
 
     /// What `init(1); set_goto(20_000, 12_000); step(600)` leaves behind.
     /// Recorded here natively; the same three calls against `web.wasm` under
     /// Node produce the same number, which is the first time this project's
     /// central claim has been checked across targets rather than asserted.
-    const ROOM_HASH: u64 = 0xa9fb_a0fa_5f08_ccbf;
+    const ROOM_HASH: u64 = 0x6f50_c629_2a24_a26c;
 
     /// What `init(1); spawn_monster(3, SLOT_EMPTY, SLOT_EMPTY); step(600)` leaves behind -- a whole
     /// skirmish, start to finish, driven the way the page drives it. Recorded
     /// from a native run, never computed here, and asserted against `web.wasm`
     /// under Node by `tools/wasm_check.js`.
-    const BATTLE_HASH: u64 = 0x56ec_3249_5d99_3357;
+    const BATTLE_HASH: u64 = 0xae0f_7466_db09_7985;
 
     /// What `init(1); spawn_monster(2, SLOT_EMPTY, SLOT_EMPTY) x3; step(1800); swap_in_hero(1, SLOT_EMPTY, SLOT_EMPTY);
     /// step(400)` leaves behind -- a fight, a death, a replacement, and the
     /// fight it walks into. Recorded from a native run and asserted against
     /// `web.wasm` under Node by `tools/wasm_check.js`.
-    const SWAP_HASH: u64 = 0x4193_5ad8_423c_a327;
+    const SWAP_HASH: u64 = 0xd675_ea99_42a4_389c;
 
     // `init(1); swap_in_hero(FIGHTER, Bow, Sword); spawn_monster(BRUTE); step(1200)`:
     // the only one of these that ever puts an arrow in the air, and therefore
     // the only one that pins the projectile arithmetic across targets.
-    const BOW_HASH: u64 = 0x7c0d_d495_e5af_a023;
+    const BOW_HASH: u64 = 0xe9ad_8b3f_92fb_ea54;
 
     fn selftest() -> u64 {
         (u64::from(selftest_hash_hi()) << 32) | u64::from(selftest_hash_lo())
@@ -1703,6 +2258,26 @@ mod tests {
         (0..count)
             .map(|i| frame[HEADER_LEN + i * UNIT_STRIDE..][..UNIT_STRIDE].to_vec())
             .collect()
+    }
+
+    /// The live frame's third section, split into event rows. Read from the
+    /// base the two counts before it put it at, exactly as the page reads it.
+    fn events() -> Vec<Vec<f32>> {
+        let frame = frame();
+        let base = HEADER_LEN + frame[6] as usize * UNIT_STRIDE + frame[7] as usize * SHOT_STRIDE;
+        (0..frame[8] as usize)
+            .map(|i| frame[base + i * EVENT_STRIDE..][..EVENT_STRIDE].to_vec())
+            .collect()
+    }
+
+    /// How long the frame says it is, computed from its own three counts. The
+    /// number `frame_len()` has to agree with.
+    fn frame_span() -> usize {
+        let frame = frame();
+        HEADER_LEN
+            + frame[6] as usize * UNIT_STRIDE
+            + frame[7] as usize * SHOT_STRIDE
+            + frame[8] as usize * EVENT_STRIDE
     }
 
     /// Searched for by faction rather than taken from row zero. Once the hero
@@ -1745,8 +2320,8 @@ mod tests {
             "the selftest no longer runs what `lab hash` runs"
         );
         assert_eq!(selftest(), LAB_HASH, "the halves reassemble wrongly");
-        assert_eq!(selftest_hash_lo(), 0x6c5f_b2ff);
-        assert_eq!(selftest_hash_hi(), 0x3ff8_c873);
+        assert_eq!(selftest_hash_lo(), 0xa547_3a52);
+        assert_eq!(selftest_hash_hi(), 0x3c73_0bb2);
     }
 
     #[test]
@@ -1798,6 +2373,19 @@ mod tests {
                 0,
                 "swapped a character into a world that is not there"
             );
+            // The panels' exports, which are the ones a page calls while it is
+            // still building its own DOM -- before `init`, in other words.
+            assert_eq!(hero_stat(0), 0);
+            assert_eq!(set_hero_stat(0, 12), 0, "dressed a hero that is not there");
+            assert_eq!(hero_body(), SLOT_EMPTY);
+            assert_eq!(set_hero_body(0), 0);
+            assert_eq!(spawn_template_body(), 3, "the template opens on a Skitterer");
+            assert_eq!(set_spawn_template_body(0), 0);
+            assert_eq!(spawn_template_stat(0), 0);
+            assert_eq!(set_spawn_template_stat(0, 9), 0);
+            assert_eq!(spawn_template_slot(0), SLOT_EMPTY);
+            assert_eq!(set_spawn_template_slot(0, 2), 0);
+            assert_eq!(spawn_from_template(), 0, "spawned into a world that is not there");
             assert_eq!(tick(), 0);
             assert_eq!(frame_len(), HEADER_LEN as u32);
         })
@@ -1870,6 +2458,11 @@ mod tests {
             tick()
         );
         assert_eq!(frame[6], 1.0, "unit_count");
+        assert_eq!(frame[7], 0.0, "shot_count");
+        assert_eq!(
+            frame[8], 0.0,
+            "event_count: nobody has hit anybody in an empty room"
+        );
 
         let unit = &frame[HEADER_LEN..];
         assert!(unit[0] > 12.0 && unit[1] > 8.0, "x, y: the hero set off");
@@ -1926,9 +2519,27 @@ mod tests {
         assert_eq!(unit[25], sim::ActionKind::Sword.code() as f32, "slot0");
         assert_eq!(unit[26], sim::ActionKind::Shield.code() as f32, "slot1");
 
-        // And the handshake that makes relaying this out safe at all.
+        // How far it can see, in world units, from the stat sheet rather than
+        // from a formula copied into the page: `6.0 + 0.6 * perception 6`.
+        assert!(
+            (unit[27] - 9.6).abs() < 0.001,
+            "sight_range {}, not the Fighter's 9.6",
+            unit[27]
+        );
+        // And the same number for a body nobody has spawned, which is what the
+        // roster preview reads. Thousandths, like every other scalar `body_stat`
+        // answers with.
+        assert_eq!(body_stat(0, 7), 9_600, "the Fighter's sight, in thousandths");
+        assert_eq!(body_stat(2, 7), 7_800, "the Brute's: 6.0 + 0.6 * 3");
+        assert_eq!(body_stat(0, 99), 0, "an unknown selector named something");
+
+        // And the handshake that makes relaying this out safe at all. All five
+        // numbers, because the page compares all five and stops on any one of
+        // them disagreeing.
         assert_eq!(frame_layout_version(), FRAME_LAYOUT_VERSION);
         assert_eq!(unit_stride(), UNIT_STRIDE as u32);
+        assert_eq!(shot_stride(), SHOT_STRIDE as u32);
+        assert_eq!(event_stride(), EVENT_STRIDE as u32);
         assert_eq!(header_len(), HEADER_LEN as u32);
     }
 
@@ -2238,17 +2849,44 @@ mod tests {
     }
 
     #[test]
-    fn a_frame_can_never_outgrow_its_buffer() {
-        // `write_frame` indexes past the units and then past the arrows, so the
-        // ceiling and the array length have to agree exactly across both blocks.
+    fn the_frame_is_bounded_by_what_the_world_can_hold() {
+        // `write_frame` indexes past the units, then past the arrows, then past
+        // the events, so the ceiling and the array length have to agree exactly
+        // across all three blocks. A section added to the buffer and forgotten
+        // here is an out-of-bounds index in the one function the page cannot
+        // survive panicking in.
         assert_eq!(
             FRAME_MAX,
-            HEADER_LEN + MAX_UNITS * UNIT_STRIDE + MAX_SHOTS * SHOT_STRIDE
+            HEADER_LEN
+                + MAX_UNITS * UNIT_STRIDE
+                + MAX_SHOTS * SHOT_STRIDE
+                + MAX_EVENTS * EVENT_STRIDE
         );
         assert!(Scenario::room().units.len() <= MAX_UNITS);
         assert!(Scenario::skirmish(1234, 4, 6).units.len() <= MAX_UNITS);
         // The frame cannot be asked for more arrows than the world can hold.
         assert_eq!(MAX_SHOTS, sim::MAX_SHOTS);
+
+        // And the event block cannot be overrun by the busiest room this page
+        // can open. Sixty-three monsters around one hero for a thousand ticks is
+        // well past anything a player produces, and `push_event` has to hold the
+        // ceiling through all of it.
+        init(1);
+        for _ in 0..MAX_UNITS {
+            spawn_monster(BRUTE, SLOT_EMPTY, SLOT_EMPTY);
+        }
+        let mut busiest = 0;
+        for _ in 0..125 {
+            // Eight at a time, which is the client's own catch-up ceiling and
+            // therefore the most events one published frame can be asked for.
+            step(8);
+            busiest = busiest.max(frame()[8] as usize);
+            assert!(frame_len() as usize <= FRAME_MAX, "the frame overran itself");
+            assert_eq!(frame_len() as usize, frame_span(), "the counts disagree");
+        }
+        println!("busiest frame carried {busiest} events of {MAX_EVENTS}");
+        assert!(busiest > 0, "a room full of brutes produced no events at all");
+        assert!(busiest <= MAX_EVENTS);
     }
 
     // ------------------------------------------------------------- spawning
@@ -2265,6 +2903,7 @@ mod tests {
         let live = frame();
         assert_eq!(live[6], 2.0, "unit_count");
         assert_eq!(live.len(), HEADER_LEN + 2 * UNIT_STRIDE);
+        assert_eq!(live[8], 0.0, "a spawn is not an event");
         assert_eq!(frame_len() as usize, live.len());
 
         let monster = &monsters()[0];
@@ -2480,7 +3119,11 @@ mod tests {
         );
         assert!(frame()[6] > 0.0, "nothing left to draw");
         // Every remaining row is a monster, and the frame is still well formed.
-        assert_eq!(frame().len(), HEADER_LEN + monsters().len() * UNIT_STRIDE);
+        // Through `frame_span` rather than the units alone: the last step that
+        // killed the character produced the blow that did it, and that blow is
+        // now a row in the third section.
+        assert_eq!(frame().len(), frame_span());
+        assert_eq!(frame()[6], monsters().len() as f32);
     }
 
     #[test]
@@ -2787,8 +3430,11 @@ mod tests {
             let shots = live[7] as usize;
             assert_eq!(
                 live.len(),
-                HEADER_LEN + units * UNIT_STRIDE + shots * SHOT_STRIDE,
-                "the frame's length disagrees with its own two counts"
+                HEADER_LEN
+                    + units * UNIT_STRIDE
+                    + shots * SHOT_STRIDE
+                    + live[8] as usize * EVENT_STRIDE,
+                "the frame's length disagrees with its own three counts"
             );
             for s in 0..shots {
                 let row = &live[HEADER_LEN + units * UNIT_STRIDE + s * SHOT_STRIDE..];
@@ -2829,5 +3475,315 @@ mod tests {
             with[0],
             with[1],
         );
+    }
+
+    // ---------------------------------------------------------- the event feed
+
+    /// Only the `declare` rows of the live frame.
+    fn declares() -> Vec<Vec<f32>> {
+        events()
+            .into_iter()
+            .filter(|row| row[0] == EVENT_DECLARE as f32)
+            .collect()
+    }
+
+    #[test]
+    fn a_declare_row_is_emitted_once_per_windup() {
+        init(1);
+        set_control(CONTROL_LIMB);
+        // Chambered due north, attacking nothing. A blade at guard has nothing
+        // to announce, and announcing one anyway would put a permanent bubble
+        // over every character in the room.
+        set_input(0, 0, 16_384, 0, 0, 0);
+        step(30);
+        assert!(declares().is_empty(), "a blade at guard announced an attack");
+
+        // One press, held. `Hand::armed` starts an attack only on a press that
+        // follows a release, so everything below is a single cut from windup to
+        // recovery -- which is exactly what "once per windup" has to mean.
+        set_input(0, 0, 16_384, 0, 0, 1);
+        let mut announced: Vec<Vec<f32>> = Vec::new();
+        let mut phases = [false; 3];
+        for _ in 0..90 {
+            step(1);
+            announced.extend(declares());
+            match frame()[HEADER_LEN + 19] as i32 {
+                1 => phases[0] = true,
+                2 => phases[1] = true,
+                3 => phases[2] = true,
+                _ => {}
+            }
+        }
+        assert_eq!(
+            phases,
+            [true, true, true],
+            "the swing never ran end to end, so counting its declarations proves nothing"
+        );
+        assert_eq!(
+            announced.len(),
+            1,
+            "one press produced {} declarations",
+            announced.len()
+        );
+
+        let row = &announced[0];
+        assert_eq!(row[3], sim::ActionKind::Sword.code() as f32, "the action code");
+        assert_eq!(row[4], 0.0, "actor_index: the room's hero holds slot 0");
+        // The swinger's own position, which is where the bubble goes.
+        let hero = hero();
+        assert!(
+            (row[1] - hero.0).abs() < 1.0 && (row[2] - hero.1).abs() < 1.0,
+            "declared at ({}, {}) with the hero at {hero:?}",
+            row[1],
+            row[2]
+        );
+
+        // Releasing and pressing again is a second attack, and a second row.
+        set_input(0, 0, 16_384, 0, 0, 0);
+        step(10);
+        set_input(0, 0, 16_384, 0, 0, 1);
+        let mut again = 0;
+        for _ in 0..90 {
+            step(1);
+            again += declares().len();
+        }
+        assert_eq!(again, 1, "the second press produced {again} declarations");
+    }
+
+    #[test]
+    fn catching_up_eight_ticks_reports_eight_ticks_of_events() {
+        // The property the buffer is cleared per *call* for. A tab that was
+        // behind hands `step` up to `MAX_CATCHUP_TICKS` at once, and all eight
+        // of those ticks happened -- a feed cleared per tick would report the
+        // last one and silently drop seven eighths of the fight's damage
+        // numbers on exactly the frames the browser was late for.
+        fn brawl(warmup: u32) {
+            init(1);
+            for _ in 0..4 {
+                spawn_monster(BRUTE, SLOT_EMPTY, SLOT_EMPTY);
+            }
+            step(warmup);
+        }
+        /// Nine ticks one at a time, each tick's feed kept separately.
+        fn one_at_a_time(warmup: u32) -> Vec<Vec<Vec<f32>>> {
+            brawl(warmup);
+            (0..9)
+                .map(|_| {
+                    step(1);
+                    events()
+                })
+                .collect()
+        }
+
+        // Land on eight ticks that are busy on **more than one of them** -- most
+        // eights are not, because a brute announces a cut about twice a second
+        // and lands one less often than that, and a window with everything on
+        // its last tick would pass whether the buffer were cleared per call or
+        // per tick. Searched rather than guessed, and deterministic either way:
+        // the warmup that is found is replayed below, so the two runs are the
+        // same run.
+        let busy = |per_tick: &[Vec<Vec<f32>>]| {
+            per_tick[..8].iter().filter(|t| !t.is_empty()).count()
+        };
+        let mut warmup = 60;
+        let mut per_tick = one_at_a_time(warmup);
+        while busy(&per_tick) < 2 && warmup < 1_200 {
+            warmup += 8;
+            per_tick = one_at_a_time(warmup);
+        }
+        let singly: Vec<Vec<f32>> = per_tick[..8].concat();
+        println!(
+            "ticks {warmup}..{}: {} events over {} busy ticks",
+            warmup + 8,
+            singly.len(),
+            busy(&per_tick)
+        );
+        assert!(
+            busy(&per_tick) >= 2,
+            "found no eight ticks of a four-brute brawl busy on more than one \
+             of them, so this test would pass without the buffer being cleared \
+             per call at all"
+        );
+        assert!(
+            singly.len() <= MAX_EVENTS,
+            "{} events in eight ticks is past the ceiling, so this is measuring \
+             the overflow rule rather than the clearing rule",
+            singly.len()
+        );
+
+        brawl(warmup);
+        step(8);
+        assert_eq!(
+            events(),
+            singly,
+            "one step of eight reported something other than eight steps of one"
+        );
+
+        // And the other half of the contract: the feed is emptied at the start
+        // of the *next* call rather than accumulating for the life of the page.
+        step(1);
+        assert_eq!(
+            events(),
+            per_tick[8],
+            "the ninth tick reported the eight before it as well"
+        );
+    }
+
+    // ------------------------------------------------------ the live hero
+
+    #[test]
+    fn set_hero_stat_clamps_out_of_range_input() {
+        init(1);
+        // Read live rather than from the body table: once a dial can move
+        // mid-fight the two stop agreeing, and this is the one that is true.
+        assert_eq!(hero_stat(3), 6, "the Fighter's perception");
+
+        assert_eq!(set_hero_stat(3, 14), 1);
+        assert_eq!(hero_stat(3), 14, "the dial did not move");
+        // And the frame agrees, which is the half the page draws a vision ring
+        // from: `6.0 + 0.6 * perception 14`.
+        let hero = hero_row().expect("the hero is gone");
+        assert!((hero[27] - 14.4).abs() < 0.001, "sight_range {}", hero[27]);
+
+        // Past both ends. An `i32` arrives through JavaScript's ToInt32, which
+        // **wraps** rather than saturating, so a slider that got its arithmetic
+        // wrong is not a hypothetical -- and the clamp has to be on this side,
+        // because a page-side one would never see the value that wrapped.
+        assert_eq!(set_hero_stat(3, 9_999), 1);
+        assert_eq!(hero_stat(3), MAX_ATTRIBUTE, "not clamped high");
+        assert_eq!(set_hero_stat(3, -9_999), 1);
+        assert_eq!(hero_stat(3), 0, "not clamped low");
+        assert_eq!(set_hero_stat(3, i32::MAX), 1);
+        assert_eq!(hero_stat(3), MAX_ATTRIBUTE);
+        assert_eq!(set_hero_stat(3, i32::MIN), 1);
+        assert_eq!(hero_stat(3), 0, "i32::MIN wrapped instead of clamping");
+
+        // A selector that names nothing is refused rather than quietly writing
+        // power, which is the failure a page with an off-by-one row index would
+        // otherwise never notice.
+        assert_eq!(set_hero_stat(99, 5), 0);
+        assert_eq!(hero_stat(99), 0);
+        assert_eq!(hero_stat(0), 6, "an unknown selector wrote somewhere");
+
+        // Vitality is the one that moves the bar's length, and the *fraction*
+        // survives it -- see `World::set_stats`, where that is argued.
+        assert_eq!(set_hero_stat(4, 8), 1);
+        let before = hero_row().expect("the hero is gone");
+        assert_eq!((before[4], before[5]), (84.0, 84.0));
+        assert_eq!(set_hero_stat(4, 16), 1);
+        let after = hero_row().expect("the hero is gone");
+        assert_eq!(after[5], 148.0, "max_hp: 20 + 8 * vitality 16");
+        assert_eq!(after[4], after[5], "a full bar did not stay full");
+    }
+
+    #[test]
+    fn the_hero_can_change_body_without_leaving_the_room() {
+        init(1);
+        assert_eq!(hero_body(), FIGHTER);
+        let before = hero_row().expect("the room did not open with a hero");
+
+        assert_eq!(set_hero_body(BRUTE), 1, "the body would not change");
+        assert_eq!(hero_body(), BRUTE);
+        let after = hero_row().expect("the hero is gone");
+        assert_eq!(after[7], 2.0, "kind: Brute");
+        assert!((after[3] - 0.70).abs() < 0.001, "radius {}", after[3]);
+        assert_eq!(after[5], 132.0, "max_hp: 20 + 8 * vitality 14");
+        // The kit came with the body, which is what makes this a body swap
+        // rather than a stat sheet swap.
+        assert_eq!(after[25], sim::ActionKind::Club.code() as f32, "slot0");
+        assert_eq!(after[26], sim::ActionKind::Punch.code() as f32, "slot1");
+        // **Not a respawn.** Same handle, same place, same clock -- the room
+        // does not reset around a body change.
+        assert_eq!((after[9], after[10]), (before[9], before[10]), "a new handle");
+        assert_eq!(tick(), 0);
+        assert_eq!(frame()[6], 1.0, "unit_count");
+
+        // Total for garbage, like every other inward mapping here.
+        assert_eq!(set_hero_body(9_999), 1);
+        assert_eq!(hero_body(), SKITTERER, "kind_from_code's fallback");
+        // And it is `hero_body`'s exact inverse, so reading and writing back is
+        // a no-op rather than a quiet reshuffle.
+        for body in [FIGHTER, ROGUE, BRUTE, SKITTERER] {
+            assert_eq!(set_hero_body(body), 1);
+            assert_eq!(hero_body(), body);
+        }
+    }
+
+    // -------------------------------------------------- the spawn template
+
+    #[test]
+    fn spawn_from_template_uses_the_template_body_and_loadout() {
+        init(1);
+        // Where the panel opens: what `S` has always sent.
+        assert_eq!(spawn_template_body(), SKITTERER);
+        assert_eq!(spawn_template_stat(1), 9, "the Skitterer's agility");
+        assert_eq!(spawn_template_slot(0), sim::ActionKind::Knife.code());
+
+        // A different body takes its stat sheet *and* its kit with it. That is
+        // the whole reason this goes through `UnitSpec::set_body`: a bare `kind`
+        // write is a half-change, and a panel offering "Brute" while quietly
+        // keeping a Skitterer's stats is lying in five rows at once.
+        assert_eq!(set_spawn_template_body(BRUTE), 1);
+        assert_eq!(spawn_template_body(), BRUTE);
+        assert_eq!(spawn_template_stat(0), 12, "the Brute's power");
+        assert_eq!(spawn_template_slot(0), sim::ActionKind::Club.code());
+        assert_eq!(spawn_template_slot(1), sim::ActionKind::Punch.code());
+
+        // Then edit it away from the body's defaults. Two attributes that are
+        // visible in the frame, so the assertions below are about what arrives
+        // rather than about what was asked for.
+        assert_eq!(set_spawn_template_stat(4, 5), 1, "vitality");
+        assert_eq!(set_spawn_template_stat(3, 10), 1, "perception");
+        assert_eq!(set_spawn_template_stat(3, 9_999), 1);
+        assert_eq!(spawn_template_stat(3), MAX_ATTRIBUTE, "not clamped");
+        assert_eq!(set_spawn_template_stat(3, 10), 1);
+        assert_eq!(set_spawn_template_stat(99, 5), 0, "an unknown selector took");
+
+        assert_eq!(set_spawn_template_slot(0, sim::ActionKind::Bow.code()), 1);
+        assert_eq!(set_spawn_template_slot(1, sim::ActionKind::Shield.code()), 1);
+        // Slot 0 cannot be emptied -- a fighter holding nothing has no rule to
+        // run, and `Loadout::set` already refuses it.
+        assert_eq!(set_spawn_template_slot(0, SLOT_EMPTY), 0);
+        assert_eq!(spawn_template_slot(0), sim::ActionKind::Bow.code());
+        // A code the sim has no rule for is refused rather than handed over.
+        assert_eq!(set_spawn_template_slot(1, 9_999), 0);
+
+        assert_eq!(spawn_from_template(), 1, "nothing arrived");
+        let monster = monsters()[0].clone();
+        assert_eq!(monster[6], 1.0, "faction: Monsters");
+        assert_eq!(monster[7], 2.0, "kind: Brute");
+        assert_eq!(monster[5], 60.0, "max_hp: 20 + 8 * vitality 5");
+        assert!((monster[27] - 12.0).abs() < 0.001, "sight_range {}", monster[27]);
+        assert_eq!(monster[25], sim::ActionKind::Bow.code() as f32, "slot0");
+        assert_eq!(monster[26], sim::ActionKind::Shield.code() as f32, "slot1");
+        // Placed by the module, not by the caller: on the same ring every other
+        // newcomer lands on.
+        let d = distance(&monster, &hero_row().expect("the hero is gone"));
+        assert!((6.0 - 0.001..=10.0).contains(&d), "landed {d} from the hero");
+
+        // The template is a template: using it does not consume it, and the
+        // hotkey path beside it never reads it.
+        assert_eq!(spawn_template_body(), BRUTE, "the spawn consumed the template");
+        assert_eq!(spawn_monster(SKITTERER, SLOT_EMPTY, SLOT_EMPTY), 2);
+        let plain = monsters()[1].clone();
+        assert_eq!(plain[7], 3.0, "kind: Skitterer");
+        assert_eq!(
+            plain[5], 36.0,
+            "max_hp: 20 + 8 * vitality 2 -- the template leaked into the hotkey"
+        );
+        assert_eq!(plain[25], sim::ActionKind::Knife.code() as f32, "slot0");
+    }
+
+    #[test]
+    fn the_template_survives_a_body_change_as_a_whole_body() {
+        // The half of `UnitSpec::set_body` that is easy to get wrong from the
+        // page's side: an edited attribute is *not* meant to survive picking a
+        // different body, because the sheet it belonged to is gone.
+        init(1);
+        assert_eq!(set_spawn_template_stat(0, MAX_ATTRIBUTE), 1);
+        assert_eq!(spawn_template_stat(0), MAX_ATTRIBUTE);
+        assert_eq!(set_spawn_template_body(ROGUE), 1);
+        assert_eq!(spawn_template_stat(0), 4, "the Rogue's power, not the edit");
+        assert_eq!(spawn_template_slot(0), sim::ActionKind::Shortsword.code());
     }
 }

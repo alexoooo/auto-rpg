@@ -13,10 +13,11 @@
     <link rel="icon" href="data:," />
   </head>
   <body>
-    <!-- The room is the page. Everything else is drawn over it, and the two
-         layers below this one are `pointer-events: none` except where they are
-         genuinely something to click, so a click that misses the HUD lands on
-         the floor rather than being swallowed by a panel. -->
+    <!-- The room is the page. Everything else is drawn over it, and the HUD
+         layer below is `pointer-events: none` except where it is genuinely
+         something to click, so a click that misses the HUD lands on the floor
+         rather than being swallowed by a panel. The two rails are real panels
+         and take their own clicks; everything between them does not. -->
     <div class="canvas-wrap" id="canvas-wrap">
       <canvas id="arena" aria-label="The arena. Click to send the character somewhere."></canvas>
     </div>
@@ -24,129 +25,221 @@
     <div class="hud">
       <div class="hud-top">
         <span class="brand">auto&#8209;rpg</span>
-        <div class="hud-top-right">
+
+        <!-- The dev strip. Tick, position and the 64-bit state hash: the
+             project's central claim -- that this room runs the same everywhere
+             -- made checkable rather than asserted. Collapsed to the tick alone
+             by default, because it costs one line of HUD only if it stays one
+             line of HUD. -->
+        <div class="dev-strip" id="dev-strip">
           <span class="chip static"><span class="chip-key">tick</span> <span id="sim-tick">0</span></span>
-          <button type="button" class="chip" id="btn-menu" aria-expanded="false" aria-controls="drawer">
-            <span aria-hidden="true">&#9776;</span> Details <kbd>Tab</kbd>
+          <span class="chip static dev-more"><span class="chip-key">at</span> <span id="sim-position">&mdash;</span></span>
+          <span class="chip static dev-more"
+            ><span class="chip-key">hash</span> <span id="sim-hash" class="mono-small">&mdash;</span></span
+          >
+          <button
+            type="button"
+            class="chip"
+            id="btn-dev"
+            aria-expanded="false"
+            aria-controls="dev-strip"
+            title="Position and state hash"
+          >
+            <span aria-hidden="true">&#8943;</span>
+            <span class="sr-only">Show position and state hash</span>
+          </button>
+        </div>
+
+        <div class="hud-top-right">
+          <button type="button" class="chip" id="btn-keys" aria-expanded="false" aria-controls="keys-overlay">
+            <span aria-hidden="true">?</span> Keys
           </button>
         </div>
       </div>
 
       <p class="hint" id="hint"></p>
 
+      <!-- Three clusters along the floor of the window: the life globe, the
+           action bar and who is driving. The grid's outer columns are `1fr` so
+           the bar in the middle is centred on the window rather than on
+           whatever is left over after the other two. -->
       <div class="hud-bottom">
         <div class="hud-vitals">
-          <div class="who">
-            <span class="dot"></span>
-            <span id="unit-name">fighter</span>
-            <span class="hp-bar"><span id="hp-fill"></span></span>
-            <span class="hp" id="unit-hp">84 / 84 hp</span>
+          <!-- 4.3 -- the life globe. A canvas rather than a div stack because
+               the liquid has a moving surface, and a wobble in CSS would be a
+               keyframe animation the page cannot pause with the sim. -->
+          <div class="globe-wrap">
+            <canvas id="globe" aria-label="The character's health."></canvas>
+            <button type="button" id="btn-respawn" class="respawn" hidden>Re&#8209;Spawn</button>
           </div>
-          <!-- The two lines that answer "what is it doing" and "is anything
-               happening". Both have their class attribute rewritten wholesale
-               by `updateHud`, so neither can carry a layout class. -->
-          <p class="state" id="order-state">no order</p>
-          <p class="state idle" id="battle-state">quiet &mdash; nothing in the room to fight</p>
-          <!-- Not on the page until it means something. The module refuses a
-               second character while the first is standing: an order belongs to
-               the faction rather than to the body, so two heroes would share
-               one click. This is a replacement, not a restart -- the monsters
-               stay exactly where they were, and so does the clock. -->
-          <div class="buttons swap" id="swap-row" hidden>
-            <button type="button" id="btn-swap-fighter">Send in a fighter</button>
-            <button type="button" id="btn-swap-rogue">Send in a rogue</button>
+
+          <div class="vitals-lines">
+            <div class="who">
+              <span class="dot"></span>
+              <span id="unit-name">fighter</span>
+              <span class="hp-bar"><span id="hp-fill"></span></span>
+              <span class="hp" id="unit-hp">84 / 84 hp</span>
+            </div>
+            <!-- The two lines that answer "what is it doing" and "is anything
+                 happening". Both have their class attribute rewritten wholesale
+                 by `updateHud`, so neither can carry a layout class. -->
+            <p class="state" id="order-state">no order</p>
+            <p class="state idle" id="battle-state">quiet &mdash; nothing in the room to fight</p>
           </div>
         </div>
 
-        <!-- The only controls that stay on screen: the two that start a fight,
-             and the two that say who is driving. That last pair has to be
-             readable at a glance mid-fight, which is the whole reason it is not
-             behind the drawer with everything else. -->
-        <div class="hud-actions">
-          <button type="button" class="chip" id="btn-spawn-skitterer">Skitterer <kbd>S</kbd></button>
-          <button type="button" class="chip" id="btn-spawn-brute">Brute <kbd>B</kbd></button>
-          <button type="button" class="chip toggle" id="btn-control-feet" aria-pressed="false">
-            Feet <kbd>C</kbd>
+        <!-- 4.4 -- the action bar. Both slots read off the *frame*: the sim
+             refuses a swap mid-cut, so what was last clicked and what is
+             actually in the hand are different questions and only the second
+             one is worth drawing. The icons are set from `ICON_PATHS`, one
+             table shared with the canvas callouts. -->
+        <div class="action-bar" id="action-bar" role="group" aria-label="What is in the hand">
+          <button type="button" class="action-slot" id="action-slot-0" aria-pressed="true">
+            <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true"><path d=""></path></svg>
+            <span class="action-name">primary</span>
+            <kbd>1</kbd>
           </button>
-          <button type="button" class="chip toggle" id="btn-control-limb" aria-pressed="false">
-            Attack <kbd>V</kbd>
+          <button type="button" class="action-slot" id="action-slot-1" aria-pressed="false">
+            <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true"><path d=""></path></svg>
+            <span class="action-name">secondary</span>
+            <kbd>2</kbd>
           </button>
-          <!-- Separate from Attack because choosing what to hold and choosing
-               when to swing are different decisions, and being able to take one
-               without the other is most of what this page teaches. Taking the
-               attack switches this on too -- a player who could swing but not
-               choose would watch the AI put a shield in their hand mid-cut. -->
-          <button type="button" class="chip toggle" id="btn-control-slot" aria-pressed="false">
-            Action <kbd>X</kbd>
-          </button>
-          <!-- Which of the two things in the bag is in the hand. Reads off the
-               frame rather than off what was last clicked, because the sim
-               refuses a swap mid-cut and the chip has to show what is true. -->
-          <button type="button" class="chip toggle" id="btn-slot-0" aria-pressed="true">
-            <span id="slot-0-name">primary</span> <kbd>1</kbd>
-          </button>
-          <button type="button" class="chip toggle" id="btn-slot-1" aria-pressed="false">
-            <span id="slot-1-name">secondary</span> <kbd>2</kbd>
-          </button>
+        </div>
+
+        <!-- 4.5 -- who is driving, as five exclusive presets over the module's
+             3-bit mask. Built in JS from one table so the labels and the masks
+             cannot drift apart, and lit from `wasm.control()` rather than from
+             the click, because the module normalises the mask. -->
+        <div class="control-wrap">
+          <span class="control-label">driving <kbd>C</kbd></span>
+          <div class="control-group" id="control-group" role="radiogroup" aria-label="Who is driving"></div>
         </div>
       </div>
     </div>
 
-    <!-- Everything that is worth reading but not worth watching. It was a
-         348px rail that never went away, which is how the arena ended up a
-         postage stamp on a 1080p display. -->
-    <aside class="drawer" id="drawer" aria-label="Details">
-      <div class="drawer-inner">
-        <p class="tagline">
-          You give rough directions. The character decides how to follow them &mdash; and its
-          <em>stats</em> are what make that decision, not a difficulty slider.
+    <!-- ------------------------------------------------------- the two rails
+         Left is the enemy that has not arrived yet; right is the character on
+         the floor. Warm against cyan, so which rail you are in is never a
+         question. Both are `position: fixed` boxes of a real width that slide
+         on `transform` and take `visibility` with them -- a shut rail has to
+         leave the tab order, or `Tab` walks into controls nobody can see.
+         Session 5's camera measures their `getBoundingClientRect()`, which is
+         why the width is a real width and not a transform. -->
+    <aside class="rail rail-enemy" id="panel-enemy" aria-label="Enemy">
+      <button type="button" class="rail-tab" id="tab-enemy" aria-expanded="false" aria-controls="panel-enemy">
+        <span class="rail-tab-label">Enemy</span>
+        <kbd>Q</kbd>
+      </button>
+      <div class="rail-inner">
+        <h2 class="rail-title">Enemy</h2>
+        <!-- The one line that stops a player raising a slider mid-fight and
+             wondering why the thing swinging at them did not change. -->
+        <p class="rail-note">
+          Body, actions and attributes describe the <em>next</em> spawn &mdash; nothing already standing
+          changes. Only <em>Brain</em> is live, and it is live for the whole faction.
         </p>
 
         <section class="panel">
-          <h2>Character</h2>
-          <!-- The point of the whole page: every row is a stat, and every stat
-               names the thing about the AI that it changes. -->
-          <dl class="stats" id="stats"></dl>
+          <h2>Body &amp; kit</h2>
+          <div class="mind">
+            <span>body</span>
+            <select id="enemy-body"></select>
+          </div>
+          <div class="mind">
+            <span>action 1</span>
+            <svg class="kit-icon" viewBox="0 0 24 24" aria-hidden="true"><path d=""></path></svg>
+            <select id="enemy-slot-0"></select>
+          </div>
+          <div class="mind">
+            <span>action 2</span>
+            <svg class="kit-icon" viewBox="0 0 24 24" aria-hidden="true"><path d=""></path></svg>
+            <select id="enemy-slot-1"></select>
+          </div>
         </section>
 
-        <!-- What the character is carrying. A body is a size and a stat sheet
-             now; what it fights with is a separate choice, and this is where it
-             is made. Two slots, one in hand at a time, and the swap between them
-             costs real ticks -- which is the whole reason the choice is
-             interesting rather than a menu. -->
         <section class="panel">
-          <h2>Loadout</h2>
+          <h2>Attributes</h2>
+          <div class="attrs" id="enemy-attrs"></div>
+        </section>
+
+        <section class="panel">
+          <h2>Brain</h2>
+          <!-- Nobody commands the monsters. They fight because the same
+               UtilityPolicy the lab evolves decides they should -- and this is
+               the one control on this rail that reaches something already
+               standing. Set it to Idle and watch every monster in the room
+               stop. The sliders are that policy's genome, their names and
+               ranges read out of the module rather than mirrored here. -->
+          <label class="mind">
+            <span>monsters</span>
+            <select id="policy-monsters"></select>
+          </label>
+          <div class="genes" id="genes-monsters"></div>
+        </section>
+
+        <div class="rail-footer">
+          <button type="button" id="btn-spawn-template" class="primary">Spawn</button>
+        </div>
+      </div>
+    </aside>
+
+    <aside class="rail rail-hero" id="panel-hero" aria-label="Hero">
+      <button type="button" class="rail-tab" id="tab-hero" aria-expanded="false" aria-controls="panel-hero">
+        <span class="rail-tab-label">Hero</span>
+        <kbd>E</kbd>
+      </button>
+      <div class="rail-inner">
+        <h2 class="rail-title">Hero</h2>
+        <p class="rail-note">
+          Every row here lands on the character standing in the room, <em>immediately</em> &mdash; body,
+          kit and attributes alike. Nothing here waits for a respawn.
+        </p>
+
+        <section class="panel" id="hero-kit-panel">
+          <h2>Body &amp; kit</h2>
+          <!-- Live mutation in place: radius, mass and the whole stat sheet
+               change under the character without the room resetting round it.
+               Refused when there is nobody there, which is why the row greys
+               out rather than letting a click do nothing silently. -->
+          <div class="mind" id="hero-body-row">
+            <span>body</span>
+            <select id="hero-body"></select>
+          </div>
           <div class="mind">
-            <label for="loadout-0">Primary</label>
+            <span>action 1</span>
+            <svg class="kit-icon" viewBox="0 0 24 24" aria-hidden="true"><path d=""></path></svg>
             <select id="loadout-0"></select>
           </div>
           <div class="mind">
-            <label for="loadout-1">Secondary</label>
+            <span>action 2</span>
+            <svg class="kit-icon" viewBox="0 0 24 24" aria-hidden="true"><path d=""></path></svg>
             <select id="loadout-1"></select>
           </div>
           <dl class="readout" id="loadout-readout"></dl>
         </section>
 
-        <!-- A body and a kit, chosen separately. The pairing is the point: the
-             question "what does a Brute with a knife play like" had no
-             representation at all before, and this is where it gets asked. -->
         <section class="panel">
-          <h2>Spawn</h2>
-          <div class="mind">
-            <label for="spawn-body">Body</label>
-            <select id="spawn-body"></select>
-          </div>
-          <div class="mind">
-            <label for="spawn-primary">Primary</label>
-            <select id="spawn-primary"></select>
-          </div>
-          <div class="mind">
-            <label for="spawn-secondary">Secondary</label>
-            <select id="spawn-secondary"></select>
-          </div>
+          <h2>Attributes</h2>
+          <!-- The derived line under each slider is the point of the panel:
+               an attribute that only ever showed a number would be a difficulty
+               dial, and the whole claim of this project is that it is not. -->
+          <div class="attrs" id="hero-attrs"></div>
+        </section>
+
+        <section class="panel">
+          <h2>Brain</h2>
+          <label class="mind">
+            <span>heroes</span>
+            <select id="policy-heroes"></select>
+          </label>
+          <div class="genes" id="genes-heroes"></div>
           <div class="buttons">
-            <button type="button" id="btn-spawn">Send one in</button>
-            <button type="button" id="btn-swap-in">Take this body</button>
+            <!-- Both sides at once, deliberately: the interesting comparison is
+                 one genome against another, and half a reset is a fight nobody
+                 can reason about. -->
+            <button type="button" id="btn-reset-genes" title="Both sides, back to the hand-tuned baseline.">
+              Reset weights
+            </button>
           </div>
         </section>
 
@@ -168,106 +261,83 @@
 
         <section class="panel">
           <h2>Battle</h2>
-          <!-- Nobody commands the monsters. They fight because the same
-               UtilityPolicy the lab evolves decides they should, which is why a
-               spawn button is all it takes to start one. -->
           <dl class="readout">
             <dt>standing</dt>
             <dd id="battle-roster">1 hero, 0 monsters</dd>
           </dl>
         </section>
 
-        <section class="panel">
-          <h2>Minds</h2>
-          <!-- The claim the rest of the page keeps making, made checkable:
-               stats are wired into the AI rather than into a damage number, so
-               changing the AI has to change the fight. Set the monsters to
-               Idle and watch one stop. The sliders are the same genome the
-               experiment lab evolves -- their names and ranges are read out of
-               the module, never mirrored here, so they cannot drift. -->
-          <label class="mind">
-            <span>heroes</span>
-            <select id="policy-heroes"></select>
-          </label>
-          <div class="genes" id="genes-heroes"></div>
-          <label class="mind">
-            <span>monsters</span>
-            <select id="policy-monsters"></select>
-          </label>
-          <div class="genes" id="genes-monsters"></div>
-          <div class="buttons">
-            <button type="button" id="btn-reset-genes">Reset weights</button>
-          </div>
-        </section>
-
-        <section class="panel">
-          <h2>Controls</h2>
-          <ul class="keys">
-            <li><kbd>click</kbd><span>Go there &mdash; a standing order, not a waypoint.</span></li>
-            <li>
-              <kbd>right click</kbd><kbd>Esc</kbd>
-              <span>Stand down &mdash; hold this ground.</span>
-            </li>
-            <li>
-              <kbd>F</kbd>
-              <span>Free will &mdash; no order at all; the character decides for itself.</span>
-            </li>
-            <li>
-              <kbd>S</kbd><kbd>B</kbd>
-              <span>Send in a skitterer or a brute &mdash; the fight starts itself.</span>
-            </li>
-            <li>
-              <kbd>1</kbd><kbd>2</kbd>
-              <span>
-                Choose which of the two things you are carrying is in your hand. The swap
-                costs real ticks and is refused mid-cut, so it is a decision and not a menu.
-              </span>
-            </li>
-            <li>
-              <kbd>C</kbd><kbd>V</kbd><kbd>X</kbd>
-              <span>
-                Take the feet, the attack, or the choice of what to hold &mdash; any of them
-                alone, or all three. Taking the attack takes the choice with it.
-              </span>
-            </li>
-            <li>
-              <kbd>WASD</kbd><kbd>mouse</kbd>
-              <span>
-                Move and aim, once you have taken them. Click to cut along the line you are
-                pointing at &mdash; one click, one attack, with a windup you can be punished
-                during. Holding a guard instead of a blade is a matter of what is in your
-                hand, not a modifier key &mdash; see the Loadout panel.
-              </span>
-            </li>
-            <li>
-              <kbd>wheel</kbd>
-              <span>Zoom, between the whole room and close in over the character's shoulder.</span>
-            </li>
-            <li><kbd>Tab</kbd><span>Open and close this panel.</span></li>
-            <li><kbd>R</kbd><span>Restart the room.</span></li>
-          </ul>
-        </section>
-
-        <section class="panel">
-          <h2>Simulation</h2>
-          <dl class="readout">
-            <dt>position</dt>
-            <dd id="sim-position">&mdash;</dd>
-            <dt>state hash</dt>
-            <dd id="sim-hash" class="mono-small">&mdash;</dd>
-          </dl>
-        </section>
-
         <p class="footnote">
-          A click is a standing order, so the character acts on it at its next decision &mdash; up to
-          12 ticks away for this one. The marker stays dim until it does, and that delay
-          <em>is</em> the intellect stat. Send something in and it will break off the walk to
-          fight: a visible enemy outranks your order, and that is the whole idea. Lose, and
-          the room stays as it is &mdash; send in a fighter or a rogue and watch the same
-          fight go differently on the same stats.
+          A click is a standing order, so the character acts on it at its next decision &mdash; and that
+          delay <em>is</em> the intellect stat. Send something in and it will break off the walk to
+          fight: a visible enemy outranks your order, and that is the whole idea.
         </p>
       </div>
     </aside>
+
+    <!-- The keyboard reference, behind the `?` in the top bar. It was a panel
+         in the drawer that nobody scrolled to; a modal is read once and shut. -->
+    <div class="overlay" id="keys-overlay" hidden>
+      <div class="overlay-card keys-card" role="dialog" aria-modal="true" aria-label="Keyboard reference">
+        <h2>Keys</h2>
+        <ul class="keys">
+          <li><kbd>click</kbd><span>Go there &mdash; a standing order, not a waypoint.</span></li>
+          <li>
+            <kbd>right click</kbd><kbd>Esc</kbd>
+            <span>Stand down &mdash; hold this ground.</span>
+          </li>
+          <li>
+            <kbd>F</kbd>
+            <span>Free will &mdash; no order at all; the character decides for itself.</span>
+          </li>
+          <li>
+            <kbd>Q</kbd><kbd>E</kbd>
+            <span>Open the Enemy rail on the left, or the Hero rail on the right.</span>
+          </li>
+          <li>
+            <kbd>S</kbd><kbd>B</kbd>
+            <span>
+              Send in a skitterer or a brute on the body's own kit. These deliberately ignore the
+              Enemy rail's template &mdash; a hotkey that quietly meant something different after you
+              touched a panel would be the worse surprise. Use <em>Spawn</em> for the template.
+            </span>
+          </li>
+          <li>
+            <kbd>1</kbd><kbd>2</kbd>
+            <span>
+              Choose which of the two things you are carrying is in your hand. The swap costs real
+              ticks and is refused mid-cut, so it is a decision and not a menu.
+            </span>
+          </li>
+          <li>
+            <kbd>C</kbd>
+            <span>
+              Cycle who is driving: Auto, the feet, the choice of what to hold, the attack, or all
+              of it. Taking the attack takes the choice with it, which is why the five are exclusive
+              rather than three switches.
+            </span>
+          </li>
+          <li>
+            <kbd>WASD</kbd><kbd>mouse</kbd>
+            <span>
+              Move and aim, once you have taken them. Click to cut along the line you are pointing
+              at &mdash; one click, one attack, with a windup you can be punished during. Holding a
+              guard instead of a blade is a matter of what is in your hand, not a modifier key.
+            </span>
+          </li>
+          <li><kbd>Y</kbd><span>Show or hide the vision discs &mdash; how far each body can see.</span></li>
+          <li>
+            <kbd>wheel</kbd>
+            <span>Zoom, between the whole room and close in over the character's shoulder.</span>
+          </li>
+          <li><kbd>R</kbd><span>Restart the room.</span></li>
+          <li><kbd>Tab</kbd><span>Move between the controls that are actually on screen.</span></li>
+        </ul>
+        <div class="buttons">
+          <button type="button" id="btn-keys-close">Close</button>
+        </div>
+      </div>
+    </div>
 
     <div class="overlay" id="overlay" hidden>
       <div class="overlay-card" role="alert">

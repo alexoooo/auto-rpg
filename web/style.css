@@ -18,6 +18,28 @@
      four corners cannot drift apart as the page is resized. */
   --gutter: clamp(10px, 1.5vmin, 20px);
   --scrim: rgba(9, 11, 16, 0.72);
+
+  /* One rail's width, and it is a *real* width: the panel is that many pixels
+     of box sitting over the canvas, not a transform pretending to be. Session
+     5's camera measures `getBoundingClientRect()` on the rails, and a faked
+     width would hand it a rectangle nothing is actually drawn in. */
+  --rail-w: clamp(240px, 22vw, 340px);
+
+  /* How much of the window each rail is currently covering. Set by the body
+     classes below rather than by JavaScript, so the HUD's own gutters and the
+     rails' slide share one transition and cannot fall out of step. */
+  --rail-left: 0px;
+  --rail-right: 0px;
+
+  --globe-size: clamp(84px, 11vmin, 120px);
+}
+
+body.rail-enemy-open {
+  --rail-left: var(--rail-w);
+}
+
+body.rail-hero-open {
+  --rail-right: var(--rail-w);
 }
 
 * {
@@ -73,7 +95,14 @@ body {
   flex-direction: column;
   gap: 10px;
   padding: var(--gutter);
+  /* An open rail is a panel *over* the glass, so the HUD steps aside for it.
+     Without this the life globe sits underneath the Enemy rail and the control
+     group underneath the Hero rail, which is exactly the state in which a
+     player concludes the buttons stopped working. */
+  padding-left: calc(var(--gutter) + var(--rail-left));
+  padding-right: calc(var(--gutter) + var(--rail-right));
   pointer-events: none;
+  transition: padding 180ms ease;
 }
 
 .hud-top {
@@ -114,35 +143,53 @@ body {
   color: var(--accent-warm);
 }
 
+/* Three clusters: globe, action bar, control group. A grid rather than
+   `space-between` because the bar in the middle has to be centred on the
+   *window* -- with flex it would centre on whatever space the other two left
+   over, and it would visibly shift sideways every time the hero's name got
+   longer. */
 .hud-bottom {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
+  display: grid;
+  /* `minmax(0, …)` and not a bare `1fr`: a grid track's default minimum is its
+     content, so the vitals line refused to shrink and wrapped "84 / 84 hp" onto
+     three lines across the action bar rather than getting narrower. */
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: end;
   gap: 12px;
-  flex-wrap: wrap;
 }
 
 .hud-vitals {
   display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  min-width: 0;
+  justify-self: start;
+}
+
+.vitals-lines {
+  display: flex;
   flex-direction: column;
   gap: 3px;
   min-width: 0;
-}
-
-.hud-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  padding-bottom: 4px;
 }
 
 .who {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
   font-size: clamp(13px, 1.4vmin, 15px);
   text-shadow: 0 1px 3px #000;
+  white-space: nowrap;
+}
+
+/* The name is the only part of this row that may be sacrificed: the bar and the
+   number are what the row is for. */
+#unit-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .who .dot {
@@ -193,6 +240,9 @@ body {
   font-size: clamp(12px, 1.3vmin, 13.5px);
   color: var(--accent);
   text-shadow: 0 1px 3px #000;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .state.idle {
@@ -209,9 +259,10 @@ body {
 
 /* ----------------------------------------------------------------- chips */
 
-/* The compact overlay control: everything the player might press without
-   opening the drawer. `flex: 0 0 auto` because the shared `button` rule below
-   grows to fill a row, which is right inside a panel and wrong out here. */
+/* The compact overlay control, for the two things in the top bar that are not
+   worth a panel: the dev strip's expander and the `?`. `flex: 0 0 auto` because
+   the shared `button` rule below grows to fill a row, which is right inside a
+   panel and wrong out here. */
 .chip {
   display: inline-flex;
   align-items: center;
@@ -258,64 +309,194 @@ body {
   font-family: var(--sans);
 }
 
-/* A toggle reads as held-down when it is on, because "who is driving" is a
-   state the player has to be able to check at a glance mid-fight. */
-.chip.toggle[aria-pressed="true"],
-button.toggle[aria-pressed="true"] {
-  background: #16233a;
-  border-color: var(--accent);
-  color: var(--accent);
-}
+/* ----------------------------------------------------------------- rails */
 
-/* ---------------------------------------------------------------- drawer */
+/* Two panels, one per side. Off-canvas rather than `display: none` so they
+   slide in both directions; `visibility` is what keeps their buttons and
+   sliders out of the tab order while a rail is shut -- otherwise `Tab` walks
+   straight into controls nobody can see. That pairing (a `0s` delay on the way
+   in, a `180ms` one on the way out) is the drawer's, inherited verbatim.
 
-/* Everything worth reading but not worth watching. Off-canvas rather than
-   `display: none` so it slides in both directions; `visibility` is what keeps
-   its buttons and sliders out of the tab order while it is shut. */
-.drawer {
+   The scroll lives on `.rail-inner`, not here: a scroll container clips both
+   axes, and the tab hanging off the outer edge would be the thing it clipped. */
+.rail {
   position: fixed;
   top: 0;
-  right: 0;
   bottom: 0;
   z-index: 2;
-  width: min(380px, 92vw);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  background: linear-gradient(180deg, rgba(11, 14, 20, 0.97) 0%, rgba(9, 11, 16, 0.97) 100%);
-  border-left: 1px solid var(--panel-line);
-  box-shadow: -24px 0 60px -30px #000;
-  backdrop-filter: blur(10px);
-  transform: translateX(101%);
+  width: var(--rail-w);
   visibility: hidden;
   transition:
     transform 180ms ease,
     visibility 0s linear 180ms;
 }
 
-.drawer.open {
-  transform: none;
+.rail.open {
   visibility: visible;
   transition:
     transform 180ms ease,
     visibility 0s;
 }
 
-.drawer-inner {
+/* Exactly `-100%`, not the drawer's `101%`: the tab is pinned to the rail's
+   outer face and rides in with it, so a one-percent overshoot would park the
+   tab a few pixels off the edge of the window. The shadow is on `.open` alone
+   for the same reason -- an outward shadow on a shut rail is a smudge down the
+   side of the screen with nothing casting it.
+
+   The open state has to be written **per id**, not as a bare `.rail.open`: the
+   shut transform is carried by an id selector, so a two-class rule loses the
+   cascade to it and the panel slides nowhere while every other symptom of being
+   open -- the lit tab, the HUD stepping aside -- happens anyway. */
+#panel-enemy {
+  left: 0;
+  transform: translateX(-100%);
+}
+
+#panel-hero {
+  right: 0;
+  transform: translateX(100%);
+}
+
+#panel-enemy.open,
+#panel-hero.open {
+  transform: none;
+}
+
+.rail-inner {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  height: 100%;
   padding: 14px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: linear-gradient(180deg, rgba(11, 14, 20, 0.97) 0%, rgba(9, 11, 16, 0.97) 100%);
+  backdrop-filter: blur(10px);
 }
 
-.tagline {
-  margin: 0;
-  color: var(--ink-dim);
-  font-size: 13px;
+/* Warm on the left, cyan on the right, on the border as well as in the text:
+   which rail you are in is a thing the eye should answer before the words do. */
+#panel-enemy .rail-inner {
+  border-right: 1px solid var(--panel-line);
+  border-top: 2px solid var(--enemy);
 }
 
-.tagline em {
+#panel-hero .rail-inner {
+  border-left: 1px solid var(--panel-line);
+  border-top: 2px solid var(--accent);
+}
+
+#panel-enemy.open .rail-inner {
+  box-shadow: 24px 0 60px -30px #000;
+}
+
+#panel-hero.open .rail-inner {
+  box-shadow: -24px 0 60px -30px #000;
+}
+
+#panel-enemy .rail-title,
+#panel-enemy .rail-note em {
+  color: var(--enemy);
+}
+
+#panel-hero .rail-title,
+#panel-hero .rail-note em {
   color: var(--accent);
+}
+
+.rail-title {
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.rail-note {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--ink-dim);
+}
+
+.rail-note em {
   font-style: normal;
+  font-weight: 600;
+}
+
+/* Pinned to the outer face of the rail and explicitly `visible`, so it survives
+   the `visibility: hidden` that takes the rest of the panel out of the tab
+   order: the tab is the control that *opens* the thing, and it is the one
+   element in here that has to stay reachable while the rail is shut. */
+.rail-tab {
+  position: absolute;
+  top: 42%;
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 7px;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  writing-mode: vertical-rl;
+  visibility: visible;
+  background: var(--scrim);
+  border: 1px solid var(--panel-line);
+  backdrop-filter: blur(6px);
+  color: var(--ink-dim);
+}
+
+#panel-enemy .rail-tab {
+  left: 100%;
+  border-left: none;
+  border-radius: 0 9px 9px 0;
+}
+
+#panel-hero .rail-tab {
+  right: 100%;
+  border-right: none;
+  border-radius: 9px 0 0 9px;
+  transform: rotate(180deg);
+}
+
+#panel-enemy .rail-tab:hover,
+#panel-enemy .rail-tab[aria-expanded="true"] {
+  color: var(--enemy);
+  border-color: var(--enemy);
+}
+
+#panel-hero .rail-tab:hover,
+#panel-hero .rail-tab[aria-expanded="true"] {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.rail-tab kbd {
+  font-size: 9.5px;
+  padding: 3px 1px;
+}
+
+.rail-footer {
+  display: flex;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 4px;
+}
+
+button.primary {
+  padding: 9px 8px;
+  font-size: 13px;
+  font-weight: 600;
+  border-color: var(--enemy);
+  color: var(--enemy);
+  background: #241716;
+}
+
+button.primary:hover {
+  color: #ffd0c6;
+  border-color: #ffd0c6;
 }
 
 .panel {
@@ -334,28 +515,78 @@ button.toggle[aria-pressed="true"] {
   font-weight: 600;
 }
 
-.stats {
-  margin: 0;
+/* ------------------------------------------------------------ attributes */
+
+/* A rack of five. Name, track and value on the first row; what the number
+   *does* on the second, spanning the lot. The `dl` this replaced could say what
+   an attribute meant but not let you move it, which made it a stat sheet
+   rather than a dial -- and a stat sheet is exactly the thing this project
+   claims an attribute is not. The value column is fixed so the rack does not
+   jitter sideways as the numbers under it change width. */
+.attrs {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.attr {
   display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 3px 10px;
-  font-size: 12px;
+  grid-template-columns: 64px 1fr 22px;
+  align-items: center;
+  gap: 4px 7px;
 }
 
-.stats dt {
+.attr-name {
   font-family: var(--mono);
+  font-size: 11px;
   color: var(--ink);
-  white-space: nowrap;
 }
 
-.stats dt b {
+.attr input[type="range"] {
+  width: 100%;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+#panel-enemy .attr input[type="range"] {
+  accent-color: var(--enemy);
+}
+
+.attr-value {
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
   color: var(--accent);
+  text-align: right;
   font-weight: 600;
 }
 
-.stats dd {
-  margin: 0;
-  color: var(--ink-dim);
+#panel-enemy .attr-value {
+  color: var(--enemy);
+}
+
+/* The consequence, under the track it belongs to. Empty on the Enemy rail: the
+   template's sight range is a function of a perception the module has not been
+   asked about yet, and re-deriving it here would be the mirrored formula house
+   rule 3 exists to forbid. */
+.attr-effect {
+  grid-column: 1 / -1;
+  font-size: 10.5px;
+  line-height: 1.35;
+  color: var(--ink-faint);
+}
+
+.attr-effect:empty {
+  display: none;
+}
+
+/* Refused by the module, so it is refused on the page too, visibly. A control
+   that is present and does nothing reads as broken; one that is greyed reads as
+   "not now", which is the truth. */
+.mind.off,
+.attr.off {
+  opacity: 0.4;
 }
 
 .readout {
@@ -395,11 +626,6 @@ button.toggle[aria-pressed="true"] {
    otherwise win against. Same reason `.overlay[hidden]` exists. */
 .buttons[hidden] {
   display: none;
-}
-
-/* The swap control, under the line that says the character has fallen. */
-.buttons.swap {
-  margin: 4px 0 0;
 }
 
 .panel .buttons {
@@ -474,8 +700,26 @@ kbd {
   color: var(--ink-dim);
 }
 
-.mind span {
-  flex: 0 0 62px;
+.mind > span {
+  flex: 0 0 56px;
+}
+
+/* The same 24x24 glyph the canvas callouts use, beside the dropdown that picks
+   it. Filled, never stroked: every path in `ICON_PATHS` is a closed outline and
+   a stroke-designed glyph renders as a blob under `fill`. */
+.kit-icon {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  fill: var(--ink-dim);
+}
+
+#panel-enemy .kit-icon {
+  fill: var(--enemy);
+}
+
+#panel-hero .kit-icon {
+  fill: var(--accent);
 }
 
 .mind select {
@@ -531,6 +775,10 @@ kbd {
   cursor: pointer;
 }
 
+#panel-enemy .gene input[type="range"] {
+  accent-color: var(--enemy);
+}
+
 .gene-none {
   margin: 0;
   font-size: 10.5px;
@@ -547,6 +795,205 @@ kbd {
 .footnote em {
   color: var(--ink-dim);
   font-style: normal;
+}
+
+/* ------------------------------------------------------------- dev strip */
+
+/* The tick is always up; position and hash are one click away. `display: none`
+   rather than `visibility` because these sit in a flex row and a hidden-but-laid
+   -out hash would leave a hole the width of sixteen hex digits. */
+.dev-strip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.dev-more {
+  display: none;
+}
+
+.dev-strip.open .dev-more {
+  display: inline-flex;
+}
+
+/* Present for a screen reader, absent for everyone else. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------- the globe */
+
+.globe-wrap {
+  position: relative;
+  flex: 0 0 auto;
+  width: var(--globe-size);
+  height: var(--globe-size);
+}
+
+#globe {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Over the dimmed globe, and only while there is nobody standing. The module
+   refuses a second character while one is up, so this button cannot exist in
+   any other state anyway -- see `swap_in_hero`. */
+.respawn {
+  position: absolute;
+  inset: auto 0 18%;
+  margin: 0 auto;
+  width: 86%;
+  flex: 0 0 auto;
+  padding: 5px 4px;
+  font-size: 11.5px;
+  font-weight: 600;
+  border-color: var(--enemy);
+  color: var(--enemy);
+  background: rgba(20, 12, 12, 0.92);
+  pointer-events: auto;
+}
+
+.respawn:hover {
+  color: #ffd0c6;
+  border-color: #ffd0c6;
+}
+
+.respawn[hidden] {
+  display: none;
+}
+
+/* --------------------------------------------------------- the action bar */
+
+.action-bar {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  justify-self: center;
+}
+
+.action-slot {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+  width: clamp(126px, 15vw, 176px);
+  padding: 8px 10px;
+  border-radius: 9px;
+  background: var(--scrim);
+  backdrop-filter: blur(6px);
+  color: var(--ink-dim);
+  pointer-events: auto;
+  text-align: left;
+}
+
+.action-icon {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  fill: var(--ink-dim);
+}
+
+.action-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+}
+
+/* In hand. Not "last clicked": this class is set from the frame's `slot`
+   column, because the sim refuses a swap mid-cut and a bar that lit on the
+   click would be announcing a weapon the character is not holding. */
+.action-slot.held {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: #16233a;
+}
+
+.action-slot.held .action-icon {
+  fill: var(--accent);
+}
+
+/* Mid-swap: nothing is in the hand, so nothing is lit. A fighter changing its
+   mind is the most punishable it ever gets and the bar should say so. */
+.action-slot.swapping {
+  opacity: 0.42;
+}
+
+.action-slot:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.action-slot:disabled:hover {
+  border-color: var(--panel-line);
+  color: var(--ink-dim);
+}
+
+/* ------------------------------------------------------- the control group */
+
+.control-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-self: end;
+}
+
+.control-label {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+
+/* One segmented control, not five buttons: the five states are exclusive, and a
+   row of separate pills would invite the player to try holding two at once --
+   which is precisely the thing the module normalises away underneath them. */
+.control-group {
+  display: flex;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  border: 1px solid var(--panel-line);
+  background: var(--scrim);
+  backdrop-filter: blur(6px);
+  overflow: hidden;
+  pointer-events: auto;
+}
+
+.seg {
+  flex: 0 0 auto;
+  padding: 6px 11px;
+  font-size: 11.5px;
+  border: none;
+  border-left: 1px solid var(--panel-line);
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink-dim);
+  white-space: nowrap;
+}
+
+.seg:first-child {
+  border-left: none;
+}
+
+.seg:active {
+  transform: none;
+}
+
+.seg[aria-checked="true"] {
+  background: #16233a;
+  color: var(--accent);
+  box-shadow: inset 0 -2px 0 var(--accent);
 }
 
 /* -------------------------------------------------------------- overlay */
@@ -599,26 +1046,85 @@ kbd {
   overflow-x: auto;
 }
 
+/* The keyboard reference. Not an alert, so it does not borrow the red edge the
+   "the simulation stopped" card earns. */
+.keys-card {
+  border-color: var(--panel-line);
+  border-left: 3px solid var(--accent);
+  max-height: 82vh;
+  overflow-y: auto;
+}
+
+.keys-card h2 {
+  color: var(--accent);
+  font-size: 13px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.keys-card .buttons {
+  margin-top: 14px;
+}
+
 /* The canvas is full-bleed at every size, so the only thing narrow enough to
-   need help is the bottom strip: stack it rather than let the vitals and the
-   chips fight over one row. */
-@media (max-width: 640px) {
+   need help is the bottom strip. Three clusters plus two open rails do not fit
+   across a laptop, so the action bar takes its own line above the other two
+   rather than squeezing the globe and the segmented group into slivers. */
+@media (max-width: 1200px) {
   .hud-bottom {
-    flex-direction: column;
-    align-items: stretch;
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 
-  .hud-actions {
-    justify-content: flex-start;
+  .action-bar {
+    grid-row: 1;
+    grid-column: 1 / -1;
   }
 
-  .drawer {
+  .hud-vitals,
+  .control-wrap {
+    grid-row: 2;
+  }
+
+  /* The `C` hint moves into the keyboard card at this width; the five buttons
+     are the thing that has to survive. */
+  .control-label {
+    display: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .hud-bottom {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .control-wrap {
+    grid-row: 3;
+    justify-self: start;
+  }
+
+  .seg {
+    padding: 6px 8px;
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 640px) {
+  .rail {
     width: 100vw;
+  }
+
+  /* A rail that covers the whole window has no HUD left to step aside for, and
+     a gutter the width of the window would push every cluster off the edge. */
+  body.rail-enemy-open,
+  body.rail-hero-open {
+    --rail-left: 0px;
+    --rail-right: 0px;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .drawer,
+  .rail,
+  .hud,
   #hp-fill {
     transition: none;
   }
