@@ -44,27 +44,32 @@
              project's central claim -- that this room runs the same everywhere
              -- made checkable rather than asserted. Collapsed to the tick alone
              by default, because it costs one line of HUD only if it stays one
-             line of HUD. -->
+             line of HUD.
+
+             The chevron that used to expand it has gone. Choosing [dev] in the
+             selector on the right opens it instead: two controls both called
+             "dev" is one too many, and `setViewMode` states the intent once. -->
         <div class="dev-strip" id="dev-strip">
           <span class="chip static"><span class="chip-key">tick</span> <span id="sim-tick">0</span></span>
           <span class="chip static dev-more"><span class="chip-key">at</span> <span id="sim-position">&mdash;</span></span>
           <span class="chip static dev-more"
             ><span class="chip-key">hash</span> <span id="sim-hash" class="mono-small">&mdash;</span></span
           >
-          <button
-            type="button"
-            class="chip"
-            id="btn-dev"
-            aria-expanded="false"
-            aria-controls="dev-strip"
-            title="Position and state hash"
-          >
-            <span aria-hidden="true">&#8943;</span>
-            <span class="sr-only">Show position and state hash</span>
-          </button>
         </div>
 
         <div class="hud-top-right">
+          <!-- How the room is drawn, as one segment per view. A real radiogroup,
+               unlike the driving switches at the bottom of the window: those are
+               three independent bits and any combination of them is a room you
+               can be in, whereas exactly one of these is ever lit. Built in JS
+               from `VIEW_MODES` so the labels live in one place, and `G` cycles
+               them. -->
+          <div
+            class="control-group"
+            id="view-group"
+            role="radiogroup"
+            aria-label="How the room is drawn"
+          ></div>
           <button type="button" class="chip" id="btn-keys" aria-expanded="false" aria-controls="keys-overlay">
             <span aria-hidden="true">?</span> Keys
           </button>
@@ -126,6 +131,17 @@
              from the click. Not a radiogroup: the three are independent, and
              any combination of them is a room you can be in. -->
         <div class="control-wrap">
+          <!-- Pause, first in the cluster, because stopping the clock and taking
+               the controls are the same kind of act. A `.chip` and not a bare
+               `<button>`: the HUD layer is `pointer-events: none` all the way
+               down and `.chip` is one of the few things that turns it back on.
+               Both faces of the state are written by `setPaused` -- the glyph,
+               the word and `aria-pressed`, off one switch. -->
+          <button type="button" class="chip" id="btn-pause" aria-pressed="false">
+            <span id="pause-glyph" aria-hidden="true">&#9612;&#9612;</span>
+            <span id="pause-label">Pause</span>
+            <kbd>Space</kbd>
+          </button>
           <span class="control-label">driving</span>
           <div class="control-group" id="control-group" role="group" aria-label="Who is driving"></div>
         </div>
@@ -302,7 +318,15 @@
       <div class="overlay-card keys-card" role="dialog" aria-modal="true" aria-label="Keyboard reference">
         <h2>Keys</h2>
         <ul class="keys">
-          <li><kbd>click</kbd><span>Go there &mdash; a standing order, not a waypoint.</span></li>
+          <li>
+            <kbd>click</kbd><kbd>drag</kbd>
+            <span>
+              Click the floor to go there. Drag instead and you trace a path: it walks the legs in
+              order, holds at the end, and the next plain click cancels whatever is left of it. Every
+              leg is still a standing order rather than a rail &mdash; the character decides how to
+              walk it.
+            </span>
+          </li>
           <li>
             <kbd>right click</kbd><kbd>Esc</kbd>
             <span>Stand down &mdash; hold this ground.</span>
@@ -348,6 +372,25 @@
             </span>
           </li>
           <li><kbd>Y</kbd><span>Show or hide the vision discs &mdash; how far each body can see.</span></li>
+          <li>
+            <kbd>G</kbd>
+            <span>
+              Cycle how the room is drawn. <em>Regular</em> is the room as it looks;
+              <em>Tactical</em> drops the art for discs and facing wedges and keeps every readout;
+              <em>Dev</em> drops the fog of war as well, so you can watch what the monsters are
+              doing while the character cannot. The first two show you only what the character can
+              see &mdash; ground it has seen before stays dim, and rock it has never reached stays
+              black.
+            </span>
+          </li>
+          <li>
+            <kbd>Space</kbd>
+            <span>
+              Freeze the world, or let it go again. Every order still lands while it is frozen
+              &mdash; click, drag a path, stand down &mdash; and nothing moves until you resume, which
+              is what the button is for.
+            </span>
+          </li>
           <li>
             <kbd>wheel</kbd>
             <span>Zoom, between the whole room and close in over the character's shoulder.</span>

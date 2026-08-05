@@ -105,10 +105,15 @@ body {
   transition: padding 180ms ease;
 }
 
+/* `flex-wrap` because the right-hand cluster grew a three-segment picker beside
+   the `?`: the housing is `flex: 0 0 auto` and will not shrink, so on a narrow
+   window the row has to be allowed to break rather than push the tick strip off
+   the edge. */
 .hud-top {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 12px;
 }
 
@@ -276,10 +281,12 @@ body {
 
 /* ----------------------------------------------------------------- chips */
 
-/* The compact overlay control, for the two things in the top bar that are not
-   worth a panel: the dev strip's expander and the `?`. `flex: 0 0 auto` because
-   the shared `button` rule below grows to fill a row, which is right inside a
-   panel and wrong out here. */
+/* The compact overlay control, for the things in the HUD that are not worth a
+   panel: the `?` in the top bar and the pause button at the bottom. It had a
+   third user, the dev strip's chevron, until choosing [dev] in the view selector
+   became the way that strip opens. `flex: 0 0 auto` because the shared `button`
+   rule below grows to fill a row, which is right inside a panel and wrong out
+   here. */
 .chip {
   display: inline-flex;
   align-items: center;
@@ -311,6 +318,33 @@ body {
   background: transparent;
   border-color: transparent;
   color: var(--ink-faint);
+}
+
+/* A chip that is *on*. Borrowed verbatim from `.seg[aria-checked="true"]` at
+   the bottom of this sheet rather than invented, because a second vocabulary
+   for "lit" is how a HUD stops being readable at a glance -- and the pause
+   button sits three inches from the switches that already use it.
+
+   Deliberately not keyed on `aria-expanded`, which the `?` carries: an open
+   panel is not a control that is holding something down. */
+.chip[aria-pressed="true"] {
+  background: #16233a;
+  color: var(--accent);
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+/* Pause, and both of these are fixed boxes for one reason: the glyph swaps two
+   half-blocks for a triangle and the word swaps Pause for Resume, so without
+   them the button changes width the instant it is pressed. At `max-width:
+   900px` `.control-wrap` is `justify-self: start` and the button is its first
+   child, so that would drag the three switches sideways on every press. */
+#pause-glyph {
+  width: 0.95em;
+  text-align: center;
+}
+
+#pause-label {
+  min-width: 3.7em;
 }
 
 /* A readout, not a control. */
@@ -838,21 +872,15 @@ kbd {
   display: none;
 }
 
+/* Written by `setViewMode` now, not by a button in this strip: [dev] is the mode
+   that wants the position and the hash, so choosing it is what opens them. */
 .dev-strip.open .dev-more {
   display: inline-flex;
 }
 
-/* Present for a screen reader, absent for everyone else. */
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: -1px;
-  padding: 0;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
+/* `.sr-only` lived here and has gone with the chevron it labelled. It had
+   exactly one user, and a utility class with no users is a class the next person
+   has to check before they can delete anything. */
 
 /* ------------------------------------------------------------- the globe */
 
@@ -981,11 +1009,18 @@ kbd {
   white-space: nowrap;
 }
 
-/* Three switches in one housing. The shared border says they are one control
-   and the dividers say they are three of them, which is the truth: any
-   combination of the three bits is legal, so the row must not read as a
-   segmented picker where exactly one thing is lit. `.seg[aria-checked]` below
-   is what carries that -- several can be on at once. */
+/* Switches in one housing. The shared border says they are one control and the
+   dividers say they are several of them.
+
+   **Two groups wear this now, and they are opposites.** `#control-group` is the
+   case this rule was written for: any combination of the three driving bits is
+   legal, so that row must not read as a segmented picker where exactly one thing
+   is lit, and `.seg[aria-checked]` below is what carries it -- several can be on
+   at once. `#view-group` is the counter-example, a genuine `radiogroup` where
+   exactly one *is* lit, because the three views are one choice and not three
+   bits. The housing is deliberately the same either way: the difference between
+   them belongs in the roles, which is where a screen reader reads it, and not in
+   two vocabularies for a pill with dividers in it. */
 .control-group {
   display: flex;
   flex: 0 0 auto;

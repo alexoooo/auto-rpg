@@ -37,13 +37,13 @@ const BUILD = ["cargo", "build", "--release", "--target", "wasm32-unknown-unknow
 const LAB_HASH = 0x00b48ceb21081d1dn;
 
 // `init(1); set_goto(20_000, 12_000); step(600)`: the path a player drives.
-const ROOM_HASH = 0xc8d21c4b13ae849bn;
+const ROOM_HASH = 0xf67a83db5b6288e5n;
 
 // `init(1); spawn_monster(3); step(600)`: a whole fight, start to finish. Worth
 // its own number because it reaches arithmetic the walk never does -- the spawn
 // point comes out of `Rng::from_stream` and the committed sine table, and every
 // approach measures a distance through `isqrt64`.
-const BATTLE_HASH = 0xd755b3319d2673bbn;
+const BATTLE_HASH = 0x8fac6bdd30efbcacn;
 
 // `init(1); spawn_monster(2) x3; step(1800); swap_in_hero(1); step(400)`: a
 // fight, a death, a replacement, and the fight the replacement walks into. The
@@ -51,7 +51,7 @@ const BATTLE_HASH = 0xd755b3319d2673bbn;
 // sim across the death of an entity and the *reuse* of its slot -- the
 // generational free list is exactly the kind of index bookkeeping that a 32-bit
 // usize could quietly do differently.
-const SWAP_HASH = 0xbfbc6d0ae6cdb18dn;
+const SWAP_HASH = 0xf963cdf8faf3331an;
 
 // `init(1); set_hero_loadout(0, BOW); spawn_monster(BRUTE); step(1200)`: the
 // only one of these five that ever puts an arrow in the air, and the only
@@ -60,11 +60,11 @@ const SWAP_HASH = 0xbfbc6d0ae6cdb18dn;
 // of every flight, `segment_circle`'s i64-staged dot products, and the
 // saturating multiply in `tangential_speed` at the release. Portable
 // fixed-point is a claim about code that runs.
-const BOW_HASH = 0xa559ebfc851eb35cn;
+const BOW_HASH = 0xd67ad1e4eb4ad18dn;
 
 // The frame header, as the client reads it.
 const HEADER_LEN = 14;
-const UNIT_STRIDE = 28;
+const UNIT_STRIDE = 29;
 // Arrows, in a block after the units. `frame_len()` is therefore no longer a
 // function of the unit count alone, which is half of what `FRAME_LAYOUT_VERSION`
 // 3 announces -- the other half being the eighth header float that counts them.
@@ -72,6 +72,11 @@ const SHOT_STRIDE = 4;
 // Events, in a third block after the arrows, counted by the ninth header float:
 // what `FRAME_LAYOUT_VERSION` 4 announces, along with the unit row's new
 // `sight_range` column. Three counts now, and `frame_len()` is the sum.
+//
+// Version 6 is the unit row's twenty-ninth column, `visible`: whether the player
+// can see this body. The stride and the version move together, which is what
+// makes moving the stride safe -- the page compares both at boot and refuses to
+// draw a layout it does not understand.
 const EVENT_STRIDE = 5;
 
 // How long the frame says it is, from its own three counts.
@@ -256,6 +261,9 @@ test("the boundary exports everything the client calls", () => {
     "init",
     "set_goto",
     "clear_order",
+    "route_clear",
+    "route_push",
+    "route_len",
     "spawn_monster",
     "swap_in_hero",
     "step",
@@ -313,6 +321,9 @@ test("the boundary exports everything the client calls", () => {
     "map_rows",
     "map_revision",
     "map_tile_size_milli",
+    "vis_ptr",
+    "vis_len",
+    "vis_revision",
     "descend",
   ];
   for (const name of exports) {
@@ -323,7 +334,7 @@ test("the boundary exports everything the client calls", () => {
   // The five numbers the page's boot handshake compares. Wrong here and the
   // page stops with an overlay instead of painting a health bar out of a guard
   // arc, which is the handshake working -- but it is cheaper to find out here.
-  assert.equal(wasm.frame_layout_version(), 5, "FRAME_LAYOUT_VERSION");
+  assert.equal(wasm.frame_layout_version(), 6, "FRAME_LAYOUT_VERSION");
   assert.equal(wasm.header_len(), HEADER_LEN);
   assert.equal(wasm.unit_stride(), UNIT_STRIDE);
   assert.equal(wasm.shot_stride(), SHOT_STRIDE);
@@ -436,6 +447,16 @@ test("the frame buffer still has the layout the client reads", () => {
   // same number for a body nobody has spawned, in thousandths.
   assert.ok(Math.abs(unit[27] - 9.6) < 0.001, `sight_range ${unit[27]}`);
   assert.equal(wasm.body_stat(0, 7), 9_600, "body_stat(FIGHTER, sight)");
+
+  // And the last column, which is whether the *player* can see this body. This
+  // row is the hero's, so it is its own point of view and the only answer it can
+  // have is 1. Every other row is a 0 or a 1 and nothing else -- a column that
+  // arrived as a distance or a byte count would draw a ghost over a live body.
+  assert.equal(unit[28], 1, "visible: the hero cannot see itself");
+  for (let i = 0; i < units; i++) {
+    const row = live.slice(HEADER_LEN + i * UNIT_STRIDE, HEADER_LEN + (i + 1) * UNIT_STRIDE);
+    assert.ok(row[28] === 0 || row[28] === 1, `visible ${row[28]} is not a flag`);
+  }
 });
 
 test("a policy can be chosen and tuned across the boundary", () => {
@@ -586,6 +607,154 @@ test("the floor plan crosses once a level and not once a frame", () => {
   assert.notEqual(wasm.map_revision(), revision, "a new floor kept the old revision");
   assert.notDeepEqual(tiles(), before, "a new floor kept the old tiles");
   console.log(`floor plan    ${before.length} tiles, revision ${revision} -> ${wasm.map_revision()}`);
+});
+
+// The live visibility buffer, copied out. One byte a tile, indexed exactly as
+// the tile buffer is: 0 never seen, 1 seen earlier on this floor, 2 in sight now.
+function fog() {
+  return new Uint8Array(wasm.memory.buffer, u32(wasm.vis_ptr()), u32(wasm.vis_len())).slice();
+}
+
+// Which tile the hero is standing in, as one string to compare, or null once
+// there is nobody standing. The fog's cache key is the hero's *tile*, so this is
+// the only granularity worth asking about.
+function heroTile() {
+  const hero = heroRow(frame());
+  return hero === null ? null : `${Math.floor(hero[0])},${Math.floor(hero[1])}`;
+}
+
+test("the fog is rebuilt when the hero changes tile and at no other time", () => {
+  // Two exports for the same number, so this can be asserted rather than
+  // assumed. It is the assertion that lets the page read the two buffers with
+  // one loop index.
+  wasm.init(1);
+  assert.equal(wasm.vis_len(), wasm.map_len(), "vis_len and map_len disagree");
+  assert.equal(wasm.vis_len(), wasm.map_cols() * wasm.map_rows(), "vis_len");
+
+  const arrival = fog();
+  assert.ok(arrival.some((v) => v === 2), "the hero arrived blind");
+  assert.ok(arrival.some((v) => v === 0), "a whole 48x32 floor was in sight at once");
+  assert.ok(!arrival.some((v) => v === 1), "the level arrived already explored");
+
+  // The property, checked tick by tick rather than over a window, which is what
+  // makes it the property and not a sample of it: while the hero is in the tile
+  // it was in, the revision must not move -- `publish` runs on every export, and
+  // a revision that moved with the frame would have the page re-baking a few
+  // thousand Path2D rectangles sixty times a second. And the tick it leaves that
+  // tile is the tick the revision must move, because that is the complete set of
+  // moments a tile-granular answer can differ.
+  //
+  // Driven under manual control rather than by a click, because what is needed
+  // here is a hero that certainly moves: an ordered walk can be a hero standing
+  // still if the destination was where it already was.
+  wasm.set_control(1);
+  wasm.set_input(-1000, 0, 0, 0, 0, 0);
+  let tile = heroTile();
+  let revision = wasm.vis_revision();
+  let crossings = 0;
+  for (let i = 0; i < 600; i++) {
+    wasm.step(1);
+    const now = heroTile();
+    // Nobody left to have a point of view. The fog freezes where it was, which
+    // is correct and is a different assertion from either of the two below.
+    if (now === null) break;
+    const moved = wasm.vis_revision() !== revision;
+    if (now === tile) {
+      assert.ok(!moved, `tick ${wasm.tick()}: the fog was rebuilt inside tile ${tile}`);
+    } else {
+      assert.ok(moved, `tick ${wasm.tick()}: crossed ${tile} -> ${now} and the fog did not notice`);
+      crossings += 1;
+    }
+    tile = now;
+    revision = wasm.vis_revision();
+  }
+  assert.ok(crossings > 0, "the hero never crossed a tile in 600 ticks");
+
+  // And the remembered half: the room it walked out of is dim, not black.
+  const walked = fog();
+  assert.ok(walked.some((v) => v === 1), "the hero left nothing behind as remembered");
+  arrival.forEach((v, cell) => {
+    if (v !== 0) assert.ok(walked[cell] !== 0, `tile ${cell} was seen and then forgotten`);
+  });
+
+  // A new floor does not arrive pre-explored, which is the one place `seen` is
+  // cleared and the only way to tell it from a buffer that is never cleared.
+  wasm.set_control(0);
+  const before = wasm.vis_revision();
+  assert.equal(wasm.descend(), 1, "never descended");
+  const fresh = fog();
+  assert.ok(!fresh.some((v) => v === 1), "floor 2 inherited floor 1's memory");
+  assert.ok(fresh.some((v) => v === 2), "floor 2 arrived blind");
+  assert.notEqual(wasm.vis_revision(), before, "a new floor kept the old fog revision");
+  console.log(`fog            ${crossings} tile crossings over 600 ticks`);
+});
+
+// Waypoints a body can stand on, taken off the tile buffer rather than written
+// down: the level is generated, so a hardcoded triple is a coin flip on whether
+// any of the three is standable. Nearest first, and no two within 1.5 units of
+// each other or of the hero -- wider than ROUTE_ARRIVE plus a Fighter's radius,
+// so the queue cannot satisfy two legs at once and read as having advanced when
+// it merely arrived.
+function legsNearHero(live, count) {
+  const cols = wasm.map_cols();
+  const tiles = new Uint8Array(wasm.memory.buffer, wasm.map_ptr(), wasm.map_len()).slice();
+  const hero = heroRow(live);
+  const open = [];
+  for (let cell = 0; cell < tiles.length; cell++) {
+    if (tiles[cell] !== 0) continue;
+    // A tile centre, which is clear for anything up to a 0.5 radius whatever
+    // its neighbours are -- so an open tile is a standable waypoint for a
+    // Fighter without asking the module a second question.
+    const x = (cell % cols) + 0.5;
+    const y = Math.floor(cell / cols) + 0.5;
+    open.push([x, y, Math.hypot(x - hero[0], y - hero[1])]);
+  }
+  open.sort((a, b) => a[2] - b[2]);
+
+  const legs = [];
+  for (const [x, y, fromHero] of open) {
+    if (fromHero < 1.5) continue;
+    if (legs.every(([lx, ly]) => Math.hypot(x - lx, y - ly) >= 1.5)) {
+      legs.push([x, y]);
+    }
+    if (legs.length === count) break;
+  }
+  return legs;
+}
+
+test("a dragged path advances a leg at a time across the boundary", () => {
+  // The route is the one export whose value moves *inside* `step`, so it is the
+  // one the page reads once a frame beside `map_revision()`. What is checked
+  // here is the shape of that reading: three pushes answer 1, 2, 3, the first
+  // becomes the standing order without a commit call, and the count falls as the
+  // legs are consumed rather than all at once at the end.
+  wasm.init(1);
+  assert.equal(wasm.route_len(), 0, "a fresh level opened already holding a path");
+
+  const legs = legsNearHero(frame(), 3);
+  assert.equal(legs.length, 3, "the tile buffer offered nowhere to walk");
+  legs.forEach(([x, y], i) => {
+    const held = wasm.route_push(Math.round(x * 1000), Math.round(y * 1000));
+    assert.equal(held, i + 1, `push ${i} answered a count it was not holding`);
+  });
+  assert.equal(wasm.route_len(), 3, "three waypoints did not make three legs");
+
+  const queued = frame();
+  assert.equal(queued[2], 4, "order_kind: the first waypoint did not become the Goto");
+  assert.ok(Math.abs(queued[3] - legs[0][0]) < 0.01, "order_x is not the first waypoint");
+  assert.ok(Math.abs(queued[4] - legs[0][1]) < 0.01, "order_y is not the first waypoint");
+
+  // The nearest waypoint is under two units off, so a leg falls well inside this.
+  wasm.step(240);
+  const left = wasm.route_len();
+  assert.ok(left < 3, "the queue never advanced: still holding 3 legs after 240 ticks");
+  assert.ok(left >= 1, "the last leg was popped rather than left standing");
+
+  // And dropping the queue is not a stop: the leg already ordered stays ordered.
+  wasm.route_clear();
+  assert.equal(wasm.route_len(), 0, "route_clear left a path behind");
+  assert.equal(frame()[2], 4, "route_clear withdrew the standing order too");
+  console.log(`route          3 legs -> ${left} after 240 ticks`);
 });
 
 test("a battle replays the way native recorded it", () => {

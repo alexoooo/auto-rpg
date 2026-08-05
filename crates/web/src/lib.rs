@@ -1,6 +1,6 @@
 //! The browser boundary.
 //!
-//! One `cdylib`, fifty-four `extern "C"` functions, and a single packed `f32`
+//! One `cdylib`, sixty-seven `extern "C"` functions, and a single packed `f32`
 //! buffer that JavaScript reads straight out of linear memory. No
 //! `wasm-bindgen`, no `js-sys`, nothing generated. The workspace's
 //! no-dependency rule (`DESIGN.md`) is what keeps every recorded run in the
@@ -50,7 +50,8 @@
 //!              entity_index, entity_generation,
 //!              sword_angle_raw, limb_reach, limb_spin,
 //!              shield_angle_raw, shield_reach, action_length, shield_arc_raw,
-//!              hit_flash, block_flash, parry_flash, ..., sight_range]
+//!              hit_flash, block_flash, parry_flash, ..., sight_range,
+//!              visible]
 //!     ...     unit_count of them
 //!     shot    [x, y, heading_raw, faction]
 //!     ...     shot_count of them
@@ -165,7 +166,15 @@ pub const HEADER_LEN: usize = 14;
 /// worse than it was, because a stat can be changed live and a body can be
 /// swapped underneath it, so the number the page draws a vision ring from has
 /// to be the number the observation code actually used.
-pub const UNIT_STRIDE: usize = 28;
+///
+/// `28` is `visible`: `1` if the player can see this body, `0` if not.
+/// **Hero-centric, and that is the point** -- it answers what the *player* can
+/// see, not what each body perceives for itself. A monster's own contact list is
+/// a different question with a different answer, and it never crosses this
+/// boundary. With no hero standing there is no point of view at all, so every
+/// row reports visible: a fog of war with nobody to be fogged from is just a
+/// blank screen.
+pub const UNIT_STRIDE: usize = 29;
 
 /// Floats per arrow, in a block that follows the units: `[x, y, heading_raw,
 /// faction]`.
@@ -230,7 +239,7 @@ pub const EVENT_DECLARE: u32 = 3;
 /// layout it was not written against. That is a weaker promise than the
 /// append-only convention it replaced and a much more useful one: append-only
 /// forbids the edit, this one makes the edit safe.
-pub const FRAME_LAYOUT_VERSION: u32 = 5;
+pub const FRAME_LAYOUT_VERSION: u32 = 6;
 
 /// Value in a loadout column meaning "this slot is empty". Matches
 /// [`sim::Loadout::EMPTY`], and is not a valid action code.
@@ -293,6 +302,38 @@ const PORTAL_NONE: u32 = 0;
 const PORTAL_SHUT: u32 = 1;
 const PORTAL_OPEN: u32 = 2;
 
+/// Most waypoints one dragged path may carry.
+///
+/// A drag is sampled about every 1.2 world units, so this is some 29 units of
+/// path -- a little over half the level's diagonal, which is as much as anyone
+/// draws in one gesture. The page drops the *middle* of an over-long drag
+/// rather than the end: where a gesture starts and where it stops are the two
+/// points the player meant, and the samples in between are the hand's.
+const ROUTE_MAX: usize = 24;
+
+/// How near a waypoint counts as reached.
+///
+/// Generous on purpose. The waypoints are dense samples of a finger-drawn
+/// line, not surveyed marks -- making the character touch each one would turn
+/// a smooth gesture into a series of stops, and every sample the player's hand
+/// wobbled onto would become a visible dog-leg.
+const ROUTE_ARRIVE: Fx = Fx::from_ratio(7, 10);
+
+/// Ticks of no progress before a leg is abandoned.
+///
+/// The only thing standing between a waypoint sealed behind rock and a route
+/// that never finishes. Without it the *last* leg is still correct -- the
+/// policy holds, which is what an unreachable order should do -- but every
+/// earlier leg would hang forever, and the player would see a character stop
+/// halfway along a path it was still nominally following.
+///
+/// Deliberately longer than any decision period in the stat range, so a slow
+/// thinker mid-thought is never mistaken for a stuck one.
+const ROUTE_STALL: u32 = 90;
+
+/// How far the hero must move to count as making progress.
+const ROUTE_PROGRESS: Fx = Fx::from_ratio(5, 100);
+
 /// Closest a newcomer may be placed to the hero, and the floor the arc sweep
 /// in [`Sim::spawn_point`] accepts against. Far enough that you watch it come.
 const SPAWN_NEAR: Fx = Fx::from_int(6);
@@ -335,6 +376,14 @@ thread_local! {
     /// with a `Uint8Array` at no cost, and 1536 bytes cross instead of 6 KB.
     static MAP: RefCell<[u8; MAP_MAX]> = const { RefCell::new([0; MAP_MAX]) };
     static MAP_SHAPE: Cell<(u32, u32, u32)> = const { Cell::new((0, 0, 0)) };
+    /// What the player has seen of the floor plan: `0` never, `1` earlier,
+    /// `2` now. A fixed array beside `MAP` and for the same reason, and indexed
+    /// exactly as `MAP` is so the page can read the two together.
+    ///
+    /// Presentation, exactly as [`Flash`] is: derived from simulation state,
+    /// never fed back into it, and absent from `state_hash`. A world driven
+    /// headlessly by the lab computes none of this.
+    static VIS: RefCell<[u8; MAP_MAX]> = const { RefCell::new([0; MAP_MAX]) };
     /// Starts at the header length rather than zero so a client that renders
     /// before it calls `init` reads a well-formed empty frame instead of a
     /// zero-length one.
@@ -436,6 +485,48 @@ struct Sim {
     /// simulator the lab drives headlessly. `None` for a scenario with no way
     /// out, which is every scenario but a generated one.
     portal: Option<Vec2>,
+
+    /// Tiles the player has seen at any point on this floor. Cleared by
+    /// [`Sim::descend`] and by a fresh [`init`], never otherwise -- this is the
+    /// "remembered" half of the fog, and forgetting it mid-floor would be a
+    /// level that un-explores itself.
+    ///
+    /// Sized once to [`MAP_MAX`] where this struct is built and only ever
+    /// written in place, the same discipline [`Sim::route`] keeps: nothing here
+    /// may reallocate, because an allocation that grows linear memory detaches
+    /// every typed array the page is holding.
+    seen: Vec<u8>,
+    /// The hero tile the visible set was last computed for, and the map revision
+    /// it was computed against.
+    ///
+    /// **The cache key, and it is exact rather than approximate.** A
+    /// tile-granular answer can only change when the observer crosses a tile
+    /// boundary, so recomputing on that boundary is not a sampling shortcut --
+    /// it is the complete set of moments the answer differs.
+    vis_at: Option<(i32, i32, u32)>,
+    /// Bumped whenever the contents of `VIS` change. The page re-reads and
+    /// re-bakes exactly when this moves; see [`Sim::map_revision`] for the same
+    /// pattern.
+    vis_revision: u32,
+
+    /// The waypoints a dragged path still has to reach, `route[0]` being the leg
+    /// currently expressed as the world's `Order::Goto`.
+    ///
+    /// Here for the same reason [`Sim::portal`] is: one standing order per
+    /// faction is the sim's whole input channel and a route is a convenience
+    /// over it, so a queue of destinations is a rule about a *game* rather than
+    /// something the fight simulator has any business knowing about.
+    ///
+    /// A `Vec` that is only ever `clear()`ed and pushed within [`ROUTE_MAX`], so
+    /// it allocates once and never again -- see the crate docs on the frame
+    /// buffer for why an allocation that grows linear memory detaches every
+    /// typed array the page is holding.
+    route: Vec<Vec2>,
+    /// Ticks the hero has spent not making progress along `route[0]`. See
+    /// [`Sim::follow_route`] for what it is for.
+    route_still: u32,
+    /// Where the hero was when `route_still` was last reset.
+    route_mark: Vec2,
 
     // ---- manual control
     /// Which halves of the hero the player has taken: see [`CONTROL_FEET`] and
@@ -604,6 +695,24 @@ impl Sim {
             depth: 0,
             map_revision: 0,
             portal: scenario.portal,
+            // The fog's memory, sized to the tile buffer it is indexed against
+            // rather than to this level's extent. Every `Sim` is built through
+            // here, so this is the one place it can be sized -- and a `seen`
+            // shorter than the buffer would make `refresh_vis` an out-of-bounds
+            // index inside `publish`, which is the poisoned-instance failure the
+            // crate docs open with.
+            seen: vec![0; MAP_MAX],
+            // `None` rather than the hero's tile, so the first `publish` after a
+            // level opens computes the disc instead of trusting a key that was
+            // guessed before anything was placed.
+            vis_at: None,
+            vis_revision: 0,
+            // Allocated once, at its ceiling, for the same reason `events`
+            // below is: a push that grew linear memory would detach the typed
+            // array the client reads the frame through, and a drag pushes.
+            route: Vec::with_capacity(ROUTE_MAX),
+            route_still: 0,
+            route_mark: Vec2::ZERO,
             control: 0,
             input_move: Vec2::ZERO,
             input_aim: Angle::ZERO,
@@ -687,6 +796,81 @@ impl Sim {
             .is_some_and(|v| v.position.distance(portal) <= PORTAL_RADIUS + v.radius)
     }
 
+    /// Makes `route[0]` the standing order.
+    ///
+    /// **This touches simulation state**, and that is worth saying out loud here
+    /// because the queue itself does not: `World::set_order` rebuilds the
+    /// faction's flow field, and an order is one of the things
+    /// `World::state_hash` fingerprints. So a route call moves the hash, exactly
+    /// as a click does. The five golden scripts are unaffected only because not
+    /// one of them calls a route export -- do not add one to a golden script.
+    fn begin_leg(&mut self) {
+        if let Some(&next) = self.route.first() {
+            self.world.set_order(Faction::Heroes, Order::Goto(next));
+            self.route_still = 0;
+            self.route_mark = self.hero_position();
+        }
+    }
+
+    /// Forgets the queued path without touching the order.
+    fn clear_route(&mut self) {
+        self.route.clear();
+        self.route_still = 0;
+    }
+
+    /// Walks the queued path one leg at a time.
+    ///
+    /// Called once per tick from [`Sim::advance`], beside
+    /// [`Sim::hero_is_leaving`] and for the same reason: one animation frame is
+    /// up to eight ticks, and a page-side arrival test would overshoot a
+    /// waypoint by that much on every stutter.
+    ///
+    /// `Vec::remove(0)` is O(n) on a 24-element vector of `Vec2` -- some 200
+    /// bytes memmoved, a few times a walk. A `VecDeque` would be the textbook
+    /// answer and is the wrong one here: it would be a second allocation shape
+    /// for no measurable gain, and this workspace has an explicit preference for
+    /// a `Vec` with a read head over a `VecDeque` where it matters (see
+    /// `Dungeon::distances`). If it ever does matter, add a read head; do not
+    /// change the container.
+    fn follow_route(&mut self) {
+        if self.route.len() < 2 {
+            // The last leg is left standing. `Order::Goto` at the final waypoint
+            // is exactly what the player asked for, and the policy's own arrival
+            // deadband is what stops there -- a queue that popped its last entry
+            // would leave the character holding an order it had no reason to have
+            // finished with.
+            return;
+        }
+        let Some(hero) = self.hero() else { return };
+        let Some(view) = self.world.view(hero) else {
+            return;
+        };
+
+        // **Measured against the point the router actually aims at, not the raw
+        // click.** The sim pulls a destination out of the masonry per body before
+        // it routes to it, so a waypoint the drag laid across a wall is satisfied
+        // where a body of this width can really get -- and asking about the raw
+        // point instead would hang on every leg the player's hand cut a corner
+        // on.
+        let target = self.world.nearest_walkable(self.route[0], view.radius);
+        let arrived = view.position.distance(target) <= ROUTE_ARRIVE + view.radius;
+
+        // And the guard for a leg that is not merely awkward but sealed: a region
+        // the hero cannot reach at all. The nav field reports no route, the
+        // policy holds, and nothing else would ever move this queue on.
+        if view.position.distance(self.route_mark) > ROUTE_PROGRESS {
+            self.route_mark = view.position;
+            self.route_still = 0;
+        } else {
+            self.route_still = self.route_still.saturating_add(1);
+        }
+
+        if arrived || self.route_still >= ROUTE_STALL {
+            self.route.remove(0);
+            self.begin_leg();
+        }
+    }
+
     /// Builds the next floor down and moves the run onto it.
     ///
     /// The hero persists and its health does not: `World::spawn` sets `hp` to
@@ -719,6 +903,10 @@ impl Sim {
             self.units.extend_from_slice(&self.world.alive_ids(faction));
         }
         self.portal = scenario.portal;
+        // The waypoints describe a floor plan that no longer exists. Nothing
+        // else here would drop them: the queue is not keyed to a body, so unlike
+        // the three lines below it would survive the level it was drawn on.
+        self.clear_route();
         self.flashes.clear();
         self.swings.clear();
         self.events.clear();
@@ -726,6 +914,13 @@ impl Sim {
         self.hero_next_decision = 0;
         self.cached = Command::HOLD;
         self.map_revision = self.map_revision.wrapping_add(1);
+        // And the fog, which is the floor plan's other half and forgotten with
+        // it. `VIS` itself is left alone: `refresh_vis` runs before the next
+        // frame is written and `Dungeon::visible_tiles` clears what it is given,
+        // so the buffer is overwritten wholesale rather than needing a wipe here.
+        self.seen.fill(0);
+        self.vis_at = None;
+        self.vis_revision = self.vis_revision.wrapping_add(1);
         write_map(&self.world);
     }
 
@@ -915,6 +1110,12 @@ impl Sim {
             // After the tick, so the phases being compared are both settled
             // ones. See [`Sim::note_declares`].
             self.note_declares(&mut events);
+
+            // Before the way-out test below, not after. A leg that finishes on
+            // the same tick the hero steps onto the portal should still be the
+            // level that was left -- and [`Sim::descend`] drops the queue anyway,
+            // so ordering it the other way round would only lose the leg.
+            self.follow_route();
 
             // **And out of the loop entirely if the run just moved on.** Not
             // "carry on in the new world": the flash counters, the swing table
@@ -1128,6 +1329,11 @@ impl Sim {
         // killed it. `Hold` hands it back to its own judgement, and that is also
         // what the page's order panel then honestly reads.
         self.world.set_order(Faction::Heroes, Order::Hold);
+        // And the dragged path with it, on the identical argument: the queue is
+        // the faction's too, so it outlives the body it was drawn for, and the
+        // newcomer would set off walking the rest of a path that ended where the
+        // last one was killed.
+        self.clear_route();
         // This character has not thought yet, and the page flashes a ring every
         // time the number below changes. Left as it was, the newcomer would
         // arrive taking credit for the dead one's last decision.
@@ -1303,6 +1509,60 @@ impl Sim {
         self.world.arena() * Fx::HALF
     }
 
+    /// Refreshes what the player can see of the floor plan, if the hero has
+    /// crossed a tile since the last time.
+    ///
+    /// Called from [`publish`] rather than from [`Sim::advance`], because it
+    /// depends on where the hero *is* and not on how many ticks were run: an
+    /// export that moves the hero without stepping (there are none today, and
+    /// [`swap_in_hero`] is one tomorrow) must still leave the fog describing the
+    /// world the frame does.
+    ///
+    /// Costs nothing on the common frame: the hero is usually in the tile it was
+    /// in last frame, and the whole function is one comparison.
+    ///
+    /// **Read-only against [`World`].** Nothing computed here is fed back in and
+    /// nothing here is hashed, which is the same standing this crate's `flashes`
+    /// have and the reason a level's fog cannot move a golden hash.
+    fn refresh_vis(&mut self) {
+        let Some(hero) = self.hero() else { return };
+        let Some(view) = self.world.view(hero) else {
+            return;
+        };
+        let (tx, ty) = sim::Dungeon::tile_of(view.position);
+        let key = (tx, ty, self.map_revision);
+        if self.vis_at == Some(key) {
+            return;
+        }
+        self.vis_at = Some(key);
+
+        VIS.with(|vis| {
+            let mut vis = vis.borrow_mut();
+            self.world
+                .dungeon()
+                .visible_tiles(view.position, view.stats.sight_range(), &mut vis[..]);
+            // Fold this frame's disc into the floor's memory, then publish the
+            // two together as one byte a tile: `2` beats `1` beats `0`.
+            //
+            // `seen` is indexed through `get_mut` rather than with `[cell]`. It
+            // is sized to the same ceiling this buffer is and cannot be short --
+            // but the cost of being wrong about that is a panic inside `publish`,
+            // and a trapped instance is poisoned for the life of the page.
+            for (cell, slot) in vis.iter_mut().enumerate() {
+                let Some(seen) = self.seen.get_mut(cell) else {
+                    break;
+                };
+                if *slot == 1 {
+                    *seen = 1;
+                    *slot = 2;
+                } else if *seen == 1 {
+                    *slot = 1;
+                }
+            }
+        });
+        self.vis_revision = self.vis_revision.wrapping_add(1);
+    }
+
     /// Fills `frame` and returns how much of it is live.
     fn write_frame(&self, frame: &mut [f32; FRAME_MAX]) -> usize {
         // The player's order is a hero order; there is nobody else to command.
@@ -1325,6 +1585,10 @@ impl Sim {
         frame[12] = self.portal_state() as f32;
         frame[13] = self.depth as f32;
 
+        // Hoisted out of the row loop: the hero's position and sight are the
+        // same for every row, and `Dungeon::sees` is a DDA.
+        let eye = self.hero().and_then(|h| self.world.view(h));
+
         let mut count = 0;
         for &id in &self.units {
             if count == MAX_UNITS {
@@ -1336,10 +1600,22 @@ impl Sim {
                 Some(view) => view,
                 None => continue,
             };
+            // Whether the *player* can see this body. The hero's own row is
+            // unconditionally `1`: `sees(p, p)` is true anyway, but stating it
+            // means a reader does not have to check.
+            let visible = match &eye {
+                None => true,
+                Some(eye) => {
+                    view.id == eye.id
+                        || (view.position.distance(eye.position) <= eye.stats.sight_range()
+                            && self.world.dungeon().sees(eye.position, view.position))
+                }
+            };
             write_unit(
                 &mut frame[HEADER_LEN + count * UNIT_STRIDE..],
                 &view,
                 self.flash_of(id),
+                visible,
             );
             count += 1;
         }
@@ -1423,7 +1699,7 @@ fn push_event(events: &mut Vec<FrameEvent>, event: FrameEvent) {
     }
 }
 
-fn write_unit(row: &mut [f32], view: &UnitView, flash: Flash) {
+fn write_unit(row: &mut [f32], view: &UnitView, flash: Flash, visible: bool) {
     row[0] = view.position.x.to_f32();
     row[1] = view.position.y.to_f32();
     // The binary angle, not radians: the client multiplies by 2pi/65536 and
@@ -1478,6 +1754,19 @@ fn write_unit(row: &mut [f32], view: &UnitView, flash: Flash) {
     // last mirrored sim formula in `main.js` -- and the one with the shortest
     // remaining life, because the hero's perception is a live dial now.
     row[27] = view.stats.sight_range().to_f32();
+
+    // Whether the player can see this body: `1` yes, `0` no.
+    //
+    // **Hero-centric, and that is the point** -- it drives what the *player*
+    // sees, not what each body perceives for itself. A monster's own contact
+    // list is a different question with a different answer, and it never
+    // crosses this boundary.
+    //
+    // With no hero standing there is no point of view, so everything reports
+    // visible: a fog of war with nobody to be fogged from is just a blank
+    // screen. Through `u8` because `f32::from(bool)` does not exist, and the
+    // house precedent for the conversion is `write_map`.
+    row[28] = f32::from(u8::from(visible));
 }
 
 /// An action code, or [`SLOT_EMPTY`] for a slot nothing is in.
@@ -1589,9 +1878,21 @@ const fn intent_code(intent: Intent) -> u32 {
 /// something, so [`frame_ptr`] and [`frame_len`] are pure reads -- they cannot
 /// allocate, so they cannot grow linear memory, so they cannot detach the view
 /// the client is about to read through.
+///
+/// **A mutable borrow, for [`Sim::refresh_vis`]'s sake**, where writing the frame
+/// alone needed only a shared one. Nothing reentrant follows from that: no
+/// export holds a borrow of `SIM` across its call to this, `refresh_vis` borrows
+/// `VIS` and `write_frame` borrows `FRAME`, and neither of them reaches back for
+/// `SIM`.
 fn publish() {
-    let len = SIM.with(|sim| match sim.borrow().as_ref() {
-        Some(sim) => FRAME.with(|frame| sim.write_frame(&mut frame.borrow_mut())),
+    let len = SIM.with(|sim| match sim.borrow_mut().as_mut() {
+        Some(sim) => {
+            // Before the frame and not after: the row's `visible` column and the
+            // tile buffer's fog are the same question asked twice, and a frame
+            // written first would answer it against the previous hero tile.
+            sim.refresh_vis();
+            FRAME.with(|frame| sim.write_frame(&mut frame.borrow_mut()))
+        }
         None => HEADER_LEN,
     });
     FRAME_LEN.with(|n| n.set(len as u32));
@@ -1620,6 +1921,13 @@ pub extern "C" fn init(seed: u32) {
         write_map(&fresh.world);
         *sim.borrow_mut() = Some(fresh);
     });
+    // A fresh `Sim` supplies an empty `seen`, a `vis_at` of `None` and a
+    // `vis_revision` of zero by construction, so unlike `Sim::descend` there is
+    // nothing to reset here -- but `VIS` is a `thread_local!` and survives this,
+    // holding the last level of the last `init` on this thread. It needs no
+    // explicit wipe either, and that is worth saying because it is not obvious:
+    // `Dungeon::visible_tiles` clears the buffer it is handed, so the
+    // `refresh_vis` inside the `publish` below overwrites it wholesale.
     publish();
 }
 
@@ -1639,6 +1947,10 @@ pub extern "C" fn init(seed: u32) {
 pub extern "C" fn set_goto(x_milli: i32, y_milli: i32) {
     let dest = Vec2::new(Fx::from_ratio(x_milli, 1000), Fx::from_ratio(y_milli, 1000));
     with_sim((), |sim| {
+        // A plain click cancels a dragged path. Deliberately not expressed as
+        // "a one-point route": the page distinguishes a tap from a drag, and
+        // the module should not have to guess which one it just received.
+        sim.clear_route();
         sim.world.set_order(Faction::Heroes, Order::Goto(dest));
     });
     publish();
@@ -1656,9 +1968,79 @@ pub extern "C" fn set_goto(x_milli: i32, y_milli: i32) {
 #[no_mangle]
 pub extern "C" fn clear_order() {
     with_sim((), |sim| {
+        // Free will means no order *and* no path. A queue that survived this
+        // would re-issue a `Goto` on the next leg test and quietly take the feet
+        // back off the character this button just handed them to.
+        sim.clear_route();
         sim.world.set_order(Faction::Heroes, Order::Hold);
     });
     publish();
+}
+
+// ------------------------------------------------------------------ the route
+//
+// A queue of destinations over the one standing order the sim carries, and it
+// lives on this side of the wall for the same reason the portal rule does:
+// `Order` is the player's whole input channel, and a route is a convenience over
+// it rather than a second channel.
+//
+// **The leg test runs per tick, not per frame.** [`Sim::advance`] can be handed
+// eight ticks of catch-up in one animation frame, so a page-side arrival test
+// would overshoot a waypoint by that much, visibly, on every stutter. That, and
+// not tidiness, is why the queue is not simply JavaScript state calling
+// [`set_goto`] as each leg lands.
+//
+// Three scalar exports rather than a shared input buffer, in the style of
+// [`set_goto`]: a drag sends at most [`ROUTE_MAX`] calls on release, and a second
+// buffer would be a second detachable view for no gain.
+
+/// Drops the queued path. Leaves the standing order exactly as it is -- this
+/// is "forget the rest of the walk", not "stop".
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn route_clear() {
+    with_sim((), |sim| sim.clear_route());
+    publish();
+}
+
+/// Appends a waypoint to the queued path and answers how many legs are now
+/// held, or `0` if there is no world.
+///
+/// The first push also becomes the standing order, so a route starts walking
+/// the moment its first point lands rather than on some separate commit call.
+///
+/// Past [`ROUTE_MAX`] the waypoint is dropped and the count answered unchanged.
+/// Refusing rather than rolling the oldest leg off the front: the front of the
+/// queue is the leg being walked *now*, and a drag that ran long is not a
+/// request to teleport the destination.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn route_push(x_milli: i32, y_milli: i32) -> u32 {
+    let point = Vec2::new(Fx::from_ratio(x_milli, 1000), Fx::from_ratio(y_milli, 1000));
+    let held = with_sim(0, |sim| {
+        if sim.route.len() >= ROUTE_MAX {
+            return sim.route.len() as u32;
+        }
+        sim.route.push(point);
+        if sim.route.len() == 1 {
+            sim.begin_leg();
+        }
+        sim.route.len() as u32
+    });
+    publish();
+    held
+}
+
+/// Legs still to walk, including the one currently ordered. `0` once the path
+/// is finished or was never set.
+///
+/// An export rather than a header slot, matching [`map_revision`], which the page
+/// already reads once a frame in `loop`. It moves inside [`Sim::advance`], so a
+/// page that read it before stepping would be a frame behind.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn route_len() -> u32 {
+    with_sim(0, |sim| sim.route.len() as u32)
 }
 
 /// Walks one monster into the running room. Answers how many monsters are now
@@ -2114,6 +2496,38 @@ pub extern "C" fn map_revision() -> u32 {
 #[no_mangle]
 pub extern "C" fn map_tile_size_milli() -> u32 {
     TILE_MILLI
+}
+
+// --------------------------------------------------------- what has been seen
+//
+// The fog of war, on a third buffer beside the tiles and read on the same terms:
+// when [`vis_revision`] moves and not otherwise. Presentation throughout --
+// derived from the world, never fed back into it, and absent from `state_hash`,
+// which is why nothing in this section can move a golden hash.
+
+/// Address of the visibility buffer. One byte a tile, indexed exactly as the
+/// tile buffer is: `0` never seen, `1` seen earlier on this floor, `2` in
+/// sight now.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn vis_ptr() -> u32 {
+    VIS.with(|vis| vis.borrow().as_ptr() as u32)
+}
+
+/// How much of it is live. Always equal to [`map_len`]; separate so the page can
+/// assert that rather than assume it.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn vis_len() -> u32 {
+    map_len()
+}
+
+/// Bumped whenever the contents change -- which is when the hero crosses a
+/// tile, and on a new level. The page re-bakes its fog paths exactly then.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn vis_revision() -> u32 {
+    with_sim(0, |sim| sim.vis_revision)
 }
 
 /// Forces the next level and answers the new depth.
@@ -2695,6 +3109,11 @@ pub fn selftest_hash() -> u64 {
 mod tests {
     use super::*;
 
+    /// The tile vocabulary, which nothing above the test module needs: the crate
+    /// reads a floor plan and never writes one. `init_sealed` is the exception,
+    /// and it is the only reason these three names are in scope at all.
+    use sim::{Dungeon, OPEN, WALL};
+
     /// What `cargo run --release -p lab -- hash` prints today. Recorded rather
     /// than computed, so this test fails if the sim's behaviour moves at all --
     /// which is the point of having it here as well as in `sim`.
@@ -2713,24 +3132,84 @@ mod tests {
     /// explicitly -- and that is the pair worth reading together, because a
     /// change that moved the lab's number too would have been a change to the
     /// simulation rather than to who is driving it.
-    const ROOM_HASH: u64 = 0xc8d2_1c4b_13ae_849b;
+    ///
+    /// **This one then moved a second time, alone, when a click became a
+    /// command** -- and it is the only one of the four that could have. It is
+    /// the only script here that calls [`set_goto`], so it is the only one that
+    /// reaches `ordered_feet`; the other three never set a destination, and a
+    /// hero with no `Order::Goto` takes the same footsteps it always did. The
+    /// plan for that change predicted no browser hash would move, having argued
+    /// the gate from the *lab* scenarios, which issue `Advance` and never a
+    /// `Goto`. That argument was sound for `LAB_HASH` and did not transfer here.
+    /// Read the pair the same way as above: this number moving and `LAB_HASH`
+    /// standing still is the shape of a change to who is driving.
+    const ROOM_HASH: u64 = 0xf67a_83db_5b62_88e5;
 
     /// What `init(1); spawn_monster(3, SLOT_EMPTY, SLOT_EMPTY); step(600)` leaves behind -- a whole
     /// skirmish, start to finish, driven the way the page drives it. Recorded
     /// from a native run, never computed here, and asserted against `web.wasm`
     /// under Node by `tools/wasm_check.js`.
-    const BATTLE_HASH: u64 = 0xd755_b331_9d26_73bb;
+    const BATTLE_HASH: u64 = 0x8fac_6bdd_30ef_bcac;
 
     /// What `init(1); spawn_monster(2, SLOT_EMPTY, SLOT_EMPTY) x3; step(1800); swap_in_hero(1, SLOT_EMPTY, SLOT_EMPTY);
     /// step(400)` leaves behind -- a fight, a death, a replacement, and the
     /// fight it walks into. Recorded from a native run and asserted against
     /// `web.wasm` under Node by `tools/wasm_check.js`.
-    const SWAP_HASH: u64 = 0xbfbc_6d0a_e6cd_b18d;
+    const SWAP_HASH: u64 = 0xf963_cdf8_faf3_331a;
 
     // `init(1); swap_in_hero(FIGHTER, Bow, Sword); spawn_monster(BRUTE); step(1200)`:
     // the only one of these that ever puts an arrow in the air, and therefore
     // the only one that pins the projectile arithmetic across targets.
-    const BOW_HASH: u64 = 0xa559_ebfc_851e_b35c;
+    const BOW_HASH: u64 = 0xd67a_d1e4_eb4a_d18d;
+
+    /// Prints the four browser goldens in hex, for re-pinning.
+    ///
+    /// `#[ignore]` because it asserts nothing; it exists so that a deliberate
+    /// behaviour change is one command rather than four assertion failures read
+    /// one at a time, each of which hides the next.
+    ///
+    ///     cargo test -p web -- --ignored --nocapture print_the_golden_hashes
+    ///
+    /// The four scripts are written out again rather than shared with the four
+    /// `#[test]`s that assert them. That is the point: a printer that called into
+    /// the assertions would print whatever the assertions ran, so a script that
+    /// had quietly drifted would be re-pinned to its drift. These are the scripts
+    /// as documented on the constants above, and if one of them stops matching
+    /// its `#[test]` the number it prints will not fix that test -- which is the
+    /// failure this shape is for.
+    ///
+    /// `LAB_HASH` is deliberately absent. It is not re-pinnable: it names its own
+    /// scenario and policy, so a change that moves it is a change to the
+    /// simulation and the answer is to find the change, not to write down the new
+    /// number.
+    #[test]
+    #[ignore]
+    fn print_the_golden_hashes() {
+        init(1);
+        set_goto(20_000, 12_000);
+        step(600);
+        println!("ROOM_HASH:   {:#018x}", hash());
+
+        init(1);
+        spawn_monster(SKITTERER, SLOT_EMPTY, SLOT_EMPTY);
+        step(600);
+        println!("BATTLE_HASH: {:#018x}", hash());
+
+        init(1);
+        for _ in 0..3 {
+            spawn_monster(BRUTE, SLOT_EMPTY, SLOT_EMPTY);
+        }
+        step(1_800);
+        swap_in_hero(ROGUE, SLOT_EMPTY, SLOT_EMPTY);
+        step(400);
+        println!("SWAP_HASH:   {:#018x}", hash());
+
+        init(1);
+        set_hero_loadout(0, sim::ActionKind::Bow.code());
+        spawn_monster(BRUTE, SLOT_EMPTY, SLOT_EMPTY);
+        step(1_200);
+        println!("BOW_HASH:    {:#018x}", hash());
+    }
 
     fn selftest() -> u64 {
         (u64::from(selftest_hash_hi()) << 32) | u64::from(selftest_hash_lo())
@@ -2812,6 +3291,23 @@ mod tests {
     fn map_bytes() -> Vec<u8> {
         let len = map_len() as usize;
         MAP.with(|map| map.borrow()[..len].to_vec())
+    }
+
+    /// The live part of the visibility buffer, read through [`vis_len`] rather
+    /// than through [`map_len`] -- which are the same number, and asserting that
+    /// is one of the things the fog tests are for.
+    fn vis_bytes() -> Vec<u8> {
+        let len = vis_len() as usize;
+        VIS.with(|vis| vis.borrow()[..len].to_vec())
+    }
+
+    /// The visibility byte of the tile a world point falls in. Named for what it
+    /// reads rather than after `Sim::vis_at`, which is the cache key and a
+    /// different thing entirely.
+    fn fog_at(x: f32, y: f32) -> u8 {
+        let cols = map_cols() as usize;
+        let cell = y as usize * cols + x as usize;
+        vis_bytes().get(cell).copied().unwrap_or(0)
     }
 
     /// The level, as the frame reports it.
@@ -2944,6 +3440,24 @@ mod tests {
             // None of these have a world to work on; none of them may complain.
             set_goto(1_000, 1_000);
             clear_order();
+            // The route is a queue over that same order channel, so it has the
+            // same obligation: a page that drags before it calls `init` gets
+            // three answers, not a poisoned instance.
+            route_clear();
+            assert_eq!(
+                route_push(1_000, 1_000),
+                0,
+                "queued a leg into a world that is not there"
+            );
+            assert_eq!(route_len(), 0, "a module with no world is holding a path");
+            // The fog. Its buffer is a `thread_local!` static like the tiles', so
+            // its address is answerable before there is anything to be fogged;
+            // the two lengths are not, and both have to say zero rather than
+            // hand the page a slice over a level that does not exist.
+            assert_ne!(vis_ptr(), 0);
+            assert_eq!(vis_len(), 0, "a module with no world reported a fogged level");
+            assert_eq!(vis_len(), map_len(), "vis_len and map_len disagree at rest");
+            assert_eq!(vis_revision(), 0);
             step(10);
             assert_eq!(
                 spawn_monster(3, SLOT_EMPTY, SLOT_EMPTY),
@@ -3128,6 +3642,11 @@ mod tests {
         assert_eq!(body_stat(0, 7), 9_600, "the Fighter's sight, in thousandths");
         assert_eq!(body_stat(2, 7), 7_800, "the Brute's: 6.0 + 0.6 * 3");
         assert_eq!(body_stat(0, 99), 0, "an unknown selector named something");
+
+        // The last column, and the newest: whether the *player* can see this
+        // body. Alone in a room, the one body there is the point of view, so the
+        // only answer this can have is `1`.
+        assert_eq!(unit[28], 1.0, "visible: the hero cannot see itself");
 
         // And the handshake that makes relaying this out safe at all. All five
         // numbers, because the page compares all five and stops on any one of
@@ -3497,6 +4016,467 @@ mod tests {
         );
     }
 
+    // --------------------------------------------------------------- the route
+
+    /// `count` points a body of this radius can stand on, 1.5 units apart along
+    /// one bearing off the hero, for a route to walk in order.
+    ///
+    /// Taken off the floor plan rather than written down, for the reason
+    /// [`walkable_near_hero`] gives. The 1.5 is not arbitrary: it is wider than
+    /// [`ROUTE_ARRIVE`] plus a Fighter's radius, so no two legs are satisfied at
+    /// once -- legs packed inside the arrival deadband would drain the queue on
+    /// the first tick, and a test that could not tell "walked the path" from
+    /// "dropped the path" would pass either way.
+    ///
+    /// Empty when no bearing offers `count` of them, which every caller asserts
+    /// on rather than quietly testing nothing.
+    fn walkable_legs(count: usize, radius: f32) -> Vec<(f32, f32)> {
+        let (hx, hy) = hero();
+        for step in 0..32 {
+            let angle = step as f32 * std::f32::consts::TAU / 32.0;
+            let legs: Vec<(f32, f32)> = (1..=count)
+                .map(|n| {
+                    let reach = 1.5 * n as f32;
+                    (hx + reach * angle.cos(), hy + reach * angle.sin())
+                })
+                .collect();
+            if legs.iter().all(|&(x, y)| walkable(x, y, radius)) {
+                return legs;
+            }
+        }
+        Vec::new()
+    }
+
+    /// Which of `legs` the world is standing ordered to, if any.
+    ///
+    /// Read off the frame rather than out of `Sim::route`, because what the page
+    /// draws a destination marker from is the frame -- and the order kind is
+    /// checked first so that `Order::Hold`'s zero point cannot be mistaken for a
+    /// waypoint somebody pushed.
+    fn ordered_leg(legs: &[(f32, f32)]) -> Option<usize> {
+        let f = frame();
+        if f[2] != 4.0 {
+            return None;
+        }
+        legs.iter()
+            .position(|&(x, y)| (f[3] - x).abs() < 0.01 && (f[4] - y).abs() < 0.01)
+    }
+
+    /// The route's allocation, in waypoints.
+    ///
+    /// Reaching into the private field the way [`roster_len`] does, and for the
+    /// same kind of reason: whether the buffer ever reallocated is invisible from
+    /// everything the boundary reports.
+    fn route_capacity() -> usize {
+        SIM.with(|sim| sim.borrow().as_ref().map_or(0, |sim| sim.route.capacity()))
+    }
+
+    /// The hand-carved level's extent, the tile sealed off inside it, and a point
+    /// in the room the hero can actually reach. Named so [`init_sealed`] and the
+    /// test that drives it cannot disagree about which cell is which.
+    const SEALED_COLS: u16 = 20;
+    const SEALED_ROWS: u16 = 12;
+    const SEALED_TILE: (usize, usize) = (16, 6);
+    const SEALED_ROOM_POINT: (f32, f32) = (7.5, 7.5);
+
+    /// Opens the page's sim on a floor plan this module carved itself.
+    ///
+    /// The only place here that writes tiles, and it is shared rather than
+    /// copied. Two fixtures want a plan the generator cannot be asked for:
+    /// [`init_sealed`] wants a region with no way into it, which the generator
+    /// refuses because it checks connectivity, and [`init_walled`] wants exactly
+    /// one tile of rock between two named points, which the generator has no way
+    /// to be told. A third hand-rolled `Scenario` literal beside those two would
+    /// be three places for "how this module builds a level" to drift apart.
+    ///
+    /// `portal: None`, deliberately, for every caller. A level with nothing
+    /// hostile left in it reads as an open way out, and a hero that happened to
+    /// be standing in one would end the run in the middle of the test.
+    fn init_carved(cols: u16, rows: u16, tiles: Vec<u8>, units: Vec<UnitSpec>) {
+        let scenario = Scenario {
+            name: "carved".to_string(),
+            dungeon: Dungeon::from_tiles(cols, rows, tiles),
+            units,
+            portal: None,
+            max_ticks: 60 * 60,
+        };
+        SIM.with(|slot| {
+            let sim = Sim::on(&scenario, 1);
+            write_map(&sim.world);
+            *slot.borrow_mut() = Some(sim);
+        });
+        publish();
+    }
+
+    /// A body of this archetype, on its own default sheet, standing at a point
+    /// given in tenths of a world unit.
+    ///
+    /// Tenths rather than a float pair, because a spawn point is simulation
+    /// state: `Fx::from_ratio` is exact for a tenth and a fixture that wrote
+    /// `4.5` would be the one float in this module's inputs.
+    fn spec_at(kind: Body, faction: Faction, x_tenths: i32, y_tenths: i32) -> UnitSpec {
+        UnitSpec {
+            kind,
+            faction,
+            stats: kind.base_stats(),
+            loadout: kind.default_loadout(),
+            spawn: Vec2::new(Fx::from_ratio(x_tenths, 10), Fx::from_ratio(y_tenths, 10)),
+        }
+    }
+
+    /// Opens the page's sim on a hand-carved level: one room with the hero
+    /// standing in it, and one open tile sealed off behind masonry with no way
+    /// into it at all.
+    ///
+    /// A sealed region is precisely what [`ROUTE_STALL`] exists for, so the test
+    /// that proves the stall guard has to build one itself.
+    fn init_sealed() {
+        let cols = SEALED_COLS as usize;
+        let mut tiles = vec![WALL; cols * SEALED_ROWS as usize];
+        for ty in 2..=8 {
+            for tx in 2..=8 {
+                tiles[ty * cols + tx] = OPEN;
+            }
+        }
+        // One open tile with four solid neighbours: reachable by nothing, and
+        // still wide enough for a Fighter to stand in, so `nearest_walkable`
+        // answers the cell itself rather than pulling the waypoint back out into
+        // the room and making the leg satisfiable after all.
+        tiles[SEALED_TILE.1 * cols + SEALED_TILE.0] = OPEN;
+
+        init_carved(
+            SEALED_COLS,
+            SEALED_ROWS,
+            tiles,
+            vec![spec_at(Body::Fighter, Faction::Heroes, 45, 45)],
+        );
+    }
+
+    /// The walled level's extent and the three bodies standing in it, so
+    /// [`init_walled`] and the test that reads it cannot disagree about which
+    /// point is which. All three in whole tenths, and the two monsters exactly
+    /// [`WALLED_RANGE`] tenths from the hero.
+    const WALLED_COLS: u16 = 16;
+    const WALLED_ROWS: u16 = 12;
+    const WALLED_HERO: (i32, i32) = (45, 55);
+    /// Behind one tile of rock: due south, across the solid row at `ty` 7.
+    const WALLED_BLIND: (i32, i32) = (45, 95);
+    /// Down an open corridor: due east, nothing between.
+    const WALLED_OPEN: (i32, i32) = (85, 55);
+    const WALLED_RANGE: f32 = 4.0;
+
+    /// Opens the page's sim on the reported bug as a fixture: a hero, a monster
+    /// behind exactly one tile of rock, and a second monster the same distance
+    /// away down an open corridor.
+    ///
+    /// **The distances are equal on purpose.** A test where the unseen monster is
+    /// merely further off would pass against a `visible` column that had never
+    /// heard of masonry, which is the bug this whole change set exists to fix.
+    ///
+    /// The southern chamber has no way into it, so nothing walks out of position
+    /// -- but the test reads the frame the fixture publishes and does not step at
+    /// all, so the monster down the corridor cannot either.
+    fn init_walled() {
+        let cols = WALLED_COLS as usize;
+        let mut tiles = vec![WALL; cols * WALLED_ROWS as usize];
+        // The hero's room, `ty` 2..=6.
+        for ty in 2..=6 {
+            for tx in 2..=6 {
+                tiles[ty * cols + tx] = OPEN;
+            }
+        }
+        // The corridor east out of it, three tiles tall so a body of any radius
+        // in the roster has rock to spare either side -- see `CORRIDOR` in
+        // `Dungeon`, which is the same argument.
+        for ty in 4..=6 {
+            for tx in 7..=12 {
+                tiles[ty * cols + tx] = OPEN;
+            }
+        }
+        // The southern chamber, `ty` 8..=10. Row 7 is left solid, and it is the
+        // one tile of rock the whole fixture is about.
+        for ty in 8..=10 {
+            for tx in 2..=6 {
+                tiles[ty * cols + tx] = OPEN;
+            }
+        }
+
+        init_carved(
+            WALLED_COLS,
+            WALLED_ROWS,
+            tiles,
+            vec![
+                spec_at(Body::Fighter, Faction::Heroes, WALLED_HERO.0, WALLED_HERO.1),
+                spec_at(
+                    Body::Skitterer,
+                    Faction::Monsters,
+                    WALLED_BLIND.0,
+                    WALLED_BLIND.1,
+                ),
+                spec_at(
+                    Body::Skitterer,
+                    Faction::Monsters,
+                    WALLED_OPEN.0,
+                    WALLED_OPEN.1,
+                ),
+            ],
+        );
+    }
+
+    /// The row standing at a `(tenths, tenths)` point from the constants above.
+    fn row_at(point: (i32, i32)) -> Vec<f32> {
+        let (x, y) = (point.0 as f32 / 10.0, point.1 as f32 / 10.0);
+        rows()
+            .into_iter()
+            .find(|row| (row[0] - x).abs() < 0.01 && (row[1] - y).abs() < 0.01)
+            .unwrap_or_else(|| panic!("nobody is standing at ({x}, {y})"))
+    }
+
+    #[test]
+    fn a_route_walks_its_legs_in_order() {
+        init_quiet(1);
+        let legs = walkable_legs(3, 0.45);
+        assert_eq!(legs.len(), 3, "the fixture found no three-leg path off the hero");
+
+        for (i, &(x, y)) in legs.iter().enumerate() {
+            assert_eq!(
+                route_push((x * 1000.0) as i32, (y * 1000.0) as i32),
+                i as u32 + 1,
+                "push {i} answered a count it was not holding"
+            );
+        }
+        assert_eq!(route_len(), 3, "three waypoints did not make three legs");
+        // No commit call. The first push is already the standing order, which is
+        // what makes a drag start walking under the finger rather than on release.
+        assert_eq!(
+            ordered_leg(&legs),
+            Some(0),
+            "the first push did not become the order"
+        );
+
+        // Every distinct leg the world was ordered to, in the order it was
+        // ordered to it. **One tick at a time, because that is the resolution the
+        // leg test runs at**: stepping in batches could hide a leg that was
+        // ordered and popped inside one batch, which is the very overshoot this
+        // queue lives on this side of the boundary to prevent.
+        let mut walked = Vec::new();
+        if let Some(leg) = ordered_leg(&legs) {
+            walked.push(leg);
+        }
+        for _ in 0..1_200 {
+            step(1);
+            if let Some(leg) = ordered_leg(&legs) {
+                if walked.last() != Some(&leg) {
+                    walked.push(leg);
+                }
+            }
+        }
+
+        assert_eq!(walked, vec![0, 1, 2], "the legs were not walked as pushed");
+        assert_eq!(
+            route_len(),
+            1,
+            "the last leg was popped rather than left standing"
+        );
+        let (x, y) = hero();
+        assert!(
+            distance_from_hero(legs[2].0, legs[2].1) <= 0.3,
+            "stopped at ({x}, {y}), not on the last waypoint {:?}",
+            legs[2]
+        );
+    }
+
+    #[test]
+    fn a_click_cancels_a_route() {
+        // The most important of the four clear sites, and the reason `set_goto`
+        // is not implemented in terms of `route_push`: a tap and a drag are
+        // different gestures, the page already knows which one it saw, and the
+        // module should not have to guess.
+        init_quiet(1);
+        let legs = walkable_legs(3, 0.45);
+        assert_eq!(legs.len(), 3, "the fixture found no three-leg path off the hero");
+        for &(x, y) in &legs {
+            route_push((x * 1000.0) as i32, (y * 1000.0) as i32);
+        }
+        assert_eq!(route_len(), 3, "the fixture never got a path in place");
+
+        let (tx, ty) = walkable_near_hero(4.0, 0.45);
+        set_goto((tx * 1000.0) as i32, (ty * 1000.0) as i32);
+        assert_eq!(
+            route_len(),
+            0,
+            "the dragged path outlived the click that cancelled it"
+        );
+        let f = frame();
+        assert_eq!(f[2], 4.0, "order_kind: a click is a Goto");
+        assert!(
+            (f[3] - tx).abs() < 0.01 && (f[4] - ty).abs() < 0.01,
+            "the click did not become the standing order: ({}, {})",
+            f[3],
+            f[4]
+        );
+
+        // And nothing puts it back. A queue that had merely been *paused* would
+        // re-order its next leg on the following tick and take the feet off the
+        // click a moment after the player watched them arrive.
+        step(120);
+        assert_eq!(route_len(), 0, "a cancelled route came back");
+        let f = frame();
+        assert!(
+            (f[3] - tx).abs() < 0.01 && (f[4] - ty).abs() < 0.01,
+            "a leg was re-ordered over the click: ({}, {})",
+            f[3],
+            f[4]
+        );
+    }
+
+    #[test]
+    fn a_route_does_not_survive_a_descent() {
+        // Two ends of one rule: a path must not outlive the floor it was drawn
+        // on, nor the character that was walking it.
+        init_quiet(1);
+        let legs = walkable_legs(3, 0.45);
+        assert_eq!(legs.len(), 3, "the fixture found no three-leg path off the hero");
+        for &(x, y) in &legs {
+            route_push((x * 1000.0) as i32, (y * 1000.0) as i32);
+        }
+        assert_eq!(descend(), 1, "never descended");
+        assert_eq!(
+            route_len(),
+            0,
+            "the next floor inherited waypoints describing a floor plan that is gone"
+        );
+
+        // The swap, and the reason it needs a line of its own: the queue belongs
+        // to the *faction*, exactly as the order does, so it outlives the body it
+        // was drawn for instead of going with the corpse.
+        init_quiet(1);
+        let legs = walkable_legs(3, 0.45);
+        assert_eq!(legs.len(), 3, "the fixture found no three-leg path off the hero");
+        for &(x, y) in &legs {
+            route_push((x * 1000.0) as i32, (y * 1000.0) as i32);
+        }
+        fall_to_brutes();
+        assert!(
+            route_len() >= 1,
+            "nothing was left for the swap to have to drop"
+        );
+
+        assert_eq!(
+            swap_in_hero(FIGHTER, SLOT_EMPTY, SLOT_EMPTY),
+            1,
+            "nobody arrived"
+        );
+        assert_eq!(
+            route_len(),
+            0,
+            "the newcomer inherited the path that ended where the last one died"
+        );
+        assert_eq!(
+            frame()[2],
+            0.0,
+            "order_kind: Hold, with no leg re-ordered over it"
+        );
+    }
+
+    #[test]
+    fn a_sealed_leg_is_abandoned_rather_than_hung_on() {
+        // The stall guard, which is the only thing between a waypoint the drag
+        // laid on unreachable ground and a route that never finishes. The *last*
+        // leg needs no guard -- the policy holds, which is what an unreachable
+        // order should do -- so the sealed waypoint is followed by a reachable
+        // one, which is the case that would otherwise hang forever.
+        init_sealed();
+        let sealed = (
+            SEALED_TILE.0 as i32 * 1000 + 500,
+            SEALED_TILE.1 as i32 * 1000 + 500,
+        );
+        assert_eq!(route_push(sealed.0, sealed.1), 1, "the sealed leg refused");
+        assert_eq!(
+            route_push(
+                (SEALED_ROOM_POINT.0 * 1000.0) as i32,
+                (SEALED_ROOM_POINT.1 * 1000.0) as i32
+            ),
+            2,
+            "the leg behind it refused"
+        );
+
+        // Nothing moves: there is no route into a sealed region, so the policy
+        // holds and the hero stands where it was placed. That is the *correct*
+        // behaviour for the order it is carrying, and it is exactly why nothing
+        // but a clock could move this queue on.
+        let (before_x, before_y) = hero();
+        step(ROUTE_STALL - 1);
+        assert!(
+            distance_from_hero(before_x, before_y) < ROUTE_PROGRESS.to_f32(),
+            "the hero found a way into a sealed cell: {:?}",
+            hero()
+        );
+        assert_eq!(
+            route_len(),
+            2,
+            "the sealed leg was abandoned before it had stalled"
+        );
+
+        step(1);
+        assert_eq!(route_len(), 1, "the sealed leg hung the queue");
+        let f = frame();
+        assert!(
+            (f[3] - SEALED_ROOM_POINT.0).abs() < 0.01
+                && (f[4] - SEALED_ROOM_POINT.1).abs() < 0.01,
+            "the leg behind it did not become the order: ({}, {})",
+            f[3],
+            f[4]
+        );
+
+        // And then the walk the sealed leg was holding up actually happens.
+        step(600);
+        assert!(
+            distance_from_hero(SEALED_ROOM_POINT.0, SEALED_ROOM_POINT.1) <= 0.3,
+            "never walked the leg the sealed one was blocking: {:?}",
+            hero()
+        );
+    }
+
+    #[test]
+    fn route_push_refuses_past_the_cap() {
+        // A drag is sampled by a page whose pointer events this module does not
+        // control, so "more waypoints than `ROUTE_MAX`" is an ordinary input
+        // rather than an abusive one. It answers the count it is holding either
+        // way: this is a `cdylib`, and a panic here poisons the instance for the
+        // life of the page.
+        init_quiet(1);
+        let (x, y) = walkable_near_hero(3.0, 0.45);
+        let (mx, my) = ((x * 1000.0) as i32, (y * 1000.0) as i32);
+        for i in 1..=ROUTE_MAX {
+            assert_eq!(route_push(mx, my), i as u32, "push {i} miscounted");
+        }
+        for i in 0..8 {
+            assert_eq!(
+                route_push(mx, my),
+                ROUTE_MAX as u32,
+                "refused push {i} did not answer the count it kept"
+            );
+        }
+        assert_eq!(route_len(), ROUTE_MAX as u32, "the cap did not hold");
+
+        // **And the buffer never reallocated.** A `Vec` that grew linear memory
+        // would detach every typed array the page is holding, which is the
+        // failure this whole crate's buffers are arranged around -- and it is the
+        // one consequence of a missing cap that no assertion above could see.
+        assert_eq!(
+            route_capacity(),
+            ROUTE_MAX,
+            "the route outgrew the one allocation it is allowed"
+        );
+
+        route_clear();
+        assert_eq!(route_len(), 0, "route_clear left a path behind");
+        // Not a stop button: the leg that was already ordered stays ordered, so
+        // the character finishes the step it was taking instead of freezing.
+        assert_eq!(frame()[2], 4.0, "route_clear withdrew the standing order too");
+    }
+
     // ------------------------------------------------------------- the descent
 
     #[test]
@@ -3603,6 +4583,185 @@ mod tests {
             );
         }
         assert!(rows > 0 && tiles.iter().any(|&t| t != 0), "nothing was carved");
+    }
+
+    // ----------------------------------------------------------------- the fog
+
+    #[test]
+    fn the_visibility_column_is_the_heros_eyes() {
+        init_walled();
+        let hero = hero_row().expect("no hero");
+        let blind = row_at(WALLED_BLIND);
+        let open = row_at(WALLED_OPEN);
+
+        // The fixture's whole claim, asserted rather than trusted: the two
+        // monsters are the same distance off, so the only thing that can
+        // separate their answers is the masonry between.
+        assert!(
+            (distance(&hero, &blind) - WALLED_RANGE).abs() < 0.01
+                && (distance(&hero, &open) - WALLED_RANGE).abs() < 0.01,
+            "the two monsters are not equidistant: {} and {}",
+            distance(&hero, &blind),
+            distance(&hero, &open)
+        );
+        // And both are well inside sight, so a range test on its own would answer
+        // `1` twice -- which is exactly the bug this column exists to fix.
+        assert!(
+            hero[27] > WALLED_RANGE,
+            "a Fighter's {} units of sight no longer reaches {WALLED_RANGE}",
+            hero[27]
+        );
+
+        assert_eq!(hero[28], 1.0, "the hero cannot see itself");
+        assert_eq!(open[28], 1.0, "a monster down an open corridor is invisible");
+        assert_eq!(blind[28], 0.0, "the player sees through one tile of rock");
+
+        // And with nobody to be fogged from, every row reports visible. A
+        // generated level for this half rather than the carved one: it needs
+        // monsters that can reach the character, which a fixture built out of
+        // sealed chambers deliberately does not have.
+        init_quiet(1);
+        assert!(kill_the_hero(), "six brutes could not kill one fighter");
+        let standing = rows();
+        assert!(!standing.is_empty(), "the killers all died too");
+        for row in standing {
+            assert_eq!(
+                row[28], 1.0,
+                "a body at ({}, {}) was fogged with no point of view to fog it from",
+                row[0], row[1]
+            );
+        }
+    }
+
+    #[test]
+    fn the_fog_remembers_a_room_after_leaving_it() {
+        init_quiet(1);
+        // Separate exports for the same number, so the page can assert this
+        // rather than assume it -- which is what this line is.
+        assert_eq!(vis_len(), map_len(), "the fog and the tiles disagree in length");
+        assert_eq!(vis_bytes().len(), map_bytes().len());
+
+        let (hx, hy) = hero();
+        assert_eq!(fog_at(hx, hy), 2, "the hero is standing in the dark");
+        let before = vis_bytes();
+        assert!(
+            before.contains(&0),
+            "a 48x32 level opened with nothing left hidden from 9.6 units of sight"
+        );
+        assert!(
+            !before.contains(&1),
+            "a level arrived already carrying somebody else's memory of it"
+        );
+        let lit: Vec<usize> = before
+            .iter()
+            .enumerate()
+            .filter(|&(_, &v)| v == 2)
+            .map(|(cell, _)| cell)
+            .collect();
+
+        // Then walk out of the starting room.
+        let (tx, ty) = walkable_near_hero(9.0, 0.45);
+        set_goto((tx * 1000.0) as i32, (ty * 1000.0) as i32);
+        step(600);
+        assert_eq!(depth(), 0, "the walk found the way out and changed floor");
+        assert!(
+            distance_from_hero(hx, hy) > 4.0,
+            "never went anywhere: {:?}",
+            hero()
+        );
+
+        let after = vis_bytes();
+        // **Nothing once seen ever goes back to unseen.** That is the whole of
+        // the remembered half of the fog, and it is the one assertion here that
+        // does not depend on the shape of one generated floor plan.
+        for &cell in &lit {
+            assert_ne!(after[cell], 0, "tile {cell} was seen and then forgotten");
+        }
+        assert!(
+            lit.iter().any(|&cell| after[cell] == 1),
+            "walked {} units and left none of the starting room behind as dim",
+            distance_from_hero(hx, hy)
+        );
+        assert!(after.contains(&2), "the hero went blind on the way");
+    }
+
+    #[test]
+    fn descending_forgets_the_floor() {
+        init_quiet(1);
+        // Walk first, so there is a floor's worth of memory to forget. Without
+        // this the assertion below would hold against a `descend` that cleared
+        // nothing at all, because a level nobody has explored has no dim tiles
+        // either.
+        let (hx, hy) = hero();
+        let (tx, ty) = walkable_near_hero(9.0, 0.45);
+        set_goto((tx * 1000.0) as i32, (ty * 1000.0) as i32);
+        step(600);
+        assert_eq!(depth(), 0, "the walk found the way out and changed floor");
+        assert!(
+            distance_from_hero(hx, hy) > 4.0,
+            "never went anywhere: {:?}",
+            hero()
+        );
+        let dim = vis_bytes().iter().filter(|&&v| v == 1).count();
+        assert!(dim > 0, "the hero left nowhere behind to be forgotten");
+
+        let revision = vis_revision();
+        assert_eq!(descend(), 1, "never descended");
+
+        let after = vis_bytes();
+        assert_eq!(
+            after.iter().filter(|&&v| v == 1).count(),
+            0,
+            "floor 2 arrived pre-explored, carrying {dim} tiles of floor 1's memory"
+        );
+        assert!(after.contains(&2), "floor 2 arrived blind");
+        assert_ne!(vis_revision(), revision, "a new floor kept the old fog revision");
+        assert_eq!(vis_len(), map_len(), "the new floor's two buffers disagree");
+    }
+
+    #[test]
+    fn the_visible_set_is_recomputed_only_when_the_hero_crosses_a_tile() {
+        // The cache key is the hero's *tile*, and it is exact rather than
+        // approximate: a tile-granular answer can only change on a tile boundary.
+        // What that buys is the whole cost argument -- some 450 raycasts a
+        // recompute, paid a few times a second at a run instead of once per
+        // `publish`, which is once per export call.
+        init_quiet(1);
+        assert_eq!(vis_len(), map_len());
+
+        // A hero that genuinely does not move: the feet are the player's and the
+        // player is pressing nothing. `clear_order` would not do -- with nothing
+        // in sight the policy drifts toward open ground, so this would be a race
+        // against the drift crossing a tile.
+        set_control(CONTROL_FEET);
+        set_input(0, 0, 0, 0, 0, 0);
+        let standing = hero();
+        let revision = vis_revision();
+        let bytes = vis_bytes();
+        step(120);
+        assert_eq!(hero(), standing, "the stationary fixture moved after all");
+        assert_eq!(
+            vis_revision(),
+            revision,
+            "two seconds of `step` rebuilt the fog under a hero that had not moved"
+        );
+        assert_eq!(vis_bytes(), bytes, "the fog changed without saying so");
+
+        // And a tile crossing is exactly when it does move.
+        set_control(0);
+        let (tx, ty) = walkable_near_hero(4.0, 0.45);
+        set_goto((tx * 1000.0) as i32, (ty * 1000.0) as i32);
+        step(240);
+        assert!(
+            distance_from_hero(standing.0, standing.1) > 1.0,
+            "never walked anywhere: {:?}",
+            hero()
+        );
+        assert_ne!(
+            vis_revision(),
+            revision,
+            "the hero changed tile and the fog did not notice"
+        );
     }
 
     #[test]

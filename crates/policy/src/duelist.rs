@@ -618,6 +618,32 @@ impl DuelistPolicy {
         }
     }
 
+    /// The movement a live [`Order::Goto`] asks for, or `None` when there is
+    /// nothing left to do about one.
+    ///
+    /// [`crate::UtilityPolicy`]'s own `ordered_feet` carries the whole argument
+    /// for why this exists, for why `None` means "the order has nothing to say",
+    /// and for why the reachable-box reconstruction that used to sit in the arm
+    /// below had to go. **What is deliberately not shared is the brake**: this
+    /// policy paces a destination off one stride's worth of travel and the other
+    /// one solves the stopping distance, they were never the same law, and
+    /// unifying them here would be a behaviour change smuggled in under a
+    /// refactor.
+    fn ordered_feet(&self, obs: &Observation) -> Option<Vec2> {
+        if !matches!(obs.order, Order::Goto(_)) {
+            return None;
+        }
+        let (to, distance) = crate::utility::nav_step(obs)?;
+        if distance <= obs.move_speed {
+            return None;
+        }
+        let stride = obs.move_speed * (obs.decision_period.max(1) as i32);
+        let brake = (distance / stride).min(Fx::ONE);
+        // Already a unit heading; see `UtilityPolicy::ordered_feet` for why
+        // normalising it twice is not free.
+        Some((to * brake).clamp_length(Fx::ONE))
+    }
+
     /// Nothing in sight: do as the player asked.
     fn march(&self, obs: &Observation, patrol: &mut crate::utility::Patrol) -> Command {
         // The route, when the level has one to offer. Shared with
@@ -635,23 +661,16 @@ impl DuelistPolicy {
         let heading = match obs.order {
             Order::Advance(dir) => dir.normalize(),
             Order::Regroup => Self::ally_centre(obs).normalize(),
-            // See `UtilityPolicy::march` for why the reachable-box
-            // reconstruction that used to sit here had to go: in a corridor it
-            // clamped every destination into a one-unit box around the
-            // character, and the arrival test was satisfied before it had
-            // moved.
             Order::Goto(_) => {
-                let Some((to, distance)) = crate::utility::nav_step(obs) else {
-                    return Command::HOLD;
+                // Arriving somewhere is not a variation on marching, and the
+                // steering below is actively wrong for it -- which is why this
+                // arm returns before reaching any of it. See `ordered_feet`,
+                // which is where the code that used to be here now lives, and
+                // `UtilityPolicy::march`'s arm for the derivation.
+                return match self.ordered_feet(obs) {
+                    Some(dir) => Command::moving(dir),
+                    None => Command::HOLD,
                 };
-                if distance <= obs.move_speed {
-                    return Command::HOLD;
-                }
-                let stride = obs.move_speed * (obs.decision_period.max(1) as i32);
-                let brake = (distance / stride).min(Fx::ONE);
-                // Already a unit heading; see `UtilityPolicy::march` for why
-                // normalising it twice is not free.
-                return Command::moving((to * brake).clamp_length(Fx::ONE));
             }
             Order::Hold | Order::Focus(_) => Vec2::ZERO,
         };
@@ -1263,7 +1282,9 @@ impl Policy for DuelistPolicy {
         memory.stance = mind_memory.stance;
         self.remember(obs.me, memory);
         Command {
-            move_dir: feet,
+            // The player's order outranks the mind's footwork; see
+            // `UtilityPolicy::decide` for the whole of that argument.
+            move_dir: self.ordered_feet(obs).unwrap_or(feet),
             intent,
             limb,
             slot: best,
@@ -1414,6 +1435,134 @@ mod tests {
         obs.action_length = spec.length;
         obs.action_arc = spec.arc;
         obs
+    }
+
+    /// The same situation under a live `Order::Goto`, routed along `offset`.
+    ///
+    /// The route has to be stated because the policy does not derive one: it
+    /// reads `nav_dir`/`nav_distance`, which the sim fills from the floor plan,
+    /// and an observation that leaves them blank is saying "there is no way
+    /// there". On open ground the sim's answer is exactly the straight line, so
+    /// that is what this states -- the same fixture `UtilityPolicy`'s `goto_*`
+    /// tests use, shaped like `holding` because it is the same kind of edit.
+    fn heading_for(obs: &Observation, offset: Vec2) -> Observation {
+        let mut obs = obs.clone();
+        obs.order = Order::Goto(obs.position + offset);
+        obs.nav_dir = offset.normalize();
+        obs.nav_distance = offset.length();
+        obs
+    }
+
+    /// **A click is a command, not a suggestion**, and these four are the whole
+    /// of the order channel. Before `ordered_feet` reached `decide`, every one of
+    /// them would have answered with the mind's footwork: `march` is the only
+    /// reader of `Order::Goto` and `decide` returns out of it the moment anything
+    /// is in sight, so in a dungeon the player had no order channel at all.
+    ///
+    /// All four route *north* while the enemy stands *east*, which is what makes
+    /// the two answers distinguishable component by component: from dead centre
+    /// every stance's footwork lies along x alone, and the route lies along y
+    /// alone.
+    #[test]
+    fn a_click_moves_the_feet_with_an_enemy_in_sight() {
+        let foe = contact(Body::Brute, 9, 0);
+        let obs = heading_for(&situation(&[foe]), Vec2::from_ints(0, 10));
+
+        let command = DuelistPolicy::baseline().decide(&obs);
+        assert_eq!(
+            command.move_dir.x,
+            Fx::ZERO,
+            "closed on the enemy instead of walking the route: {:?}",
+            command.move_dir
+        );
+        assert!(
+            command.move_dir.y > Fx::from_ratio(9, 10),
+            "did not walk the route: {:?}",
+            command.move_dir
+        );
+        // **Only the feet.** The stance, the target memory and the limb are
+        // untouched, so this is a duellist walking where it was told while it
+        // goes on fighting.
+        assert_eq!(command.intent, Intent::Attack(foe.id));
+    }
+
+    #[test]
+    fn an_order_with_no_objective_leaves_the_fight_alone() {
+        let foe = contact(Body::Brute, 9, 0);
+        let fighting = situation(&[foe]);
+        let mut ordered = heading_for(&fighting, Vec2::from_ints(0, 10));
+        // **The lab's case, and the regression test for the hash contract.** No
+        // scenario the lab runs sets an objective, so `nav_step` is silent even
+        // where an order exists, and a policy acting on the order rather than on
+        // the route would move every pinned hash in the repository.
+        ordered.nav_dir = Vec2::ZERO;
+        ordered.nav_distance = Fx::MAX;
+
+        // A policy each: the stance carries hysteresis between decisions, so a
+        // shared one would answer the second observation differently for a
+        // reason that has nothing to do with the order.
+        assert_eq!(
+            DuelistPolicy::baseline().decide(&ordered).move_dir,
+            DuelistPolicy::baseline().decide(&fighting).move_dir,
+            "an order with nowhere to go moved the feet anyway"
+        );
+    }
+
+    #[test]
+    fn an_arrived_order_hands_the_feet_back() {
+        let foe = contact(Body::Brute, 9, 0);
+        let fighting = situation(&[foe]);
+        let mut arrived = heading_for(&fighting, Vec2::from_ints(0, 10));
+        // Inside the deadband, at exactly the bound: one tick of travel. The
+        // heading is still there, so this is `ordered_feet` answering "arrived"
+        // and not "no route" -- the two share an answer, which is why it can be
+        // an `Option` rather than an enum.
+        arrived.nav_distance = arrived.move_speed;
+
+        let moved = DuelistPolicy::baseline().decide(&arrived).move_dir;
+        assert_eq!(
+            moved,
+            DuelistPolicy::baseline().decide(&fighting).move_dir,
+            "stood on the destination instead of going back to fighting"
+        );
+        // ...and the answer it went back to is the fight's: at nine units a
+        // duellist closes.
+        assert!(moved.x > Fx::ZERO, "handed the feet back and then froze: {moved:?}");
+    }
+
+    #[test]
+    fn a_wounded_fighter_still_obeys() {
+        // The fixture from `a_hurt_duellist_breaks_off_whatever_else_is_happening`,
+        // which is the one thing this policy calls flight. `caution` is counted in
+        // blows rather than in health, and a twentieth of a Rogue is well inside
+        // one from a Brute's club.
+        let mut hurt = situation(&[winding_up(Body::Brute, 2, 0, Angle::HALF, 3)]);
+        hurt.hp_frac = Fx::from_ratio(1, 20);
+        let obs = heading_for(&hurt, Vec2::from_ints(0, 10));
+
+        let mut policy = DuelistPolicy::baseline();
+        let command = policy.decide(&obs);
+        assert_eq!(
+            policy.stance_of(obs.me),
+            Some(Stance::Retreat),
+            "the fixture stopped being about a fighter that wanted to run"
+        );
+        // `Stance::Retreat`'s footwork is due west, straight away from the
+        // enemy. The player is answering the same question and the player wins.
+        assert_eq!(
+            command.move_dir.x,
+            Fx::ZERO,
+            "bolted rather than obeying: {:?}",
+            command.move_dir
+        );
+        assert!(
+            command.move_dir.y > Fx::from_ratio(9, 10),
+            "did not walk the route: {:?}",
+            command.move_dir
+        );
+        // And it still says it is breaking off, which is honest: that *is* what
+        // it wanted to do.
+        assert_eq!(command.intent, Intent::Flee);
     }
 
     /// **Legs run away.** The word means one thing, and the mind that answers

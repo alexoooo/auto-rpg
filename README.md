@@ -28,14 +28,43 @@ better attended, with your character carried down whole. See "The floor plan" in
 `DESIGN.md` for why a grid, why three tiles wide, and why routing is something
 the sim is *asked* for rather than something it works out for itself.
 
+And the rock stops eyes, not only bodies. Neither side engages through a wall, so
+a monster comes *round* one rather than walking into it, and losing sight keeps
+the hunt rather than ending it — bounded by `HUNT_RANGE`, eighteen units measured
+along the route, because without a bound everything on the level converges on
+tick one and a floor arrives as one brawl held in a large room. A blow that would
+have to cross masonry does not land either: not being able to *see* something and
+not being able to *hit* it are different claims, and only the second one stops the
+Brute's axe, which is long enough to reach across a one-tile wall by 0.15.
+
 And there is something to fight. `S` and `B` send in a skitterer or a brute, and
 the fight runs itself under the same policies the lab evolves — no set piece, no
 script. Your character opens on the **Duelist** and the monsters on the naive
 `UtilityPolicy` it is measured against, and either side can be handed the other
-from its own rail. Watch what it does to your order: a visible enemy *outranks* a
-`Goto`, so the character breaks off the walk and turns to meet the thing. That is
-not the order channel leaking; it is the character having its own judgement about
-what matters more, which is the point.
+from its own rail.
+
+And a click is a command, not a suggestion. The feet obey a live `Goto` in the
+middle of a fight while the hands go on targeting and swinging, so a character
+walked out of a doorway it is losing in covers the walk as it leaves. Arrival
+hands the feet back, and so does *Stand down*, which is a `Goto` at your own feet.
+The wounded character obeys too: somebody who clicks while it is hurt is answering
+the same question `caution` was about to answer, and the player wins.
+
+That is a correction, and for a while it read as a pathfinding bug. `Order::Goto`
+was consulted in exactly one place per policy, and that place is only reached when
+nothing is in sight — so in a dungeon, where something always is, the player's
+input channel had no effect during a fight at all. The route the sim was being
+asked for was computed on every observation and thrown away. It was never wrong.
+It was never asked.
+
+And a drag is a path. Trace one across the floor and it becomes a queue of
+waypoints — sampled about every 1.2 world units, 24 legs at most — walked in
+order and held on the last; a tap is still the plain click this game has always
+had, and the next plain click cancels whatever is left. Mouse, pen and finger are
+one path through pointer events rather than three. Every leg is a standing
+`Order::Goto` and not a rail, so it is still the character deciding how to walk
+it — and the queue lives in the browser crate rather than in the sim, because one
+standing order per faction is a contract and not a limitation.
 
 And you can lose. When your character falls the room does not reset: the things
 that killed it are still standing exactly where they were, and you send in a
@@ -212,6 +241,33 @@ The destination marker stays dim until the character actually acts on the click.
 That gap is up to twelve ticks, and it is not input lag — it is the intellect
 stat, which is the same number the HUD is showing you.
 
+And you see what your character sees. The floor is remembered once looked at:
+black where it has never been seen, dim where it has been and is not now, lit
+where it is in sight, and a descent forgets all of it. A monster that steps behind
+rock does not blink out — it fades over about 400 ms and leaves a dashed outline
+for another two seconds, at the pose it was last in rather than at the position it
+actually has, because an outline tracking a body through stone is a wallhack with
+a fade on it. Two things ignore the fog on purpose, and both read as bugs if
+nobody says so: the portal is drawn whether you have seen it or not, since knowing
+where the exit is from the moment you arrive is what turns "kill everything" into
+"fight your way there", and `left N` counts every monster alive, because it is the
+level's clear condition and not a perception.
+
+`G` cycles three views, or the selector beside **Keys**. `[regular]` is the room
+as it looks. `[tactical]` drops the art — silhouette, head, drop shadow, body
+gradient, flagstones, the brick lip, the vignette — for a disc and a facing wedge
+on flat ground, and keeps every readout: limb, reach rings, vision discs, health,
+arrows, damage numbers, callouts, trail, destination, route and portal. `[dev]` is
+tactical bodies with no fog at all and the tick strip open, which is one intent
+stated once instead of twice — the chevron button that used to open that strip is
+gone. The scale grid, one line every four units, stays in all three.
+
+And `Space` freezes it, or the button beside **driving**. The world stops and
+nothing else does: rendering, the camera, the zoom, the hover readouts and *every
+order control* keep working, so a room can be read over and handed a path while it
+is standing still. In a game whose only input is a standing order, a pause you
+cannot give orders during would be a screenshot.
+
 ## Layout
 
 ```
@@ -240,14 +296,16 @@ rustup target add wasm32-unknown-unknown          # once
 node tools/serve.js                               # builds the wasm, serves the page
 ```
 
-Then open the printed URL. Click to send the character somewhere; right-click or
-`Esc` to make it hold its ground; `F` to withdraw the order entirely and watch it
-decide for itself; `S` and `B` to send in a skitterer or a brute; `1` and `2` to
-choose which of the two things you are carrying is in your hand; `C`, `V` and `X`
-to take its movement, its choice of kit or its aim; `E` for the Hero rail, which
-stays live after your character falls so you can dress the next one — and keeps
-the attributes you set rather than handing them back to the archetype; the wheel
-to zoom; `R` to open a fresh room. A server is needed because a `file://` page
+Then open the printed URL. Click to send the character somewhere, or drag to trace
+it a path; right-click or `Esc` to make it hold its ground; `F` to withdraw the
+order entirely and watch it decide for itself; `S` and `B` to send in a skitterer
+or a brute; `1` and `2` to choose which of the two things you are carrying is in
+your hand; `C`, `V` and `X` to take its movement, its choice of kit or its aim; `E`
+for the Hero rail, which stays live after your character falls so you can dress the
+next one — and keeps the attributes you set rather than handing them back to the
+archetype; `Space` to freeze the world; `G` to cycle how the room is drawn; the
+wheel to zoom; `R` to open a fresh room. The `?` in the corner holds the same list,
+kept in the page rather than here. A server is needed because a `file://` page
 cannot instantiate wasm — that is the only reason.
 
 The room is the page. The camera is centred on your character and clamped to the
@@ -259,7 +317,7 @@ stamp on a 1080p display.
 To work on it:
 
 ```
-cargo test                                        # 197 tests, under a second
+cargo test                                        # 393 tests, a couple of seconds
 cargo run --release -p lab -- bench   --seeds 2000
 cargo run --release -p lab -- verify  --seeds 200
 cargo run --release -p lab -- duel    --seeds 400
@@ -280,10 +338,12 @@ sweep behind `cargo test --release -p policy --test duel -- --ignored --nocaptur
 sweep`, which prints every archetype pairing under every policy.
 
 `wasm_check` is the other one. It instantiates the wasm module under Node and
-asserts four hashes against numbers recorded from a native build — one from a
+asserts five hashes against numbers recorded from a native build — one from a
 canned 4v6 fight, one from a scripted click-and-walk, one from a monster sent
-into the room and fought to a finish, and one that runs on past the character's
-death to the replacement coming in on its recycled entity slot. If any of them
+into the room and fought to a finish, one that runs on past the character's
+death to the replacement coming in on its recycled entity slot, and one that
+puts an arrow in the air, which is the only one of the five that exercises the
+projectile arithmetic at all. If any of them
 moves, the claim this whole architecture is built to support has stopped being
 true, and the failure message says so rather than making you work it out.
 

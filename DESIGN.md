@@ -1455,12 +1455,187 @@ everything on the level converges on tick one and a floor arrives as a single
 brawl, which is not a dungeon but one fight held in a large room. The honest
 version is the open question below.
 
+### Sight
+
+`World::observe` filtered candidate contacts on distance and nothing else, so
+masonry was something bodies collided with and nothing an agent could stand
+behind. That produced the one bug that made a floor unplayable, and no link in
+the chain is wrong by itself: two fighters on opposite sides of one tile of rock
+each appeared in the other's contact list; a contact list that is not empty is a
+fight; a fight owns the feet; both walked the straight line at each other into
+the wall, collision stopped them, and nothing re-evaluated. The route field built
+for exactly this case was computed on every observation and thrown away. It was
+never wrong. It was never asked.
+
+`Dungeon::sees` is **one ray down the line of centres, and deliberately
+permissive** — set against `is_walk_clear` immediately above it, which fires
+three rays (the centreline and both flanks at `±radius`) and is deliberately
+conservative. The asymmetry is correct in both directions, and what decides which
+way each one leans is the cost of being wrong. A permissive eye sees through the
+corner where four tiles meet, so a fighter notices something a moment early; a
+conservative eye cannot see an enemy standing in a doorway, which reads as
+broken. A conservative walk sends a body round something it could have squeezed
+past; a permissive walk commits it to a line it cannot walk, which is the
+deadlock above.
+
+The test sits *after* the range check and *before* `Nearest::offer`. Cheap scalar
+first and the ray second is the smaller half of that; the larger half is that
+`tracked_contacts` is a fighting stat, and a body that spends its perception
+budget on rock has a worse eye than its stats say it has. Occlusion applies to
+allies too: `cohesion` steers toward the mean of what is in view, and a body
+pulled toward a squadmate through a wall walks into the wall for exactly the
+reason a body pulled toward an enemy does.
+
+Note what did *not* have to change with it. `engage` still walks the straight
+line at its target, and occlusion is what makes that right rather than merely
+tolerable: a target you can see is a target with a clear line of centres. Giving
+`engage` a routed approach instead would need an `is_walk_clear` percept, and
+therefore a `FEATURE_LAYOUT_VERSION` bump, to buy a case three-wide corridors
+mostly rule out. No percept was added or removed here — only which contacts fill
+the slots that already existed.
+
+**The `carved` short-circuit is the mechanism, not the claim.** `raycast` does not
+bail out early — on an open plan it walks every tile boundary out to `t > 1` and
+finds nothing — so `!self.carved ||` is what stops a flat scenario paying a ray
+per entity pair per decision, and it is the same early return the interior
+collision pass and `Dungeon::clearance` already take. Being a guard on the *plan*
+rather than a test on the tiles is what makes flat scenarios bit-identical
+mechanically rather than by argument, and the argument is not trusted on its own
+either: `on_an_open_floor_plan_every_contact_survives` builds one scenario twice,
+once through `Scenario::room()` and once against a hand-built all-open `Dungeon`
+of the same extent, and compares the observations field for field.
+
+**"Cannot see it" and "cannot hit it" are different claims, and only the second
+one stops a long weapon.** `resolve_swings` raycasts from the swinger's own
+centre to the point of impact — the segment the arm actually occupies at the
+moment it connects — and that is arithmetic rather than paranoia. A Brute's
+`Club`, the two-handed axe and the longest thing in the game at `length` 1.45,
+reaches 2.15 from its own centre against a body radius of 0.70; a Brute and a
+Skitterer pressed against opposite faces of a one-tile wall are
+0.70 + 1.00 + 0.30 = 2.00 apart. It clears the rock by 0.15. A blow that crosses
+masonry emits no event at all, which is how `resolve_shots` already treats an
+arrow that meets a wall: it simply did not happen.
+
+`Dungeon::visible_tiles` asks the same question about a region instead of a pair,
+and the fog of war is what reads it — `web` folds each disc into the floor's
+memory and publishes the pair as one byte a tile, 0 never seen, 1 seen earlier on
+this floor, 2 in sight now. Two passes, and the second is not a fudge:
+an open tile is lit when its centre can be reached by a ray, and a solid tile is
+lit when one of its four neighbours is an **open** tile that is. A wall's own
+centre fails every time, because that centre is inside the masonry the ray is
+looking for. The openness test is what stops a lit rock face lighting the rock
+behind it — and without it that leak runs in `+x` and `+y` only, the two
+neighbours the scan has already reached, so the boundary would come out one tile
+thick on two sides of a room and two tiles thick on the other two. It is also the
+rule `rebuildLevelPaths` already uses to decide which rock faces exist to be
+drawn, and deriving both edges from one rule is what makes the fog boundary and
+the lit-face boundary agree instead of disagreeing by a tile.
+
+### The order channel
+
+**A click is a command, not a suggestion.** The feet obey a live `Order::Goto`;
+the hands go on fighting.
+
+That was not true before, and it is worth recording why, because for a while it
+looked like a pathfinding bug. `Order::Goto` was read in exactly one place per
+policy — the `Goto` arm of `march` — and `march` is only reached when nothing is
+in sight. In a dungeon there is always something in sight, so the player's input
+channel had, in practice, no effect during a fight at all.
+
+`ordered_feet` on both policies answers what a live `Goto` wants, or `None` for
+the three cases that all mean the same thing: the order is not a destination,
+there is no route to it, or the character has arrived. It is read from two places
+in each policy — `march`, where the rule always lived, and `decide`, where it now
+overrides `move_dir` after the branch that produced it and before `limb`. That it
+was a lift rather than a new rule is the only reason there is one copy of each
+braking law instead of two, and the **laws stay different** on purpose:
+`UtilityPolicy` solves a stopping distance, `DuelistPolicy` paces one stride's
+worth of travel, they were never the same law, and unifying them here would have
+been a behaviour change smuggled in under a refactor.
+
+Only the feet. `Intent` is untouched, so the HUD, the fitness function and target
+memory all still see a fighter in a fight — and a retreating duellist goes on
+saying it is retreating while the player walks it somewhere, which is honest,
+because that *is* what it wanted to do. The override deliberately covers the
+low-health branch too: a player who clicks while the character is hurt is
+answering the same question `caution` was about to answer, and the player wins.
+Somebody hunting for why a wounded fighter did not bolt will read `disengage`
+first, so that is where the line saying so has to be.
+
+**The gate is `Order::Goto`, and it is what makes this inert in the lab.** No lab
+scenario issues one — `policy::runner` orders `Advance`, and `determinism.rs` uses
+`Advance`, `Hold` and `Regroup` — and `nav_step` is additionally silent without an
+`Objective`, which defaults to `None`. `LAB_HASH` and `GOLDEN_STATE_HASH` did not
+move, and that is the real assertion of the change set. Be precise about what it
+proves: that is a property of the scenarios, not of the code. The day a lab
+scenario issues a `Goto` the proof lapses with it, and the comment on the override
+says so where whoever writes that scenario will read it.
+
+The browser goldens are the other half of that sentence, and they are where the
+plan for this change was wrong. All four moved for occlusion, and `ROOM_HASH`
+then moved a second time, alone, for this: it is the only golden script that
+calls `set_goto`, so it is the only one that reaches `ordered_feet` at all, and a
+hero with no destination takes the footsteps it always did. The prediction that
+no hash would move argued the gate from the *lab* scenarios, which was sound for
+`LAB_HASH` and did not transfer to a script whose whole purpose is to walk
+somewhere. A gate argued from the scripts that cannot reach it says nothing about
+the one that can.
+
 ### What the sim does not know
 
 A portal, a depth, a run. `Scenario::portal` is carried and never acted on; the
 rule about what walking into one *means* lives in the browser crate. Putting it
 below that line would put progression inside the fight simulator the lab drives
 headlessly.
+
+### The route
+
+A dragged path is the fourth thing on that list. One standing order per faction
+is a contract rather than a limitation, so a route is a convenience built over it
+and not a second shape of destination: the queue lives on `web`'s `Sim` beside
+`depth` and the portal rule, and `route[0]` is whatever is currently expressed as
+the world's `Order::Goto`. Three scalar exports drive it, in the style of
+`set_goto` rather than a shared buffer, because a queue that never exceeds
+`ROUTE_MAX` of 24 entries does not need a second detachable view into linear
+memory to fill it.
+
+**It is Rust rather than page script for one reason, and it is the leg test.**
+`Sim::follow_route` runs once per *tick*, from `advance`, beside
+`hero_is_leaving` and for the same reason: one animation frame pays off up to
+eight ticks of backlog (`MAX_CATCHUP_TICKS`), so a page-side arrival test would
+overshoot a waypoint by that much, visibly, on every stutter. Drawing the path is
+presentation and stays on the page; deciding when a leg is finished does not.
+
+Arrival is `ROUTE_ARRIVE` 0.70 plus the body's own radius, measured against
+`World::nearest_walkable(route[0], radius)` rather than against the raw waypoint.
+Both halves earn their place. Waypoints are dense samples of a hand-drawn line —
+the cap is sized against one every 1.2 world units, some 29 units of path, a
+little over half a level's diagonal — so making a character touch each one turns
+a smooth gesture into a series of stops with a visible dog-leg wherever the hand
+wobbled; and asking about the raw point instead would hang on every leg the hand
+cut across a corner of rock. The last leg is deliberately *not* popped: a `Goto`
+at the final waypoint is exactly what was asked for, and the policy's own arrival
+deadband is what stops there.
+
+`ROUTE_STALL` is 90 ticks of moving less than `ROUTE_PROGRESS` 0.05, after which
+a leg is abandoned. It is the only thing between a waypoint sealed behind rock and
+a route that never finishes — the *last* leg would be fine, since a policy with no
+route holds, which is what an unreachable order should do, but every earlier leg
+would hang forever and the player would watch a character stop halfway along a
+path it was still nominally following. Ninety is three times the slowest decision
+period the stat range produces (30 ticks at `intellect 0`), so a slow thinker
+mid-thought is never mistaken for a stuck one.
+
+The queue is not simulation state, but **beginning a leg is**: `World::set_order`
+rebuilds the faction's flow field, and an order is one of the things `state_hash`
+fingerprints, so a route call moves the hash exactly as a click does. The five
+golden scripts are unaffected only because not one of them calls a route export —
+a fact about the scripts, not a property of the feature, and the reason not to add
+one to a golden script. The route is dropped at four sites, because it must not
+outlive the click that cancels it (`set_goto`, which is deliberately not
+implemented in terms of a one-point route), the button that hands the character
+its free will back (`clear_order`), the body that was walking it
+(`swap_in_hero`), or the floor plan it was drawn on (`descend`).
 
 ## Performance notes
 
@@ -1601,13 +1776,24 @@ draw rate needed, and it is not enough to spawn a skirmish across the full arena
 those spawns are still confined to a vertical band. Better than papered over,
 short of solved.
 
-The floor plan moved this question rather than answering it. `Objective::Hunt`
-gives a monster a route to the nearest enemy along the floor, which is not
-search — it is omniscience with a leash on it, and `HUNT_RANGE` is the leash. A
-creature that tracks, loses the trail, casts about where it last had one and
-eventually gives up is the honest version, and it needs the one thing no policy
-here has: memory of where it has been. That is also the change that would let
-`skirmish` spawn across a whole arena, so the two are the same piece of work.
+Occlusion narrowed it rather than moving it again. A monster can no longer fight
+what it cannot see: a contact has to survive `Dungeon::sees` before there is
+anything to target, so a creature that loses you behind a wall genuinely loses
+you. What is *not* bounded by sight is the approach — `march` is reached precisely
+when nothing is in view, and under `Objective::Hunt` it walks a route to the
+nearest enemy along the floor whether or not the creature has ever laid eyes on
+one. So "a monster that knows where you are" now carries two bounds on two
+different things: line of sight on what it can fight, and `HUNT_RANGE` — 18
+units, measured along the route — on how far it will walk toward what it has not
+seen.
+Neither of those is knowledge, and that is what is left open.
+
+The honest version is unchanged and now stands on its own: something that picks
+up a trail, follows it, loses it, casts about where it last had one and
+eventually gives up. It needs the one thing no policy here has — memory of where
+it has already looked — and it is also the change that would let `skirmish` spawn
+across a whole arena rather than a vertical band, so the two remain the same
+piece of work.
 
 **Self-play.** Evolution currently scores candidates against a fixed hand-tuned
 opponent, which measures "better than what we wrote by hand". Self-play measures

@@ -371,6 +371,119 @@ impl UtilityPolicy {
         }
     }
 
+    /// The movement a live [`Order::Goto`] asks for, or `None` when there is
+    /// nothing left to do about one.
+    ///
+    /// `None` means all four of: the order is not a destination; there is no
+    /// route to it (`nav_step` is silent, so no objective is set, or it is sealed
+    /// behind masonry); or the character has arrived. Every caller reads `None` as
+    /// "the order has nothing to say", which is exactly what it means.
+    ///
+    /// **This is what makes a click a command rather than a suggestion.** It is
+    /// read from two places: `march`, where it always was, and `decide`, where it
+    /// now overrides the feet of a fighter that has an enemy in front of it. A
+    /// character that discarded the player's order the moment anything walked into
+    /// view had, in practice, no order channel at all -- there is always something
+    /// in view in a dungeon.
+    fn ordered_feet(&self, obs: &Observation) -> Option<Vec2> {
+        if !matches!(obs.order, Order::Goto(_)) {
+            return None;
+        }
+
+        // The wall sweep exists to stop an advancing line grinding into a wall;
+        // applied to a destination near an edge it walks straight past the
+        // click. And `open_ground` is a *search* urge for an agent with nowhere
+        // in particular to be -- against an explicit destination it is by
+        // construction fighting the player. It cannot be tapered back in
+        // either: added before `clamp_length`, which only ever shortens, a short
+        // sum passes through untouched, so the bias never shrinks as the brake
+        // does and the two balance at a stable fixed point `wall_fear * stride`
+        // short of the target -- 0.193 units short of every click at baseline,
+        // anywhere in the arena. At the top of `wall_fear`'s evolvable range it
+        // is worse: magnitude 1.0 exactly cancels the unit heading and the
+        // character stops dead mid-room.
+        //
+        // The route, not the bearing. What used to be here rebuilt the reachable
+        // box out of `wall_clearance` and clamped the click into it, which was
+        // right while the level *was* a box and is worse than merely wrong now:
+        // inside a corridor those four numbers describe the corridor, so every
+        // destination clamps into a one-unit box around the character and the
+        // arrival test is satisfied before it has taken a step.
+        //
+        // What that clamp existed for -- an unreachable click must terminate
+        // rather than leave the character pressing into a wall forever -- is now
+        // answered by the sim, which is where it belongs: the collision rule
+        // already lives there, so nothing else has to keep a second opinion
+        // about where a body can stand. `nav_step` reports no route, and no
+        // route is a stop.
+        let (to, distance) = nav_step(obs)?;
+
+        // Arrival deadband: one tick of travel. It scales itself with agility
+        // instead of being a magic constant, and it clears by some 400x the hard
+        // floor below which a direction component is too small to move the body
+        // at all -- a deadband under that floor never terminates. Stopping via
+        // `Command::HOLD` matters too: below one tick of travel the sim would
+        // still turn the character to face a step that moves nothing, leaving it
+        // spinning on the spot, whereas a zero direction freezes the arrival
+        // facing.
+        if distance <= obs.move_speed {
+            return None;
+        }
+
+        // A command persists until the next decision, so pace the stride by how
+        // much ground gets covered before the next thought. This is the
+        // intellect stat as navigation: a dim character commits to a longer
+        // stride and creeps in, a sharp one lands it. The brake is load-bearing
+        // rather than polish -- without it the character ping-pongs across the
+        // destination forever at an amplitude of one tick of travel.
+        // A decision has to survive the whole period *and* leave room to stop,
+        // and the character cannot re-brake until it is allowed to think again.
+        // Budgeting only the travel -- the whole rule while a body could stop
+        // dead -- lands it on the mark still moving, with its next chance to
+        // reconsider several ticks after it has sailed past.
+        //
+        // Two bounds, because the body may be going faster or slower than what
+        // is about to be asked of it, and each covers the case the other misses:
+        //
+        //   settled: `v*P + v^2/2a <= d`  ->  a * (sqrt(P^2 + 2d/a) - P)
+        //   braking: `v0*P + v^2/2a <= d` ->  sqrt(2a * (d - v0*P))
+        //
+        // The first assumes the request is already in force, which is wrong
+        // while the body is still shedding a faster speed -- the deceleration
+        // ramp covers ground the formula never counted, and that is exactly the
+        // overshoot. The second charges the whole period at the speed it is
+        // *actually* doing. Neither alone is safe; the tighter of the two always
+        // is.
+        //
+        // This is the intellect stat as navigation, and more sharply than
+        // before: `P` sets how far ahead a character has to plan, so a dim one
+        // approaches visibly more carefully than a sharp one, and neither
+        // overshoots.
+        //
+        // `2d/a` saturates past about 28 units at the slowest traction in the
+        // range. That is a long way off, the answer there is "go flat out", and
+        // the clamp below already says so.
+        let period = Fx::from_int(obs.decision_period.max(1) as i32);
+        let root = (period * period + distance * Fx::TWO / obs.traction).sqrt();
+        let settled = obs.traction * (root - period);
+        let committed = distance - obs.velocity.length() * period;
+        let braking = fx::sqrt_product(obs.traction * Fx::TWO, committed);
+        let safe = settled.min(braking);
+
+        // The brake is the whole magnitude, so it scales a heading that is
+        // *already* a unit vector -- `nav_step` normalised it, and normalising it
+        // again is not free. `Fx` truncates component-wise, so a second pass
+        // through `normalize` moves a heading that was already correct by a raw
+        // unit or two; over a few hundred ticks of standing on a destination
+        // that is the difference between holding still and creeping.
+        //
+        // The trailing clamp stays, and is defensive: a normalised vector can
+        // come back marginally over one, and
+        // `decisions_never_exceed_unit_movement` should hold unconditionally.
+        let brake = (safe / obs.move_speed.max(Fx::EPSILON)).min(Fx::ONE);
+        Some((to * brake).clamp_length(Fx::ONE))
+    }
+
     /// Nothing in sight: do what the player asked.
     fn march(&self, obs: &Observation, patrol: &mut Patrol) -> Command {
         // Nothing in sight and nothing ordered, but the level itself has
@@ -403,112 +516,16 @@ impl UtilityPolicy {
             Order::Advance(dir) => dir.normalize(),
             Order::Regroup => self.ally_centre(obs).normalize(),
 
-            // Arriving somewhere is not a variation on marching, and both of
-            // the steering behaviours below are actively wrong for it, which is
-            // why this arm returns before reaching either of them.
-            //
-            // The wall sweep exists to stop an advancing line grinding into a
-            // wall; applied to a destination near an edge it walks straight
-            // past the click. And `open_ground` is a *search* urge for an agent
-            // with nowhere in particular to be -- against an explicit
-            // destination it is by construction fighting the player. It cannot
-            // be tapered back in either: added before `clamp_length`, which
-            // only ever shortens, a short sum passes through untouched, so the
-            // bias never shrinks as the brake does and the two balance at a
-            // stable fixed point `wall_fear * stride` short of the target --
-            // 0.193 units short of every click at baseline, anywhere in the
-            // arena. At the top of `wall_fear`'s evolvable range it is worse:
-            // magnitude 1.0 exactly cancels the unit heading and the character
-            // stops dead mid-room.
             Order::Goto(_) => {
-                // The route, not the bearing. What used to be here rebuilt the
-                // reachable box out of `wall_clearance` and clamped the click
-                // into it, which was right while the level *was* a box and is
-                // worse than merely wrong now: inside a corridor those four
-                // numbers describe the corridor, so every destination clamps
-                // into a one-unit box around the character and the arrival test
-                // is satisfied before it has taken a step.
-                //
-                // What that clamp existed for -- an unreachable click must
-                // terminate rather than leave the character pressing into a
-                // wall forever -- is now answered by the sim, which is where it
-                // belongs: the collision rule already lives there, so nothing
-                // else has to keep a second opinion about where a body can
-                // stand. `nav_step` reports no route, and no route is a stop.
-                let Some((to, distance)) = nav_step(obs) else {
-                    return Command::HOLD;
+                // Arriving somewhere is not a variation on marching, and both of
+                // the steering behaviours below are actively wrong for it --
+                // which is why this arm returns before reaching either of them.
+                // See the comment block that used to be here, now on
+                // `ordered_feet`.
+                return match self.ordered_feet(obs) {
+                    Some(dir) => Command::moving(dir),
+                    None => Command::HOLD,
                 };
-
-                // Arrival deadband: one tick of travel. It scales itself with
-                // agility instead of being a magic constant, and it clears by
-                // some 400x the hard floor below which a direction component is
-                // too small to move the body at all -- a deadband under that
-                // floor never terminates. Stopping via `Command::HOLD` matters
-                // too: below one tick of travel the sim would still turn the
-                // character to face a step that moves nothing, leaving it
-                // spinning on the spot, whereas a zero direction freezes the
-                // arrival facing.
-                if distance <= obs.move_speed {
-                    return Command::HOLD;
-                }
-
-                // A command persists until the next decision, so pace the
-                // stride by how much ground gets covered before the next
-                // thought. This is the intellect stat as navigation: a dim
-                // character commits to a longer stride and creeps in, a sharp
-                // one lands it. The brake is load-bearing rather than polish --
-                // without it the character ping-pongs across the destination
-                // forever at an amplitude of one tick of travel.
-                // A decision has to survive the whole period *and* leave room to
-                // stop, and the character cannot re-brake until it is allowed
-                // to think again. Budgeting only the travel -- the whole rule
-                // while a body could stop dead -- lands it on the mark still
-                // moving, with its next chance to reconsider several ticks
-                // after it has sailed past.
-                //
-                // Two bounds, because the body may be going faster or slower
-                // than what is about to be asked of it, and each covers the
-                // case the other misses:
-                //
-                //   settled: `v*P + v^2/2a <= d`  ->  a * (sqrt(P^2 + 2d/a) - P)
-                //   braking: `v0*P + v^2/2a <= d` ->  sqrt(2a * (d - v0*P))
-                //
-                // The first assumes the request is already in force, which is
-                // wrong while the body is still shedding a faster speed -- the
-                // deceleration ramp covers ground the formula never counted,
-                // and that is exactly the overshoot. The second charges the
-                // whole period at the speed it is *actually* doing. Neither
-                // alone is safe; the tighter of the two always is.
-                //
-                // This is the intellect stat as navigation, and more sharply
-                // than before: `P` sets how far ahead a character has to plan,
-                // so a dim one approaches visibly more carefully than a sharp
-                // one, and neither overshoots.
-                //
-                // `2d/a` saturates past about 28 units at the slowest traction
-                // in the range. That is a long way off, the answer there is "go
-                // flat out", and the clamp below already says so.
-                let period = Fx::from_int(obs.decision_period.max(1) as i32);
-                let root = (period * period + distance * Fx::TWO / obs.traction).sqrt();
-                let settled = obs.traction * (root - period);
-                let committed = distance - obs.velocity.length() * period;
-                let braking = fx::sqrt_product(obs.traction * Fx::TWO, committed);
-                let safe = settled.min(braking);
-
-                // The brake is the whole magnitude, so it scales a heading that
-                // is *already* a unit vector -- `nav_step` normalised it, and
-                // normalising it again is not free. `Fx` truncates
-                // component-wise, so a second pass through `normalize` moves a
-                // heading that was already correct by a raw unit or two; over a
-                // few hundred ticks of standing on a destination that is the
-                // difference between holding still and creeping.
-                //
-                // The trailing clamp stays, and is defensive: a normalised
-                // vector can come back marginally over one, and
-                // `decisions_never_exceed_unit_movement` should hold
-                // unconditionally.
-                let brake = (safe / obs.move_speed.max(Fx::EPSILON)).min(Fx::ONE);
-                return Command::moving((to * brake).clamp_length(Fx::ONE));
             }
 
             Order::Hold | Order::Focus(_) => Vec2::ZERO,
@@ -613,6 +630,29 @@ impl Policy for UtilityPolicy {
         } else {
             self.engage(obs)
         };
+        // **The player's order outranks the footwork, and that is the whole of
+        // the input channel meaning anything.** Every branch above owns the feet
+        // unconditionally, so a character with an enemy in view discarded a `Goto`
+        // entirely -- and in a dungeon there is always an enemy in view.
+        //
+        // Only the feet. The intent, the target memory and `limb` below are
+        // untouched, so this is a fighter walking where it was told while it goes
+        // on fighting, and not a fighter that stopped fighting.
+        //
+        // **This includes the `disengage` branch above**, deliberately: a player
+        // who clicks while the character is hurt is answering the same question
+        // `caution` was going to answer, and the player wins. Somebody looking for
+        // why a wounded fighter did not bolt will look at `disengage`, so this is
+        // the line that has to tell them.
+        //
+        // Inert everywhere but the browser: it needs `Order::Goto`, which no lab
+        // scenario issues (`runner.rs` orders `Advance`), and `nav_step` is
+        // additionally silent unless an `Objective` is set, which defaults to
+        // `None`. `LAB_HASH` not moving is the proof. If a lab scenario ever
+        // starts issuing a `Goto`, that proof lapses with it.
+        if let Some(dir) = self.ordered_feet(obs) {
+            command.move_dir = dir;
+        }
         self.limb(obs, &mut command);
         if let Intent::Attack(target) = command.intent {
             self.remember(obs.me, target);
@@ -1018,6 +1058,115 @@ mod tests {
             turning.x.abs() > turning.y.abs(),
             "the turn was more sideways than backwards: {turning:?}"
         );
+    }
+
+    /// **A click is a command, not a suggestion**, and these four are the whole
+    /// of the order channel. Before `ordered_feet` reached `decide`, every one of
+    /// them would have answered with the fight's footwork: `march` is the only
+    /// reader of `Order::Goto` and `march` is only reached with nothing in sight,
+    /// so in a dungeon -- where there is always something in sight -- the player
+    /// had no order channel at all.
+    ///
+    /// All four route *north* while the enemy stands *east*, which is what makes
+    /// the two answers distinguishable component by component: from dead centre
+    /// `engage` and `disengage` both move along x alone, and the route moves
+    /// along y alone. They reuse `heading_for`, so what is being tested is the
+    /// same observation the `goto_*` fixtures above drive, plus a contact.
+    #[test]
+    fn a_click_moves_the_feet_with_an_enemy_in_sight() {
+        let enemy = contact(1, 2, 0, Fx::ONE);
+        let mut obs = heading_for(Vec2::from_ints(0, 10));
+        obs.set_enemies(&[enemy]);
+
+        let command = UtilityPolicy::baseline().decide(&obs);
+        assert_eq!(
+            command.move_dir.x,
+            Fx::ZERO,
+            "kept the fight's footwork instead of walking the route: {:?}",
+            command.move_dir
+        );
+        assert!(
+            command.move_dir.y > Fx::from_ratio(9, 10),
+            "did not walk the route: {:?}",
+            command.move_dir
+        );
+        // **Only the feet.** `Intent` is a statement about what is being fought
+        // rather than a request to hit anything, so the HUD, the fitness function
+        // and target memory all still see a fighter in a fight.
+        assert_eq!(command.intent, Intent::Attack(enemy.id));
+    }
+
+    #[test]
+    fn an_order_with_no_objective_leaves_the_fight_alone() {
+        let enemy = contact(1, 2, 0, Fx::ONE);
+        let mut ordered = heading_for(Vec2::from_ints(0, 10));
+        // **The lab's case, and the regression test for the hash contract.** An
+        // `Order::Goto` with no objective set behind it has no route, and a
+        // policy that acted on the order rather than on the route would move
+        // every recorded run and every pinned hash in the repository. `LAB_HASH`
+        // and `GOLDEN_STATE_HASH` make the same claim three crates away; this
+        // makes it where it can fail at the line that broke.
+        ordered.nav_dir = Vec2::ZERO;
+        ordered.nav_distance = Fx::MAX;
+        ordered.set_enemies(&[enemy]);
+
+        assert_eq!(
+            UtilityPolicy::baseline().decide(&ordered).move_dir,
+            UtilityPolicy::baseline().decide(&situation(&[enemy])).move_dir,
+            "an order with nowhere to go moved the feet anyway"
+        );
+    }
+
+    #[test]
+    fn an_arrived_order_hands_the_feet_back() {
+        let enemy = contact(1, 2, 0, Fx::ONE);
+        let mut arrived = heading_for(Vec2::from_ints(0, 10));
+        // Inside the deadband, at exactly the bound: one tick of travel. The
+        // heading is still there, so this is `ordered_feet` answering "arrived"
+        // and not "no route" -- the two share an answer, which is the whole
+        // reason it can be an `Option` rather than an enum.
+        arrived.nav_distance = arrived.move_speed;
+        arrived.set_enemies(&[enemy]);
+
+        let moved = UtilityPolicy::baseline().decide(&arrived).move_dir;
+        assert_eq!(
+            moved,
+            UtilityPolicy::baseline().decide(&situation(&[enemy])).move_dir,
+            "stood on the destination instead of going back to fighting"
+        );
+        // ...and the answer it went back to is the fight's, which is east.
+        assert!(moved.x > Fx::ZERO, "handed the feet back and then froze: {moved:?}");
+    }
+
+    #[test]
+    fn a_wounded_fighter_still_obeys() {
+        let enemy = contact(1, 2, 0, Fx::ONE);
+        let mut obs = heading_for(Vec2::from_ints(0, 10));
+        obs.set_enemies(&[enemy]);
+        obs.hp_frac = Fx::from_ratio(1, 10);
+
+        let mut cautious = UtilityPolicy::new(UtilityWeights {
+            caution: Fx::from_ratio(5, 10),
+            ..UtilityWeights::BASELINE
+        });
+        let command = cautious.decide(&obs);
+        // `disengage` would have fled west, directly away from the enemy. The
+        // player is answering the same question `caution` was going to answer,
+        // and the player wins.
+        assert_eq!(
+            command.move_dir.x,
+            Fx::ZERO,
+            "bolted rather than obeying: {:?}",
+            command.move_dir
+        );
+        assert!(
+            command.move_dir.y > Fx::from_ratio(9, 10),
+            "did not walk the route: {:?}",
+            command.move_dir
+        );
+        // And it is still saying it wanted to break off, which is honest: that
+        // *is* what it wanted to do.
+        assert_eq!(command.intent, Intent::Flee);
     }
 
     #[test]

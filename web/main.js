@@ -31,12 +31,18 @@ const MAX_CATCHUP_TICKS = 8;
 
 // The frame layout, from crates/web/src/lib.rs. Header first, then one row per
 // unit: [x, y, facing_raw, radius, hp, max_hp, faction, kind, intent,
-// entity_index, entity_generation, sword_angle_raw, sword_reach, sword_spin,
-// shield_angle_raw, shield_reach, weapon_length, shield_arc_raw, hit_flash,
-// block_flash, parry_flash, sword_swing, sword_swing_left, sword_line_raw,
-// action_kind, action_role, slot, slot0_action, slot1_action, sight_range].
+// entity_index, entity_generation, limb_angle_raw, limb_reach, limb_spin,
+// action_length, action_arc_raw, hit_flash, block_flash, parry_flash,
+// limb_swing, limb_swing_left, limb_line_raw, action_kind, action_role, slot,
+// slot0_action, slot1_action, sight_range, visible].
+//
+// That list was stale for a layout: it still named the two shield columns a
+// character carried before it had one limb, so it counted thirty names against a
+// stride of twenty-eight. `readUnit` below is the authority either way -- it is
+// what indexes the row -- but a comment that miscounts the row is worse than no
+// comment, because it is the thing somebody reaches for first.
 const HEADER_LEN = 14;
-const UNIT_STRIDE = 28;
+const UNIT_STRIDE = 29;
 
 /** Floats per arrow, in a block that follows the units: [x, y, heading_raw,
  *  faction]. Arrows are not units -- no health, no loadout, no phase -- so they
@@ -63,7 +69,7 @@ const EVENT_DECLARE = 3;
 /** Frame layout this file is written against. Checked at boot against
  *  `frame_layout_version()`, and a mismatch stops the page rather than letting
  *  it paint a health bar out of a guard arc. */
-const FRAME_LAYOUT_VERSION = 5;
+const FRAME_LAYOUT_VERSION = 6;
 
 // `Swing::discriminant`, from crates/sim/src/hand.rs. Append-only.
 const SWING_GUARD = 0;
@@ -272,6 +278,13 @@ const EXPORTS = [
   "init",
   "set_goto",
   "clear_order",
+  // The dragged path: a queue of destinations over the one standing order the
+  // sim carries. `route_len()` is read once a frame like `map_revision()`,
+  // because the module advances the queue per *tick* and a page that read it
+  // before stepping would be a frame behind.
+  "route_clear",
+  "route_push",
+  "route_len",
   "spawn_monster",
   "swap_in_hero",
   "step",
@@ -337,6 +350,12 @@ const EXPORTS = [
   "map_rows",
   "map_revision",
   "map_tile_size_milli",
+  // The fog of war, on a third buffer beside the tiles and read on the same
+  // terms: when `vis_revision()` moves. One byte a tile, indexed exactly as the
+  // tile buffer is -- 0 never seen, 1 seen earlier on this floor, 2 in sight now.
+  "vis_ptr",
+  "vis_len",
+  "vis_revision",
   "descend",
 ];
 
@@ -463,6 +482,34 @@ function readMap() {
   return levelMap;
 }
 
+/** The visibility bytes the page last read, declared beside `levelMap` and held
+ *  on exactly the same terms.
+ *
+ *  Nothing reads it yet -- `rebuildLevelPaths` uses the object `readVis` returns
+ *  and then has no further use for it. It is kept because it is the page's copy
+ *  of the fog and belongs next to the page's copy of the floor plan: the one
+ *  thing that will want it is a `standable` for visibility, which is the smallest
+ *  fix for "you cannot trace a route into rock you have never explored". */
+let levelVis = null;
+
+/**
+ * The visibility bytes the module last published: `0` never seen, `1` seen
+ * earlier on this floor, `2` in sight now. One byte a tile, indexed exactly as
+ * the tile buffer is.
+ *
+ * Copied out, like the map, because a view into linear memory is a view that can
+ * detach -- see `readMap` for the whole argument. The revision is asked for
+ * *before* the view is derived rather than after, so no call into wasm happens
+ * between the view and the copy.
+ */
+function readVis() {
+  const revision = wasm.vis_revision();
+  const len = wasm.vis_len();
+  const live = new Uint8Array(memory.buffer, wasm.vis_ptr(), len);
+  levelVis = { revision, tiles: new Uint8Array(live) };
+  return levelVis;
+}
+
 function readUnit(f, u) {
   return {
     x: f[u],
@@ -521,6 +568,11 @@ function readUnit(f, u) {
     // into this file would be describing a character that has changed
     // underneath it. See the post-mortem above `BODIES`.
     sight: f[u + 27],
+    // Whether the *player* can see this body -- not what the body itself
+    // perceives, which is a different question the module never answers here.
+    // With no hero standing this is 1 for everything: a fog of war with nobody
+    // to be fogged from is just a blank screen.
+    visible: f[u + 28] !== 0,
   };
 }
 
@@ -634,6 +686,13 @@ const el = {
   battleState: document.getElementById("battle-state"),
   battleRoster: document.getElementById("battle-roster"),
   respawn: document.getElementById("btn-respawn"),
+  // Pause, in the bottom-right cluster beside the switches. Three handles for
+  // one button because `setPaused` writes all three off the same switch: the
+  // glyph, the word, and the `aria-pressed` a screen reader reads instead of
+  // either of them.
+  pause: document.getElementById("btn-pause"),
+  pauseGlyph: document.getElementById("pause-glyph"),
+  pauseLabel: document.getElementById("pause-label"),
   runDepth: document.getElementById("run-depth"),
   runMonsters: document.getElementById("run-monsters"),
   buildStamp: document.getElementById("build-stamp"),
@@ -1139,6 +1198,114 @@ function goTo(point, state) {
   );
 }
 
+// A drag traces a path. The waypoints live in the module -- `Sim` holds the
+// queue and walks it one leg per *tick*, because one animation frame is up to
+// `MAX_CATCHUP_TICKS` of catch-up and a page-side arrival test would overshoot
+// a waypoint by that much on every stutter. Everything below is the gesture and
+// the picture of it; nothing below decides when a leg is done.
+
+/** How far apart the samples of a dragged path are, in world units.
+ *
+ *  Coarse on purpose: the waypoints are a route, not a recording. Sampling
+ *  every pixel would fill `ROUTE_MAX` in a thumb's width of screen and hand the
+ *  module a queue that describes one corner of the drag and nothing after it. */
+const DRAG_SAMPLE = 1.2;
+
+/** How far the pointer must get from where it pressed before a press counts as
+ *  a drag rather than a click. Below this it is a tap, and a tap is the
+ *  click-to-move this game has always had. */
+const DRAG_THRESHOLD = 0.8;
+
+/** Most waypoints a path may carry. Must match `ROUTE_MAX` in the module; the
+ *  page trims to it so an over-long drag loses its middle rather than its end. */
+const ROUTE_MAX = 24;
+
+/** The path being traced right now, or `null`. Points are world units. */
+let drag = null;
+
+/** The path the module is walking, as the page last sent it, for drawing.
+ *  Trimmed from the front as `route_len()` falls. */
+let routeDrawn = [];
+
+function beginDrag(p) {
+  drag = { points: [p], from: p, at: p, far: 0 };
+}
+
+/**
+ * One pointer move, folded into the gesture.
+ *
+ * **`far` is how far the hand ever got from where it pressed, and not the length
+ * of the line it drew getting there.** Path length was the obvious version and
+ * it accumulates jitter: a finger resting on a touchscreen emits a move every
+ * frame with a pixel or two of noise on it, which at this zoom adds up to about
+ * a world unit a second -- so a long press became a drag nobody performed, and
+ * it did so on exactly the input the pointer events were adopted for. A
+ * displacement cannot drift, and "how far it got from the spot" is what "never
+ * left the spot" means. The running *max* rather than the current distance is
+ * what keeps a gesture that loops back to its origin a drag.
+ *
+ * The thinning is a second, independent measurement: `DRAG_SAMPLE` off the last
+ * point kept, which is what makes the samples evenly spaced along the path
+ * rather than along the gesture's clock.
+ */
+function sampleDrag(p) {
+  drag.at = p;
+  drag.far = Math.max(drag.far, Math.hypot(p.x - drag.from.x, p.y - drag.from.y));
+  const last = drag.points[drag.points.length - 1];
+  if (Math.hypot(p.x - last.x, p.y - last.y) >= DRAG_SAMPLE) drag.points.push(p);
+}
+
+function cancelDrag() {
+  drag = null;
+}
+
+function endDrag() {
+  const d = drag;
+  drag = null;
+  if (!d) return;
+  const state = parseFrame(readFrame());
+  if (!state.hero) return;
+
+  // A tap is a click. The threshold is on how far the hand got and not on the
+  // point count, so a slow, shaky press that never left the spot is still a
+  // click -- which is what the hand that made it meant.
+  if (d.far < DRAG_THRESHOLD) {
+    goTo(d.at, state);
+    return;
+  }
+
+  // Where the hand actually stopped, which the thinning can have skipped: the
+  // spacing is 1.2 units and the threshold 0.8, so a quick flick is a real drag
+  // that ended between two samples. **The end of a path is the one point the
+  // player definitely meant.** `d.at` is the very object `beginDrag` seeded
+  // `points` with until a sample replaces it, so the identity test is exact
+  // rather than an epsilon.
+  if (d.at !== d.points[d.points.length - 1]) d.points.push(d.at);
+
+  const path = trimPath(d.points);
+  wasm.route_clear();
+  for (const p of path) wasm.route_push(milli(p.x, arena.x), milli(p.y, arena.y));
+  routeDrawn = path;
+  intent = "goto";
+  hint(`Path of ${path.length} set. It walks the legs in order and holds at the end.`);
+}
+
+/** Thins an over-long path by dropping from the middle, never the end.
+ *
+ *  The end is where the finger stopped, which is the one point the player
+ *  definitely meant; the middle is the part of a gesture they were least
+ *  precise about. Truncating instead would silently discard the destination and
+ *  leave the character stopping somewhere nobody asked for. */
+function trimPath(points) {
+  if (points.length <= ROUTE_MAX) return points;
+  const out = [];
+  for (let i = 0; i < ROUTE_MAX - 1; i++) {
+    out.push(points[Math.round((i * (points.length - 1)) / (ROUTE_MAX - 1))]);
+  }
+  out.push(points[points.length - 1]);
+  return out;
+}
+
 /**
  * Stand down: hold this ground.
  *
@@ -1242,11 +1409,15 @@ function swapInHero(kindCode, primary = SLOT_EMPTY, secondary = SLOT_EMPTY) {
   heroKey = "";
   intent = "none";
   // Everything from here down is the page's memory of the character that fell:
-  // the path it walked, and the fact that we have already said it died.
-  // `bodies`, `corpses`, `floaters` and `callouts` are deliberately *not*
-  // cleared -- the corpse should go on fading where it dropped, and the number
-  // that killed it should finish rising off it.
+  // the path it walked, the path it was told to walk, and the fact that we have
+  // already said it died. `bodies`, `corpses`, `floaters` and `callouts` are
+  // deliberately *not* cleared -- the corpse should go on fading where it
+  // dropped, and the number that killed it should finish rising off it.
   trail = [];
+  // The module drops its own queue on a swap -- the dead character's path must
+  // not walk the newcomer back into whatever killed it -- so a page that kept
+  // the drawn copy would be drawing a route nobody is walking.
+  routeDrawn = [];
   announcedFall = false;
   // The replacement drops in at the clearest spot on the floor, which can be
   // right across the room from where the last one fell. Cut to it.
@@ -1276,6 +1447,12 @@ function restart() {
   wasm.init(SEED);
   intent = "none";
   trail = [];
+  // The path, both halves of it. `init` carves a new level, so a drag still
+  // under the hand describes a floor plan that no longer exists -- letting it
+  // release onto the new one would order a walk along a corridor the player
+  // traced somewhere else. Same argument as `held.clear()` below.
+  cancelDrag();
+  routeDrawn = [];
   bodies = new Map();
   corpses = [];
   // A fresh room at tick zero: a number still climbing off a body that no
@@ -1301,7 +1478,12 @@ function restart() {
   syncEnemyRail();
   // `init` carves a fresh level, so the baked paths describe one that no longer
   // exists. The loop's revision check would catch it on the next frame anyway;
-  // doing it here means the first frame after a restart is already right.
+  // doing it here means the first frame after a restart is already right -- and
+  // that now includes the fog, which `init` has just cleared. `rebuildLevelPaths`
+  // reads the visibility bytes itself for exactly this reason.
+  //
+  // `viewMode` is deliberately not reset. It is a preference about the page, and
+  // a restart is about the room.
   rebuildLevelPaths(readMap(), wasm.map_revision());
   snapCamera(parseFrame(readFrame()));
   hint("Back to the first floor, at tick 0.");
@@ -1456,6 +1638,183 @@ function updateControlButtons() {
   });
 }
 
+// --------------------------------------------------- how the room is drawn
+//
+// Three modes, and they exist because they answer three different questions:
+// what does this look like, what is actually happening, and what is the machine
+// doing.
+
+/**
+ * The views, as one table: the label, the two booleans every draw call actually
+ * reads, whether the tick strip is open, and the sentence pressing it prints.
+ *
+ * Reduced to two booleans the moment it is read. **Keeping the mode itself out
+ * of the draw calls is what stops this becoming three renderers** -- every
+ * drawing function asks "is the art on" or "is the fog on", never "which mode is
+ * this", so a fourth mode later is a row in this table and nothing else.
+ *
+ * The hint lives in the row for the reason `CONTROL_TOGGLES` keeps its two
+ * sentences: a label on screen and the line under it written in two different
+ * places is how one of them ends up describing a mode that no longer exists.
+ */
+const VIEW_MODES = [
+  {
+    id: "regular",
+    label: "Regular",
+    art: true,
+    fog: true,
+    dev: false,
+    hint: "The room as it looks, lit only where the character can see.",
+  },
+  {
+    id: "tactical",
+    label: "Tactical",
+    art: false,
+    fog: true,
+    dev: false,
+    hint: "Art off, every readout on -- a disc, a facing wedge, and the same fog.",
+  },
+  {
+    id: "dev",
+    label: "Dev",
+    art: false,
+    fog: false,
+    dev: true,
+    hint: "No fog at all: every body drawn wherever it is, and the tick strip open.",
+  },
+];
+
+/** Which one is showing.
+ *
+ *  **Survives a `restart` and a descent**, deliberately: how a player wants the
+ *  room drawn is a preference about the page, not state belonging to the run. */
+let viewMode = "regular";
+
+/** The row, never the id.
+ *
+ *  Named `currentView` and not `view` because `view` is already the
+ *  `Float32Array` over the frame buffer -- two `let`s of the same name in one
+ *  top-level scope is a `SyntaxError`, and the page would not boot at all. */
+const currentView = () => VIEW_MODES.find((m) => m.id === viewMode) || VIEW_MODES[0];
+const artOn = () => currentView().art;
+const fogOn = () => currentView().fog;
+
+/**
+ * Whether the player can see this body.
+ *
+ * `[dev]` shows everything, which means **ignoring the column rather than asking
+ * the module for a different answer**: the frame describes what the *player* can
+ * see, and dev mode is a page that has chosen not to care.
+ *
+ * The column cannot be leaned on by itself for that. It reports every row
+ * visible only when there is no hero standing -- a fog of war with nobody to be
+ * fogged from is just a blank screen -- so `[dev]` with a character on the floor
+ * would otherwise fade half the room out.
+ */
+function canSee(unit) {
+  return !fogOn() || unit.visible;
+}
+
+/**
+ * Shows the room a different way.
+ *
+ * Everything that has to agree about the mode is written here: the lit segment,
+ * the tick strip, the baked paths, and the hint.
+ */
+function setViewMode(id) {
+  const mode = VIEW_MODES.find((m) => m.id === id);
+  if (!mode) return;
+  viewMode = mode.id;
+  updateViewButtons();
+  // `[dev]` opening the tick strip is what replaced the chevron that used to sit
+  // beside it. Two controls both called "dev" is one too many, and this is the
+  // same intent stated once.
+  const strip = document.getElementById("dev-strip");
+  if (strip) strip.classList.toggle("open", mode.dev);
+  // Both flags change what gets baked -- `fog` decides which of the five paths a
+  // tile lands in, `art` decides whether the lit rock faces are built at all --
+  // so the paths are rebuilt here.
+  //
+  // **Not by setting `levelPaths.revision = -1`.** The loop's revision-mismatch
+  // branch is the *descend cut*: it also drops the trail, the bodies, the
+  // corpses, the floaters and the route, snaps the camera and announces a new
+  // floor. Pressing `G` on floor three would do every bit of that for a change
+  // of palette. Calling the rebuild directly is what `restart` already does, and
+  // it has the same second benefit -- the frame after the keypress is already
+  // right rather than one frame late.
+  rebuildLevelPaths(readMap(), wasm.map_revision());
+  hint(mode.hint);
+}
+
+/** `G`. One key that steps through the list is why the group is a radiogroup and
+ *  not three switches: there is nothing here to combine. */
+function cycleViewMode() {
+  const at = VIEW_MODES.findIndex((m) => m.id === viewMode);
+  setViewMode(VIEW_MODES[(at + 1) % VIEW_MODES.length].id);
+}
+
+/**
+ * Builds the selector out of `VIEW_MODES`, the way `buildControlGroup` builds
+ * the switches: the labels live in one table and the markup reads them from
+ * there rather than keeping a second copy.
+ *
+ * A genuine `radiogroup`, unlike the driving switches. That group's own comment
+ * argues that three independent bits must **not** announce as one, and this is
+ * the counter-example that makes the distinction worth stating: exactly one view
+ * is ever lit, which is the single thing a radiogroup is for.
+ */
+function buildViewGroup() {
+  const host = document.getElementById("view-group");
+  if (!host) return;
+  host.replaceChildren();
+  VIEW_MODES.forEach((mode, index) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "seg";
+    button.id = `btn-view-${index}`;
+    button.setAttribute("role", "radio");
+    button.setAttribute("aria-checked", "false");
+    // The key named once, in a tooltip, rather than as a `kbd` badge per segment
+    // like the switches carry. `G` cycles the whole group, so three badges
+    // reading `G` would each be claiming that pressing it lands on *that* row.
+    button.title = `${mode.label} -- G cycles the three`;
+    button.textContent = mode.label;
+    button.addEventListener("click", () => {
+      if (!dead) setViewMode(mode.id);
+    });
+    host.append(button);
+  });
+
+  // One tab stop for the whole group, with the arrows moving inside it. That is
+  // the radiogroup contract, and it is also why this listener is not optional:
+  // `updateViewButtons` writes a roving `tabIndex`, and a roving tab stop with
+  // no arrow keys behind it would leave two of the three unreachable from the
+  // keyboard -- which is a worse page than the wrong ARIA role.
+  const ARROW = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 };
+  host.addEventListener("keydown", (event) => {
+    const step = ARROW[event.key] || 0;
+    if (!step || dead) return;
+    event.preventDefault();
+    const at = VIEW_MODES.findIndex((m) => m.id === viewMode);
+    const next = (at + step + VIEW_MODES.length) % VIEW_MODES.length;
+    setViewMode(VIEW_MODES[next].id);
+    const button = document.getElementById(`btn-view-${next}`);
+    if (button) button.focus();
+  });
+}
+
+/** Lights the one segment that is showing, and moves the group's single tab stop
+ *  with it. */
+function updateViewButtons() {
+  VIEW_MODES.forEach((mode, index) => {
+    const button = document.getElementById(`btn-view-${index}`);
+    if (!button) return;
+    const on = mode.id === viewMode;
+    button.setAttribute("aria-checked", String(on));
+    button.tabIndex = on ? 0 : -1;
+  });
+}
+
 /**
  * Pushes the player's live input across, once per frame.
  *
@@ -1508,7 +1867,12 @@ function pushInput(state) {
 }
 
 function bindInput() {
-  canvas.addEventListener("mousedown", (event) => {
+  // Pointer events and not mouse events, all four of them. A drag has to work
+  // with a finger as well as a mouse, and one code path for mouse, pen and
+  // touch is the only version of that which cannot grow a gesture that works
+  // with one and not the others. `#arena` already carries `touch-action: none`,
+  // so nothing in the browser fights the drag for the same swipe.
+  canvas.addEventListener("pointerdown", (event) => {
     if (dead) return;
     const state = parseFrame(readFrame());
     if (!state.hero) {
@@ -1518,32 +1882,72 @@ function bindInput() {
     if (event.button === 2) {
       event.preventDefault();
       standDown(state);
-    } else if (event.button === 0) {
-      // Under manual sword control a click is a *cut*, not an order: the
-      // pointer is already saying where every tick, and a `Goto` on top of it
-      // would fight the feet the player may also be holding.
-      if (controlMask & CONTROL_LIMB) striking = true;
-      else goTo(pointerToWorld(event), state);
+      return;
     }
+    if (event.button !== 0) return;
+
+    // Capture on the canvas so a drag that leaves it still tracks -- and so the
+    // matching `pointerup` arrives here rather than on whatever the finger
+    // happened to be over when it lifted.
+    canvas.setPointerCapture(event.pointerId);
+
+    // Under manual sword control a press is a *cut*, not an order: the pointer
+    // is already saying where every tick, and a `Goto` on top of it would fight
+    // the feet the player may also be holding.
+    if (controlMask & CONTROL_LIMB) {
+      striking = true;
+      return;
+    }
+    beginDrag(pointerToWorld(event));
+  });
+
+  canvas.addEventListener("pointermove", (event) => {
+    const p = pointerToWorld(event);
+    pointer = { x: p.x, y: p.y, inside: true };
+    if (drag) sampleDrag(p);
   });
 
   // Release on the window rather than the canvas, and unconditionally. A button
   // released off-canvas or after control was handed back would otherwise stay
   // logically down, and a held attack button is a hand that never re-arms --
   // one cut and then a swordsman standing there for the rest of the fight.
-  window.addEventListener("mouseup", (event) => {
-    if (event.button === 0) striking = false;
+  window.addEventListener("pointerup", (event) => {
+    if (event.button !== 0) return;
+    striking = false;
+    endDrag();
   });
+  // A cancelled pointer is the gesture being taken away rather than finished --
+  // the browser starting a scroll, a palm arriving, the pen leaving range -- so
+  // the path it was tracing is dropped instead of ordered. `pointerup` does not
+  // follow one, which is why this is a listener and not a flag on that one.
+  window.addEventListener("pointercancel", () => {
+    striking = false;
+    cancelDrag();
+  });
+  // One `blur` for all three, and there were two of these a moment ago -- one
+  // per thing that had to be let go of. A second listener is how the third one
+  // gets forgotten.
   window.addEventListener("blur", () => {
     striking = false;
+    cancelDrag();
     held.clear();
   });
 
-  canvas.addEventListener("mousemove", (event) => {
-    const p = pointerToWorld(event);
-    pointer = { x: p.x, y: p.y, inside: true };
-  });
-  canvas.addEventListener("mouseleave", () => {
+  // `pointerleave` fires on a touch lift as well as on a mouse leaving the
+  // canvas, which would blank the manual-aim pointer at the end of every
+  // gesture on a phone; `CONTROL_LIMB` is a keyboard-and-mouse affordance
+  // today, so the type guard keeps this about the mouse it is written for.
+  //
+  // **The capture test is the load-bearing half.** Chromium fires a spurious
+  // leave/enter pair around `setPointerCapture`, so without it a press that
+  // does not move would blank the aim for as long as the hand held still --
+  // aiming a cut at bearing zero, which is nothing the player did. Asking
+  // whether we still hold this pointer is exactly that case, and it is also
+  // true for the whole of a drag that genuinely left the canvas, which is when
+  // the aim most wants to go on working.
+  canvas.addEventListener("pointerleave", (event) => {
+    if (event.pointerType !== "mouse") return;
+    if (canvas.hasPointerCapture(event.pointerId)) return;
     pointer.inside = false;
   });
 
@@ -1567,9 +1971,6 @@ function bindInput() {
   window.addEventListener("keyup", (event) => {
     held.delete(event.key.toLowerCase());
   });
-  window.addEventListener("blur", () => {
-    held.clear();
-    });
 
   window.addEventListener("keydown", (event) => {
     if (dead || event.metaKey || event.ctrlKey || event.altKey) return;
@@ -1635,6 +2036,18 @@ function bindInput() {
       // what the page shows and nothing about what the sim does, which is why
       // it does not go anywhere near `set_control`.
       if (!event.repeat) setVisionVisible(!visionShown());
+    } else if (key === "g") {
+      // The repeat guard is load-bearing rather than polite, like `s` and `b`
+      // above: held down, the operating system's autorepeat would thrash the mode
+      // and re-bake the level's five paths dozens of times a second.
+      if (!event.repeat) cycleViewMode();
+    } else if (event.key === " ") {
+      // `preventDefault` is mandatory, not tidy: Space activates whatever button
+      // holds focus, so without it a pause pressed after clicking any chip would
+      // re-fire that chip instead. The typing guard above is the escape hatch --
+      // Space in a slider is still a slider.
+      event.preventDefault();
+      if (!event.repeat) setPaused(!isPaused());
     }
   });
 
@@ -1653,15 +2066,10 @@ function bindInput() {
     if (event.target === overlayKeys) setKeysOverlay(false);
   });
 
-  const devStrip = document.getElementById("dev-strip");
-  const devButton = document.getElementById("btn-dev");
-  if (devStrip && devButton) {
-    devButton.addEventListener("click", () => {
-      const open = !devStrip.classList.contains("open");
-      devStrip.classList.toggle("open", open);
-      devButton.setAttribute("aria-expanded", String(open));
-    });
-  }
+  // The chevron that used to expand the dev strip is gone, and nothing replaced
+  // its listener: `setViewMode` drives `dev-strip.classList.toggle("open", …)`
+  // instead, so choosing `[dev]` and opening the strip are one act rather than
+  // two controls both called "dev".
 
   document.getElementById("btn-standdown").addEventListener("click", () => {
     if (!dead) standDown(parseFrame(readFrame()));
@@ -1671,6 +2079,9 @@ function bindInput() {
   });
   el.respawn.addEventListener("click", () => {
     if (!dead) respawnHero();
+  });
+  el.pause.addEventListener("click", () => {
+    if (!dead) setPaused(!isPaused());
   });
 
   bindActionBar();
@@ -2453,137 +2864,285 @@ function floorPatternNow() {
 }
 
 /**
- * The level as two paths: the open floor, and the wall faces that border it.
+ * The level as five paths: open floor and bordering rock face, each split into
+ * what the character can see *now* and what it merely remembers, plus the lit
+ * rock edges.
  *
  * **Built once per level, not per frame.** A 48x32 level is 1536 tiles, and at
  * the top zoom bucket baking it into an offscreen canvas would be a 2304x1536
- * backing store rebuilt six times over. Two `Path2D`s cost 1536 `rect()` calls
+ * backing store rebuilt six times over. Five `Path2D`s cost 1536 `rect()` calls
  * once, and after that a fill is a fill.
  *
  * `revision` is `map_revision()`, which the module bumps only when the tiles
- * change. Anything else -- a tick, a click, a slider -- leaves this alone.
+ * change; `vis` is `vis_revision()`, which it bumps when the character crosses a
+ * tile and on a new level. `art` and `fog` are the flags this was baked under,
+ * because both of them change what lands in which path. Anything else -- a tick,
+ * a click, a slider -- leaves this alone.
  */
-let levelPaths = { revision: -1, floor: null, wall: null, scale: 0 };
+let levelPaths = {
+  revision: -1,
+  vis: -1,
+  scale: 0,
+  art: null,
+  fog: null,
+  floorLit: null,
+  floorSeen: null,
+  wallLit: null,
+  wallSeen: null,
+  edge: null,
+};
 
 /**
- * Rebuilds the level paths. Called when `map_revision()` moves, and when the
- * pixel scale changes -- a `Path2D` holds pixels, not world units.
+ * Rebuilds the level paths. Called when `map_revision()` moves, when
+ * `vis_revision()` moves, when the pixel scale changes -- a `Path2D` holds
+ * pixels, not world units -- and when the view mode changes what gets baked.
  *
- * Three paths, because the wall needs two of them. **The face where rock meets
- * floor is a separate path from the rock itself**, and that is not decoration:
- * the first version stroked every wall tile, which drew a line down every seam
- * between two pieces of rock and turned a solid mass into a brick texture.
- * Rock is one dark shape; only the edge you can actually walk up to catches
- * light.
+ * Five paths, because the wall needs two of them and the fog doubles both halves.
+ * **The face where rock meets floor is a separate path from the rock itself**,
+ * and that is not decoration: the first version stroked every wall tile, which
+ * drew a line down every seam between two pieces of rock and turned a solid mass
+ * into a brick texture. Rock is one dark shape; only the edge you can actually
+ * walk up to catches light.
+ *
+ * The visibility bytes are read here rather than passed in, unlike the map. There
+ * are five call sites and only one of them -- the loop's `vis_revision` branch --
+ * has any reason to know that fog exists; a page that read the buffer at four of
+ * them would show the previous floor's fog at the fifth, because `restart`
+ * rebuilds directly and the bytes it wants are the ones `init` has just cleared.
  */
 function rebuildLevelPaths(map, revision) {
-  const floor = new Path2D();
-  const wall = new Path2D();
-  const edge = new Path2D();
+  const art = artOn();
+  const fog = fogOn();
+  // Not read at all with the fog off, where every tile is lit by definition.
+  const vis = fog ? readVis() : null;
+  const floorLit = new Path2D();
+  const floorSeen = new Path2D();
+  const wallLit = new Path2D();
+  const wallSeen = new Path2D();
+  // The lit rock faces -- and `null` rather than an empty path with the art off,
+  // so `drawLevel` skips the stroke instead of stroking nothing: there is no
+  // light in a tactical room for an edge to catch.
+  const edge = art ? new Path2D() : null;
   const size = px(map.tile);
   // Off the grid is rock, exactly as the module has it, so the outside of the
   // level needs no special case here either.
   const solid = (tx, ty) =>
     tx < 0 || ty < 0 || tx >= map.cols || ty >= map.rows || map.tiles[ty * map.cols + tx] !== 0;
+  // `2` in sight, `1` seen earlier, `0` never. With the fog off everything is
+  // `2`, which is what makes `[dev]` cost exactly what the renderer costs today
+  // rather than paying for a layer it does not draw.
+  const seen = (tx, ty) => (!fog ? 2 : vis.tiles[ty * map.cols + tx] | 0);
 
   for (let ty = 0; ty < map.rows; ty++) {
     for (let tx = 0; tx < map.cols; tx++) {
+      const lit = seen(tx, ty);
+      // Never seen goes into no path at all. The page background is already the
+      // void, which is exactly the right picture -- and it is also why nothing
+      // below ever has to paint black over anything.
+      if (lit === 0) continue;
       const x = px(tx * map.tile);
       const y = px(ty * map.tile);
       if (!solid(tx, ty)) {
-        floor.rect(x, y, size, size);
+        (lit === 2 ? floorLit : floorSeen).rect(x, y, size, size);
         continue;
       }
       // Only the faces that border open ground. Interior rock nobody can see is
       // left as void, which is cheaper and is also the right picture: a dungeon
       // reads as carved *out of* rock, so the parts you never reach should look
       // like the outside of the level, because that is what they are.
+      //
+      // **That test is on the floor plan and never on the fog.** A face that
+      // borders open ground goes on bordering it whether or not anybody is
+      // looking, and asking the fog here would flicker whole pieces of the rock
+      // mass in and out as the lit disc swept across them.
       let exposed = false;
+      // The edge is a lit-tiles-only path, so this is hoisted out of the four
+      // face tests rather than repeated in each of them.
+      const rim = edge !== null && lit === 2;
       if (!solid(tx, ty - 1)) {
-        edge.moveTo(x, y);
-        edge.lineTo(x + size, y);
         exposed = true;
+        if (rim) {
+          edge.moveTo(x, y);
+          edge.lineTo(x + size, y);
+        }
       }
       if (!solid(tx, ty + 1)) {
-        edge.moveTo(x, y + size);
-        edge.lineTo(x + size, y + size);
         exposed = true;
+        if (rim) {
+          edge.moveTo(x, y + size);
+          edge.lineTo(x + size, y + size);
+        }
       }
       if (!solid(tx - 1, ty)) {
-        edge.moveTo(x, y);
-        edge.lineTo(x, y + size);
         exposed = true;
+        if (rim) {
+          edge.moveTo(x, y);
+          edge.lineTo(x, y + size);
+        }
       }
       if (!solid(tx + 1, ty)) {
-        edge.moveTo(x + size, y);
-        edge.lineTo(x + size, y + size);
         exposed = true;
+        if (rim) {
+          edge.moveTo(x + size, y);
+          edge.lineTo(x + size, y + size);
+        }
       }
-      if (exposed) wall.rect(x, y, size, size);
+      if (exposed) (lit === 2 ? wallLit : wallSeen).rect(x, y, size, size);
     }
   }
-  levelPaths = { revision, floor, wall, edge, scale };
+  levelPaths = {
+    revision,
+    vis: vis ? vis.revision : wasm.vis_revision(),
+    scale,
+    art,
+    fog,
+    floorLit,
+    floorSeen,
+    wallLit,
+    wallSeen,
+    edge,
+  };
 }
+
+/** How much of the floor's own brightness ground the character only *remembers*
+ *  keeps.
+ *
+ *  Alpha against the void rather than a second palette: dim ground has to read as
+ *  the same room with the light off, and two sets of stone colours would be two
+ *  rooms. The canvas is cleared to transparent, so blending toward nothing is
+ *  blending toward the page's own background -- which is the void. */
+const SEEN_ALPHA = 0.4;
+
+/** Where the lantern's falloff begins, as a fraction of sight range. */
+const LANTERN_INNER = 0.6;
 
 /**
  * The level, as lit stone standing in the dark.
  *
  * The flagstone pattern is unchanged and so is the space it is laid in -- the
  * origin is still the level's corner, so the stones stay nailed to the level
- * rather than swimming under the camera. What changed is only *where* it is
- * painted: through the floor path rather than over a rectangle.
+ * rather than swimming under the camera, and **clipping to a smaller region
+ * therefore moves the fog boundary and leaves the masonry exactly where it was**.
+ * What changed is only *where* it is painted: through the floor paths rather than
+ * over a rectangle.
+ *
+ * Painted back to front: remembered floor, lit floor, remembered rock, lit rock,
+ * the lit edges, and the lantern over the top of all of it.
  */
-function drawLevel() {
-  if (!levelPaths.floor) return;
+function drawLevel(state) {
+  if (!levelPaths.floorLit) return;
   const w = px(arena.x);
   const h = px(arena.y);
+  const art = artOn();
+  // Asked for once, not once per pass: `floorPatternNow` re-aims the pattern
+  // matrix on every call and bakes a new tile if the zoom bucket moved. With the
+  // art off it is not called at all -- neither it nor `bakeFloorTile` is edited
+  // for `[tactical]`, they are simply not reached.
+  const pattern = art ? floorPatternNow() : null;
 
-  ctx.save();
-  ctx.clip(levelPaths.floor);
+  // Remembered ground, then lit ground, and the only difference between the two
+  // passes is the alpha. One body of code for both is what stops the fog boundary
+  // becoming a place where the floor changes texture.
+  for (const lit of [false, true]) {
+    ctx.save();
+    ctx.clip(lit ? levelPaths.floorLit : levelPaths.floorSeen);
+    ctx.globalAlpha = lit ? 1 : SEEN_ALPHA;
+    ctx.fillStyle = pattern || "#141a26";
+    ctx.fillRect(0, 0, w, h);
 
-  const pattern = floorPatternNow();
-  ctx.fillStyle = pattern || "#141a26";
-  ctx.fillRect(0, 0, w, h);
+    if (art) {
+      // Lit from the middle. Without this the stone reads as a swatch of texture
+      // rather than as somewhere with a light in it.
+      const cx = w / 2;
+      const cy = h / 2;
+      const vignette = ctx.createRadialGradient(cx, cy, Math.min(w, h) * 0.16, cx, cy, Math.max(w, h) * 0.62);
+      vignette.addColorStop(0, "rgba(9,11,16,0)");
+      vignette.addColorStop(0.6, "rgba(9,11,16,0.20)");
+      vignette.addColorStop(1, "rgba(9,11,16,0.62)");
+      ctx.fillStyle = vignette;
+      ctx.fillRect(0, 0, w, h);
+    }
 
-  // Lit from the middle. Without this the stone reads as a swatch of texture
-  // rather than as somewhere with a light in it.
-  const cx = w / 2;
-  const cy = h / 2;
-  const vignette = ctx.createRadialGradient(cx, cy, Math.min(w, h) * 0.16, cx, cy, Math.max(w, h) * 0.62);
-  vignette.addColorStop(0, "rgba(9,11,16,0)");
-  vignette.addColorStop(0.6, "rgba(9,11,16,0.20)");
-  vignette.addColorStop(1, "rgba(9,11,16,0.62)");
-  ctx.fillStyle = vignette;
-  ctx.fillRect(0, 0, w, h);
-
-  // The scale bar, and *only* the scale bar: one line every four units, far
-  // fainter than the graph paper this replaced -- the stone carries the texture
-  // now, so the grid no longer has to pretend to. Genuinely useful at this
-  // size, where the far side of the level is off the screen.
-  ctx.lineWidth = 1;
-  ctx.strokeStyle = "rgba(150,180,230,0.055)";
-  ctx.beginPath();
-  for (let x = TILE_WORLD; x < arena.x; x += TILE_WORLD) {
-    ctx.moveTo(Math.round(px(x)) + 0.5, 0);
-    ctx.lineTo(Math.round(px(x)) + 0.5, h);
+    // The scale bar, and *only* the scale bar: one line every four units, far
+    // fainter than the graph paper this replaced -- the stone carries the texture
+    // now, so the grid no longer has to pretend to. Genuinely useful at this
+    // size, where the far side of the level is off the screen.
+    //
+    // **It stays in every mode, and it is clipped to all the ground the character
+    // knows about** -- which is why it is inside this loop rather than drawn once
+    // outside it. Clipped to the lit region alone it would vanish from exactly
+    // the explored ground a player measures across; clipped to nothing it would
+    // repaint the unexplored void as graph paper and undo the one thing the fog
+    // is for. It gives nothing away either way: an evenly spaced lattice says
+    // where four units is, never where the floor is.
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = "rgba(150,180,230,0.055)";
+    ctx.beginPath();
+    for (let x = TILE_WORLD; x < arena.x; x += TILE_WORLD) {
+      ctx.moveTo(Math.round(px(x)) + 0.5, 0);
+      ctx.lineTo(Math.round(px(x)) + 0.5, h);
+    }
+    for (let y = TILE_WORLD; y < arena.y; y += TILE_WORLD) {
+      ctx.moveTo(0, Math.round(px(y)) + 0.5);
+      ctx.lineTo(w, Math.round(px(y)) + 0.5);
+    }
+    ctx.stroke();
+    ctx.restore();
   }
-  for (let y = TILE_WORLD; y < arena.y; y += TILE_WORLD) {
-    ctx.moveTo(0, Math.round(px(y)) + 0.5);
-    ctx.lineTo(w, Math.round(px(y)) + 0.5);
-  }
-  ctx.stroke();
-  ctx.restore();
 
   // The rock: one dark mass, clearly darker than the lit floor beside it, with
   // light only on the faces you can walk up to. See `rebuildLevelPaths` for why
-  // the two are separate paths.
+  // the two are separate paths. Remembered rock is dimmed on the same terms the
+  // remembered floor is, so the boundary crosses stone and rock at once.
   ctx.save();
   ctx.fillStyle = "#0c1017";
-  ctx.fill(levelPaths.wall);
-  ctx.strokeStyle = "rgba(150,185,235,0.20)";
-  ctx.lineWidth = 1.5;
-  ctx.lineCap = "square";
-  ctx.stroke(levelPaths.edge);
+  ctx.globalAlpha = SEEN_ALPHA;
+  ctx.fill(levelPaths.wallSeen);
+  ctx.globalAlpha = 1;
+  ctx.fill(levelPaths.wallLit);
+  if (levelPaths.edge) {
+    ctx.strokeStyle = "rgba(150,185,235,0.20)";
+    ctx.lineWidth = 1.5;
+    ctx.lineCap = "square";
+    ctx.stroke(levelPaths.edge);
+  }
+  ctx.restore();
+
+  // Last, so it also takes the outer half of the edge stroke down with it at
+  // range: a lit rock face at the far edge of sight should not be the brightest
+  // line on screen.
+  drawLantern(state, w, h);
+}
+
+/**
+ * The soft edge on the lit region.
+ *
+ * A tile-granular answer has a stepped boundary, and a staircase is the one thing
+ * about this fog that reads as a rendering artefact rather than as darkness. So
+ * it is softened: a radial gradient on the character, clipped to the lit floor,
+ * transparent out to `LANTERN_INNER` of sight range and the room's shadow colour
+ * at the end of it.
+ *
+ * **This is presentation on top of an exact answer, not a second visibility
+ * model. Nothing is revealed or hidden by it.** What can be seen was decided by
+ * `Dungeon::sees` and baked into `floorLit`; painting a round falloff over a
+ * jagged boundary does not move the boundary an inch. Do not try to make the two
+ * agree -- the gradient is a circle and the answer is not, and the answer is the
+ * one that is right.
+ */
+function drawLantern(state, w, h) {
+  const hero = state.hero;
+  if (!fogOn() || !hero || !(hero.sight > 0)) return;
+  const x = px(hero.x);
+  const y = px(hero.y);
+  const far = px(hero.sight);
+  const lamp = ctx.createRadialGradient(x, y, far * LANTERN_INNER, x, y, far);
+  lamp.addColorStop(0, "rgba(9,11,16,0)");
+  lamp.addColorStop(1, "rgba(9,11,16,0.55)");
+  ctx.save();
+  ctx.clip(levelPaths.floorLit);
+  ctx.fillStyle = lamp;
+  ctx.fillRect(0, 0, w, h);
   ctx.restore();
 }
 
@@ -2655,6 +3214,75 @@ function drawTrail() {
   ctx.restore();
 }
 
+/** Radius of the mark at a waypoint, in world units. Well under
+ *  `drawDestination`'s 0.55 ring: one of these is a bead on a string and that
+ *  one is the mark the character is actually walking to. */
+const ROUTE_MARK = 0.18;
+
+/**
+ * The queued path: where the character is going after where it is going.
+ *
+ * Two things at once, and they are drawn the same way on purpose -- the path
+ * being traced right now under the finger, and the path the module is
+ * currently walking. A player mid-drag is looking at the same picture they will
+ * be looking at a moment later, which is the whole reason a drag reads as
+ * drawing rather than as guessing.
+ *
+ * Guarded on there being a character for the same reason `render` guards the
+ * destination marker: the order outlives whoever was carrying it, and a line
+ * drawn to somewhere nobody is walking is a promise the page cannot keep.
+ */
+function drawRoute(state, now) {
+  const path = drag ? drag.points : routeDrawn;
+  if (!state.hero || path.length < 1) return;
+  const hx = px(state.hero.x);
+  const hy = px(state.hero.y);
+
+  ctx.save();
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+
+  // The whole plan, hero first, dim and dashed. The dashes crawl toward the far
+  // end on the wall clock, which is what carries the *direction* of a path
+  // whose legs are otherwise identical lines. `now` and not a tick, like the
+  // portal's spin and the destination's beat: this describes an intention
+  // rather than a motion, so it goes on crawling while the world is frozen.
+  ctx.strokeStyle = "rgba(110,231,255,0.18)";
+  ctx.lineWidth = 1.4;
+  ctx.setLineDash([4, 6]);
+  ctx.lineDashOffset = -((now / 55) % 10);
+  ctx.beginPath();
+  ctx.moveTo(hx, hy);
+  for (const p of path) ctx.lineTo(px(p.x), px(p.y));
+  ctx.stroke();
+
+  // The leg being walked, over the top of that and solid. One leg is the only
+  // part of a path the sim has been told about -- the rest is the page holding a
+  // queue -- and drawing that difference is what stops a traced route reading
+  // as one long ordered march.
+  ctx.strokeStyle = "rgba(110,231,255,0.28)";
+  ctx.lineWidth = 1.8;
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  ctx.moveTo(hx, hy);
+  ctx.lineTo(px(path[0].x), px(path[0].y));
+  ctx.stroke();
+
+  // A bead at every waypoint, and **not at `path[0]` once the module is walking
+  // it**: that one *is* the standing order, and `drawDestination` has already
+  // put a much louder ring on exactly that spot. Two rings on one point read as
+  // two waypoints. Mid-drag nothing has been sent yet, so every bead is the
+  // page's to draw.
+  ctx.strokeStyle = "rgba(110,231,255,0.22)";
+  ctx.lineWidth = 1.2;
+  for (let i = drag ? 0 : 1; i < path.length; i++) {
+    ctx.beginPath();
+    ctx.arc(px(path[i].x), px(path[i].y), px(ROUTE_MARK), 0, TAU);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
 /**
  * The destination, as the *simulation* holds it -- not as it was clicked.
  * They are the same number here, but drawing the sim's copy is what makes the
@@ -2715,6 +3343,11 @@ function drawDestination(state, now, arrived) {
 // stays because the *colour role* did: it is the faction tint used for anything
 // drawn as a line or a hint rather than as flesh -- the rim light, the vision
 // disc, the reach ring, the sprint chevrons, an arrow in flight.
+//
+// **And then the wedge came back, in `[tactical]` only**, which is not a
+// contradiction of the paragraph above: what retired it was a shape that carried
+// the facing for free, and a tactical body is a plain disc that carries nothing.
+// The fan is the only thing left there that says which way something is pointing.
 const HERO_SKIN = {
   glow: "110,231,255",
   body: ["#bff2ff", "#4fb9d8"],
@@ -3130,6 +3763,14 @@ function headOf(kind) {
   return HEADS[kind] || HEADS[BODY_FIGHTER];
 }
 
+/** Half the facing wedge's angle, and how far out it reaches, in body radii.
+ *
+ *  Wide and short rather than narrow and long: it is a statement about which way
+ *  a disc is pointing, not a claim about what it can reach -- `drawReach` owns
+ *  that and draws a ring, not a fan. */
+const WEDGE_HALF = 0.62;
+const WEDGE_REACH = 1.7;
+
 /**
  * A character, as a character.
  *
@@ -3142,125 +3783,220 @@ function headOf(kind) {
  * or why a blade that visibly clipped a leg did nothing. House rule 4.
  *
  * Faction drives colour and archetype drives shape, and neither crosses over.
+ *
+ * With `artOn()` false, passes 1 to 5 are replaced wholesale by a disc and a
+ * wedge and pass 6 flashes the disc. **That is one branch and not two
+ * functions**, which is what keeps every readout below it -- the limb, the
+ * markers, the chevrons, the circle -- written once.
+ *
+ * `ghost` is `null` for a body the player can see and a `ghostOf` descriptor for
+ * one it is only remembering; see `ghostOf` for what the three stages look like.
  */
-function drawCharacter(unit, now) {
+function drawCharacter(unit, now, ghost) {
   const skin = skinOf(unit);
   const x = px(unit.x);
   const y = px(unit.y);
   const r = px(unit.radius);
   const path = silhouetteOf(unit.kind);
   const head = headOf(unit.kind);
+  const art = artOn();
 
   if (!(r > 0)) return;
 
   ctx.save();
+  // A ghost is this same body at a falling alpha, which is what makes losing
+  // sight of something read as losing sight of it rather than as a sprite being
+  // switched off. Set before the translate, so every pass below inherits it.
+  if (ghost) ctx.globalAlpha = ghost.alpha;
   ctx.translate(x, y);
   // The body gradient is built here, *before* the rotation, so the light stays
   // where the room's light is instead of spinning with the character. It is in
   // pixels rather than radii for the same reason -- it is the only thing in
   // this function that does not belong to the body.
-  const body = ctx.createLinearGradient(0, -r, 0, r);
-  body.addColorStop(0, skin.body[1]);
-  body.addColorStop(1, skin.deep);
+  //
+  // Not built at all with the art off. A body is one colour when the question is
+  // where it is, and this is the one thing in the function that is not free.
+  let body = null;
+  if (art) {
+    body = ctx.createLinearGradient(0, -r, 0, r);
+    body.addColorStop(0, skin.body[1]);
+    body.addColorStop(1, skin.deep);
+  }
 
   ctx.rotate(unit.facing);
   // Into the unit-radius space every path below is written in. Line widths go
   // with it, which is why the strokes from here down are quoted in radii.
   ctx.scale(r, r);
 
-  // 1. The ground shadow: **the silhouette itself**, dropped down the screen.
-  //    A plain ellipse was tried and a Brute -- two and a half radii across the
-  //    beam and one and a half front to back -- wore it as a dark crescent
-  //    sticking out of its chest whenever it turned side-on. The drop is
-  //    counter-rotated so it stays down the *screen*: the light belongs to the
-  //    room, not to the character, and must not spin when the body turns.
-  const drop = 0.28;
-  const sx = Math.sin(unit.facing) * drop;
-  const sy = Math.cos(unit.facing) * drop;
-  ctx.translate(sx, sy);
-  ctx.fillStyle = "rgba(0,0,0,0.42)";
-  ctx.fill(path);
-  ctx.beginPath();
-  ctx.arc(head.at, 0, head.r, 0, TAU);
-  ctx.fill();
-  ctx.translate(-sx, -sy);
+  if (ghost && ghost.outline) {
+    // The last known pose, as an outline, and **nothing at all about what the
+    // body is doing now**: no limb, no hit markers, no sprint chevrons, no
+    // collision circle. Those four describe a body somebody is watching, and the
+    // whole claim of a ghost is that nobody is.
+    //
+    // Dashed because that is already this page's word for "not confirmed" -- the
+    // unacknowledged destination ring and the shut portal are both dashed -- and
+    // an outline because the shape is remembered rather than seen.
+    ctx.setLineDash([0.28, 0.22]);
+    ctx.lineWidth = 0.11;
+    ctx.strokeStyle = `rgba(${skin.glow},0.85)`;
+    if (art) {
+      ctx.stroke(path);
+    } else {
+      ctx.beginPath();
+      ctx.arc(0, 0, 1, 0, TAU);
+      ctx.stroke();
+    }
+    ctx.restore();
+    return;
+  }
 
-  // 2. The body circle, rimmed and not filled. It was filled dark to begin
-  //    with, and the Brute's notched front showed the fill through as a black
-  //    hole punched in its chest -- the art has to *sit on* the circle, not
-  //    stand in a well cut out of it. One device pixel wide whatever `r` is,
-  //    which is why the width is quoted as its reciprocal.
-  ctx.beginPath();
-  ctx.arc(0, 0, 1, 0, TAU);
-  ctx.strokeStyle = "rgba(150,180,230,0.30)";
-  ctx.lineWidth = 1 / r;
-  ctx.stroke();
+  if (!art) {
+    // The pre-silhouette body: a disc and a wedge. No shadow (the light is art),
+    // no silhouette (the shape of a Brute is art), no gradient (a body is one
+    // colour when the question is where it is). The wedge stays, because which
+    // way something is facing is the single most load-bearing fact on screen.
+    //
+    // The wedge goes down *first*, under the disc, so it reads as a fan coming
+    // out from behind the body rather than as a tint across its front half --
+    // which is what it looked like drawn over the top, and a two-tone body says
+    // "wounded" on every other page in this genre.
+    //
+    // It carries the intent on exactly the alphas the rim light uses, so the two
+    // modes agree about what "bearing down" looks like.
+    const fan = unit.intent === INTENT_ATTACK ? 1 : unit.intent === INTENT_FLEE ? 0 : 0.5;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.arc(0, 0, WEDGE_REACH, -WEDGE_HALF, WEDGE_HALF);
+    ctx.closePath();
+    ctx.fillStyle = `rgba(${skin.wedge},${(0.08 + 0.20 * fan).toFixed(3)})`;
+    ctx.fill();
 
-  // 3. The silhouette.
-  ctx.fillStyle = body;
-  ctx.fill(path);
-  ctx.strokeStyle = "rgba(9,11,16,0.85)";
-  ctx.lineWidth = 0.09;
-  ctx.stroke(path);
+    ctx.beginPath();
+    ctx.arc(0, 0, 1, 0, TAU);
+    ctx.fillStyle = skin.deep;
+    ctx.fill();
+    ctx.lineWidth = 1 / r;
+    ctx.strokeStyle = skin.body[1];
+    ctx.stroke();
+  } else {
+    // 1. The ground shadow: **the silhouette itself**, dropped down the screen.
+    //    A plain ellipse was tried and a Brute -- two and a half radii across the
+    //    beam and one and a half front to back -- wore it as a dark crescent
+    //    sticking out of its chest whenever it turned side-on. The drop is
+    //    counter-rotated so it stays down the *screen*: the light belongs to the
+    //    room, not to the character, and must not spin when the body turns.
+    const drop = 0.28;
+    const sx = Math.sin(unit.facing) * drop;
+    const sy = Math.cos(unit.facing) * drop;
+    ctx.translate(sx, sy);
+    ctx.fillStyle = "rgba(0,0,0,0.42)";
+    ctx.fill(path);
+    ctx.beginPath();
+    ctx.arc(head.at, 0, head.r, 0, TAU);
+    ctx.fill();
+    ctx.translate(-sx, -sy);
 
-  // 4. The head, forward along the facing and in the *pale* end of the palette:
-  //    it is the part of the body nearest the light, and painting it dark made
-  //    it read as a hole rather than as a head.
-  ctx.beginPath();
-  ctx.arc(head.at, 0, head.r, 0, TAU);
-  ctx.fillStyle = skin.body[0];
-  ctx.fill();
-  ctx.strokeStyle = "rgba(9,11,16,0.75)";
-  ctx.lineWidth = 0.07;
-  ctx.stroke();
+    // 2. The body circle, rimmed and not filled. It was filled dark to begin
+    //    with, and the Brute's notched front showed the fill through as a black
+    //    hole punched in its chest -- the art has to *sit on* the circle, not
+    //    stand in a well cut out of it. One device pixel wide whatever `r` is,
+    //    which is why the width is quoted as its reciprocal.
+    ctx.beginPath();
+    ctx.arc(0, 0, 1, 0, TAU);
+    ctx.strokeStyle = "rgba(150,180,230,0.30)";
+    ctx.lineWidth = 1 / r;
+    ctx.stroke();
 
-  // 5. The rim light, in the faction colour, along the leading edge.
-  //
-  //    Clipped to the silhouette so it is an inner rim rather than a halo, and
-  //    faded to nothing at the back, because at four pixels a body this line is
-  //    the only thing left saying which side the thing is on.
-  //
-  //    It also carries the intent, which is what retired the facing wedge: a
-  //    body bearing down burns at nearly full alpha and one backing off is
-  //    barely lit. The *hue* never moves -- shifting that would trade a read
-  //    you sometimes need for one you always do.
-  const heat = unit.intent === INTENT_ATTACK ? 1 : unit.intent === INTENT_FLEE ? 0 : 0.5;
-  ctx.save();
-  ctx.clip(path);
-  const rim = ctx.createLinearGradient(-0.7, 0, 1.05, 0);
-  rim.addColorStop(0, `rgba(${skin.wedge},0)`);
-  rim.addColorStop(1, `rgba(${skin.wedge},${(0.24 + 0.72 * heat).toFixed(3)})`);
-  ctx.strokeStyle = rim;
-  ctx.lineWidth = 0.20 + 0.20 * heat;
-  ctx.stroke(path);
-  ctx.restore();
+    // 3. The silhouette.
+    ctx.fillStyle = body;
+    ctx.fill(path);
+    ctx.strokeStyle = "rgba(9,11,16,0.85)";
+    ctx.lineWidth = 0.09;
+    ctx.stroke(path);
+
+    // 4. The head, forward along the facing and in the *pale* end of the palette:
+    //    it is the part of the body nearest the light, and painting it dark made
+    //    it read as a hole rather than as a head.
+    ctx.beginPath();
+    ctx.arc(head.at, 0, head.r, 0, TAU);
+    ctx.fillStyle = skin.body[0];
+    ctx.fill();
+    ctx.strokeStyle = "rgba(9,11,16,0.75)";
+    ctx.lineWidth = 0.07;
+    ctx.stroke();
+
+    // 5. The rim light, in the faction colour, along the leading edge.
+    //
+    //    Clipped to the silhouette so it is an inner rim rather than a halo, and
+    //    faded to nothing at the back, because at four pixels a body this line is
+    //    the only thing left saying which side the thing is on.
+    //
+    //    It also carries the intent, which is what retired the facing wedge: a
+    //    body bearing down burns at nearly full alpha and one backing off is
+    //    barely lit. The *hue* never moves -- shifting that would trade a read
+    //    you sometimes need for one you always do.
+    const heat = unit.intent === INTENT_ATTACK ? 1 : unit.intent === INTENT_FLEE ? 0 : 0.5;
+    ctx.save();
+    ctx.clip(path);
+    const rim = ctx.createLinearGradient(-0.7, 0, 1.05, 0);
+    rim.addColorStop(0, `rgba(${skin.wedge},0)`);
+    rim.addColorStop(1, `rgba(${skin.wedge},${(0.24 + 0.72 * heat).toFixed(3)})`);
+    ctx.strokeStyle = rim;
+    ctx.lineWidth = 0.20 + 0.20 * heat;
+    ctx.stroke(path);
+    ctx.restore();
+  }
 
   // 6. The blow landing, clipped to the shapes that were actually drawn.
   //    Straight from the frame: the sim counts it down from its own
   //    `Event::Damage`, so the page no longer has to tell a blow from
   //    regeneration by watching health fall.
+  //
+  //    "The shapes that were actually drawn" is why this branches too: with the
+  //    art off there is no silhouette and no head to flash, and flashing them
+  //    anyway would print a Brute's shoulders on screen for four frames in a mode
+  //    that has spent the whole function not drawing them.
   if (unit.hitFlash > 0) {
     ctx.fillStyle = `rgba(255,255,255,${(0.75 * unit.hitFlash).toFixed(3)})`;
-    ctx.fill(path);
-    ctx.beginPath();
-    ctx.arc(head.at, 0, head.r, 0, TAU);
-    ctx.fill();
+    if (art) {
+      ctx.fill(path);
+      ctx.beginPath();
+      ctx.arc(head.at, 0, head.r, 0, TAU);
+      ctx.fill();
+    } else {
+      ctx.beginPath();
+      ctx.arc(0, 0, 1, 0, TAU);
+      ctx.fill();
+    }
   }
   ctx.restore();
 
   // The collision circle once more, over the art this time. Faint, and always
   // there: see the block comment above.
-  ctx.save();
-  ctx.strokeStyle = "rgba(214,232,255,0.26)";
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.arc(x, y, r, 0, TAU);
-  ctx.stroke();
-  ctx.restore();
+  //
+  // **Only where there is art on top of it to justify a second stroke.** With
+  // the art off the disc that was just filled *is* the collision circle, so
+  // drawing this would be a second line on the very same curve. House rule 4 is
+  // satisfied either way: what it forbids is painting a shape the sim will treat
+  // as hittable and then hiding where the real edge is, and in `[tactical]` the
+  // shape and the edge are the same circle. A ghost is skipped for a different
+  // reason -- it is not a hitbox at all.
+  if (art && !ghost) {
+    ctx.save();
+    ctx.strokeStyle = "rgba(214,232,255,0.26)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, TAU);
+    ctx.stroke();
+    ctx.restore();
+  }
 
-  drawSprint(unit, skin, now);
-  drawLimb(unit, skin);
-  drawMarks(unit);
+  if (!ghost) {
+    drawSprint(unit, skin, now);
+    drawLimb(unit, skin);
+    drawMarks(unit);
+  }
 }
 
 /**
@@ -3385,6 +4121,73 @@ function drawCorpses() {
   }
 }
 
+/** How long a body takes to fade once the character loses sight of it. */
+const GHOST_FADE_MS = 400;
+/** How long its last-known outline lingers after that. */
+const GHOST_HOLD_MS = 2000;
+
+/**
+ * What to draw for a body the player cannot see, or `null` for nothing at all.
+ *
+ * Three stages, and the first one is the point: a monster that steps behind rock
+ * **fades** rather than blinking out, so what the player loses is the live
+ * picture and not the fact that something was there a second ago. After the fade
+ * a dashed outline holds the last pose for two seconds, and then that goes too.
+ *
+ * | `lost` | drawn as |
+ * |---|---|
+ * | `0` | normally -- this function is not called |
+ * | `< GHOST_FADE_MS` | normally, at falling alpha |
+ * | `< GHOST_FADE_MS + GHOST_HOLD_MS` | dashed outline at the last pose, fading |
+ * | beyond | not drawn |
+ *
+ * Aged on the wall clock like `trail`, the floaters and the corpses -- and on the
+ * *paused-aware* clock, so a ghost does not quietly expire while the world is
+ * frozen and the player is looking at it.
+ */
+function ghostOf(lost) {
+  if (!(lost > 0)) return null;
+  if (lost < GHOST_FADE_MS) return { alpha: 1 - lost / GHOST_FADE_MS, outline: false };
+  const held = (lost - GHOST_FADE_MS) / GHOST_HOLD_MS;
+  if (held >= 1) return null;
+  // Never quite reaching zero: the last frame of an outline is at 0.45 * (1/60),
+  // which is invisible, and easing all the way out is what stops the disappearance
+  // itself being an event on screen.
+  return { alpha: 0.45 * (1 - held), outline: true };
+}
+
+/**
+ * One body: what it is, or what the page last saw of it.
+ *
+ * **A ghost goes through `drawCharacter` and not through a routine of its own.**
+ * The alternative was a second small renderer for remembered bodies, and a second
+ * renderer is how a Skitterer ends up with six legs in one mode and four in the
+ * other.
+ *
+ * The pose comes out of `bodies`, which `syncBodies` froze at the moment sight was
+ * lost -- see there for why that matters. Drawing the live row's coordinates
+ * instead would be a wallhack with a fade on it.
+ */
+function drawBody(unit, now) {
+  if (canSee(unit)) {
+    drawCharacter(unit, now, null);
+    return;
+  }
+  const remembered = bodies.get(unit.id);
+  const ghost = ghostOf(remembered ? remembered.lost : 0);
+  if (!ghost) return;
+  // A shallow copy per unseen body per frame, capped by `MAX_UNITS`. The
+  // alternative -- teaching `drawCharacter` to take a pose beside its unit --
+  // spreads the frozen coordinates across two files' worth of call sites.
+  const pose = Object.assign({}, unit, {
+    x: remembered.x,
+    y: remembered.y,
+    radius: remembered.radius,
+    facing: remembered.facing,
+  });
+  drawCharacter(pose, now, ghost);
+}
+
 // -------------------------------------------------------------- action icons
 //
 // **One table, two consumers.** These are 24x24 viewBox path-data strings and
@@ -3503,6 +4306,36 @@ function factionOfActor(state, actor) {
 }
 
 /**
+ * Whether the player can see whoever an event row is about.
+ *
+ * A damage number over a body the character cannot see is information the
+ * character does not have, and a callout naming the action it is winding up is
+ * worse -- that is the single most useful tell in the game handed over for free.
+ * So both are decided **once, as the row is consumed**, rather than per frame: an
+ * event happened at an instant, and if the player was watching at that instant
+ * they are entitled to the number even if the body then steps out of sight.
+ *
+ * Resolved the same way `factionOfActor` resolves its side, and for the same
+ * reason: a body killed by the very blow this row describes is already out of the
+ * frame, so the page's own memory answers for that one.
+ */
+function actorVisible(state, actor) {
+  for (const unit of state.units) {
+    if (unit.index === actor) return canSee(unit);
+  }
+  const prefix = `${actor}:`;
+  for (const [id, seen] of bodies) {
+    // `lost` is last frame's, which is the right frame: this runs before
+    // `syncBodies`, and what is being asked is whether the character had eyes on
+    // it when it fell.
+    if (id.startsWith(prefix)) return !(seen.lost > 0);
+  }
+  // Nobody knows. Print it: a number the page cannot attribute is a much smaller
+  // problem than one it silently swallows.
+  return true;
+}
+
+/**
  * One `step()`'s worth of events, turned into things on screen.
  *
  * **Called once per step, never once per animation frame.** The module clears
@@ -3517,6 +4350,9 @@ function factionOfActor(state, actor) {
 function consumeEvents(state) {
   for (let i = 0; i < state.events.length; i++) {
     const event = state.events[i];
+    // Nothing is seeded for a body the player cannot see. With the fog off this
+    // is never true, so `[dev]` consumes exactly the feed it always did.
+    if (!actorVisible(state, event.actor)) continue;
     if (event.kind === EVENT_DAMAGE || event.kind === EVENT_BLOCK) {
       floaters.push({
         kind: event.kind,
@@ -3716,7 +4552,7 @@ function render(state, now, arrived) {
 
   // The compositing order, and it is the map of the whole layer:
   //
-  //   ground -> the way out -> trail -> destination -> vision discs
+  //   ground -> the way out -> trail -> route -> destination -> vision discs
   //          -> corpses -> reach rings -> monsters -> hero -> arrows
   //          -> health bars -> floaters -> callouts
   //
@@ -3732,26 +4568,48 @@ function render(state, now, arrived) {
   // body radius. It went with the rectangle it described. The honest successor
   // on a carved level would be a tint over gaps a body cannot fit down, which
   // is worth having only if playing without it turns out to want it.
-  drawLevel();
+  // The level takes the frame now: the lantern is centred on the character, and
+  // that is the only reason -- everything else about the ground is baked.
+  drawLevel(state);
+  // Drawn in every mode, seen or not. See its own comment: seeing the exit from
+  // the moment you arrive is what turns "kill things" into "fight your way
+  // there", and the fog does not weaken that argument. One of the two knowing
+  // inconsistencies in the fog; `left N` is the other, and it counts every
+  // monster alive because it is the level's clear condition, not a perception.
   drawPortal(state, now);
   drawTrail();
+  // Where it is going after where it is going, on the ground with the trail and
+  // under the mark it is walking to now. Both halves of the picture in one call:
+  // the path under the finger, and the path the module is working through.
+  drawRoute(state, now);
   // No marker once the character is gone: the order outlives it in the world,
   // but a destination nobody is walking to is a promise the page cannot keep.
   if (state.hero) drawDestination(state, now, arrived);
-  for (const unit of state.units) drawVision(unit);
+  // **Everything that reads a body's live numbers is gated on being able to see
+  // it**: the vision disc, the reach ring and the health bar. A health bar over a
+  // body you cannot see is information the character does not have, and a reach
+  // ring is worse -- it is a warning about a blow you were not told was coming.
+  // `Y` still means what it means, and the character's own disc is always there,
+  // because the hero's row reports visible unconditionally.
+  for (const unit of state.units) {
+    if (canSee(unit)) drawVision(unit);
+  }
   drawCorpses();
 
-  for (const unit of state.units) drawReach(unit, skinOf(unit), now);
+  for (const unit of state.units) {
+    if (canSee(unit)) drawReach(unit, skinOf(unit), now);
+  }
   // Monsters first, then the hero: the character you are commanding must never
-  // end up underneath the thing attacking it.
-  for (const unit of state.monsters) drawCharacter(unit, now);
-  if (state.hero) drawCharacter(state.hero, now);
+  // end up underneath the thing attacking it. Through `drawBody`, which is where
+  // "or the memory of one" lives.
+  for (const unit of state.monsters) drawBody(unit, now);
+  if (state.hero) drawBody(state.hero, now);
   // Arrows over the bodies, so one crossing a fight is not hidden by it.
   drawShots(state.shots);
 
   const fighting = state.monsters.length > 0;
   for (const unit of state.units) {
-    if (fighting || unit.hp < unit.maxHp) drawHealth(unit, skinOf(unit));
+    if (canSee(unit) && (fighting || unit.hp < unit.maxHp)) drawHealth(unit, skinOf(unit));
   }
 
   drawFloaters();
@@ -3916,21 +4774,38 @@ function updateBattle(state) {
   // starts to mean anything.
   el.respawn.hidden = state.hero !== null;
 
+  // Frozen or not goes on *this* line, and not on a badge of its own: this is
+  // the line that answers "what is happening", and "nothing, until you say so"
+  // is an answer to that question rather than a separate fact about the page.
+  //
+  // The line is two halves for that one reason -- the word for what the world is
+  // doing, and the detail that qualifies it -- because **`paused` takes the
+  // place of the first half and never the second.** Bolting a prefix onto the
+  // whole sentence instead gives "paused -- battle -- 3 monsters standing", and
+  // the count is exactly the thing the clock was stopped to read.
+  //
+  // With nobody standing the pause goes unmentioned, deliberately: an empty room
+  // was not going anywhere, and the sentence that matters there is the one
+  // saying how to get going again. The lit button is still saying it.
+  let cls = "state";
+  let head = "battle";
+  let tail = `${monsters} standing`;
   if (!state.hero) {
-    el.battleState.className = "state dead";
-    setText(el.battleState, "the character has fallen — send in a new one, or press R for a new room");
+    cls = "state dead";
+    head = "the character has fallen";
+    tail = "send in a new one, or press R for a new room";
   } else if (standing === 0) {
-    el.battleState.className = "state idle";
-    setText(
-      el.battleState,
-      state.portalState === 2
-        ? "clear — the way out is open"
-        : "quiet — nothing left to fight"
-    );
-  } else {
-    el.battleState.className = "state";
-    setText(el.battleState, `battle — ${monsters} standing`);
+    cls = "state idle";
+    if (state.portalState === 2) {
+      head = "clear";
+      tail = "the way out is open";
+    } else {
+      head = "quiet";
+      tail = "nothing left to fight";
+    }
   }
+  el.battleState.className = cls;
+  setText(el.battleState, `${state.hero && isPaused() ? "paused" : head} — ${tail}`);
 }
 
 function updateHud(state, stats, distance, arrived, settled, now) {
@@ -4008,6 +4883,34 @@ function updateHud(state, stats, distance, arrived, settled, now) {
 let accumulator = 0;
 let lastFrameTime = 0;
 
+/** Whether the world is frozen. Presentation state, and the sim does not know:
+ *  pausing is "stop calling `step`", which is the only definition that cannot
+ *  drift out of sync with what is on screen.
+ *
+ *  Read through `isPaused()` and written through `setPaused()` so the button,
+ *  the key and the HUD line all hang off one switch -- the same discipline
+ *  `visionVisible` has. */
+let paused = false;
+
+function isPaused() {
+  return paused;
+}
+
+function setPaused(on) {
+  paused = !!on;
+  // The glyph, the word and `aria-pressed` all written here, off the one
+  // switch. Three faces of one fact, and this is the only control on the page
+  // that can leave the room looking broken if two of them disagree.
+  el.pause.setAttribute("aria-pressed", String(paused));
+  setText(el.pauseGlyph, paused ? "▶" : "▌▌");
+  setText(el.pauseLabel, paused ? "Resume" : "Pause");
+  hint(
+    paused
+      ? "Frozen. Orders still land -- click, drag a path, stand down -- and nothing moves until you resume."
+      : "Running again."
+  );
+}
+
 /**
  * The page's entire memory, refreshed once a frame.
  *
@@ -4022,27 +4925,69 @@ let lastFrameTime = 0;
  * Keyed on the entity handle, never the row: `write_frame` omits the dead, so
  * one monster falling shifts every row below it up by one and a row-keyed
  * version of this would bury the wrong bodies.
+ *
+ * Deaths are no longer the only thing here. A body the character cannot see is a
+ * body the frame still carries and the page must stop believing, so this is also
+ * where a **ghost** is kept: the pose freezes and `lost` starts climbing.
  */
 function syncBodies(state, now, elapsed) {
   const live = new Set();
   for (const unit of state.units) {
     live.add(unit.id);
+    // Read **before** the `set` below, which replaces the object wholesale.
+    // Reading it after would be reading this frame's own row back, and `lost`
+    // would never climb off zero.
+    const prior = bodies.get(unit.id);
+    const visible = canSee(unit);
+    // Milliseconds since the character last had eyes on it, `0` while it still
+    // does, and **`Infinity` for a body it has never seen at all**.
+    //
+    // That third case is not a nicety. Every row is in the frame from the moment
+    // the level is carved, so on the first frame of a floor there is no `prior`
+    // for anything -- and starting those at `0` meant that on the second frame
+    // they began ageing as though sight had just been lost, which drew every
+    // monster on the level, at its real position, fading and then dashed, for the
+    // two and a half seconds after every arrival. `Infinity + elapsed` is still
+    // `Infinity`, so nothing downstream has to remember which case it is in:
+    // `ghostOf` returns nothing, no corpse is banked, and no floater is seeded.
+    //
+    // Aged on the same paused-aware clock the corpses are, and reset the moment it
+    // comes back -- a monster that steps out and back is one body, not two.
+    const lost = visible ? 0 : prior && prior.lost < Infinity ? prior.lost + elapsed : Infinity;
+    // **The pose freezes the moment sight is lost, and that is the whole honesty
+    // of a ghost.** Kept live, it would be a dashed outline that follows a
+    // monster through solid rock -- a wallhack with a fade on it. What the player
+    // is shown is where the thing *was*. A body never seen has no pose worth
+    // keeping, so it goes on tracking the live row until it has one.
+    const pose = lost === 0 || lost === Infinity ? unit : prior;
     bodies.set(unit.id, {
-      x: unit.x,
-      y: unit.y,
-      radius: unit.radius,
+      x: pose.x,
+      y: pose.y,
+      radius: pose.radius,
       faction: unit.faction,
       // Enough to draw the thing again after it has left the frame: which
       // silhouette it was and which way it was pointing when it stopped being
       // in one. `faction` earns a second keep here -- `factionOfActor` reads it
       // to colour the number that did the killing.
       kind: unit.kind,
-      facing: unit.facing,
+      facing: pose.facing,
+      lost,
     });
   }
 
   for (const [id, seen] of bodies) {
     if (live.has(id)) continue;
+    // A body that was **already out of sight leaves no corpse**. A corpse is a
+    // thing you watched fall: a solid silhouette fading in on top of a ghost's
+    // dashed outline would announce a death the character never saw, and look
+    // like the page glitching while it did it. The ghost is all the player gets,
+    // and an outline that stops is indistinguishable from one that timed out --
+    // which is the point. Risk 4 in the plan: correct, and it will look like a bug
+    // to anybody who knows it died.
+    if (seen.lost > 0) {
+      bodies.delete(id);
+      continue;
+    }
     corpses.push({
       x: seen.x,
       y: seen.y,
@@ -4078,6 +5023,13 @@ function loop(now) {
   } else {
     accumulator -= ticks * TICK_MS;
   }
+  // Frozen: no ticks, and no backlog to pay off on resume either. Draining the
+  // accumulator is what stops a minute spent paused from arriving as one
+  // eight-tick lurch the moment play starts again.
+  if (paused) {
+    ticks = 0;
+    accumulator = 0;
+  }
   // Before stepping, not after: whatever the player is holding has to be in
   // place for the ticks that are about to run, or every input is one frame late.
   if (controlMask) pushInput(parseFrame(readFrame()));
@@ -4098,6 +5050,12 @@ function loop(now) {
   if (wasm.map_revision() !== levelPaths.revision) {
     rebuildLevelPaths(readMap(), wasm.map_revision());
     trail = [];
+    // The waypoints describe a floor plan that no longer exists. `descend`
+    // drops the module's own queue; a drag still under the hand is the page's
+    // problem alone, and releasing it onto the new floor would order a walk
+    // along a corridor from the last one.
+    cancelDrag();
+    routeDrawn = [];
     bodies = new Map();
     corpses = [];
     floaters = [];
@@ -4108,12 +5066,33 @@ function loop(now) {
     stillSince = 0;
     snapCamera(state);
     if (state.depth > 0) hint(`Level ${state.depth + 1}. Something else is down here.`);
+  } else if (levelPaths.fog && wasm.vis_revision() !== levelPaths.vis) {
+    // The lit region moved. Re-bake -- and **only here**: `vis_revision` moves
+    // when the character crosses a tile, which is a few times a second at a run
+    // and never on a frame where nothing changed.
+    //
+    // Guarded on the flags the paths were *baked* under rather than on `fogOn()`,
+    // so that a mode change is caught by the branch below it and not by this one.
+    rebuildLevelPaths(readMap(), wasm.map_revision());
   } else if (levelPaths.scale !== scale) {
     // A `Path2D` holds pixels. A zoom or a resize invalidates it just as surely
     // as a new level does -- it is only much less obvious, because the level is
     // still the right level and merely drawn at the wrong size.
     rebuildLevelPaths(readMap(), wasm.map_revision());
+  } else if (levelPaths.art !== artOn() || levelPaths.fog !== fogOn()) {
+    // Belt and braces on the view modes. `setViewMode` already rebuilds, so this
+    // fires on no path that exists today -- it is here so that the recorded flags
+    // are load-bearing rather than decorative, and so a future switch that forgets
+    // to rebuild is one frame of the wrong picture instead of a level baked under
+    // a mode nobody is in.
+    rebuildLevelPaths(readMap(), wasm.map_revision());
   }
+
+  // Drop the legs the module has finished. It is the authority on how far along
+  // the path the character is -- the page asking that question for itself would
+  // be a second copy of an arrival rule that lives in `Sim::follow_route`.
+  const legs = wasm.route_len();
+  if (legs < routeDrawn.length) routeDrawn = routeDrawn.slice(routeDrawn.length - legs);
 
   // The Hero rail, read back out of the module rather than off the frame's
   // `kind` column: the attributes are a live dial now, so `BODIES[kind]` is the
@@ -4123,7 +5102,14 @@ function loop(now) {
 
   // Age first, then seed: a floater created below starts its life at zero
   // rather than one frame old.
-  ageEffects(elapsed);
+  //
+  // Presentation ages with the world and not with the wall clock, or a pause
+  // would be a still world under drifting damage numbers. **The camera keeps
+  // the real `elapsed`**, deliberately: panning, zooming and hovering a frozen
+  // world is the point of freezing it, and a camera fed zero would refuse to
+  // follow the click the player just made.
+  const aged = paused ? 0 : elapsed;
+  ageEffects(aged);
   // And seed **only from a frame that stepped**. `step()` clears the event feed
   // per call rather than per tick, so a frame that ran no ticks is still
   // looking at the previous call's rows -- consuming those a second time is
@@ -4132,7 +5118,7 @@ function loop(now) {
   if (ticks > 0) consumeEvents(state);
   // After the events, never before: a body killed by a blow in that feed is
   // already out of the frame, and this is the call that forgets it.
-  syncBodies(state, now, elapsed);
+  syncBodies(state, now, aged);
 
   if (!state.hero && !announcedFall) {
     announcedFall = true;
@@ -4330,6 +5316,12 @@ async function boot() {
   buildRails();
   buildControlGroup();
   updateControlButtons();
+  // The view selector, built from `VIEW_MODES` the same way. Only the lighting
+  // pass runs at boot, not `setViewMode`: the default mode's dev strip is already
+  // shut in the markup, and calling the setter here would hint at a mode nobody
+  // chose and bake the paths before `resize` has decided what `scale` is.
+  buildViewGroup();
+  updateViewButtons();
 
   // The project's central claim as one number: this is what
   // `cargo run --release -p lab -- hash` prints natively, computed here by the

@@ -494,6 +494,16 @@ impl World {
             if distance > sight {
                 continue;
             }
+            // Rock stops eyes. Applied to allies as well as enemies: `cohesion`
+            // and `ally_centre` steer toward the mean of what is in view, and a
+            // body pulled toward a squadmate on the far side of a wall walks
+            // into the wall for exactly the reason a body pulled toward an enemy
+            // does.
+            //
+            // Free and bit-identical on an uncarved plan; see `Dungeon::sees`.
+            if !self.dungeon.sees(me, self.pos[j]) {
+                continue;
+            }
             if self.faction[j] == self.faction[i] {
                 allies.offer(distance, j);
             } else {
@@ -1262,6 +1272,28 @@ impl World {
                     Some(h) => h,
                     None => continue,
                 };
+                // A cut that crosses masonry did not land. Measured from the
+                // swinger's own centre to the point of impact, which is the
+                // segment the arm actually occupies at the moment it connects.
+                //
+                // Belt-and-braces once sight is occluded -- nobody *aims*
+                // through a wall any more -- but "cannot see it" and "cannot hit
+                // it" are different claims, and only the second one stops a
+                // long weapon. A Brute's `Club` reaches 2.15 from its own centre
+                // (radius 0.70 plus a 1.45 blade), and a Brute and a Skitterer
+                // pressed against opposite faces of a one-tile wall are
+                // 0.70 + 1.00 + 0.30 = 2.00 apart. It clears the rock by 0.15,
+                // so this is arithmetic and not paranoia.
+                //
+                // On the hit path only, which is rare, and free on a flat plan:
+                // `raycast` bails on its first tile test. It is `raycast` and not
+                // `sees` because the short-circuit is not wanted -- a swing is
+                // already inside a `carved` check by virtue of being rare, and
+                // reading the same method the arrows read (`resolve_shots`) keeps
+                // one rule for "what stops a moving thing".
+                if self.dungeon.carved() && self.dungeon.raycast(self.pos[i], hit.point).is_some() {
+                    continue;
+                }
 
                 let impact = self.impact_speed(i, j, hit.point);
                 let mut full = rules::blow_damage(spec.mass, impact, power);
@@ -4860,6 +4892,423 @@ mod tests {
         }
         assert_eq!(w.shots().count(), 1, "stopped in mid-air");
         assert!(w.shot_pos[k].x > Fx::from_int(5));
+    }
+
+    // ------------------------------------------------------------------ sight
+
+    /// A world on `rows` holding `bodies` exactly where they are listed, and
+    /// nothing else.
+    ///
+    /// Every occlusion test below is a statement about *who is in whose contact
+    /// list*, so the fixture has to be able to say where four or five bodies
+    /// stand and which side each is on. `carved_world` deliberately carries one
+    /// body and every caller places it by hand; this is the same bargain widened,
+    /// and the spawn is used verbatim -- `World::spawn` does not snap a placement
+    /// to clear ground, which is what lets a test press a body against a wall
+    /// face on purpose.
+    fn peopled_world(rows: &[&str], bodies: &[(Body, Faction, Vec2)]) -> World {
+        let mut scenario = Scenario::duel();
+        scenario.dungeon = crate::dungeon::parse(rows);
+        scenario.units = bodies
+            .iter()
+            .map(|&(kind, faction, spawn)| UnitSpec {
+                kind,
+                faction,
+                stats: kind.base_stats(),
+                loadout: kind.default_loadout(),
+                spawn,
+            })
+            .collect();
+        World::new(&scenario, 1)
+    }
+
+    /// The contact list `observe` would have produced before rock stopped eyes:
+    /// everything of `side` inside `i`'s sight range, nearest first, cut to `i`'s
+    /// perception cap. `Nearest` breaks ties on the entity index, so a plain sort
+    /// of `(distance, index)` reproduces its order exactly.
+    fn by_distance_alone(w: &World, i: usize, side: Faction) -> Vec<EntityId> {
+        let sight = w.stats[i].sight_range();
+        let mut found: Vec<(Fx, usize)> = (0..w.alive.len())
+            .filter(|&j| j != i && w.alive[j] && w.faction[j] == side)
+            .map(|j| ((w.pos[j] - w.pos[i]).length(), j))
+            .filter(|&(d, _)| d <= sight)
+            .collect();
+        found.sort();
+        found.truncate(w.stats[i].tracked_contacts());
+        found.into_iter().map(|(_, j)| w.id_of(j)).collect()
+    }
+
+    #[test]
+    fn on_an_open_floor_plan_every_contact_survives() {
+        // **The test that protects `LAB_HASH`**, and it makes the claim in two
+        // pieces because the claim has two halves.
+        //
+        // The first half is that `Dungeon::open` really is the uncarved value the
+        // short-circuit keys on however it was arrived at -- reached here once
+        // through `Scenario::room` and once through a hand-written grid of the
+        // same extent, which is the construction path `dungeon::parse` and the
+        // generator both take.
+        //
+        // The second half is the one that would actually catch a regression, and
+        // it is not a comparison between two runs of the new code: it recomputes
+        // the *old* rule -- distance and the perception cap, no line of sight at
+        // all -- and asserts the observation is that list, in that order, for
+        // every body on the field. Every scenario in the repository but a
+        // generated one is uncarved, so if this holds then none of them moved,
+        // and the number the lab prints cannot have.
+        let bodies = [
+            (Body::Fighter, Faction::Heroes, Vec2::from_ints(10, 8)),
+            (Body::Fighter, Faction::Heroes, Vec2::from_ints(12, 6)),
+            (Body::Rogue, Faction::Heroes, Vec2::from_ints(4, 13)),
+            (Body::Skitterer, Faction::Monsters, Vec2::from_ints(13, 9)),
+            (Body::Skitterer, Faction::Monsters, Vec2::from_ints(15, 7)),
+            (Body::Brute, Faction::Monsters, Vec2::from_ints(18, 12)),
+        ];
+        let build = |dungeon: Dungeon| {
+            let mut scenario = Scenario::room();
+            scenario.dungeon = dungeon;
+            scenario.units = bodies
+                .iter()
+                .map(|&(kind, faction, spawn)| UnitSpec {
+                    kind,
+                    faction,
+                    stats: kind.base_stats(),
+                    loadout: kind.default_loadout(),
+                    spawn,
+                })
+                .collect();
+            World::new(&scenario, 9)
+        };
+        let room = Scenario::room().dungeon;
+        let by_hand = crate::dungeon::parse(&[".".repeat(24).as_str(); 16]);
+        assert_eq!(room.extent(), by_hand.extent(), "the twins differ in size");
+        assert!(!room.carved() && !by_hand.carved());
+        assert_eq!(room, by_hand, "two ways of writing the same empty room");
+
+        let a = build(room);
+        let b = build(by_hand);
+        let mut left = vec![Fx::ZERO; crate::obs::FEATURE_COUNT];
+        let mut right = vec![Fx::ZERO; crate::obs::FEATURE_COUNT];
+
+        let mut contacts = 0;
+        for id in a.alive_ids(Faction::Heroes).into_iter().chain(a.alive_ids(Faction::Monsters)) {
+            let i = id.index as usize;
+            let obs = a.observe(id);
+
+            // Field for field, against the twin. The feature vector rather than
+            // the struct because it is what a mind is actually handed, it is
+            // `Fx` throughout so a mismatch is a mismatch, and `Observation` has
+            // no `PartialEq` to lean on.
+            obs.write_features(&mut left);
+            b.observe(id).write_features(&mut right);
+            assert_eq!(left, right, "entity {i} observed two empty rooms differently");
+
+            // And against the rule that was here before this change set.
+            let enemy_side = match a.faction[i] {
+                Faction::Heroes => Faction::Monsters,
+                Faction::Monsters => Faction::Heroes,
+            };
+            let seen: Vec<EntityId> = obs.enemies().iter().map(|c| c.id).collect();
+            assert_eq!(seen, by_distance_alone(&a, i, enemy_side), "entity {i}'s foes");
+            let allied: Vec<EntityId> = obs.allies().iter().map(|c| c.id).collect();
+            assert_eq!(allied, by_distance_alone(&a, i, a.faction[i]), "entity {i}'s allies");
+            contacts += seen.len() + allied.len();
+        }
+        assert!(
+            contacts > 12,
+            "the fixture produced {contacts} contacts, so it proves very little"
+        );
+    }
+
+    #[test]
+    fn a_foe_behind_one_tile_of_rock_is_not_a_contact() {
+        // **The reported bug, as a fixture.** A Fighter (radius 0.45) and a
+        // Skitterer (0.30) pressed against opposite faces of a single tile of
+        // masonry are 0.45 + 1.00 + 0.30 = 1.75 apart -- well inside the dimmest
+        // sight range in the game -- and used to appear in each other's contact
+        // list, which is what took both policies out of `march` and into
+        // `engage` and left them swinging at a wall forever.
+        //
+        //   0123456789
+        let rows = [
+            "##########", // 0
+            "#..#.....#", // 1  a pillar at (3, 1)
+            "#........#", // 2  and the same span of floor, uninterrupted
+            "##########", // 3
+        ];
+        // Hard against the two faces of column 3, to a hundredth: `overlaps`
+        // compares strictly, so a body exactly touching a face still fits, and
+        // both of these are legal standing room.
+        let west = Fx::from_ratio(255, 100);
+        let east = Fx::from_ratio(430, 100);
+        let apart = Fx::from_ratio(175, 100);
+
+        for (row, blocked) in [(1, true), (2, false)] {
+            let y = Fx::from_int(row) + Fx::HALF;
+            let w = peopled_world(
+                &rows,
+                &[
+                    (Body::Fighter, Faction::Heroes, Vec2::new(west, y)),
+                    (Body::Skitterer, Faction::Monsters, Vec2::new(east, y)),
+                ],
+            );
+            let hero = w.alive_ids(Faction::Heroes)[0];
+            let foe = w.alive_ids(Faction::Monsters)[0];
+
+            // The premises, so that a failure below is about sight and not about
+            // arithmetic drifting out from under the test.
+            assert_eq!(
+                (w.pos[foe.index as usize] - w.pos[hero.index as usize]).length(),
+                apart,
+                "row {row}: the fixture is not 1.75 apart"
+            );
+            for id in [hero, foe] {
+                let i = id.index as usize;
+                assert!(
+                    w.dungeon.is_clear(w.pos[i], w.radius[i]),
+                    "row {row}: entity {i} is standing in the rock"
+                );
+                assert!(
+                    apart <= w.stats[i].sight_range(),
+                    "row {row}: entity {i} could not see that far in any case"
+                );
+            }
+
+            let hero_sees = w.observe(hero);
+            let foe_sees = w.observe(foe);
+            if blocked {
+                assert!(
+                    hero_sees.enemies().is_empty(),
+                    "the hero saw through a wall: {:?}",
+                    hero_sees.enemies()
+                );
+                assert!(
+                    foe_sees.enemies().is_empty(),
+                    "the monster saw through a wall: {:?}",
+                    foe_sees.enemies()
+                );
+            } else {
+                // The same distance, the same bodies, the same carved level --
+                // only the tile between them is gone. If this half ever fails,
+                // the ray is not permissive, it is broken.
+                assert_eq!(
+                    hero_sees.enemies().iter().map(|c| c.id).collect::<Vec<_>>(),
+                    vec![foe],
+                    "the corridor is open and the hero still saw nothing"
+                );
+                assert_eq!(
+                    foe_sees.enemies().iter().map(|c| c.id).collect::<Vec<_>>(),
+                    vec![hero]
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn occlusion_applies_to_allies_too() {
+        // Why `sees` is asked about allies and not only about enemies:
+        // `cohesion` and `ally_centre` steer a body toward the mean of the
+        // friends it can see, so a squadmate on the far side of a wall walks the
+        // formation into the wall exactly as a target on the far side of one
+        // walks the fight into it.
+        //
+        //   0123456
+        let w = peopled_world(
+            &[
+                "#######", // 0
+                "#..#..#", // 1
+                "#.....#", // 2
+                "#######", // 3
+            ],
+            &[
+                (Body::Fighter, Faction::Heroes, Vec2::new(Fx::from_ratio(15, 10), Fx::from_ratio(15, 10))),
+                (Body::Fighter, Faction::Heroes, Vec2::new(Fx::from_ratio(15, 10), Fx::from_ratio(25, 10))),
+                (Body::Fighter, Faction::Heroes, Vec2::new(Fx::from_ratio(45, 10), Fx::from_ratio(15, 10))),
+            ],
+        );
+        let ids = w.alive_ids(Faction::Heroes);
+        let (me, beside, behind) = (ids[0], ids[1], ids[2]);
+        let i = me.index as usize;
+
+        // Both allies are in range, and the perception cap has room for both, so
+        // neither of those can be the reason one of them is missing.
+        assert!(w.stats[i].tracked_contacts() >= 2);
+        for other in [beside, behind] {
+            let d = (w.pos[other.index as usize] - w.pos[i]).length();
+            assert!(d <= w.stats[i].sight_range(), "{other:?} is out of range at {d}");
+        }
+
+        let obs = w.observe(me);
+        assert_eq!(
+            obs.allies().iter().map(|c| c.id).collect::<Vec<_>>(),
+            vec![beside],
+            "the ally behind the pillar is still being steered toward"
+        );
+    }
+
+    #[test]
+    fn occlusion_is_applied_before_the_perception_cap() {
+        // The placement of the one line, asserted rather than argued. A dim
+        // observer holds two contacts in mind; four foes are inside its 6.0 of
+        // sight, and the *two nearest* are behind rock. Spend the budget on the
+        // nearest and the observation comes back full of masonry and the body
+        // never learns about the pair it can actually see -- which is why the ray
+        // fires before `Nearest::offer` and not after it.
+        //
+        //   012345678901
+        let mut scenario = Scenario::duel();
+        scenario.dungeon = crate::dungeon::parse(&[
+            "############", // 0
+            "#..#.......#", // 1
+            "#..#.......#", // 2
+            "#..#.......#", // 3
+            "#..#.......#", // 4
+            "#..........#", // 5   the way round, at the bottom
+            "############", // 6
+        ]);
+        let place = |x, y| Vec2::new(Fx::from_ratio(x, 10), Fx::from_ratio(y, 10));
+        let hidden = [place(45, 15), place(45, 25)];
+        let visible = [place(15, 55), place(25, 55)];
+        scenario.units = std::iter::once((Body::Fighter, Faction::Heroes, place(15, 15)))
+            .chain(
+                hidden
+                    .iter()
+                    .chain(visible.iter())
+                    .map(|&at| (Body::Skitterer, Faction::Monsters, at)),
+            )
+            .map(|(kind, faction, spawn)| UnitSpec {
+                kind,
+                faction,
+                stats: kind.base_stats(),
+                loadout: kind.default_loadout(),
+                spawn,
+            })
+            .collect();
+        // Half blind: `tracked_contacts` is 2 and `sight_range` is 6.0.
+        scenario.units[0].stats.perception = 0;
+        let w = World::new(&scenario, 1);
+
+        let me = w.alive_ids(Faction::Heroes)[0];
+        let i = me.index as usize;
+        assert_eq!(w.stats[i].tracked_contacts(), 2);
+        let foes = w.alive_ids(Faction::Monsters);
+
+        // The premise: all four are in range, and the two behind the wall are
+        // the two the old rule would have picked.
+        let mut ranked: Vec<(Fx, EntityId)> = foes
+            .iter()
+            .map(|&id| ((w.pos[id.index as usize] - w.pos[i]).length(), id))
+            .collect();
+        for &(d, id) in &ranked {
+            assert!(d <= w.stats[i].sight_range(), "{id:?} is out of range at {d}");
+        }
+        ranked.sort();
+        assert_eq!(
+            ranked[..2].iter().map(|&(_, id)| id).collect::<Vec<_>>(),
+            foes[..2].to_vec(),
+            "the fixture did not put the hidden pair nearest"
+        );
+
+        let obs = w.observe(me);
+        assert_eq!(
+            obs.enemies().iter().map(|c| c.id).collect::<Vec<_>>(),
+            foes[2..].to_vec(),
+            "the budget was spent on the foes behind the wall"
+        );
+    }
+
+    /// Puts the roster's longest weapon in a Fighter's hand, points it due east
+    /// at a Skitterer 1.75 away, and resolves one tick of swing. Answers what the
+    /// Skitterer lost.
+    ///
+    /// `Club` because it is the 1.45 row -- the Brute's axe, and the only thing
+    /// in the game long enough to make this a live question. A Fighter's 0.45
+    /// plus 1.45 of haft plus a Skitterer's 0.30 is 2.20 of pair reach against
+    /// the 1.75 that two bodies pressed on opposite faces of one tile of masonry
+    /// are apart, so the geometry overlaps by 0.45 and the only thing that can
+    /// stop the blow is the rule under test.
+    ///
+    /// No sweep: `blade_was` is left `None`, so the blade is tested where it is
+    /// -- which is what the un-swept version did for everything and is all this
+    /// needs. What it does need is spin, because a resting blade does no damage
+    /// however squarely it overlaps a body.
+    fn one_long_swing(rows: &[&str], row: i32) -> (World, Fx, Fx) {
+        let y = Fx::from_int(row) + Fx::HALF;
+        let mut scenario = Scenario::duel();
+        scenario.dungeon = crate::dungeon::parse(rows);
+        scenario.units[0].spawn = Vec2::new(Fx::from_ratio(255, 100), y);
+        scenario.units[0].loadout = Loadout::single(ActionKind::Club);
+        scenario.units[1].kind = Body::Skitterer;
+        scenario.units[1].stats = Body::Skitterer.base_stats();
+        scenario.units[1].loadout = Loadout::single(ActionKind::Knife);
+        scenario.units[1].spawn = Vec2::new(Fx::from_ratio(430, 100), y);
+        let mut w = World::new(&scenario, 1);
+
+        let (i, j) = (
+            w.alive_ids(Faction::Heroes)[0].index as usize,
+            w.alive_ids(Faction::Monsters)[0].index as usize,
+        );
+        let before = w.hp[j];
+        w.limb[i].angle = Angle::ZERO; // due east, straight at the Skitterer
+        w.limb[i].reach = Fx::ONE;
+        w.limb[i].swing = Swing::Strike;
+        w.limb[i].spin = Fx::from_int(4_000);
+
+        // The geometry, before the floor plan gets a say: the blade genuinely
+        // crosses the body. Without this a passing test proves only that
+        // something else missed.
+        let (base, tip) = w.blade(i).expect("the blade is out");
+        assert!(
+            fx::segment_circle(base, tip, w.pos[j], w.radius[j]).is_some(),
+            "premise: the blade does not reach the body at all"
+        );
+
+        w.resolve_swings();
+        let lost = before - w.hp[j];
+        (w, before, lost)
+    }
+
+    #[test]
+    fn a_blade_cannot_cut_through_a_one_tile_wall() {
+        //   0123456789
+        let (w, before, lost) = one_long_swing(
+            &[
+                "##########", // 0
+                "#..#.....#", // 1  a pillar at (3, 1)
+                "#........#", // 2
+                "##########", // 3
+            ],
+            1,
+        );
+        assert_eq!(lost, Fx::ZERO, "the axe cut through a tile of masonry");
+        assert_eq!(w.damage_dealt(Faction::Heroes), Fx::ZERO);
+        // No event either, which is the same treatment an arrow that meets rock
+        // gets: the blow did not happen, so there is nothing to report.
+        assert!(
+            w.events.is_empty(),
+            "a wall is not something to raise an event about: {:?}",
+            w.events
+        );
+        assert!(before.is_positive(), "premise: there was health to take");
+    }
+
+    #[test]
+    fn a_blade_still_cuts_what_it_can_see() {
+        // The masonry test must not be a blanket refusal, and the level here is
+        // still `carved` -- so `raycast` really runs and really answers "nothing
+        // in the way". The only difference from the test above is which row the
+        // pair stands in.
+        let (w, _, lost) = one_long_swing(
+            &[
+                "##########", // 0
+                "#..#.....#", // 1
+                "#........#", // 2  the same span of floor, uninterrupted
+                "##########", // 3
+            ],
+            2,
+        );
+        assert!(w.dungeon.carved(), "premise: the plan has rock in it");
+        assert!(lost.is_positive(), "the axe stopped at open air");
     }
 
     #[test]
