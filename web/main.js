@@ -35,7 +35,7 @@ const MAX_CATCHUP_TICKS = 8;
 // shield_angle_raw, shield_reach, weapon_length, shield_arc_raw, hit_flash,
 // block_flash, parry_flash, sword_swing, sword_swing_left, sword_line_raw,
 // action_kind, action_role, slot, slot0_action, slot1_action, sight_range].
-const HEADER_LEN = 9;
+const HEADER_LEN = 14;
 const UNIT_STRIDE = 28;
 
 /** Floats per arrow, in a block that follows the units: [x, y, heading_raw,
@@ -63,7 +63,7 @@ const EVENT_DECLARE = 3;
 /** Frame layout this file is written against. Checked at boot against
  *  `frame_layout_version()`, and a mismatch stops the page rather than letting
  *  it paint a health bar out of a guard arc. */
-const FRAME_LAYOUT_VERSION = 4;
+const FRAME_LAYOUT_VERSION = 5;
 
 // `Swing::discriminant`, from crates/sim/src/hand.rs. Append-only.
 const SWING_GUARD = 0;
@@ -329,6 +329,15 @@ const EXPORTS = [
   "spawn_template_slot",
   "set_spawn_template_slot",
   "spawn_from_template",
+  // The floor plan, on a buffer of its own because it changes once a level
+  // rather than sixty times a second. Read it when `map_revision()` moves.
+  "map_ptr",
+  "map_len",
+  "map_cols",
+  "map_rows",
+  "map_revision",
+  "map_tile_size_milli",
+  "descend",
 ];
 
 /**
@@ -411,6 +420,49 @@ function readFrame() {
   return Array.prototype.slice.call(live);
 }
 
+/**
+ * Whether a body of this radius could stand here, by the page's own copy of the
+ * floor plan.
+ *
+ * A hint, never a rule: the sim owns collision and this is a cheap echo of it
+ * for the benefit of the text under the cursor. Approximate on purpose -- it
+ * tests the tiles the body's box touches, which is what the sim's own
+ * `is_clear` does one level more carefully.
+ */
+function standable(x, y, radius) {
+  const map = levelMap;
+  if (!map) return true;
+  const lo = (v) => Math.floor((v - radius) / map.tile);
+  const hi = (v) => Math.floor((v + radius) / map.tile);
+  for (let ty = lo(y); ty <= hi(y); ty++) {
+    for (let tx = lo(x); tx <= hi(x); tx++) {
+      if (tx < 0 || ty < 0 || tx >= map.cols || ty >= map.rows) return false;
+      if (map.tiles[ty * map.cols + tx] !== 0) return false;
+    }
+  }
+  return true;
+}
+
+/** The floor plan the page last read, kept for `standable`. */
+let levelMap = null;
+
+/**
+ * The floor plan: one byte a tile, row-major, `0` open.
+ *
+ * A `Uint8Array` copy rather than a live view, and read only when
+ * `map_revision()` moves. The copy is the point: this is held across frames and
+ * a view would be detached the moment linear memory grew, whereas the frame's
+ * view is re-derived every frame and can afford to be live.
+ */
+function readMap() {
+  const cols = wasm.map_cols();
+  const rows = wasm.map_rows();
+  const len = wasm.map_len();
+  const live = new Uint8Array(memory.buffer, wasm.map_ptr(), len);
+  levelMap = { cols, rows, tiles: new Uint8Array(live), tile: wasm.map_tile_size_milli() / 1000 };
+  return levelMap;
+}
+
 function readUnit(f, u) {
   return {
     x: f[u],
@@ -474,8 +526,8 @@ function readUnit(f, u) {
 
 function parseFrame(f) {
   const state = {
-    arenaX: f[0] || 24,
-    arenaY: f[1] || 16,
+    arenaX: f[0] || 48,
+    arenaY: f[1] || 32,
     orderKind: f[2],
     orderX: f[3],
     orderY: f[4],
@@ -483,6 +535,14 @@ function parseFrame(f) {
     unitCount: f[6],
     shotCount: f[7],
     eventCount: f[8],
+    // The run. `monstersLeft` is the module's own count and not
+    // `monsters.length`: the unit rows are capped, and the two must not be able
+    // to disagree about whether the level is clear.
+    monstersLeft: f[9],
+    portalX: f[10],
+    portalY: f[11],
+    portalState: f[12],
+    depth: f[13],
     units: [],
     monsters: [],
     shots: [],
@@ -574,6 +634,9 @@ const el = {
   battleState: document.getElementById("battle-state"),
   battleRoster: document.getElementById("battle-roster"),
   respawn: document.getElementById("btn-respawn"),
+  runDepth: document.getElementById("run-depth"),
+  runMonsters: document.getElementById("run-monsters"),
+  buildStamp: document.getElementById("build-stamp"),
   simTick: document.getElementById("sim-tick"),
   simPosition: document.getElementById("sim-position"),
   simHash: document.getElementById("sim-hash"),
@@ -1063,11 +1126,14 @@ function goTo(point, state) {
   // own radius to a wall); the page only says so, rather than reimplementing
   // the collision rules in floating point on this side of the wall.
   const r = state.hero ? state.hero.radius : 0;
-  const unreachable =
-    point.x < r || point.y < r || point.x > arena.x - r || point.y > arena.y - r;
+  // Asked of the page's own copy of the floor plan rather than reconstructed
+  // from the arena box, which was the whole rule while the level *was* a box
+  // and describes almost none of a carved one. Still only *hint* text -- the
+  // sim decides where the character actually ends up, and this only says so.
+  const unreachable = !standable(point.x, point.y, r);
   hint(
     unreachable
-      ? "That point is inside the wall. The character will get as close as a body can and stop."
+      ? "That point is in the rock. The character will get as close as a body can and stop."
       : `Ordered to (${point.x.toFixed(1)}, ${point.y.toFixed(1)}). It decides how to get there.`,
     unreachable
   );
@@ -1233,8 +1299,12 @@ function restart() {
   enemyKey = "";
   heroCache = null;
   syncEnemyRail();
+  // `init` carves a fresh level, so the baked paths describe one that no longer
+  // exists. The loop's revision check would catch it on the next frame anyway;
+  // doing it here means the first frame after a restart is already right.
+  rebuildLevelPaths(readMap(), wasm.map_revision());
   snapCamera(parseFrame(readFrame()));
-  hint("Room restarted at tick 0.");
+  hint("Back to the first floor, at tick 0.");
 }
 
 /** Points the panel at whatever the module currently believes. */
@@ -2383,33 +2453,100 @@ function floorPatternNow() {
 }
 
 /**
- * The room, as a lit stone floor standing in the dark.
+ * The level as two paths: the open floor, and the wall faces that border it.
  *
- * This used to fill the canvas, which was true only while the canvas *was* the
- * arena. Now the floor is drawn at its own size in world units and the canvas
- * is left transparent everywhere else, so the page's background shows through
- * as void and the wall is a boundary you can actually see the character stop
- * against.
+ * **Built once per level, not per frame.** A 48x32 level is 1536 tiles, and at
+ * the top zoom bucket baking it into an offscreen canvas would be a 2304x1536
+ * backing store rebuilt six times over. Two `Path2D`s cost 1536 `rect()` calls
+ * once, and after that a fill is a fill.
+ *
+ * `revision` is `map_revision()`, which the module bumps only when the tiles
+ * change. Anything else -- a tick, a click, a slider -- leaves this alone.
  */
-function drawFloor() {
+let levelPaths = { revision: -1, floor: null, wall: null, scale: 0 };
+
+/**
+ * Rebuilds the level paths. Called when `map_revision()` moves, and when the
+ * pixel scale changes -- a `Path2D` holds pixels, not world units.
+ *
+ * Three paths, because the wall needs two of them. **The face where rock meets
+ * floor is a separate path from the rock itself**, and that is not decoration:
+ * the first version stroked every wall tile, which drew a line down every seam
+ * between two pieces of rock and turned a solid mass into a brick texture.
+ * Rock is one dark shape; only the edge you can actually walk up to catches
+ * light.
+ */
+function rebuildLevelPaths(map, revision) {
+  const floor = new Path2D();
+  const wall = new Path2D();
+  const edge = new Path2D();
+  const size = px(map.tile);
+  // Off the grid is rock, exactly as the module has it, so the outside of the
+  // level needs no special case here either.
+  const solid = (tx, ty) =>
+    tx < 0 || ty < 0 || tx >= map.cols || ty >= map.rows || map.tiles[ty * map.cols + tx] !== 0;
+
+  for (let ty = 0; ty < map.rows; ty++) {
+    for (let tx = 0; tx < map.cols; tx++) {
+      const x = px(tx * map.tile);
+      const y = px(ty * map.tile);
+      if (!solid(tx, ty)) {
+        floor.rect(x, y, size, size);
+        continue;
+      }
+      // Only the faces that border open ground. Interior rock nobody can see is
+      // left as void, which is cheaper and is also the right picture: a dungeon
+      // reads as carved *out of* rock, so the parts you never reach should look
+      // like the outside of the level, because that is what they are.
+      let exposed = false;
+      if (!solid(tx, ty - 1)) {
+        edge.moveTo(x, y);
+        edge.lineTo(x + size, y);
+        exposed = true;
+      }
+      if (!solid(tx, ty + 1)) {
+        edge.moveTo(x, y + size);
+        edge.lineTo(x + size, y + size);
+        exposed = true;
+      }
+      if (!solid(tx - 1, ty)) {
+        edge.moveTo(x, y);
+        edge.lineTo(x, y + size);
+        exposed = true;
+      }
+      if (!solid(tx + 1, ty)) {
+        edge.moveTo(x + size, y);
+        edge.lineTo(x + size, y + size);
+        exposed = true;
+      }
+      if (exposed) wall.rect(x, y, size, size);
+    }
+  }
+  levelPaths = { revision, floor, wall, edge, scale };
+}
+
+/**
+ * The level, as lit stone standing in the dark.
+ *
+ * The flagstone pattern is unchanged and so is the space it is laid in -- the
+ * origin is still the level's corner, so the stones stay nailed to the level
+ * rather than swimming under the camera. What changed is only *where* it is
+ * painted: through the floor path rather than over a rectangle.
+ */
+function drawLevel() {
+  if (!levelPaths.floor) return;
   const w = px(arena.x);
   const h = px(arena.y);
 
   ctx.save();
-  roundRect(0, 0, w, h, 10);
-  ctx.clip();
+  ctx.clip(levelPaths.floor);
 
-  // The pattern is laid in the same space every other draw uses -- origin at
-  // the room's corner -- so the stones are nailed to the room rather than
-  // swimming under the camera, and `render`'s whole-device-pixel snap keeps
-  // them from crawling.
   const pattern = floorPatternNow();
   ctx.fillStyle = pattern || "#141a26";
   ctx.fillRect(0, 0, w, h);
 
   // Lit from the middle. Without this the stone reads as a swatch of texture
-  // rather than as a room with a light in it, and the wall stops being the
-  // darkest thing on the screen.
+  // rather than as somewhere with a light in it.
   const cx = w / 2;
   const cy = h / 2;
   const vignette = ctx.createRadialGradient(cx, cy, Math.min(w, h) * 0.16, cx, cy, Math.max(w, h) * 0.62);
@@ -2421,9 +2558,8 @@ function drawFloor() {
 
   // The scale bar, and *only* the scale bar: one line every four units, far
   // fainter than the graph paper this replaced -- the stone carries the texture
-  // now, so the grid no longer has to pretend to. The half-pixel offsets still
-  // land on a device pixel because `render` snaps the camera translation to one
-  // before any of this is drawn.
+  // now, so the grid no longer has to pretend to. Genuinely useful at this
+  // size, where the far side of the level is off the screen.
   ctx.lineWidth = 1;
   ctx.strokeStyle = "rgba(150,180,230,0.055)";
   ctx.beginPath();
@@ -2438,26 +2574,67 @@ function drawFloor() {
   ctx.stroke();
   ctx.restore();
 
-  // The wall. This was a CSS box-shadow on the canvas, which drew a line round
-  // the *screen* the moment the canvas stopped being the room.
+  // The rock: one dark mass, clearly darker than the lit floor beside it, with
+  // light only on the faces you can walk up to. See `rebuildLevelPaths` for why
+  // the two are separate paths.
   ctx.save();
-  ctx.strokeStyle = "#2c3548";
+  ctx.fillStyle = "#0c1017";
+  ctx.fill(levelPaths.wall);
+  ctx.strokeStyle = "rgba(150,185,235,0.20)";
   ctx.lineWidth = 1.5;
-  roundRect(0, 0, w, h, 10);
-  ctx.stroke();
+  ctx.lineCap = "square";
+  ctx.stroke(levelPaths.edge);
   ctx.restore();
 }
 
-/** The box a body can actually stand in: the arena inset by one radius. Drawn
- *  faintly because it is the difference between "it ignored my click" and "it
- *  got as close as a body can". */
-function drawReachable(radius) {
-  if (!radius) return;
+/**
+ * The way out.
+ *
+ * Drawn shut as well as open, and that is the design decision rather than a
+ * fallback: seeing where the exit is from the moment you arrive is what turns
+ * "kill things" into "fight your way there". Aged on the wall clock like
+ * everything else presentational in this file.
+ */
+function drawPortal(state, now) {
+  if (!state.portalState) return;
+  const x = px(state.portalX);
+  const y = px(state.portalY);
+  const r = px(0.9);
+  const open = state.portalState === 2;
+
   ctx.save();
-  ctx.setLineDash([4, 6]);
-  ctx.strokeStyle = "rgba(160,190,230,0.07)";
-  ctx.lineWidth = 1;
-  ctx.strokeRect(px(radius), px(radius), px(arena.x - 2 * radius), px(arena.y - 2 * radius));
+  if (!open) {
+    // Shut: a dim ring, static, obviously not going anywhere.
+    ctx.strokeStyle = "rgba(150,180,230,0.18)";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 7]);
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, TAU);
+    ctx.stroke();
+    ctx.restore();
+    return;
+  }
+
+  const glow = ctx.createRadialGradient(x, y, 0, x, y, r * 1.7);
+  glow.addColorStop(0, "rgba(110,231,255,0.30)");
+  glow.addColorStop(1, "rgba(110,231,255,0)");
+  ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.arc(x, y, r * 1.7, 0, TAU);
+  ctx.fill();
+
+  // Two arcs turning against each other, which reads as a way through rather
+  // than as a marker on the floor.
+  const spin = now / 900;
+  ctx.lineCap = "round";
+  for (let i = 0; i < 2; i++) {
+    const sweep = spin * (i ? -1 : 1);
+    ctx.strokeStyle = i ? "rgba(110,231,255,0.55)" : "rgba(180,245,255,0.85)";
+    ctx.lineWidth = i ? 2 : 3;
+    ctx.beginPath();
+    ctx.arc(x, y, r * (i ? 0.62 : 1), sweep, sweep + TAU * 0.62);
+    ctx.stroke();
+  }
   ctx.restore();
 }
 
@@ -3539,17 +3716,24 @@ function render(state, now, arrived) {
 
   // The compositing order, and it is the map of the whole layer:
   //
-  //   ground -> reachable box -> trail -> destination -> vision discs
+  //   ground -> the way out -> trail -> destination -> vision discs
   //          -> corpses -> reach rings -> monsters -> hero -> arrows
   //          -> health bars -> floaters -> callouts
   //
-  // Two of those placements are load-bearing. **Vision goes under the bodies**,
-  // because a disc drawn over one would put a wash of faction colour across the
-  // blade you are trying to read, and six of them overlap in a busy room.
-  // **Floaters and callouts go over everything**, including each other's
-  // bodies, because a number you cannot read is not a number.
-  drawFloor();
-  drawReachable(state.hero ? state.hero.radius : 0);
+  // Three of those placements are load-bearing. **Vision goes under the
+  // bodies**, because a disc drawn over one would put a wash of faction colour
+  // across the blade you are trying to read, and six of them overlap in a busy
+  // room. **Floaters and callouts go over everything**, including each other's
+  // bodies, because a number you cannot read is not a number. And **the way out
+  // is on the ground**, under the trail and everything else -- it is a place,
+  // not a marker.
+  //
+  // What used to sit second here was the reachable box: the arena inset by one
+  // body radius. It went with the rectangle it described. The honest successor
+  // on a carved level would be a tint over gaps a body cannot fit down, which
+  // is worth having only if playing without it turns out to want it.
+  drawLevel();
+  drawPortal(state, now);
   drawTrail();
   // No marker once the character is gone: the order outlives it in the world,
   // but a destination nobody is walking to is a promise the page cannot keep.
@@ -3711,9 +3895,19 @@ function hex64(hi, lo) {
 
 /** The one thing the page could not say before: who is left standing. */
 function updateBattle(state) {
-  const standing = state.monsters.length;
+  // **The module's count, not the row count.** The frame's unit rows are capped,
+  // so `state.monsters.length` saturates where `monstersLeft` does not, and the
+  // number the player is counting down to zero must be the one the portal is
+  // keyed on.
+  const standing = state.monstersLeft;
   const monsters = `${standing} monster${standing === 1 ? "" : "s"}`;
   setText(el.battleRoster, `${state.hero ? "1 hero" : "no hero"}, ${monsters}`);
+
+  // The run, in the top-left beside the brand. Depth is one-based on screen and
+  // zero-based in the module: "floor 1" is where you start, and nobody counts
+  // stairs from zero.
+  setText(el.runDepth, String(state.depth + 1));
+  setText(el.runMonsters, String(standing));
 
   // [Re-Spawn], over the dimmed globe. The module refuses a second character
   // while one is standing -- an order belongs to the faction, so two heroes
@@ -3727,7 +3921,12 @@ function updateBattle(state) {
     setText(el.battleState, "the character has fallen — send in a new one, or press R for a new room");
   } else if (standing === 0) {
     el.battleState.className = "state idle";
-    setText(el.battleState, "quiet — nothing in the room to fight");
+    setText(
+      el.battleState,
+      state.portalState === 2
+        ? "clear — the way out is open"
+        : "quiet — nothing left to fight"
+    );
   } else {
     el.battleState.className = "state";
     setText(el.battleState, `battle — ${monsters} standing`);
@@ -3891,6 +4090,30 @@ function loop(now) {
     resize();
     snapCamera(state);
   }
+  // **Every level is the same size, so the check above will not fire on a
+  // descent.** Without this one the page keeps the previous floor's baked
+  // paths, pans the camera across a level it is not on, and ages floaters off
+  // bodies that no longer exist. The same set of resets `restart` performs, for
+  // the same reason.
+  if (wasm.map_revision() !== levelPaths.revision) {
+    rebuildLevelPaths(readMap(), wasm.map_revision());
+    trail = [];
+    bodies = new Map();
+    corpses = [];
+    floaters = [];
+    callouts = [];
+    announcedFall = false;
+    orderKey = "";
+    orderAcknowledged = false;
+    stillSince = 0;
+    snapCamera(state);
+    if (state.depth > 0) hint(`Level ${state.depth + 1}. Something else is down here.`);
+  } else if (levelPaths.scale !== scale) {
+    // A `Path2D` holds pixels. A zoom or a resize invalidates it just as surely
+    // as a new level does -- it is only much less obvious, because the level is
+    // still the right level and merely drawn at the wrong size.
+    rebuildLevelPaths(readMap(), wasm.map_revision());
+  }
 
   // The Hero rail, read back out of the module rather than off the frame's
   // `kind` column: the attributes are a live dial now, so `BODIES[kind]` is the
@@ -4002,7 +4225,49 @@ async function loadModule(url) {
   }
 }
 
+/**
+ * When the binary that is about to run was built.
+ *
+ * The `last-modified` of `web.wasm`, which is the honest answer: it describes
+ * the artifact actually loaded rather than whatever a compile-time stamp
+ * happened to freeze -- and a compile-time stamp goes stale the moment only a
+ * dependency changed and the linker still relinked.
+ *
+ * A separate `HEAD` rather than reading the header off the fetch `loadModule`
+ * makes: `compileStreaming` consumes the response body, so sharing it means
+ * cloning the response and giving up the streaming path. One extra request
+ * against a static file is much cheaper than that. A host that answers no
+ * `HEAD` and no `last-modified` is not a failure -- `document.lastModified`
+ * still says something true about the page.
+ */
+async function buildStamp(url) {
+  try {
+    const head = await fetch(url, { method: "HEAD", cache: "no-store" });
+    const when = head.headers.get("last-modified");
+    if (when) {
+      const at = new Date(when);
+      if (!Number.isNaN(at.getTime())) return at;
+    }
+  } catch {
+    // A static host with no HEAD. Fall through.
+  }
+  return new Date(document.lastModified);
+}
+
+/** `YYYY-MM-DD HH:MM`, local, which is what a person reading it wants. */
+function stampText(at) {
+  const pad = (n) => String(n).padStart(2, "0");
+  return (
+    `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}` +
+    ` ${pad(at.getHours())}:${pad(at.getMinutes())}`
+  );
+}
+
 async function boot() {
+  // Kicked off before the module loads and awaited after, so the extra
+  // round-trip overlaps the compile instead of delaying it.
+  const stamp = buildStamp("web.wasm");
+
   let instance;
   try {
     const module = await loadModule("web.wasm");
@@ -4078,9 +4343,13 @@ async function boot() {
   arena = { x: first.arenaX, y: first.arenaY };
   syncHeroRail(first);
   resize();
+  // After `resize`, because the paths are in pixels and `scale` is what
+  // `resize` decides.
+  rebuildLevelPaths(readMap(), wasm.map_revision());
   snapCamera(first);
   bindInput();
   hintEl.textContent = DEFAULT_HINT;
+  stamp.then((at) => setText(el.buildStamp, stampText(at)));
 
   // The element, not just the window: the canvas host can change size without
   // the window doing anything -- a drawer opening, a scrollbar appearing -- and

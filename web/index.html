@@ -24,7 +24,21 @@
 
     <div class="hud">
       <div class="hud-top">
-        <span class="brand">auto&#8209;rpg</span>
+        <!-- The run, and it is deliberately *outside* the dev strip below: that
+             strip collapses to the tick alone by default, and how much is left
+             to kill must never be a thing you have to open a panel to see. -->
+        <div class="hud-top-left">
+          <span class="brand">auto&#8209;rpg</span>
+          <!-- The build stamp: the mtime of the wasm that is actually running,
+               so "did my change land" is a glance rather than a guess. -->
+          <span class="brand-stamp mono-small" id="build-stamp"></span>
+          <span class="chip static"
+            ><span class="chip-key">floor</span> <span id="run-depth">1</span></span
+          >
+          <span class="chip static"
+            ><span class="chip-key">left</span> <span id="run-monsters">&mdash;</span></span
+          >
+        </div>
 
         <!-- The dev strip. Tick, position and the 64-bit state hash: the
              project's central claim -- that this room runs the same everywhere

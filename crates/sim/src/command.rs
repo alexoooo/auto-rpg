@@ -344,6 +344,50 @@ impl Order {
     }
 }
 
+/// What a faction is trying to *reach*, as opposed to what it is trying to do.
+///
+/// The second input channel, and shaped exactly like [`Order`] on purpose: set
+/// by whoever is driving the sim, carried without interpretation, hashed beside
+/// the orders, recorded in a replay. What it buys is a route -- the sim owns the
+/// floor plan, so it is the only thing that can answer "which way round the
+/// wall", and `Observation::nav_dir` is that answer.
+///
+/// **It is an input and not an inference, and that is the whole point.** The
+/// obvious design is for the sim to notice that monsters want to reach heroes
+/// and route them accordingly. That would change the behaviour of every
+/// scenario the lab runs -- `duel`, `duel_of` and `skirmish` alike -- and with
+/// it every recorded run, every measured win rate and every evolved genome, in
+/// exchange for a convenience. Defaulting to [`Objective::None`] means a
+/// scenario that has not asked for routing is bit-for-bit the scenario it was.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
+pub enum Objective {
+    /// No route is computed and `nav_dir` is [`Vec2::ZERO`]. Every scenario
+    /// that is not a dungeon.
+    #[default]
+    None,
+    /// The faction's standing order's destination, when that order is an
+    /// [`Order::Goto`]. Anything else routes nowhere.
+    Order,
+    /// Every living enemy, as one multi-source field -- so a hunter walks at
+    /// whichever enemy is nearest *along the floor*, out of one search rather
+    /// than one per quarry.
+    Hunt,
+}
+
+impl Objective {
+    pub const fn discriminant(self) -> usize {
+        match self {
+            Objective::None => 0,
+            Objective::Order => 1,
+            Objective::Hunt => 2,
+        }
+    }
+
+    pub(crate) fn hash_into(self, h: &mut Hash64) {
+        h.write_u8(self.discriminant() as u8);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

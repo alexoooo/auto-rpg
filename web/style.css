@@ -120,6 +120,23 @@ body {
   justify-content: flex-end;
 }
 
+/* The brand, the build stamp and the run counters as one cluster, so
+   `justify-content: space-between` above still pushes Keys to the far right.
+   No new chip rules: `.chip.static` and `.chip-key` already say what a readout
+   in this bar looks like. */
+.hud-top-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.brand-stamp {
+  color: var(--ink-faint);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
 .brand {
   font-size: clamp(13px, 1.5vmin, 16px);
   letter-spacing: 0.14em;

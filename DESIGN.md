@@ -1349,6 +1349,119 @@ like a click does; gene *names* cross as a pointer and a length into the
 because a mirror rots — rename a gene in Rust and the page goes on confidently
 labelling the old one.
 
+## The floor plan
+
+The level was a `Vec2` and its entire geometry was one `clamp_box`. That is a
+rectangle, and a rectangle has exactly one interesting property: you cannot leave
+it. A dungeon needs the other one — there are places inside it you cannot reach
+without walking round something.
+
+**A grid of bytes, one world unit a tile.** Every question the sim asks of a
+level is cheap on a grid and expensive on anything else: "is this body in
+masonry" is nine byte reads at any roster radius, "how far to the wall in +x" is
+a walk along a row, "which way to the stairs" is a breadth-first search over
+integers. A polygon soup answers the first in time proportional to the level and
+cannot answer the third at all without a navmesh — a second representation to
+keep in step with the first. Bytes rather than bits because a bitset saves 1.3 KB
+on a 48×32 level and costs a shift and a mask in the innermost read of the tick,
+and because tile *kinds* are a thing this will want: solidity is a predicate on
+the byte rather than the byte itself.
+
+**Out of range is solid.** One decision, and it removes the boundary as a special
+case from every caller: the clearance walk terminates because it runs into the
+edge, the ray terminates for the same reason, and the collision resolver treats
+the outer wall as masonry like any other.
+
+### Three-wide corridors
+
+`Body::radius` is Fighter 0.45, Rogue 0.35, Brute 0.70, Skitterer 0.30.
+
+| Width | Brute fits | Brute passes a Fighter | Brute passes a Brute |
+|-------|------------|------------------------|----------------------|
+| 1.0   | **no**, it needs 1.40 | — | — |
+| 2.0   | yes, 0.30 a side | **no** — needs 1.15 of centre separation, has 0.60 of lateral room | **no** |
+| 3.0   | yes, 0.80 a side | yes, 1.85 apart | yes, 1.60 apart |
+
+Two-wide corridors *plug*. A Brute walking one way and a Fighter walking the
+other cannot get past each other, and with a route field pointing both at the
+same goal that is a hard deadlock which reads as the AI being broken. Corridors
+are carved as `CORRIDOR`-square **blocks** rather than lines for the same class
+of reason: a one-tile corner in a three-wide corridor is where a Brute gets
+stuck, and it is invisible until you watch one try.
+
+### Collision
+
+Closest-point-on-the-box, not minimum-penetration-axis and not a per-axis sweep.
+Minimum-penetration has to pick x or y, and picking has to break ties — which
+makes behaviour at a corner depend on an axis order, and a rule with an axis
+order in it behaves differently in a mirrored match. Per-axis gives a cardinal
+push at an exposed convex corner where the honest answer is diagonal.
+Closest-point has neither problem and degenerates on a flat face to exactly the
+cardinal push the arena clamp always made.
+
+**The internal-edge cull is load-bearing.** Two adjacent solid tiles share a face
+down their seam, and that seam is not a surface — it is the inside of a wall.
+Without the cull a body sliding along a run of masonry is shoved out of every
+seam it crosses: a stutter at walking speed, and being flung sideways at any
+other.
+
+Moves are **swept** in sub-steps no longer than half a tile, because a wall can
+be one tile thick and a knockback is not bounded by walking speed. Each stride
+runs from where the last one ended rather than by interpolating the original
+line — interpolating is the obvious spelling and it silently defeats the sweep,
+since a sub-step the wall stopped is undone by the next one.
+
+A floor plan with nothing carved short-circuits the whole interior pass, which is
+what makes every pre-existing scenario *provably* unchanged rather than argued to
+be. `Dungeon::clearance` takes the same early return, so `wall_clearance` on a
+flat scenario is bit-for-bit the four expressions it used to be.
+
+### Routing, and why the objective is an input
+
+A level with walls makes "walk toward that" and "walk to that" different
+questions for the first time. The sim owns the floor plan, so it is the only
+thing that can answer the second: `Observation::nav_dir` and `nav_distance` are a
+route, handed over rather than left to be reconstructed — the same argument
+`Contact::min_strike_range` makes. What stays a decision is whether to follow it.
+
+The field is a multi-source BFS over open tiles, rebuilt only when the cells it
+grew from change, sitting beside `refresh_pending` in the tick for the same
+reason: both are derivations of the state the caller is about to observe, so
+computing them together is what makes an observation describe *one* world.
+Four neighbours, not eight — eight at unit cost is simply wrong, a diagonal is
+1.414, and correcting it needs a weighted queue. The straight-line shortcut
+delivers the diagonals wherever they matter, and on an uncarved plan it fires
+every time, which is why an open room behaves exactly as it always did.
+
+Its buffers live on the `World` and never reallocate. That is not tidiness: this
+crate compiles to wasm and is driven from a page holding typed-array views into
+linear memory. An allocation can grow that memory, and growing it detaches every
+view the page holds. **A search that allocates is a search that can blank the
+screen.**
+
+**`Objective` is an input channel, shaped exactly like `Order`** — set from
+outside, carried without interpretation, hashed, recorded in a replay. The
+obvious design is for the sim to notice that monsters want to reach heroes and
+route them accordingly; that would change the behaviour of every scenario the lab
+runs and with it every recorded run, every measured win rate and every evolved
+genome, in exchange for a convenience. Defaulting to `Objective::None` means a
+scenario that has not asked for routing is bit-for-bit the scenario it was.
+
+**Monsters that know where you are** is a decision, not an oversight: a dungeon
+whose monsters lose you permanently behind one wall reads as broken rather than
+as stealthy. `HUNT_RANGE` bounds it to about two rooms and the corridor between,
+measured *along the route* rather than in a straight line — without a bound
+everything on the level converges on tick one and a floor arrives as a single
+brawl, which is not a dungeon but one fight held in a large room. The honest
+version is the open question below.
+
+### What the sim does not know
+
+A portal, a depth, a run. `Scenario::portal` is carried and never acted on; the
+rule about what walking into one *means* lives in the browser crate. Putting it
+below that line would put progression inside the fight simulator the lab drives
+headlessly.
+
 ## Performance notes
 
 `Vec2::length` is the hot path and runs a bit-by-bit `isqrt64` (~32 iterations).
@@ -1487,6 +1600,14 @@ two fighters in a duel arena reliably find each other again, which is what the
 draw rate needed, and it is not enough to spawn a skirmish across the full arena:
 those spawns are still confined to a vertical band. Better than papered over,
 short of solved.
+
+The floor plan moved this question rather than answering it. `Objective::Hunt`
+gives a monster a route to the nearest enemy along the floor, which is not
+search — it is omniscience with a leash on it, and `HUNT_RANGE` is the leash. A
+creature that tracks, loses the trail, casts about where it last had one and
+eventually gives up is the honest version, and it needs the one thing no policy
+here has: memory of where it has been. That is also the change that would let
+`skirmish` spawn across a whole arena, so the two are the same piece of work.
 
 **Self-play.** Evolution currently scores candidates against a fixed hand-tuned
 opponent, which measures "better than what we wrote by hand". Self-play measures

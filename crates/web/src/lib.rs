@@ -95,13 +95,21 @@ use std::cell::{Cell, RefCell};
 use fx::{Angle, Fx, Rng, Vec2};
 use policy::{Policy, PolicyKind, RunConfig, MAX_GENOME_LEN};
 use sim::{
-    Command, EntityId, Event, Faction, LimbCommand, Intent, Order, Scenario, Body, Stats, Swing,
-    UnitSpec, Loadout, Strike, UnitView, World,
+    Command, EntityId, Event, Faction, LimbCommand, Intent, Objective, Order, Scenario, Body,
+    Stats, Swing, UnitSpec, Loadout, Strike, UnitView, World,
 };
 
 /// Floats before the first unit: `[arena_x, arena_y, order_kind, order_x,
-/// order_y, last_decision_tick, unit_count, shot_count, event_count]`.
-pub const HEADER_LEN: usize = 9;
+/// order_y, last_decision_tick, unit_count, shot_count, event_count,
+/// monsters_left, portal_x, portal_y, portal_state, depth]`.
+///
+/// The last five are the run: how much opposition is left, where the way out
+/// is and whether it is open, and which floor this is. `monsters_left` is
+/// nominally derivable from the unit rows and is here anyway, because the rows
+/// are capped at [`MAX_UNITS`] and the two must not be able to disagree about
+/// whether the level is clear -- that disagreement would be a portal that opens
+/// while something is still alive.
+pub const HEADER_LEN: usize = 14;
 
 /// Floats per unit.
 ///
@@ -222,7 +230,7 @@ pub const EVENT_DECLARE: u32 = 3;
 /// layout it was not written against. That is a weaker promise than the
 /// append-only convention it replaced and a much more useful one: append-only
 /// forbids the edit, this one makes the edit safe.
-pub const FRAME_LAYOUT_VERSION: u32 = 4;
+pub const FRAME_LAYOUT_VERSION: u32 = 5;
 
 /// Value in a loadout column meaning "this slot is empty". Matches
 /// [`sim::Loadout::EMPTY`], and is not a valid action code.
@@ -254,6 +262,36 @@ pub const MAX_UNITS: usize = 64;
 /// Length of the frame buffer. [`frame_len`] reports how much of it is live.
 pub const FRAME_MAX: usize =
     HEADER_LEN + MAX_UNITS * UNIT_STRIDE + MAX_SHOTS * SHOT_STRIDE + MAX_EVENTS * EVENT_STRIDE;
+
+/// Length of the tile buffer.
+///
+/// Sized for a 96x64 grid rather than the 48x32 a level actually is, so that
+/// halving the tile size later is a constant and not an ABI break. Six kilobytes
+/// of linear memory, once, forever.
+pub const MAP_MAX: usize = 96 * 64;
+
+/// Tile size in thousandths of a world unit, reported by
+/// [`map_tile_size_milli`].
+///
+/// An export rather than a number the page also knows, because it is the last
+/// place the client would otherwise hardcode "one tile is one world unit" -- and
+/// a client that has that wrong draws a level at the wrong scale while every
+/// test still passes.
+const TILE_MILLI: u32 = 1000;
+
+/// How close the hero has to be to the way out to take it.
+///
+/// Measured from body edge to portal edge, so a Brute takes it from further out
+/// than a Skitterer does -- which is right: what matters is touching it.
+const PORTAL_RADIUS: Fx = Fx::from_ratio(9, 10);
+
+/// Portal states, as the frame reports them.
+const PORTAL_NONE: u32 = 0;
+/// Visible but shut. **Visible while shut is the design decision**, not a
+/// fallback: seeing where the exit is from the moment you arrive is what turns
+/// "kill things" into "fight your way there".
+const PORTAL_SHUT: u32 = 1;
+const PORTAL_OPEN: u32 = 2;
 
 /// Closest a newcomer may be placed to the hero, and the floor the arc sweep
 /// in [`Sim::spawn_point`] accepts against. Far enough that you watch it come.
@@ -289,6 +327,14 @@ const SPAWN_STREAM: u64 = 1 << 63;
 thread_local! {
     static SIM: RefCell<Option<Sim>> = const { RefCell::new(None) };
     static FRAME: RefCell<[f32; FRAME_MAX]> = const { RefCell::new([0.0; FRAME_MAX]) };
+    /// The floor plan, one byte a tile. A fixed array beside `FRAME` and for
+    /// the same reason: a `Vec` that reallocates grows linear memory, and
+    /// growing it detaches every typed array the page is holding.
+    ///
+    /// `u8` and not `f32` because a tile is a small integer; the page reads it
+    /// with a `Uint8Array` at no cost, and 1536 bytes cross instead of 6 KB.
+    static MAP: RefCell<[u8; MAP_MAX]> = const { RefCell::new([0; MAP_MAX]) };
+    static MAP_SHAPE: Cell<(u32, u32, u32)> = const { Cell::new((0, 0, 0)) };
     /// Starts at the header length rather than zero so a client that renders
     /// before it calls `init` reads a well-formed empty frame instead of a
     /// zero-length one.
@@ -362,7 +408,34 @@ struct Sim {
     /// placement RNG, and lives here rather than in [`World`] on purpose: it is
     /// input bookkeeping, not simulation state, so `World::state_hash` never
     /// sees it and a scripted run that never spawns cannot be perturbed by it.
+    ///
+    /// **Runs on across a descent** rather than resetting with the level, so a
+    /// spawn on floor two cannot roll the same point a spawn on floor one did
+    /// at the same tick -- the tick resets and this does not.
     spawns: u32,
+
+    /// Which floor this is. Zero is the one `init` opens.
+    ///
+    /// Seeds the layout alongside the world seed, so descending is a new level
+    /// rather than the same one again, and it is what the difficulty curve in
+    /// [`Scenario::dungeon`] reads.
+    depth: u32,
+    /// Bumped every time the floor plan changes, and **only** by [`init`] and
+    /// [`Sim::descend`].
+    ///
+    /// That is the whole point of it: [`publish`] runs on every export, and a
+    /// revision that moved when a slider moved would tell the page to re-bake a
+    /// level that had not changed. The page re-reads the tile buffer exactly
+    /// when this number does.
+    map_revision: u32,
+    /// Where the way out stands, copied off the scenario that built this level.
+    ///
+    /// Here and not on [`World`], because the sim has no concept of a level, a
+    /// depth or a run: what walking into it *means* is a rule about a game, and
+    /// putting it below this line would put progression inside the fight
+    /// simulator the lab drives headlessly. `None` for a scenario with no way
+    /// out, which is every scenario but a generated one.
+    portal: Option<Vec2>,
 
     // ---- manual control
     /// Which halves of the hero the player has taken: see [`CONTROL_FEET`] and
@@ -452,13 +525,32 @@ struct Sim {
 
 impl Sim {
     fn new(seed: u64) -> Sim {
-        let scenario = Scenario::room();
+        // The hero the first floor is entered with. A plain Fighter, which is
+        // what the sandbox room always opened with; the level decides where it
+        // stands, and every later floor carries whatever it has become.
+        let hero_spec = UnitSpec {
+            kind: Body::Fighter,
+            faction: Faction::Heroes,
+            stats: Body::Fighter.base_stats(),
+            loadout: Body::Fighter.default_loadout(),
+            spawn: Vec2::ZERO,
+        };
+        Sim::on(&Scenario::dungeon(seed, 0, hero_spec), seed)
+    }
+
+    /// The page's sim, opened on a given scenario.
+    ///
+    /// Split out of [`Sim::new`] so that a caller who wants a *particular*
+    /// level can have one -- which in practice means the tests, most of which
+    /// are about the boundary rather than about the level and would rather not
+    /// have a generated level's monsters walking into them.
+    fn on(scenario: &Scenario, seed: u64) -> Sim {
         let hero_spec = scenario
             .units
             .iter()
             .copied()
             .find(|unit| unit.faction == Faction::Heroes)
-            // A room with no hero in it is not a scenario this module can be
+            // A level with no hero in it is not a scenario this module can be
             // pointed at, but the fallback is a Fighter rather than a panic:
             // `init` is `pub extern "C"` and a trap there poisons the instance
             // for the life of the page.
@@ -469,7 +561,7 @@ impl Sim {
                 loadout: Body::Fighter.default_loadout(),
                 spawn: Vec2::ZERO,
             });
-        let world = World::new(&scenario, seed);
+        let world = Sim::open(scenario, seed);
         let mut units = Vec::with_capacity(scenario.units.len());
         for faction in [Faction::Heroes, Faction::Monsters] {
             units.extend_from_slice(&world.alive_ids(faction));
@@ -509,6 +601,9 @@ impl Sim {
             due: Vec::with_capacity(scenario.units.len()),
             last_decision_tick: 0,
             spawns: 0,
+            depth: 0,
+            map_revision: 0,
+            portal: scenario.portal,
             control: 0,
             input_move: Vec2::ZERO,
             input_aim: Angle::ZERO,
@@ -533,13 +628,105 @@ impl Sim {
                 // JavaScript is a float walking into simulation state.
                 spawn: Vec2::ZERO,
             },
-            // **Copied off the scenario rather than written out again.** The
-            // room's hero and the sheet a replacement inherits have to be the
-            // same fighter on tick zero, or the panel opens describing somebody
-            // who is not standing there -- and a second literal is how the two
+            // **The same value the level was built from**, so the sheet a
+            // replacement inherits and the fighter standing in the room are the
+            // same fighter on tick zero. A second literal here is how those two
             // drift apart on the first edit to either.
             hero_spec,
         }
+    }
+
+    /// Builds the world a scenario describes, with both objective channels
+    /// switched on.
+    ///
+    /// **Routing is opt-in, and the page opts in.** `set_goto` is the whole of
+    /// click-to-move, and with masonry in the level "walk toward that bearing"
+    /// and "walk to that point" stopped being the same instruction. The sim
+    /// owns the floor plan, so it is the only thing that can answer the second
+    /// -- but it answers only when asked, which is what keeps every scenario
+    /// the lab drives behaving exactly as it did.
+    ///
+    /// The monsters hunt, which is a creature that knows where you are. See
+    /// `UtilityPolicy::march` for why that is a decision rather than an
+    /// oversight.
+    ///
+    /// One function rather than two copies, because [`Sim::new`] and
+    /// [`Sim::descend`] have to agree about this and a level that quietly
+    /// opened without an objective would be a level where nothing moves.
+    fn open(scenario: &Scenario, seed: u64) -> World {
+        let mut world = World::new(scenario, seed);
+        world.set_objective(Faction::Heroes, Objective::Order);
+        world.set_objective(Faction::Monsters, Objective::Hunt);
+        world
+    }
+
+    /// Whether the way out will take the hero: every monster down, and the hero
+    /// standing on it.
+    ///
+    /// Counted off [`World::alive_count`] rather than off the frame's unit
+    /// rows, which are capped at [`MAX_UNITS`]: the authority on "is the level
+    /// clear" must not be a number that saturates.
+    fn portal_state(&self) -> u32 {
+        match self.portal {
+            None => PORTAL_NONE,
+            Some(_) if self.world.alive_count(Faction::Monsters) > 0 => PORTAL_SHUT,
+            Some(_) => PORTAL_OPEN,
+        }
+    }
+
+    /// Whether the hero is standing in an open way out.
+    fn hero_is_leaving(&self) -> bool {
+        if self.portal_state() != PORTAL_OPEN {
+            return false;
+        }
+        let (Some(portal), Some(hero)) = (self.portal, self.hero()) else {
+            return false;
+        };
+        self.world
+            .view(hero)
+            .is_some_and(|v| v.position.distance(portal) <= PORTAL_RADIUS + v.radius)
+    }
+
+    /// Builds the next floor down and moves the run onto it.
+    ///
+    /// The hero persists and its health does not: `World::spawn` sets `hp` to
+    /// `max_hp` and refills the regeneration budget, so arriving whole costs no
+    /// code here at all. What it does cost is every piece of presentation state
+    /// keyed to bodies that no longer exist -- flashes, swings, the event feed
+    /// -- and dropping those is the whole of the rest of this function.
+    fn descend(&mut self) {
+        self.depth += 1;
+        // **The live sheet wins over the stored one.** The player may have moved
+        // a slider since the last spawn, and the character that walks down the
+        // stairs should be the character that was standing there. Same argument
+        // `hero_spec` exists for one level up.
+        if let Some(hero) = self.hero() {
+            if let Some(stats) = self.world.stats(hero) {
+                self.hero_spec.stats = stats;
+            }
+            if let Some(loadout) = self.world.loadout(hero) {
+                self.hero_spec.loadout = loadout;
+            }
+            if let Some(view) = self.world.view(hero) {
+                self.hero_spec.kind = view.kind;
+            }
+        }
+
+        let scenario = Scenario::dungeon(self.world.seed(), self.depth, self.hero_spec);
+        self.world = Sim::open(&scenario, self.world.seed());
+        self.units.clear();
+        for faction in [Faction::Heroes, Faction::Monsters] {
+            self.units.extend_from_slice(&self.world.alive_ids(faction));
+        }
+        self.portal = scenario.portal;
+        self.flashes.clear();
+        self.swings.clear();
+        self.events.clear();
+        self.last_decision_tick = 0;
+        self.hero_next_decision = 0;
+        self.cached = Command::HOLD;
+        self.map_revision = self.map_revision.wrapping_add(1);
+        write_map(&self.world);
     }
 
     /// The standing hero, if there is one.
@@ -728,6 +915,20 @@ impl Sim {
             // After the tick, so the phases being compared are both settled
             // ones. See [`Sim::note_declares`].
             self.note_declares(&mut events);
+
+            // **And out of the loop entirely if the run just moved on.** Not
+            // "carry on in the new world": the flash counters, the swing table
+            // and the event feed collected above are all keyed to bodies that
+            // no longer exist, so letting the rest of a catch-up burst run on a
+            // fresh level would print the old level's damage numbers over the
+            // new one. The next `step` picks it up.
+            if self.hero_is_leaving() {
+                events.clear();
+                self.due = due;
+                self.events = events;
+                self.descend();
+                return;
+            }
         }
         self.due = due;
         self.events = events;
@@ -953,16 +1154,19 @@ impl Sim {
         )
     }
 
-    /// Somewhere on a ring around the hero, inside the box a body can stand in.
+    /// Somewhere on a ring around the hero, on ground a body can stand on.
     ///
     /// One bearing and one reach are rolled, and the bearing is then swept in
-    /// sixteenths of a turn until the point survives being clamped into the
-    /// arena. Sweeping rather than re-rolling is what makes this terminate
-    /// honestly: `clamp_box` only ever *shortens*, so a candidate that needed no
-    /// clamping is accepted on the first try and the loop is the wall case
-    /// alone. Rejection-sampling the whole room would do most of its work in
-    /// exactly the situation that matters least -- with the hero cornered, most
-    /// of the arena is the wrong distance away.
+    /// sixteenths of a turn until a candidate is far enough from the hero *and*
+    /// out of the masonry. Sweeping rather than re-rolling is what makes this
+    /// terminate honestly, and rejection-sampling the whole level would do most
+    /// of its work in exactly the situation that matters least -- with the hero
+    /// in a corridor, most of the floor is the wrong distance away.
+    ///
+    /// The walkability test is not the clamp with extra steps. Clamping into
+    /// the arena box was the whole of "somewhere legal" while the level *was* a
+    /// box; on a floor plan the middle of the level is usually solid rock, and
+    /// a spawn that only clamped would walk monsters into walls.
     fn spawn_point(&self, kind: Body, rng: &mut Rng) -> Vec2 {
         let arena = self.world.arena();
         let radius = kind.radius();
@@ -975,31 +1179,46 @@ impl Sim {
         for step in 0..SPAWN_ARCS {
             let bearing = start + Angle::from_raw(step.wrapping_mul(SPAWN_ARC_STEP));
             let point = (hero + Vec2::from_angle(bearing) * reach).clamp_box(lo, hi);
-            if point.distance(hero) >= SPAWN_NEAR {
+            if point.distance(hero) >= SPAWN_NEAR && self.world.is_walkable(point, radius) {
                 return point;
             }
         }
 
-        // Every bearing was against a wall, which takes a hero pinned in a
-        // corner of a room barely bigger than the ring. The far corner of the
-        // reachable box is half an arena away from wherever it is standing.
+        // Every bearing landed in rock, which on a carved level takes only a
+        // hero standing in a corridor -- so it is the ordinary case rather than
+        // the exotic one, and the fallback has to be *good* rather than merely
+        // total.
         //
+        // The same sixteen bearings again, each pulled to the nearest floor.
+        // Ranked by two keys: a candidate the hero is already on top of loses
+        // to any candidate it is not, and among the rest the one nearest the
+        // reach that was rolled wins. Ties keep the earlier bearing, so the
+        // answer stays a function of the roll.
+        //
+        // What this replaces is "the far corner of the arena", which was a fine
+        // answer while the level was a box and is a terrible one now: it put a
+        // monster forty units and two rooms away, which reads as the spawn
+        // button doing nothing at all.
+        let mut best: Option<(bool, Fx, Vec2)> = None;
+        for step in 0..SPAWN_ARCS {
+            let bearing = start + Angle::from_raw(step.wrapping_mul(SPAWN_ARC_STEP));
+            let ideal = (hero + Vec2::from_angle(bearing) * reach).clamp_box(lo, hi);
+            let point = self.world.nearest_walkable(ideal, radius);
+            let range = point.distance(hero);
+            let crowded = range < SPAWN_NEAR;
+            let off = (range - reach).abs();
+            match best {
+                Some((seen_crowded, seen_off, _))
+                    if (seen_crowded, seen_off) <= (crowded, off) => {}
+                _ => best = Some((crowded, off, point)),
+            }
+        }
+
         // Two monsters can still be placed on the same spot, here or above.
         // `World::separate` unsticks exactly-coincident bodies from their index
         // pair without an RNG -- that degenerate case is what it was written
         // for -- so this needs no code of its own.
-        Vec2::new(
-            if hero.x * Fx::TWO < arena.x {
-                hi.x
-            } else {
-                lo.x
-            },
-            if hero.y * Fx::TWO < arena.y {
-                hi.y
-            } else {
-                lo.y
-            },
-        )
+        best.map_or(hero, |(_, _, point)| point)
     }
 
     /// Where a replacement character comes in.
@@ -1018,13 +1237,18 @@ impl Sim {
     ///
     /// With nothing hostile in the room every candidate is equally clear, the
     /// strict comparison never fires, and the answer is the middle of the floor
-    /// -- exactly where [`init`] puts the first one.
+    /// -- or, on a carved level, the nearest standing room to it.
     fn entry_point(&self, kind: Body, rng: &mut Rng) -> Vec2 {
         let arena = self.world.arena();
         let radius = kind.radius();
         let lo = Vec2::new(radius, radius);
         let hi = Vec2::new(arena.x - radius, arena.y - radius);
-        let centre = (arena * Fx::HALF).clamp_box(lo, hi);
+        // **Not the middle of the arena.** On a floor plan the geometric centre
+        // is usually solid rock, and seeding a sweep from a point nobody can
+        // stand on gives every candidate the same answer.
+        let centre = self
+            .world
+            .nearest_walkable((arena * Fx::HALF).clamp_box(lo, hi), radius);
 
         let start = rng.angle();
         let reach = rng.range(SPAWN_NEAR, SPAWN_FAR);
@@ -1033,6 +1257,12 @@ impl Sim {
         for step in 0..SPAWN_ARCS {
             let bearing = start + Angle::from_raw(step.wrapping_mul(SPAWN_ARC_STEP));
             let point = (centre + Vec2::from_angle(bearing) * reach).clamp_box(lo, hi);
+            // Walkable before it is scored. A candidate in the masonry can be
+            // gloriously far from every monster and is not somewhere anybody
+            // can arrive.
+            if !self.world.is_walkable(point, radius) {
+                continue;
+            }
             let clearance = self.clearance(point);
             // Strictly greater, so the first bearing of the sweep wins a tie and
             // the answer stays a function of the roll rather than of how many
@@ -1085,6 +1315,15 @@ impl Sim {
         frame[3] = point.x.to_f32();
         frame[4] = point.y.to_f32();
         frame[5] = self.last_decision_tick as f32;
+        // The run. `9..=13`, appended after the three section counts so every
+        // row offset downstream is unchanged; see the module docs on why the
+        // columns are append-only.
+        frame[9] = self.world.alive_count(Faction::Monsters) as f32;
+        let portal = self.portal.unwrap_or(Vec2::ZERO);
+        frame[10] = portal.x.to_f32();
+        frame[11] = portal.y.to_f32();
+        frame[12] = self.portal_state() as f32;
+        frame[13] = self.depth as f32;
 
         let mut count = 0;
         for &id in &self.units {
@@ -1144,6 +1383,31 @@ impl Sim {
 
         base + events * EVENT_STRIDE
     }
+}
+
+/// Copies a world's floor plan into the tile buffer.
+///
+/// Called only where the floor plan can have changed -- [`init`] and
+/// [`Sim::descend`] -- and deliberately **not** from [`publish`], which runs on
+/// every export. Rewriting 1536 bytes on every slider drag would be harmless
+/// and would make [`map_revision`] meaningless, and the revision is the whole
+/// mechanism by which the page knows when to re-bake a level.
+fn write_map(world: &World) {
+    let dungeon = world.dungeon();
+    let cols = dungeon.cols() as u32;
+    let rows = dungeon.rows() as u32;
+    let len = (cols as usize * rows as usize).min(MAP_MAX);
+    MAP.with(|map| {
+        let mut map = map.borrow_mut();
+        for cell in 0..len {
+            let tx = (cell % cols as usize) as i32;
+            let ty = (cell / cols as usize) as i32;
+            map[cell] = u8::from(dungeon.solid(tx, ty));
+        }
+    });
+    // Reported together, so the page can never read a length that belongs to
+    // one level and a width that belongs to another.
+    MAP_SHAPE.with(|shape| shape.set((cols, rows, len as u32)));
 }
 
 /// Appends a row unless the frame is already carrying [`MAX_EVENTS`] of them.
@@ -1349,7 +1613,13 @@ fn with_sim<R>(default: R, f: impl FnOnce(&mut Sim) -> R) -> R {
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn init(seed: u32) {
-    SIM.with(|sim| *sim.borrow_mut() = Some(Sim::new(u64::from(seed))));
+    SIM.with(|sim| {
+        let fresh = Sim::new(u64::from(seed));
+        // The floor plan crosses on its own buffer and only when it changes;
+        // this is one of the two places it can have.
+        write_map(&fresh.world);
+        *sim.borrow_mut() = Some(fresh);
+    });
     publish();
 }
 
@@ -1793,6 +2063,73 @@ pub extern "C" fn event_stride() -> u32 {
 #[no_mangle]
 pub extern "C" fn header_len() -> u32 {
     HEADER_LEN as u32
+}
+
+// ------------------------------------------------------------ the floor plan
+//
+// A buffer of its own rather than a section of the frame, because a floor plan
+// changes once a level and a frame changes sixty times a second. Read it when
+// [`map_revision`] moves and not otherwise.
+
+/// Address of the tile buffer. One byte a tile, row-major, `0` open.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn map_ptr() -> u32 {
+    MAP.with(|map| map.borrow().as_ptr() as u32)
+}
+
+/// How much of the tile buffer is live: `map_cols() * map_rows()`.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn map_len() -> u32 {
+    MAP_SHAPE.with(|shape| shape.get().2)
+}
+
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn map_cols() -> u32 {
+    MAP_SHAPE.with(|shape| shape.get().0)
+}
+
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn map_rows() -> u32 {
+    MAP_SHAPE.with(|shape| shape.get().1)
+}
+
+/// Bumped whenever the tiles change, and only then. The page re-reads the
+/// buffer exactly when this number moves; see [`Sim::map_revision`].
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn map_revision() -> u32 {
+    with_sim(0, |sim| sim.map_revision)
+}
+
+/// A tile's size in thousandths of a world unit.
+///
+/// One export, and it buys the last place the page would otherwise hardcode
+/// "one tile is one world unit" -- a client with that wrong draws the level at
+/// the wrong scale while every test still passes.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn map_tile_size_milli() -> u32 {
+    TILE_MILLI
+}
+
+/// Forces the next level and answers the new depth.
+///
+/// A door for the page and for `wasm_check.js`, which needs to drive a level
+/// change without simulating a full clear first. The ordinary way down is to
+/// kill everything and walk into the way out.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn descend() -> u32 {
+    let depth = with_sim(0, |sim| {
+        sim.descend();
+        sim.depth
+    });
+    publish();
+    depth
 }
 
 /// How many actions the sim will actually run. Indices `0..action_count` are
@@ -2361,7 +2698,7 @@ mod tests {
     /// What `cargo run --release -p lab -- hash` prints today. Recorded rather
     /// than computed, so this test fails if the sim's behaviour moves at all --
     /// which is the point of having it here as well as in `sim`.
-    const LAB_HASH: u64 = 0x3c73_0bb2_a547_3a52;
+    const LAB_HASH: u64 = 0x00b4_8ceb_2108_1d1d;
 
     /// What `init(1); set_goto(20_000, 12_000); step(600)` leaves behind.
     /// Recorded here natively; the same three calls against `web.wasm` under
@@ -2376,24 +2713,24 @@ mod tests {
     /// explicitly -- and that is the pair worth reading together, because a
     /// change that moved the lab's number too would have been a change to the
     /// simulation rather than to who is driving it.
-    const ROOM_HASH: u64 = 0x440a_9ac3_d9f0_de85;
+    const ROOM_HASH: u64 = 0xc8d2_1c4b_13ae_849b;
 
     /// What `init(1); spawn_monster(3, SLOT_EMPTY, SLOT_EMPTY); step(600)` leaves behind -- a whole
     /// skirmish, start to finish, driven the way the page drives it. Recorded
     /// from a native run, never computed here, and asserted against `web.wasm`
     /// under Node by `tools/wasm_check.js`.
-    const BATTLE_HASH: u64 = 0xe040_b518_c7bc_4a2e;
+    const BATTLE_HASH: u64 = 0xd755_b331_9d26_73bb;
 
     /// What `init(1); spawn_monster(2, SLOT_EMPTY, SLOT_EMPTY) x3; step(1800); swap_in_hero(1, SLOT_EMPTY, SLOT_EMPTY);
     /// step(400)` leaves behind -- a fight, a death, a replacement, and the
     /// fight it walks into. Recorded from a native run and asserted against
     /// `web.wasm` under Node by `tools/wasm_check.js`.
-    const SWAP_HASH: u64 = 0x3d01_f8a4_fc72_2db0;
+    const SWAP_HASH: u64 = 0xbfbc_6d0a_e6cd_b18d;
 
     // `init(1); swap_in_hero(FIGHTER, Bow, Sword); spawn_monster(BRUTE); step(1200)`:
     // the only one of these that ever puts an arrow in the air, and therefore
     // the only one that pins the projectile arithmetic across targets.
-    const BOW_HASH: u64 = 0x9ce8_9e07_a77f_1b7b;
+    const BOW_HASH: u64 = 0xa559_ebfc_851e_b35c;
 
     fn selftest() -> u64 {
         (u64::from(selftest_hash_hi()) << 32) | u64::from(selftest_hash_lo())
@@ -2471,6 +2808,92 @@ mod tests {
         ((hx - x).powi(2) + (hy - y).powi(2)).sqrt()
     }
 
+    /// The live part of the tile buffer, copied out the way the page reads it.
+    fn map_bytes() -> Vec<u8> {
+        let len = map_len() as usize;
+        MAP.with(|map| map.borrow()[..len].to_vec())
+    }
+
+    /// The level, as the frame reports it.
+    fn arena() -> (f32, f32) {
+        let f = frame();
+        (f[0], f[1])
+    }
+
+    /// Where the way out is, and whether it is open.
+    fn portal() -> (f32, f32, u32) {
+        let f = frame();
+        (f[10], f[11], f[12] as u32)
+    }
+
+    fn depth() -> u32 {
+        frame()[13] as u32
+    }
+
+    fn monsters_left() -> u32 {
+        frame()[9] as u32
+    }
+
+    /// Whether a body of this radius could stand at this point.
+    fn walkable(x: f32, y: f32, radius: f32) -> bool {
+        SIM.with(|sim| {
+            sim.borrow().as_ref().is_some_and(|sim| {
+                sim.world.is_walkable(
+                    Vec2::new(
+                        Fx::from_ratio((x * 1000.0) as i32, 1000),
+                        Fx::from_ratio((y * 1000.0) as i32, 1000),
+                    ),
+                    Fx::from_ratio((radius * 1000.0) as i32, 1000),
+                )
+            })
+        })
+    }
+
+    /// Opens the page's sim on the generated level with **nothing hostile
+    /// standing in it**.
+    ///
+    /// Most of what this module does is not about the level: the frame layout,
+    /// where a spawn lands, who holds the feet, whether a click is walked to.
+    /// A generated level's monsters hunt the hero by design, which is noise in
+    /// every one of those and would make them flaky rather than wrong. The
+    /// floor plan is kept, because that half the tests genuinely do have to be
+    /// honest about; only the roster is dropped.
+    fn init_quiet(seed: u32) {
+        let hero = UnitSpec {
+            kind: Body::Fighter,
+            faction: Faction::Heroes,
+            stats: Body::Fighter.base_stats(),
+            loadout: Body::Fighter.default_loadout(),
+            spawn: Vec2::ZERO,
+        };
+        let mut scenario = Scenario::dungeon(u64::from(seed), 0, hero);
+        scenario.units.retain(|u| u.faction == Faction::Heroes);
+        SIM.with(|slot| {
+            let sim = Sim::on(&scenario, u64::from(seed));
+            write_map(&sim.world);
+            *slot.borrow_mut() = Some(sim);
+        });
+        publish();
+    }
+
+    /// A point a body of this radius can stand on, `reach` or so from the hero.
+    ///
+    /// Tests that want somewhere to walk to need a destination the floor plan
+    /// actually offers; on a carved level a hardcoded pair of coordinates is a
+    /// coin flip. Sweeps bearings around the hero and takes the first that
+    /// clears, falling back to the hero's own feet.
+    fn walkable_near_hero(reach: f32, radius: f32) -> (f32, f32) {
+        let (hx, hy) = hero();
+        for step in 0..32 {
+            let angle = step as f32 * std::f32::consts::TAU / 32.0;
+            let (x, y) = (hx + reach * angle.cos(), hy + reach * angle.sin());
+            if walkable(x, y, radius) {
+                return (x, y);
+            }
+        }
+        (hx, hy)
+    }
+
     #[test]
     fn the_selftest_hash_is_the_number_the_lab_prints_natively() {
         assert_eq!(
@@ -2479,8 +2902,8 @@ mod tests {
             "the selftest no longer runs what `lab hash` runs"
         );
         assert_eq!(selftest(), LAB_HASH, "the halves reassemble wrongly");
-        assert_eq!(selftest_hash_lo(), 0xa547_3a52);
-        assert_eq!(selftest_hash_hi(), 0x3c73_0bb2);
+        assert_eq!(selftest_hash_lo(), 0x2108_1d1d);
+        assert_eq!(selftest_hash_hi(), 0x00b4_8ceb);
     }
 
     #[test]
@@ -2558,21 +2981,26 @@ mod tests {
         // `world.step()` without answering the decisions it offers would leave
         // the hero on its tick-zero command forever: it would set off in exactly
         // the right direction, never re-decide, and end up pinned in the far
-        // corner at (23.55, 15.55) -- which reads as "it moved, so it works"
+        // corner at the far wall -- which reads as "it moved, so it works"
         // right up until you look at where it stopped.
-        init(1);
-        assert_eq!(hero(), (12.0, 8.0), "the room did not open where it should");
+        //
+        // Quiet, and the destination taken off the floor plan rather than
+        // written down: a level is carved now, so a hardcoded pair of
+        // coordinates is a coin flip on whether the click is even standable.
+        init_quiet(1);
+        let start = hero();
+        let (tx, ty) = walkable_near_hero(4.0, 0.45);
+        assert_ne!((tx, ty), start, "the fixture found nowhere to walk to");
 
-        set_goto(20_000, 12_000);
-        step(200);
+        set_goto((tx * 1000.0) as i32, (ty * 1000.0) as i32);
+        step(300);
 
         let (x, y) = hero();
         println!("walked to ({x}, {y}) in {} ticks", tick());
         assert!(
-            distance_from_hero(20.0, 12.0) <= 0.055,
-            "stopped at ({x}, {y}), not at the click"
+            distance_from_hero(tx, ty) <= 0.2,
+            "stopped at ({x}, {y}), not at the click ({tx}, {ty})"
         );
-        assert!(x < 21.0 && y < 13.0, "walked past the click to ({x}, {y})");
     }
 
     #[test]
@@ -2598,18 +3026,20 @@ mod tests {
 
     #[test]
     fn the_frame_header_and_the_unit_row_land_where_the_layout_says() {
-        init(1);
-        set_goto(20_000, 12_000);
+        init_quiet(1);
+        let start = hero();
+        let (tx, ty) = walkable_near_hero(4.0, 0.45);
+        set_goto((tx * 1000.0) as i32, (ty * 1000.0) as i32);
         step(60);
 
         let frame = frame();
         assert_eq!(frame.len(), HEADER_LEN + UNIT_STRIDE);
         assert_eq!(frame_len() as usize, frame.len());
-        assert_eq!(frame[0], 24.0, "arena_x");
-        assert_eq!(frame[1], 16.0, "arena_y");
+        assert_eq!(frame[0], 48.0, "arena_x");
+        assert_eq!(frame[1], 32.0, "arena_y");
         assert_eq!(frame[2], 4.0, "order_kind: Goto is discriminant 4");
-        assert_eq!(frame[3], 20.0, "order_x");
-        assert_eq!(frame[4], 12.0, "order_y");
+        assert!((frame[3] - tx).abs() < 0.002, "order_x");
+        assert!((frame[4] - ty).abs() < 0.002, "order_y");
         assert!(
             frame[5] > 0.0 && frame[5] <= tick() as f32,
             "last_decision_tick is {}, at tick {}",
@@ -2620,11 +3050,18 @@ mod tests {
         assert_eq!(frame[7], 0.0, "shot_count");
         assert_eq!(
             frame[8], 0.0,
-            "event_count: nobody has hit anybody in an empty room"
+            "event_count: nobody has hit anybody in an empty level"
         );
+        // The run block, appended after the three section counts.
+        assert_eq!(frame[9], 0.0, "monsters_left: this level was emptied");
+        assert_eq!(frame[12], PORTAL_OPEN as f32, "portal_state: nothing left");
+        assert_eq!(frame[13], 0.0, "depth: the first floor");
 
         let unit = &frame[HEADER_LEN..];
-        assert!(unit[0] > 12.0 && unit[1] > 8.0, "x, y: the hero set off");
+        assert!(
+            (unit[0], unit[1]) != start,
+            "x, y: the hero never set off from {start:?}"
+        );
         // The Fighter's stats, as a check that the row is not shifted by one:
         // a wedge drawn from `hp` instead of `facing_raw` is a bug you notice
         // only by looking at the screen.
@@ -2711,7 +3148,7 @@ mod tests {
         // discrete now: a Fighter throws a cut roughly every fifty ticks rather
         // than landing one every nine, so a single duel can be over before a
         // blocked blow happens at all.
-        init(1);
+        init_quiet(1);
         spawn_monster(2, SLOT_EMPTY, SLOT_EMPTY);
         spawn_monster(2, SLOT_EMPTY, SLOT_EMPTY);
         spawn_monster(3, SLOT_EMPTY, SLOT_EMPTY);
@@ -2747,7 +3184,7 @@ mod tests {
     #[test]
 
     fn a_blocked_blow_lights_the_block_column() {
-        init(1);
+        init_quiet(1);
         // The naive baseline never changes what is in its hand, so a Fighter
         // under it fights the whole battle with the sword half of its loadout
         // and the shield half never leaves the bag. Blocking is a thing a
@@ -2773,7 +3210,7 @@ mod tests {
 
     #[test]
     fn a_faction_can_be_handed_a_different_mind_mid_fight() {
-        init(1);
+        init_quiet(1);
         // The room does **not** open on one mind for both sides: the hero gets
         // the policy that has an opinion about what is in its hand, and the
         // monsters get the naive baseline it is measured against. Asserted
@@ -2793,7 +3230,7 @@ mod tests {
 
     #[test]
     fn the_behaviour_panel_can_read_and_move_every_knob() {
-        init(1);
+        init_quiet(1);
         set_policy(0, PolicyKind::Duelist.code());
         let count = policy_weight_count(0);
         assert_eq!(count as usize, policy::DUELIST_GENOME_LEN);
@@ -2831,7 +3268,7 @@ mod tests {
         // The claim the panel is there to make. Same seed, same room, same
         // monster -- only the mind is different, and the run must differ.
         let script = |kind: PolicyKind| -> u64 {
-            init(3);
+            init_quiet(3);
             set_policy(0, kind.code());
             spawn_monster(2, SLOT_EMPTY, SLOT_EMPTY);
             step(600);
@@ -2846,7 +3283,7 @@ mod tests {
 
     #[test]
     fn taking_control_of_the_feet_moves_the_hero_where_the_player_says() {
-        init(1);
+        init_quiet(1);
         let start = hero();
         set_control(CONTROL_FEET);
         assert_eq!(control(), CONTROL_FEET);
@@ -2868,7 +3305,7 @@ mod tests {
 
     #[test]
     fn taking_control_of_the_sword_points_it_where_the_player_says() {
-        init(1);
+        init_quiet(1);
         set_control(CONTROL_LIMB);
         // Guard due north, attacking nothing.
         set_input(0, 0, 16_384, 0, 0, 0);
@@ -2943,14 +3380,14 @@ mod tests {
         // Feet under the player, sword under the policy, and the other way
         // round. This is the whole shape of the feature: they are different
         // skills and any of them can be handed over alone.
-        init(1);
+        init_quiet(1);
         spawn_monster(2, SLOT_EMPTY, SLOT_EMPTY);
         set_control(CONTROL_FEET);
         set_input(1000, 0, 0, 0, 0, 0);
         step(120);
         let sword_under_ai = frame()[HEADER_LEN + 12];
 
-        init(1);
+        init_quiet(1);
         spawn_monster(2, SLOT_EMPTY, SLOT_EMPTY);
         set_control(CONTROL_LIMB);
         set_input(1000, 0, 0, 0, 0, 0);
@@ -2968,7 +3405,7 @@ mod tests {
         // bit on the way in is a switch that lights itself: `set_control` used
         // to fold `LIMB` into `LIMB | SLOT` and the page had to give up on
         // switches entirely because of it.
-        init(1);
+        init_quiet(1);
         for mask in 0..8 {
             set_control(mask);
             assert_eq!(control(), mask, "mask {mask} did not survive the round trip");
@@ -2986,36 +3423,62 @@ mod tests {
         // Both values are exact in `Fx` and exact in `f32`, so an exact
         // comparison is honest here rather than a rounding accident: the point
         // is that 20500 means 20.5 and nothing is scaled twice on the way.
-        init(1);
+        init_quiet(1);
         set_goto(20_500, -3_250);
-        let frame = frame();
-        assert_eq!((frame[3], frame[4]), (20.5, -3.25));
+        let click = frame();
+        assert_eq!((click[3], click[4]), (20.5, -3.25));
 
-        // A wrapped `i32` from JavaScript must saturate rather than overflow,
-        // and the walk that follows must still be a walk.
+        // A wrapped `i32` from JavaScript must saturate rather than overflow.
+        //
+        // **The frame is where that shows.** `ToInt32` wraps, so a value that
+        // overflowed on the way in would come back not as a wild number but as
+        // a perfectly plausible point in the middle of the level -- which is
+        // the failure worth catching, because nothing downstream could tell it
+        // from a click somebody meant.
+        let (from_x, from_y) = hero();
         set_goto(i32::MIN, i32::MAX);
-        step(60);
+        let wild = frame();
+        assert!(
+            wild[3] < 0.0 && wild[4] > arena().1,
+            "a wild click wrapped instead of saturating: ({}, {})",
+            wild[3],
+            wild[4]
+        );
+
+        // And the walk that follows must still be a walk to somewhere legal.
+        // Not "toward that corner": the nearest floor to a corner of a carved
+        // level can be most of a level away from it, so a heading assertion
+        // here would be asserting the shape of one generated floor plan.
+        step(300);
         let (x, y) = hero();
         assert!(
-            x < 12.0 && y > 8.0,
-            "gave up on a nonsense click: ({x}, {y})"
+            (x, y) != (from_x, from_y),
+            "gave up on a nonsense click at ({from_x}, {from_y})"
         );
+        assert!(walkable(x, y, 0.45), "walked into the rock at ({x}, {y})");
     }
 
     #[test]
     fn clearing_the_order_hands_the_hero_back_to_its_own_judgement() {
         // Worth being exact about, because "clear the order" reads like "stop"
         // and it is not. Under `Order::Hold` with nothing in sight the policy
-        // steers for open ground, which in an empty room is a slow drift back
-        // to the middle. That is `UtilityPolicy`'s search behaviour working as
-        // designed, not a stale order leaking through this boundary, and the
-        // page has to present it as the character deciding for itself rather
-        // than as a control that did not take.
-        init(1);
-        set_goto(20_000, 12_000);
-        step(120);
+        // steers for open ground, which is a slow drift toward the middle of
+        // whatever room it is standing in. That is `UtilityPolicy`'s search
+        // behaviour working as designed, not a stale order leaking through this
+        // boundary, and the page has to present it as the character deciding
+        // for itself rather than as a control that did not take.
+        //
+        // Where it drifts *to* is a fact about the room it happens to be in, so
+        // what is asserted is that it stops honouring the click -- it must not
+        // still be closing on it -- rather than a destination this test would
+        // be re-deriving the floor plan to predict.
+        init_quiet(1);
+        let (tx, ty) = walkable_near_hero(5.0, 0.45);
+        set_goto((tx * 1000.0) as i32, (ty * 1000.0) as i32);
+        step(200);
         let (away_x, away_y) = hero();
-        assert!(away_x > 14.0, "never got going: at ({away_x}, {away_y})");
+        let closed = distance_from_hero(tx, ty);
+        assert!(closed < 1.0, "never got going: at ({away_x}, {away_y})");
 
         clear_order();
         assert_eq!(frame()[2], 0.0, "order_kind: Hold is discriminant 0");
@@ -3025,13 +3488,141 @@ mod tests {
         let (back_x, back_y) = hero();
         println!("released at ({away_x}, {away_y}), drifted to ({back_x}, {back_y})");
         assert!(
-            back_x < away_x && back_y < away_y,
-            "kept walking to a cancelled click: ({back_x}, {back_y})"
+            distance_from_hero(tx, ty) > closed,
+            "still closing on a cancelled click: ({back_x}, {back_y})"
         );
         assert!(
-            distance_from_hero(12.0, 8.0) < 1.0,
-            "drifted somewhere other than the open middle: ({back_x}, {back_y})"
+            walkable(back_x, back_y, 0.45),
+            "drifted into the masonry at ({back_x}, {back_y})"
         );
+    }
+
+    // ------------------------------------------------------------- the descent
+
+    #[test]
+    fn a_level_opens_carved_with_the_opposition_already_in_it() {
+        init(1);
+        assert_eq!(arena(), (48.0, 32.0));
+        assert_eq!(depth(), 0, "the first floor is depth zero");
+        assert!(monsters_left() >= 3, "an empty dungeon is not a dungeon");
+        assert_eq!(monsters_left() as usize, monsters().len());
+
+        // Everybody the level placed can stand where it was placed.
+        let hero = hero_row().expect("no hero");
+        assert!(walkable(hero[0], hero[1], hero[3]));
+        for monster in monsters() {
+            assert!(walkable(monster[0], monster[1], monster[3]));
+        }
+
+        // And the map crossed with it.
+        assert_eq!(map_cols(), 48);
+        assert_eq!(map_rows(), 32);
+        assert_eq!(map_len(), map_cols() * map_rows());
+        assert_eq!(map_tile_size_milli(), 1000);
+    }
+
+    #[test]
+    fn the_way_out_is_visible_from_the_start_and_shut_until_the_level_is() {
+        init(1);
+        let (px, py, state) = portal();
+        assert_eq!(state, PORTAL_SHUT, "opened with monsters still standing");
+        assert!(walkable(px, py, 0.7), "the way out is in the rock");
+
+        // Walking into a shut one is not a door.
+        let before = depth();
+        set_goto((px * 1000.0) as i32, (py * 1000.0) as i32);
+        step(1_200);
+        assert_eq!(depth(), before, "a shut portal took the hero anyway");
+    }
+
+    #[test]
+    fn clearing_the_level_opens_the_way_out() {
+        init_quiet(1);
+        assert_eq!(monsters_left(), 0);
+        assert_eq!(portal().2, PORTAL_OPEN, "nothing left and still shut");
+    }
+
+    #[test]
+    fn walking_into_an_open_way_out_builds_the_next_floor() {
+        init_quiet(1);
+        let before_map = map_revision();
+        let before_hero = hero_row().expect("no hero");
+        let (px, py, _) = portal();
+
+        set_goto((px * 1000.0) as i32, (py * 1000.0) as i32);
+        step(2_400);
+
+        assert_eq!(depth(), 1, "never descended; stopped at {:?}", hero());
+        assert_eq!(tick(), 0, "the new floor did not start at tick zero");
+        assert_ne!(map_revision(), before_map, "the floor plan did not change");
+        assert!(monsters_left() >= 3, "the next floor is empty");
+
+        // The character persists and arrives whole. Health first, because it is
+        // the one that costs no code -- `World::spawn` refills it -- and would
+        // therefore be the one to break silently.
+        let after = hero_row().expect("the hero did not come down the stairs");
+        assert_eq!(after[7], before_hero[7], "kind");
+        assert_eq!(after[5], before_hero[5], "max_hp: the stat sheet came too");
+        assert_eq!(after[4], after[5], "arrived wounded");
+        assert!(walkable(after[0], after[1], after[3]));
+    }
+
+    #[test]
+    fn the_map_only_changes_when_the_level_does() {
+        init(1);
+        let revision = map_revision();
+        let tiles = map_bytes();
+
+        // A tick, a click and a slider all leave it alone. `publish` runs on
+        // every one of them, which is exactly the mistake this guards.
+        step(120);
+        set_goto(1_000, 1_000);
+        set_hero_stat(0, 9);
+        assert_eq!(map_revision(), revision, "the floor plan moved under a slider");
+        assert_eq!(map_bytes(), tiles);
+
+        assert_eq!(descend(), 1);
+        assert_ne!(map_revision(), revision, "a new floor kept the old plan");
+        assert_ne!(map_bytes(), tiles, "a new floor kept the old tiles");
+        assert_eq!(map_len() as usize, map_bytes().len());
+    }
+
+    #[test]
+    fn the_map_describes_the_level_the_frame_draws() {
+        init(1);
+        let (cols, rows) = (map_cols() as usize, map_rows() as usize);
+        let tiles = map_bytes();
+        for row in std::iter::once(hero_row().expect("no hero")).chain(monsters()) {
+            let (tx, ty) = (row[0] as usize, row[1] as usize);
+            assert_eq!(
+                tiles[ty * cols + tx],
+                0,
+                "a body is standing on a tile the map calls solid: ({}, {})",
+                row[0],
+                row[1]
+            );
+        }
+        assert!(rows > 0 && tiles.iter().any(|&t| t != 0), "nothing was carved");
+    }
+
+    #[test]
+    fn a_spawn_never_lands_in_the_masonry() {
+        for seed in 1..6u32 {
+            init(seed);
+            for press in 0..40 {
+                if spawn_monster(SKITTERER, SLOT_EMPTY, SLOT_EMPTY) == 0 {
+                    break;
+                }
+                let monster = monsters().last().expect("nothing arrived").clone();
+                assert!(
+                    walkable(monster[0], monster[1], monster[3]),
+                    "seed {seed} press {press}: landed in the rock at ({}, {})",
+                    monster[0],
+                    monster[1]
+                );
+                step(3);
+            }
+        }
     }
 
     #[test]
@@ -3057,7 +3648,7 @@ mod tests {
         // can open. Sixty-three monsters around one hero for a thousand ticks is
         // well past anything a player produces, and `push_event` has to hold the
         // ceiling through all of it.
-        init(1);
+        init_quiet(1);
         for _ in 0..MAX_UNITS {
             spawn_monster(BRUTE, SLOT_EMPTY, SLOT_EMPTY);
         }
@@ -3082,7 +3673,7 @@ mod tests {
 
     #[test]
     fn a_monster_walks_in_and_takes_the_next_row_of_the_frame() {
-        init(1);
+        init_quiet(1);
         assert_eq!(frame()[6], 1.0, "the room did not open with one hero");
 
         assert_eq!(spawn_monster(SKITTERER, SLOT_EMPTY, SLOT_EMPTY), 1, "nothing arrived");
@@ -3109,7 +3700,7 @@ mod tests {
 
     #[test]
     fn an_unrecognised_kind_code_is_a_skitterer_rather_than_a_trap() {
-        init(1);
+        init_quiet(1);
         assert_eq!(spawn_monster(9_999, SLOT_EMPTY, SLOT_EMPTY), 1);
         assert_eq!(monsters()[0][7], 3.0, "kind: Skitterer");
     }
@@ -3122,7 +3713,7 @@ mod tests {
         let corners = [(0, 0), (24_000, 0), (0, 16_000), (24_000, 16_000)];
         for seed in 1..12u32 {
             for (i, &(cx, cy)) in corners.iter().enumerate() {
-                init(seed);
+                init_quiet(seed);
                 set_goto(cx, cy);
                 step(200 + i as u32 * 7);
                 let hero = hero_row().expect("the hero is gone");
@@ -3148,11 +3739,19 @@ mod tests {
                     );
                     assert!(
                         monster[0] >= radius - 0.001
-                            && monster[0] <= 24.0 - radius + 0.001
+                            && monster[0] <= arena().0 - radius + 0.001
                             && monster[1] >= radius - 0.001
-                            && monster[1] <= 16.0 - radius + 0.001,
-                        "seed {seed} corner {i}: landed inside a wall at \
+                            && monster[1] <= arena().1 - radius + 0.001,
+                        "seed {seed} corner {i}: landed outside the level at \
                          ({}, {}) with radius {radius}",
+                        monster[0],
+                        monster[1],
+                    );
+                    // And the stronger claim, which the arena box stopped
+                    // being able to make once the level had masonry in it.
+                    assert!(
+                        walkable(monster[0], monster[1], radius),
+                        "seed {seed} corner {i}: landed in the rock at ({}, {})",
                         monster[0],
                         monster[1],
                     );
@@ -3167,7 +3766,7 @@ mod tests {
         // be rolled from the same stream and land on the same pixel -- and two
         // presses inside one animation frame is not a contrived case, it is what
         // a double click is.
-        init(1);
+        init_quiet(1);
         spawn_monster(SKITTERER, SLOT_EMPTY, SLOT_EMPTY);
         spawn_monster(SKITTERER, SLOT_EMPTY, SLOT_EMPTY);
         let monsters = monsters();
@@ -3183,7 +3782,7 @@ mod tests {
     #[test]
     fn the_same_presses_at_the_same_ticks_produce_the_same_room() {
         fn script() -> (u32, u64, Vec<f32>) {
-            init(3);
+            init_quiet(3);
             step(37);
             spawn_monster(SKITTERER, SLOT_EMPTY, SLOT_EMPTY);
             step(120);
@@ -3194,7 +3793,7 @@ mod tests {
         assert_eq!(script(), script(), "the same run diverged from itself");
 
         // And *when* the button was pressed is part of the run, not incidental.
-        init(3);
+        init_quiet(3);
         step(38);
         spawn_monster(SKITTERER, SLOT_EMPTY, SLOT_EMPTY);
         step(119);
@@ -3234,7 +3833,7 @@ mod tests {
         // that is never pushed onto `Sim::units` still thinks, moves and fights,
         // so the only way to see the mistake is to look at the frame rather than
         // at the world -- which is exactly what the player does.
-        init(1);
+        init_quiet(1);
         spawn_monster(SKITTERER, SLOT_EMPTY, SLOT_EMPTY);
         let start = monsters()[0].clone();
 
@@ -3302,7 +3901,7 @@ mod tests {
     /// `Body::base_stats()`, so every dial went back to the archetype default.
     #[test]
     fn a_stat_sheet_outlives_the_character_wearing_it() {
-        init(1);
+        init_quiet(1);
         assert_eq!(set_hero_stat(3, 14), 1, "perception would not move");
         assert_eq!(set_hero_stat(2, 17), 1, "intellect would not move");
         assert_eq!(hero_stat(3), 14);
@@ -3339,7 +3938,7 @@ mod tests {
     /// rails at once.
     #[test]
     fn changing_the_body_rebuilds_the_sheet_it_is_a_sheet_for() {
-        init(1);
+        init_quiet(1);
         set_hero_stat(3, 14);
         assert!(kill_the_hero(), "six brutes could not kill one fighter");
 
@@ -3358,7 +3957,7 @@ mod tests {
         // The page has to say something when the character falls, so the state
         // it says it about needs to be reachable. The assertion is that death is
         // representable, not that any particular fight is balanced.
-        init(1);
+        init_quiet(1);
         let fell = kill_the_hero();
         println!("the hero fell at tick {}", tick());
         assert!(fell, "six brutes could not kill one fighter");
@@ -3374,7 +3973,7 @@ mod tests {
 
     #[test]
     fn the_room_stops_taking_monsters_when_the_frame_is_full() {
-        init(1);
+        init_quiet(1);
         let mut refused = 0;
         for _ in 0..100 {
             if spawn_monster(SKITTERER, SLOT_EMPTY, SLOT_EMPTY) == 0 {
@@ -3396,7 +3995,7 @@ mod tests {
         // Without the prune the roster only grows, so a long session of
         // spawning and killing hits the ceiling on handles that resolve to
         // nothing -- a full room with two bodies in it.
-        init(1);
+        init_quiet(1);
         spawn_monster(SKITTERER, SLOT_EMPTY, SLOT_EMPTY);
         assert_eq!(roster_len(), 2);
 
@@ -3458,7 +4057,7 @@ mod tests {
 
     #[test]
     fn a_replacement_walks_into_the_room_the_last_one_died_in() {
-        init(1);
+        init_quiet(1);
         let fallen = hero_row().expect("the room did not open with a hero");
         let at = fall_to_brutes();
         let standing = monsters().len();
@@ -3493,7 +4092,7 @@ mod tests {
         // Not a missing feature: one order channel, one character. Two heroes
         // would share the player's clicks, which is a worse thing to discover
         // mid-fight than a button that declines.
-        init(1);
+        init_quiet(1);
         assert_eq!(swap_in_hero(ROGUE, SLOT_EMPTY, SLOT_EMPTY), 0, "two characters, one order channel");
         assert_eq!(frame()[6], 1.0, "unit_count");
         assert_eq!(hero_row().expect("the hero is gone")[7], 0.0, "kind");
@@ -3511,7 +4110,7 @@ mod tests {
         // The reason this takes an archetype rather than just bringing the
         // fighter back. Same room, same monsters, same policy -- and a
         // character that thinks faster, sees further and dies sooner.
-        init(1);
+        init_quiet(1);
         fall_to_brutes();
         assert_eq!(swap_in_hero(ROGUE, SLOT_EMPTY, SLOT_EMPTY), 1, "nobody arrived");
 
@@ -3527,7 +4126,7 @@ mod tests {
         // monster archetype on the player's side of the room. Falling through
         // to a hero build instead is the whole reason the two decoders are
         // separate functions.
-        init(1);
+        init_quiet(1);
         fall_to_brutes();
         assert_eq!(swap_in_hero(9_999, SLOT_EMPTY, SLOT_EMPTY), 1);
         assert_eq!(hero_row().expect("nobody arrived")[7], 0.0, "kind: Fighter");
@@ -3540,7 +4139,7 @@ mod tests {
         // to. Inheriting it would have the newcomer set off for wherever the
         // last one was headed when it was killed -- which is where the things
         // that killed it are standing.
-        init(1);
+        init_quiet(1);
         set_goto(23_000, 15_000);
         step(60);
         fall_to_brutes();
@@ -3572,7 +4171,7 @@ mod tests {
         // hands the player a corpse.
         let mut tightest = f32::INFINITY;
         for seed in 1..9u32 {
-            init(seed);
+            init_quiet(seed);
             fall_to_brutes();
             assert_eq!(swap_in_hero(FIGHTER, SLOT_EMPTY, SLOT_EMPTY), 1, "seed {seed}: nobody arrived");
 
@@ -3580,10 +4179,16 @@ mod tests {
             let radius = hero[3];
             assert!(
                 hero[0] >= radius - 0.001
-                    && hero[0] <= 24.0 - radius + 0.001
+                    && hero[0] <= arena().0 - radius + 0.001
                     && hero[1] >= radius - 0.001
-                    && hero[1] <= 16.0 - radius + 0.001,
-                "seed {seed}: arrived inside a wall at ({}, {})",
+                    && hero[1] <= arena().1 - radius + 0.001,
+                "seed {seed}: arrived outside the level at ({}, {})",
+                hero[0],
+                hero[1],
+            );
+            assert!(
+                walkable(hero[0], hero[1], radius),
+                "seed {seed}: arrived in the rock at ({}, {})",
                 hero[0],
                 hero[1],
             );
@@ -3660,7 +4265,7 @@ mod tests {
     /// visible at all, so the frame carrying them is its own claim.
     #[test]
     fn the_frame_carries_arrows() {
-        init(1);
+        init_quiet(1);
         assert_eq!(
             set_hero_loadout(0, sim::ActionKind::Bow.code()),
             1,
@@ -3685,7 +4290,7 @@ mod tests {
             for s in 0..shots {
                 let row = &live[HEADER_LEN + units * UNIT_STRIDE + s * SHOT_STRIDE..];
                 assert!(
-                    row[0] >= 0.0 && row[0] <= 24.0 && row[1] >= 0.0 && row[1] <= 16.0,
+                    row[0] >= 0.0 && row[0] <= live[0] && row[1] >= 0.0 && row[1] <= live[1],
                     "an arrow was drawn outside the arena at ({}, {})",
                     row[0],
                     row[1]
@@ -3703,14 +4308,14 @@ mod tests {
         // invisible from the outside -- except that a swap has to *consume* a
         // roll, or a monster spawned on the same tick afterwards would be
         // placed exactly where one spawned before the swap would have been.
-        init(1);
+        init_quiet(1);
         fall_to_brutes();
         swap_in_hero(FIGHTER, SLOT_EMPTY, SLOT_EMPTY);
         let after_swap = monsters().len();
         spawn_monster(SKITTERER, SLOT_EMPTY, SLOT_EMPTY);
         let with = monsters()[after_swap].clone();
 
-        init(1);
+        init_quiet(1);
         fall_to_brutes();
         spawn_monster(SKITTERER, SLOT_EMPTY, SLOT_EMPTY);
         let without = monsters()[after_swap].clone();
@@ -3735,7 +4340,7 @@ mod tests {
 
     #[test]
     fn a_declare_row_is_emitted_once_per_windup() {
-        init(1);
+        init_quiet(1);
         set_control(CONTROL_LIMB);
         // Chambered due north, attacking nothing. A blade at guard has nothing
         // to announce, and announcing one anyway would put a permanent bubble
@@ -3804,7 +4409,7 @@ mod tests {
         // last one and silently drop seven eighths of the fight's damage
         // numbers on exactly the frames the browser was late for.
         fn brawl(warmup: u32) {
-            init(1);
+            init_quiet(1);
             for _ in 0..4 {
                 spawn_monster(BRUTE, SLOT_EMPTY, SLOT_EMPTY);
             }
@@ -3879,7 +4484,7 @@ mod tests {
 
     #[test]
     fn set_hero_stat_clamps_out_of_range_input() {
-        init(1);
+        init_quiet(1);
         // Read live rather than from the body table: once a dial can move
         // mid-fight the two stop agreeing, and this is the one that is true.
         assert_eq!(hero_stat(3), 6, "the Fighter's perception");
@@ -3924,7 +4529,7 @@ mod tests {
 
     #[test]
     fn the_hero_can_change_body_without_leaving_the_room() {
-        init(1);
+        init_quiet(1);
         assert_eq!(hero_body(), FIGHTER);
         let before = hero_row().expect("the room did not open with a hero");
 
@@ -3959,7 +4564,7 @@ mod tests {
 
     #[test]
     fn spawn_from_template_uses_the_template_body_and_loadout() {
-        init(1);
+        init_quiet(1);
         // Where the panel opens: what `S` has always sent.
         assert_eq!(spawn_template_body(), SKITTERER);
         assert_eq!(spawn_template_stat(1), 9, "the Skitterer's agility");
@@ -4025,7 +4630,7 @@ mod tests {
         // The half of `UnitSpec::set_body` that is easy to get wrong from the
         // page's side: an edited attribute is *not* meant to survive picking a
         // different body, because the sheet it belonged to is gone.
-        init(1);
+        init_quiet(1);
         assert_eq!(set_spawn_template_stat(0, MAX_ATTRIBUTE), 1);
         assert_eq!(spawn_template_stat(0), MAX_ATTRIBUTE);
         assert_eq!(set_spawn_template_body(ROGUE), 1);

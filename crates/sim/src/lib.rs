@@ -47,6 +47,7 @@ pub use fx;
 
 mod action;
 mod command;
+mod dungeon;
 mod entity;
 mod event;
 mod hand;
@@ -58,13 +59,14 @@ mod scenario;
 mod world;
 
 pub use action::{ActionKind, ActionSpec, Role, ACTIONS};
-pub use command::{Command, Intent, LimbCommand, Order, Strike};
+pub use command::{Command, Intent, LimbCommand, Objective, Order, Strike};
+pub use dungeon::{Cardinal, Dungeon, Level, OPEN, WALL};
 pub use entity::{EntityId, Faction, Body};
 pub use event::Event;
 pub use hand::{Hand, Swing};
 pub use loadout::Loadout;
 pub use obs::{Contact, Observation, FEATURE_COUNT, FEATURE_LAYOUT_VERSION};
-pub use replay::{CommandRecord, OrderRecord, Replay};
+pub use replay::{CommandRecord, ObjectiveRecord, OrderRecord, Replay};
 pub use rules::{
     agility_multiplier, block_leak, blow_damage, dead_zone, peak_damage, peak_impulse, peak_recoil,
     phase_ticks, power_multiplier, strike_ticks, Arm, Stats, ARM_INERTIA, BLOCK_LEAK_BRACED,
@@ -75,5 +77,5 @@ pub use rules::{
     STRIKE_TIMEOUT, TICKS_PER_SECOND, TRACTION_BASE, TRACTION_TICKS, VELOCITY_JUDGEMENT,
     WHIFF_RECOVERY, WINDUP_ARC,
 };
-pub use scenario::{Scenario, UnitSpec};
+pub use scenario::{Scenario, UnitSpec, DUNGEON_COLS, DUNGEON_ROWS};
 pub use world::{Outcome, ShotView, Snapshot, UnitView, World};

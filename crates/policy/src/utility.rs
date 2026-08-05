@@ -93,6 +93,39 @@ pub(crate) fn patrol_heading(obs: &Observation, heading: Vec2, patrol: &mut Patr
     (-leg + along * SWEEP_LATERAL).normalize()
 }
 
+/// How far along the floor something will follow an objective it cannot see.
+///
+/// **This is what keeps a dungeon room-by-room.** With no bound, everything on
+/// the level starts walking at the hero on tick one and the whole floor arrives
+/// as a single brawl -- which is not a dungeon, it is one fight held in a large
+/// room. Roughly two rooms and the corridor between them, so a fight stays a
+/// fight about the room you are in, and the thing three rooms away is a problem
+/// you have not met yet.
+///
+/// Stated in world units along the *route*, not in a straight line: something
+/// on the far side of one wall is genuinely further away than something at the
+/// same distance down an open corridor, and the percept already knows which is
+/// which.
+pub(crate) const HUNT_RANGE: Fx = Fx::from_int(18);
+
+/// The route to this faction's objective: which way to walk, and how much
+/// ground is left along it.
+///
+/// `None` when there is nowhere to go -- no objective set, or one sealed behind
+/// masonry -- which every caller reads as "stop", because it is.
+///
+/// Shared by both hand-authored policies for the same reason
+/// [`patrol_heading`] is: so that "walk there" means one thing whichever policy
+/// is driving. It is deliberately thin. Everything interesting happened in the
+/// sim, which is the only thing that knows the floor plan; what is left here is
+/// the *decision* to follow the answer, and that stays with the policy.
+pub(crate) fn nav_step(obs: &Observation) -> Option<(Vec2, Fx)> {
+    if obs.nav_dir.is_zero() || obs.nav_distance >= Fx::MAX {
+        return None;
+    }
+    Some((obs.nav_dir, obs.nav_distance))
+}
+
 /// The knobs behind the hand-authored behaviour.
 ///
 /// Every field is exposed as a gene in `0..=1` and mapped into the range below,
@@ -340,6 +373,32 @@ impl UtilityPolicy {
 
     /// Nothing in sight: do what the player asked.
     fn march(&self, obs: &Observation, patrol: &mut Patrol) -> Command {
+        // Nothing in sight and nothing ordered, but the level itself has
+        // somewhere to be: walk the route.
+        //
+        // Returns rather than folding into the steering below, for the same
+        // reason the `Goto` arm returns -- `patrol_heading` would reverse the
+        // leg at the first corridor wall it met, and `open_ground` is a *search*
+        // urge for an agent with nowhere in particular to be. A route is the
+        // opposite of not knowing where to go.
+        //
+        // Under `Objective::Hunt` this is a creature that knows where you are,
+        // and that is a decision rather than an oversight: a dungeon whose
+        // monsters lose you permanently behind one wall reads as broken rather
+        // than as stealthy. The honest version -- something that tracks, loses
+        // the trail and gives up -- is the open question `DESIGN.md` files
+        // under "Search behaviour", and this is where that answer will go.
+        //
+        // Dead in every scenario the lab runs: objectives default to
+        // `Objective::None`, so `nav_step` is silent unless somebody asked.
+        if matches!(obs.order, Order::Hold) {
+            if let Some((to, along)) = nav_step(obs) {
+                if along <= HUNT_RANGE {
+                    return Command::moving(to.clamp_length(Fx::ONE));
+                }
+            }
+        }
+
         let heading = match obs.order {
             Order::Advance(dir) => dir.normalize(),
             Order::Regroup => self.ally_centre(obs).normalize(),
@@ -361,24 +420,24 @@ impl UtilityPolicy {
             // arena. At the top of `wall_fear`'s evolvable range it is worse:
             // magnitude 1.0 exactly cancels the unit heading and the character
             // stops dead mid-room.
-            Order::Goto(dest) => {
-                // `wall_clearance` is un-noised ground truth, so the reachable
-                // box is exactly recoverable: the world pins bodies to
-                // `[radius, arena - radius]`, which makes a click within one
-                // body radius of a wall unreachable. Without this the character
-                // presses into the wall and never satisfies its own arrival
-                // test.
-                let wc = obs.wall_clearance;
-                let lo = Vec2::new(
-                    obs.position.x - wc[0] + obs.radius,
-                    obs.position.y - wc[2] + obs.radius,
-                );
-                let hi = Vec2::new(
-                    obs.position.x + wc[1] - obs.radius,
-                    obs.position.y + wc[3] - obs.radius,
-                );
-                let to = dest.clamp_box(lo, hi) - obs.position;
-                let distance = to.length();
+            Order::Goto(_) => {
+                // The route, not the bearing. What used to be here rebuilt the
+                // reachable box out of `wall_clearance` and clamped the click
+                // into it, which was right while the level *was* a box and is
+                // worse than merely wrong now: inside a corridor those four
+                // numbers describe the corridor, so every destination clamps
+                // into a one-unit box around the character and the arrival test
+                // is satisfied before it has taken a step.
+                //
+                // What that clamp existed for -- an unreachable click must
+                // terminate rather than leave the character pressing into a
+                // wall forever -- is now answered by the sim, which is where it
+                // belongs: the collision rule already lives there, so nothing
+                // else has to keep a second opinion about where a body can
+                // stand. `nav_step` reports no route, and no route is a stop.
+                let Some((to, distance)) = nav_step(obs) else {
+                    return Command::HOLD;
+                };
 
                 // Arrival deadband: one tick of travel. It scales itself with
                 // agility instead of being a magic constant, and it clears by
@@ -436,13 +495,20 @@ impl UtilityPolicy {
                 let braking = fx::sqrt_product(obs.traction * Fx::TWO, committed);
                 let safe = settled.min(braking);
 
-                // Normalise first, *then* scale, so the brake is the whole
-                // magnitude. The trailing clamp is defensive: `normalize`
-                // truncates component-wise and can come back marginally over
-                // one, and `decisions_never_exceed_unit_movement` should hold
+                // The brake is the whole magnitude, so it scales a heading that
+                // is *already* a unit vector -- `nav_step` normalised it, and
+                // normalising it again is not free. `Fx` truncates
+                // component-wise, so a second pass through `normalize` moves a
+                // heading that was already correct by a raw unit or two; over a
+                // few hundred ticks of standing on a destination that is the
+                // difference between holding still and creeping.
+                //
+                // The trailing clamp stays, and is defensive: a normalised
+                // vector can come back marginally over one, and
+                // `decisions_never_exceed_unit_movement` should hold
                 // unconditionally.
                 let brake = (safe / obs.move_speed.max(Fx::EPSILON)).min(Fx::ONE);
-                return Command::moving((to.normalize() * brake).clamp_length(Fx::ONE));
+                return Command::moving((to * brake).clamp_length(Fx::ONE));
             }
 
             Order::Hold | Order::Focus(_) => Vec2::ZERO,
@@ -830,10 +896,20 @@ mod tests {
         );
     }
 
-    /// A `Goto` order for a point `offset` away from where the agent stands.
+    /// A `Goto` order for a point `offset` away from where the agent stands,
+    /// with the route the sim would have computed across open ground.
+    ///
+    /// The route has to be stated because the policy no longer derives one. It
+    /// reads `nav_dir`/`nav_distance`, which the sim fills from the floor plan,
+    /// and an observation that leaves them blank is saying "there is no way
+    /// there" -- which the policy correctly answers by standing still. On open
+    /// ground the sim's answer is exactly the straight line, so that is what
+    /// these fixtures state.
     fn heading_for(offset: Vec2) -> Observation {
         let mut obs = situation(&[]);
         obs.order = Order::Goto(obs.position + offset);
+        obs.nav_dir = offset.normalize();
+        obs.nav_distance = offset.length();
         obs
     }
 
@@ -876,11 +952,45 @@ mod tests {
     }
 
     #[test]
+    fn goto_holds_when_there_is_no_way_there() {
+        // What the reachable-box reconstruction used to buy, now bought by the
+        // sim: a destination that cannot be reached has to *terminate*, not
+        // leave the character pressing into a wall forever waiting on an
+        // arrival test it can never satisfy. The sim says so by reporting no
+        // route, and this is the policy honouring it.
+        let mut obs = situation(&[]);
+        obs.order = Order::Goto(Vec2::from_ints(10, 14));
+        obs.nav_dir = Vec2::ZERO;
+        obs.nav_distance = Fx::MAX;
+
+        let command = UtilityPolicy::baseline().decide(&obs);
+        assert_eq!(command.move_dir, Vec2::ZERO, "walked at an unreachable click");
+        assert_eq!(command.intent, Intent::Hold);
+    }
+
+    #[test]
+    fn goto_follows_the_route_and_not_the_bearing() {
+        // The route and the straight line disagree, which is the whole reason
+        // the percept exists: the destination is due east and the way round is
+        // south. A policy still reading the bearing would walk into the wall.
+        let mut obs = situation(&[]);
+        obs.order = Order::Goto(obs.position + Vec2::from_ints(6, 0));
+        obs.nav_dir = Vec2::Y;
+        obs.nav_distance = Fx::from_int(12);
+
+        let moved = UtilityPolicy::baseline().decide(&obs).move_dir;
+        assert!(moved.y.is_positive(), "took the bearing, not the route: {moved:?}");
+        assert_eq!(moved.x, Fx::ZERO);
+    }
+
+    #[test]
     fn goto_ignores_the_wall_sweep() {
         // The agent stands 0.5 from the left wall -- close enough that an
         // `Advance` in that direction sweeps along the wall instead of grinding
-        // into it. A `Goto` past the same wall must not: the sweep would walk
-        // the character sideways past the click.
+        // into it. Half of this test used to check that a `Goto` past the same
+        // wall did not sweep; that clamp now lives in the sim, and what it
+        // bought is asserted by `goto_holds_when_there_is_no_way_there`. What
+        // remains is the `Advance` behaviour, which is unchanged.
         let near_wall = [
             Fx::from_ratio(5, 10),
             Fx::from_int(39),
@@ -890,23 +1000,8 @@ mod tests {
 
         let mut obs = situation(&[]);
         obs.wall_clearance = near_wall;
-        obs.order = Order::Goto(Vec2::from_ints(10, 14));
-        // The click is past the wall, so it clamps to the reachable box and
-        // leaves only clearance minus radius = 0.05 of travel -- a whisker over
-        // the 0.049988 deadband, which is the whole point: the character should
-        // still take that whisker rather than sweep.
-        let arriving = UtilityPolicy::baseline().decide(&obs).move_dir;
-        assert!(
-            arriving.x < Fx::ZERO,
-            "did not head for the click: {arriving:?}"
-        );
-        assert_eq!(
-            arriving.y,
-            Fx::ZERO,
-            "swept along the wall on the way to a destination: {arriving:?}"
-        );
 
-        // ...whereas an `Advance` that has run out of arena turns the patrol
+        // An `Advance` that has run out of arena turns the patrol
         // round and comes back, with a lateral step so the return leg sweeps
         // new ground instead of retracing the outbound line.
         obs.order = Order::Advance(-Vec2::X);

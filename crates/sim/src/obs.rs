@@ -324,8 +324,39 @@ pub struct Observation {
     ally_slots: [Contact; MAX_CONTACTS],
     ally_count: u8,
 
-    /// Distance to the arena edge in `-x, +x, -y, +y`.
+    /// Distance to the first solid face in `-x, +x, -y, +y`, or to the edge of
+    /// the level when there is nothing in the way.
+    ///
+    /// The shape has not changed and the meaning has: on a level with masonry
+    /// carved into it this stops at the nearest *wall*, not at the outer
+    /// boundary. On a floor plan with nothing carved it is bit-for-bit the
+    /// arena-edge distance it always was, which is what keeps every scenario
+    /// that is not a dungeon behaving exactly as it did.
     pub wall_clearance: [Fx; 4],
+
+    /// **Which way to walk to reach this faction's objective**, along ground a
+    /// body of this size can actually cross. A unit heading, or [`Vec2::ZERO`]
+    /// when there is no objective, when it cannot be reached from here, or when
+    /// this body is already standing on it.
+    ///
+    /// Derived and handed over rather than left to be reconstructed, on exactly
+    /// the argument [`Contact::min_strike_range`] makes: the floor plan is a
+    /// fact about the world, the sim holds it exactly, and a policy made to
+    /// rediscover it would be re-deriving in fixed point something the sim can
+    /// answer for nothing. What stays a *decision* is whether to follow it.
+    ///
+    /// See [`crate::Objective`] for why this is silent unless somebody asked
+    /// for it.
+    pub nav_dir: Vec2,
+    /// Ground to cover along that route, in world units. [`Fx::MAX`] when there
+    /// is no route.
+    ///
+    /// Carried beside the heading because a heading alone cannot pace an
+    /// arrival: the braking law that stops a character on its mark divides by a
+    /// distance, and the straight-line distance is a lie the moment a wall is
+    /// in the way -- it says "nearly there" to a character with a room to walk
+    /// round.
+    pub nav_distance: Fx,
 }
 
 /// Values per contact in the feature vector: direction (2), range, health,
@@ -376,7 +407,7 @@ const SELF_FEATURES: usize =
 /// Width of the flattened feature vector produced by
 /// [`Observation::write_features`].
 pub const FEATURE_COUNT: usize =
-    SELF_FEATURES + Order::COUNT + 2 + (MAX_CONTACTS * FEATURES_PER_CONTACT) * 2 + 4;
+    SELF_FEATURES + Order::COUNT + 2 + (MAX_CONTACTS * FEATURES_PER_CONTACT) * 2 + 4 + 3;
 
 /// Bumped whenever the layout of [`Observation::write_features`] changes shape
 /// or meaning.
@@ -455,7 +486,24 @@ pub const FEATURE_COUNT: usize =
 /// Without it "charge the light one, do not shoulder the heavy one" is not a
 /// decision the observation supports, which made a body-check something only the
 /// sim knew about.
-pub const FEATURE_LAYOUT_VERSION: u32 = 10;
+///
+/// Version 11 is the floor plan, and it changes one field's *meaning* as well as
+/// adding three. [`Observation::wall_clearance`] used to be four distances to the
+/// arena edge; it is now four distances to the nearest masonry, which on a
+/// dungeon is a different number about a different thing -- a policy trained
+/// against version 10 would read "plenty of room" off a fighter standing in a
+/// corridor. That alone would be a bump with no new slots at all.
+///
+/// The three new slots are [`Observation::nav_dir`] and
+/// [`Observation::nav_distance`]. They exist because walls make "walk toward
+/// that" and "walk to that" different questions for the first time, and the
+/// second is not answerable from anything else in the vector: no amount of local
+/// clearance tells a fighter which of two corridors leads to the room it wants.
+/// Not a missing input, a missing *concept* -- the same argument version 9's
+/// loadout block makes.
+///
+/// Paid now, while there are still no weights.
+pub const FEATURE_LAYOUT_VERSION: u32 = 11;
 
 /// Speed, in world units per tick, that normalises to `1` in the feature
 /// vector. Comfortably above any archetype's top speed, so it is the knockback
@@ -529,6 +577,10 @@ impl Observation {
             ally_slots: [Contact::default(); MAX_CONTACTS],
             ally_count: 0,
             wall_clearance: [Fx::ZERO; 4],
+            nav_dir: Vec2::ZERO,
+            // "No route", which is what an observation of an empty battlefield
+            // should say. Zero would read as "you have arrived".
+            nav_distance: Fx::MAX,
         }
     }
 
@@ -825,6 +877,16 @@ impl Observation {
             out[i + slot] = (*clearance / self.sight_range).clamp(Fx::ZERO, Fx::ONE);
         }
         i += 4;
+
+        // The route. A heading as its two components, for the reason every
+        // other bearing in this vector is a pair: a single number has a seam at
+        // the wrap and this one has none. The distance is scaled by sight and
+        // clamped, which also handles the `Fx::MAX` that means "no route" --
+        // saturating to 1, the furthest thing the vector can say.
+        out[i] = self.nav_dir.x;
+        out[i + 1] = self.nav_dir.y;
+        out[i + 2] = (self.nav_distance / self.sight_range).clamp(Fx::ZERO, Fx::ONE);
+        i += 3;
 
         debug_assert_eq!(i, FEATURE_COUNT);
         FEATURE_COUNT

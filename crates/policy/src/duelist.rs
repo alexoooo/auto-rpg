@@ -620,27 +620,38 @@ impl DuelistPolicy {
 
     /// Nothing in sight: do as the player asked.
     fn march(&self, obs: &Observation, patrol: &mut crate::utility::Patrol) -> Command {
+        // The route, when the level has one to offer. Shared with
+        // `UtilityPolicy` so that "walk there" means one thing whichever policy
+        // is driving, and returning rather than steering for the reason that
+        // function's own doc gives.
+        if matches!(obs.order, Order::Hold) {
+            if let Some((to, along)) = crate::utility::nav_step(obs) {
+                if along <= crate::utility::HUNT_RANGE {
+                    return Command::moving(to.clamp_length(Fx::ONE));
+                }
+            }
+        }
+
         let heading = match obs.order {
             Order::Advance(dir) => dir.normalize(),
             Order::Regroup => Self::ally_centre(obs).normalize(),
-            Order::Goto(dest) => {
-                let wc = obs.wall_clearance;
-                let lo = Vec2::new(
-                    obs.position.x - wc[0] + obs.radius,
-                    obs.position.y - wc[2] + obs.radius,
-                );
-                let hi = Vec2::new(
-                    obs.position.x + wc[1] - obs.radius,
-                    obs.position.y + wc[3] - obs.radius,
-                );
-                let to = dest.clamp_box(lo, hi) - obs.position;
-                let distance = to.length();
+            // See `UtilityPolicy::march` for why the reachable-box
+            // reconstruction that used to sit here had to go: in a corridor it
+            // clamped every destination into a one-unit box around the
+            // character, and the arrival test was satisfied before it had
+            // moved.
+            Order::Goto(_) => {
+                let Some((to, distance)) = crate::utility::nav_step(obs) else {
+                    return Command::HOLD;
+                };
                 if distance <= obs.move_speed {
                     return Command::HOLD;
                 }
                 let stride = obs.move_speed * (obs.decision_period.max(1) as i32);
                 let brake = (distance / stride).min(Fx::ONE);
-                return Command::moving((to.normalize() * brake).clamp_length(Fx::ONE));
+                // Already a unit heading; see `UtilityPolicy::march` for why
+                // normalising it twice is not free.
+                return Command::moving((to * brake).clamp_length(Fx::ONE));
             }
             Order::Hold | Order::Focus(_) => Vec2::ZERO,
         };

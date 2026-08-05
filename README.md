@@ -14,12 +14,19 @@ Milestone 2: playable. The headless sim came first on purpose — the simulation
 the agent boundary, determinism and the experiment harness are the parts that
 would have been shaped wrongly by a renderer arriving early.
 
-There is now a browser build: an empty room, one character, and you click where
-you want it to go. Nothing in the page does the walking. The click becomes a
-standing `Order::Goto` in the sim's player-input channel, and the character's own
-utility AI works out how to get there, when to brake, and that a click inside a
-wall means "as close as a body can stand". You are giving directions to something
-that decides for itself, which is the whole game.
+There is now a browser build: a generated dungeon, one character, and you click
+where you want it to go. Nothing in the page does the walking. The click becomes
+a standing `Order::Goto` in the sim's player-input channel, and the character's
+own utility AI works out how to get there — round the masonry, when to brake, and
+that a click in the rock means "as close as a body can stand". You are giving
+directions to something that decides for itself, which is the whole game.
+
+The level is 48 by 32, carved into rooms and three-wide corridors, with the
+opposition already standing in it and a way out at the far end. Kill everything
+and the portal opens; walk into it and the next floor is generated, deeper and
+better attended, with your character carried down whole. See "The floor plan" in
+`DESIGN.md` for why a grid, why three tiles wide, and why routing is something
+the sim is *asked* for rather than something it works out for itself.
 
 And there is something to fight. `S` and `B` send in a skitterer or a brute, and
 the fight runs itself under the same policies the lab evolves — no set piece, no
@@ -195,7 +202,7 @@ Independent means all eight combinations, including the interesting one:
 character, so you are throwing blows something else decided to arm you for.
 
 And the number matches. `web.wasm` and the native lab produce the *same 64-bit
-state hash* for the same run — `0x3c730bb2a5473a52` — so the fixed-point
+state hash* for the same run — `0x00b48ceb21081d1d` — so the fixed-point
 simulation really is bit-identical across MSVC x86-64 and wasm32, rather than
 merely designed to be.
 

@@ -42,7 +42,11 @@ impl Room {
         scenario.units[0].set_body(kind);
         scenario.units[0].stats = kind.base_stats();
         scenario.units[0].spawn = spawn;
-        let world = World::new(&scenario, 1);
+        let mut world = World::new(&scenario, 1);
+        // Routing is opt-in, and walking somewhere is what this file is about.
+        // Without it the sim reports no route, and no route is -- correctly --
+        // a stop: the hero would stand on its spawn for the whole walk.
+        world.set_objective(Faction::Heroes, sim::Objective::Order);
         let hero = world.alive_ids(Faction::Heroes)[0];
         Room {
             world,
@@ -69,16 +73,16 @@ impl Room {
         self.world.view(self.hero).unwrap().stats.move_speed()
     }
 
-    /// Where a click actually lands. Bodies are pinned to
-    /// `[radius, arena - radius]`, so a point nearer a wall than that is not
-    /// somewhere a character can stand, and "did it arrive" has to be asked
-    /// about the reachable point rather than the click.
+    /// Where a click actually lands. A point a body cannot stand on -- inside
+    /// masonry, or nearer a wall than its own radius -- is not somewhere it can
+    /// arrive, so "did it arrive" has to be asked about the reachable point
+    /// rather than about the click.
+    ///
+    /// Asks the world rather than rebuilding the clamp box, which is what this
+    /// used to do and which was a third copy of a rule that now has exactly one
+    /// home.
     fn reachable(&self, target: Vec2) -> Vec2 {
-        let r = self.radius();
-        target.clamp_box(
-            Vec2::new(r, r),
-            Vec2::new(self.world.arena().x - r, self.world.arena().y - r),
-        )
+        self.world.nearest_walkable(target, self.radius())
     }
 
     fn order(&mut self, target: Vec2) {

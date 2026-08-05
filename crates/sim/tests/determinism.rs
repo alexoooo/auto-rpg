@@ -252,7 +252,13 @@ fn player_orders_change_the_outcome_without_breaking_determinism() {
 // differently even though nothing in this file changes any of them and no
 // fighter's behaviour moved by a tick. The run below still resolves on the same
 // tick with the same outcome, which is what says the sim itself did not move.
-const GOLDEN_STATE_HASH: u64 = 0x3c5d_b1ca_4cae_afd8;
+// Moved again when the floor plan landed. `World::state_hash` now writes the
+// dungeon's digest and both factions' objectives, and it writes them
+// unconditionally -- so every world fingerprints differently even though this
+// scenario is `Dungeon::open`, has nothing carved in it, and sets no objective.
+// Nothing about the fight moved: the run below still resolves on the same tick
+// with the same outcome, which is the assertion that says so.
+const GOLDEN_STATE_HASH: u64 = 0x9077_844a_d0c5_fc3f;
 
 #[test]
 fn golden_hash() {

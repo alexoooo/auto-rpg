@@ -34,16 +34,16 @@ const BUILD = ["cargo", "build", "--release", "--target", "wasm32-unknown-unknow
 // is what tells the two failure modes apart -- see `divergence` below.
 
 // `lab hash`: skirmish(1234, 4, 6), seed 99, baseline policy, run to a finish.
-const LAB_HASH = 0x3c730bb2a5473a52n;
+const LAB_HASH = 0x00b48ceb21081d1dn;
 
 // `init(1); set_goto(20_000, 12_000); step(600)`: the path a player drives.
-const ROOM_HASH = 0x440a9ac3d9f0de85n;
+const ROOM_HASH = 0xc8d21c4b13ae849bn;
 
 // `init(1); spawn_monster(3); step(600)`: a whole fight, start to finish. Worth
 // its own number because it reaches arithmetic the walk never does -- the spawn
 // point comes out of `Rng::from_stream` and the committed sine table, and every
 // approach measures a distance through `isqrt64`.
-const BATTLE_HASH = 0xe040b518c7bc4a2en;
+const BATTLE_HASH = 0xd755b3319d2673bbn;
 
 // `init(1); spawn_monster(2) x3; step(1800); swap_in_hero(1); step(400)`: a
 // fight, a death, a replacement, and the fight the replacement walks into. The
@@ -51,7 +51,7 @@ const BATTLE_HASH = 0xe040b518c7bc4a2en;
 // sim across the death of an entity and the *reuse* of its slot -- the
 // generational free list is exactly the kind of index bookkeeping that a 32-bit
 // usize could quietly do differently.
-const SWAP_HASH = 0x3d01f8a4fc722db0n;
+const SWAP_HASH = 0xbfbc6d0ae6cdb18dn;
 
 // `init(1); set_hero_loadout(0, BOW); spawn_monster(BRUTE); step(1200)`: the
 // only one of these five that ever puts an arrow in the air, and the only
@@ -60,10 +60,10 @@ const SWAP_HASH = 0x3d01f8a4fc722db0n;
 // of every flight, `segment_circle`'s i64-staged dot products, and the
 // saturating multiply in `tangential_speed` at the release. Portable
 // fixed-point is a claim about code that runs.
-const BOW_HASH = 0x9ce89e07a77f1b7bn;
+const BOW_HASH = 0xa559ebfc851eb35cn;
 
 // The frame header, as the client reads it.
-const HEADER_LEN = 9;
+const HEADER_LEN = 14;
 const UNIT_STRIDE = 28;
 // Arrows, in a block after the units. `frame_len()` is therefore no longer a
 // function of the unit count alone, which is half of what `FRAME_LAYOUT_VERSION`
@@ -81,7 +81,7 @@ const frameSpan = (live) =>
 // `ActionKind::code`, from crates/sim/src/action.rs. Append-only, so this is
 // safe to write down.
 const BOW_CODE = 6;
-const ARENA = [24, 16];
+const ARENA = [48, 32];
 
 // ------------------------------------------------------------------ the module
 
@@ -307,6 +307,13 @@ test("the boundary exports everything the client calls", () => {
     "spawn_template_slot",
     "set_spawn_template_slot",
     "spawn_from_template",
+    "map_ptr",
+    "map_len",
+    "map_cols",
+    "map_rows",
+    "map_revision",
+    "map_tile_size_milli",
+    "descend",
   ];
   for (const name of exports) {
     assert.equal(typeof wasm[name], "function", `web.wasm does not export ${name}()`);
@@ -316,7 +323,7 @@ test("the boundary exports everything the client calls", () => {
   // The five numbers the page's boot handshake compares. Wrong here and the
   // page stops with an overlay instead of painting a health bar out of a guard
   // arc, which is the handshake working -- but it is cheaper to find out here.
-  assert.equal(wasm.frame_layout_version(), 4, "FRAME_LAYOUT_VERSION");
+  assert.equal(wasm.frame_layout_version(), 5, "FRAME_LAYOUT_VERSION");
   assert.equal(wasm.header_len(), HEADER_LEN);
   assert.equal(wasm.unit_stride(), UNIT_STRIDE);
   assert.equal(wasm.shot_stride(), SHOT_STRIDE);
@@ -365,24 +372,43 @@ test("the frame buffer still has the layout the client reads", () => {
 
   const live = frame();
   const units = live[6];
-  assert.equal(units, 1, "the room holds exactly one hero");
+  assert.ok(units >= 2, "the level opens with a hero and some opposition");
   assert.equal(
     live.length,
     frameSpan(live),
     `frame_len() is ${live.length}, not ${HEADER_LEN} + ${UNIT_STRIDE} * ${units}` +
       ` + ${SHOT_STRIDE} * ${live[7]} + ${EVENT_STRIDE} * ${live[8]}`,
   );
-  assert.equal(live[8], 0, "event_count: nobody has hit anybody in an empty room");
   assert.deepEqual([live[0], live[1]], ARENA, "arena_x, arena_y");
   assert.equal(live[2], 4, "order_kind: Goto is discriminant 4");
   assert.deepEqual([live[3], live[4]], [20, 12], "order_x, order_y: 20_000 thousandths is 20.0");
   assert.ok(live[5] > 0 && live[5] <= wasm.tick(), `last_decision_tick ${live[5]}`);
 
-  // The hero, drawn from the one row there is. Checking a couple of columns by
-  // value is what distinguishes "the row is there" from "the row is shifted by
-  // one", which is a facing wedge drawn out of a hit-point total.
+  // The run block: how much is left, where the way out is, and which floor.
+  assert.equal(live[9], units - 1, "monsters_left disagrees with the unit rows");
+  assert.equal(live[12], 1, "portal_state: visible but shut while monsters stand");
+  assert.equal(live[13], 0, "depth: the first floor");
+
+  // The floor plan, which crosses on its own buffer because it changes once a
+  // level rather than sixty times a second.
+  assert.deepEqual([wasm.map_cols(), wasm.map_rows()], ARENA, "map_cols, map_rows");
+  assert.equal(wasm.map_len(), ARENA[0] * ARENA[1], "map_len");
+  assert.equal(wasm.map_tile_size_milli(), 1000, "one tile is one world unit");
+  const tiles = new Uint8Array(wasm.memory.buffer, wasm.map_ptr(), wasm.map_len());
+  assert.ok(tiles.some((t) => t !== 0), "nothing was carved");
+  assert.ok(tiles.some((t) => t === 0), "nothing was left open");
+
+  // The hero, drawn from the first row. Checking a couple of columns by value
+  // is what distinguishes "the row is there" from "the row is shifted by one",
+  // which is a facing wedge drawn out of a hit-point total.
   const unit = live.slice(HEADER_LEN);
-  assert.ok(unit[0] > 12 && unit[1] > 8, `x, y ${unit[0]}, ${unit[1]}: the hero set off`);
+  // The body is standing on ground the map calls open, which is the one
+  // assertion that ties the two buffers together.
+  assert.equal(
+    tiles[Math.floor(unit[1]) * wasm.map_cols() + Math.floor(unit[0])],
+    0,
+    `the hero at ${unit[0]}, ${unit[1]} is standing in masonry`,
+  );
   assert.ok(unit[2] >= 0 && unit[2] <= 65535, `facing_raw ${unit[2]} is not a binary angle`);
   assert.ok(Math.abs(unit[3] - 0.45) < 0.001, `radius ${unit[3]}`);
   assert.equal(unit[5], 84, "max_hp: 20 + 8 * vitality 8");
@@ -458,9 +484,17 @@ test("the player can take the feet, the limb and the choice", () => {
 
   wasm.set_control(1); // feet
   assert.equal(wasm.control(), 1);
+  const before = frame()[HEADER_LEN];
   wasm.set_input(-1000, 0, 0, 0, 0, 0);
   wasm.step(60);
-  assert.ok(frame()[HEADER_LEN] < 11, "the hero did not walk west when told to");
+  // Measured against where it started rather than against a coordinate: the
+  // level is carved and generated, so where the hero opens is a fact about the
+  // seed. How far west it gets is a fact about the room it is in; that it goes
+  // west at all is the claim.
+  assert.ok(
+    frame()[HEADER_LEN] < before,
+    `the hero did not walk west when told to: ${before} -> ${frame()[HEADER_LEN]}`,
+  );
 
   // Three independent bits, and the page draws a switch over each. A mask that
   // gained a bit on the way in would be a switch that lights itself, which is
@@ -501,23 +535,57 @@ test("the player can take the feet, the limb and the choice", () => {
 
 test("a monster walks in and takes the next row of the frame", () => {
   wasm.init(1);
-  assert.equal(wasm.spawn_monster(3, 255, 255), 1, "nothing arrived");
+  const rows = frame()[6];
+  const standing = frame()[9];
+  // The answer is how many monsters are standing afterwards, not "one
+  // arrived" -- a level opens with opposition already in it now, so the two
+  // stopped being the same number.
+  assert.equal(wasm.spawn_monster(3, 255, 255), standing + 1, "nothing arrived");
 
   const live = frame();
-  assert.equal(live[6], 2, "unit_count");
+  assert.equal(live[6], rows + 1, "unit_count");
+  assert.equal(live[9], standing + 1, "monsters_left did not count the newcomer");
   assert.equal(
     live.length,
     frameSpan(live),
-    `frame_len() is ${live.length}, not ${HEADER_LEN} + ${UNIT_STRIDE} * 2` +
+    `frame_len() is ${live.length}, not ${HEADER_LEN} + ${UNIT_STRIDE} * ${live[6]}` +
       ` + ${SHOT_STRIDE} * ${live[7]} + ${EVENT_STRIDE} * ${live[8]}`,
   );
 
-  const monster = live.slice(HEADER_LEN + UNIT_STRIDE);
+  // The last row, which is the one that just arrived: `write_frame` walks the
+  // roster in spawn order and the newcomer was pushed onto the end of it.
+  const monster = live.slice(HEADER_LEN + UNIT_STRIDE * (live[6] - 1));
   assert.equal(monster[6], 1, "faction: Monsters");
   assert.equal(monster[7], 3, "kind: Skitterer");
   assert.equal(monster[4], monster[5], "arrived already wounded");
-  // A fresh slot at generation zero, and not the hero's.
-  assert.deepEqual([monster[9], monster[10]], [1, 0], "entity_index, entity_generation");
+  assert.equal(monster[10], 0, "entity_generation: a fresh slot");
+});
+
+test("the floor plan crosses once a level and not once a frame", () => {
+  // The revision is the whole mechanism by which the page knows when to
+  // re-bake a level. `publish` runs on every export, so a revision that moved
+  // with the frame would have the client rebuilding a few thousand `Path2D`
+  // rectangles sixty times a second.
+  wasm.init(1);
+  const tiles = () => new Uint8Array(wasm.memory.buffer, wasm.map_ptr(), wasm.map_len()).slice();
+
+  const revision = wasm.map_revision();
+  const before = tiles();
+  assert.equal(before.length, wasm.map_cols() * wasm.map_rows(), "map_len");
+
+  wasm.step(120);
+  wasm.set_goto(4_000, 4_000);
+  wasm.spawn_monster(3, 255, 255);
+  assert.equal(wasm.map_revision(), revision, "the floor plan moved under a frame");
+  assert.deepEqual(tiles(), before, "the tiles moved under a frame");
+
+  // And a descent is exactly when it does move.
+  assert.equal(wasm.descend(), 1, "descend did not report the new depth");
+  assert.equal(frame()[13], 1, "depth");
+  assert.equal(wasm.tick(), 0, "the new floor did not start at tick zero");
+  assert.notEqual(wasm.map_revision(), revision, "a new floor kept the old revision");
+  assert.notDeepEqual(tiles(), before, "a new floor kept the old tiles");
+  console.log(`floor plan    ${before.length} tiles, revision ${revision} -> ${wasm.map_revision()}`);
 });
 
 test("a battle replays the way native recorded it", () => {
@@ -574,7 +642,7 @@ test("an arrow flies the way native recorded it", () => {
       const row = live.slice(base + e * EVENT_STRIDE, base + (e + 1) * EVENT_STRIDE);
       assert.ok(row[0] >= 0 && row[0] <= 3, `event kind ${row[0]}`);
       assert.ok(
-        row[1] >= -2 && row[1] <= 26 && row[2] >= -2 && row[2] <= 18,
+        row[1] >= -2 && row[1] <= ARENA[0] + 2 && row[2] >= -2 && row[2] <= ARENA[1] + 2,
         `an event happened outside the arena at (${row[1]}, ${row[2]})`,
       );
       assert.ok(row[4] >= 0 && row[4] < 64, `actor_index ${row[4]}`);

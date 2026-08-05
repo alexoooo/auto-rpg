@@ -1,5 +1,6 @@
-use crate::command::{Command, Intent, Order};
+use crate::command::{Command, Intent, Objective, Order};
 use crate::action::{ActionKind, ActionSpec, Role};
+use crate::dungeon::{Cardinal, Dungeon};
 use crate::loadout::Loadout;
 use crate::entity::{EntityId, Faction, Body};
 use crate::event::Event;
@@ -54,8 +55,20 @@ impl Outcome {
 pub struct World {
     seed: u64,
     tick: u32,
+    /// Which ground exists. Immutable for the life of the world -- there is no
+    /// mutator, and a level change is a new [`World`], not an edit to this one.
+    dungeon: Dungeon,
+    /// `dungeon.extent()`, cached beside it for the same reason [`World::radius`]
+    /// and [`World::mass`] are cached beside [`World::kind`]: it is read in the
+    /// tick's innermost loops. Safe as a cache precisely because the floor plan
+    /// above it cannot change, so the two cannot drift the way a pair of
+    /// *settable* fields would.
     arena: Vec2,
     orders: [Order; 2],
+    /// What each faction is trying to reach. The second input channel; see
+    /// [`Objective`] for why it is an input and not something the sim works out
+    /// for itself.
+    objectives: [Objective; 2],
 
     generation: Vec<u32>,
     alive: Vec<bool>,
@@ -138,6 +151,19 @@ pub struct World {
     events: Vec<Event>,
     pending: Vec<EntityId>,
 
+    /// One route field per faction. See [`Nav`].
+    nav: [Nav; 2],
+    /// Scratch for [`World::refresh_nav`]: the search frontier and the cells it
+    /// starts from.
+    ///
+    /// **Held on the world rather than allocated per rebuild, and that is not
+    /// tidiness.** This crate is compiled to wasm and driven from a page that
+    /// holds typed-array views into linear memory; an allocation can grow that
+    /// memory, and growing it *detaches every view the page is holding*. A
+    /// search that allocates is a search that can blank the screen.
+    nav_queue: Vec<u32>,
+    nav_seeds: Vec<u32>,
+
     // Per-tick scratch. Held on the world so the tick loop allocates once for
     // the life of the fight rather than once per tick. Always empty by the time
     // anything can observe the world, so neither enters `state_hash`.
@@ -156,6 +182,38 @@ pub struct World {
     /// bill the body for the reaction; see [`World::apply_recoil`].
     blade_p: Vec<Fx>,
 }
+
+/// Tile distances from one faction's objective, and what they were built for.
+///
+/// **Not hashed.** A derivation of the floor plan and the objectives, both of
+/// which are, and therefore in the same class as [`World::pending`] and the
+/// per-tick scratch: state that can be recomputed from hashed state cannot make
+/// two worlds differ without the hashed state differing first.
+#[derive(Clone, Default)]
+struct Nav {
+    /// One entry per tile, in tiles, [`u16::MAX`] where the objective cannot be
+    /// reached. Empty when there is no objective at all.
+    dist: Vec<u16>,
+    /// Fingerprint of the floor plan and the cells the field was grown from.
+    /// The field is stale exactly when this changes, which for a walking quarry
+    /// is once every twenty-odd ticks rather than every tick.
+    key: u64,
+}
+
+/// The longest a sub-step of [`World::move_body`] may be.
+///
+/// Half a tile, because the thinnest masonry the generator produces is one tile
+/// and a step shorter than half of it cannot begin and end on opposite sides of
+/// one without a sub-step landing inside it.
+const HALF_TILE: Fx = Fx::HALF;
+
+/// The furthest [`World::move_body`] will carry a body in one call.
+///
+/// A sanity bound rather than a rule of the game: walking is 0.05 units a tick
+/// and the hardest knockback in the roster is nowhere near this, so nothing
+/// reaches it in play. It is here so that a future rule which *does* produce a
+/// wild displacement costs four sub-steps instead of a hundred.
+const MAX_STEP: Fx = Fx::TWO;
 
 /// A landed blow, collected during the read-only pass and applied afterwards.
 #[derive(Clone, Copy)]
@@ -213,8 +271,10 @@ impl World {
         let mut world = World {
             seed,
             tick: 0,
-            arena: scenario.arena,
+            arena: scenario.arena(),
+            dungeon: scenario.dungeon.clone(),
             orders: [Order::Hold; 2],
+            objectives: [Objective::None; 2],
             generation: Vec::with_capacity(n),
             alive: Vec::with_capacity(n),
             kind: Vec::with_capacity(n),
@@ -248,6 +308,9 @@ impl World {
             free: Vec::new(),
             events: Vec::new(),
             pending: Vec::with_capacity(n),
+            nav: [Nav::default(), Nav::default()],
+            nav_queue: Vec::new(),
+            nav_seeds: Vec::new(),
             blows: Vec::new(),
             pierces: Vec::new(),
             impulses: Vec::new(),
@@ -259,6 +322,7 @@ impl World {
             world.spawn(spec);
         }
         world.refresh_pending();
+        world.refresh_nav();
         world
     }
 
@@ -406,12 +470,13 @@ impl World {
                 _ => limb.phase_progress(self.arm(i)) * Fx::from_ratio(9, 10),
             }
         };
-        obs.wall_clearance = [
-            me.x.max(Fx::ZERO),
-            (self.arena.x - me.x).max(Fx::ZERO),
-            me.y.max(Fx::ZERO),
-            (self.arena.y - me.y).max(Fx::ZERO),
-        ];
+        // To the nearest masonry, which on a floor plan with nothing carved is
+        // the arena edge and is bit-for-bit the four expressions that used to
+        // be written out here. See [`Dungeon::clearance`].
+        obs.wall_clearance = Cardinal::ALL.map(|dir| self.dungeon.clearance(me, dir));
+        let (nav_dir, nav_distance) = self.nav_step(i);
+        obs.nav_dir = nav_dir;
+        obs.nav_distance = nav_distance;
 
         // Selection happens on ground truth (you notice what is genuinely
         // nearest); noise is applied afterwards to what was noticed. Drawing
@@ -473,6 +538,49 @@ impl World {
     /// decision onward.
     pub fn set_order(&mut self, faction: Faction, order: Order) {
         self.orders[faction.index()] = order;
+        // The route is part of what an order *means* now, so it has to be
+        // current by the time anybody observes -- and an order arrives between
+        // two steps, which is exactly when the per-tick refresh is not running.
+        // Without this the faction spends its first decision after every new
+        // destination reading a field built for the previous one, which reads
+        // as the character taking a moment to notice the click.
+        self.refresh_nav();
+    }
+
+    /// Sets what a faction is trying to reach. Shaped exactly like
+    /// [`World::set_order`] because it is the same kind of thing: an input the
+    /// sim carries and does not second-guess. See [`Objective`].
+    pub fn set_objective(&mut self, faction: Faction, objective: Objective) {
+        self.objectives[faction.index()] = objective;
+        // Current before anybody observes; see [`World::set_order`].
+        self.refresh_nav();
+    }
+
+    pub fn objective(&self, faction: Faction) -> Objective {
+        self.objectives[faction.index()]
+    }
+
+    /// The floor plan. Read-only: a level change is a new [`World`].
+    pub fn dungeon(&self) -> &Dungeon {
+        &self.dungeon
+    }
+
+    /// Whether a body of this radius can stand here without overlapping
+    /// masonry -- or the outside, which [`Dungeon::solid`] reports as masonry
+    /// too, so this covers the arena boundary without a second test.
+    ///
+    /// Delegates rather than reimplements, so a caller that has to place
+    /// something -- the browser's spawn ring, say -- asks the same question the
+    /// collision resolver answers, instead of growing a second opinion about
+    /// what a legal position is.
+    pub fn is_walkable(&self, p: Vec2, radius: Fx) -> bool {
+        self.dungeon.is_clear(p, radius)
+    }
+
+    /// The nearest place a body of this radius can stand. Total; see
+    /// [`Dungeon::nearest_clear`].
+    pub fn nearest_walkable(&self, p: Vec2, radius: Fx) -> Vec2 {
+        self.dungeon.nearest_clear(p, radius)
     }
 
     pub fn order(&self, faction: Faction) -> Order {
@@ -570,7 +678,7 @@ impl World {
     ///
     /// Finishes by putting the body back inside the arena. A Skitterer (radius
     /// 0.30) standing against a wall and promoted to a Brute (0.70) is otherwise
-    /// left with four tenths of itself inside the masonry, and `clamp_body` also
+    /// left with four tenths of itself inside the masonry, and `move_body` also
     /// zeroes the clipped velocity axis -- which is what stops a wall-pinned
     /// body shoving everything that comes near it.
     pub fn set_body(&mut self, id: EntityId, body: Body) -> bool {
@@ -581,7 +689,7 @@ impl World {
                 self.mass[i] = body.mass();
                 self.set_stats(id, body.base_stats());
                 self.set_loadout(id, body.default_loadout());
-                self.clamp_body(i, self.pos[i]);
+                self.move_body(i, self.pos[i]);
                 true
             }
             None => false,
@@ -633,6 +741,7 @@ impl World {
         self.reap_dead();
         self.tick += 1;
         self.refresh_pending();
+        self.refresh_nav();
         &self.events
     }
 
@@ -741,7 +850,7 @@ impl World {
             let want = dir * self.stats[i].move_speed() * self.action_of(i).spec().move_bonus;
             let change = (want - self.vel[i]).clamp_length(self.stats[i].traction());
             self.vel[i] += change;
-            self.clamp_body(i, self.pos[i] + self.vel[i]);
+            self.move_body(i, self.pos[i] + self.vel[i]);
             if !dir.is_zero() {
                 // `facing` is where the feet are going, and nothing else. It is
                 // not consulted by any combat rule -- blows are decided by blade
@@ -960,8 +1069,8 @@ impl World {
                 } else {
                     delta.normalize()
                 };
-                self.clamp_body(i, self.pos[i] - dir * share_i);
-                self.clamp_body(j, self.pos[j] + dir * share_j);
+                self.move_body(i, self.pos[i] - dir * share_i);
+                self.move_body(j, self.pos[j] + dir * share_j);
 
                 // Un-overlapping them is not the whole of a collision. Without
                 // an impulse the positional fix is undone next tick by the same
@@ -1320,7 +1429,26 @@ impl World {
                 }
             }
 
-            let Some((_, j, at)) = first else {
+            // Masonry is not a target -- there is no blow to resolve and no
+            // event to raise -- but it is very much something that stops an
+            // arrow, and which of the two comes first is settled the same way
+            // two bodies are: nearest along the flight.
+            let wall = if self.dungeon.carved() {
+                self.dungeon.raycast(was, now)
+            } else {
+                None
+            };
+            let struck = match first {
+                Some((t, j, at)) if wall.is_none_or(|w| t <= w) => Some((j, at)),
+                _ => None,
+            };
+            let Some((j, at)) = struck else {
+                if wall.is_some() {
+                    // Spent on the wall. No event, for exactly the reason a
+                    // shot that leaves the room raises none: an arrow does not
+                    // bounce and does not stick, it stops being in the frame.
+                    self.reap_shot(k);
+                }
                 continue;
             };
 
@@ -1597,6 +1725,207 @@ impl World {
         }
     }
 
+    /// Rebuilds each faction's route field, if what it was built for has moved.
+    ///
+    /// Sits beside [`World::refresh_pending`] and runs at the same moment for
+    /// the same reason: both are derivations of the state the caller is about
+    /// to observe, so computing them together is what makes an observation
+    /// taken between two steps describe *one* world rather than a mix of two.
+    ///
+    /// Costs nothing on a world with no objective -- the seed list comes back
+    /// empty, the key is stable, and no search runs. That is every scenario the
+    /// lab drives.
+    fn refresh_nav(&mut self) {
+        // Written as one function with no `self` method calls so the borrow
+        // checker can see that the scratch buffers and the columns being read
+        // are different fields.
+        for side in 0..2 {
+            let seeds = &mut self.nav_seeds;
+            seeds.clear();
+            match self.objectives[side] {
+                Objective::None => {}
+                Objective::Order => {
+                    // Only a destination names a place. Every other order is a
+                    // statement about how to fight, and routing toward one
+                    // would be inventing a meaning it does not have.
+                    if let Order::Goto(dest) = self.orders[side] {
+                        if let Some(cell) = self.dungeon.goal_cell(dest) {
+                            seeds.push(cell);
+                        }
+                    }
+                }
+                Objective::Hunt => {
+                    for j in 0..self.alive.len() {
+                        if !self.alive[j] || self.faction[j].index() == side {
+                            continue;
+                        }
+                        if let Some(cell) = self.dungeon.goal_cell(self.pos[j]) {
+                            seeds.push(cell);
+                        }
+                    }
+                    // Canonical: two quarry in one tile must not seed it twice,
+                    // and the search must not depend on which of them was
+                    // spawned first.
+                    seeds.sort_unstable();
+                    seeds.dedup();
+                }
+            }
+
+            let mut h = Hash64::new();
+            h.write_u64(self.dungeon.fingerprint());
+            h.write_u8(self.objectives[side].discriminant() as u8);
+            for &cell in seeds.iter() {
+                h.write_u32(cell);
+            }
+            let key = h.finish();
+            if key == self.nav[side].key && !self.nav[side].dist.is_empty() {
+                continue;
+            }
+            self.nav[side].key = key;
+            self.dungeon
+                .distances(seeds, &mut self.nav[side].dist, &mut self.nav_queue);
+        }
+    }
+
+    /// The place `i`'s faction is actually trying to get to, if the objective
+    /// names one.
+    ///
+    /// Ground truth and not perception, like [`World::enemy_in_sight`]: this
+    /// decides whether the straight line is *walkable*, which is a fact about
+    /// the level rather than a judgement the character makes.
+    fn nav_goal_point(&self, i: usize) -> Option<Vec2> {
+        let side = self.faction[i].index();
+        match self.objectives[side] {
+            Objective::None => None,
+            Objective::Order => match self.orders[side] {
+                // **The reachable point, not the raw click.** A destination
+                // inside masonry -- or merely nearer a wall than this body is
+                // wide -- is not somewhere anybody can arrive, and aiming at it
+                // leaves the character pressing into the wall forever, never
+                // satisfying an arrival test it cannot satisfy. This is the
+                // clamp the policy layer used to do for itself out of
+                // `wall_clearance`, moved to the one place that holds the floor
+                // plan and generalised from "the arena box" to "the masonry".
+                // Per body, because how close you can get depends on how wide
+                // you are.
+                //
+                // The box clamp first, and it is not redundant with the masonry
+                // step. A destination can arrive from the page as a wrapped
+                // `i32` -- tens of thousands of world units out -- and at that
+                // magnitude every `Fx` subtraction inside `nearest_clear`
+                // saturates, so its tie-break hands back whichever tile it
+                // scanned first rather than the nearest one. Bringing the point
+                // inside the arena first keeps the arithmetic in range, and the
+                // answer honest: a click off the edge of the world means the
+                // edge of the world.
+                Order::Goto(dest) => {
+                    let r = self.radius[i];
+                    let inside = dest.clamp_box(
+                        Vec2::new(r, r),
+                        Vec2::new(self.arena.x - r, self.arena.y - r),
+                    );
+                    Some(self.dungeon.nearest_clear(inside, r))
+                }
+                _ => None,
+            },
+            // The nearest quarry by straight line, which is what the shortcut
+            // below wants to know about: whether this one can simply be walked
+            // at. Which quarry the *field* points to may well be another.
+            Objective::Hunt => {
+                let mut best: Option<(Fx, Vec2)> = None;
+                for j in 0..self.alive.len() {
+                    if !self.alive[j] || self.faction[j].index() == side {
+                        continue;
+                    }
+                    let d = (self.pos[j] - self.pos[i]).length();
+                    match best {
+                        Some((seen, _)) if seen <= d => {}
+                        _ => best = Some((d, self.pos[j])),
+                    }
+                }
+                best.map(|(_, at)| at)
+            }
+        }
+    }
+
+    /// Which way `i` should walk, and how much ground is left along that route.
+    ///
+    /// `(Vec2::ZERO, Fx::MAX)` means there is no route -- no objective, or one
+    /// sealed off behind masonry. `(Vec2::ZERO, Fx::ZERO)` means arrived.
+    fn nav_step(&self, i: usize) -> (Vec2, Fx) {
+        let side = self.faction[i].index();
+        let dist = &self.nav[side].dist;
+        let me = self.pos[i];
+        let Some(cell) = self.dungeon.cell_of(me) else {
+            return (Vec2::ZERO, Fx::MAX);
+        };
+        let Some(&here) = dist.get(cell as usize) else {
+            return (Vec2::ZERO, Fx::MAX);
+        };
+        if here == u16::MAX {
+            return (Vec2::ZERO, Fx::MAX);
+        }
+
+        // 1. **Straight there, whenever straight there works.** Without this the
+        //    field is followed tile centre to tile centre: a character crosses
+        //    an open room like a chess piece, and -- worse -- an open room stops
+        //    behaving the way it does today, because a tile centre is half a
+        //    unit off the line the click was actually on.
+        //
+        //    Not gated on sight. The first version of this asked "is it in
+        //    view *and* is the way clear", which quietly meant that a walk
+        //    longer than sight range fell back to the grid and wandered off the
+        //    straight line by up to half a tile. Clear is clear, however far
+        //    away it is; and on a floor plan with nothing carved
+        //    `is_walk_clear` answers yes without looking, so every scenario
+        //    that is not a dungeon takes this branch every time and behaves
+        //    exactly as it always did.
+        //
+        //    `here == 0` is the last tile, where there is nothing left to route
+        //    around.
+        if let Some(goal) = self.nav_goal_point(i) {
+            let to = goal - me;
+            if here == 0 || self.dungeon.is_walk_clear(me, goal, self.radius[i]) {
+                return if to.is_zero() {
+                    (Vec2::ZERO, Fx::ZERO)
+                } else {
+                    (to.normalize(), to.length())
+                };
+            }
+        }
+
+        // 2. Downhill, aiming at the neighbour's **centre** rather than along a
+        //    cardinal: a unit cardinal has the body hug the wall it is
+        //    following, and a corridor is exactly where that costs a corner.
+        let (tx, ty) = Dungeon::tile_of(me);
+        let mut best: Option<(u16, i32, i32)> = None;
+        for dir in Cardinal::ALL {
+            let (dx, dy) = dir.step();
+            let (nx, ny) = (tx + dx, ty + dy);
+            let Some(cell) = self.dungeon.cell(nx, ny) else {
+                continue;
+            };
+            let Some(&d) = dist.get(cell as usize) else {
+                continue;
+            };
+            if d >= here {
+                continue;
+            }
+            // Ties keep the earlier neighbour, and `NEIGHBOURS` is a fixed
+            // order, so a body in a corridor junction always picks the same way.
+            match best {
+                Some((seen, _, _)) if seen <= d => {}
+                _ => best = Some((d, nx, ny)),
+            }
+        }
+        let Some((d, nx, ny)) = best else {
+            return (Vec2::ZERO, Fx::MAX);
+        };
+        let to = Dungeon::tile_centre(nx, ny) - me;
+        let remaining = Fx::from_int(d as i32) + to.length();
+        (to.normalize(), remaining)
+    }
+
     // ---------------------------------------------------------------- queries
 
     #[inline]
@@ -1747,8 +2076,20 @@ impl World {
         h.write_u32(self.tick);
         h.write_i32(self.arena.x.raw());
         h.write_i32(self.arena.y.raw());
+        // The floor plan, as its digest rather than as 1536 bytes. Written
+        // **unconditionally**, including for a floor plan with nothing carved,
+        // on exactly the argument the empty shot block below makes: a
+        // fingerprint that only looks at the grid once something is standing
+        // behind a wall cannot catch a broken tile column until it is too late
+        // to say which tick broke it.
+        h.write_u64(self.dungeon.fingerprint());
         for order in self.orders {
             order.hash_into(&mut h);
+        }
+        // Beside the orders because it is the same kind of thing: an input the
+        // page can change, and two runs that differ in it are two runs.
+        for objective in self.objectives {
+            objective.hash_into(&mut h);
         }
         h.write_u32(self.alive.len() as u32);
         for i in 0..self.alive.len() {
@@ -2242,7 +2583,42 @@ impl World {
         )
     }
 
-    /// Puts `i` inside the arena and takes the momentum the wall absorbed.
+    /// Walks `i` to `to`, stopping it against whatever is in the way.
+    ///
+    /// Takes a **destination** rather than a point, because with masonry inside
+    /// the level a displacement can be large enough to pass clean through a
+    /// wall. A wall can be one tile thick where a corridor was carved up to a
+    /// room's face, and while walking is 0.05 units a tick, a knockback is
+    /// bounded by nothing of the sort. So the move is swept in steps no longer
+    /// than half a tile.
+    ///
+    /// On a floor plan with nothing carved there is nothing to tunnel through
+    /// and the sweep is skipped outright -- which is not an optimisation but
+    /// the thing that makes every pre-existing scenario *provably* unchanged
+    /// rather than argued to be.
+    fn move_body(&mut self, i: usize, to: Vec2) {
+        if !self.dungeon.carved() {
+            self.settle(i, to);
+            return;
+        }
+        // The ceiling is a sanity bound, not a rule: nothing in the game moves
+        // a body two units in a tick, and if something ever does, four
+        // sub-steps is where the cost stops growing.
+        let delta = (to - self.pos[i]).clamp_length(MAX_STEP);
+        let steps = 1 + (delta.length() / HALF_TILE).floor_int().clamp(0, 3);
+        let stride = delta * Fx::from_ratio(1, steps);
+        // **Each stride runs from where the last one ended, not from where the
+        // move began.** Interpolating the original line instead is the obvious
+        // spelling and it silently defeats the whole sweep: a sub-step that a
+        // wall stopped is undone by the next one, which teleports the body
+        // further along a line the wall was supposed to have interrupted. It
+        // reads as tunnelling, which is exactly the bug being prevented.
+        for _ in 0..steps {
+            self.settle(i, self.pos[i] + stride);
+        }
+    }
+
+    /// Puts `i` somewhere legal and takes the momentum the wall absorbed.
     ///
     /// Position alone is not enough now that velocity persists. A body walking
     /// into a wall used to stop because its *displacement* was clipped every
@@ -2254,7 +2630,7 @@ impl World {
     ///
     /// Only the clipped axis is zeroed, so a body sliding *along* a wall keeps
     /// doing so.
-    fn clamp_body(&mut self, i: usize, p: Vec2) {
+    fn settle(&mut self, i: usize, p: Vec2) {
         let clamped = self.clamp_to_arena(p, self.radius[i]);
         if clamped.x != p.x {
             self.vel[i].x = Fx::ZERO;
@@ -2263,6 +2639,58 @@ impl World {
             self.vel[i].y = Fx::ZERO;
         }
         self.pos[i] = clamped;
+        if self.dungeon.carved() {
+            self.resolve_tiles(i);
+        }
+    }
+
+    /// Pushes `i` out of any masonry it is standing in.
+    ///
+    /// The tile span is taken from where the body arrived and not recomputed as
+    /// the pushes land. At the roster's widest radius that span is three columns
+    /// by three rows -- nine reads -- and a push only ever moves a body *away*
+    /// from the tile that produced it, so the tile it could newly reach is one
+    /// it was already being pushed toward. Anything left over is a fraction of a
+    /// unit and is resolved by the next sub-step or the next tick, which is the
+    /// same slack the body-versus-body pass at [`World::separate`] runs on.
+    fn resolve_tiles(&mut self, i: usize) {
+        let r = self.radius[i];
+        let p = self.pos[i];
+        let lo_x = (p.x - r).floor_int();
+        let hi_x = (p.x + r).floor_int();
+        let lo_y = (p.y - r).floor_int();
+        let hi_y = (p.y + r).floor_int();
+        for ty in lo_y..=hi_y {
+            for tx in lo_x..=hi_x {
+                if self.dungeon.solid(tx, ty) {
+                    self.push_out_of(i, tx, ty);
+                }
+            }
+        }
+    }
+
+    /// One body against one solid tile.
+    ///
+    /// The geometry belongs to [`Dungeon::push_out`] -- one implementation of
+    /// "a body may not be inside masonry", shared with the placement helpers so
+    /// that where a body *can* stand and where it gets *pushed to* cannot come
+    /// apart. What is left here is the half that needs the body: its momentum.
+    fn push_out_of(&mut self, i: usize, tx: i32, ty: i32) {
+        let Some((to, n)) = self
+            .dungeon
+            .push_out(self.pos[i], self.radius[i], tx, ty)
+        else {
+            return;
+        };
+        self.pos[i] = to;
+        // Only the component heading *into* the wall. The rest is the body
+        // travelling along the face, and taking that would be a wall with
+        // friction -- a different game from this one. Same argument as the
+        // arena clamp zeroing only the axis it clipped.
+        let along = self.vel[i].dot(n);
+        if !along.is_positive() {
+            self.vel[i] -= n * along;
+        }
     }
 
     fn contact(&self, observer: usize, target: usize, noise: Fx, rng: &mut Rng) -> Contact {
@@ -4004,6 +4432,436 @@ mod tests {
         assert_eq!(w.pos[i].x, w.radius[i]);
     }
 
+    /// A world with a floor plan carved into it and **one** body in it. `#` is
+    /// masonry; see [`crate::dungeon::parse`].
+    ///
+    /// One body rather than a duel's two, because these tests are about a body
+    /// against the level and a spare Brute standing in a corridor is not a
+    /// neutral bystander -- it is a second collision rule running, and the
+    /// first version of this helper produced a hero wedged between a wall and a
+    /// monster that had no business being there. Tests that want an opponent
+    /// add one; every caller places its body by hand anyway.
+    fn carved_world(rows: &[&str]) -> World {
+        let mut scenario = Scenario::duel();
+        scenario.dungeon = crate::dungeon::parse(rows);
+        scenario.units.truncate(1);
+        scenario.units[0].spawn = Vec2::new(Fx::from_ratio(15, 10), Fx::from_ratio(15, 10));
+        World::new(&scenario, 1)
+    }
+
+    #[test]
+    fn on_an_open_floor_plan_a_move_is_the_arena_clamp_it_always_was() {
+        // The bit-identity claim, made mechanical rather than argued. Every
+        // scenario in the repository but a generated one is `Dungeon::open`, so
+        // if this holds then none of them moved.
+        let mut w = duel_world();
+        let i = w.alive_ids(Faction::Heroes)[0].index as usize;
+        for radius in [Fx::from_ratio(30, 100), Fx::from_ratio(45, 100), Fx::from_ratio(70, 100)] {
+            w.radius[i] = radius;
+            for x in [-3, 0, 1, 12, 23, 24, 27] {
+                for y in [-3, 0, 1, 8, 15, 16, 19] {
+                    let to = Vec2::from_ints(x, y);
+                    w.pos[i] = Vec2::from_ints(12, 8);
+                    w.vel[i] = Vec2::new(Fx::ONE, Fx::ONE);
+                    w.move_body(i, to);
+
+                    let want = w.clamp_to_arena(to, radius);
+                    assert_eq!(w.pos[i], want, "radius {radius} to {to:?}");
+                    assert_eq!(w.vel[i].x.is_zero(), want.x != to.x, "x at {to:?}");
+                    assert_eq!(w.vel[i].y.is_zero(), want.y != to.y, "y at {to:?}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_shove_cannot_push_a_body_through_a_wall() {
+        //  A one-tile-thick wall down the middle. Under a rule that clipped the
+        //  end point and nothing between, a shove of three units a tick steps
+        //  clean over it and comes out the far side.
+        let mut w = carved_world(&[
+            "#######", //
+            "#..#..#",
+            "#..#..#",
+            "#..#..#",
+            "#######",
+        ]);
+        let i = w.alive_ids(Faction::Heroes)[0].index as usize;
+        w.pos[i] = Vec2::new(Fx::from_ratio(25, 10), Fx::from_ratio(25, 10));
+        let start = w.pos[i];
+        w.vel[i] = Vec2::new(Fx::from_int(3), Fx::ZERO);
+        w.move_body(i, w.pos[i] + w.vel[i]);
+
+        assert!(
+            w.is_walkable(w.pos[i], w.radius[i]),
+            "ended up inside masonry at {:?}",
+            w.pos[i]
+        );
+        assert!(
+            w.pos[i].x < Fx::from_int(3),
+            "tunnelled from {start:?} to {:?}",
+            w.pos[i]
+        );
+        assert_eq!(w.vel[i].x, Fx::ZERO, "the wall banked the momentum");
+    }
+
+    #[test]
+    fn a_body_slides_along_a_wall_instead_of_catching_at_a_seam() {
+        // Every tile of the north wall presents a face, and adjacent tiles share
+        // one down their seam. Without the internal-edge cull the body is shoved
+        // out of each seam as it crosses it, which shows up as the along-wall
+        // travel stalling -- or, at speed, as the body being flung south.
+        let mut w = carved_world(&[
+            "##########", //
+            "#........#",
+            "#........#",
+            "##########",
+        ]);
+        let i = w.alive_ids(Faction::Heroes)[0].index as usize;
+        let r = w.radius[i];
+        // Hard against the north wall's inner face, pressed into it and walking
+        // east along it.
+        w.pos[i] = Vec2::new(Fx::from_ratio(15, 10), Fx::ONE + r);
+        w.command[i] = Command::moving(Vec2::new(Fx::ONE, -Fx::ONE).normalize());
+
+        let mut previous = w.pos[i].x;
+        for tick in 0..120 {
+            w.apply_movement();
+            assert!(
+                w.is_walkable(w.pos[i], r),
+                "tick {tick}: pushed into the wall at {:?}",
+                w.pos[i]
+            );
+            assert!(
+                w.pos[i].y <= Fx::ONE + r + Fx::from_ratio(1, 100),
+                "tick {tick}: flung off the wall to {:?}",
+                w.pos[i]
+            );
+            // Crossing a seam must not cost the body its eastward travel.
+            if tick > 4 {
+                assert!(
+                    w.pos[i].x > previous,
+                    "tick {tick}: caught at a seam at {:?}",
+                    w.pos[i]
+                );
+            }
+            previous = w.pos[i].x;
+        }
+        assert!(
+            w.pos[i].x > Fx::from_int(4),
+            "barely moved: {:?}",
+            w.pos[i]
+        );
+    }
+
+    #[test]
+    fn a_body_ejected_from_masonry_comes_out_the_shallow_side() {
+        let mut w = carved_world(&[
+            "#####", //
+            "#...#",
+            "#...#",
+            "#####",
+        ]);
+        let i = w.alive_ids(Faction::Heroes)[0].index as usize;
+        // Buried in the north wall, barely: a tenth of a unit above the face.
+        w.pos[i] = Vec2::new(Fx::from_ratio(25, 10), Fx::from_ratio(9, 10));
+        w.settle(i, w.pos[i]);
+        assert!(w.is_walkable(w.pos[i], w.radius[i]), "still buried at {:?}", w.pos[i]);
+        assert!(w.pos[i].y > Fx::ONE, "came out the wrong side: {:?}", w.pos[i]);
+    }
+
+    #[test]
+    fn an_arrow_stops_at_a_wall() {
+        let mut w = carved_world(&[
+            "#########", //
+            "#..#....#",
+            "#..#....#",
+            "#########",
+        ]);
+        let archer = w.alive_ids(Faction::Heroes)[0];
+        let i = archer.index as usize;
+        let from = Vec2::new(Fx::from_ratio(15, 10), Fx::from_ratio(15, 10));
+        w.pos[i] = from;
+
+        // The columns `loose` writes, written by hand: there is no way to put an
+        // arrow in the air without a drawn bow and a phase edge, and none of
+        // that is what this test is about. Due east at a whole tile a tick, so
+        // the pillar column at x = 3 is met inside the first step and there is
+        // nothing subtle about the arithmetic.
+        let k = w.free_shot().expect("a free arrow slot");
+        w.shot_alive[k] = true;
+        w.shot_pos[k] = from;
+        w.shot_vel[k] = Vec2::new(Fx::ONE, Fx::ZERO);
+        w.shot_range[k] = Fx::from_int(20);
+        w.shot_mass[k] = Fx::ONE;
+        w.shot_power[k] = Fx::ONE;
+        w.shot_owner[k] = archer;
+        w.shot_faction[k] = Faction::Heroes;
+
+        assert_eq!(w.shots().count(), 1);
+        // Three ticks: the pillar is a tile and a half away, so the first tick
+        // is honest open air and the arrow must survive it.
+        w.resolve_shots();
+        assert_eq!(w.shots().count(), 1, "stopped before it reached anything");
+        w.resolve_shots();
+        w.resolve_shots();
+        assert_eq!(w.shots().count(), 0, "the arrow went through the wall");
+        assert!(
+            w.events.is_empty(),
+            "a wall is not something to raise an event about"
+        );
+    }
+
+    #[test]
+    fn wall_clearance_on_an_open_floor_plan_is_the_arena_edge() {
+        // Version 11 changed what this field *means*, and this is the assertion
+        // that the change costs nothing anywhere it did not have to: on the
+        // scenarios the lab runs, every one of these four numbers is raw for
+        // raw the expression that used to be written out in `observe`.
+        let mut w = duel_world();
+        let id = w.alive_ids(Faction::Heroes)[0];
+        let i = id.index as usize;
+        for p in [
+            Vec2::from_ints(12, 8),
+            Vec2::new(Fx::from_ratio(1, 2), Fx::from_ratio(157, 100)),
+            Vec2::new(Fx::from_ratio(2351, 100), Fx::from_ratio(1, 100)),
+        ] {
+            w.pos[i] = p;
+            let obs = w.observe(id);
+            assert_eq!(obs.wall_clearance[0], p.x.max(Fx::ZERO));
+            assert_eq!(obs.wall_clearance[1], (w.arena.x - p.x).max(Fx::ZERO));
+            assert_eq!(obs.wall_clearance[2], p.y.max(Fx::ZERO));
+            assert_eq!(obs.wall_clearance[3], (w.arena.y - p.y).max(Fx::ZERO));
+            assert_eq!(obs.nav_dir, Vec2::ZERO, "no objective, no route");
+            assert_eq!(obs.nav_distance, Fx::MAX);
+        }
+    }
+
+    #[test]
+    fn wall_clearance_stops_at_masonry() {
+        let mut w = carved_world(&[
+            "#######", //
+            "#..#..#",
+            "#..#..#",
+            "#######",
+        ]);
+        let id = w.alive_ids(Faction::Heroes)[0];
+        w.pos[id.index as usize] = Vec2::new(Fx::from_ratio(15, 10), Fx::from_ratio(15, 10));
+        let obs = w.observe(id);
+        // The pillar column's near face is at x = 3, not the arena's at x = 7.
+        assert_eq!(obs.wall_clearance[1], Fx::from_ratio(15, 10));
+        assert_eq!(obs.wall_clearance[0], Fx::from_ratio(5, 10));
+    }
+
+    #[test]
+    fn the_flow_field_reaches_every_open_tile_and_only_those() {
+        let d = crate::dungeon::parse(&[
+            "#######", //
+            "#.....#",
+            "#.###.#",
+            "#.....#",
+            "#######",
+        ]);
+        let mut dist = Vec::new();
+        let mut queue = Vec::new();
+        let seed = d.cell(1, 1).unwrap();
+        d.distances(&[seed], &mut dist, &mut queue);
+
+        let mut reached = 0;
+        for ty in 0..d.rows() as i32 {
+            for tx in 0..d.cols() as i32 {
+                let at = dist[d.cell(tx, ty).unwrap() as usize];
+                if d.solid(tx, ty) {
+                    assert_eq!(at, u16::MAX, "masonry at ({tx}, {ty}) got a distance");
+                } else {
+                    assert_ne!(at, u16::MAX, "open ({tx}, {ty}) was never reached");
+                    reached += 1;
+                }
+            }
+        }
+        assert_eq!(reached, d.open_count());
+        assert_eq!(dist[seed as usize], 0);
+        // Round the ring the long way or the short way, the far corner is five
+        // tiles either side of the block.
+        assert_eq!(dist[d.cell(5, 1).unwrap() as usize], 4);
+        assert_eq!(dist[d.cell(1, 3).unwrap() as usize], 2);
+    }
+
+    #[test]
+    fn the_flow_field_does_not_depend_on_how_the_world_got_here() {
+        let rows = [
+            "########", //
+            "#..##..#",
+            "#..##..#",
+            "#......#",
+            "########",
+        ];
+        // Same floor plan, same quarry tile, arrived at two different ways: one
+        // world spawned there, the other walked there.
+        let build = |walk: bool| {
+            let mut scenario = Scenario::duel();
+            scenario.dungeon = crate::dungeon::parse(&rows);
+            scenario.units[0].spawn = Vec2::new(Fx::from_ratio(15, 10), Fx::from_ratio(15, 10));
+            scenario.units[1].spawn = Vec2::new(Fx::from_ratio(65, 10), Fx::from_ratio(15, 10));
+            let mut w = World::new(&scenario, 1);
+            w.set_objective(Faction::Monsters, Objective::Hunt);
+            let hero = w.alive_ids(Faction::Heroes)[0].index as usize;
+            let villain = w.alive_ids(Faction::Monsters)[0].index as usize;
+            w.pos[villain] = Vec2::new(Fx::from_ratio(15, 10), Fx::from_ratio(35, 10));
+            w.pos[hero] = if walk {
+                Vec2::new(Fx::from_ratio(45, 10), Fx::from_ratio(35, 10))
+            } else {
+                Vec2::new(Fx::from_ratio(65, 10), Fx::from_ratio(15, 10))
+            };
+            if walk {
+                for _ in 0..200 {
+                    w.command[hero] = Command::moving(Vec2::new(Fx::ONE, -Fx::ONE).normalize());
+                    w.step();
+                }
+            }
+            w.refresh_nav();
+            w
+        };
+        let spawned = build(false);
+        let walked = build(true);
+        assert_eq!(
+            Dungeon::tile_of(spawned.pos[spawned.alive_ids(Faction::Heroes)[0].index as usize]),
+            Dungeon::tile_of(walked.pos[walked.alive_ids(Faction::Heroes)[0].index as usize]),
+            "the fixture did not put the quarry in the same tile"
+        );
+        assert_eq!(
+            spawned.nav[Faction::Monsters.index()].dist,
+            walked.nav[Faction::Monsters.index()].dist
+        );
+    }
+
+    #[test]
+    fn an_unreachable_objective_reports_no_heading() {
+        // A sealed vault in the north-east. Nothing walks into it.
+        let mut w = carved_world(&[
+            "########", //
+            "#....#.#",
+            "#....###",
+            "#......#",
+            "########",
+        ]);
+        let id = w.alive_ids(Faction::Heroes)[0];
+        w.pos[id.index as usize] = Vec2::new(Fx::from_ratio(15, 10), Fx::from_ratio(15, 10));
+        w.set_objective(Faction::Heroes, Objective::Order);
+        w.set_order(
+            Faction::Heroes,
+            Order::Goto(Vec2::new(Fx::from_ratio(65, 10), Fx::from_ratio(15, 10))),
+        );
+        w.refresh_nav();
+
+        let obs = w.observe(id);
+        assert_eq!(obs.nav_dir, Vec2::ZERO);
+        assert_eq!(obs.nav_distance, Fx::MAX);
+    }
+
+    #[test]
+    fn a_route_walks_round_a_wall_rather_than_into_it() {
+        //   01234567
+        let mut w = carved_world(&[
+            "########", // 0
+            "#..#...#", // 1
+            "#..#...#", // 2
+            "#......#", // 3   the way round is south
+            "########", // 4
+        ]);
+        let id = w.alive_ids(Faction::Heroes)[0];
+        let i = id.index as usize;
+        w.pos[i] = Vec2::new(Fx::from_ratio(15, 10), Fx::from_ratio(15, 10));
+        let dest = Vec2::new(Fx::from_ratio(55, 10), Fx::from_ratio(15, 10));
+        w.set_objective(Faction::Heroes, Objective::Order);
+        w.set_order(Faction::Heroes, Order::Goto(dest));
+        w.refresh_nav();
+
+        // The route is honestly longer than the straight line, which is the
+        // whole reason the straight-line distance could not be reused: at four
+        // units of open air the character would think it was nearly there.
+        let obs = w.observe(id);
+        assert!(obs.nav_distance < Fx::MAX, "there is a way round");
+        assert!(obs.nav_distance > (dest - w.pos[i]).length() + Fx::TWO);
+
+        // Asserted by walking it, because that is the claim. A first step due
+        // east is perfectly correct here -- the pillar is two tiles away and
+        // the way round leaves from the tile next door -- so asserting on the
+        // *heading* would be asserting on the shape of this particular map.
+        for tick in 0..400 {
+            let (dir, left) = w.nav_step(i);
+            if left <= w.stats[i].move_speed() {
+                assert!(tick > 40, "arrived in {tick} ticks, which is a straight line");
+                return;
+            }
+            w.command[i] = Command::moving(dir);
+            w.step();
+            assert!(
+                w.is_walkable(w.pos[i], w.radius[i]),
+                "tick {tick}: the route walked into masonry at {:?}",
+                w.pos[i]
+            );
+        }
+        panic!("never arrived; stopped at {:?}", w.pos[i]);
+    }
+
+    #[test]
+    fn a_route_across_open_ground_is_the_straight_line() {
+        // The line-of-walk shortcut. Without it a character crosses a room tile
+        // centre to tile centre like a chess piece.
+        let mut w = carved_world(&[
+            "########", //
+            "#......#",
+            "#......#",
+            "#......#",
+            "########",
+        ]);
+        let id = w.alive_ids(Faction::Heroes)[0];
+        let i = id.index as usize;
+        w.pos[i] = Vec2::new(Fx::from_ratio(15, 10), Fx::from_ratio(15, 10));
+        let dest = Vec2::new(Fx::from_ratio(55, 10), Fx::from_ratio(35, 10));
+        w.set_objective(Faction::Heroes, Objective::Order);
+        w.set_order(Faction::Heroes, Order::Goto(dest));
+        w.refresh_nav();
+
+        let obs = w.observe(id);
+        let straight = dest - w.pos[i];
+        assert_eq!(obs.nav_dir, straight.normalize());
+        assert_eq!(obs.nav_distance, straight.length());
+    }
+
+    #[test]
+    fn an_arrow_flies_down_an_open_corridor() {
+        // The other half of the rule above: masonry stops an arrow, and open
+        // ground does not stop it early.
+        let mut w = carved_world(&[
+            "#########", //
+            "#.......#",
+            "#########",
+        ]);
+        let archer = w.alive_ids(Faction::Heroes)[0];
+        let from = Vec2::new(Fx::from_ratio(15, 10), Fx::from_ratio(15, 10));
+        w.pos[archer.index as usize] = from;
+        // Nobody to hit: the archer is the only body in the room, and a shot
+        // never resolves against its own owner however the flight curves back.
+
+        let k = w.free_shot().expect("a free arrow slot");
+        w.shot_alive[k] = true;
+        w.shot_pos[k] = from;
+        w.shot_vel[k] = Vec2::new(Fx::from_ratio(5, 10), Fx::ZERO);
+        w.shot_range[k] = Fx::from_int(20);
+        w.shot_mass[k] = Fx::ONE;
+        w.shot_power[k] = Fx::ONE;
+        w.shot_owner[k] = archer;
+        w.shot_faction[k] = Faction::Heroes;
+
+        for _ in 0..8 {
+            w.resolve_shots();
+        }
+        assert_eq!(w.shots().count(), 1, "stopped in mid-air");
+        assert!(w.shot_pos[k].x > Fx::from_int(5));
+    }
+
     #[test]
     fn charging_a_heavier_body_costs_the_charger_more() {
         // Barging is now a decision with a price, and the price scales with who
@@ -4259,9 +5117,10 @@ mod tests {
         let mut scenario = Scenario::skirmish(5, 1, 8);
         // Put a dim hero in the middle of the swarm.
         scenario.units[0].stats.perception = 0;
-        scenario.units[0].spawn = scenario.arena * Fx::HALF;
+        let middle = scenario.arena() * Fx::HALF;
+        scenario.units[0].spawn = middle;
         for u in scenario.units.iter_mut().skip(1) {
-            u.spawn = scenario.arena * Fx::HALF + Vec2::from_ints(1, 1);
+            u.spawn = middle + Vec2::from_ints(1, 1);
         }
         let w = World::new(&scenario, 5);
         let hero = w.alive_ids(Faction::Heroes)[0];
@@ -4506,7 +5365,8 @@ mod tests {
     fn archery_range(apart: i32, defence: ActionKind) -> (World, EntityId, EntityId) {
         let scenario = Scenario {
             name: "archery".to_string(),
-            arena: Vec2::from_ints(24, 16),
+            dungeon: Dungeon::open(24, 16),
+            portal: None,
             max_ticks: 60 * 60,
             units: vec![
                 UnitSpec {
@@ -4643,7 +5503,8 @@ mod tests {
     fn an_arrow_does_not_hit_its_own_side() {
         let mut scenario = Scenario {
             name: "crossfire".to_string(),
-            arena: Vec2::from_ints(24, 16),
+            dungeon: Dungeon::open(24, 16),
+            portal: None,
             max_ticks: 60 * 60,
             units: vec![],
         };
@@ -4720,7 +5581,8 @@ mod tests {
     fn an_arrow_expires_rather_than_flying_forever() {
         let scenario = Scenario {
             name: "empty range".to_string(),
-            arena: Vec2::from_ints(24, 16),
+            dungeon: Dungeon::open(24, 16),
+            portal: None,
             max_ticks: 60 * 60,
             units: vec![UnitSpec {
                 kind: Body::Fighter,
@@ -4866,7 +5728,7 @@ mod tests {
             // Straight down +y, away from the other fighter rather than along
             // the line the two are placed on. Ninety ticks and not more: the
             // hero spawns at y=8 in a 16-deep arena, so a runner reaches the
-            // wall around tick 105 and `clamp_body` would quietly cap the very
+            // wall around tick 105 and `move_body` would quietly cap the very
             // measurement this test exists to take.
             for _ in 0..90 {
                 w.submit(hero, Command::moving(Vec2::Y));
@@ -5057,7 +5919,7 @@ mod tests {
     #[test]
     fn set_body_moves_a_grown_body_out_of_the_wall() {
         // Hard against the west wall at exactly its own radius, which is where
-        // `clamp_body` would have left it and therefore a legal place to stand.
+        // `move_body` would have left it and therefore a legal place to stand.
         let mut scenario = Scenario::duel();
         scenario.units[0].set_body(Body::Skitterer);
         scenario.units[0].spawn = Vec2::new(Body::Skitterer.radius(), Fx::from_int(8));

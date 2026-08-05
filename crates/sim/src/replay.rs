@@ -1,4 +1,4 @@
-use crate::command::{Command, Order};
+use crate::command::{Command, Objective, Order};
 use crate::entity::{EntityId, Faction};
 use crate::scenario::Scenario;
 use crate::world::World;
@@ -20,6 +20,18 @@ pub struct OrderRecord {
     pub tick: u32,
     pub faction: Faction,
     pub order: Order,
+}
+
+/// One objective, as whoever was driving set it.
+///
+/// Here for the same reason [`OrderRecord`] is: an objective is an input, it
+/// changes where every agent of that faction walks, and a replay that recorded
+/// only half the inputs would reproduce only half the run.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct ObjectiveRecord {
+    pub tick: u32,
+    pub faction: Faction,
+    pub objective: Objective,
 }
 
 /// A complete, replayable run.
@@ -54,6 +66,10 @@ pub struct Replay {
     pub entries: Vec<CommandRecord>,
     /// Player orders, in the order they were issued.
     pub orders: Vec<OrderRecord>,
+    /// Objectives, likewise. A separate list rather than a variant on
+    /// `orders`, because the two are set independently and interleaving them
+    /// would make the replay's playback order depend on the recorder's.
+    pub objectives: Vec<ObjectiveRecord>,
 }
 
 impl Replay {
@@ -65,6 +81,7 @@ impl Replay {
             ticks: 0,
             entries: Vec::new(),
             orders: Vec::new(),
+            objectives: Vec::new(),
         }
     }
 
@@ -81,6 +98,14 @@ impl Replay {
             tick,
             faction,
             order,
+        });
+    }
+
+    pub fn record_objective(&mut self, tick: u32, faction: Faction, objective: Objective) {
+        self.objectives.push(ObjectiveRecord {
+            tick,
+            faction,
+            objective,
         });
     }
 
@@ -113,6 +138,7 @@ impl Replay {
         let mut world = World::new(&self.scenario, self.seed);
         let mut next_command = 0;
         let mut next_order = 0;
+        let mut next_objective = 0;
 
         loop {
             // Orders are applied before the tick check so that a replay stopped
@@ -121,6 +147,17 @@ impl Replay {
                 let record = self.orders[next_order];
                 world.set_order(record.faction, record.order);
                 next_order += 1;
+            }
+            // And the objectives on the same rule, after the orders: an
+            // `Objective::Order` routes toward whatever the standing order is,
+            // so applying it first would route toward the previous one for a
+            // tick.
+            while next_objective < self.objectives.len()
+                && self.objectives[next_objective].tick <= world.tick()
+            {
+                let record = self.objectives[next_objective];
+                world.set_objective(record.faction, record.objective);
+                next_objective += 1;
             }
             if world.tick() >= ticks {
                 break;

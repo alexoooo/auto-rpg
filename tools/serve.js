@@ -153,7 +153,23 @@ function sendFile(req, res, file, stat, method) {
     send(res, 500, { "content-type": "text/plain" }, String(err), method);
     return log(req, 500);
   }
-  send(res, 200, { "content-type": type, "content-length": String(stat.size) }, body, method);
+  send(
+    res,
+    200,
+    {
+      "content-type": type,
+      "content-length": String(stat.size),
+      // Informational only -- `send` sets `no-store`, so nothing will ever
+      // conditionally request against it. It is here because the page asks for
+      // it: the mtime of `web.wasm` is the build time of the binary that is
+      // actually running, which is a much more honest answer than anything the
+      // build could stamp into itself. A build stamp baked at compile time goes
+      // stale the moment only a dependency changed.
+      "last-modified": stat.mtime.toUTCString(),
+    },
+    body,
+    method,
+  );
   log(req, 200);
 }
 

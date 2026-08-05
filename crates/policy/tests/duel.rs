@@ -622,7 +622,7 @@ fn a_bow_is_a_weapon_of_distance_and_nothing_else() {
             // Re-placed along a fixed line so the only variable is the gap.
             // `duel_of` spreads its pair on a seeded bearing, which is what
             // makes it a good harness everywhere else and a poor one here.
-            let mid = scenario.arena * Fx::from_ratio(1, 2);
+            let mid = scenario.arena() * Fx::from_ratio(1, 2);
             let half = Fx::from_ratio(apart, 2);
             for unit in &mut scenario.units {
                 if unit.faction == Faction::Heroes {
