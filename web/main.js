@@ -4541,31 +4541,68 @@ function floorPatternNow() {
  * see *now* and what it merely remembers, plus the lit rock edges and the scale
  * bar's lattice.
  *
- * **Ten path fields, and never more than seven of them are live at once.** Rock
- * is baked differently in the two projections and each leaves the other's fields
- * `null`:
+ * **Rock is baked differently in the two projections and each leaves the other's
+ * fields null:**
  *
  *     shared   floorLit  floorSeen  grid
  *     topdown  wallLit   wallSeen   edge          -- flat tiles and a stroked rim
- *     iso      wallTopLit  wallTopSeen            -- the lifted top faces
- *              wallSideLit wallSideSeen           -- the two visible side faces
+ *     iso      wallTopSeen  wallSideSeen          -- remembered rock, unbanded
+ *              wallBandTop[]  wallBandSide[]      -- lit rock, one pair per depth row
  *
  * So it is **six paths** top-down -- five with the art off, where `edge` is null
- * as well -- and **seven** under iso, which has no `edge` at all: a top face, a
- * side face and the floor under them are three flat fills, and the rim is already
- * the seam where they meet. Nothing ever reads the other projection's fields.
+ * as well -- and under iso it is three unbanded paths plus two arrays of at most
+ * `bandCount` paths each, of which the visible slice is filled per frame. Nothing
+ * ever reads the other projection's fields.
+ *
+ * **Why only the *lit* rock is banded, and what it costs.** The bands exist so
+ * `walkDrawList` can interleave wall geometry with the bodies standing among it.
+ * Remembered rock stays as the unbanded pair, drawn once in the ground layer, and
+ * that is a **deferral with a known artefact** rather than a free simplification.
+ *
+ * The tempting argument is that a remembered block is out of the character's sight,
+ * so anything it could occlude must be a ghost. It does not hold: a block being
+ * beyond the sight radius says nothing about the strip *behind* it, which is nearer
+ * and can be squarely inside it. Sight 9.6, hero at `(20, 20)`, block at
+ * `(27, 27)` -- distance 9.9, so remembered, so unbanded and painted in the ground
+ * layer. A live monster at `(25.5, 25.5)` is 7.8 away and fully visible; its depth
+ * of 51 is behind the block's near plane at 56 and behind the block's own north
+ * corner at 54, so its ground point lies under that top face, and nothing blocks
+ * the character's line to it because the block is further along the very same ray.
+ * A brightly lit, live body draws over a block it is standing behind.
+ *
+ * So the artefact is reachable and it is not a ghost. What bounds it is the
+ * geometry: it needs a remembered block standing between the character and
+ * something it can still see, which confines it to the annulus just outside the
+ * sight boundary. And it is quiet when it happens -- the block is two fills at
+ * `SEEN_ALPHA` over the void, so the rock that fails to occlude is the dimmest
+ * thing on the page and a body coming through it reads as faint rather than as
+ * wrong. Bounded, uncommon and faint is why it waits. **Escalation if it bites:**
+ * `iso-07` §6, which is two more band arrays baked by the same code and four fills
+ * a band instead of two -- this code applied twice, and nothing new to invent.
  *
  * `drawLevel` branches once to decide which set that is, and it branches on
  * **`levelPaths.proj` and not on the live `PROJ`** -- the projection this bake
  * actually used, so that a bake the invalidation missed is a stale *shape* rather
- * than a `ctx.fill(null)` thrown out of every frame from then on. `iso-04` will
- * branch in the same place on the same field. It reads the bake for the same
- * reason `drawLevel` already takes `bbox` from here rather than re-deriving it.
+ * than a `ctx.fill(null)` thrown out of every frame from then on. `walkDrawList`
+ * reads the same bake for the same reason, through `bandCount`.
+ *
+ * `bandCount`, `bandW`, `bandL` and `bandTile` are the four numbers the depth walk
+ * needs and they are baked here rather than re-derived per frame, because all four
+ * are pure geometry off the map, `WALL_H` and `scale`, and this is already the
+ * function that re-runs when any of those moves. `bandW` is `px(map.tile)`, the
+ * band's screen pitch, which the culling arithmetic divides by; `bandL` is
+ * `lift(WALL_H)`, how far above its ground diamond a baked top face sits, which is
+ * how far up-screen a band reaches; `bandTile` is `map.tile`, the *world* units one
+ * band step spans, which is what turns a band index into the depth key bodies are
+ * sorted on. Baking them is also what keeps `render` from calling `readMap()` sixty
+ * times a second to ask a question whose answer changes once a level.
  *
  * **Built once per level, not per frame.** A 48x32 level is 1536 tiles, and at
  * the top zoom bucket baking it into an offscreen canvas would be a 2304x1536
- * backing store rebuilt six times over. Seven `Path2D`s cost a few thousand
- * segments once, and after that a fill is a fill.
+ * backing store rebuilt six times over. The paths -- six of them top-down, and
+ * under iso three plus up to `bandCount` band pairs -- cost a few thousand
+ * segments once between them, and after that a fill is a fill. Banding does not
+ * add a segment: it distributes the same ones across more objects.
  *
  * `revision` is `map_revision()`, which the module bumps only when the tiles
  * change; `vis` is `vis_revision()`, which it bumps when the character crosses a
@@ -4598,23 +4635,42 @@ let levelPaths = {
   floorSeen: null,
   wallLit: null,
   wallSeen: null,
-  wallTopLit: null,
   wallTopSeen: null,
-  wallSideLit: null,
   wallSideSeen: null,
+  wallBandTop: null,
+  wallBandSide: null,
+  bandCount: 0,
+  bandW: 0,
+  bandL: 0,
+  bandTile: 0,
   edge: null,
   grid: null,
   bbox: null,
   remembered: false,
 };
 
+/** One depth row's `Path2D`, allocated the first time anything lands in it.
+ *
+ *  Most bands in a carved dungeon have rock in them, but not all -- a room's
+ *  interior spans bands with nothing solid on them at all -- and a band nobody
+ *  writes to stays `null`, which is what `fillBand` tests rather than filling an
+ *  empty path. */
+function bandPath(arr, d) {
+  let p = arr[d];
+  if (p === null) {
+    p = new Path2D();
+    arr[d] = p;
+  }
+  return p;
+}
+
 /**
  * Rebuilds the level paths. Called when `map_revision()` moves, when
  * `vis_revision()` moves, when the pixel scale changes -- a `Path2D` holds
  * pixels, not world units -- and when the view mode changes what gets baked.
  *
- * Six paths top-down and seven under iso -- the inventory, and which projection
- * leaves which of them null, is on `levelPaths` above.
+ * The inventory -- which paths there are, which projection leaves which of them
+ * null, and why only the lit rock is banded -- is on `levelPaths` above.
  *
  * **The face where rock meets floor is a separate path from the rock itself**,
  * and that is not decoration: the first version stroked every wall tile, which
@@ -4647,15 +4703,32 @@ function rebuildLevelPaths(map, revision) {
   // Rock, baked one of two ways, and each projection leaves the other's paths
   // null. Top-down it is a flat tile and the pair is `wallLit`/`wallSeen`, exactly
   // as it always was. Under iso it is a block -- a lifted top face and up to two
-  // shaded sides -- and the fog splits each of those in turn, which is why there
-  // are four. `drawLevel` branches once and reads only its own projection's;
-  // filling a path nobody baked is the one thing that would throw here.
+  // shaded sides -- and the fog splits each of those in turn, so these two are the
+  // *remembered* half of that split. `drawLevel` branches once and reads only its
+  // own projection's; filling a path nobody baked is the one thing that would throw
+  // here.
   const wallLit = iso ? null : new Path2D();
   const wallSeen = iso ? null : new Path2D();
-  const wallTopLit = iso ? new Path2D() : null;
   const wallTopSeen = iso ? new Path2D() : null;
-  const wallSideLit = iso ? new Path2D() : null;
   const wallSideSeen = iso ? new Path2D() : null;
+  // Lit rock, banded by depth row. `d = tx + ty`, so a band is one anti-diagonal
+  // of the tile grid, every tile on it shares a north corner at screen y
+  // `d * size / 2` -- `projY` depends on `wx + wy` and on nothing else -- and
+  // `bandCount` is the number of distinct values `tx + ty` can take.
+  //
+  // **The lit pair and only the lit pair**, for the argument on `levelPaths`
+  // above: the bands exist to interleave with bodies, and leaving the remembered
+  // pair unbanded is a deferral with an artefact attached rather than a free one.
+  // The counterexample and the escalation are both stated there.
+  //
+  // Two arrays of `null` rather than of paths. A band with no rock on it never
+  // allocates, and a band with any lit rock on it allocates both -- so a band
+  // whose every block is interior gets an empty `side` path that fills nothing.
+  // That is one wasted object per such band per bake, against a `wallBlock`
+  // signature that would otherwise have to learn about nulls.
+  const bandCount = iso ? map.cols + map.rows - 1 : 0;
+  const wallBandTop = iso ? new Array(bandCount).fill(null) : null;
+  const wallBandSide = iso ? new Array(bandCount).fill(null) : null;
   // The lit rock faces -- and `null` rather than an empty path with the art off,
   // so `drawLevel` skips the stroke instead of stroking nothing: there is no
   // light in a tactical room for an edge to catch.
@@ -4745,9 +4818,16 @@ function rebuildLevelPaths(map, revision) {
       // one. It is gated on the artefact actually being observed rather than done
       // here, because it leaks fog information -- one tile of rock beyond the
       // boundary is one tile of map the character has not earned.
+      //
+      // **Lit rock goes into its depth row's band pair and remembered rock into
+      // the unbanded pair**, which is the one structural difference `iso-04` made
+      // here. `wallBlock` takes its two target paths as arguments precisely so
+      // this line can hand it a band instead of a field, and not one character of
+      // the geometry below the call knows which it got.
       if (iso) {
-        const top = lit === 2 ? wallTopLit : wallTopSeen;
-        const side = lit === 2 ? wallSideLit : wallSideSeen;
+        const d = tx + ty;
+        const top = lit === 2 ? bandPath(wallBandTop, d) : wallTopSeen;
+        const side = lit === 2 ? bandPath(wallBandSide, d) : wallSideSeen;
         wallBlock(top, side, x, y, size, L, !solid(tx + 1, ty), !solid(tx, ty + 1));
         if (lit !== 2) remembered = true;
         continue;
@@ -4860,10 +4940,17 @@ function rebuildLevelPaths(map, revision) {
     floorSeen,
     wallLit,
     wallSeen,
-    wallTopLit,
     wallTopSeen,
-    wallSideLit,
     wallSideSeen,
+    wallBandTop,
+    wallBandSide,
+    bandCount,
+    // The band's screen pitch, the block height the bands were baked at, and the
+    // band's world span. Zero top-down, where nothing reads any of them -- see
+    // `levelPaths` for what each one is for.
+    bandW: iso ? size : 0,
+    bandL: iso ? L : 0,
+    bandTile: iso ? map.tile : 0,
     edge,
     grid,
     // A fresh object rather than the hoisted `ARENA_BOX`, and the exception proves
@@ -5016,8 +5103,11 @@ const WALL_XFACE = "#0e131c"; // the +x face, half lit
  * every sentence above is still true word for word under iso. `floorPatternNow`
  * has the derivation.
  *
- * Painted back to front: remembered floor, lit floor, remembered rock, lit rock,
- * the lit edges, and the lantern over the top of all of it.
+ * Painted back to front: remembered floor, lit floor, remembered rock, and then
+ * top-down the lit rock and the lit edges as well, with the lantern over the top
+ * of all of it. **Under iso the lit rock is not here at all** -- it is banded by
+ * depth row and filled by `walkDrawList`, after every flat ground decal, so that
+ * a wall can occlude what stands behind it.
  *
  * `origin` is `render`'s, passed rather than re-derived: it is what says which
  * corner of the arena the window is currently over, and re-deriving it here
@@ -5149,25 +5239,65 @@ function drawLevel(state, origin) {
   // expected to come out flat rather than worse. A `render` mean that does not fall
   // against `iso-02` is therefore not a regression to chase.
   //
-  // **All tops, then all sides, in one unbanded pass**, so two blocks that overlap
-  // on screen are painted in path order rather than in depth order. That can only
-  // happen between tiles whose `tx - ty` differ by at most one and whose
-  // `tx + ty` differ by two or more -- diagonal-only neighbours -- and there are two
-  // sizes of symptom. Within one fog class it is one tone standing where the other
-  // should, twelve counts of blue out of 255 away; and the remembered pass blends
-  // its two fills separately under `SEEN_ALPHA` rather than compositing them first,
-  // so an overlap there comes out under ten counts light.
+  // **Under iso this draws the remembered rock and nothing else.** The lit blocks
+  // moved into the depth walk in `iso-04` -- `walkDrawList` fills them one band at
+  // a time, interleaved with the bodies standing among them -- and what is left
+  // here is the unbanded remembered pair. That it stays in the ground layer is a
+  // deferral with a stated artefact and not a free choice; `levelPaths` has the
+  // counterexample, the bound and the escalation.
   //
-  // The larger case is *across* the two fog classes. The pass fills seen-top,
-  // seen-side, lit-top, lit-side, so a lit block's top face paints over the side
-  // face of a **nearer remembered** block -- a full `SEEN_ALPHA` step, alpha 0.4
-  // giving way to 1.0, rather than twelve counts. It is reachable whenever the hero
-  // can see past a corner to rock standing beyond ground it only remembers, so it
-  // is not hypothetical. Same diagonal-only geometry and the same remedy: `iso-04`
-  // bands these paths by `tx + ty`, and inside a band `tx - ty` steps by two, so
-  // neither size of overlap can arise once the banding lands. Both are bounded,
-  // both are on the dimmest thing on the page, and neither is worth a sort this
-  // session.
+  // **The lantern is not unaffected by that move, and an earlier draft of this
+  // comment said it was.** The argument it made was that `drawLantern` below clips
+  // to `levelPaths.floorLit` and so has never put a pixel on rock. A clip is a
+  // *screen-space* region, not a set of world tiles, and under iso those are not
+  // the same thing: a block's top face is its ground diamond raised by
+  // `L = lift(WALL_H)`, which is 1.6 times the height of the diamond it stands on,
+  // so it overhangs the floor diamonds behind it. Take a block whose ground north
+  // corner is at screen `yn` and the floor tile at `(tx - 1, ty - 1)`, which
+  // projects to the same screen column: the top face spans
+  // `[yn - 1.6*size, yn - 0.6*size]` and that floor diamond spans `[yn - size, yn]`,
+  // so 0.4 of a `size` of lit rock sat inside the lantern's clip and was darkened by
+  // it. Top-down the claim is genuinely true -- square tiles, disjoint regions --
+  // which is exactly why it reads as safe.
+  //
+  // So there **is** an iso-only visual change in this session beyond the occlusion
+  // itself: lit rock used to be partly darkened at range and now is not darkened at
+  // all, because the bands are filled after `drawLevel` has returned. **The new
+  // picture is the more consistent one**, and that is the argument for leaving it.
+  // What was lost was never lighting. It was a sliver whose size and position came
+  // out of which floor diamond happened to lie behind which block, so two identical
+  // blocks the same distance from the lantern were shaded differently according to
+  // whether the ground behind them was lit -- an accident of geometry wearing a
+  // falloff's clothes. The plateau is now uniformly lit at every distance, which is
+  // what the note above the `drawLantern` call already says the room's two falloffs
+  // do. Whether the falloff *should* reach the rock at all is a real question and it
+  // is already open, with its options and their costs, as `iso-07` §9.
+  //
+  // **Of the pair of overlaps this comment used to record, the move fixed one.**
+  // All-tops-then-all-sides paints two blocks in path order rather than in depth
+  // order wherever they overlap on screen, which can only happen between tiles
+  // whose `tx - ty` differ by at most one and whose `tx + ty` differ by two or
+  // more -- diagonal-only neighbours. The **within-class** case, two lit blocks
+  // disagreeing by twelve counts of blue out of 255, is the one that is gone:
+  // inside a band `tx - ty` steps by two, so no two lit blocks land in one fill
+  // where they can overlap, and the bands themselves go down in depth order.
+  //
+  // The **across-class** case is untouched, and it is worth being blunt that the
+  // move did not help it. That one is a lit top face painting over the side face
+  // of a *nearer* remembered block -- a full `SEEN_ALPHA` step, alpha 0.4 giving
+  // way to 1.0, rather than twelve counts -- and it is reachable whenever the
+  // character can see past a corner to rock standing beyond ground it only
+  // remembers. Banding lit rock cannot reach it, because the case is
+  // lit-against-remembered by definition; if anything the move made it
+  // *structural*, since all remembered rock is now filled here and all lit rock in
+  // the depth walk afterwards, so the losing order is guaranteed rather than an
+  // accident of four fills. It goes when the remembered pair is banded too, which
+  // is the same deferral `levelPaths` argues and the same escalation, `iso-07` §6.
+  //
+  // The within-class case also survives among remembered blocks by themselves,
+  // which are still one unbanded tops-then-sides pass. Both faces are at alpha 0.4
+  // over the void there, so the whole disagreement is twelve counts on the dimmest
+  // thing on the page.
   //
   // **Fill what was baked**, not what is live. Every path below came out of
   // `rebuildLevelPaths`, which records the matrix it used as `levelPaths.proj`, so
@@ -5176,13 +5306,23 @@ function drawLevel(state, origin) {
   // every frame that exists today; the loop's `levelPaths.proj !== PROJ.id` guard is
   // what catches them coming apart, and it runs before this does.
   //
-  // What changed this session is the cost of being wrong. A missed invalidation
-  // used to be one frame of square tiles under a sheared matrix. Now the iso arm
-  // would reach for four paths a top-down bake left null, and `ctx.fill(null)`
-  // throws a `TypeError` -- and `loop` re-arms rAF *before* it calls `render`, so
-  // that is not one bad frame but every frame, forever, with the whole HUD block
-  // below the throw skipped each time. Reading the bake turns that back into a
-  // shape that is one frame stale.
+  // A missed invalidation used to be one frame of square tiles under a sheared
+  // matrix. The iso arm would instead reach for paths a top-down bake left null,
+  // and `ctx.fill(null)` throws a `TypeError` -- and `loop` re-arms rAF *before*
+  // it calls `render`, so that is not one bad frame but every frame, forever, with
+  // the whole HUD block below the throw skipped each time. Reading the bake turns
+  // that back into something survivable.
+  //
+  // **"One frame stale" is no longer symmetric, and this comment used to say it
+  // was.** A top-down bake under an iso `PROJ` still is: the arm below draws every
+  // rock tile, lit and remembered, as flat squares in a sheared room, and
+  // `walkDrawList` adds nothing because `bandCount` is zero on a top-down bake.
+  // The other direction lost that. An iso bake under a top-down `PROJ` takes the
+  // arm above, which is now the remembered pair alone -- and `render` gates the
+  // depth walk on `PROJ.upright`, so nothing fills the bands either. **Every lit
+  // block on the level is missing for that frame**, where before this session it
+  // was drawn in the wrong shape. Still not reachable, and by the same guard: the
+  // loop's `levelPaths.proj !== PROJ.id` arm rebuilds before `render` is called.
   //
   // `floorPatternNow` above is deliberately left reading the live `PROJ`: the worst
   // a mismatch does there is shear the masonry wrongly for a frame, which is a
@@ -5194,11 +5334,6 @@ function drawLevel(state, origin) {
     ctx.fill(levelPaths.wallTopSeen);
     ctx.fillStyle = WALL_XFACE;
     ctx.fill(levelPaths.wallSideSeen);
-    ctx.globalAlpha = 1;
-    ctx.fillStyle = WALL_TOP;
-    ctx.fill(levelPaths.wallTopLit);
-    ctx.fillStyle = WALL_XFACE;
-    ctx.fill(levelPaths.wallSideLit);
   } else {
     ctx.fillStyle = "#0c1017";
     ctx.globalAlpha = SEEN_ALPHA;
@@ -5218,11 +5353,18 @@ function drawLevel(state, origin) {
   // with it at range: a lit rock face at the far edge of sight should not be the
   // brightest line on screen.
   //
-  // **Under iso it does not reach the rock at all**, and this comment used to say
-  // the opposite. `drawLantern` clips to `levelPaths.floorLit`, and the vignette a
-  // few lines above is painted inside the floor pass's own clip, so between them
-  // the room's two falloffs have never put a pixel on rock in either projection.
-  // The room's lighting stops at the rock line: the plateau is lit uniformly at
+  // **Under iso it does not reach the lit rock at all**, and it is the draw order
+  // that says so rather than the clip. The clip is `levelPaths.floorLit`, and the
+  // vignette a few lines above is painted inside the floor pass's own clip, but
+  // both of those are screen-space regions and a raised top face overhangs the
+  // floor diamonds behind it -- the rock pass above works that overlap out. What
+  // makes the falloffs miss the rock is the order they are drawn in: the vignette
+  // is painted in the floor loop, before any rock exists to darken, and every lit
+  // block is filled after this call returns, by `walkDrawList`. The one seam left
+  // is a *remembered* block's top face where it overhangs lit floor, which this
+  // fill does still catch -- two fills at `SEEN_ALPHA` over the void, dimmed twice
+  // on the dimmest thing on the page, and inside the same open question below.
+  // So the room's lighting stops at the rock line: the plateau is lit uniformly at
   // every distance, however far from the lantern it stands. Top-down that was
   // invisible, because rock was darker than any floor and there was nothing there
   // for a falloff to darken. Under iso the top face catches light, so it is now
@@ -6344,34 +6486,48 @@ const SHAFT = 0.34;
  * Tinted by faction like everything else, so an arrow reads as belonging to
  * whoever loosed it while it is still ambiguous which way it is crossing.
  */
-function drawShots(shots) {
-  if (!shots.length) return;
+function drawShot(shot) {
+  const skin = shot.faction === FACTION_HEROES ? HERO_SKIN : MONSTER_SKIN;
+  // **`save`, `lineCap` and `restore` are per arrow and not per volley**, which is
+  // the only thing `iso-04` changed in here. `drawShots` used to hoist all three
+  // outside its loop; under iso an arrow is drawn from inside the depth walk with
+  // wall-band fills and whole bodies between one arrow and the next, so a
+  // `lineCap` set once at the top would be state leaking across somebody else's
+  // draw call in both directions. The pixels are the same either way, and they
+  // stay the same only because the state is now scoped to the one call that wants
+  // it.
+  //
+  // It also retires the manual `rotate(-heading); translate(-x, -y)` that used to
+  // put the matrix back. `restore` is that inverse exactly, where two floating
+  // point rotations composing to the identity are only nearly it -- so the second
+  // arrow of a volley now starts from precisely the camera matrix rather than from
+  // the camera matrix plus a few ULP of the first arrow's heading.
   ctx.save();
   ctx.lineCap = "round";
-  for (const shot of shots) {
-    const skin = shot.faction === FACTION_HEROES ? HERO_SKIN : MONSTER_SKIN;
-    const x = projX(shot.x, shot.y);
-    const y = projY(shot.x, shot.y);
-    ctx.translate(x, y);
-    ctx.rotate(shot.heading);
-    // The shaft trails *behind* the point, so the bright end is the end that
-    // arrives -- which is the end a player has to judge.
-    ctx.strokeStyle = `rgba(${skin.wedge},0.55)`;
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(-px(SHAFT), 0);
-    ctx.lineTo(0, 0);
-    ctx.stroke();
-    ctx.strokeStyle = "rgba(255,255,255,0.95)";
-    ctx.lineWidth = 2.5;
-    ctx.beginPath();
-    ctx.moveTo(-px(SHAFT) * 0.28, 0);
-    ctx.lineTo(0, 0);
-    ctx.stroke();
-    ctx.rotate(-shot.heading);
-    ctx.translate(-x, -y);
-  }
+  ctx.translate(projX(shot.x, shot.y), projY(shot.x, shot.y));
+  ctx.rotate(shot.heading);
+  // The shaft trails *behind* the point, so the bright end is the end that
+  // arrives -- which is the end a player has to judge.
+  ctx.strokeStyle = `rgba(${skin.wedge},0.55)`;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(-px(SHAFT), 0);
+  ctx.lineTo(0, 0);
+  ctx.stroke();
+  ctx.strokeStyle = "rgba(255,255,255,0.95)";
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(-px(SHAFT) * 0.28, 0);
+  ctx.lineTo(0, 0);
+  ctx.stroke();
   ctx.restore();
+}
+
+/** Every arrow in the frame, in frame order. **The top-down entry point**: under
+ *  iso the arrows go through the depth walk one at a time instead, sorted in
+ *  among the bodies, and this is not called at all. */
+function drawShots(shots) {
+  for (const shot of shots) drawShot(shot);
 }
 
 /** A health bar above the body. Drawn once anything is wounded or anything
@@ -6393,25 +6549,35 @@ function drawHealth(unit, skin) {
   ctx.restore();
 }
 
+/** One corpse. **Both skips stay in here** rather than being lifted into the
+ *  caller: `buildDrawList` tests only the first of them, on the equivalent
+ *  `age < CORPSE_MS`, and leaving the pair where they are is what stops the two
+ *  ever drifting apart. A corpse that lands in the draw list and then draws
+ *  nothing costs one call. */
+function drawCorpse(c) {
+  const t = c.age / CORPSE_MS;
+  if (t >= 1) return;
+  const skin = c.faction === FACTION_HEROES ? HERO_SKIN : MONSTER_SKIN;
+  // Settling as it fades, so a death reads as a body going down rather than
+  // a sprite being switched off. As its own silhouette, facing the way it was
+  // facing: a Brute that fell has to be recognisable as the Brute that fell,
+  // or the room after a fight is a scatter of anonymous smudges.
+  const r = px(c.radius) * (1 - 0.45 * t);
+  if (r < 0.4) return;
+  ctx.save();
+  ctx.translate(projX(c.x, c.y), projY(c.x, c.y));
+  ctx.rotate(c.facing);
+  ctx.scale(r, r);
+  ctx.fillStyle = `rgba(${skin.glow},${(0.42 * (1 - t)).toFixed(3)})`;
+  ctx.fill(silhouetteOf(c.kind));
+  ctx.restore();
+}
+
+/** Every corpse on the floor, oldest first. **The top-down entry point**, on
+ *  exactly the terms `drawShots` is: under iso each corpse goes through the depth
+ *  walk at its own depth instead. */
 function drawCorpses() {
-  for (const c of corpses) {
-    const t = c.age / CORPSE_MS;
-    if (t >= 1) continue;
-    const skin = c.faction === FACTION_HEROES ? HERO_SKIN : MONSTER_SKIN;
-    // Settling as it fades, so a death reads as a body going down rather than
-    // a sprite being switched off. As its own silhouette, facing the way it was
-    // facing: a Brute that fell has to be recognisable as the Brute that fell,
-    // or the room after a fight is a scatter of anonymous smudges.
-    const r = px(c.radius) * (1 - 0.45 * t);
-    if (r < 0.4) continue;
-    ctx.save();
-    ctx.translate(projX(c.x, c.y), projY(c.x, c.y));
-    ctx.rotate(c.facing);
-    ctx.scale(r, r);
-    ctx.fillStyle = `rgba(${skin.glow},${(0.42 * (1 - t)).toFixed(3)})`;
-    ctx.fill(silhouetteOf(c.kind));
-    ctx.restore();
-  }
+  for (const c of corpses) drawCorpse(c);
 }
 
 /** How long a body takes to fade once the character loses sight of it. */
@@ -6832,6 +6998,334 @@ function drawCallouts(state) {
   ctx.restore();
 }
 
+// ---------------------------------------------------------------- the depth layer
+//
+// **Walls that occlude what stands behind them**, which is the whole of what this
+// layer is for and the reason the room has depth at all. Under iso only: top-down
+// the walls are drawn inside `drawLevel` before anything else and every body is
+// over them, which is correct there, because top-down there is nothing to be
+// behind.
+//
+// The depth key is `wx + wy`, in world units, for everything on the ground. That
+// is exactly what `projY` depends on -- `projY = (wx + wy) * scale / 2` -- so it
+// *is* the screen y of the ground point, which is what a painter's algorithm
+// sorts on. Nothing here needs a second derivation of "which is in front".
+//
+// The walls do not go in that list. They are already sorted -- baked once per
+// level into one `Path2D` per depth row, `d = tx + ty` -- so the frame's work is a
+// **merge**: walk the sorted item list, and before each item flush every band that
+// stands in front of it.
+
+const ITEM_BODY = 0;
+const ITEM_CORPSE = 1;
+const ITEM_SHOT = 2;
+
+/**
+ * The frame's drawable things, in one pooled list.
+ *
+ * **Pooled exactly like the parse rows, and for the same reason** -- see the
+ * parse pool's block comment: nothing on this page allocates once it is running,
+ * and a fresh array of fresh `{kind, ref, depth}` objects sixty times a second is
+ * a GC sawtooth built into the render path. `drawItems` only ever grows, and only
+ * when a frame carries more rows than any frame before it has, which the caps
+ * bound at `MAX_UNITS` bodies plus `MAX_SHOTS` arrows plus however many corpses
+ * can be laid down inside `CORPSE_MS`.
+ *
+ * `drawCount` is the live length. The slots past it hold last frame's references
+ * and are never read: `pushItem` overwrites all three fields of a slot before
+ * anything can look at it.
+ */
+const drawItems = [];
+let drawCount = 0;
+
+function resetDrawList() {
+  drawCount = 0;
+}
+
+function pushItem(kind, ref, depth) {
+  while (drawItems.length <= drawCount) drawItems.push({ kind: 0, ref: null, depth: 0 });
+  const it = drawItems[drawCount++];
+  it.kind = kind;
+  it.ref = ref;
+  it.depth = depth;
+}
+
+/**
+ * The depth of the point a body will actually be **painted** at.
+ *
+ * **The sort key has to be the depth of the thing on screen, because the merge
+ * walk is a painter's algorithm and a painter sorts what it paints.** That is the
+ * rule rather than the special case below, and it is worth stating as one: the day
+ * any part of a body stops being drawn at its live ground point, this is the
+ * function that has to be told. `iso-05` stands these up as billboards and will
+ * come straight back here.
+ *
+ * Today the two come apart in exactly one place, and that is a ghost. `drawBody`
+ * paints an unseen body at the frozen pose out of `bodies` rather than at its live
+ * row -- drawing the live row would be a wallhack with a fade on it -- so
+ * `unit.x + unit.y` would sort a ghost at coordinates nothing on screen is
+ * standing on. Top-down that cost nothing, because nothing was sorted at all.
+ * Under iso a Skitterer that steps behind rock and keeps running north has its
+ * outline painted at the corridor mouth and sorted at the far-north depth, so every
+ * wall band between the two flushes before it and the ghost comes out cut in half
+ * by a block it is plainly standing south of; send it south instead and the ghost
+ * floats over a block it is behind. Bounded by the `GHOST_FADE_MS + GHOST_HOLD_MS`
+ * a pose survives, and plainly visible for every millisecond of it.
+ *
+ * **No ghost-staging logic here, deliberately.** This never asks whether the ghost
+ * has expired, and it must not learn to: a body past `GHOST_HOLD_MS`, and a body
+ * the character has never seen at all, draw nothing whatever, so their depth
+ * decides nothing and falling back to the live coordinates is harmless. One copy
+ * of the staging, in `drawBody`, is what keeps the two answers from drifting.
+ *
+ * `bodies` is a `Map` and `get` allocates nothing, so this keeps the frame's
+ * no-allocation rule intact.
+ */
+function bodyDepth(unit) {
+  if (canSee(unit)) return unit.x + unit.y;
+  const remembered = bodies.get(unit.id);
+  return remembered ? remembered.x + remembered.y : unit.x + unit.y;
+}
+
+/**
+ * Everything that stands on the floor this frame, unsorted.
+ *
+ * **The same set the top-down arm draws, and no more.** Corpses, the monsters, the
+ * hero, the arrows. It is `state.monsters` and `state.hero` rather than
+ * `state.units` on purpose, exactly as the arm it replaces: `parseFrame` files
+ * only the *first* hero-faction row as `state.hero`, so a second one is in `units`
+ * and in neither of these -- and it is not drawn today either. Changing that set
+ * is not this session's business.
+ *
+ * The corpse test is `age < CORPSE_MS`, which is `drawCorpse`'s own `t >= 1` skip
+ * with the division taken off both sides. It is a *filter*, not a contract: both
+ * of `drawCorpse`'s skips are still inside `drawCorpse`, so the worst this can be
+ * wrong by is one item pushed that draws nothing.
+ *
+ * The hero goes in like anything else. See `drawHeroThrough` for why that is safe
+ * and what replaces the rule it breaks.
+ *
+ * A body's depth comes from `bodyDepth` rather than from its live row, because an
+ * unseen one is drawn at a remembered pose and the sort has to agree with the
+ * paint. A corpse and an arrow are each drawn exactly where they say they are, so
+ * for those two the live coordinates *are* the answer.
+ *
+ * **Nothing here is culled against the window, and nothing needs to be.** The wall
+ * bands are, because a band is a diagonal across the whole room and there are
+ * `cols + rows - 1` of them; a body is one draw call and the list is bounded by
+ * `MAX_UNITS` at 64 plus `MAX_SHOTS` at 32 plus the corpses. `canSee` already
+ * skips the ones the character cannot see, in `drawBody`, and an off-screen draw
+ * call is a clipped no-op in the rasteriser. Culling here would buy a hundred
+ * comparisons and cost a screen-bounds test that has to agree with the camera.
+ */
+function buildDrawList(state) {
+  resetDrawList();
+  for (const c of corpses) if (c.age < CORPSE_MS) pushItem(ITEM_CORPSE, c, c.x + c.y);
+  for (const unit of state.monsters) pushItem(ITEM_BODY, unit, bodyDepth(unit));
+  if (state.hero) pushItem(ITEM_BODY, state.hero, bodyDepth(state.hero));
+  for (const shot of state.shots) pushItem(ITEM_SHOT, shot, shot.x + shot.y);
+}
+
+/**
+ * Insertion sort, ascending by depth.
+ *
+ * **Not `Array.prototype.sort`, and that is a measurement rather than a taste.**
+ * V8's sort is TimSort, which allocates a work array above about 22 elements, and
+ * this list runs to a hundred in a full room -- so the one call would put a
+ * kilobyte of garbage per frame into a render path whose entire discipline is that
+ * it allocates nothing.
+ *
+ * Insertion sort is also the *right* algorithm for this input, not merely the
+ * allocation-free one: the list is near-sorted every single frame, because bodies
+ * move by fractions of a world unit between frames and the build order is already
+ * roughly depth order. Insertion sort is O(n) on a nearly sorted list and pays
+ * its O(n^2) only on the frame after a teleport.
+ *
+ * **Permuting the pool is safe.** The slots are interchangeable containers; every
+ * one of them has all three of its fields overwritten by `pushItem` before
+ * anything reads it, so it does not matter which slot a given frame's item lands
+ * in or which one it landed in last frame.
+ */
+function sortDrawList() {
+  for (let i = 1; i < drawCount; i++) {
+    const it = drawItems[i];
+    const d = it.depth;
+    let j = i - 1;
+    while (j >= 0 && drawItems[j].depth > d) {
+      drawItems[j + 1] = drawItems[j];
+      j--;
+    }
+    drawItems[j + 1] = it;
+  }
+}
+
+/** One depth row of lit rock: the tops, then the sides. Both are `null` for a band
+ *  the bake never wrote to -- a band that crosses only open floor, or only rock the
+ *  character has never seen -- and `side` can be an empty path where every block on
+ *  the band is interior. Two fills a band, and the room fills two dozen bands. */
+function fillBand(d) {
+  const top = levelPaths.wallBandTop[d];
+  if (top !== null) {
+    ctx.fillStyle = WALL_TOP;
+    ctx.fill(top);
+  }
+  const side = levelPaths.wallBandSide[d];
+  if (side !== null) {
+    ctx.fillStyle = WALL_XFACE;
+    ctx.fill(side);
+  }
+}
+
+function drawItem(it, now) {
+  if (it.kind === ITEM_BODY) drawBody(it.ref, now);
+  else if (it.kind === ITEM_CORPSE) drawCorpse(it.ref);
+  else drawShot(it.ref);
+}
+
+/**
+ * The merge walk: the sorted items and the sorted bands, in one pass.
+ *
+ * **A wall block at band `d` occludes anything whose ground point is behind its
+ * near plane.** The near plane is the block's south corner, at world
+ * `wx + wy = (d + 2) * tile`: the tile spans `[tx*T, (tx+1)*T]` on each axis, so
+ * its largest `wx + wy` is `(tx + 1 + ty + 1) * T`. That value is the band's sort
+ * key, and the rule is then uniform with the items' own -- flush the band before
+ * the first item that stands at or in front of it, which leaves everything behind
+ * it already painted and therefore covered.
+ *
+ * With a block at `(tx, ty)`, `d = tx + ty`, and a body standing on the middle of
+ * an adjacent tile:
+ *
+ * | body position | body depth | `(d+2)*T <= depth`? | result |
+ * |---|---|---|---|
+ * | tile **south** of the wall | `(d+2)*T` | true  | band fills first -> body over the wall, and it is nearer |
+ * | tile **north** of the wall | `d*T`     | false | body first, band after -> the wall occludes it |
+ * | tile **east**  of the wall | `(d+2)*T` | true  | band first -> body over the wall |
+ *
+ * That table is the argument for the whole session; the code below is four lines
+ * of it.
+ *
+ * **`(d + 2) * tile` and not `d + 2`.** The plan wrote the bare comparison, which
+ * is right only while a tile is one world unit. It is, today -- and
+ * `map_tile_size_milli` exists in the module precisely so that the page does not
+ * bake that in, with a comment saying a client that gets it wrong draws the whole
+ * level at the wrong scale while every test still passes. So the band's key is
+ * converted into the world rather than the depth key into tiles, which also keeps
+ * `depth` meaning exactly `wx + wy` -- the thing `projY` depends on, and the thing
+ * every comment here reasons about.
+ *
+ * **Ties keep build order, because the sort is stable**, so two things standing on
+ * the same ground point come out corpse, body, arrow -- which is the order the
+ * top-down arm draws them in, and it is what keeps "arrows over the bodies, so one
+ * crossing a fight is not hidden by it" true here as well.
+ */
+function walkDrawList(now, origin) {
+  // **The visible band range in two divisions.** Band `d` spans screen y
+  // `[d*w/2 - L, (d+2)*w/2]`: `projY` depends only on `wx + wy`, so every tile on
+  // the band has its north corner at exactly `d*w/2` and its south corner at
+  // `(d+2)*w/2`, and the lifted top face is that same interval raised by `L`. So
+  // the band intersects the window iff `(d+2)*w/2 >= yTop` and `d*w/2 - L <= yBot`,
+  // which is `d >= 2*yTop/w - 2` and `d <= 2*(yBot + L)/w`.
+  //
+  // `floor` on the first and `ceil` on the second, so each rounds *outward*: the
+  // range can include a band that turns out to be off screen, and can never drop
+  // one that is on it. At default framing that is about two dozen bands and four
+  // dozen fills a frame, which the measurements say is nothing.
+  //
+  // **Reads the bake, like `drawLevel`.** `bandCount` is zero for a top-down bake,
+  // and a frame that reached here with one is a stale bake the loop's
+  // `levelPaths.proj` guard did not catch. The guard below makes that bodies in
+  // depth order over no walls, rather than a division by a zero band width.
+  //
+  // All four numbers come out of the bake and none is re-derived here. `bandL` is
+  // the one that had to be added for it: `lift(WALL_H)` off the live `scale` is
+  // equal to the baked one on every frame that can exist, but the paragraph above
+  // reasons about the height the *bands were baked at*, and a value that has to
+  // match the bake should be read from it rather than recomputed and argued about.
+  let band = 0;
+  let lastBand = -1;
+  if (levelPaths.bandCount > 0) {
+    const w = levelPaths.bandW;
+    const L = levelPaths.bandL;
+    const hi = levelPaths.bandCount - 1;
+    const yTop = -origin.y;
+    const yBot = -origin.y + viewport.h;
+    band = clamp(Math.floor((2 * yTop) / w) - 2, 0, hi);
+    lastBand = clamp(Math.ceil((2 * (yBot + L)) / w), 0, hi);
+  }
+  const tile = levelPaths.bandTile;
+
+  // One `save`/`restore` for the whole walk, not one per band: `fillBand` leaves a
+  // `fillStyle` behind and every item draw saves and restores its own state, so
+  // this is the only place the walk could leak into the overlay layer below it.
+  //
+  // **`globalAlpha` is set here and not assumed.** The lines `fillBand` replaced
+  // stated it, inside `drawLevel`'s own save; `fillBand` fills at whatever the
+  // ambient alpha happens to be, and every caller today leaves it at 1. Setting it
+  // inside this save makes that a local invariant rather than a file-wide one --
+  // the walls are lit rock and are meant to be opaque, and nothing above this
+  // should be able to make them not.
+  ctx.save();
+  ctx.globalAlpha = 1;
+  for (let i = 0; i < drawCount; i++) {
+    const it = drawItems[i];
+    while (band <= lastBand && (band + 2) * tile <= it.depth) fillBand(band++);
+    drawItem(it, now);
+  }
+  // Whatever is left of the visible range stands in front of every item there was.
+  while (band <= lastBand) fillBand(band++);
+  ctx.restore();
+}
+
+/** The hero's collision ring, over the whole scene. Built once from the skin so
+ *  the outline and the body cannot disagree about what "hero" is coloured, and so
+ *  the frame does not build a string to say it. */
+const HERO_THROUGH = `rgba(${HERO_SKIN.glow},0.55)`;
+
+/**
+ * The hero, read through whatever is standing in front of it.
+ *
+ * **This is the successor to "the hero draws last", and it is a replacement rather
+ * than a weakening.** The old rule said monsters first and then the hero, so that
+ * the character you are commanding could never end up underneath the thing
+ * attacking it. Under iso that rule cannot be kept without lying about geometry:
+ * a hero standing north of a wall block *is* behind it, and drawing it in front
+ * would make the room's depth mean nothing exactly when the player is relying on
+ * it. So the hero is depth-sorted like everything else, and the old rule's
+ * *intent* -- that you can always see what you are commanding -- is carried by
+ * this instead. The hero is never in front of everything, and it is never
+ * *invisible*.
+ *
+ * One stroke of one small closed path, unconditional. Where nothing covers the
+ * hero it sits exactly on its own collision circle and reads as a slightly
+ * brighter rim; where a monster or a wall covers it, it reads through. Strokes are
+ * the scarce resource on this page and this is one un-dashed circle of a body's
+ * radius, which is the cheapest possible thing that could do the job.
+ *
+ * A screen-space circle and not a ground ellipse, because that is what the body
+ * under it is this session: bodies are still flat top-down silhouettes here, on
+ * purpose, and this outline follows whatever `drawCharacter` draws. Both stand up
+ * together in `iso-05`, where this becomes the billboard's outline.
+ *
+ * **No depth bias on the hero, now or later without reading this.** Giving it
+ * `depth + 0.35` so it wins near-ties breaks the merge walk's monotonicity: the
+ * band cursor has already advanced past a band that a later, shallower item still
+ * needs drawn before it, and the cursor cannot go back. The symptom is one frame
+ * of flicker as a body crosses a band boundary, which is miserable to chase. If
+ * the knob is ever wanted it belongs in `iso-07` §4, with its artefact stated.
+ */
+function drawHeroThrough(hero) {
+  const r = px(hero.radius);
+  if (!(r > 0)) return;
+  ctx.save();
+  ctx.strokeStyle = HERO_THROUGH;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(projX(hero.x, hero.y), projY(hero.x, hero.y), r, 0, TAU);
+  ctx.stroke();
+  ctx.restore();
+}
+
 function render(state, now, arrived) {
   // The camera, and the only place it is applied. Every draw below is written
   // in world-scaled space with the origin at the room's corner -- `px` is a
@@ -6854,11 +7348,19 @@ function render(state, now, arrived) {
   const origin = viewOrigin();
   ctx.translate(origin.x, origin.y);
 
-  // The compositing order, and it is the map of the whole layer:
+  // The compositing order, and it is the map of the whole layer. Three layers
+  // under iso, and the middle one collapses to a flat list top-down:
   //
-  //   ground -> the way out -> trail -> route -> destination -> vision discs
-  //          -> corpses -> reach rings -> monsters -> hero -> arrows
-  //          -> health bars -> floaters -> callouts
+  //   GROUND LAYER   (no depth; today's painter order)
+  //     level          floor passes, lantern, remembered walls, grid
+  //     the way out -> trail -> route -> destination -> vision discs
+  //   DEPTH LAYER
+  //     iso            lit wall bands  x  { corpses, monsters, hero, arrows }
+  //     top-down       corpses -> reach rings -> monsters -> hero -> arrows,
+  //                    with the walls already down inside the level
+  //   OVERLAY LAYER  (screen space)
+  //     hero outline   iso only
+  //     health bars -> floaters -> callouts
   //
   // Three of those placements are load-bearing. **Vision goes under the
   // bodies**, because a disc drawn over one would put a wash of faction colour
@@ -6867,6 +7369,15 @@ function render(state, now, arrived) {
   // bodies, because a number you cannot read is not a number. And **the way out
   // is on the ground**, under the trail and everything else -- it is a place,
   // not a marker.
+  //
+  // **What used to be a fourth load-bearing rule was "monsters first, then the
+  // hero", and it could not survive the depth layer.** Its successor is
+  // `drawHeroThrough`, which carries the argument in full: the hero is
+  // depth-sorted like everything else and is never *invisible*, because it gets an
+  // outline pass over the whole scene after the depth walk. What the old rule was
+  // protecting -- that you can always see what you are commanding -- is what
+  // survives, and what it was asserting, that the hero is in front of the room,
+  // is what an isometric room cannot be told.
   //
   // What used to sit second here was the reachable box: the arena inset by one
   // body radius. It went with the rectangle it described. The honest successor
@@ -6906,18 +7417,55 @@ function render(state, now, arrived) {
   for (const unit of state.units) {
     if (canSee(unit)) drawVision(unit, unit === state.hero || (locked !== null && unit.id === locked));
   }
-  drawCorpses();
+  // **One branch, and everything that differs between the two projections is
+  // inside it.** Above this line and below it, both modes run the same calls in
+  // the same order.
+  //
+  // **Gated on `PROJ.upright` and never on `artOn()`.** They are the same bit
+  // today, because art is on in exactly the one mode that is isometric, and they
+  // stop being the day a fourth view mode exists -- see the `PROJ_TOPDOWN` table
+  // for why the projection has its own column. This is the single easiest mistake
+  // to make in this conversion.
+  //
+  // **The reach-ring loop is written twice and that is deliberate.** Under iso it
+  // has to come before the depth walk, because a reach ring is a flat ground decal
+  // and every ground decal now precedes the walls -- which is *more* correct than
+  // hoisting it would be: a ring that runs onto rock should be hidden by the rock.
+  // Top-down it has to stay exactly where it is, between the corpses and the
+  // bodies, or `Tactical` and `Dev` stop being byte-identical: today a reach ring
+  // is painted over a corpse and hoisting the loop would put it under one. Under
+  // top-down the walls are drawn inside `drawLevel` before anything else, so
+  // "ground decals precede the walls" is already true there and there is nothing
+  // to gain by moving it. Two copies of one line is the honest cost of keeping the
+  // A/B control intact, and the control is worth more than the line.
+  if (PROJ.upright) {
+    for (const unit of state.units) {
+      if (canSee(unit)) drawReach(unit, skinOf(unit), now);
+    }
+    // The whole depth layer: build, sort, merge with the wall bands. Bodies go
+    // through `drawBody`, which is where "or the memory of one" lives.
+    buildDrawList(state);
+    sortDrawList();
+    walkDrawList(now, origin);
+    // Over the walk and under the health bars. The successor to "the hero draws
+    // last" -- `drawHeroThrough` has the argument.
+    if (state.hero && canSee(state.hero)) drawHeroThrough(state.hero);
+  } else {
+    // Today's lines, verbatim, and they are the A/B control for the whole
+    // conversion. Do not tidy them toward the arm above.
+    drawCorpses();
 
-  for (const unit of state.units) {
-    if (canSee(unit)) drawReach(unit, skinOf(unit), now);
+    for (const unit of state.units) {
+      if (canSee(unit)) drawReach(unit, skinOf(unit), now);
+    }
+    // Monsters first, then the hero: the character you are commanding must never
+    // end up underneath the thing attacking it. Through `drawBody`, which is where
+    // "or the memory of one" lives.
+    for (const unit of state.monsters) drawBody(unit, now);
+    if (state.hero) drawBody(state.hero, now);
+    // Arrows over the bodies, so one crossing a fight is not hidden by it.
+    drawShots(state.shots);
   }
-  // Monsters first, then the hero: the character you are commanding must never
-  // end up underneath the thing attacking it. Through `drawBody`, which is where
-  // "or the memory of one" lives.
-  for (const unit of state.monsters) drawBody(unit, now);
-  if (state.hero) drawBody(state.hero, now);
-  // Arrows over the bodies, so one crossing a fight is not hidden by it.
-  drawShots(state.shots);
 
   const fighting = state.monsters.length > 0;
   for (const unit of state.units) {
@@ -8085,6 +8633,11 @@ function stampText(at) {
  * Every row, including the one not selected: `PROJ_ISO` is unreachable in this
  * session and this is the only thing that will notice if it stops being right
  * before something starts drawing through it.
+ *
+ * The flag check below is the same idea one layer down. The round trip proves each
+ * matrix against its own inverse and says nothing at all about the two booleans
+ * sitting beside it, which is the half of a projection row that the renderer
+ * branches on.
  */
 function assertProjection() {
   const was = PROJ;
@@ -8102,6 +8655,30 @@ function assertProjection() {
     }
   }
   PROJ = was;
+
+  // **`shear` and `upright` are one bit written twice, and nothing else in the
+  // file checks that they agree.** Three places read the pair and no two of them
+  // read the same member: `rebuildLevelPaths` decides on `shear` whether to band
+  // the lit rock, `render` gates the depth walk on `upright`, and `drawLevel`
+  // gates on the `proj` id the bake recorded. Today all three agree because both
+  // flags are `false` in one row and `true` in the other.
+  //
+  // A fourth row with `shear: true, upright: false` would bake every lit block
+  // into a band, draw only the remembered pair, and never walk -- so **all lit
+  // rock on the level would simply be missing**, with nothing thrown and nothing
+  // logged. That is the failure class `iso-00` §3 names for `art` and `iso`, one
+  // level down: two bits that are the same bit today and stop being it the day the
+  // table grows a row. A projection that genuinely wants them apart has to make
+  // the bake and the walk read one bit first; until it does, this says so at boot.
+  //
+  // Over `PROJECTIONS` rather than the pair above, so a fourth row is checked by
+  // being added to the table and not by remembering to come back here.
+  for (const p of Object.values(PROJECTIONS)) {
+    console.assert(
+      p.shear === p.upright,
+      `projection ${p.id} has shear ${p.shear} and upright ${p.upright}: the wall bake reads one and the depth walk reads the other`
+    );
+  }
 }
 
 async function boot() {
