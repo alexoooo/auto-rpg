@@ -2138,34 +2138,58 @@ function resize() {
 // ------------------------------------------------------------------- camera
 
 /**
- * The arena's screen-space bounding box, pre-pan, in CSS pixels.
+ * The screen-space bounding box of the arena's *ground*, pre-pan, in CSS pixels.
+ * Filled into the caller's object, so the one caller that runs per frame can hand
+ * it a hoisted one and the one that runs per level rebuild can hand it a fresh one.
+ *
+ * Under iso the room is a rhombus and the box is its four corners: world `(A, 0)`
+ * is the east corner and world `(0, B)` the west, so the screen span is
+ * `[-B, A] * scale`; world `(A, B)` is the south corner at `(A + B)/2 * scale`;
+ * and world `(0, 0)` is the north corner, at screen `y = 0` exactly.
+ *
+ * **There are two boxes on this page and they differ in exactly one term.** This
+ * is the ground box -- the floor and nothing else -- and it is what `levelPaths`
+ * bakes, what `drawLevel` clamps its fills against and what the vignette is
+ * centred on. `arenaBox` below is the camera box: the same rectangle with `y0`
+ * pushed up by `lift(WALL_H)`, because rock standing on the northern boundary
+ * reaches above world `y = 0` and the camera has to be allowed to look at it.
+ * Deriving one from the other is deliberate -- written out twice they would drift,
+ * and the drift would show up as a vignette that is off-centre by half a wall.
+ */
+function groundBox(out) {
+  const A = arena.x;
+  const B = arena.y;
+  if (PROJ.shear) {
+    out.x0 = -B * scale; // the west corner,  world (0, B)
+    out.x1 = A * scale; // the east corner,  world (A, 0)
+    out.y0 = 0; // the north corner, world (0, 0)
+    out.y1 = ((A + B) * scale) / 2; // the south corner, world (A, B)
+  } else {
+    out.x0 = 0;
+    out.y0 = 0;
+    out.x1 = A * scale;
+    out.y1 = B * scale;
+  }
+  return out;
+}
+
+/**
+ * The arena's screen-space bounding box for the *camera*, pre-pan, in CSS pixels.
  *
  * Hoisted and mutated rather than returned fresh: `cameraTarget` runs every
  * frame and this file allocates nothing per frame.
  *
- * Under iso the room is a rhombus, and the box is its corners: world `(A, 0)` is
- * the east corner and world `(0, B)` the west, so the screen span is
- * `[-B, A] * scale`; world `(A, B)` is the south corner at `(A + B)/2 * scale`;
- * and the north corner is world `(0, 0)` at screen `y = 0`, less `lift(WALL_H)`
- * because the rock standing on the boundary reaches above it.
+ * The ground box, less the wall height off the top -- and only under iso, where
+ * height means anything at all. Top-down walls are flat tiles inside the arena
+ * rect, so subtracting `lift(WALL_H)` there would let the camera drift a wall's
+ * worth of void past the north edge for no rock to fill it with.
  */
 const ARENA_BOX = { x0: 0, y0: 0, x1: 0, y1: 0 };
 
 function arenaBox() {
-  const A = arena.x;
-  const B = arena.y;
-  if (PROJ.shear) {
-    ARENA_BOX.x0 = -B * scale; // the west corner,  world (0, B)
-    ARENA_BOX.x1 = A * scale; // the east corner,  world (A, 0)
-    ARENA_BOX.y0 = -lift(WALL_H); // rock stands above world y = 0
-    ARENA_BOX.y1 = ((A + B) * scale) / 2; // the south corner, world (A, B)
-  } else {
-    ARENA_BOX.x0 = 0;
-    ARENA_BOX.y0 = 0;
-    ARENA_BOX.x1 = A * scale;
-    ARENA_BOX.y1 = B * scale;
-  }
-  return ARENA_BOX;
+  const box = groundBox(ARENA_BOX);
+  if (PROJ.shear) box.y0 -= lift(WALL_H);
+  return box;
 }
 
 /**
@@ -2966,9 +2990,16 @@ function updateControlButtons() {
  * `proj` is a column of its own and **`art` is not allowed to stand in for it**,
  * even though the two agree in every row today: art is on in exactly one mode and
  * that is the mode going isometric, so the bits are indistinguishable right now
- * and would stop being the day somebody wants a fourth. Every row says
- * `"topdown"` in this session -- the projection seam exists before anything looks
- * through it, so that a sign error is caught with nothing on screen to hide it.
+ * and would stop being the day somebody wants a fourth. The seam was built with
+ * every row still saying `"topdown"`, so that a sign error in the matrix was
+ * caught with nothing on screen to hide it; `regular` is the row that then turned.
+ *
+ * **`tactical` and `dev` stay top-down on purpose, and not because nobody got to
+ * them.** They are the A/B control for the whole conversion: one keypress puts the
+ * same room, the same frame and the same camera under the old matrix, so "is this
+ * the projection or is this a bug" is a question with an answer rather than an
+ * argument. Every top-down arm added from here on is the code it replaced,
+ * verbatim, for exactly that reason.
  *
  * The hint lives in the row for the reason `CONTROL_TOGGLES` keeps its two
  * sentences: a label on screen and the line under it written in two different
@@ -2981,7 +3012,7 @@ const VIEW_MODES = [
     art: true,
     fog: true,
     dev: false,
-    proj: "topdown",
+    proj: "iso",
     hint: "The room as it looks, lit only where the character can see.",
   },
   {
@@ -4209,6 +4240,39 @@ function roundRect(x, y, w, h, r) {
   ctx.closePath();
 }
 
+/**
+ * One map tile as a 2:1 diamond, appended to `p`. `x, y` is its **north** corner
+ * and `w` is `px(map.tile)` -- which is the diamond's half-width and also its full
+ * height, because 2:1 is what 2:1 means. The subpath is closed, so a fill sees it
+ * as a face and not as an outline.
+ *
+ * The four corners are the tile's four world corners under the projection, with
+ * `w` factored out of every one of them:
+ *
+ *     N (x,     y      )  = world (tx,   ty  )
+ *     E (x + w, y + w/2)  = world (tx+1, ty  )
+ *     S (x,     y + w  )  = world (tx+1, ty+1)
+ *     W (x - w, y + w/2)  = world (tx,   ty+1)
+ *
+ * Check `S` against `projX`/`projY` with `ax, bx = 1, -1` and `ay, by = .5, .5`:
+ * `projX = scale*T*((tx+1) - (ty+1)) = scale*T*(tx - ty) = x`, and
+ * `projY = scale*T*(tx + ty + 2)/2 = y + w`. So the diamond is `2w` across and
+ * `w` tall and the caller never has to call the projection at all -- two
+ * multiplies per tile, which is what keeps a 1,536-tile bake cheap.
+ *
+ * Takes a `Path2D` rather than drawing on `ctx`, unlike `roundRect` above: every
+ * caller is baking geometry that outlives the frame, and the two habits are worth
+ * keeping apart. Lifted faces are `iso-03`'s and they are this same shape with a
+ * height subtracted from `y`.
+ */
+function diamond(p, x, y, w) {
+  p.moveTo(x, y);
+  p.lineTo(x + w, y + w / 2);
+  p.lineTo(x, y + w);
+  p.lineTo(x - w, y + w / 2);
+  p.closePath();
+}
+
 // ---------------------------------------------------------------- the floor
 //
 // One flagstone tile, baked once into an offscreen canvas and repeated. The
@@ -4237,6 +4301,15 @@ const TILE_COLS = 4;
 let floorTile = null;
 let floorPattern = null;
 let floorTileSizeBaked = 0;
+
+/** The pattern's own matrix, hoisted and rewritten in place.
+ *
+ *  The line this replaces built a fresh `DOMMatrix` every frame, which was
+ *  forgivable while it was one uniform scale and is not now that it carries the
+ *  projection: the file allocates nothing per frame anywhere else, and this is
+ *  the moment to stop. `setTransform` reads the six numbers out and keeps
+ *  nothing, so one object serves every frame for the life of the page. */
+const PATTERN_M = new DOMMatrix();
 
 /** How many times the tile has been baked this session. Exists so the claim
  *  "the pattern is cached, not rebuilt per frame" can be *checked* from the
@@ -4341,6 +4414,31 @@ function bakeFloorTile(size) {
  * `setTransform` is the cheap half and it does run per frame: it is what makes
  * one tile cover `TILE_WORLD` world units at *any* zoom, whatever pixel size it
  * happens to have been baked at. Only the bake behind it is bucketed.
+ *
+ * **It also carries the projection**, which is what keeps the masonry lying on the
+ * floor rather than floating over it. `CanvasPattern.setTransform` takes a
+ * `DOMMatrix2DInit` mapping `x' = a*x + c*y + e`, `y' = b*x + d*y + f`, and the
+ * pattern's own space is texels; so `k` converts a texel to world units and the
+ * projection's own four coefficients convert world units to screen. The two
+ * columns of `PROJ` land in the two columns of the matrix, in that order, and the
+ * courses come out as diamonds aligned with the tile grid.
+ *
+ * Under `topdown` this is `a = d = scale * TILE_WORLD / floorTile.width` with
+ * `b = c = 0`, because `ax = by = 1` and `bx = ay = 0` -- which is
+ * `px(TILE_WORLD) / floorTile.width`, the uniform scale this replaced.
+ *
+ * *Algebraically* the same, and to a ULP rather than to the bit: this associates
+ * as `scale * (4 / w)` where the line it replaced associated as `(4 * scale) / w`,
+ * and for the three bucket widths that are not powers of two those round
+ * differently about a third of the time. The gap is 2e-16 relative on a texture
+ * scale, and this arm is unreachable from `[tactical]` and `[dev]` anyway --
+ * `drawLevel` calls this only with the art on. Stated because "exactly" would be
+ * a claim the next person could check and find false.
+ *
+ * `e` and `f` stay zero in both, and that is the load-bearing part: pattern-space
+ * origin is canvas origin is world `(0, 0)`, so the stones stay nailed to the
+ * level instead of crawling under a pan, and the reasoning in `drawLevel` about
+ * clipping moving the fog boundary and nothing else survives verbatim.
  */
 function floorPatternNow() {
   const size = floorTileSize();
@@ -4351,7 +4449,14 @@ function floorPatternNow() {
     floorBakes += 1;
   }
   if (floorPattern) {
-    floorPattern.setTransform(new DOMMatrix().scale(px(TILE_WORLD) / floorTile.width));
+    const k = TILE_WORLD / floorTile.width; // world units per pattern texel
+    PATTERN_M.a = PROJ.ax * scale * k;
+    PATTERN_M.b = PROJ.ay * scale * k;
+    PATTERN_M.c = PROJ.bx * scale * k;
+    PATTERN_M.d = PROJ.by * scale * k;
+    PATTERN_M.e = 0;
+    PATTERN_M.f = 0;
+    floorPattern.setTransform(PATTERN_M);
   }
   return floorPattern;
 }
@@ -4369,8 +4474,16 @@ function floorPatternNow() {
  * `revision` is `map_revision()`, which the module bumps only when the tiles
  * change; `vis` is `vis_revision()`, which it bumps when the character crosses a
  * tile and on a new level. `art` and `fog` are the flags this was baked under,
- * because both of them change what lands in which path. Anything else -- a tick,
- * a click, a slider -- leaves this alone.
+ * because both of them change what lands in which path, and `proj` is the matrix
+ * it was baked under, which changes the shape of every tile in it. Anything else
+ * -- a tick, a click, a slider -- leaves this alone.
+ *
+ * `bbox` is the arena's ground box in the pixels these paths are stated in, baked
+ * here for the same reason the lattice is: it is pure geometry off `arena`,
+ * `scale` and `PROJ`, and this is already the function that re-runs when any of
+ * the three moves. `drawLevel` clamps its two full-arena fills against it and the
+ * vignette is centred on it, so both of them stop needing to know that the arena
+ * used to be an axis-aligned rectangle starting at the origin.
  *
  * `remembered` says whether anything landed in either of the two dim paths, so
  * `drawLevel` can skip the whole remembered pass rather than clip to an empty
@@ -4384,12 +4497,14 @@ let levelPaths = {
   scale: 0,
   art: null,
   fog: null,
+  proj: null,
   floorLit: null,
   floorSeen: null,
   wallLit: null,
   wallSeen: null,
   edge: null,
   grid: null,
+  bbox: null,
   remembered: false,
 };
 
@@ -4423,7 +4538,25 @@ function rebuildLevelPaths(map, revision) {
   // The lit rock faces -- and `null` rather than an empty path with the art off,
   // so `drawLevel` skips the stroke instead of stroking nothing: there is no
   // light in a tactical room for an edge to catch.
-  const edge = art ? new Path2D() : null;
+  //
+  // **`null` under iso as well, and for a happier reason.** The geometry below is
+  // built from axis-aligned tile corners, so under a sheared matrix it would
+  // stroke squares over diamonds -- but it is not waiting to be re-derived. In
+  // `iso-03` a rock tile becomes three flat fills of three different tones, a lit
+  // top face and two shaded sides, and the silhouette *is* the seam where they
+  // meet. The rim comes back for free and this stroke -- the second-largest on the
+  // page -- is simply deleted. The guard at `drawLevel`'s `if (levelPaths.edge)`
+  // already handles a null, so nothing else here has to know.
+  const edge = art && !PROJ.shear ? new Path2D() : null;
+  // Which room this is, read once for the whole bake rather than chased through
+  // `PROJ` on every one of 1,536 tiles. The branches below are then local boolean
+  // tests -- the projection is a decision the bake takes at the top and then only
+  // consults, which is also why there is no second copy of the tile loop: one loop
+  // that knows about two shapes is a great deal easier to keep honest than two
+  // loops that each know about the fog, the exposure test and the dim paths.
+  const iso = PROJ.shear;
+  // Top-down: the side of a tile square. Iso: the ground diamond's half-width,
+  // and also its full height. `diamond` has the derivation.
   const size = px(map.tile);
   // Anything at all in the two dim paths? Written by the tile loop and read by
   // `drawLevel`, which skips its whole remembered pass when nothing is.
@@ -4444,10 +4577,24 @@ function rebuildLevelPaths(map, revision) {
       // void, which is exactly the right picture -- and it is also why nothing
       // below ever has to paint black over anything.
       if (lit === 0) continue;
-      const x = px(tx * map.tile);
-      const y = px(ty * map.tile);
+      // The tile's anchor. Top-down it is the north-*west* corner of a square;
+      // under iso it is the north corner of a diamond, which is `projX`/`projY` of
+      // world `(tx, ty) * map.tile` with `size` factored out of both -- an integer
+      // times `size` either way, so the bake stays two multiplies per tile in both
+      // projections and never calls the projection itself.
+      const x = iso ? (tx - ty) * size : px(tx * map.tile);
+      const y = iso ? ((tx + ty) * size) / 2 : px(ty * map.tile);
       if (!solid(tx, ty)) {
-        (lit === 2 ? floorLit : floorSeen).rect(x, y, size, size);
+        const p = lit === 2 ? floorLit : floorSeen;
+        // Four segments instead of one `rect`, so a 1,536-tile level bakes about
+        // 6k of them -- once per revision, and a fill is still a fill afterwards.
+        //
+        // **No hairline down the seams.** Coincident edges inside a single
+        // `Path2D` are rasterised in one coverage pass, which is the same
+        // guarantee the `rect` tiling beside it has always relied on; it is not a
+        // new promise, only a less obvious one.
+        if (iso) diamond(p, x, y, size);
+        else p.rect(x, y, size, size);
         if (lit !== 2) remembered = true;
         continue;
       }
@@ -4493,7 +4640,14 @@ function rebuildLevelPaths(map, revision) {
         }
       }
       if (exposed) {
-        (lit === 2 ? wallLit : wallSeen).rect(x, y, size, size);
+        // Still flat, and still gated on bordering open ground. Rock gets its
+        // height, its two visible side faces and a different exposure rule in
+        // `iso-03`; this session's whole claim is "the ground is a diamond grid",
+        // and a wall that stood up in the middle of it would be a second change
+        // sharing one acceptance test with the first.
+        const p = lit === 2 ? wallLit : wallSeen;
+        if (iso) diamond(p, x, y, size);
+        else p.rect(x, y, size, size);
         if (lit !== 2) remembered = true;
       }
     }
@@ -4507,16 +4661,42 @@ function rebuildLevelPaths(map, revision) {
   //
   // Baking it does not change *which* clip it is stroked under: `drawLevel`
   // still strokes it once inside each pass, for the reason stated there.
+  //
+  // **The lattice means the same thing in both projections and the loops below say
+  // so**: same spacing, same two families, one line every `TILE_WORLD` units along
+  // each world axis. What changes is only where a world line lands on the glass. A
+  // line at world `x = c` runs from `(c, 0)` to `(c, arena.y)`, and under a sheared
+  // matrix that is a diagonal from one wall to another rather than a vertical from
+  // one edge to the other -- so the iso arm is `projX`/`projY` of the two ends and
+  // nothing else. The result is two families of parallels at +/-26.57 degrees, which
+  // is not merely tolerable but *better*: an isometric scale bar that runs along
+  // the tile grid's own directions is one you can actually count tiles down.
+  //
+  // The `Math.round(...) + 0.5` half-pixel snap is dropped under iso, and only
+  // there. It exists to put a 1px vertical or horizontal stroke on a device pixel
+  // centre instead of straddling two, and a 26.57-degree line straddles two
+  // everywhere along its length whatever you round its endpoints to. The lattice
+  // comes out a hair softer; at `rgba(150,180,230,0.055)` nobody will find it.
   const grid = new Path2D();
   const gw = px(arena.x);
   const gh = px(arena.y);
   for (let x = TILE_WORLD; x < arena.x; x += TILE_WORLD) {
-    grid.moveTo(Math.round(px(x)) + 0.5, 0);
-    grid.lineTo(Math.round(px(x)) + 0.5, gh);
+    if (iso) {
+      grid.moveTo(projX(x, 0), projY(x, 0));
+      grid.lineTo(projX(x, arena.y), projY(x, arena.y));
+    } else {
+      grid.moveTo(Math.round(px(x)) + 0.5, 0);
+      grid.lineTo(Math.round(px(x)) + 0.5, gh);
+    }
   }
   for (let y = TILE_WORLD; y < arena.y; y += TILE_WORLD) {
-    grid.moveTo(0, Math.round(px(y)) + 0.5);
-    grid.lineTo(gw, Math.round(px(y)) + 0.5);
+    if (iso) {
+      grid.moveTo(projX(0, y), projY(0, y));
+      grid.lineTo(projX(arena.x, y), projY(arena.x, y));
+    } else {
+      grid.moveTo(0, Math.round(px(y)) + 0.5);
+      grid.lineTo(gw, Math.round(px(y)) + 0.5);
+    }
   }
 
   levelPaths = {
@@ -4525,12 +4705,19 @@ function rebuildLevelPaths(map, revision) {
     scale,
     art,
     fog,
+    proj: PROJ.id,
     floorLit,
     floorSeen,
     wallLit,
     wallSeen,
     edge,
     grid,
+    // A fresh object rather than the hoisted `ARENA_BOX`, and the exception proves
+    // that rule rather than breaking it: this runs on a revision change, a zoom or
+    // a mode switch, never on a frame, and handing out a reference to the object
+    // `cameraTarget` overwrites sixty times a second is how a baked value stops
+    // being baked.
+    bbox: groundBox({ x0: 0, y0: 0, x1: 0, y1: 0 }),
     remembered,
   };
 }
@@ -4551,28 +4738,62 @@ const LANTERN_INNER = 0.6;
  * The room's own lighting, cached.
  *
  * **A property of the room and not of the camera**, which is the whole reason it
- * is keyed on `(w, h)` -- the arena's pixel extent -- and on nothing else. Built
- * around the *viewport* instead it would slide across the floor as the camera
- * panned, and a light that follows the eye is the one thing a room's lighting
- * must never do. `w` and `h` move only on a resize or a zoom, so this is
- * rebuilt on those and on no other frame; it used to be constructed twice per
- * frame, once inside each pass of the loop below.
+ * is keyed on the arena's own screen box -- `levelPaths.bbox` -- and on nothing
+ * else. Built around the *viewport* instead it would slide across the floor as the
+ * camera panned, and a light that follows the eye is the one thing a room's
+ * lighting must never do. The box moves only on a resize, a zoom or a projection
+ * change, so this is rebuilt on those and on no other frame; it used to be
+ * constructed twice per frame, once inside each pass of the loop below.
+ *
+ * It used to be keyed on `(px(arena.x), px(arena.y))`, which said the same thing
+ * back when the arena's screen box was that rectangle with a corner at the origin.
+ * Under iso it is a rhombus starting at `x = -arena.y * scale`, so the box is
+ * passed rather than re-derived -- and **the box's centre is still the room's
+ * centre**, which is what lets the paragraph above stand unedited. One line of
+ * proof: the room's middle is world `(A/2, B/2)`, and
+ * `projX(A/2, B/2) = (A - B) * scale / 2 = (x0 + x1) / 2`,
+ * `projY(A/2, B/2) = (A + B) * scale / 4 = (y0 + y1) / 2`. Both hold trivially
+ * top-down as well, where the box is `{0, 0, A*scale, B*scale}`.
+ *
+ * The ground box and not `arenaBox()`, deliberately: the camera box has `y0`
+ * pushed up by a wall's height, and centring the room's light half a wall north of
+ * the room is exactly the kind of quarter-truth that reads as "the lighting is
+ * slightly off" and takes an afternoon to name.
+ *
+ * Still a circular gradient over a 2:1 box, so it reads a shade round for the
+ * space. The fix is a `save`/`scale(1, 0.5)`/`restore` around the fill; it is
+ * three lines, it is `iso-07`, and it is worth finding out first whether anybody
+ * notices.
  */
 let vignette = null;
-let vignetteW = 0;
-let vignetteH = 0;
+let vignetteX0 = 0;
+let vignetteY0 = 0;
+let vignetteX1 = 0;
+let vignetteY1 = 0;
 
-function arenaVignette(w, h) {
-  if (vignette && vignetteW === w && vignetteH === h) return vignette;
-  const cx = w / 2;
-  const cy = h / 2;
+function arenaVignette(bb) {
+  if (
+    vignette &&
+    vignetteX0 === bb.x0 &&
+    vignetteY0 === bb.y0 &&
+    vignetteX1 === bb.x1 &&
+    vignetteY1 === bb.y1
+  ) {
+    return vignette;
+  }
+  const w = bb.x1 - bb.x0;
+  const h = bb.y1 - bb.y0;
+  const cx = (bb.x0 + bb.x1) / 2;
+  const cy = (bb.y0 + bb.y1) / 2;
   const built = ctx.createRadialGradient(cx, cy, Math.min(w, h) * 0.16, cx, cy, Math.max(w, h) * 0.62);
   built.addColorStop(0, "rgba(9,11,16,0)");
   built.addColorStop(0.6, "rgba(9,11,16,0.20)");
   built.addColorStop(1, "rgba(9,11,16,0.62)");
   vignette = built;
-  vignetteW = w;
-  vignetteH = h;
+  vignetteX0 = bb.x0;
+  vignetteY0 = bb.y0;
+  vignetteX1 = bb.x1;
+  vignetteY1 = bb.y1;
   return built;
 }
 
@@ -4583,12 +4804,16 @@ const LEVEL_PASSES = [false, true];
 /**
  * The level, as lit stone standing in the dark.
  *
- * The flagstone pattern is unchanged and so is the space it is laid in -- the
- * origin is still the level's corner, so the stones stay nailed to the level
- * rather than swimming under the camera, and **clipping to a smaller region
- * therefore moves the fog boundary and leaves the masonry exactly where it was**.
- * What changed is only *where* it is painted: through the floor paths rather than
- * over a rectangle.
+ * The space the flagstone pattern is laid in is unchanged -- the origin is still
+ * world `(0, 0)`, so the stones stay nailed to the level rather than swimming
+ * under the camera, and **clipping to a smaller region therefore moves the fog
+ * boundary and leaves the masonry exactly where it was**. What changed is only
+ * *where* it is painted: through the floor paths rather than over a rectangle.
+ *
+ * The pattern's own matrix now carries the projection as well as the zoom, which
+ * changes the shape of a course and not its anchor -- `e` and `f` stay zero, so
+ * every sentence above is still true word for word under iso. `floorPatternNow`
+ * has the derivation.
  *
  * Painted back to front: remembered floor, lit floor, remembered rock, lit rock,
  * the lit edges, and the lantern over the top of all of it.
@@ -4600,8 +4825,6 @@ const LEVEL_PASSES = [false, true];
  */
 function drawLevel(state, origin) {
   if (!levelPaths.floorLit) return;
-  const w = px(arena.x);
-  const h = px(arena.y);
   const art = artOn();
   // Asked for once, not once per pass: `floorPatternNow` re-aims the pattern
   // matrix on every call and bakes a new tile if the zoom bucket moved. With the
@@ -4624,10 +4847,28 @@ function drawLevel(state, origin) {
   // never land left of the near one and the rect can never come out inverted --
   // which is the one way a shrunk `fillRect` could paint somewhere the full one
   // did not. A zero-width rect is a no-op, so there is nothing to guard.
-  const clipX = clamp(-origin.x, 0, w);
-  const clipY = clamp(-origin.y, 0, h);
-  const clipW = clamp(-origin.x + viewport.w, 0, w) - clipX;
-  const clipH = clamp(-origin.y + viewport.h, 0, h) - clipY;
+  //
+  // **The bounds are the baked box and no longer `[0, px(arena.x)]`.** Under iso
+  // the arena's screen box is a rhombus's bounding rect starting at
+  // `x = -arena.y * scale`, and a clamp to zero would have chopped the entire
+  // western half of the room out of both composites -- the pattern fill and the
+  // vignette -- leaving a hard vertical line down the middle of the floor.
+  //
+  // The correctness argument above survives the change intact, and it is worth
+  // saying why rather than re-deriving it. It rests on two facts and neither one
+  // is about the projection: `clamp` is monotone, and the interval is the same at
+  // both ends. `-origin.x` is a *screen-space translation* of a box already stated
+  // in screen pixels -- the projection was applied when the box was baked, once,
+  // and what happens here is a subtraction. Subtracting a constant is monotone, so
+  // `near <= far` still implies `clamp(near) <= clamp(far)`, so the rect still
+  // cannot invert. A sheared matrix would have broken this argument if it were
+  // applied *here*; it is not, and the top-level CTM stays translate-only for
+  // exactly this family of reasons.
+  const bb = levelPaths.bbox;
+  const clipX = clamp(-origin.x, bb.x0, bb.x1);
+  const clipY = clamp(-origin.y, bb.y0, bb.y1);
+  const clipW = clamp(-origin.x + viewport.w, bb.x0, bb.x1) - clipX;
+  const clipH = clamp(-origin.y + viewport.h, bb.y0, bb.y1) - clipY;
 
   // Remembered ground, then lit ground, and the only difference between the two
   // passes is the alpha. One body of code for both is what stops the fog boundary
@@ -4649,7 +4890,7 @@ function drawLevel(state, origin) {
       // Lit from the middle. Without this the stone reads as a swatch of texture
       // rather than as somewhere with a light in it. Built once and cached --
       // see `arenaVignette` for why it is keyed on the room and not the window.
-      ctx.fillStyle = arenaVignette(w, h);
+      ctx.fillStyle = arenaVignette(bb);
       ctx.fillRect(clipX, clipY, clipW, clipH);
     }
 
@@ -7158,6 +7399,17 @@ function loop(now) {
     // are load-bearing rather than decorative, and so a future switch that forgets
     // to rebuild is one frame of the wrong picture instead of a level baked under
     // a mode nobody is in.
+    rebuildLevelPaths(readMap(), wasm.map_revision());
+  } else if (levelPaths.proj !== PROJ.id) {
+    // The same belt and the same braces, on the matrix. `setViewMode` writes
+    // `PROJ` and then rebuilds, and the `scale` arm above would very likely catch
+    // a projection change anyway -- `fit` is projection-dependent, so the zoom
+    // usually moves with it. **Usually is not a guarantee**, and the failure it
+    // guards is the nastiest of the four: a stale projection leaves the *shape* of
+    // every baked tile wrong while the level, the fog and the zoom are all right,
+    // which is a bug that looks like a broken matrix rather than a missed
+    // invalidation. Recording `proj` and then not checking it would be worse than
+    // not recording it.
     rebuildLevelPaths(readMap(), wasm.map_revision());
   }
   perfClose("level");
