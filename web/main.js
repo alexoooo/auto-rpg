@@ -1832,6 +1832,65 @@ let zoom = 1; // the player's wheel adjustment, re-clamped on every resize
 let cam = { x: 12, y: 8 }; // the centre of the view, in world units
 let scale = 1; // CSS pixels per world unit
 
+/** How world coordinates become screen coordinates.
+ *
+ *  Six coefficients rather than a branch, because the alternative is `if (iso)`
+ *  at forty call sites. The forward map is
+ *
+ *      sx = (ax*wx + bx*wy) * scale
+ *      sy = (ay*wx + by*wy) * scale
+ *
+ *  and the inverse is its 2x2 inverse with the `scale` divided back out.
+ *
+ *  **`proj` is its own column in `VIEW_MODES` and `artOn()` never stands in for
+ *  it.** Art is on in exactly one mode today and that is the mode going
+ *  isometric, so the two bits are indistinguishable right now and will stop
+ *  being the day a fourth mode exists. */
+const PROJ_TOPDOWN = {
+  id: "topdown",
+  ax: 1, bx: 0,
+  ay: 0, by: 1,
+  ix: 1, jx: 0,
+  iy: 0, jy: 1,
+  ex: 1, ey: 1,        // a world circle of radius r -> ellipse (r*scale*ex, r*scale*ey)
+  shear: false,        // `groundSpace` is a bare translate
+  upright: false,      // bodies lie flat
+};
+
+/** Classic 2:1 isometric. `K = scale`, so `det = scale^2` -- the visible floor
+ *  area and therefore `VIEW_UNITS_Y`'s meaning are preserved exactly, the vision
+ *  disc's fill cost does not move, and a world unit of height is `px(1)`.
+ *
+ *  Inverse: A = scale*[[1,-1],[0.5,0.5]], det A = scale^2,
+ *           A^-1 = (1/scale)*[[0.5, 1],[-0.5, 1]].
+ *  Round trip: (1,0) -> (scale, scale/2) -> (1, 0); (0,1) -> (-scale, scale/2) -> (0, 1). */
+const PROJ_ISO = {
+  id: "iso",
+  ax: 1,   bx: -1,
+  ay: 0.5, by: 0.5,
+  ix: 0.5,  jx: 1,
+  iy: -0.5, jy: 1,
+  ex: Math.SQRT2,      // 1.4142135623730951
+  ey: Math.SQRT1_2,    // 0.7071067811865476, exactly ex/2
+  shear: true,
+  upright: true,
+};
+
+/** Which one is live. Written only by `setViewMode`. */
+let PROJ = PROJ_TOPDOWN;
+
+/** How tall a wall block stands, in world units.
+ *
+ *  A block is a cube whose vertical edge is `lift(WALL_H)`. Because the ground
+ *  diamond's half-width is `px(1)` and `lift === px`, `WALL_H = 1.0` would be a
+ *  literal cube.
+ *
+ *  1.6 is chest-high on a Fighter: tall enough that the depth interleave in
+ *  `iso-04` is legible at a glance, short enough that a fight happening behind a
+ *  wall is not simply gone. Tune by eye -- it is presentation only and the sim
+ *  has no opinion about it. */
+const WALL_H = 1.6;
+
 /**
  * The obstructed edges of the canvas, in CSS pixels.
  *
@@ -2004,6 +2063,27 @@ function die(title, body, err) {
 
 // ------------------------------------------------------------------- sizing
 
+/**
+ * The arena's screen extent in multiples of `scale`.
+ *
+ *   topdown: { w: A,     h: B }
+ *   iso:     { w: A + B, h: (A + B) / 2 + WALL_H }
+ *
+ * Iso is wider and shorter for the reason a diamond is: the room's two world
+ * axes both run east, so the width is their sum, and both run south at half
+ * rate, so the height is half their sum. `WALL_H` is added because the rock on
+ * the northern boundary stands *above* world `y = 0` and a `fit` that ignored it
+ * would crop the top row of blocks off the zoomed-out view.
+ *
+ * A fresh object per call and not a hoisted one, unlike `ARENA_BOX`: this runs
+ * from `resize`, which is a rail transition and a window drag, not a frame.
+ */
+function arenaSpan() {
+  const A = arena.x;
+  const B = arena.y;
+  return PROJ.shear ? { w: A + B, h: (A + B) / 2 + WALL_H } : { w: A, h: B };
+}
+
 function resize() {
   // Before the framing, not after: every number below is derived from the safe
   // rect now, and the safe rect is a measurement of the rails.
@@ -2020,12 +2100,19 @@ function resize() {
   // of room visible in the strip that is left, not crop a third of it away.
   // `fit` is the scale at which the whole room is on screen, and it is the
   // zoomed-out limit: past it you would be looking at void for no reason.
-  // `base` is the framing chosen above. `fit` is always below `base` --
-  // min(w/24, h/16) <= h/16 < h/11 whatever the window is and whatever the
-  // rails are doing -- so the bounds cannot cross however the page is dragged
-  // about.
+  // `base` is the framing chosen above, and only `fit` is projection-dependent.
+  //
+  // `fit` is always below `base`, and the argument generalises rather than being
+  // re-run per projection: `fit <= safe.h / span.h` and `base = safe.h /
+  // VIEW_UNITS_Y`, so the bounds cannot cross whenever `span.h > VIEW_UNITS_Y`
+  // -- whatever the window is and whatever the rails are doing. Top-down needs
+  // `B > 11`, which for a 48x32 room is 32 > 11; iso needs `(A + B)/2 + WALL_H >
+  // 11`, which is 41.6 > 11. The invariant is about the room being bigger than
+  // the framing, and a room small enough to break it would be a room that fits
+  // on screen at the chosen zoom, which is not a room this game has.
   const safe = safeRect();
-  const fit = Math.min(safe.w / arena.x, safe.h / arena.y);
+  const span = arenaSpan();
+  const fit = Math.min(safe.w / span.w, safe.h / span.h);
   const base = safe.h / VIEW_UNITS_Y;
   scale = clamp(base * zoom, fit, base * ZOOM_MAX);
   // Writing the clamped value back is load-bearing rather than tidy: without
@@ -2049,6 +2136,37 @@ function resize() {
 }
 
 // ------------------------------------------------------------------- camera
+
+/**
+ * The arena's screen-space bounding box, pre-pan, in CSS pixels.
+ *
+ * Hoisted and mutated rather than returned fresh: `cameraTarget` runs every
+ * frame and this file allocates nothing per frame.
+ *
+ * Under iso the room is a rhombus, and the box is its corners: world `(A, 0)` is
+ * the east corner and world `(0, B)` the west, so the screen span is
+ * `[-B, A] * scale`; world `(A, B)` is the south corner at `(A + B)/2 * scale`;
+ * and the north corner is world `(0, 0)` at screen `y = 0`, less `lift(WALL_H)`
+ * because the rock standing on the boundary reaches above it.
+ */
+const ARENA_BOX = { x0: 0, y0: 0, x1: 0, y1: 0 };
+
+function arenaBox() {
+  const A = arena.x;
+  const B = arena.y;
+  if (PROJ.shear) {
+    ARENA_BOX.x0 = -B * scale; // the west corner,  world (0, B)
+    ARENA_BOX.x1 = A * scale; // the east corner,  world (A, 0)
+    ARENA_BOX.y0 = -lift(WALL_H); // rock stands above world y = 0
+    ARENA_BOX.y1 = ((A + B) * scale) / 2; // the south corner, world (A, B)
+  } else {
+    ARENA_BOX.x0 = 0;
+    ARENA_BOX.y0 = 0;
+    ARENA_BOX.x1 = A * scale;
+    ARENA_BOX.y1 = B * scale;
+  }
+  return ARENA_BOX;
+}
 
 /**
  * Where the camera wants to be: the character, centred in the *safe* rect and
@@ -2075,22 +2193,46 @@ function resize() {
  * unchanged in spirit -- it just measures the room as the walls plus both
  * overscan bands now, so it hands over to the clamp at the point where the
  * clamp still has somewhere to move.
+ *
+ * **The clamp is stated in screen space, and that is the change.** Under iso the
+ * visible world region is a rhombus, so "how far east may the camera be" has no
+ * answer in world `x` alone -- the wall you would run into depends on `y`. There
+ * is no correct per-axis world clamp to write. What there is, in either
+ * projection, is the arena's screen bounding box and a rectangle of glass: so
+ * project the anchor, clamp the pixel, and un-project the result back into the
+ * world units `cam` is stated in. `updateCamera` eases towards it exactly as
+ * before and neither it nor `snapCamera` needs to know any of this happened.
+ *
+ * The two branches collapse into one expression each on the way, and the shape
+ * is "clamp if the interval exists, centre if it does not" -- which is precisely
+ * what the two `halfW * 2 >= arena.x + ...` tests were saying, said once.
+ *
+ * **It degenerates to the old code exactly**, which is worth writing down
+ * because it is the whole licence for the rewrite. Top-down gives
+ * `box = {0, 0, A*scale, B*scale}`, so the x interval is
+ * `[hw - over, A*scale - hw + over]`; divide through by `scale` and it is
+ * `[halfW - OVERSCAN, A - halfW + OVERSCAN]`, the old clamp character for
+ * character. The non-empty test `loX <= hiX` rearranges to
+ * `2*halfW <= A + 2*OVERSCAN`, the negation of the old centre test; and on the
+ * one input where the two disagree about which branch to take -- exact equality
+ * -- the interval has collapsed to the single point `A/2`, which is what the
+ * centre branch returns anyway. Same number, both ways.
  */
 function cameraTarget(state) {
   const anchor = state.hero || cam;
   const safe = safeRect();
-  const halfW = safe.w / scale / 2;
-  const halfH = safe.h / scale / 2;
-  return {
-    x:
-      halfW * 2 >= arena.x + 2 * CAMERA_OVERSCAN
-        ? arena.x / 2
-        : clamp(anchor.x, halfW - CAMERA_OVERSCAN, arena.x - halfW + CAMERA_OVERSCAN),
-    y:
-      halfH * 2 >= arena.y + 2 * CAMERA_OVERSCAN
-        ? arena.y / 2
-        : clamp(anchor.y, halfH - CAMERA_OVERSCAN, arena.y - halfH + CAMERA_OVERSCAN),
-  };
+  const box = arenaBox();
+  const over = CAMERA_OVERSCAN * scale; // world units of permitted void, as pixels
+  const hw = safe.w / 2;
+  const hh = safe.h / 2;
+
+  const loX = box.x0 + hw - over;
+  const hiX = box.x1 - hw + over;
+  const loY = box.y0 + hh - over;
+  const hiY = box.y1 - hh + over;
+  const sx = loX <= hiX ? clamp(projX(anchor.x, anchor.y), loX, hiX) : (box.x0 + box.x1) / 2;
+  const sy = loY <= hiY ? clamp(projY(anchor.x, anchor.y), loY, hiY) : (box.y0 + box.y1) / 2;
+  return { x: unprojX(sx, sy), y: unprojY(sx, sy) };
 }
 
 /** Presentation only, and therefore wall-clock rather than ticks -- the same
@@ -2142,6 +2284,14 @@ function snapCamera(state) {
  * twice -- because a click would then have to invert the *un-snapped* origin
  * while the flagstones were drawn from the snapped one. A quarter pixel is
  * enough by eye, so the invariant stands.
+ *
+ * **The projection goes inside the rounding and the snap survives it untouched.**
+ * `projX`/`projY` turn `cam` into the pixel the camera sits on; everything after
+ * that is a screen-space translation, and a screen-space translation has nothing
+ * to say about which way the world axes run. So the grid stays on its half-pixel
+ * boundaries and the flagstones stay still under an easing camera in either
+ * projection, and `pointerToWorld` still inverts the number that was actually
+ * used.
  */
 function viewOrigin() {
   const safe = safeRect();
@@ -2150,8 +2300,8 @@ function viewOrigin() {
   // of any density.
   const q = dpr * 4;
   return {
-    x: Math.round((safe.x + safe.w / 2 - px(cam.x)) * q) / q,
-    y: Math.round((safe.y + safe.h / 2 - px(cam.y)) * q) / q,
+    x: Math.round((safe.x + safe.w / 2 - projX(cam.x, cam.y)) * q) / q,
+    y: Math.round((safe.y + safe.h / 2 - projY(cam.x, cam.y)) * q) / q,
   };
 }
 
@@ -2165,6 +2315,13 @@ function viewOrigin() {
  * transform and this inverse are one thing written twice, and an inverse wrong
  * by half a rail width puts every click somewhere other than where it was made
  * -- most visibly at the screen edges, which is where the rails are.
+ *
+ * That claim now covers the linear half as well. The translation still comes out
+ * of `viewOrigin()`, and the 2x2 is `unprojX`/`unprojY` reading the same six
+ * coefficients `projX`/`projY` read, so there is still exactly one matrix on the
+ * page and the inverse cannot drift from the forward map without somebody
+ * editing a row of `PROJ_TOPDOWN` on purpose. `assertProjection` at boot is what
+ * catches that row being wrong.
  *
  * `getBoundingClientRect` is CSS pixels -- *not* the DPR-scaled backing store --
  * so this must divide by the rect, never by `canvas.width`. It used to read the
@@ -2180,10 +2337,9 @@ function viewOrigin() {
 function pointerToWorld(event) {
   const rect = canvas.getBoundingClientRect();
   const origin = viewOrigin();
-  return {
-    x: (event.clientX - rect.left - origin.x) / scale,
-    y: (event.clientY - rect.top - origin.y) / scale,
-  };
+  const sx = event.clientX - rect.left - origin.x;
+  const sy = event.clientY - rect.top - origin.y;
+  return { x: unprojX(sx, sy), y: unprojY(sx, sy) };
 }
 
 /** How much slop a click gets around a body, in world units. A body is a small
@@ -2798,12 +2954,21 @@ function updateControlButtons() {
 
 /**
  * The views, as one table: the label, the two booleans every draw call actually
- * reads, whether the tick strip is open, and the sentence pressing it prints.
+ * reads, which projection the room is drawn in, whether the tick strip is open,
+ * and the sentence pressing it prints.
  *
- * Reduced to two booleans the moment it is read. **Keeping the mode itself out
- * of the draw calls is what stops this becoming three renderers** -- every
- * drawing function asks "is the art on" or "is the fog on", never "which mode is
- * this", so a fourth mode later is a row in this table and nothing else.
+ * Reduced to two booleans and a matrix the moment it is read. **Keeping the mode
+ * itself out of the draw calls is what stops this becoming three renderers** --
+ * every drawing function asks "is the art on" or "is the fog on" or reads `PROJ`,
+ * never "which mode is this", so a fourth mode later is a row in this table and
+ * nothing else.
+ *
+ * `proj` is a column of its own and **`art` is not allowed to stand in for it**,
+ * even though the two agree in every row today: art is on in exactly one mode and
+ * that is the mode going isometric, so the bits are indistinguishable right now
+ * and would stop being the day somebody wants a fourth. Every row says
+ * `"topdown"` in this session -- the projection seam exists before anything looks
+ * through it, so that a sign error is caught with nothing on screen to hide it.
  *
  * The hint lives in the row for the reason `CONTROL_TOGGLES` keeps its two
  * sentences: a label on screen and the line under it written in two different
@@ -2816,6 +2981,7 @@ const VIEW_MODES = [
     art: true,
     fog: true,
     dev: false,
+    proj: "topdown",
     hint: "The room as it looks, lit only where the character can see.",
   },
   {
@@ -2824,6 +2990,7 @@ const VIEW_MODES = [
     art: false,
     fog: true,
     dev: false,
+    proj: "topdown",
     hint: "Art off, every readout on -- a disc, a facing wedge, and the same fog.",
   },
   {
@@ -2832,6 +2999,7 @@ const VIEW_MODES = [
     art: false,
     fog: false,
     dev: true,
+    proj: "topdown",
     hint: "No fog at all: every body drawn wherever it is, and the tick strip open.",
   },
 ];
@@ -2854,6 +3022,12 @@ const currentView = () => VIEW_MODES.find((m) => m.id === viewMode) || VIEW_MODE
 const artOn = () => currentView().art;
 const fogOn = () => currentView().fog;
 
+/** The `proj` column resolved to the table `projX` and friends actually read.
+ *  A row names its projection with a string for the same reason it names its
+ *  hint with a sentence: the table is the description, and a row holding a live
+ *  reference to a matrix would be two things that have to be edited together. */
+const PROJECTIONS = { topdown: PROJ_TOPDOWN, iso: PROJ_ISO };
+
 /**
  * Whether the player can see this body.
  *
@@ -2874,7 +3048,9 @@ function canSee(unit) {
  * Shows the room a different way.
  *
  * Everything that has to agree about the mode is written here: the lit segment,
- * the tick strip, the baked paths, and the hint.
+ * the tick strip, the projection, the framing, the camera, the baked paths, and
+ * the hint. **The order of the middle four is load-bearing** and is argued for
+ * where each one stands.
  */
 function setViewMode(id) {
   const mode = VIEW_MODES.find((m) => m.id === id);
@@ -2886,6 +3062,24 @@ function setViewMode(id) {
   // same intent stated once.
   const strip = document.getElementById("dev-strip");
   if (strip) strip.classList.toggle("open", mode.dev);
+
+  // The matrix, before anything reads it. `PROJECTIONS` is indexed rather than
+  // switched on so an unknown string in the table is a top-down room and not a
+  // page of `NaN`.
+  PROJ = PROJECTIONS[mode.proj] || PROJ_TOPDOWN;
+
+  // `fit` is projection-dependent and `Path2D` holds *pixels*, so the scale has
+  // to settle before anything is baked against it. Without this the first frame
+  // after a mode change draws the room at the previous projection's scale.
+  resize();
+
+  // A projection change is a cut, not a pan: the camera's clamp is stated in
+  // screen space, so the same character in the same room wants a different
+  // `cam` under a different matrix, and easing across the difference would read
+  // as the view chasing something that is not there. Same reasoning as the
+  // descent and the restart, and the same call they make.
+  snapCamera(parseFrame(frameView(), SCRATCH_STATE));
+
   // Both flags change what gets baked -- `fog` decides which of the five paths a
   // tile lands in, `art` decides whether the lit rock faces are built at all --
   // so the paths are rebuilt here.
@@ -3945,6 +4139,66 @@ function px(x) {
   return x * scale;
 }
 
+/** World to screen, x and y separately.
+ *
+ *  Two scalar functions and not one point-returning function: a shared out-object
+ *  would alias the moment two projections appear in one expression
+ *  (`moveTo(project(a)); lineTo(project(b))`), and a fresh object per call would
+ *  allocate in the hot path, which this file does not do. Two multiplies and an
+ *  add inline to nothing. Under `topdown` these are literally `wx * scale`. */
+function projX(wx, wy) {
+  return (PROJ.ax * wx + PROJ.bx * wy) * scale;
+}
+
+function projY(wx, wy) {
+  return (PROJ.ay * wx + PROJ.by * wy) * scale;
+}
+
+function unprojX(sx, sy) {
+  return (PROJ.ix * sx + PROJ.jx * sy) / scale;
+}
+
+function unprojY(sx, sy) {
+  return (PROJ.iy * sx + PROJ.jy * sy) / scale;
+}
+
+/** World units of *height* to screen pixels upward.
+ *
+ *  Identical to `px` by construction -- in a 2:1 projection with `K = scale` a
+ *  unit cube's vertical edge is the ground diamond's half-width, which is
+ *  `px(1)`. It exists as its own name so the call sites say which of the two
+ *  things they mean, and so a future non-cube projection has one place to change. */
+function lift(h) {
+  return h * scale;
+}
+
+/** The CTM for anything lying flat on the floor.
+ *
+ *  Its input space is exactly the space `drawLimb`, `drawMarks`, `drawSprint` and
+ *  every decal already work in: screen pixels of top-down world offset from the
+ *  anchor. So converting one of them is a one-line change at the top and nothing
+ *  below it moves.
+ *
+ *  `ctx.transform(a,b,c,d,e,f)` composes x' = a*x + c*y + e, y' = b*x + d*y + f,
+ *  so (1, 0.5, -1, 0.5, 0, 0) maps (px(dx), px(dy)) to
+ *  (scale*(dx-dy), scale*(dx+dy)/2) -- the forward projection's offset, and
+ *  therefore consistent with `projX`/`projY` by construction rather than by
+ *  a second derivation.
+ *
+ *  **det = 1*0.5 - (-1)*0.5 = 1.** The shear is unimodular, so every ground fill
+ *  covers exactly the pixels it covers today. That is the whole reason the
+ *  isometric conversion is not a rasteriser regression, and it is why dash
+ *  patterns keep their measured mark counts: dashing happens in user space and
+ *  is transformed afterwards.
+ *
+ *  Defined and called nowhere yet: the decals move onto it in `iso-06`, one at a
+ *  time, because each one is a behaviour change under iso and this session is the
+ *  one that changes nothing. */
+function groundSpace(wx, wy) {
+  ctx.translate(projX(wx, wy), projY(wx, wy));
+  if (PROJ.shear) ctx.transform(1, 0.5, -1, 0.5, 0, 0);
+}
+
 function roundRect(x, y, w, h, r) {
   ctx.beginPath();
   ctx.moveTo(x + r, y);
@@ -4477,8 +4731,8 @@ function drawLevel(state, origin) {
 function drawLantern(state, x0, y0, w, h) {
   const hero = state.hero;
   if (!fogOn() || !hero || !(hero.sight > 0)) return;
-  const x = px(hero.x);
-  const y = px(hero.y);
+  const x = projX(hero.x, hero.y);
+  const y = projY(hero.x, hero.y);
   const far = px(hero.sight);
   const lamp = ctx.createRadialGradient(x, y, far * LANTERN_INNER, x, y, far);
   lamp.addColorStop(0, "rgba(9,11,16,0)");
@@ -4500,8 +4754,8 @@ function drawLantern(state, x0, y0, w, h) {
  */
 function drawPortal(state, now) {
   if (!state.portalState) return;
-  const x = px(state.portalX);
-  const y = px(state.portalY);
+  const x = projX(state.portalX, state.portalY);
+  const y = projY(state.portalX, state.portalY);
   const r = px(0.9);
   const open = state.portalState === 2;
 
@@ -4551,8 +4805,8 @@ function drawTrail() {
     ctx.strokeStyle = `rgba(110,231,255,${(0.16 * t).toFixed(3)})`;
     ctx.lineWidth = 1 + 2 * t;
     ctx.beginPath();
-    ctx.moveTo(px(trail[i - 1].x), px(trail[i - 1].y));
-    ctx.lineTo(px(trail[i].x), px(trail[i].y));
+    ctx.moveTo(projX(trail[i - 1].x, trail[i - 1].y), projY(trail[i - 1].x, trail[i - 1].y));
+    ctx.lineTo(projX(trail[i].x, trail[i].y), projY(trail[i].x, trail[i].y));
     ctx.stroke();
   }
   ctx.restore();
@@ -4579,8 +4833,8 @@ const ROUTE_MARK = 0.18;
 function drawRoute(state, now) {
   const path = drag ? drag.points : routeDrawn;
   if (!state.hero || path.length < 1) return;
-  const hx = px(state.hero.x);
-  const hy = px(state.hero.y);
+  const hx = projX(state.hero.x, state.hero.y);
+  const hy = projY(state.hero.x, state.hero.y);
 
   ctx.save();
   ctx.lineCap = "round";
@@ -4597,7 +4851,7 @@ function drawRoute(state, now) {
   ctx.lineDashOffset = -((now / 55) % 10);
   ctx.beginPath();
   ctx.moveTo(hx, hy);
-  for (const p of path) ctx.lineTo(px(p.x), px(p.y));
+  for (const p of path) ctx.lineTo(projX(p.x, p.y), projY(p.x, p.y));
   ctx.stroke();
 
   // The leg being walked, over the top of that and solid. One leg is the only
@@ -4609,7 +4863,7 @@ function drawRoute(state, now) {
   ctx.setLineDash([]);
   ctx.beginPath();
   ctx.moveTo(hx, hy);
-  ctx.lineTo(px(path[0].x), px(path[0].y));
+  ctx.lineTo(projX(path[0].x, path[0].y), projY(path[0].x, path[0].y));
   ctx.stroke();
 
   // A bead at every waypoint, and **not at `path[0]` once the module is walking
@@ -4621,7 +4875,7 @@ function drawRoute(state, now) {
   ctx.lineWidth = 1.2;
   for (let i = drag ? 0 : 1; i < path.length; i++) {
     ctx.beginPath();
-    ctx.arc(px(path[i].x), px(path[i].y), px(ROUTE_MARK), 0, TAU);
+    ctx.arc(projX(path[i].x, path[i].y), projY(path[i].x, path[i].y), px(ROUTE_MARK), 0, TAU);
     ctx.stroke();
   }
   ctx.restore();
@@ -4653,8 +4907,8 @@ function drawLock(state, now) {
   // `!== null` and not a truthiness test: `locked` is a packed handle now, and
   // generation 0 of entity slot 0 packs to the number `0`. See `locked`.
   const quarry = locked !== null ? state.units.find((u) => u.id === locked) : null;
-  const x = px(state.orderX);
-  const y = px(state.orderY);
+  const x = projX(state.orderX, state.orderY);
+  const y = projY(state.orderX, state.orderY);
   const beat = (Math.sin(now / 380) + 1) / 2;
   const alpha = orderAcknowledged ? 0.4 + 0.35 * beat : 0.16;
   // Clear of the silhouette rather than on it. The mark is drawn *under* the
@@ -4693,7 +4947,7 @@ function drawLock(state, now) {
   ctx.strokeStyle = `rgba(${MONSTER_SKIN.glow},${(alpha * 0.35).toFixed(3)})`;
   ctx.lineWidth = 1.2;
   ctx.beginPath();
-  ctx.moveTo(px(state.hero.x), px(state.hero.y));
+  ctx.moveTo(projX(state.hero.x, state.hero.y), projY(state.hero.x, state.hero.y));
   ctx.lineTo(x, y);
   ctx.stroke();
   ctx.restore();
@@ -4716,8 +4970,8 @@ function drawDestination(state, now, arrived) {
     return;
   }
   if (state.orderKind !== ORDER_GOTO) return;
-  const x = px(state.orderX);
-  const y = px(state.orderY);
+  const x = projX(state.orderX, state.orderY);
+  const y = projY(state.orderX, state.orderY);
   const beat = (Math.sin(now / 380) + 1) / 2;
   const alpha = orderAcknowledged ? (arrived ? 0.32 : 0.45 + 0.35 * beat) : 0.16;
   const r = px(0.55) + (orderAcknowledged && !arrived ? beat * px(0.18) : 0);
@@ -4863,7 +5117,7 @@ function drawVision(unit, filled) {
   const r = px(unit.sight);
   ctx.save();
   ctx.beginPath();
-  ctx.arc(px(unit.x), px(unit.y), r, 0, TAU);
+  ctx.arc(projX(unit.x, unit.y), projY(unit.x, unit.y), r, 0, TAU);
   if (filled) {
     ctx.fillStyle = `rgba(${skin.wedge},0.032)`;
     ctx.fill();
@@ -4944,7 +5198,7 @@ function drawReach(unit, skin, now) {
   ctx.lineWidth = 1.2;
   ctx.setLineDash(arcDash(r, 3, 5));
   ctx.beginPath();
-  ctx.arc(px(unit.x), px(unit.y), r, 0, TAU);
+  ctx.arc(projX(unit.x, unit.y), projY(unit.x, unit.y), r, 0, TAU);
   ctx.stroke();
   ctx.restore();
 }
@@ -4986,8 +5240,8 @@ const SWING_SKIN = {
  * bearing the cut cannot arrive from.
  */
 function drawLimb(unit, skin) {
-  const x = px(unit.x);
-  const y = px(unit.y);
+  const x = projX(unit.x, unit.y);
+  const y = projY(unit.x, unit.y);
   const r = px(unit.radius);
 
   ctx.save();
@@ -5116,8 +5370,8 @@ function drawLimb(unit, skin) {
  *  "your shield stopped it" and "your blades crossed" are three different
  *  outcomes and telling them apart is how the swordplay becomes readable. */
 function drawMarks(unit) {
-  const x = px(unit.x);
-  const y = px(unit.y);
+  const x = projX(unit.x, unit.y);
+  const y = projY(unit.x, unit.y);
   const r = px(unit.radius);
 
   if (unit.blockFlash > 0) {
@@ -5302,8 +5556,8 @@ const WEDGE_REACH = 1.7;
  */
 function drawCharacter(unit, now, ghost) {
   const skin = skinOf(unit);
-  const x = px(unit.x);
-  const y = px(unit.y);
+  const x = projX(unit.x, unit.y);
+  const y = projY(unit.x, unit.y);
   const r = px(unit.radius);
   const path = silhouetteOf(unit.kind);
   const head = headOf(unit.kind);
@@ -5527,7 +5781,7 @@ function drawSprint(unit, skin, now) {
   const beat = (Math.sin(now / 150) + 1) / 2;
   const r = px(unit.radius);
   ctx.save();
-  ctx.translate(px(unit.x), px(unit.y));
+  ctx.translate(projX(unit.x, unit.y), projY(unit.x, unit.y));
   ctx.rotate(unit.facing);
   ctx.strokeStyle = `rgba(${skin.wedge},${(0.35 + 0.35 * beat).toFixed(3)})`;
   ctx.lineWidth = 2;
@@ -5565,8 +5819,8 @@ function drawShots(shots) {
   ctx.lineCap = "round";
   for (const shot of shots) {
     const skin = shot.faction === FACTION_HEROES ? HERO_SKIN : MONSTER_SKIN;
-    const x = px(shot.x);
-    const y = px(shot.y);
+    const x = projX(shot.x, shot.y);
+    const y = projY(shot.x, shot.y);
     ctx.translate(x, y);
     ctx.rotate(shot.heading);
     // The shaft trails *behind* the point, so the bright end is the end that
@@ -5596,8 +5850,8 @@ function drawHealth(unit, skin) {
   const frac = clamp(unit.maxHp > 0 ? unit.hp / unit.maxHp : 0, 0, 1);
   const w = Math.max(16, px(unit.radius) * 2.4);
   const h = 3.5;
-  const x = px(unit.x) - w / 2;
-  const y = px(unit.y) - px(unit.radius) - 8;
+  const x = projX(unit.x, unit.y) - w / 2;
+  const y = projY(unit.x, unit.y) - px(unit.radius) - 8;
 
   ctx.save();
   ctx.fillStyle = "rgba(9,11,16,0.72)";
@@ -5620,7 +5874,7 @@ function drawCorpses() {
     const r = px(c.radius) * (1 - 0.45 * t);
     if (r < 0.4) continue;
     ctx.save();
-    ctx.translate(px(c.x), px(c.y));
+    ctx.translate(projX(c.x, c.y), projY(c.x, c.y));
     ctx.rotate(c.facing);
     ctx.scale(r, r);
     ctx.fillStyle = `rgba(${skin.glow},${(0.42 * (1 - t)).toFixed(3)})`;
@@ -5943,8 +6197,8 @@ function drawFloaters() {
     // And fading only in the last third, for the same reason: one that starts
     // fading immediately is one you have to already have been looking at.
     const alpha = t < 0.66 ? 1 : Math.max(0, 1 - (t - 0.66) / 0.34);
-    const x = px(f.x + f.jitter * 0.3);
-    const y = px(f.y - rise);
+    const x = projX(f.x + f.jitter * 0.3, f.y - rise);
+    const y = projY(f.x + f.jitter * 0.3, f.y - rise);
 
     if (f.kind === EVENT_BLOCK) {
       ctx.strokeStyle = `rgba(180,220,255,${(0.9 * alpha).toFixed(3)})`;
@@ -6020,10 +6274,10 @@ function drawCallouts(state) {
     const gap = 5;
     ctx.font = `600 12px ${SANS}`;
     const w = padX * 2 + icon + gap + ctx.measureText(label).width;
-    const cx = px(x);
+    const cx = projX(x, y);
     // Above the health bar rather than on it, and rising a few pixels as it
     // goes, so two pills over two bodies standing close together separate.
-    const top = px(y) - px(radius) - 18 - h - 6 * (1 - (1 - t) * (1 - t));
+    const top = projY(x, y) - px(radius) - 18 - h - 6 * (1 - (1 - t) * (1 - t));
 
     ctx.globalAlpha = alpha;
     roundRect(cx - w / 2, top, w, h, h / 2);
@@ -7275,6 +7529,39 @@ function stampText(at) {
   );
 }
 
+/**
+ * Both projections, forward then back, on a coarse grid.
+ *
+ * The same argument as the `FRAME_LAYOUT_VERSION` handshake above it, one layer
+ * out: a page with no test harness can still check the one thing that would
+ * otherwise cost a day. `PROJ_TOPDOWN` and `PROJ_ISO` each carry a 2x2 and its
+ * inverse written out by hand, and a sign wrong in the second one does not crash
+ * -- it puts every click a plausible distance from where it was made, which
+ * reads as a gameplay bug and not as a matrix typo. Costs nothing at boot and
+ * turns that into a console line.
+ *
+ * Every row, including the one not selected: `PROJ_ISO` is unreachable in this
+ * session and this is the only thing that will notice if it stops being right
+ * before something starts drawing through it.
+ */
+function assertProjection() {
+  const was = PROJ;
+  for (const p of [PROJ_TOPDOWN, PROJ_ISO]) {
+    PROJ = p;
+    for (let wx = 0; wx <= 48; wx += 6) {
+      for (let wy = 0; wy <= 32; wy += 4) {
+        const sx = projX(wx, wy);
+        const sy = projY(wx, wy);
+        console.assert(
+          Math.abs(unprojX(sx, sy) - wx) < 1e-9 && Math.abs(unprojY(sx, sy) - wy) < 1e-9,
+          `projection ${p.id} round-trip failed at ${wx},${wy}`
+        );
+      }
+    }
+  }
+  PROJ = was;
+}
+
 async function boot() {
   // Kicked off before the module loads and awaited after, so the extra
   // round-trip overlaps the compile instead of delaying it.
@@ -7363,6 +7650,10 @@ async function boot() {
   arena = { x: first.arenaX, y: first.arenaY };
   syncHeroRail(first);
   resize();
+  // After `resize`, because `scale` divides out of the inverse and a zero would
+  // make every round trip `NaN` -- which `console.assert` would then report as
+  // forty failures with nothing wrong.
+  assertProjection();
   // After `resize`, because the paths are in pixels and `scale` is what
   // `resize` decides.
   rebuildLevelPaths(readMap(), wasm.map_revision());
