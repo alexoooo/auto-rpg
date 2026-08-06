@@ -123,6 +123,38 @@ solid tiles that are 4-adjacent to a seen tile, as well as for seen tiles themse
 - Two stale comments still claim the room is 24×16 world units (`main.js:3961`, `main.js:2024`); it
   is 48×32. Unrelated to this project, but they are in files being edited anyway.
 
+## 9. The room's lighting stops at the rock line
+
+**Trigger:** the plateau reads as uniformly lit at every distance, or the fog boundary across rock
+reads as a hard band.
+
+Neither of the two falloffs has ever painted on rock. `drawLantern` does `ctx.clip(levelPaths.floorLit)`
+before its fill, and the vignette is painted inside the floor pass's own clip in `drawLevel` — so
+both are floor-only, in both projections. Rock is lit by its flat tone and nothing else, wherever it
+stands relative to the lantern.
+
+Top-down this was invisible and had been since the vignette landed: rock was one tone darker than
+the darkest floor, so there was nothing on it for a falloff to darken and no cue that would have
+changed if there were. Under iso the top face catches light on purpose — `WALL_TOP` is inside the
+flagstone's own tonal range — so a plateau at the far edge of sight is now brighter than the floor
+in front of it, and the eye has something to notice.
+
+Two options, and they are not the same size:
+
+- **Darken `WALL_TOP` below the darkest lit floor.** One constant. It gives up the lit top face,
+  which is the thing that makes a block read as a block rather than a lifted silhouette, and it puts
+  the room back on tone-as-the-only-cue — the top-down premise, under a projection that no longer
+  needs it. Cheap, and a real loss.
+- **Paint the falloff over the wall paths too.** More correct: the light stops being a property of
+  the floor and starts being a property of the room. The cost is that under `iso-04` the lit walls
+  are banded by `tx + ty`, so it is a fill per band per gradient rather than one fill each — the
+  same shape as §6's escalation, and the same reason it is not free. Fills are cheap, but the band
+  count is not one.
+
+**It interacts with §2.** Two-tone faces already ask what "lit" means for a vertical surface; if
+both are taken, decide the falloff and the face tones together, or the `+y` face ends up carrying
+two different stories about where the light is.
+
 ---
 
 ## Tripwires

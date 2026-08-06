@@ -1876,7 +1876,19 @@ const PROJ_ISO = {
   upright: true,
 };
 
-/** Which one is live. Written only by `setViewMode`. */
+/** Which one is live.
+ *
+ *  Written by `setViewMode`, and once by `boot` -- which seeds it from the
+ *  default row without calling the setter, for reasons argued at both ends.
+ *  `assertProjection` assigns it too, but it saves and restores around the sweep,
+ *  so the value is the same on both sides of that call. Nothing else touches it.
+ *
+ *  **The initialiser here is a fallback and not the default view's projection.**
+ *  `VIEW_MODES` and `PROJECTIONS` are declared a thousand lines further down, so
+ *  there is nothing to read at this point in the file and a `let` that has to hold
+ *  something holds the one that cannot be wrong on its own terms. `boot` is the
+ *  first place where both halves are in scope, and it is where they are made to
+ *  agree. */
 let PROJ = PROJ_TOPDOWN;
 
 /** How tall a wall block stands, in world units.
@@ -3111,8 +3123,8 @@ function setViewMode(id) {
   // descent and the restart, and the same call they make.
   snapCamera(parseFrame(frameView(), SCRATCH_STATE));
 
-  // Both flags change what gets baked -- `fog` decides which of the five paths a
-  // tile lands in, `art` decides whether the lit rock faces are built at all --
+  // Both flags change what gets baked -- `fog` decides which of the paths a tile
+  // lands in, `art` decides whether the lit rock faces are built at all --
   // so the paths are rebuilt here.
   //
   // **Not by setting `levelPaths.revision = -1`.** The loop's revision-mismatch
@@ -4273,6 +4285,69 @@ function diamond(p, x, y, w) {
   p.closePath();
 }
 
+/**
+ * One tile of rock as a *block*: a lifted top face appended to `top`, and up to
+ * two vertical faces appended to `side`. `x, y` is the ground diamond's **north**
+ * corner and `w` is `px(map.tile)`, exactly as `diamond` above takes them; `L` is
+ * `lift(WALL_H)`, the block's vertical edge in pixels.
+ *
+ * **The top face is the ground diamond translated by `(0, -L)` and nothing else.**
+ * That the offset is *uniform* is the whole reason a field of blocks reads as a
+ * continuous plateau: lifted diamonds tile the plane exactly as ground diamonds
+ * do, so a top face meets its neighbour's along a shared edge with no seam and no
+ * overlap, which is the same guarantee the floor tiling already leans on.
+ *
+ * **Only two of the four vertical faces can ever be seen.** The camera looks from
+ * `+x, +y`, so the `+x` face (screen lower-right) and the `+y` face (screen
+ * lower-left) are the entire silhouette of a block; the `-x` and `-y` faces are
+ * behind it in every frame of every level and are never emitted. That halves the
+ * exposure test the top-down bake does, rather than porting it.
+ *
+ * `xFace` and `yFace` say whether the neighbour in that direction is open ground.
+ * Where it is not, the face is an interior seam between two touching blocks and
+ * nothing can see that either.
+ *
+ * Both quads are the projected images of the tile's world corners, with `w`
+ * factored out the same way `diamond` factors it and with `L` subtracted from the
+ * y of the lifted pair. Writing the ground diamond's corners `E = (x+w, y+w/2)`,
+ * `S = (x, y+w)`, `W = (x-w, y+w/2)`:
+ *
+ *     +x face   the plane world x = tx+1, from world y = ty to ty+1   -> E, S
+ *     +y face   the plane world y = ty+1, from world x = tx to tx+1   -> S, W
+ *
+ * so each is a parallelogram `L` tall standing on one edge of the diamond.
+ *
+ * **Both quads wind the same way and that is load-bearing.** `side` is filled
+ * under the nonzero rule, and a near block's `+y` face genuinely can overlap a far
+ * block's `+x` face on screen. Same orientation means the overlap winds to 2 and
+ * fills; opposite orientations would wind to 0 and punch a hole clean through two
+ * pieces of solid rock. They agree because each walks its top edge in the
+ * diamond's own `N -> E -> S -> W` direction -- `E -> S` for `+x`, `S -> W` for
+ * `+y` -- and then returns along the ground edge. Do not "tidy" either one into
+ * the other order.
+ *
+ * Takes the two target paths rather than reaching for `levelPaths`, so `iso-04`
+ * can hand it one depth row's band pair instead of the unbanded pair without
+ * touching a line of the geometry.
+ */
+function wallBlock(top, side, x, y, w, L, xFace, yFace) {
+  diamond(top, x, y - L, w);
+  if (xFace) {
+    side.moveTo(x + w, y + w / 2 - L);
+    side.lineTo(x, y + w - L);
+    side.lineTo(x, y + w);
+    side.lineTo(x + w, y + w / 2);
+    side.closePath();
+  }
+  if (yFace) {
+    side.moveTo(x, y + w - L);
+    side.lineTo(x - w, y + w / 2 - L);
+    side.lineTo(x - w, y + w / 2);
+    side.lineTo(x, y + w);
+    side.closePath();
+  }
+}
+
 // ---------------------------------------------------------------- the floor
 //
 // One flagstone tile, baked once into an offscreen canvas and repeated. The
@@ -4462,14 +4537,35 @@ function floorPatternNow() {
 }
 
 /**
- * The level as six paths: open floor and bordering rock face, each split into
- * what the character can see *now* and what it merely remembers, plus the lit
- * rock edges and the scale bar's lattice.
+ * The level as paths: open floor and rock, each split into what the character can
+ * see *now* and what it merely remembers, plus the lit rock edges and the scale
+ * bar's lattice.
+ *
+ * **Ten path fields, and never more than seven of them are live at once.** Rock
+ * is baked differently in the two projections and each leaves the other's fields
+ * `null`:
+ *
+ *     shared   floorLit  floorSeen  grid
+ *     topdown  wallLit   wallSeen   edge          -- flat tiles and a stroked rim
+ *     iso      wallTopLit  wallTopSeen            -- the lifted top faces
+ *              wallSideLit wallSideSeen           -- the two visible side faces
+ *
+ * So it is **six paths** top-down -- five with the art off, where `edge` is null
+ * as well -- and **seven** under iso, which has no `edge` at all: a top face, a
+ * side face and the floor under them are three flat fills, and the rim is already
+ * the seam where they meet. Nothing ever reads the other projection's fields.
+ *
+ * `drawLevel` branches once to decide which set that is, and it branches on
+ * **`levelPaths.proj` and not on the live `PROJ`** -- the projection this bake
+ * actually used, so that a bake the invalidation missed is a stale *shape* rather
+ * than a `ctx.fill(null)` thrown out of every frame from then on. `iso-04` will
+ * branch in the same place on the same field. It reads the bake for the same
+ * reason `drawLevel` already takes `bbox` from here rather than re-deriving it.
  *
  * **Built once per level, not per frame.** A 48x32 level is 1536 tiles, and at
  * the top zoom bucket baking it into an offscreen canvas would be a 2304x1536
- * backing store rebuilt six times over. Six `Path2D`s cost 1536 `rect()` calls
- * once, and after that a fill is a fill.
+ * backing store rebuilt six times over. Seven `Path2D`s cost a few thousand
+ * segments once, and after that a fill is a fill.
  *
  * `revision` is `map_revision()`, which the module bumps only when the tiles
  * change; `vis` is `vis_revision()`, which it bumps when the character crosses a
@@ -4502,6 +4598,10 @@ let levelPaths = {
   floorSeen: null,
   wallLit: null,
   wallSeen: null,
+  wallTopLit: null,
+  wallTopSeen: null,
+  wallSideLit: null,
+  wallSideSeen: null,
   edge: null,
   grid: null,
   bbox: null,
@@ -4513,12 +4613,16 @@ let levelPaths = {
  * `vis_revision()` moves, when the pixel scale changes -- a `Path2D` holds
  * pixels, not world units -- and when the view mode changes what gets baked.
  *
- * Five paths, because the wall needs two of them and the fog doubles both halves.
+ * Six paths top-down and seven under iso -- the inventory, and which projection
+ * leaves which of them null, is on `levelPaths` above.
+ *
  * **The face where rock meets floor is a separate path from the rock itself**,
  * and that is not decoration: the first version stroked every wall tile, which
  * drew a line down every seam between two pieces of rock and turned a solid mass
  * into a brick texture. Rock is one dark shape; only the edge you can actually
- * walk up to catches light.
+ * walk up to catches light. Under iso that lesson is kept by other means -- a
+ * block's top face is the lit one and its sides are not, so the mass says where it
+ * ends without anything being stroked at all.
  *
  * The visibility bytes are read here rather than passed in, unlike the map. There
  * are five call sites and only one of them -- the loop's `vis_revision` branch --
@@ -4531,23 +4635,6 @@ function rebuildLevelPaths(map, revision) {
   const fog = fogOn();
   // Not read at all with the fog off, where every tile is lit by definition.
   const vis = fog ? readVis() : null;
-  const floorLit = new Path2D();
-  const floorSeen = new Path2D();
-  const wallLit = new Path2D();
-  const wallSeen = new Path2D();
-  // The lit rock faces -- and `null` rather than an empty path with the art off,
-  // so `drawLevel` skips the stroke instead of stroking nothing: there is no
-  // light in a tactical room for an edge to catch.
-  //
-  // **`null` under iso as well, and for a happier reason.** The geometry below is
-  // built from axis-aligned tile corners, so under a sheared matrix it would
-  // stroke squares over diamonds -- but it is not waiting to be re-derived. In
-  // `iso-03` a rock tile becomes three flat fills of three different tones, a lit
-  // top face and two shaded sides, and the silhouette *is* the seam where they
-  // meet. The rim comes back for free and this stroke -- the second-largest on the
-  // page -- is simply deleted. The guard at `drawLevel`'s `if (levelPaths.edge)`
-  // already handles a null, so nothing else here has to know.
-  const edge = art && !PROJ.shear ? new Path2D() : null;
   // Which room this is, read once for the whole bake rather than chased through
   // `PROJ` on every one of 1,536 tiles. The branches below are then local boolean
   // tests -- the projection is a decision the bake takes at the top and then only
@@ -4555,9 +4642,39 @@ function rebuildLevelPaths(map, revision) {
   // that knows about two shapes is a great deal easier to keep honest than two
   // loops that each know about the fog, the exposure test and the dim paths.
   const iso = PROJ.shear;
+  const floorLit = new Path2D();
+  const floorSeen = new Path2D();
+  // Rock, baked one of two ways, and each projection leaves the other's paths
+  // null. Top-down it is a flat tile and the pair is `wallLit`/`wallSeen`, exactly
+  // as it always was. Under iso it is a block -- a lifted top face and up to two
+  // shaded sides -- and the fog splits each of those in turn, which is why there
+  // are four. `drawLevel` branches once and reads only its own projection's;
+  // filling a path nobody baked is the one thing that would throw here.
+  const wallLit = iso ? null : new Path2D();
+  const wallSeen = iso ? null : new Path2D();
+  const wallTopLit = iso ? new Path2D() : null;
+  const wallTopSeen = iso ? new Path2D() : null;
+  const wallSideLit = iso ? new Path2D() : null;
+  const wallSideSeen = iso ? new Path2D() : null;
+  // The lit rock faces -- and `null` rather than an empty path with the art off,
+  // so `drawLevel` skips the stroke instead of stroking nothing: there is no
+  // light in a tactical room for an edge to catch.
+  //
+  // **`null` under iso as well, and for a happier reason.** The geometry below is
+  // built from axis-aligned tile corners, so under a sheared matrix it would
+  // stroke squares over diamonds -- but it was never waiting to be re-derived. A
+  // rock tile is now flat fills of two different tones, a lit top face and its
+  // shaded sides, and the silhouette *is* the seam where they meet: the rim comes
+  // back for free and this stroke -- the second-largest on the page -- is simply
+  // deleted. The guard at `drawLevel`'s `if (levelPaths.edge)` already handles a
+  // null, so nothing else here has to know.
+  const edge = art && !iso ? new Path2D() : null;
   // Top-down: the side of a tile square. Iso: the ground diamond's half-width,
   // and also its full height. `diamond` has the derivation.
   const size = px(map.tile);
+  // A block's vertical edge in pixels, read once for the same reason `size` is.
+  // Nothing top-down has a height, and nothing there reads it.
+  const L = lift(WALL_H);
   // Anything at all in the two dim paths? Written by the tile loop and read by
   // `drawLevel`, which skips its whole remembered pass when nothing is.
   let remembered = false;
@@ -4595,6 +4712,43 @@ function rebuildLevelPaths(map, revision) {
         // new promise, only a less obvious one.
         if (iso) diamond(p, x, y, size);
         else p.rect(x, y, size, size);
+        if (lit !== 2) remembered = true;
+        continue;
+      }
+      // Rock with a height. **The exposure gate is per *face* here and not per
+      // tile**, which is the one rule this projection changes rather than
+      // reshapes.
+      //
+      // The top face is emitted for *every* solid tile the fog has ever shown the
+      // player, with no exposure test at all. Lifted diamonds tile the plane
+      // exactly as ground diamonds do -- `wallBlock` has the argument -- so
+      // all-tops is a continuous plateau at no extra visual cost, whereas keeping
+      // the top-down rule would punch a hole in the middle of every rock mass
+      // wider than two tiles and each hole would read as a pit.
+      //
+      // The side faces keep a neighbour test, but only in the two directions a
+      // camera at `+x, +y` can see. The `-x` and `-y` halves of the four-way test
+      // below are simply not here: those faces are behind their own block in every
+      // frame.
+      //
+      // **That test is still on the floor plan and never on the fog**, for the
+      // reason the top-down arm gives below: a face that borders open ground goes
+      // on bordering it whether or not anybody is looking.
+      //
+      // **Known artefact, deliberately left in.** Interior rock the player has
+      // *never* seen is `lit === 0` and was dropped at the top of this loop, so it
+      // lands in no path at all and leaves a dark patch in the plateau. It is
+      // expected to be invisible -- `WALL_TOP` and the page's void gradient are
+      // near-identical -- and it is also the honest picture, since unexplored rock
+      // is the outside of the level. If it ever reads as a *pit*, the escape hatch
+      // is `iso-07` §7: also emit a top face for solid tiles 4-adjacent to a seen
+      // one. It is gated on the artefact actually being observed rather than done
+      // here, because it leaks fog information -- one tile of rock beyond the
+      // boundary is one tile of map the character has not earned.
+      if (iso) {
+        const top = lit === 2 ? wallTopLit : wallTopSeen;
+        const side = lit === 2 ? wallSideLit : wallSideSeen;
+        wallBlock(top, side, x, y, size, L, !solid(tx + 1, ty), !solid(tx, ty + 1));
         if (lit !== 2) remembered = true;
         continue;
       }
@@ -4640,14 +4794,10 @@ function rebuildLevelPaths(map, revision) {
         }
       }
       if (exposed) {
-        // Still flat, and still gated on bordering open ground. Rock gets its
-        // height, its two visible side faces and a different exposure rule in
-        // `iso-03`; this session's whole claim is "the ground is a diamond grid",
-        // and a wall that stood up in the middle of it would be a second change
-        // sharing one acceptance test with the first.
-        const p = lit === 2 ? wallLit : wallSeen;
-        if (iso) diamond(p, x, y, size);
-        else p.rect(x, y, size, size);
+        // Flat, and gated on bordering open ground: this is the top-down arm and
+        // it is the line it has always been. Height, the two visible side faces
+        // and the per-face gate are the iso arm above, and they stop here.
+        (lit === 2 ? wallLit : wallSeen).rect(x, y, size, size);
         if (lit !== 2) remembered = true;
       }
     }
@@ -4710,6 +4860,10 @@ function rebuildLevelPaths(map, revision) {
     floorSeen,
     wallLit,
     wallSeen,
+    wallTopLit,
+    wallTopSeen,
+    wallSideLit,
+    wallSideSeen,
     edge,
     grid,
     // A fresh object rather than the hoisted `ARENA_BOX`, and the exception proves
@@ -4800,6 +4954,53 @@ function arenaVignette(bb) {
 /** The two passes, hoisted so the loop below is not iterating a fresh array
  *  sixty times a second. Remembered ground first, then lit. */
 const LEVEL_PASSES = [false, true];
+
+/** A block of rock, under iso, as two flat tones.
+ *
+ *  Both sit above `#0c1017`, the one flat tone top-down rock has: that is
+ *  `(12,16,23)`, the side face is `(14,19,28)` a shade over it and the top is
+ *  `(22,28,40)`, near enough twice it. The mass therefore reads a little lighter
+ *  than top-down rock does, which is the right direction -- rock with a top face
+ *  catching the room's light is not the same thing as a hole in the floor plan.
+ *  The gap between the two tones is `(8, 9, 12)` -- twelve is the blue channel
+ *  alone, and blue is where this palette keeps most of its contrast -- and that gap
+ *  is the entire cue that says "height" at this resolution.
+ *
+ *  **The top face is not darker than the lit floor, and under iso it does not have
+ *  to be.** This comment used to claim both tones sat well under any lit floor tile
+ *  beside them; that was never measured against the stone. `bakeFloorTile` fills
+ *  `rgb(tone, tone+4, tone+12)` with `tone` uniform on `20..30`, so the flagstones
+ *  run from `(20,24,36)` to `(30,34,46)` about a mean of `(25,29,37)` -- `WALL_TOP`
+ *  lands *inside* that range, not under it. And past roughly 60% of the vignette's
+ *  radius the lit floor is darker than the rock standing beside it, because the
+ *  falloff paints on the floor and not on the rock.
+ *
+ *  The premise changed, not the arithmetic. Top-down you see only the top of
+ *  everything, so **tone is the only cue** there is: floor and rock are two flat
+ *  fills in the same plane, and the rock had to be darker than the darkest floor or
+ *  the floor plan stopped being readable at all. That is what `#0c1017` is for and
+ *  it is still correct in the branch that uses it. Under iso a block has height, a
+ *  silhouette and two shaded faces, so the distinction is carried by *shape*, and
+ *  the top face is then free to catch light -- which is the whole reason it is a
+ *  separate tone from the sides rather than the same one lifted.
+ *
+ *  So rock is *brighter* than distant floor, deliberately. A lit surface facing the
+ *  room's light, standing over ground the lantern no longer reaches, is the
+ *  ordinary isometric read and not a regression to be tuned back out. What it does
+ *  cost is recorded as `iso-07` §9: the falloff stops at the rock line, so the
+ *  plateau is lit identically at every distance.
+ *
+ *  **One side colour and one `side` path**, so the `+x` and `+y` faces are the
+ *  same tone. Giving the `+y` face a third, darker tone (`#090d14`) is `iso-07`
+ *  §2 and it is gated on the blocks actually reading flat, because it costs a
+ *  third baked path here and a third fill per depth band in `iso-04`.
+ *
+ *  These are fills and there is deliberately no stroke among them. The silhouette
+ *  of a block is exactly where the two tones meet each other and the floor, so the
+ *  rim that `edge` used to stroke comes back for free -- see `rebuildLevelPaths`,
+ *  which is where the stroke stopped being baked. */
+const WALL_TOP = "#161c28"; // catches what light the room has
+const WALL_XFACE = "#0e131c"; // the +x face, half lit
 
 /**
  * The level, as lit stone standing in the dark.
@@ -4917,27 +5118,116 @@ function drawLevel(state, origin) {
     ctx.restore();
   }
 
-  // The rock: one dark mass, clearly darker than the lit floor beside it, with
-  // light only on the faces you can walk up to. See `rebuildLevelPaths` for why
-  // the two are separate paths. Remembered rock is dimmed on the same terms the
-  // remembered floor is, so the boundary crosses stone and rock at once.
+  // The rock. **Top-down it is one dark mass, clearly darker than the lit floor
+  // beside it**, with light only on the faces you can walk up to -- see
+  // `rebuildLevelPaths` for why the two are separate paths. **Under iso it is a lit
+  // top face standing over shaded sides, and it is not darker than the floor at
+  // all**; `WALL_TOP` carries that argument in full, and the short version is that
+  // height and silhouette do the separating there, so the top is free to catch the
+  // room's light. Remembered rock is dimmed on the same terms the remembered floor
+  // is in both arms, so the fog boundary crosses stone and rock at once.
+  //
+  // **Under iso there is no edge stroke at all, and that is the point rather than
+  // an omission.** Top-down, rock is one flat tone, so the only way to say where a
+  // mass ends is to draw a line there -- a separate path of several hundred
+  // sub-paths, stroked every frame, and the second-largest stroke on the page.
+  // Under iso a block is a lit top face and a shaded side face, and the silhouette
+  // is exactly where those two tones meet each other and the floor. The rim is
+  // implied by the fills, so the conversion *deletes* that stroke instead of
+  // porting it, and the measurements say strokes are the scarce resource here while
+  // fills are effectively free.
+  //
+  // **Which baseline that is cheaper than matters, and it is not the previous
+  // commit.** `edge` was set to null under iso in `iso-02`, not here, so the stroke
+  // had already gone before this branch existed. Measured against `iso-02` this
+  // session only *adds* work under iso: a top face for every seen solid tile rather
+  // than only the exposed ones, two side quads per boundary tile, and four fills a
+  // frame where there were two. The claim worth making is about the projections and
+  // not about the commits -- an isometric room is cheaper than the top-down room it
+  // replaces, which is not the direction anybody expects a projection change to
+  // move the frame -- and fills being free is the reason adding these ones is still
+  // expected to come out flat rather than worse. A `render` mean that does not fall
+  // against `iso-02` is therefore not a regression to chase.
+  //
+  // **All tops, then all sides, in one unbanded pass**, so two blocks that overlap
+  // on screen are painted in path order rather than in depth order. That can only
+  // happen between tiles whose `tx - ty` differ by at most one and whose
+  // `tx + ty` differ by two or more -- diagonal-only neighbours -- and there are two
+  // sizes of symptom. Within one fog class it is one tone standing where the other
+  // should, twelve counts of blue out of 255 away; and the remembered pass blends
+  // its two fills separately under `SEEN_ALPHA` rather than compositing them first,
+  // so an overlap there comes out under ten counts light.
+  //
+  // The larger case is *across* the two fog classes. The pass fills seen-top,
+  // seen-side, lit-top, lit-side, so a lit block's top face paints over the side
+  // face of a **nearer remembered** block -- a full `SEEN_ALPHA` step, alpha 0.4
+  // giving way to 1.0, rather than twelve counts. It is reachable whenever the hero
+  // can see past a corner to rock standing beyond ground it only remembers, so it
+  // is not hypothetical. Same diagonal-only geometry and the same remedy: `iso-04`
+  // bands these paths by `tx + ty`, and inside a band `tx - ty` steps by two, so
+  // neither size of overlap can arise once the banding lands. Both are bounded,
+  // both are on the dimmest thing on the page, and neither is worth a sort this
+  // session.
+  //
+  // **Fill what was baked**, not what is live. Every path below came out of
+  // `rebuildLevelPaths`, which records the matrix it used as `levelPaths.proj`, so
+  // this branch has to choose the arm that bake chose -- `levelPaths.bbox` is read
+  // off the bake a few lines above for exactly the same reason. The two agree on
+  // every frame that exists today; the loop's `levelPaths.proj !== PROJ.id` guard is
+  // what catches them coming apart, and it runs before this does.
+  //
+  // What changed this session is the cost of being wrong. A missed invalidation
+  // used to be one frame of square tiles under a sheared matrix. Now the iso arm
+  // would reach for four paths a top-down bake left null, and `ctx.fill(null)`
+  // throws a `TypeError` -- and `loop` re-arms rAF *before* it calls `render`, so
+  // that is not one bad frame but every frame, forever, with the whole HUD block
+  // below the throw skipped each time. Reading the bake turns that back into a
+  // shape that is one frame stale.
+  //
+  // `floorPatternNow` above is deliberately left reading the live `PROJ`: the worst
+  // a mismatch does there is shear the masonry wrongly for a frame, which is a
+  // slightly wrong picture and not a dead page.
   ctx.save();
-  ctx.fillStyle = "#0c1017";
-  ctx.globalAlpha = SEEN_ALPHA;
-  ctx.fill(levelPaths.wallSeen);
-  ctx.globalAlpha = 1;
-  ctx.fill(levelPaths.wallLit);
-  if (levelPaths.edge) {
-    ctx.strokeStyle = "rgba(150,185,235,0.20)";
-    ctx.lineWidth = 1.5;
-    ctx.lineCap = "square";
-    ctx.stroke(levelPaths.edge);
+  if (levelPaths.proj === "iso") {
+    ctx.globalAlpha = SEEN_ALPHA;
+    ctx.fillStyle = WALL_TOP;
+    ctx.fill(levelPaths.wallTopSeen);
+    ctx.fillStyle = WALL_XFACE;
+    ctx.fill(levelPaths.wallSideSeen);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = WALL_TOP;
+    ctx.fill(levelPaths.wallTopLit);
+    ctx.fillStyle = WALL_XFACE;
+    ctx.fill(levelPaths.wallSideLit);
+  } else {
+    ctx.fillStyle = "#0c1017";
+    ctx.globalAlpha = SEEN_ALPHA;
+    ctx.fill(levelPaths.wallSeen);
+    ctx.globalAlpha = 1;
+    ctx.fill(levelPaths.wallLit);
+    if (levelPaths.edge) {
+      ctx.strokeStyle = "rgba(150,185,235,0.20)";
+      ctx.lineWidth = 1.5;
+      ctx.lineCap = "square";
+      ctx.stroke(levelPaths.edge);
+    }
   }
   ctx.restore();
 
-  // Last, so it also takes the outer half of the edge stroke down with it at
-  // range: a lit rock face at the far edge of sight should not be the brightest
-  // line on screen.
+  // Last, so that top-down it also takes the outer half of the edge stroke down
+  // with it at range: a lit rock face at the far edge of sight should not be the
+  // brightest line on screen.
+  //
+  // **Under iso it does not reach the rock at all**, and this comment used to say
+  // the opposite. `drawLantern` clips to `levelPaths.floorLit`, and the vignette a
+  // few lines above is painted inside the floor pass's own clip, so between them
+  // the room's two falloffs have never put a pixel on rock in either projection.
+  // The room's lighting stops at the rock line: the plateau is lit uniformly at
+  // every distance, however far from the lantern it stands. Top-down that was
+  // invisible, because rock was darker than any floor and there was nothing there
+  // for a falloff to darken. Under iso the top face catches light, so it is now
+  // visible -- a known limitation, recorded with its options and their costs as
+  // `iso-07` §9, and not something to patch by clipping this fill differently.
   drawLantern(state, clipX, clipY, clipW, clipH);
 }
 
@@ -7885,8 +8175,39 @@ async function boot() {
   // pass runs at boot, not `setViewMode`: the default mode's dev strip is already
   // shut in the markup, and calling the setter here would hint at a mode nobody
   // chose and bake the paths before `resize` has decided what `scale` is.
+  //
+  // **The projection is taken from the table here even so**, on the line below.
+  // Everything else the setter does is either already true in the markup or a
+  // courtesy the page is entitled to defer; the matrix is neither. Every draw call
+  // below reads it, so leaving it at its declaration's fallback is not "the
+  // preference has not been applied yet", it is a different room.
   buildViewGroup();
   updateViewButtons();
+
+  // `viewMode`'s initialiser and `PROJ`'s are two declarations of the same fact,
+  // and this is the line that makes them agree. `PROJ` cannot derive itself where
+  // it is declared -- `VIEW_MODES` and `PROJECTIONS` are a thousand lines further
+  // down the file and do not exist yet -- so it holds `PROJ_TOPDOWN` as a
+  // fallback, and boot is the first point at which both halves are in scope.
+  //
+  // Without it the page came up with `viewMode === "regular"` and a top-down
+  // matrix: it baked and drew a flat room with the art on while the `Regular`
+  // segment was lit, and the isometric room only appeared after three presses of
+  // `G` -- all the way round the three modes and back to `regular`, where the
+  // setter finally wrote what the segment had been claiming since load. It shipped
+  // that way from `iso-02`, which is the commit where `regular` turned, because
+  // that is the commit where the two initialisers stopped saying the same thing.
+  //
+  // **Before `resize`**, which is the whole reason it sits up here rather than
+  // beside the frame parse below: `resize` computes `fit` from `arenaSpan()`,
+  // which branches on `PROJ.shear`, and `rebuildLevelPaths` and `snapCamera` after
+  // it both work in pixels that came from that `scale` under this matrix. Ordered
+  // for the same reason `setViewMode` orders its middle four, and it is the same
+  // three calls in the same sequence.
+  //
+  // Indexed and not switched on, exactly as `setViewMode` indexes it, so an
+  // unknown string in the table is a top-down room rather than a page of `NaN`.
+  PROJ = PROJECTIONS[currentView().proj] || PROJ_TOPDOWN;
 
   // The project's central claim as one number: this is what
   // `cargo run --release -p lab -- hash` prints natively, computed here by the

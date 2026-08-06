@@ -8,9 +8,15 @@ everything, which is wrong and is `iso-04`'s job.
 
 **Depends on:** `iso-02` landed and verified.
 
-**This session should make the frame *faster*.** It deletes a several-hundred-subpath stroke and
-replaces it with two flat fills, and the measurements say strokes are the scarce resource while
-fills are free. Record the `render` mean before and after.
+**~~This session should make the frame *faster*.~~** *Corrected while landing.* The stroke
+deletion is real — the several-hundred-subpath `edge` stroke does go, and that is what makes an
+isometric room cheaper than the top-down room it replaces — but it landed in `iso-02`, because
+`edge`'s geometry is axis-aligned tile corners and it would have stroked rectangles over diamonds
+for a whole session. Measured against `iso-02`, *this* session only **adds**: a top face for every
+seen solid tile rather than only exposed ones, two side quads per boundary tile, and four fills per
+frame where there were two. Fills are effectively free, so expect flat-to-better against the
+top-down baseline and **flat-to-slightly-worse against `iso-02`**. A `render` mean that does not
+fall is not a regression here.
 
 ---
 
@@ -157,8 +163,10 @@ the top.
 
 1. Rock reads as blocks with a lit top and shaded sides. Walk around a pillar and confirm the two
    visible faces are the lower-right and lower-left ones.
-2. **`render` mean should fall**, because the `edge` stroke is gone. Record before and after from
-   the `perf` strip (`P`).
+2. **`render` mean should not have *risen* meaningfully against `iso-02`.** The `edge` stroke was
+   already gone by then, so what this session adds is fills, which are free. Record before and
+   after from the `perf` strip (`P`). The comparison that shows the conversion's real gain is
+   against *top-down*, not against the previous commit.
 3. Look for holes in the plateau where interior rock is unseen. Decide whether it reads as a pit;
    if so, apply the 4-adjacency fix above in this session rather than deferring it.
 4. Walk to the north edge of the map with the camera hard against the top — the tallest rock is not
