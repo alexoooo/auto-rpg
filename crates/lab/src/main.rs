@@ -19,9 +19,9 @@ mod fitness;
 use args::Args;
 use evolve::{describe, evolve, Arena, EvolveConfig};
 use fitness::{fitness, Summary, Tally};
-use fx::Fx;
+use fx::{Fx, Vec2};
 use policy::{run, PolicyKind, RunConfig, RunResult};
-use sim::{Scenario, Body};
+use sim::{Body, Faction, Scenario, UnitSpec};
 use std::time::Instant;
 
 fn main() {
@@ -46,8 +46,15 @@ fn usage() {
         "auto-rpg experiment lab
 
   bench   --seeds N --threads N --heroes N --monsters N
+          --carved --depth N --ticks N
           Batch rollouts with the hand-tuned policy. Reports the fitness
           distribution and throughput.
+          --carved swaps the open rectangle every other scenario stands on for
+          a generated dungeon, and then reports throughput and nothing else.
+          Sight is a short-circuit on an open plan, so the headline number has
+          never paid for a raycast and the browser's floor plan makes it pay
+          for one per pair per decision. It runs on one thread unless told
+          otherwise, because a browser frame has one core to spend.
 
   verify  --seeds N --verbose
           Replays every run and checks it reproduces bit-exactly. This is the
@@ -139,7 +146,150 @@ fn parallel_runs(
         .collect()
 }
 
+/// The same fan-out as [`parallel_runs`], on a generated dungeon.
+///
+/// A sibling rather than a scenario-kind parameter threaded through the one
+/// above: the two differ in a single line, and that one is the line every
+/// throughput and fitness number ever recorded in this repository came off.
+/// A dozen duplicated lines are cheaper than making the measured path
+/// conditional on anything.
+///
+/// `max_ticks` is a parameter and not an `Option` because a cap is not
+/// optional here. [`Scenario::dungeon`] carries `u32::MAX` deliberately -- it
+/// describes somewhere a player stands around in, not a fight on a clock -- so
+/// a batch pointed at it uncapped ends only when a side is wiped out, and any
+/// seed where the hero and the monsters never meet does not end at all.
+fn carved_runs(
+    seeds: &[u64],
+    depth: u32,
+    max_ticks: u32,
+    threads: usize,
+    kind: PolicyKind,
+) -> Vec<RunResult> {
+    let mut slots: Vec<Option<RunResult>> = vec![None; seeds.len()];
+    if seeds.is_empty() {
+        return Vec::new();
+    }
+    let threads = threads.max(1);
+    let chunk = seeds.len().div_ceil(threads);
+
+    // What the browser opens its first floor with (`Sim::new`): a plain
+    // Fighter carrying its own stat sheet and its own weapons. Matching it
+    // matters -- a body implies neither any more, and benching a Fighter
+    // holding a Skitterer's knife would be measuring a character nobody plays.
+    // The faction and the spawn are placeholders; `Scenario::dungeon`
+    // overwrites both, because where you stand is the level's business.
+    let hero = UnitSpec {
+        kind: Body::Fighter,
+        faction: Faction::Heroes,
+        stats: Body::Fighter.base_stats(),
+        loadout: Body::Fighter.default_loadout(),
+        spawn: Vec2::ZERO,
+    };
+
+    std::thread::scope(|scope| {
+        for (chunk_seeds, out) in seeds.chunks(chunk).zip(slots.chunks_mut(chunk)) {
+            scope.spawn(move || {
+                // The runner's own override of the scenario's limit, which is
+                // the knob built for exactly this. Editing the returned
+                // scenario would work too and would quietly change its
+                // fingerprint, so the thing being benched would no longer be
+                // the level the browser generates from the same seed.
+                let config = RunConfig {
+                    max_ticks: Some(max_ticks),
+                    ..RunConfig::default()
+                };
+                let mut policy = kind.baseline();
+                for (i, &seed) in chunk_seeds.iter().enumerate() {
+                    let scenario = Scenario::dungeon(seed, depth, hero);
+                    out[i] = Some(run(&scenario, seed, &mut policy, &config));
+                }
+            });
+        }
+    });
+
+    slots
+        .into_iter()
+        .map(|slot| slot.expect("every seed should have produced a run"))
+        .collect()
+}
+
+/// The bench with the walls put back in.
+///
+/// **Why this exists at all.** `Dungeon::sees` is `!self.carved ||
+/// raycast(..).is_none()`, and every scenario the lab iterates stands on
+/// `Dungeon::open`. So on the measured path line of sight is a boolean read
+/// and the raycast is never reached: the throughput in the README is a figure
+/// for a sim that has never walked a single DDA. The build people actually
+/// play carves rooms and corridors, where that short-circuit is false and the
+/// cost is one raycast per entity pair per decision, plus a fan of them per
+/// visibility rebuild. Whether "the sim is orders of magnitude faster than it
+/// needs to be" survives contact with a wall was an inference until this flag;
+/// now it is a number.
+///
+/// **Throughput and nothing else, on purpose.** The fitness distribution, the
+/// outcome tally and the draw breakdown all read a balanced two-sided fight,
+/// and this is one hero against whatever the floor rolled -- a win rate off it
+/// would describe the difficulty curve rather than the policy. `Scenario::room`
+/// and `Scenario::dungeon` both say outright that nothing the lab iterates
+/// should be pointed at them, and this deliberately points at one; printing
+/// only the number that is meaningful is how it stays honest about that.
+fn carved_bench(args: &Args) {
+    let count = args.usize("seeds", 200);
+    // One thread, where the skirmish bench takes the whole machine. The
+    // question being asked is whether a tick that pays for line of sight still
+    // fits in a browser frame, and a browser frame gets one core -- so a
+    // per-core figure is the only one that compares against the 60 ticks/s a
+    // 60 Hz budget needs. An explicit `--threads N` still wins, for whoever
+    // wants the batch to finish faster than it wants the comparison.
+    let threads = args.usize("threads", 1);
+    // Floor zero: the one `init` opens, all Skitterers, the level the judder
+    // is actually being complained about on.
+    let depth = args.u32("depth", 0);
+    // A minute of play per seed. Long enough that the floor gets walked rather
+    // than merely entered -- the raycasts this exists to measure are paid for
+    // by the walking -- and short enough that a seed where nobody finds anybody
+    // costs a minute of game time rather than the rest of the afternoon.
+    let tick_limit = args.u32("ticks", 60 * 60);
+    let kind = args.choice("policy", PolicyKind::Utility, &POLICIES);
+    let seeds: Vec<u64> = (0..count as u64).collect();
+
+    println!(
+        "running {count} rollouts of a carved depth-{depth} dungeon, \
+         {tick_limit} ticks each, across {threads} threads ({})",
+        kind.name()
+    );
+    let started = Instant::now();
+    let results = carved_runs(&seeds, depth, tick_limit, threads, kind);
+    let elapsed = started.elapsed();
+
+    let mut ticks = 0u64;
+    let mut decisions = 0u64;
+    for result in &results {
+        ticks += result.ticks as u64;
+        decisions += result.decisions;
+    }
+
+    let seconds = elapsed.as_secs_f64().max(1e-9);
+    println!(
+        "throughput {:.0} rollouts/s, {:.0} ticks/s, {:.0} decisions/s ({:.2}s wall)",
+        results.len() as f64 / seconds,
+        ticks as f64 / seconds,
+        decisions as f64 / seconds,
+        seconds
+    );
+}
+
 fn bench(args: &Args) {
+    // Forked here rather than branched through, for the reason `carved_runs`
+    // gives: everything below this line is the measurement every recorded
+    // number came from, and it should read exactly as it did before the flag
+    // existed.
+    if args.flag("carved") {
+        carved_bench(args);
+        return;
+    }
+
     let count = args.usize("seeds", 200);
     let threads = args.usize("threads", default_threads());
     let heroes = args.u32("heroes", 4);

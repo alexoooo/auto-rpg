@@ -565,12 +565,51 @@ impl DuelistPolicy {
         self.memory[index] = memory;
     }
 
+    /// Which blade this duel is about.
+    ///
+    /// **A player who clicks an enemy is not making a suggestion.** The scoring
+    /// loop below is how a duellist picks its own quarry, and a named one skips it
+    /// entirely rather than entering it with a thumb on the scale -- which is what
+    /// the `obedience` gene used to do, and what left obeying an order a matter of
+    /// degree for an evolved number to settle.
+    ///
+    /// Only while the named quarry is actually in sight. Out of sight there is no
+    /// contact to return, so the duellist reads whatever blade is in front of it
+    /// while the feet carry on pursuing; `ordered_feet` is still routing to the
+    /// quarry through the sim. A fighter that declined to defend itself because
+    /// the thing it was told to kill is round the next corner would be obeying the
+    /// letter of the order and dying of it.
     fn pick_target<'a>(&self, obs: &'a Observation, previous: EntityId) -> &'a Contact {
+        if let Some(named) = obs.order.focus() {
+            // `obs.enemies()` is nearest-first, so `find` is exact and canonical
+            // -- there is at most one contact with a given id and no tie to break.
+            if let Some(contact) = obs.enemies().iter().find(|c| c.id == named) {
+                return contact;
+            }
+        }
+
         let mut best: Option<(&Contact, Fx)> = None;
         for contact in obs.enemies() {
             let closeness = Fx::ONE - (contact.distance / obs.sight_range).clamp(Fx::ZERO, Fx::ONE);
             let mut score = self.weights.aggression * closeness
                 + self.weights.bloodlust * (Fx::ONE - contact.hp_frac);
+            // **Dead, and left standing here on purpose.** The early return above
+            // is unconditional, so a focus order never reaches this line and
+            // `obedience` now has no reader anywhere in the workspace.
+            //
+            // The gene itself stays where it is, and that is not sentiment: the
+            // genome is a positional array. `from_genome` reads slot 2 by index
+            // and so do `LABELS`, `GENE_RANGES` and `BASELINE_VALUES`, so pulling
+            // it out renumbers all twenty knobs after it and silently repoints
+            // every stored genome in the repository at the wrong one. A dead
+            // branch is cheap; a genome that means something different than it did
+            // cannot be recovered by reading it.
+            //
+            // Giving the slot a new job is a real question and a separate one --
+            // the obvious candidate is scaling how far past its ring a fighter
+            // will pursue, which would make a player's order grip harder or softer
+            // depending on an evolved number. That is the wrong default and it is
+            // not this change's to decide.
             if obs.order.focus() == Some(contact.id) {
                 score += self.weights.obedience;
             }
@@ -618,30 +657,58 @@ impl DuelistPolicy {
         }
     }
 
-    /// The movement a live [`Order::Goto`] asks for, or `None` when there is
-    /// nothing left to do about one.
+    /// How a live [`Order::Goto`] or [`Order::Focus`] pulls on the feet, blended
+    /// against the footwork `own` that the mind wanted anyway.
     ///
     /// [`crate::UtilityPolicy`]'s own `ordered_feet` carries the whole argument
     /// for why this exists, for why `None` means "the order has nothing to say",
-    /// and for why the reachable-box reconstruction that used to sit in the arm
-    /// below had to go. **What is deliberately not shared is the brake**: this
-    /// policy paces a destination off one stride's worth of travel and the other
-    /// one solves the stopping distance, they were never the same law, and
-    /// unifying them here would be a behaviour change smuggled in under a
-    /// refactor.
-    fn ordered_feet(&self, obs: &Observation) -> Option<Vec2> {
-        if !matches!(obs.order, Order::Goto(_)) {
-            return None;
-        }
+    /// for why arrival stopped being one of the things it means, for why the
+    /// reachable-box reconstruction that used to sit in the arm below had to go,
+    /// and for why the two order kinds differ only in what the anchor is.
+    /// **What is deliberately not shared is the brake**: this policy paces a
+    /// destination off one stride's worth of travel and the other one solves the
+    /// stopping distance, they were never the same law, and unifying them here
+    /// would be a behaviour change smuggled in under a refactor. The *blend* is
+    /// shared, and that is a different kind of thing: `leash` is one statement
+    /// about what an order is, and a duellist and a brawler had better not
+    /// disagree about that.
+    ///
+    /// **The ring comes from the mind holding the limb**, which is what makes an
+    /// order mean the right thing to whatever this fighter has actually drawn.
+    /// A duellist told to fight a Brute closes to sword range; the same duellist
+    /// with a bow in the same hand stops well outside it, because `BowMind` says
+    /// so and nothing here second-guesses it. Reading `obs.held` rather than the
+    /// selector's winner is the same choice `decide` makes one level up and for
+    /// the same reason: the two differ for the whole length of a swap, and
+    /// pursuing at the range of a weapon that is not yet in hand would walk a
+    /// mid-swap archer onto a sword.
+    fn ordered_feet(&self, obs: &Observation, own: Vec2) -> Option<Vec2> {
+        let ring = match obs.order {
+            Order::Goto(_) => Fx::ZERO,
+            Order::Focus(id) => match obs.enemies().iter().find(|c| c.id == id) {
+                Some(foe) => {
+                    mind_for(obs.held.role(), self.weights).standoff(obs, foe)
+                        * crate::utility::FOCUS_SLACK
+                }
+                // Out of sight there is nothing to size a ring from and nothing
+                // to hold back for; see `UtilityPolicy::ordered_feet`.
+                None => Fx::ZERO,
+            },
+            _ => return None,
+        };
         let (to, distance) = crate::utility::nav_step(obs)?;
-        if distance <= obs.move_speed {
-            return None;
-        }
+        // The rim, not the body at the centre. Every use of the route's length
+        // below is of what is left to cover *to the ring*, because the brake is a
+        // stopping-distance solve and stopping on the quarry is the one thing a
+        // standoff exists to prevent.
+        let gap = (distance - ring).max(Fx::ZERO);
         let stride = obs.move_speed * (obs.decision_period.max(1) as i32);
-        let brake = (distance / stride).min(Fx::ONE);
-        // Already a unit heading; see `UtilityPolicy::ordered_feet` for why
-        // normalising it twice is not free.
-        Some((to * brake).clamp_length(Fx::ONE))
+        let brake = (gap / stride).min(Fx::ONE);
+        // Already a unit heading, and braked before it is leashed; see
+        // `UtilityPolicy::ordered_feet` for why normalising it twice is not free
+        // and for why the spring is handed the braked vector rather than the raw
+        // one.
+        Some(crate::utility::leash(to * brake, gap, own))
     }
 
     /// Nothing in sight: do as the player asked.
@@ -661,18 +728,36 @@ impl DuelistPolicy {
         let heading = match obs.order {
             Order::Advance(dir) => dir.normalize(),
             Order::Regroup => Self::ally_centre(obs).normalize(),
-            Order::Goto(_) => {
+            // A destination and a quarry both name a place, so both of them route
+            // to it. A `Focus` used to sit with `Hold` below as "no heading",
+            // which is where a pursuit round a corner quietly turned back into a
+            // patrol -- and something that stops following the moment its quarry
+            // steps behind masonry was never locked on. See
+            // `UtilityPolicy::march`'s arm, which carries the argument in full.
+            Order::Goto(_) | Order::Focus(_) => {
                 // Arriving somewhere is not a variation on marching, and the
-                // steering below is actively wrong for it -- which is why this
-                // arm returns before reaching any of it. See `ordered_feet`,
-                // which is where the code that used to be here now lives, and
-                // `UtilityPolicy::march`'s arm for the derivation.
-                return match self.ordered_feet(obs) {
+                // steering below is still wrong for it -- which is why this arm
+                // returns before reaching any of it. See `ordered_feet`, which is
+                // where the code that used to be here now lives, and
+                // `UtilityPolicy::march`'s arm for the derivation: for why the
+                // wall sweep stays out, and for why the footwork handed to the
+                // leash here is a zero rather than an idle drift toward open
+                // ground. The short of it is that nothing is in sight on this
+                // path, so there is nothing to blend and nothing to hover for --
+                // the hover is for a duellist with a duel on, and that one gets
+                // here through `decide` with the mind's own feet already in hand.
+                // A steady bias here would not shift the weight, it would lean,
+                // and a lean that does not vanish at the anchor parks the
+                // character short of every click at any strength you pick.
+                //
+                // Nothing in sight also means no ring: `ordered_feet` sizes one
+                // off a visible contact, and on this path there are none.
+                return match self.ordered_feet(obs, Vec2::ZERO) {
                     Some(dir) => Command::moving(dir),
                     None => Command::HOLD,
                 };
             }
-            Order::Hold | Order::Focus(_) => Vec2::ZERO,
+            Order::Hold => Vec2::ZERO,
         };
 
         // Turn at the wall and come back, rather than grinding into it. Shared
@@ -1282,9 +1367,9 @@ impl Policy for DuelistPolicy {
         memory.stance = mind_memory.stance;
         self.remember(obs.me, memory);
         Command {
-            // The player's order outranks the mind's footwork; see
-            // `UtilityPolicy::decide` for the whole of that argument.
-            move_dir: self.ordered_feet(obs).unwrap_or(feet),
+            // The player's order bends the mind's footwork rather than replacing
+            // it; see `UtilityPolicy::decide` for the whole of that argument.
+            move_dir: self.ordered_feet(obs, feet).unwrap_or(feet),
             intent,
             limb,
             slot: best,
@@ -1453,6 +1538,143 @@ mod tests {
         obs
     }
 
+    /// The same situation under a live `Order::Focus` on `foe`, with the route
+    /// the sim would have computed for it across open ground -- straight at the
+    /// body, since that is what `nav_goal_point` resolves a quarry to.
+    ///
+    /// Shaped like `heading_for` because it is the same kind of edit, and stated
+    /// for the same reason: an observation with `nav_dir` left blank is the sim
+    /// saying there is no way there, which the policy correctly answers by not
+    /// pursuing.
+    fn locked_on(obs: &Observation, foe: &Contact) -> Observation {
+        let mut obs = obs.clone();
+        obs.order = Order::Focus(foe.id);
+        obs.nav_dir = foe.offset.normalize();
+        obs.nav_distance = foe.distance;
+        obs
+    }
+
+    /// **The click that means two different things, and the whole reason the ring
+    /// is the mind's own number rather than a constant.**
+    ///
+    /// One fixture, one distance, one order: a Brute three units off, named. What
+    /// changes between the two halves is the thing in the fighter's hand, and the
+    /// footwork comes out opposed -- the swordsman closes and the archer gives
+    /// ground. Neither mind knows anything about orders; `ordered_feet` asks
+    /// whichever one is holding the limb where it wants to stand and anchors the
+    /// pull at a ring that size, so a bow's answer of four units puts three
+    /// comfortably inside the ring while a blade's of 1.13 puts it well outside.
+    ///
+    /// This is the property session 3 exists for, stated at the level where it is
+    /// one line of arithmetic. `tests/focus.rs` states the same thing the
+    /// expensive way, over hundreds of ticks of a real world, and that one is what
+    /// catches a ring that is right for a decision and wrong for a fight.
+    #[test]
+    fn a_focus_means_close_to_a_swordsman_and_stop_there_to_an_archer() {
+        let foe = contact(Body::Brute, 3, 0);
+        let fighting = situation(&[foe]);
+
+        let sword = locked_on(&holding(&fighting, sim::ActionKind::Sword), &foe);
+        let closing = DuelistPolicy::baseline().decide(&sword).move_dir;
+        assert!(
+            closing.x > Fx::from_ratio(9, 10),
+            "a swordsman told to fight something three units away did not close: {closing:?}"
+        );
+
+        let bow = locked_on(&holding(&fighting, sim::ActionKind::Bow), &foe);
+        let standing = DuelistPolicy::baseline().decide(&bow).move_dir;
+        assert!(
+            standing.x < Fx::ZERO,
+            "an archer walked onto the Brute it was told to shoot: {standing:?}"
+        );
+    }
+
+    /// **Inside the ring the order is not merely weaker, it is gone.**
+    ///
+    /// The taper is quadratic in the gap and the gap is floored at zero, so a
+    /// focused fighter that is already inside its ring gets its own footwork back
+    /// byte for byte -- not approximately, and not most of it. That exactness is
+    /// worth pinning rather than bounding: it is what makes the mechanism safe to
+    /// leave switched on during a fight, and the alternative -- a residual pull of
+    /// a few hundredths, always inward -- is precisely the kind of thing that
+    /// would go unnoticed for a long time and then show up as an archer that
+    /// creeps.
+    ///
+    /// The unordered control is the same policy on the same observation with the
+    /// order taken off, so a failure here is the leash and cannot be the fixture.
+    #[test]
+    fn a_quarry_inside_the_ring_leaves_the_footwork_untouched() {
+        let foe = contact(Body::Brute, 3, 0);
+        let fighting = holding(&situation(&[foe]), sim::ActionKind::Bow);
+        let locked = locked_on(&fighting, &foe);
+
+        let free = DuelistPolicy::baseline().decide(&fighting).move_dir;
+        let ordered = DuelistPolicy::baseline().decide(&locked).move_dir;
+        assert_eq!(
+            (ordered.x.raw(), ordered.y.raw()),
+            (free.x.raw(), free.y.raw()),
+            "the order went on pulling from inside its own ring"
+        );
+        // ...and the answer it was left with is a real one rather than a stand
+        // still, which is what stops this passing for the wrong reason.
+        assert!(
+            free.x < Fx::ZERO,
+            "the fixture stopped being about an archer with ground to give: {free:?}"
+        );
+    }
+
+    /// A quarry that is not a visible contact is pursued at full strength.
+    ///
+    /// There is no ring to size without a contact, and none is wanted: sight range
+    /// is longer than any standoff in the stat range, so the hand-off from pursuit
+    /// to fight always happens on the way in and never at the last moment. The
+    /// fighter here can see one enemy and has been told to kill a different one,
+    /// which is the state a hero is in for the whole of a chase round a corner --
+    /// it defends itself against what is in front of it while the feet carry on
+    /// toward what it was sent after.
+    #[test]
+    fn a_quarry_out_of_sight_is_pursued_and_not_stood_off_from() {
+        let seen = contact(Body::Brute, 3, 0);
+        let mut obs = holding(&situation(&[seen]), sim::ActionKind::Bow);
+        // Named, and not among the contacts: `find` comes back empty and the ring
+        // is a zero.
+        obs.order = Order::Focus(EntityId::new(77, 0));
+        obs.nav_dir = Vec2::Y;
+        obs.nav_distance = Fx::from_int(10);
+
+        let mut policy = DuelistPolicy::baseline();
+        let command = policy.decide(&obs);
+        assert!(
+            command.move_dir.y > Fx::from_ratio(9, 10),
+            "gave up the pursuit the moment the quarry left sight: {:?}",
+            command.move_dir
+        );
+        // And it is still fighting the thing in front of it, which is the half of
+        // the rule that keeps a pursuing hero alive.
+        assert_eq!(command.intent, Intent::Attack(seen.id));
+    }
+
+    /// Nothing in sight at all, which is `march`'s case and where the pursuit used
+    /// to quietly stop.
+    ///
+    /// A `Focus` shared an arm with `Hold` here and so produced no heading, fell
+    /// through to `patrol_heading`, and swept the room the hero was standing in
+    /// while its quarry walked away. Something that can be shaken off by stepping
+    /// behind a wall was never locked on to.
+    #[test]
+    fn a_quarry_round_a_corner_is_still_walked_after() {
+        let mut obs = situation(&[]);
+        obs.order = Order::Focus(EntityId::new(77, 0));
+        obs.nav_dir = Vec2::Y;
+        obs.nav_distance = Fx::from_int(10);
+
+        let moved = DuelistPolicy::baseline().decide(&obs).move_dir;
+        assert!(
+            moved.y > Fx::from_ratio(9, 10),
+            "wandered instead of following the route to the quarry: {moved:?}"
+        );
+    }
+
     /// **A click is a command, not a suggestion**, and these four are the whole
     /// of the order channel. Before `ordered_feet` reached `decide`, every one of
     /// them would have answered with the mind's footwork: `march` is the only
@@ -1463,15 +1685,18 @@ mod tests {
     /// the two answers distinguishable component by component: from dead centre
     /// every stance's footwork lies along x alone, and the route lies along y
     /// alone.
+    ///
+    /// The route's is no longer the only surviving component. At full stretch the
+    /// leash keeps `LEASH_LANE` of the mind's own footwork -- room to sidestep a
+    /// blade on the way -- so these assert the proportion rather than a zero.
     #[test]
     fn a_click_moves_the_feet_with_an_enemy_in_sight() {
         let foe = contact(Body::Brute, 9, 0);
         let obs = heading_for(&situation(&[foe]), Vec2::from_ints(0, 10));
 
         let command = DuelistPolicy::baseline().decide(&obs);
-        assert_eq!(
-            command.move_dir.x,
-            Fx::ZERO,
+        assert!(
+            command.move_dir.x.abs() <= crate::utility::LEASH_LANE,
             "closed on the enemy instead of walking the route: {:?}",
             command.move_dir
         );
@@ -1513,17 +1738,26 @@ mod tests {
         let foe = contact(Body::Brute, 9, 0);
         let fighting = situation(&[foe]);
         let mut arrived = heading_for(&fighting, Vec2::from_ints(0, 10));
-        // Inside the deadband, at exactly the bound: one tick of travel. The
-        // heading is still there, so this is `ordered_feet` answering "arrived"
-        // and not "no route" -- the two share an answer, which is why it can be
-        // an `Option` rather than an enum.
-        arrived.nav_distance = arrived.move_speed;
+        // A fifth of the way into the ring. There is no bound to sit on any more
+        // -- the pull tapers from `LEASH_ROAM` to nothing at the anchor -- and a
+        // fifth of the way in leaves the order a twenty-fifth of its strength.
+        // The heading is still there, so this is the leash relaxing rather than
+        // `nav_step` reporting no route; the two still share an answer, which is
+        // why it can stay an `Option` rather than becoming an enum.
+        arrived.nav_distance = crate::utility::LEASH_ROAM * Fx::from_ratio(1, 5);
 
         let moved = DuelistPolicy::baseline().decide(&arrived).move_dir;
-        assert_eq!(
-            moved,
-            DuelistPolicy::baseline().decide(&fighting).move_dir,
-            "stood on the destination instead of going back to fighting"
+        let duelling = DuelistPolicy::baseline().decide(&fighting).move_dir;
+        // Not byte-identical any more, and that is the change rather than a
+        // tolerance being waved through: the order has relaxed, not switched off.
+        // The two axes are what separate whose answer this is.
+        assert!(
+            (moved.x - duelling.x).abs() < Fx::from_ratio(5, 100),
+            "the duel did not get its feet back: {moved:?} against {duelling:?}"
+        );
+        assert!(
+            moved.y < moved.x * Fx::from_ratio(1, 10),
+            "still walking the route instead of fighting: {moved:?}"
         );
         // ...and the answer it went back to is the fight's: at nine units a
         // duellist closes.
@@ -1548,10 +1782,11 @@ mod tests {
             "the fixture stopped being about a fighter that wanted to run"
         );
         // `Stance::Retreat`'s footwork is due west, straight away from the
-        // enemy. The player is answering the same question and the player wins.
-        assert_eq!(
-            command.move_dir.x,
-            Fx::ZERO,
+        // enemy. The player is answering the same question and the player wins,
+        // 1.0 of order against `LEASH_LANE` of flight.
+        assert!(
+            command.move_dir.x < Fx::ZERO
+                && command.move_dir.x.abs() <= crate::utility::LEASH_LANE,
             "bolted rather than obeying: {:?}",
             command.move_dir
         );

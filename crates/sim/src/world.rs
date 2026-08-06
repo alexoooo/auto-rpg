@@ -1772,20 +1772,57 @@ impl World {
         // checker can see that the scratch buffers and the columns being read
         // are different fields.
         for side in 0..2 {
+            // The one thing that cannot be written that way, so it is settled
+            // before the scratch buffer is in hand: `resolve` is a method on
+            // the whole of `self`, and no amount of field-splitting lets that
+            // sit inside a live borrow of `self.nav_seeds`.
+            //
+            // Both guards live here rather than beside the seeding, because
+            // together they are one question -- "is there a body this side is
+            // entitled to route at" -- and `None` is the same answer whichever
+            // way it fails.
+            let quarry = match self.orders[side] {
+                Order::Focus(id) => match self.resolve(id) {
+                    Some(j) if self.faction[j].index() != side => Some(j),
+                    _ => None,
+                },
+                _ => None,
+            };
             let seeds = &mut self.nav_seeds;
             seeds.clear();
             match self.objectives[side] {
                 Objective::None => {}
-                Objective::Order => {
-                    // Only a destination names a place. Every other order is a
-                    // statement about how to fight, and routing toward one
-                    // would be inventing a meaning it does not have.
-                    if let Order::Goto(dest) = self.orders[side] {
+                Objective::Order => match self.orders[side] {
+                    // A destination names a place, and so does a quarry -- it
+                    // just walks about, which the key below already notices.
+                    // Every other order is a statement about how to fight, and
+                    // routing toward an `Advance` or a `Regroup` would be
+                    // inventing a meaning neither of them has.
+                    Order::Goto(dest) => {
                         if let Some(cell) = self.dungeon.goal_cell(dest) {
                             seeds.push(cell);
                         }
                     }
-                }
+                    // Seeding the named body's cell is the search
+                    // `Objective::Hunt` runs just below, narrowed from every
+                    // enemy to the one that was pointed at.
+                    //
+                    // Silent on a handle that does not resolve, on a corpse,
+                    // and on one of your own: an empty seed list is an empty
+                    // field, `nav_step` reports no route, and no route is a
+                    // stop. That is already the answer a `Goto` sealed behind
+                    // masonry gets, and it is the answer the policy layer is
+                    // written against -- so the three ways a `Focus` can name
+                    // nobody need no handling of their own anywhere above here.
+                    Order::Focus(_) => {
+                        if let Some(j) = quarry {
+                            if let Some(cell) = self.dungeon.goal_cell(self.pos[j]) {
+                                seeds.push(cell);
+                            }
+                        }
+                    }
+                    _ => {}
+                },
                 Objective::Hunt => {
                     for j in 0..self.alive.len() {
                         if !self.alive[j] || self.faction[j].index() == side {
@@ -1819,6 +1856,41 @@ impl World {
         }
     }
 
+    /// `at`, moved to the nearest spot a body as wide as `i` could actually
+    /// stand.
+    ///
+    /// **The reachable point, not the raw click.** A destination inside masonry
+    /// -- or merely nearer a wall than this body is wide -- is not somewhere
+    /// anybody can arrive, and aiming at it leaves the character pressing into
+    /// the wall forever, never satisfying an arrival test it cannot satisfy.
+    /// This is the clamp the policy layer used to do for itself out of
+    /// `wall_clearance`, moved to the one place that holds the floor plan and
+    /// generalised from "the arena box" to "the masonry". Per body, because how
+    /// close you can get depends on how wide you are.
+    ///
+    /// The box clamp first, and it is not redundant with the masonry step. A
+    /// destination can arrive from the page as a wrapped `i32` -- tens of
+    /// thousands of world units out -- and at that magnitude every `Fx`
+    /// subtraction inside `nearest_clear` saturates, so its tie-break hands back
+    /// whichever tile it scanned first rather than the nearest one. Bringing the
+    /// point inside the arena first keeps the arithmetic in range, and the
+    /// answer honest: a click off the edge of the world means the edge of the
+    /// world.
+    ///
+    /// A living body is already inside the arena, so that first clamp is dead
+    /// weight when the point came off a quarry rather than off a click. It stays
+    /// anyway: one rule for both callers is cheaper to hold in the head than an
+    /// argument about which of them has earned the shortcut, and the cost is a
+    /// pair of comparisons.
+    fn reachable_point(&self, i: usize, at: Vec2) -> Vec2 {
+        let r = self.radius[i];
+        let inside = at.clamp_box(
+            Vec2::new(r, r),
+            Vec2::new(self.arena.x - r, self.arena.y - r),
+        );
+        self.dungeon.nearest_clear(inside, r)
+    }
+
     /// The place `i`'s faction is actually trying to get to, if the objective
     /// names one.
     ///
@@ -1830,33 +1902,23 @@ impl World {
         match self.objectives[side] {
             Objective::None => None,
             Objective::Order => match self.orders[side] {
-                // **The reachable point, not the raw click.** A destination
-                // inside masonry -- or merely nearer a wall than this body is
-                // wide -- is not somewhere anybody can arrive, and aiming at it
-                // leaves the character pressing into the wall forever, never
-                // satisfying an arrival test it cannot satisfy. This is the
-                // clamp the policy layer used to do for itself out of
-                // `wall_clearance`, moved to the one place that holds the floor
-                // plan and generalised from "the arena box" to "the masonry".
-                // Per body, because how close you can get depends on how wide
-                // you are.
+                Order::Goto(dest) => Some(self.reachable_point(i, dest)),
+                // A quarry is pulled out of the masonry exactly as a click is,
+                // and for the same reason: a body standing in a doorway or hard
+                // against a wall is not somewhere a wider hunter can arrive.
                 //
-                // The box clamp first, and it is not redundant with the masonry
-                // step. A destination can arrive from the page as a wrapped
-                // `i32` -- tens of thousands of world units out -- and at that
-                // magnitude every `Fx` subtraction inside `nearest_clear`
-                // saturates, so its tie-break hands back whichever tile it
-                // scanned first rather than the nearest one. Bringing the point
-                // inside the arena first keeps the arithmetic in range, and the
-                // answer honest: a click off the edge of the world means the
-                // edge of the world.
-                Order::Goto(dest) => {
-                    let r = self.radius[i];
-                    let inside = dest.clamp_box(
-                        Vec2::new(r, r),
-                        Vec2::new(self.arena.x - r, self.arena.y - r),
-                    );
-                    Some(self.dungeon.nearest_clear(inside, r))
+                // The two guards repeat `refresh_nav`'s, and they have to. This
+                // is a second, independent reading of the same order, and an
+                // answer here without seeds there would hand `nav_step`'s
+                // shortcut a straight line to a place the field never routed to
+                // -- which is worse than either half alone, because it is a
+                // route that looks walkable right up until the wall.
+                Order::Focus(id) => {
+                    let j = self.resolve(id)?;
+                    if self.faction[j].index() == side {
+                        return None;
+                    }
+                    Some(self.reachable_point(i, self.pos[j]))
                 }
                 _ => None,
             },
@@ -4481,6 +4543,21 @@ mod tests {
         World::new(&scenario, 1)
     }
 
+    /// The opponent the note above says to add: a monster standing at `at`.
+    ///
+    /// A Skitterer because it is the narrowest body on the roster, so a test
+    /// that walks a hero up to it is making a claim about the route rather than
+    /// about how two circles settle against one another.
+    fn monster_at(w: &mut World, at: Vec2) -> EntityId {
+        w.spawn(&UnitSpec {
+            kind: Body::Skitterer,
+            faction: Faction::Monsters,
+            stats: Body::Skitterer.base_stats(),
+            loadout: Body::Skitterer.default_loadout(),
+            spawn: at,
+        })
+    }
+
     #[test]
     fn on_an_open_floor_plan_a_move_is_the_arena_clamp_it_always_was() {
         // The bit-identity claim, made mechanical rather than argued. Every
@@ -4860,6 +4937,122 @@ mod tests {
         let straight = dest - w.pos[i];
         assert_eq!(obs.nav_dir, straight.normalize());
         assert_eq!(obs.nav_distance, straight.length());
+    }
+
+    #[test]
+    fn a_route_leads_to_the_quarry_a_focus_names() {
+        // The same floor plan and the same walk as
+        // `a_route_walks_round_a_wall_rather_than_into_it`, with a body
+        // standing on the destination instead of a click sitting there. That
+        // is the whole of the claim: naming a quarry names a place.
+        //   01234567
+        let mut w = carved_world(&[
+            "########", // 0
+            "#..#...#", // 1
+            "#..#...#", // 2
+            "#......#", // 3   the way round is south
+            "########", // 4
+        ]);
+        let id = w.alive_ids(Faction::Heroes)[0];
+        let i = id.index as usize;
+        w.pos[i] = Vec2::new(Fx::from_ratio(15, 10), Fx::from_ratio(15, 10));
+        let prey = monster_at(&mut w, Vec2::new(Fx::from_ratio(55, 10), Fx::from_ratio(15, 10)));
+        let q = prey.index as usize;
+        w.set_objective(Faction::Heroes, Objective::Order);
+        w.set_order(Faction::Heroes, Order::Focus(prey));
+
+        // Honestly longer than the straight line, so a hero four units of open
+        // air from its quarry does not believe it is nearly there.
+        let mut left = w.observe(id).nav_distance;
+        assert!(left < Fx::MAX, "there is a way round");
+        assert!(left > (w.pos[q] - w.pos[i]).length() + Fx::TWO);
+
+        // Arrival is the width of the pair rather than one tick of travel,
+        // because the goal point is a body and `World::separate` will not let
+        // the hero stand on it.
+        let touching = w.radius[i] + w.radius[q] + w.stats[i].move_speed();
+        for tick in 0..400 {
+            let (dir, now) = w.nav_step(i);
+            if now <= touching {
+                assert!(tick > 40, "arrived in {tick} ticks, which is a straight line");
+                return;
+            }
+            // The ground left never grows. A route that grows is a route being
+            // rebuilt around a quarry the hero has not actually moved toward,
+            // which is how "follow that one" turns into a hero walking in
+            // circles behind a wall.
+            assert!(now <= left, "tick {tick}: the route got longer, {left} -> {now}");
+            left = now;
+            w.command[i] = Command::moving(dir);
+            w.step();
+            assert!(
+                w.is_walkable(w.pos[i], w.radius[i]),
+                "tick {tick}: the route walked into masonry at {:?}",
+                w.pos[i]
+            );
+        }
+        panic!("never reached the quarry; stopped at {:?}", w.pos[i]);
+    }
+
+    #[test]
+    fn a_focus_on_a_corpse_is_no_route() {
+        // Three ways for a `Focus` to name nobody -- a handle whose body has
+        // been reaped, a generation that has moved on, and one of your own --
+        // and one answer to all three, because they leave the seed list empty
+        // by the same door. One test rather than three: what is being pinned
+        // is that none of them ever reaches an index, and
+        // `feature_vector_has_a_stable_width` already drives every order kind
+        // onto both factions at once, so this arm is load-bearing well before
+        // anything constructs a `Focus` on purpose.
+        let mut w = carved_world(&[
+            "########", //
+            "#......#",
+            "#......#",
+            "#......#",
+            "########",
+        ]);
+        let id = w.alive_ids(Faction::Heroes)[0];
+        let i = id.index as usize;
+        let prey = monster_at(&mut w, Vec2::new(Fx::from_ratio(55, 10), Fx::from_ratio(15, 10)));
+        w.set_objective(Faction::Heroes, Objective::Order);
+        w.set_order(Faction::Heroes, Order::Focus(prey));
+
+        // The control, so that a failure below is the corpse and not the
+        // fixture: while the quarry is standing there is a route to it.
+        assert_ne!(
+            w.nav_step(i),
+            (Vec2::ZERO, Fx::MAX),
+            "the fixture never routed to a living quarry"
+        );
+
+        w.hp[prey.index as usize] = Fx::ZERO;
+        w.step();
+        assert!(!w.is_alive(prey), "the quarry survived being emptied");
+        w.refresh_nav();
+        assert_eq!(w.nav_step(i), (Vec2::ZERO, Fx::MAX), "routed at a corpse");
+
+        // A generation that has moved on, aimed at a slot that is very much
+        // occupied -- the case a `Goto` can never produce and the one that
+        // would index a stranger.
+        w.set_order(
+            Faction::Heroes,
+            Order::Focus(EntityId::new(i as u32, w.generation[i] + 1)),
+        );
+        assert_eq!(
+            w.nav_step(i),
+            (Vec2::ZERO, Fx::MAX),
+            "routed at a stale handle"
+        );
+
+        // And one of your own, alive and resolving perfectly well. Nothing
+        // constructs this yet; `World::set_order` is a public door and the
+        // sim is total behind it.
+        w.set_order(Faction::Heroes, Order::Focus(id));
+        assert_eq!(
+            w.nav_step(i),
+            (Vec2::ZERO, Fx::MAX),
+            "routed at its own side"
+        );
     }
 
     #[test]

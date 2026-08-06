@@ -878,6 +878,39 @@ kbd {
   display: inline-flex;
 }
 
+/* The frame breakdown, opened by `P` rather than by the view selector -- profiling
+   in [dev] measures a renderer with the fog off, which is not the one anybody is
+   complaining about. See docs/plans/perf-00-overview.md. A second, independent bit
+   on the same strip, which is why it is its own class and not `.dev-more`. */
+.perf-more {
+  display: none;
+  /* The one chip in this strip allowed to shrink and to wrap inside itself: it
+     is a single preformatted string about 150 characters long, and `body` is
+     `overflow: hidden`, so the alternative is the tail of the measurement
+     clipped off the right edge of a narrow window. Ten separate chips would
+     wrap for free and would also be ten CSSOM writes and a flex reflow twice a
+     second, in order to measure a flex reflow. */
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.dev-strip.perf .perf-more {
+  display: inline-flex;
+}
+
+#perf-detail {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* A hitch, at a glance, on the one readout in this strip that is always up.
+   `--accent-warm` is the page's amber -- there is no `--warn` token, and minting
+   one for a single instrument would be a palette decision made by a stopwatch.
+   The id beats `.chip.static`'s `--ink-faint`, so the colour actually lands. */
+#perf-fps.warn {
+  color: var(--accent-warm);
+}
+
 /* `.sr-only` lived here and has gone with the chevron it labelled. It had
    exactly one user, and a utility class with no users is a class the next person
    has to check before they can delete anything. */

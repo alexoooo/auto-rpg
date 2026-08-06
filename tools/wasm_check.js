@@ -37,7 +37,7 @@ const BUILD = ["cargo", "build", "--release", "--target", "wasm32-unknown-unknow
 const LAB_HASH = 0x00b48ceb21081d1dn;
 
 // `init(1); set_goto(20_000, 12_000); step(600)`: the path a player drives.
-const ROOM_HASH = 0xf67a83db5b6288e5n;
+const ROOM_HASH = 0xadae95f2b6b46499n;
 
 // `init(1); spawn_monster(3); step(600)`: a whole fight, start to finish. Worth
 // its own number because it reaches arithmetic the walk never does -- the spawn
@@ -260,6 +260,14 @@ test("the boundary exports everything the client calls", () => {
   const exports = [
     "init",
     "set_goto",
+    // Beside `set_goto` because it is the other half of the click: a tap on
+    // open ground is a destination, a tap on an enemy names a quarry. It earns
+    // its line here for the reason the comment above gives twice over -- the
+    // page keeps its own `EXPORTS` whitelist and binds only the names on it, so
+    // a boundary function this list never checked can be present in the wasm,
+    // absent from the page, and fail as `undefined is not a function` on the
+    // first click rather than as anything either side calls an error.
+    "set_focus",
     "clear_order",
     "route_clear",
     "route_push",

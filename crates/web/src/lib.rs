@@ -835,10 +835,17 @@ impl Sim {
     fn follow_route(&mut self) {
         if self.route.len() < 2 {
             // The last leg is left standing. `Order::Goto` at the final waypoint
-            // is exactly what the player asked for, and the policy's own arrival
-            // deadband is what stops there -- a queue that popped its last entry
-            // would leave the character holding an order it had no reason to have
-            // finished with.
+            // is exactly what the player asked for, and what stops the character
+            // there is the leash going slack as it closes -- a queue that popped
+            // its last entry would leave the character holding an order it had no
+            // reason to have finished with.
+            //
+            // That used to read "the policy's own arrival deadband is what stops
+            // there", and the correction is worth keeping rather than quietly
+            // swapping: there is no deadband any more, and with it went the idea
+            // that arriving is an event somebody declares. It is a limit the
+            // approach tends to, which is precisely why nothing down here has to
+            // be told about it.
             return;
         }
         let Some(hero) = self.hero() else { return };
@@ -869,6 +876,43 @@ impl Sim {
             self.route.remove(0);
             self.begin_leg();
         }
+    }
+
+    /// A focus order outlives its quarry by exactly one tick.
+    ///
+    /// Converted to a `Goto` at the hero's own feet rather than cleared, and the
+    /// difference is the whole of the rule. [`Order::Hold`] is free will, which
+    /// puts the character back on `UtilityPolicy`'s search behaviour -- in an
+    /// empty room a slow drift toward the middle, measured under [`clear_order`]
+    /// -- and that walks it off the ground it has just spent a fight winning.
+    /// What the player asked for by naming that enemy was to be *there*, and a
+    /// `Goto` on the spot is the same thing the page's stand-down expresses, for
+    /// the same reason. Not auto-acquiring the next enemy either: choosing the
+    /// next fight is the player's move, not the module's.
+    ///
+    /// **Per tick and not per frame**, beside [`Sim::follow_route`] and on its
+    /// argument: one animation frame is up to eight ticks of catch-up, so a
+    /// page-side death test would leave the hero steering at a corpse for that
+    /// long -- visibly, and on exactly the frame a kill happened.
+    ///
+    /// The generation half of the handle earns its keep here. `World::is_alive`
+    /// resolves both halves, so a quarry whose slot has already been handed to
+    /// the next spawn still reads as dead; a check on the index alone would
+    /// quietly transfer the lock to whatever walked in.
+    fn expire_focus(&mut self) {
+        let Order::Focus(id) = self.world.order(Faction::Heroes) else {
+            return;
+        };
+        if self.world.is_alive(id) {
+            return;
+        }
+        // [`Sim::hero_position`] falls back to the middle of the arena when
+        // nobody is standing, which is not a destination anyone asked for. It
+        // cannot become one: the only way back from a fallen hero is
+        // [`Sim::swap_in_hero`], and that writes `Order::Hold` over whatever is
+        // standing here before the newcomer takes a step.
+        let here = self.hero_position();
+        self.world.set_order(Faction::Heroes, Order::Goto(here));
     }
 
     /// Builds the next floor down and moves the run onto it.
@@ -1116,6 +1160,21 @@ impl Sim {
             // level that was left -- and [`Sim::descend`] drops the queue anyway,
             // so ordering it the other way round would only lose the leg.
             self.follow_route();
+
+            // And the lock, immediately after the queue and on the same
+            // argument: a quarry can fall on any tick of a catch-up burst, so
+            // the resolution this rule runs at is the resolution the player
+            // watches it at. Before the way-out test below for the same reason
+            // the queue is, too -- a kill that empties the level on the tick
+            // the hero steps onto the portal is still this level's kill.
+            //
+            // The two cannot fight over the order in one tick, so the ordering
+            // here is a matter of reading rather than of behaviour: a standing
+            // `Order::Focus` means an empty queue, because [`set_focus`] drops
+            // the path on the way in, and a queue with legs left in it means
+            // the order is a `Goto`, which is the first thing `expire_focus`
+            // returns on.
+            self.expire_focus();
 
             // **And out of the loop entirely if the run just moved on.** Not
             // "carry on in the new world": the flash counters, the swing table
@@ -1567,7 +1626,26 @@ impl Sim {
     fn write_frame(&self, frame: &mut [f32; FRAME_MAX]) -> usize {
         // The player's order is a hero order; there is nobody else to command.
         let order = self.world.order(Faction::Heroes);
-        let point = order.point();
+        // A focus names a body and not a place, so `Order::point` answers
+        // `Vec2::ZERO` for it -- correctly, and it must stay that way: the
+        // payload is an [`EntityId`] and there is no point in it to hand back.
+        // Left alone the page would draw its destination marker at the origin.
+        // What it wants to draw is where that body is *now*, and the world is
+        // the only thing that can answer. The same two header slots carry it,
+        // so this is a better value and not a layout change -- which is what
+        // keeps [`FRAME_LAYOUT_VERSION`] at 6 and the hardcoded `HEADER_LEN` in
+        // `tools/wasm_check.js` and `web/main.js` untouched.
+        //
+        // A handle that no longer resolves cannot actually reach the `ZERO`
+        // branch through [`step`]: [`Sim::expire_focus`] runs inside the tick
+        // loop and [`publish`] runs after it, so a dead quarry's order is
+        // already a `Goto` by the time a frame is written. The fallback is
+        // there because this function has to be total, and no body is the
+        // honest answer to where a body is.
+        let point = match order {
+            Order::Focus(id) => self.world.view(id).map_or(Vec2::ZERO, |v| v.position),
+            _ => order.point(),
+        };
         let arena = self.world.arena();
         frame[0] = arena.x.to_f32();
         frame[1] = arena.y.to_f32();
@@ -1934,9 +2012,12 @@ pub extern "C" fn init(seed: u32) {
 /// A click, as thousandths of a world unit.
 ///
 /// Integers, so that no float ever crosses into simulation state -- the rule
-/// the whole determinism contract rests on. A thousandth of a unit is 1/50 of
-/// the arrival deadband and about a twentieth of a pixel on the canvas this
-/// feeds, so the truncation is not observable.
+/// the whole determinism contract rests on. A thousandth of a unit is a
+/// fifteen-hundredth of `LEASH_ROAM`, the ring an order is satisfied anywhere
+/// inside, and about a twentieth of a pixel on the canvas this feeds, so the
+/// truncation is not observable. This was measured against the arrival deadband
+/// until there stopped being one; the ring is what replaced it, and it is the
+/// wider of the two, so the margin only grew.
 ///
 /// Total for any `i32`: JavaScript's `ToInt32` *wraps* rather than clamps, so a
 /// wild coordinate can arrive here, and `Fx::from_ratio` saturates rather than
@@ -1954,6 +2035,54 @@ pub extern "C" fn set_goto(x_milli: i32, y_milli: i32) {
         sim.world.set_order(Faction::Heroes, Order::Goto(dest));
     });
     publish();
+}
+
+/// Names the enemy to fight. Answers `1` if the lock took and `0` if the handle
+/// does not name a living monster.
+///
+/// **Both halves of the handle cross the wall, and that is not belt and
+/// braces.** A dead unit's slot is handed to the next spawn, so an index on its
+/// own would let a click on a corpse land on whatever walked in afterwards --
+/// the same argument the module docs make for `entity_index` and
+/// `entity_generation` being two columns rather than one. The frame publishes
+/// both (`row[9]`, `row[10]`) precisely so the page can send them back.
+///
+/// Refused for anything that is not a live Monster. The hero is not a target,
+/// and a stale handle is a click on something that has already fallen; both
+/// should leave the standing order exactly as it was rather than quietly
+/// becoming something else. That is why the refusal is a `0` and not a fall
+/// through to [`clear_order`] -- a mis-aimed click is not a request to hand the
+/// feet back, and a page that wanted that can say so itself.
+///
+/// **This touches simulation state**, exactly as [`set_goto`] and
+/// [`Sim::begin_leg`] do: `World::set_order` rebuilds the faction's flow field,
+/// and an order is one of the things `World::state_hash` fingerprints. The
+/// golden scripts are unaffected only because not one of them calls this --
+/// do not add one that does.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn set_focus(index: u32, generation: u32) -> u32 {
+    let id = EntityId::new(index, generation);
+    let taken = with_sim(0, |sim| {
+        // One lookup answers both refusals, because `World::view` resolves the
+        // *full* handle: a body that has fallen gives `None` here even when its
+        // slot has already been reused, so "gone" and "not a monster" collapse
+        // into a single comparison rather than a liveness test followed by a
+        // faction test that could only disagree with it.
+        if sim.world.view(id).map(|v| v.faction) != Some(Faction::Monsters) {
+            return 0;
+        }
+        // A tap cancels a dragged path, exactly as [`set_goto`] says it does --
+        // and here it has to, because a surviving queue would call
+        // [`Sim::begin_leg`] on its next leg test and write a `Goto` straight
+        // over the lock, taking the hero off the quarry a moment after the
+        // player named it.
+        sim.clear_route();
+        sim.world.set_order(Faction::Heroes, Order::Focus(id));
+        1
+    });
+    publish();
+    taken
 }
 
 /// Withdraws the standing order and leaves the hero to its own judgement.
@@ -3143,7 +3272,20 @@ mod tests {
     /// `Goto`. That argument was sound for `LAB_HASH` and did not transfer here.
     /// Read the pair the same way as above: this number moving and `LAB_HASH`
     /// standing still is the shape of a change to who is driving.
-    const ROOM_HASH: u64 = 0xf67a_83db_5b62_88e5;
+    ///
+    /// **And then a third time, alone again, when the click stopped being an
+    /// override and became a leash** -- and the prediction was wrong a second
+    /// time for exactly the reason it was wrong the first. That plan's golden
+    /// section argued the gate the same way: no lab scenario issues a `Goto`, so
+    /// `ordered_feet` is unreachable and no hash can move. Sound for `LAB_HASH`,
+    /// which held; false here, and false for a reason written down eight lines
+    /// above it -- the script on this constant *is* a `set_goto`, and it is the
+    /// only golden anywhere in the project that is. The lesson is not about
+    /// leashes. It is that "no golden reaches this code" is a claim about the
+    /// four scripts documented in this module as much as about the lab's
+    /// scenarios, and it has now been made twice without being checked against
+    /// them. Check the scripts before predicting the hashes.
+    const ROOM_HASH: u64 = 0xadae_95f2_b6b4_6499;
 
     /// What `init(1); spawn_monster(3, SLOT_EMPTY, SLOT_EMPTY); step(600)` leaves behind -- a whole
     /// skirmish, start to finish, driven the way the page drives it. Recorded
@@ -3264,6 +3406,35 @@ mod tests {
 
     fn monsters() -> Vec<Vec<f32>> {
         rows().into_iter().filter(|row| row[6] == 1.0).collect()
+    }
+
+    /// The identity columns of the first monster on the frame, as the pair the
+    /// page sends back to [`set_focus`].
+    ///
+    /// Read off the frame rather than out of `World::alive_ids`, because the
+    /// two columns being enough to name a body is precisely what the focus
+    /// export is claiming -- a fixture that reached past them would be testing
+    /// a path the page cannot take.
+    fn monster_handle() -> (u32, u32) {
+        let row = monsters()
+            .into_iter()
+            .next()
+            .expect("nothing hostile is standing");
+        (row[9] as u32, row[10] as u32)
+    }
+
+    /// The faction's standing order, out of the sim rather than off the frame.
+    ///
+    /// Reaching into the private field the way [`roster_len`] does, and for the
+    /// same kind of reason: the frame flattens an order into a discriminant and
+    /// a point, which is everything the page needs and not enough to say *which*
+    /// body an `Order::Focus` named.
+    fn hero_order() -> Order {
+        SIM.with(|sim| {
+            sim.borrow()
+                .as_ref()
+                .map_or(Order::Hold, |sim| sim.world.order(Faction::Heroes))
+        })
     }
 
     fn hero() -> (f32, f32) {
@@ -3501,13 +3672,30 @@ mod tests {
         // Quiet, and the destination taken off the floor plan rather than
         // written down: a level is carved now, so a hardcoded pair of
         // coordinates is a coin flip on whether the click is even standable.
+        //
+        // **Six hundred ticks, and it used to be three hundred, because arrival
+        // is a limit now rather than an event.** The order pulls on the feet
+        // through a leash whose grip falls off as the square of the gap, and it
+        // composes with a brake that is itself proportional to the gap, so the
+        // commanded speed near the anchor falls as the *cube* of the distance
+        // left: the walk is quick and then the last fraction of a unit is a
+        // crawl. Three hundred ticks left the hero 0.2197 out and six hundred
+        // leave it 0.1533, against a tolerance that has not moved.
+        //
+        // The tolerance has not moved because it was never the thing under test.
+        // A `step` that does not answer its decisions does not stop a fifth of a
+        // unit short of the click -- it sails through and pins the hero against
+        // the far wall, several units out and in the wrong part of the room. The
+        // assertion catches that as squarely as it ever did; it was the budget
+        // that went stale, and a budget is a statement about how long a crawl
+        // takes rather than about where the walk ends up.
         init_quiet(1);
         let start = hero();
         let (tx, ty) = walkable_near_hero(4.0, 0.45);
         assert_ne!((tx, ty), start, "the fixture found nowhere to walk to");
 
         set_goto((tx * 1000.0) as i32, (ty * 1000.0) as i32);
-        step(300);
+        step(600);
 
         let (x, y) = hero();
         println!("walked to ({x}, {y}) in {} ticks", tick());
@@ -4024,7 +4212,7 @@ mod tests {
     /// Taken off the floor plan rather than written down, for the reason
     /// [`walkable_near_hero`] gives. The 1.5 is not arbitrary: it is wider than
     /// [`ROUTE_ARRIVE`] plus a Fighter's radius, so no two legs are satisfied at
-    /// once -- legs packed inside the arrival deadband would drain the queue on
+    /// once -- legs packed inside that band would drain the queue on
     /// the first tick, and a test that could not tell "walked the path" from
     /// "dropped the path" would pass either way.
     ///
@@ -4376,6 +4564,289 @@ mod tests {
             frame()[2],
             0.0,
             "order_kind: Hold, with no leg re-ordered over it"
+        );
+    }
+
+    // --------------------------------------------------------------- the lock
+    //
+    // `set_focus` and the rule that outlives it. The gesture these six tests
+    // describe is one the page could not express at all before: every click was
+    // a `Goto`, whatever it landed on.
+
+    #[test]
+    fn a_focus_names_the_monster_that_was_clicked() {
+        // The page's whole path, end to end: it hit-tests a click against the
+        // bodies it drew, reads the two identity columns off that row and sends
+        // them straight back. Nothing in between is a row index -- which is what
+        // `row[9]` and `row[10]` are in the frame for.
+        init_quiet(1);
+        spawn_monster(BRUTE, SLOT_EMPTY, SLOT_EMPTY);
+        let (index, generation) = monster_handle();
+
+        assert_eq!(set_focus(index, generation), 1, "the click was refused");
+        assert_eq!(
+            hero_order(),
+            Order::Focus(EntityId::new(index, generation)),
+            "the standing order does not name the body that was clicked"
+        );
+        assert_eq!(frame()[2], 3.0, "order_kind: Focus is discriminant 3");
+    }
+
+    #[test]
+    fn a_focus_on_a_stale_handle_is_refused() {
+        // Three ways to miss, one answer to all of them: `0`, and the standing
+        // order exactly where it was. A refusal that fell through to anything
+        // else would make a mis-aimed click quietly countermand the last good
+        // one, which is worse than doing nothing.
+        init_quiet(1);
+        spawn_monster(BRUTE, SLOT_EMPTY, SLOT_EMPTY);
+        let (index, generation) = monster_handle();
+        let (tx, ty) = walkable_near_hero(4.0, 0.45);
+        set_goto((tx * 1000.0) as i32, (ty * 1000.0) as i32);
+        let standing = hero_order();
+        assert!(
+            matches!(standing, Order::Goto(_)),
+            "the fixture never got an order in place to leave alone"
+        );
+
+        // The corpse, and the reason the generation crosses the wall at all:
+        // this index is a perfectly good slot with a living body in it. An
+        // export that looked only at the index would take the click -- so a tap
+        // on something that fell a moment ago would silently become an order to
+        // fight whatever walked into its place.
+        assert_eq!(
+            set_focus(index, generation.wrapping_add(1)),
+            0,
+            "a stale generation named the body now holding that slot"
+        );
+        assert_eq!(hero_order(), standing, "a refused click moved the order");
+
+        // The hero's own handle. Not a target, and it has to be refused by the
+        // same rule rather than by the page remembering not to send it: a hit
+        // test against every drawn body will produce this exact pair the first
+        // time the player clicks their own character.
+        let hero = hero_row().expect("the room did not open with a hero");
+        assert_eq!(
+            set_focus(hero[9] as u32, hero[10] as u32),
+            0,
+            "the hero was accepted as its own quarry"
+        );
+        assert_eq!(hero_order(), standing, "a refused click moved the order");
+
+        // And an index off the end of the world entirely, which is what a click
+        // on a body that died between the frame being drawn and the mouse going
+        // down eventually looks like.
+        assert_eq!(set_focus(9_999, 0), 0, "a handle naming nothing was accepted");
+        assert_eq!(hero_order(), standing, "a refused click moved the order");
+    }
+
+    #[test]
+    fn a_focus_cancels_a_dragged_route() {
+        // Same rule as `a_click_cancels_a_route`, and load-bearing rather than
+        // tidy: a surviving queue would call `begin_leg` on its next leg test
+        // and write a `Goto` straight over the lock, so the hero would break off
+        // the quarry a moment after the player named it.
+        init_quiet(1);
+        let legs = walkable_legs(3, 0.45);
+        assert_eq!(legs.len(), 3, "the fixture found no three-leg path off the hero");
+        for &(x, y) in &legs {
+            route_push((x * 1000.0) as i32, (y * 1000.0) as i32);
+        }
+        assert_eq!(route_len(), 3, "the fixture never got a path in place");
+
+        spawn_monster(BRUTE, SLOT_EMPTY, SLOT_EMPTY);
+        let (index, generation) = monster_handle();
+        assert_eq!(set_focus(index, generation), 1, "the click was refused");
+        assert_eq!(
+            route_len(),
+            0,
+            "the dragged path outlived the lock that cancelled it"
+        );
+        assert_eq!(frame()[2], 3.0, "order_kind: Focus is discriminant 3");
+
+        // And nothing puts it back. A queue that had merely been *paused* would
+        // re-order its next leg on the following tick, and the hero would set
+        // off walking the rest of a path drawn before the player saw the enemy.
+        step(60);
+        assert_eq!(route_len(), 0, "a cancelled route came back");
+        assert_eq!(
+            monsters().len(),
+            1,
+            "the quarry died inside the window, so the order below proves nothing"
+        );
+        assert_eq!(
+            hero_order(),
+            Order::Focus(EntityId::new(index, generation)),
+            "a leg was re-ordered over the lock"
+        );
+    }
+
+    #[test]
+    fn a_dead_quarry_becomes_a_stand_down() {
+        // The user's rule: when the named enemy falls, hold that ground.
+        // Deliberately not `Order::Hold`, which is free will -- an empty room
+        // drifts a released character back toward the middle (measured under
+        // `clear_order`), walking it off the spot it just won -- and
+        // deliberately not the next enemy, which would be the module picking the
+        // player's fights.
+        init_quiet(1);
+        spawn_monster(SKITTERER, SLOT_EMPTY, SLOT_EMPTY);
+        let (index, generation) = monster_handle();
+        assert_eq!(set_focus(index, generation), 1, "the click was refused");
+
+        // **One tick at a time**, so the tick this loop stops on is the tick the
+        // quarry died on and the conversion has to have happened inside it. A
+        // `step(600)` would pass just as happily against a rule that waited
+        // until the end of the burst.
+        let mut ticks = 0;
+        while !monsters().is_empty() {
+            step(1);
+            ticks += 1;
+            assert!(ticks < 3_000, "the fighter never killed one skitterer");
+        }
+        println!("the quarry fell on tick {}", tick());
+
+        let (hx, hy) = hero();
+        let at = match hero_order() {
+            Order::Goto(at) => at,
+            other => panic!("the lock outlived its quarry as {other:?}"),
+        };
+        // Exactly the hero's own feet, not near them. `expire_focus` reads the
+        // position the same tick's `World::step` settled and nothing moves
+        // between the two, so an approximate match here would be hiding a
+        // conversion that happened a tick late.
+        assert_eq!(
+            (at.x.to_f32(), at.y.to_f32()),
+            (hx, hy),
+            "stood down somewhere other than where the fight ended"
+        );
+        assert_eq!(frame()[2], 4.0, "order_kind: a stand-down is a Goto");
+
+        // And the property the *placement* is for, which the loop above cannot
+        // see on its own: the rule lives inside `Sim::advance`'s per-tick loop,
+        // so how the caller batches its frames cannot change the run. A version
+        // that expired the lock once per `step` instead would leave the hero
+        // steering at a corpse for the rest of every catch-up burst, and these
+        // two runs would part company on the tick the skitterer fell.
+        let single = {
+            init_quiet(1);
+            spawn_monster(SKITTERER, SLOT_EMPTY, SLOT_EMPTY);
+            let (index, generation) = monster_handle();
+            set_focus(index, generation);
+            for _ in 0..1_600 {
+                step(1);
+            }
+            (tick(), hash())
+        };
+        init_quiet(1);
+        spawn_monster(SKITTERER, SLOT_EMPTY, SLOT_EMPTY);
+        let (index, generation) = monster_handle();
+        set_focus(index, generation);
+        for _ in 0..200 {
+            step(8);
+        }
+        assert_eq!(
+            (tick(), hash()),
+            single,
+            "the quarry-death rule reads the caller's frame pacing"
+        );
+    }
+
+    #[test]
+    fn a_focus_publishes_the_quarrys_position() {
+        // `Order::point` is `Vec2::ZERO` for a focus, correctly -- the payload
+        // is a handle and there is no point in it. The header is given the
+        // quarry's live position instead, so the page's existing destination
+        // marker lands on the body with no page-side work at all.
+        init_quiet(1);
+        spawn_monster(BRUTE, SLOT_EMPTY, SLOT_EMPTY);
+        let (index, generation) = monster_handle();
+        assert_eq!(set_focus(index, generation), 1, "the click was refused");
+
+        // **Sampled while the body moves, and that is the whole test.** A header
+        // that had merely been wired to something non-zero once would pass a
+        // single reading; what it must not be able to do is fall behind a quarry
+        // that walks, which is every quarry.
+        let mut travelled = 0.0;
+        let mut last = {
+            let f = frame();
+            assert_eq!(f[2], 3.0, "order_kind: Focus is discriminant 3");
+            (f[3], f[4])
+        };
+        for _ in 0..20 {
+            step(30);
+            let f = frame();
+            let quarry = monsters()
+                .into_iter()
+                .next()
+                .expect("the brute fell mid-test");
+            assert_eq!(f[2], 3.0, "order_kind: the lock let go on its own");
+            assert_eq!(
+                (f[3], f[4]),
+                (quarry[0], quarry[1]),
+                "the header is pointing somewhere the quarry is not"
+            );
+            travelled += distance(&[f[3], f[4]], &[last.0, last.1]);
+            last = (f[3], f[4]);
+        }
+        println!("the header followed the quarry {travelled:.2} units");
+        assert!(
+            travelled > 4.0,
+            "the quarry only moved {travelled:.2} units, so a frozen header would have passed"
+        );
+    }
+
+    #[test]
+    fn a_focus_does_not_survive_a_descent() {
+        // Two ends of one rule, mirroring `a_route_does_not_survive_a_descent`:
+        // a lock must outlive neither the floor its quarry stood on nor the
+        // character that was told to fight it.
+        //
+        // **A confirmation rather than a mechanism.** Nothing in `Sim::descend`
+        // clears the order, and nothing needs to: it replaces the world wholesale
+        // with `Sim::open`, and `World::new` starts both factions on
+        // `Order::Hold`. A handle from the previous floor cannot even be
+        // expressed on the next one. This test is here so that a later `descend`
+        // which kept a world instead of building one cannot quietly leave a lock
+        // standing that resolves against a stranger.
+        init_quiet(1);
+        spawn_monster(BRUTE, SLOT_EMPTY, SLOT_EMPTY);
+        let (index, generation) = monster_handle();
+        assert_eq!(set_focus(index, generation), 1, "the click was refused");
+        assert_eq!(
+            hero_order(),
+            Order::Focus(EntityId::new(index, generation)),
+            "the fixture never got a lock in place to lose"
+        );
+
+        assert_eq!(descend(), 1, "never descended");
+        assert_eq!(
+            hero_order(),
+            Order::Hold,
+            "the next floor inherited a lock on a body that stayed behind"
+        );
+        assert_eq!(frame()[2], 0.0, "order_kind: Hold");
+
+        // The swap, and it needs a line of its own for the reason the route's
+        // twin does: an order belongs to the *faction*, so it outlives the body
+        // it was given to rather than going with the corpse. A newcomer that
+        // inherited the lock would walk straight back into the thing that killed
+        // the last one.
+        init_quiet(1);
+        spawn_monster(BRUTE, SLOT_EMPTY, SLOT_EMPTY);
+        let (index, generation) = monster_handle();
+        assert_eq!(set_focus(index, generation), 1, "the click was refused");
+        fall_to_brutes();
+
+        assert_eq!(
+            swap_in_hero(FIGHTER, SLOT_EMPTY, SLOT_EMPTY),
+            1,
+            "nobody arrived"
+        );
+        assert_eq!(
+            hero_order(),
+            Order::Hold,
+            "the newcomer inherited the lock the last one died holding"
         );
     }
 

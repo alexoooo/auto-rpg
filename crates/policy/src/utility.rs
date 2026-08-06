@@ -126,6 +126,60 @@ pub(crate) fn nav_step(obs: &Observation) -> Option<(Vec2, Fx)> {
     Some((obs.nav_dir, obs.nav_distance))
 }
 
+/// How far from an arrived destination a character is free to move.
+///
+/// An order names a *place to be near*, not a spot to be pinned to. The old rule
+/// was a deadband of one tick of travel, which is not a tolerance so much as a
+/// promise that any shove -- knockback, `World::separate`, a wall slide -- makes
+/// the order live again and walks the character back mid-fight, with its own
+/// footwork suppressed the whole way. A ring wide enough to circle in is the
+/// difference between a fighter standing where it was told and a fighter standing
+/// *still*.
+pub(crate) const LEASH_ROAM: Fx = Fx::from_ratio(3, 2);
+
+/// How much of its own footwork a character keeps at full stretch.
+///
+/// A lateral component of this size off a unit heading is some 17 degrees of
+/// deviation: room to sidestep a blade and make small corrections, not room to
+/// wander off the route. Zero here is the old behaviour -- a rail.
+pub(crate) const LEASH_LANE: Fx = Fx::from_ratio(3, 10);
+
+/// How much wider than its preferred range a focused fighter's ring is drawn.
+///
+/// An [`Order::Focus`] anchors on a ring around the quarry rather than on the
+/// quarry itself, and this is what that ring is sized by: the fighter's own
+/// standoff, out by half again. The slack is the band the fight is allowed to
+/// work in before the pursuit starts pulling -- so the mind owns the feet out to
+/// `1.5x` the range it wanted, and the order does not reach full strength until
+/// `1.5x standoff + LEASH_ROAM`.
+///
+/// **Exactly `1.0` is the version that does not work**, and the failure is not
+/// subtle. Keeping station is a two-sided correction: `station` pushes *out* when
+/// a fighter is inside its range and pulls in when it is outside, and a circling
+/// duellist crosses its own preferred range constantly. A ring drawn on that line
+/// puts the pull's rim precisely where the footwork is busiest, so every step out
+/// to make room re-arms an order that walks the fighter back in. The band is what
+/// makes the two mechanisms answer different questions -- spacing inside it,
+/// pursuit outside it -- rather than fighting over the same tenth of a unit.
+pub(crate) const FOCUS_SLACK: Fx = Fx::from_ratio(3, 2);
+
+/// Blends an order against the footwork the fighter wanted anyway.
+///
+/// `order` is the **brake-scaled** heading, not a raw unit vector: the spring and
+/// the policy's own stopping-distance solve compose, and the brake is what damps
+/// the spring instead of letting it orbit the anchor.
+///
+/// `gap` is how far the anchor still is. At zero the pull is zero and the fight
+/// owns the feet completely -- that is the hover. At [`LEASH_ROAM`] and beyond the
+/// order dominates and [`LEASH_LANE`] of own footwork survives -- that is the walk.
+/// Quadratic rather than linear so the ring has a soft interior and a firm rim.
+pub(crate) fn leash(order: Vec2, gap: Fx, own: Vec2) -> Vec2 {
+    let slack = (gap / LEASH_ROAM).min(Fx::ONE);
+    let pull = slack * slack;
+    let free = Fx::ONE - pull * (Fx::ONE - LEASH_LANE);
+    (order * pull + own * free).clamp_length(Fx::ONE)
+}
+
 /// The knobs behind the hand-authored behaviour.
 ///
 /// Every field is exposed as a gene in `0..=1` and mapped into the range below,
@@ -314,13 +368,52 @@ impl UtilityPolicy {
         self.last_target[index] = target;
     }
 
+    /// Who to fight.
+    ///
+    /// **A player who clicks an enemy is not making a suggestion.** The scoring
+    /// loop below is how a fighter picks its own quarry, and a named one skips it
+    /// entirely rather than entering it with a thumb on the scale -- which is what
+    /// the `obedience` gene used to do, and what made obeying an order a matter of
+    /// degree that an evolved number got to decide.
+    ///
+    /// Only while the named quarry is actually in sight. Out of sight there is no
+    /// contact to return, so the fighter fights whatever is in front of it while
+    /// the feet carry on pursuing: `ordered_feet` is still routing to the quarry
+    /// through the sim, and a hero that walked past a monster with its hands down
+    /// because the thing it was told to kill is round the next corner would be
+    /// obeying the letter of the order and dying of it.
     fn pick_target<'a>(&self, obs: &'a Observation) -> &'a Contact {
+        if let Some(named) = obs.order.focus() {
+            // `obs.enemies()` is nearest-first, so `find` is exact and canonical
+            // -- there is at most one contact with a given id and no tie to break.
+            if let Some(contact) = obs.enemies().iter().find(|c| c.id == named) {
+                return contact;
+            }
+        }
+
         let previous = self.recall(obs.me);
         let mut best: Option<(&Contact, Fx)> = None;
         for contact in obs.enemies() {
             let closeness = Fx::ONE - (contact.distance / obs.sight_range).clamp(Fx::ZERO, Fx::ONE);
             let mut score = self.weights.aggression * closeness
                 + self.weights.bloodlust * (Fx::ONE - contact.hp_frac);
+            // **Dead, and left standing here on purpose.** The early return above
+            // is unconditional, so a focus order never reaches this line and
+            // `obedience` now has no reader anywhere in the workspace.
+            //
+            // The gene itself stays where it is, and that is not sentiment: the
+            // genome is a positional array. `from_genome` reads slot 2 by index
+            // and so do `LABELS`, `GENE_RANGES` and `BASELINE_VALUES`, so pulling
+            // it out renumbers every gene after it and silently repoints every
+            // stored genome in the repository at the wrong knob. A dead branch is
+            // cheap; a genome that means something different than it did is not
+            // recoverable by reading it.
+            //
+            // Giving the slot a new job is a real question and a separate one --
+            // the obvious candidate is scaling how far past its ring a fighter
+            // will pursue, which would make a player's order grip harder or
+            // softer depending on an evolved number. That is the wrong default and
+            // it is not this change's to decide.
             if obs.order.focus() == Some(contact.id) {
                 score += self.weights.obedience;
             }
@@ -371,37 +464,123 @@ impl UtilityPolicy {
         }
     }
 
-    /// The movement a live [`Order::Goto`] asks for, or `None` when there is
-    /// nothing left to do about one.
+    /// How far out this policy wants to stand from `foe`, and so the radius of
+    /// the ring an [`Order::Focus`] on `foe` anchors at.
     ///
-    /// `None` means all four of: the order is not a destination; there is no
-    /// route to it (`nav_step` is silent, so no objective is set, or it is sealed
-    /// behind masonry); or the character has arrived. Every caller reads `None` as
-    /// "the order has nothing to say", which is exactly what it means.
+    /// Lifted out of `engage`, where it was two lines of arithmetic, for the same
+    /// one-reader reason [`crate::minds::ActionMind::standoff`] gives: the ring
+    /// and the approach have to be the same number or a focused fighter is pulled
+    /// off the spacing it just chose, once per decision, forever.
+    ///
+    /// `spacing` is a fraction of the fighter's *own* reach, which is what makes
+    /// this a crowder or a hoverer depending on the gene -- and it is the whole
+    /// difference between this policy's ring and a bow's. `BowMind` measures out
+    /// from the reach it is trying to stay outside of; this measures out from the
+    /// reach it is trying to fight with. Both are honest about the weapon in hand
+    /// and neither is a constant.
+    fn standoff(&self, obs: &Observation, foe: &Contact) -> Fx {
+        // The agent knows its own reach exactly: its weapon plus both bodies.
+        let reach = obs.full_reach() + foe.radius;
+        reach * self.weights.spacing
+    }
+
+    /// How a live [`Order::Goto`] or [`Order::Focus`] pulls on the feet, blended
+    /// against the footwork `own` that the fighter wanted anyway.
+    ///
+    /// `None` means two things now and no longer three: the order does not name a
+    /// place, or there is no route to the place it names (`nav_step` is silent, so
+    /// no objective is set, or the destination is sealed behind masonry). *Arrival*
+    /// used to be the third and is gone -- an arrived character is not a special
+    /// case any more but the limit of the ordinary one, where [`leash`] has relaxed
+    /// the pull to nothing and handed `own` straight back. Every caller still reads
+    /// `None` as "the order has nothing to say", which is exactly what it means.
     ///
     /// **This is what makes a click a command rather than a suggestion.** It is
     /// read from two places: `march`, where it always was, and `decide`, where it
-    /// now overrides the feet of a fighter that has an enemy in front of it. A
+    /// now bends the feet of a fighter that has an enemy in front of it. A
     /// character that discarded the player's order the moment anything walked into
     /// view had, in practice, no order channel at all -- there is always something
     /// in view in a dungeon.
-    fn ordered_feet(&self, obs: &Observation) -> Option<Vec2> {
-        if !matches!(obs.order, Order::Goto(_)) {
-            return None;
-        }
+    ///
+    /// **The two order kinds differ only in what the anchor is.** A `Goto` names a
+    /// point and the whole route is the gap; a `Focus` names a body and the gap is
+    /// the route less a ring around it. Everything after that line -- the brake,
+    /// the spring, the `None` -- is one law, and deliberately: a player who clicks
+    /// the ground and a player who clicks a monster have made the same kind of
+    /// statement about where they want the character to be.
+    fn ordered_feet(&self, obs: &Observation, own: Vec2) -> Option<Vec2> {
+        let ring = match obs.order {
+            Order::Goto(_) => Fx::ZERO,
+            Order::Focus(id) => match obs.enemies().iter().find(|c| c.id == id) {
+                // In sight: the anchor is not the quarry, it is a ring around it
+                // at the range this fighter wants to fight from. Inside the ring
+                // the pull is zero and the fight owns the feet -- which is what
+                // makes an archer kite instead of walking onto a sword, and a
+                // brawler keep its spacing instead of standing on top of one.
+                //
+                // **Not gated on `HUNT_RANGE`.** That leash is what keeps a
+                // dungeon room-by-room for a monster nobody told anything; a
+                // player who clicked an enemy said follow it, and consulting an
+                // eighteen-unit rule of thumb here would silently cancel the order
+                // at the far end of a long room.
+                Some(foe) => self.standoff(obs, foe) * FOCUS_SLACK,
+                // Out of sight there is no contact to size a ring from, and none
+                // is needed. Every ring the roster produces is well inside the
+                // sight range that has to be crossed to reach it -- the widest is
+                // a bow's, six units against the shortest sight in the game at
+                // 7.8 -- so a quarry becomes a visible contact comfortably before
+                // it becomes a near one, and the hand-off from pursuit to fight
+                // always happens on the way in rather than at the last moment. A
+                // zero here is the pursuit, undiluted.
+                //
+                // The one arrangement that would break that is a standoff pinned
+                // to its own sight cap, since `BowMind` caps at nine tenths of
+                // sight and `FOCUS_SLACK` then puts the rim outside it: a fighter
+                // would let go of a quarry it could still see. Nothing in the
+                // roster comes close to the cap and `an_archer_will_not_stand_off
+                // _further_than_it_can_see` records how far off it is, but a new
+                // row in `ACTIONS` with long enough arms is where to look if a
+                // pursuit ever stops early.
+                None => Fx::ZERO,
+            },
+            _ => return None,
+        };
 
-        // The wall sweep exists to stop an advancing line grinding into a wall;
-        // applied to a destination near an edge it walks straight past the
-        // click. And `open_ground` is a *search* urge for an agent with nowhere
-        // in particular to be -- against an explicit destination it is by
-        // construction fighting the player. It cannot be tapered back in
-        // either: added before `clamp_length`, which only ever shortens, a short
-        // sum passes through untouched, so the bias never shrinks as the brake
-        // does and the two balance at a stable fixed point `wall_fear * stride`
-        // short of the target -- 0.193 units short of every click at baseline,
-        // anywhere in the arena. At the top of `wall_fear`'s evolvable range it
-        // is worse: magnitude 1.0 exactly cancels the unit heading and the
-        // character stops dead mid-room.
+        // `open_ground` reaches this function now, through `own`, and this is the
+        // comment that used to forbid it. The old objection was arithmetic rather
+        // than taste: the bias was *added* before a `clamp_length` that only ever
+        // shortens, so a short sum passed through untouched, the bias never shrank
+        // as the brake did, and the two balanced at a stable fixed point
+        // `wall_fear * stride` short of the target -- 0.193 units short of every
+        // click at baseline, anywhere in the arena. At the top of `wall_fear`'s
+        // evolvable range it was worse: magnitude 1.0 exactly cancelled the unit
+        // heading and the character stopped dead mid-room.
+        //
+        // The bias is weighted now, not added, and that answers both halves. At
+        // full stretch it enters at `LEASH_LANE` and loses to a full-strength
+        // order 1.0 against 0.3, so it can no longer cancel the heading and the
+        // stops-dead-mid-room case cannot arise -- the leash is strictly safer
+        // here than the code this comment was written against. And near the
+        // anchor, where the bias would once have won, it is not in here on its
+        // own at all: `march` hands this function a zero, so a character with
+        // nothing in sight has the order as the only thing steering it and
+        // closes on the mark itself, with nothing left that could park it short
+        // of one. The taper is quadratic and the brake shrinks with the distance
+        // too, so the last fraction of a unit is a crawl -- always inward, never
+        // past, and measured tick by tick in `tests/goto.rs`.
+        //
+        // `open_ground` reaches the leash only folded into the footwork of a
+        // fighter that has a fight on -- `engage` and `disengage` both add it to
+        // `command.move_dir`, which is what `decide` passes in as `own` -- and
+        // where *that* character comes to rest inside the ring is the fight's
+        // business, bounded by `LEASH_ROAM`. That is the hover this whole
+        // mechanism exists to buy, and it is bought for the case that has a
+        // fight to spend it on.
+        //
+        // What is still barred is `patrol_heading`, and the leash does not touch
+        // the reason: the wall sweep exists to stop an advancing line grinding
+        // into a wall, and against a destination near an edge it would reverse
+        // the leg at the first corridor wall and walk straight past the click.
         //
         // The route, not the bearing. What used to be here rebuilt the reachable
         // box out of `wall_clearance` and clamped the click into it, which was
@@ -418,17 +597,21 @@ impl UtilityPolicy {
         // route is a stop.
         let (to, distance) = nav_step(obs)?;
 
-        // Arrival deadband: one tick of travel. It scales itself with agility
-        // instead of being a magic constant, and it clears by some 400x the hard
-        // floor below which a direction component is too small to move the body
-        // at all -- a deadband under that floor never terminates. Stopping via
-        // `Command::HOLD` matters too: below one tick of travel the sim would
-        // still turn the character to face a step that moves nothing, leaving it
-        // spinning on the spot, whereas a zero direction freezes the arrival
-        // facing.
-        if distance <= obs.move_speed {
-            return None;
-        }
+        // **What is left to cover, which is not the same as how far the anchor
+        // is.** Everything below reads `gap` and nothing below reads `distance`,
+        // and that is the whole of what the ring costs: the brake is a
+        // stopping-distance solve, and what it has to stop at is the rim, not the
+        // body at the centre. Braking against `distance` under a focus order would
+        // pace an approach that arrives at rest inside the quarry -- which is to
+        // say it would run through the ring at full speed and hand the fight its
+        // feet back only once it was already too close to use them.
+        //
+        // Floored at zero because the route is longer than the straight line
+        // whenever the way round is not the way through, so a fighter already
+        // inside the ring can still have a route several units long. A negative
+        // gap is a fighter that has arrived, and arrived is what zero means
+        // everywhere else in this function.
+        let gap = (distance - ring).max(Fx::ZERO);
 
         // A command persists until the next decision, so pace the stride by how
         // much ground gets covered before the next thought. This is the
@@ -464,9 +647,9 @@ impl UtilityPolicy {
         // range. That is a long way off, the answer there is "go flat out", and
         // the clamp below already says so.
         let period = Fx::from_int(obs.decision_period.max(1) as i32);
-        let root = (period * period + distance * Fx::TWO / obs.traction).sqrt();
+        let root = (period * period + gap * Fx::TWO / obs.traction).sqrt();
         let settled = obs.traction * (root - period);
-        let committed = distance - obs.velocity.length() * period;
+        let committed = gap - obs.velocity.length() * period;
         let braking = fx::sqrt_product(obs.traction * Fx::TWO, committed);
         let safe = settled.min(braking);
 
@@ -477,11 +660,15 @@ impl UtilityPolicy {
         // unit or two; over a few hundred ticks of standing on a destination
         // that is the difference between holding still and creeping.
         //
-        // The trailing clamp stays, and is defensive: a normalised vector can
-        // come back marginally over one, and
+        // The braked vector rather than the raw heading is what `leash` is handed,
+        // and deliberately: the spring and this stopping-distance solve compose,
+        // and the brake is what damps the spring instead of leaving it to orbit
+        // the anchor. The defensive clamp that used to close this function closes
+        // `leash` instead, because that is where the last multiplication now
+        // happens -- a normalised vector can come back marginally over one, and
         // `decisions_never_exceed_unit_movement` should hold unconditionally.
         let brake = (safe / obs.move_speed.max(Fx::EPSILON)).min(Fx::ONE);
-        Some((to * brake).clamp_length(Fx::ONE))
+        Some(leash(to * brake, gap, own))
     }
 
     /// Nothing in sight: do what the player asked.
@@ -516,19 +703,67 @@ impl UtilityPolicy {
             Order::Advance(dir) => dir.normalize(),
             Order::Regroup => self.ally_centre(obs).normalize(),
 
-            Order::Goto(_) => {
+            // **Both of these name a place, so both of them route to it.**
+            //
+            // A `Focus` used to fall in with `Hold` below as "no heading", which
+            // is where the pursuit quietly stopped: nothing is in sight on this
+            // path, so a hero whose quarry had just gone round a corner dropped
+            // through to the patrol sweep and wandered the room it was standing
+            // in. Following something out of sight is the whole of what a lock is
+            // for -- a quarry that can break the order by stepping behind masonry
+            // is not locked on to.
+            //
+            // The `ring` is `Fx::ZERO` on this path by construction rather than
+            // by a special case: `march` runs only with `obs.enemies()` empty, so
+            // the quarry is never a visible contact here and `ordered_feet` finds
+            // nothing to size a ring from. The pursuit is undiluted right up to
+            // the moment the thing comes into view, which is the moment the ring
+            // exists to start mattering.
+            Order::Goto(_) | Order::Focus(_) => {
                 // Arriving somewhere is not a variation on marching, and both of
-                // the steering behaviours below are actively wrong for it --
-                // which is why this arm returns before reaching either of them.
-                // See the comment block that used to be here, now on
-                // `ordered_feet`.
-                return match self.ordered_feet(obs) {
+                // the steering behaviours below are wrong for it -- which is why
+                // this arm returns before reaching either of them. They are wrong
+                // for different reasons and it is worth keeping the two apart.
+                // `patrol_heading` would reverse the leg at the first corridor
+                // wall and walk straight past the click; the comment block that
+                // used to be here, now on `ordered_feet`, carries that argument.
+                // `open_ground` is the one this comment is about.
+                //
+                // The leash is handed a zero, and the zero is the answer rather
+                // than a hole in it. Nothing is in sight on this path -- that is
+                // what `march` *is* -- so there is no footwork to blend, and,
+                // more to the point, nothing to hover *for*. The hover exists so
+                // that a fighter with a fight on can circle and keep station
+                // inside the ring instead of standing on its mark taking hits,
+                // and that fighter never arrives here: it comes through `decide`,
+                // which hands `ordered_feet` the feet `engage` or `disengage`
+                // already decided on. A character alone in a room has no such
+                // footwork, and manufacturing a shuffle for the look of the thing
+                // is a different problem with a worse answer.
+                //
+                // The answer tried and rejected was an idle drift: `open_ground`
+                // at half strength, blended in here exactly as combat footwork is
+                // blended in there. It does not shift the weight, it *leans*.
+                // `open_ground` is a constant directional bias for the geometry
+                // the character happens to be standing in -- it does not shrink
+                // as the anchor is approached and it does not reverse past it, so
+                // it simply balances the spring at a fixed offset, measured at
+                // 0.50 units short of every click at baseline and always on the
+                // open-ground side of it. **No strength of it parks the character
+                // on the mark**, because a bias that does not vanish at the anchor
+                // cannot; halving it only chooses which fraction of `LEASH_ROAM`
+                // it stops at. Half a unit is comfortably inside the ring and
+                // still visibly not where the player pointed, and the arrival
+                // tolerances on the far side of the wasm boundary -- a fifth of a
+                // unit for a click, three tenths for a route leg -- are what said
+                // so out loud.
+                return match self.ordered_feet(obs, Vec2::ZERO) {
                     Some(dir) => Command::moving(dir),
                     None => Command::HOLD,
                 };
             }
 
-            Order::Hold | Order::Focus(_) => Vec2::ZERO,
+            Order::Hold => Vec2::ZERO,
         };
 
         // Once the ordered direction runs out of arena, turn and come back
@@ -597,9 +832,11 @@ impl UtilityPolicy {
 
     fn engage(&self, obs: &Observation) -> Command {
         let target = self.pick_target(obs);
-        // The agent knows its own reach exactly: its weapon plus both bodies.
-        let reach = obs.full_reach() + target.radius;
-        let ideal = reach * self.weights.spacing;
+        // Asked of `standoff` rather than worked out again here: the ring a focus
+        // order relaxes at and the distance this approach is steering to are the
+        // same statement about where this fighter wants to be, and two copies of
+        // it would be two chances to disagree.
+        let ideal = self.standoff(obs, target);
         let toward = target.offset.normalize();
 
         let approach = if target.distance > ideal {
@@ -630,10 +867,16 @@ impl Policy for UtilityPolicy {
         } else {
             self.engage(obs)
         };
-        // **The player's order outranks the footwork, and that is the whole of
-        // the input channel meaning anything.** Every branch above owns the feet
+        // **The player's order bends the footwork, and that is the whole of the
+        // input channel meaning anything.** Every branch above owns the feet
         // unconditionally, so a character with an enemy in view discarded a `Goto`
         // entirely -- and in a dungeon there is always an enemy in view.
+        //
+        // A blend rather than an override, because an order names a place to be
+        // *near*. Far from it the order wins outright and the character walks;
+        // at the anchor the fight gets its feet back, instead of a fighter pinned
+        // to the mark by a hair-thin deadband that any shove re-arms. `leash`
+        // carries the whole of that argument.
         //
         // Only the feet. The intent, the target memory and `limb` below are
         // untouched, so this is a fighter walking where it was told while it goes
@@ -645,12 +888,13 @@ impl Policy for UtilityPolicy {
         // why a wounded fighter did not bolt will look at `disengage`, so this is
         // the line that has to tell them.
         //
-        // Inert everywhere but the browser: it needs `Order::Goto`, which no lab
-        // scenario issues (`runner.rs` orders `Advance`), and `nav_step` is
-        // additionally silent unless an `Objective` is set, which defaults to
-        // `None`. `LAB_HASH` not moving is the proof. If a lab scenario ever
-        // starts issuing a `Goto`, that proof lapses with it.
-        if let Some(dir) = self.ordered_feet(obs) {
+        // Inert everywhere but the browser: it needs an `Order::Goto` or an
+        // `Order::Focus`, neither of which any lab scenario issues (`runner.rs`
+        // orders `Advance`), and `nav_step` is additionally silent unless an
+        // `Objective` is set, which defaults to `None`. `LAB_HASH` not moving is
+        // the proof. If a lab scenario ever starts issuing either of them, that
+        // proof lapses with it.
+        if let Some(dir) = self.ordered_feet(obs, command.move_dir) {
             command.move_dir = dir;
         }
         self.limb(obs, &mut command);
@@ -802,8 +1046,25 @@ mod tests {
         );
     }
 
+    /// **A named quarry is fought, and no gene gets a vote.**
+    ///
+    /// This test used to be called `an_obedient_agent_follows_a_focus_order_
+    /// against_its_own_judgement`, and its claim was that `obedience` at the top
+    /// of its range outweighed the scoring -- with the corollary, asserted on the
+    /// last line, that an agent with the gene at zero went on fighting whatever
+    /// it liked. Both halves are gone, and the corollary is what they were gone
+    /// *for*: a player who clicks an enemy has not cast a vote in the scoring
+    /// loop, and an order whose grip depended on an evolved number was an order
+    /// only in the cases where evolution happened to agree.
+    ///
+    /// The two agents here are the extremes of that gene, and the point is that
+    /// they are now indistinguishable under an order. What still separates them is
+    /// what the gene was always really for, which is judgement in the absence of
+    /// one -- so the wilful agent is asked both questions and gives two different
+    /// answers, which is what makes this a test of the lock rather than of a
+    /// policy that stopped reading its observation.
     #[test]
-    fn an_obedient_agent_follows_a_focus_order_against_its_own_judgement() {
+    fn a_named_quarry_is_fought_whatever_the_agent_thinks_of_it() {
         let near = contact(1, 2, 0, Fx::ONE);
         let far = contact(2, 9, 0, Fx::ONE);
         let mut obs = situation(&[near, far]);
@@ -812,6 +1073,8 @@ mod tests {
             obedience: Fx::ZERO,
             ..UtilityWeights::BASELINE
         });
+        // Left to itself it takes what is in front of it: `aggression` scores
+        // closeness and the far one is seven units further off.
         assert_eq!(wilful.decide(&obs).intent, Intent::Attack(near.id));
 
         obs.order = Order::Focus(far.id);
@@ -824,8 +1087,17 @@ mod tests {
             Intent::Attack(far.id),
             "the player's order was ignored"
         );
+        assert_eq!(
+            wilful.decide(&obs).intent,
+            Intent::Attack(far.id),
+            "the order held only for an agent that happened to be born obedient"
+        );
 
-        // ...and a wilful agent under the same order still does as it pleases.
+        // And the lock is on the *named* enemy rather than on having been given
+        // an order at all: point it at somebody who is not in sight and the
+        // scoring gets its job back, which is what stops a hero standing there
+        // with its hands down while the thing it was told to kill is elsewhere.
+        obs.order = Order::Focus(EntityId::new(77, 0));
         assert_eq!(wilful.decide(&obs).intent, Intent::Attack(near.id));
     }
 
@@ -971,12 +1243,17 @@ mod tests {
     }
 
     #[test]
-    fn goto_holds_inside_the_deadband() {
+    fn goto_at_the_click_itself_stands_perfectly_still() {
+        // A click on the spot the character is already standing on gives the sim
+        // nothing to route to, so this arrives via `nav_step` reporting no route
+        // rather than via any arrival rule of the policy's own -- there is no
+        // longer an arrival rule to arrive by. The leash tapers to nothing at the
+        // anchor, but "nothing" is a very short vector rather than no vector, and
+        // the sim still turns a character to face a step that moves it nowhere.
+        // Exactly `Command::HOLD` is what keeps a hero standing on its own marker
+        // from spinning on the spot.
         let obs = heading_for(Vec2::ZERO);
         let command = UtilityPolicy::baseline().decide(&obs);
-        // Exactly `Command::HOLD`, not merely a short step: below one tick of
-        // travel the sim still turns a character to face a step that moves it
-        // nowhere, so anything but a zero direction leaves it spinning.
         assert_eq!(command.move_dir, Vec2::ZERO, "fidgeted on arrival");
         assert_eq!(command.intent, Intent::Hold);
     }
@@ -1067,11 +1344,17 @@ mod tests {
     /// so in a dungeon -- where there is always something in sight -- the player
     /// had no order channel at all.
     ///
-    /// All four route *north* while the enemy stands *east*, which is what makes
+    /// All five route *north* while the enemy stands *east*, which is what makes
     /// the two answers distinguishable component by component: from dead centre
     /// `engage` and `disengage` both move along x alone, and the route moves
     /// along y alone. They reuse `heading_for`, so what is being tested is the
     /// same observation the `goto_*` fixtures above drive, plus a contact.
+    ///
+    /// The route's component is no longer the *only* one, and it is not meant to
+    /// be. At full stretch the leash keeps `LEASH_LANE` of the fighter's own
+    /// footwork, which is the room to sidestep a blade that the spring exists to
+    /// buy. So what these assert is the proportion rather than a zero: the route
+    /// wins better than three to one, and the fight is still visibly in there.
     #[test]
     fn a_click_moves_the_feet_with_an_enemy_in_sight() {
         let enemy = contact(1, 2, 0, Fx::ONE);
@@ -1079,10 +1362,9 @@ mod tests {
         obs.set_enemies(&[enemy]);
 
         let command = UtilityPolicy::baseline().decide(&obs);
-        assert_eq!(
-            command.move_dir.x,
-            Fx::ZERO,
-            "kept the fight's footwork instead of walking the route: {:?}",
+        assert!(
+            command.move_dir.x.is_positive() && command.move_dir.x <= LEASH_LANE,
+            "the fight should keep `LEASH_LANE` of the feet and no more: {:?}",
             command.move_dir
         );
         assert!(
@@ -1121,21 +1403,199 @@ mod tests {
     fn an_arrived_order_hands_the_feet_back() {
         let enemy = contact(1, 2, 0, Fx::ONE);
         let mut arrived = heading_for(Vec2::from_ints(0, 10));
-        // Inside the deadband, at exactly the bound: one tick of travel. The
-        // heading is still there, so this is `ordered_feet` answering "arrived"
-        // and not "no route" -- the two share an answer, which is the whole
-        // reason it can be an `Option` rather than an enum.
-        arrived.nav_distance = arrived.move_speed;
+        // A fifth of the way into the ring. There is no bound to sit on any more
+        // -- `LEASH_ROAM` is where the pull starts letting go and zero is where
+        // it has let go entirely -- and a fifth of the way in the order is down
+        // to a twenty-fifth of its strength, because the taper is quadratic
+        // precisely so the interior is this soft. The heading is still there, so
+        // this is the leash relaxing and not `nav_step` reporting no route.
+        arrived.nav_distance = LEASH_ROAM * Fx::from_ratio(1, 5);
         arrived.set_enemies(&[enemy]);
 
         let moved = UtilityPolicy::baseline().decide(&arrived).move_dir;
-        assert_eq!(
-            moved,
-            UtilityPolicy::baseline().decide(&situation(&[enemy])).move_dir,
-            "stood on the destination instead of going back to fighting"
+        let fighting = UtilityPolicy::baseline().decide(&situation(&[enemy])).move_dir;
+        // Not byte-identical any more, and that is the change rather than a
+        // tolerance being waved through: the order has not switched off, it has
+        // relaxed. What has to hold is whose answer this is, and the two axes
+        // separate it -- nearly all of the fight's east, a twentieth of the
+        // route's north.
+        assert!(
+            (moved.x - fighting.x).abs() < Fx::from_ratio(5, 100),
+            "the fight did not get its feet back: {moved:?} against {fighting:?}"
+        );
+        assert!(
+            moved.y < moved.x * Fx::from_ratio(1, 10),
+            "still walking the route instead of fighting: {moved:?}"
         );
         // ...and the answer it went back to is the fight's, which is east.
         assert!(moved.x > Fx::ZERO, "handed the feet back and then froze: {moved:?}");
+    }
+
+    /// A `Focus` on `enemy`, with the route the sim would have computed for it
+    /// across open ground -- straight at the body, since that is what
+    /// `nav_goal_point` resolves a quarry to.
+    ///
+    /// Shaped like `heading_for` and stated for the same reason: an observation
+    /// with `nav_dir` left blank is the sim saying there is no way there.
+    fn locked_on(enemy: &Contact) -> Observation {
+        let mut obs = situation(&[*enemy]);
+        obs.order = Order::Focus(enemy.id);
+        obs.nav_dir = enemy.offset.normalize();
+        obs.nav_distance = enemy.distance;
+        obs
+    }
+
+    /// **The brake stops at the ring, not at the body.**
+    ///
+    /// The stopping-distance solve is the same one a `Goto` runs, and under a
+    /// focus order every distance it reads has to be the gap to the *rim*. Braking
+    /// against the route's full length instead would pace an approach that comes
+    /// to rest on the quarry -- which is to say it would cross the ring at full
+    /// speed and hand the fight its feet back only once it was already too close
+    /// to use them.
+    ///
+    /// Asked of `ordered_feet` directly and handed a zero for its own footwork,
+    /// because the point is the pull in isolation: at a third of a unit outside
+    /// the rim the leash has already relaxed to a twentieth of its strength, so a
+    /// blend against real footwork would be measuring `engage` and not the brake.
+    ///
+    /// The stride here is 0.6 units and the gap is 0.3, so a policy reading the
+    /// route's whole 2.5 would commit to more than eight times what is left.
+    #[test]
+    fn the_focus_brake_solves_for_the_ring_and_not_for_the_body() {
+        let policy = UtilityPolicy::baseline();
+        let probe = contact(1, 4, 0, Fx::ONE);
+        // Reach is radius 0.45 + range 0.9 + their radius 0.4 = 1.75, and
+        // `spacing` is 0.85 of it. The ring is that again by half.
+        let ring = policy.standoff(&situation(&[probe]), &probe) * FOCUS_SLACK;
+        let slack = Fx::from_ratio(3, 10);
+
+        let mut obs = locked_on(&probe);
+        obs.nav_distance = ring + slack;
+        let dir = policy
+            .ordered_feet(&obs, Vec2::ZERO)
+            .expect("a focus with a route has something to say");
+
+        let committed = dir.length() * obs.move_speed * (obs.decision_period as i32);
+        println!("ring {ring}, gap {slack}, committed {committed}");
+        assert!(
+            committed <= slack + Fx::from_ratio(1, 1000),
+            "committed to walking {committed} to cover the last {slack} to the ring"
+        );
+    }
+
+    /// At the rim the pull is exactly nothing, and inside it the fight has the
+    /// feet byte for byte.
+    ///
+    /// The gap is floored at zero and the taper is quadratic in it, so this is not
+    /// a tolerance being waved through -- it is the shape of the arithmetic. Worth
+    /// pinning as an equality rather than a bound: a residual pull of a few
+    /// hundredths, always inward, is exactly the sort of thing that would survive
+    /// a loose assertion for a long time and then turn up as a fighter that
+    /// crowds.
+    #[test]
+    fn a_quarry_inside_the_ring_leaves_the_footwork_untouched() {
+        let policy = UtilityPolicy::baseline();
+        let enemy = contact(1, 2, 0, Fx::ONE);
+        let ring = policy.standoff(&situation(&[enemy]), &enemy) * FOCUS_SLACK;
+        assert!(
+            enemy.distance < ring,
+            "the fixture put the enemy outside the ring, so it tests nothing"
+        );
+
+        let free = UtilityPolicy::baseline().decide(&situation(&[enemy])).move_dir;
+        let ordered = UtilityPolicy::baseline().decide(&locked_on(&enemy)).move_dir;
+        assert_eq!(
+            (ordered.x.raw(), ordered.y.raw()),
+            (free.x.raw(), free.y.raw()),
+            "the order went on pulling from inside its own ring"
+        );
+    }
+
+    /// Far off, a focus order is a walk, and the same walk a click on the ground
+    /// would have been.
+    ///
+    /// Nine units out is well past `ring + LEASH_ROAM`, so the pull is saturated
+    /// and only `LEASH_LANE` of the fight survives -- which is the same three-to-one
+    /// `a_click_moves_the_feet_with_an_enemy_in_sight` states for a `Goto`. One law
+    /// for both order kinds is the point; they differ in where the anchor is and in
+    /// nothing else.
+    #[test]
+    fn a_quarry_beyond_the_ring_is_walked_at() {
+        let enemy = contact(1, 9, 0, Fx::ONE);
+        let command = UtilityPolicy::baseline().decide(&locked_on(&enemy));
+        assert!(
+            command.move_dir.x > Fx::from_ratio(9, 10),
+            "did not set off after the quarry: {:?}",
+            command.move_dir
+        );
+        assert_eq!(command.intent, Intent::Attack(enemy.id));
+    }
+
+    /// **Pursuit is not gated by `HUNT_RANGE`.**
+    ///
+    /// That eighteen-unit leash is what keeps a dungeon room-by-room for a monster
+    /// nobody has told anything, and `march` consults it for exactly that case --
+    /// an `Order::Hold` with an objective behind it. A player who clicked an enemy
+    /// said follow it, and a rule of thumb about how far a wandering monster should
+    /// care is not entitled to cancel that at the far end of a long floor.
+    ///
+    /// Twice the leash, and with nothing in sight, which is the state a hero is in
+    /// midway through a chase across a generated level.
+    #[test]
+    fn a_focus_is_followed_past_the_range_a_monster_would_give_up_at() {
+        let mut obs = situation(&[]);
+        obs.order = Order::Focus(EntityId::new(77, 0));
+        obs.nav_dir = Vec2::Y;
+        obs.nav_distance = HUNT_RANGE * Fx::TWO;
+
+        let moved = UtilityPolicy::baseline().decide(&obs).move_dir;
+        assert!(
+            moved.y > Fx::from_ratio(9, 10),
+            "gave up on a quarry {} away: {moved:?}",
+            obs.nav_distance
+        );
+
+        // The control, and the reason the two cannot be collapsed: a standing
+        // order with the same route is still bounded, because nobody asked for
+        // that one.
+        obs.order = Order::Hold;
+        assert_eq!(
+            UtilityPolicy::baseline().decide(&obs),
+            Command::HOLD,
+            "a wandering monster followed a route past `HUNT_RANGE`"
+        );
+    }
+
+    /// **The bug this session exists to fix, stated as a test.**
+    ///
+    /// A character that had arrived and was then shoved -- by knockback, by
+    /// `World::separate`'s body shove, by a wall slide -- found its order live
+    /// again, because the old deadband was one tick of travel and any
+    /// displacement at all cleared it. It then walked back onto the mark with its
+    /// own footwork switched off the whole way, which in a fight means standing
+    /// still and being hit. No arrangement of the old code passes this.
+    #[test]
+    fn a_shove_off_the_mark_does_not_walk_the_fighter_back() {
+        // Knocked a third of a unit east: off the mark, and *toward* the enemy it
+        // is fighting, so the route home points due west and is directly against
+        // the footwork the fight wants. The two answers are opposed rather than
+        // perpendicular, which is what makes this decidable.
+        let enemy = contact(1, 2, 0, Fx::ONE);
+        let shove = Fx::from_ratio(33, 100);
+        let mut shoved = situation(&[enemy]);
+        shoved.order = Order::Goto(shoved.position - Vec2::new(shove, Fx::ZERO));
+        shoved.nav_dir = -Vec2::X;
+        shoved.nav_distance = shove;
+
+        let moved = UtilityPolicy::baseline().decide(&shoved).move_dir;
+        // Six times the old deadband, so the old rule made this a full-strength
+        // override and the answer was due west. Under the leash it is a
+        // twenty-second of the pull and the fight keeps the feet.
+        assert!(
+            moved.x > Fx::from_ratio(9, 10),
+            "walked back to the mark instead of fighting: {moved:?}"
+        );
     }
 
     #[test]
@@ -1152,10 +1612,10 @@ mod tests {
         let command = cautious.decide(&obs);
         // `disengage` would have fled west, directly away from the enemy. The
         // player is answering the same question `caution` was going to answer,
-        // and the player wins.
-        assert_eq!(
-            command.move_dir.x,
-            Fx::ZERO,
+        // and the player wins -- 1.0 of order against `LEASH_LANE` of flight,
+        // which is the same three-to-one the enemy-in-sight case above states.
+        assert!(
+            command.move_dir.x < Fx::ZERO && command.move_dir.x.abs() <= LEASH_LANE,
             "bolted rather than obeying: {:?}",
             command.move_dir
         );
@@ -1245,19 +1705,29 @@ mod tests {
         // Jammed into the bottom-left corner with an ally behind it, so that
         // `open_ground`, the patrol turn and `ally_centre` all contribute.
         //
-        // Two rows moved, and both moved on purpose: `Advance(-X)` and
-        // `Regroup` are the two headings that run into the corner here, and a
-        // heading that has run out of arena used to sweep along the wall and now
-        // turns the patrol round. `Hold`, `Focus` and the advance *away* from
-        // the corner are untouched, which is the claim this test exists to
-        // make -- giving `march` a memory was not allowed to disturb the cases
-        // that did not need one.
+        // Three rows have moved from the figures this test was first written
+        // against, and all three on purpose. `Advance(-X)` and `Regroup` are the
+        // two headings that run into the corner here, and a heading that has run
+        // out of arena used to sweep along the wall and now turns the patrol
+        // round -- that was the memory `march` grew.
+        //
+        // `Focus` is the third and it is this session's. It used to share this
+        // arm with `Hold` and so answered with a corner-escaping shuffle, which
+        // is the wrong answer twice over: a fighter that has been told to go and
+        // kill something specific is not idling, and edging away from a wall is
+        // not pursuing. It routes now, and here it has nowhere to route -- these
+        // fixtures leave `nav_dir` blank, which is the sim saying there is no way
+        // there -- so it holds. **That the two orders no longer agree is the
+        // claim**, and it is worth pinning rather than deleting: the day a
+        // `Focus` starts wandering the room again is the day the pursuit has
+        // fallen back through to the patrol sweep, which is exactly the fault
+        // this arm was moved to fix.
         for (order, x, y) in [
             (Order::Hold, 16194, 11146),
             (Order::Advance(Vec2::X), 64935, 8855),
             (Order::Advance(-Vec2::X), 62565, -19507),
             (Order::Regroup, 62067, 21039),
-            (focus, 16194, 11146),
+            (focus, 0, 0),
         ] {
             let mut policy = UtilityPolicy::baseline();
             let mut obs = situation(&[]);

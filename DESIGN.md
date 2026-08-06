@@ -1304,10 +1304,43 @@ buys nothing and costs the two properties that matter most: trivially hashable
 state, and a tick loop that reads top to bottom.
 
 **No spatial partitioning.** Collision separation is O(n²). At fifty entities a
-spatial hash is slower and much easier to get subtly wrong. Revisit when a
-scenario actually needs hundreds — and when it does, the hash must produce
-results identical to the brute-force version, which is a test worth writing
-first.
+spatial hash is slower and much easier to get subtly wrong, and "revisit when a
+scenario actually needs hundreds" now has arithmetic under it rather than a
+shrug. `separate` is n(n−1)/2 pairs with one `Vec2::length()` each: n = 64 is
+~2,016 pairs and about 1% of a core; n = 200 is ~19,900 pairs and 14%; n = 640
+is ~204,480 pairs and a full second of CPU per second of game, which is fatal.
+Brute force is therefore not merely tolerable at the stated target of 100–200
+units but correct there, and the number that breaks it is 640 rather than 210.
+When a scenario does cross that line the hash must produce results identical to
+the brute-force version, which is a test worth writing first.
+
+**No physics engine, and Rapier specifically — not now, and not at ten times the
+unit count either.** The sim has no rigid bodies, no rotational dynamics, no
+joints, no stacking, no restitution, no friction, no contact manifolds and no
+sleeping islands. What it has is circle push-apart split by inverse mass, a
+swept segment-circle test for a blade, segment tests for arrows, and tile-grid
+wall collision against the closest point on a box. Rapier solves a problem this
+game does not have.
+
+At two hundred circles it is plausibly *slower*. Island management, manifold
+caching, solver iterations and marshalling positions across the boundary all
+cost more than twenty thousand integer distance tests, so what you would be
+buying is a broad phase to avoid work cheaper than the broad phase. It is also
+~1.5–3 MB of float wasm against the current 246,384 bytes, in a workspace with
+zero external crates and a hand-rolled C ABI — and Rapier's API is not
+C-ABI-friendly, so it drags `wasm-bindgen` in behind it, which is the other
+pillar this project deliberately lacks. And it deletes the determinism contract
+outright: `enhanced-determinism` buys same-binary-same-platform reproducibility,
+not the cross-target bit-exactness `tools/wasm_check.js` exists to assert.
+
+Where it *would* become right is genuine rigid-body dynamics — tumbling thrown
+objects, ragdolls, destructible stacks, joints, ropes. Knockback, arcing
+projectiles and area effects are all cheaper to keep in fixed point. If that day
+arrives the honest move is not to bolt an engine alongside the tick loop but to
+accept that it is a different game with a different contract, and rewrite
+deliberately. Whatever happens to the physics, one clamp has to survive it:
+`rules::agility_multiplier` at 2.00 is what makes swept body-vs-body collision
+unnecessary rather than merely omitted — see the entry below.
 
 **Closest-approach hit detection, not swept.** A blade is tested where it *is*,
 not along the path it took since the last tick, which is wrong in exactly one
@@ -1533,53 +1566,220 @@ the lit-face boundary agree instead of disagreeing by a tile.
 
 ### The order channel
 
-**A click is a command, not a suggestion.** The feet obey a live `Order::Goto`;
-the hands go on fighting.
+**A click is a command, not a suggestion.** The feet obey a live `Order::Goto` or
+`Order::Focus`; the hands go on fighting. What obedience *means* has been wrong
+twice — first by being absent, then by being total — and both mistakes are below,
+because the second one is the more instructive.
 
-That was not true before, and it is worth recording why, because for a while it
-looked like a pathfinding bug. `Order::Goto` was read in exactly one place per
-policy — the `Goto` arm of `march` — and `march` is only reached when nothing is
-in sight. In a dungeon there is always something in sight, so the player's input
-channel had, in practice, no effect during a fight at all.
+**The first mistake was absence**, and it is worth recording why, because for a
+while it looked like a pathfinding bug. `Order::Goto` was read in exactly one
+place per policy — the `Goto` arm of `march` — and `march` is only reached when
+nothing is in sight. In a dungeon there is always something in sight, so the
+player's input channel had, in practice, no effect during a fight at all.
 
-`ordered_feet` on both policies answers what a live `Goto` wants, or `None` for
-the three cases that all mean the same thing: the order is not a destination,
-there is no route to it, or the character has arrived. It is read from two places
-in each policy — `march`, where the rule always lived, and `decide`, where it now
-overrides `move_dir` after the branch that produced it and before `limb`. That it
-was a lift rather than a new rule is the only reason there is one copy of each
-braking law instead of two, and the **laws stay different** on purpose:
-`UtilityPolicy` solves a stopping distance, `DuelistPolicy` paces one stride's
-worth of travel, they were never the same law, and unifying them here would have
-been a behaviour change smuggled in under a refactor.
+`ordered_feet` on both policies answers what a live order wants, or `None` for the
+two cases that mean the same thing: the order does not name a place, or there is
+no route to the place it names. It is read from two places in each policy —
+`march`, where the rule always lived, and `decide`, where it bends `move_dir`
+after the branch that produced it and before `limb`. That it was a lift rather
+than a new rule is the only reason there is one copy of each braking law instead
+of two, and the **laws stay different** on purpose: `UtilityPolicy` solves a
+stopping distance, `DuelistPolicy` paces one stride's worth of travel, they were
+never the same law, and unifying them here would have been a behaviour change
+smuggled in under a refactor.
 
 Only the feet. `Intent` is untouched, so the HUD, the fitness function and target
 memory all still see a fighter in a fight — and a retreating duellist goes on
 saying it is retreating while the player walks it somewhere, which is honest,
-because that *is* what it wanted to do. The override deliberately covers the
+because that *is* what it wanted to do. The blend deliberately covers the
 low-health branch too: a player who clicks while the character is hurt is
 answering the same question `caution` was about to answer, and the player wins.
 Somebody hunting for why a wounded fighter did not bolt will read `disengage`
 first, so that is where the line saying so has to be.
 
-**The gate is `Order::Goto`, and it is what makes this inert in the lab.** No lab
-scenario issues one — `policy::runner` orders `Advance`, and `determinism.rs` uses
-`Advance`, `Hold` and `Regroup` — and `nav_step` is additionally silent without an
-`Objective`, which defaults to `None`. `LAB_HASH` and `GOLDEN_STATE_HASH` did not
-move, and that is the real assertion of the change set. Be precise about what it
-proves: that is a property of the scenarios, not of the code. The day a lab
-scenario issues a `Goto` the proof lapses with it, and the comment on the override
-says so where whoever writes that scenario will read it.
+**An order names a place to be *near*, and the first version of this made it a
+place to be pinned to.** `ordered_feet` replaced `move_dir` outright and declared
+arrival with a deadband one tick of travel wide. Both halves of that were wrong,
+and the deadband was the bug. A band that thin is not a tolerance; it is a promise
+that the next shove re-arms the order — knockback, `World::separate` prising two
+bodies apart, a slide along a wall — and a character that had arrived then walked
+back to the mark mid-fight with its own footwork suppressed the whole way, because
+an override leaves nothing of it. Circling, `station` and `BowMind`'s kiting all
+stopped while that was true. The character stood on the mark and took hits, which
+is the complaint this began as.
+
+**So the override became a spring.** `leash(order, gap, own)` blends the
+brake-scaled order heading against the footwork the fighter wanted anyway: `pull`
+is `min(gap / LEASH_ROAM, 1)` squared, and `own` survives at
+`1 - pull * (1 - LEASH_LANE)`. `LEASH_ROAM` is 1.5 world units — room enough to
+circle in, still visibly standing at the marker — and `LEASH_LANE` is 0.3, which
+off a unit heading is some 17 degrees of deviation at full stretch: room to
+sidestep a blade and make small corrections, not room to wander off the route.
+Quadratic rather than linear because the two ends want opposite things — a soft
+interior, where the fight should barely feel the order, and a firm rim, so that
+crossing it is a pursuit rather than a slow leak outward.
+
+**Arrival is a limit now rather than an event, and that is the half that actually
+fixed the bug.** Nothing declares that the character has got there, so there is
+nothing left for a shove to un-declare. `pull` goes as the square of the gap and
+it multiplies a brake already proportional to it, so the commanded speed near the
+anchor falls as the *cube* of the distance: the last fraction of a unit is a
+crawl, always inward and never past.
+`the_last_of_the_walk_is_a_crawl_inward_and_never_an_orbit` asserts both halves —
+never once away from the mark on any tick, and measurably nearer it after six
+hundred more — because the two failures on either side of this rule are an orbit
+and a stall, and a one-sided bound waves the second one straight through.
+
+**The hover was very nearly an idle drift, and the idle drift does not work.** The
+plan asked that an arrived character with nothing in sight shift its weight rather
+than freeze: `open_ground` at half strength, blended in through `march` exactly as
+combat footwork is blended in through `decide`. It was built and it was rejected
+on measurement. `open_ground` is a *constant* directional bias for the geometry a
+body happens to be standing in — it does not shrink as the anchor is approached
+and it does not reverse past it, so it does not shift weight, it *leans*. Against
+the spring it balances at a fixed offset, measured at 0.50 units short of every
+click at baseline and always on the open-ground side of it, and **no strength of
+it parks a character on the mark**, because a bias that does not vanish at the
+anchor cannot; halving it only chooses which fraction of `LEASH_ROAM` it stops at.
+That is the same fixed point recorded under "Braking and an arrival band" below,
+reached from the other direction and by a different mechanism, which is what makes
+it worth writing down twice. `march` therefore hands the leash a zero, and a
+character alone in a room has the order as the only thing steering it. The hover
+survives where it was actually wanted — **with a fight on**, where `engage` and
+`disengage` have already folded the approach, `cohesion` and `open_ground` into
+`command.move_dir` — and where that character comes to rest inside the ring is the
+fight's business.
+
+#### Naming the quarry
+
+**`Order::Focus` was fully plumbed and never constructed.** It was in the order
+enum, in `state_hash`, in the feature vector and in every replay, and nothing in
+the workspace ever built one: a left click was always a `Goto`, whatever it landed
+on. Making it mean something took one change in each of three crates, and they are
+worth reading as three because each answers a different question.
+
+The **sim** routes to it. `World::refresh_nav` seeds the flow field from the named
+body's cell — the search `Objective::Hunt` already runs, narrowed from every enemy
+to the one that was pointed at — and `nav_goal_point` reads the same order a
+second time for the straight-line shortcut, pulling the quarry out of the masonry
+through the same `reachable_point` a click goes through, because a body standing
+in a doorway is not somewhere a wider hunter can arrive. Both are silent on a
+handle that does not resolve, on a corpse, and on one of your own, and nothing
+above has to handle those three cases separately: an empty seed list is an empty
+field, `nav_step` reports no route, and no route is a stop — which is already the
+answer a `Goto` sealed behind rock gets.
+
+The **policy** obeys it. Both `pick_target`s return the named quarry outright when
+it is in sight, skipping the scoring loop entirely rather than entering it with a
+thumb on the scale. Only while it is in sight, and that restriction is the
+deliberate half: out of sight there is no contact to return, so the fighter reads
+whatever blade is in front of it while the feet carry on pursuing, and a hero that
+walked past a monster with its hands down because the thing it was told to kill is
+round the next corner would be obeying the letter of the order and dying of it.
+
+And the **anchor is a ring rather than the body**: `standoff * FOCUS_SLACK`, with
+`FOCUS_SLACK` at 1.5 and `standoff` asked of the weapon actually in hand. That is
+the whole of what makes an archer close to bow range and *stop*, kiting instead of
+walking onto a club, and it is not a second mechanism — the ring only halts the
+pursuit because the spring goes slack inside it. `DuelistPolicy` sizes it off
+`obs.held` rather than off the action selector's winner, for the reason `decide`
+reads `held` one level up: the two differ for the whole length of a swap, and
+pursuing at the range of a weapon that is not yet in hand walks a mid-swap archer
+onto a sword.
+
+**`FOCUS_SLACK` of exactly 1.0 is the version that does not work**, and the
+failure is not subtle. Keeping station is a two-sided correction — `station`
+pushes out inside preferred range and pulls in outside it, and a circling duellist
+crosses its own range constantly — so a ring drawn on that line puts the rim
+precisely where the footwork is busiest, and every step out to make room re-arms
+an order that walks the fighter back in. The band is what lets the two mechanisms
+answer different questions: spacing inside it, pursuit outside it, rather than the
+two of them fighting over the same tenth of a unit.
+
+**`ActionMind::standoff` is a required trait method and not a defaulted one.** The
+ring and the approach have to be the same number, or a focused fighter is hauled
+off the spacing it just chose, once per decision, forever — and the two forces
+then settle at a distance neither of them asked for. `BowMind`'s `ideal` was
+lifted out of `drive` into it so that there is one expression and one reader
+instead of two copies free to disagree. Requiring it is the argument `mind_for`'s
+exhaustive match is already written for: a fifth mind should fail to compile
+rather than silently inherit somebody else's idea of where to stand, which is a
+bug that would show up as a character loitering at a strange distance and nowhere
+at all as a line of code.
+
+**The hard lock killed the `obedience` gene, and the slot stays exactly where it
+is.** `obedience` *was* the thumb on the scale — a bonus added to a named quarry's
+score, which left obeying an order a matter of degree for an evolved number to
+settle. The early return is unconditional, so nothing reaches that line any more
+and the gene has no reader anywhere in the workspace. Deleting it is the tempting
+tidy-up and it is not safe: the genome is a *positional* array, and `from_genome`,
+`LABELS`, `GENE_RANGES` and `BASELINE_VALUES` all index by slot, so pulling slot 2
+out renumbers every gene after it and silently repoints every stored genome in the
+repository at the wrong knob. A dead branch is cheap; a genome that means
+something other than what it says cannot be recovered by reading it. Giving the
+slot a *new* job is a real question and a separate one — the obvious candidate is
+scaling how far past its ring a fighter will pursue, which would make a player's
+order grip harder or softer depending on an evolved number, and that is the wrong
+default to pick as a side effect of this change.
+
+**When the locked quarry dies, the hero holds that ground.** `Sim::expire_focus`
+converts the order into a `Goto` at the hero's own feet. Not `Order::Hold`, which
+is free will: it puts the character back on `UtilityPolicy`'s search behaviour —
+in an empty room a slow drift toward the middle, measured under `clear_order` —
+and walks it off the spot it has just spent a fight winning. What the player asked
+for by naming that enemy was to be *there*. Not auto-acquiring the next enemy
+either; choosing the next fight is the player's move and not the module's. It runs
+per *tick*, beside `follow_route` and on that function's argument: one animation
+frame is up to `MAX_CATCHUP_TICKS` of catch-up, so a page-side death test would
+leave the hero steering at a corpse for eight ticks, visibly, and on exactly the
+frame a kill happened. It resolves both halves of the handle, so a quarry whose
+slot has already been handed to the next spawn still reads as dead rather than
+quietly transferring the lock to whatever walked in.
+
+**No frame layout change, and the reason is worth stating.**
+`FRAME_LAYOUT_VERSION` stays 6 and `HEADER_LEN` stays 14, because the page already
+knows which body it named — it sent the handle — and all it needs back is whether
+the lock is still live, which the order discriminant in `frame[2]` already
+carries. What changed is a *value* in slots that already existed. `Order::point()`
+answers `Vec2::ZERO` for a focus, correctly and permanently, because the payload
+is an `EntityId` and there is no point in it to hand back — so left alone the page
+would draw its destination marker at the origin. `frame[3]` and `frame[4]` carry
+the quarry's live position instead, which is what the page wants to draw and what
+only the world can answer. A better number in a slot that already exists is not a
+layout change, and that is the whole difference between this and a version bump
+that would have made every reader downstream wrong at once.
+
+**The gate is a live `Goto` or `Focus`, and it is what makes all of this inert in
+the lab.** No lab scenario issues either — `policy::runner` orders `Advance`, and
+`determinism.rs` uses `Advance`, `Hold` and `Regroup` — and `nav_step` is
+additionally silent without an `Objective`, which defaults to `None`. `LAB_HASH`
+and `GOLDEN_STATE_HASH` did not move, and that is the real assertion of the change
+set. The two pieces that are not *obviously* behind that gate are argued rather
+than seen — the hard lock cannot fire without a `Focus` to name anybody, and the
+`standoff` lift moved an expression rather than changed one — so they are measured
+as well: `lab duel --seeds 400` returns byte-identical win rates either side of
+the change. Be precise about what the gate itself proves:
+it is a property of the scenarios, not of the code. The day a lab scenario issues
+a `Goto` the proof lapses with it, and the comment on the blend in `decide` says
+so where whoever writes that scenario will read it.
 
 The browser goldens are the other half of that sentence, and they are where the
-plan for this change was wrong. All four moved for occlusion, and `ROOM_HASH`
-then moved a second time, alone, for this: it is the only golden script that
-calls `set_goto`, so it is the only one that reaches `ordered_feet` at all, and a
-hero with no destination takes the footsteps it always did. The prediction that
-no hash would move argued the gate from the *lab* scenarios, which was sound for
-`LAB_HASH` and did not transfer to a script whose whole purpose is to walk
-somewhere. A gate argued from the scripts that cannot reach it says nothing about
-the one that can.
+plan for this change was wrong — **for the second time, and for the identical
+reason.** All four moved for occlusion. `ROOM_HASH` then moved a second time,
+alone, when a click became a command, and it has now moved a third time, alone
+again, to `0xadae95f2b6b46499`, because the click stopped being an override and
+became a leash. Both plans predicted that no browser hash would move, and both
+argued it from the *lab*: no lab scenario issues a `Goto`, `Objective` defaults to
+`None`, therefore `ordered_feet` is unreachable. That argument is sound, it held
+for `LAB_HASH` both times, and it is a fact about `runner.rs`. `ROOM_HASH`'s
+script is `init(1); set_goto(20_000, 12_000); step(600)` — the only golden
+anywhere in the project that calls `set_goto`, and therefore the only one that
+reaches `ordered_feet` at all. `BATTLE_HASH`, `SWAP_HASH` and `BOW_HASH` never set
+a destination and held, exactly as they did the first time. The lesson is not
+about leashes: **"no golden reaches this code" is a claim about the four browser
+scripts every bit as much as about the lab's scenarios, and it has now been made
+twice without being checked against them.** Check the scripts before predicting
+the hashes.
 
 ### What the sim does not know
 
@@ -1614,8 +1814,22 @@ little over half a level's diagonal — so making a character touch each one tur
 a smooth gesture into a series of stops with a visible dog-leg wherever the hand
 wobbled; and asking about the raw point instead would hang on every leg the hand
 cut across a corner of rock. The last leg is deliberately *not* popped: a `Goto`
-at the final waypoint is exactly what was asked for, and the policy's own arrival
-deadband is what stops there.
+at the final waypoint is exactly what was asked for, and a queue that popped its
+last entry would leave the character holding an order it had no reason to have
+finished with.
+
+What stops the character at that final waypoint is no longer an arrival test of
+any kind. The policy's deadband is gone — see "The order channel" — and what
+replaced it is the leash going slack: the pull tapers as the square of what is
+left of the gap and the brake shrinks with it, so the character crawls the last
+fraction of a unit onto the mark and settles inside `LEASH_ROAM` of it. Arrival
+stopped being something a policy declares and became something it approaches,
+which is exactly why nothing downstream of the last leg needs telling when it
+happens. Every earlier leg does still need a test, because a queue has to be
+moved on by *something*, and that test is the one above — measured in
+`ROUTE_ARRIVE` and a body radius rather than in the ring, because the leg test is
+about a waypoint being behind you and the ring is about where a fighter is free
+to stand.
 
 `ROUTE_STALL` is 90 ticks of moving less than `ROUTE_PROGRESS` 0.05, after which
 a leg is abandoned. It is the only thing between a waypoint sealed behind rock and
@@ -1631,13 +1845,27 @@ rebuilds the faction's flow field, and an order is one of the things `state_hash
 fingerprints, so a route call moves the hash exactly as a click does. The five
 golden scripts are unaffected only because not one of them calls a route export —
 a fact about the scripts, not a property of the feature, and the reason not to add
-one to a golden script. The route is dropped at four sites, because it must not
+one to a golden script. The route is dropped at five sites, because it must not
 outlive the click that cancels it (`set_goto`, which is deliberately not
 implemented in terms of a one-point route), the button that hands the character
 its free will back (`clear_order`), the body that was walking it
-(`swap_in_hero`), or the floor plan it was drawn on (`descend`).
+(`swap_in_hero`), or the floor plan it was drawn on (`descend`). The fifth is
+`set_focus`, and it is the one where a survivor would do visible damage rather
+than merely linger: the next leg test would call `begin_leg` and write a `Goto`
+straight over the lock, taking the hero off the quarry a moment after the player
+named it.
 
 ## Performance notes
+
+**The sim is not the bottleneck, and that is now a measurement rather than an
+inference.** `lab bench --carved` runs 200 rollouts of a generated depth-5
+dungeon, 3,600 ticks each, on one thread: 199,613 ticks/s, against 185–201k for
+the uncarved 4v6 skirmish on the same one thread. Carving costs nothing
+measurable at these unit counts — which is the whole point of the flag, because
+on an open plan `Dungeon::sees` short-circuits and the headline throughput
+figure has never paid for a single ray. The browser needs sixty ticks a second
+out of one core, and the live `step` phase reads about 0.09 ms of a 16.7 ms
+frame.
 
 `Vec2::length` is the hot path and runs a bit-by-bit `isqrt64` (~32 iterations).
 That is fine at current entity counts. The obvious optimisation later is that
@@ -1645,6 +1873,56 @@ That is fine at current entity counts. The obvious optimisation later is that
 float square root with an integer correction step would be both fast and
 deterministic — the one place a float could be admitted without breaking the
 contract. Measure before doing it.
+
+**The cost was on the page, and most of it was work that did not need doing at
+all.** At a full room of 64 units the frame is 1,870 floats, and `parseFrame`
+spent 0.577 ms on it — 0.380 ms of which was boxing a copy, promoting every f32
+to an f64 so that a pure-arithmetic function could read them back one at a time.
+Parsing the live `Float32Array` in place into pooled rows took that to 0.011 ms,
+and interpolation's `blend` adds 0.044 ms, so parse and blend together are
+0.055 ms against the 0.577 ms the parse alone used to cost. `drawLevel` went
+0.139 → 0.069 ms. `refreshInsets` was the one that had to be measured before it
+could be believed: four `getBoundingClientRect` calls cost 0.018 ms against a
+clean layout and 0.666 ms against a dirty one, and the previous frame's
+`updateHud` always dirtied it — 4% of a frame to measure four rectangles. It
+reads 0.018 ms now, while the rails are still.
+
+**`render` dominates every other phase by an order of magnitude, and almost none
+of it is the level.** `drawLevel` is 0.069–0.139 ms of it. What `render` actually
+costs is **not known as a duration, and no figure for it should be quoted.**
+Canvas2D commands are queued, so a microbenchmark that loops the call times the
+rasteriser's back-pressure rather than the drawing: the same call at 5, 20, 50,
+150 and 300 iterations gave 6.6, 4.7, 4.4, 23.0 and 7.1 ms — non-monotonic, and
+swinging by five times. Reading it as a duration needs a foreground tab and the
+frame strip, not a `for` loop.
+
+**But the thing that made a crowded room unplayable was found by counting pixels
+rather than milliseconds, and it is worth knowing that no timing would have found
+it.** At a full room the game ran at one or two frames a second while the frame
+strip read `fps 792` and `render 0.83` — because the page *issues* the commands in
+0.83 ms and the rasteriser does the work after the callback has returned, so the
+entire cost lands in `idle`. Counting the area of every fill in one frame, against
+41 visible bodies on a 6.5-million-pixel canvas: `drawVision` 13.41x the screen,
+`drawLantern` 1.74x, `drawLevel` 0.50x, and **`drawCharacter` — the obvious
+suspect, and the wrong one — 0.04x.** One translucent sight disc per body, `pi*r^2`
+with `r` up to 825 device pixels, is 89.6 million pixels of alpha blending; a
+hundred and sixty-four character draws are four hundredths of a screen. The fill is
+now spent only on the hero and the locked quarry and every other body keeps its
+dashed ring, an outline being circumference-scaled where a fill is area-scaled:
+15.69x to 2.60x, same 377 strokes.
+
+The lesson generalises past that one function, and it is the one to carry into the
+isometric view: **at these unit counts the binding constraint is blended fill area,
+not draw-call count, and the phase timings cannot see it.** Count area before
+optimising call counts, and treat a large `idle` beside a small `render` as the
+compositor asking to be measured a different way.
+
+The page carries the instrument for it now. `P` toggles a ten-phase frame
+breakdown and a ticks-per-frame histogram beside the always-on fps chip, and
+`?perf=1` turns both on at load. It is deliberately independent of `[dev]`:
+`[dev]` lifts the fog, so every body in the room is drawn and the level clips
+against different paths, and profiling there measures a renderer nobody is
+complaining about.
 
 `[profile.dev] opt-level = 1` is set because a test here is thousands of
 simulated ticks. Unoptimised fixed-point math makes `cargo test` slow enough
@@ -1728,29 +2006,45 @@ against an explicit destination it is fighting the player. Worse, it is added
 before `clamp_length`, and `clamp_length` only ever *shortens*: a short sum passes
 through untouched, so the bias never shrinks as the approach slows. That is a
 stable fixed point roughly 0.2 units short of every click, anywhere in the arena.
-The `Goto` arm therefore drops both and does two things instead:
+The `Goto` arm therefore dropped both and did two things instead, of which only
+the first is still standing:
 
 - **Brake by the stride, not the tick.** An action persists until the agent's
   next decision, so the vector is scaled by `distance / (move_speed ×
   decision_period)`. This is the intellect stat again, from the other side: a
   dim character commits to a longer stride and has to creep in, a sharp one
   lands on the point. Without it the hero ping-pongs across the destination
-  forever at an amplitude of one tick of travel.
-- **Stop inside one tick of travel.** The band is `move_speed` rather than a
-  constant, so it scales with agility. It cannot be much tighter: a direction
+  forever at an amplitude of one tick of travel. That ratio is still
+  `DuelistPolicy`'s law; `UtilityPolicy` has since replaced it with a
+  stopping-distance solve, which is the same argument carried one step further
+  and is set out under "The order channel".
+- **~~Stop inside one tick of travel.~~** The band was `move_speed` wide so that
+  it scaled with agility, and it could not have been much tighter: a direction
   component below raw 19 multiplies to *zero* displacement, so a band near zero
   never terminates, and below one tick of travel `apply_movement` still updates
   `facing` from a `dir` that moves nothing — leaving the character spinning on
-  the spot. `Command::HOLD` short-circuits on a zero direction and freezes the
-  arrival facing.
+  the spot. Every word of that is still true about *bands*, and it is why there
+  is no longer one. A threshold that thin is re-armed by the first shove, which
+  is the bug "The order channel" is about. Termination is now a property of the
+  approach rather than a test on it: the pull goes as the square of what is left
+  of the gap and the brake goes as the gap, so the walk crawls to a stop of its
+  own accord, and `nav_step` falls silent when there is no direction left to
+  give. The facing problem is real and is answered where it always was:
+  `Command::HOLD` short-circuits on a zero direction, so a character ordered to
+  the ground it is already standing on holds perfectly still instead of turning
+  on the spot.
 
-A click within one body radius of a wall is unreachable, because
-`clamp_to_arena` pins bodies to `[radius, arena - radius]`. The agent clamps the
-destination into its own reachable box — it knows its radius and its clearance in
-all four directions — so it stops as close as a body can get instead of pressing
-into the wall and never satisfying the arrival test. That belongs in the AI, not
-in the renderer: the renderer would have to reimplement collision rules in float
-to know it.
+A click within one body radius of a wall is unreachable, because `clamp_to_arena`
+pins bodies to `[radius, arena - radius]`, so the destination has to be pulled
+back to somewhere a body of that width can actually stand — otherwise the
+character presses into the wall forever, never satisfying anything. This section
+used to say that belonged in the AI rather than the renderer, on the grounds that
+the renderer would have to reimplement collision rules in float to know it. The
+first half of that was right and the second was the whole argument: it belongs
+wherever the collision rules already are, which is the sim. `World::reachable_point`
+does it now, per body, and generalised from "the arena box" to "the masonry" —
+because once there are walls, a policy reconstructing its reachable box out of
+`wall_clearance` is describing the corridor it is standing in and not the level.
 
 The general lesson: a fight that cannot end is worse than a fight that ends
 badly. A draw scores zero, tells evolution nothing, and costs a full tick limit

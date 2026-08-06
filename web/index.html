@@ -51,9 +51,24 @@
              "dev" is one too many, and `setViewMode` states the intent once. -->
         <div class="dev-strip" id="dev-strip">
           <span class="chip static"><span class="chip-key">tick</span> <span id="sim-tick">0</span></span>
+          <!-- The frame rate and the worst frame in the last half second, and
+               deliberately without `.dev-more`: a judder complaint must be
+               answerable without opening a panel, and a bare `60` on a 60 Hz
+               panel reads as "everything is fine" while the room visibly steps.
+               The worst frame is the honest headline, because the tail is what
+               the complaint is about. -->
+          <span class="chip static"><span class="chip-key">fps</span> <span id="perf-fps">&mdash;</span></span>
           <span class="chip static dev-more"><span class="chip-key">at</span> <span id="sim-position">&mdash;</span></span>
           <span class="chip static dev-more"
             ><span class="chip-key">hash</span> <span id="sim-hash" class="mono-small">&mdash;</span></span
+          >
+          <!-- The ten-phase breakdown, on `perf-more` rather than `dev-more`: it
+               is opened by `P` and not by the view selector, because [dev] turns
+               the fog off and would profile a renderer nobody is complaining
+               about. Last in the strip because it is the long one, so opening it
+               cannot shove the readouts above around. -->
+          <span class="chip static perf-more"
+            ><span class="chip-key">frame</span> <span id="perf-detail" class="mono-small">&mdash;</span></span
           >
         </div>
 
@@ -345,6 +360,8 @@
               Send in a skitterer or a brute on the body's own kit. These deliberately ignore the
               Enemy rail's template &mdash; a hotkey that quietly meant something different after you
               touched a panel would be the worse surprise. Use <em>Spawn</em> for the template.
+              <kbd>Shift</kbd>+<kbd>S</kbd> sends eight skitterers at once, which is how you fill the
+              room to sixty-four and see what the frame costs with a crowd in it.
             </span>
           </li>
           <li>
@@ -381,6 +398,15 @@
               doing while the character cannot. The first two show you only what the character can
               see &mdash; ground it has seen before stays dim, and rock it has never reached stays
               black.
+            </span>
+          </li>
+          <li>
+            <kbd>P</kbd>
+            <span>
+              Break the frame down by phase, beside the <em>fps</em> readout that is always up. Its
+              own key rather than a part of <em>Dev</em>, because <em>Dev</em> draws the room with
+              the fog lifted &mdash; which is a different amount of work from the room you are
+              actually looking at, and so a different number.
             </span>
           </li>
           <li>

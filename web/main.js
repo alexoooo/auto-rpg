@@ -44,10 +44,21 @@ const MAX_CATCHUP_TICKS = 8;
 const HEADER_LEN = 14;
 const UNIT_STRIDE = 29;
 
+/** Most unit rows a frame can carry. Mirrors `web::MAX_UNITS`, which is what
+ *  `write_frame` stops at, and it is here only to size the parse pools below --
+ *  nothing on this page *enforces* it. The pools grow if a future module ever
+ *  publishes more, so a stale copy of this number costs one allocation on the
+ *  first oversized frame rather than a truncated room. */
+const MAX_UNITS = 64;
+
 /** Floats per arrow, in a block that follows the units: [x, y, heading_raw,
  *  faction]. Arrows are not units -- no health, no loadout, no phase -- so they
  *  get their own short row rather than twenty-three dead floats each. */
 const SHOT_STRIDE = 4;
+
+/** Most arrow rows a frame can carry, mirroring `sim::rules::MAX_SHOTS`. Sizes
+ *  the shot pool, on exactly the terms `MAX_UNITS` sizes the unit pool. */
+const MAX_SHOTS = 32;
 
 /** Floats per event, in a third block that follows the arrows:
  *  [kind, x, y, amount, actor_index].
@@ -58,6 +69,33 @@ const SHOT_STRIDE = 4;
  *  callout bubble -- it then ages on its own wall clock, like `trail` and
  *  `corpses`. */
 const EVENT_STRIDE = 5;
+
+/** Most event rows a frame can carry, mirroring `web::MAX_EVENTS`. Sizes the
+ *  event pool, on the same terms as the two above. */
+const MAX_EVENTS = 32;
+
+/**
+ * The stride of the packed entity handle, and the reason it is exactly this.
+ *
+ * `unit.id` is `generation * ID_INDEX_SPAN + index`, one number rather than the
+ * `"index:generation"` string this page used to build sixty times a second per
+ * body. A `World` slot is recycled through a free list
+ * (`crates/sim/src/world.rs`), so the live indices never climb past the number of
+ * bodies standing at once -- which `web::MAX_UNITS` caps at 64. **128 is the next
+ * power of two above that cap**, so the pair is packed without loss and, just as
+ * importantly, `id % ID_INDEX_SPAN` gives the index back exactly.
+ *
+ * That last property is not decoration: `factionOfActor` and `actorVisible` look
+ * a body up in `bodies` by index alone, because an event row carries
+ * `EntityId::index` with no generation on it. They used to do it with a string
+ * prefix match; now they do it with a modulo, which is the same question asked of
+ * a cheaper representation.
+ *
+ * **Raise this before raising `MAX_UNITS` past 128.** Nothing checks it at
+ * runtime -- an index of 128 would collide with generation 1's index 0, and the
+ * failure would be a body drawn as another body rather than an exception.
+ */
+const ID_INDEX_SPAN = 128;
 
 /** Event `kind` codes, from crates/web/src/lib.rs. `amount` reads differently
  *  under each: health lost, health absorbed, nothing, and an action code. */
@@ -108,8 +146,9 @@ const POLICIES = [
 const SIDE_HEROES = 0;
 const SIDE_MONSTERS = 1;
 
-// `Order` discriminants, from crates/sim/src/action.rs.
+// `Order` discriminants, from crates/sim/src/command.rs.
 const ORDER_HOLD = 0;
+const ORDER_FOCUS = 3;
 const ORDER_GOTO = 4;
 
 // `Faction::index()` and the `Intent` encoding, both from crates/sim.
@@ -272,11 +311,23 @@ let dead = false;
 let memory = null;
 let raw = null; // the instance's exports, unguarded
 let wasm = null; // the same exports, each wrapped in a try/catch
-let view = null; // Float32Array over the frame buffer; never held across a call
+// Float32Array over the frame buffer; never held across a call into wasm.
+//
+// Called `frameBuf` and not `view`, which is what it was: `view` now names the
+// blended picture the loop draws (see the interpolation block), and of the two
+// that is much the more spoken-about noun on this page -- half a dozen call
+// sites in `loop` say which of `curr` and `view` they are reading and why. A
+// typed array "view" is jargon borrowed from the spec; this is the frame buffer.
+let frameBuf = null;
 
 const EXPORTS = [
   "init",
   "set_goto",
+  // The other way to give an order: a body rather than a place. Named here as
+  // well as beside `set_goto` because this list is the ABI the page actually
+  // binds -- a name missing from it is not a link error, it is `wasm.set_focus`
+  // arriving as `undefined` on the first click that tries to use it.
+  "set_focus",
   "clear_order",
   // The dragged path: a queue of destinations over the one standing order the
   // sim carries. `route_len()` is read once a frame like `map_revision()`,
@@ -359,25 +410,129 @@ const EXPORTS = [
   "descend",
 ];
 
+/** The cold half of every arm of `guard` below, out of line because it runs
+ *  once in the life of the page and never again. Keeping it out of the arms is
+ *  what lets each of them be small enough to inline. */
+function trapped(name, err) {
+  die("The simulation trapped", `${name}() trapped, so the module is poisoned and the loop has stopped.`, err);
+}
+
 /**
  * Every call into wasm goes through one of these. On a trap the loop stops and
  * the overlay comes up; every later call answers 0 so nothing else has to know
  * the module died mid-frame.
+ *
+ * **Fixed-arity wrappers, dispatched on the export's own `length`.** The single
+ * `(...args) => fn(...args)` this replaced allocated an arguments array on
+ * *every* boundary call, and the loop makes around thirty of them a frame.
+ *
+ * Cases 0 through 6 cover the whole ABI as it stands, and 6 is not padding:
+ * **`set_input` takes six** (`crates/web/src/lib.rs`) and is called once a frame
+ * on every manual-control frame, which makes it the widest *and* one of the
+ * hottest. Three exports take three -- `spawn_monster`, `swap_in_hero`,
+ * `set_policy_gene` -- and nothing takes four or five today; those two arms are
+ * there so the range has no hole in it.
+ *
+ * The trap semantics are written out verbatim in every arm rather than factored
+ * into a helper, and the repetition is the point -- a shared closure would put
+ * back the indirection this exists to remove. Both halves are load-bearing in
+ * every arm: `if (dead) return 0` is what stops a poisoned module from being
+ * called a second time, and the `catch` is the only thing that brings the
+ * overlay up.
+ *
+ * **The variadic `default` stays.** An export wider than six then still works --
+ * one arguments array at a time, exactly as the whole file used to -- rather
+ * than silently dropping its seventh argument, which is a bug that would present
+ * as the module ignoring a parameter and nothing else. It is what kept
+ * `set_input` correct while the enumerated cases stopped at three.
  */
 function guard(name) {
   const fn = raw[name];
   if (typeof fn !== "function") {
     throw new Error(`web.wasm does not export ${name}()`);
   }
-  return (...args) => {
-    if (dead) return 0;
-    try {
-      return fn(...args);
-    } catch (err) {
-      die("The simulation trapped", `${name}() trapped, so the module is poisoned and the loop has stopped.`, err);
-      return 0;
-    }
-  };
+  switch (fn.length) {
+    case 0:
+      return () => {
+        if (dead) return 0;
+        try {
+          return fn();
+        } catch (err) {
+          trapped(name, err);
+          return 0;
+        }
+      };
+    case 1:
+      return (a) => {
+        if (dead) return 0;
+        try {
+          return fn(a);
+        } catch (err) {
+          trapped(name, err);
+          return 0;
+        }
+      };
+    case 2:
+      return (a, b) => {
+        if (dead) return 0;
+        try {
+          return fn(a, b);
+        } catch (err) {
+          trapped(name, err);
+          return 0;
+        }
+      };
+    case 3:
+      return (a, b, c) => {
+        if (dead) return 0;
+        try {
+          return fn(a, b, c);
+        } catch (err) {
+          trapped(name, err);
+          return 0;
+        }
+      };
+    case 4:
+      return (a, b, c, d) => {
+        if (dead) return 0;
+        try {
+          return fn(a, b, c, d);
+        } catch (err) {
+          trapped(name, err);
+          return 0;
+        }
+      };
+    case 5:
+      return (a, b, c, d, e) => {
+        if (dead) return 0;
+        try {
+          return fn(a, b, c, d, e);
+        } catch (err) {
+          trapped(name, err);
+          return 0;
+        }
+      };
+    case 6:
+      return (a, b, c, d, e, f) => {
+        if (dead) return 0;
+        try {
+          return fn(a, b, c, d, e, f);
+        } catch (err) {
+          trapped(name, err);
+          return 0;
+        }
+      };
+    default:
+      return (...args) => {
+        if (dead) return 0;
+        try {
+          return fn(...args);
+        } catch (err) {
+          trapped(name, err);
+          return 0;
+        }
+      };
+  }
 }
 
 /**
@@ -422,21 +577,32 @@ function buildImports(module) {
  * detaches every typed array the page is holding -- silently, into a
  * zero-length view. The identity check below is what makes that a rebuild
  * instead of a blank screen.
+ *
+ * **Nothing may call into wasm between `frameView()` and the end of the
+ * `parseFrame` that consumes it**: an allocation in the module grows linear
+ * memory and detaches this view, silently, into a zero-length one. The identity
+ * check below is what makes a *later* frame a rebuild rather than a blank
+ * screen; it cannot help mid-parse.
+ *
+ * That invariant used to be stated over a shorter span, because the page took a
+ * boxed `Array` copy of the whole frame and parsed the copy -- 2,158 floats
+ * promoted to doubles and boxed, measured at 0.380 ms of a 16.7 ms budget at 64
+ * units, to feed a function that reads them one at a time. `parseFrame` is pure
+ * arithmetic and calls into wasm nowhere, so it reads the live view directly and
+ * the invariant simply covers more lines. See `docs/plans/perf-measurements.md`.
  */
 function frameView() {
   const ptr = wasm.frame_ptr();
   const len = wasm.frame_len();
-  if (view === null || view.buffer !== memory.buffer || view.byteOffset !== ptr || view.length !== len) {
-    view = new Float32Array(memory.buffer, ptr, len);
+  if (
+    frameBuf === null ||
+    frameBuf.buffer !== memory.buffer ||
+    frameBuf.byteOffset !== ptr ||
+    frameBuf.length !== len
+  ) {
+    frameBuf = new Float32Array(memory.buffer, ptr, len);
   }
-  return view;
-}
-
-/** A plain-array copy of the frame. Nothing may call into wasm between the
- *  view being derived and the copy being taken. */
-function readFrame() {
-  const live = frameView();
-  return Array.prototype.slice.call(live);
+  return frameBuf;
 }
 
 /**
@@ -510,129 +676,317 @@ function readVis() {
   return levelVis;
 }
 
-function readUnit(f, u) {
+// ------------------------------------------------------------- the parse pool
+//
+// **Nothing below allocates once the page is running.** `parseFrame` used to
+// build a state object, an array per section, one 30-property object per unit,
+// one per arrow and one per event -- and a template-string id per unit -- every
+// animation frame. At 64 units that is ~3,840 objects and ~3,840 strings a
+// second thrown at the collector for a picture that is thrown away 16 ms later,
+// and it is the most likely source of a GC sawtooth in the worst-frame column.
+//
+// So the shape is inverted: `parseFrame(f, out)` *writes into* a state handed to
+// it, and every row it hands back is a long-lived object that gets overwritten
+// in place. The three states below are the whole of the allocation.
+//
+// **Two of them are ping-ponged and that is deliberate.** Session 3
+// (`docs/plans/perf-03-cadence.md`) renders one tick behind by holding the
+// previous parse and the current one at the same time and blending between them;
+// a parse that reused one buffer would have `prev` and `curr` be the same object
+// and the blend would interpolate a state with itself. It adds a third state for
+// the blended picture and writes `blendUnit(a, b, t, out)` against the row shape
+// `readUnit` fills.
+//
+// **The scratch state is not a nicety either.** Seven call sites parse outside
+// the loop -- a click, Escape, a stand-down button, a hero swap, a restart, boot
+// -- and they run *between* animation frames. Any of them writing into a
+// ping-pong slot would scribble over a state the loop is still holding, and the
+// symptom would be a body drawn where it was two frames ago. They get their own
+// state, which nothing keeps.
+
+/** One unit row, every field zeroed. Built once per pool slot at boot and then
+ *  only ever assigned into, so the shape is fixed and the engine never has to
+ *  reconsider it. Field order matches `readUnit`'s write order on purpose. */
+function newUnitRow() {
   return {
-    x: f[u],
-    y: f[u + 1],
-    // A binary angle: the whole turn is 65536, so no trigonometry crossed
-    // the boundary. 0 is +x and the sense is counter-clockwise with +y up,
-    // which is also how this canvas is drawn (world y grows downward on
-    // screen), so the wedge points where the body moves.
-    facing: (f[u + 2] / 65536) * TAU,
-    radius: f[u + 3],
-    hp: f[u + 4],
-    maxHp: f[u + 5],
-    faction: f[u + 6],
-    kind: f[u + 7],
-    intent: f[u + 8],
-    // The entity handle, as one string to key a Map with. Both halves, because
-    // a dead unit's slot is handed to the next spawn: the index alone would
-    // read as the same creature getting up again. See the crate docs.
-    id: `${f[u + 9]}:${f[u + 10]}`,
-    // The index on its own, which is the *only* thing an event row carries as
-    // `actor`. Kept beside `id` rather than parsed back out of it: a floater
-    // and a callout need to find which body a row was about, and splitting a
-    // string sixty times a second to answer that would be silly. It is a hint
-    // for grouping and not an identity -- `id` remains the only one of those.
-    index: f[u + 9],
-    // The limb -- one, now. Bearings arrive as binary angles like `facing`, for
-    // the same reason: no trigonometry crosses the boundary.
-    limbAngle: (f[u + 11] / 65536) * TAU,
-    limbReach: f[u + 12],
-    limbSpin: f[u + 13],
-    actionLength: f[u + 14],
-    actionArc: (f[u + 15] / 65536) * TAU,
-    // Already-decayed 0..1 markers, computed by the sim from its own events.
-    hitFlash: f[u + 16],
-    blockFlash: f[u + 17],
-    parryFlash: f[u + 18],
-    // The attack. `limbLine` is where the cut is aimed, which during a windup
-    // is a long way from where the blade is pointing -- the gap between the two
-    // is the tell, and drawing it is the only reason the player can learn to
-    // read one.
-    swing: f[u + 19],
-    swingLeft: f[u + 20],
-    limbLine: (f[u + 21] / 65536) * TAU,
-    // What is in the hand and what else is in the bag. `role` is what decides
-    // whether this gets drawn as a blade or as an arc -- the page does not
-    // infer that from the numbers, because "a short thing with a wide arc" and
-    // "a guard" are the same numbers and very different pictures.
-    action: f[u + 22],
-    role: f[u + 23],
-    slot: f[u + 24],
-    slot0: f[u + 25],
-    slot1: f[u + 26],
-    // How far this body can see, in world units, straight off its own stat
-    // sheet. Not derived here from `perception`, and not derived here ever
-    // again: the hero's attributes are a live dial now, so a formula copied
-    // into this file would be describing a character that has changed
-    // underneath it. See the post-mortem above `BODIES`.
-    sight: f[u + 27],
-    // Whether the *player* can see this body -- not what the body itself
-    // perceives, which is a different question the module never answers here.
-    // With no hero standing this is 1 for everything: a fog of war with nobody
-    // to be fogged from is just a blank screen.
-    visible: f[u + 28] !== 0,
+    x: 0,
+    y: 0,
+    facing: 0,
+    radius: 0,
+    hp: 0,
+    maxHp: 0,
+    faction: 0,
+    kind: 0,
+    intent: 0,
+    id: 0,
+    index: 0,
+    gen: 0,
+    limbAngle: 0,
+    limbReach: 0,
+    limbSpin: 0,
+    actionLength: 0,
+    actionArc: 0,
+    hitFlash: 0,
+    blockFlash: 0,
+    parryFlash: 0,
+    swing: 0,
+    swingLeft: 0,
+    limbLine: 0,
+    action: 0,
+    role: 0,
+    slot: 0,
+    slot0: 0,
+    slot1: 0,
+    sight: 0,
+    visible: false,
   };
 }
 
-function parseFrame(f) {
-  const state = {
-    arenaX: f[0] || 48,
-    arenaY: f[1] || 32,
-    orderKind: f[2],
-    orderX: f[3],
-    orderY: f[4],
-    decisionTick: f[5],
-    unitCount: f[6],
-    shotCount: f[7],
-    eventCount: f[8],
-    // The run. `monstersLeft` is the module's own count and not
-    // `monsters.length`: the unit rows are capped, and the two must not be able
-    // to disagree about whether the level is clear.
-    monstersLeft: f[9],
-    portalX: f[10],
-    portalY: f[11],
-    portalState: f[12],
-    depth: f[13],
+/** One arrow row, on the same terms as `newUnitRow`. */
+function newShotRow() {
+  return { x: 0, y: 0, heading: 0, faction: 0 };
+}
+
+/** One event row, on the same terms as `newUnitRow`. */
+function newEventRow() {
+  return { kind: 0, x: 0, y: 0, amount: 0, actor: 0 };
+}
+
+/**
+ * A complete parsed frame, with its own rows.
+ *
+ * `unitPool`, `shotPool` and `eventPool` are the storage and never change
+ * length downward; `units`, `monsters`, `shots` and `events` are *views* onto
+ * that storage whose length is reset every parse. The distinction is the one
+ * thing here that is easy to get wrong: truncating the pool itself would delete
+ * the objects past the new length and the next busier frame would parse into
+ * holes.
+ *
+ * `monsters` aliases rows that are also in `units`, which is what it always did
+ * -- they are two windows onto one row set within one state. **No row is ever
+ * shared between two states**, which is what makes the ping-pong sound.
+ */
+function newFrameState() {
+  const unitPool = [];
+  for (let i = 0; i < MAX_UNITS; i++) unitPool.push(newUnitRow());
+  const shotPool = [];
+  for (let i = 0; i < MAX_SHOTS; i++) shotPool.push(newShotRow());
+  const eventPool = [];
+  for (let i = 0; i < MAX_EVENTS; i++) eventPool.push(newEventRow());
+  return {
+    arenaX: 48,
+    arenaY: 32,
+    orderKind: 0,
+    orderX: 0,
+    orderY: 0,
+    decisionTick: 0,
+    unitCount: 0,
+    shotCount: 0,
+    eventCount: 0,
+    monstersLeft: 0,
+    portalX: 0,
+    portalY: 0,
+    portalState: 0,
+    depth: 0,
+    unitPool,
+    shotPool,
+    eventPool,
     units: [],
     monsters: [],
     shots: [],
     events: [],
+    // `EntityId::index` -> the row, or `null`. Rebuilt every parse; see
+    // `parseFrame` for what it saves.
+    byIndex: new Array(ID_INDEX_SPAN).fill(null),
     hero: null,
   };
+}
+
+/** The two states the loop ping-pongs between: `prev` and `curr`.
+ *
+ *  The third state this note used to promise exists -- session 3 landed -- but
+ *  **not as a third element here**, which is what the promise assumed. `nextPool`
+ *  alternates 0 and 1, so a third slot in the same array would either never be
+ *  handed out or would break the alternation and let a parse scribble over the
+ *  state `prev` is holding. It is `BLEND_STATE`, in the interpolation block
+ *  below, because it is the same kind of thing `SCRATCH_STATE` is: a state with
+ *  exactly one owner and no rotation. */
+const FRAME_POOL = [newFrameState(), newFrameState()];
+let framePool = 0;
+
+/** The other one. Called once per parse in `loop` and nowhere else. */
+function nextPool() {
+  framePool ^= 1;
+  return FRAME_POOL[framePool];
+}
+
+/** The state for parses that happen between animation frames -- see the note at
+ *  the top of this block. Never held past the statement that asks for it. */
+const SCRATCH_STATE = newFrameState();
+
+function readUnit(f, u, out) {
+  out.x = f[u];
+  out.y = f[u + 1];
+  // A binary angle: the whole turn is 65536, so no trigonometry crossed
+  // the boundary. 0 is +x and the sense is counter-clockwise with +y up,
+  // which is also how this canvas is drawn (world y grows downward on
+  // screen), so the wedge points where the body moves.
+  out.facing = (f[u + 2] / 65536) * TAU;
+  out.radius = f[u + 3];
+  out.hp = f[u + 4];
+  out.maxHp = f[u + 5];
+  out.faction = f[u + 6];
+  out.kind = f[u + 7];
+  out.intent = f[u + 8];
+  // The entity handle as one number, to key a Map with. Both halves still, for
+  // the reason the old comment gave -- a dead unit's slot is handed to the next
+  // spawn, so the index alone would read as the same creature getting up again
+  // -- but `index < MAX_UNITS < ID_INDEX_SPAN` makes the pair exactly
+  // representable in a double, so this is the same identity with none of the
+  // allocation. It was a `${index}:${gen}` template string, built once per body
+  // per frame. See `ID_INDEX_SPAN` for why 128 and what it costs to change.
+  out.id = f[u + 10] * ID_INDEX_SPAN + f[u + 9];
+  // The index on its own, which is the *only* thing an event row carries as
+  // `actor`. Kept beside `id` rather than divided back out of it: a floater
+  // and a callout need to find which body a row was about, and doing arithmetic
+  // sixty times a second to answer that would be silly. It is a hint
+  // for grouping and not an identity -- `id` remains the only one of those.
+  out.index = f[u + 9];
+  // And the other half of the handle, on the same argument one line up, with
+  // one addition: `set_focus` takes the two halves as two arguments, and it
+  // takes both precisely because a dead unit's slot is handed to the next
+  // spawn -- an index alone would let a click on a corpse lock onto whatever
+  // walked in afterwards. So the pair has to survive the trip out to the page
+  // and back, and unpacking `id` to reassemble something the frame already said
+  // is work with a way to be wrong in it.
+  out.gen = f[u + 10];
+  // The limb -- one, now. Bearings arrive as binary angles like `facing`, for
+  // the same reason: no trigonometry crosses the boundary.
+  out.limbAngle = (f[u + 11] / 65536) * TAU;
+  out.limbReach = f[u + 12];
+  out.limbSpin = f[u + 13];
+  out.actionLength = f[u + 14];
+  out.actionArc = (f[u + 15] / 65536) * TAU;
+  // Already-decayed 0..1 markers, computed by the sim from its own events.
+  out.hitFlash = f[u + 16];
+  out.blockFlash = f[u + 17];
+  out.parryFlash = f[u + 18];
+  // The attack. `limbLine` is where the cut is aimed, which during a windup
+  // is a long way from where the blade is pointing -- the gap between the two
+  // is the tell, and drawing it is the only reason the player can learn to
+  // read one.
+  out.swing = f[u + 19];
+  out.swingLeft = f[u + 20];
+  out.limbLine = (f[u + 21] / 65536) * TAU;
+  // What is in the hand and what else is in the bag. `role` is what decides
+  // whether this gets drawn as a blade or as an arc -- the page does not
+  // infer that from the numbers, because "a short thing with a wide arc" and
+  // "a guard" are the same numbers and very different pictures.
+  out.action = f[u + 22];
+  out.role = f[u + 23];
+  out.slot = f[u + 24];
+  out.slot0 = f[u + 25];
+  out.slot1 = f[u + 26];
+  // How far this body can see, in world units, straight off its own stat
+  // sheet. Not derived here from `perception`, and not derived here ever
+  // again: the hero's attributes are a live dial now, so a formula copied
+  // into this file would be describing a character that has changed
+  // underneath it. See the post-mortem above `BODIES`.
+  out.sight = f[u + 27];
+  // Whether the *player* can see this body -- not what the body itself
+  // perceives, which is a different question the module never answers here.
+  // With no hero standing this is 1 for everything: a fog of war with nobody
+  // to be fogged from is just a blank screen.
+  out.visible = f[u + 28] !== 0;
+  return out;
+}
+
+/**
+ * The frame, into `out`.
+ *
+ * `f` is the live `Float32Array` over linear memory -- see `frameView` for the
+ * invariant that buys, and note that this function is pure arithmetic and calls
+ * into wasm nowhere, which is what makes reading the live view safe.
+ *
+ * `out` is one of the states above. Hand it `nextPool()` from the loop and
+ * `SCRATCH_STATE` from anywhere else.
+ */
+function parseFrame(f, out) {
+  out.arenaX = f[0] || 48;
+  out.arenaY = f[1] || 32;
+  out.orderKind = f[2];
+  out.orderX = f[3];
+  out.orderY = f[4];
+  out.decisionTick = f[5];
+  out.unitCount = f[6];
+  out.shotCount = f[7];
+  out.eventCount = f[8];
+  // The run. `monstersLeft` is the module's own count and not
+  // `monsters.length`: the unit rows are capped, and the two must not be able
+  // to disagree about whether the level is clear.
+  out.monstersLeft = f[9];
+  out.portalX = f[10];
+  out.portalY = f[11];
+  out.portalState = f[12];
+  out.depth = f[13];
+  out.hero = null;
+
   // Trust the buffer's length over the header's count. They agree, and the
   // belt-and-braces costs one `Math.min` a frame.
-  const rows = Math.min(state.unitCount | 0, Math.floor((f.length - HEADER_LEN) / UNIT_STRIDE));
+  const rows = Math.min(out.unitCount | 0, Math.floor((f.length - HEADER_LEN) / UNIT_STRIDE));
+  // The pool only ever grows, and only if a module ever publishes more rows
+  // than `MAX_UNITS` says it can. One comparison a frame against a page that
+  // would otherwise silently drop bodies.
+  while (out.unitPool.length < rows) out.unitPool.push(newUnitRow());
+  // The side table, cleared before it is filled: a stale entry would answer for
+  // a body that is no longer in the frame, which is exactly the mistake the
+  // linear scans it replaces could not make.
+  const byIndex = out.byIndex;
+  byIndex.fill(null);
+  let unitCount = 0;
+  let monsterCount = 0;
   for (let i = 0; i < rows; i++) {
-    const unit = readUnit(f, HEADER_LEN + i * UNIT_STRIDE);
-    state.units.push(unit);
+    const unit = readUnit(f, HEADER_LEN + i * UNIT_STRIDE, out.unitPool[i]);
+    out.units[unitCount++] = unit;
+    // `EntityId::index` -> row, built as we go for one array write per unit.
+    // Three consumers scan for a row by index -- `drawCallouts` (per callout,
+    // per frame), `factionOfActor` and `actorVisible` (per event row) -- and
+    // each was O(units). Irrelevant at 6 x 64 and quadratic at 100+ units with
+    // more events in flight, which is where this page is headed.
+    if (unit.index < ID_INDEX_SPAN) byIndex[unit.index] = unit;
     if (unit.faction === FACTION_HEROES) {
       // Searched for, never taken from row zero: `write_frame` skips the dead,
       // so once the character can fall, every row can shift up by one.
-      if (!state.hero) state.hero = unit;
+      if (out.hero === null) out.hero = unit;
     } else {
-      state.monsters.push(unit);
+      out.monsters[monsterCount++] = unit;
     }
   }
+  // The *views* are truncated, never the pools. See `newFrameState`.
+  out.units.length = unitCount;
+  out.monsters.length = monsterCount;
+
   // The arrows, in the block that starts wherever the units stopped. Based off
   // `rows` rather than off `unitCount` for the same belt-and-braces reason: the
   // two agree, and reading the section from the wrong offset would draw arrows
   // out of somebody's health bar.
   const base = HEADER_LEN + rows * UNIT_STRIDE;
   const shots = Math.min(
-    state.shotCount | 0,
+    out.shotCount | 0,
     Math.floor((f.length - base) / SHOT_STRIDE)
   );
+  while (out.shotPool.length < shots) out.shotPool.push(newShotRow());
   for (let i = 0; i < shots; i++) {
     const at = base + i * SHOT_STRIDE;
-    state.shots.push({
-      x: f[at],
-      y: f[at + 1],
-      heading: (f[at + 2] / 65536) * TAU,
-      faction: f[at + 3],
-    });
+    const shot = out.shotPool[i];
+    shot.x = f[at];
+    shot.y = f[at + 1];
+    shot.heading = (f[at + 2] / 65536) * TAU;
+    shot.faction = f[at + 3];
+    out.shots[i] = shot;
   }
+  out.shots.length = shots;
+
   // Everything that happened during the ticks this frame just ran, in a third
   // block after the arrows -- and based off `shots` for the same
   // belt-and-braces reason the arrows are based off `rows`.
@@ -644,32 +998,526 @@ function parseFrame(f) {
   // do it once per `step`, not once per animation frame.
   const eventBase = base + shots * SHOT_STRIDE;
   const rowCount = Math.min(
-    state.eventCount | 0,
+    out.eventCount | 0,
     Math.floor((f.length - eventBase) / EVENT_STRIDE)
   );
+  while (out.eventPool.length < rowCount) out.eventPool.push(newEventRow());
   for (let i = 0; i < rowCount; i++) {
     const at = eventBase + i * EVENT_STRIDE;
-    state.events.push({
-      // One of EVENT_DAMAGE / EVENT_BLOCK / EVENT_PARRY / EVENT_DECLARE, and
-      // `amount` means something different under each.
-      kind: f[at],
-      x: f[at + 1],
-      y: f[at + 2],
-      amount: f[at + 3],
-      // `EntityId::index` alone, deliberately without the generation: a row is
-      // consumed in the frame it arrives in, and a floater is keyed on the
-      // position it happened at rather than on who it happened to. This is a
-      // hint for grouping, not an identity -- `unit.id` is still the only one
-      // of those.
-      actor: f[at + 4],
-    });
+    const event = out.eventPool[i];
+    // One of EVENT_DAMAGE / EVENT_BLOCK / EVENT_PARRY / EVENT_DECLARE, and
+    // `amount` means something different under each.
+    event.kind = f[at];
+    event.x = f[at + 1];
+    event.y = f[at + 2];
+    event.amount = f[at + 3];
+    // `EntityId::index` alone, deliberately without the generation: a row is
+    // consumed in the frame it arrives in, and a floater is keyed on the
+    // position it happened at rather than on who it happened to. This is a
+    // hint for grouping, not an identity -- `unit.id` is still the only one
+    // of those.
+    event.actor = f[at + 4];
+    out.events[i] = event;
   }
-  return state;
+  out.events.length = rowCount;
+  return out;
+}
+
+// ----------------------------------------------------------- interpolation
+//
+// **The sim runs at 60 ticks a second and the display does not.** `loop` asks
+// for `Math.floor(accumulator / TICK_MS)` ticks, which is 0, 1 or occasionally 2
+// depending on where rAF's jitter falls -- so a page that simply drew the frame
+// it was handed drew every body moving in exactly those quanta. At 60 Hz that is
+// a velocity ripple on everything in the room; at 120 or 144 Hz roughly half the
+// frames advance the world by nothing at all, and the room visibly steps at 60
+// under a camera that is gliding continuously. No amount of optimisation fixes
+// that, because it is not a throughput problem: the acceptance test for all of
+// this is that session 1's ticks histogram is **unchanged** and the room is
+// smooth anyway.
+//
+// The fix is to hold the last two parsed states and draw a point between them.
+// **`curr` is the truth and the blend is a picture**, and the two are kept
+// strictly apart: `loop` says at every call site which of them it is taking and
+// why, and `docs/plans/perf-03-cadence.md` carries the full assignment.
+//
+// **None of this reimplements a sim rule.** A convex combination of two states
+// the sim actually produced is a display filter, not a prediction. Nothing here
+// extrapolates past `curr`, nothing invents an arrival test, and no blended
+// number is ever written back across the wall or used to derive an order -- the
+// same discipline `loop`'s `arrived` comment already keeps about walls.
+//
+// The cost is one tick of latency: 16.7 ms, against a decision period of 1 to 30
+// ticks (`sim::rules::decision_period`). Extrapolating would buy that back by
+// having the page guess where the sim is going, and the page does not guess.
+
+/** Two numbers, `t` of the way from `a` to `b`. */
+function mix(a, b, t) {
+  return a + (b - a) * t;
+}
+
+/**
+ * Two bearings, the short way round.
+ *
+ * The frame delivers radians -- `readUnit` divides the binary angle by 65536 --
+ * so a body turning through north would otherwise take the long way home: 6.2
+ * rad to 0.1 rad interpolated linearly is a full spin backwards inside one tick.
+ * Folding the difference into (-pi, pi] is the whole of the fix.
+ *
+ * It cannot decide what to do about a turn of *more* than half a circle in one
+ * tick, because there is genuinely no way to tell one of those apart from a
+ * short turn the other way. `snapRow` covers the case that actually produces one
+ * -- a swing changing phase -- by not blending the row at all.
+ */
+function lerpAngle(a, b, t) {
+  let d = (b - a) % TAU;
+  if (d > Math.PI) d -= TAU;
+  else if (d < -Math.PI) d += TAU;
+  return a + d * t;
+}
+
+/**
+ * Whether a row must be taken from `curr` outright rather than blended.
+ *
+ * **One predicate rather than five scattered guards**, because it is one idea:
+ * these are the columns whose change means the two rows are not two samples of
+ * the same continuous thing. It covers, in order of how often it fires:
+ *
+ *   * **the start and end of a swing** -- `swing` steps GUARD -> WINDUP ->
+ *     STRIKE -> RECOVER -> GUARD, and the limb's line jumps to wherever the new
+ *     phase aims it. Blending across that stutters the blade mid-arc;
+ *   * **the pathological fast strike**, which sweeps more than half a turn in
+ *     one tick and which `lerpAngle` would therefore run *backwards*. It is
+ *     caught here for free, because such a sweep is always inside a phase
+ *     change;
+ *   * **a body entering or leaving the fog** -- `visible` flips, and the frozen
+ *     ghost pose `syncBodies` keeps must not be slid into or out of;
+ *   * **a weapon swap** -- `slot` and `action` move together, and the arc, the
+ *     reach and the blade's bearing all belong to a different weapon afterwards;
+ *   * **a role change**, which is what decides whether the page draws a blade or
+ *     a guard arc at all -- half of one and half of the other is neither.
+ *
+ * The sixth case, **a spawn or a body seen for the first time**, has no `prev`
+ * row to compare against at all and is handled by the caller.
+ */
+function snapRow(a, b) {
+  return (
+    a.swing !== b.swing ||
+    a.action !== b.action ||
+    a.slot !== b.slot ||
+    a.role !== b.role ||
+    a.visible !== b.visible
+  );
+}
+
+/**
+ * One unit row, `t` of the way from `a` to `b`, into `out`.
+ *
+ * Shaped exactly like `readUnit(f, u, out)` and for the same reason: it writes
+ * into a long-lived row rather than building one, so a whole frame of blending
+ * allocates nothing. This runs on **every** animation frame, including the ones
+ * that step no ticks, so a version that returned fresh objects would reintroduce
+ * per-frame the allocation the parse pool exists to remove.
+ *
+ * Three groups, and which group a field is in is a statement about what the
+ * field *is*:
+ *
+ *   * **lerped** -- everything continuous: position, size, health, the limb's
+ *     extension and spin, how much of the swing is left, the sight radius, and
+ *     the three already-decayed flash markers;
+ *   * **lerped the short way** -- `facing`, `limbAngle` and `limbLine`, the
+ *     three live bearings, through `lerpAngle`;
+ *   * **snapped** -- every identity and every discriminant, plus `actionLength`
+ *     and `actionArc`. Those last two look like geometry and are not: they are
+ *     **static properties of the action**, how long the weapon is and how wide
+ *     its swing will be, and halfway between two weapons' arcs is no weapon.
+ *
+ * **`blendUnit(row, row, t, out)` is an exact copy** -- `mix(v, v, t)` is
+ * `v + 0 * t` and `lerpAngle(v, v, t)` is the same -- which is what the snap
+ * paths in `blend` use, rather than a second copy routine that could drift out
+ * of step with this one field by field.
+ */
+function blendUnit(a, b, t, out) {
+  out.x = mix(a.x, b.x, t);
+  out.y = mix(a.y, b.y, t);
+  out.facing = lerpAngle(a.facing, b.facing, t);
+  out.radius = mix(a.radius, b.radius, t);
+  out.hp = mix(a.hp, b.hp, t);
+  out.maxHp = mix(a.maxHp, b.maxHp, t);
+  out.faction = b.faction;
+  out.kind = b.kind;
+  out.intent = b.intent;
+  out.id = b.id;
+  out.index = b.index;
+  out.gen = b.gen;
+  out.limbAngle = lerpAngle(a.limbAngle, b.limbAngle, t);
+  out.limbReach = mix(a.limbReach, b.limbReach, t);
+  out.limbSpin = mix(a.limbSpin, b.limbSpin, t);
+  out.actionLength = b.actionLength;
+  out.actionArc = b.actionArc;
+  out.hitFlash = mix(a.hitFlash, b.hitFlash, t);
+  out.blockFlash = mix(a.blockFlash, b.blockFlash, t);
+  out.parryFlash = mix(a.parryFlash, b.parryFlash, t);
+  out.swing = b.swing;
+  out.swingLeft = mix(a.swingLeft, b.swingLeft, t);
+  out.limbLine = lerpAngle(a.limbLine, b.limbLine, t);
+  out.action = b.action;
+  out.role = b.role;
+  out.slot = b.slot;
+  out.slot0 = b.slot0;
+  out.slot1 = b.slot1;
+  out.sight = mix(a.sight, b.sight, t);
+  out.visible = b.visible;
+  return out;
+}
+
+/** The blended picture: one state, written into on every animation frame
+ *  including the ones that step nothing. Pre-allocated on exactly the terms the
+ *  two pooled states are, and owned by `loop` alone -- nothing else may write
+ *  into it, and nothing may hold a row out of it past the frame it was drawn on.
+ *  See `FRAME_POOL` for why it is not a third element of that array. */
+const BLEND_STATE = newFrameState();
+
+/**
+ * How far an arrow may move between the two states before the page stops
+ * believing it is the same arrow -- in world units **per tick of the gap**.
+ *
+ * The fastest thing in the game moves well under half a unit a tick:
+ * `rules::shot_speed` is the bow tip's tangential speed times `BOW_EFFICIENCY`,
+ * and `agility_multiplier` is clamped so that no tip in the game exceeds 0.537
+ * units a tick (`DESIGN.md`, "Deliberate non-choices"). Three times that is a
+ * threshold nothing legitimate reaches and a re-index almost always clears.
+ *
+ * **Per tick, and not flat.** The plan wrote it flat, which is right for the
+ * ordinary 1- and 2-tick frame and wrong for the one that caught up eight: every
+ * arrow in the air moves eight ticks' worth there, a flat threshold snaps the
+ * whole flight, and it does so on exactly the frames the picture is already
+ * worst. Scaling by the gap keeps this a re-index detector at every cadence.
+ */
+const SHOT_SNAP_UNITS = 1.5;
+
+/**
+ * `a` and `b`, `t` of the way between them, into `out`. The picture the page
+ * draws.
+ *
+ * **Rows are matched by identity and never by row index.** `write_frame` skips
+ * the dead (`crates/web/src/lib.rs`), so one monster falling shifts every row
+ * below it up by one, and an index match would slide bodies across the room
+ * every time something died. `byIndex` already exists for exactly this kind of
+ * lookup, and the `id` check behind it is what makes the answer an identity
+ * rather than a slot: a freed entity slot is handed to the next spawn, and the
+ * generation is the half of the handle that says so.
+ *
+ * `span` is how many ticks apart the two states are and `lockHeld` is whether
+ * they were parsed under the same focus; see the arrows and the order slots
+ * below for what each is for.
+ */
+function blend(a, b, t, span, lockHeld, out) {
+  // **At `t = 1` the picture *is* `curr`**, and that is not a rare case: it is
+  // every frame the world is frozen. Blending a state with itself is the
+  // identity all the way down, so one comparison here buys an exact copy
+  // everywhere below without a second code path to keep in step.
+  const from = t >= 1 ? b : a;
+
+  out.arenaX = b.arenaX;
+  out.arenaY = b.arenaY;
+  out.decisionTick = b.decisionTick;
+  out.unitCount = b.unitCount;
+  out.shotCount = b.shotCount;
+  out.monstersLeft = b.monstersLeft;
+  out.portalX = b.portalX;
+  out.portalY = b.portalY;
+  out.portalState = b.portalState;
+  out.depth = b.depth;
+
+  // The order slots, which are the one subtle case on this whole page.
+  //
+  // Two kinds of order stand on them. Under a `Goto` they are a fixed point the
+  // player clicked, and blending would slide the destination marker across the
+  // room over a frame every time a new one is issued -- so it snaps. Under a
+  // focus the module writes the **quarry's live position** there, so they move
+  // every tick and the lock ring judders if it snaps -- so it blends.
+  //
+  // And blending is only right while it is the *same* quarry: a click naming
+  // somebody else jumps those slots across the room exactly the way a fresh
+  // `Goto` does. `locked` is the page's own record of who, and `lockHeld` says
+  // it did not move between the two parses.
+  //
+  // Note that `loop`'s order key asks a different question of these same two
+  // slots and therefore reads `curr`: it is keyed on `locked` *instead of* the
+  // position precisely because the position moves every frame under a focus.
+  out.orderKind = b.orderKind;
+  const trackingSameQuarry =
+    lockHeld && from.orderKind === ORDER_FOCUS && b.orderKind === ORDER_FOCUS;
+  out.orderX = trackingSameQuarry ? mix(from.orderX, b.orderX, t) : b.orderX;
+  out.orderY = trackingSameQuarry ? mix(from.orderY, b.orderY, t) : b.orderY;
+
+  out.hero = null;
+  const rows = b.units.length;
+  while (out.unitPool.length < rows) out.unitPool.push(newUnitRow());
+  const byIndex = out.byIndex;
+  byIndex.fill(null);
+  let unitCount = 0;
+  let monsterCount = 0;
+  for (let i = 0; i < rows; i++) {
+    const to = b.units[i];
+    // The same body one step ago, or nothing. `byIndex` is keyed on
+    // `EntityId::index` alone, which is a slot and not an identity, so the `id`
+    // test behind it is load-bearing: it is what stops a recycled slot reading
+    // as the previous occupant getting up and walking to the new one's feet.
+    // A row past `ID_INDEX_SPAN` reads `undefined` here, which is falsy, which
+    // snaps -- see `ID_INDEX_SPAN` for why that cannot happen today.
+    const was = from.byIndex[to.index];
+    const source = was && was.id === to.id && !snapRow(was, to) ? was : to;
+    const row = blendUnit(source, to, t, out.unitPool[i]);
+    out.units[unitCount++] = row;
+    if (row.index < ID_INDEX_SPAN) byIndex[row.index] = row;
+    if (row.faction === FACTION_HEROES) {
+      if (out.hero === null) out.hero = row;
+    } else {
+      out.monsters[monsterCount++] = row;
+    }
+  }
+  // The views are truncated, never the pools -- see `newFrameState`.
+  out.units.length = unitCount;
+  out.monsters.length = monsterCount;
+
+  // The arrows, matched by **row index** -- the one match in this file that is
+  // not an identity, and a deliberate compromise rather than an oversight.
+  // `ShotView` carries no handle by design (`crates/sim/src/world.rs`) and
+  // `shots()` emits the live slots in ascending order, so an arrow landing
+  // shifts every row after it up by one and row `i` becomes a different arrow.
+  //
+  // The correct fix is a `slot` column on the shot row, and it costs
+  // `SHOT_STRIDE` 4 -> 5 and `FRAME_LAYOUT_VERSION` 6 -> 7 across five files in
+  // a repo where four golden suites hang off the frame; `perf-03-cadence.md`
+  // rules that its own session and not this one. Arrows are the fastest thing on
+  // screen and therefore the most judder-visible, so leaving them raw was not an
+  // option either.
+  //
+  // So the re-index is caught page-side by what it does: it moves a row a long
+  // way in one frame, and an arrow does not. Faction rides along for free -- an
+  // arrow cannot change sides, so two rows that disagree about it are certainly
+  // two different arrows. Worst case is one arrow drawn without interpolation
+  // for one frame, on the frame another arrow lands.
+  const shots = b.shots.length;
+  while (out.shotPool.length < shots) out.shotPool.push(newShotRow());
+  const jump = SHOT_SNAP_UNITS * span;
+  const jumpSq = jump * jump;
+  for (let i = 0; i < shots; i++) {
+    const to = b.shots[i];
+    const was = from.shots[i];
+    const shot = out.shotPool[i];
+    let source = to;
+    if (was && was.faction === to.faction) {
+      const dx = to.x - was.x;
+      const dy = to.y - was.y;
+      if (dx * dx + dy * dy <= jumpSq) source = was;
+    }
+    shot.x = mix(source.x, to.x, t);
+    shot.y = mix(source.y, to.y, t);
+    shot.heading = lerpAngle(source.heading, to.heading, t);
+    shot.faction = to.faction;
+    out.shots[i] = shot;
+  }
+  out.shots.length = shots;
+
+  // **No events, and that is the honest answer rather than a shortcut.** Every
+  // other row in a frame describes state, which is a thing there is a halfway
+  // point of; an event describes something that *happened*, at an instant, and
+  // there is no halfway point between a blow landing and it not. The feed
+  // belongs to the ticks that just ran, `consumeEvents` reads it off `curr`
+  // exactly once per `step()`, and a copy of it here would be a second feed
+  // sitting where somebody could consume it twice.
+  out.eventCount = 0;
+  out.events.length = 0;
+  return out;
+}
+
+// ---------------------------------------------------------------------- perf
+//
+// Frame timing, in one place, with two audiences. The `fps` chip is always on
+// and is for the player: a refresh rate and the worst frame in the last half
+// second, because a judder complaint is about the tail and never about the mean.
+// The breakdown behind `P` is for whoever is optimising, and it is off by
+// default so that the loop pays one boolean for it.
+//
+// **A warning about what `render` means.** Canvas2D commands are queued;
+// rasterisation and compositing happen after this callback returns. A small
+// `render` with a large `idle` and a bad frame rate means the cost is in the
+// compositor, not in this file. `idle` is the number that tells them apart.
+//
+// That is also why `loop` puts *every* statement it runs inside exactly one
+// phase rather than only the interesting ones: `idle` is a remainder, so any
+// work left unbracketed lands in it and reads as the compositor.
+//
+// A 500 ms window of `count`/`sum`/`max` rather than a ring buffer: a percentile
+// over a hundred-odd samples is the second-worst sample with a sort in front of
+// it, and pretending otherwise would be inventing precision. Half a second is
+// slow enough to read and short enough that a stutter is still on screen when
+// the number naming it appears.
+const PERF_WINDOW_MS = 500;
+const PERF_PHASES = ["input", "step", "parse", "level", "sync", "insets", "pick", "render", "hud", "idle"];
+
+let perfDetail = false;
+const perf = {
+  windowStart: 0,
+  frames: 0,
+  worst: 0,
+  interval: 0, // summed rAF intervals, for the median
+  ticks: [0, 0, 0, 0], // 0, 1, 2, 3+ ticks in a frame
+  dropped: 0, // frames that hit MAX_CATCHUP_TICKS and binned a backlog
+  sum: {},
+  max: {},
+  fpsText: "—",
+  detailText: "",
+};
+for (const name of PERF_PHASES) {
+  perf.sum[name] = 0;
+  perf.max[name] = 0;
+}
+
+let perfMark = 0;
+/** How much of *this* frame the phases have accounted for, which is the whole
+ *  of how `idle` is arrived at. Reset by `perfFrame`, never read anywhere else. */
+let perfBusy = 0;
+
+/** Opens a phase. A no-op with the breakdown off.
+ *
+ *  One mark and no stack: the phases in `loop` are strictly sequential and never
+ *  nested, so a stack would be a data structure guarding against a shape the
+ *  loop does not have. Nest one inside another and the outer one silently
+ *  reports the inner one's span -- which is the cost of the simplicity, stated
+ *  here rather than discovered later. */
+function perfOpen() {
+  if (!perfDetail) return;
+  perfMark = performance.now();
+}
+/** Closes the phase opened by the matching `perfOpen`. */
+function perfClose(name) {
+  if (!perfDetail) return;
+  const ms = performance.now() - perfMark;
+  perf.sum[name] += ms;
+  perfBusy += ms;
+  if (ms > perf.max[name]) perf.max[name] = ms;
+}
+
+/**
+ * One frame's worth of bookkeeping, and the window boundary.
+ *
+ * `elapsed` is the **raw** rAF interval, taken before the loop clamps it to
+ * `MAX_FRAME_MS` -- a clamped value would quietly report a 250 ms stall as 250 ms
+ * of smooth running, which is the one frame you most want to see.
+ */
+function perfFrame(now, elapsed, ticks, dropped) {
+  perf.frames++;
+  perf.interval += elapsed;
+  if (elapsed > perf.worst) perf.worst = elapsed;
+  perf.ticks[Math.min(ticks, 3)]++;
+  if (dropped) perf.dropped++;
+
+  // `idle` is the one phase nothing opens or closes: it is the interval minus
+  // everything the nine other phases claimed. Clamped at zero because
+  // `performance.now()` is coarse and the phases can sum a hair past the frame
+  // they were measured in -- a negative idle would be arithmetic noise printed
+  // as a finding.
+  if (perfDetail) {
+    const idle = Math.max(0, elapsed - perfBusy);
+    perf.sum.idle += idle;
+    if (idle > perf.max.idle) perf.max.idle = idle;
+  }
+  perfBusy = 0;
+
+  if (now - perf.windowStart < PERF_WINDOW_MS) return;
+  const span = (now - perf.windowStart) / 1000;
+  const fps = perf.frames / span;
+  const median = perf.interval / Math.max(perf.frames, 1);
+  perf.fpsText = `${Math.round(fps)} · ${perf.worst.toFixed(0)}ms`;
+  // A glance rather than a read: anything past about a frame and a half of the
+  // observed cadence is a hitch whatever the refresh rate happens to be.
+  perfWarn(perf.worst > median * 1.6);
+
+  if (perfDetail) {
+    // Means, not maxes: ten means fit on one line and ten mean/max pairs do not.
+    // `max` is collected anyway for the one phase whose tail is the whole story
+    // -- `level`, which fires on a tile crossing, a zoom or a mode change and
+    // whose mean is therefore meaningless. Reading that spike is a one-word edit
+    // here rather than a re-instrumentation.
+    const parts = PERF_PHASES.map((n) => `${n} ${(perf.sum[n] / perf.frames).toFixed(2)}`);
+    perf.detailText =
+      `${parts.join(" · ")}   ticks ${perf.ticks[0]}:${perf.ticks[1]}:${perf.ticks[2]}:${perf.ticks[3]}` +
+      (perf.dropped ? `  DROPPED ${perf.dropped}` : "");
+  }
+
+  perf.windowStart = now;
+  perf.frames = 0;
+  perf.worst = 0;
+  perf.interval = 0;
+  perf.ticks[0] = perf.ticks[1] = perf.ticks[2] = perf.ticks[3] = 0;
+  perf.dropped = 0;
+  for (const name of PERF_PHASES) {
+    perf.sum[name] = 0;
+    perf.max[name] = 0;
+  }
+}
+
+function perfWarn(on) {
+  if (el.perfFps) el.perfFps.classList.toggle("warn", on);
+}
+
+/** `P`, and `?perf=1` for a fresh load. Independent of `[dev]` on purpose --
+ *  `[dev]` turns the fog off, so profiling in it measures a renderer that draws
+ *  every body in the room, which is not the one anybody is complaining about.
+ *  See the note in `docs/plans/perf-00-overview.md`.
+ *
+ *  A class on the same `dev-strip` element `setViewMode` writes `open` to, and
+ *  fetched the same way it fetches it: two independent bits on one strip, so the
+ *  breakdown is readable from `[regular]` and the tick/at/hash are unaffected. */
+function setPerfDetail(on) {
+  perfDetail = on;
+  const strip = document.getElementById("dev-strip");
+  if (strip) strip.classList.toggle("perf", on);
+  if (!on) perf.detailText = "";
 }
 
 // ------------------------------------------------------------------ the page
 
 const canvas = document.getElementById("arena");
+/**
+ * **A transparent backing store, deliberately. `{ alpha: false }` was tried,
+ * measured and rejected -- do not try it again without reading this.**
+ *
+ * The argument for it is real: the arena is the bottom layer and the whole HUD
+ * is DOM on top, so an opaque backing store lets the compositor skip blending
+ * the canvas over the page.
+ *
+ * Two things stop it. The first is a trap and is fixable: an `alpha: false`
+ * context starts opaque **black**, so `render`'s `clearRect` paints the void
+ * `#000` instead of the page's own colour. That is one line -- the clear becomes
+ * a fill of `--bg`.
+ *
+ * The second is not fixable and is the reason this stayed transparent. **The
+ * void is not a flat colour.** `body` (`web/style.css`) is
+ * `radial-gradient(1200px 700px at 50% 42%, #141a26 0%, transparent 70%)` over
+ * `--bg`, so what shows through the canvas is a soft ambient wash across the
+ * middle of the window -- `rgb(20,26,38)` at its centre against `rgb(9,11,16)`
+ * at the corners. An opaque canvas cannot show it, and a flat fill of `--bg`
+ * flattens the room's whole ambient light. It also silently changes the fog:
+ * `SEEN_ALPHA` blends remembered ground *toward the page background*, which is
+ * stated in that constant's own comment and in `rebuildLevelPaths`'s ("the page
+ * background is already the void"). Reproducing the gradient in JS would be a
+ * second copy of a background the stylesheet owns.
+ *
+ * What it bought, measured on this machine (Chrome, dpr 2, a 3456x1778 backing
+ * store, one hero and three monsters, five runs of 100 `render()` calls each,
+ * alternating fresh page loads): a median **0.28-0.34 ms transparent against
+ * 0.22-0.23 ms opaque** -- around 0.06-0.11 ms of a 16.7 ms budget, and that is
+ * command *issuance* only. The compositing saving, which is the actual claim,
+ * could not be measured at all from inside the page. Session 1's headline is
+ * that 4.17 of `render`'s 4.31 ms at 64 units is per-body drawing; this is not
+ * where the frame is going, and it is not worth changing how the room is lit to
+ * find out.
+ */
 const ctx = canvas.getContext("2d");
 const stage = document.getElementById("canvas-wrap");
 const hintEl = document.getElementById("hint");
@@ -699,6 +1547,13 @@ const el = {
   simTick: document.getElementById("sim-tick"),
   simPosition: document.getElementById("sim-position"),
   simHash: document.getElementById("sim-hash"),
+  // The frame budget, beside the tick. `perfFps` is always on screen -- a
+  // judder complaint has to be answerable without opening anything -- while
+  // `perfDetail` is the ten-phase breakdown behind `P`. One preformatted string
+  // rather than ten chips: ten chips would be ten CSSOM writes and a flex
+  // reflow twice a second, in order to measure a flex reflow.
+  perfFps: document.getElementById("perf-fps"),
+  perfDetail: document.getElementById("perf-detail"),
   // The Hero rail's body-and-kit rows. `loadout-0` and `loadout-1` kept their
   // ids through the move out of the drawer: they still drive the same
   // `set_hero_loadout` export and still read back off the frame.
@@ -747,19 +1602,117 @@ const DEFAULT_HINT = "Click the floor. The character walks there its own way.";
 function setRail(which, open) {
   const rail = RAILS[which];
   if (!rail) return;
+  const was = rail.classList.contains("open");
   rail.classList.toggle("open", open);
   document.body.classList.toggle(`rail-${which}-open`, open);
   const tab = rail.querySelector(".rail-tab");
   if (tab) tab.setAttribute("aria-expanded", open ? "true" : "false");
-  // No resize call, and no `transitionend` listener either. The canvas host did
-  // not change size -- the rails are `position: fixed` over it -- and the camera
-  // re-measures `railInsets()` every frame, so it picks the slide up while it is
-  // still happening rather than at whichever end of it a listener fired on.
+  // No `resize()` call: the canvas host did not change size, because the rails
+  // are `position: fixed` over it and neither the `ResizeObserver` nor
+  // `window.resize` has anything to say about one opening. What changed is how
+  // much of the glass the player can see, and that is the camera's business.
+  //
+  // So this is the one thing that has to be said, and it is said to the camera:
+  // *a rail is moving now*. The loop re-measures `railInsets()` on every frame
+  // for as long as that holds, which is what makes the view breathe with the
+  // 180 ms slide instead of snapping at one end of it. Only on a real change --
+  // toggling a rail to the state it is already in starts no transition, and
+  // arming the flag for it would be 250 ms of layout flushes for a slide that
+  // never happened.
+  if (was !== open) railStartedMoving(which);
 }
 
 function railOpen(which) {
   const rail = RAILS[which];
   return !!rail && rail.classList.contains("open");
+}
+
+/**
+ * Whether either rail is mid-slide, and therefore whether the camera has to
+ * re-measure this frame.
+ *
+ * **Why there is a flag at all.** `refreshInsets()` costs 0.018 ms when the
+ * layout is already clean and **0.666 ms when it is not**
+ * (`docs/plans/perf-measurements.md`), and in the loop it never is -- the
+ * previous frame's `updateHud` wrote to the DOM. Four `getBoundingClientRect()`
+ * calls forcing a synchronous layout flush is 4% of a 16.7 ms frame, every
+ * frame, to learn a number that only ever changes while a rail is actually
+ * moving. The measurement itself is not cached and not replaced by an assumed
+ * `--rail-w`: it still runs on **every frame of the slide**, which is the whole
+ * argument the block above the call in `loop` makes.
+ *
+ * **Per rail rather than one flag for both**, because both can be in flight at
+ * once: press `[` and then `]`, and a single flag would be cleared by the first
+ * rail's `transitionend` while the second is still halfway across the screen.
+ *
+ * **The 250 ms timer is not belt-and-braces.** `transitionend` does not fire at
+ * all under `prefers-reduced-motion: reduce` -- `web/style.css` sets
+ * `.rail { transition: none }` there -- and does not fire for a transition that
+ * was interrupted or never started. A flag left *up* costs four rects a frame
+ * and nothing else; a flag stuck *down* over a rail that is still moving is a
+ * stale safe rect, which throws the character across the screen. The timer is
+ * what bounds the flag's life from the other end.
+ *
+ * **Everything that can move a rail has to come through here.** Today that is
+ * `setRail` -- every keypress and every tab click funnels into it -- plus a tab
+ * coming back into view, where a paused transition and a throttled timer can
+ * have spent the flag on a slide that had not started yet (see the
+ * `visibilitychange` handler). The window is the third mover and needs no flag:
+ * it changes `--rail-w` and goes through `resize()`, which measures directly. A
+ * future thing that resizes a rail without doing any of those must call
+ * `railStartedMoving`, or the camera will not notice it.
+ */
+const RAIL_SETTLE_MS = 250;
+
+const railMotion = {
+  enemy: { moving: false, timer: 0 },
+  hero: { moving: false, timer: 0 },
+};
+
+function railsMoving() {
+  return railMotion.enemy.moving || railMotion.hero.moving;
+}
+
+function railStartedMoving(which) {
+  const motion = railMotion[which];
+  if (!motion) return;
+  motion.moving = true;
+  // Re-armed rather than left to run out: a second toggle part-way through the
+  // first slide starts a fresh 180 ms of movement and must get a full window of
+  // its own rather than inherit whatever was left of the previous one.
+  if (motion.timer) clearTimeout(motion.timer);
+  motion.timer = setTimeout(() => railSettled(which), RAIL_SETTLE_MS);
+}
+
+function railSettled(which) {
+  const motion = railMotion[which];
+  if (!motion) return;
+  if (motion.timer) clearTimeout(motion.timer);
+  motion.timer = 0;
+  motion.moving = false;
+  // One last measurement, **after** the flag is down. The loop stops measuring
+  // the moment the last rail settles, so without this the safe rect would keep
+  // whatever the final animating frame read rather than where the rail actually
+  // came to rest -- a pixel or two under a `transitionend`, and the entire rail
+  // width under `prefers-reduced-motion`, where the class flip *is* the whole
+  // transition and no animating frame ever happened.
+  if (refreshInsets()) resize();
+}
+
+// The end of the slide, from the rail itself. Filtered on both the element and
+// the property, and both filters are load-bearing. The shut rule is
+// `transition: transform 180ms ease, visibility 0s linear 180ms`, so the
+// *visibility* transition fires a `transitionend` of its own -- immediately, on
+// the way open, where it carries no delay -- and taking that one would clear the
+// flag on the first frame of the slide, which is precisely the snap this exists
+// to prevent. Controls inside the rail have transitions of their own and those
+// bubble, hence the target test.
+for (const which of ["enemy", "hero"]) {
+  const rail = RAILS[which];
+  if (!rail) continue;
+  rail.addEventListener("transitionend", (event) => {
+    if (event.target === rail && event.propertyName === "transform") railSettled(which);
+  });
 }
 
 /**
@@ -805,9 +1758,37 @@ function keysOverlayOpen() {
 }
 
 /** What the player last asked for. The frame is the truth about the order; this
- *  only distinguishes two things the sim cannot tell apart -- a walk somewhere
- *  and a stand-down, both of which are `Goto`. */
-let intent = "none"; // "goto" | "stand" | "free" | "none"
+ *  only distinguishes things the sim cannot tell apart -- a walk somewhere and a
+ *  stand-down, both of which are `Goto`.
+ *
+ *  A lock is its own discriminant and needs no help being recognised, and it is
+ *  recorded here anyway: when the quarry falls the module leaves a `Goto` at the
+ *  hero's feet behind it, and a stale `"stand"` from before the lock would make
+ *  the panel call that a stand-down the player never performed. */
+let intent = "none"; // "goto" | "focus" | "stand" | "free" | "manual" | "none"
+
+/**
+ * The `unit.id` of the locked quarry, or null.
+ *
+ * A **number** since the parse was pooled -- `generation * ID_INDEX_SPAN +
+ * index` -- which means `null` is the only safe "nothing" here and every test
+ * against it has to be `=== null` rather than a truthiness check. Entity index 0
+ * at generation 0 packs to `0`, and a monster can hold that slot.
+ *
+ * Page-side because the module does not publish which body an `Order::Focus`
+ * named, and does not need to: this page is what named it, and the frame already
+ * carries where that body is standing now. What the page cannot get from the
+ * header alone is how *big* the target is, which is the one thing the ring in
+ * `drawLock` has to look up.
+ *
+ * Cleared off `orderKind`, and that one test is the whole of the bookkeeping:
+ * every path that takes the order away from a focus moves that number --
+ * `descend`, a hero swap, a stand-down, free will, and the quarry dying, which
+ * session 4 turns into a `Goto` at the hero's own feet inside the tick loop.
+ * There is no path that drops a focus without moving it, so nothing else has to
+ * remember to clear this.
+ */
+let locked = null;
 
 /** The handle of the pending animation frame, so a trap can cancel it. */
 let rafId = 0;
@@ -908,6 +1889,12 @@ function safeRect() {
  * The half-pixel deadband is what stops this from re-running `resize` forever:
  * the rects are fractional (a tab measures 32.25 px), and `===` on two floats
  * that agree to a thousandth is a coin toss.
+ *
+ * **Not free, and therefore not called on every frame any more.** Four
+ * `getBoundingClientRect()` calls against the dirty layout the loop always hands
+ * it measured 0.666 ms. `resize` calls this unconditionally, because a resize is
+ * an event; the loop calls it only while `railsMoving()` holds. See that
+ * function for the whole of the gate.
  */
 function refreshInsets() {
   const measured = railInsets();
@@ -941,6 +1928,11 @@ let callouts = [];
  * two frames. Keying on the handle rather than the row is what makes the answer
  * land on the right body: `write_frame` omits the dead, so a monster falling
  * shifts every row below it up by one.
+ *
+ * The key is `unit.id`, which is a **number** since the parse was pooled --
+ * `generation * ID_INDEX_SPAN + index`. Cheaper to hash than the string it
+ * replaced, and `id % ID_INDEX_SPAN` gets the index back for the two lookups
+ * that only have one (`factionOfActor`, `actorVisible`).
  */
 let bodies = new Map();
 
@@ -954,9 +1946,35 @@ let corpses = [];
 let announcedFall = false;
 let stillSince = 0; // the tick the character last moved on
 let stillAt = { x: 0, y: 0 };
-let orderKey = ""; // the order as the frame reports it, to spot a new one
+/**
+ * The order as the frame reports it, to spot a new one -- as three numbers.
+ *
+ * It was a `${kind}:${a}:${b}` template string, rebuilt every frame to detect a
+ * change that happens a handful of times a minute. Three scalar comparisons say
+ * the same thing and allocate nothing.
+ *
+ * `orderKeyA`/`orderKeyB` mean different things under different orders, which is
+ * the whole reason the key exists rather than a plain `orderKind` test: under a
+ * focus they are `locked` and nothing, and under everything else they are the
+ * destination. See where they are written in `loop` for why a lock is keyed on
+ * *who* and never on where.
+ *
+ * `-1` is the empty key: no `Order` discriminant is negative, so a fresh page, a
+ * restart and a descent all read as "not the order that is standing".
+ */
+let orderKeyKind = -1;
+let orderKeyA = 0;
+let orderKeyB = 0;
 let orderIssuedAtDecision = -1;
 let orderAcknowledged = false;
+
+/** Forgets whatever order the key was describing, so the next frame reads as a
+ *  new one. Called wherever the world is replaced under it. */
+function forgetOrderKey() {
+  orderKeyKind = -1;
+  orderKeyA = 0;
+  orderKeyB = 0;
+}
 let hintUntil = 0;
 
 function setText(node, text) {
@@ -1102,17 +2120,38 @@ function snapCamera(state) {
  * drifting is to have only one. `cam` lands at the centre of the *safe* rect
  * rather than the centre of the canvas, which is what an open rail changes.
  *
- * Snapped to a whole device pixel: a fractional offset smears the grid, which
- * is drawn on half-pixel boundaries precisely so it stays crisp, and sets the
- * baked flagstones crawling as the camera eases. The snap lives here rather
- * than inside `render` so that the inverse is undone against the matrix that
- * was actually used, not against the one it was rounded from.
+ * Snapped, because a fractional offset smears the grid -- which is drawn on
+ * half-pixel boundaries precisely so it stays crisp -- and sets the baked
+ * flagstones crawling as the camera eases. The snap lives here rather than
+ * inside `render` so that the inverse is undone against the matrix that was
+ * actually used, not against the one it was rounded from.
+ *
+ * **Snapped to a quarter of a device pixel and no longer to a whole one.** A
+ * whole device pixel against a camera that eases continuously is a quantiser on
+ * the one thing on this page that was already smooth: at `dpr = 1` the hero
+ * moves about 3 CSS px a frame, so a 1 px quantum is a third of the velocity,
+ * arriving as a ripple laid on top of everything the interpolation in
+ * `blendUnit` just took out. A quarter pixel keeps the grid and the flagstones
+ * honest -- the residual is a quarter of a pixel of blur on a line that is a
+ * pixel wide -- and takes the ripple to under a tenth.
+ *
+ * There is a fully correct version of this, and it was deliberately not taken:
+ * draw the level with the snapped origin and `ctx.translate` the fractional
+ * remainder before everything that moves. It costs the invariant the two
+ * paragraphs above and `pointerToWorld` are built on -- one matrix, written
+ * twice -- because a click would then have to invert the *un-snapped* origin
+ * while the flagstones were drawn from the snapped one. A quarter pixel is
+ * enough by eye, so the invariant stands.
  */
 function viewOrigin() {
   const safe = safeRect();
+  // Quarter *device* pixels: `dpr` converts CSS to device and the 4 is the
+  // subdivision, so this stays a whole number of device subpixels on a display
+  // of any density.
+  const q = dpr * 4;
   return {
-    x: Math.round((safe.x + safe.w / 2 - px(cam.x)) * dpr) / dpr,
-    y: Math.round((safe.y + safe.h / 2 - px(cam.y)) * dpr) / dpr,
+    x: Math.round((safe.x + safe.w / 2 - px(cam.x)) * q) / q,
+    y: Math.round((safe.y + safe.h / 2 - px(cam.y)) * q) / q,
   };
 }
 
@@ -1145,6 +2184,44 @@ function pointerToWorld(event) {
     x: (event.clientX - rect.left - origin.x) / scale,
     y: (event.clientY - rect.top - origin.y) / scale,
   };
+}
+
+/** How much slop a click gets around a body, in world units. A body is a small
+ *  target at this zoom and a lock is a friendly gesture, so missing by a hair
+ *  should still hit. Small enough that two adjacent bodies do not swell into one
+ *  ambiguous blob -- and where they do overlap, `unitAt` breaks the tie by
+ *  distance rather than by whichever row the frame happened to list first. */
+const PICK_SLOP = 0.3;
+
+/**
+ * The enemy under `point`, or null.
+ *
+ * **Ones the player can see, only.** A lock onto something the fog is hiding
+ * would be the page reading a body off the frame that the screen is not showing:
+ * the click would look like it had been eaten by empty ground, and the order it
+ * quietly produced would be about a monster the player has not met yet. Asked
+ * through `canSee` rather than off the raw `visible` column, so that `[dev]`'s
+ * "show me the whole room" is one answer everywhere instead of a mode where a
+ * plainly drawn body refuses to be clicked; under the fog the two are the same
+ * test, which is the case this rule is actually about.
+ *
+ * Nearest centre wins rather than first hit, so a click in the overlap of two
+ * crowding bodies picks the one it landed nearer to.
+ *
+ * `state.monsters` is already every non-hero row, so there is no faction test
+ * here and no way for this to hand back the character doing the clicking.
+ */
+function unitAt(point, state) {
+  let best = null;
+  let nearest = Infinity;
+  for (const unit of state.monsters) {
+    if (!canSee(unit)) continue;
+    const d = Math.hypot(unit.x - point.x, unit.y - point.y);
+    if (d > unit.radius + PICK_SLOP || d >= nearest) continue;
+    nearest = d;
+    best = unit;
+  }
+  return best;
 }
 
 /**
@@ -1196,6 +2273,32 @@ function goTo(point, state) {
       : `Ordered to (${point.x.toFixed(1)}, ${point.y.toFixed(1)}). It decides how to get there.`,
     unreachable
   );
+}
+
+/**
+ * Names the enemy to fight. Answers whether the lock actually took.
+ *
+ * Beside `goTo` and shaped like it because the two are the halves of one
+ * gesture: a tap on the floor is a place, and a tap on a body is a fight. The
+ * module owns everything after that -- which ring to stop at is the weapon's
+ * business, and the page has no opinion about how wide a bow's is.
+ *
+ * The answer is not decoration. `set_focus` refuses a handle that does not name
+ * a living monster, and the caller needs to know so it can do something else
+ * with the click rather than paint a lock that is not standing.
+ */
+function focusOn(foe) {
+  if (!wasm.set_focus(foe.index, foe.gen)) {
+    // Refused: a stale handle, or a body that fell in the gap between the frame
+    // being drawn and the finger lifting. Say nothing rather than lie about a
+    // lock -- and leave `intent` and `locked` exactly as they were, because a
+    // mis-aimed click is not a request to drop the order that is standing.
+    return false;
+  }
+  intent = "focus";
+  locked = foe.id;
+  hint("Locked on. It closes to its own weapon's range and follows if they run.");
+  return true;
 }
 
 // A drag traces a path. The waypoints live in the module -- `Sim` holds the
@@ -1263,17 +2366,48 @@ function endDrag() {
   const d = drag;
   drag = null;
   if (!d) return;
-  const state = parseFrame(readFrame());
+  // `SCRATCH_STATE` and never a pooled one: this runs between animation frames
+  // and the loop is still holding both of those. Nothing here outlives the
+  // function -- `focusOn` copies the handle out as a number, `goTo` reads a
+  // radius -- so the scratch is free the moment this returns.
+  const state = parseFrame(frameView(), SCRATCH_STATE);
   if (!state.hero) return;
 
   // A tap is a click. The threshold is on how far the hand got and not on the
   // point count, so a slow, shaky press that never left the spot is still a
   // click -- which is what the hand that made it meant.
+  //
+  // And a tap on a body is a different sentence from a tap on the floor. The
+  // refusal falls straight through to the walk on purpose: a monster that died
+  // between the frame being drawn and the finger lifting should still leave the
+  // character heading for where it was standing, which is very nearly what the
+  // player asked for, rather than eating the click and saying nothing.
   if (d.far < DRAG_THRESHOLD) {
+    // **Hit-tested against the picture, not against the truth.** `view` is the
+    // blend `loop` last drew; `state` is the frame as the module holds it, which
+    // is up to a tick ahead of what was on the screen when the finger came down.
+    // A body at a run covers most of its own radius in a tick, so testing
+    // against `state` would miss clicks aimed squarely at a moving monster --
+    // the click has to hit what the player was looking at. Everything the answer
+    // is *used* for is exact: `focusOn` sends `index` and `gen`, and both are
+    // snapped through the blend rather than interpolated.
+    //
+    // `view` is null only before the first frame has been drawn, where there was
+    // nothing on screen to aim at and `state` is the only picture there is.
+    const foe = unitAt(d.at, view || state);
+    if (foe && focusOn(foe)) return;
+    // The walk, and the radius it reads, come off the truth: this is an order
+    // and not a picture.
     goTo(d.at, state);
     return;
   }
 
+  // **A drag stays a route unconditionally**, and everything from here down is
+  // untouched by the lock above: a path traced through a body is still a path.
+  // Picking a body out of the middle of a drawn line would take the one gesture
+  // on this page that is unambiguous and make it depend on what happened to be
+  // standing where the finger stopped.
+  //
   // Where the hand actually stopped, which the thinning can have skipped: the
   // spacing is 1.2 units and the threshold 0.8, so a quick flick is a real drag
   // that ended between two samples. **The end of a path is the one point the
@@ -1405,8 +2539,8 @@ function swapInHero(kindCode, primary = SLOT_EMPTY, secondary = SLOT_EMPTY) {
   }
   // The rail describes a character that has just been replaced. Forget the
   // snapshot so the next frame re-reads body, kit and attributes rather than
-  // matching its cache key against the one that fell.
-  heroKey = "";
+  // matching its record against the one that fell.
+  forgetHeroRail();
   intent = "none";
   // Everything from here down is the page's memory of the character that fell:
   // the path it walked, the path it was told to walk, and the fact that we have
@@ -1421,7 +2555,20 @@ function swapInHero(kindCode, primary = SLOT_EMPTY, secondary = SLOT_EMPTY) {
   announcedFall = false;
   // The replacement drops in at the clearest spot on the floor, which can be
   // right across the room from where the last one fell. Cut to it.
-  snapCamera(parseFrame(readFrame()));
+  snapCamera(parseFrame(frameView(), SCRATCH_STATE));
+  // The loop's last parse describes the character that fell, standing wherever
+  // it dropped. `pushInput` aims from `curr.hero`, so leaving it would aim the
+  // newcomer's first frame from a dead body's feet. One skipped frame of aim is
+  // the smaller lie.
+  //
+  // And `prev` with it, which is the hook session 3 said it wanted: the
+  // replacement drops in at the clearest spot on the floor, which can be right
+  // across the room, and a first frame blended from the old character's feet
+  // would slide the newcomer in from where the last one died. The rotation in
+  // `loop` would null `prev` anyway once it saw `curr` was null; saying so here
+  // is what makes that a stated intention rather than a happy consequence.
+  curr = null;
+  prev = null;
   hint(`A ${bodyName(kindCode)} takes over. The monsters are where you left them.`, true);
 }
 
@@ -1460,8 +2607,13 @@ function restart() {
   floaters = [];
   callouts = [];
   announcedFall = false;
-  orderKey = "";
+  forgetOrderKey();
   orderAcknowledged = false;
+  // The loop's last parse describes the room that no longer exists, and `prev`
+  // the one before that. Same argument as `swapInHero`, one floor larger:
+  // nothing may aim from, or interpolate towards, a room `init` has replaced.
+  curr = null;
+  prev = null;
   // `init` builds a fresh `Sim`, which starts with both sides on the baseline
   // and nothing under manual control. The page has to agree, or its dropdowns
   // and toggles describe a module that no longer exists.
@@ -1470,10 +2622,10 @@ function restart() {
   updateControlButtons();
   syncBehaviourPanel();
   // Both rails describe module state that `init` has just rebuilt -- a fresh
-  // hero and a fresh spawn template. Drop the cache keys so the next read is a
+  // hero and a fresh spawn template. Drop the records so the next read is a
   // real read rather than a match against a room that no longer exists.
-  heroKey = "";
-  enemyKey = "";
+  forgetHeroRail();
+  forgetEnemyRail();
   heroCache = null;
   syncEnemyRail();
   // `init` carves a fresh level, so the baked paths describe one that no longer
@@ -1485,7 +2637,7 @@ function restart() {
   // `viewMode` is deliberately not reset. It is a preference about the page, and
   // a restart is about the room.
   rebuildLevelPaths(readMap(), wasm.map_revision());
-  snapCamera(parseFrame(readFrame()));
+  snapCamera(parseFrame(frameView(), SCRATCH_STATE));
   hint("Back to the first floor, at tick 0.");
 }
 
@@ -1692,9 +2844,12 @@ let viewMode = "regular";
 
 /** The row, never the id.
  *
- *  Named `currentView` and not `view` because `view` is already the
- *  `Float32Array` over the frame buffer -- two `let`s of the same name in one
- *  top-level scope is a `SyntaxError`, and the page would not boot at all. */
+ *  Named `currentView` and not `view` because `view` is taken -- two `let`s of
+ *  the same name in one top-level scope is a `SyntaxError` and the page would
+ *  not boot at all. It used to be taken by the `Float32Array` over the frame
+ *  buffer, which is now `frameBuf`; it is taken today by the blended state the
+ *  loop draws. Either way this one keeps its longer name, because "the view" on
+ *  this page means the camera and the picture and not a menu setting. */
 const currentView = () => VIEW_MODES.find((m) => m.id === viewMode) || VIEW_MODES[0];
 const artOn = () => currentView().art;
 const fogOn = () => currentView().fog;
@@ -1874,7 +3029,9 @@ function bindInput() {
   // so nothing in the browser fights the drag for the same swipe.
   canvas.addEventListener("pointerdown", (event) => {
     if (dead) return;
-    const state = parseFrame(readFrame());
+    // `SCRATCH_STATE`, on the same terms as `endDrag`: a handler between frames
+    // must not write into a state the loop is holding.
+    const state = parseFrame(frameView(), SCRATCH_STATE);
     if (!state.hero) {
       hint("There is nobody left to give orders to. Send in a new character, or press R.", true);
       return;
@@ -2005,7 +3162,7 @@ function bindInput() {
       if (keysOverlayOpen()) setKeysOverlay(false);
       else if (railOpen("hero")) setRail("hero", false);
       else if (railOpen("enemy")) setRail("enemy", false);
-      else standDown(parseFrame(readFrame()));
+      else standDown(parseFrame(frameView(), SCRATCH_STATE));
     } else if (event.key === "?") {
       setKeysOverlay(!keysOverlayOpen());
     } else if (key === "f") {
@@ -2027,7 +3184,19 @@ function bindInput() {
       // The repeat guard is load-bearing rather than polite: held down, the
       // operating system's autorepeat would empty the frame's 64-row budget
       // into the room in about two seconds.
-      if (!event.repeat) spawnMonster(key === "s" ? BODY_SKITTERER : BODY_BRUTE);
+      //
+      // **`Shift+S` sends in eight at once**, and it is an instrument rather
+      // than a feature: profiling one Brute says nothing about a hundred units,
+      // and `MAX_UNITS` is 64, so a full room is eight presses instead of
+      // sixty-four. Deliberately the same spawn path called eight times, on the
+      // same guards as the single key -- the module refuses once the room is
+      // full and `announceSpawn` says so, which is the whole of the "the run is
+      // over" case here.
+      if (!event.repeat) {
+        const body = key === "s" ? BODY_SKITTERER : BODY_BRUTE;
+        const count = key === "s" && event.shiftKey ? 8 : 1;
+        for (let i = 0; i < count; i++) spawnMonster(body);
+      }
     } else if (key === "1" || key === "2") {
       // 1 and 2 choose what is in the hand rather than which body walks in.
       if (!event.repeat) selectSlot(key === "1" ? 0 : 1);
@@ -2041,6 +3210,16 @@ function bindInput() {
       // above: held down, the operating system's autorepeat would thrash the mode
       // and re-bake the level's five paths dozens of times a second.
       if (!event.repeat) cycleViewMode();
+    } else if (key === "p") {
+      // The frame breakdown, and **not** a view mode: `[dev]` turns the fog off,
+      // so a breakdown that only opened there would be measuring a renderer that
+      // draws every body in the room -- a different renderer from the one anybody
+      // is complaining about. Its own key, readable from `[regular]`, and the two
+      // bits sit on the same strip without touching each other.
+      //
+      // Repeat-guarded like `g` and for the same reason: held down it would
+      // thrash a class on the strip dozens of times a second.
+      if (!event.repeat) setPerfDetail(!perfDetail);
     } else if (event.key === " ") {
       // `preventDefault` is mandatory, not tidy: Space activates whatever button
       // holds focus, so without it a pause pressed after clicking any chip would
@@ -2072,7 +3251,7 @@ function bindInput() {
   // two controls both called "dev".
 
   document.getElementById("btn-standdown").addEventListener("click", () => {
-    if (!dead) standDown(parseFrame(readFrame()));
+    if (!dead) standDown(parseFrame(frameView(), SCRATCH_STATE));
   });
   document.getElementById("btn-freewill").addEventListener("click", () => {
     if (!dead) freeWill();
@@ -2273,19 +3452,68 @@ function attrObject(values) {
 let heroRack = [];
 let enemyRack = [];
 
-/** The Hero rail's last honest read of the module, and the key that says
+/**
+ * Whether a rail's read-back has moved since the last one, and the record of it.
+ *
+ * **Numbers rather than a template string.** Both rails ran once a frame and
+ * each built a fresh `${body}|${slots}|${attrs}` to notice a change that happens
+ * a handful of times a minute: one string, two array joins and a pile of number
+ * conversions, sixty times a second, for panels nobody is touching. The two
+ * arrays below are allocated once at boot and written in place, so a frame where
+ * nothing moved now allocates nothing at all. The wasm reads are untouched --
+ * each is ~30 ns and `syncHeroRail` returns `stats`, which the loop needs.
+ *
+ * **`NaN` is the forget-what-you-read sentinel**, and it works for exactly the
+ * reason `NaN !== NaN`: every path that has to force a repaint fills the record
+ * with it and the next comparison cannot match whatever the module answers. That
+ * is the same job the empty string did, in a form a number can carry.
+ *
+ * Every cell is compared *and* taken, in one pass, because a partial take would
+ * leave the record describing half of one read and half of another.
+ */
+function railMoved(seen, read) {
+  let moved = false;
+  for (let i = 0; i < read.length; i++) {
+    if (seen[i] !== read[i]) moved = true;
+    seen[i] = read[i];
+  }
+  return moved;
+}
+
+/** The Hero rail's last honest read of the module, and the record that says
  *  whether anything moved.
+ *
+ *  Ten cells: the body, two kit slots, five attributes, the sight range and
+ *  whether anybody is standing. `heroCache` still holds the shaped copy
+ *  `renderHeroRail` and `syncKitReadout` read, and it is rebuilt only on the
+ *  frames something actually changed.
  *
  *  No longer frozen when the character falls. The getters answer out of the
  *  module's plan for the next spawn once there is nobody standing, so there is
  *  still something true to read every frame -- and the player can still move it,
  *  which a frozen snapshot could not have shown. **[Re-Spawn]** asks the module
  *  directly rather than reading this. */
-let heroKey = "";
+const HERO_CELLS = 3 + ATTRIBUTES.length + 2;
+const heroRead = new Float64Array(HERO_CELLS);
+const heroSeen = new Float64Array(HERO_CELLS).fill(NaN);
 let heroCache = null;
 let lastHeroSight = 0;
 
-let enemyKey = "";
+/** Drops the Hero rail's record, so the next `syncHeroRail` is a real read
+ *  rather than a match against a character that no longer exists. */
+function forgetHeroRail() {
+  heroSeen.fill(NaN);
+}
+
+/** The Enemy rail's, on the same terms: the template's body, two kit slots and
+ *  five attributes. */
+const ENEMY_CELLS = 3 + ATTRIBUTES.length;
+const enemyRead = new Float64Array(ENEMY_CELLS);
+const enemySeen = new Float64Array(ENEMY_CELLS).fill(NaN);
+
+function forgetEnemyRail() {
+  enemySeen.fill(NaN);
+}
 
 /** Builds both rails out of the registry. Called once, after the tables have
  *  been read across and after the attribute ceiling has been asked for. */
@@ -2295,7 +3523,7 @@ function buildRails() {
   fillActionSelect(el.loadout1, true);
   heroRack = buildAttrRack(el.heroAttrs, (stat, value) => {
     wasm.set_hero_stat(stat, value);
-    heroKey = "";
+    forgetHeroRail();
   });
   buildKitReadout();
 
@@ -2306,7 +3534,7 @@ function buildRails() {
   fillActionSelect(el.enemySlot1, true);
   enemyRack = buildAttrRack(el.enemyAttrs, (stat, value) => {
     wasm.set_spawn_template_stat(stat, value);
-    enemyKey = "";
+    forgetEnemyRail();
     syncEnemyRail();
   });
   syncEnemyRail();
@@ -2343,14 +3571,24 @@ function syncHeroRail(state) {
   const alive = state.hero !== null;
   const body = wasm.hero_body();
   if (body !== SLOT_EMPTY) {
-    const slots = [wasm.hero_loadout(0), wasm.hero_loadout(1)];
-    const attrs = ATTRIBUTES.map((attr) => wasm.hero_stat(attr.stat));
+    // The same reads in the same order, straight into the record. Nothing is
+    // shaped into an array until something has actually moved.
+    heroRead[0] = body;
+    heroRead[1] = wasm.hero_loadout(0);
+    heroRead[2] = wasm.hero_loadout(1);
+    for (let i = 0; i < ATTRIBUTES.length; i++) heroRead[3 + i] = wasm.hero_stat(ATTRIBUTES[i].stat);
     // A standing body's own sight column, or the archetype's while there is no
     // body -- a plan has no sight range until somebody is wearing it.
     lastHeroSight = state.hero ? state.hero.sight : BODIES[body] ? BODIES[body].sight : 0;
-    const key = `${body}|${slots.join(",")}|${attrs.join(",")}|${lastHeroSight.toFixed(2)}|${alive}`;
-    if (key !== heroKey) {
-      heroKey = key;
+    // Sight is the one cell that is not an integer, so it keeps the two-decimal
+    // deadband the `toFixed(2)` in the old key gave it: it is a float off the
+    // frame, and comparing it raw would repaint the whole rail for a change in
+    // the fourth decimal that the readout cannot show.
+    heroRead[3 + ATTRIBUTES.length] = Math.round(lastHeroSight * 100);
+    heroRead[4 + ATTRIBUTES.length] = alive ? 1 : 0;
+    if (railMoved(heroSeen, heroRead)) {
+      const slots = [heroRead[1], heroRead[2]];
+      const attrs = Array.from(ATTRIBUTES, (_, i) => heroRead[3 + i]);
       heroCache = { body, slots, attrs, alive, d: derived(attrObject(attrs)) };
       renderHeroRail();
     }
@@ -2479,19 +3717,19 @@ function bindHeroRail() {
     // The body reset the loadout and the stat sheet with it
     // (`UnitSpec::set_body`, `World::set_body`), so every row has to be re-read
     // -- not just the one dropdown that was touched.
-    heroKey = "";
+    forgetHeroRail();
   });
   el.loadout0.addEventListener("change", () => {
     if (!wasm.set_hero_loadout(0, Number(el.loadout0.value) | 0)) {
       hint("Not while that one is in the hand and moving.", true);
     }
-    heroKey = "";
+    forgetHeroRail();
   });
   el.loadout1.addEventListener("change", () => {
     if (!wasm.set_hero_loadout(1, Number(el.loadout1.value) | 0)) {
       hint("Not while that one is in the hand and moving.", true);
     }
-    heroKey = "";
+    forgetHeroRail();
   });
 }
 
@@ -2507,21 +3745,22 @@ function bindHeroRail() {
  * did not change.
  */
 function syncEnemyRail() {
-  const body = wasm.spawn_template_body();
-  const slots = [wasm.spawn_template_slot(0), wasm.spawn_template_slot(1)];
-  const attrs = ATTRIBUTES.map((attr) => wasm.spawn_template_stat(attr.stat));
-  const key = `${body}|${slots.join(",")}|${attrs.join(",")}`;
-  if (key === enemyKey) return;
-  enemyKey = key;
+  // The same reads in the same order, into the record rather than into a fresh
+  // string. See `railMoved`.
+  enemyRead[0] = wasm.spawn_template_body();
+  enemyRead[1] = wasm.spawn_template_slot(0);
+  enemyRead[2] = wasm.spawn_template_slot(1);
+  for (let i = 0; i < ATTRIBUTES.length; i++) enemyRead[3 + i] = wasm.spawn_template_stat(ATTRIBUTES[i].stat);
+  if (!railMoved(enemySeen, enemyRead)) return;
 
-  el.enemyBody.value = String(body);
-  el.enemySlot0.value = String(slots[0]);
-  el.enemySlot1.value = String(slots[1]);
-  setKitIcon(el.enemySlot0, slots[0]);
-  setKitIcon(el.enemySlot1, slots[1]);
+  el.enemyBody.value = String(enemyRead[0]);
+  el.enemySlot0.value = String(enemyRead[1]);
+  el.enemySlot1.value = String(enemyRead[2]);
+  setKitIcon(el.enemySlot0, enemyRead[1]);
+  setKitIcon(el.enemySlot1, enemyRead[2]);
   enemyRack.forEach((row, i) => {
-    row.slider.value = String(attrs[i]);
-    setText(row.value, String(attrs[i]));
+    row.slider.value = String(enemyRead[3 + i]);
+    setText(row.value, String(enemyRead[3 + i]));
     // No derived line on this rail. Sight is a function of a perception the
     // module has not been asked about for this template -- `body_stat(code, 7)`
     // is the *body's* baseline, not the edited one -- and computing it here
@@ -2535,21 +3774,21 @@ function bindEnemyRail() {
     // `UnitSpec::set_body` resets the stat sheet **and** the loadout together,
     // so all seven values are re-read. A panel that kept the previous body's
     // numbers here would be lying in seven rows at once.
-    enemyKey = "";
+    forgetEnemyRail();
     syncEnemyRail();
   });
   el.enemySlot0.addEventListener("change", () => {
     if (!wasm.set_spawn_template_slot(0, Number(el.enemySlot0.value) | 0)) {
       hint("That one cannot go in the first slot.", true);
     }
-    enemyKey = "";
+    forgetEnemyRail();
     syncEnemyRail();
   });
   el.enemySlot1.addEventListener("change", () => {
     if (!wasm.set_spawn_template_slot(1, Number(el.enemySlot1.value) | 0)) {
       hint("The module refused that action.", true);
     }
-    enemyKey = "";
+    forgetEnemyRail();
     syncEnemyRail();
   });
   const spawn = document.getElementById("btn-spawn-template");
@@ -2864,13 +4103,13 @@ function floorPatternNow() {
 }
 
 /**
- * The level as five paths: open floor and bordering rock face, each split into
+ * The level as six paths: open floor and bordering rock face, each split into
  * what the character can see *now* and what it merely remembers, plus the lit
- * rock edges.
+ * rock edges and the scale bar's lattice.
  *
  * **Built once per level, not per frame.** A 48x32 level is 1536 tiles, and at
  * the top zoom bucket baking it into an offscreen canvas would be a 2304x1536
- * backing store rebuilt six times over. Five `Path2D`s cost 1536 `rect()` calls
+ * backing store rebuilt six times over. Six `Path2D`s cost 1536 `rect()` calls
  * once, and after that a fill is a fill.
  *
  * `revision` is `map_revision()`, which the module bumps only when the tiles
@@ -2878,6 +4117,12 @@ function floorPatternNow() {
  * tile and on a new level. `art` and `fog` are the flags this was baked under,
  * because both of them change what lands in which path. Anything else -- a tick,
  * a click, a slider -- leaves this alone.
+ *
+ * `remembered` says whether anything landed in either of the two dim paths, so
+ * `drawLevel` can skip the whole remembered pass rather than clip to an empty
+ * region and fill through it. With the fog off nothing ever does -- `seen()`
+ * below answers `2` for every tile -- so `[dev]` stops paying for a layer it
+ * cannot draw.
  */
 let levelPaths = {
   revision: -1,
@@ -2890,6 +4135,8 @@ let levelPaths = {
   wallLit: null,
   wallSeen: null,
   edge: null,
+  grid: null,
+  remembered: false,
 };
 
 /**
@@ -2924,6 +4171,9 @@ function rebuildLevelPaths(map, revision) {
   // light in a tactical room for an edge to catch.
   const edge = art ? new Path2D() : null;
   const size = px(map.tile);
+  // Anything at all in the two dim paths? Written by the tile loop and read by
+  // `drawLevel`, which skips its whole remembered pass when nothing is.
+  let remembered = false;
   // Off the grid is rock, exactly as the module has it, so the outside of the
   // level needs no special case here either.
   const solid = (tx, ty) =>
@@ -2944,6 +4194,7 @@ function rebuildLevelPaths(map, revision) {
       const y = px(ty * map.tile);
       if (!solid(tx, ty)) {
         (lit === 2 ? floorLit : floorSeen).rect(x, y, size, size);
+        if (lit !== 2) remembered = true;
         continue;
       }
       // Only the faces that border open ground. Interior rock nobody can see is
@@ -2987,9 +4238,33 @@ function rebuildLevelPaths(map, revision) {
           edge.lineTo(x + size, y + size);
         }
       }
-      if (exposed) (lit === 2 ? wallLit : wallSeen).rect(x, y, size, size);
+      if (exposed) {
+        (lit === 2 ? wallLit : wallSeen).rect(x, y, size, size);
+        if (lit !== 2) remembered = true;
+      }
     }
   }
+
+  // The scale bar's lattice, baked with everything else rather than rebuilt from
+  // scratch twice a frame. It is pure geometry off `arena` and `scale`, and this
+  // is already the function that is re-run when either moves -- a `Path2D` holds
+  // pixels, so the `levelPaths.scale` check in `loop` is exactly the invalidator
+  // it needs, and a level whose size changed came with a new `map_revision`.
+  //
+  // Baking it does not change *which* clip it is stroked under: `drawLevel`
+  // still strokes it once inside each pass, for the reason stated there.
+  const grid = new Path2D();
+  const gw = px(arena.x);
+  const gh = px(arena.y);
+  for (let x = TILE_WORLD; x < arena.x; x += TILE_WORLD) {
+    grid.moveTo(Math.round(px(x)) + 0.5, 0);
+    grid.lineTo(Math.round(px(x)) + 0.5, gh);
+  }
+  for (let y = TILE_WORLD; y < arena.y; y += TILE_WORLD) {
+    grid.moveTo(0, Math.round(px(y)) + 0.5);
+    grid.lineTo(gw, Math.round(px(y)) + 0.5);
+  }
+
   levelPaths = {
     revision,
     vis: vis ? vis.revision : wasm.vis_revision(),
@@ -3001,6 +4276,8 @@ function rebuildLevelPaths(map, revision) {
     wallLit,
     wallSeen,
     edge,
+    grid,
+    remembered,
   };
 }
 
@@ -3017,6 +4294,39 @@ const SEEN_ALPHA = 0.4;
 const LANTERN_INNER = 0.6;
 
 /**
+ * The room's own lighting, cached.
+ *
+ * **A property of the room and not of the camera**, which is the whole reason it
+ * is keyed on `(w, h)` -- the arena's pixel extent -- and on nothing else. Built
+ * around the *viewport* instead it would slide across the floor as the camera
+ * panned, and a light that follows the eye is the one thing a room's lighting
+ * must never do. `w` and `h` move only on a resize or a zoom, so this is
+ * rebuilt on those and on no other frame; it used to be constructed twice per
+ * frame, once inside each pass of the loop below.
+ */
+let vignette = null;
+let vignetteW = 0;
+let vignetteH = 0;
+
+function arenaVignette(w, h) {
+  if (vignette && vignetteW === w && vignetteH === h) return vignette;
+  const cx = w / 2;
+  const cy = h / 2;
+  const built = ctx.createRadialGradient(cx, cy, Math.min(w, h) * 0.16, cx, cy, Math.max(w, h) * 0.62);
+  built.addColorStop(0, "rgba(9,11,16,0)");
+  built.addColorStop(0.6, "rgba(9,11,16,0.20)");
+  built.addColorStop(1, "rgba(9,11,16,0.62)");
+  vignette = built;
+  vignetteW = w;
+  vignetteH = h;
+  return built;
+}
+
+/** The two passes, hoisted so the loop below is not iterating a fresh array
+ *  sixty times a second. Remembered ground first, then lit. */
+const LEVEL_PASSES = [false, true];
+
+/**
  * The level, as lit stone standing in the dark.
  *
  * The flagstone pattern is unchanged and so is the space it is laid in -- the
@@ -3028,8 +4338,13 @@ const LANTERN_INNER = 0.6;
  *
  * Painted back to front: remembered floor, lit floor, remembered rock, lit rock,
  * the lit edges, and the lantern over the top of all of it.
+ *
+ * `origin` is `render`'s, passed rather than re-derived: it is what says which
+ * corner of the arena the window is currently over, and re-deriving it here
+ * would be a second copy of the camera transform -- the mistake `pointerToWorld`
+ * has a paragraph about.
  */
-function drawLevel(state) {
+function drawLevel(state, origin) {
   if (!levelPaths.floorLit) return;
   const w = px(arena.x);
   const h = px(arena.y);
@@ -3040,27 +4355,48 @@ function drawLevel(state) {
   // for `[tactical]`, they are simply not reached.
   const pattern = art ? floorPatternNow() : null;
 
+  // The arena rect the window is actually over, in the same level-corner space
+  // everything below draws in. The two composites are full-arena fills, and at
+  // the top zoom bucket the arena is several screens wide -- so this is the
+  // difference between filling what can be seen and filling the room. It is
+  // clamped to the arena at both ends, so the fills never grow past what they
+  // used to cover, whatever the camera's overscan is doing.
+  //
+  // **Only the fills shrink.** The pattern is anchored to the level's corner and
+  // the vignette is built from the arena's own centre and extent, so neither of
+  // them can tell the difference; a rectangle that ends off-screen and one that
+  // ends at the wall paint identical pixels everywhere the eye can see them.
+  // Both edges are clamped through the same monotone `clamp`, so the far one can
+  // never land left of the near one and the rect can never come out inverted --
+  // which is the one way a shrunk `fillRect` could paint somewhere the full one
+  // did not. A zero-width rect is a no-op, so there is nothing to guard.
+  const clipX = clamp(-origin.x, 0, w);
+  const clipY = clamp(-origin.y, 0, h);
+  const clipW = clamp(-origin.x + viewport.w, 0, w) - clipX;
+  const clipH = clamp(-origin.y + viewport.h, 0, h) - clipY;
+
   // Remembered ground, then lit ground, and the only difference between the two
   // passes is the alpha. One body of code for both is what stops the fog boundary
   // becoming a place where the floor changes texture.
-  for (const lit of [false, true]) {
+  for (const lit of LEVEL_PASSES) {
+    // Nothing is remembered until the character has walked out of somewhere, and
+    // with the fog off nothing ever is -- `rebuildLevelPaths` puts every tile in
+    // the lit paths. The pass would clip to an empty region and paint nothing,
+    // so `[dev]` was paying twice over for one picture. Skipping it is exactly
+    // equivalent: an empty clip admits no pixels.
+    if (!lit && !levelPaths.remembered) continue;
     ctx.save();
     ctx.clip(lit ? levelPaths.floorLit : levelPaths.floorSeen);
     ctx.globalAlpha = lit ? 1 : SEEN_ALPHA;
     ctx.fillStyle = pattern || "#141a26";
-    ctx.fillRect(0, 0, w, h);
+    ctx.fillRect(clipX, clipY, clipW, clipH);
 
     if (art) {
       // Lit from the middle. Without this the stone reads as a swatch of texture
-      // rather than as somewhere with a light in it.
-      const cx = w / 2;
-      const cy = h / 2;
-      const vignette = ctx.createRadialGradient(cx, cy, Math.min(w, h) * 0.16, cx, cy, Math.max(w, h) * 0.62);
-      vignette.addColorStop(0, "rgba(9,11,16,0)");
-      vignette.addColorStop(0.6, "rgba(9,11,16,0.20)");
-      vignette.addColorStop(1, "rgba(9,11,16,0.62)");
-      ctx.fillStyle = vignette;
-      ctx.fillRect(0, 0, w, h);
+      // rather than as somewhere with a light in it. Built once and cached --
+      // see `arenaVignette` for why it is keyed on the room and not the window.
+      ctx.fillStyle = arenaVignette(w, h);
+      ctx.fillRect(clipX, clipY, clipW, clipH);
     }
 
     // The scale bar, and *only* the scale bar: one line every four units, far
@@ -3075,18 +4411,14 @@ function drawLevel(state) {
     // repaint the unexplored void as graph paper and undo the one thing the fog
     // is for. It gives nothing away either way: an evenly spaced lattice says
     // where four units is, never where the floor is.
+    //
+    // The geometry is baked in `rebuildLevelPaths` and stroked here, once per
+    // pass. It used to be a `beginPath` and two `moveTo`/`lineTo` loops over the
+    // whole arena, run twice a frame, to redraw a lattice that changes only when
+    // the zoom does.
     ctx.lineWidth = 1;
     ctx.strokeStyle = "rgba(150,180,230,0.055)";
-    ctx.beginPath();
-    for (let x = TILE_WORLD; x < arena.x; x += TILE_WORLD) {
-      ctx.moveTo(Math.round(px(x)) + 0.5, 0);
-      ctx.lineTo(Math.round(px(x)) + 0.5, h);
-    }
-    for (let y = TILE_WORLD; y < arena.y; y += TILE_WORLD) {
-      ctx.moveTo(0, Math.round(px(y)) + 0.5);
-      ctx.lineTo(w, Math.round(px(y)) + 0.5);
-    }
-    ctx.stroke();
+    ctx.stroke(levelPaths.grid);
     ctx.restore();
   }
 
@@ -3284,12 +4616,93 @@ function drawRoute(state, now) {
 }
 
 /**
+ * The lock: which body the character is fighting, and the line out to it.
+ *
+ * **Where** that body is comes off the header. Session 4 made the module write
+ * the quarry's live position into the same two slots a `Goto` uses, so the mark
+ * tracks a fleeing monster with no page-side lookup at all. What it does need a
+ * lookup for is how *big* the target is -- a Brute and a Skitterer are not the
+ * same thing to draw a ring around, and a fixed radius would sit inside one and
+ * float well clear of the other. `locked` is the handle this page sent in the
+ * first place, which is why it can ask.
+ *
+ * The lookup is allowed to miss and the picture survives it. It cannot miss
+ * through any path that exists today -- the order and the rows come off one
+ * frame -- and a mark that blinked out for a frame if it ever did would read as
+ * the lock dropping, which is a worse lie than a ring an inch off the right size.
+ *
+ * **No `arrived`.** Arriving is a `Goto` notion: the character settles at a ring
+ * its own weapon chooses, the quarry keeps walking, and there is no moment for
+ * the mark to go quiet about. `orderAcknowledged` still dims it until the
+ * character has had a thought, because that is about the decision clock and not
+ * about which kind of order is standing.
+ */
+function drawLock(state, now) {
+  // `!== null` and not a truthiness test: `locked` is a packed handle now, and
+  // generation 0 of entity slot 0 packs to the number `0`. See `locked`.
+  const quarry = locked !== null ? state.units.find((u) => u.id === locked) : null;
+  const x = px(state.orderX);
+  const y = px(state.orderY);
+  const beat = (Math.sin(now / 380) + 1) / 2;
+  const alpha = orderAcknowledged ? 0.4 + 0.35 * beat : 0.16;
+  // Clear of the silhouette rather than on it. The mark is drawn *under* the
+  // bodies -- see the compositing order in `render` -- so a ring at exactly the
+  // quarry's radius would be a line the quarry stands on top of and hides. The
+  // 0.45 fallback is a middling body, for the miss the paragraph above argues
+  // cannot happen.
+  const r = px((quarry ? quarry.radius : 0.45) + 0.2) + (orderAcknowledged ? beat * px(0.12) : 0);
+
+  ctx.save();
+  // The threat colour, and never the destination's cyan. Cyan is spent on this
+  // page: the trail, the route, the waypoint beads and the destination ring all
+  // mean *a place the character is going*. A lock painted in it would read as
+  // one more of those instead of as the answer to "which one?". Taken from
+  // `MONSTER_SKIN` rather than written out, so the ring and the body it is drawn
+  // around cannot drift apart.
+  ctx.strokeStyle = `rgba(${MONSTER_SKIN.glow},${alpha.toFixed(3)})`;
+  ctx.lineWidth = 1.8;
+  if (!orderAcknowledged) ctx.setLineDash([3, 4]);
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, TAU);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // A tether from the character to the quarry, so a lock on something that has
+  // run off down a corridor is still legible once the ring is past the edge of
+  // the view: the line leaves the screen pointing at it. Solid and very faint,
+  // which is what keeps it apart from `drawRoute`'s crawling cyan dashes -- that
+  // one is ground the character will cover, and this one only says who.
+  //
+  // No centre dot and no crosshair, which is the other half of the difference
+  // from a destination. A `Goto` is an exact point and the crosshair is how it
+  // stays readable at any zoom; a focus is a body that is already drawn, and a
+  // crosshair laid over a silhouette is noise on the picture the player is
+  // trying to read the blade off.
+  ctx.strokeStyle = `rgba(${MONSTER_SKIN.glow},${(alpha * 0.35).toFixed(3)})`;
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(px(state.hero.x), px(state.hero.y));
+  ctx.lineTo(x, y);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/**
  * The destination, as the *simulation* holds it -- not as it was clicked.
  * They are the same number here, but drawing the sim's copy is what makes the
  * marker honest: it appears when the order lands, and it is dim until the
  * character has actually thought about it.
+ *
+ * Two kinds of order stand on the same two header slots, and they get two
+ * pictures. A place gets the cyan ring below; a body gets `drawLock`. Splitting
+ * on the discriminant here rather than colouring one drawing two ways is what
+ * lets the lock drop the parts of this that only make sense for a point.
  */
 function drawDestination(state, now, arrived) {
+  if (state.orderKind === ORDER_FOCUS) {
+    drawLock(state, now);
+    return;
+  }
   if (state.orderKind !== ORDER_GOTO) return;
   const x = px(state.orderX);
   const y = px(state.orderY);
@@ -3389,18 +4802,36 @@ function skinOf(unit) {
  *
  * Deliberately nothing like `drawReach`. That is the *attack* ring -- tight,
  * dashed hard, and only there mid-swing -- and two rings meaning two different
- * things must not look alike. This one is a soft filled disc that is always
- * there, and the fill is kept almost to nothing because six of them overlap in
- * a crowded room and the floor has to stay readable through all six.
+ * things must not look alike. This one is a soft disc that is always there.
+ *
+ * **`filled` is a performance gate, and it is the binding constraint on how many
+ * bodies this page can draw.** The fill is area-scaled -- one disc is `pi*r^2`
+ * with `r` up to 825 device pixels at a wide sight radius and a zoomed-in
+ * camera -- so it costs the *rasteriser* enormously while costing the JS that
+ * issues it nothing. Measured at a full room: 41 visible bodies fill 89.6
+ * million device pixels onto a 6.5 million pixel canvas, **13.7x the screen in
+ * alpha-blended fill**, and the frame strip reports it as `render 0.83` with the
+ * whole cost hiding in `idle` -- which is exactly the trap the note at the top of
+ * the perf block warns about. The discs also stop being readable long before
+ * that: the fill was tuned so that six could overlap and the floor stay legible,
+ * and sixty-three of them sum to an opaque wash.
+ *
+ * So the fill is spent only where it says something a ring cannot -- the body you
+ * are commanding, and the body you have locked -- and everything else keeps the
+ * dashed outline, which is circumference-scaled and therefore some four hundred
+ * times cheaper at that radius. The edge of sight is what the overlay is *for*,
+ * and the ring is still the thing that draws it.
  */
-function drawVision(unit) {
+function drawVision(unit, filled) {
   if (!visionVisible || !(unit.sight > 0)) return;
   const skin = skinOf(unit);
   ctx.save();
   ctx.beginPath();
   ctx.arc(px(unit.x), px(unit.y), px(unit.sight), 0, TAU);
-  ctx.fillStyle = `rgba(${skin.wedge},0.032)`;
-  ctx.fill();
+  if (filled) {
+    ctx.fillStyle = `rgba(${skin.wedge},0.032)`;
+    ctx.fill();
+  }
   ctx.strokeStyle = `rgba(${skin.wedge},0.17)`;
   ctx.lineWidth = 1;
   ctx.setLineDash([7, 9]);
@@ -4295,12 +5726,16 @@ const MAX_CALLOUTS = 8;
  * for that one -- which is why this must run before `syncBodies` buries it.
  */
 function factionOfActor(state, actor) {
-  for (const unit of state.units) {
-    if (unit.index === actor) return unit.faction;
-  }
-  const prefix = `${actor}:`;
+  // One lookup rather than a scan: `parseFrame` builds the index -> row table
+  // while it is already walking the rows.
+  const unit = state.byIndex[actor];
+  if (unit) return unit.faction;
+  // And the page's own memory, which is keyed on the *whole* handle. The index
+  // is the low half of it -- see `ID_INDEX_SPAN` -- so this asks "whichever
+  // generation held slot `actor`", which is the same question the string prefix
+  // match this replaced was asking.
   for (const [id, seen] of bodies) {
-    if (id.startsWith(prefix)) return seen.faction;
+    if (id % ID_INDEX_SPAN === actor) return seen.faction;
   }
   return null;
 }
@@ -4320,15 +5755,16 @@ function factionOfActor(state, actor) {
  * frame, so the page's own memory answers for that one.
  */
 function actorVisible(state, actor) {
-  for (const unit of state.units) {
-    if (unit.index === actor) return canSee(unit);
-  }
-  const prefix = `${actor}:`;
+  const unit = state.byIndex[actor];
+  if (unit) return canSee(unit);
   for (const [id, seen] of bodies) {
     // `lost` is last frame's, which is the right frame: this runs before
     // `syncBodies`, and what is being asked is whether the character had eyes on
     // it when it fell.
-    if (id.startsWith(prefix)) return !(seen.lost > 0);
+    //
+    // Matched on the index half of the handle, exactly as `factionOfActor` does
+    // and for the reason stated there.
+    if (id % ID_INDEX_SPAN === actor) return !(seen.lost > 0);
   }
   // Nobody knows. Print it: a number the page cannot attribute is a much smaller
   // problem than one it silently swallows.
@@ -4486,16 +5922,17 @@ function drawCallouts(state) {
     // cannot be freed and refilled twice inside the 900 ms this pill lives, so
     // for this one purpose the hint is enough. Once the body is gone the pill
     // finishes where the declaration happened.
+    //
+    // One lookup rather than a scan of every row, per pill, per frame: the
+    // index -> row table falls out of the parse for one array write per unit.
     let x = c.x;
     let y = c.y;
     let radius = 0.5;
-    for (const unit of state.units) {
-      if (unit.index === c.actor) {
-        x = unit.x;
-        y = unit.y;
-        radius = unit.radius;
-        break;
-      }
+    const actor = state.byIndex[c.actor];
+    if (actor) {
+      x = actor.x;
+      y = actor.y;
+      radius = actor.radius;
     }
 
     const alpha = t < 0.72 ? Math.min(1, t / 0.06) : Math.max(0, 1 - (t - 0.72) / 0.28);
@@ -4546,6 +5983,11 @@ function render(state, now, arrived) {
   // drawn over the glass rather than cut out of it, and a strip of last frame
   // left showing behind a translucent panel is a smear.
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  // Cleared to *transparent*, and that is load-bearing rather than incidental:
+  // the page's own background is what shows through as the void, and it is a
+  // gradient. See the block above `getContext` for the measurement that settled
+  // this -- a `clearRect` under an `alpha: false` context would paint the void
+  // black, and the fill that fixes that flattens the room's ambient light.
   ctx.clearRect(0, 0, viewport.w, viewport.h);
   const origin = viewOrigin();
   ctx.translate(origin.x, origin.y);
@@ -4569,8 +6011,11 @@ function render(state, now, arrived) {
   // on a carved level would be a tint over gaps a body cannot fit down, which
   // is worth having only if playing without it turns out to want it.
   // The level takes the frame now: the lantern is centred on the character, and
-  // that is the only reason -- everything else about the ground is baked.
-  drawLevel(state);
+  // that is the only reason -- everything else about the ground is baked. It
+  // takes `origin` too, so it can clamp its two full-arena composites to the
+  // window; passed rather than re-derived, so there is one camera transform on
+  // this page and not two.
+  drawLevel(state, origin);
   // Drawn in every mode, seen or not. See its own comment: seeing the exit from
   // the moment you arrive is what turns "kill things" into "fight your way
   // there", and the fog does not weaken that argument. One of the two knowing
@@ -4591,8 +6036,13 @@ function render(state, now, arrived) {
   // ring is worse -- it is a warning about a blow you were not told was coming.
   // `Y` still means what it means, and the character's own disc is always there,
   // because the hero's row reports visible unconditionally.
+  // The soft fill goes to the two bodies whose sight the player is actually
+  // reasoning about -- the one being commanded, and the one it has been pointed
+  // at -- and every other body keeps the ring alone. See `drawVision` for the
+  // arithmetic; at a full room this is the difference between 15.7x the screen
+  // in blended fill and 2.6x, and it is the whole of why a crowd was unplayable.
   for (const unit of state.units) {
-    if (canSee(unit)) drawVision(unit);
+    if (canSee(unit)) drawVision(unit, unit === state.hero || (locked !== null && unit.id === locked));
   }
   drawCorpses();
 
@@ -4633,6 +6083,30 @@ const globeCtx = globe.getContext("2d");
  *  The globe is sized in `vmin`, so both of these move on their own. */
 let globeSize = 0;
 let globeDpr = 0;
+
+/**
+ * The globe is redrawn at 30 Hz, not 60.
+ *
+ * It is a second canvas with a `setTransform`, a `clearRect`, a clip, three
+ * gradients and a liquid surface built out of a `Math.sin` pair every two
+ * pixels. The only thing on it that moves on its own is the wobble, which is two
+ * slow sines -- nobody can see that stepping at 30, and the redraw is the entire
+ * cost.
+ *
+ * **The health level is never late.** The throttle is broken the moment the
+ * character's hit points change, so a blow lands on the globe on the frame it
+ * lands in the world; only the wobble waits. `Math.round` because that is the
+ * precision the globe itself is drawn at -- it is the number printed over the
+ * liquid -- so this cannot be a redraw the picture would not show. `maxHp` is in
+ * because a hero swap changes it and the liquid is a fraction of it.
+ *
+ * The DOM readouts beside it -- `el.unitHp` and the `#hp-fill` bar -- are
+ * written every frame regardless, in `updateHud`. Nothing here touches them.
+ */
+const GLOBE_MS = 33;
+let globeDrawnAt = -Infinity;
+let globeDrawnHp = -1;
+let globeDrawnMaxHp = -1;
 
 function drawGlobe(state, now) {
   const css = Math.max(1, Math.round(globe.clientWidth));
@@ -4808,7 +6282,15 @@ function updateBattle(state) {
   setText(el.battleState, `${state.hero && isPaused() ? "paused" : head} — ${tail}`);
 }
 
-function updateHud(state, stats, distance, arrived, settled, now) {
+/** The last width written into the health bar, in tenths of a percent, or `-1`
+ *  for "nothing written yet". See the write itself for why it is a number and
+ *  not the string. */
+let hpFillTenths = -1;
+
+/** `tickNow` is passed in rather than read here: `wasm.tick()` is a boundary
+ *  call and the loop already needs the answer for `stillSince`. Two reads of a
+ *  monotonic counter in one frame cannot disagree, but one is still one. */
+function updateHud(state, stats, distance, arrived, settled, now, tickNow) {
   const hero = state.hero;
   // Everything the frame drives, in one place. The kit readout and the action
   // bar read the frame; the Enemy rail reads the module's spawn template, which
@@ -4817,15 +6299,53 @@ function updateHud(state, stats, distance, arrived, settled, now) {
   syncKitReadout(state);
   syncActionBar(state);
   syncEnemyRail();
-  drawGlobe(state, now);
-  setText(el.simTick, String(wasm.tick()));
-  setText(el.simHash, hex64(wasm.state_hash_hi(), wasm.state_hash_lo()));
+  // The globe, at 30 Hz or on a change to the health it is drawing, whichever
+  // comes first. See the block above `drawGlobe` for why that pair is the whole
+  // of the condition -- and note that it is only the *canvas* that waits: the
+  // number and the bar below are written every frame.
+  const globeHp = hero ? Math.round(hero.hp) : -1;
+  const globeMaxHp = hero ? Math.round(hero.maxHp) : -1;
+  if (now - globeDrawnAt >= GLOBE_MS || globeHp !== globeDrawnHp || globeMaxHp !== globeDrawnMaxHp) {
+    globeDrawnAt = now;
+    globeDrawnHp = globeHp;
+    globeDrawnMaxHp = globeMaxHp;
+    drawGlobe(state, now);
+  }
+  setText(el.simTick, String(tickNow));
+  // The frame budget. Both go through `setText`, which already refuses a write
+  // that would not change anything -- and these two strings only move on a
+  // window boundary, so this is a no-op on twenty-nine frames out of thirty.
+  setText(el.perfFps, perf.fpsText);
+  if (perfDetail) setText(el.perfDetail, perf.detailText);
+  // The project's central claim, and it costs a full walk of every entity slot
+  // per call -- twice, because the two halves are separate exports and each
+  // recomputes the whole thing. `World::state_hash` writes ~20 fields per
+  // entity slot including the dead ones, plus every shot slot, plus the orders
+  // and objectives: ~2,600 hash writes a frame at 64 units, and it is the one
+  // cost on this page that gets strictly worse as the room fills. Worth every
+  // cycle when it is on screen and worth none of them when the strip is shut,
+  // which is every frame nobody is in `[dev]` (`web/style.css`, `.dev-strip`).
+  //
+  // **Not memoised in Rust**, deliberately: that is cache state to invalidate in
+  // every mutator, in a crate whose whole point is that the hash is recomputed
+  // from the world. One `if` on the page is the right size of fix.
+  if (currentView().dev) setText(el.simHash, hex64(wasm.state_hash_hi(), wasm.state_hash_lo()));
   setText(el.simPosition, hero ? `${hero.x.toFixed(2)}, ${hero.y.toFixed(2)}` : "—");
   setText(el.unitHp, hero ? `${Math.round(hero.hp)} / ${Math.round(hero.maxHp)} hp` : "fallen");
   // The bar the eye reads, next to the number the eye checks. Same threshold the
   // bars on the canvas and the globe turn red at, from the same constant.
   const health = hero && hero.maxHp > 0 ? clamp(hero.hp / hero.maxHp, 0, 1) : 0;
-  el.hpFill.style.width = `${(health * 100).toFixed(1)}%`;
+  // Written only when it changes, on `setText`'s discipline and for the same
+  // reason the cursor below `pick` is: this was a fresh string and a CSSOM write
+  // sixty times a second for a value that moves on damage. The guard is on the
+  // **tenth of a percent**, which is the precision the bar is actually written
+  // at, so the comparison and the string come off one number and cannot drift
+  // apart the way comparing `health` against a rounded write would.
+  const tenths = Math.round(health * 1000);
+  if (tenths !== hpFillTenths) {
+    hpFillTenths = tenths;
+    el.hpFill.style.width = `${(tenths / 10).toFixed(1)}%`;
+  }
   el.hpFill.classList.toggle("low", health <= LOW_HEALTH);
   setText(
     el.orderDecision,
@@ -4858,6 +6378,25 @@ function updateHud(state, stats, distance, arrived, settled, now) {
   setText(el.orderDest, `${state.orderX.toFixed(2)}, ${state.orderY.toFixed(2)}`);
   setText(el.orderDistance, `${distance.toFixed(2)} units`);
 
+  if (state.orderKind === ORDER_FOCUS) {
+    // The two fields above are still true under a lock -- the header carries the
+    // quarry's live position, so "destination" is where that body is standing
+    // and the distance is the gap to it, both of which move while the panel is
+    // open. What must not fall through is the state line: every arm below is
+    // about arriving somewhere, and there is no arriving at something that walks
+    // away. What the character does instead is close to the ring its own weapon
+    // wants and stay on that ring, which is a standing condition and not an
+    // event, so this says the same thing for as long as the lock holds.
+    el.orderState.className = "state";
+    setText(
+      el.orderState,
+      orderAcknowledged
+        ? "locked on — closing to its own weapon's range, and following"
+        : "locked on — waiting for its next decision"
+    );
+    return;
+  }
+
   if (!orderAcknowledged) {
     el.orderState.className = "state";
     setText(el.orderState, "order received — waiting for its next decision");
@@ -4882,6 +6421,102 @@ function updateHud(state, stats, distance, arrived, settled, now) {
 
 let accumulator = 0;
 let lastFrameTime = 0;
+
+/**
+ * The frame the loop last parsed, or `null` before the first one.
+ *
+ * Held across animation frames for two reasons. The near one is `pushInput`,
+ * which runs *before* `wasm.step()` and reads nothing but `state.hero`: the
+ * module's frame at that moment is byte-identical to the one the previous
+ * animation frame already parsed, so re-parsing it was a whole second parse of
+ * the whole frame -- 0.577 ms at 64 units, on every manual-control frame -- to
+ * arrive at a number the page was already holding.
+ *
+ * The far one is session 3 (`docs/plans/perf-03-cadence.md`), which added `prev`
+ * beside this and blends the two. That is why the loop's parse goes through
+ * `nextPool()` rather than into one fixed state.
+ *
+ * `null` wherever the world is replaced under it -- `restart`, `swapInHero` --
+ * so nothing ever aims from, or interpolates towards, a room that is gone.
+ */
+let curr = null;
+
+/**
+ * The frame before that one, and the two clocks that place the pair.
+ *
+ * `prev` is `curr` as it was one **step** ago and not one animation frame ago:
+ * a frame that runs no ticks leaves both states exactly where they were, and
+ * that is the entire point -- `alpha` goes on climbing across those frames and
+ * the room glides through them instead of standing still.
+ *
+ * `prevTick` and `currTick` are `wasm.tick()` at the moments those two states
+ * were parsed. The gap between them is however many ticks that frame ran: 1
+ * usually, 2 on a late one, never 0 (the rotation is guarded on it), and up to
+ * `MAX_CATCHUP_TICKS` on a frame that was catching up.
+ *
+ * **Carrying the gap is what makes one `alpha` formula cover all of those.**
+ * Without it the loop would have to split `wasm.step(n)` into
+ * `step(n - 1) + step(1)` to get an exactly-one-tick-old `prev` -- and that
+ * silently drops events, because `step()` clears the feed **per call and not per
+ * tick**. See the event block in `parseFrame`. Nothing here splits a step.
+ *
+ * `null` on the first frame of the page, of a floor, and of a replacement
+ * character. See `cutInterpolation`.
+ */
+let prev = null;
+let prevTick = 0;
+let currTick = 0;
+
+/**
+ * What `locked` was at the moment each of those two states was parsed.
+ *
+ * Only `blend` reads them, and only to answer one question. Under a focus the
+ * module writes the quarry's **live position** into the header's two order
+ * slots, so they are continuous and the lock ring judders if they are snapped --
+ * but the instant the player locks onto somebody else they jump across the room,
+ * and blending *that* slides the ring over there instead of cutting to it.
+ * "Is it still the same quarry" is `locked`, which only moves when a click names
+ * a different body.
+ */
+let prevLocked = null;
+let currLocked = null;
+
+/**
+ * The picture: `prev` and `curr` blended, and what the last `render` drew.
+ *
+ * **A picture and never the truth.** Nothing derived from it is written back
+ * across the wall, and no order is built out of it -- `pushInput` and `goTo`
+ * both read `curr`. It is module-level for exactly one reader outside `loop`:
+ * `endDrag`, where a click has to hit the body the player was actually looking
+ * at rather than the one the module has since moved on to. See there.
+ *
+ * `null` until the first frame has been drawn.
+ */
+let view = null;
+
+/**
+ * Forget where the world was.
+ *
+ * A cut and not a pan: the same judgement `snapCamera` makes about the view,
+ * made about the bodies, and called from the same places for the same reason.
+ * After a descent or a change of arena `prev` describes a room that no longer
+ * exists, and blending towards `curr` from it would slide every body in from
+ * wherever it happened to be standing on the floor above.
+ *
+ * On a descent it is worse than untidy. `Sim::descend` builds a fresh `World`,
+ * so **`wasm.tick()` goes backwards**: `currTick - prevTick` comes out large and
+ * negative, `alpha` clamps to 0, and the whole first frame of the new floor
+ * would be the old floor drawn at full strength.
+ *
+ * `restart` and `swapInHero` reach the same place by setting `curr = null`,
+ * which the parse rotation turns into a null `prev` on the next frame. They run
+ * between animation frames, where there is no `curr` worth keeping either.
+ */
+function cutInterpolation() {
+  prev = curr;
+  prevTick = currTick;
+  prevLocked = currLocked;
+}
 
 /** Whether the world is frozen. Presentation state, and the sim does not know:
  *  pausing is "stop calling `step`", which is the only definition that cannot
@@ -5011,10 +6646,18 @@ function loop(now) {
   let elapsed = now - lastFrameTime;
   lastFrameTime = now;
   if (!Number.isFinite(elapsed) || elapsed < 0) elapsed = 0;
+  // Kept before the clamp, and only the instrument reads it. Reporting the
+  // clamped value would describe a 250 ms stall as 250 ms of smooth running,
+  // which is precisely the frame worth seeing.
+  const rawElapsed = elapsed;
   if (elapsed > MAX_FRAME_MS) elapsed = MAX_FRAME_MS;
   accumulator += elapsed;
 
   let ticks = Math.floor(accumulator / TICK_MS);
+  // Recorded rather than inferred: a frame that binned a backlog means the sim
+  // is genuinely behind, which is a different situation from rAF jitter and must
+  // never be read as it. `perfFrame` counts these separately for that reason.
+  const droppedBacklog = ticks > MAX_CATCHUP_TICKS;
   if (ticks > MAX_CATCHUP_TICKS) {
     // Drop the rest of the backlog rather than paying it off over the next
     // several frames, which is how a stutter becomes a spiral.
@@ -5032,15 +6675,108 @@ function loop(now) {
   }
   // Before stepping, not after: whatever the player is holding has to be in
   // place for the ticks that are about to run, or every input is one frame late.
-  if (controlMask) pushInput(parseFrame(readFrame()));
+  //
+  // **`curr`, and not a parse of its own.** This runs before `wasm.step()`, so
+  // the module's frame is byte-identical to the one the previous animation frame
+  // already parsed -- there was a second full `parseFrame` here, for a function
+  // that reads `state.hero` and nothing else. The null guard covers the first
+  // frame and the frames straight after a `restart` or a hero swap, where the
+  // only cost is one frame with no aim in it.
+  //
+  // Its own phase still, because it is the manual-control path and it should be
+  // possible to see that it now costs nothing.
+  perfOpen();
+  if (controlMask && curr) pushInput(curr);
+  perfClose("input");
+
+  perfOpen();
   if (ticks > 0) wasm.step(ticks);
+  perfClose("step");
+  // Closed *before* the poison check, so the one path out of this function that
+  // skips `perfFrame` still leaves no phase open behind it.
   if (dead) return;
 
-  const state = parseFrame(readFrame());
-  if (state.arenaX !== arena.x || state.arenaY !== arena.y) {
-    arena = { x: state.arenaX, y: state.arenaY };
+  // Two states and a blend, and this is the whole of session 3.
+  //
+  // `curr` is the truth -- the frame the module has just published -- and `prev`
+  // is where the truth was one **step** ago. What gets drawn is a point between
+  // them, chosen by how far into the current tick the wall clock has got.
+  //
+  // **On a frame that ran no ticks, neither state moves.** That is the 120 Hz
+  // case and it is the point of the whole exercise: `alpha` goes on climbing
+  // towards 1 across those frames and the room glides through them, instead of
+  // standing still for every other refresh.
+  perfOpen();
+  if (ticks > 0 || curr === null) {
+    prev = curr;
+    prevTick = currTick;
+    prevLocked = currLocked;
+    // Into the *other* pool, never the one `prev` now holds. This is the whole
+    // reason the parse ping-pongs; see the parse pool block for the shape.
+    curr = parseFrame(frameView(), nextPool());
+  } else {
+    // No tick ran, so the module's *world* is exactly the world `curr` already
+    // describes -- but not necessarily the same *frame*. `set_goto`,
+    // `set_focus`, `clear_order` and `route_clear` all `publish()`, and they run
+    // between animation frames; under a pause that is the only way the
+    // destination marker ever moves at all. So the frame is re-read, in place,
+    // **into `curr`'s own pool slot** -- `nextPool()` here would hand back the
+    // slot `prev` is sitting in and scribble the past over with the present.
+    parseFrame(frameView(), curr);
+  }
+  // The tick, once a frame, and read unconditionally. It was already read once
+  // here for `stillSince` and the dev strip; it is now also half of `alpha`.
+  // Not cached inside the branch above, because `wasm.tick()` is **not
+  // monotonic** -- `Sim::descend` builds a fresh `World` and it restarts at 0 --
+  // and a cached copy would be the one number on the page that could be a floor
+  // out of date.
+  currTick = wasm.tick();
+  currLocked = locked;
+  // Nothing behind us: the first frame of the page, of a floor, or of a
+  // replacement character. Blending a state with itself is the identity, so
+  // seeding it here is what spares every reader below a null case.
+  if (prev === null) cutInterpolation();
+
+  // How far between `prev` and `curr` the wall clock has got.
+  //
+  // `span` is the gap in ticks -- 1 on an ordinary frame, more on one that
+  // caught up. `displayTick` is one tick behind the sim plus whatever fraction
+  // of a tick the accumulator is still carrying: **one tick behind and never
+  // ahead**, because extrapolating would be the page predicting, and it costs
+  // 16.7 ms against a decision period of 1 to 30 ticks.
+  //
+  //   ticks = 1   ->  alpha = accumulator / TICK_MS, the ordinary case
+  //   ticks = 0   ->  the same two states, a larger accumulator: alpha climbs
+  //   ticks = 2   ->  the back half of a two-tick span, 0.5 .. 1
+  //   dropped     ->  the accumulator is zeroed and the span is 8, so 7/8
+  //
+  // The last of those is the one worth checking: it lands *forward* of where the
+  // previous frame left off, so binning a backlog never rewinds the picture.
+  const span = Math.max(currTick - prevTick, 1);
+  const displayTick = currTick - 1 + accumulator / TICK_MS;
+  let alpha = clamp((displayTick - prevTick) / span, 0, 1);
+  // **Frozen.** While paused, `ticks` is forced to 0 *and* the accumulator is
+  // drained every frame, so `alpha` would sit at 0 -- the room would jump back a
+  // tick the instant Space went down and forward again on the resume. A frozen
+  // world is showing `curr`, exactly, which is what `alpha = 1` means.
+  if (paused) alpha = 1;
+  perfClose("parse");
+
+  // `level`: everything that re-bakes the floor plan. Read its **max** and not
+  // its mean -- every branch below is an event (a descent, a tile crossing, a
+  // zoom, a mode change) rather than a per-frame cost, so a mean divided by the
+  // frames that did nothing says nothing.
+  //
+  // **Every read in this phase is `curr`.** These are questions about which room
+  // the module is in, and a blended answer to one of those is not a softer
+  // answer, it is a wrong one: half a floor is not a floor.
+  perfOpen();
+  if (curr.arenaX !== arena.x || curr.arenaY !== arena.y) {
+    arena = { x: curr.arenaX, y: curr.arenaY };
     resize();
-    snapCamera(state);
+    snapCamera(curr);
+    // A cut for the bodies as well as for the view; see `cutInterpolation`.
+    cutInterpolation();
   }
   // **Every level is the same size, so the check above will not fire on a
   // descent.** Without this one the page keeps the previous floor's baked
@@ -5061,11 +6797,17 @@ function loop(now) {
     floaters = [];
     callouts = [];
     announcedFall = false;
-    orderKey = "";
+    forgetOrderKey();
     orderAcknowledged = false;
     stillSince = 0;
-    snapCamera(state);
-    if (state.depth > 0) hint(`Level ${state.depth + 1}. Something else is down here.`);
+    snapCamera(curr);
+    // And the same cut for the bodies. **This is why the blend happens in the
+    // phase below rather than beside the parse**: `prev` describes the floor
+    // that has just been left, and on a descent `wasm.tick()` restarts at 0, so
+    // an `alpha` computed against it clamps to zero and the first frame of the
+    // new floor would be the old one drawn whole. See `cutInterpolation`.
+    cutInterpolation();
+    if (curr.depth > 0) hint(`Level ${curr.depth + 1}. Something else is down here.`);
   } else if (levelPaths.fog && wasm.vis_revision() !== levelPaths.vis) {
     // The lit region moved. Re-bake -- and **only here**: `vis_revision` moves
     // when the character crosses a tile, which is a few times a second at a run
@@ -5087,6 +6829,32 @@ function loop(now) {
     // a mode nobody is in.
     rebuildLevelPaths(readMap(), wasm.map_revision());
   }
+  perfClose("level");
+
+  // `sync`: the blend, the rails, the event feed, the bodies, the order question
+  // and the trail. One phase for all of it because it is one pass over the frame
+  // that was just parsed, and splitting it further would be six numbers nobody
+  // has a decision to make about.
+  perfOpen();
+
+  // **The picture, one tick behind the truth.** Everything from here down names
+  // which of the two states it is reading and why; `docs/plans/perf-03-cadence.md`
+  // carries the full assignment, and the short version is that `curr` answers
+  // questions about the world and `view` answers questions about the screen.
+  //
+  // It happens here rather than up beside the parse because the `level` phase
+  // above is where a descent is noticed, and `cutInterpolation` has to have run
+  // before anything blends across two floors. The cost lands in this phase's
+  // number as a result, which is the honest place for it -- it is per-frame work
+  // that turns the frame into something drawable, exactly like the parse.
+  view = blend(prev, curr, alpha, span, prevLocked === currLocked, BLEND_STATE);
+
+  // The tick, once a frame. `stillSince` below and the dev strip's tick chip
+  // both want it, and it used to be two boundary calls -- one here inside the
+  // hero guard and one inside `updateHud`. It is now read once in the `parse`
+  // phase, because `alpha` needs it too, and this is the same number: three
+  // readouts that cannot be a frame apart rather than two.
+  const tickNow = currTick;
 
   // Drop the legs the module has finished. It is the authority on how far along
   // the path the character is -- the page asking that question for itself would
@@ -5098,7 +6866,12 @@ function loop(now) {
   // `kind` column: the attributes are a live dial now, so `BODIES[kind]` is the
   // body's *baseline* and stops being the character the moment a slider moves.
   // The loop reads `decisionPeriod` and `moveSpeed` off the same answer.
-  const stats = syncHeroRail(state);
+  //
+  // **`curr`.** Every cell in that rail is a number printed to two decimals or
+  // an integer read back out of the module, and the one frame column it does
+  // take -- `hero.sight` -- feeds a readout, not a picture. A blended sight
+  // radius would repaint the whole rail on the frames the fourth decimal moved.
+  const stats = syncHeroRail(curr);
 
   // Age first, then seed: a floater created below starts its life at zero
   // rather than one frame old.
@@ -5114,13 +6887,25 @@ function loop(now) {
   // per call rather than per tick, so a frame that ran no ticks is still
   // looking at the previous call's rows -- consuming those a second time is
   // every damage number printed twice, which is exactly what it looks like.
-  // This is also why it reads `state` and not the pre-step parse above.
-  if (ticks > 0) consumeEvents(state);
+  //
+  // **`curr`, and it could not be anything else.** The feed belongs to the ticks
+  // that just ran; `blend` publishes no events at all, and says why. Its
+  // `actorVisible` and `factionOfActor` lookups go through `curr.byIndex` for
+  // the same reason -- they are asking who did a thing that already happened.
+  if (ticks > 0) consumeEvents(curr);
   // After the events, never before: a body killed by a blow in that feed is
   // already out of the frame, and this is the call that forgets it.
-  syncBodies(state, now, aged);
+  //
+  // **`view`, and this one is a real decision.** `syncBodies` freezes a pose the
+  // moment sight is lost, and what it must freeze is the pose that was actually
+  // drawn -- otherwise the ghost is a body standing up to a tick away from where
+  // the player last saw it, which is exactly the lie the frozen pose exists to
+  // avoid. The identities it keys on (`unit.id`, `faction`, `kind`) are snapped
+  // through the blend, so the map is keyed on the truth and only the pose is a
+  // picture.
+  syncBodies(view, now, aged);
 
-  if (!state.hero && !announcedFall) {
+  if (!curr.hero && !announcedFall) {
     announcedFall = true;
     hint("The character has fallen. Send in a new one and the fight goes on, or press R to start over.", true);
   }
@@ -5128,71 +6913,235 @@ function loop(now) {
   // A new order (any change to the header's order slot) restarts the "has it
   // acted on this yet" question. The answer is the first decision that happens
   // after the order landed -- which is exactly what the dim marker is showing.
-  const key = `${state.orderKind}:${state.orderX}:${state.orderY}`;
-  if (key !== orderKey) {
-    orderKey = key;
+  //
+  // **A lock is keyed on the quarry and not on where it is standing.** Those two
+  // header slots carry the quarry's *live* position under a focus, so a key built
+  // from them changes on every frame the thing so much as breathes -- which reads
+  // as a brand new order sixty times a second, resets the question before it can
+  // ever be answered, and pins the ring at the dim dashed treatment and the
+  // readout at "waiting for its next decision" for the whole life of the lock.
+  // The identity of a focus is *who*, not where; `locked` is that, and it only
+  // moves when the player names somebody else.
+  //
+  // Three numbers rather than a template string. This built a fresh string every
+  // frame to detect a change that happens a handful of times a minute; the two
+  // halves mean different things under a focus and under everything else, which
+  // is the whole reason there is a key here at all. `-1` stands in for "no
+  // quarry", which no packed handle can be.
+  //
+  // **`curr` throughout**, and note that `blend` asks a *different* question of
+  // these same two slots and therefore reads `view`: this one is "is this a new
+  // order", which is about the order's identity, and that one is "where do I
+  // draw the ring", which is about a position that moves every tick. Keep this
+  // one on the truth and that one on the picture.
+  const focused = curr.orderKind === ORDER_FOCUS;
+  const keyA = focused ? (locked === null ? -1 : locked) : curr.orderX;
+  const keyB = focused ? 0 : curr.orderY;
+  if (curr.orderKind !== orderKeyKind || keyA !== orderKeyA || keyB !== orderKeyB) {
+    orderKeyKind = curr.orderKind;
+    orderKeyA = keyA;
+    orderKeyB = keyB;
     orderAcknowledged = false;
-    orderIssuedAtDecision = state.decisionTick;
+    orderIssuedAtDecision = curr.decisionTick;
   }
-  if (!orderAcknowledged && state.decisionTick !== orderIssuedAtDecision) {
+  if (!orderAcknowledged && curr.decisionTick !== orderIssuedAtDecision) {
     orderAcknowledged = true;
   }
+  // The page's half of the lock, dropped the moment the order stops being one.
+  // Beside the block above because it is the same question asked of the same
+  // header slot, and one test is the whole of it -- see `locked` for why there
+  // is no path that drops a focus without moving `orderKind`.
+  if (curr.orderKind !== ORDER_FOCUS) locked = null;
 
   let distance = 0;
   let arrived = true;
   let settled = false;
-  if (state.hero) {
+  if (curr.hero) {
     // "Has it stopped?" is answered by watching the body, not by recomputing
     // the sim's rules over here. A click within one body radius of a wall is
     // not reachable, so the character legitimately parks short of the mark --
     // and a renderer that reimplemented that clamp in floating point would be
     // a second copy of a rule that lives in the policy.
-    const tickNow = wasm.tick();
-    if (state.hero.x !== stillAt.x || state.hero.y !== stillAt.y) {
-      stillAt = { x: state.hero.x, y: state.hero.y };
+    //
+    // `tickNow` is read once in the `parse` phase now, not here.
+    //
+    // **`curr`, and this is the single most important read on the page to get
+    // right.** The interpolated hero's position changes on *every* frame, even
+    // the ones where the sim did not move it: `alpha` climbs, so `view.hero.x`
+    // creeps towards `curr.hero.x` and only equals it at the instant the next
+    // tick lands. Watching `view` here would mean `stillSince` was reset every
+    // frame, `settled` would never once fire, and the destination marker would
+    // never go solid -- for a character standing perfectly still. The exact
+    // equality test is what makes this work at all, and only an unblended
+    // coordinate can satisfy it.
+    if (curr.hero.x !== stillAt.x || curr.hero.y !== stillAt.y) {
+      stillAt = { x: curr.hero.x, y: curr.hero.y };
       stillSince = tickNow;
     }
     settled = tickNow - stillSince >= stats.decisionPeriod * 2;
 
-    if (state.orderKind === ORDER_GOTO) {
-      distance = Math.hypot(state.orderX - state.hero.x, state.orderY - state.hero.y);
-      // The policy's arrival deadband is one tick of travel; below it the
-      // character holds, which is why the HUD must not call that "still going".
+    if (curr.orderKind === ORDER_GOTO) {
+      // **`curr`.** This prints in the panel to two decimals, and a distance
+      // measured off a blended hero strobes its last digit at the refresh rate
+      // for a body the sim is holding still.
+      distance = Math.hypot(curr.orderX - curr.hero.x, curr.orderY - curr.hero.y);
+      // **A display threshold, and no longer a copy of anything.** This used to
+      // say the policy holds inside a deadband of one tick of travel, and there
+      // is no deadband any more -- the leash relaxes continuously, so the last
+      // fraction of a unit is a crawl the character never formally finishes.
+      // Something still has to decide when the panel stops saying "still going",
+      // and a tick and a half of travel is that judgement, made here because it
+      // is a question about the readout rather than about the walk. Nothing
+      // downstream acts on it, which is what makes inventing it here safe.
       arrived = distance <= stats.moveSpeed * 1.5;
+    } else if (curr.orderKind === ORDER_FOCUS) {
+      // The gap to the quarry, which the header carries live under a lock -- the
+      // same arithmetic on the same two slots. **And no `arrived` off it.** The
+      // ring the character settles on is the weapon's, this page does not know
+      // how wide it is, and a deadband invented here would be a second copy of a
+      // rule that lives in the policy -- which is the mistake the block above
+      // exists to avoid making about walls.
+      distance = Math.hypot(curr.orderX - curr.hero.x, curr.orderY - curr.hero.y);
     }
+    // **`curr`.** The trail is the path the sim walked, not a resampling of it
+    // at the refresh rate: a trail fed the blend would gain a point on every
+    // frame rather than on every step, would fill its 150-point budget three
+    // times as fast on a 144 Hz panel as on a 60 Hz one, and would describe a
+    // different walk on each. Reading the truth also makes it free on the frames
+    // that stepped nothing, because the test below cannot fire on those.
     const last = trail[trail.length - 1];
-    if (!last || Math.hypot(last.x - state.hero.x, last.y - state.hero.y) > 0.02) {
-      trail.push({ x: state.hero.x, y: state.hero.y });
+    if (!last || Math.hypot(last.x - curr.hero.x, last.y - curr.hero.y) > 0.02) {
+      trail.push({ x: curr.hero.x, y: curr.hero.y });
       if (trail.length > 150) trail.shift();
     }
   }
+  perfClose("sync");
 
-  // The rails, re-measured. This is the *only* recompute trigger the camera
-  // needs, and it is here rather than on the rail toggle because a rail takes
-  // 180 ms to slide: measuring once when the class goes on reads the strip the
-  // rail is about to leave, and measuring again on `transitionend` snaps the
-  // safe rect a third of the window sideways in one frame, which throws the
-  // character across the screen. `railInsets()` reports the rect the rail is
-  // covering *at this instant*, so asking every frame is what makes the view
-  // breathe with the slide instead of teleporting at either end of it.
+  // `insets` gets a phase of its own **because it is a forced synchronous
+  // layout**: `railInsets()` reads `getBoundingClientRect()` four times, which
+  // makes the browser flush whatever style and layout work is pending. Session 1
+  // settled the question the phase was added to ask -- 0.018 ms against a clean
+  // layout and **0.666 ms against a dirty one**, which is what the loop always
+  // hands it, because `updateHud` wrote to the DOM on the previous frame. 4% of
+  // a frame, so it is gated below and this number now reads near zero except
+  // while a rail is sliding.
+  perfOpen();
+
+  // The rails, re-measured -- **on every frame of the 180 ms slide, and on no
+  // other frame.** The per-frame measurement is the part that matters and it is
+  // unchanged: a rail takes 180 ms to cross, measuring once when the class goes
+  // on reads the strip the rail is about to leave, and measuring again on
+  // `transitionend` snaps the safe rect a third of the window sideways in one
+  // frame, which throws the character across the screen. `railInsets()` reports
+  // the rect the rail is covering *at this instant*, so asking every frame is
+  // what makes the view breathe with the slide instead of teleporting at either
+  // end of it.
+  //
+  // What changed is only *which* frames ask. `railsMoving()` is up from the
+  // moment `setRail` flips a class until the rail's own `transitionend`, or
+  // until a 250 ms timer says so where no `transitionend` is coming -- under
+  // `prefers-reduced-motion`, or on a slide interrupted by a second toggle. The
+  // final resting position is measured by `railSettled` after the flag drops,
+  // which is what keeps the answer exact rather than one animation frame short.
+  // See `railsMoving` for why a stale flag is the dangerous direction.
   //
   // `resize` only re-runs when something actually moved: it re-derives `scale`,
   // whose zoomed-out limit is the safe rect's width, and `floorTileSize()`
   // buckets on `scale` -- running it every frame would re-bake the flagstones
-  // for nothing. The `ResizeObserver` and `window.resize` are still wired: they
-  // catch the things the rails cannot, a stage that genuinely changed size and
-  // a `devicePixelRatio` that changed under a window that did not.
-  if (refreshInsets()) resize();
+  // for nothing. The `ResizeObserver` and `window.resize` are still wired and
+  // still call `refreshInsets()` directly through `resize`, under no flag at
+  // all: they catch the things the rails cannot -- a stage that genuinely
+  // changed size, a `--rail-w` that re-clamped under a narrower window, and a
+  // `devicePixelRatio` that changed under a window that did not.
+  if (railsMoving() && refreshInsets()) resize();
+  perfClose("insets");
 
-  updateCamera(state, elapsed);
-  render(state, now, arrived || settled);
-  updateHud(state, stats, distance, arrived, settled, now);
+  // `pick`: the hit test under the cursor, which is O(monsters) and therefore
+  // the one number in this list that grows with a full room.
+  perfOpen();
+
+  // The cursor as the affordance. A body under the pointer means the next click
+  // is a lock rather than a walk, and this is the whole of how a player finds
+  // that out: there is no tutorial, no button and nothing in the panel that
+  // would say so before the fact.
+  //
+  // **Once a frame, off `pointer`, and not in the `pointermove` handler.** That
+  // handler fires several times a frame on a mouse and would have to parse a
+  // frame of its own to have anything to hit test against -- and one into
+  // `SCRATCH_STATE`, since it runs between animation frames. The loop has
+  // already paid for exactly one parse and one blend, and this reads them.
+  //
+  // The resting cursor belongs to the stylesheet (`#arena { cursor: crosshair }`),
+  // so the else arm clears the inline style rather than writing a second copy of
+  // that value here, where it could drift. The hand is the change: crosshair
+  // says *aim at the floor*, and a hand says *this is a thing you can take*.
+  //
+  // Two gates, both about not advertising a gesture that is not on offer. Under
+  // manual aim a press is a cut and not an order, so there is nothing to promise;
+  // and a drag past the threshold is unconditionally a route, so the test mirrors
+  // `endDrag`'s exactly -- a press that has not moved yet is still a tap and
+  // still gets the hand.
+  //
+  // Written only when it changes, on `setText`'s discipline and for the same
+  // reason: this is sixty assignments a second into the CSSOM for a value that
+  // moves a handful of times a minute.
+  //
+  // **`view`, and it must be.** This is the same hit test `endDrag` performs on
+  // the click itself, so the two have to agree about where the bodies are or the
+  // cursor promises a lock the click then misses. Both of them ask the picture:
+  // hit-testing against `curr` while drawing `view` means a click aimed at a
+  // running monster misses by up to a tick of travel, which at a run is most of
+  // a body radius.
+  const picking = pointer.inside && !(controlMask & CONTROL_LIMB) && (!drag || drag.far < DRAG_THRESHOLD);
+  const want = picking && view.hero && unitAt(pointer, view) ? "pointer" : "";
+  if (canvas.style.cursor !== want) canvas.style.cursor = want;
+  perfClose("pick");
+
+  // `render` covers `updateCamera` as well as the canvas itself: the ease and
+  // the device-pixel snap are what decide where everything is drawn, so they
+  // belong to the picture rather than to the remainder. Both are session 3's
+  // territory and neither is separable from the other by eye.
+  //
+  // And read this one with the queueing caveat at the top of the perf block in
+  // mind -- it is the time spent *issuing* canvas commands, not the time spent
+  // rasterising them.
+  //
+  // **`view` for both.** For `render` that is the whole point of the session,
+  // and `drawCallouts`' actor lookup and `drawLock`'s quarry lookup fall out of
+  // it for free -- both go through the blended state's own `byIndex` and `units`.
+  // For `updateCamera` it is just as load-bearing: `cameraTarget` anchors on the
+  // hero, and anchoring on the stepped one would feed the exponential smoother a
+  // 60 Hz staircase and reintroduce, as a low-pass, exactly the ripple the blend
+  // above just removed.
+  perfOpen();
+  updateCamera(view, elapsed);
+  render(view, now, arrived || settled);
+  perfClose("render");
+
+  // `hud` includes `drawGlobe` and the two `state_hash` walks that feed a chip
+  // which is `display: none` most of the time -- item 1 of `perf-02-page-waste.md`
+  // lives inside this number.
+  //
+  // **`curr`, all of it.** The panel is decimals: `simPosition` and `orderDest`
+  // print two of them, the health readout rounds to whole points, the globe's
+  // liquid is keyed on that rounded number, and the kit and action bars read
+  // discrete columns. Every one of those would strobe its last digit at the
+  // refresh rate off a blended row -- and the globe would redraw sixty times a
+  // second instead of thirty, because its throttle is broken by a change in the
+  // health it is drawing.
+  perfOpen();
+  updateHud(curr, stats, distance, arrived, settled, now, tickNow);
+  perfClose("hud");
 
   if (hintUntil && now > hintUntil) {
     hintUntil = 0;
     hintEl.classList.remove("live");
     hintEl.textContent = DEFAULT_HINT;
   }
+
+  // Last, so the window boundary sees a complete frame. `rawElapsed` rather than
+  // `elapsed` -- see the capture above.
+  perfFrame(now, rawElapsed, ticks, droppedBacklog);
 }
 
 // --------------------------------------------------------------------- boot
@@ -5331,7 +7280,9 @@ async function boot() {
       " (must equal `cargo run --release -p lab -- hash`)"
   );
 
-  const first = parseFrame(readFrame());
+  // The scratch state, because the loop has not run yet and its two are still
+  // empty. Nothing below holds `first` past `snapCamera`.
+  const first = parseFrame(frameView(), SCRATCH_STATE);
   arena = { x: first.arenaX, y: first.arenaY };
   syncHeroRail(first);
   resize();
@@ -5357,9 +7308,30 @@ async function boot() {
     // however long the tab was away and the sim would fast-forward.
     accumulator = 0;
     lastFrameTime = performance.now();
+    // And re-measure the rails, because a hidden tab is the one place the
+    // camera's slide flag can be spent on a slide that never happened: a rail
+    // toggled just before the tab went away has its transition paused and its
+    // 250 ms timer throttled to whole seconds, so the flag can be down before
+    // the rail has moved an inch, and the transition then runs on the way back
+    // with nothing watching it. Arming both rails buys 250 ms of measurement on
+    // return, which is the cheapest way to be sure the safe rect describes the
+    // window the player is now looking at.
+    if (document.visibilityState === "visible") {
+      railStartedMoving("enemy");
+      railStartedMoving("hero");
+    }
   });
 
+  // The breakdown, openable from the URL as well as from `P`, so a profiling
+  // run can start with the first frame instead of with whenever a hand got to
+  // the keyboard.
+  if (new URLSearchParams(location.search).get("perf") === "1") setPerfDetail(true);
+
   lastFrameTime = performance.now();
+  // Seeded, and not left at zero: the first window would otherwise be measured
+  // from the epoch of `performance.now()` and report an absurd frame rate for
+  // the first half second of every load.
+  perf.windowStart = lastFrameTime;
   rafId = requestAnimationFrame(loop);
 }
 

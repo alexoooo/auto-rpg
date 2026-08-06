@@ -360,6 +360,28 @@ throughput 5404 rollouts/s, 4979831 ticks/s, 2816563 decisions/s (0.37s wall)
 
 Five million simulated ticks per second, and every one of them reproducible.
 
+That number carried one asterisk, and `bench --carved` exists to remove it.
+Every scenario the lab iterates stands on an open rectangle, and `Dungeon::sees`
+is `!carved || raycast(..)` — so not one of those five million ticks has ever
+walked a ray. The build you actually play carves rooms and corridors, where that
+short-circuit is false and sight costs a DDA per pair per decision. `--carved`
+points the same bench at a generated dungeon, on one thread unless told
+otherwise, because the figure worth having there is per-core: a browser frame
+gets one core and needs sixty ticks out of it.
+
+```
+running 200 rollouts of a carved depth-5 dungeon, 3600 ticks each, across 1 threads (utility)
+throughput 117 rollouts/s, 199613 ticks/s, 178368 decisions/s (1.71s wall)
+```
+
+Two hundred thousand ticks a second on one core with the walls in — against
+185–201k across repeated runs of the same 4v6 skirmish on one thread. Nine
+bodies casting real rays cost, within the noise of the measurement, what ten
+bodies short-circuiting do. Both numbers are worth keeping and they answer
+different questions: 4.98M is what the whole machine does when it is grinding
+rollouts for `evolve`, and 200k is what one core does on the floor plan the
+game ships — about 3,300x the sixty ticks a second a frame budget asks for.
+
 ## The three decisions everything else follows from
 
 **The sim has no engine in it.** `crates/sim` depends on `crates/fx` and

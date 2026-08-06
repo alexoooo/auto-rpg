@@ -51,9 +51,12 @@ pub struct MindMemory {
 
 /// One action's opinion of the fight.
 ///
-/// Two methods, and the split between them is the whole design. [`appraise`] is
-/// what the selector reads to decide what should be in hand; [`drive`] is what
-/// actually runs, and only ever for the action being held.
+/// Three methods, and the split between the first two is the whole design.
+/// [`appraise`] is what the selector reads to decide what should be in hand;
+/// [`drive`] is what actually runs, and only ever for the action being held.
+/// [`standoff`] is the third and it is a different kind of thing: not a decision
+/// at all, but the one number out of `drive` that somebody *outside* the fight
+/// needs to know.
 ///
 /// [`appraise`] takes `&self` on purpose: a scorer that mutated would make the
 /// selector's answer depend on how many candidates it happened to look at, and
@@ -61,6 +64,7 @@ pub struct MindMemory {
 ///
 /// [`appraise`]: ActionMind::appraise
 /// [`drive`]: ActionMind::drive
+/// [`standoff`]: ActionMind::standoff
 pub trait ActionMind {
     /// How much this action wants to be in hand right now, on roughly the same
     /// `0..=3` scale the stance scores use so the two can be reasoned about
@@ -75,6 +79,30 @@ pub trait ActionMind {
     /// the limb.
     fn drive(&self, obs: &Observation, foe: &Contact, memory: &mut MindMemory)
         -> (Vec2, LimbCommand);
+
+    /// How far out this mind wants to stand from `foe`.
+    ///
+    /// The distance an [`sim::Order::Focus`] treats as *arrived*. A player who
+    /// clicks an enemy has said "fight that one", which is not the same thing as
+    /// "walk onto that one" -- so the anchor a focus order pulls toward is a ring
+    /// at this radius rather than the body at its centre. Inside the ring the
+    /// pursuit lets go and this mind owns the feet, which is what makes an archer
+    /// kite instead of closing and a duellist circle instead of standing on top
+    /// of somebody.
+    ///
+    /// **Every implementation must return the same number its own `drive` is
+    /// steering toward.** Two answers means a focused fighter is hauled off the
+    /// spacing it just chose, once per decision, forever -- and the two forces
+    /// would balance somewhere neither of them asked for. That is why
+    /// [`BowMind`] computes this here and `drive` reads it back rather than
+    /// keeping a second copy of the expression.
+    ///
+    /// **Required rather than defaulted**, on the same argument [`mind_for`] is
+    /// written for: a fifth mind should fail to compile rather than silently
+    /// inherit somebody else's idea of where to stand, which is a bug that would
+    /// show up as a character loitering at a strange distance and nowhere as a
+    /// line of code.
+    fn standoff(&self, obs: &Observation, foe: &Contact) -> Fx;
 }
 
 /// Fights with whatever blade is in hand.
@@ -124,6 +152,14 @@ impl ActionMind for BladeMind {
         let stance = crate::DuelistPolicy::choose_blade_stance(&self.weights, obs, foe, memory.stance);
         memory.stance = Some(stance);
         crate::DuelistPolicy::drive_blade_stance(&self.weights, obs, foe, stance)
+    }
+
+    /// The blade's own answer to where to stand, which every stance in
+    /// `drive_blade_stance` is already keeping station against through
+    /// [`crate::DuelistPolicy::station`]. Nothing is re-derived here and nothing
+    /// should be: this is the same call that function makes.
+    fn standoff(&self, obs: &Observation, foe: &Contact) -> Fx {
+        crate::DuelistPolicy::preferred_range(&self.weights, obs, foe)
     }
 }
 
@@ -287,6 +323,25 @@ impl ActionMind for GuardMind {
 
         (feet.clamp_length(Fx::ONE), LimbCommand::new(line, Fx::ONE))
     }
+
+    /// **The blade's range, not the shield's**, and the exception that the
+    /// contract on [`ActionMind::standoff`] is worth reading against.
+    ///
+    /// A guard is not keeping a station at all: the footwork above either clears
+    /// the arc outright or stands its ground, and neither of those is a distance
+    /// it is steering *to*. So there is no number of its own to return, and the
+    /// honest one is the fight's -- a shield is a hand held for a window of ticks
+    /// in the middle of a sword fight, and the fighter goes back to the sword.
+    ///
+    /// Answering with `theirs`, the tip of the arc this mind's feet are measured
+    /// against, was the alternative and it is worse in the one way that matters:
+    /// the ring would then grow and shrink every time the selector reached for
+    /// the shield and put it down again, so a pursued quarry would find the
+    /// fighter chasing it in and letting it go in time with its own swings.
+    /// A ring that flinches is not a ring.
+    fn standoff(&self, obs: &Observation, foe: &Contact) -> Fx {
+        crate::DuelistPolicy::preferred_range(&self.weights, obs, foe)
+    }
 }
 
 /// **Legs are for leaving.**
@@ -415,6 +470,27 @@ impl ActionMind for RunMind {
         // hand would read as physics and be a bug.
         (feet, LimbCommand::new(obs.limb.angle, Fx::ZERO))
     }
+
+    /// **The blade's range, from the one mind that is walking the other way.**
+    ///
+    /// Legs have no station either -- "away, always, and flat out" is not a
+    /// distance -- so this is [`GuardMind`]'s answer for [`GuardMind`]'s reason:
+    /// the ring belongs to the fight the fighter is in, and that fight is its
+    /// blade's.
+    ///
+    /// It is also what keeps the compromise this mind makes under an order an
+    /// honest one. A player who clicks an enemy while these are in hand has asked
+    /// for two opposite things at once and gets both: the leash pulls forward at
+    /// full strength while the legs push back at `LEASH_LANE`, so the fighter
+    /// gives ground while being dragged after its quarry. That tension is the
+    /// answer rather than a case to special-case away -- but it is only
+    /// defensible while the ring the pull relaxes at is a real fighting distance.
+    /// A runner that reported a standoff of its own -- whatever distance it felt
+    /// safe at -- would let go of the quarry somewhere no blade could reach, and
+    /// the order would quietly have meant nothing.
+    fn standoff(&self, obs: &Observation, foe: &Contact) -> Fx {
+        crate::DuelistPolicy::preferred_range(&self.weights, obs, foe)
+    }
 }
 
 impl RunMind {
@@ -476,12 +552,16 @@ impl ActionMind for BowMind {
     ) -> (Vec2, LimbCommand) {
         memory.stance = Some(Stance::Trade);
 
-        // Stand off *their* blade. Not off this fighter's own dead zone, which
-        // `rules::dead_zone` now reports as zero for a bow precisely because an
-        // arrow does not care how far from the shoulder it lands. Capped inside
-        // sight, because an arrow that runs out of flight is a draw thrown away.
-        let theirs = obs.radius + foe.radius + foe.action_length;
-        let ideal = (theirs * KEEP_OUT).min(obs.sight_range * Fx::from_ratio(9, 10));
+        // Where to stand, asked of `standoff` rather than worked out again here.
+        // **One expression, one reader.** This used to be two lines of arithmetic
+        // in this function and the ring a focus order pulls to would have been a
+        // second transcription of them -- which is exactly the drift this
+        // module's own header warns about, and the reason `station` was lifted
+        // out of `drive_blade_stance` in the first place. The consequence of the
+        // two copies parting company is specific and would be hard to see: the
+        // pursuit would let go at one distance while the feet steered to another,
+        // and the archer would settle wherever the two balanced.
+        let ideal = self.standoff(obs, foe);
 
         // **You cannot draw a bow and run at the same time**, and this line is
         // the whole price of the row.
@@ -514,6 +594,26 @@ impl ActionMind for BowMind {
         let limb = swing::press(obs, foe.offset.angle(), sim::Strike::Nearest);
         (feet.clamp_length(Fx::ONE), limb)
     }
+
+    /// **The line that makes a bow behave**, and the reason this method exists
+    /// on the trait at all.
+    ///
+    /// Stand off *their* blade. Not off this fighter's own dead zone, which
+    /// `rules::dead_zone` now reports as zero for a bow precisely because an
+    /// arrow does not care how far from the shoulder it lands, and not off
+    /// `full_reach`, which for a bow is the draw and would claim this thing
+    /// reaches three quarters of a unit. [`KEEP_OUT`] is applied to *their*
+    /// reach; the argument for that is at [`BowMind::appraise`] and the ring a
+    /// focus order builds from this inherits it for free, which is the whole
+    /// point of the ring being the mind's own number.
+    ///
+    /// Capped inside sight, because an arrow that runs out of flight is a draw
+    /// thrown away -- and the cap is why an archer told to fight something does
+    /// not simply refuse to approach anything with long arms.
+    fn standoff(&self, obs: &Observation, foe: &Contact) -> Fx {
+        let theirs = obs.radius + foe.radius + foe.action_length;
+        (theirs * KEEP_OUT).min(obs.sight_range * Fx::from_ratio(9, 10))
+    }
 }
 
 // `IdleMind` lived here: an inert fallback that appraised to `Fx::ZERO` and kept
@@ -537,5 +637,212 @@ pub fn mind_for(role: Role, weights: DuelistWeights) -> Box<dyn ActionMind> {
         Role::Guard => Box::new(GuardMind { weights }),
         Role::Move => Box::new(RunMind { weights }),
         Role::Shoot => Box::new(BowMind { weights }),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use sim::{ActionKind, Body, Dungeon, Faction, Loadout, Scenario, UnitSpec, World};
+
+    /// One archer and one Brute, `apart` units of open ground between them.
+    ///
+    /// Driven through a real `World` rather than assembled field by field. Every
+    /// number these tests are about -- a Brute's club length, a Rogue's radius,
+    /// the sight range the cap is measured against -- is a column of the stat
+    /// sheet or of the action registry, and a hand-built fixture is a place for
+    /// those to go quietly wrong while the assertions carry on passing.
+    ///
+    /// The pair stands east and west of the arena's centre, so `wall_clearance`
+    /// cancels along y and `open_ground` contributes nothing to the axis the
+    /// fight is on. That is what lets a claim about the archer's footwork below
+    /// be made one component at a time.
+    fn archer_facing(apart: Fx, held: ActionKind) -> (Observation, Contact) {
+        let dungeon = Dungeon::open(24, 16);
+        let centre = dungeon.extent() * Fx::HALF;
+        let unit = |kind: Body, faction, loadout, spawn| UnitSpec {
+            kind,
+            faction,
+            stats: kind.base_stats(),
+            loadout,
+            spawn,
+        };
+        let scenario = Scenario {
+            name: "standoff".to_string(),
+            dungeon,
+            portal: None,
+            max_ticks: u32::MAX,
+            units: vec![
+                unit(
+                    Body::Rogue,
+                    Faction::Heroes,
+                    Loadout::pair(held, ActionKind::Sword),
+                    centre - Vec2::new(apart * Fx::HALF, Fx::ZERO),
+                ),
+                unit(
+                    Body::Brute,
+                    Faction::Monsters,
+                    Body::Brute.default_loadout(),
+                    centre + Vec2::new(apart * Fx::HALF, Fx::ZERO),
+                ),
+            ],
+        };
+        let world = World::new(&scenario, 1);
+        let hero = world.alive_ids(Faction::Heroes)[0];
+        let obs = world.observe(hero);
+        let foe = obs.enemies()[0];
+        (obs, foe)
+    }
+
+    fn weights() -> DuelistWeights {
+        DuelistWeights::BASELINE
+    }
+
+    /// **The lift, as an equation.**
+    ///
+    /// `BowMind::drive` used to work out where to stand inline, in the two lines
+    /// transcribed verbatim below, and the ring an `Order::Focus` anchors at
+    /// needed the same number. Copying it would have been the drift this module's
+    /// header warns about, so it moved into `standoff` and `drive` reads it back
+    /// -- and this is the test that the move was a *move* rather than an edit. If
+    /// these ever stop agreeing, an archer's spacing has changed; the duel win
+    /// rates three files away are the measurement that would notice second, and
+    /// much less specifically.
+    ///
+    /// Asked at four distances, though the answer must not depend on where the
+    /// quarry is standing: what varies with distance in `drive` is the *pace*, and
+    /// a `standoff` that had picked up a dependence on `foe.distance` would be a
+    /// ring that moved as it was approached.
+    #[test]
+    fn a_bows_standoff_is_the_expression_its_drive_used_to_hold() {
+        let mind = BowMind { weights: weights() };
+        for apart in [2, 4, 8, 12] {
+            let (obs, foe) = archer_facing(Fx::from_int(apart), ActionKind::Bow);
+
+            let theirs = obs.radius + foe.radius + foe.action_length;
+            let ideal = (theirs * KEEP_OUT).min(obs.sight_range * Fx::from_ratio(9, 10));
+
+            assert_eq!(
+                mind.standoff(&obs, &foe).raw(),
+                ideal.raw(),
+                "the archer's standing distance moved at {apart} units apart"
+            );
+        }
+    }
+
+    /// The cap is not decoration -- it is what stops an archer refusing to
+    /// approach anything with long enough arms -- but it has to be reachable to
+    /// be doing anything. A Brute's club through a Rogue's eyes asks for about
+    /// 2.7 units of standoff against 12.6 of sight, so the sight term never binds
+    /// anywhere in the roster as it stands. That is a fact about today's numbers
+    /// rather than a property of the rule, so the rule is exercised by blinding
+    /// the archer instead of by hoping a body turns up with long enough arms.
+    #[test]
+    fn an_archer_will_not_stand_off_further_than_it_can_see() {
+        let mind = BowMind { weights: weights() };
+        let (mut obs, foe) = archer_facing(Fx::from_int(4), ActionKind::Bow);
+        let roomy = mind.standoff(&obs, &foe);
+        assert!(
+            roomy < obs.sight_range * Fx::from_ratio(9, 10),
+            "the fixture is already sight-capped, so it cannot show the cap biting"
+        );
+
+        obs.sight_range = Fx::from_int(2);
+        let blinkered = mind.standoff(&obs, &foe);
+        assert_eq!(blinkered, Fx::from_ratio(9, 5), "the cap did not bind");
+        assert!(blinkered < roomy);
+    }
+
+    /// **`drive` really does read `standoff`**, which is the half of "one
+    /// expression, one reader" that an equality against a transcription cannot
+    /// reach on its own.
+    ///
+    /// Stated as the crossover rather than by re-deriving the footwork: an archer
+    /// inside its standoff gives ground, one outside it closes, and the sign of
+    /// that turns over at the distance `standoff` reports. A `drive` that had kept
+    /// a second copy of the expression would pass the equality above and fail here
+    /// the moment the two copies differed by anything at all.
+    ///
+    /// The probes sit a fifth of the range either side of the mark, which clears
+    /// `station`'s own deadband of a tenth -- inside it the answer is deliberately
+    /// nothing, and a question with no answer is not a test.
+    #[test]
+    fn an_archers_feet_turn_round_at_the_distance_its_standoff_names() {
+        let mind = BowMind { weights: weights() };
+        let mut memory = MindMemory::default();
+        let (probe, foe) = archer_facing(Fx::from_int(4), ActionKind::Bow);
+        let ring = mind.standoff(&probe, &foe);
+        let band = ring * Fx::from_ratio(2, 10);
+
+        let (inside, near) = archer_facing(ring - band, ActionKind::Bow);
+        let (out, _) = mind.drive(&inside, &near, &mut memory);
+        assert!(
+            out.x < Fx::ZERO,
+            "crowded rather than backing off {band} inside the ring: {out:?}"
+        );
+
+        let (outside, far) = archer_facing(ring + band, ActionKind::Bow);
+        let (back, _) = mind.drive(&outside, &far, &mut memory);
+        assert!(
+            back.x > Fx::ZERO,
+            "held off rather than closing {band} outside the ring: {back:?}"
+        );
+    }
+
+    /// The three minds with a blade to answer for report the blade's range, and
+    /// report it *exactly* -- `preferred_range` itself, not something derived
+    /// from it.
+    ///
+    /// `GuardMind` and `RunMind` are the interesting two, and they are here for
+    /// the reason their own doc comments give: neither is keeping a station at
+    /// all, so neither has a distance of its own to report, and the honest answer
+    /// is the fight's. A shield and a pair of legs are both things a fighter holds
+    /// for a window in the middle of a sword fight.
+    #[test]
+    fn the_minds_that_have_no_station_of_their_own_report_the_blades() {
+        let (obs, foe) = archer_facing(Fx::from_int(4), ActionKind::Sword);
+        let want = crate::DuelistPolicy::preferred_range(&weights(), &obs, &foe);
+        for (name, mind) in [
+            ("blade", mind_for(Role::Strike, weights())),
+            ("guard", mind_for(Role::Guard, weights())),
+            ("legs", mind_for(Role::Move, weights())),
+        ] {
+            assert_eq!(
+                mind.standoff(&obs, &foe).raw(),
+                want.raw(),
+                "the {name} mind stands somewhere the blade does not"
+            );
+        }
+    }
+
+    /// **What the whole ring mechanism is for, in one inequality.**
+    ///
+    /// A bow's standoff is outside the distance at which the quarry's own weapon
+    /// starts to bite, and a blade's is inside it. That is not a coincidence of
+    /// the current numbers, it is the difference between the two kinds of mind: a
+    /// blade measures out from the reach it means to fight with, and a bow
+    /// measures out from the reach it means to stay clear of. A focus order
+    /// inherits whichever is in hand, which is how the same click means "close"
+    /// to a swordsman and "stop here" to an archer without either of them being
+    /// told anything about orders.
+    #[test]
+    fn a_bow_stands_outside_the_quarrys_reach_and_a_blade_inside_it() {
+        let (blade_obs, foe) = archer_facing(Fx::from_int(4), ActionKind::Sword);
+        let (bow_obs, _) = archer_facing(Fx::from_int(4), ActionKind::Bow);
+        // Where their club stops: the same figure `GuardMind` measures its
+        // retreats against, and the one a bow's whole case is made of.
+        let theirs = bow_obs.radius + foe.radius + foe.action_length;
+
+        let bow = BowMind { weights: weights() }.standoff(&bow_obs, &foe);
+        let blade = BladeMind { weights: weights() }.standoff(&blade_obs, &foe);
+        println!("their reach {theirs}, bow stands at {bow}, blade at {blade}");
+        assert!(
+            bow > theirs,
+            "an archer set up inside a Brute's club: {bow} against {theirs}"
+        );
+        assert!(
+            blade < theirs,
+            "a swordsman refused to come inside a Brute's club: {blade} against {theirs}"
+        );
     }
 }
