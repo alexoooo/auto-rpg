@@ -1911,11 +1911,84 @@ now spent only on the hero and the locked quarry and every other body keeps its
 dashed ring, an outline being circumference-scaled where a fill is area-scaled:
 15.69x to 2.60x, same 377 strokes.
 
-The lesson generalises past that one function, and it is the one to carry into the
-isometric view: **at these unit counts the binding constraint is blended fill area,
-not draw-call count, and the phase timings cannot see it.** Count area before
-optimising call counts, and treat a large `idle` beside a small `render` as the
-compositor asking to be measured a different way.
+**That fix was real and it was not the bottleneck, and the way it was found is the
+part worth keeping.** Capping the fill did cut 15.69x of overdraw to 2.60x, but the
+page still ran at 11 fps on eight bodies, in the tactical view as well as the
+regular one — which already ruled out the flagstone pattern and the vignette, the
+two most expensive fills on the page when timed in isolation. What settled it was
+bisecting by *removing work* rather than by hiding it, on the machine that was
+actually slow: no-op the canvas primitives one at a time on the live context and
+measure. Note that hiding an element does **not** test its cost — `visibility:
+hidden` on the canvas skips one composite and still rasterises every fill.
+
+The answer was a single primitive:
+
+| | fps |
+|---|---|
+| baseline, 8 bodies | 11.2 |
+| `stroke()` no-op | **54.4** |
+| every drawing primitive no-op | 49.9 |
+| game loop stopped entirely | 59.5 |
+
+**Killing `stroke` alone recovered as much as killing all drawing**, and fills,
+rects, text and images were collectively free. Attributing each stroke to its
+function found `drawVision` cutting **3,363 dash sub-paths per frame** at a 792 px
+radius — 80% of all the dashing on the page — because the pattern was a fixed
+`[7, 9]` pixels while the circumference scales with sight radius *and* zoom. A
+dash is tessellated into one sub-path per mark before anything is rasterised, so
+that count was unbounded in the two directions the camera moves.
+
+Pausing the sim first — so the body count stops moving under the measurement, which
+is what made the earlier sweep unreadable — gave a clean two-round comparison:
+
+| | fps |
+|---|---|
+| as shipped | 13.7 |
+| dash count capped at 12 | 40.5 |
+| **sight rings drawn solid** | **53.8** |
+| sight rings skipped entirely | 52.3 |
+| every stroke in the page suppressed | 59.3 |
+
+Drawing the rings solid is worth as much as not drawing them at all, so a large
+solid arc costs nothing and the whole bill was the dashing. Capping the mark count
+is the wrong lever — the cost is superlinear, five times the marks cost nearly nine
+times the time — so **`drawVision`'s ring is solid**, at a lower alpha because a
+continuous line lays down about twice the ink. `drawReach` keeps its dash and needs
+no cap: it was measured fully dashed at 567 marks a frame *inside* the 52.3 result,
+because the cost is the product of mark count and radius rather than dashing as
+such. `arcDash` remains as a ceiling against a radius running away, set to leave
+every pattern on the page today looking exactly as it does.
+
+**With the dashing gone, one more cost became measurable that had been hiding under
+it.** Live this time, with the world moving, two rounds:
+
+| | fps |
+|---|---|
+| baseline | 33.2 |
+| `updateHud` suppressed — no DOM writes | 33.0 |
+| `backdrop-filter` removed from the HUD | 43.0 |
+| `stroke` suppressed | 55.5 |
+| `render` suppressed — no canvas at all | 55.9 |
+
+The HUD's per-frame DOM writes cost *nothing* — the two rounds disagreed on the sign
+— so the `tick` and `fps` chips can keep updating at 60 Hz. But `backdrop-filter`
+cost about **7 ms a frame**: seventeen elements each asking the compositor to
+re-snapshot and re-blur its slice of a canvas that repaints every frame. They are
+now flat, with `--scrim` at 0.88 instead of 0.72 to carry the legibility the blur
+was providing; `.rail-inner`'s blur sat behind a 97%-opaque gradient and was buying
+3% of anything. And the last two rows are the same number, which says it again from
+a third direction: **with the dashed rings fixed, every remaining canvas cost is
+stroking, and fills, sprites and text are free.**
+
+So the lesson to carry into the isometric view is the opposite of the one an
+earlier draft of this section drew: **fill area was affordable and stroke
+tessellation was not.** A richer world made of textured fills is cheap on this
+hardware; one made of outlines, dashed overlays and hairlines is not, and a dash
+pattern in fixed pixels is a cost that grows every time the camera zooms in. What
+does generalise is the method: the phase timings cannot see any of this, a large
+`idle` beside a small `render` is the compositor asking to be measured a different
+way, and every configuration needs a repeat of the baseline as a control — the run
+that first suggested `backdrop-filter` was the culprit failed exactly there.
 
 The page carries the instrument for it now. `P` toggles a ten-phase frame
 breakdown and a ticks-per-frame histogram beside the always-on fps chip, and

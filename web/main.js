@@ -4443,7 +4443,7 @@ function drawLevel(state, origin) {
   // Last, so it also takes the outer half of the edge stroke down with it at
   // range: a lit rock face at the far edge of sight should not be the brightest
   // line on screen.
-  drawLantern(state, w, h);
+  drawLantern(state, clipX, clipY, clipW, clipH);
 }
 
 /**
@@ -4461,8 +4461,20 @@ function drawLevel(state, origin) {
  * jagged boundary does not move the boundary an inch. Do not try to make the two
  * agree -- the gradient is a circle and the answer is not, and the answer is the
  * one that is right.
+ *
+ * **The rect is the viewport and not the arena**, on exactly the argument
+ * `drawLevel` makes about its own two fills, and it matters more here than it
+ * does there: this one is a gradient, so every pixel of it is an interpolation
+ * and a blend rather than a copy. At zoom 1 the arena is 4124x2749 CSS pixels
+ * against a 1728x945 viewport -- **seven times the area, at two device pixels to
+ * the CSS pixel, every frame** -- and all of it outside the window was being
+ * blended and then thrown away. The gradient is still *built* from the hero and
+ * the sight radius, in the level's own space, so the falloff lands in exactly the
+ * same place on exactly the same pixels; only the rectangle it is painted through
+ * shrinks. The clip does not save this on its own: `floorLit` is all the lit
+ * floor on the level, not the lit floor on screen.
  */
-function drawLantern(state, w, h) {
+function drawLantern(state, x0, y0, w, h) {
   const hero = state.hero;
   if (!fogOn() || !hero || !(hero.sight > 0)) return;
   const x = px(hero.x);
@@ -4474,7 +4486,7 @@ function drawLantern(state, w, h) {
   ctx.save();
   ctx.clip(levelPaths.floorLit);
   ctx.fillStyle = lamp;
-  ctx.fillRect(0, 0, w, h);
+  ctx.fillRect(x0, y0, w, h);
   ctx.restore();
 }
 
@@ -4818,23 +4830,50 @@ function skinOf(unit) {
  *
  * So the fill is spent only where it says something a ring cannot -- the body you
  * are commanding, and the body you have locked -- and everything else keeps the
- * dashed outline, which is circumference-scaled and therefore some four hundred
- * times cheaper at that radius. The edge of sight is what the overlay is *for*,
- * and the ring is still the thing that draws it.
+ * dashed outline. The edge of sight is what the overlay is *for*, and the ring is
+ * still the thing that draws it.
+ *
+ * **The ring was not free either, and capping the fill did not fix the page.** An
+ * earlier draft of this comment called the outline "some four hundred times
+ * cheaper", which is true of stroke *coverage* and beside the point: a dashed
+ * stroke is cut into one sub-path per mark before any of it is rasterised, and
+ * under a fixed `[7, 9]` pixel pattern that count follows the circumference --
+ * growing with sight radius and again with zoom. At eight bodies this one function
+ * was cutting 3,363 sub-paths a frame, 80% of all the dashing here, and the page
+ * ran at 13 fps.
+ *
+ * So the ring is **solid**, and that is a performance decision before it is a
+ * visual one. Measured on a paused room, two rounds: 13.7 fps as shipped, 40.5
+ * with the dash count capped at twelve, **53.8 solid**, against a 59.3 ceiling
+ * with every stroke in the page suppressed. Skipping these rings entirely scored
+ * 52.3 -- the same as drawing them solid -- so a large solid arc costs nothing and
+ * the whole bill was the dashing. Capping the count is the wrong lever: the cost
+ * is superlinear, five times the marks cost nearly nine times the time, and twelve
+ * dashes on a ring this size reads as a dotted line rather than a soft edge.
+ *
+ * `drawReach` keeps its dash and needs no cap. It was measured fully dashed at
+ * 567 segments a frame inside the 52.3 result, because its radius is small -- the
+ * cost lives in the product of mark count and radius, not in dashing as such.
+ * Which leaves the two rings looking *more* distinct than before, not less: sight
+ * is a soft continuous edge, reach is a hard dashed one.
  */
 function drawVision(unit, filled) {
   if (!visionVisible || !(unit.sight > 0)) return;
   const skin = skinOf(unit);
+  const r = px(unit.sight);
   ctx.save();
   ctx.beginPath();
-  ctx.arc(px(unit.x), px(unit.y), px(unit.sight), 0, TAU);
+  ctx.arc(px(unit.x), px(unit.y), r, 0, TAU);
   if (filled) {
     ctx.fillStyle = `rgba(${skin.wedge},0.032)`;
     ctx.fill();
   }
-  ctx.strokeStyle = `rgba(${skin.wedge},0.17)`;
+  // Down from 0.17, because a continuous line lays down roughly twice the ink the
+  // 7-on-9-off pattern did over the same circumference, and this ring has to sit
+  // under everything else in the overlay without competing with it.
+  ctx.strokeStyle = `rgba(${skin.wedge},0.09)`;
   ctx.lineWidth = 1;
-  ctx.setLineDash([7, 9]);
+  ctx.setLineDash(NO_DASH);
   ctx.stroke();
   ctx.restore();
 }
@@ -4859,15 +4898,53 @@ function setVisionVisible(on) {
   );
 }
 
+/** The empty dash list, hoisted so the strokes that want a solid line are not
+ *  handing the allocator a fresh array per body per frame. */
+const NO_DASH = [];
+
+/** A ceiling on how many pieces a dashed ring may be cut into. **Not a tuning
+ *  knob -- a guard against one specific bug, which has already been paid for
+ *  once.**
+ *
+ *  A dash pattern is cut into one sub-path per mark *before* anything is
+ *  rasterised, so a pattern quoted in fixed pixels costs `circumference / period`
+ *  -- which grows with the radius and again with zoom, the two directions this
+ *  camera actually moves, and is bounded by nothing. `drawVision` hit 3,363 marks
+ *  a frame that way and cost the page 40 fps; the note on that function has the
+ *  measurements. The cost is in the *product* of mark count and radius, so small
+ *  rings are free at any density: `drawReach` was measured at 567 marks a frame
+ *  inside a result that was already at the ceiling.
+ *
+ *  96 is therefore set to leave every dash on the page today exactly as it looks
+ *  -- `drawReach` at its measured radius comes to 91 -- and to bite only when a
+ *  radius runs away, which is the case nobody notices until the frame rate goes.
+ *  A ring that needs to *look* coarser should say so in its own pattern. */
+const MAX_DASH_SEGMENTS = 96;
+
+/** An `on`/`off` dash pattern in pixels, stretched only as far as it must be to
+ *  keep a ring of `radius` under `MAX_DASH_SEGMENTS` pieces.
+ *
+ *  Under the ceiling it returns exactly the pattern asked for, so nothing that
+ *  fits looks any different. The ratio between mark and gap is preserved, so it
+ *  stretches rather than turning into some other dash. */
+function arcDash(radius, on, off) {
+  const period = on + off;
+  const want = (TAU * radius) / MAX_DASH_SEGMENTS;
+  if (want <= period) return [on, off];
+  const k = want / period;
+  return [on * k, off * k];
+}
+
 function drawReach(unit, skin, now) {
   if (unit.intent !== INTENT_ATTACK) return;
   const beat = (Math.sin(now / 260) + 1) / 2;
+  const r = px(unit.radius + unit.actionLength);
   ctx.save();
   ctx.strokeStyle = `rgba(${skin.wedge},${(0.10 + 0.10 * beat).toFixed(3)})`;
   ctx.lineWidth = 1.2;
-  ctx.setLineDash([3, 5]);
+  ctx.setLineDash(arcDash(r, 3, 5));
   ctx.beginPath();
-  ctx.arc(px(unit.x), px(unit.y), px(unit.radius + unit.actionLength), 0, TAU);
+  ctx.arc(px(unit.x), px(unit.y), r, 0, TAU);
   ctx.stroke();
   ctx.restore();
 }
