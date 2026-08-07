@@ -44,6 +44,13 @@ world units each — roughly 2,500 px of path at default zoom, about **250 marks
 pre-existing and iso does not make it materially worse, but it is exactly the pattern
 `MAX_DASH_SEGMENTS` (`main.js:4922`) exists to prevent, and it has no cap.
 
+**Corrected while landing: `ROUTE_MAX` does not bound the path being drawn.** `sampleDrag` thins
+`drag.points` to `DRAG_SAMPLE` spacing and never caps the count; `trimPath`'s `ROUTE_MAX` is
+applied in `endDrag`, on the way out. So the *walked* route is 24 legs and the route *under the
+finger* is as long as the player scribbles — the case with no bound at all, and the one that
+actually made this worth taking now. Measured: 248 marks top-down at default framing, 175–350 under
+iso depending on bearing, 619/438–876 at `ZOOM_MAX`, all for the 24-leg case alone. After: 96.
+
 `arcDash` takes a *radius* and assumes a circle, so it does not apply here. The sibling it needs:
 
 ```js
@@ -108,6 +115,12 @@ frame, which is irrelevant.
 Note the `translate(0, -lift(SHOT_Z))` comes **before** `groundSpace`, so the lift is in screen
 space — straight up the screen, which is what a height is.
 
+**Corrected while landing: both new passes need a `PROJ.upright` gate.** The snippet above is
+written from the iso side and is not a no-op top-down — it would lift every arrow 47 px up the
+screen and put a black dot where the arrow used to be, and `Tactical` and `Dev` are the A/B
+control. From directly above a height is invisible by construction: the arrow and its shadow are
+the same pixels. Same gate, and the same argument, as `drawCharacter`'s ground pre-pass.
+
 ## 5. `drawLantern` — squash it
 
 `main.js:4477-4491`. Now is the time, since everything else on the floor is elliptical:
@@ -153,7 +166,14 @@ The gradient radius `far` is in the pre-squash space, so it needs no change.
 6. The lantern reaches the viewport edge at maximum zoom-out with the camera in each of the four
    corners.
 7. A 24-waypoint route no longer costs an unbounded number of dash marks — count them.
-8. `Tactical` and `Dev` are byte-identical to before.
+8. `Tactical` and `Dev` are byte-identical to before — **with one sanctioned exception, added while
+   landing.** `drawRoute` runs above `render`'s projection branch, so §3's dash cap reaches the
+   control modes too. At default framing it engages past 960 screen pixels of polyline, about nine
+   legs, and a ten-waypoint route draws as a coarser dash than it did. Confirmed by replay: this is
+   the *only* difference in either control mode across every function this session touched;
+   everything else is identical to 1e-12 px. Blessed rather than reverted, because an unbounded
+   dash is a hazard the top-down page had all along and capping it in one mode only would leave the
+   two modes disagreeing about something the projection had nothing to do with.
 
 ## Tripwires
 

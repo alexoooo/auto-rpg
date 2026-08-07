@@ -4281,22 +4281,34 @@ function lift(h) {
  *  patterns keep their measured mark counts: dashing happens in user space and
  *  is transformed afterwards.
  *
- *  **What is on it, as of `iso-05`.** Six call sites, and five of them are one
- *  line each because of the paragraph above: `drawLimb`, `drawMarks` twice,
- *  `drawSprint` and `drawCorpse`'s flat arm were all already written as a screen
- *  offset from a body's anchor, so converting each was swapping its leading
- *  `ctx.translate` for this and changing nothing below it. The sixth is
- *  `drawCharacter`'s ground pre-pass -- shadow, facing wedge, collision ring --
- *  which is the three passes that stayed on the floor when the body stood up.
+ *  **What is on it, as of `iso-06`, which is everything that is going on it.**
  *
- *  **What is still to come, in `iso-06`:** the free-standing decals, which are
- *  the ones anchored to a *point in the room* rather than to a body -- the vision
- *  disc, the reach ring, the lock and destination rings, the portal, the route
- *  beads, and the shadow under an arrow in flight. Those are held back not
- *  because they are harder but because each one is a visible behaviour change
- *  under iso rather than a no-op, and they want to be looked at one at a time.
- *  Anything not in that list and not in the paragraph above is still painting in
- *  screen space; do not assume a decal is converted because its neighbour is. */
+ *  Anchored to a *body*, from `iso-05`: `drawLimb`, `drawMarks` twice,
+ *  `drawSprint`, `drawCorpse`'s flat arm, and `drawCharacter`'s ground pre-pass --
+ *  shadow, facing wedge, collision ring -- which is the three passes that stayed
+ *  on the floor when the body stood up.
+ *
+ *  Anchored to a *point in the room*, from `iso-06`: `drawVision`, `drawReach`,
+ *  `drawLock`'s ring, `drawDestination`'s whole marker, `drawPortal`, `drawRoute`'s
+ *  beads, and the ground shadow under an arrow in flight. Every one of them was a
+ *  one-line change at the top with nothing below it moving, because of the
+ *  paragraph above.
+ *
+ *  **Three things on the floor are deliberately *not* on it, and the rule is the
+ *  same for all three.** `drawTrail`, `drawRoute`'s two polylines and `drawLock`'s
+ *  tether project each endpoint instead. An affine map takes a line to a line, so
+ *  the geometry is identical either way; what differs is the stroke, which the
+ *  shear would stretch with the bearing. A line that is a *hint* keeps one weight;
+ *  a ring that traces something the sim can measure goes through the shear and
+ *  wears the anisotropy, because being the right shape matters more. `drawCorpse`'s
+ *  upright arm is out for a different reason again, stated there.
+ *
+ *  **Every call site is balanced by `save`/`restore` and none may be balanced any
+ *  other way.** `ctx.transform` has no tidy inverse pair: a `translate` can be
+ *  undone by translating back and a `rotate` by rotating back, and several of these
+ *  functions used to do exactly that, but there is nothing to write here that puts
+ *  the shear back. A missed `restore` leaks the shear into the next item in the
+ *  merge walk, which under iso is somebody else's body. */
 function groundSpace(wx, wy) {
   ctx.translate(projX(wx, wy), projY(wx, wy));
   if (PROJ.shear) ctx.transform(1, 0.5, -1, 0.5, 0, 0);
@@ -5460,6 +5472,17 @@ function drawLevel(state, origin) {
  * same place on exactly the same pixels; only the rectangle it is painted through
  * shrinks. The clip does not save this on its own: `floorLit` is all the lit
  * floor on the level, not the lit floor on screen.
+ *
+ * **Squashed 2:1 under iso**, which is `iso-06`'s only change here. Everything
+ * else lying on this floor is an ellipse now, and a round falloff among them was
+ * the last thing on the ground still shaped like the top-down view. It is the
+ * *aspect* that is being matched, not the size: `far` stays `px(sight)`, in the
+ * pre-squash space, so the softening keeps the extent it has always had. (A world
+ * circle of `sight` projects with semi-major `px(sight) * PROJ.ex`, which is a
+ * factor of root two wider than this -- and deliberately not chased, because the
+ * paragraph above is the whole point: the lantern is a cosmetic softening of an
+ * exact tile-granular fact, not a second visibility model, and making it agree
+ * with the vision ring would be making it look like the answer.)
  */
 function drawLantern(state, x0, y0, w, h) {
   const hero = state.hero;
@@ -5472,8 +5495,33 @@ function drawLantern(state, x0, y0, w, h) {
   lamp.addColorStop(1, "rgba(9,11,16,0.55)");
   ctx.save();
   ctx.clip(levelPaths.floorLit);
+
+  // **The rect has to be un-squashed or the fill stops short of the window**, and
+  // that is a bug you cannot see from the code: the squash is about the character,
+  // so how far short it stops depends on where the character is standing.
+  //
+  // The squash maps user `(u, v)` to `(u, y + (v - y) / 2)`. Solving that for the
+  // rect whose *image* is the one this function was handed:
+  //
+  //     y + (ry      - y) / 2 = y0      ->  ry = 2 * y0 - y
+  //     y + (ry + rh - y) / 2 = y0 + h  ->  rh = 2 * h
+  //
+  // so the painted region is exactly `[x0, x0 + w] x [y0, y0 + h]`, the same
+  // device pixels as before the squash, with no dependence on `scale` or on the
+  // camera -- which is what makes "at every zoom, with the camera anywhere" a
+  // one-line proof rather than four corner cases. `x` is untouched by a
+  // `scale(1, k)` between two translates, so `x0` and `w` do not move.
+  let ry = y0;
+  let rh = h;
+  if (PROJ.shear) {
+    ctx.translate(x, y);
+    ctx.scale(1, 0.5);
+    ctx.translate(-x, -y);
+    ry = 2 * y0 - y;
+    rh = h * 2;
+  }
   ctx.fillStyle = lamp;
-  ctx.fillRect(x0, y0, w, h);
+  ctx.fillRect(x0, ry, w, rh);
   ctx.restore();
 }
 
@@ -5487,34 +5535,45 @@ function drawLantern(state, x0, y0, w, h) {
  */
 function drawPortal(state, now) {
   if (!state.portalState) return;
-  const x = projX(state.portalX, state.portalY);
-  const y = projY(state.portalX, state.portalY);
   const r = px(0.9);
   const open = state.portalState === 2;
 
+  // All four passes -- the shut ring, the glow, and the two spinning arcs -- lie
+  // on the floor, and every one of them was already written as a screen offset
+  // from the portal's anchor, so this is the whole of the conversion. The dash
+  // stays `[5, 7]` and stays a user-space pattern: 40 marks on a 0.9-unit ring at
+  // default framing, exactly as many as top-down.
   ctx.save();
+  groundSpace(state.portalX, state.portalY);
   if (!open) {
     // Shut: a dim ring, static, obviously not going anywhere.
     ctx.strokeStyle = "rgba(150,180,230,0.18)";
     ctx.lineWidth = 2;
     ctx.setLineDash([5, 7]);
     ctx.beginPath();
-    ctx.arc(x, y, r, 0, TAU);
+    ctx.arc(0, 0, r, 0, TAU);
     ctx.stroke();
     ctx.restore();
     return;
   }
 
-  const glow = ctx.createRadialGradient(x, y, 0, x, y, r * 1.7);
+  const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 1.7);
   glow.addColorStop(0, "rgba(110,231,255,0.30)");
   glow.addColorStop(1, "rgba(110,231,255,0)");
   ctx.fillStyle = glow;
   ctx.beginPath();
-  ctx.arc(x, y, r * 1.7, 0, TAU);
+  ctx.arc(0, 0, r * 1.7, 0, TAU);
   ctx.fill();
 
   // Two arcs turning against each other, which reads as a way through rather
   // than as a marker on the floor.
+  //
+  // **The spin eases under iso, and that is correct -- do not "fix" it.** `sweep`
+  // is an angle in the *pre-shear* space, so once it is sheared the arc's ends no
+  // longer sweep the screen at a uniform rate: fastest across the wide axis of the
+  // ellipse, slowest across the compressed one. That is what a ring spinning flat
+  // on the ground looks like from this angle, and making it uniform on screen
+  // would be making it spin about an axis the floor does not have.
   const spin = now / 900;
   ctx.lineCap = "round";
   for (let i = 0; i < 2; i++) {
@@ -5522,12 +5581,19 @@ function drawPortal(state, now) {
     ctx.strokeStyle = i ? "rgba(110,231,255,0.55)" : "rgba(180,245,255,0.85)";
     ctx.lineWidth = i ? 2 : 3;
     ctx.beginPath();
-    ctx.arc(x, y, r * (i ? 0.62 : 1), sweep, sweep + TAU * 0.62);
+    ctx.arc(0, 0, r * (i ? 0.62 : 1), sweep, sweep + TAU * 0.62);
     ctx.stroke();
   }
   ctx.restore();
 }
 
+/** Where the character has been. **Not `groundSpace`, and verified rather than
+ *  converted in `iso-06`:** an affine map takes a line to a line, so projecting
+ *  each endpoint puts the segment exactly where the shear would have, and leaves
+ *  the *width* isotropic instead of stretching it with the bearing. A trail is a
+ *  hint drawn on the floor rather than a thing measured on it, so the one that
+ *  keeps a constant weight is the right one. Same argument as `drawRoute`'s two
+ *  polylines. */
 function drawTrail() {
   if (trail.length < 2) return;
   ctx.save();
@@ -5578,13 +5644,62 @@ function drawRoute(state, now) {
   // whose legs are otherwise identical lines. `now` and not a tick, like the
   // portal's spin and the destination's beat: this describes an intention
   // rather than a motion, so it goes on crawling while the world is frozen.
+  //
+  // **The dash is capped now**, which is the one substantive change `iso-06` made
+  // in here and is a pre-existing problem rather than an isometric one. The path
+  // the module is walking is `ROUTE_MAX` legs of `DRAG_SAMPLE` world units -- some
+  // 2,500 screen pixels at default framing, 248 marks -- and that grew with the
+  // zoom and with the bearing and with nothing stopping it. **The path under the
+  // finger is worse and is the case that matters:** `sampleDrag` thins to
+  // `DRAG_SAMPLE` spacing but does not cap the count, so `drag.points` is as long
+  // as the player cares to scribble, and `trimPath`'s `ROUTE_MAX` is only applied
+  // on the way out in `endDrag`. That is precisely the shape of the bug
+  // `MAX_DASH_SEGMENTS` was added to prevent, and this was the last uncapped dash
+  // on the page. See `pathDash`.
+  //
+  // **The cap reaches `[tactical]` and `[dev]` too, and that is deliberate.**
+  // `drawRoute` runs above `render`'s projection branch, so this is the one place
+  // in the whole conversion where the A/B control does not draw what it drew
+  // before: at default framing the cap engages past 960 screen pixels of
+  // polyline, which is about nine legs, and a ten-waypoint route that was a fine
+  // dotted crawl becomes a coarser dashed one. That is a fair trade and not an
+  // oversight. The control exists to isolate what the *projection* changed, and
+  // an unbounded dash is a performance hazard the top-down page had all along --
+  // fixing it in one mode and not the other would leave the two disagreeing about
+  // something that has nothing to do with the projection, which is worse.
+  //
+  // **The length is measured on the *screen* polyline, and that is the space the
+  // cap has to be stated in.** `setLineDash` is a user-space pattern, and the user
+  // space this path is built in is screen pixels -- the points are pre-projected
+  // and the top-level CTM is translate-only -- so the number of marks the
+  // rasteriser cuts is this sum over this period, not a world length over
+  // anything. It is accumulated in the loop that is building the path anyway, so
+  // it costs one `hypot` per leg and no second walk.
   ctx.strokeStyle = "rgba(110,231,255,0.18)";
   ctx.lineWidth = 1.4;
-  ctx.setLineDash([4, 6]);
-  ctx.lineDashOffset = -((now / 55) % 10);
   ctx.beginPath();
   ctx.moveTo(hx, hy);
-  for (const p of path) ctx.lineTo(projX(p.x, p.y), projY(p.x, p.y));
+  let lastX = hx;
+  let lastY = hy;
+  let span = 0;
+  for (const p of path) {
+    const sx = projX(p.x, p.y);
+    const sy = projY(p.x, p.y);
+    span += Math.hypot(sx - lastX, sy - lastY);
+    ctx.lineTo(sx, sy);
+    lastX = sx;
+    lastY = sy;
+  }
+  const dash = pathDash(span, 4, 6);
+  ctx.setLineDash(dash);
+  // The crawl is quoted in pixels per millisecond and stays that whatever the
+  // pattern is; what has to follow the pattern is the *wrap*, which is why the
+  // modulus is the period rather than the literal 10. Under the cap the period is
+  // `4 + 6` and this is the expression it replaces, to the byte. Over it, a fixed
+  // 10 would jump the dashes back by a fraction of a stretched period every 10 px
+  // of crawl -- a stutter on the one line whose whole job is to say which way the
+  // path runs.
+  ctx.lineDashOffset = -((now / 55) % (dash[0] + dash[1]));
   ctx.stroke();
 
   // The leg being walked, over the top of that and solid. One leg is the only
@@ -5604,12 +5719,22 @@ function drawRoute(state, now) {
   // put a much louder ring on exactly that spot. Two rings on one point read as
   // two waypoints. Mid-drag nothing has been sent yet, so every bead is the
   // page's to draw.
+  //
+  // A bead is a mark *on the floor* -- it says "the character will stand here" --
+  // so unlike the two polylines above it goes through `groundSpace` and comes out
+  // as an ellipse with the same 2:1 aspect as the tile it is sitting on. One
+  // `save`/`restore` per bead, because `groundSpace` is a `ctx.transform` and
+  // there is no tidy inverse to translate back by. A stroke apiece either way, so
+  // the pair is the whole added cost and it is two matrix pushes.
   ctx.strokeStyle = "rgba(110,231,255,0.22)";
   ctx.lineWidth = 1.2;
   for (let i = drag ? 0 : 1; i < path.length; i++) {
+    ctx.save();
+    groundSpace(path[i].x, path[i].y);
     ctx.beginPath();
-    ctx.arc(projX(path[i].x, path[i].y), projY(path[i].x, path[i].y), px(ROUTE_MARK), 0, TAU);
+    ctx.arc(0, 0, px(ROUTE_MARK), 0, TAU);
     ctx.stroke();
+    ctx.restore();
   }
   ctx.restore();
 }
@@ -5661,9 +5786,18 @@ function drawLock(state, now) {
   ctx.strokeStyle = `rgba(${MONSTER_SKIN.glow},${alpha.toFixed(3)})`;
   ctx.lineWidth = 1.8;
   if (!orderAcknowledged) ctx.setLineDash([3, 4]);
+  // The ring is drawn around a body standing on the floor, so it lies on the
+  // floor: the same `arc(0, 0, r)` it was, in `groundSpace`, which makes it the
+  // ellipse the quarry's own collision ring is. Nested inside the outer `save`
+  // rather than translated back afterwards -- `groundSpace` is a `ctx.transform`
+  // and has no tidy inverse -- and the style set above it survives the nesting.
+  // The `[3, 4]` pattern is applied in user space and so keeps its ~50 marks.
+  ctx.save();
+  groundSpace(state.orderX, state.orderY);
   ctx.beginPath();
-  ctx.arc(x, y, r, 0, TAU);
+  ctx.arc(0, 0, r, 0, TAU);
   ctx.stroke();
+  ctx.restore();
   ctx.setLineDash([]);
 
   // A tether from the character to the quarry, so a lock on something that has
@@ -5677,6 +5811,12 @@ function drawLock(state, now) {
   // stays readable at any zoom; a focus is a body that is already drawn, and a
   // crosshair laid over a silhouette is noise on the picture the player is
   // trying to read the blade off.
+  //
+  // **Two projected endpoints and not `groundSpace`**, on `drawTrail`'s argument:
+  // an affine map takes a line to a line, so the sheared segment and this one are
+  // the same segment, and drawing it in screen space keeps the tether one weight
+  // whichever way it runs. Which matters more here than it does for a trail --
+  // this line is at `alpha * 0.35` and is meant to be findable, not variable.
   ctx.strokeStyle = `rgba(${MONSTER_SKIN.glow},${(alpha * 0.35).toFixed(3)})`;
   ctx.lineWidth = 1.2;
   ctx.beginPath();
@@ -5703,38 +5843,46 @@ function drawDestination(state, now, arrived) {
     return;
   }
   if (state.orderKind !== ORDER_GOTO) return;
-  const x = projX(state.orderX, state.orderY);
-  const y = projY(state.orderX, state.orderY);
   const beat = (Math.sin(now / 380) + 1) / 2;
   const alpha = orderAcknowledged ? (arrived ? 0.32 : 0.45 + 0.35 * beat) : 0.16;
   const r = px(0.55) + (orderAcknowledged && !arrived ? beat * px(0.18) : 0);
 
+  // **The whole marker goes on the floor, crosshair included.** The ring alone
+  // would have left the arms standing up the screen through it, which is the one
+  // arrangement that reads as two unrelated marks on one spot. Inside the shear
+  // the arms come out along the world axes -- the `+x` pair down-right, the `+y`
+  // pair down-left -- so the crosshair lands parallel to the tile grid and says
+  // which square the order is on as well as which point. The centre dot goes in
+  // with them: it is a 2 px round dot top-down and a 2 px flat one here, and a
+  // circle left standing among them would be the only thing in the marker that
+  // did not belong to the floor.
   ctx.save();
+  groundSpace(state.orderX, state.orderY);
   ctx.strokeStyle = `rgba(110,231,255,${alpha.toFixed(3)})`;
   ctx.lineWidth = 1.6;
   if (!orderAcknowledged) ctx.setLineDash([3, 4]);
   ctx.beginPath();
-  ctx.arc(x, y, r, 0, TAU);
+  ctx.arc(0, 0, r, 0, TAU);
   ctx.stroke();
 
   ctx.setLineDash([]);
   ctx.globalAlpha = alpha;
   ctx.fillStyle = "#6ee7ff";
   ctx.beginPath();
-  ctx.arc(x, y, 2, 0, TAU);
+  ctx.arc(0, 0, 2, 0, TAU);
   ctx.fill();
 
   // A crosshair, so the exact point is readable at any zoom.
   ctx.globalAlpha = alpha * 0.7;
   ctx.beginPath();
-  ctx.moveTo(x - r - 4, y);
-  ctx.lineTo(x - r + 2, y);
-  ctx.moveTo(x + r - 2, y);
-  ctx.lineTo(x + r + 4, y);
-  ctx.moveTo(x, y - r - 4);
-  ctx.lineTo(x, y - r + 2);
-  ctx.moveTo(x, y + r - 2);
-  ctx.lineTo(x, y + r + 4);
+  ctx.moveTo(-r - 4, 0);
+  ctx.lineTo(-r + 2, 0);
+  ctx.moveTo(r - 2, 0);
+  ctx.lineTo(r + 4, 0);
+  ctx.moveTo(0, -r - 4);
+  ctx.lineTo(0, -r + 2);
+  ctx.moveTo(0, r - 2);
+  ctx.lineTo(0, r + 4);
   ctx.stroke();
   ctx.restore();
 }
@@ -5896,8 +6044,17 @@ function drawVision(unit, filled) {
   const skin = skinOf(unit);
   const r = px(unit.sight);
   ctx.save();
+  // **The one place the fill area had to be checked, and it is unchanged.** The
+  // measurements this whole function is tuned against -- 15.7x the screen in
+  // blended fill at a full room against 2.6x -- are areas, and `groundSpace` is
+  // unimodular, so the disc that was a circle of `r` is now an ellipse of
+  // `r*sqrt2` by `r/sqrt2` covering exactly the same pixels. The ring is solid
+  // here for the reason above, so there is no mark count to move either; the only
+  // thing that changes is the perimeter, up 9%, which is stroke coverage on a
+  // 1 px line at alpha 0.09.
+  groundSpace(unit.x, unit.y);
   ctx.beginPath();
-  ctx.arc(projX(unit.x, unit.y), projY(unit.x, unit.y), r, 0, TAU);
+  ctx.arc(0, 0, r, 0, TAU);
   if (filled) {
     ctx.fillStyle = `rgba(${skin.wedge},0.032)`;
     ctx.fill();
@@ -5969,16 +6126,49 @@ function arcDash(radius, on, off) {
   return [on * k, off * k];
 }
 
+/** `arcDash` for a path whose length is known rather than implied by a radius.
+ *  Same contract, same ceiling, and the two are deliberately the same four lines
+ *  with `TAU * radius` swapped for `length` -- a circumference *is* a length, and
+ *  writing the general one as the special one's sibling is what keeps a future
+ *  change to `MAX_DASH_SEGMENTS` from being applied to only half the page.
+ *
+ *  **`length` must be measured in the space the dash is applied in**, which is the
+ *  user space in force at the `stroke`, not the world and not the device. For the
+ *  one caller today -- `drawRoute`'s plan polyline -- that is screen pixels,
+ *  because its points are pre-projected and the top-level CTM is translate-only.
+ *  A caller that built its path inside `groundSpace` would owe the *pre-shear*
+ *  length instead, and the two differ by up to root two.
+ *
+ *  Returns a fresh two-element array, as `arcDash` does. Called once a frame from
+ *  one place, against a render path that otherwise allocates nothing per frame;
+ *  that is the same order of churn `arcDash` already makes per attacking body and
+ *  is well inside what the rule is protecting. */
+function pathDash(length, on, off) {
+  const period = on + off;
+  const want = length / MAX_DASH_SEGMENTS;
+  if (want <= period) return [on, off];
+  const k = want / period;
+  return [on * k, off * k];
+}
+
 function drawReach(unit, skin, now) {
   if (unit.intent !== INTENT_ATTACK) return;
   const beat = (Math.sin(now / 260) + 1) / 2;
   const r = px(unit.radius + unit.actionLength);
   ctx.save();
+  // **The mark count does not move, and that is the whole argument for a shear
+  // rather than an `ellipse` call.** `setLineDash` is a user-space pattern, the
+  // user-space path is still `arc(0, 0, r)`, so the rasteriser cuts the same
+  // `TAU * r / 8` sub-paths it cut top-down -- 91 on the measured radius, 567 a
+  // frame across the room, inside the 52 fps result `MAX_DASH_SEGMENTS` records.
+  // Converting this to an explicit ellipse would have changed that number
+  // silently, which is exactly the bug class that cost the page 40 fps.
+  groundSpace(unit.x, unit.y);
   ctx.strokeStyle = `rgba(${skin.wedge},${(0.10 + 0.10 * beat).toFixed(3)})`;
   ctx.lineWidth = 1.2;
   ctx.setLineDash(arcDash(r, 3, 5));
   ctx.beginPath();
-  ctx.arc(projX(unit.x, unit.y), projY(unit.x, unit.y), r, 0, TAU);
+  ctx.arc(0, 0, r, 0, TAU);
   ctx.stroke();
   ctx.restore();
 }
@@ -7047,6 +7237,16 @@ function drawSprint(unit, skin, now) {
  *  this tick rather than a shaft of any length. */
 const SHAFT = 0.34;
 
+/** How high an arrow flies, in world units. **Presentation only.** The sim's
+ *  arrow is a point and `resolve_shots` tests the segment it travelled this
+ *  tick; this file does not get to invent an altitude the hit test does not know
+ *  about. So the number is constant and the flight is flat -- a parabola would be
+ *  the page making up physics that the sim would then disagree with.
+ *
+ *  Nothing crosses the wall for it: `parseFrame` reads `{x, y, heading, faction}`
+ *  off a shot row and there is no z column to read. */
+const SHOT_Z = 0.55;
+
 /**
  * Arrows in flight.
  *
@@ -7062,22 +7262,60 @@ const SHAFT = 0.34;
 function drawShot(shot) {
   const skin = shot.faction === FACTION_HEROES ? HERO_SKIN : MONSTER_SKIN;
   // **`save`, `lineCap` and `restore` are per arrow and not per volley**, which is
-  // the only thing `iso-04` changed in here. `drawShots` used to hoist all three
-  // outside its loop; under iso an arrow is drawn from inside the depth walk with
-  // wall-band fills and whole bodies between one arrow and the next, so a
-  // `lineCap` set once at the top would be state leaking across somebody else's
-  // draw call in both directions. The pixels are the same either way, and they
-  // stay the same only because the state is now scoped to the one call that wants
-  // it.
+  // what `iso-04` changed in here. `drawShots` used to hoist all three outside its
+  // loop; under iso an arrow is drawn from inside the depth walk with wall-band
+  // fills and whole bodies between one arrow and the next, so a `lineCap` set once
+  // at the top would be state leaking across somebody else's draw call in both
+  // directions. The pixels are the same either way, and they stay the same only
+  // because the state is now scoped to the one call that wants it.
   //
-  // It also retires the manual `rotate(-heading); translate(-x, -y)` that used to
-  // put the matrix back. `restore` is that inverse exactly, where two floating
-  // point rotations composing to the identity are only nearly it -- so the second
-  // arrow of a volley now starts from precisely the camera matrix rather than from
-  // the camera matrix plus a few ULP of the first arrow's heading.
+  // It also retired the manual `rotate(-heading); translate(-x, -y)` that used to
+  // put the matrix back, and `iso-06` gives that retirement its real reason:
+  // `groundSpace` is a `ctx.transform` and there is no tidy inverse to write. The
+  // old pairs were exact under any CTM, so this was never a precision fix.
+  //
+  // **The depth key does not move.** `buildDrawList` sorts an arrow on
+  // `shot.x + shot.y`, its ground point, and the lift below is a screen-space
+  // translate applied at paint time that the sort never sees. That is the right
+  // way round rather than an oversight: the arrow is occluded by whatever its
+  // *ground point* says occludes it, which is what keeps `iso-04`'s occlusion
+  // working -- an arrow at `SHOT_Z` behind a `WALL_H` block is still behind it.
+  const upright = PROJ.upright;
+
+  // The ground shadow first, and it is not decoration: it is the only thing that
+  // makes the altitude readable, and it marks the point the sim actually tests.
+  // House rule 4.
+  //
+  // **Upright only.** From directly above, a height is invisible by construction:
+  // the arrow and its shadow are the same pixels, so top-down this pass would put
+  // a black dot under every arrow that says nothing, and `Tactical` and `Dev` are
+  // the A/B control for the conversion. Same gate, and the same reason, as
+  // `drawCharacter`'s ground pre-pass.
+  if (upright) {
+    ctx.save();
+    groundSpace(shot.x, shot.y);
+    ctx.fillStyle = "rgba(0,0,0,0.35)";
+    ctx.beginPath();
+    ctx.arc(0, 0, px(0.1), 0, TAU);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // The shaft, lying in the world plane at shoulder height.
+  //
+  // The lift comes **before** `groundSpace`, so it is in screen space -- straight
+  // up the screen, which is what a height is. Put after it, the same two numbers
+  // would be a step along the world `-y` axis: the shear takes `(0, -L)` to screen
+  // `(L, -L/2)`, so the arrow would slide diagonally across the floor by an amount
+  // that grows with the height, which is a translation and not an altitude.
   ctx.save();
   ctx.lineCap = "round";
-  ctx.translate(projX(shot.x, shot.y), projY(shot.x, shot.y));
+  if (upright) ctx.translate(0, -lift(SHOT_Z));
+  // The arrow itself is flat on the world plane, so `rotate(heading)` under the
+  // shear points it along its own world bearing and foreshortens the shaft with
+  // it: one crossing the screen east-west draws longer than one crossing
+  // north-south, which is the same arrow seen from a different angle.
+  groundSpace(shot.x, shot.y);
   ctx.rotate(shot.heading);
   // The shaft trails *behind* the point, so the bright end is the end that
   // arrives -- which is the end a player has to judge.
