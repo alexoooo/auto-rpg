@@ -4816,16 +4816,6 @@ function pushGroundSpace(wx, wy, rot, scale, alpha) {
   else dlXform(1, 0, 0, 1, tx, ty, rot, scale, alpha);
 }
 
-function roundRect(x, y, w, h, r) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + w, y, x + w, y + h, r);
-  ctx.arcTo(x + w, y + h, x, y + h, r);
-  ctx.arcTo(x, y + h, x, y, r);
-  ctx.arcTo(x, y, x + w, y, r);
-  ctx.closePath();
-}
-
 /**
  * One map tile as a 2:1 diamond, appended to `p`. `x, y` is its **north** corner
  * and `w` is `px(map.tile)` -- which is the diamond's half-width and also its full
@@ -4846,10 +4836,13 @@ function roundRect(x, y, w, h, r) {
  * `w` tall and the caller never has to call the projection at all -- two
  * multiplies per tile, which is what keeps a 3,060-tile bake cheap.
  *
- * Takes a `Path2D` rather than drawing on `ctx`, unlike `roundRect` above: every
- * caller is baking geometry that outlives the frame, and the two habits are worth
- * keeping apart. Lifted faces are `iso-03`'s and they are this same shape with a
- * height subtracted from `y`.
+ * Takes a `Path2D` rather than emitting an item: every caller is baking geometry
+ * that outlives the frame, which is a paint source and not a drawing, and the two
+ * habits are worth keeping apart. (The counterpart it used to be contrasted with
+ * was `roundRect`, which drew on `ctx`; `art-04` turned that into a `ROUND_RECT`
+ * item, because a callout pill's width comes out of `measureText` and no two
+ * frames want the same one.) Lifted faces are `iso-03`'s and they are this same
+ * shape with a height subtracted from `y`.
  */
 function diamond(p, x, y, w) {
   p.moveTo(x, y);
@@ -5335,7 +5328,11 @@ const GRAIN_TILE = 256;
 const GRAIN_DENSITY = 0.25; // fraction of the tile's pixels that get a mark
 const GRAIN_ALPHA = 0.5; // what the whole tile is composited at
 
-let grainPattern = null;
+/** The grain, as a §3 paint-table index. `DL_NO_PAINT` until the first frame
+ *  that wants it, and then forever: this is the one paint source on the page
+ *  with no invalidation rule at all, so it belongs in the table's *static*
+ *  region and it is the only thing `main.js` puts there lazily. */
+let grainPaint = DL_NO_PAINT;
 
 function bakeGrainTile() {
   const tile = document.createElement("canvas");
@@ -5370,21 +5367,25 @@ function bakeGrainTile() {
  * the same reason: `viewport` is CSS pixels and this space is not.
  */
 function drawGrain() {
-  if (!grainPattern) grainPattern = ctx.createPattern(bakeGrainTile(), "repeat");
-  if (!grainPattern) return;
-  ctx.save();
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  // Said, not inherited. `source-over` is the canvas default and every painter that
-  // changes it restores it, so this line moves nothing today -- but the grain is the
-  // last fill in the frame, which makes "nothing today" a property of every draw
-  // call before it rather than of this function. `drawTorchLight` is the one site in
-  // `web/` that sets another mode; this is the line that stops a second one from
-  // being this function's problem.
-  ctx.globalCompositeOperation = "source-over";
-  ctx.globalAlpha = GRAIN_ALPHA;
-  ctx.fillStyle = grainPattern;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.restore();
+  if (grainPaint === DL_NO_PAINT) grainPaint = dlPatternStatic(bakeGrainTile(), "repeat");
+  if (grainPaint === DL_NO_PAINT) return;
+  // **`DL_XF_ABSOLUTE`, and it is the whole of the paragraph above.** Every other
+  // push in the list *concatenates*; this one replaces. A concat here would
+  // inherit `render`'s camera translate and the grain would slide under a pan,
+  // and it would inherit the `dpr` scale and the grain would grow with the
+  // display. The identity is what makes a tile pixel a device pixel, and the
+  // rect below is the backing store's own size for the same reason.
+  //
+  // `DL_SOURCE_OVER` is said, not inherited, and the argument is unchanged by
+  // the seam: `source-over` is the canvas default and every painter that changes
+  // it restores it, so the flag moves nothing today -- but the grain is the last
+  // fill in the frame, which makes "nothing today" a property of every draw call
+  // before it rather than of this one. It is deliberately *not* something the
+  // backend asserts on every push, because `drawTorchLight`'s pools are additive
+  // and a push inside them that asserted the default would flatten them.
+  dlXform(1, 0, 0, 1, 0, 0, 0, 1, GRAIN_ALPHA, DL_XF_ABSOLUTE | DL_SOURCE_OVER);
+  dlPatternRect(0, 0, canvas.width, canvas.height, grainPaint);
+  dlXformEnd();
 }
 
 /**
@@ -8422,13 +8423,6 @@ function uprightPaintOf(kind) {
   return at === undefined ? UPRIGHT_PAINT[BODY_FIGHTER] : at;
 }
 
-/** The billboard as a `Path2D` rather than as an index, for the one caller left
- *  that still strokes onto a context: `drawHeroThrough`, which the overlay commit
- *  takes. It and its flat twin go together when it does. */
-function uprightOf(kind) {
-  return UPRIGHTS[kind] || UPRIGHTS[BODY_FIGHTER];
-}
-
 function headOf(kind) {
   return HEADS[kind] || HEADS[BODY_FIGHTER];
 }
@@ -9055,13 +9049,8 @@ function drawHealth(unit, skin) {
   const x = projX(unit.x, unit.y) - w / 2;
   const y = anchorY(unit) - 8;
 
-  ctx.save();
-  ctx.fillStyle = "rgba(9,11,16,0.72)";
-  roundRect(x - 1, y - 1, w + 2, h + 2, 2);
-  ctx.fill();
-  ctx.fillStyle = frac > LOW_HEALTH ? skin.bar : "#ff5f52";
-  ctx.fillRect(x, y, w * frac, h);
-  ctx.restore();
+  dlRoundRect(x - 1, y - 1, w + 2, h + 2, 2, DL_FILL, "rgba(9,11,16,0.72)", 0);
+  dlRect(x, y, w * frac, h, frac > LOW_HEALTH ? skin.bar : "#ff5f52");
 }
 
 /** One corpse. **Both skips stay in here** rather than being lifted into the
@@ -9506,11 +9495,16 @@ function pushCallout(event, actor) {
 function drawFloaters() {
   if (!floaters.length) return;
   const size = Math.round(clamp(px(0.42), 12, 20));
-  ctx.save();
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.font = `700 ${size}px ${SANS}`;
-  ctx.lineJoin = "round";
+  // Built once for the whole pass, exactly as the `ctx.font` it replaces was:
+  // every item below carries a reference to this one string, so the frame hands
+  // the allocator the same single template literal it always did.
+  const font = `700 ${size}px ${SANS}`;
+  // The alignment, the baseline and the round join were four `ctx` writes above
+  // this loop, inside a `save` whose only job was to scope them. They are item
+  // fields now, which is what makes the round join -- shared by the block tick
+  // and the numbers' outline -- a property of the marks rather than of the
+  // order the marks happen to be drawn in.
+  const TEXT_STATE = DL_ALIGN_CENTER | DL_BASELINE_MIDDLE;
   for (const f of floaters) {
     const t = f.age / FLOATER_MS;
     if (t >= 1) continue;
@@ -9553,14 +9547,16 @@ function drawFloaters() {
     const y = projY(f.x, f.y) - lift(rise);
 
     if (f.kind === EVENT_BLOCK) {
-      ctx.strokeStyle = `rgba(180,220,255,${(0.9 * alpha).toFixed(3)})`;
-      ctx.lineWidth = 2.4;
-      ctx.lineCap = "round";
-      ctx.beginPath();
-      ctx.moveTo(x - 5, y);
-      ctx.lineTo(x - 1, y + 4.5);
-      ctx.lineTo(x + 6, y - 5);
-      ctx.stroke();
+      dlPolyBegin();
+      dlPoint(x - 5, y);
+      dlPoint(x - 1, y + 4.5);
+      dlPoint(x + 6, y - 5);
+      dlPolyEnd(
+        DL_CAP_ROUND | DL_JOIN_ROUND,
+        `rgba(180,220,255,${(0.9 * alpha).toFixed(3)})`,
+        2.4,
+        0, 0
+      );
       continue;
     }
 
@@ -9575,15 +9571,22 @@ function drawFloaters() {
     const text = f.amount >= 10
       ? String(Math.round(f.amount))
       : (Math.round(f.amount * 10) / 10).toFixed(1);
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = `rgba(6,8,13,${(0.85 * alpha).toFixed(3)})`;
-    ctx.strokeText(text, x, y);
-    ctx.fillStyle = f.hurt
-      ? `rgba(255,104,92,${alpha.toFixed(3)})`
-      : `rgba(255,241,214,${alpha.toFixed(3)})`;
-    ctx.fillText(text, x, y);
+    // The outline and the body are two items because they are two colours, and
+    // the outline is the one the seam counts as a stroke -- which is right: a
+    // `strokeText` tessellates every glyph's contour exactly as a `stroke` does.
+    dlText(
+      text, x, y, font,
+      DL_STROKE | DL_JOIN_ROUND | TEXT_STATE,
+      `rgba(6,8,13,${(0.85 * alpha).toFixed(3)})`,
+      3
+    );
+    dlText(
+      text, x, y, font,
+      DL_FILL | TEXT_STATE,
+      f.hurt ? `rgba(255,104,92,${alpha.toFixed(3)})` : `rgba(255,241,214,${alpha.toFixed(3)})`,
+      0
+    );
   }
-  ctx.restore();
 }
 
 /**
@@ -9600,9 +9603,15 @@ function drawFloaters() {
  */
 function drawCallouts(state) {
   if (!callouts.length) return;
-  ctx.save();
-  ctx.textBaseline = "middle";
-  ctx.textAlign = "left";
+  // **One `font`, measured with and drawn with.** It used to be a `ctx.font`
+  // assignment inside the loop and a `ctx.measureText` on the next line, which
+  // were the same font because they were adjacent. Across the seam they are a
+  // query into `draw.js` and an item consumed a few hundred items later, and
+  // "adjacent" stops being an argument -- a pill sized in one font and filled in
+  // another is a defect this shape makes possible and the old one could not.
+  // So there is one binding and both read it, which is the only version of that
+  // guarantee that survives somebody editing one of the two lines.
+  const font = `600 12px ${SANS}`;
   for (const c of callouts) {
     const t = c.age / CALLOUT_MS;
     if (t >= 1) continue;
@@ -9636,33 +9645,35 @@ function drawCallouts(state) {
     const icon = 14;
     const padX = 7;
     const gap = 5;
-    ctx.font = `600 12px ${SANS}`;
-    const w = padX * 2 + icon + gap + ctx.measureText(label).width;
+    const w = padX * 2 + icon + gap + dlMeasureTextWidth(font, label);
     const cx = projX(x, y);
     // Above the health bar rather than on it, and rising a few pixels as it
     // goes, so two pills over two bodies standing close together separate.
     const top = projY(x, y) - lift(bodyTopWorld(c)) - 18 - h - 6 * (1 - (1 - t) * (1 - t));
 
-    ctx.globalAlpha = alpha;
-    roundRect(cx - w / 2, top, w, h, h / 2);
-    ctx.fillStyle = "rgba(10,13,20,0.88)";
-    ctx.fill();
-    ctx.strokeStyle = "rgba(255,196,92,0.55)";
-    ctx.lineWidth = 1;
-    ctx.stroke();
+    // The pill's alpha covered five draws and was put back with a
+    // `globalAlpha = 1` at the bottom of the loop rather than with a `restore`.
+    // A push carrying it is the same thing said the way the rest of the list
+    // says it, and it cannot be left behind by a `continue`.
+    dlXform(1, 0, 0, 1, 0, 0, 0, 1, alpha);
+    dlRoundRect(cx - w / 2, top, w, h, h / 2, DL_FILL, "rgba(10,13,20,0.88)", 0);
+    dlRoundRect(cx - w / 2, top, w, h, h / 2, DL_STROKE, "rgba(255,196,92,0.55)", 1);
 
-    ctx.save();
-    ctx.translate(cx - w / 2 + padX, top + (h - icon) / 2);
-    ctx.scale(icon / 24, icon / 24);
-    ctx.fillStyle = "rgba(255,214,140,0.95)";
-    ctx.fill(iconGlyph(c.action));
-    ctx.restore();
+    dlXform(1, 0, 0, 1, cx - w / 2 + padX, top + (h - icon) / 2, 0, icon / 24, -1);
+    dlPath(dlPaintFrame(iconGlyph(c.action)), DL_FILL, "rgba(255,214,140,0.95)", DL_NO_PAINT, 0, 0, 0);
+    dlXformEnd();
 
-    ctx.fillStyle = "rgba(233,240,252,0.96)";
-    ctx.fillText(label, cx - w / 2 + padX + icon + gap, top + h / 2 + 0.5);
-    ctx.globalAlpha = 1;
+    dlText(
+      label,
+      cx - w / 2 + padX + icon + gap,
+      top + h / 2 + 0.5,
+      font,
+      DL_FILL | DL_BASELINE_MIDDLE,
+      "rgba(233,240,252,0.96)",
+      0
+    );
+    dlXformEnd();
   }
-  ctx.restore();
 }
 
 // ---------------------------------------------------------------- the depth layer
@@ -10038,13 +10049,9 @@ const HERO_THROUGH = `rgba(${HERO_SKIN_ART.glow},0.55)`;
 function drawHeroThrough(hero) {
   const s = px(hero.radius) * PROJ.ex;
   if (!(s > 0)) return;
-  ctx.save();
-  ctx.translate(projX(hero.x, hero.y), projY(hero.x, hero.y));
-  ctx.scale(s, s);
-  ctx.strokeStyle = HERO_THROUGH;
-  ctx.lineWidth = 1.5 / s;
-  ctx.stroke(uprightOf(hero.kind));
-  ctx.restore();
+  dlXform(1, 0, 0, 1, projX(hero.x, hero.y), projY(hero.x, hero.y), 0, s, -1);
+  dlPath(uprightPaintOf(hero.kind), DL_STROKE | DL_LOCAL_WIDTH, HERO_THROUGH, DL_NO_PAINT, 1.5 / s, 0, 0);
+  dlXformEnd();
 }
 
 /**
@@ -10245,12 +10252,11 @@ function render(state, now, arrived) {
     buildDrawList(state);
     sortDrawList();
     walkDrawList(now, origin);
-    dlDraw();
     // Over the walk and under the health bars. The successor to "the hero draws
-    // last" -- `drawHeroThrough` has the argument. Still painting rather than
-    // emitting: `art-04` §7 puts the hero outline in the overlay commit, and it
-    // is the reason the list is drawn out on the line above rather than after
-    // the branch.
+    // last" -- `drawHeroThrough` has the argument. It is an overlay mark emitted
+    // from the depth branch, which is why the layer label changes here and not
+    // at the bottom of the branch.
+    dlLayerIs(DL_OVERLAY);
     if (state.hero && canSee(state.hero)) drawHeroThrough(state.hero);
   } else {
     // Today's lines, verbatim, and they are the A/B control for the whole
@@ -10278,9 +10284,9 @@ function render(state, now, arrived) {
     if (state.hero) drawBody(state.hero, now);
     // Arrows over the bodies, so one crossing a fight is not hidden by it.
     drawShots(state.shots);
-    dlDraw();
   }
 
+  dlLayerIs(DL_OVERLAY);
   const fighting = state.monsters.length > 0;
   for (const unit of state.units) {
     if (canSee(unit) && (fighting || unit.hp < unit.maxHp)) drawHealth(unit, skinOf(unit));
@@ -10292,7 +10298,17 @@ function render(state, now, arrived) {
   // The grain, last of everything and over the lot. **Gated on `artOn()` and not
   // on the projection**: it is a treatment of the picture, and `[tactical]` and
   // `[dev]` are the A/B control, which a wash over the whole canvas would end.
+  //
+  // "Last of everything" is now a fact about the list rather than about this
+  // line: the grain is the final item emitted, and the walk below is in emission
+  // order, so nothing can get over it without being written after it here.
   if (artOn()) drawGrain();
+
+  // **One list, one walk, the whole frame.** Everything above this line emitted;
+  // this is the only call into the backend a frame makes, and after it the
+  // context is exactly as `render`'s preamble left it. That is the end state
+  // `art-04` was paid for: the seam is one function call wide.
+  dlDraw();
 }
 
 // ---------------------------------------------------------------------- hud

@@ -2006,6 +2006,17 @@ does generalise is the method: the phase timings cannot see any of this, a large
 way, and every configuration needs a repeat of the baseline as a control — the run
 that first suggested `backdrop-filter` was the culprit failed exactly there.
 
+**A pixel-identity check must pin `devicePixelRatio` before it captures
+anything.** Chrome does not rasterise deterministically when the canvas backing
+store is not an integer multiple of its CSS box: at `devicePixelRatio = 1.5` one
+build produced **three different `toDataURL` strings for the same frame inside a
+single page load**, with the sim paused and the wall clock frozen. At an integer
+ratio the same build is stable across repeats and across reloads. So a refactor
+gated on "the same picture, byte for byte" has to override
+`window.devicePixelRatio` and re-`resize()` first — otherwise moving the window
+to a different display silently invalidates the gate, and it fails as a handful
+of mismatched captures that look exactly like a real regression.
+
 The page carries the instrument for it now. `P` toggles a ten-phase frame
 breakdown and a ticks-per-frame histogram beside the always-on fps chip, and
 `?perf=1` turns both on at load. It is deliberately independent of `[dev]`:

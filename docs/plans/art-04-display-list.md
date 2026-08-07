@@ -376,8 +376,17 @@ This is the largest inert refactor in the series and it must not arrive as one c
    line.
 3. **Overlay.** Bars, floaters, callouts, the hero outline pass, `drawGrain`. `ROUND_RECT`,
    `TEXT`, `SPRITE`, `SPRITE_SPAN` and D4's `measureTextWidth` are this commit's; nothing before
-   it needs them. After it the frame is one list, one walk, and `main.js` has no per-frame
-   context call left outside the whitelist.
+   it needs them. **Landed.** The last 68 context calls moved (`main.js` 133 → 65, all of it
+   whitelist); the frame is **one list and one walk**, `dlDraw()` is the only call into the
+   backend a frame makes, and the §1 grep comes out exactly as the rule says it should. All
+   twelve captures byte-identical.
+
+   **`SPRITE` and `SPRITE_SPAN` are implemented and unexercised.** Nothing on this page draws an
+   image — there is not one `drawImage` in `web/` — so those two arms have never run and are
+   **not covered by the gate that covers everything else**. They are there so that `art-05`'s
+   weapons and `art-06`'s props do not have to reopen `draw.js` and add a kind while they are also
+   adding art. The first session that emits into one of them is the session that tests it, and it
+   should expect to fix something. No fake consumer was invented to pretend otherwise.
 
 Each commit is byte-identical on its own, so a regression bisects to a layer instead of to a
 five-thousand-line diff.
@@ -427,6 +436,24 @@ So `dlDraw` wraps the whole walk in one `save`/`restore`: **the list is a scope,
 returns the context it was handed.** That is the same invariant every painter it replaced had,
 stated once instead of forty times.
 
+### The grain, which the gate cannot check
+
+`drawGrain` has three properties nothing in the byte-identity gate can see, because the grain is
+*identical in the void* — which is exactly where a `toDataURL` diff is least sensitive. They were
+checked deliberately at commit 3, and they are the reason `XFORM_PUSH` grew `DL_XF_ABSOLUTE`:
+
+1. **Over everything.** The grain is the last item emitted, and the walk is in emission order —
+   so "last of everything" became a fact about the list rather than a fact about a line at the
+   bottom of `render`. Verified: the frame's final three items are `XFORM_PUSH`, `PATTERN`,
+   `XFORM_POP`.
+2. **It does not pan.** Every other push *concatenates*; this one **replaces** — `setTransform`,
+   not `transform`. A concat would inherit the camera translate and the wash would slide under a
+   drag. Verified over five camera positions including fractional sub-pixel offsets: the grain in
+   a void sample is bit-identical at every one.
+3. **It does not zoom or fizz.** The identity is what makes a tile pixel a *device* pixel, and the
+   rect is the backing store's own size rather than the viewport's. Verified at three zoom levels:
+   same bits, and the same bits as the pan runs.
+
 ### D4 — `measureText` lives in `draw.js`, and extract calls it
 
 `drawCallouts` (`main.js:9566`) reads a metric back off the context at *extract* time: the pill's
@@ -438,7 +465,17 @@ snapshot row *and* needs a context.
 and saying why is the point: `draw.js` is the only code that touches a context, and **a
 measurement is not a paint**. The alternative — a `TEXT` item with an "auto-size the plate around
 me" flag — moves layout into the backend, which is the one thing the backend is not supposed to
-know. Commit 3's business; nothing in commits 1 or 2 needs it.
+know.
+
+**Landed at commit 3, with one thing the old code did not need.** It used to be `ctx.font = ...`
+and `ctx.measureText(...)` on the next line: the same font because they were adjacent. Across the
+seam the measure is a query and the draw is an item consumed a few hundred items later, and
+adjacency stops being an argument — **a pill sized in one font and filled in another is a defect
+this shape makes possible and the old one could not.** So `drawCallouts` has one `font` binding
+and both the measure and the `TEXT` item read it. Verified: for every pill on screen,
+`padX*2 + icon + gap + measureTextWidth(font, label)` equals the emitted pill width to the last
+bit, and measuring the same label in a different font gives a different number — so the equality
+is not vacuous.
 
 ## 8. No WebGL2 backend in this session, and the reason is not scope discipline
 
@@ -503,3 +540,44 @@ Every session after this one emits. **A new `ctx` call site outside `web/draw.js
 failure, not a style note** — it is one more thing a second backend would have to be threaded
 through, which is the entire cost this session was paid to remove. Later session files do not
 repeat this; it is stated once, here, and in `art-00`'s house rules.
+
+---
+
+## Done — and what a later session needs to know
+
+Three commits, each byte-identical on its own, twelve captures apiece.
+`web/main.js` went from **556 per-frame context calls to 65**, and every one of the 65 is on the
+whitelist. The grep is the deliverable and it comes out exactly as the rule says:
+
+```
+web/main.js   46  drawGlobe          (exempt: its own canvas)
+              10  bakeFloorTile      \
+               2  bakeGrainTile       |
+               1  floorPatternNow     |  exempt: paint-source builders
+               1  rebuildLevelPaths   |
+               1  arenaVignette      /
+               3  render             (outside the rule: the frame preamble)
+               1  resize             (outside the rule: per resize)
+web/draw.js   65  the backend
+```
+
+Five things a later session should not have to rediscover:
+
+1. **`SPRITE` and `SPRITE_SPAN` have never run.** See §7 commit 3. `art-05` and `art-06` are the
+   first consumers and are the first tests.
+2. **Pin `devicePixelRatio` before any pixel-identity check.** Chrome does not rasterise
+   deterministically at a fractional ratio — the same build gave three different `toDataURL`
+   strings for one frame in one page load. Recorded in `DESIGN.md`'s performance notes, which
+   outlives this file.
+3. **Freeze the wall clock too.** `freezeRenderClock` is in `main.js` beside `render`; pausing
+   freezes the tick and not `now`, and seven painters animate on `now`.
+4. **Two things are still built per frame and should not have been fixed here** (D3): six
+   gradients — two per body, plus the lantern and the portal — and `floorPattern.setTransform`
+   mutating a cached `CanvasPattern`. They live in the paint table's per-frame region. Hoisting
+   them is a real change to what is allocated and, for the billboard's body gradient, possibly to
+   what is drawn, so it wants its own before-and-after.
+5. **Acceptance tests 6 and 7 were not run** — allocation sawtooth and frame rate. Both need a
+   foreground tab on the user's machine; an automated tab is always `visibilityState: "hidden"`,
+   which throttles rAF and rasterises in software. What to watch: stroke state (`lineWidth`,
+   `lineCap`, `lineJoin`, `lineDashOffset`, `setLineDash`) is now set per stroke item where it
+   used to be set once per painter, and `drawTrail` alone is ~150 strokes a frame.

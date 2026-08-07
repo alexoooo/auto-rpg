@@ -54,15 +54,19 @@
 // establishes the space the list is written in and so cannot be an item in it.
 //
 // ---------------------------------------------------------------------------
-// WHAT IS AND IS NOT IN THE LIST YET
+// WHAT IS AND IS NOT EXERCISED
 //
-// `art-04` lands in three commits and two have landed: **the depth layer** and
-// **the ground layer**. What is left is the overlay -- `drawHealth`,
-// `drawFloaters`, `drawCallouts`, `drawHeroThrough` and `drawGrain` -- and with
-// it the kinds only it needs: `ROUND_RECT`, `TEXT`, `SPRITE` and `SPRITE_SPAN`.
-// They arrive with the commit that needs them, so that a regression bisects to a
-// layer instead of to a five-thousand-line diff. A kind with no consumer is a
-// kind nobody has checked.
+// All three layers emit. A frame is **one list and one walk**: `render` resets at
+// the top, every painter emits, and `dlDraw()` at the bottom is the only call
+// into this file a frame makes.
+//
+// **`SPRITE` and `SPRITE_SPAN` have never run.** Nothing on this page draws an
+// image yet -- there is not one `drawImage` in `web/` -- so those two arms are
+// not covered by the byte-identity gate that covers everything else here. They
+// exist so `art-05`'s weapons and `art-06`'s props do not have to reopen this
+// file to add a kind while they are also adding art. **The first session that
+// emits into one is the session that tests it**, and it should expect to fix
+// something. Every other kind below has a live consumer and is gated.
 
 /** Full turn. Deliberately its own copy rather than a read of `main.js`'s: this
  *  file loads first, so anything of `main.js`'s it wanted at load time would not
@@ -161,6 +165,36 @@ const DL_PATTERN = 10;
  *  `ink` -- `drawPortal`'s glow is the one of those. */
 const DL_LIGHT = 11;
 
+/** Four `arcTo`s, filled or stroked. `arcTo` appears nowhere else in the file,
+ *  and this cannot be a `Path2D` from the table because a callout pill's width
+ *  comes out of `measureText` and is different every time the label is. */
+const DL_ROUND_RECT = 12;
+
+/** One string. Carries its own font, alignment and baseline, because the two
+ *  painters that draw text disagree about alignment and both set it explicitly.
+ *
+ *  A stroked one and a filled one are two items, as everywhere else -- the
+ *  floaters' outline is a `strokeText` under a `fillText` in two different
+ *  colours, and one item cannot hold two. */
+const DL_TEXT = 13;
+
+/**
+ * An axis-aligned blit, and a blit stretched and rotated between two screen
+ * points.
+ *
+ * **Unexercised code, and deliberately so.** Nothing on this page draws an image
+ * yet -- there is not one `drawImage` in `web/` -- so these two arms have never
+ * run and are not covered by the byte-identity gate that covers everything else
+ * here. They exist because `art-04`'s whole claim is that the vocabulary is
+ * enumerable and enumerated: `art-05`'s weapons want `SPRITE_SPAN` on its
+ * hilt-and-tip line and `art-06`'s props and `art-08`'s bodies want `SPRITE`,
+ * and the alternative was those sessions reopening this file to add a kind while
+ * they were also adding art. **The first session that emits into one of these is
+ * the session that tests it**, and it should expect to fix something.
+ */
+const DL_SPRITE = 14;
+const DL_SPRITE_SPAN = 15;
+
 /** For the frame dump. Index by kind. */
 const DL_KIND_NAMES = [
   "XFORM_PUSH",
@@ -175,6 +209,10 @@ const DL_KIND_NAMES = [
   "RECT",
   "PATTERN",
   "LIGHT",
+  "ROUND_RECT",
+  "TEXT",
+  "SPRITE",
+  "SPRITE_SPAN",
 ];
 
 // ----------------------------------------------------------------- the layers
@@ -223,6 +261,31 @@ const DL_JOIN_ROUND = 1 << 10;
  *  a blend mode is state, and one that a pop puts back is a blend mode that
  *  cannot leak into the vignette painted after it. */
 const DL_ADDITIVE = 1 << 11;
+/** `XFORM_PUSH`: `globalCompositeOperation = "source-over"` inside this save --
+ *  the default, **said rather than inherited**.
+ *
+ *  One site, `drawGrain`, and its own comment is the argument: the grain is the
+ *  last fill in the frame, so "the default is already in force" is a property of
+ *  every draw call before it rather than of the grain. Saying it makes that a
+ *  local fact. The backend does *not* set the composite on every push, and must
+ *  not: a torch pool's push sits inside `drawTorchLight`'s additive one, and a
+ *  push that asserted the default would turn the pools back into flat washes. */
+const DL_SOURCE_OVER = 1 << 12;
+/** `XFORM_PUSH`: the matrix **replaces** the CTM rather than concatenating onto
+ *  it -- `ctx.setTransform` and not `ctx.transform`.
+ *
+ *  One site, `drawGrain`, and it is the whole of why the grain does not pan with
+ *  the camera: a concat would inherit `render`'s camera translate and the wash
+ *  would slide across the screen under a drag. The identity it sets is what
+ *  makes a tile pixel a *device* pixel, which is the other half of the same
+ *  property -- the grain must not scale with the display either. */
+const DL_XF_ABSOLUTE = 1 << 13;
+/** `TEXT`: `textAlign = "center"`, else `"left"`. */
+const DL_ALIGN_CENTER = 1 << 14;
+/** `TEXT`: `textBaseline = "middle"`, else `"alphabetic"`. Both painters set it
+ *  and both set it to middle; the other arm is the canvas default and is
+ *  untravelled. */
+const DL_BASELINE_MIDDLE = 1 << 15;
 /** `XFORM_PUSH`: concatenate onto the current state **without saving**, and
  *  expect no matching `XFORM_POP`.
  *
@@ -340,6 +403,12 @@ const dlInk = new Int32Array(DL_CAP);
  * its digits.
  */
 const dlStyle = new Array(DL_CAP);
+/** `TEXT`: the string, and the font to set before drawing it. Two more arrays
+ *  for a kind that emits a couple of dozen items a frame at most -- but a
+ *  reference slot is eight bytes and the alternative is a per-item descriptor
+ *  object, which is the one thing the parse pool's rule forbids. */
+const dlStr = new Array(DL_CAP);
+const dlFontStr = new Array(DL_CAP);
 const dlFlags = new Int32Array(DL_CAP);
 const dlF = new Float64Array(DL_CAP * DL_STRIDE);
 
@@ -489,6 +558,8 @@ function dlNext(kind, layer) {
   dlShape[at] = DL_NO_PAINT;
   dlInk[at] = DL_NO_PAINT;
   dlStyle[at] = null;
+  dlStr[at] = null;
+  dlFontStr[at] = null;
   dlFlags[at] = 0;
   for (let i = 0; i < DL_STRIDE; i++) dlF[b + i] = 0;
   dlF[b + DL_F_ALPHA] = dlPendingAlpha;
@@ -695,6 +766,65 @@ function dlRectItem(kind, x, y, w, h, style, ink) {
   dlInk[at] = ink;
 }
 
+/** A rounded rectangle, filled or stroked. `r` is the corner radius, and it is
+ *  `h / 2` for a pill and 2 for a plate. */
+function dlRoundRect(x, y, w, h, r, flags, style, width) {
+  const at = dlNext(DL_ROUND_RECT, dlActiveLayer);
+  if (at < 0) return;
+  const b = at * DL_STRIDE;
+  dlF[b + DL_F_A] = x;
+  dlF[b + DL_F_B] = y;
+  dlF[b + DL_F_C] = w;
+  dlF[b + DL_F_D] = h;
+  dlF[b + DL_F_E] = r;
+  dlF[b + DL_F_WIDTH] = width;
+  dlFlags[at] = flags;
+  dlStyle[at] = style;
+}
+
+/** One string at one point, in one font. `DL_FILL` or `DL_STROKE`, never both --
+ *  the floaters' dark outline and its bright body are two colours and so two
+ *  items, which is also how the seam counts a `strokeText` as a stroke. */
+function dlText(text, x, y, font, flags, style, width) {
+  const at = dlNext(DL_TEXT, dlActiveLayer);
+  if (at < 0) return;
+  const b = at * DL_STRIDE;
+  dlF[b + DL_F_A] = x;
+  dlF[b + DL_F_B] = y;
+  dlF[b + DL_F_WIDTH] = width;
+  dlFlags[at] = flags;
+  dlStyle[at] = style;
+  dlStr[at] = text;
+  dlFontStr[at] = font;
+}
+
+/** An axis-aligned blit of a table image into a screen rect. Unexercised -- see
+ *  `DL_SPRITE`. */
+function dlSprite(x, y, w, h, image) {
+  const at = dlNext(DL_SPRITE, dlActiveLayer);
+  if (at < 0) return;
+  const b = at * DL_STRIDE;
+  dlF[b + DL_F_A] = x;
+  dlF[b + DL_F_B] = y;
+  dlF[b + DL_F_C] = w;
+  dlF[b + DL_F_D] = h;
+  dlShape[at] = image;
+}
+
+/** A blit stretched and rotated between two screen points, `thick` pixels wide
+ *  and centred on the line. Unexercised -- see `DL_SPRITE`. */
+function dlSpriteSpan(x0, y0, x1, y1, thick, image) {
+  const at = dlNext(DL_SPRITE_SPAN, dlActiveLayer);
+  if (at < 0) return;
+  const b = at * DL_STRIDE;
+  dlF[b + DL_F_A] = x0;
+  dlF[b + DL_F_B] = y0;
+  dlF[b + DL_F_C] = x1;
+  dlF[b + DL_F_D] = y1;
+  dlF[b + DL_F_E] = thick;
+  dlShape[at] = image;
+}
+
 /** Begin a run of points for one `POLY_STROKE`. */
 function dlPolyBegin() {
   dlPolyStart = dlPtsCount;
@@ -749,7 +879,7 @@ function dlPolyEnd(flags, style, width, dashOn, dashOff, dashOffset) {
 function dlLinearGradient(x0, y0, x1, y1, stop0, stop1) {
   const c = dlCtx;
   c.save();
-  for (let i = 0; i < dlOpenCount; i++) dlApplyXform(c, dlOpen[i] * DL_STRIDE);
+  for (let i = 0; i < dlOpenCount; i++) dlApplyXform(c, dlOpen[i] * DL_STRIDE, dlFlags[dlOpen[i]]);
   const g = c.createLinearGradient(x0, y0, x1, y1);
   g.addColorStop(0, stop0);
   g.addColorStop(1, stop1);
@@ -763,12 +893,21 @@ function dlLinearGradient(x0, y0, x1, y1, stop0, stop1) {
 function dlRadialGradient(x0, y0, r0, x1, y1, r1, stop0, stop1) {
   const c = dlCtx;
   c.save();
-  for (let i = 0; i < dlOpenCount; i++) dlApplyXform(c, dlOpen[i] * DL_STRIDE);
+  for (let i = 0; i < dlOpenCount; i++) dlApplyXform(c, dlOpen[i] * DL_STRIDE, dlFlags[dlOpen[i]]);
   const g = c.createRadialGradient(x0, y0, r0, x1, y1, r1);
   g.addColorStop(0, stop0);
   g.addColorStop(1, stop1);
   c.restore();
   return dlPaintFrame(g);
+}
+
+/** A repeating pattern from a baked tile, registered in the static region --
+ *  which is what it is: one tile, built once, with no invalidation rule at all.
+ *  Here rather than in `main.js` because `createPattern` is a context call, and
+ *  a paint source is the one thing extract is allowed to *ask* for. */
+function dlPatternStatic(image, repeat) {
+  const p = dlCtx.createPattern(image, repeat);
+  return p ? dlPaintStatic(p) : DL_NO_PAINT;
 }
 
 /**
@@ -806,7 +945,16 @@ const dlDash2 = [0, 0];
  *  each skipped when it is an identity, so that a top-down `groundSpace` comes
  *  out as the bare `ctx.translate` it is today rather than as a translate and a
  *  multiplication by the identity matrix. */
-function dlApplyXform(ctx, b) {
+function dlApplyXform(ctx, b, flags) {
+  if (flags & DL_XF_ABSOLUTE) {
+    // Replaces rather than concatenates. One site, and it is the only thing in
+    // the frame whose geometry is not in the camera's space at all.
+    ctx.setTransform(
+      dlF[b + DL_F_A], dlF[b + DL_F_B], dlF[b + DL_F_C],
+      dlF[b + DL_F_D], dlF[b + DL_F_E], dlF[b + DL_F_F]
+    );
+    return;
+  }
   const tx = dlF[b + DL_F_E];
   const ty = dlF[b + DL_F_F];
   if (tx !== 0 || ty !== 0) ctx.translate(tx, ty);
@@ -888,9 +1036,13 @@ function dlDraw() {
         if (!(flags & DL_BARE)) {
           ctx.save();
           dlSetAlpha(ctx, b);
+          // Only where an item asks. A push that asserted `source-over` by
+          // default would sit inside `drawTorchLight`'s additive one and turn
+          // its pools back into flat washes -- see `DL_SOURCE_OVER`.
           if (flags & DL_ADDITIVE) ctx.globalCompositeOperation = "lighter";
+          else if (flags & DL_SOURCE_OVER) ctx.globalCompositeOperation = "source-over";
         }
-        dlApplyXform(ctx, b);
+        dlApplyXform(ctx, b, flags);
         break;
       }
       case DL_XFORM_POP:
@@ -976,6 +1128,69 @@ function dlDraw() {
           dlStrokeState(ctx, at, b);
           ctx.stroke();
         }
+        break;
+      }
+      case DL_ROUND_RECT: {
+        const x = dlF[b + DL_F_A];
+        const y = dlF[b + DL_F_B];
+        const w = dlF[b + DL_F_C];
+        const h = dlF[b + DL_F_D];
+        const r = dlF[b + DL_F_E];
+        dlSetAlpha(ctx, b);
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.arcTo(x + w, y, x + w, y + h, r);
+        ctx.arcTo(x + w, y + h, x, y + h, r);
+        ctx.arcTo(x, y + h, x, y, r);
+        ctx.arcTo(x, y, x + w, y, r);
+        ctx.closePath();
+        if (flags & DL_FILL) {
+          dlSetFill(ctx, at);
+          ctx.fill();
+        } else {
+          dlSetStroke(ctx, at);
+          dlStrokeState(ctx, at, b);
+          ctx.stroke();
+        }
+        break;
+      }
+      case DL_TEXT:
+        dlSetAlpha(ctx, b);
+        ctx.font = dlFontStr[at];
+        ctx.textAlign = flags & DL_ALIGN_CENTER ? "center" : "left";
+        ctx.textBaseline = flags & DL_BASELINE_MIDDLE ? "middle" : "alphabetic";
+        if (flags & DL_FILL) {
+          dlSetFill(ctx, at);
+          ctx.fillText(dlStr[at], dlF[b + DL_F_A], dlF[b + DL_F_B]);
+        } else {
+          dlSetStroke(ctx, at);
+          dlStrokeState(ctx, at, b);
+          ctx.strokeText(dlStr[at], dlF[b + DL_F_A], dlF[b + DL_F_B]);
+        }
+        break;
+      case DL_SPRITE:
+        // Unexercised. See `DL_SPRITE`.
+        dlSetAlpha(ctx, b);
+        ctx.drawImage(
+          dlPaintTable[dlShape[at]],
+          dlF[b + DL_F_A], dlF[b + DL_F_B], dlF[b + DL_F_C], dlF[b + DL_F_D]
+        );
+        break;
+      case DL_SPRITE_SPAN: {
+        // Unexercised. See `DL_SPRITE`. The rotation is the backend's for the
+        // reason every rotation in this file is -- `ctx.rotate` is not
+        // `ctx.transform(cos, sin, -sin, cos, 0, 0)` computed in JS.
+        dlSetAlpha(ctx, b);
+        const x0 = dlF[b + DL_F_A];
+        const y0 = dlF[b + DL_F_B];
+        const dx = dlF[b + DL_F_C] - x0;
+        const dy = dlF[b + DL_F_D] - y0;
+        const thick = dlF[b + DL_F_E];
+        ctx.save();
+        ctx.translate(x0, y0);
+        ctx.rotate(Math.atan2(dy, dx));
+        ctx.drawImage(dlPaintTable[dlShape[at]], 0, -thick / 2, Math.hypot(dx, dy), thick);
+        ctx.restore();
         break;
       }
       default:
