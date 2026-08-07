@@ -1,6 +1,6 @@
 # art-05 — bodies get parts
 
-**Goal:** the `[regular]` view's single-path billboard becomes an ordered list of layers, each
+**Goal:** the `[world]` view's single-path billboard becomes an ordered list of layers, each
 placed by projecting a body-local offset through the one camera matrix, posed every frame from
 sim state, and z-ordered by a key derived from the facing rather than tabulated against it.
 
@@ -354,7 +354,7 @@ timeline, which is the thing hard constraint 3 forbids, and it would also be a c
    mid-windup and step; the arm is where `swingLeft/swingSpan` says it is.
 2. **The drawn weapon lies on the projected true blade line.** Freeze a strike, switch to
    `[tactical]` with `G`, and the top-down blade is at the same bearing and the same extension.
-   Its ground shadow in `[regular]` sits under the tip.
+   Its ground shadow in `[world]` sits under the tip.
 3. **Z-order reads at all eight compass facings**, and at the four boundaries between them —
    turn slowly through a full circle and watch for a segment popping. There is no table to get
    wrong; if one pops, §2's key was mis-signed.

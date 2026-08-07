@@ -10,7 +10,7 @@ Read `art-sound-brief.md` for the mandate. This file is the plan.
 
 ## What this is
 
-The `[regular]` view is already isometric and already draws a lit stone room. It becomes the
+The `[world]` view is already isometric and already draws a lit stone room. It becomes the
 room in the concept art: umber stone in near-total darkness, torchlight the only light, bodies
 built out of parts that move because the sim moved them, blood the only saturated thing on
 screen, and a soundscape synthesised from the sim's own physics.
@@ -82,7 +82,7 @@ actually commits us to, item by item, because "Diablo 1 mood" is not a specifica
 |---|---|
 | **Projection** | Unchanged. `PROJ_ISO`, 2:1, `K = scale`. Nothing in these sessions touches `projX`/`projY`/`lift`/`groundSpace`'s coefficients. |
 | **Renderer** | Canvas2D, behind a seam. `art-04` splits the renderer into an **extract** pass that emits a flat draw list and a **backend** that consumes it, and after it lands **no per-frame `ctx` call lives outside `web/draw.js`.** Canvas2D is the only backend written in this series — WebGL2 is not in scope, `art-04` §8 says why writing one now would be premature, and `art-07` §6 says when to stop and report rather than reach for it. What the seam buys is that a second backend later is a file rather than a rewrite threaded through everything that knows what a unit is. |
-| **Scope of the treatment** | Canvas art is `[regular]`-only, gated on `artOn()`. The HUD/CSS restyle is **global**, because there is one DOM and three view modes share it; `art-01` argues that. |
+| **Scope of the treatment** | Canvas art is `[world]`-only, gated on `artOn()`. The HUD/CSS restyle is **global**, because there is one DOM and three view modes share it; `art-01` argues that. |
 | **No build step** | Plain classic scripts. `web/main.js` is loaded by `<script src="main.js">` with no `type="module"` and contains no `import`/`export`. New JS files are additional classic `<script>` tags placed **before** `main.js`; top-level `const` in a classic script lands in the global lexical scope and is visible to scripts loaded after it. No bundler, no npm, no external library. |
 | **Assets are data** | PNGs under `web/assets/` and one `manifest.json` are expected and fine. `tools/serve.js` already serves `.png` and `.json` with correct MIME types (`tools/serve.js:34-45`) — nothing to add there. |
 | **Sim changes** | Exactly two, both in `art-03`, both proven inert: one read-only field on `UnitView`, one new `Event` variant. Everything else is derived in `crates/web`. |

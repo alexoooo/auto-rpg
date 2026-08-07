@@ -184,7 +184,7 @@ below.
 
 ## Acceptance test
 
-1. **`W` moves the character up the screen. `A` left, `S` down, `D` right.** In `[regular]`, at
+1. **`W` moves the character up the screen. `A` left, `S` down, `D` right.** In `[world]`, at
    the default zoom, at the top of the zoom range and at the bottom.
 2. `[tactical]` and `[dev]` are unchanged — the same keys move the same way they always did.
    This is a code-reading check as much as a play check: §2's arm is the identity there.

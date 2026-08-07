@@ -12,7 +12,7 @@ animation, a dark Diablo-1-style visual treatment, WASD movement, and fully
 synthesized event-driven sound — without violating any of the architectural
 guarantees below.
 
-**Current state you build on**: the `[regular]` view is already isometric —
+**Current state you build on**: the `[world]` view is already isometric —
 the projection, extruded wall blocks, ground-projected telegraphs/paths, and
 team-colored bodies with ground shadows exist and work. Read that projection
 code first; every screen-space decision in this brief goes through it. The
@@ -87,9 +87,9 @@ files in this project.
    JS libraries are not, for now. Generated image/audio assets committed under
    `web/assets/` are expected and fine — they are data, not dependencies.
 5. **All existing tests pass** (`cargo test`, currently ~393) and the three
-   view modes (`G`: regular / tactical / dev) keep working. Tactical and dev
+   view modes (`G`: world / tactical / dev) keep working. Tactical and dev
    views must remain the plain readable disc-and-wedge views — the new art
-   applies to the `[regular]` view only.
+   applies to the `[world]` view only.
 ---
 
 ## Part 1 — sim event stream (small, sim-side, do this first)
@@ -115,7 +115,7 @@ that the sim emits alongside its existing snapshot output.
   rerun the hash checks to prove state hashes did not move.
 ## Part 2 — segmented paper-doll rendering (isometric)
 
-Replace the `[regular]` view's current stylized bodies with layered segmented
+Replace the `[world]` view's current stylized bodies with layered segmented
 figures, posed from sim state every frame and drawn through the existing
 isometric projection.
 
@@ -236,7 +236,7 @@ pass:
   proposes anchor/pivot per the spec's conventions beats eyeballing) and
   write the manifest entries. Only you edit `manifest.json`; never point an
   entry at a file that doesn't exist.
-- **Review in-game**: load the `[regular]` view and check the batch where it
+- **Review in-game**: load the `[world]` view and check the batch where it
   matters — pivots don't wobble through the walk cycle, facing changes, or
   blade swing; z-order reads at all facings; scale sits right against the
   fallback bodies and the 4-unit grid; floor/wall pieces meet the block

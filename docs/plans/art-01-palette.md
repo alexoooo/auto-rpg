@@ -1,6 +1,6 @@
 # art-01 — the room goes umber
 
-**Goal:** the `[regular]` view's colours become the concept's colours, the darkness gets deeper
+**Goal:** the `[world]` view's colours become the concept's colours, the darkness gets deeper
 and grainier, and the HUD gets bone text behind thin iron frames. No new shapes, no new data, no
 Rust.
 
@@ -222,7 +222,7 @@ No bloom. No chromatic aberration. No `shadowBlur` anywhere — see `art-00` §3
 
 ## 6. The HUD
 
-This is the one part of the session that is **global rather than `[regular]`-only**, and that is
+This is the one part of the session that is **global rather than `[world]`-only**, and that is
 a decision rather than an oversight: there is one DOM, three view modes share it, and a HUD that
 repainted itself on `G` would be a mode switch that flashes the whole page. The canvas is the
 A/B control; the chrome around it is not, and never was.
@@ -330,7 +330,7 @@ is a slower version of the same loss.
    session, and diff. The HUD will differ — that is §6's stated exception. **The canvas must
    not.** If it does, a constant reachable with `art` false was retoned; §2's two "deliberately
    do not move" rows are the usual culprits.
-2. Open `[regular]` beside `web/assets/CONCEPT.png`. The room reads as the same material. It
+2. Open `[world]` beside `web/assets/CONCEPT.png`. The room reads as the same material. It
    will not read as the same *detail* — that is `art-07` — and it should not be tuned toward
    detail here.
 3. A shut door is findable from across a dark room. An open one reads as a pair of jambs.

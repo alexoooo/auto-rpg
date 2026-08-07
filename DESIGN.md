@@ -1930,7 +1930,7 @@ dashed ring, an outline being circumference-scaled where a fill is area-scaled:
 **That fix was real and it was not the bottleneck, and the way it was found is the
 part worth keeping.** Capping the fill did cut 15.69x of overdraw to 2.60x, but the
 page still ran at 11 fps on eight bodies, in the tactical view as well as the
-regular one — which already ruled out the flagstone pattern and the vignette, the
+world one — which already ruled out the flagstone pattern and the vignette, the
 two most expensive fills on the page when timed in isolation. What settled it was
 bisecting by *removing work* rather than by hiding it, on the machine that was
 actually slow: no-op the canvas primitives one at a time on the live context and

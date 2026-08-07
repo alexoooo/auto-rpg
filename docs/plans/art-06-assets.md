@@ -169,7 +169,7 @@ This is the binding contract and the single input to every image session. **Assu
 has read nothing else in the repository, ever.** Contents, in this order:
 
 1. **What the game is, in three sentences**, and one embedded reference screenshot of
-   `[regular]` at default framing.
+   `[world]` at default framing.
 2. **The camera.** Classic 2:1 isometric, `sx = (wx − wy)·s`, `sy = (wx + wy)·s/2`. The three
    facts an artist needs from it: a floor tile is a diamond twice as wide as it is tall; one
    world unit of *height* is exactly the diamond's half-width in pixels; a circle on the floor
