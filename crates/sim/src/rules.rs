@@ -1378,7 +1378,14 @@ mod tests {
         }
     }
 
-    /// The roster table in `docs/plans/world-03-scale.md`, asserted.
+    /// What [`Stats::max_hp`] and [`ENERGY_TO_DAMAGE`] come to when they are read
+    /// together, on the four archetypes' own stat sheets.
+    ///
+    /// The roster is the thing those two constants were set to produce, and neither
+    /// of them can assert it alone: health is a law about a stat, damage is a law
+    /// about an energy, and what a player actually meets is the quotient -- how many
+    /// clean blows a body takes. That number lives in no single place in this file,
+    /// which is why it lives in a test.
     ///
     /// Loose bounds rather than exact figures -- this is here to catch a change that
     /// puts a Skitterer back to thirty-six health or a blow back to double figures,
@@ -1394,13 +1401,15 @@ mod tests {
     /// [`Body::default_action`]: crate::entity::Body::default_action
     #[test]
     fn the_roster_is_the_size_the_design_claims() {
-        // Measured, in tenths: 13, 29, 35, 51. Three of those are the plan's
-        // predicted 1.3 / 3.6 / 5.2; the Rogue is 2.9 against a predicted 2.0,
-        // and the prediction was the thing that was wrong. A Rogue's knife has
-        // always been 0.82 of a Fighter's sword -- 11.8 against 14.3 under the
-        // old law -- and dividing by four does not change a ratio. The plan
-        // derived 2.0 from the archetype spread quoted in `ENERGY_TO_DAMAGE`,
-        // which names the Skitterer and the Brute and never the Rogue.
+        // Measured, in tenths: 13, 29, 35, 51. Three of those are what `world-03`
+        // predicted when it set the two constants -- 1.3 / 3.6 / 5.2 -- and the
+        // Rogue is 2.9 against a predicted 2.0. The prediction was the thing that
+        // was wrong, which is worth keeping because it is the mistake this table
+        // is shaped to catch: a Rogue's knife has always been 0.82 of a Fighter's
+        // sword (11.8 against 14.3 under the old law), and dividing by four does
+        // not change a ratio. The 2.0 came from the archetype spread quoted in
+        // `ENERGY_TO_DAMAGE`, which names the Skitterer and the Brute and never
+        // the Rogue -- so it was read as covering a body it says nothing about.
         for (body, hp, blow) in [
             (Body::Skitterer, 6, (11, 16)),
             (Body::Rogue, 8, (25, 34)),

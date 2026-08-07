@@ -21,6 +21,25 @@ tactical and dev views remain top-down and are the sim-truth reference.
 environmental torchlight, small figures in a big dark world — directional,
 not one-to-one.
 
+**Read the plan, not just this brief.** `art-00-overview.md` and the nine session files beside
+it are written against the code as it actually stands, with line numbers, and they are what an
+implementer works from. This file is the mandate — the *why*, the constraints, and the acceptance
+bar. Those are the *what* and the *in what order*.
+
+**Six things this brief assumes that the code contradicts.** They are listed in full, with line
+numbers, in `art-00-overview.md`; an implementer who takes this brief at face value will rewrite
+working code. In short: the sim **already has an event enum** and four kinds already cross the
+ABI; **not every event belongs in the sim**, because `Sim::note_declares` in `crates/web` already
+derives one by differencing a per-entity table across ticks and it sees every tick where the page
+does not; **torches are already sim furniture** with an additive light field and a flicker;
+**the floor is already a baked procedural flagstone texture** whose pattern matrix carries the
+projection; **the vignette and the player lantern already exist**, both cached; and **WASD is
+already bound** — what is missing is the screen-to-world transform, which is the one thing
+Part 2b is actually about.
+
+What is genuinely absent, and is what the sessions are for: segmented bodies, any image file, any
+loading path, blood, props, decals, and every byte of audio.
+
 **Division of labor**: you implement everything except producing the PNG
 image files themselves. Images are produced in separate sessions by a
 different agent working from `codex-image-brief.md` against the asset
@@ -102,33 +121,43 @@ isometric projection.
 
 **Rig.** Define a small number of skeleton archetypes (humanoid first; the
 Skitterer may need a low quadruped/insectoid variant — check how current
-archetypes are drawn and decide). Each rig is an ordered list of segments —
-e.g. ground shadow, far leg, near leg, torso, far arm (+shield), head, near
-arm, weapon — where "near/far" and draw order are *functions of facing
-relative to the camera*: as the sim's facing angle crosses the projection's
-axes, segments swap z-order (weapon passes behind the torso when the figure
-faces away). Figures are anchored at the feet on the projected ground
-position; height extends up the screen. Rig definitions live in a JS data
-file in `web/` — cosmetic, render-side.
+archetypes are drawn and decide). Each rig is an ordered list of layers where
+draw order is a *function of facing relative to the camera*: as the sim's
+facing angle crosses the projection's axes, layers swap z-order (weapon
+passes behind the body when the figure faces away). Figures are anchored at
+the feet on the projected ground position; height extends up the screen. Rig
+definitions live in a JS data file in `web/` — cosmetic, render-side.
+
+**Layer economy — image art vs fallback.** The *image-art* rig is
+deliberately coarse, because AI generation is unreliable for isolated body
+parts and the articulation that must be exact is the weapon's: per facing, a
+**composite body layer** (legs + torso + head as one image, with 2–3 stride
+frames for the walk cycle plus an idle), and separately articulated
+**arm+weapon** (and shield) layers that the renderer poses continuously.
+This keeps the roster's image count tractable (tens, not hundreds) and
+concentrates articulation exactly where the honesty rules bind. The
+*procedural fallback* rig may remain fully segmented (shadow, legs, torso,
+arms, head, weapon) since it's drawn, not generated. The manifest and rig
+code must support both granularities per archetype.
 
 **Posing from sim truth.**
 
 - Body facing derives from the sim's facing angle mapped into the camera's
   frame. If the asset style uses quantized facings (constraint 3), pick the
-  nearest facing for segment artwork while all attachment points and the
+  nearest facing for body artwork while all attachment points and the
   weapon still follow the continuous angle.
-- The weapon segment aligns to the projection of the sim's actual blade line
+- The weapon layer aligns to the projection of the sim's actual blade line
   — endpoints in world space, projected, sprite stretched/rotated between
   them. During windup, interpolate arm+weapon from guard pose to cocked pose
   by the sim's phase progress (expose phase progress in the snapshot if it
   isn't already); during strike, sweep the committed line the sim is testing
   damage along; during recovery, return over the real recovery duration.
 - The shield/off-arm poses from the guard bearing the sim holds, projected.
-- Legs: procedural walk cycle, stride frequency from actual velocity
-  magnitude, blended to idle when stopped; lean the torso into acceleration
-  (the momentum ramp is in the sim — read it, don't fake it). Screen-vertical
-  travel will look slower than horizontal under the projection; this is
-  correct perspective — do not compensate.
+- Walk: stride-frame selection (or leg cycle, for the fallback rig) driven by
+  actual velocity magnitude, blended to idle when stopped; lean the body into
+  acceleration (the momentum ramp is in the sim — read it, don't fake it).
+  Screen-vertical travel will look slower than horizontal under the
+  projection; this is correct perspective — do not compensate.
 - Stagger and recoil: displace/tilt using the sim's actual recoil numbers
   when events arrive.
 - Secondary motion (breathing, follow-through, sway) is pure garnish and may
@@ -155,34 +184,36 @@ into the takeover/driving system's Movement channel:
   by a separate agent in separate sessions; your job is to make that possible
   and safe:
 
-- **Manifest**: `web/assets/manifest.json` maps each archetype × segment slot
-  and each weapon/shield to a file, and records per image: anchor point (px),
-  pivot (px), and world-unit scale. The renderer consumes only the manifest —
-  no hardcoded filenames or offsets in JS. Missing entries or missing files
-  fall back silently to procedural rendering.
+- **Manifest**: `web/assets/manifest.json` maps each archetype × layer ×
+  facing (and stride frame) and each weapon/shield to a file, and records
+  per image: anchor point (px), pivot (px), and world-unit scale. The
+  renderer consumes only the manifest — no hardcoded filenames or offsets in
+  JS. Missing entries or missing files fall back silently to procedural
+  rendering.
 - **`web/assets/ASSET_SPEC.md`**: author this document as the binding
   contract for the image-generation sessions. It must specify: the game's
   isometric camera (exact projection ratios/angles taken from the projection
-  code, with a reference screenshot); the committed art style — chunky
-  pixel-art at a stated texel density, rendered with image smoothing
-  disabled, matching the concept's grimy hand-placed-stone feel; the single
-  global pixel-per-world-unit scale (from the current default zoom so
-  sprites draw near 1:1); transparent background and tight-crop
-  requirements; for characters: the facing-set decision (8 or 16 quantized
-  facings, or rotation-tolerant segments — you decide based on the rig, and
-  the spec states it as law), the full segment list per archetype with the
-  pose each facing must be drawn in and where its pivot sits, and each
-  archetype's body size at global scale; the weapon-sprite axis convention
-  (drawn along a stated axis at stated length-per-reach so the renderer can
-  stretch it along the projected blade line); for the environment: floor
-  tile top-face textures with N variants, wall/pillar side-face and top-face
-  textures matching the existing block extrusion geometry, grime/moss/crack
-  overlay decals, cosmetic props (barrels, crates, rubble), and
-  torch/lantern sprites with 2–3 flicker frames; the Part 3 palette as hex
-  values with the saturation rule; and the naming convention
-  (`brute/torso_e.png`, `env/floor_a.png`, `weapons/axe_heavy.png`).
-  Everything an image session needs must be in this one file — assume its
-  author has read nothing else.
+  code, with a reference screenshot); the committed art style — **painted,
+  matching `CONCEPT.png`**: grimy hand-placed-stone feel, one stated global
+  light direction, consistent detail density across all assets (soft
+  painterly edges are fine; style consistency, not a texel grid, is the
+  contract); the single global pixel-per-world-unit scale (from the current
+  default zoom so sprites draw near 1:1); transparent background and
+  tight-crop requirements; for characters: the facing count (8 unless the
+  rig argues otherwise — you decide and the spec states it as law), the
+  composite-body-plus-arm/weapon layer convention from Part 2 with the pose
+  and stride frames each facing must be drawn in and where pivots sit, and
+  each archetype's body size at global scale; the weapon-sprite axis
+  convention (drawn along a stated axis at stated length-per-reach so the
+  renderer can stretch it along the projected blade line); for the
+  environment: floor tile top-face textures with N variants, wall/pillar
+  side-face and top-face textures matching the existing block extrusion
+  geometry, grime/moss/crack overlay decals, cosmetic props (barrels,
+  crates, rubble), and torch/lantern sprites with 2–3 flicker frames; the
+  Part 3 palette as hex values with the saturation rule; and the naming
+  convention (`brute/body_e_walk1.png`, `env/floor_a.png`,
+  `weapons/axe_heavy.png`). Everything an image session needs must be in
+  this one file — assume its author has read nothing else.
 - **Procedural fallback**: implement shaped-vector fallback drawing per
   segment slot — palette-colored, silhouette-correct, grim, not programmer
   rectangles. The game must look intentional and be fully playable with zero
@@ -215,9 +246,14 @@ pass:
   agent, read at the start of every image session. For each asset: passed
   (locked — not to be regenerated) or regenerate, with the specific defect
   and a screenshot reference where useful. Keep it cumulative and current.
-- **Calibration gate**: the first image batch is deliberately small (one
-  archetype in all facings + one weapon + one floor/wall/torch set). Do not
-  mark calibration passed in FEEDBACK.md until it survives the full in-game
+- **Calibration gates, in order**: the first image batch is **environment +
+  weapons** (one floor variant, one wall side/top pair, one torch, 2–3
+  weapons) — the categories AI generation handles reliably — and it
+  calibrates style, scale, and geometry fit. The second batch is **one
+  archetype's character set** (composite body in all facings + stride
+  frames, plus its arm/weapon layers), which calibrates the harder
+  character pipeline against the already-locked style. Do not mark either
+  calibration passed in FEEDBACK.md until it survives the full in-game
   review — mass production reuses whatever passed calibration, so a defect
   that slips through multiplies across the whole asset set.
 - If review shows the defect lives in your spec rather than the images
@@ -320,40 +356,55 @@ design, not beeps.
   rendering or input.
 ## Part 5 — order of work and acceptance
 
-Work in this order, committing at each milestone with the checks green:
+Baseline first: record the current hashes, the test counts and a `bench --carved` number, and
+compare against **what you recorded** rather than against any number written in a document —
+these documents go stale and one of them already has.
 
-1. Baseline: record current hashes, tests, and a `bench --carved` number.
-2. Part 1 events + ABI + tests. **Gate: hashes unchanged, event determinism
-   test passes.**
-3. Iso rig + posing in `[regular]` view on procedural fallback segments
-   (proves feet anchoring, facing-dependent z-order, and projected pose math
-   with zero image variables). **Gate: a Brute's 33-tick windup is visibly
-   readable; the drawn weapon lies on the projected true blade line while
-   the tactical view shows the same moment top-down; z-order is correct at
-   all 8 compass facings; all three `G` views intact.**
-4. WASD movement (Part 2b). **Gate: W moves the character up the screen at
-   every zoom; diagonal speed equals cardinal speed in world units; a replay
-   of a WASD-driven fight verifies exactly; twin-stick (WASD + mouse aim)
-   works under takeover.**
-5. Asset contract: manifest schema, ASSET_SPEC.md (character facing sets +
-   environment texture/prop/torch categories, with reference screenshot),
-   lazy-load path, and the integration tooling from Part 2c (anchor/pivot
-   measurement script, FEEDBACK.md template). Prove the pipeline with one
-   hand-made test PNG for one character segment and one floor tile,
-   integrated through your own tooling. **Gate: game runs identically with
-   test images present, absent, or malformed; ASSET_SPEC.md is
-   self-contained.** Image generation now proceeds in separate sessions;
-   from here on, run a Part 2c integration pass whenever a batch lands —
-   this is recurring work alongside the remaining milestones, and the
-   calibration gate in FEEDBACK.md is yours to hold.
-6. Diablo treatment: palette, player + environmental torch lighting, fog
-   restyle, textured surfaces with fallback, props, blood, HUD. **Gate:
-   60fps with player + 6 monsters and ~8 torch lights; fog timings
-   unchanged; no prop on open walkable floor.**
-7. Synthesized audio. **Gate: sounds fire from events only; parameters
-   audibly track physics (a Brute hit vs a Skitterer hit are distinguishable
-   blind); mute works; no console errors on autoplay-restricted first
-   load.**
-   Throughout: if any instruction here conflicts with what you find in
-   `DESIGN.md` or the code, stop and report the conflict rather than guessing —
-   the repo's determinism rules win over this brief.
+Then work in this order, committing at each session with the checks green. Each session file
+carries its own gate and its own explicit non-goals:
+
+| # | session | part | gate |
+|---|---|---|---|
+| 1 | `art-01-palette` | Part 3 (palette, post, HUD) | the canvas in `[tactical]`/`[dev]` is byte-identical; the room reads as the concept's material |
+| 2 | `art-02-controls` | Part 2b | W moves up the screen at every zoom; diagonal speed equals cardinal in world units; twin-stick works; what crosses the wall is still a world vector |
+| 3 | `art-03-events` | Part 1 | **all five hashes unchanged**; event determinism test passes; nothing on screen changes |
+| 4 | `art-04-display-list` | — (structural) | **all three views byte-identical**, by `toDataURL` diff, at each of its three commits; no per-frame `ctx` call outside `web/draw.js`; no frame-rate movement |
+| 5 | `art-05-rig` | Part 2 | a Brute's 33-tick windup is visibly readable and visibly 33 ticks; the drawn weapon lies on the projected true blade line while `[tactical]` shows the same moment top-down; z-order is correct at all 8 facings; all three `G` views intact |
+| 6 | `art-06-assets` | Part 2 (contract), Part 2c | the game runs identically with test images present, absent, renamed, truncated or missing; `ASSET_SPEC.md` is self-contained; three fixtures prove the three transforms |
+| 7 | `art-07-world` | Part 3 (light, texture, props), Part 2c | 60fps with the player, six monsters and ~8 torch lights; fog timings unchanged; no prop where a body can stand; **gate 1 written and flipped** |
+| 8 | `art-08-actors` | Part 2c | the sprite Fighter stands, walks, swings and takes its health bar on its head beside fallback bodies; `?noart=1` reverts it and nothing else; **gate 2 written and flipped** |
+| 9 | `art-09-blood` | Part 3 (blood) | blood is the only saturated thing on screen; a replayed fight bleeds the same way |
+| 10 | `art-10-audio` | Part 4 | sounds fire from events only; a Brute hit and a Skitterer hit are distinguishable blind; mute works; no console error on an autoplay-restricted first load |
+| 11 | `art-11-voices` | Part 4 | the audio telegraph lasts exactly as long as the windup and stops when the windup is interrupted |
+
+**The order is not the one an earlier draft of this brief gave, and the change is deliberate.**
+The treatment went sixth, after the assets; the *palette* half of it goes first, because every
+art judgement from the rig onward is a judgement made against a background, and reviewing a warm
+umber sprite against a cold blue floor produces feedback about the sprite that is really feedback
+about the floor. It costs one session and risks nothing. WASD goes second because reviewing eight
+facings requires driving the body around, and that control is currently broken under iso.
+`art-03` is third and **must land alone**: it is the only session that touches Rust and the only
+place a determinism failure can enter.
+
+**Two sessions are additions to this brief rather than parts of it, and `art-00` argues both.**
+`art-04` splits the renderer into an extract pass that emits a flat draw list and a backend that
+consumes it, and it goes fourth — before the rig — because the rig, the world session and the
+blood session are the renderer's three big new emitters and writing them against `ctx` is what
+would make a later backend swap a rewrite instead of a file. `art-08` owns the integration and
+review of Codex's character-and-weapon batch, because that batch has to land somewhere and the
+rig session closes long before it arrives.
+
+**Part 2c is not "recurring work alongside the remaining sessions" any more.** The two calibration
+batches each get a named session that receives them — `art-07` holds gate 1, `art-08` holds
+gate 2 — so no batch is ever in flight without somewhere to land, and only the *production*
+batches after gate 2 are integrated by recurring passes. `art-00`'s interleave table is the
+schedule. The gates are still yours to hold.
+
+One correction to Part 2c's own text while you are there: the weapons move from the first batch to
+the second. A weapon is two marker pixels and a drawing stretched between them, so it has nothing
+reviewable about it until a body is swinging it; `art-06` proves the transform with a fixture
+instead, and `art-08` reviews the real ones in a hand.
+
+Throughout: if any instruction here conflicts with what you find in `DESIGN.md` or the code, stop
+and report the conflict rather than guessing — the repo's determinism rules win over this brief,
+and this brief has already been wrong about the code six times.
