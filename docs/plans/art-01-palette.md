@@ -44,8 +44,8 @@ everywhere:
 const PAL = {
   void:       "#0b0a08", // never-seen, and the page's own background
   mortar:     "#100d0a", // what every seam shows through to
-  stoneLo:    "#241f19", // darkest flagstone
-  stoneHi:    "#332c22", // brightest flagstone
+  stoneLo:    "#241e14", // darkest flagstone; `bakeFloorTile` is where it is realised
+  stoneHi:    "#2e281e", // brightest flagstone, same
   rockSide:   "#1e1a14", // a block's +x / +y faces
   rockTop:    "#3a342c", // a block's lit top face
   rockLip:    "#57503f", // the lit edge of a course
@@ -73,7 +73,7 @@ the relationships checkable; padding it with one-offs turns it back into a list.
 | where | today | becomes | note |
 |---|---|---|---|
 | `bakeFloorTile` mortar, `4919` | `#0c1017` | `PAL.mortar` | |
-| `bakeFloorTile` stone, `4940` | `rgb(t, t+4, t+12)`, `t ∈ 20..30` | `rgb(t+16, t+10, t)`, same `t` | the channel order inverts: **warm now carries the contrast, where blue used to** |
+| `bakeFloorTile` stone, `4940` | `rgb(t, t+4, t+12)`, `t ∈ 20..30` | a whole-step walk from `PAL.stoneLo` to `PAL.stoneHi` | the channel order inverts: **warm now carries the contrast, where blue used to**. As landed the two ends are *read* rather than transcribed, so `PAL` and the painted floor cannot drift — same eleven tones, `(36,30,20)`–`(46,40,30)`, same `rand()` order |
 | `bakeFloorTile` lit lip, `4944` | `rgba(190,212,248,0.05)` | `rgba(201,191,168,0.06)` | bone, not sky |
 | `bakeFloorTile` grain, `4957-4960` | blue-white / black | `rgba(201,191,168,α)` / black, same α | |
 | `WALL_TOP`, `5881` | `#161c28` | `PAL.rockTop` | |
@@ -107,9 +107,13 @@ can say without raising a voice.** Three comments in `main.js` say so explicitly
   `(59,44,29)` against `(22,28,40)` is a hue flip *and* a doubling of brightness. Against
   `PAL.rockTop` at `(58,52,44)` it is neither — it is the same family at the same brightness,
   and a shut door becomes indistinguishable from a wall block from across the room. The fix is
-  brightness and chroma, not hue: `#5a3d1c` is `(90,61,28)`, a 1.6× lift over the rock top with
-  visible saturation where the rock has almost none. **Rewrite that comment**; the argument it
-  makes is about to become false and a stale argument is worse than none.
+  chroma first and brightness second, never hue: `#5a3d1c` is `(90,61,28)`, which has visible
+  saturation where the rock has almost none. **Rewrite that comment**; the argument it makes is
+  about to become false and a stale argument is worse than none. And write the honest number
+  into it: on relative luminance the lift over the rock top is **1.23×**, *down* from the
+  warm-on-cold pair's 1.67×, so this session bought the door's read with chroma and paid for it
+  in brightness. (This plan said "a 1.6× lift" until it was checked — that was the red channel
+  alone.)
 - **The torch stops being readable by hue and must be readable by contrast.** Same paragraph,
   same cause. `TORCH_IRON` goes *down* to `#2a1d10` and `TORCH_CORE_TONE` goes *up* to
   `#fff0c4`, widening both steps, because the two steps are now carrying the whole read. The

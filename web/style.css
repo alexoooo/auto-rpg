@@ -2,18 +2,38 @@
    fetched from anywhere. System font stacks only -- a web font would be the
    first external dependency in this repository. */
 
+/* The HUD is umber because the room is. **This retone is global where the canvas
+   treatment is not**, and that is a decision rather than an oversight: there is one
+   DOM, three view modes share it, and a HUD that repainted itself on `G` would be a
+   mode switch that flashes the whole page. The canvas is the A/B control; the chrome
+   around it is not, and never was. See `PAL` in `main.js`, which is the same
+   relationship stated for the things that are drawn rather than styled, and
+   "Art direction" in DESIGN.md for what the relationship is. */
 :root {
-  --bg: #090b10;
-  --panel: #11141c;
-  --panel-line: #1e2331;
-  --ink: #e7ecf4;
-  --ink-dim: #8f9bb0;
-  --ink-faint: #5d6779;
-  --accent: #6ee7ff; /* the character, and its orders */
-  --accent-warm: #ffcf70; /* thinking */
-  --enemy: #ff8a7a; /* whatever walked in */
+  --bg: #0b0a08; /* the void, and `PAL.void` to the byte */
+  --panel: #15120e;
+  --panel-line: #312a1e; /* thin warm iron: every frame on the page is this */
+  --ink: #c9bfa8; /* bone */
+  --ink-dim: #8c8474;
+  --ink-faint: #5c564a;
+  --accent: #7fa6bd; /* the character, and its orders */
+  --accent-warm: #e8b45c; /* thinking */
+  --enemy: #c0705e; /* whatever walked in */
+  /* Health, and the only saturation the page allows itself outside the flame.
+     Read by the life globe's own canvas as `PAL.blood` / `PAL.bloodHot`; declared
+     here so the styled chrome and the drawn globe cannot disagree about what
+     "hurt" is coloured. */
+  --blood: #7a1010;
+  --blood-hot: #c0392b;
   --mono: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
   --sans: ui-sans-serif, system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  /* Headings only -- the brand and the two rail titles -- and a *system* stack, so
+     it stays true that no font, sheet or image is fetched from anywhere. That
+     property is worth more than a display face, which is why this is a stack and
+     not an `@font-face`. Every readout, label, number and keybind stays on the sans
+     and mono above: the concept's small text is legible and modern, and a serif in
+     a stat readout is a legibility regression wearing a costume. */
+  --display: ui-serif, Georgia, "Times New Roman", serif;
   /* One number for how far the HUD sits from the edge of the glass, so the
      four corners cannot drift apart as the page is resized. */
   --gutter: clamp(10px, 1.5vmin, 20px);
@@ -28,7 +48,14 @@
      twice with the baseline repeated as a control. Going to 0.88 buys back nearly
      all the legibility the blur was providing -- the backdrop only shows through
      at 12% now, and what is behind it is a dark floor on a darker void. */
-  --scrim: rgba(9, 11, 16, 0.88);
+  --scrim: rgba(11, 10, 8, 0.88);
+
+  /* The 1 px inset that reads as bevelled iron without a gradient or an image.
+     Bone at 0.06 -- the same tone and very nearly the same alpha `bakeFloorTile`
+     puts on the lit lip of a flagstone, because it is the same claim: this edge is
+     the one catching the room's light. A `box-shadow` and not a second border, so
+     it costs no layout and stacks inside the border that is already there. */
+  --bevel: inset 0 1px 0 rgba(201, 191, 168, 0.06);
 
   /* One rail's width, and it is a *real* width: the panel is that many pixels
      of box sitting over the canvas, not a transform pretending to be. Session
@@ -65,9 +92,13 @@ body {
 body {
   margin: 0;
   /* The void the room stands in. The canvas is transparent outside the floor,
-     so this is what shows past the wall. */
+     so this is what shows past the wall -- which makes this the one colour on the
+     page that has to agree with `PAL.void` rather than merely sit beside it. The
+     ambient lift is umber now for the same reason: a cold glow behind a warm room
+     was the largest cold area on the screen, and the vignette at 0.80 is aiming
+     everything it has at exactly these pixels. */
   background:
-    radial-gradient(1200px 700px at 50% 42%, #141a26 0%, transparent 70%),
+    radial-gradient(1200px 700px at 50% 42%, #1d1811 0%, transparent 70%),
     var(--bg);
   color: var(--ink);
   font-family: var(--sans);
@@ -154,6 +185,7 @@ body {
 }
 
 .brand {
+  font-family: var(--display);
   font-size: clamp(13px, 1.5vmin, 16px);
   letter-spacing: 0.14em;
   text-transform: lowercase;
@@ -245,7 +277,7 @@ body {
   width: clamp(90px, 14vw, 170px);
   height: 7px;
   border-radius: 4px;
-  background: rgba(9, 11, 16, 0.75);
+  background: rgba(11, 10, 8, 0.75);
   box-shadow: inset 0 0 0 1px var(--panel-line);
   overflow: hidden;
 }
@@ -262,7 +294,7 @@ body {
 /* Under a third, the bar stops being an amount and starts being a warning --
    the same threshold the health bars on the canvas use. */
 #hp-fill.low {
-  background: #ff5f52;
+  background: var(--blood-hot);
 }
 
 /* Both of these have their class attribute rewritten wholesale by `updateHud`,
@@ -308,6 +340,7 @@ body {
   padding: 5px 10px;
   border-radius: 999px;
   border: 1px solid var(--panel-line);
+  box-shadow: var(--bevel);
   background: var(--scrim);
   color: var(--ink-dim);
   cursor: pointer;
@@ -318,7 +351,7 @@ body {
 }
 
 .chip:hover {
-  border-color: #33405a;
+  border-color: #4a3f2d;
   color: var(--accent);
 }
 
@@ -338,9 +371,14 @@ body {
    Deliberately not keyed on `aria-expanded`, which the `?` carries: an open
    panel is not a control that is holding something down. */
 .chip[aria-pressed="true"] {
-  background: #16233a;
+  background: #2a2114;
   color: var(--accent);
-  box-shadow: inset 0 -2px 0 var(--accent);
+  /* The bevel is kept and the lit underline stacks on it, rather than replacing
+     it: a pressed chip that lost its top highlight would read as sinking *and*
+     changing material. */
+  box-shadow:
+    var(--bevel),
+    inset 0 -2px 0 var(--accent);
 }
 
 /* Pause, and both of these are fixed boxes for one reason: the glyph swaps two
@@ -435,7 +473,8 @@ body {
   /* No backdrop filter, and this one was never buying anything: the gradient
      above it is 97% opaque, so the blur was being spent to alter 3% of the
      pixels behind the widest element on the page. See `--scrim`. */
-  background: linear-gradient(180deg, rgba(11, 14, 20, 0.97) 0%, rgba(9, 11, 16, 0.97) 100%);
+  background: linear-gradient(180deg, rgba(17, 14, 10, 0.97) 0%, rgba(11, 10, 8, 0.97) 100%);
+  box-shadow: var(--bevel);
 }
 
 /* Warm on the left, cyan on the right, on the border as well as in the text:
@@ -450,12 +489,19 @@ body {
   border-top: 2px solid var(--accent);
 }
 
+/* Both repeat `--bevel`, because these selectors outrank `.rail-inner` and
+   `box-shadow` is one property: dropping it here would take the iron highlight off
+   the panel at exactly the moment the panel is visible. */
 #panel-enemy.open .rail-inner {
-  box-shadow: 24px 0 60px -30px #000;
+  box-shadow:
+    var(--bevel),
+    24px 0 60px -30px #000;
 }
 
 #panel-hero.open .rail-inner {
-  box-shadow: -24px 0 60px -30px #000;
+  box-shadow:
+    var(--bevel),
+    -24px 0 60px -30px #000;
 }
 
 #panel-enemy .rail-title,
@@ -470,6 +516,7 @@ body {
 
 .rail-title {
   margin: 0;
+  font-family: var(--display);
   font-size: 12px;
   letter-spacing: 0.2em;
   text-transform: uppercase;
@@ -516,6 +563,7 @@ body {
   visibility: visible;
   background: var(--scrim);
   border: 1px solid var(--panel-line);
+  box-shadow: var(--bevel);
   color: var(--ink-dim);
 }
 
@@ -562,7 +610,7 @@ button.primary {
   font-weight: 600;
   border-color: var(--enemy);
   color: var(--enemy);
-  background: #241716;
+  background: #2a1512;
 }
 
 button.primary:hover {
@@ -571,8 +619,9 @@ button.primary:hover {
 }
 
 .panel {
-  background: linear-gradient(180deg, #131722 0%, var(--panel) 100%);
+  background: linear-gradient(180deg, #1c1811 0%, var(--panel) 100%);
   border: 1px solid var(--panel-line);
+  box-shadow: var(--bevel);
   border-radius: 10px;
   padding: 10px 13px 12px;
 }
@@ -709,7 +758,7 @@ button {
   padding: 6px 8px;
   border-radius: 7px;
   border: 1px solid var(--panel-line);
-  background: #0d1119;
+  background: #100d0a;
   color: var(--ink);
   cursor: pointer;
   transition:
@@ -718,7 +767,7 @@ button {
 }
 
 button:hover {
-  border-color: #33405a;
+  border-color: #4a3f2d;
   color: var(--accent);
 }
 
@@ -732,7 +781,7 @@ kbd {
   padding: 1px 6px;
   border-radius: 4px;
   border: 1px solid var(--panel-line);
-  background: #0c0f16;
+  background: #0e0c09;
   color: var(--ink);
   white-space: nowrap;
 }
@@ -799,13 +848,13 @@ kbd {
   padding: 5px 7px;
   border-radius: 7px;
   border: 1px solid var(--panel-line);
-  background: #0d1119;
+  background: #100d0a;
   color: var(--ink);
   cursor: pointer;
 }
 
 .mind select:hover {
-  border-color: #33405a;
+  border-color: #4a3f2d;
 }
 
 .genes {
@@ -986,6 +1035,7 @@ kbd {
   padding: 8px 10px;
   border-radius: 9px;
   background: var(--scrim);
+  box-shadow: var(--bevel);
   color: var(--ink-dim);
   pointer-events: auto;
   text-align: left;
@@ -1013,7 +1063,7 @@ kbd {
 .action-slot.held {
   border-color: var(--accent);
   color: var(--accent);
-  background: #16233a;
+  background: #2a2114;
 }
 
 .action-slot.held .action-icon {
@@ -1069,6 +1119,7 @@ kbd {
   flex: 0 0 auto;
   border-radius: 999px;
   border: 1px solid var(--panel-line);
+  box-shadow: var(--bevel);
   background: var(--scrim);
   overflow: hidden;
   pointer-events: auto;
@@ -1107,8 +1158,11 @@ kbd {
   transform: none;
 }
 
+/* No `--bevel` here, unlike the chips: a segment sits *inside* the housing, and the
+   housing already carries the highlight. Two of them a millimetre apart would read
+   as a seam rather than as an edge catching light. */
 .seg[aria-checked="true"] {
-  background: #16233a;
+  background: #2a2114;
   color: var(--accent);
   box-shadow: inset 0 -2px 0 var(--accent);
 }
@@ -1119,7 +1173,7 @@ kbd {
   position: fixed;
   inset: 0;
   z-index: 3;
-  background: rgba(6, 8, 12, 0.86);
+  background: rgba(8, 7, 6, 0.86);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1133,16 +1187,18 @@ kbd {
 .overlay-card {
   max-width: 640px;
   background: var(--panel);
-  border: 1px solid #45324a;
-  border-left: 3px solid #ff7b72;
+  border: 1px solid #3a2a20;
+  border-left: 3px solid var(--blood-hot);
+  box-shadow: var(--bevel);
   border-radius: 10px;
   padding: 18px 20px;
 }
 
 .overlay-card h2 {
   margin: 0 0 8px;
+  font-family: var(--display);
   font-size: 16px;
-  color: #ff9d94;
+  color: #d98878;
 }
 
 .overlay-card p {
@@ -1154,7 +1210,7 @@ kbd {
 .overlay-card pre {
   margin: 12px 0 0;
   padding: 10px;
-  background: #0b0e14;
+  background: #0d0b08;
   border-radius: 6px;
   font-family: var(--mono);
   font-size: 11.5px;

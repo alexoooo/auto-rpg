@@ -2117,6 +2117,105 @@ should also say which baseline they are against: measured against `iso-02` the
 later sessions only *add* work, because the stroke had already gone by then, so a
 `render` mean that fails to fall against `iso-02` is not a regression to chase.
 
+## Art direction
+
+The target is a concept image, and its permanent home is `web/assets/CONCEPT.png`:
+commit it there once and never regenerate it. Nothing loads it and it is not an
+asset — it belongs in the repository because a mood target that lives in a chat log
+is a mood target nobody can check a sprite against six weeks later. It is not in the
+tree yet, and that is the one line of this section that is a to-do rather than a
+record. Everything below is traceable to something visible in that image, and it is
+written here rather than in a plan because plans are deleted when their topic
+finishes.
+
+**The room is brown-black, not blue-black — and that cost the channel the contrast
+used to live in.** The palette was cold: `#090b10` behind the page, rock at
+`#161c28`, flagstones at `rgb(t, t+4, t+12)` where *blue was the channel carrying
+the contrast*, and every comment that tuned anything said so. It is umber now. The
+three channels hold a fixed warm ratio through every tone, and what separates two
+surfaces is **how much light each one is getting** — brightness, not hue.
+Two consequences the next person to "fix the contrast" needs before reaching for a
+channel that is deliberately empty: a doorway can no longer read by being the only
+warm thing in a cold room, so it buys its read with chroma (four times the rock's
+span) and with the little brightness umber has left over — 1.23× the rock top on
+relative luminance, *down* from the 1.67× the old warm-on-cold pair had, and
+`DOOR_TOP`'s comment carries that regression and its knob; and a torch can no longer
+read by hue, so the ladder from bracket to flame to core carries it, widened to 4.8×
+and 1.63× to compensate.
+
+**`PAL` is a relationship, not fifteen colours.** It lives at the top of the wall
+constants in `web/main.js` and it is quoted here once, because this is the copy the
+rest of the repository — including `ASSET_SPEC.md` — should cite:
+
+```
+void #0b0a08   mortar #100d0a   stoneLo #241e14   stoneHi #2e281e
+rockSide #1e1a14   rockTop #3a342c   rockLip #57503f
+timberTop #5a3d1c   timberSide #33220f   iron #2a1d10
+flame #e8842c   flameCore #fff0c4
+bone #c9bfa8   boneDim #8c8474   blood #7a1010   bloodHot #c0392b
+cold #3d4f5c
+```
+
+The three claims those numbers exist to make: **rock is lighter than distant
+floor** (a lit top face standing over ground the light no longer reaches is the
+ordinary isometric read, not a regression), **flame is brighter than anything**,
+and **blood is the only saturation**. A tone added here that breaks one of those is
+a bug even if it looks fine on its own.
+
+**One global light: upper right, warm.** Every asset in the game is lit by it, and
+this is the one rule that cannot be rescued by putting an asset next to something
+else — two sprites lit from opposite sides are wrong together at every scale and in
+every arrangement, which is why it belongs in the durable file and not only in a
+generation brief. The procedural bodies already obey it: the rim gradient runs
+across the silhouette from the shaded side to the lit one and never rotates with
+the body, because the light belongs to the room.
+
+**Light comes from things.** A torch has a fixture, a pool on the floor and warm
+bounce on the wall behind it; a character carries a lantern. More than a few units
+from one of them the room is *gone*, not dim — the vignette reaches 0.80 at the rim
+and the corners of the frame are near-black on purpose. Two bounds on that, and
+both are hard:
+
+- **The fog decides what is visible and the lighting is cosmetic within it.**
+  `canSee` and the frame's `visible` column are the sim's answer. Never-seen stays
+  black; remembered-but-unseen draws dimmed with no dynamic light. **A torch may
+  not reveal a body the character's vision has not** — lighting a room you cannot
+  see is a wallhack.
+- **No `shadowBlur`, ever, and no new dashed strokes.** Soft light is a cached
+  radial gradient composited with `lighter`. "Performance notes" above is why:
+  strokes are the scarce resource on this page and fills are effectively free, and
+  a blur is a per-pixel pass wearing a fill's clothing.
+
+**Chroma is reserved**, and the list is short: the flame, blood, and the two thin
+team rings under the feet. Everything else on screen is umber, bone or near-black.
+The rings are the one exception and they stay subordinate — desaturated a long way
+toward grey, thin, dim, and readable only because everything around them is brown.
+If a faction is ever hard to call at a glance the answer is ring alpha on hover and
+selection, never chroma on the fill. **All of that is about the room's materials.**
+The gameplay readouts drawn over it — health bars, lock marks, the destination
+crosshair — are instruments rather than surfaces: they paint in all three view modes,
+which makes them part of the A/B control rather than part of the picture, and they
+keep their chroma deliberately. **The check is a desaturated screenshot of the room,
+not a code review**: drop the saturation to zero and any *material* that stops being
+findable was relying on hue it was not allowed to spend.
+
+**Figures are silhouettes with a warm rim.** A body is near-black in its interior
+with a bright edge on the side the light is; the detail lives in the *outline*, not
+in the fill. That is what makes a body readable at forty pixels, it is what makes a
+procedural rig a shipping look rather than a placeholder, and it is the test to run
+on any new body: shrink the window until a figure is forty pixels tall and ask
+whether you can still name its archetype and its facing. If the answer needs the
+interior, the silhouette is wrong.
+
+**The HUD is framed, not floating.** Bone text on near-black behind thin warm-iron
+frames — a 1 px border and a 1 px inset bone highlight, which is what reads as
+bevelled metal without a gradient or an image. It is styled globally rather than
+per view mode, deliberately: there is one DOM and three view modes share it, and a
+HUD that repainted itself on `G` would be a mode switch that flashes the whole
+page. The canvas is the A/B control; the chrome around it is not. `--scrim` keeps
+its 0.88 and its lack of blur, and that is a measurement rather than a taste — see
+"Performance notes".
+
 ## Rules that exist for termination, not for flavour
 
 Two rules earn their place by stopping fights from failing to end. Both were

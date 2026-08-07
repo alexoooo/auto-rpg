@@ -1610,11 +1610,16 @@ const canvas = document.getElementById("arena");
  *
  * The second is not fixable and is the reason this stayed transparent. **The
  * void is not a flat colour.** `body` (`web/style.css`) is
- * `radial-gradient(1200px 700px at 50% 42%, #141a26 0%, transparent 70%)` over
+ * `radial-gradient(1200px 700px at 50% 42%, #1d1811 0%, transparent 70%)` over
  * `--bg`, so what shows through the canvas is a soft ambient wash across the
- * middle of the window -- `rgb(20,26,38)` at its centre against `rgb(9,11,16)`
- * at the corners. An opaque canvas cannot show it, and a flat fill of `--bg`
- * flattens the room's whole ambient light. It also silently changes the fog:
+ * middle of the window -- `rgb(29,24,17)` at its centre against `rgb(11,10,8)`
+ * at the corners. (`art-01` retoned both; they were `#141a26` over `#090b10`. That
+ * moved the wash's hue and not its span -- about 14.5 levels of luminance against
+ * the old 14.7 -- so the argument is exactly the one it always was, and the quote
+ * is refreshed because a comment whose entire job is to stop a re-attempt is the
+ * worst place in the file for a stale number.) An opaque canvas cannot show it, and
+ * a flat fill of `--bg` flattens the room's whole ambient light. It also silently
+ * changes the fog:
  * `SEEN_ALPHA` blends remembered ground *toward the page background*, which is
  * stated in that constant's own comment and in `rebuildLevelPaths`'s ("the page
  * background is already the void"). Reproducing the gradient in JS would be a
@@ -3223,7 +3228,21 @@ let viewMode = "world";
  *  buffer, which is now `frameBuf`; it is taken today by the blended state the
  *  loop draws. Either way this one keeps its longer name, because "the view" on
  *  this page means the camera and the picture and not a menu setting. */
-const currentView = () => VIEW_MODES.find((m) => m.id === viewMode) || VIEW_MODES[0];
+/** The `.find` predicate, hoisted out of the argument position.
+ *
+ *  An arrow literal written inline is a fresh closure on every call, and
+ *  `currentView` is called three or four times a *body* a frame -- `artOn`, `fogOn`
+ *  and `readoutsOn` all go through it and `skinOf` asks once per unit. That is a few
+ *  hundred short-lived closures a second in a render path whose stated discipline is
+ *  that it allocates nothing; see `wedgeFans`, which is the same argument about
+ *  strings. It can be hoisted only because it closes over the module-scope
+ *  `viewMode` rather than over a parameter -- `setViewMode`'s own `.find` is keyed on
+ *  an `id` argument and has to stay where it is. */
+function isCurrentMode(m) {
+  return m.id === viewMode;
+}
+
+const currentView = () => VIEW_MODES.find(isCurrentMode) || VIEW_MODES[0];
 const artOn = () => currentView().art;
 const fogOn = () => currentView().fog;
 /** Whether this mode paints the sim's own measurements over the picture: the sight
@@ -3310,7 +3329,7 @@ function setViewMode(id) {
 /** `G`. One key that steps through the list is why the group is a radiogroup and
  *  not three switches: there is nothing here to combine. */
 function cycleViewMode() {
-  const at = VIEW_MODES.findIndex((m) => m.id === viewMode);
+  const at = VIEW_MODES.findIndex(isCurrentMode);
   setViewMode(VIEW_MODES[(at + 1) % VIEW_MODES.length].id);
 }
 
@@ -3356,7 +3375,7 @@ function buildViewGroup() {
     const step = ARROW[event.key] || 0;
     if (!step || dead) return;
     event.preventDefault();
-    const at = VIEW_MODES.findIndex((m) => m.id === viewMode);
+    const at = VIEW_MODES.findIndex(isCurrentMode);
     const next = (at + step + VIEW_MODES.length) % VIEW_MODES.length;
     setViewMode(VIEW_MODES[next].id);
     const button = document.getElementById(`btn-view-${next}`);
@@ -4916,8 +4935,26 @@ function bakeFloorTile(size) {
   const rand = grainRandom(0x9e3779b9);
 
   // The mortar, which is what every seam shows through to.
-  g.fillStyle = "#0c1017";
+  g.fillStyle = PAL.mortar;
   g.fillRect(0, 0, size, size);
+
+  // **Red carries the contrast and blue is the flat channel**, which is the exact
+  // inverse of what this bake did before `art-01`. The two ends of the walk are
+  // `PAL.stoneLo` and `PAL.stoneHi`, *read* rather than transcribed: a flagstone is
+  // a whole number of steps from the dark end toward the light one, so the palette
+  // the rest of the repository quotes and the floor that actually gets painted
+  // cannot drift apart. This produces the same tones the hand-written formula did
+  // -- `(36,30,20)` to `(46,40,30)`, eleven steps about a mean of `(41,35,25)`, one
+  // `rand()` draw per stone in the same order -- so the floor is identical to the
+  // byte and the only thing that changed is which copy of the range is the source.
+  //
+  // One step drives all three channels, because the two ends are the same offset
+  // apart on every one of them: a flagstone differs from its neighbour in how much
+  // light it is getting, not in what it is made of, which is the whole claim the
+  // umber palette makes. Retone an end to something that is *not* a uniform offset
+  // and the red span is what still gets counted -- this is where you find that out.
+  const stoneLo = palRgb(PAL.stoneLo);
+  const stoneSteps = palRgb(PAL.stoneHi)[0] - stoneLo[0] + 1;
 
   const rowH = size / TILE_ROWS;
   const colW = size / TILE_COLS;
@@ -4936,12 +4973,15 @@ function bakeFloorTile(size) {
       const y = row * rowH;
       const w = colW - 2 * seam;
       const h = rowH - 2 * seam;
-      const tone = 20 + Math.floor(rand() * 11);
-      g.fillStyle = `rgb(${tone},${tone + 4},${tone + 12})`;
+      // How far this stone is along the walk the top of the function sets up.
+      const step = Math.floor(rand() * stoneSteps);
+      g.fillStyle = `rgb(${stoneLo[0] + step},${stoneLo[1] + step},${stoneLo[2] + step})`;
       g.fillRect(x + seam, y + seam, w, h);
       // A lit top edge and a shadowed bottom one. Two flat fills, but they are
       // the difference between a stone with a face and a coloured rectangle.
-      g.fillStyle = "rgba(190,212,248,0.05)";
+      // Bone rather than sky: the lip is the room's own light landing on a
+      // stone, and the room's light is a torch.
+      g.fillStyle = "rgba(201,191,168,0.06)";
       g.fillRect(x + seam, y + seam, w, lip);
       g.fillStyle = "rgba(0,0,0,0.30)";
       g.fillRect(x + seam, y + rowH - seam - lip, w, lip);
@@ -4956,7 +4996,7 @@ function bakeFloorTile(size) {
     const y = Math.floor(rand() * size);
     g.fillStyle =
       rand() < 0.5
-        ? `rgba(206,224,255,${(0.02 + rand() * 0.05).toFixed(3)})`
+        ? `rgba(201,191,168,${(0.02 + rand() * 0.05).toFixed(3)})`
         : `rgba(0,0,0,${(0.05 + rand() * 0.12).toFixed(3)})`;
     g.fillRect(x, y, 1, 1);
   }
@@ -5014,6 +5054,97 @@ function floorPatternNow() {
     floorPattern.setTransform(PATTERN_M);
   }
   return floorPattern;
+}
+
+/**
+ * The grain, as one tile that is baked once and never again.
+ *
+ * **In screen space, not world space**, and that is the whole design rather than a
+ * shortcut. Grain is a property of the *picture* and not of the floor: it does not
+ * pan, it does not zoom, and it is therefore the one paint source on this page with
+ * no invalidation rule at all -- `floorPattern` rebakes on a zoom bucket and
+ * `arenaVignette` on the room's screen box, and this rebakes on nothing. A grain
+ * anchored to the world would crawl under a pan, which is the exact artefact that
+ * makes an overlay read as a filter somebody left on.
+ *
+ * It exists because a large dark area with nothing in it reads as a flat fill, and
+ * after `art-01`'s vignette the largest areas on screen are exactly those. It is
+ * composited over the bodies, the walls and the overlay layer -- not inside the
+ * vignette and not gated on it -- because the emptiest part of the picture is the
+ * part that needs it most.
+ *
+ * `grainRandom` again, at a different constant seed, for the reason `bakeFloorTile`
+ * gives: a bake that rolled fresh numbers would fizz the moment anything caused a
+ * rebake. Nothing does here, which makes the seed belt and braces, and it costs one
+ * constant.
+ *
+ * **Speckle over transparency, not a grey veil**, and the composite is
+ * `source-over`, set rather than inherited -- the line below says why, and
+ * `drawTorchLight` is the only site in `web/` that sets anything else. `overlay` was
+ * specified and is wrong on this backdrop: the separable overlay blend is `2*b*s`
+ * for a backdrop below half, so against the near-black this session just produced
+ * it multiplies toward zero and paints
+ * *nothing* precisely where the grain is for. That is derivable rather than
+ * measurable, so it settles the blend mode without a stopwatch. What is genuinely
+ * unmeasured is the cost of one full-viewport translucent fill a frame, which needs
+ * a foreground tab and the frame strip -- see "Performance notes" in DESIGN.md for
+ * why a loop around a draw call cannot answer it. If the fps chip ever moves, this
+ * is the only candidate in the session and `GRAIN_ALPHA` is the knob.
+ */
+const GRAIN_TILE = 256;
+const GRAIN_DENSITY = 0.25; // fraction of the tile's pixels that get a mark
+const GRAIN_ALPHA = 0.5; // what the whole tile is composited at
+
+let grainPattern = null;
+
+function bakeGrainTile() {
+  const tile = document.createElement("canvas");
+  tile.width = GRAIN_TILE;
+  tile.height = GRAIN_TILE;
+  const g = tile.getContext("2d");
+  const rand = grainRandom(0x2545f491);
+  // Half lighter than what is under it and half darker, which is what stops the
+  // wash reading as a lift: a speckle that is only ever brighter is fog, and one
+  // that is only ever darker is dirt on the lens. Bone rather than white for the
+  // light half, so the grain belongs to the same palette as everything it lands on.
+  const marks = Math.round(GRAIN_TILE * GRAIN_TILE * GRAIN_DENSITY);
+  for (let i = 0; i < marks; i++) {
+    const x = Math.floor(rand() * GRAIN_TILE);
+    const y = Math.floor(rand() * GRAIN_TILE);
+    g.fillStyle =
+      rand() < 0.5
+        ? `rgba(201,191,168,${(0.03 + rand() * 0.07).toFixed(3)})`
+        : `rgba(0,0,0,${(0.04 + rand() * 0.10).toFixed(3)})`;
+    g.fillRect(x, y, 1, 1);
+  }
+  return tile;
+}
+
+/**
+ * One `fillRect` of grain over the whole picture.
+ *
+ * **The identity transform, so a tile pixel is a device pixel.** `render` leaves the
+ * matrix at `dpr` with the camera translated into it, and painting through that
+ * would scale the grain with the display and slide it under a pan -- both of the
+ * things the tile exists not to do. The rect is the backing store's own size for
+ * the same reason: `viewport` is CSS pixels and this space is not.
+ */
+function drawGrain() {
+  if (!grainPattern) grainPattern = ctx.createPattern(bakeGrainTile(), "repeat");
+  if (!grainPattern) return;
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  // Said, not inherited. `source-over` is the canvas default and every painter that
+  // changes it restores it, so this line moves nothing today -- but the grain is the
+  // last fill in the frame, which makes "nothing today" a property of every draw
+  // call before it rather than of this function. `drawTorchLight` is the one site in
+  // `web/` that sets another mode; this is the line that stops a second one from
+  // being this function's problem.
+  ctx.globalCompositeOperation = "source-over";
+  ctx.globalAlpha = GRAIN_ALPHA;
+  ctx.fillStyle = grainPattern;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.restore();
 }
 
 /**
@@ -5793,10 +5924,25 @@ const LANTERN_INNER = 0.6;
  * the room is exactly the kind of quarter-truth that reads as "the lighting is
  * slightly off" and takes an afternoon to name.
  *
- * Still a circular gradient over a 2:1 box, so it reads a shade round for the
- * space. The fix is a `save`/`scale(1, 0.5)`/`restore` around the fill; it is
- * three lines, it is `iso-07`, and it is worth finding out first whether anybody
- * notices.
+ * **The gradient is circular and the fill squashes it**, which is the answer to a
+ * question this comment used to leave open: a round falloff over a 2:1 box was
+ * costed at three lines and deferred pending whether anybody noticed. Pushing the
+ * rim from 0.62 to 0.80 is what settled it, because the asymmetry scales with the
+ * darkness. The arithmetic, once, since the direction is the opposite of the one
+ * people guess: the room is a diamond inscribed in this box, one corner on each
+ * edge, and the box is exactly 2:1 whatever the room's proportions are -- `projX`
+ * spans `A + B` and `projY` half of it. So the east and west corners sit about
+ * `w/2` from the centre and the north and south ones about `h/2 = w/4`, against an
+ * outer radius of `0.62w` and an inner of `0.08w`: a circle reaches 78% of its
+ * falloff at the east corner and 33% at the north one. (Exactly `w/2` and `w/4` on
+ * a square room; 9.01 and 4.61 against 9 and 4.5 on a 10x8, which is the shape the
+ * generator actually makes.) **East and west go nearly black while north and south
+ * stay legible**, on a room that is symmetric about both. The squash puts all four
+ * at the same fraction.
+ *
+ * It is done at the fill and not here, because a gradient object has no aspect to
+ * give it -- see the call in `drawLevel`, which carries the same un-squash algebra
+ * `drawLantern` derives at length and for the same reason.
  */
 let vignette = null;
 let vignetteX0 = 0;
@@ -5819,9 +5965,14 @@ function arenaVignette(bb) {
   const cx = (bb.x0 + bb.x1) / 2;
   const cy = (bb.y0 + bb.y1) / 2;
   const built = ctx.createRadialGradient(cx, cy, Math.min(w, h) * 0.16, cx, cy, Math.max(w, h) * 0.62);
-  built.addColorStop(0, "rgba(9,11,16,0)");
-  built.addColorStop(0.6, "rgba(9,11,16,0.20)");
-  built.addColorStop(1, "rgba(9,11,16,0.62)");
+  // `PAL.void` as an rgba triple, and a rim at 0.80 rather than 0.62. The
+  // concept's frame edge is *gone*, not dim, and 0.62 left the corners of the
+  // room legible from across it -- which is the same picture as an evenly lit
+  // room with a filter over it. The middle stop moves with the rim so the knee
+  // stays where it was rather than the whole curve steepening at the end.
+  built.addColorStop(0, "rgba(11,10,8,0)");
+  built.addColorStop(0.6, "rgba(11,10,8,0.28)");
+  built.addColorStop(1, "rgba(11,10,8,0.80)");
   vignette = built;
   vignetteX0 = bb.x0;
   vignetteY0 = bb.y0;
@@ -5834,25 +5985,88 @@ function arenaVignette(bb) {
  *  sixty times a second. Remembered ground first, then lit. */
 const LEVEL_PASSES = [false, true];
 
+/** The room's palette, and the whole of it.
+ *
+ *  Named rather than inline because the concept's look is a *relationship*
+ *  between these tones -- rock lighter than distant floor, flame brighter than
+ *  anything, blood the only saturation -- and a relationship that is spelled out
+ *  at fifteen call sites is a relationship that drifts.
+ *
+ *  **Every entry here is read by something**, and that is the property that keeps
+ *  this object a relationship rather than a list of colours somebody liked. The one
+ *  exception is `rockLip`, which is marked as reserved on its own line; an entry
+ *  that is neither read nor marked is a swatch and belongs deleted. `stoneLo` and
+ *  `stoneHi` are the pair that most wants checking, because they are not drawn
+ *  directly -- `bakeFloorTile` walks from one to the other and they are exactly its
+ *  two ends, derived rather than transcribed. */
+const PAL = {
+  void:       "#0b0a08", // never-seen, and the page's own background
+  mortar:     "#100d0a", // what every seam shows through to
+  stoneLo:    "#241e14", // darkest flagstone; `bakeFloorTile` is where it is realised
+  stoneHi:    "#2e281e", // brightest flagstone, same
+  rockSide:   "#1e1a14", // a block's +x / +y faces
+  rockTop:    "#3a342c", // a block's lit top face
+  rockLip:    "#57503f", // the lit edge of a course -- reserved, unread until `art-07` courses the walls
+  timberTop:  "#5a3d1c", // a door, lit face
+  timberSide: "#33220f",
+  iron:       "#2a1d10", // a torch bracket
+  flame:      "#e8842c",
+  flameCore:  "#fff0c4",
+  bone:       "#c9bfa8", // highlights and any text on the canvas
+  boneDim:    "#8c8474",
+  blood:      "#7a1010",
+  bloodHot:   "#c0392b",
+  cold:       "#3d4f5c", // portal and magic, and nothing else
+};
+
+/** A `PAL` hex as `[r, g, b]`.
+ *
+ *  `PAL` is hexes because `fillStyle` takes a string, but two kinds of call site
+ *  cannot use one: anything that wants a tone at an alpha needs `rgba(r,g,b,a)`,
+ *  and `bakeFloorTile` needs to do arithmetic between two of them. Both used to
+ *  keep hand-typed copies of the channels and one of them had already drifted off
+ *  its hex -- see `drawGlobe`'s rim -- which is the entire argument for parsing the
+ *  string instead of trusting a comment to keep two spellings in step.
+ *
+ *  Called at module scope and inside the floor bake, both of which happen a handful
+ *  of times in the life of the page. It parses a string; it does not belong on a
+ *  frame's path. */
+function palRgb(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
 /** A block of rock, under iso, as two flat tones.
  *
- *  Both sit above `#0c1017`, the one flat tone top-down rock has: that is
- *  `(12,16,23)`, the side face is `(14,19,28)` a shade over it and the top is
- *  `(22,28,40)`, near enough twice it. The mass therefore reads a little lighter
- *  than top-down rock does, which is the right direction -- rock with a top face
- *  catching the room's light is not the same thing as a hole in the floor plan.
- *  The gap between the two tones is `(8, 9, 12)` -- twelve is the blue channel
- *  alone, and blue is where this palette keeps most of its contrast -- and that gap
- *  is the entire cue that says "height" at this resolution.
+ *  Both sit above `PAL.mortar`, which is what a seam in the floor shows through
+ *  to: that is `(16,13,10)`, the side face is `(30,26,20)` about twice it and the
+ *  top is `(58,52,44)`, about twice that again. The mass therefore reads lighter
+ *  than the dark between the stones, which is the right direction -- rock with a
+ *  top face catching the room's light is not the same thing as a hole in the floor
+ *  plan. The gap between the two tones is `(28,26,24)`, which is **brightness with
+ *  the hue held still**, and that gap is the entire cue that says "height" at this
+ *  resolution.
+ *
+ *  **The contrast used to be carried by the blue channel and is now carried by
+ *  brightness alone**, which is the one thing to know before retuning any of this.
+ *  Top and side were `(22,28,40)` and `(14,19,28)`, a gap of `(8,9,12)` where the
+ *  twelve was blue doing most of the work; the room was blue bordering on
+ *  monochrome and that was the channel with room to move in it. It is umber now,
+ *  the three channels stay in a fixed ratio through every tone in `PAL`, and what
+ *  separates two surfaces is how much light each is getting. Reaching for a
+ *  channel here is how the room goes back to being cold.
  *
  *  **The top face is not darker than the lit floor, and under iso it does not have
  *  to be.** This comment used to claim both tones sat well under any lit floor tile
  *  beside them; that was never measured against the stone. `bakeFloorTile` fills
- *  `rgb(tone, tone+4, tone+12)` with `tone` uniform on `20..30`, so the flagstones
- *  run from `(20,24,36)` to `(30,34,46)` about a mean of `(25,29,37)` -- `WALL_TOP`
- *  lands *inside* that range, not under it. And past roughly 60% of the vignette's
- *  radius the lit floor is darker than the rock standing beside it, because the
- *  falloff paints on the floor and not on the rock.
+ *  `rgb(tone+16, tone+10, tone)` with `tone` uniform on `20..30`, so the flagstones
+ *  run from `(36,30,20)` to `(46,40,30)` about a mean of `(41,35,25)` -- `WALL_TOP`
+ *  now sits clear *above* that range where it used to land inside it, and
+ *  `WALL_XFACE` sits just under the darkest stone. The two faces therefore bracket
+ *  the floor instead of straddling it, which is a better read than the palette this
+ *  replaced managed and was not the reason for the retone. And past roughly 60% of
+ *  the vignette's radius the lit floor is darker than the rock standing beside it,
+ *  because the falloff paints on the floor and not on the rock.
  *
  *  The premise changed, not the arithmetic. Top-down you see only the top of
  *  everything, so **tone is the only cue** there is: floor and rock are two flat
@@ -5878,27 +6092,63 @@ const LEVEL_PASSES = [false, true];
  *  of a block is exactly where the two tones meet each other and the floor, so the
  *  rim that `edge` used to stroke comes back for free -- see `rebuildLevelPaths`,
  *  which is where the stroke stopped being baked. */
-const WALL_TOP = "#161c28"; // catches what light the room has
-const WALL_XFACE = "#0e131c"; // the +x face, half lit
+const WALL_TOP = PAL.rockTop; // catches what light the room has
+const WALL_XFACE = PAL.rockSide; // the +x face, half lit
 
 /** A doorway, in the same two tones a block of rock takes and for the same two
  *  faces -- so a shut door is a block, an open one is a pair of jambs, and both
  *  are recognisably the same material.
  *
- *  **Warm, and brighter than everything around them.** `WALL_TOP` is `(22,28,40)`
- *  and the flagstones run `(20,24,36)` to `(30,34,46)`: this palette is blue
- *  bordering on monochrome, and a hue that is not blue is therefore the loudest
- *  thing it can say without raising a voice. `(59,44,29)` against `(22,28,40)` is
- *  a hue flip *and* a doubling of brightness, which is what "a shut door reads as
- *  a door from across the room" costs. The pair keeps rock's own relationship
- *  between its two faces -- top brighter, `+x` face about half of it -- so the
- *  height cue reads identically on both materials.
+ *  **Brighter and more saturated than everything around them, and no longer a
+ *  different hue at all.** The old argument here was that the room was blue
+ *  bordering on monochrome, so a warm tone was the loudest thing the palette could
+ *  say without raising a voice -- `(59,44,29)` against a `(22,28,40)` wall top was
+ *  a hue flip *and* most of a doubling of brightness, and it cost nothing to say.
+ *  **That argument died with the blue.** Against `PAL.rockTop` at `(58,52,44)` the
+ *  same timber is the same family at the same brightness, and a shut door would be
+ *  indistinguishable from a wall block from across the room.
+ *
+ *  **Every number below is relative luminance**, `0.2126R + 0.7152G + 0.0722B` --
+ *  the metric `TORCH_IRON` sixty lines down names and computes twice, and the one
+ *  this comment is held to. It previously quoted a lift measured on the red channel
+ *  alone in the same sentence as a margin measured on luminance, which flattered
+ *  the first number by a third and hid what follows.
+ *
+ *  **Brightness is the thing that got worse, and saying so is the point of this
+ *  paragraph.** `(90,61,28)` is 64.8 against the rock top's 52.7: a lift of
+ *  **1.23x**. The pair this replaced was 46.1 on a 27.6 wall top, which is
+ *  **1.67x**. Door-against-rock contrast therefore *fell by about a quarter* under
+ *  a retone whose stated purpose was to buy the door its read back. What survives
+ *  intact is the margin over the floor: the door clears the brightest flagstone
+ *  (`(46,40,30)`, 40.6) by 24.2 and clears the rock top by 12.1, so the gap to the
+ *  ground is exactly twice the gap to the masonry.
+ *
+ *  **So what actually carries the door now is chroma, not brightness.** The rock
+ *  spans fourteen levels from its reddest channel to its bluest and the timber
+ *  spans sixty-two -- four times over -- so at four pixels the door is the
+ *  only thing in the masonry with any colour in it at all. That is the one axis
+ *  that got wider, and it is wide because everything around it is deliberately
+ *  empty on it. A room whose materials all hold one warm ratio leaves exactly one
+ *  free channel, and the door is what it is being spent on.
+ *
+ *  **If acceptance test 3 fails on a real screen** -- "a shut door is findable from
+ *  across a dark room" -- the knob is `PAL.timberTop`, moved with `PAL.timberSide`
+ *  behind it so the face ratio below survives. Getting back to 1.67x wants roughly
+ *  `(122,83,38)`, which is luminance 88. **The bound is `PAL.flame` at 147**: a door
+ *  may not climb far enough to read as a light, because "flame is brighter than
+ *  anything" is one of the three claims `PAL` exists to make. Do not reach for hue
+ *  instead -- that is the channel this palette emptied on purpose, and DESIGN.md's
+ *  "Art direction" is where it says so.
+ *
+ *  The pair keeps rock's own relationship between its two faces -- top brighter,
+ *  `+x` face a shade over half of it, 0.56 here against rock's 0.50 on that same
+ *  luminance -- so the height cue reads identically on both materials.
  *
  *  Timber rather than iron because timber is the warm one, and because a door
  *  that reads as metal reads as *locked*, which is a rule this game does not
  *  have. */
-const DOOR_TOP = "#3b2c1d";
-const DOOR_XFACE = "#261c13";
+const DOOR_TOP = PAL.timberTop;
+const DOOR_XFACE = PAL.timberSide;
 
 /** The same pair with the art off.
  *
@@ -5913,13 +6163,33 @@ const DOOR_XFACE_FLAT = "#161a26";
 
 /** A torch: dark iron, fire, and the hotter middle of the fire.
  *
- *  **The two steps are what make a torch readable at five pixels**, and the first
- *  of them is bigger than anything else on the page: `(58,42,26)` under
- *  `(232,132,44)`, against a wall face of `(14,19,28)`. The bracket has to be
- *  darker than the flame by more than the flame is brighter than the wall, or the
- *  pair reads as one warm blob and the eye stops finding the light source. The
- *  second step, `(255,230,168)` inside the orange, is the difference between a
- *  shape that is burning and a shape that is painted orange.
+ *  **The two steps are what make a torch readable at five pixels, and they are
+ *  wider than they used to be because they are now carrying the whole read.**
+ *  When the room was blue, a torch was three warm marks on a cold wall and the hue
+ *  alone said "fire"; umber took that away, so the brightness ladder has to do it
+ *  unaided. `(42,29,16)` under `(232,132,44)` under `(255,240,196)`, mounted on a
+ *  wall face of `(30,26,20)`. On relative luminance those are 31, 147 and 240: the
+ *  bracket-to-flame step went from 3.3x to **4.8x** and the flame-to-core step from
+ *  1.57x to **1.63x**, which is the whole of what the retone did here. The second
+ *  step is the difference between a shape that is burning and a shape that is
+ *  painted orange, and it is small on purpose -- a core that clears the flame by as
+ *  much as the flame clears the bracket reads as two flames.
+ *
+ *  **The rule this comment used to state was never satisfied by its own numbers,
+ *  and is recorded here rather than quietly dropped.** It said the bracket must be
+ *  darker than the flame by more than the flame is brighter than the wall, which
+ *  reduces to "the bracket is darker than the wall"; at `(58,42,26)` on a
+ *  `(14,19,28)` face it was two and a half times brighter, so the inequality it
+ *  asserted was off by a quarter. It is off by 4% now -- 116 against 121 -- which
+ *  is as close as this palette gets while the bracket is still iron rather than a
+ *  hole. **What that costs is the bracket's own silhouette:** at 31 against a wall
+ *  face of 26 the fixture is nearly the tone of the stone it is bolted to, where it
+ *  used to be 2.4x it. That is accepted rather than overlooked. The thing that has
+ *  to be found from across a room is the *light*, and a fixture that is a shade off
+ *  the wall is what a real bracket looks like; if a torch ever stops reading as a
+ *  fixture at all, the answer is `PAL.iron` going darker than `PAL.rockSide` --
+ *  which finally makes the sentence above true -- and not a warmer bracket, because
+ *  warm is what the flame is for.
  *
  *  The core is deliberately the brightest flat fill in the file -- brighter than
  *  the hero's own skin. It is the only thing in the room that is supposed to *be*
@@ -5927,9 +6197,9 @@ const DOOR_XFACE_FLAT = "#161a26";
  *  the bands are filled after `drawLevel` has returned. So a torch across a dark
  *  room stays the brightest thing on the screen at any distance, which is exactly
  *  the read `world-07` asks for: the room is lit *from* something. */
-const TORCH_IRON = "#3a2a1a";
-const TORCH_FLAME_TONE = "#e8842c";
-const TORCH_CORE_TONE = "#ffe6a8";
+const TORCH_IRON = PAL.iron;
+const TORCH_FLAME_TONE = PAL.flame;
+const TORCH_CORE_TONE = PAL.flameCore;
 
 /** World units the pool of light on the floor reaches.
  *
@@ -5943,11 +6213,27 @@ const TORCH_LIGHT = 5;
 /** The falloff, as gradient stops.
  *
  *  **Read under `lighter`, so these are additions and not covers.** A stop of
- *  `rgba(255,176,92,0.26)` adds `(66,46,24)` to whatever is under it -- roughly
- *  a doubling of a lit flagstone, which runs `(20,24,36)` to `(30,34,46)` -- and
- *  falls to nothing at the rim. The hue is what does the work: the palette is
- *  blue bordering on monochrome, so warmth reads as light long before brightness
- *  does, which is the same argument `DOOR_TOP` makes one constant up.
+ *  `rgba(255,176,92,0.26)` adds `(66,46,24)` to whatever is under it and falls to
+ *  nothing at the rim. Against the flagstones, which run `(36,30,20)` to
+ *  `(46,40,30)` about a mean of `(41,35,25)`, that lands a lit pool at `(107,81,49)`
+ *  -- about 2.35x the stone it is painted on, summed over the channels.
+ *
+ *  **The stops did not move when the room did, and the arithmetic is why.** The
+ *  floor got brighter by roughly a tenth and the addition is fixed, so the same
+ *  stop is a tenth less of a lift than it was; that is a smaller loss than it
+ *  sounds, because it is the *ratio* that moved and not the pool. What did change
+ *  is the argument. This used to say the hue was doing the work -- that the palette
+ *  was blue bordering on monochrome, so warmth read as light long before brightness
+ *  did. **The floor is warm now, so that is gone**, and the pool separates on two
+ *  things instead: it is 2.35x as bright, and it is *more saturated* than the stone
+ *  under it, `(107,81,49)` spanning 58 levels where `(41,35,25)` spans 16. Adding a
+ *  warm light to a warm floor still saturates it, which is the property that
+ *  survived the retone.
+ *
+ *  If a pool ever stops reading as *lit* in the room, the first stop is the knob.
+ *  **Do not raise it past the point where the pool's rim goes hard** -- that is
+ *  what the second stop at `0.45` is holding back, and a hard rim reads as a decal
+ *  rather than as light.
  *
  *  Hoisted rather than written inside the bake, because the bake builds one
  *  gradient per torch per rebuild and a fresh array of arrays each time would be
@@ -6077,8 +6363,33 @@ function drawLevel(state, now, origin) {
       // Lit from the middle. Without this the stone reads as a swatch of texture
       // rather than as somewhere with a light in it. Built once and cached --
       // see `arenaVignette` for why it is keyed on the room and not the window.
+      //
+      // **Squashed 2:1 about the room's centre**, which is where the round
+      // gradient becomes an elliptical one. `arenaVignette` has the arithmetic
+      // for why a circle over this box is wrong by a factor of two and which
+      // corners pay for it; what is here is the transform and the rect it forces.
+      //
+      // The rect has to be un-squashed or the fill stops short of the bottom of
+      // the window, and how short depends on where the camera is -- exactly the
+      // bug `drawLantern` documents at length. Same algebra, same two lines: the
+      // squash maps user `(u, v)` to `(u, cy + (v - cy) / 2)`, so the rect whose
+      // *image* is `[clipY, clipY + clipH]` starts at `2 * clipY - cy` and is
+      // twice as tall. `x` is untouched by a `scale(1, k)` between two
+      // translates, so `clipX` and `clipW` do not move.
+      const cy = (bb.y0 + bb.y1) / 2;
+      let vy = clipY;
+      let vh = clipH;
+      ctx.save();
+      if (PROJ.shear) {
+        ctx.translate(0, cy);
+        ctx.scale(1, 0.5);
+        ctx.translate(0, -cy);
+        vy = 2 * clipY - cy;
+        vh = clipH * 2;
+      }
       ctx.fillStyle = arenaVignette(bb);
-      ctx.fillRect(clipX, clipY, clipW, clipH);
+      ctx.fillRect(clipX, vy, clipW, vh);
+      ctx.restore();
     }
 
     // The scale bar, and *only* the scale bar: one line every four units, far
@@ -6265,6 +6576,15 @@ function drawLevel(state, now, origin) {
       ctx.fill(levelPaths.torchCoreSeen);
     }
   } else {
+    // **Top-down rock, and deliberately no longer the same six characters as the
+    // floor's mortar.** These two literals were identical up to `art-01` and it
+    // was a coincidence rather than a relationship: this is the flat modes' single
+    // rock tone, the one cue there is when floor and rock are two fills in the same
+    // plane, and `bakeFloorTile`'s seam is a shadow between two lit stones. The
+    // retone moved the mortar to `PAL.mortar` and left this alone, because
+    // `[tactical]` and `[dev]` are the byte-identical A/B control and nothing
+    // reachable with the art off may move. Anybody unifying them is repainting the
+    // control.
     ctx.fillStyle = "#0c1017";
     ctx.globalAlpha = SEEN_ALPHA;
     ctx.fill(levelPaths.wallSeen);
@@ -6322,12 +6642,25 @@ function drawLevel(state, now, origin) {
 /**
  * The pools of light the torches throw on the floor.
  *
- * **The first thing in this file that adds light rather than taking it away**,
- * and `globalCompositeOperation` appears nowhere else in `web/`. Both existing
- * falloffs are *darkening* overlays -- `arenaVignette` and `drawLantern` each
- * paint `rgba(9,11,16,a)` over the floor, so the room is lit by not being
- * darkened. A torch is the opposite: it has to paint the floor brighter than the
- * floor, which a wash over the top cannot do at any alpha.
+ * **The first thing in this file that adds light rather than taking it away**, and
+ * the only `globalCompositeOperation` in `web/` that is not `source-over`. There is
+ * one other site and it is `drawGrain`, which sets the default *back* rather than
+ * inheriting it, and says why on the line.
+ *
+ * Both existing falloffs are *darkening* overlays: `arenaVignette` paints `PAL.void`
+ * over the floor at up to 0.80 and `drawLantern` paints the older `rgba(9,11,16,a)`
+ * at 0.55, so the room is lit by not being darkened. (The lantern kept the cold
+ * literal through `art-01` because it draws in every view and `[tactical]` and
+ * `[dev]` must not move by a byte. Be honest about the size of that: the two
+ * near-blacks are `(9,11,16)` and `PAL.void`'s `(11,10,8)`, **eight levels of blue
+ * apart**, so about 4.4 levels where the gradient reaches its 0.55 and less
+ * everywhere inside it -- not the one level this comment used to claim. Small, and
+ * paid over **the largest cold surface the retone left in the room**: the falloff
+ * covers all the lit floor out to sight range, every frame, in the one view whose
+ * whole subject is that the room is umber. Warming it means either a per-view
+ * literal here or two control modes that move, and this session chose the cold
+ * floor over either.) A torch is the opposite: it has to paint the floor brighter
+ * than the floor, which a wash over the top cannot do at any alpha.
  *
  * `lighter` also composes correctly where two pools overlap, which is the common
  * case in a room with three torches on one wall and the case a plain alpha wash
@@ -6727,9 +7060,10 @@ function drawLock(state, now) {
   // page: the trail, the route, the waypoint beads and the destination ring all
   // mean *a place the character is going*. A lock painted in it would read as
   // one more of those instead of as the answer to "which one?". Taken from
-  // `MONSTER_SKIN` rather than written out, so the ring and the body it is drawn
-  // around cannot drift apart.
-  ctx.strokeStyle = `rgba(${MONSTER_SKIN.glow},${alpha.toFixed(3)})`;
+  // `monsterSkin()` rather than written out, so the ring and the body it is drawn
+  // around cannot drift apart -- including about which of the two skin tables is
+  // live, which is the thing the split made possible to get wrong.
+  ctx.strokeStyle = `rgba(${monsterSkin().glow},${alpha.toFixed(3)})`;
   ctx.lineWidth = 1.8;
   if (!orderAcknowledged) ctx.setLineDash([3, 4]);
   // The ring is drawn around a body standing on the floor, so it lies on the
@@ -6763,7 +7097,7 @@ function drawLock(state, now) {
   // the same segment, and drawing it in screen space keeps the tether one weight
   // whichever way it runs. Which matters more here than it does for a trail --
   // this line is at `alpha * 0.35` and is meant to be findable, not variable.
-  ctx.strokeStyle = `rgba(${MONSTER_SKIN.glow},${(alpha * 0.35).toFixed(3)})`;
+  ctx.strokeStyle = `rgba(${monsterSkin().glow},${(alpha * 0.35).toFixed(3)})`;
   ctx.lineWidth = 1.2;
   ctx.beginPath();
   ctx.moveTo(projX(state.hero.x, state.hero.y), projY(state.hero.x, state.hero.y));
@@ -6813,7 +7147,16 @@ function drawDestination(state, now, arrived) {
 
   ctx.setLineDash([]);
   ctx.globalAlpha = alpha;
-  ctx.fillStyle = "#6ee7ff";
+  // The one inline cyan left on the canvas, and **the swap is gated because this
+  // marker draws in every view.** `[tactical]` and `[dev]` are the A/B control and
+  // must not move by a byte, so the flat modes keep the literal they have always
+  // had and only the umber room takes `PAL.cold` -- which is the room's one cold
+  // tone, reserved for the portal and the order and nothing else. The ring and the
+  // crosshair around it stay as they are in both: at alpha 0.16 to 0.80 they are
+  // what says *where*, and `PAL.cold` is a dark tone that would cost a gameplay
+  // marker its read on a floor this warm. Two tones in one marker is the honest
+  // price of a cold room going brown.
+  ctx.fillStyle = artOn() ? PAL.cold : "#6ee7ff";
   ctx.beginPath();
   ctx.arc(0, 0, 2, 0, TAU);
   ctx.fill();
@@ -6860,10 +7203,18 @@ function drawDestination(state, now, arrived) {
 
 /** The wedge tint, hoisted out of the skin because two keys have to hold it and
  *  a `fan` that disagreed with its own `wedge` would be a body whose facing
- *  changed colour with its intent. `glow` keeps its own literal: it is the same
- *  tint today and it is not the same role. */
+ *  changed colour with its intent. `glow` keeps its own literal in the readout
+ *  pair below: it is the same tint there and it is not the same role.
+ *
+ *  **Four now, because the skins split**, and the art pair is hoisted on the
+ *  identical argument -- `wedge`, `fan` and, there, `glow` as well all have to
+ *  hold one string, and the art skins would otherwise write it three times each.
+ *  These two are the desaturated ends: `PAL.cold` brightened, and a brick that is
+ *  the flame's hue with the fire taken out of it. */
 const HERO_WEDGE = "110,231,255";
 const MONSTER_WEDGE = "255,138,122";
+const HERO_WEDGE_ART = "127,166,189";
+const MONSTER_WEDGE_ART = "168,84,66";
 
 /**
  * The facing wedge's fill, baked once per skin.
@@ -6891,7 +7242,23 @@ function wedgeFans(rgb) {
   return [0, 0.5, 1].map((fan) => `rgba(${rgb},${(0.08 + 0.20 * fan).toFixed(3)})`);
 }
 
-const HERO_SKIN = {
+/** The readout skins -- **byte-identical to what they have always been** -- and
+ *  the art skins beside them.
+ *
+ *  Two tables and not one retone, because the two modes want opposite things.
+ *  `[tactical]`'s disc is a *diagnostic*: cyan against red at full chroma is the
+ *  most separable pair on a dark screen and it should stay that. `[world]`'s body
+ *  is a figure in a torchlit room, where full chroma is the one thing the concept
+ *  never does -- the faction read there is carried by the rim light's hue at low
+ *  alpha and by the ring on the floor, not by the fill.
+ *
+ *  **The team ring is the one saturation exception and it stays subordinate.**
+ *  Both art glows are pulled a long way toward grey: `127,166,189` is `PAL.cold`
+ *  brightened, not the readout's `110,231,255`. The concept's rings are thin and
+ *  dim and read only because everything around them is brown. If a body's faction
+ *  is ever hard to call at a glance the answer is ring alpha on hover and
+ *  selection, not chroma on the fill. */
+const HERO_SKIN_FLAT = {
   glow: "110,231,255",
   body: ["#bff2ff", "#4fb9d8"],
   // The shaded end of the same hue. A silhouette painted in `body` alone came
@@ -6903,13 +7270,31 @@ const HERO_SKIN = {
   bar: "#6ee7ff",
 };
 
-const MONSTER_SKIN = {
+const MONSTER_SKIN_FLAT = {
   glow: "255,138,122",
   body: ["#ffc0b3", "#c04b38"],
   deep: "#67251a",
   wedge: MONSTER_WEDGE,
   fan: wedgeFans(MONSTER_WEDGE),
   bar: "#ff8a7a",
+};
+
+const HERO_SKIN_ART = {
+  glow: HERO_WEDGE_ART,
+  body: ["#8fa8b4", "#38505e"],
+  deep: "#141c22",
+  wedge: HERO_WEDGE_ART,
+  fan: wedgeFans(HERO_WEDGE_ART),
+  bar: "#7fa6bd",
+};
+
+const MONSTER_SKIN_ART = {
+  glow: MONSTER_WEDGE_ART,
+  body: ["#a89080", "#5a4032"],
+  deep: "#1c1410",
+  wedge: MONSTER_WEDGE_ART,
+  fan: wedgeFans(MONSTER_WEDGE_ART),
+  bar: "#c0705e",
 };
 
 /** Which of the six a body wants. **Both wedges read this and neither spells the
@@ -6922,8 +7307,30 @@ function wedgeFill(skin, intent) {
   return skin.fan[intent === INTENT_ATTACK ? 2 : intent === INTENT_FLEE ? 0 : 1];
 }
 
+/** Which of the four a body wants. **Gated on `artOn()` and not on
+ *  `PROJ.upright`**, and this is the one place in the file where that is the right
+ *  bit: a skin is what a body is *painted* in, which is the shape question, and
+ *  the space question is asked separately inside `drawCharacter`. A top-down art
+ *  mode -- the supported-but-unselected configuration `rebuildLevelPaths` argues
+ *  for keeping -- would want the umber skins and the flat geometry, and this
+ *  returns exactly that.
+ *
+ *  Every call site that used to write the ternary out for itself now comes through
+ *  here, which is what keeps an arrow, a corpse and the body that shot or dropped
+ *  it from disagreeing about which table is live. */
 function skinOf(unit) {
-  return unit.faction === FACTION_HEROES ? HERO_SKIN : MONSTER_SKIN;
+  const hero = unit.faction === FACTION_HEROES;
+  if (!artOn()) return hero ? HERO_SKIN_FLAT : MONSTER_SKIN_FLAT;
+  return hero ? HERO_SKIN_ART : MONSTER_SKIN_ART;
+}
+
+/** The monster tint on its own, for the two marks that are about a threat rather
+ *  than about a body: the lock ring and its tether. `drawLock` takes it from the
+ *  skin rather than writing it out so the ring and the body it is drawn around
+ *  cannot drift apart, and that argument only survives the split if the mode
+ *  question is asked in one place. */
+function monsterSkin() {
+  return artOn() ? MONSTER_SKIN_ART : MONSTER_SKIN_FLAT;
 }
 
 /** What a unit could touch at full extension. Drawn only while it is committed
@@ -7880,8 +8287,11 @@ function drawCharacter(unit, now, ghost) {
     ctx.arc(0, 0, r, 0, TAU);
     // Faint, and the only mark left on the floor. It used to sit under a filled
     // facing wedge and had to carry over it; alone on bare ground at 0.30 it reads
-    // as a drawn ring rather than as the edge of a body.
-    ctx.strokeStyle = "rgba(150,180,230,0.16)";
+    // as a drawn ring rather than as the edge of a body. Bone rather than sky, and
+    // a shade fainter with it: on a warm floor the old blue-white was the only cold
+    // mark under every body in the room, which is a hue the concept spends on the
+    // team rings alone.
+    ctx.strokeStyle = "rgba(201,191,168,0.14)";
     ctx.lineWidth = 1;
     ctx.stroke();
     ctx.restore();
@@ -8018,7 +8428,10 @@ function drawCharacter(unit, now, ghost) {
     //    `drawHeroThrough`'s outline top, all four being one number.
     ctx.fillStyle = body;
     ctx.fill(path);
-    ctx.strokeStyle = "rgba(9,11,16,0.85)";
+    // `PAL.void` as a triple. The silhouette's outline is the room's own darkness
+    // drawn round the body, so when the room stopped being blue this had to as
+    // well or every figure in it wore a cold edge.
+    ctx.strokeStyle = "rgba(11,10,8,0.85)";
     ctx.lineWidth = 0.09;
     ctx.stroke(path);
 
@@ -8032,7 +8445,7 @@ function drawCharacter(unit, now, ghost) {
     ctx.arc(0, tall.cy, tall.r, 0, TAU);
     ctx.fillStyle = skin.body[0];
     ctx.fill();
-    ctx.strokeStyle = "rgba(9,11,16,0.75)";
+    ctx.strokeStyle = "rgba(11,10,8,0.75)";
     ctx.lineWidth = 0.07;
     ctx.stroke();
 
@@ -8077,14 +8490,19 @@ function drawCharacter(unit, now, ghost) {
     //    which is why the width is quoted as its reciprocal.
     ctx.beginPath();
     ctx.arc(0, 0, 1, 0, TAU);
-    ctx.strokeStyle = "rgba(150,180,230,0.30)";
+    // Bone, and moved with the collision ring in the ground pre-pass rather than
+    // left behind it: the two are the same mark in two arms of one function, and a
+    // pair written to mirror each other is a pair that has to be retoned together
+    // or the mirror stops being one.
+    ctx.strokeStyle = "rgba(201,191,168,0.28)";
     ctx.lineWidth = 1 / r;
     ctx.stroke();
 
-    // 3. The silhouette.
+    // 3. The silhouette. Same outline tone as the billboard arm above, for the
+    //    same reason.
     ctx.fillStyle = body;
     ctx.fill(path);
-    ctx.strokeStyle = "rgba(9,11,16,0.85)";
+    ctx.strokeStyle = "rgba(11,10,8,0.85)";
     ctx.lineWidth = 0.09;
     ctx.stroke(path);
 
@@ -8095,7 +8513,7 @@ function drawCharacter(unit, now, ghost) {
     ctx.arc(head.at, 0, head.r, 0, TAU);
     ctx.fillStyle = skin.body[0];
     ctx.fill();
-    ctx.strokeStyle = "rgba(9,11,16,0.75)";
+    ctx.strokeStyle = "rgba(11,10,8,0.75)";
     ctx.lineWidth = 0.07;
     ctx.stroke();
 
@@ -8252,7 +8670,10 @@ const SHOT_Z = 0.55;
  * whoever loosed it while it is still ambiguous which way it is crossing.
  */
 function drawShot(shot) {
-  const skin = shot.faction === FACTION_HEROES ? HERO_SKIN : MONSTER_SKIN;
+  // Through `skinOf`, which is the same ternary this line used to spell out plus
+  // the mode question the split added. An arrow in flight and the body that loosed
+  // it must be on the same table.
+  const skin = skinOf(shot);
   // **`save`, `lineCap` and `restore` are per arrow and not per volley**, which is
   // what `iso-04` changed in here. `drawShots` used to hoist all three outside its
   // loop; under iso an arrow is drawn from inside the depth walk with wall-band
@@ -8371,7 +8792,9 @@ function drawHealth(unit, skin) {
 function drawCorpse(c) {
   const t = c.age / CORPSE_MS;
   if (t >= 1) return;
-  const skin = c.faction === FACTION_HEROES ? HERO_SKIN : MONSTER_SKIN;
+  // Through `skinOf` for the reason `drawShot` gives: a corpse is the body that
+  // was standing here a moment ago and may not change table on the way down.
+  const skin = skinOf(c);
   // Settling as it fades, so a death reads as a body going down rather than
   // a sprite being switched off. As its own silhouette, facing the way it was
   // facing: a Brute that fell has to be recognisable as the Brute that fell,
@@ -8551,7 +8974,7 @@ function iconGlyph(code) {
 // milliseconds. Neither may be seeded from a frame that ran no ticks -- see
 // `consumeEvents`, which is the only place either list grows.
 
-/** The page's own copy of `--sans` from style.css:16. Repeated rather than read
+/** The page's own copy of `--sans` from style.css:29. Repeated rather than read
  *  because `ctx.font` takes a font shorthand and cannot see a custom property.
  *  System faces only: a web font would be this repository's first external
  *  dependency. House rule 1. */
@@ -9233,8 +9656,14 @@ function walkDrawList(now, origin) {
 
 /** The hero's outline, over the whole scene. Built once from the skin so the
  *  outline and the body cannot disagree about what "hero" is coloured, and so the
- *  frame does not build a string to say it. */
-const HERO_THROUGH = `rgba(${HERO_SKIN.glow},0.55)`;
+ *  frame does not build a string to say it.
+ *
+ *  **The art table and not a branch**, because `drawHeroThrough` is called from
+ *  inside `render`'s `PROJ.upright` arm and nothing else calls it. A ternary here
+ *  would be a mode question asked at module scope, where the answer cannot change,
+ *  and would put a second copy of the choice `skinOf` makes somewhere nobody would
+ *  think to look for it. */
+const HERO_THROUGH = `rgba(${HERO_SKIN_ART.glow},0.55)`;
 
 /**
  * The hero, read through whatever is standing in front of it.
@@ -9324,6 +9753,7 @@ function render(state, now, arrived) {
   //   OVERLAY LAYER  (screen space)
   //     hero outline   iso only
   //     health bars -> floaters -> callouts
+  //     art           -> grain, one cached tile over the whole canvas
   //
   // Three of those placements are load-bearing. **Vision goes under the
   // bodies**, because a disc drawn over one would put a wash of faction colour
@@ -9473,6 +9903,11 @@ function render(state, now, arrived) {
 
   drawFloaters();
   drawCallouts(state);
+
+  // The grain, last of everything and over the lot. **Gated on `artOn()` and not
+  // on the projection**: it is a treatment of the picture, and `[tactical]` and
+  // `[dev]` are the A/B control, which a wash over the whole canvas would end.
+  if (artOn()) drawGrain();
 }
 
 // ---------------------------------------------------------------------- hud
@@ -9519,6 +9954,13 @@ let globeDrawnAt = -Infinity;
 let globeDrawnHp = -1;
 let globeDrawnMaxHp = -1;
 
+/** The globe's three rim tones as `r,g,b` triples, because the rim is stroked twice
+ *  at two alphas and `rgba()` cannot be handed a hex. Built once at module scope,
+ *  not per redraw -- this is 30 Hz work, but it is still work that never changes. */
+const GLOBE_RIM_DEAD = palRgb(PAL.boneDim).join(",");
+const GLOBE_RIM_LOW = palRgb(PAL.bloodHot).join(",");
+const GLOBE_RIM_OK = palRgb(PAL.bone).join(",");
+
 function drawGlobe(state, now) {
   const css = Math.max(1, Math.round(globe.clientWidth));
   if (css !== globeSize || dpr !== globeDpr) {
@@ -9544,10 +9986,13 @@ function drawGlobe(state, now) {
   g.arc(mid, mid, r, 0, TAU);
   g.clip();
 
-  // The empty well behind the liquid. Lit from the same upper-left the room is.
+  // The empty well behind the liquid. Lit from the same upper-left the room is,
+  // and in the room's own stone rather than in a blue-grey: this is the inside of
+  // a vessel standing in an umber dungeon, and it is what a globe at one hit point
+  // is almost entirely made of.
   const well = g.createRadialGradient(mid - r * 0.35, mid - r * 0.45, r * 0.08, mid, mid, r);
-  well.addColorStop(0, "#1a2230");
-  well.addColorStop(1, "#070910");
+  well.addColorStop(0, "#241a14");
+  well.addColorStop(1, PAL.void);
   g.fillStyle = well;
   g.fillRect(0, 0, css, css);
 
@@ -9567,20 +10012,28 @@ function drawGlobe(state, now) {
     g.lineTo(mid + r, css);
     g.closePath();
 
+    // **Blood in both states, and `low` is now a brightness alarm rather than a
+    // hue change.** It used to be cyan going red, which is the loudest signal a
+    // globe can send and is exactly the one a globe that is red to begin with
+    // cannot send. What replaces it is the pool *lighting up*: `PAL.bloodHot` at
+    // the surface over `PAL.blood` at depth, where a healthy globe is `PAL.blood`
+    // over near-black. That is a jump in brightness across the whole liquid, at
+    // the same `LOW_HEALTH` threshold, and it is still the thing you catch out of
+    // the corner of an eye with the globe in the bottom corner.
+    //
+    // Stop 0 is the surface and stop 1 the bottom of the vessel, so the two tones
+    // are also just where light and depth put them.
     const liquid = g.createLinearGradient(0, top - r * 0.4, 0, css);
-    if (low) {
-      liquid.addColorStop(0, "#ff8a7a");
-      liquid.addColorStop(1, "#7a1c14");
-    } else {
-      liquid.addColorStop(0, "#8ff2ff");
-      liquid.addColorStop(1, "#14556c");
-    }
+    liquid.addColorStop(0, low ? PAL.bloodHot : PAL.blood);
+    liquid.addColorStop(1, low ? PAL.blood : PAL.void);
     g.fillStyle = liquid;
     g.fill();
 
     // A brighter meniscus, so the top of the liquid reads as a surface rather
-    // than as the edge of a fill.
-    g.strokeStyle = low ? "rgba(255,220,210,0.75)" : "rgba(214,248,255,0.75)";
+    // than as the edge of a fill. Bone, and the same bone at any health: the
+    // surface catches the room's light whatever is under it, and the state is
+    // carried by the two things above and below that are large.
+    g.strokeStyle = "rgba(201,191,168,0.75)";
     g.lineWidth = 1.6;
     g.stroke();
   }
@@ -9596,14 +10049,23 @@ function drawGlobe(state, now) {
   // Fallen: the globe dims and the button over it becomes the only thing to
   // look at. `updateBattle` is what reveals that button.
   if (!hero) {
-    g.fillStyle = "rgba(9,11,16,0.72)";
+    g.fillStyle = "rgba(11,10,8,0.72)";
     g.fillRect(0, 0, css, css);
   }
   g.restore();
 
   // The rim, which is the part that goes red. Two strokes: a wide soft one for
-  // the glow and a hard one for the edge.
-  const rim = !hero ? "90,100,120" : low ? "255,95,82" : "110,231,255";
+  // the glow and a hard one for the edge. `PAL.bone` is the band of warm iron the
+  // vessel is set in; `PAL.bloodHot` is what it does at the threshold, and it is
+  // the *only* place on the page where the low state is announced by something
+  // that is not itself the amount. Dead drops to `PAL.boneDim` at 0.45 alpha --
+  // the same iron with nothing lit behind it.
+  //
+  // Read from `PAL` rather than typed out. All three of these were spelled as
+  // literal triples until the sentence above was checked against them, which is the
+  // cheapest possible demonstration of why a comment naming a constant and a line
+  // repeating its channels is two copies of one fact.
+  const rim = !hero ? GLOBE_RIM_DEAD : low ? GLOBE_RIM_LOW : GLOBE_RIM_OK;
   g.strokeStyle = `rgba(${rim},0.22)`;
   g.lineWidth = 5;
   g.beginPath();
@@ -9625,9 +10087,14 @@ function drawGlobe(state, now) {
     const text = hp1(Math.max(0, hero.hp));
     g.lineJoin = "round";
     g.lineWidth = 4;
-    g.strokeStyle = "rgba(6,8,13,0.85)";
+    g.strokeStyle = "rgba(11,10,8,0.85)";
     g.strokeText(text, mid, mid - css * 0.02);
-    g.fillStyle = low ? "#ffd8d2" : "#eaf6ff";
+    // Bone at any health. The colour used to fork with `low` and no longer needs
+    // to: the liquid behind it changes brightness at that threshold and the rim
+    // around it changes hue, so a third copy of the same bit was buying nothing
+    // and cost the number its one job, which is to be the same legible number all
+    // the way down.
+    g.fillStyle = PAL.bone;
     g.fillText(text, mid, mid - css * 0.02);
   }
 }
