@@ -27,11 +27,24 @@ function bodyHeight(unit) {
 }
 ```
 
-Numbers at default framing (`scale ≈ 86`): the tile diamond is 172 × 86 px, a wall block lifts
-138 px, a Fighter (`r = 0.5`) is `1.5 · 86 = 129` px tall and `2 · 0.5 · 86 · √2 = 121` px wide; a
-Brute (`r = 0.7`) is 163 px tall and 170 px wide. The bodies are genuinely stocky because the sim's
-bodies are genuinely stocky — a 1-unit-diameter body on a 1-unit tile. Tune by eye; placeholder is
-fine.
+Numbers at default framing (`scale ≈ 86`): the tile diamond is 172 × 86 px and a wall block lifts
+138 px. **Corrected while landing — this table had the Fighter's radius wrong.** `Body::radius`
+(`crates/sim/src/entity.rs:101`) is Fighter `0.45`, Rogue `0.35`, Brute `0.70`, Skitterer `0.30`,
+not the 0.5 assumed here:
+
+| kind | `r` | `BODY_H` | height (world / px) | width (px) |
+|---|---|---|---|---|
+| Fighter | 0.45 | 3.0 | 1.35 / 116 | 109 |
+| Rogue | 0.35 | 3.2 | 1.12 / 96 | 85 |
+| Brute | 0.70 | 2.7 | 1.89 / 163 | 170 |
+| Skitterer | 0.30 | 1.1 | 0.33 / 28 | 73 |
+
+**`BODY_H` is a ratio, so the tallest row is not the tallest body.** The Rogue's 3.2 is the largest
+multiplier and the Rogue is the *shortest* of the three uprights, because it is also the thinnest.
+Worth stating because "the Rogue is the tallest" is the natural misreading and it is wrong.
+
+The bodies are genuinely stocky because the sim's bodies are genuinely stocky — a Brute is
+1.4 units across on a 1-unit tile. Tune by eye; placeholder is fine.
 
 **The billboard's width is not a free choice.** The silhouette of an upright cylinder of radius `r`
 is exactly the semi-major axis of its ground ellipse, `px(r) · PROJ.ex`. Drawing it narrower puts

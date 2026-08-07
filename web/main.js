@@ -2381,8 +2381,10 @@ function pointerToWorld(event) {
 /** How much slop a click gets around a body, in world units. A body is a small
  *  target at this zoom and a lock is a friendly gesture, so missing by a hair
  *  should still hit. Small enough that two adjacent bodies do not swell into one
- *  ambiguous blob -- and where they do overlap, `unitAt` breaks the tie by
- *  distance rather than by whichever row the frame happened to list first. */
+ *  ambiguous blob -- and where they do overlap, `unitAt` breaks the tie on a
+ *  stated rule rather than on whichever row the frame happened to list first.
+ *  Which rule depends on what the overlap *means*, and that differs by
+ *  projection: see `unitAt`. */
 const PICK_SLOP = 0.3;
 
 /**
@@ -2397,20 +2399,65 @@ const PICK_SLOP = 0.3;
  * plainly drawn body refuses to be clicked; under the fog the two are the same
  * test, which is the case this rule is actually about.
  *
- * Nearest centre wins rather than first hit, so a click in the overlap of two
- * crowding bodies picks the one it landed nearer to.
+ * **Never first hit -- and the tie-break differs by arm, because the two pictures
+ * disagree about what an overlap is.** Flat, bodies are discs lying on the floor
+ * and two that overlap are standing *beside* each other, so the nearer centre is
+ * the one the click meant and `nearest` is the whole rule. Upright, two
+ * overlapping billboards are not beside each other at all: one is *in front of*
+ * the other, and the front one is what the player clicked whether or not its
+ * centre is nearer -- a Skitterer at the feet of a Brute has the nearer centre
+ * from most angles and is the one you cannot see. So that arm sorts on depth,
+ * `x + y`, which is the same key the painter walks; the topmost thing drawn is
+ * the thing picked, which is what "the picture and the pick agree" means.
  *
  * `state.monsters` is already every non-hero row, so there is no faction test
  * here and no way for this to hand back the character doing the clicking.
+ *
+ * **Two tests, because there are two pictures.** Top-down a body is a disc on
+ * the floor and a click is inside it or it is not, which is the arm that has
+ * always been here and is untouched. Under iso the painted body is a *billboard
+ * standing above* its ground point, so a click on a monster's chest unprojects
+ * to a world point roughly `bodyHeight` behind it and the circle test misses
+ * every time. The upright arm tests the box the billboard actually occupies:
+ * `px(r) * PROJ.ex` either side -- the same half-width `drawCharacter` scales by
+ * and the semi-major axis of the body's ground ellipse -- from the top of its
+ * head, `lift(bodyHeight(unit))` up, down past the feet by the ground ellipse's
+ * *lower* half, so that the body and the ground it is standing on are both
+ * clickable. `PICK_SLOP` is added on all four sides, in pixels, which is the
+ * same world slop the flat arm adds to a radius.
  */
 function unitAt(point, state) {
+  // Re-projected here rather than carried on the point: `endDrag` fires frames
+  // after the move that produced it and the camera pans in between. A world point
+  // re-projected through the *current* origin is where the cursor is now; a
+  // screen point stored at sample time is where it was. (`projX`/`projY` are
+  // origin-free -- the camera is a `ctx.translate` and cancels out of both sides
+  // of every comparison below -- so this is the whole of the conversion.)
+  const sx = projX(point.x, point.y);
+  const sy = projY(point.x, point.y);
   let best = null;
   let nearest = Infinity;
+  let bestDepth = -Infinity;
   for (const unit of state.monsters) {
     if (!canSee(unit)) continue;
-    const d = Math.hypot(unit.x - point.x, unit.y - point.y);
-    if (d > unit.radius + PICK_SLOP || d >= nearest) continue;
-    nearest = d;
+    if (!PROJ.upright) {
+      const d = Math.hypot(unit.x - point.x, unit.y - point.y);
+      if (d > unit.radius + PICK_SLOP || d >= nearest) continue;
+      nearest = d;
+      best = unit;
+      continue;
+    }
+    const bx = projX(unit.x, unit.y);
+    const by = projY(unit.x, unit.y);
+    const halfW = px(unit.radius) * PROJ.ex + px(PICK_SLOP);
+    const top = by - lift(bodyHeight(unit)) - px(PICK_SLOP);
+    const bot = by + px(unit.radius) * PROJ.ey + px(PICK_SLOP);
+    if (sx < bx - halfW || sx > bx + halfW || sy < top || sy > bot) continue;
+    // Depth, not distance, and `nearest` is deliberately not consulted on this
+    // arm -- see the tie-break paragraph above for why the two arms differ.
+    const depth = unit.x + unit.y;
+    if (depth <= bestDepth) continue;
+    bestDepth = depth;
     best = unit;
   }
   return best;
@@ -4234,9 +4281,22 @@ function lift(h) {
  *  patterns keep their measured mark counts: dashing happens in user space and
  *  is transformed afterwards.
  *
- *  Defined and called nowhere yet: the decals move onto it in `iso-06`, one at a
- *  time, because each one is a behaviour change under iso and this session is the
- *  one that changes nothing. */
+ *  **What is on it, as of `iso-05`.** Six call sites, and five of them are one
+ *  line each because of the paragraph above: `drawLimb`, `drawMarks` twice,
+ *  `drawSprint` and `drawCorpse`'s flat arm were all already written as a screen
+ *  offset from a body's anchor, so converting each was swapping its leading
+ *  `ctx.translate` for this and changing nothing below it. The sixth is
+ *  `drawCharacter`'s ground pre-pass -- shadow, facing wedge, collision ring --
+ *  which is the three passes that stayed on the floor when the body stood up.
+ *
+ *  **What is still to come, in `iso-06`:** the free-standing decals, which are
+ *  the ones anchored to a *point in the room* rather than to a body -- the vision
+ *  disc, the reach ring, the lock and destination rings, the portal, the route
+ *  beads, and the shadow under an arrow in flight. Those are held back not
+ *  because they are harder but because each one is a visible behaviour change
+ *  under iso rather than a no-op, and they want to be looked at one at a time.
+ *  Anything not in that list and not in the paragraph above is still painting in
+ *  screen space; do not assume a decal is converted because its neighbour is. */
 function groundSpace(wx, wy) {
   ctx.translate(projX(wx, wy), projY(wx, wy));
   if (PROJ.shear) ctx.transform(1, 0.5, -1, 0.5, 0, 0);
@@ -5696,10 +5756,45 @@ function drawDestination(state, now, arrived) {
 // drawn as a line or a hint rather than as flesh -- the rim light, the vision
 // disc, the reach ring, the sprint chevrons, an arrow in flight.
 //
-// **And then the wedge came back, in `[tactical]` only**, which is not a
-// contradiction of the paragraph above: what retired it was a shape that carried
-// the facing for free, and a tactical body is a plain disc that carries nothing.
-// The fan is the only thing left there that says which way something is pointing.
+// **And then the wedge came back, twice**, which is not a contradiction of the
+// paragraph above: what retired it was a shape that carried the facing for free,
+// and neither of the two bodies that got it back carries one. A `[tactical]` body
+// is a plain disc, and an isometric one is a billboard that cannot turn away from
+// the camera to show you where its front is. For both, the fan on the ground is
+// the only thing on screen saying which way something is pointing -- so both read
+// it out of `fan` below, and cannot disagree about it.
+
+/** The wedge tint, hoisted out of the skin because two keys have to hold it and
+ *  a `fan` that disagreed with its own `wedge` would be a body whose facing
+ *  changed colour with its intent. `glow` keeps its own literal: it is the same
+ *  tint today and it is not the same role. */
+const HERO_WEDGE = "110,231,255";
+const MONSTER_WEDGE = "255,138,122";
+
+/**
+ * The facing wedge's fill, baked once per skin.
+ *
+ * `fan` -- how far open the intent reads -- takes exactly three values, so the
+ * whole page has exactly six of these strings and not one of them ever changes.
+ * Before this, every wedge built its own: `[tactical]` had always done it, but
+ * standing bodies up gave `regular` a wedge too, which took `drawCharacter` from
+ * one dynamic colour string per body to two -- some 7,700 short-lived strings a
+ * second at `MAX_UNITS` and 60 fps, in a render path whose whole discipline is
+ * that it allocates nothing. Hoisted for exactly the reason `HERO_THROUGH` is
+ * hoisted: *so the frame does not build a string to say it*.
+ *
+ * The arithmetic stays here rather than being folded to three literals, so the
+ * rule is still legible -- a `0.08` floor plus `0.20` of the fan -- and so the
+ * strings are the same characters `toFixed(3)` produced at the call sites:
+ * `0.080`, `0.180`, `0.280`. `[tactical]` must not move by a byte.
+ *
+ * Indexed low to high in `fan`, which is low to high in how much of a threat the
+ * body is: fleeing, neither, bearing down.
+ */
+function wedgeFans(rgb) {
+  return [0, 0.5, 1].map((fan) => `rgba(${rgb},${(0.08 + 0.20 * fan).toFixed(3)})`);
+}
+
 const HERO_SKIN = {
   glow: "110,231,255",
   body: ["#bff2ff", "#4fb9d8"],
@@ -5707,7 +5802,8 @@ const HERO_SKIN = {
   // out so pale that the rim light -- which is the thing carrying the faction
   // read at four pixels a body -- had nothing to be brighter than.
   deep: "#1b566c",
-  wedge: "110,231,255",
+  wedge: HERO_WEDGE,
+  fan: wedgeFans(HERO_WEDGE),
   bar: "#6ee7ff",
 };
 
@@ -5715,9 +5811,20 @@ const MONSTER_SKIN = {
   glow: "255,138,122",
   body: ["#ffc0b3", "#c04b38"],
   deep: "#67251a",
-  wedge: "255,138,122",
+  wedge: MONSTER_WEDGE,
+  fan: wedgeFans(MONSTER_WEDGE),
   bar: "#ff8a7a",
 };
+
+/** Which of the six a body wants. **Both wedges read this and neither spells the
+ *  ternary out for itself** -- the fan on the floor under an isometric body and
+ *  the fan under a `[tactical]` disc exist to agree about what "bearing down"
+ *  looks like, and two copies of a three-way choice is how they would stop.
+ *  Every intent code that is not one of the two named ones -- including 0, which
+ *  is most bodies most of the time -- reads as the middle. */
+function wedgeFill(skin, intent) {
+  return skin.fan[intent === INTENT_ATTACK ? 2 : intent === INTENT_FLEE ? 0 : 1];
+}
 
 function skinOf(unit) {
   return unit.faction === FACTION_HEROES ? HERO_SKIN : MONSTER_SKIN;
@@ -5913,12 +6020,25 @@ const SWING_SKIN = {
  * bearing the cut cannot arrive from.
  */
 function drawLimb(unit, skin) {
-  const x = projX(unit.x, unit.y);
-  const y = projY(unit.x, unit.y);
   const r = px(unit.radius);
 
   ctx.save();
-  ctx.translate(x, y);
+  // **Everything below lies on the floor**, and that is a claim about the sim and
+  // not about the art: a blade's hitbox is a segment in the world plane at the
+  // body's own height, and the guard arc, the declared line and the bow are all
+  // quoted in the same world-plane radii. `groundSpace` is exactly the space they
+  // were already written in -- screen pixels of top-down world offset from the
+  // body -- so under iso every one of them lands on the ground where the sim
+  // tests it, and top-down this is the bare `ctx.translate` it replaced.
+  //
+  // The `rotate(theta)` / `rotate(-theta)` pairs below are left alone. Canvas
+  // composes `CTM * R(theta) * R(-theta)` back to `CTM` whatever `CTM` is, so the
+  // shear does not make them any less an inverse pair than they were.
+  //
+  // `setLineDash` is applied in user space and transformed afterwards, so the
+  // declared line's mark count is unchanged -- the property `iso-00` §4 says is
+  // the whole reason this is a shear and not an ellipse call.
+  groundSpace(unit.x, unit.y);
 
   // A guard, as the wedge of body it is covering -- and **only** if what is in
   // hand actually guards. A tucked one covers nothing and is drawn as nothing,
@@ -6043,15 +6163,16 @@ function drawLimb(unit, skin) {
  *  "your shield stopped it" and "your blades crossed" are three different
  *  outcomes and telling them apart is how the swordplay becomes readable. */
 function drawMarks(unit) {
-  const x = projX(unit.x, unit.y);
-  const y = projY(unit.x, unit.y);
   const r = px(unit.radius);
 
+  // Both markers land on the floor with the limb that produced them -- they are
+  // drawn at `limbAngle`, off the same world-plane geometry -- so both go through
+  // `groundSpace`, which is a bare `ctx.translate` top-down.
   if (unit.blockFlash > 0) {
     ctx.save();
     ctx.strokeStyle = `rgba(180,220,255,${(0.85 * unit.blockFlash).toFixed(3)})`;
     ctx.lineWidth = 2.5;
-    ctx.translate(x, y);
+    groundSpace(unit.x, unit.y);
     ctx.rotate(unit.limbAngle);
     const half = Math.max(0.35, (unit.actionArc * unit.limbReach) / 2);
     ctx.beginPath();
@@ -6064,7 +6185,7 @@ function drawMarks(unit) {
     ctx.save();
     ctx.strokeStyle = `rgba(255,235,150,${(0.9 * unit.parryFlash).toFixed(3)})`;
     ctx.lineWidth = 2;
-    ctx.translate(x, y);
+    groundSpace(unit.x, unit.y);
     ctx.rotate(unit.limbAngle);
     const at = px(unit.radius + unit.actionLength * unit.limbReach);
     const spark = 3 + 7 * (1 - unit.parryFlash);
@@ -6078,7 +6199,7 @@ function drawMarks(unit) {
   }
 }
 
-// -------------------------------------------------------------- silhouettes
+// --------------------------------------------------- silhouettes, from above
 //
 // One `Path2D` per `UnitKind`, built once at module scope in a coordinate space
 // where **the sim's own body circle is the unit circle** and +x is the way the
@@ -6088,6 +6209,12 @@ function drawMarks(unit) {
 // the *real* radius at every zoom on every body, and the circle underneath is
 // still drawn. House rule 4 -- the page never paints a shape the sim will treat
 // as somewhere you can be hit and then hides where the hitbox actually is.
+//
+// **These are the top-down view and they stay that.** `iso-05` added a second
+// set below -- `UPRIGHTS`, the same four archetypes from the side -- rather than
+// replacing these, because `Tactical` and `Dev` still look straight down and the
+// page can cycle between the two with `G`. `drawCharacter`, `drawCorpse` and
+// `drawHeroThrough` each pick one, on `PROJ.upright` and never on `artOn()`.
 //
 // Every one of these is a closed outline meant to be filled. None of them says
 // anything about reach: what a body can touch is `drawLimb`'s business and it
@@ -6176,15 +6303,251 @@ const SILHOUETTES = {
   [BODY_SKITTERER]: skittererPath(),
 };
 
-/** Where each archetype carries its head, in body radii along the facing, and
- *  how big it is. The Brute's is small and barely clear of its shoulders and
- *  the Skitterer's is out in front of it; from directly above, that difference
- *  is most of what tells two dark shapes apart. */
+/** Where each archetype carries its head, and how big it is -- **one table read
+ *  two ways**, because the two projections disagree about what a body's long
+ *  axis is and about nothing else.
+ *
+ *  `r` is the head's radius in body radii in both.
+ *
+ *  `at` is a **distance along the body**, in body radii, and which body axis
+ *  that is depends on which way the body is being looked at. Flat, it is *along
+ *  the facing*: how far forward of centre the head sits, seen from directly
+ *  above. Upright, it is *up the body*: how far the head's centre rides above
+ *  the top of the torso, which is the same statement about the same anatomy
+ *  turned ninety degrees, because the axis the head is offset along is the one
+ *  the body is longest on and the projection is what decides whether that axis
+ *  runs across the floor or up the screen.
+ *
+ *  The Brute's is small and barely clear of its shoulders and the Skitterer's is
+ *  carried out at the end of it. From directly above, that difference is most of
+ *  what tells two dark shapes apart; from the side, it is a head sunk in a notch
+ *  against a head held clear on a neck, which is the same read. */
 const HEADS = {
   [BODY_FIGHTER]: { at: 0.40, r: 0.32 },
   [BODY_ROGUE]: { at: 0.44, r: 0.28 },
   [BODY_BRUTE]: { at: 0.22, r: 0.30 },
   [BODY_SKITTERER]: { at: 0.46, r: 0.22 },
+};
+
+/**
+ * How tall each archetype stands, in body radii.
+ *
+ * **A Skitterer is not a short Fighter.** `Body::radius()` gives a Skitterer 0.30
+ * and a Fighter 0.45, so scaling one silhouette by radius alone would draw the
+ * bug as a small man at four fifths scale; 1.1 radii against 3.0 is what makes it
+ * a thing that runs along the floor rather than a thing that walks.
+ *
+ * **These are ratios, so read the roster before reading them as heights.** The
+ * Rogue is the leanest and takes the largest multiplier, but on a 0.35 radius
+ * that is 1.12 world units -- the *shortest* of the three uprights, under the
+ * Fighter's 1.35. The Brute takes the smallest multiplier and, on a 0.70 radius,
+ * still comes out 1.89: the biggest body in the room by a distance, in both
+ * directions at once. Tuning one of these numbers is tuning a ratio and the
+ * result is a height; the two orderings are not the same ordering.
+ *
+ * At default framing (`scale ~ 86`): a Fighter is `0.45 * 3.0 * 86 = 116` px tall
+ * and `2 * 0.45 * 86 * sqrt(2) = 109` px wide, a Brute 163 by 170. The bodies are
+ * genuinely stocky because the sim's bodies are genuinely stocky -- close to a
+ * 1-unit-diameter body standing on a 1-unit tile. Presentation only; the sim has
+ * no opinion about height and nothing crosses the wall.
+ *
+ * Read through `bodyHeight` and never indexed raw, so the fallback is in one
+ * place. `bodyTopWorld` is the other consumer and it is the one that matters:
+ * everything hung over a body -- health bar, callout, floater -- and the pick box
+ * in `unitAt` all measure from the number this returns, so a body whose art and
+ * whose anchor disagree is a body whose bar floats off its head.
+ */
+const BODY_H = {
+  [BODY_FIGHTER]: 3.0,
+  [BODY_ROGUE]: 3.2,
+  [BODY_BRUTE]: 2.7,
+  [BODY_SKITTERER]: 1.1,
+};
+
+function bodyHeight(unit) {
+  return unit.radius * (BODY_H[unit.kind] || BODY_H[BODY_FIGHTER]);
+}
+
+// ------------------------------------------------------- upright silhouettes
+//
+// The same four archetypes seen **from the side**, for the projection that
+// stands bodies up. These do not replace `SILHOUETTES`: both top-down modes
+// still draw those, and both tables are live at once in a page that can cycle
+// between the two with `G`.
+//
+// **The space.** One uniform `ctx.scale(s, s)` with `s = px(unit.radius) *
+// PROJ.ex`, feet at the origin, `-y` up. Three properties, and every number in
+// this session comes out of them:
+//
+//   * **Half-width is exactly 1**, so a body is `px(r) * ex` either side of its
+//     ground point. That is not a free choice: `px(r) * ex` is the semi-major
+//     axis of the body's own ground ellipse, so a narrower billboard would stand
+//     *inside* its own footprint and a wider one would overhang it. Every path
+//     below touches `x = +/-1` somewhere and none exceeds it.
+//   * **The top is `-BODY_H[kind] / ex`**, which is `lift(bodyHeight(unit))`
+//     divided by `s` -- the same height in world units that `bodyTopWorld` hands
+//     the health bar, arrived at by dividing rather than by being typed twice.
+//     `2.121` does not appear anywhere here on purpose: a literal is how the art
+//     and `anchorY` drift a pixel apart per zoom bucket and nobody can say why.
+//   * **Uniform, not anisotropic.** Line widths stay isotropic and the head stays
+//     a circle, which is what lets the head be one `arc` in both projections.
+//
+// **The head is part of the outline, not a bump drawn over it.** Each path
+// finishes with the *upper half of the head circle itself*, so the crown is at
+// `cy - r`, which is `uprightTop(kind)` by construction -- the path's topmost
+// point is the anchor height exactly, and `drawHeroThrough`, `unitAt`'s box and
+// `anchorY` are all quoting the same number rather than three roundings of it.
+// The pale head disc `drawCharacter` paints afterwards then sits *inside* the
+// silhouette, exactly as it does top-down.
+//
+// Placeholder, and deliberately so -- `iso-00` says the structure is the
+// deliverable and the art is not. What is load-bearing is the extent; what the
+// silhouette does between its edges is not.
+
+/** The `ex` these paths were authored against.
+ *
+ *  `PROJ.ex` cannot be read here: the paths are built once at module scope,
+ *  before any view mode exists to ask, and they are only ever drawn under a
+ *  projection whose `upright` is true -- of which `PROJ_ISO` is the only one.
+ *  `assertProjection` checks that at boot, across the whole table, so a second
+ *  upright projection with a different `ex` says so rather than drawing every
+ *  body at the wrong height. */
+const UPRIGHT_EX = PROJ_ISO.ex;
+
+/** Path-space y of the top of the head. Negative: `-y` is up. */
+function uprightTop(kind) {
+  return -(BODY_H[kind] || BODY_H[BODY_FIGHTER]) / UPRIGHT_EX;
+}
+
+/** `HEADS`, converted into the billboard's space once.
+ *
+ *  `cy`/`r` are the head circle: the crown sits exactly on `uprightTop`, so `cy`
+ *  is that plus the radius. `shoulder` is where the torso tops out -- `at` above
+ *  the head's centre, per `HEADS` -- and it is the only place the reinterpreted
+ *  `at` is read. A Brute's `at` (0.22) is *smaller* than its head radius (0.30),
+ *  so its shoulders come out above the head's equator and the head sits down in
+ *  a notch between them; a Rogue's 0.44 holds the hood clear on a neck. The
+ *  difference draws itself.
+ *
+ *  Divided by `UPRIGHT_EX` because `HEADS` is quoted in body radii and one body
+ *  radius is `1 / ex` of this space's unit. */
+function uprightHead(kind) {
+  const head = HEADS[kind] || HEADS[BODY_FIGHTER];
+  const r = head.r / UPRIGHT_EX;
+  const cy = uprightTop(kind) + r;
+  return { r, cy, shoulder: cy + head.at / UPRIGHT_EX };
+}
+
+const UPRIGHT_HEADS = {
+  [BODY_FIGHTER]: uprightHead(BODY_FIGHTER),
+  [BODY_ROGUE]: uprightHead(BODY_ROGUE),
+  [BODY_BRUTE]: uprightHead(BODY_BRUTE),
+  [BODY_SKITTERER]: uprightHead(BODY_SKITTERER),
+};
+
+/** Squarish torso, flat top, square shoulders at the full half-width. The
+ *  Fighter is the one body here that squares up to what it is fighting, and from
+ *  the side that is a straight shoulder line and a straight flank. */
+function fighterUprightPath() {
+  const p = new Path2D();
+  const head = UPRIGHT_HEADS[BODY_FIGHTER];
+  const sy = head.shoulder;
+  p.moveTo(-0.66, 0);
+  p.lineTo(-0.72, sy * 0.42);
+  p.lineTo(-1.00, sy * 0.94);
+  p.lineTo(-1.00, sy);
+  p.lineTo(-head.r, sy);
+  // The neck is the implicit line `arc` draws to its own start point, and the
+  // dome is the head circle's top half, so the apex is `cy - r` exactly.
+  p.arc(0, head.cy, head.r, Math.PI, TAU);
+  p.lineTo(head.r, sy);
+  p.lineTo(1.00, sy);
+  p.lineTo(1.00, sy * 0.94);
+  p.lineTo(0.72, sy * 0.42);
+  p.lineTo(0.66, 0);
+  p.closePath();
+  return p;
+}
+
+/** Narrow through the shoulders and hooded, with the cloak flaring to the full
+ *  half-width at the hem -- which is where a Rogue's footprint actually is. The
+ *  hood is a peak rather than a dome: two quadratics that meet at the crown and
+ *  stand off the head circle either side of it, because the peak is the tell. */
+function rogueUprightPath() {
+  const p = new Path2D();
+  const head = UPRIGHT_HEADS[BODY_ROGUE];
+  const sy = head.shoulder;
+  const top = uprightTop(BODY_ROGUE);
+  p.moveTo(-1.00, 0);
+  p.lineTo(-0.54, sy * 0.58);
+  p.lineTo(-0.44, sy);
+  p.lineTo(-head.r, sy);
+  p.quadraticCurveTo(-head.r * 1.9, head.cy - head.r * 0.3, 0, top);
+  p.quadraticCurveTo(head.r * 1.9, head.cy - head.r * 0.3, head.r, sy);
+  p.lineTo(0.44, sy);
+  p.lineTo(0.54, sy * 0.58);
+  p.lineTo(1.00, 0);
+  p.closePath();
+  return p;
+}
+
+/** Wide, with a shoulder hump either side of a notch the head sits down inside.
+ *  The notch is the whole read, exactly as it is from above: the Brute has no
+ *  neck, and only the crown clears the humps. */
+function bruteUprightPath() {
+  const p = new Path2D();
+  const head = UPRIGHT_HEADS[BODY_BRUTE];
+  const sy = head.shoulder;
+  p.moveTo(-0.82, 0);
+  p.lineTo(-0.90, sy * 0.50);
+  p.lineTo(-1.00, sy * 0.88);
+  p.lineTo(-0.86, sy - 0.10);
+  p.lineTo(-0.52, sy - 0.16);
+  p.lineTo(-head.r, sy);
+  p.arc(0, head.cy, head.r, Math.PI, TAU);
+  p.lineTo(head.r, sy);
+  p.lineTo(0.52, sy - 0.16);
+  p.lineTo(0.86, sy - 0.10);
+  p.lineTo(1.00, sy * 0.88);
+  p.lineTo(0.90, sy * 0.50);
+  p.lineTo(0.82, 0);
+  p.closePath();
+  return p;
+}
+
+/** Low and wide, four feet on the ground and the legs splayed to the full
+ *  half-width either side, with the head carried up off the front of a body that
+ *  is barely a body. One outline and not a body plus loose leg sub-paths: a leg
+ *  that overlapped the body with the opposite winding would cancel under the
+ *  nonzero rule and punch a hole through the middle of it, which is the trap
+ *  `wallBlock` documents. */
+function skittererUprightPath() {
+  const p = new Path2D();
+  const head = UPRIGHT_HEADS[BODY_SKITTERER];
+  const sy = head.shoulder;
+  p.moveTo(-0.46, sy * 0.45);
+  p.lineTo(-1.00, 0);
+  p.lineTo(-0.30, sy * 0.20);
+  p.lineTo(-0.60, 0);
+  p.lineTo(0.60, 0);
+  p.lineTo(0.30, sy * 0.20);
+  p.lineTo(1.00, 0);
+  p.lineTo(0.46, sy * 0.45);
+  p.lineTo(0.30, sy);
+  p.lineTo(head.r, sy);
+  // Right to left over the crown -- the outline runs the other way round on this
+  // one, because the legs are traced from the left.
+  p.arc(0, head.cy, head.r, 0, Math.PI, true);
+  p.lineTo(-0.30, sy);
+  p.closePath();
+  return p;
+}
+
+const UPRIGHTS = {
+  [BODY_FIGHTER]: fighterUprightPath(),
+  [BODY_ROGUE]: rogueUprightPath(),
+  [BODY_BRUTE]: bruteUprightPath(),
+  [BODY_SKITTERER]: skittererUprightPath(),
 };
 
 /** A body the roster does not describe still has to draw as something. The
@@ -6194,8 +6557,39 @@ function silhouetteOf(kind) {
   return SILHOUETTES[kind] || SILHOUETTES[BODY_FIGHTER];
 }
 
+/** The same fallback, on the same argument, for the side view. Kept beside
+ *  `silhouetteOf` rather than folded into it with a flag: `drawCorpse` and
+ *  `drawHeroThrough` each want one specific view and say which. */
+function uprightOf(kind) {
+  return UPRIGHTS[kind] || UPRIGHTS[BODY_FIGHTER];
+}
+
 function headOf(kind) {
   return HEADS[kind] || HEADS[BODY_FIGHTER];
+}
+
+function uprightHeadOf(kind) {
+  return UPRIGHT_HEADS[kind] || UPRIGHT_HEADS[BODY_FIGHTER];
+}
+
+/** The world height above the ground point that anything hung over a body has to
+ *  clear. Under `topdown` that is the top of the disc, which is the body's own
+ *  radius and is what every anchor here has always used; under iso, the top of
+ *  the head. One function, so the bar, the pill, the floater and the pick box
+ *  cannot each pick a different answer. */
+function bodyTopWorld(unit) {
+  return PROJ.upright ? bodyHeight(unit) : unit.radius;
+}
+
+/** The screen y everything hung over a body hangs from.
+ *
+ *  `lift === px` in both projections, so top-down this is
+ *  `projY(x, y) - px(radius)` -- **exactly** the expression the health bar, the
+ *  callout pill and the floater each wrote out for themselves before this
+ *  existed, with `projY(x, y)` being `px(y)` there. Nothing about `Tactical` or
+ *  `Dev` moves. */
+function anchorY(unit) {
+  return projY(unit.x, unit.y) - lift(bodyTopWorld(unit));
 }
 
 /** Half the facing wedge's angle, and how far out it reaches, in body radii.
@@ -6222,7 +6616,28 @@ const WEDGE_REACH = 1.7;
  * With `artOn()` false, passes 1 to 5 are replaced wholesale by a disc and a
  * wedge and pass 6 flashes the disc. **That is one branch and not two
  * functions**, which is what keeps every readout below it -- the limb, the
- * markers, the chevrons, the circle -- written once.
+ * markers, the chevrons, the circle -- written once. `iso-05` added a second
+ * branch inside the first and honoured the same rule: a body stands up here or
+ * it lies flat here, and either way the limb, the markers and the chevrons below
+ * are the same three calls.
+ *
+ * **The projection branch is on `PROJ.upright` and never on `art`.** They are
+ * one bit today, because art is on in exactly the mode that is isometric, and
+ * they stop being it the day a fourth view mode exists -- `iso-00` §3 calls this
+ * the single easiest mistake in the conversion. Only two of the four
+ * combinations are reachable: `!art` is both top-down modes, and `art` is the
+ * isometric one.
+ *
+ * **Upright, the passes split across two spaces.** Three of them lie on the
+ * floor and go through `groundSpace` -- the shadow, the facing wedge and the
+ * sim's collision circle -- and then the body itself is a billboard standing on
+ * that ground point. The shadow stops being decoration there and becomes
+ * load-bearing: it is the only thing saying *where* an upright billboard is
+ * standing, and without it the body floats. The facing wedge comes back for the
+ * same reason it exists in `[tactical]` -- a billboard cannot turn to face you,
+ * so the fan on the floor is the whole of which way a body is pointing -- and it
+ * carries the intent on exactly the alphas the rim light uses, so the two modes
+ * agree about what "bearing down" looks like.
  *
  * `ghost` is `null` for a body the player can see and a `ghostOf` descriptor for
  * one it is only remembering; see `ghostOf` for what the three stages look like.
@@ -6232,11 +6647,77 @@ function drawCharacter(unit, now, ghost) {
   const x = projX(unit.x, unit.y);
   const y = projY(unit.x, unit.y);
   const r = px(unit.radius);
-  const path = silhouetteOf(unit.kind);
+  const upright = PROJ.upright;
+  const path = upright ? uprightOf(unit.kind) : silhouetteOf(unit.kind);
   const head = headOf(unit.kind);
+  const tall = upright ? uprightHeadOf(unit.kind) : null;
   const art = artOn();
+  // The billboard's half-width, and it is not a free choice: `px(r) * ex` is the
+  // semi-major axis of this body's ground ellipse, so scaling by anything else
+  // would stand the figure inside or outside its own footprint. Uniform, so line
+  // widths stay isotropic and the head stays a circle. `ex` is 1 top-down, where
+  // nothing reads this.
+  const s = r * PROJ.ex;
 
   if (!(r > 0)) return;
+
+  // The flat passes, before the body stands up on them. A ghost's *outline*
+  // stage draws none of them for the reason it draws no limb and no hit marker:
+  // they describe a body somebody is watching, and the whole claim of an outline
+  // is that nobody is. A ghost still *fading* is a body that was being watched a
+  // moment ago and gets the lot, at its falling alpha.
+  //
+  // **`art` in this gate is not the projection being read off the wrong bit.**
+  // These are the art body's own first passes -- its shadow, its wedge, its ring
+  // -- lifted out of the arm below because they belong on the floor rather than
+  // on the billboard, and the `!art` arm still draws its own disc and its own
+  // wedge in its own space. The projection question is `upright` and it is asked
+  // separately, right beside it.
+  if (upright && art && !(ghost && ghost.outline)) {
+    ctx.save();
+    if (ghost) ctx.globalAlpha = ghost.alpha;
+    groundSpace(unit.x, unit.y);
+
+    // 1. The ground shadow. **One flat ellipse, and cheaper than what it
+    //    replaces.** Top-down this is the silhouette dropped down the screen plus
+    //    the head circle -- two fills -- because a plain ellipse under a rotating
+    //    Brute wore as a dark crescent out of its chest. Nothing rotates here, so
+    //    the honest shape is the body's own footprint slightly overspilled, which
+    //    `groundSpace` turns into the correct ellipse for free.
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 1.05, 0, TAU);
+    ctx.fillStyle = "rgba(0,0,0,0.42)";
+    ctx.fill();
+
+    // 2. The facing wedge, on the floor: literally `[tactical]`'s fan with a
+    //    unimodular shear in front of it, so it costs the same pixels and the two
+    //    view modes are saying the same thing in the same alphas -- out of the
+    //    same baked table, so "the same alphas" is a fact rather than a hope.
+    ctx.rotate(unit.facing);
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.arc(0, 0, r * WEDGE_REACH, -WEDGE_HALF, WEDGE_HALF);
+    ctx.closePath();
+    ctx.fillStyle = wedgeFill(skin, unit.intent);
+    ctx.fill();
+    ctx.rotate(-unit.facing);
+
+    // 3. The sim's collision circle, which **must** survive standing the body up
+    //    (house rule 4). Under `groundSpace` it is the same `arc(0, 0, px(r))` it
+    //    is top-down and comes out as an ellipse lying exactly on the sim's
+    //    circle. Drawn under the billboard rather than over it, so the body plants
+    //    on it: the near half is what the eye reads and the far half is behind the
+    //    feet, which is what standing on something looks like. The hairline is
+    //    quoted as 1 rather than `1 / r` because this space is already screen
+    //    pixels; the shear makes it 0.9 to 1.4 px with direction, which is fine
+    //    for placeholder.
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, TAU);
+    ctx.strokeStyle = "rgba(150,180,230,0.30)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.restore();
+  }
 
   ctx.save();
   // A ghost is this same body at a falling alpha, which is what makes losing
@@ -6251,17 +6732,40 @@ function drawCharacter(unit, now, ghost) {
   //
   // Not built at all with the art off. A body is one colour when the question is
   // where it is, and this is the one thing in the function that is not free.
+  //
+  // Nor upright, where it is built after the scale instead and in that space's
+  // own units -- see below.
   let body = null;
-  if (art) {
+  if (art && !upright) {
     body = ctx.createLinearGradient(0, -r, 0, r);
     body.addColorStop(0, skin.body[1]);
     body.addColorStop(1, skin.deep);
   }
 
-  ctx.rotate(unit.facing);
-  // Into the unit-radius space every path below is written in. Line widths go
-  // with it, which is why the strokes from here down are quoted in radii.
-  ctx.scale(r, r);
+  if (upright) {
+    // **No rotation.** A billboard faces the camera by construction, and which
+    // way the body is actually pointing is the wedge already on the floor under
+    // it. Into the billboard space `UPRIGHTS` is written in: half-width 1, feet
+    // at the origin, crown at `uprightTop(kind)`.
+    ctx.scale(s, s);
+    if (art) {
+      // Built **after** the scale rather than before it, and quoted in this
+      // space's own units: crown to feet, which is the run a standing body's
+      // shading actually has. Building it under one matrix and painting it under
+      // another is the one thing here whose answer depends on when a canvas
+      // resolves a gradient's coordinates -- so the two matrices are made to be
+      // the same matrix and the question does not arise. Nothing rotates on this
+      // branch, so there is nothing for building it late to lose.
+      body = ctx.createLinearGradient(0, uprightTop(unit.kind), 0, 0);
+      body.addColorStop(0, skin.body[1]);
+      body.addColorStop(1, skin.deep);
+    }
+  } else {
+    ctx.rotate(unit.facing);
+    // Into the unit-radius space every path below is written in. Line widths go
+    // with it, which is why the strokes from here down are quoted in radii.
+    ctx.scale(r, r);
+  }
 
   if (ghost && ghost.outline) {
     // The last known pose, as an outline, and **nothing at all about what the
@@ -6286,6 +6790,14 @@ function drawCharacter(unit, now, ghost) {
     return;
   }
 
+  // **Three arms and not four.** The shape question is `art` and the space
+  // question is `upright`, and they are asked separately on purpose -- but that
+  // leaves `upright && !art` as a cell no `VIEW_MODES` row selects and no arm
+  // here handles: this one would draw a screen-space `arc(0, 0, 1)` inside the
+  // billboard's scale, which comes out a *round* disc where the sim's circle
+  // projects to an ellipse twice as wide as it is tall. It is checked rather
+  // than forgotten -- `assertProjection` walks the whole table at boot and says
+  // exactly what would break -- so this arm may go on assuming a flat body.
   if (!art) {
     // The pre-silhouette body: a disc and a wedge. No shadow (the light is art),
     // no silhouette (the shape of a Brute is art), no gradient (a body is one
@@ -6298,13 +6810,13 @@ function drawCharacter(unit, now, ghost) {
     // "wounded" on every other page in this genre.
     //
     // It carries the intent on exactly the alphas the rim light uses, so the two
-    // modes agree about what "bearing down" looks like.
-    const fan = unit.intent === INTENT_ATTACK ? 1 : unit.intent === INTENT_FLEE ? 0 : 0.5;
+    // modes agree about what "bearing down" looks like -- `wedgeFill` is where
+    // that agreement lives now, and the isometric ground wedge reads the same row.
     ctx.beginPath();
     ctx.moveTo(0, 0);
     ctx.arc(0, 0, WEDGE_REACH, -WEDGE_HALF, WEDGE_HALF);
     ctx.closePath();
-    ctx.fillStyle = `rgba(${skin.wedge},${(0.08 + 0.20 * fan).toFixed(3)})`;
+    ctx.fillStyle = wedgeFill(skin, unit.intent);
     ctx.fill();
 
     ctx.beginPath();
@@ -6314,6 +6826,53 @@ function drawCharacter(unit, now, ghost) {
     ctx.lineWidth = 1 / r;
     ctx.strokeStyle = skin.body[1];
     ctx.stroke();
+  } else if (upright) {
+    // The billboard. Its three flat passes -- shadow, wedge, collision ring --
+    // went down on the floor above, before this space existed; what is left is
+    // the body itself, and it is the same three passes the flat arm below runs,
+    // in the same order, with the facing taken out of them.
+    //
+    // 3. The silhouette. **The head is inside this outline**, not drawn over the
+    //    top of it: every path in `UPRIGHTS` finishes with the top half of its own
+    //    head circle, so the topmost point of what is filled here is exactly
+    //    `uprightTop(kind)` -- which is `anchorY`'s height, `unitAt`'s box top and
+    //    `drawHeroThrough`'s outline top, all four being one number.
+    ctx.fillStyle = body;
+    ctx.fill(path);
+    ctx.strokeStyle = "rgba(9,11,16,0.85)";
+    ctx.lineWidth = 0.09;
+    ctx.stroke(path);
+
+    // 4. The head, in the *pale* end of the palette for the reason it is pale
+    //    top-down: it is the part of the body nearest the light, and painting it
+    //    dark made it read as a hole rather than as a head. `at` is a height here
+    //    rather than a reach -- `HEADS` has the argument, `uprightHead` does the
+    //    arithmetic -- so a Brute's sits down in the notch between its shoulder
+    //    humps and a Rogue's rides clear inside its hood.
+    ctx.beginPath();
+    ctx.arc(0, tall.cy, tall.r, 0, TAU);
+    ctx.fillStyle = skin.body[0];
+    ctx.fill();
+    ctx.strokeStyle = "rgba(9,11,16,0.75)";
+    ctx.lineWidth = 0.07;
+    ctx.stroke();
+
+    // 5. The rim light, verbatim from the flat arm below including its gradient
+    //    line, because `ctx.clip` takes any closed path and this one is closed.
+    //    What it means changes with the projection and the code does not: flat it
+    //    runs back-to-front along the facing, upright it runs across the body from
+    //    the shaded side to the lit one, and either way it is a bright inner edge
+    //    carrying the intent in its alpha. The *hue* never moves.
+    const heat = unit.intent === INTENT_ATTACK ? 1 : unit.intent === INTENT_FLEE ? 0 : 0.5;
+    ctx.save();
+    ctx.clip(path);
+    const rim = ctx.createLinearGradient(-0.7, 0, 1.05, 0);
+    rim.addColorStop(0, `rgba(${skin.wedge},0)`);
+    rim.addColorStop(1, `rgba(${skin.wedge},${(0.24 + 0.72 * heat).toFixed(3)})`);
+    ctx.strokeStyle = rim;
+    ctx.lineWidth = 0.20 + 0.20 * heat;
+    ctx.stroke(path);
+    ctx.restore();
   } else {
     // 1. The ground shadow: **the silhouette itself**, dropped down the screen.
     //    A plain ellipse was tried and a Brute -- two and a half radii across the
@@ -6392,12 +6951,16 @@ function drawCharacter(unit, now, ghost) {
   //    art off there is no silhouette and no head to flash, and flashing them
   //    anyway would print a Brute's shoulders on screen for four frames in a mode
   //    that has spent the whole function not drawing them.
+  //    `path` is already whichever silhouette was filled, so only the head has to
+  //    be asked which space it is in -- and the flat line is left as it was
+  //    rather than folded into a pair of variables that would evaluate to it.
   if (unit.hitFlash > 0) {
     ctx.fillStyle = `rgba(255,255,255,${(0.75 * unit.hitFlash).toFixed(3)})`;
     if (art) {
       ctx.fill(path);
       ctx.beginPath();
-      ctx.arc(head.at, 0, head.r, 0, TAU);
+      if (upright) ctx.arc(0, tall.cy, tall.r, 0, TAU);
+      else ctx.arc(head.at, 0, head.r, 0, TAU);
       ctx.fill();
     } else {
       ctx.beginPath();
@@ -6417,7 +6980,14 @@ function drawCharacter(unit, now, ghost) {
   // as hittable and then hiding where the real edge is, and in `[tactical]` the
   // shape and the edge are the same circle. A ghost is skipped for a different
   // reason -- it is not a hitbox at all.
-  if (art && !ghost) {
+  //
+  // **And not upright either**, for the first reason rather than a new one: a
+  // billboard stands *above* its circle instead of on top of it, so there is no
+  // art covering the ring to justify a second pass -- and this one is a screen
+  // circle, which under iso would be drawn round rather than as the ellipse the
+  // ring actually is. The ring itself is unconditional and went down with the
+  // other two flat passes at the top of this function.
+  if (art && !ghost && !upright) {
     ctx.save();
     ctx.strokeStyle = "rgba(214,232,255,0.26)";
     ctx.lineWidth = 1;
@@ -6454,7 +7024,10 @@ function drawSprint(unit, skin, now) {
   const beat = (Math.sin(now / 150) + 1) / 2;
   const r = px(unit.radius);
   ctx.save();
-  ctx.translate(projX(unit.x, unit.y), projY(unit.x, unit.y));
+  // On the floor, trailing the body: `groundSpace` rather than a bare translate,
+  // so under iso the chevrons lie on the ground the runner is covering instead of
+  // standing up in the air behind it. Top-down `groundSpace` *is* that translate.
+  groundSpace(unit.x, unit.y);
   ctx.rotate(unit.facing);
   ctx.strokeStyle = `rgba(${skin.wedge},${(0.35 + 0.35 * beat).toFixed(3)})`;
   ctx.lineWidth = 2;
@@ -6532,13 +7105,24 @@ function drawShots(shots) {
 
 /** A health bar above the body. Drawn once anything is wounded or anything
  *  hostile is in the room, so an empty room looks exactly as it did before the
- *  spawn buttons existed and the bars *appearing* is itself the news. */
+ *  spawn buttons existed and the bars *appearing* is itself the news.
+ *
+ *  **In the overlay layer, so it is never occluded.** A body standing on a wall's
+ *  north side is cut in half by the rock and its bar is not, which is the right
+ *  way round: the bar is drawn at all only because `canSee` says the character
+ *  can see that body, and half a health bar behind a block would be the page
+ *  taking back information the sim has already granted. It is the same argument
+ *  `drawHeroThrough` makes -- the room's depth is a picture and the readouts hung
+ *  over it are not part of that picture.
+ *
+ *  Its width is still a radius thing and its height still `anchorY`'s: a bar as
+ *  tall as the body it belongs to would be a wall of colour over a Rogue. */
 function drawHealth(unit, skin) {
   const frac = clamp(unit.maxHp > 0 ? unit.hp / unit.maxHp : 0, 0, 1);
   const w = Math.max(16, px(unit.radius) * 2.4);
   const h = 3.5;
   const x = projX(unit.x, unit.y) - w / 2;
-  const y = projY(unit.x, unit.y) - px(unit.radius) - 8;
+  const y = anchorY(unit) - 8;
 
   ctx.save();
   ctx.fillStyle = "rgba(9,11,16,0.72)";
@@ -6565,11 +7149,26 @@ function drawCorpse(c) {
   const r = px(c.radius) * (1 - 0.45 * t);
   if (r < 0.4) return;
   ctx.save();
-  ctx.translate(projX(c.x, c.y), projY(c.x, c.y));
-  ctx.rotate(c.facing);
-  ctx.scale(r, r);
-  ctx.fillStyle = `rgba(${skin.glow},${(0.42 * (1 - t)).toFixed(3)})`;
-  ctx.fill(silhouetteOf(c.kind));
+  if (PROJ.upright) {
+    // The same body that was standing a moment ago, sinking into the floor as it
+    // fades. **No rotation** -- there is none in the billboard that preceded it,
+    // and the shrink is toward the ground point rather than toward the middle, so
+    // what settles is a figure going down on the spot it died on.
+    //
+    // Not `groundSpace`: this is the *upright* silhouette and shearing it would
+    // lay a standing figure over on the floor at 26.57 degrees, which is neither
+    // standing nor lying down.
+    ctx.translate(projX(c.x, c.y), projY(c.x, c.y));
+    ctx.scale(r * PROJ.ex, r * PROJ.ex);
+    ctx.fillStyle = `rgba(${skin.glow},${(0.42 * (1 - t)).toFixed(3)})`;
+    ctx.fill(uprightOf(c.kind));
+  } else {
+    groundSpace(c.x, c.y);
+    ctx.rotate(c.facing);
+    ctx.scale(r, r);
+    ctx.fillStyle = `rgba(${skin.glow},${(0.42 * (1 - t)).toFixed(3)})`;
+    ctx.fill(silhouetteOf(c.kind));
+  }
   ctx.restore();
 }
 
@@ -6833,7 +7432,10 @@ function consumeEvents(state) {
       });
       while (floaters.length > MAX_FLOATERS) floaters.shift();
     } else if (event.kind === EVENT_DECLARE) {
-      pushCallout(event);
+      // The row is handed over, not the index: the pill copies the two body
+      // numbers it needs off it once, here, so that it never has to ask a body
+      // that may not exist by the time it is drawn. See `pushCallout`.
+      pushCallout(event, state.byIndex[event.actor]);
     }
     // EVENT_PARRY is deliberately not floated. `drawMarks` already puts sparks
     // on the blades that crossed, at the point they crossed at, and a second
@@ -6852,14 +7454,47 @@ function ageEffects(elapsed) {
   while (callouts.length && callouts[0].age > CALLOUT_MS) callouts.shift();
 }
 
-function pushCallout(event) {
+function pushCallout(event, actor) {
   const action = event.amount | 0;
   for (const c of callouts) {
     if (c.actor === event.actor && c.action === action && c.age < CALLOUT_REPEAT_MS) return;
   }
   // `x, y` is where the swinger was standing when it declared, kept only as the
   // fallback for after it falls: while it is alive the pill tracks it.
-  callouts.push({ actor: event.actor, action, x: event.x, y: event.y, age: 0 });
+  //
+  // `radius, kind` are the same idea about the *height* the pill hangs at, and
+  // they are not a fallback -- they are the answer, alive or dead. **A callout is
+  // a thing that was said, and where it hangs is a property of the moment it was
+  // said, not of whether the sayer is still standing.** These are exactly the two
+  // fields `bodyTopWorld` reads, so the record answers that question for itself
+  // for the whole of its 900 ms.
+  //
+  // Which matters because a pill routinely outlives its body: a callout is
+  // declared at *windup*, `CALLOUT_MS` is 900, and the blow it names is often the
+  // one that gets the swinger killed. This used to fall back to a fixed 0.5-radius
+  // Fighter, so on the single frame the actor's row left the frame the pill
+  // teleported to whatever height *that* body would have hung at -- at
+  // `scale = 86`, up 13 px for a Fighter, up 33 for a Rogue, **down 34 for a
+  // Brute and up 101 for a Skitterer**, straight up or down, mid-fade, while the
+  // player is reading it. Nothing was exempt, because 0.5 is not a radius any
+  // body in the roster has. Top-down the same discontinuity was at worst 17 px,
+  // so it was never new in kind; standing bodies up made it six times worse and
+  // made it impossible to miss.
+  //
+  // Kept as the two inputs rather than as a baked height, so that cycling the
+  // view with `G` mid-pill re-answers under the live projection exactly as a live
+  // body does. The 0.5 Fighter survives only for the case it was always really
+  // for: a declaring row that is *already* gone, which `actorVisible` can let
+  // through on the page's own memory of last frame.
+  callouts.push({
+    actor: event.actor,
+    action,
+    x: event.x,
+    y: event.y,
+    radius: actor ? actor.radius : 0.5,
+    kind: actor ? actor.kind : BODY_FIGHTER,
+    age: 0,
+  });
   while (callouts.length > MAX_CALLOUTS) callouts.shift();
 }
 
@@ -6894,8 +7529,37 @@ function drawFloaters() {
     // And fading only in the last third, for the same reason: one that starts
     // fading immediately is one you have to already have been looking at.
     const alpha = t < 0.66 ? 1 : Math.max(0, 1 - (t - 0.66) / 0.34);
-    const x = projX(f.x + f.jitter * 0.3, f.y - rise);
-    const y = projY(f.x + f.jitter * 0.3, f.y - rise);
+    // **The rise is a height, not a walk north.** Folding it into `f.y` and
+    // projecting that -- which is what this did -- makes a number climb
+    // *diagonally* up and to the left under iso, because travelling north is what
+    // that expression says and travelling north is what it would look like. A
+    // number rising off a body rises up the screen. So the rise comes out of the
+    // projection and becomes a `lift`, which is the same pixels: `lift === px`
+    // in both projections, so `FLOATER_RISE` keeps its exact meaning.
+    //
+    // The jitter comes out of the *y* for the same reason and lands, exactly, as
+    // a horizontal screen nudge in both projections: `ax` is 1 in both tables, so
+    // the x picks up `f.jitter * 0.3 * scale` px and the y -- projected from the
+    // unjittered point -- picks up nothing. Which is what it is for. It is a hand's
+    // width sideways so two numbers over two bodies standing close together
+    // separate, and sideways on the screen is where it has to be.
+    //
+    // Top-down these are **output-identical, and only the x is byte-identical.**
+    // `projX(wx, wy)` is `px(wx)` and `projY(wx, wy)` is `px(wy)` there, so the x
+    // is the expression it always was -- it never read `f.y` at all. The y is
+    // not: it was `px(f.y - rise)` and is now `px(f.y) - px(rise)`, which are
+    // equal in the reals and not always equal in doubles, because the subtraction
+    // now happens after two roundings instead of before one. Roughly a third of
+    // sampled inputs come out one or two ulp apart, worst case under 2e-12 px --
+    // eleven orders of magnitude under the quarter-device-pixel snap `viewOrigin`
+    // already applies to every one of these, and far under anything `fillText`
+    // can resolve. So no glyph moves and the `[tactical]` picture is the same
+    // picture; what is not claimed is that the number handed to the canvas is the
+    // same bits, because for a third of frames it is not. Worth the extra
+    // sentence: it is the one expression this session changed rather than moved,
+    // and the next person diffing draw calls will find it.
+    const x = projX(f.x + f.jitter * 0.3, f.y);
+    const y = projY(f.x, f.y) - lift(rise);
 
     if (f.kind === EVENT_BLOCK) {
       ctx.strokeStyle = `rgba(180,220,255,${(0.9 * alpha).toFixed(3)})`;
@@ -6953,14 +7617,19 @@ function drawCallouts(state) {
     //
     // One lookup rather than a scan of every row, per pill, per frame: the
     // index -> row table falls out of the parse for one array write per unit.
+    //
+    // **Only the position comes from the live row.** How high the pill hangs is
+    // `bodyTopWorld(c)` -- the record carries the `radius` and `kind` it was
+    // declared with, which is the whole of what that function reads -- so the
+    // height is continuous across the frame the actor falls on instead of
+    // snapping to a stand-in body's. See `pushCallout` for the rule and the
+    // pixels it was worth.
     let x = c.x;
     let y = c.y;
-    let radius = 0.5;
     const actor = state.byIndex[c.actor];
     if (actor) {
       x = actor.x;
       y = actor.y;
-      radius = actor.radius;
     }
 
     const alpha = t < 0.72 ? Math.min(1, t / 0.06) : Math.max(0, 1 - (t - 0.72) / 0.28);
@@ -6974,7 +7643,7 @@ function drawCallouts(state) {
     const cx = projX(x, y);
     // Above the health bar rather than on it, and rising a few pixels as it
     // goes, so two pills over two bodies standing close together separate.
-    const top = projY(x, y) - px(radius) - 18 - h - 6 * (1 - (1 - t) * (1 - t));
+    const top = projY(x, y) - lift(bodyTopWorld(c)) - 18 - h - 6 * (1 - (1 - t) * (1 - t));
 
     ctx.globalAlpha = alpha;
     roundRect(cx - w / 2, top, w, h, h / 2);
@@ -7277,9 +7946,9 @@ function walkDrawList(now, origin) {
   ctx.restore();
 }
 
-/** The hero's collision ring, over the whole scene. Built once from the skin so
- *  the outline and the body cannot disagree about what "hero" is coloured, and so
- *  the frame does not build a string to say it. */
+/** The hero's outline, over the whole scene. Built once from the skin so the
+ *  outline and the body cannot disagree about what "hero" is coloured, and so the
+ *  frame does not build a string to say it. */
 const HERO_THROUGH = `rgba(${HERO_SKIN.glow},0.55)`;
 
 /**
@@ -7297,15 +7966,22 @@ const HERO_THROUGH = `rgba(${HERO_SKIN.glow},0.55)`;
  * *invisible*.
  *
  * One stroke of one small closed path, unconditional. Where nothing covers the
- * hero it sits exactly on its own collision circle and reads as a slightly
- * brighter rim; where a monster or a wall covers it, it reads through. Strokes are
- * the scarce resource on this page and this is one un-dashed circle of a body's
- * radius, which is the cheapest possible thing that could do the job.
+ * hero it sits exactly on its own edge and reads as a slightly brighter rim;
+ * where a monster or a wall covers it, it reads through. Strokes are the scarce
+ * resource on this page and this is one un-dashed outline of one body, which is
+ * the cheapest possible thing that could do the job.
  *
- * A screen-space circle and not a ground ellipse, because that is what the body
- * under it is this session: bodies are still flat top-down silhouettes here, on
- * purpose, and this outline follows whatever `drawCharacter` draws. Both stand up
- * together in `iso-05`, where this becomes the billboard's outline.
+ * **It traces the body's own billboard**, from `UPRIGHTS`, under exactly the
+ * transform `drawCharacter` used -- `translate` to the ground point, uniform
+ * `scale(px(r) * ex)`, no rotation. Not a re-derivation of it and not an
+ * approximating box: an outline half a body off the body it is outlining is
+ * worse than no outline, because it reads as a second thing standing there.
+ * `lineWidth` is divided back out by the scale, so it comes out 1.5 device
+ * pixels at every zoom the way it did when this was a screen circle.
+ *
+ * Called only from the depth-walk arm of `render`, which is `PROJ.upright` only,
+ * so there is no flat arm here to keep. Top-down the hero is simply drawn last,
+ * which is the old rule and still correct there.
  *
  * **No depth bias on the hero, now or later without reading this.** Giving it
  * `depth + 0.35` so it wins near-ties breaks the merge walk's monotonicity: the
@@ -7315,14 +7991,14 @@ const HERO_THROUGH = `rgba(${HERO_SKIN.glow},0.55)`;
  * the knob is ever wanted it belongs in `iso-07` §4, with its artefact stated.
  */
 function drawHeroThrough(hero) {
-  const r = px(hero.radius);
-  if (!(r > 0)) return;
+  const s = px(hero.radius) * PROJ.ex;
+  if (!(s > 0)) return;
   ctx.save();
+  ctx.translate(projX(hero.x, hero.y), projY(hero.x, hero.y));
+  ctx.scale(s, s);
   ctx.strokeStyle = HERO_THROUGH;
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.arc(projX(hero.x, hero.y), projY(hero.x, hero.y), r, 0, TAU);
-  ctx.stroke();
+  ctx.lineWidth = 1.5 / s;
+  ctx.stroke(uprightOf(hero.kind));
   ctx.restore();
 }
 
@@ -8630,14 +9306,18 @@ function stampText(at) {
  * reads as a gameplay bug and not as a matrix typo. Costs nothing at boot and
  * turns that into a console line.
  *
- * Every row, including the one not selected: `PROJ_ISO` is unreachable in this
- * session and this is the only thing that will notice if it stops being right
- * before something starts drawing through it.
+ * **Every row, including any not currently selected.** Written when `PROJ_ISO`
+ * was still unreachable and this was the only thing that would notice it going
+ * wrong before anything drew through it; `regular` selects it now, so the sweep
+ * has stopped being the sole witness for that row and has not stopped being the
+ * sole witness for the next one somebody adds.
  *
- * The flag check below is the same idea one layer down. The round trip proves each
- * matrix against its own inverse and says nothing at all about the two booleans
- * sitting beside it, which is the half of a projection row that the renderer
- * branches on.
+ * The three checks below are the same idea one layer down, and each covers a
+ * seam the round trip cannot see. The round trip proves a matrix against its own
+ * inverse and says nothing about the two booleans beside it, nothing about the
+ * `ex` the upright art was baked against, and nothing about which `VIEW_MODES`
+ * row pairs that projection with which `art` setting -- and every one of those
+ * is a bit the renderer branches on.
  */
 function assertProjection() {
   const was = PROJ;
@@ -8677,6 +9357,47 @@ function assertProjection() {
     console.assert(
       p.shear === p.upright,
       `projection ${p.id} has shear ${p.shear} and upright ${p.upright}: the wall bake reads one and the depth walk reads the other`
+    );
+    // **The upright art is baked against one `ex` and there is only one place
+    // that says which.** `UPRIGHTS` is built at module scope, before a view mode
+    // exists to ask, so its paths are authored against `PROJ_ISO.ex` literally --
+    // half-width 1 meaning `px(r) * ex`, and a crown at `-BODY_H / ex` meaning
+    // `lift(bodyHeight(unit))`. A second upright projection with a different `ex`
+    // would draw every body at the wrong height and hang every health bar off a
+    // head that is not there, silently, because both halves of the mistake are
+    // self-consistent. Rebuilding the paths per projection is the fix if that day
+    // comes; until then this is the tripwire.
+    console.assert(
+      !p.upright || p.ex === UPRIGHT_EX,
+      `projection ${p.id} stands bodies up with ex ${p.ex}, but UPRIGHTS was authored against ${UPRIGHT_EX}`
+    );
+  }
+
+  // **The fourth cell of `drawCharacter`'s branch table, closed the same way.**
+  // The shape branch there is on `art` and the space branch is on
+  // `PROJ.upright`, which is right and is what `iso-00` §3 asks for -- but the
+  // two are never composed, so `upright && !art` falls through to the flat arm
+  // *inside* the billboard's `ctx.scale(px(r) * ex)`. What that draws is a
+  // screen-space `arc(0, 0, 1)`: a **round** disc, roughly 61 px across at
+  // default framing, standing where the sim's circle projects to a 61 x 30
+  // ellipse. Its `lineWidth = 1 / r` comes out 1.4 device pixels rather than
+  // one. And the ground pre-pass that paints the honest collision ring is gated
+  // `upright && art`, so the real edge would not be drawn at all -- a shape the
+  // sim treats as hittable, painted the wrong shape, with nothing on screen
+  // showing where the hitbox is. House rule 4, and `iso-00` §3's failure class
+  // one level down: two bits that are the same bit today.
+  //
+  // Over `VIEW_MODES` rather than `PROJECTIONS`, because a projection cannot be
+  // artless on its own -- a *mode* pairs the two -- and so a fourth row is
+  // checked by being added to the table rather than by remembering this exists.
+  // The fix, when somebody wants that mode, is a real upright `!art` arm: a
+  // plain billboard in billboard space and the ring left to the ground pre-pass.
+  // That is a session and not a line, so until then this says so at boot.
+  for (const mode of VIEW_MODES) {
+    const p = PROJECTIONS[mode.proj] || PROJ_TOPDOWN;
+    console.assert(
+      mode.art || !p.upright,
+      `view mode ${mode.id} stands bodies up with art off: drawCharacter has no upright !art arm, so its collision circle would be drawn round and the real ellipse not at all`
     );
   }
 }
