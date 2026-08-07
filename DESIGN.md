@@ -537,8 +537,12 @@ before:
 2. **The health axis needs resolution.** At 135 damage per unit of impact speed
    a duel was three or four landed blows, so "won on half its health" and "won
    almost untouched" were one blow apart and read as luck. At 60 it was a dozen a
-   side, and `ENERGY_TO_DAMAGE` 384 holds the same resolution under the energy
-   law.
+   side, and `ENERGY_TO_DAMAGE` 384 held the same resolution under the energy
+   law. **This was later traded away deliberately** — 96 against `4 + vitality`
+   health puts a duel back at three or four clean exchanges — because resolution
+   in the fixture bought nothing a player could see and a legible stat point
+   does. See "Damage per impact, and the tick limits" below; the diagnosis here
+   was sound and is what makes the trade a cost rather than an oversight.
 3. **Losing has to be reachable.** The stat curves gained a steeper stretch below
    the dimmest archetype (`DIM_INTELLECT`, `DIM_PERCEPTION`), so a character can
    be built worse than anything in the roster without any archetype moving.
@@ -1395,8 +1399,8 @@ masonry" is nine byte reads at any roster radius, "how far to the wall in +x" is
 a walk along a row, "which way to the stairs" is a breadth-first search over
 integers. A polygon soup answers the first in time proportional to the level and
 cannot answer the third at all without a navmesh — a second representation to
-keep in step with the first. Bytes rather than bits because a bitset saves 1.3 KB
-on a 48×32 level and costs a shift and a mask in the innermost read of the tick,
+keep in step with the first. Bytes rather than bits because a bitset saves 2.7 KB
+on a 68×45 level and costs a shift and a mask in the innermost read of the tick,
 and because tile *kinds* are a thing this will want: solidity is a predicate on
 the byte rather than the byte itself.
 
@@ -1788,6 +1792,14 @@ rule about what walking into one *means* lives in the browser crate. Putting it
 below that line would put progression inside the fight simulator the lab drives
 headlessly.
 
+The browser crate no longer takes `Scenario::portal` as *the* portal, either.
+Nothing marks the way out while monsters live; the last kill is the exit, and it
+opens where that kill landed — read off `Event::Damage`'s `at`, which the sim
+carries precisely because `reap_dead` recycles the slot before `step` returns.
+The generator's exit room stays behind that as the fallback, for a floor that was
+never fought on. That moved *where* the browser decides the portal is, and moved
+nothing about who decides.
+
 ### The route
 
 A dragged path is the fourth thing on that list. One standing order per faction
@@ -2037,7 +2049,7 @@ free:
   instead of one `rect()`, a boundary tile adds up to two side quads, and a top
   face is emitted for every solid tile the fog has ever shown rather than only for
   the exposed ones. All of it is baked once per map or fog revision, which is where
-  the level's 1,536 tiles were always paid for.
+  the level's 3,060 tiles were always paid for.
 - **The body shadow got cheaper**, which was not planned. Top-down it is the
   silhouette dropped down the screen plus the head circle — two fills, because a
   plain ellipse under a rotating Brute wore as a dark crescent out of its chest.
@@ -2089,7 +2101,7 @@ constant.
 
 One allocation went on the way past. The facing wedge's three intent alphas are
 built once per skin instead of per body per frame; moving the wedge into
-`[regular]` had quietly doubled that mode's per-body dynamic strings, against a
+`[world]` had quietly doubled that mode's per-body dynamic strings, against a
 render path whose standing rule is that it allocates nothing per frame.
 
 **What is not known is the measured `render` mean, before or after, and no figure
@@ -2161,19 +2173,33 @@ costs a byte and took the draw rate to zero.
 **Damage per impact, and the tick limits.** The scaling constant went 60 → 135
 when the sword became a phase machine, because a windmill billed a blow every
 nine ticks and a measured attack is a windup, a cut and a recovery. It came most
-of the way back down, to 60, and the reason is **resolution** rather than pace: at
+of the way back down, to 60, and the reason was **resolution** rather than pace: at
 135 a Brute's blow was worth up to 57 against a Fighter's 84 health, so a duel was
 three or four landed blows and "won on half its health" and "won almost
 untouched" were one blow apart. That is not enough rungs to hang a difficulty
-range on. At 60 a duel is a dozen blows a side, one misread is a visible dent
+range on. At 60 a duel was a dozen blows a side, one misread a visible dent
 rather than a third of the fight, and both tick limits sit at two and a half
 minutes.
 
-Damage is kinetic energy now and the constant is `ENERGY_TO_DAMAGE` at 384, set
-by holding a Fighter's best blow at the 14.3 the old law gave it — so what is
-really pinned is that resolution and not the number. Switching laws moved the
-roster around that anchor without spreading it out: a Brute went 1.74 → 1.44 of a
-Fighter and a Skitterer 0.49 → 0.37.
+Damage became kinetic energy and the constant became `ENERGY_TO_DAMAGE`, first at
+384 — set by holding a Fighter's best blow at the 14.3 the old law gave it, so
+that what was pinned was that resolution and not the number. Switching laws moved
+the roster around that anchor without spreading it out: a Brute went 1.74 → 1.44
+of a Fighter and a Skitterer 0.49 → 0.37.
+
+**It is 96 now, and health is `4 + vitality`, and that trade went the other way.**
+Both halves moved on purpose and by different amounts: health fell by a factor of
+seven, damage by four. A Fighter is 12 health against a best blow of 3.6 — a ratio
+of 0.30 where 14.3 against 84 was 0.17 — so a fight is three or four clean
+exchanges rather than six. That is the resolution argument above, *overruled
+rather than refuted*. What bought it is legibility: at 84 health a point of
+vitality is 8, under a tenth of a bar and invisible in the only place a player
+reads health, which is the size of the number that just came off it. A ladder
+whose rungs cannot be seen from inside the game is a ladder in the source code.
+One point of vitality is now exactly one point of health, and one point of power
+is a quarter-point of damage that the floaters print. The roster is asserted in
+`rules::tests::the_roster_is_the_size_the_design_claims`, not tabulated here,
+because a number in a document is a number that rots.
 
 **Braking and an arrival band** for `Order::Goto`. A destination order needs a
 rule for *stopping*, and both of the above are actively wrong for arriving — the

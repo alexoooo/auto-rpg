@@ -258,7 +258,25 @@ fn player_orders_change_the_outcome_without_breaking_determinism() {
 // scenario is `Dungeon::open`, has nothing carved in it, and sets no objective.
 // Nothing about the fight moved: the run below still resolves on the same tick
 // with the same outcome, which is the assertion that says so.
-const GOLDEN_STATE_HASH: u64 = 0x9077_844a_d0c5_fc3f;
+// Reset for the rescale, and this one is the opposite of every entry above it:
+// the fight moved and nothing else did. `Stats::max_hp` went from `20 + 8 *
+// vitality` to `4 + vitality` and `ENERGY_TO_DAMAGE` from 384 to 96 -- health by
+// a factor of seven and damage by four, so a body dies in three or four clean
+// exchanges instead of a dozen. Two constants; no new field in `state_hash`, no
+// change to what is written or in what order. Every recorded run predating this
+// is void because the *outcomes* differ, not because the fingerprint's shape
+// does.
+//
+// It is the deliberate half of the pair this file exists to tell apart, so it is
+// worth writing down what it was bought with. A point of vitality used to be 8
+// health out of 84, under a tenth of a bar and invisible in the only place a
+// player reads health -- the size of the number that just came off it. It is now
+// exactly one point of one. What it cost is resolution: `ENERGY_TO_DAMAGE`'s own
+// doc comment argued for a dozen blows a side precisely so that "won on half its
+// health" and "won almost untouched" were not one blow apart, and that argument
+// was outweighed rather than refuted. The run below resolves in 3,414 ticks
+// where it took 4,885, which is the same fact from the other side.
+const GOLDEN_STATE_HASH: u64 = 0xbe85_0893_2555_0cf2;
 
 #[test]
 fn golden_hash() {

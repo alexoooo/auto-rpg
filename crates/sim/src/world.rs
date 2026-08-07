@@ -1,6 +1,6 @@
 use crate::command::{Command, Intent, Objective, Order};
 use crate::action::{ActionKind, ActionSpec, Role};
-use crate::dungeon::{Cardinal, Dungeon};
+use crate::dungeon::{Cardinal, Door, Dungeon};
 use crate::loadout::Loadout;
 use crate::entity::{EntityId, Faction, Body};
 use crate::event::Event;
@@ -55,8 +55,10 @@ impl Outcome {
 pub struct World {
     seed: u64,
     tick: u32,
-    /// Which ground exists. Immutable for the life of the world -- there is no
-    /// mutator, and a level change is a new [`World`], not an edit to this one.
+    /// Which ground exists. A level change is a new [`World`] and not an edit to
+    /// this one; the single edit that *is* allowed is a door opening
+    /// ([`Dungeon::open_door`]), which turns rock into floor and never the other
+    /// way about.
     dungeon: Dungeon,
     /// `dungeon.extent()`, cached beside it for the same reason [`World::radius`]
     /// and [`World::mass`] are cached beside [`World::kind`]: it is read in the
@@ -151,8 +153,26 @@ pub struct World {
     events: Vec<Event>,
     pending: Vec<EntityId>,
 
-    /// One route field per faction. See [`Nav`].
-    nav: [Nav; 2],
+    /// The doorways on this level and how hard somebody is leaning on each,
+    /// in the order [`Dungeon::doorways`] found them.
+    ///
+    /// Fixed for the life of the world in count and in position -- a door can
+    /// open and nothing can make one -- so an index into this is stable and
+    /// [`World::state_hash`] can write the column straight down.
+    doors: Vec<DoorState>,
+
+    /// One route field per faction **per door capability**, indexed
+    /// `[faction][opens_doors as usize]`. See [`Nav`].
+    ///
+    /// Two arms rather than one because a faction is not uniform: Monsters may
+    /// hold a Brute that must walk around a shut door and a Rogue that walks
+    /// through it, and one field cannot answer both. The arms are identical on a
+    /// level with no shut door left, which is most of a level's life, so
+    /// [`World::refresh_nav`] builds the second only while one is still shut
+    /// *and* this side holds a living body that opens doors -- the two halves of
+    /// [`World::nav_arm`]'s own test -- and [`World::nav_arm`] reads only the
+    /// first otherwise.
+    nav: [[Nav; 2]; 2],
     /// Scratch for [`World::refresh_nav`]: the search frontier and the cells it
     /// starts from.
     ///
@@ -181,6 +201,20 @@ pub struct World {
     /// tick. Differenced against the same figure at the bottom of the tick to
     /// bill the body for the reaction; see [`World::apply_recoil`].
     blade_p: Vec<Fx>,
+    /// Which doors somebody leant on this tick. One entry per door; see
+    /// [`World::press_doors`] for why the two passes cannot be one.
+    door_pushed: Vec<bool>,
+}
+
+/// A doorway and how hard somebody is leaning on it.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+struct DoorState {
+    door: Door,
+    open: bool,
+    /// Ticks of accumulated pressure. Decays when nobody is pushing, so a body
+    /// that brushes past a door on twenty separate occasions does not eventually
+    /// open it by accident.
+    pressed: u16,
 }
 
 /// Tile distances from one faction's objective, and what they were built for.
@@ -308,7 +342,25 @@ impl World {
             free: Vec::new(),
             events: Vec::new(),
             pending: Vec::with_capacity(n),
-            nav: [Nav::default(), Nav::default()],
+            // Read off the floor plan rather than carried alongside it, which
+            // is what keeps "where are the doorways" one question with one
+            // answer: `Dungeon::doorways` is the same grouping the generator
+            // used to fill `Level::doors`. It can only be asked while the doors
+            // are shut, and this is that moment.
+            doors: scenario
+                .dungeon
+                .doorways()
+                .into_iter()
+                .map(|door| DoorState {
+                    door,
+                    open: false,
+                    pressed: 0,
+                })
+                .collect(),
+            nav: [
+                [Nav::default(), Nav::default()],
+                [Nav::default(), Nav::default()],
+            ],
             nav_queue: Vec::new(),
             nav_seeds: Vec::new(),
             blows: Vec::new(),
@@ -317,7 +369,9 @@ impl World {
             start_pos: Vec::with_capacity(n),
             blade_was: Vec::with_capacity(n),
             blade_p: Vec::with_capacity(n),
+            door_pushed: Vec::new(),
         };
+        world.door_pushed.resize(world.doors.len(), false);
         for spec in &scenario.units {
             world.spawn(spec);
         }
@@ -575,6 +629,24 @@ impl World {
         &self.dungeon
     }
 
+    /// The doorways on this level and whether each stands open, in the order
+    /// [`Dungeon::doorways`] found them.
+    ///
+    /// **The one thing the floor plan cannot answer.** A *shut* door is `DOOR`
+    /// in the grid and an *open* one is `OPEN`, indistinguishable from the floor
+    /// it was cut into -- so a renderer working from the tiles alone watches the
+    /// doorway vanish the moment somebody walks through it, which reads as a bug
+    /// rather than as a door. This is what the browser's furniture buffer is
+    /// filled from (`crates/web/src/lib.rs`, `write_furniture`).
+    ///
+    /// Presentation only, and deliberately not `pressed`: how hard somebody is
+    /// leaning on a door is simulation state that the page has no picture for,
+    /// and publishing it would invite one that moved sixty times a second off a
+    /// buffer that is read once a level.
+    pub fn doorways(&self) -> impl ExactSizeIterator<Item = (Door, bool)> + '_ {
+        self.doors.iter().map(|d| (d.door, d.open))
+    }
+
     /// Whether a body of this radius can stand here without overlapping
     /// masonry -- or the outside, which [`Dungeon::solid`] reports as masonry
     /// too, so this covers the arena boundary without a second test.
@@ -748,6 +820,7 @@ impl World {
         self.resolve_swings();
         self.apply_recoil();
         self.resolve_shots();
+        self.press_doors();
         self.reap_dead();
         self.tick += 1;
         self.refresh_pending();
@@ -1748,6 +1821,137 @@ impl World {
         }
     }
 
+    /// Leans on doors, and opens whichever has been leant on long enough.
+    ///
+    /// Runs after movement has resolved -- so the positions it measures are the
+    /// ones the tick ended at -- and before the dead are reaped, so a body that
+    /// was standing on a door when the blow landed still spent that tick
+    /// pushing it.
+    ///
+    /// **Two passes rather than one**, which is the shape
+    /// [`World::resolve_swings`] uses and for the same reason: the first pass
+    /// only reads and marks, the second decides. Folded into one, the answer
+    /// would depend on which unit was visited first -- the door would open under
+    /// whichever body happened to hold the lower index, and a second body
+    /// leaning on the same door in the same tick would find it already floor.
+    ///
+    /// Two conditions to be leaning, and neither is sufficient alone. Being
+    /// *near* a door is where every route on the level converges, so proximity
+    /// alone would have a corridor's worth of traffic opening every door it
+    /// walked past; asking only about the commanded direction would have a body
+    /// across the room opening one by facing it.
+    fn press_doors(&mut self) {
+        if self.doors.is_empty() {
+            return;
+        }
+        // Taken out and put back so the borrow checker can see that the mark
+        // buffer and the columns being read are different fields; the same
+        // trick `web::Sim::advance` uses on its scratch.
+        let mut pushed = std::mem::take(&mut self.door_pushed);
+        pushed.clear();
+        pushed.resize(self.doors.len(), false);
+
+        for i in 0..self.alive.len() {
+            if !self.alive[i] || !self.kind[i].opens_doors() {
+                continue;
+            }
+            let dir = self.command[i].move_dir.clamp_length(Fx::ONE);
+            if dir.is_zero() {
+                continue;
+            }
+            let (me, reach) = (self.pos[i], self.radius[i] + rules::DOOR_REACH);
+            for (k, slot) in pushed.iter_mut().enumerate() {
+                if self.doors[k].open || *slot {
+                    continue;
+                }
+                *slot = self.doors[k].door.cells().iter().any(|&cell| {
+                    let (tx, ty) = self.dungeon.tile_at(cell);
+                    // Closest point on the tile block, which is the same test
+                    // `Dungeon::push_out` makes -- so "near enough to lean on"
+                    // and "near enough to be stopped by" are measured off one
+                    // shape rather than two.
+                    let closest = Vec2::new(
+                        me.x.clamp(Fx::from_int(tx), Fx::from_int(tx + 1)),
+                        me.y.clamp(Fx::from_int(ty), Fx::from_int(ty + 1)),
+                    );
+                    let to = closest - me;
+                    // **The rejection that makes this loop affordable**, and it
+                    // is exact rather than an approximation -- which is what
+                    // lets it sit in front of a rule the state hash depends on.
+                    //
+                    // Every doorway on the level is measured against every body
+                    // that has hands, every tick, and `Vec2::length` is
+                    // `isqrt64`: a restoring bit-search, some sixty iterations
+                    // of a branchy loop. A generated floor carries around
+                    // seventeen doorways of three tiles each, so the honest test
+                    // spends fifty of those square roots a tick discovering that
+                    // all but one doorway is across the map. Measured on the
+                    // carved bench that was 22% of the whole tick.
+                    //
+                    // A length is never shorter than either of its components:
+                    // `x*x <= x*x + y*y`, and `isqrt64` floors, so it holds in
+                    // raw units too. One component past `reach` therefore
+                    // settles it without the root. `Fx::abs` saturates rather
+                    // than wrapping at `i32::MIN`, so a subtraction that
+                    // saturated is rejected rather than mistaken for zero.
+                    if to.x.abs() > reach || to.y.abs() > reach {
+                        return false;
+                    }
+                    to.length() <= reach && dir.dot(to).is_positive()
+                });
+            }
+        }
+
+        for (k, &leant_on) in pushed.iter().enumerate() {
+            if self.doors[k].open {
+                continue;
+            }
+            self.doors[k].pressed = if leant_on {
+                self.doors[k].pressed.saturating_add(1)
+            } else {
+                self.doors[k].pressed.saturating_sub(1)
+            };
+            if self.doors[k].pressed >= rules::DOOR_TICKS {
+                self.doors[k].open = true;
+                // The whole run at once: a doorway is `CORRIDOR` tiles wide
+                // because anything narrower plugs, and opening it a tile at a
+                // time would produce exactly the gap that argument rules out.
+                //
+                // Nothing invalidates the route fields here and nothing needs
+                // to. `refresh_nav`'s key hashes `dungeon.fingerprint()`, which
+                // `open_door` has just moved, so every field rebuilds on the
+                // refresh at the bottom of this tick. A second mechanism would
+                // be a second thing to keep in step.
+                self.dungeon.open_door(self.doors[k].door.cells());
+            }
+        }
+
+        self.door_pushed = pushed;
+    }
+
+    /// Whether any door on this level is still shut. See [`World::nav_arm`].
+    fn door_shut(&self) -> bool {
+        self.doors.iter().any(|d| !d.open)
+    }
+
+    /// Which arm of [`World::nav`] answers for this body.
+    ///
+    /// The second arm exists only while something is still shut, so this is
+    /// where "there is nothing to route around" and "this body could not open
+    /// it anyway" become the same answer. One rule read by both the builder and
+    /// the reader, so the two cannot disagree about which fields exist:
+    /// [`World::refresh_nav`] builds the second arm for a side exactly when
+    /// some living body on it would land here on `1`.
+    ///
+    /// A body that came into existence *since* the last refresh is the one gap
+    /// in that pairing, and it is not reachable: [`World::refresh_pending`] and
+    /// [`World::refresh_nav`] run back to back at the bottom of the same
+    /// [`World::step`] over the same alive set, so nothing can be offered a
+    /// decision in a tick where the field it reads was not built for it.
+    fn nav_arm(&self, i: usize) -> usize {
+        usize::from(self.door_shut() && self.kind[i].opens_doors())
+    }
+
     fn refresh_pending(&mut self) {
         self.pending.clear();
         for i in 0..self.alive.len() {
@@ -1840,19 +2044,66 @@ impl World {
                 }
             }
 
-            let mut h = Hash64::new();
-            h.write_u64(self.dungeon.fingerprint());
-            h.write_u8(self.objectives[side].discriminant() as u8);
-            for &cell in seeds.iter() {
-                h.write_u32(cell);
+            // One arm unless something on the level is still shut. The two
+            // searches differ only where a `DOOR` tile is, so on a plan with
+            // none -- every duel, every skirmish, and a dungeon level once its
+            // last door has been opened -- the second arm is the first one
+            // computed twice, and this runs every tick.
+            //
+            // **And unless somebody on this side can read it**, which is the
+            // other half of the same question and is written as the exact
+            // mirror of [`World::nav_arm`]: that returns `1` for a body that is
+            // resolvable -- so alive -- on this side and holding hands, and a
+            // side with no such body never asks for the second field. Building
+            // it anyway is a full search over every tile on the floor, every
+            // tick, for an answer nobody collects. The shipped floor plan is
+            // exactly that case: Monsters hunt, Monsters are Brutes and
+            // Skitterers, and none of them opens a door. Worth 14% of a tick on
+            // the carved bench with an objective set.
+            //
+            // The seeding above is outside this loop on purpose: what a faction
+            // is trying to reach does not depend on whether it has hands.
+            // The door scan first, so the roster scan is not paid on every
+            // scenario that has no doors at all -- which is all of them but the
+            // dungeon.
+            let arms = 1 + usize::from(
+                self.doors.iter().any(|d| !d.open)
+                    && (0..self.alive.len()).any(|i| {
+                        self.alive[i]
+                            && self.faction[i].index() == side
+                            && self.kind[i].opens_doors()
+                    }),
+            );
+            for arm in 0..arms {
+                let opens_doors = arm == 1;
+                // **The invalidation is already correct and needs no work**,
+                // which is worth saying so nobody adds a second mechanism: this
+                // key hashes `dungeon.fingerprint()`, so a door that opens
+                // changes the fingerprint, changes the key, and every field
+                // rebuilds on its next refresh.
+                //
+                // The capability has to be in the key too, or the two arms
+                // collide on it and the second one silently answers with the
+                // first one's field.
+                let mut h = Hash64::new();
+                h.write_u64(self.dungeon.fingerprint());
+                h.write_bool(opens_doors);
+                h.write_u8(self.objectives[side].discriminant() as u8);
+                for &cell in self.nav_seeds.iter() {
+                    h.write_u32(cell);
+                }
+                let key = h.finish();
+                if key == self.nav[side][arm].key && !self.nav[side][arm].dist.is_empty() {
+                    continue;
+                }
+                self.nav[side][arm].key = key;
+                self.dungeon.distances_for(
+                    &self.nav_seeds,
+                    opens_doors,
+                    &mut self.nav[side][arm].dist,
+                    &mut self.nav_queue,
+                );
             }
-            let key = h.finish();
-            if key == self.nav[side].key && !self.nav[side].dist.is_empty() {
-                continue;
-            }
-            self.nav[side].key = key;
-            self.dungeon
-                .distances(seeds, &mut self.nav[side].dist, &mut self.nav_queue);
         }
     }
 
@@ -1948,7 +2199,12 @@ impl World {
     /// sealed off behind masonry. `(Vec2::ZERO, Fx::ZERO)` means arrived.
     fn nav_step(&self, i: usize) -> (Vec2, Fx) {
         let side = self.faction[i].index();
-        let dist = &self.nav[side].dist;
+        // A body penned behind a shut door it cannot open reads `u16::MAX` at
+        // its own cell and falls out three lines below with no route -- which is
+        // already what `UtilityPolicy` is written against, being the same answer
+        // a `Goto` sealed behind masonry has always got. Nothing new is needed
+        // to make a Skitterer wait.
+        let dist = &self.nav[side][self.nav_arm(i)].dist;
         let me = self.pos[i];
         let Some(cell) = self.dungeon.cell_of(me) else {
             return (Vec2::ZERO, Fx::MAX);
@@ -2170,13 +2426,36 @@ impl World {
         h.write_u32(self.tick);
         h.write_i32(self.arena.x.raw());
         h.write_i32(self.arena.y.raw());
-        // The floor plan, as its digest rather than as 1536 bytes. Written
+        // The floor plan, as its digest rather than as 3060 bytes. Written
         // **unconditionally**, including for a floor plan with nothing carved,
         // on exactly the argument the empty shot block below makes: a
         // fingerprint that only looks at the grid once something is standing
         // behind a wall cannot catch a broken tile column until it is too late
         // to say which tick broke it.
         h.write_u64(self.dungeon.fingerprint());
+        // And the doorways. Whether one is *open* is a tile value and therefore
+        // already in the digest above; how hard somebody is leaning on it is
+        // not, and a door one tick from opening is not the same world as an
+        // untouched one. Written in ascending door index, with the length first
+        // so that two worlds cannot line up one's pressures against another's.
+        //
+        // **Skipped entirely on a plan with no doorway in it**, which is the one
+        // place this departs from the argument the empty shot block below makes
+        // -- and the departure is sound because the two are not the same shape.
+        // An arrow can be loosed into a world that has never held one, so a shot
+        // column that is only fingerprinted once something is flying is a column
+        // nothing checks until it is too late to say which tick broke it. A door
+        // cannot be built: the list is read off the floor plan when the world is
+        // constructed and is fixed in length for its life, so "no doors" is a
+        // permanent fact about this world rather than a state it is passing
+        // through. Writing a zero for it would have moved `GOLDEN_STATE_HASH`
+        // and every lab golden to record that nothing had changed.
+        if !self.doors.is_empty() {
+            h.write_u32(self.doors.len() as u32);
+            for door in &self.doors {
+                h.write_u16(door.pressed);
+            }
+        }
         for order in self.orders {
             order.hash_into(&mut h);
         }
@@ -3693,8 +3972,15 @@ mod tests {
         // Hurt the Brute and the fight is the hero's on points -- but it is
         // still not a *kill*, and the two have to stay distinguishable or
         // fitness cannot price them differently.
+        //
+        // Taken as **fractions of each bar** rather than as flat amounts, which
+        // is what these were: 40 off a Brute and 60 off a Fighter said 30% and
+        // 71% while the bars were 132 and 84, and said "both sides at zero,
+        // therefore level, therefore a draw" the moment they became 18 and 12.
+        // `health_fraction` is a ratio and clamps at zero, so a test that feeds
+        // it absolute damage is a test written in units it does not use.
         let b = w.resolve(brute).unwrap();
-        w.hp[b] -= Fx::from_int(40);
+        w.hp[b] -= w.max_hp[b] * Fx::from_ratio(30, 100);
         assert_eq!(w.timeout(), Outcome::Decision(Faction::Heroes));
         assert_eq!(w.timeout().winner(), Some(Faction::Heroes));
         assert!(!w.timeout().is_decisive());
@@ -3702,7 +3988,7 @@ mod tests {
 
         // ...and it swings back when the hero is the one bleeding.
         let h = w.resolve(hero).unwrap();
-        w.hp[h] -= Fx::from_int(60);
+        w.hp[h] -= w.max_hp[h] * Fx::from_ratio(70, 100);
         assert_eq!(w.timeout(), Outcome::Decision(Faction::Monsters));
     }
 
@@ -4839,8 +5125,8 @@ mod tests {
             "the fixture did not put the quarry in the same tile"
         );
         assert_eq!(
-            spawned.nav[Faction::Monsters.index()].dist,
-            walked.nav[Faction::Monsters.index()].dist
+            spawned.nav[Faction::Monsters.index()][0].dist,
+            walked.nav[Faction::Monsters.index()][0].dist
         );
     }
 
@@ -4866,6 +5152,282 @@ mod tests {
         let obs = w.observe(id);
         assert_eq!(obs.nav_dir, Vec2::ZERO);
         assert_eq!(obs.nav_distance, Fx::MAX);
+    }
+
+    // ------------------------------------------------------------------ doors
+
+    /// Two chambers with one shut doorway between them, and `body` standing in
+    /// the western one. `+` is the door; see [`crate::dungeon::parse`].
+    ///
+    /// Three tiles across each way, because a Brute is 1.40 wide and this
+    /// fixture has to hold one -- half the point of it is that a Brute can
+    /// reach a door and still not open it.
+    fn door_world(body: Body) -> World {
+        let mut scenario = Scenario::duel();
+        scenario.dungeon = crate::dungeon::parse(&[
+            "#########", // 0
+            "#...#...#", // 1
+            "#...+...#", // 2  the doorway, at (4, 2)
+            "#...#...#", // 3
+            "#########", // 4
+        ]);
+        scenario.units.truncate(1);
+        scenario.units[0].set_body(body);
+        scenario.units[0].spawn = at_tile(2, 2);
+        World::new(&scenario, 1)
+    }
+
+    /// The centre of a tile, which is where these fixtures place things.
+    fn at_tile(tx: i32, ty: i32) -> Vec2 {
+        Dungeon::tile_centre(tx, ty)
+    }
+
+    /// Hard against the western jamb of `door_world`'s doorway, whatever the
+    /// body is: its edge a tenth of a unit off the face at x = 4.
+    fn against_the_jamb(w: &World, i: usize) -> Vec2 {
+        Vec2::new(
+            Fx::from_int(4) - w.radius[i] - Fx::from_ratio(1, 10),
+            Fx::from_ratio(25, 10),
+        )
+    }
+
+    const EAST: Vec2 = Vec2 {
+        x: Fx::ONE,
+        y: Fx::ZERO,
+    };
+
+    #[test]
+    fn a_fighter_leaning_on_a_door_opens_it() {
+        let mut w = door_world(Body::Fighter);
+        assert_eq!(w.doors.len(), 1, "the fixture has one doorway");
+        assert!(Body::Fighter.opens_doors());
+        let i = w.alive_ids(Faction::Heroes)[0].index as usize;
+        w.pos[i] = against_the_jamb(&w, i);
+        w.command[i] = Command::moving(EAST);
+
+        assert!(w.dungeon.solid(4, 2), "the door starts shut");
+        for _ in 0..rules::DOOR_TICKS - 1 {
+            w.press_doors();
+        }
+        assert!(
+            w.dungeon.solid(4, 2),
+            "a door opened in fewer than DOOR_TICKS: half a second is the whole \
+             difference between a beat in the fight and a doorway that swings \
+             open as you brush past it"
+        );
+        assert_eq!(w.doors[0].pressed, rules::DOOR_TICKS - 1);
+
+        w.press_doors();
+        assert!(w.doors[0].open, "the door never opened");
+        assert!(!w.dungeon.solid(4, 2), "the tiles did not follow the door");
+        assert_eq!(w.dungeon.open_count(), 19, "the doorway became floor");
+    }
+
+    #[test]
+    fn a_brute_leaning_on_a_door_does_not() {
+        // Anatomy, not intelligence, and not effort either: four times the
+        // pressure that opens a door for a Fighter does nothing at all here.
+        let mut w = door_world(Body::Brute);
+        assert!(!Body::Brute.opens_doors());
+        let i = w.alive_ids(Faction::Heroes)[0].index as usize;
+        w.pos[i] = against_the_jamb(&w, i);
+        w.command[i] = Command::moving(EAST);
+
+        for _ in 0..rules::DOOR_TICKS * 4 {
+            w.press_doors();
+        }
+        assert!(w.dungeon.solid(4, 2), "a Brute opened a door");
+        assert_eq!(w.doors[0].pressed, 0, "and it did not even lean on it");
+    }
+
+    #[test]
+    fn pressure_decays_when_nobody_is_pushing() {
+        let mut w = door_world(Body::Fighter);
+        let i = w.alive_ids(Faction::Heroes)[0].index as usize;
+        w.pos[i] = against_the_jamb(&w, i);
+
+        // Twenty separate brushes of ten ticks each, which is six hundred and
+        // sixty ticks of contact -- twenty-two times what opens a door. None of
+        // it accumulates, because the decay is symmetric with the gain and the
+        // gap between brushes is as long as the brush.
+        for _ in 0..20 {
+            w.command[i] = Command::moving(EAST);
+            for _ in 0..10 {
+                w.press_doors();
+            }
+            assert_eq!(w.doors[0].pressed, 10);
+            w.command[i] = Command::HOLD;
+            for _ in 0..10 {
+                w.press_doors();
+            }
+            assert_eq!(w.doors[0].pressed, 0);
+        }
+        assert!(w.dungeon.solid(4, 2), "a door opened by accident");
+
+        // Standing in the doorway facing away from it is not leaning on it
+        // either: proximity alone would have every route on the level opening
+        // every door it converged on.
+        w.command[i] = Command::moving(Vec2::new(-Fx::ONE, Fx::ZERO));
+        for _ in 0..rules::DOOR_TICKS * 2 {
+            w.press_doors();
+        }
+        assert_eq!(w.doors[0].pressed, 0);
+
+        // And so is leaning on it from across the room.
+        w.pos[i] = at_tile(1, 2);
+        w.command[i] = Command::moving(EAST);
+        for _ in 0..rules::DOOR_TICKS * 2 {
+            w.press_doors();
+        }
+        assert_eq!(w.doors[0].pressed, 0);
+        assert!(w.dungeon.solid(4, 2));
+    }
+
+    #[test]
+    fn a_door_half_pushed_open_is_in_the_hash() {
+        // `open` is a tile value and therefore already in the dungeon's digest.
+        // `pressed` is not, and a door one tick from opening is not the same
+        // world as an untouched one: step both on and they diverge.
+        let mut a = door_world(Body::Fighter);
+        let mut b = door_world(Body::Fighter);
+        let i = a.alive_ids(Faction::Heroes)[0].index as usize;
+        for w in [&mut a, &mut b] {
+            w.pos[i] = against_the_jamb(w, i);
+            w.command[i] = Command::moving(EAST);
+        }
+        assert_eq!(
+            a.state_hash(),
+            b.state_hash(),
+            "two identical worlds must fingerprint alike before anything happens"
+        );
+
+        a.press_doors();
+        assert_eq!(a.doors[0].pressed, 1);
+        assert_eq!(b.doors[0].pressed, 0);
+        assert_eq!(
+            a.dungeon.fingerprint(),
+            b.dungeon.fingerprint(),
+            "nothing has opened yet, so the grids are still the same grid"
+        );
+        assert_ne!(
+            a.state_hash(),
+            b.state_hash(),
+            "a door under pressure fingerprints like an untouched one"
+        );
+    }
+
+    /// `door_world`, with a monster of `body` standing in the eastern chamber
+    /// and the Heroes' Fighter in the western one. The Monsters hunt.
+    fn penned_world(body: Body) -> World {
+        let mut scenario = Scenario::duel();
+        scenario.dungeon = crate::dungeon::parse(&[
+            "#########", // 0
+            "#...#...#", // 1
+            "#...+...#", // 2
+            "#...#...#", // 3
+            "#########", // 4
+        ]);
+        scenario.units[0].spawn = at_tile(2, 2);
+        scenario.units[1].set_body(body);
+        scenario.units[1].spawn = at_tile(6, 2);
+        let mut w = World::new(&scenario, 1);
+        w.set_objective(Faction::Monsters, Objective::Hunt);
+        w
+    }
+
+    #[test]
+    fn a_skitterer_behind_a_shut_door_has_no_route_to_the_hero() {
+        // The engagement the player opens. A Skitterer's field stops at the
+        // door, so its own cell reads `u16::MAX`, `nav_step` reports no route,
+        // and `UtilityPolicy` falls through to its open-ground drift -- which is
+        // the existing, tested answer for a `Goto` sealed behind masonry.
+        // Nothing new was needed to make it wait.
+        let mut w = penned_world(Body::Skitterer);
+        let monster = w.alive_ids(Faction::Monsters)[0];
+        let m = monster.index as usize;
+        assert!(!Body::Skitterer.opens_doors());
+        assert_eq!(w.nav_step(m), (Vec2::ZERO, Fx::MAX));
+        assert_eq!(w.observe(monster).nav_distance, Fx::MAX);
+
+        // And it has one the moment the door is floor. Opened through the
+        // world's own doorway rather than by writing tiles, so this is the same
+        // edit `press_doors` makes.
+        let cells = w.doors[0].door.cells().to_vec();
+        w.dungeon.open_door(&cells);
+        w.doors[0].open = true;
+        w.refresh_nav();
+
+        let (dir, left) = w.nav_step(m);
+        assert!(left < Fx::MAX, "no route through an open doorway");
+        assert!(dir.x < Fx::ZERO, "the route did not head back west: {dir:?}");
+    }
+
+    #[test]
+    fn a_fighter_behind_a_shut_door_has_a_route_through_it() {
+        // The other arm of `World::nav`, on the identical fixture: one field
+        // cannot answer for a faction holding both of these, which is why there
+        // are two.
+        let mut w = penned_world(Body::Fighter);
+        let m = w.alive_ids(Faction::Monsters)[0].index as usize;
+        assert_eq!(w.nav_arm(m), 1, "a body that opens doors reads the second arm");
+
+        let (dir, left) = w.nav_step(m);
+        assert!(left < Fx::MAX, "a Fighter must route through a shut door");
+        assert!(dir.x < Fx::ZERO, "the route did not head toward the door: {dir:?}");
+
+        // The Skitterer standing beside it on the same tick still has none, off
+        // the same world -- which is the claim "two arms" is making.
+        let skitterer = w.spawn(&UnitSpec {
+            kind: Body::Skitterer,
+            faction: Faction::Monsters,
+            stats: Body::Skitterer.base_stats(),
+            loadout: Body::Skitterer.default_loadout(),
+            spawn: at_tile(6, 1),
+        });
+        w.refresh_nav();
+        let s = skitterer.index as usize;
+        assert_eq!(w.nav_arm(s), 0);
+        assert_eq!(w.nav_step(s), (Vec2::ZERO, Fx::MAX));
+        assert!(w.nav_step(m).1 < Fx::MAX, "and the Fighter still has its own");
+
+        // Once the door is open there is nothing to route around, so the second
+        // arm stops being built and both bodies read the first.
+        let cells = w.doors[0].door.cells().to_vec();
+        w.dungeon.open_door(&cells);
+        w.doors[0].open = true;
+        w.refresh_nav();
+        assert_eq!(w.nav_arm(m), 0, "there is nothing left to route around");
+        assert_eq!(w.nav_arm(s), 0);
+        assert!(w.nav_step(s).1 < Fx::MAX, "and the Skitterer is loose");
+    }
+
+    #[test]
+    fn a_door_opens_inside_the_tick_loop() {
+        // The three tests above drive `press_doors` directly, which is the only
+        // way to hold a body against a jamb for exactly `DOOR_TICKS`. This one
+        // is the wiring: a walk into a door, through `World::step`, opens it and
+        // the route field on the far side notices.
+        let mut w = penned_world(Body::Skitterer);
+        let hero = w.alive_ids(Faction::Heroes)[0];
+        let i = hero.index as usize;
+        w.set_objective(Faction::Heroes, Objective::Order);
+        w.set_order(Faction::Heroes, Order::Goto(at_tile(6, 2)));
+        for tick in 0..240 {
+            let (dir, _) = w.nav_step(i);
+            w.command[i] = Command::moving(if dir.is_zero() { EAST } else { dir });
+            w.step();
+            if w.doors[0].open {
+                assert!(tick >= rules::DOOR_TICKS as u32, "opened in {tick} ticks");
+                assert!(!w.dungeon.solid(4, 2));
+                // The route field is keyed on the floor plan's digest, so the
+                // rebuild is already done by the bottom of the tick that opened
+                // it. Nothing invalidates it by hand and nothing should.
+                let m = w.alive_ids(Faction::Monsters)[0].index as usize;
+                assert!(w.nav_step(m).1 < Fx::MAX, "the Skitterer is still penned");
+                return;
+            }
+        }
+        panic!("a Fighter walked into a door for four seconds and it held");
     }
 
     #[test]
@@ -6009,6 +6571,7 @@ mod tests {
             name: "archery".to_string(),
             dungeon: Dungeon::open(24, 16),
             portal: None,
+            torches: Vec::new(),
             max_ticks: 60 * 60,
             units: vec![
                 UnitSpec {
@@ -6147,6 +6710,7 @@ mod tests {
             name: "crossfire".to_string(),
             dungeon: Dungeon::open(24, 16),
             portal: None,
+            torches: Vec::new(),
             max_ticks: 60 * 60,
             units: vec![],
         };
@@ -6225,6 +6789,7 @@ mod tests {
             name: "empty range".to_string(),
             dungeon: Dungeon::open(24, 16),
             portal: None,
+            torches: Vec::new(),
             max_ticks: 60 * 60,
             units: vec![UnitSpec {
                 kind: Body::Fighter,

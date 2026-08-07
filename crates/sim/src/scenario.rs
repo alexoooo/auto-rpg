@@ -1,4 +1,4 @@
-use crate::dungeon::Dungeon;
+use crate::dungeon::{Dungeon, Torch};
 use crate::entity::{Body, Faction};
 use crate::loadout::Loadout;
 use crate::rules::Stats;
@@ -42,17 +42,31 @@ impl UnitSpec {
 
 /// A generated level, in tiles and therefore in world units.
 ///
-/// Four times the area of the 24x16 sandbox room, which at eleven world units
-/// of camera height is about three screens across and two down -- big enough
-/// that the far side is somewhere you go rather than somewhere you can see, and
-/// small enough that crossing it is not the game.
-pub const DUNGEON_COLS: u16 = 48;
-pub const DUNGEON_ROWS: u16 = 32;
+/// Twice the area of the 48x32 it was, holding the same 3:2 shape -- 3,060 tiles
+/// against 1,536, which is 1.99x rather than a round two because the shape was
+/// worth more than the round number. Eight times the 24x16 sandbox room, and at
+/// eleven world units of camera height about four screens across and three down.
+///
+/// The old comment's second clause is the one under pressure here: crossing a
+/// level is now more of the game than it was, which is what the extra doors and
+/// the clustered opposition are for. If a floor starts to feel like walking,
+/// that is the number to take back rather than the room count.
+///
+/// Fits `crates/web`'s `MAP_MAX` (96x64) with room to spare, so the tile buffer
+/// and the ABI are untouched.
+pub const DUNGEON_COLS: u16 = 68;
+pub const DUNGEON_ROWS: u16 = 45;
 
 /// How much opposition a level carries: this many, plus one per floor, up to a
 /// cap.
-const MONSTERS_BASE: usize = 3;
-const MONSTERS_PER_DEPTH_CAP: usize = 5;
+///
+/// The base doubled with the area, so twice the floor is not half the density.
+/// The cap came down in exchange, so the top of the curve did not run away with
+/// it: six on floor zero, ten from floor four on, and the last four floors of
+/// that climb are the difference between an opening room and a deep one rather
+/// than between a level and a swarm.
+const MONSTERS_BASE: usize = 6;
+const MONSTERS_PER_DEPTH_CAP: usize = 4;
 
 /// RNG domain tag for who stands in the level, kept apart from the tag the
 /// floor plan uses so that tuning one cannot move the other.
@@ -77,6 +91,23 @@ pub struct Scenario {
     /// to whoever is driving. It reaches [`Scenario::fingerprint`] and
     /// deliberately never reaches `World::state_hash`.
     pub portal: Option<Vec2>,
+    /// The torches, if this scenario was carved by the generator.
+    ///
+    /// Carried for exactly one reason: the page cannot tell a room wall from a
+    /// corridor wall without redoing the generator's work, and the generator is
+    /// the only thing that has ever known. Nothing below this line reads it --
+    /// [`crate::World`] is never handed one -- so it is the *only* field here
+    /// that reaches neither the sim nor [`Scenario::fingerprint`].
+    ///
+    /// **Deliberately out of the fingerprint, and the contrast with `portal` one
+    /// field up is the whole argument.** A scenario whose way out has moved is a
+    /// different scenario, because a driver acts on the way out and a replay
+    /// played against a moved one would be walking somewhere else. A torch is
+    /// paint: two scenarios that differ only in where the light is are the same
+    /// fight, and a replay of one plays the other tick for tick. Putting it in
+    /// the digest would make a decoration able to invalidate a replay -- and, in
+    /// this repository, able to move a golden hash.
+    pub torches: Vec<Torch>,
     /// Runs longer than this are declared a draw. Part of the scenario rather
     /// than the runner so a replay reproduces the same cutoff.
     pub max_ticks: u32,
@@ -100,6 +131,7 @@ impl Scenario {
             name: "duel".to_string(),
             dungeon: Dungeon::open(24, 16),
             portal: None,
+            torches: Vec::new(),
             max_ticks: 60 * 60,
             units: vec![
                 UnitSpec {
@@ -152,6 +184,7 @@ impl Scenario {
             name: format!("duel-{}-vs-{}", hero.name(), villain.name()),
             dungeon,
             portal: None,
+            torches: Vec::new(),
             // Two and a half minutes, up from ninety seconds, for the same
             // reason `skirmish` needed it: a duel is roughly a dozen landed
             // blows a side now rather than three or four, so it takes about
@@ -193,6 +226,7 @@ impl Scenario {
             name: "room".to_string(),
             dungeon: Dungeon::open(24, 16),
             portal: None,
+            torches: Vec::new(),
             max_ticks: u32::MAX,
             units: vec![UnitSpec {
                 kind: Body::Fighter,
@@ -263,6 +297,7 @@ impl Scenario {
             name: format!("skirmish-{heroes}v{monsters}"),
             dungeon,
             portal: None,
+            torches: Vec::new(),
             units,
             // Two and a half minutes, up from ninety seconds. A phased attack is
             // a windup, a cut and a recovery where a windmill was a blow every
@@ -277,7 +312,7 @@ impl Scenario {
 
     /// A generated dungeon, one level deep.
     ///
-    /// Four times the area of [`Scenario::room`] and carved into rooms and
+    /// Eight times the area of [`Scenario::room`] and carved into rooms and
     /// corridors, with the opposition already standing in it and a way out at
     /// the far end. `depth` is the level number: it seeds the layout alongside
     /// `seed`, so descending is a new floor plan rather than the same one
@@ -340,6 +375,7 @@ impl Scenario {
             name: format!("dungeon-{depth}"),
             dungeon: level.dungeon,
             portal: Some(level.portal),
+            torches: level.torches,
             units,
             max_ticks: u32::MAX,
         }
@@ -364,6 +400,10 @@ impl Scenario {
                 h.write_i32(at.y.raw());
             }
         }
+        // **`torches` is not written, and the omission is the decision.** See
+        // the field: the way out is knowledge a driver acts on and a torch is
+        // paint, so two scenarios that differ only in the lighting are the same
+        // fight and a replay of one plays the other tick for tick.
         h.write_u32(self.units.len() as u32);
         for u in &self.units {
             u.kind.hash_into(&mut h);
@@ -474,8 +514,11 @@ mod tests {
     fn a_dungeon_stands_everybody_on_ground_they_fit_on() {
         for depth in 0..4 {
             let s = Scenario::dungeon(11, depth, descending_hero());
-            assert_eq!(s.arena(), Vec2::from_ints(48, 32));
-            assert!(s.count(Faction::Monsters) >= 3);
+            assert_eq!(
+                s.arena(),
+                Vec2::from_ints(DUNGEON_COLS as i32, DUNGEON_ROWS as i32)
+            );
+            assert!(s.count(Faction::Monsters) >= MONSTERS_BASE);
             for u in &s.units {
                 assert!(
                     s.dungeon.is_clear(u.spawn, Body::Brute.radius()),

@@ -22,9 +22,15 @@ that a click in the rock means "as close as a body can stand". You are giving
 directions to something that decides for itself, which is the whole game.
 
 The level is 48 by 32, carved into rooms and three-wide corridors, with the
-opposition already standing in it and a way out at the far end. Kill everything
-and the portal opens; walk into it and the next floor is generated, deeper and
-better attended, with your character carried down whole. See "The floor plan" in
+opposition already standing in it and **nothing at all marking the way out**.
+Kill the last thing on the floor and the portal blooms where it died, already
+open — the exit is where you earned it rather than a door you were shown on
+arrival. Walk into it and the next floor is generated, deeper and better
+attended, with your character carried down whole. Standing on the kill does not
+take you: you have to step off and back on, or the level would end on the tick
+you cleared it and you would never see the room you just won. And when your
+character falls, the replacement arrives at the spot it fell — in the face of
+whatever killed it. See "The floor plan" in
 `DESIGN.md` for why a grid, why three tiles wide, and why routing is something
 the sim is *asked* for rather than something it works out for itself.
 
@@ -71,7 +77,7 @@ that killed it are still standing exactly where they were, and you send in a
 replacement — `1` for a fighter, `2` for a rogue — to walk into the fight in
 progress. Which is worth choosing rather than defaulting. A rogue thinks every
 ten ticks instead of twelve and sees 14.4 units instead of 9.6, and falls over at
-52 health instead of 84; the same policy runs both. Watching the same room go
+8 health instead of 12; the same policy runs both. Watching the same room go
 differently is the shortest demonstration this project has that stats are wired
 into the AI rather than into a damage number.
 
@@ -248,26 +254,32 @@ rock does not blink out — it fades over about 400 ms and leaves a dashed outli
 for another two seconds, at the pose it was last in rather than at the position it
 actually has, because an outline tracking a body through stone is a wallhack with
 a fade on it. Two things ignore the fog on purpose, and both read as bugs if
-nobody says so: the portal is drawn whether you have seen it or not, since knowing
-where the exit is from the moment you arrive is what turns "kill everything" into
-"fight your way there", and `left N` counts every monster alive, because it is the
-level's clear condition and not a perception.
+nobody says so: the portal is drawn whether you have seen it or not — which now
+costs almost nothing, since it only exists once the floor is clear and there is
+nothing left to discover it *from* — and `left N` counts every monster alive,
+because it is the level's clear condition and not a perception.
 
-`G` cycles three views, or the selector beside **Keys**. `[regular]` is the room
+`G` cycles three views, or the selector beside **Keys**. `[world]` is the room
 as it looks: a 2:1 isometric room, where the rock stands up as blocks with a lit
 top and shaded sides, bodies are upright billboards planted on flat ground
-shadows, and something standing behind a block is behind it. `[tactical]` drops
-the art — silhouette, head, drop shadow, body gradient, flagstones, the vignette —
-for a disc and a facing wedge on flat ground, and keeps every readout: limb, reach
-rings, vision discs, health, arrows, damage numbers, callouts, trail, destination,
-route and portal. `[dev]` is tactical bodies with no fog at all and the tick strip
-open, which is one intent stated once instead of twice — the chevron button that
-used to open that strip is gone. Both of those are the same room seen flat from
-above, and staying top-down is deliberate rather than unfinished: they are the A/B
-control for the isometric conversion, so anything that changes in one projection
-and not the other is something the projection did. The scale grid, one line every
-four units, stays in all three — under iso it runs on the tile diagonals, which
-are those same world lines seen from the new angle.
+shadows, and something standing behind a block is behind it. It paints the art and
+not the numbers behind it — the weapon in hand, the amber line while a body winds
+up, a health bar while it is fighting or hurt, and one faint ring on the floor
+where the sim's collision circle really is, which is there because a page must
+never draw a shape it will treat as hittable and then hide where the edge is. The
+sight circles, the facing wedge and the dashed weapon-range ring are not drawn.
+`[tactical]` drops the art — silhouette, head, drop shadow, body gradient,
+flagstones, the vignette — for a disc and a facing wedge on flat ground, and turns
+every readout back on: limb, reach rings, vision discs, health, arrows, damage
+numbers, callouts, trail, destination, route and portal. `[dev]` is tactical bodies
+with no fog at all and the tick strip open, which is one intent stated once instead
+of twice — the chevron button that used to open that strip is gone. Both of those
+are the same room seen flat from above, and staying top-down is deliberate rather
+than unfinished: they are the A/B control for the isometric conversion, so
+anything that changes in one projection and not the other is something the
+projection did. The scale grid, one line every four units, stays in all three —
+under iso it runs on the tile diagonals, which are those same world lines seen
+from the new angle.
 
 And `Space` freezes it, or the button beside **driving**. The world stops and
 nothing else does: rendering, the camera, the zoom, the hover readouts and *every
@@ -468,7 +480,7 @@ to lose than not noticing.
    one.
 4. Stance scoring that knows about time-to-kill. The Duelist's weakest matchup is
    a Skitterer against a Brute, where it loses to the baseline badly: with a
-   2.4-damage weapon against a 132-health target it needs some fifty-five blows,
+   0.6-damage weapon against an 18-health target it needs some thirty blows,
    and every defensive stance it chooses costs tempo it cannot afford. Nothing in
    the scoring can see that, which is a real limitation rather than a tuning
    accident — `lab duel` measures it and the sweep prints it.

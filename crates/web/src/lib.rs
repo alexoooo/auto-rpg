@@ -96,20 +96,24 @@ use std::cell::{Cell, RefCell};
 use fx::{Angle, Fx, Rng, Vec2};
 use policy::{Policy, PolicyKind, RunConfig, MAX_GENOME_LEN};
 use sim::{
-    Command, EntityId, Event, Faction, LimbCommand, Intent, Objective, Order, Scenario, Body,
-    Stats, Swing, UnitSpec, Loadout, Strike, UnitView, World,
+    Cardinal, Command, EntityId, Event, Faction, LimbCommand, Intent, Objective, Order, Scenario,
+    Body, Stats, Swing, Torch, UnitSpec, Loadout, Strike, UnitView, World,
 };
 
 /// Floats before the first unit: `[arena_x, arena_y, order_kind, order_x,
 /// order_y, last_decision_tick, unit_count, shot_count, event_count,
 /// monsters_left, portal_x, portal_y, portal_state, depth]`.
 ///
-/// The last five are the run: how much opposition is left, where the way out
-/// is and whether it is open, and which floor this is. `monsters_left` is
-/// nominally derivable from the unit rows and is here anyway, because the rows
-/// are capped at [`MAX_UNITS`] and the two must not be able to disagree about
-/// whether the level is clear -- that disagreement would be a portal that opens
-/// while something is still alive.
+/// The last five are the run: how much opposition is left, whether there is a
+/// way out yet and where, and which floor this is. `monsters_left` is nominally
+/// derivable from the unit rows and is here anyway, because the rows are capped
+/// at [`MAX_UNITS`] and the two must not be able to disagree about whether the
+/// level is clear -- that disagreement would be a portal that opens while
+/// something is still alive.
+///
+/// `portal_x, portal_y` are `0, 0` while `portal_state` is [`PORTAL_NONE`],
+/// which is the whole of the fight: nothing marks the way out until the last
+/// thing on the floor is dead. Read the state, not the point.
 pub const HEADER_LEN: usize = 14;
 
 /// Floats per unit.
@@ -274,10 +278,112 @@ pub const FRAME_MAX: usize =
 
 /// Length of the tile buffer.
 ///
-/// Sized for a 96x64 grid rather than the 48x32 a level actually is, so that
-/// halving the tile size later is a constant and not an ABI break. Six kilobytes
-/// of linear memory, once, forever.
+/// Sized for a 96x64 grid rather than the 68x45 a level actually is -- 3,060
+/// tiles against 6,144 -- so that the extent can move without the ABI moving
+/// with it. It already has once: the headroom was banked for halving the tile
+/// size later, and doubling the level spent half of it instead. What is left is
+/// slack rather than a second doubling, and a halved tile no longer fits.
+/// Six kilobytes of linear memory, once, forever.
 pub const MAP_MAX: usize = 96 * 64;
+
+// ------------------------------------------------------------- the furniture
+//
+// Things that stand *on* the floor plan and cannot be read out of it: doorways
+// and torches. One buffer for both rather than one per kind, because every one
+// of them is the same shape -- a small fixed record at a tile -- and a page that
+// has to bind three exports per piece of scenery will stop adding scenery.
+// `world-07` is that promise being kept: a torch is a *record kind* here and not
+// a third pair of exports.
+
+/// One furniture record, in bytes: `[kind, tx, ty, state]`.
+///
+/// **The record format, stated here because it is an ABI:**
+///
+/// | byte | meaning |
+/// |---|---|
+/// | 0 | kind: [`FURNITURE_DOOR`] or [`FURNITURE_TORCH`]. `0` is "nothing" and is never emitted, so a buffer that was never written holds no furniture rather than a field of doors at the origin. |
+/// | 1 | `tx`, the tile column |
+/// | 2 | `ty`, the tile row |
+/// | 3 | state, read according to the kind. For a door: `1` open, `0` shut. For a torch: [`TORCH_FACE_POS_X`] or [`TORCH_FACE_POS_Y`]. |
+///
+/// **One record per *tile*, not per doorway.** A doorway is up to `CORRIDOR`
+/// tiles that open together, and the page's bake is a loop over tiles -- so a
+/// per-doorway record would be unpacked back into tiles at the only place it is
+/// read. What the page loses is the grouping, and it does not need it: the ends
+/// of a run are the door tiles with solid rock beside them, which is a question
+/// the tile buffer already answers.
+///
+/// `tx` and `ty` are one byte each, which is a claim about [`MAP_MAX`] rather
+/// than about this: a level is 96x64 at the outside, and a level wide enough to
+/// overflow a `u8` column would have to have restated that sizing argument
+/// first. The const assertion below is what makes that a check instead of a
+/// hope.
+///
+/// **Append-only, exactly like the `PORTAL_*` codes and for the same reason:** a
+/// page built against an older module must not be able to read a *new* meaning
+/// out of an old number. A new kind takes the next free byte value; an existing
+/// kind's state byte gains a bit rather than changing what a bit means.
+pub const FURNITURE_STRIDE: usize = 4;
+
+/// Records the furniture buffer holds.
+///
+/// A fixed array for the reason [`MAP_MAX`] is: a `Vec` that reallocates grows
+/// linear memory, and growing it detaches every typed array the page holds.
+/// Two kilobytes of linear memory, once, forever.
+///
+/// 512 against a **measured** worst case of 157 records over 600 generated
+/// levels -- a mean of 50 door tiles and 45 torches, worst 70 torches -- so
+/// better than three times the headroom, and `world-07` spent about half of the
+/// order of magnitude this note used to promise it. The measurement is
+/// `a_level_of_torches_fits_the_page_buffer` in `crates/sim/src/dungeon.rs`,
+/// which is where the two counts are produced and therefore the only place they
+/// can be checked instead of remembered. [`write_furniture`] stops at the
+/// ceiling rather than growing past it, so overflowing this is scenery that goes
+/// missing and never a write out of bounds.
+pub const FURNITURE_MAX: usize = 512;
+
+/// A doorway tile. State byte: `1` open, `0` shut.
+const FURNITURE_DOOR: u8 = 1;
+
+/// A torch on a wall face. State byte: which face, [`TORCH_FACE_POS_X`] or
+/// [`TORCH_FACE_POS_Y`].
+const FURNITURE_TORCH: u8 = 2;
+
+/// The two faces a torch can be mounted on, as the state byte reports them.
+///
+/// **An explicit mapping and never `Cardinal as u8`, and this is a trap rather
+/// than a preference.** [`sim::Cardinal`] is declared `NegX, PosX, NegY, PosY`
+/// in *percept* order -- the order `Observation::wall_clearance` has always
+/// reported -- so the obvious cast gives `PosX = 1` and `PosY = 3`, two values
+/// that mean nothing to a page and that would silently change if a fifth
+/// direction were ever added or the percept order were reshuffled. The enum has
+/// no discriminants and no `as u8` mapping of its own precisely so that a wire
+/// format has to say what it means.
+///
+/// Only these two are ever emitted -- see [`sim::Torch::face`] -- so the other
+/// two cardinals have no code here at all rather than a code nothing writes.
+const TORCH_FACE_POS_X: u8 = 0;
+const TORCH_FACE_POS_Y: u8 = 1;
+
+/// The state byte for a torch's face. Total over [`sim::Cardinal`] because a
+/// match must be, and the two the generator promises never to emit take the
+/// `+x` face rather than a panic: this is a `cdylib` and a trap here poisons the
+/// instance for the life of the page, and a torch pointing the wrong way is a
+/// picture nobody dies of.
+const fn torch_face(face: Cardinal) -> u8 {
+    match face {
+        Cardinal::PosX | Cardinal::NegX => TORCH_FACE_POS_X,
+        Cardinal::PosY | Cardinal::NegY => TORCH_FACE_POS_Y,
+    }
+}
+
+/// A tile coordinate has to fit in the record's one byte. Checked rather than
+/// assumed, because the failure is silent: a column past 255 would wrap and put
+/// a door on the wrong side of the room.
+const _: () = assert!(
+    sim::DUNGEON_COLS as usize <= 256 && sim::DUNGEON_ROWS as usize <= 256,
+    "a furniture record holds tx and ty in one byte each",
+);
 
 /// Tile size in thousandths of a world unit, reported by
 /// [`map_tile_size_milli`].
@@ -296,17 +402,33 @@ const PORTAL_RADIUS: Fx = Fx::from_ratio(9, 10);
 
 /// Portal states, as the frame reports them.
 const PORTAL_NONE: u32 = 0;
-/// Visible but shut. **Visible while shut is the design decision**, not a
-/// fallback: seeing where the exit is from the moment you arrive is what turns
-/// "kill things" into "fight your way there".
+/// **Retired: never emitted.** Nothing marks the way out while monsters live,
+/// so a portal is either not there yet ([`PORTAL_NONE`]) or open
+/// ([`PORTAL_OPEN`]) -- see [`Sim::open_the_way_out`].
+///
+/// What this used to say, and it was not a fallback either: *"visible while
+/// shut is the design decision -- seeing where the exit is from the moment you
+/// arrive is what turns 'kill things' into 'fight your way there'."* That is
+/// still a true description of what a visible-but-shut exit buys, and it is
+/// what has been given up. **The user asked for the other trade**: the exit is
+/// earned rather than pointed at, and it appears where the last thing died, so
+/// the room you fought through is the room that answers.
+///
+/// The code stays at `1` rather than being reused or renumbered. The wire codes
+/// in this crate are append-only by convention, and a page built against an
+/// older module must not be able to read a *new* meaning out of an old number.
+#[allow(dead_code)]
 const PORTAL_SHUT: u32 = 1;
 const PORTAL_OPEN: u32 = 2;
 
 /// Most waypoints one dragged path may carry.
 ///
 /// A drag is sampled about every 1.2 world units, so this is some 29 units of
-/// path -- a little over half the level's diagonal, which is as much as anyone
-/// draws in one gesture. The page drops the *middle* of an over-long drag
+/// path -- about a third of the level's 81-unit diagonal, which is as much as
+/// anyone draws in one gesture. It was a little over half of that diagonal
+/// before the level doubled, and the number stayed where it was: how far a hand
+/// draws in one gesture is not a fact about the level.
+/// The page drops the *middle* of an over-long drag
 /// rather than the end: where a gesture starts and where it stops are the two
 /// points the player meant, and the samples in between are the hand's.
 const ROUTE_MAX: usize = 24;
@@ -336,6 +458,11 @@ const ROUTE_PROGRESS: Fx = Fx::from_ratio(5, 100);
 
 /// Closest a newcomer may be placed to the hero, and the floor the arc sweep
 /// in [`Sim::spawn_point`] accepts against. Far enough that you watch it come.
+///
+/// Still the common case for a *monster*. For a replacement character this and
+/// the three constants below are the **fallback** band only -- the first swap
+/// of a run, and the first swap after a descent. Every other swap lands where
+/// the last character fell; see [`Sim::entry_point`].
 const SPAWN_NEAR: Fx = Fx::from_int(6);
 
 /// Furthest a newcomer may be placed from the hero.
@@ -354,6 +481,9 @@ const SPAWN_FAR: Fx = Fx::from_int(9);
 
 /// Bearings tried before giving up, and the step between them. `65536 / 16` is
 /// exact, so the sweep closes the circle instead of drifting off it.
+///
+/// Read by [`Sim::spawn_point`] on every monster and by [`Sim::entry_point`]
+/// only on the swaps that have no fall site to go back to.
 const SPAWN_ARCS: u16 = 16;
 const SPAWN_ARC_STEP: u16 = 4096;
 
@@ -373,7 +503,7 @@ thread_local! {
     /// growing it detaches every typed array the page is holding.
     ///
     /// `u8` and not `f32` because a tile is a small integer; the page reads it
-    /// with a `Uint8Array` at no cost, and 1536 bytes cross instead of 6 KB.
+    /// with a `Uint8Array` at no cost, and 3060 bytes cross instead of 12 KB.
     static MAP: RefCell<[u8; MAP_MAX]> = const { RefCell::new([0; MAP_MAX]) };
     static MAP_SHAPE: Cell<(u32, u32, u32)> = const { Cell::new((0, 0, 0)) };
     /// What the player has seen of the floor plan: `0` never, `1` earlier,
@@ -384,6 +514,27 @@ thread_local! {
     /// never fed back into it, and absent from `state_hash`. A world driven
     /// headlessly by the lab computes none of this.
     static VIS: RefCell<[u8; MAP_MAX]> = const { RefCell::new([0; MAP_MAX]) };
+    /// What stands on the floor plan and cannot be read out of it: a doorway
+    /// today. `FURNITURE_STRIDE` bytes a record; see [`FURNITURE_STRIDE`] for
+    /// the format and [`write_furniture`] for what fills it.
+    ///
+    /// A fixed array beside `MAP` and `VIS` and for the third time the same
+    /// reason: a `Vec` that reallocates grows linear memory, and growing it
+    /// detaches every typed array the page is holding.
+    ///
+    /// **Structurally apart from the frame**, which is what makes this a
+    /// buffer that can be added without touching the ABI the page checks at
+    /// boot: `FRAME_MAX` is composed of `HEADER_LEN` and the three strides and
+    /// of nothing else, exactly as `MAP` and `VIS` already are, so neither
+    /// `HEADER_LEN` nor `FRAME_LAYOUT_VERSION` can move because of anything in
+    /// here.
+    static FURNITURE: RefCell<[u8; FURNITURE_MAX * FURNITURE_STRIDE]> =
+        const { RefCell::new([0; FURNITURE_MAX * FURNITURE_STRIDE]) };
+    /// How many *records* of `FURNITURE` are live -- not how many bytes, which
+    /// is this times [`FURNITURE_STRIDE`]. A count and a stride rather than a
+    /// byte length, so the page reads the buffer the way it reads the frame's
+    /// unit rows and never has to hardcode the width of a record.
+    static FURNITURE_LEN: Cell<u32> = const { Cell::new(0) };
     /// Starts at the header length rather than zero so a client that renders
     /// before it calls `init` reads a well-formed empty frame instead of a
     /// zero-length one.
@@ -469,22 +620,64 @@ struct Sim {
     /// rather than the same one again, and it is what the difficulty curve in
     /// [`Scenario::dungeon`] reads.
     depth: u32,
-    /// Bumped every time the floor plan changes, and **only** by [`init`] and
-    /// [`Sim::descend`].
+    /// Bumped every time the floor plan changes, and **only** then: by [`init`],
+    /// by [`Sim::descend`], and by a door opening inside [`Sim::advance`].
     ///
     /// That is the whole point of it: [`publish`] runs on every export, and a
     /// revision that moved when a slider moved would tell the page to re-bake a
     /// level that had not changed. The page re-reads the tile buffer exactly
     /// when this number does.
+    ///
+    /// The third of those is new and is the interesting one: **the floor plan
+    /// can now change without the level changing.** A door that opens turns rock
+    /// into floor in the middle of a run, so "the plan is fixed for the life of
+    /// a level" -- which the first two cases quietly assumed -- is no longer
+    /// true, and anything keyed to this has to be keyed to it rather than to the
+    /// depth.
     map_revision: u32,
-    /// Where the way out stands, copied off the scenario that built this level.
+    /// Where the way out stands, once it stands anywhere. `None` until the
+    /// level is clear -- **nothing marks the exit while monsters live** -- and
+    /// then the spot the last one died, pulled onto standing room by
+    /// [`Sim::open_the_way_out`].
     ///
     /// Here and not on [`World`], because the sim has no concept of a level, a
     /// depth or a run: what walking into it *means* is a rule about a game, and
     /// putting it below this line would put progression inside the fight
-    /// simulator the lab drives headlessly. `None` for a scenario with no way
-    /// out, which is every scenario but a generated one.
+    /// simulator the lab drives headlessly.
+    ///
+    /// Once set it stays set. A monster walked in afterwards from the enemy
+    /// panel does not shut the way out again: the level *was* cleared, and a
+    /// door that closes because the sandbox button was pressed is a rule nobody
+    /// asked for.
     portal: Option<Vec2>,
+    /// The generator's own exit room -- the room furthest from the start along
+    /// the floor, copied off the scenario that built this level.
+    ///
+    /// The fallback [`Sim::open_the_way_out`] falls back *to*, and the reason
+    /// `Level::portal` is still generated at all. It answers the two cases the
+    /// last kill cannot: a level that was already clear when it opened (which is
+    /// every test fixture that drops the roster), and a monster that left the
+    /// world by something other than a blow -- none today, and this is what
+    /// makes that a fact about the code rather than a hope.
+    exit_room: Option<Vec2>,
+    /// Where the hero was killed, for [`Sim::entry_point`]. Cleared by
+    /// [`Sim::descend`] -- a new floor is not somewhere you fell.
+    ///
+    /// Derived from an event, never read by the sim, never hashed: the same
+    /// standing as every other field in this half of the struct.
+    last_hero_fall: Option<Vec2>,
+    /// Where the most recent monster was killed, for the way out. Same standing
+    /// as [`Sim::last_hero_fall`], and cleared in the same place.
+    last_kill: Option<Vec2>,
+    /// Whether the hero has been clear of the way out since it opened.
+    ///
+    /// The way out now appears where the last thing died, which is usually
+    /// inside the reach of whoever killed it -- so without this the level ends
+    /// on the tick it is cleared, and the player never sees the room they just
+    /// won. Set the first tick the hero stands outside the portal's radius;
+    /// required by [`Sim::hero_is_leaving`], and cleared both by
+    /// [`Sim::descend`] and by the portal opening.
+    portal_armed: bool,
 
     /// Tiles the player has seen at any point on this floor. Cleared by
     /// [`Sim::descend`] and by a fresh [`init`], never otherwise -- this is the
@@ -508,6 +701,25 @@ struct Sim {
     /// re-bakes exactly when this moves; see [`Sim::map_revision`] for the same
     /// pattern.
     vis_revision: u32,
+    /// Bumped whenever the contents of `FURNITURE` change: a new floor, and the
+    /// tick a door opens. Its own number rather than a second reading of
+    /// [`Sim::map_revision`], which today moves at exactly the same two moments
+    /// -- because the two buffers answer different questions and the torches
+    /// below are furniture that the floor plan has nothing to say about.
+    furniture_revision: u32,
+    /// This floor's torches, copied off the scenario that built it.
+    ///
+    /// **Here and not on [`World`]**, exactly as [`Sim::portal`] is and for a
+    /// stronger version of the same reason: the portal at least crosses into
+    /// `Scenario::fingerprint`, and a torch reaches neither the fingerprint nor
+    /// the sim. Nothing below the boundary has ever been told they exist, which
+    /// is what makes "a decoration cannot move a hash" structural.
+    ///
+    /// Read only by [`write_furniture`]. A `Vec` allocated once per floor: it is
+    /// replaced wholesale by [`Sim::descend`] and never pushed to, so it cannot
+    /// grow linear memory under a live typed array the way an in-tick push
+    /// could.
+    torches: Vec<Torch>,
 
     /// The waypoints a dragged path still has to reach, `route[0]` being the leg
     /// currently expressed as the world's `Order::Goto`.
@@ -680,7 +892,7 @@ impl Sim {
         // naive so that the difference is something you can watch rather than
         // something this comment asserts.
         let kinds = [PolicyKind::Duelist, PolicyKind::Utility];
-        Sim {
+        let mut sim = Sim {
             world,
             policies: [kinds[0].baseline(), kinds[1].baseline()],
             kinds,
@@ -694,7 +906,14 @@ impl Sim {
             spawns: 0,
             depth: 0,
             map_revision: 0,
-            portal: scenario.portal,
+            // **Not `scenario.portal`.** Nothing marks the way out until the
+            // level is clear; the generator's exit room is kept one field down
+            // as the fallback and nothing else.
+            portal: None,
+            exit_room: scenario.portal,
+            last_hero_fall: None,
+            last_kill: None,
+            portal_armed: false,
             // The fog's memory, sized to the tile buffer it is indexed against
             // rather than to this level's extent. Every `Sim` is built through
             // here, so this is the one place it can be sized -- and a `seen`
@@ -707,6 +926,11 @@ impl Sim {
             // guessed before anything was placed.
             vis_at: None,
             vis_revision: 0,
+            furniture_revision: 0,
+            // Off the scenario, which is the only thing that has ever known: a
+            // generated one carries the generator's list and a hand-built
+            // fixture carries none, and neither needs a case here.
+            torches: scenario.torches.clone(),
             // Allocated once, at its ceiling, for the same reason `events`
             // below is: a push that grew linear memory would detach the typed
             // array the client reads the frame through, and a drag pushes.
@@ -742,7 +966,14 @@ impl Sim {
             // same fighter on tick zero. A second literal here is how those two
             // drift apart on the first edit to either.
             hero_spec,
-        }
+        };
+        // **A level can be clear before it has been fought.** Every fixture that
+        // drops the roster opens on an empty floor, and there is then no falling
+        // edge from one monster to none for [`Sim::advance`] to catch -- so the
+        // rule is stated once, here and per tick, as "clear means open" rather
+        // than as a transition.
+        sim.open_the_way_out();
+        sim
     }
 
     /// Builds the world a scenario describes, with both objective channels
@@ -769,31 +1000,69 @@ impl Sim {
         world
     }
 
-    /// Whether the way out will take the hero: every monster down, and the hero
-    /// standing on it.
+    /// Puts the way out where the last thing died, once there is nothing left
+    /// to fight.
+    ///
+    /// Called at every level open and once per tick from [`Sim::advance`]. It
+    /// is a *state* rather than an edge -- "clear and no portal yet" rather than
+    /// "the count just reached zero" -- because a level can be clear the moment
+    /// it opens, and an edge detector would never fire on one that was.
     ///
     /// Counted off [`World::alive_count`] rather than off the frame's unit
     /// rows, which are capped at [`MAX_UNITS`]: the authority on "is the level
     /// clear" must not be a number that saturates.
+    fn open_the_way_out(&mut self) {
+        if self.portal.is_some() || self.world.alive_count(Faction::Monsters) > 0 {
+            return;
+        }
+        // The last kill, and the generator's exit room behind it. `last_kill` is
+        // where the *blow* landed rather than where the body's centre was --
+        // within a body radius of it, which is what "the same place" means to
+        // anybody watching.
+        let Some(at) = self.last_kill.or(self.exit_room) else {
+            // A scenario with no exit room and nothing killed on it: the lab's
+            // skirmishes, and the fixtures built on them. They had no way out
+            // before and they have none now.
+            return;
+        };
+        // `nearest_walkable` against the widest body in the roster, so the
+        // portal is never half inside masonry and never somewhere a Brute could
+        // not walk onto -- the same guarantee the generator's own placements are
+        // held to.
+        self.portal = Some(self.world.nearest_walkable(at, Body::Brute.radius()));
+        // And disarmed, because the hero is very likely standing in it: it
+        // opened where the hero's own last blow landed. See [`Sim::portal_armed`].
+        self.portal_armed = false;
+    }
+
+    /// Whether there is a way out, and whether the page should draw it.
+    ///
+    /// Two states, not three. [`PORTAL_SHUT`] is retired -- see its own comment
+    /// for the decision that retired it -- so a portal that exists is a portal
+    /// that is open.
     fn portal_state(&self) -> u32 {
         match self.portal {
             None => PORTAL_NONE,
-            Some(_) if self.world.alive_count(Faction::Monsters) > 0 => PORTAL_SHUT,
             Some(_) => PORTAL_OPEN,
         }
     }
 
-    /// Whether the hero is standing in an open way out.
-    fn hero_is_leaving(&self) -> bool {
-        if self.portal_state() != PORTAL_OPEN {
-            return false;
-        }
+    /// Whether the hero's body overlaps the way out. Geometry only: it says
+    /// nothing about whether stepping there should *do* anything, which is
+    /// [`Sim::hero_is_leaving`]'s question and needs the arming flag as well.
+    fn hero_touches_way_out(&self) -> bool {
         let (Some(portal), Some(hero)) = (self.portal, self.hero()) else {
             return false;
         };
         self.world
             .view(hero)
             .is_some_and(|v| v.position.distance(portal) <= PORTAL_RADIUS + v.radius)
+    }
+
+    /// Whether the way out will take the hero: a way out, the hero standing in
+    /// it, and the hero having stood clear of it at some point since it opened.
+    fn hero_is_leaving(&self) -> bool {
+        self.portal_state() == PORTAL_OPEN && self.portal_armed && self.hero_touches_way_out()
     }
 
     /// Makes `route[0]` the standing order.
@@ -942,11 +1211,27 @@ impl Sim {
 
         let scenario = Scenario::dungeon(self.world.seed(), self.depth, self.hero_spec);
         self.world = Sim::open(&scenario, self.world.seed());
+        // A new floor's lights. Replaced rather than cleared and refilled, so
+        // there is no window in which the furniture buffer could be written from
+        // last floor's torches and this floor's doors.
+        self.torches = scenario.torches.clone();
         self.units.clear();
         for faction in [Faction::Heroes, Faction::Monsters] {
             self.units.extend_from_slice(&self.world.alive_ids(faction));
         }
-        self.portal = scenario.portal;
+        // A new floor has no way out yet and nowhere anybody fell: both are
+        // facts about the level that was just left. `exit_room` is the only one
+        // that crosses, and it crosses as the *new* level's fallback.
+        self.portal = None;
+        self.exit_room = scenario.portal;
+        self.last_hero_fall = None;
+        self.last_kill = None;
+        self.portal_armed = false;
+        // And the same rule the constructor states: clear means open. A
+        // generated floor always has somebody on it, so this is the fixture
+        // case rather than the ordinary one -- but stating it in one place and
+        // not two is what keeps the two from drifting.
+        self.open_the_way_out();
         // The waypoints describe a floor plan that no longer exists. Nothing
         // else here would drop them: the queue is not keyed to a body, so unlike
         // the three lines below it would survive the level it was drawn on.
@@ -966,6 +1251,11 @@ impl Sim {
         self.vis_at = None;
         self.vis_revision = self.vis_revision.wrapping_add(1);
         write_map(&self.world);
+        // And the furniture, which is a different set of doorways on a different
+        // floor plan and would otherwise be last level's doors drawn over this
+        // level's rock.
+        self.furniture_revision = self.furniture_revision.wrapping_add(1);
+        write_furniture(&self.world, &self.torches);
     }
 
     /// The standing hero, if there is one.
@@ -1049,7 +1339,22 @@ impl Sim {
                 flash.parry = flash.parry.saturating_sub(1);
             }
 
-            let driven = (self.control != 0).then(|| self.hero()).flatten();
+            // **Taken before the step, and unconditionally.** `World::reap_dead`
+            // runs inside `World::step` and recycles a lethal blow's slot before
+            // the event slice comes back, so by the time the drain below reads
+            // an `Event::Damage`'s `target` there is no `view` left to ask which
+            // side it was on -- for exactly the blow that matters here. This
+            // handle is the answer instead: everything in `self.units` is a Hero
+            // or a Monster, so "the target was not this" is "the target was a
+            // monster".
+            let hero_before = self.hero();
+            // And the floor plan, for the same reason: `Dungeon::open_door` is
+            // the only mutator there is and it re-digests in the same call, so
+            // differencing this across the step is exactly "did a door open".
+            // Cheaper and narrower than an event, and it cannot be forgotten by
+            // a future rule that changes the grid some other way.
+            let plan_before = self.world.dungeon().fingerprint();
+            let driven = if self.control != 0 { hero_before } else { None };
             due.clear();
             due.extend_from_slice(self.world.pending_decisions());
             for &id in &due {
@@ -1072,12 +1377,18 @@ impl Sim {
             // seeing in them now.
             let mut marks: [(EntityId, u8); 8] = [(EntityId::NONE, 0); 8];
             let mut count = 0;
+            // Collected rather than written straight through, on the same
+            // argument the `marks` array above is: the last of each within the
+            // tick wins, which is the one the player watched.
+            let mut fell_at: Option<Vec2> = None;
+            let mut killed_at: Option<Vec2> = None;
             for event in self.world.step() {
                 let pair = match *event {
                     Event::Damage {
                         target,
                         amount,
                         at,
+                        lethal,
                         ..
                     } => {
                         // The numbers, kept rather than reduced to a flash. The
@@ -1094,6 +1405,19 @@ impl Sim {
                                 actor: target.index,
                             },
                         );
+                        // And the two things a run is shaped by, off the same
+                        // arm: where a replacement comes back in, and where the
+                        // way out opens. `Event::Death` would be the tidier
+                        // place for this and is the wrong one -- it carries no
+                        // position, precisely because the body it names is
+                        // already gone.
+                        if lethal {
+                            if Some(target) == hero_before {
+                                fell_at = Some(at);
+                            } else {
+                                killed_at = Some(at);
+                            }
+                        }
                         [(target, 0u8), (EntityId::NONE, 0)]
                     }
                     Event::Block {
@@ -1150,6 +1474,39 @@ impl Sim {
                     _ => self.flash(entity, |f| &mut f.parry),
                 }
             }
+            if let Some(at) = fell_at {
+                self.last_hero_fall = Some(at);
+            }
+            if let Some(at) = killed_at {
+                self.last_kill = Some(at);
+            }
+
+            // A doorway that somebody just walked through. Per tick and not per
+            // animation frame, on the same argument the way-out test below
+            // makes: a catch-up burst is up to eight ticks, and the page must
+            // not spend seven of them drawing masonry in a hole.
+            //
+            // The fog follows for free and deliberately has no line of its own:
+            // [`Sim::refresh_vis`] is keyed on `(tile, map_revision)`, so moving
+            // the revision is what makes the next [`publish`] recompute the
+            // visible set and move `vis_revision` in turn. What must *not*
+            // happen here is [`Sim::descend`]'s `seen.fill(0)` -- a door opening
+            // is not a new floor, and forgetting the level because somebody
+            // opened a door would un-explore it.
+            //
+            // The furniture does need a line of its own, and it is the whole
+            // reason that buffer exists: an opened door is `OPEN` in the grid
+            // and indistinguishable from the floor it was cut into, so the tile
+            // buffer above has just *lost* the fact that a doorway is there.
+            // What moved is only a state byte -- the record's tile and kind are
+            // fixed for the level's life -- but the page re-reads the buffer
+            // wholesale on a revision, exactly as it does the tiles.
+            if self.world.dungeon().fingerprint() != plan_before {
+                self.map_revision = self.map_revision.wrapping_add(1);
+                write_map(&self.world);
+                self.furniture_revision = self.furniture_revision.wrapping_add(1);
+                write_furniture(&self.world, &self.torches);
+            }
 
             // After the tick, so the phases being compared are both settled
             // ones. See [`Sim::note_declares`].
@@ -1175,6 +1532,28 @@ impl Sim {
             // the order is a `Goto`, which is the first thing `expire_focus`
             // returns on.
             self.expire_focus();
+
+            // The way out, which the tick above may have just earned. Per tick
+            // and not per animation frame, for the same reason everything else
+            // in this block is: a catch-up burst is up to eight ticks, and the
+            // portal has to open on the tick of the kill rather than at the end
+            // of whichever burst contained it.
+            self.open_the_way_out();
+
+            // And the arming, which is what stops the level ending on the tick
+            // it was cleared. The portal opens where the last blow landed, so
+            // the hero is standing in it on that tick and every tick until it
+            // walks away; this is the moment it walked away. See
+            // [`Sim::portal_armed`] for why that is worth a flag.
+            //
+            // **A fallen hero does not arm it.** It is not clear of the way out;
+            // it is not anywhere. Arming on behalf of a body that no longer
+            // exists would hand the next one an instant descent whenever the
+            // last one fell inside the portal -- and the portal opens at a kill,
+            // so that is exactly where a fight tends to be.
+            if self.hero().is_some() && !self.hero_touches_way_out() {
+                self.portal_armed = true;
+            }
 
             // **And out of the loop entirely if the run just moved on.** Not
             // "carry on in the new world": the flash counters, the swing table
@@ -1397,6 +1776,13 @@ impl Sim {
         // time the number below changes. Left as it was, the newcomer would
         // arrive taking credit for the dead one's last decision.
         self.last_decision_tick = 0;
+        // And it has not stood clear of the way out either, whatever the last
+        // one had done. It arrives where the last one fell, which on a cleared
+        // level is within a body length of where the way out opened -- so
+        // inheriting the flag would descend the run on the tick the replacement
+        // button was pressed. Same rule as [`Sim::open_the_way_out`]'s: whoever
+        // finds themselves standing in it has to step out first.
+        self.portal_armed = false;
         1
     }
 
@@ -1486,26 +1872,43 @@ impl Sim {
         best.map_or(hero, |(_, _, point)| point)
     }
 
-    /// Where a replacement character comes in.
+    /// Where a replacement character comes in: **the spot the last one fell.**
     ///
-    /// Not the ring [`Sim::spawn_point`] uses, and the difference is the whole
-    /// point: the last character died where the fight was, so anywhere measured
-    /// from *it* is the middle of the mob. The same sixteen bearings are swept
-    /// around the centre of the room instead, and the candidate standing
-    /// furthest from the nearest monster wins.
+    /// You walk back into the fight you just lost. That is the whole of the
+    /// rule and the whole of what was asked for -- not the clearest standing
+    /// room near the fall, not a safe corner of the same room, the fall itself,
+    /// pulled only as far as the masonry forces.
     ///
-    /// Furthest, not merely far enough: a replacement arriving inside somebody's
-    /// reach is dead before it has taken a decision, and a swap button that
-    /// hands you a corpse is worse than no swap button. It is a fair entry
-    /// rather than a generous one -- it says nothing about which way the
-    /// monsters walk next, and they will have noticed by the time it thinks.
+    /// **What that costs, stated rather than deleted.** This function used to
+    /// sweep sixteen bearings around the middle of the level and keep the
+    /// candidate furthest from the nearest living monster, and the argument for
+    /// it was: *"furthest, not merely far enough -- a replacement arriving
+    /// inside somebody's reach is dead before it has taken a decision, and a
+    /// swap button that hands you a corpse is worse than no swap button."* That
+    /// has not been refuted. A replacement now arrives inside the reach of
+    /// whatever killed the last one, and can be hit before it has taken its
+    /// first decision. **The user's call**, and the intended feel: a death costs
+    /// you the character and not the ground, and the mob that took the last one
+    /// is still standing there waiting.
     ///
+    /// The old sweep survives below as the fallback, for the swaps that have no
+    /// fall to go back to -- the first of a run, and the first after a descent.
     /// With nothing hostile in the room every candidate is equally clear, the
     /// strict comparison never fires, and the answer is the middle of the floor
     /// -- or, on a carved level, the nearest standing room to it.
     fn entry_point(&self, kind: Body, rng: &mut Rng) -> Vec2 {
-        let arena = self.world.arena();
         let radius = kind.radius();
+        if let Some(fall) = self.last_hero_fall {
+            // Where the *blow* landed rather than where the body's centre was,
+            // which is what `Event::Damage` carries and is within a body radius
+            // of the corpse -- "the same place" at the resolution anybody
+            // watching can tell apart. `nearest_walkable` because a blow can
+            // land against a wall from the reach of something standing clear of
+            // it, and that point is not somewhere a body fits.
+            return self.world.nearest_walkable(fall, radius);
+        }
+
+        let arena = self.world.arena();
         let lo = Vec2::new(radius, radius);
         let hi = Vec2::new(arena.x - radius, arena.y - radius);
         // **Not the middle of the arena.** On a floor plan the geometric centre
@@ -1542,6 +1945,11 @@ impl Sim {
 
     /// How far `point` is from the nearest living monster, or [`Fx::MAX`] when
     /// there is none. A sentinel only -- nothing is ever computed from it.
+    ///
+    /// Read by [`Sim::entry_point`]'s fallback sweep and by nothing else. Left
+    /// as a function rather than inlined into it: it is the whole of what
+    /// "clear" meant there, and a reader who wants to know why the fallback
+    /// lands where it does should find that spelled out and named.
     fn clearance(&self, point: Vec2) -> Fx {
         let mut nearest = Fx::MAX;
         for &id in &self.units {
@@ -1741,11 +2149,17 @@ impl Sim {
 
 /// Copies a world's floor plan into the tile buffer.
 ///
-/// Called only where the floor plan can have changed -- [`init`] and
-/// [`Sim::descend`] -- and deliberately **not** from [`publish`], which runs on
-/// every export. Rewriting 1536 bytes on every slider drag would be harmless
-/// and would make [`map_revision`] meaningless, and the revision is the whole
-/// mechanism by which the page knows when to re-bake a level.
+/// Called only where the floor plan can have changed -- [`init`],
+/// [`Sim::descend`], and the tick a door opens -- and deliberately **not** from
+/// [`publish`], which runs on every export. Rewriting 3060 bytes on every slider
+/// drag would be harmless and would make [`map_revision`] meaningless, and the
+/// revision is the whole mechanism by which the page knows when to re-bake a
+/// level.
+///
+/// A shut `DOOR` lands here as `1`, because this writes
+/// `u8::from(dungeon.solid(..))` and a shut door is solid. That is right for
+/// what the page does with this buffer today -- rock is rock -- and it is what
+/// makes the doorway list a separate export rather than a third tile value here.
 fn write_map(world: &World) {
     let dungeon = world.dungeon();
     let cols = dungeon.cols() as u32;
@@ -1762,6 +2176,68 @@ fn write_map(world: &World) {
     // Reported together, so the page can never read a length that belongs to
     // one level and a width that belongs to another.
     MAP_SHAPE.with(|shape| shape.set((cols, rows, len as u32)));
+}
+
+/// Copies a world's furniture into the furniture buffer, one record a tile.
+///
+/// Called from the same three places [`write_map`] is and on the same terms --
+/// [`init`], [`Sim::descend`], and the tick a door opens -- and never from
+/// [`publish`]. See [`FURNITURE_STRIDE`] for the record format.
+///
+/// **The doorways are read off the world and the torches are not, and the split
+/// is the honest one.** [`World::doorways`] is the list the sim already keeps,
+/// in the order [`sim::Dungeon::doorways`] found them; a torch is something the
+/// sim has never been told about, so it arrives from the level that carved it by
+/// way of [`Sim::torches`]. Both orderings are fixed for the level's life, so a
+/// record's index here is stable across every call -- which is what lets the
+/// page treat this as "the same furniture, one byte changed" rather than as a
+/// fresh list to diff.
+///
+/// **Doors first, then torches, and never interleaved.** A door's state byte
+/// changes mid-level and a torch's never does, so writing the mutable kind first
+/// keeps every record that can move at a fixed index whatever happens to the
+/// list behind it.
+///
+/// Stops at [`FURNITURE_MAX`] rather than growing past it: scenery that goes
+/// missing off the end of a fixed array is a level that draws slightly wrong,
+/// and there is better than three times the headroom before it can happen.
+fn write_furniture(world: &World, torches: &[Torch]) {
+    let cols = u32::from(world.dungeon().cols());
+    let mut count = 0usize;
+    FURNITURE.with(|buf| {
+        let mut buf = buf.borrow_mut();
+        for (door, open) in world.doorways() {
+            for &cell in door.cells() {
+                if count == FURNITURE_MAX {
+                    return;
+                }
+                let at = count * FURNITURE_STRIDE;
+                buf[at] = FURNITURE_DOOR;
+                // `cell` is a row-major tile index, so this is the inverse of
+                // the `ty * cols + tx` the grid is addressed by everywhere else.
+                // Both bytes fit by the const assertion beside `FURNITURE_MAX`.
+                buf[at + 1] = (cell % cols) as u8;
+                buf[at + 2] = (cell / cols) as u8;
+                buf[at + 3] = u8::from(open);
+                count += 1;
+            }
+        }
+        for torch in torches {
+            if count == FURNITURE_MAX {
+                return;
+            }
+            let at = count * FURNITURE_STRIDE;
+            buf[at] = FURNITURE_TORCH;
+            // Already tile coordinates rather than a cell index, so no divide --
+            // and they fit in a byte by the same const assertion, which is a
+            // claim about `DUNGEON_COLS` and covers both kinds at once.
+            buf[at + 1] = torch.tx as u8;
+            buf[at + 2] = torch.ty as u8;
+            buf[at + 3] = torch_face(torch.face);
+            count += 1;
+        }
+    });
+    FURNITURE_LEN.with(|len| len.set(count as u32));
 }
 
 /// Appends a row unless the frame is already carrying [`MAX_EVENTS`] of them.
@@ -1995,8 +2471,13 @@ pub extern "C" fn init(seed: u32) {
     SIM.with(|sim| {
         let fresh = Sim::new(u64::from(seed));
         // The floor plan crosses on its own buffer and only when it changes;
-        // this is one of the two places it can have.
+        // this is one of the two places it can have. The furniture standing on
+        // it crosses on a third buffer, on the same terms and beside it -- and
+        // `FURNITURE_LEN` is written unconditionally, so a level with no
+        // doorways at all publishes a length of zero rather than the last
+        // level's.
         write_map(&fresh.world);
+        write_furniture(&fresh.world, &fresh.torches);
         *sim.borrow_mut() = Some(fresh);
     });
     // A fresh `Sim` supplies an empty `seen`, a `vis_at` of `None` and a
@@ -2209,7 +2690,7 @@ pub extern "C" fn spawn_monster(kind_code: u32, primary: u32, secondary: u32) ->
 /// `kind_code` is `0` for a Fighter and `1` for a Rogue; anything else is a
 /// Fighter. Which is worth choosing rather than defaulting: a Rogue thinks every
 /// ten ticks instead of twelve and sees 14.4 units instead of 9.6, but falls
-/// over at 52 health instead of 84. The same policy runs both, and watching the
+/// over at 8 health instead of 12. The same policy runs both, and watching the
 /// same room go differently is the clearest demonstration this page has that
 /// stats are wired into the AI rather than into a damage number.
 ///
@@ -2657,6 +3138,63 @@ pub extern "C" fn vis_len() -> u32 {
 #[no_mangle]
 pub extern "C" fn vis_revision() -> u32 {
     with_sim(0, |sim| sim.vis_revision)
+}
+
+// ------------------------------------------------------------- the furniture
+//
+// What stands on the floor plan and cannot be read out of it, on a fourth buffer
+// beside the tiles and the fog and read on the same terms: when
+// [`furniture_revision`] moves and not otherwise. Doorways and torches, on one
+// buffer with a kind code, which is what the promise `world-06` made here meant.
+//
+// Presentation, like the fog, and for a sharper reason than the fog's. A doorway
+// is a *projection* of `World::doorways`, which is simulation state that is
+// hashed where it lives; a torch is not a projection of anything below the
+// boundary, because nothing below the boundary has been told torches exist.
+// Nothing here is fed back either way, so nothing here can move a golden hash.
+
+/// Address of the furniture buffer. [`furniture_stride`] bytes a record,
+/// `[kind, tx, ty, state]`; see `FURNITURE_STRIDE` for the format.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn furniture_ptr() -> u32 {
+    FURNITURE.with(|f| f.borrow().as_ptr() as u32)
+}
+
+/// How many **records** are live -- not bytes, which is this times
+/// [`furniture_stride`].
+///
+/// A count and a stride rather than a byte length, matching the frame's three
+/// section counts: the page then reads this buffer the way it already reads unit
+/// rows, and the width of a record is never a number it keeps its own copy of.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn furniture_len() -> u32 {
+    FURNITURE_LEN.with(|len| len.get())
+}
+
+/// Bytes in one record. Exported for the same reason
+/// [`map_tile_size_milli`] is: it is the last place the page would otherwise
+/// hardcode a number that belongs to the module, and a client with it wrong
+/// reads garbage while every test on this side still passes.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn furniture_stride() -> u32 {
+    FURNITURE_STRIDE as u32
+}
+
+/// Bumped whenever the contents change -- a new floor, and the tick a door
+/// opens. The page re-reads and re-bakes exactly then.
+///
+/// Separate from [`map_revision`] although the two still move together on every
+/// path that exists today, because they are answers to different questions: the
+/// torches are furniture the floor plan has nothing to say about, and a level
+/// whose lights moved without its tiles moving would be invisible to the other
+/// number.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn furniture_revision() -> u32 {
+    with_sim(0, |sim| sim.furniture_revision)
 }
 
 /// Forces the next level and answers the new depth.
@@ -3241,12 +3779,12 @@ mod tests {
     /// The tile vocabulary, which nothing above the test module needs: the crate
     /// reads a floor plan and never writes one. `init_sealed` is the exception,
     /// and it is the only reason these three names are in scope at all.
-    use sim::{Dungeon, OPEN, WALL};
+    use sim::{Dungeon, DOOR, DUNGEON_COLS, DUNGEON_ROWS, OPEN, WALL};
 
     /// What `cargo run --release -p lab -- hash` prints today. Recorded rather
     /// than computed, so this test fails if the sim's behaviour moves at all --
     /// which is the point of having it here as well as in `sim`.
-    const LAB_HASH: u64 = 0x00b4_8ceb_2108_1d1d;
+    const LAB_HASH: u64 = 0xfe31_370e_141e_f531;
 
     /// What `init(1); set_goto(20_000, 12_000); step(600)` leaves behind.
     /// Recorded here natively; the same three calls against `web.wasm` under
@@ -3285,24 +3823,54 @@ mod tests {
     /// four scripts documented in this module as much as about the lab's
     /// scenarios, and it has now been made twice without being checked against
     /// them. Check the scripts before predicting the hashes.
-    const ROOM_HASH: u64 = 0xadae_95f2_b6b4_6499;
+    ///
+    /// **And then all five moved at once, `LAB_HASH` included**, when health
+    /// became `4 + vitality` and `ENERGY_TO_DAMAGE` went 384 -> 96. That is the
+    /// other shape, and it is the one the pairing above exists to make legible:
+    /// a change to *who is driving* moves these four and leaves the lab's number
+    /// standing, and a change to the **rules** moves all five together, because
+    /// there is no script anywhere that a body's health is not an input to. The
+    /// plan for that session predicted exactly this and it is the only session
+    /// in the `world-*` sequence allowed to. A hash moving here without
+    /// `LAB_HASH` moving is a policy or a page change; a hash moving *with* it
+    /// is the simulation, and there had better be a rules diff to point at.
+    ///
+    /// **And then all four moved and `LAB_HASH` did not**, when the level went
+    /// from 48x32 to 68x45 -- a third shape, and the one this pair reads most
+    /// cleanly. Every script here starts with `init(seed)`, which is
+    /// `Scenario::dungeon`, so a generator change is a different floor plan, a
+    /// different place to stand and a different run from tick zero. `LAB_HASH`
+    /// runs `Scenario::skirmish` on an uncarved `Dungeon::open(40, 28)` and
+    /// cannot reach the generator at all. Four moving together with the lab's
+    /// number standing still is *the level*; five moving together is the rules.
+    const ROOM_HASH: u64 = 0x9844_1a18_db7a_95ca;
 
     /// What `init(1); spawn_monster(3, SLOT_EMPTY, SLOT_EMPTY); step(600)` leaves behind -- a whole
     /// skirmish, start to finish, driven the way the page drives it. Recorded
     /// from a native run, never computed here, and asserted against `web.wasm`
     /// under Node by `tools/wasm_check.js`.
-    const BATTLE_HASH: u64 = 0x8fac_6bdd_30ef_bcac;
+    const BATTLE_HASH: u64 = 0x9aaf_e4bd_5456_0586;
 
     /// What `init(1); spawn_monster(2, SLOT_EMPTY, SLOT_EMPTY) x3; step(1800); swap_in_hero(1, SLOT_EMPTY, SLOT_EMPTY);
     /// step(400)` leaves behind -- a fight, a death, a replacement, and the
     /// fight it walks into. Recorded from a native run and asserted against
     /// `web.wasm` under Node by `tools/wasm_check.js`.
-    const SWAP_HASH: u64 = 0xf963_cdf8_faf3_331a;
+    ///
+    /// Re-recorded in `world-04`, and it is the **only** one of the five that
+    /// moved there: it is the one script that runs across a death, so it is the
+    /// one whose replacement now walks back in where the last one fell instead
+    /// of into the clearest room on the floor. The portal half of that session
+    /// moved nothing at all -- `Scenario::portal` deliberately never reaches
+    /// `World::state_hash`.
+    ///
+    /// Re-recorded again in `world-05` along with the other three, for the
+    /// reason written out on [`ROOM_HASH`]: the level itself changed shape.
+    const SWAP_HASH: u64 = 0xf948_f548_6ee9_0191;
 
     // `init(1); swap_in_hero(FIGHTER, Bow, Sword); spawn_monster(BRUTE); step(1200)`:
     // the only one of these that ever puts an arrow in the air, and therefore
     // the only one that pins the projectile arithmetic across targets.
-    const BOW_HASH: u64 = 0xd67a_d1e4_eb4a_d18d;
+    const BOW_HASH: u64 = 0x4a11_5773_5d30_5e9f;
 
     /// Prints the four browser goldens in hex, for re-pinning.
     ///
@@ -3472,6 +4040,24 @@ mod tests {
         VIS.with(|vis| vis.borrow()[..len].to_vec())
     }
 
+    /// The live part of the furniture buffer, split into records the way the
+    /// page reads it: `furniture_len()` rows of `furniture_stride()` bytes.
+    fn furniture() -> Vec<Vec<u8>> {
+        let stride = furniture_stride() as usize;
+        let count = furniture_len() as usize;
+        FURNITURE.with(|f| {
+            let f = f.borrow();
+            (0..count).map(|i| f[i * stride..][..stride].to_vec()).collect()
+        })
+    }
+
+    /// The furniture records of one kind. The page's own first move on this
+    /// buffer -- `readFurniture` splits it by kind byte -- so the tests below
+    /// ask the same question the client does.
+    fn furniture_of(kind: u8) -> Vec<Vec<u8>> {
+        furniture().into_iter().filter(|r| r[0] == kind).collect()
+    }
+
     /// The visibility byte of the tile a world point falls in. Named for what it
     /// reads rather than after `Sim::vis_at`, which is the cache key and a
     /// different thing entirely.
@@ -3502,15 +4088,24 @@ mod tests {
     }
 
     /// Whether a body of this radius could stand at this point.
+    ///
+    /// **Rounded rather than truncated on the way back into `Fx`**, and that is
+    /// not fussiness. `Dungeon::nearest_clear` answers a corner by pushing a
+    /// body to *exactly* its own radius off each face, `is_clear` is a strict
+    /// inequality, and `as i32` truncates toward zero -- so a portal placed
+    /// perfectly against a corner comes back through the page's `f32` a
+    /// thousandth of a unit further into the rock than it is, and the helper
+    /// reports the sim's own placement as illegal. Rounding is the honest
+    /// round-trip; truncation is a systematic drift toward the origin.
     fn walkable(x: f32, y: f32, radius: f32) -> bool {
         SIM.with(|sim| {
             sim.borrow().as_ref().is_some_and(|sim| {
                 sim.world.is_walkable(
                     Vec2::new(
-                        Fx::from_ratio((x * 1000.0) as i32, 1000),
-                        Fx::from_ratio((y * 1000.0) as i32, 1000),
+                        Fx::from_ratio((x * 1000.0).round() as i32, 1000),
+                        Fx::from_ratio((y * 1000.0).round() as i32, 1000),
                     ),
-                    Fx::from_ratio((radius * 1000.0) as i32, 1000),
+                    Fx::from_ratio((radius * 1000.0).round() as i32, 1000),
                 )
             })
         })
@@ -3538,9 +4133,79 @@ mod tests {
         SIM.with(|slot| {
             let sim = Sim::on(&scenario, u64::from(seed));
             write_map(&sim.world);
+            write_furniture(&sim.world, &sim.torches);
             *slot.borrow_mut() = Some(sim);
         });
         publish();
+    }
+
+    /// The same, with the generator's exit room dropped as well as the roster,
+    /// so **nothing can open a way out but a kill**.
+    ///
+    /// [`init_quiet`] opens on a level that is already clear, and a clear level
+    /// has its way out open from tick zero -- which is its own test. That is
+    /// exactly the wrong fixture for "the last kill is the exit": there would be
+    /// a portal standing before anything had been killed. A scenario with no
+    /// exit room is not a contrivance either; it is every scenario the lab runs.
+    fn init_unmarked(seed: u32) {
+        let hero = UnitSpec {
+            kind: Body::Fighter,
+            faction: Faction::Heroes,
+            stats: Body::Fighter.base_stats(),
+            loadout: Body::Fighter.default_loadout(),
+            spawn: Vec2::ZERO,
+        };
+        let mut scenario = Scenario::dungeon(u64::from(seed), 0, hero);
+        scenario.units.retain(|u| u.faction == Faction::Heroes);
+        scenario.portal = None;
+        SIM.with(|slot| {
+            let sim = Sim::on(&scenario, u64::from(seed));
+            write_map(&sim.world);
+            write_furniture(&sim.world, &sim.torches);
+            *slot.borrow_mut() = Some(sim);
+        });
+        publish();
+    }
+
+    /// The generated floor plan with **nobody standing on it at all**, hero
+    /// included.
+    ///
+    /// The one state a swap is answered in that no death produced, which makes
+    /// it the only honest fixture for [`Sim::entry_point`]'s fallback: a level
+    /// where nobody has fallen because nobody was ever there. `Sim::on` already
+    /// handles a scenario with no hero in it -- it keeps a plain Fighter as the
+    /// sheet the next one arrives wearing -- so this needs no code on that side.
+    fn init_deserted(seed: u32) {
+        let hero = UnitSpec {
+            kind: Body::Fighter,
+            faction: Faction::Heroes,
+            stats: Body::Fighter.base_stats(),
+            loadout: Body::Fighter.default_loadout(),
+            spawn: Vec2::ZERO,
+        };
+        let mut scenario = Scenario::dungeon(u64::from(seed), 0, hero);
+        scenario.units.clear();
+        SIM.with(|slot| {
+            let sim = Sim::on(&scenario, u64::from(seed));
+            write_map(&sim.world);
+            write_furniture(&sim.world, &sim.torches);
+            *slot.borrow_mut() = Some(sim);
+        });
+        publish();
+    }
+
+    /// The generator's exit room, out of the sim rather than off the frame --
+    /// the frame carries the *portal*, and the whole point of this session is
+    /// that the two are no longer the same point.
+    fn exit_room() -> (f32, f32) {
+        SIM.with(|sim| {
+            let at = sim
+                .borrow()
+                .as_ref()
+                .and_then(|sim| sim.exit_room)
+                .expect("this level has no exit room");
+            (at.x.to_f32(), at.y.to_f32())
+        })
     }
 
     /// A point a body of this radius can stand on, `reach` or so from the hero.
@@ -3569,8 +4234,8 @@ mod tests {
             "the selftest no longer runs what `lab hash` runs"
         );
         assert_eq!(selftest(), LAB_HASH, "the halves reassemble wrongly");
-        assert_eq!(selftest_hash_lo(), 0x2108_1d1d);
-        assert_eq!(selftest_hash_hi(), 0x00b4_8ceb);
+        assert_eq!(selftest_hash_lo(), 0x141e_f531);
+        assert_eq!(selftest_hash_hi(), 0xfe31_370e);
     }
 
     #[test]
@@ -3737,8 +4402,8 @@ mod tests {
         let frame = frame();
         assert_eq!(frame.len(), HEADER_LEN + UNIT_STRIDE);
         assert_eq!(frame_len() as usize, frame.len());
-        assert_eq!(frame[0], 48.0, "arena_x");
-        assert_eq!(frame[1], 32.0, "arena_y");
+        assert_eq!(frame[0], f32::from(DUNGEON_COLS), "arena_x");
+        assert_eq!(frame[1], f32::from(DUNGEON_ROWS), "arena_y");
         assert_eq!(frame[2], 4.0, "order_kind: Goto is discriminant 4");
         assert!((frame[3] - tx).abs() < 0.002, "order_x");
         assert!((frame[4] - ty).abs() < 0.002, "order_y");
@@ -3773,8 +4438,8 @@ mod tests {
             unit[2]
         );
         assert!((unit[3] - 0.45).abs() < 0.001, "radius {}", unit[3]);
-        assert_eq!(unit[4], 84.0, "hp: 20 + 8 * vitality 8");
-        assert_eq!(unit[5], 84.0, "max_hp");
+        assert_eq!(unit[4], 12.0, "hp: 4 + vitality 8");
+        assert_eq!(unit[5], 12.0, "max_hp");
         assert_eq!(unit[6], 0.0, "faction: Heroes");
         assert_eq!(unit[7], 0.0, "kind: Fighter");
         assert_eq!(unit[8], 0.0, "intent: Hold");
@@ -4286,11 +4951,13 @@ mod tests {
             dungeon: Dungeon::from_tiles(cols, rows, tiles),
             units,
             portal: None,
+            torches: Vec::new(),
             max_ticks: 60 * 60,
         };
         SIM.with(|slot| {
             let sim = Sim::on(&scenario, 1);
             write_map(&sim.world);
+            write_furniture(&sim.world, &sim.torches);
             *slot.borrow_mut() = Some(sim);
         });
         publish();
@@ -4408,6 +5075,46 @@ mod tests {
                     WALLED_OPEN.1,
                 ),
             ],
+        );
+    }
+
+    /// Two chambers with one shut doorway between them and a Fighter standing in
+    /// the western one, which is `world.rs`'s `door_world` carved through this
+    /// crate's own front door:
+    ///
+    /// ```text
+    /// #########
+    /// #...#...#
+    /// #...+...#   the doorway, at (4, 2)
+    /// #...#...#
+    /// #########
+    /// ```
+    ///
+    /// Three tiles across each way, because the body has to be able to reach the
+    /// door and still have rock either side of it.
+    const DOORWAY_COLS: u16 = 9;
+    const DOORWAY_ROWS: u16 = 5;
+    /// The one door tile, as `(tx, ty)`. The furniture record for it is the
+    /// entire subject of the tests below.
+    const DOORWAY_TILE: (usize, usize) = (4, 2);
+
+    fn init_doorway() {
+        let cols = DOORWAY_COLS as usize;
+        let mut tiles = vec![WALL; cols * DOORWAY_ROWS as usize];
+        for ty in 1..=3 {
+            for tx in 1..=3 {
+                tiles[ty * cols + tx] = OPEN;
+            }
+            for tx in 5..=7 {
+                tiles[ty * cols + tx] = OPEN;
+            }
+        }
+        tiles[DOORWAY_TILE.1 * cols + DOORWAY_TILE.0] = DOOR;
+        init_carved(
+            DOORWAY_COLS,
+            DOORWAY_ROWS,
+            tiles,
+            vec![spec_at(Body::Fighter, Faction::Heroes, 25, 25)],
         );
     }
 
@@ -4953,7 +5660,7 @@ mod tests {
     #[test]
     fn a_level_opens_carved_with_the_opposition_already_in_it() {
         init(1);
-        assert_eq!(arena(), (48.0, 32.0));
+        assert_eq!(arena(), (f32::from(DUNGEON_COLS), f32::from(DUNGEON_ROWS)));
         assert_eq!(depth(), 0, "the first floor is depth zero");
         assert!(monsters_left() >= 3, "an empty dungeon is not a dungeon");
         assert_eq!(monsters_left() as usize, monsters().len());
@@ -4966,31 +5673,126 @@ mod tests {
         }
 
         // And the map crossed with it.
-        assert_eq!(map_cols(), 48);
-        assert_eq!(map_rows(), 32);
+        assert_eq!(map_cols(), u32::from(DUNGEON_COLS));
+        assert_eq!(map_rows(), u32::from(DUNGEON_ROWS));
         assert_eq!(map_len(), map_cols() * map_rows());
         assert_eq!(map_tile_size_milli(), 1000);
     }
 
     #[test]
-    fn the_way_out_is_visible_from_the_start_and_shut_until_the_level_is() {
+    fn nothing_marks_the_way_out_while_monsters_live() {
+        // The reverse of what this file used to assert, and the user's call:
+        // the exit is earned rather than pointed at. `PORTAL_SHUT` is retired
+        // -- there is no "visible but shut" state left to be in.
         init(1);
+        assert!(monsters_left() > 0, "an empty dungeon is not a dungeon");
         let (px, py, state) = portal();
-        assert_eq!(state, PORTAL_SHUT, "opened with monsters still standing");
-        assert!(walkable(px, py, 0.7), "the way out is in the rock");
+        assert_eq!(state, PORTAL_NONE, "the way out was marked before it was won");
+        assert_eq!((px, py), (0.0, 0.0), "a portal-less frame carries no point");
 
-        // Walking into a shut one is not a door.
+        // And it does not open by being walked over, either. The generator's
+        // exit room is where the fallback would put one, so walking there is
+        // the strongest form of this claim the page can make.
         let before = depth();
-        set_goto((px * 1000.0) as i32, (py * 1000.0) as i32);
+        let (ex, ey) = exit_room();
+        set_goto((ex * 1000.0) as i32, (ey * 1000.0) as i32);
         step(1_200);
-        assert_eq!(depth(), before, "a shut portal took the hero anyway");
+        assert_eq!(depth(), before, "the hero descended through a way out that was not there");
+        assert_eq!(portal().2, PORTAL_NONE, "standing on it opened it");
     }
 
     #[test]
-    fn clearing_the_level_opens_the_way_out() {
+    fn a_level_that_is_already_clear_opens_its_way_out_at_once() {
+        // The fixture case, and the one an edge detector would miss: there is
+        // no falling edge from one monster to none on a level that never had
+        // one. With nothing killed on it the fallback answers -- the
+        // generator's own exit room.
         init_quiet(1);
         assert_eq!(monsters_left(), 0);
-        assert_eq!(portal().2, PORTAL_OPEN, "nothing left and still shut");
+        assert_eq!(portal().2, PORTAL_OPEN, "nothing left and no way out");
+        let (px, py) = (portal().0, portal().1);
+        assert!(walkable(px, py, 0.7), "the way out is in the rock");
+        let (ex, ey) = exit_room();
+        assert!(
+            (px - ex).abs() < 1.5 && (py - ey).abs() < 1.5,
+            "({px}, {py}) is not the generator's exit room ({ex}, {ey})",
+        );
+    }
+
+    #[test]
+    fn the_way_out_opens_where_the_last_one_died() {
+        // The rule in one line: kill the last thing, and the exit is standing
+        // where it fell rather than across the level.
+        init_unmarked(1);
+        assert_eq!(portal().2, PORTAL_NONE, "nothing was killed and there is an exit");
+        spawn_monster(SKITTERER, SLOT_EMPTY, SLOT_EMPTY);
+
+        let mut died_at = None;
+        for _ in 0..3_600 {
+            let before = monsters().first().map(|m| (m[0], m[1]));
+            step(1);
+            if monsters_left() == 0 {
+                died_at = before;
+                break;
+            }
+        }
+        let (mx, my) = died_at.expect("the fighter never finished one skitterer");
+        let (px, py, state) = portal();
+        assert_eq!(state, PORTAL_OPEN, "the level cleared and nothing opened");
+        assert!(
+            (px - mx).abs() < 1.5 && (py - my).abs() < 1.5,
+            "the way out opened at ({px}, {py}), {} away from the kill at ({mx}, {my})",
+            ((px - mx).powi(2) + (py - my).powi(2)).sqrt(),
+        );
+        assert!(walkable(px, py, 0.7), "the way out is in the rock");
+    }
+
+    #[test]
+    fn the_exit_does_not_swallow_whoever_opened_it() {
+        // The bug this rule has to pre-empt: the way out appears at the hero's
+        // feet, so without an arming flag the level ends on the tick it is
+        // cleared and the player never sees the room they just won.
+        //
+        // **The seed is a fixture and has moved twice**, and the assertion below
+        // is what picks it: this test only proves anything if the kill lands
+        // close enough that the way out opens *inside* the hero, and where a
+        // skitterer falls is a fact about the floor plan it was chased across.
+        // Seed 1 was retired at world-05 for clearing at 1.40 against a reach of
+        // 1.35; doors moved the chase again and it now clears at 0.62, while
+        // seed 11 spawns its skitterer behind a shut door and never clears at
+        // all. Both times a fixture stopped setting the trap up, and neither
+        // time did a rule change.
+        init_unmarked(1);
+        spawn_monster(SKITTERER, SLOT_EMPTY, SLOT_EMPTY);
+        for _ in 0..3_600 {
+            step(1);
+            if monsters_left() == 0 {
+                break;
+            }
+        }
+        assert_eq!(portal().2, PORTAL_OPEN, "the level never cleared");
+        let (px, py, _) = portal();
+        let reach = PORTAL_RADIUS.to_f32() + hero_row().expect("no hero")[3];
+        println!("the exit opened {} from the hero, reach {reach}", distance_from_hero(px, py));
+        assert!(
+            distance_from_hero(px, py) <= reach,
+            "the way out did not open inside the hero, so this proves nothing",
+        );
+
+        // Standing in it, doing nothing, for a second.
+        let before = depth();
+        step(60);
+        assert_eq!(depth(), before, "the exit took the hero that opened it");
+        assert_eq!(portal().2, PORTAL_OPEN, "and the way out went with it");
+
+        // Walk off it, and back on.
+        let (ax, ay) = walkable_near_hero(4.0, 0.45);
+        set_goto((ax * 1000.0) as i32, (ay * 1000.0) as i32);
+        step(600);
+        assert_eq!(depth(), before, "left the level by walking away from the exit");
+        set_goto((px * 1000.0) as i32, (py * 1000.0) as i32);
+        step(900);
+        assert_eq!(depth(), before + 1, "the way out would not take the hero back");
     }
 
     #[test]
@@ -5117,7 +5919,7 @@ mod tests {
         let before = vis_bytes();
         assert!(
             before.contains(&0),
-            "a 48x32 level opened with nothing left hidden from 9.6 units of sight"
+            "a 68x45 level opened with nothing left hidden from 9.6 units of sight"
         );
         assert!(
             !before.contains(&1),
@@ -5232,6 +6034,219 @@ mod tests {
             vis_revision(),
             revision,
             "the hero changed tile and the fog did not notice"
+        );
+    }
+
+    // ----------------------------------------------------------- the furniture
+
+    #[test]
+    fn every_doorway_reaches_the_page_as_one_record_a_tile() {
+        init(1);
+        let stride = furniture_stride() as usize;
+        assert_eq!(stride, FURNITURE_STRIDE, "the stride export disagrees with the constant");
+        assert!(
+            furniture().len() <= FURNITURE_MAX,
+            "{} records in a {FURNITURE_MAX}-record buffer",
+            furniture().len()
+        );
+        for record in furniture() {
+            assert!(
+                record[0] == FURNITURE_DOOR || record[0] == FURNITURE_TORCH,
+                "an unknown furniture kind {} reached the page",
+                record[0]
+            );
+        }
+        let records = furniture_of(FURNITURE_DOOR);
+        assert!(
+            !records.is_empty(),
+            "a generated level published no doorways at all"
+        );
+
+        let (cols, rows) = (map_cols() as usize, map_rows() as usize);
+        let tiles = map_bytes();
+        for record in &records {
+            let (tx, ty) = (record[1] as usize, record[2] as usize);
+            assert!(tx < cols && ty < rows, "a doorway at ({tx}, {ty}) is off the level");
+            assert_eq!(record[3], 0, "a level opened with a door already open");
+            // The pairing that makes the two buffers one picture: a shut door is
+            // solid, so the tile buffer calls it rock and the page draws a block
+            // -- in the door's own tone, because this record says it is a door.
+            assert_eq!(
+                tiles[ty * cols + tx],
+                1,
+                "the tile buffer calls the doorway at ({tx}, {ty}) floor while it is shut"
+            );
+        }
+
+        // And the count is the doorways' own, not a number this file invented:
+        // ~17 doorways of 3 tiles each is what `world-06` measured over 240
+        // levels. The bound is loose on purpose -- what is being checked is that
+        // the buffer holds a level's worth of doorways and not one, or all of
+        // them run together into a single record.
+        assert!(
+            records.len() >= 12,
+            "a 68x45 level published only {} door tiles",
+            records.len()
+        );
+    }
+
+    #[test]
+    fn a_door_that_opens_flips_its_record_rather_than_losing_it() {
+        // The whole reason this buffer exists. An *open* door is `OPEN` in the
+        // grid and indistinguishable from the floor it was cut into, so a page
+        // working off the tiles alone watches the doorway vanish the moment
+        // somebody walks through it -- which reads as a bug and not as a door.
+        init_doorway();
+        let (tx, ty) = DOORWAY_TILE;
+        let cols = map_cols() as usize;
+        assert_eq!(furniture().len(), 1, "the fixture has one door tile");
+        assert_eq!(furniture()[0], vec![FURNITURE_DOOR, tx as u8, ty as u8, 0]);
+        assert_eq!(map_bytes()[ty * cols + tx], 1, "the door starts shut");
+
+        let before_map = map_revision();
+        let before_furniture = furniture_revision();
+
+        // Walk east into it, under the player's own feet: a `Goto` would route
+        // *through* the door for a body that opens one and arrive on the far
+        // side, which tests the router rather than the doorway.
+        set_control(CONTROL_FEET);
+        set_input(1_000, 0, 0, 0, 0, 0);
+        step(200);
+
+        assert_eq!(map_bytes()[ty * cols + tx], 0, "the fighter never opened the door");
+        assert_ne!(map_revision(), before_map, "the floor plan changed and said nothing");
+        assert_ne!(
+            furniture_revision(),
+            before_furniture,
+            "a door opened and the furniture revision did not move, so the page \
+             would go on drawing a shut door over an open hole"
+        );
+        // Still one record, still that tile, and only the state byte moved.
+        assert_eq!(furniture().len(), 1, "the doorway vanished when it opened");
+        assert_eq!(furniture()[0], vec![FURNITURE_DOOR, tx as u8, ty as u8, 1]);
+    }
+
+    #[test]
+    fn the_furniture_crosses_once_a_level_and_not_once_a_frame() {
+        init(1);
+        let revision = furniture_revision();
+        let records = furniture();
+
+        // A tick, a click and a slider all leave it alone -- `publish` runs on
+        // every one of them, which is the mistake this guards.
+        step(120);
+        set_goto(1_000, 1_000);
+        set_hero_stat(0, 9);
+        assert_eq!(furniture_revision(), revision, "the furniture moved under a slider");
+        assert_eq!(furniture(), records);
+
+        // And a new floor is exactly when it does move. A different floor plan is
+        // a different set of doorways, and the buffer that is still holding the
+        // last floor's would draw them over this one's rock.
+        assert_eq!(descend(), 1);
+        assert_ne!(furniture_revision(), revision, "a new floor kept the old furniture");
+        assert!(!furniture().is_empty(), "floor 2 published no doorways");
+    }
+
+    #[test]
+    fn a_level_with_no_doorway_publishes_no_furniture() {
+        // The empty case, and it is not hypothetical: `Dungeon::open` is every
+        // duel the lab runs, and `init_walled` is a fixture in this file. A
+        // length that was only ever written when there was something to write
+        // would leave the last level's records live.
+        init(1);
+        assert!(!furniture().is_empty(), "the generated level has doorways");
+        init_walled();
+        assert_eq!(furniture_len(), 0, "a carved level with no doors published some");
+    }
+
+    #[test]
+    fn every_torch_reaches_the_page_on_the_same_buffer_as_the_doors() {
+        // `world-06` promised the next piece of scenery would be a *kind* here
+        // and not a third pair of exports. This is that, asserted from the
+        // page's side: one buffer, two kind codes, one stride.
+        init(1);
+        let torches = furniture_of(FURNITURE_TORCH);
+        let doors = furniture_of(FURNITURE_DOOR);
+        assert!(!torches.is_empty(), "a generated level published no torches");
+        assert_eq!(
+            torches.len() + doors.len(),
+            furniture().len(),
+            "a record that is neither a doorway nor a torch reached the page"
+        );
+
+        // Doors first, then torches, so the records that can change state
+        // mid-level keep fixed indices. See `write_furniture`.
+        let records = furniture();
+        let first_torch = records.iter().position(|r| r[0] == FURNITURE_TORCH).unwrap();
+        assert!(
+            records[first_torch..].iter().all(|r| r[0] == FURNITURE_TORCH),
+            "the two kinds are interleaved"
+        );
+
+        let (cols, rows) = (map_cols() as usize, map_rows() as usize);
+        let tiles = map_bytes();
+        for record in &torches {
+            let (tx, ty) = (record[1] as usize, record[2] as usize);
+            assert!(tx < cols && ty < rows, "a torch at ({tx}, {ty}) is off the level");
+            // The pairing that makes the picture: the tile it hangs on is solid
+            // in the tile buffer, so the page has a block to nail it to, and the
+            // tile its face looks at is floor, so `wallBlock` emitted that face.
+            assert_eq!(tiles[ty * cols + tx], 1, "the torch at ({tx}, {ty}) is on floor");
+            let (dx, dy) = match record[3] {
+                TORCH_FACE_POS_X => (1, 0),
+                TORCH_FACE_POS_Y => (0, 1),
+                other => panic!("a torch reached the page facing {other}"),
+            };
+            assert_eq!(
+                tiles[(ty + dy) * cols + tx + dx],
+                0,
+                "the torch at ({tx}, {ty}) faces rock, so it has no wall face to hang on"
+            );
+        }
+    }
+
+    #[test]
+    fn a_level_with_no_torches_publishes_none() {
+        // The fixtures, and every duel the lab runs: a hand-built scenario
+        // carries no torch list, so nothing here invents one. The failure this
+        // guards is the last generated level's lights drawn over a fixture --
+        // the same one `a_level_with_no_doorway_publishes_no_furniture` guards
+        // for the other kind, and it is a separate test because the two lists
+        // arrive by different routes.
+        init(1);
+        assert!(
+            !furniture_of(FURNITURE_TORCH).is_empty(),
+            "the generated level has torches"
+        );
+        init_walled();
+        assert!(
+            furniture_of(FURNITURE_TORCH).is_empty(),
+            "a hand-built level published torches"
+        );
+    }
+
+    #[test]
+    fn a_torch_never_moves_once_the_level_is_open() {
+        // A door's state byte changes and a torch's cannot: there is nothing in
+        // the game that lights, carries or puts out a torch, which is stated in
+        // `world-07` as explicitly not in the session. So the records must be
+        // identical across a door opening -- the one event that rewrites this
+        // buffer mid-level -- and that is what lets the page treat a torch's
+        // baked geometry as good for the life of the floor.
+        init(1);
+        let before = furniture_of(FURNITURE_TORCH);
+        step(600);
+        assert_eq!(furniture_of(FURNITURE_TORCH), before, "the torches moved");
+        assert_eq!(descend(), 1);
+        assert!(
+            !furniture_of(FURNITURE_TORCH).is_empty(),
+            "floor 2 published no torches"
+        );
+        assert_ne!(
+            furniture_of(FURNITURE_TORCH),
+            before,
+            "a new floor kept the last one's torches"
         );
     }
 
@@ -5685,6 +6700,28 @@ mod tests {
         panic!("six brutes could not kill one fighter");
     }
 
+    /// The same, one tick at a time, answering the last place the hero was seen
+    /// standing.
+    ///
+    /// A separate fixture rather than a widened [`fall_to_brutes`], because the
+    /// step size is the whole of the difference and it is load-bearing here:
+    /// thirty ticks of a brute leaning on a body is a couple of body lengths,
+    /// and *where* it died is exactly what the caller is checking.
+    fn fall_to_brutes_watching() -> (f32, f32) {
+        for _ in 0..6 {
+            spawn_monster(BRUTE, SLOT_EMPTY, SLOT_EMPTY);
+        }
+        let mut last = hero();
+        for _ in 0..9_000 {
+            step(1);
+            match hero_row() {
+                Some(row) => last = (row[0], row[1]),
+                None => return last,
+            }
+        }
+        panic!("six brutes could not kill one fighter");
+    }
+
     #[test]
     fn a_replacement_walks_into_the_room_the_last_one_died_in() {
         init_quiet(1);
@@ -5697,7 +6734,7 @@ mod tests {
         let hero = hero_row().expect("the frame has no hero in it");
         assert_eq!(hero[6], 0.0, "faction: Heroes");
         assert_eq!(hero[7], 0.0, "kind: Fighter");
-        assert_eq!(hero[4], 84.0, "hp: 20 + 8 * vitality 8");
+        assert_eq!(hero[4], 12.0, "hp: 4 + vitality 8");
         assert_eq!(hero[4], hero[5], "arrived already wounded");
 
         // The point of a swap rather than a restart: the room is exactly as it
@@ -5746,7 +6783,7 @@ mod tests {
 
         let hero = hero_row().expect("the frame has no hero in it");
         assert_eq!(hero[7], 1.0, "kind: Rogue");
-        assert_eq!(hero[5], 52.0, "max_hp: 20 + 8 * vitality 4");
+        assert_eq!(hero[5], 8.0, "max_hp: 4 + vitality 4");
         assert!((hero[3] - 0.35).abs() < 0.001, "radius {}", hero[3]);
     }
 
@@ -5794,19 +6831,40 @@ mod tests {
     }
 
     #[test]
-    fn a_replacement_lands_clear_of_the_monsters_and_inside_the_wall() {
-        // The assertion that matters is the clearance one. A brute reaches
-        // 0.70 + 0.45 + 0.9 = 2.05 between centres, so anything at or under
-        // that arrives already inside somebody's swing -- a swap button that
-        // hands the player a corpse.
-        let mut tightest = f32::INFINITY;
+    fn a_replacement_lands_where_the_last_one_fell() {
+        // **The reverse of what this file used to assert.** It used to demand
+        // the replacement land *clear* of every monster -- more than a brute's
+        // 0.70 + 0.45 + 0.9 = 2.05 of reach from the nearest one -- on the
+        // argument that a swap button which hands you a corpse is worse than no
+        // swap button. That argument still holds and has been overruled: you
+        // come back where you fell, which is by construction inside the mob
+        // that put you there. See `Sim::entry_point`.
+        let mut furthest = 0.0f32;
         for seed in 1..9u32 {
             init_quiet(seed);
-            fall_to_brutes();
+            let fall = fall_to_brutes_watching();
             assert_eq!(swap_in_hero(FIGHTER, SLOT_EMPTY, SLOT_EMPTY), 1, "seed {seed}: nobody arrived");
 
             let hero = hero_row().expect("the frame has no hero in it");
             let radius = hero[3];
+            let drift = ((hero[0] - fall.0).powi(2) + (hero[1] - fall.1).powi(2)).sqrt();
+            furthest = furthest.max(drift);
+            assert!(
+                drift <= 1.5,
+                "seed {seed}: fell at {fall:?} and came back {drift} away, at ({}, {})",
+                hero[0],
+                hero[1],
+            );
+            // And still somewhere a body of that width fits. The fall site is a
+            // contact point on the dead body's rim, so it can be closer to a
+            // wall than anything can stand -- which is the whole of what
+            // `nearest_walkable` is there for.
+            assert!(
+                walkable(hero[0], hero[1], radius),
+                "seed {seed}: arrived in the rock at ({}, {})",
+                hero[0],
+                hero[1],
+            );
             assert!(
                 hero[0] >= radius - 0.001
                     && hero[0] <= arena().0 - radius + 0.001
@@ -5816,21 +6874,32 @@ mod tests {
                 hero[0],
                 hero[1],
             );
-            assert!(
-                walkable(hero[0], hero[1], radius),
-                "seed {seed}: arrived in the rock at ({}, {})",
-                hero[0],
-                hero[1],
-            );
-
-            for monster in monsters() {
-                tightest = tightest.min(distance(&monster, &hero));
-            }
         }
-        println!("closest arrival across eight seeds: {tightest}");
+        println!("furthest a replacement drifted off the fall across eight seeds: {furthest}");
+    }
+
+    #[test]
+    fn a_replacement_with_nobody_to_follow_takes_the_middle_of_the_floor() {
+        // The fallback, which is the first swap of a run and the first after a
+        // descent: nobody has fallen on this floor, so the old sweep runs and
+        // the answer is the clearest standing room near the centre.
+        //
+        // A level with nobody standing at all is how that state is reached
+        // without a death -- a death is the one thing that would record a fall.
+        init_deserted(1);
+        assert!(hero_row().is_none(), "a deserted level came with a hero in it");
+        assert_eq!(swap_in_hero(FIGHTER, SLOT_EMPTY, SLOT_EMPTY), 1, "nobody arrived");
+
+        let hero = hero_row().expect("the frame has no hero in it");
+        assert!(walkable(hero[0], hero[1], hero[3]), "the sweep landed in the rock");
+        let (ax, ay) = arena();
+        let off = ((hero[0] - ax / 2.0).powi(2) + (hero[1] - ay / 2.0).powi(2)).sqrt();
+        println!("the fallback landed {off} from the middle of a {ax} by {ay} floor");
         assert!(
-            tightest > 2.05,
-            "arrived {tightest} from a monster, inside its reach",
+            off <= SPAWN_FAR.to_f32() + 1.0,
+            "the fallback sweep no longer works off the centre: ({}, {})",
+            hero[0],
+            hero[1],
         );
     }
 
@@ -5984,10 +7053,20 @@ mod tests {
         // recovery -- which is exactly what "once per windup" has to mean.
         set_input(0, 0, 16_384, 0, 0, 1);
         let mut announced: Vec<Vec<f32>> = Vec::new();
+        // Where the hero stood on the tick it announced, sampled there rather
+        // than read at the end: a declaration is a fact about a moment, and the
+        // feet keep moving through the ninety ticks below. Reading `hero()`
+        // afterwards was comparing the bubble's position against a body that had
+        // since walked two units away from it.
+        let mut announced_at = None;
         let mut phases = [false; 3];
         for _ in 0..90 {
             step(1);
-            announced.extend(declares());
+            let rows = declares();
+            if !rows.is_empty() && announced_at.is_none() {
+                announced_at = Some(hero());
+            }
+            announced.extend(rows);
             match frame()[HEADER_LEN + 19] as i32 {
                 1 => phases[0] = true,
                 2 => phases[1] = true,
@@ -6011,7 +7090,7 @@ mod tests {
         assert_eq!(row[3], sim::ActionKind::Sword.code() as f32, "the action code");
         assert_eq!(row[4], 0.0, "actor_index: the room's hero holds slot 0");
         // The swinger's own position, which is where the bubble goes.
-        let hero = hero();
+        let hero = announced_at.expect("nothing announced");
         assert!(
             (row[1] - hero.0).abs() < 1.0 && (row[2] - hero.1).abs() < 1.0,
             "declared at ({}, {}) with the hero at {hero:?}",
@@ -6038,8 +7117,15 @@ mod tests {
         // of those ticks happened -- a feed cleared per tick would report the
         // last one and silently drop seven eighths of the fight's damage
         // numbers on exactly the frames the browser was late for.
+        // **Seed 4 rather than seed 1.** A Fighter with twelve health against
+        // four Brutes is over in about a second, so the whole of this fixture's
+        // event traffic lives in a narrow band and *which* band is a fact about
+        // the floor plan. Seed 1 produces seven events in twelve hundred ticks
+        // on the level as it now carves; seed 4 produces fifty-one. Neither is a
+        // rule that changed -- the search below is what makes the choice safe,
+        // and the seed is only there to give it something to find.
         fn brawl(warmup: u32) {
-            init_quiet(1);
+            init_quiet(4);
             for _ in 0..4 {
                 spawn_monster(BRUTE, SLOT_EMPTY, SLOT_EMPTY);
             }
@@ -6066,10 +7152,17 @@ mod tests {
         let busy = |per_tick: &[Vec<Vec<f32>>]| {
             per_tick[..8].iter().filter(|t| !t.is_empty()).count()
         };
+        //
+        // A tick at a time rather than eight at a time. Stepping the search by
+        // the window width samples one starting tick in eight, which is fine
+        // while a brawl is busy for seconds and useless once it is busy for a
+        // dozen ticks -- the band that satisfies this on the level as it now
+        // carves is six ticks wide, and a stride of eight walked straight over
+        // it. Overlapping windows cost a few more replays and read every start.
         let mut warmup = 60;
         let mut per_tick = one_at_a_time(warmup);
         while busy(&per_tick) < 2 && warmup < 1_200 {
-            warmup += 8;
+            warmup += 1;
             per_tick = one_at_a_time(warmup);
         }
         let singly: Vec<Vec<f32>> = per_tick[..8].concat();
@@ -6150,10 +7243,10 @@ mod tests {
         // survives it -- see `World::set_stats`, where that is argued.
         assert_eq!(set_hero_stat(4, 8), 1);
         let before = hero_row().expect("the hero is gone");
-        assert_eq!((before[4], before[5]), (84.0, 84.0));
+        assert_eq!((before[4], before[5]), (12.0, 12.0));
         assert_eq!(set_hero_stat(4, 16), 1);
         let after = hero_row().expect("the hero is gone");
-        assert_eq!(after[5], 148.0, "max_hp: 20 + 8 * vitality 16");
+        assert_eq!(after[5], 20.0, "max_hp: 4 + vitality 16");
         assert_eq!(after[4], after[5], "a full bar did not stay full");
     }
 
@@ -6168,7 +7261,7 @@ mod tests {
         let after = hero_row().expect("the hero is gone");
         assert_eq!(after[7], 2.0, "kind: Brute");
         assert!((after[3] - 0.70).abs() < 0.001, "radius {}", after[3]);
-        assert_eq!(after[5], 132.0, "max_hp: 20 + 8 * vitality 14");
+        assert_eq!(after[5], 18.0, "max_hp: 4 + vitality 14");
         // The kit came with the body, which is what makes this a body swap
         // rather than a stat sheet swap.
         assert_eq!(after[25], sim::ActionKind::Club.code() as f32, "slot0");
@@ -6233,7 +7326,7 @@ mod tests {
         let monster = monsters()[0].clone();
         assert_eq!(monster[6], 1.0, "faction: Monsters");
         assert_eq!(monster[7], 2.0, "kind: Brute");
-        assert_eq!(monster[5], 60.0, "max_hp: 20 + 8 * vitality 5");
+        assert_eq!(monster[5], 9.0, "max_hp: 4 + vitality 5");
         assert!((monster[27] - 12.0).abs() < 0.001, "sight_range {}", monster[27]);
         assert_eq!(monster[25], sim::ActionKind::Bow.code() as f32, "slot0");
         assert_eq!(monster[26], sim::ActionKind::Shield.code() as f32, "slot1");
@@ -6249,8 +7342,8 @@ mod tests {
         let plain = monsters()[1].clone();
         assert_eq!(plain[7], 3.0, "kind: Skitterer");
         assert_eq!(
-            plain[5], 36.0,
-            "max_hp: 20 + 8 * vitality 2 -- the template leaked into the hotkey"
+            plain[5], 6.0,
+            "max_hp: 4 + vitality 2 -- the template leaked into the hotkey"
         );
         assert_eq!(plain[25], sim::ActionKind::Knife.code() as f32, "slot0");
     }

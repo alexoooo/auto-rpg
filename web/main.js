@@ -187,6 +187,21 @@ const CORPSE_MS = 520;
  */
 const LOW_HEALTH = 0.35;
 
+/**
+ * Health, printed: one decimal below ten and whole numbers above it.
+ *
+ * The same rule `drawFloaters` applies to damage, and for the same reason. A
+ * Fighter has 12 hit points and a Skitterer 6, so a whole-number readout cannot
+ * show a graze at all -- and a bar the player watches step 12, 11, 11, 10 while
+ * three different blows land is worse than no number. Above ten the decimal
+ * stops earning its width, which is why the rule has a knee in it rather than
+ * being `toFixed(1)` everywhere.
+ *
+ * **Two places**, the vitals line and the life globe, on `LOW_HEALTH`'s
+ * reasoning immediately above: this was about to be written out twice.
+ */
+const hp1 = (v) => (v >= 10 ? String(Math.round(v)) : (Math.round(v * 10) / 10).toFixed(1));
+
 /** The seed for the room. Nothing in an empty room is random, but the number
  *  is what makes this run the same run every time it is opened. */
 const SEED = 1;
@@ -407,6 +422,14 @@ const EXPORTS = [
   "vis_ptr",
   "vis_len",
   "vis_revision",
+  // What stands on the floor plan and cannot be read out of it -- a doorway
+  // today -- on a fourth buffer read on the same terms: when
+  // `furniture_revision()` moves. `furniture_len()` counts *records*, not bytes;
+  // `furniture_stride()` is how wide one is. See `readFurniture`.
+  "furniture_ptr",
+  "furniture_len",
+  "furniture_stride",
+  "furniture_revision",
   "descend",
 ];
 
@@ -674,6 +697,89 @@ function readVis() {
   const live = new Uint8Array(memory.buffer, wasm.vis_ptr(), len);
   levelVis = { revision, tiles: new Uint8Array(live) };
   return levelVis;
+}
+
+/** Furniture kinds, from `FURNITURE_STRIDE`'s table in `crates/web/src/lib.rs`.
+ *  Append-only: a new kind takes the next free value and never reuses one, so a
+ *  page built against an older module cannot read a new meaning out of an old
+ *  number. */
+const FURNITURE_DOOR = 1;
+const FURNITURE_TORCH = 2;
+
+/** A torch's state byte: which face of its wall tile it hangs on.
+ *
+ *  **Only these two exist, and that is a fact about the camera.** The projection
+ *  looks down the `+x`/`+y` diagonal, so a block shows exactly those two faces
+ *  and hides the other two behind itself in every frame -- see `wallBlock`, whose
+ *  `xFace`/`yFace` arguments are the same two directions and no others. A torch
+ *  on a `-x` face would be a light with no lamp, so the module never emits one.
+ *
+ *  They are **not** `sim::Cardinal`'s own ordering, which is `NegX, PosX, NegY,
+ *  PosY` in percept order and would give 1 and 3. The module writes an explicit
+ *  mapping for exactly that reason; these are the numbers it writes. */
+const TORCH_POS_X = 0;
+const TORCH_POS_Y = 1;
+
+/** The furniture the page last read, declared beside `levelMap` and `levelVis`
+ *  and held on exactly the same terms. */
+let levelFurniture = null;
+
+/**
+ * What stands on the floor plan and cannot be read out of it.
+ *
+ * One record per **tile**, `wasm.furniture_stride()` bytes wide:
+ *
+ *     [kind, tx, ty, state]
+ *
+ * `kind` is one of the `FURNITURE_*` codes above and is never 0. `state` is read
+ * according to the kind; for a door it is `1` open and `0` shut. `furniture_len()`
+ * counts records rather than bytes, which is why the view below is `count * stride`
+ * long.
+ *
+ * **Why a list at all, when a door is a tile like any other.** It is not: a
+ * *shut* door is solid, so `write_map` publishes it as `1` and the page cannot
+ * tell it from rock; an *open* one is `OPEN` and the page cannot tell it from the
+ * floor it was cut into. The tile buffer is a two-valued answer to a three-valued
+ * question, deliberately -- rock is rock to everything that reads it -- and this
+ * is where the third value lives.
+ *
+ * Copied out, like the map and the fog, because a view into linear memory is a
+ * view that can detach; `readMap` has the whole argument. The three module calls
+ * happen *before* the view is derived rather than after, so nothing calls into
+ * wasm between the view and the copy -- the rule `readVis` states.
+ *
+ * The `doors` map is the bake's index into the same bytes: cell -> state, keyed
+ * exactly as `levelMap.tiles` is, so `rebuildLevelPaths` can ask "is this tile a
+ * doorway" once per solid tile instead of walking the record list. Built here
+ * rather than in the bake because it changes when the *records* change and the
+ * bake re-runs on a zoom, a mode switch and every tile the character crosses.
+ *
+ * `torches` is a flat array and not a map, because nothing ever asks "is there a
+ * torch on this tile" -- the bake walks the torches themselves, fifty records
+ * against three thousand tiles. A `Map` and an array is the difference between
+ * the two questions the two kinds are actually asked.
+ */
+function readFurniture(cols) {
+  const revision = wasm.furniture_revision();
+  const count = wasm.furniture_len();
+  const stride = wasm.furniture_stride();
+  const live = new Uint8Array(memory.buffer, wasm.furniture_ptr(), count * stride);
+  const bytes = new Uint8Array(live);
+  const doors = new Map();
+  const torches = [];
+  for (let i = 0; i < count; i++) {
+    const at = i * stride;
+    if (bytes[at] === FURNITURE_DOOR) {
+      doors.set(bytes[at + 2] * cols + bytes[at + 1], bytes[at + 3]);
+    } else if (bytes[at] === FURNITURE_TORCH) {
+      torches.push({ tx: bytes[at + 1], ty: bytes[at + 2], face: bytes[at + 3] });
+    }
+    // A kind this page has never heard of is skipped rather than guessed at,
+    // which is the whole point of the codes being append-only: an older page
+    // against a newer module draws what it knows and nothing wrong.
+  }
+  levelFurniture = { revision, count, stride, bytes, doors, torches };
+  return levelFurniture;
 }
 
 // ------------------------------------------------------------- the parse pool
@@ -1478,7 +1584,7 @@ function perfWarn(on) {
  *
  *  A class on the same `dev-strip` element `setViewMode` writes `open` to, and
  *  fetched the same way it fetches it: two independent bits on one strip, so the
- *  breakdown is readable from `[regular]` and the tick/at/hash are unaffected. */
+ *  breakdown is readable from `[world]` and the tick/at/hash are unaffected. */
 function setPerfDetail(on) {
   perfDetail = on;
   const strip = document.getElementById("dev-strip");
@@ -2124,8 +2230,8 @@ function resize() {
   // re-run per projection: `fit <= safe.h / span.h` and `base = safe.h /
   // VIEW_UNITS_Y`, so the bounds cannot cross whenever `span.h > VIEW_UNITS_Y`
   // -- whatever the window is and whatever the rails are doing. Top-down needs
-  // `B > 11`, which for a 48x32 room is 32 > 11; iso needs `(A + B)/2 + WALL_H >
-  // 11`, which is 41.6 > 11. The invariant is about the room being bigger than
+  // `B > 11`, which for a 68x45 room is 45 > 11; iso needs `(A + B)/2 + WALL_H >
+  // 11`, which is 58.1 > 11. The invariant is about the room being bigger than
   // the framing, and a room small enough to break it would be a room that fits
   // on screen at the chosen zoom, which is not a room this game has.
   const safe = safeRect();
@@ -3042,11 +3148,11 @@ function updateControlButtons() {
 // doing.
 
 /**
- * The views, as one table: the label, the two booleans every draw call actually
+ * The views, as one table: the label, the three booleans every draw call actually
  * reads, which projection the room is drawn in, whether the tick strip is open,
  * and the sentence pressing it prints.
  *
- * Reduced to two booleans and a matrix the moment it is read. **Keeping the mode
+ * Reduced to three booleans and a matrix the moment it is read. **Keeping the mode
  * itself out of the draw calls is what stops this becoming three renderers** --
  * every drawing function asks "is the art on" or "is the fog on" or reads `PROJ`,
  * never "which mode is this", so a fourth mode later is a row in this table and
@@ -3057,7 +3163,7 @@ function updateControlButtons() {
  * that is the mode going isometric, so the bits are indistinguishable right now
  * and would stop being the day somebody wants a fourth. The seam was built with
  * every row still saying `"topdown"`, so that a sign error in the matrix was
- * caught with nothing on screen to hide it; `regular` is the row that then turned.
+ * caught with nothing on screen to hide it; `world` is the row that then turned.
  *
  * **`tactical` and `dev` stay top-down on purpose, and not because nobody got to
  * them.** They are the A/B control for the whole conversion: one keypress puts the
@@ -3072,11 +3178,12 @@ function updateControlButtons() {
  */
 const VIEW_MODES = [
   {
-    id: "regular",
-    label: "Regular",
+    id: "world",
+    label: "World",
     art: true,
     fog: true,
     dev: false,
+    readouts: false,
     proj: "iso",
     hint: "The room as it looks, lit only where the character can see.",
   },
@@ -3086,8 +3193,9 @@ const VIEW_MODES = [
     art: false,
     fog: true,
     dev: false,
+    readouts: true,
     proj: "topdown",
-    hint: "Art off, every readout on -- a disc, a facing wedge, and the same fog.",
+    hint: "Art off, every readout on -- a disc, a facing wedge, sight and reach.",
   },
   {
     id: "dev",
@@ -3095,6 +3203,7 @@ const VIEW_MODES = [
     art: false,
     fog: false,
     dev: true,
+    readouts: true,
     proj: "topdown",
     hint: "No fog at all: every body drawn wherever it is, and the tick strip open.",
   },
@@ -3104,7 +3213,7 @@ const VIEW_MODES = [
  *
  *  **Survives a `restart` and a descent**, deliberately: how a player wants the
  *  room drawn is a preference about the page, not state belonging to the run. */
-let viewMode = "regular";
+let viewMode = "world";
 
 /** The row, never the id.
  *
@@ -3117,6 +3226,13 @@ let viewMode = "regular";
 const currentView = () => VIEW_MODES.find((m) => m.id === viewMode) || VIEW_MODES[0];
 const artOn = () => currentView().art;
 const fogOn = () => currentView().fog;
+/** Whether this mode paints the sim's own measurements over the picture: the sight
+ *  radius, the facing wedge, the weapon's reach. A separate bit from `art` and not a
+ *  negation of it -- `art` says whether a body is drawn as a silhouette or a disc, and
+ *  this says whether the numbers behind it are drawn at all. The two agree in every row
+ *  today and would stop agreeing the day somebody wants the art without the fog, or a
+ *  measured view of the art. Same argument `proj` makes one column over. */
+const readoutsOn = () => currentView().readouts;
 
 /** The `proj` column resolved to the table `projX` and friends actually read.
  *  A row names its projection with a string for the same reason it names its
@@ -3261,6 +3377,41 @@ function updateViewButtons() {
 }
 
 /**
+ * What to send for `strike` this frame.
+ *
+ * The sim throws one cut per held button on purpose (`Hand::armed`, `hand.rs:250`): a
+ * command that is not an attack re-arms the hand, so a policy pays one decision to
+ * throw a second blow. That price is the intellect stat and it stays. What a player
+ * holding a button is asking for is a rhythm, not a decision, so the page spends the
+ * release for them -- in the two phases where a release costs nothing.
+ *
+ * **Not `Windup`.** Releasing there *cancels* the cut (`hand.rs:405`), which is the
+ * feint, and is a control the player still has: let go during the windup and the blow
+ * is called off. Auto-releasing there would feint forever and never land anything.
+ * `Strike` is committed and cannot be recalled; `Recover` is already spent; and
+ * releasing mid-cut is exactly how the sim's own comment says a policy queues the next
+ * one.
+ *
+ * **The one artefact, stated here rather than found later.** This is answered once per
+ * *frame* and `step` runs up to `MAX_CATCHUP_TICKS` ticks against that one answer, so a
+ * catch-up burst can carry a `Windup` sample across into `Guard`: the hand is still
+ * unarmed on the tick it reaches guard, nothing begins, and the next frame starts the
+ * cut. One frame of delay on a stuttering frame rate, and never a stuck hand. The
+ * alternative -- asking the module to re-evaluate per tick -- is a new export and a
+ * genuine change to what crosses the boundary, for a defect nobody can see.
+ *
+ * Nothing new crosses the boundary. The module sees `Nearest, Nearest, None, None,
+ * Nearest, ...` -- the same alternation a policy sends -- so no golden can move.
+ */
+function strikeCommand(hero) {
+  if (!striking) return STRIKE_NONE;
+  if (!hero) return STRIKE_NEAREST;
+  return hero.swing === SWING_STRIKE || hero.swing === SWING_RECOVER
+    ? STRIKE_NONE
+    : STRIKE_NEAREST;
+}
+
+/**
  * Pushes the player's live input across, once per frame.
  *
  * Everything crosses as integers -- thousandths for the vectors, a raw binary
@@ -3364,7 +3515,7 @@ function pushInput(state) {
     // the flank a guard is not on is much harder to answer -- but it is a
     // decision that wants its own control, and one the page does not have a
     // spare button for yet.
-    striking ? STRIKE_NEAREST : STRIKE_NONE
+    strikeCommand(state.hero)
   );
 }
 
@@ -3561,7 +3712,7 @@ function bindInput() {
       // The frame breakdown, and **not** a view mode: `[dev]` turns the fog off,
       // so a breakdown that only opened there would be measuring a renderer that
       // draws every body in the room -- a different renderer from the one anybody
-      // is complaining about. Its own key, readable from `[regular]`, and the two
+      // is complaining about. Its own key, readable from `[world]`, and the two
       // bits sit on the same strip without touching each other.
       //
       // Repeat-guarded like `g` and for the same reason: held down it would
@@ -4434,7 +4585,7 @@ function roundRect(x, y, w, h, r) {
  * `projX = scale*T*((tx+1) - (ty+1)) = scale*T*(tx - ty) = x`, and
  * `projY = scale*T*(tx + ty + 2)/2 = y + w`. So the diamond is `2w` across and
  * `w` tall and the caller never has to call the projection at all -- two
- * multiplies per tile, which is what keeps a 1,536-tile bake cheap.
+ * multiplies per tile, which is what keeps a 3,060-tile bake cheap.
  *
  * Takes a `Path2D` rather than drawing on `ctx`, unlike `roundRect` above: every
  * caller is baking geometry that outlives the frame, and the two habits are worth
@@ -4512,10 +4663,175 @@ function wallBlock(top, side, x, y, w, L, xFace, yFace) {
   }
 }
 
+/**
+ * A *part* of one tile as a block: the same three quads `wallBlock` emits, over a
+ * sub-rectangle of the tile rather than the whole of it.
+ *
+ * `x, y, w, L` are `wallBlock`'s exactly. `u0, v0, u1, v1` are the sub-rectangle
+ * in **tile fractions** on the two world axes, so `(0, 0, 1, 1)` is the whole
+ * tile and this function then emits precisely what `wallBlock(.., true, true)`
+ * does -- which is the check that the projection below is the same one.
+ *
+ * A world point `(u, v)` inside the tile lands at screen
+ * `(x + (u - v) * w, y + (u + v) * w / 2)`, because `projX` depends on `wx - wy`
+ * and `projY` on `wx + wy` and `wallBlock`'s own corners are that formula with
+ * the four unit values substituted. The lifted copy is the same minus `L`.
+ *
+ * **Both quads wind the same way, and that is load-bearing for the same reason
+ * it is in `wallBlock`** -- read the paragraph there. Each walks its top edge in
+ * the diamond's `N -> E -> S -> W` direction and returns along the ground edge,
+ * so a jamb overlapping another jamb, or a wall block, winds to 2 and fills
+ * rather than winding to 0 and punching a hole through solid geometry.
+ *
+ * **Both side faces unconditionally, no exposure test.** A jamb is at most a
+ * quarter of a tile and the faces one could hide are the ones against the rock
+ * the jamb is set into -- which stands one band nearer and is filled after it, so
+ * the band walk covers them anyway. Two quads nobody sees, on at most two jambs
+ * per doorway, is cheaper than a neighbour test that would have to know about
+ * sub-tile geometry.
+ */
+function subBlock(top, side, x, y, w, L, u0, v0, u1, v1) {
+  const nx = x + (u0 - v0) * w;
+  const ny = y + ((u0 + v0) * w) / 2;
+  const ex = x + (u1 - v0) * w;
+  const ey = y + ((u1 + v0) * w) / 2;
+  const sx = x + (u1 - v1) * w;
+  const sy = y + ((u1 + v1) * w) / 2;
+  const wx = x + (u0 - v1) * w;
+  const wy = y + ((u0 + v1) * w) / 2;
+  top.moveTo(nx, ny - L);
+  top.lineTo(ex, ey - L);
+  top.lineTo(sx, sy - L);
+  top.lineTo(wx, wy - L);
+  top.closePath();
+  // The +x face: the plane u = u1, from v0 to v1.
+  side.moveTo(ex, ey - L);
+  side.lineTo(sx, sy - L);
+  side.lineTo(sx, sy);
+  side.lineTo(ex, ey);
+  side.closePath();
+  // The +y face: the plane v = v1, from u0 to u1.
+  side.moveTo(sx, sy - L);
+  side.lineTo(wx, wy - L);
+  side.lineTo(wx, wy);
+  side.lineTo(sx, sy);
+  side.closePath();
+}
+
+/** How thick a jamb is, as a fraction of a tile. A quarter of a world unit is
+ *  about half a Fighter's radius: a post you can see from across the room without
+ *  it looking like the doorway has been bricked up to half its width. */
+const JAMB = 0.22;
+
+/**
+ * The four orthogonal neighbours, and the slab of the tile a jamb stands in
+ * against each: `[dx, dy, u0, v0, u1, v1]` in `subBlock`'s tile fractions.
+ *
+ * A doorway is a run of tiles spanning a corridor's width, cut through a wall --
+ * so the *ends* of the run are exactly the door tiles with rock beside them, and
+ * the tiles down its long sides are open floor. Which means the jambs need no
+ * grouping and no run direction from the module: "put a post on every edge that
+ * faces masonry" places two posts on a three-tile run and none in the middle of
+ * it, for free, whichever way the run points.
+ */
+const JAMB_SIDES = [
+  [0, -1, 0, 0, 1, JAMB],
+  [0, 1, 0, 1 - JAMB, 1, 1],
+  [-1, 0, 0, 0, JAMB, 1],
+  [1, 0, 1 - JAMB, 0, 1, 1],
+];
+
+/**
+ * A polygon painted flat on one visible face of a wall tile.
+ *
+ * The face is a plane of the world, so a point on it needs two numbers and not
+ * three: `t` runs along the face from 0 to 1, and `h` is height as a fraction of
+ * a block. `face` picks which of the two the camera can see, and the whole of
+ * the difference between them is one sign.
+ *
+ * Substituting into `subBlock`'s own projection, a world point `(u, v)` in the
+ * tile lands at `(x + (u - v) * w, y + (u + v) * w / 2)`, less `lift` for its
+ * height. The `+x` face is `u = 1, v = t`, so `u - v = 1 - t` and `u + v = 1 + t`;
+ * the `+y` face is `u = t, v = 1`, so `u - v = t - 1` and `u + v = 1 + t`. The
+ * second coordinate is the same on both -- both faces stand on the same edge of
+ * the diamond's `S` corner -- and the first is negated, which is the sign below.
+ *
+ * **The vertex list is walked backwards on the `+y` face, and that is winding and
+ * not tidiness.** `t` and `h` map to screen with opposite handedness on the two
+ * faces (the cross product of the two axes flips with the sign), so one polygon
+ * order gives opposite windings on the two sides. Torch geometry is filled
+ * nonzero like the rock's, so two sub-paths wound against each other punch a hole
+ * through whatever they overlap -- the trap `wallBlock` and `subBlock` each have a
+ * paragraph about, met here for the third time.
+ */
+function facePoly(p, x, y, w, L, face, poly) {
+  const s = face === TORCH_POS_Y ? -1 : 1;
+  const n = poly.length;
+  for (let i = 0; i < n; i++) {
+    // Backwards on the `+y` face, for the paragraph above.
+    const [t, h] = poly[s > 0 ? i : n - 1 - i];
+    const sx = x + s * (1 - t) * w;
+    const sy = y + ((1 + t) * w) / 2 - h * L;
+    if (i === 0) p.moveTo(sx, sy);
+    else p.lineTo(sx, sy);
+  }
+  p.closePath();
+}
+
+/** The three pieces of a torch, in `facePoly`'s `(t, h)` face coordinates: the
+ *  bracket it is held in, the flame, and the flame's own core.
+ *
+ *  A block is `WALL_H = 1.6` world units tall, so `h = 0.5` is a little over head
+ *  height on something the size of a Fighter and the fire burns above that.
+ *  Narrow in `t`: a torch is a stick and a handful of flame, and anything much
+ *  wider than a sixth of a tile reads as a hearth set into the wall.
+ *
+ *  **Three fills and not one, and each of the two boundaries is doing work.** A
+ *  single bright shape on a dark wall reads as a hole in it. Dark iron under the
+ *  fire is what says the light is *held* by something; a pale core inside a deeper
+ *  orange is what says the shape is burning rather than painted, because a flame's
+ *  whole visual signature is that it is hottest in the middle. At the default
+ *  framing this is about forty pixels of wall, which is enough for both to tell.
+ *
+ *  The flame is five points rather than a triangle because a triangle reads as an
+ *  arrowhead: the widest part sits below the middle and the tip leans back over
+ *  it, which is the outline that says "fire" even when it is six pixels tall. */
+const TORCH_BRACKET = [
+  [0.45, 0.3],
+  [0.55, 0.3],
+  [0.55, 0.53],
+  [0.45, 0.53],
+];
+const TORCH_FLAME = [
+  [0.44, 0.5],
+  [0.56, 0.5],
+  [0.6, 0.62],
+  [0.5, 0.8],
+  [0.4, 0.62],
+];
+const TORCH_CORE = [
+  [0.47, 0.54],
+  [0.53, 0.54],
+  [0.55, 0.63],
+  [0.5, 0.72],
+  [0.45, 0.63],
+];
+
+/** How thick a top-down torch mark is, as a fraction of a tile, and how far it is
+ *  inset along the seam. One number for both, so the mark is a square-ish tick
+ *  centred on the edge the face would stand on. */
+const TORCH_MARK = 0.2;
+
+/** The empty torch list, hoisted so the bake's `art ? furniture.torches : NO_TORCHES`
+ *  allocates nothing on the modes that draw none. `Object.freeze` because a shared
+ *  empty array that something pushes to is a bug that would present as torches in
+ *  Tactical. */
+const NO_TORCHES = Object.freeze([]);
+
 // ---------------------------------------------------------------- the floor
 //
 // One flagstone tile, baked once into an offscreen canvas and repeated. The
-// room is 48x32 world units and a wheel notch can put eighty device pixels on a
+// room is 68x45 world units and a wheel notch can put eighty device pixels on a
 // world unit, so drawing the speckle live would be several thousand fills a
 // frame for a texture that never changes. The pattern's *own* matrix does the
 // zooming instead, which is a bitmap scale in the compositor rather than work
@@ -4710,8 +5026,42 @@ function floorPatternNow() {
  *
  *     shared   floorLit  floorSeen  grid
  *     topdown  wallLit   wallSeen   edge          -- flat tiles and a stroked rim
+ *              doorLit   doorSeen                 -- doorways, flat, over the rock
+ *              torchLit  torchSeen                -- torches, flat, over the rock
  *     iso      wallTopSeen  wallSideSeen          -- remembered rock, unbanded
  *              wallBandTop[]  wallBandSide[]      -- lit rock, one pair per depth row
+ *              doorTopSeen  doorSideSeen          -- remembered doorways, unbanded
+ *              doorBandTop[]  doorBandSide[]      -- lit doorways, one pair per depth row
+ *              torchStemSeen  torchFlameSeen  torchCoreSeen   -- remembered torches
+ *              torchBandStem[]  torchBandFlame[]  torchBandCore[]  -- lit torches
+ *
+ * **The doorway pairs mirror the rock pairs exactly and exist for one reason: the
+ * fills are one `fillStyle` each.** `fillBand` sets a colour and fills a path, so
+ * door geometry appended to `wallBandTop` would be painted in the wall's own tone
+ * and be invisible -- and the remembered pass a hundred lines down does the same
+ * thing with `wallTopSeen`. A separate path is what a separate colour costs here.
+ * `wallBlock`'s winding argument is the second reason and it is independent: `side`
+ * is filled nonzero, so a sub-path wound the other way punches a hole clean through
+ * solid rock, and keeping the doorways in their own path means the two bodies of
+ * geometry can never be asked to agree about it.
+ *
+ * A doorway is *both* halves of that mirror because a shut door is a block like any
+ * other and an open one is a pair of jambs standing in a hole, and the two are the
+ * same tile a second apart. See `rebuildLevelPaths`.
+ *
+ * **The torch triples are that argument a third time, and they are a *triple*
+ * because a flame is neither the bracket it sits in nor uniformly hot.** Three
+ * fills, three tones, three paths -- and the two splits are where the whole
+ * readability of a torch at five pixels comes from: dark iron under fire says "a
+ * light" rather than "a warm smudge", and a pale core inside an orange flame says
+ * "burning" rather than "painted orange". They are baked only with the art on,
+ * unlike the doorways: a doorway is geometry a tactical plan needs and a torch is
+ * paint, so `[tactical]` and `[dev]` stay byte-identical to what they drew before
+ * this session.
+ *
+ * `torchLights` is not a path at all -- it is the additive floor light, one entry a
+ * torch, and it lives here because it is invalidated by exactly the same things the
+ * paths are. See its own note in `rebuildLevelPaths`.
  *
  * So it is **six paths** top-down -- five with the art off, where `edge` is null
  * as well, which is every top-down row `VIEW_MODES` actually ships; see `edge`'s
@@ -4769,8 +5119,8 @@ function floorPatternNow() {
  * sorted on. Baking them is also what keeps `render` from calling `readMap()` sixty
  * times a second to ask a question whose answer changes once a level.
  *
- * **Built once per level, not per frame.** A 48x32 level is 1536 tiles, and at
- * the top zoom bucket baking it into an offscreen canvas would be a 2304x1536
+ * **Built once per level, not per frame.** A 68x45 level is 3060 tiles, and at
+ * the top zoom bucket baking it into an offscreen canvas would be a 3264x2160
  * backing store rebuilt six times over. The paths -- six of them top-down, and
  * under iso five plus up to `bandCount` band pairs -- cost a few thousand
  * segments once between them, and after that a fill is a fill. Banding does not
@@ -4799,6 +5149,7 @@ function floorPatternNow() {
 let levelPaths = {
   revision: -1,
   vis: -1,
+  furniture: -1,
   scale: 0,
   art: null,
   fog: null,
@@ -4811,6 +5162,23 @@ let levelPaths = {
   wallSideSeen: null,
   wallBandTop: null,
   wallBandSide: null,
+  doorLit: null,
+  doorSeen: null,
+  doorTopSeen: null,
+  doorSideSeen: null,
+  doorBandTop: null,
+  doorBandSide: null,
+  doorTop: null,
+  doorSide: null,
+  torchLit: null,
+  torchSeen: null,
+  torchStemSeen: null,
+  torchFlameSeen: null,
+  torchCoreSeen: null,
+  torchBandStem: null,
+  torchBandFlame: null,
+  torchBandCore: null,
+  torchLights: [],
   bandCount: 0,
   bandW: 0,
   bandL: 0,
@@ -4874,8 +5242,12 @@ function rebuildLevelPaths(map, revision) {
   const fog = fogOn();
   // Not read at all with the fog off, where every tile is lit by definition.
   const vis = fog ? readVis() : null;
+  // Read in **every** mode, unlike the fog. Doorways are geometry and not a
+  // readout: a door is a thing standing in the room whichever way the room is
+  // being drawn, so the only thing `art` gets to decide about one is its tone.
+  const furniture = readFurniture(map.cols);
   // Which room this is, read once for the whole bake rather than chased through
-  // `PROJ` on every one of 1,536 tiles. The branches below are then local boolean
+  // `PROJ` on every one of 3,060 tiles. The branches below are then local boolean
   // tests -- the projection is a decision the bake takes at the top and then only
   // consults, which is also why there is no second copy of the tile loop: one loop
   // that knows about two shapes is a great deal easier to keep honest than two
@@ -4912,6 +5284,40 @@ function rebuildLevelPaths(map, revision) {
   const bandCount = iso ? map.cols + map.rows - 1 : 0;
   const wallBandTop = iso ? new Array(bandCount).fill(null) : null;
   const wallBandSide = iso ? new Array(bandCount).fill(null) : null;
+  // Doorways, in the same four shapes the rock takes and interleaved with it at
+  // the same depths -- a shut door is a block on its tile's own band, and an open
+  // one is two jambs on it. A separate set of paths and not a separate set of
+  // bands: `fillBand` gains two lookups and up to two fills, and the depth walk
+  // does not gain an entry to sort.
+  const doorLit = iso ? null : new Path2D();
+  const doorSeen = iso ? null : new Path2D();
+  const doorTopSeen = iso ? new Path2D() : null;
+  const doorSideSeen = iso ? new Path2D() : null;
+  const doorBandTop = iso ? new Array(bandCount).fill(null) : null;
+  const doorBandSide = iso ? new Array(bandCount).fill(null) : null;
+  // Torches: a flat pair top-down, and under iso a remembered triple and a banded
+  // one -- three because a bracket, a flame and the flame's core are three tones,
+  // and a fill is one `fillStyle`. **Only with the art on**, unlike the doorways. A
+  // doorway is geometry a tactical plan needs; a torch is paint, and `[tactical]`
+  // and `[dev]` are the byte-identical A/B control the whole isometric conversion
+  // is measured against. So this is the one piece of furniture that is a branch on
+  // `art` rather than a tone chosen by it: with the art off nothing is baked, the
+  // arrays stay null, and every fill below is skipped rather than drawn in a
+  // flatter colour.
+  const torchLit = art && !iso ? new Path2D() : null;
+  const torchSeen = art && !iso ? new Path2D() : null;
+  const torchStemSeen = art && iso ? new Path2D() : null;
+  const torchFlameSeen = art && iso ? new Path2D() : null;
+  const torchCoreSeen = art && iso ? new Path2D() : null;
+  const torchBandStem = art && iso ? new Array(bandCount).fill(null) : null;
+  const torchBandFlame = art && iso ? new Array(bandCount).fill(null) : null;
+  const torchBandCore = art && iso ? new Array(bandCount).fill(null) : null;
+  // The light the torches cast on the floor, one entry a torch. Not a path: a
+  // gradient and the point it is centred on, which `drawTorchLight` fills through
+  // additively. Built here for the reason `bandW` and `bbox` are -- it is pure
+  // geometry off the furniture, `scale` and `PROJ`, and this is already the
+  // function that re-runs when any of them moves.
+  const torchLights = [];
   // The lit rock faces -- and `null` rather than an empty path with the art off,
   // so `drawLevel` skips the stroke instead of stroking nothing: there is no
   // light in a tactical room for an edge to catch.
@@ -4930,7 +5336,7 @@ function rebuildLevelPaths(map, revision) {
   // isometric one, so `art && !iso` is identically false, `rim` below is always
   // false, and neither the four `if (rim)` arms nor `drawLevel`'s stroke has run
   // since `iso-02`. What this is, is the **supported-but-unselected**
-  // configuration: top-down with the art on, which is what `[regular]` was before
+  // configuration: top-down with the art on, which is what `[world]` was before
   // the conversion. `drawCharacter`'s flat-art arm is its sibling and is unreachable
   // for the identical reason -- as is `headOf`'s result, computed for every body and
   // read only in that arm -- and both are kept on the same terms. A top-down art
@@ -4959,6 +5365,16 @@ function rebuildLevelPaths(map, revision) {
   // `2`, which is what makes `[dev]` cost exactly what the renderer costs today
   // rather than paying for a layer it does not draw.
   const seen = (tx, ty) => (!fog ? 2 : vis.tiles[ty * map.cols + tx] | 0);
+  // Whether this tile is a doorway, open or shut. **The tile buffer cannot
+  // answer this**: `write_map` publishes `u8::from(solid)`, so a shut door
+  // arrives as a `1` indistinguishable from rock and an open one as a `0`
+  // indistinguishable from the floor it was cut into. That is the whole reason
+  // the furniture buffer exists.
+  //
+  // Off a `Map` built once per read of that buffer rather than by walking the
+  // record list per tile: this is asked once for every solid tile on the level,
+  // and a level is three thousand tiles against fifty door records.
+  const doorway = (tx, ty) => furniture.doors.has(ty * map.cols + tx);
 
   for (let ty = 0; ty < map.rows; ty++) {
     for (let tx = 0; tx < map.cols; tx++) {
@@ -4976,8 +5392,8 @@ function rebuildLevelPaths(map, revision) {
       const y = iso ? ((tx + ty) * size) / 2 : px(ty * map.tile);
       if (!solid(tx, ty)) {
         const p = lit === 2 ? floorLit : floorSeen;
-        // Four segments instead of one `rect`, so a 1,536-tile level bakes about
-        // 6k of them -- once per revision, and a fill is still a fill afterwards.
+        // Four segments instead of one `rect`, so a 3,060-tile level bakes about
+        // 12k of them -- once per revision, and a fill is still a fill afterwards.
         //
         // **No hairline down the seams.** Coincident edges inside a single
         // `Path2D` are rasterised in one coverage pass, which is the same
@@ -5024,10 +5440,24 @@ function rebuildLevelPaths(map, revision) {
       // here. `wallBlock` takes its two target paths as arguments precisely so
       // this line can hand it a band instead of a field, and not one character of
       // the geometry below the call knows which it got.
+      //
+      // **A shut doorway is a block like any other and takes the same call**,
+      // into the doorway pair rather than the rock pair so that it can carry a
+      // warmer tone and read as worked timber. Nothing about the geometry
+      // changes -- `wallBlock` takes its two target paths as arguments for
+      // exactly this, and the neighbour tests below stay on the floor plan, so a
+      // three-tile doorway is one mass with no seams down the middle of it in
+      // precisely the way a three-tile lump of rock is.
+      //
+      // An *open* doorway never reaches here: it is `OPEN` in the tiles, so it
+      // took the floor branch above. Its jambs are baked after this loop.
       if (iso) {
         const d = tx + ty;
-        const top = lit === 2 ? bandPath(wallBandTop, d) : wallTopSeen;
-        const side = lit === 2 ? bandPath(wallBandSide, d) : wallSideSeen;
+        const door = doorway(tx, ty);
+        const tops = door ? doorBandTop : wallBandTop;
+        const sides = door ? doorBandSide : wallBandSide;
+        const top = lit === 2 ? bandPath(tops, d) : door ? doorTopSeen : wallTopSeen;
+        const side = lit === 2 ? bandPath(sides, d) : door ? doorSideSeen : wallSideSeen;
         wallBlock(top, side, x, y, size, L, !solid(tx + 1, ty), !solid(tx, ty + 1));
         if (lit !== 2) remembered = true;
         continue;
@@ -5076,11 +5506,151 @@ function rebuildLevelPaths(map, revision) {
       if (exposed) {
         // Flat, and gated on bordering open ground: this is the top-down arm and
         // it is the line it has always been. Height, the two visible side faces
-        // and the per-face gate are the iso arm above, and they stop here.
-        (lit === 2 ? wallLit : wallSeen).rect(x, y, size, size);
+        // and the per-face gate are the iso arm above, and they stop here. The
+        // one thing that is new is which of two path pairs it lands in, on the
+        // same argument the iso arm makes -- a doorway is a tone, and a tone is a
+        // path.
+        const door = doorway(tx, ty);
+        const wall = lit === 2 ? wallLit : wallSeen;
+        (door ? (lit === 2 ? doorLit : doorSeen) : wall).rect(x, y, size, size);
         if (lit !== 2) remembered = true;
       }
     }
+  }
+
+  // The frame: two jambs standing in every **open** doorway.
+  //
+  // Without them a doorway that opens simply stops existing -- the tiles say
+  // floor, the bake draws floor, and a wall the player pushed through turns into
+  // a hole they cannot remember making. What is left behind is the two posts the
+  // door was hung on, which is what a doorway looks like from either side.
+  //
+  // A loop over the doorways and not over the tiles: fifty records against three
+  // thousand tiles, and the geometry is per-*edge* rather than per-tile anyway.
+  // The jambs land in the same depth bands the wall blocks do, so rock standing
+  // in front of a doorway still occludes it, and in the same door paths a shut
+  // door uses, so a doorway is one colour whichever state it is in.
+  //
+  // **A remembered doorway draws with its *current* open flag, and that is
+  // accepted rather than fixed.** The player learns that a door they cannot see
+  // has been opened, which is a small wallhack. The alternative is per-tile
+  // remembered door state -- a second copy of the furniture buffer, frozen at
+  // last sight, invalidated per tile -- for a fact the player can infer anyway
+  // from a monster that has started coming. The fog here remembers *geometry*
+  // and not *events*, everywhere else too: remembered rock is drawn at whatever
+  // the floor plan says today, and a door is the first thing on the floor plan
+  // that can change during a level. This is that rule meeting its first
+  // exception and keeping the rule.
+  for (const [cell, open] of furniture.doors) {
+    if (!open) continue;
+    const tx = cell % map.cols;
+    const ty = (cell / map.cols) | 0;
+    const lit = seen(tx, ty);
+    // Never seen goes into no path at all, exactly as a tile does.
+    if (lit === 0) continue;
+    const x = iso ? (tx - ty) * size : px(tx * map.tile);
+    const y = iso ? ((tx + ty) * size) / 2 : px(ty * map.tile);
+    const d = tx + ty;
+    for (const [dx, dy, u0, v0, u1, v1] of JAMB_SIDES) {
+      // A post goes where the doorway meets masonry. The second test is what
+      // stops a run of three from growing posts *between* its own tiles: a shut
+      // doorway is solid, so a neighbour that is another doorway would read as
+      // rock here on the frame before it opens.
+      if (!solid(tx + dx, ty + dy) || doorway(tx + dx, ty + dy)) continue;
+      if (iso) {
+        const top = lit === 2 ? bandPath(doorBandTop, d) : doorTopSeen;
+        const side = lit === 2 ? bandPath(doorBandSide, d) : doorSideSeen;
+        subBlock(top, side, x, y, size, L, u0, v0, u1, v1);
+      } else {
+        // Top-down a jamb has no height, so it is the same slab drawn flat --
+        // two thin marks either side of the gap, which is as much as a plan view
+        // of a doorway has ever been.
+        const p = lit === 2 ? doorLit : doorSeen;
+        p.rect(x + u0 * size, y + v0 * size, (u1 - u0) * size, (v1 - v0) * size);
+      }
+      if (lit !== 2) remembered = true;
+    }
+  }
+
+  // The torches: a bracket, a flame and the flame's core on the face of a wall
+  // tile, and the pool of light each one throws on the floor in front of it.
+  //
+  // A loop over the records and not over the tiles, exactly as the jambs are, and
+  // for a stronger reason: fifty torches against three thousand tiles, and the
+  // tile buffer cannot answer "is there a torch here" at all -- rock is rock to
+  // `write_map`, and which piece of rock is a room's wall is a question only the
+  // generator has ever been able to answer.
+  //
+  // **A torch is on the wall, so it is baked into the wall's own depth bands.**
+  // It is not a ground decal: it is mounted on a vertical face at height, and if
+  // it is to be occluded by the rock standing in front of it then it has to be
+  // filled at that rock's depth. Putting it on its own tile's band gets that for
+  // nothing -- no new depth-list entry, nothing more to sort -- because it is on
+  // the same anti-diagonal as the block it hangs on and is therefore covered by
+  // exactly what covers that block.
+  //
+  // **A remembered torch draws dimmed and casts no light**, which is `world-07`
+  // §4 and is most of why the light list is built here rather than at draw time.
+  // Lighting a room you cannot currently see is a wallhack: the falloff would
+  // spill through a doorway and tell the player the shape of a room they have not
+  // walked into. The rule is one line -- only `lit === 2` puts an entry in
+  // `torchLights` -- and it holds because this bake re-runs whenever the fog
+  // moves.
+  //
+  // **The whole loop is skipped with the art off**, which is the one place a
+  // piece of furniture is a branch rather than a tone. See the path declarations
+  // above for why, and `world-07`'s acceptance test 4 for what it buys: `[G]` to
+  // Tactical is identical to before this session, to the pixel.
+  // The pool's screen radius, read once for the same reason `size` and `L` are.
+  const far = px(TORCH_LIGHT);
+  for (const torch of art ? furniture.torches : NO_TORCHES) {
+    const { tx, ty, face } = torch;
+    const lit = seen(tx, ty);
+    if (lit === 0) continue;
+    const x = iso ? (tx - ty) * size : px(tx * map.tile);
+    const y = iso ? ((tx + ty) * size) / 2 : px(ty * map.tile);
+    if (iso) {
+      const d = tx + ty;
+      const stem = lit === 2 ? bandPath(torchBandStem, d) : torchStemSeen;
+      const flame = lit === 2 ? bandPath(torchBandFlame, d) : torchFlameSeen;
+      const core = lit === 2 ? bandPath(torchBandCore, d) : torchCoreSeen;
+      facePoly(stem, x, y, size, L, face, TORCH_BRACKET);
+      facePoly(flame, x, y, size, L, face, TORCH_FLAME);
+      facePoly(core, x, y, size, L, face, TORCH_CORE);
+    } else {
+      // Top-down a wall face has no image on the glass, so the torch is a mark
+      // *on the seam* the face would be: a short bar along the tile edge it hangs
+      // from. This is the supported-but-unselected top-down-with-art
+      // configuration that `edge` above has the long note about, and it is kept
+      // on the same terms.
+      const p = lit === 2 ? torchLit : torchSeen;
+      const near = size * (1 - TORCH_MARK);
+      const long = size * (1 - 2 * TORCH_MARK);
+      const off = size * TORCH_MARK;
+      if (face === TORCH_POS_Y) p.rect(x + off, y + near, long, size * TORCH_MARK);
+      else p.rect(x + near, y + off, size * TORCH_MARK, long);
+    }
+    if (lit !== 2) {
+      remembered = true;
+      continue;
+    }
+    // The pool, on the floor at the foot of the face the torch hangs on: the
+    // `+x` face is the plane `wx = tx + 1` and the `+y` face `wy = ty + 1`, and
+    // the light is centred on the middle of whichever it is. **Not lifted by the
+    // torch's own height** -- what is being drawn is where the light lands, and
+    // the brightest floor is the floor directly under the flame.
+    const wx = (face === TORCH_POS_X ? tx + 1 : tx + 0.5) * map.tile;
+    const wy = (face === TORCH_POS_Y ? ty + 1 : ty + 0.5) * map.tile;
+    const lx = projX(wx, wy);
+    const ly = projY(wx, wy);
+    const glow = ctx.createRadialGradient(lx, ly, 0, lx, ly, far);
+    for (const [stop, colour] of TORCH_STOPS) glow.addColorStop(stop, colour);
+    // A phase off the tile so no two torches in a room pulse together, which is
+    // the one thing that would make the flicker read as a global brightness
+    // wobble rather than as fire. Integer arithmetic on the tile, so it is stable
+    // across a rebake and a torch does not jump phase when the character crosses
+    // a tile.
+    torchLights.push({ x: lx, y: ly, far, glow, phase: ((tx * 7 + ty * 13) % 32) / 32 });
   }
 
   // The scale bar's lattice, baked with everything else rather than rebuilt from
@@ -5132,6 +5702,7 @@ function rebuildLevelPaths(map, revision) {
   levelPaths = {
     revision,
     vis: vis ? vis.revision : wasm.vis_revision(),
+    furniture: furniture.revision,
     scale,
     art,
     fog,
@@ -5144,6 +5715,27 @@ function rebuildLevelPaths(map, revision) {
     wallSideSeen,
     wallBandTop,
     wallBandSide,
+    doorLit,
+    doorSeen,
+    doorTopSeen,
+    doorSideSeen,
+    doorBandTop,
+    doorBandSide,
+    // **The one thing `art` decides about a doorway**, baked here rather than
+    // branched on at every fill: a door draws in every mode, and with the art off
+    // it drops the warmth and keeps the separation. Top-down there is no second
+    // face, so the first of the two is the tone the whole flat tile takes.
+    doorTop: art ? DOOR_TOP : DOOR_TOP_FLAT,
+    doorSide: art ? DOOR_XFACE : DOOR_XFACE_FLAT,
+    torchLit,
+    torchSeen,
+    torchStemSeen,
+    torchFlameSeen,
+    torchCoreSeen,
+    torchBandStem,
+    torchBandFlame,
+    torchBandCore,
+    torchLights,
     bandCount,
     // The band's screen pitch, the block height the bands were baked at, and the
     // band's world span. Zero top-down, where nothing reads any of them -- see
@@ -5289,6 +5881,93 @@ const LEVEL_PASSES = [false, true];
 const WALL_TOP = "#161c28"; // catches what light the room has
 const WALL_XFACE = "#0e131c"; // the +x face, half lit
 
+/** A doorway, in the same two tones a block of rock takes and for the same two
+ *  faces -- so a shut door is a block, an open one is a pair of jambs, and both
+ *  are recognisably the same material.
+ *
+ *  **Warm, and brighter than everything around them.** `WALL_TOP` is `(22,28,40)`
+ *  and the flagstones run `(20,24,36)` to `(30,34,46)`: this palette is blue
+ *  bordering on monochrome, and a hue that is not blue is therefore the loudest
+ *  thing it can say without raising a voice. `(59,44,29)` against `(22,28,40)` is
+ *  a hue flip *and* a doubling of brightness, which is what "a shut door reads as
+ *  a door from across the room" costs. The pair keeps rock's own relationship
+ *  between its two faces -- top brighter, `+x` face about half of it -- so the
+ *  height cue reads identically on both materials.
+ *
+ *  Timber rather than iron because timber is the warm one, and because a door
+ *  that reads as metal reads as *locked*, which is a rule this game does not
+ *  have. */
+const DOOR_TOP = "#3b2c1d";
+const DOOR_XFACE = "#261c13";
+
+/** The same pair with the art off.
+ *
+ *  Doors are geometry and draw in every view -- `[tactical]` and `[dev]` are the
+ *  byte-identical A/B control for the whole isometric conversion, and a doorway
+ *  the control cannot show is a doorway you cannot check the conversion against.
+ *  What the tactical modes drop is the *warmth*, not the door: these are a plain
+ *  step up from `#0c1017`, the one flat tone top-down rock has, so the doorway
+ *  separates from the masonry without pretending there is a light in the room. */
+const DOOR_TOP_FLAT = "#1f2230";
+const DOOR_XFACE_FLAT = "#161a26";
+
+/** A torch: dark iron, fire, and the hotter middle of the fire.
+ *
+ *  **The two steps are what make a torch readable at five pixels**, and the first
+ *  of them is bigger than anything else on the page: `(58,42,26)` under
+ *  `(232,132,44)`, against a wall face of `(14,19,28)`. The bracket has to be
+ *  darker than the flame by more than the flame is brighter than the wall, or the
+ *  pair reads as one warm blob and the eye stops finding the light source. The
+ *  second step, `(255,230,168)` inside the orange, is the difference between a
+ *  shape that is burning and a shape that is painted orange.
+ *
+ *  The core is deliberately the brightest flat fill in the file -- brighter than
+ *  the hero's own skin. It is the only thing in the room that is supposed to *be*
+ *  a light rather than lit by one, and `arenaVignette` does not reach it, because
+ *  the bands are filled after `drawLevel` has returned. So a torch across a dark
+ *  room stays the brightest thing on the screen at any distance, which is exactly
+ *  the read `world-07` asks for: the room is lit *from* something. */
+const TORCH_IRON = "#3a2a1a";
+const TORCH_FLAME_TONE = "#e8842c";
+const TORCH_CORE_TONE = "#ffe6a8";
+
+/** World units the pool of light on the floor reaches.
+ *
+ *  Five, which is most of the way across a room (6-10 by 5-8) without being all
+ *  of it -- so a torch lights the wall it is on and the floor in front of it, and
+ *  two torches on one wall overlap in the middle. The overlap is the case the
+ *  additive blend below exists for and it wants to be the *common* case, not a
+ *  corner one. */
+const TORCH_LIGHT = 5;
+
+/** The falloff, as gradient stops.
+ *
+ *  **Read under `lighter`, so these are additions and not covers.** A stop of
+ *  `rgba(255,176,92,0.26)` adds `(66,46,24)` to whatever is under it -- roughly
+ *  a doubling of a lit flagstone, which runs `(20,24,36)` to `(30,34,46)` -- and
+ *  falls to nothing at the rim. The hue is what does the work: the palette is
+ *  blue bordering on monochrome, so warmth reads as light long before brightness
+ *  does, which is the same argument `DOOR_TOP` makes one constant up.
+ *
+ *  Hoisted rather than written inside the bake, because the bake builds one
+ *  gradient per torch per rebuild and a fresh array of arrays each time would be
+ *  the only allocation in it that was not the gradient itself. */
+const TORCH_STOPS = [
+  [0, "rgba(255,176,92,0.26)"],
+  [0.45, "rgba(255,150,70,0.10)"],
+  [1, "rgba(255,140,60,0)"],
+];
+
+/** How much of the light a flicker takes away at its lowest, and how fast.
+ *
+ *  A tenth, at a shade over one cycle a second, with a phase per torch. Small on
+ *  purpose: a flame that visibly pulses reads as a broken shader, and what is
+ *  wanted is only that the room is not perfectly still. **It cannot move the fog
+ *  boundary** -- that is `floorLit`, the clip this is painted through, and it is
+ *  the sim's answer rather than something the page animates. */
+const TORCH_FLICKER = 0.1;
+const TORCH_FLICKER_HZ = 1.1;
+
 /**
  * The level, as lit stone standing in the dark.
  *
@@ -5314,7 +5993,7 @@ const WALL_XFACE = "#0e131c"; // the +x face, half lit
  * would be a second copy of the camera transform -- the mistake `pointerToWorld`
  * has a paragraph about.
  */
-function drawLevel(state, origin) {
+function drawLevel(state, now, origin) {
   if (!levelPaths.floorLit) return;
   const art = artOn();
   // Asked for once, not once per pass: `floorPatternNow` re-aims the pattern
@@ -5376,6 +6055,23 @@ function drawLevel(state, origin) {
     ctx.globalAlpha = lit ? 1 : SEEN_ALPHA;
     ctx.fillStyle = pattern || "#141a26";
     ctx.fillRect(clipX, clipY, clipW, clipH);
+
+    // The torches, on the floor they light, and **inside this pass rather than
+    // after the loop**. Two things fall out of that placement and both are load
+    // bearing:
+    //
+    // - It is under this pass's own `clip(floorLit)`, which is the clip
+    //   `drawLantern` uses and for the same reason: light lands on floor the
+    //   character can see and nowhere else.
+    // - It is before the vignette below, so the room's edges still fall away over
+    //   the top of it. Painted after the loop instead, the torches would sit on
+    //   top of the falloff and every room would be evenly lit again, which is the
+    //   picture this session exists to replace.
+    //
+    // **The lit pass only**, which is `world-07` §4's fog rule for free: a torch
+    // in a remembered-but-unseen tile is not in `torchLights` at all, so it casts
+    // nothing. Even if it were, this pass is the one at `globalAlpha = 1`.
+    if (lit) drawTorchLight(now, origin);
 
     if (art) {
       // Lit from the middle. Without this the stone reads as a swatch of texture
@@ -5535,6 +6231,20 @@ function drawLevel(state, origin) {
   // `floorPatternNow` above is deliberately left reading the live `PROJ`: the worst
   // a mismatch does there is shear the masonry wrongly for a frame, which is a
   // slightly wrong picture and not a dead page.
+  //
+  // **The doorways are filled after the rock in both arms**, on the same argument
+  // `fillBand` makes about the order inside a band: a door is set into a wall, so
+  // where the two overlap on screen the door should win. They are dimmed by the
+  // same `SEEN_ALPHA` the rock is -- a remembered doorway is remembered geometry
+  // and there is nothing special about it -- and the tone they take is the one the
+  // bake chose, which is where `artOn()` was consulted.
+  //
+  // **The torches are last of all, and they are `null` with the art off.** A
+  // remembered torch is a torch drawn dimmed and casting no light -- the sprite
+  // stays because the fog here remembers geometry, and the light goes because
+  // lighting a room you cannot see is a wallhack. Both halves are already decided
+  // by the time this runs: the dimming is this pass's `SEEN_ALPHA`, and the light
+  // is absent because the bake only put lit torches in `torchLights`.
   ctx.save();
   if (levelPaths.proj === "iso") {
     ctx.globalAlpha = SEEN_ALPHA;
@@ -5542,12 +6252,40 @@ function drawLevel(state, origin) {
     ctx.fill(levelPaths.wallTopSeen);
     ctx.fillStyle = WALL_XFACE;
     ctx.fill(levelPaths.wallSideSeen);
+    ctx.fillStyle = levelPaths.doorTop;
+    ctx.fill(levelPaths.doorTopSeen);
+    ctx.fillStyle = levelPaths.doorSide;
+    ctx.fill(levelPaths.doorSideSeen);
+    if (levelPaths.torchStemSeen) {
+      ctx.fillStyle = TORCH_IRON;
+      ctx.fill(levelPaths.torchStemSeen);
+      ctx.fillStyle = TORCH_FLAME_TONE;
+      ctx.fill(levelPaths.torchFlameSeen);
+      ctx.fillStyle = TORCH_CORE_TONE;
+      ctx.fill(levelPaths.torchCoreSeen);
+    }
   } else {
     ctx.fillStyle = "#0c1017";
     ctx.globalAlpha = SEEN_ALPHA;
     ctx.fill(levelPaths.wallSeen);
     ctx.globalAlpha = 1;
     ctx.fill(levelPaths.wallLit);
+    // Top-down a doorway is one flat tone, exactly as rock is, so both passes
+    // take the first of the bake's two colours.
+    ctx.fillStyle = levelPaths.doorTop;
+    ctx.globalAlpha = SEEN_ALPHA;
+    ctx.fill(levelPaths.doorSeen);
+    ctx.globalAlpha = 1;
+    ctx.fill(levelPaths.doorLit);
+    if (levelPaths.torchLit) {
+      // Top-down there is no wall face and no depth walk, so both halves of a
+      // torch are one mark on the tile seam and both passes fill it here.
+      ctx.fillStyle = TORCH_FLAME_TONE;
+      ctx.globalAlpha = SEEN_ALPHA;
+      ctx.fill(levelPaths.torchSeen);
+      ctx.globalAlpha = 1;
+      ctx.fill(levelPaths.torchLit);
+    }
     if (levelPaths.edge) {
       ctx.strokeStyle = "rgba(150,185,235,0.20)";
       ctx.lineWidth = 1.5;
@@ -5579,6 +6317,72 @@ function drawLevel(state, origin) {
   // visible -- a known limitation, recorded with its options and their costs as
   // `iso-07` §9, and not something to patch by clipping this fill differently.
   drawLantern(state, clipX, clipY, clipW, clipH);
+}
+
+/**
+ * The pools of light the torches throw on the floor.
+ *
+ * **The first thing in this file that adds light rather than taking it away**,
+ * and `globalCompositeOperation` appears nowhere else in `web/`. Both existing
+ * falloffs are *darkening* overlays -- `arenaVignette` and `drawLantern` each
+ * paint `rgba(9,11,16,a)` over the floor, so the room is lit by not being
+ * darkened. A torch is the opposite: it has to paint the floor brighter than the
+ * floor, which a wash over the top cannot do at any alpha.
+ *
+ * `lighter` also composes correctly where two pools overlap, which is the common
+ * case in a room with three torches on one wall and the case a plain alpha wash
+ * gets visibly wrong -- two overlapping washes at 0.26 come out darker than one,
+ * because each is blending toward its own colour rather than adding to what is
+ * under it.
+ *
+ * **Called from inside `drawLevel`'s lit pass**, under that pass's own
+ * `clip(floorLit)` and at its `globalAlpha = 1`, and before the vignette. See the
+ * call for why each of those three matters.
+ *
+ * Everything expensive is baked. Each entry carries its gradient, built once per
+ * level bake by `rebuildLevelPaths` -- so a frame is a cull, a `save`, a
+ * transform and a `fillRect` per *visible* torch, and the level's other hundred
+ * cost a comparison each.
+ *
+ * **Squashed 2:1 about each torch, exactly as `drawLantern` is**, so a pool of
+ * light lies on the floor like everything else on it rather than standing up out
+ * of the plane. The rect is un-squashed by the same algebra `drawLantern` derives
+ * at length: the transform maps `v -> y + (v - y) / 2`, so a box of `2 * far`
+ * about the centre paints a `far`-tall ellipse's worth of pixels. It is per torch
+ * and not once for the loop because the squash is *about the torch* -- one
+ * `ctx.scale` cannot be centred on a hundred different points.
+ */
+function drawTorchLight(now, origin) {
+  const lights = levelPaths.torchLights;
+  if (lights.length === 0) return;
+  // The window, in the same level-corner space the baked centres are stated in.
+  // A pool is `far` wide and `far / 2` tall on the glass after the squash, so a
+  // box of `far` either side in both axes is a bound rather than an estimate.
+  const x0 = -origin.x;
+  const y0 = -origin.y;
+  const x1 = x0 + viewport.w;
+  const y1 = y0 + viewport.h;
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+  for (const light of lights) {
+    const { x, y, far } = light;
+    if (x + far < x0 || x - far > x1 || y + far < y0 || y - far > y1) continue;
+    // A shade of flicker, out of phase per torch. `now` is the wall clock, like
+    // every other presentational animation here, so it keeps its cadence when the
+    // sim is paused or catching up.
+    ctx.globalAlpha =
+      1 - TORCH_FLICKER * (0.5 + 0.5 * Math.sin(now * 0.001 * TAU * TORCH_FLICKER_HZ + light.phase * TAU));
+    ctx.save();
+    if (PROJ.shear) {
+      ctx.translate(x, y);
+      ctx.scale(1, 0.5);
+      ctx.translate(-x, -y);
+    }
+    ctx.fillStyle = light.glow;
+    ctx.fillRect(x - far, y - far, far * 2, far * 2);
+    ctx.restore();
+  }
+  ctx.restore();
 }
 
 /**
@@ -5673,36 +6477,31 @@ function drawLantern(state, x0, y0, w, h) {
 }
 
 /**
- * The way out.
+ * The way out, which is only ever open.
  *
- * Drawn shut as well as open, and that is the design decision rather than a
- * fallback: seeing where the exit is from the moment you arrive is what turns
- * "kill things" into "fight your way there". Aged on the wall clock like
- * everything else presentational in this file.
+ * **There is no shut state to draw any more, and that is a deletion worth
+ * reading before re-adding one.** This used to paint a dim static ring wherever
+ * the level's exit room was, from the moment the floor opened, and the argument
+ * was: *"drawn shut as well as open, and that is the design decision rather than
+ * a fallback -- seeing where the exit is from the moment you arrive is what
+ * turns 'kill things' into 'fight your way there'."* Still a fair description of
+ * what that bought. **The user asked for the other trade**: nothing marks the
+ * exit while monsters live, and the last kill *is* the exit -- it blooms where
+ * the last thing died, already open. The module now reports `PORTAL_NONE` for
+ * the whole of the fight and never reports the old `1`, so the guard below is
+ * the whole of "draw nothing yet".
+ *
+ * Aged on the wall clock like everything else presentational in this file.
  */
 function drawPortal(state, now) {
   if (!state.portalState) return;
   const r = px(0.9);
-  const open = state.portalState === 2;
 
-  // All four passes -- the shut ring, the glow, and the two spinning arcs -- lie
-  // on the floor, and every one of them was already written as a screen offset
-  // from the portal's anchor, so this is the whole of the conversion. The dash
-  // stays `[5, 7]` and stays a user-space pattern: 40 marks on a 0.9-unit ring at
-  // default framing, exactly as many as top-down.
+  // All three passes -- the glow and the two spinning arcs -- lie on the floor,
+  // and every one of them was already written as a screen offset from the
+  // portal's anchor, so this is the whole of the conversion.
   ctx.save();
   groundSpace(state.portalX, state.portalY);
-  if (!open) {
-    // Shut: a dim ring, static, obviously not going anywhere.
-    ctx.strokeStyle = "rgba(150,180,230,0.18)";
-    ctx.lineWidth = 2;
-    ctx.setLineDash([5, 7]);
-    ctx.beginPath();
-    ctx.arc(0, 0, r, 0, TAU);
-    ctx.stroke();
-    ctx.restore();
-    return;
-  }
 
   const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 1.7);
   glow.addColorStop(0, "rgba(110,231,255,0.30)");
@@ -6072,11 +6871,13 @@ const MONSTER_WEDGE = "255,138,122";
  * `fan` -- how far open the intent reads -- takes exactly three values, so the
  * whole page has exactly six of these strings and not one of them ever changes.
  * Before this, every wedge built its own: `[tactical]` had always done it, but
- * standing bodies up gave `regular` a wedge too, which took `drawCharacter` from
+ * standing bodies up gave `world` a wedge too, which took `drawCharacter` from
  * one dynamic colour string per body to two -- some 7,700 short-lived strings a
  * second at `MAX_UNITS` and 60 fps, in a render path whose whole discipline is
  * that it allocates nothing. Hoisted for exactly the reason `HERO_THROUGH` is
- * hoisted: *so the frame does not build a string to say it*.
+ * hoisted: *so the frame does not build a string to say it*. `world-01` put that
+ * second wedge behind `readoutsOn()` and took the doubling back out again, which
+ * retires the measurement and not the table -- the paragraph below is why.
  *
  * The arithmetic stays here rather than being folded to three literals, so the
  * rule is still legible -- a `0.08` floor plus `0.20` of the fan -- and so the
@@ -6984,11 +7785,10 @@ const WEDGE_REACH = 1.7;
  * sim's collision circle -- and then the body itself is a billboard standing on
  * that ground point. The shadow stops being decoration there and becomes
  * load-bearing: it is the only thing saying *where* an upright billboard is
- * standing, and without it the body floats. The facing wedge comes back for the
- * same reason it exists in `[tactical]` -- a billboard cannot turn to face you,
- * so the fan on the floor is the whole of which way a body is pointing -- and it
- * carries the intent on exactly the alphas the rim light uses, so the two modes
- * agree about what "bearing down" looks like.
+ * standing, and without it the body floats. The facing wedge is the one of the
+ * three that `readoutsOn()` can take away, and in the only upright row there is
+ * it does; the collision circle beneath it never can, and the pass itself argues
+ * both halves.
  *
  * `ghost` is `null` for a body the player can see and a `ghostOf` descriptor for
  * one it is only remembering; see `ghostOf` for what the three stages look like.
@@ -7041,17 +7841,29 @@ function drawCharacter(unit, now, ghost) {
     ctx.fill();
 
     // 2. The facing wedge, on the floor: literally `[tactical]`'s fan with a
-    //    unimodular shear in front of it, so it costs the same pixels and the two
-    //    view modes are saying the same thing in the same alphas -- out of the
-    //    same baked table, so "the same alphas" is a fact rather than a hope.
-    ctx.rotate(unit.facing);
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.arc(0, 0, r * WEDGE_REACH, -WEDGE_HALF, WEDGE_HALF);
-    ctx.closePath();
-    ctx.fillStyle = wedgeFill(skin, unit.intent);
-    ctx.fill();
-    ctx.rotate(-unit.facing);
+    //    unimodular shear in front of it, so it costs the same pixels and would
+    //    say the same thing in the same alphas -- out of the same baked table, so
+    //    "the same alphas" is a fact rather than a hope.
+    //
+    //    **And no mode ships today that reaches it.** The pass is the whole of
+    //    which way an upright body points -- a billboard cannot turn to face you
+    //    -- and that is exactly what made it the loudest thing on the floor once
+    //    there was art underneath: a filled fan the size of the body, in a mode
+    //    whose claim is that it draws the room and not the numbers. `[world]`
+    //    pays for the gate in facing, which the limb on the ground and the body's
+    //    own travel now carry alone. Kept rather than deleted because it is the
+    //    only upright wedge there is, and the row that wants art *and* readouts
+    //    is one `readouts: true` away.
+    if (readoutsOn()) {
+      ctx.rotate(unit.facing);
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.arc(0, 0, r * WEDGE_REACH, -WEDGE_HALF, WEDGE_HALF);
+      ctx.closePath();
+      ctx.fillStyle = wedgeFill(skin, unit.intent);
+      ctx.fill();
+      ctx.rotate(-unit.facing);
+    }
 
     // 3. The sim's collision circle, which **must** survive standing the body up
     //    (house rule 4). Under `groundSpace` it is the same `arc(0, 0, px(r))` it
@@ -7061,10 +7873,15 @@ function drawCharacter(unit, now, ghost) {
     //    feet, which is what standing on something looks like. The hairline is
     //    quoted as 1 rather than `1 / r` because this space is already screen
     //    pixels; the shear makes it 0.9 to 1.4 px with direction, which is fine
-    //    for placeholder.
+    //    for placeholder. **Unconditional where the pass above it is not**, and
+    //    house rule 4 is the whole of why: the page never paints a shape the sim
+    //    will treat as hittable and then hides where the real edge is.
     ctx.beginPath();
     ctx.arc(0, 0, r, 0, TAU);
-    ctx.strokeStyle = "rgba(150,180,230,0.30)";
+    // Faint, and the only mark left on the floor. It used to sit under a filled
+    // facing wedge and had to carry over it; alone on bare ground at 0.30 it reads
+    // as a drawn ring rather than as the edge of a body.
+    ctx.strokeStyle = "rgba(150,180,230,0.16)";
     ctx.lineWidth = 1;
     ctx.stroke();
     ctx.restore();
@@ -7163,12 +7980,21 @@ function drawCharacter(unit, now, ghost) {
     // It carries the intent on exactly the alphas the rim light uses, so the two
     // modes agree about what "bearing down" looks like -- `wedgeFill` is where
     // that agreement lives now, and the isometric ground wedge reads the same row.
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.arc(0, 0, WEDGE_REACH, -WEDGE_HALF, WEDGE_HALF);
-    ctx.closePath();
-    ctx.fillStyle = wedgeFill(skin, unit.intent);
-    ctx.fill();
+    //
+    // Gated for the reason the isometric one is, and not because any row reaches
+    // it with the readouts off: `readouts` is on in exactly the two rows that
+    // have the art off, so nothing draws a flat body without them today. It is
+    // the discipline `assertProjection` applies to `upright && !art` one arm
+    // over -- a fourth row must not be able to select a picture this file has
+    // never drawn.
+    if (readoutsOn()) {
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.arc(0, 0, WEDGE_REACH, -WEDGE_HALF, WEDGE_HALF);
+      ctx.closePath();
+      ctx.fillStyle = wedgeFill(skin, unit.intent);
+      ctx.fill();
+    }
 
     ctx.beginPath();
     ctx.arc(0, 0, 1, 0, TAU);
@@ -7915,6 +8741,13 @@ function pushCallout(event, actor) {
  * the honest figure next to a real hit is something like `0.4` -- printing it
  * would say "that did nothing" about the single most dramatic thing that
  * happens in this game.
+ *
+ * **The rescale moved the number and not the tick.** Numbers used to be rounded
+ * to whole points, which was right against a 14-point blow and is not against a
+ * 3.6 one; they now carry a decimal below ten. The tick's argument survives
+ * untouched, because it was never an argument about absolute size -- a braced
+ * block still leaks `BLOCK_LEAK_BRACED`, 0.08 of the blow, which is 0.29 of a
+ * Fighter's best and reads exactly as small beside a hit as it always did.
  */
 function drawFloaters() {
   if (!floaters.length) return;
@@ -7977,10 +8810,17 @@ function drawFloaters() {
       continue;
     }
 
-    // Floored at one rather than rounded to zero. A blow that took health off
-    // did *something*, and a floating "0" over a body that just lost a sliver
-    // is a worse lie than a rounded 1.
-    const text = String(Math.max(1, Math.round(f.amount)));
+    // One decimal below ten, and no floor. Rounding was right when a blow was 14
+    // and a graze was 1.7; at a best blow of 3.6 it rounds a Skitterer's cut and a
+    // Rogue's to the same "2", and it rounds every point of the power stat away --
+    // one point is 0.075 of a multiplier, which is a quarter of a point of damage
+    // and exactly the thing this scale exists to make visible. And the floor now
+    // lies in the other direction: a graze is 0.12 of a blow, so "1" over a
+    // six-health Skitterer claims a seventh of its bar for something that took a
+    // twentieth.
+    const text = f.amount >= 10
+      ? String(Math.round(f.amount))
+      : (Math.round(f.amount * 10) / 10).toFixed(1);
     ctx.lineWidth = 3;
     ctx.strokeStyle = `rgba(6,8,13,${(0.85 * alpha).toFixed(3)})`;
     ctx.strokeText(text, x, y);
@@ -8232,10 +9072,28 @@ function sortDrawList() {
   }
 }
 
-/** One depth row of lit rock: the tops, then the sides. Both are `null` for a band
- *  the bake never wrote to -- a band that crosses only open floor, or only rock the
- *  character has never seen -- and `side` can be an empty path where every block on
- *  the band is interior. Two fills a band, and the room fills two dozen bands. */
+/** One depth row of lit masonry: the rock's tops, then its sides, then the same
+ *  two for any doorway on the band, then the bracket, the flame and the flame's
+ *  core for any torch on it. Each is `null` for a band the bake never wrote to --
+ *  a band that crosses only open floor, or only rock the character has never seen
+ *  -- and a `side` can be an empty path where every block on the band is interior.
+ *
+ *  **Up to seven fills a band, and the reason there are that many paths at all is
+ *  that a fill is one `fillStyle`.** Door geometry appended to `wallBandTop` would
+ *  come out in the wall's own colour and be invisible; a flame appended to the
+ *  door's would come out as timber. What all seven *share* is the band, which is
+ *  the expensive half -- there is no new entry in the depth list and nothing new
+ *  to sort, and a doorway or a torch is occluded by the rock in front of it
+ *  because it is on the same anti-diagonal its own tile is.
+ *
+ *  The order within a band is the order the materials are set into each other. A
+ *  door is set into a wall, so where a jamb and the block beside it overlap the
+ *  jamb wins; a torch is nailed to the face of whichever of the two it hangs on,
+ *  so it wins over both.
+ *
+ *  **The torch paths are `null` with the art off**, which is the one asymmetry: a
+ *  doorway is geometry a tactical plan needs and a torch is paint, so `[tactical]`
+ *  and `[dev]` bake none and fill none. */
 function fillBand(d) {
   const top = levelPaths.wallBandTop[d];
   if (top !== null) {
@@ -8246,6 +9104,29 @@ function fillBand(d) {
   if (side !== null) {
     ctx.fillStyle = WALL_XFACE;
     ctx.fill(side);
+  }
+  const doorTop = levelPaths.doorBandTop[d];
+  if (doorTop !== null) {
+    ctx.fillStyle = levelPaths.doorTop;
+    ctx.fill(doorTop);
+  }
+  const doorSide = levelPaths.doorBandSide[d];
+  if (doorSide !== null) {
+    ctx.fillStyle = levelPaths.doorSide;
+    ctx.fill(doorSide);
+  }
+  if (levelPaths.torchBandStem === null) return;
+  const stem = levelPaths.torchBandStem[d];
+  if (stem !== null) {
+    ctx.fillStyle = TORCH_IRON;
+    ctx.fill(stem);
+    // Always all three, and never one without the others: `bandPath` allocates
+    // them in the same iteration of the bake, so a band with a bracket on it has
+    // a flame and a core on it.
+    ctx.fillStyle = TORCH_FLAME_TONE;
+    ctx.fill(levelPaths.torchBandFlame[d]);
+    ctx.fillStyle = TORCH_CORE_TONE;
+    ctx.fill(levelPaths.torchBandCore[d]);
   }
 }
 
@@ -8450,7 +9331,9 @@ function render(state, now, arrived) {
   // room. **Floaters and callouts go over everything**, including each other's
   // bodies, because a number you cannot read is not a number. And **the way out
   // is on the ground**, under the trail and everything else -- it is a place,
-  // not a marker.
+  // not a marker. It is also nothing at all for most of a floor: nothing marks
+  // the exit while monsters live, so this row is empty until the level is
+  // cleared and then blooms at the last kill.
   //
   // **Two more are inside the `level` row, and an earlier draft of this diagram
   // had both of them wrong** -- it listed "floor passes, lantern, remembered walls,
@@ -8486,13 +9369,18 @@ function render(state, now, arrived) {
   // that is the only reason -- everything else about the ground is baked. It
   // takes `origin` too, so it can clamp its two full-arena composites to the
   // window; passed rather than re-derived, so there is one camera transform on
-  // this page and not two.
-  drawLevel(state, origin);
-  // Drawn in every mode, seen or not. See its own comment: seeing the exit from
-  // the moment you arrive is what turns "kill things" into "fight your way
-  // there", and the fog does not weaken that argument. One of the two knowing
-  // inconsistencies in the fog; `left N` is the other, and it counts every
-  // monster alive because it is the level's clear condition, not a perception.
+  // this page and not two. And `now`, for the torch flicker -- the wall clock,
+  // like every other presentational animation in this file, never the tick.
+  drawLevel(state, now, origin);
+  // Drawn in every mode, seen or not -- and now only ever *after* the level is
+  // cleared, at the spot the last thing died. See its own comment for the
+  // decision that retired the shut ring this used to draw as well. It stays
+  // outside the fog on a weaker but still good argument: the exit only exists
+  // because you cleared the room, so there is nothing left on the floor to
+  // discover it *from*, and a way out you have to re-find after earning it is a
+  // fetch quest. One of the two knowing inconsistencies in the fog; `left N` is
+  // the other, and it counts every monster alive because it is the level's clear
+  // condition, not a perception.
   drawPortal(state, now);
   drawTrail();
   // Where it is going after where it is going, on the ground with the trail and
@@ -8514,8 +9402,19 @@ function render(state, now, arrived) {
   // arithmetic; at a full room this gate is the difference between 15.69x the
   // screen in blended fill **across the whole page** and 2.60x, and it is the whole
   // of why a crowd was unplayable.
+  //
+  // **`readoutsOn()` sits at the call and never inside `drawVision` or
+  // `drawReach`**, and the same goes for the reach loops below and the wedge in
+  // `drawCharacter`'s ground pre-pass. Those functions are not touched by this
+  // column at all, so `[tactical]` -- the A/B control for the whole isometric
+  // conversion -- is the same code drawing the same pixels it drew before the
+  // mode existed. A gate inside the function would have been fewer lines and
+  // would have put the mode question in the middle of the drawing, which is the
+  // one thing this table is arranged to prevent. `Y` is unaffected: it is
+  // `drawVision`'s own first line, so it governs the two modes that still have
+  // discs and means nothing in `[world]`, which has none to hide.
   for (const unit of state.units) {
-    if (canSee(unit)) drawVision(unit, unit === state.hero || (locked !== null && unit.id === locked));
+    if (readoutsOn() && canSee(unit)) drawVision(unit, unit === state.hero || (locked !== null && unit.id === locked));
   }
   // **One branch, and everything that differs between the two projections is
   // inside it.** Above this line and below it, both modes run the same calls in
@@ -8540,7 +9439,7 @@ function render(state, now, arrived) {
   // A/B control intact, and the control is worth more than the line.
   if (PROJ.upright) {
     for (const unit of state.units) {
-      if (canSee(unit)) drawReach(unit, skinOf(unit), now);
+      if (readoutsOn() && canSee(unit)) drawReach(unit, skinOf(unit), now);
     }
     // The whole depth layer: build, sort, merge with the wall bands. Bodies go
     // through `drawBody`, which is where "or the memory of one" lives.
@@ -8556,7 +9455,7 @@ function render(state, now, arrived) {
     drawCorpses();
 
     for (const unit of state.units) {
-      if (canSee(unit)) drawReach(unit, skinOf(unit), now);
+      if (readoutsOn() && canSee(unit)) drawReach(unit, skinOf(unit), now);
     }
     // Monsters first, then the hero: the character you are commanding must never
     // end up underneath the thing attacking it. Through `drawBody`, which is where
@@ -8605,10 +9504,12 @@ let globeDpr = 0;
  *
  * **The health level is never late.** The throttle is broken the moment the
  * character's hit points change, so a blow lands on the globe on the frame it
- * lands in the world; only the wobble waits. `Math.round` because that is the
- * precision the globe itself is drawn at -- it is the number printed over the
- * liquid -- so this cannot be a redraw the picture would not show. `maxHp` is in
- * because a hero swap changes it and the liquid is a fraction of it.
+ * lands in the world; only the wobble waits. Rounded to *tenths* because that is
+ * the precision the globe itself is drawn at -- it is the number printed over the
+ * liquid, and `hp1` prints a decimal below ten -- so this cannot be a redraw the
+ * picture would not show. It was whole points when the number was, and the two
+ * have to move together or the argument in this paragraph stops being true.
+ * `maxHp` is in because a hero swap changes it and the liquid is a fraction of it.
  *
  * The DOM readouts beside it -- `el.unitHp` and the `#hp-fill` bar -- are
  * written every frame regardless, in `updateHud`. Nothing here touches them.
@@ -8721,7 +9622,7 @@ function drawGlobe(state, now) {
     g.textAlign = "center";
     g.textBaseline = "middle";
     g.font = `700 ${Math.round(css * 0.28)}px ${SANS}`;
-    const text = String(Math.max(0, Math.round(hero.hp)));
+    const text = hp1(Math.max(0, hero.hp));
     g.lineJoin = "round";
     g.lineWidth = 4;
     g.strokeStyle = "rgba(6,8,13,0.85)";
@@ -8777,16 +9678,20 @@ function updateBattle(state) {
   if (!state.hero) {
     cls = "state dead";
     head = "the character has fallen";
-    tail = "send in a new one, or press R for a new room";
+    // **Where**, not just "send in a new one". A replacement now arrives at the
+    // spot the last one died rather than somewhere safe, and a player who is
+    // not told that reads their second death in ten seconds as the button being
+    // broken.
+    tail = "send in a new one where it fell, or press R for a new room";
   } else if (standing === 0) {
     cls = "state idle";
-    if (state.portalState === 2) {
-      head = "clear";
-      tail = "the way out is open";
-    } else {
-      head = "quiet";
-      tail = "nothing left to fight";
-    }
+    // "Opened", past tense and where: the exit is not a fixture of the level
+    // that has unlocked, it is a thing that has just appeared at the last kill,
+    // and the player has to be told to look there. `quiet` is the branch for a
+    // room with nothing in it and no exit either -- a sandbox scenario, and the
+    // one place `portalState` is still 0 with nothing standing.
+    head = state.portalState ? "clear" : "quiet";
+    tail = state.portalState ? "the way out opened at the last kill" : "nothing left to fight";
   }
   el.battleState.className = cls;
   setText(el.battleState, `${state.hero && isPaused() ? "paused" : head} — ${tail}`);
@@ -8813,8 +9718,12 @@ function updateHud(state, stats, distance, arrived, settled, now, tickNow) {
   // comes first. See the block above `drawGlobe` for why that pair is the whole
   // of the condition -- and note that it is only the *canvas* that waits: the
   // number and the bar below are written every frame.
-  const globeHp = hero ? Math.round(hero.hp) : -1;
-  const globeMaxHp = hero ? Math.round(hero.maxHp) : -1;
+  // Keyed in tenths, because tenths are what the globe prints now (`hp1`). Keyed
+  // in whole points -- which is what this was -- a graze worth 0.4 changes the
+  // number over the liquid without changing the key, and the globe shows the old
+  // one until the 30 Hz tick catches up.
+  const globeHp = hero ? Math.round(hero.hp * 10) : -1;
+  const globeMaxHp = hero ? Math.round(hero.maxHp * 10) : -1;
   if (now - globeDrawnAt >= GLOBE_MS || globeHp !== globeDrawnHp || globeMaxHp !== globeDrawnMaxHp) {
     globeDrawnAt = now;
     globeDrawnHp = globeHp;
@@ -8841,7 +9750,11 @@ function updateHud(state, stats, distance, arrived, settled, now, tickNow) {
   // from the world. One `if` on the page is the right size of fix.
   if (currentView().dev) setText(el.simHash, hex64(wasm.state_hash_hi(), wasm.state_hash_lo()));
   setText(el.simPosition, hero ? `${hero.x.toFixed(2)}, ${hero.y.toFixed(2)}` : "—");
-  setText(el.unitHp, hero ? `${Math.round(hero.hp)} / ${Math.round(hero.maxHp)} hp` : "fallen");
+  // One decimal below ten, the same rule the floaters and the globe follow. A
+  // bar that runs 0 to 12 rounded to whole points cannot show the graze that
+  // just took a twentieth of it, and this is the readout a player checks a
+  // number against rather than glances at.
+  setText(el.unitHp, hero ? `${hp1(hero.hp)} / ${hp1(hero.maxHp)} hp` : "fallen");
   // The bar the eye reads, next to the number the eye checks. Same threshold the
   // bars on the canvas and the globe turn red at, from the same constant.
   const health = hero && hero.maxHp > 0 ? clamp(hero.hp / hero.maxHp, 0, 1) : 0;
@@ -9202,7 +10115,7 @@ function loop(now) {
   // this point in `loop` is still last frame's blend.
   //
   // Its own phase still, and now for the opposite reason to the one that was
-  // written here. This used to say the phase "costs nothing"; under `[regular]`
+  // written here. This used to say the phase "costs nothing"; under `[world]`
   // with the limb modifier held it carries an O(monsters) walk, so it is a number
   // that grows with a full room and wants to be visible when it does. In every
   // other configuration -- both top-down modes, or the modifier not held -- it is
@@ -9338,6 +10251,21 @@ function loop(now) {
     //
     // Guarded on the flags the paths were *baked* under rather than on `fogOn()`,
     // so that a mode change is caught by the branch below it and not by this one.
+    rebuildLevelPaths(readMap(), wasm.map_revision());
+  } else if (wasm.furniture_revision() !== levelPaths.furniture) {
+    // A door opened. **This fires on no path that exists today** and is here for
+    // the same reason the `art`/`fog` and `proj` arms below are: the module moves
+    // `map_revision` and `furniture_revision` together on both of the two paths
+    // that can move either -- a new floor, and the tick a door opens -- so the
+    // first arm has already caught it.
+    //
+    // `world-07` was supposed to be the day it started firing and it was not:
+    // the torches are furniture the floor plan genuinely has nothing to say
+    // about, but they are fixed for the life of a level, so they move only when
+    // the floor plan does. What this still guards is a piece of furniture that
+    // changes on its own -- a torch that goes out, a chest that opens -- and the
+    // failure is a doorway drawn shut over a hole forever rather than for one
+    // frame.
     rebuildLevelPaths(readMap(), wasm.map_revision());
   } else if (levelPaths.scale !== scale) {
     // A `Path2D` holds pixels. A zoom or a resize invalidates it just as surely
@@ -9753,16 +10681,17 @@ function stampText(at) {
  *
  * **Every row, including any not currently selected.** Written when `PROJ_ISO`
  * was still unreachable and this was the only thing that would notice it going
- * wrong before anything drew through it; `regular` selects it now, so the sweep
+ * wrong before anything drew through it; `world` selects it now, so the sweep
  * has stopped being the sole witness for that row and has not stopped being the
  * sole witness for the next one somebody adds.
  *
- * The three checks below are the same idea one layer down, and each covers a
+ * The four checks below are the same idea one layer down, and each covers a
  * seam the round trip cannot see. The round trip proves a matrix against its own
  * inverse and says nothing about the two booleans beside it, nothing about the
- * `ex` the upright art was baked against, and nothing about which `VIEW_MODES`
- * row pairs that projection with which `art` setting -- and every one of those
- * is a bit the renderer branches on.
+ * `ex` the upright art was baked against, nothing about which `VIEW_MODES` row
+ * pairs that projection with which `art` setting, and nothing about which row
+ * claims to be for reading numbers off while suppressing them -- and every one
+ * of those is a bit the renderer branches on.
  */
 function assertProjection() {
   const was = PROJ;
@@ -9844,6 +10773,13 @@ function assertProjection() {
       mode.art || !p.upright,
       `view mode ${mode.id} stands bodies up with art off: drawCharacter has no upright !art arm, so its collision circle would be drawn round and the real ellipse not at all`
     );
+  }
+
+  for (const m of VIEW_MODES) {
+    // A dev view is a view you read numbers off. One with the readouts suppressed
+    // is a worse [world] with the fog off, which is not a mode anybody wants and
+    // is the kind of row that gets added by copying the one above it.
+    if (m.dev && !m.readouts) throw new Error(`view "${m.id}": dev without readouts`);
   }
 }
 
@@ -9933,12 +10869,12 @@ async function boot() {
   // down the file and do not exist yet -- so it holds `PROJ_TOPDOWN` as a
   // fallback, and boot is the first point at which both halves are in scope.
   //
-  // Without it the page came up with `viewMode === "regular"` and a top-down
-  // matrix: it baked and drew a flat room with the art on while the `Regular`
+  // Without it the page came up with `viewMode === "world"` and a top-down
+  // matrix: it baked and drew a flat room with the art on while the `World`
   // segment was lit, and the isometric room only appeared after three presses of
-  // `G` -- all the way round the three modes and back to `regular`, where the
+  // `G` -- all the way round the three modes and back to `world`, where the
   // setter finally wrote what the segment had been claiming since load. It shipped
-  // that way from `iso-02`, which is the commit where `regular` turned, because
+  // that way from `iso-02`, which is the commit where `world` turned, because
   // that is the commit where the two initialisers stopped saying the same thing.
   //
   // **Before `resize`**, which is the whole reason it sits up here rather than

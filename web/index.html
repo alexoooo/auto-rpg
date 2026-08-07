@@ -112,7 +112,7 @@
               <span class="dot"></span>
               <span id="unit-name">fighter</span>
               <span class="hp-bar"><span id="hp-fill"></span></span>
-              <span class="hp" id="unit-hp">84 / 84 hp</span>
+              <span class="hp" id="unit-hp">12.0 / 12.0 hp</span>
             </div>
             <!-- The two lines that answer "what is it doing" and "is anything
                  happening". Both have their class attribute rewritten wholesale
@@ -388,12 +388,20 @@
               guard instead of a blade is a matter of what is in your hand, not a modifier key.
             </span>
           </li>
-          <li><kbd>Y</kbd><span>Show or hide the vision discs &mdash; how far each body can see.</span></li>
+          <li>
+            <kbd>Y</kbd>
+            <span>
+              Show or hide the vision discs &mdash; how far each body can see. A
+              <em>Tactical</em> and <em>Dev</em> control: <em>World</em> draws no discs to hide.
+            </span>
+          </li>
           <li>
             <kbd>G</kbd>
             <span>
-              Cycle how the room is drawn. <em>Regular</em> is the room as it looks;
-              <em>Tactical</em> drops the art for discs and facing wedges and keeps every readout;
+              Cycle how the room is drawn. <em>World</em> is the room as it looks, and only that
+              &mdash; art, the weapon in hand, a health bar when it matters, and one faint ring
+              where the body actually collides. <em>Tactical</em> drops the art for discs and
+              facing wedges and turns every readout back on: sight, reach and facing.
               <em>Dev</em> drops the fog of war as well, so you can watch what the monsters are
               doing while the character cannot. The first two show you only what the character can
               see &mdash; ground it has seen before stays dim, and rock it has never reached stays

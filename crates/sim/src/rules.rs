@@ -397,6 +397,21 @@ pub const TRACTION_BASE: Fx = Fx::from_ratio(41, 10_000);
 /// is what keeps it honest.
 pub const TRACTION_TICKS: u16 = 14;
 
+/// Ticks of steady pressure that open a door: half a second, so a door is a
+/// beat in the fight rather than a loading screen, and long enough that walking
+/// past one at an angle does not open it.
+pub const DOOR_TICKS: u16 = 30;
+
+/// How close a body's edge must be to a door's tile block to be leaning on it.
+///
+/// Measured from the *edge* and not from the centre, so the number means the
+/// same thing for a Skitterer as for a Brute: an arm's length of slack over the
+/// contact the collision resolver would make anyway. Small enough that a body
+/// crossing a corridor mouth on its way somewhere else is not leaning on the
+/// door it passes -- the direction test in `World::press_doors` is the other
+/// half of that, and neither is sufficient alone.
+pub const DOOR_REACH: Fx = Fx::from_ratio(35, 100);
+
 /// Error in a fighter's read of how fast *someone else* is moving, as a
 /// fraction of that body's top speed, per unit of perception noise.
 ///
@@ -461,19 +476,25 @@ pub const ENERGY_FLOOR: Fx = Fx::from_ratio(22, 10_000);
 /// Damage per unit of kinetic energy above [`ENERGY_FLOOR`], before the power
 /// stat.
 ///
-/// Set to hold a Fighter's best blow at the 14.3 it was worth under the old
-/// linear law, because what that number is really pinning is **resolution**
-/// rather than pace. At 135-per-unit-of-speed a duel was three or four landed
-/// blows, so "won with half its health" and "won almost untouched" were one blow
-/// apart and read as luck rather than as skill; a difficulty ladder needs more
-/// rungs than that. A dozen blows a side is the figure the ladder was measured
-/// at and the figure this holds.
+/// Set so that a Fighter's best blow is **3.6** against the 12 health
+/// [`Stats::max_hp`] now gives it: a ratio of 0.30, where the old law's 14.3
+/// against 84 was 0.17. Both halves of that moved on purpose and they moved by
+/// different amounts. Health fell by a factor of seven so that a stat point is
+/// legible; damage fell by only four, so that a fight is three or four clean
+/// exchanges rather than six.
 ///
-/// Switching laws moved the roster around that anchor but did not spread it out:
-/// against a Fighter's 1.00, a Brute went 1.74 -> 1.44 and a Skitterer
-/// 0.49 -> 0.37. The narrowing is [`MUSCLE_SPIN`]'s doing and not this
-/// constant's -- see [`blow_damage`] for why weapon mass cancels.
-pub const ENERGY_TO_DAMAGE: Fx = Fx::from_int(384);
+/// **What this costs is resolution, and the cost is real.** The old value was
+/// chosen to hold a duel at a dozen landed blows a side, on the argument that at
+/// three or four "won with half its health" and "won almost untouched" are one blow
+/// apart and read as luck rather than as skill. That argument has not been refuted;
+/// it has been outweighed. A ladder nobody can read the rungs of is worse than a
+/// ladder with fewer of them, and the rungs are now legible in the one place a
+/// player looks -- the number over the body.
+///
+/// Switching laws did not change the spread, which is [`MUSCLE_SPIN`]'s doing and
+/// not this constant's: against a Fighter's 1.00, a Brute is 1.44 and a Skitterer
+/// 0.37. See [`blow_damage`] for why weapon mass cancels.
+pub const ENERGY_TO_DAMAGE: Fx = Fx::from_int(96);
 
 /// What one contact is worth: `(1/2 m v^2 - ENERGY_FLOOR) * ENERGY_TO_DAMAGE`,
 /// scaled by the wielder's [`power_multiplier`], floored at zero.
@@ -1003,9 +1024,20 @@ impl Stats {
         }
     }
 
-    /// `20 + 8 * vitality`
+    /// `4 + vitality`. **One point of the stat is one point of health**, which is
+    /// the whole reason for the number rather than a happy consequence of it.
+    ///
+    /// The old law gave a Fighter 84 and a Brute 132, against a best blow of 14.3.
+    /// At that scale a point of vitality is 8 health out of 84 -- under a tenth of a
+    /// bar, and invisible in the only place a player ever reads health, which is the
+    /// size of the number that just came off it. A ladder whose rungs cannot be seen
+    /// from the game is a ladder in the source code.
+    ///
+    /// The floor of 4 is what stops `vitality 0` being a body that dies to a graze:
+    /// a Skitterer's own blow is 1.3, so the frailest thing buildable still takes
+    /// three of them. `MAX_ATTRIBUTE` is 20, so the ceiling is 24.
     pub const fn max_hp(self) -> Fx {
-        Fx::from_int(20 + 8 * self.vitality as i32)
+        Fx::from_int(4 + self.vitality as i32)
     }
 
     /// World units per tick. Kept per-tick rather than per-second so movement
@@ -1346,6 +1378,48 @@ mod tests {
         }
     }
 
+    /// The roster table in `docs/plans/world-03-scale.md`, asserted.
+    ///
+    /// Loose bounds rather than exact figures -- this is here to catch a change that
+    /// puts a Skitterer back to thirty-six health or a blow back to double figures,
+    /// not to make every tuning nudge a test failure.
+    ///
+    /// The arm is an archetype swinging its own [`Body::default_action`] on its own
+    /// radius -- the blow the roster table is a table of. `legacy_weapon`, which is
+    /// what the sweeps below and `Contact::frailty`'s fixtures still build, gives
+    /// the same four numbers to the last raw unit; but it is scaffolding marked
+    /// "do not read this for anything real", and a table of what the roster *is*
+    /// should not be reading it.
+    ///
+    /// [`Body::default_action`]: crate::entity::Body::default_action
+    #[test]
+    fn the_roster_is_the_size_the_design_claims() {
+        // Measured, in tenths: 13, 29, 35, 51. Three of those are the plan's
+        // predicted 1.3 / 3.6 / 5.2; the Rogue is 2.9 against a predicted 2.0,
+        // and the prediction was the thing that was wrong. A Rogue's knife has
+        // always been 0.82 of a Fighter's sword -- 11.8 against 14.3 under the
+        // old law -- and dividing by four does not change a ratio. The plan
+        // derived 2.0 from the archetype spread quoted in `ENERGY_TO_DAMAGE`,
+        // which names the Skitterer and the Brute and never the Rogue.
+        for (body, hp, blow) in [
+            (Body::Skitterer, 6, (11, 16)),
+            (Body::Rogue, 8, (25, 34)),
+            (Body::Fighter, 12, (32, 41)),
+            (Body::Brute, 18, (46, 58)),
+        ] {
+            let stats = body.base_stats();
+            assert_eq!(stats.max_hp(), Fx::from_int(hp), "{} health", body.name());
+            let arm = Arm::resolve(body.default_action().spec(), stats, body.radius());
+            let peak = peak_damage(arm, stats);
+            let tenths = (peak * Fx::from_int(10)).floor_int();
+            assert!(
+                (blow.0..=blow.1).contains(&tenths),
+                "{} best blow {peak:?} outside {blow:?} tenths",
+                body.name()
+            );
+        }
+    }
+
     #[test]
     fn no_weapon_swallows_its_own_blade_or_gives_up_its_graze_band() {
         // Two properties of the dead zone, swept across agility rather than
@@ -1406,8 +1480,9 @@ mod tests {
     #[test]
     fn energy_damage_never_saturates_at_the_extremes_of_the_roster() {
         // `Fx` saturates silently, and a squared term is the shortest path to
-        // it: `blow_damage` squares a speed, multiplies by a mass, scales by 384
-        // and then by a power multiplier that runs to 3. Every one of those is
+        // it: `blow_damage` squares a speed, multiplies by a mass, scales by
+        // `ENERGY_TO_DAMAGE` and then by a power multiplier that runs to 3.
+        // Every one of those is
         // fine on the authored sheets, which is exactly why this sweeps past
         // them -- the sheets are not the contract, the stat range is.
         //

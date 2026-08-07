@@ -165,6 +165,30 @@ impl Body {
         }
     }
 
+    /// Whether this body can work a door.
+    ///
+    /// **Anatomy, not intelligence.** A Brute is dim and opens nothing; a
+    /// Skitterer thinks faster than a Fighter and opens nothing either. What is
+    /// being asked is whether the thing has hands and stands up to use them.
+    ///
+    /// The obvious objection is that a Skitterer's default loadout is a Knife,
+    /// so it evidently has hands. A loadout is a **default and not an identity**
+    /// -- that is the whole distinction this type was split out to express (see
+    /// [`Body::default_loadout`]) -- so what a body walks in holding says
+    /// nothing about what it is. If that stops being convincing, the answer is
+    /// to take the knife off the Skitterer, not to give it the door.
+    ///
+    /// The consequence is the point: a room of Skitterers behind a shut door is
+    /// an engagement the player opens, because their route field
+    /// ([`crate::World::refresh_nav`]) says the hero is unreachable and they
+    /// hold.
+    pub const fn opens_doors(self) -> bool {
+        match self {
+            Body::Fighter | Body::Rogue => true,
+            Body::Brute | Body::Skitterer => false,
+        }
+    }
+
     /// What this body walks in with.
     ///
     /// A **default**, not an identity -- that is the whole difference between

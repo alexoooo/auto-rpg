@@ -60,7 +60,7 @@ mod world;
 
 pub use action::{ActionKind, ActionSpec, Role, ACTIONS};
 pub use command::{Command, Intent, LimbCommand, Objective, Order, Strike};
-pub use dungeon::{Cardinal, Dungeon, Level, OPEN, WALL};
+pub use dungeon::{Cardinal, Door, Dungeon, Level, Rect, Torch, CORRIDOR, DOOR, OPEN, WALL};
 pub use entity::{EntityId, Faction, Body};
 pub use event::Event;
 pub use hand::{Hand, Swing};
@@ -71,7 +71,8 @@ pub use rules::{
     agility_multiplier, block_leak, blow_damage, dead_zone, peak_damage, peak_impulse, peak_recoil,
     phase_ticks, power_multiplier, strike_ticks, Arm, Stats, ARM_INERTIA, BLOCK_LEAK_BRACED,
     BLOCK_LEAK_SNAP, BLOCK_RECOVERY, BLOCK_RESTITUTION, BODY_RESTITUTION, BRACE_ANCHOR, BRACE_SPIN,
-    BRACE_TICKS, CAPABILITY_JUDGEMENT, DIM_INTELLECT, DIM_PERCEPTION, DT, ENERGY_FLOOR,
+    BRACE_TICKS, CAPABILITY_JUDGEMENT, DIM_INTELLECT, DIM_PERCEPTION, DOOR_REACH, DOOR_TICKS, DT,
+    ENERGY_FLOOR,
     ENERGY_TO_DAMAGE, FOLLOW_THROUGH, IMPACT_THRESHOLD, KNOCKBACK_TRANSFER, MAX_CONTACTS,
     MAX_SHOTS, PARRY_RESTITUTION, RECOIL_TRANSFER, RECOVERY_EXPOSURE, STRIKE_SLACK, STRIKE_SPENT_ARC,
     STRIKE_TIMEOUT, TICKS_PER_SECOND, TRACTION_BASE, TRACTION_TICKS, VELOCITY_JUDGEMENT,

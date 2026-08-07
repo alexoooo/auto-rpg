@@ -34,16 +34,20 @@ const BUILD = ["cargo", "build", "--release", "--target", "wasm32-unknown-unknow
 // is what tells the two failure modes apart -- see `divergence` below.
 
 // `lab hash`: skirmish(1234, 4, 6), seed 99, baseline policy, run to a finish.
-const LAB_HASH = 0x00b48ceb21081d1dn;
+const LAB_HASH = 0xfe31370e141ef531n;
 
 // `init(1); set_goto(20_000, 12_000); step(600)`: the path a player drives.
-const ROOM_HASH = 0xadae95f2b6b46499n;
+// Re-recorded in `world-05` along with the three below: `init` is
+// `Scenario::dungeon`, so the level going from 48x32 to 68x45 is a different
+// floor plan and a different run from tick zero. `LAB_HASH` stayed put, which is
+// how you tell a level change from a rules change.
+const ROOM_HASH = 0x98441a18db7a95can;
 
 // `init(1); spawn_monster(3); step(600)`: a whole fight, start to finish. Worth
 // its own number because it reaches arithmetic the walk never does -- the spawn
 // point comes out of `Rng::from_stream` and the committed sine table, and every
 // approach measures a distance through `isqrt64`.
-const BATTLE_HASH = 0x8fac6bdd30efbcacn;
+const BATTLE_HASH = 0x9aafe4bd54560586n;
 
 // `init(1); spawn_monster(2) x3; step(1800); swap_in_hero(1); step(400)`: a
 // fight, a death, a replacement, and the fight the replacement walks into. The
@@ -51,7 +55,10 @@ const BATTLE_HASH = 0x8fac6bdd30efbcacn;
 // sim across the death of an entity and the *reuse* of its slot -- the
 // generational free list is exactly the kind of index bookkeeping that a 32-bit
 // usize could quietly do differently.
-const SWAP_HASH = 0xf963cdf8faf3331an;
+// Re-recorded in `world-04`, and the only one of the five that moved there: a
+// replacement now arrives at the spot the last one fell rather than in the
+// clearest room on the floor, and this is the one script with a death in it.
+const SWAP_HASH = 0xf948f5486ee90191n;
 
 // `init(1); set_hero_loadout(0, BOW); spawn_monster(BRUTE); step(1200)`: the
 // only one of these five that ever puts an arrow in the air, and the only
@@ -60,7 +67,7 @@ const SWAP_HASH = 0xf963cdf8faf3331an;
 // of every flight, `segment_circle`'s i64-staged dot products, and the
 // saturating multiply in `tangential_speed` at the release. Portable
 // fixed-point is a claim about code that runs.
-const BOW_HASH = 0xd67ad1e4eb4ad18dn;
+const BOW_HASH = 0x4a1157735d305e9fn;
 
 // The frame header, as the client reads it.
 const HEADER_LEN = 14;
@@ -86,7 +93,10 @@ const frameSpan = (live) =>
 // `ActionKind::code`, from crates/sim/src/action.rs. Append-only, so this is
 // safe to write down.
 const BOW_CODE = 6;
-const ARENA = [48, 32];
+// `DUNGEON_COLS` x `DUNGEON_ROWS`, from crates/sim/src/scenario.rs. Written down
+// rather than read off `wasm.map_cols()`, so that a level that quietly changed
+// extent fails here instead of agreeing with itself.
+const ARENA = [68, 45];
 
 // ------------------------------------------------------------------ the module
 
@@ -332,6 +342,14 @@ test("the boundary exports everything the client calls", () => {
     "vis_ptr",
     "vis_len",
     "vis_revision",
+    // The furniture: what stands on the floor plan and cannot be read out of it,
+    // on a fourth buffer read when `furniture_revision()` moves. `furniture_len()`
+    // counts *records* and not bytes; one record is `furniture_stride()` bytes of
+    // `[kind, tx, ty, state]`.
+    "furniture_ptr",
+    "furniture_len",
+    "furniture_stride",
+    "furniture_revision",
     "descend",
   ];
   for (const name of exports) {
@@ -405,7 +423,11 @@ test("the frame buffer still has the layout the client reads", () => {
 
   // The run block: how much is left, where the way out is, and which floor.
   assert.equal(live[9], units - 1, "monsters_left disagrees with the unit rows");
-  assert.equal(live[12], 1, "portal_state: visible but shut while monsters stand");
+  // Nothing marks the way out while monsters live. `1` -- "visible but shut" --
+  // is retired and never emitted; see `PORTAL_SHUT` in `crates/web/src/lib.rs`
+  // for the decision that retired it.
+  assert.equal(live[12], 0, "portal_state: the exit was marked before it was won");
+  assert.deepEqual([live[10], live[11]], [0, 0], "portal_x, portal_y with no portal");
   assert.equal(live[13], 0, "depth: the first floor");
 
   // The floor plan, which crosses on its own buffer because it changes once a
@@ -430,7 +452,7 @@ test("the frame buffer still has the layout the client reads", () => {
   );
   assert.ok(unit[2] >= 0 && unit[2] <= 65535, `facing_raw ${unit[2]} is not a binary angle`);
   assert.ok(Math.abs(unit[3] - 0.45) < 0.001, `radius ${unit[3]}`);
-  assert.equal(unit[5], 84, "max_hp: 20 + 8 * vitality 8");
+  assert.equal(unit[5], 12, "max_hp: 4 + vitality 8");
   assert.equal(unit[6], 0, "faction: Heroes");
   // The identity columns the client keys its per-body animations on. The room's
   // hero is the first entity ever spawned, so it holds slot 0 at generation 0.
@@ -623,6 +645,77 @@ function fog() {
   return new Uint8Array(wasm.memory.buffer, u32(wasm.vis_ptr()), u32(wasm.vis_len())).slice();
 }
 
+// The live furniture buffer, copied out and split into records. One record a
+// tile, `furniture_stride()` bytes of `[kind, tx, ty, state]` -- kind 1 is a
+// doorway, whose state byte is 1 open and 0 shut, and kind 2 is a torch, whose
+// state byte is which face it hangs on: 0 the `+x` face, 1 the `+y` face.
+function furniture(kind) {
+  const count = u32(wasm.furniture_len());
+  const stride = u32(wasm.furniture_stride());
+  const bytes = new Uint8Array(wasm.memory.buffer, u32(wasm.furniture_ptr()), count * stride).slice();
+  const out = [];
+  for (let i = 0; i < count; i++) {
+    const record = Array.from(bytes.slice(i * stride, (i + 1) * stride));
+    if (kind === undefined || record[0] === kind) out.push(record);
+  }
+  return out;
+}
+
+test("the doorways and the torches cross on a buffer the tile bytes cannot carry", () => {
+  // The furniture buffer's whole reason for existing, asserted from the page's
+  // side. A *shut* door is solid, so `map_ptr` publishes it as a 1 the client
+  // cannot tell from rock, and an *open* one is a 0 it cannot tell from the floor
+  // it was cut into; a renderer working off the tiles alone watches the doorway
+  // vanish the moment somebody walks through it. A torch is not in the tile bytes
+  // at all -- the page cannot tell a room wall from a corridor wall without
+  // redoing the generator's work, and only the generator has ever known.
+  wasm.init(1);
+  assert.equal(wasm.furniture_stride(), 4, "furniture_stride");
+  const all = furniture();
+  const doors = furniture(1);
+  const torches = furniture(2);
+  assert.ok(doors.length > 0, "a generated level published no doorways at all");
+  assert.ok(torches.length > 0, "a generated level published no torches at all");
+  assert.equal(
+    doors.length + torches.length,
+    all.length,
+    "an unknown furniture kind reached the page",
+  );
+
+  const tiles = new Uint8Array(wasm.memory.buffer, wasm.map_ptr(), wasm.map_len()).slice();
+  const cols = wasm.map_cols();
+  for (const [, tx, ty, state] of doors) {
+    assert.ok(tx < ARENA[0] && ty < ARENA[1], `a doorway at (${tx}, ${ty}) is off the level`);
+    assert.equal(state, 0, "a level opened with a door already open");
+    assert.equal(tiles[ty * cols + tx], 1, `the tiles call the shut doorway at (${tx}, ${ty}) floor`);
+  }
+  for (const [, tx, ty, face] of torches) {
+    assert.ok(tx < ARENA[0] && ty < ARENA[1], `a torch at (${tx}, ${ty}) is off the level`);
+    assert.ok(face === 0 || face === 1, `a torch at (${tx}, ${ty}) faces ${face}`);
+    // Solid where it hangs, floor where it looks: the two conditions that make a
+    // torch a light with a lamp rather than one floating in a room.
+    assert.equal(tiles[ty * cols + tx], 1, `the torch at (${tx}, ${ty}) is on floor`);
+    const [dx, dy] = face === 0 ? [1, 0] : [0, 1];
+    assert.equal(tiles[(ty + dy) * cols + tx + dx], 0, `the torch at (${tx}, ${ty}) faces rock`);
+  }
+
+  // Read on the same terms as the tiles: when the revision moves and not
+  // otherwise. `publish` runs on every export, so a revision that moved with the
+  // frame would have the page re-baking the level sixty times a second.
+  const revision = wasm.furniture_revision();
+  wasm.step(120);
+  wasm.spawn_monster(3, 255, 255);
+  assert.equal(wasm.furniture_revision(), revision, "the furniture moved under a frame");
+  assert.deepEqual(furniture(), all, "the records moved under a frame");
+
+  assert.equal(wasm.descend(), 1, "descend did not report the new depth");
+  assert.notEqual(wasm.furniture_revision(), revision, "a new floor kept the old furniture");
+  console.log(
+    `furniture      ${doors.length} door tiles and ${torches.length} torches, ` +
+      `${furniture().length} records on floor 2`,
+  );
+});
+
 // Which tile the hero is standing in, as one string to compare, or null once
 // there is nobody standing. The fog's cache key is the hero's *tile*, so this is
 // the only granularity worth asking about.
@@ -641,7 +734,7 @@ test("the fog is rebuilt when the hero changes tile and at no other time", () =>
 
   const arrival = fog();
   assert.ok(arrival.some((v) => v === 2), "the hero arrived blind");
-  assert.ok(arrival.some((v) => v === 0), "a whole 48x32 floor was in sight at once");
+  assert.ok(arrival.some((v) => v === 0), "a whole floor was in sight at once");
   assert.ok(!arrival.some((v) => v === 1), "the level arrived already explored");
 
   // The property, checked tick by tick rather than over a window, which is what
@@ -848,7 +941,7 @@ test("a death and a replacement replay the way native recorded them", () => {
   const hero = heroRow(live);
   assert.ok(hero, "the frame has no hero in it");
   assert.equal(hero[7], 1, "kind: Scout");
-  assert.equal(hero[5], 52, "max_hp: 20 + 8 * vitality 4");
+  assert.equal(hero[5], 8, "max_hp: 4 + vitality 4");
   assert.equal(live[2], 0, "order_kind: the replacement inherited an order");
 
   wasm.step(400);

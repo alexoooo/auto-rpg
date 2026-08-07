@@ -671,6 +671,7 @@ mod tests {
             name: "standoff".to_string(),
             dungeon,
             portal: None,
+            torches: Vec::new(),
             max_ticks: u32::MAX,
             units: vec![
                 unit(

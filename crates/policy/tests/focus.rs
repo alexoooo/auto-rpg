@@ -79,6 +79,7 @@ impl Hunt {
             name: "hunt".to_string(),
             dungeon: floor.clone(),
             portal: None,
+            torches: Vec::new(),
             max_ticks: u32::MAX,
             units: vec![hero, quarry],
         };
