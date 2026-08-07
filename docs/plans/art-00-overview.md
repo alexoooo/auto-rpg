@@ -26,8 +26,8 @@ done, and an implementer who takes it at face value will rewrite working code.
 
 | The brief assumes | The code says |
 |---|---|
-| The sim has no event mechanism; Part 1 must build one. | `crates/sim/src/event.rs` **exists**: `Damage`, `Death`, `Block`, `Parry`, `Loose`. `World::step` returns `&[Event]`. Four kinds already cross the ABI (`EVENT_DAMAGE`, `EVENT_BLOCK`, `EVENT_PARRY`, `EVENT_DECLARE`) at `EVENT_STRIDE = 5`, `MAX_EVENTS = 32`. |
-| Every event must be emitted inside `world.step()`. | `Sim::note_declares` (`crates/web/src/lib.rs:1592`) **derives** an event by differencing a per-entity phase table across ticks, in `crates/web`, touching `crates/sim` not at all. It exists precisely because a 5-tick windup can begin and end between two `requestAnimationFrame` callbacks, so the page cannot difference frames and the module can. **Most of Part 1's list belongs there, not in the sim.** |
+| The sim has no event mechanism; Part 1 must build one. | `crates/sim/src/event.rs` **exists**: `Damage`, `Death`, `Block`, `Parry`, `Loose` — and `Shove` since `art-03`. `World::step` returns `&[Event]`. Eleven kinds cross the ABI as of `art-03` (`EVENT_DAMAGE` … `EVENT_DESCEND`) at `EVENT_STRIDE = 8`, `MAX_EVENTS = 128`; before it there were four at `EVENT_STRIDE = 5`, `MAX_EVENTS = 32`. |
+| Every event must be emitted inside `world.step()`. | `Sim::note_bodies` (`crates/web/src/lib.rs`, and `note_declares` before `art-03` widened it) **derives** events by differencing per-entity tables across ticks, in `crates/web`, touching `crates/sim` not at all. It exists precisely because a 5-tick windup can begin and end between two `requestAnimationFrame` callbacks, so the page cannot difference frames and the module can. **Most of Part 1's list belongs there, not in the sim.** |
 | Environmental torches must be placed render-side, seeded from tile coordinates. | Torches are **sim furniture**, generated with the dungeon and published through `furniture_ptr`. `readFurniture` (`main.js:762`) reads them; `drawTorchLight` (`main.js:6355`) draws an additive light per torch with a per-torch flicker phase. There is nothing to seed and nothing to invent. |
 | The floor is a flat palette fill awaiting textures. | The floor is a **baked procedural flagstone tile** repeated through a `CanvasPattern` whose matrix carries the projection (`bakeFloorTile:4911`, `floorPatternNow:4998`). Eight courses of four stones with grain, mortar, a lit lip and a shadowed one, rebaked only when the zoom bucket moves. |
 | A vignette and a player light must be added. | `arenaVignette` (`main.js:5807`) and `drawLantern` (`main.js:6438`) both exist, both cached, both keyed to the room rather than the camera. |
@@ -99,10 +99,12 @@ golden and provably cannot:
 
 - **Widening the frame is not a hash change.** `tools/wasm_check.js` holds `UNIT_STRIDE`,
   `SHOT_STRIDE`, `EVENT_STRIDE`, `HEADER_LEN` and `FRAME_LAYOUT_VERSION` as **its own mirrored
-  constants** (`tools/wasm_check.js:74`, `363-373`) and asserts the module agrees with it. So a
-  wider row is an edit to that file — a deliberate, visible, one-line-each edit — and not a hash
-  moving. The five hashes are `World::state_hash` and `selftest_hash`; the frame buffer is not
-  hashed by anything.
+  constants** (the block under "The frame header, as the client reads it", and the five
+  assertions in "the boundary exports everything the client calls") and asserts the module agrees
+  with it. So a wider row is an edit to that file — a deliberate, visible, one-line-each edit —
+  and not a hash moving. The five hashes are `World::state_hash` and `selftest_hash`; the frame
+  buffer is not hashed by anything. **`art-03` did exactly this and every hash came out
+  byte-identical**, which is the claim demonstrated rather than argued.
 - **Events are not state.** `World::events` is cleared at the top of every `step` and read
   write-only afterwards. `state_hash` walks positions, velocities, health and the rest
   (`world.rs:2475`); it does not walk the event list, and `crates/sim/tests/determinism.rs`
@@ -168,11 +170,11 @@ one that ships first.
 
 ### 5. Most events belong in `crates/web`, because `Sim::advance` sees every tick and the page does not
 
-`Sim::advance` (`crates/web/src/lib.rs:1323`) runs `for _ in 0..frames` with up to eight ticks
-of catch-up per animation frame, and already differences three things across each tick: the
-hero handle, the dungeon fingerprint, and — in `note_declares` — a per-entity `Swing` table. A
-phase transition, a footfall, a weapon swap, a portal opening and a descent are all differences
-of things already visible there. **None of them is a reason to touch `crates/sim`.**
+`Sim::advance` runs `for _ in 0..frames` with up to eight ticks of catch-up per animation frame,
+and already differences three things across each tick: the hero handle, the dungeon fingerprint,
+and — in `note_bodies` — a per-entity table. A phase transition, a footfall, a weapon swap, a
+portal opening and a descent are all differences of things already visible there. **None of them
+is a reason to touch `crates/sim`.** `art-03` landed all five that way.
 
 What genuinely cannot be derived: the magnitude of an involuntary shove, because a velocity
 delta mixes the blow's impulse with the body's own traction-limited acceleration and telling

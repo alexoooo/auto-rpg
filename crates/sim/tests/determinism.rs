@@ -7,7 +7,9 @@
 //! tests pin the *simulation*, not the behaviour crate.
 
 use fx::{Fx, Vec2};
-use sim::{Command, Faction, LimbCommand, Observation, Order, Replay, Scenario, Strike, World};
+use sim::{
+    Command, Event, Faction, LimbCommand, Observation, Order, Replay, Scenario, Strike, World,
+};
 
 /// Charge the nearest visible enemy and cut at it; otherwise walk to the middle
 /// of the arena, so the two sides actually meet instead of sliding past each
@@ -91,6 +93,78 @@ fn run(scenario: &Scenario, seed: u64) -> (World, Replay, Vec<u64>) {
     }
     replay.finish(world.tick());
     (world, replay, hashes)
+}
+
+/// The same run again, keeping every tick's event slice instead of its hash.
+///
+/// A separate function rather than a fourth return from [`run`], because the
+/// borrow `World::step` hands back is a borrow of the world and the hash on
+/// the next line needs the world again -- so one of the two has to copy, and
+/// copying only where the events are wanted keeps the hot path allocation-free.
+fn run_events(scenario: &Scenario, seed: u64) -> Vec<Vec<Event>> {
+    let mut world = World::new(scenario, seed);
+    for (faction, order) in [
+        (Faction::Heroes, Order::Advance(Vec2::X)),
+        (Faction::Monsters, Order::Advance(-Vec2::X)),
+    ] {
+        world.set_order(faction, order);
+    }
+    let mut feed = Vec::new();
+    let mut due = Vec::new();
+    while world.outcome().is_none() && world.tick() < scenario.max_ticks {
+        due.clear();
+        due.extend_from_slice(world.pending_decisions());
+        for &id in &due {
+            let command = greedy(&world.observe(id));
+            world.submit(id, command);
+        }
+        feed.push(world.step().to_vec());
+    }
+    feed
+}
+
+/// **The event feed is the one outbound channel no golden hash can see.**
+///
+/// `World::state_hash` walks the world's arrays and does not walk
+/// `World::events`, which is exactly why a new variant cannot move a hash --
+/// and exactly why a hash cannot notice one that fires on the wrong tick, in
+/// the wrong order, or with a number that rounds differently on another
+/// thread. Nothing else in this file would fail if it did.
+#[test]
+fn the_same_run_reports_the_same_events_in_the_same_order() {
+    let scenario = Scenario::skirmish(1234, 4, 6);
+    let a = run_events(&scenario, 99);
+    let b = run_events(&scenario, 99);
+    assert_eq!(a.len(), b.len(), "the two runs were different lengths");
+    for (tick, (x, y)) in a.iter().zip(&b).enumerate() {
+        assert_eq!(x, y, "the event feeds diverged at tick {tick}");
+    }
+
+    let total: usize = a.iter().map(Vec::len).sum();
+    println!("{total} events over {} ticks", a.len());
+    assert!(total > 0, "a 4v6 fought to a finish produced no events at all");
+    // Guards this from going vacuous the way a test of an unreachable arm
+    // does: `Event::Shove` is the newest variant and the only one whose sites
+    // are all inside impulse code a scenario can fail to reach.
+    assert!(
+        a.iter().flatten().any(|e| matches!(e, Event::Shove { .. })),
+        "nothing in a 4v6 moved anybody, so the shove sites went untested"
+    );
+
+    // And across threads, which costs one scope and says something stronger:
+    // a thread-local, a global RNG or a wall clock reaching an emission site
+    // would show up here and in no other test in this file.
+    std::thread::scope(|scope| {
+        let handles: Vec<_> = (0..8)
+            .map(|_| {
+                let scenario = &scenario;
+                scope.spawn(move || run_events(scenario, 99))
+            })
+            .collect();
+        for handle in handles {
+            assert_eq!(handle.join().unwrap(), a, "one thread saw a different fight");
+        }
+    });
 }
 
 fn scenarios() -> Vec<Scenario> {

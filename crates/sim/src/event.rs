@@ -62,4 +62,35 @@ pub enum Event {
         at: Vec2,
         line: Angle,
     },
+    /// A body was moved by something other than its own feet.
+    ///
+    /// The one thing in this list that a listener genuinely cannot derive from
+    /// state. A velocity delta across a tick mixes the blow's impulse with the
+    /// body's own traction-limited acceleration, and separating the two from
+    /// outside would be a heuristic dressed up as a measurement -- so the
+    /// magnitude is reported where it is known, which is where it is applied.
+    ///
+    /// Three sources, and `entity` is always the body that *gains* `impulse`:
+    /// a blow shoving its target, an arrow shoving its target, and an
+    /// attacker's own recoil kicking it off its feet. `shover` names the other
+    /// party where there is one and is [`EntityId::NONE`] for a recoil, which
+    /// has nobody to blame.
+    ///
+    /// **Not** emitted for body-on-body jostling. Two bodies leaning on each
+    /// other exchange an impulse every tick for as long as they lean, which is
+    /// a state and not an event, and would be the one thing in this list
+    /// capable of flooding it.
+    ///
+    /// **`impulse` is never zero**, and all three sites test for it rather than
+    /// two: a shove of nothing is not a thing that happened. The test is not
+    /// theoretical at any of them -- fixed-point multiplication truncates, so
+    /// every one of the three can produce a vector that rounds away in both
+    /// components, and this is the highest-rate variant in the list.
+    Shove {
+        entity: EntityId,
+        shover: EntityId,
+        /// Velocity added to `entity`, world units per tick.
+        impulse: Vec2,
+        at: Vec2,
+    },
 }

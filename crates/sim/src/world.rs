@@ -1460,6 +1460,23 @@ impl World {
             }
 
             self.vel[j] += blow.shove;
+            // Reported where it is applied, and **as a field read and nothing
+            // else**. The vector was computed in pass 1 (`World::shove`); an
+            // emission site that recomputed it would be a second rounding of a
+            // number that is already in `vel`, which is the whole argument for
+            // this variant existing rather than the page differencing velocity.
+            //
+            // A zero shove is not announced. `World::shove` answers zero when
+            // the contact coincides with the attacker's own centre, and a shove
+            // of nothing is not a thing that happened.
+            if !blow.shove.is_zero() {
+                self.events.push(Event::Shove {
+                    entity: target,
+                    shover: source,
+                    impulse: blow.shove,
+                    at: blow.at,
+                });
+            }
 
             let effective = blow.amount.min(self.hp[j].max(Fx::ZERO));
             self.hp[j] -= blow.amount;
@@ -1615,6 +1632,19 @@ impl World {
             }
 
             self.vel[j] += pierce.shove;
+            // The arrow's half of the same rule, on the same terms: a field
+            // read of what pass 1 computed. `shover` is the archer's handle
+            // rather than an index it may no longer own -- an arrow outlives
+            // the fighter that loosed it, and a listener that keys on this is
+            // told so by the generation half failing to resolve.
+            if !pierce.shove.is_zero() {
+                self.events.push(Event::Shove {
+                    entity: target,
+                    shover: pierce.source,
+                    impulse: pierce.shove,
+                    at: pierce.at,
+                });
+            }
 
             let effective = pierce.amount.min(self.hp[j].max(Fx::ZERO));
             self.hp[j] -= pierce.amount;
@@ -1802,7 +1832,44 @@ impl World {
             // Along where the blade is pointing *now*: the impulse is billed at
             // the bottom of the tick, so it is billed where the blade ended up.
             let along = Vec2::from_angle(self.limb[i].angle).perp();
-            self.vel[i] -= along * (slipped * recoil.signum());
+            // Bound rather than written inline, which is a refactor and not a
+            // change: `-=` desugars to the same subtraction of the same
+            // operand, evaluated once either way. The binding exists so the
+            // event below can be a field read like the other two shove sites.
+            let kick = along * (slipped * recoil.signum());
+            self.vel[i] -= kick;
+            let entity = self.id_of(i);
+            let at = self.pos[i];
+            // The same rule the other two sites hold: a shove of nothing is not
+            // a thing that happened. `slipped` is positive by the test above,
+            // but `Mul<Fx> for Vec2` truncates toward zero, so a kick barely
+            // past the traction threshold can round to `(0, 0)` in both
+            // components -- and shoves are nine event rows in ten, so a
+            // zero-magnitude one is noise on the highest-rate channel there is.
+            // Measured rather than assumed: `web`'s scripted feed
+            // (`one_script_run_twice_...`) carried 929 shove rows of 1409 over
+            // 2195 ticks, and two of the 929 were this.
+            //
+            // **The guard is around the event and not around `vel`.** The
+            // subtraction above is unconditional and stays that way; it is a
+            // no-op when `kick` is zero, and moving it in here would put a
+            // branch on simulation state to spare an event row, which is the
+            // one trade this file never makes.
+            //
+            // `-kick`, because `impulse` is what the body *gains* at all three
+            // sites and this one is billed as a subtraction. The negation
+            // cannot reach state -- it is never written back to `vel`.
+            if !kick.is_zero() {
+                self.events.push(Event::Shove {
+                    entity,
+                    // Nobody to blame. A recoil is a fighter's own swing
+                    // throwing it off its feet, which is why this variant
+                    // carries a shover that is allowed not to exist.
+                    shover: EntityId::NONE,
+                    impulse: -kick,
+                    at,
+                });
+            }
         }
     }
 
@@ -3221,6 +3288,8 @@ impl World {
             position: self.pos[i],
             facing: self.facing[i],
             radius: self.radius[i],
+            velocity: self.vel[i],
+            mass: self.mass[i],
             hp: self.hp[i].max(Fx::ZERO),
             max_hp: self.max_hp[i],
             intent: self.command[i].intent,
@@ -3265,6 +3334,23 @@ pub struct UnitView {
     pub position: Vec2,
     pub facing: Angle,
     pub radius: Fx,
+    /// Integrated velocity, world units per tick. Already state and already
+    /// hashed (`World::state_hash`); the view simply stops hiding it.
+    ///
+    /// A renderer needs it for three things at once and none of them can be had
+    /// by differencing positions across frames: a walk cycle's clock, the lean
+    /// a body carries into a turn, and the difference between "stopped" and
+    /// "walking into a wall". Frames are not ticks, so a page-side difference
+    /// samples this at whatever rate the browser felt like.
+    pub velocity: Vec2,
+    /// What this body weighs. Likewise already state and already hashed.
+    ///
+    /// **Published rather than re-derived**, and that is the whole reason it is
+    /// here. `Body::mass` is geometry *unless stated otherwise*, so a renderer
+    /// that wrote `mass = f(radius)` would be describing a body that can change
+    /// underneath it -- which is exactly the mirrored-formula bug `sight_range`
+    /// was moved into the frame to kill.
+    pub mass: Fx,
     pub hp: Fx,
     pub max_hp: Fx,
     pub intent: Intent,

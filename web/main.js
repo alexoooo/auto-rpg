@@ -34,15 +34,16 @@ const MAX_CATCHUP_TICKS = 8;
 // entity_index, entity_generation, limb_angle_raw, limb_reach, limb_spin,
 // action_length, action_arc_raw, hit_flash, block_flash, parry_flash,
 // limb_swing, limb_swing_left, limb_line_raw, action_kind, action_role, slot,
-// slot0_action, slot1_action, sight_range, visible].
+// slot0_action, slot1_action, sight_range, visible, vx, vy, stride,
+// swing_span].
 //
 // That list was stale for a layout: it still named the two shield columns a
 // character carried before it had one limb, so it counted thirty names against a
 // stride of twenty-eight. `readUnit` below is the authority either way -- it is
 // what indexes the row -- but a comment that miscounts the row is worse than no
 // comment, because it is the thing somebody reaches for first.
-const HEADER_LEN = 14;
-const UNIT_STRIDE = 29;
+const HEADER_LEN = 15;
+const UNIT_STRIDE = 33;
 
 /** Most unit rows a frame can carry. Mirrors `web::MAX_UNITS`, which is what
  *  `write_frame` stops at, and it is here only to size the parse pools below --
@@ -61,18 +62,30 @@ const SHOT_STRIDE = 4;
 const MAX_SHOTS = 32;
 
 /** Floats per event, in a third block that follows the arrows:
- *  [kind, x, y, amount, actor_index].
+ *  [kind, x, y, amount, actor_index, other_index, aux0, aux1].
  *
  *  Things that *happened*, as opposed to things that are. Every other row in the
  *  frame describes state that will still be there next frame; an event is gone
  *  the moment it is read, and what the page does with it -- a floating number, a
  *  callout bubble -- it then ages on its own wall clock, like `trail` and
- *  `corpses`. */
-const EVENT_STRIDE = 5;
+ *  `corpses`.
+ *
+ *  `amount`, `aux0` and `aux1` all read differently under each `kind`. The
+ *  table is in `EVENT_STRIDE`'s doc comment in crates/web/src/lib.rs and there
+ *  is deliberately no second copy of it here: a table repeated in two files is a
+ *  table that disagrees with itself. */
+const EVENT_STRIDE = 8;
 
 /** Most event rows a frame can carry, mirroring `web::MAX_EVENTS`. Sizes the
- *  event pool, on the same terms as the two above. */
-const MAX_EVENTS = 32;
+ *  event pool, on the same terms as the two above.
+ *
+ *  **The one mirrored constant with no export behind it**, which `lib.rs` calls
+ *  deliberate: the module answers "were rows dropped" in `frame[14]` instead, so
+ *  the page never has to know the cap to know it was hit. The price is that
+ *  neither the boot handshake nor `wasm_check` can catch this number drifting
+ *  from the module's, so **nothing here may state it as the module's cap** --
+ *  it sizes a pool and no more. See `warnIfEventsWereDropped`. */
+const MAX_EVENTS = 128;
 
 /**
  * The stride of the packed entity handle, and the reason it is exactly this.
@@ -97,17 +110,31 @@ const MAX_EVENTS = 32;
  */
 const ID_INDEX_SPAN = 128;
 
-/** Event `kind` codes, from crates/web/src/lib.rs. `amount` reads differently
- *  under each: health lost, health absorbed, nothing, and an action code. */
+/** Event `kind` codes, from crates/web/src/lib.rs, where the table of what each
+ *  one's `amount`, `aux0` and `aux1` mean also lives.
+ *
+ *  **Append-only, and a page skips a kind it has never heard of rather than
+ *  guessing at it** -- which is what lets an older page run against a newer
+ *  module and draw nothing wrong. `consumeEvents` already behaves that way: it
+ *  tests for the kinds it knows and falls through the rest. Seven of these
+ *  eleven are consumed by nothing today; `art-09` takes the shove and the
+ *  death, `art-10` and `art-11` take the rest. */
 const EVENT_DAMAGE = 0;
 const EVENT_BLOCK = 1;
 const EVENT_PARRY = 2;
 const EVENT_DECLARE = 3;
+const EVENT_DEATH = 4;
+const EVENT_LOOSE = 5;
+const EVENT_PHASE = 6;
+const EVENT_STEP = 7;
+const EVENT_SHOVE = 8;
+const EVENT_PORTAL = 9;
+const EVENT_DESCEND = 10;
 
 /** Frame layout this file is written against. Checked at boot against
  *  `frame_layout_version()`, and a mismatch stops the page rather than letting
  *  it paint a health bar out of a guard arc. */
-const FRAME_LAYOUT_VERSION = 6;
+const FRAME_LAYOUT_VERSION = 7;
 
 // `Swing::discriminant`, from crates/sim/src/hand.rs. Append-only.
 const SWING_GUARD = 0;
@@ -800,8 +827,8 @@ function readFurniture(cols) {
 // previous parse and the current one at the same time and blending between them;
 // a parse that reused one buffer would have `prev` and `curr` be the same object
 // and the blend would interpolate a state with itself. It adds a third state for
-// the blended picture and writes `blendUnit(a, b, t, out)` against the row shape
-// `readUnit` fills.
+// the blended picture and writes `blendUnit(a, b, t, span, out)` against the row
+// shape `readUnit` fills.
 //
 // **The scratch state is not a nicety either.** Eight call sites parse outside
 // the loop -- a pointer press, the release that ends a drag, Escape, a stand-down
@@ -851,6 +878,10 @@ function newUnitRow() {
     slot1: 0,
     sight: 0,
     visible: false,
+    vx: 0,
+    vy: 0,
+    stride: 0,
+    swingSpan: 0,
   };
 }
 
@@ -861,7 +892,7 @@ function newShotRow() {
 
 /** One event row, on the same terms as `newUnitRow`. */
 function newEventRow() {
-  return { kind: 0, x: 0, y: 0, amount: 0, actor: 0 };
+  return { kind: 0, x: 0, y: 0, amount: 0, actor: 0, other: 0, aux0: 0, aux1: 0 };
 }
 
 /**
@@ -900,6 +931,7 @@ function newFrameState() {
     portalY: 0,
     portalState: 0,
     depth: 0,
+    eventsDropped: 0,
     unitPool,
     shotPool,
     eventPool,
@@ -1010,6 +1042,23 @@ function readUnit(f, u, out) {
   // With no hero standing this is 1 for everything: a fog of war with nobody
   // to be fogged from is just a blank screen.
   out.visible = f[u + 28] !== 0;
+  // Velocity, world units per tick, signed and small -- a Fighter's top speed
+  // is about 0.048. Plain floats, not binary angles: no conversion here.
+  //
+  // In the frame rather than differenced across frames because a frame is up to
+  // `MAX_CATCHUP_TICKS` ticks and often none, so a page-side difference would be
+  // measuring rAF's jitter as much as the body's feet.
+  out.vx = f[u + 29];
+  out.vy = f[u + 30];
+  // The walk cycle's phase, `0 <= stride < 1`, integrated by the module over
+  // this body's own speed. **It wraps**, which is why `blendUnit` runs it
+  // through `lerpWrap01` rather than `mix` -- and only across a single tick,
+  // because a wrap two samples apart cannot be told which way it went.
+  out.stride = f[u + 31];
+  // How many ticks the current swing phase started with, so `swingLeft /
+  // swingSpan` is an honest fraction. Zero at guard, where `swingLeft` means
+  // nothing.
+  out.swingSpan = f[u + 32];
   return out;
 }
 
@@ -1041,6 +1090,11 @@ function parseFrame(f, out) {
   out.portalY = f[11];
   out.portalState = f[12];
   out.depth = f[13];
+  // How many event rows the module's own cap ate this frame. Zero in every
+  // situation anybody has measured; `warnIfEventsWereDropped` is what says so
+  // out loud if it ever is not, because a bound nobody can observe is a bound
+  // nobody maintains.
+  out.eventsDropped = f[14];
   out.hero = null;
 
   // Trust the buffer's length over the header's count. They agree, and the
@@ -1117,8 +1171,8 @@ function parseFrame(f, out) {
   for (let i = 0; i < rowCount; i++) {
     const at = eventBase + i * EVENT_STRIDE;
     const event = out.eventPool[i];
-    // One of EVENT_DAMAGE / EVENT_BLOCK / EVENT_PARRY / EVENT_DECLARE, and
-    // `amount` means something different under each.
+    // One of the eleven EVENT_* codes above, and `amount`, `aux0` and `aux1`
+    // all mean something different under each. See `EVENT_STRIDE`.
     event.kind = f[at];
     event.x = f[at + 1];
     event.y = f[at + 2];
@@ -1129,6 +1183,12 @@ function parseFrame(f, out) {
     // hint for grouping, not an identity -- `unit.id` is still the only one
     // of those.
     event.actor = f[at + 4];
+    // The second party, or 255 for none: the attacker behind a blow, the killer
+    // behind a death, the shover behind a shove. A hint for grouping on exactly
+    // the terms `actor` is, and no more an identity.
+    event.other = f[at + 5];
+    event.aux0 = f[at + 6];
+    event.aux1 = f[at + 7];
     out.events[i] = event;
   }
   out.events.length = rowCount;
@@ -1189,6 +1249,64 @@ function lerpAngle(a, b, t) {
 }
 
 /**
+ * `lerpAngle` with a period of 1 instead of `TAU`.
+ *
+ * For `stride`, which is the walk cycle's phase and wraps 1 -> 0 every footfall.
+ * A straight `mix` across that wrap runs the legs backwards through a whole
+ * cycle inside one frame -- the same failure `lerpAngle` exists for, on a body
+ * turning through north, and it fires here about once a fifth of a second per
+ * walking body rather than occasionally.
+ *
+ * **It has `lerpAngle`'s blind spot, and the caller closes it rather than this
+ * function.** Half a period one way is indistinguishable from half a period the
+ * other, and two samples cannot recover a winding number -- so no better lerp
+ * fixes it. What matters is the bound on the advance **between the two samples
+ * being blended**, which is `span` ticks and not one: `blend` takes `span` from
+ * `max(currTick - prevTick, 1)` and `loop` caps a frame at `MAX_CATCHUP_TICKS`,
+ * so `span` reaches 8 every time a frame bins its backlog -- the ordinary path
+ * whenever the tab regains focus. The fastest body in the game advances 0.153 of
+ * a stride per tick (a Skitterer: radius 0.30, `move_speed` 0.0597,
+ * `STRIDE_PER_RADIUS` 1.3), so one tick is comfortably under the half-period
+ * bound, four ticks is 0.61 of a period and interpolates *backwards*, and eight
+ * is 1.22 and wrong in direction and magnitude both. An earlier version of this
+ * comment argued the bound from the module's own clamp, which is a clamp per
+ * *tick* against a lerp per *frame* and therefore the wrong quantity entirely.
+ *
+ * So `blendUnit` calls this only at `span === 1` and snaps to `curr` otherwise.
+ * The cost of snapping is one small jump in the walk phase, on a catch-up frame
+ * where every position in the room jumps anyway; the cost of not snapping is
+ * legs that run backwards for several frames afterwards, because the reversal is
+ * then drawn across every following `ticks === 0` frame at a climbing alpha.
+ * `snapRow` is the precedent: a column that cannot be honestly interpolated is
+ * taken from `curr` outright.
+ *
+ * **The result is renormalised into `[0, 1)`**, which `a + d * t` on its own does
+ * not give: 0.95 and 0.05 half way is 1.0 exactly. That is harmless under
+ * `sin(stride * TAU)` and wrong under `Math.floor(stride * frameCount)`, which is
+ * how a sprite sheet gets indexed -- and `readUnit`, `UNIT_STRIDE`'s doc,
+ * `Trace::stride` and `tools/wasm_check.js` all promise `0 <= stride < 1`.
+ *
+ * **`Math.floor` alone does not close it**, which a fuzz over the unit square
+ * found rather than an argument: `lerpWrap01(0.05, 0.95, 0.5)` lands a few parts
+ * in 10^17 *below* zero, floors to -1, and `v - -1` rounds to exactly 1 in
+ * float64 -- the one value being excluded, reintroduced by the exclusion. The
+ * `w < 1` test is the fix, and 0 is the honest answer for it: the true result is
+ * a whole period, and a whole period is none.
+ *
+ * `lerpWrap01(v, v, t)` is still exactly `v`, which `blendUnit`'s "an exact copy"
+ * claim rests on: `d` is 0, so the subtraction is `v - Math.floor(v)` on a value
+ * already in range, and the test below passes it through.
+ */
+function lerpWrap01(a, b, t) {
+  let d = (b - a) % 1;
+  if (d > 0.5) d -= 1;
+  else if (d < -0.5) d += 1;
+  const v = a + d * t;
+  const w = v - Math.floor(v);
+  return w < 1 ? w : 0;
+}
+
+/**
  * Whether a row must be taken from `curr` outright rather than blended.
  *
  * **One predicate rather than five scattered guards**, because it is one idea:
@@ -1234,22 +1352,28 @@ function snapRow(a, b) {
  * Three groups, and which group a field is in is a statement about what the
  * field *is*:
  *
- *   * **lerped** -- everything continuous: position, size, health, the limb's
- *     extension and spin, how much of the swing is left, the sight radius, and
- *     the three already-decayed flash markers;
+ *   * **lerped** -- everything continuous: position, size, health, velocity, the
+ *     limb's extension and spin, how much of the swing is left, the sight
+ *     radius, and the three already-decayed flash markers;
  *   * **lerped the short way** -- `facing`, `limbAngle` and `limbLine`, the
  *     three live bearings, through `lerpAngle`;
- *   * **snapped** -- every identity and every discriminant, plus `actionLength`
- *     and `actionArc`. Those last two look like geometry and are not: they are
- *     **static properties of the action**, how long the weapon is and how wide
- *     its swing will be, and halfway between two weapons' arcs is no weapon.
+ *   * **lerped the short way round 1, and only across a single tick** --
+ *     `stride`, through `lerpWrap01`. Same idea with a period of one instead of
+ *     a full turn, because the walk cycle's phase wraps every footfall. At
+ *     `span > 1` it is snapped instead: two samples further apart than that
+ *     cannot say which way round the cycle went. See `lerpWrap01`;
+ *   * **snapped** -- every identity and every discriminant, plus `actionLength`,
+ *     `actionArc` and `swingSpan`. Those three look like geometry and numbers
+ *     and are neither: they are **static properties of the action or the phase**,
+ *     and halfway between two weapons' arcs is no weapon.
  *
- * **`blendUnit(row, row, t, out)` is an exact copy** -- `mix(v, v, t)` is
- * `v + 0 * t` and `lerpAngle(v, v, t)` is the same -- which is what the snap
- * paths in `blend` use, rather than a second copy routine that could drift out
- * of step with this one field by field.
+ * **`blendUnit(row, row, t, span, out)` is an exact copy** -- `mix(v, v, t)` is
+ * `v + 0 * t`, `lerpAngle(v, v, t)` is the same, and `lerpWrap01(v, v, t)` is
+ * too at either `span` -- which is what the snap paths in `blend` use, rather
+ * than a second copy routine that could drift out of step with this one field
+ * by field.
  */
-function blendUnit(a, b, t, out) {
+function blendUnit(a, b, t, span, out) {
   out.x = mix(a.x, b.x, t);
   out.y = mix(a.y, b.y, t);
   out.facing = lerpAngle(a.facing, b.facing, t);
@@ -1280,6 +1404,20 @@ function blendUnit(a, b, t, out) {
   out.slot1 = b.slot1;
   out.sight = mix(a.sight, b.sight, t);
   out.visible = b.visible;
+  out.vx = mix(a.vx, b.vx, t);
+  out.vy = mix(a.vy, b.vy, t);
+  // Blended across one tick and snapped across more than one. The gate is
+  // `lerpWrap01`'s whole correctness argument and it lives here because `span`
+  // does; `b` is `curr`, so this is the same "take the truth" answer `snapRow`
+  // gives for a column that has stopped being two samples of one continuous
+  // thing.
+  out.stride = span === 1 ? lerpWrap01(a.stride, b.stride, t) : b.stride;
+  // Snapped, with `actionLength` and `actionArc`: it is a *phase's length* and
+  // there is no halfway between an axe's 33 ticks and a punch's 5. It would in
+  // practice never come out wrong lerped -- `snapRow` already returns true
+  // whenever `swing` changes, and this is constant within a phase -- so this is
+  // the honest classification rather than a fix for a live bug.
+  out.swingSpan = b.swingSpan;
   return out;
 }
 
@@ -1322,7 +1460,8 @@ const SHOT_SNAP_UNITS = 1.5;
  *
  * `span` is how many ticks apart the two states are and `lockHeld` is whether
  * they were parsed under the same focus; see the arrows and the order slots
- * below for what each is for.
+ * below for what each is for, and `lerpWrap01` for the third reader of `span` --
+ * the walk cycle, which is only interpolable at all across a single tick.
  */
 function blend(a, b, t, span, lockHeld, out) {
   // **At `t = 1` the picture *is* `curr`**, and that is not a rare case: it is
@@ -1341,6 +1480,11 @@ function blend(a, b, t, span, lockHeld, out) {
   out.portalY = b.portalY;
   out.portalState = b.portalState;
   out.depth = b.depth;
+  // Carried across for completeness, so a blended state is a state and not
+  // most of one. Nothing reads it from here -- `warnIfEventsWereDropped` asks
+  // `curr`, beside `consumeEvents`, because it is a fact about the ticks that
+  // just ran rather than about the picture being drawn.
+  out.eventsDropped = b.eventsDropped;
 
   // The order slots, which are the one subtle case on this whole page.
   //
@@ -1381,7 +1525,7 @@ function blend(a, b, t, span, lockHeld, out) {
     // snaps -- see `ID_INDEX_SPAN` for why that cannot happen today.
     const was = from.byIndex[to.index];
     const source = was && was.id === to.id && !snapRow(was, to) ? was : to;
-    const row = blendUnit(source, to, t, out.unitPool[i]);
+    const row = blendUnit(source, to, t, span, out.unitPool[i]);
     out.units[unitCount++] = row;
     if (row.index < ID_INDEX_SPAN) byIndex[row.index] = row;
     if (row.faction === FACTION_HEROES) {
@@ -1401,11 +1545,14 @@ function blend(a, b, t, span, lockHeld, out) {
   // shifts every row after it up by one and row `i` becomes a different arrow.
   //
   // The correct fix is a `slot` column on the shot row, and it costs
-  // `SHOT_STRIDE` 4 -> 5 and `FRAME_LAYOUT_VERSION` 6 -> 7 across five files in
-  // a repo where four golden suites hang off the frame; `perf-03-cadence.md`
-  // rules that its own session and not this one. Arrows are the fastest thing on
-  // screen and therefore the most judder-visible, so leaving them raw was not an
-  // option either.
+  // `SHOT_STRIDE` 4 -> 5 and another `FRAME_LAYOUT_VERSION` bump across five
+  // files in a repo where four golden suites hang off the frame;
+  // `perf-03-cadence.md` rules that its own session and not this one. (The
+  // version numbers this used to name -- 6 -> 7 -- are `art-03`'s, which spent
+  // that bump on a header float and four unit columns. The cost of the shot
+  // slot is unchanged; only the number it would land on is.) Arrows are the
+  // fastest thing on screen and therefore the most judder-visible, so leaving
+  // them raw was not an option either.
   //
   // So the re-index is caught page-side by what it does: it moves a row a long
   // way in one frame, and an arrow does not. Faction rides along for free -- an
@@ -9046,9 +9193,12 @@ function iconGlyph(code) {
 const SANS = 'ui-sans-serif, system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
 
 /** How long a damage number lives, how far it climbs, and how many may be up at
- *  once. The cap is the interesting one: the event feed holds 32 rows and a
- *  crowded room can fill it, and thirty-two numbers on screen is not a readout,
- *  it is a snowstorm. */
+ *  once. The cap is the interesting one and **the argument for it got stronger,
+ *  not weaker, when the feed grew**: the event feed holds 128 rows now, most of
+ *  which are footfalls and phase changes that float nothing -- but a crowded
+ *  room can still put dozens of damage rows in one frame, and two dozen numbers
+ *  on screen is already not a readout, it is a snowstorm. So this stays at 24
+ *  while `MAX_EVENTS` quadrupled. */
 const FLOATER_MS = 800;
 const FLOATER_RISE = 0.8; // world units
 const MAX_FLOATERS = 24;
@@ -9100,6 +9250,14 @@ function factionOfActor(state, actor) {
  * frame, so the page's own memory answers for that one.
  */
 function actorVisible(state, actor) {
+  // **A row with no actor at all reads `undefined` here, and that works by
+  // accident.** `EVENT_PORTAL` and `EVENT_DESCEND` carry `actor = 255`, which
+  // is past `ID_INDEX_SPAN`, so this lookup is `undefined`, the loop below
+  // matches nothing, and the function answers `true` -- which is the right
+  // answer for a fact about the level rather than about a body. It is an
+  // accident because `byIndex` is only 128 long: raise `MAX_UNITS` past that
+  // and 255 becomes a live slot, at which point a portal row would inherit
+  // whatever body happens to be standing in it. See `ID_INDEX_SPAN`.
   const unit = state.byIndex[actor];
   if (unit) return canSee(unit);
   for (const [id, seen] of bodies) {
@@ -9158,7 +9316,41 @@ function consumeEvents(state) {
     // EVENT_PARRY is deliberately not floated. `drawMarks` already puts sparks
     // on the blades that crossed, at the point they crossed at, and a second
     // announcement of the same instant would be noise.
+    //
+    // And the seven kinds this function has never heard of fall straight
+    // through, which is the append-only rule working rather than an omission --
+    // see the `EVENT_*` block. `art-09` takes the shove and the death.
   }
+}
+
+/** Says once, and only once, that the module's event cap ate rows.
+ *
+ *  `frame[14]` is the module's own count of what `MAX_EVENTS` turned away, and
+ *  it is in the header precisely so that "the cap is generous" is checkable from
+ *  the console instead of believed. Latched rather than printed per frame,
+ *  because a warning that repeats sixty times a second is a warning nobody
+ *  reads -- and because the interesting fact is *that it happened at all*.
+ *
+ *  Called from `loop` beside `consumeEvents` and under the same `ticks > 0`
+ *  guard: a frame that stepped nothing is still holding the last call's header,
+ *  and counting that twice would overstate the first occurrence.
+ *
+ *  **It does not name the cap**, and that is the point rather than an omission.
+ *  `MAX_EVENTS` is the one mirrored constant with no export behind it, so this
+ *  page's copy cannot be checked against the module's at boot or by
+ *  `wasm_check`; printing it here would let a stale 128 send somebody to edit a
+ *  number that is no longer there. The count that *is* printed came out of
+ *  `frame[14]`, which the module wrote this frame, and the file to go and read
+ *  is named instead of the value in it. */
+let eventsDroppedWarned = false;
+function warnIfEventsWereDropped(state) {
+  if (eventsDroppedWarned || !(state.eventsDropped > 0)) return;
+  eventsDroppedWarned = true;
+  console.warn(
+    `[frame] the module dropped ${state.eventsDropped} event rows this frame ` +
+      `(its own count, from frame[14]). Damage numbers and callouts are being ` +
+      `lost; raise MAX_EVENTS in crates/web/src/lib.rs, not here.`
+  );
 }
 
 /** Ages every wall-clock effect. Called once a frame, before this frame's rows
@@ -10886,7 +11078,13 @@ function loop(now) {
   // that just ran; `blend` publishes no events at all, and says why. Its
   // `actorVisible` and `factionOfActor` lookups go through `curr.byIndex` for
   // the same reason -- they are asking who did a thing that already happened.
-  if (ticks > 0) consumeEvents(curr);
+  if (ticks > 0) {
+    consumeEvents(curr);
+    // Under the same guard and for the same reason: `frame[14]` belongs to the
+    // ticks that just ran, and a frame that stepped nothing is still holding
+    // the last call's header.
+    warnIfEventsWereDropped(curr);
+  }
   // After the events, never before: a body killed by a blow in that feed is
   // already out of the frame, and this is the call that forgets it.
   //

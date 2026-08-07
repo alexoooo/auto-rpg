@@ -28,8 +28,8 @@ bar. Those are the *what* and the *in what order*.
 
 **Six things this brief assumes that the code contradicts.** They are listed in full, with line
 numbers, in `art-00-overview.md`; an implementer who takes this brief at face value will rewrite
-working code. In short: the sim **already has an event enum** and four kinds already cross the
-ABI; **not every event belongs in the sim**, because `Sim::note_declares` in `crates/web` already
+working code. In short: the sim **already has an event enum** and eleven kinds already cross the
+ABI; **not every event belongs in the sim**, because `Sim::note_bodies` in `crates/web` already
 derives one by differencing a per-entity table across ticks and it sees every tick where the page
 does not; **torches are already sim furniture** with an additive light field and a flicker;
 **the floor is already a baked procedural flagstone texture** whose pattern matrix carries the

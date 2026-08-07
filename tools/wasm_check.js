@@ -70,8 +70,8 @@ const SWAP_HASH = 0xf948f5486ee90191n;
 const BOW_HASH = 0x4a1157735d305e9fn;
 
 // The frame header, as the client reads it.
-const HEADER_LEN = 14;
-const UNIT_STRIDE = 29;
+const HEADER_LEN = 15;
+const UNIT_STRIDE = 33;
 // Arrows, in a block after the units. `frame_len()` is therefore no longer a
 // function of the unit count alone, which is half of what `FRAME_LAYOUT_VERSION`
 // 3 announces -- the other half being the eighth header float that counts them.
@@ -84,7 +84,28 @@ const SHOT_STRIDE = 4;
 // can see this body. The stride and the version move together, which is what
 // makes moving the stride safe -- the page compares both at boot and refuses to
 // draw a layout it does not understand.
-const EVENT_STRIDE = 5;
+//
+// Version 7 is `art-03`, and it moves three of the five at once. The event row
+// widens to carry a second entity and two kind-specific numbers; the unit row
+// gains velocity, the walk cycle's phase and the current attack phase's length;
+// and the header gains a fifteenth float counting the rows the module's own cap
+// ate. **None of that is a hash moving** -- these constants are this file's own
+// mirrors and the module is asserted to agree with them, so editing them is a
+// deliberate one-line-each change, while the five hashes above must come out
+// byte-identical either side of it.
+const EVENT_STRIDE = 8;
+// One past the last `EVENT_*` code, mirroring `web::EVENT_KINDS`. Codes are
+// append-only, so this only ever grows and a row past it is a module writing
+// something this file has never been told about.
+const EVENT_KINDS = 11;
+const EVENT_STEP = 7;
+// `web::SLOT_EMPTY`, which an event row's `actor` and `other` columns use for
+// "nobody": a portal opening and a descent are facts about the level and name
+// no body at all.
+const NOBODY = 255;
+// `web::MAX_UNITS`. Written down rather than exported, because the page does not
+// enforce it either -- see main.js's own mirror.
+const MAX_UNITS = 64;
 
 // How long the frame says it is, from its own three counts.
 const frameSpan = (live) =>
@@ -360,7 +381,7 @@ test("the boundary exports everything the client calls", () => {
   // The five numbers the page's boot handshake compares. Wrong here and the
   // page stops with an overlay instead of painting a health bar out of a guard
   // arc, which is the handshake working -- but it is cheaper to find out here.
-  assert.equal(wasm.frame_layout_version(), 6, "FRAME_LAYOUT_VERSION");
+  assert.equal(wasm.frame_layout_version(), 7, "FRAME_LAYOUT_VERSION");
   assert.equal(wasm.header_len(), HEADER_LEN);
   assert.equal(wasm.unit_stride(), UNIT_STRIDE);
   assert.equal(wasm.shot_stride(), SHOT_STRIDE);
@@ -487,6 +508,123 @@ test("the frame buffer still has the layout the client reads", () => {
     const row = live.slice(HEADER_LEN + i * UNIT_STRIDE, HEADER_LEN + (i + 1) * UNIT_STRIDE);
     assert.ok(row[28] === 0 || row[28] === 1, `visible ${row[28]} is not a flag`);
   }
+
+  // The four `art-03` columns, and the fifteenth header float. Checked here
+  // because **the hashes cannot see the frame at all** -- the note at the top of
+  // this test says a column added in the middle would leave every hash identical
+  // and repaint the game wrong, and a column appended and left permanently zero
+  // is the same failure with a quieter symptom.
+  // Half-open and signed, exactly as the walk-cycle test below asserts it and
+  // as `Trace::stride`, `UNIT_STRIDE`'s doc and `readUnit` all promise it:
+  // `0 <= stride < 1`. An `Math.abs(...) <= 1` here would accept -1 and +1,
+  // which is the one value a page indexing a sprite sheet by
+  // `Math.floor(stride * frames)` reads as a frame past the end.
+  assert.ok(unit[31] >= 0 && unit[31] < 1, `stride ${unit[31]} left 0..1`);
+  assert.ok(unit[32] >= 0 && unit[32] < 1000, `swing_span ${unit[32]}`);
+  // **`events_dropped` is not zero here, and that is the cap working.** The
+  // module clears the feed per *call* and not per tick, so `step(60)` asks one
+  // frame to carry sixty ticks of events -- seven and a half times the eight
+  // `MAX_EVENTS` is sized for. A test harness batching ticks is not a page, and
+  // the page's own behaviour is checked in the two tests below, which step one
+  // tick at a time and assert this is zero.
+  assert.ok(live[14] >= 0, `events_dropped ${live[14]} is not a count`);
+});
+
+test("the walk cycle's columns describe the walk", () => {
+  // `stride`, `vx` and `vy` are the three columns nothing in the sim hashes and
+  // nothing on this page enforces, so this is the only place they are claimed to
+  // mean anything. The claim is deliberately about *properties* rather than
+  // numbers: `STRIDE_PER_RADIUS` is a look and may be retuned, and a test that
+  // pinned its value here would fail for a reason that is not a bug.
+  wasm.init(1);
+  wasm.set_goto(20_000, 12_000);
+  wasm.step(60);
+
+  let steps = 0;
+  let strideMoved = false;
+  let walked = false;
+  let last = heroRow(frame())[31];
+  for (let i = 0; i < 300; i++) {
+    wasm.step(1);
+    const live = frame();
+    const hero = heroRow(live);
+    if (hero === null) break;
+    if (Math.abs(hero[29]) > 0.001 || Math.abs(hero[30]) > 0.001) walked = true;
+    if (hero[31] !== last) strideMoved = true;
+    last = hero[31];
+    assert.ok(hero[31] >= 0 && hero[31] < 1, `stride ${hero[31]} left 0..1`);
+    // `swing_left` is what is left of the phase and `swing_span` is what it
+    // started with, so one can never exceed the other. This is the assertion
+    // that would catch the span being captured a tick late.
+    assert.ok(
+      hero[32] >= hero[20],
+      `swing_span ${hero[32]} is below swing_left ${hero[20]}`,
+    );
+    if (hero[19] === 0) assert.equal(hero[32], 0, "swing_span is set at guard");
+    const base = HEADER_LEN + UNIT_STRIDE * live[6] + SHOT_STRIDE * live[7];
+    for (let e = 0; e < live[8]; e++) {
+      if (live[base + e * EVENT_STRIDE] === EVENT_STEP) steps += 1;
+    }
+    assert.equal(live[14], 0, "events_dropped: one hero walking overran the feed");
+  }
+  assert.ok(walked, "the hero reported no velocity over three hundred ticks of walking");
+  assert.ok(strideMoved, "the stride column never moved while the hero walked");
+  assert.ok(steps > 0, "three hundred ticks of walking produced no footfall");
+
+  // And the half that says the accumulator is driven by speed and not by time.
+  // The feet are taken and told to do nothing, which is the only way to park a
+  // body deterministically -- a `Goto` at its own position still creeps, and a
+  // hero left on its own policy walks off to find the monsters `init` spawned.
+  wasm.set_control(1);
+  wasm.set_input(0, 0, 0, 0, 0, 0);
+  wasm.step(120);
+  const parked = heroRow(frame());
+  assert.ok(
+    Math.abs(parked[29]) < 0.002 && Math.abs(parked[30]) < 0.002,
+    `a parked hero reports velocity ${parked[29]}, ${parked[30]}`,
+  );
+  wasm.step(60);
+  assert.equal(
+    heroRow(frame())[31],
+    parked[31],
+    "a standing body's stride kept turning over, so it is on a clock and not on its feet",
+  );
+  console.log(`walk cycle    ${steps} footfalls over 300 ticks`);
+});
+
+test("a fight reports the kinds a fight is made of", () => {
+  // The four derived kinds `art-03` added and nothing consumes yet. They are
+  // the ones with no other guard at all: no hash walks the event list, and the
+  // page skips a kind it has never heard of by design -- so a kind that stopped
+  // being emitted would be silent everywhere.
+  wasm.init(1);
+  for (let i = 0; i < 3; i++) wasm.spawn_monster(2, 255, 255);
+
+  const seen = new Map();
+  for (let i = 0; i < 1_800; i++) {
+    wasm.step(1);
+    const live = frame();
+    const base = HEADER_LEN + UNIT_STRIDE * live[6] + SHOT_STRIDE * live[7];
+    for (let e = 0; e < live[8]; e++) {
+      const row = live.slice(base + e * EVENT_STRIDE, base + (e + 1) * EVENT_STRIDE);
+      seen.set(row[0], (seen.get(row[0]) ?? 0) + 1);
+      assert.ok(row[0] >= 0 && row[0] < EVENT_KINDS, `event kind ${row[0]}`);
+      for (const i of [4, 5]) {
+        assert.ok(
+          (row[i] >= 0 && row[i] < MAX_UNITS) || row[i] === NOBODY,
+          `column ${i} is ${row[i]}, neither a slot nor nobody`,
+        );
+      }
+    }
+    assert.equal(live[14], 0, "events_dropped: a four-body brawl overran the feed");
+  }
+  // 4 death, 6 phase, 7 step, 8 shove. Named by number rather than by a mirror
+  // of the constants, so that a code silently changing meaning fails here.
+  for (const [kind, name] of [[4, "death"], [6, "phase"], [7, "step"], [8, "shove"]]) {
+    assert.ok(seen.get(kind) > 0, `a whole brawl produced no ${name} row`);
+  }
+  const tally = [...seen.entries()].sort((a, b) => a[0] - b[0]).map(([k, n]) => `${k}:${n}`);
+  console.log(`event kinds   ${tally.join(" ")}`);
 });
 
 test("a policy can be chosen and tuned across the boundary", () => {
@@ -910,12 +1048,20 @@ test("an arrow flies the way native recorded it", () => {
     const base = HEADER_LEN + UNIT_STRIDE * units + SHOT_STRIDE * live[7];
     for (let e = 0; e < live[8]; e++) {
       const row = live.slice(base + e * EVENT_STRIDE, base + (e + 1) * EVENT_STRIDE);
-      assert.ok(row[0] >= 0 && row[0] <= 3, `event kind ${row[0]}`);
+      assert.ok(row[0] >= 0 && row[0] < EVENT_KINDS, `event kind ${row[0]}`);
       assert.ok(
         row[1] >= -2 && row[1] <= ARENA[0] + 2 && row[2] >= -2 && row[2] <= ARENA[1] + 2,
         `an event happened outside the arena at (${row[1]}, ${row[2]})`,
       );
-      assert.ok(row[4] >= 0 && row[4] < 64, `actor_index ${row[4]}`);
+      // A slot, or `nobody`. The second half is not slack: a portal opening and
+      // a descent are facts about the level and name no body at all, so this
+      // used to read `< 64` and would now fail on the first way out to open.
+      for (const [i, name] of [[4, "actor"], [5, "other"]]) {
+        assert.ok(
+          (row[i] >= 0 && row[i] < MAX_UNITS) || row[i] === NOBODY,
+          `${name}_index ${row[i]} is neither a slot nor nobody`,
+        );
+      }
       events += 1;
     }
     seen = Math.max(seen, live[7]);

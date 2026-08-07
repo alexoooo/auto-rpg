@@ -113,7 +113,12 @@ pub fn run(
                 // Counted as a shot thrown, not as a shot landed -- whether it
                 // arrives comes back later as a `Damage` like anything else.
                 Event::Loose { .. } => shots += 1,
-                Event::Death { .. } => {}
+                // Neither of these is a term in a fitness score. A death is
+                // already counted by the outcome and by the health fractions;
+                // a shove is presentation. Spelled out rather than swept into
+                // a `_` arm so that the next variant has to be thought about
+                // here rather than silently ignored.
+                Event::Death { .. } | Event::Shove { .. } => {}
             }
         }
     }

@@ -1741,7 +1741,7 @@ slot has already been handed to the next spawn still reads as dead rather than
 quietly transferring the lock to whatever walked in.
 
 **No frame layout change, and the reason is worth stating.**
-`FRAME_LAYOUT_VERSION` stays 6 and `HEADER_LEN` stays 14, because the page already
+Neither `FRAME_LAYOUT_VERSION` nor `HEADER_LEN` moved for this, because the page already
 knows which body it named — it sent the handle — and all it needs back is whether
 the lock is still live, which the order discriminant in `frame[2]` already
 carries. What changed is a *value* in slots that already existed. `Order::point()`
@@ -1751,7 +1751,11 @@ would draw its destination marker at the origin. `frame[3]` and `frame[4]` carry
 the quarry's live position instead, which is what the page wants to draw and what
 only the world can answer. A better number in a slot that already exists is not a
 layout change, and that is the whole difference between this and a version bump
-that would have made every reader downstream wrong at once.
+that would have made every reader downstream wrong at once. Both constants have
+moved *since*, for `art-03`, which appended a header float and a run of unit
+columns and therefore was one — which is why neither is written down here as a
+value. Read them from `crates/web/src/lib.rs`; this paragraph is about the test,
+not about where the counter happens to stand.
 
 **The gate is a live `Goto` or `Focus`, and it is what makes all of this inert in
 the lab.** No lab scenario issues either — `policy::runner` orders `Advance`, and
@@ -2353,6 +2357,18 @@ badly. A draw scores zero, tells evolution nothing, and costs a full tick limit
 of compute — the most expensive possible way to learn nothing.
 
 ## Open questions
+
+**A blocked blow has a second number in it, and the event feed does not carry
+it.** `Event::Block` reports `absorbed`, which is what the shield ate. The
+disturbance to the *guard* is a different figure — `knock`, the second return of
+`World::deflect` — and the table above proves it is not a monotone function of
+`absorbed`: a Rogue's blade is absorbed hardest and knocks least. It exists only
+on the blade path; `resolve_shots` writes no `Impulse` at all, so an arrow has no
+such figure and a fourth field would be zero on every arrow row forever. Reaching
+it from the emission site needs a `knock` field on `Blow` and a restructure of
+`resolve_swings`' first pass, which is why it was left out of the event ABI. If
+scaling an impact's brightness or its voice on `absorbed` turns out to read
+wrong, `knock` is the number to reach for.
 
 **The difficulty ladder and the fitness function want opposite things, and only
 one of them is in the fitness function.** The bottom rung of the range is made of

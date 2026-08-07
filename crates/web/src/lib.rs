@@ -45,19 +45,29 @@
 //!
 //! ```text
 //!     header  [arena_x, arena_y, order_kind, order_x, order_y,
-//!              last_decision_tick, unit_count, shot_count, event_count]
+//!              last_decision_tick, unit_count, shot_count, event_count,
+//!              monsters_left, portal_x, portal_y, portal_state, depth,
+//!              events_dropped]
 //!     unit    [x, y, facing_raw, radius, hp, max_hp, faction, kind, intent,
 //!              entity_index, entity_generation,
-//!              sword_angle_raw, limb_reach, limb_spin,
-//!              shield_angle_raw, shield_reach, action_length, shield_arc_raw,
-//!              hit_flash, block_flash, parry_flash, ..., sight_range,
-//!              visible]
+//!              limb_angle_raw, limb_reach, limb_spin,
+//!              action_length, action_arc_raw,
+//!              hit_flash, block_flash, parry_flash,
+//!              limb_swing, limb_swing_left, limb_line_raw,
+//!              action_kind, action_role, slot, slot0_action, slot1_action,
+//!              sight_range, visible, vx, vy, stride, swing_span]
 //!     ...     unit_count of them
 //!     shot    [x, y, heading_raw, faction]
 //!     ...     shot_count of them
-//!     event   [kind, x, y, amount, actor_index]
+//!     event   [kind, x, y, amount, actor_index, other_index, aux0, aux1]
 //!     ...     event_count of them
 //! ```
+//!
+//! That diagram was stale for four sessions: it stopped the header at nine
+//! entries, and it still named the two shield columns from before a character
+//! had one limb. It is written out in full here because the alternative -- a
+//! sketch that has to be checked against [`UNIT_STRIDE`]'s own prose -- is how
+//! it went stale in the first place.
 //!
 //! Three sections, each one starting where the last stopped, and they are in
 //! that order for one reason: only the *base* of a section moves as the counts
@@ -102,9 +112,9 @@ use sim::{
 
 /// Floats before the first unit: `[arena_x, arena_y, order_kind, order_x,
 /// order_y, last_decision_tick, unit_count, shot_count, event_count,
-/// monsters_left, portal_x, portal_y, portal_state, depth]`.
+/// monsters_left, portal_x, portal_y, portal_state, depth, events_dropped]`.
 ///
-/// The last five are the run: how much opposition is left, whether there is a
+/// `9..=13` are the run: how much opposition is left, whether there is a
 /// way out yet and where, and which floor this is. `monsters_left` is nominally
 /// derivable from the unit rows and is here anyway, because the rows are capped
 /// at [`MAX_UNITS`] and the two must not be able to disagree about whether the
@@ -114,7 +124,15 @@ use sim::{
 /// `portal_x, portal_y` are `0, 0` while `portal_state` is [`PORTAL_NONE`],
 /// which is the whole of the fight: nothing marks the way out until the last
 /// thing on the floor is dead. Read the state, not the point.
-pub const HEADER_LEN: usize = 14;
+///
+/// `14` is `events_dropped`: how many rows the [`MAX_EVENTS`] cap ate this
+/// frame. **It exists so that "the cap is generous" can be checked from the
+/// console instead of believed**, which is the same reason `floorBakes` exists
+/// in `main.js` -- a bound nobody can observe is a bound nobody maintains.
+/// Written on every [`Sim::write_frame`] and therefore never stale; there is
+/// deliberately no `max_events()` export, so this is the page's only way to
+/// learn that the feed was truncated.
+pub const HEADER_LEN: usize = 15;
 
 /// Floats per unit.
 ///
@@ -178,7 +196,24 @@ pub const HEADER_LEN: usize = 14;
 /// boundary. With no hero standing there is no point of view at all, so every
 /// row reports visible: a fog of war with nobody to be fogged from is just a
 /// blank screen.
-pub const UNIT_STRIDE: usize = 29;
+///
+/// `29..=30` are `vx, vy`, world units per tick, straight off
+/// [`sim::UnitView::velocity`]. Signed and small -- a Fighter's `move_speed` is
+/// about 0.048 -- and **not** recoverable by differencing `x, y` across frames,
+/// because a frame is up to eight ticks and sometimes none.
+///
+/// `31` is `stride`: the walk cycle's phase, `0 <= stride < 1`, integrated by
+/// [`Sim`] over each body's own speed. See [`STRIDE_PER_RADIUS`] for the one
+/// constant in it. Presentation, not state, and **it wraps** -- a client that
+/// lerps it naively runs the legs backwards through a whole cycle on the frame
+/// it passes 1.
+///
+/// `32` is `swing_span`: how many ticks the *current* phase started with, so
+/// `swing_left / swing_span` is an honest fraction. Without it there is no way
+/// to draw a windup as a windup, because `swing_left = 4` means "nearly done"
+/// for a Brute's 33-tick windup and "just started" for a Punch's 5. Zero at
+/// guard, where `swing_left` means nothing.
+pub const UNIT_STRIDE: usize = 33;
 
 /// Floats per arrow, in a block that follows the units: `[x, y, heading_raw,
 /// faction]`.
@@ -200,7 +235,7 @@ pub const SHOT_STRIDE: usize = 4;
 pub const MAX_SHOTS: usize = sim::MAX_SHOTS;
 
 /// Floats per event, in a third block that follows the arrows: `[kind, x, y,
-/// amount, actor_index]`.
+/// amount, actor_index, other_index, aux0, aux1]`.
 ///
 /// These are **things that happened**, not things that are. Every other row in
 /// the frame describes state a renderer can read again next frame; an event is
@@ -213,16 +248,70 @@ pub const MAX_SHOTS: usize = sim::MAX_SHOTS;
 /// index is a hint for grouping rows that share an actor and nothing more. It
 /// is emphatically not an identity, and the unit row's two-column handle stays
 /// the only thing that is.
-pub const EVENT_STRIDE: usize = 5;
+///
+/// `other_index` is the second party on the same terms, or [`SLOT_EMPTY`] for
+/// none: the attacker behind a blow, the killer behind a death, `b` of a
+/// parried pair, the shover behind a shove.
+///
+/// `aux0, aux1` are read according to `kind` and are tabulated in exactly one
+/// place, which is the table below. Nothing else in this crate or in the page
+/// may write down a second copy of it.
+///
+/// | kind | `x, y` | `amount` | `actor` | `other` | `aux0` | `aux1` |
+/// |---|---|---|---|---|---|---|
+/// | [`EVENT_DAMAGE`] | impact point | health lost | target | source | target mass | target radius |
+/// | [`EVENT_BLOCK`] | the rim it landed on | absorbed | defender | attacker | defender mass | 0 |
+/// | [`EVENT_PARRY`] | where the blades crossed | 0 | `a` | `b` | 0 | 0 |
+/// | [`EVENT_DECLARE`] | swinger's position | action code | swinger | 255 | 0 | 0 |
+/// | [`EVENT_DEATH`] | where it fell | 0 | the dead | killer | mass | body kind |
+/// | [`EVENT_LOOSE`] | the nock | 0 | archer | 255 | line, in turns | 0 |
+/// | [`EVENT_PHASE`] | the body | 0 | unit | 255 | phase from | phase to |
+/// | [`EVENT_STEP`] | the foot | speed, units/tick | unit | 255 | mass | 0 |
+/// | [`EVENT_SHOVE`] | the body | impulse magnitude | the shoved | the shover, or 255 | mass | 0 |
+/// | [`EVENT_PORTAL`] | the portal | 0 | 255 | 255 | 0 | 0 |
+/// | [`EVENT_DESCEND`] | the portal | the new depth | 255 | 255 | 0 | 0 |
+pub const EVENT_STRIDE: usize = 8;
 
 /// Most events one frame will carry.
 ///
 /// The client caps itself at eight ticks of catch-up per animation frame
-/// (`MAX_CATCHUP_TICKS` in `main.js`), and a tick in a crowded room produces a
-/// blow or two and the odd declaration, so thirty-two is generous rather than
-/// tight. Overflow drops the tail -- see [`Sim::advance`] for why that is the
-/// right end to drop.
-pub const MAX_EVENTS: usize = 32;
+/// (`MAX_CATCHUP_TICKS` in `main.js`), and that used to mean "a blow or two and
+/// the odd declaration". It no longer does: phase changes, footfalls and shoves
+/// are events now, and every one of them is per body per tick rather than per
+/// exchange.
+///
+/// **Measured, and the crowd turned out not to be the variable.** Sweeping a
+/// generated level plus 4, 8, 16, 32 and 63 extra Brutes, over 1,200 ticks each
+/// and reading the busiest eight-tick window while the hero was still standing:
+///
+/// | extra Brutes | busiest 8-tick frame | rows dropped |
+/// |---|---|---|
+/// | 4 | 58 | 0 |
+/// | 8 | 60 | 0 |
+/// | 16 | 64 | 0 |
+/// | 32 | 72 | 0 |
+/// | 63 | 71 | 0 |
+///
+/// The rate is **flat in the crowd size** -- about 5.7 rows a tick either way --
+/// because nine rows in ten are [`EVENT_SHOVE`] out of `World::apply_recoil`,
+/// which fires for a body whose blade momentum moved more than its traction can
+/// hold, and that is a property of who is *swinging* rather than of who is in
+/// the room. A crowd of Brutes that cannot reach anything is quiet.
+///
+/// `the_frame_is_bounded_by_what_the_world_can_hold` runs the same room longer
+/// and reads **79**. That is the number to hold this against, and 128 against 79
+/// is the tightest margin of the three section caps -- deliberately so rather
+/// than luckily: the plan for this session estimated "near eighty" from first
+/// principles before any of this was written, and the measurement landed on it.
+/// Re-measure rather than re-argue; that test prints the number, and `frame[14]`
+/// asks the same question of real play from the console.
+///
+/// Overflow drops the tail -- see [`Sim::advance`] for why that is the right
+/// end to drop -- and now says so out loud in `frame[14]`, so a page can tell
+/// "the cap held" from "the cap held because nothing happened".
+///
+/// 128 rows of [`EVENT_STRIDE`] floats is 4 KB of linear memory, once, forever.
+pub const MAX_EVENTS: usize = 128;
 
 /// A blow that took health off. `amount` is the health lost, `x, y` the impact
 /// point (`Event::Damage.at`).
@@ -234,8 +323,50 @@ pub const EVENT_BLOCK: u32 = 1;
 /// the pair, which is the one `Event::Parry` names first.
 pub const EVENT_PARRY: u32 = 2;
 /// A unit began an attack. `amount` is the [`sim::ActionKind::code`] it began,
-/// `x, y` the swinger's own position. See [`Sim::note_declares`].
+/// `x, y` the swinger's own position. See [`Sim::note_bodies`].
+///
+/// **Kept even though [`EVENT_PHASE`] subsumes it**, and deliberately. It
+/// carries the action code rather than a phase pair, it applies the
+/// `Guard | Recover -> Windup | Strike` rule that is *not* every transition,
+/// and `pushCallout` in the page consumes it today.
 pub const EVENT_DECLARE: u32 = 3;
+/// A body left the world. `x, y` is where it last stood, which is the body's
+/// own centre rather than the blade contact point a lethal [`EVENT_DAMAGE`]
+/// reports.
+pub const EVENT_DEATH: u32 = 4;
+/// An arrow left a bow. `aux0` is the line it was thrown along **in turns**,
+/// `0..1`, and not the raw binary angle the unit rows carry: a raw angle is a
+/// `u16` and does not fit an [`Fx`] as an integer, so it crosses as the
+/// fraction of a turn it already is. The page multiplies by `2pi`.
+pub const EVENT_LOOSE: u32 = 5;
+/// A limb changed phase. `aux0` is the phase it left and `aux1` the phase it
+/// entered, both [`sim::Swing::discriminant`].
+pub const EVENT_PHASE: u32 = 6;
+/// A foot landed. `amount` is the body's speed in world units per tick, which
+/// is what decides how heavy the footfall sounds. See [`STRIDE_PER_RADIUS`].
+pub const EVENT_STEP: u32 = 7;
+/// A body was moved by something other than its own feet. `amount` is the
+/// magnitude of the velocity it gained; `other` is whoever did it, or `255` for
+/// a fighter's own recoil.
+///
+/// **By far the highest-rate row in the feed, and a consumer has to know it.**
+/// Measured at about 5.7 a tick and nine rows in ten of everything the frame
+/// carries -- almost all of them from `World::apply_recoil`, which bills a
+/// fighter for its own swing on most ticks of most swings. A blow landing is
+/// rare and large; a recoil is constant and small. Anything reacting to this
+/// wants a magnitude threshold, and `amount` is there so it can have one.
+pub const EVENT_SHOVE: u32 = 8;
+/// The way out opened. Carries no actor -- it is a fact about the level.
+pub const EVENT_PORTAL: u32 = 9;
+/// The run moved to the next floor. `amount` is the new depth.
+pub const EVENT_DESCEND: u32 = 10;
+
+/// One past the last event code, so a bound can be asserted rather than
+/// written down twice. Codes are **append-only**, on the standing rule the
+/// `FURNITURE_*` codes state: a page that has never heard of a kind skips the
+/// row rather than guessing at it, which is what lets an older page run against
+/// a newer module and draw nothing wrong.
+pub const EVENT_KINDS: u32 = 11;
 
 /// Bumped whenever the frame changes shape or meaning.
 ///
@@ -243,7 +374,7 @@ pub const EVENT_DECLARE: u32 = 3;
 /// layout it was not written against. That is a weaker promise than the
 /// append-only convention it replaced and a much more useful one: append-only
 /// forbids the edit, this one makes the edit safe.
-pub const FRAME_LAYOUT_VERSION: u32 = 6;
+pub const FRAME_LAYOUT_VERSION: u32 = 7;
 
 /// Value in a loadout column meaning "this slot is empty". Matches
 /// [`sim::Loadout::EMPTY`], and is not a valid action code.
@@ -251,6 +382,43 @@ pub const SLOT_EMPTY: u32 = 255;
 
 /// Ticks a hit, block or parry stays lit in the frame.
 const FLASH_TICKS: u8 = 12;
+
+/// How long a body's stride is, as a multiple of its own radius.
+///
+/// The whole of the walk cycle's clock: each tick a live body adds
+/// `speed / (radius * this)` to its `stride` column, and every time that passes
+/// 1 a foot lands and an [`EVENT_STEP`] row is emitted. Proportional to radius
+/// because a Brute's stride is longer than a Skitterer's *because a Brute is
+/// bigger*, which is the one thing about a walk cycle nobody has to be told.
+///
+/// **1.3 is chosen for cadence, and here is the arithmetic.** A Fighter is
+/// radius 0.45 and tops out near 0.048 world units a tick, so its stride is
+/// 0.585 units and a foot lands every ~12 ticks -- a fifth of a second, which
+/// is a brisk walk rather than a scurry. A Skitterer is radius 0.30, so its
+/// stride is 0.39 units, and it walks at its *own* 0.0597: a foot lands every
+/// ~6.5 ticks, so the small thing visibly takes about twice as many, shorter
+/// steps. Below about 1.2 the legs blur; above about 1.5 a Brute appears to
+/// glide. The range was read off `Body::radius` and `move_speed` rather than
+/// swept, because there is nothing here to optimise -- it is a look.
+///
+/// **The Skitterer's number used to be written down as ~8**, which is 0.39
+/// divided by the *Fighter's* speed and therefore a body's stride against
+/// somebody else's legs. It is recorded here rather than quietly corrected
+/// because it is the exact mistake this constant invites: the stride is per
+/// body and so is the speed that spends it.
+///
+/// Three tests catch it drifting:
+/// `a_fighter_takes_a_step_about_every_twelve_ticks` below pins the measured
+/// cadence, `a_skitterer_takes_about_twice_as_many_steps_as_a_fighter` pins the
+/// arithmetic above for the body the comment got wrong, and
+/// `tools/wasm_check.js`'s stride check pins the property that survives any
+/// retune -- the column advances while a body walks and holds while it stands.
+///
+/// [`Fx`] and not `f32`, and that is not a stylistic preference: `Sim` contains
+/// no float arithmetic at all today, and the frame's one float conversion
+/// belongs on the way out. See `AGENTS.md`, "The one rule everything else
+/// serves".
+const STRIDE_PER_RADIUS: Fx = Fx::from_ratio(13, 10);
 
 /// Bit in [`control`] that hands the feet to the player.
 pub const CONTROL_FEET: u32 = 1;
@@ -269,7 +437,7 @@ pub const CONTROL_SLOT: u32 = 4;
 
 /// Ceiling on units in one frame. The room holds exactly one and a skirmish
 /// holds a dozen; the number exists so the buffer can be a fixed array rather
-/// than a `Vec`, and 64 rows cost 2.3 KB of linear memory once, forever.
+/// than a `Vec`, and 64 rows cost 8.4 KB of linear memory once, forever.
 pub const MAX_UNITS: usize = 64;
 
 /// Length of the frame buffer. [`frame_len`] reports how much of it is live.
@@ -559,17 +727,135 @@ struct Flash {
 /// where it belongs.
 #[derive(Clone, Copy)]
 struct FrameEvent {
-    /// One of [`EVENT_DAMAGE`], [`EVENT_BLOCK`], [`EVENT_PARRY`],
-    /// [`EVENT_DECLARE`].
+    /// One of the `EVENT_*` codes, all of which are below [`EVENT_KINDS`].
     kind: u32,
     at: Vec2,
-    /// Health lost, health absorbed, or an action code -- read according to
-    /// `kind`, which is why there is only one of these.
+    /// Health lost, health absorbed, an action code, a speed, a depth -- read
+    /// according to `kind`, which is why there is only one of these. The table
+    /// on [`EVENT_STRIDE`] is the authority and the only copy of it.
     amount: Fx,
     /// [`EntityId::index`] of the unit the row is *about*: the target of a
     /// blow, the defender of a block, the first-named of a parried pair, the
     /// swinger of a declaration.
     actor: u32,
+    /// The second party, or [`SLOT_EMPTY`] where there is none. A hint for
+    /// grouping on exactly the terms `actor` is, and no more an identity.
+    other: u32,
+    /// Kind-specific. See the table on [`EVENT_STRIDE`].
+    aux0: Fx,
+    /// Kind-specific. See the table on [`EVENT_STRIDE`].
+    aux1: Fx,
+}
+
+/// What [`Sim`] remembers about one body between ticks, indexed by
+/// [`EntityId::index`].
+///
+/// **One table rather than four parallel ones**, because every field here is
+/// answering the same question -- what did this body look like at the end of
+/// the last tick -- and four `Vec`s keyed on the same index would need four
+/// resize guards and four `clear()`s in [`Sim::descend`] that could drift apart.
+///
+/// Presentation, exactly as [`Flash`] is: derived from simulation state, never
+/// fed back into it, absent from `World::state_hash`, and computed by nothing
+/// the lab runs.
+///
+/// **Generation-aware, and it has to be.** `reap_dead` hands a dead body's slot
+/// straight back to the free list, so the next spawn can be standing in it on
+/// the following tick -- and the three fields that are *differenced* rather than
+/// overwritten would then be differenced against the previous occupant.
+/// [`Sim::note_bodies`] would read `was = Windup, now = Guard` and push an
+/// [`EVENT_PHASE`] describing a transition **between two different creatures**,
+/// which is exactly the "dead creature coming back to life" shape `AGENTS.md`
+/// warns an index-keyed reader about, and the newcomer's legs would start at an
+/// arbitrary offset into somebody else's walk cycle. [`Sim::refresh_traces`]
+/// resets `swing`, `span` and `stride` whenever the generation in a slot
+/// changes, which is the whole of the fix.
+///
+/// It closes a sibling case that predates this table: the same stale phase could
+/// **suppress** a declaration, because a slot left mid-`Windup` reads as already
+/// swinging when the next body's own windup arrives. That was argued as
+/// tolerable back when the phase memory was a bare `swings` vector; it was never
+/// a separate bug and it needs no separate fix, because it is the same
+/// comparison across the same boundary.
+///
+/// The generation kept here is a **staleness test and nothing else** -- it is
+/// never read back out into a row, which is what keeps this table presentation
+/// in the sense above. [`Sim::descend`] still clears the whole table, because a
+/// floor change invalidates the four refreshed fields too.
+#[derive(Clone, Copy)]
+struct Trace {
+    /// Which occupant of this slot the three differenced fields below belong
+    /// to. [`EntityId::NONE`]'s generation for a slot that has never held a
+    /// body, so the first body to stand in one is a change like any other.
+    generation: u32,
+    /// The swing phase as of the end of the last tick. Differencing this is the
+    /// whole of the declare and phase feeds.
+    swing: Swing,
+    /// `swing_left` on the tick `swing` last changed, which is the phase's full
+    /// length: the transition sets the counter and the new phase does not spend
+    /// a tick of it until the next one. Better than the nominal length, because
+    /// a punished recovery really is longer.
+    span: u16,
+    /// The walk cycle's phase, `0 <= stride < 1`. See [`STRIDE_PER_RADIUS`].
+    stride: Fx,
+    /// Where the body stood, how big it is, what it weighs and what it is --
+    /// the four things the event rows need about a body that `World::view` may
+    /// already be refusing to answer for. `reap_dead` recycles a lethal blow's
+    /// slot before `step` returns, so the row a renderer most wants to draw is
+    /// exactly the one it cannot look anything up for.
+    ///
+    /// Refreshed by [`Sim::refresh_traces`] at the top of each tick, so these
+    /// four are as of *this* tick while `swing`, `span` and `stride` are as of
+    /// the last one. The split is deliberate: a death row wants where the body
+    /// was standing when it was struck, and a declare row wants two settled
+    /// phases to compare.
+    at: Vec2,
+    radius: Fx,
+    mass: Fx,
+    kind: Body,
+}
+
+impl Default for Trace {
+    fn default() -> Trace {
+        Trace {
+            generation: EntityId::NONE.generation,
+            swing: Swing::Guard,
+            span: 0,
+            stride: Fx::ZERO,
+            at: Vec2::ZERO,
+            radius: Fx::ZERO,
+            mass: Fx::ZERO,
+            kind: Body::Fighter,
+        }
+    }
+}
+
+/// One body's trace, or a resting default for a slot that has never held one.
+///
+/// A free function and not a method, because every caller inside
+/// [`Sim::advance`]'s drain holds `&mut self.world` for the length of the loop
+/// -- so it has to be a borrow of the `traces` field alone and not of `self`.
+fn trace_at(traces: &[Trace], entity: EntityId) -> Trace {
+    traces
+        .get(entity.index as usize)
+        .copied()
+        .unwrap_or_default()
+}
+
+/// An entity as an event row's `actor` or `other` column, or [`SLOT_EMPTY`] for
+/// "nobody".
+///
+/// `EntityId::NONE` is `u32::MAX`, which is neither a slot the page can look up
+/// nor the `255` it reads as absent. Overloading `255` is safe on exactly the
+/// argument `ID_INDEX_SPAN` makes in `main.js`: slots are recycled through a
+/// free list, so a live index never climbs past the number of bodies standing
+/// at once, which [`MAX_UNITS`] caps at 64.
+const fn actor_index(id: EntityId) -> u32 {
+    if id.is_none() {
+        SLOT_EMPTY
+    } else {
+        id.index
+    }
 }
 
 struct Sim {
@@ -783,17 +1069,29 @@ struct Sim {
     /// [`advance`]: Sim::advance
     events: Vec<FrameEvent>,
 
-    /// Each entity's swing phase as of the end of the last tick, indexed by
+    /// How many rows the [`MAX_EVENTS`] cap ate during the last [`advance`].
+    ///
+    /// Published as `frame[14]` so the claim "the cap is generous" is a thing
+    /// the console can check rather than a thing a comment asserts. Reset in
+    /// the same three places `events` is cleared, which is one more place than
+    /// anybody expects: the top of `advance`, `advance`'s descend early return,
+    /// and [`Sim::descend`] itself.
+    ///
+    /// [`advance`]: Sim::advance
+    events_dropped: u32,
+
+    /// What each body looked like at the end of the last tick, indexed by
     /// entity index like `flashes`.
     ///
-    /// The whole of the `declare` feed. There is no sim event for "an attack
-    /// began" and there does not need to be one, because the phase is already
-    /// in the frame -- but the *transition* is not, and it is the transition
-    /// the page wants. Kept on this side because a Punch's windup is five
-    /// ticks (`action.rs`) and at 60 Hz that can begin and end entirely between
-    /// two `requestAnimationFrame` callbacks: JavaScript differencing successive
+    /// The whole of the derived half of the feed. There is no sim event for "an
+    /// attack began" or "a foot landed" and there does not need to be one,
+    /// because the phase and the velocity are already in the frame -- but the
+    /// *transition* is not, and it is the transition the page wants. Kept on
+    /// this side because a Punch's windup is five ticks (`action.rs`) and at
+    /// 60 Hz that can begin and end entirely between two
+    /// `requestAnimationFrame` callbacks: JavaScript differencing successive
     /// frames would simply never see it.
-    swings: Vec<Swing>,
+    traces: Vec<Trace>,
 
     /// What the next press of the enemy panel's spawn button walks into the
     /// room. A *template*, not a live unit: the page edits it freely and
@@ -950,7 +1248,8 @@ impl Sim {
             // linear memory and detach the typed array the client is about to
             // read the frame through.
             events: Vec::with_capacity(MAX_EVENTS),
-            swings: Vec::new(),
+            events_dropped: 0,
+            traces: Vec::new(),
             spawn_spec: UnitSpec {
                 kind: Body::Skitterer,
                 faction: Faction::Monsters,
@@ -1189,9 +1488,23 @@ impl Sim {
     /// The hero persists and its health does not: `World::spawn` sets `hp` to
     /// `max_hp` and refills the regeneration budget, so arriving whole costs no
     /// code here at all. What it does cost is every piece of presentation state
-    /// keyed to bodies that no longer exist -- flashes, swings, the event feed
-    /// -- and dropping those is the whole of the rest of this function.
+    /// keyed to bodies that no longer exist -- flashes, the trace table, the
+    /// event feed and its drop count -- and dropping those is the whole of the
+    /// rest of this function.
+    ///
+    /// **[`EVENT_DESCEND`] is pushed from here rather than from
+    /// [`Sim::advance`]**, and that is not tidiness. `advance` clears the feed
+    /// *before* it calls this, so a row pushed on the way in is a row that gets
+    /// cleared; and `self.depth += 1` -- which is the number the row carries --
+    /// happens on the first line of this function. Both facts point at the same
+    /// place, and the export that calls `descend` directly gets the row for
+    /// free.
     fn descend(&mut self) {
+        // The way out, read before it is forgotten. Everything below replaces
+        // this level with the next one, and the row pushed at the bottom is
+        // about the doorway that was just walked through rather than about
+        // wherever the new floor happens to put one.
+        let left_by = self.portal.unwrap_or(Vec2::ZERO);
         self.depth += 1;
         // **The live sheet wins over the stored one.** The player may have moved
         // a slider since the last spawn, and the character that walks down the
@@ -1231,14 +1544,39 @@ impl Sim {
         // generated floor always has somebody on it, so this is the fixture
         // case rather than the ordinary one -- but stating it in one place and
         // not two is what keeps the two from drifting.
+        //
+        // **Recorded, not fixed: this call is outside `advance`'s portal edge
+        // test, so a floor that arrives already clear opens its way out with no
+        // [`EVENT_PORTAL`] row behind it.** Unreachable in play for the reason
+        // just given, which is why it is left alone rather than papered over
+        // with a second edge test that could disagree with the first. It stops
+        // being free the moment something keys off that edge -- `art-09` and
+        // `art-11` put a sound on it -- and at that point the answer is to move
+        // the edge test into `open_the_way_out` itself so there is one of it.
         self.open_the_way_out();
         // The waypoints describe a floor plan that no longer exists. Nothing
         // else here would drop them: the queue is not keyed to a body, so unlike
         // the three lines below it would survive the level it was drawn on.
         self.clear_route();
         self.flashes.clear();
-        self.swings.clear();
+        self.traces.clear();
         self.events.clear();
+        self.events_dropped = 0;
+        // The one row that survives the clearing, because it is about the
+        // clearing. Pushed after it for that reason and not before.
+        push_event(
+            &mut self.events,
+            &mut self.events_dropped,
+            FrameEvent {
+                kind: EVENT_DESCEND,
+                at: left_by,
+                amount: Fx::from_int(self.depth as i32),
+                actor: SLOT_EMPTY,
+                other: SLOT_EMPTY,
+                aux0: Fx::ZERO,
+                aux1: Fx::ZERO,
+            },
+        );
         self.last_decision_tick = 0;
         self.hero_next_decision = 0;
         self.cached = Command::HOLD;
@@ -1289,6 +1627,17 @@ impl Sim {
             .unwrap_or_default()
     }
 
+    /// What this body looked like at the end of the last tick, or a resting
+    /// default for one that has not had a tick yet. Shaped exactly like
+    /// [`Sim::flash_of`] and total for the same reason: a body that walked in
+    /// this frame has no row here and must not be a panic.
+    fn trace_of(&self, entity: EntityId) -> Trace {
+        self.traces
+            .get(entity.index as usize)
+            .copied()
+            .unwrap_or_default()
+    }
+
     /// Sets the policy for one faction, rebuilding it from that faction's genes.
     fn set_policy(&mut self, faction: Faction, kind: PolicyKind) {
         let side = faction.index();
@@ -1332,6 +1681,11 @@ impl Sim {
         // exactly the frame a fight is most interesting on.
         let mut events = std::mem::take(&mut self.events);
         events.clear();
+        // Counted alongside the feed rather than on `self`, because the drain
+        // below holds `&self.world` for the whole of its loop and a field
+        // increment inside it would not borrow-check. Written back with the
+        // feed at every exit.
+        let mut dropped = 0u32;
         for _ in 0..frames {
             for flash in &mut self.flashes {
                 flash.hit = flash.hit.saturating_sub(1);
@@ -1382,15 +1736,21 @@ impl Sim {
             // tick wins, which is the one the player watched.
             let mut fell_at: Option<Vec2> = None;
             let mut killed_at: Option<Vec2> = None;
+            // Before the step, so that a row about a body the step is about to
+            // remove still has a weight, a size and a place to report. See
+            // [`Trace`].
+            self.refresh_traces();
+            let traces = &self.traces;
             for event in self.world.step() {
                 let pair = match *event {
                     Event::Damage {
+                        source,
                         target,
                         amount,
                         at,
                         lethal,
-                        ..
                     } => {
+                        let body = trace_at(traces, target);
                         // The numbers, kept rather than reduced to a flash. The
                         // flash counters below say *that* something landed; a
                         // damage row says how much and exactly where, which is
@@ -1398,11 +1758,20 @@ impl Sim {
                         // floating off it.
                         push_event(
                             &mut events,
+                            &mut dropped,
                             FrameEvent {
                                 kind: EVENT_DAMAGE,
                                 at,
                                 amount,
                                 actor: target.index,
+                                other: actor_index(source),
+                                // **The body's numbers, not the blade's.** What
+                                // rings when something is hit is the thing that
+                                // was hit; the swing's own geometry is a
+                                // different question and would be a different
+                                // field. See `EVENT_STRIDE`'s table.
+                                aux0: body.mass,
+                                aux1: body.radius,
                             },
                         );
                         // And the two things a run is shaped by, off the same
@@ -1421,18 +1790,22 @@ impl Sim {
                         [(target, 0u8), (EntityId::NONE, 0)]
                     }
                     Event::Block {
+                        attacker,
                         defender,
                         absorbed,
                         at,
-                        ..
                     } => {
                         push_event(
                             &mut events,
+                            &mut dropped,
                             FrameEvent {
                                 kind: EVENT_BLOCK,
                                 at,
                                 amount: absorbed,
                                 actor: defender.index,
+                                other: actor_index(attacker),
+                                aux0: trace_at(traces, defender).mass,
+                                aux1: Fx::ZERO,
                             },
                         );
                         [(defender, 1), (EntityId::NONE, 0)]
@@ -1444,21 +1817,94 @@ impl Sim {
                         // would put two sparks on one crossing.
                         push_event(
                             &mut events,
+                            &mut dropped,
                             FrameEvent {
                                 kind: EVENT_PARRY,
                                 at,
                                 amount: Fx::ZERO,
                                 actor: a.index,
+                                other: actor_index(b),
+                                aux0: Fx::ZERO,
+                                aux1: Fx::ZERO,
                             },
                         );
                         [(a, 2), (b, 2)]
                     }
-                    // Both of these are already on screen without a flash. A
-                    // death removes a body; a loose *adds an arrow*, at the
-                    // nock, pointing where it is going -- which is a better
-                    // announcement than a one-frame glow could be, and unlike
-                    // `hit_flash` there is nothing here the frame cannot show.
-                    Event::Death { .. } | Event::Loose { .. } => continue,
+                    // The three that carry no flash, and did not used to carry
+                    // anything at all. A death removes a body and a loose *adds
+                    // an arrow*, so neither needs a one-frame glow to be seen --
+                    // but both are *moments*, and a moment is the one thing a
+                    // page differencing state cannot recover. A shove is the
+                    // third: the magnitude is genuinely not derivable from
+                    // outside, which is the whole reason `Event::Shove` exists.
+                    Event::Death { entity, killer } => {
+                        let body = trace_at(traces, entity);
+                        push_event(
+                            &mut events,
+                            &mut dropped,
+                            FrameEvent {
+                                kind: EVENT_DEATH,
+                                // The body's own centre, from the trace. The
+                                // lethal `Damage` beside this row carries the
+                                // *blade contact point*, which is up to a reach
+                                // away from where the body actually fell.
+                                at: body.at,
+                                amount: Fx::ZERO,
+                                actor: entity.index,
+                                other: actor_index(killer),
+                                aux0: body.mass,
+                                aux1: Fx::from_int(kind_code(body.kind) as i32),
+                            },
+                        );
+                        continue;
+                    }
+                    Event::Loose { source, at, line } => {
+                        push_event(
+                            &mut events,
+                            &mut dropped,
+                            FrameEvent {
+                                kind: EVENT_LOOSE,
+                                at,
+                                amount: Fx::ZERO,
+                                actor: actor_index(source),
+                                other: SLOT_EMPTY,
+                                // In turns, `0..1`. A raw binary angle is a
+                                // `u16` and `Fx::from_int` saturates at 32768,
+                                // so the raw value crosses as the fraction of a
+                                // turn it already is -- which is exact, because
+                                // `raw / 65536` is what 16.16 represents.
+                                aux0: Fx::from_ratio(i32::from(line.raw()), 65_536),
+                                aux1: Fx::ZERO,
+                            },
+                        );
+                        continue;
+                    }
+                    Event::Shove {
+                        entity,
+                        shover,
+                        impulse,
+                        at,
+                    } => {
+                        push_event(
+                            &mut events,
+                            &mut dropped,
+                            FrameEvent {
+                                kind: EVENT_SHOVE,
+                                at,
+                                // The magnitude, because a direction is already
+                                // recoverable: the page has `vx, vy` on the row
+                                // and the impact point on this one. What it
+                                // cannot have is how much of the body's motion
+                                // was done *to* it.
+                                amount: impulse.length(),
+                                actor: entity.index,
+                                other: actor_index(shover),
+                                aux0: trace_at(traces, entity).mass,
+                                aux1: Fx::ZERO,
+                            },
+                        );
+                        continue;
+                    }
                 };
                 for mark in pair {
                     if !mark.0.is_none() && count < marks.len() {
@@ -1509,8 +1955,8 @@ impl Sim {
             }
 
             // After the tick, so the phases being compared are both settled
-            // ones. See [`Sim::note_declares`].
-            self.note_declares(&mut events);
+            // ones. See [`Sim::note_bodies`].
+            self.note_bodies(&mut events, &mut dropped);
 
             // Before the way-out test below, not after. A leg that finishes on
             // the same tick the hero steps onto the portal should still be the
@@ -1538,7 +1984,33 @@ impl Sim {
             // in this block is: a catch-up burst is up to eight ticks, and the
             // portal has to open on the tick of the kill rather than at the end
             // of whichever burst contained it.
+            //
+            // Differenced across the call rather than announced from inside it,
+            // on exactly the argument the floor plan's fingerprint above makes:
+            // `open_the_way_out` is a *state* rule ("clear and no portal yet")
+            // and not an edge, so the edge has to be taken here, where the two
+            // sides of it are both in hand.
+            let portal_before = self.portal_state();
             self.open_the_way_out();
+            if self.portal_state() != portal_before {
+                push_event(
+                    &mut events,
+                    &mut dropped,
+                    FrameEvent {
+                        kind: EVENT_PORTAL,
+                        at: self.portal.unwrap_or(Vec2::ZERO),
+                        amount: Fx::ZERO,
+                        // A fact about the level and not about a body, so there
+                        // is nobody to name. The page's visibility gate reads
+                        // `255` as "nobody knows", which passes -- correctly: a
+                        // way out opening is not something the fog should hide.
+                        actor: SLOT_EMPTY,
+                        other: SLOT_EMPTY,
+                        aux0: Fx::ZERO,
+                        aux1: Fx::ZERO,
+                    },
+                );
+            }
 
             // And the arming, which is what stops the level ending on the tick
             // it was cleared. The portal opens where the last blow landed, so
@@ -1556,61 +2028,158 @@ impl Sim {
             }
 
             // **And out of the loop entirely if the run just moved on.** Not
-            // "carry on in the new world": the flash counters, the swing table
+            // "carry on in the new world": the flash counters, the trace table
             // and the event feed collected above are all keyed to bodies that
             // no longer exist, so letting the rest of a catch-up burst run on a
             // fresh level would print the old level's damage numbers over the
             // new one. The next `step` picks it up.
             if self.hero_is_leaving() {
                 events.clear();
+                dropped = 0;
                 self.due = due;
                 self.events = events;
+                self.events_dropped = dropped;
+                // Which pushes the one row that outlives the clearing. See
+                // [`Sim::descend`] for why it is pushed from in there.
                 self.descend();
                 return;
             }
         }
         self.due = due;
         self.events = events;
+        self.events_dropped = dropped;
     }
 
-    /// Emits a `declare` row for every unit that just began an attack.
+    /// Writes each live body's place, size and weight into the trace table.
     ///
-    /// The mockup's *"current action"* bubble: the popup that tells you which
-    /// action an enemy has just committed to. Derived here rather than in the
-    /// page, and the reason is timing rather than tidiness. A Punch has a
-    /// five-tick windup (`action.rs`), so at 60 Hz an attack can begin and end
-    /// entirely between two `requestAnimationFrame` callbacks -- a page
-    /// differencing the `limb_swing` column across successive frames would
-    /// never see it happen. The module sees every tick by construction.
+    /// **Called before `World::step`**, so that a row about a body the step is
+    /// about to remove still has all three. `reap_dead` runs inside `step` and
+    /// hands a lethal blow's slot straight back to the free list, so by the
+    /// time the event slice comes back `World::view` answers `None` for exactly
+    /// the body an [`EVENT_DEATH`] row is about.
     ///
+    /// Also the only place the table is sized **and the only place a slot is
+    /// invalidated**, which is why it is the pass that runs first:
+    /// [`Sim::note_bodies`] walks the same list afterwards and can therefore
+    /// index rather than grow, and can difference against a row it already
+    /// knows belongs to the body it is holding.
+    fn refresh_traces(&mut self) {
+        for i in 0..self.units.len() {
+            let id = self.units[i];
+            let Some(view) = self.world.view(id) else {
+                continue;
+            };
+            let slot = id.index as usize;
+            if slot >= self.traces.len() {
+                self.traces.resize(slot + 1, Trace::default());
+            }
+            let trace = &mut self.traces[slot];
+            // **The generation first**, because a slot is recycled the instant
+            // its occupant dies and the body standing in it now may not be the
+            // one the phase, the phase length and the walk cycle were recorded
+            // for. Differencing across that boundary is what pushes an
+            // `EVENT_PHASE` about a transition between two creatures; see
+            // [`Trace`] for that and for the declaration it can swallow.
+            //
+            // Reset through `Trace::default()` and not field by field, so a
+            // field added to the differenced half cannot be forgotten here.
+            // The four written below are overwritten unconditionally on the
+            // very next lines, so there is no window in which they are stale.
+            if trace.generation != id.generation {
+                *trace = Trace {
+                    generation: id.generation,
+                    ..Trace::default()
+                };
+            }
+            trace.at = view.position;
+            trace.radius = view.radius;
+            trace.mass = view.mass;
+            trace.kind = view.kind;
+        }
+    }
+
+    /// Everything the page has to be *told* about a body, because it happened
+    /// between two frames.
+    ///
+    /// Three feeds off one pass over the roster, and they are one function
+    /// because they are one argument. A Punch has a five-tick windup
+    /// (`action.rs`), so at 60 Hz an attack can begin and end entirely between
+    /// two `requestAnimationFrame` callbacks; a body walking at 0.048 units a
+    /// tick puts a foot down every dozen; and a page differencing frame columns
+    /// sees neither. The module sees every tick by construction, which is the
+    /// whole reason any of this is derived on this side of the boundary rather
+    /// than in the sim.
+    ///
+    /// **[`EVENT_DECLARE`]** is the mockup's *"current action"* bubble: the
+    /// popup that tells you which action an enemy has just committed to.
     /// `Guard | Recover -> Windup | Strike` is the transition, and the second
     /// half of each side is load-bearing. `Recover` because a fighter that
     /// chains two cuts passes through recovery and not through guard, so
     /// watching only for `Guard ->` would announce the first blow of a flurry
     /// and none of the rest. `-> Strike` because a zero-windup action has no
     /// telegraph phase at all and would otherwise never be announced.
-    fn note_declares(&mut self, events: &mut Vec<FrameEvent>) {
+    ///
+    /// **[`EVENT_PHASE`]** is the same comparison with the rule taken off:
+    /// every change, in both directions, with the pair of discriminants rather
+    /// than an action code. It does not retire `EVENT_DECLARE` and is not meant
+    /// to -- see that constant.
+    ///
+    /// **[`EVENT_STEP`]** is the stride clock wrapping. The accumulator is
+    /// driven by *speed* and not by time, which is what makes a body that is
+    /// shoved, walled or simply stopped have its legs stop with it for free.
+    /// See [`STRIDE_PER_RADIUS`].
+    fn note_bodies(&mut self, events: &mut Vec<FrameEvent>, dropped: &mut u32) {
         for i in 0..self.units.len() {
             let id = self.units[i];
             // A dead handle simply has no phase to compare. Its slot keeps
-            // whatever it last held, which the next occupant overwrites on its
-            // own first tick -- a stale `Strike` there could at worst *suppress*
-            // one announcement, never invent one.
+            // whatever it last held until somebody else is handed the slot, at
+            // which point `refresh_traces` clears it on the generation. This
+            // used to say a stale `Strike` "could at worst suppress one
+            // announcement, never invent one", and the second half of that was
+            // wrong: `EVENT_PHASE` announces every transition in both
+            // directions, so a stale phase invents one as readily as it eats
+            // one. See [`Trace`].
             let Some(view) = self.world.view(id) else {
                 continue;
             };
             let slot = id.index as usize;
-            if slot >= self.swings.len() {
-                self.swings.resize(slot + 1, Swing::Guard);
-            }
-            let was = self.swings[slot];
+            // Sized by `refresh_traces`, which walked this same list one step
+            // ago. A `let else` rather than a second resize guard, so there is
+            // exactly one place that can grow this table.
+            let Some(trace) = self.traces.get_mut(slot) else {
+                continue;
+            };
+
+            let was = trace.swing;
             let now = view.limb.swing;
-            self.swings[slot] = now;
+            trace.swing = now;
+            if was != now {
+                // The counter as the transition left it, which is the phase's
+                // real length: whatever set `swing_left` did so on this tick,
+                // and the new phase does not spend any of it until the next
+                // one. Better than the nominal length from `action.rs`, because
+                // a punished recovery genuinely is longer than the nominal one.
+                trace.span = view.limb.swing_left;
+            }
+
+            // The stride clock. Bounded to one wrap a tick: a knockback can put
+            // more than a whole stride into one tick, and a body cannot take
+            // two steps in sixteen milliseconds -- so the honest ceiling is one
+            // footfall, and clamping is what keeps the wrap below a `while`
+            // loop that a saturated speed could sit in.
+            let step = (view.radius * STRIDE_PER_RADIUS).max(Fx::EPSILON);
+            let speed = view.velocity.length();
+            let stride = trace.stride + (speed / step).min(Fx::ONE);
+            let landed = stride >= Fx::ONE;
+            trace.stride = if landed { stride - Fx::ONE } else { stride };
+
             let began = matches!(was, Swing::Guard | Swing::Recover)
                 && matches!(now, Swing::Windup | Swing::Strike);
+            let mass = trace.mass;
             if began {
                 push_event(
                     events,
+                    dropped,
                     FrameEvent {
                         kind: EVENT_DECLARE,
                         at: view.position,
@@ -1619,6 +2188,41 @@ impl Sim {
                         // name and an icon per code from the registry.
                         amount: Fx::from_int(view.action.code() as i32),
                         actor: id.index,
+                        other: SLOT_EMPTY,
+                        aux0: Fx::ZERO,
+                        aux1: Fx::ZERO,
+                    },
+                );
+            }
+            if was != now {
+                push_event(
+                    events,
+                    dropped,
+                    FrameEvent {
+                        kind: EVENT_PHASE,
+                        at: view.position,
+                        amount: Fx::ZERO,
+                        actor: id.index,
+                        other: SLOT_EMPTY,
+                        aux0: Fx::from_int(was.discriminant() as i32),
+                        aux1: Fx::from_int(now.discriminant() as i32),
+                    },
+                );
+            }
+            if landed {
+                push_event(
+                    events,
+                    dropped,
+                    FrameEvent {
+                        kind: EVENT_STEP,
+                        at: view.position,
+                        // How fast the foot was going, which is what decides
+                        // how heavy the footfall sounds.
+                        amount: speed,
+                        actor: id.index,
+                        other: SLOT_EMPTY,
+                        aux0: mass,
+                        aux1: Fx::ZERO,
                     },
                 );
             }
@@ -2041,8 +2645,8 @@ impl Sim {
         // What it wants to draw is where that body is *now*, and the world is
         // the only thing that can answer. The same two header slots carry it,
         // so this is a better value and not a layout change -- which is what
-        // keeps [`FRAME_LAYOUT_VERSION`] at 6 and the hardcoded `HEADER_LEN` in
-        // `tools/wasm_check.js` and `web/main.js` untouched.
+        // let it land without moving [`FRAME_LAYOUT_VERSION`] or the hardcoded
+        // `HEADER_LEN` in `tools/wasm_check.js` and `web/main.js`.
         //
         // A handle that no longer resolves cannot actually reach the `ZERO`
         // branch through [`step`]: [`Sim::expire_focus`] runs inside the tick
@@ -2070,6 +2674,11 @@ impl Sim {
         frame[11] = portal.y.to_f32();
         frame[12] = self.portal_state() as f32;
         frame[13] = self.depth as f32;
+        // **Unconditionally, on every call.** `FRAME` is a persistent
+        // `thread_local!` and a slot left unwritten holds the previous frame's
+        // value, so a header float that is only written when it is interesting
+        // is a header float that lies for the rest of the session.
+        frame[14] = self.events_dropped as f32;
 
         // Hoisted out of the row loop: the hero's position and sight are the
         // same for every row, and `Dungeon::sees` is a DDA.
@@ -2097,11 +2706,14 @@ impl Sim {
                             && self.world.dungeon().sees(eye.position, view.position))
                 }
             };
+            let trace = self.trace_of(id);
             write_unit(
                 &mut frame[HEADER_LEN + count * UNIT_STRIDE..],
                 &view,
                 self.flash_of(id),
                 visible,
+                trace.stride,
+                trace.span,
             );
             count += 1;
         }
@@ -2140,6 +2752,9 @@ impl Sim {
             row[2] = event.at.y.to_f32();
             row[3] = event.amount.to_f32();
             row[4] = event.actor as f32;
+            row[5] = event.other as f32;
+            row[6] = event.aux0.to_f32();
+            row[7] = event.aux1.to_f32();
         }
         frame[8] = events as f32;
 
@@ -2240,20 +2855,36 @@ fn write_furniture(world: &World, torches: &[Torch]) {
     FURNITURE_LEN.with(|len| len.set(count as u32));
 }
 
-/// Appends a row unless the frame is already carrying [`MAX_EVENTS`] of them.
+/// Appends a row unless the frame is already carrying [`MAX_EVENTS`] of them,
+/// counting what it turned away.
 ///
 /// **Overflow drops the tail, on purpose.** The alternative -- a ring that
 /// keeps the newest -- would drop the *first* blows of a busy tick, and those
-/// are the ones the eye follows. Losing the thirty-third floating number in one
-/// animation frame is not something a player can notice; losing the one that
-/// started the exchange is.
-fn push_event(events: &mut Vec<FrameEvent>, event: FrameEvent) {
+/// are the ones the eye follows. Losing the hundred and twenty-ninth floating
+/// number in one animation frame is not something a player can notice; losing
+/// the one that started the exchange is.
+///
+/// `dropped` is a counter and not a flag because "the cap was hit" and "the cap
+/// was hit forty times" are different facts about how badly it is sized, and
+/// the second one is the one worth reading off `frame[14]`. Passed in rather
+/// than incremented on `Sim`, because the busiest caller holds `&mut self.world`
+/// across its whole loop.
+fn push_event(events: &mut Vec<FrameEvent>, dropped: &mut u32, event: FrameEvent) {
     if events.len() < MAX_EVENTS {
         events.push(event);
+    } else {
+        *dropped = dropped.saturating_add(1);
     }
 }
 
-fn write_unit(row: &mut [f32], view: &UnitView, flash: Flash, visible: bool) {
+fn write_unit(
+    row: &mut [f32],
+    view: &UnitView,
+    flash: Flash,
+    visible: bool,
+    stride: Fx,
+    swing_span: u16,
+) {
     row[0] = view.position.x.to_f32();
     row[1] = view.position.y.to_f32();
     // The binary angle, not radians: the client multiplies by 2pi/65536 and
@@ -2321,6 +2952,19 @@ fn write_unit(row: &mut [f32], view: &UnitView, flash: Flash, visible: bool) {
     // screen. Through `u8` because `f32::from(bool)` does not exist, and the
     // house precedent for the conversion is `write_map`.
     row[28] = f32::from(u8::from(visible));
+
+    // Velocity, straight off the view. **Not derivable on the page** -- a frame
+    // is up to eight ticks and often none, so differencing `x, y` across frames
+    // measures the browser's scheduler as much as the body's feet.
+    row[29] = view.velocity.x.to_f32();
+    row[30] = view.velocity.y.to_f32();
+
+    // The walk cycle's phase and the current attack phase's length: two
+    // presentation clocks that the sim's own numbers drive, so that a leg and a
+    // telegraph are drawn from what happened rather than from a wall clock. See
+    // `STRIDE_PER_RADIUS` and `UNIT_STRIDE`'s own prose.
+    row[31] = stride.to_f32();
+    row[32] = f32::from(swing_span);
 }
 
 /// An action code, or [`SLOT_EMPTY`] for a slot nothing is in.
@@ -2447,6 +3091,13 @@ fn publish() {
             sim.refresh_vis();
             FRAME.with(|frame| sim.write_frame(&mut frame.borrow_mut()))
         }
+        // **This arm writes no header at all**, which is only safe because
+        // `FRAME` is zero-initialised and `SIM` never goes back to `None` once
+        // an `init` has filled it. Every header float therefore either holds a
+        // written value or a zero that was never anything else -- `frame[14]`
+        // included, where a value left over from a live sim would report a feed
+        // truncation on a frame that carries no feed. A future export that
+        // could clear `SIM` has to zero the header here.
         None => HEADER_LEN,
     });
     FRAME_LEN.with(|n| n.set(len as u32));
@@ -4400,7 +5051,15 @@ mod tests {
         step(60);
 
         let frame = frame();
-        assert_eq!(frame.len(), HEADER_LEN + UNIT_STRIDE);
+        // Against the frame's own three counts rather than against a literal.
+        // **This used to read `HEADER_LEN + UNIT_STRIDE`, and the premise under
+        // it was that an empty level produces no events.** That premise was
+        // true while an event meant a blow; it stopped being true the moment a
+        // footfall became one, and a walking hero puts `EVENT_STEP` rows in
+        // this frame every dozen ticks. What the assertion is really for -- the
+        // header and the first unit row landing where the layout says -- is
+        // unaffected, so it is the arithmetic that moves and not the claim.
+        assert_eq!(frame.len(), frame_span());
         assert_eq!(frame_len() as usize, frame.len());
         assert_eq!(frame[0], f32::from(DUNGEON_COLS), "arena_x");
         assert_eq!(frame[1], f32::from(DUNGEON_ROWS), "arena_y");
@@ -4415,14 +5074,23 @@ mod tests {
         );
         assert_eq!(frame[6], 1.0, "unit_count");
         assert_eq!(frame[7], 0.0, "shot_count");
-        assert_eq!(
-            frame[8], 0.0,
-            "event_count: nobody has hit anybody in an empty level"
-        );
+        // And the stronger form of what the literal above was claiming: on an
+        // emptied level with one body walking, a footfall is the *only* thing
+        // that can have happened. A row of any other kind here means something
+        // is announcing itself that nothing in this fixture did.
+        assert!(frame[8] > 0.0, "sixty ticks of walking produced no footfall");
+        for row in events() {
+            assert_eq!(
+                row[0], EVENT_STEP as f32,
+                "nobody has hit anybody in an empty level, so this row should not exist"
+            );
+            assert_eq!(row[4], frame[HEADER_LEN + 9], "the footfall is not the hero's");
+        }
         // The run block, appended after the three section counts.
         assert_eq!(frame[9], 0.0, "monsters_left: this level was emptied");
         assert_eq!(frame[12], PORTAL_OPEN as f32, "portal_state: nothing left");
         assert_eq!(frame[13], 0.0, "depth: the first floor");
+        assert_eq!(frame[14], 0.0, "events_dropped: one body cannot fill the feed");
 
         let unit = &frame[HEADER_LEN..];
         assert!(
@@ -6293,7 +6961,14 @@ mod tests {
         // can open. Sixty-three monsters around one hero for a thousand ticks is
         // well past anything a player produces, and `push_event` has to hold the
         // ceiling through all of it.
-        init_quiet(1);
+        //
+        // **`init` and not `init_quiet`, and the difference is the whole value
+        // of the number this prints.** A quiet level's Brutes converge, kill the
+        // hero and then have nothing to swing at -- and a room where nothing is
+        // swinging is a room with almost no events in it, which measured 28 and
+        // meant nothing. A generated level keeps a roster that fights, and the
+        // same sweep then reads 72. See [`MAX_EVENTS`] for the table.
+        init(1);
         for _ in 0..MAX_UNITS {
             spawn_monster(BRUTE, SLOT_EMPTY, SLOT_EMPTY);
         }
@@ -6305,6 +6980,11 @@ mod tests {
             busiest = busiest.max(frame()[8] as usize);
             assert!(frame_len() as usize <= FRAME_MAX, "the frame overran itself");
             assert_eq!(frame_len() as usize, frame_span(), "the counts disagree");
+            // The other half, and the one that would catch an undersized cap
+            // rather than merely an overrun one: `busiest <= MAX_EVENTS` is
+            // true by construction because `push_event` enforces it, so it is
+            // the *drop count* that says whether the ceiling was ever reached.
+            assert_eq!(frame()[14], 0.0, "the feed was truncated in a room of brutes");
         }
         println!("busiest frame carried {busiest} events of {MAX_EVENTS}");
         assert!(busiest > 0, "a room full of brutes produced no events at all");
@@ -7200,6 +7880,259 @@ mod tests {
             events(),
             per_tick[8],
             "the ninth tick reported the eight before it as well"
+        );
+    }
+
+    /// One scripted run's whole event feed, tick by tick.
+    ///
+    /// Built to reach **every** derived kind, because the derived ones are
+    /// exactly the ones no golden hash can see: `World::state_hash` does not
+    /// walk `World::events`, and nothing hashes the frame at all. The fixture
+    /// is `init_unmarked` and not `init_quiet` on purpose -- a level with no
+    /// exit room has no way out until something is killed, which is the only
+    /// arrangement in which an `EVENT_PORTAL` edge exists to be caught.
+    fn scripted_feed() -> Vec<Vec<Vec<f32>>> {
+        let mut feed = Vec::new();
+        let pump = |ticks: u32, done: fn() -> bool, feed: &mut Vec<Vec<Vec<f32>>>| {
+            for _ in 0..ticks {
+                step(1);
+                feed.push(events());
+                if done() {
+                    return true;
+                }
+            }
+            false
+        };
+
+        init_unmarked(1);
+        spawn_monster(SKITTERER, SLOT_EMPTY, SLOT_EMPTY);
+        assert!(
+            pump(3_600, || monsters_left() == 0, &mut feed),
+            "the fighter never finished one skitterer, so this feed has no death in it"
+        );
+
+        // Away from the way out and back, because the way out opens where the
+        // last blow landed and a hero standing in it has not "arrived" at
+        // anything. See `Sim::portal_armed`.
+        let (ax, ay) = walkable_near_hero(5.0, 0.45);
+        set_goto((ax * 1000.0) as i32, (ay * 1000.0) as i32);
+        pump(400, || false, &mut feed);
+
+        let (px, py, state) = portal();
+        assert_eq!(state, PORTAL_OPEN, "the level cleared and nothing opened");
+        set_goto((px * 1000.0) as i32, (py * 1000.0) as i32);
+        assert!(
+            pump(2_400, || depth() > 0, &mut feed),
+            "the hero never walked back into the way out"
+        );
+        feed
+    }
+
+    #[test]
+    fn one_script_run_twice_reports_the_same_events_including_the_derived_ones() {
+        let a = scripted_feed();
+        let b = scripted_feed();
+        assert_eq!(a.len(), b.len(), "the two runs were different lengths");
+        for (i, (x, y)) in a.iter().zip(&b).enumerate() {
+            assert_eq!(x, y, "the two runs' feeds diverged at tick {i}");
+        }
+
+        // And that the fixture actually reached each kind, so the comparison
+        // above is not two identical lists of nothing. `EVENT_PARRY` is absent
+        // from this list deliberately: whether one skitterer's knife crosses
+        // one fighter's sword is a fact about a chase across a floor plan, and
+        // the four hash-pinned scripts already cover it.
+        let flat: Vec<&Vec<f32>> = a.iter().flatten().collect();
+        let counts = |kind: u32| flat.iter().filter(|r| r[0] == kind as f32).count();
+        for (kind, name) in [
+            (EVENT_DAMAGE, "damage"),
+            (EVENT_DECLARE, "declare"),
+            (EVENT_DEATH, "death"),
+            (EVENT_PHASE, "phase"),
+            (EVENT_STEP, "step"),
+            (EVENT_SHOVE, "shove"),
+            (EVENT_PORTAL, "portal"),
+            (EVENT_DESCEND, "descend"),
+        ] {
+            assert!(counts(kind) > 0, "the script produced no {name} row");
+        }
+        println!(
+            "{} rows over {} ticks: {} step, {} phase, {} shove",
+            flat.len(),
+            a.len(),
+            counts(EVENT_STEP),
+            counts(EVENT_PHASE),
+            counts(EVENT_SHOVE),
+        );
+
+        // Every row is well formed, which is the half a comparison of two
+        // identical runs cannot check: a column written from the wrong field
+        // is wrong identically in both.
+        for row in &flat {
+            assert!(row[0] < EVENT_KINDS as f32, "event kind {}", row[0]);
+            assert!(
+                row[4] < MAX_UNITS as f32 || row[4] == SLOT_EMPTY as f32,
+                "actor {} is neither a slot nor `nobody`",
+                row[4]
+            );
+            assert!(
+                row[5] < MAX_UNITS as f32 || row[5] == SLOT_EMPTY as f32,
+                "other {} is neither a slot nor `nobody`",
+                row[5]
+            );
+        }
+        // A death row's weight and body kind come from the trace table, which
+        // is the whole reason that table exists -- `World::view` answers
+        // `None` for a body `reap_dead` has already recycled.
+        let death = flat
+            .iter()
+            .find(|r| r[0] == EVENT_DEATH as f32)
+            .expect("checked above");
+        assert!(death[6] > 0.0, "a death row weighs nothing");
+        assert_eq!(death[7], 3.0, "the thing that died was a skitterer");
+        // And the descend row carries the floor it arrived on.
+        let descend = flat
+            .iter()
+            .find(|r| r[0] == EVENT_DESCEND as f32)
+            .expect("checked above");
+        assert_eq!(descend[3], 1.0, "descend row: the new depth");
+    }
+
+    #[test]
+    fn a_fighter_takes_a_step_about_every_twelve_ticks() {
+        // `STRIDE_PER_RADIUS`'s provenance, as an assertion rather than as a
+        // claim in a comment. A Fighter is radius 0.45 and walks at about 0.048
+        // world units a tick, so at 1.3 its stride is 0.585 units and a foot
+        // lands every twelve or so. The band is wide because the number is a
+        // *look* and not an optimum -- what is being guarded is the order of
+        // magnitude, which is what decides whether the legs blur or the body
+        // appears to glide.
+        init_quiet(1);
+        let (tx, ty) = walkable_near_hero(6.0, 0.45);
+        set_goto((tx * 1000.0) as i32, (ty * 1000.0) as i32);
+
+        // Gaps between consecutive footfalls, and only the ones taken at
+        // something near top speed: the strides out of a standing start and
+        // the ones into a destination are both slower, and neither is what the
+        // constant is about.
+        // Six units at roughly 0.048 a tick is about 130 ticks of walking, so
+        // the window is 200 and the rest of it is the body standing at the
+        // destination -- which the second half of this test then uses.
+        let mut gaps: Vec<u32> = Vec::new();
+        let mut since = 0u32;
+        let mut walking = 0u32;
+        for _ in 0..200 {
+            step(1);
+            since += 1;
+            let row = hero_row().expect("the hero is gone");
+            let speed = (row[29] * row[29] + row[30] * row[30]).sqrt();
+            if speed > 0.04 {
+                walking += 1;
+            }
+            if events().iter().any(|r| r[0] == EVENT_STEP as f32) {
+                if speed > 0.04 {
+                    gaps.push(since);
+                }
+                since = 0;
+            }
+        }
+        assert!(walking > 70, "the hero only walked {walking} ticks of 200");
+        assert!(gaps.len() >= 5, "only {} footfalls at speed", gaps.len());
+        let mean = gaps.iter().sum::<u32>() as f32 / gaps.len() as f32;
+        println!("{} footfalls at speed, mean gap {mean:.1} ticks", gaps.len());
+        assert!(
+            (9.0..=16.0).contains(&mean),
+            "a Fighter's footfall period is {mean:.1} ticks, which is outside \
+             the band STRIDE_PER_RADIUS was chosen for"
+        );
+
+        // And the other half of the claim, which is the one that survives any
+        // retune of the constant: a body that has stopped does not take steps.
+        let hero = hero_row().expect("the hero is gone");
+        set_goto((hero[0] * 1000.0) as i32, (hero[1] * 1000.0) as i32);
+        step(120);
+        let stride = hero_row().expect("the hero is gone")[31];
+        step(60);
+        assert_eq!(
+            hero_row().expect("the hero is gone")[31],
+            stride,
+            "a standing body's stride kept turning over"
+        );
+    }
+
+    #[test]
+    fn a_skitterer_takes_about_twice_as_many_steps_as_a_fighter() {
+        // The other half of [`STRIDE_PER_RADIUS`]'s provenance, and the half
+        // that was written down wrong: the comment claimed ~8 ticks for a
+        // Skitterer, which is its 0.39 stride divided by the *Fighter's* speed.
+        // A body spends its own stride with its own legs.
+        //
+        // Arithmetic and not a run, deliberately. The claim being pinned is a
+        // ratio of two registry numbers, and the measured cadence -- which the
+        // test above takes for the Fighter -- comes out a little longer than
+        // this for both bodies, because a body walking a route is under its
+        // settle speed for the ends of every leg. Measuring the Skitterer as
+        // well would cost a scripted floor to make one walk anywhere and would
+        // pin the routing as much as the constant.
+        let ticks = |kind: Body| {
+            let stride = kind.radius() * STRIDE_PER_RADIUS;
+            (stride / kind.base_stats().move_speed()).to_f32()
+        };
+        let fighter = ticks(Body::Fighter);
+        let skitterer = ticks(Body::Skitterer);
+        println!("nominal footfall period: fighter {fighter:.2}, skitterer {skitterer:.2}");
+        assert!(
+            (6.0..=7.0).contains(&skitterer),
+            "a Skitterer's footfall period is {skitterer:.2} ticks, not the ~6.5 \
+             STRIDE_PER_RADIUS writes down"
+        );
+        assert!(
+            skitterer < fighter,
+            "the small body does not take more steps than the big one, which is \
+             the whole reason the stride is proportional to radius"
+        );
+    }
+
+    #[test]
+    fn a_recycled_slot_does_not_report_a_phase_change_between_two_bodies() {
+        init_quiet(1);
+        step(1);
+
+        // The state a recycled slot leaves behind, **forged rather than
+        // staged**: getting a monster to die mid-`Windup` and the next spawn to
+        // land on its index takes a scripted floor, and the one line of it that
+        // matters is this one -- a trace holding the previous occupant's phase,
+        // phase length and walk cycle under the previous occupant's generation.
+        let hero = with_sim(EntityId::NONE, |sim| {
+            let hero = sim.hero().expect("the room did not open with a hero");
+            let trace = &mut sim.traces[hero.index as usize];
+            trace.generation = hero.generation.wrapping_sub(1);
+            trace.swing = Swing::Windup;
+            trace.span = 40;
+            trace.stride = Fx::from_ratio(7, 10);
+            hero
+        });
+
+        step(1);
+        // The row the bug produces is `Windup -> something`, which no body that
+        // has been standing at guard can emit. Asked of `aux0` and not merely
+        // of the kind, so a hero that legitimately *entered* a windup on this
+        // tick -- `Guard -> Windup`, `aux0` at guard -- does not fail it.
+        let windup = Swing::Windup.discriminant() as f32;
+        assert!(
+            !events()
+                .iter()
+                .any(|r| r[0] == EVENT_PHASE as f32 && r[6] == windup),
+            "a slot whose generation changed reported the last body's phase"
+        );
+
+        let trace = with_sim(Trace::default(), |sim| sim.traces[hero.index as usize]);
+        assert_eq!(trace.generation, hero.generation, "the generation is stale");
+        assert_eq!(trace.span, 0, "the last body's phase length survived");
+        assert!(
+            trace.stride < Fx::from_ratio(1, 2),
+            "the newcomer inherited a walk phase of {}",
+            trace.stride.to_f32()
         );
     }
 

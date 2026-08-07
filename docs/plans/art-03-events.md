@@ -1,5 +1,12 @@
 # art-03 — the frame learns to say what happened
 
+> **LANDED.** All five hashes byte-identical (`lab hash 0xfe31370e141ef531`, and the four in
+> `tools/wasm_check.js`), `GOLDEN_STATE_HASH` unmoved, `verify --seeds 200` clean. What this
+> document got wrong is corrected in place below, marked **CORRECTION**; what it left open is
+> answered in place, marked **ANSWERED**. The `main.js` line anchors throughout were stale by
+> about 65 lines in the back half of the file and have not been rewritten, because they are
+> about to go stale again — grep the banner comments, as `AGENTS.md` says.
+
 **Goal:** the frame carries every transition the animation and the sound will need — deaths,
 releases, phase changes, footfalls, shoves, the portal, the descent — plus the two per-body
 numbers a walk cycle and an impact voice cannot be honest without: velocity and mass.
@@ -36,7 +43,8 @@ step: the hero handle, the dungeon fingerprint, and a per-entity `Swing` table i
 begin and end between two `requestAnimationFrame` callbacks, so a page differencing columns
 would never see it happen.
 
-That is the pattern. Sort the brief's list by it:
+That is the pattern. Sort the brief's list by it — and note that `note_declares` below is now
+`Sim::note_bodies`, which is that same pass with the footstep clock and the phase feed in it:
 
 | event | where | why |
 |---|---|---|
@@ -105,6 +113,14 @@ Check `crates/policy` and `crates/lab` for an exhaustive `match` on `Event` befo
 variant. At the time of writing there is none — every consumer uses `if let` or `matches!` — but
 that is a fact about today, and the compiler will say so either way.
 
+> **CORRECTION.** There were two, and they are compile errors rather than test failures.
+> `crates/policy/src/runner.rs` counts `Damage`/`Block`/`Parry`/`Loose` into a `RunResult` and
+> has a `Death { .. } => {}` arm with no `_`; it gained `Death { .. } | Shove { .. } => {}`,
+> spelled out rather than swept into a wildcard so the next variant has to be thought about
+> there. `crates/web/src/lib.rs`'s drain in `Sim::advance` ends
+> `Event::Death { .. } | Event::Loose { .. } => continue`, which is exactly the line this
+> session replaces with three real arms. `crates/lab` contains the word `Event` nowhere at all.
+
 ## 3. The ABI
 
 ### The event row widens from 5 floats to 8
@@ -129,7 +145,7 @@ so the four existing kinds are unchanged in their first five columns and the pag
 | `PARRY` | 2 | where the blades crossed | 0 | `a` | `b` | 0 | 0 |
 | `DECLARE` | 3 | swinger's position | action code | swinger | 255 | 0 | 0 |
 | `DEATH` | 4 | where it fell | 0 | the dead | killer | mass | body kind |
-| `LOOSE` | 5 | the nock | 0 | archer | 255 | line, raw angle | 0 |
+| `LOOSE` | 5 | the nock | 0 | archer | 255 | line, **in turns** | 0 |
 | `PHASE` | 6 | the body | 0 | unit | 255 | phase from | phase to |
 | `STEP` | 7 | the foot | speed, units/tick | unit | 255 | mass | 0 |
 | `SHOVE` | 8 | the body | impulse magnitude | the shoved | the shover, or 255 | mass | 0 |
@@ -139,6 +155,31 @@ so the four existing kinds are unchanged in their first five columns and the pag
 Codes are **append-only**, on the standing rule (`:322`): a page that has never heard of a kind
 skips the row rather than guessing at it, which is what lets an older page run against a newer
 module and draw nothing wrong.
+
+> **CORRECTION on `LOOSE`'s `aux0`.** It cannot be the raw binary angle. `FrameEvent`'s aux
+> fields are `Fx`, `Angle::raw` is a `u16`, and `Fx::from_int` saturates at 32768 — so half the
+> compass would arrive as the same number. It crosses as the fraction of a turn it already is
+> (`Fx::from_ratio(raw, 65536)`, which is exact, because `raw / 65536` is what 16.16 *means*),
+> and the page multiplies by `2pi` instead of by `2pi / 65536`.
+>
+> **`DEATH`'s three body columns needed a table that did not exist.** `World::reap_dead` recycles
+> the slot before `step` returns, so there is no `view` to ask where the body was, what it weighed
+> or what it was — for exactly the row a renderer most wants. `Sim` gained a `Trace` per entity
+> index, which also carries the swing phase (replacing `swings`), the stride and the phase span:
+> one table rather than four parallel ones keyed on the same index, with one resize guard and one
+> `clear()` in `descend`. `Sim::refresh_traces` writes the physical half **before** `World::step`
+> for this reason; `Sim::note_bodies` writes the phase half after it, because a declare wants two
+> settled phases to compare.
+>
+> **`Trace` carries the entity generation, and the first draft that did not was wrong.**
+> `reap_dead` hands a dead body's slot straight back to the free list, so the differenced half of
+> the table — `swing`, `span`, `stride` — would otherwise be differenced against the previous
+> occupant: `EVENT_PHASE` would announce a transition *between two creatures*, which is the
+> "dead creature coming back to life" shape `AGENTS.md` warns index-keyed readers about, and the
+> newcomer's legs would start at an arbitrary offset into somebody else's walk cycle.
+> `refresh_traces` resets those three whenever the generation in a slot changes. The same test
+> closes the older sibling case the `swings` vector had — a stale `Windup` *suppressing* the next
+> body's declaration — because it is the same comparison across the same boundary.
 
 **`EVENT_DECLARE` survives even though `EVENT_PHASE` subsumes it**, and that is deliberate. It
 carries the action code rather than a phase pair, it applies `note_declares`' `Guard | Recover →
@@ -152,12 +193,22 @@ gate is that nothing changes.
   instead, which is what the impact voice actually wants (the thing that rings is the body). If
   the swing's own geometry turns out to be wanted in `art-10`, it is a fourth field on
   `Event::Damage` and its own decision.
-- *"the shield-disturbance magnitude that already exists in the collision math"* — `absorbed` is
-  what `Event::Block` carries today and it is a monotone stand-in for sharpness. Before adding a
-  field, **read the block path in `world.rs:1454` and `1609` and find out whether a distinct
-  disturbance figure exists there at all.** If it does and it says something `absorbed` does not,
-  add it as an inert fourth sim change on the same terms as `Shove`; if it does not, say so in
-  `DESIGN.md` and let `art-10` scale on `absorbed`.
+- *"the shield-disturbance magnitude that already exists in the collision math"* — **ANSWERED,
+  and this bullet was wrong about `absorbed`.** A distinct figure does exist: `knock`, the second
+  return of `World::deflect`, computed in `resolve_swings`' *first* pass inside the `if blocked`
+  branch. It is **not** a monotone stand-in for sharpness and `DESIGN.md`'s own measured table
+  ("Impact → arm") says so — a Rogue's blade is absorbed hardest and knocks the guard least,
+  which is the whole point of the change that produced those numbers. It also exists only on the
+  blade path: `resolve_shots` writes no `Impulse` at all and says so in its doc comment, so a
+  fourth `Event::Block` field would be zero on every arrow row forever.
+
+  It was **not** added, and the cost is why. `knock` is not in scope at the emission site — it
+  has been pushed into `self.impulses`, which `apply_impulses` sorts, so the indices no longer
+  correspond to blows. Carrying it means a new field on `struct Blow` *and* hoisting `knock` out
+  of the `if blocked` block, which fails this document's own test for an inert change: that the
+  emission is a field read of something the line above already computed. So the finding is
+  recorded in `DESIGN.md`'s open questions instead, `art-10` scales on `absorbed`, and `knock` is
+  named there as the number to reach for if that reads wrong.
 - *"kinetic energy"* — damage **is** kinetic energy times the power multiplier (`DESIGN.md`,
   "Damage is kinetic energy"). `amount` is therefore an honest energy proxy and `art-10` should
   say in one comment that it is a proxy rather than pretending it is the raw figure.
@@ -192,6 +243,30 @@ believed, which is the same reason `floorBakes` exists (`main.js:4869`).
 64 bodies, with a footfall every dozen ticks or so and a phase change now and then, puts a busy
 worst case near eighty. 128 rows × 8 floats is 4 KB of linear memory, once, forever.
 
+> **ANSWERED: "near eighty" was right, for the wrong reason, and 128 stands.** Measured at 58,
+> 60, 64, 72 and 71 for a generated level plus 4, 8, 16, 32 and 63 extra Brutes, and at **79** in
+> `the_frame_is_bounded_by_what_the_world_can_hold`. Zero rows dropped anywhere.
+>
+> The rate is **flat in the crowd size**, which the estimate above did not predict. Nine rows in
+> ten are `EVENT_SHOVE` out of `World::apply_recoil` — which bills a fighter for its own swing on
+> most ticks of most swings — so the busy variable is how many bodies are *swinging*, not how
+> many are in the room. A crowd of Brutes that cannot reach anything is quiet, and the first
+> fixture tried (`init_quiet` plus 64 Brutes) measured 28 because the hero died and the room went
+> still. That fixture was changed to `init` for exactly this reason.
+>
+> The consequence for `art-09` and `art-11` is bigger than the cap: **a shove is not a rare event
+> and must not be treated as one.** A landed blow is rare and large; a recoil is constant and
+> small. Anything reacting to `EVENT_SHOVE` wants a magnitude threshold, and `amount` is the
+> field to put it on.
+>
+> **All three shove sites hold `!is_zero()`, and `apply_recoil` did not at first.** The blow and
+> the arrow guard on it — "a shove of nothing is not a thing that happened" — while the recoil
+> pushed unconditionally, and `Mul<Fx> for Vec2` truncates toward zero, so a kick barely past the
+> traction threshold reaches the frame as `amount = 0`. Two of 929 shove rows in
+> `one_script_run_twice_...`: small, but on the highest-rate channel there is. The guard wraps the
+> **event only** — `self.vel[i] -= kick` stays unconditional, because putting a branch on
+> simulation state to spare an event row is what would move a hash.
+
 Overflow keeps dropping the tail, which is still the right end (`Sim::advance` argues it), and
 now says so out loud in the header.
 
@@ -219,6 +294,21 @@ if stride[i] >= 1 { stride[i] -= 1; push EVENT_STEP }
 with `stride_length` proportional to body radius — a Brute's stride is longer than a
 Skitterer's because a Brute is bigger. Publish `stride[i]` as unit column 31.
 
+> **ANSWERED: `stride_length = radius * 1.3`**, as `STRIDE_PER_RADIUS` in `crates/web`. Chosen
+> for cadence: a Fighter is radius 0.45 and tops out near 0.048 units a tick, so its stride is
+> 0.585 units and a foot lands every ~12 ticks — a fifth of a second, a brisk walk. Measured at
+> 11.8 by `a_fighter_takes_a_step_about_every_twelve_ticks`, which is the test that catches it
+> drifting; `tools/wasm_check.js`'s "the walk cycle's columns describe the walk" pins the
+> property that survives a retune, which is that the column advances on feet and not on a clock.
+> A Skitterer is radius 0.30 and walks at its own 0.0597, so its stride is 0.39 and a foot lands
+> every **6.5** ticks — pinned by `a_skitterer_takes_about_twice_as_many_steps_as_a_fighter`.
+> The constant's comment briefly said ~8 there, which is 0.39 over the *Fighter's* speed; a body
+> spends its own stride with its own legs.
+>
+> `advance` is clamped to at most one whole stride a tick, so the wrap is a single `-= 1` rather
+> than a `while` a saturated speed could sit in. One footfall per tick is the honest ceiling: a
+> body cannot take two steps in sixteen milliseconds.
+
 **This is the single most useful thing in the session and the reason it is worth a column
 rather than a page-side integral.** One number drives three things that would otherwise drift
 apart:
@@ -243,15 +333,37 @@ backwards through a whole cycle in one frame. `lerpAngle` (`main.js:1184`) alrea
 this problem for facings — use it, scaled, or write the two-line `lerpWrap01` beside it and say
 in its comment that it is `lerpAngle` with a different period.
 
+> **CORRECTION: `lerpWrap01` alone is not enough, and its first correctness argument was false.**
+> It inherits `lerpAngle`'s blind spot — half a period one way is indistinguishable from half a
+> period the other — and the first draft argued that away with the module's clamp of one whole
+> stride per tick. That is the wrong bound: **the clamp is per tick and the lerp is per frame.**
+> `blend` is called with `span = max(currTick - prevTick, 1)`, and `loop` caps a frame at
+> `MAX_CATCHUP_TICKS = 8`, so `span` reaches 8 on the ordinary dropped-backlog path — every time
+> the tab regains focus. A Skitterer advances 0.153 of a stride per tick (radius 0.30,
+> `move_speed` 0.0597, `STRIDE_PER_RADIUS` 1.3), so four ticks is 0.61 of a period and
+> interpolates *backwards*, and eight is 1.22 and wrong in direction and magnitude both — then
+> drawn across the following `ticks === 0` frames at climbing alphas.
+>
+> **Two samples cannot recover a winding number, so no better lerp fixes it.** `blendUnit` takes
+> `span` and wrap-lerps `stride` only at `span === 1`, snapping to `curr` otherwise, on
+> `snapRow`'s precedent. The cost is one small phase jump on a catch-up frame, where every
+> position in the room jumps anyway.
+>
+> `lerpWrap01` also renormalises: `a + d * t` leaves `[0, 1)` (0.95 and 0.05 half way is exactly
+> 1.0), which is harmless under `sin(stride * TAU)` and wrong under
+> `Math.floor(stride * frameCount)` — how `art-05` and `art-08` index a sprite sheet.
+> `lerpWrap01(v, v, t)` is still exactly `v`, which `blendUnit`'s "an exact copy" claim needs.
+
 ## 5. The page side
 
 Mechanical, and the gate is that none of it changes a pixel:
 
 - `newUnitRow` (`main.js:822`) gains `vx`, `vy`, `stride`, `swingSpan`; `readUnit` (`:939`) reads
-  columns 29–32; `blendUnit` (`:1252`) lerps `vx`/`vy`, wrap-lerps `stride`, and **snaps**
-  `swingSpan` rather than lerping it — it is a phase's length and a value halfway between an
-  axe's 33 and a punch's 5 describes no action that exists; `snapRow` (`:1215`) is where the
-  existing precedent for that lives.
+  columns 29–32; `blendUnit` (`:1252`) lerps `vx`/`vy`, wrap-lerps `stride` **across a single
+  tick and snaps it past that** (see the correction above), and **snaps** `swingSpan` rather than
+  lerping it — it is a phase's length and a value halfway between an axe's 33 and a punch's 5
+  describes no action that exists; `snapRow` (`:1215`) is where the existing precedent for that
+  lives.
 - `newEventRow` (`:863`) gains `other`, `aux0`, `aux1`; `parseFrame` (`:1026`) reads eight
   columns instead of five and the header's fifteenth.
 - The eleven `EVENT_*` codes are declared beside the four that exist (`:102-105`).
@@ -259,7 +371,11 @@ Mechanical, and the gate is that none of it changes a pixel:
   already correct: it tests for the kinds it knows and falls through the rest. Seven new kinds
   arrive and nothing consumes them until `art-09` and `art-10`.
 - If `frame[14]` is ever non-zero, `console.warn` once. Not per frame — once, with the count —
-  because a warning that repeats sixty times a second is a warning nobody reads.
+  because a warning that repeats sixty times a second is a warning nobody reads. **The message
+  names the file and not the cap.** `MAX_EVENTS` is the one mirrored constant with no export
+  behind it (deliberately: `frame[14]` is what the page is meant to read instead), so neither the
+  boot handshake nor `wasm_check` can catch the page's copy drifting — and a message that printed
+  it could state a number that is no longer in `lib.rs`.
 
 ## 6. Tests
 
@@ -286,6 +402,18 @@ accumulator that had picked up an `f32`.
 
 The file's existing "a column added in the middle would leave every hash identical" note
 (`:463`) is the reason that last group is worth writing: the hashes cannot see the frame at all.
+
+> **CORRECTION on the last bullet: `frame[14]` is *not* zero for the canned scripts, and it
+> should not be.** `Sim::advance` clears the feed per **call**, not per tick, so `step(60)` asks
+> one frame to carry sixty ticks of events — seven and a half times the eight `MAX_EVENTS` is
+> sized for — and `step(600)` asks for seventy-five. A test harness batching ticks is not a page.
+> The zero claim is asserted where it means something instead: in the two new `wasm_check` tests,
+> which step one tick at a time, and in `the_frame_is_bounded_by_what_the_world_can_hold`, which
+> steps eight at a time because eight is the client's own ceiling.
+>
+> **Two other assertions in the file had to move, and neither was a bug:** `event kind <= 3` (now
+> `< EVENT_KINDS`) and `actor_index < 64` (now a slot *or* 255, because `EVENT_PORTAL` and
+> `EVENT_DESCEND` name no body at all). Both were true statements about a four-kind feed.
 
 ---
 

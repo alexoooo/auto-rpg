@@ -51,6 +51,16 @@ that started it is worse than no telegraph, because it is a lie the player will 
 
 Every one of them lands in `art-10`'s `VOICES` table. No constant goes inline.
 
+> **The portal drone has a known hole, recorded in `art-03` rather than fixed there.**
+> `Sim::descend` calls `open_the_way_out()` *outside* the portal edge test in `Sim::advance`, so a
+> floor that arrives already clear opens its way out with **no `EVENT_PORTAL` row behind it** and
+> this drone would never start on it. Judged unreachable in play — a generated floor always has
+> somebody standing on it, so it is a fixture-only path today — which is why `art-03` left it
+> alone rather than papering it over. It stops being free the moment a sound keys off that edge,
+> and the fix at that point is to move the edge test *into* `open_the_way_out` so there is one of
+> it, not to add a second that can disagree with the first. `crates/web/src/lib.rs`'s `descend`
+> carries the same note in place.
+
 ## 3. Footsteps need a leash
 
 64 bodies walking is up to five footfalls a frame at `MAX_UNITS`, all of them uninteresting.
