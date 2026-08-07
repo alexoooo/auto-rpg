@@ -1783,6 +1783,10 @@ const canvas = document.getElementById("arena");
  * find out.
  */
 const ctx = canvas.getContext("2d");
+// The backend's one and only context. The element is the page's -- `main.js`
+// owns the DOM -- and what is done *to* it is `draw.js`'s; see the rule at the
+// top of that file.
+dlBind(ctx);
 const stage = document.getElementById("canvas-wrap");
 const hintEl = document.getElementById("hint");
 const overlay = document.getElementById("overlay");
@@ -4766,7 +4770,10 @@ function lift(h) {
  *  it moving, because of the paragraph above.
  *
  *  Fourteen call sites, and this list is the register to grep when the question is
- *  what the shear touches -- so a fifteenth belongs here on the way in.
+ *  what the shear touches -- so a fifteenth belongs here on the way in. **Eight
+ *  of the fourteen go through `pushGroundSpace` since `art-04` commit 1** and the
+ *  other six still come through here; both build the same matrix, and which side
+ *  of the seam a call site is on this week is not what this register is about.
  *
  *  **Three things on the floor are deliberately *not* on it, and the rule is the
  *  same for all three.** `drawTrail`, `drawRoute`'s two polylines and `drawLock`'s
@@ -4777,15 +4784,47 @@ function lift(h) {
  *  wears the anisotropy, because being the right shape matters more. `drawCorpse`'s
  *  upright arm is out for a different reason again, stated there.
  *
- *  **Every call site is balanced by `save`/`restore` and none may be balanced any
- *  other way.** `ctx.transform` has no tidy inverse pair: a `translate` can be
- *  undone by translating back and a `rotate` by rotating back, and several of these
+ *  **Every call site is balanced by `save`/`restore` -- `XFORM_PUSH`/`XFORM_POP`
+ *  on the emitted side -- and none may be balanced any other way.**
+ *  `ctx.transform` has no tidy inverse pair: a `translate` can be undone by
+ *  translating back and a `rotate` by rotating back, and several of these
  *  functions used to do exactly that, but there is nothing to write here that puts
  *  the shear back. A missed `restore` leaks the shear into the next item in the
- *  merge walk, which under iso is somebody else's body. */
+ *  merge walk, which under iso is somebody else's body. `DL_BARE` is the one
+ *  exception and it is exactly the *other* two: it is for a hand-written
+ *  rotation or translation inverse, and a shear may never be pushed with it. */
 function groundSpace(wx, wy) {
   ctx.translate(projX(wx, wy), projY(wx, wy));
   if (PROJ.shear) ctx.transform(PROJ.ax, PROJ.ay, PROJ.bx, PROJ.by, 0, 0);
+}
+
+/**
+ * The same space, **emitted** rather than applied: one `XFORM_PUSH` carrying the
+ * translate, the shear, and whatever rotation and scale the call site composed
+ * on top of them.
+ *
+ * `art-04` commit 1 moves the depth layer only, so during the conversion there
+ * are two of these and that is deliberate rather than untidy: the eight sites
+ * above that live in the depth layer -- `drawLimb`, `drawMarks` twice,
+ * `drawCharacter`'s ground pre-pass, `drawSprint`, both of `drawShot`'s passes
+ * and `drawCorpse`'s flat arm -- go through this one, and the six ground-layer
+ * sites still paint through the `ctx` twin until commit 2 takes them. The
+ * register above is the register for both; it is a list of *what the shear
+ * touches*, and which side of the seam a call site is on this week does not
+ * change that.
+ *
+ * **The rotation and the scale are arguments here where they were separate
+ * `ctx` calls there**, because a push is a unit and the CTM has to come out
+ * bit-identical: the backend applies translate, shear, rotate and scale in that
+ * order and no other, which is the order every one of these call sites was
+ * already written in. The rotation is not folded into the matrix -- see
+ * `DL_XFORM_PUSH`. `alpha` negative means "do not touch `globalAlpha`".
+ */
+function pushGroundSpace(wx, wy, rot, scale, alpha) {
+  const tx = projX(wx, wy);
+  const ty = projY(wx, wy);
+  if (PROJ.shear) dlXform(PROJ.ax, PROJ.ay, PROJ.bx, PROJ.by, tx, ty, rot, scale, alpha);
+  else dlXform(1, 0, 0, 1, tx, ty, rot, scale, alpha);
 }
 
 function roundRect(x, y, w, h, r) {
@@ -7784,7 +7823,6 @@ const SWING_SKIN = {
 function drawLimb(unit, skin) {
   const r = px(unit.radius);
 
-  ctx.save();
   // **Everything below lies on the floor**, and that is a claim about the sim and
   // not about the art: a blade's hitbox is a segment in the world plane at the
   // body's own height, and the guard arc, the declared line and the bow are all
@@ -7793,14 +7831,22 @@ function drawLimb(unit, skin) {
   // body -- so under iso every one of them lands on the ground where the sim
   // tests it, and top-down this is the bare `ctx.translate` it replaced.
   //
-  // The `rotate(theta)` / `rotate(-theta)` pairs below are left alone. Canvas
-  // composes `CTM * R(theta) * R(-theta)` back to `CTM` whatever `CTM` is, so the
-  // shear does not make them any less an inverse pair than they were.
+  // The `rotate(theta)` / `rotate(-theta)` pairs below are left alone, and
+  // `art-04` gave them a second reason to be. Canvas composes
+  // `CTM * R(theta) * R(-theta)` back to `CTM` whatever `CTM` is, so the shear
+  // never made them any less an inverse pair than they were -- and they emit as
+  // `DL_BARE` pushes rather than as a push and a pop for the *precision* reason
+  // that flag exists: a save and a restore would put the matrix back exactly,
+  // where this puts it back to within an ulp, and the session that moved them
+  // was gated on drawing the same pixels rather than better ones.
   //
   // `setLineDash` is applied in user space and transformed afterwards, so the
   // declared line's mark count is unchanged -- the property `iso-00` §4 says is
-  // the whole reason this is a shear and not an ellipse call.
-  groundSpace(unit.x, unit.y);
+  // the whole reason this is a shear and not an ellipse call. It travels on the
+  // item now, which is why the `setLineDash([])` that used to follow the
+  // declared line is gone: it was there so the *next* stroke would not inherit
+  // the dash, and a stroke that carries its own cannot.
+  pushGroundSpace(unit.x, unit.y, 0, 1, -1);
 
   // A guard, as the wedge of body it is covering -- and **only** if what is in
   // hand actually guards. A tucked one covers nothing and is drawn as nothing,
@@ -7808,19 +7854,20 @@ function drawLimb(unit, skin) {
   // in really does cover less.
   if (unit.role === ROLE_GUARD && unit.limbReach > 0.2 && unit.swing !== SWING_SWAP) {
     const half = (unit.actionArc * unit.limbReach) / 2;
-    ctx.rotate(unit.limbAngle);
-    ctx.fillStyle = `rgba(${skin.wedge},${(0.13 + 0.17 * unit.limbReach).toFixed(3)})`;
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.arc(0, 0, r * 1.55, -half, half);
-    ctx.closePath();
-    ctx.fill();
-    ctx.strokeStyle = `rgba(${skin.wedge},${(0.45 * unit.limbReach).toFixed(3)})`;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(0, 0, r * 1.55, -half, half);
-    ctx.stroke();
-    ctx.rotate(-unit.limbAngle);
+    dlRotateBare(unit.limbAngle);
+    dlArc(
+      0, 0, r * 1.55, -half, half,
+      DL_FILL | DL_SECTOR,
+      `rgba(${skin.wedge},${(0.13 + 0.17 * unit.limbReach).toFixed(3)})`,
+      0
+    );
+    dlArc(
+      0, 0, r * 1.55, -half, half,
+      DL_STROKE,
+      `rgba(${skin.wedge},${(0.45 * unit.limbReach).toFixed(3)})`,
+      2
+    );
+    dlRotateBare(-unit.limbAngle);
   }
 
   // The declared line, drawn only while a cut is actually declared. This is the
@@ -7850,16 +7897,18 @@ function drawLimb(unit, skin) {
       unit.role === ROLE_SHOOT
         ? px(unit.sight)
         : px(unit.radius + unit.actionLength);
-    ctx.rotate(unit.limbLine);
-    ctx.strokeStyle = `rgba(255,176,64,${(0.20 + 0.45 * imminent).toFixed(3)})`;
-    ctx.lineWidth = Math.max(1, r * 0.12);
-    ctx.setLineDash([Math.max(3, r * 0.3), Math.max(3, r * 0.35)]);
-    ctx.beginPath();
-    ctx.moveTo(r * 0.6, 0);
-    ctx.lineTo(out, 0);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.rotate(-unit.limbLine);
+    dlRotateBare(unit.limbLine);
+    dlPolyBegin();
+    dlPoint(r * 0.6, 0);
+    dlPoint(out, 0);
+    dlPolyEnd(
+      DL_DASHED,
+      `rgba(255,176,64,${(0.20 + 0.45 * imminent).toFixed(3)})`,
+      Math.max(1, r * 0.12),
+      Math.max(3, r * 0.3),
+      Math.max(3, r * 0.35)
+    );
+    dlRotateBare(-unit.limbLine);
   }
 
   // The blade. Hilt at the body's surface, tip at `radius + length * reach`,
@@ -7873,27 +7922,28 @@ function drawLimb(unit, skin) {
     const heat = clamp(Math.abs(unit.limbSpin) / HOT_SPIN, 0, 1);
     const hilt = r;
     const tip = px(unit.radius + unit.actionLength * unit.limbReach);
-    ctx.rotate(unit.limbAngle);
-    ctx.lineCap = "round";
+    dlRotateBare(unit.limbAngle);
     // A trailing smear opposite the swing, so which way it is travelling is
     // readable at a glance. Only on a live cut: a blade drifting back to guard
     // trails nothing worth watching, and smearing it would make a recovery --
     // the most punishable moment in the game -- look like a threat.
+    //
+    // The round cap used to be one `ctx.lineCap` covering both strokes; it is
+    // per item now, on `drawShot`'s own argument for scoping it that way.
     if (unit.swing === SWING_STRIKE && heat > 0.05) {
       const sweep = Math.sign(unit.limbSpin) * -heat * 0.55;
-      ctx.strokeStyle = `rgba(255,255,255,${(0.16 * heat).toFixed(3)})`;
-      ctx.lineWidth = Math.max(2, r * 0.5);
-      ctx.beginPath();
-      ctx.arc(0, 0, (hilt + tip) / 2, 0, sweep, sweep > 0);
-      ctx.stroke();
+      dlArc(
+        0, 0, (hilt + tip) / 2, 0, sweep,
+        DL_STROKE | DL_CAP_ROUND | (sweep > 0 ? DL_CCW : 0),
+        `rgba(255,255,255,${(0.16 * heat).toFixed(3)})`,
+        Math.max(2, r * 0.5)
+      );
     }
-    ctx.strokeStyle = phase.line;
-    ctx.lineWidth = Math.max(1.6, r * phase.width);
-    ctx.beginPath();
-    ctx.moveTo(hilt, 0);
-    ctx.lineTo(tip, 0);
-    ctx.stroke();
-    ctx.rotate(-unit.limbAngle);
+    dlPolyBegin();
+    dlPoint(hilt, 0);
+    dlPoint(tip, 0);
+    dlPolyEnd(DL_CAP_ROUND, phase.line, Math.max(1.6, r * phase.width), 0, 0);
+    dlRotateBare(-unit.limbAngle);
   }
 
   // A bow, as a bow. **Never as a stick**: the sim gives a `Role::Shoot` limb no
@@ -7905,18 +7955,18 @@ function drawLimb(unit, skin) {
     const out = px(unit.radius + unit.actionLength);
     const drawn =
       unit.swing === SWING_WINDUP ? clamp(1 - unit.swingLeft / 30, 0.2, 1) : 0.2;
-    ctx.rotate(unit.limbAngle);
-    ctx.strokeStyle =
+    dlRotateBare(unit.limbAngle);
+    dlArc(
+      0, 0, out, -0.55, 0.55,
+      DL_STROKE,
       unit.swing === SWING_STRIKE
         ? "rgba(255,255,255,1)"
-        : `rgba(255,196,92,${(0.35 + 0.5 * drawn).toFixed(3)})`;
-    ctx.lineWidth = Math.max(1.6, r * 0.2);
-    ctx.beginPath();
-    ctx.arc(0, 0, out, -0.55, 0.55);
-    ctx.stroke();
-    ctx.rotate(-unit.limbAngle);
+        : `rgba(255,196,92,${(0.35 + 0.5 * drawn).toFixed(3)})`,
+      Math.max(1.6, r * 0.2)
+    );
+    dlRotateBare(-unit.limbAngle);
   }
-  ctx.restore();
+  dlXformEnd();
 }
 
 /** Hit, block and parry markers, straight from the frame.
@@ -7931,33 +7981,32 @@ function drawMarks(unit) {
   // drawn at `limbAngle`, off the same world-plane geometry -- so both go through
   // `groundSpace`, which is a bare `ctx.translate` top-down.
   if (unit.blockFlash > 0) {
-    ctx.save();
-    ctx.strokeStyle = `rgba(180,220,255,${(0.85 * unit.blockFlash).toFixed(3)})`;
-    ctx.lineWidth = 2.5;
-    groundSpace(unit.x, unit.y);
-    ctx.rotate(unit.limbAngle);
+    pushGroundSpace(unit.x, unit.y, unit.limbAngle, 1, -1);
     const half = Math.max(0.35, (unit.actionArc * unit.limbReach) / 2);
-    ctx.beginPath();
-    ctx.arc(0, 0, r * 1.7 + 4 * (1 - unit.blockFlash), -half, half);
-    ctx.stroke();
-    ctx.restore();
+    dlArc(
+      0, 0, r * 1.7 + 4 * (1 - unit.blockFlash), -half, half,
+      DL_STROKE,
+      `rgba(180,220,255,${(0.85 * unit.blockFlash).toFixed(3)})`,
+      2.5
+    );
+    dlXformEnd();
   }
 
   if (unit.parryFlash > 0) {
-    ctx.save();
-    ctx.strokeStyle = `rgba(255,235,150,${(0.9 * unit.parryFlash).toFixed(3)})`;
-    ctx.lineWidth = 2;
-    groundSpace(unit.x, unit.y);
-    ctx.rotate(unit.limbAngle);
+    pushGroundSpace(unit.x, unit.y, unit.limbAngle, 1, -1);
     const at = px(unit.radius + unit.actionLength * unit.limbReach);
     const spark = 3 + 7 * (1 - unit.parryFlash);
+    // Hoisted out of the loop, where it used to be one `ctx.strokeStyle` over
+    // four strokes: four sparks are four items now and each carries its colour,
+    // so building the string inside would hand the allocator four copies of it.
+    const line = `rgba(255,235,150,${(0.9 * unit.parryFlash).toFixed(3)})`;
     for (const angle of [-0.8, -0.25, 0.25, 0.8]) {
-      ctx.beginPath();
-      ctx.moveTo(at, 0);
-      ctx.lineTo(at + Math.cos(angle) * spark, Math.sin(angle) * spark);
-      ctx.stroke();
+      dlPolyBegin();
+      dlPoint(at, 0);
+      dlPoint(at + Math.cos(angle) * spark, Math.sin(angle) * spark);
+      dlPolyEnd(0, line, 2, 0, 0);
     }
-    ctx.restore();
+    dlXformEnd();
   }
 }
 
@@ -8137,9 +8186,10 @@ function bodyHeight(unit) {
 // still draw those, and both tables are live at once in a page that can cycle
 // between the two with `G`.
 //
-// **The space.** One uniform `ctx.scale(s, s)` with `s = px(unit.radius) *
-// PROJ.ex`, feet at the origin, `-y` up. Three properties, and every number in
-// this session comes out of them:
+// **The space.** One uniform scale by `s = px(unit.radius) * PROJ.ex` -- an
+// `XFORM_PUSH` since `art-04`, and a `ctx.scale(s, s)` before that -- feet at
+// the origin, `-y` up. Three properties, and every number in this session comes
+// out of them:
 //
 //   * **Half-width is exactly 1**, so a body is `px(r) * ex` either side of its
 //     ground point. That is not a free choice: `px(r) * ex` is the semi-major
@@ -8312,16 +8362,56 @@ const UPRIGHTS = {
   [BODY_SKITTERER]: skittererUprightPath(),
 };
 
+/** The same eight paths again, as **paint table indices** (`art-04` §3).
+ *
+ *  Registered once at load, in the table's static region, because that is what
+ *  they are: eight `Path2D`s built at module scope that outlive every frame. An
+ *  item references a shape by index and knows nothing about what a `Path2D` is,
+ *  which is the whole of the insurance -- a second backend maps the same index
+ *  to a mesh and the extract passes do not change a line.
+ *
+ *  Two tables and not one lookup with a flag: each caller wants one specific
+ *  view and says which, which is the argument the `Path2D` pair below was
+ *  written with and it does not change on the way through the seam. */
+const SILHOUETTE_PAINT = {
+  [BODY_FIGHTER]: dlPaintStatic(SILHOUETTES[BODY_FIGHTER]),
+  [BODY_ROGUE]: dlPaintStatic(SILHOUETTES[BODY_ROGUE]),
+  [BODY_BRUTE]: dlPaintStatic(SILHOUETTES[BODY_BRUTE]),
+  [BODY_SKITTERER]: dlPaintStatic(SILHOUETTES[BODY_SKITTERER]),
+};
+
+const UPRIGHT_PAINT = {
+  [BODY_FIGHTER]: dlPaintStatic(UPRIGHTS[BODY_FIGHTER]),
+  [BODY_ROGUE]: dlPaintStatic(UPRIGHTS[BODY_ROGUE]),
+  [BODY_BRUTE]: dlPaintStatic(UPRIGHTS[BODY_BRUTE]),
+  [BODY_SKITTERER]: dlPaintStatic(UPRIGHTS[BODY_SKITTERER]),
+};
+
 /** A body the roster does not describe still has to draw as something. The
  *  Fighter is the fallback because it is the roundest of the four: an unknown
- *  archetype reads as "a body" rather than miming a Brute it is not. */
-function silhouetteOf(kind) {
-  return SILHOUETTES[kind] || SILHOUETTES[BODY_FIGHTER];
+ *  archetype reads as "a body" rather than miming a Brute it is not.
+ *
+ *  **`!== undefined` and not `||`**, which is what changed when these started
+ *  returning indices: a `Path2D` is always truthy and index 0 is a perfectly good
+ *  table slot that is not, so the idiom the `Path2D` versions used would silently
+ *  hand every Fighter the Fighter's own entry and every unknown body it too --
+ *  right by luck, and wrong the day slot 0 is somebody else. */
+function silhouettePaintOf(kind) {
+  const at = SILHOUETTE_PAINT[kind];
+  return at === undefined ? SILHOUETTE_PAINT[BODY_FIGHTER] : at;
 }
 
 /** The same fallback, on the same argument, for the side view. Kept beside
- *  `silhouetteOf` rather than folded into it with a flag: `drawCorpse` and
- *  `drawHeroThrough` each want one specific view and say which. */
+ *  `silhouettePaintOf` rather than folded into it with a flag: `drawCorpse` and
+ *  `drawCharacter` each want one specific view and say which. */
+function uprightPaintOf(kind) {
+  const at = UPRIGHT_PAINT[kind];
+  return at === undefined ? UPRIGHT_PAINT[BODY_FIGHTER] : at;
+}
+
+/** The billboard as a `Path2D` rather than as an index, for the one caller left
+ *  that still strokes onto a context: `drawHeroThrough`, which the overlay commit
+ *  takes. It and its flat twin go together when it does. */
 function uprightOf(kind) {
   return UPRIGHTS[kind] || UPRIGHTS[BODY_FIGHTER];
 }
@@ -8418,7 +8508,11 @@ function drawCharacter(unit, now, ghost) {
   const y = projY(unit.x, unit.y);
   const r = px(unit.radius);
   const upright = PROJ.upright;
-  const path = upright ? uprightOf(unit.kind) : silhouetteOf(unit.kind);
+  // The body's own outline, as a §3 paint-table index rather than as the
+  // `Path2D` it used to be. Every use below is a fill, a stroke or a clip, and
+  // all three take an index; nothing in here has any business knowing what a
+  // `Path2D` is.
+  const shape = upright ? uprightPaintOf(unit.kind) : silhouettePaintOf(unit.kind);
   const head = headOf(unit.kind);
   const tall = upright ? uprightHeadOf(unit.kind) : null;
   const art = artOn();
@@ -8444,9 +8538,7 @@ function drawCharacter(unit, now, ghost) {
   // wedge in its own space. The projection question is `upright` and it is asked
   // separately, right beside it.
   if (upright && art && !(ghost && ghost.outline)) {
-    ctx.save();
-    if (ghost) ctx.globalAlpha = ghost.alpha;
-    groundSpace(unit.x, unit.y);
+    pushGroundSpace(unit.x, unit.y, 0, 1, ghost ? ghost.alpha : -1);
 
     // 1. The ground shadow. **One flat ellipse, and cheaper than what it
     //    replaces.** Top-down this is the silhouette dropped down the screen plus
@@ -8454,10 +8546,7 @@ function drawCharacter(unit, now, ghost) {
     //    Brute wore as a dark crescent out of its chest. Nothing rotates here, so
     //    the honest shape is the body's own footprint slightly overspilled, which
     //    `groundSpace` turns into the correct ellipse for free.
-    ctx.beginPath();
-    ctx.arc(0, 0, r * 1.05, 0, TAU);
-    ctx.fillStyle = "rgba(0,0,0,0.42)";
-    ctx.fill();
+    dlEllipse(0, 0, r * 1.05, DL_FILL, "rgba(0,0,0,0.42)", DL_NO_PAINT, 0, 0, 0);
 
     // 2. The facing wedge, on the floor: literally `[tactical]`'s fan with a
     //    unimodular shear in front of it, so it costs the same pixels and would
@@ -8474,14 +8563,14 @@ function drawCharacter(unit, now, ghost) {
     //    only upright wedge there is, and the row that wants art *and* readouts
     //    is one `readouts: true` away.
     if (readoutsOn()) {
-      ctx.rotate(unit.facing);
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.arc(0, 0, r * WEDGE_REACH, -WEDGE_HALF, WEDGE_HALF);
-      ctx.closePath();
-      ctx.fillStyle = wedgeFill(skin, unit.intent);
-      ctx.fill();
-      ctx.rotate(-unit.facing);
+      dlRotateBare(unit.facing);
+      dlArc(
+        0, 0, r * WEDGE_REACH, -WEDGE_HALF, WEDGE_HALF,
+        DL_FILL | DL_SECTOR,
+        wedgeFill(skin, unit.intent),
+        0
+      );
+      dlRotateBare(-unit.facing);
     }
 
     // 3. The sim's collision circle, which **must** survive standing the body up
@@ -8495,26 +8584,26 @@ function drawCharacter(unit, now, ghost) {
     //    for placeholder. **Unconditional where the pass above it is not**, and
     //    house rule 4 is the whole of why: the page never paints a shape the sim
     //    will treat as hittable and then hides where the real edge is.
-    ctx.beginPath();
-    ctx.arc(0, 0, r, 0, TAU);
     // Faint, and the only mark left on the floor. It used to sit under a filled
     // facing wedge and had to carry over it; alone on bare ground at 0.30 it reads
     // as a drawn ring rather than as the edge of a body. Bone rather than sky, and
     // a shade fainter with it: on a warm floor the old blue-white was the only cold
     // mark under every body in the room, which is a hue the concept spends on the
     // team rings alone.
-    ctx.strokeStyle = "rgba(201,191,168,0.14)";
-    ctx.lineWidth = 1;
-    ctx.stroke();
-    ctx.restore();
+    dlEllipse(0, 0, r, DL_STROKE, "rgba(201,191,168,0.14)", DL_NO_PAINT, 1, 0, 0);
+    dlXformEnd();
   }
 
-  ctx.save();
+  // **Two pushes where there was one `save` and three `ctx` calls**, and the
+  // split is where the gradient is built rather than anywhere arbitrary: the
+  // translate has to be in force when the flat body's gradient is made and the
+  // rotation and the scale must not be, which is a boundary the old code drew
+  // with the order of its statements and this one has to draw with an item.
+  //
   // A ghost is this same body at a falling alpha, which is what makes losing
   // sight of something read as losing sight of it rather than as a sprite being
-  // switched off. Set before the translate, so every pass below inherits it.
-  if (ghost) ctx.globalAlpha = ghost.alpha;
-  ctx.translate(x, y);
+  // switched off. Set on the outer push, so every pass below inherits it.
+  dlXform(1, 0, 0, 1, x, y, 0, 1, ghost ? ghost.alpha : -1);
   // The body gradient is built here, *before* the rotation, so the light stays
   // where the room's light is instead of spinning with the character. It is in
   // pixels rather than radii for the same reason -- it is the only thing in
@@ -8525,11 +8614,14 @@ function drawCharacter(unit, now, ghost) {
   //
   // Nor upright, where it is built after the scale instead and in that space's
   // own units -- see below.
-  let body = null;
+  //
+  // Still built per body per frame, and `art-04` §3 (D3) says so out loud rather
+  // than quietly hoisting it: this session's gate is that nothing changes, and
+  // the paragraph below is an argument about *when* a gradient is made that a
+  // hoist would be answering by accident.
+  let body = DL_NO_PAINT;
   if (art && !upright) {
-    body = ctx.createLinearGradient(0, -r, 0, r);
-    body.addColorStop(0, skin.body[1]);
-    body.addColorStop(1, skin.deep);
+    body = dlLinearGradient(0, -r, 0, r, skin.body[1], skin.deep);
   }
 
   if (upright) {
@@ -8537,7 +8629,7 @@ function drawCharacter(unit, now, ghost) {
     // way the body is actually pointing is the wedge already on the floor under
     // it. Into the billboard space `UPRIGHTS` is written in: half-width 1, feet
     // at the origin, crown at `uprightTop(kind)`.
-    ctx.scale(s, s);
+    dlXform(1, 0, 0, 1, 0, 0, 0, s, -1);
     if (art) {
       // Built **after** the scale rather than before it, and quoted in this
       // space's own units: crown to feet, which is the run a standing body's
@@ -8546,15 +8638,13 @@ function drawCharacter(unit, now, ghost) {
       // resolves a gradient's coordinates -- so the two matrices are made to be
       // the same matrix and the question does not arise. Nothing rotates on this
       // branch, so there is nothing for building it late to lose.
-      body = ctx.createLinearGradient(0, uprightTop(unit.kind), 0, 0);
-      body.addColorStop(0, skin.body[1]);
-      body.addColorStop(1, skin.deep);
+      body = dlLinearGradient(0, uprightTop(unit.kind), 0, 0, skin.body[1], skin.deep);
     }
   } else {
-    ctx.rotate(unit.facing);
-    // Into the unit-radius space every path below is written in. Line widths go
-    // with it, which is why the strokes from here down are quoted in radii.
-    ctx.scale(r, r);
+    // The facing, and then the unit-radius space every path below is written
+    // in. Line widths go with it, which is why the strokes from here down are
+    // quoted in radii and carry `DL_LOCAL_WIDTH` to say so.
+    dlXform(1, 0, 0, 1, 0, 0, unit.facing, r, -1);
   }
 
   if (ghost && ghost.outline) {
@@ -8566,17 +8656,17 @@ function drawCharacter(unit, now, ghost) {
     // Dashed because that is already this page's word for "not confirmed" -- the
     // unacknowledged destination ring and the shut portal are both dashed -- and
     // an outline because the shape is remembered rather than seen.
-    ctx.setLineDash([0.28, 0.22]);
-    ctx.lineWidth = 0.11;
-    ctx.strokeStyle = `rgba(${skin.glow},0.85)`;
+    const outline = `rgba(${skin.glow},0.85)`;
     if (art) {
-      ctx.stroke(path);
+      dlPath(shape, DL_STROKE | DL_DASHED | DL_LOCAL_WIDTH, outline, DL_NO_PAINT, 0.11, 0.28, 0.22);
     } else {
-      ctx.beginPath();
-      ctx.arc(0, 0, 1, 0, TAU);
-      ctx.stroke();
+      dlEllipse(0, 0, 1, DL_STROKE | DL_DASHED | DL_LOCAL_WIDTH, outline, DL_NO_PAINT, 0.11, 0.28, 0.22);
     }
-    ctx.restore();
+    // Both pushes, on the early return as on the normal path below. This is the
+    // one early return inside a transform in the file and it is the reason the
+    // static push and pop counts here do not match; every dynamic path balances.
+    dlXformEnd();
+    dlXformEnd();
     return;
   }
 
@@ -8610,21 +8700,16 @@ function drawCharacter(unit, now, ghost) {
     // over -- a fourth row must not be able to select a picture this file has
     // never drawn.
     if (readoutsOn()) {
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.arc(0, 0, WEDGE_REACH, -WEDGE_HALF, WEDGE_HALF);
-      ctx.closePath();
-      ctx.fillStyle = wedgeFill(skin, unit.intent);
-      ctx.fill();
+      dlArc(
+        0, 0, WEDGE_REACH, -WEDGE_HALF, WEDGE_HALF,
+        DL_FILL | DL_SECTOR,
+        wedgeFill(skin, unit.intent),
+        0
+      );
     }
 
-    ctx.beginPath();
-    ctx.arc(0, 0, 1, 0, TAU);
-    ctx.fillStyle = skin.deep;
-    ctx.fill();
-    ctx.lineWidth = 1 / r;
-    ctx.strokeStyle = skin.body[1];
-    ctx.stroke();
+    dlEllipse(0, 0, 1, DL_FILL, skin.deep, DL_NO_PAINT, 0, 0, 0);
+    dlEllipse(0, 0, 1, DL_STROKE | DL_LOCAL_WIDTH, skin.body[1], DL_NO_PAINT, 1 / r, 0, 0);
   } else if (upright) {
     // The billboard. Its three flat passes -- shadow, wedge, collision ring, which
     // are 1 to 3 -- went down on the floor above, before this space existed; what
@@ -8638,14 +8723,11 @@ function drawCharacter(unit, now, ghost) {
     //    head circle, so the topmost point of what is filled here is exactly
     //    `uprightTop(kind)` -- which is `anchorY`'s height, `unitAt`'s box top and
     //    `drawHeroThrough`'s outline top, all four being one number.
-    ctx.fillStyle = body;
-    ctx.fill(path);
+    dlPath(shape, DL_FILL, null, body, 0, 0, 0);
     // `PAL.void` as a triple. The silhouette's outline is the room's own darkness
     // drawn round the body, so when the room stopped being blue this had to as
     // well or every figure in it wore a cold edge.
-    ctx.strokeStyle = "rgba(11,10,8,0.85)";
-    ctx.lineWidth = 0.09;
-    ctx.stroke(path);
+    dlPath(shape, DL_STROKE | DL_LOCAL_WIDTH, "rgba(11,10,8,0.85)", DL_NO_PAINT, 0.09, 0, 0);
 
     // 5. The head, in the *pale* end of the palette for the reason it is pale
     //    top-down: it is the part of the body nearest the light, and painting it
@@ -8653,13 +8735,8 @@ function drawCharacter(unit, now, ghost) {
     //    rather than a reach -- `HEADS` has the argument, `uprightHead` does the
     //    arithmetic -- so a Brute's sits down in the notch between its shoulder
     //    humps and a Rogue's rides clear inside its hood.
-    ctx.beginPath();
-    ctx.arc(0, tall.cy, tall.r, 0, TAU);
-    ctx.fillStyle = skin.body[0];
-    ctx.fill();
-    ctx.strokeStyle = "rgba(11,10,8,0.75)";
-    ctx.lineWidth = 0.07;
-    ctx.stroke();
+    dlEllipse(0, tall.cy, tall.r, DL_FILL, skin.body[0], DL_NO_PAINT, 0, 0, 0);
+    dlEllipse(0, tall.cy, tall.r, DL_STROKE | DL_LOCAL_WIDTH, "rgba(11,10,8,0.75)", DL_NO_PAINT, 0.07, 0, 0);
 
     // 6. The rim light, verbatim from the flat arm below including its gradient
     //    line, because `ctx.clip` takes any closed path and this one is closed.
@@ -8668,15 +8745,14 @@ function drawCharacter(unit, now, ghost) {
     //    the shaded side to the lit one, and either way it is a bright inner edge
     //    carrying the intent in its alpha. The *hue* never moves.
     const heat = unit.intent === INTENT_ATTACK ? 1 : unit.intent === INTENT_FLEE ? 0 : 0.5;
-    ctx.save();
-    ctx.clip(path);
-    const rim = ctx.createLinearGradient(-0.7, 0, 1.05, 0);
-    rim.addColorStop(0, `rgba(${skin.wedge},0)`);
-    rim.addColorStop(1, `rgba(${skin.wedge},${(0.24 + 0.72 * heat).toFixed(3)})`);
-    ctx.strokeStyle = rim;
-    ctx.lineWidth = 0.20 + 0.20 * heat;
-    ctx.stroke(path);
-    ctx.restore();
+    dlClip(shape);
+    const rim = dlLinearGradient(
+      -0.7, 0, 1.05, 0,
+      `rgba(${skin.wedge},0)`,
+      `rgba(${skin.wedge},${(0.24 + 0.72 * heat).toFixed(3)})`
+    );
+    dlPath(shape, DL_STROKE | DL_LOCAL_WIDTH, null, rim, 0.20 + 0.20 * heat, 0, 0);
+    dlClipEnd();
   } else {
     // 1. The ground shadow: **the silhouette itself**, dropped down the screen.
     //    A plain ellipse was tried and a Brute -- two and a half radii across the
@@ -8687,47 +8763,37 @@ function drawCharacter(unit, now, ghost) {
     const drop = 0.28;
     const sx = Math.sin(unit.facing) * drop;
     const sy = Math.cos(unit.facing) * drop;
-    ctx.translate(sx, sy);
-    ctx.fillStyle = "rgba(0,0,0,0.42)";
-    ctx.fill(path);
-    ctx.beginPath();
-    ctx.arc(head.at, 0, head.r, 0, TAU);
-    ctx.fill();
-    ctx.translate(-sx, -sy);
+    //
+    //    The step aside and the step back are a `DL_BARE` pair for the reason
+    //    `drawLimb`'s rotations are: an inverse written by hand is what the file
+    //    does today, and a save and a restore would put the matrix back more
+    //    exactly than it does.
+    dlTranslateBare(sx, sy);
+    dlPath(shape, DL_FILL, "rgba(0,0,0,0.42)", DL_NO_PAINT, 0, 0, 0);
+    dlEllipse(head.at, 0, head.r, DL_FILL, "rgba(0,0,0,0.42)", DL_NO_PAINT, 0, 0, 0);
+    dlTranslateBare(-sx, -sy);
 
     // 2. The body circle, rimmed and not filled. It was filled dark to begin
     //    with, and the Brute's notched front showed the fill through as a black
     //    hole punched in its chest -- the art has to *sit on* the circle, not
     //    stand in a well cut out of it. One device pixel wide whatever `r` is,
     //    which is why the width is quoted as its reciprocal.
-    ctx.beginPath();
-    ctx.arc(0, 0, 1, 0, TAU);
     // Bone, and moved with the collision ring in the ground pre-pass rather than
     // left behind it: the two are the same mark in two arms of one function, and a
     // pair written to mirror each other is a pair that has to be retoned together
     // or the mirror stops being one.
-    ctx.strokeStyle = "rgba(201,191,168,0.28)";
-    ctx.lineWidth = 1 / r;
-    ctx.stroke();
+    dlEllipse(0, 0, 1, DL_STROKE | DL_LOCAL_WIDTH, "rgba(201,191,168,0.28)", DL_NO_PAINT, 1 / r, 0, 0);
 
     // 3. The silhouette. Same outline tone as the billboard arm above, for the
     //    same reason.
-    ctx.fillStyle = body;
-    ctx.fill(path);
-    ctx.strokeStyle = "rgba(11,10,8,0.85)";
-    ctx.lineWidth = 0.09;
-    ctx.stroke(path);
+    dlPath(shape, DL_FILL, null, body, 0, 0, 0);
+    dlPath(shape, DL_STROKE | DL_LOCAL_WIDTH, "rgba(11,10,8,0.85)", DL_NO_PAINT, 0.09, 0, 0);
 
     // 4. The head, forward along the facing and in the *pale* end of the palette:
     //    it is the part of the body nearest the light, and painting it dark made
     //    it read as a hole rather than as a head.
-    ctx.beginPath();
-    ctx.arc(head.at, 0, head.r, 0, TAU);
-    ctx.fillStyle = skin.body[0];
-    ctx.fill();
-    ctx.strokeStyle = "rgba(11,10,8,0.75)";
-    ctx.lineWidth = 0.07;
-    ctx.stroke();
+    dlEllipse(head.at, 0, head.r, DL_FILL, skin.body[0], DL_NO_PAINT, 0, 0, 0);
+    dlEllipse(head.at, 0, head.r, DL_STROKE | DL_LOCAL_WIDTH, "rgba(11,10,8,0.75)", DL_NO_PAINT, 0.07, 0, 0);
 
     // 5. The rim light, in the faction colour, along the leading edge.
     //
@@ -8740,15 +8806,14 @@ function drawCharacter(unit, now, ghost) {
     //    barely lit. The *hue* never moves -- shifting that would trade a read
     //    you sometimes need for one you always do.
     const heat = unit.intent === INTENT_ATTACK ? 1 : unit.intent === INTENT_FLEE ? 0 : 0.5;
-    ctx.save();
-    ctx.clip(path);
-    const rim = ctx.createLinearGradient(-0.7, 0, 1.05, 0);
-    rim.addColorStop(0, `rgba(${skin.wedge},0)`);
-    rim.addColorStop(1, `rgba(${skin.wedge},${(0.24 + 0.72 * heat).toFixed(3)})`);
-    ctx.strokeStyle = rim;
-    ctx.lineWidth = 0.20 + 0.20 * heat;
-    ctx.stroke(path);
-    ctx.restore();
+    dlClip(shape);
+    const rim = dlLinearGradient(
+      -0.7, 0, 1.05, 0,
+      `rgba(${skin.wedge},0)`,
+      `rgba(${skin.wedge},${(0.24 + 0.72 * heat).toFixed(3)})`
+    );
+    dlPath(shape, DL_STROKE | DL_LOCAL_WIDTH, null, rim, 0.20 + 0.20 * heat, 0, 0);
+    dlClipEnd();
   }
 
   // The last pass -- **6 on the flat arm and 7 on the upright one**, the one place
@@ -8763,24 +8828,21 @@ function drawCharacter(unit, now, ghost) {
   //    art off there is no silhouette and no head to flash, and flashing them
   //    anyway would print a Brute's shoulders on screen for four frames in a mode
   //    that has spent the whole function not drawing them.
-  //    `path` is already whichever silhouette was filled, so only the head has to
+  //    `shape` is already whichever silhouette was filled, so only the head has to
   //    be asked which space it is in -- and the flat line is left as it was
   //    rather than folded into a pair of variables that would evaluate to it.
   if (unit.hitFlash > 0) {
-    ctx.fillStyle = `rgba(255,255,255,${(0.75 * unit.hitFlash).toFixed(3)})`;
+    const flash = `rgba(255,255,255,${(0.75 * unit.hitFlash).toFixed(3)})`;
     if (art) {
-      ctx.fill(path);
-      ctx.beginPath();
-      if (upright) ctx.arc(0, tall.cy, tall.r, 0, TAU);
-      else ctx.arc(head.at, 0, head.r, 0, TAU);
-      ctx.fill();
+      dlPath(shape, DL_FILL, flash, DL_NO_PAINT, 0, 0, 0);
+      if (upright) dlEllipse(0, tall.cy, tall.r, DL_FILL, flash, DL_NO_PAINT, 0, 0, 0);
+      else dlEllipse(head.at, 0, head.r, DL_FILL, flash, DL_NO_PAINT, 0, 0, 0);
     } else {
-      ctx.beginPath();
-      ctx.arc(0, 0, 1, 0, TAU);
-      ctx.fill();
+      dlEllipse(0, 0, 1, DL_FILL, flash, DL_NO_PAINT, 0, 0, 0);
     }
   }
-  ctx.restore();
+  dlXformEnd();
+  dlXformEnd();
 
   // The collision circle once more, over the art this time. Faint, and always
   // there: see the block comment above.
@@ -8799,14 +8861,12 @@ function drawCharacter(unit, now, ghost) {
   // circle, which under iso would be drawn round rather than as the ellipse the
   // ring actually is. The ring itself is unconditional and went down with the
   // other two flat passes at the top of this function.
+  //
+  // No push around it: it is a screen circle at the base matrix, and the `save`
+  // it used to sit in was scoping a `strokeStyle` and a `lineWidth` that an item
+  // now carries for itself.
   if (art && !ghost && !upright) {
-    ctx.save();
-    ctx.strokeStyle = "rgba(214,232,255,0.26)";
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.arc(x, y, r, 0, TAU);
-    ctx.stroke();
-    ctx.restore();
+    dlEllipse(x, y, r, DL_STROKE, "rgba(214,232,255,0.26)", DL_NO_PAINT, 1, 0, 0);
   }
 
   if (!ghost) {
@@ -8835,23 +8895,19 @@ function drawSprint(unit, skin, now) {
   if (unit.role !== ROLE_MOVE) return;
   const beat = (Math.sin(now / 150) + 1) / 2;
   const r = px(unit.radius);
-  ctx.save();
   // On the floor, trailing the body: `groundSpace` rather than a bare translate,
   // so under iso the chevrons lie on the ground the runner is covering instead of
   // standing up in the air behind it. Top-down `groundSpace` *is* that translate.
-  groundSpace(unit.x, unit.y);
-  ctx.rotate(unit.facing);
-  ctx.strokeStyle = `rgba(${skin.wedge},${(0.35 + 0.35 * beat).toFixed(3)})`;
-  ctx.lineWidth = 2;
-  ctx.lineCap = "round";
+  pushGroundSpace(unit.x, unit.y, unit.facing, 1, -1);
+  const line = `rgba(${skin.wedge},${(0.35 + 0.35 * beat).toFixed(3)})`;
   for (const back of [1.35, 1.85]) {
-    ctx.beginPath();
-    ctx.moveTo(-r * back + r * 0.45, -r * 0.55);
-    ctx.lineTo(-r * back, 0);
-    ctx.lineTo(-r * back + r * 0.45, r * 0.55);
-    ctx.stroke();
+    dlPolyBegin();
+    dlPoint(-r * back + r * 0.45, -r * 0.55);
+    dlPoint(-r * back, 0);
+    dlPoint(-r * back + r * 0.45, r * 0.55);
+    dlPolyEnd(DL_CAP_ROUND, line, 2, 0, 0);
   }
-  ctx.restore();
+  dlXformEnd();
 }
 
 /** How long an arrow is drawn, in world units. Presentation, not physics: the
@@ -8886,13 +8942,17 @@ function drawShot(shot) {
   // the mode question the split added. An arrow in flight and the body that loosed
   // it must be on the same table.
   const skin = skinOf(shot);
-  // **`save`, `lineCap` and `restore` are per arrow and not per volley**, which is
-  // what `iso-04` changed in here. `drawShots` used to hoist all three outside its
-  // loop; under iso an arrow is drawn from inside the depth walk with wall-band
-  // fills and whole bodies between one arrow and the next, so a `lineCap` set once
-  // at the top would be state leaking across somebody else's draw call in both
-  // directions. The pixels are the same either way, and they stay the same only
-  // because the state is now scoped to the one call that wants it.
+  // **State is per arrow and not per volley**, which is what `iso-04` changed in
+  // here. `drawShots` used to hoist a `save`, a `lineCap` and a `restore` outside
+  // its loop; under iso an arrow is drawn from inside the depth walk with
+  // wall-band fills and whole bodies between one arrow and the next, so a
+  // `lineCap` set once at the top would be state leaking across somebody else's
+  // draw call in both directions. The pixels are the same either way, and they
+  // stay the same only because the state is scoped to the one call that wants it.
+  //
+  // `art-04` took the argument one step further and made it structural: a stroke
+  // carries its own cap, its own width and its own dash on the item, so there is
+  // no longer a scope for anything to leak out of.
   //
   // It also retired the manual `rotate(-heading); translate(-x, -y)` that used to
   // put the matrix back, and `iso-06` gives that retirement its real reason:
@@ -8917,13 +8977,9 @@ function drawShot(shot) {
   // the A/B control for the conversion. Same gate, and the same reason, as
   // `drawCharacter`'s ground pre-pass.
   if (upright) {
-    ctx.save();
-    groundSpace(shot.x, shot.y);
-    ctx.fillStyle = "rgba(0,0,0,0.35)";
-    ctx.beginPath();
-    ctx.arc(0, 0, px(0.1), 0, TAU);
-    ctx.fill();
-    ctx.restore();
+    pushGroundSpace(shot.x, shot.y, 0, 1, -1);
+    dlEllipse(0, 0, px(0.1), DL_FILL, "rgba(0,0,0,0.35)", DL_NO_PAINT, 0, 0, 0);
+    dlXformEnd();
   }
 
   // The shaft, lying in the world plane at shoulder height.
@@ -8933,30 +8989,29 @@ function drawShot(shot) {
   // would be a step along the world `-y` axis: the shear takes `(0, -L)` to screen
   // `(L, -L/2)`, so the arrow would slide diagonally across the floor by an amount
   // that grows with the height, which is a translation and not an altitude.
-  ctx.save();
-  ctx.lineCap = "round";
-  if (upright) ctx.translate(0, -lift(SHOT_Z));
+  // The lift is its own push rather than a field on the one below it, because a
+  // translate composed into the ground matrix would be a different sequence of
+  // float operations from the two calls it replaces -- and the two happen to be
+  // in the one function whose whole comment is about a translation that must not
+  // become a step across the floor.
+  if (upright) dlXform(1, 0, 0, 1, 0, -lift(SHOT_Z), 0, 1, -1);
   // The arrow itself is flat on the world plane, so `rotate(heading)` under the
   // shear points it along its own world bearing and foreshortens the shaft with
   // it: one crossing the screen east-west draws longer than one crossing
   // north-south, which is the same arrow seen from a different angle.
-  groundSpace(shot.x, shot.y);
-  ctx.rotate(shot.heading);
+  pushGroundSpace(shot.x, shot.y, shot.heading, 1, -1);
   // The shaft trails *behind* the point, so the bright end is the end that
   // arrives -- which is the end a player has to judge.
-  ctx.strokeStyle = `rgba(${skin.wedge},0.55)`;
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.moveTo(-px(SHAFT), 0);
-  ctx.lineTo(0, 0);
-  ctx.stroke();
-  ctx.strokeStyle = "rgba(255,255,255,0.95)";
-  ctx.lineWidth = 2.5;
-  ctx.beginPath();
-  ctx.moveTo(-px(SHAFT) * 0.28, 0);
-  ctx.lineTo(0, 0);
-  ctx.stroke();
-  ctx.restore();
+  dlPolyBegin();
+  dlPoint(-px(SHAFT), 0);
+  dlPoint(0, 0);
+  dlPolyEnd(DL_CAP_ROUND, `rgba(${skin.wedge},0.55)`, 1.5, 0, 0);
+  dlPolyBegin();
+  dlPoint(-px(SHAFT) * 0.28, 0);
+  dlPoint(0, 0);
+  dlPolyEnd(DL_CAP_ROUND, "rgba(255,255,255,0.95)", 2.5, 0, 0);
+  dlXformEnd();
+  if (upright) dlXformEnd();
 }
 
 /** Every arrow in the frame, in frame order. **The top-down entry point**: under
@@ -9013,7 +9068,6 @@ function drawCorpse(c) {
   // or the room after a fight is a scatter of anonymous smudges.
   const r = px(c.radius) * (1 - 0.45 * t);
   if (r < 0.4) return;
-  ctx.save();
   if (PROJ.upright) {
     // The same body that was standing a moment ago, sinking into the floor as it
     // fades. **No rotation** -- there is none in the billboard that preceded it,
@@ -9023,18 +9077,25 @@ function drawCorpse(c) {
     // Not `groundSpace`: this is the *upright* silhouette and shearing it would
     // lay a standing figure over on the floor at 26.57 degrees, which is neither
     // standing nor lying down.
-    ctx.translate(projX(c.x, c.y), projY(c.x, c.y));
-    ctx.scale(r * PROJ.ex, r * PROJ.ex);
-    ctx.fillStyle = `rgba(${skin.glow},${(0.42 * (1 - t)).toFixed(3)})`;
-    ctx.fill(uprightOf(c.kind));
+    dlXform(1, 0, 0, 1, projX(c.x, c.y), projY(c.x, c.y), 0, r * PROJ.ex, -1);
+    dlPath(
+      uprightPaintOf(c.kind),
+      DL_FILL,
+      `rgba(${skin.glow},${(0.42 * (1 - t)).toFixed(3)})`,
+      DL_NO_PAINT,
+      0, 0, 0
+    );
   } else {
-    groundSpace(c.x, c.y);
-    ctx.rotate(c.facing);
-    ctx.scale(r, r);
-    ctx.fillStyle = `rgba(${skin.glow},${(0.42 * (1 - t)).toFixed(3)})`;
-    ctx.fill(silhouetteOf(c.kind));
+    pushGroundSpace(c.x, c.y, c.facing, r, -1);
+    dlPath(
+      silhouettePaintOf(c.kind),
+      DL_FILL,
+      `rgba(${skin.glow},${(0.42 * (1 - t)).toFixed(3)})`,
+      DL_NO_PAINT,
+      0, 0, 0
+    );
   }
-  ctx.restore();
+  dlXformEnd();
 }
 
 /** Every corpse on the floor, oldest first. **The top-down entry point**, on
@@ -9776,37 +9837,22 @@ function sortDrawList() {
  *  and `[dev]` bake none and fill none. */
 function fillBand(d) {
   const top = levelPaths.wallBandTop[d];
-  if (top !== null) {
-    ctx.fillStyle = WALL_TOP;
-    ctx.fill(top);
-  }
+  if (top !== null) dlPath(dlPaintFrame(top), DL_FILL, WALL_TOP, DL_NO_PAINT, 0, 0, 0);
   const side = levelPaths.wallBandSide[d];
-  if (side !== null) {
-    ctx.fillStyle = WALL_XFACE;
-    ctx.fill(side);
-  }
+  if (side !== null) dlPath(dlPaintFrame(side), DL_FILL, WALL_XFACE, DL_NO_PAINT, 0, 0, 0);
   const doorTop = levelPaths.doorBandTop[d];
-  if (doorTop !== null) {
-    ctx.fillStyle = levelPaths.doorTop;
-    ctx.fill(doorTop);
-  }
+  if (doorTop !== null) dlPath(dlPaintFrame(doorTop), DL_FILL, levelPaths.doorTop, DL_NO_PAINT, 0, 0, 0);
   const doorSide = levelPaths.doorBandSide[d];
-  if (doorSide !== null) {
-    ctx.fillStyle = levelPaths.doorSide;
-    ctx.fill(doorSide);
-  }
+  if (doorSide !== null) dlPath(dlPaintFrame(doorSide), DL_FILL, levelPaths.doorSide, DL_NO_PAINT, 0, 0, 0);
   if (levelPaths.torchBandStem === null) return;
   const stem = levelPaths.torchBandStem[d];
   if (stem !== null) {
-    ctx.fillStyle = TORCH_IRON;
-    ctx.fill(stem);
+    dlPath(dlPaintFrame(stem), DL_FILL, TORCH_IRON, DL_NO_PAINT, 0, 0, 0);
     // Always all three, and never one without the others: `bandPath` allocates
     // them in the same iteration of the bake, so a band with a bracket on it has
     // a flame and a core on it.
-    ctx.fillStyle = TORCH_FLAME_TONE;
-    ctx.fill(levelPaths.torchBandFlame[d]);
-    ctx.fillStyle = TORCH_CORE_TONE;
-    ctx.fill(levelPaths.torchBandCore[d]);
+    dlPath(dlPaintFrame(levelPaths.torchBandFlame[d]), DL_FILL, TORCH_FLAME_TONE, DL_NO_PAINT, 0, 0, 0);
+    dlPath(dlPaintFrame(levelPaths.torchBandCore[d]), DL_FILL, TORCH_CORE_TONE, DL_NO_PAINT, 0, 0, 0);
   }
 }
 
@@ -9899,8 +9945,20 @@ function walkDrawList(now, origin) {
   // inside this save makes that a local invariant rather than a file-wide one --
   // the walls are lit rock and are meant to be opaque, and nothing above this
   // should be able to make them not.
-  ctx.save();
-  ctx.globalAlpha = 1;
+  //
+  // Both of those are now the root `XFORM_PUSH` below -- an identity matrix and
+  // an alpha, which is `ctx.save()` and `ctx.globalAlpha = 1` and nothing else.
+  //
+  // **The merge itself has not moved and must not** (`art-04` §6). The three
+  // lines that carry it -- the band cursor, the `(band + 2) * tile` comparison
+  // and the flush after the last item -- are the same three lines, in the same
+  // order, over the same module-scope pool sorted by the same insertion sort.
+  // What changed is that `fillBand` and `drawItem` now *emit* where they used to
+  // paint, and `dlDraw` walks what they emitted in exactly the order they
+  // emitted it.
+  dlReset();
+  dlLayerIs(DL_DEPTH);
+  dlXform(1, 0, 0, 1, 0, 0, 0, 1, 1);
   for (let i = 0; i < drawCount; i++) {
     const it = drawItems[i];
     while (band <= lastBand && (band + 2) * tile <= it.depth) fillBand(band++);
@@ -9908,7 +9966,8 @@ function walkDrawList(now, origin) {
   }
   // Whatever is left of the visible range stands in front of every item there was.
   while (band <= lastBand) fillBand(band++);
-  ctx.restore();
+  dlXformEnd();
+  dlDraw();
 }
 
 /** The hero's outline, over the whole scene. Built once from the skin so the
@@ -9971,6 +10030,32 @@ function drawHeroThrough(hero) {
   ctx.lineWidth = 1.5 / s;
   ctx.stroke(uprightOf(hero.kind));
   ctx.restore();
+}
+
+/**
+ * A pinned wall clock for the painters, **off by default and never set by the
+ * page**. A session instrument for `art-04`, not a golden and not in `tools/`.
+ *
+ * Pausing the sim freezes the *tick*; it does not freeze `now`. Seven painters
+ * animate on the wall clock and keep animating while paused -- the portal's two
+ * counter-spinning arcs, the torch flicker, `drawReach`'s beat,
+ * `drawLock`/`drawDestination`'s beat, `drawRoute`'s dash offset, `drawTrail`
+ * and `drawSprint`'s chevrons -- so two `toDataURL()` strings taken a frame
+ * apart on a paused room differ, and the refactor gate `art-04` is built on
+ * ("the same picture, byte for byte, before and after") cannot be run at all
+ * without this. It is one comparison per frame on a value the loop already has.
+ *
+ * From the console: `freezeRenderClock(1000)` to pin it, `freezeRenderClock()`
+ * to hand the painters the real clock back.
+ */
+let frozenRenderNow = null;
+
+function freezeRenderClock(at) {
+  frozenRenderNow = Number.isFinite(at) ? at : null;
+}
+
+function renderClock(now) {
+  return frozenRenderNow === null ? now : frozenRenderNow;
 }
 
 function render(state, now, arrived) {
@@ -10139,7 +10224,19 @@ function render(state, now, arrived) {
   } else {
     // Today's lines, verbatim, and they are the A/B control for the whole
     // conversion. Do not tidy them toward the arm above.
+    //
+    // **Two lists and not one, and the reason is `drawReach` in the middle.**
+    // `art-04` lands in three commits and this is the first, so the corpses, the
+    // bodies and the arrows emit while the reach rings still paint straight onto
+    // the context. A ring is drawn *over* a corpse and *under* a body here, and
+    // that ordering is the thing the paragraph above refuses to tidy -- so the
+    // corpses are drawn out before the rings go down rather than being merged
+    // into one list that would come out on the wrong side of them. Commit 2
+    // takes `drawReach` and the two halves become one.
+    dlReset();
+    dlLayerIs(DL_DEPTH);
     drawCorpses();
+    dlDraw();
 
     for (const unit of state.units) {
       if (readoutsOn() && canSee(unit)) drawReach(unit, skinOf(unit), now);
@@ -10147,10 +10244,13 @@ function render(state, now, arrived) {
     // Monsters first, then the hero: the character you are commanding must never
     // end up underneath the thing attacking it. Through `drawBody`, which is where
     // "or the memory of one" lives.
+    dlReset();
+    dlLayerIs(DL_DEPTH);
     for (const unit of state.monsters) drawBody(unit, now);
     if (state.hero) drawBody(state.hero, now);
     // Arrows over the bodies, so one crossing a fight is not hidden by it.
     drawShots(state.shots);
+    dlDraw();
   }
 
   const fighting = state.monsters.length > 0;
@@ -11315,7 +11415,7 @@ function loop(now) {
   // above just removed.
   perfOpen();
   updateCamera(view, elapsed);
-  render(view, now, arrived || settled);
+  render(view, renderClock(now), arrived || settled);
   perfClose("render");
 
   // `hud` includes `drawGlobe` and the two `state_hash` walks that feed a chip

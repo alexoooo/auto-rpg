@@ -453,6 +453,11 @@
       </div>
     </div>
 
+    <!-- Before main.js, and both of them classic scripts with no build step: a
+         top-level const in a classic script is visible to every script loaded
+         after it, which is how main.js reaches the emit API and how the console
+         reaches both. -->
+    <script src="draw.js"></script>
     <script src="main.js"></script>
   </body>
 </html>
