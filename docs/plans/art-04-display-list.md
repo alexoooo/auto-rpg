@@ -33,12 +33,17 @@ is: *does it read a field off a snapshot row?* If yes it is extract, and it may 
 keeps every extract pass it has today — `drawLevel`, `drawCharacter`, `drawLimb`, `consumeEvents`
 and the rest keep their names and their logic and stop painting.
 
-**Four exemptions, and they are exemptions on principle rather than convenience** (D5, amended
-during commit 1 — this list said three and named the wrong three):
+**Two exemptions, and they are exemptions on principle rather than convenience** (D5, amended
+during commit 1 — this list said three and named the wrong three — and widened at commit 2):
 
-- the offscreen **bakes** — `bakeFloorTile` (`main.js:5142`), `arenaVignette` (`main.js:6165`)
-  and `bakeGrainTile` (`main.js:5312`) — run once per zoom bucket or once ever, not per frame,
-  and what they produce is a *paint source*, not a drawing;
+- the **paint-source builders**: `bakeFloorTile` (`main.js:5181`), `bakeGrainTile`
+  (`main.js:5351`), `arenaVignette` (`main.js:6204`), `floorPatternNow` (`main.js:5289`) and
+  `rebuildLevelPaths`'s per-torch gradients. They run once per zoom bucket, once per level bake,
+  or once ever — never per frame — and what they produce is a *paint source*, not a drawing. §3
+  is the argument: the table holds paint sources, and the code that makes one does not have to
+  live behind the seam. **The last two joined the list at commit 2**, when the ground layer
+  walked past them; naming three and leaving two unnamed would have been the same judgement call
+  the whitelist exists to remove.
 - **`drawGlobe`** (`main.js:10221`, ~46 calls a frame on `globeCtx`). It is a HUD widget with
   **its own canvas element** (`#globe`), its own throttle (`GLOBE_MS`) and its own lifecycle. A
   display list keyed to one backend context does not describe a second canvas, and pretending it
@@ -50,8 +55,12 @@ The grain tile is **present tense, not future**: `art-01` shipped `GRAIN_TILE`, 
 and `drawGrain`. This file used to say "the grain tile `art-07` adds". `drawGrain` itself is a
 per-frame overlay painter and is **not** exempt; it emits like everything else in commit 3.
 
-`resize`'s `ctx.setTransform` (`main.js:2411`) is per *resize*, not per frame, and is outside the
-rule rather than exempt from it — but it is written down here because it trips the grep.
+Two things are **outside** the rule rather than exempt from it, and are written down only because
+they trip the grep: `resize`'s `ctx.setTransform` (`main.js:2411`), which is per *resize*; and
+`render`'s three-call frame preamble — the device-pixel `setTransform`, the transparent
+`clearRect` and the camera `translate`. The preamble establishes the space every item in the list
+is written in, so it cannot be an item in it without the list having to describe its own
+coordinate system.
 
 `node --check web/draw.js` joins the tripwire list.
 
@@ -178,7 +187,7 @@ own before/after; it is written down here so it is a decision rather than a hole
 | `SPRITE` | an axis-aligned blit | `art-07`'s props, torches, decals; `art-08`'s bodies |
 | `SPRITE_SPAN` | a blit stretched and rotated between two screen points | weapons, on `art-05` §4's hilt-and-tip line |
 | `PATTERN` | a pattern fill with its own matrix, through the current clip | floors, wall faces |
-| `LIGHT` | an additive radial gradient | `drawTorchLight` (`main.js:6900`), `drawLantern` (`main.js:6983`) |
+| `LIGHT` | a rectangle through a radial falloff, adding light or taking it away | `drawTorchLight` (additive), `drawLantern`, the arena vignette |
 | `TEXT` | one string | floaters, callouts |
 | `CLIP_PUSH` / `CLIP_POP` | the fog's two passes | below |
 | `XFORM_PUSH` / `XFORM_POP` | **new** — a matrix, a rotation and a scale, pushed as state | `groundSpace`, the billboard, the unit-radius space |
@@ -189,6 +198,17 @@ rather than a mark. Emitting it into the list keeps the backend a straight walk 
 out-of-band state, and keeps the fog's authority (`art-00` §6) an extract-side decision where it
 belongs. A backend that had to be told separately where the clips go is a backend that can be
 told wrong.
+
+Commit 2 landed it and the shape held. `CLIP_PUSH` carries **the pass alpha as well as the
+region**, because `drawLevel` assigns one on the line after its `ctx.clip` and the two are one
+push. The fog's authority never left extract: which region a pass clips to and at what alpha is
+decided in `drawLevel` out of the bake, and the backend only obeys — nothing downstream can
+reveal a tile `floorLit` does not contain, because the region is not a thing the backend gets to
+choose. **At most one clip is live at any point**, as the reconnaissance predicted: `drawLevel`'s
+pass clip and `drawLantern`'s are sequential, and `drawCharacter`'s two are mutually exclusive
+arms in a layer where no ground clip is open. The backend keeps a real stack anyway, because the
+depth-layer clip sits inside the walk's own push and because a backend whose correctness depends
+on a count being one is a backend with a bug waiting for `art-07`.
 
 ### The vocabulary grew from ten to fourteen, and here is the argument for each of the four
 
@@ -264,6 +284,25 @@ And two widenings of kinds that already existed:
 
 Fourteen is now the claim. Growing it is still allowed and hiding it is still not.
 
+**Three clarifications the ground layer forced, and none of them is a fifteenth kind** (commit 2):
+
+- **`LIGHT` is not "additive"; it is a rectangle through a radial falloff.** Of the three sites,
+  only `drawTorchLight` composites with `lighter`; `drawLantern` and the arena vignette *darken*
+  at `source-over`. Splitting them would be splitting on the sign of a number that is already in
+  the gradient's stops. The blend mode rides on the push above the item — `DL_ADDITIVE` — because
+  that is where `ctx.globalCompositeOperation` sits in the code it replaces, inside a `save` that
+  puts it back. A falloff painted through an *arc* rather than a rect is an `ELLIPSE` with an
+  ink; `drawPortal`'s glow is the one of those.
+- **`POLY_STROKE` carries a `DL_SEGMENTS` flag**: the run is `2n` points forming `n` disjoint
+  segments in one path. §4 already argued that `drawDestination`'s crosshair may not become four
+  items because §5.1 makes the stroke count the metric; this is the flag that keeps that promise.
+  It is the only multi-subpath stroke in the file.
+- **The three 2:1 squashes are matrices, not scales.** `DL_F_SCALE` is uniform by construction,
+  because every scale in the depth layer is one — a body that scaled unevenly would be a body
+  whose line widths stopped being line widths. So `translate(c); scale(1, 0.5); translate(-c)`
+  emits as a push carrying the translate and the non-uniform linear part, then a bare translate
+  back inside it. Which is exactly the three calls it replaces.
+
 ## 5. What the seam pays for itself with, before any backend swap
 
 Four returns that land in this session and do not depend on WebGL2 ever happening. This matters:
@@ -320,13 +359,25 @@ This is the largest inert refactor in the series and it must not arrive as one c
    `drawCorpse` emit, the merge walk is line for line what it was, and all twelve captures of
    the gate below came out byte-identical.
 2. **Ground layer.** Floor passes, patterns, clips, lights, vignette, lantern, rings, discs,
-   portal, trail, route. This one carries `CLIP_PUSH`/`CLIP_POP` and is the risky commit. It also
-   takes the ground half of `groundSpace`: commit 1 left a `pushGroundSpace` twin beside the
-   `ctx` one, eight sites on the new and six on the old, and commit 2 retires the old. It is also
-   what lets `render`'s top-down arm go back to one list -- there are two today only because
-   `drawReach` still paints between the corpses and the bodies and that ordering may not move.
+   portal, trail, route. This one carries `CLIP_PUSH`/`CLIP_POP` and is the risky commit.
+   **Landed.** 183 more context calls moved (`main.js` 316 → 133); `groundSpace`'s `ctx` twin is
+   retired and all fourteen register entries go through `pushGroundSpace`; `RECT`, `PATTERN` and
+   `LIGHT` arrived. All twelve captures byte-identical.
+
+   **`render`'s two lists collapsed to one, and the argument is not "it looks tidier".** Commit 1
+   had to split the top-down arm into three flushes because `drawReach` still painted straight
+   onto the context between the corpses and the bodies, and that ordering — a ring *over* a
+   corpse and *under* a body — may not move. With `drawReach` emitting there is nothing left in
+   between, so the runs concatenate; and concatenating runs that were flushed separately is
+   provably the same picture, because `dlDraw` is a straight walk in emission order and emission
+   order is paint order. The ordering is now carried by where the loop sits in the emission
+   sequence rather than by where a flush sits, which is a *stronger* guarantee: there is one
+   sequence and one walk, and nothing can get between them. The reach loop itself did not move a
+   line.
 3. **Overlay.** Bars, floaters, callouts, the hero outline pass, `drawGrain`. `ROUND_RECT`,
-   `TEXT`, `RECT` and D4's `measureTextWidth` are this commit's; nothing before it needs them.
+   `TEXT`, `SPRITE`, `SPRITE_SPAN` and D4's `measureTextWidth` are this commit's; nothing before
+   it needs them. After it the frame is one list, one walk, and `main.js` has no per-frame
+   context call left outside the whitelist.
 
 Each commit is byte-identical on its own, so a regression bisects to a layer instead of to a
 five-thousand-line diff.
@@ -358,6 +409,24 @@ for commit 1, and that later commits should reuse: `restart()` for the constant 
 `viewOrigin`'s quarter-device-pixel snap makes the origin exact once the ease is gone. Verified
 reproducible twice in one page and once across a full reload before anything was changed.
 
+### The walk is one `save`/`restore`, and commit 2 paid to learn it
+
+**Every painter the list replaced was `save`/`restore` balanced, and a surprising amount of the
+code after them depends on that without saying so.** `drawCallouts` strokes its pill without
+setting `lineCap` or `lineJoin`, so it inherits whatever is ambient; `drawHeroThrough` runs
+outside the depth walk and its own comment says it relies on the walk having restored.
+
+Items state everything they read, so nothing *inside* the list can be surprised. But the last
+stroke in the list leaves its cap, its join, its width and its dash behind, and the overlay is
+still painting straight onto the context until commit 3. `drawTrail`'s round join — which used to
+live inside that function's own `save`, and now rides on 147 items at the top level — came out on
+a callout pill in the overlay, and it was the only thing wrong with an otherwise byte-identical
+commit.
+
+So `dlDraw` wraps the whole walk in one `save`/`restore`: **the list is a scope, and the walk
+returns the context it was handed.** That is the same invariant every painter it replaced had,
+stated once instead of forty times.
+
 ### D4 — `measureText` lives in `draw.js`, and extract calls it
 
 `drawCallouts` (`main.js:9566`) reads a metric back off the context at *extract* time: the pill's
@@ -387,8 +456,8 @@ either held or grown, and it is a decision with its own file.
 1. **All three views are byte-identical** at a fixed tick from a fixed seed, before and after,
    by `toDataURL` diff — and at each of the three commits, not only at the end. **With the wall
    clock frozen** (D6), or it cannot pass at all.
-2. `grep -nE '\b(ctx|g|globeCtx)\.[a-zA-Z]' web/*.js` hits `web/draw.js`, the three named bakes,
-   `drawGlobe` and `resize`, and nothing else.
+2. `grep -nE '\b(ctx|g|globeCtx)\.[a-zA-Z]' web/*.js` hits `web/draw.js`, the five paint-source
+   builders, `drawGlobe`, `resize` and `render`'s frame preamble, and nothing else.
 
    **The grep this file used to ask for — `grep -n 'ctx\.' web/*.js` — is broken** (D5). It
    misses all 46 `drawGlobe` sites and all 12 bake sites, because those write `g.` and
@@ -413,9 +482,11 @@ either held or grown, and it is a decision with its own file.
 
 All five, plus `node --check web/draw.js` and the §1 grep — which is
 `grep -nE '\b(ctx|g|globeCtx)\.[a-zA-Z]' web/*.js` and **not** the `ctx\.` one this file asked for
-before D5, whose four-exemption whitelist is `web/draw.js`, `bakeFloorTile`, `bakeGrainTile`,
-`arenaVignette`, `drawGlobe` and `resize`. No Rust changed, so `cargo test --workspace`,
-`lab -- hash` and `wasm_check.js` are a formality that catches a stray edit.
+before D5. Its whitelist is `web/draw.js`, the five paint-source builders (`bakeFloorTile`,
+`bakeGrainTile`, `arenaVignette`, `floorPatternNow`, `rebuildLevelPaths`), `drawGlobe`, and the
+two things outside the rule rather than exempt from it — `resize` and `render`'s frame preamble.
+No Rust changed, so `cargo test --workspace`, `lab -- hash` and `wasm_check.js` are a formality
+that catches a stray edit.
 
 ## Explicitly not in this session
 

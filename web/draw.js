@@ -32,32 +32,37 @@
 // and **not** with `grep -n 'ctx\.'`, which is what `art-04` originally asked
 // for and which is blind to two thirds of the problem: the bakes and the globe
 // write `g.` and `globeCtx.`, so the naive grep comes out clean while a second
-// per-frame painter with 46 context calls sits in `main.js`. Four exemptions,
+// per-frame painter with 46 context calls sits in `main.js`. Two exemptions,
 // each on principle rather than convenience:
 //
-//   * `bakeFloorTile`, `bakeGrainTile`, `arenaVignette` -- offscreen bakes. They
-//     run once per zoom bucket, or once ever, and what they produce is a *paint
-//     source* rather than a drawing. A paint source belongs in the table below;
-//     the code that makes one does not have to.
+//   * **the paint-source builders** -- `bakeFloorTile`, `bakeGrainTile`,
+//     `arenaVignette`, `floorPatternNow` and `rebuildLevelPaths`'s torch
+//     gradients. They run once per zoom bucket, once per level bake, or once
+//     ever, and what they produce is a *paint source* rather than a drawing. A
+//     paint source belongs in the table below; the code that makes one does not
+//     have to. (`art-04` §1 named the first three at commit 1 and the other two
+//     at commit 2, when the ground layer walked past them.)
 //   * `drawGlobe` -- a HUD widget on **its own canvas element** (`#globe`), with
 //     its own throttle and its own lifecycle. A display list keyed to one
 //     backend context does not describe a second canvas, and pretending it did
 //     would buy nothing and cost the globe its independence.
 //
-// `resize`'s `ctx.setTransform` is outside the rule rather than exempt from it
-// -- it is per resize, not per frame -- and is named here only because the grep
-// hits it and a reader should not have to work that out twice.
+// Two things are outside the rule rather than exempt from it, and are named
+// only because the grep hits them: `resize`'s `ctx.setTransform`, which is per
+// resize; and `render`'s three-call frame preamble -- the device-pixel
+// transform, the transparent clear and the camera translate -- which is what
+// establishes the space the list is written in and so cannot be an item in it.
 //
 // ---------------------------------------------------------------------------
 // WHAT IS AND IS NOT IN THE LIST YET
 //
-// `art-04` lands in three commits and this is the first: **the depth layer**.
-// The kinds below are the ones a body, a corpse, an arrow and a wall band need.
-// The ground layer's `PATTERN`, `LIGHT` and `CLIP_PUSH`-around-the-fog and the
-// overlay's `RECT`, `ROUND_RECT`, `TEXT`, `SPRITE` and `SPRITE_SPAN` arrive with
-// the commits that need them, so that a regression bisects to a layer instead of
-// to a five-thousand-line diff. A kind with no consumer is a kind nobody has
-// checked.
+// `art-04` lands in three commits and two have landed: **the depth layer** and
+// **the ground layer**. What is left is the overlay -- `drawHealth`,
+// `drawFloaters`, `drawCallouts`, `drawHeroThrough` and `drawGrain` -- and with
+// it the kinds only it needs: `ROUND_RECT`, `TEXT`, `SPRITE` and `SPRITE_SPAN`.
+// They arrive with the commit that needs them, so that a regression bisects to a
+// layer instead of to a five-thousand-line diff. A kind with no consumer is a
+// kind nobody has checked.
 
 /** Full turn. Deliberately its own copy rather than a read of `main.js`'s: this
  *  file loads first, so anything of `main.js`'s it wanted at load time would not
@@ -84,7 +89,29 @@ const DL_TAU = Math.PI * 2;
 const DL_XFORM_PUSH = 0;
 const DL_XFORM_POP = 1;
 
-/** A clip, from a `Path2D` in the paint table, and the `restore` that ends it. */
+/**
+ * A clip, from a `Path2D` in the paint table, and the `restore` that ends it.
+ *
+ * **The entry people leave out.** `drawLevel`'s two passes -- lit inside
+ * `floorLit`, remembered inside `floorSeen` at `SEEN_ALPHA` -- are a clip, and a
+ * clip is *state* rather than a mark. Emitting it keeps the backend a straight
+ * walk with nothing to be told out of band, and keeps the fog's authority an
+ * extract-side decision, where `art-00` §6 puts it: `main.js` decides which
+ * region a pass is clipped to and at what alpha, and this file only ever obeys.
+ * A backend that had to be told separately where the clips go is a backend that
+ * can be told wrong.
+ *
+ * It carries an alpha for the same reason `XFORM_PUSH` does, and because
+ * `drawLevel` sets one on the line after the clip: the two are one push.
+ *
+ * **At most one is ever live at once**, today. `drawLevel`'s pass clip and
+ * `drawLantern`'s are sequential -- the second begins after the first has popped
+ * -- and `drawCharacter`'s two are the mutually exclusive arms of one `if` in a
+ * layer where no ground clip is open. The backend keeps a real stack anyway,
+ * because the depth-layer clip does sit inside the walk's own push and because a
+ * backend whose correctness depends on a count being one is a backend with a
+ * bug waiting for `art-07`.
+ */
 const DL_CLIP_PUSH = 2;
 const DL_CLIP_POP = 3;
 
@@ -114,6 +141,26 @@ const DL_PATH_STROKE = 7;
  *  count, out of one preallocated buffer, is what that costs instead. */
 const DL_POLY_STROKE = 8;
 
+/** A rectangle filled with a flat colour. */
+const DL_RECT = 9;
+
+/** A rectangle filled with a `CanvasPattern` from the table, through whatever
+ *  clip is open. The pattern carries its own matrix -- `floorPatternNow` re-aims
+ *  it every frame -- so the item is only the rectangle. */
+const DL_PATTERN = 10;
+
+/** A rectangle filled with a **radial falloff** from the table.
+ *
+ *  Adding light or taking it away, and the same kind either way: the arena
+ *  vignette and the lantern darken at `source-over`, a torch pool adds under
+ *  `lighter`, and the three are one rectangle through one radial gradient with a
+ *  blend mode on the push above them. Splitting "light" from "shadow" here would
+ *  be splitting on the sign of a number that is already in the gradient's stops.
+ *
+ *  A falloff painted through an *arc* rather than a rect is an `ELLIPSE` with an
+ *  `ink` -- `drawPortal`'s glow is the one of those. */
+const DL_LIGHT = 11;
+
 /** For the frame dump. Index by kind. */
 const DL_KIND_NAMES = [
   "XFORM_PUSH",
@@ -125,6 +172,9 @@ const DL_KIND_NAMES = [
   "PATH_FILL",
   "PATH_STROKE",
   "POLY_STROKE",
+  "RECT",
+  "PATTERN",
+  "LIGHT",
 ];
 
 // ----------------------------------------------------------------- the layers
@@ -154,6 +204,25 @@ const DL_CCW = 1 << 3;
 const DL_DASHED = 1 << 4;
 const DL_CAP_ROUND = 1 << 5;
 const DL_CAP_SQUARE = 1 << 6;
+/** `POLY_STROKE`: the run is `2n` points forming `n` **disjoint** segments in one
+ *  path, rather than one polyline of `n` points.
+ *
+ *  For `drawDestination`'s crosshair, which is four `moveTo`/`lineTo` pairs
+ *  stroked as a single path. Four items would be four strokes, and §5.1 makes
+ *  the stroke count the metric this session is measured on -- so a kind that can
+ *  only say "polyline" would make the seam report a number the page does not
+ *  actually pay. It is the only multi-subpath stroke in the file; `drawMarks`'s
+ *  four sparks are already four `beginPath`/`stroke` pairs and stay four items. */
+const DL_SEGMENTS = 1 << 9;
+const DL_JOIN_ROUND = 1 << 10;
+/** `XFORM_PUSH`: `globalCompositeOperation = "lighter"` inside this save.
+ *
+ *  One site, `drawTorchLight`, and it is the only non-`source-over` composite in
+ *  `web/` that is not `drawGrain` re-asserting the default. It rides on the push
+ *  rather than on the items because that is where the code it replaces puts it --
+ *  a blend mode is state, and one that a pop puts back is a blend mode that
+ *  cannot leak into the vignette painted after it. */
+const DL_ADDITIVE = 1 << 11;
 /** `XFORM_PUSH`: concatenate onto the current state **without saving**, and
  *  expect no matching `XFORM_POP`.
  *
@@ -195,21 +264,32 @@ const DL_LOCAL_WIDTH = 1 << 8;
  */
 const DL_CAP = 8192;
 
-/** Twelve named slots and two for the dash. Wide enough that no kind has to
- *  alias a slot against another kind's meaning, which is the sort of saving that
- *  buys a hundred kilobytes and costs an afternoon. */
-const DL_STRIDE = 14;
+/** Named slots, wide enough that no kind has to alias a slot against another
+ *  kind's meaning -- which is the sort of saving that buys a hundred kilobytes
+ *  and costs an afternoon. */
+const DL_STRIDE = 15;
 
 const DL_F_DEPTH = 0;
-/** `globalAlpha`, on `XFORM_PUSH` only. Negative means "leave it alone".
+/**
+ * `globalAlpha`. Negative means "leave it alone".
  *
- *  **Alpha is push state and not a per-item field, and that is a transcription
- *  rather than a preference.** Every `globalAlpha` in the depth layer is set
- *  once inside a `save` and inherited by everything under it -- the walk's own
- *  `= 1`, and a ghost's falling alpha, which multiplies against stop alphas and
- *  `rgba()` alphas that are already in the styles below it. Folding that product
- *  into a tint would be a float multiply the rasteriser is currently doing at
- *  higher precision, and the gate is string equality on a PNG. */
+ * **An item states an alpha exactly where the code it replaces stated one, and
+ * inherits otherwise.** That is a transcription rule rather than a preference,
+ * and it is the whole of how this survives a byte-for-byte gate.
+ *
+ * Two shapes, because the file has two. Most of the depth layer sets
+ * `globalAlpha` once inside a `save` and lets everything under it inherit -- the
+ * walk's own `= 1`, a ghost's falling alpha -- so there the alpha rides on
+ * `XFORM_PUSH` and the pop puts it back. `drawLevel`'s rock pass and
+ * `drawDestination` instead assign it between draws inside one `save`, so there
+ * the alpha rides on the item, set by `dlAlpha` on the line above the emit
+ * exactly as `ctx.globalAlpha =` sits on the line above the fill.
+ *
+ * What it is never is folded into a colour. A ghost's alpha multiplies against
+ * stop alphas and `rgba()` alphas already in the styles below it, and that
+ * product is the rasteriser's to compute at its own precision; doing it here in
+ * a float would move pixels, and the gate is string equality on a PNG.
+ */
 const DL_F_ALPHA = 1;
 /** Six geometry slots. `XFORM_PUSH` reads them as a 2x3 -- the linear part in
  *  A..D and the translation in E, F. Everything else reads what its own arm
@@ -226,6 +306,12 @@ const DL_F_WIDTH = 10;
 const DL_F_N = 11;
 const DL_F_DASH_ON = 12;
 const DL_F_DASH_OFF = 13;
+/** The one animated dash on the page: `drawRoute`'s crawl, which is what carries
+ *  the *direction* of a path whose legs are otherwise identical lines. It is set
+ *  on every stroke and not only on that one, because the `save` that used to
+ *  scope it is gone and a dash offset left behind would crawl somebody else's
+ *  line. */
+const DL_F_DASH_OFFSET = 14;
 
 const dlKind = new Int32Array(DL_CAP);
 const dlLayer = new Int32Array(DL_CAP);
@@ -350,10 +436,13 @@ function dlBind(ctx) {
  * cursor hold the last list's values and are never read, exactly as the parse
  * pool's rows do.
  *
- * Called once per contiguous run of emitting, which during the staged conversion
- * is more than once a frame: commit 1 moves the depth layer only, so the ground
- * and overlay passes still paint straight onto the context between runs and each
- * run is reset, filled and drawn before the next thing paints.
+ * **Once a frame since commit 2, and that is the point of the ground layer
+ * moving.** Commit 1 had to reset and draw more than once, because painters that
+ * still wrote straight onto the context sat between the runs that emitted --
+ * `drawReach` between the corpses and the bodies most of all. With the ground
+ * layer emitting there is nothing left in between, so the frame is one list from
+ * the floor to the last arrow, walked once. The overlay joins it in commit 3 and
+ * then it is the whole frame.
  */
 function dlReset() {
   dlCount = 0;
@@ -362,6 +451,26 @@ function dlReset() {
   dlPaintFrameCount = 0;
   dlOverflow = false;
   dlOpenCount = 0;
+  dlPendingAlpha = -1;
+}
+
+/**
+ * The alpha the **next** item states, and then it is cleared.
+ *
+ * Reads as the line it replaces -- `ctx.globalAlpha = a;` immediately above a
+ * fill -- and is consumed once for the same reason that line is written once:
+ * every site in the file that assigns `globalAlpha` outside a `save` draws
+ * exactly one thing at it. An alpha that applied until changed would be a second
+ * kind of state to track, and one that leaked past its draw would be the sort of
+ * bug that shows up three painters later as a faded overlay.
+ *
+ * Where the source sets an alpha *inside* a `save` and lets a subtree inherit,
+ * the alpha belongs on the `XFORM_PUSH` or the `CLIP_PUSH` instead.
+ */
+let dlPendingAlpha = -1;
+
+function dlAlpha(a) {
+  dlPendingAlpha = a;
 }
 
 /** The next slot, or -1 when the list is full. **Drops rather than grows**: a
@@ -382,7 +491,8 @@ function dlNext(kind, layer) {
   dlStyle[at] = null;
   dlFlags[at] = 0;
   for (let i = 0; i < DL_STRIDE; i++) dlF[b + i] = 0;
-  dlF[b + DL_F_ALPHA] = -1;
+  dlF[b + DL_F_ALPHA] = dlPendingAlpha;
+  dlPendingAlpha = -1;
   dlF[b + DL_F_SCALE] = 1;
   return at;
 }
@@ -423,7 +533,7 @@ function dlOpenPush(at, saving) {
  * `alpha` negative means "do not touch `globalAlpha`", which is what all but two
  * call sites want.
  */
-function dlXform(la, lb, lc, ld, tx, ty, rot, scale, alpha) {
+function dlXform(la, lb, lc, ld, tx, ty, rot, scale, alpha, flags) {
   const at = dlNext(DL_XFORM_PUSH, dlActiveLayer);
   if (at < 0) return;
   const b = at * DL_STRIDE;
@@ -436,6 +546,7 @@ function dlXform(la, lb, lc, ld, tx, ty, rot, scale, alpha) {
   dlF[b + DL_F_ROT] = rot;
   dlF[b + DL_F_SCALE] = scale;
   dlF[b + DL_F_ALPHA] = alpha;
+  dlFlags[at] = flags === undefined ? 0 : flags;
   dlOpenPush(at, true);
 }
 
@@ -452,6 +563,10 @@ function dlXformBare(la, lb, lc, ld, tx, ty, rot, scale) {
   dlF[b + DL_F_F] = ty;
   dlF[b + DL_F_ROT] = rot;
   dlF[b + DL_F_SCALE] = scale;
+  // A bare push does not save, so it may not set an alpha: there would be
+  // nothing to put it back. Cleared rather than inherited from `dlAlpha`, which
+  // belongs to the next thing that actually draws.
+  dlF[b + DL_F_ALPHA] = -1;
   dlFlags[at] = DL_BARE;
   dlOpenPush(at, false);
 }
@@ -475,14 +590,31 @@ function dlXformEnd() {
   }
 }
 
-function dlClip(shape) {
+/** Clip to a `Path2D` from the table, saving the state it is pushed onto, and
+ *  optionally set the alpha the region is painted at -- `drawLevel` assigns one
+ *  on the line after its `ctx.clip`, so the two are one push.
+ *
+ *  It goes on the open stack with an identity matrix. A clip does not move the
+ *  CTM, so replaying it is a no-op; being on the stack is what makes a bare push
+ *  emitted *inside* a clip unwind when the clip ends, rather than staying open
+ *  until some later `XFORM_POP` walks past it. */
+function dlClip(shape, alpha) {
   const at = dlNext(DL_CLIP_PUSH, dlActiveLayer);
   if (at < 0) return;
+  const b = at * DL_STRIDE;
   dlShape[at] = shape;
+  dlF[b + DL_F_A] = 1;
+  dlF[b + DL_F_D] = 1;
+  dlF[b + DL_F_ALPHA] = alpha === undefined ? -1 : alpha;
+  dlOpenPush(at, true);
 }
 
 function dlClipEnd() {
-  dlNext(DL_CLIP_POP, dlActiveLayer);
+  if (dlNext(DL_CLIP_POP, dlActiveLayer) < 0) return;
+  while (dlOpenCount > 0) {
+    dlOpenCount--;
+    if (dlOpenSaving[dlOpenCount]) break;
+  }
 }
 
 /** A full circle, filled or stroked. `ink` is a paint table index or
@@ -532,6 +664,37 @@ function dlPath(shape, flags, style, ink, width, dashOn, dashOff) {
   dlInk[at] = ink;
 }
 
+/** A rectangle in a flat colour. `x`, `y`, `w`, `h` in the space of whatever
+ *  transforms are open, which for the ground layer's two composites is the
+ *  camera's own -- the projection is applied to the box once, in the bake. */
+function dlRect(x, y, w, h, style) {
+  dlRectItem(DL_RECT, x, y, w, h, style, DL_NO_PAINT);
+}
+
+/** The same rectangle through a `CanvasPattern` from the table. */
+function dlPatternRect(x, y, w, h, ink) {
+  dlRectItem(DL_PATTERN, x, y, w, h, null, ink);
+}
+
+/** The same rectangle through a radial falloff from the table. Additive or not
+ *  is `DL_ADDITIVE` on the push above it, not a property of the rectangle. */
+function dlLight(x, y, w, h, ink) {
+  dlRectItem(DL_LIGHT, x, y, w, h, null, ink);
+}
+
+function dlRectItem(kind, x, y, w, h, style, ink) {
+  const at = dlNext(kind, dlActiveLayer);
+  if (at < 0) return;
+  const b = at * DL_STRIDE;
+  dlF[b + DL_F_A] = x;
+  dlF[b + DL_F_B] = y;
+  dlF[b + DL_F_C] = w;
+  dlF[b + DL_F_D] = h;
+  dlFlags[at] = DL_FILL;
+  dlStyle[at] = style;
+  dlInk[at] = ink;
+}
+
 /** Begin a run of points for one `POLY_STROKE`. */
 function dlPolyBegin() {
   dlPolyStart = dlPtsCount;
@@ -550,7 +713,7 @@ function dlPoint(x, y) {
 /** Close the run and emit it. Always a stroke -- a filled polygon would be a
  *  `Path2D`, and the reason this kind exists is that its points did not exist a
  *  frame ago. */
-function dlPolyEnd(flags, style, width, dashOn, dashOff) {
+function dlPolyEnd(flags, style, width, dashOn, dashOff, dashOffset) {
   const at = dlNext(DL_POLY_STROKE, dlActiveLayer);
   if (at < 0) return;
   const b = at * DL_STRIDE;
@@ -559,6 +722,7 @@ function dlPolyEnd(flags, style, width, dashOn, dashOff) {
   dlF[b + DL_F_WIDTH] = width;
   dlF[b + DL_F_DASH_ON] = dashOn;
   dlF[b + DL_F_DASH_OFF] = dashOff;
+  dlF[b + DL_F_DASH_OFFSET] = dashOffset === undefined ? 0 : dashOffset;
   dlFlags[at] = flags | DL_STROKE;
   dlStyle[at] = style;
 }
@@ -587,6 +751,20 @@ function dlLinearGradient(x0, y0, x1, y1, stop0, stop1) {
   c.save();
   for (let i = 0; i < dlOpenCount; i++) dlApplyXform(c, dlOpen[i] * DL_STRIDE);
   const g = c.createLinearGradient(x0, y0, x1, y1);
+  g.addColorStop(0, stop0);
+  g.addColorStop(1, stop1);
+  c.restore();
+  return dlPaintFrame(g);
+}
+
+/** The same, radially. `drawPortal`'s glow is built inside `groundSpace` and
+ *  `drawLantern`'s at the top-level matrix, and the replay above is what lets
+ *  both say only where they want the falloff and not which matrices are open. */
+function dlRadialGradient(x0, y0, r0, x1, y1, r1, stop0, stop1) {
+  const c = dlCtx;
+  c.save();
+  for (let i = 0; i < dlOpenCount; i++) dlApplyXform(c, dlOpen[i] * DL_STRIDE);
+  const g = c.createRadialGradient(x0, y0, r0, x1, y1, r1);
   g.addColorStop(0, stop0);
   g.addColorStop(1, stop1);
   c.restore();
@@ -652,6 +830,8 @@ function dlStrokeState(ctx, at, b) {
   const flags = dlFlags[at];
   ctx.lineWidth = dlF[b + DL_F_WIDTH];
   ctx.lineCap = flags & DL_CAP_ROUND ? "round" : flags & DL_CAP_SQUARE ? "square" : "butt";
+  ctx.lineJoin = flags & DL_JOIN_ROUND ? "round" : "miter";
+  ctx.lineDashOffset = dlF[b + DL_F_DASH_OFFSET];
   if (flags & DL_DASHED) {
     dlDash2[0] = dlF[b + DL_F_DASH_ON];
     dlDash2[1] = dlF[b + DL_F_DASH_OFF];
@@ -659,6 +839,13 @@ function dlStrokeState(ctx, at, b) {
   } else {
     ctx.setLineDash(DL_NO_DASH);
   }
+}
+
+/** `globalAlpha`, where the item states one. Negative is "inherit", which is the
+ *  common case and is why this is a comparison rather than an assignment. */
+function dlSetAlpha(ctx, b) {
+  const alpha = dlF[b + DL_F_ALPHA];
+  if (alpha >= 0) ctx.globalAlpha = alpha;
 }
 
 function dlSetFill(ctx, at) {
@@ -676,9 +863,23 @@ function dlSetStroke(ctx, at) {
  * which is the property every "the clip is an item", "the matrix is an item"
  * argument in `art-04` was bought to protect: there is nothing this function
  * has to be told separately, and so nothing it can be told wrong.
+ *
+ * **The whole walk is one `save`/`restore`, and it is load-bearing rather than
+ * belt and braces.** Every painter this list replaced was `save`/`restore`
+ * balanced, so the code after them ran at the state they found -- and a lot of
+ * it depends on that without saying so. `drawCallouts` strokes its pill without
+ * setting `lineCap` or `lineJoin`, so it inherits; `drawHeroThrough` runs
+ * outside the depth walk and its own comment says it relies on the walk having
+ * restored. Items state everything they read, so nothing *inside* the list can
+ * be surprised -- but the last stroke in it leaves its cap, its join, its width
+ * and its dash behind, and without this pair a route bead five hundred items
+ * back would decide what a callout's outline looks like. It cost commit 2 an
+ * afternoon: `drawTrail`'s round join, which used to live inside that function's
+ * own `save`, came out on a pill in the overlay.
  */
 function dlDraw() {
   const ctx = dlCtx;
+  ctx.save();
   for (let at = 0; at < dlCount; at++) {
     const b = at * DL_STRIDE;
     const flags = dlFlags[at];
@@ -686,8 +887,8 @@ function dlDraw() {
       case DL_XFORM_PUSH: {
         if (!(flags & DL_BARE)) {
           ctx.save();
-          const alpha = dlF[b + DL_F_ALPHA];
-          if (alpha >= 0) ctx.globalAlpha = alpha;
+          dlSetAlpha(ctx, b);
+          if (flags & DL_ADDITIVE) ctx.globalCompositeOperation = "lighter";
         }
         dlApplyXform(ctx, b);
         break;
@@ -699,8 +900,17 @@ function dlDraw() {
       case DL_CLIP_PUSH:
         ctx.save();
         ctx.clip(dlPaintTable[dlShape[at]]);
+        dlSetAlpha(ctx, b);
+        break;
+      case DL_RECT:
+      case DL_PATTERN:
+      case DL_LIGHT:
+        dlSetAlpha(ctx, b);
+        dlSetFill(ctx, at);
+        ctx.fillRect(dlF[b + DL_F_A], dlF[b + DL_F_B], dlF[b + DL_F_C], dlF[b + DL_F_D]);
         break;
       case DL_ELLIPSE:
+        dlSetAlpha(ctx, b);
         ctx.beginPath();
         ctx.arc(dlF[b + DL_F_A], dlF[b + DL_F_B], dlF[b + DL_F_C], 0, DL_TAU);
         if (flags & DL_FILL) {
@@ -713,6 +923,7 @@ function dlDraw() {
         }
         break;
       case DL_ARC:
+        dlSetAlpha(ctx, b);
         ctx.beginPath();
         if (flags & DL_SECTOR) ctx.moveTo(dlF[b + DL_F_A], dlF[b + DL_F_B]);
         ctx.arc(
@@ -734,10 +945,12 @@ function dlDraw() {
         }
         break;
       case DL_PATH_FILL:
+        dlSetAlpha(ctx, b);
         dlSetFill(ctx, at);
         ctx.fill(dlPaintTable[dlShape[at]]);
         break;
       case DL_PATH_STROKE:
+        dlSetAlpha(ctx, b);
         dlSetStroke(ctx, at);
         dlStrokeState(ctx, at, b);
         ctx.stroke(dlPaintTable[dlShape[at]]);
@@ -746,9 +959,19 @@ function dlDraw() {
         const from = dlF[b + DL_F_A];
         const n = dlF[b + DL_F_N];
         if (n >= 2) {
+          dlSetAlpha(ctx, b);
           ctx.beginPath();
-          ctx.moveTo(dlPts[from * 2], dlPts[from * 2 + 1]);
-          for (let i = 1; i < n; i++) ctx.lineTo(dlPts[(from + i) * 2], dlPts[(from + i) * 2 + 1]);
+          if (flags & DL_SEGMENTS) {
+            // Pairs, each its own sub-path: one `stroke` over `n / 2` disjoint
+            // segments, which is what `drawDestination`'s crosshair is.
+            for (let i = 0; i + 1 < n; i += 2) {
+              ctx.moveTo(dlPts[(from + i) * 2], dlPts[(from + i) * 2 + 1]);
+              ctx.lineTo(dlPts[(from + i + 1) * 2], dlPts[(from + i + 1) * 2 + 1]);
+            }
+          } else {
+            ctx.moveTo(dlPts[from * 2], dlPts[from * 2 + 1]);
+            for (let i = 1; i < n; i++) ctx.lineTo(dlPts[(from + i) * 2], dlPts[(from + i) * 2 + 1]);
+          }
           dlSetStroke(ctx, at);
           dlStrokeState(ctx, at, b);
           ctx.stroke();
@@ -759,6 +982,7 @@ function dlDraw() {
         break;
     }
   }
+  ctx.restore();
   if (dlOverflow) {
     console.warn(`draw.js: the frame ran out of list at ${DL_CAP} items and dropped the rest`);
     dlOverflow = false;

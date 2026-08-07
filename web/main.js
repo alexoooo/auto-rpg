@@ -4711,12 +4711,21 @@ function lift(h) {
   return h * scale;
 }
 
-/** The CTM for anything lying flat on the floor.
+/** The CTM for anything lying flat on the floor, **emitted** as one
+ *  `XFORM_PUSH` carrying the translate, the shear, and whatever rotation and
+ *  scale the call site composed on top of them.
  *
  *  Its input space is exactly the space `drawLimb`, `drawMarks`, `drawSprint` and
  *  every decal already work in: screen pixels of top-down world offset from the
- *  anchor. So converting one of them is a one-line change at the top and nothing
- *  below it moves.
+ *  anchor. So converting one of them was a one-line change at the top and nothing
+ *  below it moved.
+ *
+ *  **The rotation and the scale are arguments here where they were separate `ctx`
+ *  calls before `art-04`**, because a push is a unit and the CTM has to come out
+ *  bit-identical: the backend applies translate, shear, rotate and scale in that
+ *  order and no other, which is the order every one of these call sites was
+ *  already written in. The rotation is not folded into the matrix -- see
+ *  `DL_XFORM_PUSH`. `alpha` negative means "do not touch `globalAlpha`".
  *
  *  **The matrix is read out of the table and not typed a second time.**
  *  `ctx.transform(a,b,c,d,e,f)` composes x' = a*x + c*y + e, y' = b*x + d*y + f.
@@ -4747,6 +4756,10 @@ function lift(h) {
  *  no second matrix multiply behind it, which is byte-identical to what it did
  *  before this line changed rather than merely equivalent to it. `Tactical` and
  *  `Dev` are the A/B control for the whole conversion and they are worth a branch.
+ *  The backend keeps the guard honest from its own side: `dlApplyXform` skips the
+ *  `ctx.transform` when the linear part it is handed is the identity, so the
+ *  identity row emitted below still comes out as one `ctx.translate` and nothing
+ *  else.
  *
  *  **det = ax*by - bx*ay = 1*0.5 - (-1)*0.5 = 1.** The shear is unimodular, so
  *  every ground fill covers exactly the pixels it covers today. That is the whole
@@ -4770,10 +4783,13 @@ function lift(h) {
  *  it moving, because of the paragraph above.
  *
  *  Fourteen call sites, and this list is the register to grep when the question is
- *  what the shear touches -- so a fifteenth belongs here on the way in. **Eight
- *  of the fourteen go through `pushGroundSpace` since `art-04` commit 1** and the
- *  other six still come through here; both build the same matrix, and which side
- *  of the seam a call site is on this week is not what this register is about.
+ *  what the shear touches -- so a fifteenth belongs here on the way in.
+ *  **Re-counted at `art-04` commit 2, when the last six moved onto the seam:
+ *  still fourteen, still these fourteen.** The conversion changed what a call
+ *  site *looks* like -- a push with the rotation and the scale folded into it
+ *  rather than a `ctx.transform` followed by two more calls -- and did not add,
+ *  remove or move one. The `ctx` twin this function used to have beside it is
+ *  gone with them; there is one of these again.
  *
  *  **Three things on the floor are deliberately *not* on it, and the rule is the
  *  same for all three.** `drawTrail`, `drawRoute`'s two polylines and `drawLock`'s
@@ -4793,33 +4809,6 @@ function lift(h) {
  *  merge walk, which under iso is somebody else's body. `DL_BARE` is the one
  *  exception and it is exactly the *other* two: it is for a hand-written
  *  rotation or translation inverse, and a shear may never be pushed with it. */
-function groundSpace(wx, wy) {
-  ctx.translate(projX(wx, wy), projY(wx, wy));
-  if (PROJ.shear) ctx.transform(PROJ.ax, PROJ.ay, PROJ.bx, PROJ.by, 0, 0);
-}
-
-/**
- * The same space, **emitted** rather than applied: one `XFORM_PUSH` carrying the
- * translate, the shear, and whatever rotation and scale the call site composed
- * on top of them.
- *
- * `art-04` commit 1 moves the depth layer only, so during the conversion there
- * are two of these and that is deliberate rather than untidy: the eight sites
- * above that live in the depth layer -- `drawLimb`, `drawMarks` twice,
- * `drawCharacter`'s ground pre-pass, `drawSprint`, both of `drawShot`'s passes
- * and `drawCorpse`'s flat arm -- go through this one, and the six ground-layer
- * sites still paint through the `ctx` twin until commit 2 takes them. The
- * register above is the register for both; it is a list of *what the shear
- * touches*, and which side of the seam a call site is on this week does not
- * change that.
- *
- * **The rotation and the scale are arguments here where they were separate
- * `ctx` calls there**, because a push is a unit and the CTM has to come out
- * bit-identical: the backend applies translate, shear, rotate and scale in that
- * order and no other, which is the order every one of these call sites was
- * already written in. The rotation is not folded into the matrix -- see
- * `DL_XFORM_PUSH`. `alpha` negative means "do not touch `globalAlpha`".
- */
 function pushGroundSpace(wx, wy, rot, scale, alpha) {
   const tx = projX(wx, wy);
   const ty = projY(wx, wy);
@@ -6587,11 +6576,15 @@ function drawLevel(state, now, origin) {
     // so `[dev]` was paying twice over for one picture. Skipping it is exactly
     // equivalent: an empty clip admits no pixels.
     if (!lit && !levelPaths.remembered) continue;
-    ctx.save();
-    ctx.clip(lit ? levelPaths.floorLit : levelPaths.floorSeen);
-    ctx.globalAlpha = lit ? 1 : SEEN_ALPHA;
-    ctx.fillStyle = pattern || "#141a26";
-    ctx.fillRect(clipX, clipY, clipW, clipH);
+    // **The pass is a `CLIP_PUSH` carrying its own alpha**, which is the `save`,
+    // the `clip` and the `globalAlpha` of the three lines it replaces, in one
+    // item. The fog keeps its authority exactly where it had it: which region a
+    // pass is clipped to and at what alpha is decided here, out of the bake, and
+    // the backend only obeys. Nothing downstream can reveal a tile `floorLit`
+    // does not contain, because the region is not a thing the backend chooses.
+    dlClip(dlPaintFrame(lit ? levelPaths.floorLit : levelPaths.floorSeen), lit ? 1 : SEEN_ALPHA);
+    if (pattern) dlPatternRect(clipX, clipY, clipW, clipH, dlPaintFrame(pattern));
+    else dlRect(clipX, clipY, clipW, clipH, "#141a26");
 
     // The torches, on the floor they light, and **inside this pass rather than
     // after the loop**. Two things fall out of that placement and both are load
@@ -6630,17 +6623,19 @@ function drawLevel(state, now, origin) {
       const cy = (bb.y0 + bb.y1) / 2;
       let vy = clipY;
       let vh = clipH;
-      ctx.save();
       if (PROJ.shear) {
-        ctx.translate(0, cy);
-        ctx.scale(1, 0.5);
-        ctx.translate(0, -cy);
+        dlXform(1, 0, 0, 0.5, 0, cy, 0, 1, -1);
+        dlTranslateBare(0, -cy);
         vy = 2 * clipY - cy;
         vh = clipH * 2;
+      } else {
+        dlXform(1, 0, 0, 1, 0, 0, 0, 1, -1);
       }
-      ctx.fillStyle = arenaVignette(bb);
-      ctx.fillRect(clipX, vy, clipW, vh);
-      ctx.restore();
+      // A `LIGHT`, and it takes light away rather than adding it -- see the kind.
+      // It inherits the pass alpha from the clip above, which is what dims the
+      // whole remembered pass and the vignette over it together.
+      dlLight(clipX, vy, clipW, vh, dlPaintFrame(arenaVignette(bb)));
+      dlXformEnd();
     }
 
     // The scale bar, and *only* the scale bar: one line every four units, far
@@ -6660,10 +6655,8 @@ function drawLevel(state, now, origin) {
     // pass. It used to be a `beginPath` and two `moveTo`/`lineTo` loops over the
     // whole arena, run twice a frame, to redraw a lattice that changes only when
     // the zoom does.
-    ctx.lineWidth = 1;
-    ctx.strokeStyle = "rgba(150,180,230,0.055)";
-    ctx.stroke(levelPaths.grid);
-    ctx.restore();
+    dlPath(dlPaintFrame(levelPaths.grid), DL_STROKE, "rgba(150,180,230,0.055)", DL_NO_PAINT, 1, 0, 0);
+    dlClipEnd();
   }
 
   // The rock. **Top-down it is one dark mass, clearly darker than the lit floor
@@ -6807,26 +6800,26 @@ function drawLevel(state, now, origin) {
   // lighting a room you cannot see is a wallhack. Both halves are already decided
   // by the time this runs: the dimming is this pass's `SEEN_ALPHA`, and the light
   // is absent because the bake only put lit torches in `torchLights`.
-  ctx.save();
+  //
+  // **The `save` moves inside the branch**, because the two arms want different
+  // things from it: the iso one sets `SEEN_ALPHA` once and lets seven fills
+  // inherit it, so the alpha rides on the push; the top-down one assigns it
+  // between fills, so there it rides on the items. Both are the transcription
+  // rule stated on `DL_F_ALPHA`, and the pair is the clearest example of it in
+  // the file.
   if (levelPaths.proj === "iso") {
-    ctx.globalAlpha = SEEN_ALPHA;
-    ctx.fillStyle = WALL_TOP;
-    ctx.fill(levelPaths.wallTopSeen);
-    ctx.fillStyle = WALL_XFACE;
-    ctx.fill(levelPaths.wallSideSeen);
-    ctx.fillStyle = levelPaths.doorTop;
-    ctx.fill(levelPaths.doorTopSeen);
-    ctx.fillStyle = levelPaths.doorSide;
-    ctx.fill(levelPaths.doorSideSeen);
+    dlXform(1, 0, 0, 1, 0, 0, 0, 1, SEEN_ALPHA);
+    dlPath(dlPaintFrame(levelPaths.wallTopSeen), DL_FILL, WALL_TOP, DL_NO_PAINT, 0, 0, 0);
+    dlPath(dlPaintFrame(levelPaths.wallSideSeen), DL_FILL, WALL_XFACE, DL_NO_PAINT, 0, 0, 0);
+    dlPath(dlPaintFrame(levelPaths.doorTopSeen), DL_FILL, levelPaths.doorTop, DL_NO_PAINT, 0, 0, 0);
+    dlPath(dlPaintFrame(levelPaths.doorSideSeen), DL_FILL, levelPaths.doorSide, DL_NO_PAINT, 0, 0, 0);
     if (levelPaths.torchStemSeen) {
-      ctx.fillStyle = TORCH_IRON;
-      ctx.fill(levelPaths.torchStemSeen);
-      ctx.fillStyle = TORCH_FLAME_TONE;
-      ctx.fill(levelPaths.torchFlameSeen);
-      ctx.fillStyle = TORCH_CORE_TONE;
-      ctx.fill(levelPaths.torchCoreSeen);
+      dlPath(dlPaintFrame(levelPaths.torchStemSeen), DL_FILL, TORCH_IRON, DL_NO_PAINT, 0, 0, 0);
+      dlPath(dlPaintFrame(levelPaths.torchFlameSeen), DL_FILL, TORCH_FLAME_TONE, DL_NO_PAINT, 0, 0, 0);
+      dlPath(dlPaintFrame(levelPaths.torchCoreSeen), DL_FILL, TORCH_CORE_TONE, DL_NO_PAINT, 0, 0, 0);
     }
   } else {
+    dlXform(1, 0, 0, 1, 0, 0, 0, 1, -1);
     // **Top-down rock, and deliberately no longer the same six characters as the
     // floor's mortar.** These two literals were identical up to `art-01` and it
     // was a coincidence rather than a relationship: this is the flat modes' single
@@ -6836,35 +6829,31 @@ function drawLevel(state, now, origin) {
     // `[tactical]` and `[dev]` are the byte-identical A/B control and nothing
     // reachable with the art off may move. Anybody unifying them is repainting the
     // control.
-    ctx.fillStyle = "#0c1017";
-    ctx.globalAlpha = SEEN_ALPHA;
-    ctx.fill(levelPaths.wallSeen);
-    ctx.globalAlpha = 1;
-    ctx.fill(levelPaths.wallLit);
+    dlAlpha(SEEN_ALPHA);
+    dlPath(dlPaintFrame(levelPaths.wallSeen), DL_FILL, "#0c1017", DL_NO_PAINT, 0, 0, 0);
+    dlAlpha(1);
+    dlPath(dlPaintFrame(levelPaths.wallLit), DL_FILL, "#0c1017", DL_NO_PAINT, 0, 0, 0);
     // Top-down a doorway is one flat tone, exactly as rock is, so both passes
     // take the first of the bake's two colours.
-    ctx.fillStyle = levelPaths.doorTop;
-    ctx.globalAlpha = SEEN_ALPHA;
-    ctx.fill(levelPaths.doorSeen);
-    ctx.globalAlpha = 1;
-    ctx.fill(levelPaths.doorLit);
+    dlAlpha(SEEN_ALPHA);
+    dlPath(dlPaintFrame(levelPaths.doorSeen), DL_FILL, levelPaths.doorTop, DL_NO_PAINT, 0, 0, 0);
+    dlAlpha(1);
+    dlPath(dlPaintFrame(levelPaths.doorLit), DL_FILL, levelPaths.doorTop, DL_NO_PAINT, 0, 0, 0);
     if (levelPaths.torchLit) {
       // Top-down there is no wall face and no depth walk, so both halves of a
       // torch are one mark on the tile seam and both passes fill it here.
-      ctx.fillStyle = TORCH_FLAME_TONE;
-      ctx.globalAlpha = SEEN_ALPHA;
-      ctx.fill(levelPaths.torchSeen);
-      ctx.globalAlpha = 1;
-      ctx.fill(levelPaths.torchLit);
+      dlAlpha(SEEN_ALPHA);
+      dlPath(dlPaintFrame(levelPaths.torchSeen), DL_FILL, TORCH_FLAME_TONE, DL_NO_PAINT, 0, 0, 0);
+      dlAlpha(1);
+      dlPath(dlPaintFrame(levelPaths.torchLit), DL_FILL, TORCH_FLAME_TONE, DL_NO_PAINT, 0, 0, 0);
     }
     if (levelPaths.edge) {
-      ctx.strokeStyle = "rgba(150,185,235,0.20)";
-      ctx.lineWidth = 1.5;
-      ctx.lineCap = "square";
-      ctx.stroke(levelPaths.edge);
+      // No alpha of its own: it inherits the `1` the fill above it stated, which
+      // is what the line it replaces did with the ambient `globalAlpha`.
+      dlPath(dlPaintFrame(levelPaths.edge), DL_STROKE | DL_CAP_SQUARE, "rgba(150,185,235,0.20)", DL_NO_PAINT, 1.5, 0, 0);
     }
   }
-  ctx.restore();
+  dlXformEnd();
 
   // Last, so that top-down it also takes the outer half of the edge stroke down
   // with it at range: a lit rock face at the far edge of sight should not be the
@@ -6946,27 +6935,34 @@ function drawTorchLight(now, origin) {
   const y0 = -origin.y;
   const x1 = x0 + viewport.w;
   const y1 = y0 + viewport.h;
-  ctx.save();
-  ctx.globalCompositeOperation = "lighter";
+  // `DL_ADDITIVE` on the push, which is `ctx.globalCompositeOperation =
+  // "lighter"` inside a `save`: a blend mode is state and belongs where a pop
+  // can put it back, or it leaks into the vignette painted after it.
+  dlXform(1, 0, 0, 1, 0, 0, 0, 1, -1, DL_ADDITIVE);
   for (const light of lights) {
     const { x, y, far } = light;
     if (x + far < x0 || x - far > x1 || y + far < y0 || y - far > y1) continue;
     // A shade of flicker, out of phase per torch. `now` is the wall clock, like
     // every other presentational animation here, so it keeps its cadence when the
     // sim is paused or catching up.
-    ctx.globalAlpha =
+    const flicker =
       1 - TORCH_FLICKER * (0.5 + 0.5 * Math.sin(now * 0.001 * TAU * TORCH_FLICKER_HZ + light.phase * TAU));
-    ctx.save();
+    // `translate(x, y); scale(1, 0.5); translate(-x, -y)` in the two items that
+    // spell it: a push carrying the first translate and the **non-uniform**
+    // linear part, then a bare translate back inside it. The squash cannot ride
+    // on `DL_F_SCALE`, which is uniform by construction because every scale in
+    // the depth layer is -- a body that scaled unevenly would be a body whose
+    // line widths stopped being line widths -- so a 2:1 squash is a matrix.
     if (PROJ.shear) {
-      ctx.translate(x, y);
-      ctx.scale(1, 0.5);
-      ctx.translate(-x, -y);
+      dlXform(1, 0, 0, 0.5, x, y, 0, 1, flicker);
+      dlTranslateBare(-x, -y);
+    } else {
+      dlXform(1, 0, 0, 1, 0, 0, 0, 1, flicker);
     }
-    ctx.fillStyle = light.glow;
-    ctx.fillRect(x - far, y - far, far * 2, far * 2);
-    ctx.restore();
+    dlLight(x - far, y - far, far * 2, far * 2, dlPaintFrame(light.glow));
+    dlXformEnd();
   }
-  ctx.restore();
+  dlXformEnd();
 }
 
 /**
@@ -7025,11 +7021,15 @@ function drawLantern(state, x0, y0, w, h) {
   const x = projX(hero.x, hero.y);
   const y = projY(hero.x, hero.y);
   const far = px(hero.sight);
-  const lamp = ctx.createRadialGradient(x, y, far * LANTERN_INNER, x, y, far);
-  lamp.addColorStop(0, "rgba(9,11,16,0)");
-  lamp.addColorStop(1, "rgba(9,11,16,0.55)");
-  ctx.save();
-  ctx.clip(levelPaths.floorLit);
+  // Built before the clip and before the squash, exactly as it was: no transform
+  // is open here, so `dlRadialGradient`'s replay is a no-op and the falloff lands
+  // on the same pixels it always has.
+  const lamp = dlRadialGradient(
+    x, y, far * LANTERN_INNER, x, y, far,
+    "rgba(9,11,16,0)",
+    "rgba(9,11,16,0.55)"
+  );
+  dlClip(dlPaintFrame(levelPaths.floorLit));
 
   // **The rect has to be un-squashed or the fill stops short of the window**, and
   // that is a bug you cannot see from the code: the squash is about the character,
@@ -7046,18 +7046,22 @@ function drawLantern(state, x0, y0, w, h) {
   // camera -- which is what makes "at every zoom, with the camera anywhere" a
   // one-line proof rather than four corner cases. `x` is untouched by a
   // `scale(1, k)` between two translates, so `x0` and `w` do not move.
+  //
+  // The squash is **bare**, inside the clip's own save rather than in one of its
+  // own: that is the single `save`/`restore` pair this function has always had,
+  // and `CLIP_PUSH` is now the thing holding it. A bare push emitted inside a
+  // clip is unwound by the `CLIP_POP`, which is why `dlClip` goes on the open
+  // stack even though a clip does not move the matrix.
   let ry = y0;
   let rh = h;
   if (PROJ.shear) {
-    ctx.translate(x, y);
-    ctx.scale(1, 0.5);
-    ctx.translate(-x, -y);
+    dlXformBare(1, 0, 0, 0.5, x, y, 0, 1);
+    dlTranslateBare(-x, -y);
     ry = 2 * y0 - y;
     rh = h * 2;
   }
-  ctx.fillStyle = lamp;
-  ctx.fillRect(x0, ry, w, rh);
-  ctx.restore();
+  dlLight(x0, ry, w, rh, lamp);
+  dlClipEnd();
 }
 
 /**
@@ -7084,16 +7088,15 @@ function drawPortal(state, now) {
   // All three passes -- the glow and the two spinning arcs -- lie on the floor,
   // and every one of them was already written as a screen offset from the
   // portal's anchor, so this is the whole of the conversion.
-  ctx.save();
-  groundSpace(state.portalX, state.portalY);
+  pushGroundSpace(state.portalX, state.portalY, 0, 1, -1);
 
-  const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 1.7);
-  glow.addColorStop(0, "rgba(110,231,255,0.30)");
-  glow.addColorStop(1, "rgba(110,231,255,0)");
-  ctx.fillStyle = glow;
-  ctx.beginPath();
-  ctx.arc(0, 0, r * 1.7, 0, TAU);
-  ctx.fill();
+  // Built inside the push, because that is where it was built: the falloff is
+  // stated in the portal's own space and the shear is in force when it is made.
+  // `dlRadialGradient` replays the open transforms onto the context for exactly
+  // this reason -- it is still one `createRadialGradient` a frame, in the same
+  // place in the same matrix, and `art-04` §3 (D3) is why it is still per frame.
+  const glow = dlRadialGradient(0, 0, 0, 0, 0, r * 1.7, "rgba(110,231,255,0.30)", "rgba(110,231,255,0)");
+  dlEllipse(0, 0, r * 1.7, DL_FILL, null, glow, 0, 0, 0);
 
   // Two arcs turning against each other, which reads as a way through rather
   // than as a marker on the floor.
@@ -7105,16 +7108,16 @@ function drawPortal(state, now) {
   // on the ground looks like from this angle, and making it uniform on screen
   // would be making it spin about an axis the floor does not have.
   const spin = now / 900;
-  ctx.lineCap = "round";
   for (let i = 0; i < 2; i++) {
     const sweep = spin * (i ? -1 : 1);
-    ctx.strokeStyle = i ? "rgba(110,231,255,0.55)" : "rgba(180,245,255,0.85)";
-    ctx.lineWidth = i ? 2 : 3;
-    ctx.beginPath();
-    ctx.arc(0, 0, r * (i ? 0.62 : 1), sweep, sweep + TAU * 0.62);
-    ctx.stroke();
+    dlArc(
+      0, 0, r * (i ? 0.62 : 1), sweep, sweep + TAU * 0.62,
+      DL_STROKE | DL_CAP_ROUND,
+      i ? "rgba(110,231,255,0.55)" : "rgba(180,245,255,0.85)",
+      i ? 2 : 3
+    );
   }
-  ctx.restore();
+  dlXformEnd();
 }
 
 /** Where the character has been. **Not `groundSpace`, and verified rather than
@@ -7126,19 +7129,21 @@ function drawPortal(state, now) {
  *  polylines. */
 function drawTrail() {
   if (trail.length < 2) return;
-  ctx.save();
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
+  // The cap and the join were one `ctx.lineCap` and one `ctx.lineJoin` above the
+  // loop, inside a `save` that existed to scope them; a stroke carries both now,
+  // so the scope has nothing left to hold.
   for (let i = 1; i < trail.length; i++) {
     const t = i / trail.length;
-    ctx.strokeStyle = `rgba(110,231,255,${(0.16 * t).toFixed(3)})`;
-    ctx.lineWidth = 1 + 2 * t;
-    ctx.beginPath();
-    ctx.moveTo(projX(trail[i - 1].x, trail[i - 1].y), projY(trail[i - 1].x, trail[i - 1].y));
-    ctx.lineTo(projX(trail[i].x, trail[i].y), projY(trail[i].x, trail[i].y));
-    ctx.stroke();
+    dlPolyBegin();
+    dlPoint(projX(trail[i - 1].x, trail[i - 1].y), projY(trail[i - 1].x, trail[i - 1].y));
+    dlPoint(projX(trail[i].x, trail[i].y), projY(trail[i].x, trail[i].y));
+    dlPolyEnd(
+      DL_CAP_ROUND | DL_JOIN_ROUND,
+      `rgba(110,231,255,${(0.16 * t).toFixed(3)})`,
+      1 + 2 * t,
+      0, 0
+    );
   }
-  ctx.restore();
 }
 
 /** Radius of the mark at a waypoint, in world units. Well under
@@ -7164,10 +7169,6 @@ function drawRoute(state, now) {
   if (!state.hero || path.length < 1) return;
   const hx = projX(state.hero.x, state.hero.y);
   const hy = projY(state.hero.x, state.hero.y);
-
-  ctx.save();
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
 
   // The whole plan, hero first, dim and dashed. The dashes crawl toward the far
   // end on the wall clock, which is what carries the *direction* of a path
@@ -7205,10 +7206,12 @@ function drawRoute(state, now) {
   // rasteriser cuts is this sum over this period, not a world length over
   // anything. It is accumulated in the loop that is building the path anyway, so
   // it costs one `hypot` per leg and no second walk.
-  ctx.strokeStyle = "rgba(110,231,255,0.18)";
-  ctx.lineWidth = 1.4;
-  ctx.beginPath();
-  ctx.moveTo(hx, hy);
+  //
+  // **The span is accumulated while the points are being written into the list**,
+  // which is the same single walk it always was -- one `hypot` per leg, no second
+  // pass -- except that the walk now fills `dlPts` instead of the current path.
+  dlPolyBegin();
+  dlPoint(hx, hy);
   let lastX = hx;
   let lastY = hy;
   let span = 0;
@@ -7216,12 +7219,11 @@ function drawRoute(state, now) {
     const sx = projX(p.x, p.y);
     const sy = projY(p.x, p.y);
     span += Math.hypot(sx - lastX, sy - lastY);
-    ctx.lineTo(sx, sy);
+    dlPoint(sx, sy);
     lastX = sx;
     lastY = sy;
   }
   const dash = pathDash(span, 4, 6);
-  ctx.setLineDash(dash);
   // The crawl is quoted in pixels per millisecond and stays that whatever the
   // pattern is; what has to follow the pattern is the *wrap*, which is why the
   // modulus is the period rather than the literal 10. Under the cap the period is
@@ -7229,20 +7231,26 @@ function drawRoute(state, now) {
   // 10 would jump the dashes back by a fraction of a stretched period every 10 px
   // of crawl -- a stutter on the one line whose whole job is to say which way the
   // path runs.
-  ctx.lineDashOffset = -((now / 55) % (dash[0] + dash[1]));
-  ctx.stroke();
+  //
+  // It is the only `lineDashOffset` on the page, and it is on the item because
+  // the `save` that used to contain it is gone: a dash offset left behind on the
+  // context would set somebody else's line crawling.
+  dlPolyEnd(
+    DL_CAP_ROUND | DL_JOIN_ROUND | DL_DASHED,
+    "rgba(110,231,255,0.18)",
+    1.4,
+    dash[0], dash[1],
+    -((now / 55) % (dash[0] + dash[1]))
+  );
 
   // The leg being walked, over the top of that and solid. One leg is the only
   // part of a path the sim has been told about -- the rest is the page holding a
   // queue -- and drawing that difference is what stops a traced route reading
   // as one long ordered march.
-  ctx.strokeStyle = "rgba(110,231,255,0.28)";
-  ctx.lineWidth = 1.8;
-  ctx.setLineDash([]);
-  ctx.beginPath();
-  ctx.moveTo(hx, hy);
-  ctx.lineTo(projX(path[0].x, path[0].y), projY(path[0].x, path[0].y));
-  ctx.stroke();
+  dlPolyBegin();
+  dlPoint(hx, hy);
+  dlPoint(projX(path[0].x, path[0].y), projY(path[0].x, path[0].y));
+  dlPolyEnd(DL_CAP_ROUND | DL_JOIN_ROUND, "rgba(110,231,255,0.28)", 1.8, 0, 0);
 
   // A bead at every waypoint, and **not at `path[0]` once the module is walking
   // it**: that one *is* the standing order, and `drawDestination` has already
@@ -7253,20 +7261,14 @@ function drawRoute(state, now) {
   // A bead is a mark *on the floor* -- it says "the character will stand here" --
   // so unlike the two polylines above it goes through `groundSpace` and comes out
   // as an ellipse with the same 2:1 aspect as the tile it is sitting on. One
-  // `save`/`restore` per bead, because `groundSpace` is a `ctx.transform` and
-  // there is no tidy inverse to translate back by. A stroke apiece either way, so
-  // the pair is the whole added cost and it is two matrix pushes.
-  ctx.strokeStyle = "rgba(110,231,255,0.22)";
-  ctx.lineWidth = 1.2;
+  // push/pop per bead, because `groundSpace` is a matrix and there is no tidy
+  // inverse to translate back by. A stroke apiece either way, so the pair is the
+  // whole added cost and it is two matrix pushes.
   for (let i = drag ? 0 : 1; i < path.length; i++) {
-    ctx.save();
-    groundSpace(path[i].x, path[i].y);
-    ctx.beginPath();
-    ctx.arc(0, 0, px(ROUTE_MARK), 0, TAU);
-    ctx.stroke();
-    ctx.restore();
+    pushGroundSpace(path[i].x, path[i].y, 0, 1, -1);
+    dlEllipse(0, 0, px(ROUTE_MARK), DL_STROKE | DL_CAP_ROUND | DL_JOIN_ROUND, "rgba(110,231,255,0.22)", DL_NO_PAINT, 1.2, 0, 0);
+    dlXformEnd();
   }
-  ctx.restore();
 }
 
 /**
@@ -7306,7 +7308,6 @@ function drawLock(state, now) {
   // cannot happen.
   const r = px((quarry ? quarry.radius : 0.45) + 0.2) + (orderAcknowledged ? beat * px(0.12) : 0);
 
-  ctx.save();
   // The threat colour, and never the destination's cyan. Cyan is spent on this
   // page: the trail, the route, the waypoint beads and the destination ring all
   // mean *a place the character is going*. A lock painted in it would read as
@@ -7314,22 +7315,22 @@ function drawLock(state, now) {
   // `monsterSkin()` rather than written out, so the ring and the body it is drawn
   // around cannot drift apart -- including about which of the two skin tables is
   // live, which is the thing the split made possible to get wrong.
-  ctx.strokeStyle = `rgba(${monsterSkin().glow},${alpha.toFixed(3)})`;
-  ctx.lineWidth = 1.8;
-  if (!orderAcknowledged) ctx.setLineDash([3, 4]);
   // The ring is drawn around a body standing on the floor, so it lies on the
   // floor: the same `arc(0, 0, r)` it was, in `groundSpace`, which makes it the
-  // ellipse the quarry's own collision ring is. Nested inside the outer `save`
-  // rather than translated back afterwards -- `groundSpace` is a `ctx.transform`
-  // and has no tidy inverse -- and the style set above it survives the nesting.
-  // The `[3, 4]` pattern is applied in user space and so keeps its ~50 marks.
-  ctx.save();
-  groundSpace(state.orderX, state.orderY);
-  ctx.beginPath();
-  ctx.arc(0, 0, r, 0, TAU);
-  ctx.stroke();
-  ctx.restore();
-  ctx.setLineDash([]);
+  // ellipse the quarry's own collision ring is. The `[3, 4]` pattern is applied
+  // in user space and so keeps its ~50 marks -- and it travels on the item,
+  // which is what retired the `setLineDash([])` that used to follow it and the
+  // outer `save` that used to scope the style.
+  pushGroundSpace(state.orderX, state.orderY, 0, 1, -1);
+  dlEllipse(
+    0, 0, r,
+    DL_STROKE | (orderAcknowledged ? 0 : DL_DASHED),
+    `rgba(${monsterSkin().glow},${alpha.toFixed(3)})`,
+    DL_NO_PAINT,
+    1.8,
+    3, 4
+  );
+  dlXformEnd();
 
   // A tether from the character to the quarry, so a lock on something that has
   // run off down a corridor is still legible once the ring is past the edge of
@@ -7348,13 +7349,10 @@ function drawLock(state, now) {
   // the same segment, and drawing it in screen space keeps the tether one weight
   // whichever way it runs. Which matters more here than it does for a trail --
   // this line is at `alpha * 0.35` and is meant to be findable, not variable.
-  ctx.strokeStyle = `rgba(${monsterSkin().glow},${(alpha * 0.35).toFixed(3)})`;
-  ctx.lineWidth = 1.2;
-  ctx.beginPath();
-  ctx.moveTo(projX(state.hero.x, state.hero.y), projY(state.hero.x, state.hero.y));
-  ctx.lineTo(x, y);
-  ctx.stroke();
-  ctx.restore();
+  dlPolyBegin();
+  dlPoint(projX(state.hero.x, state.hero.y), projY(state.hero.x, state.hero.y));
+  dlPoint(x, y);
+  dlPolyEnd(0, `rgba(${monsterSkin().glow},${(alpha * 0.35).toFixed(3)})`, 1.2, 0, 0);
 }
 
 /**
@@ -7387,17 +7385,10 @@ function drawDestination(state, now, arrived) {
   // with them: it is a 2 px round dot top-down and a 2 px flat one here, and a
   // circle left standing among them would be the only thing in the marker that
   // did not belong to the floor.
-  ctx.save();
-  groundSpace(state.orderX, state.orderY);
-  ctx.strokeStyle = `rgba(110,231,255,${alpha.toFixed(3)})`;
-  ctx.lineWidth = 1.6;
-  if (!orderAcknowledged) ctx.setLineDash([3, 4]);
-  ctx.beginPath();
-  ctx.arc(0, 0, r, 0, TAU);
-  ctx.stroke();
+  pushGroundSpace(state.orderX, state.orderY, 0, 1, -1);
+  const ring = `rgba(110,231,255,${alpha.toFixed(3)})`;
+  dlEllipse(0, 0, r, DL_STROKE | (orderAcknowledged ? 0 : DL_DASHED), ring, DL_NO_PAINT, 1.6, 3, 4);
 
-  ctx.setLineDash([]);
-  ctx.globalAlpha = alpha;
   // The one inline cyan left on the canvas, and **the swap is gated because this
   // marker draws in every view.** `[tactical]` and `[dev]` are the A/B control and
   // must not move by a byte, so the flat modes keep the literal they have always
@@ -7407,24 +7398,28 @@ function drawDestination(state, now, arrived) {
   // what says *where*, and `PAL.cold` is a dark tone that would cost a gameplay
   // marker its read on a floor this warm. Two tones in one marker is the honest
   // price of a cold room going brown.
-  ctx.fillStyle = artOn() ? PAL.cold : "#6ee7ff";
-  ctx.beginPath();
-  ctx.arc(0, 0, 2, 0, TAU);
-  ctx.fill();
+  dlAlpha(alpha);
+  dlEllipse(0, 0, 2, DL_FILL, artOn() ? PAL.cold : "#6ee7ff", DL_NO_PAINT, 0, 0, 0);
 
   // A crosshair, so the exact point is readable at any zoom.
-  ctx.globalAlpha = alpha * 0.7;
-  ctx.beginPath();
-  ctx.moveTo(-r - 4, 0);
-  ctx.lineTo(-r + 2, 0);
-  ctx.moveTo(r - 2, 0);
-  ctx.lineTo(r + 4, 0);
-  ctx.moveTo(0, -r - 4);
-  ctx.lineTo(0, -r + 2);
-  ctx.moveTo(0, r - 2);
-  ctx.lineTo(0, r + 4);
-  ctx.stroke();
-  ctx.restore();
+  //
+  // **Four disjoint segments in one path and one stroke**, which is what
+  // `DL_SEGMENTS` exists for: four items would be four strokes, and the stroke
+  // count is the number `art-04` §5.1 makes the seam accountable for. It keeps
+  // the ring's own `strokeStyle` and width, exactly as it did when both were
+  // ambient state left over from the arc above.
+  dlAlpha(alpha * 0.7);
+  dlPolyBegin();
+  dlPoint(-r - 4, 0);
+  dlPoint(-r + 2, 0);
+  dlPoint(r - 2, 0);
+  dlPoint(r + 4, 0);
+  dlPoint(0, -r - 4);
+  dlPoint(0, -r + 2);
+  dlPoint(0, r - 2);
+  dlPoint(0, r + 4);
+  dlPolyEnd(DL_SEGMENTS, ring, 1.6, 0, 0);
+  dlXformEnd();
 }
 
 // The "it just thought" pulse used to live here: one amber ring emanating from
@@ -7653,7 +7648,6 @@ function drawVision(unit, filled) {
   if (!visionVisible || !(unit.sight > 0)) return;
   const skin = skinOf(unit);
   const r = px(unit.sight);
-  ctx.save();
   // **The one place the fill area had to be checked, and it is unchanged.** The
   // measurements this whole function is tuned against -- the **whole page's**
   // blended fill at a full room, 15.69x the screen before the `filled` gate and
@@ -7663,21 +7657,29 @@ function drawVision(unit, filled) {
   // solid here for the reason above, so there is no mark count to move either; the
   // only thing that changes is the perimeter, up 9%, which is stroke coverage on a
   // 1 px line at alpha 0.09.
-  groundSpace(unit.x, unit.y);
-  ctx.beginPath();
-  ctx.arc(0, 0, r, 0, TAU);
+  //
+  // **This ring and `drawReach`'s are the two that justified `XFORM_PUSH`**, and
+  // this one is the solid half of the pair: the 1 px line comes out 0.9 to 1.4 px
+  // depending on which way the arc is running, because the shear is in the *CTM*
+  // when the stroke is taken and a stroke width is a user-space quantity. An item
+  // that carried a pre-projected ellipse and a width would have had to pick one
+  // number and would have picked the wrong one everywhere but two bearings. The
+  // matrix travels instead, and the anisotropy comes out of the rasteriser exactly
+  // as it did when this was a `ctx.transform`.
+  pushGroundSpace(unit.x, unit.y, 0, 1, -1);
   if (filled) {
-    ctx.fillStyle = `rgba(${skin.wedge},0.032)`;
-    ctx.fill();
+    dlEllipse(0, 0, r, DL_FILL, `rgba(${skin.wedge},0.032)`, DL_NO_PAINT, 0, 0, 0);
   }
   // Down from 0.17, because a continuous line lays down roughly twice the ink the
   // 7-on-9-off pattern did over the same circumference, and this ring has to sit
   // under everything else in the overlay without competing with it.
-  ctx.strokeStyle = `rgba(${skin.wedge},0.09)`;
-  ctx.lineWidth = 1;
-  ctx.setLineDash(NO_DASH);
-  ctx.stroke();
-  ctx.restore();
+  //
+  // Solid, and it says so: an undashed stroke item makes the backend state
+  // `setLineDash(NO_DASH)`, which is the `ctx.setLineDash(NO_DASH)` this line
+  // replaces and is there for the same reason -- a ring this size cut into marks
+  // is the bug `MAX_DASH_SEGMENTS` exists for, and it cost the page 40 fps once.
+  dlEllipse(0, 0, r, DL_STROKE, `rgba(${skin.wedge},0.09)`, DL_NO_PAINT, 1, 0, 0);
+  dlXformEnd();
 }
 
 /** Whether the vision discs are drawn. Default on, toggled with `Y`.
@@ -7766,7 +7768,6 @@ function drawReach(unit, skin, now) {
   if (unit.intent !== INTENT_ATTACK) return;
   const beat = (Math.sin(now / 260) + 1) / 2;
   const r = px(unit.radius + unit.actionLength);
-  ctx.save();
   // **The mark count does not move, and that is the whole argument for a shear
   // rather than an `ellipse` call.** `setLineDash` is a user-space pattern, the
   // user-space path is still `arc(0, 0, r)`, so the rasteriser cuts the same
@@ -7774,14 +7775,26 @@ function drawReach(unit, skin, now) {
   // frame across the room, inside the 52 fps result `MAX_DASH_SEGMENTS` records.
   // Converting this to an explicit ellipse would have changed that number
   // silently, which is exactly the bug class that cost the page 40 fps.
-  groundSpace(unit.x, unit.y);
-  ctx.strokeStyle = `rgba(${skin.wedge},${(0.10 + 0.10 * beat).toFixed(3)})`;
-  ctx.lineWidth = 1.2;
-  ctx.setLineDash(arcDash(r, 3, 5));
-  ctx.beginPath();
-  ctx.arc(0, 0, r, 0, TAU);
-  ctx.stroke();
-  ctx.restore();
+  //
+  // **And that survives the seam for exactly the same reason it survived the
+  // shear.** The item carries the pattern as two numbers and the matrix as an
+  // `XFORM_PUSH`; the backend states the dash and then strokes a circle, so the
+  // cutting still happens in the pre-shear user space and the count is still
+  // `TAU * r / period`. An item that pre-flattened the ring to screen space
+  // would have changed the number silently all over again -- which is why
+  // `art-04` §4 names this function and `drawVision` as the pair that decides
+  // whether the kind is right.
+  pushGroundSpace(unit.x, unit.y, 0, 1, -1);
+  const dash = arcDash(r, 3, 5);
+  dlEllipse(
+    0, 0, r,
+    DL_STROKE | DL_DASHED,
+    `rgba(${skin.wedge},${(0.10 + 0.10 * beat).toFixed(3)})`,
+    DL_NO_PAINT,
+    1.2,
+    dash[0], dash[1]
+  );
+  dlXformEnd();
 }
 
 /** Spin, in raw angle units per tick, at which a blade is drawn at full heat.
@@ -9948,6 +9961,10 @@ function walkDrawList(now, origin) {
   //
   // Both of those are now the root `XFORM_PUSH` below -- an identity matrix and
   // an alpha, which is `ctx.save()` and `ctx.globalAlpha = 1` and nothing else.
+  // It matters more since commit 2 than it did before it, and for exactly the
+  // reason it was written: the ground layer emits into the same list now, so the
+  // thing this push is holding the walls apart from is no longer "the overlay
+  // below" but a route bead and a vision ring three items up.
   //
   // **The merge itself has not moved and must not** (`art-04` §6). The three
   // lines that carry it -- the band cursor, the `(band + 2) * tile` comparison
@@ -9955,9 +9972,8 @@ function walkDrawList(now, origin) {
   // order, over the same module-scope pool sorted by the same insertion sort.
   // What changed is that `fillBand` and `drawItem` now *emit* where they used to
   // paint, and `dlDraw` walks what they emitted in exactly the order they
-  // emitted it.
-  dlReset();
-  dlLayerIs(DL_DEPTH);
+  // emitted it. The reset and the walk are `render`'s, not this function's:
+  // there is one list a frame.
   dlXform(1, 0, 0, 1, 0, 0, 0, 1, 1);
   for (let i = 0; i < drawCount; i++) {
     const it = drawItems[i];
@@ -9967,7 +9983,6 @@ function walkDrawList(now, origin) {
   // Whatever is left of the visible range stands in front of every item there was.
   while (band <= lastBand) fillBand(band++);
   dlXformEnd();
-  dlDraw();
 }
 
 /** The hero's outline, over the whole scene. Built once from the skin so the
@@ -10079,6 +10094,17 @@ function render(state, now, arrived) {
   ctx.clearRect(0, 0, viewport.w, viewport.h);
   const origin = viewOrigin();
   ctx.translate(origin.x, origin.y);
+
+  // **One list, from the floor to the last arrow.** Commit 1 had to reset and
+  // draw three times, because `drawReach` still painted straight onto the
+  // context between the corpses and the bodies and that ordering may not move.
+  // With the ground layer emitting there is nothing left in between, so the two
+  // layers concatenate -- and concatenating runs that were flushed separately is
+  // provably the same picture, because `dlDraw` is a straight walk in emission
+  // order and emission order is paint order. The overlay joins in commit 3 and
+  // then the frame is one list and one walk.
+  dlReset();
+  dlLayerIs(DL_GROUND);
 
   // The compositing order, and it is the map of the whole layer. Three layers
   // under iso, and the middle one collapses to a flat list top-down:
@@ -10215,36 +10241,38 @@ function render(state, now, arrived) {
     }
     // The whole depth layer: build, sort, merge with the wall bands. Bodies go
     // through `drawBody`, which is where "or the memory of one" lives.
+    dlLayerIs(DL_DEPTH);
     buildDrawList(state);
     sortDrawList();
     walkDrawList(now, origin);
+    dlDraw();
     // Over the walk and under the health bars. The successor to "the hero draws
-    // last" -- `drawHeroThrough` has the argument.
+    // last" -- `drawHeroThrough` has the argument. Still painting rather than
+    // emitting: `art-04` §7 puts the hero outline in the overlay commit, and it
+    // is the reason the list is drawn out on the line above rather than after
+    // the branch.
     if (state.hero && canSee(state.hero)) drawHeroThrough(state.hero);
   } else {
     // Today's lines, verbatim, and they are the A/B control for the whole
     // conversion. Do not tidy them toward the arm above.
     //
-    // **Two lists and not one, and the reason is `drawReach` in the middle.**
-    // `art-04` lands in three commits and this is the first, so the corpses, the
-    // bodies and the arrows emit while the reach rings still paint straight onto
-    // the context. A ring is drawn *over* a corpse and *under* a body here, and
-    // that ordering is the thing the paragraph above refuses to tidy -- so the
-    // corpses are drawn out before the rings go down rather than being merged
-    // into one list that would come out on the wrong side of them. Commit 2
-    // takes `drawReach` and the two halves become one.
-    dlReset();
+    // **One list, and the reach-ring loop is still exactly where it was.** Commit
+    // 1 had to break this arm into three lists because a ring painted onto the
+    // context between two runs that emitted; the ordering it protects -- a ring
+    // over a corpse and under a body -- is unchanged, and it is now carried by
+    // the position of the loop in the *emission* order rather than by a flush.
+    // That is a stronger guarantee than it was, not a weaker one: there is one
+    // sequence and one walk, and nothing can get between them.
     dlLayerIs(DL_DEPTH);
     drawCorpses();
-    dlDraw();
 
+    dlLayerIs(DL_GROUND);
     for (const unit of state.units) {
       if (readoutsOn() && canSee(unit)) drawReach(unit, skinOf(unit), now);
     }
     // Monsters first, then the hero: the character you are commanding must never
     // end up underneath the thing attacking it. Through `drawBody`, which is where
     // "or the memory of one" lives.
-    dlReset();
     dlLayerIs(DL_DEPTH);
     for (const unit of state.monsters) drawBody(unit, now);
     if (state.hero) drawBody(state.hero, now);
