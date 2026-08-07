@@ -37,6 +37,16 @@ rather than calling it twice.
 Consider whether this should apply under top-down too. It is arguably better there as well — but it
 changes a control that works today, so decide deliberately and write down which.
 
+**Landed. Iso only** — the decision and its artefact are recorded in `pushInput`'s own comment.
+Top-down has no height, so the ground point already *is* what is being pointed at; applying the pick
+there would change a working control rather than fix a broken one, and `[tactical]`/`[dev]` are the
+A/B control.
+
+**There was nothing to hoist**, and the premise above is wrong: the affordance's pick is gated on
+`!(controlMask & CONTROL_LIMB)` and the aim only matters *under* `CONTROL_LIMB` (the module reads
+`input_aim`/`input_reach` nowhere else), so the two picks are complementary and never both run.
+`pushInput`'s pick carries the same mask gate, which keeps `unitAt` at one call a frame.
+
 ## 2. Two-tone wall faces
 
 **Trigger:** the blocks read flat.
@@ -122,6 +132,12 @@ solid tiles that are 4-adjacent to a seen tile, as well as for seen tiles themse
   end at the top-down era.
 - Two stale comments still claim the room is 24×16 world units (`main.js:3961`, `main.js:2024`); it
   is 48×32. Unrelated to this project, but they are in files being edited anyway.
+
+  **Landed: only one of the two was still stale.** The `resize`/`fit` comment was rewritten in
+  `iso-01` when `fit` became projection-dependent, and already says `48x32`. The flagstone-bake
+  comment was the one left, and is now fixed. Nothing else in `main.js` quotes a room dimension:
+  `drawLantern`'s `4124x2749 CSS pixels` is 48×32 at zoom 1 and is correct, and
+  `let arena = { x: 24, y: 16 }` is an initial value overwritten from the frame at boot, not a claim.
 
 ## 9. The room's lighting stops at the rock line
 

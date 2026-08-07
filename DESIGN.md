@@ -2001,6 +2001,110 @@ complaining about.
 simulated ticks. Unoptimised fixed-point math makes `cargo test` slow enough
 that people stop running it.
 
+### What the isometric conversion cost
+
+The lesson above was carried into the isometric view and it held in the direction
+it predicted, which is the counter-intuitive one: **the conversion deletes a
+stroke rather than adding one.** Top-down, rock is one flat tone, so the only way
+to say where a mass ends is to draw a line there — `edge`, several hundred
+sub-paths, one per exposed rock face, stroked every frame. Under iso a block is a
+lit top face standing over shaded sides and the silhouette is exactly where those
+two tones meet each other and the floor, so the rim is implied by the fills and the
+path is not baked at all. It went in `iso-02` rather than in
+`iso-03` where the plan expected it: `edge`'s geometry is axis-aligned tile
+corners, so it would have stroked rectangles over diamonds the moment the floor
+became diamonds, a session before the walls got their height.
+
+**What that stroke cost was never measured, and an earlier draft of this paragraph
+called it "the second-largest stroke on the page" — a ranking nothing above
+supports.** This section ranks no strokes. The only attribution it records is
+`drawVision` at 80% of all *dashing*, and `edge` is undashed, so it is not in that
+accounting at all; and the sight-ring table concludes that a large solid arc costs
+nothing, which if anything argues the other way. What is known about `edge` is a
+count and a cadence — several hundred sub-paths, every frame, now none — and that
+the primitive it spends is the one this section identifies as the scarce resource.
+That is the honest form of the claim, and it is enough to justify the direction
+without inventing a rank for it.
+
+What the conversion adds is all fills, which this section has already measured as
+free:
+
+- **Band fills.** Lit rock is baked per depth row and merged with the depth-sorted
+  bodies, so where `drawLevel` spent two `ctx.fill()` calls on all the rock there
+  are now two for the remembered rock plus two per visible band for the lit —
+  about two dozen bands at default framing, so about four dozen calls a frame.
+- **The wall bake grew, though not per frame.** A tile is four diamond segments
+  instead of one `rect()`, a boundary tile adds up to two side quads, and a top
+  face is emitted for every solid tile the fog has ever shown rather than only for
+  the exposed ones. All of it is baked once per map or fog revision, which is where
+  the level's 1,536 tiles were always paid for.
+- **The body shadow got cheaper**, which was not planned. Top-down it is the
+  silhouette dropped down the screen plus the head circle — two fills, because a
+  plain ellipse under a rotating Brute wore as a dark crescent out of its chest.
+  Nothing rotates in a billboard, so it is one flat ellipse now.
+
+Two numbers deliberately did not move, and both are the point:
+
+- **`drawReach`'s mark count is unchanged — 567 a frame, inside the 52.3 fps
+  result above.** `setLineDash` is a user-space pattern and `groundSpace`'s shear is
+  applied after it, so the rasteriser cuts the same `TAU * r / 8` sub-paths it cut
+  top-down and `arcDash`'s ceiling bites at the same radius. Converting the decals
+  to explicit `ctx.ellipse` calls instead — which is the obvious way to draw a
+  world circle in an isometric room — would have changed every mark count on the
+  page *silently*. That is the exact bug class that cost 40 fps, and avoiding it is
+  most of why the projection lives in the coordinates handed to draw calls rather
+  than in the matrix.
+- **Fill area is unchanged.** `groundSpace`'s shear is unimodular, `det = 1`, so
+  every ground fill covers exactly the pixels it covered top-down. The vision
+  disc's 13.41x the screen — the number that made a crowded room unplayable — does
+  not move under the projection at all. Only the perimeter does, by 9%.
+
+**The conversion changed the top-down page in exactly two places — a hazard fix
+and a bug fix — and neither is a change of look.** An earlier draft of this
+paragraph counted only the first and said "exactly one place"; the second landed a
+session later and the sentence was not revisited.
+
+The hazard fix is **a dash cap**. `drawRoute`'s `[4, 6]` was the last uncapped
+pattern left, and the path under the finger is unbounded: `trimPath`'s `ROUTE_MAX`
+runs in `endDrag`, on the way out, not during the drag, so 300 sampled points is
+3,093 marks. It is capped at `MAX_DASH_SEGMENTS` now — 96, always. `drawRoute` runs
+above `render`'s projection branch, so the cap reaches `[tactical]` and `[dev]` too,
+which is blessed rather than reverted: an unbounded dash is a hazard the top-down
+page had all along, and fixing it in one projection only would leave the A/B control
+disagreeing about something the projection had nothing to do with.
+
+The bug fix is **the callout pill's height**, from `iso-05`. `drawCallouts` computed
+`let radius = 0.5` and overwrote it from the live row only while the swinger was
+still standing, so on the single frame an actor's row left the frame the pill
+snapped to the height a 0.5-radius Fighter would have hung at — and 0.5 is not a
+radius any body in the roster has. Top-down that was up to 17 px, straight up or
+down, mid-fade, over a dying Brute or Skitterer, and it had been there since the
+pills were written. Standing bodies up made it six times worse and made it
+impossible to miss, which is how it was found. `pushCallout` now records the
+`radius` and `kind` the callout was *declared* with and `bodyTopWorld` reads those,
+so the height is continuous in both projections. It reaches `[tactical]` and `[dev]`
+on the same terms as the dash cap: the defect was never isometric, and leaving the
+control mode holding a bug for symmetry's sake would be keeping the wrong thing
+constant.
+
+One allocation went on the way past. The facing wedge's three intent alphas are
+built once per skin instead of per body per frame; moving the wedge into
+`[regular]` had quietly doubled that mode's per-body dynamic strings, against a
+render path whose standing rule is that it allocates nothing per frame.
+
+**What is not known is the measured `render` mean, before or after, and no figure
+for it should be inferred from anything above.** Every number here is a count of
+work, which is the instrument this section argues for — and `render`'s cost is the
+one thing counting cannot settle, for the reason stated at the top: the commands
+are queued, and reading the cost as a duration needs a foreground tab and the frame
+strip rather than a `for` loop. **That measurement is outstanding and belongs on
+the machine that runs the game.** The prediction the counts support is that an
+isometric room is cheaper than the top-down room it replaces, which is not the
+direction anybody expects a projection change to move a frame. Whoever takes it
+should also say which baseline they are against: measured against `iso-02` the
+later sessions only *add* work, because the stroke had already gone by then, so a
+`render` mean that fails to fall against `iso-02` is not a regression to chase.
+
 ## Rules that exist for termination, not for flavour
 
 Two rules earn their place by stopping fights from failing to end. Both were

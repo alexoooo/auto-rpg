@@ -91,9 +91,16 @@ fourth view mode exists, then fail in a way that takes an hour to find.
 ```js
 function groundSpace(wx, wy) {
   ctx.translate(projX(wx, wy), projY(wx, wy));
-  if (PROJ.shear) ctx.transform(1, 0.5, -1, 0.5, 0, 0);
+  if (PROJ.shear) ctx.transform(PROJ.ax, PROJ.ay, PROJ.bx, PROJ.by, 0, 0);
 }
 ```
+
+**Corrected while landing.** The draft wrote the four coefficients as literals,
+`(1, 0.5, -1, 0.5, 0, 0)`, which is `PROJ_ISO`'s 2×2 typed a second time in a file
+whose whole point is that the matrix is written once. `ctx.transform(a,b,c,d,e,f)`
+takes `a, b, c, d` as columns, so they are `ax, ay, bx, by` and the table can be
+read directly — bit-identical for `PROJ_ISO`, and the `if (PROJ.shear)` guard is
+kept so top-down stays a bare `ctx.translate` rather than a composed identity.
 
 Its input space is exactly the space `drawLimb`, `drawMarks`, `drawSprint` and every decal already
 work in: screen pixels of top-down world offset from an anchor. Three properties earn it:
@@ -115,13 +122,22 @@ ellipse (both components share phase `θ + π/4`) with semi-axes `r·scale·√2
 
 ## Layer diagram
 
+**Corrected while landing.** The draft below had the lantern second and the grid
+after the walls; `drawLevel` runs neither of those in that order, and the order is
+load-bearing in both cases — the grid is clipped to each floor pass's own region,
+and the lantern is drawn *after* the remembered rock so that it takes the outer
+half of the top-down edge stroke down with it at range. Reach rings were also
+missing from the ground layer, where the iso arm puts them.
+
 ```
 GROUND LAYER            (no depth; today's painter order)
   floor passes            clip diamonds -> pattern -> vignette -> grid
-  lantern
+                          (all three inside the pass's own clip)
   remembered walls        unbanded, both faces
+  lantern                 last, after the rock
   portal, trail, route, destination/lock
-  vision discs, reach rings
+  vision discs
+  reach rings             iso only here; top-down they stay in the depth list
 DEPTH LAYER             (merge walk, iso only)
   lit wall bands   ×   { corpses, monsters, hero, shots }
 OVERLAY LAYER           (screen space)

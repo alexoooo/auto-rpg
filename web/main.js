@@ -697,12 +697,18 @@ function readVis() {
 // the blended picture and writes `blendUnit(a, b, t, out)` against the row shape
 // `readUnit` fills.
 //
-// **The scratch state is not a nicety either.** Seven call sites parse outside
-// the loop -- a click, Escape, a stand-down button, a hero swap, a restart, boot
-// -- and they run *between* animation frames. Any of them writing into a
-// ping-pong slot would scribble over a state the loop is still holding, and the
-// symptom would be a body drawn where it was two frames ago. They get their own
-// state, which nothing keeps.
+// **The scratch state is not a nicety either.** Eight call sites parse outside
+// the loop -- a pointer press, the release that ends a drag, Escape, a stand-down
+// button, a hero swap, a restart, a view-mode change, boot -- and they run
+// *between* animation frames. Any of them writing into a ping-pong slot would
+// scribble over a state the loop is still holding, and the symptom would be a body
+// drawn where it was two frames ago. They get their own state, which nothing keeps.
+//
+// The view-mode change is `iso-01`'s, and it is the newest reason this block
+// exists rather than an exception to it: `setViewMode` swaps the projection and
+// then has to snap the camera under the new matrix, which needs a state to read
+// the hero out of, and `G` is a keypress like any other -- it arrives between
+// frames, with `prev` and `curr` both live.
 
 /** One unit row, every field zeroed. Built once per pool slot at boot and then
  *  only ever assigned into, so the shape is fixed and the engine never has to
@@ -3281,11 +3287,68 @@ function pushInput(state) {
   // extends belongs to the attack now, not to the mouse. Distance from the
   // character still means something while the shield modifier is held, where
   // pulling in drops the guard and pushing out braces it.
+  //
+  // **Under an upright projection the bearing goes to the body under the cursor,
+  // and to the ground point only when there is no body there.** This is the one
+  // gameplay regression the isometric conversion introduced, and it is derivable
+  // rather than a matter of taste: `pointer` is where the cursor lands on the
+  // *floor*, and a screen offset of one world unit of height unprojects to a
+  // ground offset of `(-1, -1)` -- 1.41 world units to the north-west, since
+  // `lift === px` and the two world axes both climb the screen at the same rate.
+  // So aiming at a Fighter's chest aims at the floor about 1.4 units behind it,
+  // which at three units of engagement is a bearing error of up to 25 degrees,
+  // and the cut goes past the target. `unitAt`'s upright arm tests the box the
+  // billboard actually occupies, so it answers the question the player thinks
+  // they are asking -- and it is the same hit test the cursor affordance and
+  // `endDrag` use, so "what is under the cursor" means one thing on this page
+  // rather than two.
+  //
+  // **Top-down keeps the raw ground point, and that is a decision rather than an
+  // omission.** Flat, there is no height, so the cursor's ground point already *is*
+  // the thing being pointed at and there is no error to correct. Applying the pick
+  // there would not be fixing anything; it would replace "aim exactly where I
+  // pointed" with "aim at the centre of whatever I am nearest", which is a
+  // different feel, and a worse one in the cases where the difference shows --
+  // cutting deliberately at the *edge* of a body, or past one at something behind
+  // it. `[tactical]` and `[dev]` are the A/B control for the whole conversion, and
+  // the conversion has already spent the one exception it could afford on
+  // `drawRoute`'s dash cap, which was fixing a hazard rather than changing a feel.
+  // It is arguably better flat as well; arguably is not a reason to change a
+  // working control at the end of a conversion. If it is wanted there it is one
+  // boolean, and it should be its own change with its own before and after.
+  //
+  // **The artefact, stated here rather than found later:** under iso you can no
+  // longer aim *past* a body at something standing behind it, because the pointer
+  // snaps to the body. That is the trade -- a control that hits what you point at,
+  // at the cost of one you cannot easily point through. `reach` moves with the
+  // bearing, since both come off the same `dx, dy`: a guard braced while the
+  // cursor is over a monster is braced at that monster's distance rather than at
+  // the phantom point behind it, which is the same correction, and it stops
+  // responding to pushing further out for the same reason the bearing does.
+  //
+  // **Gated on the control mask as well as the projection, and `unitAt` still runs
+  // at most once a frame.** The plan for this assumed it could hoist the cursor
+  // affordance's pick, and there is nothing to hoist: that pick is gated on
+  // `!(controlMask & CONTROL_LIMB)` -- under manual aim a press is a cut and there
+  // is no lock to promise -- so the two are exactly complementary and never both
+  // live on the same frame. The mask test is not just bookkeeping either. The
+  // module reads `input_aim` and `input_reach` only under `CONTROL_LIMB`, so
+  // without it this would be an O(monsters) walk with a `canSee` test each,
+  // feeding two numbers nobody downstream consumes.
   let aim = 0;
   let reach = 0;
   if (state.hero && pointer.inside) {
-    const dx = pointer.x - state.hero.x;
-    const dy = pointer.y - state.hero.y;
+    // `state`, which is `curr` -- the same frame `state.hero` was read from. The
+    // affordance and `endDrag` pick against `view` because they are answering for
+    // a click that landed on the picture; this is an input pushed *before* the
+    // step, `view` at this point in `loop` is still the previous frame's blend,
+    // and pairing last frame's monsters with this frame's hero is a worse answer
+    // than taking both off the truth.
+    const quarry = PROJ.upright && (controlMask & CONTROL_LIMB) ? unitAt(pointer, state) : null;
+    const tx = quarry ? quarry.x : pointer.x;
+    const ty = quarry ? quarry.y : pointer.y;
+    const dx = tx - state.hero.x;
+    const dy = ty - state.hero.y;
     aim = Math.round((Math.atan2(dy, dx) / TAU) * 65536) & 0xffff;
     const full = state.hero.radius + state.hero.actionLength;
     reach = clamp(Math.hypot(dx, dy) / Math.max(full, 0.001), 0, 1);
@@ -4269,16 +4332,40 @@ function lift(h) {
  *  anchor. So converting one of them is a one-line change at the top and nothing
  *  below it moves.
  *
- *  `ctx.transform(a,b,c,d,e,f)` composes x' = a*x + c*y + e, y' = b*x + d*y + f,
- *  so (1, 0.5, -1, 0.5, 0, 0) maps (px(dx), px(dy)) to
- *  (scale*(dx-dy), scale*(dx+dy)/2) -- the forward projection's offset, and
- *  therefore consistent with `projX`/`projY` by construction rather than by
- *  a second derivation.
+ *  **The matrix is read out of the table and not typed a second time.**
+ *  `ctx.transform(a,b,c,d,e,f)` composes x' = a*x + c*y + e, y' = b*x + d*y + f.
+ *  The input is `(px(dx), px(dy)) = (dx*scale, dy*scale)` and the output has to be
+ *  the forward projection's offset,
+ *  `(projX(dx,dy), projY(dx,dy)) = ((ax*dx + bx*dy)*scale, (ay*dx + by*dy)*scale)`
+ *  -- so `a, b, c, d` are `ax, ay, bx, by`, in that order, and for `PROJ_ISO` they
+ *  come out `(1, 0.5, -1, 0.5)`, which is what this line used to spell as literals.
+ *  Spelling them was the same 2x2 written twice: editing `PROJ_ISO`'s and not this
+ *  one, or the reverse, would have put every ground decal on a different floor from
+ *  every wall and body, **silently and with nothing to catch it** --
+ *  `assertProjection`'s round trip proves a matrix against its own inverse and has
+ *  no opinion about a copy of it living somewhere else. So the consistency with
+ *  `projX`/`projY` is now by construction rather than by a second derivation, in
+ *  the literal sense: this call reads the same six coefficients they read.
  *
- *  **det = 1*0.5 - (-1)*0.5 = 1.** The shear is unimodular, so every ground fill
- *  covers exactly the pixels it covers today. That is the whole reason the
- *  isometric conversion is not a rasteriser regression, and it is why dash
- *  patterns keep their measured mark counts: dashing happens in user space and
+ *  `ex` and `ey` are forced by this same 2x2 rather than chosen beside it -- a
+ *  world circle of radius `r` under it comes out as an *axis-aligned* ellipse with
+ *  semi-axes `r*scale*ex` and `r*scale*ey`, which is why anything wanting an
+ *  explicit `ctx.ellipse` needs no rotation -- and `assertProjection` checks `ex`
+ *  against the one the upright art was authored for. Between them the table is the
+ *  single source for the whole ground map, and the round trip has stopped being the
+ *  only thing standing between an edit and a silent skew.
+ *
+ *  **The `if (PROJ.shear)` guard stays, even though top-down's row is now the
+ *  identity and composing it would be a no-op.** It is not what makes the pixels
+ *  right; what it buys is that top-down still executes a bare `ctx.translate` with
+ *  no second matrix multiply behind it, which is byte-identical to what it did
+ *  before this line changed rather than merely equivalent to it. `Tactical` and
+ *  `Dev` are the A/B control for the whole conversion and they are worth a branch.
+ *
+ *  **det = ax*by - bx*ay = 1*0.5 - (-1)*0.5 = 1.** The shear is unimodular, so
+ *  every ground fill covers exactly the pixels it covers today. That is the whole
+ *  reason the isometric conversion is not a rasteriser regression, and it is why
+ *  dash patterns keep their measured mark counts: dashing happens in user space and
  *  is transformed afterwards.
  *
  *  **What is on it, as of `iso-06`, which is everything that is going on it.**
@@ -4290,9 +4377,14 @@ function lift(h) {
  *
  *  Anchored to a *point in the room*, from `iso-06`: `drawVision`, `drawReach`,
  *  `drawLock`'s ring, `drawDestination`'s whole marker, `drawPortal`, `drawRoute`'s
- *  beads, and the ground shadow under an arrow in flight. Every one of them was a
- *  one-line change at the top with nothing below it moving, because of the
- *  paragraph above.
+ *  beads, and both of `drawShot`'s passes -- the ground shadow under an arrow in
+ *  flight, and then the shaft itself, which lies in the world plane at shoulder
+ *  height and so goes through the shear as well, under a screen-space lift applied
+ *  before it. Every one of them was a one-line change at the top with nothing below
+ *  it moving, because of the paragraph above.
+ *
+ *  Fourteen call sites, and this list is the register to grep when the question is
+ *  what the shear touches -- so a fifteenth belongs here on the way in.
  *
  *  **Three things on the floor are deliberately *not* on it, and the rule is the
  *  same for all three.** `drawTrail`, `drawRoute`'s two polylines and `drawLock`'s
@@ -4311,7 +4403,7 @@ function lift(h) {
  *  merge walk, which under iso is somebody else's body. */
 function groundSpace(wx, wy) {
   ctx.translate(projX(wx, wy), projY(wx, wy));
-  if (PROJ.shear) ctx.transform(1, 0.5, -1, 0.5, 0, 0);
+  if (PROJ.shear) ctx.transform(PROJ.ax, PROJ.ay, PROJ.bx, PROJ.by, 0, 0);
 }
 
 function roundRect(x, y, w, h, r) {
@@ -4423,7 +4515,7 @@ function wallBlock(top, side, x, y, w, L, xFace, yFace) {
 // ---------------------------------------------------------------- the floor
 //
 // One flagstone tile, baked once into an offscreen canvas and repeated. The
-// room is 24x16 world units and a wheel notch can put eighty device pixels on a
+// room is 48x32 world units and a wheel notch can put eighty device pixels on a
 // world unit, so drawing the speckle live would be several thousand fills a
 // frame for a texture that never changes. The pattern's *own* matrix does the
 // zooming instead, which is a bitmap scale in the compositor rather than work
@@ -4622,9 +4714,17 @@ function floorPatternNow() {
  *              wallBandTop[]  wallBandSide[]      -- lit rock, one pair per depth row
  *
  * So it is **six paths** top-down -- five with the art off, where `edge` is null
- * as well -- and under iso it is three unbanded paths plus two arrays of at most
- * `bandCount` paths each, of which the visible slice is filled per frame. Nothing
- * ever reads the other projection's fields.
+ * as well, which is every top-down row `VIEW_MODES` actually ships; see `edge`'s
+ * own declaration for why the six-path configuration is kept anyway -- and under
+ * iso it is **five unbanded paths** plus two arrays of at most `bandCount` paths
+ * each, of which the visible slice is filled per frame. Count the table: the
+ * `shared` row is three, and iso adds the remembered pair to it. Nothing ever
+ * reads the other projection's fields.
+ *
+ * (`iso-03` said seven unbanded under iso and was right at the time. `iso-04`
+ * moved the *lit* pair into the band arrays, which subtracts two, and the figure
+ * was edited as though it subtracted four. `grid` is inside both counts, which is
+ * what makes six and five comparable at all.)
  *
  * **Why only the *lit* rock is banded, and what it costs.** The bands exist so
  * `walkDrawList` can interleave wall geometry with the bodies standing among it.
@@ -4672,7 +4772,7 @@ function floorPatternNow() {
  * **Built once per level, not per frame.** A 48x32 level is 1536 tiles, and at
  * the top zoom bucket baking it into an offscreen canvas would be a 2304x1536
  * backing store rebuilt six times over. The paths -- six of them top-down, and
- * under iso three plus up to `bandCount` band pairs -- cost a few thousand
+ * under iso five plus up to `bandCount` band pairs -- cost a few thousand
  * segments once between them, and after that a fill is a fill. Banding does not
  * add a segment: it distributes the same ones across more objects.
  *
@@ -4753,10 +4853,21 @@ function bandPath(arr, d) {
  * ends without anything being stroked at all.
  *
  * The visibility bytes are read here rather than passed in, unlike the map. There
- * are five call sites and only one of them -- the loop's `vis_revision` branch --
- * has any reason to know that fog exists; a page that read the buffer at four of
- * them would show the previous floor's fog at the fifth, because `restart`
- * rebuilds directly and the bytes it wants are the ones `init` has just cleared.
+ * are **eight** call sites -- `boot`, `restart`, `setViewMode`, and the loop's five
+ * invalidation arms (a new level, `vis_revision`, `scale`, the `art`/`fog` flags,
+ * and `proj`) -- and exactly one of them, the `vis_revision` arm, has any reason to
+ * know that fog exists at all. Reading the buffer at the call sites instead would
+ * put that knowledge in all eight, and seven of them would be guessing. `restart`
+ * is the one that proves it rather than merely illustrating it: it calls
+ * `wasm.init` and then rebuilds directly, so the bytes it would have been holding
+ * are the previous floor's and the ones it wants are the ones `init` has just
+ * cleared.
+ *
+ * This said "five call sites" for a long while. The real count was already seven
+ * before the isometric conversion started, and `iso-01` made it eight by adding the
+ * `proj` arm. The number is worth keeping right because it *is* the scale of the
+ * argument -- the reason to hide the read in here grows with every arm added, and a
+ * stale count reads as though it had stopped growing.
  */
 function rebuildLevelPaths(map, revision) {
   const art = artOn();
@@ -4810,9 +4921,26 @@ function rebuildLevelPaths(map, revision) {
   // stroke squares over diamonds -- but it was never waiting to be re-derived. A
   // rock tile is now flat fills of two different tones, a lit top face and its
   // shaded sides, and the silhouette *is* the seam where they meet: the rim comes
-  // back for free and this stroke -- the second-largest on the page -- is simply
-  // deleted. The guard at `drawLevel`'s `if (levelPaths.edge)` already handles a
-  // null, so nothing else here has to know.
+  // back for free and this stroke -- several hundred sub-paths, one per exposed
+  // face, stroked every frame -- is simply deleted. The guard at `drawLevel`'s
+  // `if (levelPaths.edge)` already handles a null, so nothing else here has to know.
+  //
+  // **No shipped view mode selects this path, and that is not a reason to delete
+  // it.** `art` is true in exactly one `VIEW_MODES` row and that row is the
+  // isometric one, so `art && !iso` is identically false, `rim` below is always
+  // false, and neither the four `if (rim)` arms nor `drawLevel`'s stroke has run
+  // since `iso-02`. What this is, is the **supported-but-unselected**
+  // configuration: top-down with the art on, which is what `[regular]` was before
+  // the conversion. `drawCharacter`'s flat-art arm is its sibling and is unreachable
+  // for the identical reason -- as is `headOf`'s result, computed for every body and
+  // read only in that arm -- and both are kept on the same terms. A top-down art
+  // mode is one row in `VIEW_MODES` away, and the code that would draw it is
+  // correct, tested by having shipped, and cheaper to keep than to re-derive.
+  //
+  // Worth being explicit because the mirror cell is treated differently and
+  // loudly: `assertProjection` asserts on `upright && !art`, which no arm handles
+  // at all. This cell has an arm; it just has no row. The check there is about a
+  // hole, and this note is about a door nobody is currently walking through.
   const edge = art && !iso ? new Path2D() : null;
   // Top-down: the side of a tile square. Iso: the ground diamond's half-width,
   // and also its full height. `diamond` has the derivation.
@@ -5292,12 +5420,20 @@ function drawLevel(state, origin) {
   // **Under iso there is no edge stroke at all, and that is the point rather than
   // an omission.** Top-down, rock is one flat tone, so the only way to say where a
   // mass ends is to draw a line there -- a separate path of several hundred
-  // sub-paths, stroked every frame, and the second-largest stroke on the page.
-  // Under iso a block is a lit top face and a shaded side face, and the silhouette
-  // is exactly where those two tones meet each other and the floor. The rim is
-  // implied by the fills, so the conversion *deletes* that stroke instead of
-  // porting it, and the measurements say strokes are the scarce resource here while
-  // fills are effectively free.
+  // sub-paths, one per exposed face, stroked every frame. Under iso a block is a lit
+  // top face and a shaded side face, and the silhouette is exactly where those two
+  // tones meet each other and the floor. The rim is implied by the fills, so the
+  // conversion *deletes* that stroke instead of porting it, and the measurements say
+  // strokes are the scarce resource here while fills are effectively free.
+  //
+  // **How much it was worth is not known**, and this comment used to call it "the
+  // second-largest stroke on the page", which nothing measured. "Performance notes"
+  // ranks no strokes: the one attribution it records is `drawVision` at 80% of all
+  // *dashing*, and `edge` is undashed, so it never appeared in that accounting at
+  // all -- and the same section concludes that a large solid arc costs nothing.
+  // What is known is the count and the cadence: several hundred sub-paths, every
+  // frame, now zero. Deleting work whose price was never taken is still the right
+  // direction; claiming a rank for it was not.
   //
   // **Which baseline that is cheaper than matters, and it is not the previous
   // commit.** `edge` was set to null under iso in `iso-02`, not here, so the stroke
@@ -5467,7 +5603,18 @@ function drawLevel(state, origin) {
  * and a blend rather than a copy. At zoom 1 the arena is 4124x2749 CSS pixels
  * against a 1728x945 viewport -- **seven times the area, at two device pixels to
  * the CSS pixel, every frame** -- and all of it outside the window was being
- * blended and then thrown away. The gradient is still *built* from the hero and
+ * blended and then thrown away.
+ *
+ * **That ratio is the top-down one, which is now the weaker of the two.** The
+ * measurement was taken before the projection existed and the dimensions are still
+ * right, but under iso the ground box is the arena's two axes summed on both
+ * components -- about 6873 x 3436 for the same room, since `projX` spans
+ * `w + h` and `projY` half of it -- so it is roughly **14.5 times** the same
+ * viewport. The argument survives a fortiori: whichever projection is live, the
+ * rect that is filled is the window, and the saving is larger under the one the
+ * game actually ships.
+ *
+ * The gradient is still *built* from the hero and
  * the sight radius, in the level's own space, so the falloff lands in exactly the
  * same place on exactly the same pixels; only the rectangle it is painted through
  * shrinks. The clip does not save this on its own: `floorLit` is all the lit
@@ -6003,12 +6150,16 @@ function skinOf(unit) {
  * with `r` up to 825 device pixels at a wide sight radius and a zoomed-in
  * camera -- so it costs the *rasteriser* enormously while costing the JS that
  * issues it nothing. Measured at a full room: 41 visible bodies fill 89.6
- * million device pixels onto a 6.5 million pixel canvas, **13.7x the screen in
- * alpha-blended fill**, and the frame strip reports it as `render 0.83` with the
- * whole cost hiding in `idle` -- which is exactly the trap the note at the top of
- * the perf block warns about. The discs also stop being readable long before
- * that: the fill was tuned so that six could overlap and the floor stay legible,
- * and sixty-three of them sum to an opaque wash.
+ * million device pixels onto a 6.5 million pixel canvas -- **13.41x the screen in
+ * alpha-blended fill, from this function alone** -- and the frame strip reports it
+ * as `render 0.83` with the whole cost hiding in `idle`, which is exactly the trap
+ * the note at the top of the perf block warns about. (An earlier draft quoted 13.7
+ * here. That is the *fps* of the shipped build in the dash table below it, not an
+ * overdraw figure at all; `DESIGN.md` records this one as 13.41x, beside
+ * `drawLantern` at 1.74x, `drawLevel` at 0.50x and `drawCharacter` -- the obvious
+ * suspect, and the wrong one -- at 0.04x.) The discs also stop being readable long
+ * before that: the fill was tuned so that six could overlap and the floor stay
+ * legible, and sixty-three of them sum to an opaque wash.
  *
  * So the fill is spent only where it says something a ring cannot -- the body you
  * are commanding, and the body you have locked -- and everything else keeps the
@@ -6045,12 +6196,13 @@ function drawVision(unit, filled) {
   const r = px(unit.sight);
   ctx.save();
   // **The one place the fill area had to be checked, and it is unchanged.** The
-  // measurements this whole function is tuned against -- 15.7x the screen in
-  // blended fill at a full room against 2.6x -- are areas, and `groundSpace` is
-  // unimodular, so the disc that was a circle of `r` is now an ellipse of
-  // `r*sqrt2` by `r/sqrt2` covering exactly the same pixels. The ring is solid
-  // here for the reason above, so there is no mark count to move either; the only
-  // thing that changes is the perimeter, up 9%, which is stroke coverage on a
+  // measurements this whole function is tuned against -- the **whole page's**
+  // blended fill at a full room, 15.69x the screen before the `filled` gate and
+  // 2.60x after it, of which this function's own share was 13.41x -- are areas, and
+  // `groundSpace` is unimodular, so the disc that was a circle of `r` is now an
+  // ellipse of `r*sqrt2` by `r/sqrt2` covering exactly the same pixels. The ring is
+  // solid here for the reason above, so there is no mark count to move either; the
+  // only thing that changes is the perimeter, up 9%, which is stroke coverage on a
   // 1 px line at alpha 0.09.
   groundSpace(unit.x, unit.y);
   ctx.beginPath();
@@ -6793,18 +6945,27 @@ const WEDGE_REACH = 1.7;
 /**
  * A character, as a character.
  *
- * Six passes, and the order of the first two is the point of the whole
- * function: the shadow separates the body from a floor that now has texture in
- * it, and then **the sim's collision circle is drawn, under the art and again
- * over it**. Every silhouette here overhangs that circle somewhere -- a Brute's
- * shoulders by a quarter of a radius, a Skitterer's legs by more -- and a
+ * **Six passes flat, seven upright**, and the order of the first two is the point
+ * of the whole function: the shadow separates the body from a floor that now has
+ * texture in it, and then **the sim's collision circle is drawn, under the art and
+ * again over it**. Every silhouette here overhangs that circle somewhere -- a
+ * Brute's shoulders by a quarter of a radius, a Skitterer's legs by more -- and a
  * player who cannot see where the real edge is cannot read a shove, a wall stop
  * or why a blade that visibly clipped a leg did nothing. House rule 4.
  *
+ * The seventh is the facing wedge, which the upright arm's ground pre-pass slips
+ * between those two. It is not an extra flourish -- flat, the facing is in the
+ * rotation of every path below and in the rim light's direction, and a billboard
+ * has neither, so the wedge on the floor is the whole of which way a body points.
+ * The numbering in the code counts the upright sequence 1 to 7 and the flat one
+ * 1 to 6; the last pass is shared and carries both numbers.
+ *
  * Faction drives colour and archetype drives shape, and neither crosses over.
  *
- * With `artOn()` false, passes 1 to 5 are replaced wholesale by a disc and a
- * wedge and pass 6 flashes the disc. **That is one branch and not two
+ * With `artOn()` false, passes 1 to 5 of the flat sequence -- which is the only
+ * sequence an artless mode can be in, since `assertProjection` refuses a row that
+ * stands bodies up without art -- are replaced wholesale by a disc and a wedge, and
+ * pass 6 flashes the disc. **That is one branch and not two
  * functions**, which is what keeps every readout below it -- the limb, the
  * markers, the chevrons, the circle -- written once. `iso-05` added a second
  * branch inside the first and honoured the same rule: a body stands up here or
@@ -7017,12 +7178,14 @@ function drawCharacter(unit, now, ghost) {
     ctx.strokeStyle = skin.body[1];
     ctx.stroke();
   } else if (upright) {
-    // The billboard. Its three flat passes -- shadow, wedge, collision ring --
-    // went down on the floor above, before this space existed; what is left is
-    // the body itself, and it is the same three passes the flat arm below runs,
-    // in the same order, with the facing taken out of them.
+    // The billboard. Its three flat passes -- shadow, wedge, collision ring, which
+    // are 1 to 3 -- went down on the floor above, before this space existed; what
+    // is left is the body itself, and it is the same three passes the flat arm
+    // below runs, in the same order, with the facing taken out of them. They are
+    // numbered 4 to 6 here and 3 to 5 there, because the flat arm has no wedge to
+    // make room for: with the art on the facing lives in the rotation.
     //
-    // 3. The silhouette. **The head is inside this outline**, not drawn over the
+    // 4. The silhouette. **The head is inside this outline**, not drawn over the
     //    top of it: every path in `UPRIGHTS` finishes with the top half of its own
     //    head circle, so the topmost point of what is filled here is exactly
     //    `uprightTop(kind)` -- which is `anchorY`'s height, `unitAt`'s box top and
@@ -7033,7 +7196,7 @@ function drawCharacter(unit, now, ghost) {
     ctx.lineWidth = 0.09;
     ctx.stroke(path);
 
-    // 4. The head, in the *pale* end of the palette for the reason it is pale
+    // 5. The head, in the *pale* end of the palette for the reason it is pale
     //    top-down: it is the part of the body nearest the light, and painting it
     //    dark made it read as a hole rather than as a head. `at` is a height here
     //    rather than a reach -- `HEADS` has the argument, `uprightHead` does the
@@ -7047,7 +7210,7 @@ function drawCharacter(unit, now, ghost) {
     ctx.lineWidth = 0.07;
     ctx.stroke();
 
-    // 5. The rim light, verbatim from the flat arm below including its gradient
+    // 6. The rim light, verbatim from the flat arm below including its gradient
     //    line, because `ctx.clip` takes any closed path and this one is closed.
     //    What it means changes with the projection and the code does not: flat it
     //    runs back-to-front along the facing, upright it runs across the body from
@@ -7132,7 +7295,10 @@ function drawCharacter(unit, now, ghost) {
     ctx.restore();
   }
 
-  // 6. The blow landing, clipped to the shapes that were actually drawn.
+  // The last pass -- **6 on the flat arm and 7 on the upright one**, the one place
+  // the two sequences meet, because it is the only pass both arms share code for.
+  //
+  //    The blow landing, clipped to the shapes that were actually drawn.
   //    Straight from the frame: the sim counts it down from its own
   //    `Event::Damage`, so the page no longer has to tell a blow from
   //    regeneration by watching health fall.
@@ -8266,8 +8432,10 @@ function render(state, now, arrived) {
   // under iso, and the middle one collapses to a flat list top-down:
   //
   //   GROUND LAYER   (no depth; today's painter order)
-  //     level          floor passes, lantern, remembered walls, grid
+  //     level          floor passes (pattern -> vignette -> grid, all three
+  //                    inside each pass's own clip) -> walls -> lantern
   //     the way out -> trail -> route -> destination -> vision discs
+  //     iso            -> reach rings, hoisted ahead of the depth walk
   //   DEPTH LAYER
   //     iso            lit wall bands  x  { corpses, monsters, hero, arrows }
   //     top-down       corpses -> reach rings -> monsters -> hero -> arrows,
@@ -8283,6 +8451,23 @@ function render(state, now, arrived) {
   // bodies, because a number you cannot read is not a number. And **the way out
   // is on the ground**, under the trail and everything else -- it is a place,
   // not a marker.
+  //
+  // **Two more are inside the `level` row, and an earlier draft of this diagram
+  // had both of them wrong** -- it listed "floor passes, lantern, remembered walls,
+  // grid", which is neither the order `drawLevel` runs nor an order that would
+  // work. The grid is stroked *inside* each floor pass rather than after the walls,
+  // because it is clipped to all the ground the character knows about and that clip
+  // is the pass's own; `drawLevel` argues that where it strokes it. And the lantern
+  // is **last**, after the rock rather than before it: twenty lines above the
+  // `drawLantern` call turn on exactly that ordering, first top-down (it takes the
+  // outer half of the edge stroke down with it at range) and then under iso (it
+  // misses the lit bands entirely, because those are filled after `drawLevel` has
+  // returned -- which is draw order and not the clip).
+  //
+  // The reach rings were missing from the diagram altogether, on the iso side. They
+  // are a ground decal like any other and the branch below hoists them ahead of the
+  // depth walk for that reason; top-down they stay in the depth list between the
+  // corpses and the bodies, which is the argument on the branch itself.
   //
   // **What used to be a fourth load-bearing rule was "monsters first, then the
   // hero", and it could not survive the depth layer.** Its successor is
@@ -8326,8 +8511,9 @@ function render(state, now, arrived) {
   // The soft fill goes to the two bodies whose sight the player is actually
   // reasoning about -- the one being commanded, and the one it has been pointed
   // at -- and every other body keeps the ring alone. See `drawVision` for the
-  // arithmetic; at a full room this is the difference between 15.7x the screen
-  // in blended fill and 2.6x, and it is the whole of why a crowd was unplayable.
+  // arithmetic; at a full room this gate is the difference between 15.69x the
+  // screen in blended fill **across the whole page** and 2.60x, and it is the whole
+  // of why a crowd was unplayable.
   for (const unit of state.units) {
     if (canSee(unit)) drawVision(unit, unit === state.hero || (locked !== null && unit.id === locked));
   }
@@ -9002,13 +9188,26 @@ function loop(now) {
   //
   // **`curr`, and not a parse of its own.** This runs before `wasm.step()`, so
   // the module's frame is byte-identical to the one the previous animation frame
-  // already parsed -- there was a second full `parseFrame` here, for a function
-  // that reads `state.hero` and nothing else. The null guard covers the first
-  // frame and the frames straight after a `restart` or a hero swap, where the
-  // only cost is one frame with no aim in it.
+  // already parsed -- there was a second full `parseFrame` here, and deleting it
+  // is what this argument bought. The null guard covers the first frame and the
+  // frames straight after a `restart` or a hero swap, where the only cost is one
+  // frame with no aim in it.
   //
-  // Its own phase still, because it is the manual-control path and it should be
-  // possible to see that it now costs nothing.
+  // **What `pushInput` reads out of that state is no longer just `state.hero`**,
+  // and an earlier draft of this comment said it was. `iso-07` gave the manual aim
+  // a hit test: under an upright projection with `CONTROL_LIMB` held it calls
+  // `unitAt(pointer, state)`, which walks `state.monsters` and asks `canSee` per
+  // row. Passing `curr` got *more* load-bearing when that landed rather than less
+  // -- the pick has to see the same frame the hero was read from, and `view` at
+  // this point in `loop` is still last frame's blend.
+  //
+  // Its own phase still, and now for the opposite reason to the one that was
+  // written here. This used to say the phase "costs nothing"; under `[regular]`
+  // with the limb modifier held it carries an O(monsters) walk, so it is a number
+  // that grows with a full room and wants to be visible when it does. In every
+  // other configuration -- both top-down modes, or the modifier not held -- it is
+  // still the two hypots and a `set_input` it was. `pushInput`'s own comment has
+  // the gate and why the cost is only paid where the module will read the result.
   perfOpen();
   if (controlMask && curr) pushInput(curr);
   perfClose("input");
@@ -9391,8 +9590,11 @@ function loop(now) {
   if (railsMoving() && refreshInsets()) resize();
   perfClose("insets");
 
-  // `pick`: the hit test under the cursor, which is O(monsters) and therefore
-  // the one number in this list that grows with a full room.
+  // `pick`: the hit test under the cursor, which is O(monsters) and therefore one
+  // of the two numbers in this list that grow with a full room. It was the only
+  // one when this line was written; `input` became the other in `iso-07`, which
+  // gave the manual aim a pick of its own. A frame still pays for at most one of
+  // them, on the complementary gates argued below.
   perfOpen();
 
   // The cursor as the affordance. A body under the pointer means the next click
@@ -9416,6 +9618,11 @@ function loop(now) {
   // and a drag past the threshold is unconditionally a route, so the test mirrors
   // `endDrag`'s exactly -- a press that has not moved yet is still a tap and
   // still gets the hand.
+  //
+  // **The first of those gates is why this is still the only `unitAt` a frame
+  // pays for.** `pushInput` picks too, to aim the sword at a body rather than at
+  // the floor behind it -- but only under `CONTROL_LIMB`, which is exactly the
+  // mask this one refuses. The two are complementary and never both run.
   //
   // Written only when it changes, on `setText`'s discipline and for the same
   // reason: this is sixty assignments a second into the CSSOM for a value that

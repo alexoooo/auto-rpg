@@ -1,6 +1,6 @@
 # auto-rpg
 
-A top-down auto-battler where you give rough directions and your character
+An isometric auto-battler where you give rough directions and your character
 fights for itself — and where character stats are wired into the AI rather than
 into damage numbers. Levelling intellect literally makes your character think
 more often; levelling perception literally widens and sharpens what it sees.
@@ -254,13 +254,20 @@ where the exit is from the moment you arrive is what turns "kill everything" int
 level's clear condition and not a perception.
 
 `G` cycles three views, or the selector beside **Keys**. `[regular]` is the room
-as it looks. `[tactical]` drops the art — silhouette, head, drop shadow, body
-gradient, flagstones, the brick lip, the vignette — for a disc and a facing wedge
-on flat ground, and keeps every readout: limb, reach rings, vision discs, health,
-arrows, damage numbers, callouts, trail, destination, route and portal. `[dev]` is
-tactical bodies with no fog at all and the tick strip open, which is one intent
-stated once instead of twice — the chevron button that used to open that strip is
-gone. The scale grid, one line every four units, stays in all three.
+as it looks: a 2:1 isometric room, where the rock stands up as blocks with a lit
+top and shaded sides, bodies are upright billboards planted on flat ground
+shadows, and something standing behind a block is behind it. `[tactical]` drops
+the art — silhouette, head, drop shadow, body gradient, flagstones, the vignette —
+for a disc and a facing wedge on flat ground, and keeps every readout: limb, reach
+rings, vision discs, health, arrows, damage numbers, callouts, trail, destination,
+route and portal. `[dev]` is tactical bodies with no fog at all and the tick strip
+open, which is one intent stated once instead of twice — the chevron button that
+used to open that strip is gone. Both of those are the same room seen flat from
+above, and staying top-down is deliberate rather than unfinished: they are the A/B
+control for the isometric conversion, so anything that changes in one projection
+and not the other is something the projection did. The scale grid, one line every
+four units, stays in all three — under iso it runs on the tile diagonals, which
+are those same world lines seen from the new angle.
 
 And `Space` freezes it, or the button beside **driving**. The world stops and
 nothing else does: rendering, the camera, the zoom, the hover readouts and *every

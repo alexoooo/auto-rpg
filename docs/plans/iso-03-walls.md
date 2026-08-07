@@ -117,7 +117,12 @@ const edge = art && !PROJ.shear ? new Path2D() : null;
 Under iso you get the rim **for free**: the top face, the `+x` face and the `+y` face are three
 different flat fills, and the silhouette edge is exactly where the fills meet. This is the
 counter-intuitive part and it is worth stating in the commit message — *the isometric conversion
-removes the page's second-largest stroke.*
+removes a several-hundred-sub-path stroke that ran every frame.*
+
+**Corrected while landing.** The draft said "the page's second-largest stroke". Nothing in
+`DESIGN.md`'s "Performance notes" ranks strokes: the only attribution recorded there is
+`drawVision` at 80% of all *dashing*, and `edge` is undashed, so its cost was never measured at
+all. The count and the cadence are known and are enough to make the point.
 
 ## 5. Path inventory after this session
 
