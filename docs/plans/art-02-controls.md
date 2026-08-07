@@ -85,6 +85,17 @@ Interpret `(mx, my)` as a **screen** direction and put it through the inverse:
   }
 ```
 
+**One claim in that comment is weaker than it reads, and the landed comment says so instead.**
+"Top-down nothing changes" is exact for the cardinals and for no key at all — `hypot(a, 0)` is
+`|a|` and `a / a` is 1 in IEEE, so `(mx, my) / scale` normalises back to `(mx, my)` bit for bit —
+and it is *one ulp* off for the diagonals, because `a / hypot(a, a)` and `1 / hypot(1, 1)` round
+differently at about one `scale` in twenty (`0.7071067811865476` against `...475`). Nothing
+downstream can see it: `milliSigned` rounds to a thousandth, `707.107` is nowhere near a
+boundary, and a sweep of 1.8M cases over `scale` and all nine key combinations moved **zero**
+integers. So the load-bearing half — every value `[tactical]` and `[dev]` push across `set_input`
+is the value they pushed before — holds; "bit for bit" was the overstatement and is not what the
+code claims.
+
 Three properties this has and the old code did not:
 
 - **Diagonals are not faster**, and now neither are cardinals. `W+D` under iso comes back as
@@ -121,7 +132,9 @@ exactly when the player is not driving. That is the documented, non-surprising b
 brief asks for and it should not be changed. Two things to do about it rather than to it:
 
 - **Say so in the keys overlay.** A player who takes the Movement channel silently loses the
-  spawn key; that belongs in `#keys-overlay` beside the WASD row, not in a code comment.
+  spawn key; that belongs in `#keys-overlay` beside the WASD row, not in a code comment. As
+  landed the `S`/`B` row gains a one-clause cross-reference too: it promised the spawn
+  unconditionally, and prose that is now incomplete is the same problem one step smaller.
 - **`Shift+S` (spawn eight, the profiling instrument, `main.js:3686-3696`) is shadowed the same
   way.** Leave it — it is used with the feet released, by someone measuring rather than playing
   — and note it in the same overlay row.
@@ -185,7 +198,19 @@ below.
 6. `S` spawns a skitterer with the feet released and walks the character down-screen with them
    held. The keys overlay says so.
 7. A drag-path order and WASD do not fight: pressing a movement key while a queued path is
-   walking behaves the way it does today (check what that is first, and write down which).
+   walking behaves the way it does today. **Checked, and this is what today is** — nothing on
+   this page or in `crates/web` cancels a route or an order for a keypress, so the queue is not
+   interrupted; it is *overridden per tick and only per tick*. `drive_hero` replaces
+   `command.move_dir` with `input_move` whenever `CONTROL_FEET` is held, so the feet do what the
+   keys say while the standing `Order::Goto` and the whole `route` sit untouched behind them.
+   `follow_route` keeps running per tick regardless of who is steering: it pops a leg when the
+   body comes within `ROUTE_ARRIVE` of it, whoever walked it there, and its `ROUTE_STALL` guard
+   (90 ticks without `ROUTE_PROGRESS`) pops one when the body does not move at all. Two
+   consequences worth knowing before somebody calls either a bug: **taking Movement and holding
+   nothing parks the character**, because `pushInput` pushes `(0, 0)` every frame, and the queue
+   then drains itself a leg every 90 ticks down to the last one, which `follow_route` leaves
+   standing on purpose; and letting the feet go with `C` hands the remaining path straight back
+   to the policy, which walks it. This session changes none of it.
 
 ## Tripwires
 

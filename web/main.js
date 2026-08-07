@@ -3443,13 +3443,64 @@ function pushInput(state) {
   let my = 0;
   if (held.has("a")) mx -= 1;
   if (held.has("d")) mx += 1;
-  // Screen y grows downward and world y grows downward with it, so "w" is -y.
+  // A **screen** intent: "w" is up the screen, in every projection. It used to
+  // be a world intent -- "screen y grows downward and world y grows downward
+  // with it, so w is -y" -- which was true flat and false the day the room
+  // tilted. World `(0,-1)` through `PROJ_ISO` is screen `(+scale, -0.5*scale)`,
+  // so `W` walked up and to the *right*: the four keys stayed a coherent
+  // orthogonal set and were simply rotated 45 degrees off the screen, leaving
+  // the player to think in the room's diagonals. Same class of error `iso-07`
+  // fixed for the aim, from the same cause -- a control written before the
+  // projection existed and never re-derived under it.
   if (held.has("w")) my -= 1;
   if (held.has("s")) my += 1;
-  const len = Math.hypot(mx, my);
-  if (len > 1) {
-    mx /= len;
-    my /= len;
+  if (mx || my) {
+    // `unprojX`/`unprojY` and not the four coefficients written out again: this
+    // page has one inverse matrix, and `groundSpace`'s comment argues at length
+    // about what a second copy of a 2x2 costs. They take screen *pixels* and
+    // this is a direction, which is the same map -- the inverse is linear, a
+    // direction is a difference of two points, and the `1 / scale` they carry
+    // divides back out in the normalise below. `scale` cannot be zero to divide
+    // by: `resize` clamps it between `fit` and `base * ZOOM_MAX`, both derived
+    // from a `safeRect` that floors its own width and height at 120 px for
+    // exactly this family of reasons.
+    //
+    // **What crosses the wall is still a world vector, and that is what makes
+    // this legal rather than merely convenient.** Live input is camera-relative;
+    // recorded input is not. `crates/sim/src/replay.rs` records submitted
+    // commands rather than keystrokes, so a replay never learns that a camera
+    // existed and cannot be moved by the zoom, the pan or the projection. The
+    // confusing half, stated so nobody chases it: hold `W` and press `G` and the
+    // character's *world* heading changes while its *screen* heading does not,
+    // because "up the screen" is a different world direction in the two
+    // projections. Both halves are right, and the replay records the two
+    // different world vectors and reproduces them.
+    const wx = unprojX(mx, my);
+    const wy = unprojY(mx, my);
+    // **Unconditional**, where this was `if (len > 1)`. Under iso a unit screen
+    // vector comes back with a world length between 0.71 ("d") and 1.41 ("w"),
+    // so a conditional normalise would walk the character across the screen 30%
+    // slower than up it. What this buys instead is that world speed is uniform
+    // in every screen direction, which is what `move_speed` means, and that
+    // screen speed is *not* -- `D` crosses the screen at 1.41 * scale px per
+    // world unit travelled and `W` climbs it at 0.71. That factor of two is the
+    // projection and must not be compensated; compensating it would mean the
+    // character's world speed changed with which way it was pointing.
+    //
+    // **Flat, this arm is the identity, which is why `[tactical]` and `[dev]`
+    // are still the A/B control for the conversion.** `mx, my` are in {-1,0,1},
+    // so the top-down pre-images are exactly `(mx, my) / scale` with lengths 0,
+    // 1 and sqrt(2); the cardinals divide out exactly, since `hypot(a, 0)` is
+    // `|a|` and `a / a` is 1 in IEEE. The diagonal is the one place the claim is
+    // weaker than bit-for-bit: `a / hypot(a, a)` rounds one ulp away from
+    // `1 / hypot(1, 1)` at about one `scale` in twenty. Nothing downstream can
+    // see it -- `milliSigned` rounds to a thousandth and 707.107 is nowhere near
+    // a boundary -- and a 1.8M-case sweep over `scale` and all nine key
+    // combinations moved zero integers. Every value flat pushes across is the
+    // value it pushed before.
+    const len = Math.hypot(wx, wy);
+    mx = wx / len;
+    my = wy / len;
   }
 
   // Aim: the bearing from the character to the pointer. For the sword that is
@@ -3665,9 +3716,23 @@ function bindInput() {
       return;
     }
 
-    // WASD is only movement while the player holds the feet; otherwise "s" is
-    // still the spawn key it has always been.
-    if (controlMask & CONTROL_FEET && "wasd".includes(key)) {
+    // **`s` is gated on the feet; `w`, `a` and `d` are not.** `s` has to be,
+    // because it is the page's one key collision: with Movement taken it walks
+    // the character down-screen, and without it it is the spawn key it has
+    // always been (`Shift+S` the same). That is resolved by the mask rather than
+    // by rebinding either of them, and the keys overlay says so beside the WASD
+    // row -- a player who takes a control channel and silently loses a hotkey is
+    // owed a sentence somewhere they will read it.
+    //
+    // The other three are bound to nothing else, so gating their *capture* on
+    // the mask bought nothing and cost one small surprise: press and hold `W`,
+    // then press `C` to take the feet, and nothing moved until the key was
+    // released and pressed again, because the keydown that would have added it
+    // to `held` was thrown away. There are two independent reasons a held key
+    // nobody has asked for can do no harm -- `pushInput` returns before
+    // `set_input` with no channel held at all, and `drive_hero` ignores the
+    // vector without `CONTROL_FEET`.
+    if ("wad".includes(key) || (controlMask & CONTROL_FEET && key === "s")) {
       held.add(key);
       event.preventDefault();
       return;
