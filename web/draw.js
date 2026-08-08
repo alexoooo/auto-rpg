@@ -204,6 +204,17 @@ const DL_TEXT = 13;
 const DL_SPRITE = 14;
 const DL_SPRITE_SPAN = 15;
 
+/** An axis-aligned ellipse used as a clip, or the inverse of that ellipse.
+ *
+ * Unlike `DL_CLIP_PUSH`, this shape is numeric rather than a `Path2D`: the wall
+ * cutaway follows the hero every frame, and allocating a new path for it would
+ * put garbage in the one render path whose display list otherwise allocates
+ * nothing. The inverse arm clips through a canvas-sized rectangle under the
+ * even-odd rule. Its bounds are deliberately much larger than any level the
+ * camera can frame; the clip is intersected with the canvas by the rasteriser.
+ */
+const DL_ELLIPSE_CLIP_PUSH = 16;
+
 /** For the frame dump. Index by kind. */
 const DL_KIND_NAMES = [
   "XFORM_PUSH",
@@ -222,6 +233,7 @@ const DL_KIND_NAMES = [
   "TEXT",
   "SPRITE",
   "SPRITE_SPAN",
+  "ELLIPSE_CLIP_PUSH",
 ];
 
 // ----------------------------------------------------------------- the layers
@@ -712,6 +724,19 @@ function dlClipEnd() {
   }
 }
 
+function dlEllipseClip(cx, cy, rx, ry, inverse, alpha) {
+  const at = dlNext(DL_ELLIPSE_CLIP_PUSH, dlActiveLayer);
+  if (at < 0) return;
+  const b = at * DL_STRIDE;
+  dlF[b + DL_F_A] = cx;
+  dlF[b + DL_F_B] = cy;
+  dlF[b + DL_F_C] = rx;
+  dlF[b + DL_F_D] = ry;
+  dlF[b + DL_F_ALPHA] = alpha === undefined ? -1 : alpha;
+  dlFlags[at] = inverse ? 1 : 0;
+  dlOpenPush(at, true);
+}
+
 /** A full circle, filled or stroked. `ink` is a paint table index or
  *  `DL_NO_PAINT`; `style` is the CSS string when it is not. */
 function dlEllipse(cx, cy, r, flags, style, ink, width, dashOn, dashOff) {
@@ -1147,6 +1172,22 @@ function dlDraw() {
       case DL_CLIP_PUSH:
         ctx.save();
         ctx.clip(dlPaintTable[dlShape[at]]);
+        dlSetAlpha(ctx, b);
+        break;
+      case DL_ELLIPSE_CLIP_PUSH:
+        ctx.save();
+        ctx.beginPath();
+        if (flags) ctx.rect(-1000000, -1000000, 2000000, 2000000);
+        ctx.ellipse(
+          dlF[b + DL_F_A],
+          dlF[b + DL_F_B],
+          dlF[b + DL_F_C],
+          dlF[b + DL_F_D],
+          0,
+          0,
+          TAU
+        );
+        ctx.clip(flags ? "evenodd" : "nonzero");
         dlSetAlpha(ctx, b);
         break;
       case DL_RECT:

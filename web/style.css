@@ -940,7 +940,7 @@ kbd {
 
 /* The frame breakdown, opened by `P` rather than by the view selector -- profiling
    in [dev] measures a renderer with the fog off, which is not the one anybody is
-   complaining about. See docs/plans/perf-00-overview.md. A second, independent bit
+   complaining about. See docs/plans/v2-00-overview.md. A second, independent bit
    on the same strip, which is why it is its own class and not `.dev-more`. */
 .perf-more {
   display: none;

@@ -1,8 +1,9 @@
-# Calibration: NOT PASSED
+# Calibration: PASSED
 
 Stage 1 passed on 2026-08-07. Stage 2's files and in-game composition passed on 2026-08-08;
-mass production remains gated only on the repeated visible-browser performance control required
-by `art-08` acceptance item 12. A hidden automated tab is not valid evidence for that number.
+the repeated visible-browser performance control passed on 2026-08-08 after the World backing
+store correction now recorded in `docs/plans/v2-00-overview.md`. The 2D batch is locked as the
+legacy client baseline; the v2 roadmap supersedes its mass-production instruction.
 
 This heading is the gate. It is the first thing to read in this file and the first thing to
 change when a gate is held. While it says `NOT PASSED`, only the calibration batch named below
@@ -11,7 +12,7 @@ may be produced — nothing else, however easy it would be to draw.
 | gate | what it covers | status |
 |---|---|---|
 | **Stage 1 — the room** | one floor top face, one wall side-face and top-face pair, one torch | **PASSED — 2026-08-07** |
-| **Stage 2 — the body** | one archetype (the Fighter) complete: composite body in 8 facings × 4 frames, arm layer, shield layer, plus 2–3 weapons | **VISUAL PASS — 2026-08-08; visible performance control pending** |
+| **Stage 2 — the body** | one archetype (the Fighter) complete: composite body in 8 facings × 4 frames, arm layer, shield layer, plus 2–3 weapons | **PASSED — 2026-08-08** |
 
 **Why calibration gets a gate of its own.** Mass production reuses whatever passed calibration —
 the same settings, the same prompts, the same look, changing only the subject. So a defect that

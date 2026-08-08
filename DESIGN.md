@@ -2006,6 +2006,20 @@ does generalise is the method: the phase timings cannot see any of this, a large
 way, and every configuration needs a repeat of the baseline as a control — the run
 that first suggested `backdrop-filter` was the culprit failed exactly there.
 
+**The painted isometric room later found the limit of "fills are free": pixels
+were free only at the backing-store size that was measured.** At 1677 x 1101 CSS
+pixels and display ratio 1.6, `[world]` allocated 2683 x 1762 — 4.73 million
+pixels — and ran at 7–9 fps while JavaScript submitted the frame in 0.36–0.50
+ms. The remaining 113–119 ms was raster and composite work. A World-only backing
+ratio of 0.75 reduced the store to 1258 x 826 and reached 30–32 fps in the same
+visible Chrome window; at a fixed 1500 x 1000 comparison it reached 44–50 fps,
+against 27–30 at ratio 1.0. Removing grain did not move the repeated range.
+Removing the vignette, torch pools and lantern together did, but damaged the art
+for less gain than the resolution change. So `[world]` is deliberately a soft
+painted canvas at ratio 0.75 while its DOM HUD and the two flat diagnostic modes
+remain native. The constant and the full paired controls are in
+`docs/plans/v2-00-overview.md` under “What survived from the superseded roadmap.”
+
 **A pixel-identity check must pin `devicePixelRatio` before it captures
 anything.** Chrome does not rasterise deterministically when the canvas backing
 store is not an integer multiple of its CSS box: at `devicePixelRatio = 1.5` one

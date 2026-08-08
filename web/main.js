@@ -117,8 +117,8 @@ const ID_INDEX_SPAN = 128;
  *  guessing at it** -- which is what lets an older page run against a newer
  *  module and draw nothing wrong. `consumeEvents` already behaves that way: it
  *  tests for the kinds it knows and falls through the rest. Seven of these
- *  eleven are consumed by nothing today; `art-09` takes the shove and the
- *  death, `art-10` and `art-11` take the rest. */
+ *  eleven are consumed by nothing today; `v2-09` takes the bounded visual
+ *  reactions and `v2-00` retains the post-gate audio contract. */
 const EVENT_DAMAGE = 0;
 const EVENT_BLOCK = 1;
 const EVENT_PARRY = 2;
@@ -639,7 +639,7 @@ function buildImports(module) {
  * promoted to doubles and boxed, measured at 0.380 ms of a 16.7 ms budget at 64
  * units, to feed a function that reads them one at a time. `parseFrame` is pure
  * arithmetic and calls into wasm nowhere, so it reads the live view directly and
- * the invariant simply covers more lines. See `docs/plans/perf-measurements.md`.
+ * the invariant simply covers more lines. See `DESIGN.md`, "Performance notes".
  */
 function frameView() {
   const ptr = wasm.frame_ptr();
@@ -822,8 +822,8 @@ function readFurniture(cols) {
 // it, and every row it hands back is a long-lived object that gets overwritten
 // in place. The three states below are the whole of the allocation.
 //
-// **Two of them are ping-ponged and that is deliberate.** Session 3
-// (`docs/plans/perf-03-cadence.md`) renders one tick behind by holding the
+// **Two of them are ping-ponged and that is deliberate.** The interpolation
+// pass renders one tick behind by holding the
 // previous parse and the current one at the same time and blending between them;
 // a parse that reused one buffer would have `prev` and `curr` be the same object
 // and the blend would interpolate a state with itself. It adds a third state for
@@ -1211,7 +1211,7 @@ function parseFrame(f, out) {
 // The fix is to hold the last two parsed states and draw a point between them.
 // **`curr` is the truth and the blend is a picture**, and the two are kept
 // strictly apart: `loop` says at every call site which of them it is taking and
-// why, and `docs/plans/perf-03-cadence.md` carries the full assignment.
+// why; `DESIGN.md` records the interpolation decision durably.
 //
 // **None of this reimplements a sim rule.** A convex combination of two states
 // the sim actually produced is a display filter, not a prediction. Nothing here
@@ -1727,7 +1727,7 @@ function perfWarn(on) {
 /** `P`, and `?perf=1` for a fresh load. Independent of `[dev]` on purpose --
  *  `[dev]` turns the fog off, so profiling in it measures a renderer that draws
  *  every body in the room, which is not the one anybody is complaining about.
- *  See the note in `docs/plans/perf-00-overview.md`.
+ *  See the retained measurement rule in `docs/plans/v2-00-overview.md`.
  *
  *  A class on the same `dev-strip` element `setViewMode` writes `open` to, and
  *  fetched the same way it fetches it: two independent bits on one strip, so the
@@ -1901,7 +1901,7 @@ function railOpen(which) {
  *
  * **Why there is a flag at all.** `refreshInsets()` costs 0.018 ms when the
  * layout is already clean and **0.666 ms when it is not**
- * (`docs/plans/perf-measurements.md`), and in the loop it never is -- the
+ * (`DESIGN.md`, "Performance notes"), and in the loop it never is -- the
  * previous frame's `updateHud` wrote to the DOM. Four `getBoundingClientRect()`
  * calls forcing a synchronous layout flush is 4% of a 16.7 ms frame, every
  * frame, to learn a number that only ever changes while a rail is actually
@@ -2096,6 +2096,16 @@ const CAMERA_OVERSCAN = 1.5;
 
 let viewport = { w: 0, h: 0 }; // the canvas, in CSS pixels
 let dpr = 1; // stored, because `render` re-establishes the base matrix each frame
+
+/** The painted view is raster-bound, not JavaScript-bound. Visible Chrome measured
+ *  113--119 ms after a 0.36--0.50 ms `render` submission with a 2683 x 1762 backing
+ *  store at about 1.6 device pixels per CSS pixel. Capping that one view below one device
+ *  pixel per CSS pixel removes most of the pixels the rasteriser was blending. The DOM
+ *  HUD stays native, and the two top-down modes stay at display DPR as the A/B control.
+ *
+ *  Its visible-browser measurement and escalation rule now live in
+ *  `docs/plans/v2-00-overview.md`. */
+const WORLD_DPR_MAX = 0.75;
 let zoom = 1; // the player's wheel adjustment, re-clamped on every resize
 let cam = { x: 12, y: 8 }; // the centre of the view, in world units
 let scale = 1; // CSS pixels per world unit
@@ -2400,9 +2410,11 @@ function resize() {
   // next notch moves anything, and the zoom reads as stuck.
   zoom = scale / base;
 
-  // Cap the device pixel ratio: a 4x display would otherwise quadruple the
-  // fill cost of every frame for no visible gain.
-  dpr = clamp(window.devicePixelRatio || 1, 1, 3);
+  // `[world]` is a painted moving picture and its measured bottleneck is the
+  // number of pixels Canvas2D rasterises. The flat controls keep native density;
+  // their pixel identity is a regression instrument and must not inherit this cap.
+  const displayDpr = window.devicePixelRatio || 1;
+  dpr = viewMode === "world" ? Math.min(displayDpr, WORLD_DPR_MAX) : clamp(displayDpr, 1, 3);
   canvas.style.width = `${viewport.w}px`;
   canvas.style.height = `${viewport.h}px`;
   // Guarded, because a rail sliding open now runs this on every frame of its
@@ -10516,7 +10528,7 @@ function consumeEvents(state) {
     //
     // And the six kinds this function has never heard of fall straight
     // through, which is the append-only rule working rather than an omission --
-    // see the `EVENT_*` block. `art-09` takes the death and the rest.
+    // see the `EVENT_*` block. `v2-09` takes the bounded visual reactions.
   }
 }
 
@@ -11066,27 +11078,61 @@ function drawItem(it, now) {
  * crossing a fight is not hidden by it" true here as well.
  */
 const WALL_CUTAWAY_ALPHA = 0.28;
+const WALL_CUTAWAY_PAD_X = 1.22;
+const WALL_CUTAWAY_PAD_Y = 1.10;
 
 /**
  * A foreground wall yields only when it is both in front of the hero and close
- * enough to be the wall the hero is touching. Testing a nearby solid tile keeps
- * another wall on the same anti-diagonal opaque; testing the band's near plane
- * keeps a wall behind the body opaque. The body stays in the depth walk, so the
- * cap and side remain structurally present instead of the hero floating over them.
+ * enough to cross the upright billboard. Testing a nearby solid tile keeps a
+ * distant wall on the same anti-diagonal out of the two clipped fills; testing
+ * the band's near plane keeps a wall behind the body opaque.
+ *
+ * This returns a gate, not an alpha. The first cutaway faded the complete band,
+ * but one band can be a wall the length of the room while the body occupies one
+ * tile of it. Adjacent opaque bands could then cover the hero inside the faded
+ * strip, producing exactly the picture the fade was meant to prevent: a floating
+ * translucent cap and no readable body. `fillCutawayBand` keeps the band opaque
+ * outside a billboard-sized ellipse and fades every nearby foreground band only
+ * inside that same ellipse. The cap and vertical face therefore stay a wall.
  */
-function wallBandAlpha(d, hero) {
-  if (!hero || !levelMap || !(levelPaths.bandTile > 0)) return 1;
+function wallBandCutsHero(d, hero) {
+  if (!hero || !levelMap || !(levelPaths.bandTile > 0)) return false;
   const tile = levelPaths.bandTile;
   const behind = (d + 2) * tile - bodyDepth(hero);
-  if (!(behind > 0) || behind > 2.5 * tile) return 1;
+  if (!(behind > 0) || behind > 2 * bodyHeight(hero) + tile) return false;
   const hx = Math.floor(hero.x / tile);
   const hy = Math.floor(hero.y / tile);
   for (let ty = Math.max(0, hy - 2); ty <= Math.min(levelMap.rows - 1, hy + 2); ty++) {
     const tx = d - ty;
     if (tx < 0 || tx >= levelMap.cols || Math.abs(tx - hx) > 2) continue;
-    if (levelMap.tiles[ty * levelMap.cols + tx] !== 0) return WALL_CUTAWAY_ALPHA;
+    if (levelMap.tiles[ty * levelMap.cols + tx] !== 0) return true;
   }
-  return 1;
+  return false;
+}
+
+/** Paint one foreground band normally except through the hero's upright body.
+ *
+ * The ellipse is in the same level-local screen space as the baked wall paths.
+ * Its width is the billboard width `drawCharacter` uses and its height is the
+ * actual kind/radius-dependent body height. The first clip is the inverse, so
+ * the wall's back face and top stay fully opaque everywhere they are not hiding
+ * the model; the second is the small translucent window over the model itself.
+ */
+function fillCutawayBand(d, now, hero) {
+  const x = projX(hero.x, hero.y);
+  const feet = projY(hero.x, hero.y);
+  const h = lift(bodyHeight(hero));
+  const rx = px(hero.radius) * PROJ.ex * WALL_CUTAWAY_PAD_X;
+  const ry = h * WALL_CUTAWAY_PAD_Y / 2;
+  const cy = feet - h / 2;
+
+  dlEllipseClip(x, cy, rx, ry, true, 1);
+  fillBand(d, now, 1);
+  dlClipEnd();
+
+  dlEllipseClip(x, cy, rx, ry, false, WALL_CUTAWAY_ALPHA);
+  fillBand(d, now, 1);
+  dlClipEnd();
 }
 
 function walkDrawList(now, origin, hero) {
@@ -11156,14 +11202,16 @@ function walkDrawList(now, origin, hero) {
     const it = drawItems[i];
     while (band <= lastBand && (band + 2) * tile <= it.depth) {
       const d = band++;
-      fillBand(d, now, wallBandAlpha(d, hero));
+      if (wallBandCutsHero(d, hero)) fillCutawayBand(d, now, hero);
+      else fillBand(d, now, 1);
     }
     drawItem(it, now);
   }
   // Whatever is left of the visible range stands in front of every item there was.
   while (band <= lastBand) {
     const d = band++;
-    fillBand(d, now, wallBandAlpha(d, hero));
+    if (wallBandCutsHero(d, hero)) fillCutawayBand(d, now, hero);
+    else fillBand(d, now, 1);
   }
   dlXformEnd();
 }
@@ -11828,8 +11876,8 @@ let lastFrameTime = 0;
  * the whole frame -- 0.577 ms at 64 units, on every manual-control frame -- to
  * arrive at a number the page was already holding.
  *
- * The far one is session 3 (`docs/plans/perf-03-cadence.md`), which added `prev`
- * beside this and blends the two. That is why the loop's parse goes through
+ * The far one is the interpolation pass, which added `prev` beside this and
+ * blends the two. That is why the loop's parse goes through
  * `nextPool()` rather than into one fixed state.
  *
  * `null` wherever the world is replaced under it -- `restart`, `swapInHero` --
@@ -12330,8 +12378,8 @@ function loop(now) {
   perfOpen();
 
   // **The picture, one tick behind the truth.** Everything from here down names
-  // which of the two states it is reading and why; `docs/plans/perf-03-cadence.md`
-  // carries the full assignment, and the short version is that `curr` answers
+  // which of the two states it is reading and why. The short version is that
+  // `curr` answers
   // questions about the world and `view` answers questions about the screen.
   //
   // It happens here rather than up beside the parse because the `level` phase

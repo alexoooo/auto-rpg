@@ -1550,8 +1550,8 @@ impl Sim {
         // [`EVENT_PORTAL`] row behind it.** Unreachable in play for the reason
         // just given, which is why it is left alone rather than papered over
         // with a second edge test that could disagree with the first. It stops
-        // being free the moment something keys off that edge -- `art-09` and
-        // `art-11` put a sound on it -- and at that point the answer is to move
+        // being free the moment something keys off that edge -- `v2-09` retains
+        // the post-gate sound contract -- and at that point the answer is to move
         // the edge test into `open_the_way_out` itself so there is one of it.
         self.open_the_way_out();
         // The waypoints describe a floor plan that no longer exists. Nothing
