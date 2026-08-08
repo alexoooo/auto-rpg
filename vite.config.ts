@@ -38,7 +38,12 @@ function wasmArtifactPlugin(): Plugin {
         throw new Error("the v2 main-thread chunk instantiates WebAssembly");
       }
 
-      const scripts = readdirSync(resolve(outputRoot, "assets"))
+      const emittedAssets = readdirSync(resolve(outputRoot, "assets"));
+      const rawTypeScript = emittedAssets.filter((name) => name.endsWith(".ts") || name.endsWith(".tsx"));
+      if (rawTypeScript.length !== 0) {
+        throw new Error(`Vite emitted raw TypeScript: ${rawTypeScript.join(", ")}`);
+      }
+      const scripts = emittedAssets
         .filter((name) => /-[A-Za-z0-9_-]{8,}\.js$/.test(name));
       if (scripts.length < 2) throw new Error("Vite did not emit separate hashed client and worker chunks");
       const workerExists = scripts.some((name) => {

@@ -420,6 +420,9 @@ function dependencyDiagramEdges(markdown, errors) {
 
 function checkProposedBoundaries(markdown, rel, errors) {
   const term = /\b(worker|babylon|articulated|learned|learning|neural(?:-network)?|mlp|webgpu|gpu|glb)\b/ig;
+  const shippedTerms = rel === "docs/architecture/browser-runtime.md"
+    ? new Set(["worker", "babylon", "webgpu", "gpu"])
+    : new Set();
   const lines = markdown.split(/\r?\n/);
   const proposed = new Set();
   for (let i = 0; i < lines.length; i++) {
@@ -439,7 +442,7 @@ function checkProposedBoundaries(markdown, rel, errors) {
     for (const sentence of text.split(/(?<=[.!?])\s+/)) {
       term.lastIndex = 0;
       for (const match of sentence.matchAll(term)) {
-        if (match[0].toLowerCase() === "worker" && rel === "docs/architecture/browser-runtime.md") continue;
+        if (shippedTerms.has(match[0].toLowerCase())) continue;
         const before = sentence.slice(0, match.index);
         const after = sentence.slice(match.index + match[0].length);
         const localBefore = before.split(/\bbut\b|\bhowever\b|;/i).pop();

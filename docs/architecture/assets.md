@@ -1,14 +1,16 @@
 # Asset pipeline
 
-**Purpose:** Describe how the current PNG asset contract is authored, checked, loaded, and rendered.
+**Purpose:** Describe the current Canvas PNG pipeline and the procedural v2 greybox's asset boundary.
 **Status:** current
-**Canonical source:** [`web/assets/ASSET_SPEC.md`](../../web/assets/ASSET_SPEC.md), [`web/assets/manifest.json`](../../web/assets/manifest.json), and [`web/assets.js`](../../web/assets.js)
+**Canonical source:** [`web/assets/ASSET_SPEC.md`](../../web/assets/ASSET_SPEC.md), [`web/assets/manifest.json`](../../web/assets/manifest.json), [`web/assets.js`](../../web/assets.js), and the [renderer visibility contract](../reference/renderer-contract.md#visibility-and-subsystem-presence)
 **Update when:** Asset formats, validation, manifest semantics, loading, fallback behavior, or render integration changes.
 
-The current production path is a checked-in PNG set consumed by the Canvas page.
-There is no runtime asset generation and no model conversion step. The browser serves
-the files directly from `web/assets/`; the authored images are presentation inputs and
-never enter `Scenario`, `World`, replay, or a hash domain.
+The playable Canvas path consumes a checked-in PNG set. The current v2 greybox is a
+second presentation path, but it constructs primitive scene geometry and materials
+without loading authored room or combatant files. There is no runtime asset
+generation and no model conversion step in either path. The browser serves Canvas
+images directly from `web/assets/`; presentation inputs never enter `Scenario`,
+`World`, replay, or a hash domain.
 
 ## Authoring and review
 
@@ -73,8 +75,17 @@ weapon art is stretched between the projected hilt and tip of the same simulatio
 blade segment used by combat, keeping presentation and hit geometry joined at the
 snapshot rather than at an asset-specific correction.
 
+## Procedural greybox
+
+The v2 renderer creates known floor and wall tiles, disclosed doors and torches,
+unit bodies, and snapshot-local transients from primitives. It loads no room art,
+rig, texture, or model file and has no asset-loader dependency. Unknown geometry has
+no instance; remembered known topology uses a separate material; and current
+furniture exists only while its disclosed record is present. This is a visibility
+and renderer-boundary proof, not an authored-asset pipeline.
+
 > **Proposed by v2 -- not shipped:** The [representative room phase](../plans/v2-09-room-visual-gate.md)
-> proposes a pinned Blender-to-GLB pipeline and GPU room kit, while the
+> proposes a pinned Blender-to-GLB pipeline and room kit, while the
 > [combatant integration phase](../plans/v2-18-combatant-integration.md) proposes
-> representative 3D rigs. No GLB room/combatant production or Babylon asset loader
-> belongs to the current PNG/Canvas path above.
+> representative 3D rigs. No GLB room/combatant production or asset loader belongs
+> to either current path above.

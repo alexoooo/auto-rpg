@@ -214,6 +214,39 @@ pub const HEADER_LEN: usize = 15;
 /// for a Brute's 33-tick windup and "just started" for a Punch's 5. Zero at
 /// guard, where `swing_left` means nothing.
 pub const UNIT_STRIDE: usize = 33;
+pub const UNIT_X: usize = 0;
+pub const UNIT_Y: usize = 1;
+pub const UNIT_FACING_RAW: usize = 2;
+pub const UNIT_RADIUS: usize = 3;
+pub const UNIT_HP: usize = 4;
+pub const UNIT_MAX_HP: usize = 5;
+pub const UNIT_FACTION: usize = 6;
+pub const UNIT_KIND: usize = 7;
+pub const UNIT_INTENT: usize = 8;
+pub const UNIT_ENTITY_INDEX: usize = 9;
+pub const UNIT_ENTITY_GENERATION: usize = 10;
+pub const UNIT_LIMB_ANGLE_RAW: usize = 11;
+pub const UNIT_LIMB_REACH: usize = 12;
+pub const UNIT_LIMB_SPIN: usize = 13;
+pub const UNIT_ACTION_LENGTH: usize = 14;
+pub const UNIT_ACTION_ARC_RAW: usize = 15;
+pub const UNIT_HIT_FLASH: usize = 16;
+pub const UNIT_BLOCK_FLASH: usize = 17;
+pub const UNIT_PARRY_FLASH: usize = 18;
+pub const UNIT_LIMB_SWING: usize = 19;
+pub const UNIT_LIMB_SWING_LEFT: usize = 20;
+pub const UNIT_LIMB_LINE_RAW: usize = 21;
+pub const UNIT_ACTION_KIND: usize = 22;
+pub const UNIT_ACTION_ROLE: usize = 23;
+pub const UNIT_SLOT: usize = 24;
+pub const UNIT_SLOT0_ACTION: usize = 25;
+pub const UNIT_SLOT1_ACTION: usize = 26;
+pub const UNIT_SIGHT_RANGE: usize = 27;
+pub const UNIT_VISIBLE: usize = 28;
+pub const UNIT_VX: usize = 29;
+pub const UNIT_VY: usize = 30;
+pub const UNIT_STRIDE_PHASE: usize = 31;
+pub const UNIT_SWING_SPAN: usize = 32;
 
 /// Floats per arrow, in a block that follows the units: `[x, y, heading_raw,
 /// faction]`.
@@ -229,6 +262,10 @@ pub const UNIT_STRIDE: usize = 33;
 /// they would be twenty-three dead floats each, and the health bars and reach
 /// rings the unit loop draws would all have to learn to skip them.
 pub const SHOT_STRIDE: usize = 4;
+pub const SHOT_X: usize = 0;
+pub const SHOT_Y: usize = 1;
+pub const SHOT_HEADING_RAW: usize = 2;
+pub const SHOT_FACTION: usize = 3;
 
 /// Most arrows the frame will carry. Matches [`sim::MAX_SHOTS`], asserted in
 /// `the_frame_is_bounded_by_what_the_world_can_hold`.
@@ -271,6 +308,14 @@ pub const MAX_SHOTS: usize = sim::MAX_SHOTS;
 /// | [`EVENT_PORTAL`] | the portal | 0 | 255 | 255 | 0 | 0 |
 /// | [`EVENT_DESCEND`] | the portal | the new depth | 255 | 255 | 0 | 0 |
 pub const EVENT_STRIDE: usize = 8;
+pub const EVENT_KIND: usize = 0;
+pub const EVENT_X: usize = 1;
+pub const EVENT_Y: usize = 2;
+pub const EVENT_AMOUNT: usize = 3;
+pub const EVENT_ACTOR_INDEX: usize = 4;
+pub const EVENT_OTHER_INDEX: usize = 5;
+pub const EVENT_AUX0: usize = 6;
+pub const EVENT_AUX1: usize = 7;
 
 /// Most events one frame will carry.
 ///
@@ -492,6 +537,10 @@ pub const MAP_MAX: usize = 96 * 64;
 /// out of an old number. A new kind takes the next free byte value; an existing
 /// kind's state byte gains a bit rather than changing what a bit means.
 pub const FURNITURE_STRIDE: usize = 4;
+pub const FURNITURE_KIND: usize = 0;
+pub const FURNITURE_TX: usize = 1;
+pub const FURNITURE_TY: usize = 2;
+pub const FURNITURE_STATE: usize = 3;
 
 /// Records the furniture buffer holds.
 ///
@@ -511,11 +560,11 @@ pub const FURNITURE_STRIDE: usize = 4;
 pub const FURNITURE_MAX: usize = 512;
 
 /// A doorway tile. State byte: `1` open, `0` shut.
-const FURNITURE_DOOR: u8 = 1;
+pub const FURNITURE_DOOR: u8 = 1;
 
 /// A torch on a wall face. State byte: which face, [`TORCH_FACE_POS_X`] or
 /// [`TORCH_FACE_POS_Y`].
-const FURNITURE_TORCH: u8 = 2;
+pub const FURNITURE_TORCH: u8 = 2;
 
 /// The two faces a torch can be mounted on, as the state byte reports them.
 ///
@@ -530,8 +579,8 @@ const FURNITURE_TORCH: u8 = 2;
 ///
 /// Only these two are ever emitted -- see [`sim::Torch::face`] -- so the other
 /// two cardinals have no code here at all rather than a code nothing writes.
-const TORCH_FACE_POS_X: u8 = 0;
-const TORCH_FACE_POS_Y: u8 = 1;
+pub const TORCH_FACE_POS_X: u8 = 0;
+pub const TORCH_FACE_POS_Y: u8 = 1;
 
 /// The state byte for a torch's face. Total over [`sim::Cardinal`] because a
 /// match must be, and the two the generator promises never to emit take the
@@ -560,7 +609,7 @@ const _: () = assert!(
 /// place the client would otherwise hardcode "one tile is one world unit" -- and
 /// a client that has that wrong draws a level at the wrong scale while every
 /// test still passes.
-const TILE_MILLI: u32 = 1000;
+pub const TILE_MILLI: u32 = 1000;
 
 /// How close the hero has to be to the way out to take it.
 ///
@@ -2729,12 +2778,12 @@ impl Sim {
                 break;
             }
             let row = &mut frame[HEADER_LEN + count * UNIT_STRIDE + shots * SHOT_STRIDE..];
-            row[0] = shot.position.x.to_f32();
-            row[1] = shot.position.y.to_f32();
+            row[SHOT_X] = shot.position.x.to_f32();
+            row[SHOT_Y] = shot.position.y.to_f32();
             // The binary angle raw, exactly as `limb_angle_raw` is carried: the
             // client owns the conversion and no transcendental runs in here.
-            row[2] = shot.heading.raw() as f32;
-            row[3] = shot.faction.index() as f32;
+            row[SHOT_HEADING_RAW] = shot.heading.raw() as f32;
+            row[SHOT_FACTION] = shot.faction.index() as f32;
             shots += 1;
         }
         frame[7] = shots as f32;
@@ -2747,14 +2796,14 @@ impl Sim {
         let events = self.events.len().min(MAX_EVENTS);
         for (i, event) in self.events[..events].iter().enumerate() {
             let row = &mut frame[base + i * EVENT_STRIDE..];
-            row[0] = event.kind as f32;
-            row[1] = event.at.x.to_f32();
-            row[2] = event.at.y.to_f32();
-            row[3] = event.amount.to_f32();
-            row[4] = event.actor as f32;
-            row[5] = event.other as f32;
-            row[6] = event.aux0.to_f32();
-            row[7] = event.aux1.to_f32();
+            row[EVENT_KIND] = event.kind as f32;
+            row[EVENT_X] = event.at.x.to_f32();
+            row[EVENT_Y] = event.at.y.to_f32();
+            row[EVENT_AMOUNT] = event.amount.to_f32();
+            row[EVENT_ACTOR_INDEX] = event.actor as f32;
+            row[EVENT_OTHER_INDEX] = event.other as f32;
+            row[EVENT_AUX0] = event.aux0.to_f32();
+            row[EVENT_AUX1] = event.aux1.to_f32();
         }
         frame[8] = events as f32;
 
@@ -2827,13 +2876,13 @@ fn write_furniture(world: &World, torches: &[Torch]) {
                     return;
                 }
                 let at = count * FURNITURE_STRIDE;
-                buf[at] = FURNITURE_DOOR;
+                buf[at + FURNITURE_KIND] = FURNITURE_DOOR;
                 // `cell` is a row-major tile index, so this is the inverse of
                 // the `ty * cols + tx` the grid is addressed by everywhere else.
                 // Both bytes fit by the const assertion beside `FURNITURE_MAX`.
-                buf[at + 1] = (cell % cols) as u8;
-                buf[at + 2] = (cell / cols) as u8;
-                buf[at + 3] = u8::from(open);
+                buf[at + FURNITURE_TX] = (cell % cols) as u8;
+                buf[at + FURNITURE_TY] = (cell / cols) as u8;
+                buf[at + FURNITURE_STATE] = u8::from(open);
                 count += 1;
             }
         }
@@ -2842,13 +2891,13 @@ fn write_furniture(world: &World, torches: &[Torch]) {
                 return;
             }
             let at = count * FURNITURE_STRIDE;
-            buf[at] = FURNITURE_TORCH;
+            buf[at + FURNITURE_KIND] = FURNITURE_TORCH;
             // Already tile coordinates rather than a cell index, so no divide --
             // and they fit in a byte by the same const assertion, which is a
             // claim about `DUNGEON_COLS` and covers both kinds at once.
-            buf[at + 1] = torch.tx as u8;
-            buf[at + 2] = torch.ty as u8;
-            buf[at + 3] = torch_face(torch.face);
+            buf[at + FURNITURE_TX] = torch.tx as u8;
+            buf[at + FURNITURE_TY] = torch.ty as u8;
+            buf[at + FURNITURE_STATE] = torch_face(torch.face);
             count += 1;
         }
     });
@@ -2885,60 +2934,60 @@ fn write_unit(
     stride: Fx,
     swing_span: u16,
 ) {
-    row[0] = view.position.x.to_f32();
-    row[1] = view.position.y.to_f32();
+    row[UNIT_X] = view.position.x.to_f32();
+    row[UNIT_Y] = view.position.y.to_f32();
     // The binary angle, not radians: the client multiplies by 2pi/65536 and
     // does its own trigonometry, so no transcendental function ever runs on
     // this side of the boundary.
-    row[2] = f32::from(view.facing.raw());
-    row[3] = view.radius.to_f32();
-    row[4] = view.hp.to_f32();
-    row[5] = view.max_hp.to_f32();
-    row[6] = view.faction.index() as f32;
-    row[7] = kind_code(view.kind) as f32;
-    row[8] = intent_code(view.intent) as f32;
+    row[UNIT_FACING_RAW] = f32::from(view.facing.raw());
+    row[UNIT_RADIUS] = view.radius.to_f32();
+    row[UNIT_HP] = view.hp.to_f32();
+    row[UNIT_MAX_HP] = view.max_hp.to_f32();
+    row[UNIT_FACTION] = view.faction.index() as f32;
+    row[UNIT_KIND] = kind_code(view.kind) as f32;
+    row[UNIT_INTENT] = intent_code(view.intent) as f32;
     // The identity, so the client can tell "this body lost health" from "the
     // row above it died and everything shifted up". See the crate docs.
-    row[9] = view.id.index as f32;
-    row[10] = view.id.generation as f32;
+    row[UNIT_ENTITY_INDEX] = view.id.index as f32;
+    row[UNIT_ENTITY_GENERATION] = view.id.generation as f32;
 
     // The limb. Bearings ship as raw binary angles like `facing`, so the one
     // float conversion in the stack stays on the way out.
     let limb = view.limb;
-    row[11] = f32::from(limb.angle.raw());
-    row[12] = limb.reach.to_f32();
-    row[13] = limb.spin.to_f32();
-    row[14] = view.spec.length.to_f32();
-    row[15] = f32::from(view.spec.arc);
+    row[UNIT_LIMB_ANGLE_RAW] = f32::from(limb.angle.raw());
+    row[UNIT_LIMB_REACH] = limb.reach.to_f32();
+    row[UNIT_LIMB_SPIN] = limb.spin.to_f32();
+    row[UNIT_ACTION_LENGTH] = view.spec.length.to_f32();
+    row[UNIT_ACTION_ARC_RAW] = f32::from(view.spec.arc);
 
-    row[16] = flash_level(flash.hit);
-    row[17] = flash_level(flash.block);
-    row[18] = flash_level(flash.parry);
+    row[UNIT_HIT_FLASH] = flash_level(flash.hit);
+    row[UNIT_BLOCK_FLASH] = flash_level(flash.block);
+    row[UNIT_PARRY_FLASH] = flash_level(flash.parry);
 
     // The attack, so the page can draw a telegraph rather than a blow that
     // arrives out of nowhere. `line` is where the cut is aimed, which during a
     // windup is nowhere near where the blade is pointing -- that gap is the
     // read, and it is the one thing worth drawing.
-    row[19] = limb.swing.discriminant() as f32;
-    row[20] = f32::from(limb.swing_left);
-    row[21] = f32::from(limb.line.raw());
+    row[UNIT_LIMB_SWING] = limb.swing.discriminant() as f32;
+    row[UNIT_LIMB_SWING_LEFT] = f32::from(limb.swing_left);
+    row[UNIT_LIMB_LINE_RAW] = f32::from(limb.line.raw());
 
     // The loadout. What is in hand, what kind of thing it is, and what the
     // fighter is carrying -- so the page can draw a blade or an arc from the
     // role rather than guessing from the numbers, and show a loadout without
     // keeping its own copy of one.
-    row[22] = view.action.code() as f32;
-    row[23] = view.action.role().discriminant() as f32;
-    row[24] = view.slot as f32;
-    row[25] = slot_code(view.loadout.slot(0));
-    row[26] = slot_code(view.loadout.slot(1));
+    row[UNIT_ACTION_KIND] = view.action.code() as f32;
+    row[UNIT_ACTION_ROLE] = view.action.role().discriminant() as f32;
+    row[UNIT_SLOT] = view.slot as f32;
+    row[UNIT_SLOT0_ACTION] = slot_code(view.loadout.slot(0));
+    row[UNIT_SLOT1_ACTION] = slot_code(view.loadout.slot(1));
 
     // How far this body can see, in world units, straight from the stat sheet
     // the observation code reads. The page drew a vision ring from its own copy
     // of `(60 + 6 * perception) / 10` until this column existed, which was the
     // last mirrored sim formula in `main.js` -- and the one with the shortest
     // remaining life, because the hero's perception is a live dial now.
-    row[27] = view.stats.sight_range().to_f32();
+    row[UNIT_SIGHT_RANGE] = view.stats.sight_range().to_f32();
 
     // Whether the player can see this body: `1` yes, `0` no.
     //
@@ -2951,20 +3000,20 @@ fn write_unit(
     // visible: a fog of war with nobody to be fogged from is just a blank
     // screen. Through `u8` because `f32::from(bool)` does not exist, and the
     // house precedent for the conversion is `write_map`.
-    row[28] = f32::from(u8::from(visible));
+    row[UNIT_VISIBLE] = f32::from(u8::from(visible));
 
     // Velocity, straight off the view. **Not derivable on the page** -- a frame
     // is up to eight ticks and often none, so differencing `x, y` across frames
     // measures the browser's scheduler as much as the body's feet.
-    row[29] = view.velocity.x.to_f32();
-    row[30] = view.velocity.y.to_f32();
+    row[UNIT_VX] = view.velocity.x.to_f32();
+    row[UNIT_VY] = view.velocity.y.to_f32();
 
     // The walk cycle's phase and the current attack phase's length: two
     // presentation clocks that the sim's own numbers drive, so that a leg and a
     // telegraph are drawn from what happened rather than from a wall clock. See
     // `STRIDE_PER_RADIUS` and `UNIT_STRIDE`'s own prose.
-    row[31] = stride.to_f32();
-    row[32] = f32::from(swing_span);
+    row[UNIT_STRIDE_PHASE] = stride.to_f32();
+    row[UNIT_SWING_SPAN] = f32::from(swing_span);
 }
 
 /// An action code, or [`SLOT_EMPTY`] for a slot nothing is in.

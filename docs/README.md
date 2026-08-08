@@ -15,7 +15,7 @@ now supersedes each moved section.
 - **Player:** [game status](../README.md#status), then [getting started](../README.md#getting-started).
 - **Contributor:** [repository commands](../AGENTS.md#commands), the [crate dependency graph](architecture/overview.md#current-crate-graph), the canonical [determinism contract](reference/determinism.md#contract), the [hash domains](reference/hashes.md#hash-primitive-and-current-domains), then the [completion gate](../AGENTS.md#before-you-call-it-done).
 - **Mechanics author:** [determinism](reference/determinism.md#contract), [simulation flow](architecture/simulation.md#one-tick-in-current-order), [combat rationale](design/combat.md#the-swing), and [commands](reference/commands.md#policy-output-command).
-- **Renderer author:** [browser runtime](architecture/browser-runtime.md#current-flow), [worker protocol](reference/worker-protocol.md#messages-and-command-scheduling), [frame ABI](reference/frame-abi.md#current-layout), [presentation rationale](design/presentation.md#renderer-roles), and [performance evidence](performance/README.md#performance-evidence).
+- **Renderer author:** [browser runtime](architecture/browser-runtime.md#current-flow), [worker protocol](reference/worker-protocol.md#messages-and-command-scheduling), [renderer snapshot copies](reference/renderer-contract.md#renderer-owned-snapshot-boundary), [presentation identity](reference/renderer-contract.md#presentation-identity), [visibility presence](reference/renderer-contract.md#visibility-and-subsystem-presence), [interpolation](reference/renderer-contract.md#interpolation-timeline), [backend lifecycle](reference/renderer-contract.md#backend-selection-and-loss), [frame ABI](reference/frame-abi.md#current-layout), [presentation rationale](design/presentation.md#renderer-roles), and [performance matrix](performance/v2-reference-matrix.md#measurement-record).
 - **Policy researcher:** [policy boundary](architecture/policy.md#the-complete-policy-seam), [observation layout](reference/commands.md#policy-input-observation), and [replay boundary](architecture/replay-hashing.md#current-replay-flow).
 
 ## Normative contract markers
@@ -46,7 +46,12 @@ Current marked contracts are [determinism](reference/determinism.md#contract), t
 [worker messages](reference/worker-protocol.md#messages-and-command-scheduling), the
 [worker lifecycle](reference/worker-protocol.md#lifecycle-and-terminal-state), the
 [snapshot pool](reference/worker-protocol.md#snapshot-layout-and-buffer-ownership), and
-[worker visibility filtering](reference/worker-protocol.md#visibility-filtering).
+[worker visibility filtering](reference/worker-protocol.md#visibility-filtering), the
+[renderer snapshot-copy boundary](reference/renderer-contract.md#renderer-owned-snapshot-boundary),
+[presentation identity](reference/renderer-contract.md#presentation-identity),
+[renderer visibility presence](reference/renderer-contract.md#visibility-and-subsystem-presence),
+[interpolation timeline](reference/renderer-contract.md#interpolation-timeline), and
+[renderer backend lifecycle](reference/renderer-contract.md#backend-selection-and-loss).
 
 ## Target hierarchy
 

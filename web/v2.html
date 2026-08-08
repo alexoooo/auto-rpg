@@ -7,7 +7,7 @@
   <style>
     :root { color-scheme: dark; font: 16px/1.45 system-ui, sans-serif; background: #11151b; color: #e8edf3; }
     body { margin: 0; min-height: 100vh; display: grid; place-items: center; }
-    main { width: min(58rem, calc(100% - 2rem)); }
+    main { width: min(76rem, calc(100% - 2rem)); }
     h1 { font-size: 1.5rem; margin-bottom: .25rem; }
     p { color: #aeb9c6; }
     fieldset { border: 1px solid #34404d; border-radius: .5rem; margin: 1rem 0; padding: 1rem; }
@@ -15,25 +15,33 @@
     label { display: grid; gap: .2rem; color: #aeb9c6; font-size: .8rem; }
     input, button { font: inherit; padding: .45rem .65rem; border-radius: .35rem; border: 1px solid #465568; }
     input { width: 7rem; background: #171e27; color: inherit; }
+    input[type="text"] { width: 12rem; }
     button { background: #26374b; color: inherit; cursor: pointer; }
     button:hover { background: #304760; }
     output, pre { display: block; white-space: pre-wrap; overflow-wrap: anywhere; }
     #status { color: #8fd3a8; }
     #error { color: #ff9d9d; min-height: 1.5em; }
     pre { background: #0b0f14; padding: 1rem; border-radius: .5rem; }
+    #greybox { display: block; width: 100%; aspect-ratio: 16 / 9; background: #080b0f;
+      border: 1px solid #34404d; border-radius: .5rem; touch-action: none; }
+    .legacy-link { font-size: .85rem; }
   </style>
 </head>
 <body>
   <main>
     <h1>v2 worker boundary</h1>
-    <p>This diagnostic page renders no game yet. It proves the simulation, commands,
-      snapshots, and fixed buffer pool cross the module-worker boundary.</p>
+    <p>The worker-owned simulation is rendered through the v2 procedural GPU greybox.
+      Backend selection and the complete disclosed-state registry are shown below.</p>
+    <canvas id="greybox" width="1280" height="720" aria-label="Procedural game view"></canvas>
+    <p class="legacy-link">Click known floor to move. Drag with the primary, middle, or
+      secondary button to pan; use the wheel to zoom and Escape to withdraw.</p>
+    <p class="legacy-link">The Canvas renderer remains separate: <a href="/index.html">open the legacy page</a>.</p>
     <fieldset>
       <legend>Lifecycle</legend>
       <div class="controls">
         <label>Seed <input id="seed" type="number" min="0" max="4294967295" value="1"></label>
-        <button id="reset" type="button">Reset</button>
-        <button id="pause" type="button">Pause</button>
+        <button id="reset" data-sim-control type="button">Reset</button>
+        <button id="pause" data-sim-control type="button">Pause</button>
       </div>
     </fieldset>
     <fieldset>
@@ -41,9 +49,9 @@
       <div class="controls">
         <label>Goto X <input id="goto-x" type="number" value="1000"></label>
         <label>Goto Y <input id="goto-y" type="number" value="1000"></label>
-        <button id="goto" type="button">Goto</button>
-        <button id="withdraw" type="button">Withdraw</button>
-        <button id="spawn" type="button">Spawn</button>
+        <button id="goto" data-sim-control type="button">Goto</button>
+        <button id="withdraw" data-sim-control type="button">Withdraw</button>
+        <button id="spawn" data-sim-control type="button">Spawn</button>
       </div>
     </fieldset>
     <fieldset>
@@ -51,9 +59,25 @@
       <p>Opt in to retain the next three distinct snapshot leases. The worker keeps
         acknowledging advances while snapshots coalesce; release restores the latest publication.</p>
       <div class="controls">
-        <button id="diagnostic-hold-buffers" type="button">Hold next three snapshots</button>
-        <button id="diagnostic-release-buffers" type="button" disabled>Release held snapshots</button>
+        <button id="diagnostic-hold-buffers" data-sim-control type="button">Hold next three snapshots</button>
+        <button id="diagnostic-release-buffers" data-sim-control type="button" disabled>Release held snapshots</button>
       </div>
+    </fieldset>
+    <fieldset>
+      <legend>Visible foreground performance capture</legend>
+      <p>Available only for <code>?stress=greybox</code>. Starting sets the canvas to
+        the named 1920 × 1080 reference size, warms for 30 seconds, then samples for 120 seconds.</p>
+      <div class="controls">
+        <label>OS <input id="perf-os" type="text" placeholder="Windows build"></label>
+        <label>CPU <input id="perf-cpu" type="text" placeholder="CPU"></label>
+        <label>GPU <input id="perf-gpu" type="text" placeholder="GPU"></label>
+        <label>Driver <input id="perf-driver" type="text" placeholder="Driver"></label>
+        <label>Browser <input id="perf-browser" type="text" placeholder="Browser build"></label>
+        <label>Power <input id="perf-power" type="text" value="AC / high performance"></label>
+        <button id="performance-start" type="button">Start capture</button>
+        <button id="performance-download" type="button" disabled>Download raw JSON</button>
+      </div>
+      <output id="performance-status">Idle</output>
     </fieldset>
     <output id="status" aria-live="polite">Starting worker…</output>
     <output id="error" aria-live="assertive"></output>

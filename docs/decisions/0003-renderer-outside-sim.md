@@ -1,8 +1,8 @@
 # ADR 0003: Keep renderers outside simulation authority
 
-**Purpose:** Record why rendering is a snapshot consumer and why Canvas remains a reference while production moves toward GPU rendering.
+**Purpose:** Record why rendering is a snapshot consumer and why Canvas remains a reference beside the procedural GPU client.
 **Status:** current
-**Canonical source:** [`crates/sim/Cargo.toml`](../../crates/sim/Cargo.toml), [`crates/web/src/lib.rs`](../../crates/web/src/lib.rs#L2638), and [`web/main.js`](../../web/main.js#L11245)
+**Canonical source:** [`crates/sim/Cargo.toml`](../../crates/sim/Cargo.toml), [`crates/web/src/lib.rs`](../../crates/web/src/lib.rs#L2638), [`web/main.js`](../../web/main.js#L11245), and the [renderer contract](../reference/renderer-contract.md#renderer-owned-snapshot-boundary)
 **Update when:** A renderer gains authority, a new host boundary ships, or the production renderer choice changes.
 
 ## Decision
@@ -11,10 +11,10 @@
 that crate, consumes observations or snapshots, and cannot write presentation types
 back into `Scenario`, `World`, submitted commands, replay, or hash domains.
 
-The current Canvas client remains the reference/debug renderer. The proposed v2
-production renderer is GPU-based and separate from the authoritative wasm instance.
-Both clients must consume the same authoritative visibility and identity information;
-neither may infer a second gameplay truth from scene geometry.
+The current Canvas client remains the reference/debug renderer. The shipped v2
+procedural greybox is GPU-based and consumes copied snapshots from a Worker-owned
+wasm instance. Both clients consume the same authoritative visibility and identity
+information; neither may infer a second gameplay truth from scene geometry.
 
 ## Why
 
@@ -26,8 +26,9 @@ quietly becoming game state.
 
 Canvas has known performance ceilings, but it is also the known behavioral control.
 Replacing it outright would remove the comparison instrument at the moment a new
-renderer needs one. The GPU client is therefore a production bet, not a rewrite of
-simulation ownership.
+renderer needs one. The GPU client is therefore a reversible presentation bet, not a
+rewrite of simulation ownership. Its renderer seam has shipped; production art and
+its foreground performance decision remain separate gates.
 
 ## Consequences
 
@@ -35,7 +36,7 @@ simulation ownership.
 - Renderer-specific interpolation, particles, cameras, assets, and wall clocks remain
   presentation state.
 - Authoritative fog and stable entity handles cross the boundary explicitly.
-- Canvas stays runnable for debugging and A/B comparisons when the GPU client ships.
+- Canvas stays runnable for debugging and A/B comparisons beside the GPU client.
 - Any renderer protocol change must preserve or version its handshake rather than
   reaching into `World` directly.
 

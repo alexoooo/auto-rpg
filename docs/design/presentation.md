@@ -2,7 +2,7 @@
 
 **Purpose:** Preserve the shipped visual language and the boundary between gameplay readouts and rendering style.
 **Status:** current
-**Canonical source:** [`web/main.js`](../../web/main.js#L6512), [`web/style.css`](../../web/style.css), and [`web/assets/ASSET_SPEC.md`](../../web/assets/ASSET_SPEC.md)
+**Canonical source:** [`web/main.js`](../../web/main.js#L6512), [`web/style.css`](../../web/style.css), [`web/assets/ASSET_SPEC.md`](../../web/assets/ASSET_SPEC.md), and the [renderer contract](../reference/renderer-contract.md#renderer-owned-snapshot-boundary)
 **Update when:** Art direction, view-mode controls, HUD language, or the reference renderer changes.
 
 ## A warm, legible room
@@ -49,10 +49,12 @@ The shipped Canvas renderer remains the playable reference and diagnostic render
 It is the control for simulation, visibility, and presentation comparisons, and its
 Tactical and Dev modes remain useful even after a production client exists.
 
-The production bet is a separate GPU client. It may use a different presentation
-stack, but it reads snapshots and never owns authoritative state. This is a proposed
-v2 direction, not a claim about the currently shipped path; the durable rationale is
-recorded in [ADR 0003](../decisions/0003-renderer-outside-sim.md).
+The shipped v2 presentation proof is a separate procedural Babylon greybox. It reads
+renderer-owned snapshot copies, repeats the authoritative visibility boundary, and
+never owns simulation state. It establishes the replaceable client seam and backend
+fallback, but it does not yet establish production art or pass the pending foreground
+performance gate. The durable rationale is recorded in
+[ADR 0003](../decisions/0003-renderer-outside-sim.md).
 
 ## Superseded DESIGN destinations
 

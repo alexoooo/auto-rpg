@@ -339,7 +339,7 @@ Open the Vite origin at `/v2.html`. The diagnostic's TypeScript module graph req
 Vite; `tools/serve.js` serves only the classic Canvas files and cannot serve v2.
 Both development and production host the v2 entry and wasm artifact at the origin
 root as `/v2.html` and `/web.wasm`. See the
-[browser runtime](docs/architecture/browser-runtime.md#worker-diagnostic-path) for
+[browser runtime](docs/architecture/browser-runtime.md#worker-renderer-path) for
 the ownership boundary.
 
 The room is the page. The camera is centred on your character and clamped to the

@@ -292,20 +292,25 @@ test("every_architecture_document_has_the_standard_header", () => {
 test("current_architecture_does_not_present_v2_types_as_shipped", () => {
   const root = architectureFixture();
   fs.appendFileSync(path.join(root, "docs/architecture/simulation.md"), [
-    "", "Worker ships today, not tomorrow.", "", "## Proposed Worker", "", "> Babylon ships today.", "",
+    "", "Worker ships today, not tomorrow.", "", "Babylon and WebGPU ship here today.",
+    "", "## Proposed Worker", "", "> Babylon ships today.", "",
   ].join("\n"));
   const errors = checkArchitecture(root).join("\n");
   fs.rmSync(root, { recursive: true, force: true });
   assert.match(errors, /Worker is an unboxed v2 term/);
   assert.match(errors, /Babylon is an unboxed v2 term/);
+  assert.match(errors, /WebGPU is an unboxed v2 term/);
 
   const browser = architectureFixture();
   fs.appendFileSync(path.join(browser, "docs/architecture/browser-runtime.md"),
-    "\nThe Worker diagnostic ships as a current browser entry. Babylon ships today.\n");
+    "\nThe Worker path, Babylon greybox, and WebGPU backend ship today. GLB art and articulated actors ship today.\n");
   const browserErrors = checkArchitecture(browser).join("\n");
   fs.rmSync(browser, { recursive: true, force: true });
   assert.doesNotMatch(browserErrors, /Worker is an unboxed v2 term/);
-  assert.match(browserErrors, /Babylon is an unboxed v2 term/);
+  assert.doesNotMatch(browserErrors, /Babylon is an unboxed v2 term/);
+  assert.doesNotMatch(browserErrors, /WebGPU is an unboxed v2 term/);
+  assert.match(browserErrors, /GLB is an unboxed v2 term/);
+  assert.match(browserErrors, /articulated is an unboxed v2 term/);
 });
 
 test("architecture_source_anchors_resolve", () => {

@@ -1,24 +1,25 @@
 # Browser runtime
 
-**Purpose:** Describe the two current browser entries, their wasm ownership, memory handshakes, and visibility data.
+**Purpose:** Describe the Canvas and procedural v2 browser entries, their wasm ownership, rendering boundaries, memory handshakes, and visibility data.
 **Status:** current
-**Canonical source:** [`crates/web/src/lib.rs`](../../crates/web/src/lib.rs), [`web/main.js`](../../web/main.js), [`client/src/runtime/sim.worker.ts`](../../client/src/runtime/sim.worker.ts), and [`client/src/runtime/sim-client.ts`](../../client/src/runtime/sim-client.ts)
+**Canonical source:** [`crates/web/src/lib.rs`](../../crates/web/src/lib.rs), [`web/main.js`](../../web/main.js), [`client/src/runtime/sim.worker.ts`](../../client/src/runtime/sim.worker.ts), [`client/src/runtime/sim-client.ts`](../../client/src/runtime/sim-client.ts), and the [renderer contract](../reference/renderer-contract.md#renderer-owned-snapshot-boundary)
 **Update when:** The wasm ABI, buffer ownership, browser execution context, frame parser, visibility publication, or rendering backend changes.
 
 Two browser entries ship. The game at [`web/index.html`](../../web/index.html) is a
 classic-script Canvas application with no JavaScript build step. It loads `draw.js`,
 `rig.js`, `assets.js`, then `main.js` in dependency order, and `main.js` fetches and
-instantiates `web.wasm` on the browser's main thread. The diagnostic entry at
+instantiates `web.wasm` on the browser's main thread. The v2 entry at
 [`web/v2.html`](../../web/v2.html) is built by Vite and owns the same legacy
-simulation behind a module Worker. It proves bounded ownership and command transport;
-it deliberately does not render the game or replace the Canvas entry.
+simulation behind a module Worker. It renders disclosed snapshots as a procedural
+Babylon greybox while retaining lifecycle, command, buffer, and backend diagnostics.
+It is a presentation proof rather than a replacement for the playable Canvas entry.
 
 ## Current flow
 
 ```mermaid
 flowchart LR
     I[Legacy DOM input and animation clock] --> J[web/main.js]
-    D[v2 diagnostic controls] --> K[SimClient]
+    D[v2 controls and animation clock] --> K[SimClient]
     K -->|typed messages and returned leases| W[sim.worker.ts]
     W -->|integer C ABI calls| E[crates/web exports]
     J -->|integer C ABI calls| E
@@ -28,6 +29,8 @@ flowchart LR
     M --> V[main.js typed-array views and copies]
     M -->|atomic filtered copy| W
     W -->|one of three transferred snapshots| K
+    K -->|synchronous renderer-owned copy| R[Presentation snapshots]
+    R -->|identity, visibility, interpolation| G[Babylon greybox]
     V --> P[frame parse and level bake]
     P --> C[Canvas display list and HUD]
 ```
@@ -96,7 +99,7 @@ into JavaScript-owned arrays. Revisions decide when the level bake must be rebui
 On the legacy page this is still a direct-memory ABI: the copy is made by the
 consumer, not posted by a worker or serialized by Rust.
 
-## Worker diagnostic path
+## Worker renderer path
 
 Only [`sim.worker.ts`](../../client/src/runtime/sim.worker.ts) fetches and instantiates
 wasm for the v2 entry. It reads all publication scalars before constructing wasm
@@ -108,10 +111,23 @@ lease. The exact [message and scheduling contract](../reference/worker-protocol.
 and [snapshot ownership contract](../reference/worker-protocol.md#snapshot-layout-and-buffer-ownership)
 are durable reference authority.
 
-The diagnostic page sends init, reset, pause, advance, goto, withdraw, and spawn
-requests and displays epoch, tick, sequence, queue, coalescing, and buffer ownership
-counters. It has no renderer. The legacy Canvas path remains the playable browser
-runtime while later presentation work builds on this worker boundary.
+The v2 page sends init, reset, pause, advance, goto, withdraw, and spawn requests and
+displays epoch, tick, sequence, queue, coalescing, buffer ownership, and backend
+counters. During each snapshot callback it synchronously copies the live leased
+views into renderer-owned immutable presentation records. Babylon sees only those
+copies. The exact [copy boundary](../reference/renderer-contract.md#renderer-owned-snapshot-boundary),
+[presentation identity](../reference/renderer-contract.md#presentation-identity),
+and [interpolation timeline](../reference/renderer-contract.md#interpolation-timeline)
+are durable reference authority.
+
+The procedural scene uses a right-handed `(x, elevation, y)` mapping, a fixed
+isometric camera, instanced known tiles, generational unit meshes, and snapshot-local
+shots and events. WebGPU is attempted in automatic mode; a recorded support or
+initialization failure falls back to an explicit WebGL2 context. Backend loss stops
+the renderer rather than silently switching during a run. The exact
+[backend lifecycle](../reference/renderer-contract.md#backend-selection-and-loss)
+is shared by the page and its diagnostics. The legacy Canvas path remains the
+playable reference browser runtime.
 
 For local v2 development, `npm run dev` first builds the release web wasm and then
 starts Vite. Open `/v2.html` on the printed Vite origin. The dependency-free
@@ -136,17 +152,19 @@ This fog is presentation state derived from the authoritative world. It is absen
 from `World::state_hash`, and headless lab runs do not compute it. World view consumes
 it to hide unknown space and dim remembered space; Tactical/Dev controls may disable
 fog deliberately for inspection. The renderer is not entitled to replace the
-published answer with a camera frustum or its own ray cast.
+published answer with a camera frustum or its own ray cast. The v2 renderer applies
+the same [subsystem presence gate](../reference/renderer-contract.md#visibility-and-subsystem-presence)
+to meshes, shadows, labels, effects, audio, picking, and debug records.
 
-> **Proposed by v2 -- not shipped:** Later work may try a Babylon GPU renderer and
-> publish articulated pose/event data. Those presentation components are not part of
+> **Proposed by v2 -- not shipped:** Later work may load GLB room and combatant art
+> and publish articulated pose/event data. Those assets and layouts are not part of
 > either current browser entry.
 
 ## Source anchors
 
-- Fixed publication pools: [`thread_local!`](../../crates/web/src/lib.rs#L666)
-- Packed frame writer: [`Sim::write_frame`](../../crates/web/src/lib.rs#L2638)
-- Hand-written wasm exports: [`init`](../../crates/web/src/lib.rs#L3121)
+- Fixed publication pools: [`thread_local!`](../../crates/web/src/lib.rs#L715)
+- Packed frame writer: [`Sim::write_frame`](../../crates/web/src/lib.rs#L2687)
+- Hand-written wasm exports: [`init`](../../crates/web/src/lib.rs#L3170)
 - Worker adapter and atomic scalar phase: [`readPublication`](../../client/src/runtime/sim.worker.ts#L64)
 - Pure protocol host: [`SimWorkerHost`](../../client/src/runtime/sim-worker-host.ts#L35)
 - Main-thread lease owner: [`SimClient`](../../client/src/runtime/sim-client.ts#L122)

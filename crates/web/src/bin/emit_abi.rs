@@ -7,10 +7,15 @@
 
 use std::{env, fmt::Write as _, fs, process};
 
-use web::{
-    EVENT_STRIDE, FRAME_LAYOUT_VERSION, FRAME_MAX, FURNITURE_MAX, FURNITURE_STRIDE,
-    HEADER_LEN, MAP_MAX, MAX_EVENTS, MAX_SHOTS, MAX_UNITS, SHOT_STRIDE, UNIT_STRIDE,
-};
+use web::*;
+
+const RAW_ANGLE_TURN: usize = u16::MAX as usize + 1;
+const MAP_TILE_MILLI: u32 = TILE_MILLI;
+// `write_map` publishes `u8::from(dungeon.solid(...))`: furniture, including
+// doors, is a separate publication and has no third map-cell code.
+const MAP_OPEN: u8 = false as u8;
+const MAP_SOLID: u8 = true as u8;
+const MAP_UNKNOWN: u8 = u8::MAX;
 
 const HEADER_ARENA_X: usize = 0;
 const HEADER_ARENA_Y: usize = 1;
@@ -28,9 +33,8 @@ const HEADER_PORTAL_STATE: usize = 12;
 const HEADER_DEPTH: usize = 13;
 const HEADER_EVENTS_DROPPED: usize = 14;
 
-const UNIT_ENTITY_INDEX: usize = 9;
-const UNIT_ENTITY_GENERATION: usize = 10;
-const UNIT_VISIBLE: usize = 28;
+const FURNITURE_DOOR_SHUT: u8 = 0;
+const FURNITURE_DOOR_OPEN: u8 = 1;
 
 const fn align4(value: usize) -> usize {
     (value + 3) & !3
@@ -89,16 +93,88 @@ fn generated() -> String {
     emit!(HEADER_DEPTH);
     emit!(HEADER_EVENTS_DROPPED);
     output.push('\n');
+    emit!(RAW_ANGLE_TURN);
+    emit!(MAP_TILE_MILLI);
+    emit!(MAP_OPEN);
+    emit!(MAP_SOLID);
+    emit!(MAP_UNKNOWN);
+    output.push('\n');
+    emit!(UNIT_X);
+    emit!(UNIT_Y);
+    emit!(UNIT_FACING_RAW);
+    emit!(UNIT_RADIUS);
+    emit!(UNIT_HP);
+    emit!(UNIT_MAX_HP);
+    emit!(UNIT_FACTION);
+    emit!(UNIT_KIND);
+    emit!(UNIT_INTENT);
     emit!(UNIT_ENTITY_INDEX);
     emit!(UNIT_ENTITY_GENERATION);
+    emit!(UNIT_LIMB_ANGLE_RAW);
+    emit!(UNIT_LIMB_REACH);
+    emit!(UNIT_LIMB_SPIN);
+    emit!(UNIT_ACTION_LENGTH);
+    emit!(UNIT_ACTION_ARC_RAW);
+    emit!(UNIT_HIT_FLASH);
+    emit!(UNIT_BLOCK_FLASH);
+    emit!(UNIT_PARRY_FLASH);
+    emit!(UNIT_LIMB_SWING);
+    emit!(UNIT_LIMB_SWING_LEFT);
+    emit!(UNIT_LIMB_LINE_RAW);
+    emit!(UNIT_ACTION_KIND);
+    emit!(UNIT_ACTION_ROLE);
+    emit!(UNIT_SLOT);
+    emit!(UNIT_SLOT0_ACTION);
+    emit!(UNIT_SLOT1_ACTION);
+    emit!(UNIT_SIGHT_RANGE);
     emit!(UNIT_VISIBLE);
+    emit!(UNIT_VX);
+    emit!(UNIT_VY);
+    emit!(UNIT_STRIDE_PHASE);
+    emit!(UNIT_SWING_SPAN);
+    output.push('\n');
+    emit!(SHOT_X);
+    emit!(SHOT_Y);
+    emit!(SHOT_HEADING_RAW);
+    emit!(SHOT_FACTION);
+    output.push('\n');
+    emit!(EVENT_KIND);
+    emit!(EVENT_X);
+    emit!(EVENT_Y);
+    emit!(EVENT_AMOUNT);
+    emit!(EVENT_ACTOR_INDEX);
+    emit!(EVENT_OTHER_INDEX);
+    emit!(EVENT_AUX0);
+    emit!(EVENT_AUX1);
+    emit!(EVENT_DAMAGE);
+    emit!(EVENT_BLOCK);
+    emit!(EVENT_PARRY);
+    emit!(EVENT_DECLARE);
+    emit!(EVENT_DEATH);
+    emit!(EVENT_LOOSE);
+    emit!(EVENT_PHASE);
+    emit!(EVENT_STEP);
+    emit!(EVENT_SHOVE);
+    emit!(EVENT_PORTAL);
+    emit!(EVENT_DESCEND);
+    emit!(EVENT_KINDS);
+    output.push('\n');
+    emit!(FURNITURE_KIND);
+    emit!(FURNITURE_TX);
+    emit!(FURNITURE_TY);
+    emit!(FURNITURE_STATE);
+    emit!(FURNITURE_DOOR);
+    emit!(FURNITURE_TORCH);
+    emit!(FURNITURE_DOOR_SHUT);
+    emit!(FURNITURE_DOOR_OPEN);
+    emit!(TORCH_FACE_POS_X);
+    emit!(TORCH_FACE_POS_Y);
     output.push_str(
         "\nexport const FOCUS_NONE = 4294967295;\n\
          export const FOCUS_IDENTITY_EXPORTS = [\n\
          \x20 \"focus_entity_index\",\n\
          \x20 \"focus_entity_generation\",\n\
-         ] as const;\n\n\
-         export const MAP_UNKNOWN = 255;\n",
+         ] as const;\n",
     );
     output
 }
@@ -136,5 +212,31 @@ mod tests {
         assert!(VIS_OFFSET >= MAP_OFFSET + MAP_MAX);
         assert!(FURNITURE_OFFSET >= VIS_OFFSET + MAP_MAX);
         assert!(SNAPSHOT_BUFFER_BYTES >= FURNITURE_OFFSET + FURNITURE_MAX * FURNITURE_STRIDE);
+    }
+
+    #[test]
+    fn generated_presentation_offsets_cover_every_packed_column() {
+        assert_eq!([
+            UNIT_X, UNIT_Y, UNIT_FACING_RAW, UNIT_RADIUS, UNIT_HP, UNIT_MAX_HP,
+            UNIT_FACTION, UNIT_KIND, UNIT_INTENT, UNIT_ENTITY_INDEX,
+            UNIT_ENTITY_GENERATION, UNIT_LIMB_ANGLE_RAW, UNIT_LIMB_REACH,
+            UNIT_LIMB_SPIN, UNIT_ACTION_LENGTH, UNIT_ACTION_ARC_RAW, UNIT_HIT_FLASH,
+            UNIT_BLOCK_FLASH, UNIT_PARRY_FLASH, UNIT_LIMB_SWING, UNIT_LIMB_SWING_LEFT,
+            UNIT_LIMB_LINE_RAW, UNIT_ACTION_KIND, UNIT_ACTION_ROLE, UNIT_SLOT,
+            UNIT_SLOT0_ACTION, UNIT_SLOT1_ACTION, UNIT_SIGHT_RANGE, UNIT_VISIBLE,
+            UNIT_VX, UNIT_VY, UNIT_STRIDE_PHASE, UNIT_SWING_SPAN,
+        ], core::array::from_fn::<_, UNIT_STRIDE, _>(|index| index));
+        assert_eq!([SHOT_X, SHOT_Y, SHOT_HEADING_RAW, SHOT_FACTION],
+            core::array::from_fn::<_, SHOT_STRIDE, _>(|index| index));
+        assert_eq!([
+            EVENT_KIND, EVENT_X, EVENT_Y, EVENT_AMOUNT, EVENT_ACTOR_INDEX,
+            EVENT_OTHER_INDEX, EVENT_AUX0, EVENT_AUX1,
+        ], core::array::from_fn::<_, EVENT_STRIDE, _>(|index| index));
+        assert_eq!([FURNITURE_KIND, FURNITURE_TX, FURNITURE_TY, FURNITURE_STATE],
+            core::array::from_fn::<_, FURNITURE_STRIDE, _>(|index| index));
+        assert_eq!(EVENT_DESCEND + 1, EVENT_KINDS);
+        assert_eq!((MAP_OPEN, MAP_SOLID, MAP_UNKNOWN), (0, 1, 255));
+        assert_eq!(RAW_ANGLE_TURN, 65536);
+        assert_eq!(MAP_TILE_MILLI, 1000);
     }
 }

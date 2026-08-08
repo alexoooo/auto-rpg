@@ -36,14 +36,85 @@ export const HEADER_PORTAL_STATE = 12;
 export const HEADER_DEPTH = 13;
 export const HEADER_EVENTS_DROPPED = 14;
 
+export const RAW_ANGLE_TURN = 65536;
+export const MAP_TILE_MILLI = 1000;
+export const MAP_OPEN = 0;
+export const MAP_SOLID = 1;
+export const MAP_UNKNOWN = 255;
+
+export const UNIT_X = 0;
+export const UNIT_Y = 1;
+export const UNIT_FACING_RAW = 2;
+export const UNIT_RADIUS = 3;
+export const UNIT_HP = 4;
+export const UNIT_MAX_HP = 5;
+export const UNIT_FACTION = 6;
+export const UNIT_KIND = 7;
+export const UNIT_INTENT = 8;
 export const UNIT_ENTITY_INDEX = 9;
 export const UNIT_ENTITY_GENERATION = 10;
+export const UNIT_LIMB_ANGLE_RAW = 11;
+export const UNIT_LIMB_REACH = 12;
+export const UNIT_LIMB_SPIN = 13;
+export const UNIT_ACTION_LENGTH = 14;
+export const UNIT_ACTION_ARC_RAW = 15;
+export const UNIT_HIT_FLASH = 16;
+export const UNIT_BLOCK_FLASH = 17;
+export const UNIT_PARRY_FLASH = 18;
+export const UNIT_LIMB_SWING = 19;
+export const UNIT_LIMB_SWING_LEFT = 20;
+export const UNIT_LIMB_LINE_RAW = 21;
+export const UNIT_ACTION_KIND = 22;
+export const UNIT_ACTION_ROLE = 23;
+export const UNIT_SLOT = 24;
+export const UNIT_SLOT0_ACTION = 25;
+export const UNIT_SLOT1_ACTION = 26;
+export const UNIT_SIGHT_RANGE = 27;
 export const UNIT_VISIBLE = 28;
+export const UNIT_VX = 29;
+export const UNIT_VY = 30;
+export const UNIT_STRIDE_PHASE = 31;
+export const UNIT_SWING_SPAN = 32;
+
+export const SHOT_X = 0;
+export const SHOT_Y = 1;
+export const SHOT_HEADING_RAW = 2;
+export const SHOT_FACTION = 3;
+
+export const EVENT_KIND = 0;
+export const EVENT_X = 1;
+export const EVENT_Y = 2;
+export const EVENT_AMOUNT = 3;
+export const EVENT_ACTOR_INDEX = 4;
+export const EVENT_OTHER_INDEX = 5;
+export const EVENT_AUX0 = 6;
+export const EVENT_AUX1 = 7;
+export const EVENT_DAMAGE = 0;
+export const EVENT_BLOCK = 1;
+export const EVENT_PARRY = 2;
+export const EVENT_DECLARE = 3;
+export const EVENT_DEATH = 4;
+export const EVENT_LOOSE = 5;
+export const EVENT_PHASE = 6;
+export const EVENT_STEP = 7;
+export const EVENT_SHOVE = 8;
+export const EVENT_PORTAL = 9;
+export const EVENT_DESCEND = 10;
+export const EVENT_KINDS = 11;
+
+export const FURNITURE_KIND = 0;
+export const FURNITURE_TX = 1;
+export const FURNITURE_TY = 2;
+export const FURNITURE_STATE = 3;
+export const FURNITURE_DOOR = 1;
+export const FURNITURE_TORCH = 2;
+export const FURNITURE_DOOR_SHUT = 0;
+export const FURNITURE_DOOR_OPEN = 1;
+export const TORCH_FACE_POS_X = 0;
+export const TORCH_FACE_POS_Y = 1;
 
 export const FOCUS_NONE = 4294967295;
 export const FOCUS_IDENTITY_EXPORTS = [
   "focus_entity_index",
   "focus_entity_generation",
 ] as const;
-
-export const MAP_UNKNOWN = 255;
