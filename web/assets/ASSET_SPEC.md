@@ -324,6 +324,8 @@ Every size is `world units × 86 px/unit`, and the arithmetic is shown.
 | **floor top face** | seamless square, 4 world units across | **344 × 344** | `4 × 86 = 344` | fully opaque |
 | **wall side face** | rectangle, 1 world unit wide × 1.6 tall, seen straight on | **86 × 138** | `1 × 86 = 86`; `1.6 × 86 = 137.6 → 138` | fully opaque |
 | **wall top face** | seamless square, 4 world units across | **344 × 344** | `4 × 86 = 344` | fully opaque |
+| **door top face** | seamless square, 4 world units across | **344 × 344** | `4 × 86 = 344` | fully opaque |
+| **door side face** | rectangle, 1 world unit wide × 1.6 tall, seen straight on | **86 × 138** | `1 × 86 = 86`; `1.6 × 86 = 137.6 → 138` | fully opaque |
 | **grime / moss / crack decals** | square, 1–2 world units, mostly transparent | **86 × 86** to **172 × 172** | `1 × 86 = 86`; `2 × 86 = 172` | transparent, tight-cropped |
 | **props** (barrel, crate, rubble) | upright billboard, seen straight on | height from its world height; a barrel at 0.8 units is **69 px tall** | `0.8 × 86 = 68.8 → 69` | transparent, tight-cropped |
 | **torch / lantern** | upright billboard, **3 flicker frames**, identical dimensions and identical base point across frames | ~0.9 units tall = **77 px tall** | `0.9 × 86 = 77.4 → 77` | transparent, tight-cropped |
@@ -352,6 +354,10 @@ face, not a repeating swatch.
 lit surface standing over ground the light no longer reaches, and in `CONCEPT.png` that
 difference is the single strongest value contrast in the room. Same 4-unit seamless square, same
 tiling rule, same coursed stones.
+
+**Door faces.** Heavy vertical timber with iron straps and visible joinery, authored through the
+same two transforms as a wall top and side. A door is not a flat brown occluder: the top catches
+the global light and the side carries enough hardware and grain to remain a door at room scale.
 
 **Decals.** Overlaid on the floor, **not tiled**. Mostly transparent — a decal is a patch of
 grime, a spread of moss, a crack, a rust stain, not a full square of texture.
@@ -745,6 +751,7 @@ The four archetype directories are the archetype's own lower-case name and nothi
 
 ```
 env/floor_a.png            env/wall_x.png          env/wall_top.png
+env/door_x.png             env/door_top.png
 env/moss_a.png             env/crack_a.png
 env/torch_0.png            env/torch_1.png         env/torch_2.png
 props/barrel.png           props/crate.png         props/rubble_a.png

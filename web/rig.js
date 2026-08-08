@@ -138,6 +138,7 @@ const RIG_LIMB = 0;
 const RIG_DISC = 1;
 const RIG_BLADE = 2;
 const RIG_SPRITE = 3;
+const RIG_LAYER_SPRITE = 4;
 
 /** Which piece a row is, for the poser. The table says *where a piece hangs*;
  *  `drawRig` says *what the sim is doing to it*, and this is the join. */
@@ -300,7 +301,7 @@ const RIG_RAMP = 2.4;
  * read, because a palette is `main.js`'s and this file's whole claim is that it
  * knows nothing it was not handed.
  *
- * **Dark at `x = -1`, lit at `x = +1`.** The rim light runs the same way (its
+ * **Dark at `x = -1`, lit at `x = +1`.** The material edge light runs the same way (its
  * gradient is `-0.7 -> 1.05` with the alpha climbing), so an unrotated segment
  * agrees with the body's own lit edge. A segment at a steep angle does not, and
  * that is accepted: at this size the ramp is doing *edge definition* -- the job
@@ -404,7 +405,8 @@ const RIG_UPRIGHT = [
   { slot: RIG_SLOT_ARM, shape: RIG_LIMB, grain: RIG_BOTH, tone: RIG_TONE_BODY,
     side:  0.62, a0: 0, h0: 0.94, a1: 0.10, h1: 0.44, wide: 0.14, swing: 0.24, phase: 0.5, main: 0 },
   { slot: RIG_SLOT_ARM, shape: RIG_LIMB, grain: RIG_BOTH, tone: RIG_TONE_BODY,
-    side: -0.62, a0: 0, h0: 0.94, a1: 0.10, h1: 0.44, wide: 0.14, swing: 0.24, phase: 0.0, main: 1 },
+    side: -0.62, a0: 0, h0: 0.94, a1: 0.10, h1: 0.44, wide: 0.14, swing: 0.24, phase: 0.0, main: 1,
+    layer: "armMain" },
   // The head. `a0` is the only forward offset in the table and it is a twentieth
   // of a radius -- about a pixel and a half at default framing -- which is
   // enough to say "this end is the front" and not enough to lift the crown off
@@ -412,7 +414,8 @@ const RIG_UPRIGHT = [
   { slot: RIG_SLOT_HEAD, shape: RIG_DISC, grain: RIG_FALLBACK, tone: RIG_TONE_HEAD,
     side:  0.00, a0: 0.05, h0: 0, a1: 0.05, h1: 0, wide: 1.00, swing: 0.00, phase: 0.0, main: 0 },
   { slot: RIG_SLOT_SHIELD, shape: RIG_DISC, grain: RIG_BOTH, tone: RIG_TONE_BODY,
-    side:  0.70, a0: 0, h0: 0.60, a1: 0, h1: 0.60, wide: 1.55, swing: 0.00, phase: 0.0, main: 0 },
+    side:  0.70, a0: 0, h0: 0.60, a1: 0, h1: 0.60, wide: 1.55, swing: 0.00, phase: 0.0, main: 0,
+    layer: "shield" },
   { slot: RIG_SLOT_WEAPON, shape: RIG_BLADE, grain: RIG_BOTH, tone: RIG_TONE_BODY,
     side:  0.00, a0: 0, h0: 0, a1: 0, h1: 0, wide: 0.00, swing: 0.00, phase: 0.0, main: 0 },
 ];

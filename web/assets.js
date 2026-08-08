@@ -3,7 +3,7 @@
 // **The manifest, and the images it names.**
 //
 // `web/assets/manifest.json` is the only place a filename appears. Nothing in
-// `web/*.js` spells one: a draw site asks for a *key* -- `env/floor_a`,
+// `web/*.js` spells one: a draw site asks for a *key* -- `env/floor_b`,
 // `actors/fighter`, `weapons/test_bar` -- and which file that resolves to, at
 // which facing and which frame, is the manifest's business. `{facing}` and
 // `{frame}` are substituted from the manifest's own lists **once, at parse**,
@@ -87,7 +87,16 @@ function assetWarn(what) {
 /** One file, one `Image`, one paint-table slot. Built empty at parse; the
  *  `Image` itself arrives on the first ask and never before. */
 function assetLeaf(file, repeat) {
-  return { file: file, repeat: repeat, state: ASSET_PENDING, paint: DL_NO_PAINT, img: null, w: 0, h: 0 };
+  return {
+    file: file,
+    repeat: repeat,
+    state: ASSET_PENDING,
+    paint: DL_NO_PAINT,
+    copies: null,
+    img: null,
+    w: 0,
+    h: 0,
+  };
 }
 
 /**
@@ -117,8 +126,18 @@ function assetParse(m) {
         );
       }
       entry.leaf = null;
+    } else if (entry.frames !== undefined) {
+      // An environmental animation is one manifest entry for the same reason an
+      // actor layer is: the naming pattern belongs to the data, and a painter
+      // chooses an integer frame without ever spelling a filename. Unlike an
+      // actor it has no facing axis, so `slots` is one flat row.
+      entry.slots = entry.frames.map((fr) => assetLeaf(entry.file.replace("{frame}", fr), false));
+      entry.leaf = null;
     } else {
-      entry.leaf = assetLeaf(entry.file, entry.kind === "surface");
+      // A face is a pattern too. Its image is authored straight-on and repeats
+      // through a matrix carrying one of the wall plane's two screen bases;
+      // `art-07` is where the second transform first exercises this arm.
+      entry.leaf = assetLeaf(entry.file, entry.kind === "surface" || entry.kind === "face");
     }
     out.set(key, entry);
   }
@@ -126,10 +145,10 @@ function assetParse(m) {
   return out;
 }
 
-/** The image arrived. Straight into the paint table, and a `surface` goes in as
- *  the `CanvasPattern` it will be used as -- `dlPatternStatic` is the paint
- *  source builder that exists for exactly this, and it keeps `createPattern` on
- *  `draw.js`'s side of the seam. */
+/** The image arrived. Straight into the paint table, and a repeating surface or
+ *  face goes in as the `CanvasPattern` it will be used as -- `dlPatternStatic`
+ *  is the paint source builder that exists for exactly this, and it keeps
+ *  `createPattern` on `draw.js`'s side of the seam. */
 function assetArrived(leaf, img) {
   leaf.w = img.naturalWidth;
   leaf.h = img.naturalHeight;
@@ -140,6 +159,7 @@ function assetArrived(leaf, img) {
     return;
   }
   leaf.paint = paint;
+  if (leaf.repeat) leaf.copies = [paint];
   leaf.state = ASSET_READY;
 }
 
@@ -179,6 +199,39 @@ function assetOf(key) {
 function assetPaint(key) {
   const entry = assetOf(key);
   return entry === null || entry.leaf === null ? DL_NO_PAINT : assetPaintOf(entry.leaf);
+}
+
+/**
+ * One of several independently aimed patterns over the same image.
+ *
+ * A wall's `+x` and `+y` faces use one authored rectangle and two matrices. A
+ * `CanvasPattern` holds only one matrix, and the display list is replayed after
+ * extraction has emitted both fills, so mutating one object twice would make
+ * both faces take the last matrix written. Copies share the decoded `Image` and
+ * differ only in that six-number transform. `copy = 0` is the leaf's ordinary
+ * paint and costs nothing extra.
+ */
+function assetPatternPaint(key, copy) {
+  const entry = assetOf(key);
+  if (entry === null || entry.leaf === null || !entry.leaf.repeat) return DL_NO_PAINT;
+  const leaf = entry.leaf;
+  if (assetPaintOf(leaf) < 0 || leaf.copies === null) return DL_NO_PAINT;
+  while (leaf.copies.length <= copy) {
+    const paint = dlPatternStatic(leaf.img, "repeat");
+    if (paint === DL_NO_PAINT) return DL_NO_PAINT;
+    leaf.copies.push(paint);
+  }
+  assetOutW = leaf.w;
+  assetOutH = leaf.h;
+  return leaf.copies[copy];
+}
+
+/** One frame of a non-actor animation, addressed by the manifest's own row. */
+function assetAnimationPaint(key, frame) {
+  const entry = assetOf(key);
+  if (entry === null || entry.slots === undefined) return DL_NO_PAINT;
+  const leaf = entry.slots[frame];
+  return leaf === undefined ? DL_NO_PAINT : assetPaintOf(leaf);
 }
 
 /** The paint index for one layer of one actor at one facing and one frame, by

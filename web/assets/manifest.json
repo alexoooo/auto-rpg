@@ -2,14 +2,30 @@
   "version": 1,
   "px_per_world_unit": 86,
   "assets": {
-    "env/floor_a": { "file": "env/floor_a.png", "kind": "surface", "world": 4 },
+    "env/floor_b": { "file": "env/floor_b.png", "kind": "surface", "world": 4 },
+    "env/wall_x": { "file": "env/wall_x.png", "kind": "face", "world": [1, 1.6] },
+    "env/wall_top": { "file": "env/wall_top.png", "kind": "surface", "world": 4 },
+    "env/door_x": { "file": "env/door_x.png", "kind": "face", "world": [1, 1.6] },
+    "env/door_top": { "file": "env/door_top.png", "kind": "surface", "world": 4 },
+    "env/torch": {
+      "file": "env/torch_{frame}.png",
+      "kind": "billboard",
+      "frames": ["0", "1", "2"],
+      "anchor": [11, 77],
+      "world_h": 0.9
+    },
+    "weapons/knife": { "file": "weapons/knife.png", "kind": "weapon", "hilt": [0, 5], "tip": [33, 5] },
+    "weapons/shortsword": { "file": "weapons/shortsword.png", "kind": "weapon", "hilt": [0, 4], "tip": [46, 4] },
+    "weapons/sword": { "file": "weapons/sword.png", "kind": "weapon", "hilt": [0, 5], "tip": [81, 5] },
     "weapons/test_bar": { "file": "weapons/test_bar.png", "kind": "weapon", "hilt": [0, 20], "tip": [191, 20] },
     "actors/fighter": {
       "kind": "actor",
       "facings": ["s", "sw", "w", "nw", "n", "ne", "e", "se"],
       "cell": [128, 160],
       "layers": {
-        "body": { "file": "fighter/body_{facing}_{frame}.png", "frames": ["idle", "walk1", "walk2", "walk3"], "anchor": [64, 160] }
+        "body": { "file": "fighter/body_{facing}_{frame}.png", "frames": ["idle", "walk1", "walk2", "walk3"], "anchor": [64, 160] },
+        "armMain": { "file": "fighter/arm_{facing}.png", "pivot": [64, 72] },
+        "shield": { "file": "fighter/shield_{facing}.png", "pivot": [64, 72] }
       }
     }
   }

@@ -1,6 +1,8 @@
 # Calibration: NOT PASSED
 
-No calibration batch has been delivered yet. **Mass production must not begin.**
+Stage 1 passed on 2026-08-07. Stage 2's files and in-game composition passed on 2026-08-08;
+mass production remains gated only on the repeated visible-browser performance control required
+by `art-08` acceptance item 12. A hidden automated tab is not valid evidence for that number.
 
 This heading is the gate. It is the first thing to read in this file and the first thing to
 change when a gate is held. While it says `NOT PASSED`, only the calibration batch named below
@@ -8,8 +10,8 @@ may be produced — nothing else, however easy it would be to draw.
 
 | gate | what it covers | status |
 |---|---|---|
-| **Stage 1 — the room** | one floor top face, one wall side-face and top-face pair, one torch | **NOT PASSED** — not yet delivered |
-| **Stage 2 — the body** | one archetype (the Fighter) complete: composite body in 8 facings × 4 frames, arm layer, shield layer, plus 2–3 weapons | **NOT PASSED** — blocked on stage 1 |
+| **Stage 1 — the room** | one floor top face, one wall side-face and top-face pair, one torch | **PASSED — 2026-08-07** |
+| **Stage 2 — the body** | one archetype (the Fighter) complete: composite body in 8 facings × 4 frames, arm layer, shield layer, plus 2–3 weapons | **VISUAL PASS — 2026-08-08; visible performance control pending** |
 
 **Why calibration gets a gate of its own.** Mass production reuses whatever passed calibration —
 the same settings, the same prompts, the same look, changing only the subject. So a defect that
@@ -120,15 +122,18 @@ else.
 
 ## Pipeline fixtures — not art, do not regenerate
 
-Three PNGs exist to prove that the loading and drawing path works, one per transform the renderer
+The pipeline fixtures prove that the loading and drawing path works, one per transform the renderer
 can get wrong. **They are deliberately, unmistakably ugly.** That is the point: a deliberately
 ugly test asset is the only one whose defects are unambiguous, and a magenta checkerboard that
 comes out as a rhombus of rhombuses catches the "projected twice" failure before it costs a
 generation batch.
 
-They stay in the repository permanently. The manifest keeps pointing at them until real assets
-replace those keys. **Do not regenerate them, do not replace them with real art, and do not
-report them as defects** — if one of them looks wrong to you, it is working.
+`env/floor_a.png` and `weapons/test_bar.png` stay in the repository permanently. The original
+Fighter rectangles occupied the production body paths and were intentionally replaced when the
+real calibration body landed; calling those 32 filenames permanent contradicted the manifest and
+the naming contract. This note supersedes that earlier instruction rather than hiding the
+correction. **Do not regenerate the two surviving fixtures or report them as defects** — if one
+looks wrong to you, it is working.
 
 ## env/floor_a.png
 **not art, do not regenerate** — pipeline fixture. A 344 × 344 magenta-and-black checker.
@@ -137,12 +142,9 @@ seamlessly, stays nailed to the level under a pan, and does not re-tile under a 
 *supposed* to look wrong.
 
 ## fighter/body_{facing}_{frame}.png
-**not art, do not regenerate** — pipeline fixture. Thirty-two flat green rectangles, each with
-its facing letter and frame number drawn inside it, and each with a small notch at a different
-height per frame so a wrong frame is visible at a glance. Proves the `actor` transform: that a
-body stands on its feet at every facing, that the letter matches the direction it is walking,
-that the notch steps through `walk1, walk2, walk3, walk2` at a rate that tracks the ground going
-past, and that the figure does not bob sideways.
+**retired fixture — replaced 2026-08-08.** The thirty-two flat green rectangles proved the actor
+transform, then made way for production art at the filenames the manifest already reserves for
+the Fighter. Their test purpose is preserved here; the files themselves are no longer fixtures.
 
 ## weapons/test_bar.png
 **not art, do not regenerate** — pipeline fixture. A flat cyan bar with a red pixel block at the
@@ -157,5 +159,190 @@ would hide it.
 
 ## Reviews
 
-*Nothing has been reviewed yet. Each asset gets its own `##` section here as it is delivered, in
-the two-verdict form above.*
+## env/floor_b.png
+**passed** — locked. Do not regenerate.
+
+## env/wall_x.png
+**passed** — locked. Do not regenerate.
+
+## env/wall_top.png
+**passed** — locked. Do not regenerate.
+
+## env/torch_0.png
+**passed** — locked. Do not regenerate.
+
+## env/torch_1.png
+**passed** — locked. Do not regenerate.
+
+## env/torch_2.png
+**passed** — locked. Do not regenerate.
+
+
+## Calibration handoff
+
+The production look is the 2026-08-08 calibrated batch: painterly low-resolution bronze plate,
+transparent padded actor cells at 86 px/world-unit, fixed upper-right warm light, and cardinal plus
+diagonal silhouettes authored independently but normalized to the same measured box. Body cells
+are 128 × 160 with anchor `[64, 160]`; arm and shield layers use pivot `[64, 72]`. Weapon images
+are tight crops whose manifest hilt and tip markers, rather than image edges, define the simulated
+span. Preserve these settings for the remaining roster; change the subject and measured cell, not
+the rendering language.
+
+## env/door_top.png
+**passed** — locked. Do not regenerate.
+
+## env/door_x.png
+**passed** — locked. Do not regenerate.
+
+## fighter/body_s_idle.png
+**passed** — locked. Do not regenerate.
+
+## fighter/body_s_walk1.png
+**passed** — locked. Do not regenerate.
+
+## fighter/body_s_walk2.png
+**passed** — locked. Do not regenerate.
+
+## fighter/body_s_walk3.png
+**passed** — locked. Do not regenerate.
+
+## fighter/body_sw_idle.png
+**passed** — locked. Do not regenerate.
+
+## fighter/body_sw_walk1.png
+**passed** — locked. Do not regenerate.
+
+## fighter/body_sw_walk2.png
+**passed** — locked. Do not regenerate.
+
+## fighter/body_sw_walk3.png
+**passed** — locked. Do not regenerate.
+
+## fighter/body_w_idle.png
+**passed** — locked. Do not regenerate.
+
+## fighter/body_w_walk1.png
+**passed** — locked. Do not regenerate.
+
+## fighter/body_w_walk2.png
+**passed** — locked. Do not regenerate.
+
+## fighter/body_w_walk3.png
+**passed** — locked. Do not regenerate.
+
+## fighter/body_nw_idle.png
+**passed** — locked. Do not regenerate.
+
+## fighter/body_nw_walk1.png
+**passed** — locked. Do not regenerate.
+
+## fighter/body_nw_walk2.png
+**passed** — locked. Do not regenerate.
+
+## fighter/body_nw_walk3.png
+**passed** — locked. Do not regenerate.
+
+## fighter/body_n_idle.png
+**passed** — locked. Do not regenerate.
+
+## fighter/body_n_walk1.png
+**passed** — locked. Do not regenerate.
+
+## fighter/body_n_walk2.png
+**passed** — locked. Do not regenerate.
+
+## fighter/body_n_walk3.png
+**passed** — locked. Do not regenerate.
+
+## fighter/body_ne_idle.png
+**passed** — locked. Do not regenerate.
+
+## fighter/body_ne_walk1.png
+**passed** — locked. Do not regenerate.
+
+## fighter/body_ne_walk2.png
+**passed** — locked. Do not regenerate.
+
+## fighter/body_ne_walk3.png
+**passed** — locked. Do not regenerate.
+
+## fighter/body_e_idle.png
+**passed** — locked. Do not regenerate.
+
+## fighter/body_e_walk1.png
+**passed** — locked. Do not regenerate.
+
+## fighter/body_e_walk2.png
+**passed** — locked. Do not regenerate.
+
+## fighter/body_e_walk3.png
+**passed** — locked. Do not regenerate.
+
+## fighter/body_se_idle.png
+**passed** — locked. Do not regenerate.
+
+## fighter/body_se_walk1.png
+**passed** — locked. Do not regenerate.
+
+## fighter/body_se_walk2.png
+**passed** — locked. Do not regenerate.
+
+## fighter/body_se_walk3.png
+**passed** — locked. Do not regenerate.
+
+## fighter/arm_s.png
+**passed** — locked. Do not regenerate.
+
+## fighter/arm_sw.png
+**passed** — locked. Do not regenerate.
+
+## fighter/arm_w.png
+**passed** — locked. Do not regenerate.
+
+## fighter/arm_nw.png
+**passed** — locked. Do not regenerate.
+
+## fighter/arm_n.png
+**passed** — locked. Do not regenerate.
+
+## fighter/arm_ne.png
+**passed** — locked. Do not regenerate.
+
+## fighter/arm_e.png
+**passed** — locked. Do not regenerate.
+
+## fighter/arm_se.png
+**passed** — locked. Do not regenerate.
+
+## fighter/shield_s.png
+**passed** — locked. Do not regenerate.
+
+## fighter/shield_sw.png
+**passed** — locked. Do not regenerate.
+
+## fighter/shield_w.png
+**passed** — locked. Do not regenerate.
+
+## fighter/shield_nw.png
+**passed** — locked. Do not regenerate.
+
+## fighter/shield_n.png
+**passed** — locked. Do not regenerate.
+
+## fighter/shield_ne.png
+**passed** — locked. Do not regenerate.
+
+## fighter/shield_e.png
+**passed** — locked. Do not regenerate.
+
+## fighter/shield_se.png
+**passed** — locked. Do not regenerate.
+
+## weapons/knife.png
+**passed** — locked. Do not regenerate.
+
+## weapons/shortsword.png
+**passed** — locked. Do not regenerate.
+
+## weapons/sword.png
+**passed** — locked. Do not regenerate.

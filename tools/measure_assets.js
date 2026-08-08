@@ -338,7 +338,7 @@ function classify(rel) {
     if (stem.startsWith("floor_") || stem.endsWith("_top")) {
       return { kind: "surface", key: `env/${stem}`, world: FLOOR_WORLD, size: [FLOOR_WORLD, FLOOR_WORLD], opaque: true };
     }
-    if (stem.startsWith("wall_")) {
+    if (stem.startsWith("wall_") || stem.endsWith("_x")) {
       return { kind: "face", key: `env/${stem}`, world: WALL_WORLD, size: WALL_WORLD, opaque: true };
     }
     if (stem.startsWith("torch") || stem.startsWith("lantern")) {

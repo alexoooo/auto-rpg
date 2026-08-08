@@ -2185,6 +2185,20 @@ generation brief. The procedural bodies already obey it: the rim gradient runs
 across the silhouette from the shaded side to the lit one and never rotates with
 the body, because the light belongs to the room.
 
+**Texture is world geometry, not screen decoration.** Floor, wall-top and the two
+wall-face families use three constant projection bases with translation fixed at
+zero, so stone stays nailed to world origin through pan and zoom. A floor is quiet
+enough only while the amber declared-action line remains louder over its busiest
+patch; wall tops stay markedly brighter than sides, and a torch image replaces the
+fixture without changing the fog-clipped light that fixture casts.
+
+**Foreground walls yield; bodies do not float.** A controlled body remains in the ordinary
+depth walk. When a wall band in front is within 2.5 tiles of that body, the complete band -- cap
+and vertical face together -- draws at 0.28 alpha. Drawing the hero after the room was tried and
+rejected: it preserved the model by making it float over solid masonry and erased the face that
+explained the wall's height. The local cutaway preserves both spatial facts without a cyan body
+outline competing with the delivered character art.
+
 **Light comes from things.** A torch has a fixture, a pool on the floor and warm
 bounce on the wall behind it; a character carries a lantern. More than a few units
 from one of them the room is *gone*, not dim — the vignette reaches 0.80 at the rim

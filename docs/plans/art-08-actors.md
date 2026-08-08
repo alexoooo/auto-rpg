@@ -1,4 +1,15 @@
-# art-07 — the figures get their skin
+# art-08 — the figures get their skin
+
+**Status (2026-08-08): Fighter calibration integrated and visually reviewed.** The 32 body
+frames, eight main-arm facings, eight shield facings, and knife, shortsword and sword are in the
+manifest and pass `measure_assets.js`. The review changed the renderer in three bounded ways:
+actor layers rotate from their manifest shoulder pivot without inventing a hand marker; weapon
+images continue to span the simulation's exact hilt and tip; and the old cyan upright rim was
+removed because it obscured the delivered model. User review also rejected drawing the hero
+after every wall -- that made the figure float and erased the wall face -- so foreground walls
+now retain their cap and face while yielding locally near the hero. The hidden-browser frame-rate
+number is not evidence; the repeated visible baseline in acceptance item 12 remains a user-side
+measurement before the overall production gate can be called held.
 
 **Goal:** Codex's second calibration batch — one archetype's composite body, its arm and shield
 layers, and the first two or three weapons — is measured, entered in the manifest, reviewed
@@ -121,9 +132,9 @@ on, then with it off, then in `[tactical]` if the answer is about geometry rathe
 - **Facing drift.** Turn slowly through a full circle and watch the silhouette, not the detail.
   The figure should turn; it should not change size, change build, or breathe sideways.
 - **Silhouette at forty pixels.** Shrink the window until the Fighter is forty pixels tall. It
-  must still be a Fighter, and the faction rim must still carry the team. That rim is `art-05`
-  §6's and it survives on top of sprite art unchanged — if a sprite is bright enough that the rim
-  stops reading, the sprite is too bright.
+  must still be a Fighter, and the ground ring and facing wedge must still carry team and bearing.
+  The cyan model rim from `art-05` was rejected during calibration because it covered the actual
+  armour and read as selection geometry; do not restore it as a substitute for a clear silhouette.
 - **Against the stone.** `art-07`'s floor is now under it. A figure that disappears into the
   texture is either too dark or standing on a texture that is too loud, and telling those apart is
   what the `?noart=1` toggle is for: flip the floor to the procedural bake and see which one

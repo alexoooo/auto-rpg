@@ -1,5 +1,20 @@
 # art-07 — the room gets its stone
 
+**Status (2026-08-07): calibration gate 1 held.** `env/floor_b.png`, `env/wall_x.png`,
+`env/wall_top.png` and the three `env/torch_*.png` frames are integrated and locked in
+`FEEDBACK.md`; `?noart=1` remains the procedural control. The first wall-top delivery looked
+plausible alone but used stones at a different scale from the side face. In-game comparison
+caught it, and the locked replacement uses the side face's course scale. Decals, props and the
+foreground performance reading remain session work after their production assets exist; no
+automated-browser timing is recorded as evidence.
+
+**Correction (2026-08-08): doors are part of the material pass.** The procedural brown slabs
+looked unfinished beside the calibrated stone, so `env/door_top.png` and `env/door_x.png` now use
+the same projected surface/face machinery as walls. The same user review caught the two bad
+foreground extremes: ordinary depth sorting could cover the whole hero, while drawing the hero
+last made it float over a wall and hid the vertical face. The shipped rule is a local translucent
+cutaway on the foreground band; wall geometry and normal depth order remain intact.
+
 **Goal:** floors, wall faces, torches and props draw from manifest images, with the procedural
 bake underneath as the fallback; grime and moss appear where a render-side hash of the tile
 coordinate says they should; and the room reads like the concept.

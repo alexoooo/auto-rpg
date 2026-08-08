@@ -4893,25 +4893,25 @@ function diamond(p, x, y, w) {
  * `+y` -- and then returns along the ground edge. Do not "tidy" either one into
  * the other order.
  *
- * Takes the two target paths rather than reaching for `levelPaths`, so `iso-04`
- * can hand it one depth row's band pair instead of the unbanded pair without
+ * Takes the target paths rather than reaching for `levelPaths`, so `iso-04`
+ * can hand it one depth row's band paths instead of the unbanded paths without
  * touching a line of the geometry.
  */
-function wallBlock(top, side, x, y, w, L, xFace, yFace) {
+function wallBlock(top, xSide, ySide, x, y, w, L, xFace, yFace) {
   diamond(top, x, y - L, w);
   if (xFace) {
-    side.moveTo(x + w, y + w / 2 - L);
-    side.lineTo(x, y + w - L);
-    side.lineTo(x, y + w);
-    side.lineTo(x + w, y + w / 2);
-    side.closePath();
+    xSide.moveTo(x + w, y + w / 2 - L);
+    xSide.lineTo(x, y + w - L);
+    xSide.lineTo(x, y + w);
+    xSide.lineTo(x + w, y + w / 2);
+    xSide.closePath();
   }
   if (yFace) {
-    side.moveTo(x, y + w - L);
-    side.lineTo(x - w, y + w / 2 - L);
-    side.lineTo(x - w, y + w / 2);
-    side.lineTo(x, y + w);
-    side.closePath();
+    ySide.moveTo(x, y + w - L);
+    ySide.lineTo(x - w, y + w / 2 - L);
+    ySide.lineTo(x - w, y + w / 2);
+    ySide.lineTo(x, y + w);
+    ySide.closePath();
   }
 }
 
@@ -4942,7 +4942,7 @@ function wallBlock(top, side, x, y, w, L, xFace, yFace) {
  * per doorway, is cheaper than a neighbour test that would have to know about
  * sub-tile geometry.
  */
-function subBlock(top, side, x, y, w, L, u0, v0, u1, v1) {
+function subBlock(top, xSide, ySide, x, y, w, L, u0, v0, u1, v1) {
   const nx = x + (u0 - v0) * w;
   const ny = y + ((u0 + v0) * w) / 2;
   const ex = x + (u1 - v0) * w;
@@ -4957,17 +4957,17 @@ function subBlock(top, side, x, y, w, L, u0, v0, u1, v1) {
   top.lineTo(wx, wy - L);
   top.closePath();
   // The +x face: the plane u = u1, from v0 to v1.
-  side.moveTo(ex, ey - L);
-  side.lineTo(sx, sy - L);
-  side.lineTo(sx, sy);
-  side.lineTo(ex, ey);
-  side.closePath();
+  xSide.moveTo(ex, ey - L);
+  xSide.lineTo(sx, sy - L);
+  xSide.lineTo(sx, sy);
+  xSide.lineTo(ex, ey);
+  xSide.closePath();
   // The +y face: the plane v = v1, from u0 to u1.
-  side.moveTo(sx, sy - L);
-  side.lineTo(wx, wy - L);
-  side.lineTo(wx, wy);
-  side.lineTo(sx, sy);
-  side.closePath();
+  ySide.moveTo(sx, sy - L);
+  ySide.lineTo(wx, wy - L);
+  ySide.lineTo(wx, wy);
+  ySide.lineTo(sx, sy);
+  ySide.closePath();
 }
 
 /** How thick a jamb is, as a fraction of a tile. A quarter of a world unit is
@@ -5073,6 +5073,11 @@ const TORCH_CORE = [
  *  inset along the seam. One number for both, so the mark is a square-ish tick
  *  centred on the edge the face would stand on. */
 const TORCH_MARK = 0.2;
+
+/** The sprite's bottom anchor sits where the procedural bracket begins. The
+ * value is a fraction of `WALL_H`, exactly the `h = 0.3` bottom edge in
+ * `TORCH_BRACKET`; replacing the lamp therefore does not move the lamp. */
+const TORCH_SPRITE_BASE = 0.3;
 
 /** The empty torch list, hoisted so the bake's `art ? furniture.torches : NO_TORCHES`
  *  allocates nothing on the modes that draw none. `Object.freeze` because a shared
@@ -5239,11 +5244,37 @@ function bakeFloorTile(size) {
 /** The manifest key the floor's stone comes from.
  *
  *  **A key and not a filename.** Which file it resolves to is `manifest.json`'s
- *  business: it points at `art-06`'s magenta checker fixture today and `art-07`
- *  repoints it at real stone without this line moving. It is the one name
- *  `main.js` knows about the asset set, and `assets.js`'s header says why there
- *  is one at all. */
-const FLOOR_SURFACE_KEY = "env/floor_a";
+ *  business. The fixture and calibrated stone have different keys so the
+ *  permanent pipeline instrument cannot be mistaken for art, but this remains
+ *  the only name the draw site knows; `assets.js`'s header says why. */
+const FLOOR_SURFACE_KEY = "env/floor_b";
+
+/** The three calibrated environment entries. Keys, never filenames: the
+ * manifest is still the only file that knows which PNG supplies each one. */
+const WALL_TOP_SURFACE_KEY = "env/wall_top";
+const WALL_FACE_KEY = "env/wall_x";
+const DOOR_TOP_SURFACE_KEY = "env/door_top";
+const DOOR_FACE_KEY = "env/door_x";
+const TORCH_ASSET_KEY = "env/torch";
+
+/** Paints aimed once at extraction time and then read by the remembered pass
+ * and the later depth walk. A `CanvasPattern` keeps its matrix until the next
+ * frame, so these are indices rather than paint objects on this side of the
+ * display-list seam. */
+let wallTopPatternPaint = DL_NO_PAINT;
+let wallXPatternPaint = DL_NO_PAINT;
+let wallYPatternPaint = DL_NO_PAINT;
+let doorTopPatternPaint = DL_NO_PAINT;
+let doorXPatternPaint = DL_NO_PAINT;
+let doorYPatternPaint = DL_NO_PAINT;
+
+/** The torch animation is all-or-fallback. Loading one frame while another is
+ * pending must not make fixtures alternate between painted art and geometry as
+ * they flicker, so all three become live on the same frame or none do. */
+const torchFramePaints = [DL_NO_PAINT, DL_NO_PAINT, DL_NO_PAINT];
+let torchSpritesReady = false;
+let torchSpriteW = 0;
+let torchSpriteH = 0;
 
 /**
  * The floor pattern, baked on demand and re-aimed every frame, **as a
@@ -5325,6 +5356,112 @@ function floorPatternNow() {
   // manifest's arm above is a static index because an image is loaded once and
   // is the same object forever.
   return dlPaintFrame(floorPattern);
+}
+
+/**
+ * Aim the wall's three pattern planes and resolve the torch animation.
+ *
+ * A floor and a wall top share the projection's two ground columns. A side face
+ * does not: its horizontal image axis is one world axis and its vertical image
+ * axis is height, so the two visible face families have the constant matrices
+ * below. `e = f = 0` in every call. That nails every sample to world origin;
+ * camera movement changes the clip and never slides masonry under the level.
+ * Neighbouring faces therefore sample by their world position rather than by an
+ * artist-selected per-block crop, which is stable and intentional at this scale.
+ *
+ * The side image is decoded once but owns two `CanvasPattern`s. One pattern
+ * cannot serve both: extraction emits both fills before the backend replays
+ * either, so the last matrix written would otherwise win on both faces.
+ */
+function environmentPaintsNow() {
+  wallTopPatternPaint = DL_NO_PAINT;
+  wallXPatternPaint = DL_NO_PAINT;
+  wallYPatternPaint = DL_NO_PAINT;
+  doorTopPatternPaint = DL_NO_PAINT;
+  doorXPatternPaint = DL_NO_PAINT;
+  doorYPatternPaint = DL_NO_PAINT;
+
+  const top = assetPatternPaint(WALL_TOP_SURFACE_KEY, 0);
+  if (top >= 0) {
+    const entry = assetOf(WALL_TOP_SURFACE_KEY);
+    if (entry.world > 0 && assetOutW > 0) {
+      const k = entry.world / assetOutW;
+      dlPatternAim(top, PROJ.ax * scale * k, PROJ.ay * scale * k, PROJ.bx * scale * k, PROJ.by * scale * k);
+      wallTopPatternPaint = top;
+    }
+  }
+
+  const xFace = assetPatternPaint(WALL_FACE_KEY, 0);
+  const faceW = assetOutW;
+  const faceH = assetOutH;
+  const yFace = assetPatternPaint(WALL_FACE_KEY, 1);
+  const face = assetOf(WALL_FACE_KEY);
+  if (
+    xFace >= 0 &&
+    yFace >= 0 &&
+    face !== null &&
+    Array.isArray(face.world) &&
+    face.world[0] > 0 &&
+    face.world[1] > 0 &&
+    faceW > 0 &&
+    faceH > 0
+  ) {
+    const along = (face.world[0] * scale) / faceW;
+    const height = (face.world[1] * scale) / faceH;
+    dlPatternAim(xFace, -along, along / 2, 0, -height);
+    dlPatternAim(yFace, along, along / 2, 0, -height);
+    wallXPatternPaint = xFace;
+    wallYPatternPaint = yFace;
+  }
+
+  const doorTop = assetPatternPaint(DOOR_TOP_SURFACE_KEY, 0);
+  if (doorTop >= 0) {
+    const entry = assetOf(DOOR_TOP_SURFACE_KEY);
+    if (entry.world > 0 && assetOutW > 0) {
+      const k = entry.world / assetOutW;
+      dlPatternAim(doorTop, PROJ.ax * scale * k, PROJ.ay * scale * k, PROJ.bx * scale * k, PROJ.by * scale * k);
+      doorTopPatternPaint = doorTop;
+    }
+  }
+
+  const doorX = assetPatternPaint(DOOR_FACE_KEY, 0);
+  const doorFaceW = assetOutW;
+  const doorFaceH = assetOutH;
+  const doorY = assetPatternPaint(DOOR_FACE_KEY, 1);
+  const doorFace = assetOf(DOOR_FACE_KEY);
+  if (
+    doorX >= 0 &&
+    doorY >= 0 &&
+    doorFace !== null &&
+    Array.isArray(doorFace.world) &&
+    doorFace.world[0] > 0 &&
+    doorFace.world[1] > 0 &&
+    doorFaceW > 0 &&
+    doorFaceH > 0
+  ) {
+    const along = (doorFace.world[0] * scale) / doorFaceW;
+    const height = (doorFace.world[1] * scale) / doorFaceH;
+    dlPatternAim(doorX, -along, along / 2, 0, -height);
+    dlPatternAim(doorY, along, along / 2, 0, -height);
+    doorXPatternPaint = doorX;
+    doorYPatternPaint = doorY;
+  }
+
+  torchSpritesReady = true;
+  torchSpriteW = 0;
+  torchSpriteH = 0;
+  for (let i = 0; i < torchFramePaints.length; i++) {
+    const paint = assetAnimationPaint(TORCH_ASSET_KEY, i);
+    torchFramePaints[i] = paint;
+    if (paint < 0) torchSpritesReady = false;
+    else if (i === 0) {
+      torchSpriteW = assetOutW;
+      torchSpriteH = assetOutH;
+    } else if (assetOutW !== torchSpriteW || assetOutH !== torchSpriteH) {
+      torchSpritesReady = false;
+    }
+  }
+  if (!(torchSpriteW > 0) || !(torchSpriteH > 0)) torchSpritesReady = false;
 }
 
 /**
@@ -5438,15 +5575,15 @@ function drawGrain() {
  *     topdown  wallLit   wallSeen   edge          -- flat tiles and a stroked rim
  *              doorLit   doorSeen                 -- doorways, flat, over the rock
  *              torchLit  torchSeen                -- torches, flat, over the rock
- *     iso      wallTopSeen  wallSideSeen          -- remembered rock, unbanded
- *              wallBandTop[]  wallBandSide[]      -- lit rock, one pair per depth row
- *              doorTopSeen  doorSideSeen          -- remembered doorways, unbanded
- *              doorBandTop[]  doorBandSide[]      -- lit doorways, one pair per depth row
+ *     iso      wallTopSeen  wallXSeen  wallYSeen  -- remembered rock, unbanded
+ *              wallBandTop[]  wallBandX[]  wallBandY[]  -- lit rock, one triple per depth row
+ *              doorTopSeen  doorXSeen  doorYSeen  -- remembered doorways, unbanded
+ *              doorBandTop/X/Y[]                  -- lit doorways, one triple per depth row
  *              torchStemSeen  torchFlameSeen  torchCoreSeen   -- remembered torches
  *              torchBandStem[]  torchBandFlame[]  torchBandCore[]  -- lit torches
  *
- * **The doorway pairs mirror the rock pairs exactly and exist for one reason: the
- * fills are one `fillStyle` each.** `fillBand` sets a colour and fills a path, so
+ * **The doorway paths mirror the rock paths and exist for one reason: the fills
+ * are one `fillStyle` each.** `fillBand` sets a colour and fills a path, so
  * door geometry appended to `wallBandTop` would be painted in the wall's own tone
  * and be invisible -- and the remembered pass a hundred lines down does the same
  * thing with `wallTopSeen`. A separate path is what a separate colour costs here.
@@ -5476,19 +5613,21 @@ function drawGrain() {
  * So it is **six paths** top-down -- five with the art off, where `edge` is null
  * as well, which is every top-down row `VIEW_MODES` actually ships; see `edge`'s
  * own declaration for why the six-path configuration is kept anyway -- and under
- * iso it is **five unbanded paths** plus two arrays of at most `bandCount` paths
- * each, of which the visible slice is filled per frame. Count the table: the
- * `shared` row is three, and iso adds the remembered pair to it. Nothing ever
+ * iso it is **six unbanded paths** plus three arrays of at most `bandCount` rock
+ * paths and two doorway arrays, of which the visible slice is filled per frame.
+ * Count the table: the `shared` row is three, and iso adds the remembered rock
+ * triple to it. Nothing ever
  * reads the other projection's fields.
  *
  * (`iso-03` said seven unbanded under iso and was right at the time. `iso-04`
- * moved the *lit* pair into the band arrays, which subtracts two, and the figure
- * was edited as though it subtracted four. `grid` is inside both counts, which is
- * what makes six and five comparable at all.)
+ * moved the *lit* pair into the band arrays, which subtracted two. `art-07` then
+ * split each rock side by face family so one unprojected image could carry two
+ * matrices. `grid` is inside both counts, which is what makes six and six
+ * comparable at all.)
  *
  * **Why only the *lit* rock is banded, and what it costs.** The bands exist so
  * `walkDrawList` can interleave wall geometry with the bodies standing among it.
- * Remembered rock stays as the unbanded pair, drawn once in the ground layer, and
+ * Remembered rock stays as the unbanded triple, drawn once in the ground layer, and
  * that is a **deferral with a known artefact** rather than a free simplification.
  *
  * The tempting argument is that a remembered block is out of the character's sight,
@@ -5509,8 +5648,8 @@ function drawGrain() {
  * `SEEN_ALPHA` over the void, so the rock that fails to occlude is the dimmest
  * thing on the page and a body coming through it reads as faint rather than as
  * wrong. Bounded, uncommon and faint is why it waits. **Escalation if it bites:**
- * `iso-07` §6, which is two more band arrays baked by the same code and four fills
- * a band instead of two -- this code applied twice, and nothing new to invent.
+ * `iso-07` §6, which is three more band arrays baked by the same code -- this code
+ * applied twice, and nothing new to invent.
  *
  * `drawLevel` branches once to decide which set that is, and it branches on
  * **`levelPaths.proj` and not on the live `PROJ`** -- the projection this bake
@@ -5532,7 +5671,7 @@ function drawGrain() {
  * **Built once per level, not per frame.** A 68x45 level is 3060 tiles, and at
  * the top zoom bucket baking it into an offscreen canvas would be a 3264x2160
  * backing store rebuilt six times over. The paths -- six of them top-down, and
- * under iso five plus up to `bandCount` band pairs -- cost a few thousand
+ * under iso six plus up to `bandCount` band path sets -- cost a few thousand
  * segments once between them, and after that a fill is a fill. Banding does not
  * add a segment: it distributes the same ones across more objects.
  *
@@ -5569,15 +5708,19 @@ let levelPaths = {
   wallLit: null,
   wallSeen: null,
   wallTopSeen: null,
-  wallSideSeen: null,
+  wallXSeen: null,
+  wallYSeen: null,
   wallBandTop: null,
-  wallBandSide: null,
+  wallBandX: null,
+  wallBandY: null,
   doorLit: null,
   doorSeen: null,
   doorTopSeen: null,
-  doorSideSeen: null,
+  doorXSeen: null,
+  doorYSeen: null,
   doorBandTop: null,
-  doorBandSide: null,
+  doorBandX: null,
+  doorBandY: null,
   doorTop: null,
   doorSide: null,
   torchLit: null,
@@ -5588,6 +5731,8 @@ let levelPaths = {
   torchBandStem: null,
   torchBandFlame: null,
   torchBandCore: null,
+  torchSpritesSeen: [],
+  torchBandSprites: null,
   torchLights: [],
   bandCount: 0,
   bandW: 0,
@@ -5675,25 +5820,30 @@ function rebuildLevelPaths(map, revision) {
   const wallLit = iso ? null : new Path2D();
   const wallSeen = iso ? null : new Path2D();
   const wallTopSeen = iso ? new Path2D() : null;
-  const wallSideSeen = iso ? new Path2D() : null;
+  // The two side families used to share a path because they shared a flat
+  // colour. Their image is the same but their pattern matrices are not, so the
+  // split is now the price of keeping the art unprojected in the file.
+  const wallXSeen = iso ? new Path2D() : null;
+  const wallYSeen = iso ? new Path2D() : null;
   // Lit rock, banded by depth row. `d = tx + ty`, so a band is one anti-diagonal
   // of the tile grid, every tile on it shares a north corner at screen y
   // `d * size / 2` -- `projY` depends on `wx + wy` and on nothing else -- and
   // `bandCount` is the number of distinct values `tx + ty` can take.
   //
-  // **The lit pair and only the lit pair**, for the argument on `levelPaths`
+  // **The lit rock and only the lit rock**, for the argument on `levelPaths`
   // above: the bands exist to interleave with bodies, and leaving the remembered
-  // pair unbanded is a deferral with an artefact attached rather than a free one.
+  // paths unbanded is a deferral with an artefact attached rather than a free one.
   // The counterexample and the escalation are both stated there.
   //
-  // Two arrays of `null` rather than of paths. A band with no rock on it never
-  // allocates, and a band with any lit rock on it allocates both -- so a band
-  // whose every block is interior gets an empty `side` path that fills nothing.
+  // Three arrays of `null` rather than of paths. A band with no rock on it never
+  // allocates, and a band with any lit rock on it allocates all three -- so a band
+  // whose every block is interior gets empty side paths that fill nothing.
   // That is one wasted object per such band per bake, against a `wallBlock`
   // signature that would otherwise have to learn about nulls.
   const bandCount = iso ? map.cols + map.rows - 1 : 0;
   const wallBandTop = iso ? new Array(bandCount).fill(null) : null;
-  const wallBandSide = iso ? new Array(bandCount).fill(null) : null;
+  const wallBandX = iso ? new Array(bandCount).fill(null) : null;
+  const wallBandY = iso ? new Array(bandCount).fill(null) : null;
   // Doorways, in the same four shapes the rock takes and interleaved with it at
   // the same depths -- a shut door is a block on its tile's own band, and an open
   // one is two jambs on it. A separate set of paths and not a separate set of
@@ -5702,9 +5852,11 @@ function rebuildLevelPaths(map, revision) {
   const doorLit = iso ? null : new Path2D();
   const doorSeen = iso ? null : new Path2D();
   const doorTopSeen = iso ? new Path2D() : null;
-  const doorSideSeen = iso ? new Path2D() : null;
+  const doorXSeen = iso ? new Path2D() : null;
+  const doorYSeen = iso ? new Path2D() : null;
   const doorBandTop = iso ? new Array(bandCount).fill(null) : null;
-  const doorBandSide = iso ? new Array(bandCount).fill(null) : null;
+  const doorBandX = iso ? new Array(bandCount).fill(null) : null;
+  const doorBandY = iso ? new Array(bandCount).fill(null) : null;
   // Torches: a flat pair top-down, and under iso a remembered triple and a banded
   // one -- three because a bracket, a flame and the flame's core are three tones,
   // and a fill is one `fillStyle`. **Only with the art on**, unlike the doorways. A
@@ -5722,6 +5874,11 @@ function rebuildLevelPaths(map, revision) {
   const torchBandStem = art && iso ? new Array(bandCount).fill(null) : null;
   const torchBandFlame = art && iso ? new Array(bandCount).fill(null) : null;
   const torchBandCore = art && iso ? new Array(bandCount).fill(null) : null;
+  // Sprite placements mirror the fallback paths: remembered fixtures are one
+  // dim list and lit fixtures live on their wall's depth band. The image may
+  // arrive after this bake, so these records contain geometry and no paint.
+  const torchSpritesSeen = [];
+  const torchBandSprites = art && iso ? new Array(bandCount).fill(null) : null;
   // The light the torches cast on the floor, one entry a torch. Not a path: a
   // gradient and the point it is centred on, which `drawTorchLight` fills through
   // additively. Built here for the reason `bandW` and `bbox` are -- it is pure
@@ -5845,16 +6002,16 @@ function rebuildLevelPaths(map, revision) {
       // here, because it leaks fog information -- one tile of rock beyond the
       // boundary is one tile of map the character has not earned.
       //
-      // **Lit rock goes into its depth row's band pair and remembered rock into
-      // the unbanded pair**, which is the one structural difference `iso-04` made
-      // here. `wallBlock` takes its two target paths as arguments precisely so
+      // **Lit rock goes into its depth row's band paths and remembered rock into
+      // the unbanded paths**, which is the one structural difference `iso-04` made
+      // here. `wallBlock` takes its three target paths as arguments precisely so
       // this line can hand it a band instead of a field, and not one character of
       // the geometry below the call knows which it got.
       //
       // **A shut doorway is a block like any other and takes the same call**,
-      // into the doorway pair rather than the rock pair so that it can carry a
+      // into the doorway paths rather than the rock paths so that it can carry a
       // warmer tone and read as worked timber. Nothing about the geometry
-      // changes -- `wallBlock` takes its two target paths as arguments for
+      // changes -- `wallBlock` takes its target paths as arguments for
       // exactly this, and the neighbour tests below stay on the floor plan, so a
       // three-tile doorway is one mass with no seams down the middle of it in
       // precisely the way a three-tile lump of rock is.
@@ -5864,11 +6021,18 @@ function rebuildLevelPaths(map, revision) {
       if (iso) {
         const d = tx + ty;
         const door = doorway(tx, ty);
-        const tops = door ? doorBandTop : wallBandTop;
-        const sides = door ? doorBandSide : wallBandSide;
-        const top = lit === 2 ? bandPath(tops, d) : door ? doorTopSeen : wallTopSeen;
-        const side = lit === 2 ? bandPath(sides, d) : door ? doorSideSeen : wallSideSeen;
-        wallBlock(top, side, x, y, size, L, !solid(tx + 1, ty), !solid(tx, ty + 1));
+        const top = lit === 2 ? bandPath(door ? doorBandTop : wallBandTop, d) : door ? doorTopSeen : wallTopSeen;
+        const xSide = lit === 2
+          ? bandPath(door ? doorBandX : wallBandX, d)
+          : door
+            ? doorXSeen
+            : wallXSeen;
+        const ySide = lit === 2
+          ? bandPath(door ? doorBandY : wallBandY, d)
+          : door
+            ? doorYSeen
+            : wallYSeen;
+        wallBlock(top, xSide, ySide, x, y, size, L, !solid(tx + 1, ty), !solid(tx, ty + 1));
         if (lit !== 2) remembered = true;
         continue;
       }
@@ -5969,8 +6133,9 @@ function rebuildLevelPaths(map, revision) {
       if (!solid(tx + dx, ty + dy) || doorway(tx + dx, ty + dy)) continue;
       if (iso) {
         const top = lit === 2 ? bandPath(doorBandTop, d) : doorTopSeen;
-        const side = lit === 2 ? bandPath(doorBandSide, d) : doorSideSeen;
-        subBlock(top, side, x, y, size, L, u0, v0, u1, v1);
+        const xSide = lit === 2 ? bandPath(doorBandX, d) : doorXSeen;
+        const ySide = lit === 2 ? bandPath(doorBandY, d) : doorYSeen;
+        subBlock(top, xSide, ySide, x, y, size, L, u0, v0, u1, v1);
       } else {
         // Top-down a jamb has no height, so it is the same slab drawn flat --
         // two thin marks either side of the gap, which is as much as a plan view
@@ -6027,6 +6192,22 @@ function rebuildLevelPaths(map, revision) {
       facePoly(stem, x, y, size, L, face, TORCH_BRACKET);
       facePoly(flame, x, y, size, L, face, TORCH_FLAME);
       facePoly(core, x, y, size, L, face, TORCH_CORE);
+      const sign = face === TORCH_POS_Y ? -1 : 1;
+      const sprite = {
+        x: x + sign * size / 2,
+        y: y + (3 * size) / 4 - TORCH_SPRITE_BASE * L,
+        phase: ((tx * 7 + ty * 13) % 32) / 32,
+      };
+      if (lit === 2) {
+        let row = torchBandSprites[d];
+        if (row === null) {
+          row = [];
+          torchBandSprites[d] = row;
+        }
+        row.push(sprite);
+      } else {
+        torchSpritesSeen.push(sprite);
+      }
     } else {
       // Top-down a wall face has no image on the glass, so the torch is a mark
       // *on the seam* the face would be: a short bar along the tile edge it hangs
@@ -6122,15 +6303,19 @@ function rebuildLevelPaths(map, revision) {
     wallLit,
     wallSeen,
     wallTopSeen,
-    wallSideSeen,
+    wallXSeen,
+    wallYSeen,
     wallBandTop,
-    wallBandSide,
+    wallBandX,
+    wallBandY,
     doorLit,
     doorSeen,
     doorTopSeen,
-    doorSideSeen,
+    doorXSeen,
+    doorYSeen,
     doorBandTop,
-    doorBandSide,
+    doorBandX,
+    doorBandY,
     // **The one thing `art` decides about a doorway**, baked here rather than
     // branched on at every fill: a door draws in every mode, and with the art off
     // it drops the warmth and keeps the separation. Top-down there is no second
@@ -6145,6 +6330,8 @@ function rebuildLevelPaths(map, revision) {
     torchBandStem,
     torchBandFlame,
     torchBandCore,
+    torchSpritesSeen,
+    torchBandSprites,
     torchLights,
     bandCount,
     // The band's screen pitch, the block height the bands were baked at, and the
@@ -6163,6 +6350,38 @@ function rebuildLevelPaths(map, revision) {
     bbox: groundBox({ x0: 0, y0: 0, x1: 0, y1: 0 }),
     remembered,
   };
+}
+
+/** Draw one row of wall-mounted torch sprites from bottom-centre anchors.
+ *
+ * The flame advances on the same wall clock and per-tile phase as its light
+ * field. The iron does not jump because every frame has one size and one anchor,
+ * asserted by `measure_assets.js`. `environmentPaintsNow` keeps the fallback
+ * live until all three frames are ready, so this is always a whole-fixture swap.
+ */
+function drawTorchSprites(sprites, now) {
+  if (!torchSpritesReady || sprites === null || sprites.length === 0) return;
+  const entry = assetOf(TORCH_ASSET_KEY);
+  if (
+    entry === null ||
+    !(entry.world_h > 0) ||
+    !Array.isArray(entry.anchor) ||
+    entry.anchor.length !== 2
+  ) return;
+  const h = lift(entry.world_h);
+  const k = h / torchSpriteH;
+  const w = torchSpriteW * k;
+  for (const sprite of sprites) {
+    const phase = now * 0.001 * TORCH_FLICKER_HZ + sprite.phase;
+    const frame = Math.floor(phase * torchFramePaints.length) % torchFramePaints.length;
+    dlSprite(
+      sprite.x - entry.anchor[0] * k,
+      sprite.y - entry.anchor[1] * k,
+      w,
+      h,
+      torchFramePaints[frame]
+    );
+  }
 }
 
 /** How much of the floor's own brightness ground the character only *remembers*
@@ -6566,6 +6785,10 @@ function drawLevel(state, now, origin) {
   // art off it is not called at all -- neither it nor `bakeFloorTile` is edited
   // for `[tactical]`, they are simply not reached.
   const pattern = art ? floorPatternNow() : DL_NO_PAINT;
+  // Resolve and aim the other calibrated sources before any item names them.
+  // The walls are emitted partly here and partly by the later depth walk, but
+  // both halves replay in this frame while these matrices are still current.
+  if (art && PROJ.shear) environmentPaintsNow();
 
   // The arena rect the window is actually over, in the same level-corner space
   // everything below draws in. The two composites are full-arena fills, and at
@@ -6846,18 +7069,22 @@ function drawLevel(state, now, origin) {
   // is absent because the bake only put lit torches in `torchLights`.
   //
   // **The `save` moves inside the branch**, because the two arms want different
-  // things from it: the iso one sets `SEEN_ALPHA` once and lets seven fills
-  // inherit it, so the alpha rides on the push; the top-down one assigns it
-  // between fills, so there it rides on the items. Both are the transcription
-  // rule stated on `DL_F_ALPHA`, and the pair is the clearest example of it in
-  // the file.
+  // things from it: the iso one sets `SEEN_ALPHA` once and lets every fill and
+  // torch sprite inherit it, so the alpha rides on the push; the top-down one
+  // assigns it between fills, so there it rides on the items. Both are the
+  // transcription rule stated on `DL_F_ALPHA`, and the pair is the clearest
+  // example of it in the file.
   if (levelPaths.proj === "iso") {
     dlXform(1, 0, 0, 1, 0, 0, 0, 1, SEEN_ALPHA);
-    dlPath(dlPaintFrame(levelPaths.wallTopSeen), DL_FILL, WALL_TOP, DL_NO_PAINT, 0, 0, 0);
-    dlPath(dlPaintFrame(levelPaths.wallSideSeen), DL_FILL, WALL_XFACE, DL_NO_PAINT, 0, 0, 0);
-    dlPath(dlPaintFrame(levelPaths.doorTopSeen), DL_FILL, levelPaths.doorTop, DL_NO_PAINT, 0, 0, 0);
-    dlPath(dlPaintFrame(levelPaths.doorSideSeen), DL_FILL, levelPaths.doorSide, DL_NO_PAINT, 0, 0, 0);
-    if (levelPaths.torchStemSeen) {
+    dlPath(dlPaintFrame(levelPaths.wallTopSeen), DL_FILL, WALL_TOP, wallTopPatternPaint, 0, 0, 0);
+    dlPath(dlPaintFrame(levelPaths.wallXSeen), DL_FILL, WALL_XFACE, wallXPatternPaint, 0, 0, 0);
+    dlPath(dlPaintFrame(levelPaths.wallYSeen), DL_FILL, WALL_XFACE, wallYPatternPaint, 0, 0, 0);
+    dlPath(dlPaintFrame(levelPaths.doorTopSeen), DL_FILL, levelPaths.doorTop, doorTopPatternPaint, 0, 0, 0);
+    dlPath(dlPaintFrame(levelPaths.doorXSeen), DL_FILL, levelPaths.doorSide, doorXPatternPaint, 0, 0, 0);
+    dlPath(dlPaintFrame(levelPaths.doorYSeen), DL_FILL, levelPaths.doorSide, doorYPatternPaint, 0, 0, 0);
+    if (torchSpritesReady) {
+      drawTorchSprites(levelPaths.torchSpritesSeen, now);
+    } else if (levelPaths.torchStemSeen) {
       dlPath(dlPaintFrame(levelPaths.torchStemSeen), DL_FILL, TORCH_IRON, DL_NO_PAINT, 0, 0, 0);
       dlPath(dlPaintFrame(levelPaths.torchFlameSeen), DL_FILL, TORCH_FLAME_TONE, DL_NO_PAINT, 0, 0, 0);
       dlPath(dlPaintFrame(levelPaths.torchCoreSeen), DL_FILL, TORCH_CORE_TONE, DL_NO_PAINT, 0, 0, 0);
@@ -7480,8 +7707,8 @@ function drawDestination(state, now, arrived) {
 // `wedge` outlived the facing wedge that named it -- a silhouette with a head
 // on it has a facing, so the fan of light in front of every body went. The key
 // stays because the *colour role* did: it is the faction tint used for anything
-// drawn as a line or a hint rather than as flesh -- the rim light, the vision
-// disc, the reach ring, the sprint chevrons, an arrow in flight.
+// drawn as a line or a hint rather than as flesh -- the vision disc, the reach
+// ring, the sprint chevrons, an arrow in flight.
 //
 // **And then the wedge came back, twice**, which is not a contradiction of the
 // paragraph above: what retired it was a shape that carried the facing for free,
@@ -7515,8 +7742,8 @@ const MONSTER_WEDGE_ART = "168,84,66";
  * standing bodies up gave `world` a wedge too, which took `drawCharacter` from
  * one dynamic colour string per body to two -- some 7,700 short-lived strings a
  * second at `MAX_UNITS` and 60 fps, in a render path whose whole discipline is
- * that it allocates nothing. Hoisted for exactly the reason `HERO_THROUGH` is
- * hoisted: *so the frame does not build a string to say it*. `world-01` put that
+ * that it allocates nothing. Hoisted so the frame does not build a string to
+ * say it. `world-01` put that
  * second wedge behind `readoutsOn()` and took the doubling back out again, which
  * retires the measurement and not the table -- the paragraph below is why.
  *
@@ -7539,8 +7766,8 @@ function wedgeFans(rgb) {
  *  `[tactical]`'s disc is a *diagnostic*: cyan against red at full chroma is the
  *  most separable pair on a dark screen and it should stay that. `[world]`'s body
  *  is a figure in a torchlit room, where full chroma is the one thing the concept
- *  never does -- the faction read there is carried by the rim light's hue at low
- *  alpha and by the ring on the floor, not by the fill.
+ *  never does -- the faction read there is carried by the ring and facing wedge
+ *  on the floor, not by an outline over the model.
  *
  *  **The team ring is the one saturation exception and it stays subordinate.**
  *  Both art glows are pulled a long way toward grey: `127,166,189` is `PAL.cold`
@@ -7551,9 +7778,9 @@ function wedgeFans(rgb) {
 const HERO_SKIN_FLAT = {
   glow: "110,231,255",
   body: ["#bff2ff", "#4fb9d8"],
-  // The shaded end of the same hue. A silhouette painted in `body` alone came
-  // out so pale that the rim light -- which is the thing carrying the faction
-  // read at four pixels a body -- had nothing to be brighter than.
+  // The shaded end of the same hue. The flat diagnostic body still needs enough
+  // value separation to read at four pixels without borrowing the world model's
+  // material treatment.
   deep: "#1b566c",
   wedge: HERO_WEDGE,
   fan: wedgeFans(HERO_WEDGE),
@@ -7873,20 +8100,20 @@ const BLADE_SHADOW = "rgba(0,0,0,0.34)";
  *  has to agree with, so the two cannot drift. */
 const BLADE_SHADOW_ALPHA = 0.34;
 
-/**
- * The manifest key every weapon draws from.
- *
- * **One key for the whole roster, and it is the fixture.** `weapons/test_bar` is
- * a cyan bar with a red end and a yellow one, which is exactly what proves the
- * span transform: a bar that comes out reversed at four facings and correct at
- * the other four is a sign error, and a symmetric bar would hide it.
- *
- * `art-08` replaces this with a table keyed on `unit.action` -- the same
- * `ActionKind::code` `ICON_PATHS` is keyed on, which is append-only -- once the
- * roster's sprites exist. Until they do, a per-action table would be seven rows
- * all pointing at the same fixture, which says less than one constant does.
- */
-const WEAPON_ASSET_KEY = "weapons/test_bar";
+/** Weapon art by append-only `ActionKind::code`. A missing row keeps the proven
+ * procedural stroke, so this calibration can land three blades without making a
+ * Club, Bow or Punch disappear. `weapons/test_bar` remains in the tree as the
+ * permanent transform fixture; real play no longer points at it. */
+const WEAPON_ASSET_KEYS = [
+  null,
+  "weapons/knife",
+  "weapons/sword",
+  null,
+  null,
+  null,
+  null,
+  "weapons/shortsword",
+];
 
 /**
  * The weapon sprite, stretched so its **hilt marker lands on `x0, y0` and its
@@ -7906,10 +8133,12 @@ const WEAPON_ASSET_KEY = "weapons/test_bar";
  * onto the floor where the hitbox is. Returns false when there is no sprite to
  * be had, and every caller falls back to the stroke it already had.
  */
-function emitWeaponSpan(x0, y0, x1, y1) {
-  const paint = assetPaint(WEAPON_ASSET_KEY);
+function emitWeaponSpan(action, x0, y0, x1, y1) {
+  const key = WEAPON_ASSET_KEYS[action];
+  if (key === undefined || key === null) return false;
+  const paint = assetPaint(key);
   if (paint < 0) return false;
-  const entry = assetOf(WEAPON_ASSET_KEY);
+  const entry = assetOf(key);
   if (entry.hilt === undefined || entry.tip === undefined) return false;
   const span = entry.tip[0] - entry.hilt[0];
   const dx = x1 - x0;
@@ -8091,9 +8320,10 @@ function drawLimb(unit, skin) {
       // save, and this one has the guard arc, the declared line and the bow
       // after it in the same push.
       let drawn = false;
-      if (assetPaint(WEAPON_ASSET_KEY) >= 0) {
+      const weaponKey = WEAPON_ASSET_KEYS[unit.action];
+      if (weaponKey !== undefined && weaponKey !== null && assetPaint(weaponKey) >= 0) {
         dlXform(1, 0, 0, 1, 0, 0, 0, 1, BLADE_SHADOW_ALPHA);
-        drawn = emitWeaponSpan(hilt, 0, tip, 0);
+        drawn = emitWeaponSpan(unit.action, hilt, 0, tip, 0);
         dlXformEnd();
       }
       if (!drawn) {
@@ -8210,8 +8440,8 @@ function drawMarks(unit) {
 // **These are the top-down view and they stay that.** `iso-05` added a second
 // set below -- `UPRIGHTS`, the same four archetypes from the side -- rather than
 // replacing these, because `Tactical` and `Dev` still look straight down and the
-// page can cycle between the two with `G`. `drawCharacter`, `drawCorpse` and
-// `drawHeroThrough` each pick one, on `PROJ.upright` and never on `artOn()`.
+// page can cycle between the two with `G`. `drawCharacter` and `drawCorpse`
+// each pick one, on `PROJ.upright` and never on `artOn()`.
 //
 // Every one of these is a closed outline meant to be filled. None of them says
 // anything about reach: what a body can touch is `drawLimb`'s business and it
@@ -8393,8 +8623,8 @@ function bodyHeight(unit) {
 // **The head is part of the outline, not a bump drawn over it.** Each path
 // finishes with the *upper half of the head circle itself*, so the crown is at
 // `cy - r`, which is `uprightTop(kind)` by construction -- the path's topmost
-// point is the anchor height exactly, and `drawHeroThrough`, `unitAt`'s box and
-// `anchorY` are all quoting the same number rather than three roundings of it.
+// point is the anchor height exactly, and `unitAt`'s box and `anchorY` are both
+// quoting the same number rather than two roundings of it.
 // The pale head disc `drawCharacter` paints afterwards then sits *inside* the
 // silhouette, exactly as it does top-down.
 //
@@ -8732,6 +8962,8 @@ const rigY0 = new Float64Array(RIG_MAX_SEG);
 const rigX1 = new Float64Array(RIG_MAX_SEG);
 const rigY1 = new Float64Array(RIG_MAX_SEG);
 const rigWide = new Float64Array(RIG_MAX_SEG);
+const rigSpriteW = new Float64Array(RIG_MAX_SEG);
+const rigSpriteH = new Float64Array(RIG_MAX_SEG);
 const rigShape = new Int32Array(RIG_MAX_SEG);
 const rigInk = new Int32Array(RIG_MAX_SEG);
 let rigCount = 0;
@@ -8772,6 +9004,24 @@ function rigPush(x0, y0, x1, y1, wide, shape, ink, key) {
   rigWide[at] = wide;
   rigShape[at] = shape;
   rigInk[at] = ink;
+  rigKey[at] = key;
+}
+
+/** A pivoted actor layer into the same depth scratch as the procedural pieces.
+ * `left/top/w/h` are relative to the shoulder pivot in billboard units; `spin`
+ * is the pose rotation away from the facing-authored neutral image. */
+function rigPushLayer(x, y, left, top, w, h, spin, paint, key) {
+  if (rigCount >= RIG_MAX_SEG) return;
+  const at = rigCount++;
+  rigX0[at] = x;
+  rigY0[at] = y;
+  rigX1[at] = left;
+  rigY1[at] = top;
+  rigWide[at] = spin;
+  rigSpriteW[at] = w;
+  rigSpriteH[at] = h;
+  rigShape[at] = RIG_LAYER_SPRITE;
+  rigInk[at] = paint;
   rigKey[at] = key;
 }
 
@@ -8920,6 +9170,9 @@ function drawRig(unit, skin, s, now) {
   const bodyRow = rig[RIG_BODY_ROW];
   const actorKey = ASSET_ACTORS[unit.kind];
   const actor = actorKey === undefined ? null : assetOf(actorKey);
+  const facingIndex = actor !== null && actor.facings !== undefined
+    ? assetFacingIndex(b, actor.facings.length)
+    : 0;
   //
   // Every field it reads is checked before it is read, and that is the same
   // clause as a missing file: a manifest that declares an actor without a cell,
@@ -8934,7 +9187,7 @@ function drawRig(unit, skin, s, now) {
     bodyPaint = assetActorPaint(
       actorKey,
       bodyRow.layer,
-      assetFacingIndex(b, actor.facings.length),
+      facingIndex,
       assetFrameIndex(unit.stride, walk, bodyLayer.frames ? bodyLayer.frames.length : 1)
     );
   }
@@ -9067,8 +9320,8 @@ function drawRig(unit, skin, s, now) {
       // **The head's height is not a fraction of the shoulder.** It is the head
       // circle `UPRIGHT_HEADS` already describes, read back out of billboard
       // space, so its crown lands on `uprightTop(kind)` -- which is `anchorY`'s
-      // height, `unitAt`'s box top and `drawHeroThrough`'s outline top, all four
-      // being one number. A rig whose top segment does not reach it is a rig
+      // height and `unitAt`'s box top, all three being one number. A rig whose
+      // top segment does not reach it is a rig
       // that hangs the health bar off nothing.
       h1 = -head.cy * UPRIGHT_EX;
     } else if (row.slot === RIG_SLOT_SHIELD) {
@@ -9127,8 +9380,39 @@ function drawRig(unit, skin, s, now) {
     const y0 = rigOutY;
     const d0 = rigOutD;
     rigProject(a1 + leanA * f1, s1 + leanS * f1, h1 * hScale * rise, cosB, sinB);
+    const x1 = rigOutX;
+    const y1 = rigOutY;
+    const d1 = rigOutD;
+
+    // A generated arm or shield keeps the procedural rig's pose and depth: the
+    // manifest pivot lands on the proximal joint, then the authored neutral
+    // bearing rotates onto the resolved segment. There is deliberately no
+    // stretch. The layer contract has a pivot but no hand marker, and inventing
+    // the other endpoint would make a pretty image claim a reach the sim does
+    // not have. The weapon below remains the exact hilt-to-tip span.
+    const layer = row.layer !== undefined && actor !== null && actor.layers !== undefined
+      ? actor.layers[row.layer]
+      : undefined;
+    let layerPaint = DL_NO_PAINT;
+    if (layer !== undefined && layer.pivot !== undefined && actor.cell !== undefined) {
+      layerPaint = assetActorPaint(actorKey, row.layer, facingIndex, 0);
+    }
+    if (layerPaint >= 0) {
+      const per = unit.radius * UPRIGHT_EX * assetPxPerWorldUnit;
+      if (per > 0) {
+        const neutralAngle = Math.PI / 2 + facingIndex * Math.PI / 4;
+        rigPushLayer(
+          x0, y0,
+          -layer.pivot[0] / per, -layer.pivot[1] / per,
+          actor.cell[0] / per, actor.cell[1] / per,
+          Math.atan2(y1 - y0, x1 - x0) - neutralAngle,
+          layerPaint, (d0 + d1) / 2
+        );
+        continue;
+      }
+    }
     const wide = row.shape === RIG_DISC ? row.wide * head.r : row.wide;
-    rigPush(x0, y0, rigOutX, rigOutY, wide, row.shape, inks[row.tone], (d0 + rigOutD) / 2);
+    rigPush(x0, y0, x1, y1, wide, row.shape, inks[row.tone], (d0 + d1) / 2);
   }
 
   // **Insertion sort, ascending, over indices.** Seven items and a nearly sorted
@@ -9155,6 +9439,15 @@ function drawRig(unit, skin, s, now) {
     // reason is that a sprite has a size where a segment has a length.
     if (rigShape[at] === RIG_SPRITE) {
       dlSprite(rigX0[at], rigY0[at], rigX1[at] - rigX0[at], rigY1[at] - rigY0[at], rigInk[at]);
+      continue;
+    }
+    if (rigShape[at] === RIG_LAYER_SPRITE) {
+      const spin = rigWide[at];
+      const c = Math.cos(spin);
+      const s = Math.sin(spin);
+      dlXform(c, s, -s, c, rigX0[at], rigY0[at], 0, 1, -1);
+      dlSprite(rigX1[at], rigY1[at], rigSpriteW[at], rigSpriteH[at], rigInk[at]);
+      dlXformEnd();
       continue;
     }
     rigEmitPiece(at);
@@ -9267,7 +9560,7 @@ function rigEmitBlade(unit, s, hx, hy, tx, ty) {
   // silhouette and the declared line on the floor -- and `art-08` is where a
   // weapon sprite has to earn its place against that stroke rather than here,
   // against a fixture.
-  if (emitWeaponSpan(hx, hy, tx, ty)) return;
+  if (emitWeaponSpan(unit.action, hx, hy, tx, ty)) return;
 
   dlPolyBegin();
   dlPoint(hx, hy);
@@ -9288,7 +9581,7 @@ function rigEmitBlade(unit, s, hx, hy, tx, ty) {
 /**
  * A character, as a character.
  *
- * **Six passes flat, seven upright**, and the order of the first two is the point
+ * **Six passes in either projection**, and the order of the first two is the point
  * of the whole function: the shadow separates the body from a floor that now has
  * texture in it, and then **the sim's collision circle is drawn, under the art and
  * again over it**. Every silhouette here overhangs that circle somewhere -- a
@@ -9296,12 +9589,12 @@ function rigEmitBlade(unit, s, hx, hy, tx, ty) {
  * player who cannot see where the real edge is cannot read a shove, a wall stop
  * or why a blade that visibly clipped a leg did nothing. House rule 4.
  *
- * The seventh is the facing wedge, which the upright arm's ground pre-pass slips
+ * The facing wedge is the extra ground readout the upright arm slips
  * between those two. It is not an extra flourish -- flat, the facing is in the
- * rotation of every path below and in the rim light's direction, and a billboard
- * has neither, so the wedge on the floor is the whole of which way a body points.
- * The numbering in the code counts the upright sequence 1 to 7 and the flat one
- * 1 to 6; the last pass is shared and carries both numbers.
+ * rotation of every path below, while a billboard has no rotation of its own, so
+ * the wedge on the floor is the whole of which way a body points. The cyan model
+ * rim that once duplicated that read was removed when production character art
+ * landed; it hid the material and read as selection geometry.
  *
  * Faction drives colour and archetype drives shape, and neither crosses over.
  *
@@ -9557,21 +9850,17 @@ function drawCharacter(unit, now, ghost) {
     //    of it and `web/rig.js` carries the argument for the space it works in.
     //
     //    **`UPRIGHTS` did not go away; it stopped being the body.** It is the
-    //    *silhouette* now, and four things still want a whole-body outline and
-    //    none of them wants seven: the rim light two lines down clips to it,
-    //    `drawHeroThrough` strokes it over the depth walk, the ghost's dashed
-    //    outline above is it, and the hit flash at the bottom of this function
-    //    fills it once rather than flashing seven segments for the same picture
-    //    at seven times the cost. `assertProjection` still checks it -- and now
-    //    the rig with it -- against the live `ex`.
+    //    *silhouette* now, and two things still want a whole-body outline and
+    //    neither wants seven: the ghost's dashed outline above is it, and the hit
+    //    flash at the bottom of this function fills it once rather than flashing
+    //    seven segments for the same picture at seven times the cost.
+    //    `assertProjection` still checks it -- and now the rig with it -- against
+    //    the live `ex`.
     //
     //    **And it is still filled, once, in the room's own darkness, under the
-    //    parts.** Not a second body: a *mass*. Three things need it and the
-    //    first two were found by drawing the rig without it.
+    //    parts.** Not a second body: a *mass*. Two things need it and both were
+    //    found by drawing the rig without it.
     //
-    //      * The rim light below clips to this outline and is a stroke *on* it.
-    //        With nothing filled underneath, that stroke is the only lit thing
-    //        in the shape and a figure reads as a hollow ring at every size.
     //      * The archetype read is the silhouette's -- that is `iso-05`'s whole
     //        argument for `UPRIGHTS` existing -- and at forty pixels a body the
     //        gaps between seven segments are the difference between a Brute and
@@ -9586,31 +9875,6 @@ function drawCharacter(unit, now, ghost) {
     //    instruction and this is the literal reading of it.
     dlPath(shape, DL_FILL, PAL.void, DL_NO_PAINT, 0, 0, 0);
     drawRig(unit, skin, s, now);
-
-    // 6. The rim light, verbatim from the flat arm below including its gradient
-    //    line, because `ctx.clip` takes any closed path and this one is closed.
-    //    What it means changes with the projection and the code does not: flat it
-    //    runs back-to-front along the facing, upright it runs across the body from
-    //    the shaded side to the lit one, and either way it is a bright inner edge
-    //    carrying the intent in its alpha. The *hue* never moves.
-    //
-    //    **It is what carries the faction at four pixels a body and it is not a
-    //    candidate for deletion**, which is worth saying beside a rig whose fills
-    //    are deliberately between `skin.deep` and the void: the body went darker
-    //    in this session and the one line that says whose side it is on did not.
-    //    That it still clips to the silhouette rather than to the segments is the
-    //    point -- an inner rim round the whole figure is one stroke, and a rim
-    //    per segment would be seven strokes drawing the creases between a body's
-    //    own parts.
-    const heat = unit.intent === INTENT_ATTACK ? 1 : unit.intent === INTENT_FLEE ? 0 : 0.5;
-    dlClip(shape);
-    const rim = dlLinearGradient(
-      -0.7, 0, 1.05, 0,
-      `rgba(${skin.wedge},0)`,
-      `rgba(${skin.wedge},${(0.24 + 0.72 * heat).toFixed(3)})`
-    );
-    dlPath(shape, DL_STROKE | DL_LOCAL_WIDTH, null, rim, 0.20 + 0.20 * heat, 0, 0);
-    dlClipEnd();
   } else {
     // 1. The ground shadow: **the silhouette itself**, dropped down the screen.
     //    A plain ellipse was tried and a Brute -- two and a half radii across the
@@ -9674,7 +9938,7 @@ function drawCharacter(unit, now, ghost) {
     dlClipEnd();
   }
 
-  // The last pass -- **6 on the flat arm and 7 on the upright one**, the one place
+  // The last pass -- **6 in either arm**, the one place
   // the two sequences meet, because it is the only pass both arms share code for.
   //
   //    The blow landing, clipped to the shapes that were actually drawn.
@@ -9887,9 +10151,8 @@ function drawShots(shots) {
  *  north side is cut in half by the rock and its bar is not, which is the right
  *  way round: the bar is drawn at all only because `canSee` says the character
  *  can see that body, and half a health bar behind a block would be the page
- *  taking back information the sim has already granted. It is the same argument
- *  `drawHeroThrough` makes -- the room's depth is a picture and the readouts hung
- *  over it are not part of that picture.
+ *  taking back information the sim has already granted. The room's depth is a
+ *  picture and the readouts hung over it are not part of that picture.
  *
  *  Its width is still a radius thing and its height still `anchorY`'s: a bar as
  *  tall as the body it belongs to would be a wall of colour over a Rogue. */
@@ -10639,20 +10902,14 @@ function bodyDepth(unit) {
 /**
  * Everything that stands on the floor this frame, unsorted.
  *
- * **The same set the top-down arm draws, and no more.** Corpses, the monsters, the
- * hero, the arrows. It is `state.monsters` and `state.hero` rather than
- * `state.units` on purpose, exactly as the arm it replaces: `parseFrame` files
- * only the *first* hero-faction row as `state.hero`, so a second one is in `units`
- * and in neither of these -- and it is not drawn today either. Changing that set
- * is not this session's business.
+ * Corpses, monsters, the hero and arrows enter the merge walk. The controlled
+ * body keeps the same geometry as everything else; nearby foreground masonry is
+ * what yields for readability, rather than moving the hero out of depth.
  *
  * The corpse test is `age < CORPSE_MS`, which is `drawCorpse`'s own `t >= 1` skip
  * with the division taken off both sides. It is a *filter*, not a contract: both
  * of `drawCorpse`'s skips are still inside `drawCorpse`, so the worst this can be
  * wrong by is one item pushed that draws nothing.
- *
- * The hero goes in like anything else. See `drawHeroThrough` for why that is safe
- * and what replaces the rule it breaks.
  *
  * A body's depth comes from `bodyDepth` rather than from its live row, because an
  * unseen one is drawn at a remembered pose and the sort has to agree with the
@@ -10708,16 +10965,16 @@ function sortDrawList() {
   }
 }
 
-/** One depth row of lit masonry: the rock's tops, then its sides, then the same
- *  two for any doorway on the band, then the bracket, the flame and the flame's
+/** One depth row of lit masonry: the rock's top and two side families, then the
+ *  top and side for any doorway on the band, then the bracket, flame and flame's
  *  core for any torch on it. Each is `null` for a band the bake never wrote to --
  *  a band that crosses only open floor, or only rock the character has never seen
  *  -- and a `side` can be an empty path where every block on the band is interior.
  *
- *  **Up to seven fills a band, and the reason there are that many paths at all is
+ *  **Up to eight fills a band, and the reason there are that many paths at all is
  *  that a fill is one `fillStyle`.** Door geometry appended to `wallBandTop` would
  *  come out in the wall's own colour and be invisible; a flame appended to the
- *  door's would come out as timber. What all seven *share* is the band, which is
+ *  door's would come out as timber. What all eight *share* is the band, which is
  *  the expensive half -- there is no new entry in the depth list and nothing new
  *  to sort, and a doorway or a torch is occluded by the rock in front of it
  *  because it is on the same anti-diagonal its own tile is.
@@ -10730,25 +10987,39 @@ function sortDrawList() {
  *  **The torch paths are `null` with the art off**, which is the one asymmetry: a
  *  doorway is geometry a tactical plan needs and a torch is paint, so `[tactical]`
  *  and `[dev]` bake none and fill none. */
-function fillBand(d) {
+function fillBand(d, now, alpha) {
+  const faded = alpha < 1;
+  if (faded) dlXform(1, 0, 0, 1, 0, 0, 0, 1, alpha);
   const top = levelPaths.wallBandTop[d];
-  if (top !== null) dlPath(dlPaintFrame(top), DL_FILL, WALL_TOP, DL_NO_PAINT, 0, 0, 0);
-  const side = levelPaths.wallBandSide[d];
-  if (side !== null) dlPath(dlPaintFrame(side), DL_FILL, WALL_XFACE, DL_NO_PAINT, 0, 0, 0);
+  if (top !== null) dlPath(dlPaintFrame(top), DL_FILL, WALL_TOP, wallTopPatternPaint, 0, 0, 0);
+  const xSide = levelPaths.wallBandX[d];
+  if (xSide !== null) dlPath(dlPaintFrame(xSide), DL_FILL, WALL_XFACE, wallXPatternPaint, 0, 0, 0);
+  const ySide = levelPaths.wallBandY[d];
+  if (ySide !== null) dlPath(dlPaintFrame(ySide), DL_FILL, WALL_XFACE, wallYPatternPaint, 0, 0, 0);
   const doorTop = levelPaths.doorBandTop[d];
-  if (doorTop !== null) dlPath(dlPaintFrame(doorTop), DL_FILL, levelPaths.doorTop, DL_NO_PAINT, 0, 0, 0);
-  const doorSide = levelPaths.doorBandSide[d];
-  if (doorSide !== null) dlPath(dlPaintFrame(doorSide), DL_FILL, levelPaths.doorSide, DL_NO_PAINT, 0, 0, 0);
-  if (levelPaths.torchBandStem === null) return;
-  const stem = levelPaths.torchBandStem[d];
-  if (stem !== null) {
-    dlPath(dlPaintFrame(stem), DL_FILL, TORCH_IRON, DL_NO_PAINT, 0, 0, 0);
-    // Always all three, and never one without the others: `bandPath` allocates
-    // them in the same iteration of the bake, so a band with a bracket on it has
-    // a flame and a core on it.
-    dlPath(dlPaintFrame(levelPaths.torchBandFlame[d]), DL_FILL, TORCH_FLAME_TONE, DL_NO_PAINT, 0, 0, 0);
-    dlPath(dlPaintFrame(levelPaths.torchBandCore[d]), DL_FILL, TORCH_CORE_TONE, DL_NO_PAINT, 0, 0, 0);
+  if (doorTop !== null) dlPath(dlPaintFrame(doorTop), DL_FILL, levelPaths.doorTop, doorTopPatternPaint, 0, 0, 0);
+  const doorX = levelPaths.doorBandX[d];
+  if (doorX !== null) dlPath(dlPaintFrame(doorX), DL_FILL, levelPaths.doorSide, doorXPatternPaint, 0, 0, 0);
+  const doorY = levelPaths.doorBandY[d];
+  if (doorY !== null) dlPath(dlPaintFrame(doorY), DL_FILL, levelPaths.doorSide, doorYPatternPaint, 0, 0, 0);
+  if (levelPaths.torchBandStem === null) {
+    if (faded) dlXformEnd();
+    return;
   }
+  if (torchSpritesReady) {
+    drawTorchSprites(levelPaths.torchBandSprites[d], now);
+  } else {
+    const stem = levelPaths.torchBandStem[d];
+    if (stem !== null) {
+      dlPath(dlPaintFrame(stem), DL_FILL, TORCH_IRON, DL_NO_PAINT, 0, 0, 0);
+      // Always all three, and never one without the others: `bandPath` allocates
+      // them in the same iteration of the bake, so a band with a bracket on it has
+      // a flame and a core on it.
+      dlPath(dlPaintFrame(levelPaths.torchBandFlame[d]), DL_FILL, TORCH_FLAME_TONE, DL_NO_PAINT, 0, 0, 0);
+      dlPath(dlPaintFrame(levelPaths.torchBandCore[d]), DL_FILL, TORCH_CORE_TONE, DL_NO_PAINT, 0, 0, 0);
+    }
+  }
+  if (faded) dlXformEnd();
 }
 
 function drawItem(it, now) {
@@ -10794,7 +11065,31 @@ function drawItem(it, now) {
  * top-down arm draws them in, and it is what keeps "arrows over the bodies, so one
  * crossing a fight is not hidden by it" true here as well.
  */
-function walkDrawList(now, origin) {
+const WALL_CUTAWAY_ALPHA = 0.28;
+
+/**
+ * A foreground wall yields only when it is both in front of the hero and close
+ * enough to be the wall the hero is touching. Testing a nearby solid tile keeps
+ * another wall on the same anti-diagonal opaque; testing the band's near plane
+ * keeps a wall behind the body opaque. The body stays in the depth walk, so the
+ * cap and side remain structurally present instead of the hero floating over them.
+ */
+function wallBandAlpha(d, hero) {
+  if (!hero || !levelMap || !(levelPaths.bandTile > 0)) return 1;
+  const tile = levelPaths.bandTile;
+  const behind = (d + 2) * tile - bodyDepth(hero);
+  if (!(behind > 0) || behind > 2.5 * tile) return 1;
+  const hx = Math.floor(hero.x / tile);
+  const hy = Math.floor(hero.y / tile);
+  for (let ty = Math.max(0, hy - 2); ty <= Math.min(levelMap.rows - 1, hy + 2); ty++) {
+    const tx = d - ty;
+    if (tx < 0 || tx >= levelMap.cols || Math.abs(tx - hx) > 2) continue;
+    if (levelMap.tiles[ty * levelMap.cols + tx] !== 0) return WALL_CUTAWAY_ALPHA;
+  }
+  return 1;
+}
+
+function walkDrawList(now, origin, hero) {
   // **The visible band range in two divisions.** Band `d` spans screen y
   // `[d*w/2 - L, (d+2)*w/2]`: `projY` depends only on `wx + wy`, so every tile on
   // the band has its north corner at exactly `d*w/2` and its south corner at
@@ -10859,69 +11154,17 @@ function walkDrawList(now, origin) {
   dlXform(1, 0, 0, 1, 0, 0, 0, 1, 1);
   for (let i = 0; i < drawCount; i++) {
     const it = drawItems[i];
-    while (band <= lastBand && (band + 2) * tile <= it.depth) fillBand(band++);
+    while (band <= lastBand && (band + 2) * tile <= it.depth) {
+      const d = band++;
+      fillBand(d, now, wallBandAlpha(d, hero));
+    }
     drawItem(it, now);
   }
   // Whatever is left of the visible range stands in front of every item there was.
-  while (band <= lastBand) fillBand(band++);
-  dlXformEnd();
-}
-
-/** The hero's outline, over the whole scene. Built once from the skin so the
- *  outline and the body cannot disagree about what "hero" is coloured, and so the
- *  frame does not build a string to say it.
- *
- *  **The art table and not a branch**, because `drawHeroThrough` is called from
- *  inside `render`'s `PROJ.upright` arm and nothing else calls it. A ternary here
- *  would be a mode question asked at module scope, where the answer cannot change,
- *  and would put a second copy of the choice `skinOf` makes somewhere nobody would
- *  think to look for it. */
-const HERO_THROUGH = `rgba(${HERO_SKIN_ART.glow},0.55)`;
-
-/**
- * The hero, read through whatever is standing in front of it.
- *
- * **This is the successor to "the hero draws last", and it is a replacement rather
- * than a weakening.** The old rule said monsters first and then the hero, so that
- * the character you are commanding could never end up underneath the thing
- * attacking it. Under iso that rule cannot be kept without lying about geometry:
- * a hero standing north of a wall block *is* behind it, and drawing it in front
- * would make the room's depth mean nothing exactly when the player is relying on
- * it. So the hero is depth-sorted like everything else, and the old rule's
- * *intent* -- that you can always see what you are commanding -- is carried by
- * this instead. The hero is never in front of everything, and it is never
- * *invisible*.
- *
- * One stroke of one small closed path, unconditional. Where nothing covers the
- * hero it sits exactly on its own edge and reads as a slightly brighter rim;
- * where a monster or a wall covers it, it reads through. Strokes are the scarce
- * resource on this page and this is one un-dashed outline of one body, which is
- * the cheapest possible thing that could do the job.
- *
- * **It traces the body's own billboard**, from `UPRIGHTS`, under exactly the
- * transform `drawCharacter` used -- `translate` to the ground point, uniform
- * `scale(px(r) * ex)`, no rotation. Not a re-derivation of it and not an
- * approximating box: an outline half a body off the body it is outlining is
- * worse than no outline, because it reads as a second thing standing there.
- * `lineWidth` is divided back out by the scale, so it comes out 1.5 device
- * pixels at every zoom the way it did when this was a screen circle.
- *
- * Called only from the depth-walk arm of `render`, which is `PROJ.upright` only,
- * so there is no flat arm here to keep. Top-down the hero is simply drawn last,
- * which is the old rule and still correct there.
- *
- * **No depth bias on the hero, now or later without reading this.** Giving it
- * `depth + 0.35` so it wins near-ties breaks the merge walk's monotonicity: the
- * band cursor has already advanced past a band that a later, shallower item still
- * needs drawn before it, and the cursor cannot go back. The symptom is one frame
- * of flicker as a body crosses a band boundary, which is miserable to chase. If
- * the knob is ever wanted it belongs in `iso-07` §4, with its artefact stated.
- */
-function drawHeroThrough(hero) {
-  const s = px(hero.radius) * PROJ.ex;
-  if (!(s > 0)) return;
-  dlXform(1, 0, 0, 1, projX(hero.x, hero.y), projY(hero.x, hero.y), 0, s, -1);
-  dlPath(uprightPaintOf(hero.kind), DL_STROKE | DL_LOCAL_WIDTH, HERO_THROUGH, DL_NO_PAINT, 1.5 / s, 0, 0);
+  while (band <= lastBand) {
+    const d = band++;
+    fillBand(d, now, wallBandAlpha(d, hero));
+  }
   dlXformEnd();
 }
 
@@ -10997,7 +11240,6 @@ function render(state, now, arrived) {
   //     top-down       corpses -> reach rings -> monsters -> hero -> arrows,
   //                    with the walls already down inside the level
   //   OVERLAY LAYER  (screen space)
-  //     hero outline   iso only
   //     health bars -> floaters -> callouts
   //     art           -> grain, one cached tile over the whole canvas
   //
@@ -11028,14 +11270,11 @@ function render(state, now, arrived) {
   // depth walk for that reason; top-down they stay in the depth list between the
   // corpses and the bodies, which is the argument on the branch itself.
   //
-  // **What used to be a fourth load-bearing rule was "monsters first, then the
-  // hero", and it could not survive the depth layer.** Its successor is
-  // `drawHeroThrough`, which carries the argument in full: the hero is
-  // depth-sorted like everything else and is never *invisible*, because it gets an
-  // outline pass over the whole scene after the depth walk. What the old rule was
-  // protecting -- that you can always see what you are commanding -- is what
-  // survives, and what it was asserting, that the hero is in front of the room,
-  // is what an isometric room cannot be told.
+  // **The hero stays in the depth walk.** Drawing it after the completed room was
+  // tried while removing the old cyan through-wall outline; against a north wall
+  // that made the body float over the wall cap and erased the vertical face. The
+  // screenshot that retired that attempt settled the rule: the body's depth stays
+  // honest, and foreground masonry yields locally when it would hide the model.
   //
   // What used to sit second here was the reachable box: the arena inset by one
   // body radius. It went with the rectangle it described. The honest successor
@@ -11122,13 +11361,8 @@ function render(state, now, arrived) {
     dlLayerIs(DL_DEPTH);
     buildDrawList(state);
     sortDrawList();
-    walkDrawList(now, origin);
-    // Over the walk and under the health bars. The successor to "the hero draws
-    // last" -- `drawHeroThrough` has the argument. It is an overlay mark emitted
-    // from the depth branch, which is why the layer label changes here and not
-    // at the bottom of the branch.
+    walkDrawList(now, origin, state.hero);
     dlLayerIs(DL_OVERLAY);
-    if (state.hero && canSee(state.hero)) drawHeroThrough(state.hero);
   } else {
     // Today's lines, verbatim, and they are the A/B control for the whole
     // conversion. Do not tidy them toward the arm above.
@@ -12541,9 +12775,9 @@ function assertProjection() {
     // at `-BODY_H / ex` meaning `lift(bodyHeight(unit))`.
     //
     // **And since `art-05` it guards more than the art it was written for.**
-    // `UPRIGHTS` stopped being the body and became the silhouette -- the outline
-    // `drawHeroThrough`, the ghost, `drawCorpse` and the hit flash each want and
-    // none of which wants seven pieces -- while the body itself is `drawRig`,
+    // `UPRIGHTS` stopped being the body and became the silhouette -- the ghost,
+    // `drawCorpse` and the hit flash each want one and none wants seven pieces --
+    // while the body itself is `drawRig`,
     // whose `height / ex` term is the same expression `uprightTop` uses and is
     // the reason a segment declared at `BODY_H[kind]` lands on the crown the
     // health bar hangs from. So a second upright projection with a different
