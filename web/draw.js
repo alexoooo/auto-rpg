@@ -911,6 +911,41 @@ function dlPatternStatic(image, repeat) {
 }
 
 /**
+ * A two-stop linear gradient that **outlives the frame**, registered in the
+ * static region. `dlPatternStatic`'s sibling and not a new kind: the item that
+ * consumes it is the `PATH_FILL` that already existed, and all that is new is
+ * which half of the paint table the ink is written into.
+ *
+ * `art-05` is the caller: seven segments a body, two gradients a skin, and the
+ * per-frame region would mean rebuilding four objects sixty times a second for
+ * paint that never changes. `dlLinearGradient` above is the *query* -- a
+ * gradient whose stops or whose space depend on this frame -- and this is the
+ * declaration.
+ *
+ * **Built at whatever CTM happens to be current, on purpose, because that turns
+ * out not to matter.** Canvas2D resolves a gradient's coordinates against the
+ * matrix in force when it is **painted**, not when it is created: a gradient
+ * built at the identity and filled under `translate(20, 0)` lands at 20..30, and
+ * one built under `translate(30, 0)` and filled at the identity lands at 0..10.
+ * Both measured in Chrome, in this page, before `art-05` relied on it. So a
+ * gradient declared here in unit coordinates is the gradient across whatever
+ * each consumer's own matrix makes of that interval -- which is exactly what
+ * lets one object serve every segment of every body at every zoom.
+ *
+ * That measurement also settles a question `dlLinearGradient`'s comment leaves
+ * open and `drawCharacter`'s flat arm answers wrongly. It is recorded in both
+ * places rather than acted on: the flat arm is reachable only from a top-down
+ * *art* mode no `VIEW_MODES` row selects, and `art-05`'s gate is that the two
+ * flat views do not move by a byte.
+ */
+function dlGradientStatic(x0, y0, x1, y1, stop0, stop1) {
+  const g = dlCtx.createLinearGradient(x0, y0, x1, y1);
+  g.addColorStop(0, stop0);
+  g.addColorStop(1, stop1);
+  return dlPaintStatic(g);
+}
+
+/**
  * The width of a string in a font, in CSS pixels.
  *
  * A **measurement is not a paint**, which is the whole of why this can live here

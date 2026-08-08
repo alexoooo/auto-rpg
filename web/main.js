@@ -7808,6 +7808,17 @@ const HOT_SPIN = 1500;
  *  striking blade can hurt anybody, so a page that drew every blade the same
  *  would be showing a fight in which everything is dangerous all the time --
  *  which is precisely the fight this model was built to stop being. */
+/** What a lifted blade leaves on the floor.
+ *
+ *  **One tone for all four phases, deliberately.** The phase is carried by the
+ *  bright blade at the hand, where the eye is; the shadow's job is to say *where
+ *  the hitbox is*, and a shadow that also changed colour would be a second,
+ *  fainter, redundant readout competing with the first. Dark rather than dim
+ *  faction colour, because it is a shadow and the floor under it is already
+ *  warm. Hoisted for `wedgeFans`' reason: so the frame does not build a string
+ *  to say it. */
+const BLADE_SHADOW = "rgba(0,0,0,0.34)";
+
 const SWING_SKIN = {
   [SWING_GUARD]: { line: "rgba(210,220,235,0.45)", width: 0.16 },
   [SWING_WINDUP]: { line: "rgba(255,196,92,0.95)", width: 0.24 },
@@ -7905,8 +7916,19 @@ function drawLimb(unit, skin) {
     (unit.role === ROLE_STRIKE || unit.role === ROLE_SHOOT) &&
     (unit.swing === SWING_WINDUP || unit.swing === SWING_STRIKE)
   ) {
+    // **`swingSpan`, not a literal 30.** This divided by 30 for every action in
+    // the game, which is right for a bow and wrong for everything else: a
+    // Brute's club telegraphs for 33 ticks and a Punch for 5, so the amber line
+    // faded in at a third of the right rate on one and finished fading before
+    // the windup was a fifth over on the other. `art-03` put the phase's real
+    // length in the frame precisely so this could stop guessing, and
+    // `swingProgress` is that read. **The one expression in this session that
+    // moves a pixel in `[tactical]` and `[dev]`** -- it and its twin on the bow
+    // below, which is the same call. Both move an alpha and nothing else, and
+    // putting the literal back makes all eight flat captures byte-identical to
+    // the commit before this one, which is how the gate was read.
     const imminent =
-      unit.swing === SWING_STRIKE ? 1 : clamp(1 - unit.swingLeft / 30, 0.15, 1);
+      unit.swing === SWING_STRIKE ? 1 : clamp(swingProgress(unit), 0.15, 1);
     const out =
       unit.role === ROLE_SHOOT
         ? px(unit.sight)
@@ -7930,33 +7952,55 @@ function drawLimb(unit, skin) {
   //
   // Gated on the role, so a guard is never drawn as a stick. That is not
   // cosmetic: the sim refuses a guard a blade hitbox, and a page that drew one
-  // anyway would be teaching the player a threat that cannot exist.
-  if (unit.role === ROLE_STRIKE && unit.limbReach > 0.05 && unit.swing !== SWING_SWAP) {
+  // anyway would be teaching the player a threat that cannot exist. The gate is
+  // `bladeLive` now, in one place, because `drawRig` needs the same answer.
+  //
+  // **Upright, this is the blade's *shadow* and the blade itself is in the rig.**
+  // The sim is 2D and has no opinion about height, so the plan-view position is
+  // the truth and the height is a rendering choice -- drawing the blade at hand
+  // height changes nothing the sim can measure. What it costs is readability,
+  // because the bright thing is no longer where it hits. So the line stays here,
+  // dim, exactly where the hitbox is, and `rigEmitBlade` puts the bright one at
+  // the hand and sorts it among the segments. `drawShot` is the same structure:
+  // a ground shadow under a lifted shaft, and the shadow is the thing that makes
+  // the altitude readable at all.
+  //
+  // Top-down there is no altitude to read, the shadow and the blade would be the
+  // same pixels, and `[tactical]` and `[dev]` are the A/B control for the whole
+  // conversion -- so that arm is what it has always been, line for line.
+  if (bladeLive(unit)) {
     const phase = SWING_SKIN[unit.swing] || SWING_SKIN[SWING_GUARD];
     const heat = clamp(Math.abs(unit.limbSpin) / HOT_SPIN, 0, 1);
     const hilt = r;
     const tip = px(unit.radius + unit.actionLength * unit.limbReach);
     dlRotateBare(unit.limbAngle);
-    // A trailing smear opposite the swing, so which way it is travelling is
-    // readable at a glance. Only on a live cut: a blade drifting back to guard
-    // trails nothing worth watching, and smearing it would make a recovery --
-    // the most punishable moment in the game -- look like a threat.
-    //
-    // The round cap used to be one `ctx.lineCap` covering both strokes; it is
-    // per item now, on `drawShot`'s own argument for scoping it that way.
-    if (unit.swing === SWING_STRIKE && heat > 0.05) {
-      const sweep = Math.sign(unit.limbSpin) * -heat * 0.55;
-      dlArc(
-        0, 0, (hilt + tip) / 2, 0, sweep,
-        DL_STROKE | DL_CAP_ROUND | (sweep > 0 ? DL_CCW : 0),
-        `rgba(255,255,255,${(0.16 * heat).toFixed(3)})`,
-        Math.max(2, r * 0.5)
-      );
+    if (PROJ.upright) {
+      dlPolyBegin();
+      dlPoint(hilt, 0);
+      dlPoint(tip, 0);
+      dlPolyEnd(DL_CAP_ROUND, BLADE_SHADOW, Math.max(1.6, r * phase.width), 0, 0);
+    } else {
+      // A trailing smear opposite the swing, so which way it is travelling is
+      // readable at a glance. Only on a live cut: a blade drifting back to guard
+      // trails nothing worth watching, and smearing it would make a recovery --
+      // the most punishable moment in the game -- look like a threat.
+      //
+      // The round cap used to be one `ctx.lineCap` covering both strokes; it is
+      // per item now, on `drawShot`'s own argument for scoping it that way.
+      if (unit.swing === SWING_STRIKE && heat > 0.05) {
+        const sweep = Math.sign(unit.limbSpin) * -heat * 0.55;
+        dlArc(
+          0, 0, (hilt + tip) / 2, 0, sweep,
+          DL_STROKE | DL_CAP_ROUND | (sweep > 0 ? DL_CCW : 0),
+          `rgba(255,255,255,${(0.16 * heat).toFixed(3)})`,
+          Math.max(2, r * 0.5)
+        );
+      }
+      dlPolyBegin();
+      dlPoint(hilt, 0);
+      dlPoint(tip, 0);
+      dlPolyEnd(DL_CAP_ROUND, phase.line, Math.max(1.6, r * phase.width), 0, 0);
     }
-    dlPolyBegin();
-    dlPoint(hilt, 0);
-    dlPoint(tip, 0);
-    dlPolyEnd(DL_CAP_ROUND, phase.line, Math.max(1.6, r * phase.width), 0, 0);
     dlRotateBare(-unit.limbAngle);
   }
 
@@ -7967,8 +8011,13 @@ function drawLimb(unit, skin) {
   // thing cuts", and it deepens as the draw runs out.
   if (unit.role === ROLE_SHOOT && unit.swing !== SWING_SWAP) {
     const out = px(unit.radius + unit.actionLength);
-    const drawn =
-      unit.swing === SWING_WINDUP ? clamp(1 - unit.swingLeft / 30, 0.2, 1) : 0.2;
+    // The same literal, the same fix, and it is here rather than left behind
+    // because a wrong constant sitting next to its corrected twin is worse than
+    // two wrong constants: the next person to read this would take the pair as a
+    // deliberate difference. A bow's nominal windup happens to be 30, so this is
+    // the one call site the old number was ever close for -- and only on a body
+    // of average agility, since `phase_ticks` scales it.
+    const drawn = unit.swing === SWING_WINDUP ? clamp(swingProgress(unit), 0.2, 1) : 0.2;
     dlRotateBare(unit.limbAngle);
     dlArc(
       0, 0, out, -0.55, 0.55,
@@ -8431,6 +8480,89 @@ function uprightHeadOf(kind) {
   return UPRIGHT_HEADS[kind] || UPRIGHT_HEADS[BODY_FIGHTER];
 }
 
+// ------------------------------------------------------------------- the rig
+//
+// `web/rig.js` holds the tables and the argument for the space they are written
+// in; this is the join between them and the sim. Read that file's header first
+// -- everything below assumes its two projection lines.
+
+/**
+ * Which rig an archetype uses, on exactly `silhouettePaintOf`'s argument: the
+ * Fighter's is the fallback, because a body the roster does not describe still
+ * has to draw as something and the Fighter is the roundest of the four.
+ *
+ * **The table is here and not in `rig.js`, and that is the split working rather
+ * than a leak.** A `UnitKind` code is sim knowledge -- it is an ABI value out of
+ * `kind_code` -- and `rig.js`'s whole claim is that it holds proportions and no
+ * sim knowledge at all. So that file says what an upright thing and a crawling
+ * thing are shaped like, and this line says which of the two a Skitterer is.
+ */
+const RIGS = {
+  [BODY_FIGHTER]: RIG_UPRIGHT,
+  [BODY_ROGUE]: RIG_UPRIGHT,
+  [BODY_BRUTE]: RIG_UPRIGHT,
+  [BODY_SKITTERER]: RIG_CRAWLER,
+};
+
+function rigOf(kind) {
+  return RIGS[kind] || RIG_UPRIGHT;
+}
+
+/**
+ * The archetype's shoulder, as a height in body radii.
+ *
+ * `UPRIGHT_HEADS` carries it as a billboard-space `y`, which is
+ * `-height / UPRIGHT_EX`, so this is that read the other way round. It exists as
+ * its own name because the rig quotes every height as a fraction of it and a
+ * negation buried in a table row is a sign error waiting to happen.
+ */
+function shoulderHeight(kind) {
+  return -uprightHeadOf(kind).shoulder * UPRIGHT_EX;
+}
+
+/**
+ * How high the hand rides above the feet, in **body radii** -- the rig's own
+ * unit, so it goes straight into `rigProject`'s third argument.
+ *
+ * The one number shared by the rig's arm and the lifted blade, and it has to be
+ * one number or the two come apart: the arm would reach for a hilt the blade is
+ * not at. `drawRig` and `rigEmitBlade` are two functions and would otherwise be
+ * two copies of `shoulderHeight(kind) * RIG_HAND`.
+ *
+ * **The sim has no opinion about it and cannot be given one.** A blade's hitbox
+ * is a segment in the world plane; height is a rendering choice and drawing the
+ * blade at hand height changes nothing the sim can measure. What it costs is
+ * readability -- the bright thing is no longer where it hits -- which is what
+ * `drawLimb`'s floor shadow buys back. That shadow is on the floor and so takes
+ * no height at all; the *world* height, for anything that ever wants one, is
+ * `lift(unit.radius * handHeight(unit.kind))`.
+ */
+function handHeight(kind) {
+  return shoulderHeight(kind) * RIG_HAND;
+}
+
+/**
+ * How far a body has turned away from looking at the viewer, wrapped to
+ * `(-pi, pi]`. Zero is facing the camera; `+/-pi` is facing away; `+/-pi/2` are
+ * the two profiles.
+ *
+ * **`pi/4` is not a magic number**: the camera looks down the `+x/+y` diagonal,
+ * which `wallBlock` states as the reason only two of a block's four faces are
+ * ever emitted, so world bearing `pi/4` is the bearing that projects straight
+ * down the screen -- toward the viewer. `assertProjection` proves it at boot
+ * rather than taking it on trust.
+ *
+ * Wrapped rather than left raw because every consumer takes a `sin` or a `cos`
+ * of it, which are periodic anyway -- so the wrap is for the one consumer that
+ * will not be: `art-06`'s eight-way facing index, `round(b / (TAU/8)) & 7`.
+ */
+function camBearing(facing) {
+  let b = (facing - Math.PI / 4) % TAU;
+  if (b > Math.PI) b -= TAU;
+  else if (b <= -Math.PI) b += TAU;
+  return b;
+}
+
 /** The world height above the ground point that anything hung over a body has to
  *  clear. Under `topdown` that is the top of the disc, which is the body's own
  *  radius and is what every anchor here has always used; under iso, the top of
@@ -8458,6 +8590,432 @@ function anchorY(unit) {
  *  that and draws a ring, not a fan. */
 const WEDGE_HALF = 0.62;
 const WEDGE_REACH = 1.7;
+
+// ------------------------------------------------------------ the rig, drawn
+//
+// **The scratch, and why it is typed arrays at module scope.** Seven segments a
+// body, sixty-four bodies, sixty frames a second. `Array.prototype.sort` on a
+// fresh array of records would be 64 arrays and 448 objects a frame in a render
+// path whose whole discipline is that it allocates nothing (`main.js`'s parse
+// pool states the rule); an insertion sort over indices into preallocated lanes
+// is the same answer the depth walk already gives for the same question, at the
+// same size.
+
+const RIG_MAX_SEG = 12;
+const rigOrder = new Int32Array(RIG_MAX_SEG);
+const rigKey = new Float64Array(RIG_MAX_SEG);
+const rigX0 = new Float64Array(RIG_MAX_SEG);
+const rigY0 = new Float64Array(RIG_MAX_SEG);
+const rigX1 = new Float64Array(RIG_MAX_SEG);
+const rigY1 = new Float64Array(RIG_MAX_SEG);
+const rigWide = new Float64Array(RIG_MAX_SEG);
+const rigShape = new Int32Array(RIG_MAX_SEG);
+const rigInk = new Int32Array(RIG_MAX_SEG);
+let rigCount = 0;
+
+/**
+ * A body-local point into billboard space, into three module-scope scalars.
+ *
+ * `web/rig.js`'s header derives these two lines and `assertProjection` proves
+ * them against `groundSpace` plus `lift` at boot. Out-params rather than a
+ * returned pair for `projX`/`projY`'s own reason: a shared out-object would
+ * alias the moment two projections appear in one expression, and a fresh one per
+ * call would allocate seven times a body per frame.
+ *
+ * `rigOutD` is the depth key **and** twice the ground part of `rigOutY`, which
+ * is not a coincidence to be tidied away -- it is the whole of why things
+ * further from the camera sit higher on the screen for free.
+ */
+let rigOutX = 0;
+let rigOutY = 0;
+let rigOutD = 0;
+
+function rigProject(along, side, height, cosB, sinB) {
+  rigOutD = along * cosB + side * sinB;
+  rigOutX = side * cosB - along * sinB;
+  rigOutY = rigOutD / 2 - height / UPRIGHT_EX;
+}
+
+/** One resolved segment into the scratch. `key` is the depth the sort runs on;
+ *  for a two-ended piece it is the mean of its ends, which is continuous in the
+ *  facing where either end alone would not be. */
+function rigPush(x0, y0, x1, y1, wide, shape, ink, key) {
+  if (rigCount >= RIG_MAX_SEG) return;
+  const at = rigCount++;
+  rigX0[at] = x0;
+  rigY0[at] = y0;
+  rigX1[at] = x1;
+  rigY1[at] = y1;
+  rigWide[at] = wide;
+  rigShape[at] = shape;
+  rigInk[at] = ink;
+  rigKey[at] = key;
+}
+
+/** Whether there is a blade in the hand at all -- **one predicate, two callers**,
+ *  because `drawRig` lifts it to the hand under iso and `drawLimb` keeps it on
+ *  the floor top-down, and a gate written twice is a gate that drifts. The sim
+ *  refuses a guard and a runner a blade hitbox, so a page that drew one anyway
+ *  would be teaching the player a threat that cannot exist. */
+function bladeLive(unit) {
+  return unit.role === ROLE_STRIKE && unit.limbReach > 0.05 && unit.swing !== SWING_SWAP;
+}
+
+/**
+ * How far through its current phase a limb is: `0` at the start, `1` at the end.
+ *
+ * **`swingSpan` and never a literal.** `drawLimb` used to divide by 30 for every
+ * action in the game -- right for a bow and wrong for everything else, because a
+ * Brute's club telegraphs for 33 ticks and a Punch for 5. `art-03` put the
+ * phase's real length in the frame precisely so this could be an honest
+ * fraction, and it is the *measured* length rather than the nominal one from
+ * `action.rs`: a punished recovery genuinely is longer than the book says.
+ *
+ * Zero at guard, where `swingLeft` means nothing and `swingSpan` is zero.
+ *
+ * **Every pose in the rig is a function of this and none is a function of
+ * `now`**, which is what makes a Brute's 33-tick windup visibly last 33 ticks --
+ * by construction rather than by tuning -- and what makes a paused world hold
+ * the pose it was paused in.
+ */
+function swingProgress(unit) {
+  if (!(unit.swingSpan > 0)) return 0;
+  return clamp(1 - unit.swingLeft / unit.swingSpan, 0, 1);
+}
+
+/**
+ * The body, as parts.
+ *
+ * Called from inside `drawCharacter`'s billboard push, so everything below is in
+ * the space `UPRIGHTS` is written in: half-width 1, feet at the origin, `-y` up,
+ * crown at `uprightTop(kind)`. `s` is that space's scale in pixels, and the only
+ * thing it is needed for is quoting a stroke width the blade wants in pixels.
+ *
+ * Three passes: **resolve** every row of the rig table into a pair of billboard
+ * points and a depth key; **sort** by that key; **emit**. Nothing here paints,
+ * and the middle pass is the whole of the z-order -- there is no table, and if a
+ * segment pops at a facing boundary the key is mis-signed rather than a row
+ * being in the wrong place.
+ *
+ * **Every pose the sim has an opinion about comes out of the snapshot.**
+ * `stride` is the walk, `vx`/`vy` are whether it is walking at all,
+ * `swing`/`swingLeft`/`swingSpan` are the attack, `limbAngle`/`limbReach` are
+ * where the hand and the blade actually are. A body that is walled, shoved to a
+ * stop or simply standing still freezes for free, because the sim's own numbers
+ * stopped moving.
+ *
+ * **`now` buys exactly one thing and it is the idle breath** -- see `RIG_BREATH`
+ * for why that is the exception rather than the hole. It is the frozen-aware
+ * clock `render` was handed, so a pinned clock pins the pose.
+ */
+function drawRig(unit, skin, s, now) {
+  const rig = rigOf(unit.kind);
+  const inks = rigInksOf(skin);
+  if (inks === null) return;
+  const head = uprightHeadOf(unit.kind);
+  const shoulder = shoulderHeight(unit.kind);
+  const b = camBearing(unit.facing);
+  const cosB = Math.cos(b);
+  const sinB = Math.sin(b);
+
+  // How much of a walk cycle to draw. **Speed, not a differenced stride** -- see
+  // `RIG_WALK_FULL`, which carries the correction and the argument. Divided by
+  // the radius because that is what the module's own stride clock divides by.
+  const walk = clamp(Math.hypot(unit.vx, unit.vy) / (unit.radius * RIG_WALK_FULL), 0, 1);
+  const phase = unit.stride * TAU;
+
+  // The bob: down at the extremes of the stride, up in the middle, at twice the
+  // stride's frequency because a body bobs once per foot and there are two.
+  // Expressed as a *compression of the whole stack* rather than an offset, so
+  // the feet stay on the floor without anything having to be told to.
+  const swingSin = Math.sin(phase);
+  const page = bodies.get(unit.id);
+  const recoil = page && page.recoil > 0 ? page.recoil : 0;
+  const hScale =
+    1 - RIG_BOB * walk * swingSin * swingSin - RIG_RECOIL_SQUASH * recoil;
+
+  // The idle breath, and it is **zero unless the body is genuinely idle**: the
+  // limb at rest and the walk faded out. Two multiplications rather than a
+  // promise, so it cannot ride on top of a windup, a strike or a stride -- and
+  // the loop below applies it to the torso and the head alone, so it cannot
+  // reach the hand height the hilt is measured from, the blade, the shield or
+  // the legs. `RIG_BREATH` carries the argument for why this one pose is
+  // allowed a clock at all.
+  const resting = unit.swing === SWING_GUARD || unit.swing === SWING_SWAP;
+  const breath = resting
+    ? 1 +
+      RIG_BREATH *
+        (1 - walk) *
+        Math.sin((now / RIG_BREATH_MS + unit.id * RIG_BREATH_STAGGER) * TAU)
+    : 1;
+
+  // The lean and the brace, both of them `along` offsets applied in proportion
+  // to how far up the body a point is -- so the feet never move and the head
+  // moves most. **Garnish, and clamped hard**: it may never misrepresent reach,
+  // bearing or phase, and none of it reaches the hilt or the blade, which come
+  // out of `limbAngle` further down.
+  const progress = swingProgress(unit);
+  const brace =
+    unit.swing === SWING_WINDUP
+      ? -progress
+      : unit.swing === SWING_STRIKE
+        ? 1 - progress
+        : unit.swing === SWING_RECOVER
+          ? -0.25 * (1 - progress)
+          : 0;
+  const leanA = (page ? page.leanAlong : 0) + RIG_BRACE * brace - RIG_RECOIL_TIP * recoil;
+  const leanS = page ? page.leanSide : 0;
+
+  // Where the hand is, in the rig's own coordinates: the sim's own limb bearing,
+  // relative to the facing, at the body's surface. This is the hilt of
+  // `World::blade` exactly -- the same point, arrived at by rotating into the
+  // body frame instead of by projecting from the world, and `assertProjection`
+  // checks the two agree.
+  const rel = unit.limbAngle - unit.facing;
+  const handAlong = Math.cos(rel);
+  const handSide = -Math.sin(rel);
+  const handH = handHeight(unit.kind);
+  // A swap has nothing in the hand: the arm returns to its neutral carry over
+  // the swap's own duration, which is the one place `progress` poses a limb
+  // directly rather than through the sim's own `limbReach`.
+  const armed = unit.role !== ROLE_MOVE;
+  const carry = unit.swing === SWING_SWAP ? progress : 0;
+
+  rigCount = 0;
+  for (let i = 0; i < rig.length; i++) {
+    const row = rig[i];
+    if (row.grain === RIG_IMAGE) continue;
+    if (row.slot === RIG_SLOT_SHIELD && !(unit.role === ROLE_GUARD && unit.swing !== SWING_SWAP)) {
+      continue;
+    }
+
+    if (row.slot === RIG_SLOT_WEAPON) {
+      if (!bladeLive(unit)) continue;
+      // **Not placed by the table at all.** Hilt at `radius` along `limbAngle`,
+      // tip at `radius + actionLength * limbReach`, which is precisely the
+      // segment `World::blade` builds and tests against -- continuous, never
+      // quantised, and the one thing in this function that is not negotiable.
+      // Neither end takes the lean, the brace, the recoil or the bob.
+      const tipR = 1 + (unit.actionLength * unit.limbReach) / unit.radius;
+      rigProject(handAlong, handSide, handH, cosB, sinB);
+      const hx = rigOutX;
+      const hy = rigOutY;
+      const hd = rigOutD;
+      rigProject(handAlong * tipR, handSide * tipR, handH, cosB, sinB);
+      rigPush(hx, hy, rigOutX, rigOutY, 0, RIG_BLADE, 0, (hd + rigOutD) / 2);
+      continue;
+    }
+
+    // The proximal end is always the table's, and the distal end is where the
+    // posing happens. Both are resolved to plain body-local radii here and the
+    // lean is applied once, below, to whatever came out -- which is what keeps
+    // the four cases four lines each instead of four copies of the projection.
+    let a0 = row.a0;
+    let s0 = row.side;
+    let h0 = row.h0 * shoulder;
+    let a1 = row.a1;
+    let s1 = row.side;
+    let h1 = row.h1 * shoulder;
+
+    if (row.slot === RIG_SLOT_HEAD) {
+      // **The head's height is not a fraction of the shoulder.** It is the head
+      // circle `UPRIGHT_HEADS` already describes, read back out of billboard
+      // space, so its crown lands on `uprightTop(kind)` -- which is `anchorY`'s
+      // height, `unitAt`'s box top and `drawHeroThrough`'s outline top, all four
+      // being one number. A rig whose top segment does not reach it is a rig
+      // that hangs the health bar off nothing.
+      h1 = -head.cy * UPRIGHT_EX;
+    } else if (row.slot === RIG_SLOT_SHIELD) {
+      // On the limb's own bearing and not on the off hand's, because the sim has
+      // exactly one limb and it is the one the guard arc is drawn at. A shield
+      // on the other arm would be the page saying a body is covered somewhere
+      // the sim will not defend -- the same lie the role gates in `drawLimb`
+      // exist to prevent, one level along.
+      a1 = handAlong * RIG_SHIELD_OUT;
+      s1 = handSide * RIG_SHIELD_OUT;
+      h1 = handH;
+    } else if (row.slot === RIG_SLOT_ARM && row.main && armed) {
+      // The main arm reaches for the hand and stops solving there. Nothing looks
+      // for an elbow and nothing should -- an elbow is invisible at 116 px of
+      // Fighter. Mid-swap there is nothing in the hand, so it returns to the
+      // table's neutral carry over the swap's own duration.
+      a1 = handAlong + (row.a1 - handAlong) * carry;
+      s1 = handSide + (row.side - handSide) * carry;
+      h1 = handH + (row.h1 * shoulder - handH) * carry;
+    } else {
+      // Everything that walks. One row written twice at opposite `phase` is what
+      // makes the far leg the near leg half a cycle ago, and the foot comes off
+      // the floor on the forward half of its own swing so that a walk is a walk
+      // rather than a shuffle.
+      const legPhase = phase + row.phase * TAU;
+      a1 += row.swing * Math.sin(legPhase) * walk;
+      if (row.slot === RIG_SLOT_LEG) {
+        h1 += RIG_FOOT * shoulder * walk * Math.max(0, Math.cos(legPhase));
+      }
+    }
+
+    // A disc is a point, so both of its ends are the same end. Said here once
+    // rather than in each branch that makes one: it is a property of the shape
+    // and not of the slot, and the depth key would otherwise be the mean of a
+    // head and a pair of feet.
+    if (row.shape === RIG_DISC) {
+      a0 = a1;
+      s0 = s1;
+      h0 = h1;
+    }
+
+    // The bob and the recoil compress the stack; the lean and the brace tip it.
+    // Both are scaled by how far up the body a point is, so the feet stay on the
+    // floor and on the collision ring without anything having to be told to.
+    //
+    // The breath rides on the same height scale, and **on these two rows only**
+    // -- which is the whole of the guarantee that it never moves the hand, the
+    // hilt or the blade. It does leave the shoulder a fraction of a pixel out of
+    // line with the arm hanging off it, and that is what `rigLimbPath`'s
+    // twentieth of overshoot at each end is for.
+    const rise = row.slot === RIG_SLOT_TORSO || row.slot === RIG_SLOT_HEAD ? breath : 1;
+    const f0 = h0 / shoulder;
+    const f1 = h1 / shoulder;
+    rigProject(a0 + leanA * f0, s0 + leanS * f0, h0 * hScale * rise, cosB, sinB);
+    const x0 = rigOutX;
+    const y0 = rigOutY;
+    const d0 = rigOutD;
+    rigProject(a1 + leanA * f1, s1 + leanS * f1, h1 * hScale * rise, cosB, sinB);
+    const wide = row.shape === RIG_DISC ? row.wide * head.r : row.wide;
+    rigPush(x0, y0, rigOutX, rigOutY, wide, row.shape, inks[row.tone], (d0 + rigOutD) / 2);
+  }
+
+  // **Insertion sort, ascending, over indices.** Seven items and a nearly sorted
+  // list frame to frame, which is the case insertion sort is best at and the
+  // case TimSort would allocate a work array for.
+  for (let i = 0; i < rigCount; i++) {
+    let j = i;
+    while (j > 0 && rigKey[rigOrder[j - 1]] > rigKey[i]) {
+      rigOrder[j] = rigOrder[j - 1];
+      j--;
+    }
+    rigOrder[j] = i;
+  }
+
+  for (let k = 0; k < rigCount; k++) {
+    const at = rigOrder[k];
+    if (rigShape[at] === RIG_BLADE) {
+      rigEmitBlade(unit, s, rigX0[at], rigY0[at], rigX1[at], rigY1[at]);
+      continue;
+    }
+    rigEmitPiece(at);
+  }
+}
+
+/**
+ * One resolved segment, as **one `PATH_FILL` and no stroke**.
+ *
+ * `DESIGN.md`'s measurement is unambiguous -- killing `stroke()` alone recovered
+ * 43 fps while fills, rects, sprites and text were collectively free -- and a
+ * stroke per segment would be seven new strokes a body where there is currently
+ * one. The edge definition the stroke was providing comes out of the fill
+ * instead: `rig.js`'s two gradients run across `x = -1 .. 1` of the **unit**
+ * path, and the matrix below is what makes that interval this segment's own
+ * short axis, at any size, on any body, at any zoom.
+ *
+ * The matrix is `T * R * diag(w, len)` folded into one `ctx.transform`, because
+ * `dlApplyXform` runs translate, then the linear part, then the rotation -- so a
+ * rotation asked for by name would be applied in the already-scaled space and
+ * come out sheared. Written out, local `(0, 0)` is the proximal end, local
+ * `(0, -1)` is the distal end, and local `x = +/-1` is `w` either side of the
+ * line between them.
+ */
+function rigEmitPiece(at) {
+  const x0 = rigX0[at];
+  const y0 = rigY0[at];
+  const dx = rigX1[at] - x0;
+  const dy = rigY1[at] - y0;
+  const w = rigWide[at];
+  if (rigShape[at] === RIG_DISC) {
+    dlXform(w, 0, 0, w, x0, y0, 0, 1, -1);
+    dlPath(RIG_DISC_PAINT, DL_FILL, null, rigInk[at], 0, 0, 0);
+    dlXformEnd();
+    return;
+  }
+  const len = Math.hypot(dx, dy);
+  // A segment with no length has no short axis either, so there is nothing for
+  // the gradient to run across and nothing to draw. It happens: a Skitterer with
+  // a zero radius is skipped upstream, but a leg at the exact bottom of its
+  // swing on a body of vanishing scale is not.
+  if (!(len > 1e-9)) return;
+  const ux = dx / len;
+  const uy = dy / len;
+  dlXform(w * uy, -w * ux, -dx, -dy, x0, y0, 0, 1, -1);
+  dlPath(RIG_LIMB_PAINT, DL_FILL, null, rigInk[at], 0, 0, 0);
+  dlXformEnd();
+}
+
+/**
+ * The blade, at the hand, **at its sorted place among the segments**.
+ *
+ * This is `drawLimb`'s blade lifted off the floor, and it is here rather than
+ * there for one property: sorted with the rest of the rig on §2's depth key, it
+ * passes *behind* the torso as the figure turns away. Nothing tabulates that --
+ * the hilt and the tip go through the same two lines every other segment does,
+ * and the key does the rest.
+ *
+ * **Still a stroke, and deliberately.** Every other piece of the rig is a fill,
+ * but a blade is a line in the world that the sim tests as a line, and its four
+ * phase colours and four widths are the single most useful readout on the
+ * canvas. One stroke per attacking body is what it costs today and what it costs
+ * now; what changed is where the line is, not how many of them there are.
+ *
+ * The trailing smear is a **polyline through the same projection** rather than
+ * the ground-space `arc` it used to be. An arc could only be drawn in a space
+ * where the shear was in force, and the blade has left that space; seven points
+ * through `rigProject` put the smear on the arc the hand is actually sweeping,
+ * at hand height, for the same one stroke.
+ */
+function rigEmitBlade(unit, s, hx, hy, tx, ty) {
+  const phase = SWING_SKIN[unit.swing] || SWING_SKIN[SWING_GUARD];
+  const heat = clamp(Math.abs(unit.limbSpin) / HOT_SPIN, 0, 1);
+  const r = px(unit.radius);
+  if (unit.swing === SWING_STRIKE && heat > 0.05) {
+    // Opposite the swing, so which way it is travelling is readable at a glance.
+    // Only on a live cut: a blade drifting back to guard trails nothing worth
+    // watching, and smearing it would make a recovery -- the most punishable
+    // moment in the game -- look like a threat.
+    const sweep = Math.sign(unit.limbSpin) * -heat * 0.55;
+    const mid = (1 + (unit.actionLength * unit.limbReach) / unit.radius) / 2;
+    const rel = unit.limbAngle - unit.facing;
+    const b = camBearing(unit.facing);
+    const cosB = Math.cos(b);
+    const sinB = Math.sin(b);
+    const handH = handHeight(unit.kind);
+    dlPolyBegin();
+    for (let i = 0; i <= 6; i++) {
+      const a = rel + (sweep * i) / 6;
+      rigProject(Math.cos(a) * mid, -Math.sin(a) * mid, handH, cosB, sinB);
+      dlPoint(rigOutX, rigOutY);
+    }
+    dlPolyEnd(
+      DL_CAP_ROUND | DL_LOCAL_WIDTH,
+      `rgba(255,255,255,${(0.16 * heat).toFixed(3)})`,
+      Math.max(2, r * 0.5) / s,
+      0,
+      0
+    );
+  }
+  dlPolyBegin();
+  dlPoint(hx, hy);
+  dlPoint(tx, ty);
+  // The width is quoted in **billboard units** and says so, because this space is
+  // a uniform `scale(s)` and a width in screen pixels would come out `s` times
+  // too fat. Divided rather than re-tuned, so the blade is the same weight on
+  // screen it has always been.
+  dlPolyEnd(
+    DL_CAP_ROUND | DL_LOCAL_WIDTH,
+    phase.line,
+    Math.max(1.6, r * phase.width) / s,
+    0,
+    0
+  );
+}
 
 /**
  * A character, as a character.
@@ -8633,20 +9191,22 @@ function drawCharacter(unit, now, ghost) {
 
   if (upright) {
     // **No rotation.** A billboard faces the camera by construction, and which
-    // way the body is actually pointing is the wedge already on the floor under
-    // it. Into the billboard space `UPRIGHTS` is written in: half-width 1, feet
-    // at the origin, crown at `uprightTop(kind)`.
+    // way the body is actually pointing is now in the rig -- every segment is
+    // placed through `camBearing`, so a body genuinely turns rather than being
+    // told which way it points by the wedge on the floor. The wedge stays for
+    // the rows that want a readout, and the shape carries it either way.
+    //
+    // Into the billboard space `UPRIGHTS` is written in: half-width 1, feet at
+    // the origin, crown at `uprightTop(kind)`. The rig is written in the same
+    // space and `rig.js` derives it from `PROJ_ISO`'s own coefficients.
+    //
+    // **The per-body gradient this branch used to build is gone**, and it is one
+    // of the six `art-04` §3 (D3) recorded as still being built per frame: the
+    // billboard's body ramp painted one fill of one silhouette, and there is no
+    // longer a fill of a silhouette to paint. The rig's own ramps are two per
+    // *skin*, declared once at boot in the paint table's static region. Two of
+    // the six are therefore retired here and the rest are still D3's.
     dlXform(1, 0, 0, 1, 0, 0, 0, s, -1);
-    if (art) {
-      // Built **after** the scale rather than before it, and quoted in this
-      // space's own units: crown to feet, which is the run a standing body's
-      // shading actually has. Building it under one matrix and painting it under
-      // another is the one thing here whose answer depends on when a canvas
-      // resolves a gradient's coordinates -- so the two matrices are made to be
-      // the same matrix and the question does not arise. Nothing rotates on this
-      // branch, so there is nothing for building it late to lose.
-      body = dlLinearGradient(0, uprightTop(unit.kind), 0, 0, skin.body[1], skin.deep);
-    }
   } else {
     // The facing, and then the unit-radius space every path below is written
     // in. Line widths go with it, which is why the strokes from here down are
@@ -8720,30 +9280,44 @@ function drawCharacter(unit, now, ghost) {
   } else if (upright) {
     // The billboard. Its three flat passes -- shadow, wedge, collision ring, which
     // are 1 to 3 -- went down on the floor above, before this space existed; what
-    // is left is the body itself, and it is the same three passes the flat arm
-    // below runs, in the same order, with the facing taken out of them. They are
-    // numbered 4 to 6 here and 3 to 5 there, because the flat arm has no wedge to
-    // make room for: with the art on the facing lives in the rotation.
+    // is left is the body itself.
     //
-    // 4. The silhouette. **The head is inside this outline**, not drawn over the
-    //    top of it: every path in `UPRIGHTS` finishes with the top half of its own
-    //    head circle, so the topmost point of what is filled here is exactly
-    //    `uprightTop(kind)` -- which is `anchorY`'s height, `unitAt`'s box top and
-    //    `drawHeroThrough`'s outline top, all four being one number.
-    dlPath(shape, DL_FILL, null, body, 0, 0, 0);
-    // `PAL.void` as a triple. The silhouette's outline is the room's own darkness
-    // drawn round the body, so when the room stopped being blue this had to as
-    // well or every figure in it wore a cold edge.
-    dlPath(shape, DL_STROKE | DL_LOCAL_WIDTH, "rgba(11,10,8,0.85)", DL_NO_PAINT, 0.09, 0, 0);
-
-    // 5. The head, in the *pale* end of the palette for the reason it is pale
-    //    top-down: it is the part of the body nearest the light, and painting it
-    //    dark made it read as a hole rather than as a head. `at` is a height here
-    //    rather than a reach -- `HEADS` has the argument, `uprightHead` does the
-    //    arithmetic -- so a Brute's sits down in the notch between its shoulder
-    //    humps and a Rogue's rides clear inside its hood.
-    dlEllipse(0, tall.cy, tall.r, DL_FILL, skin.body[0], DL_NO_PAINT, 0, 0, 0);
-    dlEllipse(0, tall.cy, tall.r, DL_STROKE | DL_LOCAL_WIDTH, "rgba(11,10,8,0.75)", DL_NO_PAINT, 0.07, 0, 0);
+    // 4 and 5. **The rig.** `art-05` replaced the two passes that used to be
+    //    here -- one fill of `UPRIGHTS[kind]` plus a stroke, and one head disc
+    //    plus a stroke -- with a short list of segments that are placed, posed
+    //    and depth-sorted from the snapshot every frame. `drawRig` is the whole
+    //    of it and `web/rig.js` carries the argument for the space it works in.
+    //
+    //    **`UPRIGHTS` did not go away; it stopped being the body.** It is the
+    //    *silhouette* now, and four things still want a whole-body outline and
+    //    none of them wants seven: the rim light two lines down clips to it,
+    //    `drawHeroThrough` strokes it over the depth walk, the ghost's dashed
+    //    outline above is it, and the hit flash at the bottom of this function
+    //    fills it once rather than flashing seven segments for the same picture
+    //    at seven times the cost. `assertProjection` still checks it -- and now
+    //    the rig with it -- against the live `ex`.
+    //
+    //    **And it is still filled, once, in the room's own darkness, under the
+    //    parts.** Not a second body: a *mass*. Three things need it and the
+    //    first two were found by drawing the rig without it.
+    //
+    //      * The rim light below clips to this outline and is a stroke *on* it.
+    //        With nothing filled underneath, that stroke is the only lit thing
+    //        in the shape and a figure reads as a hollow ring at every size.
+    //      * The archetype read is the silhouette's -- that is `iso-05`'s whole
+    //        argument for `UPRIGHTS` existing -- and at forty pixels a body the
+    //        gaps between seven segments are the difference between a Brute and
+    //        a smudge.
+    //      * The dark outline stroke this pass used to carry is gone with the
+    //        stroke-per-segment ban, and a fill in `PAL.void` separates the body
+    //        from a lit floor for one fill instead of one stroke.
+    //
+    //    Flat, and the darkest thing in the palette, so nothing about the pose
+    //    is legible in it -- everything that moves is a segment over the top.
+    //    "Detail is in the silhouette, not in the interior" is the concept's
+    //    instruction and this is the literal reading of it.
+    dlPath(shape, DL_FILL, PAL.void, DL_NO_PAINT, 0, 0, 0);
+    drawRig(unit, skin, s, now);
 
     // 6. The rim light, verbatim from the flat arm below including its gradient
     //    line, because `ctx.clip` takes any closed path and this one is closed.
@@ -8751,6 +9325,15 @@ function drawCharacter(unit, now, ghost) {
     //    runs back-to-front along the facing, upright it runs across the body from
     //    the shaded side to the lit one, and either way it is a bright inner edge
     //    carrying the intent in its alpha. The *hue* never moves.
+    //
+    //    **It is what carries the faction at four pixels a body and it is not a
+    //    candidate for deletion**, which is worth saying beside a rig whose fills
+    //    are deliberately between `skin.deep` and the void: the body went darker
+    //    in this session and the one line that says whose side it is on did not.
+    //    That it still clips to the silhouette rather than to the segments is the
+    //    point -- an inner rim round the whole figure is one stroke, and a rim
+    //    per segment would be seven strokes drawing the creases between a body's
+    //    own parts.
     const heat = unit.intent === INTENT_ATTACK ? 1 : unit.intent === INTENT_FLEE ? 0 : 0.5;
     dlClip(shape);
     const rim = dlLinearGradient(
@@ -9375,14 +9958,34 @@ function consumeEvents(state) {
       // numbers it needs off it once, here, so that it never has to ask a body
       // that may not exist by the time it is drawn. See `pushCallout`.
       pushCallout(event, state.byIndex[event.actor]);
+    } else if (event.kind === EVENT_SHOVE && event.amount >= RIG_SHOVE_FLOOR) {
+      // A flinch, on the body that was shoved -- `actor` is the shoved one and
+      // `other` is whoever did it.
+      //
+      // **The threshold is not optional and the module says so.** `EVENT_SHOVE`
+      // is by far the highest-rate row in the feed, about 5.7 a tick and nine
+      // rows in ten of everything the frame carries, and almost all of them are
+      // `World::apply_recoil` billing a fighter for its own swing. A blow
+      // landing is rare and large; a recoil is constant and small. Without
+      // `RIG_SHOVE_FLOOR` every swinging body in the room twitches continuously,
+      // and `amount` is in the row precisely so a consumer can have a floor.
+      //
+      // Seeded onto the page's own record and **not** onto anything the sim can
+      // see. `drawRig` tips and squashes the stack by it; it never translates
+      // the feet, because the sim has already moved the body -- the shove *is*
+      // the position change, and doubling it would stand the figure off its own
+      // collision ring.
+      const body = state.byIndex[event.actor];
+      const page = body ? bodies.get(body.id) : null;
+      if (page) page.recoil = 1;
     }
     // EVENT_PARRY is deliberately not floated. `drawMarks` already puts sparks
     // on the blades that crossed, at the point they crossed at, and a second
     // announcement of the same instant would be noise.
     //
-    // And the seven kinds this function has never heard of fall straight
+    // And the six kinds this function has never heard of fall straight
     // through, which is the append-only rule working rather than an omission --
-    // see the `EVENT_*` block. `art-09` takes the shove and the death.
+    // see the `EVENT_*` block. `art-09` takes the death and the rest.
   }
 }
 
@@ -10886,11 +11489,68 @@ function syncBodies(state, now, elapsed) {
     // is shown is where the thing *was*. A body never seen has no pose worth
     // keeping, so it goes on tracking the live row until it has one.
     const pose = lost === 0 || lost === Infinity ? unit : prior;
+
+    // ---- the rig's page-side state, and it is exactly three things.
+    //
+    // **Everything the rig can get out of the frame, it gets out of the frame.**
+    // The walk comes from `stride` and `vx`/`vy`, the attack from `swing`,
+    // `swingLeft` and `swingSpan`, the blade from `limbAngle` and `limbReach` --
+    // none of that is here, and none of it should be. What is here is the two
+    // things a single frame genuinely cannot answer: how the velocity is
+    // *changing*, and how long ago somebody was shoved.
+    //
+    // The lean is **garnish** and the rule about garnish is absolute: it may
+    // never misrepresent reach, bearing or phase. It moves the torso and the
+    // head, it does not reach the blade, and it is clamped to `RIG_LEAN` radii
+    // before it leaves this function.
+    //
+    // `dv` is a difference of *blended* velocities across an animation frame,
+    // which is not an acceleration in any unit anybody would name -- a frame is
+    // up to `MAX_CATCHUP_TICKS` ticks and often none. That is tolerable here and
+    // nowhere else in this session, because the result is clamped to a hard
+    // bound and low-passed before it moves a pixel: the worst a bad estimate can
+    // do is lean a figure the full third of a radius it was always allowed to.
+    // The walk deliberately does *not* work this way; see `RIG_WALK_FULL`.
+    let leanAlong = 0;
+    let leanSide = 0;
+    let recoil = 0;
+    if (prior) {
+      // Aged on the paused-aware clock with the floaters, the callouts and the
+      // corpses, so a frozen world does not quietly finish somebody's flinch
+      // while the player is looking at it.
+      recoil = Math.max(0, (prior.recoil || 0) - elapsed / RIG_RECOIL_MS);
+      leanAlong = prior.leanAlong || 0;
+      leanSide = prior.leanSide || 0;
+      if (visible) {
+        const dvx = unit.vx - prior.vx;
+        const dvy = unit.vy - prior.vy;
+        // Into the body frame. `+along` is the facing and `+side` is the body's
+        // left, which is `(sin f, -cos f)` in a world whose `+y` is down the
+        // screen -- the same left `rig.js` projects.
+        const cf = Math.cos(unit.facing);
+        const sf = Math.sin(unit.facing);
+        const wantA = clamp((dvx * cf + dvy * sf) / RIG_LEAN_FULL, -1, 1) * RIG_LEAN;
+        const wantS = clamp((dvx * sf - dvy * cf) / RIG_LEAN_FULL, -1, 1) * RIG_LEAN;
+        const k = clamp(elapsed / RIG_LEAN_MS, 0, 1);
+        leanAlong += (wantA - leanAlong) * k;
+        leanSide += (wantS - leanSide) * k;
+      }
+    }
+
     bodies.set(unit.id, {
       x: pose.x,
       y: pose.y,
       radius: pose.radius,
       faction: unit.faction,
+      // The velocity the next frame differences against, and the pose's rather
+      // than the live row's for the reason every other field here is: a ghost is
+      // a body nobody is watching, and an acceleration read off a row the player
+      // cannot see is the same wallhack the frozen position exists to prevent.
+      vx: pose.vx,
+      vy: pose.vy,
+      leanAlong,
+      leanSide,
+      recoil,
       // Enough to draw the thing again after it has left the frame: which
       // silhouette it was and which way it was pointing when it stopped being
       // in one. `faction` earns a second keep here -- `factionOfActor` reads it
@@ -11606,20 +12266,93 @@ function assertProjection() {
       p.shear === p.upright,
       `projection ${p.id} has shear ${p.shear} and upright ${p.upright}: the wall bake reads one and the depth walk reads the other`
     );
-    // **The upright art is baked against one `ex` and there is only one place
-    // that says which.** `UPRIGHTS` is built at module scope, before a view mode
-    // exists to ask, so its paths are authored against `PROJ_ISO.ex` literally --
-    // half-width 1 meaning `px(r) * ex`, and a crown at `-BODY_H / ex` meaning
-    // `lift(bodyHeight(unit))`. A second upright projection with a different `ex`
-    // would draw every body at the wrong height and hang every health bar off a
-    // head that is not there, silently, because both halves of the mistake are
-    // self-consistent. Rebuilding the paths per projection is the fix if that day
-    // comes; until then this is the tripwire.
+    // **The silhouette and the rig are both baked against one `ex` and there is
+    // only one place that says which.** `UPRIGHTS` is built at module scope,
+    // before a view mode exists to ask, so its paths are authored against
+    // `PROJ_ISO.ex` literally -- half-width 1 meaning `px(r) * ex`, and a crown
+    // at `-BODY_H / ex` meaning `lift(bodyHeight(unit))`.
+    //
+    // **And since `art-05` it guards more than the art it was written for.**
+    // `UPRIGHTS` stopped being the body and became the silhouette -- the outline
+    // `drawHeroThrough`, the ghost, `drawCorpse` and the hit flash each want and
+    // none of which wants seven pieces -- while the body itself is `drawRig`,
+    // whose `height / ex` term is the same expression `uprightTop` uses and is
+    // the reason a segment declared at `BODY_H[kind]` lands on the crown the
+    // health bar hangs from. So a second upright projection with a different
+    // `ex` would now draw every body at the wrong height *and* stand its parts
+    // at a different one from its own outline -- silently, because all three
+    // halves of the mistake are self-consistent. Rebuilding the paths and
+    // re-deriving `rigProject` per projection is the fix if that day comes;
+    // until then this is the tripwire.
     console.assert(
       !p.upright || p.ex === UPRIGHT_EX,
-      `projection ${p.id} stands bodies up with ex ${p.ex}, but UPRIGHTS was authored against ${UPRIGHT_EX}`
+      `projection ${p.id} stands bodies up with ex ${p.ex}, but UPRIGHTS and drawRig were both authored against ${UPRIGHT_EX}`
     );
   }
+
+  // **The rig's projection is the ground projection, and this is the proof.**
+  //
+  // `rigProject` gets a body-local point onto the screen by rotating into the
+  // facing and collecting terms in `camBearing`; `groundSpace` plus `lift` gets
+  // a *world* point there by the route every decal on the floor already takes.
+  // The two have to agree exactly or the drawn weapon is not on the projected
+  // true blade line -- which is the one claim in `art-05` that is not
+  // negotiable, since the blade is the hitbox.
+  //
+  // Nothing else can catch it. The two derivations share no code: one is two
+  // lines of trigonometry in billboard units, the other is `PROJ_ISO`'s 2x2
+  // applied to a world offset. A sign error in either draws a plausible figure
+  // holding a blade a few degrees off the segment the sim is testing, which
+  // looks like nothing at all until somebody dies to a cut they were watching.
+  //
+  // It also pins `pi/4` as the camera bearing: `camBearing(PI/4)` is zero, and a
+  // body at that facing has its forward point straight down the screen and
+  // nearest the camera, which is what "the camera looks down the +x/+y diagonal"
+  // means in numbers.
+  const wasProj = PROJ;
+  PROJ = PROJ_ISO;
+  const wasScale = scale;
+  scale = 64;
+  for (const facing of [0, 0.7, Math.PI / 4, 2.3, -1.9, Math.PI]) {
+    for (const [along, side, height] of [[1, 0, 0], [0, 1, 0.5], [-0.4, -0.8, 2.1]]) {
+      const radius = 0.45;
+      const s = px(radius) * PROJ.ex;
+      const cf = Math.cos(facing);
+      const sf = Math.sin(facing);
+      // The same point as a world offset: forward along the facing, and left,
+      // which is `(sin f, -cos f)` in a world whose `+y` is down the screen.
+      const wx = radius * (along * cf + side * sf);
+      const wy = radius * (along * sf - side * cf);
+      const wantX = projX(wx, wy);
+      const wantY = projY(wx, wy) - lift(radius * height);
+      rigProject(along, side, height, Math.cos(camBearing(facing)), Math.sin(camBearing(facing)));
+      console.assert(
+        Math.abs(rigOutX * s - wantX) < 1e-9 && Math.abs(rigOutY * s - wantY) < 1e-9,
+        `rigProject disagrees with groundSpace at facing ${facing}, local ${along},${side},${height}: ` +
+          `got ${rigOutX * s},${rigOutY * s} want ${wantX},${wantY}`
+      );
+      // And the depth key really is twice the ground part of the y term, which
+      // is the whole of "things further from the camera sit higher on the
+      // screen, by exactly half the depth key".
+      console.assert(
+        Math.abs(rigOutD / 2 - height / UPRIGHT_EX - rigOutY) < 1e-12,
+        `rigProject's depth key is not the y term's numerator at facing ${facing}`
+      );
+    }
+  }
+  console.assert(Math.abs(camBearing(Math.PI / 4)) < 1e-12, "camBearing(pi/4) is not zero");
+  // The crown, which is the assertion `art-05` would have wanted before it
+  // started rather than after: a segment declared at `BODY_H[kind]` has to land
+  // on `uprightTop(kind)`, or the rig hangs the health bar off nothing.
+  for (const kind of [BODY_FIGHTER, BODY_ROGUE, BODY_BRUTE, BODY_SKITTERER]) {
+    rigProject(0, 0, BODY_H[kind], 1, 0);
+    console.assert(
+      Math.abs(rigOutY - uprightTop(kind)) < 1e-12,
+      `a rig segment at BODY_H[${kind}] does not reach uprightTop: ${rigOutY} vs ${uprightTop(kind)}`
+    );
+  }
+  scale = wasScale;
+  PROJ = wasProj;
 
   // **The fourth cell of `drawCharacter`'s branch table, closed the same way.**
   // The shape branch there is on `art` and the space branch is on
@@ -11780,6 +12513,20 @@ async function boot() {
   // make every round trip `NaN` -- which `console.assert` would then report as
   // forty failures with nothing wrong.
   assertProjection();
+  // The rig's two gradients per skin, into the paint table's **static** region.
+  //
+  // Here rather than at `dlBind` because a gradient needs a context *and* the
+  // palette, and `PAL` and the skins are declared four thousand lines further
+  // down this file -- a `const` in the same classic script is in its temporal
+  // dead zone until then. Here rather than at first use because a branch per
+  // body per frame to answer a question settled once at boot is the sort of
+  // thing that ends up in a profile.
+  //
+  // **The two art skins only.** The rig draws in exactly the mode that has art
+  // on and stands bodies up; `[tactical]` and `[dev]` get `skinOf`'s flat pair
+  // and never reach `drawRig` at all, and building ramps they would never paint
+  // with would be four more entries in a table that is capped at 64.
+  rigBuildInks([HERO_SKIN_ART, MONSTER_SKIN_ART], PAL.void);
   // After `resize`, because the paths are in pixels and `scale` is what
   // `resize` decides.
   rebuildLevelPaths(readMap(), wasm.map_revision());

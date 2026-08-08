@@ -453,11 +453,19 @@
       </div>
     </div>
 
-    <!-- Before main.js, and both of them classic scripts with no build step: a
+    <!-- Before main.js, and all three classic scripts with no build step: a
          top-level const in a classic script is visible to every script loaded
-         after it, which is how main.js reaches the emit API and how the console
-         reaches both. -->
+         after it, which is how main.js reaches the emit API and the rig tables
+         and how the console reaches all three.
+
+         The order is the dependency order and is not arbitrary. draw.js first,
+         because rig.js registers its unit paths in the paint table at load and
+         `dlPaintStatic` has to exist by then. rig.js second, because it holds
+         proportions and knows nothing about the sim &mdash; main.js is what maps a
+         `UnitKind` onto a rig and what turns a table row into a placed, posed,
+         depth-keyed item. -->
     <script src="draw.js"></script>
+    <script src="rig.js"></script>
     <script src="main.js"></script>
   </body>
 </html>
