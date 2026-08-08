@@ -18,6 +18,55 @@ is an emitted `SPRITE` item rather than a `drawImage` call.
 
 ---
 
+## What this plan got wrong, corrected in place
+
+House rule: a plan is updated where it is wrong rather than argued with afterwards. Five things,
+and the first two are the ones the next session has to know about.
+
+1. **`DL_PAINT_STATIC_CAP` was 64 and an asset set does not fit in it.** A loaded image is a
+   *static* paint source -- one table slot each, for the life of the page -- and this plan never
+   counted them. The fixtures alone are 34; the Fighter's real layers are 48; four archetypes plus
+   the environment is north of 200, against a table that already holds the rig's two unit paths,
+   four ramps, the grain and the floor's baked tile. At 64 the table fills part way through a room,
+   `dlPaintStatic` warns once and returns `DL_NO_PAINT`, and what the player sees is a body drawn
+   half from images and half from the fallback -- which reads as an art defect and gets reported as
+   one. Raised to 1024 in `art-06`, with the argument written beside the constant.
+
+2. **`floorPatternNow` returns a paint-table *index* now, not a `CanvasPattern`.** §2's rule that
+   extract never holds an image has one edge the plan did not follow through: a `surface` is a
+   pattern, and a pattern has to be *re-aimed* every frame. Handing the object back to `main.js`
+   to call `setTransform` on would have been extract holding a paint source. `draw.js` gained one
+   function -- `dlPatternAim(paint, a, b, c, d)`, the mutating sibling of `dlPatternStatic` -- and
+   `drawLevel` now takes an index in both arms. No new item kind, and `[tactical]` and `[dev]` do
+   not move.
+
+3. **The rig needed a row for the composite, and it had none.** `rig.js` shipped `RIG_IMAGE` as a
+   grain with no row carrying it, so there was nothing for a manifest image to fill. `art-06` adds
+   one `RIG_SLOT_BODY` row at `RIG_BODY_ROW` (index 0) to both tables, carrying `layer: "body"` --
+   the layer *name* is rig data, so `main.js` still spells no filename -- plus a `RIG_SPRITE`
+   shape. `drawRig` resolves that row before the walk, because the four rows it replaces have to
+   know whether it is coming.
+
+4. **The composite takes none of the rig's garnish, and that is deliberate.** No bob, no lean, no
+   brace, no breath. The stride is *in the frames*; compressing the stack on top of it would be
+   the renderer faking a walk the art already contains, twice. The garnish stays on the fallback
+   rig, which has nothing else to carry it. The plan did not say either way and the answer is not
+   obvious from it.
+
+5. **A weapon sprite cannot be a shadow.** §6 asks for the bar in "both the lifted blade and its
+   ground shadow", and the ground copy is the same image at `BLADE_SHADOW`'s 0.34 -- because
+   `globalAlpha` cannot tint. That reads as a faint *copy* rather than as a silhouette. Correct
+   for a fixture whose job is to show which end is which; a decision `art-08` owns for real art
+   (a second darkened image, a `filter`, or keeping the stroke underneath). The ground copy also
+   drops the phase's line width, which was the one readout that arm carried.
+
+Two smaller ones, recorded so nobody re-derives them: **`hilt`/`tip` are laid *around* the
+projected segment, not stretched between the image's edges** -- source pixel `p` lands at
+`hilt_point + p * (span_length / (tip.x - hilt.x))`, which is what puts a pommel behind the hand
+instead of in it; and **one weapon key serves the whole roster** (`weapons/test_bar`) until real
+sprites exist, because a per-action table keyed on `ActionKind::code` would be seven rows pointing
+at one fixture. `art-08` writes that table.
+
 ## 1. `web/assets/manifest.json`
 
 One file, one shape, read by the renderer and written by nobody but the integrating agent.
@@ -107,7 +156,9 @@ resolve to the same thing: the `art-05` fallback, silently, with at most one con
 
 ## 2. The loader
 
-`web/assets.js`, a classic script before `main.js`, under ~100 lines:
+`web/assets.js`, a classic script before `main.js`, under ~100 lines of code (it came out at 102,
+inside a header and doc comments that take the file to 210 -- the ratio the rest of `web/` is
+written at):
 
 - Fetch `assets/manifest.json` once at boot, **off the critical path**. The game starts and runs
   with no manifest; images appear when they appear.

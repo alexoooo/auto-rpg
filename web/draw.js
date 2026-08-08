@@ -60,13 +60,17 @@
 // the top, every painter emits, and `dlDraw()` at the bottom is the only call
 // into this file a frame makes.
 //
-// **`SPRITE` and `SPRITE_SPAN` have never run.** Nothing on this page draws an
-// image yet -- there is not one `drawImage` in `web/` -- so those two arms are
-// not covered by the byte-identity gate that covers everything else here. They
-// exist so `art-05`'s weapons and `art-06`'s props do not have to reopen this
-// file to add a kind while they are also adding art. **The first session that
-// emits into one is the session that tests it**, and it should expect to fix
-// something. Every other kind below has a live consumer and is gated.
+// **`SPRITE` and `SPRITE_SPAN` ran for the first time in `art-06`**, and that
+// session was the one that tested them, exactly as this paragraph used to
+// predict. What it found is recorded on the two arms and on `dlPatternAim`: the
+// item kinds themselves were right, the *table* around them was not -- a static
+// paint region of 64 entries cannot hold an asset set, and neither arm asserted
+// `imageSmoothingEnabled`, so both were relying on a canvas default that the
+// spec they exist to serve requires by name.
+//
+// They are still **`[world]`-only and still outside the byte-identity gate**,
+// which covers `[tactical]` and `[dev]`: every sprite is gated on `artOn()` and
+// on a manifest key resolving, and neither flat view reaches one.
 
 /** Full turn. Deliberately its own copy rather than a read of `main.js`'s: this
  *  file loads first, so anything of `main.js`'s it wanted at load time would not
@@ -182,15 +186,20 @@ const DL_TEXT = 13;
  * An axis-aligned blit, and a blit stretched and rotated between two screen
  * points.
  *
- * **Unexercised code, and deliberately so.** Nothing on this page draws an image
- * yet -- there is not one `drawImage` in `web/` -- so these two arms have never
- * run and are not covered by the byte-identity gate that covers everything else
- * here. They exist because `art-04`'s whole claim is that the vocabulary is
- * enumerable and enumerated: `art-05`'s weapons want `SPRITE_SPAN` on its
- * hilt-and-tip line and `art-06`'s props and `art-08`'s bodies want `SPRITE`,
- * and the alternative was those sessions reopening this file to add a kind while
- * they were also adding art. **The first session that emits into one of these is
- * the session that tests it**, and it should expect to fix something.
+ * **Both live since `art-06`, and the vocabulary survived contact.** `SPRITE` is
+ * the composite body, blitted into the billboard space `drawRig` works in;
+ * `SPRITE_SPAN` is the weapon, stretched between the projected hilt and the
+ * projected tip -- the two ends of the segment `World::blade` tests, so the
+ * drawing is on the hitbox by construction rather than by tuning. That is
+ * `art-04`'s claim about an enumerable vocabulary paying off: the session that
+ * added the art did not have to add a kind.
+ *
+ * **A span is *not* a rotated rectangle in screen space.** It is a rotated
+ * rectangle in whatever space is open, which is the point: inside `drawRig`'s
+ * billboard push that is a uniform scale, so the weapon comes out unsheared at
+ * hand height; inside `drawLimb`'s `groundSpace` the same item comes out sheared
+ * onto the floor, which is what a bar lying on the ground looks like. One kind,
+ * two readings, and the caller chooses by where it emits.
  */
 const DL_SPRITE = 14;
 const DL_SPRITE_SPAN = 15;
@@ -456,7 +465,22 @@ const DL_NO_PAINT = -1;
  * the write cursor, and the fix is a later session's with its own before and
  * after.
  */
-const DL_PAINT_STATIC_CAP = 64;
+/**
+ * **1024 and not 64, and `art-06` is what found it.** The static region held
+ * eight things while the only paint sources that outlived a frame were two unit
+ * paths, four rig ramps, the grain and the floor's baked tile. An *image* is a
+ * static paint source too, and an asset set is not eight of them: the fixtures
+ * alone are thirty-four, one archetype's real layers are forty-eight, and four
+ * archetypes plus the environment is two hundred and change. At 64 the table
+ * fills part way through a room, `dlPaintStatic` warns once and returns
+ * `DL_NO_PAINT`, and the result is a body drawn half from images and half from
+ * the fallback -- which reads as an art defect rather than as a full table.
+ *
+ * The cost of being generous is one array of null references at load; the cost
+ * of being tight is that bug, in the session after the one that could have
+ * fixed it. Same argument `DL_CAP` already makes one paragraph up.
+ */
+const DL_PAINT_STATIC_CAP = 1024;
 const DL_PAINT_FRAME_CAP = 4096;
 const dlPaintTable = new Array(DL_PAINT_STATIC_CAP + DL_PAINT_FRAME_CAP).fill(null);
 let dlPaintStaticCount = 0;
@@ -798,8 +822,7 @@ function dlText(text, x, y, font, flags, style, width) {
   dlFontStr[at] = font;
 }
 
-/** An axis-aligned blit of a table image into a screen rect. Unexercised -- see
- *  `DL_SPRITE`. */
+/** An axis-aligned blit of a table image into a rect in the open space. */
 function dlSprite(x, y, w, h, image) {
   const at = dlNext(DL_SPRITE, dlActiveLayer);
   if (at < 0) return;
@@ -811,8 +834,11 @@ function dlSprite(x, y, w, h, image) {
   dlShape[at] = image;
 }
 
-/** A blit stretched and rotated between two screen points, `thick` pixels wide
- *  and centred on the line. Unexercised -- see `DL_SPRITE`. */
+/** A blit stretched and rotated between two points in the open space, `thick`
+ *  units wide and **centred on the line** -- which is exactly right for a
+ *  weapon, because `ASSET_SPEC.md` puts the hilt and tip markers at the
+ *  content's vertical centre and `tools/measure_assets.js` measures them there.
+ *  A convention that put them anywhere else would want an offset here. */
 function dlSpriteSpan(x0, y0, x1, y1, thick, image) {
   const at = dlNext(DL_SPRITE_SPAN, dlActiveLayer);
   if (at < 0) return;
@@ -908,6 +934,40 @@ function dlRadialGradient(x0, y0, r0, x1, y1, r1, stop0, stop1) {
 function dlPatternStatic(image, repeat) {
   const p = dlCtx.createPattern(image, repeat);
   return p ? dlPaintStatic(p) : DL_NO_PAINT;
+}
+
+/** The matrix `dlPatternAim` writes through, hoisted and rewritten in place.
+ *  `setTransform` reads the six numbers out and keeps nothing, so one object
+ *  serves every frame for the life of the page -- `main.js`'s `PATTERN_M`
+ *  carries the same argument for the tile it still bakes itself. */
+const DL_PATTERN_M = new DOMMatrix();
+
+/**
+ * Re-aim a `CanvasPattern` already in the table.
+ *
+ * The *mutating* half of `dlPatternStatic`, and it is here for the same reason:
+ * a pattern is a paint source, and how a paint source is made or aimed is this
+ * file's business while where it is painted is `main.js`'s. `art-06` is what
+ * needed it -- a `surface` from the manifest is a pattern whose matrix carries
+ * the projection, re-aimed every frame exactly as `floorPatternNow` re-aims the
+ * baked tile, and extract cannot do that without holding the pattern object.
+ *
+ * **`e` and `f` are always zero, and that is the load-bearing part.**
+ * Pattern-space origin is canvas origin is world `(0, 0)`, so the stones stay
+ * nailed to the level instead of crawling under a pan. A caller that wanted an
+ * offset would be asking for a floor that slides, so there is no parameter for
+ * one.
+ */
+function dlPatternAim(paint, a, b, c, d) {
+  const p = dlPaintTable[paint];
+  if (p === null || typeof p.setTransform !== "function") return;
+  DL_PATTERN_M.a = a;
+  DL_PATTERN_M.b = b;
+  DL_PATTERN_M.c = c;
+  DL_PATTERN_M.d = d;
+  DL_PATTERN_M.e = 0;
+  DL_PATTERN_M.f = 0;
+  p.setTransform(DL_PATTERN_M);
 }
 
 /**
@@ -1203,18 +1263,21 @@ function dlDraw() {
           ctx.strokeText(dlStr[at], dlF[b + DL_F_A], dlF[b + DL_F_B]);
         }
         break;
-      case DL_SPRITE:
-        // Unexercised. See `DL_SPRITE`.
+      case DL_SPRITE: {
         dlSetAlpha(ctx, b);
+        const was = ctx.imageSmoothingEnabled;
+        ctx.imageSmoothingEnabled = true;
         ctx.drawImage(
           dlPaintTable[dlShape[at]],
           dlF[b + DL_F_A], dlF[b + DL_F_B], dlF[b + DL_F_C], dlF[b + DL_F_D]
         );
+        ctx.imageSmoothingEnabled = was;
         break;
+      }
       case DL_SPRITE_SPAN: {
-        // Unexercised. See `DL_SPRITE`. The rotation is the backend's for the
-        // reason every rotation in this file is -- `ctx.rotate` is not
-        // `ctx.transform(cos, sin, -sin, cos, 0, 0)` computed in JS.
+        // The rotation is the backend's for the reason every rotation in this
+        // file is -- `ctx.rotate` is not `ctx.transform(cos, sin, -sin, cos, 0,
+        // 0)` computed in JS.
         dlSetAlpha(ctx, b);
         const x0 = dlF[b + DL_F_A];
         const y0 = dlF[b + DL_F_B];
@@ -1222,6 +1285,7 @@ function dlDraw() {
         const dy = dlF[b + DL_F_D] - y0;
         const thick = dlF[b + DL_F_E];
         ctx.save();
+        ctx.imageSmoothingEnabled = true;
         ctx.translate(x0, y0);
         ctx.rotate(Math.atan2(dy, dx));
         ctx.drawImage(dlPaintTable[dlShape[at]], 0, -thick / 2, Math.hypot(dx, dy), thick);

@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "px_per_world_unit": 86,
+  "assets": {
+    "env/floor_a": { "file": "env/floor_a.png", "kind": "surface", "world": 4 },
+    "weapons/test_bar": { "file": "weapons/test_bar.png", "kind": "weapon", "hilt": [0, 20], "tip": [191, 20] },
+    "actors/fighter": {
+      "kind": "actor",
+      "facings": ["s", "sw", "w", "nw", "n", "ne", "e", "se"],
+      "cell": [128, 160],
+      "layers": {
+        "body": { "file": "fighter/body_{facing}_{frame}.png", "frames": ["idle", "walk1", "walk2", "walk3"], "anchor": [64, 160] }
+      }
+    }
+  }
+}

@@ -463,9 +463,12 @@
          `dlPaintStatic` has to exist by then. rig.js second, because it holds
          proportions and knows nothing about the sim &mdash; main.js is what maps a
          `UnitKind` onto a rig and what turns a table row into a placed, posed,
-         depth-keyed item. -->
+         depth-keyed item. assets.js third: it puts a loaded image into the same
+         paint table and so wants draw.js, and main.js asks it for indices. Its
+         fetch starts the moment it loads and nothing waits for it. -->
     <script src="draw.js"></script>
     <script src="rig.js"></script>
+    <script src="assets.js"></script>
     <script src="main.js"></script>
   </body>
 </html>

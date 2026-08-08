@@ -109,11 +109,15 @@
 // stays fully segmented. The articulation that has to be exact is the weapon's,
 // and that one is procedural in both.
 //
-// `art-06` teaches the same rows to resolve to a manifest image; until then
-// every fallback row resolves to its own `Path2D` and the composite rows resolve
-// to nothing. **The two sets are alternatives, not additions**: if a composite
-// body ever resolves, the four fallback body segments are skipped entirely, and
-// getting that wrong draws a figure inside a figure.
+// `art-06` taught the same rows to resolve to a manifest image, and the shape it
+// landed in is one `RIG_IMAGE` row per rig -- `RIG_BODY_ROW`, the composite
+// body -- resolved through `assets.js` from the row's own `layer` name. **The
+// two sets are alternatives, not additions**: when the composite resolves, the
+// four fallback body segments are skipped entirely, and getting that wrong draws
+// a figure inside a figure. The arm, the shield and the weapon are `RIG_BOTH`
+// and stay drawn either way, so a composite sprite with a fallback arm on it is
+// a legal, reviewable state rather than a crash -- which is what every
+// integration pass looks like halfway through.
 //
 // **This session ships the fallback, and it is the deliverable rather than a
 // placeholder.** If no character sprite is ever delivered this is the shipping
@@ -123,13 +127,17 @@
 // if the archetype is still identifiable the shape is right, and if it needed
 // the detail then the detail was doing the silhouette's job.
 
-/** How a row is drawn: which of the unit paths, or the blade's own two strokes.
+/** How a row is drawn: which of the unit paths, the blade's own two strokes, or
+ *  a manifest image.
  *
  *  `LIMB` is a segment between two points at a half-width; `DISC` is a circle at
- *  a point; `BLADE` is not a shape here at all -- see the weapon note above. */
+ *  a point; `BLADE` is not a shape here at all -- see the weapon note above;
+ *  `SPRITE` is an image from `assets.js`, placed by its cell and its anchor and
+ *  not by this table's two points. */
 const RIG_LIMB = 0;
 const RIG_DISC = 1;
 const RIG_BLADE = 2;
+const RIG_SPRITE = 3;
 
 /** Which piece a row is, for the poser. The table says *where a piece hangs*;
  *  `drawRig` says *what the sim is doing to it*, and this is the join. */
@@ -139,6 +147,18 @@ const RIG_SLOT_ARM = 2;
 const RIG_SLOT_HEAD = 3;
 const RIG_SLOT_WEAPON = 4;
 const RIG_SLOT_SHIELD = 5;
+/** The composite body -- legs, torso and head as **one drawing**, which is the
+ *  decision the whole character pipeline turns on. It has no fallback geometry
+ *  and never will: the fallback for a composite is the four segments it
+ *  replaces, already in the table. */
+const RIG_SLOT_BODY = 6;
+
+/** **The composite body is row 0 of every rig**, and it is stated here rather
+ *  than searched for because `drawRig` has to know whether the sprite resolved
+ *  *before* it walks the four rows the sprite replaces. One index, one lookup,
+ *  and the alternative is a scan of the table per body per frame to answer a
+ *  question the table's own shape settles. */
+const RIG_BODY_ROW = 0;
 
 /** Whether a row is fallback geometry, a slot an image may fill, or both.
  *
@@ -335,6 +355,11 @@ function rigInksOf(skin) {
 //     phase         where in the stride cycle this piece is, in turns. The pair
 //                   of legs is one row written twice at 0 and 0.5
 //     main          the arm the weapon is in. Exactly one row per rig has it
+//     layer         for a RIG_IMAGE row only: which layer of the manifest's
+//                   actor entry fills it. The one string in this file, and it is
+//                   a *slot name* rather than a filename -- which file it
+//                   resolves to, at which facing and which frame, is
+//                   `manifest.json`'s business and `assets.js`'s
 
 /**
  * Fighter, Rogue and Brute: a thing that stands on two legs.
@@ -351,6 +376,19 @@ function rigInksOf(skin) {
  * right arm and right leg go forward together is a body marching like a toy.
  */
 const RIG_UPRIGHT = [
+  // **The composite, and the four rows under it are its alternatives rather
+  // than its neighbours.** When `art-06`'s loader resolves this layer, the two
+  // legs, the torso and the head are skipped entirely and what is left of the
+  // rig is the arms, the shield and the weapon -- which is exactly the state a
+  // half-integrated batch lands in, and it is legal. Drawing both is a figure
+  // inside a figure.
+  //
+  // Its own two points are the origin, so its depth key is zero: the body axis
+  // itself. Everything else sorts around it on the sign of its own key, which
+  // is how an arm passes behind the body as the figure turns away with no table
+  // to get wrong.
+  { slot: RIG_SLOT_BODY, shape: RIG_SPRITE, grain: RIG_IMAGE, tone: RIG_TONE_BODY, layer: "body",
+    side:  0.00, a0: 0, h0: 0.00, a1: 0, h1: 0.00, wide: 0.00, swing: 0.00, phase: 0.0, main: 0 },
   { slot: RIG_SLOT_LEG, shape: RIG_LIMB, grain: RIG_FALLBACK, tone: RIG_TONE_BODY,
     side:  0.38, a0: 0, h0: 0.46, a1: 0, h1: 0.00, wide: 0.22, swing: 0.42, phase: 0.0, main: 0 },
   { slot: RIG_SLOT_LEG, shape: RIG_LIMB, grain: RIG_FALLBACK, tone: RIG_TONE_BODY,
@@ -395,6 +433,13 @@ const RIG_UPRIGHT = [
  * on opposite stride phases, which is what makes it scuttle.
  */
 const RIG_CRAWLER = [
+  // The composite, on `RIG_UPRIGHT`'s terms and at `RIG_BODY_ROW`. No Skitterer
+  // art exists, so it resolves to nothing and the four legs, the abdomen and
+  // the head below are what draws -- which is the point of the row being data:
+  // the archetype that has art and the archetype that does not take the same
+  // path through `drawRig`.
+  { slot: RIG_SLOT_BODY, shape: RIG_SPRITE, grain: RIG_IMAGE, tone: RIG_TONE_BODY, layer: "body",
+    side:  0.00, a0: 0, h0: 0.00, a1: 0, h1: 0.00, wide: 0.00, swing: 0.00, phase: 0.0, main: 0 },
   { slot: RIG_SLOT_LEG, shape: RIG_LIMB, grain: RIG_FALLBACK, tone: RIG_TONE_BODY,
     side:  0.52, a0: 0.30, h0: 0.95, a1: 0.98, h1: 0.00, wide: 0.15, swing: 0.34, phase: 0.0, main: 0 },
   { slot: RIG_SLOT_LEG, shape: RIG_LIMB, grain: RIG_FALLBACK, tone: RIG_TONE_BODY,

@@ -5236,8 +5236,21 @@ function bakeFloorTile(size) {
   return tile;
 }
 
+/** The manifest key the floor's stone comes from.
+ *
+ *  **A key and not a filename.** Which file it resolves to is `manifest.json`'s
+ *  business: it points at `art-06`'s magenta checker fixture today and `art-07`
+ *  repoints it at real stone without this line moving. It is the one name
+ *  `main.js` knows about the asset set, and `assets.js`'s header says why there
+ *  is one at all. */
+const FLOOR_SURFACE_KEY = "env/floor_a";
+
 /**
- * The floor pattern, baked on demand and re-aimed every frame.
+ * The floor pattern, baked on demand and re-aimed every frame, **as a
+ * paint-table index** -- `DL_NO_PAINT` when there is no pattern to be had.
+ *
+ * Two arms and one matrix: an image out of the manifest, or the tile this file
+ * bakes itself. Everything below about the matrix is true of both.
  *
  * `setTransform` is the cheap half and it does run per frame: it is what makes
  * one tile cover `TILE_WORLD` world units at *any* zoom, whatever pixel size it
@@ -5269,6 +5282,28 @@ function bakeFloorTile(size) {
  * clipping moving the fog boundary and nothing else survives verbatim.
  */
 function floorPatternNow() {
+  // **The manifest's floor, when there is one and it has arrived.** Same
+  // matrix, same two columns of `PROJ`, same zero `e`/`f` -- the only thing that
+  // changes is where the texels come from and how many world units they cover,
+  // which the entry's own `world` states. A `surface` is authored *flat and
+  // unprojected* (`ASSET_SPEC.md` §7) precisely so that this line is the only
+  // place the projection is applied to it; art with the shear painted in gets it
+  // twice and comes out as a rhombus of rhombuses.
+  //
+  // Nothing about the tiling changes with the zoom: the image covers `world`
+  // units whatever `scale` is, so the layout is nailed to the level and only its
+  // sharpness moves -- which is the property the baked tile buys with its
+  // buckets and an image gets for free.
+  const surface = assetPaint(FLOOR_SURFACE_KEY);
+  if (surface >= 0) {
+    const world = assetOf(FLOOR_SURFACE_KEY).world;
+    if (world > 0 && assetOutW > 0) {
+      const k = world / assetOutW; // world units per pattern texel
+      dlPatternAim(surface, PROJ.ax * scale * k, PROJ.ay * scale * k, PROJ.bx * scale * k, PROJ.by * scale * k);
+      return surface;
+    }
+  }
+
   const size = floorTileSize();
   if (!floorPattern || size !== floorTileSizeBaked) {
     floorTile = bakeFloorTile(size);
@@ -5276,17 +5311,20 @@ function floorPatternNow() {
     floorTileSizeBaked = floorPattern ? size : 0;
     floorBakes += 1;
   }
-  if (floorPattern) {
-    const k = TILE_WORLD / floorTile.width; // world units per pattern texel
-    PATTERN_M.a = PROJ.ax * scale * k;
-    PATTERN_M.b = PROJ.ay * scale * k;
-    PATTERN_M.c = PROJ.bx * scale * k;
-    PATTERN_M.d = PROJ.by * scale * k;
-    PATTERN_M.e = 0;
-    PATTERN_M.f = 0;
-    floorPattern.setTransform(PATTERN_M);
-  }
-  return floorPattern;
+  if (!floorPattern) return DL_NO_PAINT;
+  const k = TILE_WORLD / floorTile.width; // world units per pattern texel
+  PATTERN_M.a = PROJ.ax * scale * k;
+  PATTERN_M.b = PROJ.ay * scale * k;
+  PATTERN_M.c = PROJ.bx * scale * k;
+  PATTERN_M.d = PROJ.by * scale * k;
+  PATTERN_M.e = 0;
+  PATTERN_M.f = 0;
+  floorPattern.setTransform(PATTERN_M);
+  // The baked tile stays in the **per-frame** paint region: it is rebaked when
+  // the zoom bucket moves, and a static slot per bake would be a slow leak. The
+  // manifest's arm above is a static index because an image is loaded once and
+  // is the same object forever.
+  return dlPaintFrame(floorPattern);
 }
 
 /**
@@ -6527,7 +6565,7 @@ function drawLevel(state, now, origin) {
   // matrix on every call and bakes a new tile if the zoom bucket moved. With the
   // art off it is not called at all -- neither it nor `bakeFloorTile` is edited
   // for `[tactical]`, they are simply not reached.
-  const pattern = art ? floorPatternNow() : null;
+  const pattern = art ? floorPatternNow() : DL_NO_PAINT;
 
   // The arena rect the window is actually over, in the same level-corner space
   // everything below draws in. The two composites are full-arena fills, and at
@@ -6584,7 +6622,12 @@ function drawLevel(state, now, origin) {
     // the backend only obeys. Nothing downstream can reveal a tile `floorLit`
     // does not contain, because the region is not a thing the backend chooses.
     dlClip(dlPaintFrame(lit ? levelPaths.floorLit : levelPaths.floorSeen), lit ? 1 : SEEN_ALPHA);
-    if (pattern) dlPatternRect(clipX, clipY, clipW, clipH, dlPaintFrame(pattern));
+    // One index for both passes, where this used to register the pattern in the
+    // frame region once per pass. The same object either way, so the two passes
+    // paint the pixels they always did; what changed is that `floorPatternNow`
+    // now hands back the index rather than the paint source, because the
+    // manifest's arm of it is a *static* entry and extract may not hold either.
+    if (pattern >= 0) dlPatternRect(clipX, clipY, clipW, clipH, pattern);
     else dlRect(clipX, clipY, clipW, clipH, "#141a26");
 
     // The torches, on the floor they light, and **inside this pass rather than
@@ -7819,6 +7862,72 @@ const HOT_SPIN = 1500;
  *  to say it. */
 const BLADE_SHADOW = "rgba(0,0,0,0.34)";
 
+/** The same 0.34, as a `globalAlpha`, for the sprite arm of the same shadow.
+ *
+ *  **A sprite cannot be tinted by an alpha**, and this is the honest limitation
+ *  rather than a solution: at 0.34 the weapon image on the floor reads as a
+ *  faint copy of itself and not as a silhouette, which is fine for a fixture
+ *  whose whole job is to show which end is which, and is a thing `art-08` has to
+ *  decide about for real art -- a second darkened image, or a `filter`, or the
+ *  stroke below kept underneath it. Written as one number next to the colour it
+ *  has to agree with, so the two cannot drift. */
+const BLADE_SHADOW_ALPHA = 0.34;
+
+/**
+ * The manifest key every weapon draws from.
+ *
+ * **One key for the whole roster, and it is the fixture.** `weapons/test_bar` is
+ * a cyan bar with a red end and a yellow one, which is exactly what proves the
+ * span transform: a bar that comes out reversed at four facings and correct at
+ * the other four is a sign error, and a symmetric bar would hide it.
+ *
+ * `art-08` replaces this with a table keyed on `unit.action` -- the same
+ * `ActionKind::code` `ICON_PATHS` is keyed on, which is append-only -- once the
+ * roster's sprites exist. Until they do, a per-action table would be seven rows
+ * all pointing at the same fixture, which says less than one constant does.
+ */
+const WEAPON_ASSET_KEY = "weapons/test_bar";
+
+/**
+ * The weapon sprite, stretched so its **hilt marker lands on `x0, y0` and its
+ * tip marker on `x1, y1`** -- not its left and right edges.
+ *
+ * That distinction is the whole of why the manifest carries `hilt` and `tip`.
+ * The two ends of the sim's blade segment are the points the hitbox is tested
+ * between; the image is a drawing with a pommel behind its hilt and, often,
+ * nothing at all past its point, so it has to be laid down *around* those two
+ * points rather than between the edges of its own canvas. The rest of the image
+ * runs on past both ends in proportion, which is what puts a pommel behind the
+ * hand instead of in it.
+ *
+ * Emitted in whatever space is open, and both callers matter: `rigEmitBlade`'s
+ * is the billboard's uniform scale, so the blade comes out unsheared at hand
+ * height; `drawLimb`'s is `groundSpace`, so the same call comes out sheared flat
+ * onto the floor where the hitbox is. Returns false when there is no sprite to
+ * be had, and every caller falls back to the stroke it already had.
+ */
+function emitWeaponSpan(x0, y0, x1, y1) {
+  const paint = assetPaint(WEAPON_ASSET_KEY);
+  if (paint < 0) return false;
+  const entry = assetOf(WEAPON_ASSET_KEY);
+  if (entry.hilt === undefined || entry.tip === undefined) return false;
+  const span = entry.tip[0] - entry.hilt[0];
+  const dx = x1 - x0;
+  const dy = y1 - y0;
+  const len = Math.hypot(dx, dy);
+  if (!(span > 0) || !(len > 1e-9)) return false;
+  // Local units per source pixel, from the two markers alone -- so the drawn
+  // length is the sim's and the image only decides heft, which is
+  // `ASSET_SPEC.md` §9's convention stated as arithmetic.
+  const k = len / span;
+  const ux = dx / len;
+  const uy = dy / len;
+  const bx = x0 - ux * entry.hilt[0] * k;
+  const by = y0 - uy * entry.hilt[0] * k;
+  dlSpriteSpan(bx, by, bx + ux * assetOutW * k, by + uy * assetOutW * k, assetOutH * k, paint);
+  return true;
+}
+
 const SWING_SKIN = {
   [SWING_GUARD]: { line: "rgba(210,220,235,0.45)", width: 0.16 },
   [SWING_WINDUP]: { line: "rgba(255,196,92,0.95)", width: 0.24 },
@@ -7975,10 +8084,24 @@ function drawLimb(unit, skin) {
     const tip = px(unit.radius + unit.actionLength * unit.limbReach);
     dlRotateBare(unit.limbAngle);
     if (PROJ.upright) {
-      dlPolyBegin();
-      dlPoint(hilt, 0);
-      dlPoint(tip, 0);
-      dlPolyEnd(DL_CAP_ROUND, BLADE_SHADOW, Math.max(1.6, r * phase.width), 0, 0);
+      // The sprite arm, and it is the *same* item the lifted blade uses -- one
+      // `SPRITE_SPAN` between the same two ends, emitted here inside
+      // `groundSpace` so the shear lays it flat on the floor. Under an alpha
+      // push rather than under `dlAlpha`: an item's alpha persists in the open
+      // save, and this one has the guard arc, the declared line and the bow
+      // after it in the same push.
+      let drawn = false;
+      if (assetPaint(WEAPON_ASSET_KEY) >= 0) {
+        dlXform(1, 0, 0, 1, 0, 0, 0, 1, BLADE_SHADOW_ALPHA);
+        drawn = emitWeaponSpan(hilt, 0, tip, 0);
+        dlXformEnd();
+      }
+      if (!drawn) {
+        dlPolyBegin();
+        dlPoint(hilt, 0);
+        dlPoint(tip, 0);
+        dlPolyEnd(DL_CAP_ROUND, BLADE_SHADOW, Math.max(1.6, r * phase.width), 0, 0);
+      }
     } else {
       // A trailing smear opposite the swing, so which way it is travelling is
       // readable at a glance. Only on a live cut: a blade drifting back to guard
@@ -8683,6 +8806,67 @@ function swingProgress(unit) {
   return clamp(1 - unit.swingLeft / unit.swingSpan, 0, 1);
 }
 
+// ------------------------------------------------ the rig's manifest bindings
+//
+// Three small things that turn a snapshot row into "which file", and all three
+// are **arithmetic over the manifest's own lists** rather than tables of their
+// own. `assets.js`'s header has the rule they serve: no filename in JS.
+
+/** Which actor entry an archetype is. Keys, not paths -- and the four are
+ *  written out rather than derived from a name so that a body the manifest has
+ *  no art for resolves to nothing rather than to a guess. */
+const ASSET_ACTORS = {
+  [BODY_FIGHTER]: "actors/fighter",
+  [BODY_ROGUE]: "actors/rogue",
+  [BODY_BRUTE]: "actors/brute",
+  [BODY_SKITTERER]: "actors/skitterer",
+};
+
+/**
+ * Which facing of `n` a camera bearing falls in.
+ *
+ * `b` is `camBearing(facing)`: zero facing the viewer, which is the manifest's
+ * first facing (`s`), and increasing `b` sweeps `s, sw, w, nw, n, ne, e, se` --
+ * check it against `rig.js`'s two lines, where `b = +pi/2` puts the body's
+ * forward point at screen `-x`, which is `w` and is index 2 of 8.
+ *
+ * **Nearest and not floor**, so a facing owns the arc centred on it rather than
+ * the arc after it; the seam between two facings then falls where the two
+ * drawings are equally wrong instead of half a sector past it.
+ */
+function assetFacingIndex(b, n) {
+  let t = b / TAU;
+  t -= Math.floor(t);
+  const i = Math.round(t * n);
+  return i === n ? 0 : i;
+}
+
+/**
+ * Which frame of a layer's `frames` list a stride is in.
+ *
+ * `frames[0]` is the standing pose and the rest are the stride, played
+ * **`walk1, walk2, walk3, walk2`** -- a ping-pong, so the passing pose is used
+ * twice per cycle and in both directions of travel, which is what
+ * `ASSET_SPEC.md` §8.2 asks an artist to draw it for.
+ *
+ * **There is no clock in here.** The frame is a function of `stride`, which is
+ * how far the body has actually walked in the simulation, so a body that stops
+ * freezes on its frame, one at half speed cycles at half rate, and one being
+ * shoved backwards does not cycle at all. Written over `n` rather than over
+ * four, because the list is the manifest's.
+ */
+function assetFrameIndex(stride, walk, n) {
+  if (n <= 1 || !(walk > 0)) return 0;
+  const walkN = n - 1;
+  // One stride frame is one stride frame; there is no cycle to run and `2 *
+  // (walkN - 1)` would be a modulus of zero.
+  if (walkN < 2) return 1;
+  const cycle = 2 * (walkN - 1);
+  const t = stride - Math.floor(stride);
+  const k = Math.floor(t * cycle) % cycle;
+  return 1 + (k < walkN ? k : cycle - k);
+}
+
 /**
  * The body, as parts.
  *
@@ -8723,6 +8907,37 @@ function drawRig(unit, skin, s, now) {
   // the radius because that is what the module's own stride clock divides by.
   const walk = clamp(Math.hypot(unit.vx, unit.vy) / (unit.radius * RIG_WALK_FULL), 0, 1);
   const phase = unit.stride * TAU;
+
+  // **The composite body, resolved before the walk rather than during it.** The
+  // four fallback rows below have to know whether it is coming: `art-05` §3 --
+  // the composite and the segments are alternatives, not additions, and drawing
+  // both is a figure inside a figure. `RIG_BODY_ROW` is why this can be one
+  // lookup instead of a scan.
+  //
+  // Everything it needs is the manifest's: the facing comes out of the entry's
+  // own `facings` list, the frame out of the layer's own `frames` list, and the
+  // placement out of `cell` and `anchor`. Nothing here spells a file.
+  const bodyRow = rig[RIG_BODY_ROW];
+  const actorKey = ASSET_ACTORS[unit.kind];
+  const actor = actorKey === undefined ? null : assetOf(actorKey);
+  //
+  // Every field it reads is checked before it is read, and that is the same
+  // clause as a missing file: a manifest that declares an actor without a cell,
+  // or a layer without an anchor, resolves to the fallback silently rather than
+  // throwing out of the render loop.
+  const bodyRowOk =
+    actor !== null && actor.layers !== undefined && actor.cell !== undefined &&
+    actor.facings !== undefined && bodyRow.slot === RIG_SLOT_BODY;
+  const bodyLayer = bodyRowOk ? actor.layers[bodyRow.layer] : undefined;
+  let bodyPaint = DL_NO_PAINT;
+  if (bodyLayer !== undefined && bodyLayer.anchor !== undefined) {
+    bodyPaint = assetActorPaint(
+      actorKey,
+      bodyRow.layer,
+      assetFacingIndex(b, actor.facings.length),
+      assetFrameIndex(unit.stride, walk, bodyLayer.frames ? bodyLayer.frames.length : 1)
+    );
+  }
 
   // The bob: down at the extremes of the stride, up in the middle, at twice the
   // stride's frequency because a body bobs once per foot and there are two.
@@ -8784,6 +8999,37 @@ function drawRig(unit, skin, s, now) {
   rigCount = 0;
   for (let i = 0; i < rig.length; i++) {
     const row = rig[i];
+
+    if (row.slot === RIG_SLOT_BODY) {
+      if (bodyPaint < 0) continue;
+      // **The cell, in billboard units.** One source pixel is one world unit
+      // over `px_per_world_unit`, and one billboard unit is `radius * ex` world
+      // units by construction -- the same identity that makes the billboard's
+      // half-width the semi-major axis of the body's own ground ellipse. So the
+      // cell's own pixels land at 1:1 at the default framing and scale with the
+      // zoom without anything being told to, and a figure drawn to
+      // `ASSET_SPEC.md` §8.3's width stands exactly on the ring underneath it.
+      //
+      // The anchor is the pixel that lands on the feet, so it is what the rect
+      // is placed *from*: `-anchor` is the top-left corner.
+      //
+      // **No bob, no lean, no breath, and that is the point of the frames.** The
+      // stride is in the drawing; compressing the stack on top of it would be
+      // the renderer faking a walk the art already contains, twice. The garnish
+      // stays on the fallback rig, where there is nothing else to carry it.
+      const per = unit.radius * UPRIGHT_EX * assetPxPerWorldUnit;
+      if (!(per > 0)) continue;
+      const left = -bodyLayer.anchor[0] / per;
+      const top = -bodyLayer.anchor[1] / per;
+      rigPush(
+        left, top,
+        left + actor.cell[0] / per, top + actor.cell[1] / per,
+        0, RIG_SPRITE, bodyPaint, 0
+      );
+      continue;
+    }
+    // The four rows the composite replaces, skipped whole when it resolved.
+    if (bodyPaint >= 0 && row.grain === RIG_FALLBACK) continue;
     if (row.grain === RIG_IMAGE) continue;
     if (row.slot === RIG_SLOT_SHIELD && !(unit.role === ROLE_GUARD && unit.swing !== SWING_SWAP)) {
       continue;
@@ -8903,6 +9149,14 @@ function drawRig(unit, skin, s, now) {
       rigEmitBlade(unit, s, rigX0[at], rigY0[at], rigX1[at], rigY1[at]);
       continue;
     }
+    // The composite, as one blit of its whole cell into billboard space. Its
+    // two ends are the rect's corners rather than a segment's, which is the one
+    // place this scratch is read as something other than a limb -- and the
+    // reason is that a sprite has a size where a segment has a length.
+    if (rigShape[at] === RIG_SPRITE) {
+      dlSprite(rigX0[at], rigY0[at], rigX1[at] - rigX0[at], rigY1[at] - rigY0[at], rigInk[at]);
+      continue;
+    }
     rigEmitPiece(at);
   }
 }
@@ -9001,6 +9255,20 @@ function rigEmitBlade(unit, s, hx, hy, tx, ty) {
       0
     );
   }
+  // The weapon itself, when the manifest has one. **The same two ends**: the
+  // hilt and the tip this function was handed are `World::blade`'s own segment
+  // projected, so the drawing is on the hitbox by construction and not by
+  // tuning, and it stays there through a windup, a cut and a recovery because
+  // nothing about the sprite is a pose.
+  //
+  // The phase colour goes with it, which is a real loss and is stated rather
+  // than hidden: a sprite is one drawing and the four phases were four looks.
+  // What still carries the phase is the smear above, the brace in the
+  // silhouette and the declared line on the floor -- and `art-08` is where a
+  // weapon sprite has to earn its place against that stroke rather than here,
+  // against a fixture.
+  if (emitWeaponSpan(hx, hy, tx, ty)) return;
+
   dlPolyBegin();
   dlPoint(hx, hy);
   dlPoint(tx, ty);
