@@ -17,7 +17,8 @@ fx = { path = "../fx" }
 sim = { path = "../sim" }
 policy = { path = "../policy" }
 
-# No wasm-bindgen, no js-sys, no web-sys. The workspace's no-dependency rule is
-# what keeps every recorded run in the repository valid across time, and it
-# applies here too: this boundary is a dozen functions passing integers, which
-# is small enough to hand roll and small enough to read in one sitting.
+# No wasm-bindgen, no js-sys, no web-sys. Host and presentation code may use
+# audited exact dependencies, but this boundary does not need one: it is a dozen
+# functions passing integers, small enough to hand roll and read in one sitting.
+# Keeping the boundary local also makes it plain that no host type reaches the
+# authoritative state or either hash domain.

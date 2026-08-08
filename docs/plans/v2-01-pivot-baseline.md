@@ -1,5 +1,9 @@
 # v2-01 — land the pivot without losing the control
 
+**Status:** complete. The compatibility control is recorded and verified at
+`0xfe31370e141ef531`; the implementation already retained the World-only DPR cap,
+local wall cutaway and calibrated actor art.
+
 **Goal:** preserve the current playable game, record the renderer failure that
 caused the reset and leave a clean baseline for every v2 comparison.
 

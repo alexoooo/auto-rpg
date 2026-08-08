@@ -14,3 +14,10 @@ target
 **/mutants.out*/
 
 .idea/
+
+# Exact frontend and asset tools are reproducible from the committed manifests.
+node_modules/
+.tools/
+dist/
+.test-build/
+.vite/

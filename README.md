@@ -236,10 +236,10 @@ Independent means all eight combinations, including the interesting one:
 **Aim** without **Action** hands you the cuts and leaves the weapon to the
 character, so you are throwing blows something else decided to arm you for.
 
-And the number matches. `web.wasm` and the native lab produce the *same 64-bit
-state hash* for the same run — `0x00b48ceb21081d1d` — so the fixed-point
-simulation really is bit-identical across MSVC x86-64 and wasm32, rather than
-merely designed to be.
+And the numbers match. `web.wasm` and the native lab produce the same 64-bit state
+hashes for the same scripted runs, so cross-target determinism is tested rather than
+merely designed. The exact current pins and the stale value formerly copied here are
+tracked in the [hash registry](docs/reference/hashes.md#golden-registry).
 
 ![The room, mid-walk](web/media/screenshot.jpg)
 
@@ -295,16 +295,17 @@ crates/sim      the game: world, tick, observations, actions, replay
 crates/policy   agent policies + the run harness
 crates/lab      headless experiment CLI
 crates/web      the browser boundary: a hand-rolled wasm ABI, no wasm-bindgen
-web/            the page you click on: vanilla HTML, CSS and JS, no build step
-tools/          the sine table generator, a dev server, the wasm/native check
+web/            the legacy Canvas page and the v2 diagnostic HTML entry
+client/         the TypeScript v2 Worker protocol and diagnostic client
+tools/          generators, the legacy-page server, and repository checks
 docs/plans/     working plans, updated in place as sessions complete
 ```
 
-Nothing in the workspace has an external dependency. Parallelism is
-`std::thread::scope`, argument parsing is forty lines, and the sine table is
-committed as source. That is not minimalism for its own sake: this project's
-central claim is that a run is reproducible forever, and every dependency is
-something that can change behaviour underneath that claim.
+The deterministic core currently has no external dependency. `fx`, `sim`, and
+deterministic `policy` code accept only local deterministic crates and `std`;
+presentation, host, asset, and explicitly nondeterministic learning code may use
+audited exact dependencies outside authoritative state. The full boundary is in
+[the determinism contract](DESIGN.md#the-determinism-contract).
 
 ## Getting started
 
@@ -312,7 +313,7 @@ To play it:
 
 ```
 rustup target add wasm32-unknown-unknown          # once
-node tools/serve.js                               # builds the wasm, serves the page
+node tools/serve.js                               # legacy Canvas page only
 ```
 
 Then open the printed URL. Click to send the character somewhere, or drag to trace
@@ -327,168 +328,77 @@ wheel to zoom; `R` to open a fresh room. The `?` in the corner holds the same li
 kept in the page rather than here. A server is needed because a `file://` page
 cannot instantiate wasm — that is the only reason.
 
+To run the shipped v2 Worker diagnostic instead:
+
+```text
+npm ci                                            # once, or after lockfile changes
+npm run dev                                       # builds release wasm, starts Vite
+```
+
+Open the Vite origin at `/v2.html`. The diagnostic's TypeScript module graph requires
+Vite; `tools/serve.js` serves only the classic Canvas files and cannot serve v2.
+Both development and production host the v2 entry and wasm artifact at the origin
+root as `/v2.html` and `/web.wasm`. See the
+[browser runtime](docs/architecture/browser-runtime.md#worker-diagnostic-path) for
+the ownership boundary.
+
 The room is the page. The camera is centred on your character and clamped to the
 walls, so walking into a corner stops the view rather than showing you the void
 past it — and everything that is worth reading but not worth watching lives
 behind `Tab` instead of in a sidebar that used to leave the arena a postage
 stamp on a 1080p display.
 
-To work on it:
-
-```
-cargo test                                        # 393 tests, a couple of seconds
-cargo run --release -p lab -- bench   --seeds 2000
-cargo run --release -p lab -- verify  --seeds 200
-cargo run --release -p lab -- duel    --seeds 400
-cargo run --release -p lab -- hash
-cargo run --release -p lab -- evolve  --gens 30 --pop 24 --seeds 8 --policy duelist
-node --test tools/wasm_check.js                   # wasm must equal native
-```
-
-`verify` is the interesting one: it runs a batch of fights, re-runs each of
-them, replays each of them, and requires all three to agree bit for bit.
-
-`duel` is the newest one, and it exists so that "a clever policy can beat a
-brute" is a measurement rather than an opinion. It runs one-on-one across many
-seeds and reports not just a win rate but *how* the fight was won — blows,
-blocks, parries — because two policies can post the same win rate by completely
-different means, and only one of them is swordsmanship. There is a fuller matchup
-sweep behind `cargo test --release -p policy --test duel -- --ignored --nocapture
-sweep`, which prints every archetype pairing under every policy.
-
-`wasm_check` is the other one. It instantiates the wasm module under Node and
-asserts five hashes against numbers recorded from a native build — one from a
-canned 4v6 fight, one from a scripted click-and-walk, one from a monster sent
-into the room and fought to a finish, one that runs on past the character's
-death to the replacement coming in on its recycled entity slot, and one that
-puts an arrow in the air, which is the only one of the five that exercises the
-projectile arithmetic at all. If any of them
-moves, the claim this whole architecture is built to support has stopped being
-true, and the failure message says so rather than making you work it out.
-
-Measured on a 20-thread desktop:
-
-```
-200 runs verified: identical on re-run and exact on replay
-
-running 2000 rollouts of 4v6 across 20 threads
-fitness  n=2000   mean=60.4570  min=2.8316  p25=8.4250  med=11.9616  p75=132.2336  max=151.6629
-outcomes 821 wins, 1115 losses, 64 draws, 0 mutual (41% win rate, 921 ticks avg)
-throughput 5404 rollouts/s, 4979831 ticks/s, 2816563 decisions/s (0.37s wall)
-```
-
-Five million simulated ticks per second, and every one of them reproducible.
-
-That number carried one asterisk, and `bench --carved` exists to remove it.
-Every scenario the lab iterates stands on an open rectangle, and `Dungeon::sees`
-is `!carved || raycast(..)` — so not one of those five million ticks has ever
-walked a ray. The build you actually play carves rooms and corridors, where that
-short-circuit is false and sight costs a DDA per pair per decision. `--carved`
-points the same bench at a generated dungeon, on one thread unless told
-otherwise, because the figure worth having there is per-core: a browser frame
-gets one core and needs sixty ticks out of it.
-
-```
-running 200 rollouts of a carved depth-5 dungeon, 3600 ticks each, across 1 threads (utility)
-throughput 117 rollouts/s, 199613 ticks/s, 178368 decisions/s (1.71s wall)
-```
-
-Two hundred thousand ticks a second on one core with the walls in — against
-185–201k across repeated runs of the same 4v6 skirmish on one thread. Nine
-bodies casting real rays cost, within the noise of the measurement, what ten
-bodies short-circuiting do. Both numbers are worth keeping and they answer
-different questions: 4.98M is what the whole machine does when it is grinding
-rollouts for `evolve`, and 200k is what one core does on the floor plan the
-game ships — about 3,300x the sixty ticks a second a frame budget asks for.
+To work on it, start with `cargo test`. The full contributor command set and the
+checks required before a change lands are in [AGENTS.md](AGENTS.md#commands).
+`lab verify` proves re-run and replay equality, `lab duel` compares policies, and
+the benchmark commands measure open and carved scenarios. Their dated methods,
+hardware, results, and corrected interpretations live with the
+[performance evidence](docs/performance/README.md), not in this run path.
 
 ## The three decisions everything else follows from
 
-**The sim has no engine in it.** `crates/sim` depends on `crates/fx` and
-nothing else — no Bevy, no window, no threads, no clock, no I/O. A renderer will
-be a separate crate that reads snapshots. This costs a little glue and buys:
-tests that run in microseconds, ten thousand rollouts as one `chunks_mut`,
-renderer swappable (or absent) forever, and engine version churn that never
-reaches gameplay code.
-
-**No floating point in the simulation.** IEEE-754 makes `+ - * /` and `sqrt`
-bit-exact everywhere, but `sin`/`cos`/`exp`/`powf` are libm implementations and
-the libm in a wasm binary is not the one in your platform's C library. One ULP
-is enough to diverge a fight. So the sim is 16.16 fixed point with a committed
-sine table, and it is bit-identical on every target by construction.
-
-**Replays record actions, not seeds.** The obvious design logs the seed and
-re-runs the policies. That works until a policy is a neural network, and then a
-wasm SIMD matmul and a native AVX matmul disagree in the last bit, an `argmax`
-flips, and the replay diverges from the run it claims to reproduce. Recording
-decisions means playback never runs inference at all — so the portability
-requirement lands only on the sim, which genuinely is portable, and the policy
-is free to be as unportable as it likes.
+The sim is isolated from the renderer, its authoritative arithmetic is fixed point,
+and replays record decisions rather than rerunning policies. Those choices make a
+run portable without requiring a future learned policy to be portable too. The
+[architecture overview](docs/architecture/overview.md), [determinism
+contract](docs/reference/determinism.md#contract), and [replay
+decision](docs/decisions/0002-record-commands-in-replays.md) own the current
+boundaries and their rationale.
 
 ## The agent boundary
 
-```rust
-loop {
-    for id in world.pending_decisions() {   // whose decision clock is due
-        let obs = world.observe(id);        // what they can perceive
-        world.submit(id, policy(obs));      // what they chose to do
-    }
-    world.step();                           // advance one tick
-}
-```
-
 `Observation` in, `Command` out. A hand-authored utility AI, a neural policy, a
-recorded log and a human all enter through the same door, and the sim cannot
-tell them apart. The player's "rough directions" are just another field on the
-observation — a standing `Order` per faction that agents interpret with whatever
-wits they have.
+recorded log and a human all enter through the same door. See the current
+[policy boundary](docs/architecture/policy.md) for the flow and the [command
+reference](docs/reference/commands.md) for the exact layouts and standing inputs.
 
 ## Stats drive the AI, not the network
-
-| Stat | Effect |
-|------|--------|
-| intellect | ticks between decisions (20 → 1, so 3/second up to 60/second) |
-| perception | sight range, positional noise, how well it can read an enemy's blade |
-| agility | movement speed, and how hard and fast a hand can be swung |
-| power | multiplier on impact speed |
-| vitality | health |
 
 One trained policy will serve every character build. A dim character is not
 running a worse network — it is running the same network on a blurrier picture,
 less often. That is legible on a character sheet, cheap to balance (these are
 knobs, not retraining runs), and it gives the lab an obvious axis to sweep.
 
+The exact observation fields and current command layout belong to the [command
+reference](docs/reference/commands.md); the gameplay rationale and progression
+ownership live in [combat design](docs/design/combat.md) and [progression
+design](docs/design/progression.md).
+
 Perception earned a second job when combat became geometric, and the split it
 settled into is the interesting part. *That* an enemy is winding up arrives
 **exact** — a blade hauled back over a shoulder is not a subtle cue, and anyone
 can see a blow is coming. *When* it lands and *along which line* are blurred
-hard: at `perception 0` the timing read is off by about twelve ticks against a
-Brute's thirty-three-tick telegraph. A dim character is not blind to the attack.
-It is late, and it guesses the line wrong, which is a much more interesting way
-to lose than not noticing.
+hard. A dim character is not blind to the attack. It is late, and it guesses the
+line wrong, which is a much more interesting way to lose than not noticing. The
+measured examples and their provenance live in the [combat
+evidence](docs/performance/evidence/2026-08-combat-mechanics.md).
 
 ## Where this goes next
 
-1. ~~A renderer over the sim, then the wasm build.~~ Done — `crates/web` and
-   `web/`, about two hundred lines of Rust and one page, no dependencies either
-   side.
-2. ~~`lab hash` from wasm; the number must match native.~~ Done, and it does.
-   `node --test tools/wasm_check.js`.
-3. A tiny fixed-size MLP behind the same `Policy` trait, trained by the
-   evolution loop that already exists. The feature vector it will be frozen
-   against is already there and already versioned, and it now carries what a
-   defender needs to answer a swing rather than only what a walker needs to find
-   one.
-4. Stance scoring that knows about time-to-kill. The Duelist's weakest matchup is
-   a Skitterer against a Brute, where it loses to the baseline badly: with a
-   0.6-damage weapon against an 18-health target it needs some thirty blows,
-   and every defensive stance it chooses costs tempo it cannot afford. Nothing in
-   the scoring can see that, which is a real limitation rather than a tuning
-   accident — `lab duel` measures it and the sweep prints it.
-5. Per-unit orders. An order is currently per-faction, which is exactly right
-   for one hero and obviously wrong for a party — and it is why the page refuses
-   to put a second character in the room rather than have one click send both.
-6. Spatial partitioning, when a scenario needs hundreds of entities rather than
-   dozens. Not before.
+The current implementation roadmap is the [v2 plan](docs/plans/v2-00-overview.md).
+Plans are temporary working documents, not claims about shipped behavior. Current
+limitations and open investigations remain with the design, architecture, and
+reference documents linked from [DESIGN.md](DESIGN.md).
 
 See [DESIGN.md](DESIGN.md) for the rules that keep the determinism guarantee
 true.

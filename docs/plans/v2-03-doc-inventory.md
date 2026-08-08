@@ -1,5 +1,9 @@
 # v2-03 — inventory documentation authority
 
+**Status:** complete. All 69 root headings have exactly one classified destination;
+role paths and reverse-link counts resolve, and the stale/duplicate contract copies
+are explicitly assigned to later phases. No legacy hash moved.
+
 **Goal:** publish a navigable target map before moving prose, and identify every
 duplicate, stale, or temporary-plan-backed authority.
 

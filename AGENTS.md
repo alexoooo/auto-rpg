@@ -19,7 +19,8 @@ crates/sim      the game: world, tick, observations, actions, replay
 crates/policy   agent policies (utility, duelist) + the run harness
 crates/lab      headless experiment CLI
 crates/web      the browser boundary: a hand-rolled wasm ABI, no wasm-bindgen
-web/            the page: vanilla HTML, CSS and JS, classic script, no build step
+web/            the legacy Canvas page plus the v2 diagnostic HTML entry
+client/         the TypeScript v2 Worker protocol and diagnostic client
 tools/          sine table generator, dev server, the wasm/native equality check
 docs/plans/     working plans, one file per landable session
 ```
@@ -50,10 +51,16 @@ cargo run --release -p lab -- evolve  --gens 30 --pop 24 --seeds 8 --policy duel
 rustup target add wasm32-unknown-unknown          # once
 cargo build --release --target wasm32-unknown-unknown -p web
 node --test tools/wasm_check.js                   # wasm must equal native
+node tools/check_docs.js                          # documentation links and authority
 
-node tools/serve.js                               # builds the wasm, serves the page
-node tools/serve.js --no-build --port 9000
+npm run dev                                       # builds release wasm, Vite serves v2
+node tools/serve.js                               # legacy Canvas page only
+node tools/serve.js --no-build --port 9000        # legacy Canvas page only
 ```
+
+The v2 development and production contract is root-hosted `/v2.html` plus
+`/web.wasm`. Its TypeScript module graph must run through Vite; `tools/serve.js`
+cannot serve it. `npm run build` emits the production pair beneath `dist/`.
 
 Notes that will otherwise cost you a build:
 
@@ -71,50 +78,26 @@ Notes that will otherwise cost you a build:
 
 ## The one rule everything else serves
 
-Given the same `Scenario`, seed and sequence of submitted commands, `World` produces
-byte-identical state on every target, in every profile, on every thread. Concretely:
+The authoritative contract is [docs/reference/determinism.md](docs/reference/determinism.md#contract).
+Read it before editing `fx`, `sim`, or deterministic policy code. In working terms:
+do not let floating point, stateful RNG, unstable iteration, unchecked arithmetic,
+or host-layer dependencies cross into authoritative state. Treat a tempting shortcut
+as a contract change, not a local implementation detail.
 
-- **No floating point reaches simulation state.** `Fx::to_f32` is a one-way door, for
-  rendering and printing. A value that crosses back in voids the contract.
-- **No transcendental functions.** `sin`/`cos` come from the committed table in
-  `crates/fx/src/sin_table.rs`; `atan2` is a fixed-point polynomial.
-- **Arithmetic saturates**, never wraps and never panics — one behaviour in all
-  profiles. `[profile.release] overflow-checks = true` is the tripwire for code that
-  forgets.
-- **No RNG state in the world.** `Rng::from_stream(seed, tick, entity)` only. A draw
-  depends on *what* is being decided, never on visitation order.
-- **Fixed iteration order, index tie-breaks.** Ascending entity index, everywhere.
-- **Deaths resolve after all attacks**, so simultaneous kills are symmetric.
-- **No external dependencies, anywhere** — not in the crates, not in `web/`, not in
-  `tools/`. A generator that "improves" in a point release invalidates every recorded
-  run in the repository. `fx`, `sim` and `policy` are `#![forbid(unsafe_code)]`;
-  `web` is `#![deny(...)]` only because `#[no_mangle]` trips the lint, and it still
-  contains zero `unsafe {}` blocks.
+`fx`, `sim` and `policy` are `#![forbid(unsafe_code)]`; `web` is `#![deny(...)]`
+only because `#[no_mangle]` trips the lint, and it still contains zero `unsafe {}`
+blocks.
 
-Policies are explicitly *not* covered — a neural policy is allowed to be unportable,
-which is why replays record actions rather than seeds.
+Policies are outside the portability promise; the replay rationale and current
+boundary are in [ADR 0002](docs/decisions/0002-record-commands-in-replays.md).
 
 ## Golden hashes: decide before you edit, not after
 
 Almost every change to `crates/sim` or `crates/policy` is gated by a pinned hash.
-**State up front which ones you expect to move.** A moved hash is normally a bug
-rather than a number to re-record, and the codebase's own comments treat "this hash
-did not move" as the proof that a change was scoped correctly.
-
-| Hash | Pinned in | Re-record with |
-|---|---|---|
-| `LAB_HASH` | `crates/web/src/lib.rs`, `tools/wasm_check.js` | **not re-pinnable** — see below |
-| `GOLDEN_STATE_HASH` | `crates/sim/tests/determinism.rs` | `cargo test -p sim --test determinism -- --nocapture golden` |
-| `ROOM_HASH`, `BATTLE_HASH`, `SWAP_HASH`, `BOW_HASH` | `crates/web/src/lib.rs` **and** `tools/wasm_check.js` | `cargo test -p web -- --ignored --nocapture print_the_golden_hashes` |
-
-Each browser golden is pinned **twice**, so re-recording one is a two-file edit. That
-pairing is deliberate: it is how you tell "the sim's behaviour changed" (both fail)
-from "the two targets genuinely disagree" (only `wasm_check.js` fails, which is a
-real portability bug — read the failure message, it walks you through the bisect).
-
-`LAB_HASH` names its own scenario and policy, so `print_the_golden_hashes` omits it
-on purpose. A change that moves it is a change to the simulation, and the answer is
-to find the change, not to write down the new number.
+**State up front which ones you expect to move.** A moved hash is normally a bug,
+not a number to re-record. The canonical [golden registry](docs/reference/hashes.md#golden-registry)
+names every pin, owner, and permitted re-record path. Browser goldens remain paired
+between Rust and the wasm check so a one-sided failure diagnoses target disagreement.
 
 ### The trap that keeps catching plans
 
@@ -135,26 +118,11 @@ behaviour-neutral: `cargo run --release -p lab -- duel --seeds 400` win rates.
 
 ## The frame ABI is a handshake across four files
 
-The wasm boundary is a packed `f32` buffer that JavaScript reads out of linear
-memory. Adding a column or a header float is **not** a one-line change:
-
-1. `crates/web/src/lib.rs` — `HEADER_LEN`, `UNIT_STRIDE`, `write_frame`, and bump
-   `FRAME_LAYOUT_VERSION`.
-2. `web/main.js` — the mirrored `HEADER_LEN` / `UNIT_STRIDE` / `FRAME_LAYOUT_VERSION`
-   constants and `readUnit`. The page compares its version against the module's at
-   boot and refuses to draw a layout it does not understand.
-3. `tools/wasm_check.js` — the same constants again, asserted.
-4. The doc comment at the top of `crates/web/src/lib.rs` that draws the layout.
-
-**Columns are append-only.** The client keys on positions, so a reshuffle repaints
-the game while every test still passes. Same rule for `ActionKind::code` and for
-`FEATURE_LAYOUT_VERSION` in `crates/sim/src/obs.rs`, which the policy feature vector
-is frozen against.
-
-A row's position is not an identity: `write_frame` skips dead units, so rows shift.
-Anything keyed to a body must use the `entity_index` **and** `entity_generation`
-columns — an index alone reads as a dead creature coming back to life when its slot
-is reused.
+The wasm frame is a mirrored contract, so a layout change must update Rust, the page,
+the wasm equality check, and the layout comment together. Follow the canonical
+[frame ABI change rules](docs/reference/frame-abi.md#compatibility-rules) for exact
+fields, versions, identity, and append-only constraints. A partial mirror update is
+not green even if one side still draws.
 
 ## House style
 
@@ -240,3 +208,7 @@ reason: one standing order per faction is a contract.
 4. Touched a constant, a column or a threshold that prose writes down? Grep for the
    number and fix every copy.
 5. Changed behaviour a plan in `docs/plans/` describes? Update the plan in place.
+6. Documentation impact: if the change alters a contract, workflow, architecture,
+   rationale, measured claim, frame ABI, or one of its mirrors, update its canonical
+   document in the same change. Run `node tools/check_docs.js` even when no code hash
+   moved.

@@ -1,5 +1,9 @@
 # v2-02 — enforce dependency and tool ownership
 
+**Status:** complete. The scoped dependency rule is enforced for Cargo and npm;
+the exact Node/npm, frontend, Blender, and glTF toolchain is pinned with verified
+download and executable identities. All legacy hashes remain unchanged.
+
 **Goal:** correct the repository-wide dependency claim, make the allowed boundary
 machine-checkable, and pin every tool needed before the visual track begins.
 
@@ -10,8 +14,9 @@ machine-checkable, and pin every tool needed before the visual track begins.
 ## Policy edits
 
 At `AGENTS.md` under “The one rule everything else serves,” `README.md` under
-“The three decisions everything else follows from,” and the determinism authority
-identified by `v2-03`, state one rule and link to its canonical reference:
+“The three decisions everything else follows from,” and the current determinism
+authority at `DESIGN.md#the-determinism-contract`, state one rule and link to its
+canonical reference:
 
 - `fx`, `sim`, and deterministic `policy` code accept only local deterministic
   crates and `std`;
@@ -21,6 +26,11 @@ identified by `v2-03`, state one rule and link to its canonical reference:
   or either hash domain;
 - lockfiles, lifecycle scripts, registries, git sources, build dependencies, and
   asset tools are reviewed inputs.
+
+`v2-03` inventories that current authority and assigns its final destination;
+`v2-05` performs the move into `docs/reference/`. This phase links to `DESIGN.md`
+so its dependency policy is enforceable before either later documentation phase
+is allowed to begin.
 
 Do not split `world.rs` or `crates/web/src/lib.rs` in this phase.
 
@@ -62,9 +72,17 @@ package lifecycle script outside an explicit allowlist
 tool or asset manifest not covered by tools/toolchain.json
 ```
 
-The allowlist begins empty. The checker may permit Babylon/Vite transitive packages
-only from the configured npm registry with lockfile integrity; it does not pretend
-transitives are dependency-free.
+The lifecycle allowlist contains one exact exception: Vite's transitive
+`fsevents@2.3.3`, only while its lock record remains optional, Darwin-only, and
+not a direct dependency. `.npmrc` disables lifecycle scripts during every install;
+the exception acknowledges the audited record rather than permitting it to run.
+All Babylon/Vite transitive packages must resolve from the configured npm registry
+with lockfile integrity; the checker does not pretend transitives are dependency-free.
+
+Downloaded Node and Blender distributions live in the ignored `.tools/` cache.
+`tools/check_toolchain.js` verifies their committed archive and executable digests;
+`tools/check_deps.js` does not descend into that cache and mistake a distribution's
+own bundled manifests for repository dependency inputs.
 
 ## Tests and verification
 

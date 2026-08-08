@@ -299,6 +299,8 @@ test("the boundary exports everything the client calls", () => {
     // absent from the page, and fail as `undefined is not a function` on the
     // first click rather than as anything either side calls an error.
     "set_focus",
+    "focus_entity_index",
+    "focus_entity_generation",
     "clear_order",
     "route_clear",
     "route_push",

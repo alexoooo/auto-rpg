@@ -3217,6 +3217,34 @@ pub extern "C" fn set_focus(index: u32, generation: u32) -> u32 {
     taken
 }
 
+/// Index half of the currently focused body's presentation identity.
+///
+/// The frame header carries a Focus order's live position even when the body row
+/// is hidden by fog. The worker uses this full handle to decide whether those two
+/// coordinates may cross its visibility boundary. `u32::MAX` means the order is
+/// not a Focus or its generational handle no longer resolves.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn focus_entity_index() -> u32 {
+    focused_entity().index
+}
+
+/// Generation half of [`focus_entity_index`], with the same `u32::MAX` sentinel.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn focus_entity_generation() -> u32 {
+    focused_entity().generation
+}
+
+fn focused_entity() -> EntityId {
+    with_sim(EntityId::NONE, |sim| {
+        let Order::Focus(id) = sim.world.order(Faction::Heroes) else {
+            return EntityId::NONE;
+        };
+        if sim.world.view(id).is_some() { id } else { EntityId::NONE }
+    })
+}
+
 /// Withdraws the standing order and leaves the hero to its own judgement.
 ///
 /// Not a stop button, and the page must not present it as one. `Order::Hold`
@@ -5965,6 +5993,53 @@ mod tests {
             "the standing order does not name the body that was clicked"
         );
         assert_eq!(frame()[2], 3.0, "order_kind: Focus is discriminant 3");
+    }
+
+    #[test]
+    fn focus_identity_exports_preserve_the_live_generational_handle() {
+        init_quiet(1);
+        spawn_monster(BRUTE, SLOT_EMPTY, SLOT_EMPTY);
+        let (index, generation) = monster_handle();
+
+        assert_eq!(set_focus(index, generation), 1, "the fixture focus was refused");
+        assert_eq!(focus_entity_index(), index, "the export changed the entity index");
+        assert_eq!(
+            focus_entity_generation(),
+            generation,
+            "the export changed the entity generation"
+        );
+    }
+
+    #[test]
+    fn focus_identity_exports_use_the_sentinel_without_a_live_focus() {
+        SIM.with(|sim| *sim.borrow_mut() = None);
+        assert_eq!(focus_entity_index(), u32::MAX, "an untouched module named a focus index");
+        assert_eq!(
+            focus_entity_generation(),
+            u32::MAX,
+            "an untouched module named a focus generation"
+        );
+
+        init_quiet(1);
+        let (tx, ty) = walkable_near_hero(4.0, 0.45);
+        set_goto((tx * 1000.0) as i32, (ty * 1000.0) as i32);
+        assert_eq!(focus_entity_index(), u32::MAX, "a Goto was reported as Focus");
+        assert_eq!(focus_entity_generation(), u32::MAX, "a Goto had a focus generation");
+
+        spawn_monster(BRUTE, SLOT_EMPTY, SLOT_EMPTY);
+        let (index, generation) = monster_handle();
+        with_sim((), |sim| {
+            sim.world.set_order(
+                Faction::Heroes,
+                Order::Focus(EntityId::new(index, generation.wrapping_add(1))),
+            );
+        });
+        assert_eq!(focus_entity_index(), u32::MAX, "a stale Focus exposed its index");
+        assert_eq!(
+            focus_entity_generation(),
+            u32::MAX,
+            "a stale Focus exposed its generation"
+        );
     }
 
     #[test]

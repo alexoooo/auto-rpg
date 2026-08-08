@@ -1,5 +1,10 @@
 # v2-05 — split design, decisions, reference, and evidence
 
+**Status:** complete. The root design monolith is now a short compatibility index;
+current contracts, rationale, decisions, and dated evidence have durable owners, and
+the instructive superseded measurements and corrections remain recorded. No legacy
+hash moved.
+
 **Goal:** move the `DESIGN.md` monolith into concept-owned documents without losing
 history or breaking stable entry points.
 

@@ -7,6 +7,11 @@ the repository gate before new boundaries arrive.
 
 **Golden expectation:** no hash moves; documentation and checks only.
 
+**Status:** complete. Root prose now links durable authorities, all eleven reference
+contracts have unique heading-bound markers and external readers, and global link,
+image, source-line, retired-plan, header, and completion-gate checks pass. No legacy
+hash moved.
+
 ## Authority pass
 
 At the exact rows marked duplicate/stale in `docs/documentation-inventory.md`:

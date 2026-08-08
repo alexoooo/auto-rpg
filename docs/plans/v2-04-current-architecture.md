@@ -1,5 +1,9 @@
 # v2-04 — document the current architecture from code
 
+**Status:** complete. Seven current-state documents now anchor authority and data
+flow to code, with exactly four checked diagrams and all proposed v2 components
+isolated from the shipped paths. No legacy hash moved.
+
 **Goal:** make the present system understandable without confusing proposed v2
 components for existing architecture.
 

@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Auto RPG v2 worker boundary</title>
+  <style>
+    :root { color-scheme: dark; font: 16px/1.45 system-ui, sans-serif; background: #11151b; color: #e8edf3; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; }
+    main { width: min(58rem, calc(100% - 2rem)); }
+    h1 { font-size: 1.5rem; margin-bottom: .25rem; }
+    p { color: #aeb9c6; }
+    fieldset { border: 1px solid #34404d; border-radius: .5rem; margin: 1rem 0; padding: 1rem; }
+    .controls { display: flex; flex-wrap: wrap; gap: .6rem; align-items: end; }
+    label { display: grid; gap: .2rem; color: #aeb9c6; font-size: .8rem; }
+    input, button { font: inherit; padding: .45rem .65rem; border-radius: .35rem; border: 1px solid #465568; }
+    input { width: 7rem; background: #171e27; color: inherit; }
+    button { background: #26374b; color: inherit; cursor: pointer; }
+    button:hover { background: #304760; }
+    output, pre { display: block; white-space: pre-wrap; overflow-wrap: anywhere; }
+    #status { color: #8fd3a8; }
+    #error { color: #ff9d9d; min-height: 1.5em; }
+    pre { background: #0b0f14; padding: 1rem; border-radius: .5rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>v2 worker boundary</h1>
+    <p>This diagnostic page renders no game yet. It proves the simulation, commands,
+      snapshots, and fixed buffer pool cross the module-worker boundary.</p>
+    <fieldset>
+      <legend>Lifecycle</legend>
+      <div class="controls">
+        <label>Seed <input id="seed" type="number" min="0" max="4294967295" value="1"></label>
+        <button id="reset" type="button">Reset</button>
+        <button id="pause" type="button">Pause</button>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>Commands</legend>
+      <div class="controls">
+        <label>Goto X <input id="goto-x" type="number" value="1000"></label>
+        <label>Goto Y <input id="goto-y" type="number" value="1000"></label>
+        <button id="goto" type="button">Goto</button>
+        <button id="withdraw" type="button">Withdraw</button>
+        <button id="spawn" type="button">Spawn</button>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>Buffer exhaustion diagnostic</legend>
+      <p>Opt in to retain the next three distinct snapshot leases. The worker keeps
+        acknowledging advances while snapshots coalesce; release restores the latest publication.</p>
+      <div class="controls">
+        <button id="diagnostic-hold-buffers" type="button">Hold next three snapshots</button>
+        <button id="diagnostic-release-buffers" type="button" disabled>Release held snapshots</button>
+      </div>
+    </fieldset>
+    <output id="status" aria-live="polite">Starting worker…</output>
+    <output id="error" aria-live="assertive"></output>
+    <pre id="diagnostics">No snapshot yet.</pre>
+  </main>
+  <script type="module" src="/client-src/v2.ts"></script>
+</body>
+</html>
