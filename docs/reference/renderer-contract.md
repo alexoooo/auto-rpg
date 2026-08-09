@@ -120,5 +120,7 @@ articulated presentation remain proposed outside the current renderer.
 Current room torches add one non-pickable, non-shadow emissive sphere at the authored
 socket and one capped point light. Flame meshes are effect presence and separate
 procedural draw groups, and are retired with their material on reset/disposal; they
-never alter picking or simulation authority. The compact review camera alone uses
-fixed zoom `1.6`; ordinary and performance-stress camera zoom remains `1`.
+never alter picking or simulation authority. The compact review camera alone starts
+and resets at fixed zoom `1.6`; ordinary and performance-stress cameras start at `1`.
+Wheel zoom stays finite and bounded, with maximum `12`: the 48 x 32 playable room
+therefore keeps roughly six vertical tiles visible at its closest fixed view.

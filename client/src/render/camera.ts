@@ -8,7 +8,9 @@ export type OrthographicBounds = Readonly<{ left: number; right: number; top: nu
 export type CameraPan = Readonly<{ x: number; y: number }>;
 
 export const MIN_CAMERA_ZOOM = 0.5;
-export const MAX_CAMERA_ZOOM = 4;
+// Twelve keeps roughly six vertical tiles visible in the shipped 48 x 32 room:
+// close enough to read an exchange without letting the camera lose the floor.
+export const MAX_CAMERA_ZOOM = 12;
 
 const positive = (label: string, value: number): number => {
   if (!Number.isFinite(value) || value <= 0) throw new RangeError(`${label} must be finite and positive`);

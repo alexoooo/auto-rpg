@@ -157,12 +157,13 @@ published answer with a camera frustum or its own ray cast. The v2 renderer appl
 the same [subsystem presence gate](../reference/renderer-contract.md#visibility-and-subsystem-presence)
 to meshes, shadows, labels, effects, audio, picking, and debug records.
 
-The current `room=representative` route loads the pinned semantic GLB kit under the
+Plain `/v2.html` and the explicit `room=representative` route load the pinned semantic GLB kit under the
 exact [disclosure mapping](../reference/room-asset-contract.md#authored-room-disclosure-mapping)
 and [scene-bound loader lifecycle](../reference/room-asset-contract.md#loader-lifecycle-and-failure).
-Only that query dynamically imports the glTF loader chunk, which remains absent from
-modulepreloads and the initial static import closure. Ordinary GPU/greybox and Canvas
-startup do not request the chunk. The root-host runtime allowlist serves only the
+The entry dynamically imports the glTF loader chunk only after it has selected that
+authored room; the chunk remains absent from modulepreloads and the initial static
+import closure. Explicit `room=procedural`, fixed-stress greybox, and Canvas startup
+do not request it. The root-host runtime allowlist serves only the
 room GLB and semantic sidecar; the validator report is checked build/evidence
 provenance and is deliberately not deployed. Asset load completes before input,
 Worker initialization, or capture readiness, and failure is terminal for the route.

@@ -238,13 +238,13 @@ smuggle deferred texture files into the slice. Generator version 3 retains one
 CORNER-domain `room_style` color layer per mesh and exports it as normalized
 `UNSIGNED_SHORT` `VEC4` `COLOR_0`. It takes the checked 1,254 x 1,254
 `tools/art/textures/room_floor_albedo.png` and `room_wall_albedo.png` inputs. Their SHA-256 values are
-`948fad4172800b7b78b2500a8da91e2b7b1c6ad1af18f00ccff854af92a6340b` and
-`11eb80b1161c47e975499583e5a4052731181b9411dc346dd795379851d13845`.
+`8ebbbb618cf748b62a63a950fdc60aaa1e6930eb8ea69d24b97793428f4a3d70` and
+`f456977162d07e8c4ae7dedf17048a83c181854d992876c91fd0b577451ed4cc`.
 Pinned Blender resamples each to 512 x 512, applies a symmetric 32-pixel horizontal
 edge blend followed by the vertical edge blend, then embeds the sRGB results with
 repeat wrap, linear magnification, and trilinear minification. Embedded hashes are
-`77215f5d4f92ce4384bc1136e6c4bbdc66353eeba6b0a0590dca337ac0bdc743`
-and `bce279eb8aee948b59821365912b683e0013b29f84ede455505f55c2c748dd54`.
+`fadbb6d0cd8566f50131bfcd4261f6b54f4596c58372aa22105e34cdf09d358b`
+and `cbe20f9cabf7a15f7e6c406ea4fcec85971c291c22973cf62e3116014f7e9ff3`.
 No external URI or runtime texture request is allowed.
 `floor_current` and `stone_current` are neutral factors over those textures and
 `COLOR_0` modulation. The superseded generator-v2 vertex-only artifact remains an
@@ -559,9 +559,12 @@ It creates no Worker and exposes no performance capture. Its snapshot is exactly
 x 10 tiles: a perimeter-only 48 solid tiles around a 14 x 8 open interior, two doors
 showing open and shut, four torches, four each of barrels, rubble, and roots, and
 eight unit markers. Camera bounds derive from that explicit 16 x 10 snapshot.
-Review-only rendering uses a dark-navy clear color plus one non-shadow hemispheric
-fill and injects initial/reset fixed zoom `1.6`; ordinary and 48 x 32 stress retain
-zoom `1`. At 16:9 the tested orthographic top/bottom are `+/-8.125`, every ground
+Playable authored-room and compact-review rendering use clear `[0.012, 0.016, 0.032, 1]`, exposure `1.34`,
+contrast `1.16`, and one non-shadow hemispheric fill with diffuse
+`[0.68, 0.60, 0.50]`, ground `[0.08, 0.065, 0.055]`, and intensity `0.58`; it
+injects initial/reset fixed zoom `1.6`, while ordinary and 48 x 32 stress start at
+zoom `1`. Bounded fixed-camera wheel zoom reaches `12`, leaving roughly six vertical
+tiles visible in the 48 x 32 playable room. At 16:9 the tested orthographic top/bottom are `+/-8.125`, every ground
 corner retains at least 20 CSS pixels of margin, and the room spans at least 60% of
 both viewport axes. The performance fixture retains exactly nine lights. The sentence test
 `the_compact_room_review_fixture_is_not_the_performance_stress_fixture` is green.
@@ -574,6 +577,13 @@ composition on WebGPU and forced WebGL2 against the preserved minimum reference 
 ultimate concept direction. A frame-rate pass does not imply an art pass, an art pass
 cannot waive performance, and only an explicit owner decision may accept a measured
 exception.
+
+The first generator-v3 source pair was technically valid but visually over-dense:
+each complete 1,254-pixel texture was mapped into one metre, so its many small stones
+collapsed into an almost flat tile at review scale. The current source pair supersedes
+it with one-to-four floor slabs and three-to-four wall courses per tile while retaining
+the same deterministic 512-pixel resample, periodic-edge blend, sampler, and validation
+contract. This correction changes only room-artifact pins and payload bytes.
 
 ## Exact automated acceptance tests
 
@@ -626,12 +636,12 @@ copied.
 ## Verification
 
 The automated implementation is green. The generated room has build-input SHA-256
-`b63c1075e84368ec98c3ea0bb5d8767ce77494d360ae38df38456b27892dc969`, GLB
-`a680684f40ddce4164d8627b8fcee927af24f4f6c49198e95eadf12bbaf93449`, sidecar
-`f2c4ffd8db9ffcd31b88a8824fac5b7e7dca76d15e6768d1f809d6802ea114b5`, validator
-`b32b32e6792f613b3a6d8349b43df62b5c67a511d996fb7152046d190ac6a939`, and stress-map
+`a8c98a41336f25e67bc635b7251dc4a68fe93e7b3bd72a5f275fba51aee04f74`, GLB
+`cfd30f7fc7a105e3ad6f181266fb1a2c1f6034a0866208fa71d5fd565b7fdc10`, sidecar
+`b15c44c454a908eaabbe8c19ecc1bd13bd58fd28935a5b4bef7c9583175a0635`, validator
+`40a93c34e397e59da0c4372e7f68f645e8d66a2ced6e714071465d693eec90f0`, and stress-map
 `1262c7dc5eb359a06db10a06c85e2782237b226e423a903f72441f1dfde18e6c`.
-The validator records zero errors and warnings; the 954,024-byte payload has a
+The validator records zero errors and warnings; the 948,968-byte payload has a
 6,534,784-byte deterministic offline residency estimate. The renderer contract suite
 passes 53 of 53 tests. The earlier pre-replacement Chrome functional smoke proved
 both GPU backends could render the authored-room pipeline, but it predates the current

@@ -63,10 +63,14 @@ const roomReviewMode = reviewParameter === "room";
 if (roomReviewMode && stressMode) throw new RangeError("review and stress fixtures are mutually exclusive");
 const syntheticMode = stressMode || roomReviewMode;
 const roomParameter = parameters.get("room");
-if (roomParameter !== null && roomParameter !== "representative") {
-  throw new RangeError("unknown room query; use room=representative");
+if (roomParameter !== null && roomParameter !== "representative" && roomParameter !== "procedural") {
+  throw new RangeError("unknown room query; use room=representative|procedural");
 }
-const representativeRoom = roomParameter === "representative";
+// The authored room is the playable v2 presentation. Procedural geometry remains
+// an explicit diagnostic/removal route and the fixed stress fixtures keep choosing
+// their own renderer so performance evidence does not drift under a bare URL.
+const representativeRoom = roomParameter === "representative" ||
+  (roomParameter === null && !syntheticMode);
 if (stressKind === "room" && !representativeRoom) {
   throw new RangeError("stress=room requires room=representative");
 }
@@ -366,7 +370,7 @@ const start = async (): Promise<void> => {
         }, roomModules === null ? {} : {
           createEnvironment: async (scene, debug, signal) => {
             const asset = await roomModules[0].loadRoomAsset(scene, signal);
-            const reviewLighting = roomReviewMode ? roomModules[4].applyCompactRoomReviewLighting(scene) : null;
+            const authoredLighting = !stressMode ? roomModules[4].applyAuthoredRoomLighting(scene) : null;
             try {
               const environment = roomModules[1].createRoomEnvironmentPresentation(scene, debug, asset);
               await environment.prepare(signal);
@@ -379,10 +383,10 @@ const start = async (): Promise<void> => {
                 acceptSnapshot: (snapshot) => environment.acceptSnapshot(snapshot),
                 authoredFrameReady: () => environment.authoredFrameReady(),
                 reset: () => environment.reset(),
-                dispose: () => { reviewLighting?.dispose(); environment.dispose(); asset.dispose(); },
+                dispose: () => { authoredLighting?.dispose(); environment.dispose(); asset.dispose(); },
               });
             } catch (error) {
-              reviewLighting?.dispose();
+              authoredLighting?.dispose();
               asset.dispose();
               throw error;
             }

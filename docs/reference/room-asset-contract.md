@@ -26,13 +26,13 @@ color attribute; glTF carries it as normalized `UNSIGNED_SHORT` `VEC4` `COLOR_0`
 The checked `tools/art/textures/room_floor_albedo.png` and
 `room_wall_albedo.png` inputs are both 1,254 x 1,254 PNGs. Their SHA-256 values are
 respectively
-`948fad4172800b7b78b2500a8da91e2b7b1c6ad1af18f00ccff854af92a6340b` and
-`11eb80b1161c47e975499583e5a4052731181b9411dc346dd795379851d13845`.
+`8ebbbb618cf748b62a63a950fdc60aaa1e6930eb8ea69d24b97793428f4a3d70` and
+`f456977162d07e8c4ae7dedf17048a83c181854d992876c91fd0b577451ed4cc`.
 The pinned deterministic processor produces periodic 512 x 512 sRGB, repeat-wrapped
 embeds with 32 edge pixels, linear magnification, and mipmapped linear minification.
 Their embedded SHA-256 values are
-`77215f5d4f92ce4384bc1136e6c4bbdc66353eeba6b0a0590dca337ac0bdc743`
-and `bce279eb8aee948b59821365912b683e0013b29f84ede455505f55c2c748dd54`.
+`fadbb6d0cd8566f50131bfcd4261f6b54f4596c58372aa22105e34cdf09d358b`
+and `cbe20f9cabf7a15f7e6c406ea4fcec85971c291c22973cf62e3116014f7e9ff3`.
 No external image URI or runtime texture request is permitted.
 `floor_current` and `stone_current` use neutral factors over the floor and wall
 textures, while `COLOR_0` remains deterministic modulation rather than a hidden
@@ -102,10 +102,10 @@ The current generated identities are:
 
 | Identity | SHA-256 |
 |---|---|
-| canonical build inputs | `b63c1075e84368ec98c3ea0bb5d8767ce77494d360ae38df38456b27892dc969` |
-| semantic sidecar | `f2c4ffd8db9ffcd31b88a8824fac5b7e7dca76d15e6768d1f809d6802ea114b5` |
-| room GLB | `a680684f40ddce4164d8627b8fcee927af24f4f6c49198e95eadf12bbaf93449` |
-| canonical validator report | `b32b32e6792f613b3a6d8349b43df62b5c67a511d996fb7152046d190ac6a939` |
+| canonical build inputs | `a8c98a41336f25e67bc635b7251dc4a68fe93e7b3bd72a5f275fba51aee04f74` |
+| semantic sidecar | `b15c44c454a908eaabbe8c19ecc1bd13bd58fd28935a5b4bef7c9583175a0635` |
+| room GLB | `cfd30f7fc7a105e3ad6f181266fb1a2c1f6034a0866208fa71d5fd565b7fdc10` |
+| canonical validator report | `40a93c34e397e59da0c4372e7f68f645e8d66a2ced6e714071465d693eec90f0` |
 | 1,536-byte runtime stress map | `1262c7dc5eb359a06db10a06c85e2782237b226e423a903f72441f1dfde18e6c` |
 
 `.gitignore` owns `__pycache__/` and `*.py[cod]`. Both generation modes must leave no
@@ -148,8 +148,8 @@ reported separately; browser performance JSON continues to record unavailable GP
 residency rather than relabeling this offline estimate.
 
 The checked artifacts contain 13 nodes, 12 meshes, four materials, 504 vertices,
-and 272 triangles. The GLB is 948,640 bytes and the sidecar is 5,384 bytes, for a
-validated 954,024-byte payload. Its offline estimate is 21,120 source-buffer bytes,
+and 272 triangles. The GLB is 943,584 bytes and the sidecar is 5,384 bytes, for a
+validated 948,968-byte payload. Its offline estimate is 21,120 source-buffer bytes,
 222,208 double-buffered instance bytes, 2,097,152 decoded-texture bytes, and
 4,194,304 shadow-map bytes, totaling 6,534,784 bytes. Validator 2.0.0-dev.3.10 reports zero
 errors, zero warnings, zero hints, and four informational messages; the
@@ -192,10 +192,12 @@ can use the same slot.
 <!-- DOC_CONTRACT: room-asset-loader-lifecycle -->
 ## Loader lifecycle and failure
 
-Only `room=representative` dynamically imports the room module and its leaf glTF
+Plain `/v2.html` selects the representative room; explicit `room=representative`
+does the same, while `room=procedural` is the removal route. Only after the authored
+selection does the entry dynamically import the room module and its leaf glTF
 registration. The loader stays out of `v2.html` modulepreloads and the initial static
-import closure. Dev request logs must prove ordinary GPU/greybox and Canvas startup
-does not request, load, or register that chunk before `room=representative`. The renderer first creates its engine and Scene, then calls the injected
+import closure. Dev request logs must prove procedural, fixed-stress greybox, and
+Canvas startup do not request or register that chunk. The renderer first creates its engine and Scene, then calls the injected
 async `createEnvironment(scene, debug, signal)` factory. That factory validates and
 hashes the root-hosted sidecar and bounded GLB, imports a scene-bound asset container
 from the verified bytes, validates its complete object closure, then attaches that
@@ -217,8 +219,8 @@ sources and materials on disposal. Every partial load is disposed on failure.
 Missing, corrupt, hash-mismatched, semantically invalid, or loader-failed room assets
 produce sanitized diagnostics and are terminal for `room=representative`. They never
 silently select procedural geometry, expose a partial authored room, retry each frame,
-or switch GPU backend. The ordinary route without the room query remains the explicit
-procedural removal path. Context or device loss remains terminal. Reset clears authored instances before the new epoch;
+or switch GPU backend. Explicit `room=procedural` remains the procedural removal
+path. Context or device loss remains terminal. Reset clears authored instances before the new epoch;
 application disposal releases instances, sources, imported materials, roots, lights,
 shadows, debug records, and picks exactly once.
 
@@ -262,8 +264,10 @@ It creates no Worker and exposes no performance capture. Its explicit 16 x 10
 snapshot has a perimeter-only 48 solid tiles around a 14 x 8 open interior, two
 doors showing open and shut states, four torches, four each of barrels, rubble, and
 roots, and eight unit markers. The camera derives bounds from that 16 x 10 snapshot.
-Review alone uses a dark-navy clear color and one non-shadow-casting hemispheric fill;
-the 48 x 32 stress fixture and its nine-light contract are unchanged. This route is
+The playable authored route and compact review use clear `[0.012, 0.016, 0.032, 1]`, image-processing exposure
+`1.34`/contrast `1.16`, and one non-shadow hemispheric fill with diffuse
+`[0.68, 0.60, 0.50]`, ground `[0.08, 0.065, 0.055]`, and intensity `0.58`;
+the fixed 48 x 32 stress fixture and its nine-light contract are unchanged. This route is
 mechanically current, but the replacement must still pass material response,
 fixture-origin light, join coherence, depth readability, and silhouette contrast on
 both GPU backends before the owner may replace the recorded decision with `pass`.

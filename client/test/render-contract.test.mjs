@@ -982,7 +982,10 @@ test("the_compact_room_review_fixture_is_not_the_performance_stress_fixture", as
   const { Scene } = await import("@babylonjs/core/scene.js");
   const engine = new NullEngine();
   const scene = new Scene(engine);
-  const lighting = roomReview.applyCompactRoomReviewLighting(scene);
+  const priorReviewClear = [scene.clearColor.r, scene.clearColor.g, scene.clearColor.b, scene.clearColor.a];
+  const priorReviewProcessing = [scene.imageProcessingConfiguration.exposure,
+    scene.imageProcessingConfiguration.contrast];
+  const lighting = roomReview.applyAuthoredRoomLighting(scene);
   const debug = new rendererDebug.RendererDebugRegistry();
   const room = new roomEnvironment.RoomEnvironmentPresentation(scene, debug, await fakeRoomAsset(scene));
   room.acceptSnapshot(fixture);
@@ -990,8 +993,14 @@ test("the_compact_room_review_fixture_is_not_the_performance_stress_fixture", as
     lights: 5, shadowCasters: 228, triangles: room.counts().triangles });
   assert.equal(scene.lights.length, 6, "review fill is separate from the room key and four torches");
   assert.deepEqual([scene.clearColor.r, scene.clearColor.g, scene.clearColor.b, scene.clearColor.a],
-    [0.018, 0.026, 0.055, 1]);
-  assert.equal(scene.lights.filter((light) => light.name === "room-review:hemispheric-fill").length, 1);
+    [0.012, 0.016, 0.032, 1]);
+  assert.deepEqual([scene.imageProcessingConfiguration.exposure,
+    scene.imageProcessingConfiguration.contrast], [1.34, 1.16]);
+  const reviewFill = scene.lights.filter((light) => light.name === "authored-room:hemispheric-fill");
+  assert.equal(reviewFill.length, 1);
+  assert.deepEqual([reviewFill[0].diffuse.r, reviewFill[0].diffuse.g, reviewFill[0].diffuse.b,
+    reviewFill[0].groundColor.r, reviewFill[0].groundColor.g, reviewFill[0].groundColor.b,
+    reviewFill[0].intensity], [0.68, 0.60, 0.50, 0.08, 0.065, 0.055, 0.58]);
   const canvas = new EventTarget();
   Object.assign(canvas, { clientWidth: 1600, clientHeight: 900, style: {}, setPointerCapture() {},
     releasePointerCapture() {}, hasPointerCapture: () => false });
@@ -1018,6 +1027,9 @@ test("the_compact_room_review_fixture_is_not_the_performance_stress_fixture", as
   cameraOwner.dispose();
   lighting.dispose(); room.dispose();
   assert.equal(scene.lights.length, 0);
+  assert.deepEqual([scene.clearColor.r, scene.clearColor.g, scene.clearColor.b, scene.clearColor.a], priorReviewClear);
+  assert.deepEqual([scene.imageProcessingConfiguration.exposure,
+    scene.imageProcessingConfiguration.contrast], priorReviewProcessing);
   scene.dispose(); engine.dispose();
 });
 
@@ -1054,6 +1066,10 @@ test("the_room_review_camera_is_bounded_resettable_and_dispose_owned", async () 
   assert.ok(Math.abs(owner.camera.getTarget().z - 16) < 1e-5);
   assert.equal(owner.camera.mode, Camera.ORTHOGRAPHIC_CAMERA);
   assert.equal(events.size, 0);
+  owner.zoom(-100_000);
+  assert.equal(rendererCamera.MAX_CAMERA_ZOOM, 12);
+  assert.ok(Math.abs(owner.camera.orthoTop - (48 + 32) / 24) < 1e-12,
+    "maximum fixed zoom must retain a bounded close-action view");
   owner.dispose(); owner.dispose();
   assert.equal(scene.cameras.length, 0);
   scene.dispose(); engine.dispose();
@@ -1975,7 +1991,7 @@ test("vite_build_does_not_overwrite_legacy_page_or_assets", () => {
   assert.match(entry, /rendererParameter === "canvas"/);
 });
 
-test("the_representative_room_and_gltf_loader_stay_outside_the_ordinary_route_closure", () => {
+test("the_representative_room_defaults_on_but_its_loader_stays_outside_the_static_entry_closure", () => {
   const entry = fs.readFileSync(path.join(ROOT, "client", "src", "v2.ts"), "utf8");
   const staticImports = entry.slice(0, entry.indexOf("const element"));
   for (const module of ["room-assets", "room-environment", "room-review-camera", "room-stress", "room-review"]) {
@@ -1983,6 +1999,9 @@ test("the_representative_room_and_gltf_loader_stay_outside_the_ordinary_route_cl
     assert.match(entry, new RegExp(`import\\(\"\\./render/${module}\\.js\"\\)`));
   }
   assert.match(entry, /representativeRoom\s*\?\s*await Promise\.all/);
+  assert.match(entry, /roomParameter === "representative" \|\|\s*\(roomParameter === null && !syntheticMode\)/);
+  assert.match(entry, /room=representative\|procedural/);
+  assert.match(entry, /!stressMode \? roomModules\[4\]\.applyAuthoredRoomLighting\(scene\) : null/);
   assert.match(entry, /review=room requires room=representative/);
   assert.match(entry, /const needsWorker = !syntheticMode/);
   assert.match(entry, /roomReviewMode\s*\?\s*roomModules\?\.\[4\]\.createCompactRoomReviewFixture\(\)/);

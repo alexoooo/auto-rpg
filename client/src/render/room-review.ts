@@ -71,14 +71,14 @@ export function createCompactRoomReviewFixture(): CompactRoomReviewFixture {
   });
 }
 
-export function applyCompactRoomReviewLighting(scene: Scene): Readonly<{ dispose(): void }> {
+export function applyAuthoredRoomLighting(scene: Scene): Readonly<{ dispose(): void }> {
   const previousClear = scene.clearColor.clone();
   const previousExposure = scene.imageProcessingConfiguration.exposure;
   const previousContrast = scene.imageProcessingConfiguration.contrast;
   scene.clearColor = new Color4(0.012, 0.016, 0.032, 1);
   scene.imageProcessingConfiguration.exposure = 1.34;
   scene.imageProcessingConfiguration.contrast = 1.16;
-  const fill = new HemisphericLight("room-review:hemispheric-fill", new Vector3(0, 1, 0), scene);
+  const fill = new HemisphericLight("authored-room:hemispheric-fill", new Vector3(0, 1, 0), scene);
   fill.diffuse = new Color3(0.68, 0.60, 0.50);
   fill.groundColor = new Color3(0.08, 0.065, 0.055);
   fill.intensity = 0.58;
