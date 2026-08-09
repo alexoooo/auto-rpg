@@ -344,8 +344,9 @@ the ownership boundary.
 
 Plain `/v2.html` loads the current pinned, textured representative-room GLB and keeps
 the Worker controls active. Add `?room=procedural` for the explicit greybox removal
-route; fixed stress URLs continue to select their own room. The authored route's
-visible art review and foreground performance decision remain pending in the
+route; fixed stress URLs continue to select their own room. The authored route passed
+the owner's minimum legacy-parity visual review; foreground performance and the
+longer-term `CONCEPT.png` direction remain open in the
 [room matrix](docs/performance/v2-room-matrix.md#visible-review-record).
 
 The room is the page. The camera is centred on your character and clamped to the

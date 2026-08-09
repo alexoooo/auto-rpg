@@ -184,6 +184,7 @@ fn carved_runs(
         faction: Faction::Heroes,
         stats: Body::Fighter.base_stats(),
         loadout: Body::Fighter.default_loadout(),
+        articulated: None,
         spawn: Vec2::ZERO,
     };
 

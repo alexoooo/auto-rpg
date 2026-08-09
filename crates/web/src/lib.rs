@@ -1,6 +1,6 @@
 //! The browser boundary.
 //!
-//! One `cdylib`, sixty-seven `extern "C"` functions, and a single packed `f32`
+//! One `cdylib`, eighty-three `extern "C"` functions, and a single packed `f32`
 //! buffer that JavaScript reads straight out of linear memory. No
 //! `wasm-bindgen`, no `js-sys`, nothing generated. The workspace's
 //! no-dependency rule (`DESIGN.md`) is what keeps every recorded run in the
@@ -106,8 +106,10 @@ use std::cell::{Cell, RefCell};
 use fx::{Angle, Fx, Rng, Vec2};
 use policy::{Policy, PolicyKind, RunConfig, MAX_GENOME_LEN};
 use sim::{
-    Cardinal, Command, EntityId, Event, Faction, LimbCommand, Intent, Objective, Order, Scenario,
+    ArticulatedCommandV1, ArticulatedPayloadError, Cardinal, Command, CommandReject, EntityId,
+    Event, Faction, LimbCommand, Intent, Objective, Order, Scenario, SubmitArticulatedOutcome,
     Body, Stats, Swing, Torch, UnitSpec, Loadout, Strike, UnitView, World,
+    ARTICULATED_PAYLOAD_BYTES, SUBMITTED_COMMAND_LAYOUT_VERSION,
 };
 
 /// Floats before the first unit: `[arena_x, arena_y, order_kind, order_x,
@@ -715,6 +717,7 @@ const SPAWN_STREAM: u64 = 1 << 63;
 thread_local! {
     static SIM: RefCell<Option<Sim>> = const { RefCell::new(None) };
     static FRAME: RefCell<[f32; FRAME_MAX]> = const { RefCell::new([0.0; FRAME_MAX]) };
+    static SUBMITTED_COMMAND: RefCell<[u8; 55]> = const { RefCell::new([0; 55]) };
     /// The floor plan, one byte a tile. A fixed array beside `FRAME` and for
     /// the same reason: a `Vec` that reallocates grows linear memory, and
     /// growing it detaches every typed array the page is holding.
@@ -1183,6 +1186,7 @@ impl Sim {
             faction: Faction::Heroes,
             stats: Body::Fighter.base_stats(),
             loadout: Body::Fighter.default_loadout(),
+            articulated: None,
             spawn: Vec2::ZERO,
         };
         Sim::on(&Scenario::dungeon(seed, 0, hero_spec), seed)
@@ -1209,6 +1213,7 @@ impl Sim {
                 faction: Faction::Heroes,
                 stats: Body::Fighter.base_stats(),
                 loadout: Body::Fighter.default_loadout(),
+                articulated: None,
                 spawn: Vec2::ZERO,
             });
         let world = Sim::open(scenario, seed);
@@ -1304,6 +1309,7 @@ impl Sim {
                 faction: Faction::Monsters,
                 stats: Body::Skitterer.base_stats(),
                 loadout: Body::Skitterer.default_loadout(),
+                articulated: None,
                 // Overwritten at every spawn. The page chooses *what* and the
                 // module chooses *where*, because a position invented in
                 // JavaScript is a float walking into simulation state.
@@ -2329,6 +2335,7 @@ impl Sim {
             faction: Faction::Monsters,
             stats: kind.base_stats(),
             loadout,
+            articulated: None,
             // Rolled inside `walk_in`, not here. See [`Sim::spawn_point`].
             spawn: Vec2::ZERO,
         })
@@ -2409,6 +2416,7 @@ impl Sim {
             faction: Faction::Heroes,
             stats: self.hero_spec.stats,
             loadout,
+            articulated: None,
             spawn,
         });
         self.units.push(id);
@@ -3266,6 +3274,18 @@ pub extern "C" fn set_focus(index: u32, generation: u32) -> u32 {
     taken
 }
 
+/// Deterministic articulated command-boundary fixture used by the native/wasm
+/// equality gate until the representative articulated room lands in v2-17.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn init_articulated_test(seed: u32) {
+    let mut fresh = Sim::new(u64::from(seed));
+    let scenario = Scenario::articulated_duel();
+    fresh.world = World::new(&scenario, u64::from(seed));
+    SIM.with(|sim| *sim.borrow_mut() = Some(fresh));
+    publish();
+}
+
 /// Index half of the currently focused body's presentation identity.
 ///
 /// The frame header carries a Focus order's live position even when the body row
@@ -3496,6 +3516,100 @@ pub extern "C" fn state_hash_lo() -> u32 {
 #[no_mangle]
 pub extern "C" fn state_hash_hi() -> u32 {
     (state_hash() >> 32) as u32
+}
+
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn state_digest_lo() -> u32 { state_digest().value as u32 }
+
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn state_digest_hi() -> u32 { (state_digest().value >> 32) as u32 }
+
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn state_digest_domain() -> u32 { state_digest().domain as u32 }
+
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn state_digest_schema() -> u32 { state_digest().schema as u32 }
+
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn combat_geometry_digest_lo() -> u32 { fx::combat_geometry_digest() as u32 }
+
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn combat_geometry_digest_hi() -> u32 { (fx::combat_geometry_digest() >> 32) as u32 }
+
+/// Fixed versioned input buffer for one articulated submitted command.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn submitted_command_ptr() -> u32 {
+    SUBMITTED_COMMAND.with(|buffer| buffer.borrow().as_ptr() as usize as u32)
+}
+
+#[allow(unsafe_code)]
+#[no_mangle]
+pub const extern "C" fn submitted_command_len() -> u32 { 55 }
+
+#[allow(unsafe_code)]
+#[no_mangle]
+pub const extern "C" fn submitted_command_layout_version() -> u32 {
+    SUBMITTED_COMMAND_LAYOUT_VERSION as u32
+}
+
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn submit_articulated(entity_index: u32, entity_generation: u32) -> u32 {
+    let bytes = SUBMITTED_COMMAND.with(|buffer| *buffer.borrow());
+    let layout = u16::from_le_bytes([bytes[0], bytes[1]]);
+    if layout != SUBMITTED_COMMAND_LAYOUT_VERSION || bytes[2] != 1 || bytes[3] != 0 {
+        return submit_result(0, 1, 0, 0);
+    }
+    let payload: &[u8; ARTICULATED_PAYLOAD_BYTES] = bytes[4..55].try_into().unwrap();
+    let id = EntityId::new(entity_index, entity_generation);
+    with_sim(submit_result(0, 3, 0, 0), |sim| {
+        if sim.world.combat_model() != sim::CombatModel::Articulated {
+            return submit_result(0, 2, 0, 0);
+        }
+        if sim.world.view(id).is_none() {
+            return submit_result(0, 3, 0, 0);
+        }
+        if ArticulatedCommandV1::validate_payload_structure(payload).is_err() {
+            return submit_result(0, 1, 0, 0);
+        }
+        let command = match ArticulatedCommandV1::from_payload_bytes(payload) {
+            Ok(command) => command,
+            Err(ArticulatedPayloadError::OutOfRange(field)) => {
+                return match sim.world.submit_articulated_fallback_v1(
+                    id,
+                    field,
+                ) {
+                    SubmitArticulatedOutcome::Stored { .. } => submit_result(2, 4, field as u8, 0),
+                    SubmitArticulatedOutcome::NotStored(CommandReject::WrongModel) => submit_result(0, 2, 0, 0),
+                    _ => submit_result(0, 3, 0, 0),
+                };
+            }
+            Err(_) => return submit_result(0, 1, 0, 0),
+        };
+        match sim.world.submit_articulated_v1(id, command) {
+            SubmitArticulatedOutcome::Stored { rejection: None, .. } => submit_result(1, 0, 0, 0),
+            SubmitArticulatedOutcome::Stored {
+                rejection: Some(CommandReject::OutOfRange(field)), ..
+            } => submit_result(2, 4, field as u8, 0),
+            SubmitArticulatedOutcome::Stored {
+                rejection: Some(CommandReject::MissingEquipment { arm, slot }), ..
+            } => submit_result(2, 5, arm as u8, slot),
+            SubmitArticulatedOutcome::NotStored(CommandReject::WrongModel) => submit_result(0, 2, 0, 0),
+            SubmitArticulatedOutcome::NotStored(CommandReject::StaleEntity) => submit_result(0, 3, 0, 0),
+            _ => submit_result(0, 1, 0, 0),
+        }
+    })
+}
+
+const fn submit_result(outcome: u8, reason: u8, detail: u8, slot: u8) -> u32 {
+    outcome as u32 | ((reason as u32) << 8) | ((detail as u32) << 16) | ((slot as u32) << 24)
 }
 
 // ---------------------------------------------------------------- behaviour
@@ -4479,6 +4593,15 @@ fn state_hash() -> u64 {
     })
 }
 
+fn state_digest() -> sim::StateDigest {
+    SIM.with(|sim| {
+        sim.borrow().as_ref().map_or(
+            sim::StateDigest { domain: sim::HashDomain::LegacyV1, schema: 1, value: 0 },
+            |sim| sim.world.state_digest(),
+        )
+    })
+}
+
 /// The project's central claim, as one number.
 ///
 /// Runs exactly what `cargo run -p lab -- hash` runs -- `skirmish(1234, 4, 6)`,
@@ -4508,6 +4631,93 @@ mod tests {
     /// reads a floor plan and never writes one. `init_sealed` is the exception,
     /// and it is the only reason these three names are in scope at all.
     use sim::{Dungeon, DOOR, DUNGEON_COLS, DUNGEON_ROWS, OPEN, WALL};
+
+    fn articulated_test_world() {
+        let mut fresh = Sim::new(1);
+        let scenario = Scenario::articulated_duel();
+        fresh.world = World::new(&scenario, 1);
+        SIM.with(|sim| *sim.borrow_mut() = Some(fresh));
+    }
+
+    fn write_submitted(command: sim::ArticulatedCommandV1) {
+        SUBMITTED_COMMAND.with(|buffer| {
+            let mut bytes = buffer.borrow_mut();
+            bytes.fill(0);
+            bytes[0..2].copy_from_slice(&SUBMITTED_COMMAND_LAYOUT_VERSION.to_le_bytes());
+            bytes[2] = 1;
+            bytes[4..55].copy_from_slice(&command.payload_bytes());
+        });
+    }
+
+    #[test]
+    fn articulated_wasm_scratch_is_fixed_and_submission_is_atomic() {
+        assert_ne!(submitted_command_ptr(), 0);
+        assert_eq!(submitted_command_len(), 55);
+        assert_eq!(submitted_command_layout_version(), 1);
+        let arm = sim::ArmTarget {
+            bearing: Angle::QUARTER,
+            height: sim::CombatHeight::MID,
+            reach: Fx::HALF,
+            effort: Fx::ONE,
+        };
+        let command = sim::ArticulatedCommandV1 {
+            move_dir: Vec2::ZERO,
+            body_yaw: Angle::QUARTER,
+            intent: Intent::Hold,
+            arms: [arm; 2],
+            grips: [sim::GripRequest::Keep; 2],
+        };
+        init(1);
+        write_submitted(command);
+        SUBMITTED_COMMAND.with(|buffer| {
+            let mut bytes = buffer.borrow_mut();
+            bytes[14] = 9;
+            bytes[4..8].copy_from_slice(&(Fx::ONE.raw() + 1).to_le_bytes());
+        });
+        assert_eq!(submit_articulated(0, 0), 2 << 8, "wrong model lost precedence");
+
+        articulated_test_world();
+        assert_eq!(submit_articulated(0, 9), 3 << 8, "stale subject lost precedence");
+        let before = SIM.with(|sim| sim.borrow().as_ref().unwrap().world.state_digest().value);
+        assert_eq!(submit_articulated(0, 0), 1 << 8, "mixed malformed/range input stored");
+        let after = SIM.with(|sim| sim.borrow().as_ref().unwrap().world.state_digest().value);
+        assert_eq!(after, before);
+
+        write_submitted(command);
+        assert_eq!(submit_articulated(0, 0), 1);
+
+        write_submitted(command);
+        SUBMITTED_COMMAND.with(|buffer| {
+            buffer.borrow_mut()[4 + 25..4 + 29]
+                .copy_from_slice(&(Fx::ONE.raw() + 1).to_le_bytes());
+        });
+        assert_eq!(submit_articulated(0, 0), 2 | (4 << 8) | (4 << 16));
+
+        let mut missing = command;
+        missing.grips[0] = sim::GripRequest::EquipSlot(7);
+        write_submitted(missing);
+        assert_eq!(submit_articulated(0, 0), 2 | (5 << 8) | (7 << 24));
+
+        write_submitted(command);
+        SUBMITTED_COMMAND.with(|buffer| buffer.borrow_mut()[3] = 1);
+        let before = SIM.with(|sim| sim.borrow().as_ref().unwrap().world.state_digest().value);
+        assert_eq!(submit_articulated(0, 0), 1 << 8);
+        let after = SIM.with(|sim| sim.borrow().as_ref().unwrap().world.state_digest().value);
+        assert_eq!(after, before, "reserved-byte rejection mutated the world");
+
+        init_articulated_test(1);
+        let fixture: [u8; 55] = [
+            0x01,0x00,0x01,0x00, 0x01,0x00,0x00,0x00, 0xfe,0xff,0xff,0xff,
+            0x34,0x12,0x01, 0x44,0x33,0x22,0x11, 0x88,0x77,0x66,0x55,
+            0x45,0x23, 0x00,0x40,0x00,0x00, 0x03,0x00,0x00,0x00,
+            0x04,0x00,0x00,0x00, 0x56,0x34, 0x00,0xc0,0x00,0x00,
+            0x05,0x00,0x00,0x00, 0x06,0x00,0x00,0x00, 0x02,0x01,0x01,0x00,
+        ];
+        SUBMITTED_COMMAND.with(|buffer| *buffer.borrow_mut() = fixture);
+        assert_eq!(submit_articulated(0, 0), 1);
+        let fixture_digest = SIM.with(|sim| sim.borrow().as_ref().unwrap().world.state_digest().value);
+        assert_eq!(fixture_digest, 0x584d_711e_4929_50e7);
+    }
 
     /// What `cargo run --release -p lab -- hash` prints today. Recorded rather
     /// than computed, so this test fails if the sim's behaviour moves at all --
@@ -4854,6 +5064,7 @@ mod tests {
             faction: Faction::Heroes,
             stats: Body::Fighter.base_stats(),
             loadout: Body::Fighter.default_loadout(),
+            articulated: None,
             spawn: Vec2::ZERO,
         };
         let mut scenario = Scenario::dungeon(u64::from(seed), 0, hero);
@@ -4881,6 +5092,7 @@ mod tests {
             faction: Faction::Heroes,
             stats: Body::Fighter.base_stats(),
             loadout: Body::Fighter.default_loadout(),
+            articulated: None,
             spawn: Vec2::ZERO,
         };
         let mut scenario = Scenario::dungeon(u64::from(seed), 0, hero);
@@ -4909,6 +5121,7 @@ mod tests {
             faction: Faction::Heroes,
             stats: Body::Fighter.base_stats(),
             loadout: Body::Fighter.default_loadout(),
+            articulated: None,
             spawn: Vec2::ZERO,
         };
         let mut scenario = Scenario::dungeon(u64::from(seed), 0, hero);
@@ -5693,6 +5906,8 @@ mod tests {
     fn init_carved(cols: u16, rows: u16, tiles: Vec<u8>, units: Vec<UnitSpec>) {
         let scenario = Scenario {
             name: "carved".to_string(),
+            combat_model: sim::CombatModel::Legacy,
+            combat_specs: None,
             dungeon: Dungeon::from_tiles(cols, rows, tiles),
             units,
             portal: None,
@@ -5720,6 +5935,7 @@ mod tests {
             faction,
             stats: kind.base_stats(),
             loadout: kind.default_loadout(),
+            articulated: None,
             spawn: Vec2::new(Fx::from_ratio(x_tenths, 10), Fx::from_ratio(y_tenths, 10)),
         }
     }

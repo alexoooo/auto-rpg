@@ -198,6 +198,11 @@ impl Dungeon {
         self.tiles[ty as usize * self.cols as usize + tx as usize]
     }
 
+    /// The canonical row-major grid used by scenario identity and persistence.
+    pub(crate) fn tiles(&self) -> &[u8] {
+        &self.tiles
+    }
+
     /// Whether a route may be planned through this tile.
     ///
     /// The one predicate that does **not** agree with [`Dungeon::solid`], and

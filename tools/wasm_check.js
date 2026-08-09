@@ -68,6 +68,8 @@ const SWAP_HASH = 0xf948f5486ee90191n;
 // saturating multiply in `tangential_speed` at the release. Portable
 // fixed-point is a claim about code that runs.
 const BOW_HASH = 0x4a1157735d305e9fn;
+const ARTICULATED_COMMAND_HASH = 0x584d711e492950e7n;
+const COMBAT_GEOMETRY_HASH = 0x9d15344883cf6e9cn;
 
 // The frame header, as the client reads it.
 const HEADER_LEN = 15;
@@ -290,6 +292,7 @@ test("the boundary exports everything the client calls", () => {
   // function` here, so it is worth one cheap assertion up front.
   const exports = [
     "init",
+    "init_articulated_test",
     "set_goto",
     // Beside `set_goto` because it is the other half of the click: a tap on
     // open ground is a destination, a tap on an enemy names a quarry. It earns
@@ -313,6 +316,16 @@ test("the boundary exports everything the client calls", () => {
     "tick",
     "state_hash_lo",
     "state_hash_hi",
+    "state_digest_lo",
+    "state_digest_hi",
+    "state_digest_domain",
+    "state_digest_schema",
+    "combat_geometry_digest_lo",
+    "combat_geometry_digest_hi",
+    "submitted_command_ptr",
+    "submitted_command_len",
+    "submitted_command_layout_version",
+    "submit_articulated",
     "selftest_hash_lo",
     "selftest_hash_hi",
     "set_policy",
@@ -404,6 +417,40 @@ test("the selftest hash is the number the lab prints natively", () => {
   // prints both of them in hex.
   assert.ok(measured === LAB_HASH, divergence("The selftest hash", LAB_HASH, measured));
   console.log(`selftest hash  ${hex(measured)}  == native`);
+});
+
+test("the articulated command scratch matches Rust and stores atomically", () => {
+  wasm.init_articulated_test(1);
+  assert.equal(wasm.submitted_command_len(), 55);
+  assert.equal(wasm.submitted_command_layout_version(), 1);
+  const fixture = Uint8Array.from([
+    0x01,0x00,0x01,0x00, 0x01,0x00,0x00,0x00, 0xfe,0xff,0xff,0xff,
+    0x34,0x12,0x01, 0x44,0x33,0x22,0x11, 0x88,0x77,0x66,0x55,
+    0x45,0x23, 0x00,0x40,0x00,0x00, 0x03,0x00,0x00,0x00,
+    0x04,0x00,0x00,0x00, 0x56,0x34, 0x00,0xc0,0x00,0x00,
+    0x05,0x00,0x00,0x00, 0x06,0x00,0x00,0x00, 0x02,0x01,0x01,0x00,
+  ]);
+  new Uint8Array(wasm.memory.buffer, u32(wasm.submitted_command_ptr()), 55).set(fixture);
+  assert.equal(u32(wasm.submit_articulated(0, 0)), 1, "valid command was not stored verbatim");
+  assert.equal(wasm.state_digest_domain(), 1);
+  assert.equal(wasm.state_digest_schema(), 1);
+  const measured = hash64(wasm.state_digest_lo(), wasm.state_digest_hi());
+  assert.equal(measured, ARTICULATED_COMMAND_HASH, "articulated command digest differs from native");
+
+  const malformed = fixture.slice();
+  malformed[10 + 4] = 9; // intent tag at payload offset 10
+  malformed.set([0x01, 0x00, 0x01, 0x00], 4); // also numerically out of range: syntax wins
+  new Uint8Array(wasm.memory.buffer, u32(wasm.submitted_command_ptr()), 55).set(malformed);
+  assert.equal(u32(wasm.submit_articulated(0, 0)), 1 << 8, "mixed malformed/range input stored a fallback");
+  assert.equal(hash64(wasm.state_digest_lo(), wasm.state_digest_hi()), measured, "NotStored mutated state");
+  console.log(`articulated     ${hex(measured)}  == native command fixture`);
+});
+
+test("combat geometry matches the frozen native digest", () => {
+  assert.equal(
+    hash64(wasm.combat_geometry_digest_lo(), wasm.combat_geometry_digest_hi()),
+    COMBAT_GEOMETRY_HASH,
+  );
 });
 
 test("a scripted walk leaves the world in the state native recorded", () => {

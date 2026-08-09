@@ -1,6 +1,197 @@
 use crate::entity::EntityId;
 use fx::{Angle, Fx, Hash64, Vec2};
 
+pub const SUBMITTED_COMMAND_LAYOUT_VERSION: u16 = 1;
+pub const ARTICULATED_PAYLOAD_BYTES: usize = 51;
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct CombatHeight(Fx);
+
+impl CombatHeight {
+    pub const LOW: CombatHeight = CombatHeight(Fx::from_raw(16_384));
+    pub const MID: CombatHeight = CombatHeight(Fx::from_raw(32_768));
+    pub const HIGH: CombatHeight = CombatHeight(Fx::from_raw(49_152));
+
+    pub const fn try_from_raw(raw: i32) -> Option<CombatHeight> {
+        if raw >= 0 && raw <= Fx::ONE.raw() {
+            Some(CombatHeight(Fx::from_raw(raw)))
+        } else {
+            None
+        }
+    }
+
+    pub const fn raw(self) -> i32 { self.0.raw() }
+}
+
+#[repr(u8)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum LimbSlot { LeftArm = 0, RightArm = 1 }
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct ArmTarget {
+    pub bearing: Angle,
+    pub height: CombatHeight,
+    pub reach: Fx,
+    pub effort: Fx,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum GripRequest { Keep, Release, EquipSlot(u8) }
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct ArticulatedCommandV1 {
+    pub move_dir: Vec2,
+    pub body_yaw: Angle,
+    pub intent: Intent,
+    pub arms: [ArmTarget; 2],
+    pub grips: [GripRequest; 2],
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum SubmittedCommand { Legacy(Command), Articulated(ArticulatedCommandV1) }
+
+#[repr(u8)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum CommandField {
+    MoveX = 0, MoveY = 1, MoveMagnitude = 2,
+    LeftHeight = 3, LeftReach = 4, LeftEffort = 5,
+    RightHeight = 6, RightReach = 7, RightEffort = 8,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum CommandReject {
+    WrongModel,
+    StaleEntity,
+    MissingEquipment { arm: LimbSlot, slot: u8 },
+    OutOfRange(CommandField),
+    UnknownLayout(u16),
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum SubmitArticulatedOutcome {
+    Stored { command: ArticulatedCommandV1, rejection: Option<CommandReject> },
+    NotStored(CommandReject),
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ArticulatedPayloadError {
+    UnknownIntent(u8),
+    UnknownGrip { arm: LimbSlot, value: u8 },
+    NonCanonicalIntent,
+    NonCanonicalGrip(LimbSlot),
+    OutOfRange(CommandField),
+}
+
+impl ArticulatedCommandV1 {
+    pub fn payload_bytes(self) -> [u8; ARTICULATED_PAYLOAD_BYTES] {
+        let mut out = [0u8; ARTICULATED_PAYLOAD_BYTES];
+        put_i32(&mut out, 0, self.move_dir.x.raw());
+        put_i32(&mut out, 4, self.move_dir.y.raw());
+        put_u16(&mut out, 8, self.body_yaw.raw());
+        let (intent, target) = match self.intent {
+            Intent::Hold => (0, EntityId::new(0, 0)),
+            Intent::Attack(id) => (1, id),
+            Intent::Flee => (2, EntityId::new(0, 0)),
+        };
+        out[10] = intent;
+        put_u32(&mut out, 11, target.index);
+        put_u32(&mut out, 15, target.generation);
+        write_arm(&mut out, 19, self.arms[0]);
+        write_arm(&mut out, 33, self.arms[1]);
+        write_grip(&mut out, 47, self.grips[0]);
+        write_grip(&mut out, 49, self.grips[1]);
+        out
+    }
+
+    pub fn from_payload_bytes(bytes: &[u8; ARTICULATED_PAYLOAD_BYTES])
+        -> Result<ArticulatedCommandV1, ArticulatedPayloadError>
+    {
+        Self::validate_payload_structure(bytes)?;
+        let move_dir = Vec2::new(Fx::from_raw(get_i32(bytes, 0)), Fx::from_raw(get_i32(bytes, 4)));
+        validate_move(move_dir)?;
+        let target = EntityId::new(get_u32(bytes, 11), get_u32(bytes, 15));
+        let intent = match bytes[10] {
+            0 => Intent::Hold,
+            1 => Intent::Attack(target),
+            2 => Intent::Flee,
+            value => return Err(ArticulatedPayloadError::UnknownIntent(value)),
+        };
+        Ok(ArticulatedCommandV1 {
+            move_dir,
+            body_yaw: Angle::from_raw(get_u16(bytes, 8)),
+            intent,
+            arms: [read_arm(bytes, 19, true)?, read_arm(bytes, 33, false)?],
+            grips: [read_grip(bytes, 47, LimbSlot::LeftArm)?, read_grip(bytes, 49, LimbSlot::RightArm)?],
+        })
+    }
+
+    pub fn validate_payload_structure(bytes: &[u8; ARTICULATED_PAYLOAD_BYTES])
+        -> Result<(), ArticulatedPayloadError>
+    {
+        let target_zero = bytes[11..19].iter().all(|byte| *byte == 0);
+        match bytes[10] {
+            0 | 2 if !target_zero => return Err(ArticulatedPayloadError::NonCanonicalIntent),
+            0..=2 => {}
+            value => return Err(ArticulatedPayloadError::UnknownIntent(value)),
+        }
+        let _ = read_grip(bytes, 47, LimbSlot::LeftArm)?;
+        let _ = read_grip(bytes, 49, LimbSlot::RightArm)?;
+        Ok(())
+    }
+}
+
+pub(crate) fn validate_articulated(command: ArticulatedCommandV1) -> Result<(), CommandField> {
+    validate_move(command.move_dir).map_err(|e| match e { ArticulatedPayloadError::OutOfRange(f) => f, _ => unreachable!() })?;
+    for (arm, fields) in command.arms.into_iter().zip([
+        [CommandField::LeftHeight, CommandField::LeftReach, CommandField::LeftEffort],
+        [CommandField::RightHeight, CommandField::RightReach, CommandField::RightEffort],
+    ]) {
+        if !(0..=Fx::ONE.raw()).contains(&arm.height.raw()) { return Err(fields[0]); }
+        if !(0..=Fx::ONE.raw()).contains(&arm.reach.raw()) { return Err(fields[1]); }
+        if !(0..=Fx::ONE.raw()).contains(&arm.effort.raw()) { return Err(fields[2]); }
+    }
+    Ok(())
+}
+
+fn validate_move(move_dir: Vec2) -> Result<(), ArticulatedPayloadError> {
+    let x = move_dir.x.raw();
+    let y = move_dir.y.raw();
+    if !(-65_536..=65_536).contains(&x) { return Err(ArticulatedPayloadError::OutOfRange(CommandField::MoveX)); }
+    if !(-65_536..=65_536).contains(&y) { return Err(ArticulatedPayloadError::OutOfRange(CommandField::MoveY)); }
+    let xx = i64::from(x) * i64::from(x);
+    let yy = i64::from(y) * i64::from(y);
+    if xx + yy > 65_536i64 * 65_536i64 { return Err(ArticulatedPayloadError::OutOfRange(CommandField::MoveMagnitude)); }
+    Ok(())
+}
+
+fn write_arm(out: &mut [u8], at: usize, arm: ArmTarget) {
+    put_u16(out, at, arm.bearing.raw()); put_i32(out, at + 2, arm.height.raw());
+    put_i32(out, at + 6, arm.reach.raw()); put_i32(out, at + 10, arm.effort.raw());
+}
+fn read_arm(bytes: &[u8], at: usize, left: bool) -> Result<ArmTarget, ArticulatedPayloadError> {
+    let fields = if left { [CommandField::LeftHeight, CommandField::LeftReach, CommandField::LeftEffort] }
+        else { [CommandField::RightHeight, CommandField::RightReach, CommandField::RightEffort] };
+    let height_raw = get_i32(bytes, at + 2);
+    let height = CombatHeight::try_from_raw(height_raw).ok_or(ArticulatedPayloadError::OutOfRange(fields[0]))?;
+    let reach = Fx::from_raw(get_i32(bytes, at + 6));
+    if !(0..=Fx::ONE.raw()).contains(&reach.raw()) { return Err(ArticulatedPayloadError::OutOfRange(fields[1])); }
+    let effort = Fx::from_raw(get_i32(bytes, at + 10));
+    if !(0..=Fx::ONE.raw()).contains(&effort.raw()) { return Err(ArticulatedPayloadError::OutOfRange(fields[2])); }
+    Ok(ArmTarget { bearing: Angle::from_raw(get_u16(bytes, at)), height, reach, effort })
+}
+fn write_grip(out: &mut [u8], at: usize, grip: GripRequest) {
+    match grip { GripRequest::Keep => { out[at] = 0; out[at+1] = 0; }, GripRequest::Release => { out[at] = 1; out[at+1] = 0; }, GripRequest::EquipSlot(slot) => { out[at] = 2; out[at+1] = slot; } }
+}
+fn read_grip(bytes: &[u8], at: usize, arm: LimbSlot) -> Result<GripRequest, ArticulatedPayloadError> {
+    match bytes[at] { 0 if bytes[at+1] == 0 => Ok(GripRequest::Keep), 1 if bytes[at+1] == 0 => Ok(GripRequest::Release), 2 => Ok(GripRequest::EquipSlot(bytes[at+1])), 0 | 1 => Err(ArticulatedPayloadError::NonCanonicalGrip(arm)), value => Err(ArticulatedPayloadError::UnknownGrip { arm, value }) }
+}
+fn put_u16(out: &mut [u8], at: usize, value: u16) { out[at..at+2].copy_from_slice(&value.to_le_bytes()); }
+fn put_u32(out: &mut [u8], at: usize, value: u32) { out[at..at+4].copy_from_slice(&value.to_le_bytes()); }
+fn put_i32(out: &mut [u8], at: usize, value: i32) { out[at..at+4].copy_from_slice(&value.to_le_bytes()); }
+fn get_u16(bytes: &[u8], at: usize) -> u16 { u16::from_le_bytes(bytes[at..at+2].try_into().unwrap()) }
+fn get_u32(bytes: &[u8], at: usize) -> u32 { u32::from_le_bytes(bytes[at..at+4].try_into().unwrap()) }
+fn get_i32(bytes: &[u8], at: usize) -> i32 { i32::from_le_bytes(bytes[at..at+4].try_into().unwrap()) }
+
 /// Whether a blade is being asked to attack, and from which side.
 ///
 /// The sides are named for the direction the blade **winds up** in, which is the
@@ -392,6 +583,83 @@ impl Objective {
 mod tests {
     use super::*;
     use fx::Fx;
+
+    fn articulated_fixture() -> ArticulatedCommandV1 {
+        ArticulatedCommandV1 {
+            move_dir: Vec2::new(Fx::from_raw(1), Fx::from_raw(-2)),
+            body_yaw: Angle::from_raw(0x1234),
+            intent: Intent::Attack(EntityId::new(0x1122_3344, 0x5566_7788)),
+            arms: [
+                ArmTarget { bearing: Angle::from_raw(0x2345), height: CombatHeight::LOW, reach: Fx::from_raw(3), effort: Fx::from_raw(4) },
+                ArmTarget { bearing: Angle::from_raw(0x3456), height: CombatHeight::HIGH, reach: Fx::from_raw(5), effort: Fx::from_raw(6) },
+            ],
+            grips: [GripRequest::EquipSlot(1), GripRequest::Release],
+        }
+    }
+
+    #[test]
+    fn combat_height_accepts_every_in_range_raw_value_without_quantizing() {
+        for raw in 0..=Fx::ONE.raw() {
+            assert_eq!(CombatHeight::try_from_raw(raw).unwrap().raw(), raw);
+        }
+        assert_eq!(CombatHeight::try_from_raw(-1), None);
+        assert_eq!(CombatHeight::try_from_raw(Fx::ONE.raw() + 1), None);
+    }
+
+    #[test]
+    fn articulated_command_v1_matches_the_documented_55_byte_fixture() {
+        let payload = articulated_fixture().payload_bytes();
+        let mut actual = [0u8; 55];
+        actual[0..2].copy_from_slice(&1u16.to_le_bytes());
+        actual[2] = 1;
+        actual[4..].copy_from_slice(&payload);
+        let expected: [u8; 55] = [
+            0x01,0x00,0x01,0x00, 0x01,0x00,0x00,0x00, 0xfe,0xff,0xff,0xff,
+            0x34,0x12,0x01, 0x44,0x33,0x22,0x11, 0x88,0x77,0x66,0x55,
+            0x45,0x23, 0x00,0x40,0x00,0x00, 0x03,0x00,0x00,0x00,
+            0x04,0x00,0x00,0x00, 0x56,0x34, 0x00,0xc0,0x00,0x00,
+            0x05,0x00,0x00,0x00, 0x06,0x00,0x00,0x00, 0x02,0x01,0x01,0x00,
+        ];
+        assert_eq!(actual, expected);
+        assert_eq!(ArticulatedCommandV1::from_payload_bytes(&payload), Ok(articulated_fixture()));
+    }
+
+    #[test]
+    fn the_exact_half_turn_delta_is_clockwise() {
+        assert_eq!(Angle::HALF.delta(Angle::ZERO), -32_768);
+    }
+
+    #[test]
+    fn unknown_tags_noncanonical_padding_and_ranges_are_distinct() {
+        let base = articulated_fixture().payload_bytes();
+        let mut bad = base;
+        bad[10] = 9;
+        bad[0..4].copy_from_slice(&(Fx::ONE.raw() + 1).to_le_bytes());
+        assert_eq!(
+            ArticulatedCommandV1::validate_payload_structure(&bad),
+            Err(ArticulatedPayloadError::UnknownIntent(9))
+        );
+        let mut bad = base;
+        bad[47] = 0;
+        bad[48] = 1;
+        assert_eq!(
+            ArticulatedCommandV1::validate_payload_structure(&bad),
+            Err(ArticulatedPayloadError::NonCanonicalGrip(LimbSlot::LeftArm))
+        );
+        let mut bad = base;
+        bad[49] = 9;
+        assert_eq!(
+            ArticulatedCommandV1::validate_payload_structure(&bad),
+            Err(ArticulatedPayloadError::UnknownGrip { arm: LimbSlot::RightArm, value: 9 })
+        );
+        let mut bad = base;
+        bad[0..4].copy_from_slice(&(Fx::ONE.raw() + 1).to_le_bytes());
+        bad[25..29].copy_from_slice(&(Fx::ONE.raw() + 1).to_le_bytes());
+        assert_eq!(
+            ArticulatedCommandV1::from_payload_bytes(&bad),
+            Err(ArticulatedPayloadError::OutOfRange(CommandField::MoveX))
+        );
+    }
 
     fn hashed(order: Order) -> u64 {
         let mut h = Hash64::new();

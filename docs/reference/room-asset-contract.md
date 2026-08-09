@@ -7,8 +7,9 @@
 
 The pinned room GLB, semantic sidecar, validator report, generated trust pins, lazy
 loader, instance presentation, and review camera are current. Their automated gates
-are complete. The visible art decision and foreground performance matrix remain
-pending and are not implied by this implementation status.
+are complete. The owner accepted minimum legacy parity on 2026-08-09; the foreground
+performance matrix and ultimate painted-art direction remain open and are not implied
+by this implementation status.
 
 <!-- DOC_CONTRACT: room-asset-manifest -->
 ## Manifest semantics
@@ -36,8 +37,8 @@ and `cbe20f9cabf7a15f7e6c406ea4fcec85971c291c22973cf62e3116014f7e9ff3`.
 No external image URI or runtime texture request is permitted.
 `floor_current` and `stone_current` use neutral factors over the floor and wall
 textures, while `COLOR_0` remains deterministic modulation rather than a hidden
-per-instance correction. This current candidate still awaits visible review and
-remains under the owner `replace` decision.
+per-instance correction. The owner accepted this current candidate on 2026-08-09 as
+good enough to proceed at the legacy-parity threshold.
 
 The exact unique piece set is:
 
@@ -268,9 +269,9 @@ The playable authored route and compact review use clear `[0.012, 0.016, 0.032, 
 `1.34`/contrast `1.16`, and one non-shadow hemispheric fill with diffuse
 `[0.68, 0.60, 0.50]`, ground `[0.08, 0.065, 0.055]`, and intensity `0.58`;
 the fixed 48 x 32 stress fixture and its nine-light contract are unchanged. This route is
-mechanically current, but the replacement must still pass material response,
-fixture-origin light, join coherence, depth readability, and silhouette contrast on
-both GPU backends before the owner may replace the recorded decision with `pass`.
+mechanically current. The 2026-08-09 owner review accepted its material response,
+fixture-origin light, join coherence, depth readability, and silhouette contrast as
+sufficient for minimum legacy parity. This does not close the `CONCEPT.png` direction.
 
 Compact review alone injects initial/reset fixed zoom `1.6`; ordinary and 48 x 32
 stress cameras retain zoom `1`. At 16:9, the tested compact orthographic top/bottom

@@ -1,13 +1,15 @@
 # 2026-08 representative room slice evidence
 
-**Purpose:** Record the automated v2-09 authored-room artifacts while reserving the browser captures, screenshots, and owner decision.
+**Purpose:** Record the automated v2-09 authored-room artifacts, visible owner decisions, and pending foreground captures.
 **Status:** current
 **Canonical source:** the [room matrix](../v2-room-matrix.md#artifact-and-environment-record) and current [room asset contract](../../reference/room-asset-contract.md#manifest-semantics)
 **Update when:** An artifact, raw capture, fixed-view screenshot, review result, or owner decision is recorded.
 
 The generated room pipeline and automated runtime are current. The initial visible
-art review ended in an owner `replace` decision; no art pass or foreground
-performance result exists, and this record must not be cited as either kind of pass.
+art review ended in an owner `replace` decision. After the replacement work, the
+owner accepted minimum legacy parity on 2026-08-09 and chose `pass/proceed`.
+No foreground performance result exists, and the visual decision must not be cited
+as a numerical pass or as completion of the ultimate painted-art direction.
 
 ## Method and provenance
 
@@ -32,7 +34,7 @@ plus CORNER-domain `room_style` exported as normalized `UNSIGNED_SHORT` `VEC4`
 2,097,152 decoded-texture, and 4,194,304 shadow-map bytes, totaling 6,534,784
 bytes. The GLB is 943,584 bytes and sidecar 5,384 bytes, totaling 948,968 payload
 bytes. The prior generator-v2 vertex-only artifact is a superseded intermediate.
-Generator v3 is the current mechanical candidate, but visible review remains pending.
+Generator v3 is the current mechanical candidate accepted at the minimum legacy-parity threshold.
 The first generator-v3 source pair is also superseded: compact review showed that its
 many small stones collapsed into nearly flat one-metre tiles. The current pair uses
 one-to-four floor slabs and three-to-four wall courses per game tile; the deterministic
@@ -87,6 +89,12 @@ restrained dark palette, subtle structural grid, and strong marker hierarchy in
 the preserved [legacy renderer reference](2026-08-08-legacy-renderer-reference.png),
 SHA-256 `ef249c666d7c4eabb775dc32fbe943076454e2d26db88967b690df0a3ab05260`.
 The ultimate art direction remains `CONCEPT.png`; old-version parity does not complete
-painted-art acceptance. This is a failed initial art review, not a pipeline or numerical
-performance failure. Replacement review and all foreground measurements remain
-pending.
+painted-art acceptance. This was a failed initial art review, not a pipeline or
+numerical performance failure.
+
+The replacement added deterministic floor/wall textures, compact review framing,
+authored lighting and torch treatment, corrected wall orientation, the same style on
+the playable `/v2.html` route, and bounded zoom to `12`. After reviewing the current
+playable result, the owner said it looked good enough to proceed on 2026-08-09. The
+recorded visual-track decision is therefore `pass/proceed` at the minimum legacy
+parity threshold. All foreground measurements remain pending.

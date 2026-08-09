@@ -46,11 +46,14 @@
 pub use fx;
 
 mod action;
+mod codec;
+mod combat;
 mod command;
 mod dungeon;
 mod entity;
 mod event;
 mod hand;
+mod hash_domain;
 mod loadout;
 mod obs;
 mod replay;
@@ -59,14 +62,38 @@ mod scenario;
 mod world;
 
 pub use action::{ActionKind, ActionSpec, Role, ACTIONS};
-pub use command::{Command, Intent, LimbCommand, Objective, Order, Strike};
+pub use codec::{
+    ReplayDecodeError, ReplayEncodeError, ReplayEnvelope, ReplayField, ReplayLimit,
+    ReplayPlayError, ReplayStream, ReplayValidationError, ARTICULATED_COMMAND_SCHEMA_RESERVED,
+    LEGACY_COMMAND_SCHEMA, REPLAY_CODEC_VERSION,
+};
+pub use command::{
+    ArmTarget, ArticulatedCommandV1, ArticulatedPayloadError, CombatHeight, Command,
+    CommandField, CommandReject, GripRequest, Intent, LimbCommand, LimbSlot, Objective, Order,
+    Strike, SubmitArticulatedOutcome, SubmittedCommand, ARTICULATED_PAYLOAD_BYTES,
+    SUBMITTED_COMMAND_LAYOUT_VERSION,
+};
+pub use combat::spec::{
+    club, fighter_anatomy, shield, sword, AnatomyRegion, AnatomyRegionSpec, AnatomySpecId,
+    ArmorSpec, ArticulatedUnitSpecV1, BodyAnatomySpec, CombatSpecError, CombatSpecTableV1,
+    EquipmentGeometry, EquipmentSpec, EquipmentSpecId, GripBinding, Material, SurfaceSpec,
+    BODY_ANATOMY_SPEC_V1_BYTES, COMBAT_SPEC_SCHEMA_V1, MAX_ANATOMY_SPECS,
+    MAX_EQUIPMENT_SPECS, SEGMENT_EQUIPMENT_SPEC_V1_BYTES, SHIELD_EQUIPMENT_SPEC_V1_BYTES,
+};
+pub use combat::actuator::{
+    ArmState, BodyYawState, GripState, ShieldPose, ARM_BEARING_ACCEL_RAW,
+    ARM_BEARING_MAX_SPEED_RAW, ARM_LINEAR_ACCEL_RAW, ARM_LINEAR_MAX_SPEED_RAW,
+    ARM_MIN_REACH_RAW, BODY_YAW_ACCEL_RAW, BODY_YAW_MAX_SPEED_RAW,
+    FATIGUE_RECOVERY_RAW, FATIGUE_WORK_SCALE_RAW,
+};
 pub use dungeon::{Cardinal, Door, Dungeon, Level, Rect, Torch, CORRIDOR, DOOR, OPEN, WALL};
 pub use entity::{EntityId, Faction, Body};
 pub use event::Event;
 pub use hand::{Hand, Swing};
+pub use hash_domain::{DigestCompareError, HashDomain, StateDigest};
 pub use loadout::Loadout;
 pub use obs::{Contact, Observation, FEATURE_COUNT, FEATURE_LAYOUT_VERSION};
-pub use replay::{CommandRecord, ObjectiveRecord, OrderRecord, Replay};
+pub use replay::{CommandRecord, ObjectiveRecord, OrderRecord, Replay, SubmittedCommandRecord};
 pub use rules::{
     agility_multiplier, block_leak, blow_damage, dead_zone, peak_damage, peak_impulse, peak_recoil,
     phase_ticks, power_multiplier, strike_ticks, Arm, Stats, ARM_INERTIA, BLOCK_LEAK_BRACED,
@@ -78,5 +105,7 @@ pub use rules::{
     STRIKE_TIMEOUT, TICKS_PER_SECOND, TRACTION_BASE, TRACTION_TICKS, VELOCITY_JUDGEMENT,
     WHIFF_RECOVERY, WINDUP_ARC,
 };
-pub use scenario::{Scenario, UnitSpec, DUNGEON_COLS, DUNGEON_ROWS};
+pub use scenario::{
+    CombatModel, Scenario, ScenarioFingerprintError, UnitSpec, DUNGEON_COLS, DUNGEON_ROWS,
+};
 pub use world::{Outcome, ShotView, Snapshot, UnitView, World};

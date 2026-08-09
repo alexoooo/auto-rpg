@@ -1,4 +1,5 @@
 use crate::dungeon::{Dungeon, Torch};
+use crate::combat::spec::{combat_specs_into, ArticulatedUnitSpecV1, CombatSpecTableV1};
 use crate::entity::{Body, Faction};
 use crate::loadout::Loadout;
 use crate::rules::Stats;
@@ -18,7 +19,52 @@ pub struct UnitSpec {
     /// (always the primary). A body no longer implies a weapon, so this is the
     /// other half of what used to be a single `kind`.
     pub loadout: Loadout,
+    pub articulated: Option<ArticulatedUnitSpecV1>,
     pub spawn: Vec2,
+}
+
+/// Which mechanics grammar interprets a scenario's immutable inputs.
+#[repr(u8)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum CombatModel {
+    Legacy = 0,
+    Articulated = 1,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ScenarioFingerprintError {
+    NameTooLong { bytes: usize },
+    InvalidCombatSpecs(crate::CombatSpecError),
+}
+
+/// The byte-level seam shared by ScenarioV1 identity and persistence.
+///
+/// This is deliberately smaller than `std::io::Write`: the sim has no I/O, and
+/// the only two consumers are a fixed hash and an already-sized codec buffer.
+pub(crate) trait ScenarioByteSink {
+    fn write_bytes(&mut self, bytes: &[u8]);
+
+    fn write_u8(&mut self, value: u8) {
+        self.write_bytes(&[value]);
+    }
+
+    fn write_u16(&mut self, value: u16) {
+        self.write_bytes(&value.to_le_bytes());
+    }
+
+    fn write_u32(&mut self, value: u32) {
+        self.write_bytes(&value.to_le_bytes());
+    }
+
+    fn write_i32(&mut self, value: i32) {
+        self.write_bytes(&value.to_le_bytes());
+    }
+}
+
+impl ScenarioByteSink for Hash64 {
+    fn write_bytes(&mut self, bytes: &[u8]) {
+        Hash64::write_bytes(self, bytes);
+    }
 }
 
 impl UnitSpec {
@@ -76,6 +122,8 @@ const ROSTER_STREAM: u64 = 1 << 61;
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Scenario {
     pub name: String,
+    pub combat_model: CombatModel,
+    pub combat_specs: Option<CombatSpecTableV1>,
     /// Which ground exists. The playable area is `(0,0)..dungeon.extent()`, and
     /// on a [`Dungeon::open`] floor plan that is the whole rectangle -- which is
     /// what every scenario here but a generated one uses.
@@ -129,6 +177,8 @@ impl Scenario {
     pub fn duel() -> Scenario {
         Scenario {
             name: "duel".to_string(),
+            combat_model: CombatModel::Legacy,
+            combat_specs: None,
             dungeon: Dungeon::open(24, 16),
             portal: None,
             torches: Vec::new(),
@@ -139,6 +189,7 @@ impl Scenario {
                     faction: Faction::Heroes,
                     stats: Body::Fighter.base_stats(),
                     loadout: Body::Fighter.default_loadout(),
+                    articulated: None,
                     spawn: Vec2::from_ints(6, 8),
                 },
                 UnitSpec {
@@ -146,6 +197,7 @@ impl Scenario {
                     faction: Faction::Monsters,
                     stats: Body::Brute.base_stats(),
                     loadout: Body::Brute.default_loadout(),
+                    articulated: None,
                     spawn: Vec2::from_ints(18, 8),
                 },
             ],
@@ -182,6 +234,8 @@ impl Scenario {
 
         Scenario {
             name: format!("duel-{}-vs-{}", hero.name(), villain.name()),
+            combat_model: CombatModel::Legacy,
+            combat_specs: None,
             dungeon,
             portal: None,
             torches: Vec::new(),
@@ -200,6 +254,7 @@ impl Scenario {
                     faction: Faction::Heroes,
                     stats: hero.base_stats(),
                     loadout: hero.default_loadout(),
+                    articulated: None,
                     spawn: centre - apart,
                 },
                 UnitSpec {
@@ -207,6 +262,7 @@ impl Scenario {
                     faction: Faction::Monsters,
                     stats: villain.base_stats(),
                     loadout: villain.default_loadout(),
+                    articulated: None,
                     spawn: centre + apart,
                 },
             ],
@@ -224,6 +280,8 @@ impl Scenario {
     pub fn room() -> Scenario {
         Scenario {
             name: "room".to_string(),
+            combat_model: CombatModel::Legacy,
+            combat_specs: None,
             dungeon: Dungeon::open(24, 16),
             portal: None,
             torches: Vec::new(),
@@ -233,6 +291,7 @@ impl Scenario {
                 faction: Faction::Heroes,
                 stats: Body::Fighter.base_stats(),
                 loadout: Body::Fighter.default_loadout(),
+                articulated: None,
                 spawn: Vec2::from_ints(12, 8),
             }],
         }
@@ -268,6 +327,7 @@ impl Scenario {
                 faction: Faction::Heroes,
                 stats: kind.base_stats(),
                 loadout: kind.default_loadout(),
+                articulated: None,
                 spawn: Vec2::new(
                     rng.range(Fx::from_int(3), Fx::from_int(12)),
                     rng.range(Fx::from_int(8), arena.y - Fx::from_int(8)),
@@ -286,6 +346,7 @@ impl Scenario {
                 faction: Faction::Monsters,
                 stats: kind.base_stats(),
                 loadout: kind.default_loadout(),
+                articulated: None,
                 spawn: Vec2::new(
                     rng.range(arena.x - Fx::from_int(12), arena.x - Fx::from_int(3)),
                     rng.range(Fx::from_int(8), arena.y - Fx::from_int(8)),
@@ -295,6 +356,8 @@ impl Scenario {
 
         Scenario {
             name: format!("skirmish-{heroes}v{monsters}"),
+            combat_model: CombatModel::Legacy,
+            combat_specs: None,
             dungeon,
             portal: None,
             torches: Vec::new(),
@@ -367,12 +430,15 @@ impl Scenario {
                 faction: Faction::Monsters,
                 stats: kind.base_stats(),
                 loadout: kind.default_loadout(),
+                articulated: None,
                 spawn: *at,
             });
         }
 
         Scenario {
             name: format!("dungeon-{depth}"),
+            combat_model: CombatModel::Legacy,
+            combat_specs: None,
             dungeon: level.dungeon,
             portal: Some(level.portal),
             torches: level.torches,
@@ -384,35 +450,48 @@ impl Scenario {
     /// Fingerprint, so a replay can refuse to play against a scenario that has
     /// been edited underneath it.
     pub fn fingerprint(&self) -> u64 {
+        self.try_fingerprint()
+            .expect("scenario construction and name must be valid")
+    }
+
+    /// The checked identity entry point used at persistence boundaries.
+    pub fn try_fingerprint(&self) -> Result<u64, ScenarioFingerprintError> {
+        crate::combat::spec::validate_construction(
+            self.combat_model,
+            self.combat_specs.as_ref(),
+            &self.units,
+        ).map_err(ScenarioFingerprintError::InvalidCombatSpecs)?;
+        let name_len = u16::try_from(self.name.len()).map_err(|_| {
+            ScenarioFingerprintError::NameTooLong { bytes: self.name.len() }
+        })?;
         let mut h = Hash64::new();
-        h.write_bytes(self.name.as_bytes());
-        h.write_u16(self.dungeon.cols());
-        h.write_u16(self.dungeon.rows());
-        h.write_u64(self.dungeon.fingerprint());
-        h.write_u32(self.max_ticks);
-        // A scenario whose way out has moved is a different scenario, and a
-        // replay played against it would be walking somewhere else.
-        match self.portal {
-            None => h.write_u8(0),
-            Some(at) => {
-                h.write_u8(1);
-                h.write_i32(at.x.raw());
-                h.write_i32(at.y.raw());
-            }
+        h.write_bytes(b"ARPG-SCENARIO");
+        h.write_u16(match self.combat_model { CombatModel::Legacy => 1, CombatModel::Articulated => 2 });
+        scenario_v1_fields_into(self, name_len, &mut h);
+        if self.combat_model == CombatModel::Articulated {
+            combat_specs_into(self.combat_specs.as_ref(), &self.units, &mut h);
         }
-        // **`torches` is not written, and the omission is the decision.** See
-        // the field: the way out is knowledge a driver acts on and a torch is
-        // paint, so two scenarios that differ only in the lighting are the same
-        // fight and a replay of one plays the other tick for tick.
-        h.write_u32(self.units.len() as u32);
-        for u in &self.units {
-            u.kind.hash_into(&mut h);
-            h.write_u8(u.faction.index() as u8);
-            u.stats.hash_into(&mut h);
-            h.write_i32(u.spawn.x.raw());
-            h.write_i32(u.spawn.y.raw());
-        }
-        h.finish()
+        Ok(h.finish())
+    }
+
+    /// The only shipped articulated construction fixture before v2-18.
+    pub fn articulated_duel() -> Scenario {
+        let mut scenario = Scenario::duel();
+        scenario.name = "articulated-duel-v1".to_string();
+        scenario.combat_model = CombatModel::Articulated;
+        scenario.combat_specs = Some(CombatSpecTableV1::fixtures());
+        scenario.units[0].articulated = Some(ArticulatedUnitSpecV1 {
+            anatomy: 1,
+            equipment: [Some(1), Some(2)],
+        });
+        scenario.units[1].articulated = Some(ArticulatedUnitSpecV1 {
+            anatomy: 2,
+            equipment: [Some(3), None],
+        });
+        scenario.units[1].loadout = crate::Loadout::single(crate::ActionKind::Club);
+        scenario.units[0].spawn = Vec2::from_ints(7, 6);
+        scenario.units[1].spawn = Vec2::from_ints(17, 10);
+        scenario
     }
 
     pub fn count(&self, faction: Faction) -> usize {
@@ -420,9 +499,149 @@ impl Scenario {
     }
 }
 
+/// Writes the complete ScenarioV1 identity payload after its domain and schema.
+/// Torches are intentionally absent: they persist for presentation but do not
+/// identify a fight. Keeping this as one writer is what makes codec drift a
+/// compile-time integration problem instead of a pair of agreeing local tests.
+pub(crate) fn scenario_v1_fields_into<S: ScenarioByteSink>(
+    scenario: &Scenario,
+    name_len: u16,
+    sink: &mut S,
+) {
+    sink.write_u8(scenario.combat_model as u8);
+    sink.write_u16(name_len);
+    sink.write_bytes(scenario.name.as_bytes());
+    sink.write_u16(scenario.dungeon.cols());
+    sink.write_u16(scenario.dungeon.rows());
+    sink.write_u32(scenario.dungeon.tiles().len() as u32);
+    sink.write_bytes(scenario.dungeon.tiles());
+    sink.write_u32(scenario.max_ticks);
+    match scenario.portal {
+        None => sink.write_u8(0),
+        Some(at) => {
+            sink.write_u8(1);
+            sink.write_i32(at.x.raw());
+            sink.write_i32(at.y.raw());
+        }
+    }
+
+    sink.write_u32(scenario.units.len() as u32);
+    for unit in &scenario.units {
+        sink.write_u8(match unit.kind {
+            Body::Fighter => 0,
+            Body::Rogue => 1,
+            Body::Brute => 2,
+            Body::Skitterer => 3,
+        });
+        sink.write_u8(unit.faction.index() as u8);
+        sink.write_u8(unit.stats.power);
+        sink.write_u8(unit.stats.agility);
+        sink.write_u8(unit.stats.intellect);
+        sink.write_u8(unit.stats.perception);
+        sink.write_u8(unit.stats.vitality);
+        sink.write_i32(unit.spawn.x.raw());
+        sink.write_i32(unit.spawn.y.raw());
+        sink.write_bytes(&action_definition_bytes(unit.loadout.primary));
+        match unit.loadout.secondary {
+            None => sink.write_u8(0),
+            Some(action) => {
+                sink.write_u8(1);
+                sink.write_bytes(&action_definition_bytes(action));
+            }
+        }
+    }
+}
+
+/// The one persisted item grammar, shared by ScenarioV1 identity and its codec.
+pub(crate) fn action_definition_bytes(action: crate::ActionKind) -> [u8; 26] {
+    action_spec_definition_bytes(action, action.spec())
+}
+
+fn action_spec_definition_bytes(
+    action: crate::ActionKind,
+    spec: crate::ActionSpec,
+) -> [u8; 26] {
+    let mut bytes = [0; 26];
+    bytes[0] = action.code() as u8;
+    bytes[1] = spec.role.discriminant() as u8;
+    bytes[2..6].copy_from_slice(&spec.length.raw().to_le_bytes());
+    bytes[6..10].copy_from_slice(&spec.mass.raw().to_le_bytes());
+    bytes[10..14].copy_from_slice(&spec.balance.raw().to_le_bytes());
+    bytes[14..16].copy_from_slice(&spec.arc.to_le_bytes());
+    bytes[16..18].copy_from_slice(&spec.windup.to_le_bytes());
+    bytes[18..20].copy_from_slice(&spec.recovery.to_le_bytes());
+    bytes[20..22].copy_from_slice(&spec.ready.to_le_bytes());
+    bytes[22..26].copy_from_slice(&spec.move_bonus.raw().to_le_bytes());
+    bytes
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn scenario_v1_is_length_delimited_and_distinguishes_loadouts() {
+        let base = Scenario::duel();
+        // Hand-pinned rather than compared only with another invocation: this
+        // moves if the u16 name boundary disappears even though the name bytes
+        // themselves remain in the stream.
+        assert_eq!(base.fingerprint(), 0x74d9_3bea_e624_85b2);
+
+        let mut rearmed = base.clone();
+        rearmed.units[0].loadout = Loadout::single(crate::ActionKind::Knife);
+        assert_ne!(base.fingerprint(), rearmed.fingerprint());
+
+        let mut secondary = base.clone();
+        secondary.units[0].loadout.secondary = Some(crate::ActionKind::Bow);
+        assert_ne!(base.fingerprint(), secondary.fingerprint());
+    }
+
+    #[test]
+    fn scenario_v1_rejects_a_name_that_cannot_fit_its_length_field() {
+        let mut scenario = Scenario::duel();
+        scenario.name = "x".repeat(u16::MAX as usize + 1);
+        assert_eq!(
+            scenario.try_fingerprint(),
+            Err(ScenarioFingerprintError::NameTooLong { bytes: 65_536 })
+        );
+    }
+
+    #[test]
+    fn scenario_v1_covers_every_action_spec_field() {
+        let action = crate::ActionKind::Sword;
+        let spec = action.spec();
+        let fingerprint = |action, spec| action_spec_definition_bytes(action, spec);
+        let expected = fingerprint(action, spec);
+        assert_ne!(expected, fingerprint(crate::ActionKind::Club, spec));
+
+        let mut changed = spec;
+        changed.role = crate::Role::Guard;
+        assert_ne!(expected, fingerprint(action, changed));
+        let mut changed = spec;
+        changed.length = changed.length + Fx::from_raw(1);
+        assert_ne!(expected, fingerprint(action, changed));
+        let mut changed = spec;
+        changed.mass = changed.mass + Fx::from_raw(1);
+        assert_ne!(expected, fingerprint(action, changed));
+        let mut changed = spec;
+        changed.balance = changed.balance + Fx::from_raw(1);
+        assert_ne!(expected, fingerprint(action, changed));
+        let mut changed = spec;
+        changed.arc = changed.arc.wrapping_add(1);
+        assert_ne!(expected, fingerprint(action, changed));
+        let mut changed = spec;
+        changed.windup = changed.windup.wrapping_add(1);
+        assert_ne!(expected, fingerprint(action, changed));
+        let mut changed = spec;
+        changed.recovery = changed.recovery.wrapping_add(1);
+        assert_ne!(expected, fingerprint(action, changed));
+        let mut changed = spec;
+        changed.ready = changed.ready.wrapping_add(1);
+        assert_ne!(expected, fingerprint(action, changed));
+        let mut changed = spec;
+        changed.move_bonus = changed.move_bonus + Fx::from_raw(1);
+        assert_ne!(expected, fingerprint(action, changed));
+    }
 
     #[test]
     fn skirmish_is_a_pure_function_of_its_seed() {
@@ -473,12 +692,22 @@ mod tests {
         assert!(hero.spawn.y > Fx::ZERO && hero.spawn.y < s.arena().y);
     }
 
+    #[test]
+    fn articulated_duel_v1_has_the_frozen_identity_and_placement() {
+        let scenario = Scenario::articulated_duel();
+        assert_eq!(scenario.name, "articulated-duel-v1");
+        assert_eq!(scenario.units[0].spawn, Vec2::from_ints(7, 6));
+        assert_eq!(scenario.units[1].spawn, Vec2::from_ints(17, 10));
+        assert_eq!(scenario.fingerprint(), 0x2a6c_c967_8c08_730d);
+    }
+
     fn descending_hero() -> UnitSpec {
         UnitSpec {
             kind: Body::Rogue,
             faction: Faction::Heroes,
             stats: Body::Rogue.base_stats(),
             loadout: Body::Rogue.default_loadout(),
+            articulated: None,
             spawn: Vec2::ZERO,
         }
     }

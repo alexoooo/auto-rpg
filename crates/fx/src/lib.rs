@@ -35,10 +35,12 @@
 mod angle;
 mod fixed;
 mod geom;
+mod geom3;
 mod hash;
 mod rng;
 mod sin_table;
 mod vec2;
+mod vec3;
 
 pub use angle::{atan2, Angle};
 pub use fixed::{energy, isqrt64, mul_div, sqrt_product, tangential_speed, Fx, FRAC_BITS, ONE_RAW};
@@ -46,7 +48,14 @@ pub use geom::{
     closest_point_on_segment, segment_circle, segment_segment, swept_segment_circle, SegmentHit,
     SWEEP_SUBSTEPS_MAX,
 };
+pub use geom3::{
+    closest_points_on_segments, closest_points_segment_rectangle,
+    combat_geometry_boundary_digest, combat_geometry_digest, segment_plane,
+    swept_segment_rectangle, swept_segment_segment, swept_segment_sphere,
+    swept_segment_vertical_capsule, ClosestPoints, SegmentRectangleClosest, TimeOfImpact,
+};
 pub use hash::Hash64;
 pub use rng::Rng;
 pub use sin_table::{SIN_TABLE, SIN_TABLE_LEN};
 pub use vec2::Vec2;
+pub use vec3::Vec3;

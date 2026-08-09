@@ -100,8 +100,9 @@ art decision is `replace` in the [room matrix](../performance/v2-room-matrix.md#
 The generator-v2 vertex-color kit is a superseded reproducible intermediate. The
 current generator-v3 candidate embeds the checked floor and wall PNGs from
 `tools/art/textures/` while retaining deterministic `COLOR_0` modulation; it has
-closed output pins and budgets. It remains under `replace` until visible review, so
-current mechanics must not be mistaken for accepted art.
+closed output pins and budgets. The owner accepted it on 2026-08-09 as sufficient to
+proceed at the legacy-parity threshold. That decision does not complete the
+`CONCEPT.png` art direction.
 
 The current compact 16 x 10 composition route defined by the
 [visual review contract](../reference/room-asset-contract.md#visual-review-contract)

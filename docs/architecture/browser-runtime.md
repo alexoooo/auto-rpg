@@ -73,6 +73,14 @@ reallocate its own address. That matters because growing wasm linear memory deta
 JavaScript typed arrays, and a moving `Vec` at this boundary would turn an otherwise
 valid view into stale memory.
 
+A fifth fixed array is inward-only: the 55-byte versioned submitted-command
+scratch buffer. The host writes and drops its short-lived view before calling the
+submit export; Rust copies the complete buffer before validation or mutation. It
+does not change the frame layout or any publication revision.
+Domain-aware digest exports and the isolated versioned-command test initializer let the
+wasm equality check exercise that inward buffer without changing legacy `init` or
+the legacy state-hash exports.
+
 `Sim::write_frame` writes the packed `f32` frame. It always refreshes header values,
 skips dead entity handles, caps each variable section, and returns the live span.
 Rows can shift after a death, so consumers use the stable handle defined by the
@@ -176,8 +184,8 @@ that evidence.
 ## Source anchors
 
 - Fixed publication pools: [`thread_local!`](../../crates/web/src/lib.rs#L715)
-- Packed frame writer: [`Sim::write_frame`](../../crates/web/src/lib.rs#L2687)
-- Hand-written wasm exports: [`init`](../../crates/web/src/lib.rs#L3170)
+- Packed frame writer: [`Sim::write_frame`](../../crates/web/src/lib.rs#L2695)
+- Hand-written wasm exports: [`init`](../../crates/web/src/lib.rs#L3178)
 - Worker adapter and atomic scalar phase: [`readPublication`](../../client/src/runtime/sim.worker.ts#L64)
 - Pure protocol host: [`SimWorkerHost`](../../client/src/runtime/sim-worker-host.ts#L35)
 - Main-thread lease owner: [`SimClient`](../../client/src/runtime/sim-client.ts#L122)

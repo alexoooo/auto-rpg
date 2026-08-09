@@ -40,7 +40,8 @@ Track 2: visual proof
   07 worker -> 08 Babylon greybox -> 09 representative room -> VISUAL GATE
 
 Track 3: mechanical proof
-  10 replay/hash -> 11 command -> 12 geometry -> 13 actuators
+  10 replay/hash -> 11a command value/wire -> 12 geometry/specs
+  -> 11b equipment-aware command validation -> 13 actuators
   -> 14 contact -> 15 anatomy -> 16 pose/event ABI
   -> 17 scripted two-body slice -> MECHANICAL GATE
 
@@ -52,6 +53,11 @@ Track 4: integration and learning proof
 Tracks 2 and 3 may proceed after Track 1. Neither depends on the other until
 `v2-17`; a failed renderer may be replaced without discarding mechanics, and a
 failed mechanic may be revised without an asset-production sunk cost.
+
+**Gate state (2026-08-09):** the owner accepted the VISUAL GATE and authorized
+Track 3. The ordered foreground performance capture still named by `v2-09` is
+follow-up evidence, not a blocker for `v2-10` through `v2-16`; `v2-17` still requires
+its own visible mechanical review.
 
 ## Session order and hash prediction
 
@@ -65,17 +71,23 @@ failed mechanic may be revised without an asset-production sunk cost.
 | `v2-06-doc-enforcement` | deduplicated authority plus link/retired-plan checks | unchanged | absent |
 | `v2-07-worker-protocol` | bounded worker state machine with epochs and acks | unchanged | absent |
 | `v2-08-gpu-greybox` | complete: keep Babylon under an owner-accepted measured exception; WebGPU p95 missed by 0.13 ms | unchanged | absent |
-| `v2-09-room-visual-gate` | automated representative-room implementation complete; visible art/performance gate pending | unchanged | absent |
+| `v2-09-room-visual-gate` | owner-accepted visual gate; ordered foreground performance capture remains follow-up evidence | unchanged | absent |
 | `v2-10-replay-hash-domains` | complete scenario identity, codec, explicit hash domains | unchanged | absent |
 | `v2-11-articulated-command` | validated two-arm/yaw submitted-command seam | unchanged | absent |
 | `v2-12-combat-geometry` | inert fixed-point XYZ primitives and specs | unchanged | absent |
-| `v2-13-arm-actuators` | persistent arms, shield, and turn-in-place control | unchanged | absent |
+| `v2-13-arm-actuators` | complete persistent arms, shield, and turn-in-place control | unchanged | absent |
 | `v2-14-contact-solver` | iterative time-of-impact groups and energy ledger | unchanged | absent |
 | `v2-15-anatomy` | immutable anatomy/equipment plus mutable wound state | unchanged | absent |
 | `v2-16-pose-event-abi` | bounded portable pose/event streams | unchanged | absent |
 | `v2-17-scripted-mechanical-gate` | recorded debug-shape two-body fight | unchanged | pinned once |
 | `v2-18-combatant-integration` | representative rigs/assets over frozen mechanics | unchanged | unchanged |
 | `v2-19-learning-probe` | learned-vs-scripted evidence and expand/stop decision | unchanged | unchanged |
+
+`v2-11` has one deliberate split dependency: its value, codec, range, and atomic
+fallback seam lands before `v2-12`; its equipment-binding validation lands after
+`v2-12` supplies scenario-owned immutable specs. Nothing accepts an incompletely
+validated command between those halves -- the temporary path fails closed with
+`MissingEquipment`. `v2-13` requires both halves green.
 
 `LAB_HASH` is never re-pinned. `GOLDEN_STATE_HASH`, `ROOM_HASH`, `BATTLE_HASH`,
 `SWAP_HASH`, and `BOW_HASH` are legacy fixtures and must not move in any v2
@@ -90,13 +102,15 @@ The owning session fixes values and generates client copies where applicable:
 
 ```text
 WORKER_PROTOCOL_VERSION = 1             v2-07
+WORKER_PROTOCOL_VERSION = 2             v2-17, articulated messages/snapshots; exact V1 sessions remain accepted
 REPLAY_CODEC_VERSION = 1                v2-10
+REPLAY_CODEC_VERSION = 2                v2-12, combat-spec extension; V1 Legacy remains readable
 HASH_DOMAIN_LEGACY_V1                   v2-10 (no tag added to legacy byte stream)
 HASH_DOMAIN_ARTICULATED_V1              v2-10
 SUBMITTED_COMMAND_LAYOUT_VERSION = 1    v2-11
 POSE_LAYOUT_VERSION = 1                 v2-16
 COMBAT_EVENT_LAYOUT_VERSION = 1         v2-16
-MAX_POSES = 64                          v2-16, same authoritative body cap
+MAX_POSES = 64                          v2-16, host publication cap; not a sim spawn cap
 MAX_COMBAT_EVENTS = 256                 v2-16, measured before the phase lands
 ```
 
@@ -129,9 +143,11 @@ Legacy `Policy` remains `Observation -> Command`. A separate
 `ArticulatedPolicy` receives a subject-scoped articulated observation and emits
 `ArticulatedCommandV1`; the runner wraps either result as `SubmittedCommand`.
 `World::submit` remains the legacy entry point and maps only to the legacy variant.
-`World::submit_articulated` validates the model, identity, grips, equipment, and
-bounded targets before accepting a command. Invalid combinations fail closed to a
-documented neutral articulated command and return a rejection reason.
+`World::submit_articulated_v1` validates the model, identity, grips, equipment, and
+bounded targets before accepting a command. A wrong model or stale identity stores
+nothing. A range or equipment failure for a live articulated subject atomically
+stores the documented neutral articulated command and returns its stable rejection
+reason.
 
 Body yaw is independent of translation. It uses bounded angular acceleration and
 speed, the shortest turn, and a clockwise tie for exactly half a turn. Stagger and

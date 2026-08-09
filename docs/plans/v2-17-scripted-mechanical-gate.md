@@ -1,72 +1,87 @@
 # v2-17 — prove the scripted two-body mechanics
 
-**Goal:** judge control, readability, determinism, and contact quality using debug
-geometry before authored rigs, search, or training.
+**Goal:** judge the deterministic two-body model against the exact fixture, script,
+metrics, worker join, and visible-review evidence in
+[`articulated-mechanical-gate.md`](../reference/articulated-mechanical-gate.md).
 
-**Depends on:** `v2-10` through `v2-16` and the greybox renderer from `v2-08` (or its
-recorded replacement). It does not depend on room art from `v2-09`.
+**Depends on:** green `v2-10` through `v2-16` and the v2-08 greybox renderer (or its
+recorded replacement). Room art is not a dependency.
 
-**Golden expectation:** every legacy hash remains unchanged. Pin one new
-`ARTICULATED_HASH` only after all checks below pass and native equals wasm.
+**Golden expectation:** all six legacy pins remain byte-identical. Record one
+`ARTICULATED_HASH` only after every automated and visible threshold passes.
 
-## Scripted fixture and policy
+## Implementation
 
-Add `Scenario::articulated_duel` at `crates/sim/src/scenario.rs`, a deterministic
-Fighter/Brute command script in `crates/policy/src/articulated_script.rs`, and
-`lab articulated` in `crates/lab/src/main.rs`. The action vocabulary is approach,
-withdraw/rest, body turn, guard low/mid/high, cut left/right low/mid/high, and thrust
-low/mid/high. It emits only `CombatHeight::{LOW,MID,HIGH}`; a Dev control submits one
-intermediate target through the same command path.
+Add `Scenario::articulated_duel` in `crates/sim/src/scenario.rs`,
+`crates/policy/src/articulated_script.rs`, and the `lab articulated` command. Use the
+fixture and twelve 30-tick script phases in the reference verbatim. The command
+script consumes only `ArticulatedObservation`; it never reads `World`. Its vocabulary
+is approach, withdraw/rest, body turn, low/mid/high guard, left/right cut, and thrust.
+The only ordinary heights emitted are `LOW`, `MID`, and `HIGH`. The Dev intermediate
+control emits raw height `24_576` (3/8) through the same 55-byte command path.
 
-The renderer draws debug body/region capsules, actual and target hands, weapon
-segments, shield plane, contact point/normal, time group, and energy ledger. Debug
-draws obey authoritative fog by default.
+Add the twelve named replay fixtures and evidence rows in the reference. Each fixture
+records the exact scenario bytes, seed, canonical command-stream digest, replay
+digest, hash domain/schema, final state digest, pose digest, event digest, cap hits,
+maximum energy excess, and asserted qualitative predicate. These fixtures are tests,
+not hand-edited recordings.
 
-This is the first mechanics/visual integration point. Regenerate
-`client/src/protocol/abi.generated.ts` from the Rust submitted-command, pose, and
-event constants; add the articulated command message to
-`client/src/protocol/messages.ts`; and test worker rejection of wrong layout/model,
-late tick, and old epoch before enabling the Dev controls.
+## Worker and renderer join
 
-## Recorded cases
+Regenerate `client/src/protocol/abi.generated.ts`. Update
+`client/src/protocol/messages.ts`, `client/src/runtime/sim-worker-host.ts`,
+`client/src/runtime/sim.worker.ts`, `client/src/runtime/sim-client.ts`,
+`client/src/state/snapshot.ts`, and the three worker/snapshot tests to implement the
+exact model selector, transferable 55-byte command, acknowledgement, pose/event
+snapshot sections, visibility filtering, offsets, and pool sizing in the reference.
+Legacy init/commands/snapshots remain accepted and unchanged in meaning.
+Update the now-expanded canonical message and snapshot shapes in
+`docs/reference/worker-protocol.md` in the same implementation commit.
 
-Commit replay fixtures and short evidence records for:
+Draw debug region volumes, actual and target hands, weapon segments, shield rectangle,
+contact point/normal, contact-group ordinal, and energy ledger from the final v2-16
+row layout. Debug nodes use the same
+filtered identity set as actors, start off, and never bypass fog. The non-debug read
+must expose guard height, commitment, parry/deflection, arm loss, and leg impairment.
 
-```text
-stationary edge / body running onto a braced point
-matching and mismatched shield heights
-intermediate-height actuation and contact
-turn-in-place moving shield normal
-two sequential contacts and one simultaneous group
-weapon parry transferring momentum to both arms
-armor incidence and exact energy non-creation
-left/right arm injury and severance
-leg and shock impairment
-simultaneous fatal contacts
-contact-iteration cap exhaustion
-windmill versus composed cut/rest
-```
+## Automated gate
 
-Each recording names seed, command script digest, replay digest, hash domain/schema,
-final digest, pose/event stream digests, and expected qualitative read.
+Run seeds `0..399`, each in the canonical and exact spatial mirror: 800 trials. The
+reference fixes denominators, integer forms of `<10%` and `<=5 percentage points`,
+minimum event/pose coverage, exact-zero energy/cap requirements, and the separate
+100-seed windmill comparison. `lab articulated --record` writes
+`docs/performance/evidence/v2-articulated-gate.json` using the schema in the reference.
+No threshold may silently change to fit a result; amend this plan with rationale and
+rerun if a threshold was inappropriate.
 
-## Pass/fail gate
+## Visible foreground gate
 
-Run 400 mirrored seeds. Tick-limit outcomes are <10%; side advantage is <=5
-percentage points; all three heights, both equipped arms, cut, thrust, parry, shield,
-three anatomy regions, impairment, and severance appear. Energy creation is exactly
-zero and contact-cap hits are zero outside the explicit exhaustion fixture.
+Capture the fifteen label-free two-second clips and matching overlay stills named in
+the reference from a genuinely visible foreground browser. A reviewer blind to the
+fixture labels classifies each clip. Pass requires at least 12/15 overall and at least
+2/3 for each of the five phenomena, plus exact overlay agreement on identity, region,
+height, normal, and severance. Commit the review Markdown and SHA-256 manifest. Record
+exactly `pass`, `revise`, or `stop` here after review; deterministic but unreadable or
+uncontrollable is `revise` or `stop`.
 
-A visible foreground review must be able to identify guard height, committed attack,
-parry/deflection, arm loss, and leg impairment without reading the debug labels; the
-debug overlay must agree when enabled. Record `pass`, `revise`, or `stop` in this file.
-“Deterministic but not controllable/readable” is a failure.
+**Gate result:** pending.
 
-## Pin and verification
+## Pin and registry updates
 
-After the gate passes, pin the single fixture digest as `ARTICULATED_HASH` in
-`crates/sim/tests/determinism.rs` and `tools/wasm_check.js`. The pin always travels
-with `HashDomain::ArticulatedV1` and schema `1`.
+Only after both gates pass, pin the canonical seed-zero original-orientation final
+digest as `ARTICULATED_HASH` with `HashDomain::ArticulatedV1` and schema `1` in:
+
+- `crates/sim/tests/determinism.rs`;
+- `tools/wasm_check.js`;
+- the golden registry in `docs/reference/hashes.md`.
+
+The registry row names `Scenario::articulated_duel`, seed zero, the scripted-policy
+digest, stop-at-outcome rule, both pin sites, and the only permitted re-record path:
+repeat this whole gate. Never re-pin a legacy hash.
+
+Both pin sites decode the same committed codec-V2 replay bytes with `include_bytes!`;
+neither runs the policy. Native, replay, and wasm must return the identical
+ArticulatedV1 `(domain, schema, value)` tuple before the value is recorded.
 
 ```powershell
 cargo test
@@ -78,5 +93,6 @@ npm ci
 npm run generate:abi
 npm run check
 npm run build
+node tools/check_docs.js
 git diff --check
 ```

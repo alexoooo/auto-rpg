@@ -375,6 +375,13 @@ fn golden_hash() {
 }
 
 #[test]
+fn legacy_state_hash_bytes_are_unchanged() {
+    let (world, _, _) = run(&Scenario::skirmish(1234, 4, 6), 99);
+    assert_eq!(world.state_hash(), GOLDEN_STATE_HASH);
+    assert_eq!(world.state_digest().value, GOLDEN_STATE_HASH);
+}
+
+#[test]
 fn a_run_actually_resolves_rather_than_timing_out() {
     // Guards the tests above from becoming vacuous: if every scenario ended in
     // a stalemate at tick 0, most of this file would still pass.

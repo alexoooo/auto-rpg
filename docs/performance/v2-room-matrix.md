@@ -6,9 +6,10 @@
 **Update when:** The representative kit, asset hashes, reference machine, evidence method, thresholds, review result, or room-pipeline decision changes.
 
 The room pipeline and its automated gates are current. The first visible art review
-is complete and the owner decision is `replace`; this is not an art pass. Foreground
-performance remains pending, and the replacement must be reviewed before any later
-visual pass is recorded.
+recorded `replace`; after texture, composition, lighting, playable-route, and zoom
+revisions, the owner accepted the current candidate on 2026-08-09 as good enough to
+proceed at the legacy-parity threshold. Foreground performance remains pending, and
+this decision does not claim the ultimate painted-art target.
 
 ## Artifact and environment record
 
@@ -16,7 +17,7 @@ visual pass is recorded.
 |---|---|
 | Manifest file, GLB, sidecar, and Blender binary hashes | GLB `cfd30f7fc7a105e3ad6f181266fb1a2c1f6034a0866208fa71d5fd565b7fdc10`; sidecar `b15c44c454a908eaabbe8c19ecc1bd13bd58fd28935a5b4bef7c9583175a0635`; validator `40a93c34e397e59da0c4372e7f68f645e8d66a2ced6e714071465d693eec90f0`; Blender binary `25bdb2e3f8ed0bac9d51b7a25fbea0f712a8d80346f2efc9dbe24d85e910c310` |
 | `buildInputsSha256` over canonical manifest JSON with `outputs` omitted | `a8c98a41336f25e67bc635b7251dc4a68fe93e7b3bd72a5f275fba51aee04f74`; excludes the complete `outputs` object |
-| Current texture style | generator version 3; `readable-stone-v1`; checked tile-scale 1,254 x 1,254 source PNGs `8ebbbb618cf748b62a63a950fdc60aaa1e6930eb8ea69d24b97793428f4a3d70` and `f456977162d07e8c4ae7dedf17048a83c181854d992876c91fd0b577451ed4cc`; deterministic 512 x 512 periodic embeds `fadbb6d0cd8566f50131bfcd4261f6b54f4596c58372aa22105e34cdf09d358b` and `cbe20f9cabf7a15f7e6c406ea4fcec85971c291c22973cf62e3116014f7e9ff3`; CORNER `room_style` remains normalized `UNSIGNED_SHORT` `VEC4` `COLOR_0`; owner decision remains `replace` pending visible review |
+| Current texture style | generator version 3; `readable-stone-v1`; checked tile-scale 1,254 x 1,254 source PNGs `8ebbbb618cf748b62a63a950fdc60aaa1e6930eb8ea69d24b97793428f4a3d70` and `f456977162d07e8c4ae7dedf17048a83c181854d992876c91fd0b577451ed4cc`; deterministic 512 x 512 periodic embeds `fadbb6d0cd8566f50131bfcd4261f6b54f4596c58372aa22105e34cdf09d358b` and `cbe20f9cabf7a15f7e6c406ea4fcec85971c291c22973cf62e3116014f7e9ff3`; CORNER `room_style` remains normalized `UNSIGNED_SHORT` `VEC4` `COLOR_0`; owner accepted minimum legacy parity and chose `pass/proceed` on 2026-08-09 |
 | Generated TypeScript trust pins | `ROOM_FIXTURE_ID = v2-room-slice-1`; all four artifact/build hashes above are compiled into `ROOM_BUILD_INPUTS_SHA256`, `ROOM_SIDECAR_SHA256`, `ROOM_GLB_SHA256`, and `ROOM_VALIDATOR_SHA256` |
 | Validator report | committed third artifact; validator 2.0.0-dev.3.10; 13 nodes, 12 meshes, four materials, 504 vertices, 272 triangles |
 | Payload and deterministic offline residency components | GLB 943,584 + sidecar 5,384 = 948,968 payload bytes; source 21,120 + instances 222,208 + decoded textures 2,097,152 + shadow map 4,194,304 = 6,534,784 estimated bytes |
@@ -109,15 +110,17 @@ but every performance capture requires fixed mode and rejects free mode.
 Also record disclosure bands, both door states, torch emissive/light/shadow origin,
 picks, backs/sides/tops, terminal loader diagnostics and the ordinary removal route,
 and absence of software rendering.
-The initial owner decision is `replace`. The observed 48 x 32 performance fixture is
+The initial owner decision was `replace`. The observed 48 x 32 performance fixture is
 useful for load but is not a useful visual-composition review scene. A performance
-pass does not imply an art pass, and this decision remains `replace` until a compact
-replacement composition passes a new visible review.
+pass does not imply an art pass. After the compact review, textured playable route,
+authored lighting, corrected wall orientation and torch treatment, and closer bounded
+zoom were available, the owner accepted the current result on 2026-08-09 as good
+enough to proceed. This is a minimum-parity `pass/proceed`, not completion of the
+`CONCEPT.png` direction and not a performance waiver.
 
 The generator-v2 vertex-color artifact is a superseded intermediate produced before
-the preserved textured legacy reference was available. Generator v3 is now the
-current deterministic, texture-inclusive mechanical candidate. It is not an art pass;
-its visible comparison on both backends remains pending under `replace`.
+the preserved textured legacy reference was available. Generator v3 is the current
+deterministic, texture-inclusive candidate accepted for minimum visual parity.
 
 The current compact review query family is
 `/v2.html?review=room&room=representative&backend=auto|webgl2&roomCamera=fixed|free`.

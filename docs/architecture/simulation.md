@@ -38,7 +38,8 @@ or mutate authoritative storage directly.
 
 ## One tick, in current order
 
-The phase order is executable behavior. In particular, bodies settle before
+The phase order is executable behavior and branches on the scenario combat model.
+In Legacy, bodies settle before
 hands are driven, parries precede damaging swings, and deaths are reaped only
 after every swing and projectile for the tick has resolved. These choices make
 simultaneous damage and deaths symmetric. They do not remove the simulation's
@@ -68,6 +69,14 @@ flowchart TD
     nav --> events["return this tick's events"]
 ```
 
+The non-legacy schedule shares clear/expiry, planar movement, body separation, doors, and
+the tick tail. Between separation and doors it drives body yaw, atomically applies
+the pending grip transaction, advances both arm actuators, and derives shield
+geometry. V2-13 deliberately calls no legacy regeneration, limb, parry, swing,
+recoil, shot, or HP-reap phase; no future contact, anatomy damage, or model-specific death lands
+in later mechanical sessions. No future non-legacy schedule may differ from the
+exact phase order in the current actuator reference contract.
+
 `events` is cleared at the next step and is an outward report rather than
 authoritative input. Navigation fields, pending-decision lists, free lists, and
 per-tick scratch arrays are derived or reachable-state bookkeeping. The exact
@@ -84,15 +93,15 @@ state, callers that need a portable history must record an input vocabulary
 that represents them. The current in-memory `Replay` records commands, orders,
 and objectives only.
 
-> **Proposed by v2 — not current:** The articulated-actor plans replace the
-> current single-hand representation with a richer graph and add corresponding
-> actions. No articulated types participate in the tick flow above today. See
-> [the v2 overview](../plans/v2-00-overview.md).
+The non-legacy command boundary and immutable scenario-owned combat specs are
+stored, hashed, and used to validate prospective equipment-grip transactions.
+Persistent body-yaw and arm actuators participate in the `ArticulatedV1` tick branch.
+Contact, anatomy evolution, and `articulated` damage do not participate yet.
 
 ## Source anchors
 
 - Storage and construction: [`World` fields and `World::new`](../../crates/sim/src/world.rs)
 - Decision seam: [`World::pending_decisions`, `World::observe`, and `World::submit`](../../crates/sim/src/world.rs)
-- Tick phase order: [`World::step`](../../crates/sim/src/world.rs#L812)
+- Tick phase order: [`World::step`](../../crates/sim/src/world.rs#L932)
 - Observation shape and feature projection: [`obs.rs`](../../crates/sim/src/obs.rs)
 - Command, order, and objective inputs: [`command.rs`](../../crates/sim/src/command.rs)

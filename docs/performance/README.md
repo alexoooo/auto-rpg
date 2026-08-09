@@ -15,6 +15,7 @@ compare moving scenes as independent runs.
 - [Combat-mechanics sweeps and rejected alternatives, migrated 2026-08](evidence/2026-08-combat-mechanics.md)
 - [v2 procedural greybox Canvas2D, WebGPU, and WebGL2 diagnostic evidence, 2026-08-08](evidence/2026-08-08-v2-greybox.md)
 - [v2 representative room automated record and pending manual evidence](evidence/2026-08-room-slice.md)
+- [v2 articulated actuator deterministic sweep](v2-actuator-sweep.md)
 
 The [v2 renderer reference matrix](v2-reference-matrix.md#measurement-record)
 predeclares the visible-foreground environment, automated and manual correctness
@@ -29,14 +30,14 @@ least once and directed the project to proceed with Babylon.
 | Phase | Status | Accepted evidence | Decision |
 |---|---|---|---|
 | v2 procedural greybox | complete by owner waiver; 2 of 4 original ordered captures accepted | [evidence and waiver](evidence/2026-08-08-v2-greybox.md#owner-decision-and-protocol-waiver) and [reference matrix](v2-reference-matrix.md#measurement-record) | proceed/pass with measured exception; keep Babylon; WebGPU threshold failed |
-| v2 representative room | automated implementation complete; visible art and foreground performance evidence pending | [room matrix](v2-room-matrix.md#artifact-and-environment-record) and [automated record](evidence/2026-08-room-slice.md#automated-result) | pending `pass`, `replace`, or `stop` owner decision |
+| v2 representative room | automated implementation and minimum-parity visual review complete; foreground performance evidence pending | [room matrix](v2-room-matrix.md#artifact-and-environment-record) and [automated record](evidence/2026-08-room-slice.md#automated-result) | `pass/proceed` at legacy parity; `CONCEPT.png` direction and performance remain open |
 
 The current conclusion is architectural: Canvas is the playable reference/debug
 renderer, while the GPU client supplies both a procedural control and the pinned
 representative-room route. Neither owns authoritative state. The v2-08 renderer
 decision is to proceed with Babylon under the recorded measured exception; the
-representative-room automated implementation is complete, while its visible art and
-foreground-performance decision remains pending. See
+representative-room automated implementation and minimum-parity visual decision are
+complete, while its foreground-performance decision remains pending. See
 [ADR 0003](../decisions/0003-renderer-outside-sim.md).
 
 This index supersedes `DESIGN.md#performance-notes`; the second evidence record

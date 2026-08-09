@@ -1,6 +1,6 @@
 # v2-09 — validate one representative room pipeline
 
-**Status:** automated implementation complete (2026-08-08) — initial art decision `replace`; replacement review and ordered foreground performance evidence pending.
+**Status:** automated implementation complete (2026-08-08); minimum-parity visual review complete (2026-08-09) — owner decision `pass/proceed`; ordered foreground performance evidence pending.
 
 **Goal:** determine whether one reproducible offline room kit, the Babylon asset
 loader, and the current bounded renderer can at least recover the old-version
@@ -249,7 +249,9 @@ No external URI or runtime texture request is allowed.
 `floor_current` and `stone_current` are neutral factors over those textures and
 `COLOR_0` modulation. The superseded generator-v2 vertex-only artifact remains an
 intermediate historical attempt; generator v3 is the current mechanical candidate,
-but the owner decision stays `replace` until visible WebGPU/WebGL2 review.
+The initial owner decision stayed `replace` until the textured, compact, and playable
+replacement was reviewed. On 2026-08-09 the owner accepted that current candidate as
+good enough to proceed at the legacy-parity threshold.
 
 ## Reproducible build
 
@@ -646,7 +648,8 @@ The validator records zero errors and warnings; the 948,968-byte payload has a
 passes 53 of 53 tests. The earlier pre-replacement Chrome functional smoke proved
 both GPU backends could render the authored-room pipeline, but it predates the current
 texture, framing, topology, and flame candidate and is not visual evidence for it.
-These facts do not complete the visible art or performance gate.
+The later owner review of the current textured playable route closes the minimum-parity
+visual gate. It does not claim `CONCEPT.png` fidelity or complete the performance gate.
 
 ```powershell
 node tools/check_deps.js
@@ -669,7 +672,7 @@ git diff --check
 
 After the automated gates, run the dev/prod root-host GET smoke, the two-backend
 manual correctness/art matrix, and only then the five ordered foreground captures.
-The automated implementation is complete. The visual gate remains open until the
-dated record preserves raw failures and waivers honestly, the user has made the art
-decision, and the owner has made the visual-track `pass`, `replace`, or `stop`
-decision. Mechanics work may continue independently.
+The automated implementation and minimum-parity visual gate are complete. The dated
+record preserves the initial `replace` result and the 2026-08-09 owner
+`pass/proceed` decision. The five ordered foreground captures remain a separate open
+gate; the longer-term painted-art direction also remains `CONCEPT.png`.

@@ -1,4 +1,7 @@
-use crate::command::{Command, Intent, Objective, Order};
+use crate::command::{
+    validate_articulated, ArmTarget, ArticulatedCommandV1, Command, CommandReject, GripRequest,
+    Intent, LimbSlot, Objective, Order, SubmitArticulatedOutcome,
+};
 use crate::action::{ActionKind, ActionSpec, Role};
 use crate::dungeon::{Cardinal, Door, Dungeon};
 use crate::loadout::Loadout;
@@ -8,7 +11,9 @@ use crate::hand::{Hand, Swing};
 use crate::obs::{Contact, Observation};
 use crate::rules::{self, Stats, MAX_CONTACTS};
 use crate::scenario::{Scenario, UnitSpec};
-use fx::{Angle, Fx, Hash64, Rng, Vec2};
+use crate::combat::spec::{ArticulatedUnitSpecV1, CombatSpecTableV1, resolved_equipment};
+use crate::combat::actuator::{self, ArmState, BodyYawState, GripState, ShieldPose};
+use fx::{Angle, Fx, Hash64, Rng, Vec2, Vec3};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Outcome {
@@ -54,6 +59,9 @@ impl Outcome {
 #[derive(Clone)]
 pub struct World {
     seed: u64,
+    combat_model: crate::CombatModel,
+    combat_specs: Option<CombatSpecTableV1>,
+    combat_units: Vec<ArticulatedUnitSpecV1>,
     tick: u32,
     /// Which ground exists. A level change is a new [`World`] and not an edit to
     /// this one; the single edit that *is* allowed is a door opening
@@ -105,6 +113,24 @@ pub struct World {
     slot: Vec<u8>,
     next_decision: Vec<u32>,
     command: Vec<Command>,
+    /// Last accepted submitted command for the articulated domain. Separate
+    /// from the legacy column so an inert articulated world cannot change a
+    /// legacy tick or hash by merely existing.
+    articulated_command: Vec<Option<ArticulatedCommandV1>>,
+    articulated_anatomy: Vec<Option<u16>>,
+    articulated_carried: Vec<[Option<u16>; 2]>,
+    articulated_equipment: Vec<[Option<u16>; 2]>,
+    body_yaw: Vec<BodyYawState>,
+    arms: Vec<[ArmState; 2]>,
+    grips: Vec<[GripState; 2]>,
+    shield_pose: Vec<Option<ShieldPose>>,
+    move_authority: Vec<Fx>,
+    turn_authority: Vec<Fx>,
+    arm_authority: Vec<[Fx; 2]>,
+    #[cfg(test)]
+    phase_trace_enabled: bool,
+    #[cfg(test)]
+    phase_trace: Vec<&'static str>,
     last_attacker: Vec<EntityId>,
     /// Tick of the last blow dealt or received; gates regeneration.
     last_combat: Vec<u32>,
@@ -206,6 +232,18 @@ pub struct World {
     door_pushed: Vec<bool>,
 }
 
+#[cfg(test)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) struct ArticulatedPoseTestView {
+    pub body_yaw: BodyYawState,
+    pub arms: [ArmState; 2],
+    pub grips: [GripState; 2],
+    pub shield_pose: Option<ShieldPose>,
+    pub move_authority: Fx,
+    pub turn_authority: Fx,
+    pub arm_authority: [Fx; 2],
+}
+
 /// A doorway and how hard somebody is leaning on it.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 struct DoorState {
@@ -301,9 +339,17 @@ struct Impulse {
 
 impl World {
     pub fn new(scenario: &Scenario, seed: u64) -> World {
+        crate::combat::spec::validate_construction(
+            scenario.combat_model,
+            scenario.combat_specs.as_ref(),
+            &scenario.units,
+        ).expect("invalid combat construction");
         let n = scenario.units.len();
         let mut world = World {
             seed,
+            combat_model: scenario.combat_model,
+            combat_specs: scenario.combat_specs.clone(),
+            combat_units: scenario.units.iter().filter_map(|unit| unit.articulated).collect(),
             tick: 0,
             arena: scenario.arena(),
             dungeon: scenario.dungeon.clone(),
@@ -326,6 +372,21 @@ impl World {
             slot: Vec::with_capacity(n),
             next_decision: Vec::with_capacity(n),
             command: Vec::with_capacity(n),
+            articulated_command: Vec::with_capacity(n),
+            articulated_anatomy: Vec::with_capacity(n),
+            articulated_carried: Vec::with_capacity(n),
+            articulated_equipment: Vec::with_capacity(n),
+            body_yaw: Vec::with_capacity(n),
+            arms: Vec::with_capacity(n),
+            grips: Vec::with_capacity(n),
+            shield_pose: Vec::with_capacity(n),
+            move_authority: Vec::with_capacity(n),
+            turn_authority: Vec::with_capacity(n),
+            arm_authority: Vec::with_capacity(n),
+            #[cfg(test)]
+            phase_trace_enabled: false,
+            #[cfg(test)]
+            phase_trace: Vec::new(),
             last_attacker: Vec::with_capacity(n),
             last_combat: Vec::with_capacity(n),
             regen_left: Vec::with_capacity(n),
@@ -381,6 +442,17 @@ impl World {
     }
 
     pub fn spawn(&mut self, spec: &UnitSpec) -> EntityId {
+        match self.combat_model {
+            crate::CombatModel::Legacy => assert!(spec.articulated.is_none(), "legacy spawn carried articulated construction"),
+            crate::CombatModel::Articulated => {
+                let row = spec.articulated.expect("articulated spawn omitted construction");
+                crate::combat::spec::validate_rows(
+                    self.combat_specs.as_ref().expect("articulated combat specs"),
+                    &[row],
+                    &[spec.loadout],
+                ).expect("invalid articulated spawn construction");
+            }
+        }
         let max_hp = spec.stats.max_hp();
         let slot = self.free.pop();
         let i = match slot {
@@ -403,6 +475,20 @@ impl World {
                 self.slot.push(0);
                 self.next_decision.push(0);
                 self.command.push(Command::HOLD);
+                self.articulated_command.push(None);
+                self.articulated_anatomy.push(None);
+                self.articulated_carried.push([None; 2]);
+                self.articulated_equipment.push([None; 2]);
+                if self.combat_model == crate::CombatModel::Articulated {
+                    let arm = actuator::tucked_arm(Vec3::ZERO);
+                    self.body_yaw.push(BodyYawState { angle: Angle::ZERO, speed_turns: Fx::ZERO, authority_residue: Fx::ZERO });
+                    self.arms.push([arm; 2]);
+                    self.grips.push([GripState { equipment_slot: None }; 2]);
+                    self.shield_pose.push(None);
+                    self.move_authority.push(Fx::ONE);
+                    self.turn_authority.push(Fx::ONE);
+                    self.arm_authority.push([Fx::ONE; 2]);
+                }
                 self.last_attacker.push(EntityId::NONE);
                 self.last_combat.push(0);
                 self.regen_left.push(Fx::ZERO);
@@ -437,6 +523,16 @@ impl World {
         self.max_hp[i] = max_hp;
         self.next_decision[i] = self.tick;
         self.command[i] = Command::HOLD;
+        self.articulated_command[i] = None;
+        self.articulated_anatomy[i] = spec.articulated.map(|row| row.anatomy);
+        self.articulated_carried[i] = spec.articulated.map_or([None; 2], |row| row.equipment);
+        self.articulated_equipment[i] = match (self.combat_specs.as_ref(), spec.articulated) {
+            (Some(table), Some(row)) => resolved_equipment(table, row).expect("validated combat construction"),
+            _ => [None; 2],
+        };
+        if self.combat_model == crate::CombatModel::Articulated {
+            self.initialize_articulated_pose(i);
+        }
         self.last_attacker[i] = EntityId::NONE;
         self.last_combat[i] = self.tick;
         self.regen_left[i] = max_hp * rules::REGEN_BUDGET;
@@ -591,6 +687,9 @@ impl World {
     /// Records `id`'s decision and pushes its next decision tick out by its
     /// [`Stats::decision_period`]. Stale handles are ignored.
     pub fn submit(&mut self, id: EntityId, command: Command) {
+        if self.combat_model != crate::CombatModel::Legacy {
+            return;
+        }
         if let Some(i) = self.resolve(id) {
             self.command[i] = command;
             self.next_decision[i] = self.tick + self.stats[i].decision_period() as u32;
@@ -622,6 +721,25 @@ impl World {
 
     pub fn objective(&self, faction: Faction) -> Objective {
         self.objectives[faction.index()]
+    }
+
+    pub const fn combat_model(&self) -> crate::CombatModel {
+        self.combat_model
+    }
+
+    #[cfg(test)]
+    pub(crate) fn articulated_pose_test_view(&self, id: EntityId) -> Option<ArticulatedPoseTestView> {
+        let i = self.resolve(id)?;
+        if self.combat_model != crate::CombatModel::Articulated { return None; }
+        Some(ArticulatedPoseTestView {
+            body_yaw: self.body_yaw[i],
+            arms: self.arms[i],
+            grips: self.grips[i],
+            shield_pose: self.shield_pose[i],
+            move_authority: self.move_authority[i],
+            turn_authority: self.turn_authority[i],
+            arm_authority: self.arm_authority[i],
+        })
     }
 
     /// The floor plan. Read-only: a level change is a new [`World`].
@@ -690,6 +808,7 @@ impl World {
     /// it mid-fight; rewriting the held slot changes the thing in its hand on
     /// the spot, and it is the caller's business whether that is fair.
     pub fn set_loadout(&mut self, id: EntityId, loadout: Loadout) -> bool {
+        if self.combat_model == crate::CombatModel::Articulated { return false; }
         match self.resolve(id) {
             Some(i) => {
                 self.loadout[i] = loadout;
@@ -764,6 +883,7 @@ impl World {
     /// zeroes the clipped velocity axis -- which is what stops a wall-pinned
     /// body shoving everything that comes near it.
     pub fn set_body(&mut self, id: EntityId, body: Body) -> bool {
+        if self.combat_model == crate::CombatModel::Articulated { return false; }
         match self.resolve(id) {
             Some(i) => {
                 self.kind[i] = body;
@@ -810,20 +930,63 @@ impl World {
     ///   does -- so taking the difference any earlier would charge a fighter for
     ///   the swing it meant to throw rather than the one it got.
     pub fn step(&mut self) -> &[Event] {
+        #[cfg(test)]
+        if self.phase_trace_enabled { self.phase_trace.push("clear events"); }
         self.events.clear();
+        #[cfg(test)]
+        if self.phase_trace_enabled { self.phase_trace.push("expire decisions"); }
         self.expire_unanswered_decisions();
-        self.regenerate();
-        self.apply_movement();
-        self.separate();
-        self.drive_limbs();
-        self.resolve_parries();
-        self.resolve_swings();
-        self.apply_recoil();
-        self.resolve_shots();
-        self.press_doors();
-        self.reap_dead();
+        match self.combat_model {
+            crate::CombatModel::Legacy => {
+                #[cfg(test)]
+                if self.phase_trace_enabled { self.phase_trace.push("regenerate"); }
+                self.regenerate();
+                #[cfg(test)]
+                if self.phase_trace_enabled { self.phase_trace.push("apply movement"); }
+                self.apply_movement();
+                #[cfg(test)]
+                if self.phase_trace_enabled { self.phase_trace.push("separate"); }
+                self.separate();
+                #[cfg(test)]
+                if self.phase_trace_enabled { self.phase_trace.push("drive legacy limb"); }
+                self.drive_limbs();
+                #[cfg(test)]
+                if self.phase_trace_enabled { self.phase_trace.push("legacy parries"); }
+                self.resolve_parries();
+                #[cfg(test)]
+                if self.phase_trace_enabled { self.phase_trace.push("legacy swings"); }
+                self.resolve_swings();
+                #[cfg(test)]
+                if self.phase_trace_enabled { self.phase_trace.push("recoil"); }
+                self.apply_recoil();
+                #[cfg(test)]
+                if self.phase_trace_enabled { self.phase_trace.push("shots"); }
+                self.resolve_shots();
+                #[cfg(test)]
+                if self.phase_trace_enabled { self.phase_trace.push("doors"); }
+                self.press_doors();
+                #[cfg(test)]
+                if self.phase_trace_enabled { self.phase_trace.push("reap"); }
+                self.reap_dead();
+            }
+            crate::CombatModel::Articulated => {
+                self.apply_articulated_movement();
+                self.separate();
+                self.drive_body_yaw();
+                self.apply_articulated_grips();
+                self.drive_articulated_arms();
+                self.derive_articulated_geometry();
+                self.press_doors();
+            }
+        }
+        #[cfg(test)]
+        if self.phase_trace_enabled { self.phase_trace.push("increment tick"); }
         self.tick += 1;
+        #[cfg(test)]
+        if self.phase_trace_enabled { self.phase_trace.push("pending"); }
         self.refresh_pending();
+        #[cfg(test)]
+        if self.phase_trace_enabled { self.phase_trace.push("navigation"); }
         self.refresh_nav();
         &self.events
     }
@@ -2484,10 +2647,93 @@ impl World {
 
     /// Fingerprint of the complete simulation state.
     ///
-    /// This is the determinism test. Run the same scenario, seed and command
-    /// sequence natively and in wasm; if these two numbers differ, something
-    /// in the stack is not as portable as it claims.
+    /// The legacy-domain state value.
+    ///
+    /// New domain-aware code uses [`World::state_digest`]. Keeping this entry
+    /// point is what preserves every existing native and browser golden, but an
+    /// articulated world's returned legacy-core value has no meaningful bare
+    /// `u64` comparison.
     pub fn state_hash(&self) -> u64 {
+        self.legacy_core_hash()
+    }
+
+    fn apply_articulated_movement(&mut self) {
+        for i in 0..self.alive.len() {
+            if !self.alive[i] {
+                self.vel[i] = Vec2::ZERO;
+                continue;
+            }
+            self.start_pos[i] = self.pos[i];
+            let dir = self.articulated_command[i].map_or(Vec2::ZERO, |command| command.move_dir)
+                .clamp_length(Fx::ONE);
+            let want = dir * self.stats[i].move_speed() * self.action_of(i).spec().move_bonus;
+            let traction = actuator::movement_traction(self.stats[i], self.move_authority[i]);
+            let change = (want - self.vel[i]).clamp_length(traction);
+            self.vel[i] += change;
+            self.move_body(i, self.pos[i] + self.vel[i]);
+            if !dir.is_zero() { self.facing[i] = dir.angle(); }
+        }
+    }
+
+    fn drive_body_yaw(&mut self) {
+        for i in 0..self.alive.len() {
+            if !self.alive[i] { continue; }
+            let target = self.articulated_command[i].map_or(self.body_yaw[i].angle, |command| command.body_yaw);
+            actuator::integrate_yaw(&mut self.body_yaw[i], target, self.turn_authority[i]);
+        }
+    }
+
+    /// Stores one version-1 articulated command without partially accepting a
+    /// malformed request. Grip changes remain pending until the next step.
+    pub fn submit_articulated_v1(
+        &mut self,
+        id: EntityId,
+        command: ArticulatedCommandV1,
+    ) -> SubmitArticulatedOutcome {
+        if self.combat_model != crate::CombatModel::Articulated {
+            return SubmitArticulatedOutcome::NotStored(CommandReject::WrongModel);
+        }
+        let i = match self.resolve(id) {
+            Some(i) => i,
+            None => return SubmitArticulatedOutcome::NotStored(CommandReject::StaleEntity),
+        };
+        let rejection = validate_articulated(command)
+            .err()
+            .map(CommandReject::OutOfRange)
+            .or_else(|| self.resulting_grips(i, command.grips).err());
+        let stored = match rejection {
+            None => command,
+            Some(_) => self.neutral_articulated(i),
+        };
+        self.articulated_command[i] = Some(stored);
+        self.next_decision[i] = self.tick + self.stats[i].decision_period() as u32;
+        SubmitArticulatedOutcome::Stored { command: stored, rejection }
+    }
+
+    /// Byte-boundary companion for a payload whose raw range validation failed
+    /// before an `ArticulatedCommandV1` could be constructed.
+    pub fn submit_articulated_fallback_v1(
+        &mut self,
+        id: EntityId,
+        field: crate::CommandField,
+    ) -> SubmitArticulatedOutcome {
+        if self.combat_model != crate::CombatModel::Articulated {
+            return SubmitArticulatedOutcome::NotStored(CommandReject::WrongModel);
+        }
+        let i = match self.resolve(id) {
+            Some(i) => i,
+            None => return SubmitArticulatedOutcome::NotStored(CommandReject::StaleEntity),
+        };
+        let rejection = CommandReject::OutOfRange(field);
+        let stored = self.neutral_articulated(i);
+        self.articulated_command[i] = Some(stored);
+        self.next_decision[i] = self.tick + self.stats[i].decision_period() as u32;
+        SubmitArticulatedOutcome::Stored { command: stored, rejection: Some(rejection) }
+    }
+
+    /// The pre-v2 byte writer, kept whole so both domains can reuse it without
+    /// making their values comparable.
+    fn legacy_core_hash(&self) -> u64 {
         let mut h = Hash64::new();
         h.write_u64(self.seed);
         h.write_u32(self.tick);
@@ -2607,7 +2853,275 @@ impl World {
         h.finish()
     }
 
+    /// A state fingerprint carrying the byte grammar needed to compare it.
+    pub fn state_digest(&self) -> crate::StateDigest {
+        match self.combat_model {
+            crate::CombatModel::Legacy => crate::StateDigest {
+                domain: crate::HashDomain::LegacyV1,
+                schema: 1,
+                value: self.legacy_core_hash(),
+            },
+            crate::CombatModel::Articulated => {
+                let mut h = Hash64::new();
+                h.write_bytes(b"ARPG-STATE");
+                h.write_u16(1);
+                h.write_u8(crate::CombatModel::Articulated as u8);
+                // Reserved now so v2-11 can activate the submitted-command
+                // grammar without changing the prefix that declares it.
+                h.write_u16(1);
+                h.write_u64(self.legacy_core_hash());
+                h.write_u32(self.articulated_command.len() as u32);
+                for command in &self.articulated_command {
+                    match command {
+                        None => h.write_u8(0),
+                        Some(command) => {
+                            h.write_u8(1);
+                            h.write_u8(1);
+                            h.write_bytes(&command.payload_bytes());
+                        }
+                    }
+                }
+                self.combat_specs.as_ref().expect("articulated combat specs")
+                    .rows_into(&self.combat_units, &mut h);
+                for i in 0..self.articulated_command.len() {
+                    h.write_u16(self.articulated_anatomy[i].expect("articulated slot anatomy"));
+                    for item in self.articulated_carried[i] {
+                        match item {
+                            None => h.write_u8(0),
+                            Some(id) => { h.write_u8(1); h.write_u16(id); }
+                        }
+                    }
+                    for item in self.articulated_equipment[i] {
+                        match item {
+                            None => h.write_u8(0),
+                            Some(id) => { h.write_u8(1); h.write_u16(id); }
+                        }
+                    }
+                }
+                for i in 0..self.articulated_command.len() {
+                    let yaw = self.body_yaw[i];
+                    h.write_u16(yaw.angle.raw());
+                    h.write_i32(yaw.speed_turns.raw());
+                    h.write_i32(yaw.authority_residue.raw());
+                    for arm in self.arms[i] {
+                        h.write_u16(arm.bearing.raw());
+                        h.write_i32(arm.bearing_speed_turns.raw());
+                        h.write_i32(arm.height.raw());
+                        h.write_i32(arm.height_speed.raw());
+                        h.write_i32(arm.reach.raw());
+                        h.write_i32(arm.reach_speed.raw());
+                        for point in [arm.previous_hand, arm.hand, arm.linear_velocity] {
+                            h.write_i32(point.x.raw()); h.write_i32(point.y.raw()); h.write_i32(point.z.raw());
+                        }
+                        h.write_i32(arm.fatigue.raw());
+                        h.write_i32(arm.work_residue.raw());
+                    }
+                    for grip in self.grips[i] {
+                        match grip.equipment_slot {
+                            None => h.write_u8(0),
+                            Some(slot) => { h.write_u8(1); h.write_u8(slot); }
+                        }
+                    }
+                    match self.shield_pose[i] {
+                        None => h.write_u8(0),
+                        Some(shield) => {
+                            h.write_u8(1);
+                            for point in [shield.centre, shield.normal] {
+                                h.write_i32(point.x.raw()); h.write_i32(point.y.raw()); h.write_i32(point.z.raw());
+                            }
+                            h.write_i32(shield.half_width.raw());
+                            h.write_i32(shield.half_height.raw());
+                            h.write_i32(shield.thickness.raw());
+                        }
+                    }
+                    h.write_i32(self.move_authority[i].raw());
+                    h.write_i32(self.turn_authority[i].raw());
+                    h.write_i32(self.arm_authority[i][0].raw());
+                    h.write_i32(self.arm_authority[i][1].raw());
+                }
+                crate::StateDigest {
+                    domain: crate::HashDomain::ArticulatedV1,
+                    schema: 1,
+                    value: h.finish(),
+                }
+            }
+        }
+    }
+
     // ---------------------------------------------------------------- internals
+
+    fn neutral_articulated(&self, i: usize) -> ArticulatedCommandV1 {
+        let bearing = self.body_yaw[i].angle;
+        let arm = ArmTarget {
+            bearing,
+            height: crate::CombatHeight::MID,
+            reach: Fx::ZERO,
+            effort: Fx::ZERO,
+        };
+        ArticulatedCommandV1 {
+            move_dir: Vec2::ZERO,
+            body_yaw: bearing,
+            intent: Intent::Hold,
+            arms: [arm; 2],
+            grips: [GripRequest::Keep; 2],
+        }
+    }
+
+    fn initialize_articulated_pose(&mut self, i: usize) {
+        let table = self.combat_specs.as_ref().expect("articulated combat specs");
+        let anatomy = table.anatomy(self.articulated_anatomy[i].expect("articulated anatomy"))
+            .expect("validated articulated anatomy");
+        let yaw = self.facing[i];
+        self.body_yaw[i] = BodyYawState { angle: yaw, speed_turns: Fx::ZERO, authority_residue: Fx::ZERO };
+        let mut arms = [actuator::tucked_arm(Vec3::ZERO); 2];
+        let mut grips = [GripState { equipment_slot: None }; 2];
+        for limb in 0..2 {
+            let hand = actuator::hand_position(
+                anatomy, yaw, limb, Angle::ZERO, crate::CombatHeight::MID,
+                Fx::from_raw(actuator::ARM_MIN_REACH_RAW),
+            );
+            arms[limb] = actuator::tucked_arm(hand);
+            grips[limb].equipment_slot = self.articulated_equipment[i][limb].and_then(|id| {
+                self.articulated_carried[i].iter().position(|item| *item == Some(id)).map(|slot| slot as u8)
+            });
+        }
+        self.arms[i] = arms;
+        self.grips[i] = grips;
+        self.move_authority[i] = Fx::ONE;
+        self.turn_authority[i] = Fx::ONE;
+        self.arm_authority[i] = [Fx::ONE; 2];
+        self.shield_pose[i] = self.derive_shield_pose(i);
+    }
+
+    fn derive_shield_pose(&self, i: usize) -> Option<ShieldPose> {
+        let table = self.combat_specs.as_ref()?;
+        for limb in 0..2 {
+            let Some(slot) = self.grips[i][limb].equipment_slot else { continue };
+            let Some(id) = self.articulated_carried[i].get(slot as usize).copied().flatten() else { continue };
+            let Some(item) = table.equipment(id) else { continue };
+            if let crate::EquipmentGeometry::Shield { half_width, half_height, thickness } = item.geometry {
+                let yaw = self.body_yaw[i].angle;
+                return Some(ShieldPose {
+                    centre: self.arms[i][limb].hand,
+                    normal: Vec3::new(yaw.cos(), yaw.sin(), Fx::ZERO),
+                    half_width, half_height, thickness,
+                });
+            }
+        }
+        None
+    }
+
+    fn equipment_in_grip(&self, i: usize, limb: usize) -> Option<crate::EquipmentSpec> {
+        let slot = self.grips[i][limb].equipment_slot?;
+        let id = self.articulated_carried[i].get(slot as usize).copied().flatten()?;
+        self.combat_specs.as_ref()?.equipment(id).copied()
+    }
+
+    fn resulting_grips(
+        &self,
+        i: usize,
+        requests: [GripRequest; 2],
+    ) -> Result<[Option<u8>; 2], CommandReject> {
+        let limb = |arm| if arm == 0 { LimbSlot::LeftArm } else { LimbSlot::RightArm };
+        let reject = |arm, slot| CommandReject::MissingEquipment { arm: limb(arm), slot };
+        let mut result = [None; 2];
+        for arm in 0..2 {
+            result[arm] = match requests[arm] {
+                GripRequest::Keep => self.grips[i][arm].equipment_slot,
+                GripRequest::Release => None,
+                GripRequest::EquipSlot(slot) => {
+                    if self.articulated_carried[i].get(slot as usize).copied().flatten().is_none() {
+                        return Err(reject(arm, slot));
+                    }
+                    Some(slot)
+                }
+            };
+        }
+        let table = self.combat_specs.as_ref().expect("articulated combat specs");
+        let item = |slot: u8| self.articulated_carried[i].get(slot as usize).copied().flatten()
+            .and_then(|id| table.equipment(id));
+        match result {
+            [None, None] => Ok(result),
+            [Some(slot), None] => match item(slot) {
+                Some(row) if row.binding == crate::GripBinding::Left => Ok(result),
+                _ => Err(reject(0, slot)),
+            },
+            [None, Some(slot)] => match item(slot) {
+                Some(row) if row.binding == crate::GripBinding::Right => Ok(result),
+                _ => Err(reject(1, slot)),
+            },
+            [Some(left), Some(right)] if left == right => match item(left) {
+                Some(row) if row.binding == crate::GripBinding::Both
+                    && !matches!(row.geometry, crate::EquipmentGeometry::Shield { .. }) => Ok(result),
+                _ => Err(reject(0, left)),
+            },
+            [Some(left), Some(right)] => {
+                let Some(left_item) = item(left) else { return Err(reject(0, left)) };
+                let Some(right_item) = item(right) else { return Err(reject(1, right)) };
+                if left_item.binding != crate::GripBinding::Left { return Err(reject(0, left)); }
+                if right_item.binding != crate::GripBinding::Right { return Err(reject(1, right)); }
+                if matches!(left_item.geometry, crate::EquipmentGeometry::Shield { .. })
+                    && matches!(right_item.geometry, crate::EquipmentGeometry::Shield { .. }) {
+                    return Err(reject(1, right));
+                }
+                Ok(result)
+            }
+        }
+    }
+
+    fn apply_articulated_grips(&mut self) {
+        for i in 0..self.alive.len() {
+            if !self.alive[i] { continue; }
+            let requests = self.articulated_command[i]
+                .map_or([GripRequest::Keep; 2], |command| command.grips);
+            let pair = self.resulting_grips(i, requests)
+                .expect("stored articulated grip transaction was validated");
+            self.grips[i] = pair.map(|equipment_slot| GripState { equipment_slot });
+        }
+    }
+
+    fn drive_articulated_arms(&mut self) {
+        for i in 0..self.alive.len() {
+            if !self.alive[i] { continue; }
+            let command = self.articulated_command[i].unwrap_or_else(|| self.neutral_articulated(i));
+            let anatomy = self.combat_specs.as_ref().expect("articulated combat specs")
+                .anatomy(self.articulated_anatomy[i].expect("articulated anatomy"))
+                .expect("validated articulated anatomy").clone();
+            let yaw = self.body_yaw[i].angle;
+            let left_item = self.equipment_in_grip(i, 0);
+            let right_item = self.equipment_in_grip(i, 1);
+            let both = self.grips[i][0].equipment_slot.is_some()
+                && self.grips[i][0].equipment_slot == self.grips[i][1].equipment_slot
+                && right_item.is_some_and(|item| item.binding == crate::GripBinding::Both);
+            if both {
+                self.arms[i][0].previous_hand = self.arms[i][0].hand;
+                let step = actuator::integrate_arm(
+                    &mut self.arms[i][1], &anatomy, yaw, 1, command.arms[1], right_item,
+                    self.stats[i], self.arm_authority[i][1],
+                );
+                actuator::bill_fatigue(
+                    &mut self.arms[i][0], actuator::equipment_inertia(right_item), command.arms[1].effort, step,
+                );
+                let right = self.arms[i][1];
+                actuator::mirror_two_handed(&mut self.arms[i][0], right, &anatomy, yaw);
+            } else {
+                actuator::integrate_arm(
+                    &mut self.arms[i][0], &anatomy, yaw, 0, command.arms[0], left_item,
+                    self.stats[i], self.arm_authority[i][0],
+                );
+                actuator::integrate_arm(
+                    &mut self.arms[i][1], &anatomy, yaw, 1, command.arms[1], right_item,
+                    self.stats[i], self.arm_authority[i][1],
+                );
+            }
+        }
+    }
+
+    fn derive_articulated_geometry(&mut self) {
+        for i in 0..self.alive.len() {
+            if self.alive[i] { self.shield_pose[i] = self.derive_shield_pose(i); }
+        }
+    }
 
     #[inline]
     fn resolve(&self, id: EntityId) -> Option<usize> {
@@ -3416,6 +3930,1132 @@ mod tests {
 
     fn duel_world() -> World {
         World::new(&Scenario::duel(), 1)
+    }
+
+    fn articulated_command() -> ArticulatedCommandV1 {
+        let arm = ArmTarget {
+            bearing: Angle::QUARTER,
+            height: crate::CombatHeight::MID,
+            reach: Fx::ONE,
+            effort: Fx::HALF,
+        };
+        ArticulatedCommandV1 {
+            move_dir: Vec2::ZERO,
+            body_yaw: Angle::QUARTER,
+            intent: Intent::Hold,
+            arms: [arm; 2],
+            grips: [GripRequest::Keep; 2],
+        }
+    }
+
+    fn assert_actuator_hash_mutation(mutate: impl FnOnce(&mut World)) {
+        let scenario = Scenario::articulated_duel();
+        let base = World::new(&scenario, 1);
+        let legacy = base.state_hash();
+        let digest = base.state_digest().value;
+        let mut changed = base.clone();
+        mutate(&mut changed);
+        assert_eq!(changed.state_hash(), legacy, "actuator state leaked into LegacyV1");
+        assert_ne!(changed.state_digest().value, digest, "actuator field was omitted from ArticulatedV1");
+    }
+
+    #[test]
+    fn articulated_columns_follow_every_allocated_and_reused_slot() {
+        let legacy = duel_world();
+        assert!(legacy.body_yaw.is_empty());
+        assert!(legacy.arms.is_empty());
+        assert!(legacy.grips.is_empty());
+        assert!(legacy.shield_pose.is_empty());
+        assert!(legacy.move_authority.is_empty());
+        assert!(legacy.turn_authority.is_empty());
+        assert!(legacy.arm_authority.is_empty());
+
+        let scenario = Scenario::articulated_duel();
+        let mut world = World::new(&scenario, 1);
+        let assert_lengths = |world: &World, len| {
+            assert_eq!(world.body_yaw.len(), len);
+            assert_eq!(world.arms.len(), len);
+            assert_eq!(world.grips.len(), len);
+            assert_eq!(world.shield_pose.len(), len);
+            assert_eq!(world.move_authority.len(), len);
+            assert_eq!(world.turn_authority.len(), len);
+            assert_eq!(world.arm_authority.len(), len);
+            assert_eq!(world.alive.len(), len);
+        };
+        assert_lengths(&world, 2);
+        let added = world.spawn(&scenario.units[0]);
+        assert_eq!(added.index, 2);
+        assert_lengths(&world, 3);
+        world.body_yaw[2] = BodyYawState {
+            angle: Angle::QUARTER,
+            speed_turns: Fx::from_raw(7),
+            authority_residue: Fx::from_raw(8),
+        };
+        world.arms[2] = [ArmState {
+            bearing: Angle::QUARTER,
+            bearing_speed_turns: Fx::from_raw(1),
+            height: crate::CombatHeight::HIGH,
+            height_speed: Fx::from_raw(2),
+            reach: Fx::ONE,
+            reach_speed: Fx::from_raw(3),
+            previous_hand: Vec3::new(Fx::from_raw(4), Fx::from_raw(5), Fx::from_raw(6)),
+            hand: Vec3::new(Fx::from_raw(7), Fx::from_raw(8), Fx::from_raw(9)),
+            linear_velocity: Vec3::new(Fx::from_raw(10), Fx::from_raw(11), Fx::from_raw(12)),
+            fatigue: Fx::HALF,
+            work_residue: Fx::from_raw(13),
+        }; 2];
+        world.grips[2] = [
+            GripState { equipment_slot: Some(0) },
+            GripState { equipment_slot: Some(1) },
+        ];
+        world.shield_pose[2] = Some(ShieldPose {
+            centre: Vec3::new(Fx::from_raw(14), Fx::from_raw(15), Fx::from_raw(16)),
+            normal: Vec3::new(Fx::from_raw(17), Fx::from_raw(18), Fx::from_raw(19)),
+            half_width: Fx::from_raw(20),
+            half_height: Fx::from_raw(21),
+            thickness: Fx::from_raw(22),
+        });
+        world.move_authority[2] = Fx::HALF;
+        world.turn_authority[2] = Fx::HALF;
+        world.arm_authority[2] = [Fx::HALF; 2];
+        world.hp[2] = Fx::ZERO;
+        world.reap_dead();
+        let replacement = world.spawn(&scenario.units[1]);
+        assert_eq!(replacement, EntityId::new(2, 1));
+        assert_lengths(&world, 3);
+        let fresh = World::new(&scenario, 1);
+        assert_eq!(world.articulated_pose_test_view(replacement).unwrap(),
+            fresh.articulated_pose_test_view(EntityId::new(1, 0)).unwrap());
+    }
+
+    #[test]
+    fn articulated_spawn_initializes_yaw_arms_grips_and_shield_exactly() {
+        let scenario = Scenario::articulated_duel();
+        let world = World::new(&scenario, 1);
+        let fighter = world.articulated_pose_test_view(EntityId::new(0, 0)).unwrap();
+        assert_eq!(fighter.body_yaw, BodyYawState {
+            angle: Angle::ZERO,
+            speed_turns: Fx::ZERO,
+            authority_residue: Fx::ZERO,
+        });
+        assert_eq!(fighter.grips, [
+            GripState { equipment_slot: Some(1) },
+            GripState { equipment_slot: Some(0) },
+        ]);
+        for (limb, side) in [Fx::from_ratio(1, 4), Fx::from_ratio(-1, 4)].into_iter().enumerate() {
+            let hand = Vec3::new(Fx::from_ratio(3, 16), side, Fx::from_ratio(9, 10));
+            assert_eq!(fighter.arms[limb], actuator::tucked_arm(hand));
+        }
+        assert_eq!(fighter.move_authority, Fx::ONE);
+        assert_eq!(fighter.turn_authority, Fx::ONE);
+        assert_eq!(fighter.arm_authority, [Fx::ONE; 2]);
+        let shield = fighter.shield_pose.expect("fighter starts with the left shield");
+        assert_eq!(shield.centre, fighter.arms[0].hand);
+        assert_eq!(shield.normal, Vec3::X);
+        assert_eq!((shield.half_width, shield.half_height, shield.thickness),
+            (Fx::from_ratio(7, 20), Fx::HALF, Fx::from_ratio(1, 20)));
+
+        let brute = world.articulated_pose_test_view(EntityId::new(1, 0)).unwrap();
+        assert_eq!(brute.body_yaw.angle, Angle::HALF);
+        assert_eq!(brute.grips, [
+            GripState { equipment_slot: None },
+            GripState { equipment_slot: Some(0) },
+        ]);
+        assert_eq!(brute.shield_pose, None);
+        assert_eq!(brute.body_yaw, BodyYawState {
+            angle: Angle::HALF,
+            speed_turns: Fx::ZERO,
+            authority_residue: Fx::ZERO,
+        });
+        for (limb, side) in [Fx::from_ratio(-3, 10), Fx::from_ratio(3, 10)].into_iter().enumerate() {
+            let hand = Vec3::new(Fx::from_ratio(17, 80), side, Fx::ONE);
+            assert_eq!(brute.arms[limb], actuator::tucked_arm(hand));
+        }
+        assert_eq!((brute.move_authority, brute.turn_authority, brute.arm_authority),
+            (Fx::ONE, Fx::ONE, [Fx::ONE; 2]));
+    }
+
+    #[test]
+    fn legacy_worlds_do_not_allocate_or_hash_articulated_pose() {
+        let mut world = duel_world();
+        let before = world.state_hash();
+        let digest = world.state_digest();
+        assert!(world.articulated_pose_test_view(EntityId::new(0, 0)).is_none());
+        assert!(world.body_yaw.is_empty() && world.arms.is_empty() && world.grips.is_empty());
+        world.step();
+        assert_eq!(digest.domain, crate::HashDomain::LegacyV1);
+        assert_ne!(world.state_hash(), before, "ordinary legacy stepping still advances the core hash");
+        assert_eq!(world.state_hash(), world.state_digest().value);
+    }
+
+    #[test]
+    fn every_actuator_field_changes_only_the_articulated_hash_domain() {
+        assert_actuator_hash_mutation(|w| w.body_yaw[0].angle = Angle::from_raw(1));
+        assert_actuator_hash_mutation(|w| w.body_yaw[0].speed_turns = Fx::from_raw(1));
+        assert_actuator_hash_mutation(|w| w.body_yaw[0].authority_residue = Fx::from_raw(1));
+        for limb in 0..2 {
+            assert_actuator_hash_mutation(|w| w.arms[0][limb].bearing = Angle::from_raw(1));
+            assert_actuator_hash_mutation(|w| w.arms[0][limb].bearing_speed_turns = Fx::from_raw(1));
+            assert_actuator_hash_mutation(|w| w.arms[0][limb].height = crate::CombatHeight::LOW);
+            assert_actuator_hash_mutation(|w| w.arms[0][limb].height_speed = Fx::from_raw(1));
+            assert_actuator_hash_mutation(|w| w.arms[0][limb].reach = Fx::from_raw(actuator::ARM_MIN_REACH_RAW + 1));
+            assert_actuator_hash_mutation(|w| w.arms[0][limb].reach_speed = Fx::from_raw(1));
+            for axis in 0..3 {
+                assert_actuator_hash_mutation(|w| match axis {
+                    0 => w.arms[0][limb].previous_hand.x += Fx::from_raw(1),
+                    1 => w.arms[0][limb].previous_hand.y += Fx::from_raw(1),
+                    _ => w.arms[0][limb].previous_hand.z += Fx::from_raw(1),
+                });
+                assert_actuator_hash_mutation(|w| match axis {
+                    0 => w.arms[0][limb].hand.x += Fx::from_raw(1),
+                    1 => w.arms[0][limb].hand.y += Fx::from_raw(1),
+                    _ => w.arms[0][limb].hand.z += Fx::from_raw(1),
+                });
+                assert_actuator_hash_mutation(|w| match axis {
+                    0 => w.arms[0][limb].linear_velocity.x = Fx::from_raw(1),
+                    1 => w.arms[0][limb].linear_velocity.y = Fx::from_raw(1),
+                    _ => w.arms[0][limb].linear_velocity.z = Fx::from_raw(1),
+                });
+            }
+            assert_actuator_hash_mutation(|w| w.arms[0][limb].fatigue = Fx::from_raw(1));
+            assert_actuator_hash_mutation(|w| w.arms[0][limb].work_residue = Fx::from_raw(1));
+            assert_actuator_hash_mutation(|w| w.grips[0][limb].equipment_slot = None);
+            assert_actuator_hash_mutation(|w| w.grips[0][limb].equipment_slot =
+                Some(w.grips[0][limb].equipment_slot.unwrap_or(0) ^ 1));
+        }
+        assert_actuator_hash_mutation(|w| w.shield_pose[0] = None);
+        for axis in 0..3 {
+            assert_actuator_hash_mutation(|w| match axis {
+                0 => w.shield_pose[0].as_mut().unwrap().centre.x += Fx::from_raw(1),
+                1 => w.shield_pose[0].as_mut().unwrap().centre.y += Fx::from_raw(1),
+                _ => w.shield_pose[0].as_mut().unwrap().centre.z += Fx::from_raw(1),
+            });
+            assert_actuator_hash_mutation(|w| match axis {
+                0 => w.shield_pose[0].as_mut().unwrap().normal.x += Fx::from_raw(1),
+                1 => w.shield_pose[0].as_mut().unwrap().normal.y += Fx::from_raw(1),
+                _ => w.shield_pose[0].as_mut().unwrap().normal.z += Fx::from_raw(1),
+            });
+        }
+        assert_actuator_hash_mutation(|w| w.shield_pose[0].as_mut().unwrap().half_width += Fx::from_raw(1));
+        assert_actuator_hash_mutation(|w| w.shield_pose[0].as_mut().unwrap().half_height += Fx::from_raw(1));
+        assert_actuator_hash_mutation(|w| w.shield_pose[0].as_mut().unwrap().thickness += Fx::from_raw(1));
+        assert_actuator_hash_mutation(|w| w.move_authority[0] = Fx::HALF);
+        assert_actuator_hash_mutation(|w| w.turn_authority[0] = Fx::HALF);
+        assert_actuator_hash_mutation(|w| w.arm_authority[0][0] = Fx::HALF);
+        assert_actuator_hash_mutation(|w| w.arm_authority[0][1] = Fx::HALF);
+    }
+
+    #[test]
+    fn move_turn_and_arm_impairment_factors_are_one_and_already_hashed() {
+        let scenario = Scenario::articulated_duel();
+        let world = World::new(&scenario, 1);
+        for id in [EntityId::new(0, 0), EntityId::new(1, 0)] {
+            let pose = world.articulated_pose_test_view(id).unwrap();
+            assert_eq!((pose.move_authority, pose.turn_authority, pose.arm_authority),
+                (Fx::ONE, Fx::ONE, [Fx::ONE; 2]));
+        }
+        assert_actuator_hash_mutation(|w| w.move_authority[0] = Fx::HALF);
+        assert_actuator_hash_mutation(|w| w.turn_authority[0] = Fx::HALF);
+        assert_actuator_hash_mutation(|w| w.arm_authority[0] = [Fx::HALF, Fx::ONE]);
+    }
+
+    #[test]
+    fn articulated_mutation_apis_preserve_immutable_construction() {
+        let scenario = Scenario::articulated_duel();
+        let mut world = World::new(&scenario, 1);
+        let fighter = EntityId::new(0, 0);
+        let construction = (world.kind[0], world.loadout[0], world.articulated_anatomy[0],
+            world.articulated_carried[0], world.articulated_equipment[0], world.grips[0]);
+        let before = world.state_digest().value;
+        assert!(!world.set_body(fighter, Body::Brute));
+        assert!(!world.set_loadout(fighter, Loadout::single(ActionKind::Club)));
+        assert_eq!(world.state_digest().value, before);
+        let changed_stats = Stats::new(1, 2, 3, 4, 5);
+        assert!(world.set_stats(fighter, changed_stats));
+        assert_eq!(world.stats[0], changed_stats);
+        assert_ne!(world.state_digest().value, before);
+        assert_eq!((world.kind[0], world.loadout[0], world.articulated_anatomy[0],
+            world.articulated_carried[0], world.articulated_equipment[0], world.grips[0]), construction);
+    }
+
+    #[test]
+    fn set_stats_changes_next_tick_arm_caps_without_changing_construction() {
+        let scenario = Scenario::articulated_duel();
+        let fighter = EntityId::new(0, 0);
+        let mut slow = World::new(&scenario, 1);
+        let mut fast = slow.clone();
+        let construction = (fast.articulated_anatomy[0], fast.articulated_carried[0],
+            fast.articulated_equipment[0], fast.grips[0]);
+        assert!(slow.set_stats(fighter, Stats::new(0, 0, 0, 0, 5)));
+        assert!(fast.set_stats(fighter, Stats::new(20, 20, 0, 0, 5)));
+        let mut command = slow.neutral_articulated(0);
+        command.arms[1] = ArmTarget {
+            bearing: Angle::QUARTER, height: crate::CombatHeight::HIGH,
+            reach: Fx::ONE, effort: Fx::ONE,
+        };
+        for world in [&mut slow, &mut fast] {
+            let _ = world.submit_articulated_v1(fighter, command);
+            world.step();
+        }
+        assert!(fast.arms[0][1].bearing_speed_turns > slow.arms[0][1].bearing_speed_turns);
+        assert!(fast.arms[0][1].height_speed > slow.arms[0][1].height_speed);
+        assert_eq!((fast.articulated_anatomy[0], fast.articulated_carried[0],
+            fast.articulated_equipment[0], fast.grips[0]), construction);
+    }
+
+    #[test]
+    fn a_stationary_body_turns_toward_its_requested_yaw() {
+        let scenario = Scenario::articulated_duel();
+        let mut world = World::new(&scenario, 1);
+        let fighter = EntityId::new(0, 0);
+        let at = world.view(fighter).unwrap().position;
+        let mut command = articulated_command();
+        command.body_yaw = Angle::QUARTER;
+        assert!(matches!(world.submit_articulated_v1(fighter, command),
+            SubmitArticulatedOutcome::Stored { rejection: None, .. }));
+        world.step();
+        let pose = world.articulated_pose_test_view(fighter).unwrap();
+        assert_eq!(world.view(fighter).unwrap().position, at);
+        assert_eq!(world.view(fighter).unwrap().facing, Angle::ZERO);
+        assert_eq!((pose.body_yaw.angle.raw(), pose.body_yaw.speed_turns.raw()), (91, 91));
+    }
+
+    #[test]
+    fn body_yaw_obeys_acceleration_speed_and_half_turn_tie() {
+        let scenario = Scenario::articulated_duel();
+        let mut world = World::new(&scenario, 1);
+        let fighter = EntityId::new(0, 0);
+        let mut command = articulated_command();
+        command.body_yaw = Angle::HALF;
+        let _ = world.submit_articulated_v1(fighter, command);
+        let mut speeds = Vec::new();
+        for _ in 0..6 {
+            world.step();
+            speeds.push(world.articulated_pose_test_view(fighter).unwrap().body_yaw.speed_turns.raw());
+        }
+        assert_eq!(speeds, [-91, -182, -273, -364, -455, -546]);
+        assert_eq!(world.articulated_pose_test_view(fighter).unwrap().body_yaw.angle.raw(), 63_625);
+    }
+
+    #[test]
+    fn body_yaw_snaps_without_overshoot_or_residual_speed() {
+        let scenario = Scenario::articulated_duel();
+        let mut world = World::new(&scenario, 1);
+        let fighter = EntityId::new(0, 0);
+        let mut command = articulated_command();
+        command.body_yaw = Angle::from_raw(100);
+        let _ = world.submit_articulated_v1(fighter, command);
+        world.step();
+        assert_eq!((world.body_yaw[0].angle.raw(), world.body_yaw[0].speed_turns.raw()), (91, 91));
+        world.step();
+        assert_eq!((world.body_yaw[0].angle.raw(), world.body_yaw[0].speed_turns.raw()), (100, 0));
+        world.step();
+        assert_eq!((world.body_yaw[0].angle.raw(), world.body_yaw[0].speed_turns.raw()), (100, 0));
+    }
+
+    #[test]
+    fn translation_and_turning_do_not_share_effort() {
+        let scenario = Scenario::articulated_duel();
+        let mut stationary = World::new(&scenario, 1);
+        let mut moving = stationary.clone();
+        let fighter = EntityId::new(0, 0);
+        let mut turn = articulated_command();
+        turn.body_yaw = Angle::QUARTER;
+        let _ = stationary.submit_articulated_v1(fighter, turn);
+        turn.move_dir = Vec2::X;
+        let _ = moving.submit_articulated_v1(fighter, turn);
+        for _ in 0..8 {
+            stationary.step();
+            moving.step();
+            assert_eq!(stationary.body_yaw[0], moving.body_yaw[0]);
+        }
+        assert_eq!(stationary.vel[0], Vec2::ZERO);
+        assert!(!moving.vel[0].is_zero());
+    }
+
+    #[test]
+    fn move_authority_scales_acceleration_without_changing_requested_velocity() {
+        let scenario = Scenario::articulated_duel();
+        let mut full = World::new(&scenario, 1);
+        let mut impaired = full.clone();
+        impaired.move_authority[0] = Fx::HALF;
+        let fighter = EntityId::new(0, 0);
+        let mut command = articulated_command();
+        command.move_dir = Vec2::X;
+        let _ = full.submit_articulated_v1(fighter, command);
+        let _ = impaired.submit_articulated_v1(fighter, command);
+        let requested = full.stats[0].move_speed() * full.action_of(0).spec().move_bonus;
+        full.step();
+        impaired.step();
+        assert_eq!(full.vel[0], Vec2::X * full.stats[0].traction());
+        assert_eq!(impaired.vel[0], Vec2::X * (impaired.stats[0].traction() * Fx::HALF));
+        assert!(requested > full.vel[0].length());
+        assert!(requested > impaired.vel[0].length());
+        for _ in 0..60 {
+            full.step();
+            impaired.step();
+        }
+        assert_eq!(full.vel[0], Vec2::X * requested);
+        assert_eq!(impaired.vel[0], Vec2::X * requested);
+    }
+
+    #[test]
+    fn neutral_fallback_uses_authoritative_body_yaw_after_stationary_divergence() {
+        let scenario = Scenario::articulated_duel();
+        let mut world = World::new(&scenario, 1);
+        let fighter = EntityId::new(0, 0);
+        let mut command = articulated_command();
+        command.body_yaw = Angle::QUARTER;
+        let _ = world.submit_articulated_v1(fighter, command);
+        world.step();
+        assert_eq!(world.facing[0], Angle::ZERO);
+        assert_eq!(world.body_yaw[0].angle, Angle::from_raw(91));
+        let outcome = world.submit_articulated_fallback_v1(fighter, crate::CommandField::LeftReach);
+        let stored = match outcome {
+            SubmitArticulatedOutcome::Stored { command, rejection: Some(CommandReject::OutOfRange(_)) } => command,
+            other => panic!("unexpected fallback outcome: {other:?}"),
+        };
+        assert_eq!(stored.body_yaw, Angle::from_raw(91));
+        assert_eq!(stored.arms[0].bearing, Angle::from_raw(91));
+        assert_eq!(stored.arms[1].bearing, Angle::from_raw(91));
+    }
+
+    #[test]
+    fn a_right_bound_shield_is_found_past_an_empty_or_nonshield_left_grip() {
+        let mut scenario = Scenario::articulated_duel();
+        let mut right_shield = crate::shield();
+        right_shield.id = 4;
+        right_shield.binding = crate::GripBinding::Right;
+        scenario.combat_specs.as_mut().unwrap().equipment.push(right_shield);
+        scenario.units[0].articulated.as_mut().unwrap().equipment = [Some(4), None];
+        scenario.units[0].loadout = Loadout::single(ActionKind::Shield);
+        let world = World::new(&scenario, 1);
+        let fighter = world.articulated_pose_test_view(EntityId::new(0, 0)).unwrap();
+        assert_eq!(fighter.grips, [
+            GripState { equipment_slot: None },
+            GripState { equipment_slot: Some(0) },
+        ]);
+        let shield = fighter.shield_pose.expect("right hand shield was skipped");
+        assert_eq!(shield.centre, fighter.arms[1].hand);
+        assert_eq!(shield.normal, Vec3::X);
+
+        let mut left_sword = crate::sword();
+        left_sword.id = 5;
+        left_sword.binding = crate::GripBinding::Left;
+        scenario.combat_specs.as_mut().unwrap().equipment.push(left_sword);
+        scenario.units[0].articulated.as_mut().unwrap().equipment = [Some(5), Some(4)];
+        scenario.units[0].loadout = Loadout::pair(ActionKind::Sword, ActionKind::Shield);
+        let world = World::new(&scenario, 1);
+        let fighter = world.articulated_pose_test_view(EntityId::new(0, 0)).unwrap();
+        assert_eq!(fighter.grips, [
+            GripState { equipment_slot: Some(0) },
+            GripState { equipment_slot: Some(1) },
+        ]);
+        let shield = fighter.shield_pose.expect("non-shield left hand stopped the shield search");
+        assert_eq!(shield.centre, fighter.arms[1].hand);
+        assert_eq!(shield.normal, Vec3::X);
+    }
+
+    fn release_both_hands(world: &mut World, id: EntityId) {
+        let mut command = world.neutral_articulated(id.index as usize);
+        command.grips = [GripRequest::Release; 2];
+        assert!(matches!(world.submit_articulated_v1(id, command),
+            SubmitArticulatedOutcome::Stored { rejection: None, .. }));
+        world.step();
+        assert_eq!(world.grips[id.index as usize], [GripState { equipment_slot: None }; 2]);
+    }
+
+    #[test]
+    fn both_arms_chase_targets_independently() {
+        let scenario = Scenario::articulated_duel();
+        let mut world = World::new(&scenario, 1);
+        let fighter = EntityId::new(0, 0);
+        release_both_hands(&mut world, fighter);
+        let mut command = world.neutral_articulated(0);
+        command.arms[0] = ArmTarget {
+            bearing: Angle::QUARTER, height: crate::CombatHeight::HIGH,
+            reach: Fx::ONE, effort: Fx::ONE,
+        };
+        command.arms[1] = ArmTarget {
+            bearing: Angle::HALF, height: crate::CombatHeight::LOW,
+            reach: Fx::HALF, effort: Fx::ONE,
+        };
+        let _ = world.submit_articulated_v1(fighter, command);
+        world.step();
+        let arms = world.arms[0];
+        assert!(arms[0].bearing_speed_turns.raw() > 0);
+        assert!(arms[1].bearing_speed_turns.raw() < 0);
+        assert!(arms[0].height_speed.raw() > 0);
+        assert!(arms[1].height_speed.raw() < 0);
+        assert!(arms[0].reach_speed.raw() > arms[1].reach_speed.raw() - 1);
+        assert_ne!(arms[0].hand, arms[1].hand);
+    }
+
+    #[test]
+    fn an_intermediate_height_uses_the_same_actuator() {
+        let scenario = Scenario::articulated_duel();
+        let mut world = World::new(&scenario, 1);
+        let fighter = EntityId::new(0, 0);
+        release_both_hands(&mut world, fighter);
+        let mut command = world.neutral_articulated(0);
+        command.arms[0].height = crate::CombatHeight::try_from_raw(40_000).unwrap();
+        command.arms[0].effort = Fx::ONE;
+        let _ = world.submit_articulated_v1(fighter, command);
+        world.step();
+        assert!(world.arms[0][0].height.raw() > crate::CombatHeight::MID.raw());
+        assert!(world.arms[0][0].height.raw() < 40_000);
+    }
+
+    #[test]
+    fn changing_height_and_reach_takes_more_than_one_tick() {
+        let scenario = Scenario::articulated_duel();
+        let mut world = World::new(&scenario, 1);
+        let fighter = EntityId::new(0, 0);
+        release_both_hands(&mut world, fighter);
+        let mut command = world.neutral_articulated(0);
+        command.arms[0].height = crate::CombatHeight::HIGH;
+        command.arms[0].reach = Fx::ONE;
+        command.arms[0].effort = Fx::ONE;
+        let _ = world.submit_articulated_v1(fighter, command);
+        world.step();
+        assert!(world.arms[0][0].height.raw() > crate::CombatHeight::MID.raw());
+        assert!(world.arms[0][0].height.raw() <= crate::CombatHeight::MID.raw() + actuator::ARM_LINEAR_ACCEL_RAW);
+        assert!(world.arms[0][0].reach > Fx::from_raw(actuator::ARM_MIN_REACH_RAW));
+        assert!(world.arms[0][0].reach < Fx::ONE);
+    }
+
+    #[test]
+    fn requested_effort_scales_torque_and_not_position() {
+        let scenario = Scenario::articulated_duel();
+        let mut low = World::new(&scenario, 1);
+        let fighter = EntityId::new(0, 0);
+        release_both_hands(&mut low, fighter);
+        let mut high = low.clone();
+        let mut command = low.neutral_articulated(0);
+        command.arms[0] = ArmTarget {
+            bearing: Angle::QUARTER, height: crate::CombatHeight::HIGH,
+            reach: Fx::ONE, effort: Fx::from_ratio(1, 4),
+        };
+        let _ = low.submit_articulated_v1(fighter, command);
+        command.arms[0].effort = Fx::ONE;
+        let _ = high.submit_articulated_v1(fighter, command);
+        low.step();
+        high.step();
+        assert!(high.arms[0][0].bearing_speed_turns > low.arms[0][0].bearing_speed_turns);
+        assert!(high.arms[0][0].height_speed > low.arms[0][0].height_speed);
+        assert!(high.arms[0][0].reach_speed > low.arms[0][0].reach_speed);
+        assert_eq!(low.articulated_command[0].unwrap().arms[0].bearing,
+            high.articulated_command[0].unwrap().arms[0].bearing);
+        assert_eq!(low.articulated_command[0].unwrap().arms[0].height,
+            high.articulated_command[0].unwrap().arms[0].height);
+        assert_eq!(low.articulated_command[0].unwrap().arms[0].reach,
+            high.articulated_command[0].unwrap().arms[0].reach);
+    }
+
+    #[test]
+    fn a_heavy_weapon_fatigues_its_arm_sooner() {
+        let mut sword_scenario = Scenario::articulated_duel();
+        sword_scenario.units[0].articulated.as_mut().unwrap().equipment = [Some(1), None];
+        sword_scenario.units[0].loadout = Loadout::single(ActionKind::Sword);
+        let mut club_scenario = sword_scenario.clone();
+        club_scenario.units[0].articulated.as_mut().unwrap().equipment = [Some(3), None];
+        club_scenario.units[0].loadout = Loadout::single(ActionKind::Club);
+        let mut sword_world = World::new(&sword_scenario, 1);
+        let mut club_world = World::new(&club_scenario, 1);
+        let fighter = EntityId::new(0, 0);
+        for tick in 0..120 {
+            let outward = (tick / 20) % 2 == 0;
+            let target = if outward {
+                ArmTarget { bearing: Angle::HALF, height: crate::CombatHeight::HIGH, reach: Fx::ONE, effort: Fx::ONE }
+            } else {
+                ArmTarget { bearing: Angle::ZERO, height: crate::CombatHeight::MID,
+                    reach: Fx::from_raw(actuator::ARM_MIN_REACH_RAW), effort: Fx::ONE }
+            };
+            for world in [&mut sword_world, &mut club_world] {
+                let mut command = world.neutral_articulated(0);
+                command.arms[1] = target;
+                let _ = world.submit_articulated_v1(fighter, command);
+                world.step();
+            }
+        }
+        assert_eq!((sword_world.arms[0][1].fatigue.raw(), sword_world.arms[0][1].work_residue.raw()), (92, 76));
+        assert_eq!((club_world.arms[0][1].fatigue.raw(), club_world.arms[0][1].work_residue.raw()), (302, 138));
+        assert!(club_world.arms[0][1].fatigue > sword_world.arms[0][1].fatigue);
+    }
+
+    fn both_scenario() -> Scenario {
+        let mut scenario = Scenario::articulated_duel();
+        let mut both = crate::club();
+        both.id = 4;
+        both.binding = crate::GripBinding::Both;
+        scenario.combat_specs.as_mut().unwrap().equipment.push(both);
+        scenario.units[1].articulated.as_mut().unwrap().equipment = [Some(4), None];
+        scenario.units[1].loadout = Loadout::single(ActionKind::Club);
+        scenario
+    }
+
+    #[test]
+    fn grip_requests_apply_atomically_or_not_at_all() {
+        let scenario = Scenario::articulated_duel();
+        let mut world = World::new(&scenario, 1);
+        let fighter = EntityId::new(0, 0);
+        let initial = world.grips[0];
+        let mut invalid = world.neutral_articulated(0);
+        invalid.grips = [GripRequest::Release, GripRequest::EquipSlot(1)];
+        assert!(matches!(world.submit_articulated_v1(fighter, invalid),
+            SubmitArticulatedOutcome::Stored { command, rejection: Some(CommandReject::MissingEquipment { .. }) }
+                if command.grips == [GripRequest::Keep; 2]));
+        assert_eq!(world.grips[0], initial, "submission changed one arm before the step");
+        world.step();
+        assert_eq!(world.grips[0], initial, "fallback did not preserve the complete pair");
+
+        let mut release = world.neutral_articulated(0);
+        release.grips = [GripRequest::Release; 2];
+        let _ = world.submit_articulated_v1(fighter, release);
+        assert_eq!(world.grips[0], initial, "accepted transaction applied before step");
+        world.step();
+        assert_eq!(world.grips[0], [GripState { equipment_slot: None }; 2]);
+    }
+
+    #[test]
+    fn grip_transactions_validate_the_resulting_current_pair() {
+        let scenario = Scenario::articulated_duel();
+        let world = World::new(&scenario, 1);
+        assert_eq!(world.resulting_grips(0, [GripRequest::Keep; 2]).unwrap(), [Some(1), Some(0)]);
+        assert_eq!(world.resulting_grips(0, [GripRequest::Release; 2]).unwrap(), [None, None]);
+        assert_eq!(world.resulting_grips(0, [GripRequest::Keep, GripRequest::Release]).unwrap(), [Some(1), None]);
+        assert_eq!(world.resulting_grips(0, [GripRequest::Release, GripRequest::Keep]).unwrap(), [None, Some(0)]);
+        assert!(world.resulting_grips(0, [GripRequest::EquipSlot(0), GripRequest::Keep]).is_err());
+        assert!(world.resulting_grips(0, [GripRequest::Keep, GripRequest::EquipSlot(1)]).is_err());
+
+        let both_scenario = both_scenario();
+        let both = World::new(&both_scenario, 1);
+        assert_eq!(both.resulting_grips(1, [GripRequest::Keep; 2]).unwrap(), [Some(0), Some(0)]);
+        assert!(both.resulting_grips(1, [GripRequest::Release, GripRequest::Keep]).is_err());
+        assert!(both.resulting_grips(1, [GripRequest::Keep, GripRequest::Release]).is_err());
+        assert_eq!(both.resulting_grips(1, [GripRequest::Release; 2]).unwrap(), [None, None]);
+
+        let mut duplicate_single = World::new(&scenario, 1);
+        assert!(duplicate_single.resulting_grips(0, [GripRequest::EquipSlot(0); 2]).is_err());
+        duplicate_single.combat_specs.as_mut().unwrap().equipment[0].binding = crate::GripBinding::Both;
+        assert!(duplicate_single.resulting_grips(0,
+            [GripRequest::EquipSlot(0), GripRequest::EquipSlot(1)]).is_err(), "Both plus another item was accepted");
+        duplicate_single.combat_specs.as_mut().unwrap().equipment[1].binding = crate::GripBinding::Both;
+        assert!(duplicate_single.resulting_grips(0,
+            [GripRequest::EquipSlot(0), GripRequest::EquipSlot(1)]).is_err(), "two different Both items were accepted");
+    }
+
+    #[test]
+    fn a_two_handed_grip_cannot_bind_a_shield() {
+        let mut scenario = Scenario::articulated_duel();
+        let mut shield = crate::shield();
+        shield.id = 4;
+        shield.action = ActionKind::Club;
+        shield.binding = crate::GripBinding::Both;
+        scenario.combat_specs.as_mut().unwrap().equipment.push(shield);
+        scenario.units[1].articulated.as_mut().unwrap().equipment = [Some(4), None];
+        assert_eq!(crate::combat::spec::validate_construction(
+            scenario.combat_model, scenario.combat_specs.as_ref(), &scenario.units,
+        ), Err(crate::CombatSpecError::GripConflict));
+
+        let mut scenario = Scenario::articulated_duel();
+        let mut left = crate::shield();
+        left.id = 4;
+        left.action = ActionKind::Sword;
+        let mut right = left;
+        right.id = 5;
+        right.action = ActionKind::Club;
+        right.binding = crate::GripBinding::Right;
+        scenario.combat_specs.as_mut().unwrap().equipment.extend([left, right]);
+        scenario.units[0].articulated.as_mut().unwrap().equipment = [Some(4), Some(5)];
+        scenario.units[0].loadout = Loadout::pair(ActionKind::Sword, ActionKind::Club);
+        assert_eq!(crate::combat::spec::validate_construction(
+            scenario.combat_model, scenario.combat_specs.as_ref(), &scenario.units,
+        ), Err(crate::CombatSpecError::GripConflict));
+    }
+
+    #[test]
+    fn a_two_handed_target_mirrors_the_off_hand() {
+        let scenario = both_scenario();
+        let mut world = World::new(&scenario, 1);
+        let brute = EntityId::new(1, 0);
+        let old_left = world.arms[1][0].hand;
+        let mut command = world.neutral_articulated(1);
+        command.body_yaw = Angle::HALF;
+        command.arms[0] = ArmTarget {
+            bearing: Angle::QUARTER, height: crate::CombatHeight::LOW,
+            reach: Fx::from_raw(actuator::ARM_MIN_REACH_RAW), effort: Fx::ZERO,
+        };
+        command.arms[1] = ArmTarget {
+            bearing: Angle::QUARTER, height: crate::CombatHeight::HIGH,
+            reach: Fx::ONE, effort: Fx::ONE,
+        };
+        let _ = world.submit_articulated_v1(brute, command);
+        world.step();
+        let [left, right] = world.arms[1];
+        assert_eq!(left.bearing.raw(), world.body_yaw[1].angle.raw().wrapping_mul(2).wrapping_sub(right.bearing.raw()));
+        assert_eq!(left.bearing_speed_turns, -right.bearing_speed_turns);
+        assert_eq!((left.height, left.height_speed, left.reach, left.reach_speed),
+            (right.height, right.height_speed, right.reach, right.reach_speed));
+        assert_eq!(left.previous_hand, old_left);
+        assert_eq!(left.linear_velocity, left.hand - old_left);
+        assert_eq!(left.fatigue, right.fatigue);
+        assert_ne!(left.height, command.arms[0].height, "ignored left target drove the shared item");
+    }
+
+    #[test]
+    fn a_two_handed_trajectory_uses_right_authority_effort_and_target_only() {
+        let scenario = both_scenario();
+        let brute = EntityId::new(1, 0);
+        let mut full = World::new(&scenario, 1);
+        let mut left_impaired = full.clone();
+        let mut right_impaired = full.clone();
+        left_impaired.arm_authority[1][0] = Fx::HALF;
+        right_impaired.arm_authority[1][1] = Fx::HALF;
+        let mut command = full.neutral_articulated(1);
+        command.body_yaw = Angle::HALF;
+        command.arms[1] = ArmTarget {
+            bearing: Angle::QUARTER, height: crate::CombatHeight::HIGH,
+            reach: Fx::ONE, effort: Fx::ONE,
+        };
+        for world in [&mut full, &mut left_impaired, &mut right_impaired] {
+            let _ = world.submit_articulated_v1(brute, command);
+            world.step();
+        }
+        assert_eq!(full.arms[1], left_impaired.arms[1]);
+        assert_ne!(full.arms[1], right_impaired.arms[1]);
+
+        let mut full_effort = World::new(&scenario, 1);
+        let mut low_effort = full_effort.clone();
+        let mut full_command = command;
+        let mut low_command = command;
+        low_command.arms[1].effort = Fx::HALF;
+        let _ = full_effort.submit_articulated_v1(brute, full_command);
+        let _ = low_effort.submit_articulated_v1(brute, low_command);
+        full_effort.step();
+        low_effort.step();
+        assert_ne!(full_effort.arms[1], low_effort.arms[1]);
+
+        let mut ignored_a = World::new(&scenario, 1);
+        let mut ignored_b = ignored_a.clone();
+        full_command.arms[0] = ArmTarget {
+            bearing: Angle::ZERO, height: crate::CombatHeight::LOW,
+            reach: Fx::from_raw(actuator::ARM_MIN_REACH_RAW), effort: Fx::ZERO,
+        };
+        let mut changed_left = full_command;
+        changed_left.arms[0] = ArmTarget {
+            bearing: Angle::HALF, height: crate::CombatHeight::HIGH,
+            reach: Fx::ONE, effort: Fx::ONE,
+        };
+        let _ = ignored_a.submit_articulated_v1(brute, full_command);
+        let _ = ignored_b.submit_articulated_v1(brute, changed_left);
+        ignored_a.step();
+        ignored_b.step();
+        assert_eq!(ignored_a.arms[1], ignored_b.arms[1]);
+
+        let independent_scenario = Scenario::articulated_duel();
+        let fighter = EntityId::new(0, 0);
+        let mut independent = World::new(&independent_scenario, 1);
+        let mut independent_impaired = independent.clone();
+        independent_impaired.arm_authority[0][0] = Fx::HALF;
+        let mut command = independent.neutral_articulated(0);
+        command.arms[0] = ArmTarget {
+            bearing: Angle::QUARTER, height: crate::CombatHeight::HIGH,
+            reach: Fx::ONE, effort: Fx::ONE,
+        };
+        for world in [&mut independent, &mut independent_impaired] {
+            let _ = world.submit_articulated_v1(fighter, command);
+            world.step();
+        }
+        assert!(independent.arms[0][0].bearing_speed_turns
+            > independent_impaired.arms[0][0].bearing_speed_turns);
+    }
+
+    #[test]
+    fn a_shield_normal_follows_body_yaw_and_cannot_orbit() {
+        let scenario = Scenario::articulated_duel();
+        let mut world = World::new(&scenario, 1);
+        let fighter = EntityId::new(0, 0);
+        let mut command = world.neutral_articulated(0);
+        command.body_yaw = Angle::QUARTER;
+        command.arms[0].bearing = Angle::HALF;
+        command.arms[0].effort = Fx::ONE;
+        let _ = world.submit_articulated_v1(fighter, command);
+        for _ in 0..100 {
+            world.step();
+            if world.body_yaw[0].angle == Angle::QUARTER { break; }
+        }
+        assert_eq!(world.body_yaw[0].angle, Angle::QUARTER);
+        let shield = world.shield_pose[0].unwrap();
+        assert_eq!(shield.normal, Vec3::new(Fx::ZERO, Fx::ONE, Fx::ZERO));
+        assert_ne!(world.arms[0][0].bearing, world.body_yaw[0].angle);
+    }
+
+    #[test]
+    fn changing_shield_height_takes_more_than_one_tick() {
+        let scenario = Scenario::articulated_duel();
+        let mut world = World::new(&scenario, 1);
+        let fighter = EntityId::new(0, 0);
+        let before = world.shield_pose[0].unwrap().centre.z;
+        let mut command = world.neutral_articulated(0);
+        command.arms[0].height = crate::CombatHeight::HIGH;
+        command.arms[0].effort = Fx::ONE;
+        let _ = world.submit_articulated_v1(fighter, command);
+        world.step();
+        let arm = world.arms[0][0];
+        assert!(arm.height.raw() > crate::CombatHeight::MID.raw());
+        assert!(arm.height.raw() <= crate::CombatHeight::MID.raw() + actuator::ARM_LINEAR_ACCEL_RAW);
+        assert!(arm.height.raw() < crate::CombatHeight::HIGH.raw());
+        assert!(world.shield_pose[0].unwrap().centre.z > before);
+    }
+
+    #[test]
+    fn articulated_actuation_cannot_create_healing_damage_death_recoil_or_shots() {
+        let scenario = Scenario::articulated_duel();
+        let mut world = World::new(&scenario, 1);
+        let fighter = EntityId::new(0, 0);
+        let brute = EntityId::new(1, 0);
+        world.hp[0] -= Fx::ONE;
+        world.hp[1] = Fx::ZERO;
+        let hp = world.hp.clone();
+        let limbs = world.limb.clone();
+        let mut command = world.neutral_articulated(0);
+        command.arms[0] = ArmTarget { bearing: Angle::HALF, height: crate::CombatHeight::HIGH,
+            reach: Fx::ONE, effort: Fx::ONE };
+        command.arms[1] = command.arms[0];
+        let _ = world.submit_articulated_v1(fighter, command);
+        let _ = world.submit_articulated_v1(brute, command);
+        for _ in 0..180 {
+            assert!(world.step().is_empty());
+        }
+        assert_eq!(world.hp, hp);
+        assert_eq!(world.alive, [true, true]);
+        assert_eq!(world.limb, limbs);
+        assert!(world.shot_alive.is_empty());
+    }
+
+    #[test]
+    fn legacy_commands_still_derive_facing_from_movement_and_cannot_turn_in_place() {
+        let mut world = duel_world();
+        let fighter = EntityId::new(0, 0);
+        world.submit(fighter, Command::moving(Vec2::Y));
+        world.step();
+        assert_eq!(world.facing[0], Angle::QUARTER);
+        world.submit(fighter, Command::HOLD);
+        for _ in 0..10 { world.step(); }
+        assert_eq!(world.facing[0], Angle::QUARTER);
+        assert!(world.body_yaw.is_empty());
+    }
+
+    #[test]
+    fn the_legacy_phase_trace_is_unchanged() {
+        let mut world = duel_world();
+        world.phase_trace_enabled = true;
+        world.step();
+        assert_eq!(world.phase_trace, [
+            "clear events", "expire decisions", "regenerate", "apply movement", "separate",
+            "drive legacy limb", "legacy parries", "legacy swings", "recoil", "shots", "doors",
+            "reap", "increment tick", "pending", "navigation",
+        ]);
+    }
+
+    #[test]
+    fn wrong_model_and_stale_subjects_are_not_stored_or_recorded() {
+        let mut legacy = duel_world();
+        let before = legacy.state_hash();
+        assert_eq!(
+            legacy.submit_articulated_v1(EntityId::new(0, 0), articulated_command()),
+            SubmitArticulatedOutcome::NotStored(CommandReject::WrongModel)
+        );
+        assert_eq!(legacy.state_hash(), before);
+
+        let scenario = Scenario::articulated_duel();
+        let mut world = World::new(&scenario, 1);
+        let before = world.state_digest().value;
+        assert_eq!(
+            world.submit_articulated_v1(EntityId::new(0, 9), articulated_command()),
+            SubmitArticulatedOutcome::NotStored(CommandReject::StaleEntity)
+        );
+        assert_eq!(world.state_digest().value, before);
+    }
+
+    #[test]
+    fn legacy_policy_command_and_submission_shapes_remain_unchanged() {
+        let mut legacy = duel_world();
+        let id = EntityId::new(0, 0);
+        let command = Command::moving(Vec2::X);
+        legacy.submit(id, command);
+        assert_eq!(legacy.command[0], command);
+
+        let scenario = Scenario::articulated_duel();
+        let mut articulated = World::new(&scenario, 1);
+        articulated.submit(id, command);
+        assert_eq!(articulated.command[0], Command::HOLD);
+        assert_eq!(articulated.articulated_command[0], None);
+    }
+
+    #[test]
+    fn invalid_range_or_equipment_replaces_the_whole_command_atomically() {
+        let scenario = Scenario::articulated_duel();
+        let mut world = World::new(&scenario, 1);
+        let hero = EntityId::new(0, 0);
+        let mut bad = articulated_command();
+        bad.arms[0].reach = Fx::from_raw(Fx::ONE.raw() + 1);
+        match world.submit_articulated_v1(hero, bad) {
+            SubmitArticulatedOutcome::Stored { command, rejection } => {
+                assert_eq!(rejection, Some(CommandReject::OutOfRange(crate::CommandField::LeftReach)));
+                assert_eq!(command, world.neutral_articulated(0));
+            }
+            other => panic!("invalid live command was not replaced: {other:?}"),
+        }
+
+        let mut equip = articulated_command();
+        equip.grips = [GripRequest::EquipSlot(1), GripRequest::Keep];
+        assert!(matches!(
+            world.submit_articulated_v1(hero, equip),
+            SubmitArticulatedOutcome::Stored { command, rejection: None } if command == equip
+        ));
+
+        let mut twice_bad = articulated_command();
+        twice_bad.move_dir.x = Fx::from_raw(Fx::ONE.raw() + 1);
+        twice_bad.arms[0].reach = Fx::from_raw(Fx::ONE.raw() + 1);
+        assert!(matches!(
+            world.submit_articulated_v1(hero, twice_bad),
+            SubmitArticulatedOutcome::Stored {
+                rejection: Some(CommandReject::OutOfRange(crate::CommandField::MoveX)), ..
+            }
+        ));
+        equip.grips[0] = GripRequest::EquipSlot(7);
+        assert!(matches!(
+            world.submit_articulated_v1(hero, equip),
+            SubmitArticulatedOutcome::Stored {
+                rejection: Some(CommandReject::MissingEquipment { arm: LimbSlot::LeftArm, slot: 7 }), ..
+            }
+        ));
+    }
+
+    #[test]
+    fn immutable_bindings_accept_only_the_arm_that_physically_holds_the_item() {
+        let scenario = Scenario::articulated_duel();
+        let mut world = World::new(&scenario, 1);
+        let fighter = EntityId::new(0, 0);
+        let brute = EntityId::new(1, 0);
+        for (id, grips) in [
+            (fighter, [GripRequest::Keep, GripRequest::EquipSlot(0)]),
+            (fighter, [GripRequest::EquipSlot(1), GripRequest::Keep]),
+            (brute, [GripRequest::Keep, GripRequest::EquipSlot(0)]),
+        ] {
+            let mut command = articulated_command();
+            command.grips = grips;
+            assert!(matches!(world.submit_articulated_v1(id, command),
+                SubmitArticulatedOutcome::Stored { command: stored, rejection: None } if stored == command));
+        }
+        for (id, grips, arm, slot) in [
+            (fighter, [GripRequest::EquipSlot(0), GripRequest::Keep], LimbSlot::LeftArm, 0),
+            (fighter, [GripRequest::Keep, GripRequest::EquipSlot(1)], LimbSlot::LeftArm, 1),
+            (brute, [GripRequest::EquipSlot(0), GripRequest::Keep], LimbSlot::LeftArm, 0),
+        ] {
+            let mut command = articulated_command();
+            command.grips = grips;
+            assert!(matches!(world.submit_articulated_v1(id, command),
+                SubmitArticulatedOutcome::Stored {
+                    command: stored,
+                    rejection: Some(CommandReject::MissingEquipment { arm: rejected_arm, slot: rejected_slot }),
+                } if stored == world.neutral_articulated(id.index as usize) && rejected_arm == arm && rejected_slot == slot));
+        }
+    }
+
+    #[test]
+    fn a_test_only_both_binding_requires_matching_same_slot_requests() {
+        let mut scenario = Scenario::articulated_duel();
+        let mut both = crate::club();
+        both.id = 4;
+        both.binding = crate::GripBinding::Both;
+        scenario.combat_specs.as_mut().unwrap().equipment.push(both);
+        scenario.units[1].articulated.as_mut().unwrap().equipment = [Some(4), None];
+        let mut world = World::new(&scenario, 1);
+        let brute = EntityId::new(1, 0);
+        let mut command = articulated_command();
+        command.grips = [GripRequest::EquipSlot(0); 2];
+        assert!(matches!(world.submit_articulated_v1(brute, command), SubmitArticulatedOutcome::Stored { rejection: None, .. }));
+        command.grips = [GripRequest::Release, GripRequest::Keep];
+        assert!(matches!(world.submit_articulated_v1(brute, command), SubmitArticulatedOutcome::Stored {
+            rejection: Some(CommandReject::MissingEquipment { arm: LimbSlot::RightArm, slot: 0 }), ..
+        }));
+    }
+
+    #[test]
+    fn a_stationary_articulated_body_can_store_a_turn_request() {
+        let scenario = Scenario::articulated_duel();
+        let mut world = World::new(&scenario, 1);
+        let command = articulated_command();
+        let before = world.state_digest().value;
+        assert!(matches!(
+            world.submit_articulated_v1(EntityId::new(0, 0), command),
+            SubmitArticulatedOutcome::Stored { command: stored, rejection: None } if stored == command
+        ));
+        assert_ne!(world.state_digest().value, before);
+        assert_eq!(world.view(EntityId::new(0, 0)).unwrap().facing, Angle::ZERO);
+    }
+
+    #[test]
+    fn every_articulated_command_field_changes_only_the_articulated_hash_domain() {
+        let digest = |command: ArticulatedCommandV1| {
+            let scenario = Scenario::articulated_duel();
+            let mut world = World::new(&scenario, 1);
+            assert!(matches!(
+                world.submit_articulated_v1(EntityId::new(0, 0), command),
+                SubmitArticulatedOutcome::Stored { rejection: None, .. }
+            ));
+            (world.state_hash(), world.state_digest().value)
+        };
+        let base = articulated_command();
+        let (legacy_core, base_digest) = digest(base);
+        let mut variants = Vec::new();
+        let mut changed = base; changed.move_dir.x = Fx::from_raw(1); variants.push(changed);
+        let mut changed = base; changed.move_dir.y = Fx::from_raw(1); variants.push(changed);
+        let mut changed = base; changed.body_yaw = Angle::HALF; variants.push(changed);
+        let mut changed = base; changed.intent = Intent::Attack(EntityId::new(1, 0)); variants.push(changed);
+        let mut changed = base; changed.arms[0].bearing = Angle::HALF; variants.push(changed);
+        let mut changed = base; changed.arms[0].height = crate::CombatHeight::LOW; variants.push(changed);
+        let mut changed = base; changed.arms[0].reach = Fx::HALF; variants.push(changed);
+        let mut changed = base; changed.arms[0].effort = Fx::ONE; variants.push(changed);
+        let mut changed = base; changed.arms[1].bearing = Angle::HALF; variants.push(changed);
+        let mut changed = base; changed.arms[1].height = crate::CombatHeight::HIGH; variants.push(changed);
+        let mut changed = base; changed.arms[1].reach = Fx::HALF; variants.push(changed);
+        let mut changed = base; changed.arms[1].effort = Fx::ONE; variants.push(changed);
+        let mut changed = base; changed.grips[0] = GripRequest::EquipSlot(1); variants.push(changed);
+        let mut changed = base; changed.grips[1] = GripRequest::Release; variants.push(changed);
+        for changed in variants {
+            let (changed_core, changed_digest) = digest(changed);
+            assert_eq!(changed_core, legacy_core, "new command payload leaked into legacy core");
+            assert_ne!(changed_digest, base_digest, "an articulated command field was omitted");
+        }
+
+        let mut attack = base;
+        attack.intent = Intent::Attack(EntityId::new(7, 11));
+        let (attack_core, attack_digest) = digest(attack);
+        assert_eq!(attack_core, legacy_core);
+        assert_ne!(attack_digest, base_digest, "intent tag was omitted");
+        let mut changed = attack;
+        changed.intent = Intent::Attack(EntityId::new(8, 11));
+        let (core, value) = digest(changed);
+        assert_eq!(core, legacy_core);
+        assert_ne!(value, attack_digest, "intent target index was omitted");
+        let mut changed = attack;
+        changed.intent = Intent::Attack(EntityId::new(7, 12));
+        let (core, value) = digest(changed);
+        assert_eq!(core, legacy_core);
+        assert_ne!(value, attack_digest, "intent target generation was omitted");
+
+        let mut left_slot_one = base;
+        left_slot_one.grips[0] = GripRequest::EquipSlot(1);
+        let (_, left_one_digest) = digest(left_slot_one);
+        assert_ne!(left_one_digest, base_digest, "left grip tag was omitted");
+
+        let mut right_slot_zero = base;
+        right_slot_zero.grips[1] = GripRequest::EquipSlot(0);
+        let (_, right_zero_digest) = digest(right_slot_zero);
+        assert_ne!(right_zero_digest, base_digest, "right grip tag was omitted");
+    }
+
+    #[test]
+    fn each_equip_slot_payload_byte_reaches_the_articulated_hash_independently() {
+        let scenario = Scenario::articulated_duel();
+        let mut world = World::new(&scenario, 1);
+        let legacy_core = world.state_hash();
+        let mut command = articulated_command();
+
+        command.grips[0] = GripRequest::EquipSlot(0);
+        world.articulated_command[0] = Some(command);
+        let left_zero = world.state_digest().value;
+        command.grips[0] = GripRequest::EquipSlot(1);
+        world.articulated_command[0] = Some(command);
+        let left_one = world.state_digest().value;
+        assert_ne!(left_zero, left_one, "left EquipSlot payload was omitted");
+
+        command = articulated_command();
+        command.grips[1] = GripRequest::EquipSlot(0);
+        world.articulated_command[0] = Some(command);
+        let right_zero = world.state_digest().value;
+        command.grips[1] = GripRequest::EquipSlot(1);
+        world.articulated_command[0] = Some(command);
+        let right_one = world.state_digest().value;
+        assert_ne!(right_zero, right_one, "right EquipSlot payload was omitted");
+        assert_ne!(left_zero, right_zero, "left and right grip columns collided");
+        assert_eq!(world.state_hash(), legacy_core);
+    }
+
+    #[test]
+    fn dead_allocated_slots_retain_their_articulated_command() {
+        let scenario = Scenario::articulated_duel();
+        let mut world = World::new(&scenario, 1);
+        let command = articulated_command();
+        let _ = world.submit_articulated_v1(EntityId::new(0, 0), command);
+        world.hp[0] = Fx::ZERO;
+        world.reap_dead();
+        assert!(!world.alive[0]);
+        assert_eq!(world.articulated_command[0], Some(command));
+        let retained = world.state_digest().value;
+        world.articulated_command[0] = None;
+        assert_ne!(world.state_digest().value, retained, "a dead slot's retained bytes were not hashed");
+        world.articulated_command[0] = Some(command);
+        let replacement = world.spawn(&scenario.units[0]);
+        assert_eq!(replacement, EntityId::new(0, 1));
+        assert_eq!(world.articulated_command[0], None);
+    }
+
+    #[test]
+    fn immutable_spec_binding_and_resolved_columns_reach_only_the_articulated_digest() {
+        let base_scenario = Scenario::articulated_duel();
+        let base = World::new(&base_scenario, 1);
+        let legacy_core = base.state_hash();
+        let digest = base.state_digest().value;
+
+        let mut changed = base_scenario.clone();
+        changed.combat_specs.as_mut().unwrap().equipment[0].mass += Fx::from_raw(1);
+        let changed_world = World::new(&changed, 1);
+        assert_eq!(changed_world.state_hash(), legacy_core);
+        assert_ne!(changed_world.state_digest().value, digest);
+
+        let mut changed = base_scenario.clone();
+        changed.units[0].articulated.as_mut().unwrap().anatomy = 2;
+        let changed_world = World::new(&changed, 1);
+        assert_eq!(changed_world.state_hash(), legacy_core);
+        assert_ne!(changed_world.state_digest().value, digest);
+
+        let mut changed_world = base.clone();
+        changed_world.articulated_carried[0].swap(0, 1);
+        assert_eq!(changed_world.state_hash(), legacy_core);
+        assert_ne!(changed_world.state_digest().value, digest, "carrying-slot order was omitted");
+        let mut changed_world = base.clone();
+        changed_world.articulated_equipment[0].swap(0, 1);
+        assert_eq!(changed_world.state_hash(), legacy_core);
+        assert_ne!(changed_world.state_digest().value, digest, "resolved arm order was omitted");
+    }
+
+    #[test]
+    fn swapped_carrying_slots_cannot_collide_when_the_actions_and_resolved_arms_match() {
+        let mut scenario = Scenario::articulated_duel();
+        scenario.combat_specs.as_mut().unwrap().equipment[1].action = ActionKind::Sword;
+        scenario.units[0].loadout = Loadout::pair(ActionKind::Sword, ActionKind::Sword);
+        let mut first = World::new(&scenario, 1);
+        let mut second = first.clone();
+        let common = UnitSpec {
+            kind: Body::Fighter,
+            faction: Faction::Heroes,
+            stats: Body::Fighter.base_stats(),
+            loadout: Loadout::pair(ActionKind::Sword, ActionKind::Sword),
+            articulated: Some(ArticulatedUnitSpecV1 { anatomy: 1, equipment: [Some(1), Some(2)] }),
+            spawn: Vec2::from_ints(12, 8),
+        };
+        first.spawn(&common);
+        let mut swapped = common;
+        swapped.articulated.as_mut().unwrap().equipment.swap(0, 1);
+        second.spawn(&swapped);
+        assert_eq!(first.state_hash(), second.state_hash());
+        assert_eq!(first.articulated_equipment[2], second.articulated_equipment[2]);
+        assert_ne!(first.state_digest().value, second.state_digest().value);
     }
 
     #[test]
@@ -4926,6 +6566,7 @@ mod tests {
             faction: Faction::Monsters,
             stats: Body::Skitterer.base_stats(),
             loadout: Body::Skitterer.default_loadout(),
+            articulated: None,
             spawn: at,
         })
     }
@@ -5468,6 +7109,7 @@ mod tests {
             faction: Faction::Monsters,
             stats: Body::Skitterer.base_stats(),
             loadout: Body::Skitterer.default_loadout(),
+            articulated: None,
             spawn: at_tile(6, 1),
         });
         w.refresh_nav();
@@ -5757,6 +7399,7 @@ mod tests {
                 faction,
                 stats: kind.base_stats(),
                 loadout: kind.default_loadout(),
+                articulated: None,
                 spawn,
             })
             .collect();
@@ -5815,6 +7458,7 @@ mod tests {
                     faction,
                     stats: kind.base_stats(),
                     loadout: kind.default_loadout(),
+                    articulated: None,
                     spawn,
                 })
                 .collect();
@@ -6022,6 +7666,7 @@ mod tests {
                 faction,
                 stats: kind.base_stats(),
                 loadout: kind.default_loadout(),
+                articulated: None,
                 spawn,
             })
             .collect();
@@ -6655,6 +8300,8 @@ mod tests {
     fn archery_range(apart: i32, defence: ActionKind) -> (World, EntityId, EntityId) {
         let scenario = Scenario {
             name: "archery".to_string(),
+            combat_model: crate::CombatModel::Legacy,
+            combat_specs: None,
             dungeon: Dungeon::open(24, 16),
             portal: None,
             torches: Vec::new(),
@@ -6665,6 +8312,7 @@ mod tests {
                     faction: Faction::Heroes,
                     stats: Body::Fighter.base_stats(),
                     loadout: Loadout::single(ActionKind::Bow),
+                    articulated: None,
                     spawn: Vec2::from_ints(6, 8),
                 },
                 UnitSpec {
@@ -6672,6 +8320,7 @@ mod tests {
                     faction: Faction::Monsters,
                     stats: Body::Fighter.base_stats(),
                     loadout: Loadout::single(defence),
+                    articulated: None,
                     spawn: Vec2::from_ints(6 + apart, 8),
                 },
             ],
@@ -6794,6 +8443,8 @@ mod tests {
     fn an_arrow_does_not_hit_its_own_side() {
         let mut scenario = Scenario {
             name: "crossfire".to_string(),
+            combat_model: crate::CombatModel::Legacy,
+            combat_specs: None,
             dungeon: Dungeon::open(24, 16),
             portal: None,
             torches: Vec::new(),
@@ -6817,6 +8468,7 @@ mod tests {
                 } else {
                     ActionKind::Punch
                 }),
+                articulated: None,
                 spawn: Vec2::from_ints(x, 8),
             });
         }
@@ -6873,6 +8525,8 @@ mod tests {
     fn an_arrow_expires_rather_than_flying_forever() {
         let scenario = Scenario {
             name: "empty range".to_string(),
+            combat_model: crate::CombatModel::Legacy,
+            combat_specs: None,
             dungeon: Dungeon::open(24, 16),
             portal: None,
             torches: Vec::new(),
@@ -6882,6 +8536,7 @@ mod tests {
                 faction: Faction::Heroes,
                 stats: Body::Fighter.base_stats(),
                 loadout: Loadout::single(ActionKind::Bow),
+                articulated: None,
                 spawn: Vec2::from_ints(4, 8),
             }],
         };
