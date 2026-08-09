@@ -3542,6 +3542,70 @@ pub extern "C" fn combat_geometry_digest_lo() -> u32 { fx::combat_geometry_diges
 #[no_mangle]
 pub extern "C" fn combat_geometry_digest_hi() -> u32 { (fx::combat_geometry_digest() >> 32) as u32 }
 
+// -------------------------------------------- the behavioral contact corpus
+//
+// Four exports that touch no world and no frame. They exist so
+// `tools/wasm_check.js` can rebuild all 3,548 bytes of the contact solver's
+// behavioral proof in JavaScript and compare them against what this target
+// produces -- see `docs/reference/contact-solver.md`, "Behavioral corpus V2".
+// A digest alone would say only *that* the two disagree; a byte accessor says
+// which field, which is the difference between a bug report and a bisect.
+//
+// A byte at a time rather than a pointer and a length, because the corpus is
+// the one buffer in this crate that is not a fixed array: building it allocates,
+// and an allocation can grow linear memory and detach every typed array the
+// caller is holding. Handing back integers cannot.
+
+thread_local! {
+    /// Built once, on first touch. `sim::contact_behavior_corpus` runs the whole
+    /// collector and resolver over all seven cases, and the check below reads it
+    /// 3,548 times -- recomputing per byte would run the solver 3,548 times.
+    ///
+    /// An error answers an empty corpus rather than trapping: the length export
+    /// then reads zero, which is a failed assertion on the far side with the
+    /// pinned number in the message, and a wasm trap is not.
+    static CONTACT_BEHAVIOR_CORPUS: Vec<u8> =
+        sim::contact_behavior_corpus().unwrap_or_default();
+}
+
+/// How many bytes [`contact_behavior_corpus_byte`] will answer. Pinned at 3,548
+/// by the reference and by the native fixture in `crates/sim`.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn contact_behavior_corpus_len() -> u32 {
+    CONTACT_BEHAVIOR_CORPUS.with(|corpus| corpus.len() as u32)
+}
+
+/// One byte of the corpus, widened. Answers **256** -- a value no byte can take,
+/// so the caller need not treat any in-range byte as a sentinel -- when `index`
+/// is past the end.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn contact_behavior_corpus_byte(index: u32) -> u32 {
+    CONTACT_BEHAVIOR_CORPUS.with(|corpus| {
+        corpus.get(index as usize).map_or(256, |&byte| u32::from(byte))
+    })
+}
+
+/// Low half of FNV-1a-64 over the corpus bytes, split for the same reason
+/// [`state_hash_lo`] is.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn contact_behavior_digest_lo() -> u32 { contact_behavior_digest() as u32 }
+
+/// High half of [`contact_behavior_digest_lo`]'s digest.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn contact_behavior_digest_hi() -> u32 { (contact_behavior_digest() >> 32) as u32 }
+
+fn contact_behavior_digest() -> u64 {
+    CONTACT_BEHAVIOR_CORPUS.with(|corpus| {
+        let mut hash = fx::Hash64::new();
+        hash.write_bytes(corpus);
+        hash.finish()
+    })
+}
+
 /// Fixed versioned input buffer for one articulated submitted command.
 #[allow(unsafe_code)]
 #[no_mangle]
@@ -5177,6 +5241,31 @@ mod tests {
         assert_eq!(selftest(), LAB_HASH, "the halves reassemble wrongly");
         assert_eq!(selftest_hash_lo(), 0x141e_f531);
         assert_eq!(selftest_hash_hi(), 0xfe31_370e);
+    }
+
+    /// The boundary's half of the contact proof. `crates/sim` already compares
+    /// the production corpus against a hand-built literal; this pins what
+    /// crosses the ABI, so a wasm-side failure in `tools/wasm_check.js` with
+    /// this test green diagnoses the *target*, not the solver -- the same
+    /// pairing the five run hashes use.
+    #[test]
+    fn the_contact_behavior_corpus_crosses_the_boundary_byte_by_byte() {
+        assert_eq!(contact_behavior_corpus_len(), 3_548);
+        let bytes: Vec<u8> = (0..contact_behavior_corpus_len())
+            .map(|index| u8::try_from(contact_behavior_corpus_byte(index)).unwrap())
+            .collect();
+        assert_eq!(&bytes[..24], b"ARPG-CONTACT-BEHAVIOR-V2");
+        // Hashed off the accessor rather than off the buffer, so the two exports
+        // cannot agree with the reference while disagreeing with each other.
+        let mut hash = fx::Hash64::new();
+        hash.write_bytes(&bytes);
+        assert_eq!(hash.finish(), 0xfe6c_e41e_c023_c1e5);
+        assert_eq!(contact_behavior_digest_lo(), 0xc023_c1e5);
+        assert_eq!(contact_behavior_digest_hi(), 0xfe6c_e41e);
+        // 256 and not 0: the corpus is full of zero bytes, so zero cannot say
+        // "past the end" and a byte value cannot be a sentinel.
+        assert_eq!(contact_behavior_corpus_byte(3_548), 256);
+        assert_eq!(contact_behavior_corpus_byte(u32::MAX), 256);
     }
 
     #[test]

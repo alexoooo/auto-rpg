@@ -68,6 +68,15 @@ widened energy/channel arithmetic, zero-time suppression, entity closure, and ca
 algorithm in the reference. This checkpoint operates on explicit collider rows and
 does not mutate `World`.
 
+Checkpoint B corrected one rule in the reference rather than implementing it as
+written. The local-to-global time map truncates; it does not round up. `fx`'s
+conservative advance already returns the first raw step at which the truncated poses
+touch, so rounding up a second time put the group pose one raw unit past the crossing
+and made a momentum chain chatter. The reference records the argument in place. A
+sim-private closed-form time of impact is not an alternative fix: the pinned
+behavioral digest is reachable through `fx::swept_segment_segment`, and
+`COMBAT_GEOMETRY_HASH` does not move.
+
 Add the hand-authored 591-byte serialization fixture and 3,548-byte behavioral fixture.
 The latter must call the production collector/resolver, compare every literal byte,
 then compare `0xfe6ce41ec023c1e5`; it may not serialize hand-written output facts.
@@ -92,8 +101,10 @@ shared_limb_group_energy_is_clamped_as_one_system
 the_greedy_alpha_keeps_only_individually_valid_bits
 group_energy_accumulation_never_saturates
 contact_resolution_channels_do_not_narrow
-global_time_ceil_does_not_commit_before_contact
+global_time_mapping_does_not_commit_before_contact
 the_last_raw_local_step_collapses_to_tick_end
+an_oversized_simultaneous_group_caps_instead_of_truncating
+a_bystander_outside_the_group_closure_stays_out_of_its_ledger
 a_stationary_edge_does_not_cut
 running_onto_a_braced_point_records_positive_thrust
 transverse_motion_records_cut_and_axial_motion_records_thrust

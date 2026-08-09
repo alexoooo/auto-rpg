@@ -322,6 +322,14 @@ test("the boundary exports everything the client calls", () => {
     "state_digest_schema",
     "combat_geometry_digest_lo",
     "combat_geometry_digest_hi",
+    // The contact solver's behavioral proof, read a byte at a time. Nothing on
+    // the page calls these four; they exist for the check further down, which
+    // is exactly why they need a line here -- an export no list mentions can be
+    // renamed out from under the only caller it has.
+    "contact_behavior_corpus_len",
+    "contact_behavior_corpus_byte",
+    "contact_behavior_digest_lo",
+    "contact_behavior_digest_hi",
     "submitted_command_ptr",
     "submitted_command_len",
     "submitted_command_layout_version",
@@ -451,6 +459,179 @@ test("combat geometry matches the frozen native digest", () => {
     hash64(wasm.combat_geometry_digest_lo(), wasm.combat_geometry_digest_hi()),
     COMBAT_GEOMETRY_HASH,
   );
+});
+
+// ---------------------------------------------- the behavioral contact corpus
+
+// docs/reference/contact-solver.md, "Behavioral corpus V2": 3,548 bytes summing
+// up every production resolution field v2-14 computes, for seven cases the
+// reference states outcome by outcome.
+//
+// Every number below is transcribed from that document -- the case table, the
+// invariants under it, and the byte grammar it shares with the 591-byte
+// serialization corpus. Not one was read off a solver run, and that is the whole
+// point of the fixture: a corpus derived from the thing it checks agrees with a
+// drifting solver by construction and proves nothing. crates/sim keeps a second,
+// independent literal of the same bytes, so this file compares the wasm target
+// against the reference rather than against Rust.
+const CONTACT_BEHAVIOR_BYTES = 3548;
+const CONTACT_BEHAVIOR_DIGEST = 0xfe6ce41ec023c1e5n;
+
+// FNV-1a-64 with offset 0xcbf29ce484222325 and prime 0x100000001b3: `fx::Hash64`
+// over raw bytes, written out here rather than taken on trust.
+function fnv1a64(bytes) {
+  const mask = 0xffffffffffffffffn;
+  let hash = 0xcbf29ce484222325n;
+  for (const byte of bytes) {
+    hash ^= BigInt(byte);
+    hash = (hash * 0x100000001b3n) & mask;
+  }
+  return hash;
+}
+
+// All 3,548 bytes, built from the reference.
+function expectedContactCorpus() {
+  const bytes = [];
+  // A negative raw value crosses as its two's-complement bit pattern, which is
+  // what `>>> 0` produces and what `Fx::raw() as u32` writes: -1 is 0xffffffff,
+  // -21846 is 0xffffaaaa, -43691 is 0xffff5555.
+  const putU32 = (value) => {
+    const bits = value >>> 0;
+    bytes.push(bits & 0xff, (bits >>> 8) & 0xff, (bits >>> 16) & 0xff, (bits >>> 24) & 0xff);
+  };
+  // A u64 is the low word and then the high word. Every one in this corpus fits
+  // in 32 bits; splitting it properly anyway is what makes that an observation
+  // about the data rather than an assumption baked into the reader.
+  const putU64 = (value) => {
+    putU32(value % 4294967296);
+    putU32(Math.floor(value / 4294967296));
+  };
+  // A vector is XYZ, and every vector in this corpus has zero Y and Z.
+  const putAxial = (x) => { putU32(x); putU32(0); putU32(0); };
+  // The seven identity words a ContactFact and its ContactImpulse both carry.
+  // Generation is zero throughout and A is always in the right slot.
+  const putKey = (row) => {
+    putU32(row.aIndex); putU32(0); putU32(1);
+    putU32(row.bIndex); putU32(0); putU32(row.bSlot);
+    putU32(row.kind);
+  };
+  // 8 ordinal/alpha + 84 fact + 52 impulse + 24 ledger + 32 channels = 200.
+  // Region is 0xff and the normal is +X on every row; the impulse on B is the
+  // exact negation of the one on A; `deflected` is zero everywhere in v2-14.
+  const putResolution = (row) => {
+    putU32(row.ordinal); putU32(row.alpha);
+    putKey(row); putU32(row.toi); putU32(0xff);
+    putAxial(row.pointX); putAxial(65536);
+    putAxial(row.velocityA); putAxial(row.velocityB);
+    putKey(row); putAxial(row.onA); putAxial(-row.onA);
+    putU64(row.before); putU64(row.after); putU64(row.dissipated);
+    putU64(row.cut); putU64(row.thrust); putU64(row.pressure); putU64(0);
+  };
+  // 20 bytes of counts, the resolutions, then one final `(x_raw, vx_raw)` pair
+  // per collider in label order -- so the collider count is the number of pairs.
+  const putCase = (caseId, groups, capHits, rows, finals) => {
+    putU32(caseId); putU32(finals.length); putU32(rows.length);
+    putU32(groups); putU32(capHits);
+    for (const row of rows) putResolution(row);
+    for (const [x, vx] of finals) { putU32(x); putU32(vx); }
+  };
+  // A weapon/weapon row: B in the right slot, kind 0, the contact point riding
+  // the global TOI, the moving label at 65536 and its target at rest.
+  const ww = (ordinal, alpha, aIndex, toi, onA, [before, after, dissipated]) => ({
+    ordinal, alpha, aIndex, bIndex: aIndex + 1, bSlot: 1, kind: 0,
+    toi, pointX: toi, velocityA: 65536, velocityB: 0, onA,
+    before, after, dissipated, cut: 0, thrust: 0, pressure: 0,
+  });
+
+  for (const character of "ARPG-CONTACT-BEHAVIOR-V2") bytes.push(character.charCodeAt(0));
+
+  putCase(0, 0, 0, [], []);
+
+  // Two targets at one x: one mapped time carries both facts, so they share
+  // group ordinal zero, one alpha and one ledger.
+  putCase(1, 1, 0, [
+    ww(0, 65536, 0, 16384, -32768, [32768, 16384, 16384]),
+    { ...ww(0, 65536, 0, 16384, -32768, [32768, 16384, 16384]), bIndex: 2 },
+  ], [[16384, 0], [40960, 32768], [40960, 32768]]);
+
+  // The same rows at restitution 1. The group cannot take full alpha and the
+  // greedy search settles on 43,691, which is also the impulse it applies.
+  putCase(2, 1, 0, [
+    ww(0, 43691, 0, 16384, -43691, [32768, 32768, 0]),
+    { ...ww(0, 43691, 0, 16384, -43691, [32768, 32768, 0]), bIndex: 2 },
+  ], [[-1, -21846], [49152, 43691], [49152, 43691]]);
+
+  // Label 2 is label 0's ally, so momentum reaches it only through label 1:
+  // two mapped times and therefore two ordinals.
+  putCase(3, 2, 0, [
+    ww(0, 65536, 0, 16384, -65536, [32768, 32768, 0]),
+    ww(1, 65536, 1, 32768, -65536, [32768, 32768, 0]),
+  ], [[16384, 0], [32768, 0], [65536, 65536]]);
+
+  // Coincident at tick start: TOI zero, contact point at the origin, and the
+  // post-exchange repeat suppressed rather than resolved a second time.
+  putCase(4, 1, 0, [
+    { ...ww(0, 65536, 0, 0, -32768, [4096, 4096, 0]), velocityA: 16384, velocityB: -16384 },
+  ], [[-16384, -16384], [16384, 16384]]);
+
+  // A Newton's cradle one group longer than the tick allows: eight resolve at
+  // 4096..32768 and the ninth contact caps instead.
+  putCase(5, 8, 1,
+    [0, 1, 2, 3, 4, 5, 6, 7].map((k) => ww(k, 65536, k, 4096 * (k + 1), -65536, [32768, 32768, 0])),
+    [[4096, 0], [8192, 0], [12288, 0], [16384, 0], [20480, 0],
+     [24576, 0], [28672, 0], [32768, 0], [32768, 0], [36864, 0]]);
+
+  // The one row with widened channels. B is a body, so the slot is BODY_SLOT
+  // and the kind is 2; the contact point is where the tip lands rather than the
+  // global time; a purely axial strike puts everything above the 144 energy
+  // floor into thrust and the floor itself into pressure.
+  putCase(6, 1, 0, [
+    {
+      ...ww(0, 65536, 0, 32768, -32768, [32768, 16384, 16384]),
+      bIndex: 1, bSlot: 0xff, kind: 2, pointX: 65536,
+      cut: 0, thrust: 16240, pressure: 144,
+    },
+  ], [[81920, 32768], [81920, 32768]]);
+
+  return bytes;
+}
+
+test("the behavioral contact corpus is the bytes the reference specifies", () => {
+  const expected = expectedContactCorpus();
+  // Proved before anything is compared against it: a fixture that lost a field
+  // would otherwise agree with a module that lost the same field.
+  assert.equal(expected.length, CONTACT_BEHAVIOR_BYTES,
+    "the corpus built in this file is not the documented length");
+  assert.equal(hex(fnv1a64(expected)), hex(CONTACT_BEHAVIOR_DIGEST),
+    "the corpus built in this file does not hash to the documented digest");
+
+  assert.equal(u32(wasm.contact_behavior_corpus_len()), CONTACT_BEHAVIOR_BYTES,
+    "web.wasm reports a different corpus length");
+  const measured = [];
+  for (let index = 0; index < expected.length; index++) {
+    measured.push(u32(wasm.contact_behavior_corpus_byte(index)));
+    if (measured[index] === expected[index]) continue;
+    // Every field in this grammar is word-aligned, so the containing word is
+    // what names the field; the byte offset on its own does not.
+    const word = Math.floor(index / 4);
+    const show = (source) => Array.from({ length: 4 }, (_, k) =>
+      String(source[word * 4 + k]).padStart(3, " ")).join(" ");
+    for (let k = word * 4; k < word * 4 + 4; k++) {
+      measured[k] = u32(wasm.contact_behavior_corpus_byte(k));
+    }
+    assert.fail(`contact corpus differs at byte ${index}, in word ${word}: ` +
+      `web.wasm [${show(measured)}], reference [${show(expected)}]`);
+  }
+  // 256 is the out-of-range answer, and it has to be: the corpus is full of
+  // zero bytes, so no byte value could serve as the sentinel.
+  assert.equal(u32(wasm.contact_behavior_corpus_byte(CONTACT_BEHAVIOR_BYTES)), 256,
+    "an index one past the end did not answer 256");
+
+  assert.equal(
+    hex(hash64(wasm.contact_behavior_digest_lo(), wasm.contact_behavior_digest_hi())),
+    hex(fnv1a64(measured)),
+    "the exported digest halves are not FNV-1a-64 over the bytes just compared");
+  console.log(`contact corpus ${hex(CONTACT_BEHAVIOR_DIGEST)}  == ${expected.length} bytes built here`);
 });
 
 test("a scripted walk leaves the world in the state native recorded", () => {

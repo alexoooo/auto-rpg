@@ -178,7 +178,11 @@ Scan ascending full entity identities, then left and right owner slots, then
 `ContactKind` order. Sort and deduplicate facts by `ContactKey`; if several primitive
 features make the same key, retain the least
 `(toi.raw, distance_raw_squared, feature_rank)` returned by the public geometry
-function. No row position or bare index is identity.
+function. That tie-break lives in the candidate scan and only there: a v2-14 pair
+yields at most one candidate per kind, so it is currently unreachable, and the group's
+own recomputation at the frozen pose does not repeat it — the scan has already reduced
+each key to one row by the time a group forms. No row position or bare index is
+identity.
 
 Articulated worlds have the authoritative entity ceiling
 `MAX_ARTICULATED_ENTITIES=64`; Legacy world and codec limits do not change. Capacity
@@ -195,12 +199,16 @@ Sixteen deliberately over-reserves the valid-construction maximum: four
 weapon/weapon, up to eight directed weapon/shield slots, and four directed
 weapon/body. At the ceiling, `candidate_bound=32_256`. Candidate storage and
 suppression reserve that bound. Facts, one-group indices, and accumulators reserve
-`MAX_CONTACT_FACTS_PER_GROUP=512`; group metadata reserves 8; closure and collider
+`MAX_CONTACT_FACTS_PER_GROUP=512`; closure, collider, and cap-closure
 rows reserve `collider_bound`; completed resolutions reserve
-`MAX_CONTACT_RESOLUTIONS_PER_TICK=4_096`; start snapshots reserve `n`. Reserve before
+`MAX_CONTACT_RESOLUTIONS_PER_TICK=4_096`. No start-snapshot row is reserved, because
+counting before the advance removes the only thing that would have needed one, and no
+group-metadata row is reserved, because a group ordinal is a scalar. Reserve before
 changing any world column and clear/reuse
-afterward. Capacity may grow only when allocated high water grows. Reusing a dead
-slot does not reserve.
+afterward. Reserve against `len()`, never `capacity()`: `Vec::reserve*` takes capacity
+*beyond the length*, so subtracting the capacity instead is a silent no-op on exactly
+the cleared vectors this solver reserves. Capacity may grow only when allocated high
+water grows. Reusing a dead slot does not reserve.
 
 Add exact compatibility APIs:
 
@@ -262,12 +270,40 @@ owning_equipment_requested += De
 arm_relative_velocity = clamp(Ve_prime,-4,4) - clamp(Vb,-4,4)
 ```
 
+**Open defect, owned by checkpoint C.** This componentwise clamp does not keep the
+sweep inside the geometry envelope. `CONTACT_COMPONENT_SPEED_LIMIT` bounds each
+component at 4, which admits a magnitude of `4*sqrt(3)` ≈ 6.93, while
+`combat-geometry`'s displacement bound is on the *magnitude* and is 4. `fx` fails
+closed on out-of-envelope input by answering `TimeOfImpact::ZERO`, so an over-fast
+row manufactures a zero-time contact with every hostile collider in the world,
+however far away. Measured: two hostile zero-radius points 11.3 units apart, one
+holding velocity `(3,3,0)`, resolve a real impulse of -1.0. The boundary is exact —
+`(2,3,0)` and `(4,0,0)` produce nothing, `(3,3,0)` and `(4,1,0)` manufacture a fact.
+The safe componentwise limit for a three-component velocity is `4/sqrt(3)` ≈ 2.309,
+but the energy preflight's `4.raw^2` and
+`group_energy_accumulation_never_saturates`'s velocity `(4,4,4)` are both written
+against 4, so closing this needs one decision across the clamp, the preflight, and
+those pinned numerators. Checkpoint B does not implement the entry clamp and cannot
+close it; C must not land without doing so.
+
 Then inverse-map any shifted endpoint and apply the `Both` mirror. Body translation
 is not added a second time during equipment clamp. This entry clamp is
 articulated-only and precedes energy and sweeps; it remains authoritative even when
 no fact occurs. Application clamps again. Focused tests cover repeated
 crowded separation, movement, Both mirroring, and both clamps. No unchecked product,
-`HashMap`, unstable sort, float, RNG, or allocation order may affect output.
+`HashMap`, float, RNG, or allocation order may affect output, and no ordering may
+depend on anything but a strict total order.
+
+That last clause is the operative form of the older "no unstable sort" rule, which
+turned out to conflict with the no-allocation promise. Rust's stable sort heap
+allocates a half-length buffer above about twenty elements: at the entity ceiling the
+candidate list is 32,256 rows, so sorting it stably costs roughly 2.7 MB of transient
+allocation per scan and up to nine scans a tick, inside the driver that is supposed to
+allocate nothing once reserved — and a capacity-watching test cannot see a buffer that
+is allocated and freed inside the call. One scan emits at most one candidate per
+`(pair, kind)`, so `ContactKey` alone strictly totally orders both the candidate list
+and a group's facts; an in-place sort has no equal elements to reorder and is
+therefore exactly as deterministic. Sort in place, and keep the total order genuine.
 
 ## Time groups and coupled state
 
@@ -276,32 +312,68 @@ raw time zero. Global raw time is the only pose parameter. Local zero maps to th
 current global `g`; a positive local sweep result `u` maps to
 
 ```text
-t = g + ceil((65_536-g)*u/65_536)
-  = g + ((65_536-g)*u + 65_535)/65_536
+t = g + min(65_536-g, max(1, (65_536-g)*u/65_536))
 ```
 
-in widened unsigned arithmetic. This never places state one raw unit before a
-conservative contact. Collect the minimum `t`. In tentative scratch, advance every
+with truncating division in widened unsigned arithmetic.
+
+**The truncation is a correction.** An earlier revision of this contract rounded
+*up* here, reasoning that rounding down could place state one raw unit before a
+conservative contact. It cannot, and the pairing with geometry is why: the
+conservative advance answers with the first raw local step at which the *truncated*
+poses touch, which is never earlier than the analytic crossing. Rounding up a second
+time here landed the group pose one raw unit *past* it — the recomputed normal flips,
+closing reads zero, the pair tunnels, and a momentum chain chatters at
+32,769/32,771/32,773 instead of transferring. Restoring the round-up with nothing
+else changed shrinks the behavioral corpus below from 3,548 bytes to 2,948, because
+the cradle tunnels after five links. `max(1)` is what stops a positive local result
+from stalling the tick; `min` stops a fully consumed tick from stepping past its own
+end. A private closed-form time of impact in `sim` is not an alternative fix —
+that is the same prohibition as the one above, and the behavioral digest below is
+reachable through the public sweep.
+
+Two things this rule does **not** claim, both of which an earlier draft of this
+paragraph got wrong. The sweep's answer is not `ceil` of the exact crossing in
+general: it is the first step at which the quantized poses touch, and at a few raw
+units of closing speed per tick that can be far later — speed 3 raw against a gap of
+1 raw answers 43,690 against an exact crossing of 21,845.33. And the composition is
+not exact in both directions. The sweep certifies a pose built with `Fx::mul`, an
+arithmetic shift that floors; the advance below uses `trunc_toward_zero`. Those agree
+on non-negative displacement and differ by one raw unit on negative displacement with
+a non-exact quotient, so a westward engagement can settle one raw unit short of its
+eastward mirror — reflecting behavioral case 5 through the origin moves seven of its
+ten finals. The asymmetry is deterministic and sub-millimetre; removing it means
+changing the advance's rounding, which is frozen here and pinned by the digest, so it
+is recorded rather than fixed.
+
+Collect the minimum `t`. In tentative scratch, advance every
 collider on its current piecewise trajectory from its pose `p` at `g`
 toward current requested end `e` as
 `p + trunc_toward_zero((e-p)*(t-g)/(65_536-g))` in checked widened arithmetic.
-Never interpolate again from tick start after group one. Recompute and
-sort/deduplicate facts at that one global pose for the immutable group. Equal mapped `t` is simultaneous even
-when local fractions differed. Initial overlap is exactly local zero. The vector
+Never interpolate again from tick start after group one. Group membership is
+mapped-time equality: every unsuppressed candidate whose `t` equals the minimum is
+in, so equal mapped `t` is simultaneous even when local fractions differed. Recompute
+those members' geometry at that one global pose and sort/deduplicate by `ContactKey`
+for the immutable group. The recomputation evaluates the closest pair directly rather
+than re-sweeping a trajectory with no remaining extent, so a member the advance left
+a raw unit short is re-derived rather than dropped; there is no membership fallback.
+Initial overlap is exactly local zero. The vector
 `g=65_535,u=1` maps to 65,536 and is the mandatory near-end collapse test.
 
-If that earliest equal-time set contains more than 512 facts, resolve none. At the
-current last-safe `g`, restore the tentative pose, seed the ordinary whole-entity cap
+If that earliest equal-time set contains more than 512 facts, resolve none: at the
+last-safe `g`, seed the ordinary whole-entity cap
 closure from all overflowing facts, freeze that closure, let outsiders finish, increment `cap_hits` once, and end
 contact for the tick. This is deterministic capacity exhaustion, not truncation; no
 prefix of a simultaneous group is privileged. Eight admitted groups of at most 512
-rows fit the 4,096-resolution ceiling exactly.
+rows fit the 4,096-resolution ceiling exactly, which is an invariant to assert rather
+than a live limit.
 
-Detect this without overflowing the 512-row fact vector: the first candidate pass
-counts every recomputed earliest fact with checked `usize`; when the count exceeds
-512, a second pass over retained candidates at the same tentative global pose adds
-each matching fact's two owning entities directly to the 192-row closure worklist.
-No overflowing `ContactFact` is pushed or silently omitted.
+Detect this without overflowing the 512-row fact vector: count the earliest-mapping
+candidates with checked `usize` **before** advancing anything. The pose is then still
+on the last-safe `g`, so an overflow has nothing to restore and needs no start
+snapshot, and the pass that counted can seed the closure worklist directly from each
+overflowing candidate's two owning entities. No overflowing `ContactFact` is ever
+pushed or silently omitted.
 
 Before resolution, snapshot one immutable generalized state. A fact participant
 expands the group state to its owning entity body plus every currently held collider.
@@ -357,15 +429,68 @@ after the solver, separately dissipative, and absent from group ledgers/injury. 
 test compares closure energy immediately before/after settlement and requires it not
 to increase.
 
-A key in the immediately previous group whose local re-sweep TOI is zero (and whose
+A key already in the suppression set whose local re-sweep TOI is zero (and whose
 mapped time therefore equals current global time) first tests current velocities
-against that predecessor fact's stored normal. Suppress when
-`dot(current_velocity_b-current_velocity_a,predecessor_normal) >= 0`. Reusing the
-predecessor normal is essential at exact coincident points: recomputing the
+against that stored normal. Suppress when
+`dot(current_velocity_b-current_velocity_a,stored_normal) >= 0`. Reusing the
+stored normal is essential at exact coincident points: recomputing the
 velocity-derived degenerate normal after a bounce would flip it and falsely call the
 separating pair closing. If the test is negative, recompute the new fact and its
-normal normally. A positive local TOI removes the key from this predecessor set. The
+normal normally. A positive local TOI removes the key from the set. Every resolved
+group upserts its own members' keys and normals. The
 set is sorted, tick-local, and unhashed.
+
+The set persists for the whole tick, not for one group, and the difference is
+load-bearing. A pair that has come to rest against itself stays coincident with zero
+relative approach, so it re-sweeps at local zero every group thereafter. If an
+unrelated group elsewhere in the arena could clear the memory, that dead pair would
+resolve again, consume an ordinal, and drive the tick into a spurious `cap_hits`
+increment — which is hashed state.
+
+The velocity-sign test alone is not enough, and this is the second correction this
+contract has taken. A repeat is **also** suppressed when it is still closing but
+**both** its relative velocity and the current global time are unchanged since the
+group that recorded it. That pair of conditions is the literal statement of "identical
+state", and an identical state must produce an identical result, so re-resolving is
+provably a no-op. The case is common rather than exotic: an impulse is
+`closing/inv_sum` in truncating fixed point, so any residual closing speed small enough
+to truncate to zero leaves the pair closing and unresolvable — at equal unit masses
+every odd raw closing speed does it, and a randomised sweep of ordinary valid rows hit
+it in roughly one soup in six. Left unsuppressed such a pair re-resolves once per
+remaining ordinal, every one a no-op, and the tick ends in a `cap_hits` increment
+invented out of a rounding floor.
+
+The time half is not decoration, and leaving it out is a worse bug than the one the
+clause fixes. Testing the velocity alone suppressed contacts that had every right to
+resolve: a group elsewhere in the arena advances global time, which slides both
+colliders along their trajectories, so the recomputed normal can rotate under an
+unchanged relative velocity. The same randomised sweep measured 3,376 wrongly
+suppressed *closing* contacts that way, one of them closing at 3.95 units per tick,
+and one weapon/body impulse dropped entirely. Comparing the stored normal instead is
+not the fix — at a coincident point the normal is derived from that same relative
+velocity, so it agrees precisely when the velocity does, and requiring equality
+reinstates the livelock. Only an unmoved pose makes "identical state" true, and global
+time is what moves it. The price is one ordinal: an unresolvable pair is re-examined
+once per distinct group time thereafter, bounded by eight, which is the right trade
+against dropping a real contact. With the time condition in place a randomised sweep
+measures zero wrongly suppressed contacts outside the capped regime, against a cap rate
+that rises by 0.3 percentage points and only in crowded scenes.
+
+One inconsistency survives here on purpose, and it is safe for a reason worth writing
+down rather than rediscovering. The candidate scan hands `make_candidate` the *local*
+time, so a coincident pair re-swept mid-tick takes the unconditional +X branch, while
+the group's own recomputation takes the velocity-derived branch at the global time —
+the two disagree by construction for any pair recorded past tick start. It cannot
+matter: a candidate's normal never reaches a resolution, only the suppression test and
+the earliest-time scan, and clause 2 fires only at unchanged global time, where
+`contact_at_pose` reads the same `previous_*` poses that only the advance moves and so
+reproduces the recorded fact exactly. Anything that changes when the record is written,
+or makes the pose recomputation depend on post-group velocities, breaks that argument
+and must revisit this paragraph.
+
+`persistent_zero_time_contacts_do_not_livelock` measures all three routes: the
+separating repeat, a suppressed pair surviving an unrelated intervening group staged
+off-axis, and the truncating-impulse family at closing 1, 3, 7, 9, and 65,535 raw.
 
 ## Impulses and exact energy rule
 
@@ -423,15 +548,45 @@ cut = floor(floor(available*transverse_sq/(axial_sq+transverse_sq))*edge_factor.
 pressure = share-thrust-cut
 ```
 
-A zero denominator puts the whole share in pressure. Channels remain `u64`; no v14
+A zero denominator puts the whole share in pressure. `pressure` is a subtraction, and
+it stays nonnegative only while both factors are at most one: `thrust_base+cut_base`
+is bounded by `available`, but scaling each by a factor above 65,536 can push their
+sum past `share`. `validate_surface` bounds all four coefficients to `[0,1]`, so no
+spec-built surface can do it — but the channel allocator is public and takes a raw
+`SurfaceSpec`, so it clamps each factor to `[0,65_536]` rather than assuming the
+invariant. Unclamped, `point_factor=2` panics on any share above 288 in release too,
+since the workspace keeps overflow checks on. Channels remain `u64`; no v14
 proof permits narrowing them to `Fx` or one ABI word. V2-14 mutates no health.
+
+A mid-tick `Err` from the driver leaves the collider rows partly advanced: earlier
+groups have already been applied and committed to the caller's slice. That is
+harmless while the rows are the caller's own scratch, which is all checkpoint B has,
+but checkpoint C hands `World` columns to this function, where a partial advance is a
+half-written world. C owns deciding whether to advance a copy and swap on success, or
+to treat any `ResolutionError` as fatal.
+
+Collider rows handed to the solver must have distinct `(EntityId, LimbSlot)` identity,
+and the driver returns `DuplicateIdentity` rather than trusting it. A duplicate
+resolves a candidate onto whichever row is found first, landing the impulse on the
+wrong collider while the intended pair stays in contact — and because the candidate
+scan sorts in place, "found first" then depends on how equal keys fall out, which turns
+a silently wrong answer into a silently *nondeterministic* one: 13 of 24 row
+permutations of a three-row duplicate fixture disagreed. The in-place sort's soundness
+argument is precisely this precondition, so it is checked in release too, not merely
+asserted in debug. The typed spawn APIs cannot build such a row, and the check is
+quadratic in a count bounded by 192, ahead of a pair scan that is already quadratic
+with geometry in its inner loop.
 
 ## Iteration cap
 
 After group eight, perform the ordinary scan including zero-time suppression. If a
-fact remains, take transitive closure by whole owning entity: each seed participant
-adds its entity body and all held colliders, and facts touching any added collider add
-their other entity until stable. Every collider in the closure keeps its last-safe
+fact remains, seed from the participants of the **earliest remaining group only** — a
+contact scheduled for later in the tick has not happened yet and has no reason to be
+frozen by this one — then take transitive closure by whole owning entity: each seed
+participant adds its entity body and all held colliders, and facts touching any added
+collider add their other entity until stable. Seeding from every surviving fact would
+freeze bystanders and make the transitive step vacuous, since every fact would already
+have contributed both of its entities. Every collider in the closure keeps its last-safe
 current pose, makes requested end equal current, and zeros body velocity or owning-arm
 linear/scalar velocity. `Both` mirrors the zeroed right owner. Outsiders advance to
 their current requested ends. Set previous/current geometry consistently to the
@@ -580,6 +735,12 @@ fixture stated here:
   (stopped or reflected); the outside row has neither fact nor impulse.
   `a_low_shield_does_not_cover_a_high_contact` repeats at Z 0 and 3/4; only Z 0
   produces that positive blocking impulse and stopped/reflected result.
+- `an_oversized_simultaneous_group_caps_instead_of_truncating` sets 23 hostile points
+  against 23 more, all coincident, for 529 simultaneous facts against the 512 ceiling,
+  and requires zero resolutions, `cap_hits` 1, and every row held at its last-safe
+  pose. `a_bystander_outside_the_group_closure_stays_out_of_its_ledger` adds one
+  far-away hostile row to case 2 and requires the serialized ledger, the accepted
+  alpha, and the participants' finals to be unchanged by it.
 - `the_contact_corpus_has_a_documented_byte_order`,
   `the_behavioral_contact_corpus_has_literal_outcomes`, and
   `contact_corpus_matches_on_eight_native_threads` prove the two corpora above.

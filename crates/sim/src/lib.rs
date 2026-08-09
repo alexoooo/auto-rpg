@@ -86,6 +86,12 @@ pub use combat::actuator::{
     ARM_MIN_REACH_RAW, BODY_YAW_ACCEL_RAW, BODY_YAW_MAX_SPEED_RAW,
     FATIGUE_RECOVERY_RAW, FATIGUE_WORK_SCALE_RAW,
 };
+/// The behavioral contact proof, and only it. The collector, the resolver and
+/// the collider rows stay private: this is the one thing outside `sim` that has
+/// a reason to reach the contact solver before v2-15, and it is the browser
+/// boundary re-running the corpus so `tools/wasm_check.js` can compare the two
+/// targets byte for byte.
+pub use combat::resolution::{contact_behavior_corpus, ResolutionError};
 pub use dungeon::{Cardinal, Door, Dungeon, Level, Rect, Torch, CORRIDOR, DOOR, OPEN, WALL};
 pub use entity::{EntityId, Faction, Body};
 pub use event::Event;
