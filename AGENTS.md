@@ -166,6 +166,10 @@ expected to.**
 Plans are updated in place as sessions complete, and the whole set is deleted in the
 commit that finishes the topic (see `iso-*` in the history of `docs/plans`).
 
+The live set is `v2-*`. **Start at [`docs/plans/v2-00-overview.md`](docs/plans/v2-00-overview.md)** —
+its dated progress note says which session is in flight and which are done, so you do
+not have to infer the state of the tree from the code or the log.
+
 ## Gotchas that have already cost time
 
 **Rendering performance cannot be measured from an automated browser tab.** A

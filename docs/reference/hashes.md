@@ -92,6 +92,25 @@ fixture has since moved for intentional behavior changes and is pinned in the ta
 above. The older number is retained only to explain the historical route correction;
 it is not an alternate accepted golden.
 
+### Mechanics pins added by the v2 sessions
+
+The six pins above are legacy gameplay fixtures and must not move in any v2 session.
+The mechanics sessions have added four more, and they obey a different rule: each pins
+a purpose-built contract rather than a fight, so the session that owns that contract
+may move its pin — but only by predicting the move in writing first and explaining it
+afterwards. These are as easy to break by accident as the legacy six, and a fresh
+session that does not know they exist is the likeliest way to break one.
+
+| Pin | Current value | Ownership | Re-record rule |
+|---|---:|---|---|
+| `COMBAT_GEOMETRY_HASH` | `0x9d15344883cf6e9c` | [`crates/fx/src/geom3.rs`](../../crates/fx/src/geom3.rs#L1322) and [`tools/wasm_check.js`](../../tools/wasm_check.js#L75) | Introduced by v2-12. Moved once, by v2-14 checkpoint A adding the continuous sweeps, from `0x56fb8704002a1a61`. A further move needs a new geometry row and must be predicted. |
+| `ARTICULATED_COMMAND_HASH` | `0x010411d521a376d7` | [`crates/web/src/lib.rs`](../../crates/web/src/lib.rs#L4898) and [`tools/wasm_check.js`](../../tools/wasm_check.js#L74) | The unstepped `ArticulatedV1` command probe. Moved once, by v2-14 checkpoint C appending the global `cap_hits:u32`, from `0x584d711e492950e7`; those four appended zero bytes are the whole explanation. |
+| `CONTACT_BEHAVIOR_DIGEST` | `0xfe6ce41ec023c1e5` | [`crates/web/src/lib.rs`](../../crates/web/src/lib.rs#L5427) and [`tools/wasm_check.js`](../../tools/wasm_check.js#L488) | 3,548 behavioral corpus bytes owned by v2-14 checkpoint B. `wasm_check.js` rebuilds every byte itself rather than trusting the export, so a one-sided failure still diagnoses target disagreement. |
+| contact format corpus | `0x1adfa9e01e36edf9` | [`crates/sim/src/combat/resolution.rs`](../../crates/sim/src/combat/resolution.rs#L1396) | 591 hand-authored serialization bytes owned by v2-14 checkpoint B. Native only, and unpaired on purpose: it pins a byte grammar rather than a behaviour. |
+
+One `ARTICULATED_HASH` for a scripted fight is planned by v2-17 and deliberately does
+not exist yet. No earlier session may create it.
+
 > **Pending, not current:** v2-10 plans separate, versioned scenario, state, and
 > replay hash domains plus a validated replay codec. None of those guarantees exists
 > in the current streams above.

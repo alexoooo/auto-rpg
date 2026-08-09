@@ -70,12 +70,18 @@ flowchart TD
 ```
 
 The non-legacy schedule shares clear/expiry, planar movement, body separation, doors, and
-the tick tail. Between separation and doors it drives body yaw, atomically applies
-the pending grip transaction, advances both arm actuators, and derives shield
-geometry. V2-13 deliberately calls no legacy regeneration, limb, parry, swing,
-recoil, shot, or HP-reap phase; no future contact, anatomy damage, or model-specific death lands
-in later mechanical sessions. No future non-legacy schedule may differ from the
-exact phase order in the current actuator reference contract.
+the tick tail. It retains every slot's contact tick-entry pose *before* movement and
+records intended locomotion *between* movement and separation, because that
+displacement exists on its own at no other point in the tick. Between separation and
+doors it drives body yaw, atomically applies the pending grip transaction, advances
+both arm actuators, derives shield geometry, and then resolves contact. The complete
+order is pinned by a phase trace rather than argued from the reading order of the
+branch: `retain contact entry`, `apply articulated movement`,
+`record contact locomotion`, `separate`, `body yaw`, `grips`, `arms`, `geometry`,
+`contact`, `doors`. The non-legacy branch deliberately calls no legacy
+regeneration, limb, parry, swing, recoil, shot, or HP-reap phase; anatomy damage and
+model-specific death land in later mechanical sessions. No future non-legacy schedule
+may differ from the exact phase order in the current actuator reference contract.
 
 `events` is cleared at the next step and is an outward report rather than
 authoritative input. Navigation fields, pending-decision lists, free lists, and
@@ -95,8 +101,14 @@ and objectives only.
 
 The non-legacy command boundary and immutable scenario-owned combat specs are
 stored, hashed, and used to validate prospective equipment-grip transactions.
-Persistent body-yaw and arm actuators participate in the `ArticulatedV1` tick branch.
-Contact, anatomy evolution, and `articulated` damage do not participate yet.
+Persistent body-yaw and arm actuators participate in the `ArticulatedV1` tick branch,
+and so does contact — but only in part while v2-14 checkpoint C finishes. What is
+authoritative today is the entry velocity clamp: it mutates body velocity and both
+arm rows, so it is hashed state even though no fact has been resolved. The phase then
+builds this tick's colliders and stops. The solve, the impulse commit, wall
+settlement, and the cap commit are still owed, so `cap_hits` is hashed but always
+zero, no contact impulse reaches a body, and anatomy evolution and `articulated`
+damage do not participate at all.
 
 ## Source anchors
 
