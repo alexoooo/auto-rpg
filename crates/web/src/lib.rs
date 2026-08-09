@@ -1017,6 +1017,24 @@ struct Sim {
     /// [`Sim::descend`] and by the portal opening.
     portal_armed: bool,
 
+    /// How many articulated rows this world's contact vectors are reserved for.
+    /// Zero on a Legacy world, which has no contact state to reserve and for
+    /// which `World::try_reserve_contact_slots` is an exact no-op.
+    ///
+    /// **A record of the reservation, because the reservation is not readable
+    /// back.** The only thing on `World` that could report it is capacity, and
+    /// `try_reserve_contact_slots` says in as many words that capacity is not
+    /// authoritative state and must not be inspected as if it were. So the host
+    /// writes down what it asked for on the call that answered `Ok`, and
+    /// nothing else may write this: a world installed without that answer is
+    /// not installed at all (see [`init_articulated_test`]), which is what keeps
+    /// this a fact rather than a hopeful copy.
+    ///
+    /// It lives on `Sim` and not in a `thread_local!` for the reason every other
+    /// field here does: it describes *this* world and dies with it, so a plain
+    /// [`init`] cannot leave a stale 64 behind for a Legacy room.
+    contact_high_water: u32,
+
     /// Tiles the player has seen at any point on this floor. Cleared by
     /// [`Sim::descend`] and by a fresh [`init`], never otherwise -- this is the
     /// "remembered" half of the fog, and forgetting it mid-floor would be a
@@ -1266,6 +1284,11 @@ impl Sim {
             last_hero_fall: None,
             last_kill: None,
             portal_armed: false,
+            // Zero and not `MAX_UNITS`: every scenario that reaches here builds
+            // a Legacy world, where the reservation is a no-op over contact
+            // state that does not exist. `init_articulated_test` is the one
+            // place that can honestly write anything else.
+            contact_high_water: 0,
             // The fog's memory, sized to the tile buffer it is indexed against
             // rather than to this level's extent. Every `Sim` is built through
             // here, so this is the one place it can be sized -- and a `seen`
@@ -2369,7 +2392,24 @@ impl Sim {
         // Whatever the caller asked for, a newcomer through this door is on the
         // other side. The enemy panel is an *enemy* panel.
         spec.faction = Faction::Monsters;
-        let id = self.world.spawn(&spec);
+        // **`try_spawn`, never `spawn`.** `World::spawn` turns a refused
+        // construction into a panic, and a panic behind a `pub extern "C"` is a
+        // trap that poisons the instance for the life of the page -- the next
+        // export re-enters a `RefCell` that is still borrowed and traps again,
+        // so the page dies on the frame after the one that went wrong rather
+        // than on the call that did.
+        //
+        // Which is not hypothetical. Every spec built on this side carries
+        // `articulated: None`, so on an Articulated world *this whole path* is
+        // refused (`CombatSpecError::UnitPresence`) rather than only its
+        // sixty-fifth row -- the boundary has no articulated spawn today, and
+        // `init_articulated_test` is reachable from the client. A 65th row
+        // (`ContactCapacityError::EntityLimit`) is refused through the same
+        // line once one lands, which is why this is a `try_spawn` and not a
+        // model test: the reason a world would not take a body is the world's
+        // to give, and the host's only job is to answer `0` and leave
+        // everything exactly as it was.
+        let Ok(id) = self.world.try_spawn(&spec) else { return 0 };
         // The step that is easy to miss: a spawned entity thinks, moves and
         // fights whether or not it is in this vector. It is simply invisible
         // until it is.
@@ -2404,21 +2444,34 @@ impl Sim {
         // -- so `1` and `2` walking a Rogue in do not leave the rail describing
         // the Fighter that fell. Only the stat sheet is inherited, and only when
         // the body it was written for is the body arriving.
-        if self.hero_spec.kind != kind {
-            self.hero_spec.set_body(kind);
+        //
+        // Prepared on a copy and committed below, once there is a body wearing
+        // it. `1` answered `0` because the room would not take the request is
+        // not the player having asked for a Rogue; the rail should still read
+        // the fighter that is coming back.
+        let mut plan = self.hero_spec;
+        if plan.kind != kind {
+            plan.set_body(kind);
         }
-        self.hero_spec.loadout = loadout;
+        plan.loadout = loadout;
 
         let mut rng = self.placement_rng();
         let spawn = self.entry_point(kind, &mut rng);
-        let id = self.world.spawn(&UnitSpec {
+        // `try_spawn` rather than `World::spawn`, for the whole of the argument
+        // [`Sim::walk_in`] makes: a refused construction there is a panic, and a
+        // panic behind this boundary is a trap that poisons the page. An
+        // Articulated world refuses every spec built on this side.
+        let Ok(id) = self.world.try_spawn(&UnitSpec {
             kind,
             faction: Faction::Heroes,
-            stats: self.hero_spec.stats,
+            stats: plan.stats,
             loadout,
             articulated: None,
             spawn,
-        });
+        }) else {
+            return 0;
+        };
+        self.hero_spec = plan;
         self.units.push(id);
 
         // The dead character's standing order outlived it, for the same reason
@@ -3148,14 +3201,19 @@ fn publish() {
             sim.refresh_vis();
             FRAME.with(|frame| sim.write_frame(&mut frame.borrow_mut()))
         }
-        // **This arm writes no header at all**, which is only safe because
+        // **This arm used to write no header at all**, on the argument that
         // `FRAME` is zero-initialised and `SIM` never goes back to `None` once
-        // an `init` has filled it. Every header float therefore either holds a
-        // written value or a zero that was never anything else -- `frame[14]`
-        // included, where a value left over from a live sim would report a feed
-        // truncation on a frame that carries no feed. A future export that
-        // could clear `SIM` has to zero the header here.
-        None => HEADER_LEN,
+        // an `init` has filled it -- so every header float held either a written
+        // value or a zero that was never anything else. The note ended by saying
+        // that a future export which could clear `SIM` has to zero the header
+        // here, and [`init_articulated_test`] is now that export: it refuses to
+        // install a world whose contact vectors are not reserved, and a header
+        // left over from the last live sim would then report that sim's unit
+        // count, depth and feed truncation over a world that is not there.
+        None => {
+            FRAME.with(|frame| frame.borrow_mut()[..HEADER_LEN].fill(0.0));
+            HEADER_LEN
+        }
     });
     FRAME_LEN.with(|n| n.set(len as u32));
 }
@@ -3276,14 +3334,67 @@ pub extern "C" fn set_focus(index: u32, generation: u32) -> u32 {
 
 /// Deterministic articulated command-boundary fixture used by the native/wasm
 /// equality gate until the representative articulated room lands in v2-17.
+///
+/// **Reserves the contact vectors for the frame's own ceiling before the world
+/// is reachable.** See the body for why the reservation is here and not left to
+/// the first spawn, and for what a refused reservation does.
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn init_articulated_test(seed: u32) {
     let mut fresh = Sim::new(u64::from(seed));
     let scenario = Scenario::articulated_duel();
     fresh.world = World::new(&scenario, u64::from(seed));
-    SIM.with(|sim| *sim.borrow_mut() = Some(fresh));
+    // Here, while `fresh` is still a local: one line further down the world is
+    // reachable through `SIM`, and the `publish` below hands the page a frame
+    // pointer it is entitled to keep a typed array over. A contact vector that
+    // grew after that moment would grow linear memory and detach every view the
+    // page holds -- which is the same argument `route`, `events` and `seen` are
+    // each allocated at their ceiling for, and the reason the contact solver
+    // reserves against a high water at all.
+    //
+    // `MAX_UNITS`, not the two rows the duel actually carries. The ceiling is
+    // what the frame can ever publish, so reserving for it is the only figure
+    // that makes *every* later spawn free; reserving for the roster would leave
+    // the growth exactly where it must not be, on the call that adds a body.
+    // 64 is also `MAX_ARTICULATED_ENTITIES`, so this can never be the request
+    // that is refused for being too large.
+    let reserved = fresh.world.try_reserve_contact_slots(MAX_UNITS).is_ok();
+    if reserved {
+        fresh.contact_high_water = MAX_UNITS as u32;
+    }
+    // **A refused reservation installs no world at all.** It cannot happen at
+    // 64 -- the entity limit is the same number, so the only error left is
+    // `Allocation`, an out-of-memory module -- but "cannot happen" is not a
+    // reason to hand the page a world whose next spawn may move its views out
+    // from under it, and it is certainly not a reason to keep the *previous*
+    // world alive behind a call that says it started over. Not a panic either:
+    // a trap behind `pub extern "C"` poisons the instance for the life of the
+    // page. The refusal is visible instead -- `contact_high_water()` reads 0 and
+    // the frame publishes a zeroed header -- which is a thing a caller can test
+    // for.
+    SIM.with(|sim| *sim.borrow_mut() = if reserved { Some(fresh) } else { None });
     publish();
+}
+
+/// How many articulated rows the running world's contact vectors are reserved
+/// for, or `0` before the first `init` and on any Legacy world.
+///
+/// Nothing on the page calls this. It exists so the browser's no-growth proof
+/// can tell a reserved world from an unreserved one instead of assuming the
+/// reservation happened, which is the one thing that test cannot otherwise see:
+/// a `Vec`'s capacity is invisible from JavaScript, and wasm linear memory
+/// standing still is equally consistent with "reserved once, up front" and with
+/// "nothing has grown it *yet*". This is the difference between those two.
+///
+/// It reports what [`init_articulated_test`] reserved rather than what the world
+/// holds, because the world deliberately does not publish the second: contact
+/// capacity is not authoritative state and `try_reserve_contact_slots` forbids
+/// reading it back as if it were. The two cannot disagree -- a world that did
+/// not answer `Ok` is never installed.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn contact_high_water() -> u32 {
+    with_sim(0, |sim| sim.contact_high_water)
 }
 
 /// Index half of the currently focused body's presentation identity.
@@ -4780,7 +4891,60 @@ mod tests {
         SUBMITTED_COMMAND.with(|buffer| *buffer.borrow_mut() = fixture);
         assert_eq!(submit_articulated(0, 0), 1);
         let fixture_digest = SIM.with(|sim| sim.borrow().as_ref().unwrap().world.state_digest().value);
-        assert_eq!(fixture_digest, 0x584d_711e_4929_50e7);
+        // Moved by v2-14C, and by exactly one thing: ArticulatedV1 hashing now
+        // writes a global `cap_hits:u32` after the actuator loop. This fixture
+        // is unstepped, so those four bytes are zero, and the value below was
+        // predicted from the old one before it was measured.
+        assert_eq!(fixture_digest, 0x0104_11d5_21a3_76d7);
+    }
+
+    #[test]
+    fn the_articulated_boundary_reserves_the_frame_ceiling_before_it_publishes() {
+        init_articulated_test(1);
+        assert_eq!(
+            contact_high_water(),
+            MAX_UNITS as u32,
+            "the fixture published a world whose contact vectors it had not reserved",
+        );
+        // A Legacy room owns no contact state at all, so the reservation is a
+        // no-op there and the honest answer is zero -- not the ceiling the last
+        // articulated world was given. This is the assertion that makes the
+        // export a reading of *this* world rather than a sticky flag.
+        init(1);
+        assert_eq!(contact_high_water(), 0, "a Legacy world claimed a contact reservation");
+    }
+
+    #[test]
+    fn an_articulated_world_refuses_a_boundary_spawn_instead_of_trapping() {
+        // Every spec this crate builds carries `articulated: None`, so an
+        // Articulated world refuses this whole path rather than only its
+        // sixty-fifth row: the boundary has no articulated spawn on it today.
+        // The row count is still driven past `MAX_UNITS` here, because the
+        // property under test is the *shape* of the refusal -- `World::spawn`
+        // made it a panic, and a panic behind `pub extern "C"` traps the
+        // instance for the life of the page.
+        init_articulated_test(1);
+        let before = SIM.with(|sim| sim.borrow().as_ref().unwrap().world.state_digest().value);
+        for _ in 0..MAX_UNITS + 1 {
+            assert_eq!(
+                spawn_monster(SKITTERER, SLOT_EMPTY, SLOT_EMPTY),
+                0,
+                "a legacy body walked into an articulated world",
+            );
+        }
+        // The enemy panel's door onto the same `walk_in`, worth its own line
+        // because it is the one a page can reach without a hotkey.
+        assert_eq!(spawn_from_template(), 0, "the enemy panel reached an articulated world");
+        // Refused one step earlier than the other two -- the duel's own hero is
+        // still standing -- so this records the answer rather than the reason.
+        assert_eq!(swap_in_hero(0, SLOT_EMPTY, SLOT_EMPTY), 0, "a replacement arrived anyway");
+        let after = SIM.with(|sim| sim.borrow().as_ref().unwrap().world.state_digest().value);
+        assert_eq!(after, before, "a refused spawn mutated the world");
+        assert_eq!(
+            contact_high_water(),
+            MAX_UNITS as u32,
+            "a refused spawn moved the reservation",
+        );
     }
 
     /// What `cargo run --release -p lab -- hash` prints today. Recorded rather

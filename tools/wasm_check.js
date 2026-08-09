@@ -68,7 +68,10 @@ const SWAP_HASH = 0xf948f5486ee90191n;
 // saturating multiply in `tangential_speed` at the release. Portable
 // fixed-point is a claim about code that runs.
 const BOW_HASH = 0x4a1157735d305e9fn;
-const ARTICULATED_COMMAND_HASH = 0x584d711e492950e7n;
+// Moved by v2-14C: ArticulatedV1 hashing gained a global `cap_hits:u32` after
+// the actuator loop, and this probe is unstepped, so the move is four zero
+// bytes and nothing else.
+const ARTICULATED_COMMAND_HASH = 0x010411d521a376d7n;
 const COMBAT_GEOMETRY_HASH = 0x9d15344883cf6e9cn;
 
 // The frame header, as the client reads it.
@@ -330,6 +333,13 @@ test("the boundary exports everything the client calls", () => {
     "contact_behavior_corpus_byte",
     "contact_behavior_digest_lo",
     "contact_behavior_digest_hi",
+    // How many articulated rows `init_articulated_test` reserved the contact
+    // vectors for. On this list for the same reason as the four above and one
+    // more besides: its only caller is client/test/wasm-memory.test.mjs, whose
+    // whole subject is that linear memory does not grow -- and an export that
+    // has quietly become `undefined` reads as `NaN`, which never grows either.
+    // A renamed no-growth witness would leave that test passing vacuously.
+    "contact_high_water",
     "submitted_command_ptr",
     "submitted_command_len",
     "submitted_command_layout_version",

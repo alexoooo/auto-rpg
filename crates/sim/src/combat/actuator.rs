@@ -1,5 +1,5 @@
 use crate::{ArmTarget, BodyAnatomySpec, CombatHeight, EquipmentSpec, Stats};
-use fx::{Angle, Fx, Vec3};
+use fx::{Angle, Fx, Vec2, Vec3};
 
 pub const BODY_YAW_MAX_SPEED_RAW: i32 = 546;
 pub const BODY_YAW_ACCEL_RAW: i32 = 91;
@@ -80,6 +80,48 @@ pub(crate) fn hand_position(
         shoulder.x + bearing.cos() * physical_reach,
         shoulder.y + bearing.sin() * physical_reach,
         anatomy.standing_height * Fx::from_raw(height.raw()),
+    )
+}
+
+/// The inverse of [`hand_position`]: the joint pose that puts the hand where
+/// contact left it, clamped to the joint's own limits.
+///
+/// Contact moves an absolute hand while the authoritative state is a joint
+/// pose, so something has to run this direction -- and it cannot be exact. A
+/// shoulder cannot reach past its arm and height is a bounded fraction of
+/// standing height, so the pose that comes back may put the hand somewhere
+/// else. That is why the caller must re-derive the hand from this answer rather
+/// than keep the one it asked for, and why the contract makes the *clamped*
+/// hand the state the energy check reads.
+///
+/// `fallback_bearing` is answered when the hand lands exactly on the shoulder
+/// axis, where the horizontal vector is zero and carries no direction at all.
+/// Reusing the current bearing there is the only choice that does not invent
+/// one; the hand is on the axis either way, so nothing observable turns on it.
+pub(crate) fn inverse_hand(
+    anatomy: &BodyAnatomySpec,
+    yaw: Angle,
+    limb: usize,
+    hand: Vec3,
+    fallback_bearing: Angle,
+) -> (Angle, CombatHeight, Fx) {
+    let shoulder = shoulder(anatomy, yaw, limb);
+    let planar = Vec2::new(hand.x - shoulder.x, hand.y - shoulder.y);
+    let bearing = if planar.is_zero() { fallback_bearing } else { planar.angle() };
+    let height = if anatomy.standing_height.is_positive() {
+        (hand.z / anatomy.standing_height).clamp(Fx::ZERO, Fx::ONE)
+    } else {
+        Fx::ZERO
+    };
+    let reach = if anatomy.arm_length.is_positive() {
+        planar.length() / anatomy.arm_length
+    } else {
+        Fx::ONE
+    };
+    (
+        bearing,
+        CombatHeight::try_from_raw(height.raw()).expect("height clamped into range"),
+        reach.clamp(Fx::from_raw(ARM_MIN_REACH_RAW), Fx::ONE),
     )
 }
 
@@ -223,6 +265,61 @@ pub(crate) fn mirror_two_handed(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_hand_inverse_recovers_a_reachable_pose_and_clamps_the_rest() {
+        let anatomy = crate::combat::spec::fighter_anatomy();
+        // Round trip: every pose `hand_position` can produce must come back
+        // close enough that re-deriving the hand lands on the same point. Not
+        // bit-exact and it cannot be -- the forward map goes through a sine
+        // table and the inverse through `Vec2::angle`, so the two round at
+        // different places. What matters is that the error does not accumulate
+        // into a pose the joint would refuse.
+        let (mut worst_bearing, mut worst_reach, mut worst_hand) = (0i32, Fx::ZERO, Fx::ZERO);
+        for yaw_raw in [0u16, 9_001, 32_768, 61_111] {
+            let yaw = Angle::from_raw(yaw_raw);
+            for limb in 0..2 {
+                for bearing_raw in [0u16, 4_096, 21_845, 40_000] {
+                    let bearing = Angle::from_raw(bearing_raw);
+                    let reach = Fx::from_ratio(3, 4);
+                    let hand = hand_position(&anatomy, yaw, limb, bearing, CombatHeight::MID, reach);
+                    let (back, height, back_reach) =
+                        inverse_hand(&anatomy, yaw, limb, hand, Angle::ZERO);
+                    assert_eq!(height, CombatHeight::MID);
+                    let again = hand_position(&anatomy, yaw, limb, back, height, back_reach);
+                    worst_bearing = worst_bearing.max(back.delta(bearing).abs());
+                    worst_reach = worst_reach.max((back_reach - reach).abs());
+                    worst_hand = worst_hand.max((again - hand).length());
+                }
+            }
+        }
+        // The measured worst over this grid, pinned rather than loosely bounded
+        // so a change in either direction shows up here rather than downstream.
+        // A raw angle unit is 1/65,536 of a turn, so 15 of them is 0.082
+        // degrees; 53 raw of hand movement is 0.0008 of a world unit, against a
+        // body radius of about a half. The error is real and it does not
+        // accumulate: the caller re-derives the hand from the pose that comes
+        // back, so what lands in world state is `again`, not `hand`.
+        assert_eq!((worst_bearing, worst_reach.raw(), worst_hand.raw()), (15, 2, 53));
+
+        // And the clamps. A hand hauled far past the arm's length comes back at
+        // full reach rather than as an impossible pose, and one dragged under
+        // the floor comes back at height zero.
+        let yaw = Angle::ZERO;
+        let far = hand_position(&anatomy, yaw, 1, Angle::ZERO, CombatHeight::MID, Fx::ONE)
+            + Vec3::from_ints(50, 0, 0);
+        let (_, _, reach) = inverse_hand(&anatomy, yaw, 1, far, Angle::ZERO);
+        assert_eq!(reach, Fx::ONE);
+        let under = Vec3::new(Fx::ONE, Fx::ZERO, Fx::from_int(-9));
+        let (_, height, _) = inverse_hand(&anatomy, yaw, 1, under, Angle::ZERO);
+        assert_eq!(height.raw(), 0);
+
+        // A hand exactly on the shoulder axis has no direction to report, so it
+        // keeps the one it was given rather than inventing east.
+        let shoulder = shoulder(&anatomy, yaw, 0);
+        let (kept, _, _) = inverse_hand(&anatomy, yaw, 0, shoulder, Angle::QUARTER);
+        assert_eq!(kept, Angle::QUARTER);
+    }
 
     #[test]
     fn yaw_raw_vectors_match_the_frozen_contract() {

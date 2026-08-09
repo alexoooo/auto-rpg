@@ -92,6 +92,10 @@ pub use combat::actuator::{
 /// boundary re-running the corpus so `tools/wasm_check.js` can compare the two
 /// targets byte for byte.
 pub use combat::resolution::{contact_behavior_corpus, ResolutionError};
+/// The contact capacity vocabulary, which the browser needs even though the
+/// solver stays private: the host reserves the high water before it hands the
+/// page a pointer, and has to be able to say which count refused.
+pub use combat::contact::{ContactCapacityError, ContactResolution, MAX_ARTICULATED_ENTITIES};
 pub use dungeon::{Cardinal, Door, Dungeon, Level, Rect, Torch, CORRIDOR, DOOR, OPEN, WALL};
 pub use entity::{EntityId, Faction, Body};
 pub use event::Event;
@@ -114,4 +118,4 @@ pub use rules::{
 pub use scenario::{
     CombatModel, Scenario, ScenarioFingerprintError, UnitSpec, DUNGEON_COLS, DUNGEON_ROWS,
 };
-pub use world::{Outcome, ShotView, Snapshot, UnitView, World};
+pub use world::{Outcome, ShotView, Snapshot, SpawnError, UnitView, World, WorldBuildError};

@@ -21,7 +21,13 @@ source radius remains at most 8.
 A shield half-width and half-height are each in `[0, 8]`, so either complete
 rectangle edge may be in `[0, 16]`; this is the rectangle validator's distinct edge
 bound. All other segment lengths are bounded by 8, and
-an accepted per-tick endpoint displacement is at most `4`. These are validation
+an accepted per-tick endpoint displacement is at most `4` **in magnitude** —
+`displacement_in_bounds` compares the exact `i128` squared length, so a diagonal
+step is bounded by 4 and not by 4 per axis. That word is load-bearing and its
+absence has already cost something: `sim`'s contact entry clamp was written
+componentwise at 4, which admits `4*sqrt(3)` = 6.93, and every over-fast row it
+let through took the escape path below and manufactured a contact with every
+collider in the arena. These are validation
 bounds, not clamps. Geometry remains total for arbitrary `Fx` inputs, but an
 out-of-contract sweep conservatively returns `TimeOfImpact::ZERO`; reachable
 authoritative state must never use that escape path.

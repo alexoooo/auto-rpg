@@ -17,7 +17,29 @@ pub const MAX_ARTICULATED_ENTITIES: usize = 64;
 pub const MAX_CONTACT_FACTS_PER_GROUP: usize = 512;
 pub const MAX_CONTACT_RESOLUTIONS_PER_TICK: usize = 4_096;
 pub const BODY_SLOT: u8 = 0xff;
-pub const CONTACT_COMPONENT_SPEED_LIMIT: Fx = Fx::from_int(4);
+
+/// Componentwise entry clamp on every generalized contact velocity.
+///
+/// Deliberately not four, and the difference is a real defect this number
+/// closes.  The clamp is componentwise, but the sweep's envelope is on the
+/// *magnitude* and is four -- so a componentwise four admits `4*sqrt(3)` =
+/// 6.93, and `fx` fails an out-of-envelope sweep closed by answering
+/// `TimeOfImpact::ZERO`.  That is not a dropped contact, it is a manufactured
+/// one against every hostile collider in the arena however far away: two
+/// zero-radius points 11.3 units apart, one holding `(3,3,0)`, measurably
+/// resolved an impulse of -1.
+///
+/// So this is the largest `L` with `3*L^2 <= (4*ONE_RAW)^2`, which is exactly
+/// the condition that three clamped components stay inside the envelope.  It
+/// costs nothing measurable: 2.309 is 12.5x the fastest equipment point the
+/// shipped roster can produce and 2.4x the fastest any anatomy the validator
+/// accepts can produce, and no impulse can exceed those because the alpha
+/// search forbids the closure's energy from rising.  Clamping the magnitude
+/// to four instead was tried and is unsound -- `Fx` length floors, so for any
+/// vector whose raw squared length lands in `(262144^2, 262145^2)` the scale
+/// is the identity map and up to 0.999903 raw units of overshoot survive it,
+/// which the inclusive envelope test rejects exactly as hard as 6.93 would.
+pub const CONTACT_COMPONENT_SPEED_LIMIT: Fx = Fx::from_raw(151_348);
 
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
@@ -104,14 +126,14 @@ pub(crate) struct Candidate { pub(crate) fact: ContactFact, distance_sq: Fx, fea
 /// tick, which at the entity ceiling is 32,256 rows, while a single resolved
 /// group is capped at 512. Keeping the two vectors separate is what lets the
 /// driver honour the smaller bound without ever truncating a scan.
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct ContactCollectionScratch {
     candidates: Vec<Candidate>,
 }
 
 impl ContactCollectionScratch {
-    pub fn reserve(&mut self, candidate_bound: usize) {
-        reserve_exact(&mut self.candidates, candidate_bound);
+    pub fn try_reserve(&mut self, candidate_bound: usize) -> Result<(), ContactCapacityError> {
+        try_reserve_exact(&mut self.candidates, candidate_bound)
     }
 
     pub(crate) fn candidates(&self) -> &[Candidate] { &self.candidates }
@@ -123,8 +145,76 @@ impl ContactCollectionScratch {
 /// `Vec::reserve*` takes capacity *beyond `len()`*, not beyond `capacity()`.
 /// Subtracting the capacity instead is a silent no-op on exactly the vectors
 /// this solver reserves -- cleared ones -- so it is written once, here.
-pub(crate) fn reserve_exact<T>(rows: &mut Vec<T>, bound: usize) {
-    rows.reserve_exact(bound.saturating_sub(rows.len()));
+///
+/// Fallible, because the far end of the only caller that matters is a browser
+/// holding typed-array views into linear memory: aborting there blanks the
+/// screen, and answering an error lets the host refuse the spawn instead.
+pub(crate) fn try_reserve_exact<T>(
+    rows: &mut Vec<T>, bound: usize,
+) -> Result<(), ContactCapacityError> {
+    rows.try_reserve_exact(bound.saturating_sub(rows.len()))
+        .map_err(|_| ContactCapacityError::Allocation)
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ContactCapacityError {
+    EntityLimit,
+    PairCount,
+    CandidateCount,
+    ResolutionCount,
+    ColliderCount,
+    EnergyNumerator,
+    GeometryEnvelope,
+    Allocation,
+}
+
+/// Every reservation bound implied by an allocated-slot high water.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct ContactBounds {
+    pub pairs: usize,
+    pub candidate_bound: usize,
+    pub collider_bound: usize,
+}
+
+/// Derive the bounds, or say which count refused to fit.
+///
+/// Everything here is comfortable at the ceiling -- 64 entities make 2,016
+/// pairs, 32,256 candidates and 192 colliders -- so none of these `checked_`
+/// calls can fail today. They are written anyway because the alternative is a
+/// silent wrap in the one function whose entire job is to bound the solver's
+/// memory, and because the ceiling is a constant somebody will eventually
+/// raise.
+pub fn contact_bounds(high_water: usize) -> Result<ContactBounds, ContactCapacityError> {
+    if high_water > MAX_ARTICULATED_ENTITIES { return Err(ContactCapacityError::EntityLimit); }
+    let pairs = match high_water {
+        0 | 1 => 0,
+        n => n.checked_mul(n - 1).ok_or(ContactCapacityError::PairCount)? / 2,
+    };
+    let candidate_bound = pairs.checked_mul(16).ok_or(ContactCapacityError::CandidateCount)?;
+    let collider_bound = high_water.checked_mul(3).ok_or(ContactCapacityError::ColliderCount)?;
+
+    // Eight groups of at most 512 rows is exactly the resolution ceiling, so
+    // this is an invariant and not a live limit -- but it is an invariant that
+    // ties three separate constants together, and nothing else checks it.
+    let admissible = (MAX_CONTACT_GROUPS_PER_TICK as usize)
+        .checked_mul(MAX_CONTACT_FACTS_PER_GROUP).ok_or(ContactCapacityError::ResolutionCount)?;
+    if admissible > MAX_CONTACT_RESOLUTIONS_PER_TICK {
+        return Err(ContactCapacityError::ResolutionCount);
+    }
+
+    // The energy accumulator's worst case, in the same signed `i128` it uses.
+    // The velocity term stays at 4 rather than following
+    // `CONTACT_COMPONENT_SPEED_LIMIT` down to 2.309 on purpose: this is a
+    // headroom argument, and proving the accumulator survives three times the
+    // reachable limit is worth more than proving it survives exactly it.
+    let mass = Fx::from_int(8).raw() as i128;
+    let speed = Fx::from_int(4).raw() as i128;
+    (collider_bound as i128)
+        .checked_mul(mass).ok_or(ContactCapacityError::EnergyNumerator)?
+        .checked_mul(3).ok_or(ContactCapacityError::EnergyNumerator)?
+        .checked_mul(speed * speed).ok_or(ContactCapacityError::EnergyNumerator)?;
+
+    Ok(ContactBounds { pairs, candidate_bound, collider_bound })
 }
 
 /// Collect the earliest fact per contacting pair. World owns construction and
@@ -430,6 +520,34 @@ mod tests {
     fn the_last_raw_local_step_collapses_to_tick_end() {
         assert_eq!(map_local_to_global(65_535, 1), 65_536);
         assert_eq!(map_local_to_global(65_536, 1), 65_536);
+    }
+
+    #[test]
+    fn the_component_speed_limit_keeps_a_diagonal_inside_the_sweep_envelope() {
+        // The derivation, as an assertion, because a raw literal with no round
+        // meaning is exactly what a later reader tidies. Both halves matter:
+        // the first is the soundness condition, the second says the constant
+        // is not giving away speed it could keep.
+        const LIMIT: i128 = CONTACT_COMPONENT_SPEED_LIMIT.raw() as i128;
+        const ENVELOPE: i128 = 4 * 65_536;
+        assert!(3 * LIMIT * LIMIT <= ENVELOPE * ENVELOPE, "a clamped diagonal leaves the envelope");
+        assert!(3 * (LIMIT + 1) * (LIMIT + 1) > ENVELOPE * ENVELOPE, "the limit gives away raw units");
+
+        // And the property itself, through the real sweep rather than through
+        // a restatement of its bound. Both points travel at the clamp on all
+        // three axes, which is the worst case it admits, and they start eight
+        // units apart -- so the only answer other than `None` is the
+        // fail-closed escape. At `Fx::from_int(4)` this returned a contact.
+        let step = Vec3::new(CONTACT_COMPONENT_SPEED_LIMIT, CONTACT_COMPONENT_SPEED_LIMIT,
+                             CONTACT_COMPONENT_SPEED_LIMIT);
+        let a = Vec3::ZERO;
+        let b = Vec3::from_ints(8, 0, 0);
+        assert_eq!(
+            swept_segment_segment(a, a, a + step, a + step, Fx::ZERO,
+                                  b, b, b - step, b - step, Fx::ZERO),
+            None,
+            "a clamped diagonal fell out of the sweep envelope",
+        );
     }
 
     #[test]

@@ -11,8 +11,16 @@ use crate::hand::{Hand, Swing};
 use crate::obs::{Contact, Observation};
 use crate::rules::{self, Stats, MAX_CONTACTS};
 use crate::scenario::{Scenario, UnitSpec};
-use crate::combat::spec::{ArticulatedUnitSpecV1, CombatSpecTableV1, resolved_equipment};
+use crate::combat::spec::{ArticulatedUnitSpecV1, CombatSpecError, CombatSpecTableV1,
+                          resolved_equipment};
 use crate::combat::actuator::{self, ArmState, BodyYawState, GripState, ShieldPose};
+use crate::combat::contact::{contact_bounds, try_reserve_exact, ContactCapacityError,
+                             ContactCollider, ContactResolution, ContactShape,
+                             ContactSolverState, BODY_SLOT,
+                             MAX_CONTACT_RESOLUTIONS_PER_TICK};
+use crate::combat::geometry;
+use crate::combat::resolution::ContactTickScratch;
+use crate::{EquipmentGeometry, EquipmentSpecId};
 use fx::{Angle, Fx, Hash64, Rng, Vec2, Vec3};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -127,6 +135,10 @@ pub struct World {
     move_authority: Vec<Fx>,
     turn_authority: Vec<Fx>,
     arm_authority: Vec<[Fx; 2]>,
+    /// `None` in every Legacy world, and that is the whole isolation argument:
+    /// legacy allocates nothing, hashes nothing, and runs no contact phase
+    /// because there is no state here to run one against.
+    contact: Option<ContactRuntime>,
     #[cfg(test)]
     phase_trace_enabled: bool,
     #[cfg(test)]
@@ -337,14 +349,206 @@ struct Impulse {
     recover: Option<u16>,
 }
 
+/// Retained contact state for an Articulated world.
+///
+/// Only `state` is authoritative: ArticulatedV1 hashing writes its `cap_hits`
+/// and nothing else in here. The scratch and the published resolutions are
+/// evidence, which is why the whole struct sits outside `legacy_core_hash`.
+///
+/// Reserved once against the allocated-slot high water, for the same reason
+/// `nav_queue` is held on the world rather than allocated per rebuild: this
+/// crate is driven from a page holding typed-array views into linear memory,
+/// and a `Vec` that grows can grow that memory and detach every one of them.
+#[derive(Clone, Default)]
+struct ContactRuntime {
+    state: ContactSolverState,
+    scratch: ContactTickScratch,
+    colliders: Vec<ContactCollider>,
+    resolutions: Vec<ContactResolution>,
+    entry: Vec<TickEntry>,
+    /// The high water every vector above is reserved for. A request at or below
+    /// it is a no-op, which is exactly what makes reusing a dead slot free.
+    high_water: usize,
+}
+
+impl ContactRuntime {
+    fn reserve(&mut self, high_water: usize) -> Result<(), ContactCapacityError> {
+        if high_water <= self.high_water { return Ok(()); }
+        let bounds = contact_bounds(high_water)?;
+        self.scratch.try_reserve(bounds.collider_bound, bounds.candidate_bound)?;
+        try_reserve_exact(&mut self.colliders, bounds.collider_bound)?;
+        try_reserve_exact(&mut self.resolutions, MAX_CONTACT_RESOLUTIONS_PER_TICK)?;
+        try_reserve_exact(&mut self.entry, high_water)?;
+        self.high_water = high_water;
+        Ok(())
+    }
+}
+
+/// The shifted body sweep, written once so the collider builder and the world
+/// accessor cannot drift apart on the one rule that keeps positional overlap
+/// correction out of contact velocity.
+fn body_sweep_from(settled: Vec2, entry: &TickEntry) -> (Vec2, Vec2) {
+    (settled - entry.locomotion, settled)
+}
+
+/// The componentwise entry clamp. See `CONTACT_COMPONENT_SPEED_LIMIT` for why
+/// the limit is not the four a reader would expect.
+fn clamp_contact_velocity(value: Vec3) -> Vec3 {
+    const L: Fx = crate::combat::contact::CONTACT_COMPONENT_SPEED_LIMIT;
+    Vec3::new(value.x.clamp(-L, L), value.y.clamp(-L, L), value.z.clamp(-L, L))
+}
+
+/// One slot's authoritative pose as the articulated tick found it.
+///
+/// Contact sweeps from where the tick began rather than from where the actuator
+/// finished, so these rows must be taken before the first phase writes a column.
+/// `locomotion` is the odd one out: it can only be taken *between* movement and
+/// separation, because that is the one moment the intended step exists on its
+/// own. Subtracting it back off the settled position is what shifts both sweep
+/// endpoints equally, and that is what stops `World::separate`'s positional
+/// overlap correction from manufacturing contact speed out of nothing.
+#[derive(Clone, Copy)]
+struct TickEntry {
+    pos: Vec2,
+    locomotion: Vec2,
+    arms: [ArmState; 2],
+    shield: Option<ShieldPose>,
+    /// Retained because the contract's list says to and the commit stage will
+    /// read them, not because anything does yet. They are captured here rather
+    /// than added later so that the retention phase does not have to move once
+    /// the solve lands -- the whole point of taking these rows is that they are
+    /// gone by the time anyone wants them.
+    #[allow(dead_code)]
+    yaw: BodyYawState,
+    #[allow(dead_code)]
+    grips: [GripState; 2],
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum WorldBuildError {
+    CombatSpec(CombatSpecError),
+    Contact(ContactCapacityError),
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum SpawnError {
+    CombatSpec(CombatSpecError),
+    Contact(ContactCapacityError),
+}
+
+impl From<SpawnError> for WorldBuildError {
+    fn from(error: SpawnError) -> WorldBuildError {
+        match error {
+            SpawnError::CombatSpec(spec) => WorldBuildError::CombatSpec(spec),
+            SpawnError::Contact(contact) => WorldBuildError::Contact(contact),
+        }
+    }
+}
+
+/// The absolute coordinate envelope every constructible combat point must stay
+/// inside, mirroring `combat-geometry`'s validation bound.
+///
+/// Checked at construction rather than trusted, because a point outside it does
+/// not merely fail to collide: `fx` fails an out-of-contract sweep *closed*, by
+/// answering `TimeOfImpact::ZERO`, so one out-of-envelope row manufactures a
+/// contact with every hostile collider in the arena.
+const CONTACT_COORDINATE_LIMIT: Fx = Fx::from_int(256);
+
+/// How far past its body origin one construction can put a collider point, as
+/// `(horizontal, vertical)`. Equipment is measured from the hand, so the two
+/// held items are maximised independently -- a sword in one hand and a shield
+/// in the other reach differently and only the further one bounds anything.
+fn construction_reach(
+    table: &CombatSpecTableV1,
+    row: ArticulatedUnitSpecV1,
+) -> Result<(Fx, Fx), ContactCapacityError> {
+    let anatomy = table.anatomy(row.anatomy).ok_or(ContactCapacityError::GeometryEnvelope)?;
+    let mut held = Fx::ZERO;
+    let mut lift = Fx::ZERO;
+    for id in row.equipment.into_iter().flatten() {
+        let item = equipment_of(table, id)?;
+        let (out, up) = match item {
+            EquipmentGeometry::Segment { length, radius } => (length, radius),
+            EquipmentGeometry::Shield { half_width, half_height, thickness } =>
+                (half_width + thickness / Fx::from_int(2), half_height),
+        };
+        held = held.max(out);
+        lift = lift.max(up);
+    }
+    let region = anatomy.regions.iter().map(|region| region.radius).max().unwrap_or(Fx::ZERO);
+    let arm = anatomy.shoulder_half_width + anatomy.arm_length + held;
+    let vertical = (anatomy.standing_height + lift)
+        .max(anatomy.standing_height / Fx::from_int(2) + region);
+    Ok((region.max(arm), vertical))
+}
+
+fn equipment_of(
+    table: &CombatSpecTableV1,
+    id: EquipmentSpecId,
+) -> Result<EquipmentGeometry, ContactCapacityError> {
+    table.equipment(id).map(|item| item.geometry).ok_or(ContactCapacityError::GeometryEnvelope)
+}
+
+/// Reject a construction whose reach can leave the sweep envelope.
+///
+/// Two independent checks, and both are load-bearing. The arena one bounds what
+/// the dungeon can ever produce, because a body settles against a far wall
+/// rather than staying where it spawned. The spawn one bounds the row exactly
+/// as handed over, which is what catches an `Fx::MIN` passed straight to the
+/// typed API -- a coordinate that arena settling would later have clamped, and
+/// therefore one the arena check alone waves through.
+fn check_contact_envelope(
+    arena: Vec2,
+    spawn: Vec2,
+    table: &CombatSpecTableV1,
+    row: ArticulatedUnitSpecV1,
+) -> Result<(), ContactCapacityError> {
+    let (horizontal, vertical) = construction_reach(table, row)?;
+    let limit = CONTACT_COORDINATE_LIMIT;
+    if vertical > limit || arena.x.max(arena.y) + horizontal > limit {
+        return Err(ContactCapacityError::GeometryEnvelope);
+    }
+    // `Fx::abs` saturates `Fx::MIN` to `Fx::MAX`, so the extremes fail here
+    // rather than wrapping into something that looks in range.
+    if spawn.x.abs() > limit || spawn.y.abs() > limit
+        || spawn.x.abs() + horizontal > limit || spawn.y.abs() + horizontal > limit {
+        return Err(ContactCapacityError::GeometryEnvelope);
+    }
+    Ok(())
+}
+
 impl World {
+    /// Panicking constructor, kept source-compatible. It validates through the
+    /// typed form and so still refuses before allocating anything.
     pub fn new(scenario: &Scenario, seed: u64) -> World {
+        World::try_new(scenario, seed).expect("invalid combat construction")
+    }
+
+    /// The typed constructor. Validates combat construction, the geometry
+    /// envelope, and every contact count before a single world column exists.
+    pub fn try_new(scenario: &Scenario, seed: u64) -> Result<World, WorldBuildError> {
         crate::combat::spec::validate_construction(
             scenario.combat_model,
             scenario.combat_specs.as_ref(),
             &scenario.units,
-        ).expect("invalid combat construction");
+        ).map_err(WorldBuildError::CombatSpec)?;
         let n = scenario.units.len();
+        if scenario.combat_model == crate::CombatModel::Articulated {
+            // `validate_construction` has already proved the table and every
+            // row present, so these two lookups cannot fail; they are written
+            // as `?` rather than `expect` because the envelope check below is
+            // the one place a malformed reference would be caught silently.
+            let table = scenario.combat_specs.as_ref()
+                .ok_or(WorldBuildError::CombatSpec(CombatSpecError::MissingTable))?;
+            let arena = scenario.arena();
+            for unit in &scenario.units {
+                let row = unit.articulated
+                    .ok_or(WorldBuildError::CombatSpec(CombatSpecError::UnitPresence))?;
+                check_contact_envelope(arena, unit.spawn, table, row)
+                    .map_err(WorldBuildError::Contact)?;
+            }
+            contact_bounds(n).map_err(WorldBuildError::Contact)?;
+        }
         let mut world = World {
             seed,
             combat_model: scenario.combat_model,
@@ -383,6 +587,10 @@ impl World {
             move_authority: Vec::with_capacity(n),
             turn_authority: Vec::with_capacity(n),
             arm_authority: Vec::with_capacity(n),
+            contact: match scenario.combat_model {
+                crate::CombatModel::Legacy => None,
+                crate::CombatModel::Articulated => Some(ContactRuntime::default()),
+            },
             #[cfg(test)]
             phase_trace_enabled: false,
             #[cfg(test)]
@@ -433,26 +641,102 @@ impl World {
             door_pushed: Vec::new(),
         };
         world.door_pushed.resize(world.doors.len(), false);
+        // Once, for the whole roster, so the per-row reservations below are all
+        // no-ops. Splitting it the other way would work and would allocate n
+        // times for the same final capacity.
+        world.try_reserve_contact_slots(n).map_err(WorldBuildError::Contact)?;
         for spec in &scenario.units {
-            world.spawn(spec);
+            world.try_spawn(spec)?;
         }
         world.refresh_pending();
         world.refresh_nav();
-        world
+        Ok(world)
     }
 
+    /// Panicking spawn, kept source-compatible. Like [`World::new`] it refuses
+    /// through the typed form, so it still cannot half-mutate a world.
     pub fn spawn(&mut self, spec: &UnitSpec) -> EntityId {
+        self.try_spawn(spec).expect("invalid articulated spawn construction")
+    }
+
+    /// The typed spawn. Validates the row, checks the envelope, computes the
+    /// prospective high water and reserves every contact vector for it, and
+    /// only then touches a world column -- so a refused spawn leaves the world
+    /// exactly as it found it.
+    pub fn try_spawn(&mut self, spec: &UnitSpec) -> Result<EntityId, SpawnError> {
         match self.combat_model {
-            crate::CombatModel::Legacy => assert!(spec.articulated.is_none(), "legacy spawn carried articulated construction"),
+            crate::CombatModel::Legacy => {
+                if spec.articulated.is_some() {
+                    return Err(SpawnError::CombatSpec(CombatSpecError::UnexpectedTable));
+                }
+            }
             crate::CombatModel::Articulated => {
-                let row = spec.articulated.expect("articulated spawn omitted construction");
-                crate::combat::spec::validate_rows(
-                    self.combat_specs.as_ref().expect("articulated combat specs"),
-                    &[row],
-                    &[spec.loadout],
-                ).expect("invalid articulated spawn construction");
+                let row = spec.articulated
+                    .ok_or(SpawnError::CombatSpec(CombatSpecError::UnitPresence))?;
+                let table = self.combat_specs.as_ref()
+                    .ok_or(SpawnError::CombatSpec(CombatSpecError::MissingTable))?;
+                crate::combat::spec::validate_rows(table, &[row], &[spec.loadout])
+                    .map_err(SpawnError::CombatSpec)?;
+                check_contact_envelope(self.arena, spec.spawn, table, row)
+                    .map_err(SpawnError::Contact)?;
+                // A reused slot raises no high water and therefore reserves
+                // nothing, which is the property that makes a respawn free.
+                let prospective = match self.free.last() {
+                    Some(_) => self.alive.len(),
+                    None => self.alive.len() + 1,
+                };
+                self.try_reserve_contact_slots(prospective).map_err(SpawnError::Contact)?;
             }
         }
+        Ok(self.spawn_validated(spec))
+    }
+
+    /// Reserve every contact vector for `high_water` allocated slots.
+    ///
+    /// An exact `Ok(())` no-op on a Legacy world, which owns no contact state.
+    /// On Articulated it never shrinks, and a request at or below what is
+    /// already reserved does nothing.
+    ///
+    /// Capacity is not atomic across the sequence: an early vector may already
+    /// have grown when a later one fails. That is deliberate, and it is safe
+    /// because no capacity in here is authoritative state -- on the error path
+    /// no world column, solver counter, or resolution row has moved. A test may
+    /// not read these capacities back as if they were.
+    pub fn try_reserve_contact_slots(
+        &mut self,
+        high_water: usize,
+    ) -> Result<(), ContactCapacityError> {
+        match self.contact.as_mut() {
+            None => Ok(()),
+            Some(contact) => contact.reserve(high_water),
+        }
+    }
+
+    /// The resolutions the last solved tick completed, sorted by
+    /// `(group_ordinal, ContactKey)`. Evidence and not a second authority:
+    /// v2-15 consumes each group as it is produced, and nothing may rebuild
+    /// state by summing these rows.
+    pub fn contact_resolutions(&self) -> &[ContactResolution] {
+        self.contact.as_ref().map_or(&[], |contact| contact.resolutions.as_slice())
+    }
+
+    /// How many ticks have exhausted the group cap. Hashed; zero in Legacy.
+    pub fn contact_cap_hits(&self) -> u32 {
+        self.contact.as_ref().map_or(0, |contact| contact.state.cap_hits)
+    }
+
+    /// Every retained contact capacity, for the no-growth proofs. Capacity is
+    /// not authoritative state and this deliberately is not public.
+    #[cfg(test)]
+    fn contact_capacities(&self) -> Vec<usize> {
+        let Some(contact) = self.contact.as_ref() else { return Vec::new() };
+        let mut rows = contact.scratch.capacities();
+        rows.push(contact.colliders.capacity());
+        rows.push(contact.resolutions.capacity());
+        rows
+    }
+
+    fn spawn_validated(&mut self, spec: &UnitSpec) -> EntityId {
         let max_hp = spec.stats.max_hp();
         let slot = self.free.pop();
         let i = match slot {
@@ -970,12 +1254,39 @@ impl World {
                 self.reap_dead();
             }
             crate::CombatModel::Articulated => {
+                // Traced like the legacy arm, and for one specific reason: the
+                // contract freezes where contact sits relative to geometry and
+                // doors, and a trace is the only way to prove an ordering
+                // rather than argue it from the reading order of this match.
+                #[cfg(test)]
+                if self.phase_trace_enabled { self.phase_trace.push("retain contact entry"); }
+                self.retain_contact_entry();
+                #[cfg(test)]
+                if self.phase_trace_enabled { self.phase_trace.push("apply articulated movement"); }
                 self.apply_articulated_movement();
+                #[cfg(test)]
+                if self.phase_trace_enabled { self.phase_trace.push("record contact locomotion"); }
+                self.record_contact_locomotion();
+                #[cfg(test)]
+                if self.phase_trace_enabled { self.phase_trace.push("separate"); }
                 self.separate();
+                #[cfg(test)]
+                if self.phase_trace_enabled { self.phase_trace.push("body yaw"); }
                 self.drive_body_yaw();
+                #[cfg(test)]
+                if self.phase_trace_enabled { self.phase_trace.push("grips"); }
                 self.apply_articulated_grips();
+                #[cfg(test)]
+                if self.phase_trace_enabled { self.phase_trace.push("arms"); }
                 self.drive_articulated_arms();
+                #[cfg(test)]
+                if self.phase_trace_enabled { self.phase_trace.push("geometry"); }
                 self.derive_articulated_geometry();
+                #[cfg(test)]
+                if self.phase_trace_enabled { self.phase_trace.push("contact"); }
+                self.resolve_contact();
+                #[cfg(test)]
+                if self.phase_trace_enabled { self.phase_trace.push("doors"); }
                 self.press_doors();
             }
         }
@@ -2939,6 +3250,14 @@ impl World {
                     h.write_i32(self.arm_authority[i][0].raw());
                     h.write_i32(self.arm_authority[i][1].raw());
                 }
+                // One global counter, after the complete actuator loop and
+                // before v2-15's anatomy rows. Not per slot: the iteration cap
+                // is a property of the tick, not of any entity in it, and a
+                // per-slot copy would be four bytes of the same number sixty-
+                // four times over. It is the only contact byte in this digest --
+                // the resolutions and the scratch are evidence, and hashing
+                // evidence would make an observation into authoritative state.
+                h.write_u32(self.contact_cap_hits());
                 crate::StateDigest {
                     domain: crate::HashDomain::ArticulatedV1,
                     schema: 1,
@@ -3120,6 +3439,222 @@ impl World {
     fn derive_articulated_geometry(&mut self) {
         for i in 0..self.alive.len() {
             if self.alive[i] { self.shield_pose[i] = self.derive_shield_pose(i); }
+        }
+    }
+
+    /// Take every slot's tick-entry pose, and clear last tick's resolutions.
+    ///
+    /// Dead slots are retained too. Nothing reads them, but keeping the row
+    /// index equal to the slot index removes the only reason this phase would
+    /// need a second mapping, and a mapping is what a reused slot breaks.
+    fn retain_contact_entry(&mut self) {
+        let Some(mut contact) = self.contact.take() else { return };
+        contact.resolutions.clear();
+        contact.entry.clear();
+        for i in 0..self.alive.len() {
+            contact.entry.push(TickEntry {
+                pos: self.pos[i],
+                locomotion: Vec2::ZERO,
+                arms: self.arms[i],
+                shield: self.shield_pose[i],
+                yaw: self.body_yaw[i],
+                grips: self.grips[i],
+            });
+        }
+        self.contact = Some(contact);
+    }
+
+    /// The second of the three planar points, taken after movement and before
+    /// separation because that is the only place it exists.
+    fn record_contact_locomotion(&mut self) {
+        let Some(mut contact) = self.contact.take() else { return };
+        for (i, entry) in contact.entry.iter_mut().enumerate() {
+            entry.locomotion = self.pos[i] - entry.pos;
+        }
+        self.contact = Some(contact);
+    }
+
+    /// The contact phase.
+    ///
+    /// Positioned here rather than earlier because it reads the geometry the
+    /// actuator has just derived, and doors are pressed against the pose it
+    /// settles. That position is frozen by the contract, which is why it is
+    /// pinned by a phase trace rather than argued from the reading order of the
+    /// match above.
+    ///
+    /// **Checkpoint C is landing the body of this in stages.** The entry clamp
+    /// and the collider construction are here; the solve and the commit are not,
+    /// so an articulated tick still resolves nothing and `cap_hits` is still
+    /// always zero. The clamp runs anyway, and that is the contract's rule
+    /// rather than an accident of ordering: it is authoritative even when no
+    /// fact occurs, because its job is to keep the sweep inside the geometry
+    /// envelope and a row that leaves the envelope is dangerous whether or not
+    /// anything was going to touch it.
+    fn resolve_contact(&mut self) {
+        let Some(mut contact) = self.contact.take() else { return };
+        self.clamp_contact_entry();
+        let ContactRuntime { entry, colliders, .. } = &mut contact;
+        self.build_contact_colliders(entry, colliders);
+        self.contact = Some(contact);
+    }
+
+    /// The articulated-only entry clamp, in the contract's exact componentwise
+    /// order.
+    ///
+    /// The order is not cosmetic. `Ve_prime` is built from the *clamped* body
+    /// velocity, so a body already at the limit does not get to carry its
+    /// equipment past it, and the arm's stored velocity comes out as the
+    /// difference of the two clamped absolutes rather than as its own clamp --
+    /// which is what stops the body translation from being counted twice.
+    fn clamp_contact_entry(&mut self) {
+        for i in 0..self.alive.len() {
+            if !self.alive[i] { continue; }
+            let body = Vec3::new(self.vel[i].x, self.vel[i].y, Fx::ZERO);
+            let clamped_body = clamp_contact_velocity(body);
+            self.vel[i] = Vec2::new(clamped_body.x, clamped_body.y);
+            let anatomy = self.combat_specs.as_ref().expect("articulated combat specs")
+                .anatomy(self.articulated_anatomy[i].expect("articulated anatomy"))
+                .expect("validated articulated anatomy").clone();
+            let yaw = self.body_yaw[i].angle;
+            let mut shifted = [false; 2];
+            for limb in 0..2 {
+                let arm = self.arms[i][limb];
+                let requested = clamped_body + arm.linear_velocity;
+                let clamped = clamp_contact_velocity(requested);
+                let shift = clamped - requested;
+                // The difference of the two clamped absolutes, not a clamp of
+                // the relative velocity: the body translation is already in
+                // both terms and cancels, which is the double count the
+                // contract warns about. The final commit re-derives this from
+                // the committed hand, because a joint clamp can refuse to put
+                // the hand where this arithmetic asked; until the solve lands
+                // there is no commit and this is the authoritative value.
+                self.arms[i][limb].linear_velocity = clamped - clamped_body;
+                if shift == Vec3::ZERO { continue; }
+                // Only the equipment's own share reaches the hand: the body
+                // shift moves the origin the hand is measured from, so adding
+                // it here would count it twice.
+                let hand = arm.hand + shift;
+                let (bearing, height, reach) =
+                    actuator::inverse_hand(&anatomy, yaw, limb, hand, arm.bearing);
+                self.arms[i][limb].bearing = bearing;
+                self.arms[i][limb].height = height;
+                self.arms[i][limb].reach = reach;
+                self.arms[i][limb].hand =
+                    actuator::hand_position(&anatomy, yaw, limb, bearing, height, reach);
+                shifted[limb] = true;
+            }
+            if shifted[1] && self.two_handed(i) {
+                let right = self.arms[i][1];
+                actuator::mirror_two_handed(&mut self.arms[i][0], right, &anatomy, yaw);
+            }
+        }
+    }
+
+    /// Whether one entity's grips hold a single two-handed item, which the
+    /// contract makes the right arm's to own and the left arm's to mirror.
+    fn two_handed(&self, i: usize) -> bool {
+        self.grips[i][0].equipment_slot.is_some()
+            && self.grips[i][0].equipment_slot == self.grips[i][1].equipment_slot
+            && self.equipment_in_grip(i, 1)
+                .is_some_and(|item| item.binding == crate::GripBinding::Both)
+    }
+
+    /// This tick's contact collider rows: one body capsule per live entity plus
+    /// whatever it is holding.
+    ///
+    /// Previous poses come from the retained tick-entry row and requested poses
+    /// from the post-actuator row, so one sweep covers the whole tick. The body
+    /// origin is the shifted sweep from [`World::contact_body_sweep`], which is
+    /// the single place separation is kept out of the relative motion.
+    fn build_contact_colliders(
+        &self,
+        entries: &[TickEntry],
+        rows: &mut Vec<ContactCollider>,
+    ) {
+        rows.clear();
+        let Some(table) = self.combat_specs.as_ref() else { return };
+        for i in 0..self.alive.len() {
+            if !self.alive[i] { continue; }
+            let Some(entry) = entries.get(i) else { continue };
+            let anatomy = table.anatomy(self.articulated_anatomy[i].expect("articulated anatomy"))
+                .expect("validated articulated anatomy");
+            let (start, end) = body_sweep_from(self.pos[i], entry);
+            let previous_origin = Vec3::new(start.x, start.y, Fx::ZERO);
+            let requested_origin = Vec3::new(end.x, end.y, Fx::ZERO);
+            let body_velocity = Vec3::new(self.vel[i].x, self.vel[i].y, Fx::ZERO);
+            let entity = self.id_of(i);
+            let faction = self.faction[i];
+
+            let previous = geometry::temporary_body_capsule(previous_origin, anatomy, self.mass[i]);
+            let requested = geometry::temporary_body_capsule(requested_origin, anatomy, self.mass[i]);
+            let axis = |half: Fx| Vec3::new(Fx::ZERO, Fx::ZERO, half);
+            rows.push(ContactCollider {
+                entity, faction, slot: BODY_SLOT, mass: self.mass[i],
+                surface: previous.surface, velocity: body_velocity,
+                shape: ContactShape::Body {
+                    previous_lower: previous.centre - axis(previous.half_axis),
+                    previous_upper: previous.centre + axis(previous.half_axis),
+                    requested_lower: requested.centre - axis(requested.half_axis),
+                    requested_upper: requested.centre + axis(requested.half_axis),
+                    radius: previous.radius,
+                },
+            });
+
+            let equipment = |id| table.equipment(id).copied();
+            let segments = geometry::held_segment_colliders(
+                previous_origin, requested_origin, entry.arms, self.arms[i],
+                self.grips[i], self.articulated_carried[i], equipment,
+            );
+            for segment in segments.into_iter().flatten() {
+                let owner = segment.owner as usize;
+                rows.push(ContactCollider {
+                    entity, faction, slot: segment.owner as u8, mass: segment.mass,
+                    surface: segment.surface,
+                    velocity: body_velocity + self.arms[i][owner].linear_velocity,
+                    shape: ContactShape::Segment {
+                        previous_hilt: segment.previous.hilt,
+                        previous_tip: segment.previous.tip,
+                        requested_hilt: segment.requested.hilt,
+                        requested_tip: segment.requested.tip,
+                        radius: segment.previous.radius,
+                    },
+                });
+            }
+
+            let shield = geometry::held_shield_collider(
+                previous_origin, requested_origin, entry.shield, self.shield_pose[i],
+                self.grips[i], self.articulated_carried[i], equipment,
+            );
+            if let Some(shield) = shield {
+                let owner = shield.owner as usize;
+                rows.push(ContactCollider {
+                    entity, faction, slot: shield.owner as u8, mass: shield.mass,
+                    surface: shield.surface,
+                    velocity: body_velocity + self.arms[i][owner].linear_velocity,
+                    shape: ContactShape::Shield {
+                        previous: shield.previous.corners,
+                        requested: shield.requested.corners,
+                    },
+                });
+            }
+        }
+    }
+
+
+    /// The body's contact sweep for this tick, as `(start, end)`.
+    ///
+    /// Wall-clipped intended locomotion is what gets swept -- `locomotion` is
+    /// read after `move_body` has already taken the wall's share -- while the
+    /// separation shove moves both endpoints together and so contributes no
+    /// relative motion. `World::vel` after separation is still the authoritative
+    /// generalized velocity: the separation *impulse* belongs to the body even
+    /// though its positional correction does not.
+    #[cfg(test)]
+    fn contact_body_sweep(&self, i: usize) -> (Vec2, Vec2) {
+        match self.contact.as_ref().and_then(|contact| contact.entry.get(i)) {
+            None => (self.pos[i], self.pos[i]),
+            Some(entry) => body_sweep_from(self.pos[i], entry),
         }
     }
 
@@ -4093,6 +4628,11 @@ mod tests {
         assert_actuator_hash_mutation(|w| w.body_yaw[0].angle = Angle::from_raw(1));
         assert_actuator_hash_mutation(|w| w.body_yaw[0].speed_turns = Fx::from_raw(1));
         assert_actuator_hash_mutation(|w| w.body_yaw[0].authority_residue = Fx::from_raw(1));
+        // Not an actuator row, but it rides in the same digest and answers to
+        // the same rule: ArticulatedV1 sees it, LegacyV1 must not.
+        assert_actuator_hash_mutation(|w| {
+            w.contact.as_mut().expect("articulated contact state").state.cap_hits = 1;
+        });
         for limb in 0..2 {
             assert_actuator_hash_mutation(|w| w.arms[0][limb].bearing = Angle::from_raw(1));
             assert_actuator_hash_mutation(|w| w.arms[0][limb].bearing_speed_turns = Fx::from_raw(1));
@@ -4757,6 +5297,266 @@ mod tests {
             "drive legacy limb", "legacy parries", "legacy swings", "recoil", "shots", "doors",
             "reap", "increment tick", "pending", "navigation",
         ]);
+    }
+
+    #[test]
+    fn articulated_contact_runs_after_geometry_and_before_doors() {
+        let mut world = World::new(&Scenario::articulated_duel(), 1);
+        world.phase_trace_enabled = true;
+        world.step();
+        assert_eq!(world.phase_trace, [
+            "clear events", "expire decisions", "retain contact entry",
+            "apply articulated movement", "record contact locomotion", "separate",
+            "body yaw", "grips", "arms", "geometry", "contact", "doors",
+            "increment tick", "pending", "navigation",
+        ]);
+    }
+
+    #[test]
+    fn crowded_separation_shifts_both_contact_endpoints_equally() {
+        let mut world = World::new(&Scenario::articulated_duel(), 1);
+        // The contract's three planar points, injected rather than coaxed out of
+        // real stats. What is under test is the subtraction; a fixture that had
+        // to reach 3/16 by tuning agility would be testing the actuator, and
+        // would stop testing this the first time a stat moved.
+        let eighth = Fx::from_ratio(1, 8);
+        let sixteenth = Fx::from_ratio(1, 16);
+        world.pos[0] = Vec2::from_ints(8, 8);
+        world.retain_contact_entry();
+        world.pos[0] = Vec2::new(Fx::from_int(8) + eighth, Fx::from_int(8));
+        world.record_contact_locomotion();
+        world.pos[0] = Vec2::new(Fx::from_int(8) + eighth + sixteenth, Fx::from_int(8));
+
+        let (start, end) = world.contact_body_sweep(0);
+        assert_eq!(start, Vec2::new(Fx::from_int(8) + sixteenth, Fx::from_int(8)));
+        assert_eq!(end, Vec2::new(Fx::from_int(8) + eighth + sixteenth, Fx::from_int(8)));
+        // The swept extent is the intended locomotion and nothing else: the
+        // separation shove landed in both endpoints, so it contributes no
+        // relative motion and cannot manufacture a contact velocity.
+        assert_eq!(end - start, Vec2::new(eighth, Fx::ZERO));
+        assert_eq!(start - Vec2::from_ints(8, 8), Vec2::new(sixteenth, Fx::ZERO));
+    }
+
+    #[test]
+    fn mixed_body_and_equipment_entry_clamps_translate_each_endpoint_once() {
+        const L: Fx = crate::combat::contact::CONTACT_COMPONENT_SPEED_LIMIT;
+        let mut world = World::new(&Scenario::articulated_duel(), 1);
+        world.retain_contact_entry();
+        world.vel[0] = Vec2::new(Fx::from_int(5), Fx::ZERO);
+        world.arms[0][1].linear_velocity = Vec3::new(Fx::ONE, Fx::ZERO, Fx::ZERO);
+        let hand_before = world.arms[0][1].hand;
+
+        world.clamp_contact_entry();
+
+        // The body is clamped first and the equipment is built on the clamped
+        // body, so the arm's own excess is exactly one unit however far over
+        // the body was -- which is the property that keeps the two clamps from
+        // compounding.
+        assert_eq!(world.vel[0], Vec2::new(L, Fx::ZERO), "Db did not land the body on L");
+        assert_eq!(world.arms[0][1].linear_velocity, Vec3::ZERO,
+                   "the body translation was counted twice in the arm");
+
+        // De is -1: `Ve_prime` is `L + 1` and clamps back to `L`. The hand
+        // therefore moves by exactly that and by nothing else -- the body's own
+        // shift moves the origin the hand is measured from, not the hand.
+        let moved = world.arms[0][1].hand - hand_before;
+        assert!(moved.x < Fx::ZERO, "the shifted endpoint did not move west");
+        // Not exactly `requested`: a shoulder cannot reach past its arm, so the
+        // inverse map clamps and the committed hand is the clamped one. What
+        // must hold is that the pose is self-consistent, which is what the
+        // energy check will read.
+        let anatomy = world.combat_specs.as_ref().unwrap()
+            .anatomy(world.articulated_anatomy[0].unwrap()).unwrap().clone();
+        let arm = world.arms[0][1];
+        assert_eq!(arm.hand, actuator::hand_position(
+            &anatomy, world.body_yaw[0].angle, 1, arm.bearing, arm.height, arm.reach),
+            "the committed hand does not match the committed joint pose");
+        assert!(arm.reach >= Fx::from_raw(actuator::ARM_MIN_REACH_RAW) && arm.reach <= Fx::ONE);
+
+        // And the untouched arm keeps a relative velocity of zero rather than
+        // inheriting the body's clamp.
+        assert_eq!(world.arms[0][0].linear_velocity, Vec3::ZERO);
+    }
+
+    #[test]
+    fn body_body_contact_remains_planar_and_single_sourced() {
+        // Two overlapping hostile articulated bodies. Body against body is
+        // `World::separate`'s and only `World::separate`'s, so the solver must
+        // never key a row body-to-body -- otherwise one overlap is answered
+        // twice, once planar and once in three dimensions, and the two answers
+        // fight each other every tick.
+        //
+        // The contract names this fixture as carrying no equipment. It cannot:
+        // `Loadout`'s slot 0 is not an `Option` and `validate_rows` requires the
+        // carried equipment and the loadout to agree slot for slot, so an
+        // articulated row always holds something. Keeping the duel's equipment
+        // costs the test nothing, because what it asserts is the absence of a
+        // body/body *key*, not the absence of all contact.
+        let mut scenario = Scenario::articulated_duel();
+        scenario.units[0].spawn = Vec2::from_ints(8, 8);
+        scenario.units[1].spawn = Vec2::new(Fx::from_int(8) + Fx::from_ratio(1, 4), Fx::from_int(8));
+        let mut world = World::new(&scenario, 1);
+        assert!(world.pos[1].x - world.pos[0].x < world.radius[0] + world.radius[1],
+                "the fixture did not start overlapping");
+
+        world.step();
+        assert!(world.pos[1].x - world.pos[0].x > Fx::from_ratio(1, 4),
+                "planar separation did not push the pair apart");
+        assert!(!world.contact_resolutions().iter().any(|row| {
+            row.fact.key.a_slot == crate::combat::contact::BODY_SLOT
+                && row.fact.key.b_slot == crate::combat::contact::BODY_SLOT
+        }), "the solver keyed a body against a body");
+        assert_eq!(world.contact_cap_hits(), 0);
+        // And the shove stayed in the plane it was given. A body has no Z
+        // degree of freedom at all in v2-14: a contact delta discards its Z as
+        // floor reaction, so any Z here would have come from somewhere with no
+        // right to write it.
+        for i in 0..2 {
+            assert_eq!(world.vel[i].y, Fx::ZERO, "a planar shove left the axis it was given");
+        }
+    }
+
+    #[test]
+    fn contact_cap_hashes_once_after_all_actuator_rows() {
+        let scenario = Scenario::articulated_duel();
+        let base = World::new(&scenario, 1);
+        let mut bumped = base.clone();
+        bumped.contact.as_mut().expect("articulated contact state").state.cap_hits = 1;
+        assert_eq!(bumped.state_hash(), base.state_hash(), "cap_hits leaked into LegacyV1");
+        assert_ne!(bumped.state_digest().value, base.state_digest().value);
+
+        // That it is written *last* is the part worth proving rather than
+        // asserting, because the position is what the contract froze and a
+        // reader cannot see it from the digest. FNV-1a multiplies by an odd
+        // prime, so every step is invertible: winding a known digest back four
+        // bytes recovers exactly the state the actuator loop left behind. If
+        // anything else were written after that loop -- a per-slot copy of this
+        // counter, a placeholder, a v2-15 anatomy row that arrived early -- the
+        // two unwound states would disagree.
+        let prime = 0x100_0000_01b3u64;
+        let mut inverse = prime;
+        for _ in 0..6 {
+            inverse = inverse.wrapping_mul(2u64.wrapping_sub(prime.wrapping_mul(inverse)));
+        }
+        assert_eq!(prime.wrapping_mul(inverse), 1, "the prime is not invertible mod 2^64");
+        let unwind = |digest: u64, cap: u32| {
+            let mut state = digest;
+            for byte in cap.to_le_bytes().into_iter().rev() {
+                state = state.wrapping_mul(inverse) ^ u64::from(byte);
+            }
+            state
+        };
+        let actuator_tail = unwind(base.state_digest().value, 0);
+        assert_eq!(unwind(bumped.state_digest().value, 1), actuator_tail,
+                   "cap_hits is not the last four bytes of the digest");
+
+        // And it is one global counter rather than one per slot. A third
+        // allocated row changes the actuator prefix, so the recovered state
+        // must differ -- but the single four-byte unwind must still reconcile
+        // the pair, which it could not if the counter were written per slot.
+        let mut wider = base.clone();
+        wider.try_spawn(&scenario.units[1]).expect("a third row");
+        let mut wider_bumped = wider.clone();
+        wider_bumped.contact.as_mut().expect("articulated contact state").state.cap_hits = 1;
+        let wider_tail = unwind(wider.state_digest().value, 0);
+        assert_ne!(wider_tail, actuator_tail, "a third actuator row hashed nothing");
+        assert_eq!(unwind(wider_bumped.state_digest().value, 1), wider_tail,
+                   "cap_hits was written once per slot");
+    }
+
+    #[test]
+    fn legacy_worlds_have_no_contact_state_or_schedule_phase() {
+        let mut world = duel_world();
+        assert!(world.contact.is_none(), "a legacy world allocated contact state");
+        assert!(world.contact_resolutions().is_empty());
+        assert_eq!(world.contact_cap_hits(), 0);
+        // Reserving is an exact no-op here, and deliberately so even past the
+        // articulated ceiling: a legacy world has nothing to reserve, so it has
+        // nothing to refuse either, and a host that reserves unconditionally
+        // must not have to know which model it is holding.
+        assert_eq!(world.try_reserve_contact_slots(4_096), Ok(()));
+        assert!(world.contact.is_none());
+        world.phase_trace_enabled = true;
+        world.step();
+        assert!(!world.phase_trace.iter().any(|phase| phase.contains("contact")),
+                "a legacy tick scheduled a contact phase");
+        assert!(world.contact.is_none(), "a legacy tick created contact state");
+    }
+
+    #[test]
+    fn contact_scratch_grows_only_with_allocated_high_water() {
+        let scenario = Scenario::articulated_duel();
+        let mut world = World::new(&scenario, 1);
+        let reserved = world.contact_capacities();
+        assert!(reserved.iter().all(|capacity| *capacity > 0), "construction reserved nothing");
+
+        world.step();
+        assert_eq!(world.contact_capacities(), reserved, "a tick grew contact scratch");
+
+        // Reusing a dead slot raises no high water, so it must reserve nothing.
+        // That is the property the free list buys and the one a browser holding
+        // typed-array views is relying on.
+        world.alive[1] = false;
+        world.free.push(1);
+        let respawn = scenario.units[1];
+        world.try_spawn(&respawn).expect("respawn into the dead slot");
+        assert_eq!(world.alive.len(), 2, "a reused slot allocated a column");
+        assert_eq!(world.contact_capacities(), reserved, "a reused slot grew contact scratch");
+
+        // A genuinely new slot is the one thing allowed to grow them.
+        world.try_spawn(&respawn).expect("spawn a third row");
+        assert_eq!(world.alive.len(), 3);
+        assert_ne!(world.contact_capacities(), reserved, "a new high water reserved nothing");
+    }
+
+    #[test]
+    fn invalid_dynamic_contact_capacity_fails_before_spawn_mutates() {
+        let scenario = Scenario::articulated_duel();
+        let mut world = World::new(&scenario, 1);
+        let row = scenario.units[1];
+        for _ in world.alive.len()..crate::MAX_ARTICULATED_ENTITIES {
+            world.try_spawn(&row).expect("a row inside the ceiling");
+        }
+        assert_eq!(world.alive.len(), crate::MAX_ARTICULATED_ENTITIES);
+
+        let digest = world.state_digest().value;
+        let capacities = world.contact_capacities();
+        let resolutions = world.contact_resolutions().len();
+        assert_eq!(world.try_spawn(&row).unwrap_err(),
+                   SpawnError::Contact(ContactCapacityError::EntityLimit));
+        // Nothing authoritative moved. Capacity is not on that list -- the
+        // reservation sequence is not atomic and the contract says so -- but
+        // here the refusal happens before any reserve, so it did not move
+        // either.
+        assert_eq!(world.alive.len(), crate::MAX_ARTICULATED_ENTITIES);
+        assert_eq!(world.state_digest().value, digest);
+        assert_eq!(world.contact_capacities(), capacities);
+        assert_eq!(world.contact_resolutions().len(), resolutions);
+    }
+
+    #[test]
+    fn geometry_envelope_rejects_before_world_or_spawn_mutation() {
+        // `Fx::MIN` is the case the arena bound alone would wave through: arena
+        // settling would later have clamped it, so only checking the row as
+        // handed over catches it.
+        let mut scenario = Scenario::articulated_duel();
+        scenario.units[0].spawn = Vec2::new(Fx::MIN, Fx::ZERO);
+        // `.err()` rather than `unwrap_err()`: `World` is deliberately not
+        // `Debug`, and the failure is the whole point of this call anyway.
+        assert_eq!(World::try_new(&scenario, 1).err(),
+                   Some(WorldBuildError::Contact(ContactCapacityError::GeometryEnvelope)));
+
+        // And the reach, not just the origin: 256 is inside the envelope on its
+        // own and outside it once the body's own arm is added.
+        let scenario = Scenario::articulated_duel();
+        let mut world = World::new(&scenario, 1);
+        let mut row = scenario.units[1];
+        row.spawn = Vec2::from_ints(256, 0);
+        let digest = world.state_digest().value;
+        assert_eq!(world.try_spawn(&row).unwrap_err(),
+                   SpawnError::Contact(ContactCapacityError::GeometryEnvelope));
+        assert_eq!(world.alive.len(), 2, "a refused spawn allocated a column");
+        assert_eq!(world.state_digest().value, digest);
     }
 
     #[test]

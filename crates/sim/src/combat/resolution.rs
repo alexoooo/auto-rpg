@@ -4,8 +4,9 @@
 //! This module deliberately knows nothing about world columns or scheduling.
 
 use crate::combat::contact::{
-    contact_at_pose, map_local_to_global, put_u32, put_u64, reserve_exact, scan_candidates_into,
-    write_fact, write_impulse, Candidate, ContactCollectionScratch, ContactCollider, ContactFact,
+    contact_at_pose, map_local_to_global, put_u32, put_u64, scan_candidates_into,
+    try_reserve_exact, write_fact, write_impulse, Candidate, ContactCapacityError,
+    ContactCollectionScratch, ContactCollider, ContactFact,
     ContactImpulse, ContactKey, ContactKind, ContactResolution, ContactShape, ContactSolverState,
     EnergyLedger, BODY_SLOT, MAX_CONTACT_FACTS_PER_GROUP, MAX_CONTACT_GROUPS_PER_TICK,
     MAX_CONTACT_RESOLUTIONS_PER_TICK,
@@ -321,7 +322,7 @@ pub fn channels(share: u64, channel: WeaponBodyChannel) -> (u64, u64, u64) {
     (cut, thrust, share - cut - thrust)
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct ContactTickScratch {
     collection: ContactCollectionScratch,
     group_facts: Vec<ContactFact>,
@@ -345,24 +346,35 @@ impl ContactTickScratch {
     /// constant rather than the caller's to choose, so it is not a parameter:
     /// a caller that could pass a small fact bound could make the driver
     /// reallocate inside a tick, which is the one thing this reservation buys.
-    pub fn reserve(&mut self, collider_bound: usize, candidate_bound: usize) {
-        self.collection.reserve(candidate_bound);
-        reserve_exact(&mut self.group_facts, MAX_CONTACT_FACTS_PER_GROUP);
-        reserve_exact(&mut self.closure_entities, collider_bound);
-        reserve_exact(&mut self.closure_rows, collider_bound);
-        reserve_exact(&mut self.generalized, collider_bound);
-        reserve_exact(&mut self.proposed, MAX_CONTACT_FACTS_PER_GROUP);
+    pub fn try_reserve(
+        &mut self, collider_bound: usize, candidate_bound: usize,
+    ) -> Result<(), ContactCapacityError> {
+        self.collection.try_reserve(candidate_bound)?;
+        try_reserve_exact(&mut self.group_facts, MAX_CONTACT_FACTS_PER_GROUP)?;
+        try_reserve_exact(&mut self.closure_entities, collider_bound)?;
+        try_reserve_exact(&mut self.closure_rows, collider_bound)?;
+        try_reserve_exact(&mut self.generalized, collider_bound)?;
+        try_reserve_exact(&mut self.proposed, MAX_CONTACT_FACTS_PER_GROUP)?;
         // The contract reserves accumulators at the fact bound, but they are
         // sized to the closure, so honour whichever is larger: the two bounds
         // are independent and only happen to be ordered at today's ceiling.
-        reserve_exact(&mut self.sums, MAX_CONTACT_FACTS_PER_GROUP.max(collider_bound));
-        reserve_exact(&mut self.trial, collider_bound);
-        reserve_exact(&mut self.weights, MAX_CONTACT_FACTS_PER_GROUP);
-        reserve_exact(&mut self.shares, MAX_CONTACT_FACTS_PER_GROUP);
-        reserve_exact(&mut self.group_rows, MAX_CONTACT_FACTS_PER_GROUP);
-        reserve_exact(&mut self.old_velocities, collider_bound);
-        reserve_exact(&mut self.suppressed, candidate_bound);
-        reserve_exact(&mut self.capped_entities, collider_bound);
+        try_reserve_exact(&mut self.sums, MAX_CONTACT_FACTS_PER_GROUP.max(collider_bound))?;
+        try_reserve_exact(&mut self.trial, collider_bound)?;
+        try_reserve_exact(&mut self.weights, MAX_CONTACT_FACTS_PER_GROUP)?;
+        try_reserve_exact(&mut self.shares, MAX_CONTACT_FACTS_PER_GROUP)?;
+        try_reserve_exact(&mut self.group_rows, MAX_CONTACT_FACTS_PER_GROUP)?;
+        try_reserve_exact(&mut self.old_velocities, collider_bound)?;
+        try_reserve_exact(&mut self.suppressed, candidate_bound)?;
+        try_reserve_exact(&mut self.capped_entities, collider_bound)?;
+        Ok(())
+    }
+
+    /// The infallible form, for callers holding their own scratch who would
+    /// have nothing useful to do with the failure. `World` uses the fallible
+    /// one: its caller is a browser that has already handed a page typed-array
+    /// views into linear memory, and aborting there blanks the screen.
+    pub fn reserve(&mut self, collider_bound: usize, candidate_bound: usize) {
+        self.try_reserve(collider_bound, candidate_bound).expect("contact scratch reservation");
     }
 
     /// The entities the iteration cap froze on the last solved tick, in the
@@ -374,7 +386,7 @@ impl ContactTickScratch {
     /// Every retained capacity, so a test can prove a solved tick grew none of
     /// them. Capacity is not state, which is why this is not public.
     #[cfg(test)]
-    fn capacities(&self) -> Vec<usize> {
+    pub(crate) fn capacities(&self) -> Vec<usize> {
         vec![
             self.collection.candidate_capacity(),
             self.group_facts.capacity(), self.closure_entities.capacity(),

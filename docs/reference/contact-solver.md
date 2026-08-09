@@ -21,7 +21,7 @@ pub const MAX_ARTICULATED_ENTITIES: usize = 64;
 pub const MAX_CONTACT_FACTS_PER_GROUP: usize = 512;
 pub const MAX_CONTACT_RESOLUTIONS_PER_TICK: usize = 4_096;
 pub const BODY_SLOT: u8 = 0xff;
-pub const CONTACT_COMPONENT_SPEED_LIMIT: Fx = Fx::from_int(4);
+pub const CONTACT_COMPONENT_SPEED_LIMIT: Fx = Fx::from_raw(151_348);
 
 #[repr(u8)]
 pub enum ContactKind { WeaponWeapon = 0, WeaponShield = 1, WeaponBody = 2 }
@@ -234,9 +234,26 @@ rejects an Articulated ScenarioV2 above 64 during structural validation, while e
 legacy V1 codec/world behavior retains its existing 4,096 scenario ceiling and
 otherwise native dynamic behavior. The web host also refuses row 65 and calls
 `try_reserve_contact_slots(MAX_UNITS=64)` immediately after articulated construction,
-before returning a pointer or permitting a typed-array view. Its memory test then
-fills the world, runs the cap fixture, and asserts all contact capacities and wasm
-memory remain unchanged during one further tick.
+before returning a pointer or permitting a typed-array view; if that reservation fails
+it installs no world rather than leaving the previous one alive behind a call that says
+it started over, and it zeroes the frame header to say so. Two things about the refusal
+are worth stating exactly, because "refuses row 65" overstates it in one direction and
+understates it in the other. The host has no articulated spawn path at all today, so an
+Articulated world refuses the *whole* legacy spawn path with `UnitPresence` -- and that
+is an improvement, because before v2-14C the same call reached `World::spawn`'s
+`unreachable`, trapped, and left the `SIM` `RefCell` borrowed so every later export
+trapped too. The 65th row will answer `EntityLimit` through the identical line the day
+an articulated spawn exists.
+
+`contact_high_water() -> u32` reports what the host reserved, and it is the host's own
+record rather than a reading of the vectors. That is a real limit and the division of
+labour follows from it: wasm can observe nothing about a `Vec`'s capacity, so flat
+linear memory is equally consistent with "reserved once up front" and "nothing has grown
+it yet". Exact capacities are therefore proven natively by
+`contact_scratch_grows_only_with_allocated_high_water`, and the browser proves the thing
+native cannot -- that no path grows linear memory or detaches a retained view. Its
+memory test warms three rounds rather than one, because articulated construction
+double-buffers and the page count settles at 182, 206, 206.
 Calling `try_reserve_contact_slots` on a Legacy world is an exact no-op `Ok(())`.
 On Articulated, `high_water>64` returns `EntityLimit` before reserve; a request at or
 below the already reserved/allocated high water is a no-op and never shrinks. On
@@ -257,34 +274,68 @@ component and that spawn plus its exact anatomy/equipment reach against ±256;
 This direct-API rule rejects `Fx::MIN/MAX` even when later arena settling would have
 clamped it. Reject with `GeometryEnvelope` before allocation or spawn mutation.
 
-The energy preflight checks `collider_bound * 8.raw * 3 * 4.raw^2` in signed `i128`.
-At solver entry after separation, perform this componentwise order exactly:
+The energy preflight bounds the accumulator by `collider_bound * 8.raw * 3 * 4.raw^2`
+in signed `i128`. It keeps the literal `4` rather than the clamp below, deliberately:
+the product is a headroom argument and not a reachable state, and proving the
+accumulator survives three times the reachable limit is worth more than proving it
+survives exactly the limit. `group_energy_accumulation_never_saturates` pins that
+product and its quotient, and both stay correct through the change below because the
+helper it exercises takes generalized rows directly and never routes through the clamp.
+
+At solver entry after separation, let `L` be `CONTACT_COMPONENT_SPEED_LIMIT` and perform
+this componentwise order exactly:
 
 ```text
-Db = clamp(Vb,-4,4) - Vb
+Db = clamp(Vb,-L,L) - Vb
 body_requested += Db
 every held absolute requested endpoint += Db once
-Ve_prime = clamp(Vb,-4,4) + old_arm_relative_velocity
-De = clamp(Ve_prime,-4,4) - Ve_prime
+Ve_prime = clamp(Vb,-L,L) + old_arm_relative_velocity
+De = clamp(Ve_prime,-L,L) - Ve_prime
 owning_equipment_requested += De
-arm_relative_velocity = clamp(Ve_prime,-4,4) - clamp(Vb,-4,4)
+arm_relative_velocity = clamp(Ve_prime,-L,L) - clamp(Vb,-L,L)
 ```
 
-**Open defect, owned by checkpoint C.** This componentwise clamp does not keep the
-sweep inside the geometry envelope. `CONTACT_COMPONENT_SPEED_LIMIT` bounds each
-component at 4, which admits a magnitude of `4*sqrt(3)` ≈ 6.93, while
-`combat-geometry`'s displacement bound is on the *magnitude* and is 4. `fx` fails
-closed on out-of-envelope input by answering `TimeOfImpact::ZERO`, so an over-fast
-row manufactures a zero-time contact with every hostile collider in the world,
-however far away. Measured: two hostile zero-radius points 11.3 units apart, one
-holding velocity `(3,3,0)`, resolve a real impulse of -1.0. The boundary is exact —
-`(2,3,0)` and `(4,0,0)` produce nothing, `(3,3,0)` and `(4,1,0)` manufacture a fact.
-The safe componentwise limit for a three-component velocity is `4/sqrt(3)` ≈ 2.309,
-but the energy preflight's `4.raw^2` and
-`group_energy_accumulation_never_saturates`'s velocity `(4,4,4)` are both written
-against 4, so closing this needs one decision across the clamp, the preflight, and
-those pinned numerators. Checkpoint B does not implement the entry clamp and cannot
-close it; C must not land without doing so.
+**`L` is `Fx::from_raw(151_348)`, not four, and that correction is checkpoint C's.**
+The clamp is componentwise while `combat-geometry`'s envelope is on the *magnitude*,
+so a componentwise 4 admits `4*sqrt(3)` ≈ 6.93 against a bound of 4 — and `fx` fails
+an out-of-envelope sweep *closed*, by answering `TimeOfImpact::ZERO`. That is not a
+lost contact but an invented one, against every hostile collider in the arena at any
+distance: two zero-radius points 11.3 units apart, one holding velocity `(3,3,0)`,
+resolved a real impulse of -1.0. The boundary was exact — `(2,3,0)` and `(4,0,0)`
+produced nothing, `(3,3,0)` and `(4,1,0)` manufactured a fact. `151_348` is the
+largest `L` with `3*L^2 <= (4*ONE_RAW)^2`, which is precisely the condition that three
+clamped components stay inside the envelope;
+`the_component_speed_limit_keeps_a_diagonal_inside_the_sweep_envelope` recomputes it
+and then proves it through the real sweep rather than through a restatement of it.
+
+Clamping the magnitude to 4 instead would have preserved full speed along the
+direction of travel, and it is unsound. `Fx::length` floors, so the scale
+`v * 4 / length(v)` is the *identity map* for every vector whose raw squared length
+falls in `(262144^2, 262145^2)`; a brute-force sweep measured up to 0.999903 raw units
+of overshoot surviving it, which the inclusive envelope test rejects exactly as hard
+as 6.93 would. Targeting `4 - Fx::EPSILON` repairs that, but a componentwise clamp
+needs no length, no divide, and no repair argument, in a path the alpha search runs up
+to eighteen times per group.
+
+Nothing measurable is given up. The fastest equipment point the shipped roster can
+produce is 0.185 units per tick, and the fastest that any anatomy the validator accepts
+can produce is 0.949, against a clamp of 2.309. No impulse can exceed those, because the
+alpha search forbids the closure's energy from rising. The clamp is a tripwire against a
+solver pathology, not a speed governor, and no pinned fixture reaches it: the largest
+velocity in the behavioral corpus is 1.0 and the largest in any solver test is 2.0, so
+no digest moves.
+
+One gap stays open here, bounded rather than closed, and it is the honest residue of
+the fix. The clamp bounds a collider's generalized *velocity*, but the envelope
+validates each *endpoint's* displacement, and after a group the arm inverse-map rebuilds
+a segment whose tip also carries the bearing rotation. Those two coincide for a rigidly
+translating collider and diverge for a rotating one. Measured, the worst in-spec tip
+displacement from rotation alone is 1.686 per tick against a bound of 4, and it composes
+with a translation that energy conservation holds near 1.6, so the sum stays inside —
+but that argument rests on the actuator's joint speed limits and the anatomy validator's
+ceilings, not on a clamp. Raising `arm_length`'s validator bound or
+`ARM_BEARING_MAX_SPEED_RAW` reopens this defect from the other end and must revisit this
+paragraph.
 
 Then inverse-map any shifted endpoint and apply the `Both` mirror. Body translation
 is not added a second time during equipment clamp. This entry clamp is
@@ -598,9 +649,11 @@ The post-eight scan uses the same streaming candidate-to-closure pass when more 
 In ArticulatedV1 hashing write exactly one global `cap_hits:u32`, after the complete
 loop of allocated-slot actuator rows and before v2-15 anatomy rows. It is not per
 slot. Legacy hashing writes no tag or placeholder. Adding zero therefore intentionally
-moves the paired articulated command probe from `0x584d711e492950e7` to the predicted
-`0x010411d521a376d7` if no other v14 behavior touches that unstepped fixture; Rust and
-wasm must measure and update together. All six legacy pins remain fixed.
+moved the paired articulated command probe from `0x584d711e492950e7` to
+`0x010411d521a376d7`, which is what it measured — the prediction was written down
+before the change and the measurement landed on it, so the four appended zero bytes
+are the whole explanation and no other v14 behavior reached that unstepped fixture.
+Rust and wasm are updated together. All six legacy pins remain fixed.
 
 ## Portable serialization corpus
 
@@ -699,16 +752,22 @@ fixture stated here:
   enumerates generations 0/1 and both slots and compares the literal tuple sort.
 - `allies_and_self_geometry_do_not_enter_contact_groups` changes case 1 to all A and
   separately aliases B to A; both yield zero facts. `body_body_contact_remains_planar_and_single_sourced`
-  runs two overlapping articulated bodies with no equipment and asserts the pre-solver
-  separation result, zero contact rows, and zero Z state.
+  runs two overlapping articulated bodies and asserts the pre-solver separation result,
+  no body-to-body key, and zero Z state. This fixture used to say "with no equipment",
+  which is not constructible: `Loadout`'s slot 0 is not an `Option`, and `validate_rows`
+  requires carried equipment and loadout to agree slot for slot, so every articulated
+  row holds something. The equipment costs the proof nothing, because what it asserts is
+  the absence of a body/body *key* rather than the absence of all contact.
 - `crowded_separation_shifts_both_contact_endpoints_equally` fixes
   `tick_start=(8,8)`, pre-separate `(8+1/8,8)`, post-separate `(8+3/16,8)` and asserts
   contact start `(8+1/16,8)`, end `(8+3/16,8)`, displacement `1/8`.
 - `mixed_body_and_equipment_entry_clamps_translate_each_endpoint_once` uses body X
-  velocity 5 and right-arm relative X velocity 1. It asserts `Db=-1`, `Ve_prime=5`,
-  `De=-1`, body requested X shifts by -1, equipment absolute requested X shifts by
-  exactly -2, and stored body/equipment absolute velocities are both 4 with stored
-  arm-relative X zero.
+  velocity 5 and right-arm relative X velocity 1. It asserts `Db=L-5`, `Ve_prime=L+1`,
+  `De=-1`, body requested X shifts by `L-5`, equipment absolute requested X shifts by
+  exactly `L-6`, and stored body/equipment absolute velocities are both `L` with stored
+  arm-relative X zero. Stated against `L` rather than the literals this fixture used to
+  carry, which were written when `L` was 4: `De` and the zero arm-relative survive that
+  change unaltered, and everything else is a function of the clamp.
 - `an_initially_separating_overlap_receives_no_attracting_impulse` uses coincident
   zero-radius A/B points with velocities `(-1/4,0,0)` and `(1/4,0,0)`, asserts
   initial normal +X, zero impulse, one suppressed repeat, and separating final rows.

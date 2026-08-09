@@ -189,6 +189,149 @@ function exercise(wasm, abi, seed, guard = null, expectedInitialRevisions = null
   return initialRevisions;
 }
 
+// The articulated contact warmup, as a browser drives it: construct, walk the
+// roster at the row ceiling, tick, reset. A second fixture beside `exercise`
+// rather than a branch inside it, because the two share no export but `step`
+// -- an articulated world is a different world, not a different level.
+//
+// **The reset is inside the fixture, not around it.** `init_articulated_test`
+// builds the replacement world while the outgoing one is still owned, so the
+// peak footprint is two articulated worlds and it is the reset that reaches it.
+// A fixture that stopped short of its own reset would be warming a smaller
+// peak than the guarded cycles then drive, and the guard would fail on growth
+// that is the warmup's rather than a regression.
+function contactWarmup(wasm, abi, seed, guard = null) {
+  const checked = (label, call) => {
+    const result = call();
+    publicationShape(wasm, abi);
+    if (guard) guard(label);
+    return result;
+  };
+  const reserved = (label) => assert.equal(
+    wasm.contact_high_water() >>> 0,
+    abi.MAX_UNITS,
+    `${label}: the world is not reserved to the frame's row ceiling`,
+  );
+
+  checked(`init_articulated_test(${seed})`, () => wasm.init_articulated_test(seed));
+  // The reservation is the whole subject, and it is the one thing flat memory
+  // cannot evidence on its own: a `Vec`'s capacity is invisible from here, and
+  // "nothing grew" reads identically for "reserved once, up front" and for
+  // "nothing has grown it yet". This export is the difference between them.
+  reserved(`init_articulated_test(${seed})`);
+
+  // Toward the row ceiling. Every one of these is refused today and the
+  // assertion says so, which is the honest state of the boundary rather than a
+  // weak test: the host builds every spec with no articulated row, so an
+  // articulated world turns the whole legacy spawn path away and not merely its
+  // sixty-fifth caller. What is under test here is that the refusal is a `0`
+  // and not a trap -- this loop failed as `RuntimeError: unreachable` before
+  // v2-14C -- and that a refused spawn moves neither the reservation nor a
+  // published pointer. It becomes a fill the day an articulated spawn lands on
+  // the boundary: the loop bound is already the ceiling, and only the expected
+  // return changes.
+  for (let row = 0; row <= abi.MAX_UNITS; row++) {
+    const standing = checked(`spawn_monster(${row})`, () => wasm.spawn_monster(3, 255, 255) >>> 0);
+    assert.equal(standing, 0, `row ${row} walked into an articulated world through the legacy path`);
+    reserved(`spawn_monster(${row})`);
+  }
+
+  // ---- the cap fixture goes here, and is deliberately not here yet.
+  //
+  // The contract asks this test to run the group cap before the tick below.
+  // The contact solver is not wired into `World::step` yet -- that is the sim
+  // half of v2-14C -- so a tick resolves nothing and there is no sequence of
+  // exports that can make `MAX_CONTACT_GROUPS_PER_TICK` fire. Nothing stands in
+  // for it: a stubbed cap hit would prove the stub. Everything the fixture will
+  // need is already true at this line -- the world is articulated, reserved to
+  // the ceiling, and every pointer and view is captured -- so it lands as a
+  // block here and the tick and the invariant below carry it unchanged.
+
+  // At least one further tick, which is where a solver that reserved too little
+  // would grow linear memory: the reservation above is per allocated slot, and
+  // a per-tick allocation is exactly what it exists to remove.
+  checked("step(1)", () => wasm.step(1));
+  checked("step(64)", () => wasm.step(64));
+  reserved("step(64)");
+
+  // The reset, on the same call the page would use to start over.
+  checked(`reset init_articulated_test(${seed})`, () => wasm.init_articulated_test(seed));
+  reserved(`reset init_articulated_test(${seed})`);
+}
+
+test("the_browser_contact_warmup_does_not_grow_wasm_memory", () => {
+  const abi = generatedConstants();
+  const wasm = instantiate();
+  const seeds = [0, 1, 0xffff_ffff];
+
+  // A legacy level first, and it is load-bearing rather than scene-setting:
+  // `init_articulated_test` republishes neither the tiles, the fog nor the
+  // furniture, so on an instance that has never seen an `init` all three are
+  // zero-length -- and a zero-length retained view cannot witness a detach,
+  // because a detached view reads a `byteLength` of zero too. This is the same
+  // reason the legacy test above asserts its retained lengths are non-zero.
+  wasm.init(1);
+  // **Three warm rounds, measured rather than chosen.** One is enough above
+  // because that fixture never holds two worlds at once; this one does, on
+  // every reset, and dlmalloc takes more than a single round of that pattern to
+  // stop asking the host for pages. Measured over the seed list below: 182
+  // pages at the end of round one, 206 by the end of round two, and 206 for
+  // every round after -- so two would do and the third is margin. The seeds are
+  // warmed in the order the guarded cycles drive them, because
+  // `init_articulated_test` builds a whole legacy `Sim` -- a generated floor,
+  // its nav fields and its fog -- before it replaces the world, and a floor's
+  // footprint depends on its seed. None of that is what this test is about, and
+  // warming it out of the way is what keeps the subject the reservation.
+  for (let round = 1; round <= 3; round++) {
+    for (const seed of seeds) contactWarmup(wasm, abi, seed);
+  }
+
+  const shape = publicationShape(wasm, abi);
+  const memory = wasm.memory;
+  const baselineBuffer = memory.buffer;
+  const baselinePages = baselineBuffer.byteLength / 65_536;
+  const baselineHighWater = wasm.contact_high_water() >>> 0;
+  assert.ok(Number.isInteger(baselinePages) && baselinePages > 0, "wasm memory is not page-sized");
+  assert.equal(baselineHighWater, abi.MAX_UNITS, "the warm articulated world is not reserved");
+
+  const retained = [
+    new Float32Array(baselineBuffer, shape.framePtr, shape.frameLength),
+    new Uint8Array(baselineBuffer, shape.mapPtr, shape.mapLength),
+    new Uint8Array(baselineBuffer, shape.visPtr, shape.visLength),
+    new Uint8Array(baselineBuffer, shape.furniturePtr, shape.furnitureBytes),
+  ];
+  const retainedLengths = retained.map((view) => view.byteLength);
+  assert.ok(retainedLengths.every((length) => length > 0), "warm fixture left an empty retained publication view");
+
+  function assertWarmInvariant(label) {
+    const after = publicationShape(wasm, abi);
+    assert.equal(memory.buffer, baselineBuffer, `${label}: wasm.memory.buffer changed`);
+    assert.equal(memory.buffer.byteLength / 65_536, baselinePages, `${label}: wasm memory grew`);
+    assert.deepEqual(
+      retained.map((view) => view.byteLength),
+      retainedLengths,
+      `${label}: a retained publication view detached`,
+    );
+    assert.equal(after.framePtr, shape.framePtr, `${label}: FRAME moved`);
+    assert.equal(after.mapPtr, shape.mapPtr, `${label}: MAP moved`);
+    assert.equal(after.visPtr, shape.visPtr, `${label}: VIS moved`);
+    assert.equal(after.furniturePtr, shape.furniturePtr, `${label}: FURNITURE moved`);
+    assert.equal(
+      wasm.contact_high_water() >>> 0,
+      baselineHighWater,
+      `${label}: the contact reservation moved`,
+    );
+  }
+
+  for (let cycle = 1; cycle <= 4; cycle++) {
+    for (const seed of seeds) {
+      contactWarmup(wasm, abi, seed, (call) => (
+        assertWarmInvariant(`seed ${seed}, cycle ${cycle}, ${call}`)
+      ));
+    }
+  }
+});
+
 test("published_legacy_views_survive_every_warm_path_without_memory_growth", () => {
   const abi = generatedConstants();
   const wasm = instantiate();

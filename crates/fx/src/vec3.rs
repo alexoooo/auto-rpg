@@ -247,7 +247,14 @@ mod tests {
         let corner = Vec3::from_ints(256, -256, 256);
         assert!(corner.length() > Fx::from_int(443));
         assert!(corner.length() < Fx::from_int(444));
-        let displacement = Vec3::from_ints(4, -4, 4);
-        assert_eq!(displacement.length_sq(), Fx::from_int(48));
+        // Past the envelope, not at it. This vector was written here as the
+        // maximum accepted displacement, which it is not: `displacement_in_bounds`
+        // bounds the *magnitude* at four and this one is 6.93. Reading it as a
+        // reachable bound is what let `sim` clamp velocity componentwise at four
+        // and manufacture contacts across the arena. It stays, because a widened
+        // `length_sq` must survive out-of-contract input too -- geometry is total
+        // for arbitrary `Fx`, and only the envelope check may reject.
+        let past_envelope = Vec3::from_ints(4, -4, 4);
+        assert_eq!(past_envelope.length_sq(), Fx::from_int(48));
     }
 }

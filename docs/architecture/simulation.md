@@ -102,6 +102,6 @@ Contact, anatomy evolution, and `articulated` damage do not participate yet.
 
 - Storage and construction: [`World` fields and `World::new`](../../crates/sim/src/world.rs)
 - Decision seam: [`World::pending_decisions`, `World::observe`, and `World::submit`](../../crates/sim/src/world.rs)
-- Tick phase order: [`World::step`](../../crates/sim/src/world.rs#L932)
+- Tick phase order: [`World::step`](../../crates/sim/src/world.rs#L1216)
 - Observation shape and feature projection: [`obs.rs`](../../crates/sim/src/obs.rs)
 - Command, order, and objective inputs: [`command.rs`](../../crates/sim/src/command.rs)

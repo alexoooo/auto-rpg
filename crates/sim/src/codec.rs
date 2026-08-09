@@ -179,11 +179,7 @@ impl ReplayEnvelope {
 
         let mut out = ByteWriter::with_capacity(total_len);
         out.bytes.extend_from_slice(b"ARPG");
-        let codec_version = if self.replay.scenario.combat_model == CombatModel::Legacy {
-            REPLAY_CODEC_VERSION_V1
-        } else {
-            REPLAY_CODEC_VERSION
-        };
+        let codec_version = codec_version_for(self.replay.scenario.combat_model);
         out.u16(codec_version);
         out.u16(self.command_schema);
         out.u8(self.hash_domain as u8);
@@ -354,6 +350,42 @@ impl ReplayEnvelope {
     }
 }
 
+/// The codec version a scenario in memory is written at.
+///
+/// One function because encode and encode-side validation have to agree: a
+/// scenario cleared by the ceiling of one version and then written at the other
+/// is a replay that its own decoder rejects.
+fn codec_version_for(model: CombatModel) -> u16 {
+    if model == CombatModel::Legacy { REPLAY_CODEC_VERSION_V1 } else { REPLAY_CODEC_VERSION }
+}
+
+/// The unit ceiling in force for one scenario record.
+///
+/// `MAX_SCENARIO_UNITS` bounds the *field*; how many units a model can actually
+/// simulate is a separate question, and for Articulated the contact solver
+/// answers it -- `MAX_ARTICULATED_ENTITIES` is its authoritative entity
+/// capacity, not a browser publication limit, so row 65 can never be honoured
+/// however it arrives. Legacy keeps 4,096 exactly: same bytes, same offsets,
+/// same error, because those are pinned by fixture.
+///
+/// The overflow keeps `ReplayLimit::ScenarioUnits`. The tag names the field that
+/// was too large, not the constant that bounded it, and no caller can act
+/// differently on the two -- both mean "send fewer units". A new variant would
+/// also change an exported enum that `replay-codec-v1.md` transcribes verbatim,
+/// to say something the existing one already says.
+///
+/// `codec_version` is not redundant with the model. A V1 record carrying the
+/// Articulated tag is malformed in a deeper way and already answers
+/// `MissingCombatSpecs`; narrowing its ceiling first would change that error for
+/// no gain.
+fn scenario_unit_ceiling(codec_version: u16, model: CombatModel) -> usize {
+    if codec_version == REPLAY_CODEC_VERSION && model == CombatModel::Articulated {
+        crate::combat::contact::MAX_ARTICULATED_ENTITIES
+    } else {
+        MAX_SCENARIO_UNITS
+    }
+}
+
 fn validate_envelope(envelope: &ReplayEnvelope) -> Result<(), ReplayValidationError> {
     if envelope.seed != envelope.replay.seed {
         return Err(ReplayValidationError::EnvelopeReplayMismatch(ReplayField::Seed));
@@ -424,7 +456,12 @@ fn validate_scenario(scenario: &Scenario, tick_limit: u32) -> Result<(), ReplayV
     if tiles.iter().any(|tile| !matches!(*tile, OPEN | WALL | DOOR)) {
         return Err(ReplayValidationError::InvalidField(ReplayField::DungeonTile));
     }
-    if scenario.units.len() > MAX_SCENARIO_UNITS {
+    // After `validate_construction` above, and deliberately: `try_fingerprint`
+    // has already run the same construction check, so a roster that is both
+    // oversized and malformed reports the malformation either way. Moving the
+    // ceiling up would only separate it from the other scenario bounds.
+    let model = scenario.combat_model;
+    if scenario.units.len() > scenario_unit_ceiling(codec_version_for(model), model) {
         return Err(ReplayValidationError::LimitExceeded(ReplayLimit::ScenarioUnits));
     }
     if scenario.torches.len() > MAX_SCENARIO_TORCHES {
@@ -1003,7 +1040,11 @@ fn scan_scenario(bytes: &[u8], codec_version: u16) -> Result<ScenarioScan, Repla
             value: value as u32,
         }),
     }
-    let unit_count = read_count(&mut reader, MAX_SCENARIO_UNITS, ReplayLimit::ScenarioUnits)?;
+    // The combat-model tag is the first byte of the record, so the ceiling is
+    // already decided here -- one field ahead of the first unit row and long
+    // before anything is allocated.
+    let ceiling = scenario_unit_ceiling(codec_version, combat_model);
+    let unit_count = read_count(&mut reader, ceiling, ReplayLimit::ScenarioUnits)?;
     for _ in 0..unit_count {
         match reader.u8()? {
             0..=3 => {}
@@ -1118,7 +1159,11 @@ fn build_scenario(bytes: &[u8], codec_version: u16) -> Result<Scenario, ReplayDe
             value: value as u32,
         }),
     };
-    let unit_count = read_count(&mut reader, MAX_SCENARIO_UNITS, ReplayLimit::ScenarioUnits)?;
+    // Same ceiling as the scan pass, from the same tag: the two must not be able
+    // to disagree, or the stream offsets the scan agreed to stop reading at
+    // would not be the ones this pass builds from.
+    let ceiling = scenario_unit_ceiling(codec_version, combat_model);
+    let unit_count = read_count(&mut reader, ceiling, ReplayLimit::ScenarioUnits)?;
     let mut units = Vec::with_capacity(unit_count);
     for _ in 0..unit_count {
         let kind = match reader.u8()? {
@@ -1553,6 +1598,7 @@ impl<'a> ByteReader<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::combat::contact::MAX_ARTICULATED_ENTITIES;
     use crate::{ActionKind, ArmTarget, CombatHeight};
 
     fn envelope_for(scenario: Scenario, ticks: u32) -> ReplayEnvelope {
@@ -1570,7 +1616,10 @@ mod tests {
     }
 
     fn articulated_envelope() -> ReplayEnvelope {
-        let scenario = Scenario::articulated_duel();
+        articulated_envelope_for(Scenario::articulated_duel())
+    }
+
+    fn articulated_envelope_for(scenario: Scenario) -> ReplayEnvelope {
         let mut replay = Replay::new(&scenario, 7);
         let arm = ArmTarget {
             bearing: Angle::QUARTER,
@@ -2086,6 +2135,133 @@ mod tests {
         let mut bad = extent;
         bad[108] = 1;
         assert_eq!(decode_error(&bad), ReplayDecodeError::InvalidField(ReplayField::TorchPosition));
+    }
+
+    /// A structurally valid Articulated scenario with exactly `rows` unit rows.
+    ///
+    /// Every added row carries its own binding on purpose. `try_fingerprint`
+    /// runs `validate_construction` before any scenario bound is looked at, so a
+    /// roster padded with bare `UnitSpec`s reports
+    /// `InvalidField(ArticulatedUnitSpec)` and proves nothing about the ceiling.
+    fn articulated_roster(rows: usize) -> Scenario {
+        let mut scenario = Scenario::articulated_duel();
+        let template = scenario.units[1];
+        while scenario.units.len() < rows {
+            let at = scenario.units.len();
+            scenario.units.push(UnitSpec {
+                spawn: Vec2::from_ints(1 + (at % 20) as i32, 1 + (at / 20) as i32),
+                ..template
+            });
+        }
+        scenario
+    }
+
+    /// A Legacy roster on an arena wide enough to stand 4,096 units on distinct
+    /// tiles, so the only bound a full roster can trip is the one under test.
+    fn legacy_roster(rows: usize) -> Scenario {
+        let mut scenario = Scenario::duel();
+        scenario.dungeon = Dungeon::open(64, 64);
+        let template = scenario.units[0];
+        scenario.units = (0..rows)
+            .map(|at| UnitSpec {
+                spawn: Vec2::from_ints((at % 64) as i32, (at / 64) as i32),
+                ..template
+            })
+            .collect();
+        scenario
+    }
+
+    /// Where the u32 unit count sits in an encoded envelope.
+    ///
+    /// Derived from the record grammar rather than pinned: the byte-exact
+    /// fixture and the truncation suite own the offsets, and these two tests are
+    /// about which ceiling applies, not about where the field lives.
+    fn unit_count_at(scenario: &Scenario) -> usize {
+        HEADER_BYTES + 1 + 2 + scenario.name.len() + 2 + 2 + 4
+            + scenario.dungeon.tiles().len() + 4 + 1
+            + if scenario.portal.is_some() { 8 } else { 0 }
+    }
+
+    #[test]
+    fn codec_v2_rejects_articulated_row_65_before_unit_allocation() {
+        let full = articulated_envelope_for(articulated_roster(MAX_ARTICULATED_ENTITIES));
+        let bytes = full.encode().unwrap();
+        let decoded = ReplayEnvelope::decode(&bytes).unwrap();
+        assert_eq!(decoded.replay.scenario.units.len(), MAX_ARTICULATED_ENTITIES);
+        assert_eq!(decoded.replay.scenario, full.replay.scenario);
+        assert_eq!(decoded.encode().unwrap(), bytes);
+
+        let over = articulated_envelope_for(articulated_roster(MAX_ARTICULATED_ENTITIES + 1));
+        let expected = ReplayValidationError::LimitExceeded(ReplayLimit::ScenarioUnits);
+        assert_eq!(over.encode(), Err(ReplayEncodeError::Invalid(expected)));
+        assert_eq!(play_error(&over), ReplayPlayError::Invalid(expected));
+
+        let at = unit_count_at(&full.replay.scenario);
+        assert_eq!(
+            u32::from_le_bytes(bytes[at..at + 4].try_into().unwrap()),
+            MAX_ARTICULATED_ENTITIES as u32,
+        );
+        let mut row_65 = bytes.clone();
+        put_u32(&mut row_65, at, MAX_ARTICULATED_ENTITIES as u32 + 1);
+        assert_eq!(
+            decode_error(&row_65),
+            ReplayDecodeError::LimitExceeded(ReplayLimit::ScenarioUnits),
+        );
+
+        // Before the first unit row is even discriminated: corrupt the body tag
+        // one byte further on and the count still answers, though that same
+        // corruption on its own is caught.
+        let mut also_corrupt = row_65;
+        also_corrupt[at + 4] = 9;
+        assert_eq!(
+            decode_error(&also_corrupt),
+            ReplayDecodeError::LimitExceeded(ReplayLimit::ScenarioUnits),
+        );
+        let mut body_only = bytes.clone();
+        body_only[at + 4] = 9;
+        assert_eq!(decode_error(&body_only), ReplayDecodeError::UnknownDiscriminant {
+            field: ReplayField::UnitBody, value: 9,
+        });
+
+        // And before the roster vector: `Vec::with_capacity(u32::MAX)` of
+        // `UnitSpec` is more memory than a host will commit, so an error
+        // returned rather than an abort is the proof nothing was reserved.
+        let mut absurd = bytes;
+        put_u32(&mut absurd, at, u32::MAX);
+        assert_eq!(
+            decode_error(&absurd),
+            ReplayDecodeError::LimitExceeded(ReplayLimit::ScenarioUnits),
+        );
+    }
+
+    #[test]
+    fn legacy_codec_retains_its_4096_unit_ceiling() {
+        // 65 is refused for a model, not for a codec: Legacy must not notice it.
+        let sixty_five = envelope_for(legacy_roster(MAX_ARTICULATED_ENTITIES + 1), 1)
+            .encode().unwrap();
+        assert_eq!(
+            ReplayEnvelope::decode(&sixty_five).unwrap().replay.scenario.units.len(),
+            MAX_ARTICULATED_ENTITIES + 1,
+        );
+
+        let full = envelope_for(legacy_roster(MAX_SCENARIO_UNITS), 1);
+        let bytes = full.encode().unwrap();
+        let decoded = ReplayEnvelope::decode(&bytes).unwrap();
+        assert_eq!(decoded.replay.scenario.units.len(), MAX_SCENARIO_UNITS);
+        assert_eq!(decoded.replay.scenario, full.replay.scenario);
+
+        let over = envelope_for(legacy_roster(MAX_SCENARIO_UNITS + 1), 1);
+        let expected = ReplayValidationError::LimitExceeded(ReplayLimit::ScenarioUnits);
+        assert_eq!(over.encode(), Err(ReplayEncodeError::Invalid(expected)));
+        assert_eq!(play_error(&over), ReplayPlayError::Invalid(expected));
+
+        let at = unit_count_at(&full.replay.scenario);
+        let mut row_4097 = bytes;
+        put_u32(&mut row_4097, at, MAX_SCENARIO_UNITS as u32 + 1);
+        assert_eq!(
+            decode_error(&row_4097),
+            ReplayDecodeError::LimitExceeded(ReplayLimit::ScenarioUnits),
+        );
     }
 
     #[test]

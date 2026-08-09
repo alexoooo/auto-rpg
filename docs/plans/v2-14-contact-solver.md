@@ -13,10 +13,10 @@ absolute equipment construction and continuous geometry.
 `SWAP_HASH`, and `BOW_HASH` remain byte-identical. The geometry API intentionally
 moves `COMBAT_GEOMETRY_HASH` from `0x56fb8704002a1a61` to
 `0x9d15344883cf6e9c` in native and wasm. Appending global zero `cap_hits` intentionally
-moves the paired unstepped articulated command probe from `0x584d711e492950e7` to
-predicted `0x010411d521a376d7`; measure it natively and update both mirrors only if the
-complete fixture proves that exact suffix-only explanation. There is no v17
-`ARTICULATED_HASH` yet and this phase must not create it.
+moved the paired unstepped articulated command probe from `0x584d711e492950e7` to
+`0x010411d521a376d7` — predicted first, then measured natively onto that exact value,
+which is the suffix-only proof the mirrors were waiting on. Both are updated. There is
+no v17 `ARTICULATED_HASH` yet and this phase must not create it.
 
 ## A — public equipment geometry
 
@@ -142,6 +142,30 @@ Implement the exact shifted body sweep, global-time interpolation, entity-couple
 impulse application, arm inverse map, right-owned `Both` mirror, one final wall
 settlement, and cap commit from the reference. Do not run planar body separation
 again. Publish the last tick's resolutions but mutate no HP.
+
+**C is landing in stages and is not yet complete.** Arrived and green: the typed
+capacity/spawn APIs and the envelope preflight; the codec-V2 64-entity ceiling; the
+hashed `cap_hits` and its re-recorded probe; the web reservation and no-growth proof;
+tick-entry retention, the shifted body sweep, the frozen phase order, the entry clamp,
+and collider construction. Still outstanding: the coupled `ContactTrialProjector`, the
+`solve_contact_tick` call and its mid-tick `Err` policy, the impulse commit and arm
+inverse-map at commit time, wall settlement, and the cap commit — so an articulated tick
+builds its colliders and clamps its velocities but resolves nothing, and `cap_hits` is
+still always zero. The named proofs still owed are
+`repeated_crowded_separation_clamps_before_energy_and_sweep`,
+`wall_settlement_never_increases_entity_closure_energy`,
+`both_has_one_right_owned_collider_and_mirrors_after_contact`,
+`contact_modified_pose_survives_replay_at_every_tick`, and
+`dead_and_reused_slots_keep_contact_identity_and_hash_coverage`. The browser memory
+test's cap fixture is blocked on the same solve and is marked in place.
+
+Checkpoint C closes the entry-clamp defect B recorded and could not fix.
+`CONTACT_COMPONENT_SPEED_LIMIT` is `Fx::from_raw(151_348)`, the largest `L` with
+`3*L^2 <= (4*ONE_RAW)^2`, so three clamped components stay inside the sweep envelope
+that a componentwise 4 escaped. The reference records the measurement and why
+clamping the magnitude instead is unsound. No pinned digest moves: nothing in any
+fixture reaches 2.309, and the energy preflight keeps its `4.raw^2` headroom
+deliberately.
 
 Write one global `cap_hits:u32` after the complete allocated-slot actuator loop in
 ArticulatedV1 hashing. Initialize it to zero; clone it; preserve it across slot reuse;

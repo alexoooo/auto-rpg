@@ -2,7 +2,7 @@
 
 **Purpose:** Specify current hash ownership, replay integrity behavior, and golden-hash registry.
 **Status:** current
-**Canonical source:** [`World::state_hash`](../../crates/sim/src/world.rs#L2490), [`Scenario::fingerprint`](../../crates/sim/src/scenario.rs#L386), and pinned constants in tests.
+**Canonical source:** [`World::state_hash`](../../crates/sim/src/world.rs#L2967), [`Scenario::fingerprint`](../../crates/sim/src/scenario.rs#L386), and pinned constants in tests.
 **Update when:** A hash byte stream, replay integrity check, golden fixture, pin value, or re-record procedure changes.
 
 <!-- DOC_CONTRACT: hash-domains -->
@@ -100,6 +100,6 @@ it is not an alternate accepted golden.
 
 - FNV-1a implementation and byte order: [`Hash64`](../../crates/fx/src/hash.rs#L9)
 - Scenario stream and current omission: [`Scenario::fingerprint`](../../crates/sim/src/scenario.rs#L386)
-- Live state stream: [`World::state_hash`](../../crates/sim/src/world.rs#L2490)
+- Live state stream: [`World::state_hash`](../../crates/sim/src/world.rs#L2967)
 - In-memory replay and integrity check: [`Replay`](../../crates/sim/src/replay.rs#L57)
 - Replay playback order: [`Replay::play_until`](../../crates/sim/src/replay.rs#L137)
