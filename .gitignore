@@ -21,3 +21,8 @@ node_modules/
 dist/
 .test-build/
 .vite/
+
+# Python is only a host for the deterministic Blender recipe. Import caches are
+# never reviewed generator inputs or outputs.
+__pycache__/
+*.py[cod]

@@ -49,12 +49,12 @@ The shipped Canvas renderer remains the playable reference and diagnostic render
 It is the control for simulation, visibility, and presentation comparisons, and its
 Tactical and Dev modes remain useful even after a production client exists.
 
-The shipped v2 presentation proof is a separate procedural Babylon greybox. It reads
-renderer-owned snapshot copies, repeats the authoritative visibility boundary, and
-never owns simulation state. It establishes the replaceable client seam and backend
-fallback, but it does not yet establish production art or pass the pending foreground
-performance gate. The durable rationale is recorded in
-[ADR 0003](../decisions/0003-renderer-outside-sim.md).
+The shipped v2 presentation path defaults to the procedural Babylon greybox and can
+load the pinned representative-room GLB for review. Both read renderer-owned snapshot
+copies, repeat the authoritative visibility boundary, and never own simulation
+state. The room pipeline establishes reproducible authored-asset delivery, not a
+visible art or foreground performance pass; both decisions remain pending. The
+durable rationale is recorded in [ADR 0003](../decisions/0003-renderer-outside-sim.md).
 
 ## Superseded DESIGN destinations
 

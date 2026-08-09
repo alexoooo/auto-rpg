@@ -4,8 +4,9 @@
 Babylon greybox, with correct identity, authoritative fog, explicit backend fallback,
 and honest foreground measurements.
 
-**Status:** automated implementation complete — visible correctness and performance
-evidence pending.
+**Status:** complete — proceed/pass with an owner-accepted measured exception. The
+WebGPU p95 threshold failed; the missing ordered WebGL2 recapture and final Canvas2D
+control were explicitly waived, not treated as completed protocol slots.
 
 **Depends on:** `v2-07` is complete, including its worker protocol, root-hosted Vite
 entry, and fixed three-buffer ownership contract.
@@ -276,7 +277,10 @@ injected factories. The production adapter uses leaf imports:
 @babylonjs/core/Engines/abstractEngine.js (type only)
 ```
 
-The query parameter is `backend=auto|webgl2`; absent means `auto`. There is no
+The canonical query parameter is `backend=auto|webgl2`; absent means `auto`. For
+tolerance of previously shared diagnostic URLs, `renderer=auto|webgl2` is an exact
+alias, while conflicting `backend` and `renderer` values fail closed with a query
+diagnostic. `renderer=canvas` remains the separate Canvas2D control. There is no
 ambiguous `webgpu` force mode: an accepted WebGPU measurement requires diagnostics
 to report that `auto` actually selected WebGPU.
 
@@ -290,7 +294,7 @@ initialization may already have locked the first canvas to a `webgpu` context, s
 fallback on the same element is forbidden.
 
 Forced WebGL2 skips both WebGPU support and initialization. Explicitly acquire
-`canvas.getContext("webgl2", attributes)`; null is a terminal renderer error. Pass
+`canvasno, ju.getContext("webgl2", attributes)`; null is a terminal renderer error. Pass
 that `WebGL2RenderingContext` to `new Engine(...)` and require
 `engine.webGLVersion === 2`. The ordinary canvas constructor's silent WebGL1 fallback
 does not satisfy this plan.
@@ -456,8 +460,26 @@ the run rejected on any visibility change, and never auto-starts in a test or hi
 tab. A `PerformanceObserver` collects `longtask` entries when supported and records
 support explicitly. Each rAF sample stores timestamp and delta from the previous rAF;
 percentiles use nearest-rank over deltas after the 30-second warm-up. Counts over
-16.67 and 33.33 ms use strict `>` comparisons. Draws, active triangles, lights, and
-shadow casters are sampled from the same rendered frame and stored beside its delta.
+16.67 and 33.33 ms use strict `>` comparisons. On Babylon routes, draws come from
+the engine's per-frame draw-call counter (including passes such as the shadow map),
+active triangles come from `Scene.getActiveIndices() / 3`, and light and registered
+shadow-caster counts come from the live scene presentation. The Canvas control counts
+its actual Canvas2D primitives and reports zero triangles/shadow casters. These values
+are sampled from the last completed rendered frame and stored beside the next rAF
+delta; logical debug mesh/instance counts are diagnostic only and are not evidence.
+Every sampling and completion boundary also requires a live, actively rendering
+owner; context/device loss, disposal, or a stopped render loop rejects the run rather
+than completing from the last cached frame.
+The UI exposes those completed-frame counters separately from logical scene counts,
+and capture refuses to start until draws are nonzero (and Babylon active triangles
+are nonzero). A clear-only stale or damaged context therefore yields a reload-in-a-
+fresh-tab diagnostic instead of performance evidence.
+
+Reference capture sizing respects backing-store ownership. Set the active canvas CSS
+content box to 1920x1080, then ask Babylon to resize its own backing store/swapchain;
+never assign `canvas.width`/`height` behind a live Babylon engine. The Canvas2D control
+owns and synchronises its backing dimensions directly. A failed setup restores the
+previous CSS dimensions and asks the owner to resize again.
 
 Reject a run whose diagnostics vendor/renderer/description case-insensitively contains
 `SwiftShader`, `llvmpipe`, `software`, or `Microsoft Basic Render`; store the matched
@@ -467,6 +489,19 @@ reason. Browser APIs expose no portable GPU residency measurement, so
 relabeled as GPU residency. This unavailable field does not invent a pass or fail.
 
 The UI download exports raw JSON with `schemaVersion: 1` and this exact shape:
+
+The stress fixture is explicitly labelled noninteractive: its simulation and pointer
+controls are disabled to keep runs comparable. Start is visibly disabled until a
+stress route is ready and throughout a run. The status counts down the 30-second
+warm-up and 120-second sample phases from the capture clock. Each new start disables
+Download and invalidates the previous export; Download becomes available only for a
+complete run. Rejection, terminal loss, and disposal clear the progress timer, and a
+rejected run may be started again without reloading.
+For the designated foreground capturer, the six metadata fields are prefilled with
+the known Windows/CPU/GPU/driver/power values; Chrome's full version is derived from
+the user agent when available and otherwise uses the recorded fallback. These are
+editable best-effort defaults, shared by Canvas/WebGPU/WebGL2 routes, and lock only
+while a run is active so the operator can correct them before Start.
 
 ```ts
 type GreyboxPerformanceRun = Readonly<{
@@ -535,8 +570,10 @@ greybox renderer control, not evidence about the legacy Canvas game's frame rate
 
 Record shared coordinate conventions for Fighter, Brute, arrows, walls, and doors.
 The phase gate records `pass`, `replace`, or `stop` for Babylon independently of room
-art and articulated combat. Until user-visible evidence is recorded, status remains
-pending and this plan must not claim the performance targets passed.
+art and articulated combat. Visible correctness does not settle that gate: absent an
+explicit recorded owner waiver, status remains performance-pending until all four
+foreground captures are accepted, and this plan must not claim the performance
+targets passed before then.
 
 Update `docs/performance/README.md` with this protocol and an initially pending phase
 row. After each accepted run, commit its untouched download at
@@ -580,9 +617,9 @@ orchestration only; it is not correctness-matrix or performance evidence. The We
 stress route selected WebGPU, the forced-WebGL2 stress route reported WebGL version 2,
 the Canvas2D control started, and the real-Worker WebGPU route reached Ready. All four
 showed no error and `terminal: false`. On the real-Worker route, Pause held the tick,
-Resume advanced it, and Reset reached epoch 2 at tick 0. The combined Goto/withdraw
-row, resize and user-confirmed picking, complete visible presentation, the paired
-manual backend matrix, and all four foreground performance captures remain pending.
+Resume advanced it, and Reset reached epoch 2 at tick 0. At that point Withdraw,
+resize, user-confirmed input, complete visible presentation, the paired manual backend
+matrix, and all four foreground performance captures remained pending.
 
 That smoke caught one integration defect before evidence collection: Babylon mutates
 the engine options object during construction, so passing the repository's frozen
@@ -603,9 +640,72 @@ The expanded 29-of-29 renderer gate covers the exact tests
 `primary_pointer_click_issues_goto_while_primary_drag_moves_the_live_camera` and
 `greybox_input_keeps_one_pointer_owner_and_recovers_after_throwing_host_callbacks`.
 An agent-controlled visible-browser retest then observed a floor click submit Goto and
-a primary drag move the live camera. That retest is functional smoke, not user-owned
-manual acceptance: resize and input picking remain pending in the matrix until the
-user hard-refreshes the rebuilt page and confirms both behaviors directly.
+a primary drag move the live camera. The user subsequently hard-refreshed the rebuilt
+WebGPU real-Worker page and confirmed that both behaviors now work. The matrix accepts
+that first confirmation, then records the user's subsequent statement that the full
+requested checklist works on both auto-selected WebGPU and forced WebGL2: Pause/Resume;
+floor-click Goto and Escape Withdraw; reset without an old-epoch flash; resize followed
+by click, primary-drag pan, and wheel zoom; three-buffer hold with continued tick and
+release; visible units, shots/effects, doors, and torches; and backend diagnostics.
+Visible correctness is therefore complete. The out-of-order forced-WebGL2 diagnostic in
+[`2026-08-08-v2-greybox.md`](../performance/evidence/2026-08-08-v2-greybox.md#diagnostic-result)
+recorded 7,200 samples with p50 16.70 ms, p95 16.80 ms, p99 16.80 ms, 4,138 frames
+over 16.67 ms, zero over 33.33 ms, and zero long tasks. Its explicit WebGL2 request,
+selection, and version 2 diagnostics meet the individual 33.33 ms p95 threshold when
+considered alone. Its `Chrome 151.0.0.0` metadata is a reduced user-agent value rather
+than the full browser build. Because the required initial Canvas2D control and WebGPU
+artifacts were not recorded before this import, the diagnostic cannot fill the
+accepted WebGL2 slot. A fresh WebGL2 capture must follow those two runs, and the
+repeated Canvas2D control must follow it. At that point none of the four ordered
+captures had been accepted, and the paired phase decision could not pass.
+
+The subsequent initial Canvas2D control is accepted as ordered slot 1 of 4. Its
+untouched [schema-one JSON](../performance/evidence/2026-08-08-v2-greybox-canvas2d-control.json)
+has SHA-256
+`e3e8b6225bd72f74432936e83dd528593ea91ecb73aae0c44c600232f367b5d2`
+and records 7,200 samples: p50 16.70 ms, p95 16.80 ms, p99 16.90 ms, 4,126
+frames over 16.67 ms, zero over 33.33 ms, and zero long tasks. It issued 1,609
+Canvas2D primitives per sampled frame with zero triangles and shadow casters, nine
+lights, the fixed fixture, full Chrome 151.0.7922.72 provenance, and the required
+1920 by 1080 CSS/backing size.
+
+The ordered [WebGPU raw capture](../performance/evidence/2026-08-08-v2-greybox-webgpu.json)
+began at `2026-08-09T00:44:30.817Z`, after the Canvas slot's nominal end at
+`2026-08-09T00:43:54.968Z`, so it is valid slot 2. Its SHA-256 is
+`6fd1b6daa3c6d61c5b0117a56997d23430bf47268fd89d00a89005f78943413e`.
+It is schema one, complete with no rejection reasons, and records 7,200 samples:
+p50 16.70 ms, p95 16.80 ms, p99 16.90 ms, 4,020 frames over 16.67 ms, zero over
+33.33 ms, and zero long tasks. Auto selected WebGPU with support `true` and init
+`ok`; the full Chrome and fixed-fixture provenance matches slot 1. Its 11 draws,
+11,752 triangles, nine lights, and 220 shadow casters were stable. The written WebGPU
+p95 threshold is at most 16.67 ms, so this result fails by 0.13 ms. At that point a
+fresh ordered forced-WebGL2 capture and repeated Canvas2D drift control remained
+pending; the final decision below records their later waiver.
+
+The additional [early Canvas2D raw capture](../performance/evidence/2026-08-08-v2-greybox-canvas2d-control-early-repeat.json)
+is complete but cannot fill slot 4. It began at `2026-08-09T00:47:29.693Z`, only
+28.876 seconds after WebGPU's nominal finish at `2026-08-09T00:47:00.817Z`, so an
+ordered 150-second WebGL2 capture could not have occurred between them. Its SHA-256
+is `5c80a5af94112440b84b43237ba068767856c48d2d2e254b5af2822a3a9c04a4` and its
+7,200 samples record p50 16.70 ms, p95 16.80 ms, p99 16.90 ms, 4,086 frames over
+16.67 ms, zero over 33.33 ms, zero long tasks, 1,609 draws, and nine lights. It remains
+a diagnostic only. Under the original protocol, an accepted final control would have
+followed a new ordered WebGL2 run; the final decision below waives both artifacts.
+
+## Final phase decision
+
+On 2026-08-08 the project owner stated that the collected evidence was sufficient
+because every renderer had been covered at least once, and directed the project to
+proceed. That instruction closes v2-08 and waives the still-missing ordered WebGL2
+recapture and later Canvas2D control. The waiver preserves rather than rewrites the
+record: the original ordered protocol reached 2 of 4 slots, the WebGPU p95 of 16.80
+ms failed the 16.67 ms target by 0.13 ms, the WebGL2 diagnostic was out of order, and
+the early Canvas repeat could not measure end-of-series drift.
+
+The phase decision is **proceed/pass with a measured exception**. Babylon remains the
+reversible v2 presentation backend, while the threshold miss remains explicit input
+to later optimization and representative-room measurement. This is not a numerical
+WebGPU pass and does not establish the omitted Canvas drift comparison.
 
 ## Commands and acceptance
 
@@ -626,7 +726,9 @@ git diff --check
 
 Automated acceptance requires all tests above, unchanged native/wasm hashes, a
 production build with separate hashed client and worker chunks, no renderer import of
-worker/wasm implementation, and no unknown/seen-only spatial residue. Manual
-acceptance additionally requires both named visible-foreground GPU runs, the initial
-and repeated Canvas controls, and the real-worker manual matrix. No manual performance
-claim is made by this plan amendment.
+worker/wasm implementation, and no unknown/seen-only spatial residue. The real-worker
+manual matrix and a valid initial Canvas plus WebGPU run were completed. The owner
+explicitly waived the otherwise-required ordered WebGL2 recapture and repeated Canvas
+control and accepted the measured WebGPU exception. That decision completes the
+session without claiming that the original four-run protocol or WebGPU numerical gate
+passed.

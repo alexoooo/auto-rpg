@@ -16,6 +16,7 @@ const BACKEND: CanvasBackendDiagnostics = Object.freeze({
 export type CanvasControlDiagnostics = Readonly<{
   backend: CanvasBackendDiagnostics;
   scene: Readonly<RendererFrameMetrics & { meshes: number; instances: number }>;
+  renderedFrame: RendererFrameMetrics;
   running: boolean;
   terminal: false;
   epoch: number | null;
@@ -73,8 +74,15 @@ export class CanvasControlRenderer {
   diagnostics(): CanvasControlDiagnostics {
     return Object.freeze({
       backend: BACKEND, scene: Object.freeze({ ...this.#metrics }), running: this.#running,
+      renderedFrame: Object.freeze({ ...this.#metrics }),
       terminal: false, epoch: this.#snapshot?.epoch ?? null, tick: this.#snapshot?.tick ?? null,
     });
+  }
+
+  frameMetrics(): RendererFrameMetrics {
+    this.#assertLive();
+    if (!this.#running) throw new Error("Canvas2D control renderer is not rendering");
+    return Object.freeze({ ...this.#metrics });
   }
 
   dispose(): void {
@@ -185,4 +193,3 @@ export class CanvasControlRenderer {
 export function createCanvasControlRenderer(canvas: HTMLCanvasElement): CanvasControlRenderer {
   return new CanvasControlRenderer(canvas);
 }
-

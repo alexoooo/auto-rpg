@@ -27,6 +27,14 @@ const STATUSES = new Set(["current", "historical", "stale", "duplicate"]);
 const MOVE_PHASES = new Set(["keep root", "v2-04", "v2-05", "v2-06", "v2-10", "v2-11", "v2-16"]);
 const ROLES = new Set(["Player", "Contributor", "Mechanics author", "Renderer author", "Policy researcher"]);
 const SKIP_DIRS = new Set([".git", ".tools", "node_modules", "target"]);
+const ROOM_CONTRACT_MARKERS = new Map([
+  ["room-asset-manifest", "manifest-semantics"],
+  ["room-asset-coordinates", "coordinates-origins-and-sockets"],
+  ["room-asset-reproducibility", "reproducibility-and-hashes"],
+  ["room-asset-validation", "validation-and-budgets"],
+  ["room-asset-disclosure", "authored-room-disclosure-mapping"],
+  ["room-asset-loader-lifecycle", "loader-lifecycle-and-failure"],
+]);
 
 function structuredInboundLinks(value) {
   if (value === "none") return true;
@@ -422,6 +430,8 @@ function checkProposedBoundaries(markdown, rel, errors) {
   const term = /\b(worker|babylon|articulated|learned|learning|neural(?:-network)?|mlp|webgpu|gpu|glb)\b/ig;
   const shippedTerms = rel === "docs/architecture/browser-runtime.md"
     ? new Set(["worker", "babylon", "webgpu", "gpu"])
+    : rel === "docs/architecture/assets.md"
+      ? new Set(["gpu"])
     : new Set();
   const lines = markdown.split(/\r?\n/);
   const proposed = new Set();
@@ -443,6 +453,7 @@ function checkProposedBoundaries(markdown, rel, errors) {
       term.lastIndex = 0;
       for (const match of sentence.matchAll(term)) {
         if (shippedTerms.has(match[0].toLowerCase())) continue;
+        if (match[0].toLowerCase() === "glb" && scopedCurrentRoomGlb(sentence, rel)) continue;
         const before = sentence.slice(0, match.index);
         const after = sentence.slice(match.index + match[0].length);
         const localBefore = before.split(/\bbut\b|\bhowever\b|;/i).pop();
@@ -469,6 +480,58 @@ function checkProposedBoundaries(markdown, rel, errors) {
     paragraph.push(line.trim());
   }
   inspect();
+}
+
+const ROOM_GLB_AUTHORITIES = new Set([
+  "docs/architecture/assets.md",
+  "docs/architecture/browser-runtime.md",
+  "docs/reference/room-asset-contract.md",
+  "docs/reference/renderer-contract.md",
+  "docs/design/presentation.md",
+  "docs/performance/v2-room-matrix.md",
+  "docs/performance/evidence/2026-08-room-slice.md",
+  "docs/decisions/0003-renderer-outside-sim.md",
+  "docs/decisions/0003-reversible-presentation-engine.md",
+]);
+
+function scopedCurrentRoomGlb(sentence, rel) {
+  if (!ROOM_GLB_AUTHORITIES.has(rel)) return false;
+  if (/\b(combatant|rig|actor|articulated)\b/i.test(sentence)) return false;
+  if ([
+    "docs/reference/room-asset-contract.md",
+    "docs/performance/v2-room-matrix.md",
+    "docs/performance/evidence/2026-08-room-slice.md",
+  ].includes(rel)) return true;
+  return /\b(room|room-slice|authored|representative)\b/i.test(sentence);
+}
+
+function checkCurrentGlbClaims(root, files, errors) {
+  for (const file of files) {
+    const rel = path.relative(root, file).replaceAll("\\", "/");
+    const markdown = fs.readFileSync(file, "utf8");
+    if (!/^\*\*Status:\*\*\s+current\s*$/mi.test(markdown)) continue;
+    const lines = markdown.split(/\r?\n/);
+    let fenced = false;
+    let proposed = false;
+    for (let index = 0; index < lines.length; index++) {
+      const line = lines[index];
+      if (/^\s*(```|~~~)/.test(line)) {
+        fenced = !fenced;
+        continue;
+      }
+      if (fenced) continue;
+      if (/^>\s*\*\*Proposed by v2\b/i.test(line)) proposed = true;
+      else if (proposed && !/^>/.test(line)) proposed = false;
+      if (proposed || !/\bGLB\b/i.test(line)) continue;
+      for (const sentence of line.split(/(?<=[.!?])\s+/)) {
+        if (!/\bGLB\b/i.test(sentence)) continue;
+        const absent = /\b(no|not|without|future|later|proposed|absent)\b|rather than/i.test(sentence);
+        if (!absent && !scopedCurrentRoomGlb(sentence, rel)) {
+          errors.push(`${rel}:${index + 1}: current GLB claim is outside a room authority or names deferred combatant/rig work`);
+        }
+      }
+    }
+  }
 }
 
 function mermaidBlockCount(markdown) {
@@ -828,6 +891,114 @@ function checkContractConvention(root, errors) {
   ]) if (!pattern.test(markdown)) errors.push(`docs/README.md: DOC_CONTRACT convention is missing ${label}`);
 }
 
+function checkRoomContractMarkers(root, errors) {
+  const rel = "docs/reference/room-asset-contract.md";
+  const file = path.join(root, rel);
+  if (!fs.existsSync(file)) {
+    errors.push(`${rel}: proposed room contract scaffold is missing`);
+    return;
+  }
+  const lines = fs.readFileSync(file, "utf8").split(/\r?\n/);
+  if (!/^\*\*Status:\*\*\s+current\s*$/mi.test(lines.join("\n"))) {
+    errors.push(`${rel}: shipped room contract must have current status`);
+  }
+  const actual = new Map();
+  for (let index = 0; index < lines.length; index++) {
+    const marker = /^\s*<!--\s*DOC_CONTRACT:\s*([a-z0-9][a-z0-9._-]*)\s*-->\s*$/i.exec(lines[index]);
+    if (!marker || !marker[1].startsWith("room-")) continue;
+    let following = index + 1;
+    while (following < lines.length && !lines[following].trim()) following++;
+    const heading = /^(#{1,6})\s+(.+?)\s*$/.exec(lines[following] || "");
+    actual.set(marker[1], heading ? githubSlug(heading[2]) : null);
+  }
+  for (const [id, anchor] of ROOM_CONTRACT_MARKERS) {
+    if (!actual.has(id)) errors.push(`${rel}: required DOC_CONTRACT ${id} is missing`);
+    else if (actual.get(id) !== anchor) errors.push(`${rel}: DOC_CONTRACT ${id} must bind to #${anchor}`);
+  }
+  for (const id of actual.keys()) {
+    if (!ROOM_CONTRACT_MARKERS.has(id)) errors.push(`${rel}: unknown room DOC_CONTRACT ${id}`);
+  }
+}
+
+function checkRoomMatrixScaffold(root, errors) {
+  const rel = "docs/performance/v2-room-matrix.md";
+  const file = path.join(root, rel);
+  if (!fs.existsSync(file)) {
+    errors.push(`${rel}: proposed room evidence matrix is missing`);
+    return;
+  }
+  const markdown = fs.readFileSync(file, "utf8");
+  for (const [label, pattern] of [
+    ["five ordered slots", /\|\s*5\s*\|/],
+    ["WebGPU threshold", /16\.67 ms/],
+    ["WebGL2 threshold", /33\.33 ms/],
+    ["Canvas p95 drift threshold", /0\.50 ms/],
+    ["Canvas over-33-ms drift threshold", /0\.005/],
+    ["exact floor capacities", /floor_a 768.*floor_b 768/],
+    ["exact map byte count", /1,536 committed map bytes/],
+    ["free-camera API", /createRoomReviewCamera\(scene, canvas, bounds\)/],
+    ["schema-two build-input identity", /schema 2[\s\S]*buildInputsSha256/i],
+    ["schema-two map identity", /roomStressMapSha256/],
+    ["schema-two validator identity", /validatorSha256/],
+    ["validator-report artifact", /Validator report/],
+    ["lazy initial-closure rule", /initial static import closure/],
+    ["enabled hidden instance sources", /enabled classic-instance sources/],
+    ["exact room-camera query", /roomCamera=fixed\|free/],
+  ]) if (!pattern.test(markdown)) errors.push(`${rel}: room matrix is missing ${label}`);
+  const current = /^\*\*Status:\*\*\s+current\s*$/mi.test(markdown);
+  if (!current) errors.push(`${rel}: automated room matrix must have current status`);
+  const placeholder = /`ROOM_STRESS_MAP_SHA256`[^\n]*`PENDING_IMPLEMENTATION_LITERAL`/.test(markdown);
+  if (current && placeholder) errors.push(`${rel}: current room matrix still contains the map-hash placeholder`);
+  if (current && !/`ROOM_STRESS_MAP_SHA256`[^\n]*`[0-9a-f]{64}`/i.test(markdown)) {
+    errors.push(`${rel}: current room matrix must record the 64-hex map hash literal`);
+  }
+}
+
+function checkRoomImplementationDocs(root, errors) {
+  const manifestFile = path.join(root, "tools", "art", "manifest.json");
+  const sidecarFile = path.join(root, "web", "assets3d", "room_slice.json");
+  const validatorFile = path.join(root, "web", "assets3d", "room_slice.validator.json");
+  if (![manifestFile, sidecarFile, validatorFile].every(fs.existsSync)) return;
+  let manifest, sidecar, validator;
+  try {
+    manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
+    sidecar = JSON.parse(fs.readFileSync(sidecarFile, "utf8"));
+    validator = JSON.parse(fs.readFileSync(validatorFile, "utf8"));
+  } catch {
+    errors.push("room documentation pins cannot be checked because an artifact manifest is invalid JSON");
+    return;
+  }
+  const required = [
+    ["build-input SHA-256", sidecar.buildInputsSha256],
+    ["GLB SHA-256", manifest.outputs?.glb?.sha256],
+    ["sidecar SHA-256", manifest.outputs?.sidecar?.sha256],
+    ["validator SHA-256", manifest.outputs?.validator?.sha256],
+    ["stress-map SHA-256", manifest.runtimeFixture?.mapSha256],
+    ["payload byte count", Number(validator.payloadBytes).toLocaleString("en-US")],
+    ["offline residency total", Number(validator.residency?.totalBytes).toLocaleString("en-US")],
+    ["vertex count", Number(validator.counts?.vertices).toLocaleString("en-US")],
+    ["triangle count", Number(validator.counts?.triangles).toLocaleString("en-US")],
+  ];
+  for (const rel of [
+    "docs/reference/room-asset-contract.md",
+    "docs/performance/v2-room-matrix.md",
+    "docs/performance/evidence/2026-08-room-slice.md",
+  ]) {
+    const file = path.join(root, rel);
+    if (!fs.existsSync(file)) continue;
+    const markdown = fs.readFileSync(file, "utf8");
+    for (const [label, value] of required) {
+      if (typeof value !== "string" || !value || !markdown.includes(value)) {
+        errors.push(`${rel}: current automated room record is missing ${label}`);
+      }
+    }
+  }
+  const plan = path.join(root, "docs", "plans", "v2-09-room-visual-gate.md");
+  if (fs.existsSync(plan) && !/^\*\*Status:\*\* automated implementation complete\b/im.test(fs.readFileSync(plan, "utf8"))) {
+    errors.push("docs/plans/v2-09-room-visual-gate.md: status must record automated implementation complete");
+  }
+}
+
 function checkCompletionChecklist(root, errors) {
   const file = path.join(root, "AGENTS.md");
   if (!fs.existsSync(file)) return errors.push("AGENTS.md: completion checklist is missing");
@@ -877,7 +1048,11 @@ function checkEnforcement(root) {
   checkRetiredPlanLinks(root, files, errors);
   checkContractMarkers(root, allFiles, files, errors);
   checkContractConvention(root, errors);
+  checkRoomContractMarkers(root, errors);
+  checkRoomMatrixScaffold(root, errors);
+  checkRoomImplementationDocs(root, errors);
   checkDiscoveredStandardHeaders(root, files, errors);
+  checkCurrentGlbClaims(root, files, errors);
   checkResolvedHistoricalClaims(root, errors);
   checkCompletionChecklist(root, errors);
   return errors;

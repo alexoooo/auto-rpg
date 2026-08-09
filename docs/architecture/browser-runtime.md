@@ -1,6 +1,6 @@
 # Browser runtime
 
-**Purpose:** Describe the Canvas and procedural v2 browser entries, their wasm ownership, rendering boundaries, memory handshakes, and visibility data.
+**Purpose:** Describe the Canvas and v2 GPU browser entries, their wasm ownership, rendering boundaries, room loading, memory handshakes, and visibility data.
 **Status:** current
 **Canonical source:** [`crates/web/src/lib.rs`](../../crates/web/src/lib.rs), [`web/main.js`](../../web/main.js), [`client/src/runtime/sim.worker.ts`](../../client/src/runtime/sim.worker.ts), [`client/src/runtime/sim-client.ts`](../../client/src/runtime/sim-client.ts), and the [renderer contract](../reference/renderer-contract.md#renderer-owned-snapshot-boundary)
 **Update when:** The wasm ABI, buffer ownership, browser execution context, frame parser, visibility publication, or rendering backend changes.
@@ -10,8 +10,9 @@ classic-script Canvas application with no JavaScript build step. It loads `draw.
 `rig.js`, `assets.js`, then `main.js` in dependency order, and `main.js` fetches and
 instantiates `web.wasm` on the browser's main thread. The v2 entry at
 [`web/v2.html`](../../web/v2.html) is built by Vite and owns the same legacy
-simulation behind a module Worker. It renders disclosed snapshots as a procedural
-Babylon greybox while retaining lifecycle, command, buffer, and backend diagnostics.
+simulation behind a module Worker. It renders disclosed snapshots as the procedural
+Babylon greybox or the pinned representative room while retaining lifecycle,
+command, buffer, and backend diagnostics.
 It is a presentation proof rather than a replacement for the playable Canvas entry.
 
 ## Current flow
@@ -156,9 +157,20 @@ published answer with a camera frustum or its own ray cast. The v2 renderer appl
 the same [subsystem presence gate](../reference/renderer-contract.md#visibility-and-subsystem-presence)
 to meshes, shadows, labels, effects, audio, picking, and debug records.
 
-> **Proposed by v2 -- not shipped:** Later work may load GLB room and combatant art
-> and publish articulated pose/event data. Those assets and layouts are not part of
-> either current browser entry.
+The current `room=representative` route loads the pinned semantic GLB kit under the
+exact [disclosure mapping](../reference/room-asset-contract.md#authored-room-disclosure-mapping)
+and [scene-bound loader lifecycle](../reference/room-asset-contract.md#loader-lifecycle-and-failure).
+Only that query dynamically imports the glTF loader chunk, which remains absent from
+modulepreloads and the initial static import closure. Ordinary GPU/greybox and Canvas
+startup do not request the chunk. The root-host runtime allowlist serves only the
+room GLB and semantic sidecar; the validator report is checked build/evidence
+provenance and is deliberately not deployed. Asset load completes before input,
+Worker initialization, or capture readiness, and failure is terminal for the route.
+
+Future combatant rigs and articulated pose/event data remain proposed later work and are
+not loaded by either current browser entry. The current room's visible art and
+foreground performance decision also remains pending; automated delivery is not
+that evidence.
 
 ## Source anchors
 

@@ -1,16 +1,15 @@
 # Asset pipeline
 
-**Purpose:** Describe the current Canvas PNG pipeline and the procedural v2 greybox's asset boundary.
+**Purpose:** Describe the current Canvas PNG pipeline, procedural v2 greybox, and pinned representative-room GLB pipeline.
 **Status:** current
 **Canonical source:** [`web/assets/ASSET_SPEC.md`](../../web/assets/ASSET_SPEC.md), [`web/assets/manifest.json`](../../web/assets/manifest.json), [`web/assets.js`](../../web/assets.js), and the [renderer visibility contract](../reference/renderer-contract.md#visibility-and-subsystem-presence)
 **Update when:** Asset formats, validation, manifest semantics, loading, fallback behavior, or render integration changes.
 
-The playable Canvas path consumes a checked-in PNG set. The current v2 greybox is a
-second presentation path, but it constructs primitive scene geometry and materials
-without loading authored room or combatant files. There is no runtime asset
-generation and no model conversion step in either path. The browser serves Canvas
-images directly from `web/assets/`; presentation inputs never enter `Scenario`,
-`World`, replay, or a hash domain.
+The playable Canvas path consumes a checked-in PNG set. The v2 GPU client defaults
+to procedural geometry and optionally loads the current pinned representative-room
+GLB under `room=representative`. It loads no combatant or articulated rig files.
+All generation and validation are offline; presentation inputs never enter
+`Scenario`, `World`, replay, or a hash domain.
 
 ## Authoring and review
 
@@ -75,17 +74,41 @@ weapon art is stretched between the projected hilt and tip of the same simulatio
 blade segment used by combat, keeping presentation and hit geometry joined at the
 snapshot rather than at an asset-specific correction.
 
-## Procedural greybox
+## v2 GPU asset paths
 
 The v2 renderer creates known floor and wall tiles, disclosed doors and torches,
 unit bodies, and snapshot-local transients from primitives. It loads no room art,
 rig, texture, or model file and has no asset-loader dependency. Unknown geometry has
 no instance; remembered known topology uses a separate material; and current
 furniture exists only while its disclosed record is present. This is a visibility
-and renderer-boundary proof, not an authored-asset pipeline.
+and renderer-boundary proof.
 
-> **Proposed by v2 -- not shipped:** The [representative room phase](../plans/v2-09-room-visual-gate.md)
-> proposes a pinned Blender-to-GLB pipeline and room kit, while the
+The representative route dynamically imports the pinned room loader only after the
+engine and Scene exist. It validates the root-hosted room GLB and semantic sidecar before
+publishing an immutable semantic kit; the canonical validator report remains
+build/evidence provenance and is not deployed. Hidden enabled source meshes support
+classic instances as Scene-owned, nonspatial resources without becoming visible,
+pickable, shadow, debug, or presence entries. The validated container, its sources,
+and its materials are disposed together. The exact manifest, generator, hashes, budgets, disclosure mapping, and
+failure lifecycle are current in the [room asset contract](../reference/room-asset-contract.md#manifest-semantics).
+`CONCEPT.png` remains the ultimate visual target and never a runtime dependency. The
+preserved [legacy renderer reference](../performance/evidence/2026-08-08-legacy-renderer-reference.png)
+is the minimum replacement threshold for readability;
+reaching that parity does not complete the ultimate art direction. The initial room
+art decision is `replace` in the [room matrix](../performance/v2-room-matrix.md#visible-review-record).
+
+The generator-v2 vertex-color kit is a superseded reproducible intermediate. The
+current generator-v3 candidate embeds the checked floor and wall PNGs from
+`tools/art/textures/` while retaining deterministic `COLOR_0` modulation; it has
+closed output pins and budgets. It remains under `replace` until visible review, so
+current mechanics must not be mistaken for accepted art.
+
+The current compact 16 x 10 composition route defined by the
+[visual review contract](../reference/room-asset-contract.md#visual-review-contract)
+supports fixed and free review on both current GPU backends independently of the unchanged 48 x 32
+performance stress fixture. Current mechanics do not imply an art pass.
+
+> **Proposed by v2 -- not shipped:** The
 > [combatant integration phase](../plans/v2-18-combatant-integration.md) proposes
-> representative 3D rigs. No GLB room/combatant production or asset loader belongs
-> to either current path above.
+> representative combatant and articulated rig GLBs. No current browser path loads
+> those assets.

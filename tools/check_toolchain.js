@@ -68,7 +68,10 @@ function npmVersion() {
 
 function validateManifest(manifest) {
   const errors = [];
-  const exactKeys = ["node", "npm", "typescript", "vite", "babylon", "blender", "gltfValidator"];
+  const exactKeys = [
+    "node", "npm", "typescript", "vite", "babylon", "babylonLoaders",
+    "babylonGltfInterface", "blender", "gltfValidator",
+  ];
   if (manifest.schemaVersion !== 1) errors.push("schemaVersion must be 1");
   for (const key of exactKeys) {
     if (typeof manifest[key] !== "string" || cleanVersion(manifest[key]) !== manifest[key]) {
@@ -180,6 +183,8 @@ function checkPackageFiles(root, manifest) {
     ["typescript", "typescript", "devDependencies"],
     ["vite", "vite", "devDependencies"],
     ["babylon", "@babylonjs/core", "dependencies"],
+    ["babylonLoaders", "@babylonjs/loaders", "dependencies"],
+    ["babylonGltfInterface", "babylonjs-gltf2interface", "dependencies"],
     ["gltfValidator", "gltf-validator", "devDependencies"],
   ];
   if (pkg.packageManager !== `npm@${manifest.npm}`) {

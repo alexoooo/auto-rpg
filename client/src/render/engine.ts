@@ -90,10 +90,20 @@ export function sanitizeRendererError(error: unknown): string {
 }
 
 export function rendererBackendFromSearch(search: string): RendererBackendRequest {
-  const value = new URLSearchParams(search).get("backend");
-  if (value === null || value === "auto") return "auto";
-  if (value === "webgl2") return "webgl2";
-  throw new RangeError(`unknown renderer backend ${JSON.stringify(value)}`);
+  const parameters = new URLSearchParams(search);
+  const backend = parameters.get("backend");
+  const renderer = parameters.get("renderer");
+  const parse = (label: string, value: string | null): RendererBackendRequest | null => {
+    if (value === null) return null;
+    if (value === "auto" || value === "webgl2") return value;
+    throw new RangeError(`unknown ${label} ${JSON.stringify(value)}; use backend=auto|webgl2`);
+  };
+  const requested = parse("renderer backend", backend);
+  const alias = renderer === "canvas" ? null : parse("renderer alias", renderer);
+  if (requested !== null && alias !== null && requested !== alias) {
+    throw new RangeError(`conflicting renderer queries backend=${requested} and renderer=${alias}`);
+  }
+  return requested ?? alias ?? "auto";
 }
 
 function selectedHandle<TCanvas, TEngine>(

@@ -189,6 +189,7 @@ function enforcementFixture() {
   write(root, "docs/README.md", [
     "# Documentation", "", "## Contract convention", "",
     "`DOC_CONTRACT:` markers live only in `docs/reference/`, bind to the following heading, and contextual links target that heading anchor.", "",
+    "Room contracts: [manifest](reference/room-asset-contract.md#manifest-semantics), [coordinates](reference/room-asset-contract.md#coordinates-origins-and-sockets), [reproducibility](reference/room-asset-contract.md#reproducibility-and-hashes), [validation](reference/room-asset-contract.md#validation-and-budgets), [disclosure](reference/room-asset-contract.md#authored-room-disclosure-mapping), [loader](reference/room-asset-contract.md#loader-lifecycle-and-failure).", "",
   ].join("\n"));
   write(root, "docs/reference/contracts.md", [
     "# Contracts", "", "**Purpose:** Own fixture contracts.", "**Status:** current",
@@ -198,6 +199,27 @@ function enforcementFixture() {
   write(root, "docs/reference/hashes.md", standardDocument("Hashes", [
     "## Scenario fingerprint", "", "Scenario::fingerprint accidentally omits each unit loadout.", "",
   ].join("\n")));
+  write(root, "docs/reference/room-asset-contract.md", [
+    "# Room asset contract", "", "**Purpose:** Define room assets.", "**Status:** current",
+    "**Canonical source:** this document", "**Update when:** Room assets change.", "",
+    "<!-- DOC_CONTRACT: room-asset-manifest -->", "## Manifest semantics", "", "Proposed.", "",
+    "<!-- DOC_CONTRACT: room-asset-coordinates -->", "## Coordinates, origins, and sockets", "", "Proposed.", "",
+    "<!-- DOC_CONTRACT: room-asset-reproducibility -->", "## Reproducibility and hashes", "", "Proposed.", "",
+    "<!-- DOC_CONTRACT: room-asset-validation -->", "## Validation and budgets", "", "Proposed.", "",
+    "<!-- DOC_CONTRACT: room-asset-disclosure -->", "## Authored-room disclosure mapping", "", "Proposed.", "",
+    "<!-- DOC_CONTRACT: room-asset-loader-lifecycle -->", "## Loader lifecycle and failure", "", "Proposed.", "",
+  ].join("\n"));
+  write(root, "docs/performance/v2-room-matrix.md", [
+    "# Room matrix", "", "**Purpose:** Record room evidence.", "**Status:** current",
+    "**Canonical source:** this document", "**Update when:** Room evidence changes.", "",
+    "## Fixture", "", "`ROOM_STRESS_MAP_SHA256` is `1262c7dc5eb359a06db10a06c85e2782237b226e423a903f72441f1dfde18e6c` for 1,536 committed map bytes.",
+    "Capacities are floor_a 768 and floor_b 768.", "",
+    "Validator report is the third artifact. The loader stays outside the initial static import closure, while enabled classic-instance sources remain hidden.", "",
+    "## Runs", "", "| Slot | Threshold |", "|---:|---|", "| 1 | Canvas |", "| 2 | 16.67 ms |",
+    "| 3 | 33.33 ms |", "| 4 | 0.50 ms and 0.005 |", "| 5 | comparison |", "",
+    "Schema 2 records buildInputsSha256, validatorSha256, and roomStressMapSha256.", "",
+    "## Camera", "", "Use createRoomReviewCamera(scene, canvas, bounds) with roomCamera=fixed|free.", "",
+  ].join("\n"));
   write(root, "docs/decisions/0002-record-commands-in-replays.md", standardDocument("Replay decision", [
     "## Historical correction", "", "The former 36-byte two-hand command is historical; the current command has one limb.", "",
   ].join("\n")));
@@ -311,6 +333,26 @@ test("current_architecture_does_not_present_v2_types_as_shipped", () => {
   assert.doesNotMatch(browserErrors, /WebGPU is an unboxed v2 term/);
   assert.match(browserErrors, /GLB is an unboxed v2 term/);
   assert.match(browserErrors, /articulated is an unboxed v2 term/);
+});
+
+test("current_room_glb_claims_are_scoped_to_room_authorities", () => {
+  const root = enforcementFixture();
+  write(root, "docs/architecture/assets.md", standardDocument("Assets", [
+    "## Authored room", "", "The authored room GLB slice is current.", "",
+  ].join("\n")));
+  write(root, "docs/reference/renderer-contract.md", standardDocument("Renderer", [
+    "## Room loading", "", "The current room GLB is presentation-only.", "",
+  ].join("\n")));
+  assert.doesNotMatch(checkEnforcement(root).join("\n"), /current GLB claim/);
+
+  fs.appendFileSync(path.join(root, "docs/architecture/assets.md"), "\nThe combatant GLB rig ships now.\n");
+  write(root, "docs/design/combat.md", standardDocument("Combat", [
+    "## Room art", "", "The room GLB ships from this gameplay rationale.", "",
+  ].join("\n")));
+  const errors = checkEnforcement(root).join("\n");
+  fs.rmSync(root, { recursive: true, force: true });
+  assert.match(errors, /docs\/architecture\/assets\.md:.*deferred combatant\/rig work/);
+  assert.match(errors, /docs\/design\/combat\.md:.*outside a room authority/);
 });
 
 test("architecture_source_anchors_resolve", () => {
@@ -501,6 +543,33 @@ test("normative_markers_live_only_in_reference_documents", () => {
   assert.match(errors, /DOC_CONTRACT markers may live only in docs\/reference/);
   assert.match(errors, /docs\/plans\/marker\.md:.*DOC_CONTRACT markers may live only/);
   assert.match(errors, /DOC_CONTRACT unbound must bind to the following heading/);
+});
+
+test("room_asset_contract_uses_the_exact_marker_set", () => {
+  const clean = enforcementFixture();
+  assert.deepEqual(checkEnforcement(clean), []);
+  const file = path.join(clean, "docs/reference/room-asset-contract.md");
+  fs.writeFileSync(file, fs.readFileSync(file, "utf8")
+    .replace("room-asset-manifest", "room-manifest-semantics"));
+  const errors = checkEnforcement(clean).join("\n");
+  fs.rmSync(clean, { recursive: true, force: true });
+  assert.match(errors, /required DOC_CONTRACT room-asset-manifest is missing/);
+  assert.match(errors, /unknown room DOC_CONTRACT room-manifest-semantics/);
+});
+
+test("the_room_matrix_cannot_graduate_with_a_placeholder_map_hash", () => {
+  const root = enforcementFixture();
+  const file = path.join(root, "docs/performance/v2-room-matrix.md");
+  fs.writeFileSync(file, fs.readFileSync(file, "utf8")
+    .replace("1262c7dc5eb359a06db10a06c85e2782237b226e423a903f72441f1dfde18e6c", "PENDING_IMPLEMENTATION_LITERAL"));
+  const contract = path.join(root, "docs/reference/room-asset-contract.md");
+  fs.writeFileSync(contract, fs.readFileSync(contract, "utf8")
+    .replace("**Status:** current", "**Status:** proposed"));
+  const errors = checkEnforcement(root).join("\n");
+  fs.rmSync(root, { recursive: true, force: true });
+  assert.match(errors, /current room matrix still contains the map-hash placeholder/);
+  assert.match(errors, /must record the 64-hex map hash literal/);
+  assert.match(errors, /shipped room contract must have current status/);
 });
 
 test("the_completion_checklist_requires_documentation_impact", () => {

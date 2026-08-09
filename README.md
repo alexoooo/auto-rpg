@@ -342,6 +342,11 @@ root as `/v2.html` and `/web.wasm`. See the
 [browser runtime](docs/architecture/browser-runtime.md#worker-renderer-path) for
 the ownership boundary.
 
+Add `?room=representative` to load the current pinned representative-room GLB for
+the v2 diagnostic. That route is an automated asset/runtime proof; its visible art
+review and foreground performance decision remain pending in the
+[room matrix](docs/performance/v2-room-matrix.md#visible-review-record).
+
 The room is the page. The camera is centred on your character and clamped to the
 walls, so walking into a corner stops the view rather than showing you the void
 past it — and everything that is worth reading but not worth watching lives

@@ -1,8 +1,23 @@
 import type { RendererBackendDiagnostics } from "./engine.js";
 
 export const PERFORMANCE_SCHEMA_VERSION = 1;
+export const ROOM_PERFORMANCE_SCHEMA_VERSION = 2;
 export const PERFORMANCE_WARMUP_MS = 30_000;
 export const PERFORMANCE_SAMPLE_MS = 120_000;
+
+export const performanceProgressLabel = (elapsedMs: number): string => {
+  if (!Number.isFinite(elapsedMs) || elapsedMs < 0) {
+    throw new RangeError("performance progress elapsed time must be finite and nonnegative");
+  }
+  if (elapsedMs < PERFORMANCE_WARMUP_MS) {
+    return `Warming: ${Math.ceil((PERFORMANCE_WARMUP_MS - elapsedMs) / 1000)}s remaining`;
+  }
+  const totalMs = PERFORMANCE_WARMUP_MS + PERFORMANCE_SAMPLE_MS;
+  if (elapsedMs < totalMs) {
+    return `Sampling: ${Math.ceil((totalMs - elapsedMs) / 1000)}s remaining`;
+  }
+  return "Finishing capture...";
+};
 
 export type CanvasBackendDiagnostics = Readonly<{
   requested: "canvas";
@@ -41,6 +56,27 @@ export type GreyboxPerformanceMetadata = Readonly<{
   backend: RendererBackendDiagnostics | CanvasBackendDiagnostics;
 }>;
 
+export type RoomPerformanceFixtureV2 = Readonly<{
+  kind: "representative-room";
+  fixtureId: "v2-room-slice-1";
+  buildInputsSha256: string;
+  glbSha256: string;
+  sidecarSha256: string;
+  validatorSha256: string;
+  roomStressMapSha256: string;
+  generatorSeed: 1592594996;
+  population: 64;
+  roomWidth: 48;
+  roomHeight: 32;
+  payloadBytes: number;
+  estimatedGpuBytes: number;
+}>;
+
+export type RoomPerformanceMetadata = GreyboxPerformanceMetadata & Readonly<{
+  fixture: RoomPerformanceFixtureV2;
+}>;
+export type PerformanceMetadata = GreyboxPerformanceMetadata | RoomPerformanceMetadata;
+
 export type RendererFrameMetrics = Readonly<{
   draws: number;
   triangles: number;
@@ -74,6 +110,12 @@ export type GreyboxPerformanceRun = Readonly<{
   }>;
 }>;
 
+export type RoomPerformanceRun = Omit<GreyboxPerformanceRun, "schemaVersion" | "metadata"> & Readonly<{
+  schemaVersion: 2;
+  metadata: RoomPerformanceMetadata;
+}>;
+export type PerformanceRun = GreyboxPerformanceRun | RoomPerformanceRun;
+
 export type PerformanceCaptureStatus = "idle" | "warming" | "sampling" | "complete" | "rejected";
 
 export type LongTaskObservation = Readonly<{
@@ -87,6 +129,71 @@ export type PerformanceSurfaceSize = Readonly<{
   backingWidth: number;
   backingHeight: number;
 }>;
+
+export type ReferenceSurfaceTransaction = Readonly<{
+  size: PerformanceSurfaceSize;
+  restore: () => void;
+}>;
+
+type ReferenceCanvas = {
+  readonly clientWidth: number;
+  readonly clientHeight: number;
+  width: number;
+  height: number;
+  style: { width: string; height: string };
+};
+
+export const prepareReferenceCaptureSurface = (
+  canvas: ReferenceCanvas,
+  backingOwner: "engine" | "canvas2d",
+  resize: () => void,
+): ReferenceSurfaceTransaction => {
+  const previous = Object.freeze({
+    cssWidth: canvas.style.width,
+    cssHeight: canvas.style.height,
+    backingWidth: canvas.width,
+    backingHeight: canvas.height,
+  });
+  let restored = false;
+  const restore = (): void => {
+    if (restored) return;
+    restored = true;
+    canvas.style.width = previous.cssWidth;
+    canvas.style.height = previous.cssHeight;
+    if (backingOwner === "canvas2d") {
+      canvas.width = previous.backingWidth;
+      canvas.height = previous.backingHeight;
+    }
+    resize();
+  };
+  try {
+    canvas.style.width = "1920px";
+    canvas.style.height = "1080px";
+    // Babylon owns its backing store and swapchain. Writing width/height after
+    // engine creation clears the target without necessarily making resize
+    // recreate it. Canvas2D has no such owner, so its control route synchronises
+    // the backing store explicitly.
+    if (backingOwner === "canvas2d") {
+      canvas.width = 1920;
+      canvas.height = 1080;
+    }
+    resize();
+    const size = Object.freeze({
+      cssWidth: canvas.clientWidth,
+      cssHeight: canvas.clientHeight,
+      backingWidth: canvas.width,
+      backingHeight: canvas.height,
+    });
+    if (size.cssWidth !== 1920 || size.cssHeight !== 1080 ||
+        size.backingWidth !== 1920 || size.backingHeight !== 1080) {
+      throw new Error("performance capture requires an exact 1920x1080 CSS and backing surface");
+    }
+    return Object.freeze({ size, restore });
+  } catch (error) {
+    restore();
+    throw error;
+  }
+};
 
 export type PerformanceCaptureRuntime = Readonly<{
   now: () => number;
@@ -126,7 +233,9 @@ const copyBackend = (
   engineInfo: backend.engineInfo === null ? null : Object.freeze({ ...backend.engineInfo }),
 }) as RendererBackendDiagnostics | CanvasBackendDiagnostics;
 
-const copyMetadata = (metadata: GreyboxPerformanceMetadata): GreyboxPerformanceMetadata => {
+const SHA256 = /^[0-9a-f]{64}$/;
+
+const copyMetadata = (metadata: PerformanceMetadata): PerformanceMetadata => {
   for (const [label, value] of [
     ["os", metadata.os], ["cpu", metadata.cpu], ["gpu", metadata.gpu],
     ["driver", metadata.driver], ["browser", metadata.browser], ["powerMode", metadata.powerMode],
@@ -143,12 +252,27 @@ const copyMetadata = (metadata: GreyboxPerformanceMetadata): GreyboxPerformanceM
   if (!Number.isFinite(metadata.devicePixelRatio) || metadata.devicePixelRatio <= 0) {
     throw new RangeError("devicePixelRatio must be finite and positive");
   }
-  return Object.freeze({
+  const copied = {
     ...metadata,
     os: metadata.os.trim(), cpu: metadata.cpu.trim(), gpu: metadata.gpu.trim(),
     driver: metadata.driver.trim(), browser: metadata.browser.trim(), powerMode: metadata.powerMode.trim(),
     backend: copyBackend(metadata.backend),
-  });
+  };
+  if (!("fixture" in metadata)) return Object.freeze(copied);
+  const fixture = metadata.fixture;
+  if (fixture.kind !== "representative-room" || fixture.fixtureId !== "v2-room-slice-1" ||
+      fixture.generatorSeed !== 1592594996 || fixture.population !== 64 ||
+      fixture.roomWidth !== 48 || fixture.roomHeight !== 32) {
+    throw new RangeError("room performance metadata does not match the fixed room fixture");
+  }
+  for (const [label, value] of [
+    ["build inputs", fixture.buildInputsSha256], ["GLB", fixture.glbSha256],
+    ["sidecar", fixture.sidecarSha256], ["validator", fixture.validatorSha256],
+    ["room stress map", fixture.roomStressMapSha256],
+  ] as const) if (!SHA256.test(value)) throw new RangeError(`${label} SHA-256 is invalid`);
+  safeCount("room payload bytes", fixture.payloadBytes);
+  safeCount("room estimated GPU bytes", fixture.estimatedGpuBytes);
+  return Object.freeze({ ...copied, fixture: Object.freeze({ ...fixture }) });
 };
 
 const softwareReason = (backend: RendererBackendDiagnostics | CanvasBackendDiagnostics): string | null => {
@@ -159,7 +283,7 @@ const softwareReason = (backend: RendererBackendDiagnostics | CanvasBackendDiagn
   return matched === undefined ? null : `software renderer rejected: ${matched}`;
 };
 
-const validateSurfaceSize = (surface: PerformanceSurfaceSize, metadata: GreyboxPerformanceMetadata): void => {
+const validateSurfaceSize = (surface: PerformanceSurfaceSize, metadata: PerformanceMetadata): void => {
   for (const [label, value] of [
     ["canvas CSS width", surface.cssWidth], ["canvas CSS height", surface.cssHeight],
     ["canvas backing width", surface.backingWidth], ["canvas backing height", surface.backingHeight],
@@ -191,7 +315,7 @@ const sampleMetrics = (value: RendererFrameMetrics, atMs: number, deltaMs: numbe
 export class GreyboxPerformanceCapture {
   readonly #runtime: PerformanceCaptureRuntime;
   #status: PerformanceCaptureStatus = "idle";
-  #metadata: GreyboxPerformanceMetadata | null = null;
+  #metadata: PerformanceMetadata | null = null;
   #startedAt = "";
   #startMs = 0;
   #previousSampleMs: number | null = null;
@@ -203,8 +327,8 @@ export class GreyboxPerformanceCapture {
   #frameRequest: number | null = null;
   #unsubscribeVisibility = (): void => undefined;
   #disconnectLongTasks = (): void => undefined;
-  #resolve: ((run: GreyboxPerformanceRun) => void) | null = null;
-  #result: GreyboxPerformanceRun | null = null;
+  #resolve: ((run: PerformanceRun) => void) | null = null;
+  #result: PerformanceRun | null = null;
 
   constructor(runtime: PerformanceCaptureRuntime) {
     this.#runtime = runtime;
@@ -214,16 +338,16 @@ export class GreyboxPerformanceCapture {
     return this.#status;
   }
 
-  result(): GreyboxPerformanceRun | null {
+  result(): PerformanceRun | null {
     return this.#result;
   }
 
-  start(metadata: GreyboxPerformanceMetadata): Promise<GreyboxPerformanceRun> {
+  start(metadata: PerformanceMetadata): Promise<PerformanceRun> {
     if (this.#status === "warming" || this.#status === "sampling") {
       throw new Error("a performance capture is already active");
     }
     this.#reset(copyMetadata(metadata));
-    const completion = new Promise<GreyboxPerformanceRun>((resolve) => { this.#resolve = resolve; });
+    const completion = new Promise<PerformanceRun>((resolve) => { this.#resolve = resolve; });
     try {
       validateSurfaceSize(this.#runtime.surfaceSize(), this.#metadata ?? metadata);
       const observation = this.#runtime.observeLongTasks((durationMs) => {
@@ -272,7 +396,7 @@ export class GreyboxPerformanceCapture {
     return `${JSON.stringify(this.#result, null, 2)}\n`;
   }
 
-  #reset(metadata: GreyboxPerformanceMetadata): void {
+  #reset(metadata: PerformanceMetadata): void {
     const startMs = this.#runtime.now();
     if (!Number.isFinite(startMs) || startMs < 0) throw new RangeError("capture clock must be finite and nonnegative");
     const startedAt = this.#runtime.startedAt();
@@ -325,8 +449,14 @@ export class GreyboxPerformanceCapture {
     if (this.#status === "warming") {
       this.#status = "sampling";
       this.#previousSampleMs = atMs;
-      if (atMs >= sampleEnd) this.#finish("complete");
-      else this.#scheduleFrame();
+      if (atMs >= sampleEnd) {
+        try { this.#runtime.sampleFrame(); }
+        catch (error) {
+          this.reject(error instanceof Error ? error.message : String(error));
+          return;
+        }
+        this.#finish("complete");
+      } else this.#scheduleFrame();
       return;
     }
     const previous = this.#previousSampleMs;
@@ -335,6 +465,11 @@ export class GreyboxPerformanceCapture {
       return;
     }
     if (atMs > sampleEnd) {
+      try { this.#runtime.sampleFrame(); }
+      catch (error) {
+        this.reject(error instanceof Error ? error.message : String(error));
+        return;
+      }
       this.#finish("complete");
       return;
     }
@@ -356,8 +491,8 @@ export class GreyboxPerformanceCapture {
       this.#reasons.push("sample window completed without a measured frame");
     }
     const deltas = this.#samples.map((sample) => sample.deltaMs).sort((a, b) => a - b);
-    const result: GreyboxPerformanceRun = Object.freeze({
-      schemaVersion: PERFORMANCE_SCHEMA_VERSION,
+    const result = Object.freeze({
+      schemaVersion: "fixture" in this.#metadata ? ROOM_PERFORMANCE_SCHEMA_VERSION : PERFORMANCE_SCHEMA_VERSION,
       status,
       rejectionReasons: Object.freeze([...this.#reasons]),
       startedAt: this.#startedAt,
@@ -379,7 +514,7 @@ export class GreyboxPerformanceCapture {
         gpuResidencyBytes: null,
         gpuResidencyMethod: "unavailable-browser-api",
       }),
-    });
+    }) as PerformanceRun;
     this.#result = result;
     this.#status = status;
     const resolve = this.#resolve;

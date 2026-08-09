@@ -18,6 +18,8 @@
     input[type="text"] { width: 12rem; }
     button { background: #26374b; color: inherit; cursor: pointer; }
     button:hover { background: #304760; }
+    button:disabled, button:disabled:hover { background: #1a222c; color: #718092;
+      border-color: #2d3845; cursor: not-allowed; opacity: .65; }
     output, pre { display: block; white-space: pre-wrap; overflow-wrap: anywhere; }
     #status { color: #8fd3a8; }
     #error { color: #ff9d9d; min-height: 1.5em; }
@@ -33,8 +35,8 @@
     <p>The worker-owned simulation is rendered through the v2 procedural GPU greybox.
       Backend selection and the complete disclosed-state registry are shown below.</p>
     <canvas id="greybox" width="1280" height="720" aria-label="Procedural game view"></canvas>
-    <p class="legacy-link">Click known floor to move. Drag with the primary, middle, or
-      secondary button to pan; use the wheel to zoom and Escape to withdraw.</p>
+    <p id="interaction-hint" class="legacy-link">Interactive controls become available after startup.</p>
+    <button id="room-camera-toggle" type="button" hidden>Use free camera</button>
     <p class="legacy-link">The Canvas renderer remains separate: <a href="/index.html">open the legacy page</a>.</p>
     <fieldset>
       <legend>Lifecycle</legend>
@@ -65,19 +67,22 @@
     </fieldset>
     <fieldset>
       <legend>Visible foreground performance capture</legend>
-      <p>Available only for <code>?stress=greybox</code>. Starting sets the canvas to
-        the named 1920 × 1080 reference size, warms for 30 seconds, then samples for 120 seconds.</p>
+      <p>Available for the fixed <code>?stress=greybox</code> control and
+        <code>?stress=room&amp;room=representative</code>. Room capture requires the fixed
+        review camera. Starting sets the canvas to the named 1920 × 1080 reference size,
+        warms for 30 seconds, then samples for 120 seconds.</p>
       <div class="controls">
-        <label>OS <input id="perf-os" type="text" placeholder="Windows build"></label>
-        <label>CPU <input id="perf-cpu" type="text" placeholder="CPU"></label>
-        <label>GPU <input id="perf-gpu" type="text" placeholder="GPU"></label>
-        <label>Driver <input id="perf-driver" type="text" placeholder="Driver"></label>
-        <label>Browser <input id="perf-browser" type="text" placeholder="Browser build"></label>
-        <label>Power <input id="perf-power" type="text" value="AC / high performance"></label>
-        <button id="performance-start" type="button">Start capture</button>
+        <label>OS <input id="perf-os" data-performance-metadata type="text" value="Windows 11 Home 25H2 build 26200.8973"></label>
+        <label>CPU <input id="perf-cpu" data-performance-metadata type="text" value="13th Gen Intel Core i7-13700H"></label>
+        <label>GPU <input id="perf-gpu" data-performance-metadata type="text" value="Intel Iris Xe Graphics"></label>
+        <label>Driver <input id="perf-driver" data-performance-metadata type="text" value="32.0.101.7084"></label>
+        <label>Browser <input id="perf-browser" data-performance-metadata type="text" value="Chrome 151.0.7922.72"></label>
+        <label>Power <input id="perf-power" data-performance-metadata type="text" value="AC / Balanced"></label>
+        <button id="performance-start" type="button" disabled>Start capture</button>
         <button id="performance-download" type="button" disabled>Download raw JSON</button>
       </div>
-      <output id="performance-status">Idle</output>
+      <progress id="performance-progress" max="150" value="0" aria-label="Performance capture progress"></progress>
+      <output id="performance-status" aria-live="polite">Idle</output>
     </fieldset>
     <output id="status" aria-live="polite">Starting worker…</output>
     <output id="error" aria-live="assertive"></output>

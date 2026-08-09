@@ -1,0 +1,184 @@
+"use strict";
+
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
+const { spawnSync } = require("node:child_process");
+const test = require("node:test");
+
+const {
+  accessorValues, canonicalBytes, estimateGpuResidency, parseGlb, parseRoomSidecar, validateAsset,
+  validateSemanticSets, validateUriPolicy,
+} = require("./validate_assets.js");
+
+const ROOT = path.resolve(__dirname, "..");
+const GLB = path.join(ROOT, "web", "assets3d", "room_slice.glb");
+const SIDECAR = path.join(ROOT, "web", "assets3d", "room_slice.json");
+const MANIFEST = path.join(ROOT, "tools", "art", "manifest.json");
+const REPORT = path.join(ROOT, "web", "assets3d", "room_slice.validator.json");
+const options = () => ({ glb: GLB, sidecar: SIDECAR, manifest: MANIFEST });
+
+test("the_room_glb_and_sidecar_match_the_pinned_manifest", async () => {
+  const result = await validateAsset(options());
+  assert.equal(result.issues.numErrors, 0);
+  assert.equal(result.issues.numWarnings, 0);
+  assert.equal(result.payloadBytes, fs.statSync(GLB).size + fs.statSync(SIDECAR).size);
+  assert.equal(result.residency.decodedTextureBytes, 2_097_152);
+  assert.deepEqual(fs.readFileSync(REPORT), canonicalBytes(result));
+});
+
+test("two_clean_pinned_blender_exports_are_byte_identical", () => {
+  const toolchain = JSON.parse(fs.readFileSync(path.join(ROOT, "tools", "toolchain.json"), "utf8"));
+  const blender = path.join(ROOT, toolchain.downloads.blenderWindowsX64Zip.localExecutablePath);
+  const run = spawnSync(blender, ["--background", "--factory-startup", "--python",
+    "tools/art/build_slice.py", "--", "--verify"], {
+    cwd: ROOT, encoding: "utf8", windowsHide: true, timeout: 120000,
+  });
+  assert.ifError(run.error);
+  assert.equal(run.status, 0, `${run.stdout}\n${run.stderr}`);
+  assert.match(run.stdout, /room slice verified: [0-9a-f]{64}/);
+});
+
+test("the_room_asset_rejects_external_payloads_extensions_and_unbounded_counts", async () => {
+  assert.throws(() => validateUriPolicy({ buffers: [{ uri: "../outside.bin" }] }), /escapes/);
+  assert.throws(() => validateUriPolicy({ images: [{ uri: "data:image\/png;base64,AA==" }] }), /embedded/);
+  const sidecar = JSON.parse(fs.readFileSync(SIDECAR, "utf8"));
+  sidecar.pieces.push({ ...sidecar.pieces[0], node: "ROOM_extra" });
+  assert.throws(() => parseRoomSidecar(JSON.stringify(sidecar)), /unbounded or incomplete/);
+  const parsed = parseGlb(fs.readFileSync(GLB));
+  const extended = structuredClone(parsed.gltf);
+  extended.extensionsRequired = ["KHR_draco_mesh_compression"];
+  const json = Buffer.from(JSON.stringify(extended), "utf8");
+  const jsonPadding = Buffer.alloc((4 - json.length % 4) % 4, 0x20);
+  const binPadding = Buffer.alloc((4 - parsed.bin.length % 4) % 4);
+  const rebuiltLength = 12 + 8 + json.length + jsonPadding.length + 8 + parsed.bin.length + binPadding.length;
+  const rebuilt = Buffer.alloc(rebuiltLength);
+  rebuilt.writeUInt32LE(0x46546c67, 0); rebuilt.writeUInt32LE(2, 4); rebuilt.writeUInt32LE(rebuiltLength, 8);
+  rebuilt.writeUInt32LE(json.length + jsonPadding.length, 12); rebuilt.writeUInt32LE(0x4e4f534a, 16);
+  json.copy(rebuilt, 20); jsonPadding.copy(rebuilt, 20 + json.length);
+  const binHeader = 20 + json.length + jsonPadding.length;
+  rebuilt.writeUInt32LE(parsed.bin.length + binPadding.length, binHeader); rebuilt.writeUInt32LE(0x004e4942, binHeader + 4);
+  parsed.bin.copy(rebuilt, binHeader + 8); binPadding.copy(rebuilt, binHeader + 8 + parsed.bin.length);
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "room-extension-"));
+  try {
+    const glb = path.join(directory, "room_slice.glb");
+    fs.writeFileSync(glb, rebuilt);
+    await assert.rejects(validateAsset({ ...options(), glb, skipExpectedHashes: true }), /unsupported extension/);
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+  const warningValidator = { validateBytes: async () => ({ validatorVersion: "test", issues: {
+    messages: [{ code: "TEST_WARNING", message: "warning", severity: 1 }],
+  } }) };
+  await assert.rejects(validateAsset({ ...options(), skipExpectedHashes: true, validator: warningValidator }), /warning/);
+  const errorValidator = { validateBytes: async () => ({ validatorVersion: "test", issues: {
+    messages: [{ code: "TEST_ERROR", message: "error", severity: 0 }],
+  } }) };
+  await assert.rejects(validateAsset({ ...options(), skipExpectedHashes: true, validator: errorValidator }), /error/);
+});
+
+test("every_room_piece_has_identity_source_transform_finite_bounds_and_allowed_material", () => {
+  const parsed = parseGlb(fs.readFileSync(GLB));
+  const sidecar = parseRoomSidecar(fs.readFileSync(SIDECAR));
+  const manifest = JSON.parse(fs.readFileSync(MANIFEST, "utf8"));
+  validateSemanticSets(parsed, sidecar, manifest);
+  const pieces = new Map(manifest.pieces.map((piece) => [piece.node, piece]));
+  for (const node of parsed.gltf.nodes.filter((value) => value.name.startsWith("ROOM_"))) {
+    assert.deepEqual(node.translation ?? [0, 0, 0], [0, 0, 0]);
+    assert.deepEqual(node.rotation ?? [0, 0, 0, 1], [0, 0, 0, 1]);
+    assert.deepEqual(node.scale ?? [1, 1, 1], [1, 1, 1]);
+    assert.ok(pieces.has(node.name));
+  }
+  for (const piece of sidecar.pieces) {
+    assert.ok(piece.bounds.min.every(Number.isFinite));
+    assert.ok(piece.bounds.max.every(Number.isFinite));
+    assert.ok(["floor_current", "stone_current", "wood_current", "metal_current"].includes(piece.materialRole));
+  }
+});
+
+test("the_torch_socket_has_one_parent_and_a_finite_normalized_transform", () => {
+  const parsed = parseGlb(fs.readFileSync(GLB));
+  const nodes = parsed.gltf.nodes;
+  const socket = nodes.findIndex((node) => node.name === "SOCKET_torch_flame");
+  const parents = nodes.filter((node) => (node.children ?? []).includes(socket));
+  assert.equal(parents.length, 1);
+  assert.equal(parents[0].name, "ROOM_torch_bracket");
+  const transform = nodes[socket].rotation ?? [0, 0, 0, 1];
+  assert.ok((nodes[socket].translation ?? []).every(Number.isFinite));
+  assert.ok(Math.abs(Math.hypot(...transform) - 1) <= 0.00001);
+});
+
+test("payload_and_conservative_gpu_estimates_use_the_documented_formula", () => {
+  const gltf = {
+    bufferViews: [{ byteLength: 5 }, { byteLength: 7 }],
+    accessors: [{ bufferView: 0 }, { bufferView: 1 }],
+    meshes: [{ primitives: [{ attributes: { POSITION: 0 }, indices: 1 }] }],
+  };
+  const estimate = estimateGpuResidency(gltf);
+  assert.deepEqual(estimate, {
+    sourceBufferBytes: 12,
+    decodedTextureBytes: 0,
+    instanceBufferBytes: 222208,
+    shadowMapBytes: 4194304,
+    totalBytes: 4416524,
+  });
+});
+
+test("pinned_embedded_albedos_and_vertex_colours_make_floor_and_wall_sources_distinct", () => {
+  const parsed = parseGlb(fs.readFileSync(GLB));
+  const nodes = new Map(parsed.gltf.nodes.map((node) => [node.name, node]));
+  const colours = (name) => {
+    const primitive = parsed.gltf.meshes[nodes.get(name).mesh].primitives[0];
+    const accessor = parsed.gltf.accessors[primitive.attributes.COLOR_0];
+    assert.deepEqual([accessor.componentType, accessor.type, accessor.normalized], [5123, "VEC4", true]);
+    return accessorValues(parsed, primitive.attributes.COLOR_0);
+  };
+  const luminance = (values) => values.reduce((sum, value) => sum + value[0] + value[1] + value[2], 0) /
+    (values.length * 3 * 65535);
+  const floorA = colours("ROOM_floor_a");
+  const floorB = colours("ROOM_floor_b");
+  const wall = colours("ROOM_wall_straight");
+  assert.notEqual(luminance(floorA), luminance(wall));
+  assert.notEqual(luminance(floorB), luminance(wall));
+  assert.notDeepEqual(floorA, floorB, "the two deterministic floor sources need distinct variation");
+  assert.equal((parsed.gltf.images ?? []).length, 2);
+  assert.equal((parsed.gltf.textures ?? []).length, 2);
+  assert.ok(parsed.gltf.images.every((image) => image.uri === undefined && image.mimeType === "image/png"));
+  assert.ok(parsed.gltf.images.every((image) => {
+    const view = parsed.gltf.bufferViews[image.bufferView];
+    const bytes = parsed.bin.subarray(view.byteOffset ?? 0, (view.byteOffset ?? 0) + view.byteLength);
+    return bytes.readUInt32BE(16) === 512 && bytes.readUInt32BE(20) === 512;
+  }));
+  assert.equal(estimateGpuResidency(parsed.gltf, 2_097_152).decodedTextureBytes, 2_097_152);
+});
+
+test("malformed_glb_chunks_sidecars_hashes_and_duplicate_names_fail_closed", async () => {
+  const bytes = fs.readFileSync(GLB);
+  const badMagic = Buffer.from(bytes);
+  badMagic.write("BAD!", 0, "ascii");
+  assert.throws(() => parseGlb(badMagic), /magic/);
+  const badLength = Buffer.from(bytes);
+  badLength.writeUInt32LE(bytes.length + 4, 8);
+  assert.throws(() => parseGlb(badLength), /declared length/);
+  const parsed = parseGlb(bytes);
+  const duplicate = { ...parsed, gltf: structuredClone(parsed.gltf) };
+  duplicate.gltf.nodes[1].name = duplicate.gltf.nodes[0].name;
+  assert.throws(() => validateSemanticSets(duplicate, parseRoomSidecar(fs.readFileSync(SIDECAR)),
+    JSON.parse(fs.readFileSync(MANIFEST, "utf8"))), /duplicate/);
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "room-sidecar-drift-"));
+  try {
+    const changed = path.join(directory, "room_slice.json");
+    fs.writeFileSync(changed, `${fs.readFileSync(SIDECAR, "utf8").trim()} \n`);
+    await assert.rejects(validateAsset({ ...options(), sidecar: changed }), /payload|sidecar hash/);
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("room_generation_never_leaves_python_cache_in_the_repository", () => {
+  assert.equal(fs.existsSync(path.join(ROOT, "tools", "art", "__pycache__")), false);
+  for (const name of fs.readdirSync(path.join(ROOT, "tools", "art"))) {
+    assert.doesNotMatch(name, /\.py[cod]$/);
+  }
+});

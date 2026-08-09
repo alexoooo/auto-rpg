@@ -42,3 +42,10 @@ its foreground performance decision remain separate gates.
 
 This decision supersedes the renderer portion of `DESIGN.md#deliberate-non-choices`
 and the renderer conclusion of `DESIGN.md#performance-notes`.
+
+The current representative authored room exercises this decision without changing
+it: its [asset bounds remain presentation-only](../reference/room-asset-contract.md#presentation-only-bounds)
+and representative-room loader failures are terminal under the
+[room loader lifecycle](../reference/room-asset-contract.md#loader-lifecycle-and-failure),
+while the ordinary procedural route remains the explicit removal path. The room's
+visible art and foreground performance decision remains a separate pending gate.

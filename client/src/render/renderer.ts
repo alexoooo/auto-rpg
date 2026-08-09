@@ -1,7 +1,9 @@
 import type { AbstractEngine } from "@babylonjs/core/Engines/abstractEngine.js";
-import type { FreeCamera } from "@babylonjs/core/Cameras/freeCamera.js";
+import type { Camera } from "@babylonjs/core/Cameras/camera.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Scene } from "@babylonjs/core/scene.js";
+import type { ShadowGenerator } from "@babylonjs/core/Lights/Shadows/shadowGenerator.js";
+import { SceneInstrumentation } from "@babylonjs/core/Instrumentation/sceneInstrumentation.js";
 import { ActorPresentation } from "./actors.js";
 import { clampCameraPan, clampCameraZoom, createFixedIsometricCamera } from "./camera.js";
 import { RendererDebugRegistry, type RendererDebugCounts } from "./debug.js";
@@ -14,10 +16,12 @@ import { PresentationTimeline } from "./interpolation.js";
 import type { PresentationSnapshot } from "./presentation.js";
 import { createBabylonRightHandedScene } from "./scene.js";
 import { TransientPresentation } from "./transients.js";
+import type { RendererFrameMetrics } from "./performance.js";
 
 export type GreyboxRendererDiagnostics = Readonly<{
   backend: RendererBackendDiagnostics;
   scene: RendererDebugCounts;
+  renderedFrame: RendererFrameMetrics;
   running: boolean;
   terminal: boolean;
   epoch: number | null;
@@ -32,16 +36,65 @@ export type GreyboxRendererLifecycle = Readonly<{
   onTerminal?: (error: RendererTerminalError) => void;
 }>;
 
+export type EnvironmentOwner = Readonly<{
+  shadowGenerator: ShadowGenerator;
+  acceptSnapshot(snapshot: PresentationSnapshot): void;
+  authoredFrameReady?(): boolean;
+  reset(): void;
+  dispose(): void;
+}>;
+
+export type GreyboxRendererOptions = Readonly<{
+  createEnvironment?: (
+    scene: Scene, debug: RendererDebugRegistry, signal: AbortSignal,
+  ) => Promise<EnvironmentOwner>;
+  createReviewCamera?: (
+    scene: Scene, canvas: HTMLCanvasElement, bounds: Readonly<{ width: number; height: number }>,
+  ) => RendererCameraOwner;
+  reviewCameraFree?: boolean;
+}>;
+
+export type RendererCameraOwner = Readonly<{
+  camera: Camera;
+  readonly free: boolean;
+  setFree(free: boolean): void;
+  pan?(dxPixels: number, dyPixels: number): void;
+  zoom?(delta: number): void;
+  resize?(): void;
+  dispose(): void;
+}>;
+
+export type RoomReviewInteractionState = Readonly<{ readonly reviewCameraFree: boolean }>;
+
+export function roomReviewInteractionBlocked(
+  representativeRoom: boolean, renderer: RoomReviewInteractionState,
+): boolean {
+  return representativeRoom && renderer.reviewCameraFree;
+}
+
+export async function submitWithRoomReviewGuard<T>(
+  representativeRoom: boolean, renderer: RoomReviewInteractionState, submit: () => Promise<T>,
+): Promise<T> {
+  if (roomReviewInteractionBlocked(representativeRoom, renderer)) {
+    throw new Error("simulation commands are disabled while the free review camera is active");
+  }
+  return submit();
+}
+
 export class GreyboxRenderer {
   readonly #handle: RendererEngineHandle<HTMLCanvasElement, AbstractEngine>;
   readonly #scene: Scene;
   readonly #debug: RendererDebugRegistry;
-  readonly #environment: EnvironmentPresentation;
+  readonly #environment: EnvironmentOwner;
   readonly #actors: ActorPresentation;
   readonly #transients: TransientPresentation;
   readonly #timeline = new PresentationTimeline();
+  readonly #instrumentation: SceneInstrumentation;
   readonly #now: () => number;
-  #camera: FreeCamera;
+  readonly #createReviewCamera: GreyboxRendererOptions["createReviewCamera"];
+  readonly #initialReviewFree: boolean;
+  #reviewCamera: RendererCameraOwner | null = null;
+  #camera: Camera;
   #arenaKey = "";
   #arenaWidth = 1;
   #arenaHeight = 1;
@@ -52,16 +105,19 @@ export class GreyboxRenderer {
   #tick: number | null = null;
   #running = false;
   #disposed = false;
+  #frameMetrics: RendererFrameMetrics = { draws: 0, triangles: 0, lights: 0, shadowCasters: 0 };
 
   constructor(
     handle: RendererEngineHandle<HTMLCanvasElement, AbstractEngine>,
     scene: Scene,
     debug: RendererDebugRegistry,
-    environment: EnvironmentPresentation,
+    environment: EnvironmentOwner,
     actors: ActorPresentation,
     transients: TransientPresentation,
-    camera: FreeCamera,
+    camera: Camera,
     now: () => number = () => performance.now(),
+    createReviewCamera?: GreyboxRendererOptions["createReviewCamera"],
+    initialReviewFree = false,
   ) {
     this.#handle = handle;
     this.#scene = scene;
@@ -71,12 +127,24 @@ export class GreyboxRenderer {
     this.#transients = transients;
     this.#camera = camera;
     this.#now = now;
+    this.#createReviewCamera = createReviewCamera;
+    this.#initialReviewFree = initialReviewFree;
+    this.#instrumentation = new SceneInstrumentation(scene);
     this.start();
   }
 
   get canvas(): HTMLCanvasElement { return this.#handle.canvas; }
   get scene(): Scene { return this.#scene; }
-  get camera(): FreeCamera { return this.#camera; }
+  get camera(): Camera { return this.#camera; }
+  get reviewCameraFree(): boolean { return this.#reviewCamera?.free ?? this.#initialReviewFree; }
+
+  setReviewCameraFree(free: boolean): void {
+    this.#assertLive();
+    if (this.#reviewCamera === null) throw new Error("representative room review camera is unavailable");
+    this.#reviewCamera.setFree(free);
+    this.#camera = this.#reviewCamera.camera;
+    this.#scene.activeCamera = this.#camera;
+  }
 
   acceptSnapshot(snapshot: PresentationSnapshot, receivedAtMs: number): void {
     this.#assertLive();
@@ -115,10 +183,20 @@ export class GreyboxRenderer {
   resize(): void {
     if (this.#disposed || this.#handle.terminal) return;
     this.#handle.engine.resize();
-    if (this.#arenaKey !== "") this.#replaceCamera(this.#arenaWidth, this.#arenaHeight);
+    if (this.#reviewCamera !== null) {
+      this.#reviewCamera.resize?.();
+      this.#camera = this.#reviewCamera.camera;
+      this.#scene.activeCamera = this.#camera;
+    } else if (this.#arenaKey !== "") this.#replaceCamera(this.#arenaWidth, this.#arenaHeight);
   }
 
   pan(dxPixels: number, dyPixels: number): void {
+    if (this.#reviewCamera !== null) {
+      this.#reviewCamera.pan?.(dxPixels, dyPixels);
+      this.#camera = this.#reviewCamera.camera;
+      this.#scene.activeCamera = this.#camera;
+      return;
+    }
     if (!Number.isFinite(dxPixels) || !Number.isFinite(dyPixels)) return;
     const scale = Math.max(this.#arenaWidth, this.#arenaHeight) / Math.max(1, this.canvas.clientHeight);
     const screenRight = this.#camera.getDirection(Vector3.Right());
@@ -139,6 +217,12 @@ export class GreyboxRenderer {
   }
 
   zoom(delta: number): void {
+    if (this.#reviewCamera !== null) {
+      this.#reviewCamera.zoom?.(delta);
+      this.#camera = this.#reviewCamera.camera;
+      this.#scene.activeCamera = this.#camera;
+      return;
+    }
     if (!Number.isFinite(delta)) return;
     this.#zoom = clampCameraZoom(this.#zoom * Math.exp(-delta * 0.001));
     this.#replaceCamera(this.#arenaWidth, this.#arenaHeight);
@@ -148,10 +232,37 @@ export class GreyboxRenderer {
     return Object.freeze({
       backend: this.#handle.diagnostics,
       scene: this.#debug.snapshot(),
+      renderedFrame: Object.freeze({ ...this.#frameMetrics }),
       running: this.#running,
       terminal: this.#handle.terminal,
       epoch: this.#epoch,
       tick: this.#tick,
+    });
+  }
+
+  frameMetrics(): RendererFrameMetrics {
+    this.#assertLive();
+    if (!this.#running) throw new Error("greybox renderer is not rendering");
+    return Object.freeze({ ...this.#frameMetrics });
+  }
+
+  async awaitAuthoredFrame(timeoutMs = 30_000): Promise<void> {
+    this.#assertLive();
+    if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) throw new RangeError("frame timeout must be positive");
+    await new Promise<void>((resolve, reject) => {
+      let timeout: ReturnType<typeof globalThis.setTimeout> | undefined;
+      const observer = this.#scene.onAfterRenderObservable.add(() => {
+        const counts = this.#debug.snapshot();
+        if (counts.visibility.geometry + counts.visibility.furniture === 0 ||
+            this.#environment.authoredFrameReady?.() !== true) return;
+        this.#scene.onAfterRenderObservable.remove(observer);
+        if (timeout !== undefined) globalThis.clearTimeout(timeout);
+        resolve();
+      });
+      timeout = globalThis.setTimeout(() => {
+        this.#scene.onAfterRenderObservable.remove(observer);
+        reject(new Error("authored room did not complete a visible frame"));
+      }, timeoutMs);
     });
   }
 
@@ -163,7 +274,11 @@ export class GreyboxRenderer {
     this.#transients.dispose();
     this.#actors.dispose();
     this.#environment.dispose();
-    this.#camera.dispose();
+    this.#instrumentation.dispose();
+    if (this.#reviewCamera !== null) {
+      this.#reviewCamera.dispose();
+      this.#reviewCamera = null;
+    } else this.#camera.dispose();
     this.#scene.dispose();
     this.#handle.dispose();
     this.#debug.clear();
@@ -174,6 +289,13 @@ export class GreyboxRenderer {
     const sample = this.#timeline.sample(this.#now());
     if (sample !== null) this.#actors.acceptSnapshot(sample.snapshot);
     this.#scene.render();
+    const debug = this.#debug.snapshot();
+    this.#frameMetrics = {
+      draws: this.#instrumentation.drawCallsCounter.current,
+      triangles: Math.floor(this.#scene.getActiveIndices() / 3),
+      lights: this.#scene.lights.length,
+      shadowCasters: debug.shadowCasters,
+    };
   };
 
   #fitCamera(snapshot: PresentationSnapshot): void {
@@ -186,7 +308,16 @@ export class GreyboxRenderer {
     this.#arenaHeight = height;
     this.#panX = width / 2;
     this.#panY = height / 2;
-    this.#replaceCamera(width, height);
+    if (this.#createReviewCamera === undefined) this.#replaceCamera(width, height);
+    else {
+      if (this.#reviewCamera !== null) this.#reviewCamera.dispose();
+      else this.#camera.dispose();
+      const owner = this.#createReviewCamera(this.#scene, this.canvas, { width, height });
+      this.#reviewCamera = owner;
+      this.#camera = owner.camera;
+      owner.setFree(this.#initialReviewFree);
+      this.#scene.activeCamera = owner.camera;
+    }
   }
 
   #replaceCamera(width: number, height: number): void {
@@ -211,8 +342,14 @@ export async function createGreyboxRenderer(
   canvas: HTMLCanvasElement,
   requested: RendererBackendRequest,
   lifecycle: GreyboxRendererLifecycle = {},
+  options: GreyboxRendererOptions = {},
 ): Promise<GreyboxRenderer> {
   let renderer: GreyboxRenderer | null = null;
+  let pendingScene: Scene | null = null;
+  let pendingEnvironment: EnvironmentOwner | null = null;
+  let pendingActors: ActorPresentation | null = null;
+  let pendingTransients: TransientPresentation | null = null;
+  const environmentAbort = new AbortController();
   const handle = await createRendererEngine(canvas, requested, {
     ...(lifecycle.onCanvasReplaced === undefined ? {} : { onCanvasReplaced: lifecycle.onCanvasReplaced }),
     stopRenderingAndInput: () => {
@@ -220,7 +357,10 @@ export async function createGreyboxRenderer(
       lifecycle.stopInput?.();
     },
     ...(lifecycle.pauseSimulation === undefined ? {} : { pauseSimulation: lifecycle.pauseSimulation }),
-    ...(lifecycle.onTerminal === undefined ? {} : { onTerminal: lifecycle.onTerminal }),
+    onTerminal: (error) => {
+      environmentAbort.abort(error);
+      lifecycle.onTerminal?.(error);
+    },
   });
   if (handle.terminal) {
     handle.dispose();
@@ -229,19 +369,42 @@ export async function createGreyboxRenderer(
   try {
     const built = createBabylonRightHandedScene(handle.engine, (scene) => {
       const debug = new RendererDebugRegistry();
-      const environment = new EnvironmentPresentation(scene, debug);
-      const actors = new ActorPresentation(scene, debug, environment.shadowGenerator);
-      const transients = new TransientPresentation(scene, debug, environment.shadowGenerator);
       const camera = createFixedIsometricCamera(scene, { width: 1, height: 1 }, 1);
       scene.activeCamera = camera;
-      return Object.freeze({ debug, environment, actors, transients, camera });
+      return Object.freeze({ debug, camera });
     });
-    renderer = new GreyboxRenderer(
-      handle, built.scene, built.content.debug, built.content.environment,
-      built.content.actors, built.content.transients, built.content.camera, lifecycle.now,
+    pendingScene = built.scene;
+    const environment = options.createEnvironment === undefined
+      ? new EnvironmentPresentation(built.scene, built.content.debug)
+      : await options.createEnvironment(built.scene, built.content.debug, environmentAbort.signal);
+    pendingEnvironment = environment;
+    if (handle.terminal || environmentAbort.signal.aborted) {
+      throw new Error("renderer became terminal during environment initialization");
+    }
+    const actors = new ActorPresentation(
+      built.scene, built.content.debug, environment.shadowGenerator,
     );
+    pendingActors = actors;
+    const transients = new TransientPresentation(
+      built.scene, built.content.debug, environment.shadowGenerator,
+    );
+    pendingTransients = transients;
+    renderer = new GreyboxRenderer(
+      handle, built.scene, built.content.debug, environment,
+      actors, transients, built.content.camera, lifecycle.now,
+      options.createReviewCamera, options.reviewCameraFree ?? false,
+    );
+    pendingScene = null;
+    pendingEnvironment = null;
+    pendingActors = null;
+    pendingTransients = null;
     return renderer;
   } catch (error) {
+    environmentAbort.abort(error);
+    pendingTransients?.dispose();
+    pendingActors?.dispose();
+    pendingEnvironment?.dispose();
+    pendingScene?.dispose();
     handle.dispose();
     throw error;
   }

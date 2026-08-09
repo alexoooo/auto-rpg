@@ -13,6 +13,9 @@
     "package.json",
     "package-lock.json",
     "tools/toolchain.json",
+    "tools/art/manifest.json",
+    "web/assets3d/room_slice.json",
+    "web/assets3d/room_slice.validator.json",
     "web/assets/manifest.json"
   ],
   "node": "22.12.0",
@@ -20,6 +23,8 @@
   "typescript": "6.0.3",
   "vite": "8.1.5",
   "babylon": "9.18.1",
+  "babylonLoaders": "9.18.1",
+  "babylonGltfInterface": "9.18.1",
   "blender": "4.5.12",
   "gltfValidator": "2.0.0-dev.3.10",
   "downloads": {

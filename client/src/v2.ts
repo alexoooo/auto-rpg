@@ -3,11 +3,16 @@ import type { GreyboxInput } from "./input/greybox-input.js";
 import type { LegacyClientCommand } from "./protocol/messages.js";
 import type { GreyboxRenderer } from "./render/renderer.js";
 import type { CanvasControlRenderer } from "./render/canvas-control.js";
+import { browserCaptureLabel, CaptureControls } from "./render/capture-controls.js";
 import {
   createBrowserPerformanceRuntime, GreyboxPerformanceCapture,
-  type GreyboxPerformanceMetadata,
+  prepareReferenceCaptureSurface,
+  type GreyboxPerformanceMetadata, type RoomPerformanceMetadata,
 } from "./render/performance.js";
 import { createGreyboxStressFixture } from "./render/stress.js";
+import {
+  ROOM_BUILD_INPUTS_SHA256, ROOM_GLB_SHA256, ROOM_SIDECAR_SHA256, ROOM_VALIDATOR_SHA256,
+} from "./render/room-asset.generated.js";
 import { SimClient, type ClientDiagnostics } from "./runtime/sim-client.js";
 
 const element = <T extends HTMLElement>(id: string): T => {
@@ -34,13 +39,54 @@ let activeCanvas = initialCanvas;
 const performanceStart = element<HTMLButtonElement>("performance-start");
 const performanceDownload = element<HTMLButtonElement>("performance-download");
 const performanceStatus = element<HTMLOutputElement>("performance-status");
+const performanceProgress = element<HTMLProgressElement>("performance-progress");
+const performanceMetadata = [...document.querySelectorAll<HTMLInputElement>("input[data-performance-metadata]")];
+type NavigatorWithBrands = Navigator & {
+  readonly userAgentData?: Readonly<{ brands?: readonly Readonly<{ brand: string; version: string }>[] }>;
+};
+const navigatorBrands = (navigator as NavigatorWithBrands).userAgentData?.brands ?? [];
+element<HTMLInputElement>("perf-browser").value = browserCaptureLabel(navigator.userAgent, navigatorBrands);
+const interactionHint = element<HTMLParagraphElement>("interaction-hint");
+const roomCameraButton = element<HTMLButtonElement>("room-camera-toggle");
 const parameters = new URLSearchParams(location.search);
-const stressMode = parameters.get("stress") === "greybox";
-if (parameters.has("stress") && !stressMode) throw new RangeError("unknown stress fixture");
+const stressParameter = parameters.get("stress");
+if (stressParameter !== null && stressParameter !== "greybox" && stressParameter !== "room") {
+  throw new RangeError("unknown stress fixture; use stress=greybox|room");
+}
+const stressKind = stressParameter as "greybox" | "room" | null;
+const stressMode = stressKind !== null;
+const reviewParameter = parameters.get("review");
+if (reviewParameter !== null && reviewParameter !== "room") {
+  throw new RangeError("unknown review route; use review=room");
+}
+const roomReviewMode = reviewParameter === "room";
+if (roomReviewMode && stressMode) throw new RangeError("review and stress fixtures are mutually exclusive");
+const syntheticMode = stressMode || roomReviewMode;
+const roomParameter = parameters.get("room");
+if (roomParameter !== null && roomParameter !== "representative") {
+  throw new RangeError("unknown room query; use room=representative");
+}
+const representativeRoom = roomParameter === "representative";
+if (stressKind === "room" && !representativeRoom) {
+  throw new RangeError("stress=room requires room=representative");
+}
+if (roomReviewMode && !representativeRoom) throw new RangeError("review=room requires room=representative");
+const roomCameraParameter = parameters.get("roomCamera");
+if (roomCameraParameter !== null && roomCameraParameter !== "fixed" && roomCameraParameter !== "free") {
+  throw new RangeError("unknown room camera; use roomCamera=fixed|free");
+}
+if (roomCameraParameter !== null && !representativeRoom) {
+  throw new RangeError("roomCamera requires room=representative");
+}
+const initialRoomCameraFree = roomCameraParameter === "free";
 const rendererParameter = parameters.get("renderer");
 const canvasControl = rendererParameter === "canvas";
-if (rendererParameter !== null && !canvasControl) throw new RangeError("unknown renderer control");
-if (canvasControl && !stressMode) throw new RangeError("Canvas2D control requires ?stress=greybox");
+if (rendererParameter !== null && !canvasControl
+    && rendererParameter !== "auto" && rendererParameter !== "webgl2") {
+  throw new RangeError("unknown renderer query; use renderer=canvas or backend=auto|webgl2");
+}
+if (canvasControl && stressKind !== "greybox") throw new RangeError("Canvas2D control requires ?stress=greybox");
+if (canvasControl && representativeRoom) throw new RangeError("the representative room requires a GPU renderer");
 type DisplayRenderer = GreyboxRenderer | CanvasControlRenderer;
 
 let app: V2Application<DisplayRenderer> | null = null;
@@ -52,10 +98,43 @@ let previousTime = performance.now();
 let pendingElapsedMicros = 0;
 let advanceInFlight = false;
 let performanceCapture: GreyboxPerformanceCapture | null = null;
+let roomEvidence: Readonly<{ payloadBytes: number; estimatedGpuBytes: number }> | null = null;
+const captureControls = new CaptureControls({
+  now: () => performance.now(),
+  schedule: (callback, intervalMs) => window.setInterval(callback, intervalMs),
+  cancel: (handle) => window.clearInterval(handle),
+  render: (view) => {
+    performanceStart.disabled = view.startDisabled;
+    performanceDownload.disabled = view.downloadDisabled;
+    for (const input of performanceMetadata) input.disabled = view.metadataLocked;
+    performanceProgress.value = view.progress;
+    if (view.progressLabel !== null) {
+      performanceStatus.value = `${view.progressLabel} -- keep this tab visible`;
+    }
+  },
+});
+
+const refreshPerformanceStart = (): void => {
+  let ready = stressMode && document.visibilityState === "visible" && app !== null && !app.disposed;
+  if (!ready || app === null) {
+    captureControls.updateReadiness(false);
+    return;
+  }
+  const diagnostics = app.renderer.diagnostics();
+  ready = diagnostics.running && !diagnostics.terminal;
+  if (representativeRoom && (app.renderer as GreyboxRenderer).reviewCameraFree) ready = false;
+  try {
+    const frame = app.renderer.frameMetrics();
+    ready &&= frame.draws > 0 && (diagnostics.backend.selected === "canvas2d" || frame.triangles > 0);
+  } catch { ready = false; }
+  captureControls.updateReadiness(ready);
+};
+
+const rejectActivePerformance = (reason: string): void => captureControls.terminate(reason);
 
 const renderDiagnostics = (): void => {
   diagnosticsOutput.textContent = JSON.stringify({
-    mode: stressMode ? "synthetic-greybox" : "real-worker",
+    mode: roomReviewMode ? "room-review" : stressMode ? "synthetic-greybox" : "real-worker",
     client: latest,
     renderer: app?.renderer.diagnostics() ?? null,
   }, null, 2);
@@ -80,7 +159,16 @@ const requireApp = (): V2Application<DisplayRenderer> => {
   if (app === null || app.disposed) throw new Error("v2 is not ready");
   return app;
 };
-const submit = async (command: LegacyClientCommand): Promise<void> => requireApp().command(command);
+const roomReviewInteractionBlocked = (renderer: GreyboxRenderer): boolean =>
+  representativeRoom && renderer.reviewCameraFree;
+const submit = async (command: LegacyClientCommand): Promise<void> => {
+  const application = requireApp();
+  const renderer = application.renderer as GreyboxRenderer;
+  if (roomReviewInteractionBlocked(renderer)) {
+    throw new Error("simulation commands are disabled while the free review camera is active");
+  }
+  return application.command(command);
+};
 
 // Page handlers exist before bootstrap can send init to the worker.
 element<HTMLButtonElement>("reset").addEventListener("click", () => {
@@ -103,6 +191,18 @@ element<HTMLButtonElement>("withdraw").addEventListener("click", () => {
 element<HTMLButtonElement>("spawn").addEventListener("click", () => {
   run(() => submit({ kind: "spawn", kindCode: 2, primary: 0, secondary: 255 }), "Spawn applied");
 });
+roomCameraButton.addEventListener("click", () => {
+  try {
+    if (!representativeRoom) throw new Error("representative room camera is unavailable");
+    const renderer = requireApp().renderer as GreyboxRenderer;
+    renderer.setReviewCameraFree(!renderer.reviewCameraFree);
+    roomCameraButton.textContent = renderer.reviewCameraFree ? "Use fixed camera" : "Use free camera";
+    performanceStatus.value = renderer.reviewCameraFree
+      ? "Free review camera active -- performance capture disabled"
+      : "Fixed review camera active";
+    refreshPerformanceStart();
+  } catch (error) { showError(error); }
+});
 holdBuffersButton.addEventListener("click", () => {
   run(async () => client?.beginDiagnosticBufferExhaustion(), "Holding the next three snapshot leases");
 });
@@ -110,22 +210,29 @@ releaseBuffersButton.addEventListener("click", () => {
   run(async () => client?.releaseDiagnosticBufferExhaustion(), "Released all diagnostic snapshot leases");
 });
 performanceStart.addEventListener("click", () => {
-  run(async () => {
-    if (!stressMode) throw new Error("performance capture requires ?stress=greybox");
+  if (!captureControls.begin((reason) => performanceCapture?.reject(reason))) return;
+  performanceCapture = null;
+  performanceStatus.value = "Preparing reference surface...";
+  errorOutput.value = "";
+  void (async () => {
+    if (!stressMode) throw new Error("performance capture requires a fixed stress fixture");
     const renderer = requireApp().renderer;
-    const captureCanvas = renderer.canvas;
-    captureCanvas.style.width = "1920px";
-    captureCanvas.style.height = "1080px";
-    captureCanvas.width = 1920;
-    captureCanvas.height = 1080;
-    renderer.resize();
-    const captureBounds = captureCanvas.getBoundingClientRect();
-    if (captureBounds.width !== 1920 || captureBounds.height !== 1080
-        || captureCanvas.width !== 1920 || captureCanvas.height !== 1080) {
-      throw new Error("performance capture requires an exact 1920x1080 CSS and backing surface");
+    if (representativeRoom && (renderer as GreyboxRenderer).reviewCameraFree) {
+      throw new Error("representative room performance capture requires the fixed review camera");
     }
+    const captureCanvas = renderer.canvas;
+    const completedFrame = renderer.frameMetrics();
+    const gpuFrame = renderer.diagnostics().backend.selected !== "canvas2d";
+    if (completedFrame.draws <= 0 || (gpuFrame && completedFrame.triangles <= 0)) {
+      throw new Error("performance capture requires a completed nonempty rendered frame; reload this route in a fresh tab");
+    }
+    const surface = prepareReferenceCaptureSurface(
+      captureCanvas,
+      renderer.diagnostics().backend.selected === "canvas2d" ? "canvas2d" : "engine",
+      () => renderer.resize(),
+    );
     const text = (id: string): string => element<HTMLInputElement>(id).value.trim();
-    const metadata: GreyboxPerformanceMetadata = Object.freeze({
+    const baseMetadata: GreyboxPerformanceMetadata = Object.freeze({
       os: text("perf-os"), cpu: text("perf-cpu"), gpu: text("perf-gpu"), driver: text("perf-driver"),
       browser: text("perf-browser"), powerMode: text("perf-power"),
       cssWidth: 1920, cssHeight: 1080, backingWidth: 1920, backingHeight: 1080,
@@ -133,28 +240,61 @@ performanceStart.addEventListener("click", () => {
       fixtureSeed: 1592594996, population: 64, roomWidth: 48, roomHeight: 32,
       trainingWorkers: 0, backend: renderer.diagnostics().backend,
     });
-    performanceCapture = new GreyboxPerformanceCapture(createBrowserPerformanceRuntime(captureCanvas, () => {
-      const scene = renderer.diagnostics().scene;
-      return { draws: scene.draws, triangles: scene.triangles, lights: scene.lights, shadowCasters: scene.shadowCasters };
-    }));
-    performanceStart.disabled = true;
-    performanceStatus.value = "Warming, then sampling… keep this tab visible.";
-    const result = await performanceCapture.start(metadata);
-    performanceStatus.value = `${result.status}: ${result.samples.length} sampled frames`;
-    performanceDownload.disabled = false;
-  }, "Performance capture finished");
+    let metadata: GreyboxPerformanceMetadata | RoomPerformanceMetadata = baseMetadata;
+    if (stressKind === "room") {
+      if (roomEvidence === null) throw new Error("representative room evidence identity is unavailable");
+      const roomStress = await import("./render/room-stress.js");
+      metadata = Object.freeze({
+        ...baseMetadata,
+        fixture: Object.freeze({
+          kind: "representative-room", fixtureId: "v2-room-slice-1",
+          buildInputsSha256: ROOM_BUILD_INPUTS_SHA256, glbSha256: ROOM_GLB_SHA256,
+          sidecarSha256: ROOM_SIDECAR_SHA256, validatorSha256: ROOM_VALIDATOR_SHA256,
+          roomStressMapSha256: roomStress.ROOM_STRESS_MAP_SHA256,
+          generatorSeed: 1592594996, population: 64, roomWidth: 48, roomHeight: 32,
+          payloadBytes: roomEvidence.payloadBytes, estimatedGpuBytes: roomEvidence.estimatedGpuBytes,
+        }),
+      });
+    }
+    try {
+      performanceCapture = new GreyboxPerformanceCapture(createBrowserPerformanceRuntime(
+        captureCanvas, () => renderer.frameMetrics(),
+      ));
+      const result = await performanceCapture.start(metadata);
+      if (!captureControls.settle(result.status)) return;
+      performanceStatus.value = `${result.status}: ${result.samples.length} sampled frames`;
+      refreshPerformanceStart();
+    } catch (error) {
+      surface.restore();
+      throw error;
+    }
+  })().catch((error: unknown) => {
+    captureControls.settle("rejected");
+    const value = error instanceof Error ? error : new Error(String(error));
+    performanceStatus.value = `Capture failed: ${value.message}`;
+    errorOutput.value = value.message;
+    refreshPerformanceStart();
+    renderDiagnostics();
+  });
 });
 performanceDownload.addEventListener("click", () => {
   try {
-    if (performanceCapture === null) throw new Error("no performance capture is available");
+    if (performanceCapture?.result()?.status !== "complete") {
+      throw new Error("no completed performance capture is available");
+    }
     const blob = new Blob([performanceCapture.exportJson()], { type: "application/json" });
     const href = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = href;
-    link.download = `v2-greybox-${app?.renderer.diagnostics().backend.selected ?? "rejected"}.json`;
+    link.download = `${representativeRoom ? "v2-room" : "v2-greybox"}-${
+      app?.renderer.diagnostics().backend.selected ?? "rejected"}.json`;
     link.click();
     URL.revokeObjectURL(href);
-  } catch (error) { showError(error); }
+  } catch (error) {
+    const value = error instanceof Error ? error : new Error(String(error));
+    performanceStatus.value = `Download unavailable: ${value.message}`;
+    errorOutput.value = value.message;
+  }
 });
 
 const advanceFrame = (now: number): void => {
@@ -174,16 +314,31 @@ const advanceFrame = (now: number): void => {
     void client.advance(elapsed).catch(() => undefined).finally(() => { advanceInFlight = false; });
   }
   renderDiagnostics();
+  refreshPerformanceStart();
   frameRequest = requestAnimationFrame(advanceFrame);
 };
 
 const start = async (): Promise<void> => {
-  const needsWorker = !stressMode;
+  const needsWorker = !syntheticMode;
   const backend = canvasControl ? null
     : (await import("./render/engine.js")).rendererBackendFromSearch(location.search);
   const canvasModule = canvasControl ? await import("./render/canvas-control.js") : null;
   const rendererModule = canvasControl ? null : await import("./render/renderer.js");
   const inputModule = canvasControl ? null : await import("./input/greybox-input.js");
+  const roomModules = representativeRoom ? await Promise.all([
+    import("./render/room-assets.js"),
+    import("./render/room-environment.js"),
+    import("./render/room-review-camera.js"),
+    import("./render/room-stress.js"),
+    import("./render/room-review.js"),
+  ]) : null;
+  const stressSnapshot = stressKind === "greybox" ? createGreyboxStressFixture()
+    : stressKind === "room" ? roomModules?.[3].createRoomStressFixture()
+      : roomReviewMode ? roomModules?.[4].createCompactRoomReviewFixture() : undefined;
+  if (stressKind === "room" && stressSnapshot === undefined) {
+    throw new Error("representative room stress fixture is unavailable");
+  }
+  if (roomReviewMode && stressSnapshot === undefined) throw new Error("compact room review fixture is unavailable");
   if (needsWorker) {
     // Keep the literal URL at the construction site: Vite uses this syntax to
     // discover and emit the module Worker as a production chunk.
@@ -196,15 +351,46 @@ const start = async (): Promise<void> => {
     app = await bootstrapV2({
       client,
       seed: integerFrom("seed", 0, 0xffff_ffff),
-      ...(stressMode ? { stressSnapshot: createGreyboxStressFixture() } : {}),
+      ...(stressSnapshot === undefined ? {} : { stressSnapshot }),
       createRenderer: async (terminal): Promise<DisplayRenderer> => {
         if (canvasModule !== null) return canvasModule.createCanvasControlRenderer(activeCanvas);
         if (backend === null || rendererModule === null) throw new Error("GPU renderer backend is missing");
         return rendererModule.createGreyboxRenderer(activeCanvas, backend, {
           pauseSimulation: () => { if (client !== null) void client.setPaused(true).catch(() => undefined); },
           stopInput: () => input?.dispose(),
-          onTerminal: (error) => terminal(new Error(error.message)),
+          onTerminal: (error) => {
+            rejectActivePerformance(`renderer terminal: ${error.message}`);
+            terminal(new Error(error.message));
+          },
           onCanvasReplaced: (_previous, replacement) => { activeCanvas = replacement; },
+        }, roomModules === null ? {} : {
+          createEnvironment: async (scene, debug, signal) => {
+            const asset = await roomModules[0].loadRoomAsset(scene, signal);
+            const reviewLighting = roomReviewMode ? roomModules[4].applyCompactRoomReviewLighting(scene) : null;
+            try {
+              const environment = roomModules[1].createRoomEnvironmentPresentation(scene, debug, asset);
+              await environment.prepare(signal);
+              roomEvidence = Object.freeze({
+                payloadBytes: asset.sidecar.payloadBytes,
+                estimatedGpuBytes: asset.sidecar.estimatedGpuResidency.totalBytes,
+              });
+              return Object.freeze({
+                get shadowGenerator() { return environment.shadowGenerator; },
+                acceptSnapshot: (snapshot) => environment.acceptSnapshot(snapshot),
+                authoredFrameReady: () => environment.authoredFrameReady(),
+                reset: () => environment.reset(),
+                dispose: () => { reviewLighting?.dispose(); environment.dispose(); asset.dispose(); },
+              });
+            } catch (error) {
+              reviewLighting?.dispose();
+              asset.dispose();
+              throw error;
+            }
+          },
+          createReviewCamera: (scene, canvas, bounds) =>
+            roomModules[2].createRoomReviewCamera(scene, canvas, bounds,
+              roomReviewMode ? { initialFixedZoom: 1.6 } : {}),
+          reviewCameraFree: initialRoomCameraFree,
         });
       },
       ...(inputModule === null ? {} : { attachInput: (application: V2Application<DisplayRenderer>) => {
@@ -213,7 +399,7 @@ const start = async (): Promise<void> => {
         input = new inputModule.GreyboxInput({
           canvas: gpu.canvas,
           snapshot: () => application.latestSnapshot(),
-          blocked: () => stressMode || application.disposed
+          blocked: () => syntheticMode || roomReviewInteractionBlocked(gpu) || application.disposed
             || latest?.resetting === true || latest?.terminal === true,
           projectGround: (event) => inputModule.createBabylonGroundProjector(
             gpu.scene, gpu.camera, gpu.canvas,
@@ -235,6 +421,9 @@ const start = async (): Promise<void> => {
       onError: showError,
     });
     activeCanvas = app.renderer.canvas;
+    if (representativeRoom && !canvasControl) {
+      await (app.renderer as GreyboxRenderer).awaitAuthoredFrame();
+    }
   } catch (error) {
     app?.dispose();
     app = null;
@@ -243,11 +432,26 @@ const start = async (): Promise<void> => {
     throw error;
   }
   for (const control of document.querySelectorAll<HTMLButtonElement>("button[data-sim-control]")) {
-    control.disabled = stressMode;
+    control.disabled = syntheticMode;
   }
-  performanceStart.disabled = !stressMode;
+  refreshPerformanceStart();
+  interactionHint.textContent = roomReviewMode
+    ? "Compact room review is noninteractive and has no simulation Worker. Use the camera toggle to inspect the authored slice."
+    : stressMode
+    ? representativeRoom
+      ? "The representative room stress fixture is noninteractive. Use the camera toggle for visual review; return to fixed mode before capture."
+      : "The fixed stress fixture is intentionally noninteractive; input and simulation controls are disabled during comparable capture."
+    : "Click known floor to move. Drag with the primary, middle, or secondary button to pan; use the wheel to zoom and Escape to withdraw.";
+  roomCameraButton.hidden = !representativeRoom;
+  if (representativeRoom) {
+    const gpu = app.renderer as GreyboxRenderer;
+    roomCameraButton.textContent = gpu.reviewCameraFree ? "Use fixed camera" : "Use free camera";
+  }
   status.value = canvasControl ? "Synthetic Canvas2D control ready"
-    : stressMode ? "Synthetic GPU greybox ready" : "Worker and renderer ready";
+    : roomReviewMode ? "Compact representative room review ready"
+      : stressKind === "room" ? "Representative room stress fixture ready"
+      : stressMode ? "Synthetic GPU greybox ready"
+        : representativeRoom ? "Worker and representative room ready" : "Worker and renderer ready";
   renderDiagnostics();
   frameRequest = requestAnimationFrame(advanceFrame);
 };
@@ -255,6 +459,7 @@ const start = async (): Promise<void> => {
 void start().catch(showError);
 window.addEventListener("resize", () => app?.renderer.resize());
 window.addEventListener("pagehide", () => {
+  rejectActivePerformance("page unloaded during performance capture");
   cancelAnimationFrame(frameRequest);
   input?.dispose();
   app?.dispose();

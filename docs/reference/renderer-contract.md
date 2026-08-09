@@ -5,11 +5,12 @@
 **Canonical source:** this document, the [worker snapshot contract](worker-protocol.md#snapshot-layout-and-buffer-ownership), and the [frame layout](frame-abi.md#current-layout)
 **Update when:** Renderer snapshot ownership, presentation identity, visibility gating, interpolation, coordinate mapping, backend selection, or loss handling changes.
 
-The procedural v2 greybox is a presentation consumer. It may use floating-point
-scene math, wall-clock receipt times, and engine objects only after authoritative
-bytes have crossed the Worker boundary. None of that state enters simulation,
-commands, replay, or a hash domain. The Canvas client remains the playable reference
-and consumes the same authoritative identity and visibility publications.
+The v2 GPU renderer is a presentation consumer with procedural and pinned authored
+room environments. It may use floating-point scene math, wall-clock receipt times,
+and engine objects only after authoritative bytes have crossed the Worker boundary.
+None of that state enters simulation, commands, replay, or a hash domain. The Canvas
+client remains the playable reference and consumes the same authoritative identity
+and visibility publications.
 
 <!-- DOC_CONTRACT: renderer-snapshot-copy -->
 ## Renderer-owned snapshot boundary
@@ -103,3 +104,21 @@ switches backend during a run; recovery is an explicit page reload.
 Performance acceptance is separate from backend correctness. Only a visible
 foreground run on non-software hardware may populate the
 [reference matrix](../performance/v2-reference-matrix.md#measurement-record).
+
+The current representative authored room repeats the exact
+[room disclosure mapping](room-asset-contract.md#authored-room-disclosure-mapping),
+uses the async [scene-bound loader lifecycle](room-asset-contract.md#loader-lifecycle-and-failure),
+and keeps all [asset bounds presentation-only](room-asset-contract.md#presentation-only-bounds).
+Classic-instance source meshes stay enabled for Babylon evaluation but invisible,
+non-pickable, and absent from shadow, debug, pick, and presence registries. The
+validated room container keeps those nonspatial sources and materials Scene-owned
+until asset disposal so WebGPU instance pipelines compile and render reliably. Current
+room tiles and furniture expose one semantic pick registration per disclosed tile or
+record, and unchanged revisions retain their existing instances. Combatant rigs and
+articulated presentation remain proposed outside the current renderer.
+
+Current room torches add one non-pickable, non-shadow emissive sphere at the authored
+socket and one capped point light. Flame meshes are effect presence and separate
+procedural draw groups, and are retired with their material on reset/disposal; they
+never alter picking or simulation authority. The compact review camera alone uses
+fixed zoom `1.6`; ordinary and performance-stress camera zoom remains `1`.

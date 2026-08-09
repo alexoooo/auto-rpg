@@ -21,7 +21,10 @@ const tsc = spawnSync(process.execPath, [
   "client/src/render/scene.ts", "client/src/render/camera.ts", "client/src/render/debug.ts",
   "client/src/render/environment.ts", "client/src/render/actors.ts", "client/src/render/transients.ts",
   "client/src/render/renderer.ts", "client/src/render/performance.ts",
-  "client/src/render/canvas-control.ts",
+  "client/src/render/canvas-control.ts", "client/src/render/capture-controls.ts",
+  "client/src/render/room-asset.generated.ts", "client/src/render/room-asset-contract.ts",
+  "client/src/render/room-assets.ts", "client/src/render/room-environment.ts",
+  "client/src/render/room-stress.ts", "client/src/render/room-review.ts", "client/src/render/room-review-camera.ts",
   "client/src/input/greybox-input.ts", "client/src/bootstrap.ts",
 ], { cwd: ROOT, encoding: "utf8" });
 assert.equal(tsc.status, 0, `TypeScript test compilation failed:\n${tsc.stdout}\n${tsc.stderr}`);
@@ -45,6 +48,14 @@ const greyboxInput = await load("client/src/input/greybox-input.js");
 const bootstrap = await load("client/src/bootstrap.js");
 const rendererPerformance = await load("client/src/render/performance.js");
 const canvasControl = await load("client/src/render/canvas-control.js");
+const captureControl = await load("client/src/render/capture-controls.js");
+const roomAssetContract = await load("client/src/render/room-asset-contract.js");
+const roomAssets = await load("client/src/render/room-assets.js");
+const roomEnvironment = await load("client/src/render/room-environment.js");
+const roomStress = await load("client/src/render/room-stress.js");
+const roomReview = await load("client/src/render/room-review.js");
+const roomReviewCamera = await load("client/src/render/room-review-camera.js");
+const roomGenerated = await load("client/src/render/room-asset.generated.js");
 
 const packedPublication = ({ epoch = 2, tick = 7, generation = 3, unitCount = 1 } = {}) => {
   const frame = new Float32Array(ABI.HEADER_LEN + ABI.UNIT_STRIDE + ABI.SHOT_STRIDE + ABI.EVENT_STRIDE);
@@ -340,6 +351,16 @@ const backendHarness = (values = {}) => {
 };
 
 test("forced_webgl2_skips_webgpu_and_requires_a_version_two_context", async () => {
+  assert.equal(rendererEngine.rendererBackendFromSearch(""), "auto");
+  assert.equal(rendererEngine.rendererBackendFromSearch("?backend=auto"), "auto");
+  assert.equal(rendererEngine.rendererBackendFromSearch("?backend=webgl2"), "webgl2");
+  assert.equal(rendererEngine.rendererBackendFromSearch("?renderer=auto"), "auto");
+  assert.equal(rendererEngine.rendererBackendFromSearch("?renderer=webgl2"), "webgl2");
+  assert.equal(rendererEngine.rendererBackendFromSearch("?renderer=canvas"), "auto");
+  assert.throws(() => rendererEngine.rendererBackendFromSearch("?backend=auto&renderer=webgl2"),
+    /conflicting renderer queries/);
+  assert.throws(() => rendererEngine.rendererBackendFromSearch("?renderer=gpu"),
+    /use backend=auto\|webgl2/);
   const success = backendHarness();
   const handle = await rendererEngine.selectRendererBackend(success.originalCanvas, "webgl2", success.factories);
   assert.equal(success.calls.includes("support"), false);
@@ -695,6 +716,363 @@ test("known_geometry_and_valid_furniture_obey_visibility_and_light_caps", async 
   engine.dispose();
 });
 
+async function fakeRoomAsset(scene) {
+  const { MeshBuilder } = await import("@babylonjs/core/Meshes/meshBuilder.js");
+  const { StandardMaterial } = await import("@babylonjs/core/Materials/standardMaterial.js");
+  const { TransformNode } = await import("@babylonjs/core/Meshes/transformNode.js");
+  const names = ["floor_a", "floor_b", "wall_straight", "wall_inside", "wall_outside", "wall_end",
+    "door_frame", "door_leaf", "torch_bracket", "decal_rubble", "decal_root", "prop_barrel"];
+  const pieces = new Map();
+  const floor = new StandardMaterial("floor_current", scene);
+  const stone = new StandardMaterial("stone_current", scene);
+  const wood = new StandardMaterial("wood_current", scene);
+  const metal = new StandardMaterial("metal_current", scene);
+  for (const name of names) {
+    const source = MeshBuilder.CreateBox(`ROOM_${name}`, { size: 1 }, scene);
+    source.isVisible = false;
+    source.isPickable = false;
+    source.setEnabled(true);
+    source.material = name.startsWith("floor_") ? floor :
+      ["wall_straight", "wall_inside", "wall_outside", "wall_end", "door_frame", "decal_rubble"].includes(name) ? stone :
+      ["door_leaf", "decal_root", "prop_barrel"].includes(name) ? wood : metal;
+    pieces.set(name, source);
+  }
+  const socket = new TransformNode("SOCKET_torch_flame", scene);
+  socket.position.set(0, 0.48, -0.14);
+  return {
+    sidecar: {
+      coordinates: { tileSize: 1 },
+      pieces: names.map((name) => ({ name, triangleCount: 12, allowedQuarterTurns: [0, 1, 2, 3] })),
+    },
+    pieces, materials: new Map([["floor_current", floor], ["stone_current", stone], ["wood_current", wood], ["metal_current", metal]]),
+    socket, disposed: false, dispose() {},
+  };
+}
+
+test("room_instances_need_known_topology_and_current_furniture_disclosure", async () => {
+  const { NullEngine } = await import("@babylonjs/core/Engines/nullEngine.js");
+  const { Scene } = await import("@babylonjs/core/scene.js");
+  const engine = new NullEngine({ renderWidth: 64, renderHeight: 64 });
+  const scene = new Scene(engine);
+  const debug = new rendererDebug.RendererDebugRegistry();
+  const asset = await fakeRoomAsset(scene);
+  const room = new roomEnvironment.RoomEnvironmentPresentation(scene, debug, asset, 7);
+  room.acceptSnapshot(snapshot({
+    map: Object.freeze([ABI.MAP_UNKNOWN, ABI.MAP_OPEN, ABI.MAP_SOLID]),
+    vis: Object.freeze([2, 1, 2]),
+    furniture: Object.freeze([
+      Object.freeze({ key: `${ABI.FURNITURE_DOOR}:2:0`, kind: ABI.FURNITURE_DOOR,
+        tx: 2, ty: 0, state: ABI.FURNITURE_DOOR_OPEN }),
+      Object.freeze({ key: `${ABI.FURNITURE_TORCH}:1:0`, kind: ABI.FURNITURE_TORCH,
+        tx: 1, ty: 0, state: ABI.TORCH_FACE_POS_X }),
+    ]),
+  }));
+  assert.deepEqual(room.keys().filter((key) => key.startsWith("tile:")),
+    ["tile:1:0:floor", "tile:2:0:floor", "tile:2:0:wall"]);
+  assert.deepEqual(room.keys().filter((key) => key.startsWith("furniture:")),
+    [`furniture:${ABI.FURNITURE_DOOR}:2:0:frame`, `furniture:${ABI.FURNITURE_DOOR}:2:0:leaf`]);
+  assert.equal(room.counts().lights, 1);
+  assert.equal(debug.snapshot().visibility.furniture, 1);
+  const picks = scene.meshes.filter((mesh) => mesh.name.startsWith("room:") && mesh.isPickable);
+  assert.deepEqual(picks.map((mesh) => mesh.metadata), [
+    { presentationKind: "tile", tx: 2, ty: 0 },
+    { presentationKind: "furniture", furnitureKey: `${ABI.FURNITURE_DOOR}:2:0` },
+  ]);
+  assert.equal(debug.snapshot().visibility.picking, 2);
+  room.dispose();
+  scene.dispose(); engine.dispose();
+});
+
+test("remembered_room_tiles_have_no_furniture_light_shadow_pick_or_debug_presence", async () => {
+  const { NullEngine } = await import("@babylonjs/core/Engines/nullEngine.js");
+  const { Scene } = await import("@babylonjs/core/scene.js");
+  const engine = new NullEngine(); const scene = new Scene(engine);
+  const debug = new rendererDebug.RendererDebugRegistry();
+  const room = new roomEnvironment.RoomEnvironmentPresentation(scene, debug, await fakeRoomAsset(scene));
+  room.acceptSnapshot(snapshot({ mapCols: 1, mapRows: 1, map: Object.freeze([ABI.MAP_SOLID]),
+    vis: Object.freeze([1]), furniture: Object.freeze([Object.freeze({
+      key: `${ABI.FURNITURE_TORCH}:0:0`, kind: ABI.FURNITURE_TORCH, tx: 0, ty: 0,
+      state: ABI.TORCH_FACE_POS_X,
+    })]) }));
+  assert.deepEqual(room.counts(), { geometry: 2, furniture: 0, instances: 2, lights: 1,
+    shadowCasters: 0, triangles: 24 });
+  assert.equal(debug.snapshot().visibility.picking, 0);
+  assert.equal(debug.snapshot().visibility.debug, 0);
+  assert.ok(scene.meshes.filter((mesh) => mesh.name.startsWith("room:tile:"))
+    .every((mesh) => mesh.sourceMesh?.material?.name.endsWith(":remembered") &&
+      mesh.sourceMesh.material.alpha === 0.42));
+  room.dispose(); scene.dispose(); engine.dispose();
+});
+
+test("room_reset_epoch_change_and_absence_retire_every_instance_and_pick_registration", async () => {
+  const { NullEngine } = await import("@babylonjs/core/Engines/nullEngine.js");
+  const { Scene } = await import("@babylonjs/core/scene.js");
+  const engine = new NullEngine(); const scene = new Scene(engine);
+  const debug = new rendererDebug.RendererDebugRegistry();
+  const room = new roomEnvironment.RoomEnvironmentPresentation(scene, debug, await fakeRoomAsset(scene));
+  room.acceptSnapshot(snapshot({ mapCols: 1, mapRows: 1, map: Object.freeze([ABI.MAP_OPEN]), vis: Object.freeze([2]) }));
+  assert.equal(room.keys().length, 1);
+  const retained = scene.meshes.filter((mesh) => mesh.name.startsWith("room:tile:"));
+  room.acceptSnapshot(snapshot({ tick: 2, mapCols: 1, mapRows: 1,
+    map: Object.freeze([ABI.MAP_OPEN]), vis: Object.freeze([2]) }));
+  assert.deepEqual(scene.meshes.filter((mesh) => mesh.name.startsWith("room:tile:")), retained);
+  room.acceptSnapshot(snapshot({ epoch: 2, mapCols: 1, mapRows: 1,
+    map: Object.freeze([ABI.MAP_UNKNOWN]), vis: Object.freeze([0]) }));
+  assert.deepEqual(room.keys(), []);
+  assert.equal(debug.snapshot().visibility.picking, 0);
+  room.reset(); room.dispose(); room.dispose();
+  assert.equal(debug.snapshot().instances, 0);
+  scene.dispose(); engine.dispose();
+});
+
+test("room_source_meshes_stay_hidden_and_do_not_count_as_visible_presence", async () => {
+  const { NullEngine } = await import("@babylonjs/core/Engines/nullEngine.js");
+  const { Scene } = await import("@babylonjs/core/scene.js");
+  const { FreeCamera } = await import("@babylonjs/core/Cameras/freeCamera.js");
+  const { Vector3 } = await import("@babylonjs/core/Maths/math.vector.js");
+  const engine = new NullEngine(); const scene = new Scene(engine);
+  new FreeCamera("test-camera", new Vector3(0, 4, -5), scene).setTarget(Vector3.Zero());
+  const debug = new rendererDebug.RendererDebugRegistry();
+  const asset = await fakeRoomAsset(scene);
+  const room = new roomEnvironment.RoomEnvironmentPresentation(scene, debug, asset);
+  room.acceptSnapshot(snapshot({ mapCols: 1, mapRows: 1, map: Object.freeze([ABI.MAP_OPEN]), vis: Object.freeze([2]) }));
+  scene.render();
+  assert.ok([...asset.pieces.values()].every((source) => source.isEnabled() && !source.isVisible && !source.isPickable));
+  const rememberedSources = scene.meshes.filter((mesh) => mesh.name.startsWith("room:source:"));
+  assert.equal(rememberedSources.length, 6);
+  assert.ok(rememberedSources.every((source) => source.isEnabled() && !source.isVisible && !source.isPickable));
+  assert.equal(debug.snapshot().meshes, 0);
+  const active = scene.getActiveMeshes();
+  assert.ok(active.data.slice(0, active.length).some((mesh) => mesh?.name.startsWith("room:tile:")));
+  assert.equal(active.data.slice(0, active.length).some((mesh) =>
+    mesh?.name.startsWith("ROOM_") || mesh?.name.startsWith("room:source:")), false);
+  room.dispose(); scene.dispose(); engine.dispose();
+});
+
+test("unknown_room_tiles_leave_no_enabled_spatial_instance_or_registry_residue", async () => {
+  const { NullEngine } = await import("@babylonjs/core/Engines/nullEngine.js");
+  const { Scene } = await import("@babylonjs/core/scene.js");
+  const engine = new NullEngine(); const scene = new Scene(engine);
+  const debug = new rendererDebug.RendererDebugRegistry();
+  const room = new roomEnvironment.RoomEnvironmentPresentation(scene, debug, await fakeRoomAsset(scene));
+  room.acceptSnapshot(snapshot({ mapCols: 2, mapRows: 1,
+    map: Object.freeze([ABI.MAP_UNKNOWN, ABI.MAP_UNKNOWN]), vis: Object.freeze([0, 1]),
+    furniture: Object.freeze([Object.freeze({ key: `${ABI.FURNITURE_TORCH}:1:0`,
+      kind: ABI.FURNITURE_TORCH, tx: 1, ty: 0, state: ABI.TORCH_FACE_POS_X })]) }));
+  assert.deepEqual(room.keys(), []);
+  assert.deepEqual(room.counts(), { geometry: 0, furniture: 0, instances: 0,
+    lights: 1, shadowCasters: 0, triangles: 0 });
+  assert.equal(debug.snapshot().visibility.picking, 0);
+  assert.equal(debug.snapshot().visibility.debug, 0);
+  room.dispose(); scene.dispose(); engine.dispose();
+});
+
+test("room_door_torch_socket_and_wall_orientation_use_only_general_semantic_rules", async () => {
+  const world = snapshot({ mapCols: 3, mapRows: 3,
+    map: Object.freeze([255, 0, 255, 0, 1, 1, 255, 1, 255]),
+    vis: Object.freeze([0, 2, 0, 2, 2, 2, 0, 2, 0]) });
+  assert.deepEqual(roomEnvironment.chooseRoomWall(world, 1, 1), { piece: "wall_inside", quarterTurns: 1 });
+  assert.deepEqual(roomEnvironment.chooseRoomWall(snapshot({ mapCols: 3, mapRows: 1,
+    map: Object.freeze([1, 1, 1]), vis: Object.freeze([2, 2, 2]) }), 1, 0),
+  { piece: "wall_straight", quarterTurns: 0 });
+  assert.deepEqual(roomEnvironment.chooseRoomWall(snapshot({ mapCols: 1, mapRows: 3,
+    map: Object.freeze([1, 1, 1]), vis: Object.freeze([2, 2, 2]) }), 0, 1),
+  { piece: "wall_straight", quarterTurns: 1 });
+  assert.equal(roomEnvironment.chooseRoomFloor(1592594996, 4, 5),
+    roomEnvironment.chooseRoomFloor(1592594996, 4, 5));
+  const { NullEngine } = await import("@babylonjs/core/Engines/nullEngine.js");
+  const { Scene } = await import("@babylonjs/core/scene.js");
+  const engine = new NullEngine(); const scene = new Scene(engine);
+  const debug = new rendererDebug.RendererDebugRegistry();
+  const room = new roomEnvironment.RoomEnvironmentPresentation(scene, debug, await fakeRoomAsset(scene));
+  room.acceptSnapshot(snapshot({ mapCols: 2, mapRows: 1,
+    map: Object.freeze([ABI.MAP_SOLID, ABI.MAP_OPEN]), vis: Object.freeze([2, 2]),
+    furniture: Object.freeze([
+      Object.freeze({ key: `${ABI.FURNITURE_DOOR}:0:0`, kind: ABI.FURNITURE_DOOR,
+        tx: 0, ty: 0, state: ABI.FURNITURE_DOOR_OPEN }),
+      Object.freeze({ key: `${ABI.FURNITURE_TORCH}:1:0`, kind: ABI.FURNITURE_TORCH,
+        tx: 1, ty: 0, state: ABI.TORCH_FACE_POS_Y }),
+    ]) }));
+  const leaf = scene.getMeshByName(`room:furniture:${ABI.FURNITURE_DOOR}:0:0:leaf`);
+  const bracket = scene.getMeshByName(`room:furniture:${ABI.FURNITURE_TORCH}:1:0:bracket`);
+  const light = scene.getLightByName(`room:torch:${ABI.FURNITURE_TORCH}:1:0`);
+  const flame = scene.getMeshByName(`room:torch:${ABI.FURNITURE_TORCH}:1:0:flame`);
+  assert.equal(leaf.rotation.y, Math.PI / 2);
+  assert.equal(bracket.rotation.y, Math.PI / 2);
+  assert.deepEqual([light.position.x, light.position.y, light.position.z], [1.5 - 0.14, 0.48, 0.5]);
+  assert.deepEqual([light.diffuse.r, light.diffuse.g, light.diffuse.b], [1, 0.42, 0.12]);
+  assert.deepEqual([light.specular.r, light.specular.g, light.specular.b], [1, 0.56, 0.24]);
+  assert.deepEqual([flame.position.x, flame.position.y, flame.position.z],
+    [light.position.x, light.position.y, light.position.z]);
+  assert.equal(flame.isPickable, false);
+  assert.equal(flame.receiveShadows, false);
+  assert.deepEqual([flame.material.emissiveColor.r, flame.material.emissiveColor.g,
+    flame.material.emissiveColor.b], [1, 0.3, 0.055]);
+  assert.equal(debug.snapshot().visibility.effects, 1);
+  assert.equal(room.shadowGenerator.getShadowMap().renderList.length, room.counts().shadowCasters);
+  room.dispose();
+  assert.equal(flame.isDisposed(), true);
+  assert.equal(scene.getMaterialByName("room:torch-flame-material"), null);
+  scene.dispose(); engine.dispose();
+});
+
+test("the_fixed_room_stress_fixture_has_the_named_asset_hash_population_and_piece_counts", async () => {
+  const { createHash } = await import("node:crypto");
+  const fixture = roomStress.createRoomStressFixture();
+  assert.deepEqual([fixture.mapCols, fixture.mapRows, fixture.map.length, fixture.units.length], [48, 32, 1536, 64]);
+  assert.equal(fixture.map.filter((value) => value === ABI.MAP_SOLID).length, 176);
+  const floors = { floor_a: 0, floor_b: 0 };
+  for (let ty = 0; ty < fixture.mapRows; ty++) for (let tx = 0; tx < fixture.mapCols; tx++) {
+    floors[roomEnvironment.chooseRoomFloor(fixture.generatorSeed, tx, ty)]++;
+  }
+  assert.deepEqual(floors, { floor_a: 768, floor_b: 768 });
+  const walls = { wall_straight: 0, wall_inside: 0, wall_outside: 0, wall_end: 0 };
+  for (let ty = 0; ty < fixture.mapRows; ty++) for (let tx = 0; tx < fixture.mapCols; tx++) {
+    if (fixture.map[ty * fixture.mapCols + tx] === ABI.MAP_SOLID) {
+      walls[roomEnvironment.chooseRoomWall(fixture, tx, ty).piece]++;
+    }
+  }
+  assert.deepEqual(walls, { wall_straight: 160, wall_inside: 4, wall_outside: 8, wall_end: 4 });
+  assert.deepEqual(Object.fromEntries(["decal_rubble", "decal_root", "prop_barrel"].map((piece) =>
+    [piece, fixture.roomDecorations.filter((item) => item.piece === piece).length])),
+    { decal_rubble: 4, decal_root: 4, prop_barrel: 4 });
+  assert.deepEqual(fixture.pieceCounts, { floor_a: 768, floor_b: 768, wall_straight: 160,
+    wall_inside: 4, wall_outside: 8, wall_end: 4, door_frame: 2, door_leaf: 2,
+    torch_bracket: 8, decal_rubble: 4, decal_root: 4, prop_barrel: 4 });
+  assert.equal(createHash("sha256").update(Buffer.from(fixture.map)).digest("hex"), roomStress.ROOM_STRESS_MAP_SHA256);
+
+  const { NullEngine } = await import("@babylonjs/core/Engines/nullEngine.js");
+  const { Scene } = await import("@babylonjs/core/scene.js");
+  const engine = new NullEngine(); const scene = new Scene(engine);
+  const debug = new rendererDebug.RendererDebugRegistry();
+  const room = new roomEnvironment.RoomEnvironmentPresentation(scene, debug, await fakeRoomAsset(scene));
+  room.acceptSnapshot(fixture);
+  assert.deepEqual(room.counts(), { geometry: 1712, furniture: 22, instances: 1736,
+    lights: 9, shadowCasters: 1736, triangles: room.counts().triangles });
+  assert.equal(debug.snapshot().draws, 20);
+  assert.equal(debug.snapshot().visibility.effects, 8);
+  assert.equal(debug.snapshot().visibility.picking, 1558);
+  const before = scene.meshes.filter((mesh) => mesh.name.startsWith("room:") && mesh.sourceMesh);
+  room.acceptSnapshot(Object.freeze({ ...fixture, tick: 1 }));
+  assert.deepEqual(scene.meshes.filter((mesh) => mesh.name.startsWith("room:") && mesh.sourceMesh), before);
+  room.dispose(); scene.dispose(); engine.dispose();
+});
+
+test("the_compact_room_review_fixture_is_not_the_performance_stress_fixture", async () => {
+  const fixture = roomReview.createCompactRoomReviewFixture();
+  const stressFixture = roomStress.createRoomStressFixture();
+  assert.deepEqual([fixture.mapCols, fixture.mapRows, fixture.map.length], [16, 10, 160]);
+  assert.equal(fixture.map.filter((value) => value === ABI.MAP_SOLID).length, 48);
+  assert.equal(fixture.map.filter((value) => value === ABI.MAP_OPEN).length, 14 * 8);
+  assert.equal(fixture.units.length, 8);
+  assert.deepEqual(fixture.furniture.map(({ kind, state }) => [kind, state]), [
+    [ABI.FURNITURE_DOOR, ABI.FURNITURE_DOOR_OPEN],
+    [ABI.FURNITURE_DOOR, ABI.FURNITURE_DOOR_SHUT],
+    [ABI.FURNITURE_TORCH, ABI.TORCH_FACE_POS_X], [ABI.FURNITURE_TORCH, ABI.TORCH_FACE_POS_Y],
+    [ABI.FURNITURE_TORCH, ABI.TORCH_FACE_POS_X], [ABI.FURNITURE_TORCH, ABI.TORCH_FACE_POS_Y],
+  ]);
+  assert.deepEqual(Object.fromEntries(["decal_rubble", "decal_root", "prop_barrel"].map((piece) =>
+    [piece, fixture.roomDecorations.filter((item) => item.piece === piece).length])),
+  { decal_rubble: 4, decal_root: 4, prop_barrel: 4 });
+  assert.notDeepEqual([fixture.mapCols, fixture.mapRows, fixture.units.length],
+    [stressFixture.mapCols, stressFixture.mapRows, stressFixture.units.length]);
+  assert.deepEqual([stressFixture.mapCols, stressFixture.mapRows, stressFixture.units.length,
+    stressFixture.torchLights], [48, 32, 64, 8]);
+  const { NullEngine } = await import("@babylonjs/core/Engines/nullEngine.js");
+  const { Scene } = await import("@babylonjs/core/scene.js");
+  const engine = new NullEngine();
+  const scene = new Scene(engine);
+  const lighting = roomReview.applyCompactRoomReviewLighting(scene);
+  const debug = new rendererDebug.RendererDebugRegistry();
+  const room = new roomEnvironment.RoomEnvironmentPresentation(scene, debug, await fakeRoomAsset(scene));
+  room.acceptSnapshot(fixture);
+  assert.deepEqual(room.counts(), { geometry: 208, furniture: 18, instances: 228,
+    lights: 5, shadowCasters: 228, triangles: room.counts().triangles });
+  assert.equal(scene.lights.length, 6, "review fill is separate from the room key and four torches");
+  assert.deepEqual([scene.clearColor.r, scene.clearColor.g, scene.clearColor.b, scene.clearColor.a],
+    [0.018, 0.026, 0.055, 1]);
+  assert.equal(scene.lights.filter((light) => light.name === "room-review:hemispheric-fill").length, 1);
+  const canvas = new EventTarget();
+  Object.assign(canvas, { clientWidth: 1600, clientHeight: 900, style: {}, setPointerCapture() {},
+    releasePointerCapture() {}, hasPointerCapture: () => false });
+  const cameraOwner = roomReviewCamera.createRoomReviewCamera(scene, canvas,
+    { width: 16, height: 10 }, { initialFixedZoom: 1.6 });
+  scene.activeCamera = cameraOwner.camera;
+  scene.render();
+  assert.ok(Math.abs(cameraOwner.camera.orthoLeft + 14.444444444444445) < 1e-12);
+  assert.ok(Math.abs(cameraOwner.camera.orthoRight - 14.444444444444445) < 1e-12);
+  assert.deepEqual([cameraOwner.camera.orthoTop, cameraOwner.camera.orthoBottom], [8.125, -8.125]);
+  const { Matrix, Vector3 } = await import("@babylonjs/core/Maths/math.vector.js");
+  const viewport = cameraOwner.camera.viewport.toGlobal(1600, 900);
+  const projected = [[0, 0], [16, 0], [0, 10], [16, 10]].map(([x, z]) =>
+    Vector3.Project(new Vector3(x, 0, z), Matrix.IdentityReadOnly, scene.getTransformMatrix(), viewport));
+  const spanX = Math.max(...projected.map((point) => point.x)) - Math.min(...projected.map((point) => point.x));
+  const spanY = Math.max(...projected.map((point) => point.y)) - Math.min(...projected.map((point) => point.y));
+  assert.ok(spanX >= 1600 * 0.6 && spanY >= 900 * 0.6, "compact corners must fill most of the review canvas");
+  assert.ok(projected.every((point) => point.x >= 20 && point.x <= 1580 && point.y >= 20 && point.y <= 880),
+    "every compact-room corner needs a visible review margin");
+  cameraOwner.zoom(500);
+  cameraOwner.setFree(true);
+  cameraOwner.setFree(false);
+  assert.deepEqual([cameraOwner.camera.orthoTop, cameraOwner.camera.orthoBottom], [8.125, -8.125]);
+  cameraOwner.dispose();
+  lighting.dispose(); room.dispose();
+  assert.equal(scene.lights.length, 0);
+  scene.dispose(); engine.dispose();
+});
+
+test("the_room_review_camera_is_bounded_resettable_and_dispose_owned", async () => {
+  const { NullEngine } = await import("@babylonjs/core/Engines/nullEngine.js");
+  const { Scene } = await import("@babylonjs/core/scene.js");
+  const events = new Map();
+  const canvas = { clientWidth: 1920, clientHeight: 1080,
+    addEventListener(type, listener) { events.set(type, listener); },
+    removeEventListener(type) { events.delete(type); }, focus() {}, tabIndex: 0,
+    ownerDocument: { addEventListener() {}, removeEventListener() {}, defaultView: globalThis } };
+  const engine = new NullEngine();
+  engine.getInputElement = () => canvas;
+  const scene = new Scene(engine);
+  const owner = roomReviewCamera.createRoomReviewCamera(scene, canvas, { width: 48, height: 32 });
+  const { Camera } = await import("@babylonjs/core/Cameras/camera.js");
+  assert.equal(owner.camera.mode, Camera.ORTHOGRAPHIC_CAMERA);
+  const centred = owner.camera.position.clone();
+  owner.pan(120, 40);
+  assert.notDeepEqual(owner.camera.position.asArray(), centred.asArray());
+  const oldWidth = owner.camera.orthoRight - owner.camera.orthoLeft;
+  owner.zoom(-300);
+  assert.ok(owner.camera.orthoRight - owner.camera.orthoLeft < oldWidth);
+  owner.setFree(true);
+  assert.equal(owner.free, true);
+  owner.camera.target.set(-20, 9, 90); owner.camera.radius = 999;
+  owner.camera.getViewMatrix(true);
+  assert.deepEqual([owner.camera.target.x, owner.camera.target.y, owner.camera.target.z], [0, 0, 32]);
+  assert.equal(owner.camera.radius, 96);
+  assert.ok(events.size > 0);
+  owner.resetFixed(); assert.equal(owner.free, false);
+  owner.camera.getViewMatrix(true);
+  assert.ok(Math.abs(owner.camera.getTarget().x - 24) < 1e-5);
+  assert.ok(Math.abs(owner.camera.getTarget().z - 16) < 1e-5);
+  assert.equal(owner.camera.mode, Camera.ORTHOGRAPHIC_CAMERA);
+  assert.equal(events.size, 0);
+  owner.dispose(); owner.dispose();
+  assert.equal(scene.cameras.length, 0);
+  scene.dispose(); engine.dispose();
+});
+
+test("room_constructor_failure_releases_every_partial_remembered_source", async () => {
+  const { NullEngine } = await import("@babylonjs/core/Engines/nullEngine.js");
+  const { Scene } = await import("@babylonjs/core/scene.js");
+  const engine = new NullEngine(); const scene = new Scene(engine);
+  const asset = await fakeRoomAsset(scene);
+  asset.pieces.get("wall_inside").clone = () => null;
+  assert.throws(() => new roomEnvironment.RoomEnvironmentPresentation(
+    scene, new rendererDebug.RendererDebugRegistry(), asset), /cannot clone remembered wall_inside/);
+  assert.equal(scene.meshes.some((mesh) => mesh.name.startsWith("room:source:")), false);
+  assert.equal(scene.materials.some((material) => material.name === "room:stone_remembered"), false);
+  assert.equal(scene.lights.length, 0);
+  scene.dispose(); engine.dispose();
+});
+
 test("snapshot_local_transients_never_persist_across_fog_or_ticks", async () => {
   const { NullEngine } = await import("@babylonjs/core/Engines/nullEngine.js");
   const { Scene } = await import("@babylonjs/core/scene.js");
@@ -904,6 +1282,7 @@ test("primary_pointer_click_issues_goto_while_primary_drag_moves_the_live_camera
   const canvas = new FakeCanvas();
   const engine = new NullEngine({ renderWidth: 500, renderHeight: 250 });
   const scene = new Scene(engine);
+  scene.useRightHandedSystem = true;
   const debug = new rendererDebug.RendererDebugRegistry();
   const passive = { acceptSnapshot() {}, reset() {}, dispose() {} };
   const camera = rendererCamera.createFixedIsometricCamera(scene, { width: 10, height: 10 }, 2);
@@ -966,6 +1345,116 @@ test("primary_pointer_click_issues_goto_while_primary_drag_moves_the_live_camera
   input.dispose();
   renderer.dispose();
   globalThis.window = oldWindow;
+});
+
+test("representative_room_readiness_waits_for_a_completed_authored_frame_and_times_out", async () => {
+  const { NullEngine } = await import("@babylonjs/core/Engines/nullEngine.js");
+  const { Scene } = await import("@babylonjs/core/scene.js");
+  const engine = new NullEngine();
+  const scene = new Scene(engine);
+  scene.getActiveIndices = () => 3;
+  const debug = new rendererDebug.RendererDebugRegistry();
+  debug.replaceOwnerCounts("room-environment", { visibility: { geometry: 1 } });
+  const passive = { acceptSnapshot() {}, reset() {}, dispose() {}, authoredFrameReady: () => true };
+  const camera = rendererCamera.createFixedIsometricCamera(scene, { width: 1, height: 1 }, 1);
+  const handle = { engine, canvas: { clientWidth: 1, clientHeight: 1 }, terminal: false,
+    diagnostics: { requested: "webgl2", selected: "webgl2" }, dispose: () => engine.dispose() };
+  const renderer = new greyboxRenderer.GreyboxRenderer(
+    handle, scene, debug, passive, passive, passive, camera, () => 0,
+  );
+  renderer.stop();
+  let ready = false;
+  const waiting = renderer.awaitAuthoredFrame(1000).then(() => { ready = true; });
+  await Promise.resolve();
+  assert.equal(ready, false);
+  scene.onAfterRenderObservable.notifyObservers(scene);
+  await waiting;
+  assert.equal(ready, true);
+  await assert.rejects(renderer.awaitAuthoredFrame(1), /did not complete/);
+  renderer.dispose();
+});
+
+test("free_room_review_blocks_initial_and_toggled_canvas_and_toolbar_commands_until_fixed_restores", async () => {
+  const entrySource = fs.readFileSync(path.join(ROOT, "client", "src", "v2.ts"), "utf8");
+  assert.match(entrySource, /const submit = async[\s\S]*roomReviewInteractionBlocked\(renderer\)[\s\S]*application\.command\(command\)/);
+  assert.match(entrySource, /blocked: \(\) => syntheticMode \|\| roomReviewInteractionBlocked\(gpu\)/);
+  const oldWindow = globalThis.window;
+  globalThis.window = new EventTarget();
+  const { NullEngine } = await import("@babylonjs/core/Engines/nullEngine.js");
+  const { Scene } = await import("@babylonjs/core/scene.js");
+  class ReviewCanvas extends EventTarget {
+    width = 200; height = 100; clientWidth = 200; clientHeight = 100;
+    captured = new Set();
+    setPointerCapture(id) { this.captured.add(id); }
+    hasPointerCapture(id) { return this.captured.has(id); }
+    releasePointerCapture(id) { this.captured.delete(id); }
+  }
+  const canvas = new ReviewCanvas();
+  const engine = new NullEngine({ renderWidth: 200, renderHeight: 100 });
+  const scene = new Scene(engine);
+  const debug = new rendererDebug.RendererDebugRegistry();
+  const passive = { acceptSnapshot() {}, reset() {}, dispose() {} };
+  const initialCamera = rendererCamera.createFixedIsometricCamera(scene, { width: 2, height: 1 }, 2);
+  const handle = { engine, canvas, terminal: false,
+    diagnostics: { requested: "webgl2", selected: "webgl2" }, dispose: () => engine.dispose() };
+  const renderer = new greyboxRenderer.GreyboxRenderer(
+    handle, scene, debug, passive, passive, passive, initialCamera, () => 0,
+    (ownerScene, _canvas, bounds) => {
+      let free = false;
+      const camera = rendererCamera.createFixedIsometricCamera(ownerScene, bounds, 2);
+      return { camera, get free() { return free; }, setFree(value) { free = value; }, dispose() { camera.dispose(); } };
+    }, true,
+  );
+  renderer.stop();
+  assert.equal(renderer.reviewCameraFree, true, "the initial free query must block before the first snapshot");
+  const world = snapshot({ mapCols: 2, mapRows: 1, map: Object.freeze([ABI.MAP_OPEN, ABI.MAP_OPEN]),
+    vis: Object.freeze([2, 2]) });
+  const commands = [];
+  let pans = 0;
+  const blocked = () => greyboxRenderer.roomReviewInteractionBlocked(true, renderer);
+  const input = new greyboxInput.GreyboxInput({ canvas, snapshot: () => world, blocked,
+    projectGround: () => ({ x: 0.5, z: 0.5 }),
+    submit: async (command) => { commands.push(["canvas", command]); }, pan: () => { pans++; } });
+  const pointer = (type, x, y, id = 1) => {
+    const event = new Event(type, { cancelable: true });
+    Object.assign(event, { button: 0, clientX: x, clientY: y, pointerId: id });
+    return event;
+  };
+  const canvasClick = (id) => {
+    canvas.dispatchEvent(pointer("pointerdown", 10, 10, id));
+    canvas.dispatchEvent(pointer("pointerup", 10, 10, id));
+  };
+  const canvasDrag = (id) => {
+    canvas.dispatchEvent(pointer("pointerdown", 10, 10, id));
+    canvas.dispatchEvent(pointer("pointermove", 30, 10, id));
+    canvas.dispatchEvent(pointer("pointerup", 30, 10, id));
+  };
+  const toolbar = (kind) => greyboxRenderer.submitWithRoomReviewGuard(true, renderer, async () => {
+    commands.push(["toolbar", { kind }]);
+  });
+
+  canvasClick(1); canvasDrag(2);
+  await assert.rejects(toolbar("withdraw"), /free review camera/);
+  assert.deepEqual(commands, []); assert.equal(pans, 0);
+
+  renderer.acceptSnapshot(world, 0);
+  assert.equal(renderer.reviewCameraFree, true);
+  canvasClick(3);
+  await assert.rejects(toolbar("withdraw"), /free review camera/);
+  assert.deepEqual(commands, []);
+
+  renderer.setReviewCameraFree(false);
+  canvasClick(4);
+  await toolbar("withdraw");
+  await Promise.resolve();
+  assert.deepEqual(commands.map(([source, command]) => [source, command.kind]),
+    [["canvas", "goto"], ["toolbar", "withdraw"]]);
+
+  renderer.setReviewCameraFree(true);
+  canvasClick(5); canvasDrag(6);
+  await assert.rejects(toolbar("withdraw"), /free review camera/);
+  assert.equal(commands.length, 2); assert.equal(pans, 0);
+  input.dispose(); renderer.dispose(); globalThis.window = oldWindow;
 });
 
 test("greybox_input_keeps_one_pointer_owner_and_recovers_after_throwing_host_callbacks", async () => {
@@ -1083,6 +1572,12 @@ test("greybox_input_keeps_one_pointer_owner_and_recovers_after_throwing_host_cal
 });
 
 test("performance_capture_rejects_hidden_or_software_runs_and_exports_schema_one", async () => {
+  assert.equal(rendererPerformance.performanceProgressLabel(0), "Warming: 30s remaining");
+  assert.equal(rendererPerformance.performanceProgressLabel(29_001), "Warming: 1s remaining");
+  assert.equal(rendererPerformance.performanceProgressLabel(30_000), "Sampling: 120s remaining");
+  assert.equal(rendererPerformance.performanceProgressLabel(149_001), "Sampling: 1s remaining");
+  assert.equal(rendererPerformance.performanceProgressLabel(150_000), "Finishing capture...");
+  assert.throws(() => rendererPerformance.performanceProgressLabel(-1), /finite and nonnegative/);
   const activeCanvas = { clientWidth: 1920, clientHeight: 1080, width: 1920, height: 1080 };
   const browserRuntime = rendererPerformance.createBrowserPerformanceRuntime(activeCanvas, () => ({
     draws: 0, triangles: 0, lights: 0, shadowCasters: 0,
@@ -1192,6 +1687,246 @@ test("canvas_control_uses_the_same_stress_fixture_clock_and_export_schema", () =
   globalThis.cancelAnimationFrame = oldCancel;
 });
 
+test("reference_capture_resizes_through_the_backing_owner_and_rolls_back_failed_setup", () => {
+  const entry = fs.readFileSync(path.join(ROOT, "client", "src", "v2.ts"), "utf8");
+  const gpuRenderer = fs.readFileSync(path.join(ROOT, "client", "src", "render", "renderer.ts"), "utf8");
+  assert.match(entry, /renderer\.frameMetrics\(\)/);
+  assert.match(entry, /completed nonempty rendered frame/);
+  assert.doesNotMatch(entry, /captureCanvas\.width\s*=\s*1920/);
+  const performanceHandler = entry.slice(entry.indexOf('performanceStart.addEventListener("click"'),
+    entry.indexOf('performanceDownload.addEventListener("click"'));
+  assert.doesNotMatch(performanceHandler, /showError|status\.value\s*=\s*"Stopped"/);
+  assert.match(gpuRenderer, /drawCallsCounter\.current/);
+  assert.match(gpuRenderer, /getActiveIndices\(\) \/ 3/);
+  assert.match(gpuRenderer, /renderedFrame: Object\.freeze/);
+  assert.match(gpuRenderer, /if \(!this\.#running\) throw new Error/);
+  const surface = (width = 640, height = 360) => ({
+    style: { width: `${width}px`, height: `${height}px` }, width, height,
+    get clientWidth() { return Number.parseInt(this.style.width, 10); },
+    get clientHeight() { return Number.parseInt(this.style.height, 10); },
+  });
+  const engineCanvas = surface();
+  let engineResizes = 0;
+  const transaction = rendererPerformance.prepareReferenceCaptureSurface(engineCanvas, "engine", () => {
+    engineResizes++;
+    engineCanvas.width = engineCanvas.clientWidth;
+    engineCanvas.height = engineCanvas.clientHeight;
+  });
+  assert.deepEqual(transaction.size, {
+    cssWidth: 1920, cssHeight: 1080, backingWidth: 1920, backingHeight: 1080,
+  });
+  transaction.restore();
+  transaction.restore();
+  assert.deepEqual([engineCanvas.style.width, engineCanvas.style.height, engineCanvas.width, engineCanvas.height],
+    ["640px", "360px", 640, 360]);
+  assert.equal(engineResizes, 2);
+
+  const canvas2d = surface();
+  const canvasTransaction = rendererPerformance.prepareReferenceCaptureSurface(canvas2d, "canvas2d", () => {});
+  assert.deepEqual([canvas2d.width, canvas2d.height], [1920, 1080]);
+  canvasTransaction.restore();
+  assert.deepEqual([canvas2d.width, canvas2d.height], [640, 360]);
+
+  const rejected = surface();
+  assert.throws(() => rendererPerformance.prepareReferenceCaptureSurface(rejected, "engine", () => {}),
+    /exact 1920x1080/);
+  assert.deepEqual([rejected.style.width, rejected.style.height, rejected.width, rejected.height],
+    ["640px", "360px", 640, 360]);
+});
+
+test("capture_controls_gate_readiness_retry_and_terminal_lifecycle_without_stale_downloads", () => {
+  assert.equal(captureControl.browserCaptureLabel(
+    "Mozilla/5.0 Chrome/152.0.8000.7 Safari/537.36",
+  ), "Chrome 152.0.8000.7");
+  assert.equal(captureControl.browserCaptureLabel(
+    "Mozilla/5.0 Chrome/151.0.0.0 Safari/537.36",
+  ), "Chrome 151.0.7922.72");
+  assert.equal(captureControl.browserCaptureLabel("reduced-agent", [
+    { brand: "Chromium", version: "151" },
+  ]), "Chrome 151.0.7922.72");
+  assert.equal(captureControl.browserCaptureLabel("reduced-agent", [
+    { brand: "Not.A/Brand", version: "99" }, { brand: "Chromium", version: "151.2.3.4" },
+  ]), "Chrome 151.2.3.4");
+  assert.equal(captureControl.browserCaptureLabel("reduced-agent"), "Chrome 151.0.7922.72");
+  let now = 0;
+  let nextHandle = 1;
+  const timers = new Map();
+  const cancelled = [];
+  const views = [];
+  const controls = new captureControl.CaptureControls({
+    now: () => now,
+    schedule: (callback, intervalMs) => {
+      assert.equal(intervalMs, 1000);
+      const handle = nextHandle++;
+      timers.set(handle, callback);
+      return handle;
+    },
+    cancel: (handle) => { cancelled.push(handle); timers.delete(handle); },
+    render: (view) => views.push(view),
+  });
+  assert.deepEqual(views.at(-1), {
+    startDisabled: true, downloadDisabled: true, metadataLocked: false,
+    progress: 0, progressLabel: null,
+  });
+  controls.updateReadiness(false); // Hidden/not-yet-rendered routes remain unavailable.
+  assert.equal(views.at(-1).startDisabled, true);
+  controls.updateReadiness(true);
+  assert.equal(views.at(-1).startDisabled, false);
+
+  let rejected = 0;
+  assert.equal(controls.begin(() => { rejected++; }), true);
+  assert.equal(controls.begin(() => { rejected += 100; }), false, "a double Start must be ignored");
+  assert.deepEqual([views.at(-1).startDisabled, views.at(-1).downloadDisabled,
+    views.at(-1).metadataLocked], [true, true, true]);
+  now = 31_000;
+  timers.get(1)();
+  assert.deepEqual([views.at(-1).progress, views.at(-1).progressLabel],
+    [31, "Sampling: 119s remaining"]);
+  assert.equal(controls.settle("rejected"), true);
+  assert.deepEqual([views.at(-1).startDisabled, views.at(-1).downloadDisabled,
+    views.at(-1).metadataLocked, views.at(-1).progress], [false, true, false, 0]);
+  assert.deepEqual(cancelled, [1]);
+
+  now = 40_000;
+  assert.equal(controls.begin(() => { rejected++; }), true, "a rejected run must be retryable");
+  assert.equal(views.at(-1).downloadDisabled, true, "retry must invalidate every older export");
+  assert.equal(controls.settle("complete"), true);
+  assert.deepEqual([views.at(-1).startDisabled, views.at(-1).downloadDisabled,
+    views.at(-1).metadataLocked, views.at(-1).progress], [true, false, false, 150]);
+  assert.equal(controls.begin(() => { rejected++; }), false, "accepted evidence remains immutable");
+
+  const terminalViews = [];
+  const terminal = new captureControl.CaptureControls({
+    now: () => 0, schedule: (callback) => { timers.set(9, callback); return 9; },
+    cancel: (handle) => { cancelled.push(handle); timers.delete(handle); },
+    render: (view) => terminalViews.push(view),
+  });
+  terminal.updateReadiness(true);
+  assert.equal(terminal.begin(() => { rejected++; }), true);
+  terminal.terminate("page hidden");
+  terminal.terminate("renderer terminal");
+  assert.equal(rejected, 1, "pagehide/terminal cleanup must reject one active run exactly once");
+  assert.equal(terminal.settle("complete"), false, "late completion after terminal must be ignored");
+  assert.deepEqual([terminalViews.at(-1).startDisabled, terminalViews.at(-1).downloadDisabled,
+    terminalViews.at(-1).metadataLocked], [true, true, false]);
+});
+
+test("performance_capture_rejects_if_the_renderer_stops_during_the_sample_window", async () => {
+  let frameCallback = null;
+  let rendering = true;
+  const runtime = {
+    now: () => 0,
+    startedAt: () => "2026-08-08T12:00:00.000Z",
+    visibility: () => "visible",
+    subscribeVisibility: () => () => undefined,
+    requestFrame: (callback) => { frameCallback = callback; return 1; },
+    cancelFrame: () => { frameCallback = null; },
+    observeLongTasks: () => ({ supported: false, disconnect() {} }),
+    surfaceSize: () => ({ cssWidth: 1920, cssHeight: 1080, backingWidth: 1920, backingHeight: 1080 }),
+    sampleFrame: () => {
+      if (!rendering) throw new Error("greybox renderer is not rendering");
+      return { draws: 7, triangles: 90, lights: 9, shadowCasters: 4 };
+    },
+  };
+  const metadata = Object.freeze({
+    os: "Windows", cpu: "CPU", gpu: "GPU", driver: "driver", browser: "browser", powerMode: "AC",
+    cssWidth: 1920, cssHeight: 1080, backingWidth: 1920, backingHeight: 1080,
+    devicePixelRatio: 1, renderScale: 1, fixtureSeed: 1592594996, population: 64,
+    roomWidth: 48, roomHeight: 32, trainingWorkers: 0,
+    backend: Object.freeze({
+      requested: "webgl2", selected: "webgl2", webgpuSupport: null,
+      webgpuInit: "not-attempted", webgpuFailure: null, webgl2Init: "ok", webglVersion: 2,
+      engineInfo: { description: "WebGL", vendor: "Example", renderer: "Hardware", version: "2" },
+    }),
+  });
+  const capture = new rendererPerformance.GreyboxPerformanceCapture(runtime);
+  const completion = capture.start(metadata);
+  const frame = (at) => { const callback = frameCallback; frameCallback = null; callback(at); };
+  frame(30_000);
+  frame(30_016);
+  rendering = false;
+  frame(150_001);
+  const result = await completion;
+  assert.equal(result.status, "rejected");
+  assert.equal(result.samples.length, 1);
+  assert.deepEqual(result.rejectionReasons, ["greybox renderer is not rendering"]);
+});
+
+test("room_performance_schema_two_pins_every_artifact_and_schema_one_remains_compatible", async () => {
+  const sidecar = JSON.parse(fs.readFileSync(
+    path.join(ROOT, "web", "assets3d", "room_slice.json"), "utf8"));
+  let frameCallback = null;
+  const runtime = {
+    now: () => 0, startedAt: () => "2026-08-08T12:00:00.000Z", visibility: () => "visible",
+    subscribeVisibility: () => () => undefined,
+    requestFrame: (callback) => { frameCallback = callback; return 1; },
+    cancelFrame: () => { frameCallback = null; },
+    observeLongTasks: () => ({ supported: false, disconnect() {} }),
+    surfaceSize: () => ({ cssWidth: 1920, cssHeight: 1080, backingWidth: 1920, backingHeight: 1080 }),
+    sampleFrame: () => ({ draws: 8, triangles: 240, lights: 9, shadowCasters: 12 }),
+  };
+  const base = Object.freeze({
+    os: "Windows", cpu: "CPU", gpu: "GPU", driver: "driver", browser: "browser", powerMode: "AC",
+    cssWidth: 1920, cssHeight: 1080, backingWidth: 1920, backingHeight: 1080,
+    devicePixelRatio: 1, renderScale: 1, fixtureSeed: 1592594996, population: 64,
+    roomWidth: 48, roomHeight: 32, trainingWorkers: 0,
+    backend: Object.freeze({ requested: "webgl2", selected: "webgl2", webgpuSupport: null,
+      webgpuInit: "not-attempted", webgpuFailure: null, webgl2Init: "ok", webglVersion: 2,
+      engineInfo: { description: "WebGL", vendor: "Example", renderer: "Hardware", version: "2" } }),
+  });
+  const fixture = Object.freeze({
+    kind: "representative-room", fixtureId: "v2-room-slice-1",
+    buildInputsSha256: roomGenerated.ROOM_BUILD_INPUTS_SHA256,
+    glbSha256: roomGenerated.ROOM_GLB_SHA256,
+    sidecarSha256: roomGenerated.ROOM_SIDECAR_SHA256,
+    validatorSha256: roomGenerated.ROOM_VALIDATOR_SHA256,
+    roomStressMapSha256: roomStress.ROOM_STRESS_MAP_SHA256,
+    generatorSeed: 1592594996, population: 64, roomWidth: 48, roomHeight: 32,
+    payloadBytes: sidecar.payloadBytes,
+    estimatedGpuBytes: sidecar.estimatedGpuResidency.totalBytes,
+  });
+  const capture = new rendererPerformance.GreyboxPerformanceCapture(runtime);
+  const completion = capture.start(Object.freeze({ ...base, fixture }));
+  capture.reject("test stop");
+  const room = await completion;
+  assert.equal(room.schemaVersion, 2);
+  assert.deepEqual(room.metadata.fixture, fixture);
+  assert.throws(() => new rendererPerformance.GreyboxPerformanceCapture(runtime).start(Object.freeze({
+    ...base, fixture: { ...fixture, glbSha256: "bad" },
+  })), /GLB SHA-256/);
+
+  const greyboxCapture = new rendererPerformance.GreyboxPerformanceCapture(runtime);
+  const greyboxCompletion = greyboxCapture.start(base);
+  greyboxCapture.reject("test stop");
+  const greybox = await greyboxCompletion;
+  assert.equal(greybox.schemaVersion, 1);
+  assert.equal("fixture" in greybox.metadata, false);
+});
+
+test("room_startup_finishes_the_async_environment_before_worker_init_and_input", async () => {
+  const order = [];
+  let releaseRenderer;
+  const rendererReady = new Promise((resolve) => { releaseRenderer = resolve; });
+  const renderer = { acceptSnapshot() {}, clear() {}, dispose() { order.push("renderer-dispose"); } };
+  const client = {
+    onSnapshot: null, onDiagnostics: null, onError: null,
+    async init() { order.push("worker-init"); }, async reset() {}, async setPaused() {}, async command() {},
+    diagnostics: () => ({ paused: false }), dispose() { order.push("client-dispose"); },
+  };
+  const starting = bootstrap.bootstrapV2({
+    client, seed: 1,
+    createRenderer: async () => { order.push("environment-start"); await rendererReady;
+      order.push("environment-ready"); return renderer; },
+    attachInput: () => { order.push("input"); return null; },
+  });
+  await Promise.resolve();
+  assert.deepEqual(order, ["environment-start"]);
+  releaseRenderer();
+  const application = await starting;
+  assert.deepEqual(order, ["environment-start", "environment-ready", "worker-init", "input"]);
+  application.dispose();
+});
+
 test("vite_build_does_not_overwrite_legacy_page_or_assets", () => {
   const legacyPaths = ["web/index.html", "web/main.js", "web/style.css"].filter((name) => fs.existsSync(path.join(ROOT, name)));
   const before = new Map(legacyPaths.map((name) => [name, fs.readFileSync(path.join(ROOT, name))]));
@@ -1201,10 +1936,323 @@ test("vite_build_does_not_overwrite_legacy_page_or_assets", () => {
   for (const [name, contents] of before) assert.deepEqual(fs.readFileSync(path.join(ROOT, name)), contents);
   assert.ok(fs.existsSync(path.join(ROOT, "dist", "v2.html")));
   assert.ok(fs.existsSync(path.join(ROOT, "dist", "web.wasm")));
+  assert.deepEqual(fs.readdirSync(path.join(ROOT, "dist", "assets3d")).sort(),
+    ["room_slice.glb", "room_slice.json"]);
+  assert.deepEqual(fs.readFileSync(path.join(ROOT, "dist", "assets3d", "room_slice.glb")),
+    fs.readFileSync(path.join(ROOT, "web", "assets3d", "room_slice.glb")));
+  assert.deepEqual(fs.readFileSync(path.join(ROOT, "dist", "assets3d", "room_slice.json")),
+    fs.readFileSync(path.join(ROOT, "web", "assets3d", "room_slice.json")));
+  assert.equal(fs.existsSync(path.join(ROOT, "dist", "assets3d", "room_slice.validator.json")), false);
   const scripts = fs.readdirSync(path.join(ROOT, "dist", "assets")).filter((name) => name.endsWith(".js"));
   assert.ok(scripts.length >= 2);
+  const scriptSources = new Map(scripts.map((name) => [name,
+    fs.readFileSync(path.join(ROOT, "dist", "assets", name), "utf8")]));
+  const loaderChunks = [...scriptSources].filter(([, source]) =>
+    source.includes("RegisterGLTF2Loader") || source.includes("Unsupported version:"));
+  assert.ok(loaderChunks.length >= 1, "representative route must emit a lazy glTF 2 loader chunk");
+  const roomAssetChunks = [...scriptSources].filter(([, source]) =>
+    source.includes("representative room asset failed"));
+  assert.equal(roomAssetChunks.length, 1, "the room asset boundary must remain an identifiable lazy chunk");
+  const builtHtml = fs.readFileSync(path.join(ROOT, "dist", "v2.html"), "utf8");
+  for (const [name] of [...loaderChunks, ...roomAssetChunks]) {
+    assert.doesNotMatch(builtHtml, new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+      "the glTF loader must stay outside the initial modulepreload closure");
+  }
   const html = fs.readFileSync(path.join(ROOT, "web", "v2.html"), "utf8");
   assert.match(html, /legacy page/);
+  assert.match(html, /button:disabled, button:disabled:hover/);
+  assert.match(html, /id="performance-start" type="button" disabled/);
+  assert.match(html, /id="interaction-hint"/);
+  assert.match(html, /id="performance-progress" max="150" value="0"/);
+  assert.match(html, /id="performance-status" aria-live="polite"/);
+  assert.match(html, /id="room-camera-toggle" type="button" hidden/);
+  assert.equal((html.match(/data-performance-metadata/g) ?? []).length, 6);
+  for (const value of [
+    "Windows 11 Home 25H2 build 26200.8973", "13th Gen Intel Core i7-13700H",
+    "Intel Iris Xe Graphics", "32.0.101.7084", "Chrome 151.0.7922.72", "AC / Balanced",
+  ]) assert.match(html, new RegExp(`value="${value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"`));
   const entry = fs.readFileSync(path.join(ROOT, "client", "src", "v2.ts"), "utf8");
   assert.match(entry, /rendererParameter === "canvas"/);
+});
+
+test("the_representative_room_and_gltf_loader_stay_outside_the_ordinary_route_closure", () => {
+  const entry = fs.readFileSync(path.join(ROOT, "client", "src", "v2.ts"), "utf8");
+  const staticImports = entry.slice(0, entry.indexOf("const element"));
+  for (const module of ["room-assets", "room-environment", "room-review-camera", "room-stress", "room-review"]) {
+    assert.doesNotMatch(staticImports, new RegExp(module));
+    assert.match(entry, new RegExp(`import\\(\"\\./render/${module}\\.js\"\\)`));
+  }
+  assert.match(entry, /representativeRoom\s*\?\s*await Promise\.all/);
+  assert.match(entry, /review=room requires room=representative/);
+  assert.match(entry, /const needsWorker = !syntheticMode/);
+  assert.match(entry, /roomReviewMode\s*\?\s*roomModules\?\.\[4\]\.createCompactRoomReviewFixture\(\)/);
+  const loader = fs.readFileSync(path.join(ROOT, "client", "src", "render", "room-assets.ts"), "utf8");
+  assert.match(loader, /@babylonjs\/loaders\/glTF\/2\.0\/glTFLoader\.js/);
+  assert.match(loader, /@babylonjs\/core\/Meshes\/instancedMesh\.js/);
+});
+
+test("vite_dev_serves_only_the_pinned_runtime_room_assets_with_exact_mime_and_magic", async () => {
+  const { createServer } = await import("vite");
+  const server = await createServer({
+    configFile: path.join(ROOT, "vite.config.ts"),
+    server: { host: "127.0.0.1", port: 0, strictPort: false },
+    logLevel: "silent",
+  });
+  try {
+    await server.listen();
+    const address = server.httpServer?.address();
+    assert.ok(address && typeof address === "object");
+    const origin = `http://127.0.0.1:${address.port}`;
+    const glb = await fetch(`${origin}/assets3d/room_slice.glb`);
+    assert.equal(glb.status, 200);
+    assert.equal(glb.headers.get("content-type"), "model/gltf-binary");
+    const glbBytes = new Uint8Array(await glb.arrayBuffer());
+    assert.equal(Buffer.from(glbBytes.subarray(0, 4)).toString("ascii"), "glTF");
+    assert.equal(new DataView(glbBytes.buffer).getUint32(4, true), 2);
+    const sidecar = await fetch(`${origin}/assets3d/room_slice.json`);
+    assert.equal(sidecar.status, 200);
+    assert.equal(sidecar.headers.get("content-type"), "application/json; charset=utf-8");
+    assert.equal((await sidecar.json()).fixtureId, "v2-room-slice-1");
+    const validator = await fetch(`${origin}/assets3d/room_slice.validator.json`);
+    assert.equal(validator.status, 404, "validator provenance must not be a runtime asset");
+    const validatorFsPath = path.join(ROOT, "web", "assets3d", "room_slice.validator.json")
+      .replaceAll("\\", "/");
+    const validatorThroughViteFs = await fetch(`${origin}/@fs/${validatorFsPath}`);
+    assert.equal(validatorThroughViteFs.status, 404,
+      "Vite filesystem serving must not bypass the validator runtime denial");
+    const clientEntry = await fetch(`${origin}/client-src/v2.ts`);
+    assert.equal(clientEntry.status, 200, "the validator denial must preserve client module serving");
+  } finally {
+    await server.close();
+  }
+});
+
+test("room_sidecar_runtime_decoding_rejects_every_malformed_or_unbounded_field", () => {
+  const sidecarPath = path.join(ROOT, "web", "assets3d", "room_slice.json");
+  const bytes = fs.readFileSync(sidecarPath);
+  const valid = roomAssetContract.parseRoomAssetSidecar(bytes);
+  assert.equal(valid.fixtureId, "v2-room-slice-1");
+  assert.equal(valid.pieces.length, 12);
+  assert.deepEqual(valid.styling, { id: "readable-stone-v1", mode: "deterministic-vertex-color",
+    attribute: "room_style", textures: true });
+  assert.ok(Object.isFrozen(valid));
+  assert.ok(Object.isFrozen(valid.pieces));
+
+  const source = JSON.parse(bytes);
+  const malformed = [
+    { ...source, extra: true },
+    { ...source, schemaVersion: 2 },
+    { ...source, buildInputsSha256: "x".repeat(64) },
+    { ...source, pieces: source.pieces.slice(1) },
+    { ...source, pieces: source.pieces.map((piece, index) => index === 0 ? { ...piece, node: "ROOM_wrong" } : piece) },
+    { ...source, sockets: [{ ...source.sockets[0], rotation: [0, 0, 0, 2] }] },
+    { ...source, counts: { ...source.counts, triangles: source.counts.triangles + 1 } },
+    { ...source, estimatedGpuResidency: { ...source.estimatedGpuResidency,
+      totalBytes: source.estimatedGpuResidency.totalBytes + 1 } },
+    { ...source, payloadBytes: 25_165_825 },
+    { ...source, counts: { ...source.counts, materials: 5 } },
+    { ...source, estimatedGpuResidency: { ...source.estimatedGpuResidency,
+      sourceBufferBytes: 268_435_456, totalBytes: 272_851_968 } },
+    { ...source, estimatedGpuResidency: { ...source.estimatedGpuResidency,
+      shadowMapBytes: 4_194_303, totalBytes: source.estimatedGpuResidency.totalBytes - 1 } },
+    { ...source, pieces: source.pieces.map((piece, index) => index === 0 ?
+      { ...piece, vertexCount: 25_165_825 } : piece),
+      counts: { ...source.counts, vertices: 25_166_305 } },
+  ];
+  for (const value of malformed) {
+    assert.throws(() => roomAssetContract.parseRoomAssetSidecar(Buffer.from(JSON.stringify(value))),
+      /room sidecar/);
+  }
+  assert.throws(() => roomAssetContract.parseRoomAssetSidecar(new Uint8Array(4 * 1024 * 1024 + 1)),
+    /byte length/);
+});
+
+function fakeRoomContainer(sidecar) {
+  let disposals = 0;
+  const vector = ([x, y, z]) => ({ x, y, z });
+  const quaternion = ([x, y, z, w]) => ({ x, y, z, w });
+  const materialCompiles = [];
+  const floorTexture = { name: "floor_current (Base Color)" };
+  const wallTexture = { name: "stone_current (Base Color)" };
+  const materials = new Map(["floor_current", "stone_current", "wood_current", "metal_current"].map((name) => [name, {
+    name,
+    albedoTexture: name === "floor_current" ? floorTexture : name === "stone_current" ? wallTexture : null,
+    forceCompilationAsync(mesh, options) {
+      materialCompiles.push([name, mesh.name, options]);
+      return Promise.resolve();
+    },
+  }]));
+  const identity = () => ({ position: vector([0, 0, 0]), rotation: vector([0, 0, 0]),
+    rotationQuaternion: quaternion([0, 0, 0, 1]), scaling: vector([1, 1, 1]) });
+  const root = { name: "__root__", ...identity(), parent: null, material: null,
+    getTotalVertices: () => 0 };
+  const meshes = sidecar.pieces.map((piece) => ({
+    name: piece.node, ...identity(), parent: root, material: materials.get(piece.materialRole),
+    isVisible: true, isPickable: true, receiveShadows: true, subMeshes: [{}],
+    createInstance() {}, getTotalVertices: () => piece.vertexCount,
+    getVerticesData: () => Array.from({ length: piece.vertexCount * 4 }, (_value, index) => index % 4 === 3 ? 1 : 0.5),
+    getTotalIndices: () => piece.triangleCount * 3,
+    getBoundingInfo: () => ({ boundingBox: {
+      minimum: vector(piece.bounds.min), maximum: vector(piece.bounds.max),
+    } }),
+  }));
+  const torch = meshes.find((mesh) => mesh.name === "ROOM_torch_bracket");
+  const socketContract = sidecar.sockets[0];
+  const socket = { name: "SOCKET_torch_flame", parent: torch,
+    position: vector(socketContract.translation), rotation: vector([0, 0, 0]),
+    rotationQuaternion: quaternion(socketContract.rotation), scaling: vector([1, 1, 1]) };
+  const container = {
+    meshes: [root, ...meshes], transformNodes: [socket], rootNodes: [root],
+    materials: [...materials.values()], geometries: sidecar.pieces.map(({ node: id }) => ({ id })),
+    cameras: [], lights: [], textures: [floorTexture, wallTexture], skeletons: [], animations: [], animationGroups: [],
+    particleSystems: [], multiMaterials: [], morphTargetManagers: [], actionManagers: [], postProcesses: [],
+    sounds: [], effectLayers: [], layers: [], reflectionProbes: [], lensFlareSystems: [],
+    proceduralTextures: [], spriteManagers: [], environmentTexture: null,
+    addAllToScene() { this.wasAddedToScene = true; },
+    dispose() { disposals++; this.wasAddedToScene = false; },
+  };
+  return { container, materialCompiles, get disposals() { return disposals; } };
+}
+
+test("room_asset_loading_rejects_undeclared_resources_and_mismatched_geometry_before_publication", async () => {
+  const sidecarBytes = fs.readFileSync(path.join(ROOT, "web", "assets3d", "room_slice.json"));
+  const glbBytes = fs.readFileSync(path.join(ROOT, "web", "assets3d", "room_slice.glb"));
+  const sidecar = roomAssetContract.parseRoomAssetSidecar(sidecarBytes);
+  const fetcher = async (url) => {
+    const bytes = String(url).endsWith(".glb") ? glbBytes : sidecarBytes;
+    return new Response(bytes, { status: 200, headers: {
+      "content-type": String(url).endsWith(".glb") ? "model/gltf-binary" : "application/json",
+    } });
+  };
+  const corruptions = [
+    (container) => container.meshes.push({ ...container.meshes[0], name: "foreign_mesh" }),
+    (container) => container.transformNodes.push({ ...container.transformNodes[0], name: "foreign_node" }),
+    (container) => container.textures.push({ name: "external.png" }),
+    (container) => { container.meshes[1].material = container.materials[0]; },
+    (container) => { container.meshes[1].getVerticesData = () => [0, 0, 0, 0.5]; },
+    (container) => { container.meshes[1].getTotalVertices = () => 1; },
+    (container) => { container.meshes[1].getBoundingInfo = () => ({ boundingBox: {
+      minimum: { x: -99, y: 0, z: 0 }, maximum: { x: 0, y: 0, z: 0 },
+    } }); },
+    (container) => { container.meshes[1].position.x = 1; },
+    (container) => { container.transformNodes[0].position.y += 1; },
+  ];
+  for (const corrupt of corruptions) {
+    const fake = fakeRoomContainer(sidecar);
+    corrupt(fake.container);
+    await assert.rejects(roomAssets.loadRoomAsset({}, new AbortController().signal, fetcher,
+      async () => fake.container), /representative room asset failed/);
+    assert.equal(fake.disposals, 1);
+  }
+});
+
+test("room_asset_loading_verifies_mime_magic_hash_and_semantics_before_attachment", async () => {
+  const sidecarBytes = fs.readFileSync(path.join(ROOT, "web", "assets3d", "room_slice.json"));
+  const glbBytes = fs.readFileSync(path.join(ROOT, "web", "assets3d", "room_slice.glb"));
+  const sidecar = roomAssetContract.parseRoomAssetSidecar(sidecarBytes);
+  const fake = fakeRoomContainer(sidecar);
+  const requests = [];
+  const fetcher = async (url, init) => {
+    requests.push([url, init]);
+    const glb = String(url).endsWith(".glb");
+    const bytes = glb ? glbBytes : sidecarBytes;
+    return new Response(bytes, { status: 200, headers: {
+      "content-type": glb ? "model/gltf-binary" : "application/json; charset=utf-8",
+      "content-length": String(bytes.byteLength),
+    } });
+  };
+  let loaderCall = null;
+  const asset = await roomAssets.loadRoomAsset({}, new AbortController().signal, fetcher,
+    async (bytes, scene, options) => {
+      loaderCall = { bytes, scene, options };
+      return fake.container;
+    });
+  assert.deepEqual(requests.map(([url]) => url), ["/assets3d/room_slice.json", "/assets3d/room_slice.glb"]);
+  assert.ok(requests.every(([, init]) => init.credentials === "same-origin" && init.signal instanceof AbortSignal));
+  assert.equal(loaderCall.bytes.byteLength, glbBytes.byteLength);
+  assert.deepEqual(loaderCall.options, { pluginExtension: ".glb", name: "room_slice.glb" });
+  assert.equal(fake.container.wasAddedToScene, true);
+  assert.deepEqual(fake.materialCompiles.map(([name, _mesh, options]) => [name, options]).sort(), [
+    ["floor_current", { useInstances: true }],
+    ["stone_current", { useInstances: true }],
+    ["wood_current", { useInstances: true }],
+    ["metal_current", { useInstances: true }],
+  ].sort());
+  assert.ok([...asset.pieces.values()].every((mesh) => !mesh.isVisible && !mesh.isPickable && !mesh.receiveShadows));
+  asset.dispose();
+  asset.dispose();
+  assert.equal(fake.disposals, 1);
+});
+
+test("the_pinned_room_glb_loads_into_one_hidden_semantic_babylon_container", async () => {
+  const { NullEngine } = await import("@babylonjs/core/Engines/nullEngine.js");
+  const { Scene } = await import("@babylonjs/core/scene.js");
+  const { VertexBuffer } = await import("@babylonjs/core/Buffers/buffer.js");
+  const engine = new NullEngine();
+  const scene = new Scene(engine);
+  const sidecarBytes = fs.readFileSync(path.join(ROOT, "web", "assets3d", "room_slice.json"));
+  const glbBytes = fs.readFileSync(path.join(ROOT, "web", "assets3d", "room_slice.glb"));
+  const asset = await roomAssets.loadRoomAsset(scene, new AbortController().signal, async (url) => {
+    const glb = String(url).endsWith(".glb");
+    const bytes = glb ? glbBytes : sidecarBytes;
+    return new Response(bytes, { status: 200, headers: {
+      "content-type": glb ? "model/gltf-binary" : "application/json",
+      "content-length": String(bytes.byteLength),
+    } });
+  });
+  assert.equal(asset.pieces.size, 12);
+  assert.equal(asset.materials.size, 4);
+  assert.equal(asset.socket.name, "SOCKET_torch_flame");
+  assert.ok([...asset.pieces.values()].every((mesh) => !mesh.isVisible && !mesh.isPickable));
+  for (const mesh of asset.pieces.values()) {
+    const colours = mesh.getVerticesData(VertexBuffer.ColorKind);
+    assert.equal(colours?.length, mesh.getTotalVertices() * 4);
+    assert.ok(colours.every((value, index) => index % 4 !== 3 || Math.abs(value - 1) < 0.00001),
+      `${mesh.name} vertex colour alpha must stay opaque`);
+  }
+  const styledInstance = asset.pieces.get("floor_a").createInstance("styled-real-glb-instance");
+  assert.equal(styledInstance.isVerticesDataPresent(VertexBuffer.ColorKind), true,
+    "classic instances must retain the source COLOR_0 styling buffer");
+  styledInstance.dispose();
+  assert.ok([...asset.pieces.values()].every((mesh) => scene.meshes.includes(mesh)));
+  assert.ok([...asset.materials.values()].every((material) => scene.materials.includes(material)));
+  asset.dispose();
+  assert.ok([...asset.pieces.values()].every((mesh) => !scene.meshes.includes(mesh)));
+  assert.ok([...asset.materials.values()].every((material) => !scene.materials.includes(material)));
+  scene.dispose();
+  engine.dispose();
+});
+
+test("room_asset_loading_rejects_external_substitution_and_disposes_late_containers", async () => {
+  const sidecarBytes = fs.readFileSync(path.join(ROOT, "web", "assets3d", "room_slice.json"));
+  const glbBytes = fs.readFileSync(path.join(ROOT, "web", "assets3d", "room_slice.glb"));
+  const changed = Buffer.from(sidecarBytes);
+  changed[changed.length - 2] ^= 1;
+  let loaderCalls = 0;
+  await assert.rejects(roomAssets.loadRoomAsset({}, new AbortController().signal, async (url) => {
+    const bytes = String(url).endsWith(".glb") ? glbBytes : changed;
+    return new Response(bytes, { status: 200, headers: {
+      "content-type": String(url).endsWith(".glb") ? "model/gltf-binary" : "application/json",
+    } });
+  }, async () => { loaderCalls++; throw new Error("must not load"); }), /sidecar hash/);
+  assert.equal(loaderCalls, 0);
+
+  const sidecar = roomAssetContract.parseRoomAssetSidecar(sidecarBytes);
+  const fake = fakeRoomContainer(sidecar);
+  const controller = new AbortController();
+  let release;
+  let entered;
+  const loaderEntered = new Promise((resolve) => { entered = resolve; });
+  const waiting = new Promise((resolve) => { release = resolve; });
+  const loading = roomAssets.loadRoomAsset({}, controller.signal, async (url) => {
+    const bytes = String(url).endsWith(".glb") ? glbBytes : sidecarBytes;
+    return new Response(bytes, { status: 200, headers: {
+      "content-type": String(url).endsWith(".glb") ? "model/gltf-binary" : "application/json",
+    } });
+  }, async () => { entered(); return waiting; });
+  await loaderEntered;
+  controller.abort();
+  release(fake.container);
+  await assert.rejects(loading, /abort/);
+  assert.equal(fake.disposals, 1);
 });

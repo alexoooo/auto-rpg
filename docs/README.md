@@ -15,7 +15,7 @@ now supersedes each moved section.
 - **Player:** [game status](../README.md#status), then [getting started](../README.md#getting-started).
 - **Contributor:** [repository commands](../AGENTS.md#commands), the [crate dependency graph](architecture/overview.md#current-crate-graph), the canonical [determinism contract](reference/determinism.md#contract), the [hash domains](reference/hashes.md#hash-primitive-and-current-domains), then the [completion gate](../AGENTS.md#before-you-call-it-done).
 - **Mechanics author:** [determinism](reference/determinism.md#contract), [simulation flow](architecture/simulation.md#one-tick-in-current-order), [combat rationale](design/combat.md#the-swing), and [commands](reference/commands.md#policy-output-command).
-- **Renderer author:** [browser runtime](architecture/browser-runtime.md#current-flow), [worker protocol](reference/worker-protocol.md#messages-and-command-scheduling), [renderer snapshot copies](reference/renderer-contract.md#renderer-owned-snapshot-boundary), [presentation identity](reference/renderer-contract.md#presentation-identity), [visibility presence](reference/renderer-contract.md#visibility-and-subsystem-presence), [interpolation](reference/renderer-contract.md#interpolation-timeline), [backend lifecycle](reference/renderer-contract.md#backend-selection-and-loss), [frame ABI](reference/frame-abi.md#current-layout), [presentation rationale](design/presentation.md#renderer-roles), and [performance matrix](performance/v2-reference-matrix.md#measurement-record).
+- **Renderer author:** [browser runtime](architecture/browser-runtime.md#current-flow), [worker protocol](reference/worker-protocol.md#messages-and-command-scheduling), [renderer snapshot copies](reference/renderer-contract.md#renderer-owned-snapshot-boundary), [presentation identity](reference/renderer-contract.md#presentation-identity), [visibility presence](reference/renderer-contract.md#visibility-and-subsystem-presence), [interpolation](reference/renderer-contract.md#interpolation-timeline), [backend lifecycle](reference/renderer-contract.md#backend-selection-and-loss), the current room [manifest semantics](reference/room-asset-contract.md#manifest-semantics), [coordinates and origins](reference/room-asset-contract.md#coordinates-origins-and-sockets), [reproducibility](reference/room-asset-contract.md#reproducibility-and-hashes), [validation and budgets](reference/room-asset-contract.md#validation-and-budgets), [disclosure mapping](reference/room-asset-contract.md#authored-room-disclosure-mapping), [loader lifecycle](reference/room-asset-contract.md#loader-lifecycle-and-failure), and [presentation-only bounds](reference/room-asset-contract.md#presentation-only-bounds), [frame ABI](reference/frame-abi.md#current-layout), [presentation rationale](design/presentation.md#renderer-roles), the completed [greybox matrix](performance/v2-reference-matrix.md#measurement-record), and the current room matrix with pending manual evidence](performance/v2-room-matrix.md#artifact-and-environment-record).
 - **Policy researcher:** [policy boundary](architecture/policy.md#the-complete-policy-seam), [observation layout](reference/commands.md#policy-input-observation), and [replay boundary](architecture/replay-hashing.md#current-replay-flow).
 
 ## Normative contract markers
@@ -51,7 +51,14 @@ Current marked contracts are [determinism](reference/determinism.md#contract), t
 [presentation identity](reference/renderer-contract.md#presentation-identity),
 [renderer visibility presence](reference/renderer-contract.md#visibility-and-subsystem-presence),
 [interpolation timeline](reference/renderer-contract.md#interpolation-timeline), and
-[renderer backend lifecycle](reference/renderer-contract.md#backend-selection-and-loss).
+[renderer backend lifecycle](reference/renderer-contract.md#backend-selection-and-loss), and the current room
+[manifest semantics](reference/room-asset-contract.md#manifest-semantics),
+[coordinates and origins](reference/room-asset-contract.md#coordinates-origins-and-sockets),
+[reproducibility and hashes](reference/room-asset-contract.md#reproducibility-and-hashes),
+[validation and budgets](reference/room-asset-contract.md#validation-and-budgets),
+[disclosure mapping](reference/room-asset-contract.md#authored-room-disclosure-mapping),
+[loader lifecycle and failure](reference/room-asset-contract.md#loader-lifecycle-and-failure), and
+[presentation-only bounds](reference/room-asset-contract.md#presentation-only-bounds).
 
 ## Target hierarchy
 

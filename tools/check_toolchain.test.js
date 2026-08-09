@@ -16,6 +16,8 @@ function manifest() {
     typescript: "6.0.3",
     vite: "8.1.5",
     babylon: "9.18.1",
+    babylonLoaders: "9.18.1",
+    babylonGltfInterface: "9.18.1",
     blender: "4.5.12",
     gltfValidator: "2.0.0-dev.3.10",
     downloads: {
@@ -58,7 +60,11 @@ function fixture(value) {
     version: "1.0.0",
     private: true,
     packageManager: `npm@${value.npm}`,
-    dependencies: { "@babylonjs/core": value.babylon },
+    dependencies: {
+      "@babylonjs/core": value.babylon,
+      "@babylonjs/loaders": value.babylonLoaders,
+      "babylonjs-gltf2interface": value.babylonGltfInterface,
+    },
     devDependencies: {
       "gltf-validator": value.gltfValidator,
       typescript: value.typescript,
@@ -77,6 +83,8 @@ function fixture(value) {
         devDependencies: pkg.devDependencies,
       },
       "node_modules/@babylonjs/core": { version: value.babylon },
+      "node_modules/@babylonjs/loaders": { version: value.babylonLoaders },
+      "node_modules/babylonjs-gltf2interface": { version: value.babylonGltfInterface },
       "node_modules/gltf-validator": { version: value.gltfValidator },
       "node_modules/typescript": { version: value.typescript },
       "node_modules/vite": { version: value.vite },

@@ -43,6 +43,18 @@ const TOOL_MANIFESTS = [
   /^yarn\.lock$/,
   /^pnpm-lock\.yaml$/,
 ];
+// These generated room records participate in the reviewed asset contract but use
+// semantic filenames rather than the generic manifest.json convention. Keep the
+// exception path-exact so an arbitrary JSON file cannot become a dependency input.
+const AUDITED_MANIFEST_PATHS = new Set([
+  "web/assets3d/room_slice.json",
+  "web/assets3d/room_slice.validator.json",
+]);
+
+function isAuditedManifestPath(relativePath, baseName) {
+  return AUDITED_MANIFEST_PATHS.has(relativePath)
+    || TOOL_MANIFESTS.some((pattern) => pattern.test(baseName));
+}
 // `.tools` is the ignored installation cache checked by check_toolchain.js.
 // Walking a Blender distribution would audit Blender's own bundled templates
 // as though they were dependency declarations committed by this repository.
@@ -410,7 +422,7 @@ function auditToolManifests(root, errors) {
   walk(root, (file) => {
     const rel = path.relative(root, file).replaceAll("\\", "/");
     const base = path.basename(file);
-    if (!TOOL_MANIFESTS.some((pattern) => pattern.test(base))) return;
+    if (!isAuditedManifestPath(rel, base)) return;
     found.add(rel);
     if (!covered.has(rel)) {
       errors.push(`${rel}: tool or asset dependency manifest is not covered by tools/toolchain.json`);

@@ -64,8 +64,8 @@ failed mechanic may be revised without an asset-production sunk cost.
 | `v2-05-doc-split` | concept-based design/decision/evidence split | unchanged | absent |
 | `v2-06-doc-enforcement` | deduplicated authority plus link/retired-plan checks | unchanged | absent |
 | `v2-07-worker-protocol` | bounded worker state machine with epochs and acks | unchanged | absent |
-| `v2-08-gpu-greybox` | legacy sim rendered with correct fog and identity | unchanged | absent |
-| `v2-09-room-visual-gate` | representative validated room and measured visual gate | unchanged | absent |
+| `v2-08-gpu-greybox` | complete: keep Babylon under an owner-accepted measured exception; WebGPU p95 missed by 0.13 ms | unchanged | absent |
+| `v2-09-room-visual-gate` | automated representative-room implementation complete; visible art/performance gate pending | unchanged | absent |
 | `v2-10-replay-hash-domains` | complete scenario identity, codec, explicit hash domains | unchanged | absent |
 | `v2-11-articulated-command` | validated two-arm/yaw submitted-command seam | unchanged | absent |
 | `v2-12-combat-geometry` | inert fixed-point XYZ primitives and specs | unchanged | absent |
@@ -179,6 +179,13 @@ The visual gate targets p95 <= 16.67 ms on the named WebGPU reference machine an
 p95 <= 33.33 ms on its forced-WebGL2 lower tier. These are slice-specific acceptance
 targets, not universal hardware promises. If the reference matrix is unavailable,
 the session updates the matrix before measurement; it does not reinterpret results.
+
+`v2-08` closed by explicit owner waiver after each renderer was measured at least
+once. The original sequence reached 2 of 4 ordered captures and WebGPU p95 was 16.80
+ms, 0.13 ms above its target. The recorded decision is to proceed with Babylon under
+that measured exception, not to claim the numerical threshold or omitted drift
+control passed. `v2-09` must measure its representative room honestly against the
+then-current gate rather than inheriting a fictional greybox pass.
 
 ## Explicit deferrals and removal paths
 

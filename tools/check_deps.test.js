@@ -263,3 +263,16 @@ test("content asset manifests require explicit toolchain coverage", () => {
     /web\/assets\/manifest\.json: tool or asset dependency manifest is not covered/,
   );
 });
+
+test("the_exact_room_sidecar_and_validator_report_require_and_accept_inventory_coverage", () => {
+  const root = fixture();
+  const sidecar = "web/assets3d/room_slice.json";
+  const report = "web/assets3d/room_slice.validator.json";
+  write(root, sidecar, "{}\n");
+  write(root, report, "{}\n");
+  const toolchainFile = path.join(root, "tools", "toolchain.json");
+  const toolchain = JSON.parse(fs.readFileSync(toolchainFile, "utf8"));
+  toolchain.manifests.push(sidecar, report);
+  write(root, "tools/toolchain.json", JSON.stringify(toolchain));
+  assert.deepEqual(problems(root), []);
+});

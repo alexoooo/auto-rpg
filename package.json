@@ -13,7 +13,9 @@
     "test:wasm-memory": "node --test client/test/wasm-memory.test.mjs"
   },
   "dependencies": {
-    "@babylonjs/core": "9.18.1"
+    "@babylonjs/core": "9.18.1",
+    "@babylonjs/loaders": "9.18.1",
+    "babylonjs-gltf2interface": "9.18.1"
   },
   "devDependencies": {
     "gltf-validator": "2.0.0-dev.3.10",
