@@ -64,8 +64,14 @@ pub struct ContactResolution {
 ```
 
 There is one resolution per fact, sorted by `(group_ordinal, ContactKey)`. The
-group's accepted `alpha.raw` and ledger are copied onto every row in that group. V2-14 always writes
-`deflected_raw=0` and `severed=false`; v2-15 activates those fields. `World` owns
+group's accepted `alpha.raw` and ledger are copied onto every row in that group.
+`deflected_raw` and `severed` are filled in by the anatomy layer through
+`ContactTrialProjector::after_group`, which the driver calls once per settled group
+with the group's rows and the collider slice, before the next candidate scan. That
+timing is the contract: a severance has to reach the geometry inside the tick that
+made it, or the arm that was just taken off goes on swinging. The default
+implementation does nothing, so a fixture with no anatomy behind its colliders drives
+the same pure solver it always did. `World` owns
 `contact: Option<ContactRuntime>`, which is `None` in every Legacy world. The
 articulated runtime contains `ContactSolverState`, retained unhashed scratch, and
 `contact_resolutions: Vec<ContactResolution>`. It clears resolutions at articulated
@@ -95,10 +101,10 @@ back to +X only when relative velocity is also zero. Thus a positive-time exact
 crossing closes, while an initially separating overlap receives no attracting impulse. The
 point is the componentwise midpoint made by adding signed raw coordinates in `i64`,
 dividing by two with truncation toward zero, then narrowing; never saturate before
-the divide. V2-14 weapon/body facts always use region `0xff`. The Torso byte in the
-serialization-only forward-format fixture below does not describe a v2-14 solver
-output. Velocities are generalized point velocities over one tick, not per-second
-values.
+the divide. A weapon/body fact carries the `BodyPart` its tuple chose; every other
+kind carries `NO_REGION`, `0xff`, which is outside every discriminant rather than
+aliasing one. Velocities are generalized point velocities over one tick, not
+per-second values.
 
 ## Tick-entry poses and collider construction
 
@@ -142,13 +148,21 @@ from the retained and requested poses. The sweep linearly interpolates those cor
 it does not interpolate and renormalize a separate normal. The finite face is
 two-sided. "Front" fixes its offset and reported orientation, not a back-face cull.
 
-The temporary v2-14 body is one vertical capsule at the body endpoint. Let `r` be
-the largest immutable anatomy-region radius, `middle=standing_height/2`, and
-`half_axis=max(0,middle-r)`. Its axis is
-`middle-half_axis .. middle+half_axis` and its radius remains `r`; an unusually wide
-body therefore degenerates to a sphere without an invalid reversed axis. Its
-surface, generalized mass, and velocity are the anatomy surface, cached body mass,
-and body velocity. V2-15 replaces only this target builder with five region volumes.
+A body is its five regional volumes plus the planar body endpoint they were built
+from, in `AnatomyRegion` order, as one collider row with `BODY_SLOT`. Head is a sphere,
+torso and legs are vertical capsules from the immutable `centre_z ± half_height`, and
+each arm is the capsule from its yaw-rotated shoulder to the current hand with the
+immutable arm radius; a region absent for the tick -- a severed arm -- is skipped by
+the sweep rather than reduced to a point. Geometry and region choice are
+[`anatomy-health.md`](anatomy-health.md#region-volumes-and-assignment)'s; this document
+owns only that the five arrive as one row and leave as one fact. Its surface,
+generalized mass, and velocity remain the anatomy surface, cached body mass, and body
+velocity, and the origin is carried explicitly because the commit needs the body's own
+settled point.
+
+`ContactCollider::present` is false for a row whose owning limb was severed earlier in
+the same tick. The row stays in the slice -- removing it would re-index every candidate
+the driver holds -- and takes no further part in any sweep.
 
 ## Public continuous geometry
 
@@ -665,8 +679,11 @@ sum past `share`. `validate_surface` bounds all four coefficients to `[0,1]`, so
 spec-built surface can do it — but the channel allocator is public and takes a raw
 `SurfaceSpec`, so it clamps each factor to `[0,65_536]` rather than assuming the
 invariant. Unclamped, `point_factor=2` panics on any share above 288 in release too,
-since the workspace keeps overflow checks on. Channels remain `u64`; no v14
-proof permits narrowing them to `Fx` or one ABI word. V2-14 mutates no health.
+since the workspace keeps overflow checks on. Channels remain `u64`; no proof here
+permits narrowing them to `Fx` or one ABI word, and
+[`anatomy-health.md`](anatomy-health.md#armor-and-wound-transfer) consumes them at
+that width. The solver itself still mutates no health: it publishes the channels and
+calls `after_group`, and the anatomy layer owns everything past that.
 
 A mid-tick `Err` from the driver leaves the collider rows partly advanced: earlier
 groups have already been applied and committed to the caller's slice.
@@ -738,8 +755,7 @@ The literal corpus is:
 2. tick 1: stationary tangent WeaponWeapon, A `(0,0)` right, B `(1,0)` right,
    TOI 0, region `0xff`, point `(0,0,1)`, normal +X;
 3. tick 2: the same row as WeaponShield with B left;
-4. tick 3: the same row as WeaponBody with B `BODY_SLOT` and forward-format region
-   Torso 1.
+4. tick 3: the same row as WeaponBody with B `BODY_SLOT` and region Torso 1.
 
 Each contact tick has counts `(1,1,1,1)`, zero velocities, zero impulse, and zero
 ledger. Its byte count is
@@ -768,7 +784,10 @@ cap without actuator fixture noise.
 | 6 | exception to zero-length rows: weapon A hilt 0/tip 32768, both translate +65536; temporary radius-zero body point B stays at 65536; both mass 1, restitution 0, edge/point 1 | 0 | WeaponBody at 32768 and point 65536, alpha 65536, ledger `(32768,16384,16384)`, channels `(cut=0,thrust=16240,pressure=144,deflected=0)`, final `[(81920,32768),(81920,32768)]`, where A's serialized coordinate is final tip |
 
 Every listed fact has generation zero, A right slot, and normal +X. Weapon/weapon B
-is right slot and kind 0; case 6 B is `BODY_SLOT` and kind 2. Region is `0xff`.
+is right slot and kind 0; case 6 B is `BODY_SLOT` and kind 2. Region is `0xff` except
+case 6, whose five regional volumes are the same coincident zero-radius point the
+v2-14 row was -- so the choice falls all the way through the tuple to `BodyPart` order
+and answers Head, `0`.
 Point X equals the listed global TOI except case 6, whose point X is 65,536. Y/Z are
 zero. Fact velocities are the pre-group moving label's `(65536,0,0)` and stationary
 zero, except case 4's `(16384,0,0)` / `(-16384,0,0)`. Proposed/applied diagnostic
@@ -786,10 +805,12 @@ resolution count, group count, and cap hits as `u32`. For every resolution write
 4. the three ledger `u64` values, low word first;
 5. cut, thrust, pressure, and deflected `u64`, low word first.
 
-Finally write each final `x_raw,vx_raw` as `i32` bits in label order. `severed=false`
-is invariant in v2-14 and omitted. The literal is exactly 3,548 bytes with digest
-`0xfe6ce41ec023c1e5`. This corpus, unlike the independent 591-byte format-only pin,
-covers every production resolution field active in v2-14 and a nonzero widened
+Finally write each final `x_raw,vx_raw` as `i32` bits in label order. `severed` is
+omitted: no fixture in this corpus has an anatomy behind its colliders, so the
+default `after_group` leaves it false throughout, and `deflected_raw` stays zero for
+the same reason. The literal is exactly 3,548 bytes with digest
+`0x587b0259e877105a`. This corpus, unlike the independent 591-byte format-only pin,
+covers every production resolution field active in the solver and a nonzero widened
 weapon/body channel row.
 The count proof is prefix 24 + case 0's 20 + cases 1/2/3 at 444 each + case 4 at
 236 + case 5 at 1,700 + case 6 at 236 = 3,548.

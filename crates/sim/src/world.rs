@@ -11,13 +11,15 @@ use crate::hand::{Hand, Swing};
 use crate::obs::{Contact, Observation};
 use crate::rules::{self, Stats, MAX_CONTACTS};
 use crate::scenario::{Scenario, UnitSpec};
-use crate::combat::spec::{ArticulatedUnitSpecV1, CombatSpecError, CombatSpecTableV1,
-                          resolved_equipment};
+use crate::anatomy::{self, AnatomyState, BodyPart};
+use crate::combat::spec::{ArticulatedUnitSpecV1, BodyAnatomySpec, CombatSpecError,
+                          CombatSpecTableV1, resolved_equipment};
 use crate::combat::actuator::{self, ArmState, BodyYawState, GripState, ShieldPose};
-use crate::combat::contact::{contact_bounds, try_reserve_exact, ContactCapacityError,
-                             ContactCollider, ContactResolution, ContactShape,
-                             ContactSolverState, BODY_SLOT,
-                             MAX_CONTACT_RESOLUTIONS_PER_TICK};
+use crate::combat::contact::{contact_bounds, medial_point, try_reserve_exact,
+                             ContactCapacityError, ContactCollider, ContactKind,
+                             ContactResolution, ContactShape,
+                             ContactSolverState, RegionSweep, BODY_SLOT,
+                             MAX_CONTACT_FACTS_PER_GROUP, MAX_CONTACT_RESOLUTIONS_PER_TICK};
 use crate::combat::geometry;
 use crate::combat::resolution::{self, ContactTickScratch, ContactTrialProjector,
                                 GeneralizedCollider, GeneralizedKind, ResolutionError};
@@ -136,6 +138,15 @@ pub struct World {
     move_authority: Vec<Fx>,
     turn_authority: Vec<Fx>,
     arm_authority: Vec<[Fx; 2]>,
+    /// The articulated health authority, one row per allocated slot. Empty in
+    /// every Legacy world, which is what keeps `hp`, `max_hp` and `regen_left`
+    /// the only health there is over there.
+    ///
+    /// It is taken out of the world for the length of one contact solve -- see
+    /// [`World::resolve_contact`] -- because the trial projector holds `&World`
+    /// and the wound application needs to write. Nothing may read this column
+    /// while it is out; the phase puts it back before anything can.
+    wounds: Vec<AnatomyState>,
     /// `None` in every Legacy world, and that is the whole isolation argument:
     /// legacy allocates nothing, hashes nothing, and runs no contact phase
     /// because there is no state here to run one against.
@@ -371,6 +382,21 @@ struct ContactRuntime {
     /// delta that translates it. Retained rather than built inside `project`,
     /// which the greedy alpha search calls up to eighteen times a group.
     bodies: Vec<BodyTrial>,
+    /// The anatomy as the tick found it, so a mid-tick `ResolutionError` can put
+    /// the world back exactly as it was. The rest of the phase already has that
+    /// property for free -- it solves in scratch and commits afterwards -- but
+    /// wounds are applied group by group inside the driver, which is the one
+    /// place that argument does not reach.
+    anatomy_entry: Vec<AnatomyState>,
+    /// Damage this tick's wounds credited, per slot, folded into the hashed
+    /// `damage_dealt` column when the phase ends. Scratch rather than state:
+    /// it is cleared at the top of every tick.
+    credit: Vec<Fx>,
+    /// One accumulator per slot for the group currently being applied.
+    deltas: Vec<AnatomyDelta>,
+    /// The integrity loss each row of the current group applied, so credit is
+    /// per fact rather than per region -- two blows on one arm are two sources.
+    fact_loss: Vec<Fx>,
     /// The high water every vector above is reserved for. A request at or below
     /// it is a no-op, which is exactly what makes reusing a dead slot free.
     high_water: usize,
@@ -385,8 +411,47 @@ impl ContactRuntime {
         try_reserve_exact(&mut self.resolutions, MAX_CONTACT_RESOLUTIONS_PER_TICK)?;
         try_reserve_exact(&mut self.entry, high_water)?;
         try_reserve_exact(&mut self.bodies, high_water)?;
+        try_reserve_exact(&mut self.anatomy_entry, high_water)?;
+        try_reserve_exact(&mut self.credit, high_water)?;
+        try_reserve_exact(&mut self.deltas, high_water)?;
+        try_reserve_exact(&mut self.fact_loss, MAX_CONTACT_FACTS_PER_GROUP)?;
         self.high_water = high_water;
         Ok(())
+    }
+}
+
+/// What one resolved group does to one body, accumulated before any of it is
+/// applied.
+///
+/// The whole reason this exists is mutual kills. Every fact in a group reads
+/// one pre-group anatomy, so two fighters who land lethal blows on the same
+/// mapped time both land them: neither is dead when the other's blow is
+/// measured. Applying fact by fact would make the earlier `ContactKey` win a
+/// fight that has no winner.
+#[derive(Clone, Copy)]
+struct AnatomyDelta {
+    parts: [PartDelta; BodyPart::COUNT],
+    /// The group's whole integrity loss on this body, which is what shock reads.
+    integrity_loss: Fx,
+    /// The source of the last fact in `ContactKey` order that wounded this body.
+    last_attacker: EntityId,
+    touched: bool,
+}
+
+#[derive(Clone, Copy)]
+struct PartDelta {
+    integrity_loss: Fx,
+    wound_gain: Fx,
+}
+
+impl Default for AnatomyDelta {
+    fn default() -> AnatomyDelta {
+        AnatomyDelta {
+            parts: [PartDelta { integrity_loss: Fx::ZERO, wound_gain: Fx::ZERO }; BodyPart::COUNT],
+            integrity_loss: Fx::ZERO,
+            last_attacker: EntityId::NONE,
+            touched: false,
+        }
     }
 }
 
@@ -416,6 +481,14 @@ struct ContactProjector<'a> {
     world: &'a World,
     entry: &'a [TickEntry],
     bodies: &'a mut Vec<BodyTrial>,
+    /// The live anatomy, lifted out of `World` for the length of the solve.
+    /// Written only by [`ContactProjector::after_group`], never by `project`:
+    /// seventeen of every eighteen projections are hypotheticals, and a wound
+    /// applied inside one would be a wound applied seventeen times.
+    wounds: &'a mut Vec<AnatomyState>,
+    credit: &'a mut Vec<Fx>,
+    deltas: &'a mut Vec<AnatomyDelta>,
+    fact_loss: &'a mut Vec<Fx>,
 }
 
 impl ContactTrialProjector for ContactProjector<'_> {
@@ -463,6 +536,203 @@ impl ContactTrialProjector for ContactProjector<'_> {
         }
         Ok(())
     }
+
+    /// Turn one settled group into wounds.
+    ///
+    /// Three passes, and the order is the contract's. The first reads every
+    /// fact against **one** pre-group anatomy and accumulates; the second
+    /// applies the accumulators once and derives severance; the third takes the
+    /// severed regions out of the geometry so the next re-sweep cannot use them.
+    /// Death is not decided here at all -- it is a question for the whole tick,
+    /// asked after the last group, which is what lets two fighters kill each
+    /// other on one mapped time.
+    fn after_group(
+        &mut self,
+        colliders: &mut [ContactCollider],
+        rows: &mut [ContactResolution],
+    ) -> Result<(), ResolutionError> {
+        // Copied out of `self` so the immutable spec borrows it hands back do
+        // not overlap the mutable anatomy borrows below. `&World` is `Copy`.
+        let world = self.world;
+        self.deltas.clear();
+        self.deltas.resize(self.wounds.len(), AnatomyDelta::default());
+        self.fact_loss.clear();
+        self.fact_loss.resize(rows.len(), Fx::ZERO);
+
+        // Pass one: measure. Rows arrive in `ContactKey` order and nothing here
+        // writes `self.wounds`, so every fact in the group reads the same body.
+        for (at, row) in rows.iter_mut().enumerate() {
+            if row.fact.key.kind != ContactKind::WeaponBody { continue; }
+            let Some(target) = world.resolve(row.fact.key.b) else { continue };
+            let Some(part) = BodyPart::from_index(row.fact.region as usize) else { continue };
+            let Some(spec) = world.anatomy_spec(target) else { continue };
+            let before = self.wounds[target].parts[part as usize];
+            if before.severed { continue; }
+
+            let incoming = row.cut_raw.checked_add(row.thrust_raw)
+                .ok_or(ResolutionError::EnergyNumerator)?;
+            let square = anatomy::squareness(
+                row.fact.velocity_a - row.fact.velocity_b,
+                outward_region_normal(colliders, row.fact.key.b, part, row.fact.point,
+                                      world.body_yaw[target].angle),
+            );
+            let ledger = anatomy::armor_transfer(incoming, spec.armor[part as usize], square);
+            row.deflected_raw = ledger.deflected;
+
+            // Clamped against the *pre-group* integrity, so two simultaneous
+            // blows on one region are each measured against the body that was
+            // standing when the group began. Their sum may exceed it; the apply
+            // pass floors at zero and credit is split out of the health the
+            // query actually lost, so nothing is double-counted downstream.
+            let loss_raw = anatomy::integrity_loss_raw(ledger.penetrating)
+                .min(before.integrity.raw().max(0) as u128);
+            let wound_raw = anatomy::cut_share(loss_raw, row.cut_raw, incoming);
+            let loss = Fx::from_raw(loss_raw as i32);
+            self.fact_loss[at] = loss;
+            let delta = &mut self.deltas[target];
+            delta.touched = true;
+            delta.parts[part as usize].integrity_loss += loss;
+            delta.parts[part as usize].wound_gain += Fx::from_raw(wound_raw as i32);
+            delta.integrity_loss += loss;
+            if loss.is_positive() { delta.last_attacker = row.fact.key.a; }
+        }
+
+        // Pass two: apply, once, and hand out credit in `ContactKey` order
+        // against what the health query actually lost.
+        for target in 0..self.wounds.len() {
+            if !self.deltas[target].touched { continue; }
+            let Some(spec) = world.anatomy_spec(target) else { continue };
+            let delta = self.deltas[target];
+            let health_before = self.wounds[target].health(spec);
+            let state = &mut self.wounds[target];
+            let gain = anatomy::shock_gain(state, spec, delta.integrity_loss);
+            state.shock += gain;
+            for part in 0..BodyPart::COUNT {
+                let maximum = spec.integrity_maxima[part];
+                let row = &mut state.parts[part];
+                row.integrity = (row.integrity - delta.parts[part].integrity_loss).max(Fx::ZERO);
+                row.wound = (row.wound + delta.parts[part].wound_gain).min(maximum);
+                if !row.integrity.is_positive() { row.severed = true; }
+            }
+            if !delta.last_attacker.is_none() { state.last_attacker = delta.last_attacker; }
+            // Credit is the health the query actually lost, split between the
+            // group's facts in proportion to what each of them took off and in
+            // `ContactKey` order, with the last contributor taking the exact
+            // remainder. Crediting the applied integrity loss directly would
+            // measure the wrong thing: the torso is worth two sixths of the
+            // weighted fraction, so the same loss there moves health twice as
+            // far as it does on a limb, and the later bleed credit already
+            // reports the query's own decrease.
+            let after = self.wounds[target];
+            let decrease = (health_before - after.health(spec)).max(Fx::ZERO).raw() as i64;
+            let mut total = 0i64;
+            let mut last = None;
+            for (at, row) in rows.iter().enumerate() {
+                if !self.fact_loss[at].is_positive() { continue; }
+                if row.fact.key.kind != ContactKind::WeaponBody { continue; }
+                if world.resolve(row.fact.key.b) != Some(target) { continue; }
+                total += self.fact_loss[at].raw() as i64;
+                last = Some(at);
+            }
+            let mut used = 0i64;
+            for (at, row) in rows.iter_mut().enumerate() {
+                if row.fact.key.kind != ContactKind::WeaponBody { continue; }
+                if world.resolve(row.fact.key.b) != Some(target) { continue; }
+                let loss = self.fact_loss[at];
+                // Only a fact that took something off can have severed
+                // anything. Two facts that between them empty a region are both
+                // reported -- they both took part, and choosing between them by
+                // whether either would have sufficed alone is an arbitrary rule
+                // with no consumer -- but a fact that penetrated nothing severed
+                // nothing, however the region ended up.
+                if loss.is_positive() {
+                    if let Some(part) = BodyPart::from_index(row.fact.region as usize) {
+                        row.severed = after.parts[part as usize].severed;
+                    }
+                } else {
+                    continue;
+                }
+                let share = if Some(at) == last {
+                    decrease - used
+                } else {
+                    decrease * loss.raw() as i64 / total
+                };
+                // Counted as used whether or not anyone collects it. A source
+                // that has died since the blow was struck pays nobody -- the
+                // legacy arrow path answers the same way -- but its share is
+                // still spent, or the remainder the last contributor takes
+                // would hand somebody else damage that fact did.
+                used += share;
+                if share <= 0 { continue; }
+                if let Some(source) = world.resolve(row.fact.key.a) {
+                    self.credit[source] += Fx::from_raw(share as i32);
+                }
+            }
+        }
+
+        // Pass three: take the severed regions out of the tick they were lost in.
+        for row in colliders.iter_mut() {
+            let Some(owner) = world.resolve(row.entity) else { continue };
+            if !self.deltas.get(owner).is_some_and(|delta| delta.touched) { continue; }
+            let state = self.wounds[owner];
+            match &mut row.shape {
+                ContactShape::Body { parts, .. } => {
+                    for part in 0..BodyPart::COUNT {
+                        if state.parts[part].severed { parts[part].present = false; }
+                    }
+                }
+                // A two-handed item answers to both arms and is owned by the
+                // right one, so keying this off `row.slot` alone would leave a
+                // greatsword swinging for the rest of a tick that took its
+                // wielder's *left* arm off -- and `release_severed_grips` drops
+                // both hands at tick end, so the two rules would disagree for
+                // exactly one tick every time.
+                _ => {
+                    let gone = |part| !state.present(part);
+                    let dropped = if world.two_handed(owner) {
+                        gone(BodyPart::LeftArm) || gone(BodyPart::RightArm)
+                    } else {
+                        limb_body_part(row.slot).is_some_and(gone)
+                    };
+                    if dropped { row.present = false; }
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+/// The `BodyPart` a non-body collider slot belongs to, or `None` for a slot
+/// that names no limb.
+fn limb_body_part(slot: u8) -> Option<BodyPart> {
+    match slot {
+        s if s == LimbSlot::LeftArm as u8 => Some(BodyPart::LeftArm),
+        s if s == LimbSlot::RightArm as u8 => Some(BodyPart::RightArm),
+        _ => None,
+    }
+}
+
+/// The outward normal of one region at the pose the group resolved on.
+///
+/// From the medial point to the contact, which is the direction a plate's
+/// surface faces there. A contact exactly on the axis has no direction to
+/// report -- a zero-radius region resolves there every time -- and the contract
+/// answers body forward rather than inventing one. That is a *stable* answer,
+/// not a flattering one: how square the blow then reads depends on where the
+/// weapon was going, exactly as it does everywhere else, and a body struck
+/// along its own facing reads square while one struck across it reads a graze.
+fn outward_region_normal(
+    colliders: &[ContactCollider], body: EntityId, part: BodyPart, point: Vec3, yaw: Angle,
+) -> Vec3 {
+    let forward = Vec3::new(yaw.cos(), yaw.sin(), Fx::ZERO);
+    let Some(row) = colliders.iter().find(|row| {
+        row.entity == body && matches!(row.shape, ContactShape::Body { .. })
+    }) else { return forward };
+    let ContactShape::Body { parts, .. } = row.shape else { return forward };
+    let volume = parts[part as usize];
+    let delta = point - medial_point(point, volume.previous_lower, volume.previous_upper);
+    let normal = delta.normalized_or_zero();
+    if normal == Vec3::ZERO { forward } else { normal }
 }
 
 /// The shifted body sweep, written once so the collider builder and the world
@@ -735,6 +1005,7 @@ impl World {
             move_authority: Vec::with_capacity(n),
             turn_authority: Vec::with_capacity(n),
             arm_authority: Vec::with_capacity(n),
+            wounds: Vec::with_capacity(n),
             contact: match scenario.combat_model {
                 crate::CombatModel::Legacy => None,
                 crate::CombatModel::Articulated => Some(ContactRuntime::default()),
@@ -883,6 +1154,10 @@ impl World {
         rows.push(contact.resolutions.capacity());
         rows.push(contact.entry.capacity());
         rows.push(contact.bodies.capacity());
+        rows.push(contact.anatomy_entry.capacity());
+        rows.push(contact.credit.capacity());
+        rows.push(contact.deltas.capacity());
+        rows.push(contact.fact_loss.capacity());
         rows
     }
 
@@ -922,6 +1197,7 @@ impl World {
                     self.move_authority.push(Fx::ONE);
                     self.turn_authority.push(Fx::ONE);
                     self.arm_authority.push([Fx::ONE; 2]);
+                    self.wounds.push(AnatomyState::EMPTY);
                 }
                 self.last_attacker.push(EntityId::NONE);
                 self.last_combat.push(0);
@@ -1008,7 +1284,7 @@ impl World {
         );
 
         let spec = self.action_of(i).spec();
-        obs.hp_frac = self.hp_frac(i);
+        obs.hp_frac = self.health_fraction_of(i);
         obs.radius = self.radius[i];
         obs.action_length = spec.length;
         obs.action_arc = spec.arc;
@@ -1285,7 +1561,7 @@ impl World {
                 // phase between a lethal blow and `reap_dead`, and a negative
                 // fraction rescaled into a larger bar is a corpse getting
                 // *deader* the more vitality it is given.
-                let frac = self.hp_frac(i);
+                let frac = self.legacy_hp_frac(i);
                 let max_hp = stats.max_hp();
                 self.stats[i] = stats;
                 self.max_hp[i] = max_hp;
@@ -1436,8 +1712,14 @@ impl World {
                 if self.phase_trace_enabled { self.phase_trace.push("contact"); }
                 self.resolve_contact();
                 #[cfg(test)]
+                if self.phase_trace_enabled { self.phase_trace.push("anatomy"); }
+                self.settle_anatomy();
+                #[cfg(test)]
                 if self.phase_trace_enabled { self.phase_trace.push("doors"); }
                 self.press_doors();
+                #[cfg(test)]
+                if self.phase_trace_enabled { self.phase_trace.push("reap"); }
+                self.reap_dead_articulated();
             }
         }
         #[cfg(test)]
@@ -3047,9 +3329,9 @@ impl World {
             if self.faction[i] != faction {
                 continue;
             }
-            total += self.max_hp[i];
+            total += self.max_health_of(i);
             if self.alive[i] {
-                current += self.hp[i].max(Fx::ZERO);
+                current += self.health_of(i).max(Fx::ZERO);
             }
         }
         if total.is_zero() {
@@ -3401,13 +3683,22 @@ impl World {
                     h.write_i32(self.arm_authority[i][1].raw());
                 }
                 // One global counter, after the complete actuator loop and
-                // before v2-15's anatomy rows. Not per slot: the iteration cap
+                // before the anatomy rows. Not per slot: the iteration cap
                 // is a property of the tick, not of any entity in it, and a
                 // per-slot copy would be four bytes of the same number sixty-
                 // four times over. It is the only contact byte in this digest --
                 // the resolutions and the scratch are evidence, and hashing
                 // evidence would make an observation into authoritative state.
                 h.write_u32(self.contact_cap_hits());
+                // One 61-byte anatomy row per allocated slot, with no second
+                // slot count: the actuator loop above has already established
+                // the length, and a repeated count is a second thing that can
+                // disagree. Dead slots keep their final row -- a later bleed
+                // reads `last_attacker` off a body that has stopped moving, so
+                // it is authoritative after death as well as before it.
+                for i in 0..self.articulated_command.len() {
+                    self.wounds.get(i).copied().unwrap_or(AnatomyState::EMPTY).hash_into(&mut h);
+                }
                 crate::StateDigest {
                     domain: crate::HashDomain::ArticulatedV1,
                     schema: 1,
@@ -3459,7 +3750,97 @@ impl World {
         self.move_authority[i] = Fx::ONE;
         self.turn_authority[i] = Fx::ONE;
         self.arm_authority[i] = [Fx::ONE; 2];
+        self.wounds[i] = AnatomyState::new(anatomy);
         self.shield_pose[i] = self.derive_shield_pose(i);
+    }
+
+    /// The once-per-tick half of anatomy: bleed, shed shock, and republish the
+    /// impairment factors the next tick's actuator reads.
+    ///
+    /// It runs after every contact group rather than between them, and that is
+    /// the contract rather than convenience: bleeding between two simultaneous
+    /// facts would make the second read a body the first had already drained,
+    /// which is exactly the asymmetry the group snapshot exists to prevent.
+    fn settle_anatomy(&mut self) {
+        for i in 0..self.alive.len() {
+            if !self.alive[i] { continue; }
+            let Some(spec) = self.anatomy_spec(i).cloned() else { continue };
+            let before = self.wounds[i].health(&spec);
+            anatomy::bleed_and_decay(&mut self.wounds[i], &spec);
+            // Credited against what the query lost, not against the blood: a
+            // body whose regional fraction is already the smaller of the two
+            // terms bleeds without its health moving, and crediting the blood
+            // there would pay an attacker for damage nobody took.
+            let lost = (before - self.wounds[i].health(&spec)).max(Fx::ZERO);
+            let source = self.resolve(self.wounds[i].last_attacker);
+            if let (true, Some(source)) = (lost.is_positive(), source) {
+                self.damage_dealt[source] += lost;
+            }
+            let state = self.wounds[i];
+            self.arm_authority[i] = [
+                anatomy::authority(&state, &spec, BodyPart::LeftArm),
+                anatomy::authority(&state, &spec, BodyPart::RightArm),
+            ];
+            // One factor, written twice. Translation and turning share the legs
+            // and share the shock, and the contract deliberately does not give
+            // them separate pools in this slice.
+            let legs = anatomy::authority(&state, &spec, BodyPart::Legs);
+            self.move_authority[i] = legs;
+            self.turn_authority[i] = legs;
+        }
+    }
+
+    /// The articulated reaper. Same removal as the legacy one -- and it has to
+    /// be, because `outcome` counts the living and nothing else -- but the
+    /// predicate is the anatomy query and the killer comes off the anatomy's own
+    /// `last_attacker` rather than the legacy column.
+    ///
+    /// Positioned after every contact group and after the anatomy phase, so two
+    /// fighters whose fatal blows land on one mapped time both die.
+    fn reap_dead_articulated(&mut self) {
+        for i in 0..self.alive.len() {
+            if !self.alive[i] { continue; }
+            if !self.wounds.get(i).is_some_and(|state| state.is_dead()) { continue; }
+            let entity = self.id_of(i);
+            let killer = self.wounds[i].last_attacker;
+            self.alive[i] = false;
+            self.generation[i] = self.generation[i].wrapping_add(1);
+            self.command[i] = Command::HOLD;
+            self.free.push(i as u32);
+            self.events.push(Event::Death { entity, killer });
+        }
+    }
+
+    /// The immutable anatomy a slot was constructed with. `None` in every
+    /// Legacy world, which is what routes the health query back to `hp`.
+    fn anatomy_spec(&self, i: usize) -> Option<&BodyAnatomySpec> {
+        self.combat_specs.as_ref()?.anatomy((*self.articulated_anatomy.get(i)?)?)
+    }
+
+    /// Current health, in whichever domain this world's model owns.
+    ///
+    /// Every consumer goes through here -- observation, the published view, the
+    /// timeout comparison, and damage credit -- because the articulated model
+    /// deliberately has no HP column to fall out of step with. Legacy answers
+    /// its own `hp` byte for byte.
+    fn health_of(&self, i: usize) -> Fx {
+        match (self.anatomy_spec(i), self.wounds.get(i)) {
+            (Some(spec), Some(state)) => state.health(spec),
+            _ => self.hp[i],
+        }
+    }
+
+    fn max_health_of(&self, i: usize) -> Fx {
+        match self.anatomy_spec(i) {
+            Some(spec) => anatomy::max_health(spec),
+            None => self.max_hp[i],
+        }
+    }
+
+    fn health_fraction_of(&self, i: usize) -> Fx {
+        let maximum = self.max_health_of(i);
+        if !maximum.is_positive() { return Fx::ZERO; }
+        (self.health_of(i) / maximum).clamp(Fx::ZERO, Fx::ONE)
     }
 
     fn derive_shield_pose(&self, i: usize) -> Option<ShieldPose> {
@@ -3543,8 +3924,21 @@ impl World {
             if !self.alive[i] { continue; }
             let requests = self.articulated_command[i]
                 .map_or([GripRequest::Keep; 2], |command| command.grips);
-            let pair = self.resulting_grips(i, requests)
+            let mut pair = self.resulting_grips(i, requests)
                 .expect("stored articulated grip transaction was validated");
+            // An arm that is gone cannot take hold of anything, whatever the
+            // stored command still asks for. Without this an `EquipSlot`
+            // submitted before the severance re-acquires the weapon every tick
+            // -- the contact phase drops it again at group end and no collider
+            // is ever built from it, so nothing downstream sees the weapon, but
+            // the grip and the shield pose are hashed state and would flip
+            // twice a tick for the rest of the fight.
+            for limb in 0..2 {
+                let part = limb_body_part(limb as u8).expect("a limb slot");
+                if self.wounds.get(i).is_some_and(|state| !state.present(part)) {
+                    pair[limb] = None;
+                }
+            }
             self.grips[i] = pair.map(|equipment_slot| GripState { equipment_slot });
         }
     }
@@ -3658,18 +4052,70 @@ impl World {
         if self.contact.is_none() { return; }
         self.clamp_contact_entry();
         let Some(mut contact) = self.contact.take() else { return };
+        // Lifted out rather than borrowed: the projector holds `&World` for the
+        // whole solve and the wound application has to write. Taking the vector
+        // makes the two borrows disjoint by construction instead of by
+        // argument, and the entry copy beside it is what an error rolls back to.
+        let mut wounds = core::mem::take(&mut self.wounds);
+        contact.anatomy_entry.clear();
+        contact.anatomy_entry.extend_from_slice(&wounds);
+        contact.credit.clear();
+        contact.credit.resize(wounds.len(), Fx::ZERO);
         let solved = {
-            let ContactRuntime { state, scratch, colliders, resolutions, entry, bodies, .. } =
-                &mut contact;
-            self.build_contact_colliders(entry, colliders);
-            let mut projector = ContactProjector { world: self, entry, bodies };
+            let ContactRuntime { state, scratch, colliders, resolutions, entry, bodies,
+                                 credit, deltas, fact_loss, .. } = &mut contact;
+            self.build_contact_colliders(entry, colliders, &wounds);
+            let mut projector = ContactProjector {
+                world: self, entry, bodies, wounds: &mut wounds, credit, deltas, fact_loss,
+            };
             resolution::solve_contact_tick(colliders, &mut projector, state, resolutions, scratch)
         };
         match solved {
-            Ok(_) => self.commit_contact(&contact),
-            Err(_) => contact.resolutions.clear(),
+            Ok(_) => {
+                self.wounds = wounds;
+                for i in 0..self.damage_dealt.len().min(contact.credit.len()) {
+                    self.damage_dealt[i] += contact.credit[i];
+                }
+                self.commit_contact(&contact);
+                self.release_severed_grips();
+            }
+            Err(_) => {
+                // Restored into the vector that was taken, not into the empty
+                // husk `mem::take` left behind: the husk has no capacity, and
+                // refilling it would allocate on the one path whose far end is
+                // a browser holding views into linear memory.
+                wounds.clear();
+                wounds.extend_from_slice(&contact.anatomy_entry);
+                self.wounds = wounds;
+                contact.resolutions.clear();
+            }
         }
         self.contact = Some(contact);
+    }
+
+    /// A severed arm drops what it was holding.
+    ///
+    /// The collider row already left the tick that took the arm off; this is
+    /// the authoritative column catching up, and it has to be a direct write.
+    /// `resulting_grips` speaks in `GripRequest`s and cannot express "this arm
+    /// only" for a two-handed item -- a one-sided release of a `Both` binding is
+    /// an error there -- so a severed arm holding one releases both hands.
+    fn release_severed_grips(&mut self) {
+        for i in 0..self.alive.len() {
+            if !self.alive[i] { continue; }
+            let severed = [!self.wounds[i].present(BodyPart::LeftArm),
+                           !self.wounds[i].present(BodyPart::RightArm)];
+            if !(severed[0] || severed[1]) { continue; }
+            let drop_both = self.two_handed(i);
+            let mut released = false;
+            for limb in 0..2 {
+                if !(drop_both || severed[limb]) { continue; }
+                if self.grips[i][limb].equipment_slot.is_none() { continue; }
+                self.grips[i][limb].equipment_slot = None;
+                released = true;
+            }
+            if released { self.shield_pose[i] = self.derive_shield_pose(i); }
+        }
     }
 
     /// The trial velocity one equipment row would actually end up with.
@@ -3736,7 +4182,7 @@ impl World {
         let Some(body) = contact.colliders.iter().copied().find(|row| {
             row.entity == entity && matches!(row.shape, ContactShape::Body { .. })
         }) else { return };
-        let ContactShape::Body { previous_lower, .. } = body.shape else { return };
+        let ContactShape::Body { previous_origin, .. } = body.shape else { return };
         let entry = contact.entry[i];
         let capped = contact.scratch.capped_entities().contains(&entity);
         let remaining = last_group_remaining(&contact.resolutions, entity);
@@ -3744,7 +4190,7 @@ impl World {
         // rigid push must not drag a hand out of its socket, so the arm's
         // *relative* pose is fixed against this and the settlement below then
         // carries body and arms together.
-        let origin = Vec3::new(previous_lower.x, previous_lower.y, Fx::ZERO);
+        let origin = previous_origin;
 
         let mut held = [false; 2];
         for limb in 0..2 {
@@ -3768,7 +4214,7 @@ impl World {
         // `settle` once per swept sub-step, which is "the existing
         // wall-settlement path" applied once to one commit, and it degenerates
         // to exactly one `settle` on an uncarved plan.
-        let solved_position = Vec2::new(previous_lower.x, previous_lower.y);
+        let solved_position = Vec2::new(previous_origin.x, previous_origin.y);
         let solved_velocity = Vec2::new(body.velocity.x, body.velocity.y);
         self.vel[i] = solved_velocity;
         if solved_position != self.pos[i] { self.move_body(i, solved_position); }
@@ -3957,17 +4403,25 @@ impl World {
                 .is_some_and(|item| item.binding == crate::GripBinding::Both)
     }
 
-    /// This tick's contact collider rows: one body capsule per live entity plus
-    /// whatever it is holding.
+    /// This tick's contact collider rows: one five-region body per live entity
+    /// plus whatever it is holding.
     ///
     /// Previous poses come from the retained tick-entry row and requested poses
     /// from the post-actuator row, so one sweep covers the whole tick. The body
     /// origin is the shifted sweep from [`World::contact_body_sweep`], which is
     /// the single place separation is kept out of the relative motion.
+    ///
+    /// A severed arm reaches this in two places at once, and both are needed:
+    /// its volume is absent from the body row, and its grip is masked out
+    /// before the held colliders are built. The second is not implied by the
+    /// first -- a weapon is not attached to the arm's geometry, it is attached
+    /// to the grip -- and a sword swinging on its own is what leaving it out
+    /// looks like.
     fn build_contact_colliders(
         &self,
         entries: &[TickEntry],
         rows: &mut Vec<ContactCollider>,
+        anatomy_state: &[AnatomyState],
     ) {
         rows.clear();
         let Some(table) = self.combat_specs.as_ref() else { return };
@@ -3982,32 +4436,49 @@ impl World {
             let body_velocity = Vec3::new(self.vel[i].x, self.vel[i].y, Fx::ZERO);
             let entity = self.id_of(i);
             let faction = self.faction[i];
+            let state = anatomy_state.get(i).copied().unwrap_or(AnatomyState::EMPTY);
+            let present: [bool; BodyPart::COUNT] =
+                core::array::from_fn(|part| !state.parts[part].severed);
 
-            let previous = geometry::temporary_body_capsule(previous_origin, anatomy, self.mass[i]);
-            let requested = geometry::temporary_body_capsule(requested_origin, anatomy, self.mass[i]);
-            let axis = |half: Fx| Vec3::new(Fx::ZERO, Fx::ZERO, half);
+            let yaw = self.body_yaw[i].angle;
+            let previous = geometry::body_region_volumes(
+                previous_origin, anatomy, entry.yaw.angle,
+                [entry.arms[0].hand, entry.arms[1].hand], present);
+            let requested = geometry::body_region_volumes(
+                requested_origin, anatomy, yaw,
+                [self.arms[i][0].hand, self.arms[i][1].hand], present);
             rows.push(ContactCollider {
                 entity, faction, slot: BODY_SLOT, mass: self.mass[i],
-                surface: previous.surface, velocity: body_velocity,
+                surface: anatomy.surface, velocity: body_velocity, present: true,
                 shape: ContactShape::Body {
-                    previous_lower: previous.centre - axis(previous.half_axis),
-                    previous_upper: previous.centre + axis(previous.half_axis),
-                    requested_lower: requested.centre - axis(requested.half_axis),
-                    requested_upper: requested.centre + axis(requested.half_axis),
-                    radius: previous.radius,
+                    previous_origin, requested_origin,
+                    parts: core::array::from_fn(|part| RegionSweep {
+                        previous_lower: previous[part].lower,
+                        previous_upper: previous[part].upper,
+                        requested_lower: requested[part].lower,
+                        requested_upper: requested[part].upper,
+                        radius: previous[part].radius,
+                        present: previous[part].present,
+                    }),
                 },
             });
 
+            let mut grips = self.grips[i];
+            for limb in 0..2 {
+                if !present[limb_body_part(limb as u8).expect("a limb slot") as usize] {
+                    grips[limb].equipment_slot = None;
+                }
+            }
             let equipment = |id| table.equipment(id).copied();
             let segments = geometry::held_segment_colliders(
                 previous_origin, requested_origin, entry.arms, self.arms[i],
-                self.grips[i], self.articulated_carried[i], equipment,
+                grips, self.articulated_carried[i], equipment,
             );
             for segment in segments.into_iter().flatten() {
                 let owner = segment.owner as usize;
                 rows.push(ContactCollider {
                     entity, faction, slot: segment.owner as u8, mass: segment.mass,
-                    surface: segment.surface,
+                    surface: segment.surface, present: true,
                     velocity: body_velocity + self.arms[i][owner].linear_velocity,
                     shape: ContactShape::Segment {
                         previous_hilt: segment.previous.hilt,
@@ -4021,13 +4492,13 @@ impl World {
 
             let shield = geometry::held_shield_collider(
                 previous_origin, requested_origin, entry.shield, self.shield_pose[i],
-                self.grips[i], self.articulated_carried[i], equipment,
+                grips, self.articulated_carried[i], equipment,
             );
             if let Some(shield) = shield {
                 let owner = shield.owner as usize;
                 rows.push(ContactCollider {
                     entity, faction, slot: shield.owner as u8, mass: shield.mass,
-                    surface: shield.surface,
+                    surface: shield.surface, present: true,
                     velocity: body_velocity + self.arms[i][owner].linear_velocity,
                     shape: ContactShape::Shield {
                         previous: shield.previous.corners,
@@ -4071,7 +4542,7 @@ impl World {
     }
 
     #[inline]
-    fn hp_frac(&self, i: usize) -> Fx {
+    fn legacy_hp_frac(&self, i: usize) -> Fx {
         (self.hp[i] / self.max_hp[i]).clamp(Fx::ZERO, Fx::ONE)
     }
 
@@ -4581,7 +5052,7 @@ impl World {
 
     fn contact(&self, observer: usize, target: usize, noise: Fx, rng: &mut Rng) -> Contact {
         let mut offset = self.pos[target] - self.pos[observer];
-        let mut hp_frac = self.hp_frac(target);
+        let mut hp_frac = self.health_fraction_of(target);
         let limb = self.limb[target];
         let mut facing = self.facing[target];
         let mut limb_angle = limb.angle;
@@ -4591,8 +5062,8 @@ impl World {
 
         let mut velocity = self.vel[target];
         let mut min_strike_range = self.dead_zone(target);
-        let mut threat = self.peak_damage(target) / self.max_hp[observer];
-        let mut frailty = self.peak_damage(observer) / self.max_hp[target];
+        let mut threat = self.peak_damage(target) / self.max_health_of(observer);
+        let mut frailty = self.peak_damage(observer) / self.max_health_of(target);
         let mut knockback_taken = self.knockback(target, observer);
         let mut knockback_dealt = self.knockback(observer, target);
         let mut heft = self.mass[target] / self.mass[observer].max(Fx::EPSILON);
@@ -4736,8 +5207,8 @@ impl World {
             radius: self.radius[i],
             velocity: self.vel[i],
             mass: self.mass[i],
-            hp: self.hp[i].max(Fx::ZERO),
-            max_hp: self.max_hp[i],
+            hp: self.health_of(i).max(Fx::ZERO),
+            max_hp: self.max_health_of(i),
             intent: self.command[i].intent,
             limb: self.limb[i],
             action: self.action_of(i),
@@ -5704,7 +6175,7 @@ mod tests {
         assert_eq!(world.phase_trace, [
             "clear events", "expire decisions", "retain contact entry",
             "apply articulated movement", "record contact locomotion", "separate",
-            "body yaw", "grips", "arms", "geometry", "contact", "doors",
+            "body yaw", "grips", "arms", "geometry", "contact", "anatomy", "doors", "reap",
             "increment tick", "pending", "navigation",
         ]);
     }
@@ -5802,6 +6273,791 @@ mod tests {
         assert_ne!(arm.linear_velocity, Vec3::ZERO,
                    "the clamp moved the hand and the commit reported no motion");
         assert_eq!(world.vel[0], Vec2::new(L, Fx::ZERO), "the commit disturbed the clamped body");
+    }
+
+    /// A fighter and a brute a unit and a half apart -- inside each other's
+    /// weapons -- with every named body's regions scaled down to one raw unit
+    /// of integrity.
+    ///
+    /// The scaling is the fixture's whole point and it is not a cheat. V2-14
+    /// dissipates a few thousand raw units of energy into a contact this size,
+    /// and a full two-unit region absorbs that without noticing; shrinking the
+    /// body is how a test asks about the wound rule rather than about how hard
+    /// the solver happens to hit. `docs/reference/articulated-mechanical-gate.md`
+    /// names the same trick for its severance case.
+    fn fragile_scenario(fragile: &[usize]) -> Scenario {
+        let mut scenario = Scenario::articulated_duel();
+        scenario.units[0].spawn = Vec2::from_ints(10, 8);
+        scenario.units[1].spawn = Vec2::new(Fx::from_ratio(23, 2), Fx::from_int(8));
+        for &at in fragile {
+            scenario.combat_specs.as_mut().unwrap().anatomies[at].integrity_maxima =
+                [Fx::from_raw(1); BodyPart::COUNT];
+        }
+        scenario
+    }
+
+    /// Hold one slot's right-hand weapon straight out along its own facing.
+    ///
+    /// Written onto the joint pose rather than driven there by commands. The
+    /// actuator would take some tens of ticks to extend an arm and would carry
+    /// fatigue and a hand velocity into the answer; what these tests are about
+    /// is the wound a contact makes, and the pose is the fixture, not the
+    /// question.
+    fn brace_weapon(world: &mut World, i: usize) {
+        let spec = world.anatomy_spec(i).cloned().expect("articulated anatomy");
+        let yaw = world.body_yaw[i].angle;
+        let hand = actuator::hand_position(&spec, yaw, 1, yaw, crate::CombatHeight::MID, Fx::ONE);
+        world.arms[i][1].bearing = yaw;
+        world.arms[i][1].reach = Fx::ONE;
+        world.arms[i][1].hand = hand;
+        world.arms[i][1].previous_hand = hand;
+    }
+
+    /// Run the tick's contact, anatomy, and reap phases with explicit body
+    /// velocities, exactly as `World::step` orders them.
+    ///
+    /// The velocity is written onto the column the solver reads instead of
+    /// being coaxed out of a `move_dir`, for the same reason the pure fixtures
+    /// in `combat::resolution` do it: a stat-driven charge tests the actuator,
+    /// and would stop testing this the first time a stat moved.
+    fn resolve_closing(world: &mut World, closing: &[(usize, Fx)]) {
+        world.retain_contact_entry();
+        world.record_contact_locomotion();
+        for &(i, speed) in closing { world.vel[i] = Vec2::new(speed, Fx::ZERO); }
+        world.resolve_contact();
+        world.settle_anatomy();
+        world.reap_dead_articulated();
+    }
+
+    /// The same phases, but with the closing bodies actually *travelling* the
+    /// step rather than standing in each other and carrying a velocity.
+    ///
+    /// The difference is not cosmetic and it took a fixture to find. A pair that
+    /// already overlaps at tick start resolves at time zero, where v2-14's
+    /// normal rule has no geometry to read and answers world +X unconditionally
+    /// -- so of two mirrored blows exactly one is closing and the other is
+    /// separating, and a symmetric fixture built that way can never be
+    /// symmetric. Giving the sweep real extent puts the contact at a positive
+    /// time, where the normal comes off the geometry and both blows land.
+    fn resolve_advancing(world: &mut World, closing: &[(usize, Fx)]) {
+        world.retain_contact_entry();
+        for &(i, speed) in closing {
+            world.pos[i] += Vec2::new(speed, Fx::ZERO);
+            world.vel[i] = Vec2::new(speed, Fx::ZERO);
+        }
+        world.record_contact_locomotion();
+        world.resolve_contact();
+        world.settle_anatomy();
+        world.reap_dead_articulated();
+    }
+
+    /// The braced fighter, the closing brute, and the region the sword chose.
+    fn braced_thrust(scenario: &Scenario) -> (World, u8) {
+        let mut world = World::new(scenario, 1000);
+        brace_weapon(&mut world, 0);
+        resolve_closing(&mut world, &[(1, -Fx::ONE)]);
+        let region = world.contact_resolutions().iter()
+            .find(|row| row.fact.key.kind == ContactKind::WeaponBody)
+            .expect("the braced fixture reached no body").fact.region;
+        (world, region)
+    }
+
+    #[test]
+    fn immutable_armor_and_dimensions_cannot_drift_from_scenario_identity() {
+        use crate::combat::spec::Material;
+        let scenario = fragile_scenario(&[]);
+        let base = scenario.fingerprint();
+        let base_digest = World::new(&scenario, 1).state_digest().value;
+        let changes: [(&str, fn(&mut crate::BodyAnatomySpec)); 7] = [
+            ("coverage", |a| a.armor[BodyPart::Torso as usize].coverage = Fx::HALF),
+            ("hardness", |a| a.armor[BodyPart::Torso as usize].hardness = Fx::HALF),
+            ("absorption", |a| a.armor[BodyPart::Torso as usize].absorption = Fx::HALF),
+            ("armor material", |a| a.armor[BodyPart::Head as usize].material = Material::Steel),
+            ("integrity maximum", |a| a.integrity_maxima[BodyPart::Head as usize] += Fx::from_raw(1)),
+            ("blood maximum", |a| a.blood_max += Fx::from_raw(1)),
+            ("region radius", |a| a.regions[BodyPart::Legs as usize].radius += Fx::from_raw(1)),
+        ];
+        for (name, change) in changes {
+            let mut moved = scenario.clone();
+            change(&mut moved.combat_specs.as_mut().unwrap().anatomies[0]);
+            assert_ne!(moved.fingerprint(), base, "{name} left scenario identity");
+            assert_ne!(World::new(&moved, 1).state_digest().value, base_digest,
+                       "{name} left replay construction");
+        }
+        // And the traffic runs one way. Armour is immutable, so changing it may
+        // not move a single byte of the mutable anatomy rows -- if it did, the
+        // same fact would be recorded in two places and could disagree.
+        let mut armoured = scenario.clone();
+        armoured.combat_specs.as_mut().unwrap().anatomies[0].armor[BodyPart::Torso as usize]
+            .coverage = Fx::HALF;
+        assert_eq!(anatomy_suffix_bytes(&World::new(&armoured, 1)),
+                   anatomy_suffix_bytes(&World::new(&scenario, 1)),
+                   "an immutable armour field reached the mutable anatomy row");
+    }
+
+    #[test]
+    fn a_wounding_contact_records_its_region_shock_and_source() {
+        let (world, region) = braced_thrust(&fragile_scenario(&[1]));
+        let part = BodyPart::from_index(region as usize).expect("a body fact named no region");
+        let brute = world.wounds[1];
+        assert!(brute.parts[part as usize].severed,
+                "a raw unit of integrity survived a whole contact");
+        assert_eq!(brute.parts[part as usize].integrity, Fx::ZERO);
+        assert_eq!(brute.last_attacker, EntityId::new(0, 0));
+        assert!(brute.shock.is_positive(), "integrity loss recorded no shock");
+        assert!(world.damage_dealt[0].is_positive(), "the wound was credited to nobody");
+        // The severance is on the row that made it, not merely in the column.
+        assert!(world.contact_resolutions().iter()
+            .any(|row| row.fact.region == region && row.severed),
+            "the resolution that severed a region did not say so");
+        // Untouched regions are untouched. One blow is one region.
+        assert_eq!(brute.parts.iter().filter(|row| row.severed).count(), 1);
+
+        // And the region is gone from the geometry, not merely flagged: the
+        // next sweep against the same body cannot name it again.
+        let mut world = world;
+        brace_weapon(&mut world, 0);
+        resolve_closing(&mut world, &[(1, -Fx::ONE)]);
+        assert!(!world.contact_resolutions().is_empty(),
+                "the second blow reached nothing, so the absence check is vacuous");
+        assert!(world.contact_resolutions().iter().all(|row| row.fact.region != region),
+                "a severed region answered a sweep");
+    }
+
+    /// Take one arm off a live articulated body, the way a group that emptied
+    /// its integrity does, and run the tick that acts on it.
+    ///
+    /// The severance is written rather than landed, and the reason is a
+    /// measurement rather than convenience: with this roster two braced weapons
+    /// meet hand to hand, so a blow aimed at the arm that *holds* a weapon
+    /// reaches the guard arm across the body instead. Landing one would be a
+    /// fixture about aiming; that a real blow severs the region it names is
+    /// `a_wounding_contact_records_its_region_shock_and_source`'s job, and this
+    /// test is about what a missing arm can no longer do.
+    fn sever_arm(world: &mut World, i: usize, part: BodyPart) {
+        world.wounds[i].parts[part as usize].integrity = Fx::ZERO;
+        world.wounds[i].parts[part as usize].severed = true;
+        world.retain_contact_entry();
+        world.record_contact_locomotion();
+        world.resolve_contact();
+        world.settle_anatomy();
+    }
+
+    #[test]
+    fn a_blow_that_does_not_empty_a_region_wounds_without_severing() {
+        // The same braced thrust into a body four times too sturdy to lose the
+        // region. Every other wound fixture scales its target to a raw unit so
+        // one blow is decisive, which means `severed` is true on every landed
+        // row in the suite and the flag proves nothing on its own. This is the
+        // case that separates "took damage" from "lost the limb".
+        let mut scenario = fragile_scenario(&[]);
+        scenario.combat_specs.as_mut().unwrap().anatomies[1].integrity_maxima =
+            [Fx::from_int(8); BodyPart::COUNT];
+        let (world, region) = braced_thrust(&scenario);
+        let part = world.wounds[1].parts[region as usize];
+        assert!(!part.severed, "a body with eight units of integrity lost a region");
+        assert!(part.integrity < Fx::from_int(8), "the blow took nothing off");
+        assert_eq!(part.integrity, Fx::from_int(8) - Fx::from_raw(344_064));
+        assert!(world.contact_resolutions().iter().all(|row| !row.severed),
+                "a wounding blow that severed nothing said it had");
+        assert!(world.damage_dealt[0].is_positive(), "the wound was credited to nobody");
+        assert!(world.alive[1]);
+    }
+
+    #[test]
+    fn worn_plate_turns_a_blow_the_bare_body_takes() {
+        use crate::combat::spec::Material;
+        // The bare fixture severs the region it names; the same blow against a
+        // hard full-coverage plate reaches nothing. This is the only test that
+        // drives the whole armour path -- the outward region normal off the
+        // medial point, the squareness of the approach, and the widened
+        // transfer -- from a real contact rather than from hand-supplied
+        // numbers, and without it the entire block could be deleted and
+        // replaced by `penetrating = incoming` unnoticed.
+        let (bare, region) = braced_thrust(&fragile_scenario(&[1]));
+        assert!(bare.wounds[1].parts[region as usize].severed);
+        let deflected: u64 = bare.contact_resolutions().iter().map(|row| row.deflected_raw).sum();
+        assert_eq!(deflected, 0, "a bare body deflected energy");
+
+        // Worn on the struck region only. Plating all five would pass whatever
+        // index the transfer read, and the per-region lookup is exactly the
+        // thing a uniform suit cannot check.
+        let plate = |hardness, absorption, on: BodyPart| {
+            let mut scenario = fragile_scenario(&[1]);
+            scenario.combat_specs.as_mut().unwrap().anatomies[1].armor[on as usize] =
+                crate::ArmorSpec { coverage: Fx::ONE, hardness, absorption,
+                                   material: Material::Steel };
+            braced_thrust(&scenario)
+        };
+        let struck = BodyPart::from_index(region as usize).expect("a body fact named no region");
+
+        // Hard full coverage sheds most of it and not all of it, and both
+        // halves of that are the wiring rather than the formula. A thrust that
+        // runs along the blade still meets this region off-axis, so it is
+        // partly square: `deflected > 0` says the squareness is under one, and
+        // the region still going says it is over zero -- a squareness stuck at
+        // zero would give `1-square = 1`, deflect the whole incident budget,
+        // and leave a one-raw-unit region standing. A normal taken from
+        // somewhere other than the medial point lands on one side or the other.
+        // The *sign* of the approach is not under test and could not be: the
+        // squareness takes an absolute value, and `anatomy.rs` says so.
+        let (hard, hard_region) = plate(Fx::ONE, Fx::ZERO, struck);
+        assert_eq!(hard_region, region, "the plate changed which region the blow chose");
+        let incoming: u64 = hard.contact_resolutions().iter()
+            .map(|row| row.cut_raw + row.thrust_raw).sum();
+        let deflected: u64 = hard.contact_resolutions().iter().map(|row| row.deflected_raw).sum();
+        assert_eq!((incoming, deflected), (3_584, 3_185));
+        assert!(deflected < incoming, "the plate deflected the whole incident budget");
+        assert!(hard.wounds[1].parts[region as usize].severed,
+                "what got past the plate reached nothing");
+
+        // Absorption is the other half of the same seam and is billed on a
+        // different column: soft full coverage swallows rather than sheds, so
+        // nothing is deflected and nothing gets through either.
+        let (padded, _) = plate(Fx::ZERO, Fx::ONE, struck);
+        assert!(padded.wounds[1].parts.iter().all(|part| !part.severed),
+                "soft full coverage let a blow through");
+        let deflected: u64 = padded.contact_resolutions().iter().map(|row| row.deflected_raw).sum();
+        assert_eq!(deflected, 0, "padding deflected instead of absorbing");
+        assert_eq!(padded.damage_dealt[0], Fx::ZERO, "a stopped blow was credited");
+
+        // And the same padding worn anywhere else does nothing at all: armour
+        // is looked up by the region the blow chose, not by the body.
+        let elsewhere = BodyPart::ALL.into_iter().find(|part| *part != struck).expect("a second region");
+        let (mismatched, _) = plate(Fx::ZERO, Fx::ONE, elsewhere);
+        assert!(mismatched.wounds[1].parts[region as usize].severed,
+                "a plate on the wrong region turned the blow");
+    }
+
+    #[test]
+    fn two_blows_in_one_group_are_both_measured_against_the_pre_group_body() {
+        // Two heroes, one target, both blades in it on the same mapped time.
+        // Either blow alone would take the region off, so a fact-by-fact apply
+        // would measure the second against a body the first had already
+        // emptied and credit nobody for it. One snapshot per group is what
+        // makes both of them land, and this is the only fixture that puts two
+        // facts on one body in one group.
+        let world = two_on_one(true, ActionKind::Sword, 1);
+        let rows: Vec<_> = world.contact_resolutions().iter()
+            .filter(|row| row.fact.key.kind == ContactKind::WeaponBody)
+            .map(|row| (row.fact.key.a.index, row.group_ordinal, row.fact.region, row.severed))
+            .collect();
+        assert_eq!(rows.len(), 2, "the fixture stopped putting two blades in one body");
+        assert_eq!(rows[0].1, rows[1].1, "the two blows fell into different groups");
+        assert_eq!(rows[0].2, rows[1].2, "the two blows chose different regions");
+        assert!(rows.iter().all(|row| row.3), "a blow that emptied a region did not say so");
+        assert_eq!(rows.iter().map(|row| row.0).collect::<Vec<_>>(), vec![0, 2]);
+
+        // Both attackers are paid, and between them they are paid exactly what
+        // the target lost -- no more, because credit is clamped to the query's
+        // own decrease, and no less, because the last contributor takes the
+        // remainder rather than a second rounded share.
+        let spec = world.anatomy_spec(1).expect("articulated anatomy");
+        let lost = anatomy::max_health(spec) - world.wounds[1].health(spec);
+        assert!(world.damage_dealt[0].is_positive() && world.damage_dealt[2].is_positive(),
+                "one of two simultaneous attackers went unpaid");
+        assert_eq!(world.damage_dealt[0] + world.damage_dealt[2], lost);
+        assert_eq!(world.damage_dealt[1], Fx::ZERO);
+    }
+
+    /// The two-hero fixture: both blades in one target on one mapped time,
+    /// posed and driven with the target closing onto them.
+    ///
+    /// Equipment id 4 is a sword with both surface factors at zero -- a blade
+    /// that carries every share into pressure and so into no anatomy at all.
+    /// It is the only way to build a fact that reaches a body and applies
+    /// nothing, which is a case the wound rules distinguish and no shipped
+    /// item can produce.
+    fn two_on_one(fragile: bool, second: ActionKind, second_id: u16) -> World {
+        let mut scenario = fragile_scenario(if fragile { &[1] } else { &[] });
+        if !fragile {
+            scenario.combat_specs.as_mut().unwrap().anatomies[1].integrity_maxima =
+                [Fx::from_int(8); BodyPart::COUNT];
+        }
+        let mut blunt = crate::sword();
+        blunt.id = 4;
+        blunt.surface.edge_factor = Fx::ZERO;
+        blunt.surface.point_factor = Fx::ZERO;
+        scenario.combat_specs.as_mut().unwrap().equipment.push(blunt);
+        scenario.units[0].articulated.as_mut().unwrap().equipment = [Some(1), None];
+        scenario.units[0].loadout = Loadout::single(ActionKind::Sword);
+        scenario.units[0].spawn = Vec2::from_ints(10, 8);
+        // The same point as the first hero, so the two blades are collinear and
+        // the pair of facts is about one region rather than two. Allies never
+        // key against each other and this fixture never separates, so standing
+        // them in each other costs nothing the test is about.
+        scenario.units.push(UnitSpec {
+            articulated: Some(ArticulatedUnitSpecV1 { anatomy: 1, equipment: [Some(second_id), None] }),
+            loadout: Loadout::single(second),
+            ..scenario.units[0].clone()
+        });
+        scenario.units[1].spawn = Vec2::from_ints(12, 8);
+        let mut world = World::new(&scenario, 1000);
+        brace_weapon(&mut world, 0);
+        brace_weapon(&mut world, 2);
+        resolve_closing(&mut world, &[(1, -Fx::ONE)]);
+        world
+    }
+
+    #[test]
+    fn credit_for_one_group_is_split_between_its_blows_and_sums_to_the_loss() {
+        // The same two-on-one group, but a target sturdy enough that neither
+        // blow is clamped and armed so the two blows differ: a sword and a club
+        // put unequal energy into the same region. Both halves matter --
+        // without the inequality an equal split would pass, and without a
+        // decrease that does not divide by the total the remainder rule would.
+        let world = two_on_one(false, ActionKind::Club, 3);
+        let rows: Vec<_> = world.contact_resolutions().iter()
+            .filter(|row| row.fact.key.kind == ContactKind::WeaponBody)
+            .map(|row| (row.fact.key.a.index, row.group_ordinal, row.fact.region))
+            .collect();
+        assert_eq!(rows.len(), 2, "the fixture stopped putting two blades in one body");
+        assert_eq!(rows[0].1, rows[1].1, "the two blows fell into different groups");
+        assert_eq!(rows.iter().map(|row| row.0).collect::<Vec<_>>(), vec![0, 2]);
+        // The regions differ here -- a club reaches further in than a sword --
+        // and that is fine: credit is shared across everything one group did to
+        // one body, not per region.
+        assert_ne!(rows[0].2, rows[1].2);
+
+        let spec = world.anatomy_spec(1).expect("articulated anatomy");
+        let lost = anatomy::max_health(spec) - world.wounds[1].health(spec);
+        let (sword, club) = (world.damage_dealt[0], world.damage_dealt[2]);
+        assert!(sword.is_positive() && club.is_positive(), "one blow of two went unpaid");
+        assert_ne!(sword, club, "the fixture stopped distinguishing the two blows");
+        assert_eq!(sword + club, lost, "the shares did not add up to what the body lost");
+        // The pair itself, pinned. Two floored proportional shares do not in
+        // general add up to what they are shares of, and the last contributor
+        // taking the remainder is what closes that gap -- so a change to either
+        // the proportion or the remainder rule moves one of these numbers even
+        // when the sum above still holds.
+        assert_eq!((sword.raw(), club.raw()), (2_753_037, 392_691));
+    }
+
+    #[test]
+    fn a_blow_that_penetrated_nothing_reports_no_severance() {
+        // Two blades in one region, one of which carries its whole share into
+        // pressure. The region comes off, and the blunt blade must not be
+        // reported as having taken it: `severed` is a statement about what a
+        // fact did, and every other fixture in the suite either severs on every
+        // row or severs on none, so this is the one that separates the two.
+        let world = two_on_one(true, ActionKind::Sword, 4);
+        let rows: Vec<_> = world.contact_resolutions().iter()
+            .filter(|row| row.fact.key.kind == ContactKind::WeaponBody)
+            .map(|row| (row.fact.key.a.index, row.fact.region, row.cut_raw + row.thrust_raw,
+                        row.severed))
+            .collect();
+        assert_eq!(rows.len(), 2, "the fixture stopped putting two blades in one body");
+        assert_eq!(rows[0].1, rows[1].1, "the two blows chose different regions");
+        assert_eq!((rows[0].0, rows[1].0), (0, 2));
+        assert!(rows[0].2 > 0 && rows[1].2 == 0, "the blunt blade carried a wounding channel");
+        assert_eq!((rows[0].3, rows[1].3), (true, false),
+                   "severance was reported by the blade that did nothing");
+        assert!(world.wounds[1].parts[rows[0].1 as usize].severed);
+        assert_eq!(world.damage_dealt[2], Fx::ZERO, "the blunt blade was paid");
+    }
+
+    #[test]
+    fn a_severance_leaves_the_tick_it_happened_in() {
+        // A brute carrying a shield as well as its club, so the arm the braced
+        // sword actually reaches is one that is holding something. Every other
+        // severance fixture writes the flag before the tick, which means the
+        // collider builder masks the grip and the equipment row never exists --
+        // so nothing else in the suite exercises the mid-tick half of the rule,
+        // and a group that severs an arm could leave its weapon swinging
+        // through the rest of the same tick unnoticed.
+        let mut scenario = fragile_scenario(&[1]);
+        scenario.units[1].articulated.as_mut().unwrap().equipment = [Some(3), Some(2)];
+        scenario.units[1].loadout = Loadout::pair(ActionKind::Club, ActionKind::Shield);
+        let mut world = World::new(&scenario, 1000);
+        assert!(world.shield_pose[1].is_some(), "the fixture's brute carries no shield");
+        brace_weapon(&mut world, 0);
+        resolve_closing(&mut world, &[(1, -Fx::ONE)]);
+
+        let severed: Vec<BodyPart> = BodyPart::ALL.into_iter()
+            .filter(|part| !world.wounds[1].present(*part)).collect();
+        assert_eq!(severed.len(), 1, "the blow did not take exactly one region");
+        let contact = world.contact.as_ref().expect("articulated contact state");
+        let body = contact.colliders.iter().find(|row| row.entity == EntityId::new(1, 0)
+            && matches!(row.shape, ContactShape::Body { .. })).expect("a body row");
+        let ContactShape::Body { parts, .. } = body.shape else { unreachable!() };
+        assert!(!parts[severed[0] as usize].present,
+                "the region left the anatomy but not the tick's geometry");
+
+        // The row the severed arm was holding, if it was holding one. Asserted
+        // rather than skipped: a fixture that quietly stopped reaching an armed
+        // limb would make this test pass by having nothing to check.
+        let held = contact.colliders.iter().find(|row| row.entity == EntityId::new(1, 0)
+            && limb_body_part(row.slot) == Some(severed[0]));
+        let held = held.expect("the severed arm was holding nothing, so the check is vacuous");
+        assert!(!held.present, "a severed arm's equipment stayed in the tick");
+        assert!(contact.colliders.iter().any(|row| row.entity == EntityId::new(1, 0)
+            && row.present && !matches!(row.shape, ContactShape::Body { .. })
+            || row.entity != EntityId::new(1, 0)),
+            "the severance took the whole brute out of the tick");
+    }
+
+    #[test]
+    fn a_two_handed_weapon_leaves_the_tick_when_either_arm_does() {
+        // A two-handed item has one collider and the *right* arm owns it, so
+        // keying the mid-tick drop off the collider's own slot would leave a
+        // greatsword swinging for the rest of a tick that took its wielder's
+        // left arm off -- while `release_severed_grips` drops both hands at
+        // tick end. The two rules have to agree, and only a `Both` binding can
+        // tell them apart.
+        let mut scenario = both_scenario();
+        scenario.units[0].spawn = Vec2::from_ints(10, 8);
+        scenario.units[1].spawn = Vec2::new(Fx::from_ratio(23, 2), Fx::from_int(8));
+        scenario.combat_specs.as_mut().unwrap().anatomies[1].integrity_maxima =
+            [Fx::from_raw(1); BodyPart::COUNT];
+        let mut world = World::new(&scenario, 1000);
+        assert!(world.two_handed(1), "the fixture's brute is not holding a two-handed item");
+        brace_weapon(&mut world, 0);
+        resolve_closing(&mut world, &[(1, -Fx::ONE)]);
+
+        let severed: Vec<BodyPart> = BodyPart::ALL.into_iter()
+            .filter(|part| !world.wounds[1].present(*part)).collect();
+        assert_eq!(severed, vec![BodyPart::LeftArm],
+                   "the fixture stopped taking the arm that does not own the weapon");
+        let contact = world.contact.as_ref().expect("articulated contact state");
+        let held = contact.colliders.iter().find(|row| row.entity == EntityId::new(1, 0)
+            && !matches!(row.shape, ContactShape::Body { .. })).expect("a two-handed collider");
+        assert_eq!(held.slot, LimbSlot::RightArm as u8, "the fixture stopped being right-owned");
+        assert!(!held.present, "a two-handed weapon outlived the arm it needed");
+        assert_eq!(world.grips[1], [GripState { equipment_slot: None }; 2],
+                   "one hand kept hold of a two-handed weapon");
+    }
+
+    #[test]
+    fn a_severed_region_stays_absent_on_the_next_tick() {
+        // Legs, not an arm, and that is the point: death is head, torso, or
+        // blood, so a body fights on with its legs destroyed and the volume
+        // that is gone has to stay gone across the tick boundary. Rebuilding
+        // the rigid regions as present -- which is the obvious way to write
+        // the collider builder -- makes a destroyed region soak every low
+        // strike for the rest of the fight and wound nothing.
+        let mut world = World::new(&fragile_scenario(&[]), 1);
+        world.wounds[0].parts[BodyPart::Legs as usize].integrity = Fx::ZERO;
+        world.wounds[0].parts[BodyPart::Legs as usize].severed = true;
+        world.step();
+        world.step();
+
+        world.retain_contact_entry();
+        world.record_contact_locomotion();
+        let contact = world.contact.as_ref().expect("articulated contact state");
+        let entry: Vec<TickEntry> = contact.entry.clone();
+        let mut rows = Vec::new();
+        world.build_contact_colliders(&entry, &mut rows, &world.wounds);
+        let body = rows.iter().find(|row| row.entity == EntityId::new(0, 0)
+            && matches!(row.shape, ContactShape::Body { .. })).expect("a body row");
+        let ContactShape::Body { parts, .. } = body.shape else { unreachable!() };
+        assert!(!parts[BodyPart::Legs as usize].present, "a severed region was rebuilt present");
+        assert!(parts.iter().enumerate()
+            .all(|(at, part)| at == BodyPart::Legs as usize || part.present),
+            "rebuilding took a sound region with it");
+        // And the impairment it implies survives the same boundary.
+        assert_eq!(world.move_authority[0], Fx::ZERO);
+        assert_eq!(world.turn_authority[0], Fx::ZERO);
+    }
+
+    #[test]
+    fn a_severed_right_arm_cannot_drive_its_weapon() {
+        let mut world = World::new(&fragile_scenario(&[]), 1);
+        assert!(world.grips[0][LimbSlot::RightArm as usize].equipment_slot.is_some(),
+                "the fixture's fighter holds no sword");
+        sever_arm(&mut world, 0, BodyPart::RightArm);
+
+        // The three consequences the contract names.
+        assert_eq!(world.arm_authority[0][LimbSlot::RightArm as usize], Fx::ZERO);
+        assert_eq!(world.grips[0][LimbSlot::RightArm as usize],
+                   GripState { equipment_slot: None }, "a severed arm kept hold of its sword");
+        assert!(world.grips[0][LimbSlot::LeftArm as usize].equipment_slot.is_some(),
+                "the shield arm was released along with the sword arm");
+        let contact = world.contact.as_ref().expect("articulated contact state");
+        assert!(!contact.colliders.iter().any(|row| row.entity == EntityId::new(0, 0)
+            && row.slot == LimbSlot::RightArm as u8),
+            "a severed arm still built an equipment collider");
+
+        // And zero authority is zero acceleration, not merely a zero column:
+        // the arm is commanded hard and does not move.
+        let swing = ArticulatedCommandV1 {
+            move_dir: Vec2::ZERO, body_yaw: world.body_yaw[0].angle, intent: Intent::Hold,
+            arms: [ArmTarget { bearing: Angle::QUARTER, height: crate::CombatHeight::HIGH,
+                               reach: Fx::ONE, effort: Fx::ONE }; 2],
+            grips: [GripRequest::Keep; 2],
+        };
+        let before = world.arms[0][1];
+        world.submit_articulated_v1(world.id_of(0), swing);
+        world.step();
+        assert_eq!(world.arms[0][1].bearing, before.bearing,
+                   "a severed arm accelerated toward a commanded bearing");
+        assert_eq!(world.arms[0][1].reach, before.reach);
+        // The sound arm answered the same command, which is what makes the
+        // frozen one a statement about the limb rather than about the tick.
+        assert_ne!(world.arms[0][0].bearing, Angle::ZERO);
+
+        // And it cannot pick the sword back up. The command that asks for it is
+        // accepted -- grip validation is about bindings, not about injuries --
+        // and the grip phase refuses it anyway, on every tick, rather than
+        // re-acquiring a weapon the contact phase would only drop again.
+        let mut retake = world.neutral_articulated(0);
+        retake.grips = [GripRequest::Keep, GripRequest::EquipSlot(0)];
+        assert!(matches!(world.submit_articulated_v1(world.id_of(0), retake),
+                         SubmitArticulatedOutcome::Stored { rejection: None, .. }));
+        for _ in 0..3 { world.step(); }
+        assert_eq!(world.grips[0][LimbSlot::RightArm as usize],
+                   GripState { equipment_slot: None }, "a severed arm took its sword back");
+    }
+
+    #[test]
+    fn a_severed_left_arm_cannot_hold_its_shield() {
+        let mut world = World::new(&fragile_scenario(&[]), 1);
+        assert!(world.shield_pose[0].is_some(), "the fixture's fighter carries no shield");
+        sever_arm(&mut world, 0, BodyPart::LeftArm);
+
+        assert_eq!(world.grips[0][LimbSlot::LeftArm as usize],
+                   GripState { equipment_slot: None });
+        assert_eq!(world.shield_pose[0], None, "a severed arm kept a shield pose");
+        assert_eq!(world.arm_authority[0][LimbSlot::LeftArm as usize], Fx::ZERO);
+        // The sword arm is untouched, which is what makes this a statement
+        // about one limb rather than about the body.
+        assert!(world.grips[0][LimbSlot::RightArm as usize].equipment_slot.is_some());
+        assert!(world.arm_authority[0][LimbSlot::RightArm as usize].is_positive());
+
+        world.retain_contact_entry();
+        world.record_contact_locomotion();
+        world.resolve_contact();
+        let contact = world.contact.as_ref().expect("articulated contact state");
+        assert!(!contact.colliders.iter().any(|row| matches!(row.shape, ContactShape::Shield { .. })),
+                "a released shield still built a collider");
+        // The shield does not come back when the next command says `Keep`:
+        // `Keep` reads the grip the release left behind.
+        world.submit_articulated_v1(world.id_of(0), world.neutral_articulated(0));
+        world.step();
+        assert_eq!(world.shield_pose[0], None, "a dropped shield re-attached itself");
+    }
+
+    #[test]
+    fn leg_injury_reduces_acceleration_not_requested_direction() {
+        let scenario = fragile_scenario(&[]);
+        let mut hurt = World::new(&scenario, 1);
+        let sound = World::new(&scenario, 1);
+        // Half the legs, no shock: the factor the actuator reads is exactly a
+        // half, and the tick that publishes it is the anatomy phase.
+        hurt.wounds[0].parts[BodyPart::Legs as usize].integrity = Fx::ONE;
+        hurt.settle_anatomy();
+        assert_eq!(hurt.move_authority[0], Fx::HALF);
+        assert_eq!(hurt.turn_authority[0], Fx::HALF);
+
+        let command = |dir| ArticulatedCommandV1 {
+            move_dir: dir, body_yaw: Angle::QUARTER, intent: Intent::Hold,
+            arms: [ArmTarget { bearing: Angle::ZERO, height: crate::CombatHeight::MID,
+                               reach: Fx::from_ratio(1, 4), effort: Fx::ZERO }; 2],
+            grips: [GripRequest::Keep; 2],
+        };
+        let mut sound = sound;
+        // Along an axis first, where the arithmetic is exact and the claim can
+        // be an equality rather than an inequality: half the authority is
+        // exactly half the acceleration, and the acceleration is the only thing
+        // it touches.
+        for world in [&mut hurt, &mut sound] {
+            world.submit_articulated_v1(EntityId::new(0, 0), command(Vec2::X));
+            world.step();
+        }
+        assert_eq!(sound.vel[0], Vec2::X * sound.stats[0].traction());
+        assert_eq!(hurt.vel[0], Vec2::X * (hurt.stats[0].traction() * Fx::HALF));
+        // And turning: the same factor, on the angular acceleration alone.
+        assert!(hurt.body_yaw[0].angle.raw() < sound.body_yaw[0].angle.raw(),
+                "leg injury cost no angular acceleration");
+
+        // The *requested* velocity is untouched -- impairment is a traction
+        // term, not a steering one -- so given enough ticks the impaired body
+        // arrives at exactly the same velocity on an off-axis heading, just
+        // later. Three-four-five, so the request is exactly unit length and
+        // survives `validate_move`'s magnitude check; a diagonal of two ones
+        // does not, and is silently swapped for the neutral command.
+        let diagonal = command(Vec2::new(Fx::from_ratio(3, 5), Fx::from_ratio(4, 5)));
+        for _ in 0..180 {
+            for world in [&mut hurt, &mut sound] {
+                world.submit_articulated_v1(EntityId::new(0, 0), diagonal);
+                world.step();
+            }
+        }
+        assert_eq!(hurt.vel[0], sound.vel[0], "impairment changed the requested velocity");
+        assert_eq!(hurt.body_yaw[0].angle, sound.body_yaw[0].angle,
+                   "impairment changed the target yaw");
+        assert_eq!(hurt.move_authority[0], Fx::HALF, "the impairment did not survive the run");
+    }
+
+    #[test]
+    fn bleeding_can_end_a_fight_after_contact() {
+        // A cut that will not close. The wound is written directly because the
+        // braced fixture's relative motion is purely along the blade and cuts
+        // nothing -- what is under test here is the bleed clock, and the blow
+        // that starts it has its own test above.
+        let mut world = World::new(&fragile_scenario(&[]), 1);
+        world.wounds[1].parts[BodyPart::Torso as usize].wound = Fx::from_int(3);
+        world.wounds[1].blood = Fx::from_int(1);
+        world.wounds[1].last_attacker = EntityId::new(0, 0);
+        assert_eq!(world.outcome(), None);
+
+        let mut blood = world.wounds[1].blood;
+        let mut ticks = 0;
+        while world.outcome().is_none() {
+            world.step();
+            ticks += 1;
+            assert!(ticks < 5_000, "a bleeding body never finished bleeding");
+            if world.alive[1] {
+                assert!(world.wounds[1].blood < blood, "a wounded body stopped bleeding");
+                blood = world.wounds[1].blood;
+            }
+        }
+        assert_eq!(world.outcome(), Some(Outcome::HeroesWin));
+        assert_eq!(world.wounds[1].blood, Fx::ZERO);
+        // 1 unit of blood at 3*18 raw a tick, and the tick it reaches zero is
+        // the tick it dies on: 65,536/54 rounds up to 1,214.
+        assert_eq!(ticks, 1_214);
+    }
+
+    #[test]
+    fn bleeding_damage_is_credited_to_the_recorded_wound_source() {
+        let mut world = World::new(&fragile_scenario(&[]), 1);
+        world.wounds[1].parts[BodyPart::Torso as usize].wound = Fx::from_int(3);
+        world.wounds[1].last_attacker = EntityId::new(0, 0);
+        let before = world.health_of(1);
+        for _ in 0..600 { world.step(); }
+        let lost = before - world.health_of(1);
+        assert!(lost.is_positive(), "600 ticks of bleeding cost no health");
+        // Exactly what the query lost, and to the recorded source alone.
+        assert_eq!(world.damage_dealt[0], lost);
+        assert_eq!(world.damage_dealt[1], Fx::ZERO);
+
+        // `EntityId::NONE` receives no credit, and neither does a stale handle:
+        // the source is an identity, not a row.
+        let mut orphan = World::new(&fragile_scenario(&[]), 1);
+        orphan.wounds[1].parts[BodyPart::Torso as usize].wound = Fx::from_int(3);
+        orphan.wounds[1].last_attacker = EntityId::NONE;
+        for _ in 0..600 { orphan.step(); }
+        assert!(orphan.health_of(1) < before, "the orphaned body stopped bleeding");
+        assert_eq!(orphan.damage_dealt, vec![Fx::ZERO; orphan.alive.len()]);
+    }
+
+    #[test]
+    fn last_attacker_identity_is_hashed_and_owns_later_bleed_credit() {
+        let scenario = fragile_scenario(&[]);
+        let mut world = World::new(&scenario, 1);
+        world.wounds[1].parts[BodyPart::Torso as usize].wound = Fx::from_int(3);
+        world.wounds[1].last_attacker = EntityId::new(0, 0);
+        let digest = world.state_digest().value;
+
+        // The generation is part of it. A handle naming the same row at a
+        // generation that has moved on resolves to nobody, so its credit stops
+        // -- which is the whole reason the identity is hashed rather than
+        // treated as a diagnostic.
+        let mut stale = world.clone();
+        stale.wounds[1].last_attacker = EntityId::new(0, 1);
+        assert_ne!(stale.state_digest().value, digest, "the generation word is not hashed");
+        assert_eq!(stale.state_hash(), world.state_hash());
+        for _ in 0..600 {
+            world.step();
+            stale.step();
+        }
+        assert!(world.damage_dealt[0].is_positive());
+        assert_eq!(stale.damage_dealt[0], Fx::ZERO, "a stale handle collected credit");
+        assert_eq!(world.health_of(1), stale.health_of(1),
+                   "credit routing changed how much the body lost");
+    }
+
+    #[test]
+    fn simultaneous_fatal_contacts_kill_both_fighters() {
+        // Two mirrored fighters, blades level with each other's torso, both
+        // facts landing in one time group off one pre-group anatomy.
+        //
+        // Only one of the two blows carries energy, and the reason is v2-14's
+        // and worth writing down here because it is a hard constraint on any
+        // future mutual-kill fixture: a pair that already overlaps at tick
+        // start resolves at time zero, where there is no geometric side and the
+        // normal rule answers world +X unconditionally. Closing is measured
+        // along that normal, so of two mirrored blows exactly one closes and
+        // the other separates. The other fighter is therefore killed by the
+        // same tick's bleeding, which is the point either way: **death is
+        // derived once, after everything the tick did**, so two bodies can die
+        // together and neither reaping suppresses the other's blow.
+        // Two mirrored fighters: the same geometry both sides, so the pair of
+        // facts is symmetric, but a third anatomy row for the far one so only
+        // it is scaled down. Both fragile would clamp the near one's open wound
+        // to a raw unit and it could no longer bleed at all.
+        let mut scenario = fragile_scenario(&[]);
+        let mut fragile = crate::fighter_anatomy();
+        fragile.id = 3;
+        fragile.integrity_maxima = [Fx::from_raw(1); BodyPart::COUNT];
+        scenario.combat_specs.as_mut().unwrap().anatomies.push(fragile);
+        scenario.units[0].articulated.as_mut().unwrap().equipment = [Some(1), None];
+        scenario.units[0].loadout = Loadout::single(ActionKind::Sword);
+        scenario.units[0].spawn = Vec2::new(Fx::from_int(10), Fx::from_ratio(33, 4));
+        scenario.units[1] = UnitSpec {
+            faction: Faction::Monsters, spawn: Vec2::from_ints(11, 8),
+            articulated: Some(ArticulatedUnitSpecV1 { anatomy: 3, equipment: [Some(1), None] }),
+            ..scenario.units[0].clone()
+        };
+        let mut world = World::new(&scenario, 1000);
+        brace_weapon(&mut world, 0);
+        brace_weapon(&mut world, 1);
+        // One raw unit of blood behind a full-depth torso wound: this tick's
+        // bleed is 36 raw and empties it, so the near fighter dies of the fight
+        // it is already in rather than of an injury invented for the test.
+        world.wounds[0].blood = Fx::from_raw(1);
+        world.wounds[0].parts[BodyPart::Torso as usize].wound = Fx::from_int(2);
+        world.wounds[0].last_attacker = EntityId::new(1, 0);
+        resolve_closing(&mut world, &[(0, Fx::ONE), (1, -Fx::ONE)]);
+
+        // Both facts are in one group, and both name a body.
+        let bodies: Vec<_> = world.contact_resolutions().iter()
+            .filter(|row| row.fact.key.kind == ContactKind::WeaponBody)
+            .map(|row| (row.fact.key.a.index, row.group_ordinal)).collect();
+        assert_eq!(bodies, vec![(0, 0), (1, 0)], "the fixture stopped being simultaneous");
+        assert_eq!(world.wounds[1].parts[BodyPart::Torso as usize].integrity, Fx::ZERO,
+                   "the closing blow did not destroy a torso");
+        assert_eq!(world.wounds[0].blood, Fx::ZERO, "the bleeding body did not empty");
+
+        assert!(!world.alive[0] && !world.alive[1], "one of two simultaneous deaths survived");
+        assert_eq!(world.outcome(), Some(Outcome::MutualDestruction));
+        // Both deaths carry their killer, which is the evidence that neither
+        // body was reaped before the other's fate was measured.
+        let killers: Vec<_> = world.events.iter().filter_map(|event| match event {
+            Event::Death { entity, killer } => Some((entity.index, killer.index)),
+            _ => None,
+        }).collect();
+        assert_eq!(killers, vec![(0, 1), (1, 0)]);
+    }
+
+    #[test]
+    fn health_observation_frame_fitness_and_outcome_share_one_derivation() {
+        let (world, region) = braced_thrust(&fragile_scenario(&[1]));
+        let brute = world.id_of(1);
+        let expected = world.wounds[1].health(world.anatomy_spec(1).expect("articulated anatomy"));
+        assert!(expected < anatomy::max_health(world.anatomy_spec(1).unwrap()),
+                "the fixture wounded region {region} without changing health");
+
+        // The published view.
+        let view = world.view(brute).expect("a live brute");
+        assert_eq!(view.hp, expected);
+        assert_eq!(view.max_hp, anatomy::max_health(world.anatomy_spec(1).unwrap()));
+        // The observation, which reports the same number as a fraction.
+        let mut world = world;
+        let observation = world.observe(brute);
+        assert_eq!(observation.hp_frac, world.health_fraction_of(1));
+        assert_eq!(observation.hp_frac, expected / view.max_hp);
+        // The timeout comparison, which is the fitness input.
+        assert_eq!(world.health_fraction(Faction::Monsters), observation.hp_frac);
+        assert_eq!(world.health_fraction(Faction::Heroes), Fx::ONE);
+        assert_eq!(world.timeout(), Outcome::Decision(Faction::Heroes));
+        // And the outcome, which is the same derivation taken to zero.
+        assert_eq!(world.outcome(), None);
+        world.wounds[1].parts[BodyPart::Torso as usize].integrity = Fx::ZERO;
+        world.reap_dead_articulated();
+        assert_eq!(world.outcome(), Some(Outcome::HeroesWin));
+        assert_eq!(world.health_fraction(Faction::Monsters), Fx::ZERO);
+        assert!(world.view(brute).is_none());
     }
 
     #[test]
@@ -6117,6 +7373,29 @@ mod tests {
             "the reused slot hashed identically to the one it replaced");
     }
 
+    /// One slot's anatomy row, written out by hand in the order the reference
+    /// specifies. A hand mirror rather than a call to `hash_into`, because a
+    /// mirror that reused the writer would agree with a drifted writer.
+    fn anatomy_row_bytes(world: &World, i: usize) -> Vec<u8> {
+        let state = world.wounds[i];
+        let mut bytes = Vec::new();
+        for part in state.parts {
+            bytes.extend_from_slice(&part.integrity.raw().to_le_bytes());
+            bytes.extend_from_slice(&part.wound.raw().to_le_bytes());
+            bytes.push(part.severed as u8);
+        }
+        bytes.extend_from_slice(&state.blood.raw().to_le_bytes());
+        bytes.extend_from_slice(&state.shock.raw().to_le_bytes());
+        bytes.extend_from_slice(&state.last_attacker.index.to_le_bytes());
+        bytes.extend_from_slice(&state.last_attacker.generation.to_le_bytes());
+        assert_eq!(bytes.len(), crate::anatomy::ANATOMY_HASH_ROW_BYTES);
+        bytes
+    }
+
+    fn anatomy_suffix_bytes(world: &World) -> Vec<u8> {
+        (0..world.alive.len()).flat_map(|i| anatomy_row_bytes(world, i)).collect()
+    }
+
     #[test]
     fn contact_cap_hashes_once_after_all_actuator_rows() {
         let scenario = Scenario::articulated_duel();
@@ -6126,32 +7405,34 @@ mod tests {
         assert_eq!(bumped.state_hash(), base.state_hash(), "cap_hits leaked into LegacyV1");
         assert_ne!(bumped.state_digest().value, base.state_digest().value);
 
-        // That it is written *last* is the part worth proving rather than
-        // asserting, because the position is what the contract froze and a
-        // reader cannot see it from the digest. FNV-1a multiplies by an odd
-        // prime, so every step is invertible: winding a known digest back four
-        // bytes recovers exactly the state the actuator loop left behind. If
-        // anything else were written after that loop -- a per-slot copy of this
-        // counter, a placeholder, a v2-15 anatomy row that arrived early -- the
-        // two unwound states would disagree.
+        // Where the two suffixes sit is the part worth proving rather than
+        // asserting, because the positions are what the contract froze and a
+        // reader cannot see them from the digest. FNV-1a multiplies by an odd
+        // prime, so every step is invertible: winding a known digest back over
+        // the anatomy rows and then over four counter bytes recovers exactly
+        // the state the actuator loop left behind. Anything else written after
+        // that loop -- a per-slot copy of the counter, a placeholder, an
+        // anatomy row on the wrong side of it -- makes the two disagree.
         let prime = 0x100_0000_01b3u64;
         let mut inverse = prime;
         for _ in 0..6 {
             inverse = inverse.wrapping_mul(2u64.wrapping_sub(prime.wrapping_mul(inverse)));
         }
         assert_eq!(prime.wrapping_mul(inverse), 1, "the prime is not invertible mod 2^64");
-        let unwind = |digest: u64, cap: u32| {
+        let unwind = |digest: u64, cap: u32, rows: &[u8]| {
             let mut state = digest;
-            for byte in cap.to_le_bytes().into_iter().rev() {
+            for byte in rows.iter().rev().copied().chain(cap.to_le_bytes().into_iter().rev()) {
                 state = state.wrapping_mul(inverse) ^ u64::from(byte);
             }
             state
         };
-        let actuator_tail = unwind(base.state_digest().value, 0);
-        assert_eq!(unwind(bumped.state_digest().value, 1), actuator_tail,
-                   "cap_hits is not the last four bytes of the digest");
+        let rows = anatomy_suffix_bytes(&base);
+        assert_eq!(rows.len(), base.alive.len() * crate::anatomy::ANATOMY_HASH_ROW_BYTES);
+        let actuator_tail = unwind(base.state_digest().value, 0, &rows);
+        assert_eq!(unwind(bumped.state_digest().value, 1, &rows), actuator_tail,
+                   "cap_hits and the anatomy rows are not the digest's tail");
 
-        // And it is one global counter rather than one per slot. A third
+        // And the counter is one global value rather than one per slot. A third
         // allocated row changes the actuator prefix, so the recovered state
         // must differ -- but the single four-byte unwind must still reconcile
         // the pair, which it could not if the counter were written per slot.
@@ -6159,10 +7440,95 @@ mod tests {
         wider.try_spawn(&scenario.units[1]).expect("a third row");
         let mut wider_bumped = wider.clone();
         wider_bumped.contact.as_mut().expect("articulated contact state").state.cap_hits = 1;
-        let wider_tail = unwind(wider.state_digest().value, 0);
+        let wider_rows = anatomy_suffix_bytes(&wider);
+        let wider_tail = unwind(wider.state_digest().value, 0, &wider_rows);
         assert_ne!(wider_tail, actuator_tail, "a third actuator row hashed nothing");
-        assert_eq!(unwind(wider_bumped.state_digest().value, 1), wider_tail,
+        assert_eq!(unwind(wider_bumped.state_digest().value, 1, &wider_rows), wider_tail,
                    "cap_hits was written once per slot");
+    }
+
+    #[test]
+    fn every_mutable_anatomy_field_changes_only_articulated_hashing() {
+        let scenario = Scenario::articulated_duel();
+        let base = World::new(&scenario, 1);
+        let mutate: [(&str, fn(&mut World)); 6] = [
+            ("integrity", |w| w.wounds[0].parts[BodyPart::Torso as usize].integrity -= Fx::from_raw(1)),
+            ("wound", |w| w.wounds[0].parts[BodyPart::Legs as usize].wound += Fx::from_raw(1)),
+            ("severed", |w| w.wounds[0].parts[BodyPart::LeftArm as usize].severed = true),
+            ("blood", |w| w.wounds[0].blood -= Fx::from_raw(1)),
+            ("shock", |w| w.wounds[0].shock += Fx::from_raw(1)),
+            ("last_attacker", |w| w.wounds[0].last_attacker = EntityId::new(1, 0)),
+        ];
+        for (name, change) in mutate {
+            let mut moved = base.clone();
+            change(&mut moved);
+            assert_eq!(moved.state_hash(), base.state_hash(), "{name} leaked into LegacyV1");
+            assert_ne!(moved.state_digest().value, base.state_digest().value,
+                       "{name} is not in the ArticulatedV1 digest");
+            assert_eq!(moved.state_digest().domain, crate::HashDomain::ArticulatedV1);
+        }
+        // Every part is hashed, not just the ones a fixture happens to wound.
+        for part in 0..BodyPart::COUNT {
+            let mut moved = base.clone();
+            moved.wounds[1].parts[part].wound += Fx::from_raw(1);
+            assert_ne!(moved.state_digest().value, base.state_digest().value,
+                       "part {part} is missing from the anatomy row");
+        }
+        // And a dead slot keeps hashing its final row, because a later bleed
+        // credit reads `last_attacker` off it.
+        let mut dead = base.clone();
+        dead.alive[1] = false;
+        let before = dead.state_digest().value;
+        dead.wounds[1].last_attacker = EntityId::new(0, 0);
+        assert_ne!(dead.state_digest().value, before, "a dead slot stopped hashing its anatomy");
+    }
+
+    #[test]
+    fn legacy_health_and_regeneration_are_byte_identical() {
+        // The articulated query is a second derivation, not a replacement.
+        //
+        // The byte-identity half of this claim is not provable here and is not
+        // pretended to be: it belongs to `GOLDEN_STATE_HASH` in
+        // `crates/sim/tests/determinism.rs` and to the four browser fixtures,
+        // all of which are untouched by this session. What *is* proved here is
+        // the thing those pins cannot localise -- that a Legacy world takes the
+        // legacy arm of every new routing decision, and that the phases the
+        // articulated tick does not run are still the ones the legacy tick does.
+        let mut world = duel_world();
+        assert_eq!(world.state_digest().domain, crate::HashDomain::LegacyV1);
+        assert_eq!(world.state_digest().value, world.state_hash(),
+                   "a Legacy digest stopped being its own core hash");
+        world.phase_trace_enabled = true;
+        world.step();
+        assert!(world.phase_trace.contains(&"regenerate") && world.phase_trace.contains(&"reap"),
+                "the legacy tick lost a phase the articulated tick does not run");
+        assert!(!world.phase_trace.contains(&"anatomy"),
+                "a Legacy world ran the anatomy phase");
+
+        world.phase_trace_enabled = false;
+        let ids: Vec<EntityId> = (0..world.alive.len()).map(|i| world.id_of(i)).collect();
+        for _ in 0..120 { world.step(); }
+        assert!(world.wounds.is_empty(), "a legacy world allocated anatomy rows");
+        for (i, id) in ids.iter().enumerate() {
+            if world.resolve(*id).is_none() { continue; }
+            // Routing, not arithmetic: these hold by construction *while*
+            // `anatomy_spec` answers `None`, and the assertion is there to fail
+            // the day something makes it answer otherwise for a Legacy slot.
+            assert_eq!(world.health_of(i), world.hp[i]);
+            assert_eq!(world.max_health_of(i), world.max_hp[i]);
+            assert_eq!(world.health_fraction_of(i), world.legacy_hp_frac(i));
+            assert!(world.anatomy_spec(i).is_none());
+        }
+        // Regeneration still runs, still off `regen_left`, and still only in
+        // the legacy arm of the tick.
+        let mut hurt = duel_world();
+        let id = hurt.id_of(0);
+        hurt.hp[0] = Fx::ONE;
+        hurt.last_combat[0] = 0;
+        for _ in 0..(crate::rules::REGEN_DELAY + 60) { hurt.step(); }
+        let i = hurt.resolve(id).expect("the hero survived a duel it is not in");
+        assert!(hurt.hp[i] > Fx::ONE, "legacy regeneration stopped happening");
+        assert!(hurt.regen_left[i] < hurt.max_hp[i] * crate::rules::REGEN_BUDGET);
     }
 
     #[test]
@@ -10321,13 +11687,13 @@ mod tests {
             w.max_hp[h] > Body::Fighter.base_stats().max_hp(),
             "the bar never grew, so this proves nothing"
         );
-        assert_eq!(w.hp_frac(h), Fx::HALF, "{} of {}", w.hp[h], w.max_hp[h]);
+        assert_eq!(w.legacy_hp_frac(h), Fx::HALF, "{} of {}", w.hp[h], w.max_hp[h]);
 
         // And down, which is the direction that can kill. It must not.
         stats.vitality = 1;
         assert!(w.set_stats(hero, stats));
         assert_eq!(w.max_hp[h], stats.max_hp());
-        assert_eq!(w.hp_frac(h), Fx::HALF, "{} of {}", w.hp[h], w.max_hp[h]);
+        assert_eq!(w.legacy_hp_frac(h), Fx::HALF, "{} of {}", w.hp[h], w.max_hp[h]);
         assert!(w.hp[h].is_positive(), "lowering vitality killed a fighter");
         assert!(w.is_alive(hero));
 

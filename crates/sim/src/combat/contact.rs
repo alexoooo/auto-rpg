@@ -5,10 +5,10 @@
 //! also lets replay, wasm, and the mechanical proof inspect the same result.
 
 use crate::{EntityId, Faction};
-use crate::combat::spec::SurfaceSpec;
+use crate::combat::spec::{AnatomyRegion, SurfaceSpec};
 use fx::{
     closest_points_on_segments, closest_points_segment_rectangle,
-    swept_segment_rectangle, swept_segment_segment, swept_segment_vertical_capsule,
+    swept_segment_rectangle, swept_segment_segment,
     Fx, TimeOfImpact, Vec3,
 };
 
@@ -17,6 +17,11 @@ pub const MAX_ARTICULATED_ENTITIES: usize = 64;
 pub const MAX_CONTACT_FACTS_PER_GROUP: usize = 512;
 pub const MAX_CONTACT_RESOLUTIONS_PER_TICK: usize = 4_096;
 pub const BODY_SLOT: u8 = 0xff;
+
+/// The region byte a fact that is not against a body carries. Weapon/weapon and
+/// weapon/shield have no anatomy to name, and `0xff` is outside every
+/// `BodyPart` discriminant rather than aliasing one of them.
+pub const NO_REGION: u8 = 0xff;
 
 /// Componentwise entry clamp on every generalized contact velocity.
 ///
@@ -92,6 +97,23 @@ pub struct ContactResolution {
     pub severed: bool,
 }
 
+/// One region's swept capsule for the whole tick.
+///
+/// Five of these are a body. They are absolute rather than body-relative
+/// because two of them -- the arms -- are not rigid against the origin, so
+/// there is no one offset that could carry them.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct RegionSweep {
+    pub previous_lower: Vec3,
+    pub previous_upper: Vec3,
+    pub requested_lower: Vec3,
+    pub requested_upper: Vec3,
+    pub radius: Fx,
+    /// False for a region severed before or during this tick. Absent regions
+    /// are skipped by the sweep entirely; they are not zero-radius points.
+    pub present: bool,
+}
+
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum ContactShape {
     Segment {
@@ -100,10 +122,14 @@ pub enum ContactShape {
         radius: Fx,
     },
     Shield { previous: [Vec3; 4], requested: [Vec3; 4] },
+    /// A body is its five regional volumes plus the planar origin they were
+    /// built from. The origin is carried rather than recovered from a region,
+    /// because the commit needs the body's own settled point and every region
+    /// is offset from it by something the spec chose.
     Body {
-        previous_lower: Vec3, previous_upper: Vec3,
-        requested_lower: Vec3, requested_upper: Vec3,
-        radius: Fx,
+        previous_origin: Vec3,
+        requested_origin: Vec3,
+        parts: [RegionSweep; AnatomyRegion::COUNT],
     },
 }
 
@@ -116,6 +142,12 @@ pub struct ContactCollider {
     pub surface: SurfaceSpec,
     pub velocity: Vec3,
     pub shape: ContactShape,
+    /// False once the limb owning this row has been severed earlier in the same
+    /// tick. The row stays in the slice -- removing it would re-index every
+    /// candidate the driver is holding -- but it takes no further part in a
+    /// sweep. Severance has to reach the geometry inside the tick, not on the
+    /// next one, or the arm that was just taken off goes on swinging.
+    pub present: bool,
 }
 
 #[derive(Clone, Copy)]
@@ -232,8 +264,9 @@ pub(crate) fn scan_candidates_into(
     scratch.candidates.clear();
     for i in 0..colliders.len() {
         for j in i + 1..colliders.len() {
-            let a = colliders[i];
-            let b = colliders[j];
+            let a = &colliders[i];
+            let b = &colliders[j];
+            if !a.present || !b.present { continue; }
             if a.entity == b.entity || a.faction == b.faction { continue; }
             if let Some(candidate) = candidate(a, b) { scratch.candidates.push(candidate); }
         }
@@ -264,7 +297,7 @@ pub(crate) fn scan_candidates_into(
 /// `toi` is the *global* group time, which is what the normal rule is written
 /// against: only a genuine tick-start overlap gets the unconditional +X.
 pub(crate) fn contact_at_pose(
-    a: ContactCollider, b: ContactCollider, toi: TimeOfImpact,
+    a: &ContactCollider, b: &ContactCollider, toi: TimeOfImpact,
 ) -> Option<ContactFact> {
     let candidate = match (a.shape, b.shape) {
         (ContactShape::Segment { .. }, ContactShape::Segment { .. }) => {
@@ -280,31 +313,53 @@ pub(crate) fn contact_at_pose(
     Some(candidate.fact)
 }
 
-fn segment_segment_at_pose(a: ContactCollider, b: ContactCollider, toi: TimeOfImpact) -> Option<Candidate> {
+fn segment_segment_at_pose(a: &ContactCollider, b: &ContactCollider, toi: TimeOfImpact) -> Option<Candidate> {
     let ContactShape::Segment { previous_hilt: ah, previous_tip: at, .. } = a.shape else { return None };
     let ContactShape::Segment { previous_hilt: bh, previous_tip: bt, .. } = b.shape else { return None };
     let closest = closest_points_on_segments(ah, at, bh, bt);
     Some(make_candidate(a, b, ContactKind::WeaponWeapon, toi,
-                        closest.a, closest.b, closest.distance_sq, 0))
+                        closest.a, closest.b, closest.distance_sq, 0, NO_REGION))
 }
 
-fn segment_shield_at_pose(weapon: ContactCollider, shield: ContactCollider, toi: TimeOfImpact) -> Option<Candidate> {
+fn segment_shield_at_pose(weapon: &ContactCollider, shield: &ContactCollider, toi: TimeOfImpact) -> Option<Candidate> {
     let ContactShape::Segment { previous_hilt, previous_tip, .. } = weapon.shape else { return None };
     let ContactShape::Shield { previous, .. } = shield.shape else { return None };
     let closest = closest_points_segment_rectangle(previous_hilt, previous_tip, previous);
     Some(make_candidate(weapon, shield, ContactKind::WeaponShield, toi,
-                        closest.a, closest.b, closest.distance_sq, closest.feature))
+                        closest.a, closest.b, closest.distance_sq, closest.feature, NO_REGION))
 }
 
-fn segment_body_at_pose(weapon: ContactCollider, body: ContactCollider, toi: TimeOfImpact) -> Option<Candidate> {
+/// Re-derive a weapon/body fact at a single frozen pose, region included.
+///
+/// The sweep is deliberately *not* re-run here. By this point the group's
+/// membership is settled by mapped time, so re-sweeping a trajectory with no
+/// remaining extent could answer `None` for a pair the conservative advance
+/// left a raw unit short -- and dropping a member of a settled group is worse
+/// than choosing its region by a slightly different key. So the ordering key
+/// swaps its first term: the earliest time of impact becomes the smallest
+/// distance at the pose, which is the same statement about the same geometry
+/// once time has stopped. The other two terms are the contract's own, and the
+/// `BodyPart` tail is what keeps two coincident regions from being a coin flip.
+fn segment_body_at_pose(weapon: &ContactCollider, body: &ContactCollider, toi: TimeOfImpact) -> Option<Candidate> {
     let ContactShape::Segment { previous_hilt, previous_tip, .. } = weapon.shape else { return None };
-    let ContactShape::Body { previous_lower, previous_upper, .. } = body.shape else { return None };
-    let closest = closest_points_on_segments(previous_hilt, previous_tip, previous_lower, previous_upper);
-    Some(make_candidate(weapon, body, ContactKind::WeaponBody, toi,
-                        closest.a, closest.b, closest.distance_sq, 0))
+    let ContactShape::Body { parts, .. } = body.shape else { return None };
+    let mut best: Option<((i32, i32, u8), Candidate)> = None;
+    for (at, part) in parts.iter().enumerate() {
+        if !part.present { continue; }
+        let closest = closest_points_on_segments(
+            previous_hilt, previous_tip, part.previous_lower, part.previous_upper);
+        let point = midpoint(closest.a, closest.b);
+        let key = (closest.distance_sq.raw(),
+                   medial_distance_sq(point, part.previous_lower, part.previous_upper).raw(),
+                   at as u8);
+        if best.as_ref().is_some_and(|(chosen, _)| *chosen <= key) { continue; }
+        best = Some((key, make_candidate(weapon, body, ContactKind::WeaponBody, toi,
+                                         closest.a, closest.b, closest.distance_sq, 0, at as u8)));
+    }
+    best.map(|(_, candidate)| candidate)
 }
 
-fn candidate(a: ContactCollider, b: ContactCollider) -> Option<Candidate> {
+fn candidate(a: &ContactCollider, b: &ContactCollider) -> Option<Candidate> {
     match (a.shape, b.shape) {
         (ContactShape::Segment { .. }, ContactShape::Segment { .. }) => {
             let ((weapon_a, shape_a), (weapon_b, shape_b)) =
@@ -320,8 +375,22 @@ fn candidate(a: ContactCollider, b: ContactCollider) -> Option<Candidate> {
     }
 }
 
+/// The point on a capsule's medial segment nearest `point`. A sphere is the
+/// degenerate segment, so this is one rule rather than two.
+pub(crate) fn medial_point(point: Vec3, lower: Vec3, upper: Vec3) -> Vec3 {
+    closest_points_on_segments(point, point, lower, upper).b
+}
+
+/// Squared distance from a point to a capsule's medial segment. Surface
+/// distance is deliberately not used: it would need the radius subtracted and a
+/// sign, and two regions of different radius would then rank by their armour
+/// rather than by where the blow landed.
+fn medial_distance_sq(point: Vec3, lower: Vec3, upper: Vec3) -> Fx {
+    closest_points_on_segments(point, point, lower, upper).distance_sq
+}
+
 fn segment_segment_candidate(
-    a: ContactCollider, sa: ContactShape, b: ContactCollider, sb: ContactShape,
+    a: &ContactCollider, sa: ContactShape, b: &ContactCollider, sb: ContactShape,
 ) -> Option<Candidate> {
     let ContactShape::Segment { previous_hilt: ah0, previous_tip: at0,
         requested_hilt: ah1, requested_tip: at1, radius: ar } = sa else { unreachable!() };
@@ -333,11 +402,12 @@ fn segment_segment_candidate(
         Vec3::lerp(ah0, ah1, t), Vec3::lerp(at0, at1, t),
         Vec3::lerp(bh0, bh1, t), Vec3::lerp(bt0, bt1, t),
     );
-    Some(make_candidate(a, b, ContactKind::WeaponWeapon, toi, closest.a, closest.b, closest.distance_sq, 0))
+    Some(make_candidate(a, b, ContactKind::WeaponWeapon, toi, closest.a, closest.b,
+                        closest.distance_sq, 0, NO_REGION))
 }
 
 fn segment_shield_candidate(
-    weapon: ContactCollider, segment: ContactShape, shield: ContactCollider, rectangle: ContactShape,
+    weapon: &ContactCollider, segment: ContactShape, shield: &ContactCollider, rectangle: ContactShape,
 ) -> Option<Candidate> {
     let ContactShape::Segment { previous_hilt, previous_tip, requested_hilt, requested_tip, radius } = segment else { unreachable!() };
     let ContactShape::Shield { previous, requested } = rectangle else { unreachable!() };
@@ -354,35 +424,65 @@ fn segment_shield_candidate(
         Vec3::lerp(previous_tip, requested_tip, t), face,
     );
     Some(make_candidate(weapon, shield, ContactKind::WeaponShield, toi,
-                        closest.a, closest.b, closest.distance_sq, closest.feature))
+                        closest.a, closest.b, closest.distance_sq, closest.feature, NO_REGION))
 }
 
+/// One weapon against a whole body: sweep all five volumes and publish the one
+/// the contract chooses.
+///
+/// Exactly one fact comes out however many regions the weapon reaches. That is
+/// not a simplification, it is the identity rule: a `ContactKey` names a body
+/// and not a region, so a second regional fact would be a duplicate key -- and
+/// duplicate keys are what the driver's in-place sort has no total order over.
+/// The region is carried on the fact instead, and the tie-break tail on
+/// `BodyPart` is what makes two overlapping volumes answer the same way every
+/// time rather than in scan order.
+///
+/// Every region is a general capsule rather than a vertical one, because two of
+/// them are: an arm runs shoulder to hand and points wherever the actuator left
+/// it. `swept_segment_segment` covers the vertical cases exactly -- with equal
+/// endpoint displacement and a zero half-height its conservative advance is the
+/// same sequence as the vertical form's -- so this is one primitive, not a
+/// generalisation that costs the columns anything.
 fn segment_body_candidate(
-    weapon: ContactCollider, segment: ContactShape, body: ContactCollider, capsule: ContactShape,
+    weapon: &ContactCollider, segment: ContactShape, body: &ContactCollider, capsule: ContactShape,
 ) -> Option<Candidate> {
     let ContactShape::Segment { previous_hilt, previous_tip, requested_hilt, requested_tip, radius } = segment else { unreachable!() };
-    let ContactShape::Body { previous_lower, previous_upper, requested_lower, requested_upper, radius: body_radius } = capsule else { unreachable!() };
-    let previous_centre = midpoint(previous_lower, previous_upper);
-    let requested_centre = midpoint(requested_lower, requested_upper);
-    let half_height = (previous_upper.z - previous_lower.z) / 2;
-    let toi = swept_segment_vertical_capsule(
-        previous_hilt, previous_tip, requested_hilt, requested_tip,
-        previous_centre, requested_centre, half_height, radius + body_radius,
-    )?;
-    let t = toi.get();
-    let closest = closest_points_on_segments(
-        Vec3::lerp(previous_hilt, requested_hilt, t),
-        Vec3::lerp(previous_tip, requested_tip, t),
-        Vec3::lerp(previous_lower, requested_lower, t),
-        Vec3::lerp(previous_upper, requested_upper, t),
-    );
-    Some(make_candidate(weapon, body, ContactKind::WeaponBody, toi,
-                        closest.a, closest.b, closest.distance_sq, 0))
+    let ContactShape::Body { parts, .. } = capsule else { unreachable!() };
+    let mut best: Option<((i32, i32, u8), Candidate)> = None;
+    for (at, part) in parts.iter().enumerate() {
+        if !part.present { continue; }
+        let Some(toi) = swept_segment_segment(
+            previous_hilt, previous_tip, requested_hilt, requested_tip, radius,
+            part.previous_lower, part.previous_upper,
+            part.requested_lower, part.requested_upper, part.radius,
+        ) else { continue };
+        let t = toi.get();
+        let lower = Vec3::lerp(part.previous_lower, part.requested_lower, t);
+        let upper = Vec3::lerp(part.previous_upper, part.requested_upper, t);
+        let closest = closest_points_on_segments(
+            Vec3::lerp(previous_hilt, requested_hilt, t),
+            Vec3::lerp(previous_tip, requested_tip, t),
+            lower, upper,
+        );
+        // The contract's exact tuple. `medial_distance_sq` is measured from the
+        // published contact point -- the midpoint `make_candidate` will build
+        // from the same pair -- so the tie-break asks "which axis is this blow
+        // nearest", not "which surface is nearest", and a fat region cannot
+        // win a tie on its radius alone.
+        let key = (t.raw(),
+                   medial_distance_sq(midpoint(closest.a, closest.b), lower, upper).raw(),
+                   at as u8);
+        if best.as_ref().is_some_and(|(chosen, _)| *chosen <= key) { continue; }
+        best = Some((key, make_candidate(weapon, body, ContactKind::WeaponBody, toi,
+                                         closest.a, closest.b, closest.distance_sq, 0, at as u8)));
+    }
+    best.map(|(_, candidate)| candidate)
 }
 
 fn make_candidate(
-    a: ContactCollider, b: ContactCollider, kind: ContactKind, toi: TimeOfImpact,
-    point_a: Vec3, point_b: Vec3, distance_sq: Fx, feature: u8,
+    a: &ContactCollider, b: &ContactCollider, kind: ContactKind, toi: TimeOfImpact,
+    point_a: Vec3, point_b: Vec3, distance_sq: Fx, feature: u8, region: u8,
 ) -> Candidate {
     let delta = point_b - point_a;
     let normal = if delta != Vec3::ZERO {
@@ -397,7 +497,7 @@ fn make_candidate(
         fact: ContactFact {
             key: ContactKey { a: a.entity, a_slot: a.slot, b: b.entity,
                               b_slot: if kind == ContactKind::WeaponBody { BODY_SLOT } else { b.slot }, kind },
-            toi, region: 0xff, point: midpoint(point_a, point_b), normal,
+            toi, region, point: midpoint(point_a, point_b), normal,
             velocity_a: a.velocity, velocity_b: b.velocity,
         },
         distance_sq,
@@ -479,9 +579,27 @@ mod tests {
 
     fn segment(entity: u32, faction: Faction, from: Vec3, to: Vec3, velocity: Vec3) -> ContactCollider {
         ContactCollider { entity: EntityId::new(entity, 0), faction, slot: 1, mass: Fx::ONE,
-            surface: surface(), velocity,
+            surface: surface(), velocity, present: true,
             shape: ContactShape::Segment { previous_hilt: from, previous_tip: from,
                                            requested_hilt: to, requested_tip: to, radius: Fx::ZERO } }
+    }
+
+    /// A body whose five regional volumes are the same point: overlapping in
+    /// the strongest possible sense, so the region it answers is decided by the
+    /// `BodyPart` tail of the tie-break and nothing else.
+    fn coincident_body(entity: u32, faction: Faction, at: Vec3) -> ContactCollider {
+        let part = RegionSweep {
+            previous_lower: at, previous_upper: at, requested_lower: at, requested_upper: at,
+            radius: Fx::ZERO, present: true,
+        };
+        ContactCollider {
+            entity: EntityId::new(entity, 0), faction, slot: BODY_SLOT, mass: Fx::ONE,
+            surface: surface(), velocity: Vec3::ZERO, present: true,
+            shape: ContactShape::Body {
+                previous_origin: at, requested_origin: at,
+                parts: [part; AnatomyRegion::COUNT],
+            },
+        }
     }
 
     #[test]
@@ -585,7 +703,7 @@ mod tests {
             Vec3::new(Fx::ZERO, -Fx::HALF, Fx::HALF),
         ];
         let shield = ContactCollider { entity: EntityId::new(1, 0), faction: Faction::Monsters,
-            slot: 0, mass: Fx::ONE, surface: surface(), velocity: Vec3::ZERO,
+            slot: 0, mass: Fx::ONE, surface: surface(), velocity: Vec3::ZERO, present: true,
             shape: ContactShape::Shield { previous: face, requested: face } };
         let facts = collect_contacts(&[weapon, shield]);
         assert_eq!(facts.len(), 1);
@@ -619,7 +737,7 @@ mod tests {
     fn shield_at_origin() -> ContactCollider {
         let face = shield_face();
         elastic(ContactCollider { entity: EntityId::new(2, 0), faction: Faction::Monsters,
-            slot: 0, mass: Fx::ONE, surface: surface(), velocity: Vec3::ZERO,
+            slot: 0, mass: Fx::ONE, surface: surface(), velocity: Vec3::ZERO, present: true,
             shape: ContactShape::Shield { previous: face, requested: face } })
     }
 
@@ -683,5 +801,132 @@ mod tests {
         assert!(resolutions[0].impulse.on_a.x > Fx::ZERO);
         assert!(velocities[0] >= Fx::ZERO, "the blocked swing is stopped or reflected");
         assert_eq!(velocities[1], -Fx::TWO, "the swing over the rim kept its speed");
+    }
+
+    /// A fighter standing still at the origin, arms tucked, as five swept
+    /// volumes that do not move across the tick.
+    fn standing_fighter(entity: u32) -> ContactCollider {
+        use crate::combat::{actuator, geometry, spec};
+        let anatomy = spec::fighter_anatomy();
+        let reach = Fx::from_raw(actuator::ARM_MIN_REACH_RAW);
+        let hands = [0usize, 1].map(|limb| actuator::hand_position(
+            &anatomy, fx::Angle::ZERO, limb, fx::Angle::ZERO, crate::CombatHeight::MID, reach));
+        let volumes = geometry::body_region_volumes(
+            Vec3::ZERO, &anatomy, fx::Angle::ZERO, hands, [true; AnatomyRegion::COUNT]);
+        let parts = core::array::from_fn(|at| RegionSweep {
+            previous_lower: volumes[at].lower, previous_upper: volumes[at].upper,
+            requested_lower: volumes[at].lower, requested_upper: volumes[at].upper,
+            radius: volumes[at].radius, present: volumes[at].present,
+        });
+        ContactCollider {
+            entity: EntityId::new(entity, 0), faction: Faction::Monsters, slot: BODY_SLOT,
+            mass: Fx::from_int(3), surface: surface(), velocity: Vec3::ZERO, present: true,
+            shape: ContactShape::Body {
+                previous_origin: Vec3::ZERO, requested_origin: Vec3::ZERO, parts,
+            },
+        }
+    }
+
+    /// A zero-length weapon point driven in along -X at one height.
+    fn thrust_at_height(z: Fx) -> ContactCollider {
+        let from = Vec3::new(Fx::from_ratio(3, 2), Fx::ZERO, z);
+        let to = Vec3::new(Fx::from_ratio(-3, 2), Fx::ZERO, z);
+        segment(0, Faction::Heroes, from, to, to - from)
+    }
+
+    #[test]
+    fn high_low_and_intermediate_contacts_choose_stable_regions() {
+        // Chosen against the Fighter fixture's own numbers: the head sphere
+        // spans 1.5..1.9 but the torso capsule's upper cap reaches 1.85, so a
+        // head-only strike has to be above that, not merely above the torso's
+        // medial top. The reverse mistake -- reading the medial extent as the
+        // volume -- is exactly what a per-region sweep is for.
+        let cases = [
+            (Fx::from_ratio(187, 100), AnatomyRegion::Head),
+            (Fx::from_ratio(11, 10), AnatomyRegion::Torso),
+            (Fx::from_ratio(1, 5), AnatomyRegion::Legs),
+        ];
+        for (height, expected) in cases {
+            let facts = collect_contacts(&[thrust_at_height(height), standing_fighter(1)]);
+            assert_eq!(facts.len(), 1, "a body published more than one fact at z={}", height.raw());
+            assert_eq!(facts[0].key.kind, ContactKind::WeaponBody);
+            assert_eq!(facts[0].key.b_slot, BODY_SLOT);
+            assert_eq!(facts[0].region, expected as u8,
+                       "a strike at z={} chose region {}", height.raw(), facts[0].region);
+        }
+    }
+
+    #[test]
+    fn overlapping_regions_use_axis_distance_then_body_part_order() {
+        // Five volumes at one point. Every sweep answers the same time and the
+        // same medial distance, so only the `BodyPart` tail is left -- and it
+        // has to answer Head every time rather than whichever row the scan
+        // happened to visit first.
+        let weapon = segment(0, Faction::Heroes, Vec3::from_ints(1, 0, 0), -Vec3::X, -Vec3::X * Fx::TWO);
+        let facts = collect_contacts(&[weapon, coincident_body(1, Faction::Monsters, Vec3::ZERO)]);
+        assert_eq!(facts.len(), 1, "coincident regions produced duplicate contact keys");
+        assert_eq!(facts[0].region, AnatomyRegion::Head as u8);
+
+        // And the middle term, isolated. Two half-radius spheres, one centred
+        // on the weapon and one a little above it, both already containing it
+        // at tick start -- so both answer time zero and the tuple has to fall
+        // through to the medial distance. The nearer axis is the *higher*
+        // `BodyPart`, which is what stops this being a second test of the tail.
+        let sphere = |z: Fx| RegionSweep {
+            previous_lower: Vec3::new(Fx::ZERO, Fx::ZERO, z),
+            previous_upper: Vec3::new(Fx::ZERO, Fx::ZERO, z),
+            requested_lower: Vec3::new(Fx::ZERO, Fx::ZERO, z),
+            requested_upper: Vec3::new(Fx::ZERO, Fx::ZERO, z),
+            radius: Fx::HALF, present: true,
+        };
+        let absent = RegionSweep { present: false, ..sphere(Fx::ZERO) };
+        let parts = [absent, sphere(Fx::from_ratio(2, 5)), sphere(Fx::ZERO), absent, absent];
+        let body = ContactCollider {
+            shape: ContactShape::Body {
+                previous_origin: Vec3::ZERO, requested_origin: Vec3::ZERO, parts,
+            },
+            ..coincident_body(1, Faction::Monsters, Vec3::ZERO)
+        };
+        let weapon = segment(0, Faction::Heroes, Vec3::ZERO, -Vec3::X, -Vec3::X);
+        let ContactShape::Segment { previous_hilt, previous_tip, requested_hilt, requested_tip, radius }
+            = weapon.shape else { unreachable!() };
+        let toi_of = |part: RegionSweep| swept_segment_segment(
+            previous_hilt, previous_tip, requested_hilt, requested_tip, radius,
+            part.previous_lower, part.previous_upper,
+            part.requested_lower, part.requested_upper, part.radius);
+        assert_eq!((toi_of(parts[1]), toi_of(parts[2])),
+                   (Some(TimeOfImpact::ZERO), Some(TimeOfImpact::ZERO)),
+                   "the fixture no longer ties on time, so it cannot test the medial term");
+
+        let facts = collect_contacts(&[weapon, body]);
+        assert_eq!(facts.len(), 1);
+        assert_eq!(facts[0].region, AnatomyRegion::LeftArm as u8,
+                   "the nearer medial axis lost to the lower BodyPart");
+    }
+
+    #[test]
+    fn a_severed_region_has_no_volume_left_to_hit() {
+        let mut fighter = standing_fighter(1);
+        let ContactShape::Body { parts, .. } = &mut fighter.shape else { unreachable!() };
+        // The Fighter's tucked hands sit at mid height, so an arm covers the
+        // band the torso's own cap would otherwise own; taking the torso away
+        // is the clean way to prove absence rather than mere preference.
+        parts[AnatomyRegion::Torso as usize].present = false;
+        let facts = collect_contacts(&[thrust_at_height(Fx::from_ratio(11, 10)), fighter]);
+        assert_eq!(facts.len(), 1);
+        assert_ne!(facts[0].region, AnatomyRegion::Torso as u8,
+                   "an absent region still answered a sweep");
+
+        // Absent everywhere is no fact at all, not a degenerate point one.
+        let mut gone = standing_fighter(1);
+        let ContactShape::Body { parts, .. } = &mut gone.shape else { unreachable!() };
+        for part in parts.iter_mut() { part.present = false; }
+        assert!(collect_contacts(&[thrust_at_height(Fx::from_ratio(11, 10)), gone]).is_empty());
+
+        // And a whole collider marked absent leaves the scan entirely, which is
+        // how a severed limb's weapon stops swinging inside the same tick.
+        let mut dropped = thrust_at_height(Fx::from_ratio(11, 10));
+        dropped.present = false;
+        assert!(collect_contacts(&[dropped, standing_fighter(1)]).is_empty());
     }
 }

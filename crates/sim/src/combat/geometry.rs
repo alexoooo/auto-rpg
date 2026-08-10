@@ -6,8 +6,8 @@
 
 use crate::{AnatomyRegion, BodyAnatomySpec, EquipmentGeometry, EquipmentSpec,
             EquipmentSpecId, GripBinding, GripState, LimbSlot, SurfaceSpec};
-use super::actuator::{ArmState, ShieldPose};
-use fx::{Fx, Vec3};
+use super::actuator::{self, ArmState, ShieldPose};
+use fx::{Angle, Fx, Vec3};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) struct SegmentPose {
@@ -42,14 +42,23 @@ pub(crate) struct ShieldCollider {
     pub surface: SurfaceSpec,
 }
 
+/// One region's volume at one pose, as an inclusive capsule.
+///
+/// A sphere is the degenerate case with `lower == upper`, which is what the
+/// head is; the vertical regions differ only in that their two endpoints share
+/// an X and a Y. Nothing downstream needs to know which of the three it has,
+/// and that is the point of collapsing all five onto one shape: the sweep, the
+/// medial distance, and the outward normal are then one piece of code rather
+/// than three that could disagree at a boundary.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub(crate) struct BodyCapsule {
-    pub centre: Vec3,
-    pub half_axis: Fx,
+pub(crate) struct RegionVolume {
+    pub lower: Vec3,
+    pub upper: Vec3,
     pub radius: Fx,
-    pub mass: Fx,
-    pub surface: SurfaceSpec,
-    pub region: Option<AnatomyRegion>,
+    /// False for a severed arm. An absent region has no volume to sweep and no
+    /// grip to drive, which is a stronger statement than a zero-radius one:
+    /// a degenerate capsule is still a point that can be hit.
+    pub present: bool,
 }
 
 pub(crate) fn segment_pose(body_origin: Vec3, arm: ArmState, item: EquipmentSpec) -> Option<SegmentPose> {
@@ -139,21 +148,57 @@ pub(crate) fn held_shield_collider(
     None
 }
 
-pub(crate) fn temporary_body_capsule(
+/// The five regional volumes at one pose, in `AnatomyRegion` order.
+///
+/// Head, torso and legs are rigid against the body origin: the immutable
+/// `centre_z`/`half_height` pair is read straight out of the spec and only the
+/// origin moves them. The arms are not -- an arm is the capsule from its
+/// yaw-rotated shoulder to wherever the actuator has just put the hand -- which
+/// is why this takes a yaw and two hands rather than an origin alone. A blow
+/// that lands on a raised arm has to land on the arm, and the arm is only where
+/// the pose says it is.
+/// `present` is the caller's, region by region, and it covers all five rather
+/// than the two limbs a fight usually takes off. A destroyed pair of legs is
+/// survivable -- death is head, torso, or blood -- so a body can go on fighting
+/// with a region that has to stay gone, and hardcoding presence for the three
+/// rigid regions would quietly resurrect it on the next tick's rebuild.
+pub(crate) fn body_region_volumes(
     body_origin: Vec3,
     anatomy: &BodyAnatomySpec,
-    mass: Fx,
-) -> BodyCapsule {
-    let radius = anatomy.regions.iter().map(|region| region.radius).max().unwrap_or(Fx::ZERO);
-    let middle = anatomy.standing_height / Fx::from_int(2);
-    BodyCapsule {
-        centre: body_origin + Vec3::new(Fx::ZERO, Fx::ZERO, middle),
-        half_axis: (middle - radius).max(Fx::ZERO),
-        radius,
-        mass,
-        surface: anatomy.surface,
-        region: None,
+    yaw: Angle,
+    hands: [Vec3; 2],
+    present: [bool; AnatomyRegion::COUNT],
+) -> [RegionVolume; AnatomyRegion::COUNT] {
+    let mut volumes = [RegionVolume { lower: body_origin, upper: body_origin,
+                                      radius: Fx::ZERO, present: true };
+                       AnatomyRegion::COUNT];
+    for (at, region) in anatomy.regions.iter().enumerate() {
+        let vertical = |half: Fx| body_origin + Vec3::new(Fx::ZERO, Fx::ZERO, region.centre_z + half);
+        volumes[at] = match region.region {
+            AnatomyRegion::Head => RegionVolume {
+                lower: vertical(Fx::ZERO), upper: vertical(Fx::ZERO),
+                radius: region.radius, present: present[at],
+            },
+            AnatomyRegion::Torso | AnatomyRegion::Legs => RegionVolume {
+                lower: vertical(-region.half_height), upper: vertical(region.half_height),
+                radius: region.radius, present: present[at],
+            },
+            AnatomyRegion::LeftArm | AnatomyRegion::RightArm => {
+                let limb = if region.region == AnatomyRegion::LeftArm {
+                    LimbSlot::LeftArm as usize
+                } else {
+                    LimbSlot::RightArm as usize
+                };
+                RegionVolume {
+                    lower: body_origin + actuator::shoulder(anatomy, yaw, limb),
+                    upper: body_origin + hands[limb],
+                    radius: region.radius,
+                    present: present[at],
+                }
+            }
+        };
     }
+    volumes
 }
 
 #[cfg(test)]
@@ -237,15 +282,48 @@ mod tests {
     }
 
     #[test]
-    fn the_temporary_body_capsule_uses_one_regionless_volume() {
+    fn the_five_region_volumes_are_a_sphere_two_columns_and_two_arms() {
         let anatomy = spec::fighter_anatomy();
-        let body = temporary_body_capsule(Vec3::from_ints(4, 5, 0), &anatomy, Fx::from_int(3));
-        let radius = anatomy.regions.iter().map(|row| row.radius).max().unwrap();
-        let middle = anatomy.standing_height / Fx::from_int(2);
-        assert_eq!(body.centre, Vec3::new(Fx::from_int(4), Fx::from_int(5), middle));
-        assert_eq!(body.radius, radius);
-        assert_eq!(body.half_axis, (middle - radius).max(Fx::ZERO));
-        assert_eq!(body.region, None);
+        let origin = Vec3::from_ints(4, 5, 0);
+        let hands = [Vec3::from_ints(1, 2, 1), Vec3::from_ints(1, -2, 1)];
+        let volumes = body_region_volumes(origin, &anatomy, Angle::ZERO, hands,
+                                          [true; AnatomyRegion::COUNT]);
+
+        let head = anatomy.regions[AnatomyRegion::Head as usize];
+        assert_eq!(volumes[AnatomyRegion::Head as usize], RegionVolume {
+            lower: origin + Vec3::new(Fx::ZERO, Fx::ZERO, head.centre_z),
+            upper: origin + Vec3::new(Fx::ZERO, Fx::ZERO, head.centre_z),
+            radius: head.radius, present: true,
+        }, "the head is a sphere, not a column of its half height");
+
+        for region in [AnatomyRegion::Torso, AnatomyRegion::Legs] {
+            let spec = anatomy.regions[region as usize];
+            let volume = volumes[region as usize];
+            assert_eq!(volume.lower, origin + Vec3::new(Fx::ZERO, Fx::ZERO, spec.centre_z - spec.half_height));
+            assert_eq!(volume.upper, origin + Vec3::new(Fx::ZERO, Fx::ZERO, spec.centre_z + spec.half_height));
+            assert_eq!((volume.radius, volume.present), (spec.radius, true));
+        }
+
+        // An arm runs shoulder to hand and carries the immutable arm radius --
+        // not the region's centre/half-height, which stay fingerprinted V1
+        // construction data this session does not rewrite.
+        for (limb, region) in [(0usize, AnatomyRegion::LeftArm), (1, AnatomyRegion::RightArm)] {
+            let volume = volumes[region as usize];
+            assert_eq!(volume.lower, origin + actuator::shoulder(&anatomy, Angle::ZERO, limb));
+            assert_eq!(volume.upper, origin + hands[limb]);
+            assert_eq!(volume.radius, anatomy.regions[region as usize].radius);
+        }
+
+        // A severed region is absent rather than degenerate, and that is true
+        // of the rigid three as well as the two limbs: a body fights on with
+        // its legs destroyed, and those legs must not come back.
+        for gone in AnatomyRegion::ALL {
+            let mut present = [true; AnatomyRegion::COUNT];
+            present[gone as usize] = false;
+            let cut = body_region_volumes(origin, &anatomy, Angle::ZERO, hands, present);
+            assert!(!cut[gone as usize].present, "{gone:?} survived its own absence");
+            assert!(cut.iter().enumerate().all(|(at, row)| at == gone as usize || row.present));
+        }
     }
 
     trait SegmentLength {

@@ -46,6 +46,7 @@
 pub use fx;
 
 mod action;
+pub mod anatomy;
 mod codec;
 mod combat;
 mod command;
@@ -62,6 +63,7 @@ mod scenario;
 mod world;
 
 pub use action::{ActionKind, ActionSpec, Role, ACTIONS};
+pub use anatomy::{AnatomyState, BodyPart, PartWoundState};
 pub use codec::{
     ReplayDecodeError, ReplayEncodeError, ReplayEnvelope, ReplayField, ReplayLimit,
     ReplayPlayError, ReplayStream, ReplayValidationError, ARTICULATED_COMMAND_SCHEMA_RESERVED,

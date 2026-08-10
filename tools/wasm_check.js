@@ -71,7 +71,7 @@ const BOW_HASH = 0x4a1157735d305e9fn;
 // Moved by v2-14C: ArticulatedV1 hashing gained a global `cap_hits:u32` after
 // the actuator loop, and this probe is unstepped, so the move is four zero
 // bytes and nothing else.
-const ARTICULATED_COMMAND_HASH = 0x010411d521a376d7n;
+const ARTICULATED_COMMAND_HASH = 0x6e61a92ec96ac3a6n;
 const COMBAT_GEOMETRY_HASH = 0x9d15344883cf6e9cn;
 
 // The frame header, as the client reads it.
@@ -485,7 +485,7 @@ test("combat geometry matches the frozen native digest", () => {
 // independent literal of the same bytes, so this file compares the wasm target
 // against the reference rather than against Rust.
 const CONTACT_BEHAVIOR_BYTES = 3548;
-const CONTACT_BEHAVIOR_DIGEST = 0xfe6ce41ec023c1e5n;
+const CONTACT_BEHAVIOR_DIGEST = 0x587b0259e877105an;
 
 // FNV-1a-64 with offset 0xcbf29ce484222325 and prime 0x100000001b3: `fx::Hash64`
 // over raw bytes, written out here rather than taken on trust.
@@ -526,11 +526,12 @@ function expectedContactCorpus() {
     putU32(row.kind);
   };
   // 8 ordinal/alpha + 84 fact + 52 impulse + 24 ledger + 32 channels = 200.
-  // Region is 0xff and the normal is +X on every row; the impulse on B is the
-  // exact negation of the one on A; `deflected` is zero everywhere in v2-14.
+  // The normal is +X on every row; the impulse on B is the exact negation of
+  // the one on A; `deflected` is zero throughout, because no fixture in this
+  // corpus has armour behind its body.
   const putResolution = (row) => {
     putU32(row.ordinal); putU32(row.alpha);
-    putKey(row); putU32(row.toi); putU32(0xff);
+    putKey(row); putU32(row.toi); putU32(row.region);
     putAxial(row.pointX); putAxial(65536);
     putAxial(row.velocityA); putAxial(row.velocityB);
     putKey(row); putAxial(row.onA); putAxial(-row.onA);
@@ -546,10 +547,11 @@ function expectedContactCorpus() {
     for (const [x, vx] of finals) { putU32(x); putU32(vx); }
   };
   // A weapon/weapon row: B in the right slot, kind 0, the contact point riding
-  // the global TOI, the moving label at 65536 and its target at rest.
+  // the global TOI, the moving label at 65536 and its target at rest. It names
+  // no region -- there is no anatomy on the far side of a weapon.
   const ww = (ordinal, alpha, aIndex, toi, onA, [before, after, dissipated]) => ({
     ordinal, alpha, aIndex, bIndex: aIndex + 1, bSlot: 1, kind: 0,
-    toi, pointX: toi, velocityA: 65536, velocityB: 0, onA,
+    toi, region: 0xff, pointX: toi, velocityA: 65536, velocityB: 0, onA,
     before, after, dissipated, cut: 0, thrust: 0, pressure: 0,
   });
 
@@ -594,11 +596,13 @@ function expectedContactCorpus() {
   // The one row with widened channels. B is a body, so the slot is BODY_SLOT
   // and the kind is 2; the contact point is where the tip lands rather than the
   // global time; a purely axial strike puts everything above the 144 energy
-  // floor into thrust and the floor itself into pressure.
+  // floor into thrust and the floor itself into pressure. Its region is Head,
+  // and the zero is load-bearing: the body's five volumes are coincident, so
+  // the choice falls all the way through the contract's tuple to BodyPart order.
   putCase(6, 1, 0, [
     {
       ...ww(0, 65536, 0, 32768, -32768, [32768, 16384, 16384]),
-      bIndex: 1, bSlot: 0xff, kind: 2, pointX: 65536,
+      bIndex: 1, bSlot: 0xff, kind: 2, region: 0, pointX: 65536,
       cut: 0, thrust: 16240, pressure: 144,
     },
   ], [[81920, 32768], [81920, 32768]]);

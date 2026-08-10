@@ -8,10 +8,10 @@ use crate::combat::contact::{
     try_reserve_exact, write_fact, write_impulse, Candidate, ContactCapacityError,
     ContactCollectionScratch, ContactCollider, ContactFact,
     ContactImpulse, ContactKey, ContactKind, ContactResolution, ContactShape, ContactSolverState,
-    EnergyLedger, BODY_SLOT, MAX_CONTACT_FACTS_PER_GROUP, MAX_CONTACT_GROUPS_PER_TICK,
+    EnergyLedger, RegionSweep, BODY_SLOT, MAX_CONTACT_FACTS_PER_GROUP, MAX_CONTACT_GROUPS_PER_TICK,
     MAX_CONTACT_RESOLUTIONS_PER_TICK,
 };
-use crate::combat::spec::SurfaceSpec;
+use crate::combat::spec::{AnatomyRegion, SurfaceSpec};
 use crate::{EntityId, Faction};
 use fx::{Fx, TimeOfImpact, Vec3};
 
@@ -130,6 +130,26 @@ pub trait ContactTrialProjector {
         alpha_raw: u32,
         out: &mut Vec<GeneralizedCollider>,
     ) -> Result<(), ResolutionError>;
+    /// Apply one resolved group to whatever authoritative state the *next*
+    /// re-sweep has to see, and finish the group's rows.
+    ///
+    /// This is where wounds land. It is a hook rather than a pass after the
+    /// driver returns because severance has to reach the geometry inside the
+    /// tick: an arm taken off by the first group must not still be swinging in
+    /// the second, and the second group's candidate scan is three lines below
+    /// this call. `rows` is handed over mutably for the same reason -- the
+    /// deflected budget and the severance flag are facts about what the wound
+    /// did, and only the implementation that applies the wound knows them.
+    ///
+    /// The default does nothing, which is exactly right for a fixture with no
+    /// anatomy behind its colliders: the pure driver stays pure.
+    fn after_group(
+        &mut self,
+        _colliders: &mut [ContactCollider],
+        _rows: &mut [ContactResolution],
+    ) -> Result<(), ResolutionError> {
+        Ok(())
+    }
 }
 
 pub struct IndependentPointProjector;
@@ -477,7 +497,7 @@ pub fn solve_contact_tick<P: ContactTrialProjector>(
                 .ok_or(ResolutionError::ColliderIndex)?;
             let b = collider_index(colliders, fact.key.b, fact.key.b_slot)
                 .ok_or(ResolutionError::ColliderIndex)?;
-            if let Some(recomputed) = contact_at_pose(colliders[a], colliders[b], group_toi) {
+            if let Some(recomputed) = contact_at_pose(&colliders[a], &colliders[b], group_toi) {
                 scratch.group_facts.push(recomputed);
             }
         }
@@ -551,6 +571,11 @@ pub fn solve_contact_tick<P: ContactTrialProjector>(
             translate_requested(&mut colliders[index], (generalized.velocity - old) * remaining);
             colliders[index].velocity = generalized.velocity;
         }
+
+        // The group is settled: hand it to the projector before the next scan
+        // sees the colliders, so a severance can take an arm out of the tick it
+        // happened in rather than the one after.
+        projector.after_group(colliders, &mut scratch.group_rows)?;
 
         // Eight groups of at most 512 rows fit the 4,096 ceiling exactly, so
         // this is an invariant rather than a live limit -- and it is checked
@@ -694,8 +719,11 @@ fn freeze_sweep(mut row: ContactCollider) -> ContactCollider {
             previous_hilt, previous_tip, requested_hilt: previous_hilt, requested_tip: previous_tip, radius,
         },
         ContactShape::Shield { previous, .. } => ContactShape::Shield { previous, requested: previous },
-        ContactShape::Body { previous_lower, previous_upper, radius, .. } => ContactShape::Body {
-            previous_lower, previous_upper, requested_lower: previous_lower, requested_upper: previous_upper, radius,
+        ContactShape::Body { previous_origin, parts, .. } => ContactShape::Body {
+            previous_origin, requested_origin: previous_origin,
+            parts: parts.map(|part| RegionSweep {
+                requested_lower: part.previous_lower, requested_upper: part.previous_upper, ..part
+            }),
         },
     };
     row
@@ -714,9 +742,12 @@ fn advance_shape(shape: &mut ContactShape, numerator: u32, denominator: u32) {
         ContactShape::Shield { previous, requested } => {
             for i in 0..4 { previous[i] = interpolate_raw(previous[i], requested[i], numerator, denominator); }
         }
-        ContactShape::Body { previous_lower, previous_upper, requested_lower, requested_upper, .. } => {
-            *previous_lower = interpolate_raw(*previous_lower, *requested_lower, numerator, denominator);
-            *previous_upper = interpolate_raw(*previous_upper, *requested_upper, numerator, denominator);
+        ContactShape::Body { previous_origin, requested_origin, parts } => {
+            *previous_origin = interpolate_raw(*previous_origin, *requested_origin, numerator, denominator);
+            for part in parts.iter_mut() {
+                part.previous_lower = interpolate_raw(part.previous_lower, part.requested_lower, numerator, denominator);
+                part.previous_upper = interpolate_raw(part.previous_upper, part.requested_upper, numerator, denominator);
+            }
         }
     }
 }
@@ -739,7 +770,10 @@ fn translate_requested(row: &mut ContactCollider, delta: Vec3) {
     match &mut row.shape {
         ContactShape::Segment { requested_hilt, requested_tip, .. } => { *requested_hilt += delta; *requested_tip += delta; }
         ContactShape::Shield { requested, .. } => for point in requested { *point += delta; },
-        ContactShape::Body { requested_lower, requested_upper, .. } => { *requested_lower += delta; *requested_upper += delta; }
+        ContactShape::Body { requested_origin, parts, .. } => {
+            *requested_origin += delta;
+            for part in parts.iter_mut() { part.requested_lower += delta; part.requested_upper += delta; }
+        }
     }
 }
 
@@ -852,7 +886,7 @@ pub fn contact_behavior_corpus() -> Result<Vec<u8>, ResolutionError> {
             // rather than a case number smuggled into the serializer.
             let x = match row.shape {
                 ContactShape::Segment { previous_tip, .. } => previous_tip.x,
-                ContactShape::Body { previous_lower, .. } => previous_lower.x,
+                ContactShape::Body { previous_origin, .. } => previous_origin.x,
                 ContactShape::Shield { previous, .. } => previous[0].x,
             };
             put_u32(&mut bytes, x.raw() as u32);
@@ -871,6 +905,7 @@ fn behavior_case(case_id: u32) -> Vec<ContactCollider> {
     let point = |label: u32, faction: Faction, x: i32, velocity: i32| ContactCollider {
         entity: EntityId::new(label, 0), faction, slot: 1, mass: Fx::ONE, surface,
         velocity: Vec3::new(Fx::from_raw(velocity), Fx::ZERO, Fx::ZERO),
+        present: true,
         shape: ContactShape::Segment {
             previous_hilt: Vec3::new(Fx::from_raw(x), Fx::ZERO, Fx::ZERO),
             previous_tip: Vec3::new(Fx::from_raw(x), Fx::ZERO, Fx::ZERO),
@@ -908,11 +943,20 @@ fn behavior_case(case_id: u32) -> Vec<ContactCollider> {
                 requested_tip: Vec3::new(Fx::from_ratio(3, 2), Fx::ZERO, Fx::ZERO),
                 radius: Fx::ZERO,
             };
+            // Five coincident zero-radius points, so the body is geometrically
+            // the single point v2-14's row was and the whole regional apparatus
+            // shows up in exactly one byte: the tie-break falls through time
+            // and medial distance to `BodyPart` order and answers Head.
             let body_point = Vec3::X;
+            let part = RegionSweep {
+                previous_lower: body_point, previous_upper: body_point,
+                requested_lower: body_point, requested_upper: body_point,
+                radius: Fx::ZERO, present: true,
+            };
             let body = ContactCollider { entity: EntityId::new(1, 0), faction: Faction::Monsters,
-                slot: BODY_SLOT, mass: Fx::ONE, surface, velocity: Vec3::ZERO,
-                shape: ContactShape::Body { previous_lower: body_point, previous_upper: body_point,
-                    requested_lower: body_point, requested_upper: body_point, radius: Fx::ZERO } };
+                slot: BODY_SLOT, mass: Fx::ONE, surface, velocity: Vec3::ZERO, present: true,
+                shape: ContactShape::Body { previous_origin: body_point, requested_origin: body_point,
+                    parts: [part; AnatomyRegion::COUNT] } };
             vec![weapon, body]
         }
         _ => unreachable!(),
@@ -968,7 +1012,7 @@ mod tests {
             self.colliders.iter().map(|row| {
                 let x = match row.shape {
                     ContactShape::Segment { previous_tip, .. } => previous_tip.x,
-                    ContactShape::Body { previous_lower, .. } => previous_lower.x,
+                    ContactShape::Body { previous_origin, .. } => previous_origin.x,
                     ContactShape::Shield { previous, .. } => previous[0].x,
                 };
                 (x.raw(), row.velocity.x.raw())
@@ -1076,6 +1120,7 @@ mod tests {
         let dead_pair = |index: u32, faction, velocity: i32| ContactCollider {
             entity: EntityId::new(index, 0), faction, slot: 1, mass: Fx::ONE,
             surface: surface(Fx::ZERO), velocity: Vec3::new(Fx::from_raw(velocity), Fx::ZERO, Fx::ZERO),
+            present: true,
             shape: ContactShape::Segment {
                 previous_hilt: Vec3::ZERO, previous_tip: Vec3::ZERO,
                 requested_hilt: Vec3::new(Fx::from_raw(velocity), Fx::ZERO, Fx::ZERO),
@@ -1084,7 +1129,7 @@ mod tests {
         let elsewhere = |index: u32, faction, x: i32, velocity: i32| {
             let at = |x: i32| Vec3::new(Fx::from_raw(x), Fx::ONE, Fx::ZERO);
             ContactCollider {
-                entity: EntityId::new(index, 0), faction, slot: 1, mass: Fx::ONE,
+                entity: EntityId::new(index, 0), faction, slot: 1, mass: Fx::ONE, present: true,
                 surface: surface(Fx::ZERO), velocity: Vec3::new(Fx::from_raw(velocity), Fx::ZERO, Fx::ZERO),
                 shape: ContactShape::Segment {
                     previous_hilt: at(x), previous_tip: at(x),
@@ -1218,7 +1263,7 @@ mod tests {
         let far = Vec3::from_ints(8, 8, 0);
         rows.push(ContactCollider {
             entity: EntityId::new(9, 0), faction: Faction::Monsters, slot: 1, mass: Fx::ONE,
-            surface: surface(Fx::ONE), velocity: Vec3::Y * Fx::TWO,
+            present: true, surface: surface(Fx::ONE), velocity: Vec3::Y * Fx::TWO,
             shape: ContactShape::Segment {
                 previous_hilt: far, previous_tip: far,
                 requested_hilt: far + Vec3::Y * Fx::TWO, requested_tip: far + Vec3::Y * Fx::TWO,
@@ -1243,7 +1288,7 @@ mod tests {
             ContactCollider {
                 entity: EntityId::new(index, 0),
                 faction: if index % 2 == 0 { Faction::Heroes } else { Faction::Monsters },
-                slot: 1, mass: Fx::ONE, surface: surface(Fx::ZERO),
+                slot: 1, mass: Fx::ONE, present: true, surface: surface(Fx::ZERO),
                 velocity: Vec3::new(Fx::from_raw(velocity), Fx::ZERO, Fx::ZERO),
                 shape: ContactShape::Segment {
                     previous_hilt: Vec3::ZERO, previous_tip: Vec3::ZERO,
@@ -1270,16 +1315,20 @@ mod tests {
         vec![
             ContactCollider {
                 entity: EntityId::new(0, 0), faction: Faction::Heroes, slot: 1,
-                mass: Fx::ONE, surface: steel, velocity: sword,
+                mass: Fx::ONE, surface: steel, velocity: sword, present: true,
                 shape: ContactShape::Segment {
                     previous_hilt: hilt, previous_tip: Vec3::ZERO,
                     requested_hilt: hilt + sword, requested_tip: sword, radius: Fx::ZERO } },
             ContactCollider {
                 entity: EntityId::new(1, 0), faction: Faction::Monsters, slot: BODY_SLOT,
-                mass: Fx::ONE, surface: steel, velocity: body,
+                mass: Fx::ONE, surface: steel, velocity: body, present: true,
                 shape: ContactShape::Body {
-                    previous_lower: Vec3::ZERO, previous_upper: Vec3::ZERO,
-                    requested_lower: body, requested_upper: body, radius: Fx::ZERO } },
+                    previous_origin: Vec3::ZERO, requested_origin: body,
+                    parts: [RegionSweep {
+                        previous_lower: Vec3::ZERO, previous_upper: Vec3::ZERO,
+                        requested_lower: body, requested_upper: body,
+                        radius: Fx::ZERO, present: true,
+                    }; AnatomyRegion::COUNT] } },
         ]
     }
 
@@ -1402,22 +1451,23 @@ mod tests {
 
     /// One expected resolution, transcribed from the reference's case table.
     /// Everything constant across the whole corpus -- generation zero, A in the
-    /// right slot, region `0xff`, normal +X, zero Y/Z, `deflected=0` -- is
-    /// supplied by the writer rather than repeated eighteen times.
+    /// right slot, normal +X, zero Y/Z, `deflected=0` -- is supplied by the
+    /// writer rather than repeated eighteen times.
     struct Expected {
         ordinal: u32, alpha: u32,
         a_index: u32, b_index: u32, b_slot: u32, kind: u32,
-        toi: i32, point_x: i32,
+        toi: i32, region: u32, point_x: i32,
         velocity_a: i32, velocity_b: i32, on_a: i32,
         energy: (u64, u64, u64),
         channels: (u64, u64, u64),
     }
 
     /// A weapon/weapon row at `toi`, whose contact point rides the global time.
+    /// It names no region, because there is no anatomy on the far side of it.
     fn ww(ordinal: u32, alpha: u32, a_index: u32, toi: i32, on_a: i32,
           energy: (u64, u64, u64)) -> Expected {
         Expected { ordinal, alpha, a_index, b_index: a_index + 1, b_slot: 1, kind: 0,
-                   toi, point_x: toi, velocity_a: 65_536, velocity_b: 0, on_a,
+                   toi, region: 0xff, point_x: toi, velocity_a: 65_536, velocity_b: 0, on_a,
                    energy, channels: (0, 0, 0) }
     }
 
@@ -1447,7 +1497,7 @@ mod tests {
         expect_u32(bytes, row.alpha);
         expect_key(bytes, row);
         expect_u32(bytes, row.toi as u32);
-        expect_u32(bytes, 0xff);
+        expect_u32(bytes, row.region);
         expect_axial(bytes, row.point_x);
         expect_axial(bytes, 65_536);
         expect_axial(bytes, row.velocity_a);
@@ -1528,9 +1578,12 @@ mod tests {
         // The one row with widened channels: a purely axial strike puts every
         // dissipated raw above the 144 floor into thrust, and the floor itself
         // into pressure. Its point is where the tip lands, not the global time.
+        // Its region is Head, and the zero is load-bearing: the body's five
+        // volumes are coincident, so the choice falls all the way through the
+        // contract's tuple to `BodyPart` order.
         expect_case(&mut bytes, 6, 1, 0, &[
             Expected { b_index: 1, b_slot: 0xff, kind: 2, point_x: 65_536,
-                       channels: (0, 16_240, 144),
+                       region: AnatomyRegion::Head as u32, channels: (0, 16_240, 144),
                        ..ww(0, 65_536, 0, 32_768, -32_768, (32_768, 16_384, 16_384)) },
         ], &[(81_920, 32_768), (81_920, 32_768)]);
 
@@ -1552,7 +1605,13 @@ mod tests {
         }
         assert_eq!(bytes.len(), expected.len(), "production corpus has a different length");
         let mut hash = Hash64::new(); hash.write_bytes(&bytes);
-        assert_eq!(hash.finish(), 0xfe6c_e41e_c023_c1e5);
+        // Moved by v2-15, and by exactly one byte: case 6's body is now five
+        // regional volumes rather than one anonymous capsule, so its fact names
+        // the region it chose. The geometry is unchanged -- the five volumes
+        // are the same coincident point the single capsule was -- and the
+        // region byte went from `0xff` to Head's zero. Previously
+        // `0xfe6ce41ec023c1e5`.
+        assert_eq!(hash.finish(), 0x587b_0259_e877_105a);
     }
 
     #[test]

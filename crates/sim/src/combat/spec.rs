@@ -17,10 +17,24 @@ pub type EquipmentSpecId = u16;
 pub enum AnatomyRegion { Head = 0, Torso = 1, LeftArm = 2, RightArm = 3, Legs = 4 }
 
 impl AnatomyRegion {
-    pub const ALL: [AnatomyRegion; 5] = [
+    /// The region count, named once. Every regional array in the crate -- the
+    /// immutable maxima, the armor rows, the mutable wound rows, and the swept
+    /// volumes -- is this wide, and a literal `5` in any of them is a place the
+    /// five could disagree.
+    pub const COUNT: usize = 5;
+
+    pub const ALL: [AnatomyRegion; AnatomyRegion::COUNT] = [
         AnatomyRegion::Head, AnatomyRegion::Torso, AnatomyRegion::LeftArm,
         AnatomyRegion::RightArm, AnatomyRegion::Legs,
     ];
+
+    /// The region a `#[repr(u8)]` discriminant names, or `None`.
+    ///
+    /// Written as an index into `ALL` rather than a `match`, so a region added
+    /// to the enum cannot be silently missing here.
+    pub const fn from_index(index: usize) -> Option<AnatomyRegion> {
+        if index < AnatomyRegion::COUNT { Some(AnatomyRegion::ALL[index]) } else { None }
+    }
 }
 
 #[repr(u8)]
@@ -61,11 +75,11 @@ pub struct BodyAnatomySpec {
     pub shoulder_half_width: Fx,
     pub arm_length: Fx,
     pub hand_radius: Fx,
-    pub regions: [AnatomyRegionSpec; 5],
+    pub regions: [AnatomyRegionSpec; AnatomyRegion::COUNT],
     pub surface: SurfaceSpec,
-    pub integrity_maxima: [Fx; 5],
+    pub integrity_maxima: [Fx; AnatomyRegion::COUNT],
     pub blood_max: Fx,
-    pub armor: [ArmorSpec; 5],
+    pub armor: [ArmorSpec; AnatomyRegion::COUNT],
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]

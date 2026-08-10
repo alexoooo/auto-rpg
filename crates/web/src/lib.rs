@@ -4891,11 +4891,14 @@ mod tests {
         SUBMITTED_COMMAND.with(|buffer| *buffer.borrow_mut() = fixture);
         assert_eq!(submit_articulated(0, 0), 1);
         let fixture_digest = SIM.with(|sim| sim.borrow().as_ref().unwrap().world.state_digest().value);
-        // Moved by v2-14C, and by exactly one thing: ArticulatedV1 hashing now
-        // writes a global `cap_hits:u32` after the actuator loop. This fixture
-        // is unstepped, so those four bytes are zero, and the value below was
-        // predicted from the old one before it was measured.
-        assert_eq!(fixture_digest, 0x0104_11d5_21a3_76d7);
+        // Moved by v2-15, and by exactly one thing: ArticulatedV1 hashing now
+        // writes one 61-byte anatomy row per allocated slot after the global
+        // `cap_hits:u32`. This fixture is unstepped, so every row is the
+        // construction row -- regional maxima, no wound, no severance, full
+        // blood, no shock, `EntityId::NONE` -- and the move was predicted from
+        // that before it was measured. Moved once before, by v2-14C appending
+        // `cap_hits` itself, from `0x584d711e492950e7` to `0x010411d521a376d7`.
+        assert_eq!(fixture_digest, 0x6e61_a92e_c96a_c3a6);
     }
 
     #[test]
@@ -5423,9 +5426,15 @@ mod tests {
         // cannot agree with the reference while disagreeing with each other.
         let mut hash = fx::Hash64::new();
         hash.write_bytes(&bytes);
-        assert_eq!(hash.finish(), 0xfe6c_e41e_c023_c1e5);
-        assert_eq!(contact_behavior_digest_lo(), 0xc023_c1e5);
-        assert_eq!(contact_behavior_digest_hi(), 0xfe6c_e41e);
+        // Moved by v2-15, and by exactly one byte: case 6's body is now five
+        // regional volumes rather than one anonymous capsule, so its fact names
+        // the region it chose. The five volumes are the same coincident point
+        // the capsule was, so the geometry is unchanged and only the region
+        // byte moved -- `0xff` to Head's zero. Previously
+        // `0xfe6ce41ec023c1e5`.
+        assert_eq!(hash.finish(), 0x587b_0259_e877_105a);
+        assert_eq!(contact_behavior_digest_lo(), 0xe877_105a);
+        assert_eq!(contact_behavior_digest_hi(), 0x587b_0259);
         // 256 and not 0: the corpus is full of zero bytes, so zero cannot say
         // "past the end" and a byte value cannot be a sentinel.
         assert_eq!(contact_behavior_corpus_byte(3_548), 256);

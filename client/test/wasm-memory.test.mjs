@@ -280,18 +280,27 @@ test("the_browser_contact_warmup_does_not_grow_wasm_memory", () => {
   // because a detached view reads a `byteLength` of zero too. This is the same
   // reason the legacy test above asserts its retained lengths are non-zero.
   wasm.init(1);
-  // **Three warm rounds, measured rather than chosen.** One is enough above
+  // **Nine warm rounds, measured rather than chosen.** One is enough above
   // because that fixture never holds two worlds at once; this one does, on
   // every reset, and dlmalloc takes more than a single round of that pattern to
-  // stop asking the host for pages. Measured over the seed list below: 182
-  // pages at the end of round one, 206 by the end of round two, and 206 for
-  // every round after -- so two would do and the third is margin. The seeds are
-  // warmed in the order the guarded cycles drive them, because
+  // stop asking the host for pages.
+  //
+  // Re-measured for v2-15, and the count moved with it: a body collider is now
+  // five swept regional volumes instead of one capsule, so `ContactCollider`
+  // went from 144 bytes to 352 and the reservation grew about 40 KiB a world.
+  // Two worlds are live across a reset, and the allocator answers that by
+  // taking a coarser arena rather than a proportional one. Measured over the
+  // seed list below: 207 pages from the end of round one through round six,
+  // then 231 from round seven onward and unchanged through round fourteen --
+  // so seven would do and nine is margin. Before v2-15 it was 182 pages after
+  // round one and 206 from round two, and three rounds was the same margin.
+  //
+  // The seeds are warmed in the order the guarded cycles drive them, because
   // `init_articulated_test` builds a whole legacy `Sim` -- a generated floor,
   // its nav fields and its fog -- before it replaces the world, and a floor's
   // footprint depends on its seed. None of that is what this test is about, and
   // warming it out of the way is what keeps the subject the reservation.
-  for (let round = 1; round <= 3; round++) {
+  for (let round = 1; round <= 9; round++) {
     for (const seed of seeds) contactWarmup(wasm, abi, seed);
   }
 
