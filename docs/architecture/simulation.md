@@ -102,18 +102,19 @@ and objectives only.
 The non-legacy command boundary and immutable scenario-owned combat specs are
 stored, hashed, and used to validate prospective equipment-grip transactions.
 Persistent body-yaw and arm actuators participate in the `ArticulatedV1` tick branch,
-and so does contact — but only in part while v2-14 checkpoint C finishes. What is
-authoritative today is the entry velocity clamp: it mutates body velocity and both
-arm rows, so it is hashed state even though no fact has been resolved. The phase then
-builds this tick's colliders and stops. The solve, the impulse commit, wall
-settlement, and the cap commit are still owed, so `cap_hits` is hashed but always
-zero, no contact impulse reaches a body, and anatomy evolution and `articulated`
-damage do not participate at all.
+and so does contact, complete: the entry velocity clamp, the collider build, the
+bounded group solve, the impulse commit, one wall settlement per changed body, and the
+cap commit. Body velocity, body position, both arm rows, the shield pose, and the
+global `cap_hits` counter are all authoritative outputs of the phase, and completed
+resolutions are published beside them as evidence rather than as a second authority.
+The solver is handed collider scratch and never a world column, so a mid-tick
+`ResolutionError` costs the tick its contact and leaves no half-written body. Anatomy
+evolution and `articulated` damage do not participate: v2-14 mutates no HP.
 
 ## Source anchors
 
 - Storage and construction: [`World` fields and `World::new`](../../crates/sim/src/world.rs)
 - Decision seam: [`World::pending_decisions`, `World::observe`, and `World::submit`](../../crates/sim/src/world.rs)
-- Tick phase order: [`World::step`](../../crates/sim/src/world.rs#L1216)
+- Tick phase order: [`World::step`](../../crates/sim/src/world.rs#L1366)
 - Observation shape and feature projection: [`obs.rs`](../../crates/sim/src/obs.rs)
 - Command, order, and objective inputs: [`command.rs`](../../crates/sim/src/command.rs)

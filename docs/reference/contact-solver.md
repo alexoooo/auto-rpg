@@ -1,8 +1,8 @@
 # Contact solver contract
 
 **Purpose:** Freeze contact layouts, ordering, equations, cap behavior, and corpus bytes for v2-14.
-**Status:** proposed
-**Canonical source:** `crates/sim/src/combat/contact.rs` and `resolution.rs` after v2-14 lands
+**Status:** current
+**Canonical source:** [`contact.rs`](../../crates/sim/src/combat/contact.rs), [`resolution.rs`](../../crates/sim/src/combat/resolution.rs), and the contact phase in [`world.rs`](../../crates/sim/src/world.rs)
 **Update when:** A collider, contact field, coefficient, equation, ordering rule, cap rule, or digest byte changes.
 
 This is the canonical deterministic contract for the purpose-built XYZ contact
@@ -337,10 +337,26 @@ ceilings, not on a clamp. Raising `arm_length`'s validator bound or
 `ARM_BEARING_MAX_SPEED_RAW` reopens this defect from the other end and must revisit this
 paragraph.
 
+**`body_requested += Db` moves nothing in this implementation, and that is not a
+skipped step.** The rule is written for a model whose body sweep is an integration of
+`World::vel`; this one's is not. Both body sweep endpoints are *positions* the tick
+already produced — `post_separate - locomotion` and `post_separate` — where locomotion
+is bounded by the movement rules at roughly 0.05 per tick against a clamp of 2.309, and
+the separation shove is positional by construction. So clamping the body's generalized
+velocity has no endpoint to shift, and the equipment endpoint moves by `De` alone rather
+than by `Db + De`. The clamped velocity is still authoritative: it is what the body
+collider and every collider that body holds carry into the sweep and the ledger.
+
 Then inverse-map any shifted endpoint and apply the `Both` mirror. Body translation
 is not added a second time during equipment clamp. This entry clamp is
 articulated-only and precedes energy and sweeps; it remains authoritative even when
-no fact occurs. Application clamps again. Focused tests cover repeated
+no fact occurs. Application clamps again. A clamped arm is also owed the full commit
+below, and the two forms genuinely differ: the entry clamp stores
+`linear_velocity = clamped - clamped_body` while the commit writes
+`final_relative_hand - previous_hand`, and they agree only while the joint clamp does
+not bite. `mixed_body_and_equipment_entry_clamps_translate_each_endpoint_once` asserts
+both halves — the arithmetic form the collider is built from, and the committed form
+that supersedes it once the phase finishes. Focused tests cover repeated
 crowded separation, movement, Both mirroring, and both clamps. No unchecked product,
 `HashMap`, float, RNG, or allocation order may affect output, and no ordering may
 depend on anything but a strict total order.
@@ -462,6 +478,26 @@ after each group. For `Both`, inverse-map only the right
 owner, then call the v13 two-handed mirror. Left `previous_hand` remains its tick-entry
 value and final left `linear_velocity` is final left hand minus that previous hand.
 
+**Inside a trial the applied hand is derived from the velocity, not from the
+trajectory**, and this is forced rather than chosen: `ContactTrialProjector::project`
+is handed rows, accumulators and an alpha, and no time — the driver's global `g` is
+private and passing it would put a pose parameter into a signature whose whole subject
+is velocity. It costs nothing, because `hand = tick-entry hand + relative velocity` is
+this contract's own identity in both directions: an arm's generalized velocity *is* its
+hand's displacement over the tick, which is exactly what the commit writes back. So a
+trial reads `entry_hand + (trial_equipment_velocity - trial_body_velocity)`, maps it
+through `inverse_hand`/`hand_position`, and reports
+`trial_body_velocity + (reachable_hand - entry_hand)`. With a zero accumulator that
+round-trips to the pose the actuator left, which is why an unchanged row must be
+recognised as unchanged rather than re-derived — see the commit rule below.
+
+**The pre-group scalar pose is the pose the contact phase found**, before its own
+entry clamp or its solve wrote one, and the remaining fraction comes from the last
+group that entity was in. One write per arm at commit rather than one per group is
+what makes a single reference correct: the actuator's own motion this tick is already
+billed on its own speeds, and re-billing it would report a swing's rate as the block's.
+An arm whose only change is the entry clamp has no group, and answers a whole tick.
+
 At final commit, every contacted arm—not only `Both`—keeps
 `previous_hand=tick_entry.hand` and writes `linear_velocity=final_relative_hand-
 previous_hand`. Its scalar speeds use the remaining-fraction rule above; when
@@ -471,14 +507,37 @@ Choose final scratch rows first. With no fact and no entry clamp, they are the s
 requested World rows byte-for-byte. A body entry clamp selects its adjusted scratch
 endpoint. An equipment entry clamp selects its adjusted endpoint and requires the
 same inverse-map/`Both` mirror/previous-hand/scalar-speed commit as a contacted arm.
+
+**"Byte-for-byte" is enforced by writing only the rows that moved**, and it has to be:
+`inverse_hand` is not the exact inverse of `hand_position` — the forward map goes
+through a sine table and the inverse through `Vec2::angle`, measured at up to 53 raw
+units of hand movement per round trip — so re-deriving an untouched arm would drift the
+pose of every fighter that touched nothing, every tick. A row is changed when its solved
+relative hand differs from the requested one, or when the entry clamp flagged it, or
+when the cap froze its entity; nothing else is rewritten.
+
 Then commit every changed final body endpoint through the existing wall-settlement path exactly once;
-do not run body/body separation a second time. A wall-clipped component is zeroed by
+do not run body/body separation a second time. **That path is `World::move_body`, not
+`World::settle` alone.** The two are not interchangeable and the choice is forced by the
+clamp: a contact delta is bounded by `CONTACT_COMPONENT_SPEED_LIMIT` and nothing
+narrower, so one commit can be longer than the one-tile walls a carved plan cuts, and
+`settle` on its own clamps the destination without noticing the masonry the body passed
+through. `move_body` sweeps in sub-steps no longer than half a tile and calls `settle`
+once per sub-step, which is the existing path applied once to one commit — and it
+degenerates to exactly one `settle` on an uncarved plan, so nothing that has no walls
+to hit pays for the sweep. A wall-clipped component is zeroed by
 that existing path. Zero the same absolute velocity component on every held collider
 of that body, then rebuild its arm-relative velocity and `Both` mirror. Any new body
 overlap is owned by the next tick's single planar separation pass. Wall settlement is
 after the solver, separately dissipative, and absent from group ledgers/injury. A
 test compares closure energy immediately before/after settlement and requires it not
 to increase.
+
+The arm poses are fixed against the *solver's* body origin, before settlement moves it.
+A wall push is rigid: it must carry body and arms together, and measuring the relative
+hand against the settled origin instead would drag the hand out of its socket by exactly
+the distance the wall pushed. Because the arm's authoritative state is relative, that
+falls out for free — the absolute hand follows the body with nothing else written.
 
 A key already in the suppression set whose local re-sweep TOI is zero (and whose
 mapped time therefore equals current global time) first tests current velocities
@@ -610,11 +669,20 @@ since the workspace keeps overflow checks on. Channels remain `u64`; no v14
 proof permits narrowing them to `Fx` or one ABI word. V2-14 mutates no health.
 
 A mid-tick `Err` from the driver leaves the collider rows partly advanced: earlier
-groups have already been applied and committed to the caller's slice. That is
-harmless while the rows are the caller's own scratch, which is all checkpoint B has,
-but checkpoint C hands `World` columns to this function, where a partial advance is a
-half-written world. C owns deciding whether to advance a copy and swap on success, or
-to treat any `ResolutionError` as fatal.
+groups have already been applied and committed to the caller's slice.
+
+**Checkpoint C answered this structurally, and neither of the two options it was left
+was needed.** `World` does not hand this function its columns. The phase builds
+colliders into retained scratch, solves there, and commits afterwards in one pass, so
+the partial advance is a property of scratch the world never sees: on `Err` the phase
+clears its published resolutions and returns, and no body, arm, shield pose or counter
+has moved. That is "advance a copy and swap on success" with no copy — the rows were
+never the world's to begin with — and it avoids the alternative outright, because
+treating a `ResolutionError` as fatal means a panic, and the far end of this call is a
+browser holding typed-array views into linear memory where a trap blanks the page for
+its lifetime. The commit pass is also what makes the "only rows that moved" rule above
+expressible at all: it is the one place that can compare a solved row against the
+requested one it started from.
 
 Collider rows handed to the solver must have distinct `(EntityId, LimbSlot)` identity,
 and the driver returns `DuplicateIdentity` rather than trusting it. A duplicate
@@ -805,9 +873,17 @@ fixture stated here:
   `contact_corpus_matches_on_eight_native_threads` prove the two corpora above.
 - `contact_modified_pose_survives_replay_at_every_tick` uses seed 1000, Fighter
   `(10,8)`, Brute `(23/2,8)`, and 60 ticks. Before each tick submit Fighter Hold,
-  move/yaw zero, left tucked `(0,MID,1/4,0)`, right `(0,MID,1,0)`; submit Brute
-  Hold, move zero/yaw HALF, left tucked `(HALF,MID,1/4,0)`, right
-  `(HALF,MID,1/4,0)`, all grips Keep. Require at least one WeaponBody row, then
+  move/yaw zero, left tucked `(0,MID,1/4,0)`, right `(0,MID,1,1)`; submit Brute
+  Hold, move zero/yaw HALF, left tucked `(HALF,MID,1/4,1)`, right
+  `(HALF,MID,1/4,1)`, all grips Keep.
+  **The effort column read `0` on three of those four arms and that was wrong.** A
+  zero-effort arm has zero acceleration and never leaves its spawn pose, so the fixture
+  held the fighter at tucked quarter reach for all sixty ticks and its blade stopped
+  0.0003 units outside the brute's capsule — measured, and the closest that version
+  ever came to a fact. Nothing else in the rows moved, and a reaching arm is what the
+  proof was always about: a swing that lands, is stopped, and has to replay bit for bit
+  from the recorded command rather than from the pose the solver happened to leave.
+  Require at least one WeaponBody row, then
   compare every tick's resolutions, body/arm rows, cap counter, and StateDigest to
   playback of the recorded accepted commands.
 - `dead_and_reused_slots_keep_contact_identity_and_hash_coverage` uses the same two
@@ -818,8 +894,50 @@ fixture stated here:
   public despawn API before v2-15.
 - `contact_scratch_grows_only_with_allocated_high_water`,
   `invalid_dynamic_contact_capacity_fails_before_spawn_mutates`,
-  `both_has_one_right_owned_collider_and_mirrors_after_contact`,
   `contact_cap_hashes_once_after_all_actuator_rows`, and
-  `legacy_worlds_have_no_contact_state_or_schedule_phase` prove storage, Both,
+  `legacy_worlds_have_no_contact_state_or_schedule_phase` prove storage,
   hashing, reuse, and legacy isolation. The web no-growth and byte-for-byte wasm
   checks prove the host side.
+- The three fixtures below carried one-line mentions and were designed by
+  checkpoint C. All three share the *clinch*: `Scenario::articulated_duel()` with the
+  spawns moved to Fighter `(10,8)` and Brute `(23/2,8)` at seed 1000, which is a unit
+  and a half apart and therefore inside both weapons. The duel's own spawns cannot be
+  used and cannot be moved in place — ten units apart resolves nothing, and
+  `articulated_duel_v1_has_the_frozen_identity_and_placement` pins them.
+  - `repeated_crowded_separation_clamps_before_energy_and_sweep` has two halves. The
+    ordering half drives the contact phase directly with the pair fifty units apart and
+    a body velocity of five per axis — 8.66 long against an envelope of four — and
+    requires the velocity to come back clamped and *no* fact to exist; running it
+    through `World::step` instead would let movement teleport the bodies before contact
+    saw the number. The repeated half steps the clinch forty times and requires, every
+    tick, that no collider velocity leaves the clamp, that each body's swept extent
+    still equals its recorded locomotion however often separation fired, and that no
+    ledger gained energy.
+  - `wall_settlement_never_increases_entity_closure_energy` pins a fighter against the
+    east wall and walks the brute's club into him from 1.8625 west, which puts the tip
+    a fifth of a unit short of the fighter's axis: inside the 0.41 radius sum, and far
+    enough that the tip is the closest feature and the normal is exactly east. Poses go
+    straight onto the columns rather than being coaxed out of the actuator, so the test
+    does not stop testing settlement the day a yaw rate moves. It compares closure
+    energy over the solver's rows against the same closure over the committed world,
+    requires it not to increase, and separately requires at least one tick where the
+    body was clipped and every held collider lost the same component.
+  - `both_has_one_right_owned_collider_and_mirrors_after_contact` rebinds the club to
+    both hands in the scenario's own spec table — nothing shipped is two-handed yet,
+    and `validate_equipment` refuses a two-handed shield, so a segment is the only
+    thing it can be written against. It requires exactly one collider for the pair,
+    right-owned, no resolution keyed to slot 0, and the left arm equal to the mirror of
+    the committed right. A second world with the fighter moved fifty units away is the
+    control that makes the last of those non-vacuous: without it, "the left arm mirrors
+    the right" is equally true of a tick that resolved nothing, because the actuator
+    mirrors it too.
+- **The browser cap fixture is still owed, and its blocker has moved rather than
+  gone.** The solver runs inside `World::step` now, so the memory test's ticks carry
+  the collector, the grouping driver, the eighteen-call alpha search and the commit.
+  But the host's articulated world is `Scenario::articulated_duel()` with two rows ten
+  units apart holding neutral standing commands, `spawn_monster` is refused on an
+  articulated world, and no articulated command or steering export exists before v2-16
+  — so nothing on that boundary can make a pair touch, let alone nine times in one
+  tick. Swapping the scenario for a contacting one would move `ARTICULATED_COMMAND_HASH`
+  for a reason unrelated to what that probe pins. It lands with the articulated
+  boundary; a stub would prove the stub.

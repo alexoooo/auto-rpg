@@ -238,18 +238,27 @@ function contactWarmup(wasm, abi, seed, guard = null) {
 
   // ---- the cap fixture goes here, and is deliberately not here yet.
   //
-  // The contract asks this test to run the group cap before the tick below.
-  // The contact solver is not wired into `World::step` yet -- that is the sim
-  // half of v2-14C -- so a tick resolves nothing and there is no sequence of
-  // exports that can make `MAX_CONTACT_GROUPS_PER_TICK` fire. Nothing stands in
-  // for it: a stubbed cap hit would prove the stub. Everything the fixture will
-  // need is already true at this line -- the world is articulated, reserved to
-  // the ceiling, and every pointer and view is captured -- so it lands as a
-  // block here and the tick and the invariant below carry it unchanged.
+  // The contract asks this test to run the group cap before the tick below, and
+  // the blocker has changed rather than gone away. The solver is wired into
+  // `World::step` now -- the ticks below run the collector, the grouping
+  // driver, the coupled projector and the commit for real -- but this world is
+  // `Scenario::articulated_duel()`, whose two rows stand ten units apart with
+  // neutral standing commands, and the boundary exports no way to move them:
+  // `spawn_monster` is refused on an articulated world, and no articulated
+  // command or steering export exists before v2-16. So no pair ever touches,
+  // let alone nine times in one tick. Nothing stands in for it: a stubbed cap
+  // hit would prove the stub, and the scenario cannot be swapped for a
+  // contacting one without moving `ARTICULATED_COMMAND_HASH`, which this
+  // session is not allowed to move for any other reason. It lands the day the
+  // boundary can drive an articulated body; everything else the fixture needs
+  // is already true at this line.
 
   // At least one further tick, which is where a solver that reserved too little
   // would grow linear memory: the reservation above is per allocated slot, and
-  // a per-tick allocation is exactly what it exists to remove.
+  // a per-tick allocation is exactly what it exists to remove. These ticks now
+  // carry the whole solve, so what they prove has grown with it -- the group
+  // driver, the eighteen-call alpha search, and the commit all run inside them,
+  // and every one of those was a candidate for a per-tick allocation.
   checked("step(1)", () => wasm.step(1));
   checked("step(64)", () => wasm.step(64));
   reserved("step(64)");

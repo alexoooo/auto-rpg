@@ -59,12 +59,12 @@ Track 3. The ordered foreground performance capture still named by `v2-09` is
 follow-up evidence, not a blocker for `v2-10` through `v2-16`; `v2-17` still requires
 its own visible mechanical review.
 
-**Progress (2026-08-09):** sessions `v2-01` through `v2-13` are complete and
-committed. `v2-14` is the one session in flight: its checkpoints A and B are
-complete, and checkpoint C has landed everything except the solve call and its
-commit. `v2-14-contact-solver.md` section C carries the exact resume point, the
-helpers already built, and the decisions it still owns; start there rather than at
-the top of that file.
+**Progress (2026-08-09):** sessions `v2-01` through `v2-14` are complete and green.
+`v2-14`'s three checkpoints all landed; an articulated tick now resolves contact,
+commits impulses, settles against walls, and hashes its cap counter. One item is
+carried forward rather than done: the browser group-cap fixture in
+`client/test/wasm-memory.test.mjs`, which is blocked on the articulated command
+boundary that `v2-16` owns and not on the solver. `v2-15` is next.
 
 ## Session order and hash prediction
 

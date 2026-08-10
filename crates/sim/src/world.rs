@@ -19,7 +19,8 @@ use crate::combat::contact::{contact_bounds, try_reserve_exact, ContactCapacityE
                              ContactSolverState, BODY_SLOT,
                              MAX_CONTACT_RESOLUTIONS_PER_TICK};
 use crate::combat::geometry;
-use crate::combat::resolution::ContactTickScratch;
+use crate::combat::resolution::{self, ContactTickScratch, ContactTrialProjector,
+                                GeneralizedCollider, GeneralizedKind, ResolutionError};
 use crate::{EquipmentGeometry, EquipmentSpecId};
 use fx::{Angle, Fx, Hash64, Rng, Vec2, Vec3};
 
@@ -366,6 +367,10 @@ struct ContactRuntime {
     colliders: Vec<ContactCollider>,
     resolutions: Vec<ContactResolution>,
     entry: Vec<TickEntry>,
+    /// One row per body in the trial closure, so an equipment row can read the
+    /// delta that translates it. Retained rather than built inside `project`,
+    /// which the greedy alpha search calls up to eighteen times a group.
+    bodies: Vec<BodyTrial>,
     /// The high water every vector above is reserved for. A request at or below
     /// it is a no-op, which is exactly what makes reusing a dead slot free.
     high_water: usize,
@@ -379,7 +384,83 @@ impl ContactRuntime {
         try_reserve_exact(&mut self.colliders, bounds.collider_bound)?;
         try_reserve_exact(&mut self.resolutions, MAX_CONTACT_RESOLUTIONS_PER_TICK)?;
         try_reserve_exact(&mut self.entry, high_water)?;
+        try_reserve_exact(&mut self.bodies, high_water)?;
         self.high_water = high_water;
+        Ok(())
+    }
+}
+
+/// One body's trial outcome inside a single projection.
+///
+/// The body row is what couples a group: its delta translates every collider
+/// its entity holds, so the equipment pass has to read a value the body pass
+/// produced rather than its own accumulator alone.
+#[derive(Clone, Copy)]
+struct BodyTrial {
+    entity: EntityId,
+    /// The trial body velocity, which is also the origin every held collider's
+    /// relative hand is measured against.
+    velocity: Vec3,
+    /// What the accumulator and the clamp between them actually moved.
+    delta: Vec3,
+}
+
+/// World's coupled trial projector.
+///
+/// Holds `&World` and writes nothing. That is not a stylistic preference: the
+/// driver calls this up to eighteen times per group looking for the largest
+/// valid alpha, and seventeen of those are hypotheticals. Everything
+/// authoritative is written once, afterwards, by [`World::commit_contact`] --
+/// which is also why a mid-tick `ResolutionError` costs nothing to abandon.
+struct ContactProjector<'a> {
+    world: &'a World,
+    entry: &'a [TickEntry],
+    bodies: &'a mut Vec<BodyTrial>,
+}
+
+impl ContactTrialProjector for ContactProjector<'_> {
+    /// Two passes, because equipment cannot be projected until its body has
+    /// been. A body impulse drags everything that body holds, so an arm's trial
+    /// velocity is its own accumulator *plus* the body's applied delta -- and
+    /// the joint clamp below then asks whether the arm could have got there at
+    /// all.
+    fn project(
+        &mut self,
+        before: &[GeneralizedCollider],
+        sums: &[[i128; 3]],
+        alpha_raw: u32,
+        out: &mut Vec<GeneralizedCollider>,
+    ) -> Result<(), ResolutionError> {
+        out.clear();
+        out.extend_from_slice(before);
+        self.bodies.clear();
+        for (row, sum) in out.iter_mut().zip(sums) {
+            // `scaled_delta` divides by this, so it is checked here rather than
+            // left to a debug assertion inside it.
+            if row.mass <= Fx::ZERO { return Err(ResolutionError::Mass); }
+            if row.kind != GeneralizedKind::Body { continue; }
+            let delta = resolution::scaled_delta(*sum, alpha_raw, row.mass.raw());
+            // The Z component is discarded rather than clamped: a body's
+            // vertical reaction is the floor's, and v2-14 gives a body no
+            // vertical degree of freedom at all. Nothing here can lift a
+            // fighter, however hard it is hit from below.
+            let velocity = clamp_contact_velocity(
+                Vec3::new(row.velocity.x + delta.x, row.velocity.y + delta.y, Fx::ZERO));
+            self.bodies.push(BodyTrial { entity: row.entity, velocity, delta: velocity - row.velocity });
+            row.velocity = velocity;
+        }
+        for (row, sum) in out.iter_mut().zip(sums) {
+            if row.kind == GeneralizedKind::Body { continue; }
+            // The closure always carries the owning body of every fact
+            // participant, so a missing one is a broken closure and not a case
+            // to paper over with the un-translated velocity.
+            let body = *self.bodies.iter().find(|body| body.entity == row.entity)
+                .ok_or(ResolutionError::ColliderIndex)?;
+            let own = resolution::scaled_delta(*sum, alpha_raw, row.mass.raw());
+            let requested = clamp_contact_velocity(row.velocity + own + body.delta);
+            row.velocity = self.world.joint_clamped_velocity(
+                *row, self.entry, body.velocity, requested)?;
+        }
         Ok(())
     }
 }
@@ -398,6 +479,41 @@ fn clamp_contact_velocity(value: Vec3) -> Vec3 {
     Vec3::new(value.x.clamp(-L, L), value.y.clamp(-L, L), value.z.clamp(-L, L))
 }
 
+/// The unconsumed fraction of the tick after the last group `entity` was in, as
+/// a raw numerator over 65,536.
+///
+/// An entity with no resolution answers a whole tick, which is exactly right
+/// for the other caller: an entry clamp happens at global time zero, so the
+/// pose change it makes is spread over the whole tick and its scalar speeds are
+/// the difference undivided.
+fn last_group_remaining(rows: &[ContactResolution], entity: EntityId) -> u32 {
+    let mut latest = 0u32;
+    for row in rows {
+        if row.fact.key.a != entity && row.fact.key.b != entity { continue; }
+        latest = latest.max(row.fact.toi.get().raw().max(0) as u32);
+    }
+    65_536 - latest.min(65_536)
+}
+
+/// One scalar joint difference as a per-tick rate: what contact changed,
+/// divided by the fraction of the tick it had left to change it in.
+///
+/// Truncating toward zero, which is what Rust's integer division does and what
+/// the contract asks for. A fully consumed tick has no remaining fraction to
+/// divide by and reports zero rather than an unbounded rate.
+fn scalar_speed(difference: i32, remaining_raw: u32) -> i32 {
+    if remaining_raw == 0 { return 0; }
+    let scaled = difference as i64 * 65_536 / remaining_raw as i64;
+    scaled.clamp(i32::MIN as i64, i32::MAX as i64) as i32
+}
+
+/// The componentwise midpoint, added in `i64` so that two large coordinates
+/// cannot saturate before the divide.
+fn midpoint3(a: Vec3, b: Vec3) -> Vec3 {
+    let component = |a: Fx, b: Fx| Fx::from_raw(((a.raw() as i64 + b.raw() as i64) / 2) as i32);
+    Vec3::new(component(a.x, b.x), component(a.y, b.y), component(a.z, b.z))
+}
+
 /// One slot's authoritative pose as the articulated tick found it.
 ///
 /// Contact sweeps from where the tick began rather than from where the actuator
@@ -413,15 +529,47 @@ struct TickEntry {
     locomotion: Vec2,
     arms: [ArmState; 2],
     shield: Option<ShieldPose>,
-    /// Retained because the contract's list says to and the commit stage will
-    /// read them, not because anything does yet. They are captured here rather
-    /// than added later so that the retention phase does not have to move once
-    /// the solve lands -- the whole point of taking these rows is that they are
-    /// gone by the time anyone wants them.
+    /// Retained because the contract's retention list says to. The commit turned
+    /// out not to read either: an arm's inverse map and the `Both` mirror both
+    /// want the yaw and the grips the tick *ended* on -- the yaw phase and the
+    /// grip phase have already run by the time contact does, and mapping a hand
+    /// back through a stale shoulder would put the pose somewhere the body is
+    /// no longer facing. They stay captured rather than being deleted because
+    /// v2-15 reads the entry pose to attribute a wound to the limb that was
+    /// holding the weapon when the tick began, and the retention phase is the
+    /// only place those rows still exist.
     #[allow(dead_code)]
     yaw: BodyYawState,
     #[allow(dead_code)]
     grips: [GripState; 2],
+    /// The scalar joint pose the contact phase found, before its own entry
+    /// clamp or its solve wrote one.
+    ///
+    /// Contact's scalar speeds are what *it* changed over the fraction of the
+    /// tick it had left, so they are measured from here and not from `arms`
+    /// above: the actuator's own motion this tick is already billed, and
+    /// re-billing it would report a swing's speed as the block's.
+    pre_contact: [ArmScalars; 2],
+    /// Whether the entry clamp moved that hand. Such a row's collider was built
+    /// *after* the clamp, so its solved endpoint equals its requested one and
+    /// nothing downstream can tell it apart from an untouched arm -- but the
+    /// contract still owes it the same commit a contacted arm gets, and this
+    /// is the only surviving evidence that it is owed.
+    clamped: [bool; 2],
+}
+
+/// The three scalars a joint pose is, without the derived hand or the speeds.
+#[derive(Clone, Copy)]
+struct ArmScalars {
+    bearing: Angle,
+    height: crate::CombatHeight,
+    reach: Fx,
+}
+
+impl ArmScalars {
+    fn of(arm: ArmState) -> ArmScalars {
+        ArmScalars { bearing: arm.bearing, height: arm.height, reach: arm.reach }
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -733,6 +881,8 @@ impl World {
         let mut rows = contact.scratch.capacities();
         rows.push(contact.colliders.capacity());
         rows.push(contact.resolutions.capacity());
+        rows.push(contact.entry.capacity());
+        rows.push(contact.bodies.capacity());
         rows
     }
 
@@ -3459,6 +3609,12 @@ impl World {
                 shield: self.shield_pose[i],
                 yaw: self.body_yaw[i],
                 grips: self.grips[i],
+                // Placeholders: both are written by the contact phase itself,
+                // which is the only moment "before contact touched it" means
+                // anything. Seeding them from the tick-entry row keeps a slot
+                // that never reaches the phase from carrying a stale pose.
+                pre_contact: [ArmScalars::of(self.arms[i][0]), ArmScalars::of(self.arms[i][1])],
+                clamped: [false; 2],
             });
         }
         self.contact = Some(contact);
@@ -3482,20 +3638,233 @@ impl World {
     /// pinned by a phase trace rather than argued from the reading order of the
     /// match above.
     ///
-    /// **Checkpoint C is landing the body of this in stages.** The entry clamp
-    /// and the collider construction are here; the solve and the commit are not,
-    /// so an articulated tick still resolves nothing and `cap_hits` is still
-    /// always zero. The clamp runs anyway, and that is the contract's rule
-    /// rather than an accident of ordering: it is authoritative even when no
-    /// fact occurs, because its job is to keep the sweep inside the geometry
-    /// envelope and a row that leaves the envelope is dangerous whether or not
-    /// anything was going to touch it.
+    /// The entry clamp runs even when nothing touches, and that is the
+    /// contract's rule rather than an accident of ordering: its job is to keep
+    /// the sweep inside the geometry envelope, and a row that leaves the
+    /// envelope is dangerous whether or not anything was going to touch it --
+    /// `fx` fails an out-of-envelope sweep *closed*, which manufactures a
+    /// contact rather than dropping one.
+    ///
+    /// **The driver is handed scratch, never a world column.** The contract
+    /// left checkpoint C to choose between advancing a copy and swapping on
+    /// success, or treating any `ResolutionError` as fatal. Neither was needed:
+    /// building colliders into `contact.colliders`, solving there, and
+    /// committing afterwards makes the partial advance a property of scratch
+    /// the world never sees. A mid-tick error therefore costs the tick its
+    /// contact and nothing else -- no half-written body, no copy, and no panic
+    /// on the one path whose far end is a browser holding typed-array views
+    /// into linear memory.
     fn resolve_contact(&mut self) {
-        let Some(mut contact) = self.contact.take() else { return };
+        if self.contact.is_none() { return; }
         self.clamp_contact_entry();
-        let ContactRuntime { entry, colliders, .. } = &mut contact;
-        self.build_contact_colliders(entry, colliders);
+        let Some(mut contact) = self.contact.take() else { return };
+        let solved = {
+            let ContactRuntime { state, scratch, colliders, resolutions, entry, bodies, .. } =
+                &mut contact;
+            self.build_contact_colliders(entry, colliders);
+            let mut projector = ContactProjector { world: self, entry, bodies };
+            resolution::solve_contact_tick(colliders, &mut projector, state, resolutions, scratch)
+        };
+        match solved {
+            Ok(_) => self.commit_contact(&contact),
+            Err(_) => contact.resolutions.clear(),
+        }
         self.contact = Some(contact);
+    }
+
+    /// The trial velocity one equipment row would actually end up with.
+    ///
+    /// An impulse moves a *point*; authoritative state is a *joint pose*, and a
+    /// shoulder cannot reach past its arm. So the trial goes out to the hand the
+    /// velocity implies, back through the joint, and out to the velocity the
+    /// clamped joint can deliver -- which is the value the energy check reads,
+    /// exactly as the contract requires, because keeping the unreachable one
+    /// would let a group buy energy the arm cannot supply.
+    ///
+    /// The hand is derived from the velocity rather than from the collider's
+    /// own trajectory, and it has to be: `project` is handed no time, so a
+    /// trajectory endpoint is not available to it. It costs nothing, because
+    /// both halves of the identity `hand = tick-entry hand + relative velocity`
+    /// are the contract's own -- an arm's velocity *is* its hand's displacement
+    /// over the tick, which is also what the commit writes back.
+    fn joint_clamped_velocity(
+        &self,
+        row: GeneralizedCollider,
+        entries: &[TickEntry],
+        body_velocity: Vec3,
+        requested: Vec3,
+    ) -> Result<Vec3, ResolutionError> {
+        let limb = row.slot as usize;
+        let (Some(i), true) = (self.resolve(row.entity), limb < 2) else {
+            return Err(ResolutionError::ColliderIndex);
+        };
+        let entry = entries.get(i).ok_or(ResolutionError::ColliderIndex)?;
+        let anatomy = self.combat_specs.as_ref()
+            .and_then(|table| table.anatomy(self.articulated_anatomy[i]?))
+            .ok_or(ResolutionError::ColliderIndex)?;
+        let yaw = self.body_yaw[i].angle;
+        let entry_hand = entry.arms[limb].hand;
+        let trial = entry_hand + (requested - body_velocity);
+        let (bearing, height, reach) =
+            actuator::inverse_hand(anatomy, yaw, limb, trial, self.arms[i][limb].bearing);
+        let reachable = actuator::hand_position(anatomy, yaw, limb, bearing, height, reach);
+        // Clamped again on the way out. The joint bounds a hand, not a speed,
+        // and a hand hauled from one side of the body to the other inside one
+        // tick is a displacement the envelope still has to survive. Nothing in
+        // spec reaches it -- this is the same tripwire the entry clamp is.
+        Ok(clamp_contact_velocity(body_velocity + (reachable - entry_hand)))
+    }
+
+    /// Write the solved tick back onto the world's own columns.
+    ///
+    /// **A row is written only when it moved**, and that is not an
+    /// optimisation. `inverse_hand` is not the exact inverse of
+    /// `hand_position` -- the forward map goes through a sine table and the
+    /// inverse through `Vec2::angle`, and the round trip is measured at up to
+    /// 53 raw units of hand movement -- so re-deriving an untouched arm would
+    /// drift the pose of every fighter that touched nothing, every tick, and
+    /// the contract's "with no fact and no entry clamp they are the saved
+    /// requested World rows byte-for-byte" would be false.
+    fn commit_contact(&mut self, contact: &ContactRuntime) {
+        for i in 0..self.alive.len() {
+            if self.alive[i] { self.commit_contact_row(i, contact); }
+        }
+    }
+
+    fn commit_contact_row(&mut self, i: usize, contact: &ContactRuntime) {
+        let entity = self.id_of(i);
+        let Some(body) = contact.colliders.iter().copied().find(|row| {
+            row.entity == entity && matches!(row.shape, ContactShape::Body { .. })
+        }) else { return };
+        let ContactShape::Body { previous_lower, .. } = body.shape else { return };
+        let entry = contact.entry[i];
+        let capped = contact.scratch.capped_entities().contains(&entity);
+        let remaining = last_group_remaining(&contact.resolutions, entity);
+        // The solver's own body origin, before the wall has had its say. A
+        // rigid push must not drag a hand out of its socket, so the arm's
+        // *relative* pose is fixed against this and the settlement below then
+        // carries body and arms together.
+        let origin = Vec3::new(previous_lower.x, previous_lower.y, Fx::ZERO);
+
+        let mut held = [false; 2];
+        for limb in 0..2 {
+            let Some(row) = contact.colliders.iter().copied().find(|row| {
+                row.entity == entity && row.slot as usize == limb
+                    && !matches!(row.shape, ContactShape::Body { .. })
+            }) else { continue };
+            let Some(hand) = self.collider_hand(i, row) else { continue };
+            held[limb] = true;
+            let relative = hand - origin;
+            if relative == self.arms[i][limb].hand && !entry.clamped[limb] && !capped { continue; }
+            self.commit_arm(i, limb, relative, entry, remaining, capped);
+        }
+
+        // One commit of the body endpoint, through the path a knockback already
+        // uses. `move_body` rather than `settle` alone: contact deltas are
+        // bounded by the component clamp and nothing narrower, so a single
+        // displacement can be longer than the one-tile walls this level plan
+        // carves -- and `settle` on its own would clamp the destination without
+        // ever noticing the masonry it passed through. `move_body` calls
+        // `settle` once per swept sub-step, which is "the existing
+        // wall-settlement path" applied once to one commit, and it degenerates
+        // to exactly one `settle` on an uncarved plan.
+        let solved_position = Vec2::new(previous_lower.x, previous_lower.y);
+        let solved_velocity = Vec2::new(body.velocity.x, body.velocity.y);
+        self.vel[i] = solved_velocity;
+        if solved_position != self.pos[i] { self.move_body(i, solved_position); }
+        let settled_velocity = self.vel[i];
+
+        // The wall's share, which is dissipative, unledgered, and outside every
+        // group. Zeroing the absolute component on each held collider and then
+        // rebuilding the relative one is what keeps it dissipative: the body
+        // lost that component too, so the difference loses it as well and the
+        // closure's energy can only fall.
+        if settled_velocity != solved_velocity {
+            for limb in 0..2 {
+                if !held[limb] { continue; }
+                let mut absolute = Vec3::new(solved_velocity.x, solved_velocity.y, Fx::ZERO)
+                    + self.arms[i][limb].linear_velocity;
+                if settled_velocity.x != solved_velocity.x { absolute.x = Fx::ZERO; }
+                if settled_velocity.y != solved_velocity.y { absolute.y = Fx::ZERO; }
+                self.arms[i][limb].linear_velocity = absolute
+                    - Vec3::new(settled_velocity.x, settled_velocity.y, Fx::ZERO);
+            }
+        }
+
+        if held[0] || held[1] {
+            if held[1] && self.two_handed(i) {
+                let anatomy = self.combat_specs.as_ref().expect("articulated combat specs")
+                    .anatomy(self.articulated_anatomy[i].expect("articulated anatomy"))
+                    .expect("validated articulated anatomy").clone();
+                let right = self.arms[i][1];
+                actuator::mirror_two_handed(&mut self.arms[i][0], right, &anatomy, self.body_yaw[i].angle);
+                // The mirror rebuilds the left velocity from the hands, which
+                // is right everywhere except here: a capped entity's owner was
+                // zeroed, and the contract mirrors the zero rather than a
+                // displacement the cap refused to let happen.
+                if capped { self.arms[i][0].linear_velocity = Vec3::ZERO; }
+            }
+            // The shield pose is a cached derivation of the hand and the yaw,
+            // and it is hashed. An arm the solver moved leaves it stale, which
+            // would put the drawn and the hashed shield in two different
+            // places.
+            self.shield_pose[i] = self.derive_shield_pose(i);
+        }
+    }
+
+    /// One contacted arm, written back as a joint pose.
+    fn commit_arm(
+        &mut self, i: usize, limb: usize, hand: Vec3,
+        entry: TickEntry, remaining: u32, capped: bool,
+    ) {
+        let anatomy = self.combat_specs.as_ref().expect("articulated combat specs")
+            .anatomy(self.articulated_anatomy[i].expect("articulated anatomy"))
+            .expect("validated articulated anatomy").clone();
+        let yaw = self.body_yaw[i].angle;
+        let pre = entry.pre_contact[limb];
+        let (bearing, height, reach) = actuator::inverse_hand(&anatomy, yaw, limb, hand, pre.bearing);
+        // The *clamped* hand, not the one asked for. The joint may refuse, and
+        // the state that has to be self-consistent is the pose plus the hand it
+        // actually produces.
+        let reachable = actuator::hand_position(&anatomy, yaw, limb, bearing, height, reach);
+        let arm = &mut self.arms[i][limb];
+        arm.bearing = bearing;
+        arm.height = height;
+        arm.reach = reach;
+        arm.hand = reachable;
+        arm.previous_hand = entry.arms[limb].hand;
+        if capped {
+            arm.linear_velocity = Vec3::ZERO;
+            arm.bearing_speed_turns = Fx::ZERO;
+            arm.height_speed = Fx::ZERO;
+            arm.reach_speed = Fx::ZERO;
+            return;
+        }
+        arm.linear_velocity = reachable - arm.previous_hand;
+        arm.bearing_speed_turns = Fx::from_raw(scalar_speed(bearing.delta(pre.bearing), remaining));
+        arm.height_speed = Fx::from_raw(scalar_speed(height.raw() - pre.height.raw(), remaining));
+        arm.reach_speed = Fx::from_raw(scalar_speed(reach.raw() - pre.reach.raw(), remaining));
+    }
+
+    /// The absolute hand a solved collider row ended on.
+    fn collider_hand(&self, i: usize, row: ContactCollider) -> Option<Vec3> {
+        match row.shape {
+            // A held segment's hilt *is* the hand: `segment_pose` builds it as
+            // the body origin plus the body-relative hand, and everything the
+            // driver does afterwards translates or interpolates both endpoints
+            // together.
+            ContactShape::Segment { previous_hilt, .. } => Some(previous_hilt),
+            // A shield publishes only its front face, so the hand comes back by
+            // undoing the two offsets `shield_face` added. Both come back
+            // exactly: the corners are symmetric about the front centre, and
+            // the half-thickness step is the identical product run backwards.
+            ContactShape::Shield { previous, .. } => {
+                let pose = self.shield_pose[i]?;
+                Some(midpoint3(previous[0], previous[2])
+                    - pose.normal * (pose.thickness / Fx::from_int(2)))
+            }
+            ContactShape::Body { .. } => None,
+        }
     }
 
     /// The articulated-only entry clamp, in the contract's exact componentwise
@@ -3509,6 +3878,14 @@ impl World {
     fn clamp_contact_entry(&mut self) {
         for i in 0..self.alive.len() {
             if !self.alive[i] { continue; }
+            // Before anything in this phase writes an arm: this is the pose the
+            // commit measures contact's own scalar speeds against, and it stops
+            // existing on the next line.
+            let scalars = [ArmScalars::of(self.arms[i][0]), ArmScalars::of(self.arms[i][1])];
+            if let Some(entry) = self.contact.as_mut().and_then(|c| c.entry.get_mut(i)) {
+                entry.pre_contact = scalars;
+                entry.clamped = [false; 2];
+            }
             let body = Vec3::new(self.vel[i].x, self.vel[i].y, Fx::ZERO);
             let clamped_body = clamp_contact_velocity(body);
             self.vel[i] = Vec2::new(clamped_body.x, clamped_body.y);
@@ -3525,15 +3902,23 @@ impl World {
                 // The difference of the two clamped absolutes, not a clamp of
                 // the relative velocity: the body translation is already in
                 // both terms and cancels, which is the double count the
-                // contract warns about. The final commit re-derives this from
-                // the committed hand, because a joint clamp can refuse to put
-                // the hand where this arithmetic asked; until the solve lands
-                // there is no commit and this is the authoritative value.
+                // contract warns about. This is the value the collider that
+                // gets built from this arm carries into the sweep -- the commit
+                // then re-derives it from the hand that was actually reached,
+                // because a joint clamp can refuse to put the hand where this
+                // arithmetic asked, and the two agree only when it does not.
                 self.arms[i][limb].linear_velocity = clamped - clamped_body;
                 if shift == Vec3::ZERO { continue; }
-                // Only the equipment's own share reaches the hand: the body
-                // shift moves the origin the hand is measured from, so adding
-                // it here would count it twice.
+                // Only the equipment's own share reaches the hand. The body's
+                // share is not applied a second time here and it is not applied
+                // anywhere else either: this body's sweep endpoints are the two
+                // *positions* the tick produced, not an integration of
+                // `World::vel`, so clamping that velocity moves no endpoint to
+                // begin with. The contract writes the rule as
+                // `body_requested += Db` for a model whose body sweep comes out
+                // of its velocity; ours cannot, because locomotion is bounded
+                // by movement rules two orders of magnitude under this clamp
+                // and the separation shove is positional by construction.
                 let hand = arm.hand + shift;
                 let (bearing, height, reach) =
                     actuator::inverse_hand(&anatomy, yaw, limb, hand, arm.bearing);
@@ -3543,10 +3928,22 @@ impl World {
                 self.arms[i][limb].hand =
                     actuator::hand_position(&anatomy, yaw, limb, bearing, height, reach);
                 shifted[limb] = true;
+                if let Some(entry) = self.contact.as_mut().and_then(|c| c.entry.get_mut(i)) {
+                    entry.clamped[limb] = true;
+                }
             }
             if shifted[1] && self.two_handed(i) {
                 let right = self.arms[i][1];
                 actuator::mirror_two_handed(&mut self.arms[i][0], right, &anatomy, yaw);
+            }
+            // The shield rides the hand, so a clamp that moved the hand leaves
+            // the pose the geometry phase derived a moment ago behind it -- and
+            // the shield collider is built from that pose on the next line but
+            // one. Re-derived here rather than by re-running the whole geometry
+            // phase, which would also re-run it for every arm the clamp did not
+            // touch and re-introduce the inverse map's drift.
+            if shifted[0] || shifted[1] {
+                self.shield_pose[i] = self.derive_shield_pose(i);
             }
         }
     }
@@ -5353,6 +5750,9 @@ mod tests {
         // the body was -- which is the property that keeps the two clamps from
         // compounding.
         assert_eq!(world.vel[0], Vec2::new(L, Fx::ZERO), "Db did not land the body on L");
+        // The arithmetic form, `clamped - clamped_body`, which is what the
+        // collider this arm builds carries into the sweep. It is *not* the
+        // value the arm ends the tick holding -- see the second half below.
         assert_eq!(world.arms[0][1].linear_velocity, Vec3::ZERO,
                    "the body translation was counted twice in the arm");
 
@@ -5376,6 +5776,32 @@ mod tests {
         // And the untouched arm keeps a relative velocity of zero rather than
         // inheriting the body's clamp.
         assert_eq!(world.arms[0][0].linear_velocity, Vec3::ZERO);
+
+        // **The commit supersedes the arithmetic form**, and this half is what
+        // the contract means by "an equipment entry clamp requires the same
+        // commit as a contacted arm". The two agree exactly while the joint
+        // clamp does not bite; here it does -- a shoulder cannot reach past its
+        // arm -- so the committed velocity is the hand's own displacement and
+        // the arithmetic zero above does not survive the phase. Run through the
+        // whole phase rather than through `clamp_contact_entry` alone, because
+        // the commit is the thing under test; the duel's pair stands ten units
+        // apart, so nothing else in it resolves.
+        let mut world = World::new(&Scenario::articulated_duel(), 1);
+        world.retain_contact_entry();
+        world.record_contact_locomotion();
+        world.vel[0] = Vec2::new(Fx::from_int(5), Fx::ZERO);
+        world.arms[0][1].linear_velocity = Vec3::new(Fx::ONE, Fx::ZERO, Fx::ZERO);
+        let entry_hand = world.arms[0][1].hand;
+        world.resolve_contact();
+
+        assert!(world.contact_resolutions().is_empty(), "the isolated fixture resolved a contact");
+        let arm = world.arms[0][1];
+        assert_eq!(arm.previous_hand, entry_hand, "the commit lost the tick-entry hand");
+        assert_eq!(arm.linear_velocity, arm.hand - arm.previous_hand,
+                   "a clamped arm kept the entry arithmetic instead of its committed hand");
+        assert_ne!(arm.linear_velocity, Vec3::ZERO,
+                   "the clamp moved the hand and the commit reported no motion");
+        assert_eq!(world.vel[0], Vec2::new(L, Fx::ZERO), "the commit disturbed the clamped body");
     }
 
     #[test]
@@ -5402,18 +5828,293 @@ mod tests {
         world.step();
         assert!(world.pos[1].x - world.pos[0].x > Fx::from_ratio(1, 4),
                 "planar separation did not push the pair apart");
+        // Non-empty first, or the check below is a claim about an empty slice.
+        // Two bodies this close are inside each other's weapons, so the solver
+        // has plenty to key -- what it must never key is the pair of bodies.
+        assert!(!world.contact_resolutions().is_empty(),
+                "the fixture resolved nothing, so the body/body check is vacuous");
         assert!(!world.contact_resolutions().iter().any(|row| {
             row.fact.key.a_slot == crate::combat::contact::BODY_SLOT
                 && row.fact.key.b_slot == crate::combat::contact::BODY_SLOT
         }), "the solver keyed a body against a body");
         assert_eq!(world.contact_cap_hits(), 0);
-        // And the shove stayed in the plane it was given. A body has no Z
-        // degree of freedom at all in v2-14: a contact delta discards its Z as
-        // floor reaction, so any Z here would have come from somewhere with no
-        // right to write it.
-        for i in 0..2 {
-            assert_eq!(world.vel[i].y, Fx::ZERO, "a planar shove left the axis it was given");
+        // And a body has no Z degree of freedom at all in v2-14: a contact
+        // delta discards its Z as floor reaction, so a body row carrying one
+        // would have got it from somewhere with no right to write it. Asserted
+        // on the collider rows rather than on `World::vel`, which is a `Vec2`
+        // and could not hold the counterexample even if the solver produced it.
+        let contact = world.contact.as_ref().expect("articulated contact state");
+        for row in &contact.colliders {
+            if matches!(row.shape, ContactShape::Body { .. }) {
+                assert_eq!(row.velocity.z, Fx::ZERO, "a body row carried a vertical velocity");
+            }
         }
+    }
+
+    /// A fighter and a brute a unit and a half apart -- inside each other's
+    /// weapons -- with the reaching commands that make them touch.
+    ///
+    /// Not `Scenario::articulated_duel()` unmodified: that fixture stands the
+    /// pair ten units apart and its spawns are pinned by
+    /// `articulated_duel_v1_has_the_frozen_identity_and_placement`, so a
+    /// contact fixture has to move them here.
+    fn clinch_scenario() -> Scenario {
+        let mut scenario = Scenario::articulated_duel();
+        scenario.units[0].spawn = Vec2::from_ints(10, 8);
+        scenario.units[1].spawn = Vec2::new(Fx::from_ratio(23, 2), Fx::from_int(8));
+        scenario
+    }
+
+    fn clinch_world() -> World {
+        World::new(&clinch_scenario(), 1000)
+    }
+
+    fn reaching_command(yaw: Angle, reach: Fx) -> ArticulatedCommandV1 {
+        let arm = |reach| ArmTarget {
+            bearing: yaw, height: crate::CombatHeight::MID, reach, effort: Fx::ONE,
+        };
+        ArticulatedCommandV1 {
+            move_dir: Vec2::ZERO, body_yaw: yaw, intent: Intent::Hold,
+            arms: [arm(Fx::from_ratio(1, 4)), arm(reach)],
+            grips: [GripRequest::Keep; 2],
+        }
+    }
+
+    /// Drive the clinch until it has resolved something, and answer the tick it
+    /// took. Panics rather than returning, because every caller's assertions
+    /// are vacuous without a fact.
+    fn step_into_contact(world: &mut World) -> u32 {
+        for tick in 0..60 {
+            // Resolved from the live columns rather than written as `(0,0)` and
+            // `(1,0)`: this is also called after a slot has been reused, and a
+            // stale handle is refused rather than obeyed, which would leave the
+            // brute holding a neutral command and the fixture proving nothing.
+            for i in 0..world.alive.len() {
+                if !world.alive[i] { continue; }
+                let yaw = if i == 0 { Angle::ZERO } else { Angle::HALF };
+                let reach = if i == 0 { Fx::ONE } else { Fx::from_ratio(1, 4) };
+                world.submit_articulated_v1(world.id_of(i), reaching_command(yaw, reach));
+            }
+            world.step();
+            if !world.contact_resolutions().is_empty() { return tick; }
+        }
+        panic!("the clinch fixture never resolved a contact");
+    }
+
+    #[test]
+    fn repeated_crowded_separation_clamps_before_energy_and_sweep() {
+        const L: Fx = crate::combat::contact::CONTACT_COMPONENT_SPEED_LIMIT;
+        let inside = |value: Fx| value >= -L && value <= L;
+
+        // The ordering half, stated as the defect it prevents. A body handed a
+        // velocity of five per axis is 8.66 long against a sweep envelope of
+        // four, and `fx` fails an out-of-envelope sweep *closed* -- it answers
+        // `TimeOfImpact::ZERO`, which manufactures a contact against every
+        // hostile collider in the arena however far away. Driving the phase
+        // directly rather than through `World::step` is what keeps the five
+        // from simply teleporting the bodies apart before contact sees it.
+        let mut world = clinch_world();
+        world.pos[1] = Vec2::from_ints(60, 8);
+        world.retain_contact_entry();
+        world.record_contact_locomotion();
+        for i in 0..world.alive.len() { world.vel[i] = Vec2::from_ints(5, -5); }
+        world.resolve_contact();
+        for i in 0..world.alive.len() {
+            assert!(inside(world.vel[i].x) && inside(world.vel[i].y),
+                "the entry clamp did not run before the sweep");
+        }
+        assert!(world.contact_resolutions().is_empty(),
+            "an out-of-envelope sweep manufactured a contact fifty units away");
+
+        // And the repeated half: a crowd that separation has to unpick every
+        // tick, with the two of them inside each other's weapons throughout.
+        let mut world = clinch_world();
+        for _ in 0..40 {
+            world.submit_articulated_v1(EntityId::new(0, 0), reaching_command(Angle::ZERO, Fx::ONE));
+            world.submit_articulated_v1(EntityId::new(1, 0), reaching_command(Angle::HALF, Fx::ONE));
+            world.step();
+            let contact = world.contact.as_ref().expect("articulated contact state");
+            for row in &contact.colliders {
+                assert!(inside(row.velocity.x) && inside(row.velocity.y) && inside(row.velocity.z),
+                    "a collider left the clamp the sweep is built against");
+            }
+            for i in 0..world.alive.len() {
+                // Separation moves both sweep endpoints together, so however
+                // often it fires it contributes no relative motion for the
+                // energy ledger to pay for.
+                let (start, end) = world.contact_body_sweep(i);
+                assert_eq!(end - start, contact.entry[i].locomotion,
+                    "a separation shove leaked into the swept extent");
+            }
+            for row in world.contact_resolutions() {
+                assert!(row.energy.after_raw <= row.energy.before_raw,
+                    "a group created energy");
+                assert!(row.group_alpha_raw <= 65_536);
+            }
+        }
+    }
+
+    #[test]
+    fn wall_settlement_never_increases_entity_closure_energy() {
+        // A fighter pinned against the east wall with a brute walking its club
+        // into him: the impulse is due east and has nowhere to go. Poses are
+        // set on the columns rather than coaxed out of the actuator, because
+        // what is under test is the settlement and a fixture that had to turn a
+        // body around first would stop testing it the day a yaw rate moved.
+        let mut world = clinch_world();
+        let fighter = Fx::from_int(24) - world.radius[0];
+        world.pos[0] = Vec2::new(fighter, Fx::from_int(8));
+        // 1.8625 west, which puts the club's tip a fifth of a unit short of the
+        // fighter's axis: close enough to overlap the 0.41 radius sum, far
+        // enough that the tip is the closest feature and the normal is exactly
+        // east.
+        world.pos[1] = Vec2::new(fighter - Fx::from_ratio(149, 80),
+                                 Fx::from_int(8) - Fx::from_ratio(3, 10));
+        world.body_yaw[0].angle = Angle::ZERO;
+        world.body_yaw[1].angle = Angle::ZERO;
+
+        let mut walking = reaching_command(Angle::ZERO, Fx::from_ratio(1, 4));
+        walking.move_dir = Vec2::X;
+        walking.arms = [ArmTarget { bearing: Angle::ZERO, height: crate::CombatHeight::MID,
+                                    reach: Fx::from_ratio(1, 4), effort: Fx::ZERO }; 2];
+        let mut clipped = 0usize;
+        for _ in 0..30 {
+            world.submit_articulated_v1(EntityId::new(1, 0), walking);
+            world.step();
+            let contact = world.contact.as_ref().expect("articulated contact state");
+            if world.contact_resolutions().is_empty() { continue; }
+
+            // The solver's answer, and then the world it was committed onto.
+            // Settlement is the only step between them that may remove energy,
+            // and the contract requires that it never add any.
+            let solved = |contact: &ContactRuntime| -> Vec<GeneralizedCollider> {
+                contact.colliders.iter().map(|row| GeneralizedCollider {
+                    entity: row.entity, slot: row.slot,
+                    kind: if matches!(row.shape, ContactShape::Body { .. }) { GeneralizedKind::Body }
+                          else { GeneralizedKind::Equipment },
+                    mass: row.mass, velocity: row.velocity,
+                }).collect()
+            };
+            let before = solved(contact);
+            let after: Vec<GeneralizedCollider> = before.iter().map(|row| {
+                let i = world.resolve(row.entity).expect("a live contact row");
+                let body = Vec3::new(world.vel[i].x, world.vel[i].y, Fx::ZERO);
+                GeneralizedCollider {
+                    velocity: match row.kind {
+                        GeneralizedKind::Body => body,
+                        GeneralizedKind::Equipment => body + world.arms[i][row.slot as usize].linear_velocity,
+                    },
+                    ..*row
+                }
+            }).collect();
+            let (before_energy, after_energy) = (
+                crate::combat::resolution::closure_energy(&before).expect("bounded closure"),
+                crate::combat::resolution::closure_energy(&after).expect("bounded closure"),
+            );
+            assert!(after_energy <= before_energy,
+                "wall settlement added energy: {before_energy} -> {after_energy}");
+
+            if before.iter().any(|row| row.kind == GeneralizedKind::Body
+                && row.entity.index == 0 && row.velocity.x > Fx::ZERO)
+                && world.vel[0].x == Fx::ZERO
+            {
+                clipped += 1;
+                // The wall's share reaches the held colliders too, or the
+                // fighter's own sword would keep travelling east through the
+                // masonry its owner just stopped against.
+                for limb in 0..2 {
+                    assert_eq!(world.vel[0].x + world.arms[0][limb].linear_velocity.x, Fx::ZERO,
+                        "a held collider kept the component the wall took");
+                }
+            }
+        }
+        assert!(clipped > 0, "the fixture never drove a contacted body into the wall");
+    }
+
+    #[test]
+    fn both_has_one_right_owned_collider_and_mirrors_after_contact() {
+        // The club, rebound to both hands. Nothing in the shipped table is
+        // two-handed yet, and `validate_equipment` refuses a two-handed shield,
+        // so a segment is the only thing this proof can be written against.
+        let mut scenario = Scenario::articulated_duel();
+        scenario.units[0].spawn = Vec2::from_ints(10, 8);
+        scenario.units[1].spawn = Vec2::new(Fx::from_ratio(23, 2), Fx::from_int(8));
+        let table = scenario.combat_specs.as_mut().expect("articulated combat specs");
+        table.equipment[2].binding = crate::GripBinding::Both;
+        let mut world = World::new(&scenario, 1000);
+        assert!(world.two_handed(1), "the brute is not holding the club in both hands");
+
+        // The control: the same brute, alone, so its arms carry the actuator's
+        // answer and nothing else.
+        let mut alone = World::new(&scenario, 1000);
+        alone.pos[0] = Vec2::from_ints(60, 8);
+
+        for _ in 0..40 {
+            for target in [&mut world, &mut alone] {
+                target.submit_articulated_v1(EntityId::new(0, 0), reaching_command(Angle::ZERO, Fx::ONE));
+                target.submit_articulated_v1(EntityId::new(1, 0), reaching_command(Angle::HALF, Fx::ONE));
+                target.step();
+            }
+            let contact = world.contact.as_ref().expect("articulated contact state");
+            let owned: Vec<u8> = contact.colliders.iter()
+                .filter(|row| row.entity.index == 1 && !matches!(row.shape, ContactShape::Body { .. }))
+                .map(|row| row.slot).collect();
+            assert_eq!(owned, vec![1], "a `Both` item emitted other than one right-owned collider");
+            assert!(!world.contact_resolutions().iter().any(|row| {
+                (row.fact.key.a.index == 1 && row.fact.key.a_slot == 0)
+                    || (row.fact.key.b.index == 1 && row.fact.key.b_slot == 0)
+            }), "the mirrored left arm was keyed as a collider");
+        }
+
+        // Contact moved the owner, and the mirror followed it. The control is
+        // what makes the first half of that non-vacuous: without it, "the left
+        // arm mirrors the right" is equally true of a tick that resolved
+        // nothing, because the actuator mirrors it too.
+        assert_ne!(world.arms[1][1].hand, alone.arms[1][1].hand,
+            "contact never moved the two-handed owner");
+        let anatomy = world.combat_specs.as_ref().unwrap()
+            .anatomy(world.articulated_anatomy[1].unwrap()).unwrap().clone();
+        let mut expected = world.arms[1][0];
+        actuator::mirror_two_handed(&mut expected, world.arms[1][1], &anatomy, world.body_yaw[1].angle);
+        assert_eq!(world.arms[1][0], expected, "the left arm was left on its pre-contact mirror");
+    }
+
+    #[test]
+    fn dead_and_reused_slots_keep_contact_identity_and_hash_coverage() {
+        let mut world = clinch_world();
+        let dead = EntityId::new(1, 0);
+        step_into_contact(&mut world);
+        assert!(world.contact_resolutions().iter()
+            .any(|row| row.fact.key.a == dead || row.fact.key.b == dead),
+            "the fixture never keyed the slot about to be reused");
+        let before = world.state_digest().value;
+
+        // The test-only despawn the contract allows: v2-15 owns the public one.
+        // Written the way `World::reap_dead` writes it, generation bump
+        // included -- that bump is what makes the reused slot a *different*
+        // entity, and a fixture that skipped it would be proving identity
+        // survives reuse by never reusing an identity.
+        world.alive[1] = false;
+        world.generation[1] = world.generation[1].wrapping_add(1);
+        world.free.push(1);
+        let reborn = world.try_spawn(&clinch_scenario().units[1]).expect("respawn");
+        assert_eq!(reborn, EntityId::new(1, 1), "a reused slot kept its generation");
+        assert_eq!(world.alive.len(), 2, "a reused slot allocated a column");
+
+        step_into_contact(&mut world);
+        assert!(world.contact_resolutions().iter()
+            .all(|row| row.fact.key.a != dead && row.fact.key.b != dead),
+            "a resolution carried the identity of the slot that died");
+        assert!(world.contact_resolutions().iter()
+            .any(|row| row.fact.key.a == reborn || row.fact.key.b == reborn),
+            "the reborn row never entered a contact group");
+        // Every retained row is this tick's: the phase clears resolutions at
+        // articulated tick entry, so nothing keyed to a dead generation can
+        // survive into the reused slot's ledger.
+        assert!(world.contact_resolutions().iter().all(|row| row.fact.key.a.generation
+            == world.generation[row.fact.key.a.index as usize]));
+        assert_ne!(world.state_digest().value, before,
+            "the reused slot hashed identically to the one it replaced");
     }
 
     #[test]

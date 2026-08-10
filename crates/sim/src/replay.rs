@@ -326,6 +326,79 @@ mod tests {
         }
     }
 
+    /// The contract's own fixture, and the only proof that contact's writes are
+    /// *state* rather than a report beside it. A solver that moved a pose
+    /// without going through the recorded command stream would reproduce here
+    /// only by accident, and would diverge on the tick after the accident.
+    ///
+    /// Deliberately not `Scenario::articulated_duel()`: that fixture spawns
+    /// `(7,6)` and `(17,10)`, ten units apart and touching nothing, and its
+    /// fingerprint is pinned so the spawns cannot be moved in place. The pair
+    /// below starts a unit and a half apart, which is inside the brute's club.
+    #[test]
+    fn contact_modified_pose_survives_replay_at_every_tick() {
+        let mut scenario = Scenario::articulated_duel();
+        scenario.units[0].spawn = Vec2::from_ints(10, 8);
+        scenario.units[1].spawn = Vec2::new(Fx::from_ratio(23, 2), Fx::from_int(8));
+        let fighter = EntityId::new(0, 0);
+        let brute = EntityId::new(1, 0);
+        let mut world = World::new(&scenario, 1000);
+        let mut replay = Replay::new(&scenario, 1000);
+
+        // **Effort is one, and the contract's `0` in that column was wrong.**
+        // A zero-effort arm has zero acceleration, so it holds its spawn pose
+        // for the whole run: the fighter never leaves the tucked quarter-reach
+        // it starts at, and its blade stops 0.0003 units outside the brute's
+        // capsule -- measured, and the closest this fixture ever came to a
+        // fact. The rest of the row is unchanged, and a reaching arm is what
+        // the proof was always about: a swing that lands, is stopped, and has
+        // to replay bit for bit from the recorded command rather than from the
+        // pose the solver happened to leave.
+        let tucked = Fx::from_ratio(1, 4);
+        let arm = |bearing: Angle, reach: Fx, effort: Fx| ArmTarget {
+            bearing, height: CombatHeight::MID, reach, effort,
+        };
+        let held = |yaw: Angle, arms: [ArmTarget; 2]| crate::ArticulatedCommandV1 {
+            move_dir: Vec2::ZERO, body_yaw: yaw, intent: crate::Intent::Hold,
+            arms, grips: [GripRequest::Keep; 2],
+        };
+        let orders = [
+            (fighter, held(Angle::ZERO, [
+                arm(Angle::ZERO, tucked, Fx::ZERO), arm(Angle::ZERO, Fx::ONE, Fx::ONE)])),
+            (brute, held(Angle::HALF, [
+                arm(Angle::HALF, tucked, Fx::ONE), arm(Angle::HALF, tucked, Fx::ONE)])),
+        ];
+
+        let mut weapon_body_rows = 0usize;
+        for tick in 0..60 {
+            for (id, requested) in orders {
+                let stored = match world.submit_articulated_v1(id, requested) {
+                    SubmitArticulatedOutcome::Stored { command, .. } => command,
+                    outcome => panic!("live articulated command was not stored: {outcome:?}"),
+                };
+                replay.record_submitted(tick, id, SubmittedCommand::Articulated(stored));
+            }
+            world.step();
+            weapon_body_rows += world.contact_resolutions().iter()
+                .filter(|row| row.fact.key.kind == crate::combat::contact::ContactKind::WeaponBody)
+                .count();
+
+            replay.finish(tick + 1);
+            let played = replay.play_until(tick + 1);
+            assert_eq!(played.state_digest().value, world.state_digest().value,
+                "digest diverged at tick {}", tick + 1);
+            assert_eq!(played.articulated_pose_test_view(fighter), world.articulated_pose_test_view(fighter),
+                "fighter pose diverged at tick {}", tick + 1);
+            assert_eq!(played.articulated_pose_test_view(brute), world.articulated_pose_test_view(brute),
+                "brute pose diverged at tick {}", tick + 1);
+            assert_eq!(played.contact_resolutions(), world.contact_resolutions(),
+                "resolutions diverged at tick {}", tick + 1);
+            assert_eq!(played.contact_cap_hits(), world.contact_cap_hits(),
+                "the cap counter diverged at tick {}", tick + 1);
+        }
+        assert!(weapon_body_rows > 0, "the fixture never produced a weapon/body contact");
+    }
+
     #[test]
     fn equal_tick_submissions_replay_in_insertion_order_without_chaining_grips() {
         let scenario = Scenario::articulated_duel();

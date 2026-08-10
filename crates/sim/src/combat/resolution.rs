@@ -99,7 +99,11 @@ pub fn closure_energy(rows: &[GeneralizedCollider]) -> Result<u64, ResolutionErr
     u64::try_from(quotient).map_err(|_| ResolutionError::EnergyNumerator)
 }
 
-fn scaled_delta(sum: [i128; 3], alpha_raw: u32, mass_raw: i32) -> Vec3 {
+/// The exact applied raw delta for one accumulator component. Shared with
+/// `World`'s coupled projector rather than re-spelled there: the alpha and mass
+/// fixed-point scales cancel with no extra factor of 65,536, and two copies of
+/// that arithmetic is two chances to grow one.
+pub(crate) fn scaled_delta(sum: [i128; 3], alpha_raw: u32, mass_raw: i32) -> Vec3 {
     debug_assert!(mass_raw > 0);
     let component = |value: i128| {
         let raw = value * alpha_raw as i128 / mass_raw as i128;
