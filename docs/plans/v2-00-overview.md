@@ -89,6 +89,13 @@ JavaScript half is in: `tools/wasm_check.js` whitelists all fifteen exports and 
 generated constants are already emitted. No legacy hash moved, and the
 `duel --seeds 400` win rate is unchanged at 59.5%.
 
+**In flight (2026-08-10):** `v2-17`, which now runs as five ordered checkpoints rather
+than one commit, because its recorded fixtures must not be written against a physics
+model that a later half of the same session changes. Checkpoint A -- the scripted and
+windmill policies, the `ARPG-SCRIPT-V1` digest, and `lab articulated` -- adds a policy
+and a CLI and moves no hash. The lethality decision is checkpoint B and is deliberately
+not pre-judged; see the superseded diagnosis below.
+
 **Carried into `v2-17`, from `v2-15` and now sharpened by `v2-16`:** the contact model
 gives an equipment collider one generalized point velocity -- body plus *hand* -- so a
 swing's tip speed is not represented and a stat-driven fight dissipates less than the
@@ -104,6 +111,22 @@ one: a tip-velocity term or a roster whose regional maxima are scaled to what th
 solver delivers, a fixture whose bodies start inside each other's sight, and a way for
 a policy to close when nothing is visible. See
 [`anatomy-health.md`](../reference/anatomy-health.md#measured-limits-this-session-found).
+
+**Superseded (2026-08-10), by measurement rather than argument.** Two of those three
+were wrong and the third was never a blocker; the prototypes and numbers are in
+[`v2-17`](v2-17-scripted-mechanical-gate.md). A tip-velocity term leaves the maximum
+blow *byte-identical* and dissipates **less** energy, because the budget is closure
+energy over collider rows and never reads the fact's point velocity — a richer point
+velocity only makes the bounded alpha search clamp harder. Rescaling the roster has a
+one-factor-wide window between "never finishes" and "every fight is a 31-tick
+decapitation", and never makes the Fighter take damage at all. And the sight range
+needs nothing: the script's `toward` retains current yaw when nothing is visible, and
+the faction-derived spawn yaws already point the two bodies at each other. What the
+measurement did find is a unit mismatch -- `CONTACT_ENERGY_FLOOR` is the legacy
+per-swing `ENERGY_FLOOR` spent as a per-fact-per-tick charge, against groups whose
+median closure energy is 102 raw. That is not yet a decision: every number above was
+taken under a test policy that holds a fixed arm target and never swings, so `v2-17`
+lands the composed script first and re-measures before touching any mechanics.
 
 **Two smaller readings from `v2-16` worth not rediscovering.** The `compile_fail`
 doctest's pinned error code (`E0050`) is **not enforced on stable rustc** -- only on

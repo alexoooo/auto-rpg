@@ -39,14 +39,19 @@
 //! today, and whatever the evolved weights look like becomes the baseline
 //! fitness a learned policy is measured against.
 //!
-//! The articulated seam ships only its control condition,
-//! [`NeutralArticulatedPolicy`], and [`PolicyKind`] does not name it: nothing
-//! outside this crate's own tests drives an articulated policy yet, and a
-//! registry code is append-only, so inventing one before there is something to
-//! select would be a promise made early.
+//! The articulated seam ships its control condition,
+//! [`NeutralArticulatedPolicy`], and two fixed scripts --
+//! [`ScriptedArticulatedPolicy`] and its [`WindmillArticulatedPolicy`]
+//! comparison -- and [`PolicyKind`] names none of the three. That is deliberate
+//! rather than pending: a registry code is what a saved configuration or a URL
+//! carries and is append-only, and the only thing driving an articulated policy
+//! is `lab articulated`, which knows the concrete types. Nothing has yet had to
+//! *choose* one by number, and inventing the code before then is a promise made
+//! early.
 
 #![forbid(unsafe_code)]
 
+mod articulated_script;
 mod duelist;
 mod genome;
 mod minds;
@@ -55,6 +60,12 @@ mod runner;
 mod swing;
 mod utility;
 
+pub use articulated_script::{
+    script_digest, scripted_articulated_command, scripted_articulated_command_with,
+    windmill_articulated_command, AttackFootwork, ClosingAttackControlPolicy,
+    ScriptedArticulatedPolicy, WindmillArticulatedPolicy, CYCLE_TICKS, EIGHTH_TURN, HEIGHT_TICKS,
+    PHASE_TICKS, SCRIPT_DIGEST_DOMAIN,
+};
 pub use duelist::{DuelistPolicy, DuelistWeights, Stance, DUELIST_GENOME_LEN};
 pub use genome::{PolicySpec, MAX_GENOME_LEN};
 pub use random::{neutral_articulated_command, IdlePolicy, NeutralArticulatedPolicy, RandomPolicy};

@@ -411,6 +411,27 @@ struct ContactRuntime {
     /// The integrity loss each row of the current group applied, so credit is
     /// per fact rather than per region -- two blows on one arm are two sources.
     fact_loss: Vec<Fx>,
+    /// How many ticks the solver refused, cumulative.
+    ///
+    /// **The only external witness that a group was rejected**, and it exists
+    /// because there is no other. The error arm below clears
+    /// `resolutions`, so a reader outside this crate cannot tell a tick whose
+    /// contact phase was abandoned from a tick where nothing touched -- which
+    /// made `lab articulated`'s "max energy excess" field unfalsifiable: the
+    /// one condition it looks for, `after > before`, is exactly the condition
+    /// that deletes the rows it would have looked at.
+    ///
+    /// A diagnostic and not authoritative state: it is deliberately in
+    /// `ContactRuntime` rather than in `state`, because nothing here reaches
+    /// the digest except `state.cap_hits`, and this must not. `cap_hits` is
+    /// hashed because a capped tick is a tick whose *physics* was truncated;
+    /// a rejected tick left the world exactly as it found it.
+    rejections: u32,
+    /// The first rejection's cause, on `RunResult::first_rejection`'s
+    /// precedent: a count says how wide the blind spot is and names nothing to
+    /// go and look at, and by the time anybody reads the count the tick that
+    /// would have said is thousands of ticks gone.
+    first_rejection: Option<ResolutionError>,
     /// The high water every vector above is reserved for. A request at or below
     /// it is a no-op, which is exactly what makes reusing a dead slot free.
     high_water: usize,
@@ -1183,6 +1204,33 @@ impl World {
     /// How many ticks have exhausted the group cap. Hashed; zero in Legacy.
     pub fn contact_cap_hits(&self) -> u32 {
         self.contact.as_ref().map_or(0, |contact| contact.state.cap_hits)
+    }
+
+    /// How many ticks the contact solver refused outright. Not hashed, and zero
+    /// in Legacy: a world with no contact runtime has nothing to count with.
+    ///
+    /// The companion to [`World::contact_resolutions`] rather than a second
+    /// reading of it: a rejected tick publishes no rows at all, so a caller
+    /// auditing the ledger those rows carry is auditing only the ticks that
+    /// succeeded. Anything but zero here says the audit had a blind spot and
+    /// how wide it was.
+    ///
+    /// The first time it was asked, on 2026-08-10, it answered 236 of every
+    /// 3,600 ticks under the twelve-phase script, every one of them
+    /// [`ResolutionError::Projector`] -- 6.5% of the fight computed, rejected
+    /// and silently rolled back. That is a contact-solver defect rather than a
+    /// diagnostic one, and it is measured here and diagnosed in
+    /// `docs/plans/v2-17-scripted-mechanical-gate.md` rather than fixed here.
+    /// The counter stays whatever the fix costs it, because a number that has
+    /// only ever been zero proves nothing and this one has already paid for
+    /// itself once.
+    pub fn contact_solver_rejections(&self) -> u32 {
+        self.contact.as_ref().map_or(0, |contact| contact.rejections)
+    }
+
+    /// Why the first refused tick was refused, if any was.
+    pub fn first_contact_rejection(&self) -> Option<ResolutionError> {
+        self.contact.as_ref().and_then(|contact| contact.first_rejection)
     }
 
     /// Every retained contact capacity, for the no-growth proofs. Capacity is
@@ -4568,7 +4616,7 @@ impl World {
                 self.commit_contact(&mut contact);
                 self.release_severed_grips();
             }
-            Err(_) => {
+            Err(cause) => {
                 // Restored into the vector that was taken, not into the empty
                 // husk `mem::take` left behind: the husk has no capacity, and
                 // refilling it would allocate on the one path whose far end is
@@ -4577,6 +4625,10 @@ impl World {
                 wounds.extend_from_slice(&contact.anatomy_entry);
                 self.wounds = wounds;
                 contact.resolutions.clear();
+                // Counted here and nowhere else, because this line is the one
+                // that makes the rejection invisible from outside.
+                contact.rejections = contact.rejections.saturating_add(1);
+                contact.first_rejection.get_or_insert(cause);
             }
         }
         self.contact = Some(contact);
@@ -8842,6 +8894,29 @@ mod tests {
         assert_ne!(wider_tail, actuator_tail, "a third actuator row hashed nothing");
         assert_eq!(unwind(wider_bumped.state_digest().value, 1, &wider_rows), wider_tail,
                    "cap_hits was written once per slot");
+    }
+
+    #[test]
+    fn a_refused_contact_tick_is_counted_and_never_hashed() {
+        // The counter exists so that "no row ever showed energy creation" can
+        // be told apart from "no row was ever published". `cap_hits` sits one
+        // field away and *is* hashed, so the pairing worth pinning is that the
+        // two answer differently: a capped tick truncated the physics and a
+        // refused one rolled it back, and only the first is state.
+        let scenario = Scenario::articulated_duel();
+        let base = World::new(&scenario, 1);
+        assert_eq!(base.contact_solver_rejections(), 0);
+        let mut refused = base.clone();
+        refused.contact.as_mut().expect("articulated contact state").rejections = 3;
+        assert_eq!(refused.contact_solver_rejections(), 3);
+        assert_eq!(refused.state_hash(), base.state_hash());
+        assert_eq!(refused.state_digest().value, base.state_digest().value,
+                   "a diagnostic counter reached the ArticulatedV1 digest");
+
+        // A Legacy world has no contact runtime to count with and must answer
+        // zero rather than reaching into an `Option` that is not there.
+        let legacy = World::new(&Scenario::duel(), 1);
+        assert_eq!(legacy.contact_solver_rejections(), 0);
     }
 
     #[test]

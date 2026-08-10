@@ -26,7 +26,11 @@ const DESTINATIONS = new Set([
 const STATUSES = new Set(["current", "historical", "stale", "duplicate"]);
 const MOVE_PHASES = new Set(["keep root", "v2-04", "v2-05", "v2-06", "v2-10", "v2-11", "v2-16"]);
 const ROLES = new Set(["Player", "Contributor", "Mechanics author", "Renderer author", "Policy researcher"]);
-const SKIP_DIRS = new Set([".git", ".tools", "node_modules", "target"]);
+// `.claude` is agent scratch state, and agent worktrees live under it -- each one a
+// full second copy of docs/. Without the skip, every DOC_CONTRACT marker in
+// docs/reference/ is reported twice over: once as living outside docs/reference, and
+// once as a duplicate of itself. Eighty-two failures, none of them real.
+const SKIP_DIRS = new Set([".claude", ".git", ".tools", "node_modules", "target"]);
 const ROOM_CONTRACT_MARKERS = new Map([
   ["room-asset-manifest", "manifest-semantics"],
   ["room-asset-coordinates", "coordinates-origins-and-sockets"],

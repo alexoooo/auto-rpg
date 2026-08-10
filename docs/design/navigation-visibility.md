@@ -2,7 +2,7 @@
 
 **Purpose:** Explain why the floor, routing, sight, orders, and browser route have their current shapes.
 **Status:** current
-**Canonical source:** [`Dungeon`](../../crates/sim/src/dungeon.rs#L102), [`World::observe`](../../crates/sim/src/world.rs#L1309), and the policy order adapters ([utility](../../crates/policy/src/utility.rs#L511), [duelist](../../crates/policy/src/duelist.rs#L685))
+**Canonical source:** [`Dungeon`](../../crates/sim/src/dungeon.rs#L102), [`World::observe`](../../crates/sim/src/world.rs#L1357), and the policy order adapters ([utility](../../crates/policy/src/utility.rs#L511), [duelist](../../crates/policy/src/duelist.rs#L685))
 **Update when:** Floor representation, collision, routing, visibility, order semantics, or route ownership changes.
 
 ## The floor plan

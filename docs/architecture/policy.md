@@ -135,14 +135,20 @@ its warning about replay completeness.
 > **Proposed by v2 — not current:** This note used to cover the articulated
 > observation and action seam as well. That landed in v2-16 and is described
 > above. What remains proposed is the versioned policy envelope and learned
-> policies; no shipped `PolicyKind`, browser path or `lab` experiment drives an
-> `ArticulatedPolicy` yet, and `run_articulated` has no caller outside its own
-> tests. See the [v2 overview](../plans/v2-00-overview.md).
+> policies. One `lab` experiment now drives an `ArticulatedPolicy` — `lab
+> articulated` runs `ScriptedArticulatedPolicy` over `Scenario::articulated_duel`,
+> landed by v2-17's first checkpoint — but no `PolicyKind` names an articulated
+> policy and no browser path drives one. `run_articulated` still has no caller
+> outside tests, and deliberately: that command needs per-tick contact
+> resolutions, cap hits and energy-ledger columns which `RunResult` does not
+> carry, so it drives its own copy of the decision loop, pinned against the
+> runner by an equivalence test rather than by sharing code.
+> See the [v2 overview](../plans/v2-00-overview.md).
 
 ## Source anchors
 
-- Trait, team dispatch, and policy registry: [`Policy`](../../crates/policy/src/lib.rs#L72)
-- Non-legacy seam: [`ArticulatedPolicy`](../../crates/policy/src/lib.rs#L168)
+- Trait, team dispatch, and policy registry: [`Policy`](../../crates/policy/src/lib.rs#L82)
+- Non-legacy seam: [`ArticulatedPolicy`](../../crates/policy/src/lib.rs#L178)
 - Headless decision loops: [`crates/policy/src/runner.rs`](../../crates/policy/src/runner.rs)
 - Subject-scoped inputs: [`crates/sim/src/obs.rs`](../../crates/sim/src/obs.rs)
 - `Command`, the single `LimbCommand`, `Order`, and `Objective`: [`crates/sim/src/command.rs`](../../crates/sim/src/command.rs)

@@ -48,6 +48,10 @@ cargo run --release -p lab -- bench   --carved    # the floor plan the game actu
 cargo run --release -p lab -- duel    --seeds 400
 cargo run --release -p lab -- evolve  --gens 30 --pop 24 --seeds 8 --policy duelist
 
+cargo run --release -p lab -- articulated --seeds 400 --mirrored  # the v2-17 gate corpus
+cargo run --release -p lab -- articulated --seeds 400 --mirrored --policy windmill
+cargo run --release -p lab -- articulated --seeds 400 --mirrored --attack-moves
+
 rustup target add wasm32-unknown-unknown          # once
 cargo build --release --target wasm32-unknown-unknown -p web
 node --test tools/wasm_check.js                   # wasm must equal native

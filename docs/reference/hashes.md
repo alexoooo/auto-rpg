@@ -2,7 +2,7 @@
 
 **Purpose:** Specify current hash ownership, replay integrity behavior, and golden-hash registry.
 **Status:** current
-**Canonical source:** [`World::state_hash`](../../crates/sim/src/world.rs#L3887), [`Scenario::fingerprint`](../../crates/sim/src/scenario.rs#L452), and pinned constants in tests.
+**Canonical source:** [`World::state_hash`](../../crates/sim/src/world.rs#L3935), [`Scenario::fingerprint`](../../crates/sim/src/scenario.rs#L452), and pinned constants in tests.
 **Update when:** A hash byte stream, replay integrity check, golden fixture, pin value, or re-record procedure changes.
 
 <!-- DOC_CONTRACT: hash-domains -->
@@ -110,7 +110,7 @@ a move, and it belongs to nobody to re-record.
 | `CONTACT_BEHAVIOR_DIGEST` | `0x587b0259e877105a` | [`crates/web/src/lib.rs`](../../crates/web/src/lib.rs#L7825) and [`tools/wasm_check.js`](../../tools/wasm_check.js#L524) | 3,548 behavioral corpus bytes owned by v2-14 checkpoint B. Moved once, by v2-15, and by exactly one byte: case 6's body became five coincident regional volumes, so its fact names the region it chose and the byte went `0xff` → Head's `0`. The geometry and the length are unchanged; previously `0xfe6ce41ec023c1e5`. `wasm_check.js` rebuilds every byte itself rather than trusting the export, so a one-sided failure still diagnoses target disagreement. |
 | `ARTICULATED_STREAM_DIGEST` | `0x4372a94d89fc9155` | [`crates/web/src/lib.rs`](../../crates/web/src/lib.rs#L7322) and [`tools/wasm_check.js`](../../tools/wasm_check.js#L763) | FNV-1a-64 over the published pose and combat-event words of a twenty-tick scripted articulated fight, prefix `ARPG-STREAM-V1`; the script is written out in [`articulated-abi.md`](articulated-abi.md#portable-stream-digest). Introduced by v2-16, native and wasm agreeing. **Not a fight golden and not `ARTICULATED_HASH`:** it pins the bytes the page reads rather than the state the world reached, which is a property a hand-rolled ABI can get wrong on its own — a moved word offset, a sign extension, a narrowed `u64`. Owned by whoever owns the row layouts, and a layout change moves it and must say so. A move *without* a layout change is a simulation change and should have moved a fight golden too. Unlike `CONTACT_BEHAVIOR_DIGEST`, `wasm_check.js` pins the number rather than rebuilding the bytes, because the stream is a simulation run and not a documented table and its script cannot be driven from JavaScript; the reference says so where the script is written out. |
 | contact format corpus | `0x1adfa9e01e36edf9` | [`crates/sim/src/combat/resolution.rs`](../../crates/sim/src/combat/resolution.rs#L1449) | 591 hand-authored serialization bytes owned by v2-14 checkpoint B. Native only, and unpaired on purpose: it pins a byte grammar rather than a behaviour. |
-| legacy feature prefix | `0x811fa73c27591214` and `0x95b0799736913997` | [`crates/sim/src/world.rs`](../../crates/sim/src/world.rs#L8697) | Feature indices `0..450` of every observation in a scripted 600-tick skirmish, and the state hash the resulting commands produce. Introduced by v2-16 and **recorded on the tree immediately before** the articulated block was appended, which is what makes it evidence rather than a snapshot of the new behaviour. Native only. Not re-pinnable by an append: a session that moves it has renumbered a frozen column, which is the thing it exists to refuse. |
+| legacy feature prefix | `0x811fa73c27591214` and `0x95b0799736913997` | [`crates/sim/src/world.rs`](../../crates/sim/src/world.rs#L8749) | Feature indices `0..450` of every observation in a scripted 600-tick skirmish, and the state hash the resulting commands produce. Introduced by v2-16 and **recorded on the tree immediately before** the articulated block was appended, which is what makes it evidence rather than a snapshot of the new behaviour. Native only. Not re-pinnable by an append: a session that moves it has renumbered a frozen column, which is the thing it exists to refuse. |
 
 One `ARTICULATED_HASH` for a scripted fight is planned by v2-17 and deliberately does
 not exist yet. No earlier session may create it. The legacy feature prefix above is
@@ -126,6 +126,6 @@ articulated half grows.
 
 - FNV-1a implementation and byte order: [`Hash64`](../../crates/fx/src/hash.rs#L9)
 - Scenario stream and current omission: [`Scenario::fingerprint`](../../crates/sim/src/scenario.rs#L452)
-- Live state stream: [`World::state_hash`](../../crates/sim/src/world.rs#L3887)
+- Live state stream: [`World::state_hash`](../../crates/sim/src/world.rs#L3935)
 - In-memory replay and integrity check: [`Replay`](../../crates/sim/src/replay.rs#L64)
 - Replay playback order: [`Replay::play_until`](../../crates/sim/src/replay.rs#L152)

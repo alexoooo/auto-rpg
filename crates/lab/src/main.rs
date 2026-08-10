@@ -20,8 +20,14 @@ use args::Args;
 use evolve::{describe, evolve, Arena, EvolveConfig};
 use fitness::{fitness, Summary, Tally};
 use fx::{Fx, Vec2};
-use policy::{run, PolicyKind, RunConfig, RunResult};
-use sim::{Body, Faction, Scenario, UnitSpec};
+use policy::{
+    run, script_digest, ArticulatedPolicy, ClosingAttackControlPolicy, PolicyKind, RunConfig,
+    RunResult, ScriptedArticulatedPolicy, WindmillArticulatedPolicy,
+};
+use sim::{
+    Body, EntityId, Faction, Outcome, Scenario, StateDigest, SubmitArticulatedOutcome,
+    SubmittedCommand, SubmittedCommandRecord, UnitSpec, World,
+};
 use std::time::Instant;
 
 fn main() {
@@ -32,6 +38,7 @@ fn main() {
         "hash" => hash(&args),
         "evolve" => evolution(&args),
         "duel" => duel(&args),
+        "articulated" => articulated(&args),
         "" | "help" => usage(),
         other => {
             eprintln!("unknown command '{other}'\n");
@@ -69,6 +76,20 @@ fn usage() {
           One-on-one, repeated across seeds, reporting a win rate and how the
           fight was actually won. This is where a claim like \"a clever policy
           can beat a brute\" stops being an opinion.
+
+  articulated --seeds N --threads N --mirrored --seed-zero-only
+              --policy composed|windmill --attack-moves
+          Runs the pinned articulated duel fixture under the twelve-phase
+          scripted policy, stopping at the first outcome or at tick 3600, and
+          reports what the mechanics did with it. --mirrored adds the exact
+          spatial mirror of every seed, reflected across y=8, which measures
+          north/south geometry rather than Fighter/Brute balance. It asserts no
+          threshold: the number it exists to produce is how many fights ended.
+          --policy windmill runs the control that never stops walking or
+          swinging. --attack-moves is the second control: the composed script
+          with the feet of phases 3, 4, 7 and 8 closing instead of planted,
+          which is the cell the reference table leaves unstated. Neither
+          control is the reference script and neither may be pinned.
 
   evolve  --gens N --pop N --elite N --seeds N --sigma-pct N --threads N
           --master-seed N --policy P --opponent P
@@ -527,6 +548,469 @@ fn duel(args: &Args) {
     println!("          {:.2}s wall", started.elapsed().as_secs_f64());
 }
 
+// ------------------------------------------------------------- articulated gate
+
+/// Which script drives both sides of the fixture.
+///
+/// **One of these is the reference and two are controls**, and the naming says
+/// so on purpose: `Composed` is the twelve-phase script the `ARPG-SCRIPT-V1`
+/// digest is defined over, and nothing recorded under either other arm may be
+/// offered as evidence for it.
+///
+/// The controls exist because checkpoint A's 800/800 tick-limit corpus turned
+/// out to be a property of the script rather than of the physics: phases 3, 4,
+/// 7 and 8 command `move_dir: Vec2::ZERO`, both bodies coast to a standstill
+/// inside every attack, and the arm term alone cannot reach
+/// `CONTACT_ENERGY_FLOOR`. Both controls put the feet back -- the windmill
+/// because it always walked, the closing script because that is the single
+/// cell under evaluation -- so between them they say whether the floor is
+/// binding for this physics or only for that reading of the table.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Script {
+    Composed,
+    Windmill,
+    ClosingAttacks,
+}
+
+impl Script {
+    /// A fresh instance per faction, which is what the fixture asks for.
+    fn policy(self) -> Box<dyn ArticulatedPolicy> {
+        match self {
+            Script::Composed => Box::new(ScriptedArticulatedPolicy),
+            Script::Windmill => Box::new(WindmillArticulatedPolicy),
+            Script::ClosingAttacks => Box::new(ClosingAttackControlPolicy),
+        }
+    }
+
+    fn name(self) -> &'static str {
+        match self {
+            Script::Composed => "the composed script",
+            Script::Windmill => "the windmill control",
+            Script::ClosingAttacks => "the composed script with closing attacks (control)",
+        }
+    }
+}
+
+/// The pinned fixture reflected across `y = 8`.
+///
+/// **Chosen because it is the only reflection that costs the scenario nothing.**
+/// The spawn yaws are derived from the faction -- zero for Heroes, `HALF` for
+/// Monsters -- and both are their own negations, so a Y reflection leaves both
+/// bodies facing exactly where a mirrored fighter should face without the
+/// scenario growing a yaw column to be told about it. An X reflection would need
+/// one.
+///
+/// The mirror keeps the fixture's name and therefore *does not* keep its
+/// fingerprint, which is correct and worth saying out loud: a mirrored run is a
+/// run of a different scenario, it is never the pin, and nothing recorded from
+/// it may be offered as the canonical seed-zero replay.
+fn mirrored_articulated_duel() -> Scenario {
+    let mut scenario = Scenario::articulated_duel();
+    let height = scenario.arena().y;
+    for unit in scenario.units.iter_mut() {
+        unit.spawn.y = height - unit.spawn.y;
+    }
+    scenario
+}
+
+/// One measured run of the fixture.
+///
+/// A sibling of [`RunResult`] rather than an extension of it, and the reason is
+/// the same one that keeps this command from simply calling
+/// `policy::run_articulated`: three of the numbers the mechanical gate turns on
+/// -- how many contacts resolved, `contact_cap_hits`, and the worst per-tick
+/// energy-ledger excess -- are read off the **world** immediately after each
+/// step, and `RunResult` deliberately carries none of them. Widening
+/// `RunResult` would hang four articulated-only columns off the struct every
+/// legacy rollout in this lab allocates, on the hot path of the numbers that
+/// must not move. Two copies of a loop is a thing that drifts, so
+/// `the_measured_run_is_the_run_the_harness_would_have_driven` pins this one
+/// against the runner's.
+#[derive(Clone, Debug)]
+struct ArticulatedTrial {
+    seed: u64,
+    outcome: Outcome,
+    /// Whether the clock and not a body decided this fight. Carried separately
+    /// from the outcome because `World::timeout` scores a run that ran out of
+    /// clock on points, so `Decision(Heroes)` is both a Fighter win and a fight
+    /// nobody finished, and the gate counts it under both headings.
+    timed_out: bool,
+    ticks: u32,
+    hero_health: Fx,
+    monster_health: Fx,
+    contacts: u64,
+    cap_hits: u32,
+    /// `max(0, after - before)` over every resolution row in the run.
+    ///
+    /// **It cannot be anything but zero, and that is why `solver_rejections`
+    /// sits beside it.** `resolve_group_into` returns
+    /// `Err(ResolutionError::Projector)` for exactly the condition
+    /// `after > before`, and `World::resolve_contact`'s error arm then *clears*
+    /// the resolution list -- so the rows a violation would appear in are the
+    /// rows a violation deletes. Read alone this field says "no observed row
+    /// created energy", which is a tautology; read with the rejection count it
+    /// says "no row created energy and no row went unobserved", which is the
+    /// claim the evidence artifact means to make.
+    max_energy_excess: u64,
+    /// Ticks whose whole contact phase the solver refused, cumulative, and why
+    /// the first of them was. The blind spot the field above cannot see into,
+    /// and the one signal that can actually fail -- which, the first time it
+    /// was measured, it did: 6.5% of the composed corpus, every first cause
+    /// `ResolutionError::Projector`. Until it reads zero the excess above
+    /// audits the part of the fight that survived rather than the fight, and
+    /// the pair has to be reported together for either half to mean anything.
+    solver_rejections: u32,
+    first_rejection: Option<sim::ResolutionError>,
+    /// Resolution rows that took a region off, and the largest weapon-body
+    /// energy any single row carried into one. Both are read off the published
+    /// rows rather than off the anatomy, so they answer per blow rather than
+    /// per tick.
+    severances: u64,
+    max_blow_raw: u64,
+    /// The most health credited to attackers in any one tick. The per-blow
+    /// figure the rows cannot give -- integrity loss is not published per
+    /// fact -- read at its cheapest honest granularity instead.
+    max_tick_damage: Fx,
+    rejected: u32,
+    digest: u64,
+    state: StateDigest,
+}
+
+/// Drives one seed to its stop and records what the mechanics did.
+fn measure_articulated(scenario: &Scenario, seed: u64, script: Script) -> ArticulatedTrial {
+    let config = RunConfig::default();
+    let mut world = World::new(scenario, seed);
+    // Set for the reason `run_articulated` sets them: an articulated
+    // observation has no order column so nothing reads these, and they reach
+    // the state hash anyway, so a driver that skipped them would fingerprint a
+    // different world from the one the runner fingerprints for the same seed.
+    for (faction, order) in [
+        (Faction::Heroes, config.orders[0]),
+        (Faction::Monsters, config.orders[1]),
+    ] {
+        world.set_order(faction, order);
+    }
+
+    // **One fresh policy per faction**, which the fixture specifies and
+    // `run_articulated` deliberately does not do -- it drives one instance
+    // across both sides. Both are the same stateless script today so the two
+    // shapes cannot be told apart, and the split is still the right one: the day
+    // one side gets a different script, the thing that has to change must not be
+    // the shape of this loop. Routed on the alive set rather than on the
+    // observation, which has no faction column by design.
+    //
+    // Reset anyway, on `ArticulatedPolicy::reset`'s contract. It is a no-op on
+    // an instance built one line above and on a policy with no state, and it is
+    // what stops "fresh" from quietly meaning "whatever a stateful successor
+    // happens to construct itself with".
+    let heroes = world.alive_ids(Faction::Heroes);
+    let mut hero_policy = script.policy();
+    let mut monster_policy = script.policy();
+    hero_policy.reset();
+    monster_policy.reset();
+
+    let mut due: Vec<EntityId> = Vec::new();
+    let mut stream: Vec<SubmittedCommandRecord> = Vec::new();
+    let mut contacts = 0u64;
+    let mut max_energy_excess = 0u64;
+    let mut severances = 0u64;
+    let mut max_blow_raw = 0u64;
+    let mut max_tick_damage = Fx::ZERO;
+    let mut dealt = Fx::ZERO;
+    let mut rejected = 0u32;
+
+    // The runner's expression, character for character, rather than
+    // `scenario.max_ticks` -- which is the same number today only because
+    // `RunConfig::default` leaves the override unset.
+    let limit = config.max_ticks.unwrap_or(scenario.max_ticks);
+    while world.outcome().is_none() && world.tick() < limit {
+        due.clear();
+        due.extend_from_slice(world.pending_decisions());
+        for &id in &due {
+            let obs = world.observe_articulated(id);
+            let command = if heroes.contains(&id) {
+                hero_policy.decide(&obs)
+            } else {
+                monster_policy.decide(&obs)
+            };
+            match world.submit_articulated_v1(id, command) {
+                SubmitArticulatedOutcome::Stored { command, rejection } => {
+                    if rejection.is_some() {
+                        rejected += 1;
+                    }
+                    // The stored command and never the offered one, which is
+                    // what `ARPG-SCRIPT-V1` is defined over: a refused
+                    // submission stores the neutral command, and the digest has
+                    // to describe the fight that happened.
+                    stream.push(SubmittedCommandRecord {
+                        tick: world.tick(),
+                        entity: id,
+                        command: SubmittedCommand::Articulated(command),
+                    });
+                }
+                SubmitArticulatedOutcome::NotStored(_) => rejected += 1,
+            }
+        }
+        let _ = world.step();
+        for row in world.contact_resolutions() {
+            contacts += 1;
+            max_energy_excess = max_energy_excess
+                .max(row.energy.after_raw.saturating_sub(row.energy.before_raw));
+            severances += u64::from(row.severed);
+            // Cut plus thrust and not pressure: the two channels a weapon-body
+            // fact bills a wound out of. Pressure is the leaning term, which is
+            // where all of checkpoint A's attrition came from and is exactly
+            // what a "blow" has to be measured apart from.
+            max_blow_raw = max_blow_raw.max(row.cut_raw.saturating_add(row.thrust_raw));
+        }
+        let total = world.damage_dealt(Faction::Heroes) + world.damage_dealt(Faction::Monsters);
+        max_tick_damage = max_tick_damage.max(total - dealt);
+        dealt = total;
+    }
+
+    let settled = world.outcome();
+    ArticulatedTrial {
+        seed,
+        outcome: settled.unwrap_or_else(|| world.timeout()),
+        timed_out: settled.is_none(),
+        ticks: world.tick(),
+        hero_health: world.health_fraction(Faction::Heroes),
+        monster_health: world.health_fraction(Faction::Monsters),
+        contacts,
+        cap_hits: world.contact_cap_hits(),
+        max_energy_excess,
+        solver_rejections: world.contact_solver_rejections(),
+        first_rejection: world.first_contact_rejection(),
+        severances,
+        max_blow_raw,
+        max_tick_damage,
+        rejected,
+        digest: script_digest(&stream),
+        state: world.state_digest(),
+    }
+}
+
+/// The same index-ordered fan-out [`parallel_runs`] uses, on the fixture.
+fn articulated_trials(
+    scenario: &Scenario,
+    seeds: &[u64],
+    threads: usize,
+    script: Script,
+) -> Vec<ArticulatedTrial> {
+    let mut slots: Vec<Option<ArticulatedTrial>> = vec![None; seeds.len()];
+    if seeds.is_empty() {
+        return Vec::new();
+    }
+    let chunk = seeds.len().div_ceil(threads.max(1)).max(1);
+
+    std::thread::scope(|scope| {
+        for (chunk_seeds, out) in seeds.chunks(chunk).zip(slots.chunks_mut(chunk)) {
+            scope.spawn(move || {
+                for (i, &seed) in chunk_seeds.iter().enumerate() {
+                    out[i] = Some(measure_articulated(scenario, seed, script));
+                }
+            });
+        }
+    });
+
+    slots
+        .into_iter()
+        .map(|slot| slot.expect("every seed should have produced a trial"))
+        .collect()
+}
+
+/// The scripted mechanical measurement, and **only** the measurement.
+///
+/// It prints no verdict and asserts no threshold, which is the whole design of
+/// v2-17 checkpoint A: the gate's thresholds are chosen against a physics that
+/// checkpoint B may still change, and a command that failed here today would be
+/// reporting a decision nobody has made yet. What it produces is the one number
+/// that decides B -- how many of these fights end.
+///
+/// **Which is why it takes a script rather than owning one.** The first corpus
+/// it produced said 800 of 800 fights reached the clock, and that turned out to
+/// be a fact about `Vec2::ZERO` in four phases rather than about the contact
+/// model. A measurement that can only be taken one way cannot tell those two
+/// apart, so both controls run through this same loop and print the same
+/// columns.
+fn articulated(args: &Args) {
+    let count = args.u32("seeds", 400) as u64;
+    let threads = args.usize("threads", default_threads());
+    let seeds: Vec<u64> = if args.flag("seed-zero-only") {
+        vec![0]
+    } else {
+        (0..count).collect()
+    };
+
+    let original = Scenario::articulated_duel();
+    let mirror = mirrored_articulated_duel();
+    let mirrored = args.flag("mirrored");
+
+    // Two knobs rather than one three-way choice, because they are not three
+    // points on one axis: `--policy` picks which script runs, and
+    // `--attack-moves` edits one cell of the composed one. Folding the control
+    // into the policy list would let `--policy windmill --attack-moves` look
+    // like a thing, and it is not -- the windmill never plants its feet.
+    let script = match args.choice(
+        "policy",
+        Script::Composed,
+        &[("composed", Script::Composed), ("windmill", Script::Windmill)],
+    ) {
+        Script::Composed if args.flag("attack-moves") => Script::ClosingAttacks,
+        Script::Windmill if args.flag("attack-moves") => {
+            eprintln!("--attack-moves edits the composed script; the windmill already walks");
+            std::process::exit(2);
+        }
+        chosen => chosen,
+    };
+
+    println!(
+        "{} seeds x {} orientation{} = {} trials of {} under {}",
+        seeds.len(),
+        if mirrored { 2 } else { 1 },
+        if mirrored { "s" } else { "" },
+        seeds.len() * if mirrored { 2 } else { 1 },
+        original.name,
+        script.name()
+    );
+    println!(
+        "fixture   0x{:016x} canonical, 0x{:016x} mirrored across y={}",
+        original.fingerprint(),
+        mirror.fingerprint(),
+        original.arena().y / Fx::from_int(2)
+    );
+
+    let started = Instant::now();
+    let canonical = articulated_trials(&original, &seeds, threads, script);
+    let reflected = if mirrored {
+        articulated_trials(&mirror, &seeds, threads, script)
+    } else {
+        Vec::new()
+    };
+    let elapsed = started.elapsed();
+
+    let all: Vec<&ArticulatedTrial> = canonical.iter().chain(reflected.iter()).collect();
+    let trials = all.len().max(1);
+    let fighter_wins = |set: &[ArticulatedTrial]| {
+        set.iter()
+            .filter(|t| t.outcome.winner() == Some(Faction::Heroes))
+            .count()
+    };
+
+    let mut heroes_win = 0usize;
+    let mut monsters_win = 0usize;
+    let mut mutual = 0usize;
+    let mut draws = 0usize;
+    let mut decisions = 0usize;
+    let mut limits = 0usize;
+    let mut contacts = 0u64;
+    let mut cap_hits = 0u64;
+    let mut rejected = 0u64;
+    let mut excess = 0u64;
+    let mut solver_rejections = 0u64;
+    let mut first_rejection: Option<sim::ResolutionError> = None;
+    let mut severances = 0u64;
+    let mut max_blow_raw = 0u64;
+    let mut max_tick_damage = Fx::ZERO;
+    let mut decisive = 0usize;
+    let mut lengths = Vec::with_capacity(all.len());
+    let mut hero_health = Vec::with_capacity(all.len());
+    let mut monster_health = Vec::with_capacity(all.len());
+    for trial in &all {
+        match trial.outcome {
+            Outcome::HeroesWin => heroes_win += 1,
+            Outcome::MonstersWin => monsters_win += 1,
+            Outcome::MutualDestruction => mutual += 1,
+            Outcome::Decision(_) => decisions += 1,
+            Outcome::Draw => draws += 1,
+        }
+        if trial.timed_out {
+            limits += 1;
+        } else {
+            // A body decided it. The complement of `timed_out` and printed as
+            // its own number anyway, because "how many fights ended" is the
+            // question the command exists to answer and a reader should not
+            // have to subtract to find it.
+            decisive += 1;
+        }
+        contacts += trial.contacts;
+        cap_hits += trial.cap_hits as u64;
+        rejected += trial.rejected as u64;
+        excess = excess.max(trial.max_energy_excess);
+        solver_rejections += trial.solver_rejections as u64;
+        first_rejection = first_rejection.or(trial.first_rejection);
+        severances += trial.severances;
+        max_blow_raw = max_blow_raw.max(trial.max_blow_raw);
+        max_tick_damage = max_tick_damage.max(trial.max_tick_damage);
+        lengths.push(Fx::from_int(trial.ticks as i32));
+        hero_health.push(trial.hero_health);
+        monster_health.push(trial.monster_health);
+    }
+
+    let length = Summary::of(&lengths);
+    println!(
+        "outcomes  {heroes_win} fighter kills, {monsters_win} brute kills, {mutual} mutual, \
+         {decisions} on points, {draws} drawn"
+    );
+    println!(
+        "clock     {decisive}/{trials} decided by a body ({:.1}%), \
+         {limits} reached tick {} ({:.1}%)",
+        100.0 * decisive as f64 / trials as f64,
+        original.max_ticks,
+        100.0 * limits as f64 / trials as f64
+    );
+    let (won, mirrored_won) = (fighter_wins(&canonical), fighter_wins(&reflected));
+    if mirrored {
+        let side = won.abs_diff(mirrored_won);
+        println!(
+            "sides     fighter wins {won} canonical, {mirrored_won} mirrored, \
+             difference {side} ({:.2} percentage points)",
+            100.0 * side as f64 / seeds.len().max(1) as f64
+        );
+    } else {
+        println!("sides     fighter wins {won} canonical (no mirror was run)");
+    }
+    println!(
+        "fights    {} ticks mean, {} median",
+        length.mean, length.median
+    );
+    println!(
+        "health    fighter ends on {} mean, brute on {} mean",
+        Summary::of(&hero_health).mean,
+        Summary::of(&monster_health).mean
+    );
+    println!(
+        "contacts  {contacts} resolutions, {cap_hits} cap hits, \
+         max energy excess raw {excess} over {solver_rejections} refused ticks{}",
+        match first_rejection {
+            Some(cause) => format!(" (first {cause:?})"),
+            None => String::new(),
+        }
+    );
+    println!(
+        "blows     {severances} severances, max weapon-body energy raw {max_blow_raw}, \
+         worst tick took {max_tick_damage} health"
+    );
+    println!("commands  {rejected} refused submissions");
+
+    // The two fingerprints of the canonical pin run, printed and deliberately
+    // **not** recorded anywhere. `ARTICULATED_HASH` is created once, at the very
+    // end of v2-17, after both gates pass; a constant pinned here would be a
+    // promise about a physics that checkpoint B is still allowed to change, and
+    // `docs/reference/hashes.md` forbids exactly that.
+    if let Some(pin) = canonical.first().filter(|t| t.seed == 0) {
+        println!(
+            "seed 0    {:?}/{} 0x{:016x}  script 0x{:016x}",
+            pin.state.domain, pin.state.schema, pin.state.value, pin.digest
+        );
+        println!(
+            "          {} ticks, {:?}, {} contacts",
+            pin.ticks, pin.outcome, pin.contacts
+        );
+    }
+    println!("          {:.2}s wall", elapsed.as_secs_f64());
+}
+
 fn evolution(args: &Args) {
     let config = EvolveConfig {
         generations: args.u32("gens", 20),
@@ -596,5 +1080,161 @@ fn evolution(args: &Args) {
         println!("  evolution beat the hand-tuned weights");
     } else {
         println!("  the hand-tuned weights still win; try more generations or seeds");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_measured_run_is_the_run_the_harness_would_have_driven() {
+        // `measure_articulated` is a second copy of `run_articulated`'s decision
+        // loop, carrying the contact evidence `RunResult` does not. Two copies
+        // of a loop drift, and the way this one would drift is silent: a
+        // different order, a decision taken a tick late, a command recorded
+        // before the world stored it, and the digest and the pin would describe
+        // a run the runner never produced. So every column the two both carry
+        // has to agree, including the command stream reduced to eight bytes.
+        //
+        // **What it cannot catch, stated so nobody trusts it further than it
+        // goes.** The two loops genuinely differ in three places, and all three
+        // are invisible against this policy: one instance per faction rather
+        // than one across both (the fixture asks for the split, and a stateless
+        // script cannot tell), the tick limit taken from `RunConfig` rather than
+        // straight off the scenario (the same number while the override is
+        // `None`), and `reset` (a no-op on a policy with no state). A stateful
+        // articulated policy would need a stronger comparison than this one.
+        let scenario = Scenario::articulated_duel();
+        let trial = measure_articulated(&scenario, 3, Script::Composed);
+        let config = RunConfig {
+            record: true,
+            ..RunConfig::default()
+        };
+        let harness =
+            policy::run_articulated(&scenario, 3, ScriptedArticulatedPolicy, &config);
+        assert_eq!(trial.ticks, harness.ticks);
+        assert_eq!(trial.outcome, harness.outcome);
+        assert_eq!(trial.hero_health, harness.hero_health);
+        assert_eq!(trial.monster_health, harness.monster_health);
+        assert_eq!(trial.rejected, harness.rejected);
+        let replay = harness.replay.as_ref().expect("recording was requested");
+        assert_eq!(trial.digest, script_digest(&replay.submitted_entries));
+        // And the typed digest, which `RunResult` does not carry: replaying the
+        // runner's own recording has to land on the exact state this loop
+        // reported. Through `compare` rather than `==`, because `StateDigest`
+        // has no `PartialEq` on purpose -- a domain or schema mismatch is an
+        // error and not a `false`.
+        assert_eq!(replay.play().state_digest().compare(trial.state), Ok(true));
+    }
+
+    #[test]
+    fn the_mirror_reflects_the_spawn_row_and_nothing_else() {
+        // The mirror measures north/south geometry, so it has to be a pure
+        // reflection: anything else it changed would be a second variable in a
+        // comparison built to have one.
+        let original = Scenario::articulated_duel();
+        let mirror = mirrored_articulated_duel();
+        assert_eq!(mirror.units[0].spawn, Vec2::from_ints(7, 10));
+        assert_eq!(mirror.units[1].spawn, Vec2::from_ints(17, 6));
+        assert_ne!(
+            mirror.fingerprint(),
+            original.fingerprint(),
+            "a mirrored run must never be mistakable for the pin"
+        );
+        let height = mirror.arena().y;
+        let mut back = mirror.clone();
+        for unit in back.units.iter_mut() {
+            unit.spawn.y = height - unit.spawn.y;
+        }
+        assert_eq!(back, original, "the reflection moved something that is not a spawn");
+    }
+
+    #[test]
+    fn results_do_not_depend_on_the_thread_that_computed_them() {
+        // The same claim the focus and goto batteries make, and it has the same
+        // shape here: results are written into index-ordered slots, so a chunk
+        // that finished first cannot reorder the corpus the summary is computed
+        // from.
+        let scenario = Scenario::articulated_duel();
+        let seeds: Vec<u64> = (0..4).collect();
+        let one: Vec<u64> = articulated_trials(&scenario, &seeds, 1, Script::Composed)
+            .iter()
+            .map(|t| t.digest)
+            .collect();
+        let many: Vec<u64> = articulated_trials(&scenario, &seeds, 4, Script::Composed)
+            .iter()
+            .map(|t| t.digest)
+            .collect();
+        assert_eq!(one, many);
+    }
+
+    #[test]
+    fn each_script_is_a_different_fight_and_only_one_of_them_is_the_reference() {
+        // The controls have to be reachable *and* distinguishable, or the
+        // comparison they exist for is a comparison of one thing with itself.
+        // The digest is the right witness: it is the stored command stream, so
+        // two scripts sharing it would mean the flag reached nothing.
+        let scenario = Scenario::articulated_duel();
+        let composed = measure_articulated(&scenario, 3, Script::Composed);
+        let windmill = measure_articulated(&scenario, 3, Script::Windmill);
+        let closing = measure_articulated(&scenario, 3, Script::ClosingAttacks);
+        assert_ne!(composed.digest, windmill.digest);
+        assert_ne!(composed.digest, closing.digest);
+        assert_ne!(windmill.digest, closing.digest);
+
+        // And the reference arm is still bit-for-bit the run the harness drives
+        // with the reference policy, which is what stops a control from
+        // becoming the pin by way of a default.
+        let harness = policy::run_articulated(
+            &scenario,
+            3,
+            ScriptedArticulatedPolicy,
+            &RunConfig {
+                record: true,
+                ..RunConfig::default()
+            },
+        );
+        let replay = harness.replay.as_ref().expect("recording was requested");
+        assert_eq!(composed.digest, script_digest(&replay.submitted_entries));
+    }
+
+    #[test]
+    fn a_zero_energy_excess_is_not_evidence_while_the_solver_is_refusing_ticks() {
+        // **The correction this command exists to record, and it is not
+        // hypothetical.** `max_energy_excess` is computed over published rows;
+        // a group that creates energy is precisely a group whose rows
+        // `World::resolve_contact` deletes before anyone can publish them. So
+        // the field cannot report anything but zero, and until this test was
+        // written that zero was on its way into a committed evidence artifact
+        // as proof of soundness. The two numbers only mean anything together,
+        // which is why they are asserted together and reported side by side.
+        //
+        // The rejection count is asserted **nonzero**, which reads backwards
+        // until you see what it pins: the fixture refuses roughly two hundred
+        // of its 3,600 ticks under every one of the three scripts, always
+        // `ResolutionError::Projector`, the `after > before` arm. That is a
+        // contact-solver defect, this test is the evidence for it, and the
+        // assertion is written the way the tree actually is rather than the way
+        // it should end up. The checkpoint that fixes the projector inverts
+        // this line rather than deleting it, so the direction it was inverted
+        // from stays on the record.
+        for script in [Script::Composed, Script::Windmill, Script::ClosingAttacks] {
+            let trial = measure_articulated(&Scenario::articulated_duel(), 5, script);
+            assert!(trial.contacts > 0, "{}: nothing touched", script.name());
+            assert_eq!(trial.max_energy_excess, 0, "{}", script.name());
+            assert!(
+                trial.solver_rejections > 0,
+                "{}: the solver refused nothing, so the zero above may finally be evidence \
+                 -- invert this assertion rather than deleting it",
+                script.name()
+            );
+            assert_eq!(
+                trial.first_rejection,
+                Some(sim::ResolutionError::Projector),
+                "{}",
+                script.name()
+            );
+        }
     }
 }
