@@ -61,8 +61,8 @@ const VIS_OFFSET: usize = MAP_OFFSET + MAP_MAX;
 const FURNITURE_OFFSET: usize = VIS_OFFSET + MAP_MAX;
 // **The snapshot ends at the furniture region, and the pose/combat-event regions
 // that v2-17 will append are deliberately not reserved yet.** Reserving them
-// takes this constant from 27,452 to 175,420 -- 147,968 bytes on each of three
-// pooled buffers, and a zero-fill 6.4x wider on a buffer `snapshot.ts` clears
+// takes this constant from 27,452 to 306,492 -- 279,040 bytes on each of three
+// pooled buffers, and a zero-fill 11.2x wider on a buffer `snapshot.ts` clears
 // whole once per filtered publication -- while nothing on the TypeScript side
 // writes or reads a word of either region, because the visibility-filtered copy
 // that would occupy them does not exist yet. A cost of that shape arrives with

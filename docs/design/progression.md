@@ -2,7 +2,7 @@
 
 **Purpose:** Explain the current floor-to-floor loop and why progression remains outside the fight simulation.
 **Status:** current
-**Canonical source:** [`Scenario::dungeon`](../../crates/sim/src/scenario.rs#L391) and browser [`Sim`](../../crates/web/src/lib.rs#L1136)
+**Canonical source:** [`Scenario::dungeon`](../../crates/sim/src/scenario.rs#L391) and browser [`Sim`](../../crates/web/src/lib.rs#L1147)
 **Update when:** Dungeon depth, portal opening/arming, descent, persistent hero state, or progression ownership changes.
 
 ## What the simulation does not know
@@ -124,7 +124,7 @@ This is now the durable destination for the former
 
 - Scenario portal ownership and exclusions: [`Scenario`](../../crates/sim/src/scenario.rs#L123)
 - Pure dungeon construction: [`Scenario::dungeon`](../../crates/sim/src/scenario.rs#L391)
-- Browser progression fields: [`Sim`](../../crates/web/src/lib.rs#L1136)
-- Portal opening and arming: [`Sim::open_the_way_out`](../../crates/web/src/lib.rs#L1742)
-- Descent and hero persistence: [`Sim::descend`](../../crates/web/src/lib.rs#L1931)
-- Browser tick integration: [`Sim::advance`](../../crates/web/src/lib.rs#L2145)
+- Browser progression fields: [`Sim`](../../crates/web/src/lib.rs#L1147)
+- Portal opening and arming: [`Sim::open_the_way_out`](../../crates/web/src/lib.rs#L1753)
+- Descent and hero persistence: [`Sim::descend`](../../crates/web/src/lib.rs#L1942)
+- Browser tick integration: [`Sim::advance`](../../crates/web/src/lib.rs#L2156)

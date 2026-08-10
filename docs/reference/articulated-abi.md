@@ -334,7 +334,7 @@ that runs after every mutating export.
 
 ## Combat-event rows
 
-`COMBAT_EVENT_LAYOUT_VERSION=1`, `MAX_COMBAT_EVENTS=1024`, and
+`COMBAT_EVENT_LAYOUT_VERSION=1`, `MAX_COMBAT_EVENTS=2048`, and
 `COMBAT_EVENT_STRIDE=32`. The capacity is measured rather than chosen; the corpus
 that fixed it, and the provisional 256 it rejected, are at the end of this section.
 Events accumulate across all ticks of one `step(ticks)` call in
@@ -416,15 +416,15 @@ ledger, one impact sound per row — must key on the call that stepped rather th
 publication, or it counts every contact once per intervening export. `step(0)` clears
 the feed, which is the same rule seen from the other end.
 
-The two new static arrays cost 16,896 and 131,072 bytes respectively, for 147,968
+The two new static arrays cost 16,896 and 262,144 bytes respectively, for 279,040
 bytes excluding thread-local wrapper bookkeeping. The 55-byte command buffer belongs
 to v2-11 and is not charged again to this session. Compile-time assertions use
 `MAX_POSES*POSE_STRIDE*4 + MAX_COMBAT_EVENTS*COMBAT_EVENT_STRIDE*4`.
 
-The event half of that was 32,768 bytes while the capacity was the provisional 256.
-The measurement below moved it, and the 98 KB is what the decision cost — worth
-writing down beside the capacity rather than leaving as arithmetic a reader has to
-redo.
+The event half of that was 32,768 bytes while the capacity was the provisional 256 and
+131,072 while it was 1024. The two measurements below moved it, and the 98 KB and then
+the further 128 KB are what those decisions cost — worth writing down beside the
+capacity rather than leaving as arithmetic a reader has to redo.
 
 The mandatory event high-water corpus is one hand-built articulated scenario named
 `abi-high-water`, world seed `0x4152504741424931`, open `24x16` room, and 64 units.
@@ -440,19 +440,31 @@ single seed is part of the fixture, and eight separate `step(1)` publications me
 the busiest tick rather than what one host call accumulates — which is the thing being
 sized, because the feed is cleared per call.
 
-**Measured on 2026-08-10, and it rejected 256.** The corpus accumulates **446 rows**
+**Measured on 2026-08-10, and it rejected 256.** The corpus accumulated **446 rows**
 in that one batch, so a 256-row buffer published the canonical 256 and counted 190
 dropped: a truncated stream on the one corpus this document calls mandatory. The rule
 for a rejected capacity is the next power of two at least twice the measured maximum,
-so 446 doubles to 892 and rounds up to **1024**, and the byte budget above moved with
+so 446 doubles to 892 and rounds up to 1024, and the byte budget above moved with
 it. The pose half of the same run is 64 rows with none dropped, which is
 `MAX_POSES` exactly — the corpus sits on that cap by construction, so a drop there
 would mean the cap or the identity ordering is wrong rather than that the fight is
 busy. `crates/web`'s `the_high_water_corpus_fills_at_most_half_the_event_buffer` pins
-446 and the at-most-half relationship;
+the measurement and the at-most-half relationship;
 `print_articulated_buffer_high_water_marks` is the `#[ignore]`d printer that produced
 the number and deliberately builds its own copy of the fixture, so a drifted script
 cannot re-pin itself.
+
+**Re-measured the same day, and it rejected 1024 too — because the fight got busier,
+which is the other half of what that test says it catches.** v2-17 checkpoint B
+stopped `World`'s contact projector re-deriving an unmoved hand through the joint's
+inexact inverse map, so the round-trip drift that had been inflating every trial's
+kinetic energy stopped holding the alpha search below the alpha the physics allows.
+The same 64 bodies, the same seed and the same `step(8)` now accumulate **556 rows**.
+This is not recovered rejections: the corpus refuses no tick and refused none before,
+and the printer reports that count beside the rows so the two cannot be confused. At
+1024 nothing was dropped — but the acceptance rule is headroom rather than survival,
+and 556 doubles to 1,112, so the capacity is **2048** and the byte budget above moved
+with it again, to 279,040 bytes.
 
 ## Ownership, visibility, and memory
 
@@ -467,11 +479,11 @@ omission is a decision.** `emit_abi` emits both layout versions, both strides, b
 capacities and all 66 + 32 column offsets, because those are the ABI and the copy is
 written against them — but `SNAPSHOT_BUFFER_BYTES` still ends at the furniture block at
 27,452 bytes and four regions. Reserving the two articulated regions takes it to
-175,420 — 147,968 bytes on each of the three pooled buffers, and a 6.4x wider zero-fill
-on a buffer `client/src/state/snapshot.ts` clears whole once per *filtered
+306,492 — 279,040 bytes on each of the three pooled buffers, and an 11.2x wider
+zero-fill on a buffer `client/src/state/snapshot.ts` clears whole once per *filtered
 publication* — while nothing on the far side writes or reads a word of them: the
-filtered copy is v2-17's. A per-publication memset does not get 6.4x wider ahead of the
-consumer that justifies it and the measurement that sizes it. The formula and the three
+filtered copy is v2-17's. A per-publication memset does not get 11.2x wider ahead of
+the consumer that justifies it and the measurement that sizes it. The formula and the three
 numbers the regions will generate are held in
 [`articulated-mechanical-gate.md`](articulated-mechanical-gate.md#worker-integration)
 until then.
@@ -481,20 +493,20 @@ increase `wasm.memory.buffer.byteLength` while a legacy frame view is held. The 
 test also proves the original frame, pose, and event typed arrays remain attached.
 `published_views_survive_articulated_stress_without_memory_growth` in
 `client/test/wasm-memory.test.mjs` is that test. It holds the legacy frame view and
-`Uint32Array`s over the *whole* 16,896-byte pose array and 131,072-byte event array —
+`Uint32Array`s over the *whole* 16,896-byte pose array and 262,144-byte event array —
 the reserved extent, not the live prefix, because that is the view a worker keeps for
 the life of the module — and drives `init_articulated`, sixty-five refused spawns,
 four descents, the clinch to its contact cap, sixteen batched `step(8)` calls, the
-stream digest and a reset, across three seeds. It settles at **237 pages** from the
+stream digest and a reset, across three seeds. It settles at **241 pages** from the
 end of the first warm round and holds there through a measured sixth round and a
-measured sixth guarded cycle. Most of that is the articulated *room* rather than these
-two arrays, which are 3 pages between them.
+measured sixth guarded cycle — 237 while the event capacity was 1024. Most of that is
+the articulated *room* rather than these two arrays, which are 5 pages between them.
 
 **What the Node test cannot reach, recorded so nobody looks for it there.** Its pose
 ceiling is 11 rows and its busiest single publication is 16 event rows, because no
 export spawns an articulated body — `spawn_monster` refuses an articulated world by
 design — so the roster is whatever the floor generator placed (7 rows at depth 0,
-rising to 11 from depth 4) and a fight is two bodies. The 64-row and 446-row maxima
+rising to 11 from depth 4) and a fight is two bodies. The 64-row and 556-row maxima
 belong to the `abi-high-water` corpus, which is a hand-built `crates/web` scenario.
 That is not a gap in the proof: both arrays are fixed and reserved whole at
 construction, so how full they are is not what the byte length depends on.
@@ -512,14 +524,20 @@ views detach.
 
 **A reset belongs in the warm set too, and one per floor the proof will later drive.**
 `init` builds the replacement `Sim` before it drops the installed one, so every reset
-holds two `combat_events` reservations at once — 256 KiB now that the capacity is
-1024, where it was 64 KiB at the rejected 256. That second reservation no longer fits
+holds two `combat_events` reservations at once — 512 KiB now that the capacity is
+2048, where it was 256 KiB at 1024 and 64 KiB at the rejected 256. That second
+reservation no longer fits
 in the slack a single warm round leaves behind, so a proof warmed on one seed and then
 driven across three watched its first `init` grow linear memory. Warming the same seed
 twice does not fix it: the peak is per *floor*, because a generated room's nav fields
 and fog are most of a `Sim` and every seed generates a different room.
 `published_legacy_views_survive_every_warm_path_without_memory_growth` is the test
-that says so; it warms every seed it will later drive and settles at 30 pages.
+that says so. At 1024 it warmed every seed once and settled at 30 pages; at 2048 that
+stopped being enough and the guarded phase grew on its second visit to a seed, so it
+now warms every seed **twice, nested the way the guarded phase nests them**, and
+settles at 38 pages. Two rounds over the seed list rather than per seed — the same six
+calls in the other order — does not settle it, which says the peak follows the
+floor-to-floor transition and not the number of rounds.
 
 ## Portable stream digest
 
@@ -547,9 +565,9 @@ still, and both ask for the bearing they already have. Twenty ticks, one publica
 each. Every body spawns facing east and both body yaw and arm bearings are *driven*
 rather than set — the shipped clinch fixture spends 78 ticks turning around before it
 first touches — so the script asks for no rotation at all and gets its contact out of
-the placement instead. Ticks 0, 1, 2 and 4 resolve nothing, tick 3 resolves two rows,
-and every tick from 5 resolves one, which is how the reference's "including an empty
-tick" is actually covered. The pin is registered in
+the placement instead. Ticks 0, 1, 2 and 4 resolve nothing, ticks 3 and 5 resolve two
+rows, and every tick from 6 resolves one, which is how the reference's "including an
+empty tick" is actually covered. The pin is registered in
 [`hashes.md`](hashes.md#golden-registry).
 
 **The JavaScript half pins the number and does not rebuild the bytes, and that is

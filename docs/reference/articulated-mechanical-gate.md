@@ -121,7 +121,22 @@ fixture is excluded from that last aggregate and must increment exactly once.
 Run original and mirrored seeds `0..99` for both policies, 200 paired trials per
 policy. “Windmill” alternates cut commit endpoints every 30 ticks at effort one,
 never chambers, guards, withdraws, or rests, and otherwise uses the same target/yaw
-and grips. “Composed” is the canonical script above.
+and grips. “Composed” is the canonical script above. `lab articulated --policy
+composed|windmill` selects between them.
+
+**The two policies do not differ only in the arm.** The windmill walks on every tick
+and the composed script's phases 3, 4, 7 and 8 command `move_dir: Vec2::ZERO`, so a
+side of the efficiency ratio is also a side of a footwork comparison. That is a
+consequence of the phase table leaving the attack phases' move column unstated and of
+checkpoint A resolving the silence as zero; `lab articulated --attack-moves` measures
+the other reading. Until the table names the column, the ratio is not a measurement of
+technique alone. The numerator alone already leans the wrong way: over 800 trials the
+windmill's largest blow is 18,848 raw against the composed script's 13,892, it takes
+the Brute to 0.9159 mean health against 0.9680, and it severs 47 regions against 20.
+(Those were 19,709 / 8,038, 0.9334 / 0.9692 and 35 / 8 before checkpoint B fixed the
+contact projector; the gap narrowed and did not close.) The
+denominator is not measured -- `ActuatorWorkLedger` does not exist yet -- so the `6/5`
+threshold is untested, not failed.
 
 For each policy, `damage` is the checked `u128` sum of the final raw existing
 `World::damage_dealt(Heroes)` and `World::damage_dealt(Monsters)` columns over all 200
@@ -217,8 +232,8 @@ omission.** `emit_abi` emits both layout versions, both strides, both capacities
 all 66 + 32 column offsets — v2-17 needs every one of them — but the snapshot chain
 still ends at the furniture block, so the generated `SNAPSHOT_BUFFER_BYTES` is
 `27_452` and each snapshot buffer still has four regions. Reserving the two articulated
-regions ahead of the filtered copy widens three pooled buffers by 147,968 bytes each and
-makes the once-per-publication zero-fill in `client/src/state/snapshot.ts` 6.4x wider,
+regions ahead of the filtered copy widens three pooled buffers by 279,040 bytes each and
+makes the once-per-publication zero-fill in `client/src/state/snapshot.ts` 11.2x wider,
 for regions nothing writes and nothing reads. The offsets above are what v2-17 generates
 when it lands the copy; `snapshot_offsets_are_aligned_non_overlapping_and_cover_every_fixed_buffer`
 fails today if a region is reserved without one.
@@ -261,7 +276,7 @@ and this required shape:
   "command": "cargo run --release -p lab -- articulated --seeds 400 --mirrored --record",
   "sourceCommit": "40 lowercase hex",
   "fixture": { "name": "articulated-duel-v1", "scenarioFingerprint": "16 hex", "combatSpecSchema": 1, "replayCodecVersion": 2, "hashDomain": "ArticulatedV1", "hashSchema": 1, "scriptDigest": "16 hex" },
-  "primary": { "seeds": 400, "trials": 800, "tickLimits": 0, "fighterWinsOriginal": 0, "fighterWinsMirrored": 0, "mutualDestructions": 0, "coverage": {}, "maxEnergyExcessRaw": 0, "contactCapHits": 0 },
+  "primary": { "seeds": 400, "trials": 800, "tickLimits": 0, "fighterWinsOriginal": 0, "fighterWinsMirrored": 0, "mutualDestructions": 0, "coverage": {}, "maxEnergyExcessRaw": 0, "solverRejectedTicks": 0, "contactCapHits": 0 },
   "windmill": { "seeds": 100, "trialsPerPolicy": 200, "composedDamageRaw": "decimal", "composedWorkRaw": "decimal", "windmillDamageRaw": "decimal", "windmillWorkRaw": "decimal", "composedTickLimits": 0, "windmillTickLimits": 0 },
   "pin": { "seed": 0, "replayPath": "fixtures/articulated/articulated-duel-v1-seed-0.replay", "replaySha256": "64 hex", "finalTick": 0, "stateDomain": "ArticulatedV1", "stateSchema": 1, "stateValue": "16 hex", "replayDigest": "16 hex", "poseDigest": "16 hex", "eventDigest": "16 hex" },
   "fixtures": [],
@@ -273,8 +288,24 @@ and this required shape:
 
 Coverage uses the exact table keys and integer counts. Each fixture row contains ID,
 seed, replay path/SHA-256, script/replay/state/pose/event 16-hex digests, cap hits,
-replay codec version `2`, hash domain/schema, maximum energy excess raw, and boolean
-predicate result. Decimal strings hold summed
+replay codec version `2`, hash domain/schema, maximum energy excess raw, solver
+rejected ticks, and boolean predicate result.
+
+**`maxEnergyExcessRaw` is not a soundness field on its own, and must never be read as
+one.** It is `max(0, after - before)` over *published* resolution rows, and
+`World::resolve_contact` deletes every row of a group whose solve returned
+`Err(ResolutionError::Projector)` -- which is exactly the `after > before` condition.
+Zero there means "nothing unsound was published", not "nothing unsound happened", and
+the two differ by however many ticks the solver refused. `solverRejectedTicks` is that
+number, read from `World::contact_solver_rejections`, and it is required beside the
+excess wherever the excess appears. First measured on 2026-08-10 it was **188,654 of
+the composed corpus's 2,880,000 ticks**, so the pair read "zero observed excess, 6.5%
+of ticks unobserved" -- which was the honest statement and not a passing one. It reads
+**zero refused ticks across all three corpora** since checkpoint B stopped the contact
+projector re-deriving an unmoved hand through the joint's inexact inverse map, so the
+excess finally audits the whole fight. The pairing rule stands regardless of the
+current value: a corpus that starts refusing ticks again has a blind spot of that width
+however small its published excess is. Decimal strings hold summed
 raw values that may exceed JavaScript's safe integer. The lab writer sets
 `automatedResult`, leaves `visibleResult` and final `result` pending, and writes sorted
 keys. The foreground review update copies its verdict into `visibleResult`; final

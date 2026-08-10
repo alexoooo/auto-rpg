@@ -705,14 +705,18 @@ const COMBAT_EVENT_LAYOUT_VERSION = 1;
 // host that narrowed one would publish a wrong number no reader could tell from
 // a small one.
 const COMBAT_EVENT_STRIDE = 32;
-// **1024, and the 256 the plan proposed was measured and rejected.** The
-// reference's mandatory `abi-high-water` corpus -- 64 bodies as 32 Fighter/Brute
-// pairs three halves of a unit apart, one submitted command each at tick zero,
-// exactly one `step(8)` -- accumulates 446 rows in that single batch, so at 256
-// the host published the canonical 256 and counted 190 dropped. The rule for a
-// rejected capacity is the next power of two at least twice the measurement:
-// 446 doubles to 892 and rounds up.
-const MAX_COMBAT_EVENTS = 1024;
+// **2048, and both the 256 the plan proposed and the 1024 that replaced it were
+// measured and rejected.** The reference's mandatory `abi-high-water` corpus --
+// 64 bodies as 32 Fighter/Brute pairs three halves of a unit apart, one
+// submitted command each at tick zero, exactly one `step(8)` -- accumulated 446
+// rows in that single batch, so at 256 the host published the canonical 256 and
+// counted 190 dropped. The rule for a rejected capacity is the next power of two
+// at least twice the measurement: 446 doubles to 892 and rounds up to 1024.
+// v2-17 checkpoint B then took the same corpus to 556 rows -- the sim's contact
+// projector stopped charging every trial for its own inverse-map drift, so more
+// of each impulse survives the energy check -- and 556 doubles to 1,112. Nothing
+// was dropped at 1024; the rule is headroom, not survival.
+const MAX_COMBAT_EVENTS = 2048;
 
 // The pose columns this file reads, from the reference's row table.
 const POSE_ENTITY_INDEX = 0;
@@ -740,8 +744,9 @@ const SEVERED_MASK_BITS = 5;
 // `Scenario::articulated_duel()` at seed 1 with the fighter moved to (9,6) and
 // the brute to (7,6), one articulated command submitted to each on tick zero and
 // none after, twenty ticks and one publication each -- ticks 0, 1, 2 and 4
-// resolve nothing, tick 3 resolves two rows and every tick from 5 resolves one,
-// so both an empty tick and sixteen ticks of event rows are inside this number.
+// resolve nothing, ticks 3 and 5 resolve two rows and every tick from 6 resolves
+// one, so both an empty tick and sixteen ticks of event rows are inside this
+// number.
 // Pinned again in crates/web/src/lib.rs exactly as the five state hashes are;
 // `divergence` above explains what a one-sided failure means.
 //
@@ -760,7 +765,12 @@ const SEVERED_MASK_BITS = 5;
 // means wasm32 encodes what MSVC x86-64 encodes. What a single number cannot
 // catch is an encoder wrong the same way on both targets, and the row grammar
 // checked beside it is the part of the reference this file *can* rebuild.
-const ARTICULATED_STREAM_DIGEST = 0x4372a94d89fc9155n;
+//
+// Moved once, by v2-17 checkpoint B, from `0x4372a94d89fc9155`. No layout
+// changed: the sim's contact projector stopped re-deriving an unmoved hand
+// through an inexact joint inverse, so more of every contact's proposed impulse
+// now survives the energy check. Tick 5 gaining a second row is that change.
+const ARTICULATED_STREAM_DIGEST = 0x27b2aa50bb4e7a67n;
 
 // The live pose rows, copied out. Words and not floats: every published column
 // is a `u32`, and the signed ones are two's-complement raw bits.
@@ -828,7 +838,7 @@ test("wasm_exports_match_layout_stride_capacity_and_drop_fields", () => {
   // Fixed arrays whose addresses never move, which is the one property the
   // worker's typed arrays depend on for the life of the module. Checked against
   // the *capacity* rather than the live length: the arrays are reserved whole at
-  // construction, so a module that placed 147,968 bytes of statics past the end
+  // construction, so a module that placed 279,040 bytes of statics past the end
   // of its own memory would be caught here rather than on the first busy tick.
   const [poseAt, eventAt] = [u32(wasm.pose_ptr()), u32(wasm.combat_event_ptr())];
   assert.ok(poseAt > 0 && eventAt > 0, "a published buffer is at address zero");

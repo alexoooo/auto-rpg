@@ -234,9 +234,23 @@ pub fn resolve_group_into<P: ContactTrialProjector>(
     projector.project(colliders, sums, alpha_raw, trial_rows)?;
     let after = closure_energy(trial_rows)?;
     // `after <= before` is the whole point of the alpha search, and alpha zero
-    // always satisfies it, so a violation is a broken projector rather than a
+    // has to satisfy it: no impulse is applied there, so a projector that
+    // answers anything but the rows it was handed is reporting its own
+    // arithmetic. A violation is therefore a broken projector rather than a
     // hard input. Say so with an error instead of a release-mode subtraction
     // that would wrap, or a `copy_from_slice` that would panic on a short row.
+    //
+    // "Alpha zero *always* satisfies it" is what this said until 2026-08-10,
+    // and it was true only of the projector two lines up. `World`'s coupled one
+    // sent every equipment row out to a hand, back through the joint's inexact
+    // inverse map and out again at every alpha including zero, and the round
+    // trip is worth up to 68 raw units of hand movement -- which is velocity,
+    // which is energy. Measured on the articulated corpus at 400 seeds
+    // mirrored: 188,654 of 2,880,000 ticks refused here, 6.5%, every first
+    // cause `Projector`, and 156 of the first 166 with no joint limit involved
+    // at all. The fix is in `ContactProjector::project`: an unmoved hand is not
+    // re-derived. Note what the number was, because the check is worth nothing
+    // if the next projector's drift is quietly re-recorded as the new normal.
     if trial_rows.len() != colliders.len() || after > before {
         return Err(ResolutionError::Projector);
     }

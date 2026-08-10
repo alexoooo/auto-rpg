@@ -830,20 +830,30 @@ pub const COMBAT_EVENT_LAYOUT_VERSION: u32 = 1;
 
 /// Rows the combat-event buffer holds, across every tick of one `step` call.
 ///
-/// **1024 because the provisional 256 was measured and rejected.** The
-/// reference's `abi-high-water` corpus -- world seed `0x4152504741424931`, an
-/// open 24x16 room, 64 bodies as 32 Fighter/Brute pairs three halves of a unit
-/// apart, one submitted command each at tick zero and none after, and exactly
-/// one `step(8)` -- accumulates **446 rows** across that single eight-tick
-/// batch. At 256 the host published the canonical 256 and counted 190 dropped,
-/// which is a truncated stream on a fixture the reference calls mandatory. The
-/// reference's rule for a rejected capacity is the next power of two at least
-/// twice the measured maximum: 446 doubles to 892 and rounds up to 1024.
+/// **2048 because the provisional 256 and then 1024 were measured and
+/// rejected.** The reference's `abi-high-water` corpus -- world seed
+/// `0x4152504741424931`, an open 24x16 room, 64 bodies as 32 Fighter/Brute
+/// pairs three halves of a unit apart, one submitted command each at tick zero
+/// and none after, and exactly one `step(8)` -- accumulated **446 rows** across
+/// that single eight-tick batch when the ABI was written. At 256 the host
+/// published the canonical 256 and counted 190 dropped, which is a truncated
+/// stream on a fixture the reference calls mandatory. The reference's rule for
+/// a rejected capacity is the next power of two at least twice the measured
+/// maximum: 446 doubles to 892 and rounds up to 1024.
+///
+/// The same corpus now accumulates **556 rows**, because v2-17 checkpoint B
+/// stopped the contact projector charging every trial for its own inverse-map
+/// drift and more of each proposed impulse survives the energy check. Nothing
+/// was dropped at 1024 -- but the acceptance rule is headroom, not survival,
+/// and 556 doubles to 1,112. So the capacity is 2048 and the byte budget below
+/// moved with it, at a cost of 128 KiB of static linear memory.
 ///
 /// Re-measured by `the_high_water_corpus_fills_at_most_half_the_event_buffer`,
 /// which is what fails if a change doubles event production -- the failure this
-/// number exists to turn into a test rather than a silently cut feed.
-pub const MAX_COMBAT_EVENTS: usize = 1024;
+/// number exists to turn into a test rather than a silently cut feed. It has
+/// now caught both of the two ways it said it could: a capacity that shrank and
+/// a fight that got busier.
+pub const MAX_COMBAT_EVENTS: usize = 2048;
 
 /// Words in one combat-event row.
 ///
@@ -903,13 +913,14 @@ pub const COMBAT_EVENT_NO_BODY_PART: u32 = u32::MAX;
 /// reference charges v2-16 exactly these bytes, and the 55-byte command scratch
 /// belongs to v2-11 and is not charged again.
 ///
-/// It was 49,664 while [`MAX_COMBAT_EVENTS`] was the provisional 256. The
-/// measurement that rejected 256 is written out there; what it costs is written
-/// out here, because 98 KB more linear memory is the price of that decision and
-/// a budget that quietly followed the constant would hide it.
+/// It was 49,664 while [`MAX_COMBAT_EVENTS`] was the provisional 256, and
+/// 147,968 while it was 1024. The measurements that rejected each of those are
+/// written out there; what they cost is written out here, because 98 KB and
+/// then 128 KB more linear memory is the price of those decisions and a budget
+/// that quietly followed the constant would hide it.
 const _: () = assert!(
-    MAX_POSES * POSE_STRIDE * 4 + MAX_COMBAT_EVENTS * COMBAT_EVENT_STRIDE * 4 == 147_968,
-    "the articulated publication budget is 16,896 pose bytes plus 131,072 event bytes",
+    MAX_POSES * POSE_STRIDE * 4 + MAX_COMBAT_EVENTS * COMBAT_EVENT_STRIDE * 4 == 279_040,
+    "the articulated publication budget is 16,896 pose bytes plus 262,144 event bytes",
 );
 
 thread_local! {
@@ -3894,12 +3905,12 @@ fn publish() {
             // as a stale unit row behind `frame_len`. The rows are wiped as
             // well anyway, which the frame's are not, because a pose row is
             // *ground truth about an identity* -- a reader that held a stale
-            // length would be handed the previous world's bodies, and 147,968
+            // length would be handed the previous world's bodies, and 279,040
             // bytes on an arm that only runs when no world is installed is not
             // a cost worth trading that against. It was 49,664 while
             // `MAX_COMBAT_EVENTS` was the provisional 256, and the trade comes
-            // out the same way at three times the size: this arm runs once per
-            // refused install and never inside a frame.
+            // out the same way at nearly six times the size: this arm runs once
+            // per refused install and never inside a frame.
             POSES.with(|poses| poses.borrow_mut().fill(0));
             POSE_LEN.with(|n| n.set(0));
             POSES_DROPPED.with(|n| n.set(0));
@@ -5897,12 +5908,16 @@ fn drive_stream_digest_script(mut feed: impl FnMut(u32, &[u32], u32, &[u32], u32
 
     // The two published buffers, built once and reused across the script rather
     // than allocated per tick: this runs on `wasm32-unknown-unknown`, where a
-    // heap that grows detaches whatever the page is holding, and 147,968 bytes
+    // heap that grows detaches whatever the page is holding, and 279,040 bytes
     // of stack is the cheaper of the two. That was 49,664 while
-    // `MAX_COMBAT_EVENTS` was the provisional 256, so the frame tripled and the
-    // trade is worth restating rather than assuming: the default shadow stack
-    // is 1 MiB, this frame is a seventh of it, and it is the whole depth below
-    // an export rather than one level of a recursion.
+    // `MAX_COMBAT_EVENTS` was the provisional 256 and 147,968 while it was
+    // 1024, so the frame has grown by 5.6x and the trade is worth restating
+    // rather than assuming: the default shadow stack is 1 MiB, this frame is a
+    // little over a quarter of it, and it is the whole depth below an export
+    // rather than one level of a recursion. **This is the constant to watch if
+    // the capacity is raised again** -- the next doubling puts one frame past
+    // half the stack, and a shadow-stack overflow on wasm32 is a silent
+    // corruption rather than a trap.
     let mut poses = [0u32; MAX_POSES * POSE_STRIDE];
     let mut events = [0u32; MAX_COMBAT_EVENTS * COMBAT_EVENT_STRIDE];
     for _ in 0..STREAM_DIGEST_TICKS {
@@ -6975,7 +6990,7 @@ mod tests {
         assert_eq!(pose_capacity(), 64, "MAX_POSES");
         assert_eq!(combat_event_layout_version(), 1, "COMBAT_EVENT_LAYOUT_VERSION");
         assert_eq!(combat_event_stride(), 32, "COMBAT_EVENT_STRIDE");
-        assert_eq!(combat_event_capacity(), 1024, "MAX_COMBAT_EVENTS");
+        assert_eq!(combat_event_capacity(), 2048, "MAX_COMBAT_EVENTS");
         // The one relationship worth asserting rather than transcribing: the
         // pose cap *is* the sim's articulated cap, so a sim that grew its own
         // limit fails here instead of quietly publishing a truncated roster.
@@ -7017,7 +7032,7 @@ mod tests {
         assert_eq!((pose_ptr(), combat_event_ptr()), (poses, events));
         assert!(combat_event_len() <= combat_event_capacity());
         assert_eq!(poses_dropped(), 0, "a two-body room overflowed a 64-row pose buffer");
-        assert_eq!(combat_events_dropped(), 0, "a two-body room overflowed a 1024-row feed");
+        assert_eq!(combat_events_dropped(), 0, "a two-body room overflowed a 2048-row feed");
     }
 
     #[test]
@@ -7124,10 +7139,21 @@ mod tests {
     ///
     /// **This is the number that rejected `MAX_COMBAT_EVENTS = 256`.** At 256
     /// the same run published the canonical 256 rows and counted 190 dropped,
-    /// which is 446 produced and a stream cut in half on the one corpus the
+    /// which was 446 produced and a stream cut in half on the one corpus the
     /// reference calls mandatory. The capacity moved to 1024 -- the next power
     /// of two at least twice 446 -- and the reference's byte budget moved with
     /// it.
+    ///
+    /// **Then it rejected 1024 as well**, and by the route the test below names
+    /// as the other half of its job: the fight got busier. v2-17 checkpoint B
+    /// stopped the contact projector re-deriving an unmoved hand through the
+    /// joint's inexact inverse map, so the drift that had been inflating every
+    /// trial's energy stopped holding the alpha search under the alpha the
+    /// physics allows, and the same 64 bodies produced 556 rows in the same
+    /// batch. **Not recovered rejections:** this corpus refuses no tick and
+    /// refused none before, which the `#[ignore]`d printer now says out loud;
+    /// the extra rows are contact that used to be discarded as an energy gain
+    /// it never was. 556 doubles to 1,112, so the capacity is 2,048.
     ///
     /// Provenance is the whole of its meaning: **this fixture, this seed, this
     /// batch.** Seed `0x4152504741424931`, an open 24x16 room, 64 bodies as 32
@@ -7136,7 +7162,7 @@ mod tests {
     /// and eight `step(1)`s measure the busiest tick rather than what one host
     /// call accumulates -- which is the thing being sized, because the feed is
     /// cleared per call.
-    const HIGH_WATER_EVENT_ROWS: u32 = 446;
+    const HIGH_WATER_EVENT_ROWS: u32 = 556;
 
     /// And the pose half, which sits exactly on its capacity by construction:
     /// 64 bodies is `MAX_ARTICULATED_ENTITIES` and `MAX_POSES` is the same
@@ -7295,6 +7321,8 @@ mod tests {
 
         println!("bodies:               {}", scenario.units.len());
         println!("commands refused:     {refused}");
+        println!("ticks refused:        {}", SIM.with(|sim|
+            sim.borrow().as_ref().map_or(0, |sim| sim.world.contact_solver_rejections())));
         println!("combat_event_len:     {}", combat_event_len());
         println!("combat_events_dropped:{}", combat_events_dropped());
         println!("combat_event_capacity:{}", combat_event_capacity());
@@ -7311,7 +7339,8 @@ mod tests {
     /// magnitude, the brute standing still, both asking for the bearing they
     /// already have. Twenty ticks, one publication per tick, digested through
     /// [`write_pose_buffer`] and [`write_combat_event_buffer`]. Ticks 0, 1, 2
-    /// and 4 carry no contact, tick 3 carries two rows, and the rest carry one.
+    /// and 4 carry no contact, ticks 3 and 5 carry two rows, and the rest carry
+    /// one.
     ///
     /// Not a fight golden. It pins the *bytes the page reads*, which is a
     /// different property from `ROOM_HASH`'s and one a hand-rolled ABI can get
@@ -7319,7 +7348,15 @@ mod tests {
     /// `u64`. Any change to the row layouts moves it and is expected to; a
     /// change to the simulation moves it *and* a fight golden, which is the
     /// pair worth reading together.
-    const ARTICULATED_STREAM_DIGEST: u64 = 0x4372_a94d_89fc_9155;
+    ///
+    /// Moved once, by v2-17 checkpoint B, from `0x4372a94d89fc9155`: no layout
+    /// changed, the simulation did. `ContactProjector` stopped re-deriving an
+    /// unmoved hand through the joint's inexact inverse map, so the drift that
+    /// was inflating every trial's energy -- and with it holding the alpha
+    /// search below the alpha the physics allows -- is gone. Tick 5 resolving
+    /// two rows where it used to resolve one is that change, visible in the
+    /// twenty ticks this script publishes.
+    const ARTICULATED_STREAM_DIGEST: u64 = 0x27b2_aa50_bb4e_7a67;
 
     #[test]
     #[ignore]

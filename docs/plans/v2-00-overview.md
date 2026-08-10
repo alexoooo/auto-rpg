@@ -75,8 +75,9 @@ observation plus its appended 472-feature block landed first, moving
 `FEATURE_LAYOUT_VERSION` to 12 and `FEATURE_COUNT` to 922 with indices `0..450`
 byte-identical. The host half followed -- the fixed pose and combat-event
 buffers, their fifteen exports, `init_articulated`, and the portable stream digest,
-which pins as `ARTICULATED_STREAM_DIGEST = 0x4372a94d89fc9155` and agrees
-between native and wasm. The policy seam landed beside them -- `ArticulatedPolicy`
+which pinned as `ARTICULATED_STREAM_DIGEST = 0x4372a94d89fc9155` and agrees
+between native and wasm -- `0x27b2aa50bb4e7a67` since v2-17 checkpoint B moved the
+simulation under it. The policy seam landed beside them -- `ArticulatedPolicy`
 beside `Policy`, `policy::run_articulated` beside `run`, and the workspace's first
 `compile_fail` doctest, which is documentation rather than a gate on the stable
 toolchain and says so in place. Nothing outside its own tests drives it yet. The
@@ -192,7 +193,7 @@ SUBMITTED_COMMAND_LAYOUT_VERSION = 1    v2-11
 POSE_LAYOUT_VERSION = 1                 v2-16
 COMBAT_EVENT_LAYOUT_VERSION = 1         v2-16
 MAX_POSES = 64                          v2-16, host publication cap; not a sim spawn cap
-MAX_COMBAT_EVENTS = 1024                v2-16, measured: 446 rows, so 256 was rejected
+MAX_COMBAT_EVENTS = 2048                v2-17B, re-measured: 556 rows, so 1024 was rejected too
 ```
 
 Append-only layouts retain stable discriminants. Exact persisted field order lives

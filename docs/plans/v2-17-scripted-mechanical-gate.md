@@ -169,6 +169,49 @@ measurements:
 - **The severance counts are per fact, not per limb.** Two facts that between them empty
   a region are both reported, on `after_group`'s own rule.
 
+### The projector defect was fixed first, and it moved the baseline the decision is made against
+
+The three corpora above were measured on a solver that was throwing 6.5% of its ticks
+away (see the collateral findings below). That is fixed, so all three were re-measured
+before any calibration is chosen. **No calibration was touched**: no
+`CONTACT_ENERGY_FLOOR`, no `WOUND_PER_ENERGY`, no roster maximum, no actuator constant,
+no change to the point-mass framing. The only change is that
+`ContactProjector::project` no longer re-derives a row whose hand nothing moved.
+
+| | composed | windmill | composed + closing attacks |
+|---|---|---|---|
+| decided by a body | **3 (0.4%)** | **11 (1.4%)** | **4 (0.5%)** |
+| reached tick 3,600 | 797 (99.6%) | 789 (98.6%) | 796 (99.5%) |
+| fighter wins, canonical / mirrored / difference | 274 / 255 / 19 | 400 / 400 / 0 | 398 / 396 / 2 |
+| mean end health, fighter / brute | 0.9890 / 0.9680 | 0.9998 / 0.9159 | 0.9991 / 0.9406 |
+| mean fight length, ticks | 3,594.6 | 3,575.3 | 3,590.5 |
+| contact resolutions | 3,087,875 | 3,265,399 | 3,274,836 |
+| `contact_cap_hits` | 53,494 | 70,987 | 62,112 |
+| severance events | 20 | 47 | 21 |
+| max single blow, weapon-body raw | 13,892 | 18,848 | 12,663 |
+| worst tick's credited damage | 18.00 | 17.82 | 17.84 |
+| refused solver ticks | **0** | **0** | **0** |
+
+**Recovering the rejected ticks does not rescue the gate, and that is the finding.**
+Every lethality column moves the right way -- the composed script's largest blow grows
+1.7x, its severances 2.5x, its decisive count from 0 to 3 -- and the reference still
+wants under ten percent of trials on the clock against a best control of 98.6 percent.
+The floor is binding for this physics on a solver that now bills all of it, so B still
+has to choose a mechanics change and the four options below stand unchanged.
+
+Two second-order readings worth carrying:
+
+- **`contact_cap_hits` roughly tripled** (19,202 to 53,494 on the composed corpus).
+  More impulse survives the energy check, so more pairs re-sweep inside the tick and
+  more ticks exhaust the group cap. A gate that requires exactly zero cap hits is
+  further away than checkpoint A measured, not closer.
+- **The check this file demanded was run, and `MAX_COMBAT_EVENTS` failed it.** The
+  browser high-water corpus went from 446 rows to 556, which is under the 1,024 cap but
+  past the `high_water * 2 <= MAX_COMBAT_EVENTS` rule, so the capacity is 2048 and the
+  publication budget is 279,040 bytes. Nothing was dropped at either size. Note what
+  this was *not*: that corpus refuses no tick and refused none before, so the extra
+  rows are contact the solver used to discard as an energy gain it never was.
+
 Only if a control still fails does B choose among, recording which and why:
 
 1. re-derive the floor at the granularity the solver actually bills it;
@@ -219,6 +262,18 @@ this session is a measurement.
 
 The evidence schema must carry the rejection count beside `maxEnergyExcessRaw`, and
 checkpoint D may not write the latter as a soundness field while the former is nonzero.
+
+**Fixed by checkpoint B (2026-08-10), and all three corpora now refuse nothing.** The
+cause was narrower than "the round trip can return a larger velocity": it re-derives
+rows *nothing moved*. Instrumented over seed 0, 156 of the first 166 refusals had no
+joint limit involved at any row — pure forward/inverse drift, up to 68 raw units of
+hand movement, added to an absolute velocity the group had not touched — and the ten
+that did were the same drift landing 1 or 2 raw units under `ARM_MIN_REACH_RAW` on an
+arm already at minimum reach. `ContactProjector::project` now keeps the body-translated
+velocity whenever the accumulator and the entry clamp between them moved the hand
+nowhere, which is the rule the final commit already kept and for the same reason, and
+makes alpha zero the identity by construction rather than by measurement. The lab test
+that asserted a nonzero rejection count is inverted rather than deleted.
 
 **`contact_cap_hits` is a real 6x regression, not a 960x one.** The measured 19,202 is a
 cumulative per-`World` counter read once, correctly, and increments at most once per

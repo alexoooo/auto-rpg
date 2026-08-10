@@ -531,7 +531,15 @@ impl ContactTrialProjector for ContactProjector<'_> {
     /// been. A body impulse drags everything that body holds, so an arm's trial
     /// velocity is its own accumulator *plus* the body's applied delta -- and
     /// the joint clamp below then asks whether the arm could have got there at
-    /// all.
+    /// all, but only of the arms that went somewhere.
+    ///
+    /// **A row that did not move its hand is not re-derived**, and that is the
+    /// same rule -- with the same reason behind it -- that the final commit
+    /// keeps. `hand_position` is not the exact inverse of `inverse_hand`, so
+    /// asking the joint about a hand it already agreed to answers with the
+    /// round trip's own error, which lands directly on the velocity the
+    /// closure's energy is measured from. See the alpha-zero note in
+    /// `resolve_group_into` for what that cost before it was recognised.
     fn project(
         &mut self,
         before: &[GeneralizedCollider],
@@ -565,9 +573,30 @@ impl ContactTrialProjector for ContactProjector<'_> {
             let body = *self.bodies.iter().find(|body| body.entity == row.entity)
                 .ok_or(ResolutionError::ColliderIndex)?;
             let own = resolution::scaled_delta(*sum, alpha_raw, row.mass.raw());
+            // The velocity this row would have from riding its body alone.
+            // Measured rather than assumed to be zero: a bystander collider in
+            // the closure carries no accumulator of its own and still gets
+            // translated, and `body.delta` is the whole of what it gets.
+            //
+            // `requested` keeps the three-term order it has always had rather
+            // than being built from `translated`: `Fx` addition saturates, so
+            // the two groupings are the same number everywhere the clamp can
+            // reach and not provably the same number everywhere else.
+            let translated = row.velocity + body.delta;
             let requested = clamp_contact_velocity(row.velocity + own + body.delta);
-            row.velocity = self.world.joint_clamped_velocity(
-                *row, self.entry, body.velocity, requested)?;
+            row.velocity = if requested == translated {
+                // The hand is where it was, because the translation moved body
+                // and hand together and nothing else touched it. Its joint has
+                // already agreed to that pose once -- the actuator or the last
+                // commit built it through this very map -- so re-deriving it
+                // now can only add the map's own error. At alpha zero *every*
+                // row lands here, which is what makes the trial the identity
+                // the alpha search assumes it is.
+                translated
+            } else {
+                self.world.joint_clamped_velocity(
+                    *row, self.entry, body.velocity, requested)?
+            };
         }
         Ok(())
     }
@@ -1206,8 +1235,8 @@ impl World {
         self.contact.as_ref().map_or(0, |contact| contact.state.cap_hits)
     }
 
-    /// How many ticks the contact solver refused outright. Not hashed, and zero
-    /// in Legacy: a world with no contact runtime has nothing to count with.
+    /// How many ticks the contact solver refused outright. Not hashed; zero in
+    /// Legacy, and zero on the articulated duel fixture.
     ///
     /// The companion to [`World::contact_resolutions`] rather than a second
     /// reading of it: a rejected tick publishes no rows at all, so a caller
@@ -1218,12 +1247,12 @@ impl World {
     /// The first time it was asked, on 2026-08-10, it answered 236 of every
     /// 3,600 ticks under the twelve-phase script, every one of them
     /// [`ResolutionError::Projector`] -- 6.5% of the fight computed, rejected
-    /// and silently rolled back. That is a contact-solver defect rather than a
-    /// diagnostic one, and it is measured here and diagnosed in
-    /// `docs/plans/v2-17-scripted-mechanical-gate.md` rather than fixed here.
-    /// The counter stays whatever the fix costs it, because a number that has
-    /// only ever been zero proves nothing and this one has already paid for
-    /// itself once.
+    /// and silently rolled back. The cause was [`ContactProjector::project`]
+    /// re-deriving *every* equipment row through the joint's inexact inverse
+    /// map at every alpha including zero, so the round trip's own drift read as
+    /// created energy. Checkpoint B fixed it there, by recognising an unmoved
+    /// hand as unmoved; the number is kept because a counter that has only ever
+    /// been zero proves nothing, and this one has already paid for itself once.
     pub fn contact_solver_rejections(&self) -> u32 {
         self.contact.as_ref().map_or(0, |contact| contact.rejections)
     }
@@ -7768,6 +7797,83 @@ mod tests {
                 assert!(row.group_alpha_raw <= 65_536);
             }
         }
+    }
+
+    #[test]
+    fn a_zero_alpha_trial_answers_with_the_rows_it_was_handed() {
+        // The invariant `resolve_group_into` refuses a projector for breaking,
+        // proved against the projector that broke it. Alpha zero applies no
+        // impulse, so the trial it builds has to be the closure it was given --
+        // and it was not, because the equipment pass mapped every row out to a
+        // hand and back through a joint inverse that is not exact, at every
+        // alpha including this one. 6.5% of the articulated corpus was computed
+        // and rolled back on that drift; the arithmetic is in the alpha-zero
+        // note in `resolve_group_into`.
+        //
+        // The last tick's retained entry is used as it stands rather than
+        // re-retained, and that is what makes the fixture sharp: contact writes
+        // `previous_hand = entry hand` and `linear_velocity = hand - previous
+        // hand`, so `entry_hand + relative velocity` is exactly the hand the
+        // arm is holding, which is the hand the joint has already agreed to.
+        let mut world = clinch_world();
+        step_into_contact(&mut world);
+        let contact = world.contact.take().expect("articulated contact state");
+
+        let mut colliders = Vec::new();
+        let wounds = world.wounds.clone();
+        world.build_contact_colliders(&contact.entry, &mut colliders, &wounds);
+        let rows: Vec<GeneralizedCollider> = colliders.iter().map(|row| GeneralizedCollider {
+            entity: row.entity, slot: row.slot,
+            kind: if matches!(row.shape, ContactShape::Body { .. }) { GeneralizedKind::Body }
+                  else { GeneralizedKind::Equipment },
+            mass: row.mass, velocity: row.velocity,
+        }).collect();
+        let held = rows.iter().find(|row| row.kind == GeneralizedKind::Equipment)
+            .copied().expect("the fixture built no equipment row to project");
+
+        // The premise, written down so the proof below cannot go quietly
+        // vacuous: the round trip really does move a hand the actuator itself
+        // built. If it ever starts holding exactly, this fixture stops proving
+        // anything and the drift argument in `project` wants re-measuring
+        // rather than deleting.
+        let i = world.resolve(held.entity).expect("a live equipment row");
+        let limb = held.slot as usize;
+        let anatomy = world.combat_specs.as_ref().expect("articulated combat specs")
+            .anatomy(world.articulated_anatomy[i].expect("articulated anatomy"))
+            .expect("validated articulated anatomy").clone();
+        let (arm, yaw) = (world.arms[i][limb], world.body_yaw[i].angle);
+        assert_eq!(contact.entry[i].arms[limb].hand + arm.linear_velocity, arm.hand,
+                   "the entry hand and the arm velocity stopped naming the same hand");
+        let (bearing, height, reach) =
+            actuator::inverse_hand(&anatomy, yaw, limb, arm.hand, arm.bearing);
+        assert_ne!(actuator::hand_position(&anatomy, yaw, limb, bearing, height, reach), arm.hand,
+                   "the joint round trip became exact; this fixture no longer proves anything");
+
+        // No accumulator and no alpha: whatever comes back, the group proposed
+        // none of it.
+        let sums = vec![[0i128; 3]; rows.len()];
+        let (mut bodies, mut trial) = (Vec::new(), Vec::new());
+        let (mut state, mut credit) = (wounds.clone(), vec![Fx::ZERO; wounds.len()]);
+        let (mut deltas, mut fact_loss) = (Vec::new(), Vec::new());
+        let mut projector = ContactProjector {
+            world: &world, entry: &contact.entry, bodies: &mut bodies, wounds: &mut state,
+            credit: &mut credit, deltas: &mut deltas, fact_loss: &mut fact_loss,
+        };
+        projector.project(&rows, &sums, 0, &mut trial).expect("a projectable closure");
+        assert_eq!(trial.len(), rows.len(), "the trial re-indexed the closure");
+        // Compared raw, and printed raw. The drift is a handful of raw units on
+        // a velocity of a thousandth, so `Fx`'s four-decimal Display shows two
+        // identical rows and names nothing.
+        for (got, want) in trial.iter().zip(&rows) {
+            let raws = |row: &GeneralizedCollider| {
+                (row.velocity.x.raw(), row.velocity.y.raw(), row.velocity.z.raw())
+            };
+            assert_eq!(raws(got), raws(want),
+                       "alpha zero moved entity {} slot {}", want.entity.index, want.slot);
+        }
+        assert_eq!(resolution::closure_energy(&trial).expect("bounded closure"),
+                   resolution::closure_energy(&rows).expect("bounded closure"),
+                   "alpha zero changed the closure's energy");
     }
 
     #[test]

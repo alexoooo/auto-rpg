@@ -515,6 +515,19 @@ through `inverse_hand`/`hand_position`, and reports
 round-trips to the pose the actuator left, which is why an unchanged row must be
 recognised as unchanged rather than re-derived — see the commit rule below.
 
+**That rule binds the trial and not only the commit, and reading it as the commit's
+alone cost 6.5% of the fight.** A trial whose equipment velocity is exactly its
+pre-group velocity plus its body's applied delta has moved its hand nowhere: the body
+translation carries hand and origin together, so the *relative* hand is untouched. Such
+a row keeps that translated velocity and is not mapped at all. Otherwise the round trip
+is applied to every row at every alpha including zero — and the map is not exact, so
+the drift lands on the velocity the energy check reads and the trial can come back with
+more kinetic energy than the group proposed. **Alpha zero must be the identity**, since
+no impulse is applied there; the search has no valid floor to fall back to otherwise
+and `resolve_group_into` rejects the whole tick. Measured before the rule was applied
+here: 188,654 of the articulated corpus's 2,880,000 ticks refused, every one of them
+that way, 156 of the first 166 with no joint limit involved at any row.
+
 **The pre-group scalar pose is the pose the contact phase found**, before its own
 entry clamp or its solve wrote one, and the remaining fraction comes from the last
 group that entity was in. One write per arm at commit rather than one per group is
@@ -658,6 +671,16 @@ energy is at most `before`. This 16-bit greedy-valid construction does not assum
 energy monotonicity and does not claim a globally greatest alpha; it guarantees its
 final chosen alpha was itself tested valid. Apply it once. The ledger is `before`, recomputed `after`, and
 `before-after`; `after<=before` is asserted. One ledger belongs to the whole group.
+
+**That assertion rests on alpha zero being valid, and alpha zero is valid only because
+a trial that applies no impulse returns the rows it was handed.** Every bit may be
+refused, so zero is the floor the construction falls back to and there is nothing below
+it; a projector that changes a row at alpha zero has removed the floor and the whole
+tick is refused instead. The unchanged-row rule above is what makes it hold, and it
+holds by construction rather than by measurement: at alpha zero every accumulator
+scales to exactly zero, the body's componentwise clamp is inert on a body the entry
+clamp has already clamped, so every equipment row's trial velocity equals its
+pre-group velocity and no row is mapped.
 
 ## Injury channels
 

@@ -10,9 +10,12 @@ flaky against a tree another agent was still writing; `node tools/check_docs.js`
 run check`, and `git diff --check` clean. No pinned hash moved.
 
 Two numbers this file originally fixed did move, each through a route the plan itself
-provides. `MAX_COMBAT_EVENTS` is **1024**, not 256: the mandatory high-water corpus
+provides. `MAX_COMBAT_EVENTS` became **1024**, not 256: the mandatory high-water corpus
 accumulated 446 rows, 3.5× the ≤128 acceptance bar, so the capacity was rejected and
-raised to the next power of two at least twice the maximum. And the pose/event snapshot
+raised to the next power of two at least twice the maximum. *(It has since moved again,
+to 2048: v2-17 checkpoint B's contact-projector fix took the same corpus to 556 rows.
+The route is this plan's, the number is not; `articulated-abi.md` is canonical.)* And
+the pose/event snapshot
 regions were **reverted** after review — `SNAPSHOT_BUFFER_BYTES` is back to 27,452, and
 they arrive with the visibility-filtered copy in `v2-17` rather than growing a
 per-publication zero-fill 6.4× ahead of any reader.
@@ -149,7 +152,7 @@ model-aware, because a Legacy `Scenario::dungeon` refuses an articulated hero *b
 panicking*, one call inside an export; and the documented event total order does hold
 as produced, so nothing sorts.
 
-`ARTICULATED_STREAM_DIGEST` is `0x4372a94d89fc9155`, native and wasm agreeing, and is
+`ARTICULATED_STREAM_DIGEST` was `0x4372a94d89fc9155` here, native and wasm agreeing, and is
 registered in [`hashes.md`](../reference/hashes.md#golden-registry).
 
 **The JavaScript half landed too (2026-08-10), and nothing here is owed.**
@@ -162,7 +165,8 @@ that publishes nothing looks exactly like an idle world. Beside it are
 strides, both capacities, that a Legacy world publishes and drops nothing, that a
 fresh articulated room publishes pose rows and drops nothing, and that neither
 pointer moves across a step; and `native_and_wasm_pose_event_stream_digests_match`,
-which pins `0x4372a94d89fc9155` and drives the pose row grammar off the reference.
+which pins that number -- `0x27b2aa50bb4e7a67` since v2-17 checkpoint B moved the
+simulation under it -- and drives the pose row grammar off the reference.
 Both names mirror the `crates/web` tests exactly, which is the point: a one-sided
 failure diagnoses target disagreement rather than a moved fixture.
 
@@ -205,9 +209,11 @@ pairs three halves of a unit apart, one command each through the real `[u8; 55]`
 scratch at tick zero and none after, one `step(8)` — accumulates **446 combat-event
 rows** in that single batch. At 256 the host published the canonical 256 and counted
 190 dropped, which is a truncated stream on the one corpus the reference calls
-mandatory. `MAX_COMBAT_EVENTS` is therefore **1024** (the next power of two at least
-twice 446) and the reference's byte budget moved from 49,664 to **147,968** — 16,896
-pose bytes plus 131,072 event bytes.
+mandatory. `MAX_COMBAT_EVENTS` was therefore set to **1024** (the next power of two at
+least twice 446) and the reference's byte budget moved from 49,664 to 147,968 — 16,896
+pose bytes plus 131,072 event bytes. It is **2048** and 279,040 bytes on the tree
+today: v2-17 checkpoint B re-measured the same corpus at 556 rows once the contact
+projector stopped charging every trial for its own inverse-map drift.
 
 **`SNAPSHOT_BUFFER_BYTES` did not move at all, and that is a reversal recorded rather
 than quietly undone.** The session first added `POSE_OFFSET`/`COMBAT_EVENT_OFFSET` to
@@ -240,10 +246,10 @@ exercise maximum spawn/contact/event/reset paths, and require unchanged byte len
 and still-attached original views.
 
 **Landed as `published_views_survive_articulated_stress_without_memory_growth`
-(2026-08-10), and it settles at 237 pages.** Unchanged from the end of the first warm
+(2026-08-10), and it settled at 237 pages; 241 since v2-17 checkpoint B took `MAX_COMBAT_EVENTS` to 2048.** Unchanged from the end of the first warm
 round through a measured sixth round and a measured sixth guarded cycle, so one warm
 round would do and the three it takes are margin. The retained views are the legacy
-frame plus `Uint32Array`s over the *whole* 16,896-byte pose array and 131,072-byte
+frame plus `Uint32Array`s over the *whole* 16,896-byte pose array and 262,144-byte
 event array rather than over their live prefixes, because the reserved extent is what
 a worker keeps and a shorter view would still land inside the buffer after a
 reallocation. It warms every seed the guarded cycles later drive, for the reason the

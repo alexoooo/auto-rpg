@@ -379,10 +379,13 @@ test("the_browser_contact_warmup_does_not_grow_wasm_memory", () => {
   // allocator sooner is dlmalloc's business and not something this test can
   // evidence, so it is recorded rather than explained; what the numbers do say
   // is that one round would now do and nine is margin that costs half a second.
-  // Two earlier readings, for the shape of the drift: before v2-15 it was 182
+  // Three earlier readings, for the shape of the drift: before v2-15 it was 182
   // pages after round one and 206 from round two, and v2-15's regional volumes
   // took `ContactCollider` from 144 bytes to 352, which is about 40 KiB a world
-  // and two worlds are live across every reset.
+  // and two worlds are live across every reset; it then read 207 while
+  // `MAX_COMBAT_EVENTS` was 1024 and reads **221** at the 2048 v2-17 checkpoint
+  // B's busier fight required, which is the 128 KiB static array and the two
+  // live `combat_events` reservations that grew with it.
   //
   // The seeds are warmed in the order the guarded cycles drive them, because
   // `init_articulated_test` builds a whole legacy `Sim` -- a generated floor,
@@ -443,23 +446,34 @@ test("published_legacy_views_survive_every_warm_path_without_memory_growth", () 
   const abi = generatedConstants();
   const wasm = instantiate();
 
-  // **Every seed the guarded cycles drive, and that is what the warm-up owes.**
-  // It used to warm seed 1 alone, which was enough while `MAX_COMBAT_EVENTS` was
-  // 256: `init` builds the replacement `Sim` before it drops the installed one,
-  // so a reset holds two `combat_events` reservations at once, and 32 KiB of
-  // second reservation fit in the slack a single warm round left behind. The
-  // high-water measurement in `articulated-abi.md` took that capacity to 1024
-  // and the second reservation to 128 KiB, which does not -- so the first
-  // guarded `init(0)` grew linear memory and detached every retained view.
+  // **Every seed the guarded cycles drive, in the shape the guarded cycles
+  // drive it, and that is what the warm-up owes.** It used to warm seed 1
+  // alone, which was enough while `MAX_COMBAT_EVENTS` was 256: `init` builds
+  // the replacement `Sim` before it drops the installed one, so a reset holds
+  // two `combat_events` reservations at once, and 32 KiB of second reservation
+  // fit in the slack a single warm round left behind. The high-water
+  // measurement in `articulated-abi.md` took that capacity to 1024 and the
+  // second reservation to 128 KiB, which does not -- so the first guarded
+  // `init(0)` grew linear memory and detached every retained view.
   //
   // Warming seed 1 twice does not fix it, and that is the reading worth
   // keeping: the peak is per *floor*, because `Scenario::dungeon` generates a
   // different room for every seed and a room's nav fields and fog are most of a
   // `Sim`. It only moved where the growth landed -- 27 pages on one warm round,
-  // 30 on two -- and `init(0)` failed both times. One round over all three seeds
-  // settles it at 30 pages, unchanged through a measured round six.
+  // 30 on two -- and `init(0)` failed both times. One round over all three
+  // seeds settled it at 30 pages, unchanged through a measured round six.
+  //
+  // v2-17 checkpoint B took the capacity to 2048 and the second reservation to
+  // 256 KiB, and one round over the three seeds stopped being enough: the
+  // guarded phase then grew on `seed 1, cycle 2`. **Two rounds per seed, nested
+  // the way the guarded phase nests them**, settles it at 38 pages. Two rounds
+  // over the seed *list* -- the same six `exercise` calls in the other order --
+  // does not, which says the peak follows the floor-to-floor transition rather
+  // than the count of rounds, and is why this loop is nested and not flat.
   let initialRevisions = null;
-  for (const seed of [0, 1, 0xffff_ffff]) initialRevisions = exercise(wasm, abi, seed);
+  for (const seed of [0, 1, 0xffff_ffff]) {
+    for (let round = 1; round <= 2; round++) initialRevisions = exercise(wasm, abi, seed);
+  }
   const shape = publicationShape(wasm, abi);
   const memory = wasm.memory;
   const baselineBuffer = memory.buffer;
@@ -506,7 +520,7 @@ test("published_legacy_views_survive_every_warm_path_without_memory_growth", () 
 // ------------------------------------- the articulated publication stress
 //
 // v2-16 put two more fixed arrays in linear memory -- 16,896 pose bytes and
-// 131,072 event bytes -- and four more ways to fill them. The subject is the
+// 262,144 event bytes -- and four more ways to fill them. The subject is the
 // one the two fixtures above have and it has not changed: after warm-up,
 // nothing the boundary can be asked to do grows `memory.buffer.byteLength`, so
 // a typed array the worker holds over FRAME, POSES or COMBAT_EVENTS stays
@@ -793,15 +807,17 @@ test("published_views_survive_articulated_stress_without_memory_growth", () => {
   // detached every retained view, and warming the same seed twice did not fix it
   // because the peak is per *floor*.
   //
-  // **Measured, and it settles at 237 pages from the end of round one** --
+  // **Measured, and it settles at 241 pages from the end of round one** --
   // unchanged through a measured round six, and unchanged through a measured
   // sixth guarded cycle. One round would therefore do; three is margin that
   // costs about a second, on the sibling fixture's argument that a warm-up
   // whose cost is invisible is the wrong place to be frugal. Two readings for
-  // the shape of the number: the legacy fixture beside this one settles at 30
-  // pages and the articulated contact fixture at 207, so most of the 237 is the
+  // the shape of the number: the legacy fixture beside this one settles at 38
+  // pages and the articulated contact fixture at 221, so most of the 241 is the
   // articulated *room* -- a generated floor with a roster on it -- rather than
-  // the 147,968 bytes of pose and event array, which is 3 pages.
+  // the 279,040 bytes of pose and event array, which is 5 pages. It read 237
+  // while `MAX_COMBAT_EVENTS` was 1024; the four pages between are that
+  // capacity doubling, static array and live reservations together.
   let last = null;
   for (let round = 1; round <= ARTICULATED_WARM_ROUNDS; round++) {
     for (const seed of seeds) last = articulatedStress(wasm, abi, seed);
@@ -830,7 +846,7 @@ test("published_views_survive_articulated_stress_without_memory_growth", () => {
   const retainedLengths = retained.map((view) => view.byteLength);
   assert.ok(retainedLengths.every((length) => length > 0), "warm fixture left an empty retained view");
   assert.equal(retainedLengths[1], 16_896, "the pose buffer is not the reference's 16,896 bytes");
-  assert.equal(retainedLengths[2], 131_072, "the event buffer is not the reference's 131,072 bytes");
+  assert.equal(retainedLengths[2], 262_144, "the event buffer is not the reference's 262,144 bytes");
 
   function assertWarmInvariant(label) {
     const after = publicationShape(wasm, abi);

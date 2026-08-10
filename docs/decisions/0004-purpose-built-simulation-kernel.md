@@ -148,7 +148,7 @@ the radial normal and would contribute nothing even though it swept through the
 body. The magnitude correctly prices a cut. Body motion has a meaningful approach
 direction, so charging toward a blow adds to it and retreating subtracts from it.
 The current invariant is tested by
-[`impact_is_the_blade_plus_the_closing_and_backing_off_helps`](../../crates/sim/src/world.rs#L12290).
+[`impact_is_the_blade_plus_the_closing_and_backing_off_helps`](../../crates/sim/src/world.rs#L12396).
 
 ## Dependencies and the browser boundary
 
@@ -197,11 +197,11 @@ owned by [Determinism](../reference/determinism.md).
 ## Source anchors
 
 - Explicit world columns and generational storage: [`World`](../../crates/sim/src/world.rs#L85)
-- Pairwise body separation: [`World::separate`](../../crates/sim/src/world.rs#L2546)
+- Pairwise body separation: [`World::separate`](../../crates/sim/src/world.rs#L2575)
 - Static closest-approach predicate: [`segment_circle`](../../crates/fx/src/geom.rs#L130)
 - Bounded temporal sweep: [`swept_segment_circle`](../../crates/fx/src/geom.rs#L176)
 - Current clamp rationale: [`agility_multiplier`](../../crates/sim/src/rules.rs#L253)
 - Exhaustive historical-bound cost guard: [`no_blade_can_outrun_the_smallest_body`](../../crates/sim/src/entity.rs#L319)
-- Current blade/body sweep: [`World::resolve_swings`](../../crates/sim/src/world.rs#L2734)
-- Impact magnitude/projection composition: [`World::impact_speed`](../../crates/sim/src/world.rs#L5350)
+- Current blade/body sweep: [`World::resolve_swings`](../../crates/sim/src/world.rs#L2763)
+- Impact magnitude/projection composition: [`World::impact_speed`](../../crates/sim/src/world.rs#L5379)
 - Browser buffer and ABI authority: [`browser-runtime.md`](../architecture/browser-runtime.md)

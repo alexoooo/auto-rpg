@@ -655,10 +655,10 @@ struct ArticulatedTrial {
     /// Ticks whose whole contact phase the solver refused, cumulative, and why
     /// the first of them was. The blind spot the field above cannot see into,
     /// and the one signal that can actually fail -- which, the first time it
-    /// was measured, it did: 6.5% of the composed corpus, every first cause
-    /// `ResolutionError::Projector`. Until it reads zero the excess above
-    /// audits the part of the fight that survived rather than the fight, and
-    /// the pair has to be reported together for either half to mean anything.
+    /// was measured, it did: 6.5% of the composed corpus. It reads zero on all
+    /// three corpora since checkpoint B stopped the contact projector
+    /// re-deriving an unmoved hand, so the excess above finally audits the
+    /// whole fight rather than the part of it that survived.
     solver_rejections: u32,
     first_rejection: Option<sim::ResolutionError>,
     /// Resolution rows that took a region off, and the largest weapon-body
@@ -1200,7 +1200,7 @@ mod tests {
     }
 
     #[test]
-    fn a_zero_energy_excess_is_not_evidence_while_the_solver_is_refusing_ticks() {
+    fn a_zero_energy_excess_is_only_evidence_while_the_solver_refuses_nothing() {
         // **The correction this command exists to record, and it is not
         // hypothetical.** `max_energy_excess` is computed over published rows;
         // a group that creates energy is precisely a group whose rows
@@ -1210,31 +1210,26 @@ mod tests {
         // as proof of soundness. The two numbers only mean anything together,
         // which is why they are asserted together and reported side by side.
         //
-        // The rejection count is asserted **nonzero**, which reads backwards
-        // until you see what it pins: the fixture refuses roughly two hundred
-        // of its 3,600 ticks under every one of the three scripts, always
-        // `ResolutionError::Projector`, the `after > before` arm. That is a
-        // contact-solver defect, this test is the evidence for it, and the
-        // assertion is written the way the tree actually is rather than the way
-        // it should end up. The checkpoint that fixes the projector inverts
-        // this line rather than deleting it, so the direction it was inverted
-        // from stays on the record.
+        // Written first as `solver_rejections > 0`, because that was the state
+        // of the tree: the fixture refused roughly two hundred of its 3,600
+        // ticks under every script, always `ResolutionError::Projector`, the
+        // `after > before` arm. Checkpoint B found the cause -- `project`
+        // re-derived every equipment row through the joint's inexact inverse
+        // map at every alpha including zero, and the drift read as created
+        // energy -- and this assertion is its gate, inverted rather than
+        // deleted so that the direction it was inverted from stays on the
+        // record. A refusal reappearing here is a projector defect and not a
+        // threshold to relax.
         for script in [Script::Composed, Script::Windmill, Script::ClosingAttacks] {
             let trial = measure_articulated(&Scenario::articulated_duel(), 5, script);
             assert!(trial.contacts > 0, "{}: nothing touched", script.name());
             assert_eq!(trial.max_energy_excess, 0, "{}", script.name());
-            assert!(
-                trial.solver_rejections > 0,
-                "{}: the solver refused nothing, so the zero above may finally be evidence \
-                 -- invert this assertion rather than deleting it",
-                script.name()
-            );
             assert_eq!(
-                trial.first_rejection,
-                Some(sim::ResolutionError::Projector),
-                "{}",
+                trial.solver_rejections, 0,
+                "{}: the solver refused a tick, so the zero above audits nothing",
                 script.name()
             );
+            assert_eq!(trial.first_rejection, None, "{}", script.name());
         }
     }
 }

@@ -18,7 +18,7 @@ export const FRAME_MAX = 3279;
 export const MAP_MAX = 6144;
 export const FURNITURE_MAX = 512;
 export const MAX_POSES = 64;
-export const MAX_COMBAT_EVENTS = 1024;
+export const MAX_COMBAT_EVENTS = 2048;
 
 export const FRAME_OFFSET = 0;
 export const MAP_OFFSET = 13116;
