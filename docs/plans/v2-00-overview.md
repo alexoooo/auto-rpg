@@ -59,15 +59,18 @@ Track 3. The ordered foreground performance capture still named by `v2-09` is
 follow-up evidence, not a blocker for `v2-10` through `v2-16`; `v2-17` still requires
 its own visible mechanical review.
 
-**Progress (2026-08-09):** sessions `v2-01` through `v2-15` are complete and green.
-`v2-14`'s three checkpoints all landed; an articulated tick now resolves contact,
-commits impulses, settles against walls, and hashes its cap counter. `v2-15` replaced
-the temporary body capsule with five regional volumes, added the wound/blood/shock
-column and the sole articulated health query, and moved two mechanics pins it
-predicted (`ARTICULATED_COMMAND_HASH`, `CONTACT_BEHAVIOR_DIGEST`); the legacy six are
-untouched. One item is carried forward rather than done: the browser group-cap fixture
-in `client/test/wasm-memory.test.mjs`, which is blocked on the articulated command
-boundary that `v2-16` owns and not on the solver. `v2-16` is next.
+**Progress (2026-08-10):** sessions `v2-01` through `v2-15` are complete and green,
+with nothing carried forward. `v2-14`'s three checkpoints all landed; an articulated
+tick now resolves contact, commits impulses, settles against walls, and hashes its cap
+counter. `v2-15` replaced the temporary body capsule with five regional volumes, added
+the wound/blood/shock column and the sole articulated health query, and moved two
+mechanics pins it predicted (`ARTICULATED_COMMAND_HASH`, `CONTACT_BEHAVIOR_DIGEST`);
+the legacy six are untouched. The browser group-cap fixture that both of those sessions
+carried forward is done: it was never blocked on `v2-16`, because `v2-11a`'s
+`submit_articulated` already steers an articulated row, and the duel's two rows walked
+into each other spend every group ordinal on tick 85. No hash moved for it. See
+[`v2-14`'s closing note](v2-14-contact-solver.md#what-was-left-owed-and-what-it-cost).
+`v2-16` is next.
 
 **Carried into `v2-17` from `v2-15`:** the contact model gives an equipment collider
 one generalized point velocity -- body plus *hand* -- so a swing's tip speed is not

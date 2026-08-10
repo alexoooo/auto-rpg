@@ -340,6 +340,12 @@ test("the boundary exports everything the client calls", () => {
     // has quietly become `undefined` reads as `NaN`, which never grows either.
     // A renamed no-growth witness would leave that test passing vacuously.
     "contact_high_water",
+    // And the witness that the same test's clinch drive still reaches the cap
+    // path, on the identical argument: `undefined() !== 0` throws, but
+    // `undefined >>> 0` is `0`, and a renamed cap counter would turn "the drive
+    // no longer caps" into a fixture that quietly stops covering the tick shape
+    // it was written for.
+    "contact_cap_hits",
     "submitted_command_ptr",
     "submitted_command_len",
     "submitted_command_layout_version",

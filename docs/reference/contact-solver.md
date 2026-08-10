@@ -266,8 +266,18 @@ linear memory is equally consistent with "reserved once up front" and "nothing h
 it yet". Exact capacities are therefore proven natively by
 `contact_scratch_grows_only_with_allocated_high_water`, and the browser proves the thing
 native cannot -- that no path grows linear memory or detaches a retained view. Its
-memory test warms three rounds rather than one, because articulated construction
-double-buffers and the page count settles at 182, 206, 206.
+memory test warms several rounds rather than one, because articulated construction
+double-buffers; the settled page count moves whenever that fixture's work does, so the
+measurement is recorded beside the loop that takes it and deliberately not copied here.
+
+`contact_cap_hits() -> u32` reports the running world's global `cap_hits`, and is `0`
+before the first `init` and on any Legacy world. Unlike the reservation beside it this
+is authoritative state -- the same `u32` the ArticulatedV1 digest writes after the
+actuator rows -- and the export exists so the browser fixture can say it *reached* the
+cap path rather than hoping its drive still does. The cap tick is where every ordinal is
+spent, the entity closure is walked to a fixed point and every frozen row is restored to
+its last-safe pose, so it is the tick a per-tick allocation would hide in; a drive that
+quietly stopped clinching would otherwise keep passing while covering none of it.
 Calling `try_reserve_contact_slots` on a Legacy world is an exact no-op `Ok(())`.
 On Articulated, `high_water>64` returns `EntityLimit` before reserve; a request at or
 below the already reserved/allocated high water is a no-op and never shrinks. On
@@ -952,13 +962,21 @@ fixture stated here:
     control that makes the last of those non-vacuous: without it, "the left arm mirrors
     the right" is equally true of a tick that resolved nothing, because the actuator
     mirrors it too.
-- **The browser cap fixture is still owed, and its blocker has moved rather than
-  gone.** The solver runs inside `World::step` now, so the memory test's ticks carry
-  the collector, the grouping driver, the eighteen-call alpha search and the commit.
-  But the host's articulated world is `Scenario::articulated_duel()` with two rows ten
-  units apart holding neutral standing commands, `spawn_monster` is refused on an
-  articulated world, and no articulated command or steering export exists before v2-16
-  — so nothing on that boundary can make a pair touch, let alone nine times in one
-  tick. Swapping the scenario for a contacting one would move `ARTICULATED_COMMAND_HASH`
-  for a reason unrelated to what that probe pins. It lands with the articulated
-  boundary; a stub would prove the stub.
+- **The browser cap fixture has landed, and the blocker recorded here twice was
+  wrong the second time.** The reasoning was that nothing on the boundary could make
+  the duel's two rows touch, because no articulated steering export existed before
+  v2-16. It does: v2-11's `submit_articulated` stores a full `ArticulatedCommandV1` —
+  `move_dir` included — against a live row, `World::submit` returns early on an
+  Articulated world so no policy overwrites it, and the stored command persists across
+  ticks. The fixture drives both rows into each other from tick-zero constants with
+  their arms sweeping an eighth-turn either side of the body bearing, four ticks a
+  phase: first contact on tick 78, every group ordinal spent on tick 85, on all three
+  seeds it warms. Nothing was swapped and no scenario moved, so
+  `ARTICULATED_COMMAND_HASH` is untouched. The drive is a byte table on both sides —
+  `crates/web/src/lib.rs`'s `CLINCH_*` constants and
+  `the_boundary_clinch_reaches_the_contact_group_cap` against the same offsets the
+  JavaScript builds by hand — because the trajectory is chaotic: a raw unit of
+  difference in the walk vector moves the cap tick or loses it, so steering off
+  published positions would have pinned the last ulp of the engine running the test.
+  Both targets pin tick 85, so a solver change that merely moves the cap fails with a
+  number to re-measure instead of silently covering less.

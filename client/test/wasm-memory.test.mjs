@@ -189,6 +189,85 @@ function exercise(wasm, abi, seed, guard = null, expectedInitialRevisions = null
   return initialRevisions;
 }
 
+// ------------------------------------------------------- the boundary clinch
+//
+// Two duel rows walked into each other, arms sweeping, until a tick spends every
+// contact group ordinal. Everything below is a byte table and a phase counter:
+// no positions are read back and no angle is computed here, which is deliberate
+// twice over. The trajectory is chaotic -- a raw unit of difference in the walk
+// vector moves the cap tick or loses it entirely -- so a JavaScript `atan2`
+// steering off published positions would be pinning the last ulp of whatever
+// engine ran the test. And the same fifty-five bytes are built from the same
+// documented offsets in `crates/web/src/lib.rs`, by hand on both sides, so the
+// two targets agreeing means the ABI agrees rather than that `sim` agrees with
+// itself. Every constant is stated where it comes from in that file's
+// `CLINCH_*` block; the reasoning is not repeated here.
+const CLINCH_YAW = [0x0f74, 0x8f74];
+const CLINCH_WALK = [[58_976, 23_506], [-58_976, -23_506]];
+const CLINCH_SWEEP = 8_192;
+const CLINCH_PHASE_TICKS = 4;
+const CLINCH_CAP_TICK = 85;
+// Comfortably past 85 and still bounded: a drive that stopped clinching should
+// fail this fixture, not hang the suite inside it.
+const CLINCH_BUDGET = 128;
+
+const SUBMITTED_COMMAND_BYTES = 55;
+const HALF_RAW = 0x8000;
+const ONE_RAW = 0x1_0000;
+
+function clinchPayload(row, tick) {
+  const phase = Math.floor(tick / CLINCH_PHASE_TICKS) % 4;
+  const offset = phase === 1 ? CLINCH_SWEEP : phase === 3 ? -CLINCH_SWEEP : 0;
+  const bearing = (CLINCH_YAW[row] + offset) & 0xffff;
+  const bytes = new Uint8Array(SUBMITTED_COMMAND_BYTES);
+  const view = new DataView(bytes.buffer);
+  view.setUint16(0, 1, true); // SUBMITTED_COMMAND_LAYOUT_VERSION
+  bytes[2] = 1; // an articulated command; byte 3 stays the reserved zero
+  view.setInt32(4, CLINCH_WALK[row][0], true);
+  view.setInt32(8, CLINCH_WALK[row][1], true);
+  view.setUint16(12, CLINCH_YAW[row], true);
+  // Intent, target and both grips stay zero: `Hold`, nobody, `Keep`.
+  for (const arm of [23, 37]) {
+    view.setUint16(arm, bearing, true);
+    view.setInt32(arm + 2, HALF_RAW, true); // CombatHeight::MID
+    view.setInt32(arm + 6, ONE_RAW, true); // full reach
+    view.setInt32(arm + 10, ONE_RAW, true); // full effort
+  }
+  return bytes;
+}
+
+// Returns the tick the cap fired on. The scratch is re-read from
+// `submitted_command_ptr()` on every write rather than kept as one view,
+// because a fixture whose subject is "nothing detaches" is the last place to
+// assume a view is still attached.
+function driveToContactCap(wasm, checked) {
+  for (let tick = 0; tick < CLINCH_BUDGET; tick++) {
+    for (let row = 0; row < 2; row++) {
+      const scratch = new Uint8Array(
+        wasm.memory.buffer,
+        wasm.submitted_command_ptr() >>> 0,
+        SUBMITTED_COMMAND_BYTES,
+      );
+      scratch.set(clinchPayload(row, tick));
+      const stored = wasm.submit_articulated(row, 0) >>> 0;
+      assert.equal(stored, 1, `tick ${tick}: the boundary refused row ${row}'s clinch command`);
+    }
+    // Guarded on the capping tick and not on each of the eighty-six, which
+    // costs this fixture nothing it was measuring: linear memory never
+    // shrinks, a detached view never reattaches, and `FRAME` is a fixed array
+    // whose pointer cannot come back -- so growth on tick 40 is still growth
+    // when the guard runs. What the guard would add per tick is the *label*,
+    // and eighty-six near-identical ones are not worth the shape check.
+    if (tick === CLINCH_CAP_TICK) {
+      checked(`contact cap, tick ${tick}`, () => wasm.step(1));
+    } else {
+      wasm.step(1);
+    }
+    if (wasm.contact_cap_hits() >>> 0 !== 0) return tick;
+  }
+  throw new Error(`the clinch drive spent ${CLINCH_BUDGET} ticks without exhausting a group ordinal`);
+}
+
 // The articulated contact warmup, as a browser drives it: construct, walk the
 // roster at the row ceiling, tick, reset. A second fixture beside `exercise`
 // rather than a branch inside it, because the two share no export but `step`
@@ -236,22 +315,24 @@ function contactWarmup(wasm, abi, seed, guard = null) {
     reserved(`spawn_monster(${row})`);
   }
 
-  // ---- the cap fixture goes here, and is deliberately not here yet.
+  // ---- the cap.
   //
-  // The contract asks this test to run the group cap before the tick below, and
-  // the blocker has changed rather than gone away. The solver is wired into
-  // `World::step` now -- the ticks below run the collector, the grouping
-  // driver, the coupled projector and the commit for real -- but this world is
-  // `Scenario::articulated_duel()`, whose two rows stand ten units apart with
-  // neutral standing commands, and the boundary exports no way to move them:
-  // `spawn_monster` is refused on an articulated world, and no articulated
-  // command or steering export exists before v2-16. So no pair ever touches,
-  // let alone nine times in one tick. Nothing stands in for it: a stubbed cap
-  // hit would prove the stub, and the scenario cannot be swapped for a
-  // contacting one without moving `ARTICULATED_COMMAND_HASH`, which this
-  // session is not allowed to move for any other reason. It lands the day the
-  // boundary can drive an articulated body; everything else the fixture needs
-  // is already true at this line.
+  // The tick shape this whole fixture exists for. Every group ordinal spent,
+  // the entity closure walked to a fixed point, and every frozen row restored
+  // to its last-safe pose: whatever the solver was going to allocate per tick,
+  // it allocates here or nowhere. Reaching it needs no export the boundary
+  // lacks -- v2-11's `submit_articulated` steers an articulated row, and two
+  // duel rows walked into each other with their arms sweeping reach the cap on
+  // tick 85. (The blocker recorded here through v2-15 said otherwise. It was
+  // reading the plan's next steering export as the only one, and missed the one
+  // already on the wall.)
+  const capTick = driveToContactCap(wasm, checked);
+  assert.equal(capTick, CLINCH_CAP_TICK, "the clinch no longer caps where Rust says it does");
+  // Once, not once per group, and the same number `crates/web`'s
+  // `the_boundary_clinch_reaches_the_contact_group_cap` measures against the
+  // same fifty-five bytes built from the same offsets on the other side.
+  assert.equal(wasm.contact_cap_hits() >>> 0, 1, "the cap tick was counted more than once");
+  reserved("contact cap");
 
   // At least one further tick, which is where a solver that reserved too little
   // would grow linear memory: the reservation above is per allocated slot, and
@@ -285,15 +366,17 @@ test("the_browser_contact_warmup_does_not_grow_wasm_memory", () => {
   // every reset, and dlmalloc takes more than a single round of that pattern to
   // stop asking the host for pages.
   //
-  // Re-measured for v2-15, and the count moved with it: a body collider is now
-  // five swept regional volumes instead of one capsule, so `ContactCollider`
-  // went from 144 bytes to 352 and the reservation grew about 40 KiB a world.
-  // Two worlds are live across a reset, and the allocator answers that by
-  // taking a coarser arena rather than a proportional one. Measured over the
-  // seed list below: 207 pages from the end of round one through round six,
-  // then 231 from round seven onward and unchanged through round fourteen --
-  // so seven would do and nine is margin. Before v2-15 it was 182 pages after
-  // round one and 206 from round two, and three rounds was the same margin.
+  // Re-measured with the clinch below in place, and the peak moved *down*: 207
+  // pages from the end of round one and unchanged through round fourteen, where
+  // the same fixture without the clinch sat at 207 through round six and then
+  // stepped to 231 from round seven onward. Why doing more work settles the
+  // allocator sooner is dlmalloc's business and not something this test can
+  // evidence, so it is recorded rather than explained; what the numbers do say
+  // is that one round would now do and nine is margin that costs half a second.
+  // Two earlier readings, for the shape of the drift: before v2-15 it was 182
+  // pages after round one and 206 from round two, and v2-15's regional volumes
+  // took `ContactCollider` from 144 bytes to 352, which is about 40 KiB a world
+  // and two worlds are live across every reset.
   //
   // The seeds are warmed in the order the guarded cycles drive them, because
   // `init_articulated_test` builds a whole legacy `Sim` -- a generated floor,

@@ -1,5 +1,14 @@
 # v2-14 — resolve continuous contact in deterministic time groups
 
+**Status: complete (2026-08-10).** All three checkpoints green, and the one item
+checkpoint C left owed — the browser cap fixture — landed afterwards, out of order and
+after v2-15; see [the closing note](#what-was-left-owed-and-what-it-cost). Measured on
+the whole tree as it stands: `cargo test` 654 passed / 0 failed; `cargo run --release -p
+lab -- hash` → `0xfe31370e141ef531`, unmoved; `verify --seeds 200` identical on re-run
+and exact on replay; `node --test tools/wasm_check.js` 19/19; `node --test
+client/test/wasm-memory.test.mjs` 2/2; `node tools/check_docs.js`, `node
+tools/check_abi.js`, and `git diff --check` clean. No pinned hash moved in that pass.
+
 **Goal:** land the bounded contact solver in three independently green checkpoints.
 The exact authority is [`contact-solver.md`](../reference/contact-solver.md#public-rows-and-ownership);
 this plan contains ownership, source order, named proofs, and gates rather than a
@@ -204,6 +213,10 @@ articulated steering export exists before v2-16 — so nothing on that boundary 
 a pair touch. Swapping the scenario would move `ARTICULATED_COMMAND_HASH` for an
 unrelated reason. The block is marked in place with that reasoning.
 
+*That last paragraph was wrong about its own blocker, and the correction is
+[below](#what-was-left-owed-and-what-it-cost). It is kept as written because the
+mistake is the useful part.*
+
 Required tests:
 
 ```text
@@ -242,7 +255,48 @@ top. Any legacy hash movement, any different geometry digest, or a probe movemen
 explained by the four appended zero bytes blocks the landing. Nothing was re-recorded
 in the final stage: every pin above measured back to the value it already carried.
 
-All three checkpoints are green. The one item this session did not land is the browser
-cap fixture, and it is blocked on the articulated boundary rather than on the solver;
-see the C completion note above and the marked block in
-`client/test/wasm-memory.test.mjs`.
+## What was left owed, and what it cost
+
+The browser cap fixture landed on 2026-08-10, after v2-15. It was not blocked. Both
+earlier sessions recorded the same reason for deferring it — "no articulated command or
+steering export exists before v2-16" — and that reason was false when it was written:
+v2-11a put `submit_articulated` on the boundary, it stores a whole
+`ArticulatedCommandV1` including `move_dir` against a live row, `World::submit` returns
+early on an Articulated world so no policy overwrites it, and the stored command
+persists across ticks. `tools/wasm_check.js` had been calling that export against this
+very world since v2-11. The note read the *plan's* next steering export as the only one
+and never checked the wall.
+
+**What landed.** `contact_cap_hits() -> u32` beside `contact_high_water`, whitelisted in
+`tools/wasm_check.js` for the same reason as its neighbour: `undefined >>> 0` is `0`, so
+a renamed counter would turn "the drive no longer caps" into a fixture that passes
+while covering nothing. The fixture itself walks the duel's two rows into each other
+from tick-zero constants with both arms sweeping a raw eighth-turn either side of the
+body bearing, four ticks a phase. First contact on tick 78, every group ordinal spent on
+tick 85, on all three seeds it warms — the articulated path draws no randomness, so the
+seed reaches the floor plan and not the duel. Nothing was swapped and no scenario moved,
+so `ARTICULATED_COMMAND_HASH` never came into it.
+
+**Why the drive is a byte table on both sides.** `crates/web/src/lib.rs` builds the
+same fifty-five bytes from the same documented offsets and pins the same tick 85 in
+`the_boundary_clinch_reaches_the_contact_group_cap`, which is one test more than this
+plan asked for. Two reasons, both measured. The trajectory is chaotic — scaling the walk
+vector by `31/32` instead of `3/4`, or re-aiming each tick instead of holding the
+tick-zero bearing, moves the cap tick or loses it inside four hundred — so a fixture
+steering off published positions would need `atan2` in JavaScript and would be pinning
+the last ulp of whichever engine ran it. And two hand-built tables that agree prove the
+ABI agrees; a fixture calling `payload_bytes` on both sides would only prove `sim`
+agrees with itself.
+
+**One measurement moved.** With the clinch in place the warm loop settles at 207 pages
+from the end of round one and stays there through round fourteen; the same fixture
+without it sat at 207 through round six and stepped to 231 from round seven. The peak
+moving *down* when the fixture does more work is dlmalloc's business and is recorded
+rather than explained. The round count stays at nine, now margin over one rather than
+over seven.
+
+**The one thing checkpoint A no longer has.** The test
+`the_temporary_body_capsule_uses_one_regionless_volume` is gone, and correctly: v2-15
+replaced the temporary capsule with five regional volumes and renamed it to
+`the_five_region_volumes_are_a_sphere_two_columns_and_two_arms`. That was v2-15's stated
+goal, not a v2-14 regression. Every other test named in this plan exists.

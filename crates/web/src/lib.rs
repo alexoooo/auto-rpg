@@ -3397,6 +3397,27 @@ pub extern "C" fn contact_high_water() -> u32 {
     with_sim(0, |sim| sim.contact_high_water)
 }
 
+/// How many ticks of the running world have spent every contact group ordinal,
+/// or `0` before the first `init` and on any Legacy world.
+///
+/// Nothing on the page calls this either, and it is here for the same reason the
+/// reservation above is: the browser's no-growth proof has to be able to say it
+/// *reached* the cap path rather than hoping its drive still does. The cap tick
+/// is the one shape whose scratch use is maximal -- every ordinal spent, the
+/// entity closure walked to a fixed point, the last-safe pose restored on every
+/// frozen row -- so it is the tick a per-tick allocation would hide in, and a
+/// drive that quietly stopped clinching would otherwise keep passing while
+/// covering none of it.
+///
+/// Unlike the reservation, this *is* authoritative state: it is the global
+/// `cap_hits` the ArticulatedV1 digest writes after the actuator rows. Reading
+/// it is a copy of one `u32` and mutates nothing.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn contact_cap_hits() -> u32 {
+    with_sim(0, |sim| sim.world.contact_cap_hits())
+}
+
 /// Index half of the currently focused body's presentation identity.
 ///
 /// The frame header carries a Focus order's live position even when the body row
@@ -4948,6 +4969,123 @@ mod tests {
             MAX_UNITS as u32,
             "a refused spawn moved the reservation",
         );
+    }
+
+    // ------------------------------------------------- the boundary clinch
+    //
+    // The drive `client/test/wasm-memory.test.mjs` uses to reach the contact
+    // group cap, pinned here in the crate that owns the exports it calls.
+    //
+    // **Written as bytes on both sides on purpose.** The JavaScript builds the
+    // same fifty-five from the same documented offsets; if the two agreed only
+    // because one of them called `payload_bytes`, the browser fixture would be
+    // proving that `sim` agrees with itself. The constants below are the duel's
+    // own geometry and nothing else -- see each one.
+
+    /// Tick-zero bearing from each duel row to the other, as
+    /// `Angle::raw`. `articulated_duel` spawns at `(7,6)` and `(17,10)`, so
+    /// these are `atan2(4,10)` and its opposite, and they are constants rather
+    /// than a readback because the drive never re-aims: a fixture that steered
+    /// from published positions would need `atan2` on the JavaScript side, and
+    /// the trajectory below is chaotic enough that a last-ulp disagreement
+    /// there could land the two targets on different ticks.
+    const CLINCH_YAW: [u16; 2] = [0x0f74, 0x8f74];
+
+    /// The same two bearings as a walk vector, at thirty-one thirty-seconds of
+    /// full magnitude. Not thirty-two: `Vec2::from_angle` is a sin-table
+    /// lookup whose length can exceed one by a raw unit, and `validate_move`
+    /// refuses `x^2+y^2 > 65_536^2` outright -- which stores a *neutral*
+    /// command instead, and two bodies standing still is a fixture that walks
+    /// its whole budget and reports nothing.
+    const CLINCH_WALK: [[i32; 2]; 2] = [[58_976, 23_506], [-58_976, -23_506]];
+
+    /// Both arms sweep a raw eighth-turn either side of the body bearing, four
+    /// ticks a phase, cycling centre/left/centre/right. The sweep is what makes
+    /// the clinch reach the cap, and the control was measured: this same drive
+    /// with the arms held still touches on thirty-one of four hundred ticks,
+    /// resolves at most three rows on any of them, and never spends the eighth
+    /// ordinal. With the sweep it caps on the second tick that touches at all.
+    const CLINCH_SWEEP: i32 = 8_192;
+    const CLINCH_PHASE_TICKS: u32 = 4;
+
+    /// The tick this drive first exhausts the ordinal, measured. First contact
+    /// lands at 78 and the cap at 85, on every seed the browser fixture warms
+    /// (`0`, `1`, `u32::MAX`) -- the articulated path draws no randomness, so
+    /// the seed reaches the floor plan and not the duel. Pinned rather than
+    /// bounded so that a solver change which merely *moves* the cap is a
+    /// failure here, with a number to re-measure, instead of silently making
+    /// the browser fixture cover less than it says.
+    const CLINCH_CAP_TICK: u32 = 85;
+
+    fn clinch_payload(row: usize, tick: u32) -> [u8; 55] {
+        let offset = match (tick / CLINCH_PHASE_TICKS) % 4 {
+            0 | 2 => 0,
+            1 => CLINCH_SWEEP,
+            _ => -CLINCH_SWEEP,
+        };
+        let bearing = CLINCH_YAW[row].wrapping_add(offset as u16);
+        let mut bytes = [0u8; 55];
+        bytes[0..2].copy_from_slice(&SUBMITTED_COMMAND_LAYOUT_VERSION.to_le_bytes());
+        bytes[2] = 1;
+        bytes[4..8].copy_from_slice(&CLINCH_WALK[row][0].to_le_bytes());
+        bytes[8..12].copy_from_slice(&CLINCH_WALK[row][1].to_le_bytes());
+        bytes[12..14].copy_from_slice(&CLINCH_YAW[row].to_le_bytes());
+        // Intent, target and both grips stay zero: `Hold`, nobody, `Keep`. The
+        // contact solver reads none of the three -- what it sees is where the
+        // colliders are -- and leaving them zero keeps the fixture from
+        // depending on a targeting rule it is not about.
+        for arm in [23usize, 37] {
+            bytes[arm..arm + 2].copy_from_slice(&bearing.to_le_bytes());
+            bytes[arm + 2..arm + 6].copy_from_slice(&Fx::HALF.raw().to_le_bytes());
+            bytes[arm + 6..arm + 10].copy_from_slice(&Fx::ONE.raw().to_le_bytes());
+            bytes[arm + 10..arm + 14].copy_from_slice(&Fx::ONE.raw().to_le_bytes());
+        }
+        bytes
+    }
+
+    #[test]
+    fn the_boundary_clinch_reaches_the_contact_group_cap() {
+        init_articulated_test(1);
+        assert_eq!(contact_cap_hits(), 0, "a fresh world arrived already capped");
+        // Comfortably past 85 and still bounded: an unbounded loop on a drive
+        // that stopped clinching would hang the suite instead of failing it.
+        let mut fired = None;
+        for tick in 0..128 {
+            for row in 0..2 {
+                SUBMITTED_COMMAND.with(|buffer| *buffer.borrow_mut() = clinch_payload(row, tick));
+                assert_eq!(
+                    submit_articulated(row as u32, 0),
+                    1,
+                    "tick {tick}: the boundary refused row {row}'s clinch command",
+                );
+            }
+            step(1);
+            if contact_cap_hits() != 0 {
+                fired = Some(tick);
+                break;
+            }
+        }
+        assert_eq!(fired, Some(CLINCH_CAP_TICK), "the clinch no longer caps where it did");
+        // Once, not once per group: the counter is `saturating_add(1)` on the
+        // tick, and a per-group increment would read 8 here.
+        assert_eq!(contact_cap_hits(), 1);
+        // Nobody died on the way. Said out loud because the drive would still
+        // reach a cap with one body left standing over the other's slot -- and
+        // that would be a different tick shape than the one the browser fixture
+        // claims to warm. Asked of the world rather than of `Sim::units`: that
+        // roster is the legacy floor `init_articulated_test` builds before it
+        // replaces the world, and it answers seven here.
+        let standing = SIM.with(|sim| {
+            let borrowed = sim.borrow();
+            let world = &borrowed.as_ref().unwrap().world;
+            (0..2).filter(|&row| world.view(EntityId::new(row, 0)).is_some()).count()
+        });
+        assert_eq!(standing, 2, "the clinch killed somebody before it capped");
+        // And a Legacy room owns no solver at all, so the export is a reading of
+        // *this* world rather than a sticky counter, exactly as the reservation
+        // beside it is.
+        init(1);
+        assert_eq!(contact_cap_hits(), 0, "a Legacy world claimed a contact cap");
     }
 
     /// What `cargo run --release -p lab -- hash` prints today. Recorded rather
