@@ -2,7 +2,7 @@
 
 **Purpose:** Record why replay captures submitted decisions instead of rerunning policy inference.
 **Status:** current
-**Canonical source:** The current normative replay contract is [Hashes and replay integrity](../reference/hashes.md); implementation lives in [`Replay`](../../crates/sim/src/replay.rs#L57).
+**Canonical source:** The current normative replay contract is [Hashes and replay integrity](../reference/hashes.md); implementation lives in [`Replay`](../../crates/sim/src/replay.rs#L64).
 **Update when:** Replay begins recording policy state, observations, host mutations, or a different authoritative input vocabulary.
 
 **ADR status:** accepted
@@ -59,7 +59,7 @@ normative size or throughput guarantee.
 
 ## Source anchors
 
-- Replay rationale and current record vectors: [`Replay`](../../crates/sim/src/replay.rs#L57)
-- Playback without policy execution: [`Replay::play_until`](../../crates/sim/src/replay.rs#L137)
-- Current single-limb command: [`Command`](../../crates/sim/src/command.rs#L134)
-- Headless recording path: [`run`](../../crates/policy/src/runner.rs#L72)
+- Replay rationale and current record vectors: [`Replay`](../../crates/sim/src/replay.rs#L64)
+- Playback without policy execution: [`Replay::play_until`](../../crates/sim/src/replay.rs#L152)
+- Current single-limb command: [`Command`](../../crates/sim/src/command.rs#L325)
+- Headless recording path: [`run`](../../crates/policy/src/runner.rs#L97)

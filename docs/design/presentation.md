@@ -35,7 +35,7 @@ only inside a soft, upright, hero-sized ellipse where a nearby wall would cover 
 hero. The wall's shaded side remains outside that local cutaway; fading a complete
 depth band erased the room face and made the geometry read as a disappearing slab.
 The current gate and clipped paint live beside
-[`foregroundWallVisibility`](../../web/main.js#L11085).
+[`wallBandCutsHero`](../../web/main.js#L11098).
 
 The Canvas reference path also treats blur and dash state as measured costs. Do not
 add `shadowBlur` as ambient polish or introduce another dashed-stroke pass without a

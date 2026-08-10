@@ -240,6 +240,25 @@ pub(crate) fn bill_fatigue(state: &mut ArmState, inertia: Fx, effort: Fx, step: 
         .clamp(0, Fx::ONE.raw() as i64) as i32);
 }
 
+/// Where the off hand lands on a two-handed grip: the driving hand reflected
+/// through the body's own forward plane, shoulder for shoulder.
+///
+/// Lifted out of [`mirror_two_handed`] because the published pose owes a
+/// *target* hand for an arm that chases no target of its own -- a `Both` grip
+/// mirrors the left arm off the right every tick, so the only honest target for
+/// it is this reflection of the right arm's. Two copies of the reflection would
+/// be two chances for the hand a renderer draws and the hand the state carries
+/// to diverge, and they would diverge silently.
+pub(crate) fn mirror_hand(anatomy: &BodyAnatomySpec, yaw: Angle, right_hand: Vec3) -> Vec3 {
+    let left_shoulder = shoulder(anatomy, yaw, 0);
+    let right_shoulder = shoulder(anatomy, yaw, 1);
+    let forward = Vec3::new(yaw.cos(), yaw.sin(), Fx::ZERO);
+    let body_left = Vec3::new(-yaw.sin(), yaw.cos(), Fx::ZERO);
+    let d = right_hand - right_shoulder;
+    left_shoulder + forward * d.dot(forward) - body_left * d.dot(body_left)
+        + Vec3::new(Fx::ZERO, Fx::ZERO, d.z)
+}
+
 pub(crate) fn mirror_two_handed(
     left: &mut ArmState,
     right: ArmState,
@@ -252,13 +271,7 @@ pub(crate) fn mirror_two_handed(
     left.height_speed = right.height_speed;
     left.reach = right.reach;
     left.reach_speed = right.reach_speed;
-    let left_shoulder = shoulder(anatomy, yaw, 0);
-    let right_shoulder = shoulder(anatomy, yaw, 1);
-    let forward = Vec3::new(yaw.cos(), yaw.sin(), Fx::ZERO);
-    let body_left = Vec3::new(-yaw.sin(), yaw.cos(), Fx::ZERO);
-    let d = right.hand - right_shoulder;
-    left.hand = left_shoulder + forward * d.dot(forward) - body_left * d.dot(body_left)
-        + Vec3::new(Fx::ZERO, Fx::ZERO, d.z);
+    left.hand = mirror_hand(anatomy, yaw, right.hand);
     left.linear_velocity = left.hand - left.previous_hand;
 }
 

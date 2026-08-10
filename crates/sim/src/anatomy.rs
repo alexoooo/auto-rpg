@@ -158,6 +158,21 @@ pub fn part_fraction(state: &AnatomyState, spec: &BodyAnatomySpec, part: usize) 
     (state.parts[part].integrity / maximum).clamp(Fx::ZERO, Fx::ONE)
 }
 
+/// The open wound a region carries, as a fraction of that region's immutable
+/// maximum -- the same denominator [`part_fraction`] divides by.
+///
+/// Two fractions rather than one because the two columns answer different
+/// questions and are not complements: integrity is what is left to impair the
+/// actuator with, wound is what is open to bleed, and a region can be nearly
+/// intact and bleeding hard at the same time. Sharing the denominator is what
+/// makes the pair comparable at a glance; using the wound's own scale would
+/// make "half wounded" mean something different on a torso and on an arm.
+pub fn part_wound_fraction(state: &AnatomyState, spec: &BodyAnatomySpec, part: usize) -> Fx {
+    let maximum = spec.integrity_maxima[part];
+    if !maximum.is_positive() { return Fx::ZERO; }
+    (state.parts[part].wound / maximum).clamp(Fx::ZERO, Fx::ONE)
+}
+
 pub fn blood_fraction(state: &AnatomyState, spec: &BodyAnatomySpec) -> Fx {
     if !spec.blood_max.is_positive() { return Fx::ZERO; }
     (state.blood / spec.blood_max).clamp(Fx::ZERO, Fx::ONE)

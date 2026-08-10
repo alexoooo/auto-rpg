@@ -1,7 +1,9 @@
 //! The browser boundary.
 //!
-//! One `cdylib`, eighty-three `extern "C"` functions, and a single packed `f32`
-//! buffer that JavaScript reads straight out of linear memory. No
+//! One `cdylib`, a hundred and six `extern "C"` functions, and a handful of
+//! packed buffers that JavaScript reads straight out of linear memory -- the
+//! `f32` frame, the `u8` tiles, fog and furniture beside it, and the two `u32`
+//! articulated publications [`pose_ptr`] and [`combat_event_ptr`] hand out. No
 //! `wasm-bindgen`, no `js-sys`, nothing generated. The workspace's
 //! no-dependency rule (`DESIGN.md`) is what keeps every recorded run in the
 //! repository valid across time, and it is not worth suspending for an ABI that
@@ -714,6 +716,202 @@ const SPAWN_ARC_STEP: u16 = 4096;
 /// so the tag cannot collide.
 const SPAWN_STREAM: u64 = 1 << 63;
 
+// ------------------------------------------------ articulated poses and events
+//
+// Two more fixed buffers beside the frame, and they are `u32` rather than `f32`
+// for a reason the legacy frame does not have: an articulated row carries `u64`
+// energy ledgers and raw fixed-point words, and neither survives a float. The
+// contract they mirror is `docs/reference/articulated-abi.md`; the word rules
+// are the reference's, restated once here because a reader of this file has to
+// know them to read the two tables below.
+//
+// * Unsigned values cross directly.
+// * An [`Fx`] or any other signed value crosses as its two's-complement raw
+//   `i32` bits reinterpreted as a `u32` -- **not** widened, because a sign
+//   extension would make `-1` and `0xffffffff` two different words for one
+//   value.
+// * An [`Angle`] raw and a time-of-impact raw are widened.
+// * A boolean is zero or one.
+// * An identity is always two words, index then generation, for exactly the
+//   reason the frame's unit row carries both: a slot is handed to the next
+//   spawn, so an index alone reads as the same creature coming back.
+//
+// **These arrays are authoritative-host views and must not cross to the
+// renderer unfiltered.** Every export below says so again; see
+// [`pose_ptr`] for the whole of that argument.
+
+/// Version of the pose row layout. Bumped when a column moves; columns are
+/// append-only, exactly as the frame's are.
+pub const POSE_LAYOUT_VERSION: u32 = 1;
+
+/// Rows the pose buffer holds.
+///
+/// Written as the authoritative [`sim::MAX_ARTICULATED_ENTITIES`] and never as
+/// a second literal 64. They are the same number by construction -- the sim
+/// cannot have more articulated bodies than the contact solver reserves for --
+/// and the day one of them moves, a second literal here would be the bug rather
+/// than the mismatch that reports it.
+pub const MAX_POSES: usize = sim::MAX_ARTICULATED_ENTITIES;
+
+/// Words in one pose row. See the column constants below for the layout.
+pub const POSE_STRIDE: usize = 66;
+
+pub const POSE_ENTITY_INDEX: usize = 0;
+pub const POSE_ENTITY_GENERATION: usize = 1;
+pub const POSE_BODY_X: usize = 2;
+pub const POSE_BODY_Y: usize = 3;
+pub const POSE_BODY_Z: usize = 4;
+pub const POSE_BODY_YAW_RAW: usize = 5;
+pub const POSE_BODY_VX: usize = 6;
+pub const POSE_BODY_VY: usize = 7;
+pub const POSE_BODY_VZ: usize = 8;
+pub const POSE_LEFT_HAND_X: usize = 9;
+pub const POSE_LEFT_HAND_Y: usize = 10;
+pub const POSE_LEFT_HAND_Z: usize = 11;
+pub const POSE_LEFT_HAND_VX: usize = 12;
+pub const POSE_LEFT_HAND_VY: usize = 13;
+pub const POSE_LEFT_HAND_VZ: usize = 14;
+pub const POSE_LEFT_FATIGUE: usize = 15;
+pub const POSE_LEFT_TARGET_X: usize = 16;
+pub const POSE_LEFT_TARGET_Y: usize = 17;
+pub const POSE_LEFT_TARGET_Z: usize = 18;
+pub const POSE_RIGHT_HAND_X: usize = 19;
+pub const POSE_RIGHT_HAND_Y: usize = 20;
+pub const POSE_RIGHT_HAND_Z: usize = 21;
+pub const POSE_RIGHT_HAND_VX: usize = 22;
+pub const POSE_RIGHT_HAND_VY: usize = 23;
+pub const POSE_RIGHT_HAND_VZ: usize = 24;
+pub const POSE_RIGHT_FATIGUE: usize = 25;
+pub const POSE_RIGHT_TARGET_X: usize = 26;
+pub const POSE_RIGHT_TARGET_Y: usize = 27;
+pub const POSE_RIGHT_TARGET_Z: usize = 28;
+pub const POSE_LEFT_WEAPON_HILT_X: usize = 29;
+pub const POSE_LEFT_WEAPON_HILT_Y: usize = 30;
+pub const POSE_LEFT_WEAPON_HILT_Z: usize = 31;
+pub const POSE_LEFT_WEAPON_TIP_X: usize = 32;
+pub const POSE_LEFT_WEAPON_TIP_Y: usize = 33;
+pub const POSE_LEFT_WEAPON_TIP_Z: usize = 34;
+pub const POSE_RIGHT_WEAPON_HILT_X: usize = 35;
+pub const POSE_RIGHT_WEAPON_HILT_Y: usize = 36;
+pub const POSE_RIGHT_WEAPON_HILT_Z: usize = 37;
+pub const POSE_RIGHT_WEAPON_TIP_X: usize = 38;
+pub const POSE_RIGHT_WEAPON_TIP_Y: usize = 39;
+pub const POSE_RIGHT_WEAPON_TIP_Z: usize = 40;
+pub const POSE_SHIELD_CENTER_X: usize = 41;
+pub const POSE_SHIELD_CENTER_Y: usize = 42;
+pub const POSE_SHIELD_CENTER_Z: usize = 43;
+pub const POSE_SHIELD_NORMAL_X: usize = 44;
+pub const POSE_SHIELD_NORMAL_Y: usize = 45;
+pub const POSE_SHIELD_NORMAL_Z: usize = 46;
+pub const POSE_SHIELD_HALF_WIDTH: usize = 47;
+pub const POSE_SHIELD_HALF_HEIGHT: usize = 48;
+/// First of [`sim::AnatomyRegion::COUNT`] integrity fractions, in `BodyPart`
+/// order. The five are contiguous, so the region's own discriminant indexes
+/// them and there is no per-region constant to keep in step with the enum.
+pub const POSE_INTEGRITY_FIRST: usize = 49;
+/// First of the five wound fractions, in the same order.
+pub const POSE_WOUND_FIRST: usize = 54;
+pub const POSE_BLOOD_FRACTION: usize = 59;
+pub const POSE_SHOCK: usize = 60;
+/// Bit `part as u8` per severed region.
+pub const POSE_SEVERED_MASK: usize = 61;
+/// Left weapon bit 0, right weapon bit 1, shield bit 2 -- the mask
+/// [`sim::ArticulatedPose::equipment_mask`] reads off its own geometry, so a
+/// set bit and a zeroed hilt/tip pair cannot disagree.
+pub const POSE_EQUIPMENT_MASK: usize = 62;
+/// The stored command's intent, in the frozen wire ordinals the 55-byte
+/// command payload already froze: Hold `0`, Attack `1`, Flee `2`.
+pub const POSE_INTENT: usize = 63;
+pub const POSE_LEFT_HINT: usize = 64;
+pub const POSE_RIGHT_HINT: usize = 65;
+
+/// Version of the combat-event row layout.
+pub const COMBAT_EVENT_LAYOUT_VERSION: u32 = 1;
+
+/// Rows the combat-event buffer holds, across every tick of one `step` call.
+///
+/// **1024 because the provisional 256 was measured and rejected.** The
+/// reference's `abi-high-water` corpus -- world seed `0x4152504741424931`, an
+/// open 24x16 room, 64 bodies as 32 Fighter/Brute pairs three halves of a unit
+/// apart, one submitted command each at tick zero and none after, and exactly
+/// one `step(8)` -- accumulates **446 rows** across that single eight-tick
+/// batch. At 256 the host published the canonical 256 and counted 190 dropped,
+/// which is a truncated stream on a fixture the reference calls mandatory. The
+/// reference's rule for a rejected capacity is the next power of two at least
+/// twice the measured maximum: 446 doubles to 892 and rounds up to 1024.
+///
+/// Re-measured by `the_high_water_corpus_fills_at_most_half_the_event_buffer`,
+/// which is what fails if a change doubles event production -- the failure this
+/// number exists to turn into a test rather than a silently cut feed.
+pub const MAX_COMBAT_EVENTS: usize = 1024;
+
+/// Words in one combat-event row.
+///
+/// Thirty-two rather than twenty-five because **no host mirror may narrow a
+/// `u64` resolution channel**: the group energy ledger and the four damage
+/// channels are `u64` in the solver, so each crosses as a low/high pair. A
+/// truncated ledger is a silently wrong number that no assertion downstream
+/// could distinguish from a small one.
+pub const COMBAT_EVENT_STRIDE: usize = 32;
+
+pub const COMBAT_EVENT_TICK: usize = 0;
+pub const COMBAT_EVENT_TOI_RAW: usize = 1;
+pub const COMBAT_EVENT_GROUP_ORDINAL: usize = 2;
+pub const COMBAT_EVENT_A_INDEX: usize = 3;
+pub const COMBAT_EVENT_A_GENERATION: usize = 4;
+pub const COMBAT_EVENT_B_INDEX: usize = 5;
+pub const COMBAT_EVENT_B_GENERATION: usize = 6;
+pub const COMBAT_EVENT_A_SLOT: usize = 7;
+pub const COMBAT_EVENT_B_SLOT: usize = 8;
+pub const COMBAT_EVENT_KIND: usize = 9;
+pub const COMBAT_EVENT_POINT_X: usize = 10;
+pub const COMBAT_EVENT_POINT_Y: usize = 11;
+pub const COMBAT_EVENT_POINT_Z: usize = 12;
+pub const COMBAT_EVENT_NORMAL_X: usize = 13;
+pub const COMBAT_EVENT_NORMAL_Y: usize = 14;
+pub const COMBAT_EVENT_NORMAL_Z: usize = 15;
+pub const COMBAT_EVENT_ENERGY_BEFORE_LO: usize = 16;
+pub const COMBAT_EVENT_ENERGY_BEFORE_HI: usize = 17;
+pub const COMBAT_EVENT_ENERGY_AFTER_LO: usize = 18;
+pub const COMBAT_EVENT_ENERGY_AFTER_HI: usize = 19;
+pub const COMBAT_EVENT_ENERGY_DISSIPATED_LO: usize = 20;
+pub const COMBAT_EVENT_ENERGY_DISSIPATED_HI: usize = 21;
+pub const COMBAT_EVENT_CUT_LO: usize = 22;
+pub const COMBAT_EVENT_CUT_HI: usize = 23;
+pub const COMBAT_EVENT_THRUST_LO: usize = 24;
+pub const COMBAT_EVENT_THRUST_HI: usize = 25;
+pub const COMBAT_EVENT_PRESSURE_LO: usize = 26;
+pub const COMBAT_EVENT_PRESSURE_HI: usize = 27;
+pub const COMBAT_EVENT_DEFLECTED_LO: usize = 28;
+pub const COMBAT_EVENT_DEFLECTED_HI: usize = 29;
+/// The `BodyPart` this fact names, or [`COMBAT_EVENT_NO_BODY_PART`].
+pub const COMBAT_EVENT_BODY_PART: usize = 30;
+pub const COMBAT_EVENT_SEVERED: usize = 31;
+
+/// What [`COMBAT_EVENT_BODY_PART`] holds when the fact names no anatomy at all
+/// -- weapon against weapon and weapon against shield.
+///
+/// `u32::MAX` rather than the sim's own `0xff`, because the column is a word:
+/// widening the sentinel would leave `255` looking like a plausible region
+/// index to a reader that had lost track of the width.
+pub const COMBAT_EVENT_NO_BODY_PART: u32 = u32::MAX;
+
+/// The two static arrays cost this much linear memory, once, forever.
+///
+/// Written out as the arithmetic rather than as `147_968` so that a stride or a
+/// capacity moving is a failed assertion here and not a stale comment: the
+/// reference charges v2-16 exactly these bytes, and the 55-byte command scratch
+/// belongs to v2-11 and is not charged again.
+///
+/// It was 49,664 while [`MAX_COMBAT_EVENTS`] was the provisional 256. The
+/// measurement that rejected 256 is written out there; what it costs is written
+/// out here, because 98 KB more linear memory is the price of that decision and
+/// a budget that quietly followed the constant would hide it.
+const _: () = assert!(
+    MAX_POSES * POSE_STRIDE * 4 + MAX_COMBAT_EVENTS * COMBAT_EVENT_STRIDE * 4 == 147_968,
+    "the articulated publication budget is 16,896 pose bytes plus 131,072 event bytes",
+);
+
 thread_local! {
     static SIM: RefCell<Option<Sim>> = const { RefCell::new(None) };
     static FRAME: RefCell<[f32; FRAME_MAX]> = const { RefCell::new([0.0; FRAME_MAX]) };
@@ -759,6 +957,31 @@ thread_local! {
     /// before it calls `init` reads a well-formed empty frame instead of a
     /// zero-length one.
     static FRAME_LEN: Cell<u32> = const { Cell::new(HEADER_LEN as u32) };
+    /// One row per live articulated body, [`POSE_STRIDE`] words each. A fixed
+    /// array beside `FRAME` and for the fourth time the same reason: a `Vec`
+    /// that reallocates grows linear memory, and growing it detaches every
+    /// typed array the page is holding.
+    ///
+    /// Rewritten wholesale by [`publish`] from end-of-call state, so unlike the
+    /// frame it has no header and no stale-prefix hazard -- [`POSE_LEN`] is the
+    /// only thing that says how much of it is live.
+    static POSES: RefCell<[u32; MAX_POSES * POSE_STRIDE]> =
+        const { RefCell::new([0; MAX_POSES * POSE_STRIDE]) };
+    /// How many *rows* of `POSES` are live, not how many words.
+    static POSE_LEN: Cell<u32> = const { Cell::new(0) };
+    /// Rows the last publication could not fit, saturating. Per publication and
+    /// not cumulative: it answers "how much of this picture am I not being
+    /// shown", which is a question about the buffer in hand.
+    static POSES_DROPPED: Cell<u32> = const { Cell::new(0) };
+    /// Every contact resolution of every tick in the last host call, in
+    /// `(tick, toi, group ordinal, key)` order. Fixed for the same reason
+    /// `POSES` is.
+    static COMBAT_EVENTS: RefCell<[u32; MAX_COMBAT_EVENTS * COMBAT_EVENT_STRIDE]> =
+        const { RefCell::new([0; MAX_COMBAT_EVENTS * COMBAT_EVENT_STRIDE]) };
+    /// How many *rows* of `COMBAT_EVENTS` are live.
+    static COMBAT_EVENT_LEN: Cell<u32> = const { Cell::new(0) };
+    /// Rows the cap ate during the last host call, saturating.
+    static COMBAT_EVENTS_DROPPED: Cell<u32> = const { Cell::new(0) };
 }
 
 /// `thread_local!` and `RefCell` are sound here because the target is
@@ -1150,6 +1373,28 @@ struct Sim {
     /// [`advance`]: Sim::advance
     events_dropped: u32,
 
+    /// Every contact resolution of every tick in the last [`advance`], already
+    /// packed into published rows.
+    ///
+    /// **Packed on the way in rather than at publication, because the evidence
+    /// does not survive the next tick.** `World::contact_resolutions` retains
+    /// the last solved tick only and the top of the following tick wipes it, so
+    /// a call that stepped eight ticks has seven ticks' worth of contacts that
+    /// exist nowhere else by the time [`publish`] runs.
+    ///
+    /// Cleared per *call* rather than per tick, exactly as `events` above is
+    /// and on exactly the same argument: one animation frame is up to eight
+    /// ticks of catch-up and all eight ticks' blows happened.
+    ///
+    /// [`advance`]: Sim::advance
+    combat_events: Vec<[u32; COMBAT_EVENT_STRIDE]>,
+
+    /// How many rows the [`MAX_COMBAT_EVENTS`] cap ate during the last
+    /// [`advance`]. Reset in the same three places `combat_events` is cleared.
+    ///
+    /// [`advance`]: Sim::advance
+    combat_events_dropped: u32,
+
     /// What each body looked like at the end of the last tick, indexed by
     /// entity index like `flashes`.
     ///
@@ -1194,6 +1439,72 @@ struct Sim {
     hero_spec: UnitSpec,
 }
 
+/// The floor [`init`] opens, with the combat model switched on or left alone.
+///
+/// One builder rather than two, because [`Sim::descend`] has to be able to
+/// rebuild whichever floor the run is standing on. `Scenario::dungeon` alone
+/// would hand a Legacy scenario to a hero carrying an articulated row, and
+/// `World::new` refuses that construction by panicking.
+///
+/// **The room and the hero are `init`'s exactly. The monsters are re-equipped,
+/// and that is a fact about the shipped spec table rather than a choice.**
+/// `CombatSpecTableV1::fixtures()` is one sword, one shield and one club, and
+/// an articulated unit's loadout must name the equipment it is given slot for
+/// slot -- so the generated roster's `Knife` and `Punch`, which have no
+/// equipment row, cannot cross. Inventing rows for them would be inventing
+/// combat geometry nobody measured. The mapping below spends only what exists:
+/// a Brute keeps its club, every other body takes the sword, and the off hand
+/// is empty because a fist is not an item. `init`'s Fighter is untouched --
+/// sword and shield are rows 1 and 2 of the table, which is the pair it already
+/// walks in holding.
+///
+/// **On a descent the hero goes through the same mapping**, so an articulated
+/// run whose player reached for a bow from the Hero rail arrives on the next
+/// floor holding a sword again. That is not a bug to fix here: there is no bow
+/// equipment row, so the alternative is a floor that cannot be constructed at
+/// all. It stops happening when the fixtures table grows the rows, and until
+/// then the loop is deliberately total -- a partial mapping that kept some
+/// unedited loadouts and rewrote others would be a floor that builds or does
+/// not depending on which slider was last touched.
+fn dungeon_scenario(
+    seed: u64,
+    depth: u32,
+    hero: UnitSpec,
+    model: sim::CombatModel,
+) -> Scenario {
+    let mut scenario = Scenario::dungeon(seed, depth, hero);
+    if model == sim::CombatModel::Legacy {
+        return scenario;
+    }
+    // A different name, because a scenario that fights under a different model
+    // is a different scenario and `Scenario::fingerprint` should say so.
+    scenario.name = format!("articulated-dungeon-{depth}");
+    scenario.combat_model = sim::CombatModel::Articulated;
+    scenario.combat_specs = Some(sim::CombatSpecTableV1::fixtures());
+    for unit in &mut scenario.units {
+        // Two anatomies in the table against four bodies in the roster: the
+        // brute's frame for a Brute and the fighter's for everything else.
+        // Nothing finer is measured, and guessing a third would be inventing a
+        // spec.
+        let anatomy = if matches!(unit.kind, Body::Brute) { 2 } else { 1 };
+        // A body that already walks in behind a guard keeps the pair -- which
+        // is the hero, and is why `init`'s Fighter crosses unchanged.
+        let (equipment, loadout) = if unit.loadout.secondary == Some(sim::ActionKind::Shield) {
+            (
+                [Some(1), Some(2)],
+                Loadout::pair(sim::ActionKind::Sword, sim::ActionKind::Shield),
+            )
+        } else if anatomy == 2 {
+            ([Some(3), None], Loadout::single(sim::ActionKind::Club))
+        } else {
+            ([Some(1), None], Loadout::single(sim::ActionKind::Sword))
+        };
+        unit.loadout = loadout;
+        unit.articulated = Some(sim::ArticulatedUnitSpecV1 { anatomy, equipment });
+    }
+    scenario
+}
+
 impl Sim {
     fn new(seed: u64) -> Sim {
         // The hero the first floor is entered with. A plain Fighter, which is
@@ -1216,7 +1527,32 @@ impl Sim {
     /// level can have one -- which in practice means the tests, most of which
     /// are about the boundary rather than about the level and would rather not
     /// have a generated level's monsters walking into them.
+    ///
+    /// **Panics on a construction the sim refuses**, exactly as `World::new`
+    /// always has and by calling it, and it is reachable from [`init`]. That is
+    /// not an oversight and it is not safe by accident: every scenario that
+    /// reaches here is one this module built, and the only constructions the sim
+    /// refuses are articulated ones -- a missing spec table, an unresolvable
+    /// equipment reference, a loadout that names something its row does not
+    /// carry, a geometry envelope. [`dungeon_scenario`] cannot produce any of
+    /// those, and the shipped fixtures do not either.
+    ///
+    /// [`Sim::try_on`] is the form for a caller that can be handed a scenario it
+    /// did not build, which today means [`install_articulated`]. Prefer it when
+    /// in doubt: a trap behind a `pub extern "C"` boundary poisons the instance
+    /// for the life of the page.
     fn on(scenario: &Scenario, seed: u64) -> Sim {
+        Sim::try_on(scenario, seed).expect("invalid combat construction")
+    }
+
+    /// [`Sim::on`], with the refusal handed back rather than raised.
+    ///
+    /// The shape `World::try_new` already has, mirrored one layer up for the
+    /// same reason it exists down there: an articulated scenario can be refused
+    /// for a missing spec table, an unresolvable equipment reference or a
+    /// geometry envelope, and the host's only correct answer to any of those is
+    /// to install nothing at all.
+    fn try_on(scenario: &Scenario, seed: u64) -> Option<Sim> {
         let hero_spec = scenario
             .units
             .iter()
@@ -1234,7 +1570,7 @@ impl Sim {
                 articulated: None,
                 spawn: Vec2::ZERO,
             });
-        let world = Sim::open(scenario, seed);
+        let world = Sim::try_open(scenario, seed)?;
         let mut units = Vec::with_capacity(scenario.units.len());
         for faction in [Faction::Heroes, Faction::Monsters] {
             units.extend_from_slice(&world.alive_ids(faction));
@@ -1284,10 +1620,12 @@ impl Sim {
             last_hero_fall: None,
             last_kill: None,
             portal_armed: false,
-            // Zero and not `MAX_UNITS`: every scenario that reaches here builds
-            // a Legacy world, where the reservation is a no-op over contact
-            // state that does not exist. `init_articulated_test` is the one
-            // place that can honestly write anything else.
+            // Zero and not `MAX_UNITS`: nothing has been reserved *yet*, and
+            // this field records the call that answered `Ok` rather than the
+            // model. Three places can honestly write anything else --
+            // `init_articulated`, `init_articulated_test` and `Sim::descend` --
+            // and each of them does it while the world it reserved against is
+            // still a local.
             contact_high_water: 0,
             // The fog's memory, sized to the tile buffer it is indexed against
             // rather than to this level's extent. Every `Sim` is built through
@@ -1326,6 +1664,13 @@ impl Sim {
             // read the frame through.
             events: Vec::with_capacity(MAX_EVENTS),
             events_dropped: 0,
+            // At its ceiling too, and here the argument is not merely the
+            // typed-array one: `client/test/wasm-memory.test.mjs` drives
+            // `step(64)` against a live view and requires
+            // `memory.buffer.byteLength` not to move, so a per-tick push that
+            // grew this vector is a failing test rather than a latent risk.
+            combat_events: Vec::with_capacity(MAX_COMBAT_EVENTS),
+            combat_events_dropped: 0,
             traces: Vec::new(),
             spawn_spec: UnitSpec {
                 kind: Body::Skitterer,
@@ -1350,7 +1695,7 @@ impl Sim {
         // rule is stated once, here and per tick, as "clear means open" rather
         // than as a transition.
         sim.open_the_way_out();
-        sim
+        Some(sim)
     }
 
     /// Builds the world a scenario describes, with both objective channels
@@ -1371,10 +1716,16 @@ impl Sim {
     /// [`Sim::descend`] have to agree about this and a level that quietly
     /// opened without an objective would be a level where nothing moves.
     fn open(scenario: &Scenario, seed: u64) -> World {
-        let mut world = World::new(scenario, seed);
+        Sim::try_open(scenario, seed).expect("invalid combat construction")
+    }
+
+    /// [`Sim::open`], with a refused construction handed back. See
+    /// [`Sim::try_on`] for why the fallible form exists at all.
+    fn try_open(scenario: &Scenario, seed: u64) -> Option<World> {
+        let mut world = World::try_new(scenario, seed).ok()?;
         world.set_objective(Faction::Heroes, Objective::Order);
         world.set_objective(Faction::Monsters, Objective::Hunt);
-        world
+        Some(world)
     }
 
     /// Puts the way out where the last thing died, once there is nothing left
@@ -1600,8 +1951,45 @@ impl Sim {
             }
         }
 
-        let scenario = Scenario::dungeon(self.world.seed(), self.depth, self.hero_spec);
-        self.world = Sim::open(&scenario, self.world.seed());
+        // **Through the model-aware builder, not `Scenario::dungeon` directly.**
+        // A run opened by [`init_articulated`] is standing on an articulated
+        // floor and its hero carries an articulated row, and a plain
+        // `Scenario::dungeon` would hand that row to a Legacy scenario --
+        // which `World::new` refuses by panicking, one call inside a
+        // `pub extern "C"` export. On a Legacy run this is the same scenario it
+        // always was, byte for byte.
+        let scenario = dungeon_scenario(
+            self.world.seed(),
+            self.depth,
+            self.hero_spec,
+            self.world.combat_model(),
+        );
+        let mut world = Sim::open(&scenario, self.world.seed());
+        // The new floor's contact vectors, reserved **while the world is still a
+        // local** -- the same ordering [`init_articulated`] keeps, and for the
+        // same reason: a reservation that happened after the world was reachable
+        // would put the growth exactly where it must not be, on the first call
+        // that adds a body. Zero on Legacy, where the reservation is an exact
+        // no-op over contact state that does not exist and a 64 here would be a
+        // lie.
+        //
+        // **This is the one place a refusal does not install nothing**, and the
+        // difference is that there is nothing to fall back to: `init_articulated`
+        // can hand the page an empty module and say so, while a descent has
+        // already left the level behind and a hero standing in a portal with
+        // nowhere to go is a page that retries forever. So the floor is
+        // installed and `contact_high_water` reads zero, which is the honest
+        // report. Reachable only on `ContactCapacityError::Allocation` -- 64 is
+        // `MAX_ARTICULATED_ENTITIES`, so the entity limit cannot refuse -- which
+        // is an out-of-memory module.
+        self.contact_high_water = match world.combat_model() {
+            sim::CombatModel::Legacy => 0,
+            sim::CombatModel::Articulated => match world.try_reserve_contact_slots(MAX_UNITS) {
+                Ok(()) => MAX_UNITS as u32,
+                Err(_) => 0,
+            },
+        };
+        self.world = world;
         // A new floor's lights. Replaced rather than cleared and refilled, so
         // there is no window in which the furniture buffer could be written from
         // last floor's torches and this floor's doors.
@@ -1640,6 +2028,13 @@ impl Sim {
         self.traces.clear();
         self.events.clear();
         self.events_dropped = 0;
+        // The contact feed goes with them, and for a sharper version of the
+        // same reason: an event row carries both halves of two identities, and
+        // the new floor hands those slots to new bodies. Publishing last
+        // level's contacts against this one would attribute a severed arm to
+        // whoever walked into the vacated index.
+        self.combat_events.clear();
+        self.combat_events_dropped = 0;
         // The one row that survives the clearing, because it is about the
         // clearing. Pushed after it for that reason and not before.
         push_event(
@@ -1764,6 +2159,14 @@ impl Sim {
         // increment inside it would not borrow-check. Written back with the
         // feed at every exit.
         let mut dropped = 0u32;
+        // The contact feed, taken out and cleared on exactly the terms above.
+        // It cannot be filled at publication like the pose rows are:
+        // `World::contact_resolutions` retains the last solved tick only, so
+        // every tick of a catch-up burst but the last has already been wiped by
+        // the time `publish` runs.
+        let mut combat_events = std::mem::take(&mut self.combat_events);
+        combat_events.clear();
+        let mut combat_dropped = 0u32;
         for _ in 0..frames {
             for flash in &mut self.flashes {
                 flash.hit = flash.hit.saturating_sub(1);
@@ -1786,6 +2189,12 @@ impl Sim {
             // Cheaper and narrower than an event, and it cannot be forgotten by
             // a future rule that changes the grid some other way.
             let plan_before = self.world.dungeon().fingerprint();
+            // The tick number every contact resolved below is stamped with, and
+            // it has to be read *before* the step: `World::step` increments the
+            // counter on its way out, and a contact's time of impact is a
+            // fraction of the tick that was integrated rather than of the one
+            // that has not started yet.
+            let solving_tick = self.world.tick();
             let driven = if self.control != 0 { hero_before } else { None };
             due.clear();
             due.extend_from_slice(self.world.pending_decisions());
@@ -1991,6 +2400,21 @@ impl Sim {
                     }
                 }
             }
+            // Inside the tick loop and immediately after the step, because this
+            // slice is wiped at the top of the next one. `contact_resolutions`
+            // already hands them over sorted by `(group_ordinal, ContactKey)`
+            // and ordinals are handed out in increasing time of impact, so
+            // appending in world order is the documented
+            // `(tick, toi, ordinal, key)` total order rather than a second
+            // opinion about it -- `the_documented_event_order_holds_over_a_tick_with_several_groups`
+            // is what makes that a check instead of an assumption.
+            for row in self.world.contact_resolutions() {
+                push_combat_event(
+                    &mut combat_events,
+                    &mut combat_dropped,
+                    combat_event_row(solving_tick, row),
+                );
+            }
             for &(entity, slot) in &marks[..count] {
                 match slot {
                     0 => self.flash(entity, |f| &mut f.hit),
@@ -2114,9 +2538,22 @@ impl Sim {
             if self.hero_is_leaving() {
                 events.clear();
                 dropped = 0;
+                // **Cleared here too, and the argument is the feed's own, only
+                // stronger.** A contact row names two full identities, and
+                // `descend` is about to build a level that hands those slots to
+                // new bodies -- so a row that survived this return would be
+                // published against a world where it names somebody else. The
+                // rows are also about to be cleared again inside `descend`;
+                // both clearings are kept because this one is what the *early
+                // return* owes and that one is what a direct `descend()` export
+                // call owes, and neither can be inferred from the other.
+                combat_events.clear();
+                combat_dropped = 0;
                 self.due = due;
                 self.events = events;
                 self.events_dropped = dropped;
+                self.combat_events = combat_events;
+                self.combat_events_dropped = combat_dropped;
                 // Which pushes the one row that outlives the clearing. See
                 // [`Sim::descend`] for why it is pushed from in there.
                 self.descend();
@@ -2126,6 +2563,8 @@ impl Sim {
         self.due = due;
         self.events = events;
         self.events_dropped = dropped;
+        self.combat_events = combat_events;
+        self.combat_events_dropped = combat_dropped;
     }
 
     /// Writes each live body's place, size and weight into the trace table.
@@ -3182,6 +3621,228 @@ const fn intent_code(intent: Intent) -> u32 {
     }
 }
 
+// -------------------------------------------- packing poses and combat events
+//
+// Free functions rather than methods, and that is the point of them: [`publish`]
+// and the scripted [`articulated_stream_digest`] both go through exactly these,
+// so the digest fingerprints the bytes the page reads rather than a second
+// encoder's opinion of them. A digest computed by a parallel writer proves that
+// two encoders agree and says nothing at all about the buffer.
+
+/// One [`Fx`] -- or any other signed fixed-point value -- as a published word.
+///
+/// `as u32` and never `as i64 as u32`: the reference's rule is the two's
+/// complement bits reinterpreted, so `-1` is `0xffffffff` and the reader
+/// recovers it with a single `| 0` on the far side.
+const fn fx_word(value: Fx) -> u32 {
+    value.raw() as u32
+}
+
+/// A `Vec3` as its three published words.
+fn vec3_words(value: fx::Vec3) -> [u32; 3] {
+    [fx_word(value.x), fx_word(value.y), fx_word(value.z)]
+}
+
+/// One `u64` resolution channel as its low and high words.
+///
+/// **The whole reason the event stride is 32 and not 25.** Every energy channel
+/// the contact solver produces is a `u64`, and a host that narrowed one to a
+/// `u32` would publish a wrong number that no reader could tell from a small
+/// one -- there is no sentinel and no range check that would catch it.
+const fn u64_words(value: u64) -> [u32; 2] {
+    [value as u32, (value >> 32) as u32]
+}
+
+/// One published pose row, straight off the sim's own published pose.
+///
+/// Nothing is derived here. [`sim::ArticulatedPose`] was shaped to be exactly
+/// this row -- its positions are already world space and its masks are already
+/// read off its own geometry -- so re-deriving any of it on this side would be
+/// a second answer to a question the sim has already answered once.
+fn pose_row(pose: &sim::ArticulatedPose) -> [u32; POSE_STRIDE] {
+    let mut row = [0u32; POSE_STRIDE];
+    row[POSE_ENTITY_INDEX] = pose.id.index;
+    row[POSE_ENTITY_GENERATION] = pose.id.generation;
+    row[POSE_BODY_X..=POSE_BODY_Z].copy_from_slice(&vec3_words(pose.body));
+    row[POSE_BODY_YAW_RAW] = u32::from(pose.body_yaw.raw());
+    row[POSE_BODY_VX..=POSE_BODY_VZ].copy_from_slice(&vec3_words(pose.body_velocity));
+
+    // The two arms, in `LimbSlot` order, at the two bases the table gives them.
+    // Left is 9 and right is 19; the ten words in between are the same ten in
+    // the same order, which is why this is a loop and not two copies.
+    for (limb, base) in [(0usize, POSE_LEFT_HAND_X), (1, POSE_RIGHT_HAND_X)] {
+        let arm = pose.arms[limb];
+        row[base..base + 3].copy_from_slice(&vec3_words(arm.hand));
+        // Relative to the body origin, which is the column the actuator
+        // integrates. See `PosedArm::velocity`: the absolute hand velocity is
+        // the body velocity plus this, and publishing the sum would throw away
+        // the only term a reader cannot recover.
+        row[base + 3..base + 6].copy_from_slice(&vec3_words(arm.velocity));
+        row[base + 6] = fx_word(arm.fatigue);
+        row[base + 7..base + 10].copy_from_slice(&vec3_words(arm.target_hand));
+    }
+
+    // An absent weapon writes zero geometry rather than a sentinel, because
+    // there is already a presence bit for it two rows down and a second way to
+    // say "nothing here" is a second thing to disagree about. A two-handed item
+    // fills the right slot only, which is the sim's ownership rule and not a
+    // choice made here.
+    for (limb, base) in [(0usize, POSE_LEFT_WEAPON_HILT_X), (1, POSE_RIGHT_WEAPON_HILT_X)] {
+        let Some(weapon) = pose.weapons[limb] else { continue };
+        row[base..base + 3].copy_from_slice(&vec3_words(weapon.hilt));
+        row[base + 3..base + 6].copy_from_slice(&vec3_words(weapon.tip));
+    }
+    if let Some(shield) = pose.shield {
+        row[POSE_SHIELD_CENTER_X..=POSE_SHIELD_CENTER_Z]
+            .copy_from_slice(&vec3_words(shield.centre));
+        row[POSE_SHIELD_NORMAL_X..=POSE_SHIELD_NORMAL_Z]
+            .copy_from_slice(&vec3_words(shield.normal));
+        row[POSE_SHIELD_HALF_WIDTH] = fx_word(shield.half_width);
+        row[POSE_SHIELD_HALF_HEIGHT] = fx_word(shield.half_height);
+        // `thickness` is deliberately not published. It is a collision depth
+        // the shield face carries for the contact phase; a renderer draws the
+        // face, and adding the column later is an append rather than a move.
+    }
+
+    for part in 0..sim::AnatomyRegion::COUNT {
+        row[POSE_INTEGRITY_FIRST + part] = fx_word(pose.integrity_fraction[part]);
+        row[POSE_WOUND_FIRST + part] = fx_word(pose.wound_fraction[part]);
+    }
+    row[POSE_BLOOD_FRACTION] = fx_word(pose.blood_fraction);
+    row[POSE_SHOCK] = fx_word(pose.shock);
+    row[POSE_SEVERED_MASK] = u32::from(pose.severed_mask);
+    row[POSE_EQUIPMENT_MASK] = u32::from(pose.equipment_mask);
+    row[POSE_INTENT] = intent_code(pose.intent);
+    row[POSE_LEFT_HINT] = pose.hints[0] as u32;
+    row[POSE_RIGHT_HINT] = pose.hints[1] as u32;
+    row
+}
+
+/// One published combat-event row.
+///
+/// `tick` is the tick that was *integrated*, not the counter after `World::step`
+/// returned: the time of impact beside it is a fraction of that tick, so the
+/// pair would name two different moments otherwise.
+fn combat_event_row(tick: u32, row: &sim::ContactResolution) -> [u32; COMBAT_EVENT_STRIDE] {
+    let fact = row.fact;
+    let mut out = [0u32; COMBAT_EVENT_STRIDE];
+    out[COMBAT_EVENT_TICK] = tick;
+    // Reinterpreted rather than widened, and the two are the same word here: a
+    // `TimeOfImpact` is clamped into `[0,1]` at construction, so its raw is
+    // never negative and there is no sign to extend. Written this way so it
+    // reads like every other raw fixed-point column rather than like a special
+    // case.
+    out[COMBAT_EVENT_TOI_RAW] = fact.toi.get().raw() as u32;
+    out[COMBAT_EVENT_GROUP_ORDINAL] = u32::from(row.group_ordinal);
+    out[COMBAT_EVENT_A_INDEX] = fact.key.a.index;
+    out[COMBAT_EVENT_A_GENERATION] = fact.key.a.generation;
+    out[COMBAT_EVENT_B_INDEX] = fact.key.b.index;
+    out[COMBAT_EVENT_B_GENERATION] = fact.key.b.generation;
+    // Carried as the sim's own bytes, `sim::BODY_SLOT` and all: a host that
+    // remapped "the body itself" onto some other number would be inventing a
+    // second vocabulary for a value the solver already keys its facts on.
+    out[COMBAT_EVENT_A_SLOT] = u32::from(fact.key.a_slot);
+    out[COMBAT_EVENT_B_SLOT] = u32::from(fact.key.b_slot);
+    out[COMBAT_EVENT_KIND] = fact.key.kind as u32;
+    out[COMBAT_EVENT_POINT_X..=COMBAT_EVENT_POINT_Z].copy_from_slice(&vec3_words(fact.point));
+    out[COMBAT_EVENT_NORMAL_X..=COMBAT_EVENT_NORMAL_Z].copy_from_slice(&vec3_words(fact.normal));
+    out[COMBAT_EVENT_ENERGY_BEFORE_LO..=COMBAT_EVENT_ENERGY_BEFORE_HI]
+        .copy_from_slice(&u64_words(row.energy.before_raw));
+    out[COMBAT_EVENT_ENERGY_AFTER_LO..=COMBAT_EVENT_ENERGY_AFTER_HI]
+        .copy_from_slice(&u64_words(row.energy.after_raw));
+    out[COMBAT_EVENT_ENERGY_DISSIPATED_LO..=COMBAT_EVENT_ENERGY_DISSIPATED_HI]
+        .copy_from_slice(&u64_words(row.energy.dissipated_raw));
+    out[COMBAT_EVENT_CUT_LO..=COMBAT_EVENT_CUT_HI].copy_from_slice(&u64_words(row.cut_raw));
+    out[COMBAT_EVENT_THRUST_LO..=COMBAT_EVENT_THRUST_HI]
+        .copy_from_slice(&u64_words(row.thrust_raw));
+    out[COMBAT_EVENT_PRESSURE_LO..=COMBAT_EVENT_PRESSURE_HI]
+        .copy_from_slice(&u64_words(row.pressure_raw));
+    out[COMBAT_EVENT_DEFLECTED_LO..=COMBAT_EVENT_DEFLECTED_HI]
+        .copy_from_slice(&u64_words(row.deflected_raw));
+    out[COMBAT_EVENT_BODY_PART] = if fact.region == sim::NO_REGION {
+        COMBAT_EVENT_NO_BODY_PART
+    } else {
+        u32::from(fact.region)
+    };
+    out[COMBAT_EVENT_SEVERED] = u32::from(row.severed);
+    out
+}
+
+/// Appends one canonical row to a fixed publication buffer, or counts it as
+/// dropped.
+///
+/// **The prefix is retained and the tail is counted**, for both buffers and for
+/// one reason: a reader holding the first `n` rows is holding the first `n` rows
+/// the producer meant, in the order it meant them, and the drop count says how
+/// much of the picture it is not being shown. Retaining a *suffix* -- "keep the
+/// most recent" -- would have made the row a reader already had disappear from
+/// under it, and no priority class reorders this for the same reason.
+///
+/// Saturating, because a drop count that wrapped would report zero drops at the
+/// exact moment there were four billion.
+fn push_published_row(out: &mut [u32], rows: &mut u32, dropped: &mut u32, row: &[u32]) {
+    let at = *rows as usize * row.len();
+    if at + row.len() > out.len() {
+        *dropped = dropped.saturating_add(1);
+        return;
+    }
+    out[at..at + row.len()].copy_from_slice(row);
+    *rows += 1;
+}
+
+/// [`push_published_row`]'s rule, applied to the accumulator rather than the
+/// buffer.
+///
+/// The cap has to be enforced here as well as at publication, and not because
+/// the two could disagree: a `Vec` pushed past the capacity it was reserved for
+/// reallocates, and a reallocation inside a tick grows linear memory and
+/// detaches every typed array the page is holding. That is the failure
+/// `client/test/wasm-memory.test.mjs` exists to catch.
+fn push_combat_event(
+    events: &mut Vec<[u32; COMBAT_EVENT_STRIDE]>,
+    dropped: &mut u32,
+    row: [u32; COMBAT_EVENT_STRIDE],
+) {
+    if events.len() >= MAX_COMBAT_EVENTS {
+        *dropped = dropped.saturating_add(1);
+        return;
+    }
+    events.push(row);
+}
+
+/// Fills a pose buffer from end-of-call state and answers `(rows, dropped)`.
+///
+/// **Ground truth and not a publishable snapshot.** Every row here is the
+/// authoritative pose of a body the reader may not be able to see; the
+/// visibility filtering is the worker's job. See [`pose_ptr`].
+fn write_pose_buffer(sim: &Sim, out: &mut [u32; MAX_POSES * POSE_STRIDE]) -> (u32, u32) {
+    let mut rows = 0u32;
+    let mut dropped = 0u32;
+    for pose in sim.world.articulated_poses() {
+        push_published_row(out, &mut rows, &mut dropped, &pose_row(&pose));
+    }
+    (rows, dropped)
+}
+
+/// Copies the accumulated contact rows into the event buffer and answers
+/// `(rows, dropped)`.
+///
+/// The overflow arm cannot fire -- the accumulator is capped at the same
+/// [`MAX_COMBAT_EVENTS`] this buffer holds -- and is here anyway, because the
+/// two caps are stated in two places and a reader of either one is entitled to
+/// see the same rule.
+fn write_combat_event_buffer(
+    sim: &Sim,
+    out: &mut [u32; MAX_COMBAT_EVENTS * COMBAT_EVENT_STRIDE],
+) -> (u32, u32) {
+    let mut rows = 0u32;
+    let mut dropped = sim.combat_events_dropped;
+    for row in &sim.combat_events {
+        push_published_row(out, &mut rows, &mut dropped, row);
+    }
+    (rows, dropped)
+}
+
 /// Rebuilds the frame from current state. Called by every export that changes
 /// something, so [`frame_ptr`] and [`frame_len`] are pure reads -- they cannot
 /// allocate, so they cannot grow linear memory, so they cannot detach the view
@@ -3199,6 +3860,19 @@ fn publish() {
             // tile buffer's fog are the same question asked twice, and a frame
             // written first would answer it against the previous hero tile.
             sim.refresh_vis();
+            // The pose rows are filled from **end-of-call** state, which is why
+            // they belong here rather than in `advance`: this is the one
+            // function that runs after every mutating export, so a spawn, a
+            // swap or a submitted command that moved a hand is in the buffer
+            // without each of those exports having to remember to say so.
+            let (pose_rows, poses_dropped) =
+                POSES.with(|poses| write_pose_buffer(sim, &mut poses.borrow_mut()));
+            POSE_LEN.with(|n| n.set(pose_rows));
+            POSES_DROPPED.with(|n| n.set(poses_dropped));
+            let (event_rows, events_dropped) = COMBAT_EVENTS
+                .with(|events| write_combat_event_buffer(sim, &mut events.borrow_mut()));
+            COMBAT_EVENT_LEN.with(|n| n.set(event_rows));
+            COMBAT_EVENTS_DROPPED.with(|n| n.set(events_dropped));
             FRAME.with(|frame| sim.write_frame(&mut frame.borrow_mut()))
         }
         // **This arm used to write no header at all**, on the argument that
@@ -3206,12 +3880,32 @@ fn publish() {
         // an `init` has filled it -- so every header float held either a written
         // value or a zero that was never anything else. The note ended by saying
         // that a future export which could clear `SIM` has to zero the header
-        // here, and [`init_articulated_test`] is now that export: it refuses to
-        // install a world whose contact vectors are not reserved, and a header
-        // left over from the last live sim would then report that sim's unit
-        // count, depth and feed truncation over a world that is not there.
+        // here, and there are now two of them -- [`init_articulated_test`] and
+        // [`init_articulated`], both of which refuse to install a world whose
+        // construction or whose contact reservation the sim would not answer
+        // `Ok` to. A header left over from the last live sim would then report
+        // that sim's unit count, depth and feed truncation over a world that is
+        // not there.
         None => {
             FRAME.with(|frame| frame.borrow_mut()[..HEADER_LEN].fill(0.0));
+            // The same treatment, and then some. Zeroing the two lengths is
+            // what the header zeroing is: nothing past a published length is
+            // readable, so a stale row behind a zero length is exactly as dead
+            // as a stale unit row behind `frame_len`. The rows are wiped as
+            // well anyway, which the frame's are not, because a pose row is
+            // *ground truth about an identity* -- a reader that held a stale
+            // length would be handed the previous world's bodies, and 147,968
+            // bytes on an arm that only runs when no world is installed is not
+            // a cost worth trading that against. It was 49,664 while
+            // `MAX_COMBAT_EVENTS` was the provisional 256, and the trade comes
+            // out the same way at three times the size: this arm runs once per
+            // refused install and never inside a frame.
+            POSES.with(|poses| poses.borrow_mut().fill(0));
+            POSE_LEN.with(|n| n.set(0));
+            POSES_DROPPED.with(|n| n.set(0));
+            COMBAT_EVENTS.with(|events| events.borrow_mut().fill(0));
+            COMBAT_EVENT_LEN.with(|n| n.set(0));
+            COMBAT_EVENTS_DROPPED.with(|n| n.set(0));
             HEADER_LEN
         }
     });
@@ -3376,6 +4070,85 @@ pub extern "C" fn init_articulated_test(seed: u32) {
     publish();
 }
 
+/// Opens [`init`]'s room, with the same hero, under the articulated model.
+///
+/// **It does not alter [`init`].** The two are separate entry points on the same
+/// floor plan, so a page can open either and everything downstream of the frame
+/// -- the tiles, the furniture, the fog -- is written the same way by both.
+/// What differs is the combat model and, necessarily, the monsters' kit: see
+/// [`dungeon_scenario`] for why three shipped equipment rows cannot dress a
+/// roster that walks in holding knives and fists.
+///
+/// Fails closed on every refusal. A scenario the sim will not build, and a
+/// contact reservation it will not make, both install *no world at all* rather
+/// than a world whose next spawn could move the page's typed arrays out from
+/// under it -- and rather than leaving the previous world standing behind a call
+/// that said it started over. Neither is a panic: a trap behind
+/// `pub extern "C"` poisons the instance for the life of the page.
+///
+/// **This is a warm-up path, and a caller's no-growth proof has to warm it.**
+/// The reservation it makes is 64 rows of contact vectors that a Legacy heap has
+/// never held, so the first `init_articulated` after a Legacy run grows linear
+/// memory once -- exactly as [`init_articulated_test`] does, and for exactly the
+/// same reason. That is the growth being bought: every later spawn, step and
+/// contact on this world is free of it. Warm it beside the legacy reset paths
+/// and the byte length stands still afterwards.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn init_articulated(seed: u32) {
+    let seed = u64::from(seed);
+    install_articulated(
+        &dungeon_scenario(seed, 0, articulated_hero(), sim::CombatModel::Articulated),
+        seed,
+    );
+}
+
+/// The hero [`init_articulated`] walks in with: [`Sim::new`]'s Fighter exactly.
+///
+/// A second literal rather than a call into `Sim::new`, because that function
+/// builds a whole world to get at it. The two are held together by
+/// `the_articulated_room_is_inits_room_and_inits_hero`, which is the test that
+/// would fail if either moved.
+fn articulated_hero() -> UnitSpec {
+    UnitSpec {
+        kind: Body::Fighter,
+        faction: Faction::Heroes,
+        stats: Body::Fighter.base_stats(),
+        loadout: Body::Fighter.default_loadout(),
+        articulated: None,
+        spawn: Vec2::ZERO,
+    }
+}
+
+/// Builds, reserves and installs, or installs nothing.
+///
+/// Split out of [`init_articulated`] so the fail-closed arm is reachable from a
+/// test: the shipped fixture is valid at 64 slots by construction -- the entity
+/// limit is the same number -- so the only way to see this refuse is to hand it
+/// a scenario the sim rejects, which no export can do.
+fn install_articulated(scenario: &Scenario, seed: u64) {
+    let installed = Sim::try_on(scenario, seed).and_then(|mut fresh| {
+        // Here, while `fresh` is still a local, for the whole of the argument
+        // [`init_articulated_test`] makes: one line further down the world is
+        // reachable through `SIM` and the page is entitled to keep a typed
+        // array over what `publish` hands it, and a contact vector that grew
+        // after that moment would detach every one of them.
+        fresh.world.try_reserve_contact_slots(MAX_UNITS).ok()?;
+        fresh.contact_high_water = MAX_UNITS as u32;
+        // The floor plan and the furniture, exactly as `init` writes them --
+        // unlike `init_articulated_test`'s two-body duel this *is* a room, and
+        // a page that opened it would otherwise draw the last level's masonry.
+        // Written only on the success path: a buffer describing a world that
+        // was not installed is worse than a stale one, because the frame beside
+        // it publishes a zeroed header and the two would disagree.
+        write_map(&fresh.world);
+        write_furniture(&fresh.world, &fresh.torches);
+        Some(fresh)
+    });
+    SIM.with(|sim| *sim.borrow_mut() = installed);
+    publish();
+}
+
 /// How many articulated rows the running world's contact vectors are reserved
 /// for, or `0` before the first `init` and on any Legacy world.
 ///
@@ -3386,11 +4159,19 @@ pub extern "C" fn init_articulated_test(seed: u32) {
 /// standing still is equally consistent with "reserved once, up front" and with
 /// "nothing has grown it *yet*". This is the difference between those two.
 ///
-/// It reports what [`init_articulated_test`] reserved rather than what the world
-/// holds, because the world deliberately does not publish the second: contact
-/// capacity is not authoritative state and `try_reserve_contact_slots` forbids
-/// reading it back as if it were. The two cannot disagree -- a world that did
-/// not answer `Ok` is never installed.
+/// It reports what the call that opened this world reserved -- one of
+/// [`init_articulated`], [`init_articulated_test`] or [`Sim::descend`] -- rather
+/// than what the world holds, because the world deliberately does not publish
+/// the second: contact capacity is not authoritative state and
+/// `try_reserve_contact_slots` forbids reading it back as if it were.
+///
+/// The two can disagree in exactly one case, and it is worth naming rather than
+/// pretending otherwise. The two `init_*` exports install no world at all when
+/// the reservation refuses, so for them a nonzero reading and a reserved world
+/// are the same fact. `Sim::descend` has nowhere to fall back to and installs
+/// the floor anyway, reporting `0`; so a zero on an Articulated world means
+/// "this floor's vectors are not reserved", which is precisely the thing a
+/// no-growth proof needs to be able to see.
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn contact_high_water() -> u32 {
@@ -3806,6 +4587,129 @@ pub extern "C" fn submit_articulated(entity_index: u32, entity_generation: u32) 
 
 const fn submit_result(outcome: u8, reason: u8, detail: u8, slot: u8) -> u32 {
     outcome as u32 | ((reason as u32) << 8) | ((detail as u32) << 16) | ((slot as u32) << 24)
+}
+
+/// Address of the pose buffer. Stable for the life of the module, exactly as
+/// [`frame_ptr`] is and for the same reason: it is a fixed array in linear
+/// memory and nothing here ever reallocates it.
+///
+/// **This is an authoritative-host view and must not cross to the renderer
+/// unfiltered.** Every row is ground truth about a body -- its exact position,
+/// what it is holding, which regions are severed -- with no perception noise and
+/// no visibility filtering, for bodies the viewer may have no way of seeing.
+/// Handing this array on as a snapshot would publish the position of everything
+/// on the floor to anybody who opened a debugger, which is precisely the leak
+/// the legacy frame's `visible` column and the worker's snapshot filter exist to
+/// close. The trusted worker retains the subject and the currently visible
+/// identities in canonical order, filters events whose geometry would reveal an
+/// absent identity, and writes a snapshot; that filtering lands in v2-17 and
+/// this pointer stays inside the worker until it does.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn pose_ptr() -> u32 {
+    POSES.with(|poses| poses.borrow().as_ptr() as usize as u32)
+}
+
+/// How many pose rows are live. Rows, not words: multiply by
+/// [`pose_stride`].
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn pose_len() -> u32 {
+    POSE_LEN.with(|n| n.get())
+}
+
+#[allow(unsafe_code)]
+#[no_mangle]
+pub const extern "C" fn pose_stride() -> u32 { POSE_STRIDE as u32 }
+
+#[allow(unsafe_code)]
+#[no_mangle]
+pub const extern "C" fn pose_capacity() -> u32 { MAX_POSES as u32 }
+
+/// Rows the last publication could not fit, saturating.
+///
+/// Zero in every reachable case: the cap is `MAX_ARTICULATED_ENTITIES` and the
+/// sim cannot hold more articulated bodies than that. It is published anyway
+/// because the prefix rule is only meaningful if a reader can tell it fired,
+/// and because a future producer -- a newer module against an older page -- is
+/// exactly the case the defensive prefix exists for.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn poses_dropped() -> u32 {
+    POSES_DROPPED.with(|n| n.get())
+}
+
+#[allow(unsafe_code)]
+#[no_mangle]
+pub const extern "C" fn pose_layout_version() -> u32 { POSE_LAYOUT_VERSION }
+
+/// Address of the combat-event buffer. Stable for the life of the module.
+///
+/// **Authoritative and unfiltered, exactly as [`pose_ptr`] is**, and with one
+/// extra edge: a contact row names both parties by full identity and carries
+/// the world-space point the blow landed at, so a row about two bodies the
+/// viewer cannot see discloses both of them and where they are standing. The
+/// worker filters this before anything downstream sees it.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn combat_event_ptr() -> u32 {
+    COMBAT_EVENTS.with(|events| events.borrow().as_ptr() as usize as u32)
+}
+
+/// How many combat-event rows are live, across every tick of the last `step`.
+///
+/// **The feed is cleared per `step`, not per publication**, which is the legacy
+/// event feed's rule exactly and has the same consequence: an export that
+/// changes something without stepping -- a click, a spawn, a slider -- rebuilds
+/// the frame and republishes these same rows unchanged. A consumer that
+/// accumulates from them (a damage ledger, one impact sound per row) must key on
+/// the host call that stepped rather than on the publication, or it double
+/// counts every contact the player clicks through. `step(0)` clears them, which
+/// is the same rule read from the other end.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn combat_event_len() -> u32 {
+    COMBAT_EVENT_LEN.with(|n| n.get())
+}
+
+#[allow(unsafe_code)]
+#[no_mangle]
+pub const extern "C" fn combat_event_stride() -> u32 { COMBAT_EVENT_STRIDE as u32 }
+
+#[allow(unsafe_code)]
+#[no_mangle]
+pub const extern "C" fn combat_event_capacity() -> u32 { MAX_COMBAT_EVENTS as u32 }
+
+/// Rows the cap ate during the last host call, saturating.
+///
+/// Unlike [`poses_dropped`] this one is genuinely reachable: a busy tick can
+/// produce thousands of resolutions, and a `step(8)` accumulates all eight
+/// ticks' worth. The canonical prefix is kept and the tail is counted here; no
+/// priority class and no lethal event reorders it.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn combat_events_dropped() -> u32 {
+    COMBAT_EVENTS_DROPPED.with(|n| n.get())
+}
+
+#[allow(unsafe_code)]
+#[no_mangle]
+pub const extern "C" fn combat_event_layout_version() -> u32 { COMBAT_EVENT_LAYOUT_VERSION }
+
+/// Low half of the articulated stream digest. See [`articulated_stream_digest`],
+/// including why this belongs in a caller's warm-up rather than in its frame
+/// loop.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn articulated_stream_digest_lo() -> u32 {
+    articulated_stream_digest() as u32
+}
+
+/// High half of the articulated stream digest.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn articulated_stream_digest_hi() -> u32 {
+    (articulated_stream_digest() >> 32) as u32
 }
 
 // ---------------------------------------------------------------- behaviour
@@ -4819,6 +5723,206 @@ pub fn selftest_hash() -> u64 {
     .state_hash
 }
 
+/// Seed of the scripted articulated stream. Part of the fixture, not a sample.
+const STREAM_DIGEST_SEED: u64 = 1;
+
+/// Publications the scripted stream digests, one tick each.
+///
+/// Twenty, and the shape is measured rather than hoped for: ticks 0, 1, 2 and 4
+/// resolve nothing at all, tick 3 resolves two rows in one publication, and
+/// every tick from 5 on resolves one. So the script carries the empty ticks the
+/// reference requires the digest to include, a tick with more than one row, and
+/// a long tail of contact -- and `empty_ticks_enter_both_stream_digests` is
+/// what fails if any of that stops being true.
+const STREAM_DIGEST_TICKS: u32 = 20;
+
+/// The two bodies the scripted stream drives, two units apart.
+///
+/// [`Scenario::articulated_duel`] with the spawns pulled together and swapped,
+/// and nothing else touched. The shipped duel stands its fighter and its brute
+/// ten units apart and would spend the whole script closing.
+///
+/// **The fighter stands east of the brute, which is the point of the swap.**
+/// Every body spawns facing east, and both the body yaw and the arm bearings
+/// are *driven* rather than set -- the shipped clinch fixture takes 78 ticks to
+/// first contact, most of it turning around. So the script asks for no rotation
+/// at all: the brute's club already points east, the fighter walks west onto
+/// it, and the contact is geometry rather than patience.
+///
+/// Two units, measured. Three halves has the club inside the fighter on tick
+/// zero, which costs the script the empty ticks it exists to carry; five halves
+/// never touches inside a script worth digesting.
+fn stream_digest_scenario() -> Scenario {
+    let mut scenario = Scenario::articulated_duel();
+    scenario.name = "articulated-stream-v1".to_string();
+    scenario.units[0].spawn = Vec2::from_ints(9, 6);
+    scenario.units[1].spawn = Vec2::from_ints(7, 6);
+    scenario
+}
+
+/// The command each body is given, once, on tick zero.
+///
+/// One submission and no later ones, exactly as the reference's high-water
+/// fixture does it: an articulated command is stored and driven toward until
+/// something replaces it, so a script that resubmitted every tick would be
+/// measuring the submission path rather than the stream.
+///
+/// `move_dir` is a full unit along the bearing, which is the fastest a body may
+/// ask to walk -- `validate_move` refuses a magnitude *above* one, and an axis
+/// vector's magnitude is exactly one, so no rounding is being relied on here.
+fn stream_digest_command(
+    bearing: Angle,
+    walk: Vec2,
+    target: EntityId,
+) -> sim::ArticulatedCommandV1 {
+    let arm = sim::ArmTarget {
+        bearing,
+        height: sim::CombatHeight::MID,
+        reach: Fx::ONE,
+        effort: Fx::ONE,
+    };
+    sim::ArticulatedCommandV1 {
+        move_dir: walk,
+        body_yaw: bearing,
+        intent: Intent::Attack(target),
+        arms: [arm; 2],
+        grips: [sim::GripRequest::Keep; 2],
+    }
+}
+
+/// FNV-1a-64 over the published pose and combat-event stream of a scripted
+/// articulated fight.
+///
+/// **The portable claim v2-16 makes.** `selftest_hash` proves a *run* is the
+/// same everywhere; this proves the bytes the page reads out of it are, which
+/// is a different property and the one a hand-rolled ABI can get wrong on its
+/// own. State-hash equality is not a substitute: two targets can agree about
+/// every world column and still disagree about a word offset, a sign extension
+/// or a narrowed `u64`.
+///
+/// It goes through [`write_pose_buffer`] and [`write_combat_event_buffer`] --
+/// the same two functions [`publish`] calls -- rather than a second encoder. A
+/// digest built by a parallel writer would prove that two encoders agree and
+/// would say nothing about what crosses the wall.
+///
+/// Independent of [`init`] and of anything the player has done, exactly as
+/// [`selftest_hash`] is: it builds its own `Sim`, drives it, and throws it away
+/// without touching `SIM`, `FRAME`, `POSES` or `COMBAT_EVENTS`. It leaves `MAP`,
+/// `MAP_SHAPE` and `FURNITURE` alone too, and that one is a property of the
+/// *fixture* rather than of this function: `Sim::advance` rewrites both on a
+/// door opening and on a descent, and the scripted duel is an open 24x16 room
+/// with no doorway, no exit room and nobody dying inside twenty ticks. A future
+/// fixture with a door in it would have to say how it avoids that.
+///
+/// **It allocates, and it must therefore be called during warm-up.** Building a
+/// `Sim` costs a fog buffer, an event feed and a reserved contact vector, and on
+/// `wasm32-unknown-unknown` a heap that grows grows linear memory -- which
+/// detaches every typed array the page is holding. This is exactly the shape
+/// [`contact_behavior_digest_lo`]'s corpus has and it takes the same answer:
+/// the value is computed once per module, on first touch, and cached below.
+/// Warm it beside the corpus and it can never move the heap again.
+///
+/// One tick per publication, so `poses_dropped` and `combat_events_dropped`
+/// have exactly one meaning in the stream.
+pub fn articulated_stream_digest() -> u64 {
+    ARTICULATED_STREAM_DIGEST_VALUE.with(|digest| *digest)
+}
+
+thread_local! {
+    /// Computed once, on first touch, for the reason
+    /// [`articulated_stream_digest`] gives: it is the only allocating export in
+    /// the pose/event set, and a second call that grew the heap would detach
+    /// the page's views long after warm-up.
+    static ARTICULATED_STREAM_DIGEST_VALUE: u64 = compute_articulated_stream_digest();
+}
+
+fn compute_articulated_stream_digest() -> u64 {
+    let mut hash = fx::Hash64::new();
+    hash.write_bytes(b"ARPG-STREAM-V1");
+    drive_stream_digest_script(|tick, poses, poses_dropped, events, events_dropped| {
+        // The two lengths are derived from the slices rather than passed
+        // alongside them, so the count in the digest and the words after it
+        // cannot disagree about how many rows there are.
+        hash.write_u32(tick);
+        hash.write_u32((poses.len() / POSE_STRIDE) as u32);
+        hash.write_u32(poses_dropped);
+        for &word in poses {
+            hash.write_u32(word);
+        }
+        hash.write_u32((events.len() / COMBAT_EVENT_STRIDE) as u32);
+        hash.write_u32(events_dropped);
+        for &word in events {
+            hash.write_u32(word);
+        }
+    });
+    hash.finish()
+}
+
+/// Runs the scripted articulated stream, handing `feed` one publication per
+/// tick as `(tick, live pose words, poses dropped, live event words, events
+/// dropped)`.
+///
+/// The script and the digest are separated so that a test can ask what the
+/// script *contains* -- an empty tick, a tick with several contact groups --
+/// without rebuilding the drive beside it. Two copies of a fixture is how a
+/// fixture and the claim about it drift apart.
+fn drive_stream_digest_script(mut feed: impl FnMut(u32, &[u32], u32, &[u32], u32)) {
+    let scenario = stream_digest_scenario();
+    let Some(mut sim) = Sim::try_on(&scenario, STREAM_DIGEST_SEED) else {
+        // Unreachable -- the fixture is the shipped duel with two spawns moved
+        // -- and it feeds nothing rather than trapping anyway, because this is
+        // reachable from a `pub extern "C"` export and a trap poisons the
+        // instance. An empty stream fails its pin loudly on the far side.
+        return;
+    };
+    // Reserved up front so the run's own contact vectors do not grow under it.
+    // This costs one allocation burst before any pointer is handed out, which
+    // is the same discipline `init_articulated` keeps.
+    if sim.world.try_reserve_contact_slots(scenario.units.len()).is_err() {
+        return;
+    }
+    let fighter = EntityId::new(0, 0);
+    let brute = EntityId::new(1, 0);
+    // **Both bearings are zero, and that is the fixture's whole trick.** Every
+    // body spawns facing east and both the body yaw and the arm bearings are
+    // driven, not set -- a half turn is the better part of a hundred ticks. So
+    // the script asks for no rotation at all and gets its contact out of the
+    // geometry instead: the brute stands still with its club pointing east and
+    // the fighter walks west onto it.
+    let west = Vec2::new(-Fx::ONE, Fx::ZERO);
+    sim.world
+        .submit_articulated_v1(fighter, stream_digest_command(Angle::ZERO, west, brute));
+    sim.world
+        .submit_articulated_v1(brute, stream_digest_command(Angle::ZERO, Vec2::ZERO, fighter));
+
+    // The two published buffers, built once and reused across the script rather
+    // than allocated per tick: this runs on `wasm32-unknown-unknown`, where a
+    // heap that grows detaches whatever the page is holding, and 147,968 bytes
+    // of stack is the cheaper of the two. That was 49,664 while
+    // `MAX_COMBAT_EVENTS` was the provisional 256, so the frame tripled and the
+    // trade is worth restating rather than assuming: the default shadow stack
+    // is 1 MiB, this frame is a seventh of it, and it is the whole depth below
+    // an export rather than one level of a recursion.
+    let mut poses = [0u32; MAX_POSES * POSE_STRIDE];
+    let mut events = [0u32; MAX_COMBAT_EVENTS * COMBAT_EVENT_STRIDE];
+    for _ in 0..STREAM_DIGEST_TICKS {
+        // Read before the step, so the number fed here is the tick that was
+        // integrated -- the same tick the event rows below are stamped with,
+        // and the same one their times of impact are fractions of.
+        let tick = sim.world.tick();
+        sim.advance(1);
+        let (pose_rows, poses_dropped) = write_pose_buffer(&sim, &mut poses);
+        let (event_rows, events_dropped) = write_combat_event_buffer(&sim, &mut events);
+        feed(
+            tick,
+            &poses[..pose_rows as usize * POSE_STRIDE],
+            poses_dropped,
+            &events[..event_rows as usize * COMBAT_EVENT_STRIDE],
+            events_dropped,
+        );
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -5086,6 +6190,1154 @@ mod tests {
         // beside it is.
         init(1);
         assert_eq!(contact_cap_hits(), 0, "a Legacy world claimed a contact cap");
+    }
+
+    // ---------------------------------------------- published poses and events
+
+    /// The live pose rows, as rows rather than as a run of words.
+    fn published_poses() -> Vec<[u32; POSE_STRIDE]> {
+        POSES.with(|poses| {
+            let words = poses.borrow();
+            (0..pose_len() as usize)
+                .map(|row| {
+                    let mut out = [0u32; POSE_STRIDE];
+                    out.copy_from_slice(&words[row * POSE_STRIDE..(row + 1) * POSE_STRIDE]);
+                    out
+                })
+                .collect()
+        })
+    }
+
+    /// The live combat-event rows, likewise.
+    fn published_events() -> Vec<[u32; COMBAT_EVENT_STRIDE]> {
+        COMBAT_EVENTS.with(|events| {
+            let words = events.borrow();
+            (0..combat_event_len() as usize)
+                .map(|row| {
+                    let mut out = [0u32; COMBAT_EVENT_STRIDE];
+                    out.copy_from_slice(
+                        &words[row * COMBAT_EVENT_STRIDE..(row + 1) * COMBAT_EVENT_STRIDE],
+                    );
+                    out
+                })
+                .collect()
+        })
+    }
+
+    /// The documented total order key of one published event row.
+    ///
+    /// The tail is `ContactKey`'s own field order -- `a`, `a_slot`, `b`,
+    /// `b_slot`, `kind` -- and not the row's word order, which puts the two
+    /// slots together and the kind after them. `kind` is last and is here even
+    /// though it cannot currently break a tie: the two slots' shapes determine
+    /// it, so two rows agreeing on everything before it agree on it too. A key
+    /// that dropped it would still sort every fixture correctly and would stop
+    /// being the documented key, which is the thing this test claims to check.
+    fn event_order_key(
+        row: &[u32; COMBAT_EVENT_STRIDE],
+    ) -> (u32, u32, u32, u32, u32, u32, u32, u32, u32, u32) {
+        (
+            row[COMBAT_EVENT_TICK],
+            row[COMBAT_EVENT_TOI_RAW],
+            row[COMBAT_EVENT_GROUP_ORDINAL],
+            row[COMBAT_EVENT_A_INDEX],
+            row[COMBAT_EVENT_A_GENERATION],
+            row[COMBAT_EVENT_A_SLOT],
+            row[COMBAT_EVENT_B_INDEX],
+            row[COMBAT_EVENT_B_GENERATION],
+            row[COMBAT_EVENT_B_SLOT],
+            row[COMBAT_EVENT_KIND],
+        )
+    }
+
+    /// Runs the boundary clinch through the real exports and keeps every event
+    /// row every publication produced.
+    ///
+    /// The clinch is the drive this crate already owns for reaching the contact
+    /// solver hard, so the event tests use it rather than inventing a second
+    /// fight to argue about. One tick per `step`, so a row's publication and
+    /// its tick are the same thing.
+    fn clinch_event_rows(ticks: u32) -> Vec<Vec<[u32; COMBAT_EVENT_STRIDE]>> {
+        init_articulated_test(1);
+        let mut collected = Vec::new();
+        for tick in 0..ticks {
+            for row in 0..2 {
+                SUBMITTED_COMMAND.with(|buffer| *buffer.borrow_mut() = clinch_payload(row, tick));
+                submit_articulated(row as u32, 0);
+            }
+            step(1);
+            collected.push(published_events());
+        }
+        collected
+    }
+
+    #[test]
+    fn pose_rows_use_full_identity_and_canonical_order() {
+        init_articulated(1);
+        let rows = published_poses();
+        assert!(rows.len() >= 2, "the articulated room published {} bodies", rows.len());
+        assert_eq!(poses_dropped(), 0, "the room overflowed a buffer sized to the sim's own cap");
+
+        // Ascending *full* identity and strictly so, which is stronger than
+        // ascending index: a slot holds at most one live body, so a repeat here
+        // would mean two rows about one body.
+        let identity: Vec<(u32, u32)> = rows
+            .iter()
+            .map(|row| (row[POSE_ENTITY_INDEX], row[POSE_ENTITY_GENERATION]))
+            .collect();
+        let mut canonical = identity.clone();
+        canonical.sort_unstable();
+        canonical.dedup();
+        assert_eq!(identity, canonical, "pose rows are not ascending full identity");
+
+        SIM.with(|sim| {
+            let borrowed = sim.borrow();
+            let world = &borrowed.as_ref().unwrap().world;
+            // Both halves resolve, which is what makes the pair an identity: an
+            // index alone would resolve just as happily against the body that
+            // took the slot next.
+            for row in &rows {
+                let id = EntityId::new(row[POSE_ENTITY_INDEX], row[POSE_ENTITY_GENERATION]);
+                let pose = world
+                    .articulated_pose(id)
+                    .expect("a published row named a body the world does not have");
+                assert_eq!(*row, pose_row(&pose));
+                assert_eq!(
+                    world.articulated_pose(EntityId::new(id.index, id.generation + 1)),
+                    None,
+                    "a bare index would have resolved",
+                );
+            }
+            // And nobody is missing: the row count is the live articulated body
+            // count and not some subset that happened to be interesting.
+            assert_eq!(world.articulated_poses().count(), rows.len());
+        });
+    }
+
+    /// One pose whose every published column holds a value no other column
+    /// holds.
+    ///
+    /// Hand-built rather than lifted off a live body, for the same reason
+    /// `crates/sim`'s `every_column_filled` is: a real pose publishes a great
+    /// many equal words -- every Z is the floor, a fresh anatomy's five
+    /// integrity fractions are all one, an empty grip is six zeros -- and two
+    /// equal words cannot show that they were swapped. Nothing here has to be a
+    /// pose the actuator could reach. The fixture's only job is to make a
+    /// transposition visible, which is exactly the failure the surviving checks
+    /// on this row cannot see.
+    fn every_pose_column_filled() -> sim::ArticulatedPose {
+        // Ten apart, so no component of one point can equal a component of
+        // another and no swap between two points survives.
+        fn scalar(n: i32) -> Fx {
+            Fx::from_ratio(n, 1024)
+        }
+        fn point(n: i32) -> fx::Vec3 {
+            fx::Vec3::new(scalar(n), scalar(n + 1), scalar(n + 2))
+        }
+        sim::ArticulatedPose {
+            id: EntityId::new(41, 7),
+            body: point(1),
+            body_yaw: Angle::from_raw(20_001),
+            body_velocity: point(11),
+            arms: [
+                sim::PosedArm {
+                    hand: point(21),
+                    velocity: point(31),
+                    fatigue: scalar(200),
+                    target_hand: point(41),
+                },
+                sim::PosedArm {
+                    hand: point(51),
+                    velocity: point(61),
+                    fatigue: scalar(201),
+                    target_hand: point(71),
+                },
+            ],
+            weapons: [
+                Some(sim::SegmentPose { hilt: point(81), tip: point(91), radius: scalar(202) }),
+                Some(sim::SegmentPose { hilt: point(101), tip: point(111), radius: scalar(203) }),
+            ],
+            shield: Some(sim::ShieldPose {
+                centre: point(121),
+                normal: point(131),
+                half_width: scalar(204),
+                half_height: scalar(205),
+                // Published by nothing, which is the point of naming it: a row
+                // that grew a thickness column would fail the coverage check
+                // below rather than appearing as one more word nobody reads.
+                thickness: scalar(206),
+            }),
+            integrity_fraction: core::array::from_fn(|part| scalar(210 + part as i32)),
+            wound_fraction: core::array::from_fn(|part| scalar(220 + part as i32)),
+            blood_fraction: scalar(230),
+            shock: scalar(231),
+            severed_mask: 0b1_0110,
+            equipment_mask: 0b101,
+            intent: Intent::Flee,
+            hints: [sim::AnimationHint::Contact, sim::AnimationHint::Recoiling],
+        }
+    }
+
+    #[test]
+    fn every_pose_column_lands_on_its_documented_word() {
+        // The 66 columns of `articulated-abi.md`'s pose table, one assertion
+        // each, against the field that table names for the word.
+        //
+        // **What had no pin before this.** `emit_abi`'s set-equality against
+        // `0..POSE_STRIDE` catches a gap and a duplicate and cannot catch a
+        // transposition -- swapping two column names leaves the set intact.
+        // `tools/wasm_check.js` spot-checks eight of the sixty-six.
+        // `ARTICULATED_STREAM_DIGEST` is derived from this encoder, so it
+        // detects drift and cannot detect a layout that was wrong on the day it
+        // was pinned, which is the exact failure mode `wasm_check.js` writes
+        // down for the contact corpus.
+        //
+        // **Values here, perturbations in the feature test, and the difference
+        // is the divisor.** `every_articulated_feature_lands_on_its_documented_index`
+        // nudges a field and asks which columns moved, because writing expected
+        // *values* there would need a second copy of every divisor and would
+        // then agree with the writer by construction. A pose column has no
+        // divisor: the reference's word rule is "the raw bits, reinterpreted",
+        // so the expected value costs one `as u32` and claims more -- it fails a
+        // column that landed in the right place with the wrong encoding as well
+        // as one that landed in the wrong place.
+        let pose = every_pose_column_filled();
+        let row = pose_row(&pose);
+        let word = |value: Fx| value.raw() as u32;
+        let arm = |limb: usize| pose.arms[limb];
+        let weapon = |limb: usize| pose.weapons[limb].expect("the fixture fills both grips");
+        let shield = pose.shield.expect("the fixture carries a shield");
+        let columns: [(&str, usize, u32); POSE_STRIDE] = [
+            ("entity index", POSE_ENTITY_INDEX, pose.id.index),
+            ("entity generation", POSE_ENTITY_GENERATION, pose.id.generation),
+            ("body x", POSE_BODY_X, word(pose.body.x)),
+            ("body y", POSE_BODY_Y, word(pose.body.y)),
+            ("body z", POSE_BODY_Z, word(pose.body.z)),
+            // Widened rather than reinterpreted: an `Angle` raw is a `u16` and
+            // has no sign to extend.
+            ("body yaw raw", POSE_BODY_YAW_RAW, u32::from(pose.body_yaw.raw())),
+            ("body vx", POSE_BODY_VX, word(pose.body_velocity.x)),
+            ("body vy", POSE_BODY_VY, word(pose.body_velocity.y)),
+            ("body vz", POSE_BODY_VZ, word(pose.body_velocity.z)),
+            ("left hand x", POSE_LEFT_HAND_X, word(arm(0).hand.x)),
+            ("left hand y", POSE_LEFT_HAND_Y, word(arm(0).hand.y)),
+            ("left hand z", POSE_LEFT_HAND_Z, word(arm(0).hand.z)),
+            ("left hand vx", POSE_LEFT_HAND_VX, word(arm(0).velocity.x)),
+            ("left hand vy", POSE_LEFT_HAND_VY, word(arm(0).velocity.y)),
+            ("left hand vz", POSE_LEFT_HAND_VZ, word(arm(0).velocity.z)),
+            ("left fatigue", POSE_LEFT_FATIGUE, word(arm(0).fatigue)),
+            ("left target x", POSE_LEFT_TARGET_X, word(arm(0).target_hand.x)),
+            ("left target y", POSE_LEFT_TARGET_Y, word(arm(0).target_hand.y)),
+            ("left target z", POSE_LEFT_TARGET_Z, word(arm(0).target_hand.z)),
+            ("right hand x", POSE_RIGHT_HAND_X, word(arm(1).hand.x)),
+            ("right hand y", POSE_RIGHT_HAND_Y, word(arm(1).hand.y)),
+            ("right hand z", POSE_RIGHT_HAND_Z, word(arm(1).hand.z)),
+            ("right hand vx", POSE_RIGHT_HAND_VX, word(arm(1).velocity.x)),
+            ("right hand vy", POSE_RIGHT_HAND_VY, word(arm(1).velocity.y)),
+            ("right hand vz", POSE_RIGHT_HAND_VZ, word(arm(1).velocity.z)),
+            ("right fatigue", POSE_RIGHT_FATIGUE, word(arm(1).fatigue)),
+            ("right target x", POSE_RIGHT_TARGET_X, word(arm(1).target_hand.x)),
+            ("right target y", POSE_RIGHT_TARGET_Y, word(arm(1).target_hand.y)),
+            ("right target z", POSE_RIGHT_TARGET_Z, word(arm(1).target_hand.z)),
+            ("left hilt x", POSE_LEFT_WEAPON_HILT_X, word(weapon(0).hilt.x)),
+            ("left hilt y", POSE_LEFT_WEAPON_HILT_Y, word(weapon(0).hilt.y)),
+            ("left hilt z", POSE_LEFT_WEAPON_HILT_Z, word(weapon(0).hilt.z)),
+            ("left tip x", POSE_LEFT_WEAPON_TIP_X, word(weapon(0).tip.x)),
+            ("left tip y", POSE_LEFT_WEAPON_TIP_Y, word(weapon(0).tip.y)),
+            ("left tip z", POSE_LEFT_WEAPON_TIP_Z, word(weapon(0).tip.z)),
+            ("right hilt x", POSE_RIGHT_WEAPON_HILT_X, word(weapon(1).hilt.x)),
+            ("right hilt y", POSE_RIGHT_WEAPON_HILT_Y, word(weapon(1).hilt.y)),
+            ("right hilt z", POSE_RIGHT_WEAPON_HILT_Z, word(weapon(1).hilt.z)),
+            ("right tip x", POSE_RIGHT_WEAPON_TIP_X, word(weapon(1).tip.x)),
+            ("right tip y", POSE_RIGHT_WEAPON_TIP_Y, word(weapon(1).tip.y)),
+            ("right tip z", POSE_RIGHT_WEAPON_TIP_Z, word(weapon(1).tip.z)),
+            ("shield centre x", POSE_SHIELD_CENTER_X, word(shield.centre.x)),
+            ("shield centre y", POSE_SHIELD_CENTER_Y, word(shield.centre.y)),
+            ("shield centre z", POSE_SHIELD_CENTER_Z, word(shield.centre.z)),
+            ("shield normal x", POSE_SHIELD_NORMAL_X, word(shield.normal.x)),
+            ("shield normal y", POSE_SHIELD_NORMAL_Y, word(shield.normal.y)),
+            ("shield normal z", POSE_SHIELD_NORMAL_Z, word(shield.normal.z)),
+            ("shield half width", POSE_SHIELD_HALF_WIDTH, word(shield.half_width)),
+            ("shield half height", POSE_SHIELD_HALF_HEIGHT, word(shield.half_height)),
+            ("integrity 0", POSE_INTEGRITY_FIRST, word(pose.integrity_fraction[0])),
+            ("integrity 1", POSE_INTEGRITY_FIRST + 1, word(pose.integrity_fraction[1])),
+            ("integrity 2", POSE_INTEGRITY_FIRST + 2, word(pose.integrity_fraction[2])),
+            ("integrity 3", POSE_INTEGRITY_FIRST + 3, word(pose.integrity_fraction[3])),
+            ("integrity 4", POSE_INTEGRITY_FIRST + 4, word(pose.integrity_fraction[4])),
+            ("wound 0", POSE_WOUND_FIRST, word(pose.wound_fraction[0])),
+            ("wound 1", POSE_WOUND_FIRST + 1, word(pose.wound_fraction[1])),
+            ("wound 2", POSE_WOUND_FIRST + 2, word(pose.wound_fraction[2])),
+            ("wound 3", POSE_WOUND_FIRST + 3, word(pose.wound_fraction[3])),
+            ("wound 4", POSE_WOUND_FIRST + 4, word(pose.wound_fraction[4])),
+            ("blood fraction", POSE_BLOOD_FRACTION, word(pose.blood_fraction)),
+            ("shock", POSE_SHOCK, word(pose.shock)),
+            ("severed mask", POSE_SEVERED_MASK, u32::from(pose.severed_mask)),
+            ("equipment mask", POSE_EQUIPMENT_MASK, u32::from(pose.equipment_mask)),
+            // Frozen wire ordinals -- Hold 0, Attack 1, Flee 2 -- and not the
+            // enum's declaration order by luck.
+            ("intent", POSE_INTENT, 2),
+            ("left hint", POSE_LEFT_HINT, sim::AnimationHint::Contact as u32),
+            ("right hint", POSE_RIGHT_HINT, sim::AnimationHint::Recoiling as u32),
+        ];
+
+        for &(named, at, value) in &columns {
+            assert_eq!(row[at], value, "pose word {at} does not hold {named}");
+        }
+        // The list is every word once, so a column appended to the row without
+        // a line above fails here rather than going unchecked forever.
+        let mut indices: Vec<usize> = columns.iter().map(|&(_, at, _)| at).collect();
+        indices.sort_unstable();
+        assert_eq!(indices, (0..POSE_STRIDE).collect::<Vec<usize>>(), "the table is not all 66 words");
+        // And the fixture is what makes the claim a transposition claim: two
+        // columns holding one value would swap undetected.
+        let mut values: Vec<u32> = columns.iter().map(|&(_, _, value)| value).collect();
+        values.sort_unstable();
+        values.dedup();
+        assert_eq!(values.len(), POSE_STRIDE, "two columns share a value, so a swap between them passes");
+    }
+
+    #[test]
+    fn every_combat_event_column_lands_on_its_documented_word() {
+        // The pose test's claim for the other row: all 32 columns of the
+        // reference's event table against the `ContactResolution` field it
+        // names.
+        //
+        // Driven off the clinch rather than a hand-built row, and that is a
+        // constraint rather than a preference: `ContactFact`, `ContactKey`,
+        // `EnergyLedger` and `TimeOfImpact` are not part of `sim`'s public
+        // surface, so a synthetic resolution would mean widening the crate's
+        // API for a test. The cost is that a live row repeats values -- a quiet
+        // channel is zero in several places at once -- so a swap between two
+        // zero columns survives this where it would not survive the pose test's
+        // fixture. It is worth having anyway: without it, sixteen of these
+        // columns have no per-column pin at all.
+        init_articulated_test(1);
+        let mut checked = 0usize;
+        let (mut saw_named_region, mut saw_absent_region) = (false, false);
+        for phase in 0..128 {
+            for row in 0..2 {
+                SUBMITTED_COMMAND.with(|buffer| *buffer.borrow_mut() = clinch_payload(row, phase));
+                submit_articulated(row as u32, 0);
+            }
+            let at = tick();
+            step(1);
+            let rows = published_events();
+            if rows.is_empty() {
+                continue;
+            }
+            SIM.with(|sim| {
+                let borrowed = sim.borrow();
+                let world = &borrowed.as_ref().unwrap().world;
+                let solved = world.contact_resolutions();
+                assert_eq!(solved.len(), rows.len(), "a solved row went unpublished");
+                for (resolution, row) in solved.iter().zip(&rows) {
+                    let fact = resolution.fact;
+                    let word = |value: Fx| value.raw() as u32;
+                    let lo = |value: u64| value as u32;
+                    let hi = |value: u64| (value >> 32) as u32;
+                    saw_named_region |= fact.region != sim::NO_REGION;
+                    saw_absent_region |= fact.region == sim::NO_REGION;
+                    let columns: [(&str, usize, u32); COMBAT_EVENT_STRIDE] = [
+                        // The tick that was *integrated*, read before the step:
+                        // the time of impact beside it is a fraction of that
+                        // tick and not of the one the counter holds after.
+                        ("tick", COMBAT_EVENT_TICK, at),
+                        ("toi raw", COMBAT_EVENT_TOI_RAW, fact.toi.get().raw() as u32),
+                        ("group ordinal", COMBAT_EVENT_GROUP_ORDINAL, u32::from(resolution.group_ordinal)),
+                        ("a index", COMBAT_EVENT_A_INDEX, fact.key.a.index),
+                        ("a generation", COMBAT_EVENT_A_GENERATION, fact.key.a.generation),
+                        ("b index", COMBAT_EVENT_B_INDEX, fact.key.b.index),
+                        ("b generation", COMBAT_EVENT_B_GENERATION, fact.key.b.generation),
+                        ("a slot", COMBAT_EVENT_A_SLOT, u32::from(fact.key.a_slot)),
+                        ("b slot", COMBAT_EVENT_B_SLOT, u32::from(fact.key.b_slot)),
+                        ("kind", COMBAT_EVENT_KIND, fact.key.kind as u32),
+                        ("point x", COMBAT_EVENT_POINT_X, word(fact.point.x)),
+                        ("point y", COMBAT_EVENT_POINT_Y, word(fact.point.y)),
+                        ("point z", COMBAT_EVENT_POINT_Z, word(fact.point.z)),
+                        ("normal x", COMBAT_EVENT_NORMAL_X, word(fact.normal.x)),
+                        ("normal y", COMBAT_EVENT_NORMAL_Y, word(fact.normal.y)),
+                        ("normal z", COMBAT_EVENT_NORMAL_Z, word(fact.normal.z)),
+                        ("energy before lo", COMBAT_EVENT_ENERGY_BEFORE_LO, lo(resolution.energy.before_raw)),
+                        ("energy before hi", COMBAT_EVENT_ENERGY_BEFORE_HI, hi(resolution.energy.before_raw)),
+                        ("energy after lo", COMBAT_EVENT_ENERGY_AFTER_LO, lo(resolution.energy.after_raw)),
+                        ("energy after hi", COMBAT_EVENT_ENERGY_AFTER_HI, hi(resolution.energy.after_raw)),
+                        ("dissipated lo", COMBAT_EVENT_ENERGY_DISSIPATED_LO, lo(resolution.energy.dissipated_raw)),
+                        ("dissipated hi", COMBAT_EVENT_ENERGY_DISSIPATED_HI, hi(resolution.energy.dissipated_raw)),
+                        ("cut lo", COMBAT_EVENT_CUT_LO, lo(resolution.cut_raw)),
+                        ("cut hi", COMBAT_EVENT_CUT_HI, hi(resolution.cut_raw)),
+                        ("thrust lo", COMBAT_EVENT_THRUST_LO, lo(resolution.thrust_raw)),
+                        ("thrust hi", COMBAT_EVENT_THRUST_HI, hi(resolution.thrust_raw)),
+                        ("pressure lo", COMBAT_EVENT_PRESSURE_LO, lo(resolution.pressure_raw)),
+                        ("pressure hi", COMBAT_EVENT_PRESSURE_HI, hi(resolution.pressure_raw)),
+                        ("deflected lo", COMBAT_EVENT_DEFLECTED_LO, lo(resolution.deflected_raw)),
+                        ("deflected hi", COMBAT_EVENT_DEFLECTED_HI, hi(resolution.deflected_raw)),
+                        // The one column the host translates rather than
+                        // copies: `sim::NO_REGION` widens to `u32::MAX` so a
+                        // reader that lost the width cannot read the sentinel
+                        // as a region index.
+                        ("body part", COMBAT_EVENT_BODY_PART, if fact.region == sim::NO_REGION {
+                            COMBAT_EVENT_NO_BODY_PART
+                        } else {
+                            u32::from(fact.region)
+                        }),
+                        ("severed", COMBAT_EVENT_SEVERED, u32::from(resolution.severed)),
+                    ];
+                    for &(named, index, value) in &columns {
+                        assert_eq!(row[index], value, "event word {index} does not hold {named}");
+                    }
+                    let mut indices: Vec<usize> = columns.iter().map(|&(_, at, _)| at).collect();
+                    indices.sort_unstable();
+                    assert_eq!(
+                        indices,
+                        (0..COMBAT_EVENT_STRIDE).collect::<Vec<usize>>(),
+                        "the table is not all 32 words",
+                    );
+                    checked += 1;
+                }
+            });
+        }
+        assert!(checked > 0, "the clinch published no contact row to check a column against");
+        assert!(saw_named_region, "no row named an anatomy region, so that branch is unchecked");
+        assert!(saw_absent_region, "no row published the absent-region sentinel");
+    }
+
+    #[test]
+    fn a_legacy_room_publishes_no_pose_or_event_rows() {
+        init(1);
+        step(8);
+        assert_eq!(pose_len(), 0, "a Legacy world published a pose");
+        assert_eq!(poses_dropped(), 0);
+        assert_eq!(combat_event_len(), 0, "a Legacy world published a contact");
+        assert_eq!(combat_events_dropped(), 0);
+        // And the frame it does own is untouched, which is the half of this
+        // claim that would break if the new buffers had been folded into it.
+        assert!(frame_len() > HEADER_LEN as u32, "the legacy frame stopped being published");
+        assert_eq!(frame_layout_version(), FRAME_LAYOUT_VERSION);
+    }
+
+    #[test]
+    fn pose_and_event_overflow_drop_only_the_canonical_tail() {
+        // Driven through the writers directly, because neither cap is reachable
+        // from a world: `MAX_POSES` *is* `MAX_ARTICULATED_ENTITIES`, so a sim
+        // that overflowed the pose buffer would have broken its own limit
+        // first. The rule is defensive against a malformed or future-version
+        // producer, so the producer here is a synthetic one.
+        let mut poses = [0u32; MAX_POSES * POSE_STRIDE];
+        let (mut rows, mut dropped) = (0u32, 0u32);
+        for row in 0..MAX_POSES as u32 + 6 {
+            let mut synthetic = [row; POSE_STRIDE];
+            synthetic[POSE_ENTITY_INDEX] = row;
+            push_published_row(&mut poses, &mut rows, &mut dropped, &synthetic);
+        }
+        assert_eq!((rows, dropped), (MAX_POSES as u32, 6));
+        for row in 0..MAX_POSES {
+            assert_eq!(
+                poses[row * POSE_STRIDE + POSE_ENTITY_INDEX],
+                row as u32,
+                "the retained rows are not the canonical prefix in order",
+            );
+        }
+
+        let mut events = [0u32; MAX_COMBAT_EVENTS * COMBAT_EVENT_STRIDE];
+        let (mut rows, mut dropped) = (0u32, 0u32);
+        for row in 0..MAX_COMBAT_EVENTS as u32 + 44 {
+            let mut synthetic = [0u32; COMBAT_EVENT_STRIDE];
+            synthetic[COMBAT_EVENT_TICK] = row;
+            push_published_row(&mut events, &mut rows, &mut dropped, &synthetic);
+        }
+        assert_eq!((rows, dropped), (MAX_COMBAT_EVENTS as u32, 44));
+        for row in 0..MAX_COMBAT_EVENTS {
+            assert_eq!(events[row * COMBAT_EVENT_STRIDE + COMBAT_EVENT_TICK], row as u32);
+        }
+
+        // And the accumulator's own copy of the rule, which is the one that has
+        // teeth: a push past the reserved capacity reallocates, and a
+        // reallocation inside a tick detaches every view the page holds.
+        let mut accumulated = Vec::with_capacity(MAX_COMBAT_EVENTS);
+        let reserved = accumulated.capacity();
+        let mut dropped = 0u32;
+        for row in 0..MAX_COMBAT_EVENTS as u32 + 44 {
+            let mut synthetic = [0u32; COMBAT_EVENT_STRIDE];
+            synthetic[COMBAT_EVENT_TICK] = row;
+            push_combat_event(&mut accumulated, &mut dropped, synthetic);
+        }
+        assert_eq!((accumulated.len(), dropped), (MAX_COMBAT_EVENTS, 44));
+        assert_eq!(accumulated.capacity(), reserved, "the accumulator reallocated under the cap");
+        assert_eq!(accumulated[0][COMBAT_EVENT_TICK], 0, "the tail won over the prefix");
+
+        // Saturating rather than wrapping: a drop count that wrapped would read
+        // zero at the exact moment it mattered most. A zero-length buffer is the
+        // shortest way to say "there is no room for this row".
+        let mut nowhere: [u32; 0] = [];
+        let (mut rows, mut dropped) = (0u32, u32::MAX);
+        push_published_row(&mut nowhere, &mut rows, &mut dropped, &[0u32; COMBAT_EVENT_STRIDE]);
+        assert_eq!((rows, dropped), (0, u32::MAX));
+        let mut accumulated = vec![[0u32; COMBAT_EVENT_STRIDE]; MAX_COMBAT_EVENTS];
+        let mut dropped = u32::MAX;
+        push_combat_event(&mut accumulated, &mut dropped, [0u32; COMBAT_EVENT_STRIDE]);
+        assert_eq!(dropped, u32::MAX);
+    }
+
+    #[test]
+    fn both_limb_slots_and_regions_round_trip() {
+        let publications = clinch_event_rows(128);
+        let rows: Vec<[u32; COMBAT_EVENT_STRIDE]> =
+            publications.into_iter().flatten().collect();
+        assert!(!rows.is_empty(), "the clinch published no contact at all");
+
+        let slots: std::collections::BTreeSet<u32> = rows
+            .iter()
+            .flat_map(|row| [row[COMBAT_EVENT_A_SLOT], row[COMBAT_EVENT_B_SLOT]])
+            .collect();
+        // The duel is a shield in the left grip, a sword in the right and a club
+        // in the other body's right, so all three of the vocabulary's values are
+        // reachable -- and `BODY_SLOT` is carried across as the sim's own `0xff`
+        // rather than remapped, which is the half a second vocabulary would
+        // break.
+        assert!(slots.contains(&0), "no contact named the left grip; saw {slots:?}");
+        assert!(slots.contains(&1), "no contact named the right grip; saw {slots:?}");
+        assert!(
+            slots.contains(&u32::from(sim::BODY_SLOT)),
+            "no contact named a body; saw {slots:?}",
+        );
+
+        let regions: std::collections::BTreeSet<u32> =
+            rows.iter().map(|row| row[COMBAT_EVENT_BODY_PART]).collect();
+        assert!(
+            regions.contains(&COMBAT_EVENT_NO_BODY_PART),
+            "no weapon-on-weapon or weapon-on-shield fact published the absent sentinel",
+        );
+        assert!(
+            regions.iter().any(|&part| (part as usize) < sim::AnatomyRegion::COUNT),
+            "no fact published an anatomy region; saw {regions:?}",
+        );
+        // The sentinel is `u32::MAX` and not the sim's widened `0xff`, so a
+        // reader that lost track of the width cannot mistake it for the fifth
+        // region -- or for any region a later anatomy might add.
+        assert!(!regions.contains(&u32::from(sim::NO_REGION)));
+    }
+
+    #[test]
+    fn target_hands_and_contact_group_ordinals_round_trip() {
+        init_articulated(1);
+        SIM.with(|sim| {
+            let borrowed = sim.borrow();
+            let world = &borrowed.as_ref().unwrap().world;
+            for row in published_poses() {
+                let id = EntityId::new(row[POSE_ENTITY_INDEX], row[POSE_ENTITY_GENERATION]);
+                let pose = world.articulated_pose(id).expect("a live body");
+                for (limb, base) in [(0usize, POSE_LEFT_TARGET_X), (1, POSE_RIGHT_TARGET_X)] {
+                    assert_eq!(
+                        row[base..base + 3],
+                        vec3_words(pose.arms[limb].target_hand),
+                        "the actuator target the row publishes is not the one it chases",
+                    );
+                }
+                // **Not zero, on a body that has never had a command accepted.**
+                // The sim substitutes the neutral command the arm driver is
+                // actually converging on, so a zero here would be a reach line
+                // drawn to the map origin -- which is exactly the bug the
+                // substitution exists to prevent.
+                assert_ne!(
+                    row[POSE_RIGHT_TARGET_X..POSE_RIGHT_TARGET_X + 3],
+                    [0, 0, 0],
+                    "an uncommanded arm published a target at the world origin",
+                );
+            }
+        });
+
+        // Ordinals restart at zero every tick and count sequential groups
+        // within it, which is the whole reason the column exists: two groups
+        // solved at the same raw time of impact are still ordered.
+        let publications = clinch_event_rows(128);
+        let mut saw_several = false;
+        for rows in &publications {
+            let ordinals: Vec<u32> =
+                rows.iter().map(|row| row[COMBAT_EVENT_GROUP_ORDINAL]).collect();
+            if ordinals.is_empty() {
+                continue;
+            }
+            assert_eq!(ordinals[0], 0, "a tick's first group was not ordinal zero");
+            assert!(
+                ordinals.windows(2).all(|pair| pair[0] <= pair[1]),
+                "group ordinals are not ascending within a tick: {ordinals:?}",
+            );
+            saw_several |= ordinals.last() != ordinals.first();
+        }
+        assert!(saw_several, "no publication carried more than one contact group");
+    }
+
+    #[test]
+    fn the_documented_event_order_holds_over_a_tick_with_several_groups() {
+        let publications = clinch_event_rows(128);
+        let mut multi_group = 0;
+        for rows in &publications {
+            let keys: Vec<_> = rows.iter().map(event_order_key).collect();
+            let mut sorted = keys.clone();
+            sorted.sort_unstable();
+            assert_eq!(
+                keys, sorted,
+                "the published rows are not in (tick, toi, ordinal, key) order",
+            );
+            // Strictly increasing, not merely sorted: two identical keys would
+            // be one contact published twice.
+            assert!(keys.windows(2).all(|pair| pair[0] != pair[1]), "a contact was published twice");
+            if rows
+                .iter()
+                .any(|row| row[COMBAT_EVENT_GROUP_ORDINAL] != rows[0][COMBAT_EVENT_GROUP_ORDINAL])
+            {
+                multi_group += 1;
+            }
+        }
+        assert!(
+            multi_group > 0,
+            "the fixture never produced two contact groups in one tick, so it proves nothing",
+        );
+        // And across ticks, which is the half a per-tick check cannot see: one
+        // `step(n)` accumulates every tick's rows, in tick order, without the
+        // later ticks overwriting the earlier ones. Driven on the digest's own
+        // fixture, which is in contact from its fifth tick onward.
+        let scenario = stream_digest_scenario();
+        let mut sim = Sim::try_on(&scenario, STREAM_DIGEST_SEED).expect("the scripted fixture");
+        let east = EntityId::new(0, 0);
+        let west = EntityId::new(1, 0);
+        sim.world.submit_articulated_v1(
+            east,
+            stream_digest_command(Angle::ZERO, Vec2::new(-Fx::ONE, Fx::ZERO), west),
+        );
+        sim.world
+            .submit_articulated_v1(west, stream_digest_command(Angle::ZERO, Vec2::ZERO, east));
+        sim.advance(6);
+        sim.advance(8);
+        let rows = sim.combat_events.clone();
+        assert!(rows.len() > 1, "the eight-tick batch accumulated {} rows", rows.len());
+        let ticks: Vec<u32> = rows.iter().map(|row| row[COMBAT_EVENT_TICK]).collect();
+        assert!(ticks.windows(2).all(|pair| pair[0] <= pair[1]), "ticks are out of order");
+        assert_ne!(ticks.first(), ticks.last(), "the batch never crossed a tick boundary");
+        assert_eq!(
+            *ticks.first().unwrap(),
+            6,
+            "the batch did not start at the first tick of the call",
+        );
+        let keys: Vec<_> = rows.iter().map(event_order_key).collect();
+        let mut sorted = keys.clone();
+        sorted.sort_unstable();
+        assert_eq!(keys, sorted, "an eight-tick batch is not in the documented order");
+    }
+
+    #[test]
+    fn no_energy_channel_narrows_to_a_u32() {
+        // Above `u32::MAX` on purpose. A host that published `raw as u32` would
+        // pass every test built from a fight -- no shipped fixture has reached
+        // four billion raw energy units -- and would be silently wrong the first
+        // day one did.
+        let wide = 0x0001_2345_6789_abcdu64;
+        assert_eq!(u64_words(wide), [0x6789_abcd, 0x0001_2345]);
+        let [lo, hi] = u64_words(wide);
+        assert_eq!(u64::from(lo) | (u64::from(hi) << 32), wide, "a wide channel did not survive");
+        assert_eq!(u64_words(u64::MAX), [u32::MAX; 2]);
+        assert_eq!(u64_words(u64::from(u32::MAX) + 1), [0, 1], "the carry into the high word is lost");
+
+        // And the seven pairs are wired to seven different fields, read back off
+        // the solver's own rows rather than off a second call to the encoder.
+        init_articulated_test(1);
+        let mut published = Vec::new();
+        for phase in 0..128 {
+            for row in 0..2 {
+                SUBMITTED_COMMAND.with(|buffer| *buffer.borrow_mut() = clinch_payload(row, phase));
+                submit_articulated(row as u32, 0);
+            }
+            let at = tick();
+            step(1);
+            let rows = published_events();
+            if rows.is_empty() {
+                continue;
+            }
+            published = SIM.with(|sim| {
+                let borrowed = sim.borrow();
+                let world = &borrowed.as_ref().unwrap().world;
+                world
+                    .contact_resolutions()
+                    .iter()
+                    .zip(&rows)
+                    .map(|(solved, row)| {
+                        let channel = |lo: usize| {
+                            u64::from(row[lo]) | (u64::from(row[lo + 1]) << 32)
+                        };
+                        assert_eq!(row[COMBAT_EVENT_TICK], at, "the row named the wrong tick");
+                        assert_eq!(channel(COMBAT_EVENT_ENERGY_BEFORE_LO), solved.energy.before_raw);
+                        assert_eq!(channel(COMBAT_EVENT_ENERGY_AFTER_LO), solved.energy.after_raw);
+                        assert_eq!(
+                            channel(COMBAT_EVENT_ENERGY_DISSIPATED_LO),
+                            solved.energy.dissipated_raw,
+                        );
+                        assert_eq!(channel(COMBAT_EVENT_CUT_LO), solved.cut_raw);
+                        assert_eq!(channel(COMBAT_EVENT_THRUST_LO), solved.thrust_raw);
+                        assert_eq!(channel(COMBAT_EVENT_PRESSURE_LO), solved.pressure_raw);
+                        assert_eq!(channel(COMBAT_EVENT_DEFLECTED_LO), solved.deflected_raw);
+                        assert_eq!(row[COMBAT_EVENT_SEVERED], u32::from(solved.severed));
+                        solved.energy.before_raw
+                    })
+                    .collect()
+            });
+            if !published.is_empty() {
+                break;
+            }
+        }
+        assert!(!published.is_empty(), "the clinch never resolved a group to read a ledger off");
+    }
+
+    #[test]
+    fn empty_ticks_enter_both_stream_digests() {
+        let mut shape = Vec::new();
+        drive_stream_digest_script(|tick, poses, _, events, _| {
+            shape.push((tick, poses.len() / POSE_STRIDE, events.len() / COMBAT_EVENT_STRIDE));
+        });
+        assert_eq!(shape.len(), STREAM_DIGEST_TICKS as usize);
+        assert!(
+            shape.iter().any(|&(_, _, events)| events == 0),
+            "the script has no empty tick, so it cannot show that one enters the digest",
+        );
+        assert!(
+            shape.iter().any(|&(_, _, events)| events > 0),
+            "the script never resolved a contact, so it fingerprints an empty stream",
+        );
+        assert!(shape.iter().all(|&(_, poses, _)| poses > 0), "a body stopped publishing a pose");
+
+        // The claim itself: a digest that skipped the ticks with nothing in them
+        // is a *different* number, so the empty ones are carried rather than
+        // merely tolerated. Without this the stream could lose every quiet tick
+        // and still match its pin.
+        let mut skipped = fx::Hash64::new();
+        skipped.write_bytes(b"ARPG-STREAM-V1");
+        drive_stream_digest_script(|tick, poses, poses_dropped, events, events_dropped| {
+            if events.is_empty() {
+                return;
+            }
+            skipped.write_u32(tick);
+            skipped.write_u32((poses.len() / POSE_STRIDE) as u32);
+            skipped.write_u32(poses_dropped);
+            for &word in poses {
+                skipped.write_u32(word);
+            }
+            skipped.write_u32((events.len() / COMBAT_EVENT_STRIDE) as u32);
+            skipped.write_u32(events_dropped);
+            for &word in events {
+                skipped.write_u32(word);
+            }
+        });
+        assert_ne!(
+            skipped.finish(),
+            articulated_stream_digest(),
+            "dropping every empty tick left the digest unchanged",
+        );
+    }
+
+    #[test]
+    fn native_and_wasm_pose_event_stream_digests_match() {
+        // The native half. The wasm half calls `articulated_stream_digest_lo`
+        // and `_hi` against the built module and compares the same constant;
+        // a one-sided failure is target disagreement rather than a moved
+        // fixture, which is why both sides pin the number rather than one side
+        // asking the other.
+        assert_eq!(articulated_stream_digest(), ARTICULATED_STREAM_DIGEST);
+        assert_eq!(articulated_stream_digest_lo(), ARTICULATED_STREAM_DIGEST as u32);
+        assert_eq!(articulated_stream_digest_hi(), (ARTICULATED_STREAM_DIGEST >> 32) as u32);
+
+        // Self-contained, exactly as `selftest_hash` is: the page may be
+        // mid-fight when the worker asks for this, and a digest that stepped the
+        // installed world would be a diagnostic that broke the thing it was
+        // diagnosing.
+        init(4);
+        step(12);
+        let before = (tick(), state_hash(), frame_len(), pose_len(), combat_event_len());
+        articulated_stream_digest();
+        assert_eq!(
+            (tick(), state_hash(), frame_len(), pose_len(), combat_event_len()),
+            before,
+            "the stream digest disturbed the installed sim",
+        );
+    }
+
+    #[test]
+    fn wasm_exports_match_layout_stride_capacity_and_drop_fields() {
+        // **The six numbers are transcribed from the reference, not read off
+        // the crate.** `assert_eq!(pose_stride(), POSE_STRIDE)` compares an
+        // export against the constant it returns and cannot fail; it looks like
+        // a pin and is a tautology. `tools/wasm_check.js` -- which carries this
+        // exact name so a one-sided failure diagnoses target disagreement
+        // rather than a moved fixture -- writes the literals out of
+        // `articulated-abi.md`, and this half has to do the same or the pair is
+        // one check and a decoration. A stride edited in the constant *and* the
+        // export still fails here.
+        assert_eq!(pose_layout_version(), 1, "POSE_LAYOUT_VERSION");
+        assert_eq!(pose_stride(), 66, "POSE_STRIDE");
+        assert_eq!(pose_capacity(), 64, "MAX_POSES");
+        assert_eq!(combat_event_layout_version(), 1, "COMBAT_EVENT_LAYOUT_VERSION");
+        assert_eq!(combat_event_stride(), 32, "COMBAT_EVENT_STRIDE");
+        assert_eq!(combat_event_capacity(), 1024, "MAX_COMBAT_EVENTS");
+        // The one relationship worth asserting rather than transcribing: the
+        // pose cap *is* the sim's articulated cap, so a sim that grew its own
+        // limit fails here instead of quietly publishing a truncated roster.
+        assert_eq!(pose_capacity(), sim::MAX_ARTICULATED_ENTITIES as u32);
+
+        // Both drop fields, on both worlds, which the name has always claimed
+        // and this test never checked. A Legacy world publishing zero rows is
+        // half a claim; zero rows *and* zero dropped is the other half, because
+        // a drop count left over from the last articulated run would say the
+        // page is missing bodies it was never owed.
+        init(1);
+        step(8);
+        assert_eq!(
+            (pose_len(), poses_dropped()),
+            (0, 0),
+            "a Legacy world published or dropped a pose row",
+        );
+        assert_eq!(
+            (combat_event_len(), combat_events_dropped()),
+            (0, 0),
+            "a Legacy world published or dropped a contact row",
+        );
+
+        init_articulated(1);
+        assert_ne!(pose_ptr(), 0);
+        assert_ne!(combat_event_ptr(), 0);
+        assert_ne!(pose_ptr(), combat_event_ptr(), "the two buffers share an address");
+        assert!(pose_len() > 0, "the articulated room published no bodies");
+        assert!(pose_len() <= pose_capacity());
+        assert_eq!(poses_dropped(), 0, "the room overflowed a buffer sized to the sim's own cap");
+        assert_eq!(combat_event_len(), 0, "nobody has stepped and the feed is not empty");
+        assert_eq!(combat_events_dropped(), 0, "nobody has stepped and the feed dropped a row");
+
+        // A pointer that moved between calls would mean the buffer is not a
+        // fixed array, which is the one property a typed array over it depends
+        // on.
+        let (poses, events) = (pose_ptr(), combat_event_ptr());
+        step(8);
+        assert_eq!((pose_ptr(), combat_event_ptr()), (poses, events));
+        assert!(combat_event_len() <= combat_event_capacity());
+        assert_eq!(poses_dropped(), 0, "a two-body room overflowed a 64-row pose buffer");
+        assert_eq!(combat_events_dropped(), 0, "a two-body room overflowed a 1024-row feed");
+    }
+
+    #[test]
+    fn the_articulated_room_is_inits_room_and_inits_hero() {
+        let legacy = Scenario::dungeon(3, 0, articulated_hero());
+        // Byte-identical under the Legacy model, which is the whole of "it does
+        // not alter `init`": `Sim::descend` now routes through this builder and
+        // a legacy run must not be able to tell.
+        assert_eq!(dungeon_scenario(3, 0, articulated_hero(), sim::CombatModel::Legacy), legacy);
+
+        let room = dungeon_scenario(3, 0, articulated_hero(), sim::CombatModel::Articulated);
+        assert_eq!(room.dungeon, legacy.dungeon, "the articulated room is a different floor plan");
+        assert_eq!(room.portal, legacy.portal);
+        assert_eq!(room.torches, legacy.torches);
+        assert_eq!(room.units.len(), legacy.units.len());
+        for (articulated, plain) in room.units.iter().zip(&legacy.units) {
+            assert_eq!(
+                (articulated.kind, articulated.faction, articulated.spawn, articulated.stats),
+                (plain.kind, plain.faction, plain.spawn, plain.stats),
+                "a body moved, changed shape or changed sheet",
+            );
+            assert!(articulated.articulated.is_some(), "an articulated scenario carried a bare unit");
+        }
+        // The hero crosses untouched: a Fighter's sword and shield are rows 1
+        // and 2 of the shipped table, so nothing about it had to be re-equipped.
+        assert_eq!(room.units[0].loadout, legacy.units[0].loadout);
+        assert_eq!(
+            room.units[0].articulated,
+            Some(sim::ArticulatedUnitSpecV1 { anatomy: 1, equipment: [Some(1), Some(2)] }),
+        );
+        // And the whole thing builds, which is the claim `init_articulated`
+        // rests on.
+        assert!(World::try_new(&room, 3).is_ok(), "the articulated room does not construct");
+    }
+
+    #[test]
+    fn init_articulated_fails_closed_and_installs_nothing() {
+        init(7);
+        step(4);
+        assert_ne!(state_hash(), 0, "the previous world was never installed");
+
+        let mut broken =
+            dungeon_scenario(7, 0, articulated_hero(), sim::CombatModel::Articulated);
+        // A unit with no articulated row is the refusal `validate_construction`
+        // owes. It has to be built by hand: everything the export itself can
+        // build is valid by construction, and a fail-closed arm nothing can
+        // reach is a fail-closed arm nobody has checked.
+        broken.units[1].articulated = None;
+        assert!(World::try_new(&broken, 7).is_err(), "the broken fixture stopped being broken");
+
+        install_articulated(&broken, 7);
+        assert_eq!(contact_high_water(), 0, "a refused construction reported a reservation");
+        assert_eq!(pose_len(), 0);
+        assert_eq!(poses_dropped(), 0);
+        assert_eq!(combat_event_len(), 0);
+        assert_eq!(combat_events_dropped(), 0);
+        assert_eq!(tick(), 0);
+        assert_eq!(state_hash(), 0, "the previous world survived a call that said it started over");
+        assert_eq!(frame_len(), HEADER_LEN as u32);
+        FRAME.with(|frame| {
+            assert!(
+                frame.borrow()[..HEADER_LEN].iter().all(|&value| value == 0.0),
+                "the header still reports the world that is not there",
+            );
+        });
+        // And every export stays total across the refusal, which is the reason
+        // it is a refusal and not a panic.
+        step(4);
+        assert_eq!(pose_len(), 0);
+        assert_eq!(tick(), 0);
+    }
+
+    #[test]
+    fn an_articulated_run_can_descend_without_trapping() {
+        // `Sim::descend` rebuilds the floor from `hero_spec`, and an articulated
+        // hero carries a row that a Legacy scenario refuses -- by panicking,
+        // one call inside a `pub extern "C"` export. This is that path.
+        init_articulated(2);
+        assert_eq!(contact_high_water(), MAX_UNITS as u32);
+        let before = pose_len();
+        assert!(before >= 2);
+        descend();
+        assert_eq!(depth(), 1);
+        assert_eq!(
+            contact_high_water(),
+            MAX_UNITS as u32,
+            "the new floor's contact vectors were left unreserved",
+        );
+        assert!(pose_len() >= 2, "the new floor published no articulated bodies");
+        assert_eq!(combat_event_len(), 0, "last floor's contacts crossed the descent");
+        step(4);
+        assert_eq!(tick(), 4);
+
+        // And a Legacy run still descends onto a Legacy floor, which is the
+        // half of the model-aware rebuild that must not have changed.
+        init(2);
+        descend();
+        assert_eq!(pose_len(), 0, "a Legacy descent published a pose");
+        assert_eq!(contact_high_water(), 0, "a Legacy floor claimed a reservation");
+    }
+
+    /// What the reference's `abi-high-water` corpus accumulates in one
+    /// `step(8)`, measured on 2026-08-10 and recorded rather than computed.
+    ///
+    /// **This is the number that rejected `MAX_COMBAT_EVENTS = 256`.** At 256
+    /// the same run published the canonical 256 rows and counted 190 dropped,
+    /// which is 446 produced and a stream cut in half on the one corpus the
+    /// reference calls mandatory. The capacity moved to 1024 -- the next power
+    /// of two at least twice 446 -- and the reference's byte budget moved with
+    /// it.
+    ///
+    /// Provenance is the whole of its meaning: **this fixture, this seed, this
+    /// batch.** Seed `0x4152504741424931`, an open 24x16 room, 64 bodies as 32
+    /// Fighter/Brute pairs, one command each at tick zero and none after, one
+    /// `step(8)`. A second seed is a different fixture and not a second sample,
+    /// and eight `step(1)`s measure the busiest tick rather than what one host
+    /// call accumulates -- which is the thing being sized, because the feed is
+    /// cleared per call.
+    const HIGH_WATER_EVENT_ROWS: u32 = 446;
+
+    /// And the pose half, which sits exactly on its capacity by construction:
+    /// 64 bodies is `MAX_ARTICULATED_ENTITIES` and `MAX_POSES` is the same
+    /// number, so a drop here would mean the cap or the identity ordering is
+    /// wrong rather than that the corpus is busy.
+    const HIGH_WATER_POSE_ROWS: u32 = 64;
+
+    #[test]
+    fn the_high_water_corpus_fills_at_most_half_the_event_buffer() {
+        // Written out rather than shared with the printer above, on the
+        // argument `print_the_golden_hashes` makes: a gate whose fixture is
+        // built by the thing that prints its number can be re-pinned to its own
+        // drift. Both copies are `docs/reference/articulated-abi.md`,
+        // "Combat-event rows", read literally.
+        let mut scenario = Scenario::articulated_duel();
+        scenario.name = "abi-high-water".to_string();
+        let (fighter, brute) = (scenario.units[0], scenario.units[1]);
+        scenario.units.clear();
+        for i in 0..32 {
+            let at = Vec2::from_ints(4 + i / 4, 2 + (i % 4) * 3);
+            scenario.units.push(UnitSpec { spawn: at, ..fighter });
+            scenario.units.push(UnitSpec {
+                spawn: Vec2::new(at.x + Fx::ONE + Fx::HALF, at.y),
+                ..brute
+            });
+        }
+        // 64 is `MAX_ARTICULATED_ENTITIES` exactly. The corpus sits on the cap
+        // deliberately, so a construction refused here is a finding about the
+        // cap and not a reason to measure 62 bodies instead.
+        assert_eq!(scenario.units.len(), sim::MAX_ARTICULATED_ENTITIES);
+        install_articulated(&scenario, 0x4152_5047_4142_4931);
+        assert_eq!(
+            contact_high_water(),
+            MAX_UNITS as u32,
+            "the corpus did not install, so nothing below measures it",
+        );
+
+        for i in 0..32u32 {
+            let height = [
+                sim::CombatHeight::LOW,
+                sim::CombatHeight::MID,
+                sim::CombatHeight::HIGH,
+            ][(i % 3) as usize];
+            for (subject, yaw, target) in
+                [(2 * i, Angle::ZERO, 2 * i + 1), (2 * i + 1, Angle::HALF, 2 * i)]
+            {
+                let arm =
+                    sim::ArmTarget { bearing: yaw, height, reach: Fx::ONE, effort: Fx::ONE };
+                write_submitted(sim::ArticulatedCommandV1 {
+                    move_dir: Vec2::ZERO,
+                    body_yaw: yaw,
+                    intent: Intent::Attack(EntityId::new(target, 0)),
+                    arms: [arm; 2],
+                    grips: [sim::GripRequest::Keep; 2],
+                });
+                // Through the 55-byte scratch and the export, not through
+                // `World::submit_articulated_v1`: a measurement that skipped the
+                // boundary would not be measuring what the page produces.
+                assert_eq!(
+                    submit_articulated(subject, 0),
+                    1,
+                    "the boundary refused body {subject}'s tick-zero command",
+                );
+            }
+        }
+        // One call. Eight publications would clear the feed seven times and
+        // measure the busiest tick instead of the batch.
+        step(8);
+
+        assert_eq!(combat_event_len(), HIGH_WATER_EVENT_ROWS, "the corpus's event high water moved");
+        assert_eq!(combat_events_dropped(), 0, "the corpus is truncating again");
+        // The acceptance rule itself, as a relationship rather than as two
+        // literals: a capacity that stopped being at least twice the measured
+        // maximum is the failure this whole fixture exists to catch, whether it
+        // was the capacity that shrank or the fight that got busier.
+        assert!(
+            HIGH_WATER_EVENT_ROWS as usize * 2 <= MAX_COMBAT_EVENTS,
+            "{HIGH_WATER_EVENT_ROWS} rows is past half of {MAX_COMBAT_EVENTS}",
+        );
+
+        // And the pose half, which has no headroom by design and must therefore
+        // land exactly on the cap with nothing lost.
+        assert_eq!(pose_len(), HIGH_WATER_POSE_ROWS);
+        assert_eq!(pose_len(), pose_capacity(), "the corpus stopped sitting on the pose cap");
+        assert_eq!(poses_dropped(), 0, "a pose row was dropped at exactly the pose capacity");
+    }
+
+    /// Prints what the reference's `abi-high-water` corpus fills the two
+    /// articulated buffers with, for accepting or rejecting a capacity.
+    ///
+    /// `#[ignore]` because it asserts nothing, exactly as
+    /// [`print_the_golden_hashes`] does and for the same reason -- and, as
+    /// there, the script is **written out again** rather than shared with
+    /// `the_high_water_corpus_fills_at_most_half_the_event_buffer` below. That is
+    /// the point: a printer that called into the asserting test's fixture would
+    /// print whatever that fixture ran, so a fixture that had quietly drifted
+    /// from the reference would be re-pinned to its drift. Two copies of one
+    /// literal specification is the cost of the number below not being able to
+    /// justify itself.
+    ///
+    ///     cargo test -p web -- --ignored --nocapture print_articulated_buffer_high_water_marks
+    ///
+    /// The fixture is `docs/reference/articulated-abi.md`, "Combat-event rows",
+    /// verbatim: seed `0x4152504741424931`, an open 24x16 room, 64 bodies -- 32
+    /// Fighter/Brute pairs three halves of a unit apart -- one command each at
+    /// tick zero and none after, and exactly one `step(8)`. The batch is the
+    /// measurement: the feed is cleared per host *call*, so eight `step(1)`s
+    /// would measure the busiest tick rather than what one animation frame of
+    /// catch-up accumulates.
+    #[test]
+    #[ignore]
+    fn print_articulated_buffer_high_water_marks() {
+        let mut scenario = Scenario::articulated_duel();
+        scenario.name = "abi-high-water".to_string();
+        // The v2-12 fixture rows, taken off the shipped duel rather than
+        // respelled: stats, loadout and the anatomy/equipment references are
+        // what "the v2-12 fixtures" names, and a second spelling of them here
+        // would be a second thing to keep in step with that table.
+        let (fighter, brute) = (scenario.units[0], scenario.units[1]);
+        scenario.units.clear();
+        for i in 0..32 {
+            let at = Vec2::from_ints(4 + i / 4, 2 + (i % 4) * 3);
+            scenario.units.push(UnitSpec { spawn: at, ..fighter });
+            scenario.units.push(UnitSpec {
+                spawn: Vec2::new(at.x + Fx::ONE + Fx::HALF, at.y),
+                ..brute
+            });
+        }
+        install_articulated(&scenario, 0x4152_5047_4142_4931);
+
+        let mut refused = 0;
+        for i in 0..32u32 {
+            let height = [
+                sim::CombatHeight::LOW,
+                sim::CombatHeight::MID,
+                sim::CombatHeight::HIGH,
+            ][(i % 3) as usize];
+            for (subject, yaw, target) in
+                [(2 * i, Angle::ZERO, 2 * i + 1), (2 * i + 1, Angle::HALF, 2 * i)]
+            {
+                let arm =
+                    sim::ArmTarget { bearing: yaw, height, reach: Fx::ONE, effort: Fx::ONE };
+                write_submitted(sim::ArticulatedCommandV1 {
+                    move_dir: Vec2::ZERO,
+                    body_yaw: yaw,
+                    intent: Intent::Attack(EntityId::new(target, 0)),
+                    arms: [arm; 2],
+                    grips: [sim::GripRequest::Keep; 2],
+                });
+                if submit_articulated(subject, 0) != 1 {
+                    refused += 1;
+                }
+            }
+        }
+        step(8);
+
+        println!("bodies:               {}", scenario.units.len());
+        println!("commands refused:     {refused}");
+        println!("combat_event_len:     {}", combat_event_len());
+        println!("combat_events_dropped:{}", combat_events_dropped());
+        println!("combat_event_capacity:{}", combat_event_capacity());
+        println!("pose_len:             {}", pose_len());
+        println!("poses_dropped:        {}", poses_dropped());
+        println!("pose_capacity:        {}", pose_capacity());
+    }
+
+    /// The scripted pose/event stream, as one number.
+    ///
+    /// The script: [`Scenario::articulated_duel`] at seed 1 with the fighter
+    /// moved to `(9,6)` and the brute to `(7,6)`, one attack command each on
+    /// tick zero and none after -- the fighter walking due west at full
+    /// magnitude, the brute standing still, both asking for the bearing they
+    /// already have. Twenty ticks, one publication per tick, digested through
+    /// [`write_pose_buffer`] and [`write_combat_event_buffer`]. Ticks 0, 1, 2
+    /// and 4 carry no contact, tick 3 carries two rows, and the rest carry one.
+    ///
+    /// Not a fight golden. It pins the *bytes the page reads*, which is a
+    /// different property from `ROOM_HASH`'s and one a hand-rolled ABI can get
+    /// wrong on its own -- a moved word offset, a sign extension, a narrowed
+    /// `u64`. Any change to the row layouts moves it and is expected to; a
+    /// change to the simulation moves it *and* a fight golden, which is the
+    /// pair worth reading together.
+    const ARTICULATED_STREAM_DIGEST: u64 = 0x4372_a94d_89fc_9155;
+
+    #[test]
+    #[ignore]
+    fn print_the_articulated_stream_digest() {
+        println!("ARTICULATED_STREAM_DIGEST: {:#018x}", articulated_stream_digest());
+        let mut shape = Vec::new();
+        drive_stream_digest_script(|tick, poses, dropped, events, event_drops| {
+            shape.push((
+                tick,
+                poses.len() / POSE_STRIDE,
+                dropped,
+                events.len() / COMBAT_EVENT_STRIDE,
+                event_drops,
+            ));
+        });
+        for row in shape {
+            println!("tick {} poses {} dropped {} events {} dropped {}", row.0, row.1, row.2, row.3, row.4);
+        }
     }
 
     /// What `cargo run --release -p lab -- hash` prints today. Recorded rather

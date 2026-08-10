@@ -2,7 +2,7 @@
 
 **Purpose:** Specify current hash ownership, replay integrity behavior, and golden-hash registry.
 **Status:** current
-**Canonical source:** [`World::state_hash`](../../crates/sim/src/world.rs#L2967), [`Scenario::fingerprint`](../../crates/sim/src/scenario.rs#L386), and pinned constants in tests.
+**Canonical source:** [`World::state_hash`](../../crates/sim/src/world.rs#L3887), [`Scenario::fingerprint`](../../crates/sim/src/scenario.rs#L452), and pinned constants in tests.
 **Update when:** A hash byte stream, replay integrity check, golden fixture, pin value, or re-record procedure changes.
 
 <!-- DOC_CONTRACT: hash-domains -->
@@ -71,12 +71,12 @@ These are the current named pins:
 
 | Pin | Current value | Ownership | Re-record rule |
 |---|---:|---|---|
-| `LAB_HASH` | `0xfe31370e141ef531` | [`crates/web/src/lib.rs`](../../crates/web/src/lib.rs#L4438) and [`tools/wasm_check.js`](../../tools/wasm_check.js#L37) | Not re-pinnable. It names its scenario and policy; investigate a move. |
+| `LAB_HASH` | `0xfe31370e141ef531` | [`crates/web/src/lib.rs`](../../crates/web/src/lib.rs#L7346) and [`tools/wasm_check.js`](../../tools/wasm_check.js#L37) | Not re-pinnable. It names its scenario and policy; investigate a move. |
 | `GOLDEN_STATE_HASH` | `0xbe85089325550cf2` | [`crates/sim/tests/determinism.rs`](../../crates/sim/tests/determinism.rs#L353) | `cargo test -p sim --test determinism -- --nocapture golden` |
-| `ROOM_HASH` | `0x98441a18db7a95ca` | [`crates/web/src/lib.rs`](../../crates/web/src/lib.rs#L4497) and [`tools/wasm_check.js`](../../tools/wasm_check.js#L44) | `cargo test -p web -- --ignored --nocapture print_the_golden_hashes` |
-| `BATTLE_HASH` | `0x9aafe4bd54560586` | [`crates/web/src/lib.rs`](../../crates/web/src/lib.rs#L4503) and [`tools/wasm_check.js`](../../tools/wasm_check.js#L50) | Same browser-golden command; update both owners. |
-| `SWAP_HASH` | `0xf948f5486ee90191` | [`crates/web/src/lib.rs`](../../crates/web/src/lib.rs#L4519) and [`tools/wasm_check.js`](../../tools/wasm_check.js#L61) | Same browser-golden command; update both owners. |
-| `BOW_HASH` | `0x4a1157735d305e9f` | [`crates/web/src/lib.rs`](../../crates/web/src/lib.rs#L4524) and [`tools/wasm_check.js`](../../tools/wasm_check.js#L70) | Same browser-golden command; update both owners. |
+| `ROOM_HASH` | `0x98441a18db7a95ca` | [`crates/web/src/lib.rs`](../../crates/web/src/lib.rs#L7405) and [`tools/wasm_check.js`](../../tools/wasm_check.js#L44) | `cargo test -p web -- --ignored --nocapture print_the_golden_hashes` |
+| `BATTLE_HASH` | `0x9aafe4bd54560586` | [`crates/web/src/lib.rs`](../../crates/web/src/lib.rs#L7411) and [`tools/wasm_check.js`](../../tools/wasm_check.js#L50) | Same browser-golden command; update both owners. |
+| `SWAP_HASH` | `0xf948f5486ee90191` | [`crates/web/src/lib.rs`](../../crates/web/src/lib.rs#L7427) and [`tools/wasm_check.js`](../../tools/wasm_check.js#L61) | Same browser-golden command; update both owners. |
+| `BOW_HASH` | `0x4a1157735d305e9f` | [`crates/web/src/lib.rs`](../../crates/web/src/lib.rs#L7432) and [`tools/wasm_check.js`](../../tools/wasm_check.js#L70) | Same browser-golden command; update both owners. |
 
 The browser pins are deliberately duplicated across native Rust tests and the wasm
 checker. If both copies fail after an intentional behavior change, the fixture moved;
@@ -95,21 +95,28 @@ it is not an alternate accepted golden.
 ### Mechanics pins added by the v2 sessions
 
 The six pins above are legacy gameplay fixtures and must not move in any v2 session.
-The mechanics sessions have added four more, and they obey a different rule: each pins
-a purpose-built contract rather than a fight, so the session that owns that contract
-may move its pin — but only by predicting the move in writing first and explaining it
-afterwards. These are as easy to break by accident as the legacy six, and a fresh
-session that does not know they exist is the likeliest way to break one.
+The mechanics sessions have added six more. Five of them obey a different rule: each
+pins a purpose-built contract rather than a fight, so the session that owns that
+contract may move its pin — but only by predicting the move in writing first and
+explaining it afterwards. These are as easy to break by accident as the legacy six, and
+a fresh session that does not know they exist is the likeliest way to break one. The
+sixth, the legacy feature prefix, is the opposite of a movable pin: it exists to refuse
+a move, and it belongs to nobody to re-record.
 
 | Pin | Current value | Ownership | Re-record rule |
 |---|---:|---|---|
 | `COMBAT_GEOMETRY_HASH` | `0x9d15344883cf6e9c` | [`crates/fx/src/geom3.rs`](../../crates/fx/src/geom3.rs#L1322) and [`tools/wasm_check.js`](../../tools/wasm_check.js#L75) | Introduced by v2-12. Moved once, by v2-14 checkpoint A adding the continuous sweeps, from `0x56fb8704002a1a61`. A further move needs a new geometry row and must be predicted. |
-| `ARTICULATED_COMMAND_HASH` | `0x6e61a92ec96ac3a6` | [`crates/web/src/lib.rs`](../../crates/web/src/lib.rs#L4898) and [`tools/wasm_check.js`](../../tools/wasm_check.js#L74) | The unstepped `ArticulatedV1` command probe. Moved twice: by v2-14 checkpoint C appending the global `cap_hits:u32` (`0x584d711e492950e7` → `0x010411d521a376d7`), and by v2-15 appending one 61-byte anatomy row per allocated slot after it. The fixture is unstepped, so every row is the construction row. |
-| `CONTACT_BEHAVIOR_DIGEST` | `0x587b0259e877105a` | [`crates/web/src/lib.rs`](../../crates/web/src/lib.rs#L5427) and [`tools/wasm_check.js`](../../tools/wasm_check.js#L488) | 3,548 behavioral corpus bytes owned by v2-14 checkpoint B. Moved once, by v2-15, and by exactly one byte: case 6's body became five coincident regional volumes, so its fact names the region it chose and the byte went `0xff` → Head's `0`. The geometry and the length are unchanged; previously `0xfe6ce41ec023c1e5`. `wasm_check.js` rebuilds every byte itself rather than trusting the export, so a one-sided failure still diagnoses target disagreement. |
-| contact format corpus | `0x1adfa9e01e36edf9` | [`crates/sim/src/combat/resolution.rs`](../../crates/sim/src/combat/resolution.rs#L1396) | 591 hand-authored serialization bytes owned by v2-14 checkpoint B. Native only, and unpaired on purpose: it pins a byte grammar rather than a behaviour. |
+| `ARTICULATED_COMMAND_HASH` | `0x6e61a92ec96ac3a6` | [`crates/web/src/lib.rs`](../../crates/web/src/lib.rs#L6026) and [`tools/wasm_check.js`](../../tools/wasm_check.js#L74) | The unstepped `ArticulatedV1` command probe. Moved twice: by v2-14 checkpoint C appending the global `cap_hits:u32` (`0x584d711e492950e7` → `0x010411d521a376d7`), and by v2-15 appending one 61-byte anatomy row per allocated slot after it. The fixture is unstepped, so every row is the construction row. |
+| `CONTACT_BEHAVIOR_DIGEST` | `0x587b0259e877105a` | [`crates/web/src/lib.rs`](../../crates/web/src/lib.rs#L7825) and [`tools/wasm_check.js`](../../tools/wasm_check.js#L524) | 3,548 behavioral corpus bytes owned by v2-14 checkpoint B. Moved once, by v2-15, and by exactly one byte: case 6's body became five coincident regional volumes, so its fact names the region it chose and the byte went `0xff` → Head's `0`. The geometry and the length are unchanged; previously `0xfe6ce41ec023c1e5`. `wasm_check.js` rebuilds every byte itself rather than trusting the export, so a one-sided failure still diagnoses target disagreement. |
+| `ARTICULATED_STREAM_DIGEST` | `0x4372a94d89fc9155` | [`crates/web/src/lib.rs`](../../crates/web/src/lib.rs#L7322) and [`tools/wasm_check.js`](../../tools/wasm_check.js#L763) | FNV-1a-64 over the published pose and combat-event words of a twenty-tick scripted articulated fight, prefix `ARPG-STREAM-V1`; the script is written out in [`articulated-abi.md`](articulated-abi.md#portable-stream-digest). Introduced by v2-16, native and wasm agreeing. **Not a fight golden and not `ARTICULATED_HASH`:** it pins the bytes the page reads rather than the state the world reached, which is a property a hand-rolled ABI can get wrong on its own — a moved word offset, a sign extension, a narrowed `u64`. Owned by whoever owns the row layouts, and a layout change moves it and must say so. A move *without* a layout change is a simulation change and should have moved a fight golden too. Unlike `CONTACT_BEHAVIOR_DIGEST`, `wasm_check.js` pins the number rather than rebuilding the bytes, because the stream is a simulation run and not a documented table and its script cannot be driven from JavaScript; the reference says so where the script is written out. |
+| contact format corpus | `0x1adfa9e01e36edf9` | [`crates/sim/src/combat/resolution.rs`](../../crates/sim/src/combat/resolution.rs#L1449) | 591 hand-authored serialization bytes owned by v2-14 checkpoint B. Native only, and unpaired on purpose: it pins a byte grammar rather than a behaviour. |
+| legacy feature prefix | `0x811fa73c27591214` and `0x95b0799736913997` | [`crates/sim/src/world.rs`](../../crates/sim/src/world.rs#L8697) | Feature indices `0..450` of every observation in a scripted 600-tick skirmish, and the state hash the resulting commands produce. Introduced by v2-16 and **recorded on the tree immediately before** the articulated block was appended, which is what makes it evidence rather than a snapshot of the new behaviour. Native only. Not re-pinnable by an append: a session that moves it has renumbered a frozen column, which is the thing it exists to refuse. |
 
 One `ARTICULATED_HASH` for a scripted fight is planned by v2-17 and deliberately does
-not exist yet. No earlier session may create it.
+not exist yet. No earlier session may create it. The legacy feature prefix above is
+not that pin and does not anticipate it: it fingerprints the *legacy* half of the
+vector and a Legacy-world fight, and its whole purpose is to stay still while the
+articulated half grows.
 
 > **Pending, not current:** v2-10 plans separate, versioned scenario, state, and
 > replay hash domains plus a validated replay codec. None of those guarantees exists
@@ -118,7 +125,7 @@ not exist yet. No earlier session may create it.
 ## Source anchors
 
 - FNV-1a implementation and byte order: [`Hash64`](../../crates/fx/src/hash.rs#L9)
-- Scenario stream and current omission: [`Scenario::fingerprint`](../../crates/sim/src/scenario.rs#L386)
-- Live state stream: [`World::state_hash`](../../crates/sim/src/world.rs#L2967)
-- In-memory replay and integrity check: [`Replay`](../../crates/sim/src/replay.rs#L57)
-- Replay playback order: [`Replay::play_until`](../../crates/sim/src/replay.rs#L137)
+- Scenario stream and current omission: [`Scenario::fingerprint`](../../crates/sim/src/scenario.rs#L452)
+- Live state stream: [`World::state_hash`](../../crates/sim/src/world.rs#L3887)
+- In-memory replay and integrity check: [`Replay`](../../crates/sim/src/replay.rs#L64)
+- Replay playback order: [`Replay::play_until`](../../crates/sim/src/replay.rs#L152)

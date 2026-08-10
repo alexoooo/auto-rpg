@@ -57,6 +57,7 @@ mod hand;
 mod hash_domain;
 mod loadout;
 mod obs;
+mod pose;
 mod replay;
 mod rules;
 mod scenario;
@@ -97,14 +98,36 @@ pub use combat::resolution::{contact_behavior_corpus, ResolutionError};
 /// The contact capacity vocabulary, which the browser needs even though the
 /// solver stays private: the host reserves the high water before it hands the
 /// page a pointer, and has to be able to say which count refused.
-pub use combat::contact::{ContactCapacityError, ContactResolution, MAX_ARTICULATED_ENTITIES};
+///
+/// [`ContactKind`], [`BODY_SLOT`] and [`NO_REGION`] come with it because the
+/// host mirrors a resolution row word for word: the kind is a published
+/// column, and the two sentinels are the difference between "the body itself"
+/// and "slot zero" and between "no anatomy here" and "the head". A second copy
+/// of either number on the far side of the wall is a mis-read waiting to
+/// happen.
+pub use combat::contact::{
+    ContactCapacityError, ContactKind, ContactResolution, BODY_SLOT,
+    MAX_ARTICULATED_ENTITIES, NO_REGION,
+};
+/// The two published shapes out of `geometry`, and nothing else. The pose row
+/// draws exactly a [`SegmentPose`] and the subject-scoped observation carries
+/// exactly a [`RegionVolume`] per region; a parallel struct carrying the same
+/// fields would be a second thing to keep in step with the collider builder.
+/// The collider rows themselves stay private -- those are the contact phase's
+/// business.
+pub use combat::geometry::{body_region_volumes, RegionVolume, SegmentPose};
 pub use dungeon::{Cardinal, Door, Dungeon, Level, Rect, Torch, CORRIDOR, DOOR, OPEN, WALL};
 pub use entity::{EntityId, Faction, Body};
 pub use event::Event;
 pub use hand::{Hand, Swing};
 pub use hash_domain::{DigestCompareError, HashDomain, StateDigest};
 pub use loadout::Loadout;
-pub use obs::{Contact, Observation, FEATURE_COUNT, FEATURE_LAYOUT_VERSION};
+pub use obs::{
+    ArticulatedObservation, Contact, Observation, ObservedArm, ObservedOpponent, ObservedShield,
+    ARTICULATED_FEATURE_COUNT, ARTICULATED_OPPONENT_FEATURES, ARTICULATED_SELF_FEATURES,
+    FEATURE_COUNT, FEATURE_LAYOUT_VERSION, LEGACY_FEATURE_COUNT, MAX_ARTICULATED_OPPONENTS,
+};
+pub use pose::{AnimationHint, ArticulatedPose, PosedArm};
 pub use replay::{CommandRecord, ObjectiveRecord, OrderRecord, Replay, SubmittedCommandRecord};
 pub use rules::{
     agility_multiplier, block_leak, blow_damage, dead_zone, peak_damage, peak_impulse, peak_recoil,

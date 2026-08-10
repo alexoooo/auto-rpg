@@ -141,7 +141,7 @@ presentation state enters `World`, replay, or a hash domain.
 ## Source anchors
 
 - Protocol declarations and input decoder: [`messages.ts`](../../client/src/protocol/messages.ts#L1)
-- Fixed buffer pool: [`FixedBufferPool`](../../client/src/runtime/buffer-pool.ts#L20)
+- Fixed buffer pool: [`FixedBufferPool`](../../client/src/runtime/buffer-pool.ts#L22)
 - Pure worker state machine: [`SimWorkerHost`](../../client/src/runtime/sim-worker-host.ts#L35)
 - Main-thread request and lease owner: [`SimClient`](../../client/src/runtime/sim-client.ts#L122)
 - Snapshot validator and disclosure filter: [`SnapshotFilterState`](../../client/src/state/snapshot.ts#L57)

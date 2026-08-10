@@ -8,7 +8,9 @@ use crate::loadout::Loadout;
 use crate::entity::{EntityId, Faction, Body};
 use crate::event::Event;
 use crate::hand::{Hand, Swing};
-use crate::obs::{Contact, Observation};
+use crate::obs::{ArticulatedObservation, Contact, Observation, ObservedArm, ObservedOpponent,
+                 ObservedShield, MAX_ARTICULATED_OPPONENTS};
+use crate::pose::{AnimationHint, ArticulatedPose, PosedArm};
 use crate::rules::{self, Stats, MAX_CONTACTS};
 use crate::scenario::{Scenario, UnitSpec};
 use crate::anatomy::{self, AnatomyState, BodyPart};
@@ -25,6 +27,18 @@ use crate::combat::resolution::{self, ContactTickScratch, ContactTrialProjector,
                                 GeneralizedCollider, GeneralizedKind, ResolutionError};
 use crate::{EquipmentGeometry, EquipmentSpecId};
 use fx::{Angle, Fx, Hash64, Rng, Vec2, Vec3};
+
+/// The perception-noise stream domain for [`World::observe_articulated`]:
+/// ASCII `ARTOBS1`, frozen by the articulated ABI.
+///
+/// It is folded into `Rng::from_stream`'s *seed* argument rather than into one
+/// of the two coordinates, because both coordinates are already spoken for --
+/// tick and full identity -- and the articulated stream draws at exactly the
+/// same pair as the legacy one. XOR into the seed is enough: `from_stream`
+/// mixes the seed in linearly and then runs the result through SplitMix64,
+/// which is a bijection, so a nonzero domain can never collide with the legacy
+/// stream for any (tick, entity).
+const ARTICULATED_OBSERVATION_DOMAIN: u64 = 0x4152_544f_4253_31;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Outcome {
@@ -704,6 +718,19 @@ impl ContactTrialProjector for ContactProjector<'_> {
 
 /// The `BodyPart` a non-body collider slot belongs to, or `None` for a slot
 /// that names no limb.
+/// Bit `part as u8` per severed region, in [`BodyPart`] order.
+///
+/// One writer for the two published masks -- the pose row's and the
+/// observation's -- because two loops over the same five booleans are two
+/// chances to disagree about which bit `Legs` is.
+fn severed_mask_of(state: &AnatomyState) -> u8 {
+    let mut mask = 0u8;
+    for part in 0..BodyPart::COUNT {
+        if state.parts[part].severed { mask |= 1 << part; }
+    }
+    mask
+}
+
 fn limb_body_part(slot: u8) -> Option<BodyPart> {
     match slot {
         s if s == LimbSlot::LeftArm as u8 => Some(BodyPart::LeftArm),
@@ -826,6 +853,20 @@ struct TickEntry {
     /// contract still owes it the same commit a contacted arm gets, and this
     /// is the only surviving evidence that it is owed.
     clamped: [bool; 2],
+    /// Whether the commit wrote that limb's joint pose -- the solve moved the
+    /// hand, the entry clamp did, or the group cap zeroed it.
+    ///
+    /// Evidence for [`World::articulated_pose`]'s `Recoiling` hint and nothing
+    /// else. It is **not** `clamped` above, which is the velocity-envelope
+    /// tripwire alone and is close to unreachable in specified play; the
+    /// question an animation asks is whether the arm ended the tick somewhere
+    /// the actuator did not put it, and only the commit knows that. Retained
+    /// here rather than in a world column because this is already the buffer
+    /// whose lifetime is exactly one tick's contact evidence -- the same
+    /// lifetime as `contact_resolutions()` -- and because nothing in
+    /// `ContactRuntime` is hashed except `state.cap_hits`, so a diagnostic
+    /// cannot leak into the digest by being written down in the wrong place.
+    contact_overrode: [bool; 2],
 }
 
 /// The three scalars a joint pose is, without the derived hand or the speeds.
@@ -1391,7 +1432,293 @@ impl World {
         }
         obs.set_allies(&buffer[..allies.len()]);
 
+        obs.articulated = self.observe_articulated(id);
         obs
+    }
+
+    /// What `id` can perceive of the articulated fight.
+    ///
+    /// The subject-scoped twin of [`World::observe`], and total in exactly the
+    /// same way: a stale identity, a corpse, or a Legacy world answers
+    /// [`ArticulatedObservation::BLANK`] rather than panicking, because callers
+    /// driving a replay may name the dead. Deadness is the query's own answer
+    /// and not a consequence of when it was asked, for the reason
+    /// [`World::articulated_pose`] gives.
+    ///
+    /// It is called once per [`World::observe`] and lands in
+    /// [`Observation::articulated`], where it returns on the model check before
+    /// touching a column. That is not free to a Legacy world: `Observation`
+    /// carries the 2032-byte block by value, so every observation copies it
+    /// twice and zero-fills a vector twice as wide. Measured at 6% of `lab
+    /// bench`; guarding this call on the model does not recover it, because the
+    /// cost is the embedding rather than the call. The separate entry point
+    /// exists for the articulated policy seam, which wants the subject picture
+    /// without the legacy one.
+    ///
+    /// **Selection is on ground truth**, exactly as the legacy contact list is:
+    /// you notice what is genuinely nearest, and noise is applied afterwards to
+    /// what was noticed. What differs from the legacy path is the cap --
+    /// [`MAX_ARTICULATED_OPPONENTS`], not [`Stats::tracked_contacts`] -- because
+    /// this block's width is a fixed wasm row stride before it is a percept, and
+    /// a dim character's rows are blurred rather than fewer.
+    ///
+    /// Opposing faction only. There is no ally block in the articulated ABI at
+    /// all, and inventing one here would be a width change rather than a
+    /// selection change.
+    ///
+    /// [`Stats::tracked_contacts`]: crate::Stats::tracked_contacts
+    pub fn observe_articulated(&self, id: EntityId) -> ArticulatedObservation {
+        if self.combat_model != crate::CombatModel::Articulated {
+            return ArticulatedObservation::BLANK;
+        }
+        let Some(i) = self.resolve(id) else { return ArticulatedObservation::BLANK };
+        let Some(state) = self.wounds.get(i).copied() else { return ArticulatedObservation::BLANK };
+        if state.is_dead() { return ArticulatedObservation::BLANK; }
+        let Some(spec) = self.anatomy_spec(i) else { return ArticulatedObservation::BLANK };
+
+        let me = self.pos[i];
+        let body = Vec3::new(me.x, me.y, Fx::ZERO);
+        let command = self.articulated_command[i].unwrap_or_else(|| self.neutral_articulated(i));
+        let targets = self.articulated_targets(i, spec, &command);
+        // Proprioception is free, so every column below is ground truth. The
+        // rule is [`Observation::position`]'s and it does not weaken because
+        // the body grew joints: a fighter knows where its own hand is however
+        // dim it is.
+        let arms = core::array::from_fn(|limb| {
+            let arm = self.arms[i][limb];
+            let part = limb_body_part(limb as u8).expect("a limb slot") as usize;
+            ObservedArm {
+                hand: body + arm.hand,
+                target_hand: body + targets[limb],
+                // Body-relative, matching `PosedArm::velocity`. See its doc for
+                // why the sum is not published instead.
+                velocity: arm.linear_velocity,
+                fatigue: arm.fatigue,
+                integrity_fraction: anatomy::part_fraction(&state, spec, part),
+                severed: state.parts[part].severed,
+                // What the grip actually holds, resolved through the carried
+                // slot the same way `equipment_in_grip` resolves it.
+                //
+                // **Deliberately not subject to the one-collider ownership
+                // rule**, unlike the weapon capability bits and the drawn
+                // geometry beside them: a two-handed item is in both grips,
+                // both grip bits are set for exactly that reason, and this
+                // field answers "what is this hand holding" rather than "who
+                // owns the collider". A reader wanting the owner asks the
+                // weapon bit; a reader wanting the hand asks this.
+                equipment: self.grips[i][limb].equipment_slot.and_then(|slot| {
+                    self.articulated_carried[i].get(slot as usize).copied().flatten()
+                }),
+            }
+        });
+
+        let stats = self.stats[i];
+        let sight = stats.sight_range();
+        let mut seen = Nearest::new(MAX_ARTICULATED_OPPONENTS);
+        for j in 0..self.alive.len() {
+            if j == i || !self.alive[j] { continue; }
+            if self.faction[j] == self.faction[i] { continue; }
+            let delta = self.pos[j] - me;
+            if delta.length() > sight { continue; }
+            // Rock stops eyes, the same predicate and the same reason as the
+            // legacy list. Free and bit-identical on an uncarved plan.
+            if !self.dungeon.sees(me, self.pos[j]) { continue; }
+            // An articulated body with no anatomy cannot be built into a row,
+            // and construction never produces one. Filtered here rather than
+            // handled below so a retained row is always a complete row -- the
+            // noise stream draws per retained row, and a row that blanked
+            // itself afterwards would leave a hole in the middle of the list.
+            if self.anatomy_spec(j).is_none() { continue; }
+            // The reference's key. `length_sq` and not `length`: it saturates
+            // past ~181 units and no arena is that wide, and the two order
+            // identically apart from where fixed-point rounding separates a
+            // tie. The stated tie-break is (index, generation) and `Nearest`
+            // breaks on the slot index, which is the same order -- a live slot
+            // has exactly one generation, so generation can never be reached.
+            seen.offer(delta.length_sq(), j);
+        }
+
+        // A stream of its own, and that is the entire point of the domain: this
+        // draws at the same (seed, tick, entity) as the legacy observation, so
+        // without a domain the two would hand the same body the same numbers
+        // and a policy reading both would see one error twice. Folded into the
+        // seed argument because `from_stream` has only two coordinates and both
+        // are already spoken for.
+        let mut rng = Rng::from_stream(
+            self.seed ^ ARTICULATED_OBSERVATION_DOMAIN,
+            self.tick as u64,
+            ((i as u64) << 32) | self.generation[i] as u64,
+        );
+        let noise = stats.perception_noise();
+        let mut opponents = [ObservedOpponent::BLANK; MAX_ARTICULATED_OPPONENTS];
+        for (slot, &(_, j)) in seen.items().iter().enumerate() {
+            opponents[slot] = self.observed_opponent(i, j, noise, &mut rng);
+        }
+
+        ArticulatedObservation {
+            tick: self.tick,
+            subject: id,
+            capabilities: self.articulated_capabilities(i, &state),
+            body_position: body,
+            body_yaw: self.body_yaw[i].angle,
+            body_velocity: Vec3::new(self.vel[i].x, self.vel[i].y, Fx::ZERO),
+            arms,
+            shield: match self.shield_pose[i] {
+                Some(pose) => ObservedShield {
+                    present: true,
+                    centre: body + pose.centre,
+                    normal: pose.normal,
+                    half_width: pose.half_width,
+                    half_height: pose.half_height,
+                },
+                None => ObservedShield::BLANK,
+            },
+            blood_fraction: anatomy::blood_fraction(&state, spec),
+            shock: state.shock,
+            integrity_fraction: core::array::from_fn(|part| anatomy::part_fraction(&state, spec, part)),
+            wound_fraction: core::array::from_fn(|part| anatomy::part_wound_fraction(&state, spec, part)),
+            severed_mask: severed_mask_of(&state),
+            opponent_count: seen.len() as u8,
+            opponents,
+        }
+    }
+
+    /// What this body can currently do, as the reference's eight bits.
+    ///
+    /// Every rule is a **presence** fact -- a region is attached, a grip holds
+    /// something, an item has a geometry -- and never a threshold on a
+    /// continuous column, because the reference calls these bits categorical
+    /// and noise-free and a bit derived from `arm_authority` would flicker as
+    /// shock crossed a boundary. Each constant's doc argues its own rule and
+    /// names what was rejected.
+    fn articulated_capabilities(&self, i: usize, state: &AnatomyState) -> u32 {
+        let mut bits = 0u32;
+        if state.present(BodyPart::Legs) {
+            bits |= ArticulatedObservation::MOVEMENT | ArticulatedObservation::TURNING;
+        }
+        let grip = [ArticulatedObservation::LEFT_GRIP, ArticulatedObservation::RIGHT_GRIP];
+        let weapon = [ArticulatedObservation::LEFT_WEAPON, ArticulatedObservation::RIGHT_WEAPON];
+        for limb in 0..2 {
+            if self.grips[i][limb].equipment_slot.is_some() { bits |= grip[limb]; }
+            let Some(item) = self.equipment_in_grip(i, limb) else { continue };
+            // The pose row's ownership rule, repeated because a set bit and a
+            // drawn weapon that disagreed about a two-handed item would put a
+            // second sword in the fight.
+            if item.binding == crate::GripBinding::Both && limb == LimbSlot::LeftArm as usize {
+                continue;
+            }
+            if matches!(item.geometry, EquipmentGeometry::Segment { .. }) { bits |= weapon[limb]; }
+        }
+        // Read off the derived pose rather than off the grips, so one face is
+        // one bit however many hands are on it.
+        if self.shield_pose[i].is_some() { bits |= ArticulatedObservation::SHIELD; }
+        if self.two_handed(i) { bits |= ArticulatedObservation::TWO_HANDED; }
+        bits
+    }
+
+    /// One perceived opponent row, drawn against `rng` in the reference's
+    /// order.
+    ///
+    /// **Seven draws, always seven.** Body position XYZ, body velocity XYZ,
+    /// timing -- and all seven whatever this body happens to be carrying,
+    /// because a row that drew fewer when a shield was missing would shift
+    /// every row after it. What one fighter perceives would then depend on what
+    /// somebody else is holding, which is not a perception model, it is a bug
+    /// with a plausible story.
+    ///
+    /// Z is drawn along with X and Y even though a body has no vertical degree
+    /// of freedom today. The stream is an ABI and it does not get to depend on
+    /// which axes the physics currently uses; the day a body leaves the floor,
+    /// nothing about the numbering moves.
+    ///
+    /// **The geometry is translated, never re-derived.** Every region, weapon
+    /// and shield is built at the *measured* body origin, which is exactly the
+    /// reference's "keeps its exact local shape and is translated by
+    /// measured-minus-true". Blurring each point separately would shear a body
+    /// into disconnected parts -- an arm three feet from its shoulder -- and
+    /// that is not what poor eyesight does to a silhouette.
+    fn observed_opponent(&self, i: usize, j: usize, noise: Fx, rng: &mut Rng) -> ObservedOpponent {
+        // `Rng::signed_unit` is the reference's conversion under its own name:
+        // `(draw >> 15) as i32 - 65_536`, read as an `Fx` raw, giving a
+        // fraction in [-1, 1). Writing it out again here would be a second copy
+        // of a formula `fx` already owns and tests.
+        let mut jitter = [Fx::ZERO; 7];
+        for draw in jitter.iter_mut() { *draw = rng.signed_unit(); }
+
+        let measured = Vec3::new(
+            self.pos[j].x + jitter[0] * noise,
+            self.pos[j].y + jitter[1] * noise,
+            jitter[2] * noise,
+        );
+        // A quarter of the positional error. Velocity is a difference of two
+        // positions a tick apart, so an eye that misplaces a body by a stride
+        // does not misjudge its heading by a stride per tick.
+        let velocity = Vec3::new(
+            self.vel[j].x + jitter[3] * noise / 4,
+            self.vel[j].y + jitter[4] * noise / 4,
+            jitter[5] * noise / 4,
+        );
+
+        let anatomy = self.anatomy_spec(j).expect("a selected opponent has an anatomy");
+        let state = self.wounds.get(j).copied().unwrap_or(AnatomyState::EMPTY);
+        let present: [bool; BodyPart::COUNT] =
+            core::array::from_fn(|part| !state.parts[part].severed);
+        let yaw = self.body_yaw[j].angle;
+        let regions = geometry::body_region_volumes(
+            measured, anatomy, yaw,
+            [self.arms[j][0].hand, self.arms[j][1].hand], present);
+
+        let mut weapons = [None; 2];
+        for limb in 0..2 {
+            let Some(item) = self.equipment_in_grip(j, limb) else { continue };
+            if item.binding == crate::GripBinding::Both && limb == LimbSlot::LeftArm as usize {
+                continue;
+            }
+            weapons[limb] = geometry::segment_pose(measured, self.arms[j][limb], item);
+        }
+
+        // The reference's timing formula, read off the observation's own
+        // columns and in the written order. The opponent terms are the measured
+        // ones and the subject's are exact, so a policy that recomputed this
+        // from the published numbers gets the published answer back -- which it
+        // would not if the sim quietly used ground truth here and blurred the
+        // positions beside it.
+        let delta_xy = Vec2::new(measured.x, measured.y) - self.pos[i];
+        let distance = delta_xy.length();
+        // `Vec2::normalize` is the reference's `normalized_or_zero`: same
+        // function, and `fx` names it asymmetrically between two and three
+        // dimensions. Adding an alias so the call site could match the prose
+        // would be a duplicate for a spelling.
+        let closing = (self.vel[i] - Vec2::new(velocity.x, velocity.y)).dot(delta_xy.normalize());
+        let timing = if !closing.is_positive() {
+            Fx::ONE
+        } else {
+            (distance / closing.max(Fx::from_ratio(1, 256))).clamp(Fx::ZERO, Fx::ONE)
+        };
+
+        ObservedOpponent {
+            id: self.id_of(j),
+            body_position: measured,
+            body_velocity: velocity,
+            body_yaw: yaw,
+            regions,
+            weapons,
+            shield: match self.shield_pose[j] {
+                Some(pose) => ObservedShield {
+                    present: true,
+                    centre: measured + pose.centre,
+                    normal: pose.normal,
+                    half_width: pose.half_width,
+                    half_height: pose.half_height,
+                },
+                None => ObservedShield::BLANK,
+            },
+            severed_mask: severed_mask_of(&state),
+            // An eighth of the positional error, and applied to both branches:
+            // the "nothing is closing" one is a judgement like any other, and
+            // skipping it there would make the noise term mean two things.
+            contact_timing: (timing + jitter[6] * noise / 8).clamp(Fx::ZERO, Fx::ONE),
+        }
     }
 
     /// Records `id`'s decision and pushes its next decision tick out by its
@@ -1435,6 +1762,167 @@ impl World {
 
     pub const fn combat_model(&self) -> crate::CombatModel {
         self.combat_model
+    }
+
+    /// Everything needed to draw one articulated body, in world space.
+    ///
+    /// One query rather than an accessor per column, and that is the whole
+    /// design: a caller that assembled a pose out of a dozen getters would be
+    /// free to mix the body-relative frame the actuator works in with the
+    /// absolute frame the geometry lives in, which is precisely the mistake
+    /// `combat::geometry` exists to make impossible. Here the conversion
+    /// happens once, on the way out, and [`ArticulatedPose`] states the frame.
+    ///
+    /// `None` for a stale identity, a dead body, or a Legacy world; total for
+    /// everything else. Deadness is checked here rather than left to the reap
+    /// phase catching up, because "no pose for a corpse" should be a property
+    /// of the query and not a property of when it happened to be called.
+    ///
+    /// Ground truth, with no perception noise and no visibility filtering. It
+    /// is the host's job to decide who may see which row.
+    pub fn articulated_pose(&self, id: EntityId) -> Option<ArticulatedPose> {
+        if self.combat_model != crate::CombatModel::Articulated { return None; }
+        let i = self.resolve(id)?;
+        let state = *self.wounds.get(i)?;
+        if state.is_dead() { return None; }
+        let spec = self.anatomy_spec(i)?;
+        let body = Vec3::new(self.pos[i].x, self.pos[i].y, Fx::ZERO);
+        let yaw = self.body_yaw[i].angle;
+        // The same substitution `drive_articulated_arms` makes, so the target
+        // published is the one the arm is actually being driven toward. A slot
+        // that never had a command is holding its neutral pose, not chasing
+        // nothing, and a zero here would draw a reach line to the map origin.
+        let command = self.articulated_command[i].unwrap_or_else(|| self.neutral_articulated(i));
+        let targets = self.articulated_targets(i, spec, &command);
+
+        let arms = core::array::from_fn(|limb| {
+            let arm = self.arms[i][limb];
+            PosedArm {
+                hand: body + arm.hand,
+                velocity: arm.linear_velocity,
+                fatigue: arm.fatigue,
+                target_hand: body + targets[limb],
+            }
+        });
+        let mut weapons = [None; 2];
+        for limb in 0..2 {
+            let Some(item) = self.equipment_in_grip(i, limb) else { continue };
+            // The collider builder's ownership rule, and it has to be the same
+            // one: one item is one collider and one drawn weapon, owned by the
+            // right arm.
+            if item.binding == crate::GripBinding::Both && limb == LimbSlot::LeftArm as usize {
+                continue;
+            }
+            weapons[limb] = geometry::segment_pose(body, self.arms[i][limb], item);
+        }
+        let shield = self.shield_pose[i]
+            .map(|pose| ShieldPose { centre: body + pose.centre, ..pose });
+        let severed_mask = severed_mask_of(&state);
+        Some(ArticulatedPose {
+            id,
+            body,
+            body_yaw: yaw,
+            body_velocity: Vec3::new(self.vel[i].x, self.vel[i].y, Fx::ZERO),
+            arms,
+            weapons,
+            shield,
+            integrity_fraction: core::array::from_fn(|part| anatomy::part_fraction(&state, spec, part)),
+            wound_fraction: core::array::from_fn(|part| anatomy::part_wound_fraction(&state, spec, part)),
+            blood_fraction: anatomy::blood_fraction(&state, spec),
+            shock: state.shock,
+            severed_mask,
+            // Read off the geometry above rather than off the grips, so a set
+            // bit and a drawn item cannot disagree about a two-handed weapon,
+            // a shield in a weapon slot, or an arm that just came off.
+            equipment_mask: weapons[0].is_some() as u8
+                | (weapons[1].is_some() as u8) << 1
+                | (shield.is_some() as u8) << 2,
+            intent: command.intent,
+            hints: core::array::from_fn(|limb| self.animation_hint(i, limb, &state)),
+        })
+    }
+
+    /// Every live articulated body's pose, in ascending full identity.
+    ///
+    /// A slot holds at most one live body, so ascending slot index *is*
+    /// ascending `(index, generation)`. That is the order the browser
+    /// boundary's pose buffer publishes rows in, and stating it here is what
+    /// stops the host inventing a second one.
+    ///
+    /// An iterator and deliberately not a `Vec`: the only caller is the
+    /// publication path in `crates/web`, where an allocation grows linear
+    /// memory and growing linear memory detaches every typed array the page is
+    /// holding. Empty on a Legacy world, where [`World::articulated_pose`]
+    /// answers `None` for everything.
+    pub fn articulated_poses(&self) -> impl Iterator<Item = ArticulatedPose> + '_ {
+        let slots = self.alive.len();
+        (0..slots).filter_map(|i| {
+            if !self.alive[i] { return None; }
+            self.articulated_pose(self.id_of(i))
+        })
+    }
+
+    /// Where the actuator is driving each hand, in the **body-relative** frame
+    /// the joint works in.
+    ///
+    /// Extracted so [`World::articulated_pose`] and
+    /// [`World::observe_articulated`] cannot answer differently: a renderer
+    /// drawing a reach line and a policy reading where its own hand is going
+    /// are asking one question, and a second copy of this is a second thing to
+    /// keep in step with the integrator.
+    ///
+    /// It repeats `integrate_arm`'s own reach clamp rather than trusting it.
+    /// A published target the joint would refuse is a point the hand never
+    /// reaches, so the arm reads as though it never arrived.
+    fn articulated_targets(
+        &self,
+        i: usize,
+        spec: &BodyAnatomySpec,
+        command: &ArticulatedCommandV1,
+    ) -> [Vec3; 2] {
+        let yaw = self.body_yaw[i].angle;
+        let mut targets = [Vec3::ZERO; 2];
+        for limb in 0..2 {
+            let arm = command.arms[limb];
+            let reach = arm.reach.clamp(Fx::from_raw(actuator::ARM_MIN_REACH_RAW), Fx::ONE);
+            targets[limb] = actuator::hand_position(spec, yaw, limb, arm.bearing, arm.height, reach);
+        }
+        if self.two_handed(i) {
+            targets[0] = actuator::mirror_hand(spec, yaw, targets[1]);
+        }
+        targets
+    }
+
+    /// One arm's animation hint, in the reference's priority order.
+    ///
+    /// The order is the argument. Severance outranks everything, because a
+    /// missing arm has no pose to be busy in. Both contact codes outrank both
+    /// motion codes, because a tick that touched something is about the touch
+    /// whatever the actuator meant to be doing. And the two contact codes are
+    /// separated by whether the commit actually wrote the joint: an arm that
+    /// was named in a resolution and came through it unmoved held its ground,
+    /// which is a different thing to draw than one that was hauled.
+    fn animation_hint(&self, i: usize, limb: usize, state: &AnatomyState) -> AnimationHint {
+        let part = limb_body_part(limb as u8).expect("a limb slot");
+        if state.parts[part as usize].severed { return AnimationHint::Severed; }
+        let overrode = self.contact.as_ref().and_then(|contact| contact.entry.get(i))
+            .is_some_and(|entry| entry.contact_overrode[limb]);
+        if overrode { return AnimationHint::Recoiling; }
+        let entity = self.id_of(i);
+        let named = self.contact_resolutions().iter().any(|row| {
+            let key = row.fact.key;
+            (key.a == entity && key.a_slot as usize == limb)
+                || (key.b == entity && key.b_slot as usize == limb)
+        });
+        if named { return AnimationHint::Contact; }
+        let arm = self.arms[i][limb];
+        let moving = arm.bearing_speed_turns != Fx::ZERO
+            || arm.height_speed != Fx::ZERO
+            || arm.reach_speed != Fx::ZERO;
+        if moving { return AnimationHint::Chasing; }
+        let shielded = self.equipment_in_grip(i, limb)
+            .is_some_and(|item| matches!(item.geometry, EquipmentGeometry::Shield { .. }));
+        if shielded { AnimationHint::Braced } else { AnimationHint::Idle }
     }
 
     #[cfg(test)]
@@ -4009,6 +4497,7 @@ impl World {
                 // that never reaches the phase from carrying a stale pose.
                 pre_contact: [ArmScalars::of(self.arms[i][0]), ArmScalars::of(self.arms[i][1])],
                 clamped: [false; 2],
+                contact_overrode: [false; 2],
             });
         }
         self.contact = Some(contact);
@@ -4076,7 +4565,7 @@ impl World {
                 for i in 0..self.damage_dealt.len().min(contact.credit.len()) {
                     self.damage_dealt[i] += contact.credit[i];
                 }
-                self.commit_contact(&contact);
+                self.commit_contact(&mut contact);
                 self.release_severed_grips();
             }
             Err(_) => {
@@ -4171,18 +4660,27 @@ impl World {
     /// drift the pose of every fighter that touched nothing, every tick, and
     /// the contract's "with no fact and no entry clamp they are the saved
     /// requested World rows byte-for-byte" would be false.
-    fn commit_contact(&mut self, contact: &ContactRuntime) {
+    fn commit_contact(&mut self, contact: &mut ContactRuntime) {
         for i in 0..self.alive.len() {
-            if self.alive[i] { self.commit_contact_row(i, contact); }
+            if !self.alive[i] { continue; }
+            // The reborrow is what keeps the row's own reads immutable while
+            // its answer is written back beside them. The answer is diagnostic
+            // -- see `TickEntry::contact_overrode` -- so it is recorded after
+            // the commit rather than during it, where an early return would
+            // decide it by accident.
+            let overrode = self.commit_contact_row(i, contact);
+            if let Some(entry) = contact.entry.get_mut(i) { entry.contact_overrode = overrode; }
         }
     }
 
-    fn commit_contact_row(&mut self, i: usize, contact: &ContactRuntime) {
+    /// Answers which limbs this commit wrote a joint pose for.
+    fn commit_contact_row(&mut self, i: usize, contact: &ContactRuntime) -> [bool; 2] {
+        let mut overrode = [false; 2];
         let entity = self.id_of(i);
         let Some(body) = contact.colliders.iter().copied().find(|row| {
             row.entity == entity && matches!(row.shape, ContactShape::Body { .. })
-        }) else { return };
-        let ContactShape::Body { previous_origin, .. } = body.shape else { return };
+        }) else { return overrode };
+        let ContactShape::Body { previous_origin, .. } = body.shape else { return overrode };
         let entry = contact.entry[i];
         let capped = contact.scratch.capped_entities().contains(&entity);
         let remaining = last_group_remaining(&contact.resolutions, entity);
@@ -4203,6 +4701,7 @@ impl World {
             let relative = hand - origin;
             if relative == self.arms[i][limb].hand && !entry.clamped[limb] && !capped { continue; }
             self.commit_arm(i, limb, relative, entry, remaining, capped);
+            overrode[limb] = true;
         }
 
         // One commit of the body endpoint, through the path a knockback already
@@ -4249,6 +4748,14 @@ impl World {
                 // zeroed, and the contract mirrors the zero rather than a
                 // displacement the cap refused to let happen.
                 if capped { self.arms[i][0].linear_velocity = Vec3::ZERO; }
+                // A `Both` grip gives the left arm no collider of its own, so
+                // the loop above never marks it -- but the mirror has just
+                // hauled it wherever the right arm was taken. Reporting it as
+                // still chasing a target would animate one arm recoiling and
+                // the other reaching, off the same weapon. The mirror is a
+                // no-op when the right arm was not committed, which is why the
+                // right arm's answer is the whole condition.
+                overrode[0] |= overrode[1];
             }
             // The shield pose is a cached derivation of the hand and the yaw,
             // and it is hashed. An arm the solver moved leaves it stale, which
@@ -4256,6 +4763,7 @@ impl World {
             // places.
             self.shield_pose[i] = self.derive_shield_pose(i);
         }
+        overrode
     }
 
     /// One contacted arm, written back as a joint pose.
@@ -7333,6 +7841,895 @@ mod tests {
         let mut expected = world.arms[1][0];
         actuator::mirror_two_handed(&mut expected, world.arms[1][1], &anatomy, world.body_yaw[1].angle);
         assert_eq!(world.arms[1][0], expected, "the left arm was left on its pre-contact mirror");
+    }
+
+    // ------------------------------------------------------------- published pose
+
+    #[test]
+    fn a_pose_is_refused_for_a_legacy_world_a_stale_identity_and_a_corpse() {
+        let legacy = duel_world();
+        assert_eq!(legacy.articulated_pose(legacy.id_of(0)), None,
+                   "a Legacy world published an articulated pose out of empty columns");
+
+        let mut world = World::new(&Scenario::articulated_duel(), 1);
+        let fighter = EntityId::new(0, 0);
+        assert!(world.articulated_pose(fighter).is_some(), "the fixture has no live fighter");
+        assert_eq!(world.articulated_pose(EntityId::new(0, 1)), None, "a stale generation resolved");
+        assert_eq!(world.articulated_pose(EntityId::new(9, 0)), None, "an unallocated slot resolved");
+
+        // Deadness is the query's own answer and not a consequence of when it
+        // was asked: a body that has bled out is a corpse on the tick it
+        // happens, several phases before the reap that clears `alive`.
+        world.wounds[0].blood = Fx::ZERO;
+        assert!(world.wounds[0].is_dead());
+        assert_eq!(world.articulated_pose(fighter), None, "an unreaped corpse published a pose");
+        world.step();
+        assert_eq!(world.articulated_pose(fighter), None, "a reaped slot published a pose");
+    }
+
+    #[test]
+    fn a_published_pose_is_world_space_throughout() {
+        let mut world = World::new(&Scenario::articulated_duel(), 1);
+        // Moved off both axes, so a missing translation cannot pass by landing
+        // on a zero component.
+        world.pos[0] = Vec2::new(Fx::from_ratio(37, 4), Fx::from_ratio(13, 8));
+        let body = Vec3::new(world.pos[0].x, world.pos[0].y, Fx::ZERO);
+        let pose = world.articulated_pose(EntityId::new(0, 0)).expect("a live fighter");
+        assert_eq!((pose.id, pose.body, pose.body_yaw), (EntityId::new(0, 0), body, Angle::ZERO));
+
+        for limb in 0..2 {
+            assert_eq!(pose.arms[limb].hand, body + world.arms[0][limb].hand);
+            assert_eq!(pose.arms[limb].fatigue, world.arms[0][limb].fatigue);
+            // The one field that is deliberately not converted, and the field
+            // doc says why. Asserted rather than left implicit, because a later
+            // "make it all world space" would otherwise look harmless.
+            assert_eq!(pose.arms[limb].velocity, world.arms[0][limb].linear_velocity);
+        }
+
+        let stored = world.shield_pose[0].expect("the fighter carries a shield");
+        let shield = pose.shield.expect("the fighter carries a shield");
+        assert_eq!(shield.centre, body + stored.centre);
+        assert_eq!(shield, ShieldPose { centre: shield.centre, ..stored },
+                   "translating the centre disturbed the frame-independent fields");
+
+        let sword = world.equipment_in_grip(0, 1).expect("the fighter holds a sword");
+        assert_eq!(pose.weapons[1], geometry::segment_pose(body, world.arms[0][1], sword));
+        assert_eq!(pose.weapons[1].expect("a drawn sword").hilt, pose.arms[1].hand,
+                   "the hilt is not the hand it is held in");
+        // A shield is not a segment, so the weapon slot it occupies stays empty
+        // and the mask agrees with the geometry rather than with the grip.
+        assert_eq!(pose.weapons[0], None);
+        assert_eq!(pose.equipment_mask, 0b110);
+    }
+
+    #[test]
+    fn the_target_hand_is_the_pose_the_actuator_is_chasing() {
+        let mut world = World::new(&Scenario::articulated_duel(), 1);
+        let fighter = EntityId::new(0, 0);
+        let spec = world.anatomy_spec(0).cloned().expect("articulated anatomy");
+        let body = Vec3::new(world.pos[0].x, world.pos[0].y, Fx::ZERO);
+
+        // No command has ever been accepted. The answer is the neutral command
+        // the arm driver substitutes -- not a zero, which would draw a reach
+        // line to the map origin, and not the current hand either.
+        let neutral = world.neutral_articulated(0);
+        let pose = world.articulated_pose(fighter).expect("a live fighter");
+        assert_eq!(pose.intent, Intent::Hold);
+        for limb in 0..2 {
+            // The neutral reach is zero and comes back at the joint minimum,
+            // which is the integrator's clamp repeated on this side.
+            let expected = actuator::hand_position(&spec, Angle::ZERO, limb,
+                neutral.arms[limb].bearing, neutral.arms[limb].height,
+                Fx::from_raw(actuator::ARM_MIN_REACH_RAW));
+            assert_eq!(pose.arms[limb].target_hand, body + expected);
+        }
+
+        // With a command stored it is that command's hand, at the yaw the body
+        // has turned to by now -- the shoulder rotates, so a target frozen at
+        // the yaw the order was given would drift off the arm.
+        world.submit_articulated_v1(fighter, articulated_command());
+        for _ in 0..3 { world.step(); }
+        let body = Vec3::new(world.pos[0].x, world.pos[0].y, Fx::ZERO);
+        let pose = world.articulated_pose(fighter).expect("a live fighter");
+        assert_eq!(pose.intent, articulated_command().intent);
+        for limb in 0..2 {
+            let arm = articulated_command().arms[limb];
+            assert_eq!(pose.arms[limb].target_hand, body + actuator::hand_position(
+                &spec, world.body_yaw[0].angle, limb, arm.bearing, arm.height, arm.reach));
+            assert_ne!(pose.arms[limb].hand, pose.arms[limb].target_hand,
+                       "the arm arrived, so this fixture no longer separates the two");
+        }
+    }
+
+    #[test]
+    fn a_two_handed_item_publishes_one_right_hand_weapon_and_a_mirrored_target() {
+        let mut world = World::new(&both_scenario(), 1);
+        assert!(world.two_handed(1), "the brute is not holding the club in both hands");
+        world.submit_articulated_v1(EntityId::new(1, 0), reaching_command(Angle::HALF, Fx::ONE));
+        world.step();
+
+        let pose = world.articulated_pose(EntityId::new(1, 0)).expect("a live brute");
+        assert_eq!(pose.weapons[0], None, "one club was drawn from both hands");
+        assert!(pose.weapons[1].is_some(), "the owning arm published no club");
+        assert_eq!(pose.equipment_mask, 0b010, "the mask disagreed with the drawn geometry");
+
+        // The off hand chases nothing of its own -- the tick mirrors it off the
+        // right arm -- so its published target is that same reflection.
+        let spec = world.anatomy_spec(1).cloned().expect("articulated anatomy");
+        let yaw = world.body_yaw[1].angle;
+        let body = Vec3::new(world.pos[1].x, world.pos[1].y, Fx::ZERO);
+        assert_eq!(pose.arms[0].target_hand - body,
+                   actuator::mirror_hand(&spec, yaw, pose.arms[1].target_hand - body));
+        assert_ne!(pose.arms[0].target_hand, pose.arms[1].target_hand,
+                   "the mirror is the identity here, so it proves nothing");
+
+        // And a one-handed pair is not mirrored: the fighter in the same world
+        // answers each arm's own command.
+        world.submit_articulated_v1(EntityId::new(0, 0), articulated_command());
+        world.step();
+        let fighter = world.articulated_pose(EntityId::new(0, 0)).expect("a live fighter");
+        let spec = world.anatomy_spec(0).cloned().expect("articulated anatomy");
+        let body = Vec3::new(world.pos[0].x, world.pos[0].y, Fx::ZERO);
+        let arm = articulated_command().arms[0];
+        assert_eq!(fighter.arms[0].target_hand, body + actuator::hand_position(
+            &spec, world.body_yaw[0].angle, 0, arm.bearing, arm.height, arm.reach));
+    }
+
+    #[test]
+    fn the_severed_and_equipment_masks_name_their_own_bits() {
+        let mut world = World::new(&fragile_scenario(&[]), 1);
+        let fighter = EntityId::new(0, 0);
+        assert_eq!(world.articulated_pose(fighter).unwrap().equipment_mask, 0b110,
+                   "a right-hand sword and a left-hand shield are not bits 1 and 2");
+        assert_eq!(world.articulated_pose(fighter).unwrap().severed_mask, 0);
+
+        // The three rigid regions, marked without emptying them: severing a head
+        // or a torso outright is death, and a corpse publishes no row to read
+        // the mask off.
+        for part in [BodyPart::Head, BodyPart::Torso, BodyPart::Legs] {
+            let mut marked = world.clone();
+            marked.wounds[0].parts[part as usize].severed = true;
+            assert_eq!(marked.articulated_pose(fighter).unwrap().severed_mask, 1 << part as u8);
+        }
+
+        // The arms are the case that moves both masks at once, because the grip
+        // phase drops what a severed arm was holding.
+        sever_arm(&mut world, 0, BodyPart::LeftArm);
+        let pose = world.articulated_pose(fighter).unwrap();
+        assert_eq!(pose.severed_mask, 1 << BodyPart::LeftArm as u8);
+        assert_eq!(pose.equipment_mask, 0b010, "a severed shield arm kept its shield bit");
+        sever_arm(&mut world, 0, BodyPart::RightArm);
+        let pose = world.articulated_pose(fighter).unwrap();
+        assert_eq!(pose.severed_mask,
+                   (1 << BodyPart::LeftArm as u8) | (1 << BodyPart::RightArm as u8));
+        assert_eq!(pose.equipment_mask, 0, "an armless body kept a weapon bit");
+    }
+
+    #[test]
+    fn every_animation_hint_is_reachable() {
+        // Idle and Braced. At construction every joint has arrived, so the only
+        // thing separating the fighter's two arms is what they hold.
+        let still = World::new(&Scenario::articulated_duel(), 1);
+        assert_eq!(still.articulated_pose(EntityId::new(0, 0)).unwrap().hints,
+                   [AnimationHint::Braced, AnimationHint::Idle]);
+        assert_eq!(still.articulated_pose(EntityId::new(1, 0)).unwrap().hints,
+                   [AnimationHint::Idle; 2], "the brute has no shield to brace behind");
+
+        // Chasing outranks Braced: a shield arm in motion is not holding still.
+        let mut chasing = World::new(&Scenario::articulated_duel(), 1);
+        chasing.submit_articulated_v1(EntityId::new(0, 0), articulated_command());
+        chasing.step();
+        assert_eq!(chasing.articulated_pose(EntityId::new(0, 0)).unwrap().hints,
+                   [AnimationHint::Chasing; 2]);
+
+        // Contact without Recoiling, which is the pair's whole distinction: a
+        // braced sword resting inside a body with nothing closing resolves a
+        // group that moves no hand, so the commit writes no joint.
+        let mut resting = World::new(&fragile_scenario(&[]), 1000);
+        brace_weapon(&mut resting, 0);
+        resolve_closing(&mut resting, &[]);
+        assert!(resting.contact_resolutions().iter().any(|row|
+            row.fact.key.a == EntityId::new(0, 0) && row.fact.key.a_slot == 1),
+            "the resting fixture keyed nothing against the sword arm");
+        assert_eq!(resting.articulated_pose(EntityId::new(0, 0)).unwrap().hints,
+                   [AnimationHint::Braced, AnimationHint::Contact]);
+
+        // Recoiling: the same two bodies actually closing, where the solve
+        // hauls the hand and the commit writes it back.
+        let mut clinch = clinch_world();
+        step_into_contact(&mut clinch);
+        assert_eq!(clinch.articulated_pose(EntityId::new(0, 0)).unwrap().hints[1],
+                   AnimationHint::Recoiling);
+
+        // Severed outranks everything, on the arm that is gone and on no other.
+        let mut cut = World::new(&fragile_scenario(&[]), 1);
+        sever_arm(&mut cut, 0, BodyPart::RightArm);
+        assert_eq!(cut.articulated_pose(EntityId::new(0, 0)).unwrap().hints,
+                   [AnimationHint::Braced, AnimationHint::Severed]);
+    }
+
+    // ------------------------------------------- subject-scoped observation
+
+    /// The fighter and the brute a step and a half apart, with the subject's
+    /// eye dialled by hand.
+    ///
+    /// `perception 15` is the one value at which [`Stats::perception_noise`] is
+    /// exactly zero, so a "sharp" world is not merely less blurred, it is
+    /// ground truth -- which is what lets a noise test subtract two
+    /// observations and get the error itself.
+    fn eyed_world(subject: usize, perception: u8) -> World {
+        let mut world = World::new(&fragile_scenario(&[]), 1);
+        world.stats[subject].perception = perception;
+        world
+    }
+
+    /// One hero, one ally, and seven enemies strung out to the east at 1.6
+    /// units, which is exactly clear of two touching brutes.
+    fn crowded_scenario() -> Scenario {
+        let mut scenario = fragile_scenario(&[]);
+        let monster = scenario.units[1];
+        scenario.units.truncate(1);
+        scenario.units[0].spawn = Vec2::from_ints(4, 8);
+        for step in 0..7 {
+            let mut unit = monster;
+            // The nearest enemy wears the fighter's articulated row -- a shield
+            // and a sword rather than the brute's single club -- so a test that
+            // strips its equipment has both kinds of geometry to remove. A
+            // monster in a fighter's body is legal and validated: it is the row
+            // unit 0 already carries.
+            if step == 0 {
+                unit.articulated = scenario.units[0].articulated;
+                // The loadout has to move with it: construction validates that
+                // the two agree slot for slot.
+                unit.loadout = scenario.units[0].loadout;
+            }
+            unit.spawn = Vec2::new(Fx::from_int(5) + Fx::from_ratio(16 * step, 10), Fx::from_int(8));
+            scenario.units.push(unit);
+        }
+        // Nearer than every enemy, so a list that admitted allies would put it
+        // first and could not fail quietly.
+        let mut ally = scenario.units[0];
+        ally.spawn = Vec2::new(Fx::from_ratio(45, 10), Fx::from_int(8));
+        scenario.units.push(ally);
+        scenario
+    }
+
+    #[test]
+    fn an_articulated_observation_is_blank_for_a_legacy_world_a_stale_identity_and_a_corpse() {
+        // The same four refusals `articulated_pose` answers `None` to, and they
+        // have to be the same four: an observation is a pose with an eye in
+        // front of it, and a corpse that published nothing to draw must not
+        // publish something to fight.
+        let legacy = duel_world();
+        assert_eq!(legacy.observe_articulated(legacy.id_of(0)), ArticulatedObservation::BLANK,
+                   "a Legacy world observed articulated state out of empty columns");
+        // And through the public door: the legacy observation carries the block
+        // anyway, blank, so the feature vector has one width.
+        assert!(!legacy.observe(legacy.id_of(0)).articulated.present());
+
+        let mut world = World::new(&Scenario::articulated_duel(), 1);
+        let fighter = EntityId::new(0, 0);
+        assert!(world.observe_articulated(fighter).present(), "the fixture has no live fighter");
+        assert_eq!(world.observe_articulated(EntityId::new(0, 1)), ArticulatedObservation::BLANK);
+        assert_eq!(world.observe_articulated(EntityId::new(9, 0)), ArticulatedObservation::BLANK);
+
+        world.wounds[0].blood = Fx::ZERO;
+        assert!(world.wounds[0].is_dead());
+        assert_eq!(world.observe_articulated(fighter), ArticulatedObservation::BLANK,
+                   "an unreaped corpse observed itself");
+        assert!(!world.observe(fighter).articulated.present());
+    }
+
+    #[test]
+    fn an_articulated_observation_is_the_subjects_own_joints_exactly() {
+        let mut world = World::new(&Scenario::articulated_duel(), 1);
+        // Off both axes, so a missing translation cannot pass by landing on a
+        // zero component.
+        world.pos[0] = Vec2::new(Fx::from_ratio(37, 4), Fx::from_ratio(13, 8));
+        // The dimmest eye in the game, to prove the point: proprioception does
+        // not degrade.
+        world.stats[0].perception = 0;
+        let fighter = EntityId::new(0, 0);
+        let body = Vec3::new(world.pos[0].x, world.pos[0].y, Fx::ZERO);
+        let obs = world.observe_articulated(fighter);
+
+        assert_eq!((obs.tick, obs.subject, obs.body_position), (world.tick, fighter, body));
+        assert_eq!(obs.body_yaw, world.body_yaw[0].angle);
+        assert_eq!(obs.body_velocity, Vec3::new(world.vel[0].x, world.vel[0].y, Fx::ZERO));
+
+        let spec = world.anatomy_spec(0).cloned().expect("articulated anatomy");
+        let command = world.neutral_articulated(0);
+        let targets = world.articulated_targets(0, &spec, &command);
+        for limb in 0..2 {
+            let arm = obs.arms[limb];
+            assert_eq!(arm.hand, body + world.arms[0][limb].hand);
+            assert_eq!(arm.target_hand, body + targets[limb]);
+            // The one column that is deliberately not converted, matching
+            // `PosedArm::velocity`. Asserted rather than left implicit, because
+            // a later "make it all world space" would otherwise look harmless.
+            assert_eq!(arm.velocity, world.arms[0][limb].linear_velocity);
+            assert_eq!(arm.fatigue, world.arms[0][limb].fatigue);
+            assert!(!arm.severed);
+        }
+        // The equipment code is the immutable **spec** row, not the carried
+        // slot the grip indexes -- the two are different numbers here, which is
+        // exactly why the wrong one would go unnoticed.
+        assert_eq!(
+            [obs.arms[0].equipment, obs.arms[1].equipment],
+            [world.equipment_in_grip(0, 0).map(|item| item.id),
+             world.equipment_in_grip(0, 1).map(|item| item.id)],
+        );
+        assert_eq!([obs.arms[0].equipment, obs.arms[1].equipment], [Some(2), Some(1)],
+                   "the shield row is 2 and the sword row is 1");
+        assert!(matches!(world.equipment_in_grip(0, 0).unwrap().geometry,
+                         EquipmentGeometry::Shield { .. }));
+
+        let stored = world.shield_pose[0].expect("the fighter carries a shield");
+        assert_eq!(obs.shield, ObservedShield {
+            present: true,
+            centre: body + stored.centre,
+            normal: stored.normal,
+            half_width: stored.half_width,
+            half_height: stored.half_height,
+        });
+
+        let state = world.wounds[0];
+        assert_eq!(obs.blood_fraction, anatomy::blood_fraction(&state, &spec));
+        assert_eq!(obs.shock, state.shock);
+        for part in 0..BodyPart::COUNT {
+            assert_eq!(obs.integrity_fraction[part], anatomy::part_fraction(&state, &spec, part));
+            assert_eq!(obs.wound_fraction[part], anatomy::part_wound_fraction(&state, &spec, part));
+        }
+        assert_eq!(obs.severed_mask, 0);
+        // The same observation through the public door, byte for byte.
+        assert_eq!(world.observe(fighter).articulated, obs);
+    }
+
+    #[test]
+    fn every_capability_bit_names_a_presence_fact() {
+        use ArticulatedObservation as A;
+        let capable = |world: &World, i: usize| world.observe_articulated(world.id_of(i)).capabilities;
+
+        // A shield in the left hand and a sword in the right. Both grips are
+        // occupied, only the sword is a weapon, and nothing binds two hands.
+        let mut world = World::new(&fragile_scenario(&[]), 1);
+        assert_eq!(capable(&world, 0),
+                   A::MOVEMENT | A::TURNING | A::LEFT_GRIP | A::RIGHT_GRIP | A::RIGHT_WEAPON | A::SHIELD,
+                   "a shield in a grip is not a weapon in it");
+
+        // Legs are the movement pair and nothing else, and the pair moves
+        // together because the model gives translation and turning one pool.
+        let mut legless = world.clone();
+        legless.wounds[0].parts[BodyPart::Legs as usize].severed = true;
+        assert_eq!(capable(&legless, 0) & (A::MOVEMENT | A::TURNING), 0);
+        assert_eq!(capable(&legless, 0) | A::MOVEMENT | A::TURNING, capable(&world, 0),
+                   "severing the legs moved a bit that is not about legs");
+
+        // A severed arm loses its grip, which is what makes an occupancy bit
+        // strictly stronger than a severance bit: the shield goes with the arm.
+        let mut armless = world.clone();
+        sever_arm(&mut armless, 0, BodyPart::LeftArm);
+        assert_eq!(capable(&armless, 0), A::MOVEMENT | A::TURNING | A::RIGHT_GRIP | A::RIGHT_WEAPON);
+        sever_arm(&mut armless, 0, BodyPart::RightArm);
+        assert_eq!(capable(&armless, 0), A::MOVEMENT | A::TURNING);
+
+        // Released grips, with both arms intact: the four equipment bits are
+        // about what is held and the movement pair is not.
+        let mut empty = world.clone();
+        let mut release = empty.neutral_articulated(0);
+        release.grips = [GripRequest::Release; 2];
+        let _ = empty.submit_articulated_v1(EntityId::new(0, 0), release);
+        empty.step();
+        assert_eq!(capable(&empty, 0), A::MOVEMENT | A::TURNING);
+
+        // The two-handed club: one item, both grips, and the weapon bit on the
+        // owning arm only -- the same ownership the pose row draws.
+        let both = World::new(&both_scenario(), 1);
+        assert!(both.two_handed(1));
+        assert_eq!(capable(&both, 1),
+                   A::MOVEMENT | A::TURNING | A::LEFT_GRIP | A::RIGHT_GRIP | A::RIGHT_WEAPON | A::TWO_HANDED);
+        assert_eq!(capable(&both, 1) & A::LEFT_WEAPON, 0, "one club was drawn from both hands");
+        // And the one published equipment fact that deliberately does *not*
+        // follow that ownership rule: both hands are on the haft, so both arms
+        // report the item. Asserted here because it is the only place the grip
+        // view and the collider view of the same club disagree on purpose.
+        let held = both.observe_articulated(EntityId::new(1, 0));
+        assert_eq!([held.arms[0].equipment, held.arms[1].equipment], [Some(4), Some(4)]);
+
+        // And a left-hand weapon, which nothing above reaches: the fighter's
+        // shield and sword swapped over.
+        world.grips[0].swap(0, 1);
+        world.shield_pose[0] = world.derive_shield_pose(0);
+        assert_eq!(capable(&world, 0),
+                   A::MOVEMENT | A::TURNING | A::LEFT_GRIP | A::RIGHT_GRIP | A::LEFT_WEAPON | A::SHIELD);
+
+        // Every bit is a distinct power of two and none above seven is ever
+        // set, which is the reference's "higher bits are zero in V1".
+        let bits = [A::MOVEMENT, A::TURNING, A::LEFT_GRIP, A::RIGHT_GRIP,
+                    A::LEFT_WEAPON, A::RIGHT_WEAPON, A::SHIELD, A::TWO_HANDED];
+        assert_eq!(bits, core::array::from_fn(|bit| 1u32 << bit));
+        for world in [&world, &both, &empty, &armless, &legless] {
+            for i in 0..world.alive.len() {
+                assert_eq!(world.observe_articulated(world.id_of(i)).capabilities & !0xff, 0);
+            }
+        }
+    }
+
+    #[test]
+    fn the_articulated_opponent_list_is_the_nearest_six_enemies_in_sight() {
+        let mut world = World::new(&crowded_scenario(), 1);
+        let hero = EntityId::new(0, 0);
+        // Far-sighted, so all seven enemies are in view and the cap is the only
+        // thing that can drop one.
+        world.stats[0].perception = 15;
+        let obs = world.observe_articulated(hero);
+        assert_eq!(obs.opponent_count as usize, MAX_ARTICULATED_OPPONENTS);
+        assert_eq!(
+            obs.opponents().iter().map(|foe| foe.id).collect::<Vec<_>>(),
+            (1..=6).map(|i| EntityId::new(i, 0)).collect::<Vec<_>>(),
+            "the six nearest enemies, nearest first"
+        );
+        // The ally stands nearer than any of them and is not an opponent.
+        assert_eq!(world.faction[8], Faction::Heroes);
+        assert!(obs.opponents().iter().all(|foe| foe.id != EntityId::new(8, 0)));
+        // The seventh enemy is in sight and dropped by the cap, and its row is
+        // the blank value throughout rather than a half-filled one.
+        assert!((world.pos[7] - world.pos[0]).length() < world.stats[0].sight_range());
+
+        // The cap is `MAX_ARTICULATED_OPPONENTS` and *not* the per-observer
+        // `tracked_contacts` the legacy list narrows to. A dim eye holds fewer
+        // legacy contacts and the same six articulated rows: the articulated
+        // block's width is a fixed wasm stride, so a dim character's rows are
+        // blurred rather than fewer.
+        world.stats[0].perception = 3;
+        assert_eq!(world.stats[0].tracked_contacts(), 3);
+        let dim = world.observe(hero);
+        assert_eq!(dim.enemies().len(), 3, "the legacy list stopped narrowing");
+        assert_eq!(dim.articulated.opponent_count, 5,
+                   "five enemies inside a 7.8 unit sight range");
+        for slot in dim.articulated.opponent_count as usize..MAX_ARTICULATED_OPPONENTS {
+            assert_eq!(dim.articulated.opponents[slot], ObservedOpponent::BLANK,
+                       "an unused row carried something");
+        }
+    }
+
+    #[test]
+    fn rock_stops_the_articulated_eye_too() {
+        // `a_foe_behind_one_tile_of_rock_is_not_a_contact`, asked of the
+        // articulated list, because the two selections must use one predicate
+        // and not two that agree today.
+        //           0123456789
+        let rows = ["##########",
+                    "#..#.....#",
+                    "#........#",
+                    "##########"];
+        let mut scenario = fragile_scenario(&[]);
+        scenario.dungeon = crate::dungeon::parse(&rows);
+        scenario.units[0].spawn = Vec2::new(Fx::from_ratio(255, 100), Fx::from_ratio(15, 10));
+        scenario.units[1].spawn = Vec2::new(Fx::from_ratio(475, 100), Fx::from_ratio(15, 10));
+        let blocked = World::new(&scenario, 1);
+        assert_eq!(blocked.observe_articulated(EntityId::new(0, 0)).opponent_count, 0,
+                   "an enemy behind a pillar entered the articulated list");
+
+        // The control, on the same span of floor with the pillar removed: a
+        // fixture that could not see the brute anyway proves nothing.
+        scenario.units[0].spawn = Vec2::new(Fx::from_ratio(255, 100), Fx::from_ratio(25, 10));
+        scenario.units[1].spawn = Vec2::new(Fx::from_ratio(475, 100), Fx::from_ratio(25, 10));
+        let open = World::new(&scenario, 1);
+        assert_eq!(open.observe_articulated(EntityId::new(0, 0)).opponent_count, 1);
+    }
+
+    #[test]
+    fn poor_perception_blurs_motion_without_inventing_severance() {
+        // The brute is the subject: the fighter it is looking at carries both a
+        // shield and a sword, so the categorical half of this test has
+        // something to be wrong about.
+        let mut sharp = eyed_world(1, 15);
+        // An eighth of a unit apart and closing at a quarter per tick, which
+        // puts `contact_timing` at exactly a half -- inside the interval where
+        // it carries information. At the fixture's own spacing the formula
+        // saturates at one, and a saturated column cannot show that it was
+        // blurred.
+        sharp.pos[0] = sharp.pos[1] + Vec2::new(Fx::from_ratio(-1, 8), Fx::ZERO);
+        // Real motion to misjudge, written onto the column the observation
+        // reads rather than coaxed out of a command.
+        sharp.vel[0] = Vec2::new(Fx::from_ratio(1, 4), Fx::ZERO);
+        let mut dim = sharp.clone();
+        dim.stats[1].perception = 0;
+        assert_eq!(sharp.stats[1].perception_noise(), Fx::ZERO, "the sharp eye is not exact");
+        assert!(dim.stats[1].perception_noise() > Fx::ONE, "the dim eye is not blurred");
+
+        let brute = EntityId::new(1, 0);
+        let clean = sharp.observe_articulated(brute);
+        let blurred = dim.observe_articulated(brute);
+        let (clean, blurred) = (clean.opponents[0], blurred.opponents[0]);
+
+        // The sharp eye is ground truth, which is what makes every difference
+        // below attributable to the noise and nothing else.
+        assert_eq!(clean.body_position, Vec3::new(sharp.pos[0].x, sharp.pos[0].y, Fx::ZERO));
+        assert_eq!(clean.body_velocity, Vec3::new(sharp.vel[0].x, sharp.vel[0].y, Fx::ZERO));
+        assert_eq!(clean.contact_timing, Fx::HALF, "the fixture is not inside the timing interval");
+
+        // Measured: moved, in all three components of both vectors. Z has no
+        // degree of freedom in the model and is blurred anyway, because the
+        // draw order is an ABI and does not get to depend on which axes the
+        // physics currently uses.
+        for (name, a, b) in [
+            ("position x", clean.body_position.x, blurred.body_position.x),
+            ("position y", clean.body_position.y, blurred.body_position.y),
+            ("position z", clean.body_position.z, blurred.body_position.z),
+            ("velocity x", clean.body_velocity.x, blurred.body_velocity.x),
+            ("velocity y", clean.body_velocity.y, blurred.body_velocity.y),
+            ("velocity z", clean.body_velocity.z, blurred.body_velocity.z),
+        ] {
+            assert_ne!(a, b, "{name} arrived unblurred");
+        }
+        assert_ne!(clean.contact_timing, blurred.contact_timing, "timing arrived unblurred");
+
+        // The three scales, over sixty-four seeds rather than over one draw. A
+        // single sample cannot tell a quarter-sized error from a small draw of
+        // a full-sized one, and asserting it on one world is how a scale
+        // regression survives a year.
+        //
+        // The fixture is the *unmoved* one on purpose. Timing is computed from
+        // the measured columns rather than from ground truth -- deliberately,
+        // so a policy recomputing it from the published numbers gets the
+        // published answer -- which means at a range where the formula is live,
+        // the timing error is the position and velocity error propagated
+        // through it and is bounded by nothing in particular. Two bodies a
+        // stride and a half apart and standing still saturate it at one in both
+        // worlds, so what is left of the difference is the timing draw alone.
+        let noise = dim.stats[1].perception_noise();
+        let moved = |a: Fx, b: Fx| (a - b).abs();
+        let (mut worst_position, mut worst_velocity, mut worst_timing) =
+            (Fx::ZERO, Fx::ZERO, Fx::ZERO);
+        for seed in 1..=64u64 {
+            let mut sharp = eyed_world(1, 15);
+            sharp.seed = seed;
+            let mut dim = sharp.clone();
+            dim.stats[1].perception = 0;
+            let clean = sharp.observe_articulated(brute).opponents[0];
+            let blurred = dim.observe_articulated(brute).opponents[0];
+            assert_eq!(clean.contact_timing, Fx::ONE, "the saturated fixture is not saturated");
+            for (a, b) in [
+                (clean.body_position.x, blurred.body_position.x),
+                (clean.body_position.y, blurred.body_position.y),
+                (clean.body_position.z, blurred.body_position.z),
+            ] {
+                worst_position = worst_position.max(moved(a, b));
+            }
+            for (a, b) in [
+                (clean.body_velocity.x, blurred.body_velocity.x),
+                (clean.body_velocity.y, blurred.body_velocity.y),
+                (clean.body_velocity.z, blurred.body_velocity.z),
+            ] {
+                worst_velocity = worst_velocity.max(moved(a, b));
+            }
+            worst_timing = worst_timing.max(moved(clean.contact_timing, blurred.contact_timing));
+        }
+        // Bounded by the documented scale, and close enough to it that a
+        // quarter mistaken for a whole would show. `Fx::EPSILON` of slack for
+        // the truncation in one fixed-point multiply.
+        for (name, worst, bound) in [
+            ("position", worst_position, noise),
+            ("velocity", worst_velocity, noise / 4),
+            ("timing", worst_timing, noise / 8),
+        ] {
+            assert!(worst <= bound + Fx::EPSILON, "{name} error {worst} exceeded {bound}");
+            assert!(worst * 4 > bound * 3, "{name} error never approached {bound}: {worst}");
+        }
+
+        // Categorical: identical, and not merely close.
+        assert_eq!(clean.id, blurred.id);
+        assert_eq!(clean.severed_mask, blurred.severed_mask);
+        assert_eq!(clean.severed_mask, 0, "the fixture has nothing severed to preserve");
+        assert_eq!(clean.weapons.map(|w| w.is_some()), blurred.weapons.map(|w| w.is_some()));
+        assert_eq!(clean.weapons.map(|w| w.is_some()), [false, true]);
+        assert_eq!(clean.shield.present, blurred.shield.present);
+        assert!(clean.shield.present, "the fixture has no shield to preserve");
+        assert_eq!(clean.body_yaw, blurred.body_yaw);
+        assert_eq!(
+            clean.regions.map(|region| (region.present, region.radius)),
+            blurred.regions.map(|region| (region.present, region.radius)),
+            "a blurred body changed shape",
+        );
+        assert_eq!((clean.shield.half_width, clean.shield.half_height),
+                   (blurred.shield.half_width, blurred.shield.half_height));
+
+        // And the subject's own half of the observation, which is exact whatever
+        // the eye is: proprioception is free.
+        let clean = sharp.observe_articulated(brute);
+        let blurred = dim.observe_articulated(brute);
+        assert_eq!(clean.capabilities, blurred.capabilities);
+        assert_eq!(clean.arms, blurred.arms);
+        assert_eq!(clean.body_position, blurred.body_position);
+        assert_eq!(clean.body_velocity, blurred.body_velocity);
+        assert_eq!(clean.severed_mask, blurred.severed_mask);
+        assert_eq!(clean.integrity_fraction, blurred.integrity_fraction);
+    }
+
+    #[test]
+    fn opponent_geometry_translates_rigidly_rather_than_shearing() {
+        let sharp = eyed_world(1, 15);
+        let mut dim = sharp.clone();
+        dim.stats[1].perception = 0;
+        let brute = EntityId::new(1, 0);
+        let clean = sharp.observe_articulated(brute).opponents[0];
+        let blurred = dim.observe_articulated(brute).opponents[0];
+
+        let delta = blurred.body_position - clean.body_position;
+        assert_ne!(delta, Vec3::ZERO, "the dim eye measured the body exactly");
+        // Every point of the body moves by the *same* displacement. A per-point
+        // draw would put an arm three feet from its own shoulder, which is not
+        // what bad eyesight does to a silhouette.
+        for part in 0..BodyPart::COUNT {
+            let (a, b) = (clean.regions[part], blurred.regions[part]);
+            assert_eq!(b.lower - a.lower, delta, "region {part} lower sheared");
+            assert_eq!(b.upper - a.upper, delta, "region {part} upper sheared");
+            assert_eq!((a.radius, a.present), (b.radius, b.present));
+        }
+        let sword = (clean.weapons[1].expect("a sword"), blurred.weapons[1].expect("a sword"));
+        assert_eq!(sword.1.hilt - sword.0.hilt, delta, "the hilt sheared off the hand");
+        assert_eq!(sword.1.tip - sword.0.tip, delta, "the blade changed length");
+        assert_eq!(sword.0.radius, sword.1.radius);
+        assert_eq!(blurred.shield.centre - clean.shield.centre, delta);
+        assert_eq!(blurred.shield.normal, clean.shield.normal);
+
+        // The rigidity is a claim about the *shape*, so check one internal
+        // distance survives it outright rather than only the endpoints.
+        let reach = |foe: &ObservedOpponent| foe.weapons[1].unwrap().tip - foe.regions[BodyPart::Head as usize].lower;
+        assert_eq!(reach(&clean), reach(&blurred), "head to blade tip changed under noise");
+    }
+
+    #[test]
+    fn the_noise_stream_draws_seven_per_row_whatever_geometry_is_absent() {
+        // Two worlds identical except for what the *nearest* opponent is
+        // holding. If the draw count depended on the geometry present, the row
+        // behind it would land somewhere else -- so what one fighter perceives
+        // would depend on what somebody else is carrying.
+        let mut world = World::new(&crowded_scenario(), 1);
+        world.stats[0].perception = 0;
+        let mut disarmed = world.clone();
+        disarmed.grips[1] = [GripState { equipment_slot: None }; 2];
+        disarmed.shield_pose[1] = None;
+
+        let hero = EntityId::new(0, 0);
+        let armed = world.observe_articulated(hero);
+        let bare = disarmed.observe_articulated(hero);
+        assert_eq!(armed.opponent_count, bare.opponent_count);
+        assert!(armed.opponent_count >= 2, "one row proves nothing about the row after it");
+
+        // The control: the fixture really did remove geometry from row zero.
+        assert_ne!(armed.opponents[0].weapons, bare.opponents[0].weapons);
+        assert_ne!(armed.opponents[0].shield.present, bare.opponents[0].shield.present);
+        assert_eq!(armed.opponents[0].body_position, bare.opponents[0].body_position,
+                   "the row whose geometry changed also moved");
+
+        // And every row after it is untouched, which is the seven-draw promise.
+        for slot in 1..armed.opponent_count as usize {
+            assert_eq!(armed.opponents[slot], bare.opponents[slot],
+                       "row {slot} shifted when row zero lost its equipment");
+        }
+    }
+
+    #[test]
+    fn the_seven_perception_draws_are_the_documented_stream_in_order() {
+        // **Nothing else pins the stream.** Its order and its scales are frozen
+        // by the reference, no golden hash reaches it -- an observation is not
+        // authoritative state -- and no policy consumes it yet, so a swapped
+        // draw or an eighth draw would sit unnoticed until the day it froze by
+        // accident. This reproduces the stream from `fx` and asserts the
+        // published row against it term by term.
+        let mut world = World::new(&crowded_scenario(), 1);
+        world.stats[0].perception = 0;
+        let subject = 0usize;
+        let noise = world.stats[subject].perception_noise();
+        let obs = world.observe_articulated(EntityId::new(0, 0));
+        assert!(obs.opponent_count >= 2, "one row cannot show where the next row starts");
+
+        let mut rng = Rng::from_stream(
+            world.seed ^ ARTICULATED_OBSERVATION_DOMAIN,
+            world.tick as u64,
+            ((subject as u64) << 32) | world.generation[subject] as u64,
+        );
+        for slot in 0..obs.opponent_count as usize {
+            let mut jitter = [Fx::ZERO; 7];
+            for draw in jitter.iter_mut() {
+                *draw = rng.signed_unit();
+            }
+            // Distinct, or a permutation of the seven would be invisible here.
+            for a in 0..7 {
+                for b in a + 1..7 {
+                    assert_ne!(jitter[a], jitter[b], "draws {a} and {b} coincided");
+                }
+            }
+            let row = obs.opponents[slot];
+            let j = row.id.index as usize;
+            assert_eq!(row.body_position, Vec3::new(
+                world.pos[j].x + jitter[0] * noise,
+                world.pos[j].y + jitter[1] * noise,
+                jitter[2] * noise,
+            ), "row {slot} position is not draws 0..3 at the full scale");
+            assert_eq!(row.body_velocity, Vec3::new(
+                world.vel[j].x + jitter[3] * noise / 4,
+                world.vel[j].y + jitter[4] * noise / 4,
+                jitter[5] * noise / 4,
+            ), "row {slot} velocity is not draws 3..6 at a quarter scale");
+            // Nothing is moving in the fixture, so the formula answers exactly
+            // one and the whole of the difference is the seventh draw.
+            assert_eq!(row.contact_timing, (Fx::ONE + jitter[6] * noise / 8).clamp(Fx::ZERO, Fx::ONE),
+                       "row {slot} timing is not draw 6 at an eighth scale");
+        }
+    }
+
+    #[test]
+    fn the_articulated_and_legacy_perception_streams_never_share_a_draw() {
+        // ASCII `ARTOBS1`, which is the whole provenance of the constant.
+        assert_eq!(ARTICULATED_OBSERVATION_DOMAIN.to_be_bytes(), *b"\0ARTOBS1");
+
+        // The two streams key on the same (tick, entity) pair by construction,
+        // so without the domain a body would be handed one error twice and a
+        // policy reading both blocks would see a coincidence it could learn.
+        for seed in [0u64, 1, 0x9E37_79B9_7F4A_7C15, u64::MAX] {
+            for tick in [0u64, 1, 600] {
+                for entity in [0u64, (3 << 32) | 5, u64::MAX] {
+                    let mut legacy = Rng::from_stream(seed, tick, entity);
+                    let mut articulated =
+                        Rng::from_stream(seed ^ ARTICULATED_OBSERVATION_DOMAIN, tick, entity);
+                    let left: Vec<u32> = (0..8).map(|_| legacy.next_u32()).collect();
+                    let right: Vec<u32> = (0..8).map(|_| articulated.next_u32()).collect();
+                    assert_ne!(left, right, "seed {seed} tick {tick} entity {entity}");
+                    assert_ne!(left[0], right[0], "the two streams opened on the same draw");
+                }
+            }
+        }
+
+        // And through the world, where the legacy contact and the articulated
+        // row describe the same body at the same tick: two independent errors,
+        // not one written twice.
+        let mut world = World::new(&fragile_scenario(&[]), 1);
+        world.stats[1].perception = 0;
+        let obs = world.observe(EntityId::new(1, 0));
+        let contact = obs.enemies()[0];
+        let row = obs.articulated.opponents[0];
+        assert_eq!(contact.id, row.id, "the two blocks describe different bodies");
+        assert_ne!(contact.offset + world.pos[1], Vec2::new(row.body_position.x, row.body_position.y),
+                   "the legacy and articulated eyes misplaced the body identically");
+    }
+
+    #[test]
+    fn contact_timing_is_one_unless_something_is_closing() {
+        // Written on the velocity columns rather than driven by commands, for
+        // the reason `resolve_closing` gives: this is about the formula, and a
+        // stat-driven charge would be testing the actuator.
+        let mut world = eyed_world(0, 15);
+        let hero = EntityId::new(0, 0);
+        let timing = |world: &World| world.observe_articulated(hero).opponents[0].contact_timing;
+
+        // Standing still: nothing is closing, so exactly one.
+        assert_eq!(timing(&world), Fx::ONE);
+        // Separating: still one, and not a large number scaled down.
+        world.vel[0] = Vec2::new(Fx::from_ratio(-1, 4), Fx::ZERO);
+        assert_eq!(timing(&world), Fx::ONE);
+        // Closing, from a unit and a half away: six ticks of approach, and the
+        // clamp reads it as one. **The column saturates outside the last
+        // stride** -- it is ticks-to-arrival capped at a tick, not a countdown
+        // in seconds -- and pinning that here is what stops it being read as
+        // the second thing.
+        world.vel[0] = Vec2::new(Fx::from_ratio(1, 4), Fx::ZERO);
+        assert_eq!(timing(&world), Fx::ONE);
+
+        // Inside the last stride, where the number is informative. Eighths and
+        // quarters throughout, because a tenth is not exact in 16.16 and the
+        // assertion would be about rounding rather than about the formula.
+        world.pos[1] = world.pos[0] + Vec2::new(Fx::from_ratio(1, 8), Fx::ZERO);
+        assert_eq!(timing(&world), Fx::HALF);
+        world.vel[0] = Vec2::new(Fx::HALF, Fx::ZERO);
+        assert_eq!(timing(&world), Fx::from_ratio(1, 4));
+
+        // Coincident bodies: the delta has no direction to close along, so the
+        // dot product is zero and the formula answers one rather than zero.
+        // The degenerate case is worth pinning because "already here" is the
+        // reading somebody will expect.
+        world.pos[1] = world.pos[0];
+        assert_eq!(timing(&world), Fx::ONE);
+    }
+
+    /// A stand-in for a shipped policy, small enough to live here and close
+    /// enough to catch a decision-level regression.
+    ///
+    /// `crates/sim` cannot depend on `crates/policy` -- the dependency runs the
+    /// other way -- so this is how "the same observation produces the same
+    /// decision" becomes an assertion in this crate rather than only a lab
+    /// hash. It reads the columns a utility policy reads: the nearest enemy,
+    /// its bearing, its distance, and whether a cut could start this tick.
+    fn stand_in_policy(obs: &Observation) -> Command {
+        let Some(foe) = obs.nearest_enemy() else { return Command::HOLD };
+        let line = foe.offset.angle();
+        if foe.distance > obs.full_reach() + foe.radius {
+            return Command::attacking(foe.offset.normalize(), foe.id);
+        }
+        let limb = if obs.can_strike() {
+            LimbCommand::attack(line, Strike::Nearest)
+        } else {
+            LimbCommand::new(line, obs.limb.reach)
+        };
+        Command::swinging(Vec2::ZERO, foe.id, limb)
+    }
+
+    /// The scripted legacy run the prefix pin is taken over: every feature
+    /// index `0..450` of every observation, folded in decision order, and the
+    /// state hash the resulting commands produce.
+    fn legacy_prefix_probe() -> (u64, u64) {
+        let mut world = World::new(&Scenario::skirmish(11, 2, 3), 4);
+        world.set_order(Faction::Heroes, Order::Advance(Vec2::from_ints(1, 0)));
+        world.set_order(Faction::Monsters, Order::Advance(Vec2::from_ints(-1, 0)));
+        let mut buffer = vec![Fx::ZERO; crate::obs::FEATURE_COUNT];
+        let mut prefix = Hash64::new();
+        for _ in 0..600 {
+            for id in world.pending_decisions().to_vec() {
+                let obs = world.observe(id);
+                obs.write_features(&mut buffer);
+                for value in &buffer[..crate::obs::LEGACY_FEATURE_COUNT] {
+                    prefix.write_i32(value.raw());
+                }
+                world.submit(id, stand_in_policy(&obs));
+            }
+            world.step();
+        }
+        (prefix.finish(), world.state_hash())
+    }
+
+    #[test]
+    fn legacy_feature_prefix_and_policy_decisions_are_byte_identical() {
+        // **Both numbers were recorded on the tree immediately before the
+        // articulated block was appended**, by running this same probe against
+        // `FEATURE_COUNT == 450`, and they are the evidence that indices
+        // `0..450` did not move. A version bump is allowed to add columns; it
+        // is not allowed to renumber one, and nothing else in the suite would
+        // notice if it did.
+        //
+        // The state hash is the second half of the claim. Every command in the
+        // run is a pure function of the observation, so an observation that
+        // changed anywhere -- including in a field the vector does not carry --
+        // lands here as a different fight. `cargo run --release -p lab -- hash`
+        // makes the same argument with the shipped utility policy.
+        assert_eq!(legacy_prefix_probe(), (0x811f_a73c_2759_1214, 0x95b0_7997_3691_3997));
+    }
+
+    #[test]
+    fn the_articulated_feature_block_stays_inside_the_vectors_range() {
+        // `feature_vector_has_a_stable_width` runs on an all-Legacy fixture, so
+        // it asserts the `-2..=2` invariant over 472 zeros. This is the same
+        // claim where the block is actually populated, with the dimmest eye in
+        // the game so the noise is at its widest and the clamps are load
+        // bearing rather than decorative.
+        let mut world = World::new(&crowded_scenario(), 1);
+        for i in 0..world.alive.len() {
+            world.stats[i].perception = 0;
+        }
+        let mut buffer = vec![Fx::ZERO; crate::obs::FEATURE_COUNT];
+        let mut populated = 0;
+        for tick in 0..40 {
+            for i in 0..world.alive.len() {
+                if !world.alive[i] { continue; }
+                let yaw = if i == 0 { Angle::ZERO } else { Angle::HALF };
+                world.submit_articulated_v1(world.id_of(i), reaching_command(yaw, Fx::ONE));
+            }
+            world.step();
+            for i in 0..world.alive.len() {
+                if !world.alive[i] { continue; }
+                let obs = world.observe(world.id_of(i));
+                assert_eq!(obs.write_features(&mut buffer), crate::obs::FEATURE_COUNT);
+                if obs.articulated.present() {
+                    populated += obs.articulated.opponent_count as usize;
+                }
+                for (k, v) in buffer.iter().enumerate() {
+                    assert!(v.abs() <= Fx::from_int(2), "feature {k} out of range at tick {tick}: {v}");
+                }
+            }
+        }
+        assert!(populated > 200, "the fixture filled {populated} opponent rows, so it proves little");
     }
 
     #[test]

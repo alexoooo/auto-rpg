@@ -9,8 +9,14 @@ use crate::{AnatomyRegion, BodyAnatomySpec, EquipmentGeometry, EquipmentSpec,
 use super::actuator::{self, ArmState, ShieldPose};
 use fx::{Angle, Fx, Vec3};
 
+/// One held segment at one pose, in **world** space: the hilt is the absolute
+/// hand and the tip is one item length along the arm's bearing.
+///
+/// Public because the published pose row draws exactly this and there is no
+/// reason for a second struct carrying the same three fields. The rest of this
+/// module stays crate-private: a collider row is the contact phase's business.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub(crate) struct SegmentPose {
+pub struct SegmentPose {
     pub hilt: Vec3,
     pub tip: Vec3,
     pub radius: Fx,
@@ -50,8 +56,14 @@ pub(crate) struct ShieldCollider {
 /// and that is the point of collapsing all five onto one shape: the sweep, the
 /// medial distance, and the outward normal are then one piece of code rather
 /// than three that could disagree at a boundary.
+///
+/// Public for the same reason [`SegmentPose`] is: the subject-scoped
+/// observation publishes an opponent's five regions, and the reference's "head
+/// sphere" is this shape with `lower == upper`. A parallel sphere type beside
+/// it would be a second answer to "where is a head" that could drift from the
+/// one the contact phase sweeps.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub(crate) struct RegionVolume {
+pub struct RegionVolume {
     pub lower: Vec3,
     pub upper: Vec3,
     pub radius: Fx,
@@ -162,7 +174,7 @@ pub(crate) fn held_shield_collider(
 /// survivable -- death is head, torso, or blood -- so a body can go on fighting
 /// with a region that has to stay gone, and hardcoding presence for the three
 /// rigid regions would quietly resurrect it on the next tick's rebuild.
-pub(crate) fn body_region_volumes(
+pub fn body_region_volumes(
     body_origin: Vec3,
     anatomy: &BodyAnatomySpec,
     yaw: Angle,

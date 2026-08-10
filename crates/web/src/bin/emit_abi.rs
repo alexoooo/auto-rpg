@@ -5,6 +5,11 @@
 //! generated file is committed so TypeScript never needs to execute Rust at build
 //! time merely to type-check.
 
+// A separate crate root, so the library's attribute does not reach here. Zero
+// `unsafe` today and nothing this binary does could need any: it reads
+// constants and writes a string.
+#![deny(unsafe_code)]
+
 use std::{env, fmt::Write as _, fs, process};
 
 use web::*;
@@ -36,6 +41,16 @@ const HEADER_EVENTS_DROPPED: usize = 14;
 const FURNITURE_DOOR_SHUT: u8 = 0;
 const FURNITURE_DOOR_OPEN: u8 = 1;
 
+/// How many regions the pose row's two fraction blocks each hold. Emitted so
+/// the consumer indexes `POSE_INTEGRITY_FIRST + part` against a number rather
+/// than against a literal five it also has to keep in step with `BodyPart`.
+const POSE_BODY_PART_COUNT: usize = sim::AnatomyRegion::COUNT;
+
+/// The slot value that names the body itself rather than a grip. Carried across
+/// as the sim's own byte -- see the pose/event word rules -- so the consumer
+/// needs the number to tell "the torso" from "the left hand".
+const COMBAT_EVENT_BODY_SLOT: u32 = sim::BODY_SLOT as u32;
+
 const fn align4(value: usize) -> usize {
     (value + 3) & !3
 }
@@ -44,6 +59,16 @@ const FRAME_OFFSET: usize = 0;
 const MAP_OFFSET: usize = align4(FRAME_MAX * size_of::<f32>());
 const VIS_OFFSET: usize = MAP_OFFSET + MAP_MAX;
 const FURNITURE_OFFSET: usize = VIS_OFFSET + MAP_MAX;
+// **The snapshot ends at the furniture region, and the pose/combat-event regions
+// that v2-17 will append are deliberately not reserved yet.** Reserving them
+// takes this constant from 27,452 to 175,420 -- 147,968 bytes on each of three
+// pooled buffers, and a zero-fill 6.4x wider on a buffer `snapshot.ts` clears
+// whole once per filtered publication -- while nothing on the TypeScript side
+// writes or reads a word of either region, because the visibility-filtered copy
+// that would occupy them does not exist yet. A cost of that shape arrives with
+// its consumer and its measurement, not ahead of both. The column offsets below
+// are emitted regardless: those are the ABI and v2-17 needs every one of them.
+// `articulated-abi.md` records the decision beside the formula.
 const SNAPSHOT_BUFFER_BYTES: usize =
     align4(FURNITURE_OFFSET + FURNITURE_MAX * FURNITURE_STRIDE);
 
@@ -63,6 +88,10 @@ fn generated() -> String {
     emit!(SHOT_STRIDE);
     emit!(EVENT_STRIDE);
     emit!(FURNITURE_STRIDE);
+    emit!(POSE_LAYOUT_VERSION);
+    emit!(POSE_STRIDE);
+    emit!(COMBAT_EVENT_LAYOUT_VERSION);
+    emit!(COMBAT_EVENT_STRIDE);
     output.push('\n');
     emit!(MAX_UNITS);
     emit!(MAX_SHOTS);
@@ -70,6 +99,8 @@ fn generated() -> String {
     emit!(FRAME_MAX);
     emit!(MAP_MAX);
     emit!(FURNITURE_MAX);
+    emit!(MAX_POSES);
+    emit!(MAX_COMBAT_EVENTS);
     output.push('\n');
     emit!(FRAME_OFFSET);
     emit!(MAP_OFFSET);
@@ -169,6 +200,101 @@ fn generated() -> String {
     emit!(FURNITURE_DOOR_OPEN);
     emit!(TORCH_FACE_POS_X);
     emit!(TORCH_FACE_POS_Y);
+    output.push('\n');
+    emit!(POSE_ENTITY_INDEX);
+    emit!(POSE_ENTITY_GENERATION);
+    emit!(POSE_BODY_X);
+    emit!(POSE_BODY_Y);
+    emit!(POSE_BODY_Z);
+    emit!(POSE_BODY_YAW_RAW);
+    emit!(POSE_BODY_VX);
+    emit!(POSE_BODY_VY);
+    emit!(POSE_BODY_VZ);
+    emit!(POSE_LEFT_HAND_X);
+    emit!(POSE_LEFT_HAND_Y);
+    emit!(POSE_LEFT_HAND_Z);
+    emit!(POSE_LEFT_HAND_VX);
+    emit!(POSE_LEFT_HAND_VY);
+    emit!(POSE_LEFT_HAND_VZ);
+    emit!(POSE_LEFT_FATIGUE);
+    emit!(POSE_LEFT_TARGET_X);
+    emit!(POSE_LEFT_TARGET_Y);
+    emit!(POSE_LEFT_TARGET_Z);
+    emit!(POSE_RIGHT_HAND_X);
+    emit!(POSE_RIGHT_HAND_Y);
+    emit!(POSE_RIGHT_HAND_Z);
+    emit!(POSE_RIGHT_HAND_VX);
+    emit!(POSE_RIGHT_HAND_VY);
+    emit!(POSE_RIGHT_HAND_VZ);
+    emit!(POSE_RIGHT_FATIGUE);
+    emit!(POSE_RIGHT_TARGET_X);
+    emit!(POSE_RIGHT_TARGET_Y);
+    emit!(POSE_RIGHT_TARGET_Z);
+    emit!(POSE_LEFT_WEAPON_HILT_X);
+    emit!(POSE_LEFT_WEAPON_HILT_Y);
+    emit!(POSE_LEFT_WEAPON_HILT_Z);
+    emit!(POSE_LEFT_WEAPON_TIP_X);
+    emit!(POSE_LEFT_WEAPON_TIP_Y);
+    emit!(POSE_LEFT_WEAPON_TIP_Z);
+    emit!(POSE_RIGHT_WEAPON_HILT_X);
+    emit!(POSE_RIGHT_WEAPON_HILT_Y);
+    emit!(POSE_RIGHT_WEAPON_HILT_Z);
+    emit!(POSE_RIGHT_WEAPON_TIP_X);
+    emit!(POSE_RIGHT_WEAPON_TIP_Y);
+    emit!(POSE_RIGHT_WEAPON_TIP_Z);
+    emit!(POSE_SHIELD_CENTER_X);
+    emit!(POSE_SHIELD_CENTER_Y);
+    emit!(POSE_SHIELD_CENTER_Z);
+    emit!(POSE_SHIELD_NORMAL_X);
+    emit!(POSE_SHIELD_NORMAL_Y);
+    emit!(POSE_SHIELD_NORMAL_Z);
+    emit!(POSE_SHIELD_HALF_WIDTH);
+    emit!(POSE_SHIELD_HALF_HEIGHT);
+    emit!(POSE_INTEGRITY_FIRST);
+    emit!(POSE_WOUND_FIRST);
+    emit!(POSE_BLOOD_FRACTION);
+    emit!(POSE_SHOCK);
+    emit!(POSE_SEVERED_MASK);
+    emit!(POSE_EQUIPMENT_MASK);
+    emit!(POSE_INTENT);
+    emit!(POSE_LEFT_HINT);
+    emit!(POSE_RIGHT_HINT);
+    emit!(POSE_BODY_PART_COUNT);
+    output.push('\n');
+    emit!(COMBAT_EVENT_TICK);
+    emit!(COMBAT_EVENT_TOI_RAW);
+    emit!(COMBAT_EVENT_GROUP_ORDINAL);
+    emit!(COMBAT_EVENT_A_INDEX);
+    emit!(COMBAT_EVENT_A_GENERATION);
+    emit!(COMBAT_EVENT_B_INDEX);
+    emit!(COMBAT_EVENT_B_GENERATION);
+    emit!(COMBAT_EVENT_A_SLOT);
+    emit!(COMBAT_EVENT_B_SLOT);
+    emit!(COMBAT_EVENT_KIND);
+    emit!(COMBAT_EVENT_POINT_X);
+    emit!(COMBAT_EVENT_POINT_Y);
+    emit!(COMBAT_EVENT_POINT_Z);
+    emit!(COMBAT_EVENT_NORMAL_X);
+    emit!(COMBAT_EVENT_NORMAL_Y);
+    emit!(COMBAT_EVENT_NORMAL_Z);
+    emit!(COMBAT_EVENT_ENERGY_BEFORE_LO);
+    emit!(COMBAT_EVENT_ENERGY_BEFORE_HI);
+    emit!(COMBAT_EVENT_ENERGY_AFTER_LO);
+    emit!(COMBAT_EVENT_ENERGY_AFTER_HI);
+    emit!(COMBAT_EVENT_ENERGY_DISSIPATED_LO);
+    emit!(COMBAT_EVENT_ENERGY_DISSIPATED_HI);
+    emit!(COMBAT_EVENT_CUT_LO);
+    emit!(COMBAT_EVENT_CUT_HI);
+    emit!(COMBAT_EVENT_THRUST_LO);
+    emit!(COMBAT_EVENT_THRUST_HI);
+    emit!(COMBAT_EVENT_PRESSURE_LO);
+    emit!(COMBAT_EVENT_PRESSURE_HI);
+    emit!(COMBAT_EVENT_DEFLECTED_LO);
+    emit!(COMBAT_EVENT_DEFLECTED_HI);
+    emit!(COMBAT_EVENT_BODY_PART);
+    emit!(COMBAT_EVENT_SEVERED);
+    emit!(COMBAT_EVENT_NO_BODY_PART);
+    emit!(COMBAT_EVENT_BODY_SLOT);
     output.push_str(
         "\nexport const FOCUS_NONE = 4294967295;\n\
          export const FOCUS_IDENTITY_EXPORTS = [\n\
@@ -211,7 +337,21 @@ mod tests {
         assert!(MAP_OFFSET >= FRAME_OFFSET + FRAME_MAX * size_of::<f32>());
         assert!(VIS_OFFSET >= MAP_OFFSET + MAP_MAX);
         assert!(FURNITURE_OFFSET >= VIS_OFFSET + MAP_MAX);
-        assert!(SNAPSHOT_BUFFER_BYTES >= FURNITURE_OFFSET + FURNITURE_MAX * FURNITURE_STRIDE);
+        let furniture_end = FURNITURE_OFFSET + FURNITURE_MAX * FURNITURE_STRIDE;
+        assert!(SNAPSHOT_BUFFER_BYTES >= furniture_end);
+        // **Four regions and no fifth**, which is the half of the name that
+        // would otherwise go quiet -- an assertion that every region fits says
+        // nothing about a region reserved for nobody. The buffer ends within
+        // one alignment step of the furniture block, so a pose or combat-event
+        // region appended here without a consumer fails this line rather than
+        // silently widening three pooled buffers and the memset `snapshot.ts`
+        // runs once per filtered publication. Those two regions land in v2-17
+        // with the visibility-filtered copy that reads them.
+        assert!(
+            SNAPSHOT_BUFFER_BYTES < furniture_end + 4,
+            "the snapshot reserves {} bytes past the last region a consumer reads",
+            SNAPSHOT_BUFFER_BYTES - furniture_end,
+        );
     }
 
     #[test]
@@ -234,9 +374,63 @@ mod tests {
         ], core::array::from_fn::<_, EVENT_STRIDE, _>(|index| index));
         assert_eq!([FURNITURE_KIND, FURNITURE_TX, FURNITURE_TY, FURNITURE_STATE],
             core::array::from_fn::<_, FURNITURE_STRIDE, _>(|index| index));
+        // The two articulated rows, in the same idiom and for the same reason:
+        // an offset list that is exactly `0..STRIDE` has no gap a reader could
+        // fall into and no duplicate two columns could share. The ten regional
+        // fractions are written as their bases plus an index, which is how the
+        // consumer indexes them, so a `BodyPart` that gained a sixth region
+        // would fail here rather than silently overlap the wound block.
+        assert_eq!([
+            POSE_ENTITY_INDEX, POSE_ENTITY_GENERATION,
+            POSE_BODY_X, POSE_BODY_Y, POSE_BODY_Z, POSE_BODY_YAW_RAW,
+            POSE_BODY_VX, POSE_BODY_VY, POSE_BODY_VZ,
+            POSE_LEFT_HAND_X, POSE_LEFT_HAND_Y, POSE_LEFT_HAND_Z,
+            POSE_LEFT_HAND_VX, POSE_LEFT_HAND_VY, POSE_LEFT_HAND_VZ, POSE_LEFT_FATIGUE,
+            POSE_LEFT_TARGET_X, POSE_LEFT_TARGET_Y, POSE_LEFT_TARGET_Z,
+            POSE_RIGHT_HAND_X, POSE_RIGHT_HAND_Y, POSE_RIGHT_HAND_Z,
+            POSE_RIGHT_HAND_VX, POSE_RIGHT_HAND_VY, POSE_RIGHT_HAND_VZ, POSE_RIGHT_FATIGUE,
+            POSE_RIGHT_TARGET_X, POSE_RIGHT_TARGET_Y, POSE_RIGHT_TARGET_Z,
+            POSE_LEFT_WEAPON_HILT_X, POSE_LEFT_WEAPON_HILT_Y, POSE_LEFT_WEAPON_HILT_Z,
+            POSE_LEFT_WEAPON_TIP_X, POSE_LEFT_WEAPON_TIP_Y, POSE_LEFT_WEAPON_TIP_Z,
+            POSE_RIGHT_WEAPON_HILT_X, POSE_RIGHT_WEAPON_HILT_Y, POSE_RIGHT_WEAPON_HILT_Z,
+            POSE_RIGHT_WEAPON_TIP_X, POSE_RIGHT_WEAPON_TIP_Y, POSE_RIGHT_WEAPON_TIP_Z,
+            POSE_SHIELD_CENTER_X, POSE_SHIELD_CENTER_Y, POSE_SHIELD_CENTER_Z,
+            POSE_SHIELD_NORMAL_X, POSE_SHIELD_NORMAL_Y, POSE_SHIELD_NORMAL_Z,
+            POSE_SHIELD_HALF_WIDTH, POSE_SHIELD_HALF_HEIGHT,
+            POSE_INTEGRITY_FIRST, POSE_INTEGRITY_FIRST + 1, POSE_INTEGRITY_FIRST + 2,
+            POSE_INTEGRITY_FIRST + 3, POSE_INTEGRITY_FIRST + 4,
+            POSE_WOUND_FIRST, POSE_WOUND_FIRST + 1, POSE_WOUND_FIRST + 2,
+            POSE_WOUND_FIRST + 3, POSE_WOUND_FIRST + 4,
+            POSE_BLOOD_FRACTION, POSE_SHOCK, POSE_SEVERED_MASK, POSE_EQUIPMENT_MASK,
+            POSE_INTENT, POSE_LEFT_HINT, POSE_RIGHT_HINT,
+        ], core::array::from_fn::<_, POSE_STRIDE, _>(|index| index));
+        assert_eq!(POSE_BODY_PART_COUNT, 5);
+        assert_eq!([
+            COMBAT_EVENT_TICK, COMBAT_EVENT_TOI_RAW, COMBAT_EVENT_GROUP_ORDINAL,
+            COMBAT_EVENT_A_INDEX, COMBAT_EVENT_A_GENERATION,
+            COMBAT_EVENT_B_INDEX, COMBAT_EVENT_B_GENERATION,
+            COMBAT_EVENT_A_SLOT, COMBAT_EVENT_B_SLOT, COMBAT_EVENT_KIND,
+            COMBAT_EVENT_POINT_X, COMBAT_EVENT_POINT_Y, COMBAT_EVENT_POINT_Z,
+            COMBAT_EVENT_NORMAL_X, COMBAT_EVENT_NORMAL_Y, COMBAT_EVENT_NORMAL_Z,
+            COMBAT_EVENT_ENERGY_BEFORE_LO, COMBAT_EVENT_ENERGY_BEFORE_HI,
+            COMBAT_EVENT_ENERGY_AFTER_LO, COMBAT_EVENT_ENERGY_AFTER_HI,
+            COMBAT_EVENT_ENERGY_DISSIPATED_LO, COMBAT_EVENT_ENERGY_DISSIPATED_HI,
+            COMBAT_EVENT_CUT_LO, COMBAT_EVENT_CUT_HI,
+            COMBAT_EVENT_THRUST_LO, COMBAT_EVENT_THRUST_HI,
+            COMBAT_EVENT_PRESSURE_LO, COMBAT_EVENT_PRESSURE_HI,
+            COMBAT_EVENT_DEFLECTED_LO, COMBAT_EVENT_DEFLECTED_HI,
+            COMBAT_EVENT_BODY_PART, COMBAT_EVENT_SEVERED,
+        ], core::array::from_fn::<_, COMBAT_EVENT_STRIDE, _>(|index| index));
+        // The absent-region sentinel is outside every region a `BodyPart` can
+        // name, and outside the sim's own `0xff` so a reader that lost the
+        // width cannot confuse the two.
+        assert_eq!(COMBAT_EVENT_NO_BODY_PART, u32::MAX);
+        assert!(COMBAT_EVENT_NO_BODY_PART as usize >= POSE_BODY_PART_COUNT);
+        assert_eq!(COMBAT_EVENT_BODY_SLOT, 255);
         assert_eq!(EVENT_DESCEND + 1, EVENT_KINDS);
         assert_eq!((MAP_OPEN, MAP_SOLID, MAP_UNKNOWN), (0, 1, 255));
         assert_eq!(RAW_ANGLE_TURN, 65536);
         assert_eq!(MAP_TILE_MILLI, 1000);
+        assert_eq!(MAX_POSES, sim::MAX_ARTICULATED_ENTITIES);
     }
 }

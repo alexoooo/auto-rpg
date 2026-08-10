@@ -70,15 +70,52 @@ carried forward is done: it was never blocked on `v2-16`, because `v2-11a`'s
 `submit_articulated` already steers an articulated row, and the duel's two rows walked
 into each other spend every group ordinal on tick 85. No hash moved for it. See
 [`v2-14`'s closing note](v2-14-contact-solver.md#what-was-left-owed-and-what-it-cost).
-`v2-16` is next.
+`v2-16` is **complete**. The ground-truth pose accessor and the subject-scoped
+observation plus its appended 472-feature block landed first, moving
+`FEATURE_LAYOUT_VERSION` to 12 and `FEATURE_COUNT` to 922 with indices `0..450`
+byte-identical. The host half followed -- the fixed pose and combat-event
+buffers, their fifteen exports, `init_articulated`, and the portable stream digest,
+which pins as `ARTICULATED_STREAM_DIGEST = 0x4372a94d89fc9155` and agrees
+between native and wasm. The policy seam landed beside them -- `ArticulatedPolicy`
+beside `Policy`, `policy::run_articulated` beside `run`, and the workspace's first
+`compile_fail` doctest, which is documentation rather than a gate on the stable
+toolchain and says so in place. Nothing outside its own tests drives it yet. The
+JavaScript half is in: `tools/wasm_check.js` whitelists all fifteen exports and adds
+`wasm_exports_match_layout_stride_capacity_and_drop_fields` and
+`native_and_wasm_pose_event_stream_digests_match` beside their `crates/web` twins, and
+`client/test/wasm-memory.test.mjs` adds
+`published_views_survive_articulated_stress_without_memory_growth`, which settles at
+237 pages and holds. The generated TypeScript *consumer* is still v2-17's; the
+generated constants are already emitted. No legacy hash moved, and the
+`duel --seeds 400` win rate is unchanged at 59.5%.
 
-**Carried into `v2-17` from `v2-15`:** the contact model gives an equipment collider
-one generalized point velocity -- body plus *hand* -- so a swing's tip speed is not
-represented and a stat-driven fight dissipates less than the raw-144 energy floor into
-any single blow. The scripted mechanical gate cannot assume emergent wounds without
-either a tip-velocity term or a roster whose regional maxima are scaled to what the
-solver actually delivers. See
+**Carried into `v2-17`, from `v2-15` and now sharpened by `v2-16`:** the contact model
+gives an equipment collider one generalized point velocity -- body plus *hand* -- so a
+swing's tip speed is not represented and a stat-driven fight dissipates less than the
+raw-144 energy floor into any single blow. `v2-16`'s policy checkpoint measured what
+that costs end to end: with an aggressive attacking articulated policy, **3600 ticks
+of continuous contact (2300-4100 resolutions) takes the Brute from 1.000 health to
+0.948 and leaves the Fighter untouched**, so no policy ends `articulated_duel` inside
+its hour of ticks. Separately, `Scenario::articulated_duel` spawns its two bodies
+**10.8 units apart against a 9.6 sight range**, so neither ever sees the other, and an
+articulated policy has no standing order to search along because the observation has
+no order column. The scripted mechanical gate therefore needs three things and not
+one: a tip-velocity term or a roster whose regional maxima are scaled to what the
+solver delivers, a fixture whose bodies start inside each other's sight, and a way for
+a policy to close when nothing is visible. See
 [`anatomy-health.md`](../reference/anatomy-health.md#measured-limits-this-session-found).
+
+**Two smaller readings from `v2-16` worth not rediscovering.** The `compile_fail`
+doctest's pinned error code (`E0050`) is **not enforced on stable rustc** -- only on
+nightly, where the code is checked; on stable it is parsed and ignored, so a
+deliberately wrong code passes. What actually rules out a doctest passing for the
+wrong reason is the compiling twin beside it that differs only by the `&World`
+parameter, and the caveat is written out at the doctest in
+`crates/policy/src/lib.rs`. And the combat-event feed is cleared **per `step`, not per
+publication**, exactly as the legacy event feed always has been: a click or a spawn
+between two steps rebuilds the frame and republishes the same rows, so a consumer that
+accumulates from the feed must key on the call that stepped or it double counts.
+`step(0)` clears the feed, which is the same rule from the other end.
 
 ## Session order and hash prediction
 
@@ -99,7 +136,7 @@ solver actually delivers. See
 | `v2-13-arm-actuators` | complete persistent arms, shield, and turn-in-place control | unchanged | absent |
 | `v2-14-contact-solver` | iterative time-of-impact groups and energy ledger | unchanged | absent |
 | `v2-15-anatomy` | immutable anatomy/equipment plus mutable wound state | unchanged | absent |
-| `v2-16-pose-event-abi` | bounded portable pose/event streams | unchanged | absent |
+| `v2-16-pose-event-abi` | complete: bounded portable pose/event streams, subject observation, policy seam | unchanged | `ARTICULATED_HASH` absent; `ARTICULATED_STREAM_DIGEST` and the legacy feature prefix added |
 | `v2-17-scripted-mechanical-gate` | recorded debug-shape two-body fight | unchanged | pinned once |
 | `v2-18-combatant-integration` | representative rigs/assets over frozen mechanics | unchanged | unchanged |
 | `v2-19-learning-probe` | learned-vs-scripted evidence and expand/stop decision | unchanged | unchanged |
@@ -132,7 +169,7 @@ SUBMITTED_COMMAND_LAYOUT_VERSION = 1    v2-11
 POSE_LAYOUT_VERSION = 1                 v2-16
 COMBAT_EVENT_LAYOUT_VERSION = 1         v2-16
 MAX_POSES = 64                          v2-16, host publication cap; not a sim spawn cap
-MAX_COMBAT_EVENTS = 256                 v2-16, measured before the phase lands
+MAX_COMBAT_EVENTS = 1024                v2-16, measured: 446 rows, so 256 was rejected
 ```
 
 Append-only layouts retain stable discriminants. Exact persisted field order lives

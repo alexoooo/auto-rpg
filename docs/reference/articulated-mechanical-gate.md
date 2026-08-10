@@ -208,9 +208,27 @@ SNAPSHOT_BUFFER_BYTES = COMBAT_EVENT_OFFSET
 Against the accepted V1 base ABI (`FURNITURE_OFFSET=25_404`,
 `FURNITURE_MAX=512`, `FURNITURE_STRIDE=4` bytes), these evaluate exactly to
 `POSE_OFFSET=27_452`, `COMBAT_EVENT_OFFSET=44_348`, and
-`SNAPSHOT_BUFFER_BYTES=77_116`. Generation asserts both the formula and these input
+`SNAPSHOT_BUFFER_BYTES=175_420`. Generation asserts both the formula and these input
 base constants; a prior legacy ABI change requires updating this reference rather
 than silently retaining stale numeric offsets.
+
+**None of the three is generated yet, and that is v2-16's decision rather than its
+omission.** `emit_abi` emits both layout versions, both strides, both capacities and
+all 66 + 32 column offsets — v2-17 needs every one of them — but the snapshot chain
+still ends at the furniture block, so the generated `SNAPSHOT_BUFFER_BYTES` is
+`27_452` and each snapshot buffer still has four regions. Reserving the two articulated
+regions ahead of the filtered copy widens three pooled buffers by 147,968 bytes each and
+makes the once-per-publication zero-fill in `client/src/state/snapshot.ts` 6.4x wider,
+for regions nothing writes and nothing reads. The offsets above are what v2-17 generates
+when it lands the copy; `snapshot_offsets_are_aligned_non_overlapping_and_cover_every_fixed_buffer`
+fails today if a region is reserved without one.
+
+The `SNAPSHOT_BUFFER_BYTES` above was `77_116` while `MAX_COMBAT_EVENTS` was the
+provisional 256. The mandatory high-water corpus in
+[`articulated-abi.md`](articulated-abi.md#combat-event-rows) measured 446 rows in one
+`step(8)` batch and rejected that capacity; 1024 is what replaced it, and this is the
+only number downstream of the change — the two offsets are sized from the pose block
+and are unmoved.
 
 Snapshot metadata fields are `poseLength`, `posesDropped`, `combatEventLength`, and
 `combatEventsDropped`; lengths count rows. Shape validation checks the generated

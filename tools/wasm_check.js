@@ -346,6 +346,36 @@ test("the boundary exports everything the client calls", () => {
     // no longer caps" into a fixture that quietly stops covering the tick shape
     // it was written for.
     "contact_cap_hits",
+    // The v2-16 pose and combat-event publications. Thirteen of the fifteen
+    // names below have no caller on the legacy page at all -- the worker that
+    // filters them lands in v2-17 -- so this list is the *only* thing standing
+    // between a renamed export and a silent gap, and the gap would be silent in
+    // the worst way: `pose_len()` and `combat_event_len()` read as `undefined`,
+    // `undefined >>> 0` is `0`, and a stream that publishes nothing is exactly
+    // what an idle world publishes too.
+    "pose_ptr",
+    "pose_len",
+    "pose_stride",
+    "pose_capacity",
+    "poses_dropped",
+    "pose_layout_version",
+    "combat_event_ptr",
+    "combat_event_len",
+    "combat_event_stride",
+    "combat_event_capacity",
+    "combat_events_dropped",
+    "combat_event_layout_version",
+    // `init`'s room under the articulated model. Its only callers today are the
+    // two tests below and client/test/wasm-memory.test.mjs, which warms it
+    // because it is the call that reserves 64 rows of contact vectors a Legacy
+    // heap has never held -- so a rename here would leave that test warming
+    // nothing and failing on growth it caused itself.
+    "init_articulated",
+    // The portable stream claim, read a half at a time. Nothing on the page
+    // calls either; they exist for `native_and_wasm_pose_event_stream_digests_match`
+    // below, which is precisely why they need a line here.
+    "articulated_stream_digest_lo",
+    "articulated_stream_digest_hi",
     "submitted_command_ptr",
     "submitted_command_len",
     "submitted_command_layout_version",
@@ -652,6 +682,282 @@ test("the behavioral contact corpus is the bytes the reference specifies", () =>
     hex(fnv1a64(measured)),
     "the exported digest halves are not FNV-1a-64 over the bytes just compared");
   console.log(`contact corpus ${hex(CONTACT_BEHAVIOR_DIGEST)}  == ${expected.length} bytes built here`);
+});
+
+// ------------------------------------------- the articulated pose/event ABI
+
+// docs/reference/articulated-abi.md, "Pose rows" and "Combat-event rows". Every
+// number below is transcribed from that document and none is read off the
+// module, on the argument ARENA already carries two hundred lines up: a stride
+// taken from the thing under test agrees with a module that moved a column by
+// construction.
+const POSE_LAYOUT_VERSION = 1;
+const POSE_STRIDE = 66;
+// `MAX_POSES` is the sim's own `MAX_ARTICULATED_ENTITIES`, so no world this
+// module can build could overflow the pose buffer -- which is why the drop
+// field is asserted rather than assumed below. It is the only witness that the
+// defensive prefix rule is wired up at all, and a defensive rule nobody reads
+// is a rule that has never run.
+const MAX_POSES = 64;
+const COMBAT_EVENT_LAYOUT_VERSION = 1;
+// Thirty-two and not twenty-five: the group energy ledger and the four damage
+// channels are `u64` in the solver, and each crosses as a low/high word pair. A
+// host that narrowed one would publish a wrong number no reader could tell from
+// a small one.
+const COMBAT_EVENT_STRIDE = 32;
+// **1024, and the 256 the plan proposed was measured and rejected.** The
+// reference's mandatory `abi-high-water` corpus -- 64 bodies as 32 Fighter/Brute
+// pairs three halves of a unit apart, one submitted command each at tick zero,
+// exactly one `step(8)` -- accumulates 446 rows in that single batch, so at 256
+// the host published the canonical 256 and counted 190 dropped. The rule for a
+// rejected capacity is the next power of two at least twice the measurement:
+// 446 doubles to 892 and rounds up.
+const MAX_COMBAT_EVENTS = 1024;
+
+// The pose columns this file reads, from the reference's row table.
+const POSE_ENTITY_INDEX = 0;
+const POSE_ENTITY_GENERATION = 1;
+const POSE_LEFT_WEAPON_HILT_X = 29;
+const POSE_RIGHT_WEAPON_HILT_X = 35;
+const POSE_SHIELD_CENTER_X = 41;
+const POSE_SEVERED_MASK = 61;
+const POSE_EQUIPMENT_MASK = 62;
+const POSE_INTENT = 63;
+const POSE_LEFT_HINT = 64;
+const POSE_RIGHT_HINT = 65;
+// Idle 0, Chasing 1, Braced 2, Contact 3, Recoiling 4, Severed 5. Append-only,
+// so this only ever grows and a code past it is a module animating something
+// this file has never been told about.
+const ANIMATION_HINTS = 6;
+// Hold 0, Attack 1, Flee 2 -- the wire ordinals the 55-byte command payload
+// froze, reused rather than renumbered.
+const INTENTS = 3;
+// Five `BodyPart` bits and nothing above them.
+const SEVERED_MASK_BITS = 5;
+
+// FNV-1a-64 over the published pose and combat-event words of a scripted
+// articulated fight, prefixed ASCII `ARPG-STREAM-V1`. The script is
+// `Scenario::articulated_duel()` at seed 1 with the fighter moved to (9,6) and
+// the brute to (7,6), one articulated command submitted to each on tick zero and
+// none after, twenty ticks and one publication each -- ticks 0, 1, 2 and 4
+// resolve nothing, tick 3 resolves two rows and every tick from 5 resolves one,
+// so both an empty tick and sixteen ticks of event rows are inside this number.
+// Pinned again in crates/web/src/lib.rs exactly as the five state hashes are;
+// `divergence` above explains what a one-sided failure means.
+//
+// **This one is not rebuilt from the reference, and the contact corpus above is
+// the reason that is worth writing down.** That corpus is a byte table the
+// document states outcome by outcome, so this file builds all 3,548 bytes and
+// refuses to take the module's word for any of them. This stream is not a table.
+// It is twenty ticks of fixed-point simulation output, and the only thing that
+// can produce those bytes is the sim -- nor could this file read them out of a
+// publication and re-digest them, because the script is not drivable from here:
+// `init_articulated_test` builds the *unmoved* duel and no export places a body,
+// so the two spawns the script depends on are unreachable across the wall.
+// What the pin buys anyway is the whole cross-target claim, which is what this
+// file is for: the number was recorded natively, the module recomputes it from
+// its own run through the same two writers `publish` calls, and the two agreeing
+// means wasm32 encodes what MSVC x86-64 encodes. What a single number cannot
+// catch is an encoder wrong the same way on both targets, and the row grammar
+// checked beside it is the part of the reference this file *can* rebuild.
+const ARTICULATED_STREAM_DIGEST = 0x4372a94d89fc9155n;
+
+// The live pose rows, copied out. Words and not floats: every published column
+// is a `u32`, and the signed ones are two's-complement raw bits.
+function poseRows() {
+  const rows = u32(wasm.pose_len());
+  const words = new Uint32Array(
+    wasm.memory.buffer,
+    u32(wasm.pose_ptr()),
+    rows * POSE_STRIDE,
+  );
+  return Array.from({ length: rows }, (_, row) =>
+    Array.from(words.slice(row * POSE_STRIDE, (row + 1) * POSE_STRIDE)));
+}
+
+test("wasm_exports_match_layout_stride_capacity_and_drop_fields", () => {
+  // **`typeof` first, before a single value is read.** The trap this file
+  // documents twice over up in the export list: `undefined >>> 0` is `0` and
+  // `NaN` never grows, so an export renamed out from under this test turns every
+  // assertion below into a vacuous pass. `poses_dropped()` answering zero
+  // because it is not there reads exactly like "nothing was dropped".
+  for (const name of [
+    "pose_ptr", "pose_len", "pose_stride", "pose_capacity", "poses_dropped",
+    "pose_layout_version", "combat_event_ptr", "combat_event_len",
+    "combat_event_stride", "combat_event_capacity", "combat_events_dropped",
+    "combat_event_layout_version", "init_articulated",
+  ]) {
+    assert.equal(typeof wasm[name], "function", `web.wasm does not export ${name}()`);
+  }
+
+  assert.equal(u32(wasm.pose_layout_version()), POSE_LAYOUT_VERSION, "POSE_LAYOUT_VERSION");
+  assert.equal(u32(wasm.pose_stride()), POSE_STRIDE, "POSE_STRIDE");
+  assert.equal(u32(wasm.pose_capacity()), MAX_POSES, "MAX_POSES");
+  assert.equal(
+    u32(wasm.combat_event_layout_version()),
+    COMBAT_EVENT_LAYOUT_VERSION,
+    "COMBAT_EVENT_LAYOUT_VERSION",
+  );
+  assert.equal(u32(wasm.combat_event_stride()), COMBAT_EVENT_STRIDE, "COMBAT_EVENT_STRIDE");
+  assert.equal(u32(wasm.combat_event_capacity()), MAX_COMBAT_EVENTS, "MAX_COMBAT_EVENTS");
+
+  // A Legacy world publishes neither stream, and that is the half of the
+  // drop-field assertion that is not vacuous: zero rows *and* zero dropped is a
+  // claim that both buffers were cleared rather than left holding the last
+  // articulated run's rows. A pose row is ground truth about an identity, and
+  // `publish` zeroes the buffers as well as the lengths for exactly that reason.
+  wasm.init(1);
+  wasm.step(60);
+  assert.equal(u32(wasm.pose_len()), 0, "a Legacy world published a pose row");
+  assert.equal(u32(wasm.poses_dropped()), 0, "a Legacy world dropped a pose row");
+  assert.equal(u32(wasm.combat_event_len()), 0, "a Legacy world published a contact row");
+  assert.equal(u32(wasm.combat_events_dropped()), 0, "a Legacy world dropped a contact row");
+
+  // And a fresh articulated world, where the pose buffer is not empty and both
+  // drop fields still read zero.
+  wasm.init_articulated(1);
+  const rows = u32(wasm.pose_len());
+  assert.ok(
+    rows > 0 && rows <= MAX_POSES,
+    `pose_len ${rows} is not a live row count inside ${MAX_POSES}`,
+  );
+  assert.equal(u32(wasm.poses_dropped()), 0, "the room overflowed a buffer sized to the sim's own cap");
+  assert.equal(u32(wasm.combat_event_len()), 0, "nobody has stepped and the feed is not empty");
+  assert.equal(u32(wasm.combat_events_dropped()), 0, "nobody has stepped and the feed dropped a row");
+
+  // Fixed arrays whose addresses never move, which is the one property the
+  // worker's typed arrays depend on for the life of the module. Checked against
+  // the *capacity* rather than the live length: the arrays are reserved whole at
+  // construction, so a module that placed 147,968 bytes of statics past the end
+  // of its own memory would be caught here rather than on the first busy tick.
+  const [poseAt, eventAt] = [u32(wasm.pose_ptr()), u32(wasm.combat_event_ptr())];
+  assert.ok(poseAt > 0 && eventAt > 0, "a published buffer is at address zero");
+  assert.notEqual(poseAt, eventAt, "the two buffers share an address");
+  assert.equal(poseAt % 4, 0, "the pose buffer is not u32-aligned");
+  assert.equal(eventAt % 4, 0, "the combat-event buffer is not u32-aligned");
+  const memoryBytes = wasm.memory.buffer.byteLength;
+  for (const [name, at, bytes] of [
+    ["POSES", poseAt, MAX_POSES * POSE_STRIDE * 4],
+    ["COMBAT_EVENTS", eventAt, MAX_COMBAT_EVENTS * COMBAT_EVENT_STRIDE * 4],
+  ]) {
+    assert.ok(at + bytes <= memoryBytes, `${name} runs past the end of linear memory`);
+  }
+  wasm.step(8);
+  assert.deepEqual(
+    [u32(wasm.pose_ptr()), u32(wasm.combat_event_ptr())],
+    [poseAt, eventAt],
+    "a published buffer moved across a step",
+  );
+  console.log(
+    `articulated abi ${rows} pose rows, ` +
+      `${MAX_POSES}x${POSE_STRIDE} + ${MAX_COMBAT_EVENTS}x${COMBAT_EVENT_STRIDE} words reserved`,
+  );
+});
+
+test("native_and_wasm_pose_event_stream_digests_match", () => {
+  for (const name of ["articulated_stream_digest_lo", "articulated_stream_digest_hi"]) {
+    assert.equal(typeof wasm[name], "function", `web.wasm does not export ${name}()`);
+  }
+  const measured = hash64(wasm.articulated_stream_digest_lo(), wasm.articulated_stream_digest_hi());
+  assert.ok(
+    measured === ARTICULATED_STREAM_DIGEST,
+    divergence("The articulated pose/event stream digest", ARTICULATED_STREAM_DIGEST, measured),
+  );
+
+  // Cached on first touch, and that is a memory property rather than a
+  // performance one: this is the only allocating call in the pose/event set, so
+  // a second call that rebuilt its `Sim` would grow linear memory and detach
+  // every typed array the page holds. Two calls answering one number is the
+  // cheapest witness that the cache is doing its job.
+  assert.equal(
+    hash64(wasm.articulated_stream_digest_lo(), wasm.articulated_stream_digest_hi()),
+    measured,
+    "the stream digest was rebuilt on a second call",
+  );
+
+  // Self-contained, exactly as `selftest_hash` is: it builds its own world,
+  // digests it and throws it away. A worker may ask for this mid-fight, and a
+  // diagnostic that stepped the installed world would break the thing it was
+  // diagnosing.
+  wasm.init(4);
+  wasm.step(12);
+  const undisturbed = () => [
+    wasm.tick(), hex(stateHash()), u32(wasm.frame_len()),
+    u32(wasm.pose_len()), u32(wasm.combat_event_len()),
+  ];
+  const before = undisturbed();
+  wasm.articulated_stream_digest_lo();
+  assert.deepEqual(undisturbed(), before, "the stream digest disturbed the installed sim");
+  console.log(`stream digest  ${hex(measured)}  == native`);
+
+  // ---- the half a single number cannot make.
+  //
+  // A pinned digest says the two targets encode the same bytes; it says nothing
+  // about whether those bytes are the rows the reference describes, because an
+  // encoder wrong the same way on both targets agrees with itself. So the row
+  // grammar is checked against the document rather than against the module: the
+  // canonical order, the two masks and the two enumerations. Everything here is
+  // a fact the reference states in prose, and none of it is derivable from the
+  // digest.
+  wasm.init_articulated(1);
+  const rows = poseRows();
+  assert.ok(rows.length > 1, "the articulated room published fewer than two bodies");
+  let previous = null;
+  for (const row of rows) {
+    // Ascending *full* identity, index then generation. An index alone reads as
+    // the same creature coming back after its slot was reused, which is why the
+    // row carries both words and why the order is over the pair.
+    const identity = [row[POSE_ENTITY_INDEX], row[POSE_ENTITY_GENERATION]];
+    if (previous !== null) {
+      const ascending = identity[0] > previous[0]
+        || (identity[0] === previous[0] && identity[1] > previous[1]);
+      assert.ok(ascending, `pose rows are not in ascending identity: ${previous} then ${identity}`);
+    }
+    previous = identity;
+
+    assert.ok(row[POSE_INTENT] < INTENTS, `intent ${row[POSE_INTENT]} is not a wire ordinal`);
+    for (const [hand, at] of [["left", POSE_LEFT_HINT], ["right", POSE_RIGHT_HINT]]) {
+      assert.ok(row[at] < ANIMATION_HINTS, `the ${hand} animation hint is ${row[at]}`);
+    }
+    assert.ok(
+      row[POSE_SEVERED_MASK] < 1 << SEVERED_MASK_BITS,
+      `severed mask ${row[POSE_SEVERED_MASK]} has a bit above the five regions`,
+    );
+
+    // The equipment mask against the geometry it describes. An absent weapon or
+    // shield writes zeroes rather than a sentinel -- there is already a presence
+    // bit for it, and a second way to say "nothing here" is a second thing to
+    // disagree about -- so the mask and the words are two statements of one fact
+    // and this is the assertion that they are still the same fact.
+    const present = (at, words) => row.slice(at, at + words).some((word) => word !== 0);
+    const slots = [
+      ["left weapon", 1 << 0, present(POSE_LEFT_WEAPON_HILT_X, 6)],
+      ["right weapon", 1 << 1, present(POSE_RIGHT_WEAPON_HILT_X, 6)],
+      ["shield", 1 << 2, present(POSE_SHIELD_CENTER_X, 8)],
+    ];
+    assert.ok(
+      row[POSE_EQUIPMENT_MASK] < 1 << slots.length,
+      `equipment mask ${row[POSE_EQUIPMENT_MASK]} has a bit above the three slots`,
+    );
+    for (const [name, bit, geometry] of slots) {
+      assert.equal(
+        (row[POSE_EQUIPMENT_MASK] & bit) !== 0,
+        geometry,
+        `body ${identity}: the ${name} bit and its published geometry disagree`,
+      );
+    }
+  }
+  // The hero is the first entity the room ever spawned, so it holds slot 0 at
+  // generation 0 and it walks in holding a Fighter's sword and shield -- which
+  // makes an all-zero mask on row zero the one reading that would say the
+  // ownership rule never ran.
+  assert.deepEqual(
+    [rows[0][POSE_ENTITY_INDEX], rows[0][POSE_ENTITY_GENERATION]],
+    [0, 0],
+    "the first pose row is not the hero",
+  );
+  assert.notEqual(rows[0][POSE_EQUIPMENT_MASK], 0, "the room's Fighter walked in holding nothing");
+  console.log(`pose grammar   ${rows.length} rows, hero mask ${rows[0][POSE_EQUIPMENT_MASK]}`);
 });
 
 test("a scripted walk leaves the world in the state native recorded", () => {

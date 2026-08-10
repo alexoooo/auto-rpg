@@ -2,7 +2,7 @@
 
 **Purpose:** Specify the current authoritative input vocabulary at the policy and host boundaries.
 **Status:** current
-**Canonical source:** [`Command`](../../crates/sim/src/command.rs#L134) and the adjacent input enums in the same module.
+**Canonical source:** [`Command`](../../crates/sim/src/command.rs#L325) and the adjacent input enums in the same module.
 **Update when:** `Observation` feature layout, `Command`, `LimbCommand`, actions, loadouts, standing inputs, or their encoded discriminants change.
 
 <!-- DOC_CONTRACT: policy-observation -->
@@ -13,7 +13,7 @@ are the primary current policy interface. `Observation::write_features` projects
 the same boundary into a fixed `Fx` vector for a future learned policy. No current
 shipped policy consumes that vector.
 
-The current `FEATURE_LAYOUT_VERSION` is `11` and `FEATURE_COUNT` is `450`.
+The current `FEATURE_LAYOUT_VERSION` is `12` and `FEATURE_COUNT` is `922`.
 Values are approximately normalized to `-1..=1`; absent contact slots are zero.
 The ordered layout is:
 
@@ -25,6 +25,15 @@ The ordered layout is:
 | allies | 198 | six contact slots, 33 values each, nearest first; excludes self |
 | walls | 4 | normalized clearance in the stored cardinal order |
 | navigation | 3 | route direction x/y and normalized route distance |
+| articulated | 472 | the subject's own joints, then six opponent rows |
+
+The first six blocks are `LEGACY_FEATURE_COUNT = 450` values wide and are frozen:
+version 12 appended the articulated block whole and moved nothing below index 450.
+The articulated block is blank -- 472 zeroes -- in every Legacy world, so the vector
+has one width whichever combat model a scenario picked. Its contents, frame, and
+normalization are owned by
+[`articulated-abi.md`](articulated-abi.md#appended-feature-block) and are not repeated
+here.
 
 Each 33-value contact slot is ordered as: normalized offset x/y, normalized
 distance, health fraction, radius, action length, facing x/y, limb direction x/y,
@@ -159,12 +168,13 @@ hash stream owned by their `hash_into` methods and `World::state_hash`.
 
 ## Source anchors
 
-- Structured observation and current feature layout: [`Observation`](../../crates/sim/src/obs.rs#L221), [`FEATURE_LAYOUT_VERSION`](../../crates/sim/src/obs.rs#L506), [`Observation::write_features`](../../crates/sim/src/obs.rs#L699)
-- Strike variants and discriminants: [`Strike`](../../crates/sim/src/command.rs#L17)
-- Current limb shape: [`LimbCommand`](../../crates/sim/src/command.rs#L86)
-- Current policy output: [`Command`](../../crates/sim/src/command.rs#L134)
-- Intent variants: [`Intent`](../../crates/sim/src/command.rs#L232)
+- Structured observation and current feature layout: [`Observation`](../../crates/sim/src/obs.rs#L569), [`FEATURE_LAYOUT_VERSION`](../../crates/sim/src/obs.rs#L953), [`Observation::write_features`](../../crates/sim/src/obs.rs#L1147)
+- Subject-scoped articulated observation: [`ArticulatedObservation`](../../crates/sim/src/obs.rs#L431), [`World::observe_articulated`](../../crates/sim/src/world.rs#L1470)
+- Strike variants and discriminants: [`Strike`](../../crates/sim/src/command.rs#L208)
+- Current limb shape: [`LimbCommand`](../../crates/sim/src/command.rs#L277)
+- Current policy output: [`Command`](../../crates/sim/src/command.rs#L325)
+- Intent variants: [`Intent`](../../crates/sim/src/command.rs#L423)
 - Action roles and append-only registry: [`Role`](../../crates/sim/src/action.rs#L28), [`ActionKind`](../../crates/sim/src/action.rs#L116)
 - Two-slot loadout contract: [`Loadout`](../../crates/sim/src/loadout.rs#L18)
-- Faction orders and encoding: [`Order`](../../crates/sim/src/command.rs#L256)
-- Routing objectives: [`Objective`](../../crates/sim/src/command.rs#L363)
+- Faction orders and encoding: [`Order`](../../crates/sim/src/command.rs#L447)
+- Routing objectives: [`Objective`](../../crates/sim/src/command.rs#L554)
