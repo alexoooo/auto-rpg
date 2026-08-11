@@ -76,8 +76,9 @@ observation plus its appended 472-feature block landed first, moving
 byte-identical. The host half followed -- the fixed pose and combat-event
 buffers, their fifteen exports, `init_articulated`, and the portable stream digest,
 which pinned as `ARTICULATED_STREAM_DIGEST = 0x4372a94d89fc9155` and agrees
-between native and wasm -- `0x27b2aa50bb4e7a67` since v2-17 checkpoint B moved the
-simulation under it. The policy seam landed beside them -- `ArticulatedPolicy`
+between native and wasm -- `0x6f879c13430adfc1` since v2-17 checkpoint B moved the
+simulation under it twice, first for the contact projector and then for the blade's
+centre of mass. The policy seam landed beside them -- `ArticulatedPolicy`
 beside `Policy`, `policy::run_articulated` beside `run`, and the workspace's first
 `compile_fail` doctest, which is documentation rather than a gate on the stable
 toolchain and says so in place. Nothing outside its own tests drives it yet. The
@@ -90,12 +91,30 @@ JavaScript half is in: `tools/wasm_check.js` whitelists all fifteen exports and 
 generated constants are already emitted. No legacy hash moved, and the
 `duel --seeds 400` win rate is unchanged at 59.5%.
 
-**In flight (2026-08-10):** `v2-17`, which now runs as five ordered checkpoints rather
-than one commit, because its recorded fixtures must not be written against a physics
-model that a later half of the same session changes. Checkpoint A -- the scripted and
-windmill policies, the `ARPG-SCRIPT-V1` digest, and `lab articulated` -- adds a policy
-and a CLI and moves no hash. The lethality decision is checkpoint B and is deliberately
-not pre-judged; see the superseded diagnosis below.
+**`v2-17` closed at checkpoint B (2026-08-10), without its pin.** It ran as five ordered
+checkpoints rather than one commit, because its recorded fixtures must not be written
+against a physics model that a later half of the same session changes — and that
+structure is what made stopping cheap. A and B landed and are green; C, D and E were
+never started and **`ARTICULATED_HASH` does not exist**, so nothing has to be unpinned.
+
+The gate fails by roughly a factor of fifty: 99.0% of composed trials still reach the
+tick limit against a reference wanting under ten percent, and the composed script is
+2.5x *worse* than the windmill control it was required to beat. Checkpoint B's mechanics
+change — sampling a held blade at its centre of mass rather than in the hand, via the
+already-hashed `EquipmentSpec::balance` — is the only change on record that moves the
+count of region-taking blows, 39 to 109, and it moved it in the right shape, with contact
+opportunities falling 26% while blows tripled. It closed the energy gap from 59x to 35x
+and left the gate failing anyway. The diagnosis is that a weapon-body contact closes at a
+median 113 raw against legacy `IMPACT_THRESHOLD`'s 3,932, which is upstream of
+`CONTACT_ENERGY_FLOOR`, of `WOUND_PER_ENERGY`, and of the roster's regional maxima — and
+is why sweeping any one of them moves attrition without moving outcomes.
+
+The complete measured result, six findings that outlive the session, and an open ledger
+of eleven deferred items live in
+[`v2-17`](v2-17-scripted-mechanical-gate.md#how-v2-17-closed-2026-08-10). The largest
+unexamined lever named there is the arm's slew ceiling; the first recommended action is
+to look at a fight, because three of this session's conclusions were refuted by later
+measurement and nobody has yet seen this model run.
 
 **Carried into `v2-17`, from `v2-15` and now sharpened by `v2-16`:** the contact model
 gives an equipment collider one generalized point velocity -- body plus *hand* -- so a
@@ -161,7 +180,7 @@ accumulates from the feed must key on the call that stepped or it double counts.
 | `v2-14-contact-solver` | iterative time-of-impact groups and energy ledger | unchanged | absent |
 | `v2-15-anatomy` | immutable anatomy/equipment plus mutable wound state | unchanged | absent |
 | `v2-16-pose-event-abi` | complete: bounded portable pose/event streams, subject observation, policy seam | unchanged | `ARTICULATED_HASH` absent; `ARTICULATED_STREAM_DIGEST` and the legacy feature prefix added |
-| `v2-17-scripted-mechanical-gate` | recorded debug-shape two-body fight | unchanged | pinned once |
+| `v2-17-scripted-mechanical-gate` | **closed at checkpoint B**: scripted policies and `lab articulated`, the projector fix, the blade's centre of mass, a static off arm. No fixtures, no evidence, no visible review | unchanged | **`ARTICULATED_HASH` still absent** — the gate did not pass, so nothing was pinned; `ARTICULATED_STREAM_DIGEST` moved twice |
 | `v2-18-combatant-integration` | representative rigs/assets over frozen mechanics | unchanged | unchanged |
 | `v2-19-learning-probe` | learned-vs-scripted evidence and expand/stop decision | unchanged | unchanged |
 
@@ -193,7 +212,7 @@ SUBMITTED_COMMAND_LAYOUT_VERSION = 1    v2-11
 POSE_LAYOUT_VERSION = 1                 v2-16
 COMBAT_EVENT_LAYOUT_VERSION = 1         v2-16
 MAX_POSES = 64                          v2-16, host publication cap; not a sim spawn cap
-MAX_COMBAT_EVENTS = 2048                v2-17B, re-measured: 556 rows, so 1024 was rejected too
+MAX_COMBAT_EVENTS = 2048                v2-17B: 556 rows rejected 1024; the centre-of-mass change then took the high-water to 354 and the capacity was deliberately not resized down
 ```
 
 Append-only layouts retain stable discriminants. Exact persisted field order lives

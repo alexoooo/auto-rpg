@@ -17,13 +17,17 @@ recorded until its second half has frozen the physics — a fixture recorded aga
 model that then changes is worse than no fixture. It therefore runs as five ordered
 checkpoints, each green on its own, in the manner `v2-14` used:
 
-| # | lands | may move |
-|---|---|---|
-| A | the scripted and windmill policies, the `ARPG-SCRIPT-V1` digest, `lab articulated` | nothing — adds a policy and a CLI, touches no hashed state |
-| B | the lethality decision and whatever mechanics change it justifies | articulated mechanics pins, named in advance |
-| C | worker protocol V2, the generated snapshot regions, the debug draw | nothing in `sim`; the ABI grows |
-| D | the twelve named replay fixtures, the 800-trial gate, the evidence JSON | nothing |
-| E | the visible foreground review, then the single `ARTICULATED_HASH` pin | `ARTICULATED_HASH` is created |
+| # | lands | may move | outcome |
+|---|---|---|---|
+| A | the scripted and windmill policies, the `ARPG-SCRIPT-V1` digest, `lab articulated` | nothing — adds a policy and a CLI, touches no hashed state | landed `73633c4` |
+| B | the lethality decision and whatever mechanics change it justifies | articulated mechanics pins, named in advance | landed `5563326`, `426f9a9` |
+| C | worker protocol V2, the generated snapshot regions, the debug draw | nothing in `sim`; the ABI grows | **not started** |
+| D | the twelve named replay fixtures, the 800-trial gate, the evidence JSON | nothing | **not started** |
+| E | the visible foreground review, then the single `ARTICULATED_HASH` pin | `ARTICULATED_HASH` is created | **not started; no pin exists** |
+
+**This session ended at B.** The gate fails by roughly a factor of fifty and nothing was
+pinned. See [How v2-17 closed](#how-v2-17-closed-2026-08-10) at the foot of this file for
+the measured result, the six findings that outlive the session, and the open ledger.
 
 **Checkpoint A is complete when** `lab articulated --seeds 400 --mirrored` runs and
 reports its measurement. **A does not assert the gate thresholds** — it produces the
@@ -819,7 +823,11 @@ height, normal, and severance. Commit the review Markdown and SHA-256 manifest. 
 exactly `pass`, `revise`, or `stop` here after review; deterministic but unreadable or
 uncontrollable is `revise` or `stop`.
 
-**Gate result:** pending.
+**Gate result:** not run (2026-08-10). The fifteen clips were never captured, because
+the automated gate that gates them fails by roughly a factor of fifty and checkpoint C
+— the worker join that would put a fight on a screen at all — was never started.
+Recording `pass`, `revise` or `stop` here would be recording a verdict on a review
+nobody performed. See [How v2-17 closed](#how-v2-17-closed-2026-08-10).
 
 ## Pin and registry updates
 
@@ -851,3 +859,139 @@ npm run build
 node tools/check_docs.js
 git diff --check
 ```
+
+## How v2-17 closed (2026-08-10)
+
+**v2-17 does not pass its own gate, and closes without `ARTICULATED_HASH`.** A and B
+landed and are green; C, D and E were never started. Nothing was pinned that a later
+session would have to unpin, which is the one thing this outcome gets right — a fixture
+recorded against a model this unfinished is worse than no fixture, and the checkpoint
+structure at the head of this file existed to make stopping here cheap.
+
+| commit | what |
+|---|---|
+| `73633c4` | A — scripted and windmill policies, `lab articulated`, the solver-rejection diagnostic |
+| `5563326` | B — alpha zero is the identity again; the solver had been refusing 6.5% of its ticks |
+| `426f9a9` | B — the blade's centre of mass rather than the hand; the off arm stops moving |
+
+`6f491f9` is tooling rather than a checkpoint: it pins the generated ABI to LF so
+`check:abi` passes on a freshly checked-out tree.
+
+### The gate, as measured
+
+Final configuration, `--seeds 400 --mirrored`, 800 trials per corpus:
+
+| the reference wants | measured |
+|---|---|
+| under 10% of trials on the clock | **99.0%** composed, 97.5% windmill, 98.9% closing |
+| `contact_cap_hits` exactly zero | **51,664** on the composed corpus |
+| composed at least 6/5 the windmill's efficiency | composed decides **8** of 800 against the windmill's **20** — the script is 2.5x *worse* than the control it was supposed to beat |
+| side advantage at most 20 of 400 | 1 — passes, and is noise |
+
+The first row fails by about a factor of fifty and every other number is downstream of
+it. A weapon-body contact closes at a median of roughly **113 raw** against legacy
+`IMPACT_THRESHOLD`'s **3,932**, the speed that defines "this is a swing at all". The
+blade arrives some thirty-five times too slowly, and every constant in `channels` is
+calibrated for the faster world. That shortfall sits upstream of `CONTACT_ENERGY_FLOOR`,
+upstream of `WOUND_PER_ENERGY`, and upstream of the roster's regional maxima — which is
+why sweeping any one of them moves attrition without moving outcomes.
+
+### Six findings that outlive the session
+
+1. **The carried-forward diagnosis was wrong on both halves.** Per-point contact
+   velocities give a byte-identical max blow and *less* dissipation, because the energy
+   budget is `closure_energy()` over collider rows and never reads a contact point.
+   Rescaling the roster ends fights without making them fights. Do not prototype either
+   again.
+2. **Checkpoint A's headline was a script artifact.** 800 of 800 trials on the clock
+   measured a swordsman standing still: phases 3, 4, 7 and 8 commanded
+   `move_dir: Vec2::ZERO`, and a walking body carries more closing energy than an arm at
+   peak slew.
+3. **The contact solver was silently refusing 6.5% of its ticks** — 188,654 across one
+   corpus, each rolled back with its whole contact phase discarded. "Alpha zero is always
+   valid" was true of `IndependentPointProjector` and false of `World`'s own projector.
+4. **`CONTACT_ENERGY_FLOOR` is a 19.8x over-charge and is not the binding constraint.**
+   It charges per fact per tick a number defined per swing. Sweeping it from 144 to 0
+   multiplies grazes 69x and leaves the count of region-taking blows flat at
+   39/27/41/41/41/43/29/28/34.
+5. **Sampling a blade at its centre of mass is the right lever and is insufficient.** It
+   is the only change on record that moves that blow count — 39 to 109 — and it moves it
+   in the right shape, with opportunities falling 26% while blows tripled. It closed the
+   energy gap from 59x to 35x and left the gate failing.
+6. **A sample maximum is not a statistic.** "Max single blow" has read 2.5x, 1.4x, 1.7x,
+   1.4x and 3.2x across five revisions with no calibration touched. Use mean end health
+   or a count above a fixed bar.
+
+### The open ledger
+
+None of this is blocked on anything else, and none of it is recorded anywhere but here.
+
+**Mechanical**
+
+- **Re-derive `CONTACT_ENERGY_FLOOR`** at the granularity the solver bills it, once the
+  energy scale settles. The form is wrong; the value is accidentally defensible, because
+  at 144 the median admitted contact closes at 1.09x `IMPACT_THRESHOLD`. Charging it once
+  per contact episode rather than once per tick is the better-shaped rule and was
+  measured at 1.54x — real, and nowhere near enough alone.
+- **Re-size the roster rescale.** It was rejected on evidence gathered before the physics
+  was fixed, when there were no real blows to amplify.
+- **The arm's slew ceiling is untouched.** `ARM_BEARING_MAX_SPEED_RAW * stat_factor` is
+  546 raw/tick for the Fighter and everything else sits under it. Largest unexamined
+  lever in the model.
+- **A body collider carries one velocity for all five regions**, so an arm swung into a
+  blade adds nothing to closing speed. Same defect class as the blade, other side of the
+  fact.
+- **`derive_shield_pose` takes `centre` from the hand and `normal` from body yaw**, with
+  nothing tying them together. A static off arm narrows the spread 2.2x but leaves a
+  0.85% tail past ninety degrees, because contact writes the hand directly on 17.4% of
+  ticks and the actuator recovers slowly.
+- **`reach` is horizontal only and the vertical component is unconstrained.** A Fighter's
+  shoulder sits at 1.4 with a 0.75 arm; commanding `LOW` puts the hand at 0.45 — already
+  past the arm's whole length before any horizontal extension, and about 1.10 away at 3/4
+  reach, stretched 1.47x. An arm's collider is the capsule from shoulder to hand, so a
+  low guard grows a long diagonal limb across its own body.
+- **No single static off-arm height can cover a fight.** A Fighter's shield at `MID`
+  spans z 0.40 to 1.40; a Brute's club at `HIGH` sits at 1.50 with its lower surface at
+  1.44 and clears it every time. `HIGH` covers the club and abandons everything under
+  0.85. The plate is 1.0 tall against a band about 1.5 tall. Either the shield grows, or
+  the off arm auto-guards on the threat's height with no player input, or high attacks
+  beat a low guard and that is the fight. This is a live consequence of the one-handed
+  control decision, not a pre-existing defect.
+
+**Gate hygiene — amend before checkpoint D records anything**
+
+- **`contact_cap_hits == 0` is unreachable as posed** and got further away, not closer, as
+  the physics improved.
+- **The `<= 20` side-advantage threshold has no margin.** Under pure noise its standard
+  deviation is about 13, so the bar is 1.5 sigma wide and a perfectly symmetric
+  simulation fails it roughly one run in seven. Floor 72 produced a difference of 30 on a
+  change that moved nothing else. Amend with rationale rather than re-running until it
+  passes.
+- **`maxEnergyExcessRaw` cannot fail as specified.** `resolve_group_into` rejects any
+  group where `after > before` and the error arm clears the resolution list, so no
+  violating row is ever observable. The evidence schema must carry the solver-rejection
+  count beside it, and D may not write the former as a soundness field while the latter
+  is nonzero.
+
+**Owed elsewhere**
+
+- **`pose.rs` expects an effort measurement from this session** in order to split `Braced`
+  into "holding a shield" and "holding it up". Not delivered; the forward reference is
+  still live in that doc comment.
+- **`articulated_stream_digest` builds a 279,040-byte frame against a 1 MiB shadow
+  stack.** `MAX_COMBAT_EVENTS` is 2,048 and the observed high-water is 354 rows. Move the
+  buffer off the stack before raising the capacity again.
+- **`tools/check_deps.js` carries the same `SKIP_DIRS` defect** that `tools/check_docs.js`
+  had, byte for byte. Scoped out deliberately.
+
+### What a successor should do first
+
+**Look at a fight before changing another constant.** Three of this session's conclusions
+were refuted by later measurement, and every one was caught by changing *what* was
+measured rather than by measuring harder — the null result that was a stationary
+swordsman, the floor diagnosis that was arithmetic on an outlier, and the arm capsule
+that was real, exact, and irrelevant next to the effort column beside it. Nobody has yet
+seen this model run. Checkpoint C is the smallest remaining piece of real work that would
+change that; a throwaway pose-and-contact dump out of `lab` would answer it sooner still.
+
+Then the arm slew ceiling, because it bounds everything the calibration levers can reach.
