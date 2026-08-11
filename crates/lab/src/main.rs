@@ -23,12 +23,12 @@ use fitness::{fitness, Summary, Tally};
 use trace::{FightTrace, TraceRun};
 use fx::{Fx, Vec2};
 use policy::{
-    run, script_digest, ArticulatedPolicy, ClosingAttackControlPolicy, PolicyKind, RunConfig,
-    RunResult, ScriptedArticulatedPolicy, WindmillArticulatedPolicy,
+    run, script_digest, ArmRoles, ArticulatedPolicy, ClosingAttackControlPolicy, PolicyKind,
+    RunConfig, RunResult, ScriptedArticulatedPolicy, WindmillArticulatedPolicy,
 };
 use sim::{
-    Body, EntityId, Faction, Outcome, Scenario, StateDigest, SubmitArticulatedOutcome,
-    SubmittedCommand, SubmittedCommandRecord, UnitSpec, World,
+    Body, CombatHeight, ContactKind, EntityId, Faction, Intent, Outcome, Scenario, StateDigest,
+    SubmitArticulatedOutcome, SubmittedCommand, SubmittedCommandRecord, UnitSpec, World,
 };
 use std::time::Instant;
 
@@ -660,6 +660,20 @@ fn mirrored_articulated_duel() -> Scenario {
     scenario
 }
 
+/// Which of the three ordinary heights this is, or `None`.
+///
+/// **`None` rather than a fourth bucket**, because the fourth height that
+/// exists -- the Dev control's raw `24_576` -- belongs to a command path none of
+/// the three scripts here can reach, and a bucket for it would be a column that
+/// is always zero and therefore never read. If one ever appears in this corpus
+/// the pair is dropped and the table's own total stops matching the tick count,
+/// which is a louder signal than a silent fourth column.
+fn height_index(height: CombatHeight) -> Option<usize> {
+    [CombatHeight::LOW, CombatHeight::MID, CombatHeight::HIGH]
+        .iter()
+        .position(|candidate| candidate.raw() == height.raw())
+}
+
 /// One measured run of the fixture.
 ///
 /// A sibling of [`RunResult`] rather than an extension of it, and the reason is
@@ -686,6 +700,28 @@ struct ArticulatedTrial {
     hero_health: Fx,
     monster_health: Fx,
     contacts: u64,
+    /// Resolutions by [`ContactKind`] discriminant: weapon/weapon, then
+    /// weapon/shield, then weapon/body.
+    ///
+    /// **The middle one is what "the plate is beatable" is a claim about.** The
+    /// total above says how busy the fight was and cannot distinguish a blade
+    /// that was stopped from one that landed, so a shield dimension moves the
+    /// total by an amount nobody can read. Split three ways it is one
+    /// subtraction: a smaller plate should take a smaller share and hand the
+    /// difference to the body column.
+    kinds: [u64; 3],
+    /// `[attacker weapon height][defender guard height]`, both as
+    /// `[LOW, MID, HIGH]` indices, counted once per ordered pair of deciding
+    /// bodies per tick where the attacker's intent is `Attack`.
+    ///
+    /// **The lockstep audit, and it caught something.** Both bodies read the
+    /// same tick, so while both height clocks were `(tick / HEIGHT_TICKS) % 3`
+    /// this table came back 100.00% diagonal over the mirrored corpus: every
+    /// swing meeting a guard at its own height and no other, which is one cell
+    /// of a three-by-three table being reported as the shield's behaviour.
+    /// `policy::GUARD_LEAD_TICKS` is what that measurement bought, and
+    /// off-diagonal mass here is the evidence it is still doing its job.
+    guard_pairs: [[u64; 3]; 3],
     cap_hits: u32,
     /// `max(0, after - before)` over every resolution row in the run.
     ///
@@ -776,6 +812,13 @@ fn measure_articulated_traced(
     let mut due: Vec<EntityId> = Vec::new();
     let mut stream: Vec<SubmittedCommandRecord> = Vec::new();
     let mut contacts = 0u64;
+    let mut kinds = [0u64; 3];
+    let mut guard_pairs = [[0u64; 3]; 3];
+    // One row per body that decided this tick: whether it asked to attack, the
+    // height its weapon arm was commanded to, and the height its off arm was
+    // commanded to. Cleared and refilled rather than allocated, because this
+    // runs inside the tick loop of every seed on every thread.
+    let mut commanded: Vec<(bool, Option<usize>, Option<usize>)> = Vec::new();
     let mut max_energy_excess = 0u64;
     let mut severances = 0u64;
     let mut max_blow_raw = 0u64;
@@ -796,6 +839,7 @@ fn measure_articulated_traced(
     while world.outcome().is_none() && world.tick() < limit {
         due.clear();
         due.extend_from_slice(world.pending_decisions());
+        commanded.clear();
         for &id in &due {
             let obs = world.observe_articulated(id);
             let command = if heroes.contains(&id) {
@@ -803,6 +847,16 @@ fn measure_articulated_traced(
             } else {
                 monster_policy.decide(&obs)
             };
+            // Read off the *offered* command and the roles the script itself
+            // assigned, before the world has had a chance to refuse anything.
+            // The lockstep question is about what the two scripts asked for --
+            // a refused submission is already counted, loudly, one field down.
+            let roles = ArmRoles::of(&obs);
+            commanded.push((
+                matches!(command.intent, Intent::Attack(_)),
+                height_index(command.arms[roles.weapon].height),
+                height_index(command.arms[1 - roles.weapon].height),
+            ));
             match world.submit_articulated_v1(id, command) {
                 SubmitArticulatedOutcome::Stored { command, rejection } => {
                     if rejection.is_some() {
@@ -821,9 +875,25 @@ fn measure_articulated_traced(
                 SubmitArticulatedOutcome::NotStored(_) => rejected += 1,
             }
         }
+        // Ordered pairs and not unordered ones: "who was swinging" and "who was
+        // holding the plate" are different roles, and on this fixture only one
+        // of the two bodies carries a shield at all, so folding the pair would
+        // average the interesting cell with a cell that has no plate in it.
+        for (attacker, &(attacking, weapon, _)) in commanded.iter().enumerate() {
+            let Some(weapon) = weapon.filter(|_| attacking) else { continue };
+            for (defender, &(_, _, guard)) in commanded.iter().enumerate() {
+                if defender == attacker {
+                    continue;
+                }
+                if let Some(guard) = guard {
+                    guard_pairs[weapon][guard] += 1;
+                }
+            }
+        }
         let _ = world.step();
         for row in world.contact_resolutions() {
             contacts += 1;
+            kinds[row.fact.key.kind as usize] += 1;
             max_energy_excess = max_energy_excess
                 .max(row.energy.after_raw.saturating_sub(row.energy.before_raw));
             severances += u64::from(row.severed);
@@ -850,6 +920,8 @@ fn measure_articulated_traced(
         hero_health: world.health_fraction(Faction::Heroes),
         monster_health: world.health_fraction(Faction::Monsters),
         contacts,
+        kinds,
+        guard_pairs,
         cap_hits: world.contact_cap_hits(),
         max_energy_excess,
         solver_rejections: world.contact_solver_rejections(),
@@ -961,6 +1033,8 @@ fn articulated(args: &Args) {
     let mut decisions = 0usize;
     let mut limits = 0usize;
     let mut contacts = 0u64;
+    let mut kinds = [0u64; 3];
+    let mut guard_pairs = [[0u64; 3]; 3];
     let mut cap_hits = 0u64;
     let mut rejected = 0u64;
     let mut excess = 0u64;
@@ -991,6 +1065,14 @@ fn articulated(args: &Args) {
             decisive += 1;
         }
         contacts += trial.contacts;
+        for kind in 0..kinds.len() {
+            kinds[kind] += trial.kinds[kind];
+        }
+        for attack in 0..guard_pairs.len() {
+            for guard in 0..guard_pairs[attack].len() {
+                guard_pairs[attack][guard] += trial.guard_pairs[attack][guard];
+            }
+        }
         cap_hits += trial.cap_hits as u64;
         rejected += trial.rejected as u64;
         excess = excess.max(trial.max_energy_excess);
@@ -1043,6 +1125,19 @@ fn articulated(args: &Args) {
             Some(cause) => format!(" (first {cause:?})"),
             None => String::new(),
         }
+    );
+    println!(
+        "blocked   {} weapon/shield ({:.2}% of resolutions), {} weapon/body, {} weapon/weapon",
+        kinds[ContactKind::WeaponShield as usize],
+        100.0 * kinds[ContactKind::WeaponShield as usize] as f64 / contacts.max(1) as f64,
+        kinds[ContactKind::WeaponBody as usize],
+        kinds[ContactKind::WeaponWeapon as usize],
+    );
+    let pairs: u64 = guard_pairs.iter().flatten().sum();
+    let diagonal: u64 = (0..3).map(|i| guard_pairs[i][i]).sum();
+    println!(
+        "guard     attack x guard {:?}, diagonal {:.2}% of {pairs} commanded pairs",
+        guard_pairs, 100.0 * diagonal as f64 / pairs.max(1) as f64,
     );
     println!(
         "blows     {severances} severances, max weapon-body energy raw {max_blow_raw}, \

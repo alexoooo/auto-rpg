@@ -62,7 +62,7 @@ mod utility;
 
 pub use articulated_script::{
     script_digest, scripted_articulated_command, scripted_articulated_command_with,
-    windmill_articulated_command, AttackFootwork, ClosingAttackControlPolicy,
+    windmill_articulated_command, ArmRoles, AttackFootwork, ClosingAttackControlPolicy,
     ScriptedArticulatedPolicy, WindmillArticulatedPolicy, CYCLE_TICKS, EIGHTH_TURN, HEIGHT_TICKS,
     PHASE_TICKS, SCRIPT_DIGEST_DOMAIN,
 };

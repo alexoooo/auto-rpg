@@ -758,8 +758,12 @@ is approach, withdraw/rest, body turn, low/mid/high guard, left/right cut, and t
 The only ordinary heights emitted are `LOW`, `MID`, and `HIGH`. The Dev intermediate
 control emits raw height `24_576` (3/8) through the same 55-byte command path.
 
-`Scenario::articulated_duel` already exists and its fingerprint is pinned at
-`0x2a6cc9678c08730d`; this session does not change it. Its two bodies spawn 10.8 units
+`Scenario::articulated_duel` already exists and its fingerprint was pinned at
+`0x2a6cc9678c08730d`; this session does not change it. **v2-20 did**, to
+`0x068d05fcada1027b`, by shrinking the shield equipment row — the fingerprint covers the
+immutable spec table, so an equipment dimension is part of the fixture's identity and
+every corpus recorded before that commit is a corpus of a different fixture. Its two
+bodies spawn 10.8 units
 apart against a 9.6 sight range, which the overview carried forward as a blocker. It is
 not one: the script's `toward` retains current yaw when nothing is visible, and the
 faction-derived spawn yaws already point the two bodies at each other, so phase 0
@@ -950,13 +954,30 @@ None of this is blocked on anything else, and none of it is recorded anywhere bu
   past the arm's whole length before any horizontal extension, and about 1.10 away at 3/4
   reach, stretched 1.47x. An arm's collider is the capsule from shoulder to hand, so a
   low guard grows a long diagonal limb across its own body.
-- **No single static off-arm height can cover a fight.** A Fighter's shield at `MID`
-  spans z 0.40 to 1.40; a Brute's club at `HIGH` sits at 1.50 with its lower surface at
-  1.44 and clears it every time. `HIGH` covers the club and abandons everything under
-  0.85. The plate is 1.0 tall against a band about 1.5 tall. Either the shield grows, or
-  the off arm auto-guards on the threat's height with no player input, or high attacks
-  beat a low guard and that is the fight. This is a live consequence of the one-handed
-  control decision, not a pre-existing defect.
+- **No single static off-arm height can cover a fight.** *(Decided by v2-20 — kept
+  here in full because one of its numbers was wrong and the correction is the
+  interesting part.)* A Fighter's shield at `MID` spans z 0.40 to 1.40; a Brute's club
+  at `HIGH` sits at 1.50 with its lower surface at 1.44 and clears it every time.
+  `HIGH` covers the club and abandons everything under 0.85. The plate is 1.0 tall
+  against a band about 1.5 tall. Either the shield grows, or the off arm auto-guards on
+  the threat's height with no player input, or high attacks beat a low guard and that is
+  the fight. This is a live consequence of the one-handed control decision, not a
+  pre-existing defect.
+
+  **v2-20 took the third option and shrank the plate rather than growing it.**
+  `off_hand` gained a `guard: CombatHeight` column and the shield went from `7/20` by
+  `1/2` to a quarter each way. The second option — a guard that reads the threat — is
+  deliberately left standing, because it is the edge `v2-19` hands to a *learned* policy
+  and is the reason this session blocks that one.
+
+  **"Either the shield grows" had the sign backwards, and the derivation says so.** At
+  `half_height = 1/2` the plate answered four (guard, region) cells *outright* on a
+  Fighter — the whole of the legs at `LOW`, and the whole of the head and both arms at
+  `HIGH` — and covered 87.5% of the torso at `MID`. It was too big, not too small. At a
+  quarter it answers nothing outright and the three settings best-answer three different
+  regions: legs, torso, an arm.
+  `sim::combat::spec::the_plate_leaves_a_different_hole_at_every_guard_height` derives
+  both tables from the fixtures and prints them.
 
 **Gate hygiene — amend before checkpoint D records anything**
 

@@ -70,8 +70,12 @@ const SWAP_HASH = 0xf948f5486ee90191n;
 const BOW_HASH = 0x4a1157735d305e9fn;
 // Moved by v2-14C: ArticulatedV1 hashing gained a global `cap_hits:u32` after
 // the actuator loop, and this probe is unstepped, so the move is four zero
-// bytes and nothing else.
-const ARTICULATED_COMMAND_HASH = 0x6e61a92ec96ac3a6n;
+// bytes and nothing else. Moved again by v2-15, which appended one 61-byte
+// anatomy row per allocated slot after it. Moved a third time by v2-20, from
+// `0x6e61a92ec96ac3a6`, and *because* the probe is unstepped: the shield pose
+// is derived at spawn and the digest carries its `half_width` and
+// `half_height`, both of which that session shrank to a quarter.
+const ARTICULATED_COMMAND_HASH = 0xd1da6a40df0480b2n;
 const COMBAT_GEOMETRY_HASH = 0x9d15344883cf6e9cn;
 
 // The frame header, as the client reads it.
@@ -775,7 +779,14 @@ const SEVERED_MASK_BITS = 5;
 // move leaves the row shape alone -- the same ticks carry the same counts -- so
 // what moved is values, which is what a simulation-only move looks like from
 // this side of the wall.
-const ARTICULATED_STREAM_DIGEST = 0x6f879c13430adfc1n;
+//
+// Moved a third time by v2-20, from `0x6f879c13430adfc1`, when the shield's
+// `half_width` and `half_height` both went to a quarter. Two routes into the
+// same number and both were predicted before the run: the plate's extents are
+// published words in the pose row, so tick zero's bytes move outright, and a
+// smaller plate then changes what the twenty-tick clinch resolves. The row
+// shape is again untouched.
+const ARTICULATED_STREAM_DIGEST = 0x54c0762b3dfb7a05n;
 
 // The live pose rows, copied out. Words and not floats: every published column
 // is a `u32`, and the signed ones are two's-complement raw bits.

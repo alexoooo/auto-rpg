@@ -153,7 +153,7 @@ SWORD id=1 schema=1 action=Sword mass=31/25 balance=11/20
   Segment length=19/20 radius=1/25 binding=Right
   surface restitution=1/8 friction=1/4 edge=1 point=1 material=Steel
 SHIELD id=2 schema=1 action=Shield mass=9/10 balance=7/20
-  Shield half_width=7/20 half_height=1/2 thickness=1/20 binding=Left
+  Shield half_width=1/4 half_height=1/4 thickness=1/20 binding=Left
   surface restitution=1/8 friction=3/4 edge=0 point=0 material=Steel
 CLUB id=3 schema=1 action=Club mass=223/100 balance=61/100
   Segment length=29/20 radius=3/50 binding=Right
@@ -165,6 +165,23 @@ sword right. The Brute carries `[Club, None]`; its right arm binds slot zero and
 left arm is empty. A focused two-handed test may clone Club under a distinct local
 ID and change only its binding to `Both`. These are the only shipped articulated
 fixture rows before v2-18.
+
+**The shield's face moved once, and its mass did not.** v2-20 took `half_width` from
+`7/20` to `1/4` and `half_height` from `1/2` to `1/4` — 36% of the face area — leaving
+mass, balance, thickness, binding and surface at their v1 values. The plate at `1/2`
+covered the whole of a Fighter's legs at a `LOW` guard and the whole of its head and
+both arms at `HIGH`, so no attacker height beat a `MID` guard except at the head; at a
+quarter no guard height covers any region outright. The mass staying at `9/10` for 36%
+of the area is a known inconsistency and is recorded rather than fixed:
+`equipment_inertia` feeds arm acceleration, so moving it in the same commit would have
+confounded that session's attrition measurements with a change in how fast the guard arm
+travels. The old dimensions are reserved as a *tall shield* archetype and are not a
+calibration to restore. `sim::combat::spec::the_plate_leaves_a_different_hole_at_every_guard_height`
+derives the coverage tables from these rows.
+
+Editing any dimension here changes `Scenario::fingerprint`, because the immutable spec
+table is part of the fingerprint stream. `articulated-duel-v1` went from
+`0x2a6cc9678c08730d` to `0x068d05fcada1027b` for exactly this edit.
 
 ## Fingerprint and codec order
 

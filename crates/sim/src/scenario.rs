@@ -698,7 +698,14 @@ mod tests {
         assert_eq!(scenario.name, "articulated-duel-v1");
         assert_eq!(scenario.units[0].spawn, Vec2::from_ints(7, 6));
         assert_eq!(scenario.units[1].spawn, Vec2::from_ints(17, 10));
-        assert_eq!(scenario.fingerprint(), 0x2a6c_c967_8c08_730d);
+        // Moved once, by v2-20 shrinking the shield row, and it is worth
+        // pinning here precisely because it does move: the fingerprint covers
+        // the immutable spec table, so an edit to the plate makes this a
+        // different fixture, and every corpus, replay integrity check and
+        // evidence artifact that names `articulated-duel-v1` is a claim about
+        // the version whose equipment it was recorded against. The name is
+        // frozen and the number is not. Previously `0x2a6c_c967_8c08_730d`.
+        assert_eq!(scenario.fingerprint(), 0x068d_05fc_ada1_027b);
     }
 
     fn descending_hero() -> UnitSpec {

@@ -454,9 +454,42 @@ pub fn sword() -> EquipmentSpec { EquipmentSpec {
     surface: SurfaceSpec { restitution: r(1,8), friction: r(1,4), edge_factor: Fx::ONE, point_factor: Fx::ONE, material: Material::Steel },
 } }
 
+/// A 0.5 x 0.5 round shield, and the small dimensions are the whole point.
+///
+/// **The plate used to be a door.** Its centre is its holding hand, so
+/// [`CombatHeight`](crate::CombatHeight) puts it at 0.45 / 0.90 / 1.35 on a
+/// Fighter, and a `half_height` of 1/2 therefore spanned 0.40..1.40 at MID
+/// against a torso of 0.70..1.50, arms of 0.90..1.50 and a head of 1.60..1.80.
+/// The plan that shrank it said that covered "the whole torso" at two heights;
+/// the derivation says it never did -- 87.5% at MID, 81.25% at HIGH -- and that
+/// the real complaint is a different one. **Every setting answered at least one
+/// region outright**: the whole of the legs at LOW, and the whole of the head
+/// and both arms at HIGH. Four cells an attacker had no answer to at all, which
+/// is what "too easy to block" turns out to mean once it is written as
+/// intervals.
+///
+/// A quarter each way answers nothing outright, leaves a different hole at
+/// every height, and gives the three settings three different best-covered
+/// regions -- legs, torso, an arm.
+/// `the_plate_leaves_a_different_hole_at_every_guard_height` derives both
+/// tables from these numbers rather than restating them, and that is where the
+/// derivation belongs: a table written into this comment is a table that can go
+/// stale against the line below it, which is precisely how the claim above got
+/// into a plan.
+///
+/// **Mass, balance and surface deliberately did not move with it**, and the
+/// resulting inconsistency is recorded rather than quietly fixed: a plate at
+/// 36% of the face area still weighing 9/10 is heavy. `equipment_inertia` feeds
+/// arm acceleration, so editing the mass in the same commit would confound
+/// every attrition number with a change in how fast the guard arm can travel.
+/// One variable at a time; the mass is a measurement somebody still owes.
+///
+/// The old `7/20` by `1/2` is a **tall shield** and not a lost calibration: a
+/// second equipment row for a session that wants a second defensive archetype.
+/// Adding it here would move the spec-table digest for no measurement at all.
 pub fn shield() -> EquipmentSpec { EquipmentSpec {
     id: 2, schema: 1, action: ActionKind::Shield, mass: r(9,10), balance: r(7,20),
-    geometry: EquipmentGeometry::Shield { half_width: r(7,20), half_height: r(1,2), thickness: r(1,20) },
+    geometry: EquipmentGeometry::Shield { half_width: r(1,4), half_height: r(1,4), thickness: r(1,20) },
     binding: GripBinding::Left,
     surface: SurfaceSpec { restitution: r(1,8), friction: r(3,4), edge_factor: Fx::ZERO, point_factor: Fx::ZERO, material: Material::Steel },
 } }
@@ -534,11 +567,169 @@ mod tests {
         assert_eq!((shield.mass.raw(), shield.balance.raw(), shield.binding, shield.surface),
             (raw(9,10), raw(7,20), GripBinding::Left,
              SurfaceSpec { restitution: Fx::from_ratio(1,8), friction: Fx::from_ratio(3,4), edge_factor: Fx::ZERO, point_factor: Fx::ZERO, material: Material::Steel }));
-        assert_eq!(shield.geometry, EquipmentGeometry::Shield { half_width: Fx::from_ratio(7,20), half_height: Fx::from_ratio(1,2), thickness: Fx::from_ratio(1,20) });
+        // v2-20 shrank the plate to a quarter each way and moved nothing else
+        // in this row -- the mass, the balance, the thickness, the binding and
+        // the surface above are all still the v1 values, which is what makes
+        // the attrition numbers that session recorded attributable to the face
+        // area alone.
+        assert_eq!(shield.geometry, EquipmentGeometry::Shield { half_width: Fx::from_ratio(1,4), half_height: Fx::from_ratio(1,4), thickness: Fx::from_ratio(1,20) });
         assert_eq!((club.mass.raw(), club.balance.raw(), club.binding, club.surface),
             (raw(223,100), raw(61,100), GripBinding::Right,
              SurfaceSpec { restitution: Fx::from_ratio(1,4), friction: Fx::from_ratio(1,2), edge_factor: Fx::ZERO, point_factor: Fx::from_ratio(1,2), material: Material::Wood }));
         assert_eq!(club.geometry, EquipmentGeometry::Segment { length: Fx::from_ratio(29,20), radius: Fx::from_ratio(3,50) });
+    }
+
+    /// The `[LOW, MID, HIGH]` order every table in this test is written in.
+    const GUARDS: [(&str, crate::CombatHeight); 3] = [
+        ("LOW ", crate::CombatHeight::LOW),
+        ("MID ", crate::CombatHeight::MID),
+        ("HIGH", crate::CombatHeight::HIGH),
+    ];
+
+    /// How much of each region a plate of `half_height` hides at each guard
+    /// height: the vertical overlap in raw fixed point, `[guard][region]`.
+    ///
+    /// Everything comes out of the fixtures and out of `hand_position` -- the
+    /// one function the world uses to place a hand -- so a change to the
+    /// anatomy, to `CombatHeight`'s three constants or to how a height becomes a
+    /// z moves this table with it. That is the whole point of computing it here
+    /// rather than writing a coverage table into a comment where it can rot.
+    ///
+    /// **The plate's z does not depend on the arm.** `hand_position` gives the
+    /// hand `standing_height * height` and puts bearing and reach in x and y
+    /// only, and `derive_shield_pose` takes the plate's centre from that hand,
+    /// so the reach passed below is arbitrary and the vertical answer is the
+    /// same for every pose the guard can hold. What the reach *does* change is
+    /// lateral coverage, which this table says nothing about: a plate can be at
+    /// the right height and still be a foot to the left of the blow.
+    fn plate_overlap(half_height: Fx) -> [[i32; AnatomyRegion::COUNT]; 3] {
+        let fighter = fighter_anatomy();
+        GUARDS.map(|(_, height)| {
+            let hand = crate::combat::actuator::hand_position(
+                &fighter, fx::Angle::ZERO, LimbSlot::LeftArm as usize,
+                fx::Angle::ZERO, height, Fx::from_ratio(3, 4),
+            );
+            let (low, high) = (hand.z - half_height, hand.z + half_height);
+            fighter.regions.map(|region| {
+                let bottom = region.centre_z - region.half_height;
+                let top = region.centre_z + region.half_height;
+                (high.min(top).raw() - low.max(bottom).raw()).max(0)
+            })
+        })
+    }
+
+    #[test]
+    fn the_plate_leaves_a_different_hole_at_every_guard_height() {
+        // **The reason v2-20 shrank the shield, derived rather than asserted.**
+        // A guard height is only a decision if the three settings answer
+        // different attacks; a plate that covers the body whatever you do with
+        // it turns the one channel the off arm has into a formality, and turns
+        // the fight this repository is trying to make legible into a fight with
+        // no gradient in it for anything to learn.
+        //
+        // Read on the Fighter, which is the only body on this roster that
+        // carries a plate, and vertically, which is the axis `CombatHeight`
+        // moves. Both bounds of both intervals come from the same spec table.
+        let fighter = fighter_anatomy();
+        let region_span = fighter.regions.map(|r| (r.half_height + r.half_height).raw());
+        let EquipmentGeometry::Shield { half_height, .. } = shield().geometry else {
+            panic!("the shield fixture carries shield geometry");
+        };
+        assert_eq!(half_height, Fx::from_ratio(1, 4), "the shipped plate");
+        let shipped = plate_overlap(half_height);
+        // The plate this replaced, kept here as the other half of the
+        // comparison and not as a live constant: `7/20 x 1/2` is the tall
+        // shield a later session may add as its own equipment row.
+        let superseded = plate_overlap(Fx::from_ratio(1, 2));
+
+        // Printed so the derivation is readable evidence and not just a pass.
+        // `cargo test -p sim -- --nocapture the_plate_leaves` is the command.
+        for (name, table) in [("1/4 (shipped)", shipped), ("1/2 (superseded)", superseded)] {
+            println!("fighter vertical coverage, shield half_height {name}:");
+            for (guard, row) in GUARDS.iter().zip(table) {
+                let cells: Vec<String> = AnatomyRegion::ALL.iter().enumerate()
+                    .map(|(at, region)| format!(
+                        "{region:?} {:.2}%",
+                        100.0 * row[at] as f64 / region_span[at] as f64
+                    ))
+                    .collect();
+                println!("  {}  {}", guard.0, cells.join("  "));
+            }
+        }
+
+        // Raw fixed point, pinned, because that is what the arithmetic above
+        // produces and a decimal would round. Region extents are
+        // Head 104,858..117,964, Torso 45,875..98,303, either Arm
+        // 58,983..98,303 and Legs 0..52,428; the hand sits at 29,491 / 58,982 /
+        // 88,473, which is `standing_height` truncated to 117,964 times a
+        // quarter, a half and three quarters.
+        assert_eq!(shipped, [
+            //  Head  Torso   LeftArm RightArm Legs
+            [   0,      0,      0,      0,      32_768 ],
+            [   0,      29_491, 16_383, 16_383, 9_830  ],
+            [   0,      26_214, 26_214, 26_214, 0      ],
+        ]);
+        assert_eq!(superseded, [
+            [   0,      16_384, 3_276,  3_276,  52_428 ],
+            [   0,      45_875, 32_767, 32_767, 26_214 ],
+            [   13_106, 42_598, 39_320, 39_320, 0      ],
+        ]);
+
+        // **Nothing is answered completely any more, and four things used to
+        // be.** A cell equal to the region's own extent is a region the guard
+        // hides outright at that height, which is what an attacker has no
+        // answer to: the old plate did that to the legs at LOW and to the head
+        // and both arms at HIGH.
+        let complete = |table: [[i32; AnatomyRegion::COUNT]; 3]| {
+            table.iter().flat_map(|row| row.iter().enumerate())
+                .filter(|(at, &cell)| cell == region_span[*at])
+                .count()
+        };
+        assert_eq!(complete(superseded), 4, "the old plate answered four cells outright");
+        assert_eq!(complete(shipped), 0, "the new plate answers nothing outright");
+
+        // **The head is now open at every height, and HIGH misses it by one raw
+        // unit.** The plate's top at HIGH is 104,857 and the head begins at
+        // 104,858 -- one part in 65,536 of a world unit, and a genuine gap
+        // rather than a shared plane, which is worth pinning precisely because
+        // it is the kind of coincidence a later anatomy edit would silently
+        // close.
+        assert!(shipped.iter().all(|row| row[AnatomyRegion::Head as usize] == 0));
+        assert_eq!(
+            superseded[2][AnatomyRegion::Head as usize],
+            region_span[AnatomyRegion::Head as usize],
+            "the old plate hid the whole head at HIGH"
+        );
+        let top_at_high = crate::combat::actuator::hand_position(
+            &fighter, fx::Angle::ZERO, LimbSlot::LeftArm as usize,
+            fx::Angle::ZERO, crate::CombatHeight::HIGH, Fx::from_ratio(3, 4),
+        ).z + half_height;
+        let head = fighter.regions[AnatomyRegion::Head as usize];
+        assert_eq!((head.centre_z - head.half_height).raw() - top_at_high.raw(), 1);
+
+        // **Three settings, three different regions best answered**, which is
+        // the property that makes the height a choice: legs at LOW, torso at
+        // MID, either arm at HIGH. The old plate had the same argmax -- legs,
+        // torso, head -- but with two of the three answered in full, so the
+        // choice was between "cover everything that matters" and "cover
+        // everything that matters and the head".
+        let best = |table: [[i32; AnatomyRegion::COUNT]; 3]| table.map(|row| {
+            (0..AnatomyRegion::COUNT)
+                .max_by_key(|&at| (row[at] as i64) * 65_536 / region_span[at] as i64)
+                .expect("five regions")
+        });
+        // HIGH is written as `RightArm` because `max_by_key` answers the last
+        // of equal keys and the two arms are the same interval to the raw unit.
+        // The claim is "an arm", and `LeftArm` ties it exactly.
+        assert_eq!(best(shipped), [
+            AnatomyRegion::Legs as usize,
+            AnatomyRegion::Torso as usize,
+            AnatomyRegion::RightArm as usize,
+        ]);
+        assert_eq!(
+            shipped[2][AnatomyRegion::LeftArm as usize],
+            shipped[2][AnatomyRegion::RightArm as usize]
+        );
     }
 
     #[test]
@@ -600,7 +791,13 @@ mod tests {
             ArticulatedUnitSpecV1 { anatomy: 1, equipment: [Some(1), Some(2)] },
             ArticulatedUnitSpecV1 { anatomy: 2, equipment: [Some(3), None] },
         ], &mut digest);
-        assert_eq!(digest.finish(), 0xf518_cd24_4980_f2d4);
+        // Moved once, by v2-20, and by exactly six bytes: the shield row's
+        // `half_width` and `half_height` each went from a `7/20` and a `1/2` to
+        // a `1/4`. Previously `0xf518_cd24_4980_f2d4`. `SHIELD_EQUIPMENT_SPEC_V1_BYTES`
+        // is still 44 below, which is the point of asserting both here -- the
+        // values moved and the widths did not, so this is a fixture edit and
+        // not a format change.
+        assert_eq!(digest.finish(), 0x78e5_b57a_e0c6_bbd6);
         for equipment in &table.equipment {
             let mut bytes = Bytes(Vec::new());
             write_equipment(equipment, &mut bytes);

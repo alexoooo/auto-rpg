@@ -15,6 +15,13 @@ the right-bound club and an empty left arm. Feet facing equals initial body yaw.
 at its documented maximum; actuator state uses the v2-13 spawn defaults. The scenario
 uses `CombatModel::Articulated` and complete schema-1 immutable definitions.
 
+**The fixture's name is frozen and its fingerprint is not.** Those definitions are part
+of the fingerprint stream, so an equipment dimension is part of this fixture's identity:
+v2-20 shrank the shield and `articulated-duel-v1` went from `0x2a6cc9678c08730d` to
+`0x068d05fcada1027b`. Any corpus, replay or evidence artifact naming this fixture is a
+claim about the fingerprint it was recorded against, and the mirrored variant moved with
+it, to `0x6dbf62f0b336050b`.
+
 A run uses seed `s`, answers every pending decision in ascending full identity with
 one fresh `ScriptedArticulatedPolicy` per faction, calls `World::step`, and stops at
 the first non-`None` outcome or immediately after tick 3,600. It records the typed
@@ -34,6 +41,10 @@ canonical zero target payload.
 The selected height is `[LOW,MID,HIGH][(tick / 90) % 3]`. Cut direction alternates
 by 360-tick cycle: even cycles are left cuts, odd cycles right cuts. The exact twelve
 30-tick phases of `tick % 360` are:
+
+*(Since v2-20 the *off arm* reads a second clock, `[LOW,MID,HIGH][((tick + 45) / 90) % 3]`,
+which the correction below this table argues for and measures. Every "selected height"
+in the rows below is still the first clock — it is the arm the phase names.)*
 
 | phase | ticks | command |
 |---:|---:|---|
@@ -70,9 +81,10 @@ stay comparable to each other. On every body and every tick that target is:
 off arm = (bearing = the commanded body yaw, height = MID, reach = 3/4, effort = 1/2)
 ```
 
-**The reach in that line is superseded** — the correction below the table splits it in
-two by what the hand holds. Everything else in this section stands, and the rest of
-the reach argument stands with it for the hand it was written about.
+**Two of the four columns in that line are superseded.** The correction below the table
+splits the *reach* in two by what the hand holds; v2-20's correction after that one
+makes the *height* the single live column the off arm keeps. Everything else in this
+section stands, and the rest of each argument stands with it.
 
 **This is a control-surface decision and not a mechanical one.** The design target is
 first-person human control of a single hero, and two independently articulated hands —
@@ -135,7 +147,9 @@ Twelve by two, with the off-arm column collapsed to one row:
 | 10 | guard `(toward, selected, 1/2, 1/2)`, body yaw `toward + 1/8` | height quoted, rest is phase 0's | the one pose |
 | 11 | guard `(toward, selected, 1/4, 0)` | reach and effort quoted | the one pose |
 
-(One pose per body, twelve identical rows — but which one is the correction below.)
+(One pose per body, twelve identical rows — but *which* one is the first correction
+below, and since v2-20 the rows are no longer identical: the height column walks the
+`(tick + 45) / 90` clock, so "the one pose" means one pose *rule* with one live column.)
 
 **The guard column is now only reachable on a body with no shield.** A Fighter's guard
 clause lands on its shield arm and is overwritten; a Brute's lands on the club arm,
@@ -219,6 +233,74 @@ overwrite. It cannot: `ArmRoles::of` sets `guard = shield.unwrap_or(weapon)`, an
 ever receives a guard clause is one holding a shield — which is exactly the branch
 whose pose did not change. A body with no shield guards with the arm it strikes with
 and the override never reaches that clause at all. The note above stands unedited.
+
+### Correction, v2-20: the guard has a height, and the plate it holds is small
+
+The two sections above are left standing and one clause in each is now wrong. The off
+arm is still fixed in body frame, still the same rule on every phase, still applied by
+the same function in all three policies. What changed is that its **height** is a live
+column:
+
+```text
+off arm holding equipment = (commanded body yaw, guard clock, reach 3/4, effort 1/2)
+off arm empty             = (commanded body yaw, guard clock, reach 1/4, effort 1/2)
+guard clock               = [LOW,MID,HIGH][((tick + 45) / 90) % 3]
+```
+
+**One axis, and it had to be this one.** The control-surface argument bounds the number
+of live columns on the off arm and says nothing about which. The reference this fight is
+modelled on let the player jump, duck and pitch the body, so a shield held in one place
+still covered a varying part of a varying silhouette; this model has planar feet, no
+crouch and no torso pitch, so a plate welded to `MID` is fixed against the body's own
+regions too — strictly less control than the reference had. And it cannot be `bearing`:
+`derive_shield_pose` reads the plate's normal off body yaw and its centre off the hand,
+so a hand free to swing sideways walks straight back into the defect measured above
+(median 32 degrees, 1.84% edge-on). Height cannot, because the normal is
+`(cos yaw, sin yaw, 0)` and has no z term for a raised hand to disagree with.
+
+**The plate shrank in the same commit**, from `half_width 7/20, half_height 1/2` to a
+quarter each way — 36% of the face area, mass and surface untouched. Derived on the
+Fighter's own regions, the vertical coverage is:
+
+| guard | plate spans | at `1/2` (superseded) | at `1/4` (shipped) |
+|---|---|---|---|
+| LOW | centre 0.45 | legs **whole**, torso 31%, arm 8% | legs 62.5%, nothing else |
+| MID | centre 0.90 | torso 87.5%, arm 83%, legs 50% | torso 56.25%, arm 41.7%, legs 18.75% |
+| HIGH | centre 1.35 | head **whole**, both arms **whole**, torso 81% | arm 66.7%, torso 50%, head 0% |
+
+Four cells answered outright became none, and the three settings now best-answer three
+different regions — legs, torso, an arm — which is what makes the height a decision
+rather than a formality. The head is open at every height now; at `HIGH` the plate's top
+is 104,857 raw and the head begins at 104,858, a gap of one part in 65,536.
+`sim::combat::spec::the_plate_leaves_a_different_hole_at_every_guard_height` derives
+both columns and prints them.
+
+**The guard clock leads the weapon clock by half a step, and that is a measurement.**
+With one clock for both arms of both bodies, `lab articulated --seeds 400 --mirrored`
+reported the joint distribution of (attacker weapon height, defender guard height) as
+**100.00% diagonal over 62,668 commanded pairs, every off-diagonal cell exactly zero** —
+a corpus in which a guard is never tested against any height but its own. Phasing the
+two *sides* apart by a whole 90 does not fix that and was measured not to: it produces
+0.00% diagonal, every pair mismatched, which is the same degeneracy relabelled. Only an
+offset that is not a multiple of the period puts mass in more than one relation, and a
+half splits it evenly. It is applied uniformly rather than keyed on the side, because
+`ArticulatedObservation` has no faction column by design and the subject's slot index is
+not a faction. Measured after: 50.03% diagonal.
+
+**What it did to the corpus**, 800 mirrored trials, the same 400 seeds either side:
+
+| | composed before | composed after | windmill before | windmill after |
+|---|---:|---:|---:|---:|
+| weapon/shield share of resolutions | 34.38% | **22.76%** | 9.13% | **4.87%** |
+| brute mean end health | 0.9424 | **0.9242** | 0.7325 | **0.7158** |
+| fighter mean end health | 0.9886 | 0.9800 | 0.9990 | 0.9994 |
+| decided by a body | 8 | 16 | 20 | 24 |
+
+The plate is beatable in the direction intended and by an amount that is not decisive: a
+third fewer blocks and 1.8 points of Brute health on the composed corpus, twice that
+proportionally on the windmill. **v2-17's gate is not claimed and is not close.** A
+smaller shield lets more contact through; it does not touch the energy budget that
+session measured at roughly 35x short.
 
 The command-stream digest is FNV-1a-64 prefixed by ASCII `ARPG-SCRIPT-V1`. For each
 accepted or safe-fallback stored command feed little-endian tick, subject index,

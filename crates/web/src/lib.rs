@@ -6047,7 +6047,15 @@ mod tests {
         // blood, no shock, `EntityId::NONE` -- and the move was predicted from
         // that before it was measured. Moved once before, by v2-14C appending
         // `cap_hits` itself, from `0x584d711e492950e7` to `0x010411d521a376d7`.
-        assert_eq!(fixture_digest, 0x6e61_a92e_c96a_c3a6);
+        //
+        // **Moved again by v2-20, and this fixture being unstepped is exactly
+        // why.** `initialize_articulated_pose` calls `derive_shield_pose` at
+        // spawn, the ArticulatedV1 digest writes the plate's `half_width`,
+        // `half_height` and `thickness` per slot, and two of those three are
+        // what that session edited. So this is a *construction* move: nothing
+        // about how the world steps changed, only what the Fighter is
+        // holding when the world is built. Previously `0x6e61_a92e_c96a_c3a6`.
+        assert_eq!(fixture_digest, 0xd1da_6a40_df04_80b2);
     }
 
     #[test]
@@ -7174,6 +7182,16 @@ mod tests {
     /// number rather than the largest one is how a capacity gets re-rejected by
     /// the next change.
     ///
+    /// **v2-20 moved it down again, 354 to 346**, and this one *was* predicted:
+    /// the corpus is 32 Fighter/Brute pairs in a clinch, a Fighter's plate is
+    /// now 36% of the face area it was, and a plate that catches fewer swings
+    /// publishes fewer `WeaponShield` rows without handing all of them back as
+    /// `WeaponBody` -- a blade that misses a smaller shield can also miss the
+    /// body behind it. Eight rows in 354 is 2.3%, which is the right order for
+    /// a geometry change that leaves 64 bodies in exactly the same places. The
+    /// capacity stays 2,048 for the reason above: 556 is still the busiest this
+    /// corpus has been.
+    ///
     /// Provenance is the whole of its meaning: **this fixture, this seed, this
     /// batch.** Seed `0x4152504741424931`, an open 24x16 room, 64 bodies as 32
     /// Fighter/Brute pairs, one command each at tick zero and none after, one
@@ -7181,7 +7199,7 @@ mod tests {
     /// and eight `step(1)`s measure the busiest tick rather than what one host
     /// call accumulates -- which is the thing being sized, because the feed is
     /// cleared per call.
-    const HIGH_WATER_EVENT_ROWS: u32 = 354;
+    const HIGH_WATER_EVENT_ROWS: u32 = 346;
 
     /// And the pose half, which sits exactly on its capacity by construction:
     /// 64 bodies is `MAX_ARTICULATED_ENTITIES` and `MAX_POSES` is the same
@@ -7382,7 +7400,19 @@ mod tests {
     /// counts, 3 and 5 with two rows and the rest with one -- so every byte that
     /// changed is a value rather than a row, which is exactly the signature a
     /// simulation move with no layout change should leave.
-    const ARTICULATED_STREAM_DIGEST: u64 = 0x6f87_9c13_430a_dfc1;
+    ///
+    /// Moved a third time by v2-20, from `0x6f879c13430adfc1`, and this one is
+    /// two things at once rather than the usual one. The plate's
+    /// `half_width` and `half_height` are published *directly* in the pose row
+    /// -- `POSE_SHIELD_HALF_WIDTH` and `POSE_SHIELD_HALF_HEIGHT` are copied off
+    /// `spec::shield()` through `derive_shield_pose` -- so tick zero's bytes
+    /// move before anything has happened; and the same smaller plate then
+    /// changes what the twenty-tick clinch resolves, so the event half moves
+    /// too. **Still not a layout change**: the stride, the word offsets and the
+    /// row counts per tick are all where they were, which
+    /// `the_pose_row_is_the_documented_layout_word_for_word` and the shape
+    /// printer beside this constant are what say so.
+    const ARTICULATED_STREAM_DIGEST: u64 = 0x54c0_762b_3dfb_7a05;
 
     #[test]
     #[ignore]

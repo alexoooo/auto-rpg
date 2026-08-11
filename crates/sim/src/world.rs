@@ -6103,8 +6103,12 @@ mod tests {
         let shield = fighter.shield_pose.expect("fighter starts with the left shield");
         assert_eq!(shield.centre, fighter.arms[0].hand);
         assert_eq!(shield.normal, Vec3::X);
+        // The plate's extents are the equipment row's, copied and not derived,
+        // which is why v2-20's shrink lands here as well as in the spec table's
+        // own digest: `derive_shield_pose` reads `half_width` and `half_height`
+        // straight off `spec::shield()` at spawn, before any tick.
         assert_eq!((shield.half_width, shield.half_height, shield.thickness),
-            (Fx::from_ratio(7, 20), Fx::HALF, Fx::from_ratio(1, 20)));
+            (Fx::from_ratio(1, 4), Fx::from_ratio(1, 4), Fx::from_ratio(1, 20)));
 
         let brute = world.articulated_pose_test_view(EntityId::new(1, 0)).unwrap();
         assert_eq!(brute.body_yaw.angle, Angle::HALF);

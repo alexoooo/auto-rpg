@@ -2,7 +2,8 @@
 //! that fingerprints what either of them actually submitted.
 //!
 //! **Nothing in here decides anything, and that is the point.** The phase is
-//! `tick % 360`, the guard height is `tick / 90` and the cut side is
+//! `tick % 360`, the striking height is `tick / 90`, the guard height is
+//! `(tick + 45) / 90` and the cut side is
 //! `tick / 360`; the observation supplies geometry and nothing else -- where the
 //! opponent is, which hand holds the shield, whether anybody is visible at all.
 //! v2-17 has to answer "does the contact model produce decisive, legible
@@ -86,6 +87,42 @@
 //!   longer a second arm to underspecify: whatever the table declines to say
 //!   about the off arm, [`off_hand`] has already said.
 //!
+//! # The guard got its height back (v2-20)
+//!
+//! **One column of the four, and it is the only one that could be spent.** The
+//! control-surface argument above bounds the *number* of live columns on the off
+//! arm and says nothing about which; [`off_hand`] argues that the one worth
+//! having is height, that the reference this fight is modelled on had it in the
+//! legs and this model has no legs to put it in, and that `bearing` cannot be
+//! the one because freeing it walks back into the `derive_shield_pose`
+//! normal-versus-centre defect that the same doc comment measures. Read it
+//! there.
+//!
+//! Two consequences for the reading above, and both are corrections to the
+//! subtractions it lists:
+//!
+//! * **Phase 6 is still inert on a Fighter and the shield still moves.** The
+//!   phase that steps a guard to `next_height` still lands on the overwritten
+//!   arm, so the *phase* does nothing; the plate steps LOW/MID/HIGH on its own
+//!   clock instead, which is a different schedule reaching the same motion.
+//!   "The one phase written to step a shield between two heights is inert" is
+//!   still true and "a Fighter's shield never changes height" is no longer
+//!   true, and those were the same sentence before this session.
+//!
+//! * **The off arm is no longer twelve identical rows.** Its height column
+//!   walks a ninety-tick clock that is offset from the phase grid, so four of
+//!   the twelve rows step in the middle of themselves -- which is what
+//!   `the_twelve_phases_are_the_reference_table_written_out_by_hand` now
+//!   transcribes tick by tick. Still one *pose rule*; no longer one pose.
+//!
+//! And one addition to the module summary at the top, which said the guard
+//! height is `tick / 90` and is now half right: the *weapon's* height is, and
+//! the guard's is `(tick + 45) / 90`. [`GUARD_LEAD_TICKS`] carries the
+//! measurement that forced it -- with one clock for both arms of both bodies
+//! the corpus's (attack height, guard height) table was 100.00% diagonal, which
+//! is a fight in which no guard was ever tested against anything but its own
+//! height. It is still a clock and the script still decides nothing.
+//!
 //! [`ScriptedArticulatedPolicy`] and [`WindmillArticulatedPolicy`] are both pure
 //! functions of the observation, so neither implements `reset` -- there is no
 //! per-run memory for the harness to clear.
@@ -103,6 +140,49 @@ pub const PHASE_TICKS: u32 = 30;
 pub const CYCLE_TICKS: u32 = PHASE_TICKS * 12;
 /// Ticks the selected guard height holds before it steps.
 pub const HEIGHT_TICKS: u32 = 90;
+
+/// How far ahead of the weapon's height clock the *guard's* height clock runs.
+///
+/// **This constant exists because the corpus was measured and came back
+/// degenerate.** Both bodies read the same `obs.tick` and both height clocks
+/// were `(tick / HEIGHT_TICKS) % 3`, so over `lab articulated --seeds 400
+/// --mirrored` the joint distribution of (attacker weapon height, defender
+/// guard height) was **100.00% diagonal over 62,668 commanded pairs, every
+/// off-diagonal cell exactly zero** -- a HIGH guard met a HIGH swing and never
+/// met anything else, on every trial, by construction. Whatever such a corpus
+/// says about a shield, it is saying it about one cell of a three-by-three
+/// table.
+///
+/// **Half a step and not a whole one, and that is arithmetic rather than
+/// taste.** The obvious fix -- phase the two sides apart by a whole
+/// `HEIGHT_TICKS` -- does not mix anything, it relabels: with one side's clock
+/// a whole step ahead the distribution becomes 0.00% diagonal, every pair
+/// mismatched, which biases a blocked-contact rate exactly as hard in the other
+/// direction. Any whole multiple of `HEIGHT_TICKS` does the same, because both
+/// clocks then step at the same instants and only their labels differ. An
+/// offset that is *not* a multiple is the only kind that can put mass in more
+/// than one relation, and a half is the one that splits it evenly: 50% of
+/// commanded pairs aligned, 50% one step apart, and all three mismatch
+/// magnitudes represented once the wrap is counted.
+///
+/// **Uniform, and not keyed on the side.** The plan this session implements
+/// asked for a faction-keyed offset; there is no faction to key on.
+/// [`ArticulatedObservation`] has no faction column by design --
+/// `crate::ArticulatedPolicy`'s own doc comment argues at length why -- and the
+/// only stable per-body key it publishes is the subject's slot index, which is
+/// not the same thing: on a roster where one faction owns two adjacent slots,
+/// parity splits that faction instead of splitting the sides. Leading the guard
+/// against the weapon rather than one body against the other needs no key at
+/// all, keeps this script a pure function of `tick` -- which is the property
+/// the module header rests on and the reason the phase table can be checked
+/// with a pencil -- and produces a *better* mixture than the keyed version
+/// would have.
+///
+/// The cost is that the guard clock no longer lines up with the thirty-tick
+/// phase boundaries: it steps mid-phase in four of the twelve phases, which is
+/// what `the_twelve_phases_are_the_reference_table_written_out_by_hand` now
+/// transcribes tick by tick rather than phase by phase for that one column.
+pub const GUARD_LEAD_TICKS: u32 = HEIGHT_TICKS / 2;
 
 /// An eighth of a turn, raw.
 ///
@@ -140,14 +220,22 @@ const WITHDRAW_SPEED: Fx = Fx::HALF;
 /// Both are read out of the capability mask and the published grips rather than
 /// out of the scenario, because a policy has no scenario -- and because the
 /// answer changes mid-fight when an arm comes off.
+///
+/// **Public because a measurement of this script cannot attribute a height
+/// without it.** `lab articulated` reports the joint distribution of (attacker
+/// weapon height, defender guard height), and "which of the two commanded arms
+/// is the weapon" is a fact about the script rather than about the fixture: it
+/// moves when an arm is severed, so a lab that re-derived it from the
+/// capability mask would be a second copy of the rule below, free to drift from
+/// it exactly when a fight got interesting.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-struct ArmRoles {
-    guard: usize,
-    weapon: usize,
+pub struct ArmRoles {
+    pub guard: usize,
+    pub weapon: usize,
 }
 
 impl ArmRoles {
-    fn of(obs: &ArticulatedObservation) -> ArmRoles {
+    pub fn of(obs: &ArticulatedObservation) -> ArmRoles {
         let weapon_bit = [
             ArticulatedObservation::LEFT_WEAPON,
             ArticulatedObservation::RIGHT_WEAPON,
@@ -237,13 +325,38 @@ fn tucked(body_yaw: Angle) -> ArmTarget {
     }
 }
 
-/// The off hand's one pose, in body frame, for the whole fight.
+/// The off hand's pose, in body frame, with exactly one column free: `guard`.
 ///
 /// **A control-surface decision and not a physics one.** The design target is
 /// first-person human control of a single hero, and two independently
 /// articulated hands is more than one player can drive: four degrees of freedom
-/// per arm, both live, both mattering. So the off arm stops being driven. The
-/// right arm keeps every degree of freedom it had; this one keeps none.
+/// per arm, both live, both mattering. So the off arm stops being *driven*. The
+/// right arm keeps every degree of freedom it had; this one keeps one.
+///
+/// **And the one it keeps is height, on the Die By The Sword argument.** The
+/// reference for this fight let the player jump, duck and pitch the body, so a
+/// shield held in one fixed place still covered a varying part of a varying
+/// silhouette -- the height channel existed, it just lived in the legs and the
+/// spine. This model has none of that: feet are planar, there is no crouch, and
+/// the torso does not pitch. A plate welded to `CombatHeight::MID` is therefore
+/// fixed against the body's own regions as well as against the world, which is
+/// strictly less control than the reference had rather than a simplification of
+/// it. One scalar -- shield up, shield down -- puts it back for one axis of the
+/// four, and `spec::the_plate_leaves_a_different_hole_at_every_guard_height`
+/// is what says the three settings answer three different attacks rather than
+/// being three spellings of one.
+///
+/// **Height and not bearing, and the asymmetry is the whole reason only one
+/// column moved.** Freeing `bearing` would reintroduce the
+/// `derive_shield_pose` defect measured two paragraphs down -- median 32
+/// degrees between the plate's normal and the hand that carries it, 1.84% of
+/// ticks edge-on -- because the plate's normal is read off body yaw and its
+/// centre off the hand, so a hand free to swing left and right comes apart from
+/// its own facing. Freeing height cannot do that, because height does not enter
+/// the normal at all: `derive_shield_pose` builds it as `(cos yaw, sin yaw, 0)`,
+/// which has no z term to disagree with a hand that went up. The two columns
+/// are not two instances of the same risk, and that is why this one is free and
+/// that one is welded.
 ///
 /// **The wire format does not move.** [`ArticulatedCommandV1`] still carries
 /// both arms, `CommandField` still names its Left columns, the payload is still
@@ -318,10 +431,20 @@ fn tucked(body_yaw: Angle) -> ArmTarget {
 /// pose choice**: the number is the joint's own floor, so the collider is as
 /// short as this anatomy can make it and no smaller number is available to
 /// argue about.
-fn off_hand(body_yaw: Angle, holding: bool) -> ArmTarget {
+///
+/// **`guard` reaches an empty hand too, and that is deliberate.** Nothing hangs
+/// on where a Brute's left hand sits vertically -- there is no plate on it --
+/// and taking the height away from the empty branch would make this function
+/// two poses that differ in two columns instead of one. It would also mean a
+/// body that dropped its shield stopped answering the guard channel at all,
+/// which is a silent behaviour change on exactly the tick a fight gets
+/// interesting. The empty hand carries the height for the same reason it
+/// carries the effort: the pose is one rule, and the hand only chooses the
+/// reach.
+fn off_hand(body_yaw: Angle, guard: CombatHeight, holding: bool) -> ArmTarget {
     ArmTarget {
         bearing: body_yaw,
-        height: CombatHeight::MID,
+        height: guard,
         reach: if holding { THREE_QUARTERS } else { QUARTER },
         effort: Fx::HALF,
     }
@@ -423,6 +546,11 @@ pub fn scripted_articulated_command_with(
     let index = ((obs.tick / HEIGHT_TICKS) % 3) as usize;
     let height = HEIGHTS[index];
     let next_height = HEIGHTS[(index + 1) % 3];
+    // The same clock read half a step early, for the reason
+    // [`GUARD_LEAD_TICKS`] gives: with both bodies reading one tick and one
+    // clock, every swing met a guard at its own height and no other, so the
+    // corpus could not say whether the height mattered.
+    let guard_height = HEIGHTS[(((obs.tick + GUARD_LEAD_TICKS) / HEIGHT_TICKS) % 3) as usize];
     // Even cycles cut left, odd cycles right. The chamber is on the far side of
     // the line from the commit, because a cut has to start somewhere the target
     // is not in order to arrive somewhere it is at speed -- the argument
@@ -519,9 +647,17 @@ pub fn scripted_articulated_command_with(
         // and, since 2026-08-10, the phase that moves a Brute's club and
         // nothing else. A Fighter's guard clause lands on the off arm and is
         // overwritten, so the one phase written to step a shield between two
-        // heights is now inert on the only body that carries one. That is the
-        // cost of the override, stated where somebody looking for the missing
-        // motion will find it.
+        // heights is still inert on the only body that carries one.
+        //
+        // v2-20 does not repair that and does not need to: the plate steps
+        // heights on its own clock now, so the motion this phase was written to
+        // produce happens -- on a different schedule, from `off_hand` rather
+        // than from here. And [`GUARD_LEAD_TICKS`] recovers the *contrast* this
+        // phase was for as well, though not where the table put it: for half of
+        // every ninety ticks the guard is one step off the height the weapon is
+        // working at, rather than for one phase in twelve. What is genuinely
+        // gone is the phase's ability to say so at a place a reader can point
+        // at, and that is worth leaving stated for whoever comes looking.
         6 => Phase {
             move_dir: Vec2::ZERO,
             body_yaw: toward,
@@ -641,8 +777,17 @@ pub fn scripted_articulated_command_with(
     // is a published observation column and not a scenario fact -- so it
     // answers a severed stump and a dropped shield the same way it answers a
     // Brute, without this side of the seam knowing what any of them are.
+    //
+    // **The guard height is the same clock and no new input.** The script
+    // already walks the three heights on the ninety-tick clock for the arm that
+    // strikes; the arm that guards reads that clock half a step early, so the
+    // off arm gains a column without the script gaining a decision. A guard
+    // that read the opponent's hand would be a reaction, and this file measures
+    // the physics rather than the tuning -- reading the threat is exactly the
+    // edge v2-19 hands to a learned policy, and it is why that session is
+    // blocked on this one.
     let off = 1 - roles.weapon;
-    arms[off] = off_hand(phase.body_yaw, obs.arms[off].equipment.is_some());
+    arms[off] = off_hand(phase.body_yaw, guard_height, obs.arms[off].equipment.is_some());
 
     ArticulatedCommandV1 {
         move_dir: phase.move_dir,
@@ -675,6 +820,7 @@ pub fn windmill_articulated_command(obs: &ArticulatedObservation) -> Articulated
     let toward = bearing_to(obs);
     let roles = ArmRoles::of(obs);
     let height = HEIGHTS[((obs.tick / HEIGHT_TICKS) % 3) as usize];
+    let guard_height = HEIGHTS[(((obs.tick + GUARD_LEAD_TICKS) / HEIGHT_TICKS) % 3) as usize];
     let endpoint = if (obs.tick / PHASE_TICKS) % 2 == 0 {
         toward + EIGHTH_TURN
     } else {
@@ -699,10 +845,17 @@ pub fn windmill_articulated_command(obs: &ArticulatedObservation) -> Articulated
     // corpora still differ only in what the *weapon* arm does with its thirty
     // ticks. A windmill that kept a swinging shield while the script parked one
     // would be a comparison of two changes.
+    //
+    // **The guard height is the composed script's guard height**, half a step
+    // ahead of the swing beside it, for exactly that reason: the control's
+    // whole claim is that it edits the weapon arm and nothing else, so its
+    // guard has to read the clock the script's guard reads, lead included. A
+    // windmill guarding on a different schedule would make the difference
+    // between the two corpora a difference of two things.
     let mut arms = [tucked(toward); 2];
     arms[roles.weapon] = weapon;
     let off = 1 - roles.weapon;
-    arms[off] = off_hand(toward, obs.arms[off].equipment.is_some());
+    arms[off] = off_hand(toward, guard_height, obs.arms[off].equipment.is_some());
 
     ArticulatedCommandV1 {
         move_dir: heading(toward, APPROACH_SPEED),
@@ -742,6 +895,13 @@ impl ArticulatedPolicy for WindmillArticulatedPolicy {
 /// it meant -- either because `Planted` was right and there is nothing left to
 /// measure, or because `Closing` was, and then this becomes the script rather
 /// than staying a policy beside it.
+///
+/// **Its guard height is the script's, and it has no call site of its own to
+/// choose one at.** That is the control's defining property rather than an
+/// omission: it calls [`scripted_articulated_command_with`], so every column
+/// except the four move cells is the composed script's by construction, and
+/// `the_closing_control_changes_four_move_columns_and_nothing_else` is what
+/// keeps a future edit from quietly giving it a second difference.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct ClosingAttackControlPolicy;
 
@@ -843,6 +1003,18 @@ mod tests {
         ArmTarget { bearing, height, reach, effort }
     }
 
+    /// The guard's clock, for the tests whose subject is *which* pose lands on
+    /// the off arm rather than which height it holds.
+    ///
+    /// Written once here and never inlined, and it is deliberately the same
+    /// expression the script uses: the hand-written witness for this formula is
+    /// `the_twelve_phases_are_the_reference_table_written_out_by_hand`'s
+    /// `guards` table, and a second hand transcription in every test that
+    /// happens to need a height would be four more places to get it wrong.
+    fn guard_clock(tick: u32) -> CombatHeight {
+        HEIGHTS[(((tick + GUARD_LEAD_TICKS) / HEIGHT_TICKS) % 3) as usize]
+    }
+
     #[test]
     fn a_fighter_guards_with_its_shield_and_a_brute_with_its_club() {
         // The role assignment is read out of the capability mask, so it has to
@@ -875,13 +1047,16 @@ mod tests {
             obs
         });
         assert_ne!(cutting.arms[0], tucked(cutting.body_yaw));
-        // The stump, and therefore the off arm, so it holds the static pose
-        // rather than the tuck. Reading `off_hand` and not `tucked` here is the
-        // one place the override's use of [`ArmRoles::weapon`] rather than a
+        // The stump, and therefore the off arm, so it holds the pose rather
+        // than the tuck. Reading `off_hand` and not `tucked` here is the one
+        // place the override's use of [`ArmRoles::weapon`] rather than a
         // hardcoded index is observable -- and `holding` is false, because a
-        // severed arm holds nothing, so a stump is frozen at the resting reach
-        // rather than held out at a guard's.
-        assert_eq!(cutting.arms[1], off_hand(cutting.body_yaw, false));
+        // severed arm holds nothing, so a stump rests at the resting reach
+        // rather than held out at a guard's. Phase 4 of cycle 0 selects MID,
+        // which is the guard height a stump is given here for the same reason
+        // it is given a reach: the rule is one rule and the hand only chooses
+        // the reach.
+        assert_eq!(cutting.arms[1], off_hand(cutting.body_yaw, CombatHeight::MID, false));
         assert_eq!(cutting.arms[1].reach, QUARTER);
 
         // Losing the shield arm instead leaves the ordinary answer: no shield to
@@ -918,31 +1093,47 @@ mod tests {
         let zero = Fx::ZERO;
         // The off arm's two poses, spelled out here rather than called for, on
         // the same principle as everything else in this table: a transcription
-        // that reached for the helper would agree with any mistake in it. The
-        // turned copies exist because phase 10 is the one row whose commanded
-        // yaw is not `east`, and a body-frame pose has to go with it.
+        // that reached for the helper would agree with any mistake in it. Both
+        // take the commanded yaw as well as the height, because phase 10 is the
+        // one row whose yaw is not `east` and a body-frame pose goes with it.
         //
         // A Fighter's off hand carries the shield and holds a guard; a Brute's
-        // is empty and rests where an arm nothing is driving hangs. Both are
-        // twelve identical rows, which is what "static" means -- the tables
-        // below differ from each other in this column and neither differs from
-        // itself.
-        let held = arm(east, mid, THREE_QUARTERS, half);
-        let held_turned = arm(east + EIGHTH_TURN, mid, THREE_QUARTERS, half);
-        let empty = arm(east, mid, QUARTER, half);
-        let empty_turned = arm(east + EIGHTH_TURN, mid, QUARTER, half);
-        assert_eq!(held, off_hand(east, true));
-        assert_eq!(held_turned, off_hand(east + EIGHTH_TURN, true));
-        assert_eq!(empty, off_hand(east, false));
-        assert_eq!(empty_turned, off_hand(east + EIGHTH_TURN, false));
+        // is empty and rests where an arm nothing is driving hangs. Everything
+        // in the pose except the height is still one value for the whole fight,
+        // which is the sense in which the arm is still not being driven.
+        let held = |yaw, height| arm(yaw, height, THREE_QUARTERS, half);
+        let empty = |yaw, height| arm(yaw, height, QUARTER, half);
+        // All three heights on both branches, so a pose that quietly ignored
+        // its argument would fail here rather than only in a corpus.
+        assert_eq!(held(east, low), off_hand(east, low, true));
+        assert_eq!(held(east, mid), off_hand(east, mid, true));
+        assert_eq!(held(east + EIGHTH_TURN, high), off_hand(east + EIGHTH_TURN, high, true));
+        assert_eq!(empty(east, high), off_hand(east, high, false));
+        assert_eq!(empty(east, mid), off_hand(east, mid, false));
+        assert_eq!(empty(east + EIGHTH_TURN, low), off_hand(east + EIGHTH_TURN, low, false));
         // The empty pose is the tuck's reach at the static hand's effort, and
         // that reach is the joint's own floor. Both halves are load-bearing:
         // the first is what keeps an idle arm's collider the length the
         // reference table always gave it, the second is what says no shorter
         // resting reach was available to choose.
-        assert_eq!(empty.reach, tuck.reach);
-        assert_eq!(empty.reach, Fx::from_raw(sim::ARM_MIN_REACH_RAW));
-        assert_ne!(empty.effort, tuck.effort);
+        assert_eq!(empty(east, mid).reach, tuck.reach);
+        assert_eq!(empty(east, mid).reach, Fx::from_raw(sim::ARM_MIN_REACH_RAW));
+        assert_ne!(empty(east, mid).effort, tuck.effort);
+
+        // **The guard's height column, hand-resolved per tick and not per
+        // phase**, because [`GUARD_LEAD_TICKS`] puts the guard clock half a
+        // step ahead of the phase grid: `(tick + 45) / 90` steps at ticks 45,
+        // 135, 225 and 315, which fall in the middle of phases 1, 4, 7 and 10.
+        // Those four rows therefore carry two different heights across the two
+        // ticks this table checks, and the eight others carry one twice. That
+        // asymmetry is the whole visible consequence of the lead, and writing
+        // it out is cheaper than a reader deriving it.
+        let guards: [(CombatHeight, CombatHeight); 12] = [
+            (low, low),  (low, mid),  (mid, mid),
+            (mid, mid),  (mid, high), (high, high),
+            (high, high),(high, low), (low, low),
+            (low, low),  (low, mid),  (mid, mid),
+        ];
 
         // The three feet. Written as exact vectors and not as "it moved",
         // because a direction is half of what the table states and the half that
@@ -955,63 +1146,74 @@ mod tests {
         let retreat = Vec2::new(-WITHDRAW_SPEED, Fx::ZERO);
         let planted = Vec2::ZERO;
 
-        // (phase, move, yaw, attacks, left arm, right arm)
+        // (phase, move, yaw, attacks, right arm)
         //
         // **Two transcriptions and not one, since the off arm stopped moving.**
         // A Fighter's guard clause lands on its shield arm and is overwritten,
-        // so the left column below is twelve copies of one pose and the guard
-        // rows of the reference table are unobservable on this body. They land
-        // on the club of a Brute, whose guard arm *is* its weapon arm -- so the
-        // second table is where phases 0, 1, 2, 6, 9, 10 and 11 are actually
-        // checked against the reference, and the first is where the attack rows
-        // and the tuck rule are.
-        let fighter: [(u32, Vec2, Angle, bool, ArmTarget, ArmTarget); 12] = [
-            (0, advance, east, false, held, tuck),
-            (1, advance, east, false, held, tuck),
-            (2, planted, east, false, held, tuck),
-            (3, planted, east, true, held, arm(east - EIGHTH_TURN, mid, THREE_QUARTERS, one)),
-            (4, planted, east, true, held, arm(east + EIGHTH_TURN, mid, one, one)),
+        // so its left arm is the pose and not the table's guard rows, which are
+        // unobservable on this body. They land on the club of a Brute, whose
+        // guard arm *is* its weapon arm -- so the second table is where phases
+        // 0, 1, 2, 6, 9, 10 and 11 are actually checked against the reference,
+        // and the first is where the attack rows and the tuck rule are.
+        //
+        // The left column is gone from both tables and lives in `guards` above,
+        // because the off arm's height no longer holds for a whole phase: it is
+        // built per tick in the loop from that hand-written pair and the row's
+        // own yaw, and its reach is the one constant that separates the two
+        // bodies.
+        let fighter: [(u32, Vec2, Angle, bool, ArmTarget); 12] = [
+            (0, advance, east, false, tuck),
+            (1, advance, east, false, tuck),
+            (2, planted, east, false, tuck),
+            (3, planted, east, true, arm(east - EIGHTH_TURN, mid, THREE_QUARTERS, one)),
+            (4, planted, east, true, arm(east + EIGHTH_TURN, mid, one, one)),
             // The one place the rest and the tuck coincide, because this phase
             // of this cycle is at MID and the tuck is always at MID. They part
             // company next cycle; `a_brute_resting_stands_its_club_down...`
             // pins the rest where the two are distinguishable.
-            (5, planted, east, false, held, arm(east, mid, QUARTER, zero)),
-            (6, planted, east, false, held, tuck),
-            (7, planted, east, true, held, arm(east, high, QUARTER, one)),
-            (8, planted, east, true, held, arm(east, high, one, one)),
-            (9, retreat, east, false, held, tuck),
-            (10, planted, east + EIGHTH_TURN, false, held_turned,
+            (5, planted, east, false, arm(east, mid, QUARTER, zero)),
+            (6, planted, east, false, tuck),
+            (7, planted, east, true, arm(east, high, QUARTER, one)),
+            (8, planted, east, true, arm(east, high, one, one)),
+            (9, retreat, east, false, tuck),
+            (10, planted, east + EIGHTH_TURN, false,
                  arm(east + EIGHTH_TURN, mid, QUARTER, zero)),
-            (11, planted, east, false, held, tuck),
+            (11, planted, east, false, tuck),
         ];
-        let brute: [(u32, Vec2, Angle, bool, ArmTarget, ArmTarget); 12] = [
-            (0, advance, east, false, empty, arm(east, low, half, half)),
-            (1, advance, east, false, empty, arm(east, low, half, half)),
-            (2, planted, east, false, empty, arm(east, low, half, THREE_QUARTERS)),
-            (3, planted, east, true, empty, arm(east - EIGHTH_TURN, mid, THREE_QUARTERS, one)),
-            (4, planted, east, true, empty, arm(east + EIGHTH_TURN, mid, one, one)),
+        let brute: [(u32, Vec2, Angle, bool, ArmTarget); 12] = [
+            (0, advance, east, false, arm(east, low, half, half)),
+            (1, advance, east, false, arm(east, low, half, half)),
+            (2, planted, east, false, arm(east, low, half, THREE_QUARTERS)),
+            (3, planted, east, true, arm(east - EIGHTH_TURN, mid, THREE_QUARTERS, one)),
+            (4, planted, east, true, arm(east + EIGHTH_TURN, mid, one, one)),
             // Phase 5's collision: the weapon clause is written below the guard
             // clause and therefore wins, so the club rests rather than guarding.
-            (5, planted, east, false, empty, arm(east, mid, QUARTER, zero)),
+            (5, planted, east, false, arm(east, mid, QUARTER, zero)),
             // Guard one step *past* HIGH, which wraps to LOW.
-            (6, planted, east, false, empty, arm(east, low, THREE_QUARTERS, one)),
-            (7, planted, east, true, empty, arm(east, high, QUARTER, one)),
-            (8, planted, east, true, empty, arm(east, high, one, one)),
-            (9, retreat, east, false, empty, arm(east, low, half, zero)),
+            (6, planted, east, false, arm(east, low, THREE_QUARTERS, one)),
+            (7, planted, east, true, arm(east, high, QUARTER, one)),
+            (8, planted, east, true, arm(east, high, one, one)),
+            (9, retreat, east, false, arm(east, low, half, zero)),
             // The guard stays on the line while the shoulders turn off it, so
             // this is the one row whose two arms disagree about the yaw.
-            (10, planted, east + EIGHTH_TURN, false, empty_turned, arm(east, low, half, half)),
-            (11, planted, east, false, empty, arm(east, low, QUARTER, zero)),
+            (10, planted, east + EIGHTH_TURN, false, arm(east, low, half, half)),
+            (11, planted, east, false, arm(east, low, QUARTER, zero)),
         ];
 
         for (body, table) in [("fighter", fighter), ("brute", brute)] {
-            for (phase, move_dir, yaw, attacks, left, right) in table {
+            for (phase, move_dir, yaw, attacks, right) in table {
                 // The first tick of the phase and the last, so a boundary off by
-                // one shows up as two failures rather than none.
-                for tick in [phase * PHASE_TICKS, phase * PHASE_TICKS + PHASE_TICKS - 1] {
+                // one shows up as two failures rather than none -- and, since
+                // the guard clock steps mid-phase, the pair that shows a lead
+                // that stopped leading.
+                for (at_end, tick) in
+                    [(false, phase * PHASE_TICKS), (true, phase * PHASE_TICKS + PHASE_TICKS - 1)]
+                {
                     let obs = if body == "fighter" { fighter_facing(tick) } else { brute_facing(tick) };
                     let command = scripted_articulated_command(&obs);
                     let at = format!("{body} phase {phase} tick {tick}");
+                    let guard = if at_end { guards[phase as usize].1 } else { guards[phase as usize].0 };
+                    let left = if body == "fighter" { held(yaw, guard) } else { empty(yaw, guard) };
                     assert_eq!(command.body_yaw, yaw, "{at}: yaw");
                     assert_eq!(command.arms[0], left, "{at}: left arm");
                     assert_eq!(command.arms[1], right, "{at}: right arm");
@@ -1052,9 +1254,15 @@ mod tests {
                 // appears on the weapon arm. Asserted rather than dropped,
                 // because "the off arm is never the tuck" is the property that
                 // says the override actually runs last.
+                //
+                // The height is read off the clock rather than hand-resolved
+                // here, deliberately: this test is about *which* pose lands on
+                // the off arm, and the twelve-phase transcription above is
+                // where the clock itself is checked against a table somebody
+                // wrote by hand.
                 assert_eq!(
                     command.arms[0],
-                    off_hand(command.body_yaw, true),
+                    off_hand(command.body_yaw, guard_clock(tick), true),
                     "tick {tick}: the off arm"
                 );
                 if !matches!(phase, 3 | 4 | 5 | 7 | 8) {
@@ -1084,18 +1292,20 @@ mod tests {
             for cycle in 0..3u32 {
                 let tick = cycle * CYCLE_TICKS + phase * PHASE_TICKS;
                 let command = scripted_articulated_command(&brute_facing(tick));
+                let selected = guard_clock(tick);
                 assert_eq!(
                     command.arms[0],
-                    off_hand(command.body_yaw, false),
+                    off_hand(command.body_yaw, selected, false),
                     "tick {tick}: a Brute has nothing in its left hand to name"
                 );
                 // And "nothing to name" is the whole of why it rests where it
                 // does. The empty pose and the shield's differ in exactly one
-                // column, so a Brute reading the Fighter's would carry an
-                // arm-length capsule it has no reason to carry.
+                // column -- the reach, at the same height -- so a Brute reading
+                // the Fighter's would carry an arm-length capsule it has no
+                // reason to carry.
                 assert_ne!(
                     command.arms[0],
-                    off_hand(command.body_yaw, true),
+                    off_hand(command.body_yaw, selected, true),
                     "tick {tick}: an empty hand held a guard's reach"
                 );
             }
@@ -1133,7 +1343,16 @@ mod tests {
                     let obs = world.observe_articulated(id);
                     let mut command = scripted_articulated_command(&obs);
                     if obs.arms[0].equipment.is_none() {
-                        command.arms[0] = off_hand(command.body_yaw, holding);
+                        // MID and not the clock's selection, because this
+                        // measurement is about the *reach* column and sixty
+                        // ticks is not a whole height period: letting the
+                        // height walk would put the two runs' capsules at
+                        // different z values on the tick the number is read
+                        // and confound the one column under test. The pinned
+                        // pair below is therefore both arms at MID, which is
+                        // also what they were before v2-20 gave the pose a
+                        // height at all.
+                        command.arms[0] = off_hand(command.body_yaw, CombatHeight::MID, holding);
                     }
                     let _ = world.submit_articulated_v1(id, command);
                 }
@@ -1162,11 +1381,17 @@ mod tests {
     #[test]
     fn the_guard_height_walks_low_mid_high_every_ninety_ticks() {
         // **Read off a Brute for the guard phases and a Fighter for the attack
-        // phases**, because since the off arm stopped moving those are the only
-        // two places the clock is observable. A Fighter's guard clause lands on
-        // the overwritten arm, so only its weapon phases -- 3, 4, 5, 7 and 8 --
-        // report a selected height at all; a Brute guards with the arm it
-        // strikes with, so every phase of that body reports one.
+        // phases**, because the reference table's *guard clause* is only
+        // observable there. A Fighter's guard clause lands on the overwritten
+        // arm, so only its weapon phases -- 3, 4, 5, 7 and 8 -- report the
+        // clause's selected height; a Brute guards with the arm it strikes
+        // with, so every phase of that body reports one.
+        //
+        // Since v2-20 the *pose* on the overwritten arm reports the same clock
+        // too, which is a second witness and not a replacement for this one:
+        // it is [`off_hand`] reading the clock rather than the table's guard
+        // row doing it, and the block at the end of this test is where that is
+        // checked on both arms of both bodies.
         for (tick, height) in [
             (0u32, CombatHeight::LOW),
             (60, CombatHeight::LOW),
@@ -1195,19 +1420,51 @@ mod tests {
         assert_eq!(stepped.arms[1].height, CombatHeight::LOW);
         // Every ordinary height the script emits is one of the three raw
         // constants -- the intermediate 24,576 belongs to the Dev control and
-        // never to this script. Both bodies, because the off arm's MID is a
-        // fourth source of heights and has to be one of the three too.
+        // never to this script. Both bodies and both arms.
+        //
+        // **And the off arm walks the same clock half a step early**, which is
+        // the v2-20 claim and the one a Fighter's shield turns on: the plate is
+        // the only thing on this roster whose height an opponent has to beat,
+        // and it hangs on the arm the table's guard clause cannot reach. Phase
+        // 6 is not an exception on that arm -- the pose ignores the phase
+        // table, so the off arm is on its clock there as everywhere, while a
+        // Brute's club steps one past the weapon's. That divergence is the
+        // point of asserting the two separately.
+        let mut led = 0;
         for tick in 0..CYCLE_TICKS * 3 {
             for obs in [fighter_facing(tick), brute_facing(tick)] {
-                for target in scripted_articulated_command(&obs).arms {
+                let command = scripted_articulated_command(&obs);
+                for target in command.arms {
                     assert!(
                         HEIGHTS.contains(&target.height),
                         "tick {tick} emitted height raw {}",
                         target.height.raw()
                     );
                 }
+                let off = 1 - ArmRoles::of(&obs).weapon;
+                assert_eq!(
+                    command.arms[off].height, guard_clock(tick),
+                    "tick {tick}: the off arm left the guard clock"
+                );
+            }
+            if guard_clock(tick) != HEIGHTS[((tick / HEIGHT_TICKS) % 3) as usize] {
+                led += 1;
             }
         }
+        // **Exactly half the ticks, and that is the whole reason the lead is
+        // half a step.** A lead of a whole `HEIGHT_TICKS` would put this at
+        // 1080 -- the guard never at the swing's height rather than always at
+        // it -- which is the same degenerate corpus relabelled and is why
+        // `GUARD_LEAD_TICKS` is not 90.
+        assert_eq!(led, (CYCLE_TICKS * 3 / 2) as i32, "the guard stopped leading by half a step");
+        // The counterexample the assertions above need to mean anything: a
+        // guard welded to MID would satisfy the weapon row of every
+        // MID-selecting tick and this one nowhere.
+        assert_eq!(
+            scripted_articulated_command(&fighter_facing(2 * HEIGHT_TICKS)).arms[0].height,
+            CombatHeight::HIGH,
+            "the shield stayed at MID while its clock said HIGH"
+        );
     }
 
     #[test]
@@ -1297,13 +1554,27 @@ mod tests {
             assert_eq!(command.arms[1].reach, Fx::ONE, "tick {tick}");
             assert_eq!(command.arms[1].effort, Fx::ONE, "tick {tick}");
             // The control's off arm is the script's off arm, which is what
-            // keeps the two corpora a comparison of one thing.
-            assert_eq!(command.arms[0], off_hand(command.body_yaw, true), "tick {tick}");
+            // keeps the two corpora a comparison of one thing -- including the
+            // guard's half-step lead over the swing beside it. A windmill
+            // guarding on a different schedule would make the difference
+            // between the corpora a difference of two things.
+            let selected = guard_clock(tick);
+            assert_eq!(command.arms[0], off_hand(command.body_yaw, selected, true), "tick {tick}");
+            // Height, reach and effort and not the bearing: both poses ride
+            // their own command's yaw, and the windmill never turns off the
+            // line while the script's phase 10 does. That divergence is phase
+            // 10's and not the pose's.
+            let scripted = scripted_articulated_command(&obs).arms[0];
+            assert_eq!(
+                (command.arms[0].height, command.arms[0].reach, command.arms[0].effort),
+                (scripted.height, scripted.reach, scripted.effort),
+                "tick {tick}: the control's off arm parted from the script's"
+            );
             // And the control reads the hand for the same reason the script
             // does: a windmill whose empty off arm stayed out while the
             // script's tucked would be a comparison of two changes.
             let brute = windmill_articulated_command(&brute_facing(tick));
-            assert_eq!(brute.arms[0], off_hand(brute.body_yaw, false), "brute tick {tick}");
+            assert_eq!(brute.arms[0], off_hand(brute.body_yaw, selected, false), "brute tick {tick}");
             assert_eq!(command.intent, Intent::Attack(EntityId::new(1, 0)), "tick {tick}");
             assert!(command.move_dir.x > Fx::ZERO, "tick {tick}: the windmill backed off");
         }
