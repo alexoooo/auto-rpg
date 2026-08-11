@@ -16,6 +16,7 @@ compare moving scenes as independent runs.
 - [v2 procedural greybox Canvas2D, WebGPU, and WebGL2 diagnostic evidence, 2026-08-08](evidence/2026-08-08-v2-greybox.md)
 - [v2 representative room automated record and pending manual evidence](evidence/2026-08-room-slice.md)
 - [v2 articulated actuator deterministic sweep](v2-actuator-sweep.md)
+- [v2 learning probe held-out corpus, 2026-08-11](v2-learning-probe.md)
 
 The [v2 renderer reference matrix](v2-reference-matrix.md#measurement-record)
 predeclares the visible-foreground environment, automated and manual correctness

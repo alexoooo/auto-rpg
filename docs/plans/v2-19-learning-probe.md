@@ -294,3 +294,205 @@ did not sum to the mean beside them; the mirrored-orientation correlation above;
 three different wrong values for "the whole 922-column vector as weights". All are
 fixed, and the SHA-256 survived 80 digests against `node:crypto` across every
 padding residue and four feeding patterns.
+
+---
+
+## How v2-19 closed (2026-08-11): `revise`
+
+`lab learn-probe train|evaluate` landed, one checkpoint was trained and the held-out
+comparison was run. **The complete corpus, every table, and the head-reachability
+arithmetic are in
+[`docs/performance/v2-learning-probe.md`](../performance/v2-learning-probe.md).**
+What follows is the decision and the argument for it.
+
+### The gate this session was given was passable by a constant, and was replaced
+
+v2-19 above says learning passes if held-out mean return beats the scripted baseline
+by 5% with an interval excluding zero. Measured: **a network with every weight at zero
+scores 76.844 against the composed script's 59.871** on the frozen held-out corpus.
+Argmax over zeroed heads selects index 0 everywhere, so that "policy" is the constant
+*advance, weapon LOW, straight down the line, chamber, guard LOW* — and it beats the
+named baseline by 28%. The composed script also **loses 118 of 400** to a mirror of
+itself. A 5% bar over it is a bar a constant clears five times over, and any headline
+of the form "learning beats the script" off it would be measuring the script.
+
+What was run instead, and what a successor should keep:
+
+- **Five conditions**, all on the heroes, all on the same held-out trials: constant,
+  composed, attack-moves, windmill, learned.
+- **The bar is five percent over the best non-learned condition**, which is the
+  windmill at 84.606 and not the composed script at 59.871, with a **paired** bootstrap
+  95% interval on the per-trial difference excluding zero. Paired because every
+  condition fights the same seed in the same orientation, so trial `i` of two rows
+  differs in one thing; bootstrapping the two means separately and subtracting leaves
+  in the seed variance both share and reports an interval two to three times too wide.
+- **The zeroed row is reported as "constant (advance/LOW/chamber/LOW guard)" and never
+  as "the null model".** Which constant it is falls out of the order of the entries in
+  each action head, which is append-only but otherwise arbitrary. A reader who takes
+  the floor for a principled one will draw a conclusion from it that it cannot support.
+  `the_constant_condition_is_the_zeroed_network_and_says_which_constant` asserts the
+  sentence so that appending an entry at the front of a head cannot make it quietly
+  false.
+- **Two opponent conditions**, because a fixed script can be beaten by reading its
+  clock. `learn::PhaseShiftedScript` adds one constant tick offset per run, drawn from
+  the run seed over the script's whole 2,160-tick period, before delegating. It is in
+  `learn` and not in `policy`: `ScriptedArticulatedPolicy` is a pure function of the
+  observation with no per-run memory, `ARPG-SCRIPT-V1` is defined over what it submits,
+  and per-run state belongs to whoever drives the run.
+
+### The result
+
+| | frozen composed script | phase-randomised |
+|---|---|---|
+| best non-learned | windmill 84.606 | windmill 84.193 |
+| learned | **88.922** | **87.797** |
+| paired difference | +4.316 (+5.1%), CI [+0.998, +7.945] | +3.604 (+4.3%), CI [+0.095, +6.970] |
+| the 5% bar | +4.230 — point clears, lower bound does not | +4.210 — not cleared |
+| tick-limit against the reference | 92.5% vs 96.2%, **−3.8 points** | 93.0% vs 95.5%, −2.5 points |
+| refused submissions / solver refusals / energy excess | 0 / 0 / 0 | 0 / 0 / 0 |
+| replays reproduced | 400/400, no model loaded | 400/400, no model loaded |
+| inference | 2.93 us per decision | 3.07 us per decision |
+
+**It is not a pass.** The bar is not cleared under both opponents, and under the
+stricter reading — the interval's *lower bound* clearing five percent — it is not
+cleared under either.
+
+### The phase-randomisation verdict: no clock-reading claim is earned
+
+The two verdict lines read PASS and FAIL, and the sentence they invite — *the edge is
+a clock reading* — **is not what the numbers say, and this session's first draft of
+the tooling printed it anyway.** An edge of +5.1% and an edge of +4.3% against a bar
+of 5.0% produce opposite verdicts and differ by 0.7 points, which is nothing beside
+either interval.
+
+The test that actually answers it is the difference of the differences, paired trial
+by trial: the same seed in the same orientation, fought twice, once against a
+predictable opponent and once against an unpredictable one. `learn-probe evaluate`
+now computes and prints it:
+
+> **phase costs +0.712 of the edge over windmill, paired bootstrap 95% CI
+> [−4.209, +5.350].**
+
+The interval contains zero with room on both sides — it is seven times wider than the
+point estimate. Randomising the opponent's phase did not measurably take anything
+away. So:
+
+- The learned policy did **not** measurably win by reading the script's clock — even
+  though features 1 and 2 of its input slice are the cosine and sine of exactly that
+  phase, put there deliberately for it to find.
+- The two verdicts differ because of where the bar sits, not because of the clock.
+- The control is worth keeping regardless. It cost one wrapper and it is the only
+  thing standing between this corpus and a finding that would have been invented out
+  of a threshold.
+
+### The head-reachability verdict: confirmed, refined, and one premise refuted
+
+**Zero head contacts in all ten rows, and it means "unreachable", not "unchosen".**
+The claim handed to this session was that no attack in the scripted vocabulary can
+reach a head. It is right, but it is two different facts in the two directions and one
+of its premises was wrong.
+
+- **The Fighter cannot reach the Brute's head at all.** Highest commandable hand is
+  `standing_height * 3/4` = z 1.35, the blade is horizontal from it, and the Brute's
+  head sphere plus the sword's radius admits a blade axis only from z 1.61 up. **A gap
+  of 0.26 world units**, closed by no bearing, reach, posture or footwork.
+- **The Brute can touch a Fighter's head and is never credited with it.** Its `HIGH`
+  club axis is z 1.50 and a Fighter's head admits contact within 0.166 horizontally —
+  but the region key is `(time of impact, medial distance, index)` and the torso
+  capsule admits contact within 0.401 at the same height, so the torso is always struck
+  first and always takes the row.
+- **The refuted premise:** a Fighter's head band is **1.50..1.90**, not 1.60..1.80.
+  `body_region_volumes` builds the head as a degenerate capsule with
+  `lower == upper == centre_z`, so `AnatomyRegionSpec::half_height` is **dead for the
+  head region** and the collider is a sphere of `radius` about `centre_z`.
+
+`no_attack_in_the_vocabulary_can_be_credited_to_a_head` in `crates/learn` pins all of
+it, and `learn-probe evaluate` prints the sentence under every contacts table. Not
+fixed here: a fourth height, a non-horizontal blade, or a region-targeting action head
+are each their own session's argument. **One of five anatomy regions is inert, and any
+session adding a target-region head would be born with a dead entry in it.**
+
+### The decision: `revise`
+
+Not `expand`: the bar is not cleared, and v2-19 says outright that a training-curve
+improvement or a visual demo alone is not a pass. The training return of 113.048 is a
+mean over twelve trials on six seeds the optimizer selected on; the same checkpoint
+scores 88.922 held out. The two are not comparable and nothing here rests on the
+first.
+
+Not `stop` either, and the four reasons are the content of the revision:
+
+1. **The run was budget-stopped at 52 of 120 generations**, on a 45-minute wall-clock
+   cap. The champion had not moved for the last twenty, which is a plateau and not a
+   proof — an elitist `(mu + lambda)` at a fixed sigma with no step-size adaptation
+   plateaus and then jumps. **The cheapest single action available is to finish the
+   run**, and a marginal result from a run cut at 43% is not evidence that the method
+   is exhausted.
+2. **The learned policy is already the best of the five conditions on both boards**,
+   never loses (0 of 400, twice), doubles the settled kills, and is the only condition
+   that moves the tick-limit rate in the direction v2-17 needs. It is short of a bar,
+   not short of a result.
+3. **It is a near-constant, and that is the action/observation finding.** It commands
+   MID about eighty percent of the time where every script cycles all three heights,
+   and its legs column collapses to 18,914 against the windmill's 71,695. What it
+   learned is one posture-and-height combination better than the zeroed network's — not
+   a guard that reads the threat, which is the one edge v2-20 deliberately left
+   standing for a learned policy to take. Either the slice does not carry what a height
+   decision needs, or the return cannot see the difference.
+4. **The physics caps how much any policy can express.** All five conditions sit in a
+   band from 59.9 to 88.9 on a corpus where 92.5% to 99.8% of fights reach the clock.
+   v2-17's gate wants under ten percent; learning bought 3.7 of the roughly 86 points
+   it is short. **Learning is being measured through a model that cannot end fights**,
+   and that is upstream of every knob in this session.
+
+So `revise`, and the revision is ordered: **finish the training run first** (it is
+free and it is the only one of the four that could change the verdict on its own),
+then decide between the action/observation design and the physics — with (4) the
+better bet, because a return whose whole discrimination lives in one decision term is
+a return that will keep reporting near-constants as winners.
+
+**`revise` does not authorize** scale, search, catalogs, hierarchy, browser training,
+GPU evaluation, or the Lab workbench. Only `expand` does, and this is not one.
+
+### What v2-19's own file got wrong, beyond the gate
+
+- **"400 mirrored held-out seeds" is ambiguous** and was read as 400 *trials* — 200
+  seeds in two orientations — so that the standard errors here are directly comparable
+  with the ones the crate already recorded at `n = 400`. A reader comparing an `n` of
+  400 with an `n` of 800 would silently be comparing intervals that differ by 40%.
+- **`a_failed_or_nan_evaluator_falls_back_to_the_scripted_policy` was not implemented
+  as written, and should not be.** That fallback belongs to inference inside a fight;
+  the checkpoint reader makes it unreachable by refusing a non-finite weight at load,
+  which is the earlier and better place. What a *measurement* must never do is quietly
+  substitute one condition for another — a comparison that scored the composed script
+  in the learned row would report a dead heat and be believed. `load_checkpoint` exits.
+  `a_checkpoint_this_build_cannot_read_is_never_scored_as_a_policy` records the shape.
+- **The checkpoint format records the training seed set and not the training
+  opponent.** `evaluate` prints the opponent it is scoring against and says in the same
+  line that this is an assumption the file cannot confirm. A session that trains more
+  than one checkpoint against more than one opponent must add the column first.
+- **`Mechanics` pools both fighters.** The contacts table's region and kind columns
+  count the Brute's club beside the candidate's sword. The height columns survive it —
+  the Brute cycles evenly, so the learned row's 87k/671k/76k can only be a Fighter
+  welded to MID — but a successor measuring an aiming policy needs the split.
+
+### Watching a learned fight
+
+```powershell
+cargo run --release -p lab -- trace --policy learned --checkpoint checkpoints/v2-probe.ckpt --seed 3
+npm run view
+# then open http://localhost:5173/fight.html
+```
+
+`TRACE_SCHEMA` moved from `arpg-fight-trace-2` to `-3` for it: the single `script`
+field became `heroes`, `monsters` and `checkpoint`, because a learned fight is the
+first trace whose two bodies are driven by different things and a header naming one of
+them would leave a reader to guess. `client/src/fight/trace.ts` mirrors it, the status
+line shows both sides and the checkpoint digest, and each body's readout says which
+policy is driving it.
+
+`checkpoints/v2-probe.ckpt` is **committed**, which is unusual for a generated
+artifact and is deliberate: the training command is capped on wall clock rather than
+on generations, so it cannot reproduce this file on any other host, and the sha256
+this decision is recorded against would be unverifiable without it. It is 15,580
+bytes. The training console log is not committed; its curve is in the evidence record.

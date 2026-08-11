@@ -573,7 +573,8 @@ pub const LEARN_ACTION_LOGITS: usize =
     FOOTWORK_COUNT + WEAPON_HEIGHT_COUNT + WEAPON_BEARING_COUNT + POSTURE_COUNT + GUARD_HEIGHT_COUNT;
 
 /// The three ordinary heights, in the order both height heads index them.
-const HEIGHTS: [CombatHeight; 3] = [CombatHeight::LOW, CombatHeight::MID, CombatHeight::HIGH];
+pub(crate) const HEIGHTS: [CombatHeight; 3] =
+    [CombatHeight::LOW, CombatHeight::MID, CombatHeight::HIGH];
 
 const FOOTWORKS: [Footwork; FOOTWORK_COUNT] = [
     Footwork::Advance,

@@ -832,16 +832,17 @@ fn report(board: &Board) {
         );
     }
     // **Said every time the table is printed, because the zero is the number a
-    // reader will reach for.** The head column cannot be anything else on this
-    // roster: a weapon/body fact is credited to one region by a `(time of
-    // impact, medial distance, region index)` key, and the Fighter's torso
-    // capsule reaches z 1.85 against a head sphere spanning 1.50..1.90, so
-    // every pose from which a blade touches the head touches the torso sooner
-    // and nearer. It is a fact about the attribution rule and the anatomy, not
-    // about anybody's aim. See the finding in docs/plans/v2-19-learning-probe.md.
+    // reader will reach for**, and the two directions it pools are zero for two
+    // different reasons -- one geometric and one about the attribution rule.
+    // `no_attack_in_the_vocabulary_can_be_credited_to_a_head` in `crates/learn`
+    // is the arithmetic; this is the line that stops the column being read as a
+    // choice anybody made.
     println!(
-        "  the head column is unreachable on this roster, not unchosen: the torso capsule's\n  \
-         cap reaches z 1.85 under a head sphere spanning 1.50..1.90 and wins the region key."
+        "  head is 0 because it is unreachable, not unchosen. The Fighter's HIGH puts its\n  \
+         blade axis at z 1.35 and the Brute's head admits a sword only from z 1.61 up. The\n  \
+         Brute's club does touch a Fighter's head at z 1.50, but the torso capsule reaches\n  \
+         0.35 out where the head sphere reaches 0.20, so the torso always has the earlier\n  \
+         time of impact and wins the (toi, medial distance, index) region key."
     );
 
     let learned = board.row(Condition::Learned);
@@ -908,6 +909,47 @@ fn report(board: &Board) {
     );
 }
 
+/// Did phase randomisation actually change the edge?
+///
+/// **The question two verdicts cannot answer, and the trap this exists to
+/// avoid.** A run that reads PASS against the frozen script and FAIL against the
+/// control invites exactly one sentence -- "the edge is a clock reading" -- and
+/// that sentence is only true if the two edges *differ*. They can perfectly well
+/// straddle a fixed bar while being the same number: an edge of 5.1% and an edge
+/// of 4.3% against a bar of 5.0% produce opposite verdicts and a difference of
+/// 0.7 points, which is nothing beside either interval.
+///
+/// So the honest test is the difference of the differences, paired trial by
+/// trial: the same seed and the same orientation, fought twice, once against a
+/// predictable opponent and once against an unpredictable one. If that interval
+/// excludes zero, the clock was worth something and the headline is earned. If
+/// it contains zero, the two verdicts differ because of where the bar sits and
+/// **not** because of the clock, and saying otherwise would be inventing a
+/// finding out of a threshold.
+fn collapse(boards: &[Board], reference: Condition) -> Option<Band> {
+    let frozen = boards.iter().find(|b| !b.opponent.phase_randomised)?;
+    let randomised = boards.iter().find(|b| b.opponent.phase_randomised)?;
+    let edge = |board: &Board| -> Vec<f32> {
+        board
+            .row(Condition::Learned)
+            .returns
+            .iter()
+            .zip(board.row(reference).returns.iter())
+            .map(|(a, b)| a - b)
+            .collect()
+    };
+    let (before, after) = (edge(frozen), edge(randomised));
+    if before.len() != after.len() {
+        return None;
+    }
+    let lost: Vec<f32> = before
+        .iter()
+        .zip(after.iter())
+        .map(|(a, b)| a - b)
+        .collect();
+    Some(band(&lost, 19_919))
+}
+
 /// The decision, said out loud rather than left to a reader of two tables.
 fn verdict(boards: &[Board]) {
     println!("\nverdict");
@@ -961,6 +1003,27 @@ fn verdict(boards: &[Board]) {
         if replayed { "yes" } else { "NO -- the corpus above is not evidence" }
     );
 
+    // The reference is taken off the frozen board and used on both, so the two
+    // edges being differenced are edges over the same condition. Letting each
+    // board pick its own best would difference an edge over the windmill against
+    // an edge over something else and call the result a phase effect.
+    let reference = boards
+        .iter()
+        .find(|b| !b.opponent.phase_randomised)
+        .map(|b| b.best_non_learned().condition)
+        .unwrap_or(Condition::Windmill);
+    let lost = collapse(boards, reference);
+    let clock_read = match &lost {
+        Some(lost) => {
+            println!(
+                "  {:<22} {:+.3} of the edge over {} (paired 95% CI [{:+.3}, {:+.3}])",
+                "phase costs", lost.mean, reference.name(), lost.low, lost.high,
+            );
+            lost.low > 0.0
+        }
+        None => false,
+    };
+
     let decision = if !safe || !replayed {
         "stop and fix the harness: a corpus with a refused submission or a divergent \
          replay in it is not evidence either way"
@@ -969,10 +1032,16 @@ fn verdict(boards: &[Board]) {
     } else if frozen_passed && randomised_passed {
         "the learned policy beats the best non-learned condition against both a \
          predictable opponent and an unpredictable one"
-    } else if frozen_passed {
+    } else if frozen_passed && clock_read {
         "**the edge is a clock reading, not swordsmanship**: it survives against a \
-         script whose phase the policy can see in its own input and collapses against \
-         the same script started somewhere else"
+         script whose phase the policy can see in its own input, and the paired \
+         interval above says randomising that phase measurably takes it away"
+    } else if frozen_passed {
+        "**the result straddles the bar and the clock is not what decides it**: the \
+         edge is statistically the same size against both opponents -- the interval \
+         on what phase randomisation costs contains zero -- so the two verdicts \
+         differ because of where the bar sits, and no clock-reading claim is earned \
+         in either direction"
     } else {
         "the learned policy does not beat the best non-learned condition"
     };

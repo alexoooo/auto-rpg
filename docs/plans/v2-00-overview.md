@@ -167,6 +167,60 @@ for either — `ARTICULATED_COMMAND_HASH`, and `ARTICULATED_STREAM_DIGEST`. The 
 did not move, `CONTACT_BEHAVIOR_DIGEST` and `COMBAT_GEOMETRY_HASH` did not move, and
 `duel --seeds 400` is unchanged at 59.5%.
 
+**`v2-19` closed at `revise` (2026-08-11), and the LEARNING GATE is not claimed.**
+`crates/learn` got its host: `lab learn-probe train|evaluate` and
+`lab trace --policy learned --checkpoint PATH`, which is how a learned fight is
+watched in `/fight.html`. `TRACE_SCHEMA` moved 2 -> 3 for it — the single `script`
+field became `heroes`, `monsters` and `checkpoint`, mirrored in
+`client/src/fight/trace.ts`. **No hash moved**, as predicted; nothing in this session
+is reachable from a golden.
+
+**The gate `v2-19` wrote down was replaced before it was run, and the replacement is
+the session's first result.** A network with every weight at zero scores 76.844 held
+out against the composed script's 59.871 — argmax over zeroed heads is the constant
+"advance, LOW, chamber, LOW guard" — and the composed script loses 118 of 400 to a
+mirror of itself. A 5% bar over it is a bar a constant clears five times over. What
+ran instead is five conditions on the same 400 held-out trials (constant, composed,
+attack-moves, windmill, learned), a bar of 5% over the **best non-learned** condition,
+and a *paired* bootstrap interval on the per-trial difference.
+
+The learned checkpoint is the best of the five on both boards and does not clear the
+bar: **88.922 against the windmill's 84.606 frozen (+5.1%, CI [+0.998, +7.945], bar
++4.230) and 87.797 against 84.193 phase-randomised (+4.3%, CI [+0.095, +6.970], bar
++4.210)**. It never loses — 0 of 400, twice — doubles the settled kills to 30, and is
+the only condition that moves the tick-limit rate the way `v2-17` needs, 96.2% to
+92.5%. Safety is green on both boards (0 refused submissions, 0 solver refusals, 0
+energy excess) and 400/400 recorded replays reproduce with no model loaded.
+
+**The phase-randomised control did not fire, and saying it did would have been
+inventing a finding out of a threshold.** The two boards read PASS and FAIL, which
+invites "the edge is a clock reading" — but the paired difference of the differences
+is **+0.712 with a 95% interval of [-4.209, +5.350]**, seven times wider than the
+point estimate. The control is kept anyway; it cost one wrapper and it is what stopped
+the wrong headline.
+
+`revise` rather than `stop`, on four grounds, ordered by cost: **the training run was
+budget-stopped at 52 of 120 generations** on a 45-minute wall-clock cap and finishing
+it is free; the checkpoint is short of a bar rather than short of a result; it is a
+**near-constant** — MID roughly eighty percent of the time where every script cycles
+all three heights — which is the action/observation finding `v2-20` left an edge open
+for; and all five conditions sit between 59.9 and 88.9 on a corpus where 92.5% to
+99.8% of fights reach the clock, so **learning is being measured through a physics
+that cannot end fights**. `revise` authorizes none of scale, search, catalogs,
+hierarchy, browser training, GPU evaluation, or the Lab workbench.
+
+**One of five anatomy regions is inert.** Zero head contacts in all ten rows, and it
+means unreachable rather than unchosen: a Fighter's highest commandable blade axis is
+z 1.35 against a Brute head admitting a sword only from z 1.61, and a Brute's club can
+touch a Fighter's head but the torso capsule always has the earlier time of impact and
+takes the row. A premise that prompted the check was wrong — a Fighter's head spans
+1.50..1.90, not 1.60..1.80, because `body_region_volumes` builds the head as a
+degenerate capsule and `AnatomyRegionSpec::half_height` is dead for that region. Not
+fixed: a fourth height, a non-horizontal blade, or a region-targeting action head are
+each their own session. The full corpus is in
+[`docs/performance/v2-learning-probe.md`](../performance/v2-learning-probe.md) and the
+decision in [`v2-19`](v2-19-learning-probe.md#how-v2-19-closed-2026-08-11-revise).
+
 **Carried into `v2-17`, from `v2-15` and now sharpened by `v2-16`:** the contact model
 gives an equipment collider one generalized point velocity -- body plus *hand* -- so a
 swing's tip speed is not represented and a stat-driven fight dissipates less than the

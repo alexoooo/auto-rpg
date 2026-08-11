@@ -1181,7 +1181,7 @@ fn record(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::LearnedArticulatedPolicy;
+    use crate::model::{LearnedArticulatedPolicy, HEIGHTS};
     use policy::{run_articulated, CYCLE_TICKS, HEIGHT_TICKS};
 
     /// The fixture with the two bodies moved inside each other's sight.
@@ -1399,6 +1399,138 @@ mod tests {
         // v2-19 asks the held-out corpus for.
         assert!(replay.is_intact());
         assert_eq!(replay.play().state_hash(), plain.state_hash);
+    }
+
+    #[test]
+    fn no_attack_in_the_vocabulary_can_be_credited_to_a_head() {
+        // **A zero in the head column of [`Mechanics::regions`] means
+        // "unreachable", not "the policy chose otherwise"**, and the two are
+        // opposite conclusions about the same number. Recorded as a test rather
+        // than as prose because the arithmetic is over four published constants
+        // that other sessions are free to move, and the day one of them moves
+        // this comment becomes the most misleading paragraph in the crate.
+        //
+        // It is two different facts in the two directions, and both are needed:
+        // the candidate is always the Fighter, but the region table pools every
+        // weapon/body row, so the Brute's swings are in the same column.
+        let scenario = Scenario::articulated_duel();
+        let table = scenario.combat_specs.as_ref().expect("an articulated fixture");
+        let spec = |unit: usize| {
+            let row = scenario.units[unit].articulated.expect("an articulated unit");
+            (
+                table.anatomy(row.anatomy).expect("a validated anatomy").clone(),
+                row.equipment
+                    .iter()
+                    .flatten()
+                    .filter_map(|&id| table.equipment(id))
+                    .find_map(|item| match item.geometry {
+                        sim::EquipmentGeometry::Segment { radius, .. } => Some(radius),
+                        sim::EquipmentGeometry::Shield { .. } => None,
+                    })
+                    .expect("a blade"),
+            )
+        };
+        let (fighter, sword) = spec(0);
+        let (brute, club) = spec(1);
+        let head = |anatomy: &sim::BodyAnatomySpec| {
+            let row = anatomy
+                .regions
+                .iter()
+                .find(|row| row.region == sim::AnatomyRegion::Head)
+                .copied()
+                .expect("every body has a head row");
+            // `body_region_volumes` builds the head as a **degenerate capsule**
+            // -- `lower == upper == centre_z` -- so `half_height` is dead for
+            // this region and the volume is a sphere of `radius` about
+            // `centre_z`. Reading the band off `centre_z +/- half_height`
+            // instead is the mistake this closure exists to not make: it gives
+            // 1.60..1.80 on a Fighter where the collider is 1.50..1.90.
+            (row.centre_z, row.radius)
+        };
+
+        // ---- the Fighter's sword against the Brute's head: unreachable.
+        //
+        // `actuator` puts a commanded hand at `standing_height * height`, and
+        // `HIGH` is the highest entry the weapon-height head can select, so the
+        // highest hand this vocabulary can ask for is 0.75 of a Fighter. The
+        // blade is horizontal from it -- `segment_pose` sets the tip to the
+        // hilt plus the length rotated in XY only -- so the blade's axis is the
+        // hand's own height and its surface is one blade radius above that.
+        let highest = HEIGHTS
+            .iter()
+            .map(|h| fighter.standing_height * Fx::from_raw(h.raw()))
+            .max()
+            .expect("three heights");
+        assert_eq!(highest, fighter.standing_height * Fx::from_ratio(3, 4));
+        let (brute_head_z, brute_head_r) = head(&brute);
+        let needed = brute_head_z - brute_head_r - sword;
+        assert!(
+            highest < needed,
+            "a Fighter's HIGH puts its blade axis at {highest}, and the Brute's head \
+             admits a blade of radius {sword} only from {needed} up"
+        );
+
+        // ---- the Brute's club against the Fighter's head: touchable, and
+        // never credited, because the torso is always struck first.
+        //
+        // The region key is `(time of impact, medial distance, index)` and the
+        // earliest impact wins outright. At the club's highest commandable
+        // height the torso capsule's top cap and the head sphere are both in
+        // reach, and the torso admits contact from further away in every
+        // direction -- so its time of impact is strictly smaller and the head
+        // never wins the tuple.
+        let club_axis = brute.standing_height * Fx::from_ratio(3, 4);
+        let (head_z, head_r) = head(&fighter);
+        let torso = fighter
+            .regions
+            .iter()
+            .find(|row| row.region == sim::AnatomyRegion::Torso)
+            .copied()
+            .expect("a torso row");
+        let torso_top = torso.centre_z + torso.half_height;
+        // The club *can* reach the head: within one club-plus-head radius of
+        // the sphere's centre. Stated as a positive assertion because "the head
+        // is out of reach in both directions" would be a stronger claim than
+        // this fixture supports, and a test that overclaims is worse than none.
+        let head_admits = head_r + club;
+        assert!(
+            (club_axis - head_z).abs() < head_admits,
+            "the Brute's club cannot reach a Fighter's head at all, so the reason \
+             the head column is empty is simpler than this test says"
+        );
+        // And the torso admits it from strictly further out at the same height,
+        // which is what makes the torso's time of impact the smaller one.
+        let torso_admits = torso.radius + club;
+        let head_reach = head_admits * head_admits - (club_axis - head_z) * (club_axis - head_z);
+        let torso_reach =
+            torso_admits * torso_admits - (club_axis - torso_top) * (club_axis - torso_top);
+        assert!(
+            torso_reach > head_reach,
+            "the torso no longer shadows the head: torso {torso_reach}, head {head_reach}"
+        );
+
+        // ---- and the corpus agrees. Three hundred ticks of two bodies inside
+        // each other's measure, under the script that swings at all three
+        // heights, with every weapon/body row bucketed.
+        let mut mechanics = Mechanics::default();
+        let plain = rollout_with(
+            &duel_in_sight(),
+            9,
+            &mut ScriptedArticulatedPolicy,
+            &mut ScriptedArticulatedPolicy,
+            Some(300),
+            &mut Recorders { mechanics: Some(&mut mechanics), replay: None },
+        );
+        assert_eq!(plain.rejected, 0);
+        assert!(
+            mechanics.kinds[sim::ContactKind::WeaponBody as usize] > 0,
+            "no blade reached a body, so the head column proves nothing"
+        );
+        assert_eq!(
+            mechanics.regions[sim::AnatomyRegion::Head as usize],
+            0,
+            "a contact was credited to a head, which the arithmetic above says cannot happen"
+        );
     }
 
     #[test]
