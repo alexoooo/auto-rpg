@@ -1,0 +1,16 @@
+[package]
+name = "learn"
+description = "The learning probe: a compact articulated policy, its frozen checkpoint, and the population optimizer that trains it"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+fx = { path = "../fx" }
+sim = { path = "../sim" }
+policy = { path = "../policy" }
+
+# No sha2, no rand, no rayon, and no ndarray. The workspace has zero external
+# dependencies and `tools/check_deps.js` audits this crate for one. The digest
+# in `checkpoint.rs` is a hundred lines of hand-rolled SHA-256 for exactly that
+# reason; the argument is on the module rather than repeated here.

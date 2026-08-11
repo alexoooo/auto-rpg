@@ -1,7 +1,9 @@
 // Audits the two dependency graphs this repository admits.
 //
 // Cargo owns the authoritative core, where fx, sim and policy may reach only
-// local workspace crates. npm owns presentation tooling, where dependencies are
+// local workspace crates -- and learn, which is not part of that core and is held
+// to the same rule for the reason recorded at DETERMINISTIC below. npm owns
+// presentation tooling, where dependencies are
 // allowed but every top-level request and every resolved artifact is pinned.
 // Neither lockfile is treated as evidence about itself: the manifests, Cargo's
 // view of its graph, and npm's resolved package records have to agree.
@@ -15,7 +17,15 @@ const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
 const DEPENDENCY_FIELDS = ["dependencies", "devDependencies", "optionalDependencies", "peerDependencies"];
-const DETERMINISTIC = new Set(["fx", "sim", "policy"]);
+// The crates held to "workspace paths only". Three of them are the deterministic
+// core; `learn` is not, and is audited anyway. It may use floating point and it
+// reaches no authoritative state, so the rule it is being held to is the
+// no-dependency one rather than the determinism one -- and it is the crate most
+// likely to attract a registry dependency, because v2-19 asks it for a SHA-256 and
+// `sha2` is one line away. That hash is hand-rolled in
+// crates/learn/src/checkpoint.rs precisely because this audit would refuse the
+// alternative.
+const DETERMINISTIC = new Set(["fx", "sim", "policy", "learn"]);
 const LIFECYCLE_SCRIPTS = new Set([
   "preinstall", "install", "postinstall", "prepublish", "preprepare", "prepare",
   "postprepare", "prepublishOnly", "publish", "postpublish", "dependencies",

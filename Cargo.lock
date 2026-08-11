@@ -16,6 +16,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "learn"
+version = "0.1.0"
+dependencies = [
+ "fx",
+ "policy",
+ "sim",
+]
+
+[[package]]
 name = "policy"
 version = "0.1.0"
 dependencies = [
