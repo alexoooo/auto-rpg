@@ -154,9 +154,16 @@ function describeBody(trace: Trace, frame: Frame, index: number): string {
     return `${name} ${units(integrity, 2)}${open === 0 ? "" : ` (wound ${units(open, 2)})`}`;
   }).filter((part) => part !== "");
 
+  // **Which policy is driving this body**, from the header rather than from the
+  // slot number. It is one word and it is the difference between watching a
+  // fight and watching *the learned policy's* fight: with a checkpoint on one
+  // side and a script on the other, "why did it do that" has two completely
+  // different answers depending on which body is being asked about.
+  const driver = info.faction === "Heroes" ? trace.heroes : trace.monsters;
   return [
     `<b style="color:${colour.edge}">${escapeHtml(info.kind)}</b> `
-      + `<span class="muted">${escapeHtml(info.faction)}, slot ${index}</span>`,
+      + `<span class="muted">${escapeHtml(info.faction)}, slot ${index}, `
+      + `driven by ${escapeHtml(driver)}</span>`,
     `  faction health ${units(faction)}  blood ${units(pose.blood, 2)}`
       + `  shock ${units(pose.shock, 2)}`
       + `  intent ${pose.intent}${pose.target === null ? "" : ` ${pose.target[0]}`}`,
@@ -193,8 +200,18 @@ async function main(): Promise<void> {
   }
   const series = buildSeries(trace);
 
+  // **Both sides, always, even when they are the same.** A learned fight is the
+  // first trace whose two bodies are driven by different things, and "learned"
+  // alone would leave a reader to assume the opponent was the composed script
+  // when it might have been the windmill or a phase-randomised control. The
+  // checkpoint digest rides along for the same reason: it is what says *which*
+  // learned policy, and two checkpoints an hour apart are not the same fighter.
+  const sides = trace.heroes === trace.monsters
+    ? escapeHtml(trace.heroes)
+    : `${escapeHtml(trace.heroes)} <span class="muted">vs</span> ${escapeHtml(trace.monsters)}`;
   status.innerHTML = [
-    `<b>${escapeHtml(trace.scenario)}</b> seed ${trace.seed}, ${escapeHtml(trace.script)}`,
+    `<b>${escapeHtml(trace.scenario)}</b> seed ${trace.seed}, ${sides}`,
+    trace.checkpoint === null ? "" : `checkpoint ${escapeHtml(trace.checkpoint.slice(0, 12))}`,
     trace.mirrored ? "mirrored" : `fingerprint ${escapeHtml(trace.fingerprint ?? "none")}`,
     `${escapeHtml(trace.outcome)} at tick ${trace.ticks}`,
     trace.timedOut ? "<b>the clock decided it</b>" : "a body decided it",

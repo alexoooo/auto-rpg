@@ -35,7 +35,7 @@ use std::fmt::Write as _;
 /// Bumped when a field changes meaning, never when one is added: the page
 /// refuses a file whose schema it does not know, which is the difference between
 /// "the viewer is out of date" and "the viewer is drawing the wrong thing".
-pub const TRACE_SCHEMA: &str = "arpg-fight-trace-2";
+pub const TRACE_SCHEMA: &str = "arpg-fight-trace-3";
 
 /// Raw units in one world unit, carried in the file rather than assumed by the
 /// reader. `Fx::ONE.raw()` is not public API to a page.
@@ -50,7 +50,23 @@ const ONE_RAW: i32 = 1 << 16;
 pub struct TraceRun<'a> {
     pub scenario: &'a Scenario,
     pub seed: u64,
-    pub script: &'a str,
+    /// What drove the Fighter, and what drove the Brute.
+    ///
+    /// **Two fields where schema 2 had one `script`, and the reason is v2-19.**
+    /// Until a learned policy existed, every trace put the same script on both
+    /// sides and one token said everything; a learned fight is a fight with a
+    /// different policy on each side, and a viewer showing "learned" over a run
+    /// whose opponent was the windmill rather than the composed script would be
+    /// showing something plausible that is not what happened -- which is the one
+    /// failure this whole detour exists to avoid.
+    pub heroes: &'a str,
+    pub monsters: &'a str,
+    /// The SHA-256 of the checkpoint that produced the learned side, or `None`.
+    ///
+    /// The name of the weights and not the weights: a trace is a recording of a
+    /// fight, and a reader that wanted to re-run it needs the checkpoint file,
+    /// which this identifies and does not contain.
+    pub checkpoint: Option<&'a str>,
     pub mirrored: bool,
     pub outcome: Outcome,
     pub timed_out: bool,
@@ -306,7 +322,14 @@ impl FightTrace {
         } else {
             let _ = write!(out, ",\"fingerprint\":\"{:#018x}\"", scenario.fingerprint());
         }
-        let _ = write!(out, ",\"seed\":{},\"script\":\"{}\"", run.seed, run.script);
+        let _ = write!(out, ",\"seed\":{},\"heroes\":\"{}\",\"monsters\":\"{}\"",
+            run.seed, run.heroes, run.monsters);
+        match run.checkpoint {
+            None => out.push_str(",\"checkpoint\":null"),
+            Some(digest) => {
+                let _ = write!(out, ",\"checkpoint\":\"{digest}\"");
+            }
+        }
         let _ = write!(out, ",\"outcome\":\"{:?}\",\"timedOut\":{},\"ticks\":{}",
             run.outcome, run.timed_out, run.ticks);
         let _ = write!(out, ",\"maxTicks\":{},\"arena\":[{},{}]",

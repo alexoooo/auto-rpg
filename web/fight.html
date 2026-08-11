@@ -109,6 +109,9 @@
       <span><b>reach</b> is the arm capsule's own length over the anatomy's arm length.</span>
       <span><b>Space</b> plays, <b>arrows</b> step, <b>[</b> and <b>]</b> jump between contacts.</span>
       <span>Regenerate with <code>npm run trace</code>; the v2 worker page is <a href="/v2.html">/v2.html</a>.</span>
+      <span>Watch a <b>learned</b> fight with
+        <code>cargo run --release -p lab -- trace --policy learned --checkpoint checkpoints/v2-probe.ckpt --seed 3</code>
+        &mdash; the header then names both sides and the checkpoint digest.</span>
     </p>
   </main>
   <script type="module" src="/client-src/fight.ts"></script>

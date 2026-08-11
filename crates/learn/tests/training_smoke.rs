@@ -36,7 +36,7 @@ fn a_short_training_run_climbs_and_writes_a_loadable_checkpoint() {
         threads,
         master_seed: 20_260_810,
         max_ticks: None,
-        opponent: Baseline::Composed,
+        opponent: learn::Opponent::frozen(Baseline::Composed),
         verbose: true,
     };
     println!(
@@ -78,7 +78,13 @@ fn a_short_training_run_climbs_and_writes_a_loadable_checkpoint() {
 
     let mut scripted = Baseline::Composed.policy();
     let mut returns = Vec::new();
-    corpus.returns(&held_out, scripted.as_mut(), Baseline::Composed, None, &mut returns);
+    corpus.returns(
+        &held_out,
+        scripted.as_mut(),
+        learn::Opponent::frozen(Baseline::Composed),
+        None,
+        &mut returns,
+    );
     let baseline = band(&returns, 7);
 
     let mut untrained_returns = Vec::new();
@@ -86,7 +92,7 @@ fn a_short_training_run_climbs_and_writes_a_loadable_checkpoint() {
     corpus.returns(
         &held_out,
         &mut untrained,
-        Baseline::Composed,
+        learn::Opponent::frozen(Baseline::Composed),
         None,
         &mut untrained_returns,
     );

@@ -30,3 +30,10 @@ __pycache__/
 # `lab trace` output. Regenerated from a seed in half a second, eight megabytes
 # a fight, and reviewing one would be reviewing the simulation's own state.
 web/fight*.json
+
+# `lab learn-probe train` scratch. The checkpoint itself *is* committed -- it is
+# fifteen kilobytes, it is what `lab trace --policy learned` needs, and retraining
+# it costs forty-five minutes -- but its console log and the temporary an atomic
+# write leaves behind are not artifacts.
+checkpoints/*.log
+checkpoints/*.partial

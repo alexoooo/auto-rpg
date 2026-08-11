@@ -9,6 +9,11 @@ license.workspace = true
 fx = { path = "../fx" }
 sim = { path = "../sim" }
 policy = { path = "../policy" }
+# The one host `learn` is allowed to have, and this is the edge v2-19 said would
+# land when `lab learn-probe` did. It must never appear in `crates/web`: `learn`
+# uses `std::thread::scope` and does not compile to wasm32, and no learned weight
+# may cross the wasm wall.
+learn = { path = "../learn" }
 
 # No rayon, no clap. Parallelism is `std::thread::scope` and argument parsing
 # is forty lines, which keeps the whole workspace buildable offline and free of

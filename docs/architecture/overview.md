@@ -19,7 +19,8 @@ flowchart BT
     learn["learn<br/>native probe: features, model, checkpoints"] --> policy
     learn --> sim
     learn --> fx
-    lab["lab<br/>native experiment host"] --> policy
+    lab["lab<br/>native experiment host"] --> learn
+    lab --> policy
     lab --> sim
     lab --> fx
     web["web<br/>browser ABI host boundary"] --> policy
@@ -51,7 +52,11 @@ from `web`: it uses `std::thread::scope` and does not build for
   nothing it computes becomes authoritative state -- what leaves it is an
   `ArticulatedCommandV1` assembled from fixed `Fx` constants by an argmax.
 - [`lab`](../../crates/lab/src/main.rs) owns native experiments, verification,
-  benchmarks, duels, and evolution. It is a host of the lower crates.
+  benchmarks, duels, and evolution, and is the **only** host `learn` has. No
+  learned weight becomes authoritative state through it: `lab learn-probe` and
+  `lab trace --policy learned` are not a second simulation, they drive the same
+  `World` through the same `ArticulatedCommandV1` a script does. That edge must
+  never be copied into `web`.
 - [`web`](../../crates/web/src/lib.rs) owns the hand-written wasm ABI and the
   packed presentation frame. It is a host boundary, not a second simulation.
   The JavaScript in [`web/`](../../web/) reads that ABI and owns presentation.

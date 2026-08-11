@@ -52,12 +52,15 @@ use crate::checkpoint::{Checkpoint, TrainingRecord};
 use crate::model::{uniform, LearnedArticulatedPolicy, Model};
 use fx::{Fx, Rng};
 use policy::{
-    ArticulatedPolicy, ClosingAttackControlPolicy, RunConfig, ScriptedArticulatedPolicy,
+    ArticulatedPolicy, ArmRoles, ClosingAttackControlPolicy, RunConfig, ScriptedArticulatedPolicy,
     WindmillArticulatedPolicy,
 };
 use sim::{
-    EntityId, Faction, Outcome, Scenario, SubmitArticulatedOutcome, World,
+    ArticulatedCommandV1, ArticulatedObservation, BodyPart, CombatHeight, ContactKind, EntityId,
+    Faction, Intent, Outcome, Replay, ResolutionError, Scenario, SubmitArticulatedOutcome,
+    SubmittedCommand, World, BODY_SLOT, NO_REGION,
 };
+use std::time::Instant;
 
 // ------------------------------------------------------------------ the corpus
 
@@ -105,6 +108,151 @@ impl Baseline {
 
     pub fn from_name(name: &str) -> Option<Baseline> {
         Baseline::ALL.into_iter().find(|b| b.name() == name)
+    }
+}
+
+// ------------------------------------------- the phase-randomised control
+
+/// One period of the composed script's whole clock.
+///
+/// Three clocks run inside `scripted_articulated_command` and they do not share
+/// a period: the twelve phases are `tick % 360`, both height selectors are
+/// `tick / 90 % 3` (270), and the cut reverses on `tick / 360 % 2` (720). The
+/// least common multiple of 270 and 720 is `2^4 * 3^3 * 5`, and an offset drawn
+/// uniformly below it is uniform over the script's whole state rather than over
+/// one of its three cycles. `the_phase_offsets_cover_the_scripts_whole_period`
+/// checks the number against the constants rather than trusting this paragraph.
+pub const SCRIPT_PERIOD_TICKS: u32 = 2_160;
+
+/// Mixed into the run seed before drawing an offset.
+///
+/// So that the offset and the world's own RNG stream are not the same number
+/// wearing two hats: `World::new(scenario, seed)` seeds the simulation from the
+/// same value, and an opponent whose phase moved in lockstep with the sim's
+/// noise would be a second variable nobody asked for.
+const PHASE_SALT: u64 = 0x5048_4153_4531_3931;
+
+/// Where this run's opponent starts its clock.
+pub fn phase_offset(seed: u64) -> u32 {
+    Rng::new(seed ^ PHASE_SALT).below(SCRIPT_PERIOD_TICKS)
+}
+
+/// A scripted opponent whose clock starts somewhere the candidate cannot know.
+///
+/// **This exists because a fixed script can be beaten by reading its clock
+/// rather than by fighting it.** `ScriptedArticulatedPolicy` is a pure function
+/// of the observation: its phase is `tick % 360` and its guard is
+/// `(tick + GUARD_LEAD_TICKS) / 90 % 3`, both of which the candidate can read
+/// straight off `obs.tick` -- features 1 and 2 of [`crate::write_features`] are
+/// literally the cosine and sine of that phase, put there on purpose. A policy
+/// that learns "at phase 3 a chamber is coming" has learned the opponent's
+/// timetable and not swordsmanship, and the two are indistinguishable from a
+/// mean return.
+///
+/// The wrapper is the cheapest control that tells them apart: one constant
+/// offset per run, drawn from the run seed, added to the tick the delegate
+/// reads. The candidate's own observation is untouched, so its phase columns
+/// still say where the *world* is in a 360-tick cycle -- they have simply
+/// stopped predicting the opponent. An edge that survives this is an edge
+/// against a fighter; an edge that collapses was a clock reading.
+///
+/// **It lives here and not in `policy`.** `ScriptedArticulatedPolicy` is a pure
+/// function of the observation with no per-run memory, `script_digest` is
+/// defined over what it submits, and the reference script must stay the thing
+/// `ARPG-SCRIPT-V1` describes. Per-run state belongs to whoever drives the run,
+/// which is this crate -- the same argument `policy`'s module header makes about
+/// why there is no articulated `TeamPolicy`.
+pub struct PhaseShiftedScript {
+    inner: Box<dyn ArticulatedPolicy>,
+    offset: u32,
+}
+
+impl PhaseShiftedScript {
+    pub fn new(baseline: Baseline, seed: u64) -> PhaseShiftedScript {
+        PhaseShiftedScript {
+            inner: baseline.policy(),
+            offset: phase_offset(seed),
+        }
+    }
+
+    pub fn offset(&self) -> u32 {
+        self.offset
+    }
+}
+
+impl ArticulatedPolicy for PhaseShiftedScript {
+    fn decide(&mut self, obs: &ArticulatedObservation) -> ArticulatedCommandV1 {
+        // The tick and nothing else. `ArticulatedObservation` is `Copy`, so the
+        // shifted view is a stack value that dies at the end of this call and
+        // cannot leak into what the world is told; the delegate reads no other
+        // column that the tick participates in.
+        //
+        // Wrapping rather than saturating, because a `u32` tick plus an offset
+        // under 2,160 cannot reach `u32::MAX` from any fight this fixture runs
+        // and a saturating add would silently freeze the script's clock if one
+        // ever did.
+        let mut shifted = *obs;
+        shifted.tick = obs.tick.wrapping_add(self.offset);
+        self.inner.decide(&shifted)
+    }
+
+    fn reset(&mut self) {
+        self.inner.reset();
+    }
+}
+
+/// A baseline script, and whether its clock is where the script would put it.
+///
+/// Two orthogonal facts rather than a fourth [`Baseline`], because they are not
+/// four points on one axis: the baseline says *which* script the candidate is
+/// fighting and the flag says whether that script is predictable. Folding them
+/// would make "the windmill, phase-randomised" unspellable, and the windmill is
+/// the control that currently sets the bar.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub struct Opponent {
+    pub baseline: Baseline,
+    pub phase_randomised: bool,
+}
+
+impl Opponent {
+    pub const fn frozen(baseline: Baseline) -> Opponent {
+        Opponent { baseline, phase_randomised: false }
+    }
+
+    pub const fn randomised(baseline: Baseline) -> Opponent {
+        Opponent { baseline, phase_randomised: true }
+    }
+
+    /// A fresh opponent for one run, with this run's phase already chosen.
+    ///
+    /// Per seed rather than per corpus, which is what "per-run constant" means
+    /// and is the whole content of the control. It costs one boxed policy per
+    /// trial against a fight that runs three thousand six hundred ticks.
+    pub fn policy_for(self, seed: u64) -> Box<dyn ArticulatedPolicy> {
+        if self.phase_randomised {
+            Box::new(PhaseShiftedScript::new(self.baseline, seed))
+        } else {
+            self.baseline.policy()
+        }
+    }
+
+    /// The name a table column carries. `+phase` rather than a second column,
+    /// so a figure quoted out of a report says which opponent produced it.
+    pub const fn label(self) -> &'static str {
+        match (self.baseline, self.phase_randomised) {
+            (Baseline::Composed, false) => "composed",
+            (Baseline::Composed, true) => "composed+phase",
+            (Baseline::Windmill, false) => "windmill",
+            (Baseline::Windmill, true) => "windmill+phase",
+            (Baseline::ClosingAttack, false) => "attack-moves",
+            (Baseline::ClosingAttack, true) => "attack-moves+phase",
+        }
+    }
+}
+
+impl From<Baseline> for Opponent {
+    fn from(baseline: Baseline) -> Opponent {
+        Opponent::frozen(baseline)
     }
 }
 
@@ -180,6 +328,137 @@ pub struct Rollout {
     pub state_hash: u64,
 }
 
+/// Which of the three ordinary heights this is, or `None`.
+///
+/// `lab`'s `height_index`, re-derived for the reason every other copy in this
+/// crate is: the function is private there. `None` rather than a fourth bucket
+/// for the same reason it gives -- the fourth height that exists belongs to a
+/// command path no policy in this comparison can reach, and a column that is
+/// always zero is a column nobody reads.
+fn height_index(height: CombatHeight) -> Option<usize> {
+    [CombatHeight::LOW, CombatHeight::MID, CombatHeight::HIGH]
+        .iter()
+        .position(|candidate| candidate.raw() == height.raw())
+}
+
+/// What the mechanics did during a rollout, for the comparison table.
+///
+/// **Deliberately not fields of [`Rollout`].** Nothing here is read by
+/// [`shaped_return`], so nothing here is on the optimizer's path: training
+/// passes `None` and pays for none of it, and only the held-out evaluation --
+/// which runs a few thousand fights once rather than a few hundred thousand --
+/// asks for the columns v2-19's comparison names. The split is the same one
+/// `lab`'s `measure_articulated_traced` makes about its frame recorder, and for
+/// the same reason: an observer that costs the measured path nothing cannot
+/// change what it measures.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Mechanics {
+    /// Resolutions by [`ContactKind`]: weapon/weapon, weapon/shield,
+    /// weapon/body. **The middle one is "defended contacts"** -- a blade that
+    /// met a plate instead of a body.
+    pub kinds: [u64; 3],
+    /// Weapon/body resolutions by the region they landed in, in [`BodyPart`]
+    /// order, with a final bucket for [`sim::NO_REGION`].
+    ///
+    /// **A zero in the head column is not evidence that a policy chose not to
+    /// aim there**, and anything reporting this table has to say so: the three
+    /// heights the action vocabulary can command put a blade nowhere near a
+    /// Fighter's head, so the column is unreachable rather than unchosen. See
+    /// `docs/plans/v2-19-learning-probe.md`.
+    pub regions: [u64; BodyPart::COUNT + 1],
+    /// Weapon/body resolutions by the height the *attacking* arm was commanded
+    /// to on the tick that produced them, plus a bucket for a height that is
+    /// none of the three.
+    ///
+    /// Attributed through the collider slot: a weapon/body fact has exactly one
+    /// side holding a limb slot rather than [`sim::BODY_SLOT`], and that side is
+    /// the one that swung.
+    pub heights: [u64; 4],
+    /// `[attacker weapon height][defender guard height]`, ordered pairs of
+    /// *commanded* heights, counted once per attacking body per other deciding
+    /// body per tick. `lab articulated`'s lockstep audit, on this corpus.
+    pub guard_pairs: [[u64; 3]; 3],
+    pub severances: u64,
+    /// The largest cut-plus-thrust any single weapon/body row carried.
+    pub max_blow_raw: u64,
+    /// `max(0, after - before)` over every published resolution row.
+    ///
+    /// **It cannot be anything but zero and `solver_rejections` is why it is
+    /// still worth printing** -- `World::resolve_contact` clears the row list
+    /// for exactly the condition this measures, so the rows a violation would
+    /// appear in are the rows a violation deletes. The pair says "no row created
+    /// energy *and* no row went unobserved"; either alone says nothing. `lab`'s
+    /// `a_zero_energy_excess_is_only_evidence_while_the_solver_refuses_nothing`
+    /// is where that correction is recorded.
+    pub max_energy_excess: u64,
+    pub solver_rejections: u32,
+    pub first_rejection: Option<ResolutionError>,
+    pub cap_hits: u32,
+    /// Decisions the candidate made, and the nanoseconds its `decide` spent
+    /// making them. Inference time, measured where inference happens rather than
+    /// in a microbenchmark against a fixture that never moves.
+    pub candidate_decisions: u64,
+    pub candidate_nanos: u128,
+}
+
+impl Mechanics {
+    pub fn merge(&mut self, other: &Mechanics) {
+        for kind in 0..self.kinds.len() {
+            self.kinds[kind] += other.kinds[kind];
+        }
+        for region in 0..self.regions.len() {
+            self.regions[region] += other.regions[region];
+        }
+        for height in 0..self.heights.len() {
+            self.heights[height] += other.heights[height];
+        }
+        for attack in 0..self.guard_pairs.len() {
+            for guard in 0..self.guard_pairs[attack].len() {
+                self.guard_pairs[attack][guard] += other.guard_pairs[attack][guard];
+            }
+        }
+        self.severances += other.severances;
+        self.max_blow_raw = self.max_blow_raw.max(other.max_blow_raw);
+        self.max_energy_excess = self.max_energy_excess.max(other.max_energy_excess);
+        self.solver_rejections += other.solver_rejections;
+        self.first_rejection = self.first_rejection.or(other.first_rejection);
+        self.cap_hits += other.cap_hits;
+        self.candidate_decisions += other.candidate_decisions;
+        self.candidate_nanos += other.candidate_nanos;
+    }
+
+    /// Mean nanoseconds per candidate decision, or zero if it never decided.
+    pub fn nanos_per_decision(&self) -> f64 {
+        if self.candidate_decisions == 0 {
+            0.0
+        } else {
+            self.candidate_nanos as f64 / self.candidate_decisions as f64
+        }
+    }
+}
+
+/// What a rollout should write down beyond the result it returns.
+///
+/// A struct rather than two more positional parameters, on the argument
+/// `lab::trace::TraceRun` already makes: two same-shaped `Option`s in an
+/// argument list are one careless edit away from being silently transposable,
+/// and these two are `Option<&mut _>` of unrelated types only by luck.
+#[derive(Default)]
+pub struct Recorders<'a> {
+    pub mechanics: Option<&'a mut Mechanics>,
+    /// The normal replay envelope, recorded exactly as
+    /// [`policy::run_articulated`] records it: the orders at tick zero and the
+    /// **stored** command per decision, never the offered one.
+    ///
+    /// v2-19 asks for held-out runs to be recorded as replays and for a replay
+    /// never to load the checkpoint, and this is the half that makes the second
+    /// half true by construction: what lands in the envelope is an
+    /// `ArticulatedCommandV1`, so playback needs no model, no weights and no
+    /// `learn` at all. `recorded_learned_replays_do_not_load_the_model` is the
+    /// value-level assertion.
+    pub replay: Option<&'a mut Replay>,
+}
+
 /// Drives one fight with a different policy on each side.
 ///
 /// The candidate is always the **heroes** -- the Fighter, with the sword and the
@@ -192,6 +471,25 @@ pub fn rollout(
     heroes: &mut dyn ArticulatedPolicy,
     monsters: &mut dyn ArticulatedPolicy,
     max_ticks: Option<u32>,
+) -> Rollout {
+    rollout_with(
+        scenario,
+        seed,
+        heroes,
+        monsters,
+        max_ticks,
+        &mut Recorders::default(),
+    )
+}
+
+/// The same fight with observers hung off it.
+pub fn rollout_with(
+    scenario: &Scenario,
+    seed: u64,
+    heroes: &mut dyn ArticulatedPolicy,
+    monsters: &mut dyn ArticulatedPolicy,
+    max_ticks: Option<u32>,
+    recorders: &mut Recorders,
 ) -> Rollout {
     heroes.reset();
     monsters.reset();
@@ -207,6 +505,9 @@ pub fn rollout(
         (Faction::Monsters, config.orders[1]),
     ] {
         world.set_order(faction, order);
+        if let Some(replay) = recorders.replay.as_deref_mut() {
+            replay.record_order(0, faction, order);
+        }
     }
 
     // Read once, at spawn. `alive_ids` allocates, and a body that dies mid-fight
@@ -217,27 +518,143 @@ pub fn rollout(
     let limit = max_ticks.unwrap_or(scenario.max_ticks);
     let mut due: Vec<EntityId> = Vec::new();
     let mut rejected = 0u32;
+    // One row per body that decided this tick, cleared and refilled rather than
+    // allocated. Only built when somebody is auditing; the optimizer's path
+    // leaves it empty forever.
+    let mut commanded: Vec<(bool, Option<usize>, Option<usize>)> = Vec::new();
+    // And the height each body's weapon arm is *currently* holding, which is not
+    // the same list. **A body does not decide every tick** -- `pending_decisions`
+    // is periodic and the world keeps the last stored command in between -- so a
+    // contact on a tick nobody decided has to be attributed to the command that
+    // is still in force, not dropped. Keyed by entity and never cleared.
+    let mut standing: Vec<(EntityId, Option<usize>)> = Vec::new();
 
     while world.outcome().is_none() && world.tick() < limit {
         due.clear();
         due.extend_from_slice(world.pending_decisions());
+        commanded.clear();
         for &id in &due {
             let obs = world.observe_articulated(id);
-            let command = if hero_ids.contains(&id) {
-                heroes.decide(&obs)
+            let candidate = hero_ids.contains(&id);
+            let command = if candidate {
+                // Timed only for the candidate, and only when asked. The clock
+                // read is two calls into the OS around a few thousand multiply
+                // -- adds; it is measurable overhead on the thing being measured
+                // and the honest place to pay it is the evaluation that reports
+                // the number, not the training loop that does not.
+                match recorders.mechanics.as_deref_mut() {
+                    Some(audit) => {
+                        let started = Instant::now();
+                        let command = heroes.decide(&obs);
+                        audit.candidate_nanos += started.elapsed().as_nanos();
+                        audit.candidate_decisions += 1;
+                        command
+                    }
+                    None => heroes.decide(&obs),
+                }
             } else {
                 monsters.decide(&obs)
             };
+            if recorders.mechanics.is_some() {
+                // The *offered* command and the roles the policy itself was
+                // working from, read before the world has had a chance to refuse
+                // anything -- `lab articulated`'s rule, for its reason: the
+                // lockstep question is what the two sides asked for, and a
+                // refused submission is already counted one field down.
+                let roles = ArmRoles::of(&obs);
+                let weapon = height_index(command.arms[roles.weapon].height);
+                commanded.push((
+                    matches!(command.intent, Intent::Attack(_)),
+                    weapon,
+                    height_index(command.arms[1 - roles.weapon].height),
+                ));
+                match standing.iter_mut().find(|row| row.0 == id) {
+                    Some(row) => row.1 = weapon,
+                    None => standing.push((id, weapon)),
+                }
+            }
             match world.submit_articulated_v1(id, command) {
-                SubmitArticulatedOutcome::Stored { rejection, .. } => {
+                SubmitArticulatedOutcome::Stored { command, rejection } => {
                     if rejection.is_some() {
                         rejected += 1;
+                    }
+                    // The stored command and never the offered one: a refused
+                    // submission stores the neutral one, so a replay carrying
+                    // the offer would reproduce a fight that did not happen.
+                    if let Some(replay) = recorders.replay.as_deref_mut() {
+                        replay.record_submitted(
+                            world.tick(),
+                            id,
+                            SubmittedCommand::Articulated(command),
+                        );
                     }
                 }
                 SubmitArticulatedOutcome::NotStored(_) => rejected += 1,
             }
         }
+        if let Some(audit) = recorders.mechanics.as_deref_mut() {
+            // Ordered pairs, and a body is never its own defender. `lab
+            // articulated`'s shape exactly, for its reason: on this fixture only
+            // one of the two bodies carries a plate at all, so folding the pair
+            // would average the interesting cell with a cell that has no shield
+            // in it.
+            for (attacker, &(attacking, weapon, _)) in commanded.iter().enumerate() {
+                let Some(weapon) = weapon.filter(|_| attacking) else { continue };
+                for (defender, &(_, _, guard)) in commanded.iter().enumerate() {
+                    if defender == attacker {
+                        continue;
+                    }
+                    if let Some(guard) = guard {
+                        audit.guard_pairs[weapon][guard] += 1;
+                    }
+                }
+            }
+        }
         let _ = world.step();
+        if let Some(audit) = recorders.mechanics.as_deref_mut() {
+            for row in world.contact_resolutions() {
+                audit.kinds[row.fact.key.kind as usize] += 1;
+                audit.max_energy_excess = audit
+                    .max_energy_excess
+                    .max(row.energy.after_raw.saturating_sub(row.energy.before_raw));
+                if row.fact.key.kind != ContactKind::WeaponBody {
+                    continue;
+                }
+                audit.severances += u64::from(row.severed);
+                audit.max_blow_raw = audit
+                    .max_blow_raw
+                    .max(row.cut_raw.saturating_add(row.thrust_raw));
+                let region = if row.fact.region == NO_REGION {
+                    BodyPart::COUNT
+                } else {
+                    (row.fact.region as usize).min(BodyPart::COUNT)
+                };
+                audit.regions[region] += 1;
+                // Whichever side of the fact is holding something is the side
+                // that swung; the other carries `BODY_SLOT`.
+                let swinger = if row.fact.key.a_slot != BODY_SLOT {
+                    Some(row.fact.key.a)
+                } else if row.fact.key.b_slot != BODY_SLOT {
+                    Some(row.fact.key.b)
+                } else {
+                    None
+                };
+                let height = swinger
+                    .and_then(|id| standing.iter().find(|row| row.0 == id))
+                    .and_then(|row| row.1)
+                    .unwrap_or(3);
+                audit.heights[height] += 1;
+            }
+        }
+    }
+
+    if let Some(audit) = recorders.mechanics.as_deref_mut() {
+        audit.cap_hits += world.contact_cap_hits();
+        audit.solver_rejections += world.contact_solver_rejections();
+        audit.first_rejection = audit.first_rejection.or(world.first_contact_rejection());
+    }
+    if let Some(replay) = recorders.replay.as_deref_mut() {
+        replay.finish(world.tick());
     }
 
     let settled = world.outcome();
@@ -451,7 +868,17 @@ pub struct ProbeConfig {
     pub threads: usize,
     pub master_seed: u64,
     pub max_ticks: Option<u32>,
-    pub opponent: Baseline,
+    /// Which script the candidate trains against, and whether that script's
+    /// clock is predictable.
+    ///
+    /// **Not recorded in the checkpoint**, which carries the seed set and the
+    /// optimizer settings and not this. That is a real gap and it is written
+    /// down rather than fixed here: bumping [`crate::CHECKPOINT_FORMAT_VERSION`]
+    /// for one column is a change to a format with its own test battery, and the
+    /// v2-19 report names the opponent beside every number it prints. A session
+    /// that trains more than one checkpoint against more than one opponent
+    /// should add the column before it trains the second.
+    pub opponent: Opponent,
     pub verbose: bool,
 }
 
@@ -467,7 +894,7 @@ impl Default for ProbeConfig {
             threads: 4,
             master_seed: 1,
             max_ticks: None,
-            opponent: Baseline::Composed,
+            opponent: Opponent::frozen(Baseline::Composed),
             verbose: false,
         }
     }
@@ -494,6 +921,17 @@ impl Corpus {
         self.scenarios.len() * seeds.len()
     }
 
+    /// The orientations, in the order every corpus walk visits them.
+    ///
+    /// Exposed so that a caller needing more than a return per trial -- the
+    /// held-out evaluation needs the outcome, the clock, a replay and a contact
+    /// audit -- can drive [`rollout_with`] over the same fixtures in the same
+    /// order rather than rebuilding two `Scenario`s of its own and hoping they
+    /// match.
+    pub fn scenarios(&self) -> &[Scenario] {
+        &self.scenarios
+    }
+
     /// Every return this policy produced, one per trial, in a fixed order.
     ///
     /// Returns the individual values rather than their mean because the
@@ -503,14 +941,19 @@ impl Corpus {
         &self,
         seeds: &[u64],
         candidate: &mut dyn ArticulatedPolicy,
-        opponent: Baseline,
+        opponent: Opponent,
         max_ticks: Option<u32>,
         out: &mut Vec<f32>,
     ) {
         out.clear();
-        let mut baseline = opponent.policy();
         for scenario in &self.scenarios {
             for &seed in seeds {
+                // Built per seed, because a phase-randomised opponent's whole
+                // content is that its clock offset is a property of the run. It
+                // is one boxed policy against a fight of three thousand six
+                // hundred ticks, and hoisting it would silently turn the control
+                // back into a frozen script with an unusual starting phase.
+                let mut baseline = opponent.policy_for(seed);
                 let result = rollout(scenario, seed, candidate, baseline.as_mut(), max_ticks);
                 out.push(shaped_return(&result));
             }
@@ -536,30 +979,62 @@ pub fn score(model: &Model, corpus: &Corpus, config: &ProbeConfig) -> f32 {
     }
 }
 
-fn score_population(population: &[Model], config: &ProbeConfig) -> Vec<f32> {
+/// Scores every candidate whose score is not already known.
+///
+/// **The elites' scores are already known and re-scoring them is pure waste.**
+/// [`ProbeConfig::seeds`] is fixed rather than redrawn per generation -- which
+/// is the whole reason a checkpoint can record it -- so a survivor's score is a
+/// deterministic function of a model that did not change. At the shipped elite
+/// of 8 in 32 that is a quarter of every generation spent recomputing numbers
+/// the previous generation already printed, and on this fixture a quarter of a
+/// generation is eighteen seconds.
+///
+/// It is an optimization that changes no number, and the assertion under
+/// `debug_assertions` is what says so: a debug build re-scores every carried
+/// value and panics if it disagrees. That is a measurement of the claim rather
+/// than a comment making it, and it costs release builds nothing.
+///
+/// Chunked over the *indices that need work* rather than over the population,
+/// because chunking the population would hand one thread the block that holds
+/// all the elites and nothing to do. Results still land in index order, so a
+/// chunk that finished first cannot reorder the ranking --
+/// `training_is_reproducible_across_thread_counts` is what pins that.
+fn score_population(population: &[Model], known: &[Option<f32>], config: &ProbeConfig) -> Vec<f32> {
     let mut scores = vec![0.0f32; population.len()];
     if population.is_empty() {
         return scores;
     }
-    let chunk = population.len().div_ceil(config.threads.max(1)).max(1);
+    let pending: Vec<usize> = (0..population.len())
+        .filter(|&i| known.get(i).copied().flatten().is_none())
+        .collect();
+    let mut computed = vec![0.0f32; pending.len()];
+    let chunk = pending.len().div_ceil(config.threads.max(1)).max(1);
 
-    // Chunked rather than one thread per candidate, and results land in index
-    // order regardless of which thread finished first -- `evolve.rs`'s shape
-    // exactly. v2-19 permits training to be nondeterministic across thread
-    // counts; this arrangement does not need the permission, and
-    // `training_is_reproducible_across_thread_counts` says so.
     std::thread::scope(|scope| {
-        for (models, out) in population.chunks(chunk).zip(scores.chunks_mut(chunk)) {
+        for (indices, out) in pending.chunks(chunk).zip(computed.chunks_mut(chunk)) {
             let config = config;
             scope.spawn(move || {
                 let corpus = Corpus::new(config.mirrored);
-                for (i, model) in models.iter().enumerate() {
-                    out[i] = score(model, &corpus, config);
+                for (slot, &i) in indices.iter().enumerate() {
+                    out[slot] = score(&population[i], &corpus, config);
                 }
             });
         }
     });
 
+    for (slot, &i) in pending.iter().enumerate() {
+        scores[i] = computed[slot];
+    }
+    for (i, carried) in known.iter().enumerate().take(population.len()) {
+        if let Some(carried) = *carried {
+            scores[i] = carried;
+            debug_assert_eq!(
+                score(&population[i], &Corpus::new(config.mirrored), config),
+                carried,
+                "a carried elite score is not the score its model produces"
+            );
+        }
+    }
     scores
 }
 
@@ -597,6 +1072,28 @@ fn mutate(parent: &Model, sigma: f32, rng: &mut Rng) -> Model {
 /// number this prints is what an untrained network scores and is worth reading
 /// as such.
 pub fn train(config: &ProbeConfig) -> Checkpoint {
+    train_with(config, &mut |_, _| true)
+}
+
+/// The same optimizer, reporting the champion after every generation.
+///
+/// **Two things the plain [`train`] cannot do, and both of them are about a
+/// forty-minute run.** The first is that a run which dies at generation 90 of
+/// 120 should not lose ninety generations of work, and a caller holding a
+/// checkpoint after every generation can write one atomically as it goes. The
+/// second is the budget: `watch` returns `false` to stop, so a caller can cap
+/// wall clock rather than guessing a generation count that fits it -- and the
+/// record the checkpoint carries then says how many generations actually ran,
+/// which is the number a reader of the result needs.
+///
+/// The callback is handed a whole [`Checkpoint`] rather than a `&Model` and a
+/// score, so that what a caller writes to disk mid-run is byte-identical to what
+/// it would have got at the end. A "progress" artifact in a different shape from
+/// the final one is an artifact somebody eventually quotes as the final one.
+pub fn train_with(
+    config: &ProbeConfig,
+    watch: &mut dyn FnMut(u32, &Checkpoint) -> bool,
+) -> Checkpoint {
     let mut rng = Rng::new(config.master_seed);
     let elite = config.elite.clamp(1, config.population.max(1));
 
@@ -605,9 +1102,12 @@ pub fn train(config: &ProbeConfig) -> Checkpoint {
         .collect();
     let mut best = population[0].clone();
     let mut best_score = f32::NEG_INFINITY;
+    let mut ran = 0u32;
+    // Generation zero is entirely fresh, so nothing is carried into it.
+    let mut known: Vec<Option<f32>> = vec![None; population.len()];
 
     for generation in 0..config.generations {
-        let scores = score_population(&population, config);
+        let scores = score_population(&population, &known, config);
 
         let mut ranking: Vec<usize> = (0..population.len()).collect();
         // Descending by score, ties by index. `partial_cmp` cannot fail here --
@@ -631,19 +1131,42 @@ pub fn train(config: &ProbeConfig) -> Checkpoint {
             println!("gen {generation:>3}  best={:>8.3}  {band}", scores[champion]);
         }
 
+        ran = generation + 1;
+        // Handed the champion *including* this generation, which is why `ran` is
+        // set above rather than after the loop: a checkpoint written here has to
+        // describe itself honestly, and "120 generations" on a file that saw 90
+        // is the one field a later reader has no way to check.
+        if !watch(ran, &record(config, elite, ran, best_score, best.clone())) {
+            break;
+        }
+
         let elites: Vec<Model> = ranking.iter().take(elite).map(|&i| population[i].clone()).collect();
         let mut next = elites.clone();
+        let mut carried: Vec<Option<f32>> =
+            ranking.iter().take(elite).map(|&i| Some(scores[i])).collect();
         let mut parent = 0usize;
         while next.len() < config.population {
             next.push(mutate(&elites[parent % elites.len()], config.sigma, &mut rng));
+            carried.push(None);
             parent += 1;
         }
         population = next;
+        known = carried;
     }
 
+    record(config, elite, ran, best_score, best)
+}
+
+fn record(
+    config: &ProbeConfig,
+    elite: usize,
+    generations: u32,
+    best_score: f32,
+    model: Model,
+) -> Checkpoint {
     Checkpoint {
         training: TrainingRecord {
-            generations: config.generations,
+            generations,
             population: config.population as u32,
             elite: elite as u32,
             sigma: config.sigma,
@@ -651,7 +1174,7 @@ pub fn train(config: &ProbeConfig) -> Checkpoint {
             seeds: config.seeds.clone(),
             training_return: if best_score.is_finite() { best_score } else { 0.0 },
         },
-        model: best,
+        model,
     }
 }
 
@@ -659,7 +1182,7 @@ pub fn train(config: &ProbeConfig) -> Checkpoint {
 mod tests {
     use super::*;
     use crate::model::LearnedArticulatedPolicy;
-    use policy::run_articulated;
+    use policy::{run_articulated, CYCLE_TICKS, HEIGHT_TICKS};
 
     /// The fixture with the two bodies moved inside each other's sight.
     ///
@@ -735,6 +1258,147 @@ mod tests {
             assert!(!training.contains(&seed), "held-out seed {seed} was trained on");
         }
         assert!(HELD_OUT_SEED_BASE > TRAINING_SEED_BASE);
+    }
+
+    #[test]
+    fn the_phase_offsets_cover_the_scripts_whole_period() {
+        // 2,160 is a claim about three constants in `policy`, and a claim about
+        // somebody else's constants is exactly the kind that stops being true
+        // quietly. Recomputed from them rather than pinned as a literal.
+        fn gcd(a: u32, b: u32) -> u32 {
+            if b == 0 { a } else { gcd(b, a % b) }
+        }
+        let lcm = |a: u32, b: u32| a / gcd(a, b) * b;
+        // The three clocks: twelve phases of `PHASE_TICKS` (which is
+        // `CYCLE_TICKS`), the height selector's `HEIGHT_TICKS * 3`, and the cut
+        // reversal's `CYCLE_TICKS * 2`.
+        let period = lcm(lcm(CYCLE_TICKS, HEIGHT_TICKS * 3), CYCLE_TICKS * 2);
+        assert_eq!(period, SCRIPT_PERIOD_TICKS);
+
+        // And the draw actually spreads over it. Sixteen buckets, a thousand
+        // seeds: a constant offset -- the failure that would make the control
+        // silently useless -- puts everything in one.
+        let mut buckets = [0u32; 16];
+        for seed in 0..1_000u64 {
+            let offset = phase_offset(seed);
+            assert!(offset < SCRIPT_PERIOD_TICKS);
+            buckets[(offset * 16 / SCRIPT_PERIOD_TICKS) as usize] += 1;
+        }
+        assert!(
+            buckets.iter().all(|&n| n > 20),
+            "phase offsets are not spread over the period: {buckets:?}"
+        );
+        // Deterministic, because a control that moved between two runs of the
+        // same evaluation would make the comparison unreproducible.
+        assert_eq!(phase_offset(7), phase_offset(7));
+    }
+
+    #[test]
+    fn a_phase_shifted_opponent_is_the_script_reading_a_different_clock() {
+        // Two claims, and the second is the one that makes the control a
+        // control. First: the wrapper is the script -- at an offset the wrapper
+        // itself chose, it submits exactly what the script submits at the
+        // shifted tick, so nothing about the fighter has changed except when it
+        // is in its cycle. Second: it is a *different fight*, so the wrapper
+        // reached the world at all.
+        let mut wrapped = PhaseShiftedScript::new(Baseline::Composed, 11);
+        let offset = wrapped.offset();
+        assert!(offset > 0, "seed 11 drew a zero offset; pick another seed");
+
+        let scenario = duel_in_sight();
+        let mut obs = ArticulatedObservation::BLANK;
+        obs.tick = 137;
+        obs.subject = EntityId::new(0, 0);
+        obs.capabilities = ArticulatedObservation::MOVEMENT
+            | ArticulatedObservation::TURNING
+            | ArticulatedObservation::RIGHT_GRIP
+            | ArticulatedObservation::RIGHT_WEAPON;
+        obs.arms[1].equipment = Some(1);
+        let mut shifted = obs;
+        shifted.tick = 137 + offset;
+        assert_eq!(
+            wrapped.decide(&obs),
+            ScriptedArticulatedPolicy.decide(&shifted),
+            "the wrapper is not the script it wraps"
+        );
+
+        let frozen = rollout(
+            &scenario,
+            11,
+            &mut ScriptedArticulatedPolicy,
+            &mut ScriptedArticulatedPolicy,
+            Some(600),
+        );
+        let randomised = rollout(
+            &scenario,
+            11,
+            &mut ScriptedArticulatedPolicy,
+            &mut PhaseShiftedScript::new(Baseline::Composed, 11),
+            Some(600),
+        );
+        assert_ne!(
+            frozen.state_hash, randomised.state_hash,
+            "the offset never reached the world"
+        );
+        assert_eq!(randomised.rejected, 0, "a shifted clock submitted an illegal command");
+
+        // And the candidate's side is untouched: only the monsters were
+        // wrapped, so the heroes' commands are still the frozen script's.
+        // Checked by wrapping *nothing* and getting the frozen fight back.
+        let again = rollout(
+            &scenario,
+            11,
+            &mut ScriptedArticulatedPolicy,
+            &mut PhaseShiftedScript::new(Baseline::Composed, 11),
+            Some(600),
+        );
+        assert_eq!(again.state_hash, randomised.state_hash, "the control is not reproducible");
+    }
+
+    #[test]
+    fn an_audited_rollout_is_the_rollout_it_audits() {
+        // The recorder is an observer and the fight must not be able to tell it
+        // is there -- `lab`'s `a_traced_run_is_the_run_the_gate_measured`, on
+        // this loop. It is obvious from the code today and it is exactly the
+        // kind of obvious that a later audit reading something it has to compute
+        // could quietly stop being.
+        let scenario = duel_in_sight();
+        let plain = rollout(
+            &scenario,
+            5,
+            &mut ScriptedArticulatedPolicy,
+            &mut ScriptedArticulatedPolicy,
+            Some(600),
+        );
+        let mut mechanics = Mechanics::default();
+        let mut replay = sim::Replay::new(&scenario, 5);
+        let audited = rollout_with(
+            &scenario,
+            5,
+            &mut ScriptedArticulatedPolicy,
+            &mut ScriptedArticulatedPolicy,
+            Some(600),
+            &mut Recorders {
+                mechanics: Some(&mut mechanics),
+                replay: Some(&mut replay),
+            },
+        );
+        assert_eq!(audited, plain);
+
+        // The audit saw the fight, and the totals are internally consistent:
+        // every weapon/body row lands in exactly one region bucket and exactly
+        // one height bucket.
+        let contacts: u64 = mechanics.kinds.iter().sum();
+        assert!(contacts > 0, "nothing touched in six hundred ticks");
+        let body = mechanics.kinds[sim::ContactKind::WeaponBody as usize];
+        assert_eq!(mechanics.regions.iter().sum::<u64>(), body);
+        assert_eq!(mechanics.heights.iter().sum::<u64>(), body);
+        assert_eq!(mechanics.heights[3], 0, "a script commanded a fourth height");
+
+        // And the replay reproduces the run it recorded, which is the property
+        // v2-19 asks the held-out corpus for.
+        assert!(replay.is_intact());
+        assert_eq!(replay.play().state_hash(), plain.state_hash);
     }
 
     #[test]
@@ -899,7 +1563,7 @@ mod tests {
             threads: 1,
             master_seed: 99,
             max_ticks: Some(180),
-            opponent: Baseline::Composed,
+            opponent: Opponent::frozen(Baseline::Composed),
             verbose: false,
         };
         let one = train(&base);

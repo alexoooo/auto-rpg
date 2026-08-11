@@ -4,7 +4,11 @@
 /// integers, and this crate is the one that must build and run in CI on any
 /// machine at any time.
 pub struct Args {
-    command: String,
+    /// Every bare token, in the order it was typed. `learn-probe train` needs
+    /// two of them, and a second `String` field beside `command` would make
+    /// "which positional is this" a question about field names rather than about
+    /// position.
+    positional: Vec<String>,
     pairs: Vec<(String, String)>,
     flags: Vec<String>,
 }
@@ -15,7 +19,7 @@ impl Args {
     }
 
     pub fn parse(tokens: Vec<String>) -> Args {
-        let mut command = String::new();
+        let mut positional = Vec::new();
         let mut pairs = Vec::new();
         let mut flags = Vec::new();
 
@@ -34,22 +38,29 @@ impl Args {
                     }
                 }
             } else {
-                if command.is_empty() {
-                    command = token.clone();
-                }
+                positional.push(token.clone());
                 i += 1;
             }
         }
 
         Args {
-            command,
+            positional,
             pairs,
             flags,
         }
     }
 
     pub fn command(&self) -> &str {
-        &self.command
+        self.positional.first().map(String::as_str).unwrap_or("")
+    }
+
+    /// The second bare token, for the one command that has arms.
+    ///
+    /// Empty rather than `None` so that a caller can `match` it against its own
+    /// arm names and let the wildcard print the usage, which is what every other
+    /// unknown token in this parser does.
+    pub fn subcommand(&self) -> &str {
+        self.positional.get(1).map(String::as_str).unwrap_or("")
     }
 
     fn raw(&self, key: &str) -> Option<&str> {
@@ -148,5 +159,23 @@ mod tests {
         let a = args("hash --write");
         assert!(a.flag("write"));
         assert_eq!(a.command(), "hash");
+    }
+
+    #[test]
+    fn a_second_bare_token_is_a_subcommand_and_never_a_value() {
+        // The trap this exists to avoid: `--seeds` takes a value, so a parser
+        // that recorded the *last* bare token would read `learn-probe evaluate
+        // --seeds 200 --mirrored` correctly and `learn-probe evaluate --mirrored
+        // 200` as the subcommand `200`. Position, not recency.
+        let a = args("learn-probe evaluate --seeds 200 --mirrored");
+        assert_eq!(a.command(), "learn-probe");
+        assert_eq!(a.subcommand(), "evaluate");
+        assert_eq!(a.usize("seeds", 1), 200);
+        assert!(a.flag("mirrored"));
+
+        let bare = args("hash");
+        assert_eq!(bare.command(), "hash");
+        assert_eq!(bare.subcommand(), "", "a missing arm is empty, not the command again");
+        assert_eq!(args("").command(), "");
     }
 }

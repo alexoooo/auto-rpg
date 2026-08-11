@@ -36,10 +36,9 @@ because nothing it computes reaches authoritative state: what leaves it is an
 `ArticulatedCommandV1` assembled from a fixed table of `Fx` constants, chosen by an
 argmax. It must stay unreachable from `web` — it uses `std::thread::scope` and does
 not compile to `wasm32-unknown-unknown` — and it carries no crates.io dependency,
-which `tools/check_deps.js` audits alongside the deterministic core. **Nothing
-depends on it yet**: v2-19's `lab learn-probe` subcommand has not landed, so `learn`
-is a workspace member reachable only from `cargo test -p learn`. `lab` is where the
-edge goes when it does.
+which `tools/check_deps.js` audits alongside the deterministic core. **`lab` is its
+one host**, through `lab learn-probe` and `lab trace --policy learned`; if a second
+one ever appears, check first that it is not `web`.
 
 Sizes worth knowing before you go looking: `crates/sim/src/world.rs` (~7.2k lines),
 `crates/web/src/lib.rs` (~7.4k) and `web/main.js` (~11k) are the three big files.
@@ -63,7 +62,12 @@ cargo run --release -p lab -- articulated --seeds 400 --mirrored  # the v2-17 ga
 cargo run --release -p lab -- articulated --seeds 400 --mirrored --policy windmill
 cargo run --release -p lab -- articulated --seeds 400 --mirrored --attack-moves
 
+cargo run --release -p lab -- learn-probe train --spec v2-probe
+cargo run --release -p lab -- learn-probe evaluate --checkpoint checkpoints/v2-probe.ckpt
+
 npm run trace                                     # one fight to web/fight.json
+cargo run --release -p lab -- trace --policy learned \
+    --checkpoint checkpoints/v2-probe.ckpt --seed 3   # and one learned fight
 npm run view                                      # Vite without the wasm build
                                                   # then open /fight.html
 
@@ -88,6 +92,13 @@ gate failing and its last three explanations refuted by measurement, and the
 successor's first job is to look at a fight rather than calibrate another
 constant. It is expected to be deleted by the session that lands the real pose
 channel.
+
+The trace is a two-file contract — `crates/lab/src/trace.rs` writes it and
+`client/src/fight/trace.ts` refuses a schema it does not know, on purpose. Change
+one and you change both, and bump `TRACE_SCHEMA` in both. It is at
+`arpg-fight-trace-3`; v2-19 moved it from 2 by replacing the single `script` field
+with `heroes`, `monsters` and `checkpoint`, because a learned fight is the first
+one whose two bodies are driven by different things.
 
 Notes that will otherwise cost you a build:
 

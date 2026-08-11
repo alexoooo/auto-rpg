@@ -15,6 +15,7 @@
 mod args;
 mod evolve;
 mod fitness;
+mod learn_probe;
 mod trace;
 
 use args::Args;
@@ -42,6 +43,7 @@ fn main() {
         "duel" => duel(&args),
         "articulated" => articulated(&args),
         "trace" => trace_fight(&args),
+        "learn-probe" => learn_probe::learn_probe(&args),
         "" | "help" => usage(),
         other => {
             eprintln!("unknown command '{other}'\n");
@@ -94,8 +96,8 @@ fn usage() {
           which is the cell the reference table leaves unstated. Neither
           control is the reference script and neither may be pinned.
 
-  trace   --seed N --policy composed|windmill|attack-moves --mirrored
-          --ticks N --out PATH
+  trace   --seed N --policy composed|windmill|attack-moves|learned --mirrored
+          --ticks N --out PATH --checkpoint PATH --opponent P --phase-random
           Writes one articulated fight to JSON so it can be watched frame by
           frame in the browser: every published pose, every regional capsule,
           every resolution row. The run is the identical loop the gate measures
@@ -103,6 +105,24 @@ fn usage() {
           measured` is what says so. --ticks bounds the recording and never the
           fight, and a truncated file says so in its header. Defaults to
           web/fight.json, which `npm run view` serves at /fight.html.
+          --policy learned puts a checkpoint on the Fighter and a script on the
+          Brute, which is the arrangement `learn-probe` measures; the header
+          then names both sides and the checkpoint digest.
+
+  learn-probe train    --gens N --pop N --elite N --seeds N --sigma-pct N
+                       --threads N --master-seed N --ticks N --plain
+                       --opponent composed|windmill|attack-moves --phase-random
+                       --spec v2-probe --out PATH --quiet
+  learn-probe evaluate --checkpoint PATH --seeds N --threads N --plain
+                       --opponent composed|windmill|attack-moves
+                       --frozen-only --no-replay
+          v2-19's learning probe. `train` evolves one small network against a
+          frozen script and writes the checkpoint atomically. `evaluate` runs
+          five conditions -- a constant network, the three scripts, and the
+          checkpoint -- over held-out seeds the optimizer never saw, against
+          both the frozen opponent and a phase-randomised control, and prints
+          the comparison the decision is made on. A held-out run is recorded as
+          the ordinary replay envelope and replayed with no model in the room.
 
   evolve  --gens N --pop N --elite N --seeds N --sigma-pct N --threads N
           --master-seed N --policy P --opponent P
@@ -776,6 +796,26 @@ fn measure_articulated_traced(
     scenario: &Scenario,
     seed: u64,
     script: Script,
+    recorder: Option<&mut FightTrace>,
+) -> ArticulatedTrial {
+    let mut heroes = script.policy();
+    let mut monsters = script.policy();
+    measure_articulated_matchup(scenario, seed, heroes.as_mut(), monsters.as_mut(), recorder)
+}
+
+/// The same loop with the two sides chosen by the caller.
+///
+/// **Split out so that `lab trace` can watch a learned fight**, which is a fight
+/// with a different policy on each side -- and split rather than duplicated
+/// because the paragraph above is about this loop being a copy of
+/// `run_articulated`'s, and a fourth copy would be a fourth thing to drift. The
+/// gate's own entry points still take a [`Script`] and still put the same script
+/// on both sides, so nothing the corpus measures can reach this by accident.
+fn measure_articulated_matchup(
+    scenario: &Scenario,
+    seed: u64,
+    hero_policy: &mut dyn ArticulatedPolicy,
+    monster_policy: &mut dyn ArticulatedPolicy,
     mut recorder: Option<&mut FightTrace>,
 ) -> ArticulatedTrial {
     let config = RunConfig::default();
@@ -804,8 +844,6 @@ fn measure_articulated_traced(
     // what stops "fresh" from quietly meaning "whatever a stateful successor
     // happens to construct itself with".
     let heroes = world.alive_ids(Faction::Heroes);
-    let mut hero_policy = script.policy();
-    let mut monster_policy = script.policy();
     hero_policy.reset();
     monster_policy.reset();
 
@@ -1251,7 +1289,6 @@ fn evolution(args: &Args) {
 /// aggregate.
 fn trace_fight(args: &Args) {
     let seed = args.number("seed", 3);
-    let script = script_from(args);
     let mirrored = args.flag("mirrored");
     let scenario = if mirrored {
         mirrored_articulated_duel()
@@ -1266,13 +1303,50 @@ fn trace_fight(args: &Args) {
         .unwrap_or("web/fight.json")
         .to_string();
 
+    // **`learned` is a fourth arm of `--policy` and not a flag beside it**, for
+    // the reason `script_from` gives about `--attack-moves`: the four are one
+    // choice of what drives the Fighter, and a flag would let
+    // `--policy windmill --checkpoint x` look like a thing it is not.
+    let learned = args.text("policy") == Some("learned");
+    let (mut hero_policy, mut monster_policy, hero_token, monster_token, digest, headline);
+    if learned {
+        let checkpoint = learn_probe::load_checkpoint(args);
+        let opponent = learn_probe::opponent_from(args);
+        hero_policy = Box::new(learn::LearnedArticulatedPolicy::new(checkpoint.model.clone()))
+            as Box<dyn ArticulatedPolicy>;
+        monster_policy = opponent.policy_for(seed);
+        hero_token = "learned".to_string();
+        monster_token = opponent.label().to_string();
+        headline = format!(
+            "the learned policy against {}",
+            learn_probe::opponent_prose(opponent)
+        );
+        digest = Some(checkpoint.digest());
+    } else {
+        let script = script_from(args);
+        hero_policy = script.policy();
+        monster_policy = script.policy();
+        hero_token = script.token().to_string();
+        monster_token = script.token().to_string();
+        headline = script.name().to_string();
+        digest = None;
+    }
+
     let mut recorder = FightTrace::new(&scenario, limit);
     let started = Instant::now();
-    let trial = measure_articulated_traced(&scenario, seed, script, Some(&mut recorder));
+    let trial = measure_articulated_matchup(
+        &scenario,
+        seed,
+        hero_policy.as_mut(),
+        monster_policy.as_mut(),
+        Some(&mut recorder),
+    );
     let json = recorder.finish(&TraceRun {
         scenario: &scenario,
         seed,
-        script: script.token(),
+        heroes: &hero_token,
+        monsters: &monster_token,
+        checkpoint: digest.as_deref(),
         mirrored,
         outcome: trial.outcome,
         timed_out: trial.timed_out,
@@ -1285,13 +1359,15 @@ fn trace_fight(args: &Args) {
     }
 
     println!(
-        "seed {seed} of {} under {} -- {} tick{}, {}",
+        "seed {seed} of {} under {headline} -- {} tick{}, {}",
         scenario.name,
-        script.name(),
         trial.ticks,
         if trial.ticks == 1 { "" } else { "s" },
         if trial.timed_out { "the clock decided it" } else { "a body decided it" },
     );
+    if let Some(digest) = digest.as_deref() {
+        println!("  checkpoint {digest}");
+    }
     println!(
         "  {:?}, hero {} monster {}, {} contact{}, {} severance{}",
         trial.outcome,
@@ -1343,7 +1419,8 @@ mod tests {
         // spawn. A recorder that silently dropped the last frame would still
         // pass every assertion above.
         let json = recorder.finish(&TraceRun {
-            scenario: &scenario, seed: 3, script: Script::Composed.token(), mirrored: false,
+            scenario: &scenario, seed: 3, heroes: Script::Composed.token(),
+            monsters: Script::Composed.token(), checkpoint: None, mirrored: false,
             outcome: traced.outcome, timed_out: traced.timed_out, ticks: traced.ticks,
         });
         assert!(json.contains(&format!("\"frameCount\":{}", plain.ticks + 1)), "frame count");
@@ -1365,7 +1442,8 @@ mod tests {
         assert!(trial.ticks > 60, "the fixture runs past the recording bound");
 
         let json = recorder.finish(&TraceRun {
-            scenario: &scenario, seed: 3, script: Script::Composed.token(), mirrored: false,
+            scenario: &scenario, seed: 3, heroes: Script::Composed.token(),
+            monsters: Script::Composed.token(), checkpoint: None, mirrored: false,
             outcome: trial.outcome, timed_out: trial.timed_out, ticks: trial.ticks,
         });
         assert!(json.contains("\"frameCount\":60"), "the recording stopped at its bound");

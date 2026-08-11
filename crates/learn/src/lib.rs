@@ -102,8 +102,9 @@ pub use model::{
     LEARN_FEATURE_LAYOUT_VERSION, POSTURE_COUNT, WEAPON_BEARING_COUNT, WEAPON_HEIGHT_COUNT,
 };
 pub use probe::{
-    band, held_out_seeds, mirrored_articulated_duel, rollout, score, shaped_return, train,
-    training_seeds, Band, Baseline, Corpus, ProbeConfig, Rollout, HELD_OUT_SEED_BASE,
-    RETURN_ATTRITION, RETURN_DECISION, RETURN_MUTUAL, RETURN_SURVIVAL, RETURN_TICK_DIVISOR,
-    RETURN_WIN, TRAINING_SEED_BASE,
+    band, held_out_seeds, mirrored_articulated_duel, phase_offset, rollout, rollout_with, score,
+    shaped_return, train, train_with, training_seeds, Band, Baseline, Corpus, Mechanics, Opponent,
+    PhaseShiftedScript, ProbeConfig, Recorders, Rollout, HELD_OUT_SEED_BASE, RETURN_ATTRITION,
+    RETURN_DECISION, RETURN_MUTUAL, RETURN_SURVIVAL, RETURN_TICK_DIVISOR, RETURN_WIN,
+    SCRIPT_PERIOD_TICKS, TRAINING_SEED_BASE,
 };

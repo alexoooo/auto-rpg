@@ -12,7 +12,7 @@
 // energy above the floor", "did this tip move at all" -- on the integers the
 // simulation actually decided them on.
 
-export const TRACE_SCHEMA = "arpg-fight-trace-2";
+export const TRACE_SCHEMA = "arpg-fight-trace-3";
 
 export type V3 = readonly [number, number, number];
 /** `[index, generation]`, as `EntityId` is spelled on the Rust side. */
@@ -163,7 +163,19 @@ export interface Trace {
   /** Null for a mirrored run, which is a run of a different scenario. */
   readonly fingerprint: string | null;
   readonly seed: number;
-  readonly script: string;
+  /**
+   * What drove each side.
+   *
+   * Schema 2 carried one `script`, because until v2-19 every trace put the same
+   * script on both bodies. A learned fight has a checkpoint on the Fighter and a
+   * script on the Brute, and a header that named only one of them would leave a
+   * reader to guess which -- so both are published and the schema moved rather
+   * than the field quietly changing meaning.
+   */
+  readonly heroes: string;
+  readonly monsters: string;
+  /** SHA-256 of the checkpoint that drove the learned side, or null. */
+  readonly checkpoint: string | null;
   readonly outcome: string;
   readonly timedOut: boolean;
   readonly ticks: number;
