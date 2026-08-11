@@ -147,7 +147,13 @@ sides apart by a whole `HEIGHT_TICKS`, which is what the session file called for
 measured not to fix it: it yields 0.00% diagonal, the same degeneracy relabelled. What
 shipped is a uniform half-step lead of the guard clock over the weapon clock,
 `GUARD_LEAD_TICKS = 45`, measuring 50.03% diagonal and needing no faction key — which
-matters, because `ArticulatedObservation` deliberately has no faction column. Over 800
+matters, because `ArticulatedObservation` deliberately has no faction column. **It mixes
+partially and the session says so**: equal periods make the index difference constant,
+so six of the nine cells are reachable and three are unreachable by construction — a LOW
+attack never meets a HIGH guard, a MID a LOW, a HIGH a MID — measured at exactly zero on
+all three scripts, and no offset closes them. A per-run phase offset belongs to the
+evaluation harness rather than to a policy with no per-run memory, which is what `v2-19`
+is carrying a phase-randomised control opponent for. Over 800
 mirrored trials the weapon/shield share of resolutions fell 34.38% to 22.76% composed
 and 9.13% to 4.87% on the windmill, and the Brute's mean end health fell 0.9424 to
 0.9242 and 0.7325 to 0.7158. The plate is beatable and the fight is still not decisive:
@@ -228,7 +234,7 @@ accumulates from the feed must key on the call that stepped or it double counts.
 | `v2-17-scripted-mechanical-gate` | **closed at checkpoint B**: scripted policies and `lab articulated`, the projector fix, the blade's centre of mass, a static off arm. No fixtures, no evidence, no visible review | unchanged | **`ARTICULATED_HASH` still absent** — the gate did not pass, so nothing was pinned; `ARTICULATED_STREAM_DIGEST` moved twice |
 | `v2-18-combatant-integration` | representative rigs/assets over frozen mechanics | unchanged | unchanged |
 | `v2-19-learning-probe` | learned-vs-scripted evidence and expand/stop decision | unchanged | unchanged |
-| `v2-20-guard-height-and-shield` | **complete**: one free column on the off arm (`guard: CombatHeight`), a plate at 36% of its face area, the coverage tables derived from the specs, and the lockstep broken — 100.00% diagonal measured, 50.03% after a half-step guard lead | unchanged | four moved, all predicted: combat spec-table digest, `articulated-duel-v1` fingerprint, `ARTICULATED_COMMAND_HASH`, `ARTICULATED_STREAM_DIGEST`. `ARTICULATED_HASH` still absent |
+| `v2-20-guard-height-and-shield` | **complete**: one free column on the off arm (`guard: CombatHeight`), a plate at 36% of its face area, the coverage tables derived from the specs, and the lockstep broken — 100.00% diagonal measured, 50.03% and six of nine cells after a half-step guard lead | unchanged | four moved, all predicted: combat spec-table digest, `articulated-duel-v1` fingerprint, `ARTICULATED_COMMAND_HASH`, `ARTICULATED_STREAM_DIGEST`. `ARTICULATED_HASH` still absent |
 
 `v2-11` has one deliberate split dependency: its value, codec, range, and atomic
 fallback seam lands before `v2-12`; its equipment-binding validation lands after

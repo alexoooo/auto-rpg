@@ -161,9 +161,36 @@ pub const HEIGHT_TICKS: u32 = 90;
 /// direction. Any whole multiple of `HEIGHT_TICKS` does the same, because both
 /// clocks then step at the same instants and only their labels differ. An
 /// offset that is *not* a multiple is the only kind that can put mass in more
-/// than one relation, and a half is the one that splits it evenly: 50% of
-/// commanded pairs aligned, 50% one step apart, and all three mismatch
-/// magnitudes represented once the wrap is counted.
+/// than one relation.
+///
+/// **It mixes partially, and the missing half has to be written down here.**
+/// This paragraph originally read "a half is the one that splits it evenly";
+/// that is true of the *diagonal* and false of the table. Both clocks still
+/// have period `HEIGHT_TICKS`, so the index difference `g - w` takes only two
+/// values however the offset is chosen -- over one 270-tick supercycle, `0` on
+/// `[0,45)`, `[90,135)` and `[180,225)`, and `+1` on the three complements.
+/// Six of the nine cells are reachable, three of them diagonal, and **three are
+/// unreachable by construction**: a LOW attack never meets a HIGH guard, a MID
+/// attack never meets a LOW guard, and a HIGH attack never meets a MID guard.
+/// Measured, they are exactly zero rather than merely rare -- `[[9382, 9375,
+/// 0], [0, 10934, 10913], [10930, 0, 10939]]` on the composed corpus, and the
+/// same three cells zero on both controls.
+///
+/// **No offset closes them**, this one included: equal periods make the index
+/// difference constant, so only *unequal* periods would, and that is a bigger
+/// change to a script whose whole claim is that it can be reproduced from a
+/// table with a pencil. Anyone reading a blocked-contact rate off this corpus
+/// should read it as "half the swings met a guard one step high", not as "the
+/// guard was tested against every height it could face". The last third is not
+/// paid for and is not claimed.
+///
+/// **A per-run phase offset belongs to the evaluation harness, not to this
+/// policy.** [`ScriptedArticulatedPolicy`] is a pure function of the
+/// observation with no per-run memory to hold a phase in, and that contract is
+/// worth more than the three cells -- a control opponent whose clock is
+/// randomised per run is the harness's job, and v2-19 is carrying one precisely
+/// so that a learned policy cannot bank a win on reading this clock and have it
+/// scored as swordsmanship.
 ///
 /// **Uniform, and not keyed on the side.** The plan this session implements
 /// asked for a faction-keyed offset; there is no faction to key on.
@@ -175,8 +202,8 @@ pub const HEIGHT_TICKS: u32 = 90;
 /// against the weapon rather than one body against the other needs no key at
 /// all, keeps this script a pure function of `tick` -- which is the property
 /// the module header rests on and the reason the phase table can be checked
-/// with a pencil -- and produces a *better* mixture than the keyed version
-/// would have.
+/// with a pencil -- and reaches six cells where the keyed version reaches six
+/// *without* the three diagonal ones.
 ///
 /// The cost is that the guard clock no longer lines up with the thirty-tick
 /// phase boundaries: it steps mid-phase in four of the twelve phases, which is
@@ -1465,6 +1492,44 @@ mod tests {
             CombatHeight::HIGH,
             "the shield stayed at MID while its clock said HIGH"
         );
+    }
+
+    #[test]
+    fn the_guard_lead_reaches_six_of_the_nine_height_pairs_and_never_the_other_three() {
+        // **The honest half of [`GUARD_LEAD_TICKS`], asserted rather than left
+        // to the corpus to reveal.** The lead breaks the lockstep and does not
+        // finish the job: both clocks still have period `HEIGHT_TICKS`, so the
+        // index difference `g - w` takes exactly two values however large the
+        // offset is, and three of the nine (attack, guard) cells are therefore
+        // unreachable *by construction* rather than merely unobserved.
+        //
+        // This runs on the arithmetic and not on a fight, so it is the claim
+        // itself and not a sample of it -- and it is what should fail if
+        // somebody "improves" the lead without giving the two clocks different
+        // periods, which is the only thing that would actually close the gap.
+        let mut cells = [[0u32; 3]; 3];
+        for tick in 0..HEIGHT_TICKS * 3 {
+            let weapon = ((tick / HEIGHT_TICKS) % 3) as usize;
+            let guard = HEIGHTS
+                .iter()
+                .position(|h| *h == guard_clock(tick))
+                .expect("the guard clock emits one of the three heights");
+            cells[weapon][guard] += 1;
+        }
+        // Half aligned, half one step high, and the supercycle is 270 ticks.
+        assert_eq!(cells, [[45, 45, 0], [0, 45, 45], [45, 0, 45]]);
+        let occupied = cells.iter().flatten().filter(|count| **count > 0).count();
+        let diagonal: u32 = (0..3).map(|i| cells[i][i]).sum();
+        assert_eq!(occupied, 6, "the lead stopped reaching six of the nine cells");
+        assert_eq!(diagonal * 2, HEIGHT_TICKS * 3, "the diagonal stopped being half");
+        // Named individually, because "three cells are zero" is a fact a reader
+        // has to translate and these three sentences are what it translates to:
+        // a LOW attack never meets a HIGH guard, a MID attack never meets a LOW
+        // guard, and a HIGH attack never meets a MID guard. The corpus reports
+        // exactly zero in each, on all three scripts.
+        assert_eq!(cells[0][2], 0, "a LOW attack met a HIGH guard");
+        assert_eq!(cells[1][0], 0, "a MID attack met a LOW guard");
+        assert_eq!(cells[2][1], 0, "a HIGH attack met a MID guard");
     }
 
     #[test]

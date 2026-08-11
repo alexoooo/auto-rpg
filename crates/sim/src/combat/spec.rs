@@ -688,24 +688,40 @@ mod tests {
         assert_eq!(complete(superseded), 4, "the old plate answered four cells outright");
         assert_eq!(complete(shipped), 0, "the new plate answers nothing outright");
 
-        // **The head is now open at every height, and HIGH misses it by one raw
-        // unit.** The plate's top at HIGH is 104,857 and the head begins at
-        // 104,858 -- one part in 65,536 of a world unit, and a genuine gap
-        // rather than a shared plane, which is worth pinning precisely because
-        // it is the kind of coincidence a later anatomy edit would silently
-        // close.
+        // **The head is open at every guard height, which is the claim**, and
+        // the old plate hid it whole at HIGH, which is what changed. Asserted
+        // as the whole column rather than at the one height that is close,
+        // because "the shield cannot take the head off the table" is the
+        // property a reader is entitled to rely on.
         assert!(shipped.iter().all(|row| row[AnatomyRegion::Head as usize] == 0));
         assert_eq!(
             superseded[2][AnatomyRegion::Head as usize],
             region_span[AnatomyRegion::Head as usize],
             "the old plate hid the whole head at HIGH"
         );
+        // **HIGH is flush with the chin to within a raw unit, and that is a
+        // coincidence rather than a clearance.** The plate's top lands at
+        // 104,857 and the head begins at 104,858 -- one part in 65,536 of a
+        // world unit, which is 0.0015% of the head's own extent and is the
+        // truncation of `standing_height` at `9/5` landing where it does. It is
+        // recorded so nobody reads a designed margin into it, and deliberately
+        // *not* pinned at one raw: an anatomy or `CombatHeight` edit that moved
+        // it to two or to ten would be no more and no less correct, and the
+        // assertion above already fails the moment it goes to zero and the
+        // plate starts covering the head. Asserted only in the direction that
+        // means something.
         let top_at_high = crate::combat::actuator::hand_position(
             &fighter, fx::Angle::ZERO, LimbSlot::LeftArm as usize,
             fx::Angle::ZERO, crate::CombatHeight::HIGH, Fx::from_ratio(3, 4),
         ).z + half_height;
         let head = fighter.regions[AnatomyRegion::Head as usize];
-        assert_eq!((head.centre_z - head.half_height).raw() - top_at_high.raw(), 1);
+        let chin = (head.centre_z - head.half_height).raw();
+        assert!(top_at_high.raw() < chin, "a HIGH guard reached the head");
+        println!(
+            "  HIGH tops out at {} raw against a chin at {chin}: clear by {}",
+            top_at_high.raw(),
+            chin - top_at_high.raw()
+        );
 
         // **Three settings, three different regions best answered**, which is
         // the property that makes the height a choice: legs at LOW, torso at

@@ -270,8 +270,10 @@ Fighter's own regions, the vertical coverage is:
 
 Four cells answered outright became none, and the three settings now best-answer three
 different regions — legs, torso, an arm — which is what makes the height a decision
-rather than a formality. The head is open at every height now; at `HIGH` the plate's top
-is 104,857 raw and the head begins at 104,858, a gap of one part in 65,536.
+rather than a formality. **The head is open at every guard height now.** At `HIGH` the
+plate is flush with the chin to within a raw unit — top 104,857 against a chin at
+104,858 — which is where `standing_height` happens to truncate rather than a designed
+clearance, so it is recorded and not pinned.
 `sim::combat::spec::the_plate_leaves_a_different_hole_at_every_guard_height` derives
 both columns and prints them.
 
@@ -282,10 +284,30 @@ reported the joint distribution of (attacker weapon height, defender guard heigh
 a corpus in which a guard is never tested against any height but its own. Phasing the
 two *sides* apart by a whole 90 does not fix that and was measured not to: it produces
 0.00% diagonal, every pair mismatched, which is the same degeneracy relabelled. Only an
-offset that is not a multiple of the period puts mass in more than one relation, and a
-half splits it evenly. It is applied uniformly rather than keyed on the side, because
-`ArticulatedObservation` has no faction column by design and the subject's slot index is
-not a faction. Measured after: 50.03% diagonal.
+offset that is not a multiple of the period puts mass in more than one relation. It is
+applied uniformly rather than keyed on the side, because `ArticulatedObservation` has no
+faction column by design and the subject's slot index is not a faction.
+
+**It mixes partially, and a reader of any blocked rate below needs the missing half.**
+Both clocks still have period 90, so the index difference takes only two values however
+the offset is chosen: six of the nine cells are reachable, three of them diagonal, and
+three are unreachable by construction — a LOW attack never meets a HIGH guard, a MID
+attack never meets a LOW guard, a HIGH attack never meets a MID guard. Measured, exactly
+zero on all three scripts:
+
+```text
+composed  [[9382, 9375, 0], [0, 10934, 10913], [10930, 0, 10939]]    50.03% diagonal
+windmill  [[30728, 22080, 0], [0, 30020, 20524], [20487, 0, 31536]]  59.39% diagonal
+closing   [[9490, 9498, 0], [0, 11058, 11056], [11066, 0, 11077]]    50.00% diagonal
+```
+
+No offset closes those three, because equal periods make the index difference constant;
+only unequal periods would. Read the rates below as "half the swings met a guard one
+step high", not as "the guard was tested against every height it could face". A per-run
+phase offset belongs to the evaluation harness rather than to the script —
+`ScriptedArticulatedPolicy` is a pure function of the observation with no per-run memory
+to hold a phase in, and `v2-19` carries a phase-randomised control opponent so that a
+learned policy cannot bank a win on reading this clock.
 
 **What it did to the corpus**, 800 mirrored trials, the same 400 seeds either side:
 

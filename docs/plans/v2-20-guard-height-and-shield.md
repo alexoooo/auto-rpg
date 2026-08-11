@@ -189,9 +189,14 @@ each region's own extent:
   the head, 1.60..1.80 against a MID plate topping out at 1.40, was never answered by
   MID under either geometry. The true statement is narrower: every setting answered at
   least one region *completely*, and no setting does now.
-- The new-geometry HIGH row omits the head. At `1/4` the plate's top is 104,857 raw and
-  the head begins at 104,858 — open by one part in 65,536, a real gap and not a shared
-  plane. Under the shipped geometry the head is open at every height.
+- The new-geometry HIGH row omits the head. Under the shipped geometry **the head is
+  open at every guard height**, which is the robust claim and the one the test asserts.
+  At HIGH the plate is flush with the chin to within a raw unit — top 104,857 against a
+  chin at 104,858, one part in 65,536 — and that is a coincidence of where
+  `standing_height` truncates, not a designed clearance. It is recorded so nobody reads
+  a margin into it and deliberately not pinned at one raw: an anatomy edit moving it to
+  two or ten would be neither more nor less correct, and the coverage assertion already
+  fails the moment it reaches zero.
 
 The tables also omit the arms, which on this roster carry the same `integrity_maxima` as
 the torso and are the third and fourth things a plate stands in front of. The derivation
@@ -258,18 +263,44 @@ publishes is the subject's slot index, which is not a faction: on a roster where
 side owns two adjacent slots, parity splits that side instead of splitting the sides.
 
 What shipped instead is `GUARD_LEAD_TICKS = HEIGHT_TICKS / 2`, applied uniformly: the
-*guard* clock leads the *weapon* clock by half a step, on every body. No key, the script
-stays a pure function of `tick`, and the mixture is even.
+*guard* clock leads the *weapon* clock by half a step, on every body. No key, and the
+script stays a pure function of `tick`.
+
+**It mixes partially, and the missing half is written down rather than rounded off.**
+This section first said "the mixture is even", which is true of the diagonal and false
+of the table. Both clocks still have period `HEIGHT_TICKS`, so the index difference
+takes only two values however the offset is chosen, and **three of the nine cells are
+unreachable by construction** — `(LOW attack, HIGH guard)`, `(MID attack, LOW guard)`
+and `(HIGH attack, MID guard)`. Measured, they are exactly zero rather than merely rare,
+on all three scripts:
 
 ```text
-after + lead  attack x guard  [[9382, 9375, 0], [0, 10934, 10913], [10930, 0, 10939]]
-                              50.03% diagonal of 62,473 pairs
+composed  [[9382, 9375, 0], [0, 10934, 10913], [10930, 0, 10939]]    50.03% diagonal
+windmill  [[30728, 22080, 0], [0, 30020, 20524], [20487, 0, 31536]]  59.39% diagonal
+closing   [[9490, 9498, 0], [0, 11058, 11056], [11066, 0, 11077]]    50.00% diagonal
 ```
 
-The windmill control reads 59.39% and the closing control 50.00%; the windmill differs
-because it attacks on every tick rather than in four phases of twelve, so its pairs
-sample the clock differently. The cost is that the guard clock no longer lines up with
-the thirty-tick phase grid — it steps mid-phase in phases 1, 4, 7 and 10 — which
+Six cells with three diagonal is a large improvement on three cells with three diagonal,
+and it is not the whole job. **No offset closes the other three**, this one included:
+equal periods make the index difference constant, so only *unequal* periods would, and
+that is a bigger change to a script whose whole claim is that it can be reproduced with
+a pencil. A blocked-contact rate off this corpus reads as "half the swings met a guard
+one step high", not as "the guard was tested against every height it could face".
+`the_guard_lead_reaches_six_of_the_nine_height_pairs_and_never_the_other_three` asserts
+the structure on the arithmetic rather than on a fight, so it is the claim and not a
+sample of it — and it is what fails if somebody widens the lead without giving the two
+clocks different periods.
+
+A **per-run phase offset belongs to the evaluation harness, not to this policy.**
+`ScriptedArticulatedPolicy` is a pure function of the observation with no per-run memory
+to hold a phase in, and that contract is worth more than the last three cells. `v2-19`
+carries a phase-randomised control opponent so that a learned policy cannot bank a win
+on reading this clock and have it scored as swordsmanship.
+
+The windmill reads above 50% because it attacks on every tick rather than in four phases
+of twelve, so its pairs sample the clock differently. The cost of the lead is that the
+guard clock no longer lines up with the thirty-tick phase grid — it steps mid-phase in
+phases 1, 4, 7 and 10 — which
 `the_twelve_phases_are_the_reference_table_written_out_by_hand` now transcribes tick by
 tick for that one column.
 
