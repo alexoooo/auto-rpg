@@ -97,7 +97,8 @@ fn usage() {
           control is the reference script and neither may be pinned.
 
   trace   --seed N --policy composed|windmill|attack-moves|learned --mirrored
-          --ticks N --out PATH --checkpoint PATH --opponent P --phase-random
+          --ticks N --out PATH
+          --checkpoint PATH --opponent P --phase-random   (--policy learned only)
           Writes one articulated fight to JSON so it can be watched frame by
           frame in the browser: every published pose, every regional capsule,
           every resolution row. The run is the identical loop the gate measures
@@ -107,7 +108,12 @@ fn usage() {
           web/fight.json, which `npm run view` serves at /fight.html.
           --policy learned puts a checkpoint on the Fighter and a script on the
           Brute, which is the arrangement `learn-probe` measures; the header
-          then names both sides and the checkpoint digest.
+          then names both sides and the checkpoint digest. **The three options
+          on the second line apply to that arm alone.** A script drives both
+          bodies -- one policy, two sides, which is what makes a scripted trace
+          a control -- so `--policy windmill --opponent composed` is not a
+          mixed fight and never was; it is a windmill mirror, and the header's
+          `heroes`/`monsters` pair is what says so rather than this paragraph.
 
   learn-probe train    --gens N --pop N --elite N --seeds N --sigma-pct N
                        --threads N --master-seed N --ticks N --plain
