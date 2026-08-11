@@ -111,9 +111,19 @@ do not let floating point, stateful RNG, unstable iteration, unchecked arithmeti
 or host-layer dependencies cross into authoritative state. Treat a tempting shortcut
 as a contract change, not a local implementation detail.
 
-`fx`, `sim` and `policy` are `#![forbid(unsafe_code)]`; `web` is `#![deny(...)]`
-only because `#[no_mangle]` trips the lint, and it still contains zero `unsafe {}`
-blocks.
+`fx`, `sim`, `policy` and `learn` are `#![forbid(unsafe_code)]`; `web` is
+`#![deny(...)]` only because `#[no_mangle]` trips the lint, and it still contains
+zero `unsafe {}` blocks.
+
+**One test binary is the exception, and it is the only one in the repository.**
+`crates/learn/tests/allocation.rs` installs a counting `#[global_allocator]`, which
+`std` requires to be an `unsafe impl`, because that is the only way to make
+`frozen_inference_allocates_nothing_after_warmup` an actual measurement rather than
+an assertion about the source. It ships in nothing, every `unsafe fn` body writes
+its own block under `#![deny(unsafe_op_in_unsafe_fn)]`, and the library it tests is
+still `forbid`. If a future session decides the exception is not worth it, delete
+the file and the claim together — keeping the claim without the counter is the one
+outcome that would be worse than either.
 
 Policies are outside the portability promise; the replay rationale and current
 boundary are in [ADR 0002](docs/decisions/0002-record-commands-in-replays.md).

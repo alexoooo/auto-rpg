@@ -744,10 +744,17 @@ fn weapon_arm(obs: &ArticulatedObservation) -> usize {
 /// in front of anything.
 ///
 /// Built here rather than by calling into `policy` because that function is
-/// private and its signature is mid-flight in a concurrent session. A local copy
-/// pinned by a test is cheaper than a merge conflict in the middle of a training
-/// run.
-fn off_hand(body_yaw: Angle, holding: bool, guard: CombatHeight) -> ArmTarget {
+/// private. A local copy pinned by a test is cheaper than widening `policy`'s
+/// surface for one caller.
+///
+/// **The parameter order is `policy::articulated_script::off_hand`'s, deliberately.**
+/// It was written the other way round while that function's signature was still
+/// mid-flight in a concurrent session, and two same-named functions taking the
+/// same two arguments in opposite orders is a trap that only stays harmless
+/// while `CombatHeight` and `bool` remain different types. They agree now, and
+/// `the_action_table_is_the_scripts_own_vocabulary` is what notices if the far
+/// side moves.
+fn off_hand(body_yaw: Angle, guard: CombatHeight, holding: bool) -> ArmTarget {
     ArmTarget {
         bearing: body_yaw,
         height: guard,
@@ -824,8 +831,8 @@ pub fn compose(obs: &ArticulatedObservation, action: LearnedActionV1) -> Articul
     let mut arms = [weapon_target; 2];
     arms[off] = off_hand(
         toward,
-        obs.arms[off].equipment.is_some(),
         action.guard_height(),
+        obs.arms[off].equipment.is_some(),
     );
     arms[weapon] = weapon_target;
 
@@ -1093,7 +1100,7 @@ impl ArticulatedPolicy for LearnedArticulatedPolicy {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use policy::{scripted_articulated_command, PHASE_TICKS};
+    use policy::{scripted_articulated_command, GUARD_LEAD_TICKS, HEIGHT_TICKS, PHASE_TICKS};
     use sim::EntityId;
 
     /// A Fighter looking east with a Brute four units due east: shield left,
@@ -1163,16 +1170,37 @@ mod tests {
         assert_eq!(Posture::Guard.triple(), (guard.reach, guard.effort, false));
 
         // The off hand's two reaches and its effort, which this crate copies
-        // wholesale out of `off_hand`. Only the height is meant to differ, and
-        // the assertion below is what says so.
-        let held = scripted_articulated_command(&fighter_facing(0)).arms[0];
-        assert_eq!(held, off_hand(Angle::ZERO, true, CombatHeight::MID));
-        let empty = scripted_articulated_command(&brute_facing(0)).arms[0];
-        assert_eq!(empty, off_hand(Angle::ZERO, false, CombatHeight::MID));
+        // wholesale out of `off_hand`.
+        //
+        // **The height is not one of the copies, and pinning it as one is what
+        // broke.** This read `CombatHeight::MID` on both rows, which was true
+        // only while `off_hand` hardcoded it; v2-20 put the script's off hand on
+        // a clock -- `(tick + GUARD_LEAD_TICKS) / HEIGHT_TICKS` -- and made that
+        // same height this crate's fifth action head. So the expectation is
+        // computed from the clock rather than named, and it is sampled at one
+        // tick per height so the coupling is proved instead of spot-checked. A
+        // literal here would break again at the next change to the lead, and it
+        // would break as a stale constant rather than as a real disagreement.
+        let guard_clock = |tick: u32| {
+            [CombatHeight::LOW, CombatHeight::MID, CombatHeight::HIGH]
+                [(((tick + GUARD_LEAD_TICKS) / HEIGHT_TICKS) % 3) as usize]
+        };
+        let samples = [0, HEIGHT_TICKS, 2 * HEIGHT_TICKS];
+        assert_eq!(
+            samples.map(guard_clock),
+            [CombatHeight::LOW, CombatHeight::MID, CombatHeight::HIGH],
+            "the sample ticks stopped covering all three guard heights",
+        );
+        for tick in samples {
+            let held = scripted_articulated_command(&fighter_facing(tick)).arms[0];
+            assert_eq!(held, off_hand(Angle::ZERO, guard_clock(tick), true), "tick {tick}");
+            let empty = scripted_articulated_command(&brute_facing(tick)).arms[0];
+            assert_eq!(empty, off_hand(Angle::ZERO, guard_clock(tick), false), "tick {tick}");
+        }
         // ...and the height is free, which is the whole experiment.
         assert_ne!(
-            off_hand(Angle::ZERO, true, CombatHeight::HIGH),
-            off_hand(Angle::ZERO, true, CombatHeight::MID)
+            off_hand(Angle::ZERO, CombatHeight::HIGH, true),
+            off_hand(Angle::ZERO, CombatHeight::MID, true)
         );
 
         // The eighth turn, both ways. The negative offset is written as a raw

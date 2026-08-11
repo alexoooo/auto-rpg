@@ -63,8 +63,8 @@ mod utility;
 pub use articulated_script::{
     script_digest, scripted_articulated_command, scripted_articulated_command_with,
     windmill_articulated_command, ArmRoles, AttackFootwork, ClosingAttackControlPolicy,
-    ScriptedArticulatedPolicy, WindmillArticulatedPolicy, CYCLE_TICKS, EIGHTH_TURN, HEIGHT_TICKS,
-    PHASE_TICKS, SCRIPT_DIGEST_DOMAIN,
+    ScriptedArticulatedPolicy, WindmillArticulatedPolicy, CYCLE_TICKS, EIGHTH_TURN,
+    GUARD_LEAD_TICKS, HEIGHT_TICKS, PHASE_TICKS, SCRIPT_DIGEST_DOMAIN,
 };
 pub use duelist::{DuelistPolicy, DuelistWeights, Stance, DUELIST_GENOME_LEN};
 pub use genome::{PolicySpec, MAX_GENOME_LEN};
