@@ -94,7 +94,14 @@ pub use combat::actuator::{
 /// a reason to reach the contact solver before v2-15, and it is the browser
 /// boundary re-running the corpus so `tools/wasm_check.js` can compare the two
 /// targets byte for byte.
-pub use combat::resolution::{contact_behavior_corpus, ResolutionError};
+///
+/// [`CONTACT_ENERGY_FLOOR`] joins it because a diagnostic that draws the line
+/// the physics is being judged against must read the line rather than write it
+/// down again. v2-17's ledger leaves the floor open -- a sweep from 144 to 0
+/// moved grazes by 69x and region-taking blows not at all -- so the number is
+/// expected to move, and the failure mode of a second copy in a viewer is a
+/// picture that keeps agreeing with an argument the code stopped making.
+pub use combat::resolution::{contact_behavior_corpus, ResolutionError, CONTACT_ENERGY_FLOOR};
 /// The contact capacity vocabulary, which the browser needs even though the
 /// solver stays private: the host reserves the high water before it hands the
 /// page a pointer, and has to be able to say which count refused.

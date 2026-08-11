@@ -995,3 +995,38 @@ seen this model run. Checkpoint C is the smallest remaining piece of real work t
 change that; a throwaway pose-and-contact dump out of `lab` would answer it sooner still.
 
 Then the arm slew ceiling, because it bounds everything the calibration levers can reach.
+
+#### The dump was built (2026-08-10)
+
+The lighter of the two routes landed the same day, deliberately outside every contract
+this plan is gated on: `lab trace` writes one fight as JSON and `/fight.html` draws it.
+No worker, no wasm, no ABI, absent from the production build's inputs. Nothing about it
+can pin a decision the physics has not earned, which is the whole reason it was chosen
+over checkpoint C — the last three things this session believed about the model were
+wrong, and the machinery to display a model properly is worth building after somebody
+has seen it, not before.
+
+What it draws is the simulation's own state and not a re-derivation of it: the pose row
+verbatim, and the regional capsules from `sim::body_region_volumes`, which is the same
+function the contact phase sweeps. One exception, stated because it is the only place
+this page could drift: the four corners of a shield face are rebuilt in TypeScript from
+the published centre, normal and extents, because the collider is crate-private. They are
+drawn together with that centre and that normal, so a drift shows up as a rectangle that
+has come off its own marker.
+
+```bash
+cargo run --release -p lab -- trace --seed 3          # or npm run trace
+npm run view                                          # then open /fight.html
+```
+
+Two flat projections rather than one perspective camera, sharing a scale: a plan and an
+elevation, so "did the club clear the shield" is a distance somebody can read off rather
+than an opinion about a viewpoint. Under them, the two rates this plan turns on drawn
+against their own thresholds — blade tip travel per tick against `IMPACT_THRESHOLD`, and
+closure energy per contact against `CONTACT_ENERGY_FLOOR` — both read out of the Rust
+that owns them rather than copied. `CONTACT_ENERGY_FLOOR` became a `sim` export for that
+reason and no other; the ledger above expects the number to move.
+
+The recorder hangs off `measure_articulated`'s own loop rather than a second copy of it,
+and `a_traced_run_is_the_run_the_gate_measured` pins the traced trial against the untraced
+one, state digest included.

@@ -26,3 +26,7 @@ dist/
 # never reviewed generator inputs or outputs.
 __pycache__/
 *.py[cod]
+
+# `lab trace` output. Regenerated from a seed in half a second, eight megabytes
+# a fight, and reviewing one would be reviewing the simulation's own state.
+web/fight*.json

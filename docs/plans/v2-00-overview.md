@@ -116,6 +116,14 @@ unexamined lever named there is the arm's slew ceiling; the first recommended ac
 to look at a fight, because three of this session's conclusions were refuted by later
 measurement and nobody has yet seen this model run.
 
+**That first action now has a tool (2026-08-10).** `lab trace` writes one fight as JSON
+and `/fight.html` draws it — a plan and an elevation sharing a scale, and the two rates
+the gate turns on plotted against their own thresholds. It is deliberately outside every
+contract: no worker, no wasm, no ABI, and it is not one of the production build's inputs,
+so it can neither ship nor pin anything. Checkpoint C remains the production path and
+this is expected to be deleted by the session that lands it. `CONTACT_ENERGY_FLOOR`
+became a `sim` export so the picture reads the line rather than copying it.
+
 **Carried into `v2-17`, from `v2-15` and now sharpened by `v2-16`:** the contact model
 gives an equipment collider one generalized point velocity -- body plus *hand* -- so a
 swing's tip speed is not represented and a stat-driven fight dissipates less than the

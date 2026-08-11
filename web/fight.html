@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Auto RPG articulated fight viewer</title>
+  <style>
+    :root { color-scheme: dark; font: 15px/1.4 system-ui, sans-serif; background: #11151b; color: #e8edf3; }
+    body { margin: 0; padding: 1rem; }
+    main { width: min(96rem, 100%); margin: 0 auto; display: grid; gap: .75rem; }
+    h1 { font-size: 1.15rem; margin: 0; }
+    .muted { color: #7a8796; }
+    #status { font-size: .9rem; color: #8fd3a8; }
+    #status.error { color: #ff9d9d; }
+    .views { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+    figure { margin: 0; display: grid; gap: .25rem; }
+    figcaption { font-size: .8rem; color: #7a8796; }
+    canvas { display: block; width: 100%; background: #0b0f14;
+      border: 1px solid #24303d; border-radius: .4rem; }
+    /* The backing store is sized from these boxes at the device's own density,
+       so the aspect ratio lives here and the width/height attributes never do. */
+    #plan, #elevation { aspect-ratio: 3 / 2; }
+    #chart { aspect-ratio: 9 / 1; cursor: crosshair; }
+    .controls { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center;
+      background: #151b23; border: 1px solid #24303d; border-radius: .4rem; padding: .5rem .65rem; }
+    button, select, input { font: inherit; }
+    button { padding: .3rem .6rem; border-radius: .3rem; border: 1px solid #465568;
+      background: #26374b; color: inherit; cursor: pointer; }
+    button:hover { background: #304760; }
+    label { display: inline-flex; gap: .3rem; align-items: center; font-size: .85rem; color: #aeb9c6; }
+    #scrub { flex: 1 1 18rem; min-width: 10rem; }
+    #tick { font-variant-numeric: tabular-nums; min-width: 10rem; }
+    .panels { display: grid; grid-template-columns: 3fr 2fr; gap: .75rem; align-items: start; }
+    pre, #contacts { margin: 0; background: #0b0f14; border: 1px solid #24303d;
+      border-radius: .4rem; padding: .65rem; font: 12.5px/1.5 ui-monospace, Menlo, Consolas, monospace;
+      white-space: pre-wrap; overflow-wrap: anywhere; }
+    #contacts { max-height: 22rem; overflow-y: auto; }
+    .legend { font-size: .8rem; color: #7a8796; display: flex; flex-wrap: wrap; gap: .9rem; }
+    .legend b { font-weight: 600; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Articulated fight viewer <span class="muted">&mdash; a v2-17 detour, not the worker path</span></h1>
+    <div id="status">Loading trace&hellip;</div>
+
+    <div class="views">
+      <figure>
+        <canvas id="plan" width="900" height="620"></canvas>
+        <figcaption>Plan &mdash; x right, y down. One grid square is one world unit.</figcaption>
+      </figure>
+      <figure>
+        <canvas id="elevation" width="900" height="620"></canvas>
+        <figcaption>Elevation &mdash; along the chosen azimuth, z up, floor at the bright line.</figcaption>
+      </figure>
+    </div>
+
+    <figure>
+      <canvas id="chart" width="1800" height="220"></canvas>
+      <figcaption>Click to scrub. Upper band: blade tip travel per tick against
+        <code>IMPACT_THRESHOLD</code>. Lower band: closure energy per contact against
+        <code>CONTACT_ENERGY_FLOOR</code>. Both lines are read out of the Rust that owns them.</figcaption>
+    </figure>
+
+    <div class="controls">
+      <button id="play" type="button">Play</button>
+      <button id="step-back" type="button" title="Left arrow; shift for ten">&minus;1</button>
+      <button id="step-forward" type="button" title="Right arrow; shift for ten">+1</button>
+      <button id="prev-contact" type="button" title="[">&#9664; contact</button>
+      <button id="next-contact" type="button" title="]">contact &#9654;</button>
+      <button id="prev-wound" type="button">&#9664; wound</button>
+      <button id="next-wound" type="button">wound &#9654;</button>
+      <input id="scrub" type="range" min="0" max="1" value="0" step="1" aria-label="Tick">
+      <span id="tick">tick 0</span>
+      <label>Speed
+        <select id="rate">
+          <option value="0.1">0.1x</option>
+          <option value="0.25">0.25x</option>
+          <option value="1" selected>1x</option>
+          <option value="4">4x</option>
+          <option value="16">16x</option>
+        </select>
+      </label>
+      <label>Span
+        <input id="span" type="range" min="2" max="26" value="6" step="1" aria-label="World units across">
+      </label>
+      <label>Azimuth
+        <input id="azimuth" type="range" min="-180" max="180" value="0" step="5" aria-label="Elevation azimuth">
+      </label>
+      <label><input id="show-regions" type="checkbox" checked> regions</label>
+      <label><input id="show-targets" type="checkbox" checked> commanded hand</label>
+      <label><input id="show-velocity" type="checkbox"> velocity</label>
+      <label><input id="show-contacts" type="checkbox" checked> contacts</label>
+    </div>
+
+    <div class="panels">
+      <pre id="readout">&hellip;</pre>
+      <div id="contacts" class="muted">&hellip;</div>
+    </div>
+
+    <p class="legend">
+      <span><b>chase</b> is commanded hand minus actual hand, both published.</span>
+      <span><b>reach</b> is the arm capsule's own length over the anatomy's arm length.</span>
+      <span><b>Space</b> plays, <b>arrows</b> step, <b>[</b> and <b>]</b> jump between contacts.</span>
+      <span>Regenerate with <code>npm run trace</code>; the v2 worker page is <a href="/v2.html">/v2.html</a>.</span>
+    </p>
+  </main>
+  <script type="module" src="/client-src/fight.ts"></script>
+</body>
+</html>

@@ -19,7 +19,7 @@ crates/sim      the game: world, tick, observations, actions, replay
 crates/policy   agent policies (utility, duelist) + the run harness
 crates/lab      headless experiment CLI
 crates/web      the browser boundary: a hand-rolled wasm ABI, no wasm-bindgen
-web/            the legacy Canvas page plus the v2 diagnostic HTML entry
+web/            the legacy Canvas page, the v2 diagnostic entry, the fight viewer
 client/         the TypeScript v2 Worker protocol and diagnostic client
 tools/          sine table generator, dev server, the wasm/native equality check
 docs/plans/     working plans, one file per landable session
@@ -52,6 +52,10 @@ cargo run --release -p lab -- articulated --seeds 400 --mirrored  # the v2-17 ga
 cargo run --release -p lab -- articulated --seeds 400 --mirrored --policy windmill
 cargo run --release -p lab -- articulated --seeds 400 --mirrored --attack-moves
 
+npm run trace                                     # one fight to web/fight.json
+npm run view                                      # Vite without the wasm build
+                                                  # then open /fight.html
+
 rustup target add wasm32-unknown-unknown          # once
 cargo build --release --target wasm32-unknown-unknown -p web
 node --test tools/wasm_check.js                   # wasm must equal native
@@ -65,6 +69,14 @@ node tools/serve.js --no-build --port 9000        # legacy Canvas page only
 The v2 development and production contract is root-hosted `/v2.html` plus
 `/web.wasm`. Its TypeScript module graph must run through Vite; `tools/serve.js`
 cannot serve it. `npm run build` emits the production pair beneath `dist/`.
+
+`/fight.html` is neither of those: a **development-only** viewer for the JSON
+`lab trace` writes, reading no wasm and no worker, absent from
+`rollupOptions.input` so it cannot ship. It exists because v2-17 closed with its
+gate failing and its last three explanations refuted by measurement, and the
+successor's first job is to look at a fight rather than calibrate another
+constant. It is expected to be deleted by the session that lands the real pose
+channel.
 
 Notes that will otherwise cost you a build:
 

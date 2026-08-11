@@ -15,10 +15,12 @@
 mod args;
 mod evolve;
 mod fitness;
+mod trace;
 
 use args::Args;
 use evolve::{describe, evolve, Arena, EvolveConfig};
 use fitness::{fitness, Summary, Tally};
+use trace::{FightTrace, TraceRun};
 use fx::{Fx, Vec2};
 use policy::{
     run, script_digest, ArticulatedPolicy, ClosingAttackControlPolicy, PolicyKind, RunConfig,
@@ -39,6 +41,7 @@ fn main() {
         "evolve" => evolution(&args),
         "duel" => duel(&args),
         "articulated" => articulated(&args),
+        "trace" => trace_fight(&args),
         "" | "help" => usage(),
         other => {
             eprintln!("unknown command '{other}'\n");
@@ -90,6 +93,16 @@ fn usage() {
           with the feet of phases 3, 4, 7 and 8 closing instead of planted,
           which is the cell the reference table leaves unstated. Neither
           control is the reference script and neither may be pinned.
+
+  trace   --seed N --policy composed|windmill|attack-moves --mirrored
+          --ticks N --out PATH
+          Writes one articulated fight to JSON so it can be watched frame by
+          frame in the browser: every published pose, every regional capsule,
+          every resolution row. The run is the identical loop the gate measures
+          and the recorder cannot change it -- `a_traced_run_is_the_run_the_gate_
+          measured` is what says so. --ticks bounds the recording and never the
+          fight, and a truncated file says so in its header. Defaults to
+          web/fight.json, which `npm run view` serves at /fight.html.
 
   evolve  --gens N --pop N --elite N --seeds N --sigma-pct N --threads N
           --master-seed N --policy P --opponent P
@@ -589,6 +602,40 @@ impl Script {
             Script::ClosingAttacks => "the composed script with closing attacks (control)",
         }
     }
+
+    /// The same three arms as the command line spells them, for a machine
+    /// reader. Separate from [`Script::name`] because that one is a sentence
+    /// fragment and this one is an identifier, and a trace header that carried
+    /// "the composed script" would make its consumer parse English.
+    fn token(self) -> &'static str {
+        match self {
+            Script::Composed => "composed",
+            Script::Windmill => "windmill",
+            Script::ClosingAttacks => "attack-moves",
+        }
+    }
+}
+
+/// The script knobs, resolved once for every command that takes them.
+///
+/// Two knobs rather than one three-way choice, because they are not three points
+/// on one axis: `--policy` picks which script runs, and `--attack-moves` edits
+/// one cell of the composed one. Folding the control into the policy list would
+/// let `--policy windmill --attack-moves` look like a thing, and it is not --
+/// the windmill never plants its feet.
+fn script_from(args: &Args) -> Script {
+    match args.choice(
+        "policy",
+        Script::Composed,
+        &[("composed", Script::Composed), ("windmill", Script::Windmill)],
+    ) {
+        Script::Composed if args.flag("attack-moves") => Script::ClosingAttacks,
+        Script::Windmill if args.flag("attack-moves") => {
+            eprintln!("--attack-moves edits the composed script; the windmill already walks");
+            std::process::exit(2);
+        }
+        chosen => chosen,
+    }
 }
 
 /// The pinned fixture reflected across `y = 8`.
@@ -678,6 +725,23 @@ struct ArticulatedTrial {
 
 /// Drives one seed to its stop and records what the mechanics did.
 fn measure_articulated(scenario: &Scenario, seed: u64, script: Script) -> ArticulatedTrial {
+    measure_articulated_traced(scenario, seed, script, None)
+}
+
+/// The same run with a frame recorder optionally hung off it.
+///
+/// **A parameter rather than a second loop**, for the reason the struct above
+/// already gives: this loop is a copy of `run_articulated`'s and a third copy is
+/// a third thing to drift. A recorder observes and returns nothing to the world,
+/// so the traced and untraced runs are the same fight by construction --
+/// `a_traced_run_is_the_run_the_gate_measured` is the assertion that keeps it
+/// true if that ever stops being obvious.
+fn measure_articulated_traced(
+    scenario: &Scenario,
+    seed: u64,
+    script: Script,
+    mut recorder: Option<&mut FightTrace>,
+) -> ArticulatedTrial {
     let config = RunConfig::default();
     let mut world = World::new(scenario, seed);
     // Set for the reason `run_articulated` sets them: an articulated
@@ -723,6 +787,12 @@ fn measure_articulated(scenario: &Scenario, seed: u64, script: Script) -> Articu
     // `scenario.max_ticks` -- which is the same number today only because
     // `RunConfig::default` leaves the override unset.
     let limit = config.max_ticks.unwrap_or(scenario.max_ticks);
+    // Frame zero is the fixture as it spawned, before anybody has decided
+    // anything. It is the only frame that shows the starting geometry, which is
+    // half of what a first look at this fight is for.
+    if let Some(trace) = recorder.as_deref_mut() {
+        trace.record(&world);
+    }
     while world.outcome().is_none() && world.tick() < limit {
         due.clear();
         due.extend_from_slice(world.pending_decisions());
@@ -766,6 +836,9 @@ fn measure_articulated(scenario: &Scenario, seed: u64, script: Script) -> Articu
         let total = world.damage_dealt(Faction::Heroes) + world.damage_dealt(Faction::Monsters);
         max_tick_damage = max_tick_damage.max(total - dealt);
         dealt = total;
+        if let Some(trace) = recorder.as_deref_mut() {
+            trace.record(&world);
+        }
     }
 
     let settled = world.outcome();
@@ -846,23 +919,7 @@ fn articulated(args: &Args) {
     let mirror = mirrored_articulated_duel();
     let mirrored = args.flag("mirrored");
 
-    // Two knobs rather than one three-way choice, because they are not three
-    // points on one axis: `--policy` picks which script runs, and
-    // `--attack-moves` edits one cell of the composed one. Folding the control
-    // into the policy list would let `--policy windmill --attack-moves` look
-    // like a thing, and it is not -- the windmill never plants its feet.
-    let script = match args.choice(
-        "policy",
-        Script::Composed,
-        &[("composed", Script::Composed), ("windmill", Script::Windmill)],
-    ) {
-        Script::Composed if args.flag("attack-moves") => Script::ClosingAttacks,
-        Script::Windmill if args.flag("attack-moves") => {
-            eprintln!("--attack-moves edits the composed script; the windmill already walks");
-            std::process::exit(2);
-        }
-        chosen => chosen,
-    };
+    let script = script_from(args);
 
     println!(
         "{} seeds x {} orientation{} = {} trials of {} under {}",
@@ -1083,9 +1140,142 @@ fn evolution(args: &Args) {
     }
 }
 
+// ------------------------------------------------------------------ the trace
+
+/// One fight, written out to be looked at.
+///
+/// **The one command in this lab that produces no number.** Everything else here
+/// reduces a corpus to a statistic, and v2-17 closed with three of those
+/// statistics having been read confidently and wrongly -- a floor that was not
+/// binding, a lengthened capsule that was not the mechanism, a pin that could not
+/// move. The closure's first instruction to a successor is to go and watch a
+/// fight before calibrating anything else, and this is the command that makes
+/// that possible.
+///
+/// It takes one seed, because a fight is a thing you watch and not a thing you
+/// aggregate.
+fn trace_fight(args: &Args) {
+    let seed = args.number("seed", 3);
+    let script = script_from(args);
+    let mirrored = args.flag("mirrored");
+    let scenario = if mirrored {
+        mirrored_articulated_duel()
+    } else {
+        Scenario::articulated_duel()
+    };
+    // The whole fight unless asked otherwise. A `u32::MAX` default rather than
+    // `max_ticks` so that a fixture whose limit grows keeps recording all of it.
+    let limit = args.u32("ticks", u32::MAX);
+    let path = args
+        .text("out")
+        .unwrap_or("web/fight.json")
+        .to_string();
+
+    let mut recorder = FightTrace::new(&scenario, limit);
+    let started = Instant::now();
+    let trial = measure_articulated_traced(&scenario, seed, script, Some(&mut recorder));
+    let json = recorder.finish(&TraceRun {
+        scenario: &scenario,
+        seed,
+        script: script.token(),
+        mirrored,
+        outcome: trial.outcome,
+        timed_out: trial.timed_out,
+        ticks: trial.ticks,
+    });
+
+    if let Err(error) = std::fs::write(&path, json.as_bytes()) {
+        eprintln!("could not write {path}: {error}");
+        std::process::exit(1);
+    }
+
+    println!(
+        "seed {seed} of {} under {} -- {} tick{}, {}",
+        scenario.name,
+        script.name(),
+        trial.ticks,
+        if trial.ticks == 1 { "" } else { "s" },
+        if trial.timed_out { "the clock decided it" } else { "a body decided it" },
+    );
+    println!(
+        "  {:?}, hero {} monster {}, {} contact{}, {} severance{}",
+        trial.outcome,
+        trial.hero_health,
+        trial.monster_health,
+        trial.contacts,
+        if trial.contacts == 1 { "" } else { "s" },
+        trial.severances,
+        if trial.severances == 1 { "" } else { "s" },
+    );
+    println!(
+        "  wrote {path} -- {:.1} MB in {:.1}s",
+        json.len() as f64 / (1024.0 * 1024.0),
+        started.elapsed().as_secs_f64(),
+    );
+    println!("  npm run view, then open http://localhost:5173/fight.html");
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_traced_run_is_the_run_the_gate_measured() {
+        // The recorder is an observer and the fight must not be able to tell it
+        // is there. That is obvious from the code today and it is exactly the
+        // kind of obvious that a later `record` reading something it has to
+        // compute -- a region volume, a spec lookup, a scratch buffer -- could
+        // quietly stop being. Every column of the trial, including the state
+        // digest, which is the one that would notice a single changed bit.
+        let scenario = Scenario::articulated_duel();
+        let mut recorder = FightTrace::new(&scenario, u32::MAX);
+        let traced = measure_articulated_traced(&scenario, 3, Script::Composed, Some(&mut recorder));
+        let plain = measure_articulated(&scenario, 3, Script::Composed);
+
+        // Through `compare` rather than `==`: `StateDigest` has no `PartialEq`
+        // on purpose, because a domain or schema mismatch is an error and not a
+        // `false`.
+        assert_eq!(traced.state.compare(plain.state), Ok(true));
+        assert_eq!(traced.digest, plain.digest);
+        assert_eq!(traced.ticks, plain.ticks);
+        assert_eq!(traced.outcome, plain.outcome);
+        assert_eq!(traced.contacts, plain.contacts);
+        assert_eq!(traced.severances, plain.severances);
+        assert_eq!(traced.hero_health, plain.hero_health);
+        assert_eq!(traced.monster_health, plain.monster_health);
+
+        // And the artifact covers the whole fight: one frame per tick plus the
+        // spawn. A recorder that silently dropped the last frame would still
+        // pass every assertion above.
+        let json = recorder.finish(&TraceRun {
+            scenario: &scenario, seed: 3, script: Script::Composed.token(), mirrored: false,
+            outcome: traced.outcome, timed_out: traced.timed_out, ticks: traced.ticks,
+        });
+        assert!(json.contains(&format!("\"frameCount\":{}", plain.ticks + 1)), "frame count");
+        assert!(json.contains("\"truncated\":false"), "an unbounded recording is not truncated");
+        assert!(json.contains(&format!("\"schema\":\"{}\"", trace::TRACE_SCHEMA)), "schema");
+    }
+
+    #[test]
+    fn a_bounded_recording_says_it_stopped_early() {
+        // The bound is on the file and never on the fight: the trial has to be
+        // the one the gate would have reported, and the header has to admit that
+        // what a viewer is showing is a prefix. Getting this backwards would put
+        // a fight that "ended at tick 60" on the screen.
+        let scenario = Scenario::articulated_duel();
+        let mut recorder = FightTrace::new(&scenario, 60);
+        let trial = measure_articulated_traced(&scenario, 3, Script::Composed, Some(&mut recorder));
+        let unbounded = measure_articulated(&scenario, 3, Script::Composed);
+        assert_eq!(trial.state.compare(unbounded.state), Ok(true));
+        assert!(trial.ticks > 60, "the fixture runs past the recording bound");
+
+        let json = recorder.finish(&TraceRun {
+            scenario: &scenario, seed: 3, script: Script::Composed.token(), mirrored: false,
+            outcome: trial.outcome, timed_out: trial.timed_out, ticks: trial.ticks,
+        });
+        assert!(json.contains("\"frameCount\":60"), "the recording stopped at its bound");
+        assert!(json.contains("\"truncated\":true"), "and the header says so");
+    }
 
     #[test]
     fn the_measured_run_is_the_run_the_harness_would_have_driven() {

@@ -63,6 +63,15 @@ impl Args {
         self.flags.iter().any(|f| f == key)
     }
 
+    /// A free-form value, for the one thing in this lab that is not a number or
+    /// a name out of a fixed list: a file path. Deliberately without the typo
+    /// guard [`Args::number`] and [`Args::choice`] carry, because there is no
+    /// set of valid paths to check a value against -- a wrong one fails loudly
+    /// at the write instead.
+    pub fn text(&self, key: &str) -> Option<&str> {
+        self.raw(key)
+    }
+
     /// Exits with a clear message rather than silently falling back, because a
     /// typo in `--seeds 100O` that quietly runs the default is the kind of
     /// thing that wastes an afternoon of experiments.
