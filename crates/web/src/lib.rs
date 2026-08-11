@@ -841,12 +841,21 @@ pub const COMBAT_EVENT_LAYOUT_VERSION: u32 = 1;
 /// a rejected capacity is the next power of two at least twice the measured
 /// maximum: 446 doubles to 892 and rounds up to 1024.
 ///
-/// The same corpus now accumulates **556 rows**, because v2-17 checkpoint B
+/// The same corpus then accumulated **556 rows**, because v2-17 checkpoint B
 /// stopped the contact projector charging every trial for its own inverse-map
 /// drift and more of each proposed impulse survives the energy check. Nothing
 /// was dropped at 1024 -- but the acceptance rule is headroom, not survival,
 /// and 556 doubles to 1,112. So the capacity is 2048 and the byte budget below
 /// moved with it, at a cost of 128 KiB of static linear memory.
+///
+/// **It reads 354 today** (2026-08-10), and the direction is the surprise:
+/// checkpoint B's centre-of-mass sampling was expected to raise the event rate
+/// and lowered it by a third. A row is published per contact *resolution*, and
+/// a blade that carries its own swing into the impulse separates the pair it
+/// hit -- so the same clinch spends fewer ticks re-resolving the same key. The
+/// capacity stays 2048 rather than dropping back to 1024: the acceptance rule
+/// sizes a capacity against the busiest measurement anyone has taken, and 556
+/// is still that measurement on a fixture one mechanics change away.
 ///
 /// Re-measured by `the_high_water_corpus_fills_at_most_half_the_event_buffer`,
 /// which is what fails if a change doubles event production -- the failure this
@@ -7155,6 +7164,16 @@ mod tests {
     /// the extra rows are contact that used to be discarded as an energy gain
     /// it never was. 556 doubles to 1,112, so the capacity is 2,048.
     ///
+    /// **And then the same checkpoint moved it back down to 354**, which is the
+    /// one direction nothing predicted. Sampling a held segment's velocity at
+    /// the blade's centre of mass rather than in the hand raises the impulse a
+    /// swing proposes, and a pair that is pushed apart harder stops re-resolving
+    /// the same key tick after tick: 64 bodies in a permanent clinch publish
+    /// *fewer* rows, not more. The capacity is left at 2,048 -- 556 is still the
+    /// busiest this corpus has ever been measured, and sizing to the newest
+    /// number rather than the largest one is how a capacity gets re-rejected by
+    /// the next change.
+    ///
     /// Provenance is the whole of its meaning: **this fixture, this seed, this
     /// batch.** Seed `0x4152504741424931`, an open 24x16 room, 64 bodies as 32
     /// Fighter/Brute pairs, one command each at tick zero and none after, one
@@ -7162,7 +7181,7 @@ mod tests {
     /// and eight `step(1)`s measure the busiest tick rather than what one host
     /// call accumulates -- which is the thing being sized, because the feed is
     /// cleared per call.
-    const HIGH_WATER_EVENT_ROWS: u32 = 556;
+    const HIGH_WATER_EVENT_ROWS: u32 = 354;
 
     /// And the pose half, which sits exactly on its capacity by construction:
     /// 64 bodies is `MAX_ARTICULATED_ENTITIES` and `MAX_POSES` is the same
@@ -7349,14 +7368,21 @@ mod tests {
     /// change to the simulation moves it *and* a fight golden, which is the
     /// pair worth reading together.
     ///
-    /// Moved once, by v2-17 checkpoint B, from `0x4372a94d89fc9155`: no layout
-    /// changed, the simulation did. `ContactProjector` stopped re-deriving an
-    /// unmoved hand through the joint's inexact inverse map, so the drift that
-    /// was inflating every trial's energy -- and with it holding the alpha
-    /// search below the alpha the physics allows -- is gone. Tick 5 resolving
-    /// two rows where it used to resolve one is that change, visible in the
-    /// twenty ticks this script publishes.
-    const ARTICULATED_STREAM_DIGEST: u64 = 0x27b2_aa50_bb4e_7a67;
+    /// Moved twice, both times by v2-17 checkpoint B and both times with no
+    /// layout change: the simulation did. First from `0x4372a94d89fc9155`, when
+    /// `ContactProjector` stopped re-deriving an unmoved hand through the
+    /// joint's inexact inverse map -- the drift that was inflating every trial's
+    /// energy, and with it holding the alpha search below the alpha the physics
+    /// allows -- which showed up as tick 5 resolving two rows where it used to
+    /// resolve one.
+    ///
+    /// Then from `0x27b2aa50bb4e7a67`, when a held segment's one point velocity
+    /// moved from the hand to the blade's centre of mass. **The row shape is
+    /// identical across this second move** -- the same ticks carry the same
+    /// counts, 3 and 5 with two rows and the rest with one -- so every byte that
+    /// changed is a value rather than a row, which is exactly the signature a
+    /// simulation move with no layout change should leave.
+    const ARTICULATED_STREAM_DIGEST: u64 = 0x6f87_9c13_430a_dfc1;
 
     #[test]
     #[ignore]

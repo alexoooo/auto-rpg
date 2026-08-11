@@ -141,6 +141,20 @@ pub struct ContactCollider {
     pub mass: Fx,
     pub surface: SurfaceSpec,
     pub velocity: Vec3,
+    /// How much of `velocity` belongs to the point it is sampled at rather
+    /// than to the hand that carries the row.
+    ///
+    /// Zero for everything except a held segment, whose one point velocity is
+    /// sampled at the blade's centre of mass -- so `velocity - velocity_offset`
+    /// is exactly the hand velocity, which is the only velocity an arm joint
+    /// can be asked about. A trial that maps this row through the joint has to
+    /// take the offset off on the way in and put it back on the way out, or it
+    /// derives a hand the arm never had and clamps it against the wrong limit.
+    /// It is a fixed per-row quantity for the whole tick: the sweep translates
+    /// hilt and tip together, which cancels in the differential it is built
+    /// from, and the row's velocity is a per-tick displacement that no advance
+    /// rescales.
+    pub velocity_offset: Vec3,
     pub shape: ContactShape,
     /// False once the limb owning this row has been severed earlier in the same
     /// tick. The row stays in the slice -- removing it would re-index every
@@ -579,7 +593,7 @@ mod tests {
 
     fn segment(entity: u32, faction: Faction, from: Vec3, to: Vec3, velocity: Vec3) -> ContactCollider {
         ContactCollider { entity: EntityId::new(entity, 0), faction, slot: 1, mass: Fx::ONE,
-            surface: surface(), velocity, present: true,
+            surface: surface(), velocity, velocity_offset: Vec3::ZERO, present: true,
             shape: ContactShape::Segment { previous_hilt: from, previous_tip: from,
                                            requested_hilt: to, requested_tip: to, radius: Fx::ZERO } }
     }
@@ -594,7 +608,7 @@ mod tests {
         };
         ContactCollider {
             entity: EntityId::new(entity, 0), faction, slot: BODY_SLOT, mass: Fx::ONE,
-            surface: surface(), velocity: Vec3::ZERO, present: true,
+            surface: surface(), velocity: Vec3::ZERO, velocity_offset: Vec3::ZERO, present: true,
             shape: ContactShape::Body {
                 previous_origin: at, requested_origin: at,
                 parts: [part; AnatomyRegion::COUNT],
@@ -703,7 +717,7 @@ mod tests {
             Vec3::new(Fx::ZERO, -Fx::HALF, Fx::HALF),
         ];
         let shield = ContactCollider { entity: EntityId::new(1, 0), faction: Faction::Monsters,
-            slot: 0, mass: Fx::ONE, surface: surface(), velocity: Vec3::ZERO, present: true,
+            slot: 0, mass: Fx::ONE, surface: surface(), velocity: Vec3::ZERO, velocity_offset: Vec3::ZERO, present: true,
             shape: ContactShape::Shield { previous: face, requested: face } };
         let facts = collect_contacts(&[weapon, shield]);
         assert_eq!(facts.len(), 1);
@@ -737,7 +751,7 @@ mod tests {
     fn shield_at_origin() -> ContactCollider {
         let face = shield_face();
         elastic(ContactCollider { entity: EntityId::new(2, 0), faction: Faction::Monsters,
-            slot: 0, mass: Fx::ONE, surface: surface(), velocity: Vec3::ZERO, present: true,
+            slot: 0, mass: Fx::ONE, surface: surface(), velocity: Vec3::ZERO, velocity_offset: Vec3::ZERO, present: true,
             shape: ContactShape::Shield { previous: face, requested: face } })
     }
 
@@ -820,7 +834,7 @@ mod tests {
         });
         ContactCollider {
             entity: EntityId::new(entity, 0), faction: Faction::Monsters, slot: BODY_SLOT,
-            mass: Fx::from_int(3), surface: surface(), velocity: Vec3::ZERO, present: true,
+            mass: Fx::from_int(3), surface: surface(), velocity: Vec3::ZERO, velocity_offset: Vec3::ZERO, present: true,
             shape: ContactShape::Body {
                 previous_origin: Vec3::ZERO, requested_origin: Vec3::ZERO, parts,
             },

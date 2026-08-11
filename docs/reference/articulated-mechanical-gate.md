@@ -58,6 +58,168 @@ selected identity. If no opponent is visible, attack
 phases become Hold/rest without inventing geometry. The Dev intermediate action is
 Guard with height raw `24_576`; it is not part of this scripted digest.
 
+### Correction, 2026-08-10: the off arm holds one pose
+
+Everything above is unchanged and is still the reference. What follows sits on top
+of it. `crates/policy/src/articulated_script.rs` now overwrites **the arm that is not
+the weapon arm**, last and unconditionally, with a single fixed target for the whole
+fight — in all three policies, the composed script and both controls, so the corpora
+stay comparable to each other. On every body and every tick that target is:
+
+```text
+off arm = (bearing = the commanded body yaw, height = MID, reach = 3/4, effort = 1/2)
+```
+
+**The reach in that line is superseded** — the correction below the table splits it in
+two by what the hand holds. Everything else in this section stands, and the rest of
+the reach argument stands with it for the hand it was written about.
+
+**This is a control-surface decision and not a mechanical one.** The design target is
+first-person human control of a single hero, and two independently articulated hands —
+four degrees of freedom each, both live — is more than one player can drive. So the
+off arm stops being driven. It is not a claim about the physics and nothing in the
+contact model changed with it.
+
+**The wire format does not move.** `ArticulatedCommandV1` still carries both arms,
+`CommandField` still names its Left columns, the canonical payload is still 51 bytes
+inside 55 of framing, and the ABI is where it was. The left slot has to keep existing
+regardless, because a two-handed grip mirrors the right arm into it — which is also
+what makes this reversible by editing one function.
+
+**Body frame, so the bearing is the yaw the command asks for**, not a world bearing
+and not the yaw the body currently holds. The pose is then rigid to the torso: it
+rotates with body yaw, and phase 10's eighth-turn carries it round with the shoulders
+instead of leaving it behind on the line.
+
+**The bearing is the body's own facing, and that choice belongs to the shield.**
+`World::derive_shield_pose` takes the plate's `centre` from the holding arm's hand and
+its `normal` from `body_yaw`, with nothing tying the two together — position follows
+the arm, facing follows the torso — so an arm reaching sideways leaves the plate
+edge-on to the very attack its position implies it covers. Measured over the composed
+corpus's 2.86M shield samples, the angle between the plate normal and the hand's
+offset from the body origin occupied all 181 whole-degree buckets from 0 to 180, median
+32 degrees, with 1.84% of ticks at 90 degrees or worse. At `bearing == body_yaw` the
+hand sits at a fixed forward reach plus the shoulder's fixed lateral half-width, so the
+commanded angle collapses to `atan((1/4) / (3/4 * 3/4))` = 23.96 degrees for a Fighter.
+Re-measured after the change the distribution is sharply unimodal there — mode 24
+degrees carrying 31.7% of all samples, quartiles 23 and 27 — but it is **not**
+degenerate, and the reason is worth recording: `derive_shield_pose` reads the
+*achieved* hand, and the contact commit writes that hand directly on 17.4% of ticks,
+after which the actuator takes many ticks to chase back. A residual 0.85% of samples
+still sit at 90 degrees or worse. A static off hand narrows this defect by 2.2x; it
+does not dissolve it, and the underlying incoherence between `centre` and `normal` is
+still there to be fixed on its own terms.
+
+**Reach 3/4 and effort 1/2 both hold station without leaning on a limit.** Reach lives
+in `[ARM_MIN_REACH_RAW, 1]`, so three quarters is clear of both ends and a hand that
+contact shoves is chased back rather than clamped. Effort is deliberately not zero:
+`integrate_arm` scales acceleration by effort, so a zero-effort arm cannot return to a
+pose contact took it out of — the mechanism this document's own cap-hit note blames for
+phases 5 and 6. A half recovers, and a converged arm is `idle_at_entry` on every tick,
+so it sheds fatigue rather than billing work for standing still.
+
+Twelve by two, with the off-arm column collapsed to one row:
+
+| phase | the arm the phase names | quotation or resolution | off arm |
+|---:|---|---|---|
+| 0 | guard `(toward, selected, 1/2, 1/2)` | quotation | the one pose |
+| 1 | guard `(toward, selected, 1/2, 1/2)` | quotation | the one pose |
+| 2 | guard `(toward, selected, 1/2, 3/4)` | quotation | the one pose |
+| 3 | weapon `(toward -/+ 1/8, selected, 3/4, 1)` | height resolved, rest quoted | the one pose |
+| 4 | weapon `(toward +/- 1/8, selected, 1, 1)` | height resolved, rest quoted | the one pose |
+| 5 | weapon `(toward, selected, 1/4, 0)` | bearing and height resolved | the one pose |
+| 6 | guard `(toward, next, 3/4, 1)` | quotation | the one pose |
+| 7 | weapon `(toward, selected, 1/4, 1)` | height resolved, rest quoted | the one pose |
+| 8 | weapon `(toward, selected, 1, 1)` | height resolved, rest quoted | the one pose |
+| 9 | guard `(toward, selected, 1/2, 0)` | effort quoted, rest is phase 0's | the one pose |
+| 10 | guard `(toward, selected, 1/2, 1/2)`, body yaw `toward + 1/8` | height quoted, rest is phase 0's | the one pose |
+| 11 | guard `(toward, selected, 1/4, 0)` | reach and effort quoted | the one pose |
+
+(One pose per body, twelve identical rows — but which one is the correction below.)
+
+**The guard column is now only reachable on a body with no shield.** A Fighter's guard
+clause lands on its shield arm and is overwritten; a Brute's lands on the club arm,
+which *is* its weapon arm, and survives. Phases 0, 1, 2, 6, 9, 10 and 11 therefore
+still say exactly what they said — they just only say it to the Brute, which is why
+`the_twelve_phases_are_the_reference_table_written_out_by_hand` transcribes both bodies
+rather than one. The one visible loss is phase 6, written to step a shield between two
+heights and now inert on the only body that carries one.
+
+**This retires the open question about phases 5, 9, 10 and 11 rather than answering
+it.** Those rows named a rule for one arm and left the other's height or reach
+unstated, and `articulated_script.rs` resolved each gap in place. There is no longer a
+second arm to underspecify: whatever the table declines to say about the off arm, the
+one pose above has already said. The resolutions are left standing in the source
+because they are still how the *named* arm's unstated columns are filled.
+
+### Correction, same day: the pose is one of two, and the reach is not what moved
+
+The section above is left standing because all of it except one column is still the
+rule. The off arm is still static, still fixed in body frame, still the same on every
+phase, still applied by the same function in all three policies. What changed is that
+the **reach** now reads the hand:
+
+```text
+off arm holding equipment = (commanded body yaw, MID, reach 3/4, effort 1/2)
+off arm empty            = (commanded body yaw, MID, reach 1/4, effort 1/2)
+```
+
+A quarter is not a chosen number: it is `ARM_MIN_REACH_RAW` exactly, the joint's own
+floor, and it is where both `tucked` and `actuator::tucked_arm` already park an arm
+nothing is asking anything of. Effort stays at a half in both cases, and its argument
+above is unchanged — an empty hand still has to be *held*, or contact leaves it
+wherever it put it.
+
+**The defect is geometric and the number is exact.** `body_region_volumes` builds an
+arm region as the capsule from the yaw-rotated shoulder to the hand, so the off hand's
+reach *is* that capsule's length, and this roster gives an arm region the same
+`integrity_maxima` as the torso. Measured on the fixture through the observation —
+where the perception blur cancels in `upper - lower`, both endpoints carrying the same
+measured origin — the Brute's `LeftArm` capsule is
+
+| Brute `LeftArm`, MID | raw | units | vs resting |
+|---|---:|---:|---:|
+| empty at reach 1/4 (this correction, and the pre-override tuck) | 35,604 | 0.54328 | 1.000x |
+| held out at reach 3/4 (the unconditional pose) | 53,096 | 0.81019 | **1.491x** |
+
+Half an arm length of extra flesh-grade collider, grown out of the shoulder and into
+the line, for a hand carrying nothing to the place it was being held out to.
+`an_empty_off_hand_does_not_lengthen_the_arm_it_hangs_from` pins both numbers.
+
+**What the corpus says about it is smaller than the plan claimed, and the plan's
+mechanism is refuted.** The last three configurations differ only in the empty
+off hand's two columns, so the composed corpus decomposes them exactly — the Fighter's
+shield is static and identical in all three:
+
+| composed corpus, 800 trials | empty hand `(1/4, effort 0)` | `(1/4, effort 1/2)` | `(3/4, effort 1/2)` |
+|---|---:|---:|---:|
+| brute mean end health | 0.9282 | **0.9424** | 0.9410 |
+| contact resolutions | 2,536,264 | 2,502,035 | 2,755,892 |
+| facts ≥ 65,536 raw | 128 | 101 | 123 |
+| decided by a body | 13 | 8 | 8 |
+
+Reading down the two steps: giving the empty hand the authority to hold station
+(effort 0 → 1/2) is worth the whole of the Brute's health recovery, and extending it
+afterwards (reach 1/4 → 3/4) is worth 0.0014 of health — nothing. The earlier reading,
+that a longer fleshy interceptor is what recovered the Brute, was measured against a
+probe that removed the reach and the effort together and could not tell them apart. It
+is **wrong about which column did the work**: the interceptor is real, it is 1.49x, and
+on this corpus it does not move the body it hangs from.
+
+Where it does show is the top bar, weakly and not in one direction: extending the empty
+hand moves facts ≥ 65,536 by +22 composed, −55 windmill and −20 closing, all of which
+are inside 1.8 Poisson sigma on their own counts and the middle one only just outside.
+The reach is therefore chosen on the model and not on the corpus: an empty hand carries
+nothing, so a guard's reach on it buys nothing and costs a torso-grade collider.
+
+**Phase 6 is still inert on a Fighter, and that was checked rather than assumed.** The
+worry is that a conditional pose might hand a guard clause back to some body it used to
+overwrite. It cannot: `ArmRoles::of` sets `guard = shield.unwrap_or(weapon)`, and
+`shield` is `Some(i)` only where arm `i` *holds* equipment, so the only off arm that
+ever receives a guard clause is one holding a shield — which is exactly the branch
+whose pose did not change. A body with no shield guards with the arm it strikes with
+and the override never reaches that clause at all. The note above stands unedited.
+
 The command-stream digest is FNV-1a-64 prefixed by ASCII `ARPG-SCRIPT-V1`. For each
 accepted or safe-fallback stored command feed little-endian tick, subject index,
 subject generation, then the canonical 51-byte articulated payload from
@@ -137,6 +299,27 @@ the Brute to 0.9159 mean health against 0.9680, and it severs 47 regions against
 contact projector; the gap narrowed and did not close.) The
 denominator is not measured -- `ActuatorWorkLedger` does not exist yet -- so the `6/5`
 threshold is untested, not failed.
+
+Both of those readings are superseded three times over and the conclusion has survived
+all three. After checkpoint B moved a held segment's point mass to the blade's centre
+of mass the three figures were 82,792 / 49,711, 0.7344 / 0.9323 and 154 / 50; after the
+off arm stopped moving on 2026-08-10, 57,778 / 40,128, 0.7319 / 0.9410 and 111 / 63;
+after the empty off hand stopped being held out later the same day they are
+**99,812 / 31,338, 0.7325 / 0.9424 and 163 / 54**. (The second figure of the first
+triple read 0.9847 until 2026-08-10 and was the composed corpus's *fighter* health,
+transcribed into the Brute's column; the surrounding sentence and every other number
+are unaffected.)
+
+The windmill has out-damaged the composed script on every one of these columns at every
+measurement so far, and the numerator has never leaned the other way. **What the older
+numbers now show, and did not when there were only three of them, is that the largest
+blow is the wrong column to read a ratio off.** It is a sample maximum over 800 trials,
+so it has no standard error worth quoting, and across the five revisions it has run
+2.5x, 1.4x, 1.7x, 1.4x, 3.2x without any of the changes between them touching a
+calibration constant. The Brute's mean end health is the same comparison taken over
+1,600 fights rather than one tick and it has moved 0.93/0.97 → 0.92/0.97 →
+0.73/0.93 → 0.73/0.94 → 0.73/0.94, which is a gap that widened once and has since sat
+still. Read that one.
 
 For each policy, `damage` is the checked `u128` sum of the final raw existing
 `World::damage_dealt(Heroes)` and `World::damage_dealt(Monsters)` columns over all 200

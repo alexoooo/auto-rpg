@@ -183,9 +183,9 @@ that evidence.
 
 ## Source anchors
 
-- Fixed publication pools: [`thread_local!`](../../crates/web/src/lib.rs#L926)
-- Packed frame writer: [`Sim::write_frame`](../../crates/web/src/lib.rs#L3198)
-- Hand-written wasm exports: [`init`](../../crates/web/src/lib.rs#L3941)
+- Fixed publication pools: [`thread_local!`](../../crates/web/src/lib.rs#L935)
+- Packed frame writer: [`Sim::write_frame`](../../crates/web/src/lib.rs#L3207)
+- Hand-written wasm exports: [`init`](../../crates/web/src/lib.rs#L3950)
 - Worker adapter and atomic scalar phase: [`readPublication`](../../client/src/runtime/sim.worker.ts#L64)
 - Pure protocol host: [`SimWorkerHost`](../../client/src/runtime/sim-worker-host.ts#L35)
 - Main-thread lease owner: [`SimClient`](../../client/src/runtime/sim-client.ts#L122)

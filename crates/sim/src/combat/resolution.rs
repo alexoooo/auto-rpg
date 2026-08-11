@@ -24,6 +24,15 @@ pub struct GeneralizedCollider {
     pub kind: GeneralizedKind,
     pub mass: Fx,
     pub velocity: Vec3,
+    /// Carried through from [`ContactCollider::velocity_offset`] and used by
+    /// nothing in here. A projector that inverse-maps a row through a joint
+    /// needs to know which part of that velocity is the sample point's rather
+    /// than the hand's, and the trial is handed generalized rows and nothing
+    /// else -- so the offset has to ride along beside the velocity it belongs
+    /// to. `closure_energy` deliberately ignores it: the row's kinetic energy
+    /// is the energy of the point it is sampled at, which is the whole subject
+    /// of sampling it somewhere else.
+    pub velocity_offset: Vec3,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -543,7 +552,7 @@ pub fn solve_contact_tick<P: ContactTrialProjector>(
                 entity: row.entity, slot: row.slot,
                 kind: if matches!(row.shape, ContactShape::Body { .. }) { GeneralizedKind::Body }
                       else { GeneralizedKind::Equipment },
-                mass: row.mass, velocity: row.velocity,
+                mass: row.mass, velocity: row.velocity, velocity_offset: row.velocity_offset,
             });
         }
 
@@ -832,6 +841,11 @@ fn cap_at_last_safe_pose(
     for row in colliders.iter_mut() {
         if scratch.capped_entities.contains(&row.entity) {
             row.velocity = Vec3::ZERO;
+            // The sample point's share of a velocity that no longer exists.
+            // Left behind it would say this row's hand is moving backwards at
+            // the blade's swing rate, which is the one reading of "stopped"
+            // nobody meant.
+            row.velocity_offset = Vec3::ZERO;
             row.shape = freeze_sweep(*row).shape;
         } else {
             advance_shape(&mut row.shape, 1, 1);
@@ -919,6 +933,10 @@ fn behavior_case(case_id: u32) -> Vec<ContactCollider> {
     let point = |label: u32, faction: Faction, x: i32, velocity: i32| ContactCollider {
         entity: EntityId::new(label, 0), faction, slot: 1, mass: Fx::ONE, surface,
         velocity: Vec3::new(Fx::from_raw(velocity), Fx::ZERO, Fx::ZERO),
+        // No anatomy behind these rows and therefore no hand: the corpus drives
+        // the pure `IndependentPointProjector`, which maps nothing through a
+        // joint, so every row here is sampled where it is carried.
+        velocity_offset: Vec3::ZERO,
         present: true,
         shape: ContactShape::Segment {
             previous_hilt: Vec3::new(Fx::from_raw(x), Fx::ZERO, Fx::ZERO),
@@ -968,7 +986,8 @@ fn behavior_case(case_id: u32) -> Vec<ContactCollider> {
                 radius: Fx::ZERO, present: true,
             };
             let body = ContactCollider { entity: EntityId::new(1, 0), faction: Faction::Monsters,
-                slot: BODY_SLOT, mass: Fx::ONE, surface, velocity: Vec3::ZERO, present: true,
+                slot: BODY_SLOT, mass: Fx::ONE, surface, velocity: Vec3::ZERO,
+                velocity_offset: Vec3::ZERO, present: true,
                 shape: ContactShape::Body { previous_origin: body_point, requested_origin: body_point,
                     parts: [part; AnatomyRegion::COUNT] } };
             vec![weapon, body]
@@ -992,7 +1011,58 @@ mod tests {
 
     fn state(index: u32, velocity: Vec3) -> GeneralizedCollider {
         GeneralizedCollider { entity: EntityId::new(index, 0), slot: 1,
-            kind: GeneralizedKind::Equipment, mass: Fx::ONE, velocity }
+            kind: GeneralizedKind::Equipment, mass: Fx::ONE, velocity,
+            velocity_offset: Vec3::ZERO }
+    }
+
+    #[test]
+    fn a_group_translates_a_segment_without_moving_its_swing_differential() {
+        // What makes `ContactCollider::velocity_offset` legitimate to *carry*
+        // rather than recompute. A held blade's sample offset is
+        // `balance * ((requested.tip - previous.tip) - (requested.hilt -
+        // previous.hilt))`, built once when the row is built and then
+        // subtracted and re-added by every joint round trip for the rest of the
+        // tick -- which is only sound while nothing a group does can change the
+        // quantity it came from.
+        //
+        // A group's entire effect on a collider's geometry is this function,
+        // and it moves hilt and tip by the *same* delta, so the differential
+        // cancels it exactly. The other mutation in the driver is the advance,
+        // and it is checked here too for the opposite reason: it rescales the
+        // remaining geometry and deliberately does not rescale `velocity`, so
+        // velocity and offset stay the same kind of per-tick quantity as each
+        // other. If either of those ever stops holding, the offset is a
+        // snapshot going stale and this is the test that says so.
+        let at = |x: i32, y: i32| Vec3::new(Fx::from_raw(x), Fx::from_raw(y), Fx::ZERO);
+        let mut row = ContactCollider {
+            entity: EntityId::new(0, 0), faction: Faction::Heroes, slot: 1, mass: Fx::ONE,
+            surface: surface(Fx::ZERO), velocity: at(1_000, 0),
+            velocity_offset: at(48, -16), present: true,
+            shape: ContactShape::Segment {
+                previous_hilt: at(0, 0), previous_tip: at(65_536, 0),
+                requested_hilt: at(1_000, 0), requested_tip: at(66_136, 3_000),
+                radius: Fx::ZERO },
+        };
+        let differential = |row: &ContactCollider| {
+            let ContactShape::Segment { previous_hilt, previous_tip,
+                                        requested_hilt, requested_tip, .. } = row.shape
+                else { panic!("a segment row") };
+            (requested_tip - previous_tip) - (requested_hilt - previous_hilt)
+        };
+        let before = differential(&row);
+        assert_ne!(before, Vec3::ZERO, "a still blade cannot detect a translation");
+
+        // Deliberately asymmetric in X and Y, and large against the pose: a
+        // delta that cancelled by symmetry would pass this whatever the code
+        // did with it.
+        translate_requested(&mut row, at(-4_096, 12_288));
+        assert_eq!(differential(&row), before, "a group translation moved the swing");
+        assert_eq!(row.velocity_offset, at(48, -16), "a group translation moved the offset");
+
+        let velocity = row.velocity;
+        advance_all(core::slice::from_mut(&mut row), 32_768, 65_536);
+        assert_eq!(row.velocity, velocity, "the advance rescaled a per-tick velocity");
+        assert_eq!(row.velocity_offset, at(48, -16), "the advance rescaled the offset");
     }
 
     fn fact(a: u32, b: u32, kind: ContactKind, toi: i32, va: i32, vb: i32) -> ContactFact {
@@ -1134,7 +1204,7 @@ mod tests {
         let dead_pair = |index: u32, faction, velocity: i32| ContactCollider {
             entity: EntityId::new(index, 0), faction, slot: 1, mass: Fx::ONE,
             surface: surface(Fx::ZERO), velocity: Vec3::new(Fx::from_raw(velocity), Fx::ZERO, Fx::ZERO),
-            present: true,
+            velocity_offset: Vec3::ZERO, present: true,
             shape: ContactShape::Segment {
                 previous_hilt: Vec3::ZERO, previous_tip: Vec3::ZERO,
                 requested_hilt: Vec3::new(Fx::from_raw(velocity), Fx::ZERO, Fx::ZERO),
@@ -1145,6 +1215,7 @@ mod tests {
             ContactCollider {
                 entity: EntityId::new(index, 0), faction, slot: 1, mass: Fx::ONE, present: true,
                 surface: surface(Fx::ZERO), velocity: Vec3::new(Fx::from_raw(velocity), Fx::ZERO, Fx::ZERO),
+                velocity_offset: Vec3::ZERO,
                 shape: ContactShape::Segment {
                     previous_hilt: at(x), previous_tip: at(x),
                     requested_hilt: at(x + velocity), requested_tip: at(x + velocity),
@@ -1278,6 +1349,7 @@ mod tests {
         rows.push(ContactCollider {
             entity: EntityId::new(9, 0), faction: Faction::Monsters, slot: 1, mass: Fx::ONE,
             present: true, surface: surface(Fx::ONE), velocity: Vec3::Y * Fx::TWO,
+            velocity_offset: Vec3::ZERO,
             shape: ContactShape::Segment {
                 previous_hilt: far, previous_tip: far,
                 requested_hilt: far + Vec3::Y * Fx::TWO, requested_tip: far + Vec3::Y * Fx::TWO,
@@ -1304,6 +1376,7 @@ mod tests {
                 faction: if index % 2 == 0 { Faction::Heroes } else { Faction::Monsters },
                 slot: 1, mass: Fx::ONE, present: true, surface: surface(Fx::ZERO),
                 velocity: Vec3::new(Fx::from_raw(velocity), Fx::ZERO, Fx::ZERO),
+                velocity_offset: Vec3::ZERO,
                 shape: ContactShape::Segment {
                     previous_hilt: Vec3::ZERO, previous_tip: Vec3::ZERO,
                     requested_hilt: Vec3::new(Fx::from_raw(velocity), Fx::ZERO, Fx::ZERO),
@@ -1329,13 +1402,15 @@ mod tests {
         vec![
             ContactCollider {
                 entity: EntityId::new(0, 0), faction: Faction::Heroes, slot: 1,
-                mass: Fx::ONE, surface: steel, velocity: sword, present: true,
+                mass: Fx::ONE, surface: steel, velocity: sword,
+                velocity_offset: Vec3::ZERO, present: true,
                 shape: ContactShape::Segment {
                     previous_hilt: hilt, previous_tip: Vec3::ZERO,
                     requested_hilt: hilt + sword, requested_tip: sword, radius: Fx::ZERO } },
             ContactCollider {
                 entity: EntityId::new(1, 0), faction: Faction::Monsters, slot: BODY_SLOT,
-                mass: Fx::ONE, surface: steel, velocity: body, present: true,
+                mass: Fx::ONE, surface: steel, velocity: body,
+                velocity_offset: Vec3::ZERO, present: true,
                 shape: ContactShape::Body {
                     previous_origin: Vec3::ZERO, requested_origin: body,
                     parts: [RegionSweep {
@@ -1388,7 +1463,7 @@ mod tests {
     fn group_energy_accumulation_never_saturates() {
         let rows = vec![GeneralizedCollider { entity: EntityId::new(0, 0), slot: 1,
             kind: GeneralizedKind::Equipment, mass: Fx::from_int(8),
-            velocity: Vec3::from_ints(4, 4, 4) }; 192];
+            velocity: Vec3::from_ints(4, 4, 4), velocity_offset: Vec3::ZERO }; 192];
         let numerator: i128 = rows.iter().map(|row| row.mass.raw() as i128 *
             (row.velocity.x.raw() as i128 * row.velocity.x.raw() as i128 * 3)).sum();
         assert_eq!(numerator, 20_752_587_082_923_245_568);

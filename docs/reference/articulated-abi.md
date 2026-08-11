@@ -459,12 +459,22 @@ which is the other half of what that test says it catches.** v2-17 checkpoint B
 stopped `World`'s contact projector re-deriving an unmoved hand through the joint's
 inexact inverse map, so the round-trip drift that had been inflating every trial's
 kinetic energy stopped holding the alpha search below the alpha the physics allows.
-The same 64 bodies, the same seed and the same `step(8)` now accumulate **556 rows**.
+The same 64 bodies, the same seed and the same `step(8)` then accumulated **556 rows**.
 This is not recovered rejections: the corpus refuses no tick and refused none before,
 and the printer reports that count beside the rows so the two cannot be confused. At
 1024 nothing was dropped — but the acceptance rule is headroom rather than survival,
 and 556 doubles to 1,112, so the capacity is **2048** and the byte budget above moved
 with it again, to 279,040 bytes.
+
+**Re-measured a third time at the end of the same checkpoint, and it went *down*, to
+354 rows with nothing dropped.** The change was expected to raise the event rate and
+did the opposite: sampling a held segment's one point velocity at the blade's centre
+of mass instead of in the hand raises the impulse a swing proposes, and a pair pushed
+apart harder stops re-resolving the same key every tick — so 64 bodies locked in a
+permanent clinch publish about a third fewer rows. **The capacity stays 2048.** The
+acceptance rule sizes against the busiest measurement taken, not the most recent one,
+and 556 is still that measurement; re-cutting the buffer to fit 354 would only queue
+up the next rejection.
 
 ## Ownership, visibility, and memory
 
@@ -506,8 +516,9 @@ the articulated *room* rather than these two arrays, which are 5 pages between t
 ceiling is 11 rows and its busiest single publication is 16 event rows, because no
 export spawns an articulated body — `spawn_monster` refuses an articulated world by
 design — so the roster is whatever the floor generator placed (7 rows at depth 0,
-rising to 11 from depth 4) and a fight is two bodies. The 64-row and 556-row maxima
-belong to the `abi-high-water` corpus, which is a hand-built `crates/web` scenario.
+rising to 11 from depth 4) and a fight is two bodies. The 64-row pose maximum and the
+event maxima above belong to the `abi-high-water` corpus, which is a hand-built
+`crates/web` scenario.
 That is not a gap in the proof: both arrays are fixed and reserved whole at
 construction, so how full they are is not what the byte length depends on.
 

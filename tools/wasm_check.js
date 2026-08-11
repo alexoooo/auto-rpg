@@ -766,11 +766,16 @@ const SEVERED_MASK_BITS = 5;
 // catch is an encoder wrong the same way on both targets, and the row grammar
 // checked beside it is the part of the reference this file *can* rebuild.
 //
-// Moved once, by v2-17 checkpoint B, from `0x4372a94d89fc9155`. No layout
-// changed: the sim's contact projector stopped re-deriving an unmoved hand
-// through an inexact joint inverse, so more of every contact's proposed impulse
-// now survives the energy check. Tick 5 gaining a second row is that change.
-const ARTICULATED_STREAM_DIGEST = 0x27b2aa50bb4e7a67n;
+// Moved twice, both by v2-17 checkpoint B, and neither move changed a layout.
+// First from `0x4372a94d89fc9155`: the sim's contact projector stopped
+// re-deriving an unmoved hand through an inexact joint inverse, so more of every
+// contact's proposed impulse now survives the energy check, and tick 5 gained a
+// second row. Then from `0x27b2aa50bb4e7a67`: a held segment's point velocity is
+// now sampled at the blade's centre of mass instead of in the hand. That second
+// move leaves the row shape alone -- the same ticks carry the same counts -- so
+// what moved is values, which is what a simulation-only move looks like from
+// this side of the wall.
+const ARTICULATED_STREAM_DIGEST = 0x6f879c13430adfc1n;
 
 // The live pose rows, copied out. Words and not floats: every published column
 // is a `u32`, and the signed ones are two's-complement raw bits.

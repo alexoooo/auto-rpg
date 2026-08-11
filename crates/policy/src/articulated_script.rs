@@ -49,6 +49,43 @@
 //!   nobody.** Phase 5's "shield remains guard" has no referent on a body with
 //!   no shield, so on a Brute the weapon clause is the whole phase.
 //!
+//! # The off arm stopped moving (2026-08-10)
+//!
+//! Everything above is the reference table and how it was read, and it is left
+//! standing because it is still the reading. What sits on top of it is one
+//! override: **the arm that is not the weapon arm holds a single fixed pose in
+//! body frame for the whole fight**, applied last by [`off_hand`] in all three
+//! policies here. It is a control-surface decision -- the game is aimed at
+//! first-person human control of one hero, and a human cannot drive two
+//! independently articulated hands -- and the argument for the particular pose,
+//! including the shield-coherence defect it exists to dissolve, is on
+//! [`off_hand`] rather than repeated here.
+//!
+//! **Corrected the same day: the pose is one of two, chosen by what the hand
+//! holds.** The first version of the override put *every* off hand at three
+//! quarters of reach, which is a guard on a hand carrying a plate and a shove
+//! on an empty one -- `geometry::body_region_volumes` builds an arm region as
+//! the capsule from shoulder to hand, so it lengthened the Brute's empty
+//! `LeftArm` collider forward by half an arm length, and on this roster an arm
+//! region holds the same integrity maximum as the torso. The arm is still
+//! static, still in body frame, still the same bearing rule, and still the
+//! same for every phase; only the reach is conditional. [`off_hand`] carries
+//! the measurement.
+//!
+//! Two consequences for the reading above, and both are subtractions:
+//!
+//! * **The guard column is now only reachable on a body with no shield.** A
+//!   Fighter's guard clause lands on the shield arm and is overwritten; a
+//!   Brute's lands on the club arm, which *is* its weapon arm, and survives. So
+//!   phases 0, 1, 2, 6, 9, 10 and 11 still say what they said -- they just only
+//!   say it to the Brute now, which is why the phase-table test transcribes
+//!   both bodies rather than one.
+//! * **The open question about phases 5, 9, 10 and 11 is retired rather than
+//!   answered.** Those rows named a rule for one arm and left the other's height
+//!   or reach unstated, and the resolutions above filled each gap. There is no
+//!   longer a second arm to underspecify: whatever the table declines to say
+//!   about the off arm, [`off_hand`] has already said.
+//!
 //! [`ScriptedArticulatedPolicy`] and [`WindmillArticulatedPolicy`] are both pure
 //! functions of the observation, so neither implements `reset` -- there is no
 //! per-run memory for the harness to clear.
@@ -128,6 +165,13 @@ impl ArmRoles {
         // swinging a stump *and* tucking the live shield the tuck rule takes
         // away from it -- defenceless and harmless at once -- which cannot be
         // what the table means by "the weapon arm" on a body that has none.
+        //
+        // Half of that stopped being true on 2026-08-10: the off arm now holds
+        // [`off_hand`] rather than the tuck, so the wrong answer here would
+        // leave that Fighter guarded and merely harmless instead of both. The
+        // resolution does not change -- swinging a stump for a third of every
+        // cycle is still the thing being avoided -- but the second clause of
+        // the argument for it is gone and should not be quoted.
         let weapon = if obs.can(weapon_bit[1]) {
             1
         } else if obs.can(weapon_bit[0]) {
@@ -173,12 +217,113 @@ struct Phase {
 /// currently holds, which matters in exactly one phase: phase 10 turns the body
 /// an eighth off the line, and a tuck anchored to the observed yaw would leave
 /// the idle arm trailing a phase behind the shoulders it hangs from.
+///
+/// Since 2026-08-10 this only ever lands on the **weapon** arm, in the seven
+/// phases that name no weapon clause: the off arm is overwritten by
+/// [`off_hand`] after the table has had its say. The two poses are deliberately
+/// different, and the difference is the whole content of "this arm is resting
+/// between actions" against "this arm is not being driven at all": the tuck is
+/// slack at zero effort, so contact can carry it anywhere and it will not come
+/// back, while a static hand keeps half an effort to hold the station it was
+/// given. On an *empty* off hand the two agree about where -- both sit at a
+/// quarter, which is `ARM_MIN_REACH_RAW` exactly -- and still disagree about
+/// whether anything is holding it there.
 fn tucked(body_yaw: Angle) -> ArmTarget {
     ArmTarget {
         bearing: body_yaw,
         height: CombatHeight::MID,
         reach: QUARTER,
         effort: Fx::ZERO,
+    }
+}
+
+/// The off hand's one pose, in body frame, for the whole fight.
+///
+/// **A control-surface decision and not a physics one.** The design target is
+/// first-person human control of a single hero, and two independently
+/// articulated hands is more than one player can drive: four degrees of freedom
+/// per arm, both live, both mattering. So the off arm stops being driven. The
+/// right arm keeps every degree of freedom it had; this one keeps none.
+///
+/// **The wire format does not move.** [`ArticulatedCommandV1`] still carries
+/// both arms, `CommandField` still names its Left columns, the payload is still
+/// 51 bytes inside 55 of framing, and the ABI is where it was. What changed is
+/// what the script chooses to put in the left slot, which makes this reversible
+/// by editing one function -- and the slot has to keep existing anyway, because
+/// a two-handed grip mirrors the right arm into it.
+///
+/// **Body frame, so `bearing` is the yaw this command asks for.** The same rule
+/// [`tucked`] follows and for a stronger version of the same reason: a pose
+/// anchored to a world bearing would swing across the chest every time the body
+/// turned, which is exactly the motion the player is being relieved of. Against
+/// the commanded yaw the hand is rigid to the torso and phase 10's eighth-turn
+/// takes it around with the shoulders.
+///
+/// **The bearing is the body's own facing, and that choice is the shield's.**
+/// `World::derive_shield_pose` takes the plate's `centre` from the holding
+/// arm's hand and its `normal` from `self.body_yaw[i].angle`, with nothing
+/// tying the two together -- position follows the arm, facing follows the
+/// torso. An arm reaching sideways therefore leaves the plate edge-on to the
+/// attack its position implies it covers, and the defect is not hypothetical:
+/// over the composed corpus's 2.86M shield samples the angle between the plate
+/// normal and the hand's offset from the body origin ran the entire 0..180
+/// degree range, median 32, 1.84% of ticks at 90 degrees or worse. A static off
+/// hand only dissolves that if the pose it holds *agrees* with body yaw, which
+/// is why this bearing is not free: at `bearing == body_yaw` the hand sits at a
+/// fixed forward reach plus the shoulder's fixed lateral half-width, so the
+/// angle collapses to `atan(1/4 / (3/4 * 3/4))` -- 23.96 degrees for a Fighter,
+/// a constant, and never edge-on.
+///
+/// **Effort one half either way, chosen to hold station without leaning on a
+/// limit.** `integrate_arm` scales acceleration by effort, so a zero-effort arm
+/// cannot return to a pose contact took it out of -- the same mechanism the
+/// plan blames for phases 5 and 6's cap hits, and the reason a static hand is
+/// not simply [`tucked`] with a different reach. A half is enough authority to
+/// recover and little enough that a converged arm is `idle_at_entry` on every
+/// tick, shedding fatigue rather than billing work for standing still.
+///
+/// **Reach is the one column that reads the hand, and it is a correction.** The
+/// first version of this override put three quarters in both cases. That is
+/// right for a hand carrying a plate -- reach lives in `[ARM_MIN_REACH_RAW, 1]`,
+/// so three quarters is clear of both ends, a shoved hand is chased back rather
+/// than clamped, and full extension would be a joint limit and a straight arm
+/// rather than a guard -- and it is wrong for an empty one, because an empty
+/// hand is not carrying anything to the place it is being held out to.
+///
+/// What it *is* carrying is the arm. `geometry::body_region_volumes` builds an
+/// arm region as the capsule from the yaw-rotated shoulder to the hand, so
+/// reach is that capsule's length, and on this roster
+/// `integrity_maxima` gives an arm region the same maximum as the torso.
+/// Extending an empty off hand from a quarter to three quarters therefore does
+/// not park a guard in front of anything; it grows a torso-grade interceptor
+/// out of the shoulder and into the line. On a Brute at MID the capsule goes
+/// 35,604 raw to 53,096 -- **1.49x**, half an arm length, pinned exactly by
+/// `an_empty_off_hand_does_not_lengthen_the_arm_it_hangs_from`.
+///
+/// **The corpus does not care much, and that is worth writing down rather than
+/// hiding.** Holding effort at a half and moving only this reach, the composed
+/// corpus's 800 trials give the Brute 0.9424 mean end health at a quarter and
+/// 0.9410 at three quarters -- nothing -- while facts at or above 65,536 raw go
+/// 101 to 123 here, 264 to 209 on the windmill and 185 to 165 on the closing
+/// control: 1.5, 2.5 and 1.1 Poisson sigma, disagreeing in sign. The plan once
+/// read the Brute's recovery off this reach; the configuration that removes the
+/// reach and keeps the effort recovers it anyway, so the credit belongs to the
+/// effort column above. **The reach is chosen on the model and not on the
+/// corpus**, which is the honest statement and the only one the numbers
+/// support.
+///
+/// So an empty hand rests at a quarter, which is `ARM_MIN_REACH_RAW` exactly
+/// and is where [`tucked`] and `actuator::tucked_arm` both already put an arm
+/// nothing is asking anything of. **A quarter is a resting reach and not a
+/// pose choice**: the number is the joint's own floor, so the collider is as
+/// short as this anatomy can make it and no smaller number is available to
+/// argue about.
+fn off_hand(body_yaw: Angle, holding: bool) -> ArmTarget {
+    ArmTarget {
+        bearing: body_yaw,
+        height: CombatHeight::MID,
+        reach: if holding { THREE_QUARTERS } else { QUARTER },
+        effort: Fx::HALF,
     }
 }
 
@@ -220,12 +365,21 @@ fn bearing_to(obs: &ArticulatedObservation) -> Angle {
 ///
 /// That resolution turned out to decide the whole corpus.
 /// `apply_articulated_movement` decays a body to a standstill in about
-/// fourteen ticks when `move_dir` is zero, an equipment collider's velocity is
+/// fourteen ticks when `move_dir` is zero, an equipment collider's velocity was
 /// `body_velocity + arm.linear_velocity`, and the arm term alone -- 546 raw
 /// per tick for a Fighter, 389 for a Brute, after `stat_factor` -- cannot
 /// reach `CONTACT_ENERGY_FLOOR`. So a planted attack is provably incapable of
 /// billing a single raw unit of damage, and 800/800 trials reaching the tick
 /// limit measured that and not the physics.
+///
+/// **The velocity in that arithmetic changed under it** (v2-17 checkpoint B,
+/// 2026-08-10): a held segment's collider is now sampled at the blade's centre
+/// of mass, so its velocity carries `balance * swing` on top of the hand term.
+/// The conclusion is unaffected and the paragraph is left standing because the
+/// *reason* is what matters here -- a planted attack still gives up the body
+/// term, which is the larger of the two, and the extra term is the arm's own
+/// motion rescaled rather than a new source of closure. What it is no longer
+/// safe to quote is the formula.
 ///
 /// The same reference's fixture DSL defines `BT(h,m)` as "Brute
 /// **Attack**(F), move `m`" and passes `m = (-1,0)` in several rows, so
@@ -315,6 +469,12 @@ pub fn scripted_articulated_command_with(
         // strange thing for a swordsman to do and is what the table says twice
         // over: the standing rule in "Script semantics", and the `FC` fixture
         // command, whose left arm is literally `Z(0)`.
+        //
+        // Superseded 2026-08-10 and left standing because it is still what the
+        // reference says: the off-arm override reaches these two phases like
+        // every other, so a Fighter now carries its shield through the cut. The
+        // strange thing the table asked for is no longer done, and it was the
+        // table asking.
         3 => Phase {
             move_dir: attack_feet,
             body_yaw: toward,
@@ -355,7 +515,13 @@ pub fn scripted_articulated_command_with(
             guard: Some(guard(Fx::HALF, Fx::HALF)),
             weapon: Some(rest),
         },
-        // 6: guard one height up, hard. The phase that makes the shield move.
+        // 6: guard one height up, hard. The phase that made the shield move --
+        // and, since 2026-08-10, the phase that moves a Brute's club and
+        // nothing else. A Fighter's guard clause lands on the off arm and is
+        // overwritten, so the one phase written to step a shield between two
+        // heights is now inert on the only body that carries one. That is the
+        // cost of the override, stated where somebody looking for the missing
+        // motion will find it.
         6 => Phase {
             move_dir: Vec2::ZERO,
             body_yaw: toward,
@@ -403,6 +569,14 @@ pub fn scripted_articulated_command_with(
         // divergence between `body_yaw` and the guard bearing is the point of
         // the phase -- it is what moves a shield normal without moving a body,
         // which is exactly what the `turn-shield` fixture asserts.
+        //
+        // The divergence survives 2026-08-10's override and the *shield's* half
+        // of it does not. [`off_hand`] rides `phase.body_yaw`, so a Fighter's
+        // plate now turns with the shoulders instead of staying on the line --
+        // which is the whole point of a body-frame pose and is why the shield
+        // normal and the shield's own position no longer come apart here. The
+        // `turn-shield` fixture is unaffected: it drives its own commands from
+        // the reference's DSL and never calls this script.
         10 => Phase {
             move_dir: Vec2::ZERO,
             body_yaw: toward + EIGHTH_TURN,
@@ -450,6 +624,25 @@ pub fn scripted_articulated_command_with(
     if let Some(target) = weapon {
         arms[roles.weapon] = target;
     }
+    // And the off arm last, unconditionally, overwriting whatever the table
+    // just said about it. Written as an override rather than as a condition
+    // threaded through the twelve phases above so that the phase table stays a
+    // transcription of the reference and the whole of the departure from it is
+    // one line -- which is also what makes it one line to undo.
+    //
+    // **The arm that is not the weapon arm**, read off [`ArmRoles`] rather than
+    // hardcoded to index 0. On the shipped roster those are the same thing: a
+    // Fighter's off arm is its left shield hand, a Brute's is its empty left.
+    // They part company on a body that has lost its right arm, where the script
+    // moves the weapon to the left -- and there the stump is what should be
+    // holding still, not the one live hand.
+    //
+    // The one thing the pose reads is whether that hand holds anything, which
+    // is a published observation column and not a scenario fact -- so it
+    // answers a severed stump and a dropped shield the same way it answers a
+    // Brute, without this side of the seam knowing what any of them are.
+    let off = 1 - roles.weapon;
+    arms[off] = off_hand(phase.body_yaw, obs.arms[off].equipment.is_some());
 
     ArticulatedCommandV1 {
         move_dir: phase.move_dir,
@@ -502,8 +695,14 @@ pub fn windmill_articulated_command(obs: &ArticulatedObservation) -> Articulated
         ),
     };
 
+    // The same off-hand override the composed script applies, so that the two
+    // corpora still differ only in what the *weapon* arm does with its thirty
+    // ticks. A windmill that kept a swinging shield while the script parked one
+    // would be a comparison of two changes.
     let mut arms = [tucked(toward); 2];
     arms[roles.weapon] = weapon;
+    let off = 1 - roles.weapon;
+    arms[off] = off_hand(toward, obs.arms[off].equipment.is_some());
 
     ArticulatedCommandV1 {
         move_dir: heading(toward, APPROACH_SPEED),
@@ -676,7 +875,14 @@ mod tests {
             obs
         });
         assert_ne!(cutting.arms[0], tucked(cutting.body_yaw));
-        assert_eq!(cutting.arms[1], tucked(cutting.body_yaw));
+        // The stump, and therefore the off arm, so it holds the static pose
+        // rather than the tuck. Reading `off_hand` and not `tucked` here is the
+        // one place the override's use of [`ArmRoles::weapon`] rather than a
+        // hardcoded index is observable -- and `holding` is false, because a
+        // severed arm holds nothing, so a stump is frozen at the resting reach
+        // rather than held out at a guard's.
+        assert_eq!(cutting.arms[1], off_hand(cutting.body_yaw, false));
+        assert_eq!(cutting.arms[1].reach, QUARTER);
 
         // Losing the shield arm instead leaves the ordinary answer: no shield to
         // guard with, so the sword arm does both jobs, exactly as a Brute does.
@@ -710,6 +916,33 @@ mod tests {
         let half = Fx::HALF;
         let one = Fx::ONE;
         let zero = Fx::ZERO;
+        // The off arm's two poses, spelled out here rather than called for, on
+        // the same principle as everything else in this table: a transcription
+        // that reached for the helper would agree with any mistake in it. The
+        // turned copies exist because phase 10 is the one row whose commanded
+        // yaw is not `east`, and a body-frame pose has to go with it.
+        //
+        // A Fighter's off hand carries the shield and holds a guard; a Brute's
+        // is empty and rests where an arm nothing is driving hangs. Both are
+        // twelve identical rows, which is what "static" means -- the tables
+        // below differ from each other in this column and neither differs from
+        // itself.
+        let held = arm(east, mid, THREE_QUARTERS, half);
+        let held_turned = arm(east + EIGHTH_TURN, mid, THREE_QUARTERS, half);
+        let empty = arm(east, mid, QUARTER, half);
+        let empty_turned = arm(east + EIGHTH_TURN, mid, QUARTER, half);
+        assert_eq!(held, off_hand(east, true));
+        assert_eq!(held_turned, off_hand(east + EIGHTH_TURN, true));
+        assert_eq!(empty, off_hand(east, false));
+        assert_eq!(empty_turned, off_hand(east + EIGHTH_TURN, false));
+        // The empty pose is the tuck's reach at the static hand's effort, and
+        // that reach is the joint's own floor. Both halves are load-bearing:
+        // the first is what keeps an idle arm's collider the length the
+        // reference table always gave it, the second is what says no shorter
+        // resting reach was available to choose.
+        assert_eq!(empty.reach, tuck.reach);
+        assert_eq!(empty.reach, Fx::from_raw(sim::ARM_MIN_REACH_RAW));
+        assert_ne!(empty.effort, tuck.effort);
 
         // The three feet. Written as exact vectors and not as "it moved",
         // because a direction is half of what the table states and the half that
@@ -723,43 +956,73 @@ mod tests {
         let planted = Vec2::ZERO;
 
         // (phase, move, yaw, attacks, left arm, right arm)
-        let table: [(u32, Vec2, Angle, bool, ArmTarget, ArmTarget); 12] = [
-            (0, advance, east, false, arm(east, low, half, half), tuck),
-            (1, advance, east, false, arm(east, low, half, half), tuck),
-            (2, planted, east, false, arm(east, low, half, THREE_QUARTERS), tuck),
-            (3, planted, east, true, tuck, arm(east - EIGHTH_TURN, mid, THREE_QUARTERS, one)),
-            (4, planted, east, true, tuck, arm(east + EIGHTH_TURN, mid, one, one)),
+        //
+        // **Two transcriptions and not one, since the off arm stopped moving.**
+        // A Fighter's guard clause lands on its shield arm and is overwritten,
+        // so the left column below is twelve copies of one pose and the guard
+        // rows of the reference table are unobservable on this body. They land
+        // on the club of a Brute, whose guard arm *is* its weapon arm -- so the
+        // second table is where phases 0, 1, 2, 6, 9, 10 and 11 are actually
+        // checked against the reference, and the first is where the attack rows
+        // and the tuck rule are.
+        let fighter: [(u32, Vec2, Angle, bool, ArmTarget, ArmTarget); 12] = [
+            (0, advance, east, false, held, tuck),
+            (1, advance, east, false, held, tuck),
+            (2, planted, east, false, held, tuck),
+            (3, planted, east, true, held, arm(east - EIGHTH_TURN, mid, THREE_QUARTERS, one)),
+            (4, planted, east, true, held, arm(east + EIGHTH_TURN, mid, one, one)),
             // The one place the rest and the tuck coincide, because this phase
             // of this cycle is at MID and the tuck is always at MID. They part
             // company next cycle; `a_brute_resting_stands_its_club_down...`
             // pins the rest where the two are distinguishable.
-            (5, planted, east, false, arm(east, mid, half, half), arm(east, mid, QUARTER, zero)),
-            // Guard one step *past* HIGH, which wraps to LOW.
-            (6, planted, east, false, arm(east, low, THREE_QUARTERS, one), tuck),
-            (7, planted, east, true, tuck, arm(east, high, QUARTER, one)),
-            (8, planted, east, true, tuck, arm(east, high, one, one)),
-            (9, retreat, east, false, arm(east, low, half, zero), tuck),
-            (10, planted, east + EIGHTH_TURN, false, arm(east, low, half, half),
+            (5, planted, east, false, held, arm(east, mid, QUARTER, zero)),
+            (6, planted, east, false, held, tuck),
+            (7, planted, east, true, held, arm(east, high, QUARTER, one)),
+            (8, planted, east, true, held, arm(east, high, one, one)),
+            (9, retreat, east, false, held, tuck),
+            (10, planted, east + EIGHTH_TURN, false, held_turned,
                  arm(east + EIGHTH_TURN, mid, QUARTER, zero)),
-            (11, planted, east, false, arm(east, low, QUARTER, zero), tuck),
+            (11, planted, east, false, held, tuck),
+        ];
+        let brute: [(u32, Vec2, Angle, bool, ArmTarget, ArmTarget); 12] = [
+            (0, advance, east, false, empty, arm(east, low, half, half)),
+            (1, advance, east, false, empty, arm(east, low, half, half)),
+            (2, planted, east, false, empty, arm(east, low, half, THREE_QUARTERS)),
+            (3, planted, east, true, empty, arm(east - EIGHTH_TURN, mid, THREE_QUARTERS, one)),
+            (4, planted, east, true, empty, arm(east + EIGHTH_TURN, mid, one, one)),
+            // Phase 5's collision: the weapon clause is written below the guard
+            // clause and therefore wins, so the club rests rather than guarding.
+            (5, planted, east, false, empty, arm(east, mid, QUARTER, zero)),
+            // Guard one step *past* HIGH, which wraps to LOW.
+            (6, planted, east, false, empty, arm(east, low, THREE_QUARTERS, one)),
+            (7, planted, east, true, empty, arm(east, high, QUARTER, one)),
+            (8, planted, east, true, empty, arm(east, high, one, one)),
+            (9, retreat, east, false, empty, arm(east, low, half, zero)),
+            // The guard stays on the line while the shoulders turn off it, so
+            // this is the one row whose two arms disagree about the yaw.
+            (10, planted, east + EIGHTH_TURN, false, empty_turned, arm(east, low, half, half)),
+            (11, planted, east, false, empty, arm(east, low, QUARTER, zero)),
         ];
 
-        for (phase, move_dir, yaw, attacks, left, right) in table {
-            // The first tick of the phase and the last, so a boundary off by one
-            // shows up as two failures rather than none.
-            for tick in [phase * PHASE_TICKS, phase * PHASE_TICKS + PHASE_TICKS - 1] {
-                let command = scripted_articulated_command(&fighter_facing(tick));
-                let at = format!("phase {phase} tick {tick}");
-                assert_eq!(command.body_yaw, yaw, "{at}: yaw");
-                assert_eq!(command.arms[0], left, "{at}: left arm");
-                assert_eq!(command.arms[1], right, "{at}: right arm");
-                assert_eq!(command.grips, [GripRequest::Keep; 2], "{at}: grips");
-                assert_eq!(
-                    command.intent,
-                    if attacks { Intent::Attack(EntityId::new(1, 0)) } else { Intent::Hold },
-                    "{at}: intent"
-                );
-                assert_eq!(command.move_dir, move_dir, "{at}: feet");
+        for (body, table) in [("fighter", fighter), ("brute", brute)] {
+            for (phase, move_dir, yaw, attacks, left, right) in table {
+                // The first tick of the phase and the last, so a boundary off by
+                // one shows up as two failures rather than none.
+                for tick in [phase * PHASE_TICKS, phase * PHASE_TICKS + PHASE_TICKS - 1] {
+                    let obs = if body == "fighter" { fighter_facing(tick) } else { brute_facing(tick) };
+                    let command = scripted_articulated_command(&obs);
+                    let at = format!("{body} phase {phase} tick {tick}");
+                    assert_eq!(command.body_yaw, yaw, "{at}: yaw");
+                    assert_eq!(command.arms[0], left, "{at}: left arm");
+                    assert_eq!(command.arms[1], right, "{at}: right arm");
+                    assert_eq!(command.grips, [GripRequest::Keep; 2], "{at}: grips");
+                    assert_eq!(
+                        command.intent,
+                        if attacks { Intent::Attack(EntityId::new(1, 0)) } else { Intent::Hold },
+                        "{at}: intent"
+                    );
+                    assert_eq!(command.move_dir, move_dir, "{at}: feet");
+                }
             }
         }
     }
@@ -783,9 +1046,17 @@ mod tests {
                 let tick = cycle * CYCLE_TICKS + phase * PHASE_TICKS;
                 let command = scripted_articulated_command(&fighter_facing(tick));
                 let tuck = tucked(command.body_yaw);
-                if matches!(phase, 3 | 4 | 7 | 8) {
-                    assert_eq!(command.arms[0], tuck, "tick {tick}: the shield arm mid-attack");
-                }
+                // The shield arm mid-attack was the sharpest case of the rule
+                // and is no longer a case of it at all: the off-arm override
+                // reaches every phase, so on a Fighter the tuck now only ever
+                // appears on the weapon arm. Asserted rather than dropped,
+                // because "the off arm is never the tuck" is the property that
+                // says the override actually runs last.
+                assert_eq!(
+                    command.arms[0],
+                    off_hand(command.body_yaw, true),
+                    "tick {tick}: the off arm"
+                );
                 if !matches!(phase, 3 | 4 | 5 | 7 | 8) {
                     assert_eq!(command.arms[1], tuck, "tick {tick}: the weapon arm");
                 }
@@ -815,46 +1086,126 @@ mod tests {
                 let command = scripted_articulated_command(&brute_facing(tick));
                 assert_eq!(
                     command.arms[0],
-                    tucked(command.body_yaw),
+                    off_hand(command.body_yaw, false),
                     "tick {tick}: a Brute has nothing in its left hand to name"
+                );
+                // And "nothing to name" is the whole of why it rests where it
+                // does. The empty pose and the shield's differ in exactly one
+                // column, so a Brute reading the Fighter's would carry an
+                // arm-length capsule it has no reason to carry.
+                assert_ne!(
+                    command.arms[0],
+                    off_hand(command.body_yaw, true),
+                    "tick {tick}: an empty hand held a guard's reach"
                 );
             }
         }
     }
 
     #[test]
+    fn an_empty_off_hand_does_not_lengthen_the_arm_it_hangs_from() {
+        // **The mechanism the conditional reach exists for, measured rather
+        // than argued.** `geometry::body_region_volumes` builds an arm region
+        // as the capsule from the yaw-rotated shoulder to the hand, so the off
+        // hand's reach *is* that capsule's length -- and on this roster
+        // `integrity_maxima` gives an arm region the same maximum as the torso.
+        // An empty hand held out at a guard's reach is therefore not a guard;
+        // it is a torso-grade interceptor grown into the line, which is what
+        // the corpus caught and what this pins.
+        //
+        // Both runs are the same script on the same fixture and the same seed,
+        // differing in one commanded column. Read off the *observation* rather
+        // than the anatomy, because the perception blur cancels in
+        // `upper - lower` -- both endpoints carry the same measured origin --
+        // so the length is exact even though the position it sits at is not.
+        let brute_left_arm = |holding: bool| {
+            let scenario = Scenario::articulated_duel();
+            let mut world = World::new(&scenario, 0);
+            let mut due: Vec<EntityId> = Vec::new();
+            // Sixty ticks: long enough for a reach chase to cover the whole
+            // quarter-to-three-quarters travel and settle, and short enough
+            // that the two bodies are still closing a 10.8-unit gap, so no
+            // contact has written a hand and the number is the pose's alone.
+            for _ in 0..60 {
+                due.clear();
+                due.extend_from_slice(world.pending_decisions());
+                for &id in &due {
+                    let obs = world.observe_articulated(id);
+                    let mut command = scripted_articulated_command(&obs);
+                    if obs.arms[0].equipment.is_none() {
+                        command.arms[0] = off_hand(command.body_yaw, holding);
+                    }
+                    let _ = world.submit_articulated_v1(id, command);
+                }
+                let _ = world.step();
+            }
+            let obs = world.observe_articulated(EntityId::new(0, 0));
+            let brute = *obs.opponents().first().expect("the fixture spawns two bodies");
+            let region = brute.regions[sim::BodyPart::LeftArm as usize];
+            (region.upper - region.lower).length()
+        };
+
+        // A Brute stands two units tall with a 1.5-unit shoulder and a
+        // 0.85-unit arm, and the static pose is at MID -- half of standing
+        // height -- so the capsule drops half a unit and reaches
+        // `0.85 * reach` forward. Spelled as raw fixed point because that is
+        // what the assertion compares and because a decimal would round.
+        let resting = brute_left_arm(false);
+        let extended = brute_left_arm(true);
+        assert_eq!(resting, Fx::from_raw(35_604), "the empty hand's capsule");
+        assert_eq!(extended, Fx::from_raw(53_096), "a guard's reach on the same hand");
+        // Half an arm length of extra capsule, which is the whole finding: the
+        // collider is 1.49x longer for nothing carried.
+        assert!(extended - resting > Fx::from_ratio(1, 4));
+    }
+
+    #[test]
     fn the_guard_height_walks_low_mid_high_every_ninety_ticks() {
-        // Read off whichever arm the phase at that tick names, avoiding phase 6
-        // -- the one phase that deliberately names the *next* height instead.
-        for (tick, arm_index, height) in [
-            (0u32, 0usize, CombatHeight::LOW),
-            (60, 0, CombatHeight::LOW),
-            (90, 1, CombatHeight::MID),
-            (150, 0, CombatHeight::MID),
-            (210, 1, CombatHeight::HIGH),
-            (269, 1, CombatHeight::HIGH),
-            (270, 0, CombatHeight::LOW),
-            (330, 0, CombatHeight::LOW),
+        // **Read off a Brute for the guard phases and a Fighter for the attack
+        // phases**, because since the off arm stopped moving those are the only
+        // two places the clock is observable. A Fighter's guard clause lands on
+        // the overwritten arm, so only its weapon phases -- 3, 4, 5, 7 and 8 --
+        // report a selected height at all; a Brute guards with the arm it
+        // strikes with, so every phase of that body reports one.
+        for (tick, height) in [
+            (0u32, CombatHeight::LOW),
+            (60, CombatHeight::LOW),
+            (150, CombatHeight::MID),
+            (270, CombatHeight::LOW),
+            (330, CombatHeight::LOW),
+        ] {
+            let command = scripted_articulated_command(&brute_facing(tick));
+            assert_eq!(command.arms[1].height, height, "brute tick {tick}");
+        }
+        for (tick, height) in [
+            (90u32, CombatHeight::MID),
+            (210, CombatHeight::HIGH),
+            (269, CombatHeight::HIGH),
         ] {
             let command = scripted_articulated_command(&fighter_facing(tick));
-            assert_eq!(command.arms[arm_index].height, height, "tick {tick}");
+            assert_eq!(command.arms[1].height, height, "fighter tick {tick}");
         }
         // Phase 6 is the exception and the reason the clock is worth having:
         // the guard steps one height past the selected one, which is what makes
-        // a shield move between two commands rather than sitting where it was.
-        // At tick 180 the selection is HIGH, so the guard wraps to LOW.
-        let stepped = scripted_articulated_command(&fighter_facing(6 * PHASE_TICKS));
-        assert_eq!(stepped.arms[0].height, CombatHeight::LOW);
+        // a guarding arm move between two commands rather than sitting where it
+        // was. At tick 180 the selection is HIGH, so the guard wraps to LOW.
+        // Read on the Brute for the reason above -- this phase was written to
+        // step a Fighter's shield and no longer reaches it.
+        let stepped = scripted_articulated_command(&brute_facing(6 * PHASE_TICKS));
+        assert_eq!(stepped.arms[1].height, CombatHeight::LOW);
         // Every ordinary height the script emits is one of the three raw
         // constants -- the intermediate 24,576 belongs to the Dev control and
-        // never to this script.
+        // never to this script. Both bodies, because the off arm's MID is a
+        // fourth source of heights and has to be one of the three too.
         for tick in 0..CYCLE_TICKS * 3 {
-            for target in scripted_articulated_command(&fighter_facing(tick)).arms {
-                assert!(
-                    HEIGHTS.contains(&target.height),
-                    "tick {tick} emitted height raw {}",
-                    target.height.raw()
-                );
+            for obs in [fighter_facing(tick), brute_facing(tick)] {
+                for target in scripted_articulated_command(&obs).arms {
+                    assert!(
+                        HEIGHTS.contains(&target.height),
+                        "tick {tick} emitted height raw {}",
+                        target.height.raw()
+                    );
+                }
             }
         }
     }
@@ -945,7 +1296,14 @@ mod tests {
             let command = windmill_articulated_command(&obs);
             assert_eq!(command.arms[1].reach, Fx::ONE, "tick {tick}");
             assert_eq!(command.arms[1].effort, Fx::ONE, "tick {tick}");
-            assert_eq!(command.arms[0], tucked(command.body_yaw), "tick {tick}");
+            // The control's off arm is the script's off arm, which is what
+            // keeps the two corpora a comparison of one thing.
+            assert_eq!(command.arms[0], off_hand(command.body_yaw, true), "tick {tick}");
+            // And the control reads the hand for the same reason the script
+            // does: a windmill whose empty off arm stayed out while the
+            // script's tucked would be a comparison of two changes.
+            let brute = windmill_articulated_command(&brute_facing(tick));
+            assert_eq!(brute.arms[0], off_hand(brute.body_yaw, false), "brute tick {tick}");
             assert_eq!(command.intent, Intent::Attack(EntityId::new(1, 0)), "tick {tick}");
             assert!(command.move_dir.x > Fx::ZERO, "tick {tick}: the windmill backed off");
         }

@@ -4703,6 +4703,15 @@ impl World {
     /// both halves of the identity `hand = tick-entry hand + relative velocity`
     /// are the contract's own -- an arm's velocity *is* its hand's displacement
     /// over the tick, which is also what the commit writes back.
+    ///
+    /// **The identity is the hand's, so the row's own sample point has to come
+    /// off first and go back on afterwards.** A held segment's velocity is
+    /// sampled at the blade's centre of mass, which is not where the joint
+    /// lives: handed that number directly this would derive a hand the arm
+    /// never reached, clamp it against the wrong limit, and answer with a
+    /// velocity that is neither. `velocity_offset` is exactly the difference,
+    /// fixed for the tick, so subtracting it recovers the hand this map is
+    /// entitled to ask about and the round trip below is unchanged.
     fn joint_clamped_velocity(
         &self,
         row: GeneralizedCollider,
@@ -4720,7 +4729,8 @@ impl World {
             .ok_or(ResolutionError::ColliderIndex)?;
         let yaw = self.body_yaw[i].angle;
         let entry_hand = entry.arms[limb].hand;
-        let trial = entry_hand + (requested - body_velocity);
+        let offset = row.velocity_offset;
+        let trial = entry_hand + ((requested - offset) - body_velocity);
         let (bearing, height, reach) =
             actuator::inverse_hand(anatomy, yaw, limb, trial, self.arms[i][limb].bearing);
         let reachable = actuator::hand_position(anatomy, yaw, limb, bearing, height, reach);
@@ -4728,7 +4738,7 @@ impl World {
         // and a hand hauled from one side of the body to the other inside one
         // tick is a displacement the envelope still has to survive. Nothing in
         // spec reaches it -- this is the same tripwire the entry clamp is.
-        Ok(clamp_contact_velocity(body_velocity + (reachable - entry_hand)))
+        Ok(clamp_contact_velocity(body_velocity + (reachable - entry_hand) + offset))
     }
 
     /// Write the solved tick back onto the world's own columns.
@@ -5039,6 +5049,7 @@ impl World {
             rows.push(ContactCollider {
                 entity, faction, slot: BODY_SLOT, mass: self.mass[i],
                 surface: anatomy.surface, velocity: body_velocity, present: true,
+                velocity_offset: Vec3::ZERO,
                 shape: ContactShape::Body {
                     previous_origin, requested_origin,
                     parts: core::array::from_fn(|part| RegionSweep {
@@ -5065,10 +5076,43 @@ impl World {
             );
             for segment in segments.into_iter().flatten() {
                 let owner = segment.owner as usize;
+                let hand_velocity = body_velocity + self.arms[i][owner].linear_velocity;
+                // **Sampled at the blade's centre of mass, not in the hand.**
+                // `closure_energy` reads collider *rows* and never contact
+                // points, so this is the only place a swing's speed can reach
+                // the energy budget at all -- the per-point prototype gave
+                // every fact its own velocity, moved the budget by nothing, and
+                // is written up in `v2-17-scripted-mechanical-gate.md`.
+                //
+                // `balance` and not a hardcoded half: `rules::grip_limit`
+                // already calls it "the weapon's centre of mass" and levers the
+                // legacy swing on it, it is already validated as a fraction and
+                // already in `Scenario::fingerprint`, so using it here makes
+                // the articulated model agree with the definition this
+                // repository had already written down, for no new bytes.
+                //
+                // The *differential* of the two endpoints, never the tip's own
+                // swept displacement. Both endpoints carry the body, so the
+                // subtraction cancels it by construction; taking the tip alone
+                // would quietly swap this row's unclipped `World::vel` for the
+                // wall-clipped locomotion the sweep is built from, which is a
+                // second change wearing this one's clothes.
+                let balance = equipment(segment.equipment)
+                    .expect("one immutable equipment spec").balance;
+                let swing = (segment.requested.tip - segment.previous.tip)
+                    - (segment.requested.hilt - segment.previous.hilt);
+                // Clamped here so that `velocity - velocity_offset` is exactly
+                // the hand velocity the entry clamp already made legal, and so
+                // that the row enters the solve inside the envelope the way
+                // every other row does. Nothing in the roster comes near it --
+                // the offset is a hundredth of a unit against a limit of 2.309
+                // -- and the alpha-zero identity depends on the row being a
+                // clamp output rather than on that measurement.
+                let sampled = clamp_contact_velocity(hand_velocity + swing * balance);
                 rows.push(ContactCollider {
                     entity, faction, slot: segment.owner as u8, mass: segment.mass,
                     surface: segment.surface, present: true,
-                    velocity: body_velocity + self.arms[i][owner].linear_velocity,
+                    velocity: sampled, velocity_offset: sampled - hand_velocity,
                     shape: ContactShape::Segment {
                         previous_hilt: segment.previous.hilt,
                         previous_tip: segment.previous.tip,
@@ -5085,10 +5129,25 @@ impl World {
             );
             if let Some(shield) = shield {
                 let owner = shield.owner as usize;
+                // **The shield keeps the hand and takes no offset**, and that
+                // is a statement about its geometry rather than an omission.
+                // `derive_shield_pose` puts `ShieldPose.centre` *at the hand*,
+                // so the face's centre of mass and its hand coincide up to a
+                // rigid body-frame offset -- and a point-mass model carries no
+                // angular state for that offset to move through. There is
+                // nothing here for a centre-of-mass sample to be different
+                // from.
+                //
+                // `shield().balance` is 7/20 and is **not** geometric:
+                // `EquipmentGeometry::Shield` has no `length` for it to be a
+                // fraction of, and the only thing that reads it is
+                // `actuator::held_inertia`. Applying it here would multiply a
+                // velocity by a number that means nothing in this direction.
                 rows.push(ContactCollider {
                     entity, faction, slot: shield.owner as u8, mass: shield.mass,
                     surface: shield.surface, present: true,
                     velocity: body_velocity + self.arms[i][owner].linear_velocity,
+                    velocity_offset: Vec3::ZERO,
                     shape: ContactShape::Shield {
                         previous: shield.previous.corners,
                         requested: shield.requested.corners,
@@ -7800,6 +7859,108 @@ mod tests {
     }
 
     #[test]
+    fn a_held_blade_is_sampled_at_its_centre_of_mass_and_not_in_the_hand() {
+        // The mechanics change, stated against the two things it is *not*. It
+        // is not the hand -- which is what every row carried before, and what
+        // makes a swing invisible to `closure_energy`, since that function
+        // reads rows and never contact points. And it is not the tip: the
+        // fraction is `EquipmentSpec::balance`, the same number
+        // `rules::grip_limit` levers the legacy swing on and already calls the
+        // weapon's centre of mass, so a tip-heavy sword and a hilt-heavy one
+        // are not the same weapon here either.
+        let mut world = clinch_world();
+        step_into_contact(&mut world);
+        let contact = world.contact.take().expect("articulated contact state");
+        let mut colliders = Vec::new();
+        let wounds = world.wounds.clone();
+        world.build_contact_colliders(&contact.entry, &mut colliders, &wounds);
+
+        let mut blades = 0;
+        for row in &colliders {
+            let i = world.resolve(row.entity).expect("a live collider row");
+            let ContactShape::Segment { previous_hilt, previous_tip,
+                                        requested_hilt, requested_tip, .. } = row.shape else {
+                // A body and a shield are sampled where they always were, and
+                // the shield's is geometry rather than an omission:
+                // `derive_shield_pose` puts its centre at the hand.
+                assert_eq!(row.velocity_offset, Vec3::ZERO,
+                           "a row that is not a held segment grew a sample offset");
+                continue;
+            };
+            let limb = row.slot as usize;
+            let hand = Vec3::new(world.vel[i].x, world.vel[i].y, Fx::ZERO)
+                + world.arms[i][limb].linear_velocity;
+            let item = world.equipment_in_grip(i, limb).expect("a held item");
+            let swing = (requested_tip - previous_tip) - (requested_hilt - previous_hilt);
+            assert_ne!(swing, Vec3::ZERO, "the fixture's blade is not swinging");
+
+            assert_eq!(row.velocity, hand + swing * item.balance,
+                       "the blade is not sampled at `balance` along its own swing");
+            assert_ne!(row.velocity, hand, "the blade is still sampled in the hand");
+            assert_ne!(row.velocity, hand + swing, "the blade is sampled at its tip");
+            // The identity the joint round trip depends on, checked here rather
+            // than trusted there: what is left after the offset comes off is
+            // exactly the hand velocity the entry clamp made legal.
+            assert_eq!(row.velocity - row.velocity_offset, hand);
+            blades += 1;
+        }
+        assert!(blades > 0, "the fixture built no segment row to sample");
+    }
+
+    #[test]
+    fn a_joint_round_trip_asks_about_the_hand_and_not_about_the_blade() {
+        // The one hard part of moving the sample point.
+        // `joint_clamped_velocity` maps a velocity out to a hand, through the
+        // shoulder, and back -- on the assumption that the velocity it was
+        // handed *is* the hand's. A centre-of-mass velocity handed to it
+        // straight derives a hand the arm never had, clamps it against the
+        // wrong limit, and answers with a velocity that is neither: the same
+        // class of defect as the projector drift that refused 188,654 ticks,
+        // arriving through the same three lines.
+        //
+        // So the proof is an equivalence rather than a value. The row's answer
+        // must be the answer the *hand* would have got, with the offset put
+        // back on -- which says both that the joint saw the right hand and that
+        // the offset survived the trip intact.
+        let mut world = clinch_world();
+        step_into_contact(&mut world);
+        let contact = world.contact.take().expect("articulated contact state");
+        let mut colliders = Vec::new();
+        let wounds = world.wounds.clone();
+        world.build_contact_colliders(&contact.entry, &mut colliders, &wounds);
+
+        let row = colliders.iter().find(|row| {
+            matches!(row.shape, ContactShape::Segment { .. }) && row.velocity_offset != Vec3::ZERO
+        }).copied().expect("no held blade with a sample offset");
+        let i = world.resolve(row.entity).expect("a live collider row");
+        let body = Vec3::new(world.vel[i].x, world.vel[i].y, Fx::ZERO);
+        let held = GeneralizedCollider {
+            entity: row.entity, slot: row.slot, kind: GeneralizedKind::Equipment,
+            mass: row.mass, velocity: row.velocity, velocity_offset: row.velocity_offset,
+        };
+        // An impulse big enough to move the hand and far too small to reach the
+        // component clamp, which would otherwise make the equivalence below a
+        // statement about `clamp` rather than about the joint.
+        let kick = Vec3::new(Fx::from_ratio(1, 64), Fx::from_ratio(-1, 128), Fx::ZERO);
+        let requested = row.velocity + kick;
+
+        let sampled = world.joint_clamped_velocity(held, &contact.entry, body, requested)
+            .expect("a projectable row");
+        let bare = GeneralizedCollider { velocity_offset: Vec3::ZERO, ..held };
+        let hand = world.joint_clamped_velocity(
+            bare, &contact.entry, body, requested - row.velocity_offset,
+        ).expect("a projectable row");
+        assert_eq!(sampled, hand + row.velocity_offset,
+                   "the joint was asked about the blade rather than about the hand");
+        // Non-vacuous: subtracting the offset really does change which hand the
+        // map is asked about, so the two calls above are not the same call.
+        let unsubtracted = world.joint_clamped_velocity(bare, &contact.entry, body, requested)
+            .expect("a projectable row");
+        assert_ne!(unsubtracted, hand,
+                   "the offset stopped moving the derived hand; this proof is vacuous");
+    }
+
+    #[test]
     fn a_zero_alpha_trial_answers_with_the_rows_it_was_handed() {
         // The invariant `resolve_group_into` refuses a projector for breaking,
         // proved against the projector that broke it. Alpha zero applies no
@@ -7826,10 +7987,17 @@ mod tests {
             entity: row.entity, slot: row.slot,
             kind: if matches!(row.shape, ContactShape::Body { .. }) { GeneralizedKind::Body }
                   else { GeneralizedKind::Equipment },
-            mass: row.mass, velocity: row.velocity,
+            mass: row.mass, velocity: row.velocity, velocity_offset: row.velocity_offset,
         }).collect();
         let held = rows.iter().find(|row| row.kind == GeneralizedKind::Equipment)
             .copied().expect("the fixture built no equipment row to project");
+        // The second premise, and it is new: this row's velocity is sampled at
+        // its blade's centre of mass, so the identity below is being asked of a
+        // number that is *not* the hand's. A fixture whose blade happened to be
+        // still would answer the same either way and prove only the old rule.
+        assert_ne!(held.velocity_offset, Vec3::ZERO,
+                   "the fixture's blade stopped swinging; alpha zero is no longer \
+                    being asked about a centre-of-mass sample");
 
         // The premise, written down so the proof below cannot go quietly
         // vacuous: the round trip really does move a hand the actuator itself
@@ -7909,12 +8077,20 @@ mod tests {
             // The solver's answer, and then the world it was committed onto.
             // Settlement is the only step between them that may remove energy,
             // and the contract requires that it never add any.
+            // Both sides are read at the *hand*, which is the whole of what
+            // settlement can touch: `commit_contact_row` zeroes a wall-clipped
+            // component of `body + arm.linear_velocity`, and a held segment's
+            // centre-of-mass offset is a property of the swing that the wall
+            // moves rigidly and cannot add to. Comparing the sampled velocities
+            // instead would fold a constant into both sides and let a sign
+            // between the two report an increase the wall never made.
             let solved = |contact: &ContactRuntime| -> Vec<GeneralizedCollider> {
                 contact.colliders.iter().map(|row| GeneralizedCollider {
                     entity: row.entity, slot: row.slot,
                     kind: if matches!(row.shape, ContactShape::Body { .. }) { GeneralizedKind::Body }
                           else { GeneralizedKind::Equipment },
-                    mass: row.mass, velocity: row.velocity,
+                    mass: row.mass, velocity: row.velocity - row.velocity_offset,
+                    velocity_offset: Vec3::ZERO,
                 }).collect()
             };
             let before = solved(contact);

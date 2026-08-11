@@ -132,6 +132,47 @@ equipment collider uses this one generalized velocity. A body uses
 `(World::vel.x,World::vel.y,0)`. This deliberate point-mass model has no angular
 velocity or hidden rigid-body state.
 
+**Corrected for a held segment by v2-17 checkpoint B (2026-08-10), and the
+paragraph above is left standing because it is still the whole of the model for
+a body and for a shield.** A held `Segment`'s one generalized velocity is
+sampled at the blade's **centre of mass** rather than in the hand:
+
+```text
+hand     = (World::vel.x,World::vel.y,0) + ArmState::linear_velocity
+swing    = (requested.tip - previous.tip) - (requested.hilt - previous.hilt)
+velocity = clamp(hand + swing * EquipmentSpec::balance)
+velocity_offset = velocity - hand
+```
+
+It is still one velocity for every point on the collider and still carries no
+angular state; what moved is *where on the blade* that one velocity is measured.
+Three things about the form are load-bearing. `balance` is the spec's own
+fraction — `rules::grip_limit` already levers the legacy swing on it and calls
+it the weapon's centre of mass — so this costs no new scenario bytes and no new
+validation. The bracketed **differential** cancels the body term by
+construction; the tip's absolute swept displacement would substitute the
+wall-clipped locomotion the sweep is built from for the unclipped `World::vel`
+the row carries, which is a second change wearing this one's clothes. And the
+row records `velocity_offset` beside the velocity, because `velocity - offset`
+is the hand — the only thing an arm joint can be asked about — and the trial
+round trip below has to take it off on the way in and put it back on the way
+out.
+
+A shield takes no offset and that is geometry rather than an omission:
+`ShieldPose.centre` is the hand, so the face's centre of mass and its hand
+coincide up to a rigid body-frame offset this model carries no state for.
+`EquipmentSpec::balance` is 7/20 for the shipped shield and is **not** geometric
+— `EquipmentGeometry::Shield` has no `length` for it to be a fraction of, and
+`combat::actuator::held_inertia` is the only reader.
+
+**Why this is where the energy scale lives**, since the obvious alternative was
+measured and rejected: `closure_energy` sums over collider *rows* and never sees
+a contact point, so giving each fact its own point velocity makes the fact more
+honest and moves the budget by nothing — it enlarges the proposed impulse, the
+bounded alpha search clamps harder, and dissipation *falls*. The prototype and
+its numbers are in
+[`v2-17-scripted-mechanical-gate.md`](../plans/v2-17-scripted-mechanical-gate.md).
+
 A held `EquipmentGeometry::Segment` becomes a horizontal capsule segment. Its hilt
 is the absolute owning hand and its tip is
 `hilt + (cos(arm.bearing),sin(arm.bearing),0)*length`; its radius is the immutable
@@ -509,11 +550,20 @@ private and passing it would put a pose parameter into a signature whose whole s
 is velocity. It costs nothing, because `hand = tick-entry hand + relative velocity` is
 this contract's own identity in both directions: an arm's generalized velocity *is* its
 hand's displacement over the tick, which is exactly what the commit writes back. So a
-trial reads `entry_hand + (trial_equipment_velocity - trial_body_velocity)`, maps it
-through `inverse_hand`/`hand_position`, and reports
-`trial_body_velocity + (reachable_hand - entry_hand)`. With a zero accumulator that
-round-trips to the pose the actuator left, which is why an unchanged row must be
-recognised as unchanged rather than re-derived — see the commit rule below.
+trial reads `entry_hand + ((trial_equipment_velocity - velocity_offset) -
+trial_body_velocity)`, maps it through `inverse_hand`/`hand_position`, and reports
+`trial_body_velocity + (reachable_hand - entry_hand) + velocity_offset`. With a zero
+accumulator that round-trips to the pose the actuator left, which is why an unchanged
+row must be recognised as unchanged rather than re-derived — see the commit rule below.
+
+**The offset is what keeps that identity true of a centre-of-mass sample.** It is the
+row's own `velocity - hand` from the collider construction above, fixed for the whole
+tick: `translate_requested` moves hilt and tip by the same delta, which cancels in the
+differential it was built from, and a per-tick velocity is not rescaled by the advance.
+Subtracting it recovers the hand the joint is entitled to be asked about; leaving it in
+would derive a hand the arm never had, clamp it against the wrong limit, and answer
+with a velocity that is neither — the same class of defect as the drift that refused
+188,654 ticks, arriving through the same three lines.
 
 **That rule binds the trial and not only the commit, and reading it as the commit's
 alone cost 6.5% of the fight.** A trial whose equipment velocity is exactly its
@@ -680,7 +730,11 @@ tick is refused instead. The unchanged-row rule above is what makes it hold, and
 holds by construction rather than by measurement: at alpha zero every accumulator
 scales to exactly zero, the body's componentwise clamp is inert on a body the entry
 clamp has already clamped, so every equipment row's trial velocity equals its
-pre-group velocity and no row is mapped.
+pre-group velocity and no row is mapped. That last step needs every equipment row to
+be *inside* the clamp before the group as well, or the trial's own clamp would move a
+row the group did not: the entry clamp guarantees it for the hand, and the collider
+construction above clamps the centre-of-mass sample once for the same reason, so every
+row enters as a clamp output and the clamp is idempotent.
 
 ## Injury channels
 
