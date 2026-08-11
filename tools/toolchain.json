@@ -7,6 +7,7 @@
     "Cargo.lock",
     "crates/fx/Cargo.toml",
     "crates/lab/Cargo.toml",
+    "crates/learn/Cargo.toml",
     "crates/policy/Cargo.toml",
     "crates/sim/Cargo.toml",
     "crates/web/Cargo.toml",

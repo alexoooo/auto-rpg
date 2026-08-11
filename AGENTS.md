@@ -17,6 +17,7 @@ Three documents, three jobs, and they do not repeat each other:
 crates/fx       deterministic math: 16.16 fixed point, vectors, angles, PCG32
 crates/sim      the game: world, tick, observations, actions, replay
 crates/policy   agent policies (utility, duelist) + the run harness
+crates/learn    the learning probe: compact features, a small MLP, checkpoints
 crates/lab      headless experiment CLI
 crates/web      the browser boundary: a hand-rolled wasm ABI, no wasm-bindgen
 web/            the legacy Canvas page, the v2 diagnostic entry, the fight viewer
@@ -25,10 +26,20 @@ tools/          sine table generator, dev server, the wasm/native equality check
 docs/plans/     working plans, one file per landable session
 ```
 
-Dependency direction is strictly `fx <- sim <- policy <- {lab, web}`. `sim` depends
-on `fx` **and nothing else** — no engine, no window, no threads, no clock, no I/O.
-If you find yourself wanting to add one, the answer is a new crate that reads
-snapshots.
+Dependency direction is strictly `fx <- sim <- policy <- {learn, lab, web}`. `sim`
+depends on `fx` **and nothing else** — no engine, no window, no threads, no clock,
+no I/O. If you find yourself wanting to add one, the answer is a new crate that
+reads snapshots.
+
+`learn` is the one crate that may use floating point, because v2-19 says so and
+because nothing it computes reaches authoritative state: what leaves it is an
+`ArticulatedCommandV1` assembled from a fixed table of `Fx` constants, chosen by an
+argmax. It must stay unreachable from `web` — it uses `std::thread::scope` and does
+not compile to `wasm32-unknown-unknown` — and it carries no crates.io dependency,
+which `tools/check_deps.js` audits alongside the deterministic core. **Nothing
+depends on it yet**: v2-19's `lab learn-probe` subcommand has not landed, so `learn`
+is a workspace member reachable only from `cargo test -p learn`. `lab` is where the
+edge goes when it does.
 
 Sizes worth knowing before you go looking: `crates/sim/src/world.rs` (~7.2k lines),
 `crates/web/src/lib.rs` (~7.4k) and `web/main.js` (~11k) are the three big files.

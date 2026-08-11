@@ -16,6 +16,9 @@ flowchart BT
     sim["sim<br/>authoritative world, rules, observations, replay"] --> fx
     policy["policy<br/>decision implementations and run harness"] --> sim
     policy --> fx
+    learn["learn<br/>native probe: features, model, checkpoints"] --> policy
+    learn --> sim
+    learn --> fx
     lab["lab<br/>native experiment host"] --> policy
     lab --> sim
     lab --> fx
@@ -24,9 +27,11 @@ flowchart BT
     web --> fx
 ```
 
-The shorthand dependency direction is `fx <- sim <- policy <- {lab, web}`;
-the diagram also shows the direct utility edges from `policy`, `lab`, and `web`
-that the manifests declare.
+The shorthand dependency direction is `fx <- sim <- policy <- {learn, lab, web}`;
+the diagram also shows the direct utility edges from `policy`, `learn`, `lab`, and
+`web` that the manifests declare. `learn` is native-only and must stay unreachable
+from `web`: it uses `std::thread::scope` and does not build for
+`wasm32-unknown-unknown`.
 
 ## Authority by layer
 
@@ -39,6 +44,12 @@ that the manifests declare.
 - [`policy`](../../crates/policy/src/lib.rs) owns decision strategies and the
   headless run loop. A policy sees an `Observation`, not a `World`, and returns
   a `Command`; it does not become authoritative simulation state.
+- [`learn`](../../crates/learn/src/lib.rs) owns the v2-19 probe: a versioned
+  compact feature slice, a two-layer network, an append-only discrete action
+  table, a frozen checkpoint format, and the population optimizer that fills one.
+  It is the only crate permitted floating point, and it is permitted it because
+  nothing it computes becomes authoritative state -- what leaves it is an
+  `ArticulatedCommandV1` assembled from fixed `Fx` constants by an argmax.
 - [`lab`](../../crates/lab/src/main.rs) owns native experiments, verification,
   benchmarks, duels, and evolution. It is a host of the lower crates.
 - [`web`](../../crates/web/src/lib.rs) owns the hand-written wasm ABI and the
