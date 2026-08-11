@@ -1030,3 +1030,44 @@ reason and no other; the ledger above expects the number to move.
 The recorder hangs off `measure_articulated`'s own loop rather than a second copy of it,
 and `a_traced_run_is_the_run_the_gate_measured` pins the traced trial against the untraced
 one, state digest included.
+
+##### The first thing the viewer got wrong was the finding it was built to draw
+
+An adversarial review the same day, briefed to refute the fidelity claim rather than
+summarise the change, found that the energy panel plotted `EnergyLedger::before_raw`
+against `CONTACT_ENERGY_FLOOR`. Those are not comparable quantities and not the same
+order of magnitude. `before_raw` is `closure_energy` over **every collider in a
+time-of-impact group**, bodies' own translational energy included, built once per group at
+`resolution.rs:267` and copied into each of that group's rows at `:282`. The floor is
+deducted at `:357` from `share` — one row's slice of `dissipated`, recoverable exactly as
+`cut + thrust + pressure`, because `channels()` returns `(cut, thrust, share - cut - thrust)`.
+
+On seed 3, over 2167 contacts:
+
+| plotted against the floor | contacts that clear it |
+|---|---|
+| the group ledger, as first drawn | **578** |
+| the per-contact share, correctly | **8** |
+
+The largest ring the page could draw went to tick 3273, five rows sharing `before = 7076`
+— 49x the floor — that dissipated nothing and paid nothing. The hardest blow in the whole
+fight, tick 736, drew a smaller one. **The panel argued against the finding it exists to
+show, and it did so in exactly the direction that would have flattered the physics.**
+Fixed by plotting the share, renaming the ledger fields `groupBefore`/`groupAfter`/
+`groupDissipated` so the group semantics are in the name, and bumping the trace schema.
+
+Three other findings from the same review are fixed in the same commit. The plan view was
+a mirror: it drew `y` down, matching the legacy Canvas page, while `actuator::shoulder`
+places `LimbSlot::LeftArm` at the `+90` degree side — anatomical left only under a
+right-handed `y`-up frame. Every reader would have taken the Fighter's shield for its
+right hand. The readout labelled `World::health_fraction`, a **faction** aggregate, as a
+body's health; it now says so and prints the per-region integrity the pose already carries.
+The tip-speed band is world-space while `IMPACT_THRESHOLD` is tested body-relative — about
+6% of the crossings on seed 3 are the feet — which is now disclosed on the panel rather
+than fixed, because the bar is a legacy-model bar in the first place.
+
+What the review could **not** break, checked numerically rather than by reading: no body
+origin is added twice or dropped (`|regions[arm].upper - arms[limb].hand| = 0` raw across
+all 3601 frames), `shieldCorners` reproduces `shield_face`'s fixed-point arithmetic to
+within 2.6 raw, no constant is off by 65,536, the presence flags match the contact phase's
+own construction, and frame N carries tick N's contacts and tick N's health.

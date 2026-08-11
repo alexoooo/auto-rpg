@@ -12,7 +12,7 @@
 // raw units to pixels.
 
 import type { Contact, Frame, Pose, Trace, V3 } from "./trace.js";
-import { at, add, scale, shieldCorners } from "./trace.js";
+import { at, add, scale, share, shieldCorners } from "./trace.js";
 
 export type ViewKind = "plan" | "elevation";
 
@@ -56,7 +56,19 @@ export function contactColour(kind: number): string {
 }
 
 /**
- * Top down, `x` to the right and `y` down, centred on a point with a fixed span.
+ * A true bird's eye: `x` to the right and **`y` up**, centred with a fixed span.
+ *
+ * **The y flip is load-bearing and it disagrees with the legacy Canvas page on
+ * purpose.** `web/main.js` draws the world through a bare `ctx.translate`, so
+ * `+y` runs down its screen; a diagnostic that copied that would be a mirror of
+ * the world the simulation describes. `actuator::shoulder` puts
+ * `LimbSlot::LeftArm` at `(-sin yaw, cos yaw) * half_width` -- the +90 degree
+ * side, which is a body's anatomical left only under a right-handed frame with
+ * `y` up. Drawn `y` down, a Fighter facing screen-right holds its shield below
+ * itself, every reader takes that for the right hand, and every swing's sense of
+ * rotation is backwards. That is a page that cannot be used to judge a guard.
+ * The elevation beside it is right-handed already, so this also stops the two
+ * panels disagreeing about which way the world turns.
  *
  * Fixed rather than fitted to the frame: a camera that reframed itself around
  * whatever the bodies were doing would change the scale under a measurement, and
@@ -70,7 +82,7 @@ export function planCamera(
     kind: "plan",
     width,
     height,
-    point: (v) => [width / 2 + (v[0] - centre[0]) * s, height / 2 + (v[1] - centre[1]) * s],
+    point: (v) => [width / 2 + (v[0] - centre[0]) * s, height / 2 - (v[1] - centre[1]) * s],
     px: (raw) => raw * s,
     // Higher z is nearer the eye looking down.
     depth: (v) => -v[2],
@@ -175,10 +187,12 @@ function drawChrome(ctx: CanvasRenderingContext2D, cam: Camera, trace: Trace): v
         ctx.lineTo(width, y);
         ctx.stroke();
       }
+      // Negative height because the plan runs `y` up: the arena's far corner is
+      // at a smaller screen `y` than its origin.
       ctx.strokeStyle = "#31415a";
       ctx.strokeRect(
         cam.point([0, 0, 0])[0], cam.point([0, 0, 0])[1],
-        cam.px(trace.arena[0]), cam.px(trace.arena[1]),
+        cam.px(trace.arena[0]), -cam.px(trace.arena[1]),
       );
     } else {
       for (let z = 0; z <= 3 * ONE; z += ONE) {
@@ -298,9 +312,13 @@ function drawContact(
 ): void {
   const p = cam.point(contact.point);
   const colour = contactColour(contact.kind);
-  // Size by energy against the floor the resolver charges every fact, so a
-  // contact that could never have paid for a wound reads as the pinprick it is.
-  const over = contact.before / Math.max(1, trace.contactEnergyFloor);
+  // Size by the share this fact was allocated against the floor deducted from
+  // exactly that share, so a contact that could never have paid for a wound
+  // reads as the pinprick it is. Sized by the group ledger instead -- as it was
+  // until 2026-08-10 -- the largest ring the function can draw went to a group
+  // that dissipated nothing at all, and 23 such rings out-drew every wounding
+  // contact in the fight.
+  const over = share(contact) / Math.max(1, trace.contactEnergyFloor);
   const radius = 4 + Math.min(16, Math.log2(1 + over) * 3);
   ctx.save();
   ctx.strokeStyle = colour;

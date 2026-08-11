@@ -12,7 +12,7 @@
 // energy above the floor", "did this tip move at all" -- on the integers the
 // simulation actually decided them on.
 
-export const TRACE_SCHEMA = "arpg-fight-trace-1";
+export const TRACE_SCHEMA = "arpg-fight-trace-2";
 
 export type V3 = readonly [number, number, number];
 /** `[index, generation]`, as `EntityId` is spelled on the Rust side. */
@@ -87,14 +87,36 @@ export interface Contact {
   readonly toi: number;
   readonly group: number;
   readonly alpha: number;
-  readonly before: number;
-  readonly after: number;
-  readonly dissipated: number;
+  /** Per **group**, not per contact: `closure_energy` over every collider in
+   *  the time-of-impact group, bodies' own translational energy included, and
+   *  copied unchanged into every row of that group. Never compare it to
+   *  `contactEnergyFloor` -- use {@link share}. */
+  readonly groupBefore: number;
+  readonly groupAfter: number;
+  readonly groupDissipated: number;
   readonly cut: number;
   readonly thrust: number;
   readonly pressure: number;
   readonly deflected: number;
   readonly severed: boolean;
+}
+
+/**
+ * The energy this one contact was allocated out of its group's dissipation.
+ *
+ * **The only quantity `CONTACT_ENERGY_FLOOR` is charged against.** `channels()`
+ * deducts the floor from this share and splits what is left between cut and
+ * thrust, returning `(cut, thrust, share - cut - thrust)` -- so the three
+ * published channels sum back to it exactly. Zero for weapon-weapon and
+ * weapon-shield rows, which have no wound channel and pay no floor.
+ */
+export function share(contact: Contact): number {
+  return contact.cut + contact.thrust + contact.pressure;
+}
+
+/** How fast the two colliders were closing at the fact, raw units per tick. */
+export function closureSpeed(contact: Contact): number {
+  return length(sub(contact.velocityA, contact.velocityB));
 }
 
 export interface Frame {

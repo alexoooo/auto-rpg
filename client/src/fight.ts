@@ -15,7 +15,8 @@
 
 import { buildSeries, drawChart, frameAt } from "./fight/chart.js";
 import {
-  at, length, loadTrace, sub, type Contact, type Frame, type Pose, type Trace, type V3,
+  at, closureSpeed, length, loadTrace, share, sub,
+  type Contact, type Frame, type Pose, type Trace, type V3,
 } from "./fight/trace.js";
 import {
   bodyColours, contactColour, drawScene, elevationCamera, planCamera, type Options,
@@ -85,11 +86,20 @@ function describeContact(trace: Trace, contact: Contact): string {
   const slot = (id: readonly [number, number], value: number): string =>
     `${id[0]}${value === trace.bodySlot ? " body" : `/${value}`}`;
   const wound = contact.cut + contact.thrust;
+  const allocated = share(contact);
   return [
     `<span style="color:${contactColour(contact.kind)}">${kind}</span>`,
     `${slot(contact.a, contact.aSlot)} &rarr; ${slot(contact.b, contact.bSlot)} (${region})`,
-    `energy ${contact.before} &rarr; ${contact.after}`,
+    // The per-fact share and the floor it is charged, side by side, because the
+    // difference between them is the whole question this page was opened to ask.
+    // The group ledger is printed after and named as a group, so nobody reads
+    // its much larger number as this contact's.
+    `closing ${units(closureSpeed(contact))}`,
+    allocated === 0
+      ? "no wound channel"
+      : `share ${allocated} vs floor ${trace.contactEnergyFloor}`,
     `cut ${contact.cut} thrust ${contact.thrust} pressure ${contact.pressure}`,
+    `<span class="muted">group ${contact.groupBefore} &rarr; ${contact.groupAfter}</span>`,
     wound > 0 ? "<b>wounding</b>" : "",
     contact.severed ? "<b>SEVERED</b>" : "",
   ].filter((part) => part !== "").join(" &middot; ");
@@ -100,7 +110,12 @@ function describeBody(trace: Trace, frame: Frame, index: number): string {
   const info = trace.bodies[index];
   if (pose === undefined || info === undefined) return "";
   const colour = bodyColours(index);
-  const health = index === 0 ? frame.health[0] : frame.health[1];
+  // `World::health_fraction` is a **faction** aggregate -- every slot of that
+  // faction over that faction's total maxima. On this fixture there is one body
+  // a side so it reads as a per-body number, and on any fixture with two it
+  // would not. Labelled as what it is, with this body's own published integrity
+  // and wound rows underneath, which are per body and per region.
+  const faction = index === 0 ? frame.health[0] : frame.health[1];
 
   const arms = pose.arms.map((arm, limb) => {
     const hint = trace.hintNames[at(pose.hints, limb)] ?? "?";
@@ -130,15 +145,26 @@ function describeBody(trace: Trace, frame: Frame, index: number): string {
     .filter((_, part) => (pose.severed & (1 << part)) !== 0)
     .join(", ");
 
+  // Per region and per body, unlike the faction fraction above. A region reads
+  // `intact` only when it has lost neither structure nor blood to an open wound.
+  const regions = trace.regionNames.map((name, part) => {
+    const integrity = pose.integrity[part] ?? 0;
+    const open = pose.wound[part] ?? 0;
+    if (integrity >= ONE && open === 0) return "";
+    return `${name} ${units(integrity, 2)}${open === 0 ? "" : ` (wound ${units(open, 2)})`}`;
+  }).filter((part) => part !== "");
+
   return [
     `<b style="color:${colour.edge}">${escapeHtml(info.kind)}</b> `
       + `<span class="muted">${escapeHtml(info.faction)}, slot ${index}</span>`,
-    `  health ${units(health)}  blood ${units(pose.blood, 2)}  shock ${units(pose.shock, 2)}`
+    `  faction health ${units(faction)}  blood ${units(pose.blood, 2)}`
+      + `  shock ${units(pose.shock, 2)}`
       + `  intent ${pose.intent}${pose.target === null ? "" : ` ${pose.target[0]}`}`,
     `  at ${units(pose.body[0], 2)}, ${units(pose.body[1], 2)}`
       + `  yaw ${((pose.yaw / ONE) * 360).toFixed(0)}deg`
       + `  speed ${units(length(pose.vel))}`,
     ...arms,
+    regions.length === 0 ? "  every region intact" : `  ${regions.join("  ")}`,
     severed === "" ? "" : `  <b>severed: ${severed}</b>`,
   ].filter((line) => line !== "").join("\n");
 }

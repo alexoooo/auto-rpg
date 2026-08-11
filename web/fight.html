@@ -47,7 +47,9 @@
     <div class="views">
       <figure>
         <canvas id="plan" width="900" height="620"></canvas>
-        <figcaption>Plan &mdash; x right, y down. One grid square is one world unit.</figcaption>
+        <figcaption>Plan &mdash; a bird's eye: x right, <b>y up</b>, so a body's left hand
+          is on the side the simulation calls left. The legacy Canvas page draws y the
+          other way. One grid square is one world unit.</figcaption>
       </figure>
       <figure>
         <canvas id="elevation" width="900" height="620"></canvas>
@@ -58,8 +60,12 @@
     <figure>
       <canvas id="chart" width="1800" height="220"></canvas>
       <figcaption>Click to scrub. Upper band: blade tip travel per tick against
-        <code>IMPACT_THRESHOLD</code>. Lower band: closure energy per contact against
-        <code>CONTACT_ENERGY_FLOOR</code>. Both lines are read out of the Rust that owns them.</figcaption>
+        <code>IMPACT_THRESHOLD</code> &mdash; world-space, so a walking fighter's feet count,
+        and the bar itself is the legacy model's. Lower band: the energy allocated to each
+        tick's loudest contact against <code>CONTACT_ENERGY_FLOOR</code>, which is deducted
+        from exactly that allocation &mdash; <em>not</em> the group's kinetic-energy ledger,
+        which the floor is never charged against. Both lines are read out of the Rust that
+        owns them.</figcaption>
     </figure>
 
     <div class="controls">

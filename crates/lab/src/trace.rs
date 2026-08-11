@@ -35,7 +35,7 @@ use std::fmt::Write as _;
 /// Bumped when a field changes meaning, never when one is added: the page
 /// refuses a file whose schema it does not know, which is the difference between
 /// "the viewer is out of date" and "the viewer is drawing the wrong thing".
-pub const TRACE_SCHEMA: &str = "arpg-fight-trace-1";
+pub const TRACE_SCHEMA: &str = "arpg-fight-trace-2";
 
 /// Raw units in one world unit, carried in the file rather than assumed by the
 /// reader. `Fx::ONE.raw()` is not public API to a page.
@@ -68,6 +68,9 @@ pub struct FightTrace {
     /// construction so a per-tick binary search does not sit inside the loop
     /// that the gate's own measurement shares.
     anatomy: Vec<BodyAnatomySpec>,
+    /// `(kind, faction)` per unit, so the slot assumption below is checked
+    /// rather than believed.
+    identity: Vec<(sim::Body, sim::Faction)>,
     frames: String,
     recorded: u32,
     limit: u32,
@@ -87,7 +90,8 @@ impl FightTrace {
             let row = unit.articulated.expect("an articulated unit carries a spec row");
             table.anatomy(row.anatomy).expect("a validated anatomy reference").clone()
         }).collect();
-        FightTrace { anatomy, frames: String::new(), recorded: 0, limit }
+        let identity = scenario.units.iter().map(|unit| (unit.kind, unit.faction)).collect();
+        FightTrace { anatomy, identity, frames: String::new(), recorded: 0, limit }
     }
 
     /// One frame: every published pose, every resolution row the tick produced,
@@ -114,8 +118,22 @@ impl FightTrace {
             if n > 0 {
                 out.push(',');
             }
-            let anatomy = self.anatomy.get(pose.id.index as usize)
+            // A world slot indexes the unit that spawned into it, which is true
+            // because `World::try_new` spawns `scenario.units` in order and this
+            // fixture never respawns -- and is an assumption about spawn order
+            // rather than a documented contract, so it is checked. A trace that
+            // hung the Brute's anatomy off the Fighter would draw two bodies
+            // that were both plausible and both wrong.
+            let slot = pose.id.index as usize;
+            let anatomy = self.anatomy.get(slot)
                 .expect("a pose slot indexes the unit that spawned into it");
+            if let (Some(&(kind, faction)), Some(view)) =
+                (self.identity.get(slot), world.view(pose.id))
+            {
+                assert!(view.kind == kind && view.faction == faction,
+                    "slot {slot} holds a {:?} of {:?}, not the {kind:?} of {faction:?} that \
+                     scenario.units[{slot}] describes", view.kind, view.faction);
+            }
             // Presence per region, from the one authority on it. A severed arm
             // has no capsule to draw and is not a zero-radius point.
             let present: [bool; AnatomyRegion::COUNT] =
@@ -238,9 +256,27 @@ impl FightTrace {
             vec3(out, row.impulse.on_a);
             out.push_str(",\"impulseB\":");
             vec3(out, row.impulse.on_b);
+            // **The ledger is named `group` because it is one.**
+            // `resolve_group_into` builds a single `EnergyLedger` per time-of-
+            // impact group and copies it into every row of that group
+            // (`resolution.rs:267` and `:282`), so five facts in one group carry
+            // five copies of one number -- and that number is
+            // `closure_energy` over every collider in the group, bodies' own
+            // translational energy included. It is not what any one contact
+            // brought and it is not what the floor is charged against. A reader
+            // that plotted it against `CONTACT_ENERGY_FLOOR` would be comparing
+            // a group's whole kinetic energy to a per-fact deduction, and on
+            // this corpus that reads 578 contacts over the floor where the
+            // honest count is 9.
+            //
+            // The per-fact quantity is `share`, the row's slice of
+            // `dissipated`, and it is recoverable exactly:
+            // `channels()` returns `(cut, thrust, share - cut - thrust)`, so
+            // `cut + thrust + pressure == share` for every weapon-body row. For
+            // the other two kinds no channel exists and no floor is charged.
             let _ = write!(out,
                 ",\"toi\":{},\"group\":{},\"alpha\":{},\
-                 \"before\":{},\"after\":{},\"dissipated\":{},\
+                 \"groupBefore\":{},\"groupAfter\":{},\"groupDissipated\":{},\
                  \"cut\":{},\"thrust\":{},\"pressure\":{},\"deflected\":{},\"severed\":{}}}",
                 row.fact.toi.get().raw(), row.group_ordinal, row.group_alpha_raw,
                 row.energy.before_raw, row.energy.after_raw, row.energy.dissipated_raw,
