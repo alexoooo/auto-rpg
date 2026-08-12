@@ -117,6 +117,20 @@ export class ActorPresentation {
     return node;
   }
 
+  /**
+   * World `(x, y)` to Babylon `(x, z)`, height to `y`, yaw negated.
+   *
+   * **This is not the only world-to-scene mapping in the client, and the other
+   * one is its mirror.** `client/src/arena/geometry.ts`'s `scenePoint` maps world
+   * `(x, y, height)` to `(x, height, -y)` and does *not* negate yaw, because its
+   * 2D authority `fight/view.ts` draws `+y` up the screen while this page's,
+   * `web/main.js`, draws `+y` down; the two conventions differ by a reflection,
+   * so the two renderers must too. Neither is wrong and neither may be copied
+   * into the other's page. A cylinder has no chirality, which is why nothing
+   * here ever exposed the difference and why the arena, whose bodies carry a
+   * shield in one named hand, did on its first frame. The domains and the
+   * argument are recorded in `docs/architecture/browser-runtime.md`.
+   */
   #pose(node: ActorNode, unit: PresentationUnit): void {
     const diameter = Math.max(0.01, unit.radius * 2);
     node.mesh.position.set(unit.x, unit.radius, unit.y);

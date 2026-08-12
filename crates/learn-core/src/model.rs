@@ -14,7 +14,7 @@
 //!
 //! [`sim::FEATURE_COUNT`] is 922 and [`sim::Observation::write_features`]
 //! writes all of it. Handing that to a 64-unit network is 60,242 weights, and
-//! the optimizer this crate adapts is a `(mu + lambda)` evolution strategy with
+//! the optimizer in `crates/learn` is a `(mu + lambda)` evolution strategy with
 //! no gradient at all -- it moves a population of twenty-odd points around by
 //! Gaussian perturbation, and 60,000 dimensions is not a space twenty points
 //! explore. The existing genome optimizer sizes its whole world at
@@ -145,8 +145,8 @@ const FEATURE_CLAMP: f32 = 4.0;
 /// Held in world units rather than in feature units so that the divisor above
 /// can change without changing what was remembered.
 ///
-/// **One instance is one body.** [`probe::rollout`] gives each side its own
-/// policy, which is what this assumes; [`policy::run_articulated`] drives one
+/// **One instance is one body.** `learn`'s `probe::rollout` gives each side its
+/// own policy, which is what this assumes; [`policy::run_articulated`] drives one
 /// instance across both, and under that harness the memory of the Fighter's
 /// tick and the Brute's tick interleave, so the rate columns read a difference
 /// between two different bodies' blades. The `tick <= self.tick` guard turns
@@ -155,8 +155,6 @@ const FEATURE_CLAMP: f32 = 4.0;
 /// assert nothing about rates) and wrong anywhere it mattered. If a learned
 /// policy is ever driven through `run_articulated` for a measurement, give it
 /// two instances.
-///
-/// [`probe::rollout`]: crate::probe::rollout
 #[derive(Clone, Copy, PartialEq, Debug, Default)]
 pub struct FeatureMemory {
     primed: bool,
@@ -573,7 +571,12 @@ pub const LEARN_ACTION_LOGITS: usize =
     FOOTWORK_COUNT + WEAPON_HEIGHT_COUNT + WEAPON_BEARING_COUNT + POSTURE_COUNT + GUARD_HEIGHT_COUNT;
 
 /// The three ordinary heights, in the order both height heads index them.
-pub(crate) const HEIGHTS: [CombatHeight; 3] =
+///
+/// Public across the v2-ui-08 split rather than `pub(crate)`: `learn`'s probe
+/// reports which height a checkpoint favoured, and a second copy of a
+/// three-element table is exactly the drift
+/// `the_action_table_is_the_scripts_own_vocabulary` exists to refuse.
+pub const HEIGHTS: [CombatHeight; 3] =
     [CombatHeight::LOW, CombatHeight::MID, CombatHeight::HIGH];
 
 const FOOTWORKS: [Footwork; FOOTWORK_COUNT] = [
@@ -974,9 +977,27 @@ impl Model {
     /// argmax is reproducible on any host and not merely on the one v2-19 asks
     /// about. That is a stronger claim than the plan needs and it is free.
     ///
-    /// It is still only a *claim* about hosts other than this one, because this
-    /// repository has no second host to check it on. What is tested is that the
-    /// same checkpoint and the same observation give the same answer twice, in
+    /// **It was only a *claim* about hosts other than this one until v2-ui-08,
+    /// and it is not any more.** This paragraph used to end "because this
+    /// repository has no second host to check it on", which was true while
+    /// nothing but native `lab` could reach this function. `crates/web` now
+    /// depends on this crate, wasm32 is the second host, and
+    /// [`crate::learned_inference_digest`] holds the two to the same logits
+    /// rather than merely to the same five argmaxes -- an agreeing argmax hides
+    /// a divergence that has not yet crossed a decision boundary, which is
+    /// exactly the divergence worth catching early. The number is
+    /// `LEARNED_INFERENCE_DIGEST`, pinned in `crates/web/src/lib.rs` and again
+    /// in `tools/wasm_check.js`, and the two agreed on the first run.
+    ///
+    /// **The claim is bounded and the bound is real.** It holds for the
+    /// repository's baseline targets, because neither baseline x86-64 nor the
+    /// wasm MVP has an FMA instruction and that is what closes contraction;
+    /// `-C target-cpu=native` on a host that has one re-opens it, and a fused
+    /// multiply-add rounds once where the loop below rounds twice. See
+    /// [`crate::digest`], which carries the caveat with the pin.
+    ///
+    /// What is tested locally is still that the same checkpoint and the same
+    /// observation give the same answer twice, in
     /// `frozen_inference_is_a_function_of_its_inputs`.
     pub fn forward(
         &self,
@@ -1029,7 +1050,11 @@ impl Model {
 /// exactly like learning from the outside. `a_uniform_draw_is_centred_and_bounded`
 /// and `a_gaussian_draw_has_the_moments_it_claims` exist because that is the
 /// class of bug this crate cannot detect from its behaviour.
-pub(crate) fn uniform(rng: &mut Rng) -> f32 {
+///
+/// Public across the v2-ui-08 split rather than `pub(crate)`, because `learn`'s
+/// `probe::gaussian` is twelve of these summed and the whole value of the
+/// paragraph above is that there is one draw in the repository and not two.
+pub fn uniform(rng: &mut Rng) -> f32 {
     (rng.next_u32() >> 8) as f32 / (1u32 << 24) as f32 * 2.0 - 1.0
 }
 

@@ -1,104 +1,77 @@
-//! The learning probe: one small network, its frozen checkpoint, and the
-//! population that trains it.
+//! The learning probe: the population that trains one small network, and the
+//! measurements that say whether it learned anything.
 //!
 //! This crate exists to answer one question -- *does a learned articulated
 //! policy beat the scripted one by enough to justify a larger roadmap* -- and
 //! v2-19 draws the boundary it is allowed to answer it inside. The boundary is
 //! worth restating here, because every design decision below follows from it:
 //!
-//! * It depends on `sim` and `policy`, and the only host that may depend on it
-//!   is native `lab`. Today **nothing does**: v2-19's `lab learn-probe`
-//!   subcommand has not landed, so this crate is reachable from `cargo test -p
-//!   learn` and from nowhere else. What matters either way is the other half --
-//!   nothing in `crates/web` can see it, so no learned weight crosses the wasm
-//!   wall, and `cargo build --target wasm32-unknown-unknown -p web` never
-//!   compiles a line of it.
 //! * **It may use floating point**, which nothing under `crates/fx`,
 //!   `crates/sim` or the deterministic parts of `crates/policy` may. That is
 //!   affordable for exactly one reason: no learned type reaches [`sim::World`],
 //!   [`sim::Scenario`], [`sim::SubmittedCommand`], a replay, or a hash. What
 //!   reaches the world is an [`sim::ArticulatedCommandV1`] built out of a fixed
 //!   table of `Fx` constants, chosen by an argmax. The `f32` stops at the
-//!   argmax.
+//!   argmax. [`learn_core`] carries that argument in full, because it owns the
+//!   types it is about.
 //! * No search, no browser learning host, no rollout workers, no skill catalog,
 //!   no hierarchy, no workbench. Those are what an `expand` decision would
 //!   authorise and this crate is what decides whether there is one.
+//!
+//! # What is here and what moved
+//!
+//! v2-ui-08 split the *inference* half out into [`learn_core`]: the feature
+//! slice, the network, the action table and the checkpoint codec. What stayed
+//! is the trainer -- [`probe`]'s `(mu + lambda)` population, its rollouts, its
+//! scoring corpora and the `std::thread::scope` that drives them.
+//!
+//! **The split is an artifact boundary and not a rename**, and the direction is
+//! the architecture. `learn_core` is `crates/web`'s dependency, so a trained
+//! checkpoint can drive a body in the browser. This crate must not be: a trainer
+//! needs threads, a clock and a filesystem, and a `cdylib` needs none of the
+//! three. **`lab` is still its one host** -- through `lab learn-probe` and `lab
+//! trace --policy learned` -- and everything `learn_core` exports is re-exported
+//! below so that `lab` names one crate rather than two.
+//!
+//! **Nothing in the compiler enforces that**, and the sentence that said
+//! otherwise was wrong. `AGENTS.md` gave the reason as "it does not compile to
+//! `wasm32-unknown-unknown`"; measured on 2026-08-11, `cargo build --target
+//! wasm32-unknown-unknown -p learn` **succeeds** -- `std::thread::scope` and
+//! `std::time::Instant` compile for that target and trap at runtime instead. So
+//! the boundary is the manifests and the test that walks them, and the reason to
+//! keep it is what belongs in a browser artifact rather than what the linker
+//! will let through.
+//!
+//! `AGENTS.md`'s standing instruction, *if a second host for the learning crate
+//! ever appears, check first that it is not `web`*, is discharged by
+//! `docs/plans/v2-ui/v2-ui-08-learned-in-the-browser.md`. The check was made and
+//! the answer is that `web` may see `learn_core` and may not see this crate.
 //!
 //! # The three versioned contracts
 //!
 //! [`LEARN_FEATURE_LAYOUT_VERSION`] is what the network reads,
 //! [`LEARN_ACTION_LAYOUT_VERSION`] is what it may say, and [`ModelShape`] is how
 //! big it is. All three are recorded in a [`Checkpoint`] and all three are
-//! checked on load, because weights without their layouts are not a worse
-//! policy -- they are a policy reading the wrong number out of every slot and
-//! still producing confident answers. See [`crate::checkpoint`].
-//!
-//! # Training types cannot enter authoritative state
-//!
-//! The seam is [`sim::World::submit_articulated_v1`], and the fence is its
-//! signature. Here is the whole path from a network to a body, working:
-//!
-//! ```rust
-//! use learn::{LearnedArticulatedPolicy, Model};
-//! use policy::ArticulatedPolicy;
-//! use sim::{Scenario, World};
-//!
-//! let scenario = Scenario::articulated_duel();
-//! let mut world = World::new(&scenario, 1);
-//! let mut brain = LearnedArticulatedPolicy::new(Model::zeros());
-//!
-//! let id = world.pending_decisions()[0];
-//! let obs = world.observe_articulated(id);
-//! world.submit_articulated_v1(id, brain.decide(&obs));
-//! ```
-//!
-//! And here is the same program handing the world what the *network* actually
-//! produced -- the five head indices, before the action table has turned them
-//! into a command:
-//!
-//! ```compile_fail,E0308
-//! use learn::{LearnedArticulatedPolicy, Model};
-//! use policy::ArticulatedPolicy;
-//! use sim::{Scenario, World};
-//!
-//! let scenario = Scenario::articulated_duel();
-//! let mut world = World::new(&scenario, 1);
-//! let mut brain = LearnedArticulatedPolicy::new(Model::zeros());
-//!
-//! let id = world.pending_decisions()[0];
-//! let obs = world.observe_articulated(id);
-//! world.submit_articulated_v1(id, brain.action(&obs));
-//! ```
-//!
-//! **Read those two as a pair, and the pairing is what makes the fence
-//! honest.** `policy`'s [`ArticulatedPolicy`] doctest records the reason and it
-//! applies here unchanged: rustdoc only *enforces* a `compile_fail` error code
-//! on nightly, and on the stable toolchain this repository pins the code is
-//! parsed and ignored -- so the second block would pass on any compile error at
-//! all, including a typo. What rules out the typo is that the two blocks are the
-//! same program, differing in one method call. Measured on this toolchain the
-//! second emits exactly one error, and it is `E0308: expected
-//! ArticulatedCommandV1, found LearnedActionV1`.
-//!
-//! The value-level half of the same claim is
-//! `training_types_cannot_enter_authoritative_state` in
-//! `crates/learn/tests/boundary.rs`, which drives a learned policy through the
-//! recording harness and reads what was written down.
+//! checked on load. They live in [`learn_core`] with the code they describe; the
+//! trainer writes them into every artifact it produces.
 
 #![forbid(unsafe_code)]
 
-pub mod checkpoint;
-pub mod model;
 pub mod probe;
 
-pub use checkpoint::{
-    hex, sha256, Checkpoint, CheckpointError, Sha256, TrainingRecord, CHECKPOINT_FORMAT_VERSION,
-    CHECKPOINT_MAGIC,
-};
-pub use model::{
-    compose, write_features, FeatureMemory, Footwork, LearnedActionV1, LearnedArticulatedPolicy,
-    Model, ModelShape, Posture, FOOTWORK_COUNT, GUARD_HEIGHT_COUNT, HEAD_OFFSETS, HEAD_WIDTHS,
-    HIDDEN_UNITS, LEARN_ACTION_LAYOUT_VERSION, LEARN_ACTION_LOGITS, LEARN_FEATURE_COUNT,
+// The inference half, re-exported under its old names so that `lab` -- which is
+// this crate's one host -- names one crate rather than two, and so that the
+// split is invisible to every caller that did not need to know about it. Not a
+// facade for its own sake: `probe` genuinely uses all of it, and a host that
+// trains a model and then scores it would otherwise have to depend on both.
+pub use learn_core::{checkpoint, digest, model};
+pub use learn_core::{
+    compose, hex, learned_inference_case, learned_inference_digest, sha256, write_features,
+    Checkpoint, CheckpointError, FeatureMemory, Footwork, LearnedActionV1,
+    LearnedArticulatedPolicy, Model, ModelShape, Posture, Sha256, TrainingRecord,
+    CHECKPOINT_FORMAT_VERSION, CHECKPOINT_MAGIC, FOOTWORK_COUNT, GUARD_HEIGHT_COUNT, HEAD_OFFSETS,
+    HEAD_WIDTHS, HIDDEN_UNITS, LEARNED_INFERENCE_CASES, LEARNED_INFERENCE_DIGEST_DOMAIN,
+    LEARN_ACTION_LAYOUT_VERSION, LEARN_ACTION_LOGITS, LEARN_FEATURE_COUNT,
     LEARN_FEATURE_LAYOUT_VERSION, POSTURE_COUNT, WEAPON_BEARING_COUNT, WEAPON_HEIGHT_COUNT,
 };
 pub use probe::{

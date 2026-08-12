@@ -45,7 +45,8 @@ Current marked contracts are [determinism](reference/determinism.md#contract), t
 [frame compatibility](reference/frame-abi.md#compatibility-rules), the
 [worker messages](reference/worker-protocol.md#messages-and-command-scheduling), the
 [worker lifecycle](reference/worker-protocol.md#lifecycle-and-terminal-state), the
-[snapshot pool](reference/worker-protocol.md#snapshot-layout-and-buffer-ownership), and
+[snapshot pool](reference/worker-protocol.md#snapshot-layout-and-buffer-ownership),
+[the arena recording transfer](reference/worker-protocol.md#the-recording-and-why-it-is-not-the-pooled-buffer), and
 [worker visibility filtering](reference/worker-protocol.md#visibility-filtering), the
 [renderer snapshot-copy boundary](reference/renderer-contract.md#renderer-owned-snapshot-boundary),
 [presentation identity](reference/renderer-contract.md#presentation-identity),

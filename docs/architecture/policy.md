@@ -92,6 +92,70 @@ faction, and `ArticulatedObservation` has no faction column -- "the other side"
 appears only as already-selected `opponents`. Per-side routing belongs to
 whoever drives the run.
 
+## The non-legacy registry, and the one code it cannot build
+
+`ArticulatedPolicyKind` is the non-legacy seam's registry and a sibling of
+`PolicyKind` rather than an extension of it, because the two seams share no code
+space: `2` is `Idle` on one and `windmill` on the other, and a page whose whole
+subject is watching the same fight go differently when a dropdown moves cannot
+afford that collision. Codes are append-only for `PolicyKind`'s reason -- they
+are what a saved configuration or a URL carries. The five are `neutral`,
+`composed`, `windmill`, `attack-moves`, and a fifth naming a frozen network; the
+integers are frozen beside the browser's configuration buffer in the non-legacy
+stream reference.
+
+**`ArticulatedPolicyKind::build` answers `None` for that fifth code,
+permanently.** It is a contract rather than a gap, and it is worth stating
+because v2-ui-08 put a trained network behind `web.wasm` and did not change this:
+the fighter runs in a browser and is still not built from `crates/policy`. Two
+reasons, and the second outlives the first:
+
+- `crates/policy` is audited by `tools/check_deps.js` -- which since a review of
+  v2-ui-08 walks every workspace member rather than a named core -- and must not
+  gain a float dependency. The floating point lives in `crates/learn-core`,
+  which depends on `policy` -- so the arrow already points the wrong way for
+  this function to construct one.
+- A trained fighter is not a kind. It is a kind **plus a checkpoint**, and
+  nothing in a registry keyed by an integer has anywhere to put fifteen
+  kilobytes of weights. A global for one would put a host asset inside a library
+  that has no host.
+
+So the dispatch belongs to whoever holds the checkpoint: `crates/web`'s
+`build_articulated_policy`, which reads the network `load_checkpoint` installed,
+and `crates/lab`'s `--checkpoint` flag natively. An `Option` and not a fallback
+to `Neutral`, because a caller that asked for the evolved network and silently
+got a body standing still would be watching a fight it would reasonably describe
+wrongly.
+
+## Frozen networks are current, and where the float stops
+
+`crates/learn-core` holds a compact 41-feature slice, a 41x64x18 perceptron, a
+five-head action table and a checkpoint codec; `crates/learn` holds the
+population that trains one. Both may use floating point, which nothing under
+`fx`, `sim` or the deterministic parts of `policy` may, and the licence has one
+condition: **nothing they compute reaches authoritative state.** What crosses is
+five head indices from an argmax, assembled by `learn_core::compose` into an
+`ArticulatedCommandV1` out of a fixed table of `Fx` constants.
+`LearnedActionV1` is a separate type for exactly that reason and
+`World::submit_articulated_v1` cannot be handed one.
+
+The dependency arrow is the rest of the architecture. `learn-core` may see `fx`,
+`sim` and `policy`; none of the three may see it, and
+`the_learned_policy_is_unreachable_from_sim` says so by asking **Cargo** for the
+resolved graph. It read the manifests as text until a review of v2-ui-08 got
+three ordinary spellings past it -- no spaces, a trailing slash, and
+`learn.workspace = true` -- which matters because that session's own finding is
+that the compiler never enforced this arrow, leaving the test as the whole of
+it. `crates/web` depends on `learn-core` and must never depend on `crates/learn`,
+which uses `std::thread::scope` and a wall clock and belongs in no `cdylib`.
+
+`LEARNED_INFERENCE_DIGEST` is what keeps the crossing honest between targets:
+`Model::forward` is a rectified linear precisely so that no libm call enters the
+inference path, and until v2-ui-08 that portability argument had no second host
+to be checked on. It is registered in
+[`hashes.md`](../reference/hashes.md#golden-registry) with the
+`-C target-cpu=native` caveat that bounds it.
+
 `policy::run_articulated` is `run`'s sibling, not a branch inside it, because
 `run` is on the path of the pinned lab hashes. Three things differ:
 
@@ -134,21 +198,24 @@ its warning about replay completeness.
 
 > **Proposed by v2 — not current:** This note used to cover the articulated
 > observation and action seam as well. That landed in v2-16 and is described
-> above. What remains proposed is the versioned policy envelope and learned
-> policies. One `lab` experiment now drives an `ArticulatedPolicy` — `lab
-> articulated` runs `ScriptedArticulatedPolicy` over `Scenario::articulated_duel`,
-> landed by v2-17's first checkpoint — but no `PolicyKind` names an articulated
-> policy and no browser path drives one. `run_articulated` still has no caller
-> outside tests, and deliberately: that command needs per-tick contact
-> resolutions, cap hits and energy-ledger columns which `RunResult` does not
-> carry, so it drives its own copy of the decision loop, pinned against the
-> runner by an equivalence test rather than by sharing code.
+> above. It then said that no registry named an articulated policy and no
+> browser path drove one; v2-ui-05 landed `ArticulatedPolicyKind` and the
+> configured duel, and v2-ui-08 landed the learned code behind it, so both
+> sentences are gone and the two sections above replace them. What remains
+> proposed is the **versioned policy envelope**. `run_articulated` still has no
+> caller outside tests, and deliberately: `lab articulated` needs per-tick
+> contact resolutions, cap hits and energy-ledger columns which `RunResult` does
+> not carry, so it drives its own copy of the decision loop, pinned against the
+> runner by an equivalence test rather than by sharing code — and the browser
+> drives a third copy for the reason `Sim::advance` gives, that
+> `run_articulated` installs one policy on both sides and an arena needs two.
 > See the [v2 overview](../plans/v2-00-overview.md).
 
 ## Source anchors
 
-- Trait, team dispatch, and policy registry: [`Policy`](../../crates/policy/src/lib.rs#L82)
-- Non-legacy seam: [`ArticulatedPolicy`](../../crates/policy/src/lib.rs#L178)
+- Trait, team dispatch, and policy registry: [`Policy`](../../crates/policy/src/lib.rs#L94)
+- Non-legacy seam: [`ArticulatedPolicy`](../../crates/policy/src/lib.rs#L190)
+- The non-legacy seam's registry: [`ArticulatedPolicyKind`](../../crates/policy/src/lib.rs#L376)
 - Headless decision loops: [`crates/policy/src/runner.rs`](../../crates/policy/src/runner.rs)
 - Subject-scoped inputs: [`crates/sim/src/obs.rs`](../../crates/sim/src/obs.rs)
 - `Command`, the single `LimbCommand`, `Order`, and `Objective`: [`crates/sim/src/command.rs`](../../crates/sim/src/command.rs)

@@ -183,6 +183,103 @@ Editing any dimension here changes `Scenario::fingerprint`, because the immutabl
 table is part of the fingerprint stream. `articulated-duel-v1` went from
 `0x2a6cc9678c08730d` to `0x068d05fcada1027b` for exactly this edit.
 
+## Runtime construction: `Scenario::duel_from`
+
+`CombatSpecTableV1::fixtures()` is a function that builds a fresh `Vec` on every call.
+It is not a registry, nothing registers into it, and `crates/sim/src/combat/arena.rs`
+is therefore free to build a **second** table beside it without touching what the
+combat spec-table digest and the `articulated-duel-v1` fingerprint measure. That
+freedom is conditional, and the condition is written beside the code as an invariant:
+`fighter_anatomy`, `brute_anatomy`, `sword`, `shield`, `club`, `fixtures`,
+`articulated_duel`, `COMBAT_SPEC_SCHEMA_V1`, `write_anatomy`, `write_equipment`,
+`write_unit`, `write_combat_specs`, `write_surface`, `write_armor`,
+`ScenarioByteSink`, `scenario_v1_fields_into` and `action_definition_bytes` are not
+edited by a session that only wants a new arrangement.
+
+`Scenario::duel_from(&DuelConfigV1) -> Result<Scenario, CombatSpecError>` describes two
+fighters: an anatomy chosen from the two shipped rows, up to two hand items each, and
+a spawn. It is named `duel_from` and not `arena_duel` because `Scenario::arena()`
+already means the playable extent.
+
+**The id order is part of the fingerprint, so it is fixed here rather than left to the
+loops.**
+
+1. Anatomy: fighter A is id 1, fighter B is id 2, always two rows, never deduplicated.
+   Two fighters wearing the same frame get two byte-identical rows under two ids, which
+   the ownership rules above already permit.
+2. Equipment: fighters in order A then B; within a fighter, carrying slot 0 then 1;
+   each present item takes the next id, `1..N`, up to four rows. Two fighters holding
+   swords of different lengths are two distinct rows — one row cannot carry two sets of
+   dimensions.
+3. Carrying slots hold a fighter's present hand items ordered so that a `Role::Guard`
+   item yields slot zero to anything that is not a guard, and otherwise left hand
+   first. Slot zero is `Loadout::primary`, which is what a fighter walks in holding.
+
+Under that order the shipped arrangement — shield in the left hand, sword in the right,
+against a club in the right — reproduces `fixtures()` row for row, id for id and
+binding for binding, and `the_shipped_arrangement_is_expressible` compares the whole
+`Scenario` rather than a summary of it, so "everything except the name" is measured.
+
+`duel_from` names what it builds `configured-duel-v1` and never `articulated-duel-v1`,
+which is what keeps a runtime fingerprint from colliding with the pin. **That is a
+convention, not an invariant, and the difference matters to anyone recording evidence
+against a scenario name.** `Scenario.name` is a `pub String`, and the name is the only
+byte that differs, so writing `"articulated-duel-v1"` into a configured duel that
+described the shipped arrangement reproduces `0x068d05fcada1027b` exactly —
+`a_configured_duel_is_never_the_pinned_fixture` asserts both halves. The constructor
+names a scenario; nothing afterwards defends the name. Making it defensible would mean
+a private field and a constructor on a type every scenario in the repository builds as
+a struct literal.
+
+`binding` is set from the hand index (0 is `LimbSlot::LeftArm`, 1 is `RightArm`) and
+the `Loadout` is derived from the carrying slots, so `item.action == loadout.slot(n)`
+holds by construction and `LoadoutMismatch` is unreachable from a configuration knob.
+A hand item carries `action`, `mass`, `balance` and `geometry` and no `SurfaceSpec`: a
+surface is a measured material rather than a dimension, so it is copied from the
+shipped row for the same `ActionKind`.
+
+**`GripBinding::Both` is not expressible through `duel_from`.** The binding comes from
+a hand index with two values, so every row a `DuelConfigV1` can build binds `Left` or
+`Right`. The variant stays live everywhere else — `resolved_equipment` puts a `Both` id
+on both arms, `grip_valid_for_arm` demands both grips name the same slot, and
+`validate_equipment` refuses a `Both` shield — and all three are reachable from a
+hand-written spec row. A two-handed grip is one item occupying two hands rather than a
+third value of a hand index, so offering it would need a different shape for
+`DuelFighterV1::hands` and a rule for what the second arm is doing.
+
+**`duel_from` is one of two gates, and the other one owns `spawn`.** It calls
+`validate_construction`, which checks the table: schema, id order, every dimension
+bound, the bindings, and each loadout against the rows its unit carries. It does not
+check where a fighter stands. `World::try_new` runs `check_contact_envelope`, which
+bounds the arena extent and the spawn against `CONTACT_COORDINATE_LIMIT` (256) because
+`fx` fails an out-of-contract sweep *closed* — one out-of-envelope row would
+manufacture a contact with every hostile collider in the arena. `DuelFighterV1::spawn`
+is the one public field with no bound of its own, so a configuration `duel_from`
+accepts and fingerprints can still be a world that refuses to open. **Open it with
+`World::try_new` and never `World::new`**, whose failure is a panic reading
+`invalid combat construction: Contact(GeometryEnvelope)`;
+`an_out_of_envelope_spawn_is_refused_by_try_new_and_not_by_duel_from` is the test that
+keeps the split honest.
+
+Two `CombatSpecError` variants exist for this constructor and are produced by nothing
+else:
+
+- `NoEquipment` — a fighter described holding nothing in either hand. `validate_rows`
+  would answer `LoadoutMismatch` for the same configuration, via `(None, Some(_))`
+  against a `Loadout` whose `primary` is not an `Option`; that is true about the table
+  and useless in front of a person. Making `Loadout::primary` optional is **not** the
+  fix: it is written by `action_definition_bytes` through `scenario_v1_fields_into`,
+  which is both the ScenarioV1 identity stream and the replay codec, so an option tag
+  in front of it moves every scenario fingerprint in the repository and invalidates
+  every recorded replay.
+- `UnknownAction` — a hand item naming an `ActionKind` with no shipped equipment row,
+  and therefore no measured surface. Three of the eight actions have rows; the rest are
+  refused rather than approximated to whichever row looks nearest.
+
+`Dimension` and `GripConflict` are the two pre-existing variants a configuration can
+still reach, through `validate_equipment`'s bounds and through two shields
+respectively.
+
 ## Fingerprint and codec order
 
 `EquipmentGeometry::Segment` is `0` and `Shield` is `1`; source order is append-only.

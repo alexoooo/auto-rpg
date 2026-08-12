@@ -350,13 +350,16 @@ test("the boundary exports everything the client calls", () => {
     // no longer caps" into a fixture that quietly stops covering the tick shape
     // it was written for.
     "contact_cap_hits",
-    // The v2-16 pose and combat-event publications. Thirteen of the fifteen
-    // names below have no caller on the legacy page at all -- the worker that
-    // filters them lands in v2-17 -- so this list is the *only* thing standing
-    // between a renamed export and a silent gap, and the gap would be silent in
-    // the worst way: `pose_len()` and `combat_event_len()` read as `undefined`,
-    // `undefined >>> 0` is `0`, and a stream that publishes nothing is exactly
-    // what an idle world publishes too.
+    // The v2-16 pose and combat-event publications and v2-ui-06's region
+    // capsules: twenty-one names, counting down to
+    // `articulated_stream_digest_hi` and *not* counting the configured duel's
+    // seven, which v2-ui-05 inserted in the middle and gave their own note.
+    // Nineteen of the twenty-one have no caller on the legacy page at all --
+    // the worker that filters them lands in v2-ui-07 -- so this list is the
+    // *only* thing standing between a renamed export and a silent gap, and the
+    // gap would be silent in the worst way: `pose_len()`, `region_len()` and
+    // `combat_event_len()` read as `undefined`, `undefined >>> 0` is `0`, and a
+    // stream that publishes nothing is exactly what an idle world publishes too.
     "pose_ptr",
     "pose_len",
     "pose_stride",
@@ -369,12 +372,48 @@ test("the boundary exports everything the client calls", () => {
     "combat_event_capacity",
     "combat_events_dropped",
     "combat_event_layout_version",
+    // The five swept capsules per body. `region_len()` is the one whose silence
+    // would be loudest: the section carries no identity of its own and is read
+    // against `pose_len()`, so a zero here is indistinguishable from "no bodies"
+    // rather than from "this export is gone".
+    "region_ptr",
+    "region_len",
+    "region_stride",
+    "region_capacity",
+    "regions_dropped",
+    "region_layout_version",
     // `init`'s room under the articulated model. Its only callers today are the
     // two tests below and client/test/wasm-memory.test.mjs, which warms it
     // because it is the call that reserves 64 rows of contact vectors a Legacy
     // heap has never held -- so a rename here would leave that test warming
     // nothing and failing on growth it caused itself.
     "init_articulated",
+    // The configured duel. Seven names with no caller on the legacy page at all
+    // -- the studio that writes this buffer lands in v2-ui-07 -- so this list is
+    // again the only thing between a renamed export and a silent gap, and the
+    // gap would be silent in the usual way: `arena_start()` reads as `undefined`,
+    // `undefined >>> 0` is `0`, and a packed word of zero is "not started, no
+    // reason", which is exactly what a refusal looks like.
+    "arena_config_ptr",
+    "arena_config_len",
+    "arena_config_layout_version",
+    "arena_start",
+    "arena_fingerprint_lo",
+    "arena_fingerprint_hi",
+    "arena_policy",
+    // The fetched network, v2-ui-08's eight. Same argument again and sharper
+    // than most: `checkpoint_installed()` reading `undefined >>> 0` is `0`,
+    // which is "nothing loaded" -- so a renamed export would turn every learned
+    // assertion below into a test of the refusal path, passing green while
+    // nothing in the module had ever run a network.
+    "checkpoint_ptr",
+    "checkpoint_capacity",
+    "checkpoint_installed",
+    "checkpoint_digest_ptr",
+    "checkpoint_digest_len",
+    "load_checkpoint",
+    "learned_inference_digest_lo",
+    "learned_inference_digest_hi",
     // The portable stream claim, read a half at a time. Nothing on the page
     // calls either; they exist for `native_and_wasm_pose_event_stream_digests_match`
     // below, which is precisely why they need a line here.
@@ -688,7 +727,7 @@ test("the behavioral contact corpus is the bytes the reference specifies", () =>
   console.log(`contact corpus ${hex(CONTACT_BEHAVIOR_DIGEST)}  == ${expected.length} bytes built here`);
 });
 
-// ------------------------------------------- the articulated pose/event ABI
+// ---------------------------------- the articulated pose/region/event ABI
 
 // docs/reference/articulated-abi.md, "Pose rows" and "Combat-event rows". Every
 // number below is transcribed from that document and none is read off the
@@ -721,6 +760,15 @@ const COMBAT_EVENT_STRIDE = 32;
 // of each impulse survives the energy check -- and 556 doubles to 1,112. Nothing
 // was dropped at 1024; the rule is headroom, not survival.
 const MAX_COMBAT_EVENTS = 2048;
+// docs/reference/articulated-abi.md, "Region rows". Eight words a region --
+// lower point, upper point, radius, present -- five regions a body, and the
+// same 64 bodies the pose buffer holds. `present` is a published word and not
+// something read off the geometry, because the head is a degenerate capsule
+// whose endpoints coincide on every body on every tick.
+const REGION_LAYOUT_VERSION = 1;
+const REGION_STRIDE = 8;
+const REGIONS_PER_BODY = 5;
+const MAX_REGIONS = MAX_POSES * REGIONS_PER_BODY;
 
 // The pose columns this file reads, from the reference's row table.
 const POSE_ENTITY_INDEX = 0;
@@ -733,6 +781,14 @@ const POSE_EQUIPMENT_MASK = 62;
 const POSE_INTENT = 63;
 const POSE_LEFT_HINT = 64;
 const POSE_RIGHT_HINT = 65;
+// The region columns, from the same document's region table.
+const REGION_LOWER_X = 0;
+const REGION_UPPER_X = 3;
+const REGION_RADIUS = 6;
+const REGION_PRESENT = 7;
+// `AnatomyRegion::Head`, the degenerate one. Its two endpoints coincide and its
+// extent is its radius alone, which is why the eighth word exists.
+const REGION_HEAD = 0;
 // Idle 0, Chasing 1, Braced 2, Contact 3, Recoiling 4, Severed 5. Append-only,
 // so this only ever grows and a code past it is a module animating something
 // this file has never been told about.
@@ -743,7 +799,7 @@ const INTENTS = 3;
 // Five `BodyPart` bits and nothing above them.
 const SEVERED_MASK_BITS = 5;
 
-// FNV-1a-64 over the published pose and combat-event words of a scripted
+// FNV-1a-64 over the published pose, combat-event and region words of a scripted
 // articulated fight, prefixed ASCII `ARPG-STREAM-V1`. The script is
 // `Scenario::articulated_duel()` at seed 1 with the fighter moved to (9,6) and
 // the brute to (7,6), one articulated command submitted to each on tick zero and
@@ -786,7 +842,19 @@ const SEVERED_MASK_BITS = 5;
 // published words in the pose row, so tick zero's bytes move outright, and a
 // smaller plate then changes what the twenty-tick clinch resolves. The row
 // shape is again untouched.
-const ARTICULATED_STREAM_DIGEST = 0x54c0762b3dfb7a05n;
+//
+// **Moved a fourth time by v2-ui-06, from `0x54c0762b3dfb7a05`, and this one is
+// the layout change the three above were not.** A third section went on the
+// wire -- the five swept region capsules per body -- and the digest is every
+// published word of every publication, so it moved by construction and said so
+// in writing first. It moved by *extension*: the region length, drop count and
+// words are appended after the event words, so the pose-and-event prefix of
+// every one of the twenty ticks is byte-identical to what v2-16 pinned, and the
+// per-tick row counts above are unchanged with ten region rows added to each.
+// Nothing in the sim moved and no fight golden moved with it, which is what a
+// layout move looks like from this side of the wall and the opposite of the
+// three before it.
+const ARTICULATED_STREAM_DIGEST = 0xf7d3a9c73aa59981n;
 
 // The live pose rows, copied out. Words and not floats: every published column
 // is a `u32`, and the signed ones are two's-complement raw bits.
@@ -801,6 +869,20 @@ function poseRows() {
     Array.from(words.slice(row * POSE_STRIDE, (row + 1) * POSE_STRIDE)));
 }
 
+// The live region rows, likewise. Five to a body and in the pose rows' order,
+// so `regionRows()[body * REGIONS_PER_BODY + part]` is the capsule the contact
+// phase swept for that region of that body.
+function regionRows() {
+  const rows = u32(wasm.region_len());
+  const words = new Uint32Array(
+    wasm.memory.buffer,
+    u32(wasm.region_ptr()),
+    rows * REGION_STRIDE,
+  );
+  return Array.from({ length: rows }, (_, row) =>
+    Array.from(words.slice(row * REGION_STRIDE, (row + 1) * REGION_STRIDE)));
+}
+
 test("wasm_exports_match_layout_stride_capacity_and_drop_fields", () => {
   // **`typeof` first, before a single value is read.** The trap this file
   // documents twice over up in the export list: `undefined >>> 0` is `0` and
@@ -811,7 +893,9 @@ test("wasm_exports_match_layout_stride_capacity_and_drop_fields", () => {
     "pose_ptr", "pose_len", "pose_stride", "pose_capacity", "poses_dropped",
     "pose_layout_version", "combat_event_ptr", "combat_event_len",
     "combat_event_stride", "combat_event_capacity", "combat_events_dropped",
-    "combat_event_layout_version", "init_articulated",
+    "combat_event_layout_version", "region_ptr", "region_len", "region_stride",
+    "region_capacity", "regions_dropped", "region_layout_version",
+    "init_articulated",
   ]) {
     assert.equal(typeof wasm[name], "function", `web.wasm does not export ${name}()`);
   }
@@ -826,10 +910,13 @@ test("wasm_exports_match_layout_stride_capacity_and_drop_fields", () => {
   );
   assert.equal(u32(wasm.combat_event_stride()), COMBAT_EVENT_STRIDE, "COMBAT_EVENT_STRIDE");
   assert.equal(u32(wasm.combat_event_capacity()), MAX_COMBAT_EVENTS, "MAX_COMBAT_EVENTS");
+  assert.equal(u32(wasm.region_layout_version()), REGION_LAYOUT_VERSION, "REGION_LAYOUT_VERSION");
+  assert.equal(u32(wasm.region_stride()), REGION_STRIDE, "REGION_STRIDE");
+  assert.equal(u32(wasm.region_capacity()), MAX_REGIONS, "MAX_REGIONS");
 
-  // A Legacy world publishes neither stream, and that is the half of the
+  // A Legacy world publishes none of the three streams, and that is the half of the
   // drop-field assertion that is not vacuous: zero rows *and* zero dropped is a
-  // claim that both buffers were cleared rather than left holding the last
+  // claim that all three buffers were cleared rather than left holding the last
   // articulated run's rows. A pose row is ground truth about an identity, and
   // `publish` zeroes the buffers as well as the lengths for exactly that reason.
   wasm.init(1);
@@ -838,6 +925,8 @@ test("wasm_exports_match_layout_stride_capacity_and_drop_fields", () => {
   assert.equal(u32(wasm.poses_dropped()), 0, "a Legacy world dropped a pose row");
   assert.equal(u32(wasm.combat_event_len()), 0, "a Legacy world published a contact row");
   assert.equal(u32(wasm.combat_events_dropped()), 0, "a Legacy world dropped a contact row");
+  assert.equal(u32(wasm.region_len()), 0, "a Legacy world published a region row");
+  assert.equal(u32(wasm.regions_dropped()), 0, "a Legacy world dropped a region row");
 
   // And a fresh articulated world, where the pose buffer is not empty and both
   // drop fields still read zero.
@@ -850,33 +939,52 @@ test("wasm_exports_match_layout_stride_capacity_and_drop_fields", () => {
   assert.equal(u32(wasm.poses_dropped()), 0, "the room overflowed a buffer sized to the sim's own cap");
   assert.equal(u32(wasm.combat_event_len()), 0, "nobody has stepped and the feed is not empty");
   assert.equal(u32(wasm.combat_events_dropped()), 0, "nobody has stepped and the feed dropped a row");
+  // The region section carries no identity of its own, so it is read against
+  // `pose_len` and this is the whole of that contract: five rows a body, in the
+  // same order, every time. A reader that checked nothing else could still not
+  // land a capsule on the wrong body.
+  assert.equal(
+    u32(wasm.region_len()),
+    rows * REGIONS_PER_BODY,
+    "the region section does not cover every published pose",
+  );
+  assert.equal(u32(wasm.regions_dropped()), 0, "a published body carried no capsules");
 
   // Fixed arrays whose addresses never move, which is the one property the
   // worker's typed arrays depend on for the life of the module. Checked against
   // the *capacity* rather than the live length: the arrays are reserved whole at
-  // construction, so a module that placed 279,040 bytes of statics past the end
+  // construction, so a module that placed 289,280 bytes of statics past the end
   // of its own memory would be caught here rather than on the first busy tick.
-  const [poseAt, eventAt] = [u32(wasm.pose_ptr()), u32(wasm.combat_event_ptr())];
-  assert.ok(poseAt > 0 && eventAt > 0, "a published buffer is at address zero");
-  assert.notEqual(poseAt, eventAt, "the two buffers share an address");
+  const [poseAt, eventAt, regionAt] =
+    [u32(wasm.pose_ptr()), u32(wasm.combat_event_ptr()), u32(wasm.region_ptr())];
+  assert.ok(poseAt > 0 && eventAt > 0 && regionAt > 0, "a published buffer is at address zero");
+  assert.equal(new Set([poseAt, eventAt, regionAt]).size, 3, "two buffers share an address");
   assert.equal(poseAt % 4, 0, "the pose buffer is not u32-aligned");
   assert.equal(eventAt % 4, 0, "the combat-event buffer is not u32-aligned");
+  assert.equal(regionAt % 4, 0, "the region buffer is not u32-aligned");
   const memoryBytes = wasm.memory.buffer.byteLength;
   for (const [name, at, bytes] of [
     ["POSES", poseAt, MAX_POSES * POSE_STRIDE * 4],
     ["COMBAT_EVENTS", eventAt, MAX_COMBAT_EVENTS * COMBAT_EVENT_STRIDE * 4],
+    ["REGIONS", regionAt, MAX_REGIONS * REGION_STRIDE * 4],
   ]) {
     assert.ok(at + bytes <= memoryBytes, `${name} runs past the end of linear memory`);
   }
   wasm.step(8);
   assert.deepEqual(
-    [u32(wasm.pose_ptr()), u32(wasm.combat_event_ptr())],
-    [poseAt, eventAt],
+    [u32(wasm.pose_ptr()), u32(wasm.combat_event_ptr()), u32(wasm.region_ptr())],
+    [poseAt, eventAt, regionAt],
     "a published buffer moved across a step",
+  );
+  assert.equal(
+    u32(wasm.region_len()),
+    u32(wasm.pose_len()) * REGIONS_PER_BODY,
+    "a step left the region section short of its poses",
   );
   console.log(
     `articulated abi ${rows} pose rows, ` +
-      `${MAX_POSES}x${POSE_STRIDE} + ${MAX_COMBAT_EVENTS}x${COMBAT_EVENT_STRIDE} words reserved`,
+      `${MAX_POSES}x${POSE_STRIDE} + ${MAX_COMBAT_EVENTS}x${COMBAT_EVENT_STRIDE}` +
+      ` + ${MAX_REGIONS}x${REGION_STRIDE} words reserved`,
   );
 });
 
@@ -983,7 +1091,45 @@ test("native_and_wasm_pose_event_stream_digests_match", () => {
     "the first pose row is not the hero",
   );
   assert.notEqual(rows[0][POSE_EQUIPMENT_MASK], 0, "the room's Fighter walked in holding nothing");
-  console.log(`pose grammar   ${rows.length} rows, hero mask ${rows[0][POSE_EQUIPMENT_MASK]}`);
+
+  // ---- and the region grammar, on the same terms.
+  //
+  // The digest carries the region words now, and a number agreeing on both
+  // targets says nothing about whether those words are the rows the reference
+  // describes. Two facts the document states in prose and the digest cannot:
+  // the section is five rows a body in pose order, and the head is a degenerate
+  // capsule that is nonetheless **present** -- which is the case a reader
+  // inferring absence from geometry would delete from every body in every
+  // fight, and the reason the eighth word is published at all.
+  const regions = regionRows();
+  assert.equal(regions.length, rows.length * REGIONS_PER_BODY, "the region section is not per pose");
+  let degenerate = 0;
+  for (let body = 0; body < rows.length; body++) {
+    const severed = rows[body][POSE_SEVERED_MASK];
+    for (let part = 0; part < REGIONS_PER_BODY; part++) {
+      const region = regions[body * REGIONS_PER_BODY + part];
+      assert.equal(
+        region[REGION_PRESENT],
+        severed & (1 << part) ? 0 : 1,
+        `body ${body} region ${part}: presence disagrees with the pose row's severed mask`,
+      );
+      assert.ok(region[REGION_PRESENT] <= 1, "presence is not zero or one");
+    }
+    const head = regions[body * REGIONS_PER_BODY + REGION_HEAD];
+    assert.deepEqual(
+      head.slice(REGION_LOWER_X, REGION_LOWER_X + 3),
+      head.slice(REGION_UPPER_X, REGION_UPPER_X + 3),
+      `body ${body}: the head is not the degenerate capsule the reference describes`,
+    );
+    assert.equal(head[REGION_PRESENT], 1, `body ${body}: a coincident head published as absent`);
+    assert.notEqual(head[REGION_RADIUS], 0, `body ${body}: the head has no extent at all`);
+    degenerate++;
+  }
+  assert.ok(degenerate > 1, "fewer than two bodies published a head");
+  console.log(
+    `pose grammar   ${rows.length} rows, hero mask ${rows[0][POSE_EQUIPMENT_MASK]}, ` +
+      `${regions.length} region rows, ${degenerate} degenerate heads present`,
+  );
 });
 
 test("a scripted walk leaves the world in the state native recorded", () => {
@@ -1677,4 +1823,587 @@ test("a death and a replacement replay the way native recorded them", () => {
   assert.equal(wasm.tick(), 2_200, "the swap moved the clock");
   assert.ok(measured === SWAP_HASH, divergence("The swap state hash", SWAP_HASH, measured));
   console.log(`swap hash      ${hex(measured)}  == native`);
+});
+
+// ------------------------------------------------------------------ the arena
+//
+// v2-ui-05's configured duel: 120 bytes written from here, one policy per side,
+// and a fight that runs inside the module instead of being replayed into it.
+//
+// **No pinned number, deliberately.** Every other cross-target claim in this
+// file is a hash recorded natively and recomputed here, and this one is not,
+// because the number it would pin is a scripted articulated fight's state hash
+// -- which is `ARTICULATED_HASH`, planned by v2-17, deliberately absent, and
+// which no session before it may create. What is checked instead is everything
+// that does not require inventing it: the layout, the refusals by name, that the
+// module runs the fight rather than standing still, and that the same bytes
+// produce the same fight twice while a different pairing produces a different
+// one. The native-versus-lab equality lives in `crates/web`'s
+// `a_scripted_arena_fight_in_wasm_matches_the_same_fight_in_lab`.
+
+// `crates/web`'s ARENA_* offsets, mirrored. The module asserts its own
+// arithmetic with `const _`; these are what a page computes from the reference.
+const ARENA_CONFIG_BYTES = 120;
+const ARENA_HEADER_BYTES = 8;
+const ARENA_FIGHTER_BYTES = 56;
+const ARENA_HAND_BYTES = 22;
+const ARENA_HAND_EMPTY = 255;
+const ARENA_WHOLE_CONFIG = 255;
+// Reason codes, from crates/web/src/lib.rs.
+const ARENA_UNKNOWN_LAYOUT = 1;
+const ARENA_WRONG_FIGHTER_COUNT = 2;
+const ARENA_UNKNOWN_ANATOMY = 4;
+const ARENA_NO_EQUIPMENT = 24;
+// v2-ui-08's, and it replaced `ARENA_POLICY_UNAVAILABLE` (7) as the answer a
+// `learned` fighter gets. That code still exists and is now unreachable: every
+// `ArticulatedPolicyKind` has a constructor on this side of the wall, so the
+// only thing a learned fighter can be missing is its weights, and "fetch one"
+// is a different instruction from "rebuild the module".
+const ARENA_NO_CHECKPOINT = 26;
+// `sim::ActionKind::code`.
+const SWORD = 2;
+const CLUB = 3;
+const SHIELD = 4;
+// `policy::ArticulatedPolicyKind::code`.
+const NEUTRAL = 0;
+const COMPOSED = 1;
+const WINDMILL = 2;
+const LEARNED = 4;
+// `web::ARENA_NO_POLICY` and `web::POLICY_KIND_UNKNOWN`, which are the same
+// sentinel for two different registries: `0` is a real answer in both.
+const NO_POLICY = 0xffffffff;
+
+// 16.16, exactly as every dimension in the buffer is.
+const fx = (value) => Math.round(value * 65536);
+
+// Round numbers well inside the validation envelope rather than the shipped
+// fixture's, which would be a mirror of `crates/sim`'s spec table in JavaScript
+// and would rot the first time somebody edited a row. Nothing below compares a
+// number against native, so the only property these need is legality.
+const SWORD_ITEM = { item: SWORD, mass: fx(1.25), balance: fx(0.5), dims: [fx(1), fx(0.04), 0] };
+const CLUB_ITEM = { item: CLUB, mass: fx(2), balance: fx(0.5), dims: [fx(1.25), fx(0.05), 0] };
+const SHIELD_ITEM = {
+  item: SHIELD, mass: fx(0.5), balance: fx(0.5), dims: [fx(0.25), fx(0.5), fx(0.05)],
+};
+const EMPTY_HAND = { item: ARENA_HAND_EMPTY, mass: 0, balance: 0, dims: [0, 0, 0] };
+
+const shippedArena = () => ({
+  maxTicks: 300,
+  fighters: [
+    { anatomy: 0, policy: COMPOSED, spawn: [fx(7), fx(6)], hands: [SHIELD_ITEM, SWORD_ITEM] },
+    { anatomy: 1, policy: WINDMILL, spawn: [fx(17), fx(10)], hands: [EMPTY_HAND, CLUB_ITEM] },
+  ],
+});
+
+// The 120 bytes, assembled here and copied in through a fresh view that is
+// dropped before `arena_start` is called -- the discipline every buffer in this
+// file keeps, and the one the reference states for this one.
+function arenaBytes(config) {
+  const bytes = new Uint8Array(ARENA_CONFIG_BYTES);
+  const words = new DataView(bytes.buffer);
+  words.setUint16(0, 1, true);
+  bytes[2] = config.fighters.length;
+  words.setUint32(4, config.maxTicks, true);
+  config.fighters.forEach((fighter, index) => {
+    const base = ARENA_HEADER_BYTES + index * ARENA_FIGHTER_BYTES;
+    bytes[base] = fighter.anatomy;
+    bytes[base + 1] = fighter.policy;
+    words.setInt32(base + 4, fighter.spawn[0], true);
+    words.setInt32(base + 8, fighter.spawn[1], true);
+    fighter.hands.forEach((hand, slot) => {
+      const at = base + 12 + slot * ARENA_HAND_BYTES;
+      bytes[at] = hand.item;
+      words.setInt32(at + 2, hand.mass, true);
+      words.setInt32(at + 6, hand.balance, true);
+      hand.dims.forEach((value, word) => words.setInt32(at + 10 + word * 4, value, true));
+    });
+  });
+  return bytes;
+}
+
+const stageArena = (bytes) =>
+  new Uint8Array(wasm.memory.buffer, u32(wasm.arena_config_ptr()), ARENA_CONFIG_BYTES).set(bytes);
+
+const arenaResult = (packed) => ({
+  outcome: u32(packed) & 0xff,
+  reason: (u32(packed) >>> 8) & 0xff,
+  fighter: (u32(packed) >>> 16) & 0xff,
+  slot: (u32(packed) >>> 24) & 0xff,
+});
+
+const arenaFingerprint = () =>
+  hash64(wasm.arena_fingerprint_lo(), wasm.arena_fingerprint_hi());
+
+test("a configured duel runs inside the module and refuses by name", () => {
+  // `typeof` first, before a value is read: `undefined >>> 0` is `0`, and a
+  // packed word of zero decodes as "not started, no reason, whole config",
+  // which is indistinguishable from a refusal this test would then assert.
+  for (const name of [
+    "arena_config_ptr", "arena_config_len", "arena_config_layout_version",
+    "arena_start", "arena_fingerprint_lo", "arena_fingerprint_hi", "arena_policy",
+  ]) {
+    assert.equal(typeof wasm[name], "function", `web.wasm does not export ${name}()`);
+  }
+  assert.equal(u32(wasm.arena_config_len()), ARENA_CONFIG_BYTES, "arena_config_len");
+  assert.equal(u32(wasm.arena_config_layout_version()), 1, "arena_config_layout_version");
+  assert.ok(u32(wasm.arena_config_ptr()) > 0, "the arena buffer is at address zero");
+
+  // A legacy world knows nothing about any of this, which is the half of the
+  // read-back that is not vacuous.
+  wasm.init(1);
+  assert.equal(u32(wasm.arena_policy(0)), NO_POLICY, "a legacy world named an articulated policy");
+  assert.equal(arenaFingerprint(), 0n, "a legacy world named a configuration");
+
+  const config = shippedArena();
+  stageArena(arenaBytes(config));
+  assert.deepEqual(
+    arenaResult(wasm.arena_start(3)),
+    { outcome: 1, reason: 0, fighter: ARENA_WHOLE_CONFIG, slot: ARENA_WHOLE_CONFIG },
+    "the module refused a legal configuration",
+  );
+  assert.equal(u32(wasm.arena_policy(0)), COMPOSED);
+  assert.equal(u32(wasm.arena_policy(1)), WINDMILL);
+  // The legacy registry says it does not know rather than naming a `PolicyKind`
+  // nothing in an arena consults.
+  assert.equal(u32(wasm.policy_kind(0)), NO_POLICY, "an arena answered a legacy policy code");
+  assert.equal(u32(wasm.pose_len()), 2, "an arena publishes one pose row per fighter");
+  const fingerprint = arenaFingerprint();
+  assert.notEqual(fingerprint, 0n, "the installed configuration has no fingerprint");
+
+  // One call for the whole fight, which is what a recorder does. The arena stops
+  // itself on the configuration's tick limit, so the overshoot has to be inert.
+  wasm.step(3_600);
+  assert.equal(u32(wasm.tick()), config.maxTicks, "the arena did not stop at its own limit");
+  assert.ok(u32(wasm.combat_event_len()) > 0, "three hundred ticks resolved no contact");
+  const fought = stateHash();
+
+  // The same bytes twice is the same fight, and a different pairing is not.
+  // Together these say the policies are consulted at all and that each side has
+  // its own -- the thing `policy::run_articulated` cannot express.
+  stageArena(arenaBytes(config));
+  assert.equal(arenaResult(wasm.arena_start(3)).outcome, 1);
+  wasm.step(3_600);
+  assert.equal(stateHash(), fought, "the same configuration and seed fought differently");
+  assert.equal(arenaFingerprint(), fingerprint, "the fingerprint is not a function of the config");
+
+  const swapped = shippedArena();
+  swapped.fighters[0].policy = NEUTRAL;
+  stageArena(arenaBytes(swapped));
+  assert.equal(arenaResult(wasm.arena_start(3)).outcome, 1);
+  wasm.step(3_600);
+  assert.notEqual(stateHash(), fought, "the heroes' policy changed nothing");
+
+  // Refusals, and the standing fight none of them may touch.
+  const standing = { hash: stateHash(), tick: u32(wasm.tick()), print: arenaFingerprint() };
+  const refusals = [
+    ["an unknown layout", (bytes) => { bytes[0] = 2; },
+      { reason: ARENA_UNKNOWN_LAYOUT, fighter: ARENA_WHOLE_CONFIG, slot: ARENA_WHOLE_CONFIG }],
+    ["a wrong fighter count", (bytes) => { bytes[2] = 3; },
+      { reason: ARENA_WRONG_FIGHTER_COUNT, fighter: ARENA_WHOLE_CONFIG, slot: ARENA_WHOLE_CONFIG }],
+    ["an unmeasured anatomy", (bytes) => { bytes[ARENA_HEADER_BYTES] = 7; },
+      { reason: ARENA_UNKNOWN_ANATOMY, fighter: 0, slot: ARENA_WHOLE_CONFIG }],
+    ["both hands empty", (bytes) => {
+      const at = ARENA_HEADER_BYTES + ARENA_FIGHTER_BYTES + 12 + ARENA_HAND_BYTES;
+      bytes.fill(0, at, at + ARENA_HAND_BYTES);
+      bytes[at] = ARENA_HAND_EMPTY;
+    }, { reason: ARENA_NO_EQUIPMENT, fighter: ARENA_WHOLE_CONFIG, slot: ARENA_WHOLE_CONFIG }],
+    // v2-ui-08 landed the policy and this refusal is now about the *network*:
+    // the studio greys the entry out until it has fetched one, and the slot byte
+    // carries the code, which is what "refused by name" means here. Guarded
+    // rather than assumed, because the test below installs a checkpoint and this
+    // assertion would go vacuous if the two ever swapped order.
+    ["the learned policy with no checkpoint", (bytes) => {
+      assert.equal(u32(wasm.checkpoint_installed()), 0, "a network is already installed");
+      bytes[ARENA_HEADER_BYTES + 1] = LEARNED;
+    }, { reason: ARENA_NO_CHECKPOINT, fighter: 0, slot: LEARNED }],
+  ];
+  for (const [what, edit, expected] of refusals) {
+    const bytes = arenaBytes(swapped);
+    edit(bytes);
+    stageArena(bytes);
+    assert.deepEqual(
+      arenaResult(wasm.arena_start(9)),
+      { outcome: 0, ...expected },
+      `${what} was not refused as documented`,
+    );
+    assert.equal(stateHash(), standing.hash, `${what} disturbed the installed world`);
+    assert.equal(u32(wasm.tick()), standing.tick, `${what} moved the clock`);
+    assert.equal(arenaFingerprint(), standing.print, `${what} replaced the configuration`);
+  }
+
+  // The settled fight does not step any further, which is the tick limit being
+  // the arena's own rather than the caller's.
+  wasm.step(1);
+  assert.equal(u32(wasm.tick()), standing.tick, "a settled arena stepped past its limit");
+
+  // Still usable after five refusals, which is what the fail-closed shape exists
+  // for: a bad slider value is a message rather than a reload.
+  const shorter = shippedArena();
+  shorter.maxTicks = 30;
+  stageArena(arenaBytes(shorter));
+  assert.equal(arenaResult(wasm.arena_start(11)).outcome, 1, "the instance stopped taking fights");
+  assert.equal(u32(wasm.tick()), 0);
+  wasm.step(10);
+  assert.equal(u32(wasm.tick()), 10);
+  console.log(`arena          ${config.maxTicks} ticks, fingerprint ${hex(fingerprint)}`);
+
+  // And back to a legacy world, so nothing after this inherits an arena.
+  wasm.init(1);
+  assert.equal(u32(wasm.arena_policy(0)), NO_POLICY);
+});
+
+// The two holes v2-ui-05's review found, both of them first demonstrated
+// against this artifact rather than natively, and both of them mirrored in
+// `crates/web` by `descending_out_of_an_arena_returns_a_legacy_world` and
+// `an_installed_arena_refuses_every_order_export`. They are here as well
+// because a `pub extern "C"` export is the surface a page actually holds, and
+// because neither failure said anything on its way past: the first was a level
+// that had stopped with no error on the page, and the second was a fight that
+// had quietly become a different fight under an unmoved fingerprint.
+
+test("descending out of an arena returns a legacy world", () => {
+  stageArena(arenaBytes(shippedArena()));
+  assert.equal(arenaResult(wasm.arena_start(3)).outcome, 1);
+  wasm.step(50);
+  assert.equal(u32(wasm.descend()), 1, "the run did not move down a floor");
+
+  // `Sim::descend` reassigns the world in place, and until the review it left
+  // the duel standing on top of the new floor.
+  assert.equal(u32(wasm.arena_policy(0)), NO_POLICY, "the floor below is still an arena");
+  assert.equal(u32(wasm.arena_policy(1)), NO_POLICY);
+  assert.equal(arenaFingerprint(), 0n, "a generated floor is named by a duel's configuration");
+  assert.notEqual(u32(wasm.policy_kind(0)), NO_POLICY, "a legacy world cannot name its policy");
+  assert.equal(u32(wasm.set_policy(0, 2)), 1, "a legacy world refused a legacy policy");
+
+  // 300 is `shippedArena().maxTicks`, which is where the tick used to stick:
+  // the arena loop's gate was still reading the previous configuration's limit.
+  wasm.step(600);
+  assert.equal(u32(wasm.tick()), 600, "the floor stopped at the previous fight's tick limit");
+  wasm.init(1);
+});
+
+test("an installed arena refuses every order export", () => {
+  // `arena_start` sets the runner's `Order::Advance` on each side *because*
+  // orders reach `World::state_hash`, which is the same sentence that says a
+  // later order is a different fight. The fingerprint names the configuration
+  // and nothing else -- deliberately, since that is what makes a recording
+  // reproducible -- so it cannot be the thing that notices.
+  const config = shippedArena();
+  const fight = (disturb) => {
+    stageArena(arenaBytes(config));
+    assert.equal(arenaResult(wasm.arena_start(3)).outcome, 1);
+    wasm.step(10);
+    if (disturb) disturb();
+    wasm.step(config.maxTicks - 10);
+    return { hash: stateHash(), print: arenaFingerprint() };
+  };
+  const clean = fight(null);
+  for (const [what, disturb] of [
+    ["set_goto", () => wasm.set_goto(20_000, 12_000)],
+    // Index 1 generation 0 is the Monster, which the arena builds second. A
+    // handle that named nobody would make this line vacuous, so the legacy
+    // half below locks the same handle on a world where it is meant to take.
+    ["set_focus", () => assert.equal(u32(wasm.set_focus(1, 0)), 0, "set_focus took on an arena")],
+    ["clear_order", () => wasm.clear_order()],
+    ["route_push", () => assert.equal(u32(wasm.route_push(20_000, 12_000)), 0, "route_push took")],
+  ]) {
+    assert.deepEqual(fight(disturb), clean, `${what} changed an installed arena's fight`);
+  }
+
+  // The guard is the arena and not a switch left off: all four still take on a
+  // legacy world, which is the half that would otherwise rot silently.
+  wasm.init(1);
+  // 3 is `Body::Skitterer`, the same code `BATTLE_HASH`'s script spawns.
+  wasm.spawn_monster(3, 255, 255);
+  wasm.set_goto(20_000, 12_000);
+  const ordered = stateHash();
+  assert.notEqual(ordered, 0n);
+  assert.equal(u32(wasm.route_push(18_000, 11_000)), 1, "a legacy world refused a waypoint");
+  wasm.clear_order();
+  assert.notEqual(stateHash(), ordered, "clear_order left the standing order alone");
+  assert.equal(u32(wasm.set_focus(1, 0)), 1, "a legacy world refused a lock on its monster");
+  wasm.init(1);
+});
+
+// ---------------------------------------------------------------------------
+// v2-ui-08: the learned fighter, and the claim this file exists to check.
+//
+// `crates/learn-core/src/model.rs` chose a rectified linear over `tanh` on
+// portability grounds -- no libm call in the forward pass, IEEE-754 `f32`
+// multiply and add which both targets mandate, a summation order fixed by the
+// loop, no FMA contraction in the profile, ties to the lowest index -- and then
+// recorded that it was "only a *claim* about hosts other than this one, because
+// this repository has no second host to check it on".
+//
+// This module is the second host. `LEARNED_INFERENCE_DIGEST` is what holds the
+// two to the same **logits**, which is a stronger comparison than the same five
+// argmaxes: a divergence that has not yet crossed a decision boundary is
+// invisible to the argmaxes and is exactly the one worth catching, since it is
+// the one that is about to become a different fight.
+
+// Recorded natively by `cargo test -p web -- --ignored --nocapture
+// print_the_learned_inference_digest` and pinned again in crates/web/src/lib.rs,
+// so that a one-sided failure diagnoses target disagreement -- the rule the
+// golden registry states for every browser pin.
+//
+// **The caveat travels with the number**: it holds for the repository's baseline
+// targets, MSVC x86-64 with no `target-cpu`, `target-feature` or fast-math in
+// the profile, and the wasm MVP. Neither has an FMA instruction, which is what
+// closes contraction; `-C target-cpu=native` on a host that does have one
+// re-opens it and is outside the guarantee.
+const LEARNED_INFERENCE_DIGEST = 0xbdba8d64d340ce32n;
+
+// The shipped artifact, read off disk rather than embedded in the module. That
+// is the delivery decision under test as much as it is a convenience: a
+// checkpoint is a fighter, the studio fetches it, and this is the same fetch
+// with `fs` standing in for the network.
+const CHECKPOINT = path.join(ROOT, "checkpoints", "v2-probe.ckpt");
+
+const stageCheckpoint = (bytes) => {
+  new Uint8Array(wasm.memory.buffer, u32(wasm.checkpoint_ptr()), bytes.length).set(bytes);
+  return bytes.length;
+};
+
+const checkpointResult = (packed) => ({
+  outcome: u32(packed) & 0xff,
+  reason: (u32(packed) >>> 8) & 0xff,
+  detail: u32(packed) >>> 16,
+});
+
+const learnedDigest = () =>
+  hash64(wasm.learned_inference_digest_lo(), wasm.learned_inference_digest_hi());
+
+const publishedName = () =>
+  Buffer.from(new Uint8Array(wasm.memory.buffer, u32(wasm.checkpoint_digest_ptr()), 32));
+
+test("native_and_wasm_learned_inference_digests_match", () => {
+  // Nothing installed answers zero rather than a digest of an absent network,
+  // and that has to be read before the load or the assertion after it could be
+  // agreeing with a number that was already there.
+  assert.equal(u32(wasm.checkpoint_installed()), 0, "a network was installed before any load");
+  assert.equal(learnedDigest(), 0n, "an empty module published an inference digest");
+
+  const bytes = fs.readFileSync(CHECKPOINT);
+  assert.ok(
+    bytes.length <= u32(wasm.checkpoint_capacity()),
+    `the shipped checkpoint is ${bytes.length} bytes and the buffer holds ` +
+      `${u32(wasm.checkpoint_capacity())}`,
+  );
+  assert.deepEqual(
+    checkpointResult(wasm.load_checkpoint(stageCheckpoint(bytes))),
+    { outcome: 1, reason: 0, detail: 0xffff },
+    "the module refused the shipped checkpoint",
+  );
+  assert.equal(u32(wasm.checkpoint_installed()), 1);
+
+  // The name the module publishes is the file's own last thirty-two bytes,
+  // which is the SHA-256 `lab trace` writes into a recording's header -- so a
+  // reader can say whether the arena in front of it is running the fighter the
+  // trace was recorded from.
+  assert.equal(u32(wasm.checkpoint_digest_len()), 32);
+  assert.deepEqual(
+    publishedName(),
+    bytes.subarray(bytes.length - 32),
+    "the module named a different file",
+  );
+
+  const measured = learnedDigest();
+  assert.ok(
+    measured === LEARNED_INFERENCE_DIGEST,
+    divergence("The learned inference digest", LEARNED_INFERENCE_DIGEST, measured),
+  );
+
+  // Self-contained, exactly as the stream digest is: a worker may ask for this
+  // mid-fight, and a diagnostic that stepped the installed world would break the
+  // thing it was diagnosing.
+  wasm.init(4);
+  wasm.step(12);
+  const undisturbed = () => [wasm.tick(), hex(stateHash()), u32(wasm.frame_len())];
+  const before = undisturbed();
+  assert.equal(learnedDigest(), measured, "the inference digest is not a function of the weights");
+  assert.deepEqual(undisturbed(), before, "the inference digest disturbed the installed sim");
+  console.log(`learned digest ${hex(measured)}  == native`);
+});
+
+test("a corrupt checkpoint is refused and the instance stays usable", () => {
+  // A trap behind `pub extern "C"` poisons the wasm instance for the life of the
+  // page, so a mistyped URL that returned an HTML error page has to be a message
+  // rather than a reload. Four of the twelve refusals, chosen for being the ones
+  // a *fetch* actually produces; the full set, one per `CheckpointError`
+  // variant, is `a_corrupt_checkpoint_is_refused_and_installs_nothing` in
+  // crates/web.
+  // Installed here rather than inherited from the test above, so this one runs
+  // alone under `--test-name-pattern`. Every other test in this file stands on
+  // its own and these two would have been the exceptions -- and the exceptions
+  // would have been the two most likely to be run in isolation while somebody
+  // debugged them.
+  const good = fs.readFileSync(CHECKPOINT);
+  assert.equal(checkpointResult(wasm.load_checkpoint(stageCheckpoint(good))).outcome, 1);
+  const named = publishedName();
+
+  const CHECKPOINT_TOO_LONG = 1;
+  const CHECKPOINT_TRUNCATED = 2;
+  const CHECKPOINT_BAD_MAGIC = 3;
+  const CHECKPOINT_DIGEST_MISMATCH = 9;
+  const flipped = Buffer.from(good);
+  flipped[flipped.length >>> 1] ^= 0x01;
+  const refusals = [
+    // Longer than the buffer. Passed as a length alone, with nothing staged,
+    // because staging it is exactly what the module is refusing to let a caller
+    // do.
+    ["longer than the buffer", null, u32(wasm.checkpoint_capacity()) + 1, CHECKPOINT_TOO_LONG],
+    ["a truncated fetch", good.subarray(0, good.length - 40), 0, CHECKPOINT_TRUNCATED],
+    ["an error page", Buffer.from("<!doctype html><title>404</title>"), 0, CHECKPOINT_BAD_MAGIC],
+    ["one flipped bit", flipped, 0, CHECKPOINT_DIGEST_MISMATCH],
+  ];
+  for (const [what, bytes, length, reason] of refusals) {
+    const len = bytes === null ? length : stageCheckpoint(bytes);
+    const answer = checkpointResult(wasm.load_checkpoint(len));
+    assert.equal(answer.outcome, 0, `${what} loaded`);
+    assert.equal(answer.reason, reason, `${what} answered the wrong reason`);
+    assert.equal(u32(wasm.checkpoint_installed()), 1, `${what} uninstalled the network`);
+    assert.deepEqual(publishedName(), named, `${what} renamed the installed network`);
+  }
+
+  // And the instance still works afterwards, which is the whole point: the good
+  // file loads again and the digest is where it was.
+  assert.equal(checkpointResult(wasm.load_checkpoint(stageCheckpoint(good))).outcome, 1);
+  assert.equal(learnedDigest(), LEARNED_INFERENCE_DIGEST);
+});
+
+// A checkpoint's header is *claims*, and `Vec::with_capacity` believes them
+// before the loop that fills the vector discovers the file cannot back them.
+// This is the one allocating call in the set, and it is reachable from the one
+// input a *person* chooses from a picker, so the amount it can be talked into
+// reserving is a contract and not an implementation detail.
+//
+// Found by review: a 68-byte file declaring 0xffffffff weights reserved 4 MiB
+// -- 62,645x the file -- and grew linear memory by 65 pages on its way to
+// refusing the file, which detaches every typed array the page is holding. The
+// caps are now `ModelShape::CURRENT.weight_count()` and `bytes.len() / 8`,
+// which are the largest counts a file of that length could legitimately carry.
+const WASM_PAGE = 65_536;
+
+// Two lengths and one header, so the header's *claims* are what varies. Offsets
+// follow `Checkpoint::to_bytes`: the first 64 bytes are magic, framing, both
+// layout versions, the three shape words and the training record up to the seed
+// count at 60, which puts the weight count at 64 when no seeds follow.
+const SEED_COUNT_AT = 60;
+const WEIGHT_COUNT_AT = 64;
+
+function overclaiming(good, field, claim) {
+  const bytes = Buffer.alloc(WEIGHT_COUNT_AT + 4);
+  good.copy(bytes, 0, 0, WEIGHT_COUNT_AT);
+  bytes.writeUInt32LE(0, SEED_COUNT_AT);
+  bytes.writeUInt32LE(0, WEIGHT_COUNT_AT);
+  bytes.writeUInt32LE(claim, field);
+  return bytes;
+}
+
+test("a refused checkpoint does not grow linear memory", () => {
+  const good = fs.readFileSync(CHECKPOINT);
+  assert.equal(checkpointResult(wasm.load_checkpoint(stageCheckpoint(good))).outcome, 1);
+  const named = publishedName();
+
+  // The legitimate file is the control: 3,858 weights and 32 training seeds is
+  // what the decoder is *for*, and it must not grow memory either. Measured
+  // first so a page the good load happened to take is not charged to a refusal.
+  const settled = wasm.memory.buffer.byteLength;
+  assert.equal(checkpointResult(wasm.load_checkpoint(stageCheckpoint(good))).outcome, 1);
+  assert.equal(
+    wasm.memory.buffer.byteLength, settled,
+    `the shipped ${good.length}-byte checkpoint grew linear memory by ` +
+      `${(wasm.memory.buffer.byteLength - settled) / WASM_PAGE} pages`,
+  );
+
+  // A view held across the call, because "it grew" and "every typed array the
+  // page holds is now detached" are the same sentence and only the second one
+  // says why it matters. `init` first, so the row is real.
+  wasm.init(1);
+  const held = new Float32Array(wasm.memory.buffer, u32(wasm.pose_ptr()), 16);
+  const CHECKPOINT_TRUNCATED = 2;
+
+  for (const [what, bytes] of [
+    ["four billion weights", overclaiming(good, WEIGHT_COUNT_AT, 0xffffffff)],
+    ["four billion training seeds", overclaiming(good, SEED_COUNT_AT, 0xffffffff)],
+    // Half a megaword each, which is under the old weight cap and over the real
+    // one -- the shape a cap that is 271x the only legal count lets through.
+    ["half a megaword of weights", overclaiming(good, WEIGHT_COUNT_AT, 1 << 19)],
+    ["half a megaword of seeds", overclaiming(good, SEED_COUNT_AT, 1 << 19)],
+  ]) {
+    const before = wasm.memory.buffer.byteLength;
+    const answer = checkpointResult(wasm.load_checkpoint(stageCheckpoint(bytes)));
+    assert.equal(answer.outcome, 0, `${what} loaded`);
+    assert.equal(answer.reason, CHECKPOINT_TRUNCATED, `${what} answered the wrong reason`);
+    const after = wasm.memory.buffer.byteLength;
+    assert.equal(
+      after, before,
+      `a ${bytes.length}-byte file claiming ${what} grew linear memory by ` +
+        `${(after - before) / WASM_PAGE} pages -- ` +
+        `${Math.round((after - before) / bytes.length)}x the file it refused`,
+    );
+    assert.equal(u32(wasm.checkpoint_installed()), 1, `${what} uninstalled the network`);
+    assert.deepEqual(publishedName(), named, `${what} renamed the installed network`);
+  }
+
+  assert.equal(held.byteLength, 64, "a refusal detached a view the page was holding");
+  assert.equal(learnedDigest(), LEARNED_INFERENCE_DIGEST);
+  // Not the absolute page count: it depends on which tests ran before this one,
+  // and the assertion above is a delta against a baseline this test measures for
+  // itself. What is worth printing is that four refusals moved it by nothing.
+  console.log("checkpoint     4 overclaiming headers refused, 0 pages of growth");
+  wasm.init(1);
+});
+
+test("a learned fighter runs a configured duel inside the module", () => {
+  // **No pinned number here either, and for the reason the scripted duel above
+  // gives.** The number this would pin is an articulated fight's state hash,
+  // which is `ARTICULATED_HASH` under another name -- planned by v2-17,
+  // deliberately absent, and which no session before it may create. The
+  // cross-target claim this session owes is `LEARNED_INFERENCE_DIGEST`, and that
+  // is pinned; the fight equality is
+  // `a_learned_fight_in_wasm_matches_the_same_fight_in_lab` in crates/web, over
+  // 3,600 ticks of the same configuration against a second spelling of `lab`'s
+  // loop.
+  //
+  // What is checked here is everything that does not require inventing a pin:
+  // that the module takes the code once a network is installed, that it runs the
+  // fight rather than standing still, that the same bytes fight the same fight
+  // twice, and that a learned fighter is not a scripted one wearing its number.
+  // Loaded here rather than inherited, for the reason the test above gives.
+  assert.equal(
+    checkpointResult(wasm.load_checkpoint(stageCheckpoint(fs.readFileSync(CHECKPOINT)))).outcome,
+    1,
+  );
+  const config = shippedArena();
+  config.fighters[0].policy = LEARNED;
+  stageArena(arenaBytes(config));
+  assert.deepEqual(
+    arenaResult(wasm.arena_start(3)),
+    { outcome: 1, reason: 0, fighter: ARENA_WHOLE_CONFIG, slot: ARENA_WHOLE_CONFIG },
+    "the module refused a learned fighter with a network installed",
+  );
+  assert.equal(u32(wasm.arena_policy(0)), LEARNED);
+  assert.equal(u32(wasm.arena_policy(1)), WINDMILL);
+
+  wasm.step(3_600);
+  assert.equal(u32(wasm.tick()), config.maxTicks, "the arena did not stop at its own limit");
+  assert.ok(u32(wasm.combat_event_len()) > 0, "the learned fight resolved no contact");
+  const fought = stateHash();
+
+  stageArena(arenaBytes(config));
+  assert.equal(arenaResult(wasm.arena_start(3)).outcome, 1);
+  wasm.step(3_600);
+  assert.equal(stateHash(), fought, "the same network and seed fought differently");
+
+  const scripted = shippedArena();
+  stageArena(arenaBytes(scripted));
+  assert.equal(arenaResult(wasm.arena_start(3)).outcome, 1);
+  wasm.step(3_600);
+  assert.notEqual(stateHash(), fought, "the learned fighter fought like the script");
+  console.log(
+    `learned duel   ${config.maxTicks} ticks, ${u32(wasm.combat_event_len())} contact rows`,
+  );
+
+  wasm.init(1);
 });

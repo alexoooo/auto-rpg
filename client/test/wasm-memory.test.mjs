@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
+import { createRequire } from "node:module";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
@@ -19,12 +21,20 @@ function generatedConstants() {
     "UNIT_STRIDE", "SHOT_STRIDE", "EVENT_STRIDE", "MAX_UNITS", "MAX_SHOTS", "MAX_EVENTS",
     "HEADER_UNIT_COUNT", "HEADER_SHOT_COUNT", "HEADER_EVENT_COUNT", "HEADER_DEPTH",
     "HEADER_EVENTS_DROPPED",
-    // v2-16's two publications. Required rather than optional because the
-    // articulated stress below sizes its retained views off them: a missing
-    // constant would read as `undefined`, a view of `undefined` length is
-    // zero-length, and a zero-length view cannot witness a detach.
+    // The three articulated publications. Required rather than optional because
+    // the fixtures below size their retained views off them: a missing constant
+    // would read as `undefined`, a view of `undefined` length is zero-length,
+    // and a zero-length view cannot witness a detach.
+    //
+    // **`REGION_*` joined this list in v2-ui-07 and the reason is a consumer.**
+    // v2-ui-06 published the capsules and left the constants out here on the
+    // honest ground that nothing retained a region view, so requiring them would
+    // promise a check nobody made. The recorder holds one on every tick of a
+    // 3,600-tick drive, so `arena_start_allocates_within_the_warm_set` retains it
+    // and the promise is now kept.
     "POSE_LAYOUT_VERSION", "POSE_STRIDE", "MAX_POSES",
     "COMBAT_EVENT_LAYOUT_VERSION", "COMBAT_EVENT_STRIDE", "MAX_COMBAT_EVENTS",
+    "REGION_LAYOUT_VERSION", "REGION_STRIDE", "REGIONS_PER_BODY", "MAX_REGIONS",
   ];
   for (const name of required) assert.ok(result.has(name), `${name} is missing from generated ABI`);
   return Object.fromEntries(result);
@@ -807,17 +817,31 @@ test("published_views_survive_articulated_stress_without_memory_growth", () => {
   // detached every retained view, and warming the same seed twice did not fix it
   // because the peak is per *floor*.
   //
-  // **Measured, and it settles at 241 pages from the end of round one** --
+  // **Measured, and it settles at 242 pages from the end of round one** --
   // unchanged through a measured round six, and unchanged through a measured
   // sixth guarded cycle. One round would therefore do; three is margin that
   // costs about a second, on the sibling fixture's argument that a warm-up
   // whose cost is invisible is the wrong place to be frugal. Two readings for
   // the shape of the number: the legacy fixture beside this one settles at 38
-  // pages and the articulated contact fixture at 221, so most of the 241 is the
+  // pages and the articulated contact fixture at 221, so most of the 242 is the
   // articulated *room* -- a generated floor with a roster on it -- rather than
-  // the 279,040 bytes of pose and event array, which is 5 pages. It read 237
-  // while `MAX_COMBAT_EVENTS` was 1024; the four pages between are that
+  // the 289,280 bytes of pose, event and region array, which is 5 pages. It read
+  // 237 while `MAX_COMBAT_EVENTS` was 1024; four of the pages between are that
   // capacity doubling, static array and live reservations together.
+  //
+  // **The 241 this comment carried until v2-ui-07 was stale, and v2-ui-08 said
+  // so where it landed rather than fixing it here.** The 32,768-byte checkpoint
+  // staging buffer is half a page of static data that happened to fall across a
+  // page boundary. The assertion is against a baseline this test measures for
+  // itself, so the figure is a record and not a claim -- which is exactly why a
+  // wrong one survives, and why it is worth correcting rather than deleting.
+  //
+  // The publication budget was 279,040 across v2-16's two publications until
+  // v2-ui-06 appended the five swept region capsules per body (`8 * 320 * 4`),
+  // and **the page count did not move with it**: 4.26 pages and 4.41 pages round
+  // up to the same 5, and the arrays are static, so a third publication was free
+  // at this resolution. It would stop being free at the next page boundary,
+  // 327,680 bytes, which is 38,400 further on.
   let last = null;
   for (let round = 1; round <= ARTICULATED_WARM_ROUNDS; round++) {
     for (const seed of seeds) last = articulatedStress(wasm, abi, seed);
@@ -884,4 +908,364 @@ test("published_views_survive_articulated_stress_without_memory_growth", () => {
       `${seeds.length * ARTICULATED_GUARDED_CYCLES} guarded cycles, ` +
       `peak ${peak} event rows in one step(8)`,
   );
+});
+
+
+// ------------------------------------------------- the arena recording channel
+//
+// v2-ui-07 drives `arena_start` and the three publications from JavaScript for
+// the first time, and it adds two claims this file is the right place for. The
+// first is the memory one it already makes about everything else: `arena_start`
+// builds a `Scenario`, two `Vec`s of spec rows and a whole `World`, and
+// `load_checkpoint` builds a weight vector, so both belong in the warm set --
+// linear-memory growth detaches every typed array view, and a recording in
+// flight is the worst possible moment for that. The second is the index: a
+// fight where a body dies is the case a reader computing `tick * 2 *
+// POSE_STRIDE` gets silently wrong, and this is the only place a *real* one can
+// be driven.
+//
+// The recorder itself is the shipped TypeScript, compiled here and handed the
+// same `createArenaAdapter` the worker uses -- a free function over the exports
+// precisely so this file can build it without a worker, a `fetch` or a `self`.
+
+const OUT = path.join(root, ".tools", "wasm-memory-test");
+fs.mkdirSync(OUT, { recursive: true });
+const tsc = spawnSync(process.execPath, [
+  path.join(root, "node_modules", "typescript", "bin", "tsc"),
+  "--ignoreConfig",
+  "--target", "ES2022", "--module", "commonjs", "--moduleResolution", "node",
+  "--ignoreDeprecations", "6.0",
+  "--strict", "--skipLibCheck", "--outDir", OUT, "--rootDir", root,
+  "client/src/runtime/arena-config.ts", "client/src/runtime/arena-recorder.ts",
+  "client/src/fight/live.ts",
+], { cwd: root, encoding: "utf8" });
+assert.equal(tsc.status, 0, `TypeScript test compilation failed:\n${tsc.stdout}\n${tsc.stderr}`);
+
+const require = createRequire(import.meta.url);
+const CONFIG = require(path.join(OUT, "client/src/runtime/arena-config.js"));
+const RECORDER = require(path.join(OUT, "client/src/runtime/arena-recorder.js"));
+const { LiveFightSource } = require(path.join(OUT, "client/src/fight/live.js"));
+
+const CHECKPOINT = path.join(root, "checkpoints", "v2-probe.ckpt");
+
+/** The picker's own vocabulary, as the arena route will assemble it. */
+function liveConfig({ heroes = "composed", monsters = "composed", seed = 3,
+  hands = [["shield", "sword"], ["empty", "club"]], anatomies = [0, 1] } = {}) {
+  const policy = (name) => {
+    const code = CONFIG.policyCodeOf(name);
+    assert.notEqual(code, null, `${name} is not an articulated policy code`);
+    return code;
+  };
+  return {
+    fighters: [heroes, monsters].map((name, side) => ({
+      anatomy: anatomies[side],
+      policy: policy(name),
+      spawn: CONFIG.SHIPPED_SPAWNS[side],
+      hands: [CONFIG.HAND_ITEMS[hands[side][0]], CONFIG.HAND_ITEMS[hands[side][1]]],
+    })),
+    maxTicks: CONFIG.ARENA_MAX_TICKS,
+    seed,
+  };
+}
+
+/** The recorder's own hooks, with no yielding: a Node test has nothing to yield to. */
+const straightThrough = { onProgress: () => {}, yieldToMessages: async () => {} };
+
+async function recordLive(wasm, config, { checkpoint = null } = {}) {
+  const adapter = RECORDER.createArenaAdapter(wasm);
+  const bytes = CONFIG.encodeArenaConfig(config);
+  const result = await RECORDER.recordArenaFight(
+    adapter, config, bytes, checkpoint, straightThrough, () => false,
+  );
+  assert.equal(result.ok, true, result.ok ? "" : `${result.reason}: ${result.detail}`);
+  return result.recording;
+}
+
+test("arena_start_allocates_within_the_warm_set", async () => {
+  const abi = generatedConstants();
+  const wasm = instantiate();
+  const adapter = RECORDER.createArenaAdapter(wasm);
+  const checkpoint = new Uint8Array(fs.readFileSync(CHECKPOINT));
+
+  // A legacy level first, for the reason the two fixtures above give: the
+  // retained MAP, VIS and FURNITURE views must have a non-zero length before the
+  // guard closes, because a detached view reads a `byteLength` of zero and so
+  // does a view that was never over anything.
+  wasm.init(1);
+
+  // Three arrangements rather than one, because `arena_start` builds a
+  // `Scenario` whose table is a function of the loadout: two anatomies, up to
+  // four equipment rows, and a `World` sized from them. A warm-up that only ever
+  // saw the shipped arrangement would leave the first differently-shaped one to
+  // grow the heap under the guard.
+  const arrangements = [
+    liveConfig(),
+    liveConfig({ heroes: "windmill", monsters: "attack-moves", anatomies: [1, 1],
+      hands: [["club", "club"], ["sword", "shield"]], seed: 7 }),
+    liveConfig({ heroes: "learned", monsters: "windmill", seed: 3 }),
+  ];
+
+  const round = (guard = null) => {
+    const checked = (label, call) => {
+      const result = call();
+      publicationShape(wasm, abi);
+      articulatedShape(wasm, abi);
+      if (guard) guard(label);
+      return result;
+    };
+    for (const config of arrangements) {
+      // The two allocating calls, together and before anything else -- which is
+      // the handshake `articulated-abi.md` states and the reason they are one
+      // method on the adapter rather than two the caller may interleave.
+      const loaded = checked(`warmUp(${config.seed})`, () => adapter.warmUp(config.seed, checkpoint));
+      assert.equal(loaded & 0xff, 1, "the shipped checkpoint was refused");
+      const bytes = CONFIG.encodeArenaConfig(config);
+      checked("writeConfig", () => adapter.writeConfig(bytes));
+      const started = checked(`arena_start(${config.seed})`, () => adapter.start(config.seed));
+      assert.ok(CONFIG.arenaStarted(started), CONFIG.describeArenaRefusal(started));
+      // Enough ticks to bring the two bodies into contact, so the guarded phase
+      // covers the solver's own per-tick behaviour and not only the install.
+      for (let tick = 0; tick < 128; tick += 1) {
+        checked(`step(1) at ${tick}`, () => wasm.step(1));
+        const published = adapter.read();
+        assert.equal(published.regionRows, published.poseRows * abi.REGIONS_PER_BODY,
+          "the region section must cover exactly the published poses");
+      }
+    }
+  };
+
+  // **Measured, and what matters is the arrangements rather than the count.**
+  // One round over all three settles it and holds through three guarded cycles;
+  // the second is margin that costs a tenth of a second. What is *not* margin is
+  // that the warm-up drives every arrangement the guarded phase drives, which is
+  // the sibling fixtures' rule and is the one this test was mutation-checked
+  // against: warmed on the shipped arrangement alone and then guarded across all
+  // three, `cycle 2, warmUp(7)` grows linear memory and detaches every retained
+  // view. `init_articulated` builds a whole generated floor -- nav fields and fog
+  // -- before it replaces the world, and a different seed is a different floor.
+  round();
+  round();
+
+  const shape = publicationShape(wasm, abi);
+  const articulated = articulatedShape(wasm, abi);
+  const memory = wasm.memory;
+  const baselineBuffer = memory.buffer;
+  const baselinePages = baselineBuffer.byteLength / 65_536;
+  const regionPointer = wasm.region_ptr() >>> 0;
+  const regionBytes = abi.MAX_REGIONS * abi.REGION_STRIDE * 4;
+
+  // **The region array joins the retained set here**, which v2-ui-06 left for
+  // the session with a consumer -- and this is it: the recorder holds a view over
+  // every published region row on every tick of a 3,600-tick drive.
+  const retained = [
+    new Float32Array(baselineBuffer, shape.framePtr, shape.frameLength),
+    new Uint32Array(baselineBuffer, articulated.posePtr, articulated.poseBytes / 4),
+    new Uint32Array(baselineBuffer, articulated.eventPtr, articulated.eventBytes / 4),
+    new Uint32Array(baselineBuffer, regionPointer, regionBytes / 4),
+    new Uint8Array(baselineBuffer, shape.mapPtr, shape.mapLength),
+    new Uint8Array(baselineBuffer, shape.visPtr, shape.visLength),
+  ];
+  const retainedLengths = retained.map((view) => view.byteLength);
+  assert.ok(retainedLengths.every((length) => length > 0), "warm fixture left an empty retained view");
+  assert.equal(retainedLengths[3], 10_240, "the region buffer is not the reference's 10,240 bytes");
+  // **FURNITURE is deliberately not retained**, on the same argument the two
+  // fixtures above make for calling `init` first: a configured duel has no
+  // furniture at all, so a view over an arena publication's furniture block is
+  // zero-length -- and a detached view reads a `byteLength` of zero too, so it
+  // could witness nothing. Its pointer is still checked below, which is the half
+  // an empty view can carry.
+  assert.equal(shape.furnitureBytes, 0, "a configured duel published furniture");
+
+  let cycles = 0;
+  for (let cycle = 1; cycle <= 3; cycle += 1) {
+    round((call) => {
+      const after = publicationShape(wasm, abi);
+      const afterArticulated = articulatedShape(wasm, abi);
+      const label = `cycle ${cycle}, ${call}`;
+      assert.equal(memory.buffer, baselineBuffer, `${label}: wasm.memory.buffer changed`);
+      assert.equal(memory.buffer.byteLength / 65_536, baselinePages, `${label}: wasm memory grew`);
+      // The *original* views, not freshly built ones: a view rebuilt from the
+      // current buffer would be attached by construction, on either side of a
+      // growth.
+      assert.deepEqual(retained.map((view) => view.byteLength), retainedLengths,
+        `${label}: a retained view detached`);
+      assert.equal(after.framePtr, shape.framePtr, `${label}: FRAME moved`);
+      assert.equal(afterArticulated.posePtr, articulated.posePtr, `${label}: POSES moved`);
+      assert.equal(afterArticulated.eventPtr, articulated.eventPtr, `${label}: COMBAT_EVENTS moved`);
+      assert.equal(wasm.region_ptr() >>> 0, regionPointer, `${label}: REGIONS moved`);
+      assert.equal(after.mapPtr, shape.mapPtr, `${label}: MAP moved`);
+      assert.equal(after.visPtr, shape.visPtr, `${label}: VIS moved`);
+      assert.equal(after.furniturePtr, shape.furniturePtr, `${label}: FURNITURE moved`);
+      cycles += 1;
+    });
+  }
+  assert.ok(cycles > 0, "the guarded phase asserted nothing");
+  console.log(`arena warm set: ${baselinePages} pages held across 3 guarded cycles`);
+});
+
+test("the_index_survives_a_death", async () => {
+  const wasm = instantiate();
+  // The one fight in the repository that is known to end in a kill:
+  // v2-ui-08 measured the learned fighter killing the Brute at tick 3,339 on
+  // seed 3, and `a_learned_fight_in_wasm_matches_the_same_fight_in_lab` is what
+  // says that is `lab`'s fight and not merely this module's.
+  const config = liveConfig({ heroes: "learned", monsters: "windmill", seed: 3 });
+  const checkpoint = new Uint8Array(fs.readFileSync(CHECKPOINT));
+  const recording = await recordLive(wasm, config, { checkpoint });
+
+  assert.equal(recording.ticks, 3_339, "the learned fighter's kill tick moved");
+  assert.equal(recording.outcome, "HeroesWin");
+  assert.equal(recording.timedOut, false);
+  assert.equal(recording.recordingTruncated, false);
+  assert.equal(recording.frameCount, 3_340);
+  assert.equal(recording.checkpoint,
+    "7a05fc8c76ad47858ac69f770d595fa556b1bfb81dbf7d62ced831e751e26b6c");
+
+  const source = new LiveFightSource(recording);
+  assert.equal(source.frameCount(), 3_340);
+  // Two bodies until the kill and one after it, which is what `pose_len` means:
+  // one per **live** articulated body.
+  assert.equal(source.frameAt(3_338).poses.length, 2);
+  assert.equal(source.frameAt(3_339).poses.length, 1);
+  assert.equal(source.frameAt(3_339).poses[0].id[0], 0, "the Fighter is the survivor");
+  assert.deepEqual(source.frameAt(3_339).health, [65_536, 0]);
+
+  // **The index, as an assertion rather than as a comment.** This is the
+  // arithmetic a reader without one would do; after the kill it lands on a row
+  // that belongs to a different tick entirely, so deleting the index cannot
+  // leave this test passing.
+  const index = new Uint32Array(recording.index);
+  const start = index[3_339 * RECORDER.RECORDING_INDEX_STRIDE + RECORDER.INDEX_POSE_START];
+  assert.equal(start, 3_339 * 2, "the death is the first frame to go short of two rows");
+  const poses = new Uint32Array(recording.poses);
+  assert.equal(poses.length / recording.poseStride, 3_339 * 2 + 1,
+    "a whole fight's pose rows are two a tick until the kill and one on it");
+  assert.equal(index[3_339 * RECORDER.RECORDING_INDEX_STRIDE + RECORDER.INDEX_POSE_COUNT], 1);
+  assert.equal(index[3_339 * RECORDER.RECORDING_INDEX_STRIDE + RECORDER.INDEX_REGION_COUNT], 5);
+  // Every frame carries the tick it was published at, and the region section
+  // covers exactly its own poses.
+  for (let frame = 0; frame < source.frameCount(); frame += 1) {
+    const at = frame * RECORDER.RECORDING_INDEX_STRIDE;
+    assert.equal(index[at + RECORDER.INDEX_TICK], frame);
+    assert.equal(index[at + RECORDER.INDEX_REGION_COUNT],
+      index[at + RECORDER.INDEX_POSE_COUNT] * recording.regionsPerBody);
+  }
+});
+
+// -------------------------------------------- the differential oracle
+//
+// Same configuration, same seed, field for field. `lab trace` and this recording
+// are the same fixed-point words out of the same simulation -- the configured
+// duel reproduces `articulated_duel()` row for row and id for id, differing in
+// the scenario *name* alone -- so every column both sources carry has to agree
+// exactly, and the ones they do not carry are named rather than skipped
+// silently.
+//
+// **Gated on the fixture and not skipped silently.** A trace is a development
+// artifact: `.gitignore` excludes `web/fight*.json` and the production bundle
+// carries none, so a clean clone has nothing to compare against. When one is
+// present the comparison is mandatory; when none is, the test says which command
+// writes one.
+const TRACE_FIXTURES = [
+  { file: "web/fight.json", command: "cargo run --release -p lab -- trace --seed 3 --out web/fight.json" },
+  {
+    file: "web/fight-learned.json",
+    command: "cargo run --release -p lab -- trace --policy learned "
+      + "--checkpoint checkpoints/v2-probe.ckpt --opponent windmill --seed 3 "
+      + "--out web/fight-learned.json",
+  },
+];
+
+function traceFixtures() {
+  return TRACE_FIXTURES
+    .map((entry) => ({ ...entry, full: path.join(root, entry.file) }))
+    .filter((entry) => fs.existsSync(entry.full));
+}
+
+test("a_live_fight_matches_the_traced_fight", async (t) => {
+  const fixtures = traceFixtures();
+  if (fixtures.length === 0) {
+    t.skip(`no recorded fight to compare against; write one with:\n  ${
+      TRACE_FIXTURES.map((entry) => entry.command).join("\n  ")}`);
+    return;
+  }
+  const checkpoint = new Uint8Array(fs.readFileSync(CHECKPOINT));
+  for (const fixture of fixtures) {
+    const trace = JSON.parse(fs.readFileSync(fixture.full, "utf8"));
+    assert.equal(trace.schema, "arpg-fight-trace-3",
+      `${fixture.file} is schema ${trace.schema}; re-record it with: ${fixture.command}`);
+    // The live fight is built from the trace's own header, so the two are the
+    // same configuration by construction rather than by a comment.
+    const wasm = instantiate();
+    const config = liveConfig({
+      heroes: trace.heroes, monsters: trace.monsters, seed: trace.seed,
+    });
+    const recording = await recordLive(wasm, config,
+      { checkpoint: trace.checkpoint === null ? null : checkpoint });
+    const live = new LiveFightSource(recording);
+    const where = `${fixture.file}: `;
+
+    // ---- the header.
+    assert.equal(recording.checkpoint, trace.checkpoint, `${where}checkpoint`);
+    for (const field of ["one", "seed", "heroes", "monsters", "outcome", "timedOut",
+      "ticks", "maxTicks", "impactThreshold", "contactEnergyFloor", "bodySlot"]) {
+      assert.deepEqual(live.header[field], trace[field], `${where}header.${field}`);
+    }
+    assert.deepEqual([...live.header.arena], [...trace.arena], `${where}arena`);
+    assert.deepEqual([...live.header.regionNames], trace.regionNames, `${where}regionNames`);
+    assert.deepEqual([...live.header.hintNames], trace.hintNames, `${where}hintNames`);
+    assert.deepEqual([...live.header.contactKinds], trace.contactKinds, `${where}contactKinds`);
+    assert.deepEqual(live.header.bodies.map((body) => ({ ...body, carried: [...body.carried] })),
+      trace.bodies.map((body) => ({ ...body, carried: [...body.carried] })), `${where}bodies`);
+    // The two fields that must **not** agree, asserted so the difference is a
+    // decision rather than an oversight. A runtime scenario is named
+    // `configured-duel-v1` precisely so a recorded fight cannot be mistaken for
+    // the `articulated-duel-v1` pin, and the fingerprint follows the name.
+    assert.equal(live.header.scenario, "configured-duel-v1", `${where}scenario`);
+    assert.equal(trace.scenario, "articulated-duel-v1", `${where}traced scenario`);
+    assert.notEqual(live.header.fingerprint, trace.fingerprint, `${where}fingerprint`);
+    // `NO_REGION` widens to a whole word on the wire so a reader that lost track
+    // of the column width cannot mistake it for a region index.
+    assert.equal(live.header.noRegion, 4_294_967_295, `${where}noRegion`);
+    assert.equal(trace.noRegion, 255, `${where}traced noRegion`);
+
+    // ---- every frame, field for field.
+    assert.equal(live.frameCount(), trace.frames.length, `${where}frame count`);
+    const region = (value) => (value === trace.noRegion ? live.header.noRegion : value);
+    for (let frame = 0; frame < trace.frames.length; frame += 1) {
+      const recorded = trace.frames[frame];
+      const played = live.frameAt(frame);
+      const at = `${where}frame ${frame}`;
+      assert.equal(played.t, recorded.t, `${at}: tick`);
+      assert.deepEqual(played.health, recorded.health, `${at}: health`);
+      assert.equal(played.poses.length, recorded.poses.length, `${at}: pose count`);
+      for (let body = 0; body < recorded.poses.length; body += 1) {
+        const expected = recorded.poses[body];
+        const actual = played.poses[body];
+        // `target` is deliberately absent from the comparison and from the live
+        // path: `POSE_INTENT` publishes the discriminant only.
+        const { target: _tracedTarget, ...rest } = expected;
+        assert.deepEqual({ ...actual, target: undefined },
+          { ...rest, target: undefined }, `${at}: pose ${body}`);
+      }
+      assert.equal(played.contacts.length, recorded.contacts.length, `${at}: contact count`);
+      for (let row = 0; row < recorded.contacts.length; row += 1) {
+        const expected = recorded.contacts[row];
+        const actual = played.contacts[row];
+        // The five columns the event row does not carry are null on the live
+        // side, which `LiveFightSource`'s header states and this asserts.
+        assert.deepEqual([actual.velocityA, actual.velocityB, actual.impulseA,
+          actual.impulseB, actual.alpha], [null, null, null, null, null], `${at}: contact ${row} absences`);
+        const { velocityA, velocityB, impulseA, impulseB, alpha, region: tracedRegion, ...shared } = expected;
+        assert.deepEqual(
+          { ...actual, velocityA: null, velocityB: null, impulseA: null, impulseB: null,
+            alpha: null, region: actual.region },
+          { ...shared, velocityA: null, velocityB: null, impulseA: null, impulseB: null,
+            alpha: null, region: region(tracedRegion) },
+          `${at}: contact ${row}`,
+        );
+      }
+    }
+    console.log(`${fixture.file}: ${trace.frames.length} frames agree field for field`);
+  }
 });

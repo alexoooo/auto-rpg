@@ -44,6 +44,12 @@ const FURNITURE_DOOR_OPEN: u8 = 1;
 /// How many regions the pose row's two fraction blocks each hold. Emitted so
 /// the consumer indexes `POSE_INTEGRITY_FIRST + part` against a number rather
 /// than against a literal five it also has to keep in step with `BodyPart`.
+///
+/// The same number as `REGIONS_PER_BODY` and deliberately its own name: one is
+/// how wide a pose row's fraction blocks are, the other is how many region rows
+/// a body publishes, and a consumer reaching for the wrong one would be reading
+/// the right value for the wrong reason. Both are `sim::AnatomyRegion::COUNT`
+/// in Rust, so they cannot drift; the test below states the identity once.
 const POSE_BODY_PART_COUNT: usize = sim::AnatomyRegion::COUNT;
 
 /// The slot value that names the body itself rather than a grip. Carried across
@@ -59,16 +65,23 @@ const FRAME_OFFSET: usize = 0;
 const MAP_OFFSET: usize = align4(FRAME_MAX * size_of::<f32>());
 const VIS_OFFSET: usize = MAP_OFFSET + MAP_MAX;
 const FURNITURE_OFFSET: usize = VIS_OFFSET + MAP_MAX;
-// **The snapshot ends at the furniture region, and the pose/combat-event regions
-// that v2-17 will append are deliberately not reserved yet.** Reserving them
-// takes this constant from 27,452 to 306,492 -- 279,040 bytes on each of three
-// pooled buffers, and a zero-fill 11.2x wider on a buffer `snapshot.ts` clears
-// whole once per filtered publication -- while nothing on the TypeScript side
-// writes or reads a word of either region, because the visibility-filtered copy
-// that would occupy them does not exist yet. A cost of that shape arrives with
-// its consumer and its measurement, not ahead of both. The column offsets below
-// are emitted regardless: those are the ABI and v2-17 needs every one of them.
-// `articulated-abi.md` records the decision beside the formula.
+// **The snapshot ends at the furniture region, and the three articulated
+// regions that v2-ui-07 will append are deliberately not reserved yet.**
+// Reserving them takes this constant from 27,452 to 316,732 -- 289,280 bytes on
+// each of three pooled buffers, and a zero-fill 11.5x wider on a buffer
+// `snapshot.ts` clears whole once per filtered publication -- while nothing on
+// the TypeScript side writes or reads a word of any of them, because the
+// visibility-filtered copy that would occupy them does not exist yet. A cost of
+// that shape arrives with its consumer and its measurement, not ahead of both.
+// The column offsets below are emitted regardless: those are the ABI and
+// v2-ui-07 needs every one of them. `articulated-abi.md` records the decision
+// beside the formula.
+//
+// **"Region" means two different things in this file and the collision is worth
+// naming.** A *snapshot* region is one of the four blocks below -- frame, map,
+// vis, furniture. An *anatomy* region is one of the five capsules the
+// `REGION_*` offsets describe. Nothing here reserves a snapshot region for the
+// anatomy regions, which is the sentence that needs both meanings at once.
 const SNAPSHOT_BUFFER_BYTES: usize =
     align4(FURNITURE_OFFSET + FURNITURE_MAX * FURNITURE_STRIDE);
 
@@ -92,6 +105,9 @@ fn generated() -> String {
     emit!(POSE_STRIDE);
     emit!(COMBAT_EVENT_LAYOUT_VERSION);
     emit!(COMBAT_EVENT_STRIDE);
+    emit!(REGION_LAYOUT_VERSION);
+    emit!(REGION_STRIDE);
+    emit!(REGIONS_PER_BODY);
     output.push('\n');
     emit!(MAX_UNITS);
     emit!(MAX_SHOTS);
@@ -101,6 +117,7 @@ fn generated() -> String {
     emit!(FURNITURE_MAX);
     emit!(MAX_POSES);
     emit!(MAX_COMBAT_EVENTS);
+    emit!(MAX_REGIONS);
     output.push('\n');
     emit!(FRAME_OFFSET);
     emit!(MAP_OFFSET);
@@ -295,6 +312,15 @@ fn generated() -> String {
     emit!(COMBAT_EVENT_SEVERED);
     emit!(COMBAT_EVENT_NO_BODY_PART);
     emit!(COMBAT_EVENT_BODY_SLOT);
+    output.push('\n');
+    emit!(REGION_LOWER_X);
+    emit!(REGION_LOWER_Y);
+    emit!(REGION_LOWER_Z);
+    emit!(REGION_UPPER_X);
+    emit!(REGION_UPPER_Y);
+    emit!(REGION_UPPER_Z);
+    emit!(REGION_RADIUS);
+    emit!(REGION_PRESENT);
     output.push_str(
         "\nexport const FOCUS_NONE = 4294967295;\n\
          export const FOCUS_IDENTITY_EXPORTS = [\n\
@@ -339,14 +365,19 @@ mod tests {
         assert!(FURNITURE_OFFSET >= VIS_OFFSET + MAP_MAX);
         let furniture_end = FURNITURE_OFFSET + FURNITURE_MAX * FURNITURE_STRIDE;
         assert!(SNAPSHOT_BUFFER_BYTES >= furniture_end);
-        // **Four regions and no fifth**, which is the half of the name that
-        // would otherwise go quiet -- an assertion that every region fits says
-        // nothing about a region reserved for nobody. The buffer ends within
-        // one alignment step of the furniture block, so a pose or combat-event
-        // region appended here without a consumer fails this line rather than
-        // silently widening three pooled buffers and the memset `snapshot.ts`
-        // runs once per filtered publication. Those two regions land in v2-17
-        // with the visibility-filtered copy that reads them.
+        // **Four snapshot regions and no fifth**, which is the half of the name
+        // that would otherwise go quiet -- an assertion that every region fits
+        // says nothing about a region reserved for nobody. The buffer ends
+        // within one alignment step of the furniture block, so a pose,
+        // combat-event or anatomy-region block appended here without a consumer
+        // fails this line rather than silently widening three pooled buffers and
+        // the memset `snapshot.ts` runs once per filtered publication. All three
+        // land in v2-ui-07 with the visibility-filtered copy that reads them.
+        //
+        // **v2-ui-06 published the region capsules and deliberately reserved
+        // nothing here**, which is what this line is for: the `REGION_*` offsets
+        // below are emitted because they are the ABI, and the copy that would
+        // occupy a fifth snapshot region is still somebody else's session.
         assert!(
             SNAPSHOT_BUFFER_BYTES < furniture_end + 4,
             "the snapshot reserves {} bytes past the last region a consumer reads",
@@ -374,7 +405,7 @@ mod tests {
         ], core::array::from_fn::<_, EVENT_STRIDE, _>(|index| index));
         assert_eq!([FURNITURE_KIND, FURNITURE_TX, FURNITURE_TY, FURNITURE_STATE],
             core::array::from_fn::<_, FURNITURE_STRIDE, _>(|index| index));
-        // The two articulated rows, in the same idiom and for the same reason:
+        // The three articulated rows, in the same idiom and for the same reason:
         // an offset list that is exactly `0..STRIDE` has no gap a reader could
         // fall into and no duplicate two columns could share. The ten regional
         // fractions are written as their bases plus an index, which is how the
@@ -421,6 +452,24 @@ mod tests {
             COMBAT_EVENT_DEFLECTED_LO, COMBAT_EVENT_DEFLECTED_HI,
             COMBAT_EVENT_BODY_PART, COMBAT_EVENT_SEVERED,
         ], core::array::from_fn::<_, COMBAT_EVENT_STRIDE, _>(|index| index));
+        // The region row, in the same idiom a third time. Eight columns and not
+        // seven: `present` is a published word because a reader cannot infer it
+        // -- a head is a degenerate capsule on every body -- and a per-body mask
+        // instead of a per-region word is exactly what this `0..STRIDE` shape
+        // refuses.
+        assert_eq!([
+            REGION_LOWER_X, REGION_LOWER_Y, REGION_LOWER_Z,
+            REGION_UPPER_X, REGION_UPPER_Y, REGION_UPPER_Z,
+            REGION_RADIUS, REGION_PRESENT,
+        ], core::array::from_fn::<_, REGION_STRIDE, _>(|index| index));
+        // One number under two names, stated once so a consumer reaching for
+        // either gets the same five. See `POSE_BODY_PART_COUNT`.
+        assert_eq!(REGIONS_PER_BODY, POSE_BODY_PART_COUNT);
+        // Five region rows for every pose row the buffer beside it can hold. A
+        // region row carries no identity -- the pose row at `n / REGIONS_PER_BODY`
+        // is its identity -- so a capacity that could fill first would publish
+        // half a body and misalign every row after it.
+        assert_eq!(MAX_REGIONS, MAX_POSES * REGIONS_PER_BODY);
         // The absent-region sentinel is outside every region a `BodyPart` can
         // name, and outside the sim's own `0xff` so a reader that lost the
         // width cannot confuse the two.

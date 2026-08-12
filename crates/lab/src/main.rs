@@ -28,8 +28,9 @@ use policy::{
     RunConfig, RunResult, ScriptedArticulatedPolicy, WindmillArticulatedPolicy,
 };
 use sim::{
-    Body, CombatHeight, ContactKind, EntityId, Faction, Intent, Outcome, Scenario, StateDigest,
-    SubmitArticulatedOutcome, SubmittedCommand, SubmittedCommandRecord, UnitSpec, World,
+    AnatomyChoice, Body, CombatHeight, ContactKind, DuelConfigV1, EntityId, Faction, Intent,
+    Outcome, Scenario, StateDigest, SubmitArticulatedOutcome, SubmittedCommand,
+    SubmittedCommandRecord, UnitSpec, World,
 };
 use std::time::Instant;
 
@@ -96,24 +97,45 @@ fn usage() {
           which is the cell the reference table leaves unstated. Neither
           control is the reference script and neither may be pinned.
 
-  trace   --seed N --policy composed|windmill|attack-moves|learned --mirrored
+  trace   --seed N --policy composed|windmill|learned --attack-moves --mirrored
           --ticks N --out PATH
           --checkpoint PATH --opponent P --phase-random   (--policy learned only)
+          --fighter-a fighter|brute            --fighter-b fighter|brute
+          --a-left  sword|shield|club|empty    --a-right ...  (and the b twins)
+          --a-shield-half-width R --a-shield-half-height R
+          --a-weapon-length R --a-weapon-mass R            (and the b twins)
           Writes one articulated fight to JSON so it can be watched frame by
           frame in the browser: every published pose, every regional capsule,
           every resolution row. The run is the identical loop the gate measures
           and the recorder cannot change it -- `a_traced_run_is_the_run_the_gate_
           measured` is what says so. --ticks bounds the recording and never the
           fight, and a truncated file says so in its header. Defaults to
-          web/fight.json, which `npm run view` serves at /fight.html.
+          web/fight.json, which `npm run view` serves to the studio's Battle
+          Arena at /#/arena.
           --policy learned puts a checkpoint on the Fighter and a script on the
           Brute, which is the arrangement `learn-probe` measures; the header
           then names both sides and the checkpoint digest. **The three options
-          on the second line apply to that arm alone.** A script drives both
-          bodies -- one policy, two sides, which is what makes a scripted trace
-          a control -- so `--policy windmill --opponent composed` is not a
-          mixed fight and never was; it is a windmill mirror, and the header's
-          `heroes`/`monsters` pair is what says so rather than this paragraph.
+          marked `--policy learned only` apply to that arm alone.** A script
+          drives both bodies -- one policy, two sides, which is what makes a
+          scripted trace a control -- so `--policy windmill --opponent composed`
+          is not a mixed fight and never was; it is a windmill mirror, and the
+          header's `heroes`/`monsters` pair is what says so rather than this
+          paragraph.
+          The fourteen keys in the four-line block at the top of this entry
+          describe a duel instead of running the pinned one. **Give none of them
+          and the fixture runs, byte for byte** --
+          `a_traced_run_is_the_run_the_gate_measured` is a claim about that
+          path. Give any one and the scenario becomes `configured-duel-v1`,
+          whose fingerprint the header and the recorded file both print so a
+          recorded fight names the configuration it came from. R is a decimal
+          (`0.35`) turned into fixed point once, at the boundary, and refused if
+          it rounds to zero at 1/65536. A weapon key edits every
+          segment-geometry item that fighter holds and a shield key every plate,
+          so two blades come out the same length rather than raising an argument
+          about which one \"the\" weapon is. Two ways of asking for nothing exit
+          2 rather than quietly running something else: one of these keys
+          written without a value, and one aimed at an item that fighter is not
+          carrying.
 
   learn-probe train    --gens N --pop N --elite N --seeds N --sigma-pct N
                        --threads N --master-seed N --ticks N --plain
@@ -679,11 +701,18 @@ fn script_from(args: &Args) -> Script {
 /// it may be offered as the canonical seed-zero replay.
 fn mirrored_articulated_duel() -> Scenario {
     let mut scenario = Scenario::articulated_duel();
+    mirror_spawns(&mut scenario);
+    scenario
+}
+
+/// The reflection itself, so that `trace`'s `--mirrored` means the same thing
+/// over a described duel as it does over the pinned one. Reads the height off
+/// the scenario rather than writing `8` down a second time.
+fn mirror_spawns(scenario: &mut Scenario) {
     let height = scenario.arena().y;
     for unit in scenario.units.iter_mut() {
         unit.spawn.y = height - unit.spawn.y;
     }
-    scenario
 }
 
 /// Which of the three ordinary heights this is, or `None`.
@@ -1281,6 +1310,150 @@ fn evolution(args: &Args) {
 
 // ------------------------------------------------------------------ the trace
 
+// ------------------------------------------------------- the described duel
+
+/// The two anatomies a fighter may wear, spelled as the command line spells
+/// them.
+const ANATOMIES: [(&str, AnatomyChoice); 2] = [
+    ("fighter", AnatomyChoice::Fighter),
+    ("brute", AnatomyChoice::Brute),
+];
+
+/// What may be in a hand. `empty` is a named choice rather than the absence of
+/// the flag, because the absence of the flag means "whatever the shipped
+/// arrangement had there" and a picker needs to be able to say "nothing".
+const HAND_ITEMS: [(&str, Option<sim::ActionKind>); 4] = [
+    ("sword", Some(sim::ActionKind::Sword)),
+    ("shield", Some(sim::ActionKind::Shield)),
+    ("club", Some(sim::ActionKind::Club)),
+    ("empty", None),
+];
+
+/// Every key that turns `trace` from a run of the pinned fixture into a run of
+/// a described duel.
+///
+/// **The list is the switch, and that is deliberate.** A `trace` invocation with
+/// none of these has to produce the fixture and not a reconstruction of it, so
+/// that the file it writes is byte-identical to the one the gate's own runs
+/// wrote. Reconstructing would be *nearly* right -- `DuelConfigV1::shipped()`
+/// builds the same table and the same unit rows -- and nearly right is the
+/// failure mode that would be hardest to notice, because only the scenario name
+/// and therefore the fingerprint would move.
+const DUEL_KEYS: [&str; 14] = [
+    "fighter-a", "a-left", "a-right",
+    "a-shield-half-width", "a-shield-half-height", "a-weapon-length", "a-weapon-mass",
+    "fighter-b", "b-left", "b-right",
+    "b-shield-half-width", "b-shield-half-height", "b-weapon-length", "b-weapon-mass",
+];
+
+/// The described duel the flags add up to, `Ok(None)` if none of them was given,
+/// or the sentence the run should be refused with.
+///
+/// Every value defaults to the one the shipped arrangement has in that place, so
+/// a caller who moves one dimension has moved one dimension. The spawns and the
+/// clock come from `DuelConfigV1::shipped()` unchanged: they are the fixture's,
+/// which is what makes a configured fight comparable with the gate's.
+///
+/// **Two refusals, and both exist because the alternative is invisible.** A
+/// picker key is a request, so a key that cannot be honoured has to stop the run
+/// rather than be dropped from it; see the two blocks below for which mistake
+/// each one catches. They are returned rather than printed-and-exited, unlike
+/// [`Args::choice`]'s, so that
+/// `a_picker_key_that_cannot_be_honoured_refuses_the_run` can name them --
+/// a silent refusal path is exactly what these two are here to end.
+fn duel_config_from(args: &Args) -> Result<Option<DuelConfigV1>, String> {
+    // A picker key with no value is a refusal and never a default. `Args::parse`
+    // demotes `--key` to a bare flag when the next token is missing or is
+    // another `--key`, so `--a-weapon-length --seed 3` reaches `args.text` as
+    // "not given" -- and what came out was a run of the *fixture*, printing and
+    // recording the pinned fingerprint under a header the operator read as their
+    // configuration. `--a-left --a-right club` is the same bug wearing a
+    // disguise: the surviving half renames the scenario, so the file looks
+    // configured and the vanished key leaves no trace anywhere.
+    if let Some(key) = DUEL_KEYS.iter().find(|key| args.flag(key)) {
+        return Err(format!("--{key} describes a duel and needs a value: it was given none"));
+    }
+    if !DUEL_KEYS.iter().any(|key| args.text(key).is_some()) {
+        return Ok(None);
+    }
+    let mut config = DuelConfigV1::shipped();
+    for (index, side) in ["a", "b"].into_iter().enumerate() {
+        let fighter = &mut config.fighters[index];
+        fighter.anatomy = args.choice(&format!("fighter-{side}"), fighter.anatomy, &ANATOMIES);
+        for (hand, key) in ["left", "right"].into_iter().enumerate() {
+            let held = args.choice(
+                &format!("{side}-{key}"),
+                fighter.hands[hand].map(|item| item.action),
+                &HAND_ITEMS,
+            );
+            fighter.hands[hand] = held.map(|action| {
+                sim::HandItemV1::shipped(action).expect("every hand item has a shipped row")
+            });
+        }
+        let (mut weapons, mut plates) = (0, 0);
+        for item in fighter.hands.iter_mut().flatten() {
+            match &mut item.geometry {
+                sim::EquipmentGeometry::Segment { length, .. } => {
+                    weapons += 1;
+                    *length = args.decimal(&format!("{side}-weapon-length"), *length);
+                    item.mass = args.decimal(&format!("{side}-weapon-mass"), item.mass);
+                }
+                sim::EquipmentGeometry::Shield { half_width, half_height, .. } => {
+                    plates += 1;
+                    *half_width = args.decimal(&format!("{side}-shield-half-width"), *half_width);
+                    *half_height = args.decimal(&format!("{side}-shield-half-height"), *half_height);
+                }
+            }
+        }
+        // A dimension aimed at an item the fighter is not holding edits nothing,
+        // and the loop above cannot tell anyone: the key still counts as given,
+        // so the scenario is still renamed and re-fingerprinted and the fight is
+        // still the fixture's, tick for tick. `--b-shield-half-width 0.5` is the
+        // reachable case -- the Brute carries a club -- and it is the same
+        // failure `--policy duellist` would be, an afternoon spent comparing a
+        // configuration against itself.
+        for (suffix, carried, item) in [
+            ("weapon-length", weapons, "a weapon"),
+            ("weapon-mass", weapons, "a weapon"),
+            ("shield-half-width", plates, "a shield"),
+            ("shield-half-height", plates, "a shield"),
+        ] {
+            let key = format!("{side}-{suffix}");
+            if carried == 0 && args.text(&key).is_some() {
+                return Err(format!(
+                    "--{key} names {item} fighter {side} is not carrying: \
+                     put one in a hand with --{side}-left or --{side}-right, or drop the key"
+                ));
+            }
+        }
+    }
+    Ok(Some(config))
+}
+
+/// Refuses a described duel in a sentence rather than in a variant name.
+///
+/// The four errors below are the ones a person can reach from the command line,
+/// and each of them is a mistake somebody will make before a test does. The rest
+/// are unreachable from here by construction -- ids are assigned, bindings come
+/// from the hand, and the loadout is derived from the hands -- so they fall
+/// through to the general sentence rather than being enumerated as if they were
+/// live.
+fn refuse_duel(error: sim::CombatSpecError) -> ! {
+    let sentence = match error {
+        sim::CombatSpecError::NoEquipment =>
+            "a fighter with both hands empty has no rule to run: give it something in one of them",
+        sim::CombatSpecError::GripConflict =>
+            "those two items cannot be held at once -- two shields is the usual way to ask for it",
+        sim::CombatSpecError::Dimension =>
+            "a dimension is off the table's scale: lengths and half-extents in [0, 8], mass in (0, 8]",
+        sim::CombatSpecError::UnknownAction =>
+            "that action has no shipped equipment row, so there is no measured surface to give it",
+        _ => "the described duel is not a valid construction",
+    };
+    eprintln!("{sentence} ({error:?})");
+    std::process::exit(2);
+}
+
 /// One fight, written out to be looked at.
 ///
 /// **The one command in this lab that produces no number.** Everything else here
@@ -1296,10 +1469,24 @@ fn evolution(args: &Args) {
 fn trace_fight(args: &Args) {
     let seed = args.number("seed", 3);
     let mirrored = args.flag("mirrored");
-    let scenario = if mirrored {
-        mirrored_articulated_duel()
-    } else {
-        Scenario::articulated_duel()
+    // The fixture unless a picker flag was given, and then the fixture's own
+    // arrangement under a different name. `duel_config_from` returning `None` is
+    // what keeps the untouched command byte-identical to what it wrote before
+    // this session.
+    let described = duel_config_from(args).unwrap_or_else(|sentence| {
+        eprintln!("{sentence}");
+        std::process::exit(2);
+    });
+    let scenario = match described {
+        None if mirrored => mirrored_articulated_duel(),
+        None => Scenario::articulated_duel(),
+        Some(config) => {
+            let mut scenario = Scenario::duel_from(&config).unwrap_or_else(|e| refuse_duel(e));
+            if mirrored {
+                mirror_spawns(&mut scenario);
+            }
+            scenario
+        }
     };
     // The whole fight unless asked otherwise. A `u32::MAX` default rather than
     // `max_ticks` so that a fixture whose limit grows keeps recording all of it.
@@ -1371,6 +1558,16 @@ fn trace_fight(args: &Args) {
         if trial.ticks == 1 { "" } else { "s" },
         if trial.timed_out { "the clock decided it" } else { "a body decided it" },
     );
+    // **The configuration, named.** A described fight is only reproducible if
+    // the recording says which duel it was, and the fingerprint is the one thing
+    // that covers the whole table -- both anatomies, every equipment row, every
+    // binding and both placements. Printed for the fixture too, where it is the
+    // pin, so the two are read the same way. A mirrored run prints the reflected
+    // scenario's own number, which is deliberately not the pin, and the JSON
+    // header now writes the same number this line does: two channels reporting
+    // the same fight disagreeing about its identity is how an operator ends up
+    // trusting the wrong one.
+    println!("  arena fingerprint {:#018x}", scenario.fingerprint());
     if let Some(digest) = digest.as_deref() {
         println!("  checkpoint {digest}");
     }
@@ -1389,7 +1586,7 @@ fn trace_fight(args: &Args) {
         json.len() as f64 / (1024.0 * 1024.0),
         started.elapsed().as_secs_f64(),
     );
-    println!("  npm run view, then open http://localhost:5173/fight.html");
+    println!("  npm run view, then open http://localhost:5173/#/arena");
 }
 
 #[cfg(test)]
@@ -1432,6 +1629,165 @@ mod tests {
         assert!(json.contains(&format!("\"frameCount\":{}", plain.ticks + 1)), "frame count");
         assert!(json.contains("\"truncated\":false"), "an unbounded recording is not truncated");
         assert!(json.contains(&format!("\"schema\":\"{}\"", trace::TRACE_SCHEMA)), "schema");
+    }
+
+    fn traced_args(line: &str) -> Args {
+        Args::parse(line.split_whitespace().map(String::from).collect())
+    }
+
+    #[test]
+    fn a_trace_with_no_picker_flag_runs_the_pinned_fixture_and_not_a_copy_of_it() {
+        // The switch that keeps `a_traced_run_is_the_run_the_gate_measured`
+        // true. `DuelConfigV1::shipped()` builds the fixture's table and the
+        // fixture's unit rows, so a `trace` that always went through the builder
+        // would run the same *fight* under a different scenario name -- and the
+        // only visible difference would be the fingerprint in a header nobody
+        // reads twice.
+        assert_eq!(duel_config_from(&traced_args("trace --seed 3 --mirrored")), Ok(None));
+        assert_eq!(duel_config_from(&traced_args("trace --policy windmill --ticks 60")), Ok(None));
+        for key in DUEL_KEYS {
+            // A dimension key names an item, so the line has to put that item in
+            // a hand as well: `--b-shield-half-width` alone is a refusal now and
+            // a test that only asked "did this reach the picker" would read the
+            // refusal as an answer.
+            let line = match key {
+                _ if key.starts_with("fighter-") => format!("trace --{key} brute"),
+                _ if key.ends_with("-left") || key.ends_with("-right") => {
+                    format!("trace --{key} club")
+                }
+                _ if key.contains("shield") => {
+                    let side = &key[..1];
+                    format!("trace --{side}-left shield --{key} 0.3")
+                }
+                _ => {
+                    let side = &key[..1];
+                    format!("trace --{side}-left sword --{key} 0.3")
+                }
+            };
+            assert!(
+                matches!(duel_config_from(&traced_args(&line)), Ok(Some(_))),
+                "--{key} did not reach the picker"
+            );
+        }
+    }
+
+    #[test]
+    fn a_picker_key_that_cannot_be_honoured_refuses_the_run() {
+        // Both halves of "nearly right is the hardest failure to notice", as
+        // commands rather than as prose.
+        //
+        // A key with no value: `Args::parse` demotes it to a bare flag, so it
+        // used to arrive as "not given" -- and `--a-weapon-length --seed 3` ran
+        // the *fixture* and printed the pin's own fingerprint over a header the
+        // operator read as their configuration. `--a-left --a-right club` is the
+        // partial form, and it was worse: the surviving key renamed the scenario
+        // so the output looked configured.
+        for line in ["trace --a-weapon-length --seed 3", "trace --a-left --a-right club"] {
+            let refusal = duel_config_from(&traced_args(line)).expect_err(line);
+            assert!(refusal.starts_with("--a-"), "the refusal must name the key: {refusal}");
+            assert!(refusal.contains("needs a value"), "{refusal}");
+        }
+
+        // A well-formed value aimed at an item the fighter is not holding. The
+        // Brute carries a club, so `--b-shield-half-width` can only ever have
+        // edited nothing -- while still renaming and re-fingerprinting the
+        // scenario, which is how it read as a configuration that had been
+        // applied.
+        let refusal = duel_config_from(&traced_args("trace --b-shield-half-width 0.5"))
+            .expect_err("a plate the Brute is not carrying");
+        assert!(refusal.contains("--b-shield-half-width"), "{refusal}");
+        assert!(refusal.contains("not carrying"), "{refusal}");
+        // The Fighter has no segment item once its sword is put down, so the
+        // same rule catches a weapon key too, and it is the arrangement the line
+        // itself asks for that decides -- not the shipped one.
+        assert!(duel_config_from(&traced_args("trace --a-right empty --a-weapon-length 1.5")).is_err());
+        // And the cure is to hand the fighter the item the key names.
+        assert!(matches!(
+            duel_config_from(&traced_args("trace --b-left shield --b-shield-half-width 0.5")),
+            Ok(Some(_))
+        ));
+    }
+
+    #[test]
+    fn a_recorded_configuration_names_itself_in_the_file_and_not_only_on_stdout() {
+        // The header is the only part of a trace that outlives the terminal it
+        // was printed in, and `--mirrored` used to write `null` there for every
+        // run -- which was defensible while the only two scenarios a trace could
+        // record were the fixture and its reflection, and false the moment a
+        // configuration could be one of unboundedly many.
+        let config = duel_config_from(&traced_args("trace --a-weapon-length 1.5"))
+            .expect("a legal line")
+            .expect("a described duel");
+        let mut scenario = Scenario::duel_from(&config).expect("a legal duel");
+        mirror_spawns(&mut scenario);
+        let mut recorder = FightTrace::new(&scenario, 1);
+        let trial = measure_articulated_traced(&scenario, 3, Script::Composed, Some(&mut recorder));
+        let json = recorder.finish(&TraceRun {
+            scenario: &scenario, seed: 3, heroes: Script::Composed.token(),
+            monsters: Script::Composed.token(), checkpoint: None, mirrored: true,
+            outcome: trial.outcome, timed_out: trial.timed_out, ticks: trial.ticks,
+        });
+        assert!(
+            json.contains(&format!("\"fingerprint\":\"{:#018x}\"", scenario.fingerprint())),
+            "a mirrored configured run did not name its own scenario"
+        );
+        assert!(json.contains("\"mirrored\":true"), "the reflection is still declared");
+        // The field is still `string | null` as far as `client/src/fight/trace.ts`
+        // is concerned -- a string where a nullable string was expected needs no
+        // reader change and no `TRACE_SCHEMA` bump.
+        assert!(!json.contains("\"fingerprint\":null"));
+    }
+
+    #[test]
+    fn a_described_duel_that_moved_nothing_is_the_fixture_fight() {
+        // The claim the whole picker rests on: describing the shipped
+        // arrangement and running it produces the fight the gate measures, tick
+        // for tick and digest for digest. If it ever stops being true, either
+        // the builder's id order drifted or a shipped row was edited -- and
+        // either way a configured fight has stopped being comparable with the
+        // corpus it is meant to be read against.
+        let described = Scenario::duel_from(&DuelConfigV1::shipped()).expect("the shipped pair");
+        let fixture = Scenario::articulated_duel();
+        assert_ne!(described.fingerprint(), fixture.fingerprint(), "a runtime duel wore the pin");
+
+        let a = measure_articulated(&described, 3, Script::Composed);
+        let b = measure_articulated(&fixture, 3, Script::Composed);
+        assert_eq!(a.state.compare(b.state), Ok(true));
+        assert_eq!((a.ticks, a.outcome, a.contacts, a.severances), (b.ticks, b.outcome, b.contacts, b.severances));
+        assert_eq!(a.digest, b.digest);
+    }
+
+    #[test]
+    fn a_dimension_flag_reaches_the_row_it_names_and_no_other() {
+        // A decimal on the command line has to arrive in the table as the exact
+        // ratio, and it has to arrive in one row: the flag names a side, so the
+        // other fighter's plate must be untouched. Both halves have been got
+        // wrong by a picker before.
+        let config = duel_config_from(&traced_args(
+            "trace --a-shield-half-width 0.35 --b-weapon-length 1.75 --b-weapon-mass 3.5",
+        )).expect("a legal line").expect("a described duel");
+        let scenario = Scenario::duel_from(&config).expect("a legal duel");
+        let table = scenario.combat_specs.as_ref().expect("a table");
+        let plate = table.equipment.iter().find(|row| row.action == sim::ActionKind::Shield)
+            .expect("the Fighter still carries a plate");
+        assert_eq!(plate.geometry, sim::EquipmentGeometry::Shield {
+            half_width: Fx::from_ratio(7, 20),
+            half_height: Fx::from_ratio(1, 4),
+            thickness: Fx::from_ratio(1, 20),
+        }, "half_height moved with half_width");
+        let club = table.equipment.iter().find(|row| row.action == sim::ActionKind::Club)
+            .expect("the Brute still carries a club");
+        assert_eq!(club.geometry, sim::EquipmentGeometry::Segment {
+            length: Fx::from_ratio(7, 4), radius: Fx::from_ratio(3, 50),
+        });
+        assert_eq!(club.mass, Fx::from_ratio(7, 2));
+        // The Fighter's blade is a segment too and lives on the other side of
+        // the `--b-` prefix, so it must still be the shipped 19/20.
+        let blade = table.equipment.iter().find(|row| row.action == sim::ActionKind::Sword)
+            .expect("the Fighter still carries a sword");
+        assert_eq!(blade.geometry, sim::EquipmentGeometry::Segment {
+            length: Fx::from_ratio(19, 20), radius: Fx::from_ratio(1, 25),
+        }, "a --b- key crossed the aisle");
     }
 
     #[test]

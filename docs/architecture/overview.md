@@ -16,23 +16,41 @@ flowchart BT
     sim["sim<br/>authoritative world, rules, observations, replay"] --> fx
     policy["policy<br/>decision implementations and run harness"] --> sim
     policy --> fx
-    learn["learn<br/>native probe: features, model, checkpoints"] --> policy
+    learn-core["learn-core<br/>frozen inference: features, model, checkpoint codec"] --> policy
+    learn-core --> sim
+    learn-core --> fx
+    learn["learn<br/>native probe: the population that trains one"] --> learn-core
+    learn --> policy
     learn --> sim
     learn --> fx
     lab["lab<br/>native experiment host"] --> learn
     lab --> policy
     lab --> sim
     lab --> fx
-    web["web<br/>browser ABI host boundary"] --> policy
+    web["web<br/>browser ABI host boundary"] --> learn-core
+    web --> policy
     web --> sim
     web --> fx
 ```
 
-The shorthand dependency direction is `fx <- sim <- policy <- {learn, lab, web}`;
-the diagram also shows the direct utility edges from `policy`, `learn`, `lab`, and
-`web` that the manifests declare. `learn` is native-only and must stay unreachable
-from `web`: it uses `std::thread::scope` and does not build for
-`wasm32-unknown-unknown`.
+The shorthand dependency direction is
+`fx <- sim <- policy <- {learn-core, lab, web}`; the diagram also shows the
+direct utility edges from `policy`, `learn-core`, `learn`, `lab`, and `web` that
+the manifests declare.
+
+`learn-core` and `learn` are one crate split in two, and the line between them is
+an artifact boundary. `learn-core` is frozen inference and a checkpoint codec: it
+is `web`'s dependency and a trained fighter therefore runs in the browser. `learn`
+is the trainer, it uses `std::thread::scope` and a wall clock, and its one host is
+native `lab`.
+
+**The boundary is not enforced by the compiler and it never was.** `AGENTS.md`
+carried the reason as "`learn` does not compile to `wasm32-unknown-unknown`"; that
+was measured on 2026-08-11 and is false, because `std::thread::scope` and
+`std::time::Instant` compile for that target and trap at runtime instead. What
+enforces the boundary is the manifests, and
+`the_learned_policy_is_unreachable_from_sim` walks them: `fx`, `sim` and `policy`
+may reach neither crate, and `web` reaches `learn-core` and not `learn`.
 
 ## Authority by layer
 
@@ -45,21 +63,30 @@ from `web`: it uses `std::thread::scope` and does not build for
 - [`policy`](../../crates/policy/src/lib.rs) owns decision strategies and the
   headless run loop. A policy sees an `Observation`, not a `World`, and returns
   a `Command`; it does not become authoritative simulation state.
-- [`learn`](../../crates/learn/src/lib.rs) owns the v2-19 probe: a versioned
-  compact feature slice, a two-layer network, an append-only discrete action
-  table, a frozen checkpoint format, and the population optimizer that fills one.
-  It is the only crate permitted floating point, and it is permitted it because
-  nothing it computes becomes authoritative state -- what leaves it is an
-  `ArticulatedCommandV1` assembled from fixed `Fx` constants by an argmax.
+- [`learn-core`](../../crates/learn-core/src/lib.rs) owns frozen inference: a
+  versioned compact feature slice, a two-layer network, an append-only discrete
+  action table, and the checkpoint format that freezes all three together. It
+  and `learn` are the two crates permitted floating point, and they are
+  permitted it because nothing they compute becomes authoritative state -- what
+  leaves them is an `ArticulatedCommandV1` assembled from fixed `Fx` constants
+  by an argmax. `learn-core` is the one of the two that ships to a browser, and
+  `LEARNED_INFERENCE_DIGEST` is what holds its arithmetic to the same answer on
+  both targets.
+- [`learn`](../../crates/learn/src/lib.rs) owns the v2-19 probe's other half:
+  the population optimizer that fills a checkpoint, the rollouts it scores and
+  the corpora it scores them on. It needs threads and a clock, so **`lab` is its
+  only host** and `web` must never reach it.
 - [`lab`](../../crates/lab/src/main.rs) owns native experiments, verification,
-  benchmarks, duels, and evolution, and is the **only** host `learn` has. No
+  benchmarks, duels, and evolution, and is the only host `learn` has. No
   learned weight becomes authoritative state through it: `lab learn-probe` and
   `lab trace --policy learned` are not a second simulation, they drive the same
-  `World` through the same `ArticulatedCommandV1` a script does. That edge must
-  never be copied into `web`.
+  `World` through the same `ArticulatedCommandV1` a script does.
 - [`web`](../../crates/web/src/lib.rs) owns the hand-written wasm ABI and the
   packed presentation frame. It is a host boundary, not a second simulation.
   The JavaScript in [`web/`](../../web/) reads that ABI and owns presentation.
+  Since v2-ui-08 it also holds a fetched checkpoint and builds a fighter out of
+  it, which is the one edge into `learn-core` and is the reason that crate
+  exists apart from `learn`.
 
 This separation is why the determinism claim has a narrow subject. The same
 scenario, seed, and submitted input sequence must produce the same `World` on

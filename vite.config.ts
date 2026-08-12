@@ -1,8 +1,15 @@
-import { createReadStream, copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync } from "node:fs";
+import { createReadStream, copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig, normalizePath, type Plugin } from "vite";
+// One walker, shared with `render-contract.test.mjs` on purpose: the build
+// assertion below and the test's are the same claim about the same graph, and
+// two copies would eventually be two claims that both pass about different ones.
+// It lives in `tools/` beside the other build-adjacent checkers rather than in
+// the test tree, because this file importing out of `client/test/` pointed build
+// configuration at tests to reach the one copy.
+import { eagerChunks, readChunks, staticImportClosure, WASM_INSTANTIATION } from "./tools/chunk-graph.mjs";
 
 const repositoryRoot = fileURLToPath(new URL(".", import.meta.url));
 const webRoot = resolve(repositoryRoot, "web");
@@ -10,6 +17,30 @@ const clientRoot = normalizePath(resolve(repositoryRoot, "client/src"));
 const outputRoot = resolve(repositoryRoot, "dist");
 const wasmArtifact = resolve(repositoryRoot, "target/wasm32-unknown-unknown/release/web.wasm");
 const roomAssetRoot = resolve(webRoot, "assets3d");
+// The trained fighter, fetched rather than embedded in the wasm. v2-ui-08 made
+// that choice deliberately: a checkpoint *is* a fighter, so the studio should be
+// able to put a different one in the ring without a Rust rebuild, and 15 KB
+// beside an 8 MB trace is nothing. `crates/web`'s `checkpoint_ptr` buffer takes
+// the bytes and `load_checkpoint` judges them.
+//
+// One file and not the directory. On a clean clone `checkpoints/` holds exactly
+// this artifact -- `checkpoints/*.log` is in `.gitignore` -- but a working tree
+// that has run `lab learn-probe` also holds `train.log`, `evaluate.log` and
+// `verify.log`, and a second `.ckpt` the moment anybody trains one. Serving a
+// directory would put whichever of those a developer happens to have on the
+// origin. The room assets one block up keep an allowlist for the same reason
+// and this follows it.
+const checkpointRoot = resolve(repositoryRoot, "checkpoints");
+const shippedCheckpoint = Object.freeze({
+  url: "/checkpoints/v2-probe.ckpt",
+  file: "v2-probe.ckpt",
+  type: "application/octet-stream",
+} as const);
+// `learn_core::CHECKPOINT_MAGIC`. Checked before shipping on `verifyRoomAsset`'s
+// argument: the module refuses a file that is not a checkpoint and answers a
+// reason code, and a build that shipped one anyway would move that failure from
+// here to a reader's console.
+const CHECKPOINT_MAGIC = "ARPGLRN1";
 const roomRuntimeAssets = Object.freeze([
   { url: "/assets3d/room_slice.glb", file: "room_slice.glb", type: "model/gltf-binary", output: "glb" },
   { url: "/assets3d/room_slice.json", file: "room_slice.json", type: "application/json; charset=utf-8", output: "sidecar" },
@@ -91,10 +122,20 @@ function wasmArtifactPlugin(): Plugin {
       server.middlewares.use("/web.wasm", (_request, response) => {
         if (!existsSync(wasmArtifact)) {
           response.statusCode = 404;
-          response.end("Build the release wasm artifact before opening /v2.html.\n");
+          response.end("Build the release wasm artifact before opening the studio.\n");
           return;
         }
         response.setHeader("Content-Type", "application/wasm");
+        // **`Content-Length`, which this handler used to omit**, and the room
+        // asset handler below has always set. Without it the response is
+        // chunked, so a keep-alive client cannot know the body ended until the
+        // socket does -- and Node's global `fetch` agent holds that socket open
+        // afterwards. `vite_dev_serves_the_studio_shell_its_game_route_and_the_wasm_from_the_web_root`
+        // fetches this URL and then closes the server, and the leftover socket
+        // kept the whole test process alive on about half of its runs: the test
+        // passed every time and `npm run test:worker` reported a failure anyway,
+        // which is the worst shape a flake can have.
+        response.setHeader("Content-Length", String(statSync(wasmArtifact).size));
         createReadStream(wasmArtifact).pipe(response);
       });
       for (const asset of roomRuntimeAssets) {
@@ -117,6 +158,29 @@ function wasmArtifactPlugin(): Plugin {
       server.middlewares.use("/assets3d", (_request, response) => {
         response.statusCode = 404;
         response.end("Unknown runtime room asset.\n");
+      });
+      server.middlewares.use(shippedCheckpoint.url, (request, response, next) => {
+        if (request.url !== undefined && request.url !== "/" && request.url !== "") {
+          next();
+          return;
+        }
+        const file = resolve(checkpointRoot, shippedCheckpoint.file);
+        if (!existsSync(file)) {
+          response.statusCode = 404;
+          response.end(`Missing ${shippedCheckpoint.file}; train one with lab learn-probe.\n`);
+          return;
+        }
+        response.setHeader("Content-Type", shippedCheckpoint.type);
+        response.setHeader("Content-Length", String(readFileSync(file).byteLength));
+        createReadStream(file).pipe(response);
+      });
+      // Everything else under `checkpoints/` is evidence rather than a runtime
+      // asset, and the training logs in particular are quoted in plans and
+      // should not become addressable because they share a directory with the
+      // one file that is.
+      server.middlewares.use("/checkpoints", (_request, response) => {
+        response.statusCode = 404;
+        response.end("Unknown runtime checkpoint.\n");
       });
     },
     closeBundle() {
@@ -146,45 +210,72 @@ function wasmArtifactPlugin(): Plugin {
       if (copiedRoomAssets.join(",") !== "room_slice.glb,room_slice.json") {
         throw new Error(`production room asset allowlist drifted: ${copiedRoomAssets.join(", ")}`);
       }
+      const checkpoint = resolve(checkpointRoot, shippedCheckpoint.file);
+      if (!existsSync(checkpoint)) throw new Error(`missing shipped checkpoint: ${checkpoint}`);
+      const checkpointBytes = readFileSync(checkpoint);
+      if (checkpointBytes.subarray(0, 8).toString("ascii") !== CHECKPOINT_MAGIC) {
+        throw new Error("the shipped checkpoint does not start with ARPGLRN1");
+      }
+      const checkpointOutputRoot = resolve(outputRoot, "checkpoints");
+      mkdirSync(checkpointOutputRoot, { recursive: true });
+      copyFileSync(checkpoint, resolve(checkpointOutputRoot, shippedCheckpoint.file));
+      const copiedCheckpoints = readdirSync(checkpointOutputRoot).sort();
+      if (copiedCheckpoints.join(",") !== shippedCheckpoint.file) {
+        throw new Error(`production checkpoint allowlist drifted: ${copiedCheckpoints.join(", ")}`);
+      }
+
       const validator = resolve(roomAssetRoot, "room_slice.validator.json");
       if (!existsSync(validator) || sha256(validator) !== manifest.outputs.validator?.sha256 ||
           sha256(validator) !== pins.validator) {
         throw new Error("representative room validator report differs from its reviewed pins");
       }
 
-      const htmlPath = resolve(outputRoot, "v2.html");
-      if (!existsSync(htmlPath)) throw new Error("Vite did not emit dist/v2.html");
+      const htmlPath = resolve(outputRoot, "index.html");
+      if (!existsSync(htmlPath)) throw new Error("Vite did not emit dist/index.html");
       const html = readFileSync(htmlPath, "utf8");
-      const mainMatch = html.match(/<script[^>]+src="\/([^\"]+\.js)"/);
-      if (!mainMatch?.[1]) throw new Error("dist/v2.html does not name its client chunk");
-      const mainPath = resolve(outputRoot, mainMatch[1]);
-      const mainCode = readFileSync(mainPath, "utf8");
-      if (mainCode.includes("WebAssembly.instantiate")) {
-        throw new Error("the v2 main-thread chunk instantiates WebAssembly");
-      }
 
-      const emittedAssets = readdirSync(resolve(outputRoot, "assets"));
-      const rawTypeScript = emittedAssets.filter((name) => name.endsWith(".ts") || name.endsWith(".tsx"));
+      const chunkRoot = resolve(outputRoot, "assets");
+      const rawTypeScript = readdirSync(chunkRoot).filter((name) => name.endsWith(".ts") || name.endsWith(".tsx"));
       if (rawTypeScript.length !== 0) {
         throw new Error(`Vite emitted raw TypeScript: ${rawTypeScript.join(", ")}`);
       }
-      const scripts = emittedAssets
-        .filter((name) => /-[A-Za-z0-9_-]{8,}\.js$/.test(name));
-      if (scripts.length < 2) throw new Error("Vite did not emit separate hashed client and worker chunks");
-      const workerExists = scripts.some((name) => {
-        if (resolve(outputRoot, "assets", name) === mainPath) return false;
-        const code = readFileSync(resolve(outputRoot, "assets", name), "utf8");
-        return code.includes("WebAssembly.instantiate") && code.includes("web.wasm");
-      });
-      if (!workerExists) throw new Error("no emitted worker chunk owns the wasm instantiation");
+
+      // The main thread never instantiates WebAssembly, and exactly one separate
+      // worker chunk does.
+      //
+      // This used to read the single `<script src>` out of the HTML and grep that
+      // one chunk, which was the whole main thread while the entry owned every
+      // module. `client/src/studio.ts` has no static imports -- every route is a
+      // bare `import()` -- so the entry chunk is now a ~3.5 KB router and the game
+      // code lives in lazy chunks the grep never opened; from that commit the
+      // assertion passed no matter what any route did. Its companion failed the
+      // same way: excluding only the entry chunk meant wasm glue statically
+      // imported into a route would satisfy the worker check *and* leave the
+      // main-thread grep clean. The property is about a closure and not a file, so
+      // what is checked now is the closure. See `tools/chunk-graph.mjs`.
+      const chunks = readChunks(chunkRoot);
+      const instantiators = [...chunks].filter(([, code]) => WASM_INSTANTIATION.test(code)).map(([name]) => name);
+      if (instantiators.length !== 1) {
+        throw new Error(`exactly one emitted chunk may instantiate WebAssembly, but ${instantiators.length} do: ` +
+          `${instantiators.join(", ") || "none"}`);
+      }
+      const worker = instantiators[0] as string;
+      if (!(chunks.get(worker) ?? "").includes("web.wasm")) {
+        throw new Error(`${worker} instantiates WebAssembly without naming web.wasm, so it is not the sim worker`);
+      }
+      const eager = eagerChunks(html);
+      if (eager.size === 0) throw new Error("dist/index.html names no client chunk");
+      if (staticImportClosure(chunks, eager).has(worker)) {
+        throw new Error(`dist/index.html statically reaches ${worker}, so the wasm worker runs on the main thread`);
+      }
     },
   };
 }
 
 export default defineConfig({
   root: webRoot,
-  // The worker fetches `/web.wasm`; v2 is deliberately a root-hosted diagnostic,
-  // so its HTML and hashed assets use the same absolute-origin contract.
+  // The worker fetches `/web.wasm`; the studio is deliberately root-hosted, so its
+  // HTML and hashed assets use the same absolute-origin contract.
   base: "/",
   publicDir: false,
   resolve: {
@@ -198,6 +289,10 @@ export default defineConfig({
   build: {
     outDir: outputRoot,
     emptyOutDir: true,
-    rollupOptions: { input: resolve(webRoot, "v2.html") },
+    // One entry: the studio shell. `legacy.html` is deliberately absent, exactly
+    // as the legacy page has always been -- four classic scripts sharing top-level
+    // `const`s are not a module graph and Rollup has nothing to do with them. It is
+    // served out of `web/` by the Vite dev server and by `tools/serve.js`.
+    rollupOptions: { input: resolve(webRoot, "index.html") },
   },
 });

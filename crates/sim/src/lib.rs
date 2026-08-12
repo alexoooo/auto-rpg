@@ -83,6 +83,10 @@ pub use combat::spec::{
     BODY_ANATOMY_SPEC_V1_BYTES, COMBAT_SPEC_SCHEMA_V1, MAX_ANATOMY_SPECS,
     MAX_EQUIPMENT_SPECS, SEGMENT_EQUIPMENT_SPEC_V1_BYTES, SHIELD_EQUIPMENT_SPEC_V1_BYTES,
 };
+/// The runtime duel description, and nothing else out of `arena`. The builder
+/// itself is an `impl Scenario` block and needs no re-export: a caller who has
+/// a [`Scenario`] already has [`Scenario::duel_from`].
+pub use combat::arena::{AnatomyChoice, DuelConfigV1, DuelFighterV1, HandItemV1};
 pub use combat::actuator::{
     ArmState, BodyYawState, GripState, ShieldPose, ARM_BEARING_ACCEL_RAW,
     ARM_BEARING_MAX_SPEED_RAW, ARM_LINEAR_ACCEL_RAW, ARM_LINEAR_MAX_SPEED_RAW,

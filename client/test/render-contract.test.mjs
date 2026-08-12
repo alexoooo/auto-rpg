@@ -4,6 +4,10 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
+// The one copy, shared with `vite.config.ts`: the build assertion and this
+// file's are the same claim about the same graph, and two copies would
+// eventually be two claims that both pass about different graphs.
+import * as chunkGraph from "../../tools/chunk-graph.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const OUT = path.join(ROOT, ".tools", "render-test");
@@ -26,6 +30,12 @@ const tsc = spawnSync(process.execPath, [
   "client/src/render/room-assets.ts", "client/src/render/room-environment.ts",
   "client/src/render/room-stress.ts", "client/src/render/room-review.ts", "client/src/render/room-review-camera.ts",
   "client/src/input/greybox-input.ts", "client/src/bootstrap.ts",
+  // The arena's scene is a renderer even though it does not live under
+  // `render/`: it owns three cameras, a mesh registry and a debug owner, and
+  // every question this file exists to ask about those is asked of it too.
+  // `environment.ts` joined it in v2-ui-03, which is where the arena grew a
+  // light, a shadow generator and a room to stand in.
+  "client/src/arena/geometry.ts", "client/src/arena/scene.ts", "client/src/arena/environment.ts",
 ], { cwd: ROOT, encoding: "utf8" });
 assert.equal(tsc.status, 0, `TypeScript test compilation failed:\n${tsc.stdout}\n${tsc.stderr}`);
 
@@ -56,6 +66,9 @@ const roomStress = await load("client/src/render/room-stress.js");
 const roomReview = await load("client/src/render/room-review.js");
 const roomReviewCamera = await load("client/src/render/room-review-camera.js");
 const roomGenerated = await load("client/src/render/room-asset.generated.js");
+const arenaGeometry = await load("client/src/arena/geometry.js");
+const arenaScene = await load("client/src/arena/scene.js");
+const arenaEnvironment = await load("client/src/arena/environment.js");
 
 const packedPublication = ({ epoch = 2, tick = 7, generation = 3, unitCount = 1 } = {}) => {
   const frame = new Float32Array(ABI.HEADER_LEN + ABI.UNIT_STRIDE + ABI.SHOT_STRIDE + ABI.EVENT_STRIDE);
@@ -1943,14 +1956,25 @@ test("room_startup_finishes_the_async_environment_before_worker_init_and_input",
   application.dispose();
 });
 
-test("vite_build_does_not_overwrite_legacy_page_or_assets", () => {
-  const legacyPaths = ["web/index.html", "web/main.js", "web/style.css"].filter((name) => fs.existsSync(path.join(ROOT, name)));
-  const before = new Map(legacyPaths.map((name) => [name, fs.readFileSync(path.join(ROOT, name))]));
+test("vite_build_rewrites_no_hand_written_page_under_web_including_its_own_input", () => {
+  // Asserted complete rather than filtered. The list used to be
+  // `[...].filter(existsSync)`, so a rename dropped an entry and this guarantee
+  // evaporated with a green test -- which is precisely the event that happened
+  // when the studio shell moved the old page to `legacy.html`. `web/index.html`
+  // is on the list now because it is the Rollup *input*: the one source file a
+  // misbehaving plugin could rewrite in place, which is more exposure than it had
+  // as a bystander, not less.
+  const handWritten = ["web/index.html", "web/legacy.html", "web/main.js", "web/style.css"];
+  for (const name of handWritten) {
+    assert.ok(fs.existsSync(path.join(ROOT, name)),
+      `${name} is named by this test as a file the build must not touch, and it does not exist`);
+  }
+  const before = new Map(handWritten.map((name) => [name, fs.readFileSync(path.join(ROOT, name))]));
   const build = spawnSync(process.execPath, [path.join(ROOT, "node_modules", "vite", "bin", "vite.js"), "build"],
     { cwd: ROOT, encoding: "utf8", shell: false });
   assert.equal(build.status, 0, `production build failed:\n${build.stdout}\n${build.stderr}\n${build.error ?? ""}`);
   for (const [name, contents] of before) assert.deepEqual(fs.readFileSync(path.join(ROOT, name)), contents);
-  assert.ok(fs.existsSync(path.join(ROOT, "dist", "v2.html")));
+  assert.ok(fs.existsSync(path.join(ROOT, "dist", "index.html")));
   assert.ok(fs.existsSync(path.join(ROOT, "dist", "web.wasm")));
   assert.deepEqual(fs.readdirSync(path.join(ROOT, "dist", "assets3d")).sort(),
     ["room_slice.glb", "room_slice.json"]);
@@ -1959,22 +1983,31 @@ test("vite_build_does_not_overwrite_legacy_page_or_assets", () => {
   assert.deepEqual(fs.readFileSync(path.join(ROOT, "dist", "assets3d", "room_slice.json")),
     fs.readFileSync(path.join(ROOT, "web", "assets3d", "room_slice.json")));
   assert.equal(fs.existsSync(path.join(ROOT, "dist", "assets3d", "room_slice.validator.json")), false);
-  const scripts = fs.readdirSync(path.join(ROOT, "dist", "assets")).filter((name) => name.endsWith(".js"));
-  assert.ok(scripts.length >= 2);
-  const scriptSources = new Map(scripts.map((name) => [name,
-    fs.readFileSync(path.join(ROOT, "dist", "assets", name), "utf8")]));
-  const loaderChunks = [...scriptSources].filter(([, source]) =>
+  const chunks = chunkGraph.readChunks(path.join(ROOT, "dist", "assets"));
+  assert.ok(chunks.size >= 2);
+  const loaderChunks = [...chunks].filter(([, source]) =>
     source.includes("RegisterGLTF2Loader") || source.includes("Unsupported version:"));
   assert.ok(loaderChunks.length >= 1, "representative route must emit a lazy glTF 2 loader chunk");
-  const roomAssetChunks = [...scriptSources].filter(([, source]) =>
+  const roomAssetChunks = [...chunks].filter(([, source]) =>
     source.includes("representative room asset failed"));
   assert.equal(roomAssetChunks.length, 1, "the room asset boundary must remain an identifiable lazy chunk");
-  const builtHtml = fs.readFileSync(path.join(ROOT, "dist", "v2.html"), "utf8");
+  const builtHtml = fs.readFileSync(path.join(ROOT, "dist", "index.html"), "utf8");
+  // Against the entry's static import closure, not against the HTML text. This
+  // used to assert the built HTML never names the loader chunk, which stopped
+  // asking anything the moment the shell's entry had no static imports: with no
+  // `<link rel="modulepreload">` in the document at all, "outside the initial
+  // modulepreload closure" is trivially true of every chunk in the repository,
+  // the glTF loader included. The claim `docs/reference/room-asset-contract.md`
+  // makes is about the closure, so that is what is walked.
+  const eager = chunkGraph.eagerChunks(builtHtml);
+  assert.ok(eager.size >= 1, "dist/index.html names no client chunk");
+  const eagerClosure = chunkGraph.staticImportClosure(chunks, eager);
   for (const [name] of [...loaderChunks, ...roomAssetChunks]) {
-    assert.doesNotMatch(builtHtml, new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
-      "the glTF loader must stay outside the initial modulepreload closure");
+    assert.equal(eagerClosure.has(name), false,
+      `${name} is inside the studio entry's static import closure, so the glTF loader `
+        + "and the room assets are no longer lazy");
   }
-  const html = fs.readFileSync(path.join(ROOT, "web", "v2.html"), "utf8");
+  const html = fs.readFileSync(path.join(ROOT, "web", "index.html"), "utf8");
   assert.match(html, /legacy page/);
   assert.match(html, /button:disabled, button:disabled:hover/);
   assert.match(html, /id="performance-start" type="button" disabled/);
@@ -2274,4 +2307,2054 @@ test("room_asset_loading_rejects_external_substitution_and_disposes_late_contain
   release(fake.container);
   await assert.rejects(loading, /abort/);
   assert.equal(fake.disposals, 1);
+});
+
+// ------------------------------------------------------------------- the arena stage
+
+const RAW = 65536;
+const raw = (...values) => values.map((value) => Math.round(value * RAW));
+
+/**
+ * One articulated body with the shape `crates/lab/src/trace.rs` publishes.
+ *
+ * The numbers are `web/fight.json`'s Fighter rounded to three places -- a head
+ * capsule that is a point at 1.700 under a `standingHeight` of 1.800, a torso
+ * reaching 1.500 at radius 0.350, a shield held out at hip height -- because the
+ * two facts these tests turn on, that the eye is inside both of those capsules
+ * and that the guard is far below a level gaze, are facts about that anatomy and
+ * not about a convenient fixture.
+ */
+function arenaPose(values = {}) {
+  const { index = 0, x = 7, y = 6, yaw = 0, severed = 0, shield = true } = values;
+  const region = (lower, upper, radius) => ({ lower: raw(...lower), upper: raw(...upper), radius: Math.round(radius * RAW), present: true });
+  const left = [x, y + 0.25, 0.9];
+  const right = [x, y - 0.25, 0.9];
+  return {
+    id: [index, 0], body: raw(x, y, 0), yaw, vel: [0, 0, 0],
+    arms: [
+      { hand: raw(x + 0.2, y + 0.25, 0.9), vel: [0, 0, 0], target: raw(x + 0.2, y + 0.25, 0.9), fatigue: 0 },
+      { hand: raw(x + 0.2, y - 0.25, 0.9), vel: [0, 0, 0], target: raw(x + 0.2, y - 0.25, 0.9), fatigue: 0 },
+    ],
+    weapons: [null, { hilt: raw(...right), tip: raw(x + 1.15, y - 0.25, 0.9), radius: Math.round(0.04 * RAW) }],
+    shield: shield ? {
+      centre: raw(x + 0.2, y + 0.25, 0.9), normal: raw(1, 0, 0),
+      halfWidth: Math.round(0.25 * RAW), halfHeight: Math.round(0.25 * RAW),
+      thickness: Math.round(0.05 * RAW),
+    } : null,
+    regions: [
+      region([x, y, 1.7], [x, y, 1.7], 0.2),
+      region([x, y, 0.7], [x, y, 1.5], 0.35),
+      region([x, y + 0.25, 1.4], left, 0.15),
+      region([x, y - 0.25, 1.4], right, 0.15),
+      region([x, y, 0], [x, y, 0.8], 0.3),
+    ],
+    integrity: [RAW, RAW, RAW, RAW, RAW], wound: [0, 0, 0, 0, 0],
+    blood: RAW, shock: 0, severed, equipmentMask: 6,
+    intent: "attack", target: null, hints: [0, 0],
+  };
+}
+
+const arenaHeader = () => ({
+  one: RAW, scenario: "articulated-duel-v1", mirrored: false, fingerprint: "0x0", seed: 3,
+  heroes: "composed", monsters: "composed", checkpoint: null, outcome: "Decision(Heroes)",
+  timedOut: true, ticks: 2, maxTicks: 3600, arena: raw(24, 16), frameCount: 3, truncated: false,
+  impactThreshold: 3932, contactEnergyFloor: 144,
+  regionNames: ["head", "torso", "leftArm", "rightArm", "legs"],
+  hintNames: ["idle"], contactKinds: ["weaponWeapon", "weaponShield", "weaponBody"],
+  bodySlot: 255, noRegion: 255,
+  bodies: [0, 1].map((index) => ({
+    index, kind: index === 0 ? "Fighter" : "Brute", faction: index === 0 ? "Heroes" : "Monsters",
+    anatomy: {
+      standingHeight: raw(1.8)[0], shoulderHeight: raw(1.4)[0], shoulderHalfWidth: raw(0.25)[0],
+      armLength: raw(0.75)[0], handRadius: raw(0.1)[0],
+    },
+    carried: [],
+  })),
+});
+
+const arenaView = (poses, values = {}) => {
+  const frame = { t: values.t ?? 0, poses, contacts: values.rows ?? [], health: [RAW, RAW] };
+  return {
+    header: arenaHeader(), frame, next: values.next ?? frame, alpha: values.alpha ?? 0,
+    focus: values.focus ?? [poses[0].body[0], poses[0].body[1], 0], span: values.span ?? 6 * RAW,
+    azimuth: values.azimuth ?? 0, contacts: values.contacts ?? false,
+  };
+};
+
+/** One published contact fact, with the fields the 3D panels read off it. */
+const arenaContact = (kind, point, normal = [0, 1, 0]) => ({
+  a: [0, 0], aSlot: 1, b: [1, 0], bSlot: 255, kind, region: 1,
+  point: raw(...point), normal: raw(...normal),
+  velocityA: [0, 0, 0], velocityB: [0, 0, 0], impulseA: [0, 0, 0], impulseB: [0, 0, 0],
+  toi: 0, group: 0, alpha: RAW, groupBefore: 0, groupAfter: 0, groupDissipated: 0,
+  cut: 0, thrust: 0, pressure: 0, deflected: 0, severed: false,
+});
+
+async function arenaStageHarness() {
+  const { NullEngine } = await import("@babylonjs/core/Engines/nullEngine.js");
+  const engine = new NullEngine({ renderWidth: 1280, renderHeight: 720 });
+  const debug = new rendererDebug.RendererDebugRegistry();
+  const built = arenaScene.createArenaContent(engine, debug);
+  return { engine, debug, ...built };
+}
+
+test("the_arena_axis_mapping_is_a_rotation_rather_than_a_mirror_of_the_world", () => {
+  const { scenePoint, sceneForward, sceneYaw } = arenaGeometry;
+  // World `(x, y, height)` becomes scene `(x, height, -y)`.
+  assert.deepEqual(scenePoint(raw(1, 2, 3)), [1, 3, -2]);
+
+  // The determinant of the mapping is the whole handedness argument. Copying
+  // `render/actors.ts`'s `(x, y) -> (x, z)` into a right-handed scene gives -1,
+  // which is a mirror, which puts a Fighter's shield on the wrong side of its
+  // body in the 3/4 view while the plan beside it has it right.
+  const rows = [scenePoint(raw(1, 0, 0)), scenePoint(raw(0, 1, 0)), scenePoint(raw(0, 0, 1))];
+  const det = rows[0][0] * (rows[1][1] * rows[2][2] - rows[1][2] * rows[2][1])
+    - rows[0][1] * (rows[1][0] * rows[2][2] - rows[1][2] * rows[2][0])
+    + rows[0][2] * (rows[1][0] * rows[2][1] - rows[1][1] * rows[2][0]);
+  assert.equal(det, 1, "the world-to-scene map must be a rotation, not a reflection");
+
+  // `actuator::shoulder` puts LeftArm on the +90 degree side, so world +y is a
+  // body's anatomical left, and in a right-handed scene left is up cross forward.
+  const up = scenePoint(raw(0, 0, 1));
+  const forward = sceneForward(0);
+  const cross = [
+    up[1] * forward[2] - up[2] * forward[1],
+    up[2] * forward[0] - up[0] * forward[2],
+    up[0] * forward[1] - up[1] * forward[0],
+  ];
+  assert.deepEqual(cross.map((value) => Math.round(value * 1e6) / 1e6), scenePoint(raw(0, 1, 0)));
+
+  // Yaw is not negated here, unlike the greybox, and it cannot be: Babylon's
+  // `rotation.y` takes local +x to `(cos, 0, -sin)` and so does this mapping.
+  assert.equal(sceneYaw(RAW / 4), Math.PI / 2);
+  const quarter = sceneForward(RAW / 4).map((value) => Math.round(value * 1e6) / 1e6);
+  assert.deepEqual(quarter, scenePoint(raw(0, 1, 0)), "a quarter turn must face world +y");
+});
+
+test("the_stage_viewports_match_the_css_that_labels_them", async () => {
+  const css = fs.readFileSync(path.join(ROOT, "web", "index.html"), "utf8");
+  const percent = (pattern) => {
+    const found = pattern.exec(css);
+    assert.ok(found, `web/index.html has no ${pattern}`);
+    return Number(found[1]) / 100;
+  };
+  // The 3/4 label and the mode buttons hang off the same column split, and the
+  // second first-person label off the row split. The CSS says the two must move
+  // together with the cameras; this is what makes that true rather than hoped.
+  // The fraction is read whole, decimal point and all: `(\d+)` captured 28 out
+  // of `calc(28.5% + .5rem)` and passed, which is a label half a panel out of
+  // place reported as agreement.
+  const column = percent(/#label-three-quarter\s*\{[^}]*left:\s*calc\((\d+(?:\.\d+)?)%/);
+  const buttons = percent(/\.stage-modes\s*\{[^}]*left:\s*calc\((\d+(?:\.\d+)?)%/);
+  const row = percent(/#label-first-b\s*\{[^}]*top:\s*calc\((\d+(?:\.\d+)?)%/);
+  assert.equal(column, arenaGeometry.STAGE_COLUMN_SPLIT);
+  assert.equal(buttons, arenaGeometry.STAGE_COLUMN_SPLIT);
+  assert.equal(row, arenaGeometry.STAGE_FIRST_PERSON_SPLIT);
+
+  // Babylon counts from the bottom left and the labels from the top left, so
+  // the panel labelled first is the one with the offset `y`.
+  const { firstPersonA, firstPersonB, threeQuarter } = arenaGeometry.ARENA_VIEWPORTS;
+  assert.deepEqual(firstPersonA, { x: 0, y: 0.5, width: 0.28, height: 0.5 });
+  assert.deepEqual(firstPersonB, { x: 0, y: 0, width: 0.28, height: 0.5 });
+  assert.deepEqual(threeQuarter, { x: 0.28, y: 0, width: 0.72, height: 1 });
+  // Tiled with no gap and no overlap: a seam would show the clear colour and a
+  // reader would read it as a panel that had stopped drawing.
+  const area = (rect) => rect.width * rect.height;
+  assert.equal(area(firstPersonA) + area(firstPersonB) + area(threeQuarter), 1);
+  assert.equal(firstPersonA.y + firstPersonA.height, 1);
+  assert.equal(threeQuarter.x, firstPersonA.x + firstPersonA.width);
+
+  // **Which camera got which rectangle, and in what order they draw.** Every
+  // assertion above is about the numbers; swapping the two first-person
+  // rectangles between the two cameras satisfies all of them and puts each
+  // fighter's eye under the other one's label. The draw order matters for its
+  // own reason: Babylon clears the colour buffer for the first active camera
+  // and only depth for the rest, so a list that did not start at a corner would
+  // clear a rectangle over something already drawn.
+  const harness = await arenaStageHarness();
+  const { content, scene, engine } = harness;
+  const rect = (camera) => ({
+    x: camera.viewport.x, y: camera.viewport.y,
+    width: camera.viewport.width, height: camera.viewport.height,
+  });
+  assert.deepEqual(rect(content.firstPerson[0]), firstPersonA);
+  assert.deepEqual(rect(content.firstPerson[1]), firstPersonB);
+  assert.deepEqual(rect(content.threeQuarter), threeQuarter);
+  assert.deepEqual(scene.activeCameras.map((camera) => camera.name),
+    ["arena-first-person-0", "arena-first-person-1", "arena-three-quarter"]);
+  content.dispose();
+  scene.dispose();
+  engine.dispose();
+});
+
+test("the_first_person_eye_is_the_published_head_capsule_and_not_the_anatomy_row", () => {
+  const pose = arenaPose();
+  const header = arenaHeader();
+  // `body_region_volumes` builds the head with coincident endpoints, so its
+  // extent is entirely its radius and `AnatomyRegionSpec::half_height` is dead
+  // for that region. Taking the eye off the anatomy row instead would sit it a
+  // tenth of a body out, every tick, in the one panel where that is the whole
+  // picture.
+  assert.deepEqual(arenaGeometry.eyeOf(pose), raw(7, 6, 1.7));
+  assert.notEqual(arenaGeometry.eyeOf(pose)[2], header.bodies[0].anatomy.standingHeight);
+  assert.notEqual(arenaGeometry.eyeOf(pose)[2], header.bodies[0].anatomy.shoulderHeight);
+
+  // The head is a point, so it draws as one sphere; a real capsule draws as two
+  // spheres and a shaft, because a Babylon capsule scaled along its own axis
+  // squashes exactly the caps the contact phase swept.
+  const head = arenaGeometry.capsuleParts(pose.regions[0].lower, pose.regions[0].upper, pose.regions[0].radius);
+  assert.deepEqual([head.upper, head.shaft], [null, null]);
+  // A raw radius is an integer count of 65536ths, so 0.2 is 13107 and comes
+  // back a shade under. Divided once and never rounded, which is the rule.
+  assert.ok(Math.abs(head.radius - 0.2) < 1e-4);
+  const torso = arenaGeometry.capsuleParts(pose.regions[1].lower, pose.regions[1].upper, pose.regions[1].radius);
+  assert.ok(torso.shaft !== null);
+  assert.deepEqual(torso.shaft.direction, [0, 1, 0]);
+  assert.ok(Math.abs(torso.shaft.length - 0.8) < 1e-4);
+});
+
+test("a_severed_or_absent_region_leaves_no_mesh_and_no_count_behind", async () => {
+  const harness = await arenaStageHarness();
+  const { content, scene, engine, debug } = harness;
+  content.show(arenaView([arenaPose()]));
+  const held = () => content.keys().filter((key) => /^0:(region:2|hand:0|weapon:0|shield)/.test(key));
+  assert.deepEqual(held(),
+    ["0:hand:0", "0:region:2:lower", "0:region:2:shaft", "0:region:2:upper", "0:shield"]);
+  const armMesh = scene.getMeshByName("arena:0:region:2:shaft");
+  assert.ok(armMesh);
+
+  // **Everything the arm was carrying goes with it**, which is the half this
+  // test asserted nothing about while its name claimed both. `Pose` publishes a
+  // `PosedArm` row for a severed limb, so gating only the five region capsules
+  // leaves a hand sphere and a gold plate floating with nothing between them and
+  // the shoulder -- shapes nothing swept, in the one mode whose whole contract
+  // is that it draws only what the simulation published.
+  content.show(arenaView([arenaPose({ severed: 1 << 2 })]));
+  assert.deepEqual(held(), []);
+  assert.equal(armMesh.isDisposed(), true);
+  // The other arm, which lost nothing, keeps its capsule, its hand and its
+  // weapon -- so this is severance rather than a body that stopped drawing.
+  assert.deepEqual(content.keys().filter((key) => key.startsWith("0:region:3")).length, 3);
+  assert.ok(content.keys().includes("0:hand:1"));
+  assert.ok(content.keys().includes("0:weapon:1:shaft"));
+
+  // The right arm is the one carrying a weapon on this fixture, so severing it
+  // is the only way to check that a weapon goes with its arm at all: gate the
+  // hand and the shield and leave the weapon, and every assertion above still
+  // passes, because limb 0's weapon is null and short-circuits first.
+  content.show(arenaView([arenaPose({ severed: 1 << 3 })]));
+  assert.deepEqual(content.keys().filter((key) => key.startsWith("0:weapon")), []);
+  assert.equal(content.keys().includes("0:hand:1"), false);
+  assert.ok(content.keys().includes("0:hand:0"), "the intact arm keeps its hand");
+  assert.ok(content.keys().includes("0:shield"), "the intact arm keeps its shield");
+
+  // **And `present: false`, which the name has always promised and which no
+  // fixture exercises**: all three recordings carry zero `severed` bits and no
+  // absent region, so this is the only place the rule is checked at all. It is
+  // the same rule -- a region the body does not have and a region it no longer
+  // has are both regions that are not drawn.
+  const absent = arenaPose();
+  absent.regions[2] = { ...absent.regions[2], present: false };
+  content.show(arenaView([absent]));
+  assert.deepEqual(held(), []);
+  assert.equal(arenaGeometry.regionDrawn(absent, 2), false);
+  assert.equal(arenaGeometry.armDrawn(absent, 0), false);
+  assert.equal(arenaGeometry.armDrawn(absent, 1), true);
+
+  // The shield is found by its holder rather than by a slot number: its
+  // published `centre` is that arm's published `hand`, exactly, because
+  // `derive_shield_pose` writes one from the other.
+  assert.equal(arenaGeometry.shieldLimb(absent, absent.shield), 0);
+  assert.equal(arenaGeometry.shieldLimb(absent, { ...absent.shield, centre: raw(0, 0, 0) }), null);
+
+  content.show(arenaView([arenaPose()]));
+  const before = content.counts().instances;
+  content.clear();
+  assert.deepEqual(content.keys(), []);
+  assert.ok(before > 0);
+  assert.equal(debug.snapshot().instances, 0);
+  content.dispose();
+  assert.deepEqual(debug.snapshot(), {
+    meshes: 0, instances: 0, draws: 0, triangles: 0, lights: 0, shadowCasters: 0,
+    visibility: { geometry: 0, units: 0, shots: 0, events: 0, furniture: 0,
+      effects: 0, audio: 0, picking: 0, debug: 0 },
+  });
+  scene.dispose();
+  engine.dispose();
+});
+
+test("a_body_never_draws_the_head_and_torso_its_own_eye_is_inside_of", async () => {
+  const harness = await arenaStageHarness();
+  const { content, scene, engine } = harness;
+  content.show(arenaView([arenaPose({ index: 0 }), arenaPose({ index: 1, x: 11 })]));
+  const visible = (name, camera) => {
+    const mesh = scene.getMeshByName(name);
+    assert.ok(mesh, `${name} is missing`);
+    return (mesh.layerMask & camera.layerMask) !== 0;
+  };
+  for (const slot of [0, 1]) {
+    const own = content.firstPerson[slot];
+    const other = content.firstPerson[1 - slot];
+    // The eye is the head capsule's centre and the torso reaches within 0.200 of
+    // it at radius 0.350, so this camera stands inside both. A capsule you are
+    // inside of is a wall of colour or nothing at all, never a view.
+    assert.equal(visible(`arena:${slot}:region:0:lower`, own), false);
+    assert.equal(visible(`arena:${slot}:region:1:shaft`, own), false);
+    // Everything else about itself stays: the arms, the legs, the hands, the
+    // weapon and the shield are what the panel exists to show.
+    assert.equal(visible(`arena:${slot}:region:2:shaft`, own), true);
+    assert.equal(visible(`arena:${slot}:hand:0`, own), true);
+    assert.equal(visible(`arena:${slot}:shield`, own), true);
+    // And nothing is hidden from anybody else's eyes or from the 3/4 view.
+    assert.equal(visible(`arena:${slot}:region:0:lower`, other), true);
+    assert.equal(visible(`arena:${slot}:region:1:shaft`, content.threeQuarter), true);
+  }
+  content.dispose();
+  scene.dispose();
+  engine.dispose();
+});
+
+test("the_first_person_camera_sits_at_the_eye_and_keeps_one_fixed_mount_angle_at_every_yaw", async () => {
+  const { Vector3 } = await import("@babylonjs/core/Maths/math.vector.js");
+  const harness = await arenaStageHarness();
+  const { content, scene, engine } = harness;
+  const pitch = (arenaGeometry.FIRST_PERSON_PITCH_DEGREES * Math.PI) / 180;
+  for (const yaw of [0, RAW / 8, RAW / 4, (RAW * 5) / 8, RAW - 1]) {
+    content.show(arenaView([arenaPose({ yaw })]));
+    const camera = content.firstPerson[0];
+    const eye = arenaGeometry.scenePoint(arenaGeometry.eyeOf(arenaPose({ yaw })));
+    // Exactly at the eye. `setTarget` would not be: it adds `Epsilon` to
+    // `position.z` whenever the target shares it, which for a level gaze is
+    // precisely the yaw-zero case every fixture opens on.
+    assert.deepEqual([camera.position.x, camera.position.y, camera.position.z], eye);
+    // **One constant mount angle and nothing that tracks.** This model has
+    // exactly one rotation: no pitch, no roll, no head turn. v2-20's guard
+    // height belongs to the arm, so a camera that tilted *to follow a swing*
+    // would be showing a degree of freedom the fighter does not have and a
+    // reader would believe it. The tilt below is the rig's and is the same
+    // number at every yaw, which is what this loop is checking.
+    assert.equal(camera.rotation.z, 0, `yaw ${yaw} rolled the camera`);
+    camera.getViewMatrix(true);
+    const gaze = camera.getTarget().subtract(camera.position).normalize();
+    assert.ok(Math.abs(gaze.y + Math.sin(pitch)) < 1e-6,
+      `yaw ${yaw} gazes ${gaze.y} rather than the mount's ${-Math.sin(pitch)}`);
+    // Turned by the body's own heading, which `sceneForward` states independently
+    // of Babylon's rotation convention: the gaze projects onto it exactly.
+    const ahead = arenaGeometry.sceneForward(yaw);
+    const flat = Math.cos(pitch);
+    assert.ok(Math.abs(gaze.x - ahead[0] * flat) < 1e-6, `yaw ${yaw} looks ${gaze.x}`);
+    assert.ok(Math.abs(gaze.z - ahead[2] * flat) < 1e-6, `yaw ${yaw} looks ${gaze.z}`);
+  }
+
+  // **The frustum, tested the way Babylon clips: rectangular, not conical.**
+  // `fovMode` is `FOVMODE_VERTICAL_FIXED`, so a corner is further off the axis
+  // than a top edge is, and the projection below is the camera's own -- built by
+  // Babylon from the shipped constants and this viewport's aspect -- rather than
+  // a second copy of it written here.
+  assert.equal(arenaGeometry.FIRST_PERSON_FOV_DEGREES, 90);
+  assert.equal(arenaGeometry.FIRST_PERSON_PITCH_DEGREES, 25);
+  const camera = content.firstPerson[0];
+  assert.ok(Math.abs(camera.fov - (90 * Math.PI) / 180) < 1e-12);
+  assert.equal(camera.fovMode, 0, "FOVMODE_VERTICAL_FIXED is what the table was computed against");
+  content.show(arenaView([arenaPose({ yaw: 0 })]));
+  const eye = arenaGeometry.scenePoint(arenaGeometry.eyeOf(arenaPose({ yaw: 0 })));
+  /** A point `below` degrees under a level gaze and `lateral` degrees off it. */
+  const guard = (below, lateral, distance = 0.9) => {
+    const b = (below * Math.PI) / 180;
+    const l = (lateral * Math.PI) / 180;
+    const ahead = arenaGeometry.sceneForward(0);
+    const right = [-ahead[2], 0, ahead[0]];
+    return new Vector3(
+      eye[0] + distance * (Math.cos(b) * (Math.cos(l) * ahead[0] + Math.sin(l) * right[0])),
+      eye[1] - distance * Math.sin(b),
+      eye[2] + distance * (Math.cos(b) * (Math.cos(l) * ahead[2] + Math.sin(l) * right[2])),
+    );
+  };
+  const sees = (point) => {
+    camera.getViewMatrix(true);
+    const view = camera.getViewMatrix();
+    // Behind the camera first: a perspective divide by a negative `w` maps a
+    // point behind the eye back inside the unit cube and would read as visible.
+    if (Vector3.TransformCoordinates(point, view).z >= 0) return false;
+    const ndc = Vector3.TransformCoordinates(point, view.multiply(camera.getProjectionMatrix(true)));
+    return Math.abs(ndc.x) <= 1 && Math.abs(ndc.y) <= 1;
+  };
+  // **Measured directions and not invented ones.** Each row is one real
+  // weapon-shield contact out of `web/fight.json`'s 430, as the pair of angles
+  // its point makes with the holder's level gaze: the two that fit this frustum
+  // most tightly, then the deepest and the shallowest of the population. Both
+  // angles of a row come off the same contact -- combining the marginals, the
+  // median depression against the widest lateral, would be a direction nothing
+  // published and a test of arithmetic rather than of a fight.
+  const measured = [
+    [51.3, 62.4], // t893: the widest lateral of the fight; needs 89.3 deg here, 139.3 level
+    [51.8, 60.8], // t892: the next tightest, 87.9
+    [63.9, 22.8], // t1149: the deepest, 81.4 here and 131.4 level
+    [31.5, 48.0], // t949: the shallowest, and still 96.3 from a level mount
+  ];
+  for (const [below, lateral] of measured) {
+    assert.equal(sees(guard(below, lateral)), true,
+      `a contact ${below} degrees below the gaze and ${lateral} to the side is out of frame`);
+  }
+  // **The mount angle is what puts them there.** Level, this same lens loses all
+  // four -- even the shallowest, which still needs 96.3 degrees from a level
+  // mount -- which is the shape of the whole measurement: a level 90 degree
+  // camera holds 14% of this fight's contacts and a level 100 degree one 52%,
+  // because the guard is held low and the eye is at 1.700. `fight-windmill.json`
+  // and `fight-learned.json` each keep one cluster outside even with the mount --
+  // 3% and 6% of their contacts -- so this is the configuration that answers
+  // nearly always rather than always. The learned figure was 2% until that
+  // fixture was re-recorded on 2026-08-11; it is now 3 of 54, at ticks 2490-2492,
+  // and they are the *deepest* contacts in that file rather than the widest --
+  // 65.9, 64.8 and 63.2 degrees below level, needing 93.6 degrees at this mount.
+  // Its cluster is the one exception to "lateral rather than deep".
+  const mounted = camera.rotation.x;
+  camera.rotation.x = 0;
+  for (const [below, lateral] of measured) {
+    assert.equal(sees(guard(below, lateral)), false,
+      `a level ${arenaGeometry.FIRST_PERSON_FOV_DEGREES} degree camera must lose ${below}/${lateral}`);
+  }
+  camera.fov = (100 * Math.PI) / 180;
+  assert.equal(sees(guard(51.3, 62.4)), false,
+    "the level 100 degree camera this replaced must lose the hardest contact of the fight");
+  camera.fov = (arenaGeometry.FIRST_PERSON_FOV_DEGREES * Math.PI) / 180;
+  camera.rotation.x = mounted;
+
+  // **And the mount is bounded from above by the attacker**, which is the half
+  // of the decision the guard numbers alone cannot make. Both bodies stand about
+  // 1.17 apart and are about the same height, so the opponent's head never rises
+  // more than 9.9 degrees above a level gaze on any of the three fixtures; this
+  // is the highest one measured, `fight-learned.json` tick 2483, at 36.1 degrees
+  // to the side. It is in frame here and out of frame at the 35 degree mount that
+  // would hold a few more contacts -- which is exactly why the mount is not set
+  // to 35.
+  //
+  // The 9.9 is geometry rather than luck and did not move when that fixture was
+  // re-recorded: a Brute of `standingHeight` 2.000 against a Fighter's 1.800, at
+  // the 1.148 to 1.150 standoff these contacts happen at, is `atan(0.2/1.15)`.
+  // The lateral did move -- it read 26.0 degrees at tick 2163 of the superseded
+  // recording -- and 36.1 is the harder row of the two, since the frustum is
+  // rectangular and a corner is further off the axis than a top edge.
+  const opponentHead = guard(-9.9, 36.1, 1.17);
+  assert.equal(sees(opponentHead), true, "the highest opponent head must stay in frame");
+  camera.rotation.x = -(35 * Math.PI) / 180;
+  assert.equal(sees(opponentHead), false, "a 35 degree mount must lose the highest opponent head");
+  camera.rotation.x = mounted;
+
+  // Babylon's default `minZ` is 1 and the nearest thing a body draws of its own
+  // is its upper arm at 0.218, so this is a value that has to be set at all.
+  assert.ok(arenaGeometry.NEAR_PLANE < 0.218 / 10);
+  assert.equal(camera.minZ, arenaGeometry.NEAR_PLANE);
+  content.dispose();
+  scene.dispose();
+  engine.dispose();
+});
+
+test("the_three_quarter_camera_reads_the_world_the_same_way_round_as_the_plan", async () => {
+  const { Vector3 } = await import("@babylonjs/core/Maths/math.vector.js");
+  const harness = await arenaStageHarness();
+  const { content, scene, engine } = harness;
+  const pose = arenaPose({ yaw: 0 });
+  content.show(arenaView([pose]));
+  const camera = content.threeQuarter;
+  const view = camera.getViewMatrix();
+  // A right-handed view matrix puts screen right on +x and the eye on +z, so
+  // "further from the camera" is a smaller z.
+  const seen = (world) => {
+    const point = arenaGeometry.scenePoint(world);
+    return Vector3.TransformCoordinates(new Vector3(point[0], point[1], point[2]), view);
+  };
+  const body = seen(pose.body);
+  const ahead = seen([pose.body[0] + RAW, pose.body[1], 0]);
+  const anatomicalLeft = seen([pose.body[0], pose.body[1] + RAW, 0]);
+
+  // The plan is a bird's eye with x right and **y up**, so a body at yaw zero
+  // faces screen right and its left hand is on the far side of it. Both must
+  // read the same way here or the two panels disagree about which way the world
+  // turns -- which is the exact failure the right-handed scene exists to stop.
+  assert.ok(ahead.x > body.x, "a body facing world +x must face screen right");
+  assert.ok(anatomicalLeft.z < body.z, "a body's left must be the far side, as it is up the plan");
+  // And the shield, which is what a reader actually looks at, against the empty
+  // hand at the same height and the same reach on the other side of the body.
+  // Compared to the body centre instead this would be a test of the camera's
+  // downward tilt: the guard is held 0.9 units up and the camera is 30 degrees
+  // above the floor, so height alone moves a point half a unit nearer.
+  assert.ok(seen(pose.shield.centre).z < seen(pose.arms[1].hand).z,
+    "the shield must be on the far side of the body from the empty hand");
+
+  // The camera frames the same world width the Span slider gives the 2D panels,
+  // so all five panels move together, and it is a pure function of the frame:
+  // scrubbing to a tick backwards must give the same picture as reaching it
+  // forwards.
+  const first = content.threeQuarter.position.clone();
+  content.show(arenaView([arenaPose({ yaw: RAW / 3 })]));
+  content.show(arenaView([pose]));
+  assert.deepEqual([content.threeQuarter.position.x, content.threeQuarter.position.y,
+    content.threeQuarter.position.z], [first.x, first.y, first.z]);
+  const wide = arenaGeometry.threeQuarterPlacement(pose.body, 12 * RAW, 1.28, 0);
+  const near = arenaGeometry.threeQuarterPlacement(pose.body, 6 * RAW, 1.28, 0);
+  assert.ok(wide.position[1] > near.position[1], "a wider span must stand further back");
+  assert.deepEqual(wide.target, near.target);
+  // The 3/4 camera stands where the elevation camera stands and then climbs 30
+  // degrees, so one azimuth control turns both -- and a reader who cannot see a
+  // contact because a body is in front of it can turn it and look from the
+  // other side, which a camera pinned to one heading does not allow.
+  const turned = arenaGeometry.threeQuarterPlacement(pose.body, 6 * RAW, 1.28, Math.PI / 2);
+  assert.deepEqual(turned.target, near.target);
+  assert.ok(turned.position[0] > near.position[0], "a quarter turn must move the eye onto world +x");
+  assert.ok(Math.abs(turned.position[1] - near.position[1]) < 1e-9, "azimuth must not change the height");
+  content.dispose();
+  scene.dispose();
+  engine.dispose();
+});
+
+test("the_shield_is_the_four_corners_the_two_dimensional_panels_draw", async () => {
+  const { VertexBuffer } = await import("@babylonjs/core/Buffers/buffer.js");
+  const trace = await load("client/src/fight/trace.js");
+  const harness = await arenaStageHarness();
+  const { content, scene, engine } = harness;
+  const pose = arenaPose();
+  content.show(arenaView([pose]));
+  const mesh = scene.getMeshByName("arena:0:shield");
+  assert.ok(mesh);
+  // `shieldCorners` is called rather than re-derived, so the 3D face and the 2D
+  // face cannot drift. Its mixed units are the reason: `thickness` and
+  // `halfWidth` scale unit vectors and are divided by 65536 in there, while
+  // `halfHeight` rides a raw-space basis vector and is used raw.
+  const expected = trace.shieldCorners(pose.shield).flatMap((corner) => arenaGeometry.scenePoint(corner));
+  const drawn = [...mesh.getVerticesData(VertexBuffer.PositionKind)];
+  assert.equal(drawn.length, 12);
+  drawn.forEach((value, index) => assert.ok(Math.abs(value - expected[index]) < 1e-5,
+    `shield vertex ${index} is ${value}, not ${expected[index]}`));
+  // Both faces are drawn: the body holding it is looking at the inside of it.
+  assert.equal(mesh.material.backFaceCulling, false);
+  content.dispose();
+  scene.dispose();
+  engine.dispose();
+});
+
+test("a_contact_marker_is_the_colour_of_the_kind_at_that_index_now_and_not_the_one_before", async () => {
+  const { Color3 } = await import("@babylonjs/core/Maths/math.color.js");
+  const view = await load("client/src/fight/view.js");
+  const harness = await arenaStageHarness();
+  const { content, scene, engine } = harness;
+  const pose = arenaPose();
+  const wanted = (kind) => Color3.FromHexString(view.contactColour(kind)).asArray();
+  const drawn = (name) => scene.getMeshByName(name).material.emissiveColor.asArray();
+  const shield = arenaContact(1, [7, 6.3, 0.9]);
+  const bodyHit = arenaContact(2, [7, 5.7, 0.9]);
+  const rows = (...list) => arenaView([pose], { contacts: true, rows: list });
+
+  // **An instance's material is its source's**, and `contact:0` is a key whose
+  // index says nothing about the kind that landed there. Stepping from a tick
+  // whose index 0 was a `weaponShield` to one whose index 0 is a `weaponBody`
+  // used to keep the first tick's blue: 136 of `web/fight.json`'s 1491 markers
+  // were drawn in the wrong kind's colour, beside a `#contacts` readout calling
+  // `contactColour` directly and getting it right.
+  content.show(rows(shield, bodyHit));
+  assert.deepEqual(drawn("arena:contact:0"), wanted(1));
+  assert.deepEqual(drawn("arena:contact:1"), wanted(2));
+  content.show(rows(bodyHit, shield));
+  assert.deepEqual(drawn("arena:contact:0"), wanted(2), "index 0 kept the previous tick's colour");
+  assert.deepEqual(drawn("arena:contact:1"), wanted(1));
+  // The axis through the point is the part a reader actually sees, so it has to
+  // move too rather than only the sphere at the centre.
+  assert.deepEqual(drawn("arena:contact:0:normal:shaft"), wanted(2));
+
+  // **And the picture does not depend on how the reader got there.** A key stays
+  // live until a tick with fewer contacts retires it, so arriving through one
+  // with none at all -- which is what `clear` stands in for here, and what
+  // scrubbing across a quiet stretch of the fight does -- rebuilds every node,
+  // while stepping through contact-bearing ticks reuses them. The two must agree,
+  // for the same reason `threeQuarterPlacement` is a pure function of the frame:
+  // a picture whose content depends on playback history cannot be used to check
+  // a geometry claim.
+  const stepped = ["arena:contact:0", "arena:contact:1"].map(drawn);
+  content.clear();
+  content.show(rows(bodyHit, shield));
+  assert.deepEqual(["arena:contact:0", "arena:contact:1"].map(drawn), stepped);
+
+  // A tick with fewer contacts retires the surplus rather than leaving a marker
+  // standing where nothing happened.
+  content.show(rows(shield));
+  assert.equal(scene.getMeshByName("arena:contact:1"), null);
+  assert.deepEqual(content.keys().filter((key) => key.startsWith("contact:")),
+    ["contact:0", "contact:0:normal:lower", "contact:0:normal:shaft", "contact:0:normal:upper"]);
+  content.dispose();
+  scene.dispose();
+  engine.dispose();
+});
+
+test("a_contact_axis_clears_the_widest_capsule_the_simulation_publishes", async () => {
+  const harness = await arenaStageHarness();
+  const { content, scene, engine } = harness;
+  const pose = arenaPose();
+  // **The Brute's torso, which this Fighter-shaped fixture does not otherwise
+  // carry.** The widest capsule any of the three recordings publishes is
+  // `radius` 0.400 -- 26214 raw, body 1 region 1, on every frame of all three --
+  // and testing the axis against the Fighter's 0.350 would pass at 0.351 and
+  // prove nothing about the case the constant is set for.
+  const widest = Math.round(0.4 * RAW);
+  pose.regions[1] = { ...pose.regions[1], radius: widest };
+  // A contact at the dead centre of that capsule with the normal pointing
+  // radially out of it: the worst case the axis exists for.
+  const buried = arenaContact(2, [7, 6, 1.1], [1, 0, 0]);
+  content.show(arenaView([pose], { contacts: true, rows: [buried] }));
+  const shaft = scene.getMeshByName("arena:contact:0:normal:shaft");
+  assert.ok(shaft);
+  const half = shaft.scaling.y / 2;
+  // Both ends reach the surface of the capsule the point is in the middle of,
+  // and the end spheres put them outside it. Buried at both ends the marker is
+  // invisible from every angle at once, which is worse than no marker: the
+  // reader reads "no contact" off a tick that had one.
+  const radius = widest / RAW;
+  const capRadius = shaft.scaling.x / 2;
+  const ends = ["lower", "upper"].map((end) => scene.getMeshByName(`arena:contact:0:normal:${end}`));
+  for (const end of ends) {
+    assert.ok(Math.abs(end.position.x - shaft.position.x) + capRadius > radius,
+      `an axis end at ${end.position.x} is still inside a radius-${radius} capsule`);
+  }
+  // **The requirement is the widest published radius, not the widest diameter.**
+  // This was 0.3 while its own comment called 0.400 and 0.350 the *widths* of the
+  // Brute's torso and legs; they are the radii, and 18.8% of the fixtures'
+  // then-5703 weapon-body markers were buried at both ends. That sweep is the one
+  // `CONTACT_AXIS` records and it has not been re-run since the learned fixture
+  // was re-recorded -- the corpus is now 5512 -- but the assertion below is the
+  // lower bound rather than the sweep, and the bound is a published radius. The
+  // upper bound is a judgement about legibility rather than a measurement, so
+  // nothing here pins one.
+  assert.ok(half >= radius, `a half-axis of ${half} cannot reach out of a radius-${radius} torso`);
+  content.dispose();
+  scene.dispose();
+  engine.dispose();
+});
+
+test("the_arena_stage_owns_every_engine_it_builds_including_one_it_fails_on", async () => {
+  const { NullEngine } = await import("@babylonjs/core/Engines/nullEngine.js");
+  // `createRendererEngine` wants a real `webgl2` or WebGPU context and there is
+  // none here, so without this seam every assertion about the stage's lifecycle
+  // would be an assertion about a rejected promise. `createEngine` is the whole
+  // of the injection: everything after it is the shipped path.
+  const saved = globalThis.window;
+  globalThis.window = {
+    devicePixelRatio: 2,
+    // Babylon's own teardown reaches for these; the arena reads only the ratio.
+    addEventListener: () => undefined, removeEventListener: () => undefined,
+  };
+  try {
+    const built = [];
+    const createEngine = (canvas, requested) => {
+      const engine = new NullEngine({ renderWidth: 1280, renderHeight: 720 });
+      const record = { engine, requested, disposals: 0, scaling: [] };
+      // Recorded rather than read back: `AbstractEngine.resize` re-derives the
+      // level from a device pixel ratio Node does not have, so the level that
+      // sticks is Babylon's business and the call is the arena's.
+      const setLevel = engine.setHardwareScalingLevel.bind(engine);
+      engine.setHardwareScalingLevel = (level) => { record.scaling.push(level); setLevel(level); };
+      built.push(record);
+      return Promise.resolve({
+        engine, canvas, terminal: false,
+        diagnostics: { selected: "webgl2" },
+        dispose: () => { record.disposals += 1; engine.dispose(); },
+      });
+    };
+    const canvas = { id: "arena-3d" };
+
+    const stage = await arenaScene.createArenaStage(canvas, new URLSearchParams("backend=webgl2"), { createEngine });
+    assert.equal(built.length, 1);
+    assert.equal(built[0].requested, "webgl2", "the route's backend query must reach the engine");
+    // The backing store follows the device pixel ratio, capped at two, because a
+    // blurred 3D panel beside a crisp plan is a panel a reader stops trusting.
+    assert.deepEqual(built[0].scaling, [0.5]);
+    assert.match(stage.description(), /^webgl2, geometry, \d+ sources, \d+ instances, 0 shadow casters$/);
+    stage.show(arenaView([arenaPose(), arenaPose({ index: 1, x: 11 })]));
+    assert.match(stage.description(), /[1-9]\d* instances/);
+    stage.resize();
+    assert.deepEqual(built[0].scaling, [0.5, 0.5]);
+    stage.clear();
+    assert.match(stage.description(), /, 0 instances,/);
+
+    stage.dispose();
+    assert.equal(built[0].disposals, 1);
+    assert.equal(built[0].engine.isDisposed, true);
+    // Idempotent, and dead: the shell disposes on navigation and again on
+    // `pagehide`, and everything on this handle answers without an engine.
+    stage.dispose();
+    assert.equal(built[0].disposals, 1);
+    assert.equal(stage.description(), "renderer unavailable");
+    stage.show(arenaView([arenaPose()]));
+    stage.resize();
+
+    // **A failure after the engine exists must still give the engine back.** The
+    // window between `createRendererEngine` returning and this function
+    // returning a handle is the one stretch where nobody else can: the caller
+    // has nothing to call `dispose` on, and a rejected build left a WebGPU
+    // device alive with no reference to it and no symptom short of context
+    // exhaustion several routes later.
+    const explode = (canvasArgument, requested) => createEngine(canvasArgument, requested).then((handle) => {
+      handle.engine.setHardwareScalingLevel = () => { throw new Error("no such surface"); };
+      return handle;
+    });
+    await assert.rejects(
+      arenaScene.createArenaStage(canvas, new URLSearchParams(), { createEngine: explode }),
+      /no such surface/);
+    assert.equal(built.length, 2);
+    assert.equal(built[1].disposals, 1, "a stage that failed to build kept its engine");
+    assert.equal(built[1].engine.isDisposed, true);
+  } finally {
+    if (saved === undefined) delete globalThis.window;
+    else globalThis.window = saved;
+  }
+});
+
+test("sub_tick_blending_lerps_the_published_points_and_never_a_severance", () => {
+  const current = arenaPose({ x: 7, yaw: 0 });
+  const next = arenaPose({ x: 9, yaw: RAW - RAW / 8, severed: 1 << 2 });
+  // At 1x the carry is consumed every frame, so the common path allocates
+  // nothing and returns the decided tick unchanged.
+  assert.equal(arenaGeometry.blendPose(current, next, 0), current);
+
+  const half = arenaGeometry.blendPose(current, next, 0.5);
+  assert.equal(half.body[0], raw(8)[0]);
+  // The right hand, because `next` takes the left arm off and a lost limb is
+  // the one thing here that does not move -- see the severance block below.
+  assert.equal(half.arms[1].hand[0], raw(8.2)[0]);
+  assert.equal(half.weapons[1].tip[0], raw(9.15)[0]);
+  assert.equal(half.regions[1].lower[0], raw(8)[0]);
+  // Yaw goes the short way round the 65535/0 seam rather than spinning the body
+  // seven eighths of a turn the other way, which is what `interpolateAngle` is
+  // borrowed for.
+  assert.ok(half.yaw < 0 || half.yaw > (RAW * 7) / 8, `half yaw was ${half.yaw}`);
+  assert.ok(Math.abs(arenaGeometry.sceneYaw(half.yaw) + Math.PI / 8) < 1e-6);
+  // **A half-severed arm is not a thing**, and carrying `severed` from the
+  // decided tick is only half of saying so. The endpoints were still being
+  // lerped across the severance, so the arm this frame goes on drawing was drawn
+  // half way to wherever the stump was published -- a pose no tick decided, and
+  // the only one a reader could mistake for a limb coming off gradually. The
+  // hand goes with its arm for the same reason.
+  assert.equal(half.severed, current.severed);
+  assert.equal(arenaGeometry.regionDrawn(half, 2), true);
+  assert.deepEqual(half.regions[2], current.regions[2]);
+  assert.deepEqual(half.arms[0], current.arms[0]);
+  // The shield goes with the arm holding it, which keeps its published centre on
+  // that hand exactly -- the invariant `shieldLimb` reads the holder out of.
+  assert.equal(half.shield.centre[0], current.arms[0].hand[0]);
+  assert.equal(arenaGeometry.shieldLimb(half, half.shield), 0);
+  // Every other region of the same body is still blended, so this is a region
+  // rule rather than a pose that stopped moving the tick something came off.
+  assert.equal(half.regions[1].lower[0], raw(8)[0]);
+  assert.notDeepEqual(half.arms[1], current.arms[1]);
+  // The right arm survives in `next`, so it blends; flip which one is lost and
+  // the two swap over, shield and all.
+  const other = arenaGeometry.blendPose(current, arenaPose({ x: 9, severed: 1 << 3 }), 0.5);
+  assert.deepEqual(other.regions[3], current.regions[3]);
+  assert.deepEqual(other.weapons[1], current.weapons[1]);
+  assert.equal(other.regions[2].lower[0], raw(8)[0]);
+  assert.equal(other.shield.centre[0], raw(8.2)[0]);
+  // **`present` is the same rule and carries the same limb**, which is where it
+  // used to stop: `blendRegion` bailed on its own endpoints and the hand, the
+  // weapon and the shield hanging off that region went on lerping toward the
+  // tick the limb is gone in -- the exact failure the severance guard exists to
+  // stop, reached through the other of the two bits `regionDrawn` reads.
+  const leaving = arenaPose({ x: 9 });
+  leaving.regions[3] = { ...leaving.regions[3], present: false };
+  const partial = arenaGeometry.blendPose(current, leaving, 0.5);
+  assert.deepEqual(partial.regions[3], current.regions[3]);
+  assert.deepEqual(partial.arms[1], current.arms[1]);
+  assert.deepEqual(partial.weapons[1], current.weapons[1]);
+  assert.equal(partial.regions[2].lower[0], raw(8)[0], "the other arm still blends");
+
+  const vanishing = arenaPose({ x: 9 });
+  vanishing.regions[4] = { ...vanishing.regions[4], present: false };
+  assert.deepEqual(arenaGeometry.blendPose(current, vanishing, 0.5).regions[4], current.regions[4]);
+});
+
+// ------------------------------------------------- the textured proxy (v2-ui-03)
+
+const { Vector3: BabylonVector3 } = await import("@babylonjs/core/Maths/math.vector.js");
+
+/**
+ * Five ticks of `web/fight.json`, seed 3, as the trace published them.
+ *
+ * **Raw integers out of the recording rather than a convenient shape**, because
+ * the whole question this fixture is here to answer is whether the proxy lands on
+ * what the simulation actually decided. Recordings are a development fixture and
+ * `.gitignore` excludes them, so the numbers are checked in rather than read at
+ * test time -- a test that skipped itself on a fresh clone would be a check that
+ * is not there in exactly the tree where nobody would notice.
+ *
+ * The five are spread across a 3600-tick fight and four of them are ticks earlier
+ * sessions already named: 858 and 3022 are v2-ui-02's capsule check on the
+ * Brute's left arm, 1402 its check on the Fighter's torso, 966 the `weaponShield`
+ * contact its first-person check reads, and 2113 the handedness check's tick. So
+ * the guard positions here are the ones the camera and the panels were chosen
+ * against.
+ *
+ * The row is compact because the published pose is redundant, and the script that
+ * generated it asserted every redundancy rather than assuming it, over exactly
+ * these ten poses: the head capsule is a point and shares the body's `x` and `y`;
+ * the torso and the legs are vertical on the body's axis; the legs' lower end is
+ * at height zero; each arm capsule's upper end **is** that limb's published hand;
+ * the sword's hilt is the right hand; the plate's centre is the left hand; and
+ * nothing is severed or absent.
+ *
+ * ```text
+ * tick body bx by yaw headZ torsoLo torsoHi hipZ
+ *      shoulderL(3) handL(3) shoulderR(3) handR(3) tip(3) shieldNormal(2) vel(3)
+ * ```
+ */
+const FIGHT_ROWS = [
+  [858, 0, 847018, 508549, 33013, 111411, 45875, 98303, 52428, 847402, 492169, 91750, 810539, 491822, 29491, 846633, 524928, 91750, 817286, 555633, 29390, 774269, 600641, 29390, -65518, -1539, 761, 405, 0],
+  [858, 1, 772085, 544029, 64906, 124518, 49152, 108134, 58982, 773271, 563653, 98304, 787171, 562812, 32768, 770898, 524404, 98304, 797086, 488585, 50278, 853171, 411874, 50278, 0, 0, -988, -652, 0],
+  [966, 0, 865246, 532485, 31583, 111411, 45875, 98303, 52428, 863388, 516206, 91750, 827136, 523514, 58047, 867103, 548763, 91750, 843215, 553659, 58735, 782224, 566161, 58735, -65113, 7430, 755, 1294, 0],
+  [966, 1, 768443, 540928, 7165, 124518, 49152, 108134, 58982, 755975, 556128, 98304, 769085, 560824, 78854, 780910, 525727, 98304, 812915, 514303, 77984, 902411, 482358, 77984, 0, 0, -297, -224, 0],
+  [1402, 0, 1002933, 588804, 40508, 111411, 45875, 98303, 52428, 1014005, 576727, 91750, 986833, 551814, 29491, 991860, 600880, 91750, 955230, 596037, 86867, 893507, 587877, 86867, -48305, -44289, 635, 1315, 0],
+  [1402, 1, 848983, 542902, 9332, 124518, 49152, 108134, 58982, 833647, 555204, 98304, 846037, 561560, 32768, 864318, 530599, 98304, 891911, 540543, 91960, 981309, 572761, 91960, 0, 0, 0, 0, 0],
+  [2113, 0, 898729, 813985, 64935, 111411, 45875, 98303, 52428, 899672, 830341, 91750, 936474, 828218, 88473, 897785, 797628, 91750, 910489, 750146, 58982, 926580, 690002, 58982, 65427, -3774, 0, 0, 0],
+  [2113, 1, 1009362, 680521, 17866, 124518, 49152, 108134, 58982, 989900, 677737, 98304, 983778, 690245, 98304, 1028823, 683304, 98304, 1023817, 711974, 68280, 1007472, 805584, 68280, 0, 0, 5, -35, 0],
+  [3022, 0, 883339, 721069, 33267, 111411, 45875, 98303, 52428, 884122, 704703, 91750, 847300, 702940, 29491, 882555, 737434, 91750, 834072, 735611, 29487, 771856, 733272, 29487, -65461, -3134, 0, 0, 0],
+  [3022, 1, 810961, 698805, 10731, 124518, 49152, 108134, 58982, 794118, 708946, 98304, 804896, 717764, 32768, 827803, 688663, 98304, 876143, 692000, 40544, 970943, 698545, 40544, 0, 0, -114, -1343, 0],
+];
+
+/**
+ * The two loadouts, which do not change over the fight. The Brute carries no plate.
+ *
+ * `equipmentMask` is here rather than written once in `fightPose` because the two
+ * bodies do not carry the same one: the recording publishes 6 on the Fighter and
+ * **2** on the Brute, on every one of the 10542 Fighter poses and 10541 Brute
+ * poses across the three fixtures, with no other value anywhere. Nothing on this
+ * page reads it, so it is cosmetic -- and it was the one field in the table that
+ * was not the recording's, which is exactly the sort of thing a reader would
+ * later take for a fact about the fight.
+ */
+const FIGHT_BODIES = [
+  {
+    kind: "Fighter", faction: "Heroes", radii: [13107, 22937, 9830, 9830, 19660],
+    weaponRadius: 2621, shield: { halfWidth: 16384, halfHeight: 16384, thickness: 3276 },
+    equipmentMask: 6,
+    anatomy: { standingHeight: 117964, shoulderHeight: 91750, shoulderHalfWidth: 16384,
+      armLength: 49152, handRadius: 6553 },
+  },
+  {
+    kind: "Brute", faction: "Monsters", radii: [16384, 26214, 13107, 13107, 22937],
+    weaponRadius: 3932, shield: null,
+    equipmentMask: 2,
+    anatomy: { standingHeight: 131072, shoulderHeight: 98304, shoulderHalfWidth: 19660,
+      armLength: 55705, handRadius: 7864 },
+  },
+];
+
+function fightPose(row) {
+  const [tick, index, bx, by, yaw, headZ, torsoLo, torsoHi, hipZ,
+    slx, sly, slz, hlx, hly, hlz, srx, sry, srz, hrx, hry, hrz,
+    tipx, tipy, tipz, nx, ny, vx, vy, vz] = row;
+  const loadout = FIGHT_BODIES[index];
+  const region = (lower, upper, part) => ({
+    lower, upper, radius: loadout.radii[part], present: true,
+  });
+  const handLeft = [hlx, hly, hlz];
+  const handRight = [hrx, hry, hrz];
+  return {
+    tick,
+    pose: {
+      id: [index, 0], body: [bx, by, 0], yaw, vel: [vx, vy, vz],
+      arms: [
+        { hand: handLeft, vel: [0, 0, 0], target: handLeft, fatigue: 0 },
+        { hand: handRight, vel: [0, 0, 0], target: handRight, fatigue: 0 },
+      ],
+      weapons: [null, { hilt: handRight, tip: [tipx, tipy, tipz], radius: loadout.weaponRadius }],
+      shield: loadout.shield === null ? null
+        : { centre: handLeft, normal: [nx, ny, 0], ...loadout.shield },
+      regions: [
+        region([bx, by, headZ], [bx, by, headZ], 0),
+        region([bx, by, torsoLo], [bx, by, torsoHi], 1),
+        region([slx, sly, slz], handLeft, 2),
+        region([srx, sry, srz], handRight, 3),
+        region([bx, by, 0], [bx, by, hipZ], 4),
+      ],
+      integrity: [RAW, RAW, RAW, RAW, RAW], wound: [0, 0, 0, 0, 0],
+      blood: RAW, shock: 0, severed: 0, equipmentMask: loadout.equipmentMask,
+      intent: "attack", target: null, hints: [0, 0],
+    },
+  };
+}
+
+/** `web/fight.json`'s header, as far as the 3D panels read it. */
+const fightHeader = () => ({
+  ...arenaHeader(), seed: 3, ticks: 3600, arena: [1572864, 1048576], contactEnergyFloor: 144,
+  bodies: FIGHT_BODIES.map((loadout, index) => ({
+    index, kind: loadout.kind, faction: loadout.faction, anatomy: loadout.anatomy, carried: [],
+  })),
+});
+
+/** The five ticks, as the stage is asked to draw them. */
+function fightViews() {
+  const header = fightHeader();
+  const ticks = [...new Set(FIGHT_ROWS.map((row) => row[0]))];
+  return ticks.map((tick) => {
+    const poses = FIGHT_ROWS.filter((row) => row[0] === tick).map((row) => fightPose(row).pose);
+    const frame = { t: tick, poses, contacts: [], health: [RAW, RAW] };
+    return {
+      tick, poses,
+      view: {
+        header, frame, next: frame, alpha: 0,
+        focus: [(poses[0].body[0] + poses[1].body[0]) / 2, (poses[0].body[1] + poses[1].body[1]) / 2, 0],
+        span: 6 * RAW, azimuth: 0, contacts: false,
+      },
+    };
+  });
+}
+
+const absolute = (node) => {
+  node.computeWorldMatrix(true);
+  return node.getAbsolutePosition().asArray();
+};
+
+/**
+ * How far a proxy node may sit from the published point it is placed on.
+ *
+ * A tenth of a millimetre, against a body 1.8 units tall and a blade 0.08 across.
+ * It is a **float32 budget and not a modelling allowance**: Babylon's `Matrix` is
+ * a `Float32Array`, and the rig divides a parent's world transform back out of
+ * every child, so a hand three levels down carries a few units of last place on
+ * coordinates near 15. If it ever approaches this number the cause is
+ * arithmetic; if it exceeds it the cause is the proxy, and the published value is
+ * never the thing that moves.
+ *
+ * **That last sentence used to be false, and the number beside it was the
+ * evidence.** The worst gap over the ten poses read 2.19e-6, and the whole of it
+ * was the shield plate: `#shieldPlate` scaled its box by `2 * halfWidth` while
+ * the swept face is `halfWidth` times the *published normal*, which is not a unit
+ * vector -- so the dominant term was a modelling disagreement that a recording
+ * with a less-normalised normal could have driven straight through this
+ * tolerance for a reason that is neither arithmetic nor the proxy. See
+ * `plateNormalLength` in `client/src/arena/scene.ts` for the measurement and the
+ * fix, which removes the term rather than budgeting for it. What is left is
+ * float32: every other swept quantity in a full sweep of all three recordings
+ * tops out at 1.907e-6, which is an ulp at coordinates near 15.
+ */
+const AGREEMENT_TOLERANCE = 1e-4;
+
+test("the_textured_proxy_agrees_with_the_published_pose_at_five_ticks_of_a_fight", async () => {
+  const harness = await arenaStageHarness();
+  const { content, scene, engine } = harness;
+  const trace = await load("client/src/fight/trace.js");
+  content.setMode("texture");
+  let worst = 0;
+  const near = (actual, expected, what) => {
+    const gap = Math.max(...actual.map((value, index) => Math.abs(value - expected[index])));
+    worst = Math.max(worst, gap);
+    assert.ok(gap <= AGREEMENT_TOLERANCE, `${what} is ${gap} from the published point`);
+  };
+
+  for (const { tick, poses, view } of fightViews()) {
+    content.show(view);
+    for (const pose of poses) {
+      const body = pose.id[0];
+      const rig = content.rig(body);
+      assert.ok(rig, `tick ${tick} body ${body} has no rig`);
+      const node = (name) => {
+        const found = rig.get(name);
+        assert.ok(found, `tick ${tick} body ${body} has no ${name}`);
+        return found;
+      };
+      // **The hands.** `hand_left` and `hand_right` are three levels down the rig
+      // -- root, torso, arm, hand -- so this is the assertion that the parent
+      // transforms are divided back out correctly as well as the one the plan
+      // asks for.
+      for (const limb of [0, 1]) {
+        near(absolute(node(limb === 0 ? "hand_left" : "hand_right")),
+          arenaGeometry.scenePoint(pose.arms[limb].hand), `tick ${tick} body ${body} hand ${limb}`);
+      }
+      // **The weapon tip.** Read off the drawn mesh rather than off a node, since
+      // the tip is the end of a capsule the proxy builds and not a socket: a
+      // socket that pointed the right way while the blade was drawn somewhere
+      // else would pass a node-only check.
+      const tipMesh = scene.getMeshByName(`arena:proxy:${body}:weapon:right:upper`);
+      assert.ok(tipMesh, `tick ${tick} body ${body} draws no weapon tip`);
+      near(absolute(tipMesh), arenaGeometry.scenePoint(pose.weapons[1].tip),
+        `tick ${tick} body ${body} weapon tip`);
+      near(absolute(scene.getMeshByName(`arena:proxy:${body}:weapon:right:lower`)),
+        arenaGeometry.scenePoint(pose.weapons[1].hilt), `tick ${tick} body ${body} weapon hilt`);
+
+      // **The shield plate**, as its four front-face corners against
+      // `shieldCorners` -- the same four points the plan and the elevation draw,
+      // so a plate that had drifted would have drifted from the 2D panels too.
+      if (pose.shield === null) {
+        assert.equal(scene.getMeshByName(`arena:proxy:${body}:shield`), null,
+          "a body with no published plate must not be drawn one");
+        continue;
+      }
+      const plate = scene.getMeshByName(`arena:proxy:${body}:shield`);
+      assert.ok(plate, `tick ${tick} body ${body} draws no plate`);
+      const corners = plateFront(plate);
+      trace.shieldCorners(pose.shield).forEach((corner, index) => {
+        near(corners[index], arenaGeometry.scenePoint(corner),
+          `tick ${tick} body ${body} plate corner ${index}`);
+      });
+    }
+  }
+  // **A plate that is not square**, because every published plate in the fixture
+  // is: `halfWidth === halfHeight === 16384` on the only body that carries one,
+  // so swapping the box's first two scaling arguments passes all five ticks. The
+  // pose is synthetic and says so -- it is here to separate two extents that the
+  // recording never separates, not to claim anything about a fight.
+  const oblong = fightViews()[0];
+  const tall = {
+    ...oblong.poses[0],
+    shield: { ...oblong.poses[0].shield, halfWidth: Math.round(0.18 * RAW),
+      halfHeight: Math.round(0.42 * RAW), thickness: Math.round(0.07 * RAW) },
+  };
+  const frame = { ...oblong.view.frame, poses: [tall] };
+  content.show({ ...oblong.view, frame, next: frame });
+  const oblongPlate = scene.getMeshByName("arena:proxy:0:shield");
+  assert.ok(oblongPlate);
+  trace.shieldCorners(tall.shield).forEach((corner, index) => {
+    near(plateFront(oblongPlate)[index], arenaGeometry.scenePoint(corner),
+      `oblong plate corner ${index}`);
+  });
+  // And the thickness is the published one rather than a constant: the box spans
+  // `thickness` along the published normal, so its back face is that far behind
+  // the quad `shieldCorners` builds.
+  assert.ok(Math.abs(oblongPlate.scaling.z - 0.07) < 1e-4,
+    `the plate is ${oblongPlate.scaling.z} thick against a published 0.07`);
+
+  // The measured worst case, printed so the number in `AGREEMENT_TOLERANCE`'s
+  // comment can be checked rather than believed.
+  assert.ok(worst < AGREEMENT_TOLERANCE, `worst agreement gap ${worst}`);
+  console.log(`    agreement: worst gap ${worst.toExponential(2)} world units over five ticks`);
+  content.dispose();
+  scene.dispose();
+  engine.dispose();
+});
+
+/**
+ * A box's four front-face corners (local `z = +0.5`), in world space.
+ *
+ * The unit source box is scaled to `2*halfWidth` by `2*halfHeight` by
+ * `thickness` in the socket's own frame, whose `z` is the published normal, so
+ * its front face is the quad `shieldCorners` builds -- and the corner order
+ * falls out the same way: `-side -up`, `+side -up`, `+side +up`, `-side +up`.
+ */
+function plateFront(plate) {
+  plate.computeWorldMatrix(true);
+  const world = plate.getWorldMatrix();
+  return [[-0.5, -0.5, 0.5], [0.5, -0.5, 0.5], [0.5, 0.5, 0.5], [-0.5, 0.5, 0.5]]
+    .map((corner) => BabylonVector3.TransformCoordinates(
+      new BabylonVector3(corner[0], corner[1], corner[2]), world).asArray());
+}
+
+/** A node's world `x`, `y` and `z` axes, which is where a socket is pointing. */
+function axes(node) {
+  node.computeWorldMatrix(true);
+  const world = node.getWorldMatrix();
+  return ["x", "y", "z"].map((_, index) => {
+    const local = [0, 0, 0];
+    local[index] = 1;
+    return BabylonVector3.TransformNormal(
+      new BabylonVector3(local[0], local[1], local[2]), world).normalize().asArray();
+  });
+}
+
+const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const minus = (a, b) => a.map((value, index) => value - b[index]);
+const normalise = (v) => { const size = Math.hypot(...v); return v.map((value) => value / size); };
+
+/**
+ * The shadow generator's own render list, read off the `Scene` and not off a count.
+ *
+ * **The counts are not admissible here.** `ArenaEnvironment.counts` is the thing
+ * under test when the question is "did every caster leave the list", and an
+ * earlier version of it short-circuited to zero whenever the mode was off -- so
+ * the assertion that proved the retire path was reading the answer it wanted out
+ * of the reporter. This walks the `Scene` instead: whatever the counts say, the
+ * list either has entries in it or it does not.
+ */
+function shadowRenderList(scene) {
+  const generator = scene.lights
+    .map((light) => light.getShadowGenerator?.())
+    .find((found) => found != null);
+  return generator?.getShadowMap()?.renderList ?? [];
+}
+
+test("the_proxy_rig_carries_the_v2_18_node_names_and_hangs_them_off_published_points", async () => {
+  // **Read out of the plan rather than restated here.** v2-18 owns the list, and
+  // a copy of it in this file could agree with itself while disagreeing with the
+  // document that decides. The plan writes it as one fenced block.
+  const plan = fs.readFileSync(path.join(ROOT, "docs/plans/v2-18-combatant-integration.md"), "utf8");
+  const block = /```text\n([\s\S]*?)```/.exec(plan);
+  assert.ok(block, "v2-18 no longer states its node names as a text block");
+  const wanted = block[1].split(/\s+/).filter((name) => name !== "");
+  assert.deepEqual([...arenaGeometry.RIG_NODES].sort(), [...wanted].sort());
+  assert.deepEqual(arenaGeometry.RIG_NODES, wanted,
+    "the rig must list the names in the order v2-18 lists them");
+
+  const harness = await arenaStageHarness();
+  const { content, scene, engine } = harness;
+  content.setMode("texture");
+  const { poses, view } = fightViews()[3];
+  content.show(view);
+  const rig = content.rig(0);
+  assert.ok(rig);
+  for (const name of wanted) assert.ok(rig.get(name), `the rig has no ${name}`);
+  const parentOf = (name) => rig.get(name).parent?.name ?? null;
+  assert.equal(parentOf("root"), null);
+  assert.deepEqual(
+    ["pelvis", "torso", "head", "arm_left", "hand_left", "socket_weapon_left",
+      "arm_right", "hand_right", "socket_weapon_right"].map(parentOf),
+    ["arena:0:root", "arena:0:pelvis", "arena:0:torso", "arena:0:torso", "arena:0:arm_left",
+      "arena:0:hand_left", "arena:0:torso", "arena:0:arm_right", "arena:0:hand_right"]);
+  // **The shield socket hangs off the hand the simulation put the plate in.**
+  // `derive_shield_pose` writes the plate's centre from a hand, so which hand is
+  // published rather than authored, and `shieldLimb` reads it back by exact
+  // integer match. Body 0 holds it in limb 0 on all 10542 published poses of the
+  // three fixtures; body 1 carries no plate at all, and its socket waits at the
+  // root rather than being nailed to a hand that holds nothing.
+  assert.equal(parentOf("socket_shield"), "arena:0:hand_left");
+  assert.equal(content.rig(1).get("socket_shield").parent?.name, "arena:1:root");
+
+  const pose = poses[0];
+  const near = (actual, expected, what) => {
+    const gap = Math.max(...actual.map((value, index) => Math.abs(value - expected[index])));
+    assert.ok(gap <= AGREEMENT_TOLERANCE, `${what} is ${gap} out`);
+  };
+  // Every node that stands on a published row, checked against that row. `root`
+  // is the body's ground point, `head` is the eye, `pelvis` is the published hip,
+  // and the five `region_*` nodes are the published capsule centres.
+  near(absolute(rig.get("root")), arenaGeometry.scenePoint([pose.body[0], pose.body[1], 0]), "root");
+  near(absolute(rig.get("head")), arenaGeometry.scenePoint(arenaGeometry.eyeOf(pose)), "head");
+  near(absolute(rig.get("pelvis")), arenaGeometry.scenePoint(pose.regions[4].upper), "pelvis");
+  near(absolute(rig.get("arm_left")), arenaGeometry.scenePoint(pose.regions[2].lower), "arm_left");
+  near(absolute(rig.get("arm_right")), arenaGeometry.scenePoint(pose.regions[3].lower), "arm_right");
+  near(absolute(rig.get("socket_weapon_right")), arenaGeometry.scenePoint(pose.weapons[1].hilt),
+    "socket_weapon_right");
+  near(absolute(rig.get("socket_shield")), arenaGeometry.scenePoint(pose.shield.centre), "socket_shield");
+  arenaGeometry.RIG_REGIONS.forEach((name, index) => {
+    near(absolute(rig.get(name)),
+      arenaGeometry.capsuleCentre(pose.regions[index].lower, pose.regions[index].upper), name);
+  });
+
+  // **`root` carries the body's one rotation and nothing else does by accident.**
+  // Its `x` is the body's published facing; the head, which inherits through two
+  // parents, faces the same way.
+  const forward = arenaGeometry.sceneForward(pose.yaw);
+  near(axes(rig.get("root"))[0], forward, "root facing");
+  near(axes(rig.get("head"))[0], forward, "head facing");
+
+  // **The two bone directions, which nothing else in this file reads.** Every
+  // mesh is placed absolutely, so `arm_*` and `hand_*` could point anywhere at
+  // all and no position assertion would notice -- and they are the one invented
+  // orientation this session ships. `arm_left`'s `y` runs shoulder to elbow and
+  // `hand_left`'s runs elbow to hand, which is what an upper-arm and a forearm
+  // bone are. The elbow is read off the drawn mesh rather than recomputed, so
+  // this is the elbow that is on the screen.
+  const bends = [];
+  for (const [limb, arm, hand, side] of [[0, "arm_left", "hand_left", "left"],
+    [1, "arm_right", "hand_right", "right"]]) {
+    const shoulder = arenaGeometry.scenePoint(pose.regions[limb + 2].lower);
+    const grip = arenaGeometry.scenePoint(pose.arms[limb].hand);
+    const elbow = absolute(scene.getMeshByName(`arena:proxy:0:upper_arm:${side}:upper`));
+    near(axes(rig.get(arm))[1], normalise(minus(elbow, shoulder)), `${arm} points at its elbow`);
+    near(axes(rig.get(hand))[1], normalise(minus(grip, elbow)), `${hand} points at its hand`);
+    // **And the elbow is on the outward side**, which is the choice the plan
+    // argues for and which `elbowOf` alone cannot demonstrate: this reads the
+    // side `#poseRig` actually passed. Swap it and both elbows bend across the
+    // chest -- the exact defect the frames caught once already. Never negative,
+    // and the count of arms that bend at all is checked after the loop, because
+    // this simulation over-extends the arm often enough that "always bends" is
+    // simply false. See `elbowOf`.
+    const along = normalise(minus(grip, shoulder));
+    const offset = minus(elbow, shoulder);
+    const bend = minus(offset, along.map((value) => value * dot(offset, along)));
+    const outward = arenaGeometry.bodyAxes(pose.yaw).left.map((value) => (limb === 0 ? value : -value));
+    assert.ok(dot(bend, outward) >= -1e-9,
+      `${arm}'s elbow bends ${dot(bend, outward).toFixed(4)} outward, so it is across the chest`);
+    bends.push(dot(bend, outward));
+  }
+
+  // **At least one arm is actually bent**, or every assertion above is satisfied
+  // by a proxy whose elbows are all collapsed onto the straight line -- which is
+  // a real state this simulation reaches on about half its arm rows and must not
+  // be the state the test happens to sample.
+  assert.ok(bends.some((value) => value > 0.02),
+    `no arm on this pose bends: ${bends.map((value) => value.toFixed(4)).join(", ")}`);
+
+  // **`idle` and `walk` are the only two slots this session can select**, and
+  // exactly one is on. `stagger` and `fall` are reactions, and no event reaches
+  // the proxy -- see `RIG_CLIPS`.
+  const enabled = arenaGeometry.RIG_CLIPS.filter((clip) => rig.get(clip).isEnabled());
+  assert.equal(enabled.length, 1, `clips enabled: ${enabled.join(",")}`);
+  assert.ok(["idle", "walk"].includes(enabled[0]));
+  assert.equal(rig.get("stagger").isEnabled(), false);
+  assert.equal(rig.get("fall").isEnabled(), false);
+  content.dispose();
+  scene.dispose();
+  engine.dispose();
+});
+
+test("the_weapon_socket_points_along_the_published_blade_and_rolls_with_the_forearm", async () => {
+  const harness = await arenaStageHarness();
+  const { content, scene, engine } = harness;
+  content.setMode("texture");
+  for (const { tick, poses, view } of fightViews()) {
+    content.show(view);
+    for (const pose of poses) {
+      const rig = content.rig(pose.id[0]);
+      const socket = rig.get("socket_weapon_right");
+      const [, socketY, socketZ] = axes(socket);
+      const blade = arenaGeometry.scenePoint(pose.weapons[1].tip)
+        .map((value, index) => value - arenaGeometry.scenePoint(pose.weapons[1].hilt)[index]);
+      const size = Math.hypot(...blade);
+      const unit = blade.map((value) => value / size);
+      // **The direction is published**: a segment fixes two of the socket's three
+      // axes exactly, and this is those two.
+      assert.ok(Math.abs(dot(socketY, unit) - 1) < 1e-5,
+        `tick ${tick} body ${pose.id[0]}: the socket points ${socketY} and the blade ${unit}`);
+      // **The roll is not**, and this is the one thing about it that is decided:
+      // the blade's flat lies in the plane the blade and the forearm share, so
+      // the socket's `z` -- the flat itself -- is the forearm with its component
+      // along the blade taken out. The forearm is read off the *drawn* elbow
+      // rather than off the shoulder, because the elbow is where a forearm
+      // starts and it is the invented point the roll is derived through.
+      //
+      // **Stated on `z` rather than on `x`, and that matters.** `x` is built as
+      // `normalize(hint x y)`, so `x . hint` is identically zero for *any* hint --
+      // an assertion on it passes for a socket rolled to the world's up, to the
+      // torso, to anything. `z` is the one axis the choice actually decides.
+      //
+      // Invisible this session, since the proxy's weapon is the published capsule
+      // and a capsule is round; load-bearing the moment v2-18 hangs an authored
+      // blade on it.
+      const elbow = absolute(scene.getMeshByName(`arena:proxy:${pose.id[0]}:upper_arm:right:upper`));
+      const forearm = minus(arenaGeometry.scenePoint(pose.weapons[1].hilt), elbow);
+      const flat = normalise(minus(forearm, socketY.map((value) => value * dot(forearm, socketY))));
+      assert.ok(Math.abs(Math.abs(dot(socketZ, flat)) - 1) < 1e-5,
+        `tick ${tick} body ${pose.id[0]}: the blade's flat is ${dot(socketZ, flat)} off the `
+          + "plane the blade and the forearm share");
+      // The forearm is not parallel to the blade at any of these ticks, so the
+      // plane is a real one rather than a fallback: an assertion satisfied by a
+      // degenerate case would say nothing.
+      assert.ok(Math.abs(dot(normalise(forearm), socketY)) < 0.99,
+        `tick ${tick} body ${pose.id[0]}: the forearm is along the blade, so there is no plane`);
+    }
+  }
+  // A limb with no published weapon still has a socket, in the hand, because an
+  // authored rig would: an empty socket is where a grip goes, not an absence.
+  const bare = fightViews()[0];
+  const pose = { ...bare.poses[0], weapons: [null, null] };
+  content.show({ ...bare.view, frame: { ...bare.view.frame, poses: [pose] },
+    next: { ...bare.view.frame, poses: [pose] } });
+  const rig = content.rig(0);
+  const gap = Math.max(...absolute(rig.get("socket_weapon_right"))
+    .map((value, index) => Math.abs(value - arenaGeometry.scenePoint(pose.arms[1].hand)[index])));
+  assert.ok(gap <= AGREEMENT_TOLERANCE, `an empty socket sits ${gap} from its hand`);
+  assert.equal(scene.getMeshByName("arena:proxy:0:weapon:right:shaft"), null);
+  content.dispose();
+  scene.dispose();
+  engine.dispose();
+});
+
+test("the_invented_elbow_bends_away_from_the_torso_and_never_into_it", async () => {
+  const { elbowOf, scenePoint, bodyAxes } = arenaGeometry;
+  // **The measurement, and it is the whole argument for the choice.** The plan
+  // says a plane chosen toward the torso puts the elbow inside the chest at
+  // guard, so the two planes are solved side by side on all ten published poses
+  // and the elbows compared against the published torso capsule. Note that the
+  // *shoulder itself* is inside that cylinder -- `shoulderHalfWidth` is 0.25
+  // against a torso radius of 0.35 -- so the honest claim is not that the outward
+  // elbow escapes the chest but that the inward one is buried further in it, and
+  // by how much.
+  // Per body, because the two published torsos are not the same width -- 0.350 on
+  // the Fighter and 0.400 on the Brute -- and half the solves below are the
+  // Brute's. One number for both would be the wrong number for half of them.
+  const worstOutward = [Infinity, Infinity];
+  const worstInward = [Infinity, Infinity];
+  for (const { poses } of fightViews()) {
+    for (const pose of poses) {
+      const { left } = bodyAxes(pose.yaw);
+      const torso = pose.regions[1];
+      const axis = scenePoint(torso.lower);
+      const bone = FIGHT_BODIES[pose.id[0]].anatomy.armLength / RAW / 2;
+      for (const limb of [0, 1]) {
+        const region = pose.regions[limb + 2];
+        const shoulder = scenePoint(region.lower);
+        const hand = scenePoint(pose.arms[limb].hand);
+        const side = limb === 0 ? 1 : -1;
+        const outward = [left[0] * side, left[1] * side, left[2] * side];
+        const inward = outward.map((value) => -value);
+        const away = (elbow) => Math.hypot(elbow[0] - axis[0], elbow[2] - axis[2]);
+        // The same offset with a sign on it: how far the elbow is from the body
+        // axis **along `outward`**, so an elbow buried through the chest scores
+        // negative rather than scoring as distance.
+        const outFromAxis = (elbow) =>
+          (elbow[0] - axis[0]) * outward[0] + (elbow[2] - axis[2]) * outward[2];
+        const out = elbowOf(shoulder, hand, outward, bone);
+        const into = elbowOf(shoulder, hand, inward, bone);
+        worstOutward[pose.id[0]] = Math.min(worstOutward[pose.id[0]], away(out));
+        worstInward[pose.id[0]] = Math.min(worstInward[pose.id[0]], away(into));
+        // **This used to be `away(out) >= away(into)` and that is not an
+        // invariant.** Swept over all 42166 arm rows of the three recordings the
+        // unsigned form has **5 violations**, all in `fight-learned.json`, all
+        // Fighter/limb 1, on the consecutive ticks 195-199 -- worst at tick 198
+        // with the outward elbow 0.024 from the axis against the inward one's
+        // 0.066. The ten poses this test samples are all `fight.json`, which has
+        // none, so the assertion asserted something false and could not find out.
+        //
+        // The mechanism is the metric rather than the solver. The two solves are
+        // mirror images about the shoulder-to-hand midpoint, so the unsigned
+        // comparison flips exactly when that midpoint crosses the body axis --
+        // measured as an exact criterion, 0 mismatches over the 42166 rows. On
+        // all five violating rows the outward elbow is on the **correct** side
+        // (+0.001 to +0.069 along `outward`) and the inward one is 5 to 8 cm
+        // *through* the chest (-0.052 to -0.082); an unsigned distance scores the
+        // buried one as "further from the axis". The Fighter is reaching its
+        // right arm across its own chest over those ticks and the arm is at 96 to
+        // 99 percent of `armLength`, so at tick 200 the solve collapses and the
+        // window closes.
+        //
+        // So the signed form is what is asserted, and it holds on **all 42166
+        // rows** with a worst delta of exactly 0 -- the zeros being the 24900
+        // collapsed solves (59% of the corpus) where the two planes give the same
+        // point. It is algebraically `2 * dot(bend, outward)`, the same quantity
+        // the next assertion states about the outward solve alone; stated here as
+        // the comparison because that is the claim the bend plane was chosen on.
+        assert.ok(outFromAxis(out) >= outFromAxis(into),
+          `the outward elbow sits ${outFromAxis(out).toFixed(3)} from the body axis along `
+            + `the outward normal and the inward one ${outFromAxis(into).toFixed(3)}, so the `
+            + "plane chosen away from the torso is not the one further from it");
+        // And on the outward side of the shoulder-to-hand line rather than the
+        // inward one, which is the choice itself stated directly.
+        const span = [hand[0] - shoulder[0], hand[1] - shoulder[1], hand[2] - shoulder[2]];
+        const size = Math.hypot(...span);
+        const along = span.map((value) => value / size);
+        const offset = [out[0] - shoulder[0], out[1] - shoulder[1], out[2] - shoulder[2]];
+        const bend = offset.map((value, index) => value - along[index] * dot(offset, along));
+        assert.ok(dot(bend, outward) >= -1e-9,
+          "the elbow bent toward the torso rather than away from it");
+      }
+    }
+  }
+  // The recorded numbers: the nearest the outward elbow ever comes to the body's
+  // axis, against the nearest the inward one does, over the twenty solves above.
+  //
+  // **Scoped to those twenty and not a corpus-wide floor.** Over all 42166 arm
+  // rows the outward elbow reaches 0.024 of the axis, at tick 198 of
+  // `fight-learned.json`. What is corpus-wide is the assertion inside the loop
+  // and the shape of the argument here: on the rows where the outward elbow is
+  // near the axis, both elbows are, because they are near-straight arms reaching
+  // across the body where an elbow has nowhere to go.
+  [0, 1].forEach((body) => {
+    const radius = FIGHT_BODIES[body].radii[1] / RAW;
+    console.log(`    elbow: ${FIGHT_BODIES[body].kind} outward keeps ${worstOutward[body].toFixed(3)}`
+      + ` from the body axis, inward ${worstInward[body].toFixed(3)};`
+      + ` the published torso radius is ${radius.toFixed(3)}`);
+    assert.ok(worstInward[body] < radius,
+      `the inward plane must reach inside the ${FIGHT_BODIES[body].kind}'s published torso`);
+    assert.ok(worstOutward[body] > worstInward[body],
+      "the outward plane must keep the elbow further out than the inward one somewhere");
+  });
+  // **A hand further out than the two bones reach has no elbow to place**, which
+  // is reachable: `reach` is horizontal only, so a low hand stretches the
+  // published capsule past `armLength`. The arm is then drawn straight, which is
+  // the published capsule exactly rather than a fudge.
+  const straight = elbowOf([0, 1.4, 0], [1, 1.4, 0], [0, 0, -1], 0.3);
+  assert.deepEqual(straight, [0.5, 1.4, 0]);
+  // And an arm held straight out along the outward direction has no perpendicular
+  // to bend along, so the elbow drops instead of vanishing.
+  const sideways = elbowOf([0, 1.4, 0], [0, 1.4, -0.6], [0, 0, -1], 0.4);
+  assert.ok(sideways[1] < 1.4, `a sideways arm's elbow sits at ${sideways[1]} rather than below 1.4`);
+});
+
+test("the_body_frames_the_proxy_is_built_on_are_rotations_rather_than_mirrors", () => {
+  const { bodyAxes, sceneForward, scenePoint, yawFrame, directionFrame, shieldSocketFrame } = arenaGeometry;
+  // **A reflection handed to `Quaternion.FromRotationMatrixToRef` is not a
+  // quaternion of anything**, and the symptom is not a mirrored body: it is a
+  // node that lands at an orientation no rotation produces, which on the yaw
+  // frame read as a fighter permanently facing world `+x`. This is the assertion
+  // that caught it, and it is the same determinant argument
+  // `the_arena_axis_mapping_is_a_rotation_rather_than_a_mirror_of_the_world`
+  // makes one level up.
+  const determinant = (frame) =>
+    frame.x[0] * (frame.y[1] * frame.z[2] - frame.y[2] * frame.z[1])
+    - frame.x[1] * (frame.y[0] * frame.z[2] - frame.y[2] * frame.z[0])
+    + frame.x[2] * (frame.y[0] * frame.z[1] - frame.y[1] * frame.z[0]);
+  const orthonormal = (frame, what) => {
+    for (const axis of ["x", "y", "z"]) {
+      assert.ok(Math.abs(Math.hypot(...frame[axis]) - 1) < 1e-9, `${what}.${axis} is not a unit vector`);
+    }
+    assert.ok(Math.abs(dot(frame.x, frame.y)) < 1e-9, `${what} x and y are not perpendicular`);
+    assert.ok(Math.abs(dot(frame.y, frame.z)) < 1e-9, `${what} y and z are not perpendicular`);
+    assert.ok(Math.abs(determinant(frame) - 1) < 1e-9,
+      `${what} has determinant ${determinant(frame)}, so it is a mirror`);
+  };
+  for (const yaw of [0, RAW / 8, RAW / 4, (RAW * 5) / 8, 64935, RAW - 1]) {
+    orthonormal(yawFrame(yaw), `yawFrame(${yaw})`);
+    // `left` is `up x forward`: world `+y`, which `fight/view.ts` argues is a
+    // body's anatomical left, is scene `-z` at yaw zero.
+    const { forward, left } = bodyAxes(yaw);
+    const up = scenePoint(raw(0, 0, 1));
+    const cross = [
+      up[1] * forward[2] - up[2] * forward[1],
+      up[2] * forward[0] - up[0] * forward[2],
+      up[0] * forward[1] - up[1] * forward[0],
+    ];
+    cross.forEach((value, index) => assert.ok(Math.abs(value - left[index]) < 1e-12,
+      `bodyAxes(${yaw}).left is the body's right`));
+  }
+  // Stated at yaw zero too, because that is where every fixture opens and it is
+  // the case a reader can check by eye against the plan panel. `|| 0` folds the
+  // negative zero `-forward[0]` produces, which `deepEqual` distinguishes and no
+  // renderer does.
+  assert.deepEqual(bodyAxes(0).left.map((value) => Math.round(value * 1e6) / 1e6 || 0),
+    scenePoint(raw(0, 1, 0)));
+  assert.deepEqual(bodyAxes(0).forward, sceneForward(0));
+  for (const along of [[0, 1, 0], [1, 0, 0], [0, 0, 1], [0.3, -0.9, 0.2], [-1, 0, 0]]) {
+    orthonormal(directionFrame(along, [0, 1, 0]), `directionFrame(${along})`);
+  }
+  for (const normal of [raw(1, 0, 0), raw(0, 1, 0), raw(-0.6, 0.8, 0), raw(0, 0, 1)]) {
+    orthonormal(shieldSocketFrame({ centre: raw(0, 0, 1), normal, halfWidth: RAW / 4,
+      halfHeight: RAW / 4, thickness: RAW / 20 }), `shieldSocketFrame(${normal})`);
+  }
+});
+
+test("the_gait_is_a_pure_function_of_the_tick_and_never_an_integral", async () => {
+  const { gaitOf, legsOf, GAIT_WALK_SPEED, GAIT_CADENCE, GAIT_MAX_STRIDE,
+    GAIT_STRIDE_PER_SPEED, GAIT_LIFT } = arenaGeometry;
+  // The constants, pinned. Every one of them is an invention, and an invention
+  // nothing records is one that can drift without anybody noticing the picture
+  // changed. `40` ticks a cycle is `1/40`; the rest are world units.
+  assert.deepEqual([GAIT_CADENCE, GAIT_STRIDE_PER_SPEED, GAIT_MAX_STRIDE, GAIT_LIFT],
+    [1 / 40, 4, 0.32, 0.06]);
+  assert.equal(GAIT_WALK_SPEED, 0.003 * RAW);
+  // The boundary is inclusive, so a body at exactly the threshold walks. Stated
+  // because `>=` and `>` are one character apart and only the boundary tells them
+  // apart.
+  assert.equal(gaitOf(0, GAIT_WALK_SPEED).clip, "walk");
+  assert.equal(gaitOf(0, GAIT_WALK_SPEED - 1e-9).clip, "idle");
+  assert.equal(gaitOf(0, GAIT_WALK_SPEED - 1e-9).stride, 0);
+  // The amplitude really is proportional to speed, and really is clamped.
+  assert.ok(Math.abs(gaitOf(0, 0.02 * RAW).stride - 0.08) < 1e-9);
+  assert.equal(gaitOf(0, 0.5 * RAW).stride, GAIT_MAX_STRIDE);
+  // The phase really is the tick times the cadence, so a cadence change moves it.
+  assert.ok(Math.abs(gaitOf(10, RAW).phase - 10 * GAIT_CADENCE * Math.PI * 2) < 1e-12);
+
+  const region = [[0, 0, 0], [0, 0, 52428], 19660];
+  const still = legsOf(region[0], region[1], region[2], 0, gaitOf(500, 0));
+  // Standing: two legs under the hip, no stride, both feet on the floor. The
+  // published capsule's lower end is at height zero on every recorded pose and
+  // an idle proxy must not move it.
+  assert.equal(still[0].foot[1], 0);
+  assert.equal(still[1].foot[1], 0);
+  assert.equal(still[0].foot[0], still[0].hip[0]);
+  // Half the published radius each, half a published radius apart, so the pair's
+  // outside edge is where the capsule's was.
+  assert.ok(Math.abs(still[0].radius - (19660 / RAW) / 2) < 1e-9);
+  const outer = Math.abs(still[0].hip[2] - still[1].hip[2]) / 2 + still[0].radius;
+  assert.ok(Math.abs(outer - 19660 / RAW) < 1e-9, `the pair spans ${outer} against a published 0.3`);
+
+  // **Walking: the two feet are half a cycle apart, checked at a tick where that
+  // has content.** Tick 500 is `phase = 25*pi` exactly, where both offsets are
+  // round-off at 1e-15 and their sign is decided by libm rather than by the gait
+  // -- an assertion there passes on noise. Tick 510 is a quarter cycle off it.
+  const moving = gaitOf(510, GAIT_WALK_SPEED * 4);
+  const legs = legsOf(region[0], region[1], region[2], 0, moving);
+  const ahead = legs.map((leg) => leg.foot[0] - leg.hip[0]);
+  assert.ok(Math.min(...ahead.map(Math.abs)) > 0.5 * moving.stride,
+    `tick 510 puts the feet at ${ahead}, which is too near together to mean anything`);
+  assert.ok(ahead[0] * ahead[1] < 0, `both feet are on the same side: ${ahead}`);
+  // And the same tick, recomputed, is the same legs.
+  assert.deepEqual(legsOf(region[0], region[1], region[2], 0, gaitOf(510, GAIT_WALK_SPEED * 4)), legs);
+
+  // **The scrub-invariance property lives at the call site, not here.** `gaitOf`
+  // is a pure function and calling it twice cannot fail; what has to hold is that
+  // `#poseRig` feeds it the tick rather than a counter, so reaching tick 1329
+  // through 500 and through 2000 draws the same legs. Drawn, and compared on the
+  // meshes.
+  const harness = await arenaStageHarness();
+  const { content, scene, engine } = harness;
+  content.setMode("texture");
+  const walkView = (tick) => {
+    const poses = fightViews()[0].poses.map((pose) => ({ ...pose, vel: [GAIT_WALK_SPEED * 4, 0, 0] }));
+    const frame = { ...fightViews()[0].view.frame, t: tick, poses };
+    return { ...fightViews()[0].view, frame, next: frame };
+  };
+  const feet = () => ["0", "1"].map((index) =>
+    absolute(scene.getMeshByName(`arena:proxy:0:leg:${index}:lower`)));
+  content.show(walkView(500));
+  content.show(walkView(1329));
+  const forwards = feet();
+  content.show(walkView(2000));
+  content.show(walkView(1329));
+  assert.deepEqual(feet(), forwards, "the gait remembered how the reader got to the tick");
+  // And it really does move between ticks, so the assertion above is not two
+  // copies of a body that never walks.
+  content.show(walkView(1339));
+  assert.notDeepEqual(feet(), forwards);
+  content.dispose();
+  scene.dispose();
+  engine.dispose();
+});
+
+test("pressing_texture_and_geometry_swaps_the_dress_on_one_scene_and_one_set_of_cameras", async () => {
+  const harness = await arenaStageHarness();
+  const { content, scene, engine } = harness;
+  const { view } = fightViews()[0];
+  const cameras = [...content.firstPerson, content.threeQuarter];
+  const snap = () => cameras.map((camera) => [camera.position.asArray(), camera.rotation.asArray(),
+    camera.fov, camera.viewport.x, camera.viewport.y]);
+
+  content.show(view);
+  // Taken after the first draw, because the cameras are placed from the pose and
+  // the question is whether the *mode* moves them, not whether the fight does.
+  const before = snap();
+  assert.equal(content.mode(), "geometry");
+  const geometryKeys = content.keys();
+  assert.ok(geometryKeys.some((key) => key.startsWith("0:region:")));
+  assert.equal(geometryKeys.some((key) => key.startsWith("proxy:")), false);
+  assert.equal(content.counts().shadowCasters, 0, "geometry has no light to cast from");
+  assert.equal(scene.lights.length, 0);
+  const flat = scene.getMeshByName("arena:0:region:1:shaft");
+  assert.ok(flat);
+
+  content.setMode("texture");
+  content.redraw();
+  assert.equal(content.mode(), "texture");
+  const textureKeys = content.keys();
+  assert.ok(textureKeys.some((key) => key.startsWith("proxy:0:")));
+  assert.equal(textureKeys.some((key) => key.startsWith("0:region:")), false,
+    "the published capsules must be retired rather than left under the proxy");
+  assert.equal(flat.isDisposed(), true);
+  // A key light and a hemispheric fill, and a caster list that is the proxy.
+  assert.equal(scene.lights.length, 2);
+  // **Every drawn proxy mesh casts, and the number is exact rather than a floor.**
+  // A `>= 20` would pass with half the body silently not casting; this says the
+  // list is precisely the proxy's own meshes, so a shape that stopped registering
+  // fails whichever shape it was. No room here, so there are no walls in it.
+  const proxyMeshes = scene.meshes.filter((mesh) => mesh.name.startsWith("arena:proxy:"));
+  assert.ok(proxyMeshes.length >= 40, `two proxy bodies drew ${proxyMeshes.length} meshes`);
+  assert.deepEqual(shadowRenderList(scene).map((mesh) => mesh.name).sort(),
+    proxyMeshes.map((mesh) => mesh.name).sort());
+  assert.equal(content.counts().shadowCasters, proxyMeshes.length);
+  assert.match(content.describe(), /^texture, procedural floor/);
+
+  // **The cameras did not move.** The mode is a property of the scene, so all
+  // three panels change together and none of them is reframed.
+  assert.deepEqual(snap(), before);
+  assert.equal(scene.activeCameras.length, 3);
+
+  // **The authored room is loaded before the press back, and that is what makes
+  // the rest of this test able to fail.** Without it the shadow render list is
+  // empty in `[Geometry]` for the trivial reason that the proxy's meshes were
+  // disposed, and `counts().shadowCasters` reads zero whether it walks the list
+  // or short-circuits on the mode. The room's 84 wall casters are retained across
+  // the press, so from here on the two numbers are both non-zero and a reporter
+  // that answered zero when the mode was off would be caught.
+  await content.loadEnvironment(roomFetcher());
+  content.redraw();
+  assert.equal(content.describe(), "texture, authored room");
+  const walls = 2 * (26 + 18) - 4;
+  const litCasters = shadowRenderList(scene).length;
+  assert.equal(litCasters, proxyMeshes.length + walls,
+    "the caster list in [Texture] is the proxy plus the room's perimeter ring");
+  assert.equal(content.counts().shadowCasters, litCasters);
+
+  content.setMode("geometry");
+  content.redraw();
+  assert.deepEqual(content.keys(), geometryKeys);
+  // **Read off the `Scene`, not off the counts** -- see `shadowRenderList`. What
+  // this says is that the list is *exactly* the parked room and none of the
+  // proxy's meshes survived into it; the earlier version asserted the list was
+  // empty and could not fail, because with no room loaded there was nothing left
+  // in it either way.
+  //
+  // **It is not what catches deleting the `removeShadowCaster` call in
+  // `#retire`, and it never was.** Measured on this Babylon (9.18.1), for a
+  // `Mesh` and for an `InstancedMesh` alike: `dispose()` already splices the mesh
+  // out of every shadow generator's render list, so the call is belt and braces
+  // and the list reaches the room's 84 with or without it. `StageNode.caster`
+  // earns its keep on the other argument in its doc -- the linear scan -- and
+  // that is now the only one it makes.
+  const parked = shadowRenderList(scene).map((mesh) => mesh.name);
+  assert.equal(parked.length, walls,
+    `the parked room leaves ${parked.length} casters rather than its ${walls} walls`);
+  assert.equal(parked.some((name) => name.startsWith("arena:proxy:")), false,
+    "every proxy caster must leave the render list with its mesh");
+  // **And the reporter is pinned to the list it reports on.** `counts()` used to
+  // answer zero whenever the environment was disabled -- reintroducing that short
+  // circuit is a one-line edit -- so the number the label carries is compared
+  // against the `Scene`'s own list here rather than trusted. Non-zero on both
+  // sides, which is the half the old round trip could not check.
+  assert.equal(content.counts().shadowCasters, parked.length);
+  assert.ok(content.counts().shadowCasters > 0,
+    "a parked authored room retains its wall casters and the count must say so");
+  assert.equal(scene.meshes.filter((mesh) => mesh.name.startsWith("arena:proxy:")).length, 0);
+  console.log(`    casters: geometry 0 -> texture with the room ${litCasters}`
+    + ` -> geometry ${parked.length} (the room parked, its walls still in the list)`);
+  // The lights survive the round trip disabled rather than being rebuilt, so the
+  // second press costs nothing.
+  assert.equal(scene.lights.length, 2);
+  assert.equal(scene.lights.every((light) => !light.isEnabled()), true);
+  // And the label says the environment is still there, because the counts beside
+  // it are what is retained rather than what is drawn.
+  assert.equal(content.describe(), "geometry, room parked");
+  content.setMode("texture");
+  content.redraw();
+  assert.deepEqual(content.keys(), textureKeys);
+  content.dispose();
+  assert.equal(scene.lights.length, 0);
+  scene.dispose();
+  engine.dispose();
+});
+
+/**
+ * A fetcher over the checked-in room assets, with any one of them deleted.
+ *
+ * The real bytes, the real MIME types and the real hashes, so `loadRoomAsset`
+ * runs its real validation; `absent` is the URL that answers 404, which is what
+ * a tree with no room GLB in it looks like from inside the loader.
+ */
+function roomFetcher(absent = null) {
+  return async (url) => {
+    const name = String(url).endsWith(".glb") ? "room_slice.glb" : "room_slice.json";
+    if (name === absent) return new Response(null, { status: 404, statusText: "Not Found" });
+    const bytes = fs.readFileSync(path.join(ROOT, "web", "assets3d", name));
+    return new Response(bytes, { status: 200, headers: {
+      "content-type": name.endsWith(".glb") ? "model/gltf-binary" : "application/json",
+    } });
+  };
+}
+
+test("the_arena_room_lays_the_kit_out_by_the_same_rule_the_greybox_does", () => {
+  // **`#/arena` may not import `render/room-environment.ts`.** Its tile codes
+  // come from `protocol/abi.generated.ts`, and
+  // `the_arena_and_the_fight_modules_reach_neither_the_worker_nor_the_wasm` in
+  // `studio-shell.test.mjs` keeps the arena clear of the worker and the wasm ABI
+  // so that `npm run view` is enough to open a recorded fight -- and the import
+  // would drag `RoomEnvironmentPresentation`, its lights and its shadow generator
+  // along with it. So `arenaFloor` and `arenaWall` restate the two rules, and
+  // this is what stops the restatement drifting: both are run against the
+  // greybox's own functions over **every** tile of the grid the arena builds,
+  // rather than over a sample.
+  const tiles = arenaEnvironment.arenaTiles(fightHeader());
+  assert.deepEqual(tiles, { cols: 26, rows: 18 });
+  const map = new Array(tiles.cols * tiles.rows).fill(ABI.MAP_OPEN);
+  for (let ty = 0; ty < tiles.rows; ty++) for (let tx = 0; tx < tiles.cols; tx++) {
+    if (tx === 0 || ty === 0 || tx === tiles.cols - 1 || ty === tiles.rows - 1) {
+      map[ty * tiles.cols + tx] = ABI.MAP_SOLID;
+    }
+  }
+  const world = snapshot({ mapCols: tiles.cols, mapRows: tiles.rows,
+    map: Object.freeze(map), vis: Object.freeze(new Array(map.length).fill(2)) });
+  let ring = 0;
+  let floors = 0;
+  const pieces = new Map();
+  for (let ty = 0; ty < tiles.rows; ty++) for (let tx = 0; tx < tiles.cols; tx++) {
+    floors++;
+    // The kit's own generator seed, so the a/b alternation is the one the room
+    // was authored and reviewed with rather than a second pattern beside it.
+    assert.equal(arenaEnvironment.arenaFloor(tx, ty),
+      roomEnvironment.chooseRoomFloor(1592594996, tx, ty), `floor ${tx},${ty}`);
+    if (map[ty * tiles.cols + tx] !== ABI.MAP_SOLID) continue;
+    ring++;
+    const mine = arenaEnvironment.arenaWall(tx, ty, tiles);
+    assert.deepEqual(mine, roomEnvironment.chooseRoomWall(world, tx, ty), `tile ${tx},${ty}`);
+    pieces.set(mine.piece, (pieces.get(mine.piece) ?? 0) + 1);
+  }
+  assert.equal(floors, 26 * 18);
+  assert.equal(ring, 2 * (26 + 18) - 4);
+  // Both variants are actually used, so a rule that had collapsed to one piece
+  // would fail here rather than pass as "the same answer both ways".
+  const variants = new Set(Array.from({ length: tiles.cols * tiles.rows },
+    (_, index) => arenaEnvironment.arenaFloor(index % tiles.cols, Math.floor(index / tiles.cols))));
+  assert.deepEqual([...variants].sort(), ["floor_a", "floor_b"]);
+  // A rectangle is four straight runs and four corners, and the corners take the
+  // inside piece because they have two neighbours that are not opposite.
+  assert.deepEqual([...pieces.entries()].sort(),
+    [["wall_inside", 4], ["wall_straight", ring - 4]]);
+});
+
+test("a_missing_room_asset_degrades_the_textured_mode_to_a_procedural_floor", async () => {
+  const { NullEngine } = await import("@babylonjs/core/Engines/nullEngine.js");
+  const { Scene } = await import("@babylonjs/core/scene.js");
+  // **The asset is made unavailable rather than the code read.** v2-ui-03's
+  // sentence is that a missing GLB degrades to the procedural floor and does not
+  // throw, and the only way to check that is to take the file away and see what
+  // the loader does with its own failure path.
+  for (const absent of ["room_slice.glb", "room_slice.json"]) {
+    const engine = new NullEngine({ renderWidth: 1280, renderHeight: 720 });
+    const scene = new Scene(engine);
+    scene.useRightHandedSystem = true;
+    const environment = new arenaEnvironment.ArenaEnvironment(scene);
+    environment.setEnabled(true);
+    const floor = await environment.load(roomFetcher(absent));
+    assert.equal(floor, "procedural", `a missing ${absent} must not take the mode down`);
+    assert.match(environment.description(), /^procedural floor \(representative room asset failed/);
+    environment.fit(fightHeader());
+    const ground = scene.getMeshByName(arenaEnvironment.PROCEDURAL_FLOOR);
+    assert.ok(ground, "the procedural floor is missing");
+    assert.equal(ground.isEnabled(), true);
+    assert.equal(ground.receiveShadows, true);
+    assert.equal(environment.counts().instances, 0);
+    assert.equal(environment.counts().lights, 2);
+    environment.dispose();
+    scene.dispose();
+    engine.dispose();
+  }
+
+  // And the same environment with the real files present, so the fallback is a
+  // fallback rather than the only path this has ever taken. The kit is the pinned
+  // one -- same GLB, same sidecar, same hashes, same validator as `#/game`.
+  const engine = new NullEngine({ renderWidth: 1280, renderHeight: 720 });
+  const scene = new Scene(engine);
+  scene.useRightHandedSystem = true;
+  const environment = new arenaEnvironment.ArenaEnvironment(scene);
+  environment.setEnabled(true);
+  // **Laid out before the load finishes and again after**, which is the order the
+  // page really takes: pressing `[Texture]` draws immediately on the procedural
+  // plane and the authored kit replaces it when its megabyte has been fetched and
+  // hashed. A plane left enabled underneath would z-fight the floor it stood in
+  // for, which is the visible failure this ordering has.
+  environment.fit(fightHeader());
+  assert.equal(scene.getMeshByName(arenaEnvironment.PROCEDURAL_FLOOR)?.isEnabled(), true);
+  assert.equal(await environment.load(roomFetcher()), "authored");
+  assert.equal(environment.description(), "authored room");
+  environment.fit(fightHeader());
+  // The arena is 24 by 16 and the room is laid one tile wider on every side, so
+  // masonry can never stand where a body may: 26 by 18 floor tiles and a
+  // perimeter ring of 2*(26+18)-4 walls.
+  assert.equal(environment.counts().instances, 26 * 18 + 2 * (26 + 18) - 4);
+  assert.equal(environment.counts().shadowCasters, 2 * (26 + 18) - 4,
+    "only the walls cast: a floor tile's shadow lands on the floor tile it is");
+  assert.equal(scene.getMeshByName(arenaEnvironment.PROCEDURAL_FLOOR).isEnabled(), false,
+    "the procedural plane must go when the authored floor arrives");
+  // Every instance sits inside the arena's rectangle plus its one-tile margin,
+  // in the arena's own axis mapping, where world `+y` is scene `-z`.
+  const placed = scene.meshes.filter((mesh) => mesh.name.startsWith("arena-room:"));
+  assert.equal(placed.length, environment.counts().instances);
+  for (const mesh of placed) {
+    assert.ok(mesh.position.x >= -1 && mesh.position.x <= 25, `x ${mesh.position.x}`);
+    assert.ok(mesh.position.z <= 1 && mesh.position.z >= -17, `z ${mesh.position.z}`);
+  }
+  environment.setEnabled(false);
+  assert.equal(placed.every((mesh) => !mesh.isEnabled()), true,
+    "[Geometry] must leave no room instance enabled");
+  // **A load after a load that already succeeded builds nothing**, which is the
+  // weakest of the three things the memoisation is for and the only one this
+  // sequential shape can check: `#load`'s own `this.#room !== null` early return
+  // satisfies it whether or not `#loaded` is memoised at all. The two cases that
+  // need `#loaded` -- a second press while the megabyte is still in flight, and a
+  // press after a *failed* load -- are in
+  // `the_authored_room_is_fetched_once_however_many_times_texture_is_pressed`,
+  // which is where the mutation `#loaded ??=` -> `#loaded =` is caught.
+  const meshesAfterOneLoad = scene.meshes.length;
+  assert.equal(await environment.load(roomFetcher()), "authored");
+  assert.equal(await environment.load(roomFetcher()), "authored");
+  assert.equal(scene.meshes.length, meshesAfterOneLoad, "a second load built a second room");
+  environment.dispose();
+  assert.equal(scene.getMeshByName(arenaEnvironment.PROCEDURAL_FLOOR), null);
+  scene.dispose();
+  engine.dispose();
+});
+
+/**
+ * The two things `ArenaEnvironment.load`'s `#loaded ??=` actually buys.
+ *
+ * The sequential repeat above cannot see either of them, and that was the whole
+ * defect in it: awaiting load #1 before starting load #2 makes the equality hold
+ * through `#load`'s `if (this.#room !== null) return this.floor`, so replacing
+ * `#loaded ??=` with a plain `#loaded =` left it green. Both cases here fail on
+ * that mutation, and they fail with the two costs the comment on `load` names:
+ *
+ * - **a press while the megabyte is in flight** starts a second `loadRoomAsset`,
+ *   and the later `#room =` orphans the earlier `AssetContainer` -- its meshes and
+ *   materials left in the `Scene` with nothing holding them and `dispose`
+ *   releasing only the survivor. Measured on the mutation: 2 fetches become 4 and
+ *   one container becomes two.
+ * - **a press after a failed load** re-fetches, re-hashes and re-validates the
+ *   whole kit, which `room-asset-contract.md` forbids in as many words. Measured
+ *   on the mutation: three presses cost 6 fetches instead of 2.
+ *
+ * The container count is read as "no source mesh name is in the `Scene` twice"
+ * rather than as `scene.meshes.length`, because a length is a number that can go
+ * up for a dozen innocent reasons and a duplicated node name can only be a second
+ * copy of the kit.
+ */
+test("the_authored_room_is_fetched_once_however_many_times_texture_is_pressed", async () => {
+  const { NullEngine } = await import("@babylonjs/core/Engines/nullEngine.js");
+  const { Scene } = await import("@babylonjs/core/scene.js");
+
+  // ---- a second press while the first load is still in flight
+  {
+    const engine = new NullEngine({ renderWidth: 1280, renderHeight: 720 });
+    const scene = new Scene(engine);
+    scene.useRightHandedSystem = true;
+    const before = new Set(scene.meshes);
+    const environment = new arenaEnvironment.ArenaEnvironment(scene);
+    environment.setEnabled(true);
+
+    // The gate holds the *first* GLB request open, so a second attempt started
+    // behind it is genuinely concurrent rather than merely repeated. The sidecar
+    // is left alone: gating the first request either side of it would do, and
+    // the GLB is the megabyte the comment on `load` is written about.
+    let open;
+    const gate = new Promise((resolve) => { open = resolve; });
+    const bytes = roomFetcher();
+    let fetches = 0;
+    let held = false;
+    const gated = async (url, init) => {
+      fetches += 1;
+      if (String(url).endsWith(".glb") && !held) { held = true; await gate; }
+      return bytes(url, init);
+    };
+
+    const first = environment.load(gated);
+    const second = environment.load(gated);
+    // Both attempts reach the gate before it opens, which is what makes this the
+    // in-flight case and not two presses in a row.
+    await new Promise((resolve) => { setTimeout(resolve, 0); });
+    open();
+    assert.equal(await first, "authored");
+    assert.equal(await second, "authored");
+
+    assert.equal(fetches, 2,
+      `a press while the room was in flight cost ${fetches} fetches rather than one sidecar and one GLB`);
+    const added = scene.meshes.filter((mesh) => !before.has(mesh));
+    assert.ok(added.length > 0, "the authored kit added no source mesh at all");
+    assert.equal(new Set(added.map((mesh) => mesh.name)).size, added.length,
+      `two presses left ${added.length} source meshes with duplicate names, so a container was orphaned`);
+    assert.equal(environment.floor, "authored");
+    environment.dispose();
+    scene.dispose();
+    engine.dispose();
+  }
+
+  // ---- three presses after a load that failed
+  {
+    const engine = new NullEngine({ renderWidth: 1280, renderHeight: 720 });
+    const scene = new Scene(engine);
+    scene.useRightHandedSystem = true;
+    const environment = new arenaEnvironment.ArenaEnvironment(scene);
+    environment.setEnabled(true);
+    const bytes = roomFetcher("room_slice.glb");
+    let fetches = 0;
+    const counting = async (url, init) => { fetches += 1; return bytes(url, init); };
+
+    for (const press of [1, 2, 3]) {
+      assert.equal(await environment.load(counting), "procedural", `press ${press}`);
+    }
+    // One sidecar and one 404 for the GLB, once -- not once a press. The refusal
+    // is remembered too, so the label does not flap between "not attempted" and
+    // the stage the loader refused at.
+    assert.equal(fetches, 2,
+      `three presses after a failed load cost ${fetches} fetches; a failed authored room never retries`);
+    assert.match(environment.description(), /^procedural floor \(representative room asset failed/);
+    environment.dispose();
+    scene.dispose();
+    engine.dispose();
+  }
+});
+
+test("the_textured_mode_reaches_its_floor_through_the_stage_a_reader_presses", async () => {
+  // **The shipped path, end to end.** The check above builds a bare
+  // `ArenaEnvironment`; this one goes the way a reader does -- `setMode` on the
+  // content, the environment created on that press, the load driven from
+  // `loadEnvironment`, and the sentence read off `describe()`, which is what
+  // `arena.ts` hangs on the panel's label.
+  const harness = await arenaStageHarness();
+  const { content, scene, engine } = harness;
+  const { view } = fightViews()[0];
+  content.show(view);
+  assert.equal(content.describe(), "geometry");
+
+  content.setMode("texture");
+  content.redraw();
+  // Before the fetch: the procedural floor is already on the screen, which is
+  // what makes the button feel like a button.
+  assert.equal(content.describe(), "texture, procedural floor (not attempted)");
+  assert.equal(scene.getMeshByName(arenaEnvironment.PROCEDURAL_FLOOR)?.isEnabled(), true);
+
+  await content.loadEnvironment(roomFetcher("room_slice.glb"));
+  content.redraw();
+  assert.match(content.describe(), /^texture, procedural floor \(representative room asset failed/);
+  assert.equal(scene.getMeshByName(arenaEnvironment.PROCEDURAL_FLOOR).isEnabled(), true,
+    "a missing room GLB must leave the mode on its procedural floor");
+  assert.ok(scene.meshes.some((mesh) => mesh.name.startsWith("arena:proxy:0:")),
+    "a missing room must not take the fighter with it");
+  // It renders. That is the whole of v2-ui-03's sentence -- a missing asset
+  // degrades, it does not throw -- and it is checked by drawing rather than by
+  // reading the source.
+  scene.render();
+
+  // **`[Geometry]` asks for nothing.** `setMode` calls `loadEnvironment` on every
+  // press, so without the mode guard a reader flicking back would start a
+  // megabyte of fetch for a mode that draws a line grid.
+  content.setMode("geometry");
+  let requests = 0;
+  await content.loadEnvironment(async (...args) => { requests += 1; return roomFetcher()(...args); });
+  assert.equal(requests, 0, "[Geometry] fetched the authored room");
+  content.dispose();
+  scene.dispose();
+  engine.dispose();
+});
+
+/**
+ * The silhouette check, as far as a `NullEngine` can take it.
+ *
+ * v2-18 asks that the fighter and its equipment read at 100--250 vertical pixels
+ * without cyan outlines, which is roughly the first-person panel's size. **That
+ * is a judgement about a picture and this is not one**: what can be checked here
+ * is the arithmetic underneath it -- that at the bottom of that range nothing a
+ * reader has to tell apart is sub-pixel, and that a body fills a usable fraction
+ * of the panel at the span the page opens on. Whether the shapes actually
+ * separate by eye is owed to a human and is recorded as owed in
+ * `docs/plans/v2-ui/v2-ui-03-texture-proxy.md`.
+ */
+test("the_textured_proxy_is_not_sub_pixel_at_the_size_v2_18_asks_it_to_read_at", async () => {
+  const harness = await arenaStageHarness();
+  const { content, scene, engine } = harness;
+  content.setMode("texture");
+  const { view, poses } = fightViews()[3];
+  content.show(view);
+
+  // The panel, in pixels, out of the same rectangle the cameras are given.
+  const { firstPersonA } = arenaGeometry.ARENA_VIEWPORTS;
+  const panel = [1280 * firstPersonA.width, 720 * firstPersonA.height].map((v) => Math.round(v));
+  assert.deepEqual(panel, [358, 360]);
+
+  // **Measured off the meshes the proxy actually drew**, not off literals: a
+  // version of this test computed the three widths from `2621`, `6553` and
+  // `16384` written down here, so nothing about `client/src/arena/**` could move
+  // it and it was arithmetic wearing a test's name. These are the drawn
+  // diameters, in world units.
+  const pose = poses[0];
+  const width = (name) => {
+    const mesh = scene.getMeshByName(name);
+    assert.ok(mesh, `${name} is not drawn`);
+    return Math.min(mesh.scaling.x, mesh.scaling.z);
+  };
+  const drawnSword = width("arena:proxy:0:weapon:right:shaft");
+  const drawnHand = width("arena:proxy:0:hand:left");
+  const plateMesh = scene.getMeshByName("arena:proxy:0:shield");
+  assert.ok(plateMesh);
+  const drawnPlate = Math.min(plateMesh.scaling.x, plateMesh.scaling.y);
+  // ...and they are the published dimensions, so this is a silhouette claim about
+  // the simulation rather than about the proxy's taste. The plate's width carries
+  // the published normal's own length, because that is what the swept face is
+  // built from and the drawn box follows it -- see `plateNormalLength`. The
+  // factor is 1 - 3.7e-6 on this pose, so the difference is invisible in pixels
+  // and this row would still pass without it; it is written out because a claim
+  // about a published dimension has to be the dimension that was published.
+  const sweptWidth = 2 * pose.shield.halfWidth / RAW
+    * Math.hypot(...pose.shield.normal) / RAW;
+  assert.ok(Math.abs(drawnSword - 2 * pose.weapons[1].radius / RAW) < 1e-6);
+  assert.ok(Math.abs(drawnHand - 2 * FIGHT_BODIES[0].anatomy.handRadius / RAW) < 1e-6);
+  assert.ok(Math.abs(drawnPlate - sweptWidth) < 1e-9,
+    `the drawn plate is ${drawnPlate} against a swept ${sweptWidth}`);
+
+  // A published Fighter is `standingHeight` 1.8 tall, so 100 vertical pixels of
+  // body is 55.6 pixels a world unit. **Only the bottom of v2-18's range is
+  // checked**: 250 pixels is strictly easier, so asserting it too would be a row
+  // that cannot fail once the first passes.
+  const perUnit = 100 / (FIGHT_BODIES[0].anatomy.standingHeight / RAW);
+  const pixels = { sword: drawnSword * perUnit, hand: drawnHand * perUnit, plate: drawnPlate * perUnit };
+  // The floors are a judgement and are stated as one: two pixels is the least a
+  // line can be and still read as a line rather than as aliasing, and a hand and
+  // a plate have to be bigger than the blade they are being told apart from.
+  assert.ok(pixels.sword >= 2, `a sword ${pixels.sword.toFixed(1)} pixels across cannot read`);
+  assert.ok(pixels.hand >= 2 * pixels.sword, `a hand ${pixels.hand.toFixed(1)} pixels across`);
+  assert.ok(pixels.plate >= 4 * pixels.sword, `a plate ${pixels.plate.toFixed(1)} pixels across`);
+  console.log(`    silhouette: at 100 vertical pixels of body the sword is ${pixels.sword.toFixed(1)}`
+    + ` pixels across, the hand ${pixels.hand.toFixed(1)}, the plate ${pixels.plate.toFixed(1)}`);
+
+  // **And how much of the 3/4 panel a body fills, at the span the page really
+  // opens on.** `adopt` overrides the default the moment a fight loads --
+  // `min(26, ceil(apart) + 4)` over two bodies about eleven units apart -- so
+  // this is measured at Span 15 and not at the harness's 6.
+  //
+  // The extent is each mesh's own bounding box through the camera's transform,
+  // not `centre.y +/- scaling.y/2`: that rule holds for a sphere and a vertical
+  // shaft and over-reports a horizontal one by its whole length, which for a body
+  // holding a sword out sideways is most of the answer. The weapon is left out
+  // for the same reason -- v2-18's range is about the *body*.
+  // The rule is read back out of the route rather than restated, so a change to
+  // it fails here; the eleven is the recording's **first** frame, which these
+  // five mid-fight ticks cannot supply -- at tick 2113 the two are 2.6 apart and
+  // the page would be at Span 7 if it reframed itself, which it deliberately
+  // does not.
+  const route = fs.readFileSync(path.join(ROOT, "client/src/arena/arena.ts"), "utf8");
+  assert.match(route, /Math\.min\(Number\(spanInput\.max\), Math\.ceil\(apart\) \+ 4\)/,
+    "the arena no longer picks its opening span from the bodies' separation");
+  assert.match(route, /spawns about eleven units/);
+  const span = Math.min(26, Math.ceil(11) + 4);
+  assert.equal(span, 15);
+  content.show({ ...view, span: span * RAW });
+  const camera = content.threeQuarter;
+  camera.getViewMatrix(true);
+  const transform = camera.getViewMatrix().multiply(camera.getProjectionMatrix(true));
+  const drawn = scene.meshes.filter((mesh) =>
+    mesh.name.startsWith("arena:proxy:0:") && !mesh.name.includes(":weapon:"));
+  assert.ok(drawn.length >= 20, `a proxy body draws ${drawn.length} meshes`);
+  let low = Infinity;
+  let high = -Infinity;
+  for (const mesh of drawn) {
+    mesh.computeWorldMatrix(true);
+    const box = mesh.getBoundingInfo().boundingBox;
+    for (const corner of box.vectorsWorld) {
+      const ndc = BabylonVector3.TransformCoordinates(corner, transform);
+      low = Math.min(low, ndc.y);
+      high = Math.max(high, ndc.y);
+    }
+  }
+  const vertical = ((high - low) / 2) * 720;
+  assert.ok(vertical >= 100 && vertical <= 720,
+    `the body spans ${vertical.toFixed(0)} vertical pixels of the 3/4 panel`);
+  console.log(`    silhouette: the Fighter's body spans ${vertical.toFixed(0)} vertical pixels of a `
+    + `720-pixel 3/4 panel at Span ${span}, the span the page opens on`);
+  content.dispose();
+  scene.dispose();
+  engine.dispose();
+});
+
+test("a_severed_arm_drops_the_same_limb_in_both_modes", async () => {
+  // **No recorded fight severs anything**, and that is a finding rather than a
+  // gap: all three fixtures carry zero `severed` bits and no absent region over
+  // their 21083 published poses, so this is the only place either mode's
+  // severance rule is exercised at all. It is exercised on the *same* pose in
+  // both, which is the check v2-ui-03 asks for -- a proxy that kept drawing an
+  // arm `[Geometry]` had dropped would be a body wearing a limb nothing swept.
+  const harness = await arenaStageHarness();
+  const { content, scene, engine } = harness;
+  const { view, poses } = fightViews()[0];
+  const severedView = (bits) => {
+    const frame = { ...view.frame, poses: poses.map((pose) => ({ ...pose, severed: bits })) };
+    return { ...view, frame, next: frame };
+  };
+  const held = (prefix) => content.keys().filter((key) => key.startsWith(prefix)).sort();
+
+  for (const [mode, arm, hand, weapon, shield] of [
+    ["geometry", "0:region:2", "0:hand:0", "0:weapon:1", "0:shield"],
+    ["texture", "proxy:0:upper_arm:left", "proxy:0:hand:left", "proxy:0:weapon:right", "proxy:0:shield"],
+  ]) {
+    content.setMode(mode);
+    content.show(severedView(0));
+    assert.ok(held(arm).length > 0, `${mode} draws no left arm to sever`);
+    assert.ok(held(hand).length > 0);
+    assert.ok(held(shield).length > 0);
+    // The left arm carries the plate on this fixture and the right the sword, so
+    // the two bits have to be checked separately or a short circuit hides one.
+    content.show(severedView(1 << 2));
+    assert.deepEqual(held(arm), [], `${mode} kept a severed left arm`);
+    assert.deepEqual(held(hand), [], `${mode} kept a severed arm's hand`);
+    assert.deepEqual(held(shield), [], `${mode} kept a severed arm's shield`);
+    assert.ok(held(weapon).length > 0, `${mode} dropped the intact arm's weapon`);
+    content.show(severedView(1 << 3));
+    assert.deepEqual(held(weapon), [], `${mode} kept a severed arm's weapon`);
+    assert.ok(held(shield).length > 0, `${mode} dropped the intact arm's shield`);
+    // A body whose whole arm is gone keeps everything else, so this is severance
+    // and not a proxy that stopped drawing.
+    assert.ok(content.keys().some((key) => key.includes("torso") || key.includes("region:1")));
+  }
+  content.dispose();
+  scene.dispose();
+  engine.dispose();
 });

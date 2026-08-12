@@ -123,7 +123,9 @@ the preserved textured legacy reference was available. Generator v3 is the curre
 deterministic, texture-inclusive candidate accepted for minimum visual parity.
 
 The current compact review query family is
-`/v2.html?review=room&room=representative&backend=auto|webgl2&roomCamera=fixed|free`.
+`/#/game?review=room&room=representative&backend=auto|webgl2&roomCamera=fixed|free`.
+The reviews recorded above were run before v2-ui-01, when the same family lived at
+`/v2.html?review=room&...`; the route moved, the query did not.
 It creates no Worker and exposes no performance capture. It is exactly 16 x 10 tiles:
 a perimeter-only 48 solid tiles around a 14 x 8 open interior, two doors showing open
 and shut states, four torches, four each of barrels, rubble, and roots, and eight unit

@@ -1,474 +1,373 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>auto-rpg &mdash; a room, a character, and a click</title>
-    <meta
-      name="description"
-      content="A deterministic fixed-point auto-battler running in WebAssembly. Click the floor; the character's own AI decides how to get there."
-    />
-    <link rel="stylesheet" href="style.css" />
-    <!-- No favicon request: this page has no dependency on anything it did not ship with. -->
-    <link rel="icon" href="data:," />
-  </head>
-  <body>
-    <!-- The room is the page. Everything else is drawn over it, and the HUD
-         layer below is `pointer-events: none` except where it is genuinely
-         something to click, so a click that misses the HUD lands on the floor
-         rather than being swallowed by a panel. The two rails are real panels
-         and take their own clicks; everything between them does not. -->
-    <div class="canvas-wrap" id="canvas-wrap">
-      <canvas id="arena" aria-label="The arena. Click to send the character somewhere."></canvas>
-    </div>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Auto RPG studio</title>
+  <style>
+    :root { color-scheme: dark; font: 15px/1.45 system-ui, sans-serif; background: #11151b; color: #e8edf3; }
+    body { margin: 0; }
+    a { color: #8fb8e8; }
+    .muted { color: #7a8796; }
 
-    <div class="hud">
-      <div class="hud-top">
-        <!-- The run, and it is deliberately *outside* the dev strip below: that
-             strip collapses to the tick alone by default, and how much is left
-             to kill must never be a thing you have to open a panel to see. -->
-        <div class="hud-top-left">
-          <span class="brand">auto&#8209;rpg</span>
-          <!-- The build stamp: the mtime of the wasm that is actually running,
-               so "did my change land" is a glance rather than a guess. -->
-          <span class="brand-stamp mono-small" id="build-stamp"></span>
-          <span class="chip static"
-            ><span class="chip-key">floor</span> <span id="run-depth">1</span></span
-          >
-          <span class="chip static"
-            ><span class="chip-key">left</span> <span id="run-monsters">&mdash;</span></span
-          >
-        </div>
+    /* ---- the shell chrome ---- */
+    #studio-bar { display: flex; gap: .9rem; align-items: baseline; padding: .5rem 1rem;
+      background: #151b23; border-bottom: 1px solid #24303d; position: sticky; top: 0; z-index: 5; }
+    #studio-bar a { text-decoration: none; }
+    #studio-title { font-weight: 600; color: #e8edf3; }
+    #studio-route { font-size: .85rem; color: #7a8796; }
+    #studio-error { margin-left: auto; color: #ff9d9d; font-size: .85rem; }
+    #studio-root { padding: 1rem; }
 
-        <!-- The dev strip. Tick, position and the 64-bit state hash: the
-             project's central claim -- that this room runs the same everywhere
-             -- made checkable rather than asserted. Collapsed to the tick alone
-             by default, because it costs one line of HUD only if it stays one
-             line of HUD.
+    /* Shared control chrome. Both routes draw buttons, selects and ranges, and a
+       single vocabulary is what makes the two read as one application. Where a
+       route needs its own layout it says so under its own class below. */
+    button, select, input { font: inherit; }
+    button { padding: .3rem .6rem; border-radius: .3rem; border: 1px solid #465568;
+      background: #26374b; color: inherit; cursor: pointer; }
+    button:hover { background: #304760; }
+    button:disabled, button:disabled:hover { background: #1a222c; color: #718092;
+      border-color: #2d3845; cursor: not-allowed; opacity: .65; }
+    /* Deliberately not a bare `input` selector: a range or a checkbox given a
+       background, a border and a radius stops looking like the native control it
+       is, and both routes use both. */
+    select, input[type="number"], input[type="text"] {
+      background: #171e27; color: inherit; border: 1px solid #465568;
+      border-radius: .3rem; padding: .25rem .4rem; }
 
-             The chevron that used to expand it has gone. Choosing [dev] in the
-             selector on the right opens it instead: two controls both called
-             "dev" is one too many, and `setViewMode` states the intent once. -->
-        <div class="dev-strip" id="dev-strip">
-          <span class="chip static"><span class="chip-key">tick</span> <span id="sim-tick">0</span></span>
-          <!-- The frame rate and the worst frame in the last half second, and
-               deliberately without `.dev-more`: a judder complaint must be
-               answerable without opening a panel, and a bare `60` on a 60 Hz
-               panel reads as "everything is fine" while the room visibly steps.
-               The worst frame is the honest headline, because the tail is what
-               the complaint is about. -->
-          <span class="chip static"><span class="chip-key">fps</span> <span id="perf-fps">&mdash;</span></span>
-          <span class="chip static dev-more"><span class="chip-key">at</span> <span id="sim-position">&mdash;</span></span>
-          <span class="chip static dev-more"
-            ><span class="chip-key">hash</span> <span id="sim-hash" class="mono-small">&mdash;</span></span
-          >
-          <!-- The ten-phase breakdown, on `perf-more` rather than `dev-more`: it
-               is opened by `P` and not by the view selector, because [dev] turns
-               the fog off and would profile a renderer nobody is complaining
-               about. Last in the strip because it is the long one, so opening it
-               cannot shove the readouts above around. -->
-          <span class="chip static perf-more"
-            ><span class="chip-key">frame</span> <span id="perf-detail" class="mono-small">&mdash;</span></span
-          >
-        </div>
+    /* ---- the main screen ---- */
+    .route-home { width: min(60rem, 100%); margin: 2rem auto; display: grid; gap: 1.25rem; }
+    .route-home h1 { font-size: 1.6rem; margin: 0; }
+    .destinations { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 1rem; }
+    .destination { display: grid; gap: .4rem; align-content: start; padding: 1rem;
+      background: #151b23; border: 1px solid #24303d; border-radius: .5rem; }
+    .destination h2 { font-size: 1.1rem; margin: 0; }
+    .destination p { margin: 0; color: #aeb9c6; font-size: .9rem; }
+    .destination a.enter { justify-self: start; margin-top: .35rem; padding: .35rem .8rem;
+      border-radius: .3rem; border: 1px solid #465568; background: #26374b;
+      color: inherit; text-decoration: none; }
+    .destination a.enter:hover { background: #304760; }
 
-        <div class="hud-top-right">
-          <!-- How the room is drawn, as one segment per view. A real radiogroup,
-               unlike the driving switches at the bottom of the window: those are
-               three independent bits and any combination of them is a room you
-               can be in, whereas exactly one of these is ever lit. Built in JS
-               from `VIEW_MODES` so the labels live in one place, and `G` cycles
-               them. -->
-          <div
-            class="control-group"
-            id="view-group"
-            role="radiogroup"
-            aria-label="How the room is drawn"
-          ></div>
-          <button type="button" class="chip" id="btn-keys" aria-expanded="false" aria-controls="keys-overlay">
-            <span aria-hidden="true">?</span> Keys
-          </button>
-        </div>
-      </div>
+    /* ---- the game route (the v2 worker boundary) ---- */
+    .route-game { width: min(76rem, 100%); margin: 0 auto; }
+    .route-game h1 { font-size: 1.5rem; margin-bottom: .25rem; }
+    .route-game p { color: #aeb9c6; }
+    .route-game fieldset { border: 1px solid #34404d; border-radius: .5rem; margin: 1rem 0; padding: 1rem; }
+    .route-game .controls { display: flex; flex-wrap: wrap; gap: .6rem; align-items: end; }
+    .route-game label { display: grid; gap: .2rem; color: #aeb9c6; font-size: .8rem; }
+    .route-game input, .route-game button { padding: .45rem .65rem; border-radius: .35rem; }
+    .route-game input[type="number"] { width: 7rem; }
+    .route-game input[type="text"] { width: 12rem; }
+    .route-game output, .route-game pre { display: block; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .route-game #status { color: #8fd3a8; }
+    .route-game #error { color: #ff9d9d; min-height: 1.5em; }
+    .route-game pre { background: #0b0f14; padding: 1rem; border-radius: .5rem; }
+    .route-game #greybox { display: block; width: 100%; aspect-ratio: 16 / 9; background: #080b0f;
+      border: 1px solid #34404d; border-radius: .5rem; touch-action: none; }
+    .route-game .legacy-link { font-size: .85rem; }
 
-      <p class="hint" id="hint"></p>
+    /* ---- the arena route ---- */
+    .route-arena { width: min(110rem, 100%); margin: 0 auto; display: grid; gap: .6rem; }
+    .route-arena h1 { font-size: 1.15rem; margin: 0; }
+    .route-arena #status { font-size: .9rem; color: #8fd3a8; }
+    .route-arena #status.error { color: #ff9d9d; }
+    .route-arena canvas { display: block; width: 100%; background: #0b0f14;
+      border: 1px solid #24303d; border-radius: .4rem; }
+    .route-arena figure { margin: 0; display: grid; gap: .25rem; }
+    .route-arena figcaption { font-size: .8rem; color: #7a8796; }
+    .route-arena label { display: inline-flex; gap: .3rem; align-items: center;
+      font-size: .85rem; color: #aeb9c6; }
+    .route-arena .controls { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center;
+      background: #151b23; border: 1px solid #24303d; border-radius: .4rem; padding: .5rem .65rem; }
+    .route-arena pre, .route-arena #contacts { margin: 0; background: #0b0f14; border: 1px solid #24303d;
+      border-radius: .4rem; padding: .65rem; font: 12.5px/1.5 ui-monospace, Menlo, Consolas, monospace;
+      white-space: pre-wrap; overflow-wrap: anywhere; }
+    .route-arena #contacts { max-height: 22rem; overflow-y: auto; }
+    .route-arena .legend { font-size: .8rem; color: #7a8796; display: flex; flex-wrap: wrap; gap: .9rem; }
+    .route-arena .legend b { font-weight: 600; }
 
-      <!-- Three clusters along the floor of the window: the life globe, the
-           action bar and who is driving. The grid's outer columns are `1fr` so
-           the bar in the middle is centred on the window rather than on
-           whatever is left over after the other two. -->
-      <div class="hud-bottom">
-        <div class="hud-vitals">
-          <!-- 4.3 -- the life globe. A canvas rather than a div stack because
-               the liquid has a moving surface, and a wobble in CSS would be a
-               keyframe animation the page cannot pause with the sim. -->
-          <div class="globe-wrap">
-            <canvas id="globe" aria-label="The character's health."></canvas>
-            <button type="button" id="btn-respawn" class="respawn" hidden>Re&#8209;Spawn</button>
-          </div>
+    /* The loadout picker. One row a fighter, so the two rows read as a matchup
+       rather than as a form. */
+    .picker { display: grid; gap: .4rem; background: #151b23; border: 1px solid #24303d;
+      border-radius: .4rem; padding: .5rem .65rem; }
+    .picker-row { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+    .picker-row > .side { min-width: 5.5rem; font-weight: 600; }
+    .picker-row.hero > .side { color: #7fb2ff; }
+    .picker-row.monster > .side { color: #ff8f7a; }
+    #picker-message { font-size: .85rem; min-height: 1.4em; color: #d8b46a; }
+    #picker-message.refused { color: #ff9d9d; }
 
-          <div class="vitals-lines">
-            <div class="who">
-              <span class="dot"></span>
-              <span id="unit-name">fighter</span>
-              <span class="hp-bar"><span id="hp-fill"></span></span>
-              <span class="hp" id="unit-hp">12.0 / 12.0 hp</span>
-            </div>
-            <!-- The two lines that answer "what is it doing" and "is anything
-                 happening". Both have their class attribute rewritten wholesale
-                 by `updateHud`, so neither can carry a layout class. -->
-            <p class="state" id="order-state">no order</p>
-            <p class="state idle" id="battle-state">quiet &mdash; nothing in the room to fight</p>
-          </div>
-        </div>
+    /* **The three 3D panels share one canvas and must stay contiguous.** They are
+       three viewports of a single WebGL context, because a Babylon `Scene` belongs
+       to one engine and three engines would mean building every mesh three times.
+       Splitting this grid cell is not a layout tweak; see v2-ui-02. */
+    .stage-row { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 1.35fr); gap: .6rem;
+      align-items: start; }
+    .stage { position: relative; }
+    #arena-3d { aspect-ratio: 16 / 9; touch-action: none; }
+    /* The three labels sit at the corners of the three viewport rectangles, so the
+       28% below is the same split the cameras use and the two must move together.
+       A label that has come off its own panel is the cheapest possible signal that
+       a viewport rectangle was edited in one place and not the other. */
+    .viewport-label { position: absolute; font-size: .75rem; color: #9fb0c2;
+      text-shadow: 0 1px 2px #000; pointer-events: none; }
+    #label-first-a { left: .5rem; top: .4rem; }
+    #label-first-b { left: .5rem; top: calc(50% + .4rem); }
+    #label-three-quarter { left: calc(28% + .5rem); top: .4rem; }
+    .stage-modes { position: absolute; left: calc(28% + .5rem); bottom: .5rem; display: flex; gap: .35rem; }
+    .stage-modes button[aria-pressed="true"] { background: #3d6089; border-color: #6d8cb4; }
+    .side-panels { display: grid; gap: .6rem; }
+    #plan, #elevation { aspect-ratio: 3 / 2; }
+    #chart { aspect-ratio: 9 / 1; cursor: crosshair; }
+    #scrub { flex: 1 1 18rem; min-width: 10rem; }
+    #tick { font-variant-numeric: tabular-nums; min-width: 10rem; }
+    .panels { display: grid; grid-template-columns: 3fr 2fr; gap: .6rem; align-items: start; }
+  </style>
+</head>
+<body>
+  <nav id="studio-bar">
+    <a id="studio-title" href="#/">Auto RPG</a>
+    <span id="studio-route"></span>
+    <span id="studio-error" role="alert"></span>
+  </nav>
+  <main id="studio-root"></main>
 
-        <!-- 4.4 -- the action bar. Both slots read off the *frame*: the sim
-             refuses a swap mid-cut, so what was last clicked and what is
-             actually in the hand are different questions and only the second
-             one is worth drawing. The icons are set from `ICON_PATHS`, one
-             table shared with the canvas callouts. -->
-        <div class="action-bar" id="action-bar" role="group" aria-label="What is in the hand">
-          <button type="button" class="action-slot" id="action-slot-0" aria-pressed="true">
-            <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true"><path d=""></path></svg>
-            <span class="action-name">primary</span>
-            <kbd>1</kbd>
-          </button>
-          <button type="button" class="action-slot" id="action-slot-1" aria-pressed="false">
-            <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true"><path d=""></path></svg>
-            <span class="action-name">secondary</span>
-            <kbd>2</kbd>
-          </button>
-        </div>
-
-        <!-- 4.5 -- who is driving, as one switch per bit of the module's 3-bit
-             mask. Built in JS from one table so the labels, the bits and the
-             keys cannot drift apart, and lit from `wasm.control()` rather than
-             from the click. Not a radiogroup: the three are independent, and
-             any combination of them is a room you can be in. -->
-        <div class="control-wrap">
-          <!-- Pause, first in the cluster, because stopping the clock and taking
-               the controls are the same kind of act. A `.chip` and not a bare
-               `<button>`: the HUD layer is `pointer-events: none` all the way
-               down and `.chip` is one of the few things that turns it back on.
-               Both faces of the state are written by `setPaused` -- the glyph,
-               the word and `aria-pressed`, off one switch. -->
-          <button type="button" class="chip" id="btn-pause" aria-pressed="false">
-            <span id="pause-glyph" aria-hidden="true">&#9612;&#9612;</span>
-            <span id="pause-label">Pause</span>
-            <kbd>Space</kbd>
-          </button>
-          <span class="control-label">driving</span>
-          <div class="control-group" id="control-group" role="group" aria-label="Who is driving"></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ------------------------------------------------------- the two rails
-         Left is the enemy that has not arrived yet; right is the character on
-         the floor. Warm against cyan, so which rail you are in is never a
-         question. Both are `position: fixed` boxes of a real width that slide
-         on `transform` and take `visibility` with them -- a shut rail has to
-         leave the tab order, or `Tab` walks into controls nobody can see.
-         Session 5's camera measures their `getBoundingClientRect()`, which is
-         why the width is a real width and not a transform. -->
-    <aside class="rail rail-enemy" id="panel-enemy" aria-label="Enemy">
-      <button type="button" class="rail-tab" id="tab-enemy" aria-expanded="false" aria-controls="panel-enemy">
-        <span class="rail-tab-label">Enemy</span>
-        <kbd>Q</kbd>
-      </button>
-      <div class="rail-inner">
-        <h2 class="rail-title">Enemy</h2>
-        <!-- The one line that stops a player raising a slider mid-fight and
-             wondering why the thing swinging at them did not change. -->
-        <p class="rail-note">
-          Body, actions and attributes describe the <em>next</em> spawn &mdash; nothing already standing
-          changes. Only <em>Brain</em> is live, and it is live for the whole faction.
-        </p>
-
-        <section class="panel">
-          <h2>Body &amp; kit</h2>
-          <div class="mind">
-            <span>body</span>
-            <select id="enemy-body"></select>
-          </div>
-          <div class="mind">
-            <span>action 1</span>
-            <svg class="kit-icon" viewBox="0 0 24 24" aria-hidden="true"><path d=""></path></svg>
-            <select id="enemy-slot-0"></select>
-          </div>
-          <div class="mind">
-            <span>action 2</span>
-            <svg class="kit-icon" viewBox="0 0 24 24" aria-hidden="true"><path d=""></path></svg>
-            <select id="enemy-slot-1"></select>
-          </div>
+  <template id="route-home">
+    <div class="route-home">
+      <h1>Auto RPG</h1>
+      <p class="muted">One application. Start a game, or take two loadouts into the arena and
+        watch the fight they produce from five viewpoints at once.</p>
+      <div class="destinations">
+        <section class="destination">
+          <h2>New Game</h2>
+          <p>The worker-owned simulation, rendered through the v2 GPU presentation path.
+            Backend selection and the disclosed-state registry are shown beside it.</p>
+          <a class="enter" href="#/game">New Game</a>
         </section>
-
-        <section class="panel">
-          <h2>Attributes</h2>
-          <div class="attrs" id="enemy-attrs"></div>
+        <section class="destination">
+          <h2>Battle Arena</h2>
+          <p>Two articulated fighters, a seed, and a fight watched from both first-person
+            views, a 3/4 view, a plan and an elevation.</p>
+          <a class="enter" href="#/arena">Battle Arena</a>
         </section>
+      </div>
+      <p class="muted legacy-link">The original Canvas game is a separate page with no build
+        step and four classic scripts sharing top-level state, so it is not a route here:
+        <a href="/legacy.html">open the legacy page</a>.</p>
+    </div>
+  </template>
 
-        <section class="panel">
-          <h2>Brain</h2>
-          <!-- Nobody commands the monsters. They fight because the same
-               UtilityPolicy the lab evolves decides they should -- and this is
-               the one control on this rail that reaches something already
-               standing. Set it to Idle and watch every monster in the room
-               stop. The sliders are that policy's genome, their names and
-               ranges read out of the module rather than mirrored here. -->
-          <label class="mind">
-            <span>monsters</span>
-            <select id="policy-monsters"></select>
+  <template id="route-game">
+    <div class="route-game">
+      <h1>v2 worker boundary</h1>
+      <p>The worker-owned simulation is rendered through the v2 procedural GPU greybox.
+        Backend selection and the complete disclosed-state registry are shown below.</p>
+      <canvas id="greybox" width="1280" height="720" aria-label="Procedural game view"></canvas>
+      <p id="interaction-hint" class="legacy-link">Interactive controls become available after startup.</p>
+      <button id="room-camera-toggle" type="button" hidden>Use free camera</button>
+      <p class="legacy-link">The Canvas renderer remains separate: <a href="/legacy.html">open the legacy page</a>.</p>
+      <fieldset>
+        <legend>Lifecycle</legend>
+        <div class="controls">
+          <label>Seed <input id="seed" type="number" min="0" max="4294967295" value="1"></label>
+          <button id="reset" data-sim-control type="button">Reset</button>
+          <button id="pause" data-sim-control type="button">Pause</button>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>Commands</legend>
+        <div class="controls">
+          <label>Goto X <input id="goto-x" type="number" value="1000"></label>
+          <label>Goto Y <input id="goto-y" type="number" value="1000"></label>
+          <button id="goto" data-sim-control type="button">Goto</button>
+          <button id="withdraw" data-sim-control type="button">Withdraw</button>
+          <button id="spawn" data-sim-control type="button">Spawn</button>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>Buffer exhaustion diagnostic</legend>
+        <p>Opt in to retain the next three distinct snapshot leases. The worker keeps
+          acknowledging advances while snapshots coalesce; release restores the latest publication.</p>
+        <div class="controls">
+          <button id="diagnostic-hold-buffers" data-sim-control type="button">Hold next three snapshots</button>
+          <button id="diagnostic-release-buffers" data-sim-control type="button" disabled>Release held snapshots</button>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>Visible foreground performance capture</legend>
+        <p>Available for the fixed <code>?stress=greybox</code> control and
+          <code>?stress=room&amp;room=representative</code>. Room capture requires the fixed
+          review camera. Starting sets the canvas to the named 1920 &times; 1080 reference size,
+          warms for 30 seconds, then samples for 120 seconds.</p>
+        <div class="controls">
+          <label>OS <input id="perf-os" data-performance-metadata type="text" value="Windows 11 Home 25H2 build 26200.8973"></label>
+          <label>CPU <input id="perf-cpu" data-performance-metadata type="text" value="13th Gen Intel Core i7-13700H"></label>
+          <label>GPU <input id="perf-gpu" data-performance-metadata type="text" value="Intel Iris Xe Graphics"></label>
+          <label>Driver <input id="perf-driver" data-performance-metadata type="text" value="32.0.101.7084"></label>
+          <label>Browser <input id="perf-browser" data-performance-metadata type="text" value="Chrome 151.0.7922.72"></label>
+          <label>Power <input id="perf-power" data-performance-metadata type="text" value="AC / Balanced"></label>
+          <button id="performance-start" type="button" disabled>Start capture</button>
+          <button id="performance-download" type="button" disabled>Download raw JSON</button>
+        </div>
+        <progress id="performance-progress" max="150" value="0" aria-label="Performance capture progress"></progress>
+        <output id="performance-status" aria-live="polite">Idle</output>
+      </fieldset>
+      <output id="status" aria-live="polite">Starting worker&hellip;</output>
+      <output id="error" aria-live="assertive"></output>
+      <pre id="diagnostics">No snapshot yet.</pre>
+    </div>
+  </template>
+
+  <template id="route-arena">
+    <div class="route-arena">
+      <h1>Battle Arena</h1>
+
+      <div class="picker">
+        <div class="picker-row hero">
+          <span class="side">Fighter A</span>
+          <label>anatomy
+            <select id="a-anatomy">
+              <option value="fighter" selected>Fighter</option>
+              <option value="brute">Brute</option>
+            </select>
           </label>
-          <div class="genes" id="genes-monsters"></div>
-        </section>
-
-        <div class="rail-footer">
-          <button type="button" id="btn-spawn-template" class="primary">Spawn</button>
-        </div>
-      </div>
-    </aside>
-
-    <aside class="rail rail-hero" id="panel-hero" aria-label="Hero">
-      <button type="button" class="rail-tab" id="tab-hero" aria-expanded="false" aria-controls="panel-hero">
-        <span class="rail-tab-label">Hero</span>
-        <kbd>E</kbd>
-      </button>
-      <div class="rail-inner">
-        <h2 class="rail-title">Hero</h2>
-        <!-- Rewritten by `setHeroRailLive`, because this rail describes two
-             different things depending on whether anybody is standing: the
-             character in the room, or the one you send in next. The rows are
-             the same rows and they are never disabled -- what changes is who
-             they are about, and that has to be said rather than inferred. -->
-        <p class="rail-note" id="hero-rail-note">
-          Every row here lands on the character standing in the room, immediately &mdash; body, kit
-          and attributes alike. Nothing here waits for a respawn.
-        </p>
-
-        <section class="panel" id="hero-kit-panel">
-          <h2>Body &amp; kit</h2>
-          <!-- Live mutation in place: radius, mass and the whole stat sheet
-               change under the character without the room resetting round it.
-               With nobody standing it writes the next spawn instead, which is
-               why this row no longer greys out -- there is always a character
-               for it to be about, and the note above says which one. -->
-          <div class="mind">
-            <span>body</span>
-            <select id="hero-body"></select>
-          </div>
-          <div class="mind">
-            <span>action 1</span>
-            <svg class="kit-icon" viewBox="0 0 24 24" aria-hidden="true"><path d=""></path></svg>
-            <select id="loadout-0"></select>
-          </div>
-          <div class="mind">
-            <span>action 2</span>
-            <svg class="kit-icon" viewBox="0 0 24 24" aria-hidden="true"><path d=""></path></svg>
-            <select id="loadout-1"></select>
-          </div>
-          <dl class="readout" id="loadout-readout"></dl>
-        </section>
-
-        <section class="panel">
-          <h2>Attributes</h2>
-          <!-- The derived line under each slider is the point of the panel:
-               an attribute that only ever showed a number would be a difficulty
-               dial, and the whole claim of this project is that it is not. -->
-          <div class="attrs" id="hero-attrs"></div>
-        </section>
-
-        <section class="panel">
-          <h2>Brain</h2>
-          <label class="mind">
-            <span>heroes</span>
-            <select id="policy-heroes"></select>
+          <label>left hand
+            <select id="a-left">
+              <option value="empty">empty</option>
+              <option value="sword">Sword</option>
+              <option value="shield" selected>Shield</option>
+              <option value="club">Club</option>
+            </select>
           </label>
-          <div class="genes" id="genes-heroes"></div>
-          <div class="buttons">
-            <!-- Both sides at once, deliberately: the interesting comparison is
-                 one genome against another, and half a reset is a fight nobody
-                 can reason about. -->
-            <button type="button" id="btn-reset-genes" title="Both sides, back to the hand-tuned baseline.">
-              Reset weights
-            </button>
-          </div>
-        </section>
-
-        <section class="panel">
-          <h2>Order</h2>
-          <dl class="readout">
-            <dt>destination</dt>
-            <dd id="order-dest">&mdash;</dd>
-            <dt>distance left</dt>
-            <dd id="order-distance">&mdash;</dd>
-            <dt>last decision</dt>
-            <dd id="order-decision">&mdash;</dd>
-          </dl>
-          <div class="buttons">
-            <button type="button" id="btn-standdown">Stand down</button>
-            <button type="button" id="btn-freewill">Free will</button>
-          </div>
-        </section>
-
-        <section class="panel">
-          <h2>Battle</h2>
-          <dl class="readout">
-            <dt>standing</dt>
-            <dd id="battle-roster">1 hero, 0 monsters</dd>
-          </dl>
-        </section>
-
-        <p class="footnote">
-          A click is a standing order, so the character acts on it at its next decision &mdash; and that
-          delay <em>is</em> the intellect stat. Send something in and it will break off the walk to
-          fight: a visible enemy outranks your order, and that is the whole idea.
-        </p>
+          <label>right hand
+            <select id="a-right">
+              <option value="empty">empty</option>
+              <option value="sword" selected>Sword</option>
+              <option value="shield">Shield</option>
+              <option value="club">Club</option>
+            </select>
+          </label>
+          <label>policy <select id="a-policy"></select></label>
+        </div>
+        <div class="picker-row monster">
+          <span class="side">Fighter B</span>
+          <label>anatomy
+            <select id="b-anatomy">
+              <option value="fighter">Fighter</option>
+              <option value="brute" selected>Brute</option>
+            </select>
+          </label>
+          <label>left hand
+            <select id="b-left">
+              <option value="empty" selected>empty</option>
+              <option value="sword">Sword</option>
+              <option value="shield">Shield</option>
+              <option value="club">Club</option>
+            </select>
+          </label>
+          <label>right hand
+            <select id="b-right">
+              <option value="empty">empty</option>
+              <option value="sword">Sword</option>
+              <option value="shield">Shield</option>
+              <option value="club" selected>Club</option>
+            </select>
+          </label>
+          <label>policy <select id="b-policy"></select></label>
+          <label>seed <input id="arena-seed" type="number" min="0" max="4294967295" value="3"></label>
+          <button id="fight" type="button">Fight</button>
+        </div>
+        <div id="picker-message"></div>
       </div>
-    </aside>
 
-    <!-- The keyboard reference, behind the `?` in the top bar. It was a panel
-         in the drawer that nobody scrolled to; a modal is read once and shut. -->
-    <div class="overlay" id="keys-overlay" hidden>
-      <div class="overlay-card keys-card" role="dialog" aria-modal="true" aria-label="Keyboard reference">
-        <h2>Keys</h2>
-        <ul class="keys">
-          <li>
-            <kbd>click</kbd><kbd>drag</kbd>
-            <span>
-              Click the floor to go there. Drag instead and you trace a path: it walks the legs in
-              order, holds at the end, and the next plain click cancels whatever is left of it. Every
-              leg is still a standing order rather than a rail &mdash; the character decides how to
-              walk it.
-            </span>
-          </li>
-          <li>
-            <kbd>right click</kbd><kbd>Esc</kbd>
-            <span>Stand down &mdash; hold this ground.</span>
-          </li>
-          <li>
-            <kbd>F</kbd>
-            <span>Free will &mdash; no order at all; the character decides for itself.</span>
-          </li>
-          <li>
-            <kbd>Q</kbd><kbd>E</kbd>
-            <span>Open the Enemy rail on the left, or the Hero rail on the right.</span>
-          </li>
-          <li>
-            <kbd>S</kbd><kbd>B</kbd>
-            <span>
-              Send in a skitterer or a brute on the body's own kit. These deliberately ignore the
-              Enemy rail's template &mdash; a hotkey that quietly meant something different after you
-              touched a panel would be the worse surprise. Use <em>Spawn</em> for the template.
-              <kbd>Shift</kbd>+<kbd>S</kbd> sends eight skitterers at once, which is how you fill the
-              room to sixty-four and see what the frame costs with a crowd in it. Both are shadowed
-              while you hold <em>Movement</em> &mdash; see <kbd>WASD</kbd> below.
-            </span>
-          </li>
-          <li>
-            <kbd>1</kbd><kbd>2</kbd>
-            <span>
-              Choose which of the two things you are carrying is in your hand. The swap costs real
-              ticks and is refused mid-cut, so it is a decision and not a menu.
-            </span>
-          </li>
-          <li>
-            <kbd>C</kbd><kbd>V</kbd><kbd>X</kbd>
-            <span>
-              Take the character's movement, its choice of what to hold, or its aim &mdash; three
-              switches, in any combination. Whichever you leave alone, it keeps doing for itself, on
-              its own reaction clock. <em>Aim</em> without <em>Action</em> is worth trying: you throw
-              the cuts and it picks the weapon.
-            </span>
-          </li>
-          <li>
-            <kbd>WASD</kbd><kbd>mouse</kbd>
-            <span>
-              Move and aim, once you have taken them. Click to cut along the line you are pointing
-              at &mdash; one click, one attack, with a windup you can be punished during. Holding a
-              guard instead of a blade is a matter of what is in your hand, not a modifier key.
-              <kbd>W</kbd> is <em>up the screen</em> in every view, so the keys mean what they look
-              like rather than what the room's axes do &mdash; which is why walking up-screen covers
-              ground more slowly than walking across it. While you hold <em>Movement</em>,
-              <kbd>S</kbd> walks down-screen instead of sending in a skitterer, and
-              <kbd>Shift</kbd>+<kbd>S</kbd> stops sending eight; hand the feet back with
-              <kbd>C</kbd> to spawn again.
-            </span>
-          </li>
-          <li>
-            <kbd>Y</kbd>
-            <span>
-              Show or hide the vision discs &mdash; how far each body can see. A
-              <em>Tactical</em> and <em>Dev</em> control: <em>World</em> draws no discs to hide.
-            </span>
-          </li>
-          <li>
-            <kbd>G</kbd>
-            <span>
-              Cycle how the room is drawn. <em>World</em> is the room as it looks, and only that
-              &mdash; art, the weapon in hand, a health bar when it matters, and one faint ring
-              where the body actually collides. <em>Tactical</em> drops the art for discs and
-              facing wedges and turns every readout back on: sight, reach and facing.
-              <em>Dev</em> drops the fog of war as well, so you can watch what the monsters are
-              doing while the character cannot. The first two show you only what the character can
-              see &mdash; ground it has seen before stays dim, and rock it has never reached stays
-              black.
-            </span>
-          </li>
-          <li>
-            <kbd>P</kbd>
-            <span>
-              Break the frame down by phase, beside the <em>fps</em> readout that is always up. Its
-              own key rather than a part of <em>Dev</em>, because <em>Dev</em> draws the room with
-              the fog lifted &mdash; which is a different amount of work from the room you are
-              actually looking at, and so a different number.
-            </span>
-          </li>
-          <li>
-            <kbd>Space</kbd>
-            <span>
-              Freeze the world, or let it go again. Every order still lands while it is frozen
-              &mdash; click, drag a path, stand down &mdash; and nothing moves until you resume, which
-              is what the button is for.
-            </span>
-          </li>
-          <li>
-            <kbd>wheel</kbd>
-            <span>Zoom, between the whole room and close in over the character's shoulder.</span>
-          </li>
-          <li><kbd>R</kbd><span>Restart the room.</span></li>
-          <li><kbd>Tab</kbd><span>Move between the controls that are actually on screen.</span></li>
-        </ul>
-        <div class="buttons">
-          <button type="button" id="btn-keys-close">Close</button>
+      <div id="status">Loading fight&hellip;</div>
+
+      <div class="stage-row">
+        <div class="stage">
+          <canvas id="arena-3d" aria-label="Arena, three viewpoints"></canvas>
+          <span class="viewport-label" id="label-first-a">first-person A</span>
+          <span class="viewport-label" id="label-first-b">first-person B</span>
+          <span class="viewport-label" id="label-three-quarter">3/4 view</span>
+          <div class="stage-modes">
+            <button id="mode-texture" type="button" aria-pressed="false">Texture</button>
+            <button id="mode-geometry" type="button" aria-pressed="true">Geometry</button>
+          </div>
+        </div>
+        <div class="side-panels">
+          <figure>
+            <canvas id="plan" width="900" height="620"></canvas>
+            <figcaption>Plan &mdash; a bird's eye: x right, <b>y up</b>, so a body's left hand
+              is on the side the simulation calls left. The legacy Canvas page draws y the
+              other way. One grid square is one world unit.</figcaption>
+          </figure>
+          <figure>
+            <canvas id="elevation" width="900" height="620"></canvas>
+            <figcaption>Elevation &mdash; along the chosen azimuth, z up, floor at the bright line.</figcaption>
+          </figure>
         </div>
       </div>
-    </div>
 
-    <div class="overlay" id="overlay" hidden>
-      <div class="overlay-card" role="alert">
-        <h2 id="overlay-title">The simulation stopped</h2>
-        <p id="overlay-body"></p>
-        <pre id="overlay-detail"></pre>
+      <figure>
+        <canvas id="chart" width="1800" height="220"></canvas>
+        <figcaption>Click to scrub. Upper band: blade tip travel per tick against
+          <code>IMPACT_THRESHOLD</code> &mdash; world-space, so a walking fighter's feet count,
+          and the bar itself is the legacy model's. Lower band: the energy allocated to each
+          tick's loudest contact against <code>CONTACT_ENERGY_FLOOR</code>, which is deducted
+          from exactly that allocation &mdash; <em>not</em> the group's kinetic-energy ledger,
+          which the floor is never charged against. Both lines are read out of the Rust that
+          owns them.</figcaption>
+      </figure>
+
+      <div class="controls">
+        <button id="play" type="button">Play</button>
+        <button id="step-back" type="button" title="Left arrow; shift for ten">&minus;1</button>
+        <button id="step-forward" type="button" title="Right arrow; shift for ten">+1</button>
+        <button id="prev-contact" type="button" title="[">&#9664; contact</button>
+        <button id="next-contact" type="button" title="]">contact &#9654;</button>
+        <button id="prev-wound" type="button">&#9664; wound</button>
+        <button id="next-wound" type="button">wound &#9654;</button>
+        <input id="scrub" type="range" min="0" max="1" value="0" step="1" aria-label="Tick">
+        <span id="tick">tick 0</span>
+        <label>Speed
+          <select id="rate">
+            <option value="0.1">0.1x</option>
+            <option value="0.25">0.25x</option>
+            <option value="1" selected>1x</option>
+            <option value="4">4x</option>
+            <option value="16">16x</option>
+          </select>
+        </label>
+        <label>Span
+          <input id="span" type="range" min="2" max="26" value="6" step="1" aria-label="World units across">
+        </label>
+        <label>Azimuth
+          <input id="azimuth" type="range" min="-180" max="180" value="0" step="5" aria-label="Elevation azimuth">
+        </label>
+        <label><input id="show-regions" type="checkbox" checked> regions</label>
+        <label><input id="show-targets" type="checkbox" checked> commanded hand</label>
+        <label><input id="show-velocity" type="checkbox"> velocity</label>
+        <label><input id="show-contacts" type="checkbox" checked> contacts</label>
       </div>
+
+      <div class="panels">
+        <pre id="readout">&hellip;</pre>
+        <div id="contacts" class="muted">&hellip;</div>
+      </div>
+
+      <p class="legend">
+        <span><b>chase</b> is commanded hand minus actual hand, both published.</span>
+        <span><b>reach</b> is the arm capsule's own length over the anatomy's arm length.</span>
+        <span><b>Span</b> frames all five panels alike; <b>Azimuth</b> turns the elevation and the
+          3/4 view together, which is how you look behind a body at a contact.</span>
+        <span><b>Space</b> plays, <b>arrows</b> step, <b>[</b> and <b>]</b> jump between contacts.</span>
+        <span>Regenerate the recorded fights with <code>npm run trace</code>.</span>
+        <span>Watch a <b>learned</b> fight with
+          <code>cargo run --release -p lab -- trace --policy learned --checkpoint checkpoints/v2-probe.ckpt --seed 3</code>
+          &mdash; the header then names both sides and the checkpoint digest.</span>
+      </p>
     </div>
+  </template>
 
-    <!-- Before main.js, and all three classic scripts with no build step: a
-         top-level const in a classic script is visible to every script loaded
-         after it, which is how main.js reaches the emit API and the rig tables
-         and how the console reaches all three.
-
-         The order is the dependency order and is not arbitrary. draw.js first,
-         because rig.js registers its unit paths in the paint table at load and
-         `dlPaintStatic` has to exist by then. rig.js second, because it holds
-         proportions and knows nothing about the sim &mdash; main.js is what maps a
-         `UnitKind` onto a rig and what turns a table row into a placed, posed,
-         depth-keyed item. assets.js third: it puts a loaded image into the same
-         paint table and so wants draw.js, and main.js asks it for indices. Its
-         fetch starts the moment it loads and nothing waits for it. -->
-    <script src="draw.js"></script>
-    <script src="rig.js"></script>
-    <script src="assets.js"></script>
-    <script src="main.js"></script>
-  </body>
+  <script type="module" src="/client-src/studio.ts"></script>
+</body>
 </html>

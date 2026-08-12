@@ -11,7 +11,8 @@
 // out of the trace exactly as `sim` published it; the only arithmetic is world
 // raw units to pixels.
 
-import type { Contact, Frame, Pose, Trace, V3 } from "./trace.js";
+import type { FightFrame, FightHeader } from "./source.js";
+import type { Contact, Pose, V3 } from "./trace.js";
 import { at, add, scale, share, shieldCorners } from "./trace.js";
 
 export type ViewKind = "plan" | "elevation";
@@ -162,7 +163,7 @@ function dot(
   ctx.fill();
 }
 
-function drawChrome(ctx: CanvasRenderingContext2D, cam: Camera, trace: Trace): void {
+function drawChrome(ctx: CanvasRenderingContext2D, cam: Camera, fight: FightHeader): void {
   const width = cam.width;
   const height = cam.height;
   ctx.save();
@@ -192,7 +193,7 @@ function drawChrome(ctx: CanvasRenderingContext2D, cam: Camera, trace: Trace): v
       ctx.strokeStyle = "#31415a";
       ctx.strokeRect(
         cam.point([0, 0, 0])[0], cam.point([0, 0, 0])[1],
-        cam.px(trace.arena[0]), -cam.px(trace.arena[1]),
+        cam.px(fight.arena[0]), -cam.px(fight.arena[1]),
       );
     } else {
       for (let z = 0; z <= 3 * ONE; z += ONE) {
@@ -308,7 +309,7 @@ function drawPose(
 }
 
 function drawContact(
-  ctx: CanvasRenderingContext2D, cam: Camera, trace: Trace, contact: Contact,
+  ctx: CanvasRenderingContext2D, cam: Camera, fight: FightHeader, contact: Contact,
 ): void {
   const p = cam.point(contact.point);
   const colour = contactColour(contact.kind);
@@ -318,7 +319,7 @@ function drawContact(
   // until 2026-08-10 -- the largest ring the function can draw went to a group
   // that dissipated nothing at all, and 23 such rings out-drew every wounding
   // contact in the fight.
-  const over = share(contact) / Math.max(1, trace.contactEnergyFloor);
+  const over = share(contact) / Math.max(1, fight.contactEnergyFloor);
   const radius = 4 + Math.min(16, Math.log2(1 + over) * 3);
   ctx.save();
   ctx.strokeStyle = colour;
@@ -336,13 +337,17 @@ function drawContact(
   line(ctx, cam, contact.point, add(contact.point, scale(contact.normal, 0.4)), colour, 1, []);
 }
 
+// The header and one frame, never the whole fight: a view that could reach the
+// frames could reach the *next* frame, and a panel that drew ahead of the tick
+// the transport is parked on would be a picture that lies about the clock.
 export function drawScene(
-  ctx: CanvasRenderingContext2D, cam: Camera, trace: Trace, frame: Frame, options: Options,
+  ctx: CanvasRenderingContext2D, cam: Camera, fight: FightHeader, frame: FightFrame,
+  options: Options,
 ): void {
   ctx.clearRect(0, 0, cam.width, cam.height);
   ctx.fillStyle = "#0b0f14";
   ctx.fillRect(0, 0, cam.width, cam.height);
-  drawChrome(ctx, cam, trace);
+  drawChrome(ctx, cam, fight);
 
   // Back to front, so an elevation of two bodies at different distances reads
   // as two bodies rather than as one interpenetrating tangle.
@@ -352,7 +357,7 @@ export function drawScene(
   }
   if (options.showContacts) {
     for (const contact of frame.contacts) {
-      drawContact(ctx, cam, trace, contact);
+      drawContact(ctx, cam, fight, contact);
     }
   }
 }

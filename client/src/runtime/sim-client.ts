@@ -167,14 +167,14 @@ export class SimClient {
     this.rejectUnsentCommands(new Error("reset discarded an unsent command"));
     const requestId = this.allocateRequestId();
     this.resetBarrierRequestId = requestId;
-    return this.control<ReadyMessage>({ kind: "reset", version: 1, requestId, epoch: this.epoch, seed, paused });
+    return this.control<ReadyMessage>({ kind: "reset", version: WORKER_PROTOCOL_VERSION, requestId, epoch: this.epoch, seed, paused });
   }
 
   setPaused(paused: boolean): Promise<PauseChangedMessage> {
     this.assertReady();
     if (this.advancePromise) return this.advancePromise.then(() => this.setPaused(paused));
     const requestId = this.allocateRequestId();
-    return this.control<PauseChangedMessage>({ kind: "setPaused", version: 1, requestId, epoch: this.epoch, paused });
+    return this.control<PauseChangedMessage>({ kind: "setPaused", version: WORKER_PROTOCOL_VERSION, requestId, epoch: this.epoch, paused });
   }
 
   advance(elapsedMicros: number): Promise<AdvanceAckMessage> {
@@ -182,7 +182,7 @@ export class SimClient {
     if (this.advancePromise) return this.advancePromise;
     const requestId = this.allocateRequestId();
     const promise = this.control<AdvanceAckMessage>({
-      kind: "advance", version: 1, requestId, epoch: this.epoch, elapsedMicros,
+      kind: "advance", version: WORKER_PROTOCOL_VERSION, requestId, epoch: this.epoch, elapsedMicros,
     });
     this.advancePromise = promise;
     void promise.finally(() => {
@@ -302,7 +302,7 @@ export class SimClient {
       resolve: intent.resolve, reject: intent.reject,
     });
     this.worker.postMessage({
-      kind: "command", version: 1, requestId, epoch: this.epoch,
+      kind: "command", version: WORKER_PROTOCOL_VERSION, requestId, epoch: this.epoch,
       sequence: this.nextSequence, targetTick, command: intent.command,
     });
     this.reportDiagnostics();
@@ -485,7 +485,7 @@ export class SimClient {
 
   private postSnapshotReturn(message: SnapshotMessage, requestId: number, track: boolean): void {
     const request: ReturnSnapshotMessage = {
-      kind: "returnSnapshot", version: 1, requestId,
+      kind: "returnSnapshot", version: WORKER_PROTOCOL_VERSION, requestId,
       epoch: message.epoch, bufferId: message.bufferId, leaseToken: message.leaseToken,
       buffer: message.buffer,
     };

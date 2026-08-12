@@ -432,10 +432,19 @@ function dependencyDiagramEdges(markdown, errors) {
 
 function checkProposedBoundaries(markdown, rel, errors) {
   const term = /\b(worker|babylon|articulated|learned|learning|neural(?:-network)?|mlp|webgpu|gpu|glb)\b/ig;
+  // A term leaves this rule when it ships, and the document that owns it is the
+  // one that gets to say so. `learning.md` joined the list on 2026-08-11: v2-19
+  // landed a trained network and v2-ui-08 put its inference inside `web.wasm`,
+  // so a page whose whole job is to state what learning exists could no longer
+  // do it in sentences shaped like denials. `gpu`, `webgpu`, `mlp` and
+  // `neural-network` are deliberately *not* granted there -- none of them ships,
+  // and that page's "Still absent" section has to keep reading as absence.
   const shippedTerms = rel === "docs/architecture/browser-runtime.md"
     ? new Set(["worker", "babylon", "webgpu", "gpu"])
     : rel === "docs/architecture/assets.md"
       ? new Set(["gpu"])
+    : rel === "docs/architecture/learning.md"
+      ? new Set(["learned", "learning", "articulated"])
     : new Set();
   const lines = markdown.split(/\r?\n/);
   const proposed = new Set();
@@ -727,8 +736,14 @@ function markdownLinks(markdown) {
       continue;
     }
     if (!fenced) {
-      for (const match of body.matchAll(/(?<!!)\[[^\]]+\]\(([^)]+)\)/g)) {
-        links.push({ href: match[1].trim().replace(/^<|>$/g, ""), line: markdown.slice(0, offset + match.index).split(/\r?\n/).length });
+      for (const match of body.matchAll(/(?<!!)\[([^\]]+)\]\(([^)]+)\)/g)) {
+        links.push({
+          href: match[2].trim().replace(/^<|>$/g, ""),
+          line: markdown.slice(0, offset + match.index).split(/\r?\n/).length,
+          text: match[1],
+          body,
+          column: match.index,
+        });
       }
     }
     offset += line.length;
@@ -748,8 +763,14 @@ function markdownImages(markdown) {
       continue;
     }
     if (!fenced) {
-      for (const match of body.matchAll(/!\[[^\]]*\]\(([^)]+)\)/g)) {
-        images.push({ href: match[1].trim().replace(/^<|>$/g, ""), line: markdown.slice(0, offset + match.index).split(/\r?\n/).length });
+      for (const match of body.matchAll(/!\[([^\]]*)\]\(([^)]+)\)/g)) {
+        images.push({
+          href: match[2].trim().replace(/^<|>$/g, ""),
+          line: markdown.slice(0, offset + match.index).split(/\r?\n/).length,
+          text: match[1],
+          body,
+          column: match.index,
+        });
       }
     }
     offset += line.length;
@@ -772,11 +793,160 @@ function enforcementMarkdownFiles(root) {
   return result;
 }
 
+// ------------------------------------------------------- source line anchors
+//
+// A `path#Lnnn` link used to be checked for range only: any line of the right
+// file passed. So every anchor rotted the moment somebody inserted a line above
+// it, silently, and the checker went on reporting a pass. This gate found
+// twenty-three stale on the day it was written, and a twenty-fourth beside one
+// of them: three sessions had each broken a handful by adding an import near the
+// top of a file, and the nine test anchors in `v2-reference-matrix.md` were
+// uniformly ten lines short for exactly that reason.
+//
+// What is checkable is the *claim the link makes*, and there are three shapes:
+//
+//   1. It names a symbol -- [`Sim::advance`](../../crates/web/src/lib.rs#L2933).
+//      The leaf of that name has to be within `ANCHOR_CONTEXT` lines of the
+//      anchor, or the link is pointing at something that is not what it says.
+//   2. It names a file or a crate -- [`crates/web/src/lib.rs`](...#L10718) --
+//      which is a pointer at a region, and there is nothing in the *text* to
+//      check. The golden registry writes the subject in the row's first cell
+//      instead (`` `LAB_HASH` ``, or failing that the pinned hex value), so a
+//      link inside a table row is held to its row's subject. This is the shape
+//      that reached `docs/reference/hashes.md`: twenty-seven anchors into the
+//      exact lines that must not drift, none of them checked by their text.
+//   3. Neither -- a bare region pointer with no subject anywhere. All that is
+//      left is that the anchor lands somewhere a reader can recognise as the
+//      *start* of something rather than in the middle of a sentence, which is
+//      what `startsSomething` asks. It is the weakest of the three and it is
+//      the one that caught ADR 0003's two anchors, mid-comment and blank.
+//
+// **What still walks through:** the leaf match is a mention and not a
+// definition, so an anchor that lands on a *call* of the symbol it names passes.
+// That is deliberate -- plenty of these links point at a call site on purpose --
+// and it is why the gate is a rot detector and not a symbol resolver. It also
+// says nothing about link text that is prose (`[the frame writer](...#L4090)`),
+// because prose has no leaf; four links in the tree have that shape and they
+// fall through to rule 3.
+const ANCHOR_CONTEXT = 4;
+
+// The identifier a symbol name ends in: `Sim::advance` -> `advance`,
+// `thread_local!` -> `thread_local`, `ActorPresentation.#pose` -> `pose`.
+// Anything that is not an identifier after that is not a symbol and is not
+// checked, rather than being checked against a pattern that cannot match.
+function symbolLeaf(value) {
+  const leaf = value.replace(/\(\)$/, "").replace(/!$/, "").split(/::|->|\./).pop().replace(/^#/, "");
+  return /^[A-Za-z_][A-Za-z0-9_]*$/.test(leaf) ? leaf : null;
+}
+
+// Whether a code span names the file it links into rather than a symbol inside
+// it: a path, a file name (with or without a trailing `:line`), or a bare path
+// component -- `fx` for `crates/fx/src/geom.rs`, `rules` for `rules.rs`.
+// **Case sensitive on purpose**: `world` is `world.rs` and `World` is the type.
+function namesItsTarget(value, targetRel) {
+  if (/[\/\\]/.test(value)) return true;
+  if (/\.[A-Za-z0-9]+(?::\d+)?$/.test(value)) return true;
+  const parts = targetRel.split("/");
+  return parts.includes(value) || parts[parts.length - 1].replace(/\.[^.]+$/, "") === value;
+}
+
+// What a table row says its anchors are about, read from the cells to the left
+// of the link: the pin's name and the pin's value. **Either** satisfies the
+// anchor, because a pin is written down two ways -- `const LAB_HASH: u64 = ...`
+// names it, `assert_eq!(combat_geometry_digest(), 0x9d15_...)` does not name it
+// and is still exactly where that number lives. Requiring the name would have
+// rejected three correct registry rows.
+//
+// Rows only. On a prose line the nearest earlier code span belongs to a
+// different clause: `[`World`](world.rs#L85), deterministic geometry in
+// [`fx`](geom.rs#L92)` would otherwise demand `World` at the second anchor.
+function tableRowSubjects(body, column) {
+  if (!/^\s*\|/.test(body)) return [];
+  const subjects = [];
+  for (const match of body.slice(0, column).matchAll(/`([^`]+)`/g)) {
+    const span = match[1].trim();
+    if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(span)) subjects.push({ kind: "symbol", value: span });
+    else if (/^0x[0-9a-f]+$/i.test(span)) subjects.push({ kind: "hex", value: span });
+  }
+  return subjects;
+}
+
+// Rust and JavaScript both write long hash literals with `_` separators that the
+// prose does not, so compare on the digits.
+function hexNear(window, value) {
+  const wanted = value.toLowerCase().replaceAll("_", "");
+  return window.some((text) => [...text.matchAll(/0x[0-9a-f_]+/gi)]
+    .some((match) => match[0].toLowerCase().replaceAll("_", "") === wanted));
+}
+
+function symbolNear(window, leaf) {
+  const word = new RegExp(`\\b${leaf}\\b`);
+  return window.some((text) => word.test(text));
+}
+
+// Rule 3 asks a question about syntax, so it is asked only of the languages
+// whose syntax `startsSomething` actually models. Every `#L` target in the tree
+// is one of these; a `.txt` or a `.csv` has no declarations to land on and is
+// left to the range check alone rather than being judged against a grammar it
+// does not have.
+const STRUCTURED_SOURCE = /\.(?:rs|ts|tsx|js|mjs|cjs|jsx)$/i;
+
+// Rule 3. A declaration, an attribute, or the first line of a comment block --
+// anything whose line is the beginning of a thing rather than its middle. Line 1
+// is always the head of a file.
+function startsSomething(lines, index) {
+  if (index === 0) return true;
+  const text = (lines[index] || "").trim();
+  if (!text) return false;
+  const comment = /^(?:\/\/+!?|\/\*+|\*|#(?!\[)|<!--|--|;;)\s?/.exec(text);
+  if (comment) {
+    const inside = text.slice(comment[0].length);
+    // A section head inside a doc block is the start of something even though
+    // the line above it is also a comment: `//! # The frame buffer` is what
+    // `frame-abi.md` points at, and `web/main.js` navigates by `// ---- draw`
+    // banners the same way.
+    if (/^#{1,6}\s+\S/.test(inside) || /^[-=*_]{4,}/.test(inside)) return true;
+    return !/^(?:\/\/|\/\*|\*|#(?!\[)|<!--|--|;;)/.test((lines[index - 1] || "").trim());
+  }
+  return /^(?:#\[|@)/.test(text)
+    || /^(?:(?:pub(?:\([^)]*\))?|export|default|declare|async|unsafe|extern(?:\s+"[^"]*")?|readonly|static|abstract|private|protected|public)\s+)*(?:const|let|var|function|class|interface|type|enum|struct|trait|impl|union|mod|fn|use|import|from|macro_rules!|namespace)\b/.test(text)
+    || /^[A-Za-z_$][\w$]*!\s*[{([]/.test(text)
+    || /^(?:test|describe|it|bench)\s*\(/.test(text)
+    || /^[A-Za-z_$][\w$]*\s*[:=]\s*(?:function\b|\()/.test(text)
+    || /^[A-Za-z_$#][\w$]*\s*(?:<[^>]*>)?\s*\([^;]*$/.test(text);
+}
+
+// Everything above, applied to one resolved `#L` link. Returns a complaint or
+// null.
+function staleSourceAnchor(target, targetRel, first, last, text, body, column) {
+  const lines = fs.readFileSync(target, "utf8").split(/\r?\n/);
+  const window = lines.slice(Math.max(0, first - 1 - ANCHOR_CONTEXT), Math.min(lines.length, last + ANCHOR_CONTEXT));
+  const span = /^`([^`]+)`$/.exec(text.trim());
+  const value = span ? span[1].trim() : null;
+  if (value !== null && !namesItsTarget(value, targetRel)) {
+    const leaf = symbolLeaf(value);
+    if (leaf === null) return null;
+    return symbolNear(window, leaf) ? null
+      : `names \`${value}\`, but no \`${leaf}\` is within ${ANCHOR_CONTEXT} lines of ${targetRel}:${first}`;
+  }
+  const subjects = tableRowSubjects(body, column);
+  if (subjects.length > 0) {
+    if (subjects.some((subject) => subject.kind === "symbol" ? symbolNear(window, subject.value) : hexNear(window, subject.value))) {
+      return null;
+    }
+    return `is the anchor for ${subjects.map((subject) => `\`${subject.value}\``).join(" / ")}, `
+      + `none of which is within ${ANCHOR_CONTEXT} lines of ${targetRel}:${first}`;
+  }
+  if (!STRUCTURED_SOURCE.test(targetRel)) return null;
+  return startsSomething(lines, first - 1) ? null
+    : `points into the middle of ${targetRel}:${first} rather than at the start of a declaration, a comment block, or the file`;
+}
+
 function checkGlobalInternalLinks(root, files, errors) {
   for (const file of files) {
     const rel = path.relative(root, file).replaceAll("\\", "/");
     const markdown = fs.readFileSync(file, "utf8");
-    for (const { href, line } of [...markdownLinks(markdown), ...markdownImages(markdown)]) {
+    for (const { href, line, text, body, column } of [...markdownLinks(markdown), ...markdownImages(markdown)]) {
       if (/^[a-z][a-z0-9+.-]*:/i.test(href)) continue;
       const hash = href.indexOf("#");
       const filePart = (hash === -1 ? href : href.slice(0, hash)).split("?", 1)[0];
@@ -802,7 +972,14 @@ function checkGlobalInternalLinks(root, files, errors) {
         const lineCount = fs.readFileSync(target, "utf8").split(/\r?\n/).length;
         const first = Number(lineAnchor[1]);
         const last = Number(lineAnchor[2] || lineAnchor[1]);
-        if (first < 1 || last < first || last > lineCount) errors.push(`${rel}:${line}: line link ${href} is outside its target`);
+        if (first < 1 || last < first || last > lineCount) {
+          errors.push(`${rel}:${line}: line link ${href} is outside its target`);
+          continue;
+        }
+        if (target.toLowerCase().endsWith(".md")) continue;
+        const targetRel = path.relative(root, target).replaceAll("\\", "/");
+        const stale = staleSourceAnchor(target, targetRel, first, last, text, body, column);
+        if (stale) errors.push(`${rel}:${line}: source anchor ${href} ${stale}`);
       } else if (target.toLowerCase().endsWith(".md")) {
         const anchors = new Set(headings(fs.readFileSync(target, "utf8")).map((heading) => heading.anchor));
         if (!anchors.has(anchor)) errors.push(`${rel}:${line}: internal link ${href} names a missing anchor`);
@@ -1183,4 +1360,7 @@ function main(argv) {
 
 if (require.main === module) main(process.argv.slice(2));
 
-module.exports = { checkArchitecture, checkDesignMigration, checkEnforcement, checkInventory, githubSlug, headings, inventoryRows, tables };
+module.exports = {
+  checkArchitecture, checkDesignMigration, checkEnforcement, checkInventory,
+  githubSlug, headings, inventoryRows, tables, markdownLinks, staleSourceAnchor,
+};

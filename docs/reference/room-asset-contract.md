@@ -193,11 +193,11 @@ can use the same slot.
 <!-- DOC_CONTRACT: room-asset-loader-lifecycle -->
 ## Loader lifecycle and failure
 
-Plain `/v2.html` selects the representative room; explicit `room=representative`
+Plain `#/game` selects the representative room; explicit `room=representative`
 does the same, while `room=procedural` is the removal route. Only after the authored
 selection does the entry dynamically import the room module and its leaf glTF
-registration. The loader stays out of `v2.html` modulepreloads and the initial static
-import closure. Dev request logs must prove procedural, fixed-stress greybox, and
+registration. The loader stays out of the studio shell's modulepreloads and the
+initial static import closure. Dev request logs must prove procedural, fixed-stress greybox, and
 Canvas startup do not request or register that chunk. The renderer first creates its engine and Scene, then calls the injected
 async `createEnvironment(scene, debug, signal)` factory. That factory validates and
 hashes the root-hosted sidecar and bounded GLB, imports a scene-bound asset container
@@ -221,7 +221,12 @@ Missing, corrupt, hash-mismatched, semantically invalid, or loader-failed room a
 produce sanitized diagnostics and are terminal for `room=representative`. They never
 silently select procedural geometry, expose a partial authored room, retry each frame,
 or switch GPU backend. Explicit `room=procedural` remains the procedural removal
-path. Context or device loss remains terminal. Reset clears authored instances before the new epoch;
+path. That rule is scoped to `room=representative`, which is a reader naming the
+authored room. `#/arena`'s `[Texture]` dress loads the same kit through the same loader
+and the same pins, instances floor and wall roles only, creates no furniture, light,
+pick or debug record from it, and falls back to a procedural floor named on its own
+label rather than being terminal -- it asks for a lit fighter and the room is the
+backdrop, so an absent development fixture may not take the mode down. Context or device loss remains terminal. Reset clears authored instances before the new epoch;
 application disposal releases instances, sources, imported materials, roots, lights,
 shadows, debug records, and picks exactly once.
 
@@ -260,7 +265,7 @@ parity does not complete that direction, and neither image is a runtime input.
 
 The current compact visual-review route exercises the same pinned kit and disclosure
 rules independently of the 48 x 32 performance stress. Its exact query family is
-`/v2.html?review=room&room=representative&backend=auto|webgl2&roomCamera=fixed|free`.
+`/#/game?review=room&room=representative&backend=auto|webgl2&roomCamera=fixed|free`.
 It creates no Worker and exposes no performance capture. Its explicit 16 x 10
 snapshot has a perimeter-only 48 solid tiles around a 14 x 8 open interior, two
 doors showing open and shut states, four torches, four each of barrels, rubble, and

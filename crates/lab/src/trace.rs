@@ -312,16 +312,19 @@ impl FightTrace {
 
         let _ = write!(out, "{{\"schema\":\"{TRACE_SCHEMA}\",\"one\":{ONE_RAW}");
         let _ = write!(out, ",\"scenario\":\"{}\",\"mirrored\":{}", scenario.name, run.mirrored);
-        // A mirrored fixture keeps the fixture's name and does not keep its
-        // fingerprint -- a mirrored run is a run of a different scenario. The
-        // header says `null` rather than the reflected scenario's own number,
-        // because the only use a reader has for this field is deciding whether
-        // it is looking at the pin.
-        if run.mirrored {
-            out.push_str(",\"fingerprint\":null");
-        } else {
-            let _ = write!(out, ",\"fingerprint\":\"{:#018x}\"", scenario.fingerprint());
-        }
+        // **What was run, not whether it was the pin.** This field used to be
+        // `null` for every mirrored run, on the argument that the only question a
+        // reader asks of it is "am I looking at the pinned fixture" -- true while
+        // the only two scenarios a trace could record were the fixture and its
+        // reflection. A described duel killed that premise: a mirrored
+        // `configured-duel-v1` is one of unboundedly many scenarios, its
+        // fingerprint is the only thing that says *which*, and the file is the
+        // artifact that outlives the terminal the number was printed in. So the
+        // scenario's own number goes in, always, and a reader deciding whether
+        // it holds the pin compares it against the pin -- which is the same test
+        // it was already making, one comparison later. `mirrored` is a separate
+        // field and still says a reflection happened.
+        let _ = write!(out, ",\"fingerprint\":\"{:#018x}\"", scenario.fingerprint());
         let _ = write!(out, ",\"seed\":{},\"heroes\":\"{}\",\"monsters\":\"{}\"",
             run.seed, run.heroes, run.monsters);
         match run.checkpoint {

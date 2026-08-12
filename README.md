@@ -293,6 +293,9 @@ cannot give orders during would be a screenshot.
 crates/fx       deterministic math: 16.16 fixed point, vectors, angles, PCG32
 crates/sim      the game: world, tick, observations, actions, replay
 crates/policy   agent policies + the run harness
+crates/learn-core  frozen inference: a compact feature slice, a small MLP and
+                   the checkpoint codec; ships inside web.wasm
+crates/learn    the trainer that produces a checkpoint; native lab only
 crates/lab      headless experiment CLI
 crates/web      the browser boundary: a hand-rolled wasm ABI, no wasm-bindgen
 web/            the legacy Canvas page and the v2 diagnostic HTML entry
@@ -301,11 +304,19 @@ tools/          generators, the legacy-page server, and repository checks
 docs/plans/     working plans, updated in place as sessions complete
 ```
 
-The deterministic core currently has no external dependency. `fx`, `sim`, and
-deterministic `policy` code accept only local deterministic crates and `std`;
-presentation, host, asset, and explicitly nondeterministic learning code may use
-audited exact dependencies outside authoritative state. The full boundary is in
-[the determinism contract](DESIGN.md#the-determinism-contract).
+**No crate in this workspace has an external dependency, and that is now checked
+rather than described.** `tools/check_deps.js` walks every workspace member and
+refuses any registry or git source; `Cargo.lock` holds seven packages and all
+seven are local. `fx`, `sim` and deterministic `policy` code are held to that
+rule for determinism as well as supply chain. The two learning crates are held to
+it for a second reason: `learn-core` compiles into `web.wasm`, so anything it
+pulled in would ship to a browser — which is why its SHA-256 is a hundred
+hand-rolled lines. Presentation and asset tooling under `web/`, `client/` and
+`tools/` may use audited exact npm dependencies outside authoritative state. The
+full boundary is in
+[the determinism contract](DESIGN.md#the-determinism-contract), and what the two
+learning crates are and are not allowed to touch is in
+[the learning status](docs/architecture/learning.md).
 
 ## Getting started
 
@@ -328,21 +339,24 @@ wheel to zoom; `R` to open a fresh room. The `?` in the corner holds the same li
 kept in the page rather than here. A server is needed because a `file://` page
 cannot instantiate wasm — that is the only reason.
 
-To run the shipped v2 Worker diagnostic instead:
+To open the studio instead — the shipped v2 Worker diagnostic and the Battle Arena,
+in one application:
 
 ```text
 npm ci                                            # once, or after lockfile changes
 npm run dev                                       # builds release wasm, starts Vite
 ```
 
-Open the Vite origin at `/v2.html`. The diagnostic's TypeScript module graph requires
-Vite; `tools/serve.js` serves only the classic Canvas files and cannot serve v2.
-Both development and production host the v2 entry and wasm artifact at the origin
-root as `/v2.html` and `/web.wasm`. See the
+Open the Vite origin at `/`. That is the studio: one page, two destinations behind
+hash routes — `#/game` is the diagnostic, `#/arena` replays a fight `lab trace`
+recorded. Its TypeScript module graph requires Vite; `tools/serve.js`
+serves only the classic Canvas files and answers `/` with the legacy page instead.
+Both development and production host the studio and wasm artifact at the origin
+root as `/` and `/web.wasm`. See the
 [browser runtime](docs/architecture/browser-runtime.md#worker-renderer-path) for
 the ownership boundary.
 
-Plain `/v2.html` loads the current pinned, textured representative-room GLB and keeps
+Plain `#/game` loads the current pinned, textured representative-room GLB and keeps
 the Worker controls active. Add `?room=procedural` for the explicit greybox removal
 route; fixed stress URLs continue to select their own room. The authored route passed
 the owner's minimum legacy-parity visual review; foreground performance and the

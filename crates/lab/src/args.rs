@@ -1,3 +1,5 @@
+use fx::Fx;
+
 /// Minimal `--key value` parser.
 ///
 /// Deliberately not a dependency. The lab's whole argument surface is a dozen
@@ -107,6 +109,65 @@ impl Args {
         self.number(key, default as u64) as u32
     }
 
+    /// A dimension typed as a decimal, converted to [`Fx`] here and nowhere
+    /// else.
+    ///
+    /// **No floating point exists anywhere on this path, and that is the whole
+    /// design.** `"0.35".parse::<f64>()` followed by a multiply is one rounding
+    /// mode away from producing a different raw value on a different target, and
+    /// this lab's output is compared against a wasm build byte for byte. So the
+    /// text is split on `.`, both halves are read as integers, and the answer is
+    /// `Fx::from_ratio(numerator, 10^places)` -- the same constructor every
+    /// hand-written spec row in `crates/sim` uses. The house pattern for a
+    /// runtime fraction elsewhere is an integer-percent key (`--sigma-pct`); a
+    /// shield half-width is not naturally a percentage of anything, so this
+    /// reads the decimal a person would write instead.
+    ///
+    /// # It is the constructor that is exact, not the number you typed
+    ///
+    /// `Fx::from_ratio` truncates toward zero at one raw unit, and a raw unit is
+    /// `Fx::EPSILON` = `1/65536` = 0.0000153 (`FRAC_BITS = 16`,
+    /// `crates/fx/src/fixed.rs`). Two consequences a caller has to know about,
+    /// because neither is visible in the output:
+    ///
+    /// - **The resolution floor is about 1.5e-5, so distinct decimals are not
+    ///   distinct dimensions.** `0.95` and `0.950001` are both raw 62259 and
+    ///   therefore the same spec row and the same arena fingerprint;
+    ///   `0.9500123` is the first string above `0.95` that is a different one.
+    ///   A sweep that steps a length by less than 1.5e-5 is running the same
+    ///   fight repeatedly, and only the fingerprint would ever have said so.
+    /// - **A value below the floor truncates to zero, and zero is refused
+    ///   here.** `validate_equipment` bounds a dimension at `raw() < 0`, so a
+    ///   zero-length blade is a *legal* spec row that runs a whole fight and
+    ///   loses it. That bound governs the shipped rows and sits upstream of a
+    ///   pinned digest, so the refusal belongs to the layer that reads a
+    ///   person's typing rather than to the layer that validates the table.
+    ///
+    /// Nine fractional places at most, because `10^10` does not fit an `i32` and
+    /// the tenth place is 1e-10, five orders of magnitude below the floor above
+    /// and therefore never the difference between two rows. Exits on a bad parse
+    /// for the reason [`Args::number`] does.
+    pub fn decimal(&self, key: &str, default: Fx) -> Fx {
+        let text = match self.raw(key) {
+            None => return default,
+            Some(text) => text,
+        };
+        match parse_decimal(text) {
+            Some(value) if value == Fx::ZERO => {
+                eprintln!(
+                    "--{key} rounds to zero at the 1/65536 fixed-point floor, got '{text}': \
+                     a zero-sized item is not a small one, and the spec table would accept it"
+                );
+                std::process::exit(2);
+            }
+            Some(value) => value,
+            None => {
+                eprintln!("--{key} expects a decimal like 0.35, got '{text}'");
+                std::process::exit(2);
+            }
+        }
+    }
+
     /// A named choice out of a fixed list. Exits with the list on a typo, for
     /// the same reason [`Args::number`] does: `--policy duellist` silently
     /// running the default is an afternoon wasted comparing a policy against
@@ -125,6 +186,38 @@ impl Args {
             }
         }
     }
+}
+
+/// `"1.75"` as an exact ratio, or `None` if it is not a decimal.
+///
+/// Written out rather than folded into [`Args::decimal`] so it can be tested
+/// against the strings a person actually types, including the ones that must be
+/// refused: a silently-accepted `"0,35"` is `--sigma-pct 100O` again.
+fn parse_decimal(text: &str) -> Option<Fx> {
+    let (negative, digits) = match text.strip_prefix('-') {
+        Some(rest) => (true, rest),
+        None => (false, text),
+    };
+    let mut parts = digits.split('.');
+    let whole = parts.next().unwrap_or("");
+    let frac = parts.next().unwrap_or("");
+    // A second `.` is a typo and never a thousands separator.
+    if parts.next().is_some() || (whole.is_empty() && frac.is_empty()) || frac.len() > 9 {
+        return None;
+    }
+    let mut numerator: i64 = 0;
+    for byte in whole.bytes().chain(frac.bytes()) {
+        if !byte.is_ascii_digit() {
+            return None;
+        }
+        numerator = numerator.checked_mul(10)?.checked_add((byte - b'0') as i64)?;
+    }
+    let mut denominator: i64 = 1;
+    for _ in 0..frac.len() {
+        denominator *= 10;
+    }
+    let numerator = i32::try_from(if negative { -numerator } else { numerator }).ok()?;
+    Some(Fx::from_ratio(numerator, denominator as i32))
 }
 
 #[cfg(test)]
@@ -159,6 +252,55 @@ mod tests {
         let a = args("hash --write");
         assert!(a.flag("write"));
         assert_eq!(a.command(), "hash");
+    }
+
+    #[test]
+    fn a_decimal_becomes_the_ratio_a_spec_row_would_have_been_written_as() {
+        // Every one of these is a number somebody would type into a picker, and
+        // the right-hand side is what the same dimension looks like where it is
+        // hand-written in `crates/sim/src/combat/spec.rs`. If the two ever stop
+        // agreeing, a configured shield stops being comparable with the shipped
+        // one.
+        assert_eq!(parse_decimal("0.25"), Some(Fx::from_ratio(1, 4)));
+        assert_eq!(parse_decimal("0.95"), Some(Fx::from_ratio(19, 20)));
+        assert_eq!(parse_decimal("1.45"), Some(Fx::from_ratio(29, 20)));
+        assert_eq!(parse_decimal("2.23"), Some(Fx::from_ratio(223, 100)));
+        assert_eq!(parse_decimal("2"), Some(Fx::from_int(2)));
+        assert_eq!(parse_decimal("2."), Some(Fx::from_int(2)));
+        assert_eq!(parse_decimal(".5"), Some(Fx::HALF));
+        assert_eq!(parse_decimal("-0.5"), Some(Fx::ZERO - Fx::HALF));
+        // Below one raw unit, so this is the string that used to buy a
+        // zero-length blade. `Args::decimal` refuses it; the conversion itself
+        // still has to answer, because "what does this text mean" and "may a
+        // picker say it" are two questions and only the second is a policy.
+        assert_eq!(parse_decimal("0.000000001"), Some(Fx::ZERO), "below one raw unit");
+
+        // Refused rather than partially read. `"0,35"` reading as 0 and running
+        // the fixture's dimensions would be an afternoon spent comparing a
+        // configuration against itself.
+        for bad in ["", ".", "0,35", "1.2.3", "1e3", "0x10", " 1", "1 ", "0.1234567890"] {
+            assert_eq!(parse_decimal(bad), None, "'{bad}' was accepted");
+        }
+
+        let a = args("trace --a-shield-half-width 0.35");
+        assert_eq!(a.decimal("a-shield-half-width", Fx::ONE), Fx::from_ratio(7, 20));
+        assert_eq!(a.decimal("b-shield-half-width", Fx::ONE), Fx::ONE, "a default was overwritten");
+    }
+
+    #[test]
+    fn two_decimals_inside_one_raw_unit_are_the_same_dimension() {
+        // The lossy half of `Args::decimal`, pinned so the doc comment above it
+        // is a measurement rather than an intuition. A picker sweeping a blade
+        // length in steps below 1/65536 is running one fight repeatedly, and
+        // nothing downstream -- not the table, not the fight, not the arena
+        // fingerprint -- can tell anyone that.
+        assert_eq!(parse_decimal("0.95"), parse_decimal("0.950001"));
+        assert_eq!(parse_decimal("0.95").map(Fx::raw), Some(62259));
+        assert_eq!(
+            parse_decimal("0.9500123").map(Fx::raw),
+            Some(62260),
+            "the first string above 0.95 that is a different row"
+        );
     }
 
     #[test]

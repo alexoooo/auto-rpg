@@ -4,10 +4,11 @@ import {
 } from "../protocol/abi.generated.js";
 import type { WorkerMessage } from "../protocol/messages.js";
 import type { LegacyPublication } from "../state/snapshot.js";
-import { SimWorkerHost, type LegacyWasmAdapter } from "./sim-worker-host.js";
+import { SimWorkerHost, type WasmAdapter } from "./sim-worker-host.js";
+import { ARENA_EXPORTS, createArenaAdapter, type ArenaExports } from "./arena-recorder.js";
 
 type U32Export = () => number;
-type RawExports = WebAssembly.Exports & {
+type RawExports = WebAssembly.Exports & ArenaExports & {
   memory: WebAssembly.Memory;
   init(seed: number): void;
   set_goto(xMilli: number, yMilli: number): void;
@@ -25,6 +26,16 @@ type RawExports = WebAssembly.Exports & {
   focus_entity_index: U32Export; focus_entity_generation: U32Export;
 };
 
+// Every export this adapter calls, checked before a single one is used.
+//
+// The comment this list used to carry is still the reason it exists: `undefined
+// >>> 0` is `0` and `NaN` never grows, so an unchecked export turns every
+// assertion below it into a vacuous pass. **The arena names join it here and not
+// earlier on purpose** -- v2-ui-05 landed seven configured-duel exports and
+// v2-ui-08 eight checkpoint ones, and both closing notes disclosed that none of
+// them was listed, because the worker's adapter called none of them and a name
+// in this list that nothing calls is a promise the list does not otherwise make.
+// This is the session with a caller.
 const requiredFunctions = [
   "init", "set_goto", "clear_order", "spawn_monster", "step", "tick",
   "frame_ptr", "frame_len", "frame_layout_version", "header_len", "unit_stride",
@@ -32,6 +43,7 @@ const requiredFunctions = [
   "map_tile_size_milli", "map_revision", "vis_ptr", "vis_len", "vis_revision",
   "furniture_ptr", "furniture_len", "furniture_stride", "furniture_revision",
   ...FOCUS_IDENTITY_EXPORTS,
+  ...ARENA_EXPORTS,
 ] as const;
 
 async function instantiateWasm(): Promise<RawExports> {
@@ -52,9 +64,14 @@ async function instantiateWasm(): Promise<RawExports> {
   return exports as RawExports;
 }
 
-async function createAdapter(): Promise<LegacyWasmAdapter> {
+async function createAdapter(): Promise<WasmAdapter> {
   const wasm = await instantiateWasm();
   return {
+    // The arena facet is the same instance seen through `arena-recorder.ts`'s
+    // interface, and it is a free function over the exports precisely so a Node
+    // test can build the identical adapter over the identical artifact without
+    // a worker, a `fetch` or a `self`.
+    arena: createArenaAdapter(wasm),
     init: (seed) => wasm.init(seed),
     setGoto: (xMilli, yMilli) => wasm.set_goto(xMilli, yMilli),
     clearOrder: () => wasm.clear_order(),

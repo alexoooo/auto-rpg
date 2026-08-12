@@ -48,6 +48,17 @@
 //! is `lab articulated`, which knows the concrete types. Nothing has yet had to
 //! *choose* one by number, and inventing the code before then is a promise made
 //! early.
+//!
+//! **Something now has, and it is a second enum rather than four more
+//! `PolicyKind` codes.** v2-ui-05 puts an articulated fight behind a browser
+//! configuration, so a policy per side arrives as an integer somebody wrote
+//! down. [`ArticulatedPolicyKind`] is that registry. Extending `PolicyKind`
+//! instead would have made one code space mean two things -- `2` is `Idle` on
+//! the legacy seam and `windmill` here -- on a page whose whole subject is
+//! watching the same fight go differently when the dropdown moves. The
+//! paragraph above still holds for `PolicyKind` and is the reason this is a
+//! sibling of it and not an extension: the two seams do not compose, so their
+//! registries must not either.
 
 #![forbid(unsafe_code)]
 
@@ -349,6 +360,128 @@ impl PolicyKind {
     }
 }
 
+/// Every articulated policy that can be named from outside this crate.
+///
+/// [`PolicyKind`]'s sibling under [`sim::CombatModel::Articulated`], and
+/// deliberately a second enum rather than four more codes on the first -- see
+/// the module header. The codes are **append-only** for the same reason
+/// `PolicyKind`'s are: they are what a saved arena configuration or a URL
+/// carries.
+///
+/// There is no genome here and no [`PolicySpec`]. Every one of these is a fixed
+/// script with no evolvable knobs, so the sliders `PolicyKind` grew are absent
+/// rather than empty -- an articulated fight is configured by its *loadout*,
+/// which is where the forty scalars went.
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Default)]
+pub enum ArticulatedPolicyKind {
+    /// Stands there, arms tucked. The control condition.
+    #[default]
+    Neutral,
+    /// The twelve-phase composed script: guard, wind, cut, recover.
+    Composed,
+    /// The composed script's control, swinging on a fixed clock.
+    Windmill,
+    /// The composed script with closing footwork.
+    AttackMoves,
+    /// The evolved network, and **the one entry [`ArticulatedPolicyKind::build`]
+    /// answers `None` for.**
+    ///
+    /// Named here rather than omitted, so that a caller can tell "this build has
+    /// an entry for that and cannot make you one" from "that is a number nobody
+    /// recognises" -- the difference between an option a reader can be told
+    /// about and one that silently does nothing. `v2-ui-08` landed it and needed
+    /// no rework here, which is what the reservation was for.
+    ///
+    /// **`build` still answers `None`, permanently, and that is not a gap.** Two
+    /// reasons, and the second is the one that would survive the first being
+    /// fixed:
+    ///
+    /// * This crate is in `tools/check_deps.js`'s deterministic set and must not
+    ///   gain a float dependency. `learn-core` is where the floating point
+    ///   lives, and it depends on *this* crate -- so the arrow already points
+    ///   the wrong way for this function to construct one.
+    /// * A learned fighter is not a kind, it is a kind **plus fifteen kilobytes
+    ///   of weights**. Nothing in a registry keyed by an integer has anywhere to
+    ///   put a checkpoint, and inventing a global for one would put a host asset
+    ///   inside a library that has no host.
+    ///
+    /// So the dispatch belongs to whoever holds the checkpoint. That is
+    /// `crates/web`'s `build_articulated_policy` in the browser and
+    /// `crates/lab`'s `--checkpoint` flag natively, and both hand the network in
+    /// rather than asking for one. An `Option` here and not a fallback to
+    /// [`ArticulatedPolicyKind::Neutral`] keeps the refusal legible: a caller
+    /// that asked for the evolved network and silently got a body standing still
+    /// would be watching a fight it would reasonably describe wrongly.
+    Learned,
+}
+
+impl ArticulatedPolicyKind {
+    pub const ALL: [ArticulatedPolicyKind; 5] = [
+        ArticulatedPolicyKind::Neutral,
+        ArticulatedPolicyKind::Composed,
+        ArticulatedPolicyKind::Windmill,
+        ArticulatedPolicyKind::AttackMoves,
+        ArticulatedPolicyKind::Learned,
+    ];
+
+    pub const fn code(self) -> u32 {
+        match self {
+            ArticulatedPolicyKind::Neutral => 0,
+            ArticulatedPolicyKind::Composed => 1,
+            ArticulatedPolicyKind::Windmill => 2,
+            ArticulatedPolicyKind::AttackMoves => 3,
+            ArticulatedPolicyKind::Learned => 4,
+        }
+    }
+
+    pub const fn from_code(code: u32) -> Option<ArticulatedPolicyKind> {
+        match code {
+            0 => Some(ArticulatedPolicyKind::Neutral),
+            1 => Some(ArticulatedPolicyKind::Composed),
+            2 => Some(ArticulatedPolicyKind::Windmill),
+            3 => Some(ArticulatedPolicyKind::AttackMoves),
+            4 => Some(ArticulatedPolicyKind::Learned),
+            _ => None,
+        }
+    }
+
+    pub fn from_name(name: &str) -> Option<ArticulatedPolicyKind> {
+        ArticulatedPolicyKind::ALL.into_iter().find(|k| k.name() == name)
+    }
+
+    /// The name the studio and `lab` label this policy with.
+    ///
+    /// `lab articulated`'s own `--policy` vocabulary is `composed`, `windmill`
+    /// and `neutral`, and these are those words: an arena fight and a gate
+    /// corpus that ran the same script should not be describable in two
+    /// vocabularies.
+    pub const fn name(self) -> &'static str {
+        match self {
+            ArticulatedPolicyKind::Neutral => "neutral",
+            ArticulatedPolicyKind::Composed => "composed",
+            ArticulatedPolicyKind::Windmill => "windmill",
+            ArticulatedPolicyKind::AttackMoves => "attack-moves",
+            ArticulatedPolicyKind::Learned => "learned",
+        }
+    }
+
+    /// An instance, or `None` for a kind this crate cannot build.
+    ///
+    /// An `Option` and not a fallback to `Neutral`: a caller that asked for the
+    /// evolved network and silently got a body standing still would be watching
+    /// a fight it would reasonably describe wrongly. The refusal belongs to the
+    /// caller, by name.
+    pub fn build(self) -> Option<Box<dyn ArticulatedPolicy>> {
+        match self {
+            ArticulatedPolicyKind::Neutral => Some(Box::new(NeutralArticulatedPolicy)),
+            ArticulatedPolicyKind::Composed => Some(Box::new(ScriptedArticulatedPolicy)),
+            ArticulatedPolicyKind::Windmill => Some(Box::new(WindmillArticulatedPolicy)),
+            ArticulatedPolicyKind::AttackMoves => Some(Box::new(ClosingAttackControlPolicy)),
+            ArticulatedPolicyKind::Learned => None,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -368,6 +501,59 @@ mod tests {
             assert_eq!(PolicyKind::from_name(kind.name()), Some(kind));
         }
         assert_eq!(PolicyKind::from_name("nonesuch"), None);
+    }
+
+    #[test]
+    fn articulated_policy_codes_are_append_only_and_reserve_the_learned_one() {
+        // The same claim `policy_codes_are_append_only` makes about the legacy
+        // registry, plus the one that is specific to this one: code 4 is
+        // *named* and refused rather than absent, so that the session which
+        // landed it needed no edit here at all.
+        //
+        // **`build` answering `None` for `Learned` is the contract and not a
+        // stub**, and v2-ui-08 landing the policy is what makes that worth
+        // asserting rather than assuming: the network runs in the browser now,
+        // and it still is not built from here. See the variant's doc comment for
+        // the two reasons, of which "a checkpoint is fifteen kilobytes of host
+        // asset" is the one that outlives the dependency argument.
+        assert_eq!(ArticulatedPolicyKind::Neutral.code(), 0);
+        assert_eq!(ArticulatedPolicyKind::Composed.code(), 1);
+        assert_eq!(ArticulatedPolicyKind::Windmill.code(), 2);
+        assert_eq!(ArticulatedPolicyKind::AttackMoves.code(), 3);
+        assert_eq!(ArticulatedPolicyKind::Learned.code(), 4);
+        assert_eq!(ArticulatedPolicyKind::from_code(5), None);
+        for kind in ArticulatedPolicyKind::ALL {
+            assert_eq!(ArticulatedPolicyKind::from_code(kind.code()), Some(kind));
+            assert_eq!(ArticulatedPolicyKind::from_name(kind.name()), Some(kind));
+        }
+        assert_eq!(ArticulatedPolicyKind::from_name("nonesuch"), None);
+        assert!(ArticulatedPolicyKind::Learned.build().is_none());
+
+        // And the two registries do not share a code space, which is the whole
+        // reason there are two of them: the same integer names different things
+        // on each seam, so nothing may cross between them by number.
+        assert_eq!(PolicyKind::from_code(2).map(PolicyKind::name), Some("idle"));
+        assert_eq!(
+            ArticulatedPolicyKind::from_code(2).map(ArticulatedPolicyKind::name),
+            Some("windmill"),
+        );
+    }
+
+    #[test]
+    fn every_articulated_kind_but_the_reserved_one_builds_and_decides() {
+        let obs = sim::ArticulatedObservation::BLANK;
+        for kind in ArticulatedPolicyKind::ALL {
+            let Some(mut policy) = kind.build() else {
+                assert_eq!(kind, ArticulatedPolicyKind::Learned);
+                continue;
+            };
+            let command = policy.decide(&obs);
+            assert!(
+                command.move_dir.length() <= Fx::ONE + Fx::from_ratio(1, 1000),
+                "{} produced an over-long move", kind.name()
+            );
+            policy.reset();
+        }
     }
 
     #[test]

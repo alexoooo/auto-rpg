@@ -4,8 +4,9 @@
 //! command the network produces is a row of the versioned action table and not
 //! a number it invented; the other is that nothing on the training side of the
 //! table reaches authoritative state at all. The type-level half of the second
-//! is the `compile_fail` doctest pair on `learn`'s crate root; this file is the
-//! value-level half, which is the one that can be read off a recording.
+//! is the `compile_fail` doctest pair on `learn_core`'s crate root -- it moved
+//! there with the types it is about when v2-ui-08 split the crate; this file is
+//! the value-level half, which is the one that can be read off a recording.
 
 #![forbid(unsafe_code)]
 

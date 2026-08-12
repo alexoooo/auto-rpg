@@ -53,7 +53,7 @@ loaded by the page.
 
 ## Browser loading and fallback
 
-`web/index.html` loads `draw.js`, `rig.js`, and `assets.js` before `main.js`.
+`web/legacy.html` loads `draw.js`, `rig.js`, and `assets.js` before `main.js`.
 `assets.js` fetches the manifest once at boot without blocking wasm or the game loop.
 It expands `{facing}` and `{frame}` patterns once during parsing, then lazily creates
 an `Image` on the first request for each leaf. Surfaces and faces become reusable
@@ -86,7 +86,13 @@ and renderer-boundary proof.
 The representative route dynamically imports the pinned room loader only after the
 engine and Scene exist. It validates the root-hosted room GLB and semantic sidecar before
 publishing an immutable semantic kit; the canonical validator report remains
-build/evidence provenance and is not deployed. Hidden enabled source meshes support
+build/evidence provenance and is not deployed. The arena's `[Texture]` dress is a second
+consumer of the same kit, behind the same loader, pins and validation, imported on the
+first press and never by `[Geometry]`. It instances floor and wall roles only, and it is
+the one route where an absent authored room is not terminal: it falls back to a
+procedural floor and names which one is drawn. See the
+[browser runtime](browser-runtime.md#visibility-authority) for why the two routes differ
+there. Hidden enabled source meshes support
 classic instances as Scene-owned, nonspatial resources without becoming visible,
 pickable, shadow, debug, or presence entries. The validated container, its sources,
 and its materials are disposed together. The exact manifest, generator, hashes, budgets, disclosure mapping, and

@@ -48,10 +48,10 @@ pub fn submit(&mut self, id: EntityId, command: Command) {
     }
 ```
 
-`Sim::advance` ([`crates/web/src/lib.rs:2165`](../../../crates/web/src/lib.rs#L2165))
+`Sim::advance` ([`crates/web/src/lib.rs:2933`](../../../crates/web/src/lib.rs#L2933))
 runs `observe -> decide -> submit` with **legacy** policies, so on an articulated world
 every command it produces is silently discarded. `PolicyKind::from_code`
-([`crates/policy/src/lib.rs:296`](../../../crates/policy/src/lib.rs#L296)) confirms the
+([`crates/policy/src/lib.rs:307`](../../../crates/policy/src/lib.rs#L307)) confirms the
 shape: codes `0..3` are `Utility|Duelist|Idle|Random`, all legacy. The articulated
 exports that do exist — `submit_articulated`, `pose_ptr`, `combat_event_ptr` — are an
 input channel for a JavaScript driver plus an output channel, with **no decision loop
@@ -60,7 +60,7 @@ command forever.
 
 So the expensive part of a live arena is not the ABI. It is putting the two-policy
 articulated loop — `measure_articulated_matchup`
-([`crates/lab/src/main.rs:823`](../../../crates/lab/src/main.rs#L823); note that
+([`crates/lab/src/main.rs:849`](../../../crates/lab/src/main.rs#L849); note that
 `policy::run_articulated` takes *one* policy and puts it on both sides, which an arena
 cannot use) — inside `Sim::advance`. And `Sim::advance` is where `ROOM_HASH`,
 `BATTLE_HASH`, `SWAP_HASH` and `BOW_HASH` are produced.
@@ -111,11 +111,15 @@ what crosses into `sim` is **five head indices** from an argmax. No float reache
 authoritative state.
 
 And the portability question `v2-19` was worried about was already engineered away:
-[`model.rs:968`](../../../crates/learn/src/model.rs#L968) chose ReLU over `tanh`
+[`model.rs:971`](../../../crates/learn-core/src/model.rs#L971) chose ReLU over `tanh`
 explicitly *"because portability rather than accuracy"*, with no libm call, a fixed
 summation order, deterministic lowest-index tie-breaking, and no fast-math in the
 profile — then recorded that the claim was untested *"because this repository has no
-second host to check it on."*
+second host to check it on."* (This link read `crates/learn/src/model.rs#L968` until
+v2-ui-08 split `learn-core` out and deleted that file, and the sentence quoted above is
+now written in the past tense at the new address. The plan file's closing note listed
+this line as outside its file set, which was wrong: the file it pointed at is in the
+same diff.)
 
 **wasm32 is that second host.** So this is not a risk to route around; it is a standing
 claim finally getting a target to be checked on. [`v2-ui-08`](v2-ui-08-learned-in-the-browser.md)
@@ -153,9 +157,50 @@ playback can start immediately while the recorder runs ahead.
 **This is an extrapolation and session 05 must measure it before session 07 designs
 around it.** The specific thing that could invalidate it: `publish()` rebuilds the whole
 legacy frame *and* both articulated buffers on every call
-([`crates/web/src/lib.rs:3880`](../../../crates/web/src/lib.rs#L3880)), and a recording
+([`crates/web/src/lib.rs:4836`](../../../crates/web/src/lib.rs#L4836)), and a recording
 loop calls `step(1)` 3,600 times. If that dominates, session 05 owes an
 `arena_record_step(ticks)` that fills the articulated buffers and skips the frame.
+
+### Superseded by measurement, 2026-08-11
+
+**Both halves of the estimate above were wrong, and in the same direction.** Session 05
+measured a 3,600-tick configured duel in wasm under Node — the shipped arrangement,
+`composed` against `windmill`, seed 3, in contact from the first clinch to the tick
+limit — at about **10,000 ticks per second**. A whole fight records in roughly **0.35
+seconds**, not five, and the figure to design session 07 around is 10,000 rather than
+650. Re-measured after review at 8,821–9,996 ticks/s across six pinned process runs,
+which is the one figure of that session's three that survived unchanged.
+
+The extrapolation was 15x pessimistic because 1,300 ticks/s was the wrong kind of
+number: it is throughput across 384 fights per generation on 20 threads with MLP
+inference on one side, which is a measure of contention, not the latency of one fight
+on one thread.
+
+**`publish()` does not dominate and session 05 owes no `arena_record_step`** — but that
+now rests on a bound rather than on a figure. Re-measured after review with the process
+pinned to logical CPU 0, the `step(1)`-versus-`step(3600)` difference straddles zero:
+3,600 separate publications are repeatedly *faster* than one, and the worst reading is
+under 8% of a drive that is already under 0.4 s. The original "about 4%, roughly 4
+microseconds each" was reading noise. The `neutral`-versus-`neutral` control runs
+45,101–57,782 ticks/s, so the contact solver is most of a contact-bound tick by a
+factor of 4.5–6.5× rather than by the 5.5× a single "58,000" implied.
+
+**Only the 10,000 is a number to design around**, and only with its caveats:
+neither fixture ends early, the `learned` policy is unmeasured, and this is `step()`
+under Node with no browser, no worker and no per-frame copy-out of the pose, region and
+combat-event buffers — which is the work session 07 adds. The measurement, its method
+and the full re-measurement are in
+[`articulated-abi.md`](../../reference/articulated-abi.md#what-recording-costs).
+
+**Closed out by sessions 07 and 08.** The copy-out that "this does not cover" costs a
+paired per-round **+3 to +4%**, bound ≤8% — so a recorded drive is still 0.3–0.4 s and
+`arena_record_step` was never owed. `learned` inference is measured at 1,317–1,341 ns a
+forward pass, about 1% of a contact-bound tick. And the 10,000 itself is now four
+readings in two clusters roughly 20% apart, the later two reproducing each other;
+`articulated-abi.md` records all four and the untested hypothesis that they are not the
+same fight. **Quote the range, name the pass.** Five agents measured on this machine
+during this series and no two agreed on a figure — the range is the honest form, and
+`AGENTS.md` says why best-of-N understates here.
 
 ## Deliberately not in scope
 
@@ -169,3 +214,52 @@ loop calls `step(1)` 3,600 times. If that dominates, session 05 owes an
   not exist.
 - **`ARTICULATED_HASH`.** Planned by `v2-17` and deliberately still absent. No session
   here may create it.
+
+## How the series closed, 2026-08-11
+
+All eight sessions landed. Each was implemented, then reviewed by an agent briefed to
+**refute rather than summarise**, then repaired; the reviews filed 8, 12, 12, 20 and
+more findings and are summarised in each session file.
+
+| session | decision | the thing it turned out to be about |
+|---|---|---|
+| 01 | `pass` | eighteen controls enumerated one by one, because deleting a working page is only honest with a list |
+| 02 | `pass`, one measurement owed | the camera decision, reversed on review to a constant 25° mount behind a 90° lens |
+| 03 | **`revise`** | its own criterion needs two frame times and both are *blocked*, not skipped |
+| 04 | `pass` | both pins unmoved by measurement rather than by assertion |
+| 05 | `pass` | an articulated fight inside wasm, from a 120-byte configuration the browser wrote |
+| 06 | `pass` | the one pin the series predicted would move, moved |
+| 07 | `pass`, one interaction owed | `a_live_fight_matches_the_traced_fight` — 3,601 and 3,340 frames, field for field |
+| 08 | `pass` | `LEARNED_INFERENCE_DIGEST 0xbdba8d64d340ce32`, and **native and wasm32 agree** |
+
+**The result worth keeping is session 08's.** `crates/learn/src/model.rs` chose ReLU over
+`tanh` for portability and then said, in as many words, that it was still only a claim
+*"because this repository has no second host to check it on."* wasm32 is that host and
+the claim holds — and the digest was shown to be sensitive to what it pins, since
+`mul_add` contraction moves it, which makes the `-C target-cpu=native` caveat an
+empirical hazard rather than a rhetorical one.
+
+**Three defects worth remembering, because they share a shape.** An architecture rule
+enforced by scanning source text fails open, every time:
+
+- `the_learned_policy_is_unreachable_from_sim` matched `path = "../` byte-exactly. Three
+  ordinary manifest spellings created a real edge and passed — and this was the *entire*
+  enforcement of `web ↛ learn`, because the same session had just measured that the
+  compiler never enforced it.
+- `the_arena_and_the_fight_modules_reach_neither_the_worker_nor_the_wasm` passed while
+  the arena statically imported the worker constructor, because the guard matched
+  `sim\.worker` with a literal dot and the new module was named `sim-worker.ts`.
+- The `dist/` main-thread-wasm assertion read one `<script src>` and grepped that chunk.
+  When `studio.ts` became a router with no static imports it was checking a 3.5 KB file.
+
+All three now ask the toolchain for the graph instead. `tools/check_deps.js` also seeds
+its audit from `cargo metadata --no-deps` rather than a hand-maintained list, which is
+how it came to audit neither `web` nor `lab` while its comment claimed it did.
+
+**Owed to a human, and genuinely blocked rather than skipped.** An automated browser tab
+on this machine receives *no* animation frames — seven consecutive `requestAnimationFrame`
+callbacks went unresolved in 45 s — so every frame-time line in this series is blank by
+necessity. Three things need a person at a visible browser: session 02 and 03's frame
+times with shadows on, session 03's silhouette judgement, and session 07's by-hand
+interaction (change one shield dimension, press **[Fight]** twice), which additionally
+needs one `<input>` per dimension in `web/index.html`.

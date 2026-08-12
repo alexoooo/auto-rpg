@@ -515,15 +515,24 @@ base constants; a prior legacy ABI change requires updating this reference rathe
 than silently retaining stale numeric offsets.
 
 **None of the three is generated yet, and that is v2-16's decision rather than its
-omission.** `emit_abi` emits both layout versions, both strides, both capacities and
-all 66 + 32 column offsets — v2-17 needs every one of them — but the snapshot chain
+omission.** `emit_abi` emits every layout version, stride and capacity and all of the
+column offsets — the filtered copy needs every one of them — but the snapshot chain
 still ends at the furniture block, so the generated `SNAPSHOT_BUFFER_BYTES` is
-`27_452` and each snapshot buffer still has four regions. Reserving the two articulated
-regions ahead of the filtered copy widens three pooled buffers by 279,040 bytes each and
-makes the once-per-publication zero-fill in `client/src/state/snapshot.ts` 11.2x wider,
-for regions nothing writes and nothing reads. The offsets above are what v2-17 generates
-when it lands the copy; `snapshot_offsets_are_aligned_non_overlapping_and_cover_every_fixed_buffer`
+`27_452` and each snapshot buffer still has four regions. Reserving the articulated
+blocks ahead of the filtered copy widens three pooled buffers and makes the
+once-per-publication zero-fill in `client/src/state/snapshot.ts` far wider, for blocks
+nothing writes and nothing reads. The offsets above are what v2-ui-07 generates when it
+lands the copy; `snapshot_offsets_are_aligned_non_overlapping_and_cover_every_fixed_buffer`
 fails today if a region is reserved without one.
+
+**v2-ui-06 added a third articulated publication and the chain above therefore has a
+third block**, `REGION_OFFSET = COMBAT_EVENT_OFFSET + MAX_COMBAT_EVENTS*COMBAT_EVENT_STRIDE*4`
+followed by `MAX_REGIONS*REGION_STRIDE*4`. At the capacities on the tree today the
+three come to 289,280 bytes each, taking a reserved `SNAPSHOT_BUFFER_BYTES` to
+`316_732` and the zero-fill to 11.5x. It reserved nothing here, for the reason above.
+Note the word "region" carries two meanings across these documents: a *snapshot*
+region is one of the four pooled blocks, an *anatomy* region is one of the five
+capsules [`articulated-abi.md`](articulated-abi.md#region-rows) publishes.
 
 The `SNAPSHOT_BUFFER_BYTES` above was `77_116` while `MAX_COMBAT_EVENTS` was the
 provisional 256. The mandatory high-water corpus in

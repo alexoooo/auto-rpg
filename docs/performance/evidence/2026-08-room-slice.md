@@ -94,7 +94,8 @@ numerical performance failure.
 
 The replacement added deterministic floor/wall textures, compact review framing,
 authored lighting and torch treatment, corrected wall orientation, the same style on
-the playable `/v2.html` route, and bounded zoom to `12`. After reviewing the current
+the playable route — `/v2.html` when this was reviewed, `/#/game` since v2-ui-01 folded
+it into the studio shell — and bounded zoom to `12`. After reviewing the current
 playable result, the owner said it looked good enough to proceed on 2026-08-09. The
 recorded visual-track decision is therefore `pass/proceed` at the minimum legacy
 parity threshold. All foreground measurements remain pending.

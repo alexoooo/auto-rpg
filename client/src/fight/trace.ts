@@ -80,13 +80,28 @@ export interface Contact {
   readonly region: number;
   readonly point: V3;
   readonly normal: V3;
-  readonly velocityA: V3;
-  readonly velocityB: V3;
-  readonly impulseA: V3;
-  readonly impulseB: V3;
+  /**
+   * The five columns a live fight does not have, and null is what says so.
+   *
+   * `ContactResolution` carries a velocity and an impulse per side and a group
+   * alpha; the published 32-word event row carries none of them -- the alpha
+   * because it is a solver search result, the other four because nothing had
+   * asked for them when the row was frozen. A trace, which is written from the
+   * whole struct, fills all five. Growing the row would move
+   * `COMBAT_EVENT_LAYOUT_VERSION` and `ARTICULATED_STREAM_DIGEST`, so it belongs
+   * to a session that wants them rather than to the one that noticed.
+   *
+   * Nullable rather than zero-filled, because a zero closing speed is a
+   * measurement -- two colliders that met while moving together -- and a reader
+   * cannot tell it from an absence.
+   */
+  readonly velocityA: V3 | null;
+  readonly velocityB: V3 | null;
+  readonly impulseA: V3 | null;
+  readonly impulseB: V3 | null;
   readonly toi: number;
   readonly group: number;
-  readonly alpha: number;
+  readonly alpha: number | null;
   /** Per **group**, not per contact: `closure_energy` over every collider in
    *  the time-of-impact group, bodies' own translational energy included, and
    *  copied unchanged into every row of that group. Never compare it to
@@ -114,9 +129,14 @@ export function share(contact: Contact): number {
   return contact.cut + contact.thrust + contact.pressure;
 }
 
-/** How fast the two colliders were closing at the fact, raw units per tick. */
-export function closureSpeed(contact: Contact): number {
-  return length(sub(contact.velocityA, contact.velocityB));
+/**
+ * How fast the two colliders were closing at the fact, raw units per tick, or
+ * null when the source did not publish the two velocities.
+ */
+export function closureSpeed(contact: Contact): number | null {
+  const { velocityA, velocityB } = contact;
+  if (velocityA === null || velocityB === null) return null;
+  return length(sub(velocityA, velocityB));
 }
 
 export interface Frame {
@@ -207,8 +227,49 @@ export function at<T>(list: readonly T[], index: number): T {
   return value;
 }
 
-export async function loadTrace(url: string): Promise<Trace> {
-  const response = await fetch(url);
+/**
+ * There is no recording at this URL, which is not the same as a broken one.
+ *
+ * Recorded fights are a development fixture -- `.gitignore` excludes
+ * `web/fight*.json`, `npm run trace` writes them, and the production bundle
+ * carries none of them -- so "absent" is the *expected* answer in a shipped
+ * build and in a fresh clone alike. A viewer that reported it the way it
+ * reports a corrupt file would tell a reader the application is broken when it
+ * is not, which is why absence is a type here rather than one more message a
+ * caller has to pattern-match a string out of.
+ */
+export class TraceUnavailable extends Error {
+  /** The status that carried the refusal; 200 when a host answered with a page. */
+  readonly status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+  }
+}
+
+/** The file is a trace, but not one this reader knows how to read. */
+export class TraceSchemaMismatch extends Error {}
+
+export async function loadTrace(url: string, signal: AbortSignal): Promise<Trace> {
+  // The signal reaches the network stack rather than only a flag, because this
+  // is an 8-9 MB body: a reader who leaves the arena one second in would
+  // otherwise go on downloading a fight for a route that no longer exists, and
+  // a second visit inside that window would run a second download beside it.
+  const response = await fetch(url, { signal });
+  if (response.status === 404) {
+    throw new TraceUnavailable(`${url}: ${response.status} ${response.statusText}`, 404);
+  }
+  // A host that rewrites unknown paths to its own index page reports the same
+  // absence as 200 and an HTML body -- `vite preview` does it, and so does most
+  // static hosting. Read as a parse failure it would blame a missing file for
+  // being corrupt; read here as what it is, it reaches the same explanation a
+  // 404 does.
+  if (response.ok && (response.headers.get("content-type") ?? "").includes("html")) {
+    throw new TraceUnavailable(
+      `${url}: the server answered with a page rather than a recording`, response.status,
+    );
+  }
   if (!response.ok) {
     throw new Error(`${url}: ${response.status} ${response.statusText}`);
   }
@@ -217,7 +278,9 @@ export async function loadTrace(url: string): Promise<Trace> {
   // is the failure this whole detour exists to avoid: being shown something
   // plausible that is not what the simulation did.
   if (value.schema !== TRACE_SCHEMA) {
-    throw new Error(`trace schema is ${String(value.schema)}, this page reads ${TRACE_SCHEMA}`);
+    throw new TraceSchemaMismatch(
+      `trace schema is ${String(value.schema)}, this page reads ${TRACE_SCHEMA}`,
+    );
   }
   if (!Array.isArray(value.frames) || value.frames.length === 0) {
     throw new Error("trace carries no frames");

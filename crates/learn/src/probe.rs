@@ -48,8 +48,8 @@
 //! composed script beats 330 times. A learned policy is being asked to beat a
 //! baseline that a control condition already beats by seventeen points.
 
-use crate::checkpoint::{Checkpoint, TrainingRecord};
-use crate::model::{uniform, LearnedArticulatedPolicy, Model};
+use learn_core::checkpoint::{Checkpoint, TrainingRecord};
+use learn_core::model::{uniform, LearnedArticulatedPolicy, Model};
 use fx::{Fx, Rng};
 use policy::{
     ArticulatedPolicy, ArmRoles, ClosingAttackControlPolicy, RunConfig, ScriptedArticulatedPolicy,
@@ -1181,7 +1181,7 @@ fn record(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::{LearnedArticulatedPolicy, HEIGHTS};
+    use learn_core::model::{LearnedArticulatedPolicy, HEIGHTS};
     use policy::{run_articulated, CYCLE_TICKS, HEIGHT_TICKS};
 
     /// The fixture with the two bodies moved inside each other's sight.

@@ -57,11 +57,11 @@ browser choreography. The named render-contract suite passed 29 of 29 tests on
 
 | Contract | Exact automated evidence | Result |
 |---|---|---|
-| Hidden entities and snapshot-local state leave no renderer presence | [`unseen_units_have_no_render_audio_pick_or_debug_presence`](../../client/test/render-contract.test.mjs#L151); [`unseen_shots_events_and_furniture_have_no_persistent_presence`](../../client/test/render-contract.test.mjs#L167) | pass |
-| Remembered geometry remains non-current and unknown geometry remains absent | [`remembered_geometry_uses_seen_not_current_visibility`](../../client/test/render-contract.test.mjs#L188) | pass |
-| Fog boundaries and generational identity cannot leak a frame | [`fog_edge_generation_reuse_creates_no_one_frame_leak`](../../client/test/render-contract.test.mjs#L199); [`persistent_units_retire_every_registry_before_a_generation_is_reused`](../../client/test/render-contract.test.mjs#L598) | pass |
-| WebGPU device loss and WebGL context loss are terminal, without fallback | [`context_or_device_loss_disposes_once_and_never_switches_backend`](../../client/test/render-contract.test.mjs#L450); [`terminal_loss_disposes_renderer_content_before_engine_and_client`](../../client/test/render-contract.test.mjs#L514) | pass |
-| Floor picking and primary-drag pan use the live camera and recover gesture ownership | [`primary_pointer_click_issues_goto_while_primary_drag_moves_the_live_camera`](../../client/test/render-contract.test.mjs#L1280); [`greybox_input_keeps_one_pointer_owner_and_recovers_after_throwing_host_callbacks`](../../client/test/render-contract.test.mjs#L1476) | pass |
+| Hidden entities and snapshot-local state leave no renderer presence | [`unseen_units_have_no_render_audio_pick_or_debug_presence`](../../client/test/render-contract.test.mjs#L161); [`unseen_shots_events_and_furniture_have_no_persistent_presence`](../../client/test/render-contract.test.mjs#L177) | pass |
+| Remembered geometry remains non-current and unknown geometry remains absent | [`remembered_geometry_uses_seen_not_current_visibility`](../../client/test/render-contract.test.mjs#L198) | pass |
+| Fog boundaries and generational identity cannot leak a frame | [`fog_edge_generation_reuse_creates_no_one_frame_leak`](../../client/test/render-contract.test.mjs#L209); [`persistent_units_retire_every_registry_before_a_generation_is_reused`](../../client/test/render-contract.test.mjs#L608) | pass |
+| WebGPU device loss and WebGL context loss are terminal, without fallback | [`context_or_device_loss_disposes_once_and_never_switches_backend`](../../client/test/render-contract.test.mjs#L460); [`terminal_loss_disposes_renderer_content_before_engine_and_client`](../../client/test/render-contract.test.mjs#L524) | pass |
+| Floor picking and primary-drag pan use the live camera and recover gesture ownership | [`primary_pointer_click_issues_goto_while_primary_drag_moves_the_live_camera`](../../client/test/render-contract.test.mjs#L1290); [`greybox_input_keeps_one_pointer_owner_and_recovers_after_throwing_host_callbacks`](../../client/test/render-contract.test.mjs#L1486) | pass |
 
 ## Manual correctness matrix
 
@@ -117,7 +117,7 @@ resize, while the Canvas control synchronises it directly.
 | Procedural greybox, forced WebGL2 | ordered recapture waived by owner | out-of-order diagnostic met standalone threshold with p50 16.70 ms, p95 16.80 ms, p99 16.80 ms; 4,138 frames over 16.67 ms; 0 over 33.33 ms; 0 long tasks; 7,200 samples | diagnostic retained for proceed decision: [interpretation](evidence/2026-08-08-v2-greybox.md#diagnostic-result); [raw JSON](evidence/2026-08-08-v2-greybox-webgl2.json) |
 | Repeated Canvas2D greybox control, last | ordered repeat waived by owner | early repeat was out of order (28.876 seconds after WebGPU nominal finish), so original drift control is absent | diagnostic retained for proceed decision: [interpretation](evidence/2026-08-08-v2-greybox.md#early-canvas2d-diagnostic); [raw JSON](evidence/2026-08-08-v2-greybox-canvas2d-control-early-repeat.json), SHA-256 `5c80a5af94112440b84b43237ba068767856c48d2d2e254b5af2822a3a9c04a4` |
 
-The comparable Canvas control is `/v2.html?stress=greybox&renderer=canvas`, implemented
+The comparable Canvas control is `/#/game?stress=greybox&renderer=canvas`, implemented
 by `client/src/render/canvas-control.ts`. It consumes the same frozen 64-identity,
 48-by-32, seed-`0x5eed1234` fixture and the same rAF sampler at 1920 by 1080, render
 scale 1, with eight torch markers and zero training workers. It uses the same 30,000
@@ -128,6 +128,12 @@ schema as the engine runs. Its backend metadata records requested `canvas`, sele
 Canvas2D control last after the WebGPU and forced-WebGL2 runs. This compares the same
 greybox presentation workload; it is not evidence about the legacy Canvas game's
 frame rate.
+
+Every run in the record above was captured before v2-ui-01, when the whole fixed-stress
+family answered at `/v2.html?stress=...` rather than on a hash route. That session moved
+the query from a page to a route and left the fixture, the sampler and every parameter
+alone, so the numbers stand — but they were measured at the old URL, and a rerun at the
+one printed here is the first that will not have been.
 
 WebGPU passes its numerical gate only when diagnostics select WebGPU and p95 is at
 most 16.67 milliseconds. Forced WebGL2 passes its numerical gate only when diagnostics

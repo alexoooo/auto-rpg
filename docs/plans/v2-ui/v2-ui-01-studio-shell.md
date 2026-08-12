@@ -75,6 +75,32 @@ Keep `loadTrace`'s hard schema refusal. `TRACE_SCHEMA` is a two-file contract an
 error it produces — the one naming the exact `lab trace` command to re-run — is the most
 useful message on the page when a fixture goes stale.
 
+### A missing recording degrades; it does not break
+
+`.gitignore` excludes `web/fight*.json` and the production build's copy allowlist carries
+none of them, so **the three recordings are absent in a shipped build and in a fresh clone
+alike** — and `#/arena` is now one of two cards on the landing page rather than a page that
+shipped in nothing. So `loadTrace` distinguishes three failures and the arena gives each
+its own sentence, the same rule v2-ui-03 sets for a missing room GLB:
+
+| what happened | what the reader is told |
+|---|---|
+| 404, or 200 with an HTML body (a static host's SPA fallback — `vite preview` does this) | recordings are a development fixture written by `npm run trace`; v2-ui-07 removes the file |
+| `TRACE_SCHEMA` mismatch | unchanged, including the `lab trace` command to re-run |
+| anything else | the URL and the underlying error |
+
+The transport bar disables itself while no fight is loaded, so "inert" is visible rather
+than inferred, and the main screen says the same thing before the click when
+`import.meta.env.PROD`. The picker keeps working either way.
+
+### `mount` returns before the fight loads
+
+The recording is an 8–9 MB fetch plus a parse, and the shell cannot dispose a route whose
+`mount` has not resolved. So `mount` registers its listeners, returns its handle, and lets
+the load resolve into a route that is either still mounted or already gone;
+`loadTrace`/`loadTraceSource` take a required `AbortSignal` so `dispose` cancels the
+download rather than only setting a flag, and a second **[Fight]** aborts the first.
+
 ## The picker, before there is anything to pick
 
 The loadout controls are built and validated now, and disabled where nothing can honour
@@ -150,3 +176,71 @@ By hand, and recorded:
 Record `pass`, `revise` or `stop`. A `pass` requires that no capability present on
 `fight.html` was lost, listed control by control — this session deletes a working page
 and the only honest way to do that is to enumerate what replaced it.
+
+## How v2-ui-01 closed, 2026-08-11
+
+**`pass`.** Every control `web/fight.html` carried is in `#/arena`, and the enumeration
+below is the whole of the argument for deleting the page.
+
+### Control by control
+
+Compared against `git show HEAD:web/fight.html`. Each of the eighteen appears in the
+`route-arena` template of `web/index.html` with the same `id` and the same attributes —
+same `min`/`max`/`step` on every range, same `checked` on every checkbox, same five
+`rate` options with `1x` still selected, same `title` shortcuts on the four stepping
+buttons:
+
+| control | old | new |
+|---|---|---|
+| `plan`, `elevation`, `chart` canvases | 900×620, 900×620, 1800×220 | identical |
+| `play` | ✓ | ✓ |
+| `step-back`, `step-forward` | `title` "Left/Right arrow; shift for ten" | identical |
+| `prev-contact`, `next-contact` | `title` `[` and `]` | identical |
+| `prev-wound`, `next-wound` | ✓ | ✓ |
+| `scrub` | `range 0..1 step 1`, `aria-label="Tick"` | identical |
+| `rate` | five options, `1x` selected | identical |
+| `span` | `range 2..26 step 1` | identical |
+| `azimuth` | `range −180..180 step 5` | identical |
+| `show-regions`, `show-targets`, `show-contacts` | checked | identical |
+| `show-velocity` | unchecked | identical |
+
+Two things deliberately did **not** carry over unchanged, and neither is a capability:
+
+- The footer's link to `/v2.html` is now the **New Game** destination on the nav bar, and
+  `/fight.html` is `#/arena`. A link became a route; nothing became unreachable.
+- The regenerate hint reads "Regenerate the recorded fights with `npm run trace`" rather
+  than naming one file, because the picker now offers three.
+
+Everything gained is additive: the picker, and — from `v2-ui-02` onward — the three 3D
+panels that share the canvas beside these two.
+
+### What the adversarial review found
+
+Two defects, both fixed here, and both were failures of *evidence* rather than of code:
+
+- **`#/arena` 404s in a production build**, because `publicDir: false` and the copy
+  allowlist mean the three 8–9 MB fixtures are not in `dist/`. Fixed by saying so on the
+  page rather than by shipping 26 MB. The finding that made it worth having: a missing
+  `/fight.json` is answered by both `vite preview` and the dev server with the SPA
+  fallback — **`status 200, text/html`** — so a check written against a 404 sees nothing
+  wrong with exactly the case that is broken.
+- **The build assertion had gone vacuous**, exactly as this plan warned it could.
+  `studio.ts` has no static imports, so `dist/index.html` names a 3.5 KB router and the
+  grep never opened the game code. Replaced with a static-import-closure walk, and the
+  fix was proved by *inducing* the failure: `dist/index.html statically reaches
+  sim.worker-….js, so the wasm worker runs on the main thread`.
+
+### Owed onward
+
+`client/test/chunk-graph.mjs` is imported by `vite.config.ts`, which points from build
+configuration into the test tree. It belongs in `tools/`.
+
+**Paid.** It is `tools/chunk-graph.mjs`, beside the other build-adjacent checkers, and
+both importers move with it. Still one copy for the reason the file's own header gives:
+the build's assertion and `render-contract.test.mjs`'s are the same claim about the same
+graph, and two copies would eventually be two claims that both pass about different
+graphs. A move is exactly the change that could disarm an assertion silently, so it was
+checked the way this session checked the assertion in the first place: by inducing the
+failure again after the move, and reading back
+`dist/index.html statically reaches sim.worker-….js, so the wasm worker runs on the
+main thread`.

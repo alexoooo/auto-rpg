@@ -4,7 +4,9 @@ import {
   MAX_EVENTS, MAX_SHOTS, MAX_UNITS, SHOT_STRIDE, SNAPSHOT_BUFFER_BYTES,
   UNIT_STRIDE, VIS_OFFSET,
 } from "../protocol/abi.generated.js";
-import { isU32, type SnapshotMessage } from "../protocol/messages.js";
+import {
+  LEGACY_WORKER_PROTOCOL_VERSION, WORKER_PROTOCOL_VERSION, isU32, type SnapshotMessage,
+} from "../protocol/messages.js";
 
 export const MAP_UNKNOWN = 255;
 const ORDER_FOCUS = 3;
@@ -219,7 +221,12 @@ export type SnapshotView = {
 };
 
 export function parseSnapshot(message: SnapshotMessage): SnapshotView {
-  if (message.version !== 1 || message.buffer.byteLength !== SNAPSHOT_BUFFER_BYTES
+  // Either accepted version. The snapshot layout is the same on both -- v2 adds
+  // a second kind of *session* rather than a second frame -- and the exact V1
+  // sessions `articulated-mechanical-gate.md` commits to accepting are still
+  // handed the buffer through this validator.
+  if ((message.version !== WORKER_PROTOCOL_VERSION && message.version !== LEGACY_WORKER_PROTOCOL_VERSION)
+    || message.buffer.byteLength !== SNAPSHOT_BUFFER_BYTES
     || message.frameLayoutVersion !== FRAME_LAYOUT_VERSION || message.headerLength !== HEADER_LEN
     || message.unitStride !== UNIT_STRIDE || message.shotStride !== SHOT_STRIDE
     || message.eventStride !== EVENT_STRIDE || message.furnitureStride !== FURNITURE_STRIDE) {

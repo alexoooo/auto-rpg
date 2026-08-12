@@ -1,8 +1,8 @@
 # Articulated observation and stream ABI
 
-**Purpose:** Freeze subject observations, feature widths, host word layouts, exports, capacities, and stream digests for v2-16.
+**Purpose:** Freeze subject observations, feature widths, host word layouts, exports, capacities, and stream digests for v2-16, plus the configured duel's input buffer and refusal codes and the checkpoint staging buffer behind its fifth policy code.
 **Status:** current
-**Canonical source:** `crates/sim/src/obs.rs`, `crates/policy/src/lib.rs`, and `crates/web/src/lib.rs`
+**Canonical source:** `crates/sim/src/obs.rs`, `crates/policy/src/lib.rs`, `crates/learn-core/src/digest.rs`, and `crates/web/src/lib.rs`
 **Update when:** An observation field, feature offset, word offset, export, capacity, ownership rule, or digest byte changes.
 
 This document owns the subject-scoped observation, appended feature width, wasm word
@@ -273,6 +273,494 @@ articulated row, and handing that row to a plain Legacy `Scenario::dungeon` is a
 construction `World::new` refuses by panicking — one call inside a `pub extern "C"`
 export, which poisons the instance for the life of the page.
 
+## The configured duel
+
+V2-ui-05 adds the decision loop the exports above had no counterpart for. Until
+it landed, `World::submit` returned without storing on any world that is not
+Legacy, so every command `Sim::advance` produced under this model was dropped on
+the floor and `init_articulated` opened a room whose bodies chased their
+tick-zero command forever.
+
+`Sim::advance` gains a **second branch**, taken on the first line, and the
+condition is not the combat model: it is whether a configured duel is installed.
+Narrower on purpose. Branching on the model would also divert
+`init_articulated`'s room, whose behaviour under the legacy loop is what
+`published_views_survive_articulated_stress_without_memory_growth` settles its
+page count on and what
+`the_high_water_corpus_fills_at_most_half_the_event_buffer` counts its rows
+through. That room's commands are therefore still dropped; what the session buys
+is that it is no longer the only such world. `ROOM_HASH`, `BATTLE_HASH`,
+`SWAP_HASH` and `BOW_HASH` are all produced by `Sim::advance`, and a branch the
+legacy path cannot enter is the only obviously-safe shape there.
+
+The loop ported is `lab`'s `measure_articulated_matchup` and **not**
+`policy::run_articulated`, which takes one `impl ArticulatedPolicy` and installs
+it on both sides — right for a control condition and useless for an arena.
+Routing is on the alive set captured at install, because
+[`ArticulatedObservation`](#subject-scoped-observation) has no faction column.
+The duel is built with the runner's `Order::Advance(±X)` and with both
+objectives at `Objective::None`, so the same configuration and seed produce the
+same state hash here as in `lab`; both are hashed, so a driver that skipped
+either would fingerprint a different world. `a_scripted_arena_fight_in_wasm_matches_the_same_fight_in_lab`
+is what says the two agree, against a second spelling of the loop rather than
+against a pinned number.
+
+Policies are named by a second registry, `policy::ArticulatedPolicyKind`,
+separate from `PolicyKind` because the two seams share no code space:
+
+| code | policy | source |
+|---:|---|---|
+| 0 | `neutral` | `NeutralArticulatedPolicy` |
+| 1 | `composed` | `ScriptedArticulatedPolicy` |
+| 2 | `windmill` | `WindmillArticulatedPolicy` |
+| 3 | `attack-moves` | `ClosingAttackControlPolicy` |
+| 4 | `learned` | `learn_core::LearnedArticulatedPolicy`, over the installed checkpoint |
+
+Code 4 was named and refused rather than omitted, so that the session splitting
+an inference-only crate out of `crates/learn` would be purely additive. It was,
+and v2-ui-08 landed it: `learn-core` is `crates/web`'s dependency, the fifth code
+builds, and the reservation cost that session no rework here at all.
+
+**`ArticulatedPolicyKind::build` still answers `None` for it, and that is the
+contract rather than a leftover.** `crates/policy` is in `check_deps.js`'s
+deterministic set and must not gain a float dependency; and more durably, a
+trained fighter is a kind *plus fifteen kilobytes of weights*, which a registry
+keyed by an integer has nowhere to put. The dispatch is `crates/web`'s
+`build_articulated_policy`, beside the buffer that holds the weights. What a
+fighter asking for code 4 with no checkpoint installed gets is
+[`ARENA_NO_CHECKPOINT`](#refusing-by-name) and not `ARENA_POLICY_UNAVAILABLE` --
+"fetch one" and "rebuild the module" are different instructions, and a studio
+that could not tell them apart would show the wrong one.
+
+### The checkpoint staging buffer
+
+A trained network is **fetched and not compiled in**. A checkpoint *is* a
+fighter, so the studio should be able to put a different one in the ring without
+a Rust rebuild, and `checkpoints/v2-probe.ckpt` is 15,580 bytes beside an 8 MB
+trace. `vite.config.ts` serves it at `/checkpoints/v2-probe.ckpt` in development
+and copies that one file into `dist/checkpoints/` at build; the rest of
+`checkpoints/` is evidence a reader quotes and is deliberately not addressable.
+
+```text
+checkpoint_ptr() -> u32
+checkpoint_capacity() -> u32            // 32768
+checkpoint_installed() -> u32           // 0 or 1
+checkpoint_digest_ptr() -> u32          // 32 bytes, or thirty-two zeroes
+checkpoint_digest_len() -> u32          // 32
+load_checkpoint(len:u32) -> u32         // packed, see below
+learned_inference_digest_lo() -> u32
+learned_inference_digest_hi() -> u32
+```
+
+`SUBMITTED_COMMAND`'s and `ARENA_CONFIG`'s pattern: a fixed array that never
+moves and never grows linear memory, and one consumer that judges the whole of
+it. The one difference is that a checkpoint is not a fixed width -- only the
+training seed list varies, since `ModelShape::CURRENT` fixes 3,858 weights -- so
+the length is an **argument** and the export is a *capacity*, named after
+`pose_capacity` rather than after `arena_config_len` for that reason. 32,768 is
+the repository's own rejected-capacity rule applied to 15,580: the next power of
+two at least twice the largest measured.
+
+**The handshake, precisely, because the client is written against it and
+v2-ui-07 is the session that writes the client.**
+
+1. Fetch the bytes. Refuse locally if `bytes.length > checkpoint_capacity()`;
+   the module refuses it too, with `CHECKPOINT_TOO_LONG`, and reads nothing.
+2. Take a **fresh** `Uint8Array` over `checkpoint_ptr()`, write the bytes, and
+   drop the view. Pointers here are stable for the module's life, but a view
+   held across an unrelated call that grew memory is a detached view.
+3. Call `load_checkpoint(bytes.length)` and decode the packed word below. This
+   is the **only allocating call in the set** -- `Checkpoint::from_bytes` builds
+   the seed list and the weight vector, which for `ModelShape::CURRENT` is 32
+   seeds and 3,858 `f32`, about 15 KB -- so it belongs in a caller's warm-up
+   beside `init_articulated`, not mid-frame while a typed array over the pose
+   buffer is being held.
+
+   **The refusal path used to be the expensive one, and that is worth saying
+   because it is the opposite of what a reader expects.** Both vectors were
+   reserved from the *claimed* counts before the loop that fills them could
+   discover the file was too short to back them, under caps of 4,096 seeds and
+   2^20 weights that had nothing to do with what a legal file can carry. A
+   68-byte file claiming four billion weights therefore reserved 4 MiB, grew
+   linear memory by 65 pages -- 62,645 times the file it was refusing -- and
+   detached every typed array the page held, all on its way to answering
+   `Truncated` and installing nothing. The caps are now `bytes.len() / 8` and
+   `ModelShape::CURRENT.weight_count()`, which are the largest counts a file of
+   that length could legitimately carry, and
+   `a_refused_checkpoint_does_not_grow_linear_memory` in `tools/wasm_check.js`
+   measures `memory.buffer.byteLength` across four overclaiming headers. A
+   checkpoint is the one input here a *person* picks, so "a refusal is cheap" is
+   part of this handshake and not an implementation detail.
+4. On success, `checkpoint_installed()` reads `1` and `checkpoint_digest_ptr()`
+   addresses the file's SHA-256. That digest is the number `lab trace` writes
+   into a recording's header and `learn-probe evaluate` prints, so a reader can
+   say whether the live fight in front of it is running the fighter the trace
+   was recorded from. **This is the only handshake step that is optional**, and
+   it is the one that makes a live fight and a recorded one comparable on
+   identical terms.
+5. Only then may a fighter carry policy code `4`. `arena_start` refuses with
+   `ARENA_NO_CHECKPOINT` otherwise, and installs nothing.
+
+The installed network is **not** per-world state. It survives `init`, `descend`
+and `arena_start` exactly as a fetched file survives a page navigating within a
+session, which is why it is not on `Sim` and owes none of the companion lines
+`Sim::anatomy` and `Sim::arena` do. What *is* per-world is the policy instance
+built out of it, and that lives in the arena's own `policies` array where the
+rule is already paid.
+
+`load_checkpoint` packs its answer with a word of its own:
+
+```text
+bits  0..7   outcome: not installed 0, installed 1
+bits  8..15  reason
+bits 16..31  detail
+```
+
+**Sixteen bits of detail and not two bytes of it**, which is where this word
+parts company with `submit_result`'s grammar. That one carries a fighter index
+and a hand index, both small; this one carries a *weight* index, and there are
+3,858 of them. Splitting an index across two fields that mean something else
+everywhere they appear would be worse than saying so here. `0xffff` is "no
+detail", because zero is a perfectly good weight index and a perfectly good
+framing version.
+
+Reasons are `0` none, `1` too long for the buffer, then one per
+`learn_core::CheckpointError` in declaration order: `2` Truncated, `3` BadMagic,
+`4` UnknownFormat, `5` FeatureLayout, `6` ActionLayout, `7` Shape, `8`
+WeightCount, `9` Digest, `10` NotFinite, `11` NotFiniteRecord, `12`
+TrailingBytes. The detail carries the framing version for `4`, the layout
+version the file claimed for `5` and `6`, the weight count for `8`, the weight
+index for `10` and the extra byte count for `12`, each saturating at `0xfffe`.
+
+Only `1` is about this module; the other eleven are the file. The distinctions
+are the ones `CheckpointError` already draws and they are worth carrying whole,
+because a checkpoint is the one input here a *person* chose from a picker: "that
+file is not this build's network" and "that file is corrupt" are the two
+sentences a studio most needs to be able to tell apart, and a framing bump means
+the reader cannot parse the file while a layout bump means it parsed perfectly
+and the weights are void.
+
+**It installs nothing on any failure, it never traps, and it does not grow
+linear memory on the way to refusing.** The three are one property and the third
+had to be added: "installs nothing" was the whole safety story here and it was
+satisfied by a call that had already detached every view on the page. The
+previously installed network stays installed and its digest stays published --
+`arena_start`'s rule, for `arena_start`'s reason: a page that could not load a
+second fighter is still able to run the first. A panic behind `pub extern "C"`
+poisons the instance for the life of the page, so a mistyped URL that returned
+an HTML error page has to be a message rather than a reload.
+`a_corrupt_checkpoint_is_refused_and_installs_nothing` drives every variant
+through the export and asserts the standing network is untouched by each, with
+the instance running a fight afterwards;
+`a_refused_checkpoint_does_not_grow_linear_memory` is the half that reads the
+page count rather than the state, and it is the one that failed.
+
+`learned_inference_digest_lo`/`_hi` is `LEARNED_INFERENCE_DIGEST` over whatever
+is installed, and `0` when nothing is. It allocates nothing -- counted through
+the repository's `#[global_allocator]` harness by
+`the_cross_target_digest_allocates_nothing`, not read off the source -- and is
+therefore not cached, unlike `articulated_stream_digest_lo`; and it must not be,
+because the answer legitimately changes when a different checkpoint is loaded.
+It is safe to call mid-fight for the same reason: no growth, no detached views. The corpus and
+the byte order are on `crates/learn-core/src/digest.rs`; the pin, its ownership
+and the `-C target-cpu=native` caveat that bounds it are in
+[`hashes.md`](hashes.md#golden-registry).
+
+`policy_kind(faction)` answers `0xffff_ffff` on a configured duel and
+`set_policy` refuses it, because those four codes are the legacy seam's and
+nothing in this loop consults `Sim::policies`. `init_articulated`'s room is
+deliberately unaffected: its legacy policies are installed and consulted every
+tick, so a legacy code is the true answer there.
+
+**A configured duel refuses every export that would set an order**, which is
+`set_goto`, `set_focus`, `clear_order` and `route_push` — the last through the
+route queue's first leg. `arena_start` installs the runner's `Order::Advance` on
+each side *because* an order reaches `World::state_hash`, and that is the same
+sentence read the other way: an `ArticulatedObservation` has no order column, so
+no fighter can perceive one, and a later order is therefore invisible to the
+fight's logic and visible to its identity. `arena_fingerprint_*` would not
+notice — it names the *configuration* and deliberately nothing else, since that
+is what makes a recording reproducible — so before v2-ui-05's review one
+`set_goto` ten ticks into a fight produced a different fight under an unmoved
+fingerprint. `set_focus` and `route_push` report the refusal in the value they
+already had for one; `set_goto` and `clear_order` answer nothing and cannot.
+`route_clear` is not refused because it touches no world state, and an arena's
+queue is empty in any case.
+
+**`descend` converts an arena into an ordinary floor rather than refusing it.**
+`Sim::descend` mutates in place, so it owes an explicit line for every per-world
+field, and `Sim::arena` is one of them: a duel left standing across a descent
+drove a freshly generated floor through the arena loop against a roster from a
+world that no longer existed and stopped it dead on the previous configuration's
+tick limit. After the descent `arena_policy` reads `0xffff_ffff`,
+`arena_fingerprint_*` reads `0`, and `policy_kind`/`set_policy` are back to
+naming and taking a `PolicyKind`. Refusing was considered and rejected: `descend`
+answers a depth and has no value that means "no", and the conversion is the same
+world any `init` would have produced.
+
+### The 120-byte configuration buffer
+
+A loadout is roughly forty scalars with cross-field validity, so it is staged
+whole and judged once. `SUBMITTED_COMMAND`'s pattern exactly: a fixed array that
+never moves and never grows linear memory, a `u16` layout version in bytes
+`0..2`, guard bytes after it, and one consumer that copies all of it into a local
+before reading any of it. This does contradict the route section's "three scalar
+exports rather than a shared input buffer ... a second buffer would be a second
+detachable view for no gain", and the distinction is the cross-field rule: a
+route is two scalars with none, a loadout is forty with seven.
+
+Little-endian throughout; every dimension is an `i32` raw 16.16, which is the
+[submitted command](articulated-command-v1.md#fifty-five-byte-wasm-action-buffer)'s
+grammar and not a second one.
+
+| Buffer offset | Width | Field |
+|---:|---:|---|
+| 0 | 2 | layout version `1` |
+| 2 | 1 | fighter count, must be `2` |
+| 3 | 1 | reserved, must be zero |
+| 4 | 4 | `max_ticks` `u32` |
+| 8 | 56 | fighter 0, `Faction::Heroes` |
+| 64 | 56 | fighter 1, `Faction::Monsters` |
+
+Each 56-byte fighter block:
+
+| Block offset | Width | Field |
+|---:|---:|---|
+| 0 | 1 | anatomy: Fighter `0`, Brute `1` |
+| 1 | 1 | policy code, from the table above |
+| 2 | 2 | reserved, must be zero |
+| 4 | 4 | spawn x raw |
+| 8 | 4 | spawn y raw |
+| 12 | 22 | hand 0, `LimbSlot::LeftArm` |
+| 34 | 22 | hand 1, `LimbSlot::RightArm` |
+
+Each 22-byte hand block:
+
+| Block offset | Width | Field |
+|---:|---:|---|
+| 0 | 1 | `ActionKind::code`, or `255` for an empty hand |
+| 1 | 1 | reserved, must be zero |
+| 2 | 4 | mass raw |
+| 6 | 4 | balance raw |
+| 10 | 4 | segment length, or shield half-width |
+| 14 | 4 | segment radius, or shield half-height |
+| 18 | 4 | shield thickness; zero for a segment |
+
+`1+1+2+4+4+2*22 = 56` and `8 + 2*56 = 120`, asserted with `const _` beside the
+offsets. The hand index sets the item's `GripBinding`, which is the whole
+mechanism that makes a blade in the left hand expressible; the discriminants are
+pinned by `left_and_right_limb_slots_have_stable_discriminants`. The geometry
+*kind* is derived from the action rather than carried, so the block is 22 bytes
+and not 23. **Noncanonical ignored payloads are rejected**, which is the
+submitted command's rule applied to the wider buffer: reserved bytes, a
+segment's third dimension word and every word of an empty hand must be zero.
+
+Exports are:
+
+```text
+arena_config_ptr() -> u32
+arena_config_len() -> u32               // 120
+arena_config_layout_version() -> u32    // 1
+arena_start(seed:u32) -> u32
+arena_fingerprint_lo() -> u32
+arena_fingerprint_hi() -> u32
+arena_policy(faction_code:u32) -> u32   // ArticulatedPolicyKind::code, or 0xffff_ffff
+```
+
+`arena_fingerprint_*` is `Scenario::try_fingerprint` of the installed
+configuration, `0` when none is installed. It is what a recorded fight is named
+by, and it can never be the `articulated-duel-v1` pin: a runtime scenario is
+named `configured-duel-v1` precisely so the two cannot be confused.
+
+### Refusing by name
+
+`arena_start` packs its answer with the same `submit_result` word the submitted
+command uses:
+
+```text
+bits  0..7   outcome: not started 0, started 1
+bits  8..15  reason
+bits 16..23  the fighter the refusal is about, or 255
+bits 24..31  the hand it is about; the **policy code** for reasons 7 and 26,
+                 which are the two about a policy rather than about a slot;
+                 otherwise 255
+```
+
+A client decoding bits 24..31 must branch on the reason and not on the byte. The
+collision is real but it is not at `4`: `ARENA_HANDS` is 2, so a hand byte is
+only ever `0`, `1` or `255`, and what a hand index collides with is policy code
+`0` (`neutral`) or `1` (`composed`). The two refusals that put a *code* there are
+`7` (policy unavailable, now unreachable) and `26` (no checkpoint installed,
+which is the one code 4 gets today), so a reader that saw `0` in that byte and
+guessed would say "the left hand" about a refusal that is about `neutral`.
+
+Reasons are `0` none, `1` unknown layout, `2` wrong fighter count, `3`
+noncanonical bytes, `4` unknown anatomy, `5` unknown item code, `6` unknown
+policy code, `7` policy unavailable, `8` construction refused, `9` contact
+reservation refused, `10` name too long, then one code per `CombatSpecError` in
+declaration order: `11` MissingTable, `12` UnexpectedTable, `13` UnitPresence,
+`14` TooManyAnatomies, `15` TooManyEquipment, `16` IdOrder, `17` UnknownSchema,
+`18` Dimension, `19` Fraction, `20` Maximum, `21` MissingReference, `22`
+LoadoutMismatch, `23` GripConflict, `24` NoEquipment, `25` UnknownAction, and
+since v2-ui-08 `26` no checkpoint installed. One
+opaque zero would make a studio say "invalid" for a typo, for an impossibility
+and for a session that has not landed yet.
+
+**Twelve are reachable from a control and the rest are not**, and the split is
+not the one the plan predicted; v2-ui-08 then swapped one of the twelve for
+another rather than adding one. `7` was reachable while the fifth policy code
+had no implementation on this side of the wall. It now has one, so `7` joins the
+unreachable set and `26` takes its place in the twelve -- the fifth code is
+buildable and the only thing it can be missing is its weights. Both keep their
+numbers, on this section's own argument about the seven below. `Fraction`,
+`Maximum`, `IdOrder`,
+`MissingReference`, `LoadoutMismatch`, `TooManyAnatomies` and `TooManyEquipment`
+were named as slider-reachable and are not: `Scenario::duel_from` derives
+`binding` from the hand index and the `Loadout` from the carrying slots, numbers
+ids `1..N` ascending, copies surfaces and anatomy maxima off shipped rows a
+picker cannot touch, and builds at most two anatomies and four equipment rows
+against caps of 64 and 128. They keep distinct codes anyway, because a host that
+maps five refusals onto one number on the grounds that they cannot happen is a
+host that says "invalid" on the day one does. The reservation refusal is the
+other unreachable one and for `init_articulated`'s reason: the request is
+`MAX_UNITS` and the entity limit is the same number.
+
+It **installs nothing on any failure**, exactly as `init_articulated` does, and
+it leaves the previous world standing and does not republish — the difference
+being that `init_articulated` is a call that says "start over" and owes an empty
+room when it cannot, while this one says "start this fight". Two hard reasons
+beyond taste: `Scenario::fingerprint` panics on an invalid construction, so
+`try_fingerprint` is mandatory; and a trap behind `pub extern "C"` poisons the
+instance for the life of the page, turning a bad slider value into a reload.
+
+### What recording costs
+
+**Measured in wasm under Node on 2026-08-11, re-measured the same day after
+review, and only one of the three original figures survived.** The fixture is a
+3,600-tick configured duel — the shipped arrangement, `composed` against
+`windmill`, seed 3, in contact from the first clinch to the tick limit — driven
+three ways: as 3,600 `step(1)` calls, as 450 `step(8)` calls, and as one
+`step(3600)`. The control is the same duel with `neutral` on both sides, which
+never touches at all: it resolves zero contact rows against the contact pairing's
+capped feed.
+
+**Method, because the first version of this section did not survive its own.**
+Rounds are interleaved — one round touches all six cells, two policy pairings
+across three batch sizes, before the next begins — and each cell keeps its best
+of nine. The six process runs below were then pinned to logical CPU 0 at high
+priority, which is what `AGENTS.md` prescribes for `lab bench` on this machine
+and what the original measurement did not do. It matters more than interleaving
+did: an unpinned process reads up to 15% faster on a good run and about 1.8×
+slower on a migrated one, and the migration moves **every cell in that process at
+once**, so a figure quoted from a single unpinned run is not evidence about the
+thing it names.
+
+| pinned, best of nine, six process runs | ticks/s |
+|---|---|
+| `composed` vs `windmill`, contact throughout | 8,821 – 9,996 |
+| `neutral` vs `neutral`, no contact at all | 45,101 – 57,782 |
+
+**About 10,000 ticks per second, so a whole fight records in under half a
+second.** That is the number to design a recorder around, and it is the one
+figure of the three that re-measurement left where it was.
+
+**Two further passes read about 20% faster, and the range is the answer.** While
+`v2-ui-07` was built, three more independent measurements of a contact-bound
+drive were taken, each pinned to logical CPU 0 at high priority with interleaved
+cells and a closing control:
+
+| pass | ms for 3,600 ticks | ticks/s |
+|---|---|---|
+| this section, six runs | — | 8,821 – 9,996 |
+| `v2-ui-07` as built, three runs | 360.1 / 367.2 / 365.1 | 9,804 – 9,997 |
+| `v2-ui-07` review, three processes | 293.1 / 296.7 / 308.1 | 11,686 – 12,281 |
+| `v2-ui-07` repair, three runs | 300.6 – 306.5 | 11,747 – 11,974 |
+
+They fall into two clusters about 20% apart, and the later two reproduce each
+other rather than adding a fifth reading. **The likeliest explanation is that they
+are not the same fight** — this section drove the older articulated duel, and
+`v2-ui-07` drives the `duel_from` configuration the picker writes, so contact
+density differs. That is a hypothesis and **not verified**; nobody has run both
+harnesses against one configuration.
+
+What survives either way, and is all a recorder needed: a 3,600-tick fight
+records in **0.3 to 0.4 seconds**. Quote the range and name the pass, never a
+single figure — the practice of quoting one is what produced four numbers for one
+quantity on this machine. See `AGENTS.md` on why best-of-N understates here.
+
+**The contact solver is most of a contact-bound tick, but the size of it is a
+factor with a range and not a number.** The quiet pairing runs 4.5–6.5× faster.
+The original note's "about 58,000 ticks/s at every batch size" is the top of the
+pinned range rather than a typical reading of it; a review that re-measured the
+same control at 18,000–26,000 was reading a migrated process, which is what the
+unpinned runs here also produce — one of them read 25,672–27,634 across all three
+control cells while the contact cells in the same process fell to 6,371–6,694.
+
+**`publish()`'s cost is below the noise floor, and there is still no
+`arena_record_step`.** The original note read 342/335/329 ms for the three batch
+sizes as "about 4%, roughly 4 microseconds a call". It is not a measurement of
+anything: across the six pinned runs the `step(1)`-versus-`step(3600)` difference
+spans **−1.2% to +7.8%** on the contact pairing and **−12.9% to +10.7%** on the
+quiet one. It straddles zero in both — 3,600 separate publications are repeatedly
+*faster* than one — so 3,599 extra rebuilds of the legacy frame and both
+articulated buffers are not separable from run-to-run variation. What is
+defensible is a bound and not a value: under 8% of a drive that is already under
+0.4 seconds. **The conclusion is unchanged and now rests on the bound rather than
+on a figure: `publish()` does not dominate, and no `arena_record_step` is owed.**
+
+**What this does not cover**, which matters because v2-ui-07 is the session that
+reads it:
+
+- **Neither fixture ends early.** Both run to the 3,600-tick limit, so this is
+  the cost of the longest fight a configuration allows. A duel that settles at
+  tick 400 costs a ninth of it, and nothing here says how often one does.
+- **The `learned` policy was unmeasured** when this section was written. Its
+  *inference* is measured now and the rest of it is not, and the difference
+  matters. v2-ui-08 measured `learned_inference_digest_lo()`, which is 64 feature
+  extractions and 64 forward passes over a fixed corpus and nothing else, at
+  **1,317–1,341 nanoseconds per forward pass** in wasm under Node — 84.3 to 85.8
+  microseconds a call, best of nine across six process runs pinned to logical
+  CPU 0 at high priority, each ending with the baseline repeated as a control,
+  which is the method the rest of this section owes and the half the first
+  version of this figure skipped.
+
+  **Three passes over this one line disagree, and the spread is the finding.**
+  It was first recorded at 75.4–78.5 microseconds with no trailing control; an
+  adversarial re-measurement on the same machine read 91.4–102.0 and its
+  controls came back *worse* than its bests in all six runs; the numbers above
+  are a third pass whose controls came back within 4%. The variable is the
+  warm-up — a long one drifts, and a long-warm-up run here read a trailing
+  control of 115–125 microseconds against a best of 85.4, which is precisely the
+  reading the control rule exists to void. Quote **roughly 1.3 microseconds a
+  forward pass** with a couple of hundred nanoseconds either side, and do not
+  read a 10% move in this number as a change in the code.
+
+  The native comparison is the figure `lab learn-probe evaluate` prints beside
+  its table, **3.01 to 4.58 microseconds per decision** over 116,021 and 116,413
+  decisions — that log is gitignored, so the command rather than the file is the
+  citation: `lab learn-probe evaluate --checkpoint checkpoints/v2-probe.ckpt`.
+  The two are **not** comparable, because
+  that one is wall-clock under twenty-way contention and this one is a single
+  pinned thread.
+
+  Against the ~100 microseconds a contact-bound tick costs above, and at one
+  learned decision per tick since only one side carries a network, inference is
+  **about 1%** of a tick. What is still unmeasured is a whole learned *fight*
+  through this harness — `compose`, the submission and the arm driver are not in
+  the number above — and that is the figure `v2-ui-07` should take if it needs
+  one.
+- **It is `step()` under Node and nothing else.** No browser, no worker, no
+  `postMessage`, and — the important one — **no per-frame copy-out of the pose,
+  region and combat-event buffers**, which is exactly the work `v2-ui-07` adds. A
+  recorder that lifts 66 words per body per tick out of linear memory is paying
+  for something this harness never touched.
+
+The overview's estimate was ~650 ticks/s and a fight in about five seconds,
+extrapolated from `checkpoints/train.log` at a 2x wasm penalty. It is 15x
+pessimistic, and the reason is that 1,300 ticks/s was throughput under 20-way
+contention across 384 fights per generation with MLP inference on one side, not
+the latency of one fight on one thread.
+
 ## Pose rows
 
 `POSE_LAYOUT_VERSION=1`, `MAX_POSES=64`, `POSE_STRIDE=66`. `MAX_POSES` equals the
@@ -331,6 +819,96 @@ the per-publication saturating drop count for every omitted row. Pose rows are f
 at publication from end-of-call state, which is what makes them right after a spawn, a
 swap or a submitted command and not only after a `step`: `publish` is the one function
 that runs after every mutating export.
+
+## Region rows
+
+`REGION_LAYOUT_VERSION=1`, `REGIONS_PER_BODY=5`, `REGION_STRIDE=8`, and
+`MAX_REGIONS = MAX_POSES * REGIONS_PER_BODY = 320`. One row per anatomy region of
+every live articulated body, in `AnatomyRegion` order inside a body and in the
+[pose rows](#pose-rows)' order across bodies. The row is `sim::RegionVolume` word
+for word.
+
+| words | field |
+|---:|---|
+| 0..2 | lower point XYZ |
+| 3..5 | upper point XYZ |
+| 6 | radius |
+| 7 | present |
+
+**The five capsules the contact phase sweeps, from the function that sweeps
+them.** `publish` calls `sim::body_region_volumes` with the pose's own origin,
+yaw and hands and with `present` read off the pose's severed mask; nothing on the
+host side computes geometry. That is the section's whole reason to exist, and it
+is the same rule the pose row states as "the row is otherwise the sim's own
+`ArticulatedPose` word for word".
+
+**The alternative is rejected on the record, so it is not rediscovered as an
+idea.** Publishing the anatomy once and porting `body_region_volumes` to
+TypeScript is the cheap approach and it is exactly the mirror
+[`crates/lab/src/trace.rs`](../../crates/lab/src/trace.rs)'s module header
+refuses: a viewer that rebuilt a shoulder from an anatomy row would be a second
+answer to a question the simulation has already answered. The function is not
+trivial either — the head is a *degenerate* capsule whose extent comes from
+`radius` while `AnatomyRegionSpec::half_height` is dead for that region, and an
+arm runs from a yaw-rotated shoulder to wherever the actuator has just put the
+hand — so a TypeScript copy would be right on the day it was written and wrong
+the first time the anatomy changed, with nothing in the repository able to
+notice. The third option, drawing hands, weapons and shields only, is a fight
+with no bodies in it.
+
+**Presence is published and not inferred, and the head is why.** A severed limb
+stops existing, and `body_region_volumes` takes `present` region by region. A
+reader that inferred absence from a zero-length capsule would drop the head —
+which is a sphere, whose two endpoints coincide, on every body, on every tick.
+That is the ordinary case rather than a corner one, and
+`the_head_capsule_is_published_degenerate_and_present` is the test that says a
+reader cannot get it wrong.
+
+It rides as an **eighth word per region**. The two rejected placements and why:
+
+- *A per-body mask word.* 1,024 bytes cheaper and it breaks two rules at once —
+  the row would no longer be `RegionVolume`'s four fields, and the column list
+  would no longer be exactly `0..STRIDE`, which is the shape
+  `generated_presentation_offsets_cover_every_packed_column` asserts for every
+  packed row in the ABI. A mask is also a second encoding of a fact the sim
+  hands over as a `bool`.
+- *Nothing at all, with the reader deriving it from `POSE_SEVERED_MASK`.* That is
+  where the sim's `present` argument comes from today, so it is free and correct
+  right now. It is refused on this section's own argument: it is a
+  re-derivation on the reader's side, and the day presence stops being exactly
+  "not severed" the two answers part company silently, with a viewer drawing a
+  capsule the contact phase does not sweep.
+
+The published cost of the eighth word is **1,280 bytes**, taking the section from
+8,960 to 10,240.
+
+**The row carries no identity, and the section is read against `pose_len`.**
+Region row `n` describes pose row `n / REGIONS_PER_BODY`; two identity words
+repeated five times a body would be a second answer to a question the pose row
+beside it already answers. What a reader checks before it indexes is
+`region_len == REGIONS_PER_BODY * pose_len`, which is one comparison and is the
+only thing that can be wrong — the same shape as the boot handshake refusing a
+frame layout it does not understand. The two capacities are one capacity for the
+same reason: a region buffer that could fill before the pose buffer did would
+publish half a body. A body whose anatomy the host does not hold is skipped and
+increments `regions_dropped`; the rows after it **do** shift, because the writer
+carries one cursor and the section stays dense — which is precisely why the count
+is the contract and not a nicety. A reader that compares the two lengths refuses
+the whole section; one that skips the comparison indexes a shifted one.
+
+Exports are `region_ptr`, `region_len`, `region_stride`, `region_capacity`,
+`regions_dropped`, and `region_layout_version`. `region_len` counts regions, not
+bodies. The section is filled at publication from end-of-call state, beside the
+pose rows and by the same walk of the same bodies.
+
+The host holds the anatomy it needs in a fixed `MAX_POSES`-wide array on its own
+`Sim`, resolved once per world install from the scenario's spec table, because
+`World` resolves its own privately and there is no way to ask. `crates/lab`'s
+trace keeps the same table for the same reason and on the same assumption:
+`World::try_new` spawns `scenario.units` in order and no export walks an
+articulated body into a world afterwards, so a slot indexes the unit that spawned
+into it. It is a fixed array and not a `Vec` because it is written on a path that
+holds two whole worlds at once; see the memory note below.
 
 ## Combat-event rows
 
@@ -416,10 +994,16 @@ ledger, one impact sound per row — must key on the call that stepped rather th
 publication, or it counts every contact once per intervening export. `step(0)` clears
 the feed, which is the same rule seen from the other end.
 
-The two new static arrays cost 16,896 and 262,144 bytes respectively, for 279,040
-bytes excluding thread-local wrapper bookkeeping. The 55-byte command buffer belongs
-to v2-11 and is not charged again to this session. Compile-time assertions use
-`MAX_POSES*POSE_STRIDE*4 + MAX_COMBAT_EVENTS*COMBAT_EVENT_STRIDE*4`.
+The three static arrays cost 16,896, 262,144 and 10,240 bytes respectively, for
+289,280 bytes excluding thread-local wrapper bookkeeping. The 55-byte command buffer
+belongs to v2-11 and is not charged again, and neither are the 120-byte
+configuration buffer or v2-ui-08's 32,768-byte checkpoint staging buffer and its
+32-byte digest — those are *input* and are charged where they are declared. The
+checkpoint buffer is the one of the five large enough to notice: it is what took
+the articulated stress fixture from 241 pages to 242. Compile-time assertions use
+`MAX_POSES*POSE_STRIDE*4 + MAX_COMBAT_EVENTS*COMBAT_EVENT_STRIDE*4 +
+MAX_REGIONS*REGION_STRIDE*4`. The region array is v2-ui-06's and is the cheapest of
+the three at 3.7% on top of the two below it.
 
 The event half of that was 32,768 bytes while the capacity was the provisional 256 and
 131,072 while it was 1024. The two measurements below moved it, and the 98 KB and then
@@ -485,32 +1069,39 @@ reveal an absent identity, and writes a complete snapshot buffer. Pose/event poi
 stability lasts for the module lifetime.
 
 **The snapshot buffer does not reserve regions for that filtered copy yet, and the
-omission is a decision.** `emit_abi` emits both layout versions, both strides, both
-capacities and all 66 + 32 column offsets, because those are the ABI and the copy is
-written against them — but `SNAPSHOT_BUFFER_BYTES` still ends at the furniture block at
-27,452 bytes and four regions. Reserving the two articulated regions takes it to
-306,492 — 279,040 bytes on each of the three pooled buffers, and an 11.2x wider
-zero-fill on a buffer `client/src/state/snapshot.ts` clears whole once per *filtered
-publication* — while nothing on the far side writes or reads a word of them: the
-filtered copy is v2-17's. A per-publication memset does not get 11.2x wider ahead of
-the consumer that justifies it and the measurement that sizes it. The formula and the three
-numbers the regions will generate are held in
+omission is a decision.** `emit_abi` emits all three layout versions, all three strides,
+all three capacities and all 66 + 32 + 8 column offsets, because those are the ABI and
+the copy is written against them — but `SNAPSHOT_BUFFER_BYTES` still ends at the
+furniture block at 27,452 bytes and four snapshot regions. Reserving the three
+articulated blocks takes it to 316,732 — 289,280 bytes on each of the three pooled
+buffers, and an 11.5x wider zero-fill on a buffer `client/src/state/snapshot.ts` clears
+whole once per *filtered publication* — while nothing on the far side writes or reads a
+word of them: the filtered copy is v2-ui-07's. A per-publication memset does not get
+11.5x wider ahead of the consumer that justifies it and the measurement that sizes it.
+The formula and the numbers the blocks will generate are held in
 [`articulated-mechanical-gate.md`](articulated-mechanical-gate.md#worker-integration)
-until then.
+until then. ("Region" carries two meanings across these files: a *snapshot* region is
+one of the four pooled blocks, an *anatomy* region is one of the five capsules above.)
 
 After warm-up, maximum pose, contact, event, spawn, reset, and route paths may not
 increase `wasm.memory.buffer.byteLength` while a legacy frame view is held. The Node
 test also proves the original frame, pose, and event typed arrays remain attached.
 `published_views_survive_articulated_stress_without_memory_growth` in
 `client/test/wasm-memory.test.mjs` is that test. It holds the legacy frame view and
-`Uint32Array`s over the *whole* 16,896-byte pose array and 262,144-byte event array —
+`Uint32Array`s over the *whole* 16,896-byte pose array and 262,144-byte event array
+(the 10,240-byte region array joins them with the filtered copy that reads it) —
 the reserved extent, not the live prefix, because that is the view a worker keeps for
 the life of the module — and drives `init_articulated`, sixty-five refused spawns,
 four descents, the clinch to its contact cap, sixteen batched `step(8)` calls, the
-stream digest and a reset, across three seeds. It settles at **241 pages** from the
+stream digest and a reset, across three seeds. It settles at **242 pages** from the
 end of the first warm round and holds there through a measured sixth round and a
-measured sixth guarded cycle — 237 while the event capacity was 1024. Most of that is
-the articulated *room* rather than these two arrays, which are 5 pages between them.
+measured sixth guarded cycle — 237 while the event capacity was 1024, and **241
+until v2-ui-08 added the 32 KiB checkpoint staging buffer**, which is half a page
+of static data that happened to fall across a page boundary. Most of the total is
+the articulated *room* rather than these arrays, which are 5 pages between them.
+The test asserts no growth against a baseline it measures for itself, so the
+number is a record and not an assertion; `client/test/wasm-memory.test.mjs` still
+writes 241 down in a comment beside it and that comment is stale.
 
 **What the Node test cannot reach, recorded so nobody looks for it there.** Its pose
 ceiling is 11 rows and its busiest single publication is 16 event rows, because no
@@ -532,6 +1123,19 @@ so it can only ever do that once, on the pattern `contact_behavior_digest_lo` al
 uses for its corpus. A no-growth proof that omits either from its warm set is
 measuring the wrong thing, and one that calls either mid-frame will watch its own
 views detach.
+
+**The host's anatomy table is a fixed array for this reason and it was measured.**
+The region section needs the anatomy each slot was built with, and the obvious
+shape is a roster-sized `Vec` filled at install. That is one more heap allocation
+on a path that holds two whole worlds at once — every `init_articulated_test`
+builds the replacement before dropping the installed one — and it moved the peak:
+`the_browser_contact_warmup_does_not_grow_wasm_memory` settles at 221 pages after
+one warm round, and with the `Vec` it stayed at 221 through round ten and stepped
+to 245 on round eleven, past the nine that fixture warms. A fixed
+`MAX_POSES`-wide array reserved with the rest of the `Sim` settles it back at 221
+and needed no round bumped. The 10,240-byte static region array itself moved
+neither that number nor the articulated stress fixture's, which was 241 then and
+is 242 since the checkpoint buffer.
 
 **A reset belongs in the warm set too, and one per floor the proof will later drive.**
 `init` builds the replacement `Sim` before it drops the installed one, so every reset
@@ -555,15 +1159,23 @@ floor-to-floor transition and not the number of rounds.
 Use FNV-1a-64 with the constants in the contact contract. Prefix ASCII
 `ARPG-STREAM-V1`. For every tick, including an empty tick, feed little-endian:
 `tick:u32`, pose length, poses dropped, every live pose row word, event length, events
-dropped, every live event row word. Tests drive one tick per publication so drop
-metadata has one meaning. Native and wasm use identical scripted inputs and bytes;
-state hashes are not part of this digest.
+dropped, every live event row word, region length, regions dropped, every live region
+row word. Tests drive one tick per publication so drop metadata has one meaning. Native
+and wasm use identical scripted inputs and bytes; state hashes are not part of this
+digest.
+
+**The region words are appended after the event words rather than beside the pose
+words, and the byte order is append-only for the reason the columns and the codes
+are.** A stream that reordered would move the digest by the same amount an extension
+does, and the two would be indistinguishable afterwards. Written this way, the
+pose-and-event prefix of every tick is byte-identical to what v2-16 pinned, so
+v2-ui-06's move can be read as the extension it is.
 
 The digest is exported as `articulated_stream_digest_lo()` and
 `articulated_stream_digest_hi()`, on the `selftest_hash` precedent: a self-contained
 scripted drive that builds its own world, digests each publication and throws it away
-without touching `SIM`, `FRAME`, `POSES`, `COMBAT_EVENTS`, the tile buffer or the
-furniture buffer. It goes through the **same** two buffer writers `publish` calls
+without touching `SIM`, `FRAME`, `POSES`, `REGIONS`, `COMBAT_EVENTS`, the tile buffer or
+the furniture buffer. It goes through the **same** three buffer writers `publish` calls
 rather than a parallel encoder — a digest built by a second writer proves that two
 encoders agree and says nothing about what the page reads. Unlike `selftest_hash` it
 allocates enough to move the heap, so it is cached on first touch and belongs in a
@@ -578,8 +1190,8 @@ rather than set — the shipped clinch fixture spends 78 ticks turning around be
 first touches — so the script asks for no rotation at all and gets its contact out of
 the placement instead. Ticks 0, 1, 2 and 4 resolve nothing, ticks 3 and 5 resolve two
 rows, and every tick from 6 resolves one, which is how the reference's "including an
-empty tick" is actually covered. The pin is registered in
-[`hashes.md`](hashes.md#golden-registry).
+empty tick" is actually covered. Every tick carries two pose rows and ten region rows.
+The pin is registered in [`hashes.md`](hashes.md#golden-registry).
 
 **The JavaScript half pins the number and does not rebuild the bytes, and that is
 worth stating because the sibling corpus does the opposite.** `tools/wasm_check.js`
@@ -593,9 +1205,12 @@ them out of a live publication and re-digest them: the script moves the two spaw
 `init_articulated_test` builds the *unmoved* duel, and no export places a body, so the
 script cannot be driven from across the wall. What the dual pin still buys is the
 whole cross-target claim — the value was recorded natively, and the module recomputes
-it through the same two writers `publish` calls. What one number cannot catch is an
+it through the same three writers `publish` calls. What one number cannot catch is an
 encoder wrong the same way on both targets, so
 `native_and_wasm_pose_event_stream_digests_match` checks the pose row grammar beside
 it, against this document rather than against the module: ascending full identity, the
 equipment mask against the geometry it describes, and the intent and animation-hint
-enumerations.
+enumerations. Since v2-ui-06 it checks the region grammar on the same terms — five
+rows a body in pose order, presence against the pose row's severed mask, and the head
+published as a degenerate capsule that is nonetheless present, which is the one fact
+in this section a reader could plausibly get backwards.

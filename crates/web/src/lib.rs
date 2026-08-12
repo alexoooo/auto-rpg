@@ -106,7 +106,8 @@
 use std::cell::{Cell, RefCell};
 
 use fx::{Angle, Fx, Rng, Vec2};
-use policy::{Policy, PolicyKind, RunConfig, MAX_GENOME_LEN};
+use learn_core::{Checkpoint, CheckpointError, LearnedArticulatedPolicy, Model};
+use policy::{ArticulatedPolicy, ArticulatedPolicyKind, Policy, PolicyKind, RunConfig, MAX_GENOME_LEN};
 use sim::{
     ArticulatedCommandV1, ArticulatedPayloadError, Cardinal, Command, CommandReject, EntityId,
     Event, Faction, LimbCommand, Intent, Objective, Order, Scenario, SubmitArticulatedOutcome,
@@ -825,6 +826,84 @@ pub const POSE_INTENT: usize = 63;
 pub const POSE_LEFT_HINT: usize = 64;
 pub const POSE_RIGHT_HINT: usize = 65;
 
+// ------------------------------------------------------------ region capsules
+//
+// The five volumes the contact phase sweeps, published beside the pose rows
+// rather than rebuilt from an anatomy row on the far side of the wall.
+//
+// **A third section and not five more pose columns.** Folding them in would move
+// [`POSE_LAYOUT_VERSION`] for a body of data that is constant across most of a
+// fight -- a torso and a head do not move relative to their own origin -- and
+// would make every pose row 62% wider to carry it every tick.
+//
+// **The alternative that is rejected on the record: publish the anatomy once and
+// port [`sim::body_region_volumes`] to TypeScript.** It is the cheap one, and it
+// is exactly the mirror `crates/lab/src/trace.rs` refuses in its module header:
+// a viewer that rebuilt a shoulder from an anatomy row would be a second answer
+// to a question the simulation has already answered. The function is not
+// trivial, either -- the head is a *degenerate* capsule whose extent comes from
+// `radius` while `AnatomyRegionSpec::half_height` is dead for that region -- so
+// a copy would be right on the day it was written and wrong the first time the
+// anatomy changed, with nothing in the repository able to notice.
+//
+// The row is [`sim::RegionVolume`] word for word: lower point, upper point,
+// radius, present. Nothing is derived here, which is the pose row's rule and
+// this section's whole reason to exist.
+
+/// Version of the region row layout. Its own number rather than a second
+/// reading of [`POSE_LAYOUT_VERSION`]: this section adds no pose column and a
+/// pose column moving says nothing about these eight words.
+pub const REGION_LAYOUT_VERSION: u32 = 1;
+
+/// Rows one body publishes, one per [`sim::AnatomyRegion`].
+///
+/// Written as the sim's own count and never as a second literal five, exactly
+/// as [`MAX_POSES`] is written as `sim::MAX_ARTICULATED_ENTITIES`. A sixth
+/// region would then widen this section rather than silently truncating it.
+pub const REGIONS_PER_BODY: usize = sim::AnatomyRegion::COUNT;
+
+/// Rows the region buffer holds: [`REGIONS_PER_BODY`] for each of the
+/// [`MAX_POSES`] bodies the pose buffer holds.
+///
+/// **The two capacities are one capacity**, because the sections are read
+/// together: region row `n` belongs to pose row `n / REGIONS_PER_BODY`, and a
+/// region buffer that could fill before the pose buffer did would publish a
+/// half body.
+pub const MAX_REGIONS: usize = MAX_POSES * REGIONS_PER_BODY;
+
+/// Words in one region row.
+pub const REGION_STRIDE: usize = 8;
+
+pub const REGION_LOWER_X: usize = 0;
+pub const REGION_LOWER_Y: usize = 1;
+pub const REGION_LOWER_Z: usize = 2;
+pub const REGION_UPPER_X: usize = 3;
+pub const REGION_UPPER_Y: usize = 4;
+pub const REGION_UPPER_Z: usize = 5;
+pub const REGION_RADIUS: usize = 6;
+/// Whether this region exists at all: zero or one, on the word rules above.
+///
+/// **The eighth word, and it is here because presence cannot be inferred from
+/// the seven in front of it.** A severed limb stops existing, and a reader that
+/// read absence off a zero-length capsule would drop the *head* -- which is a
+/// sphere, whose two endpoints coincide, on every body, on every tick. That is
+/// not a corner case this column defends against; it is the ordinary case.
+///
+/// It is a per-region word rather than a per-body mask for two reasons. The row
+/// is then [`sim::RegionVolume`] exactly, all four fields of it, with no field
+/// of the struct the host decided to encode its own way; and every column list
+/// in this ABI is `0..STRIDE`, which a mask word hanging off the end of five
+/// rows would break -- see `generated_presentation_offsets_cover_every_packed_column`.
+///
+/// The third candidate was to publish nothing and let a reader derive it from
+/// [`POSE_SEVERED_MASK`], which is where the sim's `present` argument comes from
+/// today. **Rejected, and on this session's own argument**: that is a
+/// re-derivation on the reader's side, and the day presence stops being exactly
+/// "not severed" the two answers part company silently, with a viewer drawing a
+/// capsule the contact phase does not sweep. The whole point of publishing these
+/// volumes is that the host does not compute them twice.
+pub const REGION_PRESENT: usize = 7;
+
 /// Version of the combat-event row layout.
 pub const COMBAT_EVENT_LAYOUT_VERSION: u32 = 1;
 
@@ -915,27 +994,510 @@ pub const COMBAT_EVENT_SEVERED: usize = 31;
 /// index to a reader that had lost track of the width.
 pub const COMBAT_EVENT_NO_BODY_PART: u32 = u32::MAX;
 
-/// The two static arrays cost this much linear memory, once, forever.
+/// The three static arrays cost this much linear memory, once, forever.
 ///
-/// Written out as the arithmetic rather than as `147_968` so that a stride or a
+/// Written out as the arithmetic rather than as `289_280` so that a stride or a
 /// capacity moving is a failed assertion here and not a stale comment: the
-/// reference charges v2-16 exactly these bytes, and the 55-byte command scratch
-/// belongs to v2-11 and is not charged again.
+/// reference charges v2-16 and v2-ui-06 exactly these bytes, and the 55-byte
+/// command scratch belongs to v2-11 and is not charged again.
 ///
 /// It was 49,664 while [`MAX_COMBAT_EVENTS`] was the provisional 256, and
 /// 147,968 while it was 1024. The measurements that rejected each of those are
 /// written out there; what they cost is written out here, because 98 KB and
 /// then 128 KB more linear memory is the price of those decisions and a budget
 /// that quietly followed the constant would hide it.
+///
+/// **v2-ui-06 added the third term and it is the cheapest of the three:** 10,240
+/// bytes, 3.7% on top of the 279,040 the two v2-16 arrays cost, for the five
+/// swept capsules per body that `[Geometry]` mode is. Eight words a region and
+/// not seven, because presence is published rather than inferred -- see
+/// [`REGION_PRESENT`], which is what the eighth word buys and what the extra
+/// 1,280 bytes of it cost.
+///
+/// **What this budget charges is the three published arrays and nothing else,
+/// which is worth stating because it is not the whole of the crate's static
+/// footprint.** [`Sim::anatomy`] is another fixed array -- roughly 15 KB inside
+/// the `SIM` thread-local, one `BodyAnatomySpec` slot per [`MAX_POSES`] -- and
+/// it is deliberately absent from this number: this one exists so a stride or a
+/// capacity moving fails an assertion, and the anatomy table is neither. It is
+/// under a page and did not move any measured page count.
 const _: () = assert!(
-    MAX_POSES * POSE_STRIDE * 4 + MAX_COMBAT_EVENTS * COMBAT_EVENT_STRIDE * 4 == 279_040,
-    "the articulated publication budget is 16,896 pose bytes plus 262,144 event bytes",
+    MAX_POSES * POSE_STRIDE * 4
+        + MAX_COMBAT_EVENTS * COMBAT_EVENT_STRIDE * 4
+        + MAX_REGIONS * REGION_STRIDE * 4 == 289_280,
+    "the articulated publication budget is 16,896 pose bytes plus 262,144 event bytes \
+     plus 10,240 region bytes",
 );
+
+// ---------------------------------------------------------- the arena config
+//
+// A duel described from the browser: two anatomies, two policies, two spawns and
+// four hand items with their dimensions. Roughly forty scalars with cross-field
+// validity -- bindings against each other, ids against each other, actions
+// against the loadout -- which is why it is a staging buffer and not a sequence
+// of setter calls. A setter sequence has partially-written intermediate states
+// and no single point at which the whole thing can be judged and refused, and
+// this configuration has to be judged whole or not at all: [`Scenario::duel_from`]
+// answers one error for the pair.
+//
+// **This contradicts the route section's comment above [`route_clear`]**, and
+// the contradiction is worth writing down rather than smoothing over. Three
+// scalar exports were right there, and the reason given was that "a second
+// buffer would be a second detachable view for no gain". Both are still true.
+// What separates the cases is not cost: a route is **two scalars with no
+// cross-field rule**, so there is nothing a buffer could judge that a setter
+// cannot; a loadout is **forty with seven**, so there is nothing a setter can
+// judge at all. The rule the two share is one buffer per thing that must be
+// judged whole, and neither "buffers are cheap" nor "buffers are expensive".
+//
+// The pattern is [`SUBMITTED_COMMAND`]'s exactly, down to the guard bytes: a
+// fixed array that never moves and never grows linear memory, a `u16` layout
+// version in bytes `0..2`, and one consumer that copies all of it into a local
+// before it reads any of it.
+//
+// ```text
+//     header    [0..2] layout version, [2] fighter count, [3] reserved,
+//               [4..8] max_ticks
+//     fighter   [0] anatomy, [1] policy, [2..4] reserved,
+//               [4..8] spawn x, [8..12] spawn y, then two hand blocks
+//     hand      [0] item, [1] reserved, then mass, balance and three
+//               dimension words
+// ```
+//
+// Every dimension is an `i32` raw 16.16 and every multi-byte field is
+// little-endian, which is [`submit_articulated`]'s grammar and not a second one.
+
+/// Bytes `0..2` of [`ARENA_CONFIG`], and its sole layout field.
+pub const ARENA_CONFIG_LAYOUT_VERSION: u16 = 1;
+
+/// An item code, a reserved byte, and five 16.16 words: mass, balance, and three
+/// dimensions.
+///
+/// Three dimension words rather than two because a shield is the widest shape in
+/// the table -- `half_width`, `half_height`, `thickness` -- and a fixed stride is
+/// what makes the block addressable. A segment spends two of the three and the
+/// third must be zero; see [`ARENA_NONCANONICAL`].
+pub const ARENA_HAND_BYTES: usize = 22;
+
+/// Anatomy, policy, two reserved bytes, two spawn words, and two hand blocks.
+pub const ARENA_FIGHTER_BYTES: usize = 56;
+
+/// The header plus one fighter block per side.
+pub const ARENA_CONFIG_BYTES: usize = ARENA_HEADER_BYTES + 2 * ARENA_FIGHTER_BYTES;
+
+const ARENA_HEADER_LAYOUT: usize = 0;
+/// How many fighters the buffer describes. Must be `2`; see
+/// [`ARENA_WRONG_FIGHTER_COUNT`] for why a wrong count is its own refusal rather
+/// than an unknown layout.
+const ARENA_HEADER_FIGHTERS: usize = 2;
+const ARENA_HEADER_RESERVED: usize = 3;
+const ARENA_HEADER_MAX_TICKS: usize = 4;
+const ARENA_HEADER_BYTES: usize = 8;
+
+const ARENA_FIGHTER_ANATOMY: usize = 0;
+const ARENA_FIGHTER_POLICY: usize = 1;
+/// Two bytes, and their job is the alignment: without them `spawn x` would start
+/// at an odd offset inside the block. They are also the room a policy or anatomy
+/// registry past 256 entries would grow into, which is cheaper to reserve now
+/// than to version later.
+const ARENA_FIGHTER_RESERVED: usize = 2;
+const ARENA_FIGHTER_SPAWN_X: usize = 4;
+const ARENA_FIGHTER_SPAWN_Y: usize = 8;
+const ARENA_FIGHTER_HANDS: usize = 12;
+
+const ARENA_HAND_ITEM: usize = 0;
+const ARENA_HAND_RESERVED: usize = 1;
+const ARENA_HAND_MASS: usize = 2;
+const ARENA_HAND_BALANCE: usize = 6;
+/// Segment length, or a shield's half-width.
+const ARENA_HAND_DIMENSION_0: usize = 10;
+/// Segment radius, or a shield's half-height.
+const ARENA_HAND_DIMENSION_1: usize = 14;
+/// A shield's thickness. Zero for a segment.
+const ARENA_HAND_DIMENSION_2: usize = 18;
+
+/// What [`ARENA_HAND_ITEM`] holds for an empty hand.
+///
+/// [`SLOT_EMPTY`] narrowed to a byte, and deliberately the same number the
+/// loadout exports already use for "a slot nothing is in": the host owns one
+/// vocabulary for absence and not two. Every other value is an
+/// [`sim::ActionKind::code`].
+pub const ARENA_HAND_EMPTY: u8 = SLOT_EMPTY as u8;
+
+/// Hand index `0` is [`sim::LimbSlot::LeftArm`] and `1` is `RightArm`, which is
+/// what [`sim::DuelFighterV1::hands`] indexes by and what its `binding` is set
+/// from. Pinned by `left_and_right_limb_slots_have_stable_discriminants`.
+const ARENA_HANDS: usize = 2;
+
+/// What [`ARENA_HEADER_FIGHTERS`] must hold. Fighter `0` fights for
+/// [`Faction::Heroes`] and fighter `1` for `Monsters`, which
+/// [`sim::DuelConfigV1::fighters`] fixes rather than chooses.
+const ARENA_FIGHTERS: usize = 2;
+
+// The arithmetic, asserted rather than commented, so that moving one offset is a
+// failed build here instead of a wrong sentence three files away. The three
+// shapes the reference states are 1+1+2+4+4+2*22 = 56 and 8 + 2*56 = 120.
+const _: () = assert!(
+    ARENA_HAND_DIMENSION_2 + 4 == ARENA_HAND_BYTES,
+    "a hand block is an item code, a reserved byte and five 16.16 words",
+);
+const _: () = assert!(
+    ARENA_FIGHTER_HANDS + ARENA_HANDS * ARENA_HAND_BYTES == ARENA_FIGHTER_BYTES,
+    "a fighter block is four header bytes, two spawn words and two hand blocks",
+);
+const _: () = assert!(
+    ARENA_HEADER_MAX_TICKS + 4 == ARENA_HEADER_BYTES,
+    "the header is a layout version, a count, a reserved byte and max_ticks",
+);
+const _: () = assert!(
+    ARENA_CONFIG_BYTES == 120,
+    "the arena configuration buffer is 120 bytes",
+);
+
+// ------------------------------------------------- why the arena refused you
+//
+// [`arena_start`] packs its answer with [`submit_result`], so a refusal is a
+// reason byte, a fighter byte and a hand byte beside an outcome of zero.
+//
+// **Every refusal has its own number.** One opaque zero would make the studio
+// say "invalid" for a typo, for an impossibility and for a session that has not
+// landed yet, and a reader cannot tell those apart from the outside -- which is
+// the difference between a picker somebody can use and a picker somebody
+// abandons. The mapping over [`sim::CombatSpecError`] is written as an
+// exhaustive `match` for the same reason the pose row's is: a variant appended
+// to that enum has to be thought about here rather than collapsing into
+// whichever arm was convenient.
+//
+// **Twelve of these are reachable from a control and the rest are not, and the
+// split is not the one v2-ui-05 predicted.** The plan named `Fraction`,
+// `Maximum`, `IdOrder`, `MissingReference`, `LoadoutMismatch`,
+// `TooManyAnatomies` and `TooManyEquipment` as slider-reachable. They are not,
+// and `Scenario::duel_from`'s own doc comment says why in as many words:
+// `binding` comes from the hand index and the `Loadout` comes from the carrying
+// slots, so "`LoadoutMismatch` is unreachable from any knob here"; ids are
+// numbered `1..N` ascending by construction; the surfaces and the anatomy
+// maxima are copied off the shipped rows a picker cannot touch; and the table
+// holds at most two anatomies and four equipment rows against caps of 64 and
+// 128. v2-ui-04 made them unreachable on purpose. They keep distinct codes
+// anyway, because the alternative is a host that maps five refusals onto one
+// number on the argument that they cannot happen -- and the day one does, the
+// page says "invalid" and nobody can find out which.
+//
+// Reachable today: unknown layout, wrong fighter count, noncanonical bytes,
+// unknown anatomy, unknown item, unknown policy, a `learned` fighter with no
+// checkpoint loaded, a refused construction, `Dimension`, `GripConflict`,
+// `NoEquipment` and `UnknownAction`.
+//
+// **v2-ui-08 swapped one for another rather than adding one**, and the swap is
+// worth reading. `ARENA_POLICY_UNAVAILABLE` was reachable while `learned` had
+// no implementation on this side of the wall; it now has one, so that code
+// joins the unreachable set and `ARENA_NO_CHECKPOINT` takes its place in the
+// twelve. Both keep their numbers, on the argument this section already makes
+// about the seven spec errors.
+
+/// Nothing was wrong. Paired with an outcome of `1`.
+pub const ARENA_OK: u8 = 0;
+/// Bytes `0..2` are not [`ARENA_CONFIG_LAYOUT_VERSION`], or the header's
+/// reserved byte is not zero. Folded together exactly as [`submit_articulated`]
+/// folds them: both mean the writer and the reader disagree about the buffer,
+/// and the attempted version is still sitting in the buffer for a diagnostic to
+/// read.
+pub const ARENA_UNKNOWN_LAYOUT: u8 = 1;
+/// Byte `2` is not `2`.
+///
+/// Its own refusal rather than an unknown layout, because the two point
+/// somewhere different: a wrong version means "rebuild the page", and a wrong
+/// count means "this build fights duels". `MAX_POSES` is 64 and nothing below
+/// the studio assumes two, so widening this is additive -- which is exactly why
+/// the count is a field and not a constant nobody wrote down.
+pub const ARENA_WRONG_FIGHTER_COUNT: u8 = 2;
+/// A reserved byte, or a dimension word this item's geometry does not have, is
+/// not zero.
+///
+/// `submit_articulated`'s rule, applied to the wider buffer: noncanonical
+/// ignored payloads are rejected. An ignored word is a place for a
+/// misunderstanding to live -- a caller that believed a sword had a thickness
+/// would be right about the bytes and wrong about the fight -- and the studio
+/// writes all 120 bytes from its own model anyway, so zeroing what it is not
+/// using costs it nothing.
+pub const ARENA_NONCANONICAL: u8 = 3;
+/// A fighter's anatomy byte is neither `0` (Fighter) nor `1` (Brute).
+pub const ARENA_UNKNOWN_ANATOMY: u8 = 4;
+/// A hand's item byte is neither [`ARENA_HAND_EMPTY`] nor an
+/// [`sim::ActionKind::code`]. Distinct from [`ARENA_UNKNOWN_ACTION`], which is
+/// an action that exists and has no equipment row.
+pub const ARENA_UNKNOWN_ITEM: u8 = 5;
+/// A fighter's policy byte is not an [`policy::ArticulatedPolicyKind::code`].
+pub const ARENA_UNKNOWN_POLICY: u8 = 6;
+/// The policy is one this build cannot construct. The slot byte carries the
+/// code, so the refusal names it.
+///
+/// **Unreachable since v2-ui-08, and kept for the reason the seven unreachable
+/// spec errors below are kept.** It was code `4`'s refusal while `learned` had
+/// no implementation on this side of the wall; that session split
+/// `crates/learn-core` out of `crates/learn` and every code in
+/// [`ArticulatedPolicyKind`] now has a constructor here. A `learned` fighter
+/// with no network loaded is [`ARENA_NO_CHECKPOINT`] instead, which is a
+/// different sentence: "this build cannot make that fighter" is a rebuild and
+/// "you have not given me one" is a fetch. Folding the two on the grounds that
+/// only one of them can happen today is how a studio ends up saying the wrong
+/// thing on the day the other one does.
+pub const ARENA_POLICY_UNAVAILABLE: u8 = 7;
+/// The sim refused to build the world even though the specification validated.
+///
+/// The reachable case is placement: `World::try_new` checks every unit's contact
+/// envelope against the arena, so a spawn dragged through the wall, or a blade
+/// long enough to reach out of the room from where it stands, lands here. The
+/// error is not carried through [`Sim::try_on`], which answers `Option` because
+/// the legacy path has no use for the reason.
+pub const ARENA_CONSTRUCTION_REFUSED: u8 = 8;
+/// The world was built and would not reserve its contact vectors.
+///
+/// It cannot happen at [`MAX_UNITS`] -- the entity limit is the same number --
+/// so what is left is an out-of-memory module. Refused rather than installed
+/// anyway, on [`install_articulated`]'s argument: a world whose next contact
+/// could grow linear memory would detach every typed array the page holds.
+pub const ARENA_RESERVATION_REFUSED: u8 = 9;
+/// `ScenarioFingerprintError::NameTooLong`. Unreachable: the name is the fixed
+/// `configured-duel-v1`. Its own code because `try_fingerprint` can answer it
+/// and a host that folded it into a spec error would be reporting a fiction.
+pub const ARENA_NAME_TOO_LONG: u8 = 10;
+
+// One code per `CombatSpecError`, in declaration order, so that appending a
+// variant there is a non-exhaustive `match` here rather than a silent remap.
+pub const ARENA_MISSING_TABLE: u8 = 11;
+pub const ARENA_UNEXPECTED_TABLE: u8 = 12;
+pub const ARENA_UNIT_PRESENCE: u8 = 13;
+pub const ARENA_TOO_MANY_ANATOMIES: u8 = 14;
+pub const ARENA_TOO_MANY_EQUIPMENT: u8 = 15;
+pub const ARENA_ID_ORDER: u8 = 16;
+pub const ARENA_UNKNOWN_SCHEMA: u8 = 17;
+/// A length, a radius, a mass or a balance outside the scale. The one spec error
+/// a dimension control reaches directly, and the busiest of these in practice.
+pub const ARENA_DIMENSION: u8 = 18;
+pub const ARENA_FRACTION: u8 = 19;
+pub const ARENA_MAXIMUM: u8 = 20;
+pub const ARENA_MISSING_REFERENCE: u8 = 21;
+pub const ARENA_LOADOUT_MISMATCH: u8 = 22;
+/// Two plates on one body, or a two-handed binding against a plate.
+/// `validate_bindings` classifies by geometry rather than by action, so this
+/// cannot be evaded by calling the second plate something else.
+pub const ARENA_GRIP_CONFLICT: u8 = 23;
+/// Both of a fighter's hands are empty.
+pub const ARENA_NO_EQUIPMENT: u8 = 24;
+/// An action with no shipped equipment row -- a bow, a knife, a fist -- and so
+/// no measured surface to copy. Five of the eight actions land here.
+pub const ARENA_UNKNOWN_ACTION: u8 = 25;
+
+/// A fighter asked for `learned` and no checkpoint is installed. The slot byte
+/// carries the policy code, exactly as [`ARENA_POLICY_UNAVAILABLE`] does.
+///
+/// Appended by v2-ui-08 rather than folded into the code above it, because a
+/// studio can act on this one: the answer is [`load_checkpoint`] and not a
+/// rebuild. It is also the only refusal in this table whose cause is a call the
+/// page has not made yet rather than a value the page wrote down, which is why
+/// it is worth its own number even though both would grey out the same entry.
+pub const ARENA_NO_CHECKPOINT: u8 = 26;
+
+/// Every reason byte declared above, in one array, so that the claim "every
+/// refusal has its own number" is a failed build rather than a failing test.
+///
+/// The exhaustive `match` in [`arena_spec_refusal`] forces a variant appended to
+/// [`sim::CombatSpecError`] to be given an arm; it has nothing whatever to say
+/// about what that arm *returns*, and a second refusal declared with a number
+/// already in use is the other way the mapping stops being injective. This
+/// covers that half at compile time; `the_arena_configuration_buffer_is_the_documented_layout`
+/// covers the half that needs the enum walked.
+const ARENA_REASONS: [u8; 27] = [
+    ARENA_OK, ARENA_UNKNOWN_LAYOUT, ARENA_WRONG_FIGHTER_COUNT, ARENA_NONCANONICAL,
+    ARENA_UNKNOWN_ANATOMY, ARENA_UNKNOWN_ITEM, ARENA_UNKNOWN_POLICY, ARENA_POLICY_UNAVAILABLE,
+    ARENA_CONSTRUCTION_REFUSED, ARENA_RESERVATION_REFUSED, ARENA_NAME_TOO_LONG,
+    ARENA_MISSING_TABLE, ARENA_UNEXPECTED_TABLE, ARENA_UNIT_PRESENCE, ARENA_TOO_MANY_ANATOMIES,
+    ARENA_TOO_MANY_EQUIPMENT, ARENA_ID_ORDER, ARENA_UNKNOWN_SCHEMA, ARENA_DIMENSION,
+    ARENA_FRACTION, ARENA_MAXIMUM, ARENA_MISSING_REFERENCE, ARENA_LOADOUT_MISMATCH,
+    ARENA_GRIP_CONFLICT, ARENA_NO_EQUIPMENT, ARENA_UNKNOWN_ACTION, ARENA_NO_CHECKPOINT,
+];
+
+/// Pairwise, because twenty-six is small and a sort needs an allocation no
+/// `const` context has.
+const fn reasons_are_distinct(reasons: &[u8]) -> bool {
+    let mut i = 0;
+    while i < reasons.len() {
+        let mut j = i + 1;
+        while j < reasons.len() {
+            if reasons[i] == reasons[j] {
+                return false;
+            }
+            j += 1;
+        }
+        i += 1;
+    }
+    true
+}
+
+const _: () = assert!(
+    reasons_are_distinct(&ARENA_REASONS),
+    "two arena refusals were declared with the same reason byte",
+);
+
+/// What the fighter or hand byte of a refusal holds when the refusal is about
+/// the configuration as a whole. [`SLOT_EMPTY`] narrowed, exactly as
+/// [`ARENA_HAND_EMPTY`] is.
+pub const ARENA_WHOLE_CONFIG: u8 = SLOT_EMPTY as u8;
+
+/// What [`policy_kind`] answers on a world the legacy registry does not
+/// describe, which today means a configured duel. See that export.
+pub const POLICY_KIND_UNKNOWN: u32 = u32::MAX;
+
+/// What [`arena_policy`] answers on a world that is not an arena.
+///
+/// A sentinel and not a zero, because `0` is `neutral` and an ordinary answer.
+/// `u32::MAX` is the same shape [`focus_entity_index`] uses for "the order does
+/// not resolve".
+pub const ARENA_NO_POLICY: u32 = u32::MAX;
+
+// ------------------------------------------------------ the loaded checkpoint
+//
+// A trained network is a *fighter*, and v2-ui-08 delivers it the way a fighter
+// should be delivered: fetched, not compiled in. `checkpoints/v2-probe.ckpt` is
+// 15,580 bytes beside an 8 MB trace, the studio should be able to put a
+// different one in the ring without a Rust rebuild, and a 15 KB artifact
+// embedded in the wasm would be one more thing that can only change by
+// rebuilding the thing that reads it.
+//
+// So the bytes arrive through a staging buffer on [`SUBMITTED_COMMAND`]'s and
+// [`ARENA_CONFIG`]'s pattern -- a fixed array that never moves and never grows
+// linear memory -- and [`load_checkpoint`] judges the whole of it at once. The
+// difference from those two is that a checkpoint is not a fixed width, so the
+// length is an argument rather than a constant, and the buffer is a *capacity*
+// rather than a size.
+//
+// **It is not on `Sim`, and that is a decision rather than an oversight.**
+// `Sim::anatomy` and `Sim::arena` both carry "written wherever `world` is",
+// because a stale one describes a world that no longer exists. An installed
+// checkpoint describes no world at all: it is a host asset, like the action
+// table or the sine table, and it survives `init`, `descend` and `arena_start`
+// exactly as a fetched file survives a page navigating within a session. What
+// *is* per-world is the [`LearnedArticulatedPolicy`] built out of it, and that
+// lives in [`Arena::policies`] where the rule is already paid.
+
+/// How many bytes of checkpoint [`CHECKPOINT`] will hold.
+///
+/// The shipped artifact is 15,580 bytes and only one field of it is variable:
+/// [`ModelShape::CURRENT`] fixes 3,858 weights, so everything but the training
+/// seed list is a constant 15,532 bytes. The rule this repository already uses
+/// for a rejected capacity -- the next power of two at least twice the largest
+/// measured -- doubles that to 31,160 and rounds to 32,768, which leaves room
+/// for about two thousand recorded seeds or for a network half again as wide.
+///
+/// A caller with a longer file is refused by name ([`CHECKPOINT_TOO_LONG`])
+/// rather than truncated, because a truncated checkpoint is a `Digest` failure
+/// forty microseconds later and the reader would be looking for corruption
+/// nobody caused.
+pub const CHECKPOINT_CAPACITY: usize = 32_768;
+
+/// SHA-256, so 32.
+pub const CHECKPOINT_DIGEST_BYTES: usize = 32;
+
+// Why [`load_checkpoint`] refused, in [`ARENA_REASONS`]' spirit and with the
+// same rule: every refusal has its own number. A checkpoint is the one input to
+// this module that a *user* chose from a file picker, so "that file is not this
+// build's network" and "that file is corrupt" are the two sentences a studio
+// most needs to be able to tell apart -- and `CheckpointError` already draws
+// every distinction worth drawing. This is that enum, flattened into bytes.
+
+/// It loaded. Paired with an outcome of `1`.
+pub const CHECKPOINT_OK: u8 = 0;
+/// More bytes than [`CHECKPOINT_CAPACITY`]. The only refusal that is about this
+/// module rather than about the file; every one below is a
+/// [`CheckpointError`].
+pub const CHECKPOINT_TOO_LONG: u8 = 1;
+/// The bytes ran out mid-field. A half-written file, or a fetch that reported a
+/// length it did not deliver.
+pub const CHECKPOINT_TRUNCATED: u8 = 2;
+/// Not a checkpoint at all: a renamed trace, an HTML error page, a 404 body.
+pub const CHECKPOINT_BAD_MAGIC: u8 = 3;
+/// A framing version this build cannot parse. The detail carries it.
+pub const CHECKPOINT_UNKNOWN_FORMAT: u8 = 4;
+/// Trained against a different feature slice. Parses perfectly and is still
+/// void -- the network would read the wrong number out of every slot and go on
+/// producing confident argmaxes.
+pub const CHECKPOINT_FEATURE_LAYOUT: u8 = 5;
+/// Emits a different action table. The same sentence from the output end.
+pub const CHECKPOINT_ACTION_LAYOUT: u8 = 6;
+/// A different [`ModelShape`].
+pub const CHECKPOINT_SHAPE: u8 = 7;
+/// The right shape declared, and a different number of weights behind it.
+pub const CHECKPOINT_WEIGHT_COUNT: u8 = 8;
+/// The recorded SHA-256 is not the digest of the bytes in front of it.
+pub const CHECKPOINT_DIGEST_MISMATCH: u8 = 9;
+/// A weight that is not finite; the detail is its index. Refused at load rather
+/// than at use, because a NaN weight crashes nothing: it propagates into every
+/// logit, every comparison against it is false, and the argmax then answers
+/// index zero on every head forever.
+pub const CHECKPOINT_NOT_FINITE: u8 = 10;
+/// A `sigma` or a `training_return` that is not finite. Nothing reads either, so
+/// this cannot make the policy misbehave -- it breaks the checkpoint's own
+/// round-trip claim, because a NaN is not equal to itself.
+pub const CHECKPOINT_NOT_FINITE_RECORD: u8 = 11;
+/// Bytes after the digest; the detail is how many, saturating.
+pub const CHECKPOINT_TRAILING_BYTES: u8 = 12;
+
+/// Every reason byte above, so that "each refusal has its own number" is a
+/// failed build rather than a failing test. [`ARENA_REASONS`]' discipline, and
+/// paired with an exhaustive `match` in [`checkpoint_refusal`] the same way.
+const CHECKPOINT_REASONS: [u8; 13] = [
+    CHECKPOINT_OK, CHECKPOINT_TOO_LONG, CHECKPOINT_TRUNCATED, CHECKPOINT_BAD_MAGIC,
+    CHECKPOINT_UNKNOWN_FORMAT, CHECKPOINT_FEATURE_LAYOUT, CHECKPOINT_ACTION_LAYOUT,
+    CHECKPOINT_SHAPE, CHECKPOINT_WEIGHT_COUNT, CHECKPOINT_DIGEST_MISMATCH,
+    CHECKPOINT_NOT_FINITE, CHECKPOINT_NOT_FINITE_RECORD, CHECKPOINT_TRAILING_BYTES,
+];
+
+const _: () = assert!(
+    reasons_are_distinct(&CHECKPOINT_REASONS),
+    "two checkpoint refusals were declared with the same reason byte",
+);
+
+/// What [`load_checkpoint`]'s detail field holds when the refusal has no number
+/// attached to it.
+///
+/// `0xffff` and not `0`, because zero is a perfectly good weight index and a
+/// perfectly good framing version.
+pub const CHECKPOINT_NO_DETAIL: u16 = u16::MAX;
 
 thread_local! {
     static SIM: RefCell<Option<Sim>> = const { RefCell::new(None) };
     static FRAME: RefCell<[f32; FRAME_MAX]> = const { RefCell::new([0.0; FRAME_MAX]) };
     static SUBMITTED_COMMAND: RefCell<[u8; 55]> = const { RefCell::new([0; 55]) };
+    /// The duel the page is describing, judged whole by [`arena_start`]. See the
+    /// section above for why this is a buffer where a route is three scalars.
+    static ARENA_CONFIG: RefCell<[u8; ARENA_CONFIG_BYTES]> =
+        const { RefCell::new([0; ARENA_CONFIG_BYTES]) };
+    /// Where a fetched checkpoint lands before [`load_checkpoint`] judges it.
+    /// A fixed array for the third time and for the third time the same reason;
+    /// see the section above for why it is a capacity rather than a size.
+    static CHECKPOINT: RefCell<[u8; CHECKPOINT_CAPACITY]> =
+        const { RefCell::new([0; CHECKPOINT_CAPACITY]) };
+    /// The network a `learned` fighter is built from, or `None` before anything
+    /// has been loaded.
+    ///
+    /// The [`Model`] and not the whole [`Checkpoint`]: the training record is
+    /// provenance a *reader* wants and the network is the only part a fight
+    /// uses, and holding the seed list would be holding a `Vec` for the life of
+    /// the module to print nothing. What a reader gets instead is
+    /// [`checkpoint_digest_ptr`], which is the name the record is quoted under
+    /// anyway.
+    static CHECKPOINT_MODEL: RefCell<Option<Model>> = const { RefCell::new(None) };
+    /// The installed checkpoint's SHA-256, or thirty-two zeroes.
+    ///
+    /// **This is what makes a live fight and a recorded one comparable on
+    /// identical terms**, which is the whole reason it is published: `lab
+    /// trace`'s header carries the same digest, so a reader watching an arena
+    /// can say whether it is watching the fighter the trace was recorded from
+    /// or a different one. Raw bytes rather than hex, because the hex is a
+    /// rendering and the client already has to render everything else.
+    static CHECKPOINT_DIGEST: RefCell<[u8; CHECKPOINT_DIGEST_BYTES]> =
+        const { RefCell::new([0; CHECKPOINT_DIGEST_BYTES]) };
     /// The floor plan, one byte a tile. A fixed array beside `FRAME` and for
     /// the same reason: a `Vec` that reallocates grows linear memory, and
     /// growing it detaches every typed array the page is holding.
@@ -993,6 +1555,24 @@ thread_local! {
     /// not cumulative: it answers "how much of this picture am I not being
     /// shown", which is a question about the buffer in hand.
     static POSES_DROPPED: Cell<u32> = const { Cell::new(0) };
+    /// The five swept capsules of each live articulated body,
+    /// [`REGION_STRIDE`] words each and [`REGIONS_PER_BODY`] rows a body, in
+    /// the same order `POSES` is written in. A fixed array for the fifth time
+    /// the same reason.
+    ///
+    /// **The row carries no identity, and the section is read against
+    /// `POSE_LEN` instead.** Two words of index and generation repeated five
+    /// times a body would be a second answer to a question the pose row beside
+    /// it already answers; what a reader checks instead is
+    /// `region_len == REGIONS_PER_BODY * pose_len`, which is the one thing that
+    /// could go wrong and is a single comparison. See [`write_region_buffer`].
+    static REGIONS: RefCell<[u32; MAX_REGIONS * REGION_STRIDE]> =
+        const { RefCell::new([0; MAX_REGIONS * REGION_STRIDE]) };
+    /// How many *rows* of `REGIONS` are live -- regions, not bodies.
+    static REGION_LEN: Cell<u32> = const { Cell::new(0) };
+    /// Rows the last publication could not fit, saturating, on `POSES_DROPPED`'s
+    /// terms exactly.
+    static REGIONS_DROPPED: Cell<u32> = const { Cell::new(0) };
     /// Every contact resolution of every tick in the last host call, in
     /// `(tick, toi, group ordinal, key)` order. Fixed for the same reason
     /// `POSES` is.
@@ -1153,6 +1733,56 @@ const fn actor_index(id: EntityId) -> u32 {
     }
 }
 
+/// A configured duel, running.
+///
+/// Installed by [`arena_start`] and by nothing else. That is what makes
+/// [`Sim::advance`]'s second branch unreachable from every world installed
+/// *before* it -- and it says nothing at all about a world installed after it,
+/// which is a second obligation and belongs to whoever assigns [`Sim::world`].
+/// This comment claimed both until v2-ui-05's review found that [`Sim::descend`]
+/// paid neither: it replaced the world and left the duel standing, so a freshly
+/// generated floor was driven through [`Sim::advance_arena`] against a roster
+/// that no longer existed and stopped dead on the old configuration's tick
+/// limit. [`Sim::descend`] carries the line that closes it, and the argument
+/// for clearing rather than refusing.
+struct Arena {
+    /// One articulated policy per faction, indexed by [`Faction::index`].
+    ///
+    /// **Two instances and not one driven twice**, which is the whole point:
+    /// `policy::run_articulated` takes a single `impl ArticulatedPolicy` and
+    /// installs it on both sides, which is right for a control and useless for
+    /// an arena. The shape ported here is `lab`'s `measure_articulated_matchup`.
+    policies: [Box<dyn ArticulatedPolicy>; 2],
+    kinds: [ArticulatedPolicyKind; 2],
+    /// The Heroes' identities, captured once at install.
+    ///
+    /// **Routing is on the alive set and not on the observation**, because
+    /// [`sim::ArticulatedObservation`] has no faction column -- it is subject
+    /// scoped by design, and adding the column back so a driver could match on
+    /// it would publish a fact no fighter perceives. `lab` routes the same way
+    /// for the same reason.
+    ///
+    /// Captured once rather than per tick because an arena's roster is fixed:
+    /// `duel_from` builds exactly two units and `spawn_monster` refuses an
+    /// articulated world outright, so nothing can walk in after this is taken.
+    heroes: Vec<EntityId>,
+    /// [`Scenario::try_fingerprint`] of the configuration this was built from.
+    ///
+    /// Held rather than recomputed because the `Scenario` is dropped once the
+    /// world is built, and because it is what a recorded fight is *named by*: a
+    /// trace that does not carry the fingerprint of the configuration it came
+    /// from is a fight nobody can reproduce.
+    fingerprint: u64,
+    /// The tick the fight stops at, from the configuration.
+    ///
+    /// Enforced in [`Sim::advance_arena`] rather than left to the caller, so
+    /// that a recorder can ask for three thousand six hundred ticks in one call
+    /// and get exactly the fight `lab` measures for the same configuration and
+    /// seed -- which is the whole claim of
+    /// `a_scripted_arena_fight_in_wasm_matches_the_same_fight_in_lab`.
+    max_ticks: u32,
+}
+
 struct Sim {
     world: World,
     /// One policy per faction, indexed by [`Faction::index`]. Boxed because the
@@ -1161,6 +1791,19 @@ struct Sim {
     /// convincing than reading that it would.
     policies: [Box<dyn Policy>; 2],
     kinds: [PolicyKind; 2],
+    /// The configured duel this world is, or `None` for every world that is not
+    /// one -- which is every world any export but [`arena_start`] installs.
+    ///
+    /// **This field is the branch condition in [`Sim::advance`]**, and it is
+    /// deliberately narrower than the combat model. See that function.
+    ///
+    /// **Written wherever `world` is**, exactly as [`Sim::anatomy`] is and for a
+    /// sharper reason: a stale anatomy row costs a body its capsules, and a
+    /// stale duel drives the *wrong loop* over the wrong roster. [`Sim::try_on`]
+    /// and [`init_articulated_test`] build a whole replacement `Sim` and are
+    /// clean by construction; [`Sim::descend`] mutates in place and is the one
+    /// place that owes the line explicitly.
+    arena: Option<Arena>,
     /// The genes each policy was built from, kept so a slider can move one knob
     /// without the page having to hold the other fifteen.
     genomes: [[Fx; MAX_GENOME_LEN]; 2],
@@ -1169,6 +1812,52 @@ struct Sim {
     /// per call -- sixty allocations a second, each one a chance to grow linear
     /// memory and detach the client's typed array.
     units: Vec<EntityId>,
+    /// The immutable anatomy each spawn slot was constructed with, indexed by
+    /// [`EntityId::index`]. All `None` on every Legacy world.
+    ///
+    /// `Option` per slot rather than a packed list, so the index *is* the slot.
+    /// A `None` here is a unit with no articulated row, and that is the same
+    /// slot [`World::articulated_pose`] answers `None` for -- the two agree by
+    /// construction rather than by luck.
+    ///
+    /// **A fixed array and not a `Vec`, and that is a measurement rather than a
+    /// preference.** A `Vec` sized to the roster is one more heap allocation on
+    /// a path that holds two whole worlds at once -- every `init_articulated_test`
+    /// resets by building the replacement before dropping the installed one --
+    /// and adding one moved the peak: `the_browser_contact_warmup_does_not_grow_wasm_memory`
+    /// settled at 221 pages after one warm round and, with the `Vec`, stepped to
+    /// 245 on round eleven, past the nine that fixture warms. A fixed
+    /// [`MAX_POSES`]-wide array reserved with the rest of the struct settles it
+    /// back at 221 and needs no round bumped, which is the discipline `route`,
+    /// `events` and `combat_events` are each allocated at their ceiling for.
+    ///
+    /// **A mirror, and it exists because there is no way to ask.**
+    /// [`sim::body_region_volumes`] takes a `&BodyAnatomySpec` and `World`
+    /// resolves its own privately, so a host that publishes the swept capsules
+    /// has to hold the same rows the world was built from.
+    /// `crates/lab/src/trace.rs` keeps exactly this table for exactly this
+    /// reason, and the slot assumption is the same one: `World::try_new` spawns
+    /// `scenario.units` in order and no export walks an articulated body into a
+    /// world afterwards -- `spawn_monster` refuses one by design -- so the
+    /// roster of an articulated world is fixed at construction and a slot
+    /// indexes the unit that spawned into it.
+    ///
+    /// Resolved once per install rather than looked up per publication: the
+    /// table is a binary search per body per tick otherwise, inside the one
+    /// function that runs after every mutating export.
+    ///
+    /// **Written wherever `world` is**, and there are three such places:
+    /// [`Sim::try_on`], [`Sim::descend`] and [`init_articulated_test`], which
+    /// swaps a duel in behind a `Sim` built on a generated floor. (The test
+    /// helper `articulated_test_world` is a fourth and copies the third.)
+    ///
+    /// A stale one cannot draw a wrong body: it costs that body its five region
+    /// rows, which breaks `region_len == REGIONS_PER_BODY * pose_len` and is
+    /// what `the_region_section_covers_every_published_pose` reads. It does
+    /// **not** leave the rest of the section where it was -- see
+    /// [`write_region_buffer`], which carries one cursor -- so the length
+    /// comparison is the reader's protection rather than a nicety.
+    anatomy: [Option<sim::BodyAnatomySpec>; MAX_POSES],
     /// Scratch for the decision loop. Held across calls so the loop allocates
     /// once for the life of the page rather than once a frame.
     due: Vec<EntityId>,
@@ -1525,6 +2214,29 @@ fn dungeon_scenario(
     scenario
 }
 
+/// The anatomy row each of a scenario's spawn slots carries, resolved against
+/// that scenario's own spec table.
+///
+/// All `None` for a Legacy scenario, which carries no table and whose bodies
+/// publish no poses. See [`Sim::anatomy`] for why the host keeps this at all,
+/// why it is indexed by spawn slot, and why it is [`MAX_POSES`] wide rather than
+/// roster-sized.
+///
+/// A slot past `MAX_POSES` gets no row and needs none: the pose buffer holds
+/// exactly that many, so a body the pose section cannot publish is one the
+/// region section must not publish either.
+fn scenario_anatomy(scenario: &Scenario) -> [Option<sim::BodyAnatomySpec>; MAX_POSES] {
+    let table = scenario.combat_specs.as_ref();
+    core::array::from_fn(|slot| {
+        // Every step is a `?`, and none of them is an `expect`: a unit with no
+        // articulated row, or one naming a row the table does not carry, is a
+        // construction `World::try_new` has already had its say about. Whatever
+        // it decided, this is reachable from `pub extern "C"` and a trap there
+        // poisons the instance for the life of the page.
+        table?.anatomy(scenario.units.get(slot)?.articulated?.anatomy).cloned()
+    })
+}
+
 impl Sim {
     fn new(seed: u64) -> Sim {
         // The hero the first floor is entered with. A plain Fighter, which is
@@ -1622,11 +2334,14 @@ impl Sim {
             world,
             policies: [kinds[0].baseline(), kinds[1].baseline()],
             kinds,
+            // Filled by [`arena_start`] after this returns, and by nothing else.
+            arena: None,
             genomes: [
                 kinds[0].spec().baseline_genome(),
                 kinds[1].spec().baseline_genome(),
             ],
             units,
+            anatomy: scenario_anatomy(scenario),
             due: Vec::with_capacity(scenario.units.len()),
             last_decision_tick: 0,
             spawns: 0,
@@ -2010,6 +2725,32 @@ impl Sim {
             },
         };
         self.world = world;
+        // Beside the world it describes, and on the line after it, because the
+        // two are one fact: a floor's slots and the anatomies that spawned into
+        // them. A descent that replaced the first and not the second would
+        // publish last floor's capsules against this floor's bodies.
+        self.anatomy = scenario_anatomy(&scenario);
+        // **And the duel goes with the world it was a duel in.** Same
+        // obligation as the line above, unpaid until v2-ui-05's review, and
+        // worse when unpaid: [`Arena::heroes`] holds ids from a roster that no
+        // longer exists and [`Arena::max_ticks`] is the old configuration's
+        // limit, so a duel left standing here would drive a freshly generated
+        // dungeon floor through [`Sim::advance_arena`] -- routing each
+        // decision by whether its id happens to appear in a list drawn from a
+        // world that no longer exists, and stopping the floor dead on the old
+        // fight's tick limit, while `arena_fingerprint` went on naming the old
+        // duel and `set_policy` went on refusing the legacy codes that are the
+        // true answer here. A page with no error on it and a level that had
+        // stopped.
+        //
+        // **Converted rather than refused**, and the choice is written down
+        // because it is arguable: an arena is two fighters in a bare box with
+        // no portal, so arriving here at all is a caller that has confused its
+        // pages. Refusing needs a channel [`descend`] does not have -- it
+        // answers the new depth, and there is no depth that means "no" -- and
+        // it would leave this hole open anyway for the next place that
+        // assigns `world`. The rule that keeps working is the field's own.
+        self.arena = None;
         // A new floor's lights. Replaced rather than cleared and refilled, so
         // there is no window in which the furniture buffer could be written from
         // last floor's torches and this floor's doors.
@@ -2162,7 +2903,38 @@ impl Sim {
     /// loop that only called `world.step()` would leave the hero executing its
     /// tick-zero command forever -- which under a `Goto` means walking straight
     /// through the destination and into the far wall.
+    ///
+    /// # The second branch
+    ///
+    /// A configured duel runs [`Sim::advance_arena`] instead, and the branch is
+    /// the first line so that a legacy world cannot reach a byte of it. That
+    /// shape is not fastidiousness. `ROOM_HASH`, `BATTLE_HASH`, `SWAP_HASH` and
+    /// `BOW_HASH` are all produced by this function, and `AGENTS.md`'s standing
+    /// trap is that a change here *looks* inert: two structural facts about the
+    /// lab -- `Objective` defaults to `None`, and no lab scenario issues an
+    /// `Order::Goto` -- have twice been read as "no golden reaches this code",
+    /// and been wrong twice, because `ROOM_HASH`'s script is `init(1);
+    /// set_goto(...); step(600)` and is the one golden anywhere that reaches
+    /// `ordered_feet`. A branch the legacy path cannot enter is the only
+    /// obviously-safe shape here, and obviously safe is what this needs.
+    ///
+    /// **The condition is the arena and not the combat model, which is narrower
+    /// than v2-ui-05 asked for and narrower on purpose.** Branching on
+    /// `CombatModel::Articulated` would also divert [`init_articulated`]'s room,
+    /// whose behaviour under this loop is measured elsewhere and is not this
+    /// session's to move: `client/test/wasm-memory.test.mjs` drives it through
+    /// four descents and settles on a page count, and
+    /// `the_high_water_corpus_fills_at_most_half_the_event_buffer` counts the
+    /// rows one `step(8)` accumulates on a hand-built articulated scenario. Both
+    /// run the loop below, and both would have to be re-measured to justify
+    /// moving them. That room's commands are still dropped on the floor by
+    /// `World::submit`; what this session buys is that it is no longer the only
+    /// articulated world there is.
     fn advance(&mut self, frames: u32) {
+        if self.arena.is_some() {
+            self.advance_arena(frames);
+            return;
+        }
         // Taken out and put back so the borrow checker can see that the scratch
         // buffer and the world are disjoint. It is the same allocation each
         // time round, which is the whole point of keeping it in the struct.
@@ -2583,6 +3355,117 @@ impl Sim {
         self.due = due;
         self.events = events;
         self.events_dropped = dropped;
+        self.combat_events = combat_events;
+        self.combat_events_dropped = combat_dropped;
+    }
+
+    /// `frames` ticks of the arena's loop: observe, decide per side, submit,
+    /// step, harvest.
+    ///
+    /// **A port of `lab`'s `measure_articulated_matchup` and not of
+    /// `policy::run_articulated`**, because the second one takes a single
+    /// `impl ArticulatedPolicy` and installs it on both sides. That is exactly
+    /// right for a control condition and useless for an arena, whose whole
+    /// subject is watching two different fighters meet.
+    ///
+    /// Four things differ from the loop above and all four follow from the
+    /// model rather than from taste.
+    ///
+    /// **The observation and the entry are the articulated ones.**
+    /// `World::submit` returns without storing anything on a world that is not
+    /// Legacy, which is the defect this session exists to close: every command
+    /// the loop above produces on an articulated world is dropped on the floor.
+    ///
+    /// **The legacy event feed is cleared and never filled.** The articulated
+    /// arm of `World::step` emits exactly one `Event` variant, `Event::Death`,
+    /// and damage under this model is carried by contact resolution rows rather
+    /// than by the event feed -- so `flashes`, `traces` and `note_bodies` have
+    /// nothing to say here. Cleared rather than left alone because the feed is a
+    /// per-call contract: a reader that saw the previous world's damage numbers
+    /// against this one would be reading rows about bodies that no longer exist.
+    ///
+    /// **There is no route, no portal, no descent and no door.** An arena is a
+    /// bare `24x16` room with two fighters in it. Every one of those rules is
+    /// about a *game*, and a duel is not one.
+    ///
+    /// **The stopping conditions are the runner's**, so that the same
+    /// configuration and seed produce the same fight here as in `lab`: a
+    /// recorder may ask for the whole fight in one call and the tail past the
+    /// decision costs nothing and changes nothing.
+    fn advance_arena(&mut self, frames: u32) {
+        // The same borrow dance the loop above does, and for the same reason:
+        // the drain below holds `&mut self.world` for the length of its loop, so
+        // the scratch has to be a local. Written back at the single exit.
+        let mut due = std::mem::take(&mut self.due);
+        // Cleared and not filled. See the doc comment: no articulated tick
+        // produces a blow, a block, a parry or a shot.
+        let mut events = std::mem::take(&mut self.events);
+        events.clear();
+        let mut combat_events = std::mem::take(&mut self.combat_events);
+        combat_events.clear();
+        let mut combat_dropped = 0u32;
+        // Taken out for the length of the loop, exactly as the scratch is: the
+        // decision below holds `&mut self.world` and `&mut arena.policies` at
+        // once, and those are two fields of one struct.
+        let mut arena = self.arena.take();
+        for _ in 0..frames {
+            let Some(live) = arena.as_mut() else { break };
+            // The runner's gate, character for character. A settled fight stops
+            // being stepped rather than being stepped through: `World::outcome`
+            // is live under this model -- `reap_dead_articulated` clears `alive`
+            // and pushes the death -- and the tick limit is the configuration's.
+            if self.world.outcome().is_some() || self.world.tick() >= live.max_ticks {
+                break;
+            }
+            // Read before the step, because a contact's time of impact is a
+            // fraction of the tick that was integrated and `World::step`
+            // increments the counter on its way out. The same reasoning, and the
+            // same line, as the loop above.
+            let solving_tick = self.world.tick();
+            due.clear();
+            due.extend_from_slice(self.world.pending_decisions());
+            for &id in &due {
+                let obs = self.world.observe_articulated(id);
+                // Routed on the alive set captured at install, because an
+                // articulated observation has no faction column by design. See
+                // [`Arena::heroes`].
+                let side = if live.heroes.contains(&id) {
+                    Faction::Heroes
+                } else {
+                    Faction::Monsters
+                };
+                let command = live.policies[side.index()].decide(&obs);
+                // The outcome is deliberately discarded here where the runner
+                // counts it: a refusal stores the neutral command atomically, so
+                // the fight carries on either way, and the page's channel for
+                // "the world refused something" is `submit_articulated`'s packed
+                // word rather than a counter nobody publishes.
+                let _ = self.world.submit_articulated_v1(id, command);
+                if side == Faction::Heroes {
+                    self.last_decision_tick = self.world.tick();
+                }
+            }
+            // The slice is dropped immediately: nothing in it is published under
+            // this model, and the harvest below needs the world back.
+            let _ = self.world.step();
+            // Inside the tick loop and immediately after the step, because
+            // `World::contact_resolutions` retains the last solved tick only and
+            // the top of the next tick wipes it. Identical to the loop above,
+            // and identical on purpose -- this is the one thing the two loops
+            // genuinely share, and a helper extracted out of the legacy path to
+            // hold it would be a change to the function four goldens come out of.
+            for row in self.world.contact_resolutions() {
+                push_combat_event(
+                    &mut combat_events,
+                    &mut combat_dropped,
+                    combat_event_row(solving_tick, row),
+                );
+            }
+        }
+        self.arena = arena;
+        self.due = due;
+        self.events = events;
+        self.events_dropped = 0;
         self.combat_events = combat_events;
         self.combat_events_dropped = combat_dropped;
     }
@@ -3738,6 +4621,20 @@ fn pose_row(pose: &sim::ArticulatedPose) -> [u32; POSE_STRIDE] {
     row
 }
 
+/// One published region row, straight off [`sim::body_region_volumes`]' output.
+///
+/// All four fields of [`sim::RegionVolume`] and nothing else. `present` is a
+/// published word rather than something the reader works out -- see
+/// [`REGION_PRESENT`], where the head is the case that settles it.
+fn region_row(volume: &sim::RegionVolume) -> [u32; REGION_STRIDE] {
+    let mut row = [0u32; REGION_STRIDE];
+    row[REGION_LOWER_X..=REGION_LOWER_Z].copy_from_slice(&vec3_words(volume.lower));
+    row[REGION_UPPER_X..=REGION_UPPER_Z].copy_from_slice(&vec3_words(volume.upper));
+    row[REGION_RADIUS] = fx_word(volume.radius);
+    row[REGION_PRESENT] = u32::from(volume.present);
+    row
+}
+
 /// One published combat-event row.
 ///
 /// `tick` is the tick that was *integrated*, not the counter after `World::step`
@@ -3844,6 +4741,69 @@ fn write_pose_buffer(sim: &Sim, out: &mut [u32; MAX_POSES * POSE_STRIDE]) -> (u3
     (rows, dropped)
 }
 
+/// The five swept volumes of one published body, from the one function that
+/// builds them.
+///
+/// **Every argument is either the pose's own or the anatomy the world was
+/// constructed with, and nothing here computes geometry.** The origin, the yaw
+/// and the two hands come off the pose; `present` is the severed mask read the
+/// way `World` reads it when it builds its own colliders; and the shapes come
+/// back from `sim::body_region_volumes`, the function the contact phase sweeps.
+///
+/// **The hands go in body-relative and come out world space.**
+/// `body_region_volumes` adds the origin itself, which is the single conversion
+/// the whole contact module is arranged around; the pose row publishes hands in
+/// world space, so the subtraction here undoes that one conversion rather than
+/// inventing a second frame.
+///
+/// A separate function from the buffer writer so a hand-built pose can be put
+/// through the *publication's* path rather than through a second spelling of
+/// it -- which is what `a_severed_region_is_published_absent` and
+/// `the_head_capsule_is_published_degenerate_and_present` need, since neither
+/// case is reachable by asking a live world nicely.
+fn pose_region_volumes(
+    pose: &sim::ArticulatedPose,
+    anatomy: &sim::BodyAnatomySpec,
+) -> [sim::RegionVolume; REGIONS_PER_BODY] {
+    let present: [bool; REGIONS_PER_BODY] =
+        core::array::from_fn(|part| pose.severed_mask & (1 << part) == 0);
+    let hands = [pose.arms[0].hand - pose.body, pose.arms[1].hand - pose.body];
+    sim::body_region_volumes(pose.body, anatomy, pose.body_yaw, hands, present)
+}
+
+/// Fills the region buffer from the same bodies [`write_pose_buffer`] walks,
+/// and answers `(rows, dropped)`.
+///
+/// **The capsules the contact phase sweeps, through
+/// [`pose_region_volumes`].** The host computes no geometry -- that is the
+/// entire point of the section, and a second derivation here would be the
+/// mirror `trace.rs` refuses.
+///
+/// A body whose anatomy this host does not hold is skipped. It cannot happen --
+/// see [`Sim::anatomy`] -- and if it did, **the rows after it would shift**:
+/// there is one cursor, so the section would still be dense and every later
+/// body's five rows would land five rows early. That is exactly why the count is
+/// the contract. The skip costs five rows against `REGIONS_PER_BODY * pose_len`,
+/// so a reader that compares the two lengths before it indexes refuses the whole
+/// section instead of confidently drawing somebody else's arm, and
+/// `the_region_section_covers_every_published_pose` is what asserts the two
+/// lengths agree on every world this module can install.
+fn write_region_buffer(sim: &Sim, out: &mut [u32; MAX_REGIONS * REGION_STRIDE]) -> (u32, u32) {
+    let mut rows = 0u32;
+    let mut dropped = 0u32;
+    for pose in sim.world.articulated_poses() {
+        let Some(anatomy) = sim.anatomy.get(pose.id.index as usize).and_then(Option::as_ref)
+        else {
+            dropped = dropped.saturating_add(REGIONS_PER_BODY as u32);
+            continue;
+        };
+        for volume in &pose_region_volumes(&pose, anatomy) {
+            push_published_row(out, &mut rows, &mut dropped, &region_row(volume));
+        }
+    }
+    (rows, dropped)
+}
+
 /// Copies the accumulated contact rows into the event buffer and answers
 /// `(rows, dropped)`.
 ///
@@ -3889,6 +4849,13 @@ fn publish() {
                 POSES.with(|poses| write_pose_buffer(sim, &mut poses.borrow_mut()));
             POSE_LEN.with(|n| n.set(pose_rows));
             POSES_DROPPED.with(|n| n.set(poses_dropped));
+            // Beside the pose rows and from the same walk of the same bodies,
+            // so region row `n` belongs to pose row `n / REGIONS_PER_BODY`.
+            // Two publications of one end-of-call state, written in one place.
+            let (region_rows, regions_dropped) =
+                REGIONS.with(|regions| write_region_buffer(sim, &mut regions.borrow_mut()));
+            REGION_LEN.with(|n| n.set(region_rows));
+            REGIONS_DROPPED.with(|n| n.set(regions_dropped));
             let (event_rows, events_dropped) = COMBAT_EVENTS
                 .with(|events| write_combat_event_buffer(sim, &mut events.borrow_mut()));
             COMBAT_EVENT_LEN.with(|n| n.set(event_rows));
@@ -3919,10 +4886,16 @@ fn publish() {
             // a cost worth trading that against. It was 49,664 while
             // `MAX_COMBAT_EVENTS` was the provisional 256, and the trade comes
             // out the same way at nearly six times the size: this arm runs once
-            // per refused install and never inside a frame.
+            // per refused install and never inside a frame. It comes out the
+            // same way a third time at 289,280, for the region rows below --
+            // which are ground truth about an identity in the sharper sense of
+            // the two, since a capsule is where a body's head *is*.
             POSES.with(|poses| poses.borrow_mut().fill(0));
             POSE_LEN.with(|n| n.set(0));
             POSES_DROPPED.with(|n| n.set(0));
+            REGIONS.with(|regions| regions.borrow_mut().fill(0));
+            REGION_LEN.with(|n| n.set(0));
+            REGIONS_DROPPED.with(|n| n.set(0));
             COMBAT_EVENTS.with(|events| events.borrow_mut().fill(0));
             COMBAT_EVENT_LEN.with(|n| n.set(0));
             COMBAT_EVENTS_DROPPED.with(|n| n.set(0));
@@ -3970,6 +4943,39 @@ pub extern "C" fn init(seed: u32) {
     publish();
 }
 
+/// Whether the standing order and the queued path are this caller's to change.
+///
+/// **`false` on a configured duel**, which is [`set_policy`]'s refusal made for
+/// a sharper reason. [`install_arena`] sets the runner's `Order::Advance` on
+/// each side *because* an order reaches `World::state_hash`: a driver that
+/// skipped them would fingerprint a different world from the one `lab`
+/// fingerprints for the same configuration and seed, which is the whole claim
+/// of `a_scripted_arena_fight_in_wasm_matches_the_same_fight_in_lab`. A later
+/// order is that same fact from the other end. An articulated observation has
+/// no order column, so no fighter can perceive one: the order is invisible to
+/// the fight's logic and visible to its identity, which is the worst pair of
+/// properties an input can have. Measured, before this refusal existed -- one
+/// `set_goto(20_000, 12_000)` ten ticks into a three-hundred-tick duel took the
+/// state hash from `0x030e832c484598ae` to `0xf8e8b75483089160` and left
+/// `arena_fingerprint()` exactly where it was.
+///
+/// **The fingerprint is the thing being protected**, and the other repair --
+/// fold the later orders into it -- is worse rather than merely harder. That
+/// number is `Scenario::try_fingerprint` of the *configuration*, it is what
+/// v2-ui-07 names a recording by, and a fight that cannot be rebuilt from the
+/// configuration it is named after is a recording nobody can reproduce.
+/// Refusing is what keeps "a function of the configuration and of nothing else"
+/// a true sentence about [`arena_fingerprint_lo`].
+///
+/// Every export that reaches `World::set_order` consults this: [`set_goto`],
+/// [`set_focus`], [`clear_order`], and [`route_push`] through
+/// [`Sim::begin_leg`]. [`route_clear`] does not, because it touches no world
+/// state at all -- and an arena's queue is empty for want of anything that
+/// could have filled it.
+fn order_is_the_callers(sim: &Sim) -> bool {
+    sim.arena.is_none()
+}
+
 /// A click, as thousandths of a world unit.
 ///
 /// Integers, so that no float ever crosses into simulation state -- the rule
@@ -3989,6 +4995,16 @@ pub extern "C" fn init(seed: u32) {
 pub extern "C" fn set_goto(x_milli: i32, y_milli: i32) {
     let dest = Vec2::new(Fx::from_ratio(x_milli, 1000), Fx::from_ratio(y_milli, 1000));
     with_sim((), |sim| {
+        // Refused on a configured duel; the argument is on
+        // [`order_is_the_callers`]. **Silently, and that is the one unsatisfying
+        // corner of this refusal**: the export answers nothing, and widening it
+        // to a packed word is a change to a name `web/main.js`, the generated
+        // worker ABI and the frame reference all carry -- for a call no arena
+        // route makes. [`set_focus`] and [`route_push`] have somewhere to say it
+        // and do.
+        if !order_is_the_callers(sim) {
+            return;
+        }
         // A plain click cancels a dragged path. Deliberately not expressed as
         // "a one-point route": the page distinguishes a tap from a drag, and
         // the module should not have to guess which one it just received.
@@ -4019,12 +5035,17 @@ pub extern "C" fn set_goto(x_milli: i32, y_milli: i32) {
 /// [`Sim::begin_leg`] do: `World::set_order` rebuilds the faction's flow field,
 /// and an order is one of the things `World::state_hash` fingerprints. The
 /// golden scripts are unaffected only because not one of them calls this --
-/// do not add one that does.
+/// do not add one that does. **A configured duel is refused for exactly that
+/// reason and answers the same `0`**; see [`order_is_the_callers`], which is
+/// where the argument lives and which the other three order exports share.
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn set_focus(index: u32, generation: u32) -> u32 {
     let id = EntityId::new(index, generation);
     let taken = with_sim(0, |sim| {
+        if !order_is_the_callers(sim) {
+            return 0;
+        }
         // One lookup answers both refusals, because `World::view` resolves the
         // *full* handle: a body that has fallen gives `None` here even when its
         // slot has already been reused, so "gone" and "not a monster" collapse
@@ -4058,6 +5079,12 @@ pub extern "C" fn init_articulated_test(seed: u32) {
     let mut fresh = Sim::new(u64::from(seed));
     let scenario = Scenario::articulated_duel();
     fresh.world = World::new(&scenario, u64::from(seed));
+    // The world's anatomy rows, replaced along with the world. This fixture
+    // swaps a duel in behind a `Sim` built on a generated Legacy floor, so the
+    // table it inherited is the wrong one -- empty, in fact -- and a region
+    // section written against it would publish nothing at all. Every place that
+    // assigns `world` owes this line; see [`Sim::anatomy`].
+    fresh.anatomy = scenario_anatomy(&scenario);
     // Here, while `fresh` is still a local: one line further down the world is
     // reachable through `SIM`, and the `publish` below hands the page a frame
     // pointer it is entitled to keep a typed array over. A contact vector that
@@ -4259,6 +5286,12 @@ fn focused_entity() -> EntityId {
 #[no_mangle]
 pub extern "C" fn clear_order() {
     with_sim((), |sim| {
+        // Refused on a configured duel, silently, exactly as [`set_goto`] is
+        // and for the same two reasons -- see [`order_is_the_callers`] for the
+        // first and `set_goto`'s body for why neither can report it.
+        if !order_is_the_callers(sim) {
+            return;
+        }
         // Free will means no order *and* no path. A queue that survived this
         // would re-issue a `Goto` on the next leg test and quietly take the feet
         // back off the character this button just handed them to.
@@ -4304,11 +5337,19 @@ pub extern "C" fn route_clear() {
 /// Refusing rather than rolling the oldest leg off the front: the front of the
 /// queue is the leg being walked *now*, and a drag that ran long is not a
 /// request to teleport the destination.
+///
+/// A configured duel is the same shape of refusal in the same words -- the
+/// waypoint dropped and the count answered unchanged, which there is always
+/// zero -- for [`order_is_the_callers`]'s reason. The first push is the one
+/// that would have mattered: it becomes the standing order.
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn route_push(x_milli: i32, y_milli: i32) -> u32 {
     let point = Vec2::new(Fx::from_ratio(x_milli, 1000), Fx::from_ratio(y_milli, 1000));
     let held = with_sim(0, |sim| {
+        if !order_is_the_callers(sim) {
+            return sim.route.len() as u32;
+        }
         if sim.route.len() >= ROUTE_MAX {
             return sim.route.len() as u32;
         }
@@ -4609,6 +5650,676 @@ const fn submit_result(outcome: u8, reason: u8, detail: u8, slot: u8) -> u32 {
     outcome as u32 | ((reason as u32) << 8) | ((detail as u32) << 16) | ((slot as u32) << 24)
 }
 
+// ------------------------------------------------------------ the checkpoint
+//
+// The bytes of a trained network, staged and judged. The buffer, the capacity
+// and the refusal codes are up beside `ARENA_CONFIG`'s; what is here is the
+// load, the read-backs, and the cross-target digest that keeps the two hosts
+// honest about what those bytes mean.
+
+/// Address of the checkpoint staging buffer in linear memory.
+///
+/// Stable for the life of the module, because the buffer is a fixed array --
+/// [`submitted_command_ptr`]'s property and for its reason. The host obtains a
+/// fresh view, writes the checkpoint's bytes, drops the view, and only then
+/// calls [`load_checkpoint`] with the length it wrote.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn checkpoint_ptr() -> u32 {
+    CHECKPOINT.with(|buffer| buffer.borrow().as_ptr() as usize as u32)
+}
+
+/// How many bytes [`checkpoint_ptr`] addresses.
+///
+/// A **capacity** and not a length, which is the one place this buffer's ABI
+/// differs from [`arena_config_len`]'s: those two describe a fixed-width record
+/// and every byte of them is meaningful, while a checkpoint is as long as its
+/// seed list. The name follows [`pose_capacity`] rather than `arena_config_len`
+/// for exactly that reason.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub const extern "C" fn checkpoint_capacity() -> u32 { CHECKPOINT_CAPACITY as u32 }
+
+/// Whether a network is installed: `1` after a successful [`load_checkpoint`],
+/// `0` before the first one.
+///
+/// Read by a studio to decide whether the `learned` entry in its policy picker
+/// is selectable, which is the difference between an option a reader can be
+/// told about and one that answers [`ARENA_NO_CHECKPOINT`] when they pick it.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn checkpoint_installed() -> u32 {
+    CHECKPOINT_MODEL.with(|model| u32::from(model.borrow().is_some()))
+}
+
+/// Address of the installed checkpoint's SHA-256, thirty-two bytes, or of
+/// thirty-two zeroes before anything has loaded.
+///
+/// Stable for the life of the module, like every pointer in this ABI. See
+/// [`CHECKPOINT_DIGEST`] for why a host wants it.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn checkpoint_digest_ptr() -> u32 {
+    CHECKPOINT_DIGEST.with(|digest| digest.borrow().as_ptr() as usize as u32)
+}
+
+#[allow(unsafe_code)]
+#[no_mangle]
+pub const extern "C" fn checkpoint_digest_len() -> u32 { CHECKPOINT_DIGEST_BYTES as u32 }
+
+/// Decodes the first `len` bytes of [`checkpoint_ptr`] and installs the network
+/// they carry, answering a packed word.
+///
+/// ```text
+/// bits  0..7   outcome: not installed 0, installed 1
+/// bits  8..15  reason: CHECKPOINT_OK 0, and one code per refusal above
+/// bits 16..31  detail: the weight index for CHECKPOINT_NOT_FINITE, the framing
+///                  version for CHECKPOINT_UNKNOWN_FORMAT, the extra byte count
+///                  for CHECKPOINT_TRAILING_BYTES, otherwise CHECKPOINT_NO_DETAIL
+/// ```
+///
+/// **The detail is sixteen bits and not two bytes**, which is where this word
+/// parts company with [`submit_result`]'s grammar. That one carries a fighter
+/// and a hand, both of which are small; this one carries a weight index, and
+/// [`ModelShape::CURRENT`] has 3,858 of them. Splitting an index across two
+/// fields that mean different things elsewhere would be worse than saying so.
+///
+/// # It installs nothing on any failure
+///
+/// The previous network stays installed and its digest stays published, which
+/// is [`arena_start`]'s rule for the same reason: a page that could not load a
+/// second fighter is still able to run the first. **And it never traps** -- a
+/// panic behind `pub extern "C"` poisons the wasm instance for the life of the
+/// page, so a corrupt fetch would cost a reload rather than a message.
+/// [`Checkpoint::from_bytes`] is total by construction and the only arithmetic
+/// here is a bounds check.
+///
+/// A caller that wants to know whether the file it just fetched is the one the
+/// trace was recorded against compares [`checkpoint_digest_ptr`] afterwards; the
+/// bytes are the same SHA-256 `lab trace` writes into its header.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn load_checkpoint(len: u32) -> u32 {
+    if len as usize > CHECKPOINT_CAPACITY {
+        return checkpoint_result(0, CHECKPOINT_TOO_LONG, CHECKPOINT_NO_DETAIL);
+    }
+    // Decoded straight out of the staging buffer under one borrow. Unlike
+    // `ARENA_CONFIG` this is not copied into a local first: 32 KiB on the stack
+    // is a stack this module has no reason to want, and `from_bytes` is a pure
+    // reader that cannot call back into anything holding the same `RefCell`.
+    let decoded = CHECKPOINT.with(|buffer| Checkpoint::from_bytes(&buffer.borrow()[..len as usize]));
+    let checkpoint = match decoded {
+        Ok(checkpoint) => checkpoint,
+        Err(error) => {
+            let (reason, detail) = checkpoint_refusal(&error);
+            return checkpoint_result(0, reason, detail);
+        }
+    };
+    // The file's own last thirty-two bytes, and reading them back is not
+    // trusting the file: `from_bytes` refuses unless they are the SHA-256 of
+    // everything in front of them, so by this line the recorded digest and the
+    // computed one are the same bytes. Copied out rather than recomputed
+    // because `Checkpoint::to_bytes` would allocate a second 15 KB of the file
+    // to hash a number that is already sitting there.
+    //
+    // `rchunks_exact` rather than `len - 32`, and the difference is the whole of
+    // what "it never traps" costs here: a subtraction is a proof obligation
+    // about a `u32` a caller chose, one call inside a `pub extern "C"` export
+    // away from a poisoned instance, and a reader would have to redo it. A file
+    // this short cannot reach this line -- `from_bytes` answered `Ok` -- and the
+    // arm that cannot be taken publishes thirty-two zeroes, which is the value
+    // that already means "nothing is named" rather than a stale name.
+    let mut digest = [0u8; CHECKPOINT_DIGEST_BYTES];
+    CHECKPOINT.with(|buffer| {
+        let bytes = buffer.borrow();
+        if let Some(tail) = bytes[..len as usize].rchunks_exact(CHECKPOINT_DIGEST_BYTES).next() {
+            digest.copy_from_slice(tail);
+        }
+    });
+    CHECKPOINT_DIGEST.with(|slot| *slot.borrow_mut() = digest);
+    CHECKPOINT_MODEL.with(|slot| *slot.borrow_mut() = Some(checkpoint.model));
+    checkpoint_result(1, CHECKPOINT_OK, CHECKPOINT_NO_DETAIL)
+}
+
+/// `LEARNED_INFERENCE_DIGEST`, low half: FNV-1a-64 over the logits the installed
+/// network produces on `learn_core`'s fixed observation corpus, or `0` when
+/// nothing is installed.
+///
+/// **This is the session's actual result.** `Model::forward` argues that a
+/// frozen checkpoint's argmax is reproducible on any host and records that the
+/// claim was untested "because this repository has no second host to check it
+/// on". This module is the second host, and this number is what holds the two to
+/// the same logits -- logits and not argmaxes, so that a divergence which has
+/// not yet crossed a decision boundary is caught before it becomes a different
+/// fight.
+///
+/// Pinned in this file as `LEARNED_INFERENCE_DIGEST` and again in
+/// `tools/wasm_check.js`, on the rule the registry states for every browser
+/// golden: duplicated so that a one-sided failure diagnoses target disagreement
+/// rather than a behaviour change. The corpus, the byte order and the
+/// `-C target-cpu=native` caveat are on [`learn_core::digest`].
+///
+/// Not cached, unlike [`articulated_stream_digest_lo`], and for the reason that
+/// one is: this allocates nothing, so a second call cannot grow linear memory,
+/// and the answer legitimately changes when a different checkpoint is loaded.
+/// **That is a measurement and not a reading of the source** --
+/// `the_cross_target_digest_allocates_nothing` in
+/// `crates/learn/tests/allocation.rs` puts it through the counting
+/// `#[global_allocator]` this repository keeps one `unsafe` block for, because
+/// the function builds sixty-four whole `ArticulatedObservation`s and "they are
+/// `Copy` so they land on the stack" is exactly the kind of claim that stops
+/// being true quietly.
+/// Reading both halves therefore walks the corpus twice, and the cost of that is
+/// measured rather than assumed: **84.3 to 85.8 microseconds a call** in wasm
+/// under Node -- 1,317 to 1,341 nanoseconds a forward pass -- best of nine
+/// across six processes pinned to logical CPU 0 at high priority, each run
+/// ending with the baseline repeated as a control, which came back within 4% of
+/// its own best in all six.
+///
+/// **Three measurements of this line disagree and the range is the honest
+/// answer.** It first read 75.4-78.5 microseconds without a trailing control;
+/// an adversarial re-measurement on the same machine read 91.4-102.0 and its
+/// controls were worse than its bests in every run; the numbers above are a
+/// third pass. What separates them is the warm-up: a long one drifts, and its
+/// trailing control here read 115-125 microseconds against a best of 85.4, so
+/// the best of that run is a reading of the first few seconds and not of the
+/// function. Take **roughly 1.3 microseconds a forward pass, plus or minus a
+/// couple of hundred nanoseconds**, and do not read a 10% difference in this
+/// number as a change in the code.
+///
+/// The conclusion is unmoved and never depended on the third digit: against the
+/// ~100 microseconds a contact-bound tick costs, and at one learned decision per
+/// tick, inference is about 1% of a tick. A diagnostic a page may call without
+/// thinking about it, which is what sized the corpus at sixty-four cases.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn learned_inference_digest_lo() -> u32 { learned_inference_digest() as u32 }
+
+/// High half of [`learned_inference_digest_lo`].
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn learned_inference_digest_hi() -> u32 {
+    (learned_inference_digest() >> 32) as u32
+}
+
+fn learned_inference_digest() -> u64 {
+    CHECKPOINT_MODEL.with(|model| {
+        model
+            .borrow()
+            .as_ref()
+            .map_or(0, learn_core::learned_inference_digest)
+    })
+}
+
+/// Packs [`load_checkpoint`]'s answer. See that export for the field order.
+const fn checkpoint_result(outcome: u8, reason: u8, detail: u16) -> u32 {
+    outcome as u32 | ((reason as u32) << 8) | ((detail as u32) << 16)
+}
+
+/// Which refusal a [`CheckpointError`] is, and the number that goes with it.
+///
+/// Exhaustive rather than `_ =>`, on [`arena_spec_refusal`]'s argument exactly:
+/// a variant appended to `CheckpointError` is a failed build here and has to be
+/// given a code and a sentence, rather than collapsing into whichever arm was
+/// convenient.
+fn checkpoint_refusal(error: &CheckpointError) -> (u8, u16) {
+    match error {
+        CheckpointError::Truncated { .. } => (CHECKPOINT_TRUNCATED, CHECKPOINT_NO_DETAIL),
+        CheckpointError::BadMagic => (CHECKPOINT_BAD_MAGIC, CHECKPOINT_NO_DETAIL),
+        // The version is the whole content of the diagnostic here -- "this build
+        // writes 1 and that file says 3" is a sentence a reader can act on --
+        // so it is the one refusal whose detail is the file's own claim rather
+        // than a position in it.
+        CheckpointError::UnknownFormat(version) => {
+            (CHECKPOINT_UNKNOWN_FORMAT, saturating_detail(*version as usize))
+        }
+        CheckpointError::FeatureLayout { found, .. } => {
+            (CHECKPOINT_FEATURE_LAYOUT, saturating_detail(*found as usize))
+        }
+        CheckpointError::ActionLayout { found, .. } => {
+            (CHECKPOINT_ACTION_LAYOUT, saturating_detail(*found as usize))
+        }
+        CheckpointError::Shape { .. } => (CHECKPOINT_SHAPE, CHECKPOINT_NO_DETAIL),
+        CheckpointError::WeightCount { found, .. } => {
+            (CHECKPOINT_WEIGHT_COUNT, saturating_detail(*found))
+        }
+        CheckpointError::Digest { .. } => (CHECKPOINT_DIGEST_MISMATCH, CHECKPOINT_NO_DETAIL),
+        CheckpointError::NotFinite { at } => (CHECKPOINT_NOT_FINITE, saturating_detail(*at)),
+        CheckpointError::NotFiniteRecord { .. } => {
+            (CHECKPOINT_NOT_FINITE_RECORD, CHECKPOINT_NO_DETAIL)
+        }
+        CheckpointError::TrailingBytes { extra } => {
+            (CHECKPOINT_TRAILING_BYTES, saturating_detail(*extra))
+        }
+    }
+}
+
+/// A count or an index narrowed to the detail field, saturating one below
+/// [`CHECKPOINT_NO_DETAIL`] so that "very large" and "no detail" stay different
+/// answers.
+fn saturating_detail(value: usize) -> u16 {
+    value.min(CHECKPOINT_NO_DETAIL as usize - 1) as u16
+}
+
+/// An instance of one articulated policy, including the one `crates/policy`
+/// cannot build.
+///
+/// **`ArticulatedPolicyKind::build` answering `None` for `Learned` is correct
+/// and stays**, which is worth stating because the obvious repair is to teach
+/// that function about a network and it would be a mistake. `crates/policy` is
+/// audited by `tools/check_deps.js`, which walks every workspace member, and
+/// must not gain a float
+/// dependency; more to the point, a checkpoint is a *host asset*, so a registry
+/// that could build one would need a way to be handed 15 KB of weights, and the
+/// place that already holds them is here. So the dispatch lives at the boundary
+/// that owns the arena and `policy` keeps a total function over the codes it
+/// can honestly answer.
+fn build_articulated_policy(
+    kind: ArticulatedPolicyKind,
+    index: usize,
+) -> Result<Box<dyn ArticulatedPolicy>, ArenaRefusal> {
+    if let Some(policy) = kind.build() {
+        return Ok(policy);
+    }
+    // `Learned` is the only kind `build` refuses, and it is refused here only
+    // for want of a network. Written as a `match` on the kind rather than as an
+    // `else` so that a second unbuildable code appended to the registry is a
+    // failed build in the one place that would otherwise quietly report "no
+    // checkpoint" about a policy that has nothing to do with checkpoints.
+    match kind {
+        ArticulatedPolicyKind::Learned => CHECKPOINT_MODEL.with(|model| {
+            match model.borrow().as_ref() {
+                Some(model) => {
+                    let brain: Box<dyn ArticulatedPolicy> =
+                        Box::new(LearnedArticulatedPolicy::new(model.clone()));
+                    Ok(brain)
+                }
+                None => Err(ArenaRefusal::policy(ARENA_NO_CHECKPOINT, index, kind.code())),
+            }
+        }),
+        ArticulatedPolicyKind::Neutral
+        | ArticulatedPolicyKind::Composed
+        | ArticulatedPolicyKind::Windmill
+        | ArticulatedPolicyKind::AttackMoves => {
+            Err(ArenaRefusal::policy(ARENA_POLICY_UNAVAILABLE, index, kind.code()))
+        }
+    }
+}
+
+// ----------------------------------------------------------------- the arena
+//
+// One configured duel, built from [`ARENA_CONFIG`] and run by
+// [`Sim::advance_arena`]. The buffer's layout and the refusal codes are up
+// beside `SUBMITTED_COMMAND`'s; what is here is the parse, the install, and the
+// four reads a page needs afterwards.
+
+/// Address of the arena configuration buffer in linear memory.
+///
+/// Stable for the life of the module, because the buffer is a fixed array --
+/// [`submitted_command_ptr`]'s property and for its reason. The host obtains a
+/// fresh view, writes all [`arena_config_len`] bytes, drops the view, and only
+/// then calls [`arena_start`].
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn arena_config_ptr() -> u32 {
+    ARENA_CONFIG.with(|buffer| buffer.borrow().as_ptr() as usize as u32)
+}
+
+#[allow(unsafe_code)]
+#[no_mangle]
+pub const extern "C" fn arena_config_len() -> u32 { ARENA_CONFIG_BYTES as u32 }
+
+#[allow(unsafe_code)]
+#[no_mangle]
+pub const extern "C" fn arena_config_layout_version() -> u32 {
+    ARENA_CONFIG_LAYOUT_VERSION as u32
+}
+
+/// Builds the configured duel at `seed`, installs it, and answers a packed word.
+///
+/// ```text
+/// bits  0..7   outcome: not started 0, started 1
+/// bits  8..15  reason: ARENA_OK 0, and one code per refusal above
+/// bits 16..23  the fighter the refusal is about, or ARENA_WHOLE_CONFIG
+/// bits 24..31  the hand the refusal is about; the policy code for an
+///                  unavailable policy; otherwise ARENA_WHOLE_CONFIG
+/// ```
+///
+/// # Validation order is normative
+///
+/// [`submit_articulated`]'s contract in the same words, because the first
+/// failure chooses the diagnostic and a page that shows one message must be able
+/// to predict which:
+///
+/// 1. the layout version and the header's reserved byte;
+/// 2. the fighter count;
+/// 3. each fighter in index order -- its reserved bytes, its anatomy, its policy
+///    code, whether that policy can be built, then hand `0` and hand `1`;
+/// 4. `Scenario::duel_from`, which is where every [`sim::CombatSpecError`] a
+///    control can reach comes from;
+/// 5. the scenario fingerprint;
+/// 6. the world construction;
+/// 7. the contact reservation.
+///
+/// # It installs nothing on any failure
+///
+/// Every refusal above returns before `SIM` is touched, and the world is built
+/// as a local and reserved while it is still a local -- [`install_articulated`]'s
+/// pattern exactly. Two hard reasons, neither of them tidiness:
+///
+/// `Scenario::fingerprint` **panics** on an invalid construction, so
+/// `try_fingerprint` is mandatory rather than preferable. And a trap behind
+/// `pub extern "C"` poisons the wasm instance for the life of the page -- linear
+/// memory may be halfway through a mutation and a `RefCell` may be left borrowed
+/// -- so a bad slider value would cost a reload rather than a message.
+///
+/// A refusal also leaves the *previous* world standing and does not republish.
+/// That is the difference from [`init_articulated`], which is a call that says
+/// "start over" and therefore owes an empty room when it cannot; this one says
+/// "start this fight", and a page that could not is still watching the last one.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn arena_start(seed: u32) -> u32 {
+    // Copied whole into a local before a single byte is read, on
+    // [`submit_articulated`]'s argument: the caller has dropped its view by now
+    // and nothing below may depend on the buffer still holding what it did.
+    let bytes = ARENA_CONFIG.with(|buffer| *buffer.borrow());
+    match install_arena(&bytes, u64::from(seed)) {
+        Ok(()) => submit_result(1, ARENA_OK, ARENA_WHOLE_CONFIG, ARENA_WHOLE_CONFIG),
+        Err(refusal) => refusal.packed(),
+    }
+}
+
+/// Low half of the installed configuration's [`Scenario::try_fingerprint`], or
+/// `0` when no arena is installed.
+///
+/// Split in two halves for the reason [`state_hash_lo`] is: a `u64` has no
+/// crossing of its own in this ABI.
+///
+/// **This is what a recorded fight is named by.** A trace that does not carry
+/// the fingerprint of the configuration it came from is a fight nobody can
+/// reproduce -- and the number is a function of the configuration and of nothing
+/// else, which `the_arena_fingerprint_is_stable_for_a_configuration` in
+/// `crates/sim` is what says. It can never be the `articulated-duel-v1` pin: a
+/// runtime scenario is named `configured-duel-v1`, deliberately, so that the two
+/// cannot be confused even when every other byte agrees.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn arena_fingerprint_lo() -> u32 { arena_fingerprint() as u32 }
+
+/// High half of [`arena_fingerprint_lo`].
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn arena_fingerprint_hi() -> u32 { (arena_fingerprint() >> 32) as u32 }
+
+fn arena_fingerprint() -> u64 {
+    with_sim(0, |sim| sim.arena.as_ref().map_or(0, |arena| arena.fingerprint))
+}
+
+/// Which articulated policy a side is running, as an
+/// [`ArticulatedPolicyKind::code`], or [`ARENA_NO_POLICY`] when this world is not
+/// an arena.
+///
+/// `0` is `neutral` and a perfectly ordinary answer, so absence needs a value no
+/// code can take rather than a zero -- the same reason [`focus_entity_index`]
+/// answers `u32::MAX`.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn arena_policy(faction_code: u32) -> u32 {
+    with_sim(ARENA_NO_POLICY, |sim| match sim.arena.as_ref() {
+        Some(arena) => arena.kinds[faction_from_code(faction_code).index()].code(),
+        None => ARENA_NO_POLICY,
+    })
+}
+
+/// The whole of [`arena_start`] except the packing, so that every exit is a
+/// `?` and no path can install half a world.
+fn install_arena(bytes: &[u8; ARENA_CONFIG_BYTES], seed: u64) -> Result<(), ArenaRefusal> {
+    let layout = u16::from_le_bytes([bytes[ARENA_HEADER_LAYOUT], bytes[ARENA_HEADER_LAYOUT + 1]]);
+    if layout != ARENA_CONFIG_LAYOUT_VERSION || bytes[ARENA_HEADER_RESERVED] != 0 {
+        return Err(ArenaRefusal::whole(ARENA_UNKNOWN_LAYOUT));
+    }
+    if usize::from(bytes[ARENA_HEADER_FIGHTERS]) != ARENA_FIGHTERS {
+        return Err(ArenaRefusal::whole(ARENA_WRONG_FIGHTER_COUNT));
+    }
+    // Unbounded on purpose. `max_ticks` is a `u32` field of every scenario in
+    // the repository and nothing here is entitled to an opinion about how long a
+    // fight may be; it reaches the fingerprint, so a host that quietly clamped
+    // it would hand back a configuration that is not the one it was given.
+    let max_ticks =
+        u32::from_le_bytes(bytes[ARENA_HEADER_MAX_TICKS..][..4].try_into().unwrap());
+
+    let (fighter_a, kind_a, policy_a) = parse_arena_fighter(bytes, 0)?;
+    let (fighter_b, kind_b, policy_b) = parse_arena_fighter(bytes, 1)?;
+    let config = sim::DuelConfigV1 { fighters: [fighter_a, fighter_b], max_ticks };
+
+    let scenario = Scenario::duel_from(&config).map_err(arena_spec_refusal)?;
+    // `try_fingerprint` and not `fingerprint`, even though `duel_from` has
+    // already validated everything it checks. The panicking form is one call
+    // inside a `pub extern "C"` export away from a poisoned instance, and "the
+    // validator upstream agrees with the validator downstream" is worth having
+    // as a property rather than as an assumption.
+    let fingerprint = scenario.try_fingerprint().map_err(arena_fingerprint_refusal)?;
+
+    // Everything from here is on a local, and `SIM` is written on the last line.
+    let mut fresh =
+        Sim::try_on(&scenario, seed).ok_or(ArenaRefusal::whole(ARENA_CONSTRUCTION_REFUSED))?;
+    // Here, while `fresh` is still a local, for [`install_articulated`]'s whole
+    // argument: one line further down the world is reachable through `SIM` and
+    // the page is entitled to keep a typed array over what `publish` hands it,
+    // and a contact vector that grew after that moment would detach every one.
+    fresh
+        .world
+        .try_reserve_contact_slots(MAX_UNITS)
+        .map_err(|_| ArenaRefusal::whole(ARENA_RESERVATION_REFUSED))?;
+    fresh.contact_high_water = MAX_UNITS as u32;
+
+    // The orders the lab's runner sets, and inert here exactly as deliberately:
+    // an articulated observation has no order column, so no articulated policy
+    // can read one. They are still world inputs and they still reach
+    // `World::state_hash`, so a driver that skipped them would fingerprint a
+    // different world from the one `lab` fingerprints for the same seed --
+    // which is the whole claim of
+    // `a_scripted_arena_fight_in_wasm_matches_the_same_fight_in_lab`.
+    let orders = RunConfig::default().orders;
+    fresh.world.set_order(Faction::Heroes, orders[0]);
+    fresh.world.set_order(Faction::Monsters, orders[1]);
+    // And the objectives back off, for the same reason from the other end.
+    // [`Sim::try_open`] sets `Order` and `Hunt` because a page's floor is a
+    // dungeon a hero walks a nav field across; a duel is two bodies six units
+    // apart in an open box, and the objectives are hashed. The lab leaves them
+    // at the default, so this does too.
+    fresh.world.set_objective(Faction::Heroes, Objective::None);
+    fresh.world.set_objective(Faction::Monsters, Objective::None);
+
+    let heroes = fresh.world.alive_ids(Faction::Heroes);
+    fresh.arena = Some(Arena {
+        policies: [policy_a, policy_b],
+        kinds: [kind_a, kind_b],
+        heroes,
+        fingerprint,
+        max_ticks,
+    });
+    // The floor plan and the furniture, on the success path only -- and a duel
+    // has no furniture at all, so this is the buffer being *emptied* rather than
+    // filled. A page that opened an arena over a dungeon would otherwise draw
+    // the last level's doorways across an open box.
+    write_map(&fresh.world);
+    write_furniture(&fresh.world, &fresh.torches);
+    SIM.with(|sim| *sim.borrow_mut() = Some(fresh));
+    publish();
+    Ok(())
+}
+
+/// One fighter block: its description, its policy code, and an instance of it.
+fn parse_arena_fighter(
+    bytes: &[u8; ARENA_CONFIG_BYTES],
+    index: usize,
+) -> Result<(sim::DuelFighterV1, ArticulatedPolicyKind, Box<dyn ArticulatedPolicy>), ArenaRefusal> {
+    let base = ARENA_HEADER_BYTES + index * ARENA_FIGHTER_BYTES;
+    let at = |offset: usize| i32::from_le_bytes(bytes[base + offset..][..4].try_into().unwrap());
+
+    if bytes[base + ARENA_FIGHTER_RESERVED] != 0 || bytes[base + ARENA_FIGHTER_RESERVED + 1] != 0 {
+        return Err(ArenaRefusal::fighter(ARENA_NONCANONICAL, index));
+    }
+    let anatomy = match bytes[base + ARENA_FIGHTER_ANATOMY] {
+        0 => sim::AnatomyChoice::Fighter,
+        1 => sim::AnatomyChoice::Brute,
+        _ => return Err(ArenaRefusal::fighter(ARENA_UNKNOWN_ANATOMY, index)),
+    };
+    let code = u32::from(bytes[base + ARENA_FIGHTER_POLICY]);
+    let kind = ArticulatedPolicyKind::from_code(code)
+        .ok_or(ArenaRefusal::fighter(ARENA_UNKNOWN_POLICY, index))?;
+    // Refused by name, with the code in the slot byte: "this build cannot make
+    // that fighter" is a different sentence from "nobody has heard of that
+    // number", and a studio showing one entry greyed out has to be able to tell
+    // them apart. Since v2-ui-08 there is a third sentence and `learned` is the
+    // only kind that can say it -- see [`build_articulated_policy`].
+    let mut policy = build_articulated_policy(kind, index)?;
+    // `ArticulatedPolicy::reset`'s contract, honoured even though it is a no-op
+    // on an instance built one line above and on a policy with no state. It is
+    // what stops "fresh" from quietly coming to mean "whatever a stateful
+    // successor happens to construct itself with", which is the same reason
+    // `lab`'s matchup loop resets two policies it has just built.
+    policy.reset();
+
+    let mut hands = [None, None];
+    for hand in 0..ARENA_HANDS {
+        hands[hand] = parse_arena_hand(bytes, index, hand)?;
+    }
+    let fighter = sim::DuelFighterV1 {
+        anatomy,
+        hands,
+        spawn: Vec2::new(
+            Fx::from_raw(at(ARENA_FIGHTER_SPAWN_X)),
+            Fx::from_raw(at(ARENA_FIGHTER_SPAWN_Y)),
+        ),
+    };
+    Ok((fighter, kind, policy))
+}
+
+/// One hand block, or `None` for an empty hand.
+///
+/// **The geometry *kind* is derived from the action rather than carried**, which
+/// is what makes the block twenty-two bytes instead of twenty-three: a shield is
+/// a plate and everything else with a row is a segment. So the "sword shaped
+/// like a plate" that `crates/sim`'s own tests build by hand is not expressible
+/// from here, and does not need to be -- there is no control that would produce
+/// one. What it must not become is a way *round* a rule: `validate_bindings`
+/// classifies by geometry and never by action precisely so that a second plate
+/// called something else is still a grip conflict, and that stays true whether
+/// or not this parser can describe one.
+fn parse_arena_hand(
+    bytes: &[u8; ARENA_CONFIG_BYTES],
+    index: usize,
+    hand: usize,
+) -> Result<Option<sim::HandItemV1>, ArenaRefusal> {
+    let base = ARENA_HEADER_BYTES + index * ARENA_FIGHTER_BYTES
+        + ARENA_FIGHTER_HANDS + hand * ARENA_HAND_BYTES;
+    let word = |offset: usize| {
+        Fx::from_raw(i32::from_le_bytes(bytes[base + offset..][..4].try_into().unwrap()))
+    };
+    if bytes[base + ARENA_HAND_RESERVED] != 0 {
+        return Err(ArenaRefusal::hand(ARENA_NONCANONICAL, index, hand));
+    }
+    let code = bytes[base + ARENA_HAND_ITEM];
+    let (mass, balance) = (word(ARENA_HAND_MASS), word(ARENA_HAND_BALANCE));
+    let dimensions =
+        [word(ARENA_HAND_DIMENSION_0), word(ARENA_HAND_DIMENSION_1), word(ARENA_HAND_DIMENSION_2)];
+    if code == ARENA_HAND_EMPTY {
+        // Every word an empty hand does not have. An empty hand whose leftover
+        // dimensions still read a sword's is a buffer somebody changed a dropdown
+        // on and did not finish writing, and it is much cheaper to say so here
+        // than to have a reader wonder later which of the two the fight used.
+        if mass != Fx::ZERO || balance != Fx::ZERO || dimensions.iter().any(|&v| v != Fx::ZERO) {
+            return Err(ArenaRefusal::hand(ARENA_NONCANONICAL, index, hand));
+        }
+        return Ok(None);
+    }
+    let action = sim::ActionKind::from_code(u32::from(code))
+        .ok_or(ArenaRefusal::hand(ARENA_UNKNOWN_ITEM, index, hand))?;
+    let geometry = if matches!(action, sim::ActionKind::Shield) {
+        sim::EquipmentGeometry::Shield {
+            half_width: dimensions[0],
+            half_height: dimensions[1],
+            thickness: dimensions[2],
+        }
+    } else {
+        if dimensions[2] != Fx::ZERO {
+            return Err(ArenaRefusal::hand(ARENA_NONCANONICAL, index, hand));
+        }
+        sim::EquipmentGeometry::Segment { length: dimensions[0], radius: dimensions[1] }
+    };
+    Ok(Some(sim::HandItemV1 { action, mass, balance, geometry }))
+}
+
+/// Which refusal a spec error is.
+///
+/// Exhaustive rather than `_ =>`, so that a variant appended to
+/// [`sim::CombatSpecError`] is a failed build here and has to be given a number
+/// and a sentence. Seven of these cannot be reached from the configuration
+/// buffer today; the section above says which and why they keep codes anyway.
+fn arena_spec_refusal(error: sim::CombatSpecError) -> ArenaRefusal {
+    ArenaRefusal::whole(match error {
+        sim::CombatSpecError::MissingTable => ARENA_MISSING_TABLE,
+        sim::CombatSpecError::UnexpectedTable => ARENA_UNEXPECTED_TABLE,
+        sim::CombatSpecError::UnitPresence => ARENA_UNIT_PRESENCE,
+        sim::CombatSpecError::TooManyAnatomies => ARENA_TOO_MANY_ANATOMIES,
+        sim::CombatSpecError::TooManyEquipment => ARENA_TOO_MANY_EQUIPMENT,
+        sim::CombatSpecError::IdOrder => ARENA_ID_ORDER,
+        sim::CombatSpecError::UnknownSchema => ARENA_UNKNOWN_SCHEMA,
+        sim::CombatSpecError::Dimension => ARENA_DIMENSION,
+        sim::CombatSpecError::Fraction => ARENA_FRACTION,
+        sim::CombatSpecError::Maximum => ARENA_MAXIMUM,
+        sim::CombatSpecError::MissingReference => ARENA_MISSING_REFERENCE,
+        sim::CombatSpecError::LoadoutMismatch => ARENA_LOADOUT_MISMATCH,
+        sim::CombatSpecError::GripConflict => ARENA_GRIP_CONFLICT,
+        sim::CombatSpecError::NoEquipment => ARENA_NO_EQUIPMENT,
+        sim::CombatSpecError::UnknownAction => ARENA_UNKNOWN_ACTION,
+    })
+}
+
+fn arena_fingerprint_refusal(error: sim::ScenarioFingerprintError) -> ArenaRefusal {
+    match error {
+        sim::ScenarioFingerprintError::InvalidCombatSpecs(error) => arena_spec_refusal(error),
+        sim::ScenarioFingerprintError::NameTooLong { .. } => {
+            ArenaRefusal::whole(ARENA_NAME_TOO_LONG)
+        }
+    }
+}
+
+/// Why [`arena_start`] refused, and what it was about.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+struct ArenaRefusal {
+    reason: u8,
+    fighter: u8,
+    slot: u8,
+}
+
+impl ArenaRefusal {
+    const fn whole(reason: u8) -> ArenaRefusal {
+        ArenaRefusal { reason, fighter: ARENA_WHOLE_CONFIG, slot: ARENA_WHOLE_CONFIG }
+    }
+
+    const fn fighter(reason: u8, fighter: usize) -> ArenaRefusal {
+        ArenaRefusal { reason, fighter: fighter as u8, slot: ARENA_WHOLE_CONFIG }
+    }
+
+    const fn hand(reason: u8, fighter: usize, hand: usize) -> ArenaRefusal {
+        ArenaRefusal { reason, fighter: fighter as u8, slot: hand as u8 }
+    }
+
+    /// The one refusal whose slot byte is not a hand. See
+    /// [`ARENA_POLICY_UNAVAILABLE`].
+    const fn policy(reason: u8, fighter: usize, code: u32) -> ArenaRefusal {
+        ArenaRefusal { reason, fighter: fighter as u8, slot: code as u8 }
+    }
+
+    const fn packed(self) -> u32 {
+        submit_result(0, self.reason, self.fighter, self.slot)
+    }
+}
+
 /// Address of the pose buffer. Stable for the life of the module, exactly as
 /// [`frame_ptr`] is and for the same reason: it is a fixed array in linear
 /// memory and nothing here ever reallocates it.
@@ -4662,6 +6373,62 @@ pub extern "C" fn poses_dropped() -> u32 {
 #[allow(unsafe_code)]
 #[no_mangle]
 pub const extern "C" fn pose_layout_version() -> u32 { POSE_LAYOUT_VERSION }
+
+/// Address of the region buffer. Stable for the life of the module, on
+/// [`pose_ptr`]'s terms exactly.
+///
+/// **Authoritative and unfiltered, exactly as [`pose_ptr`] is**, and the leak it
+/// would be is the same one told more precisely: a capsule is where a body's
+/// head and each of its limbs are standing, for bodies the viewer may have no
+/// way of seeing. The worker filters this beside the pose rows it belongs to.
+///
+/// The section is read against `pose_len`: region row `n` describes pose row
+/// `n / REGIONS_PER_BODY`, and the row carries no identity because the pose row
+/// it belongs to already does. A reader checks
+/// `region_len == REGIONS_PER_BODY * pose_len` before it indexes, which is the
+/// one thing that can be wrong and is a single comparison -- the same shape as
+/// the boot handshake refusing a frame layout it does not understand.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn region_ptr() -> u32 {
+    REGIONS.with(|regions| regions.borrow().as_ptr() as usize as u32)
+}
+
+/// How many region rows are live. Rows, not words, and not bodies: this is
+/// [`REGIONS_PER_BODY`] times the pose count.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn region_len() -> u32 {
+    REGION_LEN.with(|n| n.get())
+}
+
+#[allow(unsafe_code)]
+#[no_mangle]
+pub const extern "C" fn region_stride() -> u32 { REGION_STRIDE as u32 }
+
+#[allow(unsafe_code)]
+#[no_mangle]
+pub const extern "C" fn region_capacity() -> u32 { MAX_REGIONS as u32 }
+
+/// Rows the last publication could not fit, saturating.
+///
+/// Zero in every reachable case, exactly as [`poses_dropped`] is and for the
+/// same reason -- the capacity is the sim's own cap times the sim's own region
+/// count -- with one addition this counter has and that one does not: a body
+/// whose anatomy the host does not hold costs five rows here. That cannot
+/// happen either, and this is what would say so: the writer carries one cursor,
+/// so a skipped body shifts every later body's rows five early, and this count
+/// is what makes `region_len` disagree with `REGIONS_PER_BODY * pose_len` so a
+/// reader refuses the section rather than indexing a shifted one.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn regions_dropped() -> u32 {
+    REGIONS_DROPPED.with(|n| n.get())
+}
+
+#[allow(unsafe_code)]
+#[no_mangle]
+pub const extern "C" fn region_layout_version() -> u32 { REGION_LAYOUT_VERSION }
 
 /// Address of the combat-event buffer. Stable for the life of the module.
 ///
@@ -4758,6 +6525,14 @@ pub extern "C" fn set_policy(faction_code: u32, policy_code: u32) -> u32 {
         None => return 0,
     };
     let took = with_sim(0, |sim| {
+        // **An arena refuses this, and answers `0` because `0` is true.** These
+        // four codes are the legacy seam's, `Sim::advance_arena` never consults
+        // `sim.policies`, and a call that reported success would leave a page
+        // showing a dropdown that had done nothing. The articulated registry is
+        // written once, by [`arena_start`], and read back by [`arena_policy`].
+        if sim.arena.is_some() {
+            return 0;
+        }
         sim.set_policy(faction_from_code(faction_code), kind);
         1
     });
@@ -4765,11 +6540,33 @@ pub extern "C" fn set_policy(faction_code: u32, policy_code: u32) -> u32 {
     took
 }
 
-/// Which policy a faction is running, as a [`PolicyKind::code`].
+/// Which policy a faction is running, as a [`PolicyKind::code`], or
+/// [`POLICY_KIND_UNKNOWN`] on a world this vocabulary does not describe.
+///
+/// **An arena answers that it does not know, rather than answering an
+/// articulated code through a legacy export.** Those are the only two honest
+/// options and the second is worse: [`PolicyKind`] and
+/// [`ArticulatedPolicyKind`] are separate registries precisely so that one
+/// integer does not mean two things, and `2` is `idle` on one and `windmill` on
+/// the other. An export documented as returning a `PolicyKind::code` that
+/// sometimes returns the other kind's would put that collision back inside a
+/// single function, on a page whose whole subject is watching the fight change
+/// when the dropdown moves.
+///
+/// [`init_articulated`]'s room is deliberately *not* covered by this. Its legacy
+/// policies are installed and consulted every tick -- `World::submit` is what
+/// drops their commands -- so a legacy code is the true answer there, and a
+/// sentinel would be the lie.
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn policy_kind(faction_code: u32) -> u32 {
+    // The no-world default stays `0`, which is what it has always been and what
+    // the page has always read before its first `init`. Widening the sentinel to
+    // cover that case as well would be a second, unrelated ABI change.
     with_sim(0, |sim| {
+        if sim.arena.is_some() {
+            return POLICY_KIND_UNKNOWN;
+        }
         sim.kinds[faction_from_code(faction_code).index()].code()
     })
 }
@@ -5164,6 +6961,13 @@ pub extern "C" fn furniture_revision() -> u32 {
 /// A door for the page and for `wasm_check.js`, which needs to drive a level
 /// change without simulating a full clear first. The ordinary way down is to
 /// kill everything and walk into the way out.
+///
+/// **Called on a configured duel it converts rather than refuses**, and what it
+/// converts to is an ordinary generated floor with the legacy loop, the legacy
+/// policies and no arena: `arena_policy` goes back to [`ARENA_NO_POLICY`],
+/// `arena_fingerprint_*` back to `0`, [`policy_kind`] back to naming a
+/// [`PolicyKind`] and [`set_policy`] back to taking one. See [`Sim::descend`]
+/// for why that is the answer and not a refusal.
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn descend() -> u32 {
@@ -5810,8 +7614,8 @@ fn stream_digest_command(
     }
 }
 
-/// FNV-1a-64 over the published pose and combat-event stream of a scripted
-/// articulated fight.
+/// FNV-1a-64 over the published pose, combat-event and region stream of a
+/// scripted articulated fight.
 ///
 /// **The portable claim v2-16 makes.** `selftest_hash` proves a *run* is the
 /// same everywhere; this proves the bytes the page reads out of it are, which
@@ -5820,14 +7624,16 @@ fn stream_digest_command(
 /// every world column and still disagree about a word offset, a sign extension
 /// or a narrowed `u64`.
 ///
-/// It goes through [`write_pose_buffer`] and [`write_combat_event_buffer`] --
-/// the same two functions [`publish`] calls -- rather than a second encoder. A
-/// digest built by a parallel writer would prove that two encoders agree and
-/// would say nothing about what crosses the wall.
+/// It goes through [`write_pose_buffer`], [`write_combat_event_buffer`] and
+/// [`write_region_buffer`] -- the same three functions [`publish`] calls --
+/// rather than a second encoder. A digest built by a parallel writer would
+/// prove that two encoders agree and would say nothing about what crosses the
+/// wall.
 ///
 /// Independent of [`init`] and of anything the player has done, exactly as
 /// [`selftest_hash`] is: it builds its own `Sim`, drives it, and throws it away
-/// without touching `SIM`, `FRAME`, `POSES` or `COMBAT_EVENTS`. It leaves `MAP`,
+/// without touching `SIM`, `FRAME`, `POSES`, `REGIONS` or `COMBAT_EVENTS`. It
+/// leaves `MAP`,
 /// `MAP_SHAPE` and `FURNITURE` alone too, and that one is a property of the
 /// *fixture* rather than of this function: `Sim::advance` rewrites both on a
 /// door opening and on a descent, and the scripted duel is an open 24x16 room
@@ -5856,37 +7662,65 @@ thread_local! {
     static ARTICULATED_STREAM_DIGEST_VALUE: u64 = compute_articulated_stream_digest();
 }
 
+/// One tick's publication, as [`drive_stream_digest_script`] hands it over.
+///
+/// A struct and not seven positional arguments, on `TraceRun`'s argument in
+/// `crates/lab`: three word slices and three counts in a row is a signature two
+/// transpositions away from digesting the region rows as the pose rows, and
+/// nothing in the type system would notice.
+struct StreamPublication<'a> {
+    tick: u32,
+    poses: &'a [u32],
+    poses_dropped: u32,
+    events: &'a [u32],
+    events_dropped: u32,
+    regions: &'a [u32],
+    regions_dropped: u32,
+}
+
 fn compute_articulated_stream_digest() -> u64 {
     let mut hash = fx::Hash64::new();
     hash.write_bytes(b"ARPG-STREAM-V1");
-    drive_stream_digest_script(|tick, poses, poses_dropped, events, events_dropped| {
-        // The two lengths are derived from the slices rather than passed
+    drive_stream_digest_script(|published| {
+        // The three lengths are derived from the slices rather than passed
         // alongside them, so the count in the digest and the words after it
         // cannot disagree about how many rows there are.
-        hash.write_u32(tick);
-        hash.write_u32((poses.len() / POSE_STRIDE) as u32);
-        hash.write_u32(poses_dropped);
-        for &word in poses {
+        hash.write_u32(published.tick);
+        hash.write_u32((published.poses.len() / POSE_STRIDE) as u32);
+        hash.write_u32(published.poses_dropped);
+        for &word in published.poses {
             hash.write_u32(word);
         }
-        hash.write_u32((events.len() / COMBAT_EVENT_STRIDE) as u32);
-        hash.write_u32(events_dropped);
-        for &word in events {
+        hash.write_u32((published.events.len() / COMBAT_EVENT_STRIDE) as u32);
+        hash.write_u32(published.events_dropped);
+        for &word in published.events {
+            hash.write_u32(word);
+        }
+        // **Appended after the events rather than beside the poses, which is
+        // where the section itself belongs.** The digest's byte order is
+        // append-only for the reason its columns and its codes are: a stream
+        // that reordered would move this number by the same amount an extension
+        // does, and the two would be indistinguishable afterwards. Written this
+        // way, the pose-and-event prefix of every tick is byte-identical to
+        // what v2-16 pinned and the whole of the move is the tail -- which is
+        // exactly the claim "a third published section moved it" makes.
+        hash.write_u32((published.regions.len() / REGION_STRIDE) as u32);
+        hash.write_u32(published.regions_dropped);
+        for &word in published.regions {
             hash.write_u32(word);
         }
     });
     hash.finish()
 }
 
-/// Runs the scripted articulated stream, handing `feed` one publication per
-/// tick as `(tick, live pose words, poses dropped, live event words, events
-/// dropped)`.
+/// Runs the scripted articulated stream, handing `feed` one
+/// [`StreamPublication`] per tick.
 ///
 /// The script and the digest are separated so that a test can ask what the
 /// script *contains* -- an empty tick, a tick with several contact groups --
 /// without rebuilding the drive beside it. Two copies of a fixture is how a
 /// fixture and the claim about it drift apart.
-fn drive_stream_digest_script(mut feed: impl FnMut(u32, &[u32], u32, &[u32], u32)) {
+fn drive_stream_digest_script(mut feed: impl FnMut(StreamPublication)) {
     let scenario = stream_digest_scenario();
     let Some(mut sim) = Sim::try_on(&scenario, STREAM_DIGEST_SEED) else {
         // Unreachable -- the fixture is the shipped duel with two spawns moved
@@ -5915,20 +7749,22 @@ fn drive_stream_digest_script(mut feed: impl FnMut(u32, &[u32], u32, &[u32], u32
     sim.world
         .submit_articulated_v1(brute, stream_digest_command(Angle::ZERO, Vec2::ZERO, fighter));
 
-    // The two published buffers, built once and reused across the script rather
-    // than allocated per tick: this runs on `wasm32-unknown-unknown`, where a
-    // heap that grows detaches whatever the page is holding, and 279,040 bytes
-    // of stack is the cheaper of the two. That was 49,664 while
+    // The three published buffers, built once and reused across the script
+    // rather than allocated per tick: this runs on `wasm32-unknown-unknown`,
+    // where a heap that grows detaches whatever the page is holding, and
+    // 289,280 bytes of stack is the cheaper of the two. That was 49,664 while
     // `MAX_COMBAT_EVENTS` was the provisional 256 and 147,968 while it was
-    // 1024, so the frame has grown by 5.6x and the trade is worth restating
-    // rather than assuming: the default shadow stack is 1 MiB, this frame is a
-    // little over a quarter of it, and it is the whole depth below an export
-    // rather than one level of a recursion. **This is the constant to watch if
-    // the capacity is raised again** -- the next doubling puts one frame past
-    // half the stack, and a shadow-stack overflow on wasm32 is a silent
-    // corruption rather than a trap.
+    // 1024, and 279,040 before v2-ui-06 added the region rows -- so the frame
+    // has grown by 5.8x and the trade is worth restating rather than assuming:
+    // the default shadow stack is 1 MiB, this frame is a little over a quarter
+    // of it, and it is the whole depth below an export rather than one level of
+    // a recursion. **This is the constant to watch if the capacity is raised
+    // again** -- the next doubling of the event buffer puts one frame past half
+    // the stack, and a shadow-stack overflow on wasm32 is a silent corruption
+    // rather than a trap.
     let mut poses = [0u32; MAX_POSES * POSE_STRIDE];
     let mut events = [0u32; MAX_COMBAT_EVENTS * COMBAT_EVENT_STRIDE];
+    let mut regions = [0u32; MAX_REGIONS * REGION_STRIDE];
     for _ in 0..STREAM_DIGEST_TICKS {
         // Read before the step, so the number fed here is the tick that was
         // integrated -- the same tick the event rows below are stamped with,
@@ -5937,13 +7773,16 @@ fn drive_stream_digest_script(mut feed: impl FnMut(u32, &[u32], u32, &[u32], u32
         sim.advance(1);
         let (pose_rows, poses_dropped) = write_pose_buffer(&sim, &mut poses);
         let (event_rows, events_dropped) = write_combat_event_buffer(&sim, &mut events);
-        feed(
+        let (region_rows, regions_dropped) = write_region_buffer(&sim, &mut regions);
+        feed(StreamPublication {
             tick,
-            &poses[..pose_rows as usize * POSE_STRIDE],
+            poses: &poses[..pose_rows as usize * POSE_STRIDE],
             poses_dropped,
-            &events[..event_rows as usize * COMBAT_EVENT_STRIDE],
+            events: &events[..event_rows as usize * COMBAT_EVENT_STRIDE],
             events_dropped,
-        );
+            regions: &regions[..region_rows as usize * REGION_STRIDE],
+            regions_dropped,
+        });
     }
 }
 
@@ -5960,7 +7799,135 @@ mod tests {
         let mut fresh = Sim::new(1);
         let scenario = Scenario::articulated_duel();
         fresh.world = World::new(&scenario, 1);
+        // Beside the world, exactly as `init_articulated_test` does it.
+        fresh.anatomy = scenario_anatomy(&scenario);
         SIM.with(|sim| *sim.borrow_mut() = Some(fresh));
+    }
+
+    /// A duel written into [`ARENA_CONFIG`] the way the studio writes it.
+    ///
+    /// The mirror of [`install_arena`]'s parse, and deliberately a separate
+    /// piece of code rather than a shared encoder: a buffer built by the reader
+    /// it is handed to agrees with itself by construction and says nothing about
+    /// the layout. This one is written against the offset constants, which is
+    /// what a page has.
+    fn write_arena_config(config: &sim::DuelConfigV1, policies: [ArticulatedPolicyKind; 2]) {
+        ARENA_CONFIG.with(|buffer| {
+            let mut bytes = buffer.borrow_mut();
+            bytes.fill(0);
+            bytes[ARENA_HEADER_LAYOUT..][..2]
+                .copy_from_slice(&ARENA_CONFIG_LAYOUT_VERSION.to_le_bytes());
+            bytes[ARENA_HEADER_FIGHTERS] = ARENA_FIGHTERS as u8;
+            bytes[ARENA_HEADER_MAX_TICKS..][..4].copy_from_slice(&config.max_ticks.to_le_bytes());
+            for (index, fighter) in config.fighters.iter().enumerate() {
+                let base = ARENA_HEADER_BYTES + index * ARENA_FIGHTER_BYTES;
+                bytes[base + ARENA_FIGHTER_ANATOMY] = match fighter.anatomy {
+                    sim::AnatomyChoice::Fighter => 0,
+                    sim::AnatomyChoice::Brute => 1,
+                };
+                bytes[base + ARENA_FIGHTER_POLICY] = policies[index].code() as u8;
+                bytes[base + ARENA_FIGHTER_SPAWN_X..][..4]
+                    .copy_from_slice(&fighter.spawn.x.raw().to_le_bytes());
+                bytes[base + ARENA_FIGHTER_SPAWN_Y..][..4]
+                    .copy_from_slice(&fighter.spawn.y.raw().to_le_bytes());
+                for (hand, item) in fighter.hands.iter().enumerate() {
+                    let at = base + ARENA_FIGHTER_HANDS + hand * ARENA_HAND_BYTES;
+                    let Some(item) = item else {
+                        bytes[at + ARENA_HAND_ITEM] = ARENA_HAND_EMPTY;
+                        continue;
+                    };
+                    bytes[at + ARENA_HAND_ITEM] = item.action.code() as u8;
+                    bytes[at + ARENA_HAND_MASS..][..4]
+                        .copy_from_slice(&item.mass.raw().to_le_bytes());
+                    bytes[at + ARENA_HAND_BALANCE..][..4]
+                        .copy_from_slice(&item.balance.raw().to_le_bytes());
+                    let dimensions = match item.geometry {
+                        sim::EquipmentGeometry::Segment { length, radius } => {
+                            [length, radius, Fx::ZERO]
+                        }
+                        sim::EquipmentGeometry::Shield {
+                            half_width,
+                            half_height,
+                            thickness,
+                        } => [half_width, half_height, thickness],
+                    };
+                    for (word, value) in dimensions.iter().enumerate() {
+                        bytes[at + ARENA_HAND_DIMENSION_0 + word * 4..][..4]
+                            .copy_from_slice(&value.raw().to_le_bytes());
+                    }
+                }
+            }
+        });
+    }
+
+    /// One byte of [`ARENA_CONFIG`], for the refusal cases.
+    fn poke_arena_config(offset: usize, value: u8) {
+        ARENA_CONFIG.with(|buffer| buffer.borrow_mut()[offset] = value);
+    }
+
+    /// The offset of one hand's block.
+    fn arena_hand_at(fighter: usize, hand: usize) -> usize {
+        ARENA_HEADER_BYTES + fighter * ARENA_FIGHTER_BYTES
+            + ARENA_FIGHTER_HANDS + hand * ARENA_HAND_BYTES
+    }
+
+    /// `lab`'s `measure_articulated_matchup`, reduced to the fight: the runner's
+    /// orders, one policy per side, routed on the alive set, and the same two
+    /// stopping gates.
+    ///
+    /// Written out here rather than called into `lab`, which `web` does not
+    /// depend on and must not. That is what makes it evidence: two independent
+    /// spellings of one loop agreeing on a state hash is a claim about the loop,
+    /// where one spelling calling the other would be a claim about nothing.
+    fn the_lab_loop(
+        scenario: &Scenario,
+        seed: u64,
+        kinds: [ArticulatedPolicyKind; 2],
+    ) -> (u64, Option<sim::Outcome>, u32) {
+        let policies =
+            [kinds[0].build().expect("a buildable policy"), kinds[1].build().expect("a buildable policy")];
+        the_lab_loop_with(scenario, seed, policies)
+    }
+
+    /// [`the_lab_loop`] over two policies the caller built.
+    ///
+    /// Split out for the one kind `ArticulatedPolicyKind::build` cannot make:
+    /// a learned fighter needs a network, and where the network comes from is
+    /// the host's business rather than the registry's. Everything below the
+    /// signature is the same loop, which is what keeps the learned comparison
+    /// and the scripted one comparisons of the same thing.
+    fn the_lab_loop_with(
+        scenario: &Scenario,
+        seed: u64,
+        mut policies: [Box<dyn ArticulatedPolicy>; 2],
+    ) -> (u64, Option<sim::Outcome>, u32) {
+        let mut world = World::new(scenario, seed);
+        let orders = RunConfig::default().orders;
+        world.set_order(Faction::Heroes, orders[0]);
+        world.set_order(Faction::Monsters, orders[1]);
+        policies[0].reset();
+        policies[1].reset();
+        let heroes = world.alive_ids(Faction::Heroes);
+        let mut due: Vec<EntityId> = Vec::new();
+        while world.outcome().is_none() && world.tick() < scenario.max_ticks {
+            due.clear();
+            due.extend_from_slice(world.pending_decisions());
+            for &id in &due {
+                let obs = world.observe_articulated(id);
+                let side = usize::from(!heroes.contains(&id));
+                let command = policies[side].decide(&obs);
+                let _ = world.submit_articulated_v1(id, command);
+            }
+            let _ = world.step();
+        }
+        (world.state_hash(), world.outcome(), world.tick())
+    }
+
+    /// What the installed arena world reached: state hash, outcome, tick.
+    fn arena_state() -> (u64, Option<sim::Outcome>, u32) {
+        with_sim((0u64, None, 0u32), |sim| {
+            (sim.world.state_hash(), sim.world.outcome(), sim.world.tick())
+        })
     }
 
     fn write_submitted(command: sim::ArticulatedCommandV1) {
@@ -5971,6 +7938,825 @@ mod tests {
             bytes[2] = 1;
             bytes[4..55].copy_from_slice(&command.payload_bytes());
         });
+    }
+
+    /// The next [`sim::CombatSpecError`] in declaration order, or `None` at the
+    /// end of the enum.
+    ///
+    /// **A chain and not an array, and the difference is the whole of what the
+    /// injectivity assertion below is worth.** A hand-written array of variants
+    /// is not coupled to the enum: a sixteenth variant mapped in
+    /// `arena_spec_refusal` to a code already in use would compile -- the
+    /// exhaustive `match` there forces an arm to exist and has no opinion about
+    /// what it returns -- and the test would go on asserting distinctness over
+    /// the fifteen it had been told about and passing green. That is exactly the
+    /// hole v2-ui-05's review found. The `match` here is exhaustive too, so the
+    /// new variant cannot be *absent*: it is a failed build until somebody wires
+    /// it into the chain, and once wired the walk carries it into the
+    /// distinctness check and trips the count beside it.
+    ///
+    /// What it still cannot catch is a variant deliberately wired as a second
+    /// terminator, which orphans it from a walk that starts at the head. That is
+    /// a miswiring rather than an omission, and this sentence is the only guard
+    /// against it -- the alternative, enumerating a foreign enum from outside its
+    /// crate, is not a thing Rust can do.
+    fn next_spec_error(error: sim::CombatSpecError) -> Option<sim::CombatSpecError> {
+        use sim::CombatSpecError as E;
+        Some(match error {
+            E::MissingTable => E::UnexpectedTable,
+            E::UnexpectedTable => E::UnitPresence,
+            E::UnitPresence => E::TooManyAnatomies,
+            E::TooManyAnatomies => E::TooManyEquipment,
+            E::TooManyEquipment => E::IdOrder,
+            E::IdOrder => E::UnknownSchema,
+            E::UnknownSchema => E::Dimension,
+            E::Dimension => E::Fraction,
+            E::Fraction => E::Maximum,
+            E::Maximum => E::MissingReference,
+            E::MissingReference => E::LoadoutMismatch,
+            E::LoadoutMismatch => E::GripConflict,
+            E::GripConflict => E::NoEquipment,
+            E::NoEquipment => E::UnknownAction,
+            // The tail, and the one arm a new variant edits: it becomes
+            // `E::UnknownAction => E::<new>` and the new variant becomes this.
+            E::UnknownAction => return None,
+        })
+    }
+
+    /// Every `CombatSpecError`, walked rather than listed. See
+    /// [`next_spec_error`].
+    fn every_spec_error() -> Vec<sim::CombatSpecError> {
+        let mut walked = vec![sim::CombatSpecError::MissingTable];
+        while let Some(next) = next_spec_error(walked[walked.len() - 1]) {
+            assert!(!walked.contains(&next), "the spec-error chain loops at {next:?}");
+            walked.push(next);
+        }
+        walked
+    }
+
+    #[test]
+    fn the_arena_configuration_buffer_is_the_documented_layout() {
+        // The offsets, read the way a page reads them. `const _` already
+        // asserts the arithmetic closes; this asserts the numbers the reference
+        // writes down are the numbers a caller would compute.
+        assert_ne!(arena_config_ptr(), 0);
+        assert_eq!(arena_config_len(), 120);
+        assert_eq!(arena_config_layout_version(), 1);
+        assert_eq!(ARENA_HEADER_BYTES, 8);
+        assert_eq!(ARENA_FIGHTER_BYTES, 56);
+        assert_eq!(ARENA_HAND_BYTES, 22);
+        assert_eq!(arena_hand_at(0, 0), 20);
+        assert_eq!(arena_hand_at(0, 1), 42);
+        assert_eq!(arena_hand_at(1, 0), 76);
+        assert_eq!(arena_hand_at(1, 1), 98);
+        assert_eq!(arena_hand_at(1, 1) + ARENA_HAND_BYTES, ARENA_CONFIG_BYTES);
+        // Hand index 0 is the left arm and 1 is the right, which is what the
+        // builder sets `binding` from. Pinned in `crates/sim` and restated here
+        // because this buffer is the only place the two numbers meet.
+        assert_eq!(sim::LimbSlot::LeftArm as usize, 0);
+        assert_eq!(sim::LimbSlot::RightArm as usize, 1);
+        // Every refusal is its own number, including the ones no control can
+        // reach: the whole point of the table is that the studio never has to
+        // say "invalid".
+        //
+        // **Two halves, and neither is the count.** The declared bytes are
+        // checked pairwise at compile time beside `ARENA_REASONS`, so a second
+        // refusal given a number already in use never links. What is left is a
+        // `CombatSpecError` variant mapped onto a code some *other* variant
+        // already answers, and the only way to see that is to have every variant
+        // in hand -- which is why the list below is walked out of an exhaustive
+        // `match` rather than written down. See [`next_spec_error`].
+        let spec_errors = every_spec_error();
+        // The eleven that are not a spec error stay written out: they answer to
+        // no enum, so a list of them is a list of them, and their distinctness
+        // is the compile-time half.
+        let mut codes = vec![
+            ARENA_OK, ARENA_UNKNOWN_LAYOUT, ARENA_WRONG_FIGHTER_COUNT, ARENA_NONCANONICAL,
+            ARENA_UNKNOWN_ANATOMY, ARENA_UNKNOWN_ITEM, ARENA_UNKNOWN_POLICY,
+            ARENA_POLICY_UNAVAILABLE, ARENA_CONSTRUCTION_REFUSED, ARENA_RESERVATION_REFUSED,
+            ARENA_NAME_TOO_LONG, ARENA_NO_CHECKPOINT,
+        ];
+        codes.extend(spec_errors.iter().map(|&error| arena_spec_refusal(error).reason));
+        let distinct = codes.iter().copied().collect::<std::collections::BTreeSet<_>>();
+        assert_eq!(distinct.len(), codes.len(), "two refusals share a reason code");
+        assert_eq!(codes.len(), ARENA_REASONS.len(), "a refusal is missing from ARENA_REASONS");
+        // Not the guard -- the two lines above are -- but the tripwire that says
+        // a variant arrived, now that a variant cannot arrive without the walk
+        // finding it. Whoever bumps it owes the reference's reason table a row.
+        assert_eq!(spec_errors.len(), 15, "a CombatSpecError variant was added");
+    }
+
+    #[test]
+    fn a_scripted_arena_fight_in_wasm_matches_the_same_fight_in_lab() {
+        // **The test that says the ported loop is the loop.** Same
+        // configuration, same seed, same two policies -- one fight driven
+        // through the wasm ABI from the configuration buffer, the other driven
+        // by a hand-written copy of `lab`'s matchup loop, and the two compared
+        // on the state hash, the outcome and the tick they stopped at. Without
+        // it the whole live path is unverified: every export below could answer
+        // plausibly while the fight inside was somebody else's.
+        let mut config = sim::DuelConfigV1::shipped();
+        // Long enough to reach contact and short enough to be a unit test. The
+        // shipped fixture does not kill inside sixty seconds, so both runs stop
+        // on the tick limit and the *limit* is what has to agree as well.
+        config.max_ticks = 300;
+        let kinds = [ArticulatedPolicyKind::Composed, ArticulatedPolicyKind::AttackMoves];
+        write_arena_config(&config, kinds);
+        assert_eq!(
+            arena_start(3),
+            submit_result(1, ARENA_OK, ARENA_WHOLE_CONFIG, ARENA_WHOLE_CONFIG),
+            "the shipped configuration was refused"
+        );
+        // One call for the whole fight, which is what a recorder does. The
+        // overshoot is deliberate: the arena stops itself on the configuration's
+        // tick limit, so asking for ten times the fight has to produce the fight.
+        step(3_600);
+
+        let scenario = Scenario::duel_from(&config).expect("the shipped pair");
+        assert_eq!(arena_fingerprint(), scenario.fingerprint(), "the arena is not this configuration");
+        assert_eq!(
+            arena_state(),
+            the_lab_loop(&scenario, 3, kinds),
+            "the arena's fight is not the lab's fight"
+        );
+        // And it was a fight rather than three hundred quiet ticks.
+        assert_eq!(arena_state().2, config.max_ticks);
+        assert_eq!(pose_len(), 2, "an arena publishes one pose row per fighter");
+        assert!(combat_event_len() > 0, "three hundred ticks resolved no contact");
+    }
+
+    #[test]
+    fn each_side_may_run_a_different_policy() {
+        // The thing `policy::run_articulated` cannot do: it takes a single
+        // `impl ArticulatedPolicy` and installs it on both sides, which is right
+        // for a control condition and useless for an arena.
+        //
+        // Three pairings on one configuration and one seed. The asymmetric pair
+        // and its mirror are what carry the claim: if the two sides shared an
+        // instance, or if routing read anything but the alive set, those two
+        // runs would be the same fight.
+        let mut config = sim::DuelConfigV1::shipped();
+        config.max_ticks = 200;
+        let mut hashes = Vec::new();
+        for kinds in [
+            [ArticulatedPolicyKind::Composed, ArticulatedPolicyKind::Composed],
+            [ArticulatedPolicyKind::Composed, ArticulatedPolicyKind::Neutral],
+            [ArticulatedPolicyKind::Neutral, ArticulatedPolicyKind::Composed],
+        ] {
+            write_arena_config(&config, kinds);
+            assert_eq!(arena_start(3) & 0xff, 1, "{kinds:?} was refused");
+            assert_eq!(arena_policy(0), kinds[0].code());
+            assert_eq!(arena_policy(1), kinds[1].code());
+            step(config.max_ticks);
+            hashes.push(hash());
+        }
+        assert_ne!(hashes[0], hashes[1], "the monsters' policy changed nothing");
+        assert_ne!(hashes[0], hashes[2], "the heroes' policy changed nothing");
+        assert_ne!(
+            hashes[1], hashes[2],
+            "the same two policies swapped between the sides produced the same fight"
+        );
+        // And the legacy registry says it does not know, rather than naming a
+        // `PolicyKind` nothing here consults.
+        assert_eq!(policy_kind(0), POLICY_KIND_UNKNOWN);
+        assert_eq!(policy_kind(1), POLICY_KIND_UNKNOWN);
+        assert_eq!(set_policy(0, PolicyKind::Idle.code()), 0, "an arena took a legacy policy");
+        assert_eq!(arena_policy(0), ArticulatedPolicyKind::Neutral.code());
+    }
+
+    #[test]
+    fn arena_start_refuses_and_installs_nothing() {
+        // A live fight to refuse *over*, so that "installs nothing" is a claim
+        // about a world that is standing there rather than about `None`.
+        let mut config = sim::DuelConfigV1::shipped();
+        config.max_ticks = 120;
+        let kinds = [ArticulatedPolicyKind::Composed, ArticulatedPolicyKind::Windmill];
+        write_arena_config(&config, kinds);
+        assert_eq!(arena_start(3) & 0xff, 1);
+        step(40);
+        let standing = (hash(), arena_fingerprint(), tick(), arena_policy(0), arena_policy(1));
+
+        let sword = sim::HandItemV1::shipped(sim::ActionKind::Sword).expect("a shipped sword");
+        let shield = sim::HandItemV1::shipped(sim::ActionKind::Shield).expect("a shipped shield");
+        // Every refusal a control can reach, one at a time. The reservation
+        // refusal is deliberately absent: it needs an out-of-memory module and
+        // cannot be provoked at `MAX_UNITS`, where the entity limit is the same
+        // number -- exactly as `init_articulated`'s cannot. The seven spec
+        // errors `Scenario::duel_from` makes structurally unreachable are absent
+        // for the same kind of reason and are covered by
+        // `the_arena_configuration_buffer_is_the_documented_layout`, which
+        // asserts the mapping over the whole enum instead.
+
+        // 1. An unknown layout, from both of its two causes.
+        write_arena_config(&config, kinds);
+        poke_arena_config(ARENA_HEADER_LAYOUT, 2);
+        assert_eq!(arena_start(9), ArenaRefusal::whole(ARENA_UNKNOWN_LAYOUT).packed());
+        write_arena_config(&config, kinds);
+        poke_arena_config(ARENA_HEADER_RESERVED, 1);
+        assert_eq!(arena_start(9), ArenaRefusal::whole(ARENA_UNKNOWN_LAYOUT).packed());
+
+        // 2. A fighter count this build does not fight.
+        write_arena_config(&config, kinds);
+        poke_arena_config(ARENA_HEADER_FIGHTERS, 3);
+        assert_eq!(arena_start(9), ArenaRefusal::whole(ARENA_WRONG_FIGHTER_COUNT).packed());
+
+        // 3. Noncanonical bytes, in each of the four places one can be.
+        write_arena_config(&config, kinds);
+        poke_arena_config(ARENA_HEADER_BYTES + ARENA_FIGHTER_RESERVED + 1, 1);
+        assert_eq!(arena_start(9), ArenaRefusal::fighter(ARENA_NONCANONICAL, 0).packed());
+        write_arena_config(&config, kinds);
+        poke_arena_config(arena_hand_at(1, 1) + ARENA_HAND_RESERVED, 1);
+        assert_eq!(arena_start(9), ArenaRefusal::hand(ARENA_NONCANONICAL, 1, 1).packed());
+        write_arena_config(&config, kinds);
+        // The Brute's empty left hand, with a dimension left behind in it.
+        poke_arena_config(arena_hand_at(1, 0) + ARENA_HAND_DIMENSION_0, 1);
+        assert_eq!(arena_start(9), ArenaRefusal::hand(ARENA_NONCANONICAL, 1, 0).packed());
+        write_arena_config(&config, kinds);
+        // A segment with a thickness, which is a shield's word and not a
+        // sword's.
+        poke_arena_config(arena_hand_at(0, 1) + ARENA_HAND_DIMENSION_2, 1);
+        assert_eq!(arena_start(9), ArenaRefusal::hand(ARENA_NONCANONICAL, 0, 1).packed());
+
+        // 4. An anatomy nobody has measured.
+        write_arena_config(&config, kinds);
+        poke_arena_config(ARENA_HEADER_BYTES + ARENA_FIGHTER_ANATOMY, 7);
+        assert_eq!(arena_start(9), ArenaRefusal::fighter(ARENA_UNKNOWN_ANATOMY, 0).packed());
+
+        // 5. An item code that is not an action at all.
+        write_arena_config(&config, kinds);
+        poke_arena_config(arena_hand_at(0, 0) + ARENA_HAND_ITEM, 42);
+        assert_eq!(arena_start(9), ArenaRefusal::hand(ARENA_UNKNOWN_ITEM, 0, 0).packed());
+
+        // 6. A policy code that is not a policy.
+        write_arena_config(&config, kinds);
+        poke_arena_config(ARENA_HEADER_BYTES + ARENA_FIGHTER_BYTES + ARENA_FIGHTER_POLICY, 9);
+        assert_eq!(arena_start(9), ArenaRefusal::fighter(ARENA_UNKNOWN_POLICY, 1).packed());
+
+        // 7. The policy with no network behind it yet. See
+        // `the_learned_code_is_refused_by_name` for the rest of it, including
+        // the half that says this refusal is about the checkpoint rather than
+        // about the code.
+        assert_eq!(checkpoint_installed(), 0, "this thread has already loaded a network");
+        write_arena_config(&config, [ArticulatedPolicyKind::Learned, kinds[1]]);
+        assert_eq!(
+            arena_start(9),
+            ArenaRefusal::policy(ARENA_NO_CHECKPOINT, 0, ArticulatedPolicyKind::Learned.code())
+                .packed()
+        );
+
+        // 8. A placement the world will not build: the fighter dragged out
+        // through the wall of a 24x16 room.
+        let mut off_the_floor = config;
+        off_the_floor.fighters[0].spawn = Vec2::from_ints(500, 6);
+        write_arena_config(&off_the_floor, kinds);
+        assert_eq!(arena_start(9), ArenaRefusal::whole(ARENA_CONSTRUCTION_REFUSED).packed());
+
+        // 9. A dimension off the end of the scale.
+        let mut nine_unit_blade = config;
+        nine_unit_blade.fighters[0].hands[1] = Some(sim::HandItemV1 {
+            geometry: sim::EquipmentGeometry::Segment {
+                length: Fx::from_int(9),
+                radius: Fx::from_ratio(1, 25),
+            },
+            ..sword
+        });
+        write_arena_config(&nine_unit_blade, kinds);
+        assert_eq!(arena_start(9), ArenaRefusal::whole(ARENA_DIMENSION).packed());
+
+        // 10. Two plates on one body.
+        let mut two_shields = config;
+        two_shields.fighters[0].hands = [Some(shield), Some(shield)];
+        write_arena_config(&two_shields, kinds);
+        assert_eq!(arena_start(9), ArenaRefusal::whole(ARENA_GRIP_CONFLICT).packed());
+
+        // 11. Both dropdowns reading "empty", which is the refusal `duel_from`
+        // grew a variant for rather than answering `LoadoutMismatch` to a person.
+        let mut empty_handed = config;
+        empty_handed.fighters[1].hands = [None, None];
+        write_arena_config(&empty_handed, kinds);
+        assert_eq!(arena_start(9), ArenaRefusal::whole(ARENA_NO_EQUIPMENT).packed());
+
+        // 12. An action with no shipped equipment row and therefore no measured
+        // surface. Distinct from case 5: this is an item that exists.
+        let mut a_bow = config;
+        a_bow.fighters[0].hands[1] =
+            Some(sim::HandItemV1 { action: sim::ActionKind::Bow, ..sword });
+        write_arena_config(&a_bow, kinds);
+        assert_eq!(arena_start(9), ArenaRefusal::whole(ARENA_UNKNOWN_ACTION).packed());
+
+        // Sixteen refused calls covering twelve reasons later, the fight that
+        // was running is still running: not one of them touched `SIM`,
+        // republished a frame, or moved a tick.
+        assert_eq!(
+            (hash(), arena_fingerprint(), tick(), arena_policy(0), arena_policy(1)),
+            standing,
+            "a refused configuration disturbed the world that was installed"
+        );
+        // And the instance is still usable, in both senses: it steps, and it
+        // takes a new configuration.
+        step(40);
+        assert_eq!(tick(), standing.2 + 40);
+        write_arena_config(&config, [ArticulatedPolicyKind::Neutral; 2]);
+        assert_eq!(arena_start(11) & 0xff, 1, "the instance stopped accepting fights");
+        assert_eq!(arena_policy(0), ArticulatedPolicyKind::Neutral.code());
+        assert_eq!(tick(), 0);
+    }
+
+    #[test]
+    fn the_learned_code_is_refused_by_name() {
+        // Code 4 is **named**, which v2-ui-05 wrote this test for and v2-ui-08
+        // has now changed the second half of. `from_code` knows it, `name` says
+        // "learned", and `ArticulatedPolicyKind::build` still answers `None` --
+        // deliberately, and permanently: `crates/policy` is inside `check_deps.js`'s
+        // audit and must not gain a float dependency, and a
+        // checkpoint is 15 KB of host asset that a registry has no way to be
+        // handed. The dispatch lives in `build_articulated_policy` here.
+        //
+        // What moved is what the refusal *says*. It was "this build cannot make
+        // that fighter"; it is now "you have not given me one", which is a
+        // sentence a studio can act on.
+        assert_eq!(ArticulatedPolicyKind::from_code(4), Some(ArticulatedPolicyKind::Learned));
+        assert_eq!(ArticulatedPolicyKind::Learned.name(), "learned");
+        assert!(ArticulatedPolicyKind::Learned.build().is_none());
+        assert_eq!(checkpoint_installed(), 0, "this thread has already loaded a network");
+
+        let config = sim::DuelConfigV1::shipped();
+        for side in 0..2 {
+            let mut kinds = [ArticulatedPolicyKind::Composed; 2];
+            kinds[side] = ArticulatedPolicyKind::Learned;
+            write_arena_config(&config, kinds);
+            assert_eq!(
+                arena_start(3),
+                ArenaRefusal::policy(ARENA_NO_CHECKPOINT, side, 4).packed(),
+                "the learned policy was not refused on side {side}"
+            );
+            assert_eq!(arena_policy(0), ARENA_NO_POLICY, "a refusal installed a world");
+        }
+
+        // "Named" is a different answer from "unknown", which is the whole
+        // reason the code is held rather than left free: `5` is a number nobody
+        // has heard of and `4` is a fighter waiting for its weights.
+        write_arena_config(&config, [ArticulatedPolicyKind::Composed; 2]);
+        poke_arena_config(ARENA_HEADER_BYTES + ARENA_FIGHTER_POLICY, 5);
+        assert_eq!(arena_start(3), ArenaRefusal::fighter(ARENA_UNKNOWN_POLICY, 0).packed());
+
+        // And with a network in hand the same twenty bytes are taken, which is
+        // what says the refusal above is about the checkpoint and not about the
+        // code. Two halves of one claim, in one test, because either on its own
+        // is satisfied by a constant.
+        assert_eq!(load_checkpoint(stage_shipped_checkpoint()) & 0xff, 1);
+        for side in 0..2 {
+            let mut kinds = [ArticulatedPolicyKind::Composed; 2];
+            kinds[side] = ArticulatedPolicyKind::Learned;
+            write_arena_config(&config, kinds);
+            assert_eq!(arena_start(3) & 0xff, 1, "a loaded network was still refused");
+            assert_eq!(arena_policy(side as u32), ArticulatedPolicyKind::Learned.code());
+        }
+    }
+
+    /// The shipped artifact, the one `lab learn-probe evaluate` scores and the
+    /// one `lab trace --policy learned` records against.
+    ///
+    /// `include_bytes!` inside `#[cfg(test)]` and nowhere else, which is the
+    /// whole delivery decision in one line: a checkpoint is a fighter, so the
+    /// studio fetches it and the module never carries one. What the native
+    /// tests need is the *same bytes* the wasm check reads off disk, and a
+    /// fifteen-kilobyte constant in a test binary costs the shipped artifact
+    /// nothing.
+    #[cfg(test)]
+    const SHIPPED_CHECKPOINT: &[u8] = include_bytes!("../../../checkpoints/v2-probe.ckpt");
+
+    /// Writes [`SHIPPED_CHECKPOINT`] into the staging buffer and answers its
+    /// length, the way a host does after a fetch.
+    fn stage_shipped_checkpoint() -> u32 {
+        stage_checkpoint(SHIPPED_CHECKPOINT)
+    }
+
+    fn stage_checkpoint(bytes: &[u8]) -> u32 {
+        CHECKPOINT.with(|buffer| {
+            let mut staged = buffer.borrow_mut();
+            staged.fill(0);
+            staged[..bytes.len()].copy_from_slice(bytes);
+        });
+        bytes.len() as u32
+    }
+
+    #[test]
+    fn the_shipped_checkpoint_loads_and_names_itself() {
+        // The delivery path end to end: bytes into the staging buffer, one call
+        // to judge them, and a network installed. And the thing that makes a
+        // live fight comparable with a recorded one -- the published digest is
+        // the file's own SHA-256, which is the number `lab trace` writes into
+        // its header and `learn-probe evaluate` prints.
+        assert_eq!(checkpoint_installed(), 0);
+        assert_ne!(checkpoint_ptr(), 0, "the staging buffer is at address zero");
+        assert_eq!(checkpoint_capacity(), CHECKPOINT_CAPACITY as u32);
+        assert_eq!(checkpoint_digest_len(), 32);
+        assert!(
+            SHIPPED_CHECKPOINT.len() <= CHECKPOINT_CAPACITY,
+            "the shipped checkpoint is {} bytes and the buffer holds {CHECKPOINT_CAPACITY}",
+            SHIPPED_CHECKPOINT.len(),
+        );
+        // Nothing loaded is thirty-two zeroes rather than a stale name.
+        assert_eq!(read_checkpoint_digest(), [0u8; CHECKPOINT_DIGEST_BYTES]);
+
+        let len = stage_shipped_checkpoint();
+        assert_eq!(
+            load_checkpoint(len),
+            checkpoint_result(1, CHECKPOINT_OK, CHECKPOINT_NO_DETAIL),
+            "the shipped checkpoint was refused",
+        );
+        assert_eq!(checkpoint_installed(), 1);
+        let recorded = &SHIPPED_CHECKPOINT[SHIPPED_CHECKPOINT.len() - CHECKPOINT_DIGEST_BYTES..];
+        assert_eq!(&read_checkpoint_digest()[..], recorded, "the published name is not the file's");
+        // And it is a name and not a zero-fill: a corrupt loader that published
+        // whatever was in the buffer would pass the line above on a file of
+        // zeroes.
+        assert!(recorded.iter().any(|&b| b != 0));
+    }
+
+    fn read_checkpoint_digest() -> [u8; CHECKPOINT_DIGEST_BYTES] {
+        CHECKPOINT_DIGEST.with(|digest| *digest.borrow())
+    }
+
+    #[test]
+    fn a_corrupt_checkpoint_is_refused_and_installs_nothing() {
+        // **Every `CheckpointError` variant, and the instance still usable
+        // afterwards.** The second half is the one that matters: a trap behind
+        // `pub extern "C"` poisons the wasm instance for the life of the page,
+        // so a mistyped URL that returned an HTML error page has to be a message
+        // rather than a reload. Nothing here may panic and nothing here may
+        // replace the network that is already installed.
+        assert_eq!(load_checkpoint(stage_shipped_checkpoint()) & 0xff, 1);
+        let installed = read_checkpoint_digest();
+        let good = SHIPPED_CHECKPOINT.to_vec();
+
+        let refuse = |bytes: &[u8], reason: u8, detail: u16| {
+            let len = stage_checkpoint(bytes);
+            assert_eq!(
+                load_checkpoint(len),
+                checkpoint_result(0, reason, detail),
+                "reason {reason} was not the answer",
+            );
+            assert_eq!(checkpoint_installed(), 1, "a refusal uninstalled the network");
+            assert_eq!(read_checkpoint_digest(), installed, "a refusal renamed the network");
+        };
+
+        // 1. Longer than the buffer. The one refusal that is about this module
+        // rather than about the file, and the only one that never reads a byte.
+        let oversized = vec![0u8; CHECKPOINT_CAPACITY + 1];
+        assert_eq!(
+            load_checkpoint(oversized.len() as u32),
+            checkpoint_result(0, CHECKPOINT_TOO_LONG, CHECKPOINT_NO_DETAIL),
+        );
+        assert_eq!(checkpoint_installed(), 1);
+
+        // 2. Truncated, in each of the places the reader can run out.
+        for cut in [0, 4, 24, good.len() - 33, good.len() - 1] {
+            let len = stage_checkpoint(&good[..cut]);
+            let packed = load_checkpoint(len);
+            assert_eq!(packed & 0xff, 0, "a checkpoint cut to {cut} bytes loaded");
+            let reason = ((packed >> 8) & 0xff) as u8;
+            assert!(
+                reason == CHECKPOINT_TRUNCATED || reason == CHECKPOINT_BAD_MAGIC,
+                "a checkpoint cut to {cut} bytes answered reason {reason}",
+            );
+            assert_eq!(checkpoint_installed(), 1);
+        }
+
+        // 3. Not a checkpoint at all: the renamed trace, the 404 body.
+        let mut bad = good.clone();
+        bad[0] = b'<';
+        refuse(&bad, CHECKPOINT_BAD_MAGIC, CHECKPOINT_NO_DETAIL);
+
+        // 4-6. The three adjacent version words, which must not be
+        // interchangeable: a framing bump means this reader cannot parse the
+        // file, and a layout bump means it parsed perfectly and the weights are
+        // still void. Each detail carries what the file claimed.
+        let mut bad = good.clone();
+        bad[8..12].copy_from_slice(&99u32.to_le_bytes());
+        refuse(&bad, CHECKPOINT_UNKNOWN_FORMAT, 99);
+        let mut bad = good.clone();
+        bad[12..16].copy_from_slice(&7u32.to_le_bytes());
+        refuse(&bad, CHECKPOINT_FEATURE_LAYOUT, 7);
+        let mut bad = good.clone();
+        bad[16..20].copy_from_slice(&9u32.to_le_bytes());
+        refuse(&bad, CHECKPOINT_ACTION_LAYOUT, 9);
+
+        // 7. A different `ModelShape`.
+        let mut bad = good.clone();
+        bad[20..24].copy_from_slice(&7u32.to_le_bytes());
+        refuse(&bad, CHECKPOINT_SHAPE, CHECKPOINT_NO_DETAIL);
+
+        // 8. The right shape declared and a different number of weights behind
+        // it, self-consistently digested. Distinct from case 7 on purpose:
+        // reporting a shape the file never claimed sends a reader looking for a
+        // retraining bill they do not owe.
+        let full = learn_core::ModelShape::CURRENT.weight_count();
+        let weights_at = good.len() - CHECKPOINT_DIGEST_BYTES - full * 4;
+        let mut bad = good[..weights_at - 4].to_vec();
+        bad.extend_from_slice(&((full - 1) as u32).to_le_bytes());
+        bad.extend_from_slice(&good[weights_at..weights_at + (full - 1) * 4]);
+        bad.extend_from_slice(&learn_core::sha256(&bad));
+        refuse(&bad, CHECKPOINT_WEIGHT_COUNT, (full - 1) as u16);
+
+        // 9. One flipped bit in the middle: parseable, correctly shaped, and not
+        // the file that was written.
+        let mut bad = good.clone();
+        bad[good.len() / 2] ^= 0x01;
+        refuse(&bad, CHECKPOINT_DIGEST_MISMATCH, CHECKPOINT_NO_DETAIL);
+
+        // 10-11. The two not-finite refusals, both re-digested so the files are
+        // internally consistent. A NaN weight is the case the digest cannot
+        // catch and the one that would otherwise turn the fighter into "always
+        // head index zero" with nothing anywhere reporting it.
+        let mut checkpoint =
+            Checkpoint::from_bytes(&good).expect("the shipped checkpoint is loadable");
+        checkpoint.model.weights_mut()[1_000] = f32::NAN;
+        refuse(&checkpoint.to_bytes(), CHECKPOINT_NOT_FINITE, 1_000);
+        let mut checkpoint =
+            Checkpoint::from_bytes(&good).expect("the shipped checkpoint is loadable");
+        checkpoint.training.sigma = f32::NAN;
+        refuse(&checkpoint.to_bytes(), CHECKPOINT_NOT_FINITE_RECORD, CHECKPOINT_NO_DETAIL);
+
+        // 12. Two files concatenated, or a rewrite that did not truncate.
+        let mut bad = good.clone();
+        bad.extend_from_slice(&[0u8; 5]);
+        refuse(&bad, CHECKPOINT_TRAILING_BYTES, 5);
+
+        // Every refusal has its own number, and the mapping over the enum is
+        // injective. The compile-time half is the `const _` beside
+        // `CHECKPOINT_REASONS`; this is the half that needs the variants in
+        // hand, and the list is written out because `CheckpointError` is a
+        // foreign enum this crate cannot walk. The `match` in
+        // `checkpoint_refusal` is exhaustive, so a new variant is a failed build
+        // there -- and then this count is what says somebody thought about it
+        // here too.
+        assert_eq!(CHECKPOINT_REASONS.len(), 13, "a checkpoint refusal was added or removed");
+
+        // And the instance is still usable after twenty refused calls, in both
+        // senses: it takes the good file again, and it runs a fight with it.
+        assert_eq!(load_checkpoint(stage_shipped_checkpoint()) & 0xff, 1);
+        assert_eq!(read_checkpoint_digest(), installed);
+        let mut config = sim::DuelConfigV1::shipped();
+        config.max_ticks = 40;
+        write_arena_config(&config, [ArticulatedPolicyKind::Learned, ArticulatedPolicyKind::Windmill]);
+        assert_eq!(arena_start(3) & 0xff, 1, "the instance stopped taking fights");
+        step(config.max_ticks);
+        assert_eq!(tick(), config.max_ticks);
+    }
+
+    #[test]
+    fn a_learned_fight_in_wasm_matches_the_same_fight_in_lab() {
+        // **Stronger than the digest, and it is what the digest is for.**
+        // `LEARNED_INFERENCE_DIGEST` compares one corpus of sixty-four
+        // independent forward passes; this compares 3,600 ticks of compounding
+        // decisions, where every command changes the observation the next one is
+        // made from -- so a single divergent logit anywhere in the fight moves
+        // the state hash and keeps it moved.
+        //
+        // The shape is `a_scripted_arena_fight_in_wasm_matches_the_same_fight_in_lab`'s
+        // exactly: one fight driven through the ABI from the configuration
+        // buffer, the other by a hand-written copy of `lab`'s matchup loop, and
+        // the two compared on the state hash, the outcome and the stopping tick.
+        assert_eq!(load_checkpoint(stage_shipped_checkpoint()) & 0xff, 1);
+        let config = sim::DuelConfigV1::shipped();
+        assert_eq!(config.max_ticks, 3_600, "the shipped duel is no longer a full-length fight");
+        let kinds = [ArticulatedPolicyKind::Learned, ArticulatedPolicyKind::Windmill];
+        write_arena_config(&config, kinds);
+        assert_eq!(
+            arena_start(3),
+            submit_result(1, ARENA_OK, ARENA_WHOLE_CONFIG, ARENA_WHOLE_CONFIG),
+            "the learned configuration was refused",
+        );
+        assert_eq!(arena_policy(0), ArticulatedPolicyKind::Learned.code());
+        // One call for the whole fight, which is what a recorder does.
+        step(config.max_ticks);
+
+        let scenario = Scenario::duel_from(&config).expect("the shipped pair");
+        let model = Checkpoint::from_bytes(SHIPPED_CHECKPOINT)
+            .expect("the shipped checkpoint is loadable")
+            .model;
+        let arena = arena_state();
+        assert_eq!(
+            arena,
+            the_lab_loop_with(
+                &scenario,
+                3,
+                [
+                    Box::new(LearnedArticulatedPolicy::new(model)),
+                    kinds[1].build().expect("a buildable policy"),
+                ],
+            ),
+            "the arena's learned fight is not the lab's learned fight",
+        );
+        // And it was a fight rather than 3,600 quiet ticks. A learned fighter is
+        // the only policy in the registry with a network behind it, so "it ran"
+        // is not something to take on trust: a checkpoint that failed to install
+        // would produce a refusal, but a checkpoint that installed and decided
+        // nothing would look exactly like a neutral body.
+        assert!(combat_event_len() > 0, "the learned fight resolved no contact");
+        assert!(pose_len() >= 1, "the arena published no bodies at all");
+        // **On this seed the learned fighter kills the Brute**, at tick 3,339,
+        // which is a good deal more than "the loop ran" -- the shipped scripted
+        // pairing does not settle inside 3,600 ticks. It is deliberately not
+        // asserted: an outcome and a stopping tick are a claim about the
+        // *simulation*, this session changed none of it, and a fixture pinned
+        // here would fail the next time somebody moved the contact solver for
+        // reasons that have nothing to do with the browser. What is asserted is
+        // that both spellings of the loop reached the same one, which is the
+        // comparison above and is the claim this test exists to make.
+
+        // The same fight against a *scripted* fighter is a different fight,
+        // which is what says the network is being consulted at all rather than
+        // the loop falling back to something.
+        write_arena_config(&config, [ArticulatedPolicyKind::Composed, kinds[1]]);
+        assert_eq!(arena_start(3) & 0xff, 1);
+        step(config.max_ticks);
+        assert_ne!(arena_state().0, arena.0, "the learned fighter fought like the script");
+    }
+
+    #[test]
+    fn native_and_wasm_learned_inference_digests_match() {
+        // The native half of the pin. The other half is in `tools/wasm_check.js`
+        // and reads the same number out of `web.wasm`, which is the whole of
+        // what this session set out to check: `model.rs`'s portability argument
+        // had no second host to be tested on, and now it has one.
+        //
+        // Duplicated rather than shared, on the rule the golden registry states
+        // for every browser pin -- a one-sided failure diagnoses target
+        // disagreement, and a failure on both sides is a behaviour change.
+        assert_eq!(
+            learned_inference_digest_lo(),
+            0,
+            "a digest was published before a network was installed",
+        );
+        assert_eq!(learned_inference_digest_hi(), 0);
+
+        assert_eq!(load_checkpoint(stage_shipped_checkpoint()) & 0xff, 1);
+        let measured =
+            u64::from(learned_inference_digest_lo()) | (u64::from(learned_inference_digest_hi()) << 32);
+        assert_eq!(
+            measured, LEARNED_INFERENCE_DIGEST,
+            "LEARNED_INFERENCE_DIGEST moved: {measured:#018x}",
+        );
+
+        // Self-contained, exactly as `articulated_stream_digest_lo` is: a worker
+        // may ask for this mid-fight, and a diagnostic that stepped the
+        // installed world would break the thing it was diagnosing.
+        init(4);
+        step(12);
+        let undisturbed = || (tick(), hash(), frame_len(), pose_len());
+        let before = undisturbed();
+        learned_inference_digest_lo();
+        learned_inference_digest_hi();
+        assert_eq!(undisturbed(), before, "the inference digest disturbed the installed sim");
+    }
+
+    #[test]
+    fn the_shipped_corpus_produces_only_finite_logits() {
+        // The half of the cross-target argument that `learn_core::portable_bits`
+        // rests on. A NaN logit's payload bits are unspecified in WebAssembly,
+        // so that function folds every NaN onto one constant -- and the fold is
+        // only guaranteed not to have moved `LEARNED_INFERENCE_DIGEST` if the
+        // shipped checkpoint never reaches it. Every one of the 1,152 words is
+        // checked here rather than argued from the clamp on the features,
+        // because "the weights are small" is a property of *this* file and the
+        // export accepts any file a person picks.
+        let model = Checkpoint::from_bytes(SHIPPED_CHECKPOINT)
+            .expect("the shipped checkpoint is loadable")
+            .model;
+        let mut features = [0.0f32; learn_core::LEARN_FEATURE_COUNT];
+        let mut hidden = [0.0f32; learn_core::HIDDEN_UNITS];
+        let mut logits = [0.0f32; learn_core::LEARN_ACTION_LOGITS];
+        let mut memory = learn_core::FeatureMemory::EMPTY;
+        let mut words = 0;
+        for index in 0..learn_core::LEARNED_INFERENCE_CASES {
+            let obs = learn_core::learned_inference_case(index);
+            memory = learn_core::write_features(&obs, memory, &mut features);
+            model.forward(&features, &mut hidden, &mut logits);
+            for (head, logit) in logits.iter().enumerate() {
+                assert!(logit.is_finite(), "case {index} logit {head} is {logit}");
+                words += 1;
+            }
+        }
+        assert_eq!(
+            words,
+            learn_core::LEARNED_INFERENCE_CASES * learn_core::LEARN_ACTION_LOGITS,
+        );
+    }
+
+    #[test]
+    #[ignore]
+    fn print_the_learned_inference_digest() {
+        // Written out again rather than shared with the test above, on the
+        // reason the other two printers in this module give: a printer that
+        // called the assertion's helper could only ever print the number the
+        // assertion already agreed with.
+        assert_eq!(load_checkpoint(stage_shipped_checkpoint()) & 0xff, 1);
+        let checkpoint =
+            Checkpoint::from_bytes(SHIPPED_CHECKPOINT).expect("the shipped checkpoint is loadable");
+        println!(
+            "LEARNED_INFERENCE_DIGEST: {:#018x}",
+            learn_core::learned_inference_digest(&checkpoint.model),
+        );
+        println!("checkpoint:               {}", checkpoint.digest());
+        println!("checkpoint bytes:         {}", SHIPPED_CHECKPOINT.len());
+        println!(
+            "corpus:                   {} cases, {} logits each",
+            learn_core::LEARNED_INFERENCE_CASES,
+            learn_core::LEARN_ACTION_LOGITS,
+        );
+    }
+
+    #[test]
+    fn descending_out_of_an_arena_returns_a_legacy_world() {
+        // **`Sim::descend` mutates in place, so every field it does not reassign
+        // survives into the next floor.** That is right for `spawns` and wrong
+        // for the duel, and until v2-ui-05's review it left `Sim::arena`
+        // standing: a freshly generated eight-body floor was then driven by
+        // `Sim::advance_arena` against a roster from a world that no longer
+        // existed and stopped dead on the previous configuration's tick limit,
+        // with `arena_fingerprint` still naming the old duel and `set_policy`
+        // still refusing the legacy codes that are the true answer here. Nothing
+        // anywhere reported it; the page was a hung level.
+        let mut config = sim::DuelConfigV1::shipped();
+        config.max_ticks = 300;
+        let kinds = [ArticulatedPolicyKind::Composed, ArticulatedPolicyKind::Windmill];
+        write_arena_config(&config, kinds);
+        assert_eq!(arena_start(3) & 0xff, 1, "the shipped configuration was refused");
+        step(50);
+        assert_eq!(arena_policy(0), kinds[0].code(), "the fight to descend out of is not running");
+        assert_eq!(descend(), 1, "the run did not move down a floor");
+
+        // Every export that can say the duel is gone says so.
+        assert_eq!(arena_policy(0), ARENA_NO_POLICY, "the floor below is still an arena");
+        assert_eq!(arena_policy(1), ARENA_NO_POLICY);
+        assert_eq!(arena_fingerprint(), 0, "a generated floor is named by a duel's configuration");
+        assert_ne!(policy_kind(0), POLICY_KIND_UNKNOWN, "a legacy world says it cannot name its policy");
+        assert_eq!(set_policy(0, PolicyKind::Idle.code()), 1, "a legacy world refused a legacy policy");
+        assert_eq!(policy_kind(0), PolicyKind::Idle.code());
+
+        // And it is a level that runs rather than one that has stopped. 300 is
+        // where the tick used to stick, because `advance_arena`'s gate was still
+        // reading the previous configuration's limit.
+        step(600);
+        assert_eq!(tick(), 600, "the floor stopped at the previous fight's tick limit");
+        step(600);
+        assert_eq!(tick(), 1_200);
+    }
+
+    #[test]
+    fn an_installed_arena_refuses_every_order_export() {
+        // `install_arena` sets the runner's `Order::Advance` on each side
+        // *because* orders are hashed -- and the same sentence says any later
+        // order is a different fight. Nothing guarded it until v2-ui-05's
+        // review: one `set_goto` ten ticks into a three-hundred-tick duel moved
+        // the state hash and left `arena_fingerprint()` exactly where it was, so
+        // the number v2-ui-07 is about to name recordings by was not an identity
+        // for the fight recorded under it.
+        let mut config = sim::DuelConfigV1::shipped();
+        config.max_ticks = 300;
+        let kinds = [ArticulatedPolicyKind::Composed, ArticulatedPolicyKind::Windmill];
+        let fight = |disturb: &dyn Fn()| {
+            write_arena_config(&config, kinds);
+            assert_eq!(arena_start(3) & 0xff, 1);
+            step(10);
+            disturb();
+            step(config.max_ticks - 10);
+            (hash(), arena_fingerprint())
+        };
+        let clean = fight(&|| {});
+
+        // The monster's handle, resolved rather than assumed: `set_focus`
+        // refuses anything that is not a live Monster on its own account, so a
+        // stale handle here would make its half of this test vacuous.
+        let quarry = EntityId::new(1, 0);
+        assert_eq!(
+            with_sim(None, |sim| sim.world.view(quarry).map(|view| view.faction)),
+            Some(Faction::Monsters),
+            "the arena's monster is not the handle this test aims at",
+        );
+
+        assert_eq!(fight(&|| set_goto(20_000, 12_000)), clean, "set_goto changed the fight");
+        assert_eq!(fight(&|| assert_eq!(set_focus(quarry.index, quarry.generation), 0)),
+                   clean, "set_focus changed the fight");
+        assert_eq!(fight(&|| clear_order()), clean, "clear_order changed the fight");
+        assert_eq!(fight(&|| assert_eq!(route_push(20_000, 12_000), 0)),
+                   clean, "route_push changed the fight");
+
+        // And the guard is the arena rather than a switch left in the off
+        // position: all four still do what they document on a legacy world.
+        init(1);
+        spawn_monster(SKITTERER, SLOT_EMPTY, SLOT_EMPTY);
+        set_goto(20_000, 12_000);
+        assert!(matches!(with_sim(Order::Hold, |sim| sim.world.order(Faction::Heroes)), Order::Goto(_)));
+        assert_eq!(route_push(18_000, 11_000), 1, "a legacy world refused a waypoint");
+        clear_order();
+        assert!(matches!(with_sim(Order::Goto(Vec2::ZERO), |sim| sim.world.order(Faction::Heroes)),
+                         Order::Hold));
+        let monster = with_sim(EntityId::NONE, |sim| sim.world.alive_ids(Faction::Monsters)[0]);
+        assert_eq!(set_focus(monster.index, monster.generation), 1, "a legacy world refused a lock");
     }
 
     #[test]
@@ -6301,6 +9087,372 @@ mod tests {
             collected.push(published_events());
         }
         collected
+    }
+
+    /// The live region rows, as rows rather than as a run of words.
+    fn published_regions() -> Vec<[u32; REGION_STRIDE]> {
+        REGIONS.with(|regions| {
+            let words = regions.borrow();
+            (0..region_len() as usize)
+                .map(|row| {
+                    let mut out = [0u32; REGION_STRIDE];
+                    out.copy_from_slice(&words[row * REGION_STRIDE..(row + 1) * REGION_STRIDE]);
+                    out
+                })
+                .collect()
+        })
+    }
+
+    /// A scenario's anatomy per spawn slot, resolved the way
+    /// `crates/lab/src/trace.rs` resolves it and **deliberately not** through
+    /// [`scenario_anatomy`].
+    ///
+    /// The point of the region tests is that the published words are one call
+    /// into `sim::body_region_volumes`; a fixture that took its anatomy from
+    /// the host's own table would be asking the host whether it agrees with
+    /// itself.
+    fn scenario_anatomy_independently(scenario: &Scenario) -> Vec<sim::BodyAnatomySpec> {
+        let table = scenario
+            .combat_specs
+            .as_ref()
+            .expect("an articulated scenario carries a combat spec table");
+        scenario
+            .units
+            .iter()
+            .map(|unit| {
+                let row = unit.articulated.expect("an articulated unit carries a spec row");
+                table.anatomy(row.anatomy).expect("a validated anatomy reference").clone()
+            })
+            .collect()
+    }
+
+    /// Asserts the published region section is exactly
+    /// `sim::body_region_volumes`' answer for every body standing right now.
+    ///
+    /// Word by word against the raw fixed point, and never against
+    /// [`region_row`] -- these are 16.16 integers copied out of one call, so
+    /// "close enough" is not a thing this comparison could mean.
+    fn published_regions_are_the_swept_capsules(scenario: &Scenario, at: &str) {
+        let anatomy = scenario_anatomy_independently(scenario);
+        let identity: Vec<(sim::Body, Faction)> =
+            scenario.units.iter().map(|unit| (unit.kind, unit.faction)).collect();
+        let rows = published_regions();
+        SIM.with(|sim| {
+            let borrowed = sim.borrow();
+            let world = &borrowed.as_ref().expect("a world is installed").world;
+            let poses: Vec<sim::ArticulatedPose> = world.articulated_poses().collect();
+            assert_eq!(
+                rows.len(),
+                poses.len() * REGIONS_PER_BODY,
+                "{at}: the region section is not five rows per published body",
+            );
+            for (body, pose) in poses.iter().enumerate() {
+                // **The slot assumption, checked rather than believed**, which
+                // is what `crates/lab/src/trace.rs` does per row and for the
+                // same reason: `anatomy[index]` is the unit that spawned into
+                // that slot only because `World::try_new` spawns
+                // `scenario.units` in order and nothing walks an articulated
+                // body in afterwards. Neither the length comparison above nor
+                // the words below could tell a correct slot map from a permuted
+                // one -- both bodies are real bodies with real capsules -- so a
+                // fixture that hung the Brute's anatomy off the Fighter would
+                // pass everything else in this file.
+                if let (Some(&(kind, faction)), Some(view)) =
+                    (identity.get(pose.id.index as usize), world.view(pose.id))
+                {
+                    assert!(
+                        view.kind == kind && view.faction == faction,
+                        "{at}: slot {} holds a {:?} of {:?}, not the {kind:?} of {faction:?} \
+                         that scenario.units[{}] describes",
+                        pose.id.index, view.kind, view.faction, pose.id.index,
+                    );
+                }
+                let present: [bool; REGIONS_PER_BODY] =
+                    core::array::from_fn(|part| pose.severed_mask & (1 << part) == 0);
+                let hands = [pose.arms[0].hand - pose.body, pose.arms[1].hand - pose.body];
+                let expected = sim::body_region_volumes(
+                    pose.body,
+                    &anatomy[pose.id.index as usize],
+                    pose.body_yaw,
+                    hands,
+                    present,
+                );
+                for part in 0..REGIONS_PER_BODY {
+                    let row = rows[body * REGIONS_PER_BODY + part];
+                    let volume = expected[part];
+                    let where_ = format!("{at}: body {} region {part}", pose.id.index);
+                    assert_eq!(
+                        [row[REGION_LOWER_X], row[REGION_LOWER_Y], row[REGION_LOWER_Z]],
+                        [
+                            volume.lower.x.raw() as u32,
+                            volume.lower.y.raw() as u32,
+                            volume.lower.z.raw() as u32,
+                        ],
+                        "{where_}: lower point",
+                    );
+                    assert_eq!(
+                        [row[REGION_UPPER_X], row[REGION_UPPER_Y], row[REGION_UPPER_Z]],
+                        [
+                            volume.upper.x.raw() as u32,
+                            volume.upper.y.raw() as u32,
+                            volume.upper.z.raw() as u32,
+                        ],
+                        "{where_}: upper point",
+                    );
+                    assert_eq!(row[REGION_RADIUS], volume.radius.raw() as u32, "{where_}: radius");
+                    assert_eq!(
+                        row[REGION_PRESENT],
+                        u32::from(volume.present),
+                        "{where_}: presence",
+                    );
+                }
+            }
+        });
+    }
+
+    #[test]
+    fn the_published_capsules_are_the_swept_capsules() {
+        // **Both ways a fight can start in this module**, because the two build
+        // their spec tables from different places and the section has to be the
+        // same call either way: the shipped `CombatSpecTableV1::fixtures()`
+        // behind `init_articulated_test`, and the runtime table
+        // `Scenario::duel_from` assembles out of a studio's configuration
+        // behind `arena_start`. A host that hung the wrong anatomy off a slot
+        // would draw a Brute's shoulders on a Fighter and every other column
+        // would still look right.
+
+        // Way one: the shipped duel, driven through the documented clinch so
+        // the arms are somewhere the actuator put them rather than at their
+        // spawn pose. An arm capsule runs shoulder to *hand*, so a fixture that
+        // never moved a hand would check the three rigid regions and nothing
+        // else.
+        let duel = Scenario::articulated_duel();
+        init_articulated_test(1);
+        published_regions_are_the_swept_capsules(&duel, "the duel at rest");
+        for tick in 0..48u32 {
+            for row in 0..2 {
+                SUBMITTED_COMMAND.with(|buffer| *buffer.borrow_mut() = clinch_payload(row, tick));
+                submit_articulated(row as u32, 0);
+                // Every mutating export publishes, so a submitted command that
+                // moved a target hand is in the buffer before the step -- which
+                // is the pose section's rule and holds here for free because
+                // the two are written by one function.
+                published_regions_are_the_swept_capsules(&duel, "the duel mid-command");
+            }
+            step(1);
+            published_regions_are_the_swept_capsules(&duel, "the duel mid-clinch");
+        }
+
+        // Way two: a configured duel, whose anatomy rows are built at runtime.
+        let mut config = sim::DuelConfigV1::shipped();
+        config.max_ticks = 240;
+        let kinds = [ArticulatedPolicyKind::Composed, ArticulatedPolicyKind::Windmill];
+        write_arena_config(&config, kinds);
+        assert_eq!(arena_start(3) & 0xff, 1, "the configured duel refused to start");
+        let arena = Scenario::duel_from(&config).expect("the shipped configuration builds");
+        published_regions_are_the_swept_capsules(&arena, "the arena at rest");
+        for _ in 0..48 {
+            step(1);
+            published_regions_are_the_swept_capsules(&arena, "the arena mid-fight");
+        }
+
+        // And the third way the words are produced: `articulated_stream_digest`
+        // drives its own `Sim` through `write_region_buffer` rather than
+        // through `publish`, and the pin is only worth anything if the two
+        // agree. Same world, both writers, byte for byte.
+        let mut direct = [0u32; MAX_REGIONS * REGION_STRIDE];
+        let (rows, dropped) = SIM.with(|sim| {
+            let borrowed = sim.borrow();
+            write_region_buffer(borrowed.as_ref().expect("a world is installed"), &mut direct)
+        });
+        assert_eq!((rows, dropped), (region_len(), regions_dropped()));
+        assert_eq!(
+            direct[..rows as usize * REGION_STRIDE],
+            REGIONS.with(|regions| regions.borrow()[..rows as usize * REGION_STRIDE].to_vec())[..],
+            "the digest's writer and the publication disagree about the same world",
+        );
+    }
+
+    #[test]
+    fn the_region_section_covers_every_published_pose() {
+        // The relationship the section is read by, since a region row carries
+        // no identity of its own: region row `n` describes pose row
+        // `n / REGIONS_PER_BODY`, and the only way that can be wrong is a count
+        // that does not line up. One comparison, on every world this module can
+        // install.
+        init(1);
+        step(8);
+        assert_eq!(
+            (region_len(), regions_dropped()),
+            (0, 0),
+            "a Legacy world published a region row",
+        );
+        assert_eq!(region_len(), REGIONS_PER_BODY as u32 * pose_len());
+
+        for open in [init_articulated_test as extern "C" fn(u32), init_articulated] {
+            open(1);
+            assert!(pose_len() > 0, "an articulated world published no poses to cover");
+            assert_eq!(
+                region_len(),
+                REGIONS_PER_BODY as u32 * pose_len(),
+                "the region section does not cover every published pose",
+            );
+            assert_eq!(regions_dropped(), 0, "a body's anatomy was missing from the host");
+            step(8);
+            assert_eq!(region_len(), REGIONS_PER_BODY as u32 * pose_len());
+            assert_eq!(regions_dropped(), 0);
+        }
+
+        // And across a descent, which is the one path that replaces the world
+        // in place rather than installing a fresh `Sim` -- so it is the path
+        // where the host's anatomy table could be left describing last floor's
+        // roster. A stale table costs every body its five rows and shows up
+        // here rather than as a capsule drawn in the wrong place.
+        init_articulated(1);
+        for floor in 0..4 {
+            descend();
+            assert_eq!(
+                region_len(),
+                REGIONS_PER_BODY as u32 * pose_len(),
+                "floor {floor} lost its region rows",
+            );
+            assert_eq!(regions_dropped(), 0, "floor {floor} published a body with no anatomy");
+            step(8);
+            assert_eq!(region_len(), REGIONS_PER_BODY as u32 * pose_len());
+        }
+    }
+
+    #[test]
+    fn a_severed_region_is_published_absent() {
+        // A live severance, not a hand-built mask: the whole claim is that the
+        // `present` word follows the world, and a fixture that set the bit
+        // itself would only be checking that `u32::from(bool)` works.
+        //
+        // The shipped duel needs longer than a test wants to take an arm off,
+        // so the anatomy is made of paper -- every regional maximum a
+        // 256th -- and the documented clinch then severs one at tick 85. The
+        // *geometry* is untouched, which is what this test is about; only the
+        // integrity budget moved.
+        let mut scenario = Scenario::articulated_duel();
+        for row in scenario
+            .combat_specs
+            .as_mut()
+            .expect("the duel carries a combat spec table")
+            .anatomies
+            .iter_mut()
+        {
+            row.integrity_maxima = core::array::from_fn(|_| Fx::from_ratio(1, 256));
+        }
+        install_articulated(&scenario, 1);
+
+        let mut severed = None;
+        for tick in 0..200u32 {
+            for row in 0..2 {
+                SUBMITTED_COMMAND.with(|buffer| *buffer.borrow_mut() = clinch_payload(row, tick));
+                submit_articulated(row as u32, 0);
+            }
+            step(1);
+            let masks: Vec<u32> =
+                published_poses().iter().map(|row| row[POSE_SEVERED_MASK]).collect();
+            if let Some(body) = masks.iter().position(|&mask| mask != 0) {
+                severed = Some((body, masks[body]));
+                break;
+            }
+        }
+        let (body, mask) = severed.expect("the paper clinch took 200 ticks without severing a limb");
+
+        // The published capsules are still exactly what the sweep would build,
+        // severance and all -- so `present` is the sim's own answer rather than
+        // a rule this host applies to the geometry after the fact.
+        published_regions_are_the_swept_capsules(&scenario, "after a severance");
+
+        let rows = published_regions();
+        let mut absent = 0;
+        for part in 0..REGIONS_PER_BODY {
+            let row = rows[body * REGIONS_PER_BODY + part];
+            let gone = mask & (1 << part) != 0;
+            assert_eq!(
+                row[REGION_PRESENT],
+                u32::from(!gone),
+                "region {part} of body {body} is published {} against a severed mask of {mask:#b}",
+                row[REGION_PRESENT],
+            );
+            absent += u32::from(gone);
+        }
+        assert!(absent > 0, "the mask said something was severed and every region was present");
+
+        // Every other body still has all five, which is what makes the column a
+        // fact about a region rather than about the fight.
+        for other in 0..rows.len() / REGIONS_PER_BODY {
+            if other == body {
+                continue;
+            }
+            for part in 0..REGIONS_PER_BODY {
+                assert_eq!(
+                    rows[other * REGIONS_PER_BODY + part][REGION_PRESENT],
+                    1,
+                    "an untouched body lost region {part}",
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn the_head_capsule_is_published_degenerate_and_present() {
+        // **The case a reader inferring absence from geometry gets wrong**, and
+        // it is not a corner case: `body_region_volumes` builds the head as a
+        // degenerate capsule whose two endpoints coincide and whose extent is
+        // its `radius` alone -- `AnatomyRegionSpec::half_height` is dead for
+        // that region. So a head is a zero-length segment on every body, on
+        // every tick, and "lower == upper means nothing is here" would delete
+        // it from every fight this module can run.
+        init_articulated_test(1);
+        step(4);
+        let rows = published_regions();
+        assert!(!rows.is_empty(), "the duel published no regions to read a head off");
+        let mut heads = 0;
+        for body in 0..rows.len() / REGIONS_PER_BODY {
+            let head = rows[body * REGIONS_PER_BODY + sim::AnatomyRegion::Head as usize];
+            assert_eq!(
+                [head[REGION_LOWER_X], head[REGION_LOWER_Y], head[REGION_LOWER_Z]],
+                [head[REGION_UPPER_X], head[REGION_UPPER_Y], head[REGION_UPPER_Z]],
+                "body {body}: the head is not the degenerate capsule the sweep builds",
+            );
+            assert_eq!(head[REGION_PRESENT], 1, "body {body}: a coincident head read as absent");
+            assert_ne!(head[REGION_RADIUS], 0, "body {body}: the head has no extent at all");
+            heads += 1;
+        }
+        assert!(heads >= 2, "only {heads} bodies published a head");
+
+        // And the same claim through the packing path with the mask flipped, so
+        // that "present" is carrying information rather than being a constant
+        // one. The hand-built pose is `every_pose_column_filled`'s, whose
+        // severed mask has three regions gone and whose head is not one of
+        // them: a degenerate capsule that *is* absent and a degenerate capsule
+        // that is present publish the same seven words and differ only in the
+        // eighth, which is the whole argument for the eighth existing.
+        let anatomy = scenario_anatomy_independently(&Scenario::articulated_duel());
+        let pose = every_pose_column_filled();
+        let volumes = pose_region_volumes(&pose, &anatomy[0]);
+        let head = region_row(&volumes[sim::AnatomyRegion::Head as usize]);
+        assert_eq!(
+            [head[REGION_LOWER_X], head[REGION_LOWER_Y], head[REGION_LOWER_Z]],
+            [head[REGION_UPPER_X], head[REGION_UPPER_Y], head[REGION_UPPER_Z]],
+        );
+        assert_eq!(pose.severed_mask & 1, 0, "the fixture's head is severed and it should not be");
+        assert_eq!(head[REGION_PRESENT], 1);
+        for part in 0..REGIONS_PER_BODY {
+            let row = region_row(&volumes[part]);
+            assert_eq!(row[REGION_PRESENT], u32::from(pose.severed_mask & (1 << part) == 0));
+        }
+
+        // The same head, severed, is seven identical words and a zero.
+        let mut headless = pose;
+        headless.severed_mask |= 1;
+        let gone = region_row(&pose_region_volumes(&headless, &anatomy[0])[sim::AnatomyRegion::Head as usize]);
+        assert_eq!(gone[..REGION_PRESENT], head[..REGION_PRESENT],
+            "severance moved the geometry as well as the flag");
+        assert_eq!(gone[REGION_PRESENT], 0);
     }
 
     #[test]
@@ -6922,8 +10074,12 @@ mod tests {
     #[test]
     fn empty_ticks_enter_both_stream_digests() {
         let mut shape = Vec::new();
-        drive_stream_digest_script(|tick, poses, _, events, _| {
-            shape.push((tick, poses.len() / POSE_STRIDE, events.len() / COMBAT_EVENT_STRIDE));
+        drive_stream_digest_script(|published| {
+            shape.push((
+                published.tick,
+                published.poses.len() / POSE_STRIDE,
+                published.events.len() / COMBAT_EVENT_STRIDE,
+            ));
         });
         assert_eq!(shape.len(), STREAM_DIGEST_TICKS as usize);
         assert!(
@@ -6942,19 +10098,24 @@ mod tests {
         // and still match its pin.
         let mut skipped = fx::Hash64::new();
         skipped.write_bytes(b"ARPG-STREAM-V1");
-        drive_stream_digest_script(|tick, poses, poses_dropped, events, events_dropped| {
-            if events.is_empty() {
+        drive_stream_digest_script(|published| {
+            if published.events.is_empty() {
                 return;
             }
-            skipped.write_u32(tick);
-            skipped.write_u32((poses.len() / POSE_STRIDE) as u32);
-            skipped.write_u32(poses_dropped);
-            for &word in poses {
+            skipped.write_u32(published.tick);
+            skipped.write_u32((published.poses.len() / POSE_STRIDE) as u32);
+            skipped.write_u32(published.poses_dropped);
+            for &word in published.poses {
                 skipped.write_u32(word);
             }
-            skipped.write_u32((events.len() / COMBAT_EVENT_STRIDE) as u32);
-            skipped.write_u32(events_dropped);
-            for &word in events {
+            skipped.write_u32((published.events.len() / COMBAT_EVENT_STRIDE) as u32);
+            skipped.write_u32(published.events_dropped);
+            for &word in published.events {
+                skipped.write_u32(word);
+            }
+            skipped.write_u32((published.regions.len() / REGION_STRIDE) as u32);
+            skipped.write_u32(published.regions_dropped);
+            for &word in published.regions {
                 skipped.write_u32(word);
             }
         });
@@ -6993,7 +10154,7 @@ mod tests {
 
     #[test]
     fn wasm_exports_match_layout_stride_capacity_and_drop_fields() {
-        // **The six numbers are transcribed from the reference, not read off
+        // **The ten numbers are transcribed from the reference, not read off
         // the crate.** `assert_eq!(pose_stride(), POSE_STRIDE)` compares an
         // export against the constant it returns and cannot fail; it looks like
         // a pin and is a tautology. `tools/wasm_check.js` -- which carries this
@@ -7008,10 +10169,20 @@ mod tests {
         assert_eq!(combat_event_layout_version(), 1, "COMBAT_EVENT_LAYOUT_VERSION");
         assert_eq!(combat_event_stride(), 32, "COMBAT_EVENT_STRIDE");
         assert_eq!(combat_event_capacity(), 2048, "MAX_COMBAT_EVENTS");
-        // The one relationship worth asserting rather than transcribing: the
+        assert_eq!(region_layout_version(), 1, "REGION_LAYOUT_VERSION");
+        assert_eq!(region_stride(), 8, "REGION_STRIDE");
+        assert_eq!(region_capacity(), 320, "MAX_REGIONS");
+        // The two relationships worth asserting rather than transcribing: the
         // pose cap *is* the sim's articulated cap, so a sim that grew its own
-        // limit fails here instead of quietly publishing a truncated roster.
+        // limit fails here instead of quietly publishing a truncated roster,
+        // and the region cap is that cap times the sim's own region count, so a
+        // sixth anatomy region cannot leave the section publishing five.
         assert_eq!(pose_capacity(), sim::MAX_ARTICULATED_ENTITIES as u32);
+        assert_eq!(
+            region_capacity(),
+            pose_capacity() * sim::AnatomyRegion::COUNT as u32,
+            "the region buffer cannot hold five rows for every pose row",
+        );
 
         // Both drop fields, on both worlds, which the name has always claimed
         // and this test never checked. A Legacy world publishing zero rows is
@@ -7030,11 +10201,19 @@ mod tests {
             (0, 0),
             "a Legacy world published or dropped a contact row",
         );
+        assert_eq!(
+            (region_len(), regions_dropped()),
+            (0, 0),
+            "a Legacy world published or dropped a region row",
+        );
 
         init_articulated(1);
         assert_ne!(pose_ptr(), 0);
         assert_ne!(combat_event_ptr(), 0);
+        assert_ne!(region_ptr(), 0);
         assert_ne!(pose_ptr(), combat_event_ptr(), "the two buffers share an address");
+        assert_ne!(pose_ptr(), region_ptr(), "the pose and region buffers share an address");
+        assert_ne!(combat_event_ptr(), region_ptr(), "two buffers share an address");
         assert!(pose_len() > 0, "the articulated room published no bodies");
         assert!(pose_len() <= pose_capacity());
         assert_eq!(poses_dropped(), 0, "the room overflowed a buffer sized to the sim's own cap");
@@ -7044,12 +10223,14 @@ mod tests {
         // A pointer that moved between calls would mean the buffer is not a
         // fixed array, which is the one property a typed array over it depends
         // on.
-        let (poses, events) = (pose_ptr(), combat_event_ptr());
+        let (poses, events, regions) = (pose_ptr(), combat_event_ptr(), region_ptr());
         step(8);
-        assert_eq!((pose_ptr(), combat_event_ptr()), (poses, events));
+        assert_eq!((pose_ptr(), combat_event_ptr(), region_ptr()), (poses, events, regions));
         assert!(combat_event_len() <= combat_event_capacity());
+        assert!(region_len() <= region_capacity());
         assert_eq!(poses_dropped(), 0, "a two-body room overflowed a 64-row pose buffer");
         assert_eq!(combat_events_dropped(), 0, "a two-body room overflowed a 2048-row feed");
+        assert_eq!(regions_dropped(), 0, "a room dropped a region row");
     }
 
     #[test]
@@ -7106,6 +10287,8 @@ mod tests {
         assert_eq!(poses_dropped(), 0);
         assert_eq!(combat_event_len(), 0);
         assert_eq!(combat_events_dropped(), 0);
+        assert_eq!(region_len(), 0);
+        assert_eq!(regions_dropped(), 0);
         assert_eq!(tick(), 0);
         assert_eq!(state_hash(), 0, "the previous world survived a call that said it started over");
         assert_eq!(frame_len(), HEADER_LEN as u32);
@@ -7120,6 +10303,29 @@ mod tests {
         step(4);
         assert_eq!(pose_len(), 0);
         assert_eq!(tick(), 0);
+
+        // **The same refusal over an *articulated* world, and the three buffers
+        // read rather than their three lengths.** A Legacy room writes none of
+        // them, so everything above is a claim about arrays that were already
+        // zero -- and the `fill(0)`s in `publish`'s `None` arm are three lines
+        // no test could tell had been deleted. These rows are ground truth
+        // about an identity: a stale one is the previous world's body, its
+        // capsules included, sitting in linear memory behind a zero length.
+        init_articulated(7);
+        step(4);
+        assert!(
+            pose_len() > 0 && region_len() > 0,
+            "the articulated room published nothing for the refusal to wipe",
+        );
+        install_articulated(&broken, 7);
+        assert_eq!((pose_len(), region_len(), combat_event_len()), (0, 0, 0));
+        for (name, zeroed) in [
+            ("pose", POSES.with(|rows| rows.borrow().iter().all(|&word| word == 0))),
+            ("region", REGIONS.with(|rows| rows.borrow().iter().all(|&word| word == 0))),
+            ("combat-event", COMBAT_EVENTS.with(|rows| rows.borrow().iter().all(|&word| word == 0))),
+        ] {
+            assert!(zeroed, "a refused install left the previous world's {name} rows in memory");
+        }
     }
 
     #[test]
@@ -7285,9 +10491,20 @@ mod tests {
         assert_eq!(pose_len(), HIGH_WATER_POSE_ROWS);
         assert_eq!(pose_len(), pose_capacity(), "the corpus stopped sitting on the pose cap");
         assert_eq!(poses_dropped(), 0, "a pose row was dropped at exactly the pose capacity");
+
+        // The region half sits on its cap for the same reason and by the same
+        // construction -- `MAX_REGIONS` is `MAX_POSES` times the sim's own
+        // region count -- which makes 64 bodies **the only fixture in the
+        // repository that reaches the region buffer's last row.** A drop here
+        // would mean the two capacities had stopped being one capacity, which
+        // is the arithmetic the whole no-identity section rests on: five rows a
+        // body, in pose order, or a reader cannot tell whose arm it is holding.
+        assert_eq!(region_len(), HIGH_WATER_POSE_ROWS * REGIONS_PER_BODY as u32);
+        assert_eq!(region_len(), region_capacity(), "the corpus stopped sitting on the region cap");
+        assert_eq!(regions_dropped(), 0, "a region row was dropped at exactly the region capacity");
     }
 
-    /// Prints what the reference's `abi-high-water` corpus fills the two
+    /// Prints what the reference's `abi-high-water` corpus fills the three
     /// articulated buffers with, for accepting or rejecting a capacity.
     ///
     /// `#[ignore]` because it asserts nothing, exactly as
@@ -7366,18 +10583,22 @@ mod tests {
         println!("pose_len:             {}", pose_len());
         println!("poses_dropped:        {}", poses_dropped());
         println!("pose_capacity:        {}", pose_capacity());
+        println!("region_len:           {}", region_len());
+        println!("regions_dropped:      {}", regions_dropped());
+        println!("region_capacity:      {}", region_capacity());
     }
 
-    /// The scripted pose/event stream, as one number.
+    /// The scripted pose, region and combat-event stream, as one number.
     ///
     /// The script: [`Scenario::articulated_duel`] at seed 1 with the fighter
     /// moved to `(9,6)` and the brute to `(7,6)`, one attack command each on
     /// tick zero and none after -- the fighter walking due west at full
     /// magnitude, the brute standing still, both asking for the bearing they
     /// already have. Twenty ticks, one publication per tick, digested through
-    /// [`write_pose_buffer`] and [`write_combat_event_buffer`]. Ticks 0, 1, 2
-    /// and 4 carry no contact, ticks 3 and 5 carry two rows, and the rest carry
-    /// one.
+    /// [`write_pose_buffer`], [`write_combat_event_buffer`] and
+    /// [`write_region_buffer`]. Ticks 0, 1, 2 and 4 carry no contact, ticks 3
+    /// and 5 carry two rows, and the rest carry one; every tick carries two pose
+    /// rows and ten region rows.
     ///
     /// Not a fight golden. It pins the *bytes the page reads*, which is a
     /// different property from `ROOM_HASH`'s and one a hand-rolled ABI can get
@@ -7412,24 +10633,82 @@ mod tests {
     /// row counts per tick are all where they were, which
     /// `the_pose_row_is_the_documented_layout_word_for_word` and the shape
     /// printer beside this constant are what say so.
-    const ARTICULATED_STREAM_DIGEST: u64 = 0x54c0_762b_3dfb_7a05;
+    ///
+    /// **Moved a fourth time by v2-ui-06, from `0x54c0762b3dfb7a05`, and this
+    /// one is the layout change the three above were not.** A third section
+    /// went on the wire -- the five swept region capsules per body -- and the
+    /// digest's rule is every published word of every publication, so it moved
+    /// by construction and was predicted in writing before the run. The move is
+    /// an *extension* and can be read as one: the region length, drop count and
+    /// words are appended after the event words, so the pose-and-event prefix of
+    /// every one of the twenty ticks is byte-identical to what v2-16 pinned, and
+    /// the shape printer reports the same counts it always did -- ticks 0, 1, 2
+    /// and 4 with no contact, 3 and 5 with two rows, the rest with one, and now
+    /// ten region rows on every tick. Nothing in `crates/sim` changed and no
+    /// fight golden moved with it, which is the signature of a layout move and
+    /// the opposite of the three before it.
+    const ARTICULATED_STREAM_DIGEST: u64 = 0xf7d3_a9c7_3aa5_9981;
+
+    /// FNV-1a-64 over the logits `checkpoints/v2-probe.ckpt` produces on
+    /// `learn_core`'s fixed observation corpus, prefix `ARPG-LEARNED-V1`.
+    ///
+    /// **Created by v2-ui-08, and it is what that session was for.**
+    /// `Model::forward` chose a rectified linear over `tanh` on portability
+    /// grounds -- no libm call in the forward pass, IEEE-754 `f32` multiply and
+    /// add which every target mandates, a summation order fixed by the loop, no
+    /// FMA contraction in the profile, ties to the lowest index -- and then
+    /// recorded that it was "only a *claim* about hosts other than this one,
+    /// because this repository has no second host to check it on". wasm32 is the
+    /// second host. This number holds the two to the same **logits** rather than
+    /// to the same five argmaxes, because five bytes would agree right up to the
+    /// moment a divergence crossed a decision boundary, and that is the moment
+    /// it stops being catchable early.
+    ///
+    /// **Owned by whoever changes `ModelShape`, the feature layout, the action
+    /// layout or the forward pass**, and by nobody else. A move without one of
+    /// those four is not a re-record: it is a portability failure, and the
+    /// fallback v2-ui-08 named in advance is to quantise inference to `Fx` --
+    /// which changes behaviour and would have to be re-scored against a held-out
+    /// mean of **88.922** before the quantised model could be called the same
+    /// fighter. The number is written out rather than cited, because
+    /// `checkpoints/*.log` is in `.gitignore`: a clean clone has the `.ckpt` and
+    /// no table, and `cargo run --release -p lab -- learn-probe evaluate` is how
+    /// to see one again. The corpus cannot move underneath it:
+    /// it is synthetic, drawn from `fx::Rng`, and no simulation output reaches
+    /// it.
+    ///
+    /// **The caveat is part of the pin.** This holds for the repository's
+    /// baseline targets -- MSVC x86-64 with no `target-cpu`, `target-feature` or
+    /// fast-math anywhere in the profile, and the wasm MVP -- because neither
+    /// has an FMA instruction, which is what closes contraction. Building native
+    /// with `-C target-cpu=native` on a host that has FMA re-opens it: a fused
+    /// multiply-add rounds once where `Model::forward`'s loop rounds twice.
+    /// **That build is outside the guarantee**, and it is a real hole rather
+    /// than a footnote -- nothing in the repository would notice until this
+    /// number failed.
+    const LEARNED_INFERENCE_DIGEST: u64 = 0xbdba_8d64_d340_ce32;
 
     #[test]
     #[ignore]
     fn print_the_articulated_stream_digest() {
         println!("ARTICULATED_STREAM_DIGEST: {:#018x}", articulated_stream_digest());
         let mut shape = Vec::new();
-        drive_stream_digest_script(|tick, poses, dropped, events, event_drops| {
+        drive_stream_digest_script(|published| {
             shape.push((
-                tick,
-                poses.len() / POSE_STRIDE,
-                dropped,
-                events.len() / COMBAT_EVENT_STRIDE,
-                event_drops,
+                published.tick,
+                published.poses.len() / POSE_STRIDE,
+                published.poses_dropped,
+                published.events.len() / COMBAT_EVENT_STRIDE,
+                published.events_dropped,
+                published.regions.len() / REGION_STRIDE,
+                published.regions_dropped,
             ));
         });
         for row in shape {
-            println!("tick {} poses {} dropped {} events {} dropped {}", row.0, row.1, row.2, row.3, row.4);
+            println!(
+                "tick {} poses {} dropped {} events {} dropped {} regions {} dropped {}",
+                row.0, row.1, row.2, row.3, row.4, row.5, row.6,
+            );
         }
     }
 
@@ -11379,3 +14658,4 @@ mod tests {
         assert_eq!(spawn_template_slot(0), sim::ActionKind::Shortsword.code());
     }
 }
+

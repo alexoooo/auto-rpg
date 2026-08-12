@@ -1,9 +1,8 @@
 // Audits the two dependency graphs this repository admits.
 //
-// Cargo owns the authoritative core, where fx, sim and policy may reach only
-// local workspace crates -- and learn, which is not part of that core and is held
-// to the same rule for the reason recorded at DETERMINISTIC below. npm owns
-// presentation tooling, where dependencies are
+// Cargo owns the whole workspace, where **every member** may reach only local
+// workspace crates -- see AUDITED below for what each of the seven would cost.
+// npm owns presentation tooling, where dependencies are
 // allowed but every top-level request and every resolved artifact is pinned.
 // Neither lockfile is treated as evidence about itself: the manifests, Cargo's
 // view of its graph, and npm's resolved package records have to agree.
@@ -17,15 +16,40 @@ const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
 const DEPENDENCY_FIELDS = ["dependencies", "devDependencies", "optionalDependencies", "peerDependencies"];
-// The crates held to "workspace paths only". Three of them are the deterministic
-// core; `learn` is not, and is audited anyway. It may use floating point and it
-// reaches no authoritative state, so the rule it is being held to is the
-// no-dependency one rather than the determinism one -- and it is the crate most
-// likely to attract a registry dependency, because v2-19 asks it for a SHA-256 and
-// `sha2` is one line away. That hash is hand-rolled in
-// crates/learn/src/checkpoint.rs precisely because this audit would refuse the
-// alternative.
-const DETERMINISTIC = new Set(["fx", "sim", "policy", "learn"]);
+// **Every workspace member is audited, and the walk below seeds from all of
+// them rather than from this list.** That distinction is the whole of a defect
+// a review found: the seeds used to be a five-name set, `web` and `lab` were
+// neither in it nor reachable from anything in it, and `sha2 = "0.10.8"` added
+// straight to crates/web/Cargo.toml compiled into web.wasm, shipped to a
+// browser, and left this audit printing "passed".
+//
+// The rule being enforced is the **no-dependency** one and not the determinism
+// one -- four of the seven are not deterministic code at all. What each class
+// would cost:
+//
+//   fx, sim, policy   the authoritative core, where a dependency is a
+//                     determinism hazard on top of a supply-chain one
+//   learn-core        floating point upstream of an argmax, no authoritative
+//                     state -- but it is `crates/web`'s dependency, so anything
+//                     it pulled in is compiled into web.wasm and handed to a
+//                     browser
+//   learn             the crate most likely to attract one, because v2-19 asks
+//                     for a SHA-256 and `sha2` is one line away. That hash is
+//                     hand-rolled in crates/learn-core/src/checkpoint.rs
+//                     precisely because this audit would refuse the alternative
+//   web               the browser boundary itself. fx, sim, policy and
+//                     learn-core are all its direct dependencies, so shipping
+//                     to a browser is this crate's consequence first and
+//                     theirs by inheritance -- and its manifest says "no
+//                     wasm-bindgen, no js-sys, no web-sys", which until now
+//                     nothing checked
+//   lab               `learn`'s one host, and the binary that prints every
+//                     pinned hash
+//
+// The names are therefore a **presence** assertion and nothing more: the walk
+// covers whatever Cargo reports, so a crate that disappeared would otherwise
+// quietly shrink the audit instead of failing it.
+const AUDITED = new Set(["fx", "sim", "policy", "learn-core", "learn", "lab", "web"]);
 const LIFECYCLE_SCRIPTS = new Set([
   "preinstall", "install", "postinstall", "prepublish", "preprepare", "prepare",
   "postprepare", "prepublishOnly", "publish", "postpublish", "dependencies",
@@ -164,14 +188,17 @@ function auditCargo(root, errors) {
     }
   }
 
+  // `--no-deps` reports the workspace members and nothing else, so seeding from
+  // every package is exactly "audit every crate this repository owns" -- and it
+  // cannot be defeated by adding an eighth crate and forgetting a list.
   const queue = [];
   const seen = new Set();
   for (const pkg of metadata.packages || []) {
-    if (DETERMINISTIC.has(pkg.name)) queue.push({ pkg, trail: [pkg.name] });
+    queue.push({ pkg, trail: [pkg.name] });
   }
-  for (const required of DETERMINISTIC) {
+  for (const required of AUDITED) {
     if (!(metadata.packages || []).some((pkg) => pkg.name === required)) {
-      errors.push(`Cargo.toml: deterministic workspace crate ${required} is missing`);
+      errors.push(`Cargo.toml: audited workspace crate ${required} is missing`);
     }
   }
 
@@ -182,7 +209,7 @@ function auditCargo(root, errors) {
     for (const target of pkg.targets || []) {
       if (Array.isArray(target.kind) && target.kind.includes("custom-build")) {
         errors.push(
-          `${relative(pkg.manifest_path)}: deterministic dependency path ${trail.join(" -> ")} `
+          `${relative(pkg.manifest_path)}: audited dependency path ${trail.join(" -> ")} `
           + `uses forbidden custom-build target ${target.name}`,
         );
       }
@@ -192,7 +219,7 @@ function auditCargo(root, errors) {
       const source = dependencySource(dep);
       const nextTrail = [...trail, `${dep.name} (${kind}, ${source})`];
       if (source === "registry" || source === "git") {
-        errors.push(`${relative(pkg.manifest_path)}: deterministic dependency path ${nextTrail.join(" -> ")} is forbidden`);
+        errors.push(`${relative(pkg.manifest_path)}: audited dependency path ${nextTrail.join(" -> ")} is forbidden`);
         continue;
       }
       if (source !== "path") {
@@ -208,7 +235,7 @@ function auditCargo(root, errors) {
       }
       const rel = path.relative(canonicalRoot, depDir);
       if (rel.startsWith("..") || path.isAbsolute(rel)) {
-        errors.push(`${relative(pkg.manifest_path)}: deterministic dependency path ${nextTrail.join(" -> ")} leaves the workspace`);
+        errors.push(`${relative(pkg.manifest_path)}: audited dependency path ${nextTrail.join(" -> ")} leaves the workspace`);
         continue;
       }
       const target = packagesByDir.get(depDir);
@@ -474,7 +501,7 @@ if (require.main === module) {
     for (const error of errors) console.error(`  - ${error}`);
     process.exitCode = 1;
   } else if (errors) {
-    console.log("dependency audit passed: deterministic Cargo graph and pinned npm lock agree");
+    console.log("dependency audit passed: every workspace crate reaches workspace paths only, and the npm lock is pinned");
   }
 }
 

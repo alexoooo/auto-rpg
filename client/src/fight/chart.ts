@@ -28,7 +28,7 @@
 // that body was standing still. The bar is a legacy-model bar either way, which
 // `trace.rs` says at more length.
 
-import type { Trace } from "./trace.js";
+import type { FightHeader, FightSource } from "./source.js";
 import { at, length, share, sub } from "./trace.js";
 import { bodyColours, contactColour } from "./view.js";
 
@@ -46,8 +46,8 @@ export interface Series {
   readonly peakEnergy: number;
 }
 
-function tipOf(trace: Trace, frame: number, body: number): readonly [number, number, number] | null {
-  const pose = at(trace.frames, frame).poses.find((p) => p.id[0] === body);
+function tipOf(source: FightSource, frame: number, body: number): readonly [number, number, number] | null {
+  const pose = source.frameAt(frame).poses.find((p) => p.id[0] === body);
   if (pose === undefined) return null;
   for (const weapon of pose.weapons) {
     if (weapon !== null) return weapon.tip;
@@ -55,9 +55,13 @@ function tipOf(trace: Trace, frame: number, body: number): readonly [number, num
   return null;
 }
 
-export function buildSeries(trace: Trace): Series {
-  const count = trace.frames.length;
-  const tipSpeed = trace.bodies.map(() => new Array<number>(count).fill(0));
+// **The one function here that is handed the whole source rather than the
+// header.** Two rates over every frame of the fight cannot be built from one
+// frame, so widening this is not an abstraction leak -- it is what the series is.
+// Everything downstream then works off the series and never reaches back.
+export function buildSeries(source: FightSource): Series {
+  const count = source.frameCount();
+  const tipSpeed = source.header.bodies.map(() => new Array<number>(count).fill(0));
   const energy = new Array<number>(count).fill(0);
   const loudest = new Array<number>(count).fill(-1);
   const wounding = new Array<boolean>(count).fill(false);
@@ -65,9 +69,9 @@ export function buildSeries(trace: Trace): Series {
   let peakEnergy = 0;
 
   for (let f = 0; f < count; f += 1) {
-    for (let b = 0; b < trace.bodies.length; b += 1) {
-      const now = tipOf(trace, f, b);
-      const before = f > 0 ? tipOf(trace, f - 1, b) : null;
+    for (let b = 0; b < source.header.bodies.length; b += 1) {
+      const now = tipOf(source, f, b);
+      const before = f > 0 ? tipOf(source, f - 1, b) : null;
       // A tip that has just appeared or just gone has no speed, as against a
       // speed of zero: a severed arm is not a still one.
       const speed = now !== null && before !== null ? length(sub(now, before)) : 0;
@@ -77,7 +81,7 @@ export function buildSeries(trace: Trace): Series {
     let peak = 0;
     let kind = -1;
     let wounded = false;
-    for (const contact of at(trace.frames, f).contacts) {
+    for (const contact of source.frameAt(f).contacts) {
       if (share(contact) > peak) {
         peak = share(contact);
         kind = contact.kind;
@@ -109,15 +113,27 @@ function label(ctx: CanvasRenderingContext2D, x: number, y: number, text: string
   ctx.fillText(text, x, y);
 }
 
+/**
+ * How many frames a series spans.
+ *
+ * The series has one entry a frame and it is the thing being plotted, so it is
+ * its own extent. Reading the count off the header instead would make the chart
+ * depend on a field a growing live recording has to keep rewriting, and the
+ * failure mode of that disagreement is an axis that is silently the wrong width.
+ */
+function span(series: Series): number {
+  return series.energy.length;
+}
+
 export function drawChart(
-  ctx: CanvasRenderingContext2D, trace: Trace, series: Series, current: number,
+  ctx: CanvasRenderingContext2D, fight: FightHeader, series: Series, current: number,
   width: number, height: number,
 ): void {
   ctx.clearRect(0, 0, width, height);
   ctx.fillStyle = "#0b0f14";
   ctx.fillRect(0, 0, width, height);
 
-  const count = trace.frames.length;
+  const count = span(series);
   const x = (frame: number): number => (frame / Math.max(1, count - 1)) * width;
   const gap = 8;
   // Both bands are scaled to hold their own threshold even when nothing in the
@@ -125,11 +141,11 @@ export function drawChart(
   // reference line off the top of the panel and quietly flatter the physics.
   const speed: Band = {
     top: 0, height: (height - gap) / 2,
-    max: Math.max(series.peakSpeed, trace.impactThreshold) * 1.15,
+    max: Math.max(series.peakSpeed, fight.impactThreshold) * 1.15,
   };
   const energy: Band = {
     top: (height - gap) / 2 + gap, height: (height - gap) / 2,
-    max: Math.max(series.peakEnergy, trace.contactEnergyFloor) * 1.15,
+    max: Math.max(series.peakEnergy, fight.contactEnergyFloor) * 1.15,
   };
 
   for (const band of [speed, energy]) {
@@ -142,12 +158,12 @@ export function drawChart(
   ctx.setLineDash([4, 4]);
   ctx.strokeStyle = "#ff9d9d";
   ctx.lineWidth = 1;
-  const thresholdY = bandY(speed, trace.impactThreshold);
+  const thresholdY = bandY(speed, fight.impactThreshold);
   ctx.beginPath();
   ctx.moveTo(0, thresholdY);
   ctx.lineTo(width, thresholdY);
   ctx.stroke();
-  const floorY = bandY(energy, trace.contactEnergyFloor);
+  const floorY = bandY(energy, fight.contactEnergyFloor);
   ctx.beginPath();
   ctx.moveTo(0, floorY);
   ctx.lineTo(width, floorY);
@@ -194,10 +210,15 @@ export function drawChart(
   ctx.stroke();
 }
 
-/** The frame index nearest a click, for scrubbing on the chart itself. */
-export function frameAt(trace: Trace, canvas: HTMLCanvasElement, clientX: number): number {
+/**
+ * The frame index nearest a click, for scrubbing on the chart itself.
+ *
+ * Off the same `span` the chart drew, so the click cannot land on a different
+ * axis from the one under the pointer.
+ */
+export function frameAt(series: Series, canvas: HTMLCanvasElement, clientX: number): number {
   const bounds = canvas.getBoundingClientRect();
   const fraction = (clientX - bounds.left) / Math.max(1, bounds.width);
-  const index = Math.round(fraction * (trace.frames.length - 1));
-  return Math.min(trace.frames.length - 1, Math.max(0, index));
+  const index = Math.round(fraction * (span(series) - 1));
+  return Math.min(span(series) - 1, Math.max(0, index));
 }

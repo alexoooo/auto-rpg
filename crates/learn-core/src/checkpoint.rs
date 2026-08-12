@@ -47,6 +47,7 @@
 
 use crate::model::{Model, ModelShape, LEARN_ACTION_LAYOUT_VERSION, LEARN_FEATURE_LAYOUT_VERSION};
 use std::fmt;
+#[cfg(not(target_family = "wasm"))]
 use std::path::Path;
 
 // ------------------------------------------------------------------ SHA-256
@@ -504,14 +505,41 @@ impl Checkpoint {
         let sigma = reader.f32("the mutation sigma")?;
         let training_return = reader.f32("the training return")?;
         let master_seed = reader.u64("the master seed")?;
+        // **The cap is what the *file* could back, not what a count could
+        // say.** These two headers are the only place a checkpoint asks this
+        // decoder to reserve memory, and since v2-ui-08 the decoder runs inside
+        // `web.wasm` behind `load_checkpoint` -- where a reservation grows
+        // linear memory and detaches every typed array the page is holding,
+        // which is the failure `articulated-abi.md`'s three fixed arrays exist
+        // to make impossible. A refusal is the *cheap* path or it is a denial of
+        // service dressed as a validation error: a review measured a 68-byte
+        // file claiming four billion weights reserving 4 MiB and growing the
+        // module by 65 pages on its way to answering `Truncated`.
+        //
+        // A seed is eight bytes, so a file of `bytes.len()` cannot carry more
+        // than `bytes.len() / 8` of them; and the shape check above has already
+        // refused everything but `ModelShape::CURRENT`, so by this line 3,858 is
+        // the only weight count `Model::from_weights` will accept. Both caps are
+        // therefore exact rather than generous, and a file that loads reaches
+        // neither by more than nothing.
+        //
+        // A cap is a *hint*, so the two loops below stay correct when a header
+        // over- or under-claims -- `WeightCount` still reports the count it
+        // actually read. The one case that reallocates is a file that declares
+        // more weights than the shape allows **and** carries the bytes for them,
+        // and that growth is bounded by the 32 KB staging buffer the caller
+        // filled. Bounded by the input somebody delivered is the property; the
+        // old caps of 4,096 and `1 << 20` were bounded by nothing.
+        // `a_refused_checkpoint_does_not_grow_linear_memory` in
+        // `tools/wasm_check.js` measures it against the artifact.
         let seed_count = reader.u32("the seed count")? as usize;
-        let mut seeds = Vec::with_capacity(seed_count.min(4096));
+        let mut seeds = Vec::with_capacity(seed_count.min(bytes.len() / 8));
         for _ in 0..seed_count {
             seeds.push(reader.u64("a training seed")?);
         }
 
         let weight_count = reader.u32("the weight count")? as usize;
-        let mut weights = Vec::with_capacity(weight_count.min(1 << 20));
+        let mut weights = Vec::with_capacity(weight_count.min(ModelShape::CURRENT.weight_count()));
         for _ in 0..weight_count {
             weights.push(reader.f32("a weight")?);
         }
@@ -575,6 +603,17 @@ impl Checkpoint {
 
     /// Writes to a temporary beside the target and renames it into place.
     ///
+    /// **Compiled out on a wasm target, with [`Checkpoint::read`], and that is
+    /// the whole of what v2-ui-08's split costs this module.** A browser has no
+    /// path to open: a checkpoint arrives there as bytes somebody fetched,
+    /// staged through `crates/web`'s `checkpoint_ptr` buffer and handed to
+    /// [`Checkpoint::from_bytes`] -- which is this file's real entry point and
+    /// is available everywhere. `std::fs` does *compile* for
+    /// `wasm32-unknown-unknown` and answers `Unsupported` at runtime, so the
+    /// `cfg` is not what makes the build work; it is what makes "no I/O on any
+    /// path a browser can reach" a fact about the artifact rather than a
+    /// promise about the callers.
+    ///
     /// **v2-19 asks for atomic and this is what atomic can mean here.** A
     /// rename within one directory is atomic on both NTFS and every filesystem
     /// this repository is developed on, so a reader either sees the previous
@@ -584,6 +623,7 @@ impl Checkpoint {
     /// What it is not is durable against power loss without an `fsync`, and
     /// there is no reason to buy that for a file a training run can simply
     /// produce again.
+    #[cfg(not(target_family = "wasm"))]
     pub fn write_atomically(&self, path: &Path) -> std::io::Result<()> {
         let mut temporary = path.as_os_str().to_os_string();
         temporary.push(".partial");
@@ -600,6 +640,8 @@ impl Checkpoint {
         std::fs::rename(temporary, path)
     }
 
+    /// The file on disk, decoded. Native only; see [`Checkpoint::write_atomically`].
+    #[cfg(not(target_family = "wasm"))]
     pub fn read(path: &Path) -> std::io::Result<Result<Checkpoint, CheckpointError>> {
         Ok(Checkpoint::from_bytes(&std::fs::read(path)?))
     }

@@ -2,7 +2,7 @@
 
 **Purpose:** Define the exact packed frame consumed by both current browser entries.
 **Status:** current
-**Canonical source:** [`crates/web/src/lib.rs`](../../crates/web/src/lib.rs#L38), [`web/main.js`](../../web/main.js#L45), and [`tools/wasm_check.js`](../../tools/wasm_check.js#L78)
+**Canonical source:** [`crates/web/src/lib.rs`](../../crates/web/src/lib.rs#L40), [`web/main.js`](../../web/main.js#L45), and [`tools/wasm_check.js`](../../tools/wasm_check.js#L83)
 **Update when:** A frame column, section, code meaning, capacity, or layout version changes.
 
 <!-- DOC_CONTRACT: frame-abi-layout -->
@@ -19,18 +19,19 @@ array with a **15-float header**, followed by `unit_count` rows of **33 floats**
 | shot | `x`, `y`, `heading_raw`, `faction` |
 | event | `kind`, `x`, `y`, `amount`, `actor_index`, `other_index`, `aux0`, `aux1` |
 
-The authoritative definitions are [`HEADER_LEN`](../../crates/web/src/lib.rs#L139),
-[`UNIT_STRIDE`](../../crates/web/src/lib.rs#L220),
-[`SHOT_STRIDE`](../../crates/web/src/lib.rs#L268),
-[`EVENT_STRIDE`](../../crates/web/src/lib.rs#L314), and
-[`FRAME_LAYOUT_VERSION`](../../crates/web/src/lib.rs#L426).
+The authoritative definitions are [`HEADER_LEN`](../../crates/web/src/lib.rs#L140),
+[`UNIT_STRIDE`](../../crates/web/src/lib.rs#L221),
+[`SHOT_STRIDE`](../../crates/web/src/lib.rs#L269),
+[`EVENT_STRIDE`](../../crates/web/src/lib.rs#L315), and
+[`FRAME_LAYOUT_VERSION`](../../crates/web/src/lib.rs#L427).
 
-**This document owns the frame and nothing else.** Two further `u32` publications sit
-beside `FRAME` in the same linear memory — the pose rows and the combat-event rows,
-with their own pointers, strides, capacities, drop counters and layout versions — and
-they are specified in [`articulated-abi.md`](articulated-abi.md#pose-rows). They are
-not sections of the frame, they do not move `FRAME_LAYOUT_VERSION`, and the four-file
-handshake below applies to each ABI separately.
+**This document owns the frame and nothing else.** Three further `u32` publications sit
+beside `FRAME` in the same linear memory — the pose rows, the region capsules and the
+combat-event rows, each with its own pointer, stride, capacity, drop counter and layout
+version — and they are specified in
+[`articulated-abi.md`](articulated-abi.md#pose-rows). They are not sections of the
+frame, they do not move `FRAME_LAYOUT_VERSION`, and the handshake below applies to each
+ABI separately.
 
 ## Identity and numeric representation
 
@@ -48,13 +49,20 @@ use separate integer exports.
 
 Columns and codes are append-only inside a layout version. A reordering can repaint
 the game while producing valid numbers, so it is never a harmless cleanup. Any shape
-or meaning change bumps the layout version and updates all copies together:
+or meaning change bumps the layout version and updates all copies together — **five
+obligations across six files**, which is the count `AGENTS.md` defers to and the one
+to correct if a mirror is ever added or removed:
 
-1. Rust constants, writer, and module layout comment;
+1. `crates/web/src/lib.rs`: Rust constants, writer, and module layout comment;
 2. `web/main.js` constants and parser;
 3. `tools/wasm_check.js` constants and assertions;
-4. the generated worker ABI and snapshot parser; and
+4. `crates/web/src/bin/emit_abi.rs` → `client/src/protocol/abi.generated.ts`, which is
+   regenerated and never hand-edited, plus `client/src/state/snapshot.ts` which reads
+   it; and
 5. this reference.
+
+Obligation 4 is two files, which is where "four" came from and why it was wrong: the
+number predated the v2 client split, and `AGENTS.md` carried it until v2-ui-06.
 
 At boot the page compares version, header length, and each stride against wasm and
 refuses to draw a layout it does not understand. `frame_ptr` and `frame_len` are pure
@@ -68,5 +76,5 @@ remove spatial rows and recompute the three live counts before transfer. That
 presentation-only filtering does not define another frame layout version.
 
 This document is the canonical destination for the exact layout formerly copied by
-`AGENTS.md#the-frame-abi-is-a-handshake-across-four-files` and the frame-layout prose
+`AGENTS.md#the-frame-abi-is-a-handshake-across-six-files` and the frame-layout prose
 in `DESIGN.md#performance-notes`.

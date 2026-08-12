@@ -2,7 +2,7 @@
 
 **Purpose:** Record why rendering is a snapshot consumer and why Canvas remains a reference beside the procedural GPU client.
 **Status:** current
-**Canonical source:** [`crates/sim/Cargo.toml`](../../crates/sim/Cargo.toml), [`crates/web/src/lib.rs`](../../crates/web/src/lib.rs#L3198), [`web/main.js`](../../web/main.js#L11245), and the [renderer contract](../reference/renderer-contract.md#renderer-owned-snapshot-boundary)
+**Canonical source:** [`crates/sim/Cargo.toml`](../../crates/sim/Cargo.toml), [`crates/web/src/lib.rs`](../../crates/web/src/lib.rs#L4090), [`web/main.js`](../../web/main.js#L11245), and the [renderer contract](../reference/renderer-contract.md#renderer-owned-snapshot-boundary)
 **Update when:** A renderer gains authority, a new host boundary ships, or the production renderer choice changes.
 
 ## Decision

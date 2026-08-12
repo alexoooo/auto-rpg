@@ -21,6 +21,16 @@ name = "learn"
 version = "0.1.0"
 dependencies = [
  "fx",
+ "learn-core",
+ "policy",
+ "sim",
+]
+
+[[package]]
+name = "learn-core"
+version = "0.1.0"
+dependencies = [
+ "fx",
  "policy",
  "sim",
 ]
@@ -45,6 +55,7 @@ name = "web"
 version = "0.1.0"
 dependencies = [
  "fx",
+ "learn-core",
  "policy",
  "sim",
 ]

@@ -10,6 +10,9 @@ export const POSE_LAYOUT_VERSION = 1;
 export const POSE_STRIDE = 66;
 export const COMBAT_EVENT_LAYOUT_VERSION = 1;
 export const COMBAT_EVENT_STRIDE = 32;
+export const REGION_LAYOUT_VERSION = 1;
+export const REGION_STRIDE = 8;
+export const REGIONS_PER_BODY = 5;
 
 export const MAX_UNITS = 64;
 export const MAX_SHOTS = 32;
@@ -19,6 +22,7 @@ export const MAP_MAX = 6144;
 export const FURNITURE_MAX = 512;
 export const MAX_POSES = 64;
 export const MAX_COMBAT_EVENTS = 2048;
+export const MAX_REGIONS = 320;
 
 export const FRAME_OFFSET = 0;
 export const MAP_OFFSET = 13116;
@@ -213,6 +217,15 @@ export const COMBAT_EVENT_BODY_PART = 30;
 export const COMBAT_EVENT_SEVERED = 31;
 export const COMBAT_EVENT_NO_BODY_PART = 4294967295;
 export const COMBAT_EVENT_BODY_SLOT = 255;
+
+export const REGION_LOWER_X = 0;
+export const REGION_LOWER_Y = 1;
+export const REGION_LOWER_Z = 2;
+export const REGION_UPPER_X = 3;
+export const REGION_UPPER_Y = 4;
+export const REGION_UPPER_Z = 5;
+export const REGION_RADIUS = 6;
+export const REGION_PRESENT = 7;
 
 export const FOCUS_NONE = 4294967295;
 export const FOCUS_IDENTITY_EXPORTS = [

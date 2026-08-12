@@ -582,3 +582,65 @@ test("the_completion_checklist_requires_documentation_impact", () => {
   assert.match(errors, /checklist is missing documentation impact/);
   assert.match(errors, /checklist is missing documentation checker/);
 });
+
+// One fixture, three link shapes, and the point is that all three are held while
+// the region link at the file head stays legal. A `#Lnnn` anchor used to be
+// range-checked only, so any line of the right file passed and an inserted
+// import silently moved every anchor below it onto something else.
+function anchorFixture() {
+  const root = enforcementFixture();
+  write(root, "fixture.js", [
+    "// The frame header, as the client reads it.",   // 1
+    "const HEADER_LEN = 15;",                         // 2
+    "",                                               // 3
+    "// A comment block long enough that an anchor",  // 4
+    "// can slide into the middle of it and still",   // 5
+    "// name a line of the right file, which is",     // 6
+    "// exactly the shape of the failure this gate",  // 7
+    "// exists for: the range check passes and the",  // 8
+    "// link means nothing. Nine lines, because the", // 9
+    "// window either side of an anchor is four and", // 10
+    "// two windows must not meet in the middle of",  // 11
+    "// one comment.",                                // 12
+    "",                                               // 13
+    "export function readPublication() {",            // 14
+    "  return 15;",                                   // 15
+    "}",                                              // 16
+    "",
+  ].join("\n"));
+  fs.appendFileSync(path.join(root, "README.md"), [
+    "",
+    "The reader is [`readPublication`](fixture.js#L14), the file begins at [`fixture.js`](fixture.js#L1).",
+    "",
+    "| Pin | Current value | Ownership |",
+    "|---|---|---|",
+    "| `HEADER_LEN` | `0x0f` | [`fixture.js`](fixture.js#L2) |",
+    "",
+  ].join("\n"));
+  return root;
+}
+
+test("a_correct_source_anchor_and_a_file_region_link_both_pass", () => {
+  const root = anchorFixture();
+  const errors = checkEnforcement(root).filter((error) => /source anchor/.test(error));
+  fs.rmSync(root, { recursive: true, force: true });
+  assert.deepEqual(errors, []);
+});
+
+test("a_source_anchor_that_slid_off_what_it_names_fails", () => {
+  const root = anchorFixture();
+  const file = path.join(root, "README.md");
+  fs.writeFileSync(file, fs.readFileSync(file, "utf8")
+    .replace("readPublication`](fixture.js#L14)", "readPublication`](fixture.js#L7)")
+    .replace("[`fixture.js`](fixture.js#L1)", "[`fixture.js`](fixture.js#L9)")
+    .replace("[`fixture.js`](fixture.js#L2)", "[`fixture.js`](fixture.js#L16)"));
+  const errors = checkEnforcement(root).join("\n");
+  fs.rmSync(root, { recursive: true, force: true });
+  // The symbol it names is nowhere near the line it points at.
+  assert.match(errors, /fixture\.js#L7 names `readPublication`/);
+  // A file-region link may point at a region, but not at the middle of one.
+  assert.match(errors, /fixture\.js#L9 points into the middle of/);
+  // A registry row's anchor is held to the row's subject, not to its own text --
+  // the text is a path, which is what let `docs/reference/hashes.md` drift.
+  assert.match(errors, /fixture\.js#L16 is the anchor for `HEADER_LEN`/);
+});

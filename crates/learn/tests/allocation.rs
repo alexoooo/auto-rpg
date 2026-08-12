@@ -9,7 +9,13 @@
 //!
 //! `AGENTS.md` records that `fx`, `sim` and `policy` are
 //! `#![forbid(unsafe_code)]` and that `web` contains zero `unsafe {}` blocks.
-//! `learn` is `#![forbid(unsafe_code)]` too. This file is not the library; it
+//! `learn` and `learn-core` are `#![forbid(unsafe_code)]` too, and since
+//! v2-ui-08 the code under measurement here lives in the second of them --
+//! which is also the one that ships inside `web.wasm`, so an allocation on this
+//! path would be a `LearnedArticulatedPolicy` growing linear memory mid-frame
+//! and detaching every typed array a page holds. The claim got sharper; the
+//! test did not have to change, because it drives the `learn` re-export.
+//! This file is not the library; it
 //! is a test binary, it ships in nothing, and it contains exactly one `unsafe`
 //! item -- the `GlobalAlloc` impl below, which `std` requires to be `unsafe`
 //! because a global allocator has to promise things the compiler cannot check.
@@ -31,10 +37,37 @@ use learn::{LearnedArticulatedPolicy, Model};
 use policy::ArticulatedPolicy;
 use sim::{ArticulatedObservation, EntityId, SegmentPose};
 use std::alloc::{GlobalAlloc, Layout, System};
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::cell::Cell;
 
-static ALLOCATIONS: AtomicUsize = AtomicUsize::new(0);
-static COUNTING: AtomicBool = AtomicBool::new(false);
+// **The gate and the counter are per thread, and that is a correctness fix
+// rather than a tidy-up.** They were a `static AtomicBool` and a
+// `static AtomicUsize`, and the comment below `allocations_during` said in as
+// many words what that costs: "a second test allocating on another thread while
+// this one is open would be counted here. That is why this file holds exactly
+// one test." v2-ui-08 then added a second test, libtest runs the two on two
+// threads, and the file became flaky at about 7% a run -- the sharpest kind of
+// wrong comment, one that had already diagnosed the bug it was about to be
+// broken by. Serialising the two with a `Mutex` was considered and rejected: the
+// window it leaves is real, because libtest's own bookkeeping for the test that
+// just released the lock allocates on *its* thread while the next one measures.
+// Counting only the measuring thread closes it instead of narrowing it.
+//
+// `Cell<usize>` and `Cell<bool>` are `Copy` with no `Drop`, so `thread_local!`
+// with a `const` initialiser compiles to a plain thread-local read: no lazy
+// initialisation, no destructor registration, and therefore no allocation on a
+// path that runs *inside* the allocator. A type that needed dropping here would
+// re-enter `alloc` on first touch and deadlock or recurse.
+thread_local! {
+    static ALLOCATIONS: Cell<usize> = const { Cell::new(0) };
+    static COUNTING: Cell<bool> = const { Cell::new(false) };
+}
+
+/// Adds one to this thread's counter when this thread has the gate open.
+fn note_allocation() {
+    if COUNTING.with(Cell::get) {
+        ALLOCATIONS.with(|count| count.set(count.get().wrapping_add(1)));
+    }
+}
 
 /// The system allocator with a counter in front of it.
 ///
@@ -46,13 +79,11 @@ static COUNTING: AtomicBool = AtomicBool::new(false);
 struct Counting;
 
 // SAFETY: every method forwards to `System`, unchanged, with the same layout it
-// was handed. The counter is an atomic add on a `static` and allocates nothing,
+// was handed. The counter is a thread-local `Cell` update and allocates nothing,
 // so it cannot re-enter the allocator.
 unsafe impl GlobalAlloc for Counting {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        if COUNTING.load(Ordering::Relaxed) {
-            ALLOCATIONS.fetch_add(1, Ordering::Relaxed);
-        }
+        note_allocation();
         unsafe { System.alloc(layout) }
     }
 
@@ -61,16 +92,12 @@ unsafe impl GlobalAlloc for Counting {
     }
 
     unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
-        if COUNTING.load(Ordering::Relaxed) {
-            ALLOCATIONS.fetch_add(1, Ordering::Relaxed);
-        }
+        note_allocation();
         unsafe { System.realloc(ptr, layout, new_size) }
     }
 
     unsafe fn alloc_zeroed(&self, layout: Layout) -> *mut u8 {
-        if COUNTING.load(Ordering::Relaxed) {
-            ALLOCATIONS.fetch_add(1, Ordering::Relaxed);
-        }
+        note_allocation();
         unsafe { System.alloc_zeroed(layout) }
     }
 }
@@ -78,17 +105,19 @@ unsafe impl GlobalAlloc for Counting {
 #[global_allocator]
 static ALLOCATOR: Counting = Counting;
 
-/// Counts what `body` asks the allocator for.
+/// Counts what `body` asks the allocator for, **on this thread only**.
 ///
-/// Single-threaded by construction: the gate is a process-wide flag, so a
-/// second test allocating on another thread while this one is open would be
-/// counted here. That is why this file holds exactly one test.
+/// The scope is the thread and not the process, so this file may hold more than
+/// one test and libtest may schedule them together: another test's `Vec`, and
+/// the harness's own traffic on every other thread, are invisible here. What it
+/// still cannot see is an allocation `body` makes on a thread it spawned, which
+/// is exactly right for frozen inference -- `decide` is a call, not a runtime.
 fn allocations_during<R>(body: impl FnOnce() -> R) -> (R, usize) {
-    ALLOCATIONS.store(0, Ordering::Relaxed);
-    COUNTING.store(true, Ordering::Relaxed);
+    ALLOCATIONS.with(|count| count.set(0));
+    COUNTING.with(|gate| gate.set(true));
     let out = body();
-    COUNTING.store(false, Ordering::Relaxed);
-    (out, ALLOCATIONS.load(Ordering::Relaxed))
+    COUNTING.with(|gate| gate.set(false));
+    (out, ALLOCATIONS.with(Cell::get))
 }
 
 /// A Fighter looking east with a Brute four units away, holding a blade.
@@ -152,4 +181,34 @@ fn frozen_inference_allocates_nothing_after_warmup() {
     // the assertion above pass forever.
     let (_, control) = allocations_during(|| vec![0u8; 64]);
     assert!(control > 0, "the allocation counter is not counting");
+}
+
+#[test]
+fn the_cross_target_digest_allocates_nothing() {
+    // **The same claim about the other public entry into frozen inference, and
+    // this one is a browser export.** `crates/web`'s
+    // `learned_inference_digest_lo/_hi` says in as many words that it "allocates
+    // nothing, so a second call cannot grow linear memory", and that sentence is
+    // the whole justification for it being callable mid-fight and for not being
+    // cached the way `articulated_stream_digest_lo` is. If it were wrong, a
+    // diagnostic call between two frames would grow wasm memory and detach every
+    // typed array the page holds -- which is the failure this repository has
+    // measured before and sized three fixed arrays around.
+    //
+    // It is not obviously true from the source, either: the function builds
+    // sixty-four whole `ArticulatedObservation`s. They are `Copy` and land on
+    // the stack today, and "today" is exactly the qualifier a counter removes.
+    let mut rng = Rng::new(2027);
+    let model = Model::random(&mut rng);
+    // The first call is the warmup, on the reason above: `Hash64` and the three
+    // buffers are locals, but the corpus generator has never run in this process
+    // and neither has anything it calls.
+    let _ = learn::learned_inference_digest(&model);
+    let (digest, allocations) = allocations_during(|| learn::learned_inference_digest(&model));
+    assert_eq!(
+        allocations, 0,
+        "one digest over {} cases asked the allocator for {allocations} blocks",
+        learn::LEARNED_INFERENCE_CASES,
+    );
+    assert_eq!(digest, learn::learned_inference_digest(&model));
 }

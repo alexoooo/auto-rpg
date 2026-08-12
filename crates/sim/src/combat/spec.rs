@@ -131,6 +131,37 @@ pub enum CombatSpecError {
     MissingReference,
     LoadoutMismatch,
     GripConflict,
+    /// A fighter was described holding nothing in either hand.
+    ///
+    /// **Not producible by `validate_rows`, and appended anyway**, because the
+    /// thing that refuses it is [`crate::Scenario::duel_from`] and the caller
+    /// there is a picker with two dropdowns both reading "empty". `validate_rows`
+    /// would answer `LoadoutMismatch` for the same configuration -- via
+    /// `(None, Some(_))` against a [`crate::Loadout`] whose `primary` is not an
+    /// `Option` -- and that is a true sentence about the table and a useless one
+    /// to put in front of a person. A distinct variant is what lets the refusal
+    /// name the mistake.
+    ///
+    /// **Making `Loadout::primary` an `Option` is not the fix, and the next
+    /// session should not rediscover it as one.** `primary` is written by
+    /// `action_definition_bytes` through `scenario_v1_fields_into`, which is the
+    /// ScenarioV1 identity stream *and* the replay codec: an option tag in front
+    /// of it moves **every scenario fingerprint in this repository**, the pinned
+    /// `articulated-duel-v1` included, and invalidates every recorded replay in
+    /// one edit. A fighter holding nothing also has no rule to run -- see
+    /// [`crate::Loadout::set`], which already refuses to empty slot zero for the
+    /// same reason. The empty-handed fighter is a configuration the game does
+    /// not have, not a gap in the type.
+    NoEquipment,
+    /// A hand item named an [`crate::ActionKind`] with no shipped equipment row.
+    ///
+    /// The row is where a scenario-local item takes its [`SurfaceSpec`] from,
+    /// and a surface is a measured material rather than a dimension: there is no
+    /// honest `restitution` for a `Bow`, and inventing one would be inventing
+    /// combat geometry nobody measured. Three actions have rows -- `Sword`,
+    /// `Shield`, `Club` -- and the mapping stays total by refusing the rest
+    /// rather than by falling back to whichever row looks nearest.
+    UnknownAction,
 }
 
 impl CombatSpecTableV1 {
