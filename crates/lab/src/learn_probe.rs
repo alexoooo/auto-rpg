@@ -1048,7 +1048,7 @@ fn verdict(boards: &[Board]) {
     println!("\n  {decision}");
     println!(
         "  the decision this command does not make: `expand`, `revise` or `stop` is recorded\n  \
-         in docs/plans/v2-19-learning-probe.md by whoever read this table."
+         in docs/performance/v2-learning-probe.md beside this corpus."
     );
 }
 
