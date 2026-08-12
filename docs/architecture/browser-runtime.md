@@ -1,9 +1,9 @@
 # Browser runtime
 
-**Purpose:** Describe the Canvas and v2 GPU browser entries, their wasm ownership, rendering boundaries, room loading, memory handshakes, and visibility data.
+**Purpose:** Describe the Canvas and v2 GPU browser entries, their wasm ownership, rendering boundaries, the arena's published and invented geometry, room loading, memory handshakes, and visibility data.
 **Status:** current
 **Canonical source:** [`crates/web/src/lib.rs`](../../crates/web/src/lib.rs), [`web/main.js`](../../web/main.js), [`client/src/runtime/sim.worker.ts`](../../client/src/runtime/sim.worker.ts), [`client/src/runtime/sim-client.ts`](../../client/src/runtime/sim-client.ts), and the [renderer contract](../reference/renderer-contract.md#renderer-owned-snapshot-boundary)
-**Update when:** The wasm ABI, buffer ownership, browser execution context, frame parser, visibility publication, or rendering backend changes.
+**Update when:** The wasm ABI, buffer ownership, browser execution context, frame parser, visibility publication, what the arena's two dresses draw, or the rendering backend changes.
 
 A browser can open two things, and only one of them ships. The studio at
 [`web/index.html`](../../web/index.html) is built by Vite, is the build's single
@@ -157,33 +157,6 @@ needs, or the plan panel and the 3/4 panel disagree about which hand holds it.
 The domains do not overlap: the greybox draws `PresentationSnapshot` units for `#/game`,
 the arena draws `Pose` capsules for `#/arena`, and no scene is built from both.
 
-The arena's three viewports carry two dresses of one scene, chosen by the
-`[Texture]`/`[Geometry]` pair under the 3/4 panel. **The mode is a property of the
-scene rather than of a panel**, so all three viewports change together: pressing a
-button swaps which meshes hang under the rig, enables or disables the environment and
-the shadow casting, and moves no camera and rebuilds no engine.
-`[Geometry]` is the control and draws only shapes the simulation published -- five
-region capsules at their published radii, hand spheres, weapon capsules and the shield
-face rebuilt through `shieldCorners` -- flat, unlit, on a bare grid.
-`[Texture]` dresses the same published rows in PBR under a directional key, a
-hemispheric fill and a `ShadowGenerator`, and fills between them with three named
-inventions, each named in
-[`client/src/arena/geometry.ts`](../../client/src/arena/geometry.ts) beside the argument
-for the choice: a two-bone IK elbow between the published shoulder and the published
-hand whose bend plane is chosen away from the torso, the one published leg capsule split
-into two with a gait whose amplitude comes from published speed, and the roll of the
-weapon socket about the published blade direction. Nothing invented feeds back:
-cosmetics never reach `Scenario`, `World`, a submitted command, a replay or a hash
-domain, and no animation creates a hit. The gait is a pure function of the tick and the
-published speed rather than an integral, because the arena scrubs and a picture whose
-content depends on playback history cannot be used to check a geometry claim.
-**No visual on the legs may be read as evidence about footwork**: the simulation
-publishes one leg capsule with no stride phase, no per-foot position and no notion of a
-footfall, so the feet slide and `[Geometry]` is one keystroke away for exactly that
-reason. The proxy's transform nodes carry
-[`v2-18`](../plans/v2-18-combatant-integration.md)'s semantic names a session early, so
-landing those rigs is a swap of what hangs under each node.
-
 WebGPU is attempted in automatic mode; a recorded support or
 initialization failure falls back to an explicit WebGL2 context. Backend loss stops
 the renderer rather than silently switching during a run. The exact
@@ -202,6 +175,62 @@ those deployable files as `dist/index.html` and `dist/web.wasm`, so mounting the
 under a subpath without rewriting that contract is unsupported. Routes carry their own
 query, so a deep link is `/#/game?stress=greybox&renderer=canvas` rather than a query
 on a page.
+
+## The arena's two dresses
+
+The arena's three viewports carry two dresses of one scene, chosen by the
+`[Texture]`/`[Geometry]` pair under the 3/4 panel. **The mode is a property of the
+scene rather than of a panel**, so all three viewports change together: pressing a
+button swaps which meshes hang under the rig, enables or disables the environment and
+the shadow casting, and moves no camera and rebuilds no engine.
+`[Geometry]` is the control and draws only shapes the simulation published -- five
+region capsules at their published radii, hand spheres, weapon capsules and the shield
+face rebuilt through `shieldCorners` -- flat, unlit, on a bare grid.
+`[Texture]` dresses the same published rows in PBR under a directional key, a
+hemispheric fill and a `ShadowGenerator`, and fills between them with the named
+inventions the table below lists, each one argued in
+[`client/src/arena/geometry.ts`](../../client/src/arena/geometry.ts) beside the code that
+makes the choice. Nothing invented
+feeds back: cosmetics never reach `Scenario`, `World`, a submitted command, a replay or
+a hash domain, and no animation creates a hit. The gait is a pure function of the tick
+and the published speed rather than an integral, because the arena scrubs and a picture
+whose content depends on playback history cannot be used to check a geometry claim.
+**No visual on the legs may be read as evidence about footwork**, and `[Geometry]` is
+one keystroke away for exactly that reason. The proxy's transform nodes carry
+[`v2-18`](../plans/v2-18-combatant-integration.md)'s semantic names a session early, so
+landing those rigs is a swap of what hangs under each node.
+
+The line between the two dresses is not "how much detail" but **where authority stops:
+published quantities place things, and invented quantities only fill between them.** A
+hand is where the pose says. An elbow is a guess. A knee is a guess about a guess.
+
+| part | source |
+|---|---|
+| body position, yaw | published |
+| head | published capsule -- degenerate, its extent is `radius` |
+| torso | published capsule |
+| hands | published |
+| weapon hilt and tip | published |
+| shield centre, normal, extents | published; the thickness the scene draws is the pose's own `ShieldFace` row rather than the header's `Carried` entry |
+| elbow | invented -- two-bone IK between the published shoulder and the published hand |
+| legs | invented -- one published capsule split into two, gait amplitude from published body velocity |
+| wrist orientation | invented -- derived from the weapon segment, which is published |
+
+The arm capsule runs shoulder to hand and its own length is the extension, so the IK has
+a real root and a real target and only the bend plane is chosen. The legs are the
+weakest claim on the page: one capsule, no stride, no per-foot contact, so a walk cycle
+driven from body speed desynchronises from a footfall that does not exist.
+
+**`#/arena` is a spectator**, and nothing on the page drives a body: the fight is decided
+by two loadouts, two policies and a seed before the first frame, and the panels only
+scrub what was recorded. The two eye-height cameras are there anyway. They exist because
+the design target the off-arm decision was made against is first-person human control of
+a single hero rather than a spectator's camera -- the
+[off-arm correction](../reference/articulated-mechanical-gate.md#correction-2026-08-10-the-off-arm-holds-one-pose)
+carries that argument -- so driving a body from this page is what they are eventually
+for, and it needs an input path that exists in no layer. Widening past two fighters is
+the cheaper debt of the two: `MAX_POSES` is 64 and nothing below the panels assumes two,
+but the picker, the stage layout and the two first-person viewports all do.
 
 ## Visibility authority
 

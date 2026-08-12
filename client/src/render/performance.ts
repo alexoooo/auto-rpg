@@ -235,6 +235,21 @@ const copyBackend = (
 
 const SHA256 = /^[0-9a-f]{64}$/;
 
+/**
+ * The metadata of a reference capture, copied and hard-validated.
+ *
+ * **This harness measures its fixed fixtures and refuses everything else on
+ * purpose.** The exact surface, seed, population and room shape are what make
+ * one capture comparable to another taken on different hardware months apart,
+ * and a schema that accepted any scene would make the reference matrix a list
+ * of unrelated numbers. The cost is that a third consumer cannot borrow it:
+ * `#/arena` was examined for exactly this in v2-ui and does not fit, so its
+ * frame time is taken with a console probe under `?stage=paired` instead.
+ * Giving the arena a capture of its own means a third schema version beside
+ * `PERFORMANCE_SCHEMA_VERSION` and `ROOM_PERFORMANCE_SCHEMA_VERSION`, with the
+ * pinned artefacts in `docs/performance/` that implies -- a session of its own,
+ * not a line here.
+ */
 const copyMetadata = (metadata: PerformanceMetadata): PerformanceMetadata => {
   for (const [label, value] of [
     ["os", metadata.os], ["cpu", metadata.cpu], ["gpu", metadata.gpu],

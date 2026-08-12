@@ -355,7 +355,8 @@ test("the boundary exports everything the client calls", () => {
     // `articulated_stream_digest_hi` and *not* counting the configured duel's
     // seven, which v2-ui-05 inserted in the middle and gave their own note.
     // Nineteen of the twenty-one have no caller on the legacy page at all --
-    // the worker that filters them lands in v2-ui-07 -- so this list is the
+    // v2-ui-07 gave them a caller in a worker of its own and this page will
+    // never be it -- so this list is the
     // *only* thing standing between a renamed export and a silent gap, and the
     // gap would be silent in the worst way: `pose_len()`, `region_len()` and
     // `combat_event_len()` read as `undefined`, `undefined >>> 0` is `0`, and a
@@ -389,7 +390,8 @@ test("the boundary exports everything the client calls", () => {
     // nothing and failing on growth it caused itself.
     "init_articulated",
     // The configured duel. Seven names with no caller on the legacy page at all
-    // -- the studio that writes this buffer lands in v2-ui-07 -- so this list is
+    // -- the studio has written this buffer since v2-ui-07 and the legacy page
+    // never will -- so this list is
     // again the only thing between a renamed export and a silent gap, and the
     // gap would be silent in the usual way: `arena_start()` reads as `undefined`,
     // `undefined >>> 0` is `0`, and a packed word of zero is "not started, no

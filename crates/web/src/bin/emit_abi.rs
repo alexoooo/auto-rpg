@@ -66,16 +66,19 @@ const MAP_OFFSET: usize = align4(FRAME_MAX * size_of::<f32>());
 const VIS_OFFSET: usize = MAP_OFFSET + MAP_MAX;
 const FURNITURE_OFFSET: usize = VIS_OFFSET + MAP_MAX;
 // **The snapshot ends at the furniture region, and the three articulated
-// regions that v2-ui-07 will append are deliberately not reserved yet.**
-// Reserving them takes this constant from 27,452 to 316,732 -- 289,280 bytes on
-// each of three pooled buffers, and a zero-fill 11.5x wider on a buffer
-// `snapshot.ts` clears whole once per filtered publication -- while nothing on
-// the TypeScript side writes or reads a word of any of them, because the
-// visibility-filtered copy that would occupy them does not exist yet. A cost of
-// that shape arrives with its consumer and its measurement, not ahead of both.
-// The column offsets below are emitted regardless: those are the ABI and
-// v2-ui-07 needs every one of them. `articulated-abi.md` records the decision
-// beside the formula.
+// regions are deliberately not reserved.** v2-ui-07 was named here as the
+// session that would append them; it landed without doing it, and that was the
+// right call -- the recording it built is a channel of its own, transferred
+// whole, and this pool zero-fills, coalesces and has the wrong lifetime to
+// carry one. Reserving them takes this constant from 27,452 to 316,732 --
+// 289,280 bytes on each of three pooled buffers, and a zero-fill 11.5x wider on
+// a buffer `snapshot.ts` clears whole once per filtered publication -- while
+// nothing on the TypeScript side writes or reads a word of any of them. The
+// consumer that would is the *game* path's visibility-filtered articulated
+// copy, and no session owns it; a cost of that shape arrives with its consumer
+// and its measurement, not ahead of both. The column offsets below are emitted
+// regardless: those are the ABI, and v2-ui-07's recorder reads every one of
+// them. `articulated-abi.md` records the decision beside the formula.
 //
 // **"Region" means two different things in this file and the collision is worth
 // naming.** A *snapshot* region is one of the four blocks below -- frame, map,
@@ -372,7 +375,9 @@ mod tests {
         // combat-event or anatomy-region block appended here without a consumer
         // fails this line rather than silently widening three pooled buffers and
         // the memset `snapshot.ts` runs once per filtered publication. All three
-        // land in v2-ui-07 with the visibility-filtered copy that reads them.
+        // wait on the *game* path's visibility-filtered copy: v2-ui-07 was named
+        // as the session that would bring it and landed without it, and no
+        // session owns it now.
         //
         // **v2-ui-06 published the region capsules and deliberately reserved
         // nothing here**, which is what this line is for: the `REGION_*` offsets

@@ -100,7 +100,9 @@
     /* **The three 3D panels share one canvas and must stay contiguous.** They are
        three viewports of a single WebGL context, because a Babylon `Scene` belongs
        to one engine and three engines would mean building every mesh three times.
-       Splitting this grid cell is not a layout tweak; see v2-ui-02. */
+       Splitting this grid cell is not a layout tweak; the argument, and the
+       fallback if a later design really wants the panels apart, is in
+       `client/src/arena/scene.ts`'s module header. */
     .stage-row { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 1.35fr); gap: .6rem;
       align-items: start; }
     .stage { position: relative; }

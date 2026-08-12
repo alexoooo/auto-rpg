@@ -230,6 +230,27 @@ corner winding. Corresponding side and up vectors must have strictly positive ra
 dot products across endpoint poses, so linear interpolation cannot degenerate or
 reverse the face. Accepted one-tick shield construction satisfies it.
 
+**The held shield's published normal is not a unit vector, and the face it builds
+carries that length unevenly.** `shield_face` in
+`crates/sim/src/combat/geometry.rs` republishes `ShieldPose::normal` verbatim
+rather than renormalising it: the front offset is `normal * thickness/2`, `left`
+is `(-n.y, n.x, 0)` and the half-width vector is `left * half_width`, so both
+carry the normal's own length, while `up` is `Vec3::Z * half_height` and carries
+none of it. `derive_shield_pose` builds that normal as
+`(yaw.cos(), yaw.sin(), Fx::ZERO)`, so `n.z` is zero by construction and the
+length is whatever a 16.16 cosine/sine pair comes to — over the three recorded
+fixtures' 10,542 published plates `||n| - 65536|` reaches **1.2534 raw, a
+relative 1.9e-5**, which on the shipped quarter-unit half-width is 4.8e-6 world
+units. **A consumer that rebuilds the face from a unit normal scaled by
+`half_width` therefore builds a face the contact phase did not sweep**, and the
+gap is a modelling disagreement rather than arithmetic noise: it does not shrink
+with precision. This is a different quantity from the derived normal above. An
+accepted rectangle's normal is the normalized widened `side cross up`, and it
+agrees with the published one only because `up` has no `x` or `y`: a `z`
+component in the published normal would leave the four corners a rectangle still,
+since `side` and `up` stay orthogonal, but would leave the published normal
+disagreeing with the plane those corners span.
+
 For a malformed rectangle, `closest_points_segment_rectangle` returns `a=segment0`,
 `b=rectangle[0]`, their saturated public `distance_sq`, `feature=255`, and all three
 parameters zero. The swept function performs its validation first and returns TOI

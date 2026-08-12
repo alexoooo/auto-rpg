@@ -116,6 +116,23 @@ pub(crate) fn held_segment_colliders(
     result
 }
 
+/// The swept face, built from the pose normal **as published**.
+///
+/// `normal` is republished verbatim and is not renormalised, and `left` is
+/// `(-n.y, n.x, 0)` -- so `side` is as long as `n` is, and the front offset
+/// `n * (thickness/2)` carries the same length. `up` is `Vec3::Z * half_height`
+/// and carries none of it. A consumer that rebuilds this face from a unit
+/// normal scaled by `half_width` builds a face the contact phase did not sweep:
+/// over the three recorded fixtures' 10542 published plates `||n| - 65536|`
+/// reaches 1.2534, a relative 1.9e-5, which on a 0.25 half-width is 4.8e-6
+/// world units. That was the whole of the arena proxy's worst agreement gap
+/// before it was fixed there. `n.z` is zero on every published plate *by
+/// construction*: `World::derive_shield_pose` writes the normal as
+/// `Vec3::new(yaw.cos(), yaw.sin(), Fx::ZERO)`. A `z` component would not cost
+/// this face its shape -- `left` zeroes `z` and `up` is `Vec3::Z`, so `side`
+/// and `up` stay perpendicular whatever `n.z` is and the corners stay a
+/// rectangle -- it would leave the *published* normal disagreeing with the
+/// plane those corners span.
 pub(crate) fn shield_face(body_origin: Vec3, pose: ShieldPose) -> ShieldFace {
     let normal = pose.normal;
     let front = body_origin + pose.centre + normal * (pose.thickness / Fx::from_int(2));

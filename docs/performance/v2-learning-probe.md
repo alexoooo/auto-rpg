@@ -170,6 +170,18 @@ measuring an aiming policy will need.
 | replays recorded and replayed exactly | 400/400 | 400/400 |
 | inference | 2.93 us per decision over 116,021 | 3.07 us over 116,413 |
 
+**The inference row is the one line here that does not reproduce, and it is not about
+the network.** It is a wall clock divided by a decision count. A re-run of the same
+command against the same checkpoint on a busy machine returned every other figure
+identically — both tables, both verdicts, both bootstrap intervals, the 81,333 cap hits,
+400/400 replays — while that row read **14.27 microseconds a decision**, a 3.1x move
+with nothing about the model changed. Across recorded runs the same weights have read
+**2.93, 3.01, 3.07, 3.41, 4.58 and 14.27** microseconds a decision. What it measures is
+the host's load under twenty-way contention. Do not quote it beside a pinned figure, and
+do not compare it with the wasm inference number in
+[what recording costs](../reference/articulated-abi.md#what-recording-costs), which is a
+single pinned thread with a trailing control.
+
 The zero excess is only evidence beside the zero refusals; `World::resolve_contact`
 clears the rows a violation would appear in, so read alone the first number is a
 tautology. Both are zero. Every held-out learned run was recorded as the ordinary

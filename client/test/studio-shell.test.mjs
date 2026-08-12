@@ -610,8 +610,7 @@ test("a_recording_mismatch_describes_what_is_on_screen_rather_than_what_was_pick
  *   and rightly so: context exhaustion is a property of a real driver. Five
  *   `#/arena` mounts interleaved with `#/` gave five `WebGPU1 engine` lines, no
  *   duplicates, no context-exhaustion warning, and the fifth still reported
- *   `webgpu, 24 sources, 37 instances`. Recorded in
- *   `docs/plans/v2-ui/v2-ui-02-arena-scene.md`.
+ *   `webgpu, 24 sources, 37 instances`.
  *
  * `assertStageIsAbsent` below is what keeps this honest rather than merely
  * stated: if a future change made the stage buildable here, the sentence above

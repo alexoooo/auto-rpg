@@ -188,7 +188,8 @@ export class ArenaEnvironment {
     // of `z`. The intensity is higher than the greybox's 1.15 because that scene
     // has eight torches adding to it and this one has none; it was set by looking
     // at the picture, which is the only way anything about a light is ever set,
-    // and the picture is on the owed list in `v2-ui-03`.
+    // and the picture is on the owed list in
+    // `docs/performance/v2-arena-matrix.md#owed-visual-judgements`.
     this.#key = new DirectionalLight("arena-key", new Vector3(-0.45, -1, -0.35), scene);
     this.#key.position = new Vector3(18, 26, -4);
     this.#key.intensity = 2.2;

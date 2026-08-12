@@ -3,7 +3,7 @@
 **Purpose:** Describe the current Canvas PNG pipeline, procedural v2 greybox, and pinned representative-room GLB pipeline.
 **Status:** current
 **Canonical source:** [`web/assets/ASSET_SPEC.md`](../../web/assets/ASSET_SPEC.md), [`web/assets/manifest.json`](../../web/assets/manifest.json), [`web/assets.js`](../../web/assets.js), and the [renderer visibility contract](../reference/renderer-contract.md#visibility-and-subsystem-presence)
-**Update when:** Asset formats, validation, manifest semantics, loading, fallback behavior, or render integration changes.
+**Update when:** Asset formats, validation, manifest semantics, loading, fallback behavior, where the rig node list lives, or render integration changes.
 
 The playable Canvas path consumes a checked-in PNG set. The v2 GPU client defaults
 to procedural geometry and optionally loads the current pinned representative-room
@@ -117,5 +117,16 @@ performance stress fixture. Current mechanics do not imply an art pass.
 
 > **Proposed by v2 -- not shipped:** The
 > [combatant integration phase](../plans/v2-18-combatant-integration.md) proposes
-> representative combatant and articulated rig GLBs. No current browser path loads
-> those assets.
+> representative combatant and articulated rig GLBs. No current browser path loads those
+> assets, but the node contract they must satisfy is already live and already checked:
+> the arena's `[Texture]` proxy names its transform nodes and sockets after that phase's
+> list, hangs each one off a published row, and is asserted against the list itself.
+> Landing an authored rig is therefore a change of what hangs under each node rather than
+> a rewrite of the presentation layer, and the socket contract's mistakes surface before
+> there is an asset pipeline to blame them on. **That assertion reads the list out of the
+> plan at test time**: `client/test/render-contract.test.mjs` calls `fs.readFileSync` on
+> `docs/plans/v2-18-combatant-integration.md` and compares its first fenced `text` block
+> against `RIG_NODES`, so a temporary plan file is a load-bearing input to a shipped
+> test -- and under this repository's convention the commit that finishes v2-18 deletes
+> that file, after which the test throws `ENOENT`. The node list needs a durable home
+> before then.

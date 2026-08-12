@@ -344,15 +344,15 @@ export const ARENA_VIEWPORTS: Readonly<{
  * | **25 down** | **90** | **100%** | **97%** | **94%** |
  * | 35 down | 80 | 99% | 96% | 100% |
  *
- * **Why a constant mount angle is not the pitch the plan ruled out.** The plan
- * argued against pitch because "a camera that pitched would be inventing a
- * degree of freedom the fighter does not have", and that argument is intact and
- * still holds: this body has exactly one rotation, so **nothing here tracks**.
- * A camera that tilted to follow an incoming club would be showing a degree of
- * freedom the model does not have and the reader would believe it. A constant
- * downward mount invents no more than a constant field of view does -- it is a
- * property of the rig, it never varies with anything the fighter does, and it is
- * written down here with the number it was set to.
+ * **Why a constant mount angle is not the pitch v2-ui-02 ruled out.** That
+ * session argued against pitch because "a camera that pitched would be
+ * inventing a degree of freedom the fighter does not have", and that argument
+ * is intact and still holds: this body has exactly one rotation, so **nothing
+ * here tracks**. A camera that tilted to follow an incoming club would be
+ * showing a degree of freedom the model does not have and the reader would
+ * believe it. A constant downward mount invents no more than a constant field
+ * of view does -- it is a property of the rig, it never varies with anything the
+ * fighter does, and it is written down here with the number it was set to.
  *
  * **What it costs, measured rather than assumed.** A tilted horizon reads oddly
  * as first-person, and the honest version of that worry is losing the attacker.
@@ -463,7 +463,25 @@ export const THREE_QUARTER_TARGET_HEIGHT = 1;
  *
  * At azimuth zero the eye is on the world's `-y` side, so screen right is world
  * `+x` and "away from the camera" is "up the panel" -- which is exactly how the
- * plan reads, and is why that is the azimuth the handedness check is taken at.
+ * plan reads, and is why that is the azimuth the handedness check is stated at.
+ *
+ * **And the version of that check a person can apply at the page, without
+ * re-deriving any of it.** A quarter turn to either side, at a body carrying its
+ * shield in its anatomical left hand:
+ *
+ *   - **azimuth +90 degrees** -- the eye is on the world `+x` side, so a body
+ *     facing `+x` is facing the reader, and the gold shield plate is on the
+ *     **reader's right**, which is where a body facing you keeps its left hand.
+ *   - **azimuth -90 degrees** -- the eye is over that body's shoulder, and the
+ *     plate is on the **reader's left**, which is where its left hand is when
+ *     you are behind it.
+ *
+ * A mirrored mapping swaps both, and this is the check that caught the sign
+ * error `scenePoint`'s determinant argument was written against -- one a reader
+ * makes by looking, where the determinant is one only a reader who recomputes it
+ * can make. Taken at tick 2113 of `web/fight.json`, Fighter A at yaw 357
+ * degrees: inside a 3/4 rectangle spanning x 246 to 877, centre 561, the plate's
+ * centroid sits at x 612 at +90 and at x 500 at -90.
  *
  * `span` is the same control the plan and elevation use, so the five panels
  * frame the same width of world and the Span slider moves all of them.
@@ -602,16 +620,16 @@ export const RIG_NODES: readonly string[] = Object.freeze([
  * line at +/-90 degrees to the facing, and the recordings agree to four places.
  *
  * **The most important thing about this function is how often it does nothing,
- * and the plan's table understates it.** A hand further from the shoulder than
- * two `armLength/2` bones can span has no triangle to solve, and this simulation
- * publishes that constantly: the shoulder-to-hand distance is at or past
- * `anatomy.armLength` on **43% of `fight.json`'s 14404 arm rows, 68% of
- * `fight-windmill.json`'s and 67% of `fight-learned.json`'s**, with medians of
- * 0.95, 1.04 and 1.07 times `armLength` and a maximum of 1.62. `arena.ts`'s
- * readout has the reason open as a v2-17 ledger item: the actuator's
- * `physical_reach` is applied to the shoulder's `x` and `y` only, so a *low* hand
- * stretches the published capsule past `armLength` even when the horizontal reach
- * is inside it.
+ * and v2-ui-03's table of invented freedoms understates it.** A hand further
+ * from the shoulder than two `armLength/2` bones can span has no triangle to
+ * solve, and this simulation publishes that constantly: the shoulder-to-hand
+ * distance is at or past `anatomy.armLength` on **43% of `fight.json`'s 14404
+ * arm rows, 68% of `fight-windmill.json`'s and 67% of `fight-learned.json`'s**,
+ * with medians of 0.95, 1.04 and 1.07 times `armLength` and a maximum of 1.62.
+ * `arena.ts`'s readout has the reason open as a v2-17 ledger item: the
+ * actuator's `physical_reach` is applied to the shoulder's `x` and `y` only, so
+ * a *low* hand stretches the published capsule past `armLength` even when the
+ * horizontal reach is inside it.
  *
  * On every one of those rows the elbow collapses onto the midpoint of the
  * published segment and the two drawn capsules are collinear -- so the drawn arm

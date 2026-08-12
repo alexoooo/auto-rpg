@@ -1,6 +1,22 @@
 // Three cameras, one scene, one canvas -- and a body made of exactly what the
 // contact phase swept.
 //
+// **3D here rather than a third hand-drawn projection, on purpose, and the
+// reason is occlusion.** A flat panel resolves overlap by painting back to
+// front, which sorts whole shapes: that is what `fight/view.ts` does with two
+// poses at different depths, and it is correct there. Here the shapes
+// interpenetrate constantly -- an arm through a torso, a shield across a chest
+// -- and a sort over whole capsules has no answer for a pair that is both in
+// front of and behind the other, at exactly the ticks this panel exists for. A
+// depth buffer settles that per pixel and is correct by construction.
+//
+// The 3/4 view gives up the shared scale the flat pair is built on, and earns it
+// back by answering the one question they cannot: did the plate cover the club
+// *from where the club was coming*? The plan and the elevation say where both
+// were; only a view down the attack says whether one hid the other, which is
+// what made v2-20's shield height a decision taken on this page rather than an
+// argument about it.
+//
 // **Why one engine and not three.** A Babylon `Scene` belongs to one engine, so
 // a canvas and an engine per panel means building every mesh three times and
 // stepping three scene graphs from one pose stream. Three WebGL contexts is
@@ -38,7 +54,7 @@
 // swaps which meshes hang under the rig and turns the environment and the shadow
 // casting on or off; it builds no engine, no camera and no scene, and it does not
 // touch the transport. What it cannot do is swap materials alone, which is what
-// the plan asked for: `[Geometry]` draws the published capsules and `[Texture]`
+// v2-ui-03 asked for: `[Geometry]` draws the published capsules and `[Texture]`
 // draws an elbowed arm and two legs, and those are not the same shapes. That
 // difference *is* the control -- a `[Texture]` that had quietly kept drawing the
 // capsules would agree with `[Geometry]` about everything, including the things
@@ -176,7 +192,8 @@ export type ArenaMode = "geometry" | "texture";
  * a claim about the simulation.
  *
  * **Neither number is measured and neither could be.** A material is set by
- * looking at the picture, and the picture is on `v2-ui-03`'s owed list; what is
+ * looking at the picture, and the picture is on the owed list in
+ * `docs/performance/v2-arena-matrix.md#owed-visual-judgements`; what is
  * written down instead is the one hard constraint they had to satisfy, at
  * {@link proxyPaint}.
  */
@@ -694,7 +711,7 @@ export class ArenaContent {
    * The eye at the head capsule's centre, turned by body yaw, on a mount tilted
    * a constant `FIRST_PERSON_PITCH_DEGREES` down.
    *
-   * **Nothing here tracks, and that is the part the plan was right about.** This
+   * **Nothing here tracks, and that is the part v2-ui-02 was right about.** This
    * body has exactly one rotation. There is no pitch, no roll and no head turn;
    * v2-20's guard height is a property of the *arm*, not of the gaze. A camera
    * that tilted to follow an incoming club would be showing the reader a degree
@@ -961,7 +978,8 @@ export class ArenaContent {
   /**
    * A fighter that reads as a fighter, out of the same published rows.
    *
-   * Read the table in `docs/plans/v2-ui/v2-ui-03-texture-proxy.md` beside this:
+   * Read the table under `The arena's two dresses` in
+   * `docs/architecture/browser-runtime.md` beside this:
    * the head, the torso, the hands, the weapon and the shield plate are the
    * published shapes at their published dimensions and the only thing this mode
    * changes about them is the material and the shadow. The elbow, the split legs

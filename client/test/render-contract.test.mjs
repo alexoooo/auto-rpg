@@ -3083,12 +3083,21 @@ const { Vector3: BabylonVector3 } = await import("@babylonjs/core/Maths/math.vec
  * test time -- a test that skipped itself on a fresh clone would be a check that
  * is not there in exactly the tree where nobody would notice.
  *
- * The five are spread across a 3600-tick fight and four of them are ticks earlier
- * sessions already named: 858 and 3022 are v2-ui-02's capsule check on the
+ * The five are spread across a 3600-tick fight and every one is a tick an earlier
+ * session already named: 858 and 3022 are v2-ui-02's capsule check on the
  * Brute's left arm, 1402 its check on the Fighter's torso, 966 the `weaponShield`
  * contact its first-person check reads, and 2113 the handedness check's tick. So
  * the guard positions here are the ones the camera and the panels were chosen
  * against.
+ *
+ * The three capsule-check ticks were not picked for being interesting to look
+ * at. Each was checked by hand against the readout with two numbers: how far the
+ * published contact point lies under the named capsule's surface, and how far it
+ * is from the nearest *other* region of the same body -- because a check that
+ * cannot separate an arm from the torso behind it is not a check. 858 and 3022
+ * sit 0.066 under a radius-0.200 arm with 0.148 and 0.081 to the next capsule;
+ * 1402 sits 0.139 under a radius-0.350 torso with 0.163 to the next. The second
+ * number is the one that says so.
  *
  * The row is compact because the published pose is redundant, and the script that
  * generated it asserted every redundancy rather than assuming it, over exactly
@@ -3232,6 +3241,14 @@ const absolute = (node) => {
  * fix, which removes the term rather than budgeting for it. What is left is
  * float32: every other swept quantity in a full sweep of all three recordings
  * tops out at 1.907e-6, which is an ulp at coordinates near 15.
+ *
+ * **The number to check this against is 9.54e-7**, which is what the ten poses
+ * measure now that the modelling term is gone, and it reproduces to the printed
+ * digit across runs. That is the figure the `console.log` below prints and the
+ * one a reader should see; the 2.19e-6 above is **superseded** and is kept only
+ * because it is the evidence for the paragraph it sits in. Two orders of
+ * magnitude of headroom under this tolerance, and a run that printed anything
+ * else would be reporting a change rather than noise.
  */
 const AGREEMENT_TOLERANCE = 1e-4;
 
@@ -3456,7 +3473,7 @@ test("the_proxy_rig_carries_the_v2_18_node_names_and_hangs_them_off_published_po
     const elbow = absolute(scene.getMeshByName(`arena:proxy:0:upper_arm:${side}:upper`));
     near(axes(rig.get(arm))[1], normalise(minus(elbow, shoulder)), `${arm} points at its elbow`);
     near(axes(rig.get(hand))[1], normalise(minus(grip, elbow)), `${hand} points at its hand`);
-    // **And the elbow is on the outward side**, which is the choice the plan
+    // **And the elbow is on the outward side**, which is the choice v2-ui-03
     // argues for and which `elbowOf` alone cannot demonstrate: this reads the
     // side `#poseRig` actually passed. Swap it and both elbows bend across the
     // chest -- the exact defect the frames caught once already. Never negative,
@@ -3556,7 +3573,7 @@ test("the_weapon_socket_points_along_the_published_blade_and_rolls_with_the_fore
 
 test("the_invented_elbow_bends_away_from_the_torso_and_never_into_it", async () => {
   const { elbowOf, scenePoint, bodyAxes } = arenaGeometry;
-  // **The measurement, and it is the whole argument for the choice.** The plan
+  // **The measurement, and it is the whole argument for the choice.** v2-ui-03
   // says a plane chosen toward the torso puts the elbow inside the chest at
   // guard, so the two planes are solved side by side on all ten published poses
   // and the elbows compared against the published torso capsule. Note that the
@@ -4207,7 +4224,25 @@ test("the_textured_mode_reaches_its_floor_through_the_stage_a_reader_presses", a
  * reader has to tell apart is sub-pixel, and that a body fills a usable fraction
  * of the panel at the span the page opens on. Whether the shapes actually
  * separate by eye is owed to a human and is recorded as owed in
- * `docs/plans/v2-ui/v2-ui-03-texture-proxy.md`.
+ * `docs/performance/v2-arena-matrix.md`.
+ *
+ * **What the two halves measured**, so the numbers below can be checked rather
+ * than believed. At the bottom of v2-18's range -- 100 vertical pixels of a
+ * 1.8-unit body, 55.6 pixels a world unit -- the drawn sword is **4.4 pixels**
+ * across, the drawn hand **11.1** and the drawn plate **27.8**. And the body
+ * spans **120** of the 3/4 panel's **720** vertical pixels at **Span 15**, the
+ * span the page actually opens on, which is inside v2-18's window at the bottom
+ * end.
+ *
+ * **The body-extent assertion is bounded above by the panel and not by v2-18.**
+ * Its upper bound is 720 -- the whole 3/4 panel -- rather than v2-18's 250, so a
+ * body at 400 pixels passes a row named for a 100--250 window. That is a
+ * deliberately different situation from the width floors below, where only the
+ * bottom of the range is checked because 250 pixels is strictly easier and a row
+ * that cannot fail is not a row. Here the *loose* direction is the one that can
+ * fail, and the distance says so: the measured 120 sits 130 pixels under
+ * v2-18's 250 and 600 under the 720 that is actually asserted. Whether to
+ * tighten the bound to 250 is the owner's call and not this comment's.
  */
 test("the_textured_proxy_is_not_sub_pixel_at_the_size_v2_18_asks_it_to_read_at", async () => {
   const harness = await arenaStageHarness();

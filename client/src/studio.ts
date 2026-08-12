@@ -101,8 +101,8 @@ export function parseRoute(hash: string): { path: string; params: URLSearchParam
  * Say on the main screen what a shipped build cannot do, before it is clicked.
  *
  * The arena explains itself when a recording turns out not to be there, but a
- * reader who clicked **Battle Arena** expecting a fight has already been
- * surprised by then. `import.meta.env.PROD` is the honest test and not a guess:
+ * reader who clicked **Battle Arena** expecting a recorded fight has already
+ * been surprised by then. `import.meta.env.PROD` is the honest test and not a guess:
  * the build's copy allowlist in `vite.config.ts` emits the shell, the wasm and
  * the two room assets and asserts that nothing else was copied, so a production
  * bundle provably carries no recording -- while a development tree may or may
@@ -117,9 +117,9 @@ function noteMissingRecordings(home: HTMLElement): void {
   const note = document.createElement("p");
   note.className = "muted";
   note.textContent = "This build carries no recorded fights. They are a development fixture "
-    + "written by npm run trace and served out of web/, so the arena here opens and says so "
-    + "rather than playing one; v2-ui-07 is the session that runs the fight in the browser "
-    + "with no file at all.";
+    + "written by npm run trace and served out of web/, so a ?trace= link has nothing to "
+    + "open here and says so. The arena runs its own fight instead: pick a matchup, press "
+    + "Fight, and it is recorded in the browser with no file at all.";
   enter.before(note);
 }
 

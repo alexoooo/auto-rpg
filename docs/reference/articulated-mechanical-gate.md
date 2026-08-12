@@ -521,9 +521,17 @@ still ends at the furniture block, so the generated `SNAPSHOT_BUFFER_BYTES` is
 `27_452` and each snapshot buffer still has four regions. Reserving the articulated
 blocks ahead of the filtered copy widens three pooled buffers and makes the
 once-per-publication zero-fill in `client/src/state/snapshot.ts` far wider, for blocks
-nothing writes and nothing reads. The offsets above are what v2-ui-07 generates when it
-lands the copy; `snapshot_offsets_are_aligned_non_overlapping_and_cover_every_fixed_buffer`
-fails today if a region is reserved without one.
+nothing writes and nothing reads. The offsets above are what a session generates when
+it lands that copy;
+`snapshot_offsets_are_aligned_non_overlapping_and_cover_every_fixed_buffer` fails today
+if a region is reserved without one.
+
+**v2-ui-07 was named here as that session and is not.** It ran the fight in the browser
+by giving the recording a transferred channel of its own, precisely because this pool
+zero-fills, coalesces and has the wrong lifetime, so it never wanted a snapshot region
+and never reserved one. Nothing above is stale — the blocks are still unreserved and the
+argument for leaving them that way is unchanged — but the consumer that would justify
+them is the **game** path's visibility-filtered articulated copy, and no session owns it.
 
 **v2-ui-06 added a third articulated publication and the chain above therefore has a
 third block**, `REGION_OFFSET = COMBAT_EVENT_OFFSET + MAX_COMBAT_EVENTS*COMBAT_EVENT_STRIDE*4`

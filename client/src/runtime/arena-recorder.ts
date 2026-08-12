@@ -104,6 +104,15 @@ export const RECORDING_EVENT_ROW_CAP = 32_768;
  * ticks a second, 300 ticks is about 32 ms of work and twelve yields over a whole
  * fight: roughly 5% of the drive spent waiting, and a cancel that lands within a
  * frame or two of being pressed.
+ *
+ * **That rate is one pairing's, and it is not the one the picker opens on.** The
+ * 9,000 to 10,000 was measured on `composed` against `windmill`. `composed` on
+ * both sides -- what `populatePolicies` selects in both controls, and the slowest
+ * of the four pairings measured -- runs at 3,816 to 5,349 ticks a second, so the
+ * same 300 ticks is 56 to 79 ms of work there and "a frame or two" is three to
+ * five. The yield count is unchanged, being ticks over ticks: still twelve for a
+ * 3,600-tick fight, and still about 5% of a drive that is simply longer. The
+ * four-pairing table is in `articulated-abi.md`, under "What recording costs".
  */
 export const RECORDING_CHUNK_TICKS = 300;
 

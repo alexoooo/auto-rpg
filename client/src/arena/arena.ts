@@ -355,7 +355,8 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
    * on the panel's own label so a number taken in this mode is never read as the
    * shipped frame time.
    *
-   * Two things it cannot see, both recorded in the plan. A cost that fits inside
+   * Two things it cannot see, both here and in `docs/performance/v2-arena-matrix.md`,
+   * which also carries the fallback for each. A cost that fits inside
    * the refresh interval does not move either population off vsync, so the
    * difference is zero until the headroom is taken away. And a driver that
    * pipelines a frame's GPU work into the next interval smears the two

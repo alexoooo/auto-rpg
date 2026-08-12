@@ -362,7 +362,7 @@ the repository's own rejected-capacity rule applied to 15,580: the next power of
 two at least twice the largest measured.
 
 **The handshake, precisely, because the client is written against it and
-v2-ui-07 is the session that writes the client.**
+v2-ui-07 is the session that wrote the client.**
 
 1. Fetch the bytes. Refuse locally if `bytes.length > checkpoint_capacity()`;
    the module refuses it too, with `CHECKPOINT_TOO_LONG`, and reads nothing.
@@ -688,6 +688,32 @@ records in **0.3 to 0.4 seconds**. Quote the range and name the pass, never a
 single figure — the practice of quoting one is what produced four numbers for one
 quantity on this machine. See `AGENTS.md` on why best-of-N understates here.
 
+**Every pass above measures one pairing, and the pairing moves the drive further
+than anything the recorder does.** A separate six-run pass, taken beside the paired
+copy-out measurement below, drove four cells and a control in one pinned process,
+best of nine each — the picker's own arrangements rather than this section's single
+fixture:
+
+| pairing, seed 3, best of nine over six pinned runs | ms | ticks | ticks/s |
+|---|---:|---:|---|
+| `composed` vs `composed` | 673 – 943 | 3,600 | 3,816 – 5,349 |
+| `composed` vs `windmill` — the shipped one | 454 – 523 | 3,600 | 6,879 – 7,935 |
+| `windmill` vs `windmill` | 527 – 684 | 3,600 | 5,260 – 6,838 |
+| `learned` vs `windmill` | 387 – 507 | 3,339 | 6,592 – 8,634 |
+
+**Read the ratios inside this pass and not its absolutes**, which is why it is a
+fifth reading rather than a fifth row in the table above: the machine warmed under
+those six runs — the control drifted from 654 ms to 1,734 ms across the session, with
+other agents compiling on the same laptop — so even the shipped cell here reads slower
+than any of the four passes. The cells moved together under that drift, and what they
+say is that **`composed` on both sides is 1.5–2× the shipped `composed` against
+`windmill`**. That is a larger effect than the copy-out, `publish()` and the batch
+size put together — all three of them measured below — and none of those three is
+what a reader changes when they change the picker. `learned` against `windmill` is
+the one cell that ends early, at the 3,339
+ticks of the kill, so its ticks/s is the column to compare and its milliseconds are
+over a shorter fight.
+
 **The contact solver is most of a contact-bound tick, but the size of it is a
 factor with a range and not a number.** The quiet pairing runs 4.5–6.5× faster.
 The original note's "about 58,000 ticks/s at every batch size" is the top of the
@@ -709,7 +735,7 @@ defensible is a bound and not a value: under 8% of a drive that is already under
 on a figure: `publish()` does not dominate, and no `arena_record_step` is owed.**
 
 **What this does not cover**, which matters because v2-ui-07 is the session that
-reads it:
+read it and built the recorder against it:
 
 - **Neither fixture ends early.** Both run to the 3,600-tick limit, so this is
   the cost of the longest fight a configuration allows. A duel that settles at
@@ -747,19 +773,48 @@ reads it:
   learned decision per tick since only one side carries a network, inference is
   **about 1%** of a tick. What is still unmeasured is a whole learned *fight*
   through this harness — `compose`, the submission and the arm driver are not in
-  the number above — and that is the figure `v2-ui-07` should take if it needs
-  one.
+  the number above — and that figure is still owed: the paired copy-out
+  measurement below drove `composed` against `windmill` and says nothing about
+  it.
 - **It is `step()` under Node and nothing else.** No browser, no worker, no
   `postMessage`, and — the important one — **no per-frame copy-out of the pose,
-  region and combat-event buffers**, which is exactly the work `v2-ui-07` adds. A
+  region and combat-event buffers**, which is exactly the work `v2-ui-07` added. A
   recorder that lifts 66 words per body per tick out of linear memory is paying
   for something this harness never touched.
 
-The overview's estimate was ~650 ticks/s and a fight in about five seconds,
-extrapolated from `checkpoints/train.log` at a 2x wasm penalty. It is 15x
-pessimistic, and the reason is that 1,300 ticks/s was throughput under 20-way
-contention across 384 fights per generation with MLP inference on one side, not
-the latency of one fight on one thread.
+  **The copy-out was measured afterwards, and it is a few percent.** The recorder
+  lifts the pose, region and combat-event rows out of linear memory on every one of
+  3,600 ticks. Measured 2026-08-11 on this section's own fixture, one process
+  pinned to logical CPU 0 at high priority, nine rounds shaped
+  `bare → recorded → bare` so the recorded cell is bracketed by two bare drives of
+  the identical fight:
+
+  | | run 1 | run 2 | run 3 |
+  |---|---|---|---|
+  | bare, best of nine | 300.6 ms | 302.0 ms | 306.5 ms |
+  | recorded, best of nine | 312.6 ms | 311.1 ms | 317.9 ms |
+  | paired per-round difference, median | +3.0% | +5.0% | +5.7% |
+  | paired per-round range | −8.5 to +13.5% | −11.7 to +8.9% | −13.2 to +22.2% |
+
+  Over all 27 rounds the median is **+3.6%** and the difference is positive in 21
+  of them, so the copy-out costs a consistent **+3 to +4%** of the drive and the
+  defensible bound is **≤8%** — the same bound this section reached about
+  `publish()`, and quoted at 8 rather than at 6 because 6% does not survive a
+  repeat: an earlier pass on the same fixture read +7.5%. **Read the paired
+  per-round difference and not the difference of the two bests**, which reads
+  +4.0 / +3.0 / +3.7% on this same data. The machine drifted inside every one of
+  the three runs — the bare cell went from about 300 ms in rounds 1 and 2 to
+  370–500 ms from round 3 onward, with the closing controls tracking it exactly —
+  so a difference of two cells' bests takes one number from before the drift and
+  one from after and calls the gap a cost. The copy is therefore *inside* the 0.3
+  to 0.4 seconds above rather than beside it: a recorded 3,600-tick drive is still
+  that, with the copy in it, and no `arena_record_step` was ever owed.
+
+The estimate this section was written against — ~650 ticks/s and a fight in about
+five seconds — was an extrapolation from `checkpoints/train.log` at an assumed 2x
+wasm penalty. It is 15x pessimistic, and the reason is that 1,300 ticks/s was
+throughput under 20-way contention across 384 fights per generation with MLP
+inference on one side, not the latency of one fight on one thread.
 
 ## Pose rows
 
@@ -1076,11 +1131,22 @@ furniture block at 27,452 bytes and four snapshot regions. Reserving the three
 articulated blocks takes it to 316,732 — 289,280 bytes on each of the three pooled
 buffers, and an 11.5x wider zero-fill on a buffer `client/src/state/snapshot.ts` clears
 whole once per *filtered publication* — while nothing on the far side writes or reads a
-word of them: the filtered copy is v2-ui-07's. A per-publication memset does not get
+word of them: the filtered copy is v2-ui-07's — **superseded two sentences below: it is
+not v2-ui-07's, and no session owns it.** A per-publication memset does not get
 11.5x wider ahead of the consumer that justifies it and the measurement that sizes it.
 The formula and the numbers the blocks will generate are held in
 [`articulated-mechanical-gate.md`](articulated-mechanical-gate.md#worker-integration)
-until then. ("Region" carries two meanings across these files: a *snapshot* region is
+until then. **v2-ui-07 was named as this reservation's owner and is not.** It built
+the recording as its own transferred channel precisely because the pool zero-fills,
+coalesces and has the wrong lifetime — see
+[`worker-protocol.md`](worker-protocol.md#the-recording-and-why-it-is-not-the-pooled-buffer)
+— so it never wanted a snapshot region and never reserved one. The blocks are still
+unreserved, the argument for leaving them unreserved is unchanged, and the consumer
+that would justify them is the **game** path's filtered articulated copy, which no
+session yet owns.
+`snapshot_offsets_are_aligned_non_overlapping_and_cover_every_fixed_buffer` in
+`crates/web/src/bin/emit_abi.rs` is what refuses a reservation that arrives before
+one. ("Region" carries two meanings across these files: a *snapshot* region is
 one of the four pooled blocks, an *anatomy* region is one of the five capsules above.)
 
 After warm-up, maximum pose, contact, event, spawn, reset, and route paths may not
@@ -1153,6 +1219,19 @@ now warms every seed **twice, nested the way the guarded phase nests them**, and
 settles at 38 pages. Two rounds over the seed list rather than per seed — the same six
 calls in the other order — does not settle it, which says the peak follows the
 floor-to-floor transition and not the number of rounds.
+
+The arena path has its own warm set and its own number:
+`arena_start_allocates_within_the_warm_set` drives `init_articulated`,
+`load_checkpoint`, `arena_start` and 128 ticks over **three differently-shaped
+arrangements** — because `arena_start` builds a `Scenario` whose spec table is a
+function of the loadout, so a warm-up that only ever saw the shipped one leaves the
+first differently-shaped fight to grow the heap under the guard — and settles at
+**223 pages** through three guarded cycles with every published view retained but one.
+**FURNITURE is deliberately not retained there**, on the same argument that puts a
+legacy `init` first: a configured duel has no furniture at all, so a view over an arena
+publication's furniture block is zero-length — and a detached view reads a `byteLength`
+of zero too, so it could witness nothing either way. Its *pointer* is checked with the
+rest, which is the half an empty view can carry.
 
 ## Portable stream digest
 

@@ -286,9 +286,24 @@ presentation state enters `World`, replay, or a hash domain.
 
 **Three of these were wrong when v2-ui-07 landed** — `SimWorkerHost`, `SnapshotFilterState`
 and `readPublication` all named the line the symbol had been on before that session
-moved it, and `check_docs.js` validates only that a `#L` anchor is inside its file.
-An anchor is a hint and not a contract; check the symbol is on the line before
-quoting one.
+moved it, at a time when `check_docs.js` validated only that a `#L` anchor was inside
+its file. It now checks the claim the link's text makes, in three shapes: text naming a
+symbol needs that name's leaf within `ANCHOR_CONTEXT` (4) lines of the anchor; text
+naming a file or a crate has nothing in itself to check, so a link inside a table row
+is held to its row's subject — the pin's name, or the pinned value, in a cell to its
+left; and a link with neither only has to land where a reader can recognise the start
+of something — a declaration, an attribute, the head of a comment block, or line 1 —
+and only in a source language the gate models the syntax of. It found twenty-three
+stale anchors on the day it was written, and a twenty-fourth beside one of them.
+
+**It is still a rot detector rather than a symbol resolver, and it writes its own
+residual down.** A leaf match is a mention and not a definition, so an anchor that
+lands on a *call* of the symbol it names passes — deliberately, since plenty of these
+links point at a call site. And a link whose text is prose rather than a code span —
+"the frame writer", say — has no leaf to match at all, so it falls through to the
+weakest of the three rules. Four links in the tree have that shape. An
+anchor is a hint and not a contract; check the symbol is on the line before quoting
+one.
 
 - Protocol declarations and input decoder: [`messages.ts`](../../client/src/protocol/messages.ts#L1), [`decodeClientMessage`](../../client/src/protocol/messages.ts#L283)
 - Fixed buffer pool: [`FixedBufferPool`](../../client/src/runtime/buffer-pool.ts#L22)
@@ -297,6 +312,6 @@ quoting one.
 - Snapshot validator and disclosure filter: [`SnapshotFilterState`](../../client/src/state/snapshot.ts#L59)
 - Real wasm adapter: [`readPublication`](../../client/src/runtime/sim.worker.ts#L81)
 - Generated offsets and capacities: [`abi.generated.ts`](../../client/src/protocol/abi.generated.ts#L1)
-- The recording drive and its caps: [`recordArenaFight`](../../client/src/runtime/arena-recorder.ts#L487)
+- The recording drive and its caps: [`recordArenaFight`](../../client/src/runtime/arena-recorder.ts#L496)
 - The arena's main-thread client and its decoder: [`decodeArenaMessage`](../../client/src/runtime/arena-client.ts#L59)
-- The recording's reader: [`LiveFightSource`](../../client/src/fight/live.ts#L126)
+- The recording's reader: [`LiveFightSource`](../../client/src/fight/live.ts#L135)

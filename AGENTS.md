@@ -56,9 +56,9 @@ and a trained checkpoint drives a fighter in the browser. `learn` uses
 `std::thread::scope` and a wall clock, and **`lab` is still its one host** — through
 `lab learn-probe` and `lab trace --policy learned`. The standing instruction *if a
 second host ever appears, check first that it is not `web`* is discharged for
-`learn-core` by
-[`v2-ui-08`](docs/plans/v2-ui/v2-ui-08-learned-in-the-browser.md), which made the
-check and recorded the answer, and stands unchanged for `learn`.
+`learn-core` by v2-ui-08, which made the check and recorded the answer in the
+[`LEARNED_INFERENCE_DIGEST` row](docs/reference/hashes.md#golden-registry), and
+stands unchanged for `learn`.
 `the_learned_policy_is_unreachable_from_sim` in
 `crates/learn-core/tests/direction.rs` is what checks the arrow rather than
 promising it — and **it is the whole of the enforcement**, since the bullet below
@@ -104,6 +104,8 @@ rustup target add wasm32-unknown-unknown          # once
 cargo build --release --target wasm32-unknown-unknown -p web
 node --test tools/wasm_check.js                   # wasm must equal native
 node tools/check_docs.js                          # documentation links, anchors and authority
+node tools/check_deps.js                          # no crate may reach a registry or a git source
+node --test tools/check_deps.test.js              # and the fixture that guards that audit
 
 npm run dev                                       # builds release wasm, Vite serves the studio
 node tools/serve.js                               # legacy Canvas page only
@@ -126,13 +128,16 @@ Four classic scripts sharing top-level `const`s are not a module graph, so it is
 route, stays out of `rollupOptions.input` and ships in nothing; `tools/serve.js` and
 the Vite dev server both hand it straight out of `web/`.
 
-`#/arena` reads no wasm and no worker — it plays the JSON `lab trace` writes, which is
-why `npm run view` is enough for it. This file used to promise that the page it grew
-out of, the development-only `/fight.html` that v2-17 needed when its gate failed and
-its last three explanations were refuted by measurement, would be deleted by the
-session that lands the real pose channel. v2-ui-01 paid half of that early: the page
-is gone. The channel is still owed, in v2-ui-07 — until it lands, a fight in the
-browser is a file somebody recorded, not a simulation running.
+`#/arena` runs its own fight. It writes a configuration, a Worker of its own records
+the duel in wasm, and the transferred pose, region and combat-event buffers are what
+the page scrubs; a recorded `lab trace` file still plays through the same seam when
+one is named by `?trace=`. `npm run view` — Vite with no wasm build — is enough to
+*open* the route, because the Worker is constructed lazily on the first **[Fight]**,
+and is not enough to press it. This file used to promise that the page it grew out
+of, the development-only `/fight.html` that v2-17 needed when its gate failed and its
+last three explanations were refuted by measurement, would be deleted by the session
+that lands the real pose channel. Both halves are paid: v2-ui-01 deleted the page and
+v2-ui-07 landed the channel.
 
 The trace is a two-file contract — `crates/lab/src/trace.rs` writes it and
 `client/src/fight/trace.ts` refuses a schema it does not know, on purpose. Change
@@ -140,6 +145,17 @@ one and you change both, and bump `TRACE_SCHEMA` in both. It is at
 `arpg-fight-trace-3`; v2-19 moved it from 2 by replacing the single `script` field
 with `heroes`, `monsters` and `checkpoint`, because a learned fight is the first
 one whose two bodies are driven by different things.
+
+`trace` also takes fourteen keys that *describe* a duel instead of running the pinned
+one — the two anatomies, the four hands, and the shield and weapon dimensions.
+**Give none of them and the fixture runs byte for byte**, which is what makes a traced
+run comparable with the gate that measured it; give any one and the scenario becomes
+`configured-duel-v1` under its own fingerprint and the file stops being comparable.
+The switch is the key list itself and not a builder that always runs, because
+`DuelConfigV1::shipped()` reproduces the fixture's table and unit rows exactly — an
+always-builder would have moved nothing but the scenario name, which is drift with a
+single visible symptom in a header nobody reads twice. `lab`'s own `trace` help text
+carries the rest, including the two ways of asking for nothing that exit 2.
 
 Notes that will otherwise cost you a build:
 
@@ -161,6 +177,11 @@ Notes that will otherwise cost you a build:
   missing. After touching `crates/`, rebuild before believing a pass.
 - **The native reference target is MSVC x86-64 on Windows.** Every pinned hash in the
   repository was recorded there.
+- **`tools/check_deps.js` has a fixture and `cargo test` does not run it.** The session
+  that added `learn-core` to the audited set edited the exact constant
+  `tools/check_deps.test.js` covers, left it red at 13 pass and 2 fail, and did not find
+  out until a review — because neither command was on any list in this file. Both are
+  above now. Run them when you touch a manifest or the audited set.
 - **Do not run `cargo fmt`.** The tree is deliberately not rustfmt-clean — 222
   divergences across 25 files, most of them hand-formatted for readability. Running it
   produces an enormous unrelated diff. Match the surrounding style by hand.
@@ -269,7 +290,25 @@ This codebase has an unusually strong and unusually consistent voice. Match it.
   repository says so in place — the README does it, DESIGN.md does it, `duelist.rs`
   does it. Do not quietly delete a wrong-but-instructive note; supersede it.
 - **Numbers get their provenance.** A constant that came out of a sweep says which
-  sweep, and ideally which test would catch it drifting.
+  sweep, and ideally which test would catch it drifting — **in both directions**. A
+  test that bounds a constant from one side only is satisfied by a range wider than the
+  decision and cannot defend it. v2-ui shipped two of those in one session: a
+  field-of-view assertion of the form `FOV / 2 > 46` passed for anything from 93° to
+  179°, and a camera-mount test was satisfied by every mount from 25° to 60° because
+  nothing in it measured the thing that bounds the mount from above. Both looked like
+  coverage.
+- **Show the test failing, or you have not written one.** The worst defect this
+  repository produces is a green test asserting something the code does not do, and it
+  is invisible by construction: nothing goes red. Two shapes it takes, both found by
+  review rather than by running anything. A test whose setup already satisfies its
+  assertion — a memoisation check that awaits load #1 before starting #2 is satisfied
+  by an ordinary early return, so `??=` can be replaced by `=` with both named tests
+  still green. And a test that reads the reporter rather than the thing reported — a
+  count that short-circuits to zero when a mode is off cannot detect the leak it exists
+  for, and a library may already be doing what you are asserting your own call does
+  (`AbstractMesh.dispose()` splices the mesh out of every shadow render list, so
+  deleting the paired `removeShadowCaster` leaves everything green). Before believing a
+  test, break the line it is about and watch it fail.
 - **Rust and JavaScript sources are ASCII.** `--` for a dash, never `—`. Markdown
   files use real em dashes, and both hand-written pages — `web/index.html` and
   `web/legacy.html` — write `&mdash;`. Do not mix the two conventions.
@@ -303,11 +342,17 @@ not have to infer the state of the tree from the code or the log.
 ## Gotchas that have already cost time
 
 **Rendering performance cannot be measured from an automated browser tab.** A
-Claude-in-Chrome tab is always `visibilityState: "hidden"`, which throttles
-`requestAnimationFrame` and rasterises in software — it can time pure JS honestly and
-can measure nothing the rasteriser or compositor does. In Aug 2026 this produced four
-confident wrong hypotheses in a row. Hand the user a console probe and read their
-numbers. When you do:
+Claude-in-Chrome tab is always `visibilityState: "hidden"`. This line used to say that
+*throttles* `requestAnimationFrame`, and measured on 2026-08-11 it is worse than
+throttling: it is a stop. A probe waiting on seven consecutive
+`requestAnimationFrame` callbacks never resolved in forty-five seconds, and `#/arena`
+playback sat on its starting tick throughout. So a longer sampling window is not the
+fix, and a frame time that depends on the loop is **blocked rather than skipped** —
+record it as owed to a person at a visible browser instead of estimating it. The tab
+also rasterises in software, so it can time pure JS honestly and can measure nothing
+the rasteriser or the compositor does. In Aug 2026 this produced four confident wrong
+hypotheses in a row. Hand the user a console probe and read their numbers. When you
+do:
 
 - **Remove work, do not hide it.** `visibility: hidden` still rasterises every fill.
   No-op the primitive (`ctx.fill = () => {}`) or stop the rAF loop outright.
@@ -318,9 +363,73 @@ numbers. When you do:
 - A large `idle` beside a small `render` on the frame strip means the cost landed past
   the callback, in the rasteriser. That is the signal to switch to this method.
 
+Only the things that need the loop are unreachable, which is worth knowing before you
+give up on a page. `#/arena` scrubs synchronously out of its input handler, so every
+panel, label, contact marker and control on it was checked from an automated tab; the
+frame time is the one thing that was not. What is still owed to a person, and why, is
+[the arena matrix](docs/performance/v2-arena-matrix.md).
+
 **`lab bench` numbers swing 2–3× run to run** on a hybrid-core laptop, because a
 single-threaded bench gets migrated onto an E-core. Pin to logical CPU 0 at high
-priority and take best-of-3, or a real regression is indistinguishable from noise.
+priority, or a real regression is indistinguishable from noise.
+
+**Pinning stops the migration. It does not stop the machine warming, and best-of-N
+across two runs is not a comparison.** An unpinned process reads up to 15% *faster*
+than a pinned one on a good run and about 1.8× *slower* on a migrated one, and the
+migration moves every cell in that process at once — so the best of nine readings
+inside a migrated process is still a migrated reading, and best-of-N cannot tell you
+which kind of process you had. One review re-measured a control at 18,000–26,000
+ticks/s and called it a refutation; it was reading exactly such a process, where every
+control cell read high while every contact cell in the same run fell by a third.
+Drift inside a run does the rest: driving one fight nine times in each of three pinned
+processes, the control went from about 300 ms in rounds 1 and 2 to 370–500 ms from
+round 3 onward, so a difference of two cells' *bests* takes one number from before the
+drift and one from after and calls the gap a cost. **Bracket instead** — inside one
+round drive `control → subject → control` on the identical input, and quote the median
+of the per-round differences with its range. The two statistics disagreed by up to two
+points on that data, and it is the unpaired one that cannot be defended, because its
+two inputs sit on opposite sides of the drift. Then **quote the range across several
+pinned processes rather than the best of them, and name the pass**: one quantity on
+this machine has four published readings that fall into two clusters about 20% apart,
+and any single best quoted from them would have hidden that. The worked example is
+[what recording costs](docs/reference/articulated-abi.md#what-recording-costs).
+
+**An architecture rule enforced by scanning source text fails open, and this
+repository has done it three times.** A dependency test matched `path = "../`
+byte-exactly and let three ordinary manifest spellings past it, while being the whole
+of the enforcement that `web` must not reach `learn`; a bundle assertion read one
+`<script src>` and
+grepped that chunk, so from the day `studio.ts` became a router with no static imports
+it was inspecting 3.5 KB that could not fail; and an import guard spelled the worker
+`sim\.worker`, with a literal dot, while the module it existed to catch was named
+`sim-worker.ts`. All three passed while broken. A passing text scan is evidence about
+the text and not about the graph, so ask a tool for the graph where one exists —
+`cargo tree` in `crates/learn-core/tests/direction.rs`, `cargo metadata --no-deps` in
+`tools/check_deps.js`, the static-import closure walk in `tools/chunk-graph.mjs` — and
+where none does, extract the thing being judged rather than the line it sits on.
+**A guard that passes is not evidence until you have made it fail on purpose**, which
+is how each of those three repairs was accepted.
+
+**A request a control cannot honour must be refused by name.** Two consecutive
+sessions' reviews found ten instances of one bug between them, and it was the same bug
+every time: a flag, a slider or an export accepted an input it could not act on and
+said nothing. `lab trace --a-weapon-length --seed 3` ran the *pinned fixture* and
+printed the pin's own fingerprint under a header the operator read as their
+configuration, because `Args::parse` demotes a valueless `--key` to a bare flag.
+`--b-shield-half-width` aimed at a fighter carrying a club renamed the scenario and
+changed nothing else. `set_goto` ten ticks into a configured duel produced a different
+fight under an unmoved `arena_fingerprint`. None of them errored and all of them were
+*nearly* right, which is the failure mode that survives review. Refuse, name the
+offending input in the refusal, and **return the refusal rather than printing and
+exiting** so a test can assert the sentence — a refusal path no test can name is how
+the pair in `duel_config_from` shipped green.
+
+Refusal is the default and not the only answer. `descend` carried the previous duel
+onto a freshly generated floor, and it was fixed by *converting* rather than refusing —
+deliberately, because refusing needs a channel that export does not have: it answers
+the new depth, and there is no depth that means "no". Where the caller can be told,
+tell it. Where it cannot, doing the right thing silently still beats doing the wrong
+thing silently, and the choice gets written down either way.
 
 **Overdraw is counted in pixels, not milliseconds.** Canvas2D commands are queued, so
 a microbenchmark that loops a draw call times the rasteriser's back-pressure. The

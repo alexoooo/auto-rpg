@@ -1528,6 +1528,9 @@ test("a_second_fight_cancels_the_first_and_waits_for_its_refusal", async () => {
   // middle promise never settling at all because `#pending` had already been
   // overwritten by the third when its answer arrived. Every press must settle
   // and exactly one of them may be posted.
+  // On the unfixed guard this test does not fail -- it **hangs**, `test timed out
+  // after 20000ms`, because an unsettled promise is exactly what the page showed
+  // as "Recording..." forever.
   const rapid = arenaClientHarness();
   const first3 = rapid.client.run(arenaConfig({ seed: 3 }), () => {});
   await settle();

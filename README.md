@@ -348,8 +348,9 @@ npm run dev                                       # builds release wasm, starts 
 ```
 
 Open the Vite origin at `/`. That is the studio: one page, two destinations behind
-hash routes — `#/game` is the diagnostic, `#/arena` replays a fight `lab trace`
-recorded. Its TypeScript module graph requires Vite; `tools/serve.js`
+hash routes — `#/game` is the diagnostic, `#/arena` takes two loadouts and a seed,
+runs that fight in a Worker of its own and lets you scrub it. Its TypeScript module
+graph requires Vite; `tools/serve.js`
 serves only the classic Canvas files and answers `/` with the legacy page instead.
 Both development and production host the studio and wasm artifact at the origin
 root as `/` and `/web.wasm`. See the

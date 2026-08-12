@@ -289,8 +289,7 @@ accumulates from the feed must key on the call that stepped or it double counts.
 | `v2-18-combatant-integration` | representative rigs/assets over frozen mechanics | unchanged | unchanged |
 | `v2-19-learning-probe` | learned-vs-scripted evidence and expand/stop decision | unchanged | unchanged |
 | `v2-20-guard-height-and-shield` | **complete**: one free column on the off arm (`guard: CombatHeight`), a plate at 36% of its face area, the coverage tables derived from the specs, and the lockstep broken — 100.00% diagonal measured, 50.03% and six of nine cells after a half-step guard lead | unchanged | four moved, all predicted: combat spec-table digest, `articulated-duel-v1` fingerprint, `ARTICULATED_COMMAND_HASH`, `ARTICULATED_STREAM_DIGEST`. `ARTICULATED_HASH` still absent |
-
-| [`v2-ui`](v2-ui/v2-ui-00-overview.md) (8 sessions) | **complete**: one browser application — a picker, a fight run in a worker of its own, and five viewpoints on it, replacing three pages that shared no code. Seven `pass`, one `revise` (frame times blocked, not skipped) | unchanged | `ARTICULATED_STREAM_DIGEST` moved once as predicted; **`LEARNED_INFERENCE_DIGEST` created** and agreeing native/wasm32. `ARTICULATED_HASH` still absent |
+| `v2-ui` (8 sessions; plan set deleted on completion) | **complete**: one browser application — a picker, a fight run in a worker of its own, and five viewpoints on it, replacing three pages that shared no code. Seven `pass`, one `revise` — its frame times are blocked rather than skipped, and what a person still owes is [the arena matrix](../performance/v2-arena-matrix.md) | unchanged | `ARTICULATED_STREAM_DIGEST` moved once as predicted; **`LEARNED_INFERENCE_DIGEST` created** and agreeing native/wasm32. `ARTICULATED_HASH` still absent |
 
 `v2-11` has one deliberate split dependency: its value, codec, range, and atomic
 fallback seam lands before `v2-12`; its equipment-binding validation lands after

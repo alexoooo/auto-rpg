@@ -1,9 +1,9 @@
 # Presentation
 
-**Purpose:** Preserve the shipped visual language and the boundary between gameplay readouts and rendering style.
+**Purpose:** Preserve the shipped visual language, the boundary between gameplay readouts and rendering style, and where the shipped figures do not yet meet that language.
 **Status:** current
 **Canonical source:** [`web/main.js`](../../web/main.js#L6512), [`web/style.css`](../../web/style.css), [`web/assets/ASSET_SPEC.md`](../../web/assets/ASSET_SPEC.md), and the [renderer contract](../reference/renderer-contract.md#renderer-owned-snapshot-boundary)
-**Update when:** Art direction, view-mode controls, HUD language, or the reference renderer changes.
+**Update when:** Art direction, view-mode controls, HUD language, the published body proportions, or the reference renderer changes.
 
 ## A warm, legible room
 
@@ -42,6 +42,24 @@ add `shadowBlur` as ambient polish or introduce another dashed-stroke pass witho
 foreground-browser comparison and the repeated baseline required by the
 [Canvas evidence method](../performance/evidence/2026-08-canvas-rendering.md#method-and-controls).
 That is a renderer-specific budget, not a simulation or art-asset rule.
+
+## The published anatomy has no neck
+
+The arena's `[Texture]` proxy draws every published capsule at its published radius, and
+the result is a body without a neck. The recordings publish a torso radius of 0.35 on the
+Fighter and 0.40 on the Brute against a 0.20/0.25 head and a 0.30/0.35 leg capsule, so a
+head drawn faithfully sits inside the shoulders' own silhouette and the legs sit under
+the middle of something wider than they are. Lit and shadowed it reads as a body in a
+room; it does not read as a fighter.
+
+**That is the published anatomy and not a proxy defect** — `[Geometry]` draws the same
+silhouette out of the same rows, which is what settles it. The fix, when it is wanted, is
+an authored rig whose art narrows a shape the simulation still sweeps at its published
+radius. A presentation layer that quietly narrowed a published capsule would be drawing a
+body nothing swept, which is the one thing neither dress may do. **Whether it is
+acceptable until then is an owner's judgement and has not been made** — it needs a person
+looking at the page, and it is recorded as owed in the
+[arena matrix](../performance/v2-arena-matrix.md#owed-visual-judgements).
 
 ## Renderer roles
 

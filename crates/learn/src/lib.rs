@@ -43,9 +43,10 @@
 //! will let through.
 //!
 //! `AGENTS.md`'s standing instruction, *if a second host for the learning crate
-//! ever appears, check first that it is not `web`*, is discharged by
-//! `docs/plans/v2-ui/v2-ui-08-learned-in-the-browser.md`. The check was made and
-//! the answer is that `web` may see `learn_core` and may not see this crate.
+//! ever appears, check first that it is not `web`*, is discharged by v2-ui-08.
+//! The check was made and the answer is that `web` may see `learn_core` and may
+//! not see this crate; `docs/architecture/learning.md`, under "The boundary,
+//! which did not move", is where that answer lives now.
 //!
 //! # The three versioned contracts
 //!

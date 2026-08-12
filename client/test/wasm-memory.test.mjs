@@ -1161,6 +1161,21 @@ test("the_index_survives_a_death", async () => {
 // exactly, and the ones they do not carry are named rather than skipped
 // silently.
 //
+// **An oracle and not a formality, and that was checked rather than assumed.**
+// Perturbing one published word by 1 fails the comparison for 60 of the 66 pose
+// words, 31 of the 32 event words, all region geometry and both health words,
+// and `assert.deepEqual` under `node:assert/strict` catches a key present on one
+// side and missing on the other -- so neither side is computed from the other.
+//
+// **Two columns it does not reach, named because a silent gap in a gate this
+// strong is worse than a stated one.** The left-weapon block
+// (`POSE_LEFT_WEAPON_*`) is decoded by `LiveFightSource` and never compared
+// here: both fixtures put a shield or nothing in a left hand, so no row ever
+// fills it. A blade in the left hand is picker-reachable and `GripBinding`
+// makes it expressible, so the fixture that would close this is cheap. And
+// `COMBAT_EVENT_TICK` is carried by neither side, which makes it the one column
+// that could independently audit the per-tick index -- and does not.
+//
 // **Gated on the fixture and not skipped silently.** A trace is a development
 // artifact: `.gitignore` excludes `web/fight*.json` and the production bundle
 // carries none, so a clean clone has nothing to compare against. When one is

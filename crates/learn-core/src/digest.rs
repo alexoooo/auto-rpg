@@ -80,6 +80,17 @@
 //! loop below rounds twice. **That build is outside the guarantee**, and it is a
 //! real hole rather than a footnote: nothing in the repository would notice
 //! until this digest failed.
+//!
+//! **The caveat was tried rather than reasoned about, and this digest caught
+//! it.** Seven mutations of [`Model::forward`] were run against the shipped
+//! checkpoint: an identity activation, a dropped bias, a reversed summation
+//! order and a `mul_add` contraction each move this number, and the three that
+//! do not are semantically identical or differ below one ULP. All forty-one
+//! feature columns move it, as do 3,855 of the 3,858 weights -- the three that
+//! do not are masked by a rectified linear and move under any absolute nudge of
+//! 1.0 or more. So the FMA hole above is an empirical hazard and not a
+//! footnote: the exact instruction `-C target-cpu=native` would license was
+//! substituted into the loop, and the pin saw it.
 
 use crate::model::{
     write_features, FeatureMemory, Model, ModelShape, HIDDEN_UNITS, LEARN_ACTION_LAYOUT_VERSION,

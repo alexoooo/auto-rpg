@@ -8515,6 +8515,17 @@ mod tests {
         // made from -- so a single divergent logit anywhere in the fight moves
         // the state hash and keeps it moved.
         //
+        // **"in wasm" means through the `pub extern "C"` ABI and not on the
+        // wasm target.** This is a native test in a `#[cfg(test)]` module and
+        // it never runs on `wasm32-unknown-unknown`, so what it compares is two
+        // *spellings* of one loop on one host. It is stronger than the digest
+        // about compounding decisions and says nothing whatever about
+        // portability: the whole of the cross-target evidence for a learned
+        // fight is `LEARNED_INFERENCE_DIGEST` over the sixty-four-case corpus.
+        // That is a boundary and not a gap -- a pinned learned-fight state hash
+        // is `ARTICULATED_HASH` under another name, which no session before
+        // v2-17 may create.
+        //
         // The shape is `a_scripted_arena_fight_in_wasm_matches_the_same_fight_in_lab`'s
         // exactly: one fight driven through the ABI from the configuration
         // buffer, the other by a hand-written copy of `lab`'s matchup loop, and
@@ -8713,7 +8724,7 @@ mod tests {
         // order is a different fight. Nothing guarded it until v2-ui-05's
         // review: one `set_goto` ten ticks into a three-hundred-tick duel moved
         // the state hash and left `arena_fingerprint()` exactly where it was, so
-        // the number v2-ui-07 is about to name recordings by was not an identity
+        // the number v2-ui-07 went on to name recordings by was not an identity
         // for the fight recorded under it.
         let mut config = sim::DuelConfigV1::shipped();
         config.max_ticks = 300;
@@ -10676,6 +10687,14 @@ mod tests {
     /// to see one again. The corpus cannot move underneath it:
     /// it is synthetic, drawn from `fx::Rng`, and no simulation output reaches
     /// it.
+    ///
+    /// **Taken over the network `load_checkpoint` installed, not over an
+    /// `include_bytes!` one**, which is deliberate and widens the list above by
+    /// one: the pin exercises the staging buffer and the decoder as well as the
+    /// forward pass, so an edit to `Checkpoint::from_bytes` that changed a
+    /// weight by a bit would move this number without touching any of the four.
+    /// That is the correct behaviour and it is not in the four-owner sentence,
+    /// so predict it.
     ///
     /// **The caveat is part of the pin.** This holds for the repository's
     /// baseline targets -- MSVC x86-64 with no `target-cpu`, `target-feature` or

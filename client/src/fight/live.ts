@@ -11,6 +11,15 @@
 // hundred of them. The buffers *are* the recording, and a frame is a view of one
 // slice of them.
 //
+// Measured, in Node on 2026-08-11: constructing this source over a transferred
+// 3,600-tick recording and decoding frame 0 is **0.02 to 0.04 ms**, against 0.3
+// to 0.4 s for the drive that produced it. Adopting is free because nothing is
+// materialised. What is not free and is paid once per worker is the warm-up --
+// `init_articulated` plus `load_checkpoint`, 4.4 to 17.2 ms. Neither figure
+// covers worker startup, the `/web.wasm` fetch and instantiate, the checkpoint
+// fetch or the `postMessage`; the page prints its own `recorded in N ms` so a
+// reader gets the browser's number rather than this one.
+//
 // Four places this cannot match `TraceFightSource`, all of them a column the
 // published rows do not carry, and every one of them visible in the UI rather
 // than papered over:
