@@ -5082,7 +5082,7 @@ impl World {
                 // points, so this is the only place a swing's speed can reach
                 // the energy budget at all -- the per-point prototype gave
                 // every fact its own velocity, moved the budget by nothing, and
-                // is written up in `v2-17-scripted-mechanical-gate.md`.
+                // is written up in `docs/performance/v2-articulated-gate.md`.
                 //
                 // `balance` and not a hardcoded half: `rules::grip_limit`
                 // already calls it "the weapon's centre of mass" and levers the

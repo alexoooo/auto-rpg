@@ -1174,10 +1174,6 @@ function checkRoomImplementationDocs(root, errors) {
       }
     }
   }
-  const plan = path.join(root, "docs", "plans", "v2-09-room-visual-gate.md");
-  if (fs.existsSync(plan) && !/^\*\*Status:\*\* automated implementation complete\b/im.test(fs.readFileSync(plan, "utf8"))) {
-    errors.push("docs/plans/v2-09-room-visual-gate.md: status must record automated implementation complete");
-  }
 }
 
 function checkCompletionChecklist(root, errors) {

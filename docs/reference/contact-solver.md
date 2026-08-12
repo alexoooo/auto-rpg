@@ -170,8 +170,8 @@ measured and rejected: `closure_energy` sums over collider *rows* and never sees
 a contact point, so giving each fact its own point velocity makes the fact more
 honest and moves the budget by nothing — it enlarges the proposed impulse, the
 bounded alpha search clamps harder, and dissipation *falls*. The prototype and
-its numbers are in
-[`v2-17-scripted-mechanical-gate.md`](../plans/v2-17-scripted-mechanical-gate.md).
+its numbers are in the
+[articulated gate evidence](../performance/v2-articulated-gate.md#findings-that-constrain-a-successor).
 
 A held `EquipmentGeometry::Segment` becomes a horizontal capsule segment. Its hilt
 is the absolute owning hand and its tip is

@@ -106,10 +106,11 @@ JavaScript reader, wasm equality checker, and layout comments must agree on the
 packed frame version and offsets. That ABI is independent of Rust crate
 dependency direction.
 
-> **Proposed by v2 — not current:** The v2 plans discuss articulated actors,
-> versioned policy and replay envelopes, and new learned-policy artifacts.
-> Those are proposals, not nodes or edges in the current graph above. See the
-> [v2 overview](../plans/v2-00-overview.md) for the planned sequence.
+Articulated actors, replay codec V2, and learned inference are current parts of this
+graph. Their boundary remains the submitted command: floating-point inference chooses
+five discrete heads, `learn-core` assembles the corresponding fixed-point constants,
+and only that `ArticulatedCommandV1` crosses into `sim`. Replay stores the accepted
+command, so playback reaches neither policy nor model.
 
 ## Source anchors
 

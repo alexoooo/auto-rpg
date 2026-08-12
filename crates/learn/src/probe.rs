@@ -364,7 +364,7 @@ pub struct Mechanics {
     /// aim there**, and anything reporting this table has to say so: the three
     /// heights the action vocabulary can command put a blade nowhere near a
     /// Fighter's head, so the column is unreachable rather than unchosen. See
-    /// `docs/plans/v2-19-learning-probe.md`.
+    /// `docs/performance/v2-learning-probe.md`.
     pub regions: [u64; BodyPart::COUNT + 1],
     /// Weapon/body resolutions by the height the *attacking* arm was commanded
     /// to on the tick that produced them, plus a bucket for a height that is

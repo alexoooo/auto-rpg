@@ -196,20 +196,14 @@ runner only records decisions made through its pending-policy loop. This superse
 the former `DESIGN.md#the-one-exception-taking-the-controls` discussion while keeping
 its warning about replay completeness.
 
-> **Proposed by v2 — not current:** This note used to cover the articulated
-> observation and action seam as well. That landed in v2-16 and is described
-> above. It then said that no registry named an articulated policy and no
-> browser path drove one; v2-ui-05 landed `ArticulatedPolicyKind` and the
-> configured duel, and v2-ui-08 landed the learned code behind it, so both
-> sentences are gone and the two sections above replace them. What remains
-> proposed is the **versioned policy envelope**. `run_articulated` still has no
-> caller outside tests, and deliberately: `lab articulated` needs per-tick
-> contact resolutions, cap hits and energy-ledger columns which `RunResult` does
-> not carry, so it drives its own copy of the decision loop, pinned against the
-> runner by an equivalence test rather than by sharing code — and the browser
-> drives a third copy for the reason `Sim::advance` gives, that
-> `run_articulated` installs one policy on both sides and an arena needs two.
-> See the [v2 overview](../plans/v2-00-overview.md).
+The articulated observation/action seam, registry, configured duel, and learned
+browser policy are current. The decision-loop ownership is intentionally split:
+`run_articulated` remains exercised directly only by tests; `lab articulated` needs
+per-tick resolutions, cap hits, and energy-ledger columns that `RunResult` does not
+carry, so its loop is pinned to the runner by an equivalence test; and the browser
+needs two independently selected policies, while `run_articulated` installs one
+policy kind on both sides. A future shared versioned policy envelope is still a
+proposal, not an omitted part of the current seam.
 
 ## Source anchors
 

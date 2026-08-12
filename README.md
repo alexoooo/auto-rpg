@@ -417,10 +417,10 @@ evidence](docs/performance/evidence/2026-08-combat-mechanics.md).
 
 ## Where this goes next
 
-The current implementation roadmap is the [v2 plan](docs/plans/v2-00-overview.md).
-Plans are temporary working documents, not claims about shipped behavior. Current
-limitations and open investigations remain with the design, architecture, and
-reference documents linked from [DESIGN.md](DESIGN.md).
+The remaining implementation roadmap is the [v2 plan](docs/plans/v2-00-overview.md).
+Completed sessions are removed from it. Shipped behavior and unresolved measured
+limits remain with the design, architecture, reference, and performance documents
+linked from [DESIGN.md](DESIGN.md).
 
 See [DESIGN.md](DESIGN.md) for the rules that keep the determinism guarantee
 true.

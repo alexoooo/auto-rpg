@@ -104,4 +104,5 @@ while clearing a floor and taking a portal remain separate host progression in
 Unresolved combat questions and answered investigations are preserved together in
 [Open combat questions](docs/design/combat.md#open-combat-questions). Forward work is
 temporary and belongs in the [v2 plans](docs/plans/v2-00-overview.md); current
-architecture and reference documents describe only what has shipped.
+architecture and reference documents describe what has shipped, while performance
+records preserve measured failures and the constraints they place on successors.

@@ -335,9 +335,11 @@ expected to.**
 Plans are updated in place as sessions complete, and the whole set is deleted in the
 commit that finishes the topic (see `iso-*` in the history of `docs/plans`).
 
-The live set is `v2-*`. **Start at [`docs/plans/v2-00-overview.md`](docs/plans/v2-00-overview.md)** —
-its dated progress note says which session is in flight and which are done, so you do
-not have to infer the state of the tree from the code or the log.
+The live roadmap is [`docs/plans/v2-00-overview.md`](docs/plans/v2-00-overview.md).
+Completed v2 sessions have been retired; the overview now names only unresolved work,
+and `v2-18` is the sole directly implementable session still present. Durable results
+from closed sessions belong in architecture, design, reference, or performance docs,
+not in a progress ledger.
 
 ## Gotchas that have already cost time
 

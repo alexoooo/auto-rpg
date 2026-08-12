@@ -1,9 +1,16 @@
 # Articulated mechanical gate
 
-**Purpose:** Freeze the pin fixture, scripted commands, paired metrics, worker join, evidence schema, and visible review for v2-17.
+**Purpose:** Define the current fixture/script and the still-proposed completion contract for the articulated mechanical gate.
 **Status:** proposed
-**Canonical source:** `crates/policy/src/articulated_script.rs`, `crates/lab/src/main.rs`, and the committed evidence record after v2-17 lands
+**Canonical source:** `crates/policy/src/articulated_script.rs`, `crates/lab/src/main.rs`, and the future committed gate evidence
 **Update when:** The fixture, script phase, mirror, digest byte, denominator, threshold, worker message, artifact, or pin path changes.
+
+The fixture, policies, lab measurement path, projector repair, and centre-of-mass
+velocity sampling are current. The worker fixtures, evidence artifact, visible review,
+and final pin below are proposed and have not run. The first attempt failed before
+those stages; its numbers, rejected explanations, and successor ledger live in
+[`v2-articulated-gate.md`](../performance/v2-articulated-gate.md). No
+`ARTICULATED_HASH` exists.
 
 ## Canonical fixture and stop rule
 

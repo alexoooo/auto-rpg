@@ -211,18 +211,21 @@ their existing HP, regeneration, death, observation, frame, fitness, and hash pa
 
 ## Measured limits this session found
 
-Two facts about what the v2-14 solver actually delivers, recorded here because they
-are constraints on `v2-17`'s fixtures rather than defects in these rules.
+Two facts about what the articulated solver delivers, recorded here because they are
+constraints on the representative gate rather than defects in these rules.
 
-**Emergent wounds are near-nil at the shipped roster's scale.** An equipment collider
-carries one generalized point velocity -- body plus *hand* -- so a swing's tip speed
-is not represented, and a hand moves at most `ARM_LINEAR_MAX_SPEED_RAW`. The
-dissipated energy that reaches `channels` is then routinely under the raw-144
-`CONTACT_ENERGY_FLOOR` and lands entirely in pressure, which changes no anatomy. A
-charging *body* onto a braced weapon clears the floor comfortably; an arm swing does
-not. Every wound test in `crates/sim/src/world.rs` therefore scales the target's
-regional maxima down, exactly as `articulated-mechanical-gate.md`'s severance case
-already specifies.
+**Emergent wounds remain near-nil at the shipped roster's scale.** This paragraph
+originally said a held blade carried body-plus-hand velocity and no swing term. That
+became false when held segments began sampling their one generalized velocity at the
+blade's centre of mass. The correction tripled region-taking blows, from 39 to 109,
+and still left the median closure speed roughly 35x below the legacy impact scale.
+Most dissipated energy therefore remains under the raw-144 `CONTACT_ENERGY_FLOOR`
+and lands entirely in pressure, which changes no anatomy. A charging *body* onto a
+braced weapon clears the floor comfortably; the present arm swing usually does not.
+Every wound test in `crates/sim/src/world.rs` therefore scales the target's regional
+maxima down, exactly as the mechanical gate's severance case specifies. The measured
+limits and rejected alternatives are in the
+[articulated gate evidence](../performance/v2-articulated-gate.md).
 
 **A mirrored pair of blows cannot both close at a tick-start overlap.** At `toi.raw==0`
 there is no geometric side, so the contact normal is world `+X` unconditionally, and

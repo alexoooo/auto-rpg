@@ -1288,7 +1288,7 @@ mod tests {
         // that decides whether the optimizer has a chance. The alternative the
         // plan proposed -- the whole 922-column vector -- is computed here from
         // the same expression rather than written down, because it is quoted in
-        // the module header and in `docs/plans/v2-19-learning-probe.md`, and a
+        // the module header and in `docs/performance/v2-learning-probe.md`, and a
         // number quoted in three places is a number that drifts. It was wrong
         // in two of them until this line existed.
         assert_eq!(ModelShape::CURRENT.weight_count(), 3_858);

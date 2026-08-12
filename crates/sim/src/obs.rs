@@ -1388,7 +1388,7 @@ impl Observation {
             // blank block is 472 zeros. The block is not free to a Legacy world
             // even so -- the zero fill is twice as wide and `Observation` is
             // 3228 bytes against 1196 -- and `lab bench` measures it; see
-            // `docs/plans/v2-16-pose-event-abi.md`.
+            // `docs/reference/articulated-abi.md`.
             return block + ARTICULATED_FEATURE_COUNT;
         }
 

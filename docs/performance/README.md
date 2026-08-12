@@ -19,6 +19,7 @@ longer sample — and do not compare moving scenes as independent runs.
 - [v2 representative room automated record and pending manual evidence](evidence/2026-08-room-slice.md)
 - [v2 arena foreground matrix — frame times, visual judgements, and by-hand checks owed to a person](v2-arena-matrix.md)
 - [v2 articulated actuator deterministic sweep](v2-actuator-sweep.md)
+- [v2 articulated mechanical gate result and open ledger](v2-articulated-gate.md)
 - [v2 learning probe held-out corpus, 2026-08-11](v2-learning-probe.md)
 
 The [v2 renderer reference matrix](v2-reference-matrix.md#measurement-record)
@@ -36,6 +37,8 @@ least once and directed the project to proceed with Babylon.
 | v2 procedural greybox | complete by owner waiver; 2 of 4 original ordered captures accepted | [evidence and waiver](evidence/2026-08-08-v2-greybox.md#owner-decision-and-protocol-waiver) and [reference matrix](v2-reference-matrix.md#measurement-record) | proceed/pass with measured exception; keep Babylon; WebGPU threshold failed |
 | v2 representative room | automated implementation and minimum-parity visual review complete; foreground performance evidence pending | [room matrix](v2-room-matrix.md#artifact-and-environment-record) and [automated record](evidence/2026-08-room-slice.md#automated-result) | `pass/proceed` at legacy parity; `CONCEPT.png` direction and performance remain open |
 | v2 arena presentation | automated agreement, severance, missing-asset degradation and silhouette-arithmetic gates complete; foreground frame time and visual judgements pending a person at a visible browser | [arena matrix](v2-arena-matrix.md#foreground-performance-record) and [why these are blocked](v2-arena-matrix.md#why-these-are-blocked-rather-than-skipped) | pending; a blocked criterion is not a pass |
+| v2 articulated mechanics | checkpoints A/B complete; worker fixtures, visible review, and pin not started | [measured result and ledger](v2-articulated-gate.md#measured-outcome) and [future gate contract](../reference/articulated-mechanical-gate.md) | failed/revise; `ARTICULATED_HASH` remains absent |
+| v2 learning probe | trained checkpoint and paired held-out evaluation complete | [held-out corpus](v2-learning-probe.md) | `revise`; best condition on both boards, but the 5% bar was not cleared |
 
 The current conclusion is architectural: Canvas is the playable reference/debug
 renderer, while the GPU client supplies both a procedural control and the pinned
