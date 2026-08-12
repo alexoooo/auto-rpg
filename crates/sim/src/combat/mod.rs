@@ -12,3 +12,11 @@ pub mod actuator;
 pub mod contact;
 pub(crate) mod geometry;
 pub mod resolution;
+
+// Exact response translation is still feature-gated research. Keeping its pure
+// grammar beside contact and resolution lets both consume one evaluator without
+// making either of those two ownership boundaries depend on the other.
+#[cfg(any(test, feature = "cartesian-recoil"))]
+pub(crate) mod trajectory;
+#[cfg(any(test, feature = "cartesian-recoil"))]
+pub(crate) mod wide;

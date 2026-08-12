@@ -64,10 +64,13 @@ fixture, calibrate the tactical corpus, reconsider learning, and finally reopen
 
 ## Next-session order
 
-1. Implement [Smart AI 36 -- exact lifted trajectories](smart-ai-36-exact-lifted-trajectories.md).
-   Keep it feature/test-only. It must use one exact geometry evaluator in scan,
-   recomputation, and commit, and stop rather than reconstruct a remainder from
-   published integer endpoints.
+1. Resume from the [Smart AI 37 wide-detector handoff](smart-ai-37-wide-detector-handoff.md)
+   and finish [Smart AI 36 -- exact lifted trajectories](smart-ai-36-exact-lifted-trajectories.md).
+   Keep it feature/test-only. The immediate task is routing the reviewed fixed-wide
+   segment/segment and segment/body helpers without narrowing, then implementing the
+   wide shield path. It must use one exact geometry evaluator in scan, recomputation,
+   and commit, and stop rather than reconstruct a remainder from published integer
+   endpoints.
 2. If it passes, write one bounded lifted-state normal/Coulomb solver plan. Candidate
    selection may use response mechanics only; damage is evidence after selection.
 3. Require a robust mirrored ordinary-command strike before any Lab calibration. The

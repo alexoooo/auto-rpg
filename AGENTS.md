@@ -112,6 +112,16 @@ node tools/serve.js                               # legacy Canvas page only
 node tools/serve.js --no-build --port 9000        # legacy Canvas page only
 ```
 
+**Development servers stay attached to the command that launched them.** Run
+`npm run dev`, `npm run view` and `node tools/serve.js` in the foreground; do not
+use `Start-Process`, `start`, a detached process, or a background helper merely so
+the invoking command can return. On Windows a child survives its parent unless a
+launcher deliberately supplies stronger lifetime management, and a detached Vite
+server has already outlived both Codex CLI and the IDE here. An agent that starts a
+server owns its cleanup: stop it before finishing the task and verify that its port
+no longer has a listener. Leave one running only when the user explicitly asks for
+a persistent server, and report its PID and port.
+
 The development and production contract is root-hosted `/` plus `/web.wasm`. The
 studio shell `web/index.html` is the single `rollupOptions.input` and everything a
 reader can reach is a hash route beneath it: `#/game` is the v2 worker diagnostic,

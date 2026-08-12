@@ -157,3 +157,5 @@ pub use scenario::{
     CombatModel, Scenario, ScenarioFingerprintError, UnitSpec, DUNGEON_COLS, DUNGEON_ROWS,
 };
 pub use world::{Outcome, ShotView, Snapshot, SpawnError, UnitView, World, WorldBuildError};
+#[cfg(feature = "cartesian-recoil")]
+pub use world::ExactLatticeEnvelope;

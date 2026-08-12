@@ -11,6 +11,12 @@ use crate::combat::contact::{
     EnergyLedger, RegionSweep, BODY_SLOT, MAX_CONTACT_FACTS_PER_GROUP, MAX_CONTACT_GROUPS_PER_TICK,
     MAX_CONTACT_RESOLUTIONS_PER_TICK,
 };
+#[cfg(feature = "cartesian-recoil")]
+use crate::combat::contact::{exact_contact_at_pose, exact_response_velocity,
+                             scan_exact_candidates_into};
+#[cfg(feature = "cartesian-recoil")]
+use crate::combat::trajectory::{advance_exact, apply_exact_group, ExactContactTrajectory,
+                                ExactOwnerTrajectory, FixedExactOwners};
 use crate::combat::spec::{AnatomyRegion, SurfaceSpec};
 use crate::{EntityId, Faction};
 use fx::{Fx, TimeOfImpact, Vec3};
@@ -59,6 +65,7 @@ pub struct ProposedContact {
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum ResolutionError {
     ColliderIndex, EnergyNumerator, ResolutionCount, Mass, Projector, DuplicateIdentity,
+    ExactScan, ExactResponsePending, ExactLifecyclePending,
 }
 
 pub fn proposed_impulse(
@@ -532,6 +539,145 @@ impl ContactTickScratch {
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum ContactTimeBasis { RemainingTick, AbsoluteTick }
+
+fn candidate_global_time(basis: ContactTimeBasis, global: u32, fact: ContactFact) -> u32 {
+    match basis {
+        ContactTimeBasis::RemainingTick =>
+            map_local_to_global(global, fact.toi.get().raw() as u32),
+        ContactTimeBasis::AbsoluteTick => fact.toi.get().raw() as u32,
+    }
+}
+
+trait ContactKinematics {
+    fn time_basis(&self) -> ContactTimeBasis;
+    fn scan(
+        &mut self, colliders: &[ContactCollider], scratch: &mut ContactCollectionScratch,
+    ) -> Result<(), ResolutionError>;
+    fn advance_to(&mut self, colliders: &mut [ContactCollider], global: u32, time: u32);
+    fn recompute(
+        &mut self, colliders: &[ContactCollider], a: usize, b: usize, time: u32,
+    ) -> Result<Option<ContactFact>, ResolutionError>;
+    fn finish(&mut self, colliders: &mut [ContactCollider]) -> Result<(), ResolutionError>;
+    fn generalized_velocity(
+        &mut self, colliders: &[ContactCollider], index: usize,
+    ) -> Result<Vec3, ResolutionError> { Ok(colliders[index].velocity) }
+    fn apply_group(
+        &mut self, colliders: &mut [ContactCollider], closure_rows: &[usize],
+        old_velocities: &[Vec3], projected: &[GeneralizedCollider],
+        _rows: &[ContactResolution], time: u32,
+    ) -> Result<(), ResolutionError> {
+        apply_projected_rows(colliders, closure_rows, old_velocities, projected, 65_536 - time)
+    }
+    fn refuses_cap(&self) -> bool { false }
+    fn resolved_relative_velocity(
+        &mut self, colliders: &[ContactCollider], a: usize, b: usize,
+        _fact: ContactFact, _time: u32,
+    ) -> Result<Vec3, ResolutionError> {
+        Ok(colliders[b].velocity - colliders[a].velocity)
+    }
+}
+
+struct CompatibilityKinematics;
+
+impl ContactKinematics for CompatibilityKinematics {
+    fn time_basis(&self) -> ContactTimeBasis { ContactTimeBasis::RemainingTick }
+
+    fn scan(
+        &mut self, colliders: &[ContactCollider], scratch: &mut ContactCollectionScratch,
+    ) -> Result<(), ResolutionError> {
+        scan_candidates_into(colliders, scratch);
+        Ok(())
+    }
+
+    fn advance_to(&mut self, colliders: &mut [ContactCollider], global: u32, time: u32) {
+        advance_all(colliders, time - global, 65_536 - global);
+    }
+
+    fn recompute(
+        &mut self, colliders: &[ContactCollider], a: usize, b: usize, time: u32,
+    ) -> Result<Option<ContactFact>, ResolutionError> {
+        Ok(contact_at_pose(&colliders[a], &colliders[b],
+                           TimeOfImpact::new_clamped(Fx::from_raw(time as i32))))
+    }
+
+    fn finish(&mut self, colliders: &mut [ContactCollider]) -> Result<(), ResolutionError> {
+        finish_all(colliders); Ok(())
+    }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+struct ExactKinematics<'a> {
+    trajectories: &'a [ExactContactTrajectory],
+    owners: &'a mut Vec<ExactOwnerTrajectory>,
+}
+
+#[cfg(feature = "cartesian-recoil")]
+impl ContactKinematics for ExactKinematics<'_> {
+    fn time_basis(&self) -> ContactTimeBasis { ContactTimeBasis::AbsoluteTick }
+
+    fn scan(
+        &mut self, colliders: &[ContactCollider], scratch: &mut ContactCollectionScratch,
+    ) -> Result<(), ResolutionError> {
+        scan_exact_candidates_into(self.trajectories, self.owners, colliders, scratch)
+            .map_err(|_| ResolutionError::ExactScan)
+    }
+
+    fn advance_to(&mut self, _colliders: &mut [ContactCollider], _global: u32, _time: u32) {
+        // Exact facts carry absolute tick time and evaluate immutable motor
+        // geometry there. Moving the rounded compatibility pose would create
+        // a second trajectory before checkpoint D owns its commit.
+    }
+
+    fn recompute(
+        &mut self, colliders: &[ContactCollider], a: usize, b: usize, time: u32,
+    ) -> Result<Option<ContactFact>, ResolutionError> {
+        exact_contact_at_pose(self.trajectories, self.owners, colliders, a, b, time)
+            .map_err(|_| ResolutionError::ExactScan)
+    }
+
+    fn finish(&mut self, colliders: &mut [ContactCollider]) -> Result<(), ResolutionError> {
+        // This first integration slice has no exact response commit. Keeping
+        // the compatibility rows motor-only lets the existing World commit
+        // finish an otherwise untouched tick without manufacturing response.
+        finish_all(colliders);
+        let finished = advance_exact(self.owners, 65_536).map_err(|_| ResolutionError::ExactScan)?;
+        finished.copy_into(self.owners).map_err(|_| ResolutionError::ExactScan)
+    }
+
+    fn generalized_velocity(
+        &mut self, colliders: &[ContactCollider], index: usize,
+    ) -> Result<Vec3, ResolutionError> {
+        let row = self.trajectories.get(index).ok_or(ResolutionError::ColliderIndex)?;
+        let owner = self.owners.get(row.owner_index).ok_or(ResolutionError::ColliderIndex)?;
+        Ok(colliders[index].velocity
+            + exact_response_velocity(row, owner).map_err(|_| ResolutionError::ExactScan)?)
+    }
+
+    fn apply_group(
+        &mut self, _colliders: &mut [ContactCollider], _closure_rows: &[usize],
+        _old_velocities: &[Vec3], _projected: &[GeneralizedCollider],
+        rows: &[ContactResolution], time: u32,
+    ) -> Result<(), ResolutionError> {
+        let staged = apply_exact_group(self.trajectories, self.owners, rows, time)
+            .map_err(|_| ResolutionError::ExactScan)?;
+        staged.owners.copy_into(self.owners).map_err(|_| ResolutionError::ExactScan)
+    }
+
+    fn refuses_cap(&self) -> bool { true }
+
+    fn resolved_relative_velocity(
+        &mut self, colliders: &[ContactCollider], a: usize, b: usize,
+        _fact: ContactFact, time: u32,
+    ) -> Result<Vec3, ResolutionError> {
+        let fact = exact_contact_at_pose(self.trajectories, self.owners,
+            colliders, a, b, time).map_err(|_| ResolutionError::ExactScan)?
+            .ok_or(ResolutionError::ExactScan)?;
+        Ok(fact.velocity_b - fact.velocity_a)
+    }
+}
+
 /// Pure multi-group driver over explicit collider trajectories. World supplies
 /// rows, the projector that knows how a body delta reaches its held equipment,
 /// and retained scratch; the driver performs no authoritative allocation when
@@ -542,6 +688,28 @@ pub fn solve_contact_tick<P: ContactTrialProjector>(
     state: &mut ContactSolverState,
     resolutions: &mut Vec<ContactResolution>,
     scratch: &mut ContactTickScratch,
+) -> Result<u8, ResolutionError> {
+    solve_contact_tick_with(colliders, projector, state, resolutions, scratch,
+                            &mut CompatibilityKinematics)
+}
+
+#[cfg(feature = "cartesian-recoil")]
+pub(crate) fn solve_exact_contact_tick<P: ContactTrialProjector>(
+    colliders: &mut [ContactCollider], trajectories: &[ExactContactTrajectory],
+    owners: &mut Vec<ExactOwnerTrajectory>, projector: &mut P, state: &mut ContactSolverState,
+    resolutions: &mut Vec<ContactResolution>, scratch: &mut ContactTickScratch,
+) -> Result<u8, ResolutionError> {
+    let entry = FixedExactOwners::from_slice(owners).map_err(|_| ResolutionError::ExactScan)?;
+    let result = solve_contact_tick_with(colliders, projector, state, resolutions, scratch,
+        &mut ExactKinematics { trajectories, owners });
+    if result.is_err() { entry.copy_into(owners).map_err(|_| ResolutionError::ExactScan)?; }
+    result
+}
+
+fn solve_contact_tick_with<P: ContactTrialProjector, K: ContactKinematics>(
+    colliders: &mut [ContactCollider], projector: &mut P,
+    state: &mut ContactSolverState, resolutions: &mut Vec<ContactResolution>,
+    scratch: &mut ContactTickScratch, kinematics: &mut K,
 ) -> Result<u8, ResolutionError> {
     // Identity is the full `(EntityId, LimbSlot)` pair, and this is checked in
     // release rather than merely asserted in debug. A duplicated row makes the
@@ -569,12 +737,15 @@ pub fn solve_contact_tick<P: ContactTrialProjector>(
     let mut groups = 0u8;
 
     loop {
-        scan_candidates_into(colliders, &mut scratch.collection);
-        forget_closing_keys(&mut scratch.suppressed, scratch.collection.candidates());
+        let basis = kinematics.time_basis();
+        kinematics.scan(colliders, &mut scratch.collection)?;
+        forget_closing_keys(basis, global, &mut scratch.suppressed,
+                            scratch.collection.candidates());
 
-        let Some(time) = earliest_group_time(global, scratch.collection.candidates(), &scratch.suppressed)
+        let Some(time) = earliest_group_time(
+            basis, global, scratch.collection.candidates(), &scratch.suppressed)
         else {
-            finish_all(colliders);
+            kinematics.finish(colliders)?;
             return Ok(groups);
         };
 
@@ -585,28 +756,28 @@ pub fn solve_contact_tick<P: ContactTrialProjector>(
         // land on one global time are simultaneous -- which is what the contract
         // asks for and what a test on local equality would miss.
         let members = count_group_members(
-            global, time, scratch.collection.candidates(), &scratch.suppressed)?;
+            basis, global, time, scratch.collection.candidates(), &scratch.suppressed)?;
 
         // No ordinal left, or a simultaneous set too large to resolve as one
         // system. Neither is truncation: no prefix of a group is privileged.
         if groups == MAX_CONTACT_GROUPS_PER_TICK || members > MAX_CONTACT_FACTS_PER_GROUP {
-            cap_at_last_safe_pose(colliders, global, time, scratch, state);
+            if kinematics.refuses_cap() { return Err(ResolutionError::ExactLifecyclePending); }
+            cap_at_last_safe_pose(basis, colliders, global, time, scratch, state);
             return Ok(groups);
         }
 
-        advance_all(colliders, time - global, 65_536 - global);
+        kinematics.advance_to(colliders, global, time);
 
-        let group_toi = TimeOfImpact::new_clamped(Fx::from_raw(time as i32));
         scratch.group_facts.clear();
         for index in 0..scratch.collection.candidates().len() {
             let fact = scratch.collection.candidates()[index].fact;
-            if suppressed(&fact, global, &scratch.suppressed) { continue; }
-            if map_local_to_global(global, fact.toi.get().raw() as u32) != time { continue; }
+            if suppressed(basis, &fact, global, &scratch.suppressed) { continue; }
+            if candidate_global_time(basis, global, fact) != time { continue; }
             let a = collider_index(colliders, fact.key.a, fact.key.a_slot)
                 .ok_or(ResolutionError::ColliderIndex)?;
             let b = collider_index(colliders, fact.key.b, fact.key.b_slot)
                 .ok_or(ResolutionError::ColliderIndex)?;
-            if let Some(recomputed) = contact_at_pose(&colliders[a], &colliders[b], group_toi) {
+            if let Some(recomputed) = kinematics.recompute(colliders, a, b, time)? {
                 scratch.group_facts.push(recomputed);
             }
         }
@@ -638,7 +809,8 @@ pub fn solve_contact_tick<P: ContactTrialProjector>(
                 entity: row.entity, slot: row.slot,
                 kind: if matches!(row.shape, ContactShape::Body { .. }) { GeneralizedKind::Body }
                       else { GeneralizedKind::Equipment },
-                mass: row.mass, velocity: row.velocity, velocity_offset: row.velocity_offset,
+                mass: row.mass, velocity: kinematics.generalized_velocity(colliders, index)?,
+                velocity_offset: row.velocity_offset,
             });
         }
 
@@ -661,7 +833,9 @@ pub fn solve_contact_tick<P: ContactTrialProjector>(
         }
 
         scratch.old_velocities.clear();
-        for &index in &scratch.closure_rows { scratch.old_velocities.push(colliders[index].velocity); }
+        for &index in &scratch.closure_rows {
+            scratch.old_velocities.push(kinematics.generalized_velocity(colliders, index)?);
+        }
 
         resolve_group_into(
             &mut scratch.generalized, &scratch.proposed, groups, projector,
@@ -674,13 +848,17 @@ pub fn solve_contact_tick<P: ContactTrialProjector>(
         // helper agrees on every positive delta and disagrees by one raw unit
         // on negative ones, which is exactly the byte the behavioral corpus
         // pins in case 2.
-        apply_projected_rows(colliders, &scratch.closure_rows, &scratch.old_velocities,
-            &scratch.generalized, 65_536 - time)?;
+        kinematics.apply_group(colliders, &scratch.closure_rows, &scratch.old_velocities,
+                               &scratch.generalized, &scratch.group_rows, time)?;
 
         // The group is settled: hand it to the projector before the next scan
         // sees the colliders, so a severance can take an arm out of the tick it
         // happened in rather than the one after.
         projector.after_group(colliders, &mut scratch.group_rows)?;
+        if kinematics.time_basis() == ContactTimeBasis::AbsoluteTick
+            && colliders.iter().any(|row| !row.present) {
+            return Err(ResolutionError::ExactLifecyclePending);
+        }
 
         // Eight groups of at most 512 rows fit the 4,096 ceiling exactly, so
         // this is an invariant rather than a live limit -- and it is checked
@@ -701,7 +879,8 @@ pub fn solve_contact_tick<P: ContactTrialProjector>(
                 .ok_or(ResolutionError::ColliderIndex)?;
             remember_resolved(&mut scratch.suppressed, Resolved {
                 key: fact.key, global: time, normal: fact.normal,
-                relative_velocity: colliders[b].velocity - colliders[a].velocity,
+                relative_velocity: kinematics.resolved_relative_velocity(
+                    colliders, a, b, fact, time)?,
             });
         }
         global = time;
@@ -711,21 +890,22 @@ pub fn solve_contact_tick<P: ContactTrialProjector>(
 
 /// The earliest global time any unsuppressed candidate maps onto.
 fn earliest_group_time(
-    global: u32, candidates: &[Candidate], resolved: &[Resolved],
+    basis: ContactTimeBasis, global: u32, candidates: &[Candidate], resolved: &[Resolved],
 ) -> Option<u32> {
     candidates.iter()
-        .filter(|candidate| !suppressed(&candidate.fact, global, resolved))
-        .map(|candidate| map_local_to_global(global, candidate.fact.toi.get().raw() as u32))
+        .filter(|candidate| !suppressed(basis, &candidate.fact, global, resolved))
+        .map(|candidate| candidate_global_time(basis, global, candidate.fact))
         .min()
 }
 
 fn count_group_members(
-    global: u32, time: u32, candidates: &[Candidate], resolved: &[Resolved],
+    basis: ContactTimeBasis, global: u32, time: u32,
+    candidates: &[Candidate], resolved: &[Resolved],
 ) -> Result<usize, ResolutionError> {
     let mut members = 0usize;
     for candidate in candidates {
-        if suppressed(&candidate.fact, global, resolved) { continue; }
-        if map_local_to_global(global, candidate.fact.toi.get().raw() as u32) != time { continue; }
+        if suppressed(basis, &candidate.fact, global, resolved) { continue; }
+        if candidate_global_time(basis, global, candidate.fact) != time { continue; }
         members = members.checked_add(1).ok_or(ResolutionError::ResolutionCount)?;
     }
     Ok(members)
@@ -746,8 +926,10 @@ struct Resolved { key: ContactKey, global: u32, normal: Vec3, relative_velocity:
 /// normal is what makes the first survivable at a coincident point --
 /// recomputing the degenerate velocity-derived normal after a bounce would flip
 /// it and call a separating pair closing.
-fn suppressed(fact: &ContactFact, global: u32, resolved: &[Resolved]) -> bool {
-    if fact.toi.get() != Fx::ZERO { return false; }
+fn suppressed(
+    basis: ContactTimeBasis, fact: &ContactFact, global: u32, resolved: &[Resolved],
+) -> bool {
+    if candidate_global_time(basis, global, *fact) != global { return false; }
     let Ok(index) = resolved.binary_search_by_key(&fact.key, |row| row.key) else { return false };
     let relative = fact.velocity_b - fact.velocity_a;
     // Separating, or sliding tangentially: the ordinary case.
@@ -775,9 +957,12 @@ fn suppressed(fact: &ContactFact, global: u32, resolved: &[Resolved]) -> bool {
 
 /// A positive local time means the pair separated and is closing again, so the
 /// key leaves the set and may resolve normally.
-fn forget_closing_keys(resolved: &mut Vec<Resolved>, candidates: &[Candidate]) {
+fn forget_closing_keys(
+    basis: ContactTimeBasis, global: u32,
+    resolved: &mut Vec<Resolved>, candidates: &[Candidate],
+) {
     for candidate in candidates {
-        if candidate.fact.toi.get() == Fx::ZERO { continue; }
+        if candidate_global_time(basis, global, candidate.fact) == global { continue; }
         if let Ok(index) = resolved.binary_search_by_key(&candidate.fact.key, |row| row.key) {
             resolved.remove(index);
         }
@@ -895,13 +1080,13 @@ fn finish_all(rows: &mut [ContactCollider]) {
 /// transitive step below vacuous, since every fact would already have
 /// contributed both of its entities.
 fn cap_at_last_safe_pose(
-    colliders: &mut [ContactCollider], global: u32, time: u32,
+    basis: ContactTimeBasis, colliders: &mut [ContactCollider], global: u32, time: u32,
     scratch: &mut ContactTickScratch, state: &mut ContactSolverState,
 ) {
     scratch.capped_entities.clear();
     for candidate in scratch.collection.candidates() {
-        if suppressed(&candidate.fact, global, &scratch.suppressed) { continue; }
-        if map_local_to_global(global, candidate.fact.toi.get().raw() as u32) != time { continue; }
+        if suppressed(basis, &candidate.fact, global, &scratch.suppressed) { continue; }
+        if candidate_global_time(basis, global, candidate.fact) != time { continue; }
         push_unique(&mut scratch.capped_entities, candidate.fact.key.a);
         push_unique(&mut scratch.capped_entities, candidate.fact.key.b);
     }
@@ -911,7 +1096,7 @@ fn cap_at_last_safe_pose(
     loop {
         let before = scratch.capped_entities.len();
         for candidate in scratch.collection.candidates() {
-            if suppressed(&candidate.fact, global, &scratch.suppressed) { continue; }
+            if suppressed(basis, &candidate.fact, global, &scratch.suppressed) { continue; }
             let key = candidate.fact.key;
             let (a, b) = (scratch.capped_entities.contains(&key.a),
                           scratch.capped_entities.contains(&key.b));
@@ -1081,7 +1266,9 @@ fn behavior_case(case_id: u32) -> Vec<ContactCollider> {
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
-    use crate::combat::contact::{BODY_SLOT, ContactKey};
+    use crate::combat::contact::{
+        scan_exact_candidates_into, zero_response_compatibility, BODY_SLOT, ContactKey,
+    };
     use crate::combat::spec::Material;
     use crate::EntityId;
     use fx::{Angle, Hash64, TimeOfImpact};
@@ -1095,6 +1282,122 @@ pub(crate) mod tests {
         GeneralizedCollider { entity: EntityId::new(index, 0), slot: 1,
             kind: GeneralizedKind::Equipment, mass: Fx::ONE, velocity,
             velocity_offset: Vec3::ZERO }
+    }
+
+    struct RejectAfterGroup;
+
+    impl ContactTrialProjector for RejectAfterGroup {
+        fn project(
+            &mut self, before: &[GeneralizedCollider], sums: &[[i128; 3]], alpha_raw: u32,
+            out: &mut Vec<GeneralizedCollider>,
+        ) -> Result<(), ResolutionError> {
+            IndependentPointProjector.project(before, sums, alpha_raw, out)
+        }
+
+        fn after_group(
+            &mut self, _colliders: &mut [ContactCollider], _rows: &mut [ContactResolution],
+        ) -> Result<(), ResolutionError> { Err(ResolutionError::Projector) }
+    }
+
+    #[test]
+    fn zero_response_exact_scan_is_byte_equal_to_every_behavior_case() {
+        for case_id in 0..=6 {
+            let rows = behavior_case(case_id);
+            let exact = zero_response_compatibility(&rows).unwrap();
+            let mut legacy = ContactCollectionScratch::default();
+            let mut compatible = ContactCollectionScratch::default();
+            scan_candidates_into(&rows, &mut legacy);
+            scan_exact_candidates_into(&exact.trajectories, &exact.owners, &rows,
+                                       &mut compatible).unwrap();
+            let serialize = |scratch: &ContactCollectionScratch| {
+                let mut bytes = Vec::new();
+                put_u32(&mut bytes, scratch.candidates().len() as u32);
+                for candidate in scratch.candidates() { write_fact(&mut bytes, candidate.fact); }
+                bytes
+            };
+            assert_eq!(serialize(&compatible), serialize(&legacy), "behavior case {case_id}");
+        }
+    }
+
+    #[test]
+    fn exact_time_basis_bypasses_mapping_for_membership_and_suppression() {
+        let global = 20_000;
+        let absolute = fact(0, 1, ContactKind::WeaponWeapon, 40_000, 1, -1);
+        assert_eq!(candidate_global_time(ContactTimeBasis::AbsoluteTick, global, absolute), 40_000);
+        assert_ne!(candidate_global_time(ContactTimeBasis::RemainingTick, global, absolute), 40_000,
+                   "the mutation to remaining-tick mapping was invisible");
+
+        let mut scratch = ContactCollectionScratch::default();
+        scratch.try_reserve(64).unwrap();
+        for case_id in 0..=6 {
+            let rows = behavior_case(case_id);
+            let exact = zero_response_compatibility(&rows).unwrap();
+            scan_exact_candidates_into(&exact.trajectories, &exact.owners, &rows,
+                                       &mut scratch).unwrap();
+            if !scratch.candidates().is_empty() { break; }
+        }
+        let time = earliest_group_time(ContactTimeBasis::AbsoluteTick, 0,
+            scratch.candidates(), &[]).expect("an exact candidate");
+        let expected = scratch.candidates().iter()
+            .filter(|row| row.fact.toi.get().raw() as u32 == time).count();
+        assert_eq!(count_group_members(ContactTimeBasis::AbsoluteTick, 0, time,
+            scratch.candidates(), &[]).unwrap(), expected);
+
+        let at_current = fact(0, 1, ContactKind::WeaponWeapon,
+                              global as i32, 65_536, -65_536);
+        let remembered = [Resolved { key: at_current.key, global,
+            normal: at_current.normal,
+            relative_velocity: at_current.velocity_b - at_current.velocity_a }];
+        assert!(suppressed(ContactTimeBasis::AbsoluteTick, &at_current, global, &remembered));
+        assert!(!suppressed(ContactTimeBasis::RemainingTick, &at_current, global, &remembered));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn exact_group_failure_restores_staged_owners_and_output_atomically() {
+        let mut rows = behavior_case(4);
+        let mut exact = zero_response_compatibility(&rows).unwrap();
+        let before = rows.clone();
+        let before_owners = exact.owners.clone();
+        let mut state = ContactSolverState::default();
+        let before_state = state;
+        let mut resolutions = Vec::new();
+        let mut scratch = ContactTickScratch::default();
+        scratch.reserve(rows.len(), 64);
+        assert!(solve_exact_contact_tick(&mut rows, &exact.trajectories, &mut exact.owners,
+            &mut RejectAfterGroup, &mut state, &mut resolutions, &mut scratch).is_err());
+        assert_eq!(rows, before);
+        assert_eq!(exact.owners, before_owners);
+        assert_eq!(state, before_state);
+        assert!(resolutions.is_empty());
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn a_second_exact_group_scans_the_first_response_and_finishes_each_interval_once() {
+        let mut rows = behavior_case(3);
+        let mut exact = zero_response_compatibility(&rows).unwrap();
+        let mut state = ContactSolverState::default();
+        let mut resolutions = Vec::new();
+        let mut scratch = ContactTickScratch::default();
+        scratch.reserve(rows.len() * 3, 64);
+        let groups = solve_exact_contact_tick(&mut rows, &exact.trajectories,
+            &mut exact.owners, &mut IndependentPointProjector, &mut state,
+            &mut resolutions, &mut scratch).unwrap();
+        assert_eq!(groups, 2, "removing the first exact response hid the second group");
+        assert_eq!(resolutions.iter().map(|row| (row.group_ordinal,
+            row.fact.key.a.index, row.fact.key.b.index)).collect::<Vec<_>>(),
+            vec![(0, 0, 1), (1, 1, 2)]);
+        assert_ne!(resolutions[1].fact.velocity_a, rows[1].velocity,
+                   "group two read motor-only compatibility velocity");
+        assert!(exact.owners.iter().all(|owner| owner.common_response.group_time_raw == 65_536
+            && owner.held_response.iter().flatten()
+                .all(|held| held.affine.group_time_raw == 65_536)),
+            "one owner was not finished exactly once to tick end");
+        let middle = exact.owners.iter().find(|owner| owner.entity.index == 1).unwrap();
+        assert_ne!(middle.held_response[1].unwrap().affine.at_group[0],
+                   crate::combat::trajectory::ExactPosition::default(),
+                   "the first-to-second interval was never integrated");
     }
 
     #[test]

@@ -22,9 +22,19 @@ use crate::combat::contact::{contact_bounds, medial_point, try_reserve_exact,
                              ContactResolution, ContactShape,
                              ContactSolverState, RegionSweep, BODY_SLOT,
                              MAX_CONTACT_FACTS_PER_GROUP, MAX_CONTACT_RESOLUTIONS_PER_TICK};
+#[cfg(all(test, feature = "cartesian-recoil"))]
+use crate::combat::contact::{exact_contact_at_pose, scan_exact_candidates_into};
 use crate::combat::geometry;
 use crate::combat::resolution::{self, ContactTickScratch, ContactTrialProjector,
                                 GeneralizedCollider, GeneralizedKind, ResolutionError};
+#[cfg(feature = "cartesian-recoil")]
+use crate::combat::trajectory::{ExactAffine3, ExactContactTrajectory, ExactHeldResponse,
+                                ExactMotorBounds, ExactMotorPoint, ExactOwnerTrajectory,
+                                ExactMomentum, ExactPosition, ExactTrajectoryReject, MotorShape,
+                                EvaluatedContactShape, evaluate_exact, exact_held_velocity,
+                                exact_point_quotient};
+#[cfg(all(test, feature = "cartesian-recoil"))]
+use crate::combat::trajectory::{advance_exact, apply_exact_group};
 use crate::{EquipmentGeometry, EquipmentSpecId};
 use fx::{Angle, Fx, Hash64, Rng, Vec2, Vec3};
 
@@ -39,6 +49,43 @@ use fx::{Angle, Fx, Hash64, Rng, Vec2, Vec3};
 /// which is a bijection, so a nonzero domain can never collide with the legacy
 /// stream for any (tick, entity).
 const ARTICULATED_OBSERVATION_DOMAIN: u64 = 0x4152_544f_4253_31;
+
+/// Append the feature-only exact response grammar. Every allocated slot has
+/// the same width: an inactive slot emits the all-zero row instead of changing
+/// where the next entity begins.
+#[cfg(feature = "cartesian-recoil")]
+fn hash_exact_owners(h: &mut Hash64, owners: &[Option<ExactOwnerTrajectory>]) {
+    let write_i128 = |h: &mut Hash64, value: i128| {
+        h.write_u64(value as u128 as u64);
+        h.write_u64((value as u128 >> 64) as u64);
+    };
+    let write_affine = |h: &mut Hash64, affine: Option<&ExactAffine3>| {
+        for axis in 0..3 {
+            let (velocity_raw, momentum_remainder, position_raw, position_remainder) =
+                affine.map_or((0, 0, 0, 0), |row| (
+                    row.momentum[axis].velocity_raw,
+                    row.momentum[axis].remainder,
+                    row.at_group[axis].raw,
+                    row.at_group[axis].remainder,
+            ));
+            h.write_i32(velocity_raw);
+            write_i128(h, momentum_remainder);
+            h.write_i32(position_raw);
+            write_i128(h, position_remainder);
+        }
+    };
+    for owner in owners {
+        write_i128(h, owner.map_or(0, |row| row.common_scale));
+        h.write_i32(owner.map_or(0, |row| row.common_response.mass_raw));
+        write_affine(h, owner.as_ref().map(|row| &row.common_response));
+        for limb in 0..2 {
+            let held = owner.as_ref().and_then(|row| row.held_response[limb].as_ref());
+            h.write_bool(held.is_some());
+            h.write_u16(held.map_or(0, |row| row.spec_id));
+            write_affine(h, held.map(|row| &row.affine));
+        }
+    }
+}
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Outcome {
@@ -165,6 +212,11 @@ pub struct World {
     body_yaw: Vec<BodyYawState>,
     arms: Vec<[ArmState; 2]>,
     grips: Vec<[GripState; 2]>,
+    /// Exact contact response, one row per allocated articulated slot. `None`
+    /// is the canonical all-zero inactive row; an active row keeps immutable
+    /// equipment identity beside the remainder it owns.
+    #[cfg(feature = "cartesian-recoil")]
+    exact_owners: Vec<Option<ExactOwnerTrajectory>>,
     shield_pose: Vec<Option<ShieldPose>>,
     move_authority: Vec<Fx>,
     turn_authority: Vec<Fx>,
@@ -429,6 +481,12 @@ struct ContactRuntime {
     /// per fact rather than per region -- two blows on one arm are two sources.
     fact_loss: Vec<Fx>,
     #[cfg(feature = "cartesian-recoil")]
+    exact_trajectories: Vec<ExactContactTrajectory>,
+    #[cfg(feature = "cartesian-recoil")]
+    exact_owners: Vec<ExactOwnerTrajectory>,
+    #[cfg(feature = "cartesian-recoil")]
+    exact_commit: Vec<ExactCommitRow>,
+    #[cfg(feature = "cartesian-recoil")]
     recoil_external: Vec<[RecoilExternalEnergy; 2]>,
     /// How many ticks the solver refused, cumulative.
     ///
@@ -471,6 +529,12 @@ impl ContactRuntime {
         try_reserve_exact(&mut self.fact_loss, MAX_CONTACT_FACTS_PER_GROUP)?;
         #[cfg(feature = "cartesian-recoil")]
         try_reserve_exact(&mut self.recoil_external, high_water)?;
+        #[cfg(feature = "cartesian-recoil")]
+        {
+            try_reserve_exact(&mut self.exact_trajectories, bounds.collider_bound)?;
+            try_reserve_exact(&mut self.exact_owners, high_water)?;
+            try_reserve_exact(&mut self.exact_commit, high_water)?;
+        }
         self.high_water = high_water;
         Ok(())
     }
@@ -958,21 +1022,115 @@ impl ArmScalars {
 pub enum WorldBuildError {
     CombatSpec(CombatSpecError),
     Contact(ContactCapacityError),
+    #[cfg(feature = "cartesian-recoil")]
+    ExactLattice(ExactLatticeEnvelope),
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum SpawnError {
     CombatSpec(CombatSpecError),
     Contact(ContactCapacityError),
+    #[cfg(feature = "cartesian-recoil")]
+    ExactLattice(ExactLatticeEnvelope),
 }
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ExactLatticeEnvelope { Arithmetic, EndpointDenominator }
 
 impl From<SpawnError> for WorldBuildError {
     fn from(error: SpawnError) -> WorldBuildError {
         match error {
             SpawnError::CombatSpec(spec) => WorldBuildError::CombatSpec(spec),
             SpawnError::Contact(contact) => WorldBuildError::Contact(contact),
+            #[cfg(feature = "cartesian-recoil")]
+            SpawnError::ExactLattice(exact) => WorldBuildError::ExactLattice(exact),
         }
     }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+struct ExactLattice { common_scale: i128, endpoint_denominator_bits: u32 }
+
+#[cfg(feature = "cartesian-recoil")]
+fn exact_lattice_from_masses(
+    common_masses: &[i32], held_masses: &[i32],
+) -> Result<ExactLattice, ExactLatticeEnvelope> {
+    let gcd = |mut a: i128, mut b: i128| {
+        while b != 0 { let next = a % b; a = b; b = next; }
+        a.abs()
+    };
+    let lcm = |a: i128, b: i128| -> Result<i128, ExactLatticeEnvelope> {
+        if a <= 0 || b <= 0 { return Err(ExactLatticeEnvelope::Arithmetic); }
+        (a / gcd(a, b)).checked_mul(b).ok_or(ExactLatticeEnvelope::Arithmetic)
+    };
+    let mut common_scale = 1i128;
+    for &mass in common_masses {
+        common_scale = lcm(common_scale, mass as i128)?;
+    }
+    let mut widest = common_scale.checked_mul(65_536)
+        .ok_or(ExactLatticeEnvelope::Arithmetic)?;
+    for &mass in held_masses {
+        widest = widest.max(lcm(common_scale, mass as i128)?
+            .checked_mul(65_536).ok_or(ExactLatticeEnvelope::Arithmetic)?);
+    }
+    let bits = 128 - (widest as u128).leading_zeros();
+    if bits > 96 { return Err(ExactLatticeEnvelope::EndpointDenominator); }
+    Ok(ExactLattice { common_scale, endpoint_denominator_bits: bits })
+}
+
+fn canonical_grip_pair(
+    table: &CombatSpecTableV1, carried: [Option<EquipmentSpecId>; 2],
+    pair: [Option<u8>; 2],
+) -> Result<[Option<crate::EquipmentSpec>; 2], (usize, u8)> {
+    let item = |slot: u8| carried.get(slot as usize).copied().flatten()
+        .and_then(|id| table.equipment(id)).copied();
+    match pair {
+        [None, None] => Ok([None, None]),
+        [Some(slot), None] => item(slot).filter(|row| row.binding == crate::GripBinding::Left)
+            .map(|row| [Some(row), None]).ok_or((0, slot)),
+        [None, Some(slot)] => item(slot).filter(|row| row.binding == crate::GripBinding::Right)
+            .map(|row| [None, Some(row)]).ok_or((1, slot)),
+        [Some(left), Some(right)] if left == right => item(right)
+            .filter(|row| row.binding == crate::GripBinding::Both
+                && !matches!(row.geometry, crate::EquipmentGeometry::Shield { .. }))
+            .map(|row| [None, Some(row)]).ok_or((0, left)),
+        [Some(left), Some(right)] => {
+            let left_item = item(left).ok_or((0, left))?;
+            let right_item = item(right).ok_or((1, right))?;
+            if left_item.binding != crate::GripBinding::Left { return Err((0, left)); }
+            if right_item.binding != crate::GripBinding::Right { return Err((1, right)); }
+            if matches!(left_item.geometry, crate::EquipmentGeometry::Shield { .. })
+                && matches!(right_item.geometry, crate::EquipmentGeometry::Shield { .. }) {
+                return Err((1, right));
+            }
+            Ok([Some(left_item), Some(right_item)])
+        }
+    }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn exact_lattice_for_unit(
+    body_mass_raw: i32, table: &CombatSpecTableV1, unit: ArticulatedUnitSpecV1,
+) -> Result<ExactLattice, ExactLatticeEnvelope> {
+    let choices = [None, Some(0), Some(1)];
+    let mut common = [0; 9]; let mut common_len = 0;
+    let mut held = [0; 18]; let mut held_len = 0;
+    for left in choices {
+        for right in choices {
+            let Ok(owners) = canonical_grip_pair(table, unit.equipment, [left, right]) else {
+                continue;
+            };
+            let mut total = body_mass_raw;
+            for item in owners.into_iter().flatten() {
+                total = total.checked_add(item.mass.raw()).ok_or(ExactLatticeEnvelope::Arithmetic)?;
+                held[held_len] = item.mass.raw(); held_len += 1;
+            }
+            common[common_len] = total; common_len += 1;
+        }
+    }
+    exact_lattice_from_masses(&common[..common_len], &held[..held_len])
 }
 
 /// The absolute coordinate envelope every constructible combat point must stay
@@ -1076,6 +1234,9 @@ impl World {
                     .ok_or(WorldBuildError::CombatSpec(CombatSpecError::UnitPresence))?;
                 check_contact_envelope(arena, unit.spawn, table, row)
                     .map_err(WorldBuildError::Contact)?;
+                #[cfg(feature = "cartesian-recoil")]
+                exact_lattice_for_unit(unit.kind.mass().raw(), table, row)
+                    .map_err(WorldBuildError::ExactLattice)?;
             }
             contact_bounds(n).map_err(WorldBuildError::Contact)?;
         }
@@ -1113,6 +1274,12 @@ impl World {
             body_yaw: Vec::with_capacity(n),
             arms: Vec::with_capacity(n),
             grips: Vec::with_capacity(n),
+            #[cfg(feature = "cartesian-recoil")]
+            exact_owners: if scenario.combat_model == crate::CombatModel::Articulated {
+                Vec::with_capacity(n)
+            } else {
+                Vec::new()
+            },
             shield_pose: Vec::with_capacity(n),
             move_authority: Vec::with_capacity(n),
             turn_authority: Vec::with_capacity(n),
@@ -1195,6 +1362,8 @@ impl World {
     /// only then touches a world column -- so a refused spawn leaves the world
     /// exactly as it found it.
     pub fn try_spawn(&mut self, spec: &UnitSpec) -> Result<EntityId, SpawnError> {
+        #[cfg(feature = "cartesian-recoil")]
+        let mut exact_scale = 0i128;
         match self.combat_model {
             crate::CombatModel::Legacy => {
                 if spec.articulated.is_some() {
@@ -1210,6 +1379,9 @@ impl World {
                     .map_err(SpawnError::CombatSpec)?;
                 check_contact_envelope(self.arena, spec.spawn, table, row)
                     .map_err(SpawnError::Contact)?;
+                #[cfg(feature = "cartesian-recoil")]
+                { exact_scale = exact_lattice_for_unit(spec.kind.mass().raw(), table, row)
+                    .map_err(SpawnError::ExactLattice)?.common_scale; }
                 // A reused slot raises no high water and therefore reserves
                 // nothing, which is the property that makes a respawn free.
                 let prospective = match self.free.last() {
@@ -1219,7 +1391,9 @@ impl World {
                 self.try_reserve_contact_slots(prospective).map_err(SpawnError::Contact)?;
             }
         }
-        Ok(self.spawn_validated(spec))
+        Ok(self.spawn_validated(spec,
+            #[cfg(feature = "cartesian-recoil")]
+            exact_scale))
     }
 
     /// Reserve every contact vector for `high_water` allocated slots.
@@ -1311,7 +1485,9 @@ impl World {
         rows
     }
 
-    fn spawn_validated(&mut self, spec: &UnitSpec) -> EntityId {
+    fn spawn_validated(&mut self, spec: &UnitSpec,
+        #[cfg(feature = "cartesian-recoil")] exact_scale: i128,
+    ) -> EntityId {
         let max_hp = spec.stats.max_hp();
         let slot = self.free.pop();
         let i = match slot {
@@ -1343,6 +1519,8 @@ impl World {
                     self.body_yaw.push(BodyYawState { angle: Angle::ZERO, speed_turns: Fx::ZERO, authority_residue: Fx::ZERO });
                     self.arms.push([arm; 2]);
                     self.grips.push([GripState { equipment_slot: None }; 2]);
+                    #[cfg(feature = "cartesian-recoil")]
+                    self.exact_owners.push(None);
                     self.shield_pose.push(None);
                     self.move_authority.push(Fx::ONE);
                     self.turn_authority.push(Fx::ONE);
@@ -1392,6 +1570,10 @@ impl World {
         };
         if self.combat_model == crate::CombatModel::Articulated {
             self.initialize_articulated_pose(i);
+            #[cfg(feature = "cartesian-recoil")]
+            {
+                self.exact_owners[i] = Some(self.initial_exact_owner(i, exact_scale));
+            }
         }
         self.last_attacker[i] = EntityId::NONE;
         self.last_combat[i] = self.tick;
@@ -4334,6 +4516,10 @@ impl World {
                 for i in 0..self.articulated_command.len() {
                     self.wounds.get(i).copied().unwrap_or(AnatomyState::EMPTY).hash_into(&mut h);
                 }
+                #[cfg(feature = "cartesian-recoil")]
+                {
+                    hash_exact_owners(&mut h, &self.exact_owners);
+                }
                 crate::StateDigest {
                     domain: crate::HashDomain::ArticulatedV1,
                     schema: 1,
@@ -4439,6 +4625,10 @@ impl World {
             let entity = self.id_of(i);
             let killer = self.wounds[i].last_attacker;
             self.alive[i] = false;
+            #[cfg(feature = "cartesian-recoil")]
+            {
+                self.exact_owners[i] = None;
+            }
             self.generation[i] = self.generation[i].wrapping_add(1);
             self.command[i] = Command::HOLD;
             self.free.push(i as u32);
@@ -4500,6 +4690,108 @@ impl World {
         let slot = self.grips[i][limb].equipment_slot?;
         let id = self.articulated_carried[i].get(slot as usize).copied().flatten()?;
         self.combat_specs.as_ref()?.equipment(id).copied()
+    }
+
+    /// The response state of a newly allocated identity. The owner rule is the
+    /// same one geometry uses: a two-handed item has one physical row, owned by
+    /// the right limb, rather than two copies of one mass and remainder.
+    #[cfg(feature = "cartesian-recoil")]
+    fn initial_exact_owner(&self, i: usize, common_scale: i128) -> ExactOwnerTrajectory {
+        let grips = self.grips[i].map(|grip| grip.equipment_slot);
+        self.exact_owner_for_grips(i, grips, common_scale)
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    fn exact_owner_for_grips(
+        &self, i: usize, grips: [Option<u8>; 2], common_scale: i128,
+    ) -> ExactOwnerTrajectory {
+        let zero_affine = |mass_raw| ExactAffine3 {
+            mass_raw,
+            at_group: [ExactPosition::default(); 3],
+            momentum: [ExactMomentum::default(); 3],
+            group_time_raw: 0,
+        };
+        let mut common_mass_raw = self.mass[i].raw();
+        let mut held_response = [None; 2];
+        for limb in 0..2 {
+            let Some(slot) = grips[limb] else { continue };
+            let Some(id) = self.articulated_carried[i].get(slot as usize).copied().flatten()
+                else { continue };
+            let Some(item) = self.combat_specs.as_ref().and_then(|table| table.equipment(id)).copied()
+                else { continue };
+            if item.binding == crate::GripBinding::Both && limb == LimbSlot::LeftArm as usize {
+                continue;
+            }
+            common_mass_raw = common_mass_raw.checked_add(item.mass.raw())
+                .expect("validated body plus held masses fit one exact word");
+            held_response[limb] = Some(ExactHeldResponse {
+                slot: limb as u8,
+                spec_id: item.id,
+                affine: zero_affine(item.mass.raw()),
+            });
+        }
+        ExactOwnerTrajectory {
+            entity: self.id_of(i),
+            body_mass_raw: self.mass[i].raw(),
+            common_scale,
+            common_response: zero_affine(common_mass_raw),
+            held_response,
+        }
+    }
+
+    /// Prepare a complete grip-identity replacement without touching either
+    /// column. Once contact has put a real response in this row, only the
+    /// energy-accounting lifecycle checkpoint may clear it.
+    #[cfg(feature = "cartesian-recoil")]
+    fn prepare_zero_response_grip_transition(
+        &self, i: usize, grips: [Option<u8>; 2],
+    ) -> Result<ExactOwnerTrajectory, ExactTrajectoryReject> {
+        let current = self.exact_owners.get(i).copied().flatten()
+            .ok_or(ExactTrajectoryReject::InactiveState)?;
+        if current.entity != self.id_of(i) {
+            return Err(ExactTrajectoryReject::WrongIdentity);
+        }
+        let current_grips = self.grips[i].map(|grip| grip.equipment_slot);
+        let expected = self.exact_owner_for_grips(i, current_grips, current.common_scale);
+        if current.common_scale != expected.common_scale
+            || current.body_mass_raw != expected.body_mass_raw
+            || current.common_response.mass_raw != expected.common_response.mass_raw
+            || current.held_response.iter().zip(expected.held_response).any(|(got, want)|
+                got.map(|row| (row.slot, row.spec_id, row.affine.mass_raw))
+                    != want.map(|row| (row.slot, row.spec_id, row.affine.mass_raw))) {
+            return Err(ExactTrajectoryReject::SpecIdentity);
+        }
+        let next = self.exact_owner_for_grips(i, grips, current.common_scale);
+        Self::preserve_exact_common_transition(current, next)
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    fn preserve_exact_common_transition(
+        current: ExactOwnerTrajectory, mut next: ExactOwnerTrajectory,
+    ) -> Result<ExactOwnerTrajectory, ExactTrajectoryReject> {
+        if (current.entity, current.body_mass_raw, current.common_scale)
+            != (next.entity, next.body_mass_raw, next.common_scale)
+            || current.common_scale <= 0
+            || current.common_scale % next.common_response.mass_raw as i128 != 0 {
+            return Err(ExactTrajectoryReject::Mass);
+        }
+        next.common_response.at_group = current.common_response.at_group;
+        next.common_response.momentum = current.common_response.momentum;
+        next.common_response.group_time_raw = current.common_response.group_time_raw;
+        for limb in 0..2 {
+            let Some(old) = current.held_response[limb] else { continue };
+            let Some(new) = next.held_response[limb].as_mut() else { continue };
+            if (old.spec_id, old.slot, old.affine.mass_raw)
+                == (new.spec_id, new.slot, new.affine.mass_raw) {
+                *new = old;
+            } else {
+                new.affine.group_time_raw = current.common_response.group_time_raw;
+            }
+        }
+        for held in next.held_response.iter_mut().flatten() {
+            held.affine.group_time_raw = current.common_response.group_time_raw;
+        }
+        Ok(next)
     }
 
     #[cfg(feature = "cartesian-recoil")]
@@ -4571,35 +4863,8 @@ impl World {
             };
         }
         let table = self.combat_specs.as_ref().expect("articulated combat specs");
-        let item = |slot: u8| self.articulated_carried[i].get(slot as usize).copied().flatten()
-            .and_then(|id| table.equipment(id));
-        match result {
-            [None, None] => Ok(result),
-            [Some(slot), None] => match item(slot) {
-                Some(row) if row.binding == crate::GripBinding::Left => Ok(result),
-                _ => Err(reject(0, slot)),
-            },
-            [None, Some(slot)] => match item(slot) {
-                Some(row) if row.binding == crate::GripBinding::Right => Ok(result),
-                _ => Err(reject(1, slot)),
-            },
-            [Some(left), Some(right)] if left == right => match item(left) {
-                Some(row) if row.binding == crate::GripBinding::Both
-                    && !matches!(row.geometry, crate::EquipmentGeometry::Shield { .. }) => Ok(result),
-                _ => Err(reject(0, left)),
-            },
-            [Some(left), Some(right)] => {
-                let Some(left_item) = item(left) else { return Err(reject(0, left)) };
-                let Some(right_item) = item(right) else { return Err(reject(1, right)) };
-                if left_item.binding != crate::GripBinding::Left { return Err(reject(0, left)); }
-                if right_item.binding != crate::GripBinding::Right { return Err(reject(1, right)); }
-                if matches!(left_item.geometry, crate::EquipmentGeometry::Shield { .. })
-                    && matches!(right_item.geometry, crate::EquipmentGeometry::Shield { .. }) {
-                    return Err(reject(1, right));
-                }
-                Ok(result)
-            }
-        }
+        canonical_grip_pair(table, self.articulated_carried[i], result)
+            .map(|_| result).map_err(|(arm, slot)| reject(arm, slot))
     }
 
     fn apply_articulated_grips(&mut self) {
@@ -4623,6 +4888,14 @@ impl World {
                 }
             }
             #[cfg(feature = "cartesian-recoil")]
+            let next_exact = if (0..2).any(|limb|
+                self.grips[i][limb].equipment_slot != pair[limb]) {
+                Some(self.prepare_zero_response_grip_transition(i, pair)
+                    .expect("nonzero exact response reached the pre-contact grip phase"))
+            } else {
+                None
+            };
+            #[cfg(feature = "cartesian-recoil")]
             for limb in 0..2 {
                 if self.grips[i][limb].equipment_slot != pair[limb] {
                     let reason = if pair[limb].is_some() {
@@ -4638,6 +4911,8 @@ impl World {
                 }
             }
             self.grips[i] = pair.map(|equipment_slot| GripState { equipment_slot });
+            #[cfg(feature = "cartesian-recoil")]
+            if let Some(owner) = next_exact { self.exact_owners[i] = Some(owner); }
         }
     }
 
@@ -4785,14 +5060,43 @@ impl World {
         contact.anatomy_entry.extend_from_slice(&wounds);
         contact.credit.clear();
         contact.credit.resize(wounds.len(), Fx::ZERO);
+        self.build_contact_colliders(&contact.entry, &mut contact.colliders, &wounds);
+        #[cfg(feature = "cartesian-recoil")]
+        if let Err(cause) = build_exact_contact_trajectories(self, &mut contact) {
+            wounds.clear();
+            wounds.extend_from_slice(&contact.anatomy_entry);
+            self.wounds = wounds;
+            contact.resolutions.clear();
+            contact.rejections = contact.rejections.saturating_add(1);
+            contact.first_rejection.get_or_insert(cause);
+            self.contact = Some(contact);
+            return;
+        }
+        #[cfg(not(feature = "cartesian-recoil"))]
         let solved = {
             let ContactRuntime { state, scratch, colliders, resolutions, entry, bodies,
                                  credit, deltas, fact_loss, .. } = &mut contact;
-            self.build_contact_colliders(entry, colliders, &wounds);
             let mut projector = ContactProjector {
                 world: self, entry, bodies, wounds: &mut wounds, credit, deltas, fact_loss,
             };
-            resolution::solve_contact_tick(colliders, &mut projector, state, resolutions, scratch)
+            resolution::solve_contact_tick(
+                colliders, &mut projector, state, resolutions, scratch)
+        };
+        #[cfg(feature = "cartesian-recoil")]
+        let solved = {
+            let ContactRuntime { state, scratch, colliders, resolutions, entry, bodies,
+                                 credit, deltas, fact_loss, exact_trajectories,
+                                 exact_owners, .. } = &mut contact;
+            let mut projector = ContactProjector {
+                world: self, entry, bodies, wounds: &mut wounds, credit, deltas, fact_loss,
+            };
+            resolution::solve_exact_contact_tick(colliders, exact_trajectories,
+                exact_owners, &mut projector, state, resolutions, scratch)
+        };
+        #[cfg(feature = "cartesian-recoil")]
+        let solved = match solved {
+            Ok(groups) => self.stage_exact_contact(&mut contact).map(|()| groups),
+            Err(cause) => Err(cause),
         };
         match solved {
             Ok(_) => {
@@ -4800,7 +5104,10 @@ impl World {
                 for i in 0..self.damage_dealt.len().min(contact.credit.len()) {
                     self.damage_dealt[i] += contact.credit[i];
                 }
+                #[cfg(not(feature = "cartesian-recoil"))]
                 self.commit_contact(&mut contact);
+                #[cfg(feature = "cartesian-recoil")]
+                self.commit_exact_contact(&mut contact);
                 self.contact = Some(contact);
                 self.release_severed_grips();
                 return;
@@ -4837,22 +5144,34 @@ impl World {
                            !self.wounds[i].present(BodyPart::RightArm)];
             if !(severed[0] || severed[1]) { continue; }
             let drop_both = self.two_handed(i);
-            let mut released = false;
+            let mut pair = self.grips[i].map(|grip| grip.equipment_slot);
             for limb in 0..2 {
                 if !(drop_both || severed[limb]) { continue; }
-                if self.grips[i][limb].equipment_slot.is_none() { continue; }
+                pair[limb] = None;
+            }
+            if (0..2).all(|limb| self.grips[i][limb].equipment_slot == pair[limb]) {
+                continue;
+            }
+            #[cfg(feature = "cartesian-recoil")]
+            let next_exact = self.prepare_zero_response_grip_transition(i, pair)
+                .expect("nonzero exact response reached severance without lifecycle energy");
+            for limb in 0..2 {
+                if self.grips[i][limb].equipment_slot == pair[limb] { continue; }
                 #[cfg(feature = "cartesian-recoil")]
                 let released_item = self.equipment_in_grip(i, limb);
-                self.grips[i][limb].equipment_slot = None;
                 #[cfg(feature = "cartesian-recoil")]
                 if let Some(item) = released_item {
                     self.clear_recoil_with_energy(i, limb, RecoilExternalEnergy::SEVERANCE, item);
                 } else {
                     actuator::clear_post_contact(&mut self.arms[i][limb]);
                 }
-                released = true;
             }
-            if released { self.shield_pose[i] = self.derive_shield_pose(i); }
+            self.grips[i] = pair.map(|equipment_slot| GripState { equipment_slot });
+            #[cfg(feature = "cartesian-recoil")]
+            {
+                self.exact_owners[i] = Some(next_exact);
+            }
+            self.shield_pose[i] = self.derive_shield_pose(i);
         }
     }
 
@@ -4919,6 +5238,86 @@ impl World {
     /// drift the pose of every fighter that touched nothing, every tick, and
     /// the contract's "with no fact and no entry clamp they are the saved
     /// requested World rows byte-for-byte" would be false.
+    #[cfg(feature = "cartesian-recoil")]
+    fn stage_exact_contact(&self, contact: &mut ContactRuntime) -> Result<(), ResolutionError> {
+        contact.exact_commit.clear();
+        for owner in &contact.exact_owners {
+            if owner.common_response.group_time_raw != 65_536
+                || owner.held_response.iter().flatten()
+                    .any(|held| held.affine.group_time_raw != 65_536) {
+                return Err(ResolutionError::ExactScan);
+            }
+            let i = self.resolve(owner.entity).ok_or(ResolutionError::ColliderIndex)?;
+            let body_at = contact.exact_trajectories.iter().position(|row|
+                row.entity == owner.entity && matches!(row.motor, MotorShape::Body { .. }))
+                .ok_or(ResolutionError::ColliderIndex)?;
+            let EvaluatedContactShape::Body { origin, .. } = evaluate_exact(
+                &contact.exact_trajectories[body_at], owner, 65_536)
+                .map_err(|_| ResolutionError::ExactScan)? else {
+                    return Err(ResolutionError::ExactScan);
+                };
+            let origin = exact_point_quotient(origin).map_err(|_| ResolutionError::ExactScan)?;
+            let position = Vec2::new(origin.x, origin.y);
+            if !self.is_walkable(position, self.radius[i]) {
+                return Err(ResolutionError::ExactLifecyclePending);
+            }
+            let mut arms = [None; 2];
+            for limb in 0..2 {
+                let Some(at) = contact.exact_trajectories.iter().position(|row|
+                    row.entity == owner.entity && row.held_index == Some(limb)) else { continue };
+                let absolute_hand = match evaluate_exact(&contact.exact_trajectories[at], owner, 65_536)
+                    .map_err(|_| ResolutionError::ExactScan)? {
+                    EvaluatedContactShape::Segment { hilt, .. } =>
+                        exact_point_quotient(hilt).map_err(|_| ResolutionError::ExactScan)?,
+                    EvaluatedContactShape::Shield { corners } => {
+                        let pose = self.shield_pose[i].ok_or(ResolutionError::ColliderIndex)?;
+                        midpoint3(exact_point_quotient(corners[0])
+                            .map_err(|_| ResolutionError::ExactScan)?,
+                                  exact_point_quotient(corners[2])
+                            .map_err(|_| ResolutionError::ExactScan)?)
+                            - pose.normal * (pose.thickness / Fx::from_int(2))
+                    }
+                    _ => return Err(ResolutionError::ExactScan),
+                };
+                let hand = absolute_hand - origin;
+                arms[limb] = Some(ExactArmCommit {
+                    hand,
+                    linear_velocity: hand - contact.entry[i].arms[limb].hand,
+                    post_contact_com_velocity: exact_held_velocity(*owner, limb)
+                        .map_err(|_| ResolutionError::ExactScan)?,
+                });
+            }
+            contact.exact_commit.push(ExactCommitRow {
+                entity: owner.entity, owner: *owner, position,
+                velocity: position - contact.entry[i].pos, arms,
+            });
+        }
+        Ok(())
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    fn commit_exact_contact(&mut self, contact: &mut ContactRuntime) {
+        for row in &contact.exact_commit {
+            let i = self.resolve(row.entity).expect("preflighted exact owner");
+            self.pos[i] = row.position;
+            self.vel[i] = row.velocity;
+            self.exact_owners[i] = Some(row.owner);
+            for limb in 0..2 {
+                let Some(staged) = row.arms[limb] else { continue };
+                let arm = &mut self.arms[i][limb];
+                arm.previous_hand = contact.entry[i].arms[limb].hand;
+                arm.hand = staged.hand;
+                arm.linear_velocity = staged.linear_velocity;
+                arm.post_contact_com_velocity = staged.post_contact_com_velocity;
+                arm.post_contact_active = staged.post_contact_com_velocity != Vec3::ZERO;
+                contact.entry[i].contact_overrode[limb] = true;
+            }
+            if row.arms.iter().any(Option::is_some) {
+                self.shield_pose[i] = self.derive_shield_pose(i);
+            }
+        }
+    }
+
     fn commit_contact(&mut self, contact: &mut ContactRuntime) {
         for i in 0..self.alive.len() {
             if !self.alive[i] { continue; }
@@ -6208,6 +6607,82 @@ impl Nearest {
     }
 }
 
+#[cfg(feature = "cartesian-recoil")]
+fn build_exact_contact_trajectories(
+    world: &World, contact: &mut ContactRuntime,
+) -> Result<(), ResolutionError> {
+    contact.exact_owners.clear();
+    for owner in &world.exact_owners {
+        if let Some(owner) = owner { contact.exact_owners.push(*owner); }
+    }
+    let motor_point = |previous: Vec3, requested: Vec3| ExactMotorPoint {
+        at_tick_start_raw: [previous.x.raw(), previous.y.raw(), previous.z.raw()],
+        tick_delta_raw: [(requested.x - previous.x).raw(),
+                         (requested.y - previous.y).raw(),
+                         (requested.z - previous.z).raw()],
+    };
+    contact.exact_trajectories.clear();
+    for row in &contact.colliders {
+        let owner_index = contact.exact_owners.iter().position(|owner| owner.entity == row.entity)
+            .ok_or(ResolutionError::ColliderIndex)?;
+        let owner = contact.exact_owners[owner_index];
+        let (kind, held_index, equipment_spec, motor) = match row.shape {
+            ContactShape::Body { previous_origin, requested_origin, parts } => {
+                let bounds = core::array::from_fn(|at| ExactMotorBounds {
+                    lower: motor_point(parts[at].previous_lower, parts[at].requested_lower),
+                    upper: motor_point(parts[at].previous_upper, parts[at].requested_upper),
+                    radius_raw: parts[at].radius.raw(), present: parts[at].present,
+                });
+                (GeneralizedKind::Body, None, None, MotorShape::Body {
+                    origin: motor_point(previous_origin, requested_origin), parts: bounds,
+                })
+            }
+            ContactShape::Segment { previous_hilt, previous_tip, requested_hilt,
+                                    requested_tip, radius } => {
+                let held = row.slot as usize;
+                let tag = owner.held_response.get(held).and_then(|held| *held)
+                    .ok_or(ResolutionError::ColliderIndex)?;
+                (GeneralizedKind::Equipment, Some(held), Some(tag.spec_id), MotorShape::Segment {
+                    hilt: motor_point(previous_hilt, requested_hilt),
+                    tip: motor_point(previous_tip, requested_tip), radius_raw: radius.raw(),
+                })
+            }
+            ContactShape::Shield { previous, requested } => {
+                let held = row.slot as usize;
+                let tag = owner.held_response.get(held).and_then(|held| *held)
+                    .ok_or(ResolutionError::ColliderIndex)?;
+                (GeneralizedKind::Equipment, Some(held), Some(tag.spec_id), MotorShape::Shield {
+                    corners: core::array::from_fn(|at| motor_point(previous[at], requested[at])),
+                })
+            }
+        };
+        contact.exact_trajectories.push(ExactContactTrajectory {
+            entity: row.entity, faction: row.faction, slot: row.slot, kind,
+            mass_raw: row.mass.raw(), surface: row.surface, motor, owner_index,
+            held_index, equipment_spec, present: row.present,
+        });
+    }
+    Ok(())
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Copy)]
+struct ExactArmCommit {
+    hand: Vec3,
+    linear_velocity: Vec3,
+    post_contact_com_velocity: Vec3,
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Copy)]
+struct ExactCommitRow {
+    entity: EntityId,
+    owner: ExactOwnerTrajectory,
+    position: Vec2,
+    velocity: Vec2,
+    arms: [Option<ExactArmCommit>; 2],
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -6816,6 +7291,537 @@ mod tests {
         scenario.units[1].articulated.as_mut().unwrap().equipment = [Some(4), None];
         scenario.units[1].loadout = Loadout::single(ActionKind::Club);
         scenario
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    fn exact_owner_rows_hash(world: &World) -> u64 {
+        let mut h = Hash64::new();
+        hash_exact_owners(&mut h, &world.exact_owners);
+        h.finish()
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn shipped_exact_lattices_pin_scale_and_endpoint_denominator_bits() {
+        let scenario = Scenario::articulated_duel();
+        let table = scenario.combat_specs.as_ref().unwrap();
+        let hero = exact_lattice_for_unit(scenario.units[0].kind.mass().raw(), table,
+            scenario.units[0].articulated.unwrap()).unwrap();
+        let brute = exact_lattice_for_unit(scenario.units[1].kind.mass().raw(), table,
+            scenario.units[1].articulated.unwrap()).unwrap();
+        assert_eq!((hero.common_scale, hero.endpoint_denominator_bits),
+                   (1_283_938_665_662_054_400, 92));
+        assert_eq!((brute.common_scale, brute.endpoint_denominator_bits),
+                   (59_914_856_794, 69));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn exact_lattice_accepts_ninety_six_bits_and_refuses_ninety_seven() {
+        let common = [999_983, 999_979, 999_961];
+        assert_eq!(exact_lattice_from_masses(&common, &[999_953]).unwrap()
+            .endpoint_denominator_bits, 96);
+        assert_eq!(exact_lattice_from_masses(&common, &[1_999_993]),
+                   Err(ExactLatticeEnvelope::EndpointDenominator));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn adversarial_coprime_spawn_refuses_before_any_world_authority_moves() {
+        let mut scenario = Scenario::articulated_duel();
+        let table = scenario.combat_specs.as_mut().unwrap();
+        let mut left = table.equipment[0];
+        left.id = table.equipment.last().unwrap().id + 1;
+        left.binding = crate::GripBinding::Left;
+        left.mass = Fx::from_raw(499_979);
+        let mut right = table.equipment[1];
+        right.id = left.id + 1;
+        right.binding = crate::GripBinding::Right;
+        right.mass = Fx::from_raw(499_957);
+        table.equipment.push(left); table.equipment.push(right);
+        let mut world = World::try_new(&scenario, 1).unwrap();
+        let mut spec = scenario.units[0].clone();
+        spec.articulated.as_mut().unwrap().equipment = [Some(left.id), Some(right.id)];
+        spec.loadout = Loadout::pair(left.action, right.action);
+        let before_capacities = world.contact_capacities();
+        let before = world.clone();
+        assert_eq!(world.try_spawn(&spec),
+                   Err(SpawnError::ExactLattice(ExactLatticeEnvelope::EndpointDenominator)));
+        assert_eq!((&world.generation, &world.alive, &world.free, &world.exact_owners),
+                   (&before.generation, &before.alive, &before.free, &before.exact_owners));
+        assert_eq!(world.contact_capacities(), before_capacities,
+                   "exact lattice refusal reached contact reservation");
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    fn exact_affine_is_zero(row: ExactAffine3) -> bool {
+        row.at_group == [ExactPosition::default(); 3]
+            && row.momentum == [ExactMomentum::default(); 3]
+            && row.group_time_raw == 0
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    fn exact_contact_fixture(world: &mut World) -> ContactRuntime {
+        world.retain_contact_entry();
+        world.record_contact_locomotion();
+        let mut contact = world.contact.take().expect("articulated contact state");
+        world.build_contact_colliders(&contact.entry, &mut contact.colliders, &world.wounds);
+        build_exact_contact_trajectories(world, &mut contact).unwrap();
+        contact
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn world_exact_rows_scan_and_recompute_with_one_real_provenance_evaluator() {
+        let mut world = clinch_world();
+        brace_weapon(&mut world, 0);
+        let mut contact = exact_contact_fixture(&mut world);
+        assert_eq!(contact.exact_trajectories.len(), contact.colliders.len());
+        for (trajectory, collider) in contact.exact_trajectories.iter().zip(&contact.colliders) {
+            assert_eq!((trajectory.entity, trajectory.slot, trajectory.mass_raw),
+                       (collider.entity, collider.slot, collider.mass.raw()));
+            if let Some(held) = trajectory.held_index {
+                assert_eq!(trajectory.equipment_spec,
+                           contact.exact_owners[trajectory.owner_index].held_response[held]
+                               .map(|row| row.spec_id));
+            }
+        }
+        let mut scratch = crate::combat::contact::ContactCollectionScratch::default();
+        scratch.try_reserve(64).unwrap();
+        scan_exact_candidates_into(&contact.exact_trajectories, &contact.exact_owners,
+            &contact.colliders, &mut scratch).unwrap();
+        let candidate = scratch.candidates().first()
+            .expect("the exact World fixture did not scan a contact").fact;
+        let a = contact.exact_trajectories.iter().position(|row|
+            row.entity == candidate.key.a && row.slot == candidate.key.a_slot).unwrap();
+        let b = contact.exact_trajectories.iter().position(|row|
+            row.entity == candidate.key.b && row.slot == candidate.key.b_slot).unwrap();
+        let recomputed = exact_contact_at_pose(&contact.exact_trajectories,
+            &contact.exact_owners, &contact.colliders, a, b,
+            candidate.toi.get().raw() as u32).unwrap().expect("frozen exact contact");
+        assert_eq!((recomputed.key, recomputed.toi, recomputed.region),
+                   (candidate.key, candidate.toi, candidate.region));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn staged_finalized_strike_commits_its_exact_endpoint_and_public_state() {
+        let mut world = clinch_world();
+        brace_weapon(&mut world, 0);
+        let before = world.clone();
+        let mut contact = exact_contact_fixture(&mut world);
+        let mut scan = crate::combat::contact::ContactCollectionScratch::default();
+        scan.try_reserve(64).unwrap();
+        scan_exact_candidates_into(&contact.exact_trajectories, &contact.exact_owners,
+            &contact.colliders, &mut scan).unwrap();
+        let fact = scan.candidates().first().expect("staged fixture scanned no contact").fact;
+        let impulse = Vec3::new(Fx::from_raw(17), Fx::from_raw(-11), Fx::ZERO);
+        let resolution = ContactResolution { group_ordinal: 0, group_alpha_raw: 65_536, fact,
+            impulse: crate::combat::contact::ContactImpulse {
+                key: fact.key, on_a: impulse, on_b: -impulse,
+            }, energy: Default::default(), cut_raw: 0, thrust_raw: 0, pressure_raw: 0,
+            deflected_raw: 0, severed: false };
+        let applied = apply_exact_group(&contact.exact_trajectories, &contact.exact_owners,
+            &[resolution], fact.toi.get().raw() as u32).unwrap();
+        applied.owners.copy_into(&mut contact.exact_owners).unwrap();
+        let finished = advance_exact(&contact.exact_owners, 65_536).unwrap();
+        finished.copy_into(&mut contact.exact_owners).unwrap();
+        contact.resolutions.push(resolution);
+        world.stage_exact_contact(&mut contact).unwrap();
+        world.commit_exact_contact(&mut contact);
+        let (entity, slot) = (fact.key.a, fact.key.a_slot);
+        let i = world.resolve(entity).unwrap();
+        let owner = world.exact_owners[i].expect("committed exact owner");
+        let before_owner = before.exact_owners[i].unwrap();
+        assert_eq!(owner.common_response.group_time_raw, 65_536);
+        assert!(owner.held_response.iter().flatten()
+            .all(|held| held.affine.group_time_raw == 65_536));
+        let exact_row = contact.exact_trajectories.iter().find(|row|
+            row.entity == entity && row.slot == slot).unwrap();
+        if slot == BODY_SLOT {
+            assert_ne!(owner.common_response.momentum, before_owner.common_response.momentum);
+            let EvaluatedContactShape::Body { origin, .. } = evaluate_exact(
+                exact_row, &owner, 65_536).unwrap() else { panic!("body row changed shape") };
+            let endpoint = exact_point_quotient(origin).unwrap();
+            assert_eq!(world.pos[i], Vec2::new(endpoint.x, endpoint.y));
+            assert_eq!(world.vel[i], world.pos[i] - before.pos[i]);
+        } else {
+            let limb = slot as usize;
+            assert_ne!(owner.held_response[limb].unwrap().affine.momentum,
+                       before_owner.held_response[limb].unwrap().affine.momentum);
+            let body_row = contact.exact_trajectories.iter().find(|row|
+                row.entity == entity && matches!(row.motor, MotorShape::Body { .. })).unwrap();
+            let EvaluatedContactShape::Body { origin, .. } = evaluate_exact(
+                body_row, &owner, 65_536).unwrap() else { panic!("owner body changed shape") };
+            let absolute_hand = match evaluate_exact(exact_row, &owner, 65_536).unwrap() {
+                EvaluatedContactShape::Segment { hilt, .. } => exact_point_quotient(hilt).unwrap(),
+                EvaluatedContactShape::Shield { corners } => {
+                    let pose = before.shield_pose[i].unwrap();
+                    midpoint3(exact_point_quotient(corners[0]).unwrap(),
+                              exact_point_quotient(corners[2]).unwrap())
+                        - pose.normal * (pose.thickness / Fx::from_int(2))
+                }
+                _ => panic!("held row changed shape"),
+            };
+            assert_eq!(world.arms[i][limb].hand,
+                       absolute_hand - exact_point_quotient(origin).unwrap());
+            assert_eq!(world.arms[i][limb].linear_velocity,
+                       world.arms[i][limb].hand - before.arms[i][limb].hand);
+        }
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn seeded_exact_remainder_commits_and_survives_next_tick_construction() {
+        let mut world = clinch_world();
+        brace_weapon(&mut world, 0);
+        let mut contact = exact_contact_fixture(&mut world);
+        let finished = crate::combat::trajectory::advance_exact(
+            &contact.exact_owners, 65_536).unwrap();
+        finished.copy_into(&mut contact.exact_owners).unwrap();
+        let hero = world.alive_ids(Faction::Heroes)[0];
+        let owner_at = contact.exact_owners.iter().position(|owner|
+            owner.entity == hero).unwrap();
+        let held = contact.exact_owners[owner_at].held_response[1].as_mut().unwrap();
+        held.affine.at_group[0] = ExactPosition { raw: 64, remainder: 7 };
+        held.affine.momentum[0] = ExactMomentum { velocity_raw: 3, remainder: 5 };
+        let seeded = contact.exact_owners[owner_at];
+        let row = contact.exact_trajectories.iter().find(|row|
+            row.entity == seeded.entity && row.held_index == Some(1)).unwrap();
+        let EvaluatedContactShape::Segment { hilt, .. } = evaluate_exact(
+            row, &seeded, 65_536).unwrap() else { panic!("seeded weapon stopped being a segment") };
+        let body = contact.exact_trajectories.iter().find(|row|
+            row.entity == seeded.entity && matches!(row.motor, MotorShape::Body { .. })).unwrap();
+        let EvaluatedContactShape::Body { origin, .. } = evaluate_exact(
+            body, &seeded, 65_536).unwrap() else { panic!("seeded owner stopped being a body") };
+        let expected_hand = exact_point_quotient(hilt).unwrap()
+            - exact_point_quotient(origin).unwrap();
+
+        world.stage_exact_contact(&mut contact).unwrap();
+        world.commit_exact_contact(&mut contact);
+        assert_eq!(world.exact_owners[0], Some(seeded));
+        assert_eq!(world.arms[0][1].hand, expected_hand);
+        assert_eq!(world.exact_owners[0].unwrap().held_response[1].unwrap().affine
+            .momentum[0].remainder, 5);
+        assert_eq!(world.exact_owners[0].unwrap().held_response[1].unwrap().affine
+            .at_group[0].remainder, 7);
+
+        world.contact = Some(contact);
+        world.retain_contact_entry();
+        world.record_contact_locomotion();
+        let mut next = world.contact.take().unwrap();
+        world.build_contact_colliders(&next.entry, &mut next.colliders, &world.wounds);
+        build_exact_contact_trajectories(&world, &mut next).unwrap();
+        assert_eq!(next.exact_owners.iter().find(|owner| owner.entity == seeded.entity),
+                   Some(&seeded));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn exact_precommit_failure_leaves_every_world_column_untouched() {
+        let mut world = clinch_world();
+        let mut contact = exact_contact_fixture(&mut world);
+        let finished = crate::combat::trajectory::advance_exact(&contact.exact_owners, 65_536).unwrap();
+        finished.copy_into(&mut contact.exact_owners).unwrap();
+        contact.exact_owners[0].entity = EntityId::new(63, 63);
+        let before = world.clone();
+        assert_eq!(world.stage_exact_contact(&mut contact), Err(ResolutionError::ColliderIndex));
+        assert_eq!((world.pos, world.vel, world.arms, world.exact_owners, world.wounds,
+                    world.damage_dealt),
+                   (before.pos, before.vel, before.arms, before.exact_owners, before.wounds,
+                    before.damage_dealt));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn exact_world_row_refusal_leaves_candidate_scratch_and_authority_untouched() {
+        let mut world = clinch_world();
+        brace_weapon(&mut world, 0);
+        let mut contact = exact_contact_fixture(&mut world);
+        let mut scratch = crate::combat::contact::ContactCollectionScratch::default();
+        scratch.try_reserve(64).unwrap();
+        scan_exact_candidates_into(&contact.exact_trajectories, &contact.exact_owners,
+            &contact.colliders, &mut scratch).unwrap();
+        let before_candidates: Vec<_> = scratch.candidates().iter()
+            .map(|row| row.fact).collect();
+        let before_owners = contact.exact_owners.clone();
+        contact.exact_trajectories[0].entity = EntityId::new(63, 63);
+        assert!(scan_exact_candidates_into(&contact.exact_trajectories, &contact.exact_owners,
+            &contact.colliders, &mut scratch).is_err());
+        assert_eq!(scratch.candidates().iter().map(|row| row.fact).collect::<Vec<_>>(),
+                   before_candidates);
+        assert_eq!(contact.exact_owners, before_owners);
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn first_authoritative_exact_field_and_its_hash_land_in_the_same_transition() {
+        let legacy = World::new(&Scenario::duel(), 1);
+        assert_eq!((legacy.exact_owners.len(), legacy.exact_owners.capacity()), (0, 0),
+                   "Legacy allocated the feature-only articulated column");
+        let scenario = Scenario::articulated_duel();
+        let mut world = World::new(&scenario, 1);
+        assert_eq!(world.exact_owners.len(), world.alive.len());
+        for i in 0..world.alive.len() {
+            let owner = world.exact_owners[i].expect("an active exact owner");
+            assert_eq!(owner.entity, world.id_of(i));
+            assert_eq!(owner.body_mass_raw, world.mass[i].raw());
+            let mut expected_common_mass = world.mass[i].raw();
+            for limb in 0..2 {
+                let item = world.equipment_in_grip(i, limb);
+                let owned = item.filter(|item| {
+                    item.binding != crate::GripBinding::Both
+                        || limb == LimbSlot::RightArm as usize
+                });
+                assert_eq!(owner.held_response[limb].map(|held| held.spec_id),
+                           owned.map(|item| item.id));
+                if let Some(item) = owned {
+                    let held = owner.held_response[limb].unwrap();
+                    assert_eq!(held.slot, limb as u8);
+                    assert_eq!(held.affine.mass_raw, item.mass.raw());
+                    assert!(exact_affine_is_zero(held.affine));
+                    expected_common_mass += item.mass.raw();
+                }
+            }
+            assert_eq!(owner.common_response.mass_raw, expected_common_mass);
+            assert!(exact_affine_is_zero(owner.common_response));
+        }
+
+        let before = world.state_digest().value;
+        world.exact_owners[0].as_mut().unwrap()
+            .common_response.momentum[0].remainder = 1;
+        assert_ne!(world.state_digest().value, before,
+                   "World acquired an exact word which its authoritative hash omitted");
+
+        let both = World::new(&both_scenario(), 1);
+        let owner = both.exact_owners[1].expect("the two-handed owner");
+        assert!(owner.held_response[0].is_none(), "Both was counted on the left");
+        let right = owner.held_response[1].expect("Both is right-owned");
+        let item = both.equipment_in_grip(1, 1).unwrap();
+        assert_eq!(right.spec_id, item.id);
+        assert_eq!(owner.common_response.mass_raw,
+                   both.mass[1].raw() + item.mass.raw(), "Both mass was counted twice");
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn ordinary_actuation_changes_motor_coefficients_without_erasing_response() {
+        let scenario = Scenario::articulated_duel();
+        let mut world = World::new(&scenario, 1);
+        let before_arm = world.arms[0];
+        let before_exact = world.exact_owners[0];
+        let mut command = world.neutral_articulated(0);
+        command.arms[1].bearing = Angle::QUARTER;
+        command.arms[1].reach = Fx::ONE;
+        command.arms[1].effort = Fx::ONE;
+        assert!(matches!(world.submit_articulated_v1(EntityId::new(0, 0), command),
+                         SubmitArticulatedOutcome::Stored { rejection: None, .. }));
+        world.step();
+        assert_ne!(world.arms[0], before_arm, "the fixture did not actuate an arm");
+        assert_eq!(world.exact_owners[0], before_exact,
+                   "ordinary motor motion rebuilt exact response state");
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn equip_release_and_severance_replace_exact_tags_and_mass_atomically() {
+        let scenario = Scenario::articulated_duel();
+        let mut world = World::new(&scenario, 1);
+        let body_mass = world.mass[0].raw();
+        let sword = world.equipment_in_grip(0, 1).unwrap();
+        let shield = world.equipment_in_grip(0, 0).unwrap();
+
+        let mut release = world.neutral_articulated(0);
+        release.grips = [GripRequest::Release, GripRequest::Keep];
+        world.articulated_command[0] = Some(release);
+        world.apply_articulated_grips();
+        let owner = world.exact_owners[0].unwrap();
+        assert_eq!(world.grips[0][0].equipment_slot, None);
+        assert_eq!(owner.held_response[0], None);
+        assert_eq!(owner.held_response[1].unwrap().spec_id, sword.id);
+        assert_eq!(owner.common_response.mass_raw, body_mass + sword.mass.raw());
+
+        let mut equip = world.neutral_articulated(0);
+        equip.grips = [GripRequest::EquipSlot(1), GripRequest::Keep];
+        world.articulated_command[0] = Some(equip);
+        world.apply_articulated_grips();
+        let owner = world.exact_owners[0].unwrap();
+        assert_eq!(world.grips[0][0].equipment_slot, Some(1));
+        assert_eq!(owner.held_response[0].unwrap().spec_id, shield.id);
+        assert_eq!(owner.common_response.mass_raw,
+                   body_mass + shield.mass.raw() + sword.mass.raw());
+
+        world.wounds[0].parts[BodyPart::LeftArm as usize].severed = true;
+        world.release_severed_grips();
+        let owner = world.exact_owners[0].unwrap();
+        assert_eq!(world.grips[0][0].equipment_slot, None);
+        assert_eq!(owner.held_response[0], None);
+        assert_eq!(owner.held_response[1].unwrap().spec_id, sword.id);
+        assert_eq!(owner.common_response.mass_raw, body_mass + sword.mass.raw());
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn release_and_unequal_replacement_preserve_the_common_lattice_exactly() {
+        let scenario = Scenario::articulated_duel();
+        let mut world = World::new(&scenario, 1);
+        let owner = world.exact_owners[0].as_mut().unwrap();
+        owner.common_response.group_time_raw = 1_234;
+        owner.common_response.at_group[0] = ExactPosition { raw: 2, remainder: 7 };
+        owner.common_response.momentum[1] = ExactMomentum { velocity_raw: -3, remainder: -5 };
+        for held in owner.held_response.iter_mut().flatten() {
+            held.affine.group_time_raw = 1_234;
+        }
+        owner.held_response[1].as_mut().unwrap().affine.momentum[0] =
+            ExactMomentum { velocity_raw: 1, remainder: 3 };
+        let original = *owner;
+
+        let released = world.prepare_zero_response_grip_transition(0, [None, Some(0)]).unwrap();
+        assert_ne!(released.common_response.mass_raw, original.common_response.mass_raw,
+                   "the unequal-mass transition fixture did not change active mass");
+        assert_eq!((released.common_scale, released.common_response.at_group,
+                    released.common_response.momentum, released.common_response.group_time_raw),
+                   (original.common_scale, original.common_response.at_group,
+                    original.common_response.momentum, original.common_response.group_time_raw));
+        assert_eq!(released.held_response[1], original.held_response[1],
+                   "the surviving sword row was rebuilt");
+        assert_eq!(released.held_response[0], None, "the released shield row survived");
+
+        world.exact_owners[0] = Some(released);
+        world.grips[0] = [GripState { equipment_slot: None },
+                          GripState { equipment_slot: Some(0) }];
+        let restored = world.prepare_zero_response_grip_transition(0, [Some(1), Some(0)]).unwrap();
+        let new_held = restored.held_response[0].unwrap().affine;
+        assert_eq!((new_held.at_group, new_held.momentum, new_held.group_time_raw),
+                   ([ExactPosition::default(); 3], [ExactMomentum::default(); 3], 1_234),
+                   "newly held equipment inherited the released row's motion");
+        assert_eq!(restored, original,
+                   "A -> B -> A changed words other than the shared transition time");
+        assert_ne!(restored.common_scale, restored.common_response.mass_raw as i128,
+                   "the immutable lattice was derived from active mass");
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn two_handed_release_and_reacquire_keep_one_right_owned_common_lattice() {
+        let mut world = World::new(&both_scenario(), 1);
+        let owner = world.exact_owners[1].as_mut().unwrap();
+        owner.common_response.at_group[1] = ExactPosition { raw: -1, remainder: -9 };
+        owner.common_response.momentum[0] = ExactMomentum { velocity_raw: 2, remainder: 11 };
+        let original = *owner;
+        let released = world.prepare_zero_response_grip_transition(1, [None, None]).unwrap();
+        assert_eq!((released.common_scale, released.common_response.at_group,
+                    released.common_response.momentum),
+                   (original.common_scale, original.common_response.at_group,
+                    original.common_response.momentum));
+        assert_eq!(released.held_response, [None, None]);
+        world.exact_owners[1] = Some(released);
+        world.grips[1] = [GripState { equipment_slot: None }; 2];
+        let reacquired = world.prepare_zero_response_grip_transition(1, [Some(0), Some(0)]).unwrap();
+        assert!(reacquired.held_response[0].is_none(), "Both acquired a left owner");
+        assert!(reacquired.held_response[1].is_some(), "Both lost its right owner");
+        assert_eq!((reacquired.common_scale, reacquired.common_response.at_group,
+                    reacquired.common_response.momentum),
+                   (original.common_scale, original.common_response.at_group,
+                    original.common_response.momentum));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn inactive_and_reused_slots_are_canonical_before_their_first_scan() {
+        let scenario = Scenario::articulated_duel();
+        let mut world = World::new(&scenario, 1);
+        let dead = world.exact_owners[1].unwrap();
+        world.exact_owners[1].as_mut().unwrap()
+            .held_response[1].as_mut().unwrap().affine.at_group[2].remainder = -7;
+        world.wounds[1].blood = Fx::ZERO;
+        world.reap_dead_articulated();
+        assert_eq!(world.exact_owners[1], None, "death retained exact response poison");
+
+        let inactive_hash = exact_owner_rows_hash(&world);
+        world.exact_owners[1] = Some(dead);
+        assert_ne!(exact_owner_rows_hash(&world), inactive_hash,
+                   "an inactive poison row was invisible to the fixed grammar");
+        world.exact_owners[1] = None;
+
+        let reborn = world.try_spawn(&scenario.units[1]).expect("reuse dead slot");
+        assert_eq!(reborn, EntityId::new(1, 1));
+        let owner = world.exact_owners[1].expect("reuse installed an exact owner");
+        assert_eq!(owner, world.initial_exact_owner(1, owner.common_scale));
+        assert!(exact_affine_is_zero(owner.common_response));
+        assert!(owner.held_response.iter().flatten()
+            .all(|held| exact_affine_is_zero(held.affine)));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn every_exact_trajectory_hash_word_is_load_bearing_in_fixed_entity_limb_xyz_order() {
+        let scenario = Scenario::articulated_duel();
+        let baseline = exact_owner_rows_hash(&World::new(&scenario, 1));
+        let mut scale = World::new(&scenario, 1);
+        scale.exact_owners[0].as_mut().unwrap().common_scale += 1;
+        assert_ne!(exact_owner_rows_hash(&scale), baseline,
+                   "the immutable common lattice scale was not hashed");
+        let mut active_mass = World::new(&scenario, 1);
+        active_mass.exact_owners[0].as_mut().unwrap().common_response.mass_raw -= 1;
+        assert_ne!(exact_owner_rows_hash(&active_mass), baseline,
+                   "active common mass was not hashed beside its lattice");
+        for axis in 0..3 {
+            for word in 0..4 {
+                let mut world = World::new(&scenario, 1);
+                let affine = &mut world.exact_owners[0].as_mut().unwrap().common_response;
+                match word {
+                    0 => affine.momentum[axis].velocity_raw = 1,
+                    1 => affine.momentum[axis].remainder = -1,
+                    2 => affine.at_group[axis].raw = 1,
+                    _ => affine.at_group[axis].remainder = -1,
+                }
+                assert_ne!(exact_owner_rows_hash(&world), baseline,
+                           "common axis {axis} word {word} was not hashed");
+            }
+        }
+        for limb in 0..2 {
+            for axis in 0..3 {
+                for word in 0..4 {
+                    let mut world = World::new(&scenario, 1);
+                    let affine = &mut world.exact_owners[0].as_mut().unwrap()
+                        .held_response[limb].as_mut().unwrap().affine;
+                    match word {
+                        0 => affine.momentum[axis].velocity_raw = 1,
+                        1 => affine.momentum[axis].remainder = -1,
+                        2 => affine.at_group[axis].raw = 1,
+                        _ => affine.at_group[axis].remainder = -1,
+                    }
+                    assert_ne!(exact_owner_rows_hash(&world), baseline,
+                               "limb {limb} axis {axis} word {word} was not hashed");
+                }
+            }
+            let mut spec = World::new(&scenario, 1);
+            spec.exact_owners[0].as_mut().unwrap().held_response[limb]
+                .as_mut().unwrap().spec_id = u16::MAX;
+            assert_ne!(exact_owner_rows_hash(&spec), baseline,
+                       "limb {limb} immutable spec tag was not hashed");
+            let mut absent = World::new(&scenario, 1);
+            absent.exact_owners[0].as_mut().unwrap().held_response[limb] = None;
+            assert_ne!(exact_owner_rows_hash(&absent), baseline,
+                       "limb {limb} presence tag was not hashed");
+        }
+        let mut swapped = World::new(&scenario, 1);
+        swapped.exact_owners[0].as_mut().unwrap().held_response.swap(0, 1);
+        assert_ne!(exact_owner_rows_hash(&swapped), baseline,
+                   "left and right occupied one unordered hash bucket");
+        let mut entity_swapped = World::new(&scenario, 1);
+        entity_swapped.exact_owners.swap(0, 1);
+        assert_ne!(exact_owner_rows_hash(&entity_swapped), baseline,
+                   "entity rows occupied one unordered hash bucket");
+        let mut positive = World::new(&scenario, 1);
+        positive.exact_owners[0].as_mut().unwrap()
+            .common_response.at_group[1].remainder = 1;
+        let mut negative = World::new(&scenario, 1);
+        negative.exact_owners[0].as_mut().unwrap()
+            .common_response.at_group[1].remainder = -1;
+        assert_ne!(exact_owner_rows_hash(&positive), exact_owner_rows_hash(&negative),
+                   "a sign mirror erased the signed remainder word");
     }
 
     #[test]
@@ -9799,6 +10805,8 @@ mod tests {
                     world.arms[0][1].post_contact_com_velocity), (false, Vec3::ZERO));
 
         world.grips[0][1].equipment_slot = Some(0);
+        let scale = world.exact_owners[0].unwrap().common_scale;
+        world.exact_owners[0] = Some(world.initial_exact_owner(0, scale));
         world.arms[0][1].post_contact_active = true;
         world.arms[0][1].post_contact_com_velocity = Vec3::X;
         world.wounds[0].parts[BodyPart::RightArm as usize].severed = true;
@@ -9830,6 +10838,8 @@ mod tests {
         world.apply_articulated_grips();
         world.grips[0][1].equipment_slot = Some(0);
         world.articulated_carried[0][1] = world.articulated_carried[0][0];
+        let scale = world.exact_owners[0].unwrap().common_scale;
+        world.exact_owners[0] = Some(world.initial_exact_owner(0, scale));
         world.arms[0][1].post_contact_active = true;
         world.arms[0][1].post_contact_com_velocity = Vec3::new(Fx::ONE, Fx::ZERO, Fx::ZERO);
         let mut replace = world.neutral_articulated(0);
@@ -11815,6 +12825,37 @@ mod tests {
         (0..world.alive.len()).flat_map(|i| anatomy_row_bytes(world, i)).collect()
     }
 
+    fn articulated_suffix_bytes(world: &World) -> Vec<u8> {
+        #[allow(unused_mut)]
+        let mut bytes = anatomy_suffix_bytes(world);
+        #[cfg(feature = "cartesian-recoil")]
+        for owner in &world.exact_owners {
+            let append_affine = |bytes: &mut Vec<u8>, affine: Option<&ExactAffine3>| {
+                for axis in 0..3 {
+                    let (velocity_raw, momentum_remainder, position_raw, position_remainder) =
+                        affine.map_or((0, 0, 0, 0), |row| (
+                            row.momentum[axis].velocity_raw,
+                            row.momentum[axis].remainder,
+                            row.at_group[axis].raw,
+                            row.at_group[axis].remainder,
+                        ));
+                    bytes.extend_from_slice(&velocity_raw.to_le_bytes());
+                    bytes.extend_from_slice(&momentum_remainder.to_le_bytes());
+                    bytes.extend_from_slice(&position_raw.to_le_bytes());
+                    bytes.extend_from_slice(&position_remainder.to_le_bytes());
+                }
+            };
+            append_affine(&mut bytes, owner.as_ref().map(|row| &row.common_response));
+            for limb in 0..2 {
+                let held = owner.as_ref().and_then(|row| row.held_response[limb].as_ref());
+                bytes.push(held.is_some() as u8);
+                bytes.extend_from_slice(&held.map_or(0, |row| row.spec_id).to_le_bytes());
+                append_affine(&mut bytes, held.map(|row| &row.affine));
+            }
+        }
+        bytes
+    }
+
     #[test]
     fn contact_cap_hashes_once_after_all_actuator_rows() {
         let scenario = Scenario::articulated_duel();
@@ -11824,11 +12865,11 @@ mod tests {
         assert_eq!(bumped.state_hash(), base.state_hash(), "cap_hits leaked into LegacyV1");
         assert_ne!(bumped.state_digest().value, base.state_digest().value);
 
-        // Where the two suffixes sit is the part worth proving rather than
+        // Where the suffix rows sit is the part worth proving rather than
         // asserting, because the positions are what the contract froze and a
         // reader cannot see them from the digest. FNV-1a multiplies by an odd
         // prime, so every step is invertible: winding a known digest back over
-        // the anatomy rows and then over four counter bytes recovers exactly
+        // the authoritative suffix and then over four counter bytes recovers exactly
         // the state the actuator loop left behind. Anything else written after
         // that loop -- a per-slot copy of the counter, a placeholder, an
         // anatomy row on the wrong side of it -- makes the two disagree.
@@ -11845,11 +12886,14 @@ mod tests {
             }
             state
         };
-        let rows = anatomy_suffix_bytes(&base);
+        let rows = articulated_suffix_bytes(&base);
+        #[cfg(not(feature = "cartesian-recoil"))]
         assert_eq!(rows.len(), base.alive.len() * crate::anatomy::ANATOMY_HASH_ROW_BYTES);
+        #[cfg(feature = "cartesian-recoil")]
+        assert_eq!(rows.len(), base.alive.len() * (crate::anatomy::ANATOMY_HASH_ROW_BYTES + 222));
         let actuator_tail = unwind(base.state_digest().value, 0, &rows);
         assert_eq!(unwind(bumped.state_digest().value, 1, &rows), actuator_tail,
-                   "cap_hits and the anatomy rows are not the digest's tail");
+                   "cap_hits and the authoritative rows are not the digest's tail");
 
         // And the counter is one global value rather than one per slot. A third
         // allocated row changes the actuator prefix, so the recovered state
@@ -11859,7 +12903,7 @@ mod tests {
         wider.try_spawn(&scenario.units[1]).expect("a third row");
         let mut wider_bumped = wider.clone();
         wider_bumped.contact.as_mut().expect("articulated contact state").state.cap_hits = 1;
-        let wider_rows = anatomy_suffix_bytes(&wider);
+        let wider_rows = articulated_suffix_bytes(&wider);
         let wider_tail = unwind(wider.state_digest().value, 0, &wider_rows);
         assert_ne!(wider_tail, actuator_tail, "a third actuator row hashed nothing");
         assert_eq!(unwind(wider_bumped.state_digest().value, 1, &wider_rows), wider_tail,
