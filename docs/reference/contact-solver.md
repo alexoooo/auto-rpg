@@ -8,6 +8,12 @@
 This is the canonical deterministic contract for the purpose-built XYZ contact
 solver. Legacy combat does not construct its state or call it.
 
+The disabled `cartesian-recoil` and test-only helpers are not a second current
+contract. They preserve candidate response, recoil, and lifted-remainder experiments
+whose outcomes are summarized in the
+[articulated contact research record](../performance/v2-articulated-contact-research.md).
+None authorizes a production response or changes the public rows below.
+
 ## Contract
 
 ### Public rows and ownership

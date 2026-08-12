@@ -92,6 +92,14 @@ pub(crate) fn clear_post_contact(arm: &mut ArmState) -> Vec3 {
     removed
 }
 
+#[cfg(feature = "cartesian-recoil")]
+pub(crate) fn settle_post_contact_com(c: Vec3, solved_body: Vec2, settled_body: Vec2) -> Vec3 {
+    let mut absolute = Vec3::new(solved_body.x, solved_body.y, Fx::ZERO) + c;
+    if settled_body.x != solved_body.x { absolute.x = Fx::ZERO; }
+    if settled_body.y != solved_body.y { absolute.y = Fx::ZERO; }
+    absolute - Vec3::new(settled_body.x, settled_body.y, Fx::ZERO)
+}
+
 pub(crate) fn shoulder(anatomy: &BodyAnatomySpec, yaw: Angle, limb: usize) -> Vec3 {
     let side = if limb == 0 { anatomy.shoulder_half_width } else { -anatomy.shoulder_half_width };
     Vec3::new(-yaw.sin() * side, yaw.cos() * side, anatomy.shoulder_height)
@@ -531,6 +539,18 @@ mod tests {
                    (false, Vec3::ZERO));
         assert_eq!((right.post_contact_active, right.post_contact_com_velocity),
                    (true, Vec3::new(Fx::from_raw(2), Fx::from_raw(-1), Fx::from_raw(3))));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn wall_settlement_removes_only_the_clipped_absolute_com_component() {
+        let c = Vec3::new(Fx::from_raw(-7), Fx::from_raw(11), Fx::from_raw(13));
+        let solved = Vec2::new(Fx::from_raw(19), Fx::from_raw(23));
+        let settled = Vec2::new(Fx::ZERO, Fx::from_raw(23));
+        let after = settle_post_contact_com(c, solved, settled);
+        assert_eq!(after, Vec3::new(Fx::ZERO, Fx::from_raw(11), Fx::from_raw(13)));
+        assert_eq!(Vec3::new(settled.x, settled.y, Fx::ZERO) + after,
+                   Vec3::new(Fx::ZERO, Fx::from_raw(34), Fx::from_raw(13)));
     }
 
     #[test]

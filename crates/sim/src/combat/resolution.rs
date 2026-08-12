@@ -217,15 +217,7 @@ pub fn resolve_group_into<P: ContactTrialProjector>(
     output: &mut Vec<ContactResolution>,
 ) -> Result<(), ResolutionError> {
     let before = closure_energy(colliders)?;
-    sums.clear();
-    sums.resize(colliders.len(), [0i128; 3]);
-    for contact in contacts {
-        if contact.a_collider >= colliders.len() || contact.b_collider >= colliders.len() {
-            return Err(ResolutionError::ColliderIndex);
-        }
-        add(&mut sums[contact.a_collider], contact.impulse_on_a);
-        add(&mut sums[contact.b_collider], -contact.impulse_on_a);
-    }
+    build_group_sums(colliders.len(), contacts, sums)?;
 
     projector.project(colliders, sums, 65_536, trial_rows)?;
     let full_energy = closure_energy(trial_rows)?;
@@ -241,7 +233,6 @@ pub fn resolve_group_into<P: ContactTrialProjector>(
         accepted
     };
     projector.project(colliders, sums, alpha_raw, trial_rows)?;
-    let after = closure_energy(trial_rows)?;
     // `after <= before` is the whole point of the alpha search, and alpha zero
     // has to satisfy it: no impulse is applied there, so a projector that
     // answers anything but the rows it was handed is reporting its own
@@ -260,13 +251,72 @@ pub fn resolve_group_into<P: ContactTrialProjector>(
     // at all. The fix is in `ContactProjector::project`: an unmoved hand is not
     // re-derived. Note what the number was, because the check is worth nothing
     // if the next projector's drift is quietly re-recorded as the new normal.
-    if trial_rows.len() != colliders.len() || after > before {
+    finalize_projected_group(colliders, trial_rows, contacts, group_ordinal, alpha_raw,
+        weights, shares, output)?;
+    Ok(())
+}
+
+pub(crate) fn build_group_sums(
+    collider_count: usize, contacts: &[ProposedContact], sums: &mut Vec<[i128; 3]>,
+) -> Result<(), ResolutionError> {
+    sums.clear();
+    sums.resize(collider_count, [0i128; 3]);
+    for contact in contacts {
+        if contact.a_collider >= collider_count || contact.b_collider >= collider_count {
+            return Err(ResolutionError::ColliderIndex);
+        }
+        add(&mut sums[contact.a_collider], contact.impulse_on_a);
+        add(&mut sums[contact.b_collider], -contact.impulse_on_a);
+    }
+    Ok(())
+}
+
+/// Finish an already selected projected group without choosing its response.
+///
+/// This is deliberately response-law agnostic: production hands it the row set
+/// selected above, while tests may hand it a frozen candidate. It owns the
+/// energy check, allocation and diagnostic construction so those two callers
+/// cannot drift into subtly different anatomy inputs.
+pub(crate) fn finalize_projected_group(
+    colliders: &mut [GeneralizedCollider], projected: &[GeneralizedCollider],
+    contacts: &[ProposedContact], group_ordinal: u8, alpha_raw: u32,
+    weights: &mut Vec<u128>, shares: &mut Vec<u64>, output: &mut Vec<ContactResolution>,
+) -> Result<(), ResolutionError> {
+    if alpha_raw > 65_536 || projected.len() != colliders.len() {
         return Err(ResolutionError::Projector);
     }
-    colliders.copy_from_slice(trial_rows);
+    for (before, after) in colliders.iter().zip(projected) {
+        if before.entity != after.entity || before.slot != after.slot || before.kind != after.kind
+            || before.mass != after.mass || before.velocity_offset != after.velocity_offset {
+            return Err(ResolutionError::Projector);
+        }
+    }
+    if contacts.is_empty() { return Err(ResolutionError::ResolutionCount); }
+    let mut previous = None;
+    for contact in contacts {
+        if contact.a_collider >= colliders.len() || contact.b_collider >= colliders.len()
+            || contact.a_collider == contact.b_collider
+            || previous.is_some_and(|key| key >= contact.fact.key) {
+            return Err(if contact.a_collider >= colliders.len() || contact.b_collider >= colliders.len() {
+                ResolutionError::ColliderIndex
+            } else { ResolutionError::DuplicateIdentity });
+        }
+        let matches = |row: GeneralizedCollider, entity, slot| row.entity == entity
+            && row.slot == slot && (slot != BODY_SLOT || row.kind == GeneralizedKind::Body);
+        if !matches(colliders[contact.a_collider], contact.fact.key.a, contact.fact.key.a_slot)
+            || !matches(colliders[contact.b_collider], contact.fact.key.b, contact.fact.key.b_slot) {
+            return Err(ResolutionError::ColliderIndex);
+        }
+        previous = Some(contact.fact.key);
+    }
+    let before = closure_energy(colliders)?;
+    let after = closure_energy(projected)?;
+    if after > before { return Err(ResolutionError::Projector); }
     let ledger = EnergyLedger { before_raw: before, after_raw: after, dissipated_raw: before - after };
-
     allocate_shares_into(ledger.dissipated_raw, contacts, alpha_raw, weights, shares)?;
+    if ledger.dissipated_raw > 0 && weights.iter().all(|&weight| weight == 0) {
+        return Err(ResolutionError::EnergyNumerator);
+    }
     output.clear();
     for (contact, &share) in contacts.iter().zip(shares.iter()) {
         let on_a = scale_impulse(contact.impulse_on_a, alpha_raw);
@@ -286,6 +336,42 @@ pub fn resolve_group_into<P: ContactTrialProjector>(
             deflected_raw: 0,
             severed: false,
         });
+    }
+    colliders.copy_from_slice(projected);
+    Ok(())
+}
+
+/// Apply selected generalized velocities to their authoritative collider rows.
+/// Endpoint translation keeps the production Fx parenthesization exactly.
+pub(crate) fn apply_projected_rows(
+    colliders: &mut [ContactCollider], closure_rows: &[usize], old_velocities: &[Vec3],
+    projected: &[GeneralizedCollider], remaining_raw: u32,
+) -> Result<(), ResolutionError> {
+    if remaining_raw > 65_536 || closure_rows.len() != old_velocities.len()
+        || closure_rows.len() != projected.len() {
+        return Err(ResolutionError::Projector);
+    }
+    let remaining = Fx::from_raw(remaining_raw as i32);
+    for pair in closure_rows.windows(2) {
+        if pair[0] >= pair[1] { return Err(ResolutionError::DuplicateIdentity); }
+    }
+    for ((&index, &old), generalized) in closure_rows.iter()
+        .zip(old_velocities).zip(projected) {
+        let Some(row) = colliders.get(index) else { return Err(ResolutionError::ColliderIndex) };
+        let expected_kind = if matches!(row.shape, ContactShape::Body { .. }) {
+            GeneralizedKind::Body
+        } else { GeneralizedKind::Equipment };
+        if row.entity != generalized.entity || row.slot != generalized.slot
+            || expected_kind != generalized.kind || row.mass != generalized.mass
+            || row.velocity_offset != generalized.velocity_offset || row.velocity != old {
+            return Err(ResolutionError::Projector);
+        }
+    }
+    for ((&index, &old), generalized) in closure_rows.iter()
+        .zip(old_velocities).zip(projected) {
+        let row = &mut colliders[index];
+        translate_requested(row, (generalized.velocity - old) * remaining);
+        row.velocity = generalized.velocity;
     }
     Ok(())
 }
@@ -588,12 +674,8 @@ pub fn solve_contact_tick<P: ContactTrialProjector>(
         // helper agrees on every positive delta and disagrees by one raw unit
         // on negative ones, which is exactly the byte the behavioral corpus
         // pins in case 2.
-        let remaining = Fx::from_raw((65_536 - time) as i32);
-        for ((&index, &old), generalized) in scratch.closure_rows.iter()
-            .zip(&scratch.old_velocities).zip(&scratch.generalized) {
-            translate_requested(&mut colliders[index], (generalized.velocity - old) * remaining);
-            colliders[index].velocity = generalized.velocity;
-        }
+        apply_projected_rows(colliders, &scratch.closure_rows, &scratch.old_velocities,
+            &scratch.generalized, 65_536 - time)?;
 
         // The group is settled: hand it to the projector before the next scan
         // sees the colliders, so a severance can take an arm out of the tick it
@@ -1013,6 +1095,46 @@ pub(crate) mod tests {
         GeneralizedCollider { entity: EntityId::new(index, 0), slot: 1,
             kind: GeneralizedKind::Equipment, mass: Fx::ONE, velocity,
             velocity_offset: Vec3::ZERO }
+    }
+
+    #[test]
+    fn projected_group_finalizer_refuses_unattributed_loss_before_mutation() {
+        let mut before = vec![state(0, Vec3::X), state(1, -Vec3::X)];
+        let projected = vec![state(0, Vec3::ZERO), state(1, Vec3::ZERO)];
+        let f = fact(0, 1, ContactKind::WeaponWeapon, 0, 65_536, -65_536);
+        let contact = ProposedContact { fact: f, a_collider: 0, b_collider: 1,
+            impulse_on_a: Vec3::ZERO, channel: None };
+        let saved = before.clone(); let mut weights = Vec::new(); let mut shares = Vec::new();
+        let mut output = Vec::new();
+        assert_eq!(finalize_projected_group(&mut before, &projected, &[contact], 0, 65_536,
+            &mut weights, &mut shares, &mut output), Err(ResolutionError::EnergyNumerator));
+        assert_eq!(before, saved);
+        assert!(output.is_empty());
+        assert_eq!(finalize_projected_group(&mut before, &projected, &[], 0, 65_536,
+            &mut weights, &mut shares, &mut output), Err(ResolutionError::ResolutionCount));
+    }
+
+    #[test]
+    fn projected_group_seams_refuse_wrong_identity_and_duplicate_mapping_atomically() {
+        let mut before = vec![state(0, Vec3::X), state(1, -Vec3::X)];
+        let projected = vec![state(0, Vec3::ZERO), state(1, Vec3::ZERO)];
+        let f = fact(0, 1, ContactKind::WeaponWeapon, 0, 65_536, -65_536);
+        let wrong = proposed(f, 1, 0, Fx::ZERO);
+        let saved = before.clone(); let mut weights = Vec::new(); let mut shares = Vec::new();
+        let mut output = Vec::new();
+        assert_eq!(finalize_projected_group(&mut before, &projected, &[wrong], 0, 65_536,
+            &mut weights, &mut shares, &mut output), Err(ResolutionError::ColliderIndex));
+        assert_eq!(before, saved);
+
+        let mut colliders = behavior_case(4); let saved_colliders = colliders.clone();
+        let old = [colliders[0].velocity, colliders[0].velocity];
+        let projected = [GeneralizedCollider { entity: colliders[0].entity,
+            slot: colliders[0].slot, kind: GeneralizedKind::Equipment,
+            mass: colliders[0].mass, velocity: Vec3::ZERO,
+            velocity_offset: colliders[0].velocity_offset }; 2];
+        assert_eq!(apply_projected_rows(&mut colliders, &[0, 0], &old, &projected, 32_768),
+                   Err(ResolutionError::DuplicateIdentity));
+        assert_eq!(colliders, saved_colliders);
     }
 
     #[test]
@@ -2082,6 +2204,602 @@ pub(crate) mod tests {
         Ok(square <= limit_square)
     }
 
+    #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+    pub(crate) struct FrictionClassification {
+        pub(crate) normal_valid: bool,
+        pub(crate) cone_valid: bool,
+        pub(crate) static_valid: bool,
+        pub(crate) sliding_valid: bool,
+    }
+
+    #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+    pub(crate) enum StaticSearchReject {
+        Attribution, UnsupportedNonPlanar, MissingNormalBracket, MissingTangentBracket,
+        NonAdjacentBracket, Arithmetic, Saturation, Capacity, Budget, Projector,
+        RestitutionGap, Cone, Energy, NoCandidate, Ambiguous, Permutation,
+    }
+
+    #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+    pub(crate) enum FullDomainContactReject {
+        Attribution, UnsupportedGeometry, Arithmetic, Saturation, Capacity, Budget,
+        Range, UnsupportedNonlinear, NormalGap, NormalEnergy, Ambiguous, Projector,
+        MissingTangentBracket, TangentGap, Cone, UnsupportedCoupling, StaticEnergy,
+        NoStaticCandidate, Permutation,
+    }
+
+    #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+    pub(crate) enum ResidualTrustReject {
+        Attribution, UnsupportedGeometry, Arithmetic, Saturation, Capacity, Budget,
+        Projector, Nonlinear, Singular, Plateau, Cone, Energy, Ambiguous,
+        NoConvergence, Permutation,
+    }
+
+    #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+    pub(crate) enum SeedProvenanceReject {
+        Attribution, Arithmetic, Saturation, Capacity, Budget, Projector, Ambiguous,
+        Plateau, Nonlinear, Singular, Cone, Energy,
+    }
+
+    #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+    struct LiftedCoordinate {
+        velocity_raw: i32, momentum_remainder: i64,
+        position_raw: i32, position_remainder: i64,
+    }
+
+    #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+    enum LiftedReject { Mass, NonCanonical, Arithmetic, Saturation, Capacity, UnsupportedAlpha,
+                        UnsupportedInterval }
+
+    fn validate_lifted(value: LiftedCoordinate, mass_raw: i32) -> Result<(), LiftedReject> {
+        if mass_raw <= 0 { return Err(LiftedReject::Mass); }
+        let position_denominator = (mass_raw as i64).checked_mul(65_536)
+            .ok_or(LiftedReject::Arithmetic)?;
+        if value.momentum_remainder.unsigned_abs() >= mass_raw as u64
+            || value.position_remainder.unsigned_abs() >= position_denominator as u64 {
+            return Err(LiftedReject::NonCanonical);
+        }
+        if (value.velocity_raw > 0 && value.momentum_remainder < 0)
+            || (value.velocity_raw < 0 && value.momentum_remainder > 0)
+            || (value.position_raw > 0 && value.position_remainder < 0)
+            || (value.position_raw < 0 && value.position_remainder > 0) {
+            return Err(LiftedReject::NonCanonical);
+        }
+        Ok(())
+    }
+
+    fn lifted_impulse(
+        value: LiftedCoordinate, mass_raw: i32, impulse_raw: i64, alpha_raw: u32,
+    ) -> Result<LiftedCoordinate, LiftedReject> {
+        validate_lifted(value, mass_raw)?;
+        if alpha_raw != 65_536 { return Err(LiftedReject::UnsupportedAlpha); }
+        let momentum = (mass_raw as i128).checked_mul(value.velocity_raw as i128)
+            .and_then(|word| word.checked_add(value.momentum_remainder as i128))
+            .and_then(|word| (impulse_raw as i128).checked_mul(65_536)
+                .and_then(|impulse| word.checked_add(impulse)))
+            .ok_or(LiftedReject::Arithmetic)?;
+        let quotient = momentum / mass_raw as i128;
+        let velocity_raw = i32::try_from(quotient).map_err(|_| LiftedReject::Saturation)?;
+        let remainder = momentum.checked_sub((mass_raw as i128).checked_mul(quotient)
+            .ok_or(LiftedReject::Arithmetic)?).ok_or(LiftedReject::Arithmetic)?;
+        let momentum_remainder = i64::try_from(remainder).map_err(|_| LiftedReject::Saturation)?;
+        Ok(LiftedCoordinate { velocity_raw, momentum_remainder, ..value })
+    }
+
+    fn integrate_lifted(
+        value: LiftedCoordinate, mass_raw: i32, dt_raw: u32,
+    ) -> Result<LiftedCoordinate, LiftedReject> {
+        validate_lifted(value, mass_raw)?;
+        if dt_raw > 65_536 { return Err(LiftedReject::UnsupportedInterval); }
+        let momentum = (mass_raw as i128).checked_mul(value.velocity_raw as i128)
+            .and_then(|word| word.checked_add(value.momentum_remainder as i128))
+            .ok_or(LiftedReject::Arithmetic)?;
+        let position_denominator = (mass_raw as i128).checked_mul(65_536)
+            .ok_or(LiftedReject::Arithmetic)?;
+        let numerator = position_denominator.checked_mul(value.position_raw as i128)
+            .and_then(|word| word.checked_add(value.position_remainder as i128))
+            .and_then(|word| momentum.checked_mul(dt_raw as i128)
+                .and_then(|step| word.checked_add(step))).ok_or(LiftedReject::Arithmetic)?;
+        let quotient = numerator / position_denominator;
+        let position_raw = i32::try_from(quotient).map_err(|_| LiftedReject::Saturation)?;
+        let remainder = numerator.checked_sub(position_denominator.checked_mul(quotient)
+            .ok_or(LiftedReject::Arithmetic)?).ok_or(LiftedReject::Arithmetic)?;
+        let position_remainder = i64::try_from(remainder).map_err(|_| LiftedReject::Saturation)?;
+        Ok(LiftedCoordinate { position_raw, position_remainder, ..value })
+    }
+
+    fn lifted_energy(value: LiftedCoordinate, mass_raw: i32)
+        -> Result<(i128, i128), LiftedReject>
+    {
+        validate_lifted(value, mass_raw)?;
+        let momentum = (mass_raw as i128).checked_mul(value.velocity_raw as i128)
+            .and_then(|word| word.checked_add(value.momentum_remainder as i128))
+            .ok_or(LiftedReject::Arithmetic)?;
+        Ok((momentum.checked_mul(momentum).ok_or(LiftedReject::Arithmetic)?,
+            (mass_raw as i128).checked_mul(2).ok_or(LiftedReject::Arithmetic)?))
+    }
+
+    #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+    struct LiftedOwner {
+        body_mass: i32, common: LiftedCoordinate,
+        held_count: usize, held_mass: [i32; 2], relative: [LiftedCoordinate; 2],
+    }
+
+    #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+    struct LiftedOwner3 { axes: [LiftedOwner; 3] }
+
+    fn validate_owner3(value: LiftedOwner3) -> Result<(), LiftedReject> {
+        for axis in &value.axes { validate_owner(*axis)?; }
+        if value.axes[2].common != (LiftedCoordinate {
+            velocity_raw: 0, momentum_remainder: 0,
+            position_raw: 0, position_remainder: 0,
+        }) { return Err(LiftedReject::NonCanonical); }
+        if value.axes[1].body_mass != value.axes[0].body_mass
+            || value.axes[2].body_mass != value.axes[0].body_mass
+            || value.axes[1].held_count != value.axes[0].held_count
+            || value.axes[2].held_count != value.axes[0].held_count
+            || value.axes[1].held_mass != value.axes[0].held_mass
+            || value.axes[2].held_mass != value.axes[0].held_mass {
+            return Err(LiftedReject::NonCanonical);
+        }
+        Ok(())
+    }
+
+    fn owner3_impulse(
+        value: LiftedOwner3, body: [i64; 3], held: [[i64; 3]; 2],
+    ) -> Result<LiftedOwner3, LiftedReject> {
+        if body[2] != 0 { return Err(LiftedReject::NonCanonical); }
+        validate_owner3(value)?;
+        let mut next = value;
+        for axis in 0..3 {
+            next.axes[axis] = owner_impulse(value.axes[axis], body[axis],
+                [held[0][axis], held[1][axis]])?;
+        }
+        Ok(next)
+    }
+
+    fn integrate_owner3(value: LiftedOwner3, dt_raw: u32)
+        -> Result<LiftedOwner3, LiftedReject>
+    {
+        validate_owner3(value)?;
+        let mut next = value;
+        for axis in 0..3 { next.axes[axis] = integrate_owner(value.axes[axis], dt_raw)?; }
+        Ok(next)
+    }
+
+    fn owner3_momentum(value: LiftedOwner3) -> Result<[i128; 3], LiftedReject> {
+        validate_owner3(value)?;
+        Ok([owner_momentum(value.axes[0])?, owner_momentum(value.axes[1])?,
+            owner_momentum(value.axes[2])?])
+    }
+
+    fn owner3_energy(value: LiftedOwner3) -> Result<Rational, LiftedReject> {
+        validate_owner3(value)?;
+        let mut total = Rational { n: 0, d: 1 };
+        for axis in value.axes {
+            let (numerator, denominator) = owner_energy_numerator(axis)?;
+            let next_n = total.n.checked_mul(denominator)
+                .and_then(|left| numerator.checked_mul(total.d)
+                    .and_then(|right| left.checked_add(right)))
+                .ok_or(LiftedReject::Arithmetic)?;
+            let next_d = total.d.checked_mul(denominator).ok_or(LiftedReject::Arithmetic)?;
+            total = Rational::new(next_n, next_d).map_err(|_| LiftedReject::Arithmetic)?;
+        }
+        Ok(total)
+    }
+
+    fn validate_owner(value: LiftedOwner) -> Result<(), LiftedReject> {
+        if value.held_count > 2 { return Err(LiftedReject::Capacity); }
+        if value.body_mass <= 0 { return Err(LiftedReject::Mass); }
+        for at in value.held_count..2 {
+            if value.held_mass[at] != 0 || value.relative[at] != (LiftedCoordinate {
+                velocity_raw: 0, momentum_remainder: 0, position_raw: 0, position_remainder: 0,
+            }) { return Err(LiftedReject::NonCanonical); }
+        }
+        let owner_mass = value.held_mass[..value.held_count].iter()
+            .try_fold(value.body_mass as i64, |sum, mass| {
+                if *mass <= 0 { None } else { sum.checked_add(*mass as i64) }
+            }).ok_or(LiftedReject::Mass)?;
+        let owner_mass = i32::try_from(owner_mass).map_err(|_| LiftedReject::Saturation)?;
+        validate_lifted(value.common, owner_mass)?;
+        for at in 0..value.held_count { validate_lifted(value.relative[at], value.held_mass[at])?; }
+        Ok(())
+    }
+
+    fn owner_impulse(
+        value: LiftedOwner, body_impulse: i64, held_impulse: [i64; 2],
+    ) -> Result<LiftedOwner, LiftedReject> {
+        validate_owner(value)?;
+        if held_impulse[value.held_count..].iter().any(|word| *word != 0) {
+            return Err(LiftedReject::NonCanonical);
+        }
+        let mut next = value;
+        let owner_mass = value.held_mass[..value.held_count].iter()
+            .fold(value.body_mass, |sum, mass| sum.checked_add(*mass).unwrap());
+        next.common = lifted_impulse(value.common, owner_mass, body_impulse, 65_536)?;
+        for at in 0..value.held_count {
+            next.relative[at] = lifted_impulse(value.relative[at], value.held_mass[at],
+                                               held_impulse[at], 65_536)?;
+        }
+        Ok(next)
+    }
+
+    fn owner_momentum(value: LiftedOwner) -> Result<i128, LiftedReject> {
+        validate_owner(value)?;
+        let owner_mass = value.held_mass[..value.held_count].iter()
+            .fold(value.body_mass, |sum, mass| sum + *mass);
+        let momentum = |coordinate: LiftedCoordinate, mass: i32| (mass as i128)
+            * coordinate.velocity_raw as i128 + coordinate.momentum_remainder as i128;
+        let mut total = momentum(value.common, owner_mass);
+        for at in 0..value.held_count { total += momentum(value.relative[at], value.held_mass[at]); }
+        Ok(total)
+    }
+
+    fn owner_energy_numerator(value: LiftedOwner) -> Result<(i128, i128), LiftedReject> {
+        validate_owner(value)?;
+        let owner_mass = value.held_mass[..value.held_count].iter()
+            .fold(value.body_mass, |sum, mass| sum + *mass);
+        let momentum = |coordinate: LiftedCoordinate, mass: i32| (mass as i128)
+            * coordinate.velocity_raw as i128 + coordinate.momentum_remainder as i128;
+        let common_p = momentum(value.common, owner_mass);
+        // Common velocity is common_p/owner_mass. Each held absolute velocity
+        // adds relative_p/m; the shared denominator keeps the cross term exact.
+        let held_product = value.held_mass[..value.held_count].iter()
+            .try_fold(1i128, |product, mass| product.checked_mul(*mass as i128))
+            .ok_or(LiftedReject::Arithmetic)?;
+        let mut numerator = (value.body_mass as i128).checked_mul(common_p)
+            .and_then(|word| word.checked_mul(common_p))
+            .and_then(|word| word.checked_mul(held_product)).ok_or(LiftedReject::Arithmetic)?;
+        let denominator = (2i128).checked_mul(owner_mass as i128)
+            .and_then(|word| word.checked_mul(owner_mass as i128))
+            .and_then(|word| word.checked_mul(held_product)).ok_or(LiftedReject::Arithmetic)?;
+        for at in 0..value.held_count {
+            let mass = value.held_mass[at] as i128;
+            let relative_p = momentum(value.relative[at], value.held_mass[at]);
+            let absolute_n = common_p * mass + relative_p * owner_mass as i128;
+            numerator = numerator.checked_add(absolute_n.checked_mul(absolute_n)
+                .and_then(|word| word.checked_mul(held_product / mass))
+                .ok_or(LiftedReject::Arithmetic)?).ok_or(LiftedReject::Arithmetic)?;
+        }
+        let reduced = Rational::new(numerator, denominator).map_err(|_| LiftedReject::Arithmetic)?;
+        Ok((reduced.n, reduced.d))
+    }
+
+    fn held_absolute_velocity(value: LiftedOwner, at: usize)
+        -> Result<(i128, i128), LiftedReject>
+    {
+        validate_owner(value)?; if at >= value.held_count { return Err(LiftedReject::NonCanonical); }
+        let owner_mass = value.held_mass[..value.held_count].iter()
+            .fold(value.body_mass, |sum, mass| sum + *mass) as i128;
+        let mass = value.held_mass[at] as i128;
+        let common = owner_mass * value.common.velocity_raw as i128
+            + value.common.momentum_remainder as i128;
+        let relative = mass * value.relative[at].velocity_raw as i128
+            + value.relative[at].momentum_remainder as i128;
+        let numerator = common * mass + relative * owner_mass;
+        let denominator = owner_mass * mass;
+        Ok((numerator / denominator, numerator % denominator))
+    }
+
+    fn integrate_owner(value: LiftedOwner, dt_raw: u32) -> Result<LiftedOwner, LiftedReject> {
+        validate_owner(value)?; let mut next = value;
+        let owner_mass = value.held_mass[..value.held_count].iter()
+            .try_fold(value.body_mass, |sum, mass| sum.checked_add(*mass))
+            .ok_or(LiftedReject::Saturation)?;
+        next.common = integrate_lifted(value.common, owner_mass, dt_raw)?;
+        for at in 0..value.held_count {
+            next.relative[at] = integrate_lifted(value.relative[at], value.held_mass[at], dt_raw)?;
+        }
+        Ok(next)
+    }
+
+    fn held_absolute_position(value: LiftedOwner, at: usize)
+        -> Result<(i128, i128), LiftedReject>
+    {
+        validate_owner(value)?; if at >= value.held_count { return Err(LiftedReject::NonCanonical); }
+        let owner_mass = value.held_mass[..value.held_count].iter()
+            .try_fold(value.body_mass, |sum, mass| sum.checked_add(*mass))
+            .ok_or(LiftedReject::Saturation)? as i128;
+        let mass = value.held_mass[at] as i128; let scale = 65_536i128;
+        let common = owner_mass * scale * value.common.position_raw as i128
+            + value.common.position_remainder as i128;
+        let relative = mass * scale * value.relative[at].position_raw as i128
+            + value.relative[at].position_remainder as i128;
+        let numerator = common * mass + relative * owner_mass;
+        let denominator = owner_mass * mass * scale;
+        Ok((numerator / denominator, numerator % denominator))
+    }
+
+    pub(crate) fn invariant_perturbation_pair(direction: Vec3, h: i32)
+        -> Result<(Vec3, Vec3), SeedProvenanceReject>
+    {
+        if direction == Vec3::ZERO { return Err(SeedProvenanceReject::Plateau); }
+        if h <= 0 { return Err(SeedProvenanceReject::Arithmetic); }
+        let ideal = [direction.x.raw(), direction.y.raw(), direction.z.raw()];
+        let error = |value: Vec3| -> Result<i128, SeedProvenanceReject> {
+            let words = [value.x.raw(), value.y.raw(), value.z.raw()];
+            let mut sum = 0i128;
+            for axis in 0..3 {
+                let delta = (65_536i128).checked_mul(words[axis] as i128)
+                    .and_then(|word| (h as i128).checked_mul(ideal[axis] as i128)
+                        .and_then(|target| word.checked_sub(target)))
+                    .ok_or(SeedProvenanceReject::Arithmetic)?;
+                sum = sum.checked_add(delta.checked_mul(delta)
+                    .ok_or(SeedProvenanceReject::Arithmetic)?)
+                    .ok_or(SeedProvenanceReject::Arithmetic)?;
+            }
+            Ok(sum)
+        };
+        let mut toward = [0i32; 3]; let mut fractional = [usize::MAX; 3]; let mut classes = 0;
+        for axis in 0..3 {
+            let product = (ideal[axis] as i128).checked_mul(h as i128)
+                .ok_or(SeedProvenanceReject::Arithmetic)?;
+            toward[axis] = i32::try_from(product / 65_536)
+                .map_err(|_| SeedProvenanceReject::Saturation)?;
+            if product % 65_536 != 0 {
+                if classes == 2 { return Err(SeedProvenanceReject::Capacity); }
+                fractional[axis] = classes; classes += 1;
+            }
+        }
+        let mut selected = None; let mut minimum = i128::MAX; let mut tied = false;
+        for mask in 0..(1usize << classes) {
+            let mut words = toward;
+            for axis in 0..3 {
+                if fractional[axis] != usize::MAX && mask & (1 << fractional[axis]) != 0 {
+                    words[axis] = words[axis].checked_add(if ideal[axis] < 0 { -1 } else { 1 })
+                        .ok_or(SeedProvenanceReject::Saturation)?;
+                }
+            }
+            let plus = Vec3::new(Fx::from_raw(words[0]), Fx::from_raw(words[1]), Fx::from_raw(words[2]));
+            if plus == Vec3::ZERO { continue; }
+            let pair = (plus, -plus);
+            let score = error(pair.0)?;
+            if score < minimum { minimum = score; selected = Some(pair); tied = false; }
+            else if score == minimum && selected != Some(pair) { tied = true; }
+        }
+        if tied { return Err(SeedProvenanceReject::Ambiguous); }
+        selected.ok_or(SeedProvenanceReject::Plateau)
+    }
+
+    #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+    pub(crate) struct RationalColumn {
+        pub(crate) numerator: [i128; 3],
+        pub(crate) denominator: i128,
+    }
+
+    pub(crate) const RESIDUAL_TRUST_RADII: [i32; 4] = [64, 16, 4, 1];
+
+    pub(crate) fn solve_rational_columns(
+        columns: [RationalColumn; 3], residual: [i128; 3],
+    ) -> Result<[Rational; 3], ResidualTrustReject> {
+        if columns.iter().any(|column| column.numerator == [0; 3]) {
+            return Err(ResidualTrustReject::Plateau);
+        }
+        let common = columns[0].denominator;
+        if common <= 0 || columns.iter().any(|column| column.denominator != common) {
+            return Err(ResidualTrustReject::Arithmetic);
+        }
+        let a = |row: usize, column: usize| columns[column].numerator[row];
+        let det = |m: [[i128; 3]; 3]| -> Result<i128, ResidualTrustReject> {
+            let positive = m[0][0].checked_mul(m[1][1]).and_then(|v| v.checked_mul(m[2][2]))
+                .and_then(|v| m[0][1].checked_mul(m[1][2]).and_then(|w| w.checked_mul(m[2][0])).and_then(|w| v.checked_add(w)))
+                .and_then(|v| m[0][2].checked_mul(m[1][0]).and_then(|w| w.checked_mul(m[2][1])).and_then(|w| v.checked_add(w)))
+                .ok_or(ResidualTrustReject::Arithmetic)?;
+            let negative = m[0][2].checked_mul(m[1][1]).and_then(|v| v.checked_mul(m[2][0]))
+                .and_then(|v| m[0][0].checked_mul(m[1][2]).and_then(|w| w.checked_mul(m[2][1])).and_then(|w| v.checked_add(w)))
+                .and_then(|v| m[0][1].checked_mul(m[1][0]).and_then(|w| w.checked_mul(m[2][2])).and_then(|w| v.checked_add(w)))
+                .ok_or(ResidualTrustReject::Arithmetic)?;
+            positive.checked_sub(negative).ok_or(ResidualTrustReject::Arithmetic)
+        };
+        let matrix = [[a(0,0),a(0,1),a(0,2)], [a(1,0),a(1,1),a(1,2)],
+                      [a(2,0),a(2,1),a(2,2)]];
+        let denominator = det(matrix)?;
+        if denominator == 0 { return Err(ResidualTrustReject::Singular); }
+        let mut rhs = [0i128; 3];
+        for row in 0..3 {
+            rhs[row] = residual[row].checked_neg().and_then(|v| v.checked_mul(common))
+                .ok_or(ResidualTrustReject::Arithmetic)?;
+        }
+        let mut answer = [Rational { n: 0, d: 1 }; 3];
+        for column in 0..3 {
+            let mut replaced = matrix;
+            for row in 0..3 { replaced[row][column] = rhs[row]; }
+            let numerator = det(replaced)?;
+            answer[column] = Rational::new(numerator, denominator)
+                .map_err(|_| ResidualTrustReject::Arithmetic)?;
+        }
+        Ok(answer)
+    }
+
+    pub(crate) fn symmetric_residual_column(
+        plus: [i32; 3], minus: [i32; 3], h: i32,
+    ) -> Result<RationalColumn, ResidualTrustReject> {
+        if h <= 0 { return Err(ResidualTrustReject::Arithmetic); }
+        let mut numerator = [0i128; 3];
+        for axis in 0..3 {
+            numerator[axis] = (plus[axis] as i128).checked_sub(minus[axis] as i128)
+                .ok_or(ResidualTrustReject::Arithmetic)?;
+        }
+        Ok(RationalColumn { numerator, denominator: (h as i128).checked_mul(2)
+            .ok_or(ResidualTrustReject::Arithmetic)? })
+    }
+
+    pub(crate) fn midpoint_is_central(
+        plus: [i32; 3], centre: [i32; 3], minus: [i32; 3], slack: i32,
+    ) -> Result<(), ResidualTrustReject> {
+        if slack < 0 { return Err(ResidualTrustReject::Arithmetic); }
+        for axis in 0..3 {
+            let curvature = plus[axis] as i64 + minus[axis] as i64
+                - 2i64 * centre[axis] as i64;
+            if curvature.unsigned_abs() > slack as u64 {
+                return Err(ResidualTrustReject::Nonlinear);
+            }
+        }
+        Ok(())
+    }
+
+    pub(crate) fn rational_floor_ceil(value: Rational)
+        -> Result<[i128; 2], ResidualTrustReject>
+    {
+        if value.d <= 0 { return Err(ResidualTrustReject::Arithmetic); }
+        let floor = value.n.div_euclid(value.d);
+        let ceil = if value.n.rem_euclid(value.d) == 0 { floor }
+            else { floor.checked_add(1).ok_or(ResidualTrustReject::Arithmetic)? };
+        Ok([floor, ceil])
+    }
+
+    pub(crate) fn opposed_coordinate_perturbations(
+        direction: Vec3, h: i32,
+    ) -> Result<Vec<(Vec3, Vec3)>, ResidualTrustReject> {
+        if h <= 0 { return Err(ResidualTrustReject::Arithmetic); }
+        let components = [direction.x.raw(), direction.y.raw(), direction.z.raw()];
+        let mut toward = [0i32; 3]; let mut fractional = [usize::MAX; 3]; let mut classes = 0;
+        for axis in 0..3 {
+            let product = (components[axis] as i128).checked_mul(h as i128)
+                .ok_or(ResidualTrustReject::Arithmetic)?;
+            toward[axis] = i32::try_from(product / 65_536)
+                .map_err(|_| ResidualTrustReject::Saturation)?;
+            if product % 65_536 != 0 {
+                if classes == 2 { return Err(ResidualTrustReject::Capacity); }
+                fractional[axis] = classes; classes += 1;
+            }
+        }
+        let mut pairs: Vec<(Vec3, Vec3)> = Vec::new();
+        for mask in 0..(1usize << classes) {
+            let mut words = toward;
+            for axis in 0..3 {
+                if fractional[axis] != usize::MAX && mask & (1 << fractional[axis]) != 0 {
+                    words[axis] = words[axis].checked_add(if components[axis] < 0 { -1 } else { 1 })
+                        .ok_or(ResidualTrustReject::Saturation)?;
+                }
+            }
+            let plus = Vec3::new(Fx::from_raw(words[0]), Fx::from_raw(words[1]), Fx::from_raw(words[2]));
+            if plus != Vec3::ZERO && !pairs.iter().any(|pair| pair.0 == plus) {
+                pairs.push((plus, -plus));
+            }
+        }
+        if pairs.is_empty() { return Err(ResidualTrustReject::Plateau); }
+        Ok(pairs)
+    }
+
+    /// Expand the session-29 grammar without observing any response. Keeping
+    /// routes here, before deduplication by their final XYZ words, makes the
+    /// declared 2 * 4 * 4 * 5 bound independently measurable.
+    pub(crate) fn static_candidate_grammar(
+        normal: Vec3, magnitudes: [i32; 2], tangent_brackets: [[i32; 2]; 2],
+    ) -> Result<Vec<Vec3>, StaticSearchReject> {
+        if normal.z != Fx::ZERO { return Err(StaticSearchReject::UnsupportedNonPlanar); }
+        if magnitudes[0] <= 0 || magnitudes[1].checked_sub(magnitudes[0]) != Some(1) {
+            return Err(StaticSearchReject::MissingNormalBracket);
+        }
+        for pair in tangent_brackets {
+            if pair[1].checked_sub(pair[0]) != Some(1) {
+                return Err(StaticSearchReject::NonAdjacentBracket);
+            }
+        }
+        let basis = canonical_tangents(normal).map_err(|_| StaticSearchReject::Arithmetic)?;
+        let mut out = Vec::with_capacity(160);
+        for magnitude in magnitudes {
+            let components = [normal.x.raw(), normal.y.raw(), normal.z.raw()];
+            let mut lower = [0i32; 3]; let mut fractional = [usize::MAX; 3]; let mut classes = 0;
+            for axis in 0..3 {
+                let product = -(components[axis] as i128).checked_mul(magnitude as i128)
+                    .ok_or(StaticSearchReject::Arithmetic)?;
+                let toward_zero = product / 65_536;
+                lower[axis] = i32::try_from(toward_zero).map_err(|_| StaticSearchReject::Saturation)?;
+                if product % 65_536 != 0 {
+                    if classes == 2 { return Err(StaticSearchReject::UnsupportedNonPlanar); }
+                    fractional[axis] = classes; classes += 1;
+                }
+            }
+            let class_count = 1usize << classes;
+            for mask in 0..class_count {
+                let mut words = lower;
+                for axis in 0..3 {
+                    if fractional[axis] != usize::MAX && mask & (1 << fractional[axis]) != 0 {
+                        words[axis] = words[axis].checked_add(if components[axis] > 0 { -1 } else { 1 })
+                            .ok_or(StaticSearchReject::Saturation)?;
+                    }
+                }
+                let normal_vector = Vec3::new(Fx::from_raw(words[0]), Fx::from_raw(words[1]), Fx::from_raw(words[2]));
+                for first in tangent_brackets[0] {
+                    for second in tangent_brackets[1] {
+                        for offset in [(0,0),(-1,0),(1,0),(0,-1),(0,1)] {
+                            let first = first.checked_add(offset.0).ok_or(StaticSearchReject::Saturation)?;
+                            let second = second.checked_add(offset.1).ok_or(StaticSearchReject::Saturation)?;
+                            let mut final_words = [normal_vector.x.raw(), normal_vector.y.raw(), normal_vector.z.raw()];
+                            let first_basis = [basis.first.x.raw(), basis.first.y.raw(), basis.first.z.raw()];
+                            let second_basis = [basis.second.x.raw(), basis.second.y.raw(), basis.second.z.raw()];
+                            for axis in 0..3 {
+                                let tangent = (first_basis[axis] as i128).checked_mul(first as i128)
+                                    .and_then(|value| (second_basis[axis] as i128).checked_mul(second as i128)
+                                        .and_then(|other| value.checked_add(other)))
+                                    .ok_or(StaticSearchReject::Arithmetic)? / 65_536;
+                                let tangent = i32::try_from(tangent).map_err(|_| StaticSearchReject::Saturation)?;
+                                final_words[axis] = final_words[axis].checked_add(tangent)
+                                    .ok_or(StaticSearchReject::Saturation)?;
+                            }
+                            out.push(Vec3::new(Fx::from_raw(final_words[0]), Fx::from_raw(final_words[1]),
+                                               Fx::from_raw(final_words[2])));
+                        }
+                    }
+                }
+            }
+        }
+        if out.len() > 160 { return Err(StaticSearchReject::Capacity); }
+        Ok(out)
+    }
+
+    /// Classify measured contact words without choosing a response. The
+    /// neighbor crosses come from two adjacent `u16 Angle` probes; accepting a
+    /// least-bad same-sign pair would turn a failed angular search into KKT by
+    /// vocabulary alone.
+    pub(crate) fn classify_committed_friction(
+        q_pre: i32, q_post: i32, restitution_raw: i32,
+        normal_impulse_raw: i64, friction_raw: i32,
+        physical_tangent: [i64; 3], physical_outward_neighbors: [[i64; 3]; 2],
+        post_slip: [i32; 2], neighbor_cross: [i128; 2], tangent_dot: i128,
+        initial_numerator: i128, normal_numerator: i128, combined_numerator: i128,
+        mirror_tie: bool,
+    ) -> Result<FrictionClassification, DirectionalReject> {
+        if q_pre >= 0 || !(0..=Fx::ONE.raw()).contains(&restitution_raw)
+            || normal_impulse_raw <= 0 || !(0..=Fx::ONE.raw()).contains(&friction_raw)
+            || initial_numerator < 0 || normal_numerator < 0
+            || combined_numerator < 0 {
+            return Err(DirectionalReject::NoSolution);
+        }
+        let cone_limit = tangent_limit_raw(friction_raw, normal_impulse_raw)?;
+        let target = -((restitution_raw as i128 * q_pre as i128) / Fx::ONE.raw() as i128);
+        let target = i32::try_from(target).map_err(|_| DirectionalReject::Overflow)?;
+        let normal_valid = (q_post as i64 - target as i64).unsigned_abs() <= 1;
+        let squared_length = |words: [i64; 3]| words.into_iter().try_fold(0i128, |sum, word| {
+            sum.checked_add((word as i128).checked_mul(word as i128)
+                .ok_or(DirectionalReject::Overflow)?)
+                .ok_or(DirectionalReject::Overflow)
+        });
+        let physical_square = squared_length(physical_tangent)?;
+        let limit_square = (cone_limit as i128).checked_mul(cone_limit as i128)
+            .ok_or(DirectionalReject::Overflow)?;
+        let cone_valid = physical_square <= limit_square;
+        let energy_valid = combined_numerator <= normal_numerator
+            && normal_numerator <= initial_numerator;
+        let static_valid = normal_valid && cone_valid && energy_valid
+            && post_slip.into_iter().all(|word| word.unsigned_abs() <= 1);
+
+        // The rounded tangent basis is not exactly orthonormal. Boundary is
+        // therefore a statement about the next physical world-space vector,
+        // not about incrementing either coefficient of an idealized disk.
+        let boundary = cone_valid && physical_outward_neighbors.into_iter()
+            .try_fold(true, |all_outside, neighbor| {
+                Ok(all_outside && squared_length(neighbor)? > limit_square)
+            })?;
+        let bracket = (neighbor_cross[0] <= 0 && neighbor_cross[1] >= 0)
+            || (neighbor_cross[1] <= 0 && neighbor_cross[0] >= 0);
+        let residual_nonzero = post_slip.into_iter().any(|word| word.unsigned_abs() > 1);
+        let sliding_valid = normal_valid && cone_valid && energy_valid && residual_nonzero
+            && boundary && bracket && tangent_dot > 0 && !mirror_tie;
+        Ok(FrictionClassification { normal_valid, cone_valid, static_valid, sliding_valid })
+    }
+
     fn directional_residuals(
         matrix: &[[i64; 3]; 3], before: [i64; 3], impulse: [i64; 3],
     ) -> Result<[i64; 3], DirectionalReject> {
@@ -2401,6 +3119,491 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn committed_friction_static_requires_both_residual_coordinates() {
+        let classify = |slip| classify_committed_friction(
+            -8, 0, 0, 10, Fx::ONE.raw(), [3, 4, 0], [[11, 0, 0]; 2], slip, [-1, 1], 1,
+            100, 90, 80, false,
+        ).unwrap();
+        let stuck = classify([0, 0]);
+        assert_eq!(stuck, FrictionClassification {
+            normal_valid: true, cone_valid: true, static_valid: true, sliding_valid: false,
+        });
+        let second_coordinate = classify([0, 2]);
+        assert!(!second_coordinate.static_valid,
+                "static friction ignored the second residual coordinate");
+    }
+
+    #[test]
+    fn static_candidate_grammar_has_exact_order_count_and_mirror_opposition() {
+        let normal = Vec3::new(Fx::from_raw(2_256), Fx::from_raw(65_497), Fx::ZERO);
+        let brackets = [[101, 102], [-1, 0]];
+        let candidates = static_candidate_grammar(normal, [5_623, 5_624], brackets).unwrap();
+        assert_eq!(candidates.len(), 160);
+        assert_eq!(candidates[20].x.raw(), candidates[0].x.raw() - 1,
+                   "positive normal X did not enumerate the adjacent negative floor");
+        assert_eq!(candidates[40].y.raw(), candidates[0].y.raw() - 1,
+                   "positive normal Y did not enumerate the adjacent negative floor");
+        assert_eq!(candidates[0], static_candidate_grammar(
+            normal, [5_623, 5_624], brackets).unwrap()[0]);
+        let mirrored = static_candidate_grammar(
+            -normal, [5_623, 5_624],
+            [brackets[0], [-brackets[1][1], -brackets[1][0]]],
+        ).unwrap();
+        for candidate in candidates {
+            assert!(mirrored.contains(&-candidate),
+                    "toward-zero integerization lost mirror opposition for {candidate:?}");
+        }
+        assert_eq!(static_candidate_grammar(normal, [5_623, 5_624], [[0, 2], [-1, 0]]),
+                   Err(StaticSearchReject::NonAdjacentBracket));
+        assert_eq!(static_candidate_grammar(
+            Vec3::new(normal.x, normal.y, Fx::from_raw(1)), [5_623, 5_624], brackets),
+            Err(StaticSearchReject::UnsupportedNonPlanar));
+    }
+
+    #[test]
+    fn residual_probe_ladder_is_exactly_64_16_4_1_and_opposition_closed() {
+        assert_eq!(RESIDUAL_TRUST_RADII, [64, 16, 4, 1]);
+        let direction = Vec3::new(Fx::from_raw(-2_256), Fx::from_raw(-65_497), Fx::ZERO);
+        for h in [64, 16, 4, 1] {
+            let pairs = opposed_coordinate_perturbations(direction, h).unwrap();
+            assert!(!pairs.is_empty() && pairs.len() <= 4);
+            for (plus, minus) in pairs { assert_eq!(plus, -minus); }
+        }
+    }
+
+    #[test]
+    fn seed_perturbation_pair_uses_unique_invariant_rational_error() {
+        let direction = Vec3::new(Fx::from_raw(20_000), Fx::from_raw(30_001), Fx::ZERO);
+        let pair = invariant_perturbation_pair(direction, 64).unwrap();
+        assert_eq!([pair.0.x.raw(), pair.0.y.raw(), pair.0.z.raw()], [20, 29, 0]);
+        assert_eq!(pair.0, -pair.1);
+        assert_ne!(pair.0, Vec3::ZERO);
+        let mirrored = invariant_perturbation_pair(-direction, 64).unwrap();
+        assert_eq!(mirrored.0, -pair.0);
+    }
+
+    #[test]
+    fn seed_perturbation_ties_refuse_a_handed_rounding() {
+        let half = Vec3::new(Fx::from_raw(32_768), Fx::from_raw(32_768), Fx::ZERO);
+        assert_eq!(invariant_perturbation_pair(half, 1),
+                   Err(SeedProvenanceReject::Ambiguous));
+        assert_eq!(invariant_perturbation_pair(Vec3::ZERO, 1),
+                   Err(SeedProvenanceReject::Plateau));
+    }
+
+    fn lifted_zero() -> LiftedCoordinate {
+        LiftedCoordinate { velocity_raw: 0, momentum_remainder: 0,
+                           position_raw: 0, position_remainder: 0 }
+    }
+
+    #[test]
+    fn lifted_coordinate_makes_split_and_combined_impulses_one_exact_state() {
+        let mass = 3 * Fx::ONE.raw();
+        let split = lifted_impulse(lifted_impulse(lifted_zero(), mass, 2, 65_536).unwrap(),
+                                   mass, 2, 65_536).unwrap();
+        let combined = lifted_impulse(lifted_zero(), mass, 4, 65_536).unwrap();
+        assert_eq!(split, combined);
+        assert_eq!((combined.velocity_raw, combined.momentum_remainder), (1, 65_536));
+        let split_tick = integrate_lifted(split, mass, 65_536).unwrap();
+        let combined_tick = integrate_lifted(combined, mass, 65_536).unwrap();
+        assert_eq!(split_tick, combined_tick);
+        assert_eq!((split_tick.position_raw, split_tick.position_remainder),
+                   (1, 4_294_967_296));
+        let split_partial = integrate_lifted(split, mass, 9_832).unwrap();
+        let combined_partial = integrate_lifted(combined, mass, 9_832).unwrap();
+        assert_eq!(split_partial, combined_partial);
+        assert_eq!((split_partial.position_raw, split_partial.position_remainder),
+                   (0, 2_577_399_808));
+        let first = integrate_lifted(split, mass, 55_704).unwrap();
+        assert_eq!((first.position_raw, first.position_remainder), (1, 1_717_567_488));
+        let completed = integrate_lifted(first, mass, 9_832).unwrap();
+        assert_eq!(completed, split_tick);
+    }
+
+    #[test]
+    fn lifted_coordinate_integrates_subraw_momentum_without_hidden_motion() {
+        let mass = 3 * Fx::ONE.raw();
+        let mut split = lifted_impulse(lifted_zero(), mass, 2, 65_536).unwrap();
+        let mut combined = split;
+        split = integrate_lifted(split, mass, 65_536).unwrap(); combined = integrate_lifted(combined, mass, 65_536).unwrap();
+        assert_eq!(split, combined);
+        assert_eq!((split.position_raw, split.position_remainder), (0, 8_589_934_592));
+        split = integrate_lifted(split, mass, 65_536).unwrap(); combined = integrate_lifted(combined, mass, 65_536).unwrap();
+        assert_eq!(split, combined);
+        assert_eq!((split.position_raw, split.position_remainder), (1, 4_294_967_296));
+    }
+
+    #[test]
+    fn lifted_coordinate_negation_is_exact_with_toward_zero_remainders() {
+        let mass = 3 * Fx::ONE.raw();
+        let mut positive = lifted_impulse(lifted_zero(), mass, 4, 65_536).unwrap();
+        let mut negative = lifted_impulse(lifted_zero(), mass, -4, 65_536).unwrap();
+        for _ in 0..123 { positive = integrate_lifted(positive, mass, 65_536).unwrap();
+                          negative = integrate_lifted(negative, mass, 65_536).unwrap(); }
+        assert_eq!((negative.velocity_raw, negative.momentum_remainder,
+                    negative.position_raw, negative.position_remainder),
+                   (-positive.velocity_raw, -positive.momentum_remainder,
+                    -positive.position_raw, -positive.position_remainder));
+    }
+
+    #[test]
+    fn lifted_coordinate_energy_uses_the_complete_momentum_numerator_once() {
+        let mass = 3 * Fx::ONE.raw();
+        let half = lifted_impulse(lifted_zero(), mass, 2, 65_536).unwrap();
+        assert_eq!(lifted_energy(half, mass).unwrap(), (17_179_869_184, 393_216));
+        let value = lifted_impulse(lifted_zero(), mass, 4, 65_536).unwrap();
+        assert_eq!(lifted_energy(value, mass).unwrap(), (68_719_476_736, 393_216));
+        let coast = integrate_lifted(value, mass, 65_536).unwrap();
+        assert_eq!(lifted_energy(coast, mass).unwrap(), (68_719_476_736, 393_216));
+    }
+
+    #[test]
+    fn lifted_coordinate_refuses_noncanonical_overflow_and_fractional_alpha_atomically() {
+        let mass = 3 * Fx::ONE.raw(); let before = lifted_zero();
+        assert_eq!(lifted_impulse(before, mass, 1, 65_535),
+                   Err(LiftedReject::UnsupportedAlpha));
+        assert_eq!(integrate_lifted(before, mass, 65_537),
+                   Err(LiftedReject::UnsupportedInterval));
+        let position_denominator = mass as i64 * 65_536;
+        let invalid_position = LiftedCoordinate {
+            position_remainder: position_denominator, ..before
+        };
+        assert_eq!(integrate_lifted(invalid_position, mass, 0),
+                   Err(LiftedReject::NonCanonical));
+        let maximum_position = LiftedCoordinate { position_raw: i32::MAX, ..before };
+        assert_eq!(integrate_lifted(maximum_position, mass, 65_536), Ok(maximum_position));
+        let moving_maximum = LiftedCoordinate { velocity_raw: 1, position_raw: i32::MAX,
+                                                ..before };
+        assert_eq!(integrate_lifted(moving_maximum, mass, 65_536),
+                   Err(LiftedReject::Saturation));
+        assert_eq!(lifted_impulse(before, 0, 1, 65_536), Err(LiftedReject::Mass));
+        let invalid = LiftedCoordinate { momentum_remainder: mass as i64, ..before };
+        assert_eq!(lifted_impulse(invalid, mass, 0, 65_536), Err(LiftedReject::NonCanonical));
+        for invalid in [
+            LiftedCoordinate { velocity_raw: 1, momentum_remainder: -1, ..before },
+            LiftedCoordinate { velocity_raw: -1, momentum_remainder: 1, ..before },
+            LiftedCoordinate { position_raw: 1, position_remainder: -1, ..before },
+            LiftedCoordinate { position_raw: -1, position_remainder: 1, ..before },
+        ] {
+            assert_eq!(lifted_impulse(invalid, mass, 0, 65_536),
+                       Err(LiftedReject::NonCanonical));
+        }
+        let maximum = LiftedCoordinate { velocity_raw: i32::MAX, ..before };
+        assert_eq!(lifted_impulse(maximum, 1, 1, 65_536), Err(LiftedReject::Saturation));
+        assert_eq!(before, lifted_zero(), "a rejected pure transition mutated its input value");
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn lifted_owner_and_held_channels_conserve_every_external_impulse_word() {
+        let zero = lifted_zero();
+        let owner = LiftedOwner { body_mass: 131_072, common: zero, held_count: 1,
+            held_mass: [65_536, 0], relative: [zero; 2] };
+        let split = owner_impulse(owner_impulse(owner, 4, [0,0]).unwrap(), 0, [2,0]).unwrap();
+        let combined = owner_impulse(owner, 4, [2,0]).unwrap();
+        assert_eq!(split, combined);
+        assert_eq!((combined.common.velocity_raw, combined.common.momentum_remainder,
+                    combined.relative[0].velocity_raw, combined.relative[0].momentum_remainder),
+                   (1, 65_536, 2, 0));
+        assert_eq!(owner_momentum(combined).unwrap(), 393_216);
+        assert_eq!(owner_energy_numerator(combined).unwrap(), (1_441_792, 3));
+        assert_eq!(1_441_792i128 * 131_072, 188_978_561_024);
+
+        let two = LiftedOwner { body_mass: 65_536, common: zero, held_count: 2,
+            held_mass: [65_536, 131_072], relative: [zero; 2] };
+        let two = owner_impulse(two, 3, [2,-1]).unwrap();
+        assert_eq!((two.common.momentum_remainder, two.relative[0].momentum_remainder,
+                    two.relative[1].momentum_remainder, owner_momentum(two).unwrap()),
+                   (196_608, 0, -65_536, 262_144));
+        assert_eq!(owner_energy_numerator(two).unwrap(), (270_336, 1));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn lifted_owner_energy_includes_absolute_cross_terms_without_double_counting() {
+        let zero = lifted_zero();
+        let owner = LiftedOwner { body_mass: 131_072, common: zero, held_count: 1,
+            held_mass: [65_536, 0], relative: [zero; 2] };
+        let positive = owner_impulse(owner, 4, [2,0]).unwrap();
+        let negative = owner_impulse(owner, -4, [-2,0]).unwrap();
+        assert_eq!(owner_energy_numerator(positive).unwrap(),
+                   owner_energy_numerator(negative).unwrap());
+        let opposed = owner_impulse(owner, 4, [-2,0]).unwrap();
+        assert_eq!(owner_energy_numerator(opposed).unwrap(), (131_072, 1));
+        assert_ne!(owner_energy_numerator(positive).unwrap(), (917_504, 3),
+                   "energy omitted the common-relative cross term");
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn lifted_source_and_target_holds_combine_full_rational_velocity_once() {
+        let zero = lifted_zero();
+        let owner = LiftedOwner { body_mass: 131_072, common: zero, held_count: 1,
+            held_mass: [65_536, 0], relative: [zero; 2] };
+        let cancellation = owner_impulse(owner, 2, [-1,0]).unwrap();
+        assert_eq!((cancellation.common.velocity_raw, cancellation.common.momentum_remainder,
+                    cancellation.relative[0].velocity_raw), (0, 131_072, -1));
+        assert_eq!(held_absolute_velocity(cancellation, 0).unwrap(), (0, -4_294_967_296));
+        let target = owner_impulse(owner, -2, [1,0]).unwrap();
+        assert_eq!(held_absolute_velocity(target, 0).unwrap(), (0, 4_294_967_296));
+
+        let moved = integrate_owner(cancellation, 9_832).unwrap();
+        let mirrored = integrate_owner(target, 9_832).unwrap();
+        let position = held_absolute_position(moved, 0).unwrap();
+        let mirror_position = held_absolute_position(mirrored, 0).unwrap();
+        assert_eq!(mirror_position, (-position.0, -position.1));
+        assert_ne!(position.1, 0, "fractional common-relative motion was rounded away");
+
+        let two = LiftedOwner { body_mass: 65_536, common: zero, held_count: 2,
+            held_mass: [65_536, 131_072], relative: [zero; 2] };
+        let original = owner_impulse(two, 3, [2,-1]).unwrap();
+        let permuted = LiftedOwner { held_mass: [131_072,65_536],
+            relative: [original.relative[1], original.relative[0]], ..original };
+        assert_eq!(owner_momentum(original).unwrap(), owner_momentum(permuted).unwrap());
+        assert_eq!(owner_energy_numerator(original).unwrap(), owner_energy_numerator(permuted).unwrap());
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn lifted_generalized_validation_is_atomic_for_every_row() {
+        let zero = lifted_zero();
+        let owner = LiftedOwner { body_mass: 131_072, common: zero, held_count: 1,
+            held_mass: [65_536, 0], relative: [zero; 2] };
+        assert_eq!(owner_impulse(owner, 0, [0,1]), Err(LiftedReject::NonCanonical));
+        let dirty_inactive = LiftedOwner { held_mass: [65_536, 1], ..owner };
+        assert_eq!(owner_impulse(dirty_inactive, 0, [0,0]), Err(LiftedReject::NonCanonical));
+        let invalid = LiftedOwner { held_count: 3, ..owner };
+        assert_eq!(owner_impulse(invalid, 1, [0,0]), Err(LiftedReject::Capacity));
+        let overflow = LiftedOwner { body_mass: i32::MAX, held_mass: [1,0], ..owner };
+        assert_eq!(owner_impulse(overflow, 0, [0,0]), Err(LiftedReject::Saturation));
+        assert_eq!(owner.common, zero, "a rejected pure owner transition mutated its input");
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn lifted_xyz_owner_and_held_channels_conserve_each_external_impulse_axis() {
+        let zero = lifted_zero();
+        let axis = LiftedOwner { body_mass: 131_072, common: zero, held_count: 1,
+            held_mass: [65_536, 0], relative: [zero; 2] };
+        let owner = LiftedOwner3 { axes: [axis; 3] };
+        let body = [4, -3, 0]; let held = [[2, 1, -2], [0; 3]];
+        let split = owner3_impulse(owner3_impulse(owner, body, [[0; 3]; 2]).unwrap(),
+                                   [0; 3], held).unwrap();
+        let combined = owner3_impulse(owner, body, held).unwrap();
+        assert_eq!(split, combined);
+        assert_eq!(owner3_momentum(combined).unwrap(), [393_216, -131_072, -131_072]);
+        assert_eq!(owner3_energy(combined).unwrap(), Rational { n: 2_031_616, d: 3 });
+        assert_eq!((combined.axes[2].common.velocity_raw,
+                    combined.axes[2].common.momentum_remainder,
+                    combined.axes[2].relative[0].velocity_raw,
+                    combined.axes[2].relative[0].momentum_remainder),
+                   (0, 0, -2, 0), "held-relative Z was not kept distinct from body Z");
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn lifted_xyz_fractional_intervals_compose_common_and_relative_position_once() {
+        let zero = lifted_zero();
+        let axis = LiftedOwner { body_mass: 131_072, common: zero, held_count: 1,
+            held_mass: [65_536, 0], relative: [zero; 2] };
+        let owner = owner3_impulse(LiftedOwner3 { axes: [axis; 3] }, [4,-3,0],
+                                   [[2,1,-2],[0;3]]).unwrap();
+        let whole = integrate_owner3(owner, 65_536).unwrap();
+        let split = integrate_owner3(integrate_owner3(owner, 55_704).unwrap(), 9_832).unwrap();
+        assert_eq!(split, whole);
+        let partial = integrate_owner3(owner, 9_832).unwrap();
+        let absolute = [
+            held_absolute_position(partial.axes[0], 0).unwrap(),
+            held_absolute_position(partial.axes[1], 0).unwrap(),
+            held_absolute_position(partial.axes[2], 0).unwrap(),
+        ];
+        assert_eq!(absolute, [(0, 422_281_184_542_720), (0, 0),
+                              (0, -253_368_710_725_632)]);
+
+        let two_axis = LiftedOwner { body_mass: 65_536, common: zero, held_count: 2,
+            held_mass: [65_536, 131_072], relative: [zero; 2] };
+        let two = owner3_impulse(LiftedOwner3 { axes: [two_axis; 3] }, [3,-2,0],
+                                 [[2,-1,1],[-1,2,-2]]).unwrap();
+        let two_whole = integrate_owner3(two, 65_536).unwrap();
+        let two_split = integrate_owner3(integrate_owner3(two, 55_704).unwrap(), 9_832).unwrap();
+        assert_eq!(two_split, two_whole);
+        assert_eq!([
+            held_absolute_position(two_split.axes[0], 0).unwrap(),
+            held_absolute_position(two_split.axes[0], 1).unwrap(),
+            held_absolute_position(two_split.axes[2], 0).unwrap(),
+            held_absolute_position(two_split.axes[2], 1).unwrap(),
+        ], [(2, 844_424_930_131_968), (0, 562_949_953_421_312),
+            (1, 0), (-1, 0)]);
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn lifted_xyz_state_maps_exactly_under_sign_mirror_and_xy_permutation() {
+        let zero = lifted_zero();
+        let axis = LiftedOwner { body_mass: 131_072, common: zero, held_count: 1,
+            held_mass: [65_536, 0], relative: [zero; 2] };
+        let owner = LiftedOwner3 { axes: [axis; 3] };
+        let positive = owner3_impulse(owner, [4,-3,0], [[2,1,-2],[0;3]]).unwrap();
+        let negative = owner3_impulse(owner, [-4,3,0], [[-2,-1,2],[0;3]]).unwrap();
+        for axis in 0..3 {
+            assert_eq!((negative.axes[axis].common.velocity_raw,
+                        negative.axes[axis].common.momentum_remainder,
+                        negative.axes[axis].relative[0].velocity_raw,
+                        negative.axes[axis].relative[0].momentum_remainder),
+                       (-positive.axes[axis].common.velocity_raw,
+                        -positive.axes[axis].common.momentum_remainder,
+                        -positive.axes[axis].relative[0].velocity_raw,
+                        -positive.axes[axis].relative[0].momentum_remainder));
+        }
+        assert_eq!(owner3_energy(negative).unwrap(), owner3_energy(positive).unwrap());
+
+        let permuted = owner3_impulse(owner, [-3,4,0], [[1,2,-2],[0;3]]).unwrap();
+        assert_eq!(permuted.axes, [positive.axes[1], positive.axes[0], positive.axes[2]]);
+        assert_eq!(owner3_energy(permuted).unwrap(), owner3_energy(positive).unwrap());
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn lifted_xyz_validation_refuses_body_z_and_malformed_axes_atomically() {
+        let zero = lifted_zero();
+        let axis = LiftedOwner { body_mass: 131_072, common: zero, held_count: 1,
+            held_mass: [65_536, 0], relative: [zero; 2] };
+        let owner = LiftedOwner3 { axes: [axis; 3] };
+        assert_eq!(owner3_impulse(owner, [0,0,1], [[0;3];2]),
+                   Err(LiftedReject::NonCanonical));
+        let held_z = owner3_impulse(owner, [0;3], [[0,0,1],[0;3]]).unwrap();
+        assert_eq!((held_z.axes[2].relative[0].velocity_raw,
+                    held_z.axes[2].relative[0].momentum_remainder), (1, 0));
+        let malformed = LiftedOwner3 { axes: [axis, axis,
+            LiftedOwner { body_mass: 65_536, ..axis }] };
+        assert_eq!(owner3_impulse(malformed, [0;3], [[0;3];2]),
+                   Err(LiftedReject::NonCanonical));
+        assert_eq!(integrate_owner3(malformed, 9_832), Err(LiftedReject::NonCanonical));
+        assert_eq!(owner3_momentum(malformed), Err(LiftedReject::NonCanonical));
+        assert_eq!(owner3_energy(malformed), Err(LiftedReject::NonCanonical));
+        for bad_z in [
+            LiftedCoordinate { velocity_raw: 1, ..zero },
+            LiftedCoordinate { momentum_remainder: 1, ..zero },
+            LiftedCoordinate { position_raw: 1, ..zero },
+            LiftedCoordinate { position_remainder: 1, ..zero },
+        ] {
+            let malformed_z = LiftedOwner3 { axes: [axis, axis,
+                LiftedOwner { common: bad_z, ..axis }] };
+            assert_eq!(owner3_impulse(malformed_z, [0;3], [[0;3];2]),
+                       Err(LiftedReject::NonCanonical));
+            assert_eq!(integrate_owner3(malformed_z, 0), Err(LiftedReject::NonCanonical));
+            assert_eq!(owner3_momentum(malformed_z), Err(LiftedReject::NonCanonical));
+            assert_eq!(owner3_energy(malformed_z), Err(LiftedReject::NonCanonical));
+        }
+        assert_eq!(owner.axes, [axis; 3], "a rejected XYZ transition mutated its input");
+    }
+
+    #[test]
+    fn symmetric_response_columns_preserve_rational_numerators_until_solve() {
+        let column = symmetric_residual_column([7, -3, 5], [-5, 9, 1], 4).unwrap();
+        assert_eq!(column, RationalColumn { numerator: [12, -12, 4], denominator: 8 });
+        let swapped = symmetric_residual_column([-5, 9, 1], [7, -3, 5], 4).unwrap();
+        assert_eq!(swapped.numerator, [-12, 12, -4]);
+        assert_eq!(swapped.denominator, column.denominator);
+        let half = symmetric_residual_column([1, 0, 0], [0, 0, 0], 1).unwrap();
+        assert_eq!((half.numerator[0], half.denominator), (1, 2),
+                   "central half-slope was divided before the solve");
+        assert_eq!(symmetric_residual_column([0; 3], [0; 3], 0),
+                   Err(ResidualTrustReject::Arithmetic));
+    }
+
+    #[test]
+    fn residual_trust_region_solves_rationals_and_names_plateau_and_singular() {
+        let columns = [
+            RationalColumn { numerator: [30, 0, 12], denominator: 60 },
+            RationalColumn { numerator: [20, 40, 0], denominator: 60 },
+            RationalColumn { numerator: [0, 15, 45], denominator: 60 },
+        ];
+        assert_eq!(solve_rational_columns(columns, [-5, 15, -21]).unwrap(), [
+            Rational { n: 30, d: 1 }, Rational { n: -30, d: 1 }, Rational { n: 20, d: 1 }]);
+        let thirds = [
+            RationalColumn { numerator: [3, 0, 0], denominator: 1 },
+            RationalColumn { numerator: [0, 3, 0], denominator: 1 },
+            RationalColumn { numerator: [0, 0, 3], denominator: 1 },
+        ];
+        let fractional = solve_rational_columns(thirds, [-5, 5, -2]).unwrap();
+        assert_eq!(fractional, [Rational { n: 5, d: 3 }, Rational { n: -5, d: 3 },
+                                Rational { n: 2, d: 3 }]);
+        assert_eq!([2, -2, 1], [
+            (fractional[0].n + fractional[0].d - 1) / fractional[0].d,
+            fractional[1].n / fractional[1].d - 1,
+            (fractional[2].n + fractional[2].d - 1) / fractional[2].d,
+        ]);
+        assert_eq!(rational_floor_ceil(Rational { n: -6, d: 3 }).unwrap(), [-2, -2]);
+        assert_eq!(rational_floor_ceil(Rational { n: -5, d: 3 }).unwrap(), [-2, -1]);
+        assert_eq!(rational_floor_ceil(Rational { n: 5, d: 3 }).unwrap(), [1, 2]);
+        assert_eq!([3 * 2 - 5, 3 * -2 + 5, 3 * 1 - 2], [1, -1, 1]);
+        assert_ne!([3 * 1 - 5, 3 * -1 + 5, 3 * 0 - 2], [0; 3],
+                   "toward-zero integerization accidentally solved the fractional system");
+        let zero = RationalColumn { numerator: [0; 3], denominator: 60 };
+        assert_eq!(solve_rational_columns([zero; 3], [1, 0, 0]), Err(ResidualTrustReject::Plateau));
+        assert_eq!(solve_rational_columns([zero, columns[1], columns[2]], [1, 0, 0]),
+                   Err(ResidualTrustReject::Plateau),
+                   "one flat response coordinate was hidden by two live columns");
+        let repeated = RationalColumn { numerator: [1, 2, 3], denominator: 60 };
+        assert_eq!(solve_rational_columns([repeated; 3], [1, 0, 0]), Err(ResidualTrustReject::Singular));
+    }
+
+    #[test]
+    fn residual_trust_midpoint_rejects_quadratic_curvature() {
+        assert_eq!(midpoint_is_central([3, 2, 1], [2, 1, 0], [1, 0, -1], 0), Ok(()));
+        assert_eq!(midpoint_is_central([4, 2, 1], [2, 1, 0], [1, 0, -1], 0),
+                   Err(ResidualTrustReject::Nonlinear));
+    }
+
+    #[test]
+    fn committed_friction_sliding_requires_boundary_bracket_alignment_energy_and_no_tie() {
+        let classify = |physical, outward, crosses, dot, energy, tie| classify_committed_friction(
+            -8, 0, 0, 5, Fx::ONE.raw(), physical, [outward; 2], [2, 3], crosses, dot,
+            100, 90, energy, tie,
+        ).unwrap();
+        assert!(classify([3, 4, 0], [4, 4, 0], [-1, 1], 10, 80, false).sliding_valid);
+        assert!(!classify([2, 4, 0], [3, 4, 0], [-1, 1], 10, 80, false).sliding_valid,
+                "an impulse inside the cone was called sliding friction");
+        assert!(!classify_committed_friction(
+            -8, 0, 0, 5, Fx::ONE.raw(), [3, 4, 0], [[4, 4, 0], [3, 4, 0]],
+            [2, 3], [-1, 1], 10, 100, 90, 80, false,
+        ).unwrap().sliding_valid, "one unchecked outward axis fabricated a boundary");
+        assert!(!classify([4, 4, 0], [5, 4, 0], [-1, 1], 10, 80, false).cone_valid,
+                "rounded world tangent escaped a cone checked only in coordinates");
+        assert!(!classify([3, 4, 0], [4, 4, 0], [1, 2], 10, 80, false).sliding_valid,
+                "a least-bad angle passed without a sign bracket");
+        assert!(!classify([3, 4, 0], [4, 4, 0], [-1, 1], 0, 80, false).sliding_valid,
+                "zero alignment passed the production impulse sign convention");
+        assert!(!classify([3, 4, 0], [4, 4, 0], [-1, 1], 10, 91, false).sliding_valid,
+                "combined friction exceeded the normal-only energy");
+        assert!(!classify([3, 4, 0], [4, 4, 0], [-1, 1], 10, 80, true).sliding_valid,
+                "an ambiguous mirror tie selected an orientation");
+        let min_word = classify_committed_friction(
+            -8, 0, 0, 10, Fx::ONE.raw(), [3, 4, 0], [[11, 0, 0]; 2], [i32::MIN, 0],
+            [-1, 1], 1, 100, 90, 80, false,
+        ).unwrap();
+        assert!(!min_word.static_valid, "i32::MIN residual was treated as one raw unit");
+    }
+
+    #[test]
+    fn committed_friction_binds_the_physical_cone_to_mu_times_nonzero_jn() {
+        assert_eq!(classify_committed_friction(
+            -8, 0, 0, 0, Fx::ONE.raw(), [0; 3], [[1, 0, 0]; 2], [0; 2],
+            [-1, 1], 1, 100, 90, 80, false,
+        ), Err(DirectionalReject::NoSolution));
+        let zero_mu = classify_committed_friction(
+            -8, 0, 0, 10, 0, [0; 3], [[1, 0, 0]; 2], [0; 2],
+            [-1, 1], 1, 100, 90, 80, false,
+        ).unwrap();
+        assert!(zero_mu.static_valid);
+        assert!(!classify_committed_friction(
+            -8, 0, 0, 10, 0, [1, 0, 0], [[2, 0, 0]; 2], [0; 2],
+            [-1, 1], 1, 100, 90, 80, false,
+        ).unwrap().cone_valid);
+    }
+
+    #[test]
     fn a_box_corner_outside_the_coulomb_cone_is_rejected() {
         // Both coordinates independently fit the box. Accepting only those
         // comparisons admits sqrt(2) times the Coulomb budget at a corner.
@@ -2661,4 +3864,18 @@ pub(crate) mod tests {
         assert_eq!(combined[0], -4, "the final projection must recheck normal restitution");
         assert!(!friction_residuals_valid(combined));
     }
+}
+
+#[cfg(test)]
+pub(crate) fn advance_projected_fixture_to_group(
+    rows: &mut [ContactCollider], numerator: u32, denominator: u32,
+) -> Result<(), ResolutionError> {
+    if denominator == 0 || numerator > denominator { return Err(ResolutionError::Projector); }
+    advance_all(rows, numerator, denominator);
+    Ok(())
+}
+
+#[cfg(test)]
+pub(crate) fn finish_projected_fixture(rows: &mut [ContactCollider]) {
+    finish_all(rows);
 }

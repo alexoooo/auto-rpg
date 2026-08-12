@@ -2,7 +2,7 @@
 
 **Purpose:** Preserve the rationale, measured corrections, and trade-offs behind the current combat model.
 **Status:** current
-**Canonical source:** [`World` combat phases](../../crates/sim/src/world.rs#L2219), [`Hand`](../../crates/sim/src/hand.rs#L181), and [`rules`](../../crates/sim/src/rules.rs#L1)
+**Canonical source:** [`World` combat phases](../../crates/sim/src/world.rs#L2251), [`Hand`](../../crates/sim/src/hand.rs#L181), and [`rules`](../../crates/sim/src/rules.rs#L1)
 **Update when:** Limb state, action roles, collision, damage, recoil, perception, recovery, regeneration, or timeout design changes.
 
 This document explains why the mechanics have their current shape. Exact enum
@@ -56,7 +56,7 @@ That was the wrong interval: contact comes after the telegraph, partway through
 the strike. Live-world measurements showed much more response time than the
 windup alone implied. The corrected tuning lets slow attacks be answered by a
 deliberate swap while fast attacks demand an already-held answer. The paired
-world tests near [`a_club_can_be_answered_by_swapping_to_a_guard`](../../crates/sim/src/world.rs#L14499)
+world tests near [`a_club_can_be_answered_by_swapping_to_a_guard`](../../crates/sim/src/world.rs#L15518)
 own that behavioral constraint.
 
 ### What this cost, honestly
@@ -312,6 +312,12 @@ nearest point a body can actually occupy.
 
 These questions remain unresolved in current code:
 
+- Articulated contact cannot yet produce a robust mirrored productive strike. The
+  retained sword/body case exposed coupled-owner projection, TOI state, friction, and
+  fixed-point precision failures; scalar alpha searches and local response fits were
+  rejected by exact measurements. The durable evidence and the precise next boundary
+  are in [the articulated contact research record](../performance/v2-articulated-contact-research.md).
+
 - `Event::Block` reports absorbed damage but not the separate impulse imparted
   to the guard. That `knock` value exists during blade deflection and is not a
   monotone restatement of damage. Projectiles currently have no analogous guard
@@ -392,7 +398,7 @@ anchors whose wording did not become standalone headings here:
 - Limb phases and transition rationale: [`hand.rs`](../../crates/sim/src/hand.rs#L92)
 - Action roles and registry: [`action.rs`](../../crates/sim/src/action.rs#L28)
 - Loadout mutation: [`loadout.rs`](../../crates/sim/src/loadout.rs#L18)
-- Tick ordering and combat resolution: [`world.rs`](../../crates/sim/src/world.rs#L2219)
+- Tick ordering and combat resolution: [`world.rs`](../../crates/sim/src/world.rs#L2251)
 - Damage, blocking, regeneration, and recovery constants: [`rules.rs`](../../crates/sim/src/rules.rs#L39)
 - Duelist spacing and stance decisions: [`duelist.rs`](../../crates/policy/src/duelist.rs#L1)
-- Termination outcome: [`World::timeout`](../../crates/sim/src/world.rs#L3897)
+- Termination outcome: [`World::timeout`](../../crates/sim/src/world.rs#L3929)

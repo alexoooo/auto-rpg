@@ -53,6 +53,23 @@ pub enum Outcome {
     Draw,
 }
 
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub struct RecoilExternalEnergy {
+    pub reason_mask: u8,
+    pub dissipated_numerator: i128,
+    pub supplied_numerator: i128,
+}
+
+#[cfg(feature = "cartesian-recoil")]
+impl RecoilExternalEnergy {
+    pub const RELEASE: u8 = 1;
+    pub const REPLACEMENT: u8 = 2;
+    pub const SEVERANCE: u8 = 4;
+    pub const CAP: u8 = 8;
+    pub const WALL: u8 = 16;
+}
+
 impl Outcome {
     pub const fn winner(self) -> Option<Faction> {
         match self {
@@ -411,6 +428,8 @@ struct ContactRuntime {
     /// The integrity loss each row of the current group applied, so credit is
     /// per fact rather than per region -- two blows on one arm are two sources.
     fact_loss: Vec<Fx>,
+    #[cfg(feature = "cartesian-recoil")]
+    recoil_external: Vec<[RecoilExternalEnergy; 2]>,
     /// How many ticks the solver refused, cumulative.
     ///
     /// **The only external witness that a group was rejected**, and it exists
@@ -450,6 +469,8 @@ impl ContactRuntime {
         try_reserve_exact(&mut self.credit, high_water)?;
         try_reserve_exact(&mut self.deltas, high_water)?;
         try_reserve_exact(&mut self.fact_loss, MAX_CONTACT_FACTS_PER_GROUP)?;
+        #[cfg(feature = "cartesian-recoil")]
+        try_reserve_exact(&mut self.recoil_external, high_water)?;
         self.high_water = high_water;
         Ok(())
     }
@@ -1262,6 +1283,15 @@ impl World {
         self.contact.as_ref().and_then(|contact| contact.first_rejection)
     }
 
+    #[cfg(feature = "cartesian-recoil")]
+    pub fn recoil_external_energy(&self, entity: EntityId, limb: LimbSlot)
+        -> Option<RecoilExternalEnergy>
+    {
+        let i = self.resolve(entity)?;
+        let limb = match limb { LimbSlot::LeftArm => 0, LimbSlot::RightArm => 1 };
+        self.contact.as_ref()?.recoil_external.get(i).map(|row| row[limb])
+    }
+
     /// Every retained contact capacity, for the no-growth proofs. Capacity is
     /// not authoritative state and this deliberately is not public.
     #[cfg(test)]
@@ -1276,6 +1306,8 @@ impl World {
         rows.push(contact.credit.capacity());
         rows.push(contact.deltas.capacity());
         rows.push(contact.fact_loss.capacity());
+        #[cfg(feature = "cartesian-recoil")]
+        rows.push(contact.recoil_external.capacity());
         rows
     }
 
@@ -4470,6 +4502,54 @@ impl World {
         self.combat_specs.as_ref()?.equipment(id).copied()
     }
 
+    #[cfg(feature = "cartesian-recoil")]
+    fn record_recoil_external(&mut self, i: usize, limb: usize, reason: u8,
+                              mass: Fx, before_body: Vec3, before_c: Vec3,
+                              after_body: Vec3, after_c: Vec3) {
+        let energy = |body: Vec3, c: Vec3| {
+            let v = body + c;
+            let square = v.x.raw() as i128 * v.x.raw() as i128
+                + v.y.raw() as i128 * v.y.raw() as i128
+                + v.z.raw() as i128 * v.z.raw() as i128;
+            mass.raw() as i128 * square
+        };
+        let before = energy(before_body, before_c);
+        let after = energy(after_body, after_c);
+        let Some(contact) = self.contact.as_mut() else { return };
+        Self::record_recoil_external_in(contact, i, limb, reason, before, after);
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    fn recoil_energy_numerator(mass: Fx, body: Vec3, c: Vec3) -> i128 {
+        let v = body + c;
+        let square = v.x.raw() as i128 * v.x.raw() as i128
+            + v.y.raw() as i128 * v.y.raw() as i128
+            + v.z.raw() as i128 * v.z.raw() as i128;
+        mass.raw() as i128 * square
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    fn record_recoil_external_in(contact: &mut ContactRuntime, i: usize, limb: usize,
+                                 reason: u8, before: i128, after: i128) {
+        if i >= contact.recoil_external.len() { return; }
+        let ledger = &mut contact.recoil_external[i][limb];
+        ledger.reason_mask |= reason;
+        if after <= before {
+            ledger.dissipated_numerator += before - after;
+        } else {
+            ledger.supplied_numerator += after - before;
+        }
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    fn clear_recoil_with_energy(&mut self, i: usize, limb: usize, reason: u8,
+                                item: crate::EquipmentSpec) {
+        let before = actuator::clear_post_contact(&mut self.arms[i][limb]);
+        if before == Vec3::ZERO { return; }
+        let body = Vec3::new(self.vel[i].x, self.vel[i].y, Fx::ZERO);
+        self.record_recoil_external(i, limb, reason, item.mass, body, before, body, Vec3::ZERO);
+    }
+
     fn resulting_grips(
         &self,
         i: usize,
@@ -4545,7 +4625,16 @@ impl World {
             #[cfg(feature = "cartesian-recoil")]
             for limb in 0..2 {
                 if self.grips[i][limb].equipment_slot != pair[limb] {
-                    actuator::clear_post_contact(&mut self.arms[i][limb]);
+                    let reason = if pair[limb].is_some() {
+                        RecoilExternalEnergy::REPLACEMENT
+                    } else {
+                        RecoilExternalEnergy::RELEASE
+                    };
+                    if let Some(item) = self.equipment_in_grip(i, limb) {
+                        self.clear_recoil_with_energy(i, limb, reason, item);
+                    } else {
+                        actuator::clear_post_contact(&mut self.arms[i][limb]);
+                    }
                 }
             }
             self.grips[i] = pair.map(|equipment_slot| GripState { equipment_slot });
@@ -4624,6 +4713,11 @@ impl World {
         let Some(mut contact) = self.contact.take() else { return };
         contact.resolutions.clear();
         contact.entry.clear();
+        #[cfg(feature = "cartesian-recoil")]
+        {
+            contact.recoil_external.clear();
+            contact.recoil_external.resize(self.alive.len(), [RecoilExternalEnergy::default(); 2]);
+        }
         for i in 0..self.alive.len() {
             contact.entry.push(TickEntry {
                 pos: self.pos[i],
@@ -4707,7 +4801,9 @@ impl World {
                     self.damage_dealt[i] += contact.credit[i];
                 }
                 self.commit_contact(&mut contact);
+                self.contact = Some(contact);
                 self.release_severed_grips();
+                return;
             }
             Err(cause) => {
                 // Restored into the vector that was taken, not into the empty
@@ -4745,9 +4841,15 @@ impl World {
             for limb in 0..2 {
                 if !(drop_both || severed[limb]) { continue; }
                 if self.grips[i][limb].equipment_slot.is_none() { continue; }
+                #[cfg(feature = "cartesian-recoil")]
+                let released_item = self.equipment_in_grip(i, limb);
                 self.grips[i][limb].equipment_slot = None;
                 #[cfg(feature = "cartesian-recoil")]
-                { actuator::clear_post_contact(&mut self.arms[i][limb]); }
+                if let Some(item) = released_item {
+                    self.clear_recoil_with_energy(i, limb, RecoilExternalEnergy::SEVERANCE, item);
+                } else {
+                    actuator::clear_post_contact(&mut self.arms[i][limb]);
+                }
                 released = true;
             }
             if released { self.shield_pose[i] = self.derive_shield_pose(i); }
@@ -4831,7 +4933,7 @@ impl World {
     }
 
     /// Answers which limbs this commit wrote a joint pose for.
-    fn commit_contact_row(&mut self, i: usize, contact: &ContactRuntime) -> [bool; 2] {
+    fn commit_contact_row(&mut self, i: usize, contact: &mut ContactRuntime) -> [bool; 2] {
         let mut overrode = [false; 2];
         let entity = self.id_of(i);
         let Some(body) = contact.colliders.iter().copied().find(|row| {
@@ -4873,12 +4975,24 @@ impl World {
             }
             self.commit_arm(i, limb, relative, entry, remaining, capped);
             #[cfg(feature = "cartesian-recoil")]
-            if direct {
-                let arm = &mut self.arms[i][limb];
+            {
                 if capped {
-                    arm.post_contact_com_velocity = Vec3::ZERO;
-                    arm.post_contact_active = false;
-                } else {
+                    let before = if direct {
+                        row.velocity - body.velocity
+                    } else if self.arms[i][limb].post_contact_active {
+                        self.arms[i][limb].post_contact_com_velocity
+                    } else {
+                        Vec3::ZERO
+                    };
+                    actuator::clear_post_contact(&mut self.arms[i][limb]);
+                    if before != Vec3::ZERO {
+                        let before_n = Self::recoil_energy_numerator(row.mass, body.velocity, before);
+                        let after_n = Self::recoil_energy_numerator(row.mass, body.velocity, Vec3::ZERO);
+                        Self::record_recoil_external_in(contact, i, limb,
+                            RecoilExternalEnergy::CAP, before_n, after_n);
+                    }
+                } else if direct {
+                    let arm = &mut self.arms[i][limb];
                     // The collider endpoint and COM velocity are two different
                     // solved facts. Keep the endpoint exact; store COM motion
                     // relative to its translated owner, never hand motion.
@@ -4921,6 +5035,24 @@ impl World {
                 if settled_velocity.y != solved_velocity.y { absolute.y = Fx::ZERO; }
                 self.arms[i][limb].linear_velocity = absolute
                     - Vec3::new(settled_velocity.x, settled_velocity.y, Fx::ZERO);
+                #[cfg(feature = "cartesian-recoil")]
+                if self.arms[i][limb].post_contact_active {
+                    let before = self.arms[i][limb].post_contact_com_velocity;
+                    let after = actuator::settle_post_contact_com(before,
+                        solved_velocity, settled_velocity);
+                    self.arms[i][limb].post_contact_com_velocity = after;
+                    if let Some(row) = contact.colliders.iter().copied().find(|row| {
+                        row.entity == entity && row.slot as usize == limb
+                            && !matches!(row.shape, ContactShape::Body { .. })
+                    }) {
+                        let before_n = Self::recoil_energy_numerator(row.mass,
+                            Vec3::new(solved_velocity.x, solved_velocity.y, Fx::ZERO), before);
+                        let after_n = Self::recoil_energy_numerator(row.mass,
+                            Vec3::new(settled_velocity.x, settled_velocity.y, Fx::ZERO), after);
+                        Self::record_recoil_external_in(contact, i, limb,
+                            RecoilExternalEnergy::WALL, before_n, after_n);
+                    }
+                }
             }
         }
 
@@ -8369,6 +8501,11 @@ mod tests {
     #[test]
     fn nonlinear_response_reaches_zero_restitution_with_the_owned_body_map() {
         let (world, contact, rows, fact, _, proposal, _) = directional_captured_strike();
+        let mut colliders = Vec::new();
+        world.build_contact_colliders(&contact.entry, &mut colliders, &world.wounds);
+        let facts: Vec<_> = crate::combat::contact::collect_contacts(&colliders).into_iter()
+            .filter(|row| row.key.kind == ContactKind::WeaponBody).collect();
+        assert_eq!(facts, vec![fact]);
         let at = |entity, slot| rows.iter().position(|row| row.entity == entity && row.slot == slot).unwrap();
         let (a, b) = (at(fact.key.a, fact.key.a_slot), at(fact.key.b, fact.key.b_slot));
         assert_eq!(rows[b].kind, GeneralizedKind::Body);
@@ -8944,6 +9081,31 @@ mod tests {
 
     #[cfg(feature = "cartesian-recoil")]
     #[test]
+    fn lifted_toi_position_can_cross_before_the_integer_endpoint_sweep() {
+        // Smart34's exact m=3*ONE, J=4 coast reaches tick one as x=1 with
+        // remainder 2^32. Halfway through tick two, the complete numerator
+        // reaches x=2 exactly. The existing sweep sees only endpoints 1->2
+        // and truncates its halfway interpolation back to 1.
+        let mass = 196_608i128; let momentum = 262_144i128;
+        let position_denominator = mass * 65_536;
+        let tick_one_position = 1i128; let tick_one_remainder = 4_294_967_296i128;
+        let halfway = 32_768i128;
+        let lifted_numerator = position_denominator * tick_one_position
+            + tick_one_remainder + momentum * halfway;
+        assert_eq!((lifted_numerator / position_denominator,
+                    lifted_numerator % position_denominator), (2, 0));
+
+        let entry = Fx::from_raw(1); let endpoint = Fx::from_raw(2);
+        let swept_halfway = entry + (endpoint - entry) * Fx::HALF;
+        assert_eq!(swept_halfway.raw(), 1);
+        assert_ne!(swept_halfway.raw() as i128, lifted_numerator / position_denominator,
+                   "integer endpoint interpolation accidentally became lifted TOI authority");
+        assert_eq!((halfway as u32, Fx::ONE.raw() as u32), (32_768, 65_536),
+                   "the same x=2 crossing is half-tick lifted and full-tick swept");
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
     fn post_contact_hash_words_are_tag_xyz_in_entity_and_limb_order() {
         let mut first = actuator::tucked_arm(Vec3::ZERO);
         first.post_contact_active = true;
@@ -9119,10 +9281,76 @@ mod tests {
     #[derive(Clone, Copy, PartialEq, Eq, Debug)]
     enum GeneralizedJointReject { ActiveBoundary }
 
+    #[cfg(feature = "cartesian-recoil")]
+    struct CartesianResponseProjector;
+
+    #[cfg(feature = "cartesian-recoil")]
+    impl ContactTrialProjector for CartesianResponseProjector {
+        fn project(&mut self, before: &[GeneralizedCollider], sums: &[[i128; 3]],
+                   alpha_raw: u32, out: &mut Vec<GeneralizedCollider>)
+            -> Result<(), ResolutionError>
+        {
+            if before.len() != sums.len() || alpha_raw > 65_536 {
+                return Err(ResolutionError::ColliderIndex);
+            }
+            for (at, row) in before.iter().enumerate() {
+                if row.mass <= Fx::ZERO || before[..at].iter().any(|other|
+                    other.entity == row.entity && other.slot == row.slot && other.kind == row.kind) {
+                    return Err(if row.mass <= Fx::ZERO { ResolutionError::Mass }
+                               else { ResolutionError::DuplicateIdentity });
+                }
+                if row.kind == GeneralizedKind::Body && sums[at][2] != 0 {
+                    return Err(ResolutionError::Projector);
+                }
+                if row.kind == GeneralizedKind::Body && row.velocity.z != Fx::ZERO {
+                    return Err(ResolutionError::Projector);
+                }
+                for word in sums[at] {
+                    let scaled = word.checked_mul(alpha_raw as i128)
+                        .ok_or(ResolutionError::Projector)? / row.mass.raw() as i128;
+                    if scaled < i32::MIN as i128 || scaled > i32::MAX as i128 {
+                        return Err(ResolutionError::Projector);
+                    }
+                }
+            }
+            let mut next = before.to_vec();
+            let mut body_deltas = Vec::new();
+            for (at, row) in before.iter().enumerate().filter(|(_, row)| row.kind == GeneralizedKind::Body) {
+                let owned: Vec<_> = before.iter().enumerate().filter(|(_, owned)|
+                    owned.entity == row.entity).collect();
+                if owned.iter().filter(|(_, owned)| owned.kind == GeneralizedKind::Body).count() != 1
+                    || owned.iter().filter(|(_, owned)| owned.kind != GeneralizedKind::Body).count() > 2 {
+                    return Err(ResolutionError::ColliderIndex);
+                }
+                let mass = owned.iter().try_fold(0i64, |sum, (_, owned)|
+                    sum.checked_add(owned.mass.raw() as i64)).ok_or(ResolutionError::Mass)?;
+                if mass <= 0 || mass > i32::MAX as i64 { return Err(ResolutionError::Mass); }
+                let delta = resolution::scaled_delta(sums[at], alpha_raw, mass as i32);
+                let proposed = Vec3::new(row.velocity.x + delta.x, row.velocity.y + delta.y, Fx::ZERO);
+                if clamp_contact_velocity(proposed) != proposed { return Err(ResolutionError::Projector); }
+                next[at].velocity = proposed; body_deltas.push((row.entity, proposed - row.velocity));
+            }
+            for (at, row) in before.iter().enumerate().filter(|(_, row)| row.kind != GeneralizedKind::Body) {
+                let body = body_deltas.iter().find(|(entity, _)| *entity == row.entity)
+                    .map(|(_, delta)| *delta).ok_or(ResolutionError::ColliderIndex)?;
+                let own = resolution::scaled_delta(sums[at], alpha_raw, row.mass.raw());
+                let proposed = row.velocity + body + own;
+                if clamp_contact_velocity(proposed) != proposed { return Err(ResolutionError::Projector); }
+                next[at].velocity = proposed;
+            }
+            *out = next;
+            Ok(())
+        }
+    }
+
     fn cartesian_contact_trial(
         before: &[GeneralizedCollider], sums: &[[i128; 3]], alpha_raw: u32,
         out: &mut Vec<GeneralizedCollider>,
     ) -> Result<(), ResolutionError> {
+        #[cfg(feature = "cartesian-recoil")]
+        return CartesianResponseProjector.project(before, sums, alpha_raw, out);
+        #[cfg(not(feature = "cartesian-recoil"))]
+        {
         if before.len() != sums.len() { return Err(ResolutionError::ColliderIndex); }
         out.clear(); out.extend_from_slice(before);
         let mut body_deltas = Vec::new();
@@ -9146,6 +9374,48 @@ mod tests {
             row.velocity = clamp_contact_velocity(before[at].velocity + body_delta + own);
         }
         Ok(())
+        }
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn cartesian_response_projector_is_zero_identity_but_not_affine_in_its_declared_domain() {
+        let world = World::new(&crowded_scenario(), 0); let entity = world.id_of(0);
+        let rows = vec![
+            GeneralizedCollider { entity, slot: BODY_SLOT, kind: GeneralizedKind::Body,
+                mass: Fx::from_int(2), velocity: Vec3::ZERO, velocity_offset: Vec3::ZERO },
+            GeneralizedCollider { entity, slot: LimbSlot::RightArm as u8,
+                kind: GeneralizedKind::Equipment, mass: Fx::ONE,
+                velocity: Vec3::ZERO, velocity_offset: Vec3::ZERO },
+        ];
+        let zero = vec![[0i128; 3]; 2]; let j = vec![[2i128,0,0], [0;3]];
+        let k = j.clone(); let jk = vec![[4i128,0,0], [0;3]];
+        let mut projector = CartesianResponseProjector; let mut p0 = Vec::new();
+        let mut pj = Vec::new(); let mut pk = Vec::new(); let mut pjk = Vec::new();
+        projector.project(&rows, &zero, 65_536, &mut p0).unwrap();
+        projector.project(&rows, &j, 65_536, &mut pj).unwrap();
+        projector.project(&rows, &k, 65_536, &mut pk).unwrap();
+        projector.project(&rows, &jk, 65_536, &mut pjk).unwrap();
+        assert_eq!(p0, rows); assert_eq!(pj, rows); assert_eq!(pk, rows);
+        assert_eq!((pjk[0].velocity.x.raw(), pjk[1].velocity.x.raw()), (1, 1));
+        assert_eq!(2 * pjk[0].velocity.x.raw() + pjk[1].velocity.x.raw(), 3);
+        assert_ne!(2 * pjk[0].velocity.x.raw() + pjk[1].velocity.x.raw(), 4,
+                   "integer division silently lost no owner momentum remainder");
+        assert_ne!(pjk, rows,
+                   "per-owner integer division unexpectedly became exactly affine");
+
+        let sentinel = pjk.clone(); let body_z = vec![[0i128,0,1], [0;3]];
+        assert_eq!(projector.project(&rows, &body_z, 65_536, &mut pjk),
+                   Err(ResolutionError::Projector));
+        assert_eq!(pjk, sentinel, "refusal partially mutated the published trial rows");
+        let mut unsupported = rows.clone(); unsupported[0].velocity.z = Fx::from_raw(1);
+        assert_eq!(projector.project(&unsupported, &zero, 0, &mut pjk),
+                   Err(ResolutionError::Projector));
+        assert_eq!(pjk, sentinel, "unsupported alpha-zero input partially mutated output");
+        let overflow = vec![[i128::MAX,0,0], [0;3]];
+        assert_eq!(projector.project(&rows, &overflow, 65_536, &mut pjk),
+                   Err(ResolutionError::Projector));
+        assert_eq!(pjk, sentinel, "overflow refusal partially mutated output");
     }
 
     #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -9512,6 +9782,7 @@ mod tests {
     #[test]
     fn grip_change_and_severance_clear_owned_recoil_without_touching_the_other_arm() {
         let mut world = World::new(&Scenario::articulated_duel(), 0);
+        world.retain_contact_entry();
         world.arms[0][0].post_contact_active = true;
         world.arms[0][0].post_contact_com_velocity = Vec3::new(
             Fx::from_raw(5), Fx::from_raw(7), Fx::from_raw(-11));
@@ -9534,6 +9805,750 @@ mod tests {
         world.release_severed_grips();
         assert_eq!((world.grips[0][1].equipment_slot, world.arms[0][1].post_contact_active,
                     world.arms[0][1].post_contact_com_velocity), (None, false, Vec3::ZERO));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn release_and_replacement_publish_exact_widened_recoil_energy() {
+        let mut world = World::new(&Scenario::articulated_duel(), 0);
+        world.retain_contact_entry();
+        let id = world.id_of(0);
+        world.arms[0][1].post_contact_active = true;
+        world.arms[0][1].post_contact_com_velocity =
+            Vec3::new(Fx::from_raw(2), Fx::from_raw(-1), Fx::from_raw(3));
+        let mut release = world.neutral_articulated(0);
+        release.grips = [GripRequest::Keep, GripRequest::Release];
+        world.articulated_command[0] = Some(release);
+        world.apply_articulated_grips();
+        let ledger = world.recoil_external_energy(id, LimbSlot::RightArm).unwrap();
+        assert_eq!((ledger.reason_mask, ledger.dissipated_numerator, ledger.supplied_numerator),
+                   (RecoilExternalEnergy::RELEASE, 1_137_696, 0));
+
+        let mut free_left = world.neutral_articulated(0);
+        free_left.grips = [GripRequest::Release, GripRequest::Keep];
+        world.articulated_command[0] = Some(free_left);
+        world.apply_articulated_grips();
+        world.grips[0][1].equipment_slot = Some(0);
+        world.articulated_carried[0][1] = world.articulated_carried[0][0];
+        world.arms[0][1].post_contact_active = true;
+        world.arms[0][1].post_contact_com_velocity = Vec3::new(Fx::ONE, Fx::ZERO, Fx::ZERO);
+        let mut replace = world.neutral_articulated(0);
+        replace.grips = [GripRequest::Keep, GripRequest::EquipSlot(1)];
+        world.articulated_command[0] = Some(replace);
+        world.apply_articulated_grips();
+        let ledger = world.recoil_external_energy(id, LimbSlot::RightArm).unwrap();
+        assert_eq!(ledger.reason_mask,
+                   RecoilExternalEnergy::RELEASE | RecoilExternalEnergy::REPLACEMENT);
+        assert_eq!(ledger.dissipated_numerator, 1_137_696 + 349_026_222_342_144);
+        assert_eq!((world.grips[0][1].equipment_slot, world.arms[0][1].post_contact_active,
+                    world.arms[0][1].post_contact_com_velocity), (Some(1), false, Vec3::ZERO));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn rejected_grip_transaction_preserves_recoil_byte_exact() {
+        let mut world = World::new(&Scenario::articulated_duel(), 0);
+        world.arms[0][0].post_contact_active = true;
+        world.arms[0][0].post_contact_com_velocity = Vec3::new(
+            Fx::from_raw(5), Fx::from_raw(7), Fx::from_raw(-11));
+        world.arms[0][1].post_contact_active = true;
+        world.arms[0][1].post_contact_com_velocity = Vec3::new(
+            Fx::from_raw(2), Fx::from_raw(-1), Fx::from_raw(3));
+        let before = world.arms[0]; let grips = world.grips[0];
+        let mut invalid = world.neutral_articulated(0);
+        invalid.grips = [GripRequest::Release, GripRequest::EquipSlot(1)];
+        assert!(matches!(world.submit_articulated_v1(world.id_of(0), invalid),
+            SubmitArticulatedOutcome::Stored { rejection: Some(_), .. }));
+        world.apply_articulated_grips();
+        assert_eq!((world.arms[0], world.grips[0]), (before, grips));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn severing_either_owner_of_a_two_handed_item_clears_both_recoils() {
+        for part in [BodyPart::LeftArm, BodyPart::RightArm] {
+            let mut world = World::new(&both_scenario(), 0);
+            world.retain_contact_entry();
+            for limb in 0..2 {
+                world.arms[1][limb].post_contact_active = true;
+                world.arms[1][limb].post_contact_com_velocity = Vec3::new(
+                    Fx::from_raw(2 + limb as i32), Fx::from_raw(-1), Fx::from_raw(3));
+            }
+            world.wounds[1].parts[part as usize].severed = true;
+            world.release_severed_grips();
+            assert_eq!(world.grips[1], [GripState { equipment_slot: None }; 2]);
+            for arm in world.arms[1] {
+                assert_eq!((arm.post_contact_active, arm.post_contact_com_velocity),
+                           (false, Vec3::ZERO));
+            }
+            let ledger = world.recoil_external_energy(world.id_of(1), LimbSlot::RightArm).unwrap();
+            assert_ne!(ledger.reason_mask & RecoilExternalEnergy::SEVERANCE, 0);
+            assert!(ledger.dissipated_numerator > 0);
+        }
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[derive(Clone, Copy)]
+    struct FrozenAnatomyCheckpoint {
+        row: ContactResolution,
+        part: BodyPart,
+        before: crate::PartWoundState,
+        after: crate::PartWoundState,
+        before_anatomy: AnatomyState,
+        after_anatomy: AnatomyState,
+        before_fraction: (i32, i32),
+        after_fraction: (i32, i32),
+    }
+
+    /// One deliberately provisional answer carried through the real allocation,
+    /// channel and anatomy seams. The two switches exist only so the tests can
+    /// delete each load-bearing stage independently; neither is a runtime mode.
+    #[cfg(feature = "cartesian-recoil")]
+    fn frozen_single_fact_anatomy_checkpoint(
+        allocate_response: bool,
+        apply_after_group: bool,
+    ) -> FrozenAnatomyCheckpoint {
+        let (world, contact, rows, fact, _, proposal, _) = directional_captured_strike();
+        assert_eq!((fact.key.kind, fact.key.a_slot, fact.key.b_slot),
+                   (ContactKind::WeaponBody, LimbSlot::RightArm as u8, BODY_SLOT));
+        let target = world.resolve(fact.key.b).unwrap();
+        let part = BodyPart::from_index(fact.region as usize).unwrap();
+        let mut colliders = Vec::new();
+        world.build_contact_colliders(&contact.entry, &mut colliders, &world.wounds);
+        assert_eq!(crate::combat::contact::collect_contacts(&colliders), vec![fact],
+                   "retained checkpoint acquired a competing fact");
+        let weapon = colliders.iter().copied().find(|row| row.entity == fact.key.a
+            && row.slot == fact.key.a_slot).unwrap();
+        let body = colliders.iter().copied().find(|row| row.entity == fact.key.b
+            && matches!(row.shape, ContactShape::Body { .. })).unwrap();
+        let ContactShape::Segment { previous_hilt, previous_tip, .. } = weapon.shape
+            else { panic!("retained source stopped being a segment") };
+
+        let at = |entity, slot| rows.iter().position(|row| {
+            row.entity == entity && row.slot == slot
+        }).unwrap();
+        let (a, b) = (at(fact.key.a, fact.key.a_slot), at(fact.key.b, fact.key.b_slot));
+        let scale = |component: Fx| Fx::from_raw(
+            ((component.raw() as i64 * 65_560i64) / 65_536) as i32);
+        let impulse = Vec3::new(scale(proposal.x), scale(proposal.y), scale(proposal.z));
+        let mut sums = vec![[0i128; 3]; rows.len()];
+        sums[a] = [impulse.x.raw() as i128, impulse.y.raw() as i128,
+                   impulse.z.raw() as i128];
+        sums[b] = [-sums[a][0], -sums[a][1], -sums[a][2]];
+        let mut trial = Vec::new();
+        cartesian_contact_trial(&rows, &sums, 65_536, &mut trial).unwrap();
+        let before_energy = resolution::closure_energy(&rows).unwrap();
+        let after_energy = resolution::closure_energy(&trial).unwrap();
+        let dissipated = before_energy.checked_sub(after_energy).unwrap();
+
+        // The stable allocator, even for one row: replacing it with the total
+        // would make this proof bypass the seam whose output `after_group` sees.
+        let normal_weight = (-impulse).dot(fact.normal).raw().max(0) as u128;
+        let closing_weight = (-(fact.velocity_b - fact.velocity_a).dot(fact.normal))
+            .raw().max(0) as u128;
+        let weight = normal_weight.checked_mul(closing_weight).unwrap();
+        assert!(weight > 0, "retained fact lost its physical allocation weight");
+        let allocated = resolution::allocate_weighted(
+            if allocate_response { dissipated } else { 0 }, &[weight]);
+        let channel = resolution::WeaponBodyChannel {
+            weapon_axis: (previous_tip - previous_hilt).normalized_or_zero(),
+            weapon_relative_velocity: weapon.velocity - body.velocity,
+            edge_factor: weapon.surface.edge_factor,
+            point_factor: weapon.surface.point_factor,
+            zero_length: previous_tip == previous_hilt,
+        };
+        let (cut_raw, thrust_raw, pressure_raw) = resolution::channels(allocated[0], channel);
+        let mut resolutions = vec![ContactResolution {
+            group_ordinal: 0,
+            // `65_560` scaled the frozen proposal before it entered this row.
+            // The finalizer applies that already-scaled impulse in full.
+            group_alpha_raw: 65_536,
+            fact,
+            impulse: crate::combat::contact::ContactImpulse {
+                key: fact.key, on_a: impulse, on_b: -impulse,
+            },
+            energy: crate::combat::contact::EnergyLedger {
+                before_raw: before_energy,
+                after_raw: if allocate_response { after_energy } else { before_energy },
+                dissipated_raw: allocated[0],
+            },
+            cut_raw, thrust_raw, pressure_raw, deflected_raw: 0, severed: false,
+        }];
+
+        let mut wounds = world.wounds.clone();
+        let before_anatomy = wounds[target];
+        let before = before_anatomy.parts[part as usize];
+        let spec = world.anatomy_spec(target).unwrap();
+        let before_fraction = (
+            anatomy::part_fraction(&wounds[target], spec, part as usize).raw(),
+            anatomy::part_wound_fraction(&wounds[target], spec, part as usize).raw(),
+        );
+        let mut bodies = Vec::new();
+        let mut credit = vec![Fx::ZERO; wounds.len()];
+        let mut deltas = Vec::new();
+        let mut fact_loss = Vec::new();
+        if apply_after_group {
+            let mut projector = ContactProjector {
+                world: &world, entry: &contact.entry, bodies: &mut bodies,
+                wounds: &mut wounds, credit: &mut credit, deltas: &mut deltas,
+                fact_loss: &mut fact_loss,
+            };
+            projector.after_group(&mut colliders, &mut resolutions).unwrap();
+        }
+        let after_anatomy = wounds[target];
+        let after = after_anatomy.parts[part as usize];
+        let after_fraction = (
+            anatomy::part_fraction(&wounds[target], spec, part as usize).raw(),
+            anatomy::part_wound_fraction(&wounds[target], spec, part as usize).raw(),
+        );
+        FrozenAnatomyCheckpoint {
+            row: resolutions[0], part, before, after, before_anatomy, after_anatomy,
+            before_fraction, after_fraction,
+        }
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn retained_single_fact_flows_through_allocation_and_after_group() {
+        let checkpoint = frozen_single_fact_anatomy_checkpoint(true, true);
+        assert_eq!(checkpoint.row.energy,
+                   crate::combat::contact::EnergyLedger {
+                       before_raw: 381, after_raw: 105, dissipated_raw: 276 });
+        assert_eq!(checkpoint.row.group_alpha_raw, 65_536,
+                   "proposal scale leaked into the finalizer alpha");
+        assert_eq!((checkpoint.row.cut_raw, checkpoint.row.thrust_raw,
+                    checkpoint.row.pressure_raw, checkpoint.row.deflected_raw),
+                   (132, 0, 144, 0));
+        assert_eq!((checkpoint.part, checkpoint.before.integrity.raw(),
+                    checkpoint.after.integrity.raw()),
+                   (BodyPart::Legs, 131_072, 118_400));
+        assert_eq!((checkpoint.before.wound.raw(), checkpoint.after.wound.raw()),
+                   (0, 12_672));
+        assert_eq!((checkpoint.before_fraction, checkpoint.after_fraction),
+                   ((65_536, 0), (59_200, 6_336)));
+        for other in BodyPart::ALL {
+            if other == checkpoint.part { continue; }
+            assert_eq!(checkpoint.after_anatomy.parts[other as usize],
+                       checkpoint.before_anatomy.parts[other as usize],
+                       "after_group changed anatomy outside the fact-named region");
+        }
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn retained_anatomy_requires_nonzero_stable_allocation() {
+        let checkpoint = frozen_single_fact_anatomy_checkpoint(false, true);
+        assert_eq!((checkpoint.row.energy.dissipated_raw, checkpoint.row.cut_raw,
+                    checkpoint.row.thrust_raw, checkpoint.row.pressure_raw),
+                   (0, 0, 0, 0));
+        assert_eq!(checkpoint.after, checkpoint.before,
+                   "after_group invented anatomy damage without an allocation");
+        assert_eq!(checkpoint.after_fraction, checkpoint.before_fraction);
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn retained_anatomy_requires_the_actual_after_group_hook() {
+        let checkpoint = frozen_single_fact_anatomy_checkpoint(true, false);
+        assert_eq!((checkpoint.row.cut_raw, checkpoint.row.thrust_raw,
+                    checkpoint.row.pressure_raw), (132, 0, 144));
+        assert_eq!(checkpoint.after, checkpoint.before,
+                   "anatomy changed when the actual after_group hook was skipped");
+        assert_eq!(checkpoint.after_fraction, checkpoint.before_fraction);
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn projected_group_finalizer_maps_commits_and_reconciles_one_following_tick() {
+        let (mut world, mut contact, mut rows, fact, old_proposal, proposal, friction) =
+            directional_captured_strike();
+        let entry_rows = rows.clone();
+        let entities = [fact.key.a, fact.key.b];
+        let mut colliders = Vec::new();
+        world.build_contact_colliders(&contact.entry, &mut colliders, &world.wounds);
+        let closure_rows: Vec<_> = colliders.iter().enumerate()
+            .filter_map(|(index, row)| entities.contains(&row.entity).then_some(index)).collect();
+        let old: Vec<_> = closure_rows.iter().map(|&index| colliders[index].velocity).collect();
+        assert_eq!(rows.len(), closure_rows.len());
+        let at = |entity, slot| rows.iter().position(|row| row.entity == entity && row.slot == slot).unwrap();
+        let (a, b) = (at(fact.key.a, fact.key.a_slot), at(fact.key.b, fact.key.b_slot));
+        let scale = |component: Fx| Fx::from_raw(
+            ((component.raw() as i64 * 65_560i64) / 65_536) as i32);
+        let impulse = Vec3::new(scale(proposal.x), scale(proposal.y), scale(proposal.z));
+        let mut sums = vec![[0i128; 3]; rows.len()];
+        sums[a] = [impulse.x.raw() as i128, impulse.y.raw() as i128, impulse.z.raw() as i128];
+        sums[b] = [-sums[a][0], -sums[a][1], -sums[a][2]];
+        let mut projected = Vec::new();
+        cartesian_contact_trial(&rows, &sums, 65_536, &mut projected).unwrap();
+        let basis = resolution::tests::canonical_tangents(fact.normal).unwrap();
+        let source = colliders.iter().find(|row| row.entity == fact.key.a
+            && row.slot == fact.key.a_slot).unwrap();
+        let target = colliders.iter().find(|row| row.entity == fact.key.b
+            && row.slot == fact.key.b_slot).unwrap();
+        assert_eq!(old_proposal, resolution::proposed_impulse(source.mass, target.mass,
+            source.surface, target.surface, fact.velocity_a, fact.velocity_b, fact.normal));
+        assert_ne!(proposal, old_proposal,
+                   "the owned-mass frozen ray silently became the local production proposal");
+        assert_eq!(source.surface.restitution.min(target.surface.restitution), Fx::ZERO);
+        let restitution = colliders[closure_rows[a]].surface.restitution
+            .min(colliders[closure_rows[b]].surface.restitution);
+        assert_eq!(restitution, Fx::ZERO);
+        let q = |state: &[GeneralizedCollider], direction: Vec3| {
+            (state[b].velocity - state[a].velocity).dot(direction).raw()
+        };
+        let jn = -impulse.dot(fact.normal).raw() as i64;
+        let physical_tangent = impulse + fact.normal * Fx::from_raw(jn as i32);
+        let jt = [impulse.dot(basis.first).raw() as i64,
+                  impulse.dot(basis.second).raw() as i64];
+        let outward = basis.first * Fx::from_raw(jt[0] as i32 + 1)
+            + basis.second * Fx::from_raw(jt[1] as i32);
+        let mut normal_sums = vec![[0i128; 3]; entry_rows.len()];
+        let normal_impulse = -fact.normal * Fx::from_raw(jn as i32);
+        normal_sums[a] = [normal_impulse.x.raw() as i128,
+                          normal_impulse.y.raw() as i128,
+                          normal_impulse.z.raw() as i128];
+        normal_sums[b] = [-normal_sums[a][0], -normal_sums[a][1], -normal_sums[a][2]];
+        let mut normal_only = Vec::new();
+        cartesian_contact_trial(&entry_rows, &normal_sums, 65_536, &mut normal_only).unwrap();
+        let numerator = |state: &[GeneralizedCollider]| {
+            let words: Vec<_> = state.iter().map(|row|
+                (row.mass.raw() as i64, [row.velocity.x.raw() as i64,
+                 row.velocity.y.raw() as i64, row.velocity.z.raw() as i64])).collect();
+            resolution::tests::widened_kinetic_numerator(&words).unwrap()
+        };
+        assert_eq!((q(&entry_rows, fact.normal), q(&projected, fact.normal),
+                    q(&projected, basis.first), q(&projected, basis.second),
+                    jn, jt, [physical_tangent.x.raw() as i64,
+                             physical_tangent.y.raw() as i64,
+                             physical_tangent.z.raw() as i64],
+                    resolution::tests::tangent_limit_raw(friction.raw(), jn).unwrap(),
+                    numerator(&entry_rows), numerator(&normal_only), numerator(&projected)),
+                   (-6_346, 0, 2, 0, 5_688, [101, 0], [-102, 3, 0], 1_422,
+                    3_273_351_951_552, 908_935_462_288, 907_535_410_717));
+        assert_eq!([outward.x.raw() as i64, outward.y.raw() as i64,
+                    outward.z.raw() as i64], [-102, 3, 0]);
+        let classified = resolution::tests::classify_committed_friction(
+            -6_346, 0, restitution.raw(), jn, friction.raw(), [-102, 3, 0],
+            [[-102, 3, 0]; 2], [2, 0], [1, 1], 101i128 * 2i128,
+            3_273_351_951_552, 908_935_462_288, 907_535_410_717, true,
+        ).unwrap();
+        assert!(classified.normal_valid && classified.cone_valid);
+        assert!(!classified.static_valid,
+                "two raw units of residual slip were called static friction");
+        assert!(!classified.sliding_valid,
+                "an impulse deep inside the Coulomb disk was called sliding friction");
+        let weapon = colliders[closure_rows[a]]; let body = colliders[closure_rows[b]];
+        let ContactShape::Segment { previous_hilt, previous_tip, .. } = weapon.shape
+            else { panic!("retained source stopped being a segment") };
+        let proposed = [resolution::ProposedContact { fact, a_collider: a, b_collider: b,
+            impulse_on_a: impulse, channel: Some(resolution::WeaponBodyChannel {
+                weapon_axis: (previous_tip - previous_hilt).normalized_or_zero(),
+                weapon_relative_velocity: weapon.velocity - body.velocity,
+                edge_factor: weapon.surface.edge_factor, point_factor: weapon.surface.point_factor,
+                zero_length: previous_tip == previous_hilt,
+            }) }];
+        let mut weights = Vec::new(); let mut shares = Vec::new(); let mut resolutions = Vec::new();
+        resolution::finalize_projected_group(&mut rows, &projected, &proposed, 0, 65_536,
+            &mut weights, &mut shares, &mut resolutions).unwrap();
+        resolution::advance_projected_fixture_to_group(&mut colliders,
+            fact.toi.get().raw() as u32, 65_536).unwrap();
+        resolution::apply_projected_rows(&mut colliders, &closure_rows, &old, &rows,
+            65_536 - fact.toi.get().raw() as u32).unwrap();
+        assert_eq!((fact.toi.get().raw(), resolutions[0].energy.before_raw,
+                    resolutions[0].energy.after_raw, resolutions[0].energy.dissipated_raw),
+                   (55_704, 381, 105, 276));
+
+        let mut wounds = world.wounds.clone(); let mut bodies = Vec::new();
+        let mut credit = vec![Fx::ZERO; wounds.len()]; let mut deltas = Vec::new();
+        let mut fact_loss = Vec::new();
+        {
+            let mut projector = ContactProjector { world: &world, entry: &contact.entry,
+                bodies: &mut bodies, wounds: &mut wounds, credit: &mut credit,
+                deltas: &mut deltas, fact_loss: &mut fact_loss };
+            projector.after_group(&mut colliders, &mut resolutions).unwrap();
+        }
+        resolution::finish_projected_fixture(&mut colliders);
+        let finished_contact_a = colliders.iter().copied().find(|row|
+            row.entity == fact.key.a && row.slot == fact.key.a_slot).unwrap();
+        let finished_contact_b = colliders.iter().copied().find(|row|
+            row.entity == fact.key.b && row.slot == fact.key.b_slot).unwrap();
+        assert_eq!((finished_contact_a.velocity, finished_contact_b.velocity),
+                   (projected[a].velocity, projected[b].velocity));
+        assert_eq!(((finished_contact_b.velocity - finished_contact_a.velocity)
+                        .dot(fact.normal).raw(),
+                    (finished_contact_b.velocity - finished_contact_a.velocity)
+                        .dot(basis.first).raw(),
+                    (finished_contact_b.velocity - finished_contact_a.velocity)
+                        .dot(basis.second).raw()),
+                   (0, 2, 0));
+        let finished_weapon = colliders.iter().copied().find(|row|
+            row.entity == fact.key.a && row.slot == fact.key.a_slot).unwrap();
+        let finished_body = colliders.iter().copied().find(|row|
+            row.entity == fact.key.a && matches!(row.shape, ContactShape::Body { .. })).unwrap();
+        let ContactShape::Segment { previous_hilt, .. } = finished_weapon.shape
+            else { panic!("retained source stopped being a segment") };
+        let ContactShape::Body { previous_origin, .. } = finished_body.shape
+            else { panic!("retained owner stopped being a body") };
+        assert_eq!((previous_hilt.x.raw(), previous_hilt.y.raw(), previous_hilt.z.raw(),
+                    previous_origin.x.raw(), previous_origin.y.raw(),
+                    finished_weapon.velocity.x.raw(), finished_weapon.velocity.y.raw(),
+                    finished_body.velocity.x.raw(), finished_body.velocity.y.raw()),
+                   (704_458, 505_911, 29_491, 655_360, 524_288, 93, 1_757, 0, 0));
+        assert_eq!((resolutions[0].group_alpha_raw, resolutions[0].cut_raw,
+                    resolutions[0].thrust_raw, resolutions[0].pressure_raw, fact.region),
+                   (65_536, 132, 0, 144, BodyPart::Legs as u8));
+        world.wounds = wounds;
+        contact.colliders = colliders;
+        contact.resolutions = resolutions;
+        world.commit_contact(&mut contact);
+        let source = world.resolve(fact.key.a).unwrap(); let limb = fact.key.a_slot as usize;
+        let committed = world.arms[source][limb];
+        assert!(committed.post_contact_active);
+        assert_eq!((committed.hand.x.raw(), committed.hand.y.raw(), committed.hand.z.raw(),
+                    committed.linear_velocity.x.raw(), committed.linear_velocity.y.raw(),
+                    committed.linear_velocity.z.raw(), committed.post_contact_com_velocity.x.raw(),
+                    committed.post_contact_com_velocity.y.raw(), committed.post_contact_com_velocity.z.raw()),
+                   (49_098, -18_377, 29_491, 99, 1_882, 0, 93, 1_757, 0));
+        world.drive_articulated_arms(actuator::ARM_BEARING_MAX_SPEED_RAW,
+                                     actuator::ARM_BEARING_ACCEL_RAW);
+        let next = world.arms[source][limb];
+        assert_ne!((committed.hand, committed.post_contact_com_velocity),
+                   (next.hand, next.post_contact_com_velocity));
+        let region = BodyPart::from_index(fact.region as usize).unwrap();
+        assert_eq!((world.wounds[world.resolve(fact.key.b).unwrap()].parts[region as usize].integrity.raw(),
+                    world.wounds[world.resolve(fact.key.b).unwrap()].parts[region as usize].wound.raw()),
+                   (118_400, 12_672));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn retained_static_search_rejects_the_imported_normal_bracket_before_selection() {
+        use crate::combat::resolution::tests::{canonical_tangents, static_candidate_grammar,
+                                               tangent_limit_raw, widened_kinetic_numerator,
+                                               StaticSearchReject};
+        let (world, contact, rows, fact, _, _, friction) = directional_captured_strike();
+        let at = |entity, slot| rows.iter().position(|row| row.entity == entity && row.slot == slot).unwrap();
+        let (a, b) = (at(fact.key.a, fact.key.a_slot), at(fact.key.b, fact.key.b_slot));
+        let basis = canonical_tangents(fact.normal).unwrap();
+        let candidates = static_candidate_grammar(
+            fact.normal, [5_623, 5_624], [[101, 102], [-1, 0]],
+        ).unwrap();
+        assert_eq!(candidates.len(), 160);
+        let numerator = |state: &[GeneralizedCollider]| {
+            let words: Vec<_> = state.iter().map(|row|
+                (row.mass.raw() as i64, [row.velocity.x.raw() as i64,
+                 row.velocity.y.raw() as i64, row.velocity.z.raw() as i64])).collect();
+            widened_kinetic_numerator(&words).unwrap()
+        };
+        let initial = numerator(&rows);
+        let owned_b_mass: i64 = rows.iter().filter(|row| row.entity == fact.key.b)
+            .map(|row| row.mass.raw() as i64).sum();
+        let mut bodies = Vec::new(); let mut trial = Vec::new();
+        let mut wounds = world.wounds.clone(); let mut credit = vec![Fx::ZERO; wounds.len()];
+        let mut deltas = Vec::new(); let mut fact_loss = Vec::new();
+        let mut projector = ContactProjector { world: &world, entry: &contact.entry,
+            bodies: &mut bodies, wounds: &mut wounds, credit: &mut credit,
+            deltas: &mut deltas, fact_loss: &mut fact_loss };
+        let mut unique = Vec::new();
+        let mut restitution_rejects = 0usize; let mut slip_rejects = 0usize;
+        let mut cone_rejects = 0usize; let mut energy_rejects = 0usize;
+        let mut accepted = Vec::new();
+        let mut endpoints = Vec::new();
+        let mut q_range = (i32::MAX, i32::MIN);
+        let mut normal_only_q = Vec::new();
+        for magnitude in [5_623, 5_624] {
+            let impulse = -fact.normal * Fx::from_raw(magnitude);
+            let key = [impulse.x.raw(), impulse.y.raw(), impulse.z.raw()];
+            let mut sums = vec![[0i128; 3]; rows.len()];
+            sums[a] = [key[0] as i128, key[1] as i128, key[2] as i128];
+            for axis in 0..3 {
+                sums[b][axis] = -(sums[a][axis] * rows[b].mass.raw() as i128)
+                    / owned_b_mass as i128;
+            }
+            projector.project(&rows, &sums, 65_536, &mut trial).unwrap();
+            normal_only_q.push((magnitude,
+                (trial[b].velocity - trial[a].velocity).dot(fact.normal).raw()));
+        }
+        for impulse in candidates {
+            let key = [impulse.x.raw(), impulse.y.raw(), impulse.z.raw()];
+            if unique.contains(&key) { continue; }
+            unique.push(key);
+            assert!(unique.len() <= 256, "static search exceeded its projection budget");
+            let mut sums = vec![[0i128; 3]; rows.len()];
+            sums[a] = [key[0] as i128, key[1] as i128, key[2] as i128];
+            for axis in 0..3 {
+                sums[b][axis] = -(sums[a][axis] * rows[b].mass.raw() as i128)
+                    / owned_b_mass as i128;
+            }
+            projector.project(&rows, &sums, 65_536, &mut trial).unwrap();
+            let relative = trial[b].velocity - trial[a].velocity;
+            let q = relative.dot(fact.normal).raw();
+            q_range.0 = q_range.0.min(q); q_range.1 = q_range.1.max(q);
+            if endpoints.len() < 4 {
+                endpoints.push((key, q, relative.dot(basis.first).raw(),
+                                relative.dot(basis.second).raw()));
+            }
+            if q.unsigned_abs() > 1 { restitution_rejects += 1; continue; }
+            let slip = [relative.dot(basis.first).raw(), relative.dot(basis.second).raw()];
+            if slip.into_iter().any(|word| word.unsigned_abs() > 1) {
+                slip_rejects += 1; continue;
+            }
+            let jn = -impulse.dot(fact.normal).raw() as i64;
+            if jn <= 0 { cone_rejects += 1; continue; }
+            let tangent = impulse + fact.normal * Fx::from_raw(jn as i32);
+            let tangent_square = [tangent.x.raw(), tangent.y.raw(), tangent.z.raw()]
+                .into_iter().map(|word| word as i128 * word as i128).sum::<i128>();
+            let limit = tangent_limit_raw(friction.raw(), jn).unwrap() as i128;
+            if tangent_square > limit * limit { cone_rejects += 1; continue; }
+            let after = numerator(&trial);
+            if after > initial { energy_rejects += 1; continue; }
+            accepted.push((key, q, slip, after));
+        }
+        assert_eq!(endpoints, vec![
+            ([-293, -5616, -1], -7, -96, 0),
+            ([-292, -5616, -1], -7, -96, 0),
+            ([-294, -5616, -1], -7, -97, 0),
+            ([-293, -5616, -2], -7, -96, 2),
+        ]);
+        assert_eq!((unique.len(), restitution_rejects, slip_rejects,
+                    cone_rejects, energy_rejects, accepted.len(), q_range),
+                   (48, 48, 0, 0, 0, 0, (-7, -6)),
+                   "pin the actual-projector bracket diagnostic");
+        assert_eq!(normal_only_q, vec![(5_623, -11), (5_624, -10)]);
+        let terminal = if normal_only_q.iter().all(|row| row.1 < 0)
+            || normal_only_q.iter().all(|row| row.1 > 0) {
+            StaticSearchReject::MissingNormalBracket
+        } else { StaticSearchReject::NoCandidate };
+        assert_eq!(terminal, StaticSearchReject::MissingNormalBracket);
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn retained_full_domain_normal_root_reports_its_first_exact_bracket() {
+        use crate::combat::resolution::tests::{FullDomainContactReject,
+                                               widened_kinetic_numerator};
+        let (world, contact, rows, fact, _, _, _) = directional_captured_strike();
+        let at = |entity, slot| rows.iter().position(|row| row.entity == entity && row.slot == slot).unwrap();
+        let (a, b) = (at(fact.key.a, fact.key.a_slot), at(fact.key.b, fact.key.b_slot));
+        let owned_b_mass: i64 = rows.iter().filter(|row| row.entity == fact.key.b)
+            .map(|row| row.mass.raw() as i64).sum();
+        let numerator = |state: &[GeneralizedCollider]| {
+            let words: Vec<_> = state.iter().map(|row| (row.mass.raw() as i64,
+                [row.velocity.x.raw() as i64, row.velocity.y.raw() as i64,
+                 row.velocity.z.raw() as i64])).collect();
+            widened_kinetic_numerator(&words).unwrap()
+        };
+        let initial = numerator(&rows);
+        let mut bodies = Vec::new(); let mut scratch = Vec::new();
+        let mut wounds = world.wounds.clone(); let mut credit = vec![Fx::ZERO; wounds.len()];
+        let mut deltas = Vec::new(); let mut fact_loss = Vec::new();
+        let mut projector = ContactProjector { world: &world, entry: &contact.entry,
+            bodies: &mut bodies, wounds: &mut wounds, credit: &mut credit,
+            deltas: &mut deltas, fact_loss: &mut fact_loss };
+        let mut calls = 0usize; let mut sampled = Vec::new();
+        let mut cache: Vec<(i32, Vec<(Vec3, i32, i128, Vec<GeneralizedCollider>)>)> = Vec::new();
+        let mut probe = |magnitude: i32| {
+            if let Some((_, answer)) = cache.iter().find(|row| row.0 == magnitude) {
+                return answer.clone();
+            }
+            if !sampled.contains(&magnitude) { sampled.push(magnitude); }
+            assert!(sampled.len() <= 65);
+            let (candidates, count) = normal_component_candidates(fact.normal, magnitude);
+            let mut answers = Vec::new();
+            for impulse in &candidates[..count] {
+                calls += 1; assert!(calls <= 256);
+                let mut sums = vec![[0i128; 3]; rows.len()];
+                sums[a] = [impulse.x.raw() as i128, impulse.y.raw() as i128, impulse.z.raw() as i128];
+                for axis in 0..3 { sums[b][axis] = -(sums[a][axis]
+                    * rows[b].mass.raw() as i128) / owned_b_mass as i128; }
+                projector.project(&rows, &sums, 65_536, &mut scratch).unwrap();
+                let q = (scratch[b].velocity - scratch[a].velocity).dot(fact.normal).raw();
+                answers.push((*impulse, q, numerator(&scratch), scratch.clone()));
+            }
+            cache.push((magnitude, answers.clone()));
+            answers
+        };
+        let mut lower = 0; let mut word = 0;
+        let mut upper = loop {
+            let sample = probe(word); let max_q = sample.iter().map(|row| row.1).max().unwrap();
+            if max_q >= -1 { break word; }
+            lower = word;
+            assert_ne!(word, i32::MAX, "complete normal domain had no restitution bracket");
+            word = if word == 0 { 1 } else { word.checked_mul(2).unwrap_or(i32::MAX) };
+        };
+        while upper - lower > 1 {
+            let mid = lower + (upper - lower) / 2;
+            if probe(mid).iter().map(|row| row.1).max().unwrap() >= -1 { upper = mid; }
+            else { lower = mid; }
+        }
+        let lower_rows = probe(lower); let upper_rows = probe(upper);
+        let roots: Vec<_> = lower_rows.iter().chain(&upper_rows)
+            .filter(|row| row.1.unsigned_abs() <= 1 && row.2 <= initial)
+            .map(|row| (row.0.x.raw(), row.0.y.raw(), row.0.z.raw(), row.1, row.2)).collect();
+        drop(probe);
+        cache.sort_by_key(|row| row.0);
+        for pair in cache.windows(2) {
+            let envelope = |row: &(i32, Vec<(Vec3, i32, i128, Vec<GeneralizedCollider>)>)|
+                (row.1.iter().map(|answer| answer.1).min().unwrap(),
+                 row.1.iter().map(|answer| answer.1).max().unwrap());
+            let (left, right) = (envelope(&pair[0]), envelope(&pair[1]));
+            assert!(left.0 <= right.0 && left.1 <= right.1,
+                    "full-domain normal response reversed between scalar samples");
+        }
+        assert!(roots.is_empty(), "checkpoint A unexpectedly found a representable root");
+        assert!(lower_rows.iter().all(|row| row.1 < -1));
+        assert!(upper_rows.iter().all(|row| row.1 < -1 || row.1 > 1));
+        assert_eq!(sampled, vec![0, 1, 2, 4, 8, 16, 32, 64, 128, 256, 512,
+            1_024, 2_048, 4_096, 8_192, 6_144, 5_120, 5_632, 5_888, 5_760,
+            5_696, 5_664, 5_648, 5_640, 5_636, 5_634, 5_633]);
+        let terminal = FullDomainContactReject::NormalGap;
+        assert_eq!(terminal, FullDomainContactReject::NormalGap);
+        assert_eq!((lower, upper, sampled.len(), calls,
+                    lower_rows.iter().map(|row| row.1).min().unwrap(),
+                    lower_rows.iter().map(|row| row.1).max().unwrap(),
+                    upper_rows.iter().map(|row| row.1).min().unwrap(),
+                    upper_rows.iter().map(|row| row.1).max().unwrap(), initial, roots),
+                   (5_632, 5_633, 27, 101, -4, -4, -4, 2,
+                    3_273_351_951_552, vec![]),
+                   "full-domain normal target changed from its named NormalGap");
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn retained_residual_trust_region_refuses_the_alternate_mapper_seed() {
+        use crate::combat::resolution::tests::{canonical_tangents, ResidualTrustReject};
+        let (world, contact, rows, fact, _, proposal, _) = directional_captured_strike();
+        let at = |entity, slot| rows.iter().position(|row|
+            row.entity == entity && row.slot == slot).unwrap();
+        let (a, b) = (at(fact.key.a, fact.key.a_slot), at(fact.key.b, fact.key.b_slot));
+        let basis = canonical_tangents(fact.normal).unwrap();
+        let scale = |component: Fx| Fx::from_raw(
+            ((component.raw() as i64 * 65_560i64) / 65_536) as i32);
+        let centre_impulse = Vec3::new(scale(proposal.x), scale(proposal.y), scale(proposal.z));
+        let owned_b_mass: i64 = rows.iter().filter(|row| row.entity == fact.key.b)
+            .map(|row| row.mass.raw() as i64).sum();
+        let mut bodies = Vec::new(); let mut scratch = Vec::new();
+        let mut wounds = world.wounds.clone(); let mut credit = vec![Fx::ZERO; wounds.len()];
+        let mut deltas = Vec::new(); let mut fact_loss = Vec::new();
+        let mut projector = ContactProjector { world: &world, entry: &contact.entry,
+            bodies: &mut bodies, wounds: &mut wounds, credit: &mut credit,
+            deltas: &mut deltas, fact_loss: &mut fact_loss };
+        let residual = |state: &[GeneralizedCollider]| {
+            let relative = state[b].velocity - state[a].velocity;
+            [relative.dot(fact.normal).raw(), relative.dot(basis.first).raw(),
+             relative.dot(basis.second).raw()]
+        };
+        let mut calls = 0usize;
+        let mut project = |impulse: Vec3| {
+            calls += 1; assert!(calls <= 128);
+            let mut sums = vec![[0i128; 3]; rows.len()];
+            sums[a] = [impulse.x.raw() as i128, impulse.y.raw() as i128, impulse.z.raw() as i128];
+            for axis in 0..3 { sums[b][axis] = -(sums[a][axis]
+                * rows[b].mass.raw() as i128) / owned_b_mass as i128; }
+            projector.project(&rows, &sums, 65_536, &mut scratch).unwrap();
+            residual(&scratch)
+        };
+        let centre = project(centre_impulse);
+        assert_eq!(([centre_impulse.x.raw(), centre_impulse.y.raw(), centre_impulse.z.raw()], centre),
+                   ([-297, -5_681, 0], [64, -101, 0]));
+        // Smart31's declared centre belongs to the alternate Cartesian trial
+        // mapper. The production projector is the only allowed oracle here;
+        // a different seed is attribution failure, not permission to derive a
+        // Jacobian around a response the plan did not predeclare.
+        let seed_gate = if centre == [0, 2, 0] { None }
+            else { Some(ResidualTrustReject::Projector) };
+        drop(project);
+        assert_eq!((calls, seed_gate), (1, Some(ResidualTrustReject::Projector)));
+        let mut alternate_sums = vec![[0i128; 3]; rows.len()];
+        alternate_sums[a] = [centre_impulse.x.raw() as i128,
+                             centre_impulse.y.raw() as i128,
+                             centre_impulse.z.raw() as i128];
+        alternate_sums[b] = [-alternate_sums[a][0], -alternate_sums[a][1],
+                             -alternate_sums[a][2]];
+        let mut alternate = Vec::new();
+        cartesian_contact_trial(&rows, &alternate_sums, 65_536, &mut alternate).unwrap();
+        assert_eq!(residual(&alternate), [0, 2, 0],
+                   "the refused seed stopped identifying the alternate mapper exactly");
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn retained_production_seed_is_entry_derived_and_repeats_exactly() {
+        let (world, contact, rows, fact, proposal, _, _) = directional_captured_strike();
+        let at = |entity, slot| rows.iter().position(|row|
+            row.entity == entity && row.slot == slot).unwrap();
+        let (a, b) = (at(fact.key.a, fact.key.a_slot), at(fact.key.b, fact.key.b_slot));
+        let mut colliders = Vec::new();
+        world.build_contact_colliders(&contact.entry, &mut colliders, &world.wounds);
+        assert_eq!(crate::combat::contact::collect_contacts(&colliders), vec![fact]);
+        let basis = resolution::tests::canonical_tangents(fact.normal).unwrap();
+        let residual = |state: &[GeneralizedCollider]| {
+            let relative = state[b].velocity - state[a].velocity;
+            [relative.dot(fact.normal).raw(), relative.dot(basis.first).raw(),
+             relative.dot(basis.second).raw()]
+        };
+        let proposed = [resolution::ProposedContact { fact, a_collider: a, b_collider: b,
+                                                       impulse_on_a: proposal, channel: None }];
+        let mut sums = Vec::new();
+        resolution::build_group_sums(rows.len(), &proposed, &mut sums).unwrap();
+        for (index, sum) in sums.iter().enumerate() {
+            if index != a && index != b { assert_eq!(*sum, [0; 3]); }
+        }
+        let zero = vec![[0i128; 3]; rows.len()];
+        let mut bodies = Vec::new(); let mut zero_rows = Vec::new(); let mut first = Vec::new();
+        let mut second = Vec::new(); let mut wounds = world.wounds.clone();
+        let mut credit = vec![Fx::ZERO; wounds.len()]; let mut deltas = Vec::new();
+        let mut fact_loss = Vec::new();
+        let mut projector = ContactProjector { world: &world, entry: &contact.entry,
+            bodies: &mut bodies, wounds: &mut wounds, credit: &mut credit,
+            deltas: &mut deltas, fact_loss: &mut fact_loss };
+        projector.project(&rows, &zero, 65_536, &mut zero_rows).unwrap();
+        projector.project(&rows, &sums, 65_536, &mut first).unwrap();
+        projector.project(&rows, &sums, 65_536, &mut second).unwrap();
+        assert_eq!(zero_rows, rows);
+        assert_eq!(first, second);
+        assert_eq!(([proposal.x.raw(), proposal.y.raw(), proposal.z.raw()],
+                    [sums[a][0], sums[a][1], sums[a][2]],
+                    [sums[b][0], sums[b][1], sums[b][2]], residual(&rows), residual(&first)),
+                   ([-183,-3_508,0], [-183,-3_508,0], [183,3_508,0],
+                    [-6_346,113,0], [68,-11,0]),
+                   "pin entry-only production seed provenance");
+        let directions = [-fact.normal, basis.first, basis.second];
+        let mut probes = Vec::new();
+        let mut columns = Vec::new(); let mut midpoints = Vec::new();
+        let mut terminal = None;
+        for direction in directions {
+            let pair = resolution::tests::invariant_perturbation_pair(direction, 64).unwrap();
+            let mut sides = [[0i32; 3]; 2];
+            for (side, impulse) in [proposal + pair.0, proposal + pair.1].into_iter().enumerate() {
+                let contact = [resolution::ProposedContact { fact, a_collider: a, b_collider: b,
+                                                             impulse_on_a: impulse, channel: None }];
+                resolution::build_group_sums(rows.len(), &contact, &mut sums).unwrap();
+                projector.project(&rows, &sums, 65_536, &mut second).unwrap();
+                sides[side] = residual(&second);
+            }
+            if let Err(_) = resolution::tests::midpoint_is_central(sides[0], residual(&first), sides[1], 2) {
+                terminal = Some(resolution::tests::SeedProvenanceReject::Nonlinear);
+            }
+            columns.push([sides[0][0] - sides[1][0], sides[0][1] - sides[1][1],
+                          sides[0][2] - sides[1][2]]);
+            let centre = residual(&first);
+            midpoints.push([sides[0][0] + sides[1][0] - 2 * centre[0],
+                            sides[0][1] + sides[1][1] - 2 * centre[1],
+                            sides[0][2] + sides[1][2] - 2 * centre[2]]);
+            probes.push(([pair.0.x.raw(), pair.0.y.raw(), pair.0.z.raw()], sides));
+        }
+        assert_eq!((probes, columns, midpoints, terminal), (vec![
+            ([-2, -64, 0], [[184, -14, 0], [-47, -10, 0]]),
+            ([-64, 2, 0], [[67, -119, 0], [64, 53, 0]]),
+            ([0, 0, 64], [[68, -11, -50], [68, -11, 53]]),
+        ], vec![[231,-4,0], [3,-172,0], [0,0,-103]],
+           vec![[1,-2,0], [-5,-44,0], [0,0,3]],
+           Some(resolution::tests::SeedProvenanceReject::Nonlinear)),
+                   "fixed h64 neighborhood or its global classification changed");
+        resolution::build_group_sums(rows.len(), &proposed, &mut sums).unwrap();
+        projector.project(&rows, &sums, 65_536, &mut second).unwrap();
+        assert_eq!(second, first, "independent final seed projection drifted");
     }
 
     #[test]
