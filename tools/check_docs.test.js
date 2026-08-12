@@ -311,7 +311,7 @@ test("every_architecture_document_has_the_standard_header", () => {
   fs.rmSync(headerOnly, { recursive: true, force: true });
 });
 
-test("current_architecture_does_not_present_v2_types_as_shipped", () => {
+test("shipped_v2_terms_are_scoped_to_the_architecture_that_owns_them", () => {
   const root = architectureFixture();
   fs.appendFileSync(path.join(root, "docs/architecture/simulation.md"), [
     "", "Worker ships today, not tomorrow.", "", "Babylon and WebGPU ship here today.",
@@ -333,6 +333,17 @@ test("current_architecture_does_not_present_v2_types_as_shipped", () => {
   assert.doesNotMatch(browserErrors, /WebGPU is an unboxed v2 term/);
   assert.match(browserErrors, /GLB is an unboxed v2 term/);
   assert.match(browserErrors, /articulated is an unboxed v2 term/);
+
+  const current = architectureFixture();
+  fs.appendFileSync(path.join(current, "docs/architecture/overview.md"),
+    "\nArticulated commands and learned inference ship across the current crate graph.\n");
+  fs.appendFileSync(path.join(current, "docs/architecture/policy.md"),
+    "\nThe articulated registry includes the learned policy. Babylon ships here.\n");
+  const currentErrors = checkArchitecture(current).join("\n");
+  fs.rmSync(current, { recursive: true, force: true });
+  assert.doesNotMatch(currentErrors, /articulated is an unboxed v2 term/);
+  assert.doesNotMatch(currentErrors, /learned is an unboxed v2 term/);
+  assert.match(currentErrors, /Babylon is an unboxed v2 term/);
 });
 
 test("current_room_glb_claims_are_scoped_to_room_authorities", () => {

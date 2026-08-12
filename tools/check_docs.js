@@ -443,6 +443,10 @@ function checkProposedBoundaries(markdown, rel, errors) {
     ? new Set(["worker", "babylon", "webgpu", "gpu"])
     : rel === "docs/architecture/assets.md"
       ? new Set(["gpu"])
+    : rel === "docs/architecture/overview.md"
+      ? new Set(["articulated", "learned", "learning"])
+    : rel === "docs/architecture/policy.md"
+      ? new Set(["articulated", "learned", "learning"])
     : rel === "docs/architecture/learning.md"
       ? new Set(["learned", "learning", "articulated"])
     : new Set();

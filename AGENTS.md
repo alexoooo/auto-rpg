@@ -337,7 +337,8 @@ commit that finishes the topic (see `iso-*` in the history of `docs/plans`).
 
 The live roadmap is [`docs/plans/v2-00-overview.md`](docs/plans/v2-00-overview.md).
 Completed v2 sessions have been retired; the overview now names only unresolved work,
-and `v2-18` is the sole directly implementable session still present. Durable results
+and `v2-18` is the sole remaining numbered session, still blocked on the mechanical
+gate. Durable results
 from closed sessions belong in architecture, design, reference, or performance docs,
 not in a progress ledger.
 
