@@ -24,6 +24,7 @@ longer sample — and do not compare moving scenes as independent runs.
 - [smart AI actuator calibration](smart-ai-actuator-calibration.md)
 - [smart AI contact-energy rebilling](smart-ai-contact-energy.md)
 - [smart AI tactical-policy outcome](smart-ai-tactical-policy.md)
+- [smart AI matched tactical mechanics](smart-ai-matched-tactical.md)
 
 The [v2 renderer reference matrix](v2-reference-matrix.md#measurement-record)
 predeclares the visible-foreground environment, automated and manual correctness

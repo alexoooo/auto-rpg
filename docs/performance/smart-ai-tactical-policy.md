@@ -32,3 +32,15 @@ The policy therefore fails the session's `95/100` body decisions before tick 1,8
 That threshold is not reduced. The result is `revise`: deliberate geometry and legal
 commands exist, but the current contact-energy behavior does not turn them into timely
 fight outcomes.
+
+## Controlled strong-strike reference
+
+The first fixed `strong-strike` diagnostic found one legal high-speed tip contact whose
+closure ledger remained `381 -> 381`. Session 10 superseded that hand-placed row with a
+28-tick chamber and 28-tick commit derived from public observation, parameterized over
+seed, mirror, target anatomy and all nine frozen offsets. That calibration is the
+authoritative current result: 519 of 900 rows are invalid because the reference misses
+or produces ambiguous facts, so held-out was not opened. Exact counts, CSV digest and
+the retained quick diagnostic are in
+[Smart AI matched tactical mechanics](smart-ai-matched-tactical.md). The earlier row
+remains useful provenance for the dissipation hypothesis, not a corpus result.

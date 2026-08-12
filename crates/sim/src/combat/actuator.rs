@@ -46,6 +46,10 @@ pub struct ArmState {
     pub linear_velocity: Vec3,
     pub fatigue: Fx,
     pub work_residue: Fx,
+    #[cfg(feature = "cartesian-recoil")]
+    pub post_contact_velocity: Vec3,
+    #[cfg(feature = "cartesian-recoil")]
+    pub post_contact_active: bool,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -73,6 +77,10 @@ pub(crate) fn tucked_arm(hand: Vec3) -> ArmState {
         linear_velocity: Vec3::ZERO,
         fatigue: Fx::ZERO,
         work_residue: Fx::ZERO,
+        #[cfg(feature = "cartesian-recoil")]
+        post_contact_velocity: Vec3::ZERO,
+        #[cfg(feature = "cartesian-recoil")]
+        post_contact_active: false,
     }
 }
 

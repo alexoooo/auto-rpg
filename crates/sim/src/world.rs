@@ -4257,6 +4257,10 @@ impl World {
                         }
                         h.write_i32(arm.fatigue.raw());
                         h.write_i32(arm.work_residue.raw());
+                        #[cfg(feature = "cartesian-recoil")]
+                        {
+                            h.write_bytes(&post_contact_hash_bytes(arm));
+                        }
                     }
                     for grip in self.grips[i] {
                         match grip.equipment_slot {
@@ -6088,6 +6092,10 @@ mod tests {
             linear_velocity: Vec3::new(Fx::from_raw(10), Fx::from_raw(11), Fx::from_raw(12)),
             fatigue: Fx::HALF,
             work_residue: Fx::from_raw(13),
+            #[cfg(feature = "cartesian-recoil")]
+            post_contact_velocity: Vec3::ZERO,
+            #[cfg(feature = "cartesian-recoil")]
+            post_contact_active: false,
         }; 2];
         world.grips[2] = [
             GripState { equipment_slot: Some(0) },
@@ -6108,7 +6116,19 @@ mod tests {
         let replacement = world.spawn(&scenario.units[1]);
         assert_eq!(replacement, EntityId::new(2, 1));
         assert_lengths(&world, 3);
+        #[cfg(feature = "cartesian-recoil")]
+        for arm in world.arms[2] {
+            assert_eq!((arm.post_contact_active, arm.post_contact_velocity),
+                       (false, Vec3::ZERO), "a reused slot inherited Cartesian recoil");
+        }
         let fresh = World::new(&scenario, 1);
+        #[cfg(feature = "cartesian-recoil")]
+        for arms in &fresh.arms {
+            for arm in arms {
+                assert_eq!((arm.post_contact_active, arm.post_contact_velocity),
+                           (false, Vec3::ZERO), "fresh Cartesian recoil was not canonical");
+            }
+        }
         assert_eq!(world.articulated_pose_test_view(replacement).unwrap(),
             fresh.articulated_pose_test_view(EntityId::new(1, 0)).unwrap());
     }
@@ -6210,7 +6230,15 @@ mod tests {
                     1 => w.arms[0][limb].linear_velocity.y = Fx::from_raw(1),
                     _ => w.arms[0][limb].linear_velocity.z = Fx::from_raw(1),
                 });
+                #[cfg(feature = "cartesian-recoil")]
+                assert_actuator_hash_mutation(|w| match axis {
+                    0 => w.arms[0][limb].post_contact_velocity.x = Fx::from_raw(1),
+                    1 => w.arms[0][limb].post_contact_velocity.y = Fx::from_raw(1),
+                    _ => w.arms[0][limb].post_contact_velocity.z = Fx::from_raw(1),
+                });
             }
+            #[cfg(feature = "cartesian-recoil")]
+            assert_actuator_hash_mutation(|w| w.arms[0][limb].post_contact_active = true);
             assert_actuator_hash_mutation(|w| w.arms[0][limb].fatigue = Fx::from_raw(1));
             assert_actuator_hash_mutation(|w| w.arms[0][limb].work_residue = Fx::from_raw(1));
             assert_actuator_hash_mutation(|w| w.grips[0][limb].equipment_slot = None);
@@ -8080,6 +8108,1326 @@ mod tests {
         assert_eq!(resolution::closure_energy(&trial).expect("bounded closure"),
                    resolution::closure_energy(&rows).expect("bounded closure"),
                    "alpha zero changed the closure's energy");
+    }
+
+    fn directional_captured_strike() -> (
+        World, ContactRuntime, Vec<GeneralizedCollider>, crate::combat::contact::ContactFact,
+        Vec3, Vec3, Fx,
+    ) {
+        let mut config = crate::DuelConfigV1::shipped();
+        config.fighters[0].spawn = Vec2::from_ints(10, 8);
+        config.fighters[0].hands[1].as_mut().unwrap().geometry = crate::EquipmentGeometry::Segment {
+            length: Fx::from_int(2), radius: Fx::from_ratio(1, 25),
+        };
+        config.fighters[1].spawn = Vec2::new(Fx::from_ratio(631, 50), Fx::from_int(8));
+        config.fighters[1].anatomy = crate::AnatomyChoice::Fighter;
+        config.max_ticks = 96;
+        let mut world = World::new(&Scenario::duel_from(&config).unwrap(), 0);
+        let (attacker, defender) = (world.id_of(0), world.id_of(1));
+        let yaw = world.body_yaw[0].angle;
+        let chamber = Angle::from_raw(yaw.raw().wrapping_sub(Angle::QUARTER.raw()));
+        let strike = |world: &World, bearing| {
+            let mut command = world.neutral_articulated(0);
+            command.intent = Intent::Attack(defender);
+            command.arms[1] = ArmTarget { bearing, height: crate::CombatHeight::LOW,
+                                          reach: Fx::ONE, effort: Fx::ONE };
+            command
+        };
+        for _ in 0..48 {
+            world.submit_articulated_v1(attacker, strike(&world, chamber));
+            world.submit_articulated_v1(defender, world.neutral_articulated(1)); world.step();
+        }
+        let mut before = None;
+        for _ in 0..48 {
+            world.submit_articulated_v1(attacker, strike(&world, yaw));
+            world.submit_articulated_v1(defender, world.neutral_articulated(1));
+            let saved = world.clone(); world.step();
+            if world.contact_resolutions().iter().any(|row| row.fact.key.kind == ContactKind::WeaponBody) {
+                before = Some(saved); break;
+            }
+        }
+        let mut world = before.expect("captured strike lost contact");
+        world.events.clear(); world.expire_unanswered_decisions(); world.retain_contact_entry();
+        world.apply_articulated_movement(); world.record_contact_locomotion(); world.separate();
+        world.drive_body_yaw(); world.apply_articulated_grips();
+        world.drive_articulated_arms(actuator::ARM_BEARING_MAX_SPEED_RAW, actuator::ARM_BEARING_ACCEL_RAW);
+        world.derive_articulated_geometry(); world.clamp_contact_entry();
+        let contact = world.contact.take().unwrap();
+        let mut colliders = Vec::new();
+        world.build_contact_colliders(&contact.entry, &mut colliders, &world.wounds);
+        let weapon_body: Vec<_> = crate::combat::contact::collect_contacts(&colliders).into_iter()
+            .filter(|fact| fact.key.kind == ContactKind::WeaponBody).collect();
+        assert_eq!(weapon_body.len(), 1, "captured diagnostic acquired a competing weapon/body fact");
+        let fact = weapon_body[0];
+        let collider_at = |entity, slot| colliders.iter().find(|row| row.entity == entity &&
+            if slot == crate::combat::contact::BODY_SLOT { matches!(row.shape, ContactShape::Body { .. }) }
+            else { row.slot == slot }).copied().unwrap();
+        let (row_a, row_b) = (collider_at(fact.key.a, fact.key.a_slot),
+                              collider_at(fact.key.b, fact.key.b_slot));
+        let owned_b_mass: i64 = colliders.iter().filter(|row| row.entity == fact.key.b)
+            .map(|row| row.mass.raw() as i64).sum();
+        let old_proposal = resolution::proposed_impulse(row_a.mass, row_b.mass,
+            row_a.surface, row_b.surface, fact.velocity_a, fact.velocity_b, fact.normal);
+        let owned_proposal = resolution::proposed_impulse(row_a.mass, Fx::from_raw(owned_b_mass as i32),
+            row_a.surface, row_b.surface, fact.velocity_a, fact.velocity_b, fact.normal);
+        let entities = [fact.key.a, fact.key.b];
+        let rows = colliders.iter().filter(|row| entities.contains(&row.entity)).map(|row| {
+            GeneralizedCollider { entity: row.entity, slot: row.slot,
+                kind: if matches!(row.shape, ContactShape::Body { .. }) { GeneralizedKind::Body }
+                      else { GeneralizedKind::Equipment }, mass: row.mass,
+                velocity: row.velocity, velocity_offset: row.velocity_offset }
+        }).collect();
+        (world, contact, rows, fact, old_proposal, owned_proposal,
+         row_a.surface.friction.min(row_b.surface.friction))
+    }
+
+    #[test]
+    fn directional_response_captured_planar_column_is_rejected_as_nonlinear() {
+        let (world, contact, rows, fact, _, _, _) = directional_captured_strike();
+        let at = |entity, slot| rows.iter().position(|row| row.entity == entity && row.slot == slot).unwrap();
+        let (a, b) = (at(fact.key.a, fact.key.a_slot), at(fact.key.b, fact.key.b_slot));
+        assert_eq!((fact.normal.x.raw(), fact.normal.y.raw()), (2_256, 65_497));
+        let q0 = (rows[b].velocity - rows[a].velocity).dot(fact.normal).raw();
+        assert_eq!(q0, -6_346);
+        let mut bodies = Vec::new(); let mut trial = Vec::new();
+        let mut wounds = world.wounds.clone(); let mut credit = vec![Fx::ZERO; wounds.len()];
+        let mut deltas = Vec::new(); let mut fact_loss = Vec::new();
+        let mut projector = ContactProjector { world: &world, entry: &contact.entry,
+            bodies: &mut bodies, wounds: &mut wounds, credit: &mut credit,
+            deltas: &mut deltas, fact_loss: &mut fact_loss };
+        let probe = |raw: i32, projector: &mut ContactProjector<'_>, trial: &mut Vec<GeneralizedCollider>| {
+            let impulse = -fact.normal * Fx::from_raw(raw);
+            let mut sums = vec![[0i128; 3]; rows.len()];
+            sums[a] = [impulse.x.raw() as i128, impulse.y.raw() as i128, impulse.z.raw() as i128];
+            sums[b] = [-sums[a][0], -sums[a][1], -sums[a][2]];
+            projector.project(&rows, &sums, 65_536, trial).unwrap();
+            (trial[b].velocity - trial[a].velocity).dot(fact.normal).raw() - q0
+        };
+        let (p, twice) = (probe(256, &mut projector, &mut trial),
+                          probe(512, &mut projector, &mut trial));
+        assert_eq!((p, twice, twice - 2 * p), (502, 965, -39));
+        assert!((twice - 2 * p).abs() > 1,
+                "the joint response unexpectedly became linear enough to solve");
+    }
+
+    #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+    enum Nonlinear1dReject { UnsupportedNonlinear, Projector }
+
+    #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+    struct Nonlinear1dCandidate { impulse: i32, q: i32, energy: u64, evaluations: u8 }
+
+    fn bounded_nonlinear_1d(
+        before_energy: u64,
+        mut project: impl FnMut(i32) -> Result<(i32, u64), ResolutionError>,
+    ) -> Result<Nonlinear1dCandidate, Nonlinear1dReject> {
+        let mut words = [0i32; 65]; let mut qs = [0i32; 65]; let mut energies = [0u64; 65];
+        let mut used = 0usize;
+        let mut evaluate = |word: i32| -> Result<(i32, u64), Nonlinear1dReject> {
+            if let Some(at) = words[..used].iter().position(|cached| *cached == word) {
+                return Ok((qs[at], energies[at]));
+            }
+            if used == words.len() { return Err(Nonlinear1dReject::UnsupportedNonlinear); }
+            let result = project(word).map_err(|_| Nonlinear1dReject::Projector)?;
+            words[used] = word; qs[used] = result.0; energies[used] = result.1; used += 1;
+            Ok(result)
+        };
+        let (q_zero, _) = evaluate(0)?;
+        if q_zero >= 0 {
+            return Ok(Nonlinear1dCandidate { impulse: 0, q: q_zero,
+                                             energy: before_energy, evaluations: used as u8 });
+        }
+        let mut lo = 0i32; let mut q_lo = q_zero; let mut hi = 1i32; let mut q_hi;
+        loop {
+            q_hi = evaluate(hi)?.0;
+            if q_hi < q_lo { return Err(Nonlinear1dReject::UnsupportedNonlinear); }
+            if q_hi >= 0 { break; }
+            lo = hi; q_lo = q_hi;
+            if hi == i32::MAX { return Err(Nonlinear1dReject::UnsupportedNonlinear); }
+            hi = hi.checked_mul(2).unwrap_or(i32::MAX);
+        }
+        while hi - lo > 1 {
+            let mid = lo + (hi - lo) / 2;
+            let q_mid = evaluate(mid)?.0;
+            if q_mid < q_lo || q_mid > q_hi {
+                return Err(Nonlinear1dReject::UnsupportedNonlinear);
+            }
+            if q_mid >= 0 { hi = mid; q_hi = q_mid; }
+            else { lo = mid; q_lo = q_mid; }
+        }
+        let mut best = None;
+        for (word, q) in [(lo, q_lo), (hi, q_hi)] {
+            let energy = evaluate(word)?.1;
+            if q.abs() > 1 || energy > before_energy { continue; }
+            let score = (q.abs(), before_energy - energy, word);
+            if best.map_or(true, |(old, _)| score < old) { best = Some((score, (word, q, energy))); }
+        }
+        let (_, (impulse, q, energy)) = best.ok_or(Nonlinear1dReject::UnsupportedNonlinear)?;
+        // A cache hit verifies the chosen actual projection without spending a
+        // second projector call; production promotion owes an uncached final pass.
+        assert_eq!(evaluate(impulse)?, (q, energy));
+        Ok(Nonlinear1dCandidate { impulse, q, energy, evaluations: used as u8 })
+    }
+
+    #[test]
+    fn nonlinear_response_rejects_the_old_captured_impulse_map() {
+        let (world, contact, rows, fact, old_proposal, _, _) = directional_captured_strike();
+        let at = |entity, slot| rows.iter().position(|row| row.entity == entity && row.slot == slot).unwrap();
+        let (a, b) = (at(fact.key.a, fact.key.a_slot), at(fact.key.b, fact.key.b_slot));
+        assert_eq!((fact.normal.x.raw(), fact.normal.y.raw(), fact.normal.z.raw()), (2_256, 65_497, 0));
+        assert_eq!((rows[b].velocity - rows[a].velocity).dot(fact.normal).raw(), -6_346);
+        let before_energy = resolution::closure_energy(&rows).unwrap(); assert_eq!(before_energy, 381);
+        let mut bodies = Vec::new(); let mut trial = Vec::new();
+        let mut wounds = world.wounds.clone(); let mut credit = vec![Fx::ZERO; wounds.len()];
+        let mut deltas = Vec::new(); let mut fact_loss = Vec::new();
+        let mut projector = ContactProjector { world: &world, entry: &contact.entry,
+            bodies: &mut bodies, wounds: &mut wounds, credit: &mut credit,
+            deltas: &mut deltas, fact_loss: &mut fact_loss };
+        let result = bounded_nonlinear_1d(before_energy, |raw| {
+            let scale = |component: Fx| Fx::from_raw(((component.raw() as i64 * raw as i64) / 65_536) as i32);
+            let impulse = Vec3::new(scale(old_proposal.x), scale(old_proposal.y), scale(old_proposal.z));
+            let mut sums = vec![[0i128; 3]; rows.len()];
+            sums[a] = [impulse.x.raw() as i128, impulse.y.raw() as i128, impulse.z.raw() as i128];
+            sums[b] = [-sums[a][0], -sums[a][1], -sums[a][2]];
+            projector.project(&rows, &sums, 65_536, &mut trial)?;
+            Ok(((trial[b].velocity - trial[a].velocity).dot(fact.normal).raw(),
+                resolution::closure_energy(&trial)?))
+        });
+        assert_eq!(result, Err(Nonlinear1dReject::UnsupportedNonlinear),
+                   "the old local-mass map must not be blessed at its energetic upper crossing");
+    }
+
+    #[test]
+    fn nonlinear_response_reaches_zero_restitution_with_the_owned_body_map() {
+        let (world, contact, rows, fact, _, proposal, _) = directional_captured_strike();
+        let at = |entity, slot| rows.iter().position(|row| row.entity == entity && row.slot == slot).unwrap();
+        let (a, b) = (at(fact.key.a, fact.key.a_slot), at(fact.key.b, fact.key.b_slot));
+        assert_eq!(rows[b].kind, GeneralizedKind::Body);
+        let owned_mass: i64 = rows.iter().filter(|row| row.entity == fact.key.b)
+            .map(|row| row.mass.raw() as i64).sum();
+        assert_eq!(owned_mass, 211_681);
+        let before_energy = resolution::closure_energy(&rows).unwrap(); assert_eq!(before_energy, 381);
+        let mut bodies = Vec::new(); let mut trial = Vec::new();
+        let mut wounds = world.wounds.clone(); let mut credit = vec![Fx::ZERO; wounds.len()];
+        let mut deltas = Vec::new(); let mut fact_loss = Vec::new();
+        let mut projector = ContactProjector { world: &world, entry: &contact.entry,
+            bodies: &mut bodies, wounds: &mut wounds, credit: &mut credit,
+            deltas: &mut deltas, fact_loss: &mut fact_loss };
+        let result = bounded_nonlinear_1d(before_energy, |raw| {
+            let scale = |component: Fx| Fx::from_raw(((component.raw() as i64 * raw as i64) / 65_536) as i32);
+            let impulse = Vec3::new(scale(proposal.x), scale(proposal.y), scale(proposal.z));
+            let mut sums = vec![[0i128; 3]; rows.len()];
+            sums[a] = [impulse.x.raw() as i128, impulse.y.raw() as i128, impulse.z.raw() as i128];
+            // A body contact translates every row its owner holds. Dividing
+            // the body's accumulator by body mass would therefore count more
+            // momentum than the external impulse. This test-only candidate
+            // gives the translated owner one aggregate-mass delta.
+            for axis in 0..3 {
+                let proposed = [proposal.x.raw(), proposal.y.raw(), proposal.z.raw()][axis] as i128;
+                sums[b][axis] = -(proposed * raw as i128 * rows[b].mass.raw() as i128)
+                    / (65_536i128 * owned_mass as i128);
+            }
+            projector.project(&rows, &sums, 65_536, &mut trial)?;
+            Ok(((trial[b].velocity - trial[a].velocity).dot(fact.normal).raw(),
+                resolution::closure_energy(&trial)?))
+        }).expect("ownership-aware nonlinear response should reach flesh restitution");
+        assert_eq!(result, Nonlinear1dCandidate {
+            impulse: 64_858, q: 0, energy: 103, evaluations: 33,
+        });
+    }
+
+    #[test]
+    fn nonlinear_response_has_a_fixed_evaluation_budget() {
+        let result = bounded_nonlinear_1d(100, |word| {
+            Ok((-10 + word + word * word / 16, 90))
+        }).unwrap();
+        assert_eq!(result, Nonlinear1dCandidate { impulse: 7, q: 0, energy: 90, evaluations: 7 });
+    }
+
+    #[test]
+    fn nonlinear_response_refuses_a_reversal_gap_and_energy_excess() {
+        assert_eq!(bounded_nonlinear_1d(100, |word| Ok((
+            if word < 5 { -2 } else { 2 }, 90))),
+            Err(Nonlinear1dReject::UnsupportedNonlinear));
+        assert_eq!(bounded_nonlinear_1d(100, |word| Ok((
+            match word { 0 => -10, 1 => -9, _ => -11 }, 90))),
+            Err(Nonlinear1dReject::UnsupportedNonlinear));
+        assert_eq!(bounded_nonlinear_1d(100, |word| Ok((-2 + word, 101))),
+            Err(Nonlinear1dReject::UnsupportedNonlinear));
+    }
+
+    #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+    enum Nonlinear2dReject { UnsupportedNonlinear, Cycle, NoConvergence }
+
+    fn nonlinear_visit(visited: &mut [[i32; 2]; 16], visits: &mut usize, words: [i32; 2])
+        -> Result<(), Nonlinear2dReject>
+    {
+        if visited[..*visits].contains(&words) { return Err(Nonlinear2dReject::Cycle); }
+        if *visits == visited.len() { return Err(Nonlinear2dReject::NoConvergence); }
+        visited[*visits] = words; *visits += 1; Ok(())
+    }
+
+    fn bounded_nonlinear_2d(
+        before_energy: u64, symmetric: bool,
+        mut project: impl FnMut([i32; 2]) -> Result<([i32; 2], u64), ResolutionError>,
+    ) -> Result<([i32; 2], [i32; 2], u64, u16), Nonlinear2dReject> {
+        let mut cache_words = [[0i32; 2]; 256]; let mut cache_q = [[0i32; 2]; 256];
+        let mut cache_energy = [0u64; 256]; let mut used = 0usize;
+        let mut evaluate = |words: [i32; 2]| -> Result<([i32; 2], u64), ResolutionError> {
+            if let Some(at) = cache_words[..used].iter().position(|cached| *cached == words) {
+                return Ok((cache_q[at], cache_energy[at]));
+            }
+            if used == 256 { return Err(ResolutionError::ResolutionCount); }
+            let answer = project(words)?;
+            cache_words[used] = words; cache_q[used] = answer.0; cache_energy[used] = answer.1;
+            used += 1; Ok(answer)
+        };
+        if symmetric {
+            let answer = bounded_nonlinear_1d(before_energy, |word| {
+                let (q, energy) = evaluate([word, word])?;
+                if q[0] != q[1] { return Err(ResolutionError::Projector); }
+                Ok((q[0], energy))
+            }).map_err(|_| Nonlinear2dReject::UnsupportedNonlinear)?;
+            let words = [answer.impulse; 2]; let (q, energy) = evaluate(words)
+                .map_err(|_| Nonlinear2dReject::UnsupportedNonlinear)?;
+            if q.iter().any(|value| value.abs() > 1) || energy > before_energy {
+                return Err(Nonlinear2dReject::UnsupportedNonlinear);
+            }
+            return Ok((words, q, energy, used as u16));
+        }
+        let mut words = [0i32; 2]; let mut visited = [[i32::MIN; 2]; 16]; let mut visits = 0;
+        for _ in 0..8 {
+            nonlinear_visit(&mut visited, &mut visits, words)?;
+            for coordinate in 0..2 {
+                let mut zero = words; zero[coordinate] = 0;
+                let (zero_q, _) = evaluate(zero).map_err(|_| Nonlinear2dReject::UnsupportedNonlinear)?;
+                if zero_q[coordinate] >= 0 { words[coordinate] = 0; continue; }
+                let answer = bounded_nonlinear_1d(before_energy, |word| {
+                    let mut candidate = words; candidate[coordinate] = word;
+                    let (q, energy) = evaluate(candidate)?; Ok((q[coordinate], energy))
+                }).map_err(|_| Nonlinear2dReject::UnsupportedNonlinear)?;
+                words[coordinate] = answer.impulse;
+            }
+            let (q, energy) = evaluate(words).map_err(|_| Nonlinear2dReject::UnsupportedNonlinear)?;
+            if (0..2).all(|i| if words[i] == 0 { q[i] >= -1 } else { q[i].abs() <= 1 })
+                && energy <= before_energy {
+                return Ok((words, q, energy, used as u16));
+            }
+        }
+        Err(Nonlinear2dReject::NoConvergence)
+    }
+
+    #[test]
+    fn nonlinear_shared_target_uses_both_projected_coordinates() {
+        let world = World::new(&crowded_scenario(), 1);
+        let ids = [world.id_of(0), world.id_of(1), world.id_of(2)];
+        let rows = vec![
+            GeneralizedCollider { entity: ids[0], slot: crate::combat::contact::BODY_SLOT,
+                kind: GeneralizedKind::Body, mass: Fx::ONE, velocity: Vec3::X,
+                velocity_offset: Vec3::ZERO },
+            GeneralizedCollider { entity: ids[1], slot: crate::combat::contact::BODY_SLOT,
+                kind: GeneralizedKind::Body, mass: Fx::ONE, velocity: Vec3::X,
+                velocity_offset: Vec3::ZERO },
+            GeneralizedCollider { entity: ids[2], slot: crate::combat::contact::BODY_SLOT,
+                kind: GeneralizedKind::Body, mass: Fx::ONE, velocity: Vec3::ZERO,
+                velocity_offset: Vec3::ZERO },
+        ];
+        let before_energy = resolution::closure_energy(&rows).unwrap(); assert_eq!(before_energy, 65_536);
+        let mut bodies = Vec::new(); let mut trial = Vec::new(); let mut wounds = world.wounds.clone();
+        let mut credit = vec![Fx::ZERO; wounds.len()]; let mut deltas = Vec::new(); let mut fact_loss = Vec::new();
+        let mut projector = ContactProjector { world: &world, entry: &[], bodies: &mut bodies,
+            wounds: &mut wounds, credit: &mut credit, deltas: &mut deltas, fact_loss: &mut fact_loss };
+        let result = bounded_nonlinear_2d(before_energy, true, |words| {
+            let mut sums = vec![[0i128; 3]; 3];
+            sums[0][0] = -(words[0] as i128); sums[1][0] = -(words[1] as i128);
+            sums[2][0] = words[0] as i128 + words[1] as i128;
+            projector.project(&rows, &sums, 65_536, &mut trial)?;
+            Ok(([trial[2].velocity.x.raw() - trial[0].velocity.x.raw(),
+                 trial[2].velocity.x.raw() - trial[1].velocity.x.raw()],
+                resolution::closure_energy(&trial)?))
+        }).unwrap();
+        assert_eq!((result.0, result.1, result.2), ([21_845, 21_845], [-1, -1], 43_690));
+        assert!(result.3 <= 65);
+    }
+
+    #[test]
+    fn nonlinear_shared_target_permutation_maps_back_and_opening_stays_zero() {
+        let solve = |swap: bool| bounded_nonlinear_2d(100, false, |words| {
+            let physical = if swap { [words[1], words[0]] } else { words };
+            let q = [-3 + physical[0] + physical[1], 2];
+            Ok((if swap { [q[1], q[0]] } else { q }, 90))
+        });
+        let a = solve(false).unwrap(); let b = solve(true).unwrap();
+        assert_eq!(a.0, [3, 0]); assert_eq!([b.0[1], b.0[0]], a.0);
+    }
+
+    #[test]
+    fn nonlinear_shared_target_rejects_a_cycle_and_no_convergence_by_name() {
+        assert_eq!(bounded_nonlinear_2d(100, false, |words| {
+            Ok(([-1 + words[0] - words[1], -1 - words[0] + words[1]], 90))
+        }), Err(Nonlinear2dReject::NoConvergence));
+        let mut visited = [[i32::MIN; 2]; 16]; let mut visits = 0;
+        assert_eq!(nonlinear_visit(&mut visited, &mut visits, [3, 5]), Ok(()));
+        assert_eq!(nonlinear_visit(&mut visited, &mut visits, [3, 5]), Err(Nonlinear2dReject::Cycle));
+    }
+
+    #[test]
+    fn nonlinear_vertical_body_response_is_rejected_by_the_floor_constraint() {
+        let world = World::new(&crowded_scenario(), 1);
+        let ids = [world.id_of(0), world.id_of(1)];
+        let rows = vec![
+            GeneralizedCollider { entity: ids[0], slot: crate::combat::contact::BODY_SLOT,
+                kind: GeneralizedKind::Body, mass: Fx::ONE, velocity: Vec3::ZERO,
+                velocity_offset: Vec3::ZERO },
+            GeneralizedCollider { entity: ids[1], slot: crate::combat::contact::BODY_SLOT,
+                kind: GeneralizedKind::Body, mass: Fx::ONE, velocity: Vec3::ZERO,
+                velocity_offset: Vec3::ZERO },
+        ];
+        let mut bodies = Vec::new(); let mut trial = Vec::new(); let mut wounds = world.wounds.clone();
+        let mut credit = vec![Fx::ZERO; wounds.len()]; let mut deltas = Vec::new(); let mut fact_loss = Vec::new();
+        let mut projector = ContactProjector { world: &world, entry: &[], bodies: &mut bodies,
+            wounds: &mut wounds, credit: &mut credit, deltas: &mut deltas, fact_loss: &mut fact_loss };
+        // Body rows have no vertical degree of freedom: opposite Z impulses
+        // are floor reactions, not a contact response coordinate.
+        let mut sums = vec![[0i128; 3]; 2]; sums[0][2] = -65_536; sums[1][2] = 65_536;
+        projector.project(&rows, &sums, 65_536, &mut trial).unwrap();
+        assert_eq!((trial[0].velocity.z, trial[1].velocity.z), (Fx::ZERO, Fx::ZERO));
+        let vertical_closing = -65_536;
+        let response = (trial[1].velocity.z - trial[0].velocity.z).raw();
+        assert_eq!(response, 0);
+        assert_eq!(bounded_nonlinear_1d(0, |_| Ok((vertical_closing + response, 0))),
+                   Err(Nonlinear1dReject::UnsupportedNonlinear));
+    }
+
+    #[test]
+    fn nonlinear_joint_branch_is_rejected_before_root_search() {
+        let (world, contact, rows, fact, _, _, _) = directional_captured_strike();
+        let at = |entity, slot| rows.iter().position(|row| row.entity == entity && row.slot == slot).unwrap();
+        let (a, b) = (at(fact.key.a, fact.key.a_slot), at(fact.key.b, fact.key.b_slot));
+        assert_eq!(rows[a].kind, GeneralizedKind::Equipment,
+                   "joint fixture lost its source-held articulated row");
+        let q0 = (rows[b].velocity - rows[a].velocity).dot(fact.normal).raw();
+        let mut bodies = Vec::new(); let mut trial = Vec::new(); let mut wounds = world.wounds.clone();
+        let mut credit = vec![Fx::ZERO; wounds.len()]; let mut deltas = Vec::new(); let mut fact_loss = Vec::new();
+        let mut projector = ContactProjector { world: &world, entry: &contact.entry,
+            bodies: &mut bodies, wounds: &mut wounds, credit: &mut credit,
+            deltas: &mut deltas, fact_loss: &mut fact_loss };
+        let mut probe = |raw: i32| {
+            let impulse = -fact.normal * Fx::from_raw(raw);
+            let mut sums = vec![[0i128; 3]; rows.len()];
+            sums[a] = [impulse.x.raw() as i128, impulse.y.raw() as i128, impulse.z.raw() as i128];
+            sums[b] = [-sums[a][0], -sums[a][1], -sums[a][2]];
+            projector.project(&rows, &sums, 65_536, &mut trial).unwrap();
+            (trial[b].velocity - trial[a].velocity).dot(fact.normal).raw() - q0
+        };
+        let (p, twice) = (probe(256), probe(512));
+        assert_eq!((p, twice, twice - 2 * p), (502, 965, -39));
+        let branch = if (twice - 2 * p).abs() > 1 {
+            Err(Nonlinear1dReject::UnsupportedNonlinear)
+        } else { Ok(()) };
+        assert_eq!(branch, Err(Nonlinear1dReject::UnsupportedNonlinear));
+    }
+
+    #[test]
+    fn projected_friction_is_cone_valid_but_does_not_solve_articulated_sliding() {
+        use crate::combat::resolution::tests::{canonical_tangents, inside_friction_box_and_cone,
+                                               tangent_limit_raw};
+        let (world, contact, mut rows, fact, _, proposal, friction) = directional_captured_strike();
+        let at = |entity, slot| rows.iter().position(|row| row.entity == entity && row.slot == slot).unwrap();
+        let (a, b) = (at(fact.key.a, fact.key.a_slot), at(fact.key.b, fact.key.b_slot));
+        let owned_mass: i64 = rows.iter().filter(|row| row.entity == fact.key.b)
+            .map(|row| row.mass.raw() as i64).sum();
+        let scale_raw = 64_858i32;
+        let scale = |component: Fx| Fx::from_raw(
+            ((component.raw() as i64 * scale_raw as i64) / 65_536) as i32);
+        let tangents = canonical_tangents(fact.normal).unwrap();
+        assert_eq!(tangents.axis, 2);
+        // Give the retained row a second, Z-tangent slip component. This is a
+        // test-only velocity perturbation on the actual articulated projector,
+        // not a new body degree of freedom: the target body's Z reaction is
+        // still discarded by the floor.
+        rows[a].velocity += tangents.second * Fx::from_raw(64);
+        let impulse = Vec3::new(scale(proposal.x), scale(proposal.y), scale(proposal.z))
+            - tangents.second * Fx::from_raw(64);
+        let normal_raw = (-impulse.dot(fact.normal)).raw() as i64;
+        let tangent_words = [impulse.dot(tangents.first).raw() as i64,
+                             impulse.dot(tangents.second).raw() as i64];
+        let limit = tangent_limit_raw(friction.raw(), normal_raw).unwrap();
+        assert!(inside_friction_box_and_cone(tangent_words[0], tangent_words[1], limit).unwrap());
+        assert_ne!(tangent_words, [0, 0], "captured strike lost channel-relevant slip response");
+
+        let mut sums = vec![[0i128; 3]; rows.len()];
+        sums[a] = [impulse.x.raw() as i128, impulse.y.raw() as i128, impulse.z.raw() as i128];
+        for axis in 0..3 {
+            let proposed = [proposal.x.raw(), proposal.y.raw(), proposal.z.raw()][axis] as i128;
+            sums[b][axis] = -(proposed * scale_raw as i128 * rows[b].mass.raw() as i128)
+                / (65_536i128 * owned_mass as i128);
+        }
+        let before_relative = rows[b].velocity - rows[a].velocity;
+        let before_tangent = before_relative - fact.normal * before_relative.dot(fact.normal);
+        let before_energy = resolution::closure_energy(&rows).unwrap();
+        let mut bodies = Vec::new(); let mut trial = Vec::new(); let mut wounds = world.wounds.clone();
+        let mut credit = vec![Fx::ZERO; wounds.len()]; let mut deltas = Vec::new(); let mut fact_loss = Vec::new();
+        let mut projector = ContactProjector { world: &world, entry: &contact.entry,
+            bodies: &mut bodies, wounds: &mut wounds, credit: &mut credit,
+            deltas: &mut deltas, fact_loss: &mut fact_loss };
+        projector.project(&rows, &sums, 65_536, &mut trial).unwrap();
+        let after_relative = trial[b].velocity - trial[a].velocity;
+        let q = after_relative.dot(fact.normal).raw();
+        let after_tangent = after_relative - fact.normal * after_relative.dot(fact.normal);
+        let after_energy = resolution::closure_energy(&trial).unwrap();
+        assert_eq!((normal_raw, tangent_words, limit), (5_627, [99, -64], 1_406));
+        assert_eq!((before_tangent.length().raw(), after_tangent.length().raw()), (129, 96));
+        assert_eq!((q, before_energy, after_energy), (0, 381, 103));
+        assert!(after_energy <= before_energy);
+        assert!(after_tangent.length() <= before_tangent.length(), "friction increased projected slip");
+        assert!(after_tangent.length().raw() > 1,
+                "fixture unexpectedly became a sticking contact");
+        assert!(tangent_words[0] * tangent_words[0] + tangent_words[1] * tangent_words[1]
+                < limit * limit,
+                "a sliding solution must reach the circular cone boundary");
+    }
+
+    #[test]
+    fn bounded_sliding_friction_rejects_the_actual_articulated_cone() {
+        use crate::combat::resolution::tests::{canonical_tangents, tangent_limit_raw};
+        let (world, contact, mut rows, fact, _, _, friction) = directional_captured_strike();
+        let at = |entity, slot| rows.iter().position(|row| row.entity == entity && row.slot == slot).unwrap();
+        let (a, b) = (at(fact.key.a, fact.key.a_slot), at(fact.key.b, fact.key.b_slot));
+        let tangents = canonical_tangents(fact.normal).unwrap();
+        rows[a].velocity += tangents.second * Fx::from_raw(64);
+        let normal_raw = 5_627i64;
+        let limit = tangent_limit_raw(friction.raw(), normal_raw).unwrap();
+        assert_eq!(limit, 1_406);
+        let owned_mass: i64 = rows.iter().filter(|row| row.entity == fact.key.b)
+            .map(|row| row.mass.raw() as i64).sum();
+        let numerator = |state: &[GeneralizedCollider]| -> i128 {
+            state.iter().map(|row| {
+                let v = row.velocity;
+                row.mass.raw() as i128 * (v.x.raw() as i128 * v.x.raw() as i128
+                    + v.y.raw() as i128 * v.y.raw() as i128
+                    + v.z.raw() as i128 * v.z.raw() as i128)
+            }).sum()
+        };
+        let initial_numerator = numerator(&rows);
+        let mut bodies = Vec::new(); let mut trial = Vec::new(); let mut wounds = world.wounds.clone();
+        let mut credit = vec![Fx::ZERO; wounds.len()]; let mut deltas = Vec::new(); let mut fact_loss = Vec::new();
+        let mut projector = ContactProjector { world: &world, entry: &contact.entry,
+            bodies: &mut bodies, wounds: &mut wounds, credit: &mut credit,
+            deltas: &mut deltas, fact_loss: &mut fact_loss };
+        let project = |j0: i32, j1: i32, projector: &mut ContactProjector<'_>, trial: &mut Vec<GeneralizedCollider>| {
+            let impulse = -fact.normal * Fx::from_raw(normal_raw as i32)
+                + tangents.first * Fx::from_raw(j0) + tangents.second * Fx::from_raw(j1);
+            let mut sums = vec![[0i128; 3]; rows.len()];
+            sums[a] = [impulse.x.raw() as i128, impulse.y.raw() as i128, impulse.z.raw() as i128];
+            for axis in 0..3 {
+                sums[b][axis] = -(sums[a][axis] * rows[b].mass.raw() as i128) / owned_mass as i128;
+            }
+            projector.project(&rows, &sums, 65_536, trial).unwrap();
+            let relative = trial[b].velocity - trial[a].velocity;
+            ([relative.dot(fact.normal).raw(), relative.dot(tangents.first).raw(),
+              relative.dot(tangents.second).raw()], numerator(trial))
+        };
+        let (normal_q, normal_numerator) = project(99, -64, &mut projector, &mut trial);
+        assert!(normal_q[0].abs() <= 1 && normal_numerator <= initial_numerator);
+        let mut best = None;
+        for step in 0u16..256 {
+            let angle = Angle::from_raw(step << 8);
+            let j0 = ((angle.cos().raw() as i64 * limit) / 65_536) as i32;
+            let j1 = ((angle.sin().raw() as i64 * limit) / 65_536) as i32;
+            let (q, energy) = project(j0, j1, &mut projector, &mut trial);
+            if q[0].abs() > 1 || energy > initial_numerator || energy > normal_numerator { continue; }
+            let cross = (j0 as i64 * q[2] as i64 - j1 as i64 * q[1] as i64).abs();
+            let dot = j0 as i64 * q[1] as i64 + j1 as i64 * q[2] as i64;
+            if dot <= 0 { continue; }
+            let score = (cross, -dot, energy, j0, j1);
+            if best.map_or(true, |old: ((i64, i64, i128, i32, i32), [i32; 3])| score < old.0) {
+                best = Some((score, q));
+            }
+        }
+        assert_eq!((initial_numerator, normal_numerator, normal_q),
+                   (3_273_684_808_896, 889_498_653_156, [0, -97, -12]));
+        assert_eq!(best, None,
+                   "a 256-direction cone search must not hide its energy/normal rejection");
+    }
+
+    #[test]
+    fn widened_energy_numerator_sees_subunit_velocity_energy() {
+        let denominator = 2i128 * 65_536 * 65_536;
+        let energy = |velocity: [i128; 3]| velocity.into_iter().map(|raw| raw * raw).sum::<i128>();
+        let (normal, valid, invalid) = (energy([9, 0, 0]), energy([8, 4, 0]), energy([9, 1, 0]));
+        assert_eq!((normal, valid, invalid), (81, 80, 82));
+        assert_eq!((normal / denominator, valid / denominator, invalid / denominator), (0, 0, 0));
+        assert!(valid <= normal && invalid > normal,
+                "the widened numerator, not the public energy plateau, decides friction acceptance");
+    }
+
+    #[test]
+    fn zero_friction_control_repeats_identical_projection_sums() {
+        let (world, contact, rows, fact, _, proposal, _) = directional_captured_strike();
+        let at = |entity, slot| rows.iter().position(|row| row.entity == entity && row.slot == slot).unwrap();
+        let (a, b) = (at(fact.key.a, fact.key.a_slot), at(fact.key.b, fact.key.b_slot));
+        let owned_mass: i64 = rows.iter().filter(|row| row.entity == fact.key.b)
+            .map(|row| row.mass.raw() as i64).sum();
+        let scale_raw = 64_858i32;
+        let scale = |component: Fx| Fx::from_raw(
+            ((component.raw() as i64 * scale_raw as i64) / 65_536) as i32);
+        let impulse = Vec3::new(scale(proposal.x), scale(proposal.y), scale(proposal.z));
+        let mut sums = vec![[0i128; 3]; rows.len()];
+        sums[a] = [impulse.x.raw() as i128, impulse.y.raw() as i128, impulse.z.raw() as i128];
+        for axis in 0..3 {
+            sums[b][axis] = -(sums[a][axis] * rows[b].mass.raw() as i128) / owned_mass as i128;
+        }
+        let mut bodies = Vec::new(); let mut normal = Vec::new(); let mut zero_mu = Vec::new();
+        let mut wounds = world.wounds.clone(); let mut credit = vec![Fx::ZERO; wounds.len()];
+        let mut deltas = Vec::new(); let mut fact_loss = Vec::new();
+        let mut projector = ContactProjector { world: &world, entry: &contact.entry,
+            bodies: &mut bodies, wounds: &mut wounds, credit: &mut credit,
+            deltas: &mut deltas, fact_loss: &mut fact_loss };
+        projector.project(&rows, &sums, 65_536, &mut normal).unwrap();
+        projector.project(&rows, &sums, 65_536, &mut zero_mu).unwrap();
+        assert_eq!(zero_mu, normal, "identical projection sums diverged");
+    }
+
+    #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+    enum SlidingSolveReject { Cycle, NoConvergence, Unsupported }
+
+    #[test]
+    fn coupled_sliding_friction_resolves_normal_per_angle_on_the_actual_projector() {
+        use crate::combat::resolution::tests::{canonical_tangents, tangent_limit_raw};
+        let (world, contact, mut rows, fact, _, _proposal, friction) = directional_captured_strike();
+        let at = |entity, slot| rows.iter().position(|row| row.entity == entity && row.slot == slot).unwrap();
+        let (a, b) = (at(fact.key.a, fact.key.a_slot), at(fact.key.b, fact.key.b_slot));
+        let tangents = canonical_tangents(fact.normal).unwrap();
+        rows[a].velocity += tangents.second * Fx::from_raw(64);
+        let owned_mass: i64 = rows.iter().filter(|row| row.entity == fact.key.b)
+            .map(|row| row.mass.raw() as i64).sum();
+        let numerator = |state: &[GeneralizedCollider]| -> i128 { state.iter().map(|row| {
+            let v = row.velocity; row.mass.raw() as i128 * (v.x.raw() as i128 * v.x.raw() as i128
+                + v.y.raw() as i128 * v.y.raw() as i128 + v.z.raw() as i128 * v.z.raw() as i128)
+        }).sum() };
+        let initial_numerator = numerator(&rows);
+        let mut bodies = Vec::new(); let mut trial = Vec::new(); let mut wounds = world.wounds.clone();
+        let mut credit = vec![Fx::ZERO; wounds.len()]; let mut deltas = Vec::new(); let mut fact_loss = Vec::new();
+        let mut projector = ContactProjector { world: &world, entry: &contact.entry,
+            bodies: &mut bodies, wounds: &mut wounds, credit: &mut credit,
+            deltas: &mut deltas, fact_loss: &mut fact_loss };
+        let mut evaluations = 0u16;
+        let mut project = |scale_raw: i32, tangent: Vec3| {
+            evaluations += 1; assert!(evaluations <= 3_072);
+            // A normal coordinate is pure `-n*lambda`. The ordinary proposal
+            // already contains Coulomb tangent and would bias every ray by the
+            // stale session-13 `(99,-64)` response.
+            let normal = Vec3::new(
+                Fx::from_raw(toward_zero_component(-fact.normal.x.raw(), scale_raw).unwrap()),
+                Fx::from_raw(toward_zero_component(-fact.normal.y.raw(), scale_raw).unwrap()),
+                Fx::from_raw(toward_zero_component(-fact.normal.z.raw(), scale_raw).unwrap()));
+            let impulse = normal + tangent;
+            let mut sums = vec![[0i128; 3]; rows.len()];
+            sums[a] = [impulse.x.raw() as i128, impulse.y.raw() as i128, impulse.z.raw() as i128];
+            for axis in 0..3 { sums[b][axis] = -(sums[a][axis] * rows[b].mass.raw() as i128) / owned_mass as i128; }
+            projector.project(&rows, &sums, 65_536, &mut trial).unwrap();
+            let relative = trial[b].velocity - trial[a].velocity;
+            ([relative.dot(fact.normal).raw(), relative.dot(tangents.first).raw(),
+              relative.dot(tangents.second).raw()], numerator(&trial), impulse)
+        };
+        let pre_relative = rows[b].velocity - rows[a].velocity;
+        let mut angle = fx::atan2(pre_relative.dot(tangents.second),
+                                  pre_relative.dot(tangents.first));
+        let mut visited = [u16::MAX; 16]; let mut visits = 0;
+        let mut rejected_gap = None;
+        let mut gap_rows = [(0u16, 0i32, 0i32, 0i32, 0i32); 16]; let mut gap_count = 0;
+        let result: Result<_, SlidingSolveReject> = loop {
+            if visits == 16 { break Err(SlidingSolveReject::NoConvergence); }
+            if visited[..visits].contains(&angle.raw()) { break Err(SlidingSolveReject::Cycle); }
+            visited[visits] = angle.raw(); visits += 1;
+            let direction = (tangents.first * angle.cos() + tangents.second * angle.sin())
+                .normalized_or_zero();
+            let mut final_vector = Vec3::ZERO;
+            let mut samples = [(0i32, 0i32); 40]; let mut sample_count = 0usize;
+            let bracket = verified_normal_bracket(0, 131_072, |mid| {
+                let (_, _, impulse) = project(mid, Vec3::ZERO);
+                let jn = (-impulse.dot(fact.normal)).raw() as i64;
+                let limit = tangent_limit_raw(friction.raw(), jn)
+                    .expect("captured positive friction and normal impulse") ;
+                let boundary = greatest_physical_radius(direction,
+                    limit.clamp(0, i32::MAX as i64) as i32);
+                match boundary {
+                    Ok((_, vector)) => {
+                        final_vector = vector; let q = project(mid, vector).0[0];
+                        samples[sample_count] = (mid, q); sample_count += 1; q
+                    }
+                    Err(_) => i32::MIN,
+                }
+            });
+            let hi = match bracket { Ok((word, _)) => word, Err(_) => {
+                let lower = samples[..sample_count].iter().filter(|(_, q)| *q < 0).max_by_key(|(word, _)| *word);
+                let upper = samples[..sample_count].iter().filter(|(_, q)| *q >= 0).min_by_key(|(word, _)| *word);
+                rejected_gap = lower.zip(upper).map(|(lo, hi)| (*lo, *hi, angle.raw(), final_vector));
+                if let Some((lo, hi)) = lower.zip(upper) {
+                    gap_rows[gap_count] = (angle.raw(), lo.0, lo.1, hi.0, hi.1); gap_count += 1;
+                }
+                angle = Angle::from_raw(angle.raw().wrapping_add(1));
+                continue
+            }};
+            let (_, _, normal_impulse) = project(hi, Vec3::ZERO);
+            let limit = match tangent_limit_raw(friction.raw(),
+                (-normal_impulse.dot(fact.normal)).raw() as i64) {
+                Ok(value) => value as i32, Err(_) => break Err(SlidingSolveReject::Unsupported),
+            };
+            let boundary = match greatest_physical_radius(direction, limit) {
+                Ok(value) => value, Err(_) => break Err(SlidingSolveReject::Unsupported),
+            };
+            final_vector = boundary.1;
+            let (q, energy, impulse) = project(hi, final_vector);
+            let slip = Vec2::new(Fx::from_raw(q[1]), Fx::from_raw(q[2]));
+            if slip.length().raw() <= 1 && q[0].abs() <= 1 && energy <= initial_numerator {
+                break Ok((hi, angle.raw(), boundary.0, q, energy, impulse, evaluations));
+            }
+            let next = fx::atan2(Fx::from_raw(q[2]), Fx::from_raw(q[1]));
+            if next == angle {
+                if q[0].abs() <= 1 && energy <= initial_numerator {
+                    break Ok((hi, angle.raw(), boundary.0, q, energy, impulse, evaluations));
+                }
+                break Err(SlidingSolveReject::Unsupported);
+            }
+            angle = next;
+        };
+        assert_eq!((result, evaluations, gap_count), (Err(SlidingSolveReject::NoConvergence), 608, 16));
+        let (lower, upper, rejected_angle, vector) = rejected_gap.unwrap();
+        assert_eq!((lower, upper, rejected_angle), ((5_623, -2), (5_624, 2), 60_188));
+        assert_eq!((vector.x.raw(), vector.y.raw(), vector.z.raw()), (-1_223, 42, -689));
+        assert_eq!(gap_rows[0], (60_173, 5_623, -2, 5_624, 3));
+        assert_eq!(gap_rows[15], (60_188, 5_623, -2, 5_624, 2));
+    }
+
+    #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+    enum SlidingPrerequisiteReject { Boundary, Bounds, Gap, Reversal, Capacity, Budget }
+
+    fn toward_zero_component(component_raw: i32, radial_raw: i32) -> Result<i32, SlidingPrerequisiteReject> {
+        let product = (component_raw as i128).checked_mul(radial_raw as i128)
+            .ok_or(SlidingPrerequisiteReject::Boundary)?;
+        i32::try_from(product / 65_536).map_err(|_| SlidingPrerequisiteReject::Boundary)
+    }
+
+    fn greatest_physical_radius(direction: Vec3, limit_raw: i32)
+        -> Result<(i32, Vec3), SlidingPrerequisiteReject>
+    {
+        if limit_raw < 0 || direction == Vec3::ZERO { return Err(SlidingPrerequisiteReject::Boundary); }
+        if limit_raw == 0 { return Ok((0, Vec3::ZERO)); }
+        let valid = |rho: i32| -> Result<(bool, Vec3), SlidingPrerequisiteReject> {
+            let value = Vec3::new(Fx::from_raw(toward_zero_component(direction.x.raw(), rho)?),
+                                  Fx::from_raw(toward_zero_component(direction.y.raw(), rho)?),
+                                  Fx::from_raw(toward_zero_component(direction.z.raw(), rho)?));
+            let square = value.x.raw() as i128 * value.x.raw() as i128
+                + value.y.raw() as i128 * value.y.raw() as i128
+                + value.z.raw() as i128 * value.z.raw() as i128;
+            Ok((square <= limit_raw as i128 * limit_raw as i128, value))
+        };
+        if valid(i32::MAX)?.0 { return Ok((i32::MAX, valid(i32::MAX)?.1)); }
+        let mut lo = 0i32; let mut hi = i32::MAX;
+        while hi - lo > 1 {
+            let mid = lo + ((hi as i64 - lo as i64) / 2) as i32;
+            if valid(mid)?.0 { lo = mid; } else { hi = mid; }
+        }
+        let (inside, vector) = valid(lo)?; if !inside { return Err(SlidingPrerequisiteReject::Boundary); }
+        if lo != i32::MAX && valid(lo + 1)?.0 { return Err(SlidingPrerequisiteReject::Boundary); }
+        Ok((lo, vector))
+    }
+
+    fn verified_normal_bracket(
+        mut lo: i32, mut hi: i32, mut evaluate: impl FnMut(i32) -> i32,
+    ) -> Result<(i32, i32), SlidingPrerequisiteReject> {
+        if lo < 0 || hi <= lo { return Err(SlidingPrerequisiteReject::Bounds); }
+        let mut q_lo = evaluate(lo); let mut q_hi = evaluate(hi);
+        if q_lo >= 0 || q_hi < 0 || q_hi < q_lo { return Err(SlidingPrerequisiteReject::Reversal); }
+        while hi - lo > 1 {
+            let mid = lo + (hi - lo) / 2; let q = evaluate(mid);
+            if q < q_lo || q > q_hi { return Err(SlidingPrerequisiteReject::Reversal); }
+            if q >= 0 { hi = mid; q_hi = q; } else { lo = mid; q_lo = q; }
+        }
+        let answer = [(lo, q_lo), (hi, q_hi)].into_iter()
+            .filter(|(_, q)| q.unsigned_abs() <= 1)
+            .min_by_key(|(word, q)| (q.unsigned_abs(), *word));
+        answer.ok_or(SlidingPrerequisiteReject::Gap)
+    }
+
+    struct FixedProjectionCache {
+        keys: [[i32; 3]; 64], values: [[i32; 3]; 64], used: usize, calls: u16, budget: u16,
+    }
+
+    impl FixedProjectionCache {
+        fn new(budget: u16) -> Self {
+            Self { keys: [[i32::MIN; 3]; 64], values: [[0; 3]; 64], used: 0, calls: 0, budget }
+        }
+        fn get_or_project(&mut self, key: [i32; 3], project: impl FnOnce() -> [i32; 3])
+            -> Result<[i32; 3], SlidingPrerequisiteReject>
+        {
+            if let Some(at) = self.keys[..self.used].iter().position(|old| *old == key) {
+                return Ok(self.values[at]);
+            }
+            if self.used == self.keys.len() { return Err(SlidingPrerequisiteReject::Capacity); }
+            if self.calls == self.budget { return Err(SlidingPrerequisiteReject::Budget); }
+            let value = project(); self.keys[self.used] = key; self.values[self.used] = value;
+            self.used += 1; self.calls += 1; Ok(value)
+        }
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn post_contact_hash_words_are_tag_xyz_in_entity_and_limb_order() {
+        let mut first = actuator::tucked_arm(Vec3::ZERO);
+        first.post_contact_active = true;
+        first.post_contact_velocity = Vec3::new(
+            Fx::from_raw(0x0102_0304), Fx::from_raw(-2), Fx::MIN);
+        let second = actuator::tucked_arm(Vec3::ZERO);
+        let first_bytes = post_contact_hash_bytes(first);
+        let second_bytes = post_contact_hash_bytes(second);
+        assert_eq!(first_bytes,
+            [1, 4, 3, 2, 1, 254, 255, 255, 255, 0, 0, 0, 128]);
+        assert_eq!(second_bytes, [0; 13]);
+        let mut h = Hash64::new();
+        // This is the exact tail grammar used while walking entities, then
+        // limbs, in their stable Vec/array order.
+        h.write_bytes(&first_bytes); h.write_bytes(&second_bytes);
+        assert_eq!(h.finish(), 0x01f8_00b0_9ec8_89cf);
+    }
+
+    #[test]
+    fn sliding_prerequisite_finds_the_greatest_representable_cone_radius() {
+        let direction = Vec3::new(Fx::from_ratio(3, 5), Fx::from_ratio(-4, 5), Fx::ZERO);
+        let (rho, vector) = greatest_physical_radius(direction, 1_406).unwrap();
+        assert_eq!((rho, vector.x.raw(), vector.y.raw()), (1_406, 843, -1_124));
+        let next = Vec3::new(Fx::from_raw(toward_zero_component(direction.x.raw(), rho + 1).unwrap()),
+                             Fx::from_raw(toward_zero_component(direction.y.raw(), rho + 1).unwrap()), Fx::ZERO);
+        let square = |v: Vec3| v.x.raw() as i128 * v.x.raw() as i128
+            + v.y.raw() as i128 * v.y.raw() as i128 + v.z.raw() as i128 * v.z.raw() as i128;
+        assert!(square(vector) <= 1_406i128 * 1_406 && square(next) > 1_406i128 * 1_406);
+        let mirrored = greatest_physical_radius(-direction, 1_406).unwrap();
+        assert_eq!((mirrored.0, mirrored.1), (rho, -vector));
+        assert_eq!(toward_zero_component(-32_768, 3).unwrap(), -1,
+                   "signed scaling rounded away from zero");
+        assert_eq!(greatest_physical_radius(direction, 0).unwrap(), (0, Vec3::ZERO));
+        assert_eq!(greatest_physical_radius(Vec3::X, i32::MAX).unwrap().0, i32::MAX);
+        let diagonal = Vec3::new(Fx::from_raw(46_341), Fx::from_raw(46_341), Fx::ZERO);
+        let rounded = greatest_physical_radius(diagonal, 1_000_000).unwrap();
+        assert_eq!((rounded.0, rounded.1.x.raw(), rounded.1.y.raw()),
+                   (999_999, 707_106, 707_106));
+        let next = Vec3::new(Fx::from_raw(toward_zero_component(46_341, 1_000_000).unwrap()),
+                             Fx::from_raw(toward_zero_component(46_341, 1_000_000).unwrap()), Fx::ZERO);
+        assert_eq!(square(next), 1_000_000_618_898);
+    }
+
+    #[test]
+    fn sliding_prerequisite_normal_bracket_checks_neighbors_gaps_and_reversals() {
+        assert_eq!(verified_normal_bracket(0, 16, |word| -7 + word).unwrap(), (7, 0));
+        assert_eq!(verified_normal_bracket(0, 16, |word| if word < 8 { -2 } else { 2 }),
+                   Err(SlidingPrerequisiteReject::Gap));
+        assert_eq!(verified_normal_bracket(0, 16, |word| match word { 0 => -8, 16 => 8, 8 => -9, _ => word - 8 }),
+                   Err(SlidingPrerequisiteReject::Reversal));
+        assert_eq!(verified_normal_bracket(-1, 16, |word| word), Err(SlidingPrerequisiteReject::Bounds));
+    }
+
+    #[test]
+    fn sliding_prerequisite_cache_counts_unique_projections_and_names_limits() {
+        let mut cache = FixedProjectionCache::new(2); let mut external = 0;
+        assert_eq!(cache.get_or_project([1, 2, 3], || { external += 1; [4, 5, 6] }).unwrap(), [4, 5, 6]);
+        assert_eq!(cache.get_or_project([1, 2, 3], || { external += 1; [9, 9, 9] }).unwrap(), [4, 5, 6]);
+        assert_eq!(cache.get_or_project([2, 2, 3], || { external += 1; [7, 8, 9] }).unwrap(), [7, 8, 9]);
+        assert_eq!((cache.calls, external), (2, 2));
+        assert_eq!(cache.get_or_project([1, 2, 3], || panic!("budget blocked an old hit")).unwrap(), [4, 5, 6]);
+        assert_eq!(cache.get_or_project([3, 2, 3], || [0; 3]), Err(SlidingPrerequisiteReject::Budget));
+        let mut full = FixedProjectionCache::new(65);
+        for i in 0..64 { full.get_or_project([i, 0, 0], || [i, 0, 0]).unwrap(); }
+        assert_eq!(full.get_or_project([63, 0, 0], || panic!("capacity blocked an old hit")).unwrap(), [63, 0, 0]);
+        assert_eq!(full.get_or_project([64, 0, 0], || [64, 0, 0]), Err(SlidingPrerequisiteReject::Capacity));
+    }
+
+    #[test]
+    fn sliding_prerequisite_cache_counts_one_actual_world_projection_once() {
+        let world = World::new(&crowded_scenario(), 1);
+        let rows = vec![GeneralizedCollider { entity: world.id_of(0), slot: BODY_SLOT,
+            kind: GeneralizedKind::Body, mass: Fx::ONE, velocity: Vec3::ZERO,
+            velocity_offset: Vec3::ZERO }];
+        let mut bodies = Vec::new(); let mut trial = Vec::new(); let mut wounds = world.wounds.clone();
+        let mut credit = vec![Fx::ZERO; wounds.len()]; let mut deltas = Vec::new(); let mut fact_loss = Vec::new();
+        let mut projector = ContactProjector { world: &world, entry: &[], bodies: &mut bodies,
+            wounds: &mut wounds, credit: &mut credit, deltas: &mut deltas, fact_loss: &mut fact_loss };
+        let mut cache = FixedProjectionCache::new(1); let sums = vec![[65_536i128, 0, 0]];
+        let first = cache.get_or_project([65_536, 0, 0], || {
+            projector.project(&rows, &sums, 65_536, &mut trial).unwrap();
+            [trial[0].velocity.x.raw(), trial[0].velocity.y.raw(), trial[0].velocity.z.raw()]
+        }).unwrap();
+        let second = cache.get_or_project([65_536, 0, 0], || panic!("cache miss repeated actual projection")).unwrap();
+        assert_eq!((first, second, cache.calls), ([65_536, 0, 0], [65_536, 0, 0], 1));
+    }
+
+    fn normal_component_candidates(normal: Vec3, magnitude: i32) -> ([Vec3; 8], usize) {
+        let components = [normal.x.raw(), normal.y.raw(), normal.z.raw()];
+        let mut floor = [0i32; 3]; let mut fractional = [usize::MAX; 3]; let mut classes = 0;
+        for axis in 0..3 {
+            let product = -(components[axis] as i128) * magnitude as i128;
+            floor[axis] = i32::try_from(product.div_euclid(65_536)).unwrap();
+            if product.rem_euclid(65_536) != 0 { fractional[axis] = classes; classes += 1; }
+        }
+        let mut answers = [Vec3::ZERO; 8]; let count = 1usize << classes;
+        for mask in 0..count {
+            let mut words = floor;
+            for axis in 0..3 {
+                if fractional[axis] != usize::MAX && mask & (1 << fractional[axis]) != 0 {
+                    words[axis] += 1;
+                }
+            }
+            answers[mask] = Vec3::new(Fx::from_raw(words[0]), Fx::from_raw(words[1]), Fx::from_raw(words[2]));
+        }
+        (answers, count)
+    }
+
+    #[test]
+    fn normal_component_integerization_mirrors_and_permutes_exactly() {
+        let normal = Vec3::new(Fx::from_raw(2_256), Fx::from_raw(65_497), Fx::ZERO);
+        let (a, count) = normal_component_candidates(normal, 5_623);
+        let (mirrored, mirror_count) = normal_component_candidates(-normal, 5_623);
+        assert_eq!((count, mirror_count), (4, 4));
+        for value in &a[..count] { assert!(mirrored[..mirror_count].contains(&-*value)); }
+        let permuted_normal = Vec3::new(normal.y, normal.x, normal.z);
+        let (permuted, permuted_count) = normal_component_candidates(permuted_normal, 5_623);
+        assert_eq!(permuted_count, count);
+        for value in &a[..count] {
+            assert!(permuted[..count].contains(&Vec3::new(value.y, value.x, value.z)));
+        }
+    }
+
+    #[test]
+    fn normal_component_integerization_tests_the_sixteen_actual_boundary_gaps() {
+        use crate::combat::resolution::tests::{canonical_tangents, tangent_limit_raw};
+        let (world, contact, mut rows, fact, _, _, friction) = directional_captured_strike();
+        let at = |entity, slot| rows.iter().position(|row| row.entity == entity && row.slot == slot).unwrap();
+        let (a, b) = (at(fact.key.a, fact.key.a_slot), at(fact.key.b, fact.key.b_slot));
+        let tangents = canonical_tangents(fact.normal).unwrap();
+        rows[a].velocity += tangents.second * Fx::from_raw(64);
+        let owned_mass: i64 = rows.iter().filter(|row| row.entity == fact.key.b)
+            .map(|row| row.mass.raw() as i64).sum();
+        let numerator = |state: &[GeneralizedCollider]| -> i128 { state.iter().map(|row| {
+            let v = row.velocity; row.mass.raw() as i128 * (v.x.raw() as i128 * v.x.raw() as i128
+                + v.y.raw() as i128 * v.y.raw() as i128 + v.z.raw() as i128 * v.z.raw() as i128)
+        }).sum() };
+        let initial = numerator(&rows); let mut evaluations = 0usize; let mut accepted = Vec::new();
+        let mut bodies = Vec::new(); let mut trial = Vec::new(); let mut wounds = world.wounds.clone();
+        let mut credit = vec![Fx::ZERO; wounds.len()]; let mut deltas = Vec::new(); let mut fact_loss = Vec::new();
+        let mut projector = ContactProjector { world: &world, entry: &contact.entry,
+            bodies: &mut bodies, wounds: &mut wounds, credit: &mut credit,
+            deltas: &mut deltas, fact_loss: &mut fact_loss };
+        for angle_raw in 60_173u16..=60_188 {
+            let angle = Angle::from_raw(angle_raw);
+            let direction = (tangents.first * angle.cos() + tangents.second * angle.sin()).normalized_or_zero();
+            for magnitude in [5_623, 5_624] {
+                let (candidates, count) = normal_component_candidates(fact.normal, magnitude);
+                for (rounding, normal) in candidates[..count].iter().enumerate() {
+                    evaluations += 1;
+                    let jn = (-normal.dot(fact.normal)).raw() as i64;
+                    let limit = tangent_limit_raw(friction.raw(), jn).unwrap() as i32;
+                    let (_, tangent) = greatest_physical_radius(direction, limit).unwrap();
+                    let impulse = *normal + tangent;
+                    let mut sums = vec![[0i128; 3]; rows.len()];
+                    sums[a] = [impulse.x.raw() as i128, impulse.y.raw() as i128, impulse.z.raw() as i128];
+                    for axis in 0..3 { sums[b][axis] = -(sums[a][axis] * rows[b].mass.raw() as i128) / owned_mass as i128; }
+                    projector.project(&rows, &sums, 65_536, &mut trial).unwrap();
+                    let q = (trial[b].velocity - trial[a].velocity).dot(fact.normal).raw();
+                    let energy = numerator(&trial);
+                    if q.abs() <= 1 && energy <= initial {
+                        accepted.push((q.abs(), energy, angle_raw, magnitude, rounding, q,
+                                       normal.x.raw(), normal.y.raw(), tangent.x.raw(), tangent.y.raw(), tangent.z.raw()));
+                    }
+                }
+            }
+        }
+        accepted.sort();
+        assert_eq!((evaluations, accepted.len()), (128, 0),
+                   "normal component integerization unexpectedly recovered a retained gap");
+    }
+
+    #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+    enum GeneralizedJointReject { ActiveBoundary }
+
+    fn cartesian_contact_trial(
+        before: &[GeneralizedCollider], sums: &[[i128; 3]], alpha_raw: u32,
+        out: &mut Vec<GeneralizedCollider>,
+    ) -> Result<(), ResolutionError> {
+        if before.len() != sums.len() { return Err(ResolutionError::ColliderIndex); }
+        out.clear(); out.extend_from_slice(before);
+        let mut body_deltas = Vec::new();
+        for (at, (row, sum)) in out.iter_mut().zip(sums).enumerate() {
+            if row.mass <= Fx::ZERO { return Err(ResolutionError::Mass); }
+            if row.kind != GeneralizedKind::Body { continue; }
+            let owner_mass = before.iter().filter(|owned| owned.entity == row.entity)
+                .try_fold(0i64, |total, owned| total.checked_add(owned.mass.raw() as i64))
+                .ok_or(ResolutionError::Mass)?;
+            if owner_mass <= 0 || owner_mass > i32::MAX as i64 { return Err(ResolutionError::Mass); }
+            let delta = resolution::scaled_delta(*sum, alpha_raw, owner_mass as i32);
+            row.velocity = clamp_contact_velocity(Vec3::new(
+                row.velocity.x + delta.x, row.velocity.y + delta.y, Fx::ZERO));
+            body_deltas.push((row.entity, row.velocity - before[at].velocity));
+        }
+        for (at, (row, sum)) in out.iter_mut().zip(sums).enumerate() {
+            if row.kind == GeneralizedKind::Body { continue; }
+            let body_delta = body_deltas.iter().find(|(entity, _)| *entity == row.entity)
+                .map(|(_, delta)| *delta).ok_or(ResolutionError::ColliderIndex)?;
+            let own = resolution::scaled_delta(*sum, alpha_raw, row.mass.raw());
+            row.velocity = clamp_contact_velocity(before[at].velocity + body_delta + own);
+        }
+        Ok(())
+    }
+
+    #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+    enum CartesianReject { AmbiguousDirection, UnrepresentableBoundary, Overflow }
+
+    fn cartesian_hand_clamp(
+        anatomy: &BodyAnatomySpec, yaw: Angle, limb: usize, requested: Vec3,
+    ) -> Result<Vec3, CartesianReject> {
+        let shoulder = actuator::shoulder(anatomy, yaw, limb);
+        let z = requested.z.clamp(Fx::ZERO, anatomy.standing_height);
+        let difference = |a: Fx, b: Fx| -> Result<Fx, CartesianReject> {
+            let raw = a.raw() as i64 - b.raw() as i64;
+            if raw < i32::MIN as i64 || raw > i32::MAX as i64 {
+                Err(CartesianReject::Overflow)
+            } else { Ok(Fx::from_raw(raw as i32)) }
+        };
+        let planar = Vec2::new(difference(requested.x, shoulder.x)?,
+                               difference(requested.y, shoulder.y)?);
+        let distance = planar.length();
+        let minimum = anatomy.arm_length * Fx::from_raw(actuator::ARM_MIN_REACH_RAW);
+        let bounded = if distance > anatomy.arm_length {
+            Vec2::from_angle(planar.angle()) * anatomy.arm_length
+        } else if distance < minimum {
+            if planar == Vec2::ZERO {
+                return Err(CartesianReject::AmbiguousDirection);
+            } else { Vec2::from_angle(planar.angle()) * minimum }
+        } else { planar };
+        let bounded_length = bounded.length();
+        if bounded_length < minimum || bounded_length > anatomy.arm_length {
+            // Choosing a component to nudge would introduce an X/Y and mirror
+            // tie-break into authority. Boundary integerization remains owed.
+            return Err(CartesianReject::UnrepresentableBoundary);
+        }
+        let sum = |a: Fx, b: Fx| -> Result<Fx, CartesianReject> {
+            let raw = a.raw() as i64 + b.raw() as i64;
+            if raw < i32::MIN as i64 || raw > i32::MAX as i64 {
+                Err(CartesianReject::Overflow)
+            } else { Ok(Fx::from_raw(raw as i32)) }
+        };
+        Ok(Vec3::new(sum(shoulder.x, bounded.x)?, sum(shoulder.y, bounded.y)?, z))
+    }
+
+    fn cartesian_transport(
+        anatomy: &BodyAnatomySpec, limb: usize, entry: ArmState, entry_yaw: Angle,
+        next: ArmState, next_yaw: Angle,
+    ) -> Result<Vec3, CartesianReject> {
+        let old_forward = actuator::hand_position(anatomy, entry_yaw, limb,
+            entry.bearing, entry.height, entry.reach);
+        let new_forward = actuator::hand_position(anatomy, next_yaw, limb,
+            next.bearing, next.height, next.reach);
+        let component = |hand: Fx, new: Fx, old: Fx| -> Result<Fx, CartesianReject> {
+            let raw = hand.raw() as i64 + new.raw() as i64 - old.raw() as i64;
+            if raw < i32::MIN as i64 || raw > i32::MAX as i64 {
+                Err(CartesianReject::Overflow)
+            } else { Ok(Fx::from_raw(raw as i32)) }
+        };
+        let requested = Vec3::new(component(entry.hand.x, new_forward.x, old_forward.x)?,
+            component(entry.hand.y, new_forward.y, old_forward.y)?,
+            component(entry.hand.z, new_forward.z, old_forward.z)?);
+        cartesian_hand_clamp(anatomy, next_yaw, limb, requested)
+    }
+
+    #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+    struct CartesianVelocityState { post_velocity: Vec3, active: bool }
+
+    #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+    enum CartesianMotorReject { NonCanonical, Overflow }
+
+    fn cartesian_motor_step(
+        hand: Vec3, target: Vec3, state: CartesianVelocityState,
+        max_speed: i32, acceleration: i32,
+    ) -> Result<(Vec3, CartesianVelocityState), CartesianMotorReject> {
+        if !state.active {
+            return if state.post_velocity == Vec3::ZERO { Ok((hand, state)) }
+                   else { Err(CartesianMotorReject::NonCanonical) };
+        }
+        if max_speed < 0 || acceleration < 0 { return Err(CartesianMotorReject::NonCanonical); }
+        let component = |position: Fx, target: Fx, velocity: Fx| -> Result<(Fx, Fx), CartesianMotorReject> {
+            let error_i64 = target.raw() as i64 - position.raw() as i64;
+            if error_i64 < i32::MIN as i64 || error_i64 > i32::MAX as i64 {
+                return Err(CartesianMotorReject::Overflow);
+            }
+            let error = error_i64 as i32;
+            let desired = error.clamp(-max_speed, max_speed);
+            let delta_i64 = desired as i64 - velocity.raw() as i64;
+            let delta = delta_i64.clamp(-(acceleration as i64), acceleration as i64);
+            let next_i64 = velocity.raw() as i64 + delta;
+            if next_i64 < i32::MIN as i64 || next_i64 > i32::MAX as i64 {
+                return Err(CartesianMotorReject::Overflow);
+            }
+            let next = next_i64 as i32;
+            let crosses = error != 0 && next.signum() == error.signum()
+                && next.unsigned_abs() >= error.unsigned_abs();
+            if crosses { Ok((target, Fx::ZERO)) }
+            else {
+                let position_i64 = position.raw() as i64 + next as i64;
+                if position_i64 < i32::MIN as i64 || position_i64 > i32::MAX as i64 {
+                    Err(CartesianMotorReject::Overflow)
+                } else { Ok((Fx::from_raw(position_i64 as i32), Fx::from_raw(next))) }
+            }
+        };
+        let (x, vx) = component(hand.x, target.x, state.post_velocity.x)?;
+        let (y, vy) = component(hand.y, target.y, state.post_velocity.y)?;
+        let (z, vz) = component(hand.z, target.z, state.post_velocity.z)?;
+        let next_hand = Vec3::new(x, y, z); let velocity = Vec3::new(vx, vy, vz);
+        let active = next_hand != target || velocity != Vec3::ZERO;
+        Ok((next_hand, CartesianVelocityState { post_velocity: velocity, active }))
+    }
+
+    fn forward_joint_jacobian(
+        anatomy: &BodyAnatomySpec, yaw: Angle, limb: usize, arm: ArmState,
+    ) -> Result<[Vec3; 5], GeneralizedJointReject> {
+        if arm.height.raw() == 0 || arm.height.raw() == 65_536
+            || arm.reach.raw() == actuator::ARM_MIN_REACH_RAW || arm.reach.raw() == 65_536 {
+            return Err(GeneralizedJointReject::ActiveBoundary);
+        }
+        let base = actuator::hand_position(anatomy, yaw, limb, arm.bearing, arm.height, arm.reach);
+        let bearing = actuator::hand_position(anatomy, yaw, limb,
+            Angle::from_raw(arm.bearing.raw().wrapping_add(1)), arm.height, arm.reach) - base;
+        let height = actuator::hand_position(anatomy, yaw, limb, arm.bearing,
+            crate::CombatHeight::try_from_raw(arm.height.raw() + 1).unwrap(), arm.reach) - base;
+        let reach = actuator::hand_position(anatomy, yaw, limb, arm.bearing,
+            arm.height, arm.reach + Fx::from_raw(1)) - base;
+        Ok([Vec3::X, Vec3::Y, bearing, height, reach])
+    }
+
+    #[test]
+    fn generalized_joint_attributes_the_sword_limb_and_rejects_its_captured_boundary() {
+        let (world, contact, rows, fact, _, _, _) = directional_captured_strike();
+        let source = fact.key.a.index as usize;
+        assert_eq!(fact.key.a_slot, LimbSlot::RightArm as u8);
+        let limb = fact.key.a_slot as usize;
+        assert_eq!(contact.entry[source].grips[limb].equipment_slot, Some(0));
+        let sword_rows: Vec<_> = rows.iter().filter(|row| row.entity == fact.key.a
+            && row.kind == GeneralizedKind::Equipment && row.slot == fact.key.a_slot).collect();
+        assert_eq!(sword_rows.len(), 1);
+        assert_eq!(sword_rows[0].mass.raw(), 81_264);
+        let arm = world.arms[source][limb]; let anatomy = world.anatomy_spec(source).unwrap();
+        let yaw = world.body_yaw[source].angle;
+        assert_eq!((arm.height.raw(), arm.reach.raw()), (16_384, 65_536));
+        assert_eq!(forward_joint_jacobian(anatomy, yaw, limb, arm),
+                   Err(GeneralizedJointReject::ActiveBoundary));
+        let mut interior = arm;
+        interior.height = crate::CombatHeight::MID;
+        interior.reach = Fx::from_raw(32_768);
+        let jacobian = forward_joint_jacobian(anatomy, yaw, limb, interior).unwrap();
+        assert_eq!((fact.normal.x.raw(), fact.normal.y.raw(), fact.normal.z.raw()), (2_256, 65_497, 0));
+        let at = |entity, slot| rows.iter().position(|row| row.entity == entity && row.slot == slot).unwrap();
+        let (a, b) = (at(fact.key.a, fact.key.a_slot), at(fact.key.b, fact.key.b_slot));
+        assert_eq!((rows[b].velocity - rows[a].velocity).dot(fact.normal).raw(), -6_346);
+        assert_eq!(resolution::closure_energy(&rows).unwrap(), 381);
+        assert_eq!((jacobian[0], jacobian[1]), (Vec3::X, Vec3::Y));
+        assert_eq!(actuator::hand_position(anatomy, yaw, limb, arm.bearing, arm.height, arm.reach), arm.hand);
+        let mut bounded = arm; bounded.reach = Fx::from_raw(actuator::ARM_MIN_REACH_RAW);
+        assert_eq!(forward_joint_jacobian(anatomy, yaw, limb, bounded), Err(GeneralizedJointReject::ActiveBoundary));
+    }
+
+    #[test]
+    fn cartesian_contact_trial_reaches_the_retained_sword_restitution_without_inverse_hand() {
+        let (_world, _contact, rows, fact, _, proposal, _) = directional_captured_strike();
+        assert_eq!(fact.toi.get().raw(), 55_704);
+        let at = |entity, slot| rows.iter().position(|row| row.entity == entity && row.slot == slot).unwrap();
+        let (a, b) = (at(fact.key.a, fact.key.a_slot), at(fact.key.b, fact.key.b_slot));
+        let before_energy = resolution::closure_energy(&rows).unwrap();
+        let mut trial = Vec::new();
+        let answer = bounded_nonlinear_1d(before_energy, |raw| {
+            let scale = |component: Fx| Fx::from_raw(
+                ((component.raw() as i64 * raw as i64) / 65_536) as i32);
+            let impulse = Vec3::new(scale(proposal.x), scale(proposal.y), scale(proposal.z));
+            let mut sums = vec![[0i128; 3]; rows.len()];
+            sums[a] = [impulse.x.raw() as i128, impulse.y.raw() as i128, impulse.z.raw() as i128];
+            sums[b] = [-sums[a][0], -sums[a][1], -sums[a][2]];
+            cartesian_contact_trial(&rows, &sums, 65_536, &mut trial)?;
+            Ok(((trial[b].velocity - trial[a].velocity).dot(fact.normal).raw(),
+                resolution::closure_energy(&trial)?))
+        }).unwrap();
+        assert_eq!(answer, Nonlinear1dCandidate {
+            impulse: 65_560, q: 0, energy: 105, evaluations: 35,
+        });
+        assert_eq!(before_energy - answer.energy, 276);
+    }
+
+    #[test]
+    fn cartesian_contact_trial_is_an_exact_alpha_zero_identity() {
+        let (_, _, rows, _, _, _, _) = directional_captured_strike();
+        let sums = vec![[0i128; 3]; rows.len()]; let mut trial = Vec::new();
+        cartesian_contact_trial(&rows, &sums, 0, &mut trial).unwrap();
+        assert_eq!(trial, rows);
+        assert_eq!(resolution::closure_energy(&trial).unwrap(), 381);
+    }
+
+    #[test]
+    fn cartesian_postimpact_velocity_is_not_the_whole_tick_endpoint_displacement() {
+        let (_, _, rows, fact, _, proposal, _) = directional_captured_strike();
+        let at = |entity, slot| rows.iter().position(|row| row.entity == entity && row.slot == slot).unwrap();
+        let a = at(fact.key.a, fact.key.a_slot); let b = at(fact.key.b, fact.key.b_slot);
+        assert_eq!((rows[a].kind, rows[b].kind),
+                   (GeneralizedKind::Equipment, GeneralizedKind::Body));
+        assert_eq!((rows[a].entity, rows[a].slot, rows[b].entity, rows[b].slot),
+                   (fact.key.a, fact.key.a_slot, fact.key.b, fact.key.b_slot));
+        let scale = |component: Fx| Fx::from_raw(
+            ((component.raw() as i64 * 65_560i64) / 65_536) as i32);
+        let impulse = Vec3::new(scale(proposal.x), scale(proposal.y), scale(proposal.z));
+        let mut sums = vec![[0i128; 3]; rows.len()];
+        sums[a] = [impulse.x.raw() as i128, impulse.y.raw() as i128, impulse.z.raw() as i128];
+        sums[b] = [-sums[a][0], -sums[a][1], -sums[a][2]];
+        let mut trial = Vec::new(); cartesian_contact_trial(&rows, &sums, 65_536, &mut trial).unwrap();
+        let toi = fact.toi.get(); let remaining = Fx::ONE - toi;
+        let displacement = rows[a].velocity * toi + trial[a].velocity * remaining;
+        assert_eq!((toi.raw(), remaining.raw()), (55_704, 9_832));
+        assert_eq!((rows[a].velocity.x.raw(), rows[a].velocity.y.raw(),
+                    trial[a].velocity.x.raw(), trial[a].velocity.y.raw(),
+                    displacement.x.raw(), displacement.y.raw()),
+                   (332, 6_338, 93, 1_757, 295, 5_650));
+        assert_ne!(displacement, trial[a].velocity,
+                   "a nonzero TOI cannot store post-impact velocity as whole-tick displacement");
+        let hand_post = trial[a].velocity - trial[b].velocity - rows[a].velocity_offset;
+        assert_eq!((rows[a].velocity_offset.x.raw(), rows[a].velocity_offset.y.raw(),
+                    rows[a].velocity_offset.z.raw()), (197, 3_768, 0));
+        assert_eq!((hand_post.x.raw(), hand_post.y.raw(), hand_post.z.raw()),
+                   (-195, -3_769, 0));
+    }
+
+    #[test]
+    fn cartesian_retained_dissipation_reaches_the_existing_damage_channel_split() {
+        let (world, contact, _, fact, _, _, _) = directional_captured_strike();
+        let mut colliders = Vec::new();
+        world.build_contact_colliders(&contact.entry, &mut colliders, &world.wounds);
+        let weapon = colliders.iter().copied().find(|row| row.entity == fact.key.a
+            && row.slot == fact.key.a_slot).unwrap();
+        let body = colliders.iter().copied().find(|row| row.entity == fact.key.b
+            && matches!(row.shape, ContactShape::Body { .. })).unwrap();
+        let ContactShape::Segment { previous_hilt, previous_tip, .. } = weapon.shape
+            else { panic!("retained source stopped being a segment") };
+        let channel = resolution::WeaponBodyChannel {
+            weapon_axis: (previous_tip - previous_hilt).normalized_or_zero(),
+            weapon_relative_velocity: weapon.velocity - body.velocity,
+            edge_factor: weapon.surface.edge_factor,
+            point_factor: weapon.surface.point_factor,
+            zero_length: previous_tip == previous_hilt,
+        };
+        let split = resolution::channels(276, channel);
+        assert_eq!(split, (132, 0, 144));
+    }
+
+    #[test]
+    fn cartesian_hand_clamp_is_identity_interior_and_projects_exact_boundaries() {
+        let world = World::new(&Scenario::articulated_duel(), 0);
+        let anatomy = world.anatomy_spec(0).unwrap(); let yaw = Angle::ZERO;
+        let shoulder = actuator::shoulder(anatomy, yaw, 1);
+        assert_eq!((shoulder.x.raw(), shoulder.y.raw(), shoulder.z.raw()), (0, -16_384, 91_750));
+        assert_eq!((anatomy.arm_length.raw(), anatomy.standing_height.raw()), (49_152, 117_964));
+        let interior = Vec3::new(Fx::from_raw(32_768), Fx::from_raw(-16_384), Fx::from_raw(49_152));
+        assert_eq!(cartesian_hand_clamp(anatomy, yaw, 1, interior), Ok(interior));
+        let beyond = Vec3::new(Fx::from_raw(49_153), Fx::from_raw(-16_384), Fx::from_raw(117_965));
+        let outer = Vec3::new(Fx::from_raw(49_152), Fx::from_raw(-16_384), Fx::from_raw(117_964));
+        assert_eq!(cartesian_hand_clamp(anatomy, yaw, 1, beyond), Ok(outer));
+        assert_eq!(cartesian_hand_clamp(anatomy, yaw, 1, outer), Ok(outer));
+        let centre = Vec3::new(Fx::ZERO, Fx::from_raw(-16_384), Fx::from_raw(49_152));
+        assert_eq!(cartesian_hand_clamp(anatomy, yaw, 1, centre),
+                   Err(CartesianReject::AmbiguousDirection));
+        assert_eq!(cartesian_hand_clamp(anatomy, yaw, 1,
+            Vec3::new(Fx::MAX, Fx::MAX, Fx::ZERO)), Err(CartesianReject::Overflow));
+        let inside = Vec3::new(Fx::from_raw(12_287), Fx::from_raw(-16_384), Fx::from_raw(-1));
+        let inner = Vec3::new(Fx::from_raw(12_288), Fx::from_raw(-16_384), Fx::ZERO);
+        assert_eq!(cartesian_hand_clamp(anatomy, yaw, 1, inside), Ok(inner));
+        assert_eq!(cartesian_hand_clamp(anatomy, yaw, 1, inner), Ok(inner));
+        let diagonal = Vec3::new(Fx::from_raw(32), Fx::from_raw(-16_352), Fx::ZERO);
+        assert_eq!(cartesian_hand_clamp(anatomy, yaw, 1, diagonal),
+                   Err(CartesianReject::UnrepresentableBoundary));
+        assert_ne!(anatomy.arm_length, Fx::ONE,
+                   "a unit arm would not distinguish physical radius from reach fraction");
+    }
+
+    #[test]
+    fn cartesian_transport_preserves_residual_at_idle_and_moves_yaw_once() {
+        let world = World::new(&Scenario::articulated_duel(), 0);
+        let anatomy = world.anatomy_spec(0).unwrap(); let mut contacted = world.arms[0][1];
+        contacted.bearing = Angle::ZERO; contacted.height = crate::CombatHeight::MID;
+        contacted.reach = Fx::from_ratio(1, 2);
+        let old_forward = actuator::hand_position(anatomy, Angle::ZERO, 1,
+            contacted.bearing, contacted.height, contacted.reach);
+        assert_eq!((old_forward.x.raw(), old_forward.y.raw(), old_forward.z.raw()),
+                   (24_576, -16_384, 58_982));
+        let residual = Vec3::new(Fx::from_raw(97), Fx::from_raw(41), Fx::from_raw(13));
+        contacted.hand = old_forward + residual;
+        assert_eq!(cartesian_transport(anatomy, 1, contacted, Angle::ZERO,
+            contacted, Angle::ZERO), Ok(contacted.hand));
+        let next_yaw = Angle::QUARTER;
+        let moved = cartesian_transport(anatomy, 1, contacted, Angle::ZERO,
+            contacted, next_yaw).unwrap();
+        let new_forward = actuator::hand_position(anatomy, next_yaw, 1,
+            contacted.bearing, contacted.height, contacted.reach);
+        assert_eq!((new_forward.x.raw(), new_forward.y.raw(), new_forward.z.raw()),
+                   (40_960, 0, 58_982));
+        assert_eq!((moved.x.raw(), moved.y.raw(), moved.z.raw()), (41_057, 41, 58_995));
+        assert_eq!(moved - new_forward, contacted.hand - old_forward,
+                   "yaw transport changed the Cartesian contact residual");
+        let velocity = moved - contacted.hand;
+        assert_eq!((velocity.x.raw(), velocity.y.raw(), velocity.z.raw()),
+                   (16_384, 16_384, 0));
+    }
+
+    #[test]
+    fn explicit_post_contact_velocity_reconciles_under_a_bound() {
+        let target = Vec3::ZERO; let mut hand = Vec3::ZERO;
+        let mut state = CartesianVelocityState {
+            post_velocity: Vec3::new(Fx::from_raw(1_000), Fx::from_raw(-600), Fx::ZERO),
+            active: true,
+        };
+        (hand, state) = cartesian_motor_step(hand, target, state, 2_000, 100).unwrap();
+        assert_eq!((hand.x.raw(), hand.y.raw(), state.post_velocity.x.raw(),
+                    state.post_velocity.y.raw(), state.active), (900, -500, 900, -500, true));
+        for _ in 0..64 {
+            (hand, state) = cartesian_motor_step(hand, target, state, 2_000, 100).unwrap();
+        }
+        assert_eq!((hand, state), (target, CartesianVelocityState {
+            post_velocity: Vec3::ZERO, active: false,
+        }));
+    }
+
+    #[test]
+    fn explicit_post_contact_velocity_is_axis_permutation_equivariant() {
+        let solve = |swap: bool| {
+            let swap_vec = |v: Vec3| if swap { Vec3::new(v.y, v.x, v.z) } else { v };
+            let hand = swap_vec(Vec3::new(Fx::from_raw(300), Fx::from_raw(-700), Fx::ZERO));
+            let target = swap_vec(Vec3::new(Fx::from_raw(-100), Fx::from_raw(200), Fx::ZERO));
+            let state = CartesianVelocityState { post_velocity:
+                swap_vec(Vec3::new(Fx::from_raw(500), Fx::from_raw(-200), Fx::ZERO)), active: true };
+            let (next, state) = cartesian_motor_step(hand, target, state, 600, 75).unwrap();
+            (swap_vec(next), CartesianVelocityState { post_velocity: swap_vec(state.post_velocity),
+                                                       active: state.active })
+        };
+        assert_eq!(solve(false), solve(true));
+    }
+
+    #[test]
+    fn inactive_post_contact_state_is_canonical_and_never_moves_the_hand() {
+        let hand = Vec3::new(Fx::from_raw(7), Fx::from_raw(-9), Fx::from_raw(11));
+        let target = Vec3::ZERO;
+        assert_eq!(cartesian_motor_step(hand, target, CartesianVelocityState {
+            post_velocity: Vec3::ZERO, active: false,
+        }, 100, 10), Ok((hand, CartesianVelocityState {
+            post_velocity: Vec3::ZERO, active: false,
+        })));
+        assert_eq!(cartesian_motor_step(hand, target, CartesianVelocityState {
+            post_velocity: Vec3::X, active: false,
+        }, 100, 10), Err(CartesianMotorReject::NonCanonical));
+        assert_eq!(cartesian_motor_step(Vec3::new(Fx::MIN, Fx::ZERO, Fx::ZERO),
+            Vec3::new(Fx::MAX, Fx::ZERO, Fx::ZERO), CartesianVelocityState {
+                post_velocity: Vec3::ZERO, active: true,
+            }, 100, 10), Err(CartesianMotorReject::Overflow));
     }
 
     #[test]
@@ -13635,4 +14983,14 @@ mod tests {
         assert!(same.set_stats(hero, base.stats(hero).unwrap()));
         assert_eq!(base.state_hash(), same.state_hash());
     }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn post_contact_hash_bytes(arm: ArmState) -> [u8; 13] {
+    let mut bytes = [0u8; 13];
+    bytes[0] = u8::from(arm.post_contact_active);
+    bytes[1..5].copy_from_slice(&arm.post_contact_velocity.x.raw().to_le_bytes());
+    bytes[5..9].copy_from_slice(&arm.post_contact_velocity.y.raw().to_le_bytes());
+    bytes[9..13].copy_from_slice(&arm.post_contact_velocity.z.raw().to_le_bytes());
+    bytes
 }

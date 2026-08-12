@@ -16,7 +16,9 @@ mod args;
 mod evolve;
 mod fitness;
 mod learn_probe;
+mod strong_strike;
 mod strike_corpus;
+mod tactical_mechanics;
 mod trace;
 
 use args::Args;
@@ -46,6 +48,8 @@ fn main() {
         "duel" => duel(&args),
         "articulated" => articulated(&args),
         "strike-corpus" => strike_corpus::strike_corpus(&args),
+        "strong-strike" => strong_strike::strong_strike(),
+        "tactical-mechanics" => tactical_mechanics::tactical_mechanics(&args),
         "trace" => trace_fight(&args),
         "learn-probe" => learn_probe::learn_probe(&args),
         "" | "help" => usage(),
@@ -105,6 +109,16 @@ fn usage() {
           Brute targets and writes one CSV evidence row per case. A geometric
           cross is the committed weapon sweep through the region the policy
           named; contact and wound columns are recorded independently.
+
+  strong-strike
+          Drives one controlled maximum-effort tip-of-sword hit and a held-arm
+          control through the production World, printing raw pose kinematics,
+          contact energy channels and before/after anatomy facts.
+
+  tactical-mechanics --quick
+          Brackets the tactical controller between byte-equal strong-strike
+          references on their exact fixed scenario. Diagnostic only: the
+          parameterized calibration and held-out corpus is not implemented.
 
   trace   --seed N --policy composed|windmill|tactical|learned --attack-moves --mirrored
           --ticks N --out PATH

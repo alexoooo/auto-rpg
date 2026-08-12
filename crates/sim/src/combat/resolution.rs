@@ -997,12 +997,12 @@ fn behavior_case(case_id: u32) -> Vec<ContactCollider> {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::combat::contact::{BODY_SLOT, ContactKey};
     use crate::combat::spec::Material;
     use crate::EntityId;
-    use fx::{Hash64, TimeOfImpact};
+    use fx::{Angle, Hash64, TimeOfImpact};
 
     fn surface(restitution: Fx) -> SurfaceSpec {
         SurfaceSpec { restitution, friction: Fx::ZERO, edge_factor: Fx::ONE,
@@ -1711,5 +1711,665 @@ mod tests {
             for _ in 0..8 { handles.push(scope.spawn(contact_behavior_corpus)); }
             for handle in handles { assert_eq!(handle.join().unwrap().unwrap(), expected); }
         });
+    }
+
+    // Stage-1 normal LCP prototype. It is deliberately test-owned: World's
+    // measured response columns, friction, and scratch ownership are still
+    // gates before this arithmetic can enter authority.
+    pub(crate) const DIRECTIONAL_MAX: usize = 8;
+
+    #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+    pub(crate) enum DirectionalReject { Capacity, Singular, Overflow, NoSolution }
+
+    #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+    pub(crate) struct Rational { pub(crate) n: i128, pub(crate) d: i128 }
+
+    impl Rational {
+        fn new(n: i128, d: i128) -> Result<Rational, DirectionalReject> {
+            if d == 0 { return Err(DirectionalReject::Singular); }
+            let (n, d) = if d < 0 {
+                (n.checked_neg().ok_or(DirectionalReject::Overflow)?,
+                 d.checked_neg().ok_or(DirectionalReject::Overflow)?)
+            } else { (n, d) };
+            let mut a = n.unsigned_abs(); let mut b = d as u128;
+            while b != 0 { let r = a % b; a = b; b = r; }
+            let g = a.max(1) as i128;
+            Ok(Rational { n: n / g, d: d / g })
+        }
+        fn integer(value: i64) -> Rational { Rational { n: value as i128, d: 1 } }
+        fn sub(self, rhs: Rational) -> Result<Rational, DirectionalReject> {
+            Rational::new(
+                self.n.checked_mul(rhs.d).and_then(|a| rhs.n.checked_mul(self.d)
+                    .and_then(|b| a.checked_sub(b))).ok_or(DirectionalReject::Overflow)?,
+                self.d.checked_mul(rhs.d).ok_or(DirectionalReject::Overflow)?)
+        }
+        fn mul(self, rhs: Rational) -> Result<Rational, DirectionalReject> {
+            Rational::new(self.n.checked_mul(rhs.n).ok_or(DirectionalReject::Overflow)?,
+                          self.d.checked_mul(rhs.d).ok_or(DirectionalReject::Overflow)?)
+        }
+        fn div(self, rhs: Rational) -> Result<Rational, DirectionalReject> {
+            Rational::new(self.n.checked_mul(rhs.d).ok_or(DirectionalReject::Overflow)?,
+                          self.d.checked_mul(rhs.n).ok_or(DirectionalReject::Overflow)?)
+        }
+        fn nonnegative(self) -> bool { self.n >= 0 }
+    }
+
+    fn directional_linear_solve(
+        matrix: &[[i64; DIRECTIONAL_MAX]; DIRECTIONAL_MAX], rhs: &[i64; DIRECTIONAL_MAX],
+        indices: &[usize],
+    ) -> Result<[Rational; DIRECTIONAL_MAX], DirectionalReject> {
+        let zero = Rational::integer(0);
+        let mut rows = [[zero; DIRECTIONAL_MAX + 1]; DIRECTIONAL_MAX];
+        for (r, &i) in indices.iter().enumerate() {
+            for (c, &j) in indices.iter().enumerate() { rows[r][c] = Rational::integer(matrix[i][j]); }
+            rows[r][indices.len()] = Rational::integer(rhs[i]);
+        }
+        for column in 0..indices.len() {
+            let pivot = (column..indices.len()).filter(|&r| rows[r][column].n != 0)
+                .max_by_key(|&r| (rows[r][column].n.unsigned_abs(), core::cmp::Reverse(r)))
+                .ok_or(DirectionalReject::Singular)?;
+            rows.swap(column, pivot);
+            for r in column + 1..indices.len() {
+                if rows[r][column].n == 0 { continue; }
+                let factor = rows[r][column].div(rows[column][column])?;
+                for c in column..=indices.len() {
+                    rows[r][c] = rows[r][c].sub(factor.mul(rows[column][c])?)?;
+                }
+            }
+        }
+        let mut answer = [zero; DIRECTIONAL_MAX];
+        for r in (0..indices.len()).rev() {
+            let mut value = rows[r][indices.len()];
+            for c in r + 1..indices.len() { value = value.sub(rows[r][c].mul(answer[indices[c]])?)?; }
+            answer[indices[r]] = value.div(rows[r][r])?;
+        }
+        Ok(answer)
+    }
+
+    pub(crate) fn directional_normal_lcp(
+        matrix: &[[i64; DIRECTIONAL_MAX]; DIRECTIONAL_MAX],
+        bias: &[i64; DIRECTIONAL_MAX], count: usize,
+    ) -> Result<([Rational; DIRECTIONAL_MAX], u16), DirectionalReject> {
+        if count > DIRECTIONAL_MAX { return Err(DirectionalReject::Capacity); }
+        if count == 0 { return Ok(([Rational::integer(0); DIRECTIONAL_MAX], 0)); }
+        let indices: Vec<usize> = (0..count).collect();
+        directional_linear_solve(matrix, &[0; DIRECTIONAL_MAX], &indices)?;
+        let mut saw_singular = false;
+        for mask in 0u16..(1u16 << count) {
+            let mut indices = [0usize; DIRECTIONAL_MAX]; let mut len = 0;
+            for i in 0..count { if mask & (1 << i) != 0 { indices[len] = i; len += 1; } }
+            let mut rhs = [0i64; DIRECTIONAL_MAX];
+            for i in 0..count { rhs[i] = bias[i].checked_neg().ok_or(DirectionalReject::Overflow)?; }
+            let lambda = if len == 0 { [Rational::integer(0); DIRECTIONAL_MAX] }
+                else { match directional_linear_solve(matrix, &rhs, &indices[..len]) {
+                    Ok(value) => value, Err(DirectionalReject::Singular) => { saw_singular = true; continue; },
+                    Err(error) => return Err(error),
+                }};
+            if (0..count).any(|i| !lambda[i].nonnegative()) { continue; }
+            let mut valid = true;
+            for i in 0..count {
+                let mut w = Rational::integer(bias[i]);
+                for j in 0..count {
+                    w = w.sub(Rational::integer(-matrix[i][j]).mul(lambda[j])?)?;
+                }
+                if !w.nonnegative() || (mask & (1 << i) != 0 && w.n != 0) { valid = false; break; }
+            }
+            if valid { return Ok((lambda, mask)); }
+        }
+        Err(if saw_singular { DirectionalReject::Singular } else { DirectionalReject::NoSolution })
+    }
+
+    pub(crate) fn directional_integerize(
+        matrix: &[[i64; DIRECTIONAL_MAX]; DIRECTIONAL_MAX],
+        bias: &[i64; DIRECTIONAL_MAX], rational: &[Rational; DIRECTIONAL_MAX], count: usize,
+    ) -> Result<[i64; DIRECTIONAL_MAX], DirectionalReject> {
+        if count > DIRECTIONAL_MAX { return Err(DirectionalReject::Capacity); }
+        let mut classes = [[usize::MAX; DIRECTIONAL_MAX]; DIRECTIONAL_MAX];
+        let mut class_len = [0usize; DIRECTIONAL_MAX]; let mut classes_len = 0;
+        let mut floor = [0i64; DIRECTIONAL_MAX];
+        for i in 0..count {
+            let quotient = rational[i].n.div_euclid(rational[i].d);
+            floor[i] = i64::try_from(quotient).map_err(|_| DirectionalReject::Overflow)?;
+            if rational[i].n.rem_euclid(rational[i].d) != 0 {
+                let transposes = |a: usize, b: usize| {
+                    bias[a] == bias[b]
+                        && matrix[a][a] == matrix[b][b]
+                        && matrix[a][b] == matrix[b][a]
+                        && (0..count).filter(|k| *k != a && *k != b).all(|k| {
+                            matrix[a][k] == matrix[b][k] && matrix[k][a] == matrix[k][b]
+                        })
+                };
+                let same = (0..classes_len).find(|&class| {
+                    let representative = classes[class][0];
+                    rational[representative] == rational[i]
+                        && transposes(representative, i)
+                });
+                let class = same.unwrap_or_else(|| { let class = classes_len; classes_len += 1; class });
+                classes[class][class_len[class]] = i; class_len[class] += 1;
+            }
+        }
+        let mut best: Option<((i64, [i64; DIRECTIONAL_MAX]), [i64; DIRECTIONAL_MAX])> = None;
+        for choices in 0u16..(1u16 << classes_len) {
+            let mut impulse = floor;
+            for bit in 0..classes_len {
+                if choices & (1 << bit) != 0 {
+                    for member in 0..class_len[bit] {
+                        let at = classes[bit][member];
+                        impulse[at] = impulse[at].checked_add(1).ok_or(DirectionalReject::Overflow)?;
+                    }
+                }
+            }
+            if impulse[..count].iter().any(|value| *value < 0) { continue; }
+            let mut maximum = 0i64; let mut valid = true;
+            for i in 0..count {
+                let mut residual = bias[i] as i128;
+                for j in 0..count {
+                    residual = residual.checked_add((matrix[i][j] as i128)
+                        .checked_mul(impulse[j] as i128).ok_or(DirectionalReject::Overflow)?)
+                        .ok_or(DirectionalReject::Overflow)?;
+                }
+                let residual = i64::try_from(residual).map_err(|_| DirectionalReject::Overflow)?;
+                if residual < -1 || (impulse[i] > 0 && residual.abs() > 1) {
+                    valid = false; break;
+                }
+                if impulse[i] > 0 { maximum = maximum.max(residual.abs()); }
+            }
+            if !valid { continue; }
+            // Actual closure energy includes masses, initial velocities and
+            // cross terms and belongs to the final World projection. A sum of
+            // squared impulse words is not that energy. Pure integerization
+            // scores target residual then canonical words; checkpoint A adds
+            // projected energy between them.
+            let score = (maximum, impulse);
+            if best.as_ref().map_or(true, |old| score < old.0) { best = Some((score, impulse)); }
+        }
+        best.map(|row| row.1).ok_or(DirectionalReject::NoSolution)
+    }
+
+    fn three_equal_mass_energy(striker: i64, targets: i64) -> u64 {
+        ((striker as i128 * striker as i128 + 2 * targets as i128 * targets as i128)
+            / (2 * 65_536)) as u64
+    }
+
+    #[test]
+    fn directional_response_cross_terms_are_load_bearing() {
+        let mut matrix = [[0; DIRECTIONAL_MAX]; DIRECTIONAL_MAX];
+        matrix[0][0] = 2; matrix[0][1] = 1; matrix[1][0] = 1; matrix[1][1] = 2;
+        let mut bias = [0; DIRECTIONAL_MAX]; bias[0] = -9; bias[1] = -9;
+        let (answer, mask) = directional_normal_lcp(&matrix, &bias, 2).unwrap();
+        assert_eq!((answer[0], answer[1], mask),
+                   (Rational::integer(3), Rational::integer(3), 3));
+        matrix[0][1] = 0; matrix[1][0] = 0;
+        assert_ne!(directional_normal_lcp(&matrix, &bias, 2).unwrap().0[..2], answer[..2]);
+    }
+
+    #[test]
+    fn directional_response_singular_blocks_are_rejected() {
+        let mut matrix = [[0; DIRECTIONAL_MAX]; DIRECTIONAL_MAX];
+        matrix[0][0] = 1; matrix[0][1] = 2; matrix[1][0] = 2; matrix[1][1] = 4;
+        let mut bias = [0; DIRECTIONAL_MAX]; bias[0] = -3; bias[1] = -6;
+        assert_eq!(directional_normal_lcp(&matrix, &bias, 2), Err(DirectionalReject::Singular));
+    }
+
+    #[test]
+    fn directional_response_opening_rows_are_inactive() {
+        let matrix = [[0; DIRECTIONAL_MAX]; DIRECTIONAL_MAX];
+        let bias = [0; DIRECTIONAL_MAX];
+        assert_eq!(directional_normal_lcp(&matrix, &bias, 0).unwrap().1, 0);
+    }
+
+    #[test]
+    fn directional_response_refuses_more_than_eight_facts() {
+        assert_eq!(directional_normal_lcp(&[[0; DIRECTIONAL_MAX]; DIRECTIONAL_MAX],
+            &[0; DIRECTIONAL_MAX], 9), Err(DirectionalReject::Capacity));
+    }
+
+    #[test]
+    fn directional_response_is_permutation_deterministic() {
+        let mut a = [[0; DIRECTIONAL_MAX]; DIRECTIONAL_MAX];
+        a[0][0] = 2; a[0][1] = 1; a[1][0] = 1; a[1][1] = 3;
+        let mut b = [0; DIRECTIONAL_MAX]; b[0] = -5; b[1] = -7;
+        let original = directional_normal_lcp(&a, &b, 2).unwrap().0;
+        let mut p = [[0; DIRECTIONAL_MAX]; DIRECTIONAL_MAX];
+        p[0][0] = 3; p[0][1] = 1; p[1][0] = 1; p[1][1] = 2;
+        let mut pb = [0; DIRECTIONAL_MAX]; pb[0] = -7; pb[1] = -5;
+        let permuted = directional_normal_lcp(&p, &pb, 2).unwrap().0;
+        assert_eq!((original[0], original[1]), (permuted[1], permuted[0]));
+    }
+
+    #[test]
+    fn directional_response_matches_the_two_simultaneous_restitution_cases() {
+        let mut w = [[0; DIRECTIONAL_MAX]; DIRECTIONAL_MAX];
+        w[0][0] = 2; w[0][1] = 1; w[1][0] = 1; w[1][1] = 2;
+        for (closing, expected, applied, q, energy) in [
+            (65_536, Rational::new(65_536, 3).unwrap(), 21_845, -1, 10_922),
+            (131_072, Rational::new(131_072, 3).unwrap(), 43_691, 1, 32_768),
+        ] {
+            let mut b = [0; DIRECTIONAL_MAX]; b[0] = -closing; b[1] = -closing;
+            let (lambda, mask) = directional_normal_lcp(&w, &b, 2).unwrap();
+            assert_eq!((lambda[0], lambda[1], mask), (expected, expected, 3));
+            let integer = directional_integerize(&w, &b, &lambda, 2).unwrap();
+            assert_eq!((integer[0], integer[1]), (applied, applied));
+            assert_eq!(-closing + 3 * applied, q);
+            assert_eq!(three_equal_mass_energy(65_536 - 2 * applied, applied), energy);
+        }
+    }
+
+    #[test]
+    fn directional_response_integerization_does_not_floor_every_coordinate() {
+        let mut w = [[0; DIRECTIONAL_MAX]; DIRECTIONAL_MAX];
+        w[0][0] = 3; w[0][1] = 1; w[1][0] = 1; w[1][1] = 3;
+        let mut b = [0; DIRECTIONAL_MAX]; b[0] = -3; b[1] = -5;
+        let (lambda, _) = directional_normal_lcp(&w, &b, 2).unwrap();
+        assert_eq!((lambda[0], lambda[1]),
+                   (Rational::new(1, 2).unwrap(), Rational::new(3, 2).unwrap()));
+        // Floor/floor is invalid at (-2,-2). The unequal rational coordinates
+        // are not a symmetry class, so the bounded choices may round them in
+        // opposite directions; canonical words choose (0,2).
+        let integer = directional_integerize(&w, &b, &lambda, 2).unwrap();
+        assert_eq!((integer[0], integer[1]), (0, 2));
+    }
+
+    #[test]
+    fn directional_response_symmetric_rounding_survives_identity_permutation() {
+        let mut w = [[0; DIRECTIONAL_MAX]; DIRECTIONAL_MAX];
+        w[0][0] = 2; w[0][1] = 1; w[1][0] = 1; w[1][1] = 2;
+        let mut b = [0; DIRECTIONAL_MAX]; b[0] = -131_072; b[1] = -131_072;
+        let rational = directional_normal_lcp(&w, &b, 2).unwrap().0;
+        let original = directional_integerize(&w, &b, &rational, 2).unwrap();
+        // Swapping the two physical contacts leaves W and b byte-identical.
+        // Mapping the answer back must therefore also be identical; assigning
+        // the extra raw unit by lexicographic coordinate would fail here.
+        let permuted = directional_integerize(&w, &b, &rational, 2).unwrap();
+        assert_eq!((original[0], original[1]), (permuted[1], permuted[0]));
+        assert_eq!((original[0], original[1]), (43_691, 43_691));
+    }
+
+    #[test]
+    fn directional_response_equal_lambdas_are_not_automatically_one_symmetry_class() {
+        let mut w = [[0; DIRECTIONAL_MAX]; DIRECTIONAL_MAX];
+        w[0][0] = 3; w[1][1] = 3; w[2][2] = 5;
+        w[0][1] = 1; w[1][0] = 1;
+        w[0][2] = 2; w[2][0] = 3;
+        w[1][2] = 3; w[2][1] = 2;
+        let mut b = [0; DIRECTIONAL_MAX]; b[0] = -2; b[1] = -2; b[2] = 0;
+        let rational = [Rational::new(1, 2).unwrap(), Rational::new(1, 2).unwrap(),
+                        Rational::integer(0), Rational::integer(0), Rational::integer(0),
+                        Rational::integer(0), Rational::integer(0), Rational::integer(0)];
+        // Rows and columns 0/1 have equal sorted multisets, but swapping the
+        // coordinates changes their indexed coupling to row 2. They must keep
+        // independent rounding bits; otherwise this valid canonical (0,1)
+        // choice is unavailable.
+        // The important contract is availability, not which choice wins once
+        // World's projected energy joins the score. Independent bits include
+        // both mixed rows; forcing one shared bit would leave only (0,0)/(1,1).
+        // Exercise the real classifier through the number of combinations it
+        // makes available: independent classes offer four choices. If a false
+        // multiset match merges them, only two remain and this asymmetric
+        // fixture has no valid integerization.
+        let value = directional_integerize(&w, &b, &rational, 3)
+            .expect("distinct indexed couplings must retain independent rounding choices");
+        assert_eq!((value[0], value[1]), (0, 1));
+    }
+
+    #[test]
+    fn directional_response_keeps_opening_constraints_inactive() {
+        let mut w = [[0; DIRECTIONAL_MAX]; DIRECTIONAL_MAX]; w[0][0] = 1; w[1][1] = 1;
+        let mut b = [0; DIRECTIONAL_MAX]; b[0] = 4; b[1] = -7;
+        let (lambda, mask) = directional_normal_lcp(&w, &b, 2).unwrap();
+        assert_eq!((lambda[0], lambda[1], mask),
+                   (Rational::integer(0), Rational::integer(7), 2));
+    }
+
+    #[test]
+    fn directional_response_checked_products_reject_overflow() {
+        let huge = Rational { n: i128::MAX, d: 1 };
+        assert_eq!(huge.mul(Rational::integer(2)), Err(DirectionalReject::Overflow));
+    }
+
+    // Stage-2 friction vocabulary, still test-only. These helpers deliberately
+    // do not call the production proposal or group resolver: the actual World
+    // projector fixture will supply their normal and tangent coordinates once
+    // session 13's bounded normal search is stable.
+    #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+    pub(crate) struct CanonicalTangents {
+        pub(crate) axis: usize, pub(crate) first: Vec3, pub(crate) second: Vec3,
+    }
+
+    pub(crate) fn canonical_tangents(normal: Vec3) -> Result<CanonicalTangents, DirectionalReject> {
+        let normal = normal.normalized_or_zero();
+        if normal == Vec3::ZERO { return Err(DirectionalReject::NoSolution); }
+        let alignments = [normal.x.raw().abs(), normal.y.raw().abs(), normal.z.raw().abs()];
+        // `min_by_key` keeps the first equal element: X, then Y, then Z is the
+        // tie rule rather than an accident of a later sort.
+        let axis = (0..3).min_by_key(|&at| alignments[at])
+            .expect("three Cartesian axes");
+        let cartesian = [Vec3::X, Vec3::Y, Vec3::Z][axis];
+        let first = cartesian.cross(normal).normalized_or_zero();
+        let second = normal.cross(first).normalized_or_zero();
+        if first == Vec3::ZERO || second == Vec3::ZERO {
+            return Err(DirectionalReject::NoSolution);
+        }
+        Ok(CanonicalTangents { axis, first, second })
+    }
+
+    pub(crate) fn tangent_limit_raw(friction_raw: i32, normal_impulse_raw: i64)
+        -> Result<i64, DirectionalReject>
+    {
+        if friction_raw < 0 || normal_impulse_raw < 0 {
+            return Err(DirectionalReject::NoSolution);
+        }
+        let product = (friction_raw as i128).checked_mul(normal_impulse_raw as i128)
+            .ok_or(DirectionalReject::Overflow)?;
+        i64::try_from(product / Fx::ONE.raw() as i128)
+            .map_err(|_| DirectionalReject::Overflow)
+    }
+
+    pub(crate) fn inside_friction_box_and_cone(
+        first_raw: i64, second_raw: i64, limit_raw: i64,
+    ) -> Result<bool, DirectionalReject> {
+        if limit_raw < 0 { return Err(DirectionalReject::NoSolution); }
+        if first_raw.unsigned_abs() > limit_raw as u64
+            || second_raw.unsigned_abs() > limit_raw as u64 {
+            return Ok(false);
+        }
+        let square = (first_raw as i128).checked_mul(first_raw as i128)
+            .and_then(|value| (second_raw as i128).checked_mul(second_raw as i128)
+                .and_then(|other| value.checked_add(other)))
+            .ok_or(DirectionalReject::Overflow)?;
+        let limit_square = (limit_raw as i128).checked_mul(limit_raw as i128)
+            .ok_or(DirectionalReject::Overflow)?;
+        Ok(square <= limit_square)
+    }
+
+    fn directional_residuals(
+        matrix: &[[i64; 3]; 3], before: [i64; 3], impulse: [i64; 3],
+    ) -> Result<[i64; 3], DirectionalReject> {
+        let mut answer = before;
+        for row in 0..3 {
+            let mut value = before[row] as i128;
+            for column in 0..3 {
+                value = value.checked_add((matrix[row][column] as i128)
+                    .checked_mul(impulse[column] as i128)
+                    .ok_or(DirectionalReject::Overflow)?)
+                    .ok_or(DirectionalReject::Overflow)?;
+            }
+            answer[row] = i64::try_from(value).map_err(|_| DirectionalReject::Overflow)?;
+        }
+        Ok(answer)
+    }
+
+    fn friction_residuals_valid(residuals: [i64; 3]) -> bool {
+        residuals[0].abs() <= 1 && residuals[1].abs() <= 1 && residuals[2].abs() <= 1
+    }
+
+    fn physical_tangent_impulse_inside_cone(
+        basis: CanonicalTangents, first_raw: i32, second_raw: i32, limit_raw: i32,
+    ) -> Result<bool, DirectionalReject> {
+        if !inside_friction_box_and_cone(
+            first_raw as i64, second_raw as i64, limit_raw as i64,
+        )? {
+            return Ok(false);
+        }
+        let impulse = basis.first * Fx::from_raw(first_raw)
+            + basis.second * Fx::from_raw(second_raw);
+        let mut square = 0i128;
+        for raw in [impulse.x.raw(), impulse.y.raw(), impulse.z.raw()] {
+            square = square.checked_add((raw as i128).checked_mul(raw as i128)
+                .ok_or(DirectionalReject::Overflow)?)
+                .ok_or(DirectionalReject::Overflow)?;
+        }
+        let limit_square = (limit_raw as i128).checked_mul(limit_raw as i128)
+            .ok_or(DirectionalReject::Overflow)?;
+        Ok(square <= limit_square)
+    }
+
+    fn sliding_friction_kkt(
+        impulse_on_a: [i64; 2], post_slip: [i64; 2], limit_raw: i64,
+    ) -> Result<bool, DirectionalReject> {
+        if limit_raw < 0 { return Err(DirectionalReject::NoSolution); }
+        let impulse_square = (impulse_on_a[0] as i128).checked_mul(impulse_on_a[0] as i128)
+            .and_then(|value| (impulse_on_a[1] as i128).checked_mul(impulse_on_a[1] as i128)
+                .and_then(|other| value.checked_add(other)))
+            .ok_or(DirectionalReject::Overflow)?;
+        let limit_square = (limit_raw as i128).checked_mul(limit_raw as i128)
+            .ok_or(DirectionalReject::Overflow)?;
+        let cross = (impulse_on_a[0] as i128).checked_mul(post_slip[1] as i128)
+            .and_then(|a| (impulse_on_a[1] as i128).checked_mul(post_slip[0] as i128)
+                .and_then(|b| a.checked_sub(b))).ok_or(DirectionalReject::Overflow)?;
+        let dot = (impulse_on_a[0] as i128).checked_mul(post_slip[0] as i128)
+            .and_then(|a| (impulse_on_a[1] as i128).checked_mul(post_slip[1] as i128)
+                .and_then(|b| a.checked_add(b))).ok_or(DirectionalReject::Overflow)?;
+        Ok(impulse_square == limit_square && post_slip != [0, 0]
+            && cross == 0 && dot > 0)
+    }
+
+    pub(crate) fn widened_kinetic_numerator(
+        rows: &[(i64, [i64; 3])],
+    ) -> Result<i128, DirectionalReject> {
+        let mut total = 0i128;
+        for &(mass_raw, velocity) in rows {
+            if mass_raw <= 0 { return Err(DirectionalReject::NoSolution); }
+            let mut speed_square = 0i128;
+            for raw in velocity {
+                speed_square = speed_square.checked_add((raw as i128)
+                    .checked_mul(raw as i128).ok_or(DirectionalReject::Overflow)?)
+                    .ok_or(DirectionalReject::Overflow)?;
+            }
+            total = total.checked_add((mass_raw as i128).checked_mul(speed_square)
+                .ok_or(DirectionalReject::Overflow)?)
+                .ok_or(DirectionalReject::Overflow)?;
+        }
+        Ok(total)
+    }
+
+    pub(crate) fn friction_energy_order_is_valid(
+        initial: &[(i64, [i64; 3])], normal_only: &[(i64, [i64; 3])],
+        combined: &[(i64, [i64; 3])],
+    ) -> Result<bool, DirectionalReject> {
+        let initial = widened_kinetic_numerator(initial)?;
+        let normal_only = widened_kinetic_numerator(normal_only)?;
+        let combined = widened_kinetic_numerator(combined)?;
+        Ok(normal_only <= initial && combined <= normal_only && combined <= initial)
+    }
+
+    #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+    pub(crate) struct NeighborKktSample {
+        pub(crate) angle: Angle,
+        pub(crate) signed_cross: i64,
+        pub(crate) alignment: i64,
+    }
+
+    #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+    pub(crate) enum NeighborKktReject {
+        NotNeighbors, NoSignBracket, NonPositiveAlignment, AmbiguousMirrorTie,
+    }
+
+    pub(crate) fn accept_neighbor_angle_kkt(
+        left: NeighborKktSample, right: NeighborKktSample,
+    ) -> Result<Angle, NeighborKktReject> {
+        if left.angle.raw().wrapping_add(1) != right.angle.raw() {
+            return Err(NeighborKktReject::NotNeighbors);
+        }
+        if left.alignment <= 0 || right.alignment <= 0 {
+            return Err(NeighborKktReject::NonPositiveAlignment);
+        }
+        let bracketed = left.signed_cross == 0 || right.signed_cross == 0
+            || (left.signed_cross < 0) != (right.signed_cross < 0);
+        if !bracketed { return Err(NeighborKktReject::NoSignBracket); }
+        match left.signed_cross.unsigned_abs().cmp(&right.signed_cross.unsigned_abs()) {
+            core::cmp::Ordering::Less => Ok(left.angle),
+            core::cmp::Ordering::Greater => Ok(right.angle),
+            core::cmp::Ordering::Equal => Err(NeighborKktReject::AmbiguousMirrorTie),
+        }
+    }
+
+    #[test]
+    fn canonical_tangents_use_the_least_aligned_axis_and_xyz_ties() {
+        let z = canonical_tangents(Vec3::Z).unwrap();
+        assert_eq!((z.axis, z.first, z.second), (0, -Vec3::Y, Vec3::X));
+        let x = canonical_tangents(Vec3::X).unwrap();
+        assert_eq!((x.axis, x.first, x.second), (1, -Vec3::Z, Vec3::Y));
+
+        // All three alignments are equal, so X must win. The cross-product
+        // orientation is checked independently rather than pinning rounded
+        // normalized components as though they were the contract.
+        let diagonal = Vec3::from_ints(1, 1, 1).normalized_or_zero();
+        let tied = canonical_tangents(diagonal).unwrap();
+        assert_eq!(tied.axis, 0);
+        assert_eq!(tied.first, Vec3::X.cross(diagonal).normalized_or_zero());
+        assert_eq!(tied.second, diagonal.cross(tied.first).normalized_or_zero());
+        assert!(tied.first.dot(diagonal).raw().abs() <= 1);
+        assert!(tied.second.dot(diagonal).raw().abs() <= 1);
+        assert_eq!(canonical_tangents(Vec3::ZERO), Err(DirectionalReject::NoSolution));
+    }
+
+    #[test]
+    fn friction_box_constraints_bound_each_signed_tangent_coordinate() {
+        let limit = tangent_limit_raw(Fx::from_ratio(1, 2).raw(), 20).unwrap();
+        assert_eq!(limit, 10);
+        assert!(inside_friction_box_and_cone(6, -8, limit).unwrap());
+        assert!(!inside_friction_box_and_cone(11, 0, limit).unwrap());
+        assert!(!inside_friction_box_and_cone(0, -11, limit).unwrap());
+        assert_eq!(tangent_limit_raw(-1, 20), Err(DirectionalReject::NoSolution));
+    }
+
+    #[test]
+    fn a_box_corner_outside_the_coulomb_cone_is_rejected() {
+        // Both coordinates independently fit the box. Accepting only those
+        // comparisons admits sqrt(2) times the Coulomb budget at a corner.
+        assert!(!inside_friction_box_and_cone(10, 10, 10).unwrap());
+        assert!(inside_friction_box_and_cone(6, 8, 10).unwrap());
+    }
+
+    #[test]
+    fn fixed_point_basis_rounding_is_rechecked_in_world_space() {
+        let basis = canonical_tangents(Vec3::from_ints(1, 1, 1)).unwrap();
+        let limit = Fx::from_int(5).raw();
+        assert!(inside_friction_box_and_cone(limit as i64, 0, limit as i64).unwrap());
+        assert!(!physical_tangent_impulse_inside_cone(basis, limit, 0, limit).unwrap(),
+            "coordinate-space boundary overstated the rounded physical cone");
+        assert!(physical_tangent_impulse_inside_cone(basis, limit - 16, 0, limit).unwrap());
+    }
+
+    #[test]
+    fn sliding_friction_lies_on_the_boundary_and_is_parallel_to_nonzero_slip() {
+        // Unit tangent response q_after = q_before - J: cancelling (6,8)
+        // would require magnitude ten, outside the five-unit cone. The physical
+        // impulse_on_a (3,4) leaves slip (3,4), parallel with J under the
+        // production q = vb - va sign convention. Sliding must not inherit
+        // static friction's zero residual.
+        let before = [6, 8];
+        let impulse = [3, 4];
+        let residual = [before[0] - impulse[0], before[1] - impulse[1]];
+        assert_eq!(residual, [3, 4]);
+        assert!(sliding_friction_kkt(impulse, residual, 5).unwrap());
+        assert!(!sliding_friction_kkt(impulse, residual, 6).unwrap(),
+            "an interior impulse is not a sliding boundary solution");
+        assert!(!sliding_friction_kkt([6, 8], [0, 0], 10).unwrap(),
+            "sliding friction must not fake the static zero-residual condition");
+        assert!(!sliding_friction_kkt([2, 4], [4, 4], 5).unwrap());
+    }
+
+    #[test]
+    fn friction_energy_is_ordered_before_public_u64_flooring() {
+        let initial = [(1, [10, 0, 0])];
+        let normal_only = [(1, [9, 0, 0])];
+        let combined = [(1, [8, 4, 0])];
+        let invalid_combined = [(1, [9, 1, 0])];
+        assert_eq!((widened_kinetic_numerator(&initial).unwrap(),
+                    widened_kinetic_numerator(&normal_only).unwrap(),
+                    widened_kinetic_numerator(&combined).unwrap(),
+                    widened_kinetic_numerator(&invalid_combined).unwrap()),
+                   (100, 81, 80, 82));
+        assert!(friction_energy_order_is_valid(&initial, &normal_only, &combined).unwrap());
+        assert!(!friction_energy_order_is_valid(
+            &initial, &normal_only, &invalid_combined,
+        ).unwrap());
+
+        // Every numerator is below one public closure-energy unit. Comparing
+        // those already-divided u64 values accepts the invalid 82 > 81 row.
+        let denominator = 2i128 * 65_536 * 65_536;
+        for rows in [&initial[..], &normal_only[..], &combined[..], &invalid_combined[..]] {
+            assert_eq!(widened_kinetic_numerator(rows).unwrap() / denominator, 0);
+        }
+        assert_eq!(widened_kinetic_numerator(&[(0, [1, 0, 0])]),
+                   Err(DirectionalReject::NoSolution));
+        assert_eq!(widened_kinetic_numerator(&[(i64::MAX, [i64::MAX; 3])]),
+                   Err(DirectionalReject::Overflow));
+    }
+
+    #[test]
+    fn neighbor_angle_kkt_wraps_at_the_u16_seam() {
+        let left = NeighborKktSample { angle: Angle::from_raw(u16::MAX),
+            signed_cross: -5, alignment: 9 };
+        let right = NeighborKktSample { angle: Angle::ZERO,
+            signed_cross: 1, alignment: 9 };
+        assert_eq!(accept_neighbor_angle_kkt(left, right), Ok(Angle::ZERO));
+        assert_eq!(accept_neighbor_angle_kkt(right, left), Err(NeighborKktReject::NotNeighbors));
+    }
+
+    #[test]
+    fn neighbor_angle_kkt_selection_mirrors_without_a_handed_tie_break() {
+        let left = NeighborKktSample { angle: Angle::from_raw(100),
+            signed_cross: -2, alignment: 11 };
+        let right = NeighborKktSample { angle: Angle::from_raw(101),
+            signed_cross: 7, alignment: 13 };
+        let chosen = accept_neighbor_angle_kkt(left, right).unwrap();
+        let mirrored_left = NeighborKktSample { angle: -right.angle,
+            signed_cross: -right.signed_cross, alignment: right.alignment };
+        let mirrored_right = NeighborKktSample { angle: -left.angle,
+            signed_cross: -left.signed_cross, alignment: left.alignment };
+        let mirrored = accept_neighbor_angle_kkt(mirrored_left, mirrored_right).unwrap();
+        assert_eq!(mirrored, -chosen);
+    }
+
+    #[test]
+    fn a_least_bad_neighbor_without_a_sign_bracket_is_rejected() {
+        let left = NeighborKktSample { angle: Angle::from_raw(400),
+            signed_cross: -7, alignment: 5 };
+        let less_bad = NeighborKktSample { angle: Angle::from_raw(401),
+            signed_cross: -2, alignment: 5 };
+        assert_eq!(accept_neighbor_angle_kkt(left, less_bad),
+                   Err(NeighborKktReject::NoSignBracket));
+    }
+
+    #[test]
+    fn equal_neighbor_errors_reject_an_ambiguous_mirror_tie() {
+        let left = NeighborKktSample { angle: Angle::from_raw(u16::MAX),
+            signed_cross: -3, alignment: 8 };
+        let right = NeighborKktSample { angle: Angle::ZERO,
+            signed_cross: 3, alignment: 8 };
+        assert_eq!(accept_neighbor_angle_kkt(left, right),
+                   Err(NeighborKktReject::AmbiguousMirrorTie));
+    }
+
+    #[test]
+    fn friction_uses_two_projected_tangent_directions() {
+        let matrix = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+        let before = [-8, 3, -4];
+        let impulse = [8, -3, 4];
+        assert_ne!((impulse[1], impulse[2]), (0, 0));
+        assert_eq!(directional_residuals(&matrix, before, impulse).unwrap(), [0, 0, 0]);
+
+        let without_first = directional_residuals(&matrix, before, [8, 0, 4]).unwrap();
+        let without_second = directional_residuals(&matrix, before, [8, -3, 0]).unwrap();
+        assert!(without_first[1].abs() > 1, "the first tangent column became optional");
+        assert!(without_second[2].abs() > 1, "the second tangent column became optional");
+    }
+
+    #[test]
+    fn friction_rechecks_the_normal_after_both_tangent_coordinates() {
+        // Normal-only reaches zero. The first tangent does not disturb it, but
+        // the second has a cross response and reopens closing by four raw
+        // units. A validator that checks normal before friction accepts this.
+        let matrix = [[1, 0, -1], [0, 1, 0], [0, 0, 1]];
+        let before = [-8, 3, -4];
+        let normal_only = directional_residuals(&matrix, before, [8, 0, 0]).unwrap();
+        assert_eq!(normal_only[0], 0);
+        let combined = directional_residuals(&matrix, before, [8, -3, 4]).unwrap();
+        assert_eq!((combined[1], combined[2]), (0, 0));
+        assert_eq!(combined[0], -4, "the final projection must recheck normal restitution");
+        assert!(!friction_residuals_valid(combined));
     }
 }

@@ -20,6 +20,14 @@ that remains.
 |---|---|---|---|
 | [Representative Fighter and Brute rigs](v2-18-combatant-integration.md) | not started | a passed articulated mechanical gate | presentation-only: every legacy and articulated pin unchanged |
 | [Smart articulated combat](smart-ai-00-overview.md) | closed `revise`; sessions 08 and 09 were not run | intentional crossings passed, but the tactical corpus produced 0 body decisions in 20 moving fights and failed its 95/100 by tick 1,800 gate | no training or promotion was authorized; `ARTICULATED_HASH` remains absent |
+| [Matched tactical mechanics](smart-ai-10-matched-tactical-mechanics.md) | proposed evidence successor | bracket the tactical controller against the strongest legal fixed-tip sweep on identical cases before choosing one mechanics or controller hypothesis | instrumentation and evidence move no pins; any later authority edit requires its own predicted budget |
+| [Effective articulated contact response](smart-ai-11-effective-contact-response.md) | planned mechanics decision | compare restitution-preserving generalized responses after session 10 exposed the upper energy-root defect | an accepted repair must move `CONTACT_BEHAVIOR_DIGEST`, expects `ARTICULATED_STREAM_DIGEST` to move, and keeps every other registered pin fixed |
+| [Directional contact response](smart-ai-12-directional-contact-response.md) | test-only prototype planned | replace the rejected scalar owner mass with a bounded response matrix measured through the actual World projector | no production or pin move before planar, vertical, friction, joint, simultaneous and opening fixtures pass |
+| [Bounded nonlinear contact response](smart-ai-13-bounded-nonlinear-contact-response.md) | test-only successor in progress | search the actual projected normal response after the captured strike rejected a fixed response column | no production or pin move; friction remains blocked on normal fixtures |
+| [Bounded sliding friction](smart-ai-15-bounded-sliding-friction.md) | test-only successor | solve the actual circular Coulomb boundary after the box prototype validated but did not construct articulated sliding response | no production or pin move before static, sliding, zero-friction, energy-numerator and permutation fixtures pass |
+| [Generalized joint contact response](smart-ai-18-generalized-joint-contact-response.md) | test-only successor | replace black-box inverse-hand projection with a forward Jacobian over authoritative body and arm coordinates | no production or pin move before retained restitution, joint-boundary, virtual-work, mass, and energy fixtures pass |
+| [Cartesian contact response](smart-ai-20-cartesian-contact-response.md) | test-only successor | separate scalar command control from explicit Cartesian collision state after the generalized/interior fixture revisions | no production or pin move before reconciliation, damage, mirror, replay, and exact energy fixtures pass |
+| [Post-contact Cartesian velocity](smart-ai-21-post-contact-velocity.md) | test-only successor | retain post-impact velocity separately from whole-tick endpoint displacement | no production or pin move before lifecycle, energy, reset, anatomy, replay, and Lab gates pass |
 | [Hierarchical combat learning](hierarchical-ai-00-overview.md) | proposed research successor | first prove that fixed `(loadout, strategy)` options have context-dependent headroom on a mechanically productive corpus | native research moves no pins; promotion is separately gated |
 | Visible browser evidence | blocked on a person using a foreground tab | follow the [arena matrix](../performance/v2-arena-matrix.md) and remaining [room matrix](../performance/v2-room-matrix.md) slots | no hashes move |
 
@@ -84,6 +92,14 @@ thresholds cannot simply be rerun:
 A successor must amend those criteria before recording fixtures or evidence. It must
 not create `ARTICULATED_HASH` until native direct run, native replay, wasm replay, and
 the visible review all pass the revised contract.
+
+The current mechanics successor is
+[smart AI session 11](smart-ai-11-effective-contact-response.md). Session 10 traced a
+strong zero-restitution sword/body contact to a local-mass impulse followed by a
+whole-entity projector that also accelerates target-held equipment; the existing
+alpha search then returns at the far energy-conserving root and allocates no wound
+energy. Session 11 compares restitution-preserving generalized responses before any
+authority edit. It does not reopen `v2-18` or create `ARTICULATED_HASH` by existence.
 
 ## Verification
 
