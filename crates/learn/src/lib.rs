@@ -68,16 +68,21 @@ pub mod probe;
 pub use learn_core::{checkpoint, digest, model};
 pub use learn_core::{
     compose, hex, learned_inference_case, learned_inference_digest, sha256, write_features,
-    Checkpoint, CheckpointError, FeatureMemory, Footwork, LearnedActionV1,
-    LearnedArticulatedPolicy, Model, ModelShape, Posture, Sha256, TrainingRecord,
+    write_features_v2, Checkpoint, CheckpointError, CheckpointV2, CheckpointV2Error,
+    FeatureMemory, Footwork, LearnedActionV1, LearnedActionV2, LearnedArticulatedPolicy,
+    LearnedTacticalPolicyV2, Model, ModelShape, ModelShapeV2, ModelV2, Posture, Sha256,
+    TrainingRecord,
     CHECKPOINT_FORMAT_VERSION, CHECKPOINT_MAGIC, FOOTWORK_COUNT, GUARD_HEIGHT_COUNT, HEAD_OFFSETS,
     HEAD_WIDTHS, HIDDEN_UNITS, LEARNED_INFERENCE_CASES, LEARNED_INFERENCE_DIGEST_DOMAIN,
     LEARN_ACTION_LAYOUT_VERSION, LEARN_ACTION_LOGITS, LEARN_FEATURE_COUNT,
-    LEARN_FEATURE_LAYOUT_VERSION, POSTURE_COUNT, WEAPON_BEARING_COUNT, WEAPON_HEIGHT_COUNT,
+    LEARN_FEATURE_LAYOUT_VERSION, LEARN_V2_ACTION_LAYOUT_VERSION, LEARN_V2_ACTION_LOGITS,
+    LEARN_V2_FEATURE_COUNT, LEARN_V2_FEATURE_LAYOUT_VERSION, POSTURE_COUNT,
+    WEAPON_BEARING_COUNT, WEAPON_HEIGHT_COUNT,
 };
 pub use probe::{
     band, held_out_seeds, mirrored_articulated_duel, phase_offset, rollout, rollout_with, score,
-    shaped_return, train, train_with, training_seeds, Band, Baseline, Corpus, Mechanics, Opponent,
+    score_v2, shaped_return, train, train_v2, train_with, train_with_v2, training_seeds, Band,
+    Baseline, Corpus, Mechanics, Opponent,
     PhaseShiftedScript, ProbeConfig, Recorders, Rollout, HELD_OUT_SEED_BASE, RETURN_ATTRITION,
     RETURN_DECISION, RETURN_MUTUAL, RETURN_SURVIVAL, RETURN_TICK_DIVISOR, RETURN_WIN,
     SCRIPT_PERIOD_TICKS, TRAINING_SEED_BASE,

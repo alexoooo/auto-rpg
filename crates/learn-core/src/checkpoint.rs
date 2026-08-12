@@ -45,7 +45,11 @@
 //! defensible here and would not make one defensible anywhere it had to resist
 //! an adversary. See `the_published_sha256_vectors_are_reproduced_exactly`.
 
-use crate::model::{Model, ModelShape, LEARN_ACTION_LAYOUT_VERSION, LEARN_FEATURE_LAYOUT_VERSION};
+use crate::model::{
+    Model, ModelShape, ModelShapeV2, ModelV2, LEARN_ACTION_LAYOUT_VERSION,
+    LEARN_FEATURE_LAYOUT_VERSION, LEARN_V2_ACTION_LAYOUT_VERSION,
+    LEARN_V2_FEATURE_LAYOUT_VERSION,
+};
 use std::fmt;
 #[cfg(not(target_family = "wasm"))]
 use std::path::Path;
@@ -281,6 +285,49 @@ pub struct Checkpoint {
     pub model: Model,
 }
 
+/// A separate tactical artifact. Keeping the wrapper distinct prevents the
+/// unsuffixed browser loader from accepting a model it cannot execute.
+#[derive(Clone, PartialEq, Debug)]
+pub struct CheckpointV2 {
+    pub training: TrainingRecord,
+    pub model: ModelV2,
+}
+
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub enum CheckpointV2Error {
+    Truncated { reading: &'static str },
+    BadMagic,
+    UnknownFormat(u32),
+    FeatureLayout { expected: u32, found: u32 },
+    ActionLayout { expected: u32, found: u32 },
+    Shape { expected: ModelShapeV2, found: ModelShapeV2 },
+    WeightCount { expected: usize, found: usize },
+    Digest { expected: String, found: String },
+    NotFinite { at: usize },
+    NotFiniteRecord { field: &'static str },
+    TrailingBytes { extra: usize },
+}
+
+impl fmt::Display for CheckpointV2Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Truncated { reading } => write!(f, "checkpoint ended while reading {reading}"),
+            Self::BadMagic => write!(f, "not a checkpoint: the magic does not match"),
+            Self::UnknownFormat(v) => write!(f, "checkpoint framing version {v}, this build writes {CHECKPOINT_FORMAT_VERSION}"),
+            Self::FeatureLayout { expected, found } => write!(f, "checkpoint was trained against feature layout {found}, tactical V2 reads {expected}"),
+            Self::ActionLayout { expected, found } => write!(f, "checkpoint emits action layout {found}, tactical V2 speaks {expected}"),
+            Self::Shape { expected, found } => write!(f, "checkpoint is {found}, tactical V2 expects {expected}"),
+            Self::WeightCount { expected, found } => write!(f, "checkpoint declares the right shape and carries {found} weights, not {expected}"),
+            Self::Digest { expected, found } => write!(f, "checkpoint digest is {expected} but its bytes hash to {found}"),
+            Self::NotFinite { at } => write!(f, "checkpoint weight {at} is not a finite number"),
+            Self::NotFiniteRecord { field } => write!(f, "checkpoint training record field {field} is not a finite number"),
+            Self::TrailingBytes { extra } => write!(f, "{extra} bytes after the checkpoint digest"),
+        }
+    }
+}
+
+impl std::error::Error for CheckpointV2Error {}
+
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum CheckpointError {
     /// The bytes ran out mid-field. Carries what was being read, because
@@ -374,6 +421,25 @@ struct Reader<'a> {
     at: usize,
 }
 
+struct ReaderV2<'a> { bytes: &'a [u8], at: usize }
+
+impl<'a> ReaderV2<'a> {
+    fn take(&mut self, n: usize, reading: &'static str) -> Result<&'a [u8], CheckpointV2Error> {
+        let end = self.at.checked_add(n).ok_or(CheckpointV2Error::Truncated { reading })?;
+        if end > self.bytes.len() { return Err(CheckpointV2Error::Truncated { reading }); }
+        let slice = &self.bytes[self.at..end]; self.at = end; Ok(slice)
+    }
+    fn u32(&mut self, reading: &'static str) -> Result<u32, CheckpointV2Error> {
+        let b = self.take(4, reading)?; Ok(u32::from_le_bytes(b.try_into().expect("four bytes")))
+    }
+    fn u64(&mut self, reading: &'static str) -> Result<u64, CheckpointV2Error> {
+        let b = self.take(8, reading)?; Ok(u64::from_le_bytes(b.try_into().expect("eight bytes")))
+    }
+    fn f32(&mut self, reading: &'static str) -> Result<f32, CheckpointV2Error> {
+        let b = self.take(4, reading)?; Ok(f32::from_le_bytes(b.try_into().expect("four bytes")))
+    }
+}
+
 impl<'a> Reader<'a> {
     fn take(&mut self, n: usize, reading: &'static str) -> Result<&'a [u8], CheckpointError> {
         let end = self.at.checked_add(n).ok_or(CheckpointError::Truncated { reading })?;
@@ -417,6 +483,78 @@ fn put_u64(out: &mut Vec<u8>, value: u64) {
 /// and a decimal one is not.
 fn put_f32(out: &mut Vec<u8>, value: f32) {
     out.extend_from_slice(&value.to_le_bytes());
+}
+
+impl CheckpointV2 {
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut out = Vec::with_capacity(64 + self.training.seeds.len() * 8 + self.model.len() * 4);
+        out.extend_from_slice(&CHECKPOINT_MAGIC);
+        put_u32(&mut out, CHECKPOINT_FORMAT_VERSION);
+        put_u32(&mut out, LEARN_V2_FEATURE_LAYOUT_VERSION);
+        put_u32(&mut out, LEARN_V2_ACTION_LAYOUT_VERSION);
+        let shape = self.model.shape();
+        put_u32(&mut out, shape.inputs as u32); put_u32(&mut out, shape.hidden as u32);
+        put_u32(&mut out, shape.outputs as u32);
+        put_u32(&mut out, self.training.generations); put_u32(&mut out, self.training.population);
+        put_u32(&mut out, self.training.elite); put_f32(&mut out, self.training.sigma);
+        put_f32(&mut out, self.training.training_return); put_u64(&mut out, self.training.master_seed);
+        put_u32(&mut out, self.training.seeds.len() as u32);
+        for &seed in &self.training.seeds { put_u64(&mut out, seed); }
+        put_u32(&mut out, self.model.len() as u32);
+        for &weight in self.model.weights() { put_f32(&mut out, weight); }
+        let digest = sha256(&out); out.extend_from_slice(&digest); out
+    }
+
+    pub fn from_bytes(bytes: &[u8]) -> Result<CheckpointV2, CheckpointV2Error> {
+        let mut r = ReaderV2 { bytes, at: 0 };
+        if r.take(8, "the magic")? != CHECKPOINT_MAGIC { return Err(CheckpointV2Error::BadMagic); }
+        let format = r.u32("the framing version")?;
+        if format != CHECKPOINT_FORMAT_VERSION { return Err(CheckpointV2Error::UnknownFormat(format)); }
+        let features = r.u32("the feature layout version")?;
+        if features != LEARN_V2_FEATURE_LAYOUT_VERSION { return Err(CheckpointV2Error::FeatureLayout { expected: LEARN_V2_FEATURE_LAYOUT_VERSION, found: features }); }
+        let actions = r.u32("the action layout version")?;
+        if actions != LEARN_V2_ACTION_LAYOUT_VERSION { return Err(CheckpointV2Error::ActionLayout { expected: LEARN_V2_ACTION_LAYOUT_VERSION, found: actions }); }
+        let found = ModelShapeV2 { inputs: r.u32("the input width")? as usize, hidden: r.u32("the hidden width")? as usize, outputs: r.u32("the output width")? as usize };
+        if found != ModelShapeV2::CURRENT { return Err(CheckpointV2Error::Shape { expected: ModelShapeV2::CURRENT, found }); }
+        let generations = r.u32("the generation count")?; let population = r.u32("the population size")?;
+        let elite = r.u32("the elite count")?; let sigma = r.f32("the mutation sigma")?;
+        let training_return = r.f32("the training return")?; let master_seed = r.u64("the master seed")?;
+        let seed_count = r.u32("the seed count")? as usize;
+        let mut seeds = Vec::with_capacity(seed_count.min(bytes.len() / 8));
+        for _ in 0..seed_count { seeds.push(r.u64("a training seed")?); }
+        let weight_count = r.u32("the weight count")? as usize;
+        let mut weights = Vec::with_capacity(weight_count.min(ModelShapeV2::CURRENT.weight_count()));
+        for _ in 0..weight_count { weights.push(r.f32("a weight")?); }
+        let hashed = r.at;
+        let recorded: [u8; 32] = r.take(32, "the digest")?.try_into().expect("thirty-two bytes");
+        if r.at != bytes.len() { return Err(CheckpointV2Error::TrailingBytes { extra: bytes.len() - r.at }); }
+        let actual = sha256(&bytes[..hashed]);
+        if actual != recorded { return Err(CheckpointV2Error::Digest { expected: hex(&recorded), found: hex(&actual) }); }
+        for (field, value) in [("sigma", sigma), ("training_return", training_return)] {
+            if !value.is_finite() { return Err(CheckpointV2Error::NotFiniteRecord { field }); }
+        }
+        for (at, weight) in weights.iter().enumerate() {
+            if !weight.is_finite() { return Err(CheckpointV2Error::NotFinite { at }); }
+        }
+        let model = ModelV2::from_weights(weights).map_err(|found| CheckpointV2Error::WeightCount { expected: ModelShapeV2::CURRENT.weight_count(), found })?;
+        Ok(CheckpointV2 { training: TrainingRecord { generations, population, elite, sigma, master_seed, seeds, training_return }, model })
+    }
+
+    pub fn digest(&self) -> String {
+        let bytes = self.to_bytes(); hex(&sha256(&bytes[..bytes.len() - 32]))
+    }
+
+    #[cfg(not(target_family = "wasm"))]
+    pub fn write_atomically(&self, path: &Path) -> std::io::Result<()> {
+        let mut temporary = path.as_os_str().to_os_string(); temporary.push(".partial");
+        let temporary = Path::new(&temporary); std::fs::write(temporary, self.to_bytes())?;
+        if path.exists() { std::fs::remove_file(path)?; } std::fs::rename(temporary, path)
+    }
+
+    #[cfg(not(target_family = "wasm"))]
+    pub fn read(path: &Path) -> std::io::Result<Result<CheckpointV2, CheckpointV2Error>> {
+        Ok(CheckpointV2::from_bytes(&std::fs::read(path)?))
+    }
 }
 
 impl Checkpoint {
@@ -727,6 +865,21 @@ mod tests {
             },
             model: Model::from_weights(weights).expect("the fixture is the current shape"),
         }
+    }
+
+    #[test]
+    fn a_version_one_checkpoint_is_refused_by_the_version_two_runtime() {
+        let old = fixture().to_bytes();
+        assert_eq!(
+            CheckpointV2::from_bytes(&old),
+            Err(CheckpointV2Error::FeatureLayout {
+                expected: LEARN_V2_FEATURE_LAYOUT_VERSION,
+                found: LEARN_FEATURE_LAYOUT_VERSION,
+            })
+        );
+
+        let tactical = CheckpointV2 { training: fixture().training, model: ModelV2::zeros() };
+        assert_eq!(CheckpointV2::from_bytes(&tactical.to_bytes()), Ok(tactical));
     }
 
     #[test]

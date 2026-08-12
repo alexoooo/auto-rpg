@@ -1,7 +1,25 @@
 # Smart AI 09 -- re-open the v2 mechanical gate
 
+**Status:** revise -- the competence prerequisite failed, so the final gate was not
+implemented or run.
+
 **Goal:** replace the failed clock-script gate with a frozen competence corpus and
 decide whether representative rigs in `v2-18` may begin.
+
+## Outcome
+
+Session 06 did not clear this session's minimum entry criterion. Its tactical policy
+produced intentional named-region crossings with zero command and solver refusals,
+but all 20 measured moving fights reached tick 3,600 and were decided on points;
+zero were decided by a body. That is not the required 95 of 100 decisions before
+tick 1,800. Sessions 04 and 05 also closed `revise`, and session 08 consequently did
+not train or promote a learned policy.
+
+The proposed harness, frozen fixtures, replay pin proof and visible review below were
+therefore not implemented or run. Creating a passing threshold around this result
+would measure activity rather than competence. `ARTICULATED_HASH` remains absent,
+no existing pin moves, and `v2-18` remains blocked on a future mechanical successor
+that first demonstrates timely body decisions.
 
 Do not reuse the old thresholds. The current ledger records 99% tick limits, a
 roughly 35x scale mismatch, an unreachable `contact_cap_hits == 0` condition, and an

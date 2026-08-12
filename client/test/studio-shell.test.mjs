@@ -50,6 +50,7 @@ fs.writeFileSync(path.join(OUT, "package.json"), '{"type":"module"}\n');
 
 const compiled = (relative) => pathToFileURL(path.join(OUT, relative)).href;
 const picker = await import(compiled("client/src/arena/picker.js"));
+const CONFIG = await import(compiled("client/src/runtime/arena-config.js"));
 
 const SHELL_HTML = fs.readFileSync(path.join(ROOT, "web", "index.html"), "utf8");
 const ONE = 65536;
@@ -442,7 +443,7 @@ test("learned_runs_live_and_is_noted_once_because_it_is_the_one_policy_that_fetc
   // no browser inference path, so the picker refused it for a live fight and
   // offered it only for a recorded one. v2-ui-08 split an inference-only
   // `learn-core`, landed policy code 4 and shipped the checkpoint at a URL, and
-  // v2-ui-07 wired the fetch -- so all five policies run live and what is left of
+  // v2-ui-07 wired the fetch -- so every policy runs live and what is left of
   // the old rule is a *note*. The note is not a leftover either: a trained
   // fighter is a kind plus fifteen kilobytes of weights, and a fetch can fail in
   // ways a compiled-in script cannot.
@@ -458,13 +459,13 @@ test("learned_runs_live_and_is_noted_once_because_it_is_the_one_policy_that_fetc
     assert.equal(live.notes.length, 1);
     // The file, by name, because "fetch one" and "rebuild the module" are the two
     // instructions `ARENA_NO_CHECKPOINT` exists to keep apart.
-    assert.match(live.notes[0], /\/checkpoints\/v2-probe\.ckpt/);
+    assert.match(live.notes[0], /checkpoints\/v2-probe\.ckpt/);
     assert.doesNotMatch(live.notes[0], /no live fight can run/);
 
     // A *recorded* fight names what the digest is for instead: which learned
     // policy is on screen, since two checkpoints an hour apart are not the same
     // fighter. It used to name `fight-learned.json`, and that stopped being true
-    // when [Fight] stopped resolving the recordings table.
+    // when [Run selected fight] stopped resolving the recordings table.
     const recorded = picker.review(chosen, "recording");
     assert.equal(recorded.refusal, null);
     assert.equal(recorded.notes.length, 1);
@@ -483,7 +484,7 @@ test("learned_runs_live_and_is_noted_once_because_it_is_the_one_policy_that_fetc
   // A policy neither half of the vocabulary knows is still a refusal, and it says
   // which half moved rather than saying "invalid".
   assert.match(picker.review(matchup({ policy: "telepathy" }), "live").refusal,
-    /not one of the five articulated policy codes/);
+    /not one of the six articulated policy codes/);
   assert.deepEqual(picker.review(matchup(), "live"), { refusal: null, notes: [] });
 });
 
@@ -510,6 +511,8 @@ test("a_recording_command_exists_only_where_lab_trace_could_actually_produce_one
     "cargo run --release -p lab -- trace --seed 3 --policy composed");
   assert.equal(command("windmill", "windmill"),
     "cargo run --release -p lab -- trace --seed 3 --policy windmill");
+  assert.equal(command("tactical", "tactical"),
+    "cargo run --release -p lab -- trace --seed 3 --policy tactical");
   // `--attack-moves` edits composed rather than being a policy of its own.
   assert.equal(command("attack-moves", "attack-moves"),
     "cargo run --release -p lab -- trace --seed 3 --policy composed --attack-moves");
@@ -537,7 +540,7 @@ test("a_missing_recording_names_the_command_that_would_make_one_or_says_none_wou
   // It has landed, so the sentence points at the button instead -- and the point
   // of the assertion is unchanged: a reader who asked for a pairing nothing
   // recorded is told what to do next rather than shown an empty page.
-  assert.match(recordable, /Press Fight to run this pairing live instead/);
+  assert.match(recordable, /Press Run selected fight to run this pairing live instead/);
   assert.doesNotMatch(recordable, /v2-ui/);
 
   const mixed = picker.missingRecording(matchup({ policy: "learned" }, { policy: "windmill" }));
@@ -572,16 +575,104 @@ test("a_recording_mismatch_describes_what_is_on_screen_rather_than_what_was_pick
   assert.doesNotMatch(wrongHand, /Fighter B/);
   // Was `/v2-ui-07/`, for the reason above: the way out of a mismatch is now the
   // button rather than a session that had not landed.
-  assert.match(wrongHand, /Press Fight to run the one they describe/);
+  assert.match(wrongHand, /Press Run selected fight to run the one they describe/);
   assert.doesNotMatch(wrongHand, /v2-ui/);
 
   const wrongSeed = picker.recordingMismatch({ ...picked, seed: header.seed + 1 }, header);
-  assert.match(wrongSeed, /it was run at seed 3\./);
+  assert.match(wrongSeed, /The recording was run at seed 3\./);
   assert.doesNotMatch(wrongSeed, /holding/);
 
   // A header with fewer bodies than the picker has rows describes the ones it
   // has rather than inventing a disagreement about the ones it does not.
   assert.equal(picker.recordingMismatch(picked, { ...header, bodies: [header.bodies[0]] }), null);
+});
+
+test("tactical_is_policy_code_five_in_rust_config_and_the_picker", () => {
+  const tactical = picker.POLICIES.find((option) => option.code === "tactical");
+  assert.deepEqual(tactical, { code: "tactical", label: "tactical", live: true });
+  assert.equal(CONFIG.policyCodeOf("tactical"), 5);
+  const live = picker.review(matchup({ policy: "tactical" }), "live");
+  assert.deepEqual(live, { refusal: null, notes: [] },
+    "a live tactical fight needs no checkpoint fetch");
+  assert.equal(picker.arenaConfigOf(matchup({ policy: "tactical" })).fighters[0].policy, 5);
+});
+
+test("a_plain_arena_opens_without_fetching_a_recording", async () => {
+  const harness = installDom();
+  try {
+    const { mount } = await import(compiled("client/src/arena/arena.js"));
+    const container = harness.container();
+    const handle = await mount(container, new URLSearchParams());
+    assert.deepEqual(harness.fetches.map((request) => request.url), [],
+      "plain #/arena must not guess that /fight.json exists");
+    assert.equal(container.querySelector("#status").textContent, "Run a fight.");
+    assert.match(SHELL_HTML,
+      /<button id="fight" type="button">Run selected fight<\/button>/);
+    await handle.dispose();
+    harness.dropSubtree(container);
+  } finally {
+    harness.restore();
+  }
+});
+
+test("an_empty_trace_query_is_refused_without_fetching_the_document", async () => {
+  const harness = installDom();
+  try {
+    const { mount } = await import(compiled("client/src/arena/arena.js"));
+    const container = harness.container();
+    const handle = await mount(container, new URLSearchParams([["trace", ""]]));
+    assert.deepEqual(harness.fetches.map((request) => request.url), []);
+    assert.match(container.querySelector("#status").textContent,
+      /^The trace query is empty; name a recording URL or remove trace to run a fight\.$/);
+    assert.equal(container.querySelector("#status").classList.contains("error"), true);
+    await handle.dispose();
+    harness.dropSubtree(container);
+  } finally {
+    harness.restore();
+  }
+});
+
+test("the_picker_names_the_loaded_fight_separately_from_the_next_matchup", async () => {
+  const harness = installDom();
+  try {
+    const { mount } = await import(compiled("client/src/arena/arena.js"));
+    const container = harness.container();
+    const handle = await mount(container,
+      new URLSearchParams([["trace", "/fight-learned.json"]]));
+    harness.fetches[0].settle({
+      ...syntheticTrace(), heroes: "learned", monsters: "composed", checkpoint: "0123456789abcdef",
+    });
+    await settle();
+    container.querySelector("#b-policy").value = "windmill";
+    for (const entry of harness.listenersOn(container.querySelector("#b-policy"), "change")) {
+      entry.listener({ target: container.querySelector("#b-policy") });
+    }
+    const copy = container.querySelector("#picker-message").textContent;
+    assert.match(copy, /Viewing recording: learned vs composed, seed 3/);
+    assert.match(copy, /Next fight: learned vs windmill, seed 3/);
+    await handle.dispose();
+    harness.dropSubtree(container);
+  } finally {
+    harness.restore();
+  }
+});
+
+test("checkpoint_copy_distinguishes_live_execution_from_recorded_provenance", () => {
+  assert.equal(picker.checkpointCopy("live"),
+    "Live learned fighter: loads checkpoints/v2-probe.ckpt and runs those weights.");
+  assert.equal(picker.checkpointCopy("recording"),
+    "Recorded fight: playback does not run AI; the digest identifies the weights used "
+      + "when the recording was made.");
+});
+
+test("a_policy_mismatch_names_the_recording_that_is_still_on_screen", () => {
+  const { frames: _frames, schema: _schema, ...header } = syntheticTrace();
+  const picked = matchup({ policy: "learned" }, { policy: "windmill" }, header.seed);
+  const mismatch = picker.recordingMismatch(picked, header);
+  assert.match(mismatch, /The recording still on screen is composed vs composed/);
+  assert.match(mismatch, /controls describe learned vs windmill/);
+  assert.doesNotMatch(mismatch, /\. [a-z]/,
+    "each independently useful mismatch clause must start as a sentence");
 });
 
 // --------------------------------------------------------------------- the disposal path
@@ -634,7 +725,8 @@ test("mounting_and_disposing_the_arena_twice_leaves_no_listener_observer_or_fram
     const { mount } = await import(compiled("client/src/arena/arena.js"));
     for (const pass of [1, 2]) {
       const container = harness.container();
-      const handle = await mount(container, new URLSearchParams());
+      const handle = await mount(container,
+        new URLSearchParams([["trace", "/fight.json"]]));
 
       // Registered, so that the assertions after `dispose` are about a teardown
       // and not about a mount that quietly did nothing.
@@ -685,7 +777,8 @@ test("a_truncated_recording_says_so_where_a_reader_can_see_it", async () => {
   try {
     const { mount } = await import(compiled("client/src/arena/arena.js"));
     const container = harness.container();
-    const handle = await mount(container, new URLSearchParams());
+    const handle = await mount(container,
+      new URLSearchParams([["trace", "/fight.json"]]));
     const trace = syntheticTrace();
     harness.fetches[0].settle({ ...trace, truncated: true, outcome: "recording truncated" });
     await settle();
@@ -701,7 +794,8 @@ test("a_truncated_recording_says_so_where_a_reader_can_see_it", async () => {
     // And the untruncated fixture beside it, so the assertion above is about the
     // flag and not about a sentence the page prints unconditionally.
     const second = harness.container();
-    const secondHandle = await mount(second, new URLSearchParams());
+    const secondHandle = await mount(second,
+      new URLSearchParams([["trace", "/fight.json"]]));
     harness.fetches[1].settle(trace);
     await settle();
     assert.doesNotMatch(second.querySelector("#status").innerHTML, /truncated/);
@@ -730,7 +824,8 @@ test("the_paired_frame_probe_advances_one_tick_a_frame_instead_of_reading_the_cl
     /** Play a fight and step `count` animation frames `gap` ms apart. */
     const run = async (params, gap, count) => {
       const container = harness.container();
-      const handle = await mount(container, new URLSearchParams(params));
+      const handle = await mount(container,
+        new URLSearchParams([["trace", "/fight.json"], ...params]));
       harness.fetches[harness.fetches.length - 1].settle(longTrace());
       await settle();
       container.querySelector("#play").click();
@@ -853,7 +948,7 @@ function importedSpecifiers(source) {
 test("the_arena_and_the_fight_modules_reach_neither_the_worker_nor_the_wasm", () => {
   // `#/arena` plays a fight it either recorded through a worker or downloaded as
   // JSON, and `npm run view` -- Vite with no wasm build at all -- must still open
-  // it: the worker is built lazily on the first [Fight], and a trace plays with
+  // it: the worker is built lazily on the first [Run selected fight], and a trace plays with
   // no wasm on the machine.
   //
   // **This assertion passed for two sessions while being broken, and the shape of
@@ -881,7 +976,7 @@ test("the_arena_and_the_fight_modules_reach_neither_the_worker_nor_the_wasm", ()
     ["arena/arena.ts", new Map([
       // A module whose whole body is `new Worker(new URL("./sim.worker.ts", ...))`
       // inside a function. Vite emits the worker as its own chunk and nothing
-      // fetches it until [Fight] constructs one, so the static import costs a
+      // fetches it until [Run selected fight] constructs one, so the static import costs a
       // reader with no wasm build nothing at all.
       ["../runtime/sim-worker.js", "the lazy worker factory; the Worker is constructed in onFight"],
     ])],

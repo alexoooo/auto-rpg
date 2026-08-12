@@ -56,8 +56,11 @@
 //! output by `the_action_table_is_the_scripts_own_vocabulary` -- so a drift on
 //! either side fails a test instead of quietly making the comparison unfair.
 
-use fx::{Angle, Fx, Rng, Vec2, Vec3};
-use policy::{ArticulatedPolicy, CYCLE_TICKS, EIGHTH_TURN};
+use fx::{closest_point_on_segment, Angle, Fx, Rng, Vec2, Vec3};
+use policy::{
+    ArticulatedPolicy, StrikePlanner, TacticalContextV1, TacticalIntentV1, CYCLE_TICKS,
+    EIGHTH_TURN, TACTICAL_INTENT_COUNT,
+};
 use sim::{
     ArmTarget, ArticulatedCommandV1, ArticulatedObservation, BodyPart, CombatHeight, GripRequest,
     Intent, SegmentPose,
@@ -76,6 +79,10 @@ pub const LEARN_FEATURE_LAYOUT_VERSION: u32 = 1;
 
 /// Width of the slice [`write_features`] writes.
 pub const LEARN_FEATURE_COUNT: usize = 41;
+
+/// The tactical model is append-only over the shipped 41-column slice.
+pub const LEARN_V2_FEATURE_LAYOUT_VERSION: u32 = 2;
+pub const LEARN_V2_FEATURE_COUNT: usize = 59;
 
 /// Hidden units, fixed by v2-19.
 pub const HIDDEN_UNITS: usize = 64;
@@ -131,6 +138,16 @@ const FIGHT_TICKS: f32 = 3600.0;
 /// ordinary play never touches it and the clamp stays a guard, which is the
 /// distinction `sim::obs`'s `SPIN_SCALE` comment draws about its own.
 const FEATURE_CLAMP: f32 = 4.0;
+
+/// Session 02's arena corpus spans the shipped sight distance; the same eight
+/// world-unit scale as the V1 opponent range keeps a region in measure below one.
+const TACTICAL_REGION_RANGE_SCALE: f32 = 8.0;
+/// Session 02's committed sweeps are bounded by the controller's 32-tick threat
+/// horizon. A crossing at the edge of that horizon therefore reads one.
+const TACTICAL_CROSSING_TICKS_SCALE: f32 = 32.0;
+/// The calibrated arm limit used by the competence corpus. Closing faster than
+/// one full-speed hand is exceptional but remains representable under the clamp.
+const TACTICAL_CLOSING_SPEED_SCALE: f32 = 0.025;
 
 /// One decision's worth of memory, so two features can be rates.
 ///
@@ -473,6 +490,57 @@ pub fn write_features(
     }
 }
 
+/// Writes the V2 tactical slice. Columns 0..41 are produced by the V1 writer
+/// unchanged; the controller context and targetable regions are appended.
+pub fn write_features_v2(
+    obs: &ArticulatedObservation,
+    memory: FeatureMemory,
+    context: TacticalContextV1,
+    out: &mut [f32; LEARN_V2_FEATURE_COUNT],
+) -> FeatureMemory {
+    let mut old = [0.0; LEARN_FEATURE_COUNT];
+    let next = write_features(obs, memory, &mut old);
+    out.fill(0.0);
+    out[..LEARN_FEATURE_COUNT].copy_from_slice(&old);
+
+    if let Some(foe) = obs.opponents().first() {
+        for (part, region) in foe.regions.iter().enumerate() {
+            if !region.present {
+                continue;
+            }
+            let lower = Vec2::new(region.lower.x, region.lower.y);
+            let upper = Vec2::new(region.upper.x, region.upper.y);
+            let subject = Vec2::new(obs.body_position.x, obs.body_position.y);
+            let nearest = closest_point_on_segment(lower, upper, subject);
+            let delta = nearest.point - subject;
+            let relative = delta.angle() - obs.body_yaw;
+            // A signed half-turn maps to +/-1. Reflection across the subject's
+            // forward axis negates this column and no range column.
+            out[LEARN_FEATURE_COUNT + part * 2] =
+                clamped((relative.raw() as i16) as f32 / 32_768.0);
+            let surface = (nearest.distance - region.radius).max(Fx::ZERO);
+            out[LEARN_FEATURE_COUNT + part * 2 + 1] =
+                clamped(surface.to_f32() / TACTICAL_REGION_RANGE_SCALE);
+        }
+    }
+
+    if let Some(threat) = context.threat {
+        out[51] = clamped(threat.closing_speed.to_f32() / TACTICAL_CLOSING_SPEED_SCALE);
+        out[52] = clamped(threat.ticks_to_crossing.to_f32() / TACTICAL_CROSSING_TICKS_SCALE);
+        out[53] = if threat.crossing_height == CombatHeight::LOW {
+            0.25
+        } else if threat.crossing_height == CombatHeight::MID {
+            0.5
+        } else if threat.crossing_height == CombatHeight::HIGH {
+            0.75
+        } else {
+            0.0
+        };
+    }
+    out[54 + context.phase.index()] = 1.0;
+    next
+}
+
 // ----------------------------------------------------------- the action heads
 
 /// Bumped whenever a head changes width or an entry changes meaning.
@@ -482,6 +550,7 @@ pub fn write_features(
 /// reordered table turns a trained preference into a different action with no
 /// error anywhere.
 pub const LEARN_ACTION_LAYOUT_VERSION: u32 = 1;
+pub const LEARN_V2_ACTION_LAYOUT_VERSION: u32 = 2;
 
 /// The magnitude of an approach step.
 ///
@@ -569,6 +638,7 @@ pub const HEAD_WIDTHS: [usize; 5] = [
 /// Total logits the network emits.
 pub const LEARN_ACTION_LOGITS: usize =
     FOOTWORK_COUNT + WEAPON_HEIGHT_COUNT + WEAPON_BEARING_COUNT + POSTURE_COUNT + GUARD_HEIGHT_COUNT;
+pub const LEARN_V2_ACTION_LOGITS: usize = LEARN_ACTION_LOGITS + TACTICAL_INTENT_COUNT;
 
 /// The three ordinary heights, in the order both height heads index them.
 ///
@@ -681,6 +751,39 @@ impl LearnedActionV1 {
 
     pub fn guard_height(self) -> CombatHeight {
         HEIGHTS[self.guard_height as usize % GUARD_HEIGHT_COUNT]
+    }
+}
+
+/// The V2 decoder preserves all eighteen V1 output positions and appends one
+/// tactical-intent head. The low-level positions remain present in the model
+/// artifact for append-only compatibility, but the V2 controller owns motors.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub struct LearnedActionV2 {
+    pub tactical_intent: u8,
+}
+
+impl LearnedActionV2 {
+    pub fn from_logits(logits: &[f32; LEARN_V2_ACTION_LOGITS]) -> LearnedActionV2 {
+        let mut best = 0usize;
+        for i in 1..TACTICAL_INTENT_COUNT {
+            if logits[LEARN_ACTION_LOGITS + i] > logits[LEARN_ACTION_LOGITS + best] {
+                best = i;
+            }
+        }
+        LearnedActionV2 { tactical_intent: best as u8 }
+    }
+
+    pub fn intent(self) -> TacticalIntentV1 {
+        match self.tactical_intent as usize % TACTICAL_INTENT_COUNT {
+            0 => TacticalIntentV1::Close,
+            1 => TacticalIntentV1::StrikeBest,
+            2 => TacticalIntentV1::StrikeWeaponArm,
+            3 => TacticalIntentV1::StrikeShieldArm,
+            4 => TacticalIntentV1::Guard,
+            5 => TacticalIntentV1::EvadeLeft,
+            6 => TacticalIntentV1::EvadeRight,
+            _ => TacticalIntentV1::Disengage,
+        }
     }
 }
 
@@ -1032,6 +1135,107 @@ impl Model {
     }
 }
 
+/// The V2 shape is a distinct type so no unsuffixed checkpoint or browser call
+/// can accidentally begin validating against the tactical model.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct ModelShapeV2 {
+    pub inputs: usize,
+    pub hidden: usize,
+    pub outputs: usize,
+}
+
+impl ModelShapeV2 {
+    pub const CURRENT: ModelShapeV2 = ModelShapeV2 {
+        inputs: LEARN_V2_FEATURE_COUNT,
+        hidden: HIDDEN_UNITS,
+        outputs: LEARN_V2_ACTION_LOGITS,
+    };
+
+    pub const fn weight_count(&self) -> usize {
+        self.inputs * self.hidden + self.hidden + self.hidden * self.outputs + self.outputs
+    }
+}
+
+impl std::fmt::Display for ModelShapeV2 {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}x{}x{}", self.inputs, self.hidden, self.outputs)
+    }
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub struct ModelV2 {
+    weights: Vec<f32>,
+}
+
+impl ModelV2 {
+    pub fn zeros() -> ModelV2 {
+        ModelV2 { weights: vec![0.0; ModelShapeV2::CURRENT.weight_count()] }
+    }
+
+    pub fn random(rng: &mut Rng) -> ModelV2 {
+        let shape = ModelShapeV2::CURRENT;
+        let mut weights = vec![0.0f32; shape.weight_count()];
+        let first = shape.inputs * shape.hidden;
+        let hidden_end = first + shape.hidden;
+        let input_limit = 1.0 / (shape.inputs as f32).sqrt();
+        let hidden_limit = 1.0 / (shape.hidden as f32).sqrt();
+        for (i, weight) in weights.iter_mut().enumerate() {
+            let limit = if i < first {
+                input_limit
+            } else if i < hidden_end {
+                continue;
+            } else if i < hidden_end + shape.hidden * shape.outputs {
+                hidden_limit
+            } else {
+                continue;
+            };
+            *weight = uniform(rng) * limit;
+        }
+        ModelV2 { weights }
+    }
+
+    pub fn from_weights(weights: Vec<f32>) -> Result<ModelV2, usize> {
+        if weights.len() == ModelShapeV2::CURRENT.weight_count() {
+            Ok(ModelV2 { weights })
+        } else {
+            Err(weights.len())
+        }
+    }
+
+    pub fn shape(&self) -> ModelShapeV2 { ModelShapeV2::CURRENT }
+    pub fn weights(&self) -> &[f32] { &self.weights }
+    pub fn weights_mut(&mut self) -> &mut [f32] { &mut self.weights }
+    pub fn len(&self) -> usize { self.weights.len() }
+    pub fn is_empty(&self) -> bool { self.weights.is_empty() }
+
+    pub fn forward(
+        &self,
+        features: &[f32; LEARN_V2_FEATURE_COUNT],
+        hidden: &mut [f32; HIDDEN_UNITS],
+        logits: &mut [f32; LEARN_V2_ACTION_LOGITS],
+    ) {
+        let shape = ModelShapeV2::CURRENT;
+        let first = shape.inputs * shape.hidden;
+        let hidden_end = first + shape.hidden;
+        let second = hidden_end + shape.hidden * shape.outputs;
+        let (w1, rest) = self.weights.split_at(first);
+        let (b1, rest) = rest.split_at(shape.hidden);
+        let (w2, b2) = rest.split_at(second - hidden_end);
+        for (unit, slot) in hidden.iter_mut().enumerate() {
+            let row = &w1[unit * shape.inputs..(unit + 1) * shape.inputs];
+            let mut sum = b1[unit];
+            for (weight, feature) in row.iter().zip(features.iter()) { sum += weight * feature; }
+            *slot = if sum > 0.0 { sum } else { 0.0 };
+        }
+        for (out, slot) in logits.iter_mut().enumerate() {
+            let row = &w2[out * shape.hidden..(out + 1) * shape.hidden];
+            let mut sum = b2[out];
+            for (weight, activation) in row.iter().zip(hidden.iter()) { sum += weight * activation; }
+            *slot = sum;
+        }
+    }
+}
+
 /// A uniform draw in `[-1, 1)` from the repository's integer RNG.
 ///
 /// Built from `next_u32` rather than from [`fx::Rng::signed_unit`] because that
@@ -1123,11 +1327,68 @@ impl ArticulatedPolicy for LearnedArticulatedPolicy {
     }
 }
 
+/// Frozen tactical inference wrapped around the fixed-point strike controller.
+#[derive(Clone, Debug)]
+pub struct LearnedTacticalPolicyV2 {
+    model: ModelV2,
+    features: [f32; LEARN_V2_FEATURE_COUNT],
+    hidden: [f32; HIDDEN_UNITS],
+    logits: [f32; LEARN_V2_ACTION_LOGITS],
+    memory: FeatureMemory,
+    planner: StrikePlanner,
+    selected: TacticalIntentV1,
+}
+
+impl LearnedTacticalPolicyV2 {
+    pub fn new(model: ModelV2) -> LearnedTacticalPolicyV2 {
+        LearnedTacticalPolicyV2 {
+            model,
+            features: [0.0; LEARN_V2_FEATURE_COUNT],
+            hidden: [0.0; HIDDEN_UNITS],
+            logits: [0.0; LEARN_V2_ACTION_LOGITS],
+            memory: FeatureMemory::EMPTY,
+            planner: StrikePlanner::default(),
+            selected: TacticalIntentV1::Close,
+        }
+    }
+
+    pub fn model(&self) -> &ModelV2 { &self.model }
+    pub fn planner(&self) -> &StrikePlanner { &self.planner }
+    pub fn last_features(&self) -> &[f32; LEARN_V2_FEATURE_COUNT] { &self.features }
+
+    /// Returns the newly sampled action, or `None` while the controller owns a
+    /// chamber/commit/recovery sequence.
+    pub fn action(&mut self, obs: &ArticulatedObservation) -> Option<LearnedActionV2> {
+        let context = self.planner.observe(obs);
+        self.memory = write_features_v2(obs, self.memory, context, &mut self.features);
+        if !self.planner.can_sample_intent() {
+            return None;
+        }
+        self.model.forward(&self.features, &mut self.hidden, &mut self.logits);
+        let action = LearnedActionV2::from_logits(&self.logits);
+        self.selected = action.intent();
+        Some(action)
+    }
+}
+
+impl ArticulatedPolicy for LearnedTacticalPolicyV2 {
+    fn decide(&mut self, obs: &ArticulatedObservation) -> ArticulatedCommandV1 {
+        self.action(obs);
+        self.planner.decide_with_intent(obs, self.selected)
+    }
+
+    fn reset(&mut self) {
+        self.memory = FeatureMemory::EMPTY;
+        self.planner.reset();
+        self.selected = TacticalIntentV1::Close;
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use policy::{scripted_articulated_command, GUARD_LEAD_TICKS, HEIGHT_TICKS, PHASE_TICKS};
-    use sim::EntityId;
+    use policy::{scripted_articulated_command, TacticalPhase, GUARD_LEAD_TICKS, HEIGHT_TICKS, PHASE_TICKS};
+    use sim::{EntityId, RegionVolume};
 
     /// A Fighter looking east with a Brute four units due east: shield left,
     /// sword right. The same fixture `articulated_script`'s tests use, so the
@@ -1632,5 +1893,129 @@ mod tests {
         // The two heads that do survive: the weapon height and the guard.
         assert_eq!(command.arms[1].height, CombatHeight::LOW);
         assert_eq!(command.arms[0].height, CombatHeight::HIGH);
+    }
+
+    #[test]
+    fn version_two_appends_without_repointing_a_version_one_feature() {
+        let mut obs = fighter_facing(17);
+        obs.body_yaw = Angle::from_degrees(30);
+        obs.blood_fraction = Fx::from_ratio(1, 8);
+        obs.shock = Fx::from_ratio(1, 4);
+        obs.integrity_fraction = [
+            Fx::from_ratio(1, 5), Fx::from_ratio(2, 5), Fx::from_ratio(3, 5),
+            Fx::from_ratio(4, 5), Fx::ONE,
+        ];
+        obs.body_velocity = Vec3::new(Fx::from_ratio(1, 8), Fx::from_ratio(1, 16), Fx::ZERO);
+        obs.arms[0].hand = Vec3::new(Fx::from_ratio(1, 2), Fx::from_ratio(1, 4), Fx::from_ratio(3, 4));
+        obs.arms[0].fatigue = Fx::from_ratio(1, 3);
+        obs.arms[1].hand = Vec3::new(Fx::from_ratio(3, 4), -Fx::from_ratio(1, 4), Fx::ONE);
+        obs.arms[1].fatigue = Fx::from_ratio(2, 3);
+        obs.opponents[0].body_position = Vec3::new(Fx::from_int(3), Fx::from_int(2), Fx::ZERO);
+        obs.opponents[0].body_yaw = Angle::from_degrees(200);
+        obs.opponents[0].body_velocity = Vec3::new(Fx::from_ratio(1, 10), -Fx::from_ratio(1, 20), Fx::ZERO);
+        obs.opponents[0].contact_timing = Fx::from_ratio(3, 7);
+        obs.opponents[0].severed_mask = 0b00101;
+        obs.opponents[0].weapons[1] = Some(SegmentPose {
+            hilt: Vec3::new(Fx::from_ratio(5, 2), Fx::from_ratio(5, 2), Fx::ONE),
+            tip: Vec3::new(Fx::from_ratio(3, 2), Fx::from_int(3), Fx::from_ratio(11, 10)),
+            radius: Fx::from_ratio(1, 20),
+        });
+        obs.opponents[0].shield.present = true;
+        obs.opponents[0].shield.centre = Vec3::new(Fx::from_int(3), Fx::from_ratio(5, 2), Fx::from_ratio(9, 10));
+        let mut v2 = [0.0; LEARN_V2_FEATURE_COUNT];
+        let memory = FeatureMemory {
+            primed: true, tick: 16, hilt_height: 0.75, tip_range: 2.0,
+        };
+        let context = TacticalContextV1 { phase: TacticalPhase::Measure, plan: None, threat: None, opponent_recovering: false };
+        write_features_v2(&obs, memory, context, &mut v2);
+        // Independently frozen IEEE-754 words, not a comparison with
+        // `write_features`: both V2 and V1 use that function, so comparing its
+        // output with itself would stay green if two old columns traded places.
+        // This fixture makes all 41 columns nonzero, including both memory
+        // rates, and every value is sourced from a different observation field
+        // wherever the layout permits. A moved assignment therefore names its
+        // displaced index rather than merely changing an aggregate digest.
+        let expected_v1_bits = [
+            1065353216, 1064620288, 1049995264, 999996639, 1040187392,
+            1048576000, 1045220352, 1053608960, 1058642176, 1061997568,
+            1065353216, 1057937920, 3171490816, 1050589526, 3164100608,
+            1054168406, 1051372032, 1049965526, 3198697174, 1057896676,
+            1059760640, 1055310144, 1065318656, 1032026112, 3212581632,
+            1043454976, 1048335484, 3200191400, 1054567424, 1053609165,
+            1065353216, 1051927136, 1047302400, 1058828658, 1054511072,
+            1038764416, 1057896676, 1082130432, 1082130432, 1065353216,
+            1056964495,
+        ];
+        for (index, (&found, &expected)) in v2[..LEARN_FEATURE_COUNT]
+            .iter().zip(expected_v1_bits.iter()).enumerate()
+        {
+            assert_eq!(found.to_bits(), expected, "V1 feature {index} was repointed");
+        }
+        assert_eq!(LEARN_V2_FEATURE_COUNT, LEARN_FEATURE_COUNT + 10 + 3 + 5);
+        assert_eq!(ModelShapeV2::CURRENT, ModelShapeV2 { inputs: 59, hidden: 64, outputs: 26 });
+    }
+
+    #[test]
+    fn version_two_appends_intents_after_all_eighteen_old_logits() {
+        assert_eq!(LEARN_ACTION_LOGITS, 18);
+        assert_eq!(LEARN_V2_ACTION_LOGITS, LEARN_ACTION_LOGITS + TACTICAL_INTENT_COUNT);
+        for intent in 0..TACTICAL_INTENT_COUNT {
+            let mut logits = [0.0; LEARN_V2_ACTION_LOGITS];
+            logits[LEARN_ACTION_LOGITS + intent] = 1.0;
+            assert_eq!(LearnedActionV2::from_logits(&logits).tactical_intent, intent as u8);
+        }
+    }
+
+    #[test]
+    fn one_intent_runs_to_a_motor_boundary_before_the_next_is_sampled() {
+        let mut obs = fighter_facing(0);
+        obs.standing_height = Fx::from_ratio(9, 5);
+        obs.arm_length = Fx::ONE;
+        obs.hand_radius = Fx::from_ratio(1, 10);
+        obs.weapons[1] = Some(SegmentPose {
+            hilt: obs.body_position,
+            tip: Vec3::new(Fx::from_int(2), Fx::ZERO, Fx::from_ratio(9, 10)),
+            radius: Fx::from_ratio(1, 20),
+        });
+        obs.opponents[0].body_position = Vec3::new(Fx::from_ratio(5, 2), Fx::ZERO, Fx::ZERO);
+        obs.opponents[0].regions[BodyPart::Torso as usize] = RegionVolume {
+            lower: Vec3::new(Fx::from_ratio(5, 2), Fx::ZERO, Fx::from_ratio(1, 2)),
+            upper: Vec3::new(Fx::from_ratio(5, 2), Fx::ZERO, Fx::from_ratio(13, 10)),
+            radius: Fx::from_ratio(1, 2), present: true,
+        };
+        let mut model = ModelV2::zeros();
+        let bias = model.len() - LEARN_V2_ACTION_LOGITS;
+        model.weights_mut()[bias + LEARN_ACTION_LOGITS + TacticalIntentV1::StrikeBest.index()] = 1.0;
+        let mut policy = LearnedTacticalPolicyV2::new(model);
+        policy.decide(&obs);
+        assert_eq!(policy.planner().phase(), TacticalPhase::Chamber);
+        obs.tick += 1;
+        assert_eq!(policy.action(&obs), None, "a chamber sampled a contradictory intent");
+    }
+
+    #[test]
+    fn mirrored_tactical_features_have_only_the_documented_sign_changes() {
+        let mut left = fighter_facing(9);
+        for (i, region) in left.opponents[0].regions.iter_mut().enumerate() {
+            *region = RegionVolume {
+                lower: Vec3::new(Fx::from_int(3 + i as i32), Fx::from_int(1), Fx::ZERO),
+                upper: Vec3::new(Fx::from_int(3 + i as i32), Fx::from_int(1), Fx::ONE),
+                radius: Fx::from_ratio(1, 4), present: true,
+            };
+        }
+        let mut right = left;
+        right.opponents[0].body_position.y = -right.opponents[0].body_position.y;
+        for region in &mut right.opponents[0].regions {
+            region.lower.y = -region.lower.y; region.upper.y = -region.upper.y;
+        }
+        let context = TacticalContextV1 { phase: TacticalPhase::Commit, plan: None, threat: None, opponent_recovering: false };
+        let mut a = [0.0; LEARN_V2_FEATURE_COUNT]; let mut b = [0.0; LEARN_V2_FEATURE_COUNT];
+        write_features_v2(&left, FeatureMemory::EMPTY, context, &mut a);
+        write_features_v2(&right, FeatureMemory::EMPTY, context, &mut b);
+        for part in 0..BodyPart::COUNT {
+            assert_eq!(a[41 + part * 2].to_bits(), (-b[41 + part * 2]).to_bits());
+            assert_eq!(a[42 + part * 2].to_bits(), b[42 + part * 2].to_bits());
+        }
+        assert_eq!(&a[51..], &b[51..]);
     }
 }

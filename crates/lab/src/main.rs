@@ -16,6 +16,7 @@ mod args;
 mod evolve;
 mod fitness;
 mod learn_probe;
+mod strike_corpus;
 mod trace;
 
 use args::Args;
@@ -25,7 +26,8 @@ use trace::{FightTrace, TraceRun};
 use fx::{Fx, Vec2};
 use policy::{
     run, script_digest, ArmRoles, ArticulatedPolicy, ClosingAttackControlPolicy, PolicyKind,
-    RunConfig, RunResult, ScriptedArticulatedPolicy, WindmillArticulatedPolicy,
+    RunConfig, RunResult, ScriptedArticulatedPolicy, TacticalArticulatedPolicy,
+    WindmillArticulatedPolicy,
 };
 use sim::{
     AnatomyChoice, Body, CombatHeight, ContactKind, DuelConfigV1, EntityId, Faction, Intent,
@@ -43,6 +45,7 @@ fn main() {
         "evolve" => evolution(&args),
         "duel" => duel(&args),
         "articulated" => articulated(&args),
+        "strike-corpus" => strike_corpus::strike_corpus(&args),
         "trace" => trace_fight(&args),
         "learn-probe" => learn_probe::learn_probe(&args),
         "" | "help" => usage(),
@@ -84,7 +87,7 @@ fn usage() {
           can beat a brute\" stops being an opinion.
 
   articulated --seeds N --threads N --mirrored --seed-zero-only
-              --policy composed|windmill --attack-moves
+              --policy composed|windmill|tactical --attack-moves
           Runs the pinned articulated duel fixture under the twelve-phase
           scripted policy, stopping at the first outcome or at tick 3600, and
           reports what the mechanics did with it. --mirrored adds the exact
@@ -97,7 +100,13 @@ fn usage() {
           which is the cell the reference table leaves unstated. Neither
           control is the reference script and neither may be pinned.
 
-  trace   --seed N --policy composed|windmill|learned --attack-moves --mirrored
+  strike-corpus --policy neutral|striker --seeds N --mirrored
+          Runs nine fixed approach offsets against stationary Fighter and
+          Brute targets and writes one CSV evidence row per case. A geometric
+          cross is the committed weapon sweep through the region the policy
+          named; contact and wound columns are recorded independently.
+
+  trace   --seed N --policy composed|windmill|tactical|learned --attack-moves --mirrored
           --ticks N --out PATH
           --checkpoint PATH --opponent P --phase-random   (--policy learned only)
           --fighter-a fighter|brute            --fighter-b fighter|brute
@@ -138,10 +147,12 @@ fn usage() {
           carrying.
 
   learn-probe train    --gens N --pop N --elite N --seeds N --sigma-pct N
+                       [--action-layout tactical-v2]
                        --threads N --master-seed N --ticks N --plain
                        --opponent composed|windmill|attack-moves --phase-random
                        --spec v2-probe --out PATH --quiet
   learn-probe evaluate --checkpoint PATH --seeds N --threads N --plain
+                       [--action-layout tactical-v2]
                        --opponent composed|windmill|attack-moves
                        --frozen-only --no-replay
           v2-19's learning probe. `train` evolves one small network against a
@@ -631,6 +642,7 @@ enum Script {
     Composed,
     Windmill,
     ClosingAttacks,
+    Tactical,
 }
 
 impl Script {
@@ -640,6 +652,7 @@ impl Script {
             Script::Composed => Box::new(ScriptedArticulatedPolicy),
             Script::Windmill => Box::new(WindmillArticulatedPolicy),
             Script::ClosingAttacks => Box::new(ClosingAttackControlPolicy),
+            Script::Tactical => Box::new(TacticalArticulatedPolicy::default()),
         }
     }
 
@@ -648,6 +661,7 @@ impl Script {
             Script::Composed => "the composed script",
             Script::Windmill => "the windmill control",
             Script::ClosingAttacks => "the composed script with closing attacks (control)",
+            Script::Tactical => "the tactical policy",
         }
     }
 
@@ -660,6 +674,7 @@ impl Script {
             Script::Composed => "composed",
             Script::Windmill => "windmill",
             Script::ClosingAttacks => "attack-moves",
+            Script::Tactical => "tactical",
         }
     }
 }
@@ -675,11 +690,19 @@ fn script_from(args: &Args) -> Script {
     match args.choice(
         "policy",
         Script::Composed,
-        &[("composed", Script::Composed), ("windmill", Script::Windmill)],
+        &[
+            ("composed", Script::Composed),
+            ("windmill", Script::Windmill),
+            ("tactical", Script::Tactical),
+        ],
     ) {
         Script::Composed if args.flag("attack-moves") => Script::ClosingAttacks,
         Script::Windmill if args.flag("attack-moves") => {
             eprintln!("--attack-moves edits the composed script; the windmill already walks");
+            std::process::exit(2);
+        }
+        Script::Tactical if args.flag("attack-moves") => {
+            eprintln!("--attack-moves edits the composed script; tactical decides its own feet");
             std::process::exit(2);
         }
         chosen => chosen,

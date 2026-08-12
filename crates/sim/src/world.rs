@@ -1588,6 +1588,14 @@ impl World {
                 }),
             }
         });
+        let mut weapons = [None; 2];
+        for limb in 0..2 {
+            let Some(item) = self.equipment_in_grip(i, limb) else { continue };
+            if item.binding == crate::GripBinding::Both && limb == LimbSlot::LeftArm as usize {
+                continue;
+            }
+            weapons[limb] = geometry::segment_pose(body, self.arms[i][limb], item);
+        }
 
         let stats = self.stats[i];
         let sight = stats.sight_range();
@@ -1657,6 +1665,10 @@ impl World {
             severed_mask: severed_mask_of(&state),
             opponent_count: seen.len() as u8,
             opponents,
+            standing_height: spec.standing_height,
+            arm_length: spec.arm_length,
+            hand_radius: spec.hand_radius,
+            weapons,
         }
     }
 
@@ -2205,6 +2217,28 @@ impl World {
     ///   does -- so taking the difference any earlier would charge a fighter for
     ///   the swing it meant to throw rather than the one it got.
     pub fn step(&mut self) -> &[Event] {
+        self.step_with_arm_rates(
+            actuator::ARM_BEARING_MAX_SPEED_RAW,
+            actuator::ARM_BEARING_ACCEL_RAW,
+        )
+    }
+
+    /// Drive one experimental Lab tick without putting the candidate rates in
+    /// scenario, replay, or authoritative state. The ordinary [`World::step`]
+    /// path cannot observe this seam and always supplies the production pair.
+    #[cfg(feature = "lab-calibration")]
+    pub fn step_with_arm_calibration(
+        &mut self, calibration: crate::ArmCalibration,
+    ) -> &[Event] {
+        self.step_with_arm_rates(
+            calibration.bearing_max_speed_raw,
+            calibration.bearing_accel_raw,
+        )
+    }
+
+    fn step_with_arm_rates(
+        &mut self, bearing_max_speed_raw: i32, bearing_accel_raw: i32,
+    ) -> &[Event] {
         #[cfg(test)]
         if self.phase_trace_enabled { self.phase_trace.push("clear events"); }
         self.events.clear();
@@ -2269,7 +2303,7 @@ impl World {
                 self.apply_articulated_grips();
                 #[cfg(test)]
                 if self.phase_trace_enabled { self.phase_trace.push("arms"); }
-                self.drive_articulated_arms();
+                self.drive_articulated_arms(bearing_max_speed_raw, bearing_accel_raw);
                 #[cfg(test)]
                 if self.phase_trace_enabled { self.phase_trace.push("geometry"); }
                 self.derive_articulated_geometry();
@@ -4508,7 +4542,7 @@ impl World {
         }
     }
 
-    fn drive_articulated_arms(&mut self) {
+    fn drive_articulated_arms(&mut self, bearing_max_speed_raw: i32, bearing_accel_raw: i32) {
         for i in 0..self.alive.len() {
             if !self.alive[i] { continue; }
             let command = self.articulated_command[i].unwrap_or_else(|| self.neutral_articulated(i));
@@ -4523,9 +4557,9 @@ impl World {
                 && right_item.is_some_and(|item| item.binding == crate::GripBinding::Both);
             if both {
                 self.arms[i][0].previous_hand = self.arms[i][0].hand;
-                let step = actuator::integrate_arm(
+                let step = actuator::integrate_arm_with_rates(
                     &mut self.arms[i][1], &anatomy, yaw, 1, command.arms[1], right_item,
-                    self.stats[i], self.arm_authority[i][1],
+                    self.stats[i], self.arm_authority[i][1], bearing_max_speed_raw, bearing_accel_raw,
                 );
                 actuator::bill_fatigue(
                     &mut self.arms[i][0], actuator::equipment_inertia(right_item), command.arms[1].effort, step,
@@ -4533,13 +4567,13 @@ impl World {
                 let right = self.arms[i][1];
                 actuator::mirror_two_handed(&mut self.arms[i][0], right, &anatomy, yaw);
             } else {
-                actuator::integrate_arm(
+                actuator::integrate_arm_with_rates(
                     &mut self.arms[i][0], &anatomy, yaw, 0, command.arms[0], left_item,
-                    self.stats[i], self.arm_authority[i][0],
+                    self.stats[i], self.arm_authority[i][0], bearing_max_speed_raw, bearing_accel_raw,
                 );
-                actuator::integrate_arm(
+                actuator::integrate_arm_with_rates(
                     &mut self.arms[i][1], &anatomy, yaw, 1, command.arms[1], right_item,
-                    self.stats[i], self.arm_authority[i][1],
+                    self.stats[i], self.arm_authority[i][1], bearing_max_speed_raw, bearing_accel_raw,
                 );
             }
         }
@@ -8521,6 +8555,38 @@ mod tests {
         assert_eq!(obs.severed_mask, 0);
         // The same observation through the public door, byte for byte.
         assert_eq!(world.observe(fighter).articulated, obs);
+    }
+
+    #[test]
+    fn an_articulated_observation_carries_the_subjects_reachable_weapon_geometry() {
+        let mut world = World::new(&Scenario::articulated_duel(), 1);
+        world.pos[0] = Vec2::new(Fx::from_ratio(37, 4), Fx::from_ratio(13, 8));
+        let fighter = EntityId::new(0, 0);
+        let obs = world.observe_articulated(fighter);
+        let spec = world.anatomy_spec(0).expect("the fighter has anatomy");
+        let pose = world.articulated_pose(fighter).expect("the fighter has a pose");
+
+        assert_eq!(
+            (obs.standing_height, obs.arm_length, obs.hand_radius),
+            (spec.standing_height, spec.arm_length, spec.hand_radius),
+        );
+        assert_eq!(obs.weapons, pose.weapons);
+        assert_eq!(obs.weapons[0], None, "a shield was published as a segment");
+        assert_eq!(
+            obs.weapons[1].expect("the fighter carries a sword").hilt,
+            obs.arms[1].hand,
+            "the observed blade is not reachable from the observed hand",
+        );
+    }
+
+    #[test]
+    fn observing_weapon_geometry_does_not_change_the_world_hash() {
+        let world = World::new(&Scenario::articulated_duel(), 17);
+        let before = world.state_hash();
+        let first = world.observe_articulated(EntityId::new(0, 0));
+        let second = world.observe_articulated(EntityId::new(0, 0));
+        assert_eq!(first.weapons, second.weapons);
+        assert_eq!(world.state_hash(), before);
     }
 
     #[test]

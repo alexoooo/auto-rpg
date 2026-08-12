@@ -207,9 +207,9 @@ proposal, not an omitted part of the current seam.
 
 ## Source anchors
 
-- Trait, team dispatch, and policy registry: [`Policy`](../../crates/policy/src/lib.rs#L94)
-- Non-legacy seam: [`ArticulatedPolicy`](../../crates/policy/src/lib.rs#L190)
-- The non-legacy seam's registry: [`ArticulatedPolicyKind`](../../crates/policy/src/lib.rs#L376)
+- Trait, team dispatch, and policy registry: [`Policy`](../../crates/policy/src/lib.rs#L100)
+- Non-legacy seam: [`ArticulatedPolicy`](../../crates/policy/src/lib.rs#L196)
+- The non-legacy seam's registry: [`ArticulatedPolicyKind`](../../crates/policy/src/lib.rs#L382)
 - Headless decision loops: [`crates/policy/src/runner.rs`](../../crates/policy/src/runner.rs)
 - Subject-scoped inputs: [`crates/sim/src/obs.rs`](../../crates/sim/src/obs.rs)
 - `Command`, the single `LimbCommand`, `Order`, and `Objective`: [`crates/sim/src/command.rs`](../../crates/sim/src/command.rs)

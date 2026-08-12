@@ -1,6 +1,8 @@
 # Smart articulated combat -- overview
 
-**Status:** proposed successor to the failed v2 mechanical and learning gates.
+**Status:** closed `revise`. Intentional region crossings landed, but the tactical
+moving-fight gate produced no body decisions; sessions 08 and 09 therefore did not
+train, promote, or create `ARTICULATED_HASH`.
 
 The arena currently makes two different failures look like one. A plain `#/arena`
 silently loads `/fight.json`, so its controls can describe the *next* fight while the
@@ -81,3 +83,12 @@ region, cross that region during its committed strike, recover, and decide at le
 guard or evade an incoming weapon and attack during recovery rather than flailing on
 a fixed clock. Session 09 freezes the final thresholds only after sessions 02--06
 show which metrics distinguish those behaviors.
+
+## Research successor
+
+The next learning question is not another direct joint controller. The
+[hierarchical combat learning plan](hierarchical-ai-00-overview.md) first measures a
+fixed catalog of `(loadout, strategy)` options, including several strategies for one
+loadout, and only trains a meta-policy if different options demonstrably lead in
+different contexts. It keeps encounter-level loadout selection separate from
+in-fight strategy switching and does not waive this plan's failed mechanical gate.

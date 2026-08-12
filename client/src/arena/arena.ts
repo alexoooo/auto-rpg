@@ -27,7 +27,7 @@
 // take down. So this returns an empty arena that says what it is waiting for,
 // and the fight arrives into a route that is already mounted or is already gone.
 //
-// **[Fight] runs the fight, since v2-ui-07.** It was a recording loader for two
+// **[Run selected fight] runs the fight, since v2-ui-07.** It was a recording loader for two
 // sessions and the picker said so in words; it now writes 120 bytes of
 // configuration, hands them to a worker, and adopts the pose, region and
 // combat-event buffers that come back. A trace is still watchable through the
@@ -50,7 +50,7 @@ import {
 import { ArenaClient, ArenaRefused } from "../runtime/arena-client.js";
 import { createSimWorker } from "../runtime/sim-worker.js";
 import {
-  arenaConfigOf, missingRecording, pickerControls, populatePolicies, readMatchup,
+  arenaConfigOf, checkpointCopy, missingRecording, pickerControls, populatePolicies, readMatchup,
   recordingMismatch, resolveRecording, review, showPolicies,
 } from "./picker.js";
 // Type-only, and that matters: a value import of `./scene.js` would pull Babylon
@@ -310,14 +310,14 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
   /**
    * The load in flight, or null.
    *
-   * One controller per load and not one per route, because [Fight] pressed
+   * One controller per load and not one per route, because [Run selected fight] pressed
    * twice is the same problem as a navigation: the second 8 MB fetch must
    * cancel the first rather than race it into `adopt`.
    */
   let inFlight: AbortController | null = null;
   let disposed = false;
   /**
-   * The worker that records live fights, built on the first [Fight] and reused.
+   * The worker that records live fights, built on the first [Run selected fight] and reused.
    *
    * One per mounted route rather than one per fight: instantiating `web.wasm`
    * and warming `init_articulated` costs more than the fight does. Null until
@@ -325,7 +325,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
    * pays for a wasm instantiation at all.
    */
   let arena: ArenaClient | null = null;
-  /** One token per [Fight]. Only the newest press may write to the panels. */
+  /** One token per [Run selected fight]. Only the newest press may write to the panels. */
   let fightAttempt = 0;
 
   // ---------------------------------------------------------------- the panels
@@ -566,9 +566,16 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
    */
   let showingTrace = false;
 
+  function matchupName(heroes: string, monsters: string, seed: number): string {
+    return `${heroes} vs ${monsters}, seed ${seed}`;
+  }
+
   function refreshPicker(): void {
     const matchup = readMatchup(container);
-    const verdict = review(matchup, showingTrace ? "recording" : "live");
+    // The button always runs the controls, even while the panels play a trace.
+    // Its validation and checkpoint note therefore stay live independently of
+    // the provenance of the fight already on screen.
+    const verdict = review(matchup, "live");
     // **Live while a recording runs**, so a second press cancels the first
     // rather than being swallowed. `ArenaClient.run` cancels and waits, and the
     // worker refuses a concurrent start by name -- a button that greyed itself
@@ -581,11 +588,21 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
       return;
     }
     // **Every sentence here is recomputed from the live controls**, and none of
-    // it is remembered from the last [Fight] or the last load. A remembered
+    // it is remembered from the last [Run selected fight] or the last load. A remembered
     // sentence is one that goes on naming a policy nobody has selected: the
     // reader changes the control that caused it, the message stays, and the
     // picker has started describing a matchup that no longer exists.
-    const parts = [...verdict.notes];
+    const parts: string[] = [];
+    if (loaded !== null) {
+      const header = loaded.source.header;
+      parts.push(`${showingTrace ? "Viewing recording" : "Viewing live fight"}: `
+        + `${matchupName(header.heroes, header.monsters, header.seed)}.`);
+      if (showingTrace && (header.heroes === "learned" || header.monsters === "learned")) {
+        parts.push(checkpointCopy("recording"));
+      }
+    }
+    parts.push(`Next fight: ${matchupName(matchup.a.policy, matchup.b.policy, matchup.seed)}.`);
+    parts.push(...verdict.notes);
     // Only while a *trace* is on screen. A live recording was built from these
     // exact controls, so a mismatch is impossible and printing "the recording's
     // own loadout is what is on screen" would be describing a disagreement that
@@ -649,7 +666,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
         + `than part of the application: npm run trace writes one into web/, .gitignore excludes `
         + `them because a fight is eight or nine megabytes of JSON, and the production bundle `
         + `deliberately carries the shell, the wasm and the room assets only. Nothing here is `
-        + `broken -- press Fight and this page will run the fight instead of loading one.`;
+        + `broken -- press Run selected fight and this page will run the fight instead of loading one.`;
     }
     if (error instanceof TraceSchemaMismatch) {
       // The refusal names the two-file contract it is half of; the command
@@ -670,7 +687,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
     try {
       const source = await loadTraceSource(url, attempt.signal);
       // An aborted load is one nobody is waiting for: either the route is down
-      // or a newer [Fight] owns these panels now, and both outcomes -- the
+      // or a newer [Run selected fight] owns these panels now, and both outcomes -- the
       // fight and the failure -- would be a stale answer overwriting the live
       // one. The abort is checked rather than `disposed` because the second
       // case is not a disposal at all.
@@ -694,7 +711,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
   }
 
   /**
-   * [Fight]: run the fight the picker describes, and scrub it.
+   * [Run selected fight]: run the fight the picker describes, and scrub it.
    *
    * **The whole series was for this one interaction.** 120 bytes of
    * configuration, one `arena_start`, one uninterrupted worker-side drive, and
@@ -715,7 +732,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
       return;
     }
     // A trace still downloading is a stale answer for these panels; the second
-    // [Fight] is cancelled inside `ArenaClient.run`, which waits for the first
+    // [Run selected fight] is cancelled inside `ArenaClient.run`, which waits for the first
     // to answer before posting.
     inFlight?.abort();
     arena ??= new ArenaClient(createSimWorker);
@@ -976,14 +993,20 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
   // came back would start a second load beside the first with nothing able to
   // stop either. The route mounts empty, says so, and fills in.
   //
-  // **The `/fight.json` fallback is kept, and v2-ui-07 nearly removed it.** A
-  // route whose [Fight] runs the fight has no need to open on an 8 MB fetch that
-  // 404s in a shipped build and in a fresh clone alike -- but a development tree
-  // that has run `npm run trace` opens on the recorded fight, and a recording is
-  // the only source that has contact velocities and impulses in it. What changed
-  // instead is what the absence *says*: `explain` now points at the button
-  // rather than at a session that had not landed.
-  void load(params.get("trace") ?? "/fight.json");
+  // A recording is an explicit route choice. Plain `#/arena` is useful in a
+  // production build, where the large development-only JSON fixtures do not
+  // exist, and starts empty rather than making a doomed request for one.
+  if (params.has("trace")) {
+    const trace = params.get("trace") ?? "";
+    if (trace === "") {
+      status.textContent = "The trace query is empty; name a recording URL or remove trace to run a fight.";
+      status.classList.add("error");
+    } else {
+      void load(trace);
+    }
+  } else {
+    status.textContent = "Run a fight.";
+  }
 
   return {
     dispose(): void {

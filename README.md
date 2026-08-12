@@ -349,8 +349,12 @@ npm run dev                                       # builds release wasm, starts 
 
 Open the Vite origin at `/`. That is the studio: one page, two destinations behind
 hash routes — `#/game` is the diagnostic, `#/arena` takes two loadouts and a seed,
-runs that fight in a Worker of its own and lets you scrub it. Its TypeScript module
-graph requires Vite; `tools/serve.js`
+runs that fight in a Worker of its own and lets you scrub it. Plain `#/arena` opens
+without fetching a recording: the picker names the next matchup, and **Run selected
+fight** creates it. An explicit `#/arena?trace=/fight.json` plays that development
+recording while separately naming what the controls will run next; playback does not
+execute its AI, and a checkpoint digest identifies the weights used when the trace
+was made. Its TypeScript module graph requires Vite; `tools/serve.js`
 serves only the classic Canvas files and answers `/` with the legacy page instead.
 Both development and production host the studio and wasm artifact at the origin
 root as `/` and `/web.wasm`. See the

@@ -5940,7 +5940,8 @@ fn build_articulated_policy(
         ArticulatedPolicyKind::Neutral
         | ArticulatedPolicyKind::Composed
         | ArticulatedPolicyKind::Windmill
-        | ArticulatedPolicyKind::AttackMoves => {
+        | ArticulatedPolicyKind::AttackMoves
+        | ArticulatedPolicyKind::Tactical => {
             Err(ArenaRefusal::policy(ARENA_POLICY_UNAVAILABLE, index, kind.code()))
         }
     }
@@ -8294,10 +8295,10 @@ mod tests {
         }
 
         // "Named" is a different answer from "unknown", which is the whole
-        // reason the code is held rather than left free: `5` is a number nobody
+        // reason the code is held rather than left free: `6` is a number nobody
         // has heard of and `4` is a fighter waiting for its weights.
         write_arena_config(&config, [ArticulatedPolicyKind::Composed; 2]);
-        poke_arena_config(ARENA_HEADER_BYTES + ARENA_FIGHTER_POLICY, 5);
+        poke_arena_config(ARENA_HEADER_BYTES + ARENA_FIGHTER_POLICY, 6);
         assert_eq!(arena_start(3), ArenaRefusal::fighter(ARENA_UNKNOWN_POLICY, 0).packed());
 
         // And with a network in hand the same twenty bytes are taken, which is
@@ -8312,6 +8313,18 @@ mod tests {
             assert_eq!(arena_start(3) & 0xff, 1, "a loaded network was still refused");
             assert_eq!(arena_policy(side as u32), ArticulatedPolicyKind::Learned.code());
         }
+    }
+
+    #[test]
+    fn a_live_tactical_fight_needs_no_checkpoint_fetch() {
+        assert_eq!(checkpoint_installed(), 0);
+        let config = sim::DuelConfigV1::shipped();
+        write_arena_config(&config, [
+            ArticulatedPolicyKind::Tactical,
+            ArticulatedPolicyKind::Neutral,
+        ]);
+        assert_eq!(arena_start(23) & 0xff, 1);
+        assert_eq!(arena_policy(0), ArticulatedPolicyKind::Tactical.code());
     }
 
     /// The shipped artifact, the one `lab learn-probe evaluate` scores and the
@@ -14677,4 +14690,3 @@ mod tests {
         assert_eq!(spawn_template_slot(0), sim::ActionKind::Shortsword.code());
     }
 }
-

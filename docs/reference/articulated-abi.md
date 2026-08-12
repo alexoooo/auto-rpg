@@ -31,6 +31,10 @@ pub struct ArticulatedObservation {
     pub severed_mask: u8,
     pub opponent_count: u8,
     pub opponents: [ObservedOpponent; 6],
+    pub standing_height: Fx,
+    pub arm_length: Fx,
+    pub hand_radius: Fx,
+    pub weapons: [Option<SegmentPose>; 2],
 }
 ```
 
@@ -39,6 +43,13 @@ weapon `4`, right weapon `5`, shield `6`, and two-handed binding `7`; higher bit
 zero in V1. `ObservedArm` is hand position, actuator target-hand position, hand velocity, fatigue, integrity
 fraction, severed flag, and equipment code. `ObservedShield` is presence, center,
 unit normal, and two half-extents.
+
+The three self dimensions and two self weapon poses are structured-observation
+views only. They expose the immutable anatomy row and the same current segment pose
+the renderer receives, so a policy can predict whether its own committed sweep is
+reachable. They are not serialized, hashed, or appended to `write_features`; the
+feature layout below remains version 12 and 922 columns. Subject weapon ownership is
+the pose rule: a two-handed segment occupies the right slot once.
 
 **Every position in these structs is world space**, including hands, target hands,
 weapon endpoints, region endpoints, and shield centres. This is the rule

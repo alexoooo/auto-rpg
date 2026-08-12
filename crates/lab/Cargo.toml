@@ -7,7 +7,7 @@ license.workspace = true
 
 [dependencies]
 fx = { path = "../fx" }
-sim = { path = "../sim" }
+sim = { path = "../sim", features = ["lab-calibration"] }
 policy = { path = "../policy" }
 # The one host `learn` is allowed to have, and this is the edge v2-19 said would
 # land when `lab learn-probe` did. It must never appear in `crates/web` -- and

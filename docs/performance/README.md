@@ -21,6 +21,9 @@ longer sample — and do not compare moving scenes as independent runs.
 - [v2 articulated actuator deterministic sweep](v2-actuator-sweep.md)
 - [v2 articulated mechanical gate result and open ledger](v2-articulated-gate.md)
 - [v2 learning probe held-out corpus, 2026-08-11](v2-learning-probe.md)
+- [smart AI actuator calibration](smart-ai-actuator-calibration.md)
+- [smart AI contact-energy rebilling](smart-ai-contact-energy.md)
+- [smart AI tactical-policy outcome](smart-ai-tactical-policy.md)
 
 The [v2 renderer reference matrix](v2-reference-matrix.md#measurement-record)
 predeclares the visible-foreground environment, automated and manual correctness
@@ -39,6 +42,7 @@ least once and directed the project to proceed with Babylon.
 | v2 arena presentation | automated agreement, severance, missing-asset degradation and silhouette-arithmetic gates complete; foreground frame time and visual judgements pending a person at a visible browser | [arena matrix](v2-arena-matrix.md#foreground-performance-record) and [why these are blocked](v2-arena-matrix.md#why-these-are-blocked-rather-than-skipped) | pending; a blocked criterion is not a pass |
 | v2 articulated mechanics | checkpoints A/B complete; worker fixtures, visible review, and pin not started | [measured result and ledger](v2-articulated-gate.md#measured-outcome) and [future gate contract](../reference/articulated-mechanical-gate.md) | failed/revise; `ARTICULATED_HASH` remains absent |
 | v2 learning probe | trained checkpoint and paired held-out evaluation complete | [held-out corpus](v2-learning-probe.md) | `revise`; best condition on both boards, but the 5% bar was not cleared |
+| smart articulated combat | sessions 04--05 and 06 closed `revise`; V2 learning contract present but no training or promotion authorized | [actuator calibration](smart-ai-actuator-calibration.md), [contact-energy rebilling](smart-ai-contact-energy.md), and [tactical-policy outcome](smart-ai-tactical-policy.md) | intentional crossings pass, but 0 of 20 moving fights were body-decided; sessions 08--09 did not run and `ARTICULATED_HASH` remains absent |
 
 The current conclusion is architectural: Canvas is the playable reference/debug
 renderer, while the GPU client supplies both a procedural control and the pinned

@@ -4,7 +4,7 @@
 // **Built against session 04's constraints in the session before it.** The
 // failure this avoids is 04 inheriting a control that cannot express its own
 // rules -- a picker that offers an empty-handed fighter is a picker whose only
-// honest answer to [Fight] is a `CombatSpecError` from Rust, arriving after the
+// honest answer to [Run selected fight] is a `CombatSpecError` from Rust, arriving after the
 // reader has already committed. Two rules are decided by code that is already
 // written, so they are encoded here rather than discovered later:
 //
@@ -19,7 +19,7 @@
 //     was refused for a live fight and offered only for a recorded one. **That
 //     is over**: v2-ui-08 split an inference-only `learn-core`, landed policy
 //     code 4 and shipped `checkpoints/v2-probe.ckpt` at a URL, and v2-ui-07
-//     wired the fetch. All five policies now run live. What is left of the old
+//     wired the fetch. Every policy now runs live. What is left of the old
 //     rule is a *note* rather than a refusal -- the weights are a fetch, and a
 //     fetch can fail in ways the other four cannot.
 //
@@ -66,7 +66,7 @@ export interface PolicyOption {
 }
 
 /**
- * The five policies, in the order a reader meets them.
+ * The six policies, in append-only code order.
  *
  * The labels carry the constraint rather than a tooltip carrying it, because a
  * disabled-looking option a reader has to hover to understand is an option they
@@ -78,12 +78,21 @@ export const POLICIES: readonly PolicyOption[] = [
   { code: "windmill", label: "windmill", live: true },
   { code: "attack-moves", label: "attack-moves", live: true },
   { code: "learned", label: "learned (fetches a checkpoint)", live: true, fetches: "/checkpoints/v2-probe.ckpt" },
+  { code: "tactical", label: "tactical", live: true },
 ];
 
 export type PolicyCode = string;
 
-/** Which way [Fight] is being asked to produce a fight. */
+/** Which arena context is asking for checkpoint and validation copy. */
 export type FightMode = "recording" | "live";
+
+/** Why a checkpoint matters in each of the arena's two independent contexts. */
+export function checkpointCopy(mode: FightMode): string {
+  return mode === "live"
+    ? "Live learned fighter: loads checkpoints/v2-probe.ckpt and runs those weights."
+    : "Recorded fight: playback does not run AI; the digest identifies the weights used "
+      + "when the recording was made.";
+}
 
 export interface SideChoice {
   readonly anatomy: AnatomyCode;
@@ -138,7 +147,7 @@ export function review(matchup: Matchup, mode: FightMode): Review {
     const policy = POLICIES.find((option) => option.code === side.policy);
     if (policy === undefined) {
       return {
-        refusal: `${label} is set to ${side.policy}, which is not one of the five articulated `
+        refusal: `${label} is set to ${side.policy}, which is not one of the six articulated `
           + `policy codes. The picker and ArticulatedPolicyKind are two halves of one `
           + `vocabulary, so this means one of them moved.`,
         notes: [],
@@ -157,14 +166,10 @@ export function review(matchup: Matchup, mode: FightMode): Review {
     // refuses with ARENA_NO_CHECKPOINT, which is "fetch one" rather than
     // "rebuild the module". Saying which file is what makes that actionable.
     if (policy.fetches !== undefined && notes.length === 0 && mode === "live") {
-      notes.push(`${policy.code} is a trained network rather than a script, so this fight `
-        + `fetches ${policy.fetches} first -- fifteen kilobytes, committed, and copied into the `
-        + `production build. The fight is refused by name if it cannot be installed.`);
+      notes.push(checkpointCopy("live"));
     }
     if (policy.fetches !== undefined && notes.length === 0 && mode === "recording") {
-      notes.push(`${policy.code} names the checkpoint a recording was made from, and the status `
-        + `line prints its digest -- which is what says whether the fight on screen is running `
-        + `the fighter the trace was recorded from.`);
+      notes.push(checkpointCopy("recording"));
     }
   }
   return { refusal: null, notes };
@@ -185,7 +190,7 @@ export function review(matchup: Matchup, mode: FightMode): Review {
 export function arenaConfigOf(matchup: Matchup): ArenaConfig {
   const fighter = (side: SideChoice, index: 0 | 1) => {
     const policy = policyCodeOf(side.policy);
-    // `review` refuses an unknown policy before [Fight] is enabled, so this is
+    // `review` refuses an unknown policy before [Run selected fight] is enabled, so this is
     // unreachable from the controls -- and it throws rather than defaulting,
     // because a silent `0` would run `neutral` under another name's label.
     if (policy === null) throw new Error(`${side.policy} is not an articulated policy code`);
@@ -218,7 +223,7 @@ export interface Recording {
  * copy allowlist carries none of them, so these URLs 404 in a shipped build and
  * in a fresh clone alike.
  *
- * **[Fight] no longer reads this table**, since v2-ui-07: it runs the fight the
+ * **[Run selected fight] does not read this table**, since v2-ui-07: it runs the fight the
  * picker describes. What is left for these to serve is the `?trace=` deep link,
  * which is how a fight recorded by `lab trace` -- with its contact velocities,
  * its impulses and its group alphas, none of which the published event row
@@ -258,27 +263,27 @@ export function recordingCommand(matchup: Matchup): string | null {
     return `${base} --policy learned --checkpoint checkpoints/v2-probe.ckpt --opponent ${b}`;
   }
   if (a !== b) return null;
-  if (a === "composed" || a === "windmill") return `${base} --policy ${a}`;
+  if (a === "composed" || a === "windmill" || a === "tactical") return `${base} --policy ${a}`;
   if (a === "attack-moves") return `${base} --policy composed --attack-moves`;
   return null;
 }
 
-/** What to say when [Fight] resolves to no recording, naming what would make one. */
+/** What to say when no recording matches the controls, naming what would make one. */
 export function missingRecording(matchup: Matchup): string {
   const pairing = `No recording pairs ${matchup.a.policy} on Fighter A against `
     + `${matchup.b.policy} on Fighter B`;
   const command = recordingCommand(matchup);
   if (command === null) {
     return `${pairing}, and no lab trace command produces one: --policy takes composed, `
-      + `windmill or learned, --attack-moves edits composed, and it runs one script on both `
-      + `sides unless the policy is learned. Press Fight to run this pairing live instead.`;
+      + `windmill, tactical or learned, --attack-moves edits composed, and it runs one policy on both `
+      + `sides unless the policy is learned. Press Run selected fight to run this pairing live instead.`;
   }
   const pair = matchup.a.policy === matchup.b.policy
     ? matchup.a.policy
     : `${matchup.a.policy}-vs-${matchup.b.policy}`;
   const file = `web/fight-${pair}.json`;
   return `${pairing}. Record one with: ${command} --out ${file} -- then open it with `
-    + `#/arena?trace=/${file.slice("web/".length)}. Press Fight to run this pairing live instead.`;
+    + `#/arena?trace=/${file.slice("web/".length)}. Press Run selected fight to run this pairing live instead.`;
 }
 
 export interface RecordedSide {
@@ -331,13 +336,21 @@ export function recordingMismatch(matchup: Matchup, header: FightHeader): string
     differing.push(describeSide(label, recorded));
   });
   const seedDiffers = matchup.seed !== header.seed;
-  if (differing.length === 0 && !seedDiffers) return null;
+  const policyDiffers = matchup.a.policy !== header.heroes || matchup.b.policy !== header.monsters;
+  if (differing.length === 0 && !seedDiffers && !policyDiffers) return null;
 
-  const parts = [...differing];
-  if (seedDiffers) parts.push(`it was run at seed ${header.seed}`);
-  return `The recording's own loadout is what is on screen: ${parts.join(", and ")}. A recorded `
+  const parts: string[] = [];
+  if (policyDiffers) {
+    parts.push(`The recording still on screen is ${header.heroes} vs ${header.monsters}; `
+      + `the controls describe ${matchup.a.policy} vs ${matchup.b.policy}`);
+  }
+  if (differing.length !== 0) {
+    parts.push(`The recording's own loadout is what is on screen: ${differing.join(", and ")}`);
+  }
+  if (seedDiffers) parts.push(`The recording was run at seed ${header.seed}`);
+  return `${parts.join(". ")}. A recorded `
     + `fight is fixed, so these controls describe a different fight from the one being played. `
-    + `Press Fight to run the one they describe.`;
+    + `Press Run selected fight to run the one they describe.`;
 }
 
 function code<T extends string>(known: readonly T[], value: string, where: string): T {

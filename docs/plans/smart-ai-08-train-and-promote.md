@@ -1,7 +1,25 @@
 # Smart AI 08 -- train, evaluate, then promote
 
+**Status:** revise -- training and promotion were not authorized.
+
 **Goal:** spend training time on tactical decisions and replace the browser’s shipped
 learned checkpoint only if held-out behavior is materially better.
+
+## Outcome
+
+Session 07 landed the opt-in V2 layout and native probe seam, but it did not authorize
+a training run or browser promotion. The prerequisite behavior also failed: session
+06 crossed intended regions with legal commands, yet none of its 20 measured moving
+fights was decided by a body before the tick limit, against the required 95 of 100
+decisions by tick 1,800. Sessions 04 and 05 both closed `revise`, so neither faster
+actuators nor contact-floor rebilling supplied a mechanically successful corpus for
+this session to train against.
+
+No training command below was run. No checkpoint was created or installed, browser
+policy code 4 remains on V1, and `LEARNED_INFERENCE_DIGEST` remains unchanged. A
+successor may reopen training only after a measured tactical corpus passes the
+session-06 outcome gate; the presence of the V2 contract alone is not evidence that
+the target behavior exists.
 
 ## Curriculum fixed before training
 
@@ -37,7 +55,8 @@ Promote only when all are true:
 - no anatomy/handedness cell falls more than 10 win-rate points below its aggregate;
 - native and wasm produce the same new inference digest.
 
-On failure, commit the evidence to `docs/performance/v2-learning-tactical.md`, leave
+On a completed evaluation failure, commit the evidence to
+`docs/performance/v2-learning-tactical.md`, leave
 `checkpoints/v2-probe.ckpt` and browser code 4 untouched, and close `revise`.
 
 On pass, atomically install the v2 checkpoint at `checkpoints/v2-probe.ckpt`, make

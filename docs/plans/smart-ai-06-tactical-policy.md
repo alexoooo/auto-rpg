@@ -1,5 +1,22 @@
 # Smart AI 06 -- turn the striker into a fighter
 
+**Status:** revise. The registry/browser wiring and tactical
+controller are landed in the working tree. The stationary corpus names and crosses a
+region with zero command or solver refusals in the more than 400 rows sampled before
+the 120-second command timeout; a complete 100-seed corpus was not recorded. Session
+05 is closed `revise`: its offline ledger found that rebilling the same insufficient
+energy cannot explain the missing wounds, so there is no pending mechanics change to
+wait for. `Seek` advances along the subject's observed body yaw until an opponent
+enters perception -- the shipped fixture faces the two combatants at one another, so
+this requires no hidden spawn knowledge. Measured over 10 mirrored seeds after that
+correction, tactical-versus-tactical produced 34,386 resolutions, zero command
+refusals, three severances and 20 point decisions at the tick limit; it still produced
+no body-decided fight. The controller therefore passes the intentional-crossing and
+refusal portions of the gate and fails the load-bearing `95/100` body decisions before
+tick 1,800. That threshold is unchanged: session 06 records a mechanically active
+tactical baseline and needs a new hypothesis rather than calling point decisions
+competence.
+
 **Goal:** add an arena policy that seeks measure, commits deliberate strikes, responds
 to incoming weapons, and exploits recovery windows.
 
@@ -77,4 +94,3 @@ node --test tools/wasm_check.js
 node tools/check_docs.js
 git diff --check
 ```
-

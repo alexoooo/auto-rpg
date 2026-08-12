@@ -63,6 +63,7 @@
 #![forbid(unsafe_code)]
 
 mod articulated_script;
+mod articulated_tactics;
 mod duelist;
 mod genome;
 mod minds;
@@ -76,6 +77,11 @@ pub use articulated_script::{
     windmill_articulated_command, ArmRoles, AttackFootwork, ClosingAttackControlPolicy,
     ScriptedArticulatedPolicy, WindmillArticulatedPolicy, CYCLE_TICKS, EIGHTH_TURN,
     GUARD_LEAD_TICKS, HEIGHT_TICKS, PHASE_TICKS, SCRIPT_DIGEST_DOMAIN,
+};
+pub use articulated_tactics::{
+    StrikeDiagnostics, StrikePlan, StrikePlanner, StrikerArticulatedPolicy,
+    TacticalArticulatedPolicy, TacticalContextV1, TacticalIntentV1, TacticalPhase,
+    ThreatAssessmentV1, TACTICAL_INTENT_COUNT, TACTICAL_PHASE_COUNT, TACTICAL_POLICY_CODE,
 };
 pub use duelist::{DuelistPolicy, DuelistWeights, Stance, DUELIST_GENOME_LEN};
 pub use genome::{PolicySpec, MAX_GENOME_LEN};
@@ -413,15 +419,18 @@ pub enum ArticulatedPolicyKind {
     /// that asked for the evolved network and silently got a body standing still
     /// would be watching a fight it would reasonably describe wrongly.
     Learned,
+    /// The observation-driven seek, defence and region-targeted strike controller.
+    Tactical,
 }
 
 impl ArticulatedPolicyKind {
-    pub const ALL: [ArticulatedPolicyKind; 5] = [
+    pub const ALL: [ArticulatedPolicyKind; 6] = [
         ArticulatedPolicyKind::Neutral,
         ArticulatedPolicyKind::Composed,
         ArticulatedPolicyKind::Windmill,
         ArticulatedPolicyKind::AttackMoves,
         ArticulatedPolicyKind::Learned,
+        ArticulatedPolicyKind::Tactical,
     ];
 
     pub const fn code(self) -> u32 {
@@ -431,6 +440,7 @@ impl ArticulatedPolicyKind {
             ArticulatedPolicyKind::Windmill => 2,
             ArticulatedPolicyKind::AttackMoves => 3,
             ArticulatedPolicyKind::Learned => 4,
+            ArticulatedPolicyKind::Tactical => TACTICAL_POLICY_CODE,
         }
     }
 
@@ -441,6 +451,7 @@ impl ArticulatedPolicyKind {
             2 => Some(ArticulatedPolicyKind::Windmill),
             3 => Some(ArticulatedPolicyKind::AttackMoves),
             4 => Some(ArticulatedPolicyKind::Learned),
+            TACTICAL_POLICY_CODE => Some(ArticulatedPolicyKind::Tactical),
             _ => None,
         }
     }
@@ -462,6 +473,7 @@ impl ArticulatedPolicyKind {
             ArticulatedPolicyKind::Windmill => "windmill",
             ArticulatedPolicyKind::AttackMoves => "attack-moves",
             ArticulatedPolicyKind::Learned => "learned",
+            ArticulatedPolicyKind::Tactical => "tactical",
         }
     }
 
@@ -478,6 +490,7 @@ impl ArticulatedPolicyKind {
             ArticulatedPolicyKind::Windmill => Some(Box::new(WindmillArticulatedPolicy)),
             ArticulatedPolicyKind::AttackMoves => Some(Box::new(ClosingAttackControlPolicy)),
             ArticulatedPolicyKind::Learned => None,
+            ArticulatedPolicyKind::Tactical => Some(Box::new(TacticalArticulatedPolicy::default())),
         }
     }
 }
@@ -521,7 +534,9 @@ mod tests {
         assert_eq!(ArticulatedPolicyKind::Windmill.code(), 2);
         assert_eq!(ArticulatedPolicyKind::AttackMoves.code(), 3);
         assert_eq!(ArticulatedPolicyKind::Learned.code(), 4);
-        assert_eq!(ArticulatedPolicyKind::from_code(5), None);
+        assert_eq!(ArticulatedPolicyKind::Tactical.code(), 5);
+        assert_eq!(ArticulatedPolicyKind::from_code(5), Some(ArticulatedPolicyKind::Tactical));
+        assert_eq!(ArticulatedPolicyKind::from_code(6), None);
         for kind in ArticulatedPolicyKind::ALL {
             assert_eq!(ArticulatedPolicyKind::from_code(kind.code()), Some(kind));
             assert_eq!(ArticulatedPolicyKind::from_name(kind.name()), Some(kind));

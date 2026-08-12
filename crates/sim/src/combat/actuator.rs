@@ -11,6 +11,21 @@ pub const ARM_MIN_REACH_RAW: i32 = 16_384;
 pub const FATIGUE_WORK_SCALE_RAW: i32 = 256;
 pub const FATIGUE_RECOVERY_RAW: i32 = 4;
 
+/// The two bearing rates varied by Lab's clean-strike experiment. This is not
+/// scenario or world state: ordinary stepping always supplies [`PRODUCTION_ARM_CALIBRATION`].
+#[cfg(feature = "lab-calibration")]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct ArmCalibration {
+    pub bearing_max_speed_raw: i32,
+    pub bearing_accel_raw: i32,
+}
+
+#[cfg(feature = "lab-calibration")]
+pub const PRODUCTION_ARM_CALIBRATION: ArmCalibration = ArmCalibration {
+    bearing_max_speed_raw: ARM_BEARING_MAX_SPEED_RAW,
+    bearing_accel_raw: ARM_BEARING_ACCEL_RAW,
+};
+
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct BodyYawState {
     pub angle: Angle,
@@ -170,7 +185,7 @@ fn chase(error: i32, speed: i32, max_speed: i32, acceleration: i32) -> (i32, i32
     (step, if step == error { 0 } else { next_speed })
 }
 
-pub(crate) fn integrate_arm(
+pub(crate) fn integrate_arm_with_rates(
     state: &mut ArmState,
     anatomy: &BodyAnatomySpec,
     yaw: Angle,
@@ -179,6 +194,8 @@ pub(crate) fn integrate_arm(
     item: Option<EquipmentSpec>,
     stats: Stats,
     authority: Fx,
+    bearing_max_speed_raw: i32,
+    bearing_accel_raw: i32,
 ) -> ArmStep {
     let reach_target = target.reach.clamp(Fx::from_raw(ARM_MIN_REACH_RAW), Fx::ONE);
     let bearing_error = target.bearing.delta(state.bearing);
@@ -195,9 +212,9 @@ pub(crate) fn integrate_arm(
     let agility = stat_factor(stats.agility);
     let available = ((((target.effort * authority) * (Fx::ONE - state.fatigue)) * power) / inertia)
         .clamp(Fx::ZERO, Fx::ONE);
-    let bearing_accel = (Fx::from_raw(ARM_BEARING_ACCEL_RAW) * available).raw().abs();
+    let bearing_accel = (Fx::from_raw(bearing_accel_raw) * available).raw().abs();
     let linear_accel = (Fx::from_raw(ARM_LINEAR_ACCEL_RAW) * available).raw().abs();
-    let bearing_max = (Fx::from_raw(ARM_BEARING_MAX_SPEED_RAW) * agility).raw().abs();
+    let bearing_max = (Fx::from_raw(bearing_max_speed_raw) * agility).raw().abs();
     let linear_max = (Fx::from_raw(ARM_LINEAR_MAX_SPEED_RAW) * agility).raw().abs();
 
     let (bearing_step, bearing_speed) = chase(bearing_error, entry_bearing_speed, bearing_max, bearing_accel);
@@ -278,6 +295,35 @@ pub(crate) fn mirror_two_handed(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    const ACTUATOR_CANDIDATES: [(i32, i32); 4] = [
+        (1_092, 182), (2_184, 364), (4_368, 728), (8_736, 1_456),
+    ];
+
+    #[test]
+    fn bearing_speed_reaches_the_selected_sweep_without_overshoot() {
+        for (max_speed, acceleration) in ACTUATOR_CANDIDATES {
+            let (mut error, mut speed) = (16_384, 0);
+            let mut previous = error;
+            for _ in 0..64 {
+                let (step, next_speed) = chase(error, speed, max_speed, acceleration);
+                assert!(step >= 0 && step <= error, "the bearing passed its target");
+                error -= step;
+                speed = next_speed;
+                assert!(error <= previous, "the selected sweep moved away from its target");
+                previous = error;
+                if error == 0 { break; }
+            }
+            assert_eq!((error, speed), (0, 0));
+        }
+    }
+
+    #[test]
+    fn the_selected_pair_preserves_the_measured_speed_to_acceleration_ratio() {
+        for (max_speed, acceleration) in ACTUATOR_CANDIDATES {
+            assert_eq!(max_speed, acceleration * 6);
+        }
+    }
 
     #[test]
     fn the_hand_inverse_recovers_a_reachable_pose_and_clamps_the_rest() {
@@ -372,17 +418,19 @@ mod tests {
             reach: Fx::from_raw(ARM_MIN_REACH_RAW),
             effort: Fx::ONE,
         };
-        let step = integrate_arm(
+        let step = integrate_arm_with_rates(
             &mut arm, &anatomy, Angle::ZERO, 0, target, None,
             Stats::new(20, 20, 0, 0, 0), Fx::ONE,
+            ARM_BEARING_MAX_SPEED_RAW, ARM_BEARING_ACCEL_RAW,
         );
         assert_eq!(step.delta_bearing_speed.raw(), -4_096, "snap did not bill final minus entry speed");
         assert_eq!((arm.bearing.raw(), arm.bearing_speed_turns.raw()), (1, 0));
         assert_eq!((arm.fatigue.raw(), arm.work_residue.raw()), (101, 255),
             "arrival tick recovered or the /256 quotient and residue drifted");
-        let idle = integrate_arm(
+        let idle = integrate_arm_with_rates(
             &mut arm, &anatomy, Angle::ZERO, 0, target, None,
             Stats::new(20, 20, 0, 0, 0), Fx::ONE,
+            ARM_BEARING_MAX_SPEED_RAW, ARM_BEARING_ACCEL_RAW,
         );
         assert!(idle.idle_at_entry);
         assert_eq!((arm.fatigue.raw(), arm.work_residue.raw()), (97, 255));
@@ -462,7 +510,10 @@ mod tests {
                     * stat_factor(stats.power)) / inertia).clamp(Fx::ZERO, Fx::ONE);
                 let capb = (Fx::from_raw(ARM_BEARING_ACCEL_RAW) * available).raw();
                 let capl = (Fx::from_raw(ARM_LINEAR_ACCEL_RAW) * available).raw();
-                integrate_arm(&mut arm, &anatomy, yaw, limb, target, item, stats, Fx::ONE);
+                integrate_arm_with_rates(
+                    &mut arm, &anatomy, yaw, limb, target, item, stats, Fx::ONE,
+                    ARM_BEARING_MAX_SPEED_RAW, ARM_BEARING_ACCEL_RAW,
+                );
                 writeln!(out, "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
                     tick, limb, target.bearing.raw(), target.height.raw(), target.reach.raw(), eb, eh, er,
                     entry.bearing_speed_turns.raw(), entry.height_speed.raw(), entry.reach_speed.raw(), capb, capl, capl,

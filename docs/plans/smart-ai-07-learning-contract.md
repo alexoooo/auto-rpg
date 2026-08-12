@@ -1,5 +1,8 @@
 # Smart AI 07 -- let learning choose tactics, not joint flailing
 
+**Status:** complete -- the V2 contract and opt-in native probe path are present;
+the unsuffixed V1 checkpoint, browser runtime, and inference digest remain unchanged.
+
 **Goal:** define a v2 learned action as a tactical intent executed by the proven
 fixed-point controller. Do not replace the shipped checkpoint or browser policy yet.
 

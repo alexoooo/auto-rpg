@@ -19,16 +19,27 @@ that remains.
 | work | state | dependency | hash expectation |
 |---|---|---|---|
 | [Representative Fighter and Brute rigs](v2-18-combatant-integration.md) | not started | a passed articulated mechanical gate | presentation-only: every legacy and articulated pin unchanged |
-| [Smart articulated combat](smart-ai-00-overview.md) | planned, session 01 next | make the arena truthful, prove region-targeted striking, calibrate mechanics, then train tactical intents | each session owns an explicit pin budget; `ARTICULATED_HASH` remains absent until its final gate |
+| [Smart articulated combat](smart-ai-00-overview.md) | closed `revise`; sessions 08 and 09 were not run | intentional crossings passed, but the tactical corpus produced 0 body decisions in 20 moving fights and failed its 95/100 by tick 1,800 gate | no training or promotion was authorized; `ARTICULATED_HASH` remains absent |
+| [Hierarchical combat learning](hierarchical-ai-00-overview.md) | proposed research successor | first prove that fixed `(loadout, strategy)` options have context-dependent headroom on a mechanically productive corpus | native research moves no pins; promotion is separately gated |
 | Visible browser evidence | blocked on a person using a foreground tab | follow the [arena matrix](../performance/v2-arena-matrix.md) and remaining [room matrix](../performance/v2-room-matrix.md) slots | no hashes move |
 
 `v2-18` stays blocked. Its rigs are presentation-only, but producing them around a
 mechanical model whose representative gate still times out in nearly every fight
 would turn an unresolved foundation into asset sunk cost.
 
+The smart-combat successor narrowed the failure without clearing it. Faster actuator
+candidates and contact-floor rebilling were both rejected by measurement. The
+tactical controller deliberately names and crosses opponent regions, but its 20-fight
+moving diagnostic produced zero body decisions before every run reached tick 3,600.
+The V2 learning contract exists only as an opt-in native seam; that contract did not
+authorize training a target whose behavioral gate failed. Sessions 08 and 09 therefore
+closed without training, checkpoint installation, final-gate implementation, or a new
+golden.
+
 The learning result authorizes revision only. It does not authorize scale, search,
-catalogs, hierarchy, browser training, GPU evaluation, or a Lab workbench. Each of
-those needs a new plan with its own baseline, threshold, and removal path.
+browser training, GPU evaluation, or a Lab workbench. Hierarchy now has a separate
+[research plan](hierarchical-ai-00-overview.md) with its own fixed-option baseline,
+thresholds, and stop paths; the plan does not itself authorize training or promotion.
 
 ## Current decisions and authorities
 

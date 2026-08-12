@@ -48,8 +48,10 @@
 //! composed script beats 330 times. A learned policy is being asked to beat a
 //! baseline that a control condition already beats by seventeen points.
 
-use learn_core::checkpoint::{Checkpoint, TrainingRecord};
-use learn_core::model::{uniform, LearnedArticulatedPolicy, Model};
+use learn_core::checkpoint::{Checkpoint, CheckpointV2, TrainingRecord};
+use learn_core::model::{
+    uniform, LearnedArticulatedPolicy, LearnedTacticalPolicyV2, Model, ModelV2,
+};
 use fx::{Fx, Rng};
 use policy::{
     ArticulatedPolicy, ArmRoles, ClosingAttackControlPolicy, RunConfig, ScriptedArticulatedPolicy,
@@ -979,6 +981,13 @@ pub fn score(model: &Model, corpus: &Corpus, config: &ProbeConfig) -> f32 {
     }
 }
 
+pub fn score_v2(model: &ModelV2, corpus: &Corpus, config: &ProbeConfig) -> f32 {
+    let mut policy = LearnedTacticalPolicyV2::new(model.clone());
+    let mut returns = Vec::with_capacity(corpus.trials(&config.seeds));
+    corpus.returns(&config.seeds, &mut policy, config.opponent, config.max_ticks, &mut returns);
+    if returns.is_empty() { 0.0 } else { returns.iter().sum::<f32>() / returns.len() as f32 }
+}
+
 /// Scores every candidate whose score is not already known.
 ///
 /// **The elites' scores are already known and re-scoring them is pure waste.**
@@ -1058,6 +1067,12 @@ fn mutate(parent: &Model, sigma: f32, rng: &mut Rng) -> Model {
     for weight in child.weights_mut() {
         *weight += gaussian(rng, sigma);
     }
+    child
+}
+
+fn mutate_v2(parent: &ModelV2, sigma: f32, rng: &mut Rng) -> ModelV2 {
+    let mut child = parent.clone();
+    for weight in child.weights_mut() { *weight += gaussian(rng, sigma); }
     child
 }
 
@@ -1176,6 +1191,70 @@ fn record(
         },
         model,
     }
+}
+
+fn score_population_v2(population: &[ModelV2], known: &[Option<f32>], config: &ProbeConfig) -> Vec<f32> {
+    let mut scores = vec![0.0; population.len()];
+    if population.is_empty() { return scores; }
+    let pending: Vec<usize> = (0..population.len()).filter(|&i| known.get(i).copied().flatten().is_none()).collect();
+    let mut computed = vec![0.0; pending.len()];
+    let chunk = pending.len().div_ceil(config.threads.max(1)).max(1);
+    std::thread::scope(|scope| {
+        for (indices, out) in pending.chunks(chunk).zip(computed.chunks_mut(chunk)) {
+            scope.spawn(move || {
+                let corpus = Corpus::new(config.mirrored);
+                for (slot, &i) in indices.iter().enumerate() { out[slot] = score_v2(&population[i], &corpus, config); }
+            });
+        }
+    });
+    for (slot, &i) in pending.iter().enumerate() { scores[i] = computed[slot]; }
+    for (i, carried) in known.iter().enumerate().take(population.len()) {
+        if let Some(value) = carried { scores[i] = *value; }
+    }
+    scores
+}
+
+pub fn train_v2(config: &ProbeConfig) -> CheckpointV2 {
+    train_with_v2(config, &mut |_, _| true)
+}
+
+pub fn train_with_v2(
+    config: &ProbeConfig,
+    watch: &mut dyn FnMut(u32, &CheckpointV2) -> bool,
+) -> CheckpointV2 {
+    let mut rng = Rng::new(config.master_seed);
+    let elite = config.elite.clamp(1, config.population.max(1));
+    let mut population: Vec<ModelV2> = (0..config.population.max(1)).map(|_| ModelV2::random(&mut rng)).collect();
+    let mut best = population[0].clone();
+    let mut best_score = f32::NEG_INFINITY;
+    let mut ran = 0;
+    let mut known = vec![None; population.len()];
+    for generation in 0..config.generations {
+        let scores = score_population_v2(&population, &known, config);
+        let mut ranking: Vec<usize> = (0..population.len()).collect();
+        ranking.sort_by(|&a, &b| scores[b].partial_cmp(&scores[a]).unwrap_or(std::cmp::Ordering::Equal).then(a.cmp(&b)));
+        let champion = ranking[0];
+        if scores[champion] > best_score { best_score = scores[champion]; best = population[champion].clone(); }
+        if config.verbose { println!("gen {generation:>3}  best={:>8.3}", scores[champion]); }
+        ran = generation + 1;
+        let checkpoint = record_v2(config, elite, ran, best_score, best.clone());
+        if !watch(ran, &checkpoint) { break; }
+        let elites: Vec<ModelV2> = ranking.iter().take(elite).map(|&i| population[i].clone()).collect();
+        let mut next = elites.clone();
+        let mut carried: Vec<Option<f32>> = ranking.iter().take(elite).map(|&i| Some(scores[i])).collect();
+        let mut parent = 0;
+        while next.len() < config.population { next.push(mutate_v2(&elites[parent % elites.len()], config.sigma, &mut rng)); carried.push(None); parent += 1; }
+        population = next; known = carried;
+    }
+    record_v2(config, elite, ran, best_score, best)
+}
+
+fn record_v2(config: &ProbeConfig, elite: usize, generations: u32, best_score: f32, model: ModelV2) -> CheckpointV2 {
+    CheckpointV2 { training: TrainingRecord {
+        generations, population: config.population as u32, elite: elite as u32, sigma: config.sigma,
+        master_seed: config.master_seed, seeds: config.seeds.clone(),
+        training_return: if best_score.is_finite() { best_score } else { 0.0 },
+    }, model }
 }
 
 #[cfg(test)]

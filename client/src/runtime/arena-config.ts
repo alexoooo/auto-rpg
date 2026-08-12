@@ -81,7 +81,7 @@ export const ARENA_MAX_TICKS = 60 * 60;
  * by the same sentence. Index is the code, so the array position is load-bearing.
  */
 export const ARENA_POLICY_NAMES = [
-  "neutral", "composed", "windmill", "attack-moves", "learned",
+  "neutral", "composed", "windmill", "attack-moves", "learned", "tactical",
 ] as const;
 export type ArenaPolicyName = (typeof ARENA_POLICY_NAMES)[number];
 

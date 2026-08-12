@@ -93,6 +93,8 @@ pub use combat::actuator::{
     ARM_MIN_REACH_RAW, BODY_YAW_ACCEL_RAW, BODY_YAW_MAX_SPEED_RAW,
     FATIGUE_RECOVERY_RAW, FATIGUE_WORK_SCALE_RAW,
 };
+#[cfg(feature = "lab-calibration")]
+pub use combat::actuator::{ArmCalibration, PRODUCTION_ARM_CALIBRATION};
 /// The behavioral contact proof, and only it. The collector, the resolver and
 /// the collider rows stay private: this is the one thing outside `sim` that has
 /// a reason to reach the contact solver before v2-15, and it is the browser

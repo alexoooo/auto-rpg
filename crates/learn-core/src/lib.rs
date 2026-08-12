@@ -128,16 +128,19 @@ pub mod digest;
 pub mod model;
 
 pub use checkpoint::{
-    hex, sha256, Checkpoint, CheckpointError, Sha256, TrainingRecord, CHECKPOINT_FORMAT_VERSION,
-    CHECKPOINT_MAGIC,
+    hex, sha256, Checkpoint, CheckpointError, CheckpointV2, CheckpointV2Error, Sha256,
+    TrainingRecord, CHECKPOINT_FORMAT_VERSION, CHECKPOINT_MAGIC,
 };
 pub use digest::{
     learned_inference_case, learned_inference_digest, LEARNED_INFERENCE_CASES,
     LEARNED_INFERENCE_DIGEST_DOMAIN,
 };
 pub use model::{
-    compose, write_features, FeatureMemory, Footwork, LearnedActionV1, LearnedArticulatedPolicy,
-    Model, ModelShape, Posture, FOOTWORK_COUNT, GUARD_HEIGHT_COUNT, HEAD_OFFSETS, HEAD_WIDTHS,
-    HIDDEN_UNITS, LEARN_ACTION_LAYOUT_VERSION, LEARN_ACTION_LOGITS, LEARN_FEATURE_COUNT,
-    LEARN_FEATURE_LAYOUT_VERSION, POSTURE_COUNT, WEAPON_BEARING_COUNT, WEAPON_HEIGHT_COUNT,
+    compose, write_features, write_features_v2, FeatureMemory, Footwork, LearnedActionV1,
+    LearnedActionV2, LearnedArticulatedPolicy, LearnedTacticalPolicyV2, Model, ModelShape,
+    ModelShapeV2, ModelV2, Posture, FOOTWORK_COUNT, GUARD_HEIGHT_COUNT, HEAD_OFFSETS,
+    HEAD_WIDTHS, HIDDEN_UNITS, LEARN_ACTION_LAYOUT_VERSION, LEARN_ACTION_LOGITS,
+    LEARN_FEATURE_COUNT, LEARN_FEATURE_LAYOUT_VERSION, LEARN_V2_ACTION_LAYOUT_VERSION,
+    LEARN_V2_ACTION_LOGITS, LEARN_V2_FEATURE_COUNT, LEARN_V2_FEATURE_LAYOUT_VERSION,
+    POSTURE_COUNT, WEAPON_BEARING_COUNT, WEAPON_HEIGHT_COUNT,
 };

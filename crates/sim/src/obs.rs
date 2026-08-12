@@ -458,6 +458,15 @@ pub struct ArticulatedObservation {
     /// first.
     pub opponent_count: u8,
     pub opponents: [ObservedOpponent; MAX_ARTICULATED_OPPONENTS],
+    /// Immutable body dimensions needed to reason about reach. These are
+    /// outward views of the subject's anatomy row; they are deliberately not
+    /// columns in the legacy feature vector.
+    pub standing_height: Fx,
+    pub arm_length: Fx,
+    pub hand_radius: Fx,
+    /// The subject's held segments in world space. Indexed like [`Self::arms`]
+    /// and following the same one-collider ownership rule as opponent weapons.
+    pub weapons: [Option<SegmentPose>; 2],
 }
 
 impl ArticulatedObservation {
@@ -534,6 +543,10 @@ impl ArticulatedObservation {
         severed_mask: 0,
         opponent_count: 0,
         opponents: [ObservedOpponent::BLANK; MAX_ARTICULATED_OPPONENTS],
+        standing_height: Fx::ZERO,
+        arm_length: Fx::ZERO,
+        hand_radius: Fx::ZERO,
+        weapons: [None; 2],
     };
 
     /// Whether this observation describes a body at all.
@@ -1650,6 +1663,13 @@ mod tests {
             severed_mask: 0b1_1111,
             opponent_count: MAX_ARTICULATED_OPPONENTS as u8,
             opponents: core::array::from_fn(|slot| foe(slot as i32)),
+            standing_height: Fx::from_int(2),
+            arm_length: Fx::from_ratio(3, 4),
+            hand_radius: Fx::from_ratio(1, 10),
+            weapons: [
+                Some(SegmentPose { hilt: origin + point(31), tip: origin + point(32), radius: Fx::from_ratio(1, 25) }),
+                None,
+            ],
         };
         obs
     }

@@ -1,5 +1,7 @@
 # Smart AI 05 -- charge contact energy at the right boundary
 
+**Status:** revise -- offline rebilling did not explain the missing wounds.
+
 **Goal:** change contact billing only if clean, fast region crossings still fail to
 produce proportionate wounds after actuator calibration.
 
@@ -8,6 +10,11 @@ is subtracted by [`channels`](../../crates/sim/src/combat/resolution.rs#L346) fr
 allocated contact fact on each tick. Session 04 evidence decides whether that is an
 actual bottleneck. If clean strikes wound and decide fights, close this session as
 “not required” with no code change.
+
+The session-04 calibration rejected every faster actuator pair, so there is no
+selected mechanically changed production corpus. This session evaluates the
+production-rate clean crossings; it does not combine a rejected actuator with a
+contact-rule edit.
 
 ## Re-derive before replacing
 
@@ -36,6 +43,17 @@ authoritative articulated state. A key is active while the same ordered collider
 appears on consecutive ticks; a one-tick absence ends it. Hash the count and sorted
 keys, reconstruct them naturally during replay, and refuse overflow instead of
 evicting by iteration order.
+
+## Outcome
+
+The complete offline table is in
+[`smart-ai-contact-energy.md`](../performance/smart-ai-contact-energy.md). Across
+3,600 first committed sweeps, rebilling once per continuous contact episode raises
+channel energy from 1,228 to 1,258 raw: 30 raw total, or 2.44%. Per-group billing is
+effectively identical to production because almost every retained attacker fact is
+already alone in its group. Episode billing does not turn these clean crossings into
+proportionate wounds and therefore does not win the decision. Production contact
+authority and every pin remain unchanged.
 
 ## Tests and pins
 

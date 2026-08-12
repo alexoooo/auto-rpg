@@ -34,6 +34,16 @@ whole weight vector: it samples, scores through the ordinary rollout harness, ke
 elites and mutates. There is no autodiff path, no backward pass and no tensor library,
 which is why the whole thing is a few hundred lines with zero external dependencies.
 
+Session smart-ai-07 also adds an unpromoted native-only tactical contract beside the
+shipped one: `ModelV2` is 59 x 64 x 26, with the 41 V1 features and 18 V1 logits
+preserved as prefixes. Its appended inputs describe opponent regions, the controller's
+threat assessment, and its tactical phase; its appended eight-way head chooses a
+`TacticalIntentV1` that `StrikePlanner` executes to a motor boundary. `CheckpointV2`
+validates those layouts independently, and `lab learn-probe ... --action-layout
+tactical-v2` is the only host. This is not the browser model and does not change the
+shipped checkpoint or `LEARNED_INFERENCE_DIGEST`; training and promotion are session
+smart-ai-08 work.
+
 ## The boundary, which did not move
 
 The premise that lets these two crates use floating point is that **nothing they

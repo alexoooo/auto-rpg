@@ -113,7 +113,9 @@ fn default_threads() -> usize {
 
 pub fn learn_probe(args: &Args) {
     match args.subcommand() {
+        "train" if tactical_v2(args) => train_tactical_v2(args),
         "train" => train(args),
+        "evaluate" if tactical_v2(args) => evaluate_tactical_v2(args),
         "evaluate" => evaluate(args),
         other => {
             if !other.is_empty() {
@@ -122,6 +124,17 @@ pub fn learn_probe(args: &Args) {
             eprintln!(
                 "usage: learn-probe train|evaluate  (see `lab help` for the flags)"
             );
+            std::process::exit(2);
+        }
+    }
+}
+
+fn tactical_v2(args: &Args) -> bool {
+    match args.text("action-layout") {
+        None => false,
+        Some("tactical-v2") => true,
+        Some(other) => {
+            eprintln!("--action-layout expects tactical-v2, got '{other}'");
             std::process::exit(2);
         }
     }
@@ -330,6 +343,79 @@ fn train(args: &Args) {
         "watch it:\n  cargo run --release -p lab -- trace --policy learned --checkpoint {} --seed 3",
         path.display()
     );
+}
+
+/// The session-07 path is opt-in until session 08 has trained and promoted an
+/// artifact. It deliberately writes only `CheckpointV2`; the default path and
+/// its checkpoint bytes remain V1.
+fn train_tactical_v2(args: &Args) {
+    check_spec(args);
+    let config = ProbeConfig {
+        generations: args.u32("gens", SPEC_GENERATIONS),
+        population: args.usize("pop", SPEC_POPULATION).max(2),
+        elite: args.usize("elite", SPEC_ELITE),
+        seeds: training_seeds(args.usize("seeds", SPEC_SEEDS).max(1)),
+        mirrored: !args.flag("plain"),
+        sigma: args.u32("sigma-pct", SPEC_SIGMA_PCT) as f32 / 100.0,
+        threads: args.usize("threads", default_threads()),
+        master_seed: args.number("master-seed", SPEC_MASTER_SEED),
+        max_ticks: match args.u32("ticks", 0) { 0 => None, ticks => Some(ticks) },
+        opponent: opponent_from(args),
+        verbose: !args.flag("quiet"),
+    };
+    let path = output_path(args);
+    if let Some(parent) = path.parent().filter(|p| !p.as_os_str().is_empty()) {
+        if let Err(error) = std::fs::create_dir_all(parent) {
+            eprintln!("could not create {}: {error}", parent.display()); std::process::exit(1);
+        }
+    }
+    println!("learn-probe train --action-layout tactical-v2");
+    println!("  {}x64x{} model, {} candidates, {} generations",
+        learn::LEARN_V2_FEATURE_COUNT, learn::LEARN_V2_ACTION_LOGITS,
+        config.population, config.generations);
+    let budget = std::time::Duration::from_secs(args.number("budget-seconds", 45 * 60));
+    let started = Instant::now();
+    let checkpoint = learn::train_with_v2(&config, &mut |generation, best| {
+        if let Err(error) = best.write_atomically(&path) {
+            eprintln!("could not write {}: {error}", path.display()); std::process::exit(1);
+        }
+        started.elapsed() < budget || generation >= config.generations
+    });
+    if let Err(error) = checkpoint.write_atomically(&path) {
+        eprintln!("could not write {}: {error}", path.display()); std::process::exit(1);
+    }
+    println!("  wrote {} ({})", path.display(), checkpoint.digest());
+    println!("  tactical V2 remains native-only and is not the shipped browser checkpoint");
+}
+
+fn load_checkpoint_v2(args: &Args) -> learn::CheckpointV2 {
+    let path = checkpoint_path(args);
+    match learn::CheckpointV2::read(&path) {
+        Err(error) => { eprintln!("could not read {}: {error}", path.display()); std::process::exit(1); }
+        Ok(Err(refusal)) => { eprintln!("{} is not a tactical V2 checkpoint: {refusal}", path.display()); std::process::exit(1); }
+        Ok(Ok(checkpoint)) => checkpoint,
+    }
+}
+
+fn evaluate_tactical_v2(args: &Args) {
+    check_spec(args);
+    let checkpoint = load_checkpoint_v2(args);
+    let seeds = held_out_seeds(args.usize("seeds", HELD_OUT_SEEDS).max(1));
+    let config = ProbeConfig {
+        generations: 0, population: 1, elite: 1, seeds,
+        mirrored: !args.flag("plain"), sigma: 0.0,
+        threads: args.usize("threads", default_threads()), master_seed: SPEC_MASTER_SEED,
+        max_ticks: match args.u32("ticks", 0) { 0 => None, ticks => Some(ticks) },
+        opponent: opponent_from(args), verbose: false,
+    };
+    let corpus = Corpus::new(config.mirrored);
+    let score = learn::score_v2(&checkpoint.model, &corpus, &config);
+    println!("learn-probe evaluate --action-layout tactical-v2");
+    println!("  checkpoint  {}", checkpoint_path(args).display());
+    println!("              sha256 {}", checkpoint.digest());
+    println!("  held out    {} tactical trials", corpus.trials(&config.seeds));
+    println!("  mean return {score:.3}");
+    println!("  promotion is session 08 work; the browser and unsuffixed runtime remain V1");
 }
 
 // ----------------------------------------------------------------- evaluation

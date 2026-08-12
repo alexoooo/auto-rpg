@@ -184,6 +184,21 @@ fn frozen_inference_allocates_nothing_after_warmup() {
 }
 
 #[test]
+fn frozen_tactical_inference_allocates_nothing_after_warmup() {
+    let mut rng = Rng::new(2028);
+    let mut policy = learn::LearnedTacticalPolicyV2::new(learn::ModelV2::random(&mut rng));
+    policy.decide(&facing(0));
+    let observations: Vec<ArticulatedObservation> = (1..=2_000).map(facing).collect();
+    let (last, allocations) = allocations_during(|| {
+        let mut last = None;
+        for obs in &observations { last = Some(policy.decide(obs)); }
+        last
+    });
+    assert!(last.is_some());
+    assert_eq!(allocations, 0, "two thousand tactical decisions asked the allocator for {allocations} blocks");
+}
+
+#[test]
 fn the_cross_target_digest_allocates_nothing() {
     // **The same claim about the other public entry into frozen inference, and
     // this one is a browser export.** `crates/web`'s
