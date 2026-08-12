@@ -12,14 +12,14 @@ Append one mode and one vector to each authoritative arm:
 ```rust
 pub struct ArmState {
     // existing fields remain in their existing order
-    pub post_contact_velocity: Vec3,
+    pub post_contact_com_velocity: Vec3,
     pub post_contact_active: bool,
 }
 ```
 
 `linear_velocity` keeps its published and hashed meaning: `hand - previous_hand`, the
-whole-tick endpoint displacement. `post_contact_velocity` is the body-relative
-Cartesian hand velocity immediately after the last contact group;
+whole-tick endpoint displacement. `post_contact_com_velocity` is the body-relative
+equipment centre-of-mass velocity immediately after the last contact group;
 it is meaningful only while `post_contact_active`. This separates the two quantities
 the retained TOI makes impossible to store in one field.
 
@@ -40,30 +40,34 @@ mutated collider hilt/decoded shield centre, not from `entry.hand + v_post`:
 previous_hand = tick_entry.hand
 hand = cartesian_hand_clamp(final_collider_hand)
 linear_velocity = hand - previous_hand
-post_contact_velocity = solved_equipment_COM_velocity
-                      - solved_body_velocity - velocity_offset
+post_contact_com_velocity = solved_equipment_COM_velocity
+                          - solved_body_velocity
 post_contact_active = true
 ```
 
 Only a held row whose own accumulator/direct response changed activates or replaces
 this state. A bystander row translated solely by its body delta does not acquire
 recoil. Body-only later groups preserve an already-active arm; a later direct group
-replaces it with that group's final body-relative hand velocity and offset, in canonical
+replaces it with that group's final body-relative equipment-COM velocity, in canonical
 group order.
 
 The retained control pins TOI `55704`, remaining `9832`, pre equipment-COM velocity
 `(332,6338,0)`, post equipment-COM velocity `(93,1757,0)`, and whole-tick COM
-displacement `(295,5650,0)`. The held segment's fixed `velocity_offset` must be pinned
-separately to derive hand velocity; a shield's zero-offset row is the control. A commit
-that treats COM velocity as hand velocity or writes either velocity into displacement
-must fail.
+displacement `(295,5650,0)`. The held segment's fixed `velocity_offset` is
+`(197,3768,0)`: the stored relative COM velocity is therefore `(2,-1,0)`, while the
+derived hand velocity is `stored_com_velocity - velocity_offset = (-195,-3769,0)`.
+A shield's zero-offset row is the control. Subtracting the old offset before storage
+would make the next scalar bearing change inject or remove COM momentum.
 
 On the next actuator tick, scalar bearing/height/reach remains the motor target. When
 the mode is active, chase the new forward hand target componentwise from the actual
-Cartesian hand. The initial speed is `post_contact_velocity`; acceleration and maximum
-speed are the existing arm linear limits after effort, authority, fatigue, power, and
-agility scaling. An exact crossing lands on the target with zero velocity and clears
-the mode. Otherwise the new hand is passed through the same Cartesian envelope used by
+Cartesian hand. First derive the inertial free hand velocity from the newly sampled
+offset: `free_hand_velocity = post_contact_com_velocity - next_velocity_offset`.
+Thus an offset change alone preserves the equipment COM velocity exactly. Motor
+acceleration then changes the relative COM velocity, with speed and acceleration
+bounded after effort, authority, fatigue, power, and agility scaling. An exact crossing
+lands on the target with zero relative COM velocity and clears the mode. Otherwise the
+new hand is passed through the same Cartesian envelope used by
 trial/commit, `linear_velocity` records its displacement, and the resulting velocity
 remains active. An envelope collision is dissipative: remove the rejected component,
 never reflect it, and include the widened numerator loss in the contact/motor energy
@@ -73,19 +77,21 @@ equipment inertia, and the velocity change, then prove Cartesian kinetic energy 
 not rise above that supplied work. A component chase or arbitrary decay without that
 ledger is not authority.
 
-The energy comparison remains at the equipment centre of mass. For a segment it uses
-`body + hand_velocity + next_velocity_offset`, including the scalar bearing drive's
-changed offset and all cross terms; `mass * |hand_velocity|^2` is not an admissible
-substitute. Two-handed equipment contributes only its right-owned row.
+The energy comparison remains at the equipment centre of mass. It uses
+`body + post_contact_com_velocity`; the changing offset is already cancelled by the
+derived free-hand velocity and must not be added a second time. `mass*|hand|^2` is not
+an admissible substitute. Two-handed equipment contributes only its right-owned row.
 
 Clearing is never silent. Exact target equality with zero velocity is ordinary motor
 completion. Severance, a contact cap, release/grip replacement, slot reuse, wall or
 envelope rejection classifies the removed widened kinetic numerator as named external
 dissipation in diagnostics before clearing the state; no branch may merely zero it.
 
-The test-only `CartesianVelocityState`/`cartesian_motor_step` pins bounded termination,
-axis-permutation equivariance, inactive canonical form, checked overflow, and no inactive
-teleport. The `cartesian-recoil` feature appends zero-initialized state fields and their
+The test-only `CartesianVelocityState`/`cartesian_motor_step` now stores relative COM
+velocity, derives the free hand by subtracting the new offset, and pins exact widened
+work, zero-acceleration conservation, axis-permutation equivariance, inactive canonical
+form, checked overflow, and no inactive teleport. The `cartesian-recoil` feature appends
+zero-initialized state fields and their
 fixed hash words so initialization and per-word mutation can compile in production
 shape without changing the default build. No contact, motor, clearing, or publication
 path reads those gated fields yet.
@@ -96,9 +102,9 @@ meaningful when both targets compile the same state grammar; a mixed-feature com
 is a configuration error, not a pin to re-record.
 
 Checkpoint B stops here. A componentwise chase is not an energy law. The motor must
-first define its checked supplied work, including equipment-COM velocity
-`body + hand + velocity_offset`, the offset change caused by simultaneous scalar
-bearing drive, and all cross terms. Until that law exists, wiring the field into World
+first define its checked supplied work at equipment-COM velocity
+`body + post_contact_com_velocity`, while proving that offset-to-hand conversion
+preserves that velocity exactly. Until that law exists, wiring the field into World
 would permit arbitrary decay or added energy. Consequently the retained actual solver,
 `after_group` anatomy, replay, mirror, wall, clear, and Lab gates remain deliberately
 unrun; this is `revise`, not a partial authority hidden behind a feature.

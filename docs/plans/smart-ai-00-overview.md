@@ -40,6 +40,9 @@ hide the failed gate or to start roster/content work.
 | [19](smart-ai-19-interior-contact-fixture.md) | bounded ordinary-command search for an interior mirrored contact fixture | 18 retained strike at joint boundary |
 | [20](smart-ai-20-cartesian-contact-response.md) | explicit Cartesian collision authority and deterministic scalar-control reconciliation | 18 and 19 `revise` |
 | [21](smart-ai-21-post-contact-velocity.md) | explicit post-contact velocity distinct from whole-tick hand displacement | 20 TOI state-shape `revise` |
+| [22](smart-ai-22-equipment-com-recoil-work.md) | widened equipment-centre motor work and recoil permission boundary | 21 energy-law `revise` |
+| [23](smart-ai-23-recoil-fatigue-ledger.md) | derive COM acceleration from existing authority and share the fatigue residue fold | 22 accounting `revise` |
+| [24](smart-ai-24-feature-gated-recoil-lifecycle.md) | feature-gated direct-contact commit and next-tick COM recoil lifecycle | 23 arithmetic `revise` |
 
 Sessions 04 and 05 are decision sessions. A rejected hypothesis lands its measurements
 and leaves the constants unchanged; it does not re-record goldens to make a theory look

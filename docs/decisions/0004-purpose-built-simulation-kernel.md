@@ -148,7 +148,7 @@ the radial normal and would contribute nothing even though it swept through the
 body. The magnitude correctly prices a cut. Body motion has a meaningful approach
 direction, so charging toward a blow adds to it and retreating subtracts from it.
 The current invariant is tested by
-[`impact_is_the_blade_plus_the_closing_and_backing_off_helps`](../../crates/sim/src/world.rs#L13990).
+[`impact_is_the_blade_plus_the_closing_and_backing_off_helps`](../../crates/sim/src/world.rs#L14241).
 
 ## Dependencies and the browser boundary
 
@@ -203,5 +203,5 @@ owned by [Determinism](../reference/determinism.md).
 - Current clamp rationale: [`agility_multiplier`](../../crates/sim/src/rules.rs#L253)
 - Exhaustive historical-bound cost guard: [`no_blade_can_outrun_the_smallest_body`](../../crates/sim/src/entity.rs#L319)
 - Current blade/body sweep: [`World::resolve_swings`](../../crates/sim/src/world.rs#L2797)
-- Impact magnitude/projection composition: [`World::impact_speed`](../../crates/sim/src/world.rs#L5472)
+- Impact magnitude/projection composition: [`World::impact_speed`](../../crates/sim/src/world.rs#L5540)
 - Browser buffer and ABI authority: [`browser-runtime.md`](../architecture/browser-runtime.md)

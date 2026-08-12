@@ -47,7 +47,7 @@ pub struct ArmState {
     pub fatigue: Fx,
     pub work_residue: Fx,
     #[cfg(feature = "cartesian-recoil")]
-    pub post_contact_velocity: Vec3,
+    pub post_contact_com_velocity: Vec3,
     #[cfg(feature = "cartesian-recoil")]
     pub post_contact_active: bool,
 }
@@ -78,10 +78,18 @@ pub(crate) fn tucked_arm(hand: Vec3) -> ArmState {
         fatigue: Fx::ZERO,
         work_residue: Fx::ZERO,
         #[cfg(feature = "cartesian-recoil")]
-        post_contact_velocity: Vec3::ZERO,
+        post_contact_com_velocity: Vec3::ZERO,
         #[cfg(feature = "cartesian-recoil")]
         post_contact_active: false,
     }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+pub(crate) fn clear_post_contact(arm: &mut ArmState) -> Vec3 {
+    let removed = if arm.post_contact_active { arm.post_contact_com_velocity } else { Vec3::ZERO };
+    arm.post_contact_com_velocity = Vec3::ZERO;
+    arm.post_contact_active = false;
+    removed
 }
 
 pub(crate) fn shoulder(anatomy: &BodyAnatomySpec, yaw: Angle, limb: usize) -> Vec3 {
@@ -193,6 +201,16 @@ fn chase(error: i32, speed: i32, max_speed: i32, acceleration: i32) -> (i32, i32
     (step, if step == error { 0 } else { next_speed })
 }
 
+fn arm_available(
+    state: ArmState, target: ArmTarget, item: Option<EquipmentSpec>, stats: Stats, authority: Fx,
+) -> (Fx, Fx) {
+    let inertia = equipment_inertia(item);
+    let power = stat_factor(stats.power);
+    let available = ((((target.effort * authority) * (Fx::ONE - state.fatigue)) * power) / inertia)
+        .clamp(Fx::ZERO, Fx::ONE);
+    (inertia, available)
+}
+
 pub(crate) fn integrate_arm_with_rates(
     state: &mut ArmState,
     anatomy: &BodyAnatomySpec,
@@ -205,6 +223,26 @@ pub(crate) fn integrate_arm_with_rates(
     bearing_max_speed_raw: i32,
     bearing_accel_raw: i32,
 ) -> ArmStep {
+    let (step, inertia, _, _) = integrate_arm_unbilled(
+        state, anatomy, yaw, limb, target, item, stats, authority,
+        bearing_max_speed_raw, bearing_accel_raw,
+    );
+    bill_fatigue(state, inertia, target.effort, step);
+    step
+}
+
+fn integrate_arm_unbilled(
+    state: &mut ArmState,
+    anatomy: &BodyAnatomySpec,
+    yaw: Angle,
+    limb: usize,
+    target: ArmTarget,
+    item: Option<EquipmentSpec>,
+    stats: Stats,
+    authority: Fx,
+    bearing_max_speed_raw: i32,
+    bearing_accel_raw: i32,
+) -> (ArmStep, Fx, i32, i32) {
     let reach_target = target.reach.clamp(Fx::from_raw(ARM_MIN_REACH_RAW), Fx::ONE);
     let bearing_error = target.bearing.delta(state.bearing);
     let height_error = target.height.raw() - state.height.raw();
@@ -215,11 +253,8 @@ pub(crate) fn integrate_arm_with_rates(
     let idle_at_entry = bearing_error == 0 && height_error == 0 && reach_error == 0
         && entry_bearing_speed == 0 && entry_height_speed == 0 && entry_reach_speed == 0;
 
-    let inertia = equipment_inertia(item);
-    let power = stat_factor(stats.power);
+    let (inertia, available) = arm_available(*state, target, item, stats, authority);
     let agility = stat_factor(stats.agility);
-    let available = ((((target.effort * authority) * (Fx::ONE - state.fatigue)) * power) / inertia)
-        .clamp(Fx::ZERO, Fx::ONE);
     let bearing_accel = (Fx::from_raw(bearing_accel_raw) * available).raw().abs();
     let linear_accel = (Fx::from_raw(ARM_LINEAR_ACCEL_RAW) * available).raw().abs();
     let bearing_max = (Fx::from_raw(bearing_max_speed_raw) * agility).raw().abs();
@@ -242,20 +277,87 @@ pub(crate) fn integrate_arm_with_rates(
         delta_reach_speed: Fx::from_raw(reach_speed - entry_reach_speed),
         idle_at_entry,
     };
-    bill_fatigue(state, inertia, target.effort, step);
     state.previous_hand = state.hand;
     state.hand = hand_position(anatomy, yaw, limb, state.bearing, state.height, state.reach);
     state.linear_velocity = state.hand - state.previous_hand;
+    let com_accel = (Fx::from_raw(linear_accel) * anatomy.arm_length).raw().abs();
+    let com_max = (Fx::from_raw(linear_max) * anatomy.arm_length).raw().abs();
+    (step, inertia, com_accel, com_max)
+}
+
+#[cfg(feature = "cartesian-recoil")]
+pub(crate) fn integrate_arm_with_recoil(
+    state: &mut ArmState, anatomy: &BodyAnatomySpec, yaw: Angle, limb: usize,
+    target: ArmTarget, item: Option<EquipmentSpec>, stats: Stats, authority: Fx,
+    bearing_max_speed_raw: i32, bearing_accel_raw: i32,
+) -> ArmStep {
+    let entry_bearing = state.bearing;
+    let entry_hand = state.hand;
+    let entry_com = state.post_contact_com_velocity;
+    let was_active = state.post_contact_active;
+    let (step, inertia, com_accel, com_max) = integrate_arm_unbilled(
+        state, anatomy, yaw, limb, target, item, stats, authority,
+        bearing_max_speed_raw, bearing_accel_raw,
+    );
+    let next_offset = item.and_then(|item| {
+        let crate::EquipmentGeometry::Segment { length, .. } = item.geometry else { return None };
+        let old = Vec3::new(entry_bearing.cos(), entry_bearing.sin(), Fx::ZERO) * length;
+        let new = Vec3::new(state.bearing.cos(), state.bearing.sin(), Fx::ZERO) * length;
+        Some((new - old) * item.balance)
+    }).unwrap_or(Vec3::ZERO);
+    let forward = state.hand;
+    let mut next_com = entry_com;
+    if was_active {
+        let update = |error: Fx, offset: Fx, current: Fx| {
+            let desired_hand = error.raw();
+            let desired_com = desired_hand.saturating_add(offset.raw()).clamp(-com_max, com_max);
+            Fx::from_raw(current.raw() + (desired_com - current.raw()).clamp(-com_accel, com_accel))
+        };
+        next_com = Vec3::new(
+            update(forward.x - entry_hand.x, next_offset.x, entry_com.x),
+            update(forward.y - entry_hand.y, next_offset.y, entry_com.y),
+            update(forward.z - entry_hand.z, next_offset.z, entry_com.z),
+        );
+        let free_hand = next_com - next_offset;
+        let requested = entry_hand + free_hand;
+        let crosses = |entry: Fx, target: Fx, next: Fx| {
+            let error = target.raw() as i64 - entry.raw() as i64;
+            let delta = next.raw() as i64 - entry.raw() as i64;
+            error == 0 || (delta.signum() == error.signum() && delta.unsigned_abs() >= error.unsigned_abs())
+        };
+        state.hand = if crosses(entry_hand.x, forward.x, requested.x)
+            && crosses(entry_hand.y, forward.y, requested.y)
+            && crosses(entry_hand.z, forward.z, requested.z) { forward } else { requested };
+        state.linear_velocity = state.hand - entry_hand;
+        state.previous_hand = entry_hand;
+        let desired_com = state.linear_velocity + next_offset;
+        state.post_contact_active = state.hand != forward || next_com != desired_com;
+        state.post_contact_com_velocity = if state.post_contact_active { next_com } else { Vec3::ZERO };
+    }
+    bill_fatigue_with_com_delta(state, inertia, target.effort, step,
+        if was_active { next_com - entry_com } else { Vec3::ZERO }, anatomy.arm_length);
     step
 }
 
 pub(crate) fn bill_fatigue(state: &mut ArmState, inertia: Fx, effort: Fx, step: ArmStep) {
-    if step.idle_at_entry {
+    bill_fatigue_with_com_delta(state, inertia, effort, step, Vec3::ZERO, Fx::ONE);
+}
+
+fn bill_fatigue_with_com_delta(
+    state: &mut ArmState, inertia: Fx, effort: Fx, step: ArmStep,
+    delta_com_velocity: Vec3, arm_length: Fx,
+) {
+    if step.idle_at_entry && delta_com_velocity == Vec3::ZERO {
         state.fatigue = Fx::from_raw((state.fatigue.raw() - FATIGUE_RECOVERY_RAW).max(0));
         return;
     }
+    let com_l1 = (delta_com_velocity.x.abs() + delta_com_velocity.y.abs())
+        + delta_com_velocity.z.abs();
+    let normalized_com = if com_l1 == Fx::ZERO { Fx::ZERO }
+        else if arm_length.is_positive() { com_l1 / arm_length }
+        else { Fx::MAX };
     let sum = (step.delta_bearing_speed.abs() + step.delta_height_speed.abs())
-        + step.delta_reach_speed.abs();
+        + step.delta_reach_speed.abs() + normalized_com;
     let work = ((inertia * inertia) * effort) * sum;
     let accumulated = work.raw() as i64 + state.work_residue.raw() as i64;
     let increment = accumulated / FATIGUE_WORK_SCALE_RAW as i64;
@@ -298,6 +400,11 @@ pub(crate) fn mirror_two_handed(
     left.reach_speed = right.reach_speed;
     left.hand = mirror_hand(anatomy, yaw, right.hand);
     left.linear_velocity = left.hand - left.previous_hand;
+    #[cfg(feature = "cartesian-recoil")]
+    {
+        left.post_contact_com_velocity = Vec3::ZERO;
+        left.post_contact_active = false;
+    }
 }
 
 #[cfg(test)]
@@ -307,6 +414,124 @@ mod tests {
     const ACTUATOR_CANDIDATES: [(i32, i32); 4] = [
         (1_092, 182), (2_184, 364), (4_368, 728), (8_736, 1_456),
     ];
+
+    fn cartesian_com_caps(
+        state: ArmState, target: ArmTarget, item: Option<EquipmentSpec>, stats: Stats,
+        authority: Fx, arm_length: Fx,
+    ) -> (i32, i32) {
+        let (_, available) = arm_available(state, target, item, stats, authority);
+        let acceleration = ((Fx::from_raw(ARM_LINEAR_ACCEL_RAW) * available) * arm_length).raw().abs();
+        let maximum = ((Fx::from_raw(ARM_LINEAR_MAX_SPEED_RAW) * stat_factor(stats.agility))
+            * arm_length).raw().abs();
+        (acceleration, maximum)
+    }
+
+    fn idle_step() -> ArmStep {
+        ArmStep { delta_bearing_speed: Fx::ZERO, delta_height_speed: Fx::ZERO,
+                  delta_reach_speed: Fx::ZERO, idle_at_entry: true }
+    }
+
+    #[test]
+    fn zero_com_delta_is_byte_identical_to_the_existing_fatigue_bill() {
+        let mut ordinary = tucked_arm(Vec3::ZERO);
+        ordinary.fatigue = Fx::from_raw(777); ordinary.work_residue = Fx::from_raw(251);
+        let mut extended = ordinary;
+        let step = ArmStep { delta_bearing_speed: Fx::from_raw(-31),
+            delta_height_speed: Fx::from_raw(17), delta_reach_speed: Fx::from_raw(9),
+            idle_at_entry: false };
+        let inertia = Fx::from_ratio(3, 4); let effort = Fx::from_ratio(7, 8);
+        bill_fatigue(&mut ordinary, inertia, effort, step);
+        bill_fatigue_with_com_delta(&mut extended, inertia, effort, step, Vec3::ZERO, Fx::ONE);
+        assert_eq!(extended, ordinary);
+        let mut ordinary_idle = ordinary; let mut extended_idle = ordinary;
+        bill_fatigue(&mut ordinary_idle, inertia, effort, idle_step());
+        bill_fatigue_with_com_delta(&mut extended_idle, inertia, effort, idle_step(), Vec3::ZERO, Fx::ONE);
+        assert_eq!(extended_idle, ordinary_idle);
+        assert_eq!((ordinary.fatigue.raw(), ordinary.work_residue.raw()), (778, 23));
+        assert_eq!((ordinary_idle.fatigue.raw(), ordinary_idle.work_residue.raw()), (774, 23));
+    }
+
+    #[test]
+    fn cartesian_com_acceleration_uses_the_existing_available_order_exactly() {
+        let mut state = tucked_arm(Vec3::ZERO); state.fatigue = Fx::from_ratio(1, 4);
+        let target = ArmTarget { bearing: Angle::ZERO, height: CombatHeight::MID,
+            reach: Fx::ONE, effort: Fx::from_ratio(3, 4) };
+        let stats = Stats::new(12, 16, 0, 0, 0);
+        let sword = Some(crate::sword());
+        let (_, available) = arm_available(state, target, sword, stats, Fx::from_ratio(2, 3));
+        let expected = ((((target.effort * Fx::from_ratio(2, 3))
+            * (Fx::ONE - state.fatigue)) * stat_factor(stats.power))
+            / equipment_inertia(sword)).clamp(Fx::ZERO, Fx::ONE);
+        assert_eq!(available, expected);
+        let arm_length = crate::fighter_anatomy().arm_length;
+        assert_eq!(cartesian_com_caps(state, target, sword, stats, Fx::from_ratio(2, 3), arm_length),
+            (((Fx::from_raw(ARM_LINEAR_ACCEL_RAW) * expected) * arm_length).raw().abs(),
+             ((Fx::from_raw(ARM_LINEAR_MAX_SPEED_RAW) * stat_factor(stats.agility))
+                 * arm_length).raw().abs()));
+        let full = cartesian_com_caps(tucked_arm(Vec3::ZERO), ArmTarget { effort: Fx::ONE, ..target },
+            None, Stats::new(20, 20, 0, 0, 0), Fx::ONE, arm_length);
+        assert_eq!(full, (204, 1_228), "world COM caps forgot the non-unit arm length");
+        assert_eq!(cartesian_com_caps(state, ArmTarget { effort: Fx::ZERO, ..target },
+            sword, stats, Fx::ONE, arm_length).0, 0);
+        assert_eq!(cartesian_com_caps(state, target, sword, stats, Fx::ZERO, arm_length).0, 0);
+        let mut tired = state; tired.fatigue = Fx::ONE;
+        assert_eq!(cartesian_com_caps(tired, target, sword, stats, Fx::ONE, arm_length).0, 0);
+        assert!(cartesian_com_caps(state, target, None, stats, Fx::ONE, arm_length).0
+            >= cartesian_com_caps(state, target, sword, stats, Fx::ONE, arm_length).0,
+            "equipment inertia stopped dividing available authority before the clamp");
+    }
+
+    #[test]
+    fn scalar_and_com_work_share_one_aggregate_before_the_residue_fold() {
+        let mut arm = tucked_arm(Vec3::ZERO);
+        arm.fatigue = Fx::from_raw(100); arm.work_residue = Fx::from_raw(200);
+        let step = ArmStep { delta_bearing_speed: Fx::from_raw(100),
+            delta_height_speed: Fx::from_raw(200), delta_reach_speed: Fx::from_raw(300),
+            idle_at_entry: false };
+        let arm_length = crate::fighter_anatomy().arm_length;
+        bill_fatigue_with_com_delta(&mut arm, Fx::from_raw(16_384), Fx::ONE, step,
+            Vec3::new(Fx::from_raw(205), Fx::from_raw(-102), Fx::from_raw(51)), arm_length);
+        assert_eq!((arm.fatigue.raw(), arm.work_residue.raw()), (101, 11));
+        let mut scalar_idle = tucked_arm(Vec3::ZERO);
+        scalar_idle.fatigue = Fx::from_raw(100); scalar_idle.work_residue = Fx::from_raw(255);
+        bill_fatigue_with_com_delta(&mut scalar_idle, Fx::ONE, Fx::ONE, idle_step(),
+            Vec3::new(Fx::from_raw(10), Fx::from_raw(-20), Fx::from_raw(30)), Fx::ONE);
+        assert_eq!((scalar_idle.fatigue.raw(), scalar_idle.work_residue.raw()), (101, 59),
+                   "scalar idle recovered instead of billing active COM reconciliation");
+        let mut zero_effort = tucked_arm(Vec3::ZERO);
+        zero_effort.fatigue = Fx::from_raw(100); zero_effort.work_residue = Fx::from_raw(255);
+        bill_fatigue_with_com_delta(&mut zero_effort, Fx::ONE, Fx::ZERO, step,
+            Vec3::new(Fx::from_raw(10), Fx::from_raw(-20), Fx::from_raw(30)), Fx::ONE);
+        assert_eq!((zero_effort.fatigue.raw(), zero_effort.work_residue.raw()), (100, 255));
+    }
+
+    #[test]
+    fn two_handed_com_work_is_billed_once_to_the_right_owner() {
+        let mut arms = [tucked_arm(Vec3::ZERO); 2];
+        arms[0].fatigue = Fx::from_raw(17); arms[0].work_residue = Fx::from_raw(19);
+        bill_fatigue_with_com_delta(&mut arms[1], Fx::ONE, Fx::ONE, idle_step(),
+            Vec3::new(Fx::from_raw(256), Fx::ZERO, Fx::ZERO), Fx::ONE);
+        assert_eq!((arms[0].fatigue.raw(), arms[0].work_residue.raw()), (17, 19));
+        assert_eq!((arms[1].fatigue.raw(), arms[1].work_residue.raw()), (1, 0));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn two_handed_mirror_clears_the_nonowning_left_recoil() {
+        let anatomy = crate::fighter_anatomy();
+        let mut left = tucked_arm(Vec3::ZERO); let mut right = tucked_arm(Vec3::X);
+        left.post_contact_active = true;
+        left.post_contact_com_velocity = Vec3::new(
+            Fx::from_raw(5), Fx::from_raw(7), Fx::from_raw(-11));
+        right.post_contact_active = true;
+        right.post_contact_com_velocity = Vec3::new(
+            Fx::from_raw(2), Fx::from_raw(-1), Fx::from_raw(3));
+        mirror_two_handed(&mut left, right, &anatomy, Angle::ZERO);
+        assert_eq!((left.post_contact_active, left.post_contact_com_velocity),
+                   (false, Vec3::ZERO));
+        assert_eq!((right.post_contact_active, right.post_contact_com_velocity),
+                   (true, Vec3::new(Fx::from_raw(2), Fx::from_raw(-1), Fx::from_raw(3))));
+    }
 
     #[test]
     fn bearing_speed_reaches_the_selected_sweep_without_overshoot() {

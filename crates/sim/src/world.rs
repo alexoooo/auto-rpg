@@ -4542,6 +4542,12 @@ impl World {
                     pair[limb] = None;
                 }
             }
+            #[cfg(feature = "cartesian-recoil")]
+            for limb in 0..2 {
+                if self.grips[i][limb].equipment_slot != pair[limb] {
+                    actuator::clear_post_contact(&mut self.arms[i][limb]);
+                }
+            }
             self.grips[i] = pair.map(|equipment_slot| GripState { equipment_slot });
         }
     }
@@ -4559,18 +4565,30 @@ impl World {
             let both = self.grips[i][0].equipment_slot.is_some()
                 && self.grips[i][0].equipment_slot == self.grips[i][1].equipment_slot
                 && right_item.is_some_and(|item| item.binding == crate::GripBinding::Both);
+            #[cfg(feature = "cartesian-recoil")]
+            let drive = |arm: &mut ArmState, limb: usize, target: ArmTarget,
+                         item: Option<crate::EquipmentSpec>, authority: Fx| {
+                actuator::integrate_arm_with_recoil(arm, &anatomy, yaw, limb, target, item,
+                    self.stats[i], authority, bearing_max_speed_raw, bearing_accel_raw)
+            };
             if both {
                 self.arms[i][0].previous_hand = self.arms[i][0].hand;
+                #[cfg(not(feature = "cartesian-recoil"))]
                 let step = actuator::integrate_arm_with_rates(
                     &mut self.arms[i][1], &anatomy, yaw, 1, command.arms[1], right_item,
                     self.stats[i], self.arm_authority[i][1], bearing_max_speed_raw, bearing_accel_raw,
                 );
+                #[cfg(feature = "cartesian-recoil")]
+                let step = drive(&mut self.arms[i][1], 1, command.arms[1], right_item,
+                                 self.arm_authority[i][1]);
                 actuator::bill_fatigue(
                     &mut self.arms[i][0], actuator::equipment_inertia(right_item), command.arms[1].effort, step,
                 );
                 let right = self.arms[i][1];
                 actuator::mirror_two_handed(&mut self.arms[i][0], right, &anatomy, yaw);
             } else {
+                #[cfg(not(feature = "cartesian-recoil"))]
+                {
                 actuator::integrate_arm_with_rates(
                     &mut self.arms[i][0], &anatomy, yaw, 0, command.arms[0], left_item,
                     self.stats[i], self.arm_authority[i][0], bearing_max_speed_raw, bearing_accel_raw,
@@ -4579,6 +4597,14 @@ impl World {
                     &mut self.arms[i][1], &anatomy, yaw, 1, command.arms[1], right_item,
                     self.stats[i], self.arm_authority[i][1], bearing_max_speed_raw, bearing_accel_raw,
                 );
+                }
+                #[cfg(feature = "cartesian-recoil")]
+                {
+                    drive(&mut self.arms[i][0], 0, command.arms[0], left_item,
+                          self.arm_authority[i][0]);
+                    drive(&mut self.arms[i][1], 1, command.arms[1], right_item,
+                          self.arm_authority[i][1]);
+                }
             }
         }
     }
@@ -4720,6 +4746,8 @@ impl World {
                 if !(drop_both || severed[limb]) { continue; }
                 if self.grips[i][limb].equipment_slot.is_none() { continue; }
                 self.grips[i][limb].equipment_slot = None;
+                #[cfg(feature = "cartesian-recoil")]
+                { actuator::clear_post_contact(&mut self.arms[i][limb]); }
                 released = true;
             }
             if released { self.shield_pose[i] = self.derive_shield_pose(i); }
@@ -4828,8 +4856,39 @@ impl World {
             let Some(hand) = self.collider_hand(i, row) else { continue };
             held[limb] = true;
             let relative = hand - origin;
+            #[cfg(feature = "cartesian-recoil")]
+            let direct = contact.resolutions.iter().any(|resolution| {
+                let key = resolution.fact.key;
+                let on_a = key.a == entity && key.a_slot as usize == limb
+                    && resolution.impulse.on_a != Vec3::ZERO;
+                let on_b = key.b == entity && key.b_slot as usize == limb
+                    && resolution.impulse.on_b != Vec3::ZERO;
+                on_a || on_b
+            });
+            #[cfg(not(feature = "cartesian-recoil"))]
             if relative == self.arms[i][limb].hand && !entry.clamped[limb] && !capped { continue; }
+            #[cfg(feature = "cartesian-recoil")]
+            if relative == self.arms[i][limb].hand && !entry.clamped[limb] && !capped && !direct {
+                continue;
+            }
             self.commit_arm(i, limb, relative, entry, remaining, capped);
+            #[cfg(feature = "cartesian-recoil")]
+            if direct {
+                let arm = &mut self.arms[i][limb];
+                if capped {
+                    arm.post_contact_com_velocity = Vec3::ZERO;
+                    arm.post_contact_active = false;
+                } else {
+                    // The collider endpoint and COM velocity are two different
+                    // solved facts. Keep the endpoint exact; store COM motion
+                    // relative to its translated owner, never hand motion.
+                    arm.hand = relative;
+                    arm.previous_hand = entry.arms[limb].hand;
+                    arm.linear_velocity = relative - arm.previous_hand;
+                    arm.post_contact_com_velocity = row.velocity - body.velocity;
+                    arm.post_contact_active = true;
+                }
+            }
             overrode[limb] = true;
         }
 
@@ -4872,6 +4931,11 @@ impl World {
                     .expect("validated articulated anatomy").clone();
                 let right = self.arms[i][1];
                 actuator::mirror_two_handed(&mut self.arms[i][0], right, &anatomy, self.body_yaw[i].angle);
+                #[cfg(feature = "cartesian-recoil")]
+                {
+                    self.arms[i][0].post_contact_com_velocity = Vec3::ZERO;
+                    self.arms[i][0].post_contact_active = false;
+                }
                 // The mirror rebuilds the left velocity from the hands, which
                 // is right everywhere except here: a capped entity's owner was
                 // zeroed, and the contract mirrors the zero rather than a
@@ -6093,10 +6157,16 @@ mod tests {
             fatigue: Fx::HALF,
             work_residue: Fx::from_raw(13),
             #[cfg(feature = "cartesian-recoil")]
-            post_contact_velocity: Vec3::ZERO,
+            post_contact_com_velocity: Vec3::ZERO,
             #[cfg(feature = "cartesian-recoil")]
             post_contact_active: false,
         }; 2];
+        #[cfg(feature = "cartesian-recoil")]
+        for (limb, words) in [[1, 2, 3], [-4, 5, -6]].into_iter().enumerate() {
+            world.arms[2][limb].post_contact_active = true;
+            world.arms[2][limb].post_contact_com_velocity = Vec3::new(
+                Fx::from_raw(words[0]), Fx::from_raw(words[1]), Fx::from_raw(words[2]));
+        }
         world.grips[2] = [
             GripState { equipment_slot: Some(0) },
             GripState { equipment_slot: Some(1) },
@@ -6118,14 +6188,14 @@ mod tests {
         assert_lengths(&world, 3);
         #[cfg(feature = "cartesian-recoil")]
         for arm in world.arms[2] {
-            assert_eq!((arm.post_contact_active, arm.post_contact_velocity),
+            assert_eq!((arm.post_contact_active, arm.post_contact_com_velocity),
                        (false, Vec3::ZERO), "a reused slot inherited Cartesian recoil");
         }
         let fresh = World::new(&scenario, 1);
         #[cfg(feature = "cartesian-recoil")]
         for arms in &fresh.arms {
             for arm in arms {
-                assert_eq!((arm.post_contact_active, arm.post_contact_velocity),
+                assert_eq!((arm.post_contact_active, arm.post_contact_com_velocity),
                            (false, Vec3::ZERO), "fresh Cartesian recoil was not canonical");
             }
         }
@@ -6232,9 +6302,9 @@ mod tests {
                 });
                 #[cfg(feature = "cartesian-recoil")]
                 assert_actuator_hash_mutation(|w| match axis {
-                    0 => w.arms[0][limb].post_contact_velocity.x = Fx::from_raw(1),
-                    1 => w.arms[0][limb].post_contact_velocity.y = Fx::from_raw(1),
-                    _ => w.arms[0][limb].post_contact_velocity.z = Fx::from_raw(1),
+                    0 => w.arms[0][limb].post_contact_com_velocity.x = Fx::from_raw(1),
+                    1 => w.arms[0][limb].post_contact_com_velocity.y = Fx::from_raw(1),
+                    _ => w.arms[0][limb].post_contact_com_velocity.z = Fx::from_raw(1),
                 });
             }
             #[cfg(feature = "cartesian-recoil")]
@@ -8877,7 +8947,7 @@ mod tests {
     fn post_contact_hash_words_are_tag_xyz_in_entity_and_limb_order() {
         let mut first = actuator::tucked_arm(Vec3::ZERO);
         first.post_contact_active = true;
-        first.post_contact_velocity = Vec3::new(
+        first.post_contact_com_velocity = Vec3::new(
             Fx::from_raw(0x0102_0304), Fx::from_raw(-2), Fx::MIN);
         let second = actuator::tucked_arm(Vec3::ZERO);
         let first_bytes = post_contact_hash_bytes(first);
@@ -9139,50 +9209,104 @@ mod tests {
     }
 
     #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-    struct CartesianVelocityState { post_velocity: Vec3, active: bool }
+    struct CartesianVelocityState { com_velocity: Vec3, active: bool }
 
     #[derive(Clone, Copy, PartialEq, Eq, Debug)]
     enum CartesianMotorReject { NonCanonical, Overflow }
 
+    #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+    struct CartesianMotorWork {
+        before_numerator: i128,
+        after_numerator: i128,
+        signed_work: i128,
+        supplied: i128,
+        absorbed: i128,
+    }
+
     fn cartesian_motor_step(
-        hand: Vec3, target: Vec3, state: CartesianVelocityState,
+        hand: Vec3, target: Vec3, next_offset: Vec3, body_velocity: Vec3,
+        mass_raw: i64, state: CartesianVelocityState,
         max_speed: i32, acceleration: i32,
-    ) -> Result<(Vec3, CartesianVelocityState), CartesianMotorReject> {
+    ) -> Result<(Vec3, CartesianVelocityState, CartesianMotorWork), CartesianMotorReject> {
+        if mass_raw <= 0 { return Err(CartesianMotorReject::NonCanonical); }
         if !state.active {
-            return if state.post_velocity == Vec3::ZERO { Ok((hand, state)) }
+            return if state.com_velocity == Vec3::ZERO { Ok((hand, state, CartesianMotorWork {
+                before_numerator: 0, after_numerator: 0, signed_work: 0,
+                supplied: 0, absorbed: 0,
+            })) }
                    else { Err(CartesianMotorReject::NonCanonical) };
         }
         if max_speed < 0 || acceleration < 0 { return Err(CartesianMotorReject::NonCanonical); }
-        let component = |position: Fx, target: Fx, velocity: Fx| -> Result<(Fx, Fx), CartesianMotorReject> {
+        let component = |position: Fx, target: Fx, offset: Fx, com_velocity: Fx|
+            -> Result<(Fx, Fx), CartesianMotorReject>
+        {
             let error_i64 = target.raw() as i64 - position.raw() as i64;
             if error_i64 < i32::MIN as i64 || error_i64 > i32::MAX as i64 {
                 return Err(CartesianMotorReject::Overflow);
             }
             let error = error_i64 as i32;
-            let desired = error.clamp(-max_speed, max_speed);
-            let delta_i64 = desired as i64 - velocity.raw() as i64;
+            let desired_hand = error.clamp(-max_speed, max_speed);
+            let desired_com = (desired_hand as i64).checked_add(offset.raw() as i64)
+                .ok_or(CartesianMotorReject::Overflow)?;
+            let delta_i64 = desired_com - com_velocity.raw() as i64;
             let delta = delta_i64.clamp(-(acceleration as i64), acceleration as i64);
-            let next_i64 = velocity.raw() as i64 + delta;
+            let next_i64 = com_velocity.raw() as i64 + delta;
             if next_i64 < i32::MIN as i64 || next_i64 > i32::MAX as i64 {
                 return Err(CartesianMotorReject::Overflow);
             }
-            let next = next_i64 as i32;
-            let crosses = error != 0 && next.signum() == error.signum()
-                && next.unsigned_abs() >= error.unsigned_abs();
-            if crosses { Ok((target, Fx::ZERO)) }
-            else {
-                let position_i64 = position.raw() as i64 + next as i64;
-                if position_i64 < i32::MIN as i64 || position_i64 > i32::MAX as i64 {
-                    Err(CartesianMotorReject::Overflow)
-                } else { Ok((Fx::from_raw(position_i64 as i32), Fx::from_raw(next))) }
+            let free_hand = next_i64.checked_sub(offset.raw() as i64)
+                .ok_or(CartesianMotorReject::Overflow)?;
+            let position_i64 = position.raw() as i64 + free_hand;
+            if position_i64 < i32::MIN as i64 || position_i64 > i32::MAX as i64 {
+                Err(CartesianMotorReject::Overflow)
+            } else {
+                Ok((Fx::from_raw(position_i64 as i32), Fx::from_raw(next_i64 as i32)))
             }
         };
-        let (x, vx) = component(hand.x, target.x, state.post_velocity.x)?;
-        let (y, vy) = component(hand.y, target.y, state.post_velocity.y)?;
-        let (z, vz) = component(hand.z, target.z, state.post_velocity.z)?;
-        let next_hand = Vec3::new(x, y, z); let velocity = Vec3::new(vx, vy, vz);
-        let active = next_hand != target || velocity != Vec3::ZERO;
-        Ok((next_hand, CartesianVelocityState { post_velocity: velocity, active }))
+        let (x, vx) = component(hand.x, target.x, next_offset.x, state.com_velocity.x)?;
+        let (y, vy) = component(hand.y, target.y, next_offset.y, state.com_velocity.y)?;
+        let (z, vz) = component(hand.z, target.z, next_offset.z, state.com_velocity.z)?;
+        let next_hand = Vec3::new(x, y, z); let com_velocity = Vec3::new(vx, vy, vz);
+        let active = next_hand != target;
+        let numerator = |com: Vec3| -> Result<i128, CartesianMotorReject> {
+            let mut square = 0i128;
+            for (body, relative) in [(body_velocity.x, com.x), (body_velocity.y, com.y),
+                                     (body_velocity.z, com.z)] {
+                let v = (body.raw() as i128).checked_add(relative.raw() as i128)
+                    .ok_or(CartesianMotorReject::Overflow)?;
+                square = square.checked_add(v.checked_mul(v)
+                    .ok_or(CartesianMotorReject::Overflow)?)
+                    .ok_or(CartesianMotorReject::Overflow)?;
+            }
+            (mass_raw as i128).checked_mul(square).ok_or(CartesianMotorReject::Overflow)
+        };
+        let before = numerator(state.com_velocity)?; let after = numerator(com_velocity)?;
+        let signed = after.checked_sub(before).ok_or(CartesianMotorReject::Overflow)?;
+        let mut dot = 0i128;
+        for (body, before_component, after_component) in [
+            (body_velocity.x, state.com_velocity.x, com_velocity.x),
+            (body_velocity.y, state.com_velocity.y, com_velocity.y),
+            (body_velocity.z, state.com_velocity.z, com_velocity.z),
+        ] {
+            let delta = (after_component.raw() as i128)
+                .checked_sub(before_component.raw() as i128)
+                .ok_or(CartesianMotorReject::Overflow)?;
+            let sum = (body.raw() as i128).checked_mul(2)
+                .and_then(|value| value.checked_add(after_component.raw() as i128))
+                .and_then(|value| value.checked_add(before_component.raw() as i128))
+                .ok_or(CartesianMotorReject::Overflow)?;
+            dot = dot.checked_add(delta.checked_mul(sum)
+                .ok_or(CartesianMotorReject::Overflow)?)
+                .ok_or(CartesianMotorReject::Overflow)?;
+        }
+        let identity = (mass_raw as i128).checked_mul(dot)
+            .ok_or(CartesianMotorReject::Overflow)?;
+        if identity != signed { return Err(CartesianMotorReject::Overflow); }
+        let stored_com_velocity = if active { com_velocity } else { Vec3::ZERO };
+        Ok((next_hand, CartesianVelocityState { com_velocity: stored_com_velocity, active }, CartesianMotorWork {
+            before_numerator: before, after_numerator: after, signed_work: signed,
+            supplied: signed.max(0), absorbed: (-signed).max(0),
+        }))
     }
 
     fn forward_joint_jacobian(
@@ -9300,6 +9424,119 @@ mod tests {
     }
 
     #[test]
+    fn retained_sword_stores_com_relative_velocity_and_derives_the_free_hand() {
+        use crate::combat::resolution::tests::{EquipmentComSample,
+            equipment_com_relative_velocity_raw, widened_equipment_com_numerator};
+        let (_, _, rows, fact, _, proposal, _) = directional_captured_strike();
+        let at = |entity, slot| rows.iter().position(|row|
+            row.entity == entity && row.slot == slot).unwrap();
+        let a = at(fact.key.a, fact.key.a_slot); let b = at(fact.key.b, fact.key.b_slot);
+        assert_eq!((rows[a].kind, rows[b].kind, rows[a].mass.raw()),
+                   (GeneralizedKind::Equipment, GeneralizedKind::Body, 81_264));
+        let scale = |component: Fx| Fx::from_raw(
+            ((component.raw() as i64 * 65_560i64) / 65_536) as i32);
+        let impulse = Vec3::new(scale(proposal.x), scale(proposal.y), scale(proposal.z));
+        let mut sums = vec![[0i128; 3]; rows.len()];
+        sums[a] = [impulse.x.raw() as i128, impulse.y.raw() as i128, impulse.z.raw() as i128];
+        sums[b] = [-sums[a][0], -sums[a][1], -sums[a][2]];
+        let mut trial = Vec::new(); cartesian_contact_trial(&rows, &sums, 65_536, &mut trial).unwrap();
+        let sample = |equipment: GeneralizedCollider, body: GeneralizedCollider| {
+            let hand = equipment.velocity - body.velocity - equipment.velocity_offset;
+            EquipmentComSample { mass_raw: equipment.mass.raw() as i64,
+                body_velocity_raw: [body.velocity.x.raw() as i64, body.velocity.y.raw() as i64,
+                                    body.velocity.z.raw() as i64],
+                hand_velocity_raw: [hand.x.raw() as i64, hand.y.raw() as i64, hand.z.raw() as i64],
+                velocity_offset_raw: [equipment.velocity_offset.x.raw() as i64,
+                                      equipment.velocity_offset.y.raw() as i64,
+                                      equipment.velocity_offset.z.raw() as i64],
+                owns_equipment: true }
+        };
+        let initial = sample(rows[a], rows[b]); let post = sample(trial[a], trial[b]);
+        assert_eq!(equipment_com_relative_velocity_raw(post).unwrap(), [2, -1, 0]);
+        assert_eq!(post.velocity_offset_raw, [197, 3_768, 0]);
+        assert_eq!(post.hand_velocity_raw, [-195, -3_769, 0]);
+        assert_eq!((widened_equipment_com_numerator(&[initial]).unwrap(),
+                    widened_equipment_com_numerator(&[post]).unwrap()),
+                   (3_273_351_951_552, 251_568_802_272));
+        let changed_offset = [post.velocity_offset_raw[0] + 31,
+                              post.velocity_offset_raw[1] - 17, 0];
+        let free_hand = [2 - changed_offset[0], -1 - changed_offset[1], 0];
+        let transported = EquipmentComSample { hand_velocity_raw: free_hand,
+            velocity_offset_raw: changed_offset, ..post };
+        assert_eq!(equipment_com_relative_velocity_raw(transported).unwrap(), [2, -1, 0],
+                   "the next scalar offset changed inertial equipment COM momentum");
+        assert_eq!(widened_equipment_com_numerator(&[transported]),
+                   widened_equipment_com_numerator(&[post]));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn retained_world_commit_activates_only_the_direct_sword_and_next_tick_reconciles() {
+        let (mut world, contact, _, fact, _, _, _) = directional_captured_strike();
+        let source = world.resolve(fact.key.a).unwrap();
+        let target = world.resolve(fact.key.b).unwrap();
+        let source_limb = fact.key.a_slot as usize;
+        assert_eq!(source_limb, 1);
+        world.arms[target][1].post_contact_active = true;
+        world.arms[target][1].post_contact_com_velocity =
+            Vec3::new(Fx::from_raw(17), Fx::from_raw(-19), Fx::from_raw(23));
+        let body_only = (world.arms[target][1].post_contact_active,
+                         world.arms[target][1].post_contact_com_velocity);
+        world.contact = Some(contact);
+        world.resolve_contact();
+        assert!(world.arms[source][source_limb].post_contact_active,
+                "direct equipment response did not activate COM recoil");
+        assert_ne!(world.arms[source][source_limb].post_contact_com_velocity, Vec3::ZERO);
+        assert_eq!((world.arms[target][1].post_contact_active,
+                    world.arms[target][1].post_contact_com_velocity), body_only,
+                   "body-only translation cleared or replaced held COM recoil");
+        let entry = world.arms[source][source_limb];
+        assert_eq!((entry.hand.x.raw(), entry.hand.y.raw(), entry.hand.z.raw(),
+                    entry.linear_velocity.x.raw(), entry.linear_velocity.y.raw(),
+                    entry.linear_velocity.z.raw(), entry.post_contact_com_velocity.x.raw(),
+                    entry.post_contact_com_velocity.y.raw(), entry.post_contact_com_velocity.z.raw()),
+                   (49_112, -18_087, 29_491, 113, 2_172, 0, 191, 3_689, 0));
+        world.drive_articulated_arms(actuator::ARM_BEARING_MAX_SPEED_RAW,
+                                     actuator::ARM_BEARING_ACCEL_RAW);
+        let next = world.arms[source][source_limb];
+        assert_eq!((next.hand.x.raw(), next.hand.y.raw(), next.hand.z.raw(),
+                    next.post_contact_com_velocity.x.raw(), next.post_contact_com_velocity.y.raw(),
+                    next.post_contact_com_velocity.z.raw(), next.fatigue.raw(), next.work_residue.raw()),
+                   (49_201, -14_500, 29_491, 89, 3_587, 0, 20, 163));
+        assert!(next.hand != entry.hand || next.post_contact_com_velocity != entry.post_contact_com_velocity,
+                "active COM recoil was ignored on the next actuator tick");
+        assert!(next.fatigue >= entry.fatigue);
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn grip_change_and_severance_clear_owned_recoil_without_touching_the_other_arm() {
+        let mut world = World::new(&Scenario::articulated_duel(), 0);
+        world.arms[0][0].post_contact_active = true;
+        world.arms[0][0].post_contact_com_velocity = Vec3::new(
+            Fx::from_raw(5), Fx::from_raw(7), Fx::from_raw(-11));
+        world.arms[0][1].post_contact_active = true;
+        world.arms[0][1].post_contact_com_velocity = Vec3::new(
+            Fx::from_raw(2), Fx::from_raw(-1), Fx::from_raw(3));
+        let left = world.arms[0][0];
+        let mut command = world.neutral_articulated(0);
+        command.grips = [GripRequest::Keep, GripRequest::Release];
+        world.articulated_command[0] = Some(command);
+        world.apply_articulated_grips();
+        assert_eq!(world.arms[0][0], left);
+        assert_eq!((world.arms[0][1].post_contact_active,
+                    world.arms[0][1].post_contact_com_velocity), (false, Vec3::ZERO));
+
+        world.grips[0][1].equipment_slot = Some(0);
+        world.arms[0][1].post_contact_active = true;
+        world.arms[0][1].post_contact_com_velocity = Vec3::X;
+        world.wounds[0].parts[BodyPart::RightArm as usize].severed = true;
+        world.release_severed_grips();
+        assert_eq!((world.grips[0][1].equipment_slot, world.arms[0][1].post_contact_active,
+                    world.arms[0][1].post_contact_com_velocity), (None, false, Vec3::ZERO));
+    }
+
+    #[test]
     fn cartesian_retained_dissipation_reaches_the_existing_damage_channel_split() {
         let (world, contact, _, fact, _, _, _) = directional_captured_strike();
         let mut colliders = Vec::new();
@@ -9380,34 +9617,49 @@ mod tests {
     }
 
     #[test]
-    fn explicit_post_contact_velocity_reconciles_under_a_bound() {
-        let target = Vec3::ZERO; let mut hand = Vec3::ZERO;
-        let mut state = CartesianVelocityState {
-            post_velocity: Vec3::new(Fx::from_raw(1_000), Fx::from_raw(-600), Fx::ZERO),
-            active: true,
+    fn explicit_post_contact_com_velocity_reconciles_with_exact_work() {
+        let hand = Vec3::ZERO;
+        let target = Vec3::new(Fx::from_raw(1_000), Fx::ZERO, Fx::ZERO);
+        let offset = Vec3::new(Fx::from_raw(197), Fx::from_raw(3_768), Fx::ZERO);
+        let state = CartesianVelocityState {
+            com_velocity: Vec3::new(Fx::from_raw(2), Fx::from_raw(-1), Fx::ZERO), active: true,
         };
-        (hand, state) = cartesian_motor_step(hand, target, state, 2_000, 100).unwrap();
-        assert_eq!((hand.x.raw(), hand.y.raw(), state.post_velocity.x.raw(),
-                    state.post_velocity.y.raw(), state.active), (900, -500, 900, -500, true));
-        for _ in 0..64 {
-            (hand, state) = cartesian_motor_step(hand, target, state, 2_000, 100).unwrap();
-        }
-        assert_eq!((hand, state), (target, CartesianVelocityState {
-            post_velocity: Vec3::ZERO, active: false,
-        }));
+        let (hand, state, work) = cartesian_motor_step(hand, target, offset, Vec3::ZERO,
+            81_264, state, 2_000, 100).unwrap();
+        assert_eq!((hand.x.raw(), hand.y.raw(), state.com_velocity.x.raw(),
+                    state.com_velocity.y.raw(), state.active), (-95, -3_669, 102, 99, true));
+        assert_eq!(work, CartesianMotorWork {
+            before_numerator: 406_320, after_numerator: 1_641_939_120,
+            signed_work: 1_641_532_800, supplied: 1_641_532_800, absorbed: 0,
+        });
+        let (_, unchanged, zero_work) = cartesian_motor_step(hand, target, offset, Vec3::ZERO,
+            81_264, state, 2_000, 0).unwrap();
+        assert_eq!(unchanged.com_velocity, state.com_velocity,
+                   "zero effort/acceleration changed equipment COM momentum");
+        assert_eq!(zero_work.signed_work, 0);
+        let (captured, cleared, capture_work) = cartesian_motor_step(Vec3::ZERO,
+            Vec3::new(Fx::from_raw(10), Fx::ZERO, Fx::ZERO),
+            Vec3::new(Fx::from_raw(3), Fx::ZERO, Fx::ZERO), Vec3::ZERO, 1,
+            CartesianVelocityState { com_velocity: Vec3::ZERO, active: true }, 100, 20).unwrap();
+        assert_eq!(captured, Vec3::new(Fx::from_raw(10), Fx::ZERO, Fx::ZERO));
+        assert_eq!(cleared, CartesianVelocityState { com_velocity: Vec3::ZERO, active: false });
+        assert_eq!(capture_work.signed_work, 169,
+                   "clearing hid the final motor interval's supplied work");
     }
 
     #[test]
-    fn explicit_post_contact_velocity_is_axis_permutation_equivariant() {
+    fn explicit_post_contact_com_velocity_is_axis_permutation_equivariant() {
         let solve = |swap: bool| {
             let swap_vec = |v: Vec3| if swap { Vec3::new(v.y, v.x, v.z) } else { v };
             let hand = swap_vec(Vec3::new(Fx::from_raw(300), Fx::from_raw(-700), Fx::ZERO));
             let target = swap_vec(Vec3::new(Fx::from_raw(-100), Fx::from_raw(200), Fx::ZERO));
-            let state = CartesianVelocityState { post_velocity:
+            let offset = swap_vec(Vec3::new(Fx::from_raw(17), Fx::from_raw(-31), Fx::ZERO));
+            let state = CartesianVelocityState { com_velocity:
                 swap_vec(Vec3::new(Fx::from_raw(500), Fx::from_raw(-200), Fx::ZERO)), active: true };
-            let (next, state) = cartesian_motor_step(hand, target, state, 600, 75).unwrap();
-            (swap_vec(next), CartesianVelocityState { post_velocity: swap_vec(state.post_velocity),
-                                                       active: state.active })
+            let (next, state, work) = cartesian_motor_step(hand, target, offset, Vec3::ZERO,
+                81_264, state, 600, 75).unwrap();
+            (swap_vec(next), CartesianVelocityState { com_velocity: swap_vec(state.com_velocity),
+                                                       active: state.active }, work)
         };
         assert_eq!(solve(false), solve(true));
     }
@@ -9417,17 +9669,20 @@ mod tests {
         let hand = Vec3::new(Fx::from_raw(7), Fx::from_raw(-9), Fx::from_raw(11));
         let target = Vec3::ZERO;
         assert_eq!(cartesian_motor_step(hand, target, CartesianVelocityState {
-            post_velocity: Vec3::ZERO, active: false,
+            com_velocity: Vec3::ZERO, active: false,
+        }.com_velocity, Vec3::ZERO, 1, CartesianVelocityState {
+            com_velocity: Vec3::ZERO, active: false,
         }, 100, 10), Ok((hand, CartesianVelocityState {
-            post_velocity: Vec3::ZERO, active: false,
-        })));
-        assert_eq!(cartesian_motor_step(hand, target, CartesianVelocityState {
-            post_velocity: Vec3::X, active: false,
-        }, 100, 10), Err(CartesianMotorReject::NonCanonical));
+            com_velocity: Vec3::ZERO, active: false,
+        }, CartesianMotorWork { before_numerator: 0, after_numerator: 0,
+             signed_work: 0, supplied: 0, absorbed: 0 })));
+        assert_eq!(cartesian_motor_step(hand, target, Vec3::ZERO, Vec3::ZERO, 1,
+            CartesianVelocityState { com_velocity: Vec3::X, active: false }, 100, 10),
+            Err(CartesianMotorReject::NonCanonical));
         assert_eq!(cartesian_motor_step(Vec3::new(Fx::MIN, Fx::ZERO, Fx::ZERO),
-            Vec3::new(Fx::MAX, Fx::ZERO, Fx::ZERO), CartesianVelocityState {
-                post_velocity: Vec3::ZERO, active: true,
-            }, 100, 10), Err(CartesianMotorReject::Overflow));
+            Vec3::new(Fx::MAX, Fx::ZERO, Fx::ZERO), Vec3::ZERO, Vec3::ZERO, 1,
+            CartesianVelocityState { com_velocity: Vec3::ZERO, active: true }, 100, 10),
+            Err(CartesianMotorReject::Overflow));
     }
 
     #[test]
@@ -14989,8 +15244,8 @@ mod tests {
 fn post_contact_hash_bytes(arm: ArmState) -> [u8; 13] {
     let mut bytes = [0u8; 13];
     bytes[0] = u8::from(arm.post_contact_active);
-    bytes[1..5].copy_from_slice(&arm.post_contact_velocity.x.raw().to_le_bytes());
-    bytes[5..9].copy_from_slice(&arm.post_contact_velocity.y.raw().to_le_bytes());
-    bytes[9..13].copy_from_slice(&arm.post_contact_velocity.z.raw().to_le_bytes());
+    bytes[1..5].copy_from_slice(&arm.post_contact_com_velocity.x.raw().to_le_bytes());
+    bytes[5..9].copy_from_slice(&arm.post_contact_com_velocity.y.raw().to_le_bytes());
+    bytes[9..13].copy_from_slice(&arm.post_contact_com_velocity.z.raw().to_le_bytes());
     bytes
 }

@@ -56,7 +56,7 @@ That was the wrong interval: contact comes after the telegraph, partway through
 the strike. Live-world measurements showed much more response time than the
 windup alone implied. The corrected tuning lets slow attacks be answered by a
 deliberate swap while fast attacks demand an already-held answer. The paired
-world tests near [`a_club_can_be_answered_by_swapping_to_a_guard`](../../crates/sim/src/world.rs#L14248)
+world tests near [`a_club_can_be_answered_by_swapping_to_a_guard`](../../crates/sim/src/world.rs#L14499)
 own that behavioral constraint.
 
 ### What this cost, honestly

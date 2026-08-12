@@ -2174,6 +2174,172 @@ pub(crate) mod tests {
     }
 
     #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+    pub(crate) struct EquipmentComSample {
+        pub(crate) mass_raw: i64,
+        pub(crate) body_velocity_raw: [i64; 3],
+        pub(crate) hand_velocity_raw: [i64; 3],
+        pub(crate) velocity_offset_raw: [i64; 3],
+        /// One equipment item contributes one row. A `Both` grip marks its
+        /// right-owned row true and its mirrored left arm false.
+        pub(crate) owns_equipment: bool,
+    }
+
+    fn equipment_com_velocity_raw(
+        row: EquipmentComSample,
+    ) -> Result<[i128; 3], DirectionalReject> {
+        let relative = equipment_com_relative_velocity_raw(row)?;
+        let mut answer = [0i128; 3];
+        for axis in 0..3 {
+            answer[axis] = (row.body_velocity_raw[axis] as i128)
+                .checked_add(relative[axis])
+                .ok_or(DirectionalReject::Overflow)?;
+        }
+        Ok(answer)
+    }
+
+    pub(crate) fn equipment_com_relative_velocity_raw(
+        row: EquipmentComSample,
+    ) -> Result<[i128; 3], DirectionalReject> {
+        let mut answer = [0i128; 3];
+        for axis in 0..3 {
+            answer[axis] = (row.hand_velocity_raw[axis] as i128)
+                .checked_add(row.velocity_offset_raw[axis] as i128)
+                .ok_or(DirectionalReject::Overflow)?;
+        }
+        Ok(answer)
+    }
+
+    /// Exact `mass * |body + hand + COM offset|^2`, before the public energy
+    /// divisor floors away sub-unit differences. Non-owning mirror rows are
+    /// deliberately absent from the sum rather than cancelled afterwards.
+    pub(crate) fn widened_equipment_com_numerator(
+        rows: &[EquipmentComSample],
+    ) -> Result<i128, DirectionalReject> {
+        let mut total = 0i128;
+        for &row in rows {
+            if !row.owns_equipment { continue; }
+            if row.mass_raw <= 0 { return Err(DirectionalReject::NoSolution); }
+            let velocity = equipment_com_velocity_raw(row)?;
+            let mut square = 0i128;
+            for component in velocity {
+                square = square.checked_add(component.checked_mul(component)
+                    .ok_or(DirectionalReject::Overflow)?)
+                    .ok_or(DirectionalReject::Overflow)?;
+            }
+            total = total.checked_add((row.mass_raw as i128).checked_mul(square)
+                .ok_or(DirectionalReject::Overflow)?)
+                .ok_or(DirectionalReject::Overflow)?;
+        }
+        Ok(total)
+    }
+
+    /// A motor may retain or remove energy for free, but every positive raw
+    /// numerator delta must fit inside its separately derived supplied-work
+    /// budget. The helper does not invent that budget from an effort scalar.
+    pub(crate) fn equipment_com_energy_fits_supplied_work(
+        before: &[EquipmentComSample], after: &[EquipmentComSample],
+        supplied_work_numerator: i128,
+    ) -> Result<bool, DirectionalReject> {
+        if supplied_work_numerator < 0 { return Err(DirectionalReject::NoSolution); }
+        let before = widened_equipment_com_numerator(before)?;
+        let after = widened_equipment_com_numerator(after)?;
+        Ok(after <= before.checked_add(supplied_work_numerator)
+            .ok_or(DirectionalReject::Overflow)?)
+    }
+
+    pub(crate) fn widened_equipment_com_discrete_work(
+        before: &[EquipmentComSample], after: &[EquipmentComSample],
+    ) -> Result<i128, DirectionalReject> {
+        if before.len() != after.len() { return Err(DirectionalReject::NoSolution); }
+        let mut work = 0i128;
+        for (&old, &new) in before.iter().zip(after) {
+            if old.mass_raw != new.mass_raw || old.owns_equipment != new.owns_equipment {
+                return Err(DirectionalReject::NoSolution);
+            }
+            if !old.owns_equipment { continue; }
+            if old.mass_raw <= 0 { return Err(DirectionalReject::NoSolution); }
+            let old_velocity = equipment_com_velocity_raw(old)?;
+            let new_velocity = equipment_com_velocity_raw(new)?;
+            let mut identity = 0i128;
+            for axis in 0..3 {
+                let delta = new_velocity[axis].checked_sub(old_velocity[axis])
+                    .ok_or(DirectionalReject::Overflow)?;
+                let sum = new_velocity[axis].checked_add(old_velocity[axis])
+                    .ok_or(DirectionalReject::Overflow)?;
+                identity = identity.checked_add(delta.checked_mul(sum)
+                    .ok_or(DirectionalReject::Overflow)?)
+                    .ok_or(DirectionalReject::Overflow)?;
+            }
+            work = work.checked_add((old.mass_raw as i128).checked_mul(identity)
+                .ok_or(DirectionalReject::Overflow)?)
+                .ok_or(DirectionalReject::Overflow)?;
+        }
+        Ok(work)
+    }
+
+    /// Motor-stage identity with body translation held fixed:
+    /// `Delta N = mass * Delta c dot (V1 + V0)`, where stored `c` is the
+    /// equipment COM velocity relative to the body, never the hand velocity.
+    pub(crate) fn widened_equipment_com_motor_work(
+        before: &[EquipmentComSample], after: &[EquipmentComSample],
+    ) -> Result<i128, DirectionalReject> {
+        if before.len() != after.len() { return Err(DirectionalReject::NoSolution); }
+        let mut work = 0i128;
+        for (&old, &new) in before.iter().zip(after) {
+            if old.mass_raw != new.mass_raw || old.owns_equipment != new.owns_equipment
+                || old.body_velocity_raw != new.body_velocity_raw {
+                return Err(DirectionalReject::NoSolution);
+            }
+            if !old.owns_equipment { continue; }
+            if old.mass_raw <= 0 { return Err(DirectionalReject::NoSolution); }
+            let c0 = equipment_com_relative_velocity_raw(old)?;
+            let c1 = equipment_com_relative_velocity_raw(new)?;
+            let v0 = equipment_com_velocity_raw(old)?;
+            let v1 = equipment_com_velocity_raw(new)?;
+            let mut identity = 0i128;
+            for axis in 0..3 {
+                let delta_c = c1[axis].checked_sub(c0[axis])
+                    .ok_or(DirectionalReject::Overflow)?;
+                let velocity_sum = v1[axis].checked_add(v0[axis])
+                    .ok_or(DirectionalReject::Overflow)?;
+                identity = identity.checked_add(delta_c.checked_mul(velocity_sum)
+                    .ok_or(DirectionalReject::Overflow)?)
+                    .ok_or(DirectionalReject::Overflow)?;
+            }
+            work = work.checked_add((old.mass_raw as i128).checked_mul(identity)
+                .ok_or(DirectionalReject::Overflow)?)
+                .ok_or(DirectionalReject::Overflow)?;
+        }
+        Ok(work)
+    }
+
+    #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+    pub(crate) struct EquipmentComWorkLedger {
+        pub(crate) initial_numerator: i128,
+        pub(crate) coast_numerator: i128,
+        pub(crate) final_numerator: i128,
+        pub(crate) transport_delta: i128,
+        pub(crate) motor_work: i128,
+    }
+
+    pub(crate) fn equipment_com_work_ledger(
+        initial: &[EquipmentComSample], coast: &[EquipmentComSample],
+        final_state: &[EquipmentComSample],
+    ) -> Result<EquipmentComWorkLedger, DirectionalReject> {
+        let initial_numerator = widened_equipment_com_numerator(initial)?;
+        let coast_numerator = widened_equipment_com_numerator(coast)?;
+        let final_numerator = widened_equipment_com_numerator(final_state)?;
+        let transport_delta = widened_equipment_com_discrete_work(initial, coast)?;
+        let motor_work = widened_equipment_com_motor_work(coast, final_state)?;
+        if coast_numerator.checked_sub(initial_numerator) != Some(transport_delta)
+            || final_numerator.checked_sub(coast_numerator) != Some(motor_work) {
+            return Err(DirectionalReject::Overflow);
+        }
+        Ok(EquipmentComWorkLedger { initial_numerator, coast_numerator, final_numerator,
+                                    transport_delta, motor_work })
+    }
+
+    #[derive(Clone, Copy, PartialEq, Eq, Debug)]
     pub(crate) struct NeighborKktSample {
         pub(crate) angle: Angle,
         pub(crate) signed_cross: i64,
@@ -2297,6 +2463,129 @@ pub(crate) mod tests {
                    Err(DirectionalReject::NoSolution));
         assert_eq!(widened_kinetic_numerator(&[(i64::MAX, [i64::MAX; 3])]),
                    Err(DirectionalReject::Overflow));
+    }
+
+    #[test]
+    fn equipment_com_energy_includes_offset_changes_and_every_cross_term() {
+        let before = [EquipmentComSample { mass_raw: 3,
+            body_velocity_raw: [10, -2, 0], hand_velocity_raw: [4, 5, 0],
+            velocity_offset_raw: [2, -1, 0], owns_equipment: true }];
+        let after = [EquipmentComSample { mass_raw: 3,
+            body_velocity_raw: [11, -2, 0], hand_velocity_raw: [5, 4, 0],
+            velocity_offset_raw: [3, 3, 0], owns_equipment: true }];
+        assert_eq!(equipment_com_velocity_raw(before[0]).unwrap(), [16, 2, 0]);
+        assert_eq!(equipment_com_velocity_raw(after[0]).unwrap(), [19, 5, 0]);
+        assert_eq!((widened_equipment_com_numerator(&before).unwrap(),
+                    widened_equipment_com_numerator(&after).unwrap()), (780, 1_158));
+
+        // Squaring body, hand and offset separately would answer 450 -> 552.
+        // Both numbers and their delta disagree with the COM row, so deleting
+        // any cross term cannot leave this test green.
+        assert_eq!(1_158 - 780, 378);
+        assert_ne!((780, 1_158), (450, 552));
+    }
+
+    #[test]
+    fn zero_effort_cannot_fund_positive_com_energy_but_exact_work_can() {
+        let before = [EquipmentComSample { mass_raw: 3,
+            body_velocity_raw: [10, -2, 0], hand_velocity_raw: [4, 5, 0],
+            velocity_offset_raw: [2, -1, 0], owns_equipment: true }];
+        let after = [EquipmentComSample { mass_raw: 3,
+            body_velocity_raw: [11, -2, 0], hand_velocity_raw: [5, 4, 0],
+            velocity_offset_raw: [3, 3, 0], owns_equipment: true }];
+        assert!(!equipment_com_energy_fits_supplied_work(&before, &after, 0).unwrap());
+        assert!(!equipment_com_energy_fits_supplied_work(&before, &after, 377).unwrap());
+        assert!(equipment_com_energy_fits_supplied_work(&before, &after, 378).unwrap());
+        assert!(equipment_com_energy_fits_supplied_work(&after, &before, 0).unwrap(),
+            "dissipation does not require motor work");
+        assert_eq!(equipment_com_energy_fits_supplied_work(&before, &after, -1),
+                   Err(DirectionalReject::NoSolution));
+    }
+
+    #[test]
+    fn changing_com_offset_is_zero_work_when_the_free_hand_velocity_is_corrected() {
+        let initial = [EquipmentComSample { mass_raw: 3,
+            body_velocity_raw: [2, 0, 0], hand_velocity_raw: [5, 0, 0],
+            velocity_offset_raw: [3, 0, 0], owns_equipment: true }];
+        // Persisted COM-relative velocity is hand+offset = 8. When the next
+        // scalar pose changes the offset to -2, the free hand velocity is
+        // therefore 8-(-2)=10 before the motor contributes any work.
+        let coast = [EquipmentComSample { hand_velocity_raw: [10, 0, 0],
+            velocity_offset_raw: [-2, 0, 0], ..initial[0] }];
+        let final_state = [EquipmentComSample { hand_velocity_raw: [11, 0, 0],
+            ..coast[0] }];
+        let ledger = equipment_com_work_ledger(&initial, &coast, &final_state).unwrap();
+        assert_eq!(ledger, EquipmentComWorkLedger { initial_numerator: 300,
+            coast_numerator: 300, final_numerator: 363, transport_delta: 0, motor_work: 63 });
+        assert_eq!(equipment_com_velocity_raw(initial[0]).unwrap(), [10, 0, 0]);
+        assert_eq!(equipment_com_velocity_raw(coast[0]).unwrap(), [10, 0, 0]);
+        assert_eq!(equipment_com_velocity_raw(final_state[0]).unwrap(), [11, 0, 0]);
+        assert_eq!(equipment_com_relative_velocity_raw(initial[0]).unwrap(), [8, 0, 0]);
+        assert_eq!(equipment_com_relative_velocity_raw(coast[0]).unwrap(), [8, 0, 0]);
+        assert_eq!(equipment_com_relative_velocity_raw(final_state[0]).unwrap(), [9, 0, 0]);
+        assert_eq!(widened_equipment_com_motor_work(&coast, &final_state), Ok(63));
+        assert!(!equipment_com_energy_fits_supplied_work(&coast, &final_state, 62).unwrap());
+        assert!(equipment_com_energy_fits_supplied_work(&coast, &final_state, 63).unwrap());
+
+        let uncorrected = [EquipmentComSample { hand_velocity_raw: [5, 0, 0],
+            ..coast[0] }];
+        let wrong = equipment_com_work_ledger(&initial, &uncorrected, &uncorrected).unwrap();
+        assert_eq!((wrong.coast_numerator, wrong.transport_delta), (75, -225));
+        assert_ne!(wrong.transport_delta, 0,
+            "changing the offset without correcting the hand silently changed COM energy");
+    }
+
+    #[test]
+    fn discrete_com_work_is_the_signed_widened_energy_difference() {
+        let before = [EquipmentComSample { mass_raw: 5,
+            body_velocity_raw: [1, -2, 3], hand_velocity_raw: [4, 6, -1],
+            velocity_offset_raw: [-2, 1, 2], owns_equipment: true }];
+        let after = [EquipmentComSample { mass_raw: 5,
+            body_velocity_raw: [2, -1, 3], hand_velocity_raw: [5, 3, -2],
+            velocity_offset_raw: [1, 2, 1], owns_equipment: true }];
+        let before_energy = widened_equipment_com_numerator(&before).unwrap();
+        let after_energy = widened_equipment_com_numerator(&after).unwrap();
+        assert_eq!((equipment_com_velocity_raw(before[0]).unwrap(),
+                    equipment_com_velocity_raw(after[0]).unwrap()),
+                   ([3, 5, 4], [8, 4, 2]));
+        assert_eq!((before_energy, after_energy), (250, 420));
+        assert_eq!(widened_equipment_com_discrete_work(&before, &after), Ok(170));
+        assert_eq!(widened_equipment_com_discrete_work(&after, &before), Ok(-170));
+        assert_eq!(after_energy - before_energy, 170);
+        assert_eq!(widened_equipment_com_motor_work(&before, &after),
+                   Err(DirectionalReject::NoSolution),
+                   "body work must not be charged to the relative COM motor state");
+    }
+
+    #[test]
+    fn a_zero_offset_shield_is_the_body_plus_hand_control() {
+        let shield = [EquipmentComSample { mass_raw: 5,
+            body_velocity_raw: [7, -3, 2], hand_velocity_raw: [-2, 5, -2],
+            velocity_offset_raw: [0, 0, 0], owns_equipment: true }];
+        assert_eq!(equipment_com_velocity_raw(shield[0]).unwrap(), [5, 2, 0]);
+        assert_eq!(widened_equipment_com_numerator(&shield), Ok(145));
+        let changed_offset = [EquipmentComSample { velocity_offset_raw: [1, 0, 0],
+            ..shield[0] }];
+        assert_eq!(widened_equipment_com_numerator(&changed_offset), Ok(200));
+    }
+
+    #[test]
+    fn two_handed_equipment_contributes_only_its_right_owned_com_row() {
+        let right = EquipmentComSample { mass_raw: 7,
+            body_velocity_raw: [3, 4, 0], hand_velocity_raw: [5, -2, 1],
+            velocity_offset_raw: [1, 3, 0], owns_equipment: true };
+        let left_mirror = EquipmentComSample { mass_raw: 7,
+            body_velocity_raw: [3, 4, 0], hand_velocity_raw: [5, 2, 1],
+            velocity_offset_raw: [1, -3, 0], owns_equipment: false };
+        assert_eq!(widened_equipment_com_numerator(&[right]), Ok(749));
+        assert_eq!(widened_equipment_com_numerator(&[right, left_mirror]), Ok(749));
+        let mutated_mirror = EquipmentComSample {
+            hand_velocity_raw: [i64::MAX, i64::MAX, i64::MAX], ..left_mirror };
+        assert_eq!(widened_equipment_com_numerator(&[right, mutated_mirror]), Ok(749));
+        assert_eq!(widened_equipment_com_numerator(&[EquipmentComSample {
+            owns_equipment: true, ..left_mirror }]), Ok(637));
+        assert_eq!(widened_equipment_com_numerator(&[EquipmentComSample {
+            mass_raw: 0, ..right }]), Err(DirectionalReject::NoSolution));
     }
 
     #[test]
