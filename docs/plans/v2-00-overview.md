@@ -19,8 +19,7 @@ that remains.
 | work | state | dependency | hash expectation |
 |---|---|---|---|
 | [Representative Fighter and Brute rigs](v2-18-combatant-integration.md) | not started | a passed articulated mechanical gate | presentation-only: every legacy and articulated pin unchanged |
-| Mechanical successor | no implementation session authorized yet | revise the failed thresholds and choose a mechanics hypothesis from the [measured ledger](../performance/v2-articulated-gate.md#open-ledger) | must be predicted in its own plan; `ARTICULATED_HASH` remains absent until the gate passes |
-| Learning successor | no implementation session authorized yet | finish the budget-stopped training run, then choose physics or action/observation work from the [probe decision](../performance/v2-learning-probe.md#what-the-numbers-say-that-the-verdict-lines-do-not) | no current golden is reachable from training; inference-layout or forward-pass changes own `LEARNED_INFERENCE_DIGEST` |
+| [Smart articulated combat](smart-ai-00-overview.md) | planned, session 01 next | make the arena truthful, prove region-targeted striking, calibrate mechanics, then train tactical intents | each session owns an explicit pin budget; `ARTICULATED_HASH` remains absent until its final gate |
 | Visible browser evidence | blocked on a person using a foreground tab | follow the [arena matrix](../performance/v2-arena-matrix.md) and remaining [room matrix](../performance/v2-room-matrix.md) slots | no hashes move |
 
 `v2-18` stays blocked. Its rigs are presentation-only, but producing them around a

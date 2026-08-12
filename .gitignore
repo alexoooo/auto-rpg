@@ -37,3 +37,9 @@ web/fight*.json
 # write leaves behind are not artifacts.
 checkpoints/*.log
 checkpoints/*.partial
+
+# Personal Claude Code settings and the local scripts they call. The project has no
+# checked-in `.claude/settings.json` on purpose: a hook that kills processes is a
+# preference about one machine, not a contract every contributor inherits.
+.claude/settings.local.json
+.claude/local/
