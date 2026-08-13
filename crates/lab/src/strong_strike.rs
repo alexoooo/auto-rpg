@@ -47,6 +47,10 @@ pub(crate) struct StrongCase {
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum MirrorGrammar { SpatialRightHand = 39, AnatomicalHandSwap = 40 }
 
+#[repr(u8)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum ScheduleBearingSource { ObservedOpponent = 40, DeclaredSpawnOffset = 41 }
+
 fn attacking_limb(case: StrongCase, grammar: MirrorGrammar) -> LimbSlot {
     if grammar == MirrorGrammar::AnatomicalHandSwap && case.mirrored {
         LimbSlot::LeftArm
@@ -195,6 +199,13 @@ fn schedule_bearings(bearing: Angle, mirrored: bool) -> (Angle, Angle) {
     }
 }
 
+fn declared_schedule_bearing(case: StrongCase) -> Angle {
+    let offset = if case.mirrored {
+        Vec2::new(case.approach_offset.x, -case.approach_offset.y)
+    } else { case.approach_offset };
+    (-offset).angle()
+}
+
 fn raw_parts(values: [Fx; BodyPart::COUNT]) -> [i32; BodyPart::COUNT] { values.map(Fx::raw) }
 
 fn attributed_sword_body(row: &sim::ContactResolution, attacker: EntityId, defender: EntityId,
@@ -214,11 +225,12 @@ pub(crate) fn measure_case_schedule(
     strike_reach: Fx,
 ) -> StrikeMeasurement {
     measure_case_schedule_with(case, strike_effort, chamber_ticks, strike_ticks, strike_reach,
-                               MirrorGrammar::SpatialRightHand)
+        MirrorGrammar::SpatialRightHand, ScheduleBearingSource::ObservedOpponent)
 }
 
 fn measure_case_schedule_with(case: StrongCase, strike_effort: Fx, chamber_ticks: u32,
-    strike_ticks: u32, strike_reach: Fx, grammar: MirrorGrammar) -> StrikeMeasurement {
+    strike_ticks: u32, strike_reach: Fx, grammar: MirrorGrammar,
+    bearing_source: ScheduleBearingSource) -> StrikeMeasurement {
     let scenario = scenario_for_ticks_with(case, chamber_ticks + strike_ticks, grammar);
     let mut world = World::new(&scenario, case.seed);
     let attacker = world.alive_ids(Faction::Heroes)[0];
@@ -226,11 +238,13 @@ fn measure_case_schedule_with(case: StrongCase, strike_effort: Fx, chamber_ticks
     let limb = attacking_limb(case, grammar);
     let shown = world.observe_articulated(attacker);
     let foe = shown.opponents().first().expect("the target is publicly observed");
-    let offset = Vec2::new(
-        foe.body_position.x - shown.body_position.x,
-        foe.body_position.y - shown.body_position.y,
-    );
-    let bearing = offset.angle();
+    let bearing = match bearing_source {
+        ScheduleBearingSource::ObservedOpponent => Vec2::new(
+            foe.body_position.x - shown.body_position.x,
+            foe.body_position.y - shown.body_position.y,
+        ).angle(),
+        ScheduleBearingSource::DeclaredSpawnOffset => declared_schedule_bearing(case),
+    };
     let region = foe.regions[BodyPart::Legs as usize];
     let local_height = (region.lower.z + region.upper.z) / Fx::from_int(2)
         - foe.body_position.z;
@@ -654,7 +668,19 @@ pub(crate) fn run_predeclared_anatomical_mirror_corpus() -> StrikeCorpusAudit {
         let measured = measure_case_schedule_with(StrongCase { seed: 0, mirrored,
             target_anatomy: case.target_anatomy, approach_offset: case.approach_offset },
             Fx::ONE, case.chamber_ticks, strike_ticks, Fx::from_raw(case.reach_raw + reach_delta),
-            MirrorGrammar::AnatomicalHandSwap);
+            MirrorGrammar::AnatomicalHandSwap, ScheduleBearingSource::ObservedOpponent);
+        (selection_row(case, mirrored, strike_delta, reach_delta, measured),
+         damage_sidecar(measured))
+    })
+}
+
+pub(crate) fn run_predeclared_noise_free_mirror_corpus() -> StrikeCorpusAudit {
+    execute_corpus_sharded_with(true, |case, mirrored, strike_delta, reach_delta| {
+        let strike_ticks = (case.strike_ticks as i32 + strike_delta) as u32;
+        let measured = measure_case_schedule_with(StrongCase { seed: 0, mirrored,
+            target_anatomy: case.target_anatomy, approach_offset: case.approach_offset },
+            Fx::ONE, case.chamber_ticks, strike_ticks, Fx::from_raw(case.reach_raw + reach_delta),
+            MirrorGrammar::AnatomicalHandSwap, ScheduleBearingSource::DeclaredSpawnOffset);
         (selection_row(case, mirrored, strike_delta, reach_delta, measured),
          damage_sidecar(measured))
     })
@@ -668,18 +694,21 @@ fn checksum_word(hash: &mut u64, word: u64) {
 }
 
 pub(crate) fn strike_corpus_checksum(audit: &StrikeCorpusAudit) -> u64 {
-    strike_corpus_checksum_with(audit, MirrorGrammar::SpatialRightHand)
+    strike_corpus_checksum_with(audit, None)
 }
 
 pub(crate) fn anatomical_mirror_corpus_checksum(audit: &StrikeCorpusAudit) -> u64 {
-    strike_corpus_checksum_with(audit, MirrorGrammar::AnatomicalHandSwap)
+    strike_corpus_checksum_with(audit, Some(ScheduleBearingSource::ObservedOpponent))
 }
 
-fn strike_corpus_checksum_with(audit: &StrikeCorpusAudit, grammar: MirrorGrammar) -> u64 {
+pub(crate) fn noise_free_mirror_corpus_checksum(audit: &StrikeCorpusAudit) -> u64 {
+    strike_corpus_checksum_with(audit, Some(ScheduleBearingSource::DeclaredSpawnOffset))
+}
+
+fn strike_corpus_checksum_with(audit: &StrikeCorpusAudit,
+                               source: Option<ScheduleBearingSource>) -> u64 {
     let mut hash = 0xcbf2_9ce4_8422_2325;
-    if grammar == MirrorGrammar::AnatomicalHandSwap {
-        checksum_word(&mut hash, grammar as u64);
-    }
+    if let Some(source) = source { checksum_word(&mut hash, source as u64); }
     for value in INTERIOR_CHAMBER_TICKS { checksum_word(&mut hash, value as u64); }
     for value in INTERIOR_STRIKE_TICKS { checksum_word(&mut hash, value as u64); }
     for value in INTERIOR_REACH_TARGETS_RAW { checksum_word(&mut hash, value as u64); }
@@ -987,6 +1016,166 @@ mod tests {
         }
         let empty = StrikeCorpusAudit::default();
         assert_ne!(strike_corpus_checksum(&empty), anatomical_mirror_corpus_checksum(&empty));
+    }
+
+    fn ordinal_strong_case(ordinal: usize, mirrored: bool) -> StrongCase {
+        let case = declared_central_cases()[ordinal];
+        StrongCase { seed: 0, mirrored, target_anatomy: case.target_anatomy,
+                     approach_offset: case.approach_offset }
+    }
+
+    #[test]
+    fn declared_schedule_bearings_are_exact_negations_at_ordinal_1536() {
+        let plain = ordinal_strong_case(1_536, false);
+        let mirror = ordinal_strong_case(1_536, true);
+        let plain_schedule = schedule_bearings(declared_schedule_bearing(plain), false);
+        let mirror_schedule = schedule_bearings(declared_schedule_bearing(mirror), true);
+        assert_eq!(mirror_schedule.0.raw(), plain_schedule.0.raw().wrapping_neg());
+        assert_eq!(mirror_schedule.1.raw(), plain_schedule.1.raw().wrapping_neg());
+        let plain_config = config_for_ticks(plain, 48, MirrorGrammar::AnatomicalHandSwap);
+        let mirror_config = config_for_ticks(mirror, 48, MirrorGrammar::AnatomicalHandSwap);
+        assert_eq!(plain_config.fighters[0].spawn.y + mirror_config.fighters[0].spawn.y,
+                   Fx::from_int(16));
+        assert_eq!(attacking_limb(plain, MirrorGrammar::AnatomicalHandSwap),
+                   LimbSlot::RightArm);
+        assert_eq!(attacking_limb(mirror, MirrorGrammar::AnatomicalHandSwap),
+                   LimbSlot::LeftArm);
+    }
+
+    #[test]
+    fn perception_noise_cannot_enter_the_declared_schedule_bearing() {
+        let case = ordinal_strong_case(1_536, false);
+        let world = World::new(&scenario_for_ticks_with(case, 48,
+            MirrorGrammar::AnatomicalHandSwap), 0);
+        let id = world.alive_ids(Faction::Heroes)[0];
+        let foe = world.alive_ids(Faction::Monsters)[0];
+        let clean = world.observe_articulated(id);
+        let mut noised = clean;
+        noised.opponents[0].body_position.x += Fx::from_int(3);
+        noised.opponents[0].body_position.y -= Fx::from_int(2);
+        let bearing_a = declared_schedule_bearing(case);
+        let bearing_b = declared_schedule_bearing(case);
+        assert_eq!(bearing_a, bearing_b);
+        let a = command(&clean, foe, LimbSlot::RightArm, bearing_a,
+            CombatHeight::MID, Fx::ONE, Fx::ONE);
+        let b = command(&noised, foe, LimbSlot::RightArm, bearing_b,
+            CombatHeight::MID, Fx::ONE, Fx::ONE);
+        assert_eq!(a, b);
+        let observed_a = Vec2::new(clean.opponents[0].body_position.x - clean.body_position.x,
+            clean.opponents[0].body_position.y - clean.body_position.y).angle();
+        let observed_b = Vec2::new(noised.opponents[0].body_position.x - noised.body_position.x,
+            noised.opponents[0].body_position.y - noised.body_position.y).angle();
+        assert_ne!(observed_a, observed_b, "the test did not perturb the old source");
+    }
+
+    #[test]
+    fn smart40_and_smart41_inputs_differ_only_in_schedule_bearing_source() {
+        assert_eq!(STRIKE_TICK_DELTAS, [-1, 0, 1]);
+        assert_eq!(REACH_DELTAS_RAW, [-256, 0, 256]);
+        let case = ordinal_strong_case(1_536, true);
+        let config40 = config_for_ticks(case, 48, MirrorGrammar::AnatomicalHandSwap);
+        let config41 = config_for_ticks(case, 48, MirrorGrammar::AnatomicalHandSwap);
+        assert_eq!(config40, config41);
+        assert_eq!(attacking_limb(case, MirrorGrammar::AnatomicalHandSwap), LimbSlot::LeftArm);
+        assert_ne!(ScheduleBearingSource::ObservedOpponent,
+                   ScheduleBearingSource::DeclaredSpawnOffset);
+        let declared = declared_schedule_bearing(case);
+        let world = World::new(&Scenario::duel_from(&config40).unwrap(), 0);
+        let hero = world.alive_ids(Faction::Heroes)[0];
+        let shown = world.observe_articulated(hero);
+        let foe = shown.opponents()[0];
+        let observed = Vec2::new(foe.body_position.x - shown.body_position.x,
+            foe.body_position.y - shown.body_position.y).angle();
+        assert_ne!(observed, declared, "ordinal 1536 did not expose the source correction");
+        let chamber40 = schedule_bearings(observed, true).0;
+        let chamber41 = schedule_bearings(declared, true).0;
+        let target = world.alive_ids(Faction::Monsters)[0];
+        let command40 = command(&shown, target, LimbSlot::LeftArm, chamber40,
+            CombatHeight::MID, Fx::ONE, Fx::ONE);
+        let command41 = command(&shown, target, LimbSlot::LeftArm, chamber41,
+            CombatHeight::MID, Fx::ONE, Fx::ONE);
+        assert_eq!((command40.intent, command40.move_dir, command40.body_yaw, command40.grips,
+                    command40.arms[1]),
+                   (command41.intent, command41.move_dir, command41.body_yaw, command41.grips,
+                    command41.arms[1]));
+        assert_ne!(command40.arms[0].bearing, command41.arms[0].bearing);
+        assert_eq!((command40.arms[0].height, command40.arms[0].reach,
+                    command40.arms[0].effort),
+                   (command41.arms[0].height, command41.arms[0].reach,
+                    command41.arms[0].effort));
+    }
+
+    #[test]
+    fn noise_free_schedule_still_submits_only_ordinary_articulated_commands() {
+        let case = ordinal_strong_case(1_536, true);
+        let world = World::new(&scenario_for_ticks_with(case, 48,
+            MirrorGrammar::AnatomicalHandSwap), 0);
+        let hero = world.alive_ids(Faction::Heroes)[0];
+        let foe = world.alive_ids(Faction::Monsters)[0];
+        let shown = world.observe_articulated(hero);
+        let schedule = schedule_bearings(declared_schedule_bearing(case), true);
+        for bearing in [schedule.0, schedule.1] {
+            let row = command(&shown, foe, LimbSlot::LeftArm, bearing,
+                CombatHeight::MID, Fx::ONE, Fx::ONE);
+            assert_eq!(row.intent, Intent::Attack(foe));
+            assert_eq!(row.grips, [sim::GripRequest::Keep; 2]);
+            assert_eq!(row.arms[1], neutral_articulated_command(&shown).arms[1]);
+        }
+    }
+
+    fn synthetic_source_41_audit(eligible: &[u32]) -> StrikeCorpusAudit {
+        execute_corpus_sharded_with(true, |case, mirrored, strike_delta, reach_delta_raw| {
+            let mut row = anatomical_synthetic_row(case, mirrored,
+                eligible.contains(&case.ordinal), 100 + case.ordinal as u64);
+            row.strike_delta = strike_delta; row.reach_delta_raw = reach_delta_raw;
+            (row, DamageSidecar { cut_raw: case.ordinal as u64, thrust_raw: u64::MAX,
+                pressure_raw: mirrored as u64, integrity_loss_raw: strike_delta })
+        })
+    }
+
+    #[test]
+    fn source_41_reuses_all_7560_central_orientations_without_early_exit() {
+        let audit = synthetic_source_41_audit(&[4, 17]);
+        assert_eq!((audit.central_rows.len(), audit.local_rows.len(), audit.robust.len()),
+                   (7_560, 36, 2));
+    }
+
+    #[test]
+    fn source_41_runs_eighteen_local_orientations_for_every_eligible_pair() {
+        let audit = synthetic_source_41_audit(&[2, 9, 27]);
+        assert_eq!(audit.local_rows.len(), 3 * 18);
+        assert!(audit.local_rows.chunks_exact(18).all(|rows| rows.len() == 18));
+    }
+
+    #[test]
+    fn source_41_retains_anatomical_slot_and_pose_mapping() {
+        let case = declared_central_cases()[0];
+        assert!(mirrored_pair([anatomical_synthetic_row(case, false, true, 9),
+            anatomical_synthetic_row(case, true, true, 9)], true));
+    }
+
+    #[test]
+    fn source_41_selection_is_maximin_then_duration_then_ordinal() {
+        mechanical_ranking_uses_worst_case_dissipation_then_duration_then_ordinal();
+    }
+
+    #[test]
+    fn source_41_selection_ignores_contradictory_damage_sidecars() {
+        contradictory_damage_sidecars_cannot_change_mechanical_selection();
+    }
+
+    #[test]
+    fn source_41_checksum_cannot_alias_the_smart40_grammar() {
+        let audit = synthetic_source_41_audit(&[4]);
+        assert_ne!(noise_free_mirror_corpus_checksum(&audit),
+                   anatomical_mirror_corpus_checksum(&audit));
+    }
+
+    #[test]
+    #[ignore = "bounded Smart41 noise-free mirror audit; use release CLI"]
+    fn select_the_predeclared_noise_free_mirror_corpus() {
+        let audit = run_predeclared_noise_free_mirror_corpus();
+        assert_eq!(audit.central_rows.len(), 7_560);
     }
 
     #[test]

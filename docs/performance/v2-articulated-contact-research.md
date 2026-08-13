@@ -67,6 +67,19 @@ diagnosis is either behavior-neutral shared plumbing or behind the disabled
   `3e8c6246190b6b28`. The anatomical-mirror hypothesis is therefore refuted under
   this exact corpus. No local or damage result was read, and no successor transform
   has been declared.
+- Smart41 removed one more pre-tick asymmetry without changing Smart40's domain or
+  anatomical mirror: its controlled schedule bearing came from the declared spawn
+  offset rather than the perception-noised `ObservedOpponent`. The complete
+  source-41 audit still found 109 eligible plain individuals and **zero eligible
+  mirror individuals**, zero local runs, zero robust pairs, and no selection. Its
+  internal timer read `2,854,599` ms and the command reported `2,857.4` seconds. The
+  overlapping predicate counters were missing/attribution `5,830`, crossing `7,092`,
+  reach `6,695`, motion `6,685`, impulse `6,040`, dissipation `6,188`, refusal `0`,
+  solver `3,218`, cap `0`, energy `0`, and alpha `5,830`; the audit checksum was
+  `8ae36d7d170892dd`. Removing observation noise increased plain eligibility from 57
+  to 109 but restored no mirrored eligibility, so the bearing-only hypothesis is
+  refuted for this corpus. No local or damage result was read, and no successor has
+  been declared.
 - A full-domain actual-projector normal probe sampled 27 scalar words and 101 unique
   component projections. The adjacent envelopes jumped from `[-4,-4]` to `[-4,2]`
   with no restitution-valid root: `NormalGap`.

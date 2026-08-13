@@ -243,17 +243,22 @@ pub(crate) fn tactical_mechanics(args: &Args) {
         seed: 0, mirrored: false, target_anatomy: AnatomyChoice::Fighter,
         approach_offset: strong_strike::APPROACH_OFFSETS[4],
     };
-    if args.flag("strike-corpus") || args.flag("anatomical-mirror-corpus") {
+    if args.flag("strike-corpus") || args.flag("anatomical-mirror-corpus")
+        || args.flag("noise-free-mirror-corpus") {
         let anatomical = args.flag("anatomical-mirror-corpus");
+        let noise_free = args.flag("noise-free-mirror-corpus");
         if args.flag("quick") || args.flag("calibration") || args.flag("held-out")
-            || args.text("write").is_some() || (anatomical && args.flag("strike-corpus")) {
+            || args.text("write").is_some()
+            || [args.flag("strike-corpus"), anatomical, noise_free]
+                .into_iter().filter(|set| *set).count() != 1 {
             eprintln!("tactical-mechanics corpus audits accept exactly one mode and no input");
             return;
         }
         // The executor owns four named 16 MiB workers. The caller only merges
         // their retained rows, so MSVC's 1 MiB main stack never holds a World.
         let started = std::time::Instant::now();
-        let audit = if anatomical { strong_strike::run_predeclared_anatomical_mirror_corpus() }
+        let audit = if noise_free { strong_strike::run_predeclared_noise_free_mirror_corpus() }
+            else if anatomical { strong_strike::run_predeclared_anatomical_mirror_corpus() }
             else { strong_strike::run_predeclared_strike_corpus() };
         println!("kind,ordinal,chamber,strike,strike_delta,reach,reach_delta,target,offset_x,offset_y,mirrored,eligible,failure_mask,dissipated,refusals,solver_rejections,cap_hits,energy_excess");
         let print_row = |kind: &str, row: &strong_strike::MechanicalRow| {
@@ -306,10 +311,12 @@ pub(crate) fn tactical_mechanics(args: &Args) {
                 for row in &pair.rows { print_row("selected-local", row); }
             }
         }
-        let checksum = if anatomical { strong_strike::anatomical_mirror_corpus_checksum(&audit) }
+        let checksum = if noise_free { strong_strike::noise_free_mirror_corpus_checksum(&audit) }
+            else if anatomical { strong_strike::anatomical_mirror_corpus_checksum(&audit) }
             else { strong_strike::strike_corpus_checksum(&audit) };
         println!("{} central_oriented={} local_oriented={} robust_pairs={} selected={:?} checksum={:016x} elapsed_ms={}",
-            if anatomical { "anatomical-mirror-corpus" } else { "strike-corpus" },
+            if noise_free { "noise-free-mirror-corpus source=41" }
+                else if anatomical { "anatomical-mirror-corpus" } else { "strike-corpus" },
             audit.central_rows.len(), audit.local_rows.len(), audit.robust.len(), audit.selected,
             checksum, started.elapsed().as_millis());
         return;
@@ -319,7 +326,7 @@ pub(crate) fn tactical_mechanics(args: &Args) {
         return;
     }
     if !args.flag("quick") {
-        eprintln!("tactical-mechanics expects --quick, --calibration, --held-out, --strike-corpus, or --anatomical-mirror-corpus");
+        eprintln!("tactical-mechanics expects --quick, --calibration, --held-out, --strike-corpus, --anatomical-mirror-corpus, or --noise-free-mirror-corpus");
         return;
     }
     let before = strong_strike::measure_case(quick, Fx::ONE);

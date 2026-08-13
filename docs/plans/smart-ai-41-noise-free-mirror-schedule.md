@@ -1,8 +1,16 @@
 # Smart AI 41 -- noise-free mirrored strike schedule
 
-**Status:** ready to implement; no Smart41 measurement has been run. Smart40 proved
-the anatomical/loadout reflection and still found all 57 eligible central rows on
-the plain side. A pre-tick comparison then isolated one remaining asymmetric input:
+**Status:** stopped and refuted at checkpoint B on 2026-08-13. The complete release
+audit evaluated all 7,560 central orientations in `2,854,599` ms; the enclosing
+command reported `2,857.4` seconds. It found 109 eligible plain individuals and zero
+eligible mirror individuals, hence zero local runs, zero robust pairs, and no
+selection. Removing perception noise from the schedule bearing increased plain-side
+eligibility but did not restore mirror symmetry. Checkpoint C did not run, and no
+successor is declared. Existing registered-pin movement and new-pin budgets remained
+zero.
+
+Smart40 proved the anatomical/loadout reflection and still found all 57 eligible
+central rows on the plain side. A pre-tick comparison then isolated one asymmetric input:
 [`measure_case_schedule`](../../crates/lab/src/strong_strike.rs#L227) derives its
 schedule bearing from the first `ObservedOpponent`, whose reported position may
 contain deterministic perception noise. This successor changes only that bearing
@@ -171,6 +179,28 @@ checksum. If no robust pair exists, stop and preserve the failure without changi
 the bearing source, reflection, domain, solver, tolerance, or selector. If eligible
 rows remain one-sided, the observation-noise diagnosis is refuted for this exact
 corpus. Do not declare another bearing correction inside this session.
+
+### Measured result -- stopped and refuted
+
+The exact four-shard source-41 audit completed all 7,560 central orientations. Its
+internal timer reported `elapsed_ms=2854599`; the command wall report was `2,857.4`
+seconds. It found `eligible_plain=109`, `eligible_mirror=0`, `local_runs=0`,
+`robust_pairs=0`, and `selected=none`. The overlapping predicate counters were:
+
+```text
+missing_or_attribution=5830  crossing=7092  reach=6695  motion=6685
+impulse=6040                 dissipation=6188
+refusal=0                    solver=3218     cap=0       energy=0
+alpha=5830
+checksum=8ae36d7d170892dd
+```
+
+The counters are independent predicate failures and therefore do not sum to 7,560.
+Deriving the schedule from declared spawn geometry nearly doubled plain eligibility
+from Smart40's 57 to 109, but produced no eligible mirror row. That is the declared
+refutation of the bearing-only hypothesis. The stop path ran before local or outcome
+measurement; no domain, reflection, law, tolerance, or selector changed after the
+result, and checkpoint C below remains the unexecuted pass contract.
 
 ## Checkpoint C -- pass handoff only after selection
 
