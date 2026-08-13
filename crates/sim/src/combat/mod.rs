@@ -20,3 +20,5 @@ pub mod resolution;
 pub(crate) mod trajectory;
 #[cfg(any(test, feature = "cartesian-recoil"))]
 pub(crate) mod wide;
+#[cfg(feature = "cartesian-recoil")]
+pub(crate) mod lifted_solver;

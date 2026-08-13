@@ -97,11 +97,16 @@ pub(crate) const LIFTED_SOLVER_SWEEPS: usize = 8;
 pub(crate) const LIFTED_LIFTS_PER_VISIT: usize = 96;
 
 pub(crate) struct LiftedImpulse { pub(crate) raw: [i32; 3] }
+pub(crate) struct LiftedContact {
+    pub(crate) fact: ContactFact,
+    pub(crate) a_trajectory: usize,
+    pub(crate) b_trajectory: usize,
+}
 pub(crate) struct LiftedSolverScratch {
     impulses: Vec<LiftedImpulse>,
     trial_rows: Vec<ContactResolution>,
     candidates: Vec<LiftedCandidate>,
-    trial_owners: FixedExactOwners,
+    trial_owners: Option<FixedExactOwners>,
 }
 
 pub(crate) enum LiftedSolverReject {
@@ -115,6 +120,14 @@ pub(crate) fn solve_lifted_group(
     motor_velocities: &[[i32; 3]], scratch: &mut LiftedSolverScratch,
 ) -> Result<LiftedGroup, LiftedSolverReject>;
 ```
+
+`LiftedContact` uses global trajectory indices, not closure-local indices. The
+solver validates identity against its fact and requires strict `ContactKey` order;
+the response-neutral driver row described below owns that canonical sort. A final
+`LiftedGroup` carries the selected signed exact energy delta and once-floored loss,
+while the selected resolution rows remain in retained scratch. The optional inline
+owner snapshot is filled by a real trial; no empty authoritative owner state is
+invented merely to initialise retained scratch.
 
 The `42`-row boundary is the already-measured worst-case 96-bit exact-energy
 envelope: 42 independent terms fit the fixed 4,096-bit word and term 43 refuses.
@@ -169,10 +182,15 @@ collection, simultaneous grouping, whole-entity closure, group recomputation,
 suppression, cap semantics, allocation, channels, anatomy, and lifecycle order
 unchanged. Split proposal ownership at the existing `ContactKinematics` seam:
 
-- `CompatibilityKinematics` continues to call `proposed_impulse` and
-  `resolve_group_into` byte for byte.
+- The shared driver constructs a response-neutral ordered row containing only the
+  fact, closure indices, and channel. It must not call `proposed_impulse` before
+  dispatch: that would execute the forbidden ray even if the exact implementation
+  ignored its answer.
+- `CompatibilityKinematics` alone maps those rows and collider surfaces to
+  `ProposedContact`, calls `proposed_impulse`, and then calls `resolve_group_into`
+  byte for byte.
 - `ExactKinematics` constructs ordered `LiftedContact` rows directly from facts and
-  surfaces, calls `solve_lifted_group`, then uses the selected integer impulses as the
+  global trajectory identities, calls `solve_lifted_group`, then uses the selected integer impulses as the
   input to the existing exact physical-energy, allocation, channel, `after_group`, and
   [`apply_exact_group`](../../crates/sim/src/combat/trajectory.rs#L659) path.
 - Delete the exact path's `build_group_sums`, projector trial, and 16-bit alpha
@@ -191,9 +209,12 @@ retained `LiftedSolverScratch`. `try_reserve` reserves 16 impulses, 16 published
 and 96 candidates before World allocation completes; capacity reporting includes all
 three `Vec`s. `FixedExactOwners` stays inline. No candidate, trial, cone comparison,
 or score may allocate after warm-up. A refusal leaves owners, colliders, resolutions,
-anatomy, external ledger, and retained capacities byte-identical. At group-cap
-settlement, preserve every earlier committed group and roll back only the current
-uncommitted solver trial, matching Smart37's cap rule.
+anatomy, external ledger, and retained capacities byte-identical. The exact tick
+remains whole-tick atomic on every refusal, including its current group-cap refusal:
+`solve_exact_contact_tick` restores the entry owners and trajectories, and World
+restores anatomy and clears resolutions. Candidate trials inside one group also
+rebuild from the frozen group entry and never leak a partial trial. Preserving earlier
+groups across an exact cap would be a separate lifecycle contract change.
 
 Add `ResolutionError::ExactSolver(LiftedSolverReject)` only if the enum remains
 crate-private end to end; otherwise add one named `ExactSolver` outer error and retain
@@ -253,7 +274,7 @@ validation is removed.
 
 ## Checkpoint C -- retained strike and robust mirrored mechanical gate
 
-First rerun the retained right-sword/Brute-body fixture. Its old frozen ray literals
+First rerun the retained right-sword/Fighter-body fixture. Its old frozen ray literals
 are research evidence, not expected output. Before running the new solver, write down
 the expected identities and mechanically eligible conditions below; do not select a
 candidate because it wounds more:
@@ -274,12 +295,18 @@ fixture: reflect across `y = 8`, mapping every spawn `(x,y)` to `(x,16-y)`, whil
 keeping entity, faction, loadout, and attacking hand unchanged. The shipped spawn
 yaws are zero and `HALF`, both their own reflected heading, so no invented yaw column
 or faction/hand swap belongs here. Reflect the strong-strike approach offset
-`(x,y) -> (x,-y)` and negate its chamber/follow bearing commands; height, reach,
-effort, and the 24-tick wind-up/strike/recovery timing remain byte-identical. Around
-its central strike command, enumerate the Cartesian product of bearing
-`{-1,0,+1}` raw and reach
-`{-1,0,+1}` raw perturbations on the attacking arm: nine neighbours per side. The
-central row and all 18 mirrored neighbours must satisfy the mechanical conditions
+`(x,y) -> (x,-y)` and negate its chamber/follow bearing commands. Freeze the new
+central geometry before the first lifted-solver result is inspected: Fighter target,
+approach offset raw `(-163_840, 0)`, right arm, Legs height, reach and effort one,
+and the existing strong-strike 28-tick chamber plus 28-tick follow timing with
+bearings `-EIGHTH/+EIGHTH` (signs reversed by the mirror). This is a new declared
+corpus, not a claim that the retired search found a robust pair: its 7,560 runs
+produced 312 individually eligible rows and zero eligible mirror pairs. Around that
+central strike command, enumerate the literal order
+`[(-1,-1),(-1,0),(-1,+1),(0,-1),(0,0),(0,+1),(+1,-1),(+1,0),(+1,+1)]`, the
+Cartesian product of bearing `{-1,0,+1}` raw and reach `{-1,0,+1}` raw perturbations
+on the attacking arm: nine cases per side including `(0,0)`, eighteen total. All
+eighteen cases must satisfy the mechanical conditions
 above with mapped `ContactKey`, region, TOI within one raw word, mapped impulse
 `(x,-y,z)` within one raw word per component, identical exact dissipated energy,
 identical anatomy result, and no cap/refusal. At least one outcome on each side must
