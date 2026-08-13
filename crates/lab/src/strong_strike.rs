@@ -44,6 +44,15 @@ pub(crate) struct StrongCase {
     pub approach_offset: Vec2,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum MirrorGrammar { SpatialRightHand = 39, AnatomicalHandSwap = 40 }
+
+fn attacking_limb(case: StrongCase, grammar: MirrorGrammar) -> LimbSlot {
+    if grammar == MirrorGrammar::AnatomicalHandSwap && case.mirrored {
+        LimbSlot::LeftArm
+    } else { LimbSlot::RightArm }
+}
+
 impl StrongCase {
     fn quick() -> StrongCase {
         StrongCase {
@@ -128,19 +137,32 @@ fn observed_crossing(row: StrikeMeasurement) -> bool {
     ).is_some()).unwrap_or(false)
 }
 
-fn scenario_for_ticks(case: StrongCase, max_ticks: u32) -> Scenario {
+fn config_for_ticks(case: StrongCase, max_ticks: u32, grammar: MirrorGrammar) -> DuelConfigV1 {
     let mut config = DuelConfigV1::shipped();
     let centre = Vec2::from_ints(12, 8);
     let offset = if case.mirrored {
         Vec2::new(case.approach_offset.x, -case.approach_offset.y)
     } else { case.approach_offset };
     config.fighters[0].spawn = centre + offset;
-    config.fighters[0].hands[1].as_mut().expect("the shipped sword").geometry =
+    if grammar == MirrorGrammar::AnatomicalHandSwap && case.mirrored {
+        for fighter in &mut config.fighters { fighter.hands.swap(0, 1); }
+    }
+    let limb = attacking_limb(case, grammar) as usize;
+    config.fighters[0].hands[limb].as_mut().expect("the reflected sword").geometry =
         EquipmentGeometry::Segment { length: Fx::from_int(2), radius: Fx::from_ratio(1, 25) };
     config.fighters[1].spawn = centre;
     config.fighters[1].anatomy = case.target_anatomy;
     config.max_ticks = max_ticks;
+    config
+}
+
+fn scenario_for_ticks_with(case: StrongCase, max_ticks: u32, grammar: MirrorGrammar) -> Scenario {
+    let config = config_for_ticks(case, max_ticks, grammar);
     Scenario::duel_from(&config).expect("the controlled strong-strike duel is legal")
+}
+
+fn scenario_for_ticks(case: StrongCase, max_ticks: u32) -> Scenario {
+    scenario_for_ticks_with(case, max_ticks, MirrorGrammar::SpatialRightHand)
 }
 
 pub(crate) fn scenario_for(case: StrongCase) -> Scenario {
@@ -150,13 +172,13 @@ pub(crate) fn scenario_for(case: StrongCase) -> Scenario {
 #[cfg(test)]
 pub(crate) fn scenario() -> Scenario { scenario_for(StrongCase::quick()) }
 
-fn command(obs: &sim::ArticulatedObservation, opponent: EntityId, bearing: Angle,
-           height: CombatHeight, reach: Fx, effort: Fx)
+fn command(obs: &sim::ArticulatedObservation, opponent: EntityId, limb: LimbSlot,
+           bearing: Angle, height: CombatHeight, reach: Fx, effort: Fx)
     -> ArticulatedCommandV1
 {
     let mut command = neutral_articulated_command(obs);
     command.intent = Intent::Attack(opponent);
-    command.arms[1] = ArmTarget {
+    command.arms[limb as usize] = ArmTarget {
         bearing, height, reach, effort,
     };
     command
@@ -175,13 +197,14 @@ fn schedule_bearings(bearing: Angle, mirrored: bool) -> (Angle, Angle) {
 
 fn raw_parts(values: [Fx; BodyPart::COUNT]) -> [i32; BodyPart::COUNT] { values.map(Fx::raw) }
 
-fn attributed_sword_body(row: &sim::ContactResolution, attacker: EntityId, defender: EntityId)
+fn attributed_sword_body(row: &sim::ContactResolution, attacker: EntityId, defender: EntityId,
+                         limb: LimbSlot)
     -> bool
 {
     row.fact.key.kind == ContactKind::WeaponBody && (
-        (row.fact.key.a == attacker && row.fact.key.a_slot == LimbSlot::RightArm as u8
+        (row.fact.key.a == attacker && row.fact.key.a_slot == limb as u8
             && row.fact.key.b == defender && row.fact.key.b_slot == BODY_SLOT)
-        || (row.fact.key.b == attacker && row.fact.key.b_slot == LimbSlot::RightArm as u8
+        || (row.fact.key.b == attacker && row.fact.key.b_slot == limb as u8
             && row.fact.key.a == defender && row.fact.key.a_slot == BODY_SLOT)
     )
 }
@@ -190,10 +213,17 @@ pub(crate) fn measure_case_schedule(
     case: StrongCase, strike_effort: Fx, chamber_ticks: u32, strike_ticks: u32,
     strike_reach: Fx,
 ) -> StrikeMeasurement {
-    let scenario = scenario_for_ticks(case, chamber_ticks + strike_ticks);
+    measure_case_schedule_with(case, strike_effort, chamber_ticks, strike_ticks, strike_reach,
+                               MirrorGrammar::SpatialRightHand)
+}
+
+fn measure_case_schedule_with(case: StrongCase, strike_effort: Fx, chamber_ticks: u32,
+    strike_ticks: u32, strike_reach: Fx, grammar: MirrorGrammar) -> StrikeMeasurement {
+    let scenario = scenario_for_ticks_with(case, chamber_ticks + strike_ticks, grammar);
     let mut world = World::new(&scenario, case.seed);
     let attacker = world.alive_ids(Faction::Heroes)[0];
     let defender = world.alive_ids(Faction::Monsters)[0];
+    let limb = attacking_limb(case, grammar);
     let shown = world.observe_articulated(attacker);
     let foe = shown.opponents().first().expect("the target is publicly observed");
     let offset = Vec2::new(
@@ -216,7 +246,7 @@ pub(crate) fn measure_case_schedule(
         for id in world.pending_decisions().to_vec() {
             let obs = world.observe_articulated(id);
             let submitted = if id == attacker {
-                command(&obs, defender, chamber, height, Fx::ONE, Fx::ONE)
+                command(&obs, defender, limb, chamber, height, Fx::ONE, Fx::ONE)
             }
                 else { neutral_articulated_command(&obs) };
             match world.submit_articulated_v1(id, submitted) {
@@ -230,7 +260,8 @@ pub(crate) fn measure_case_schedule(
     }
 
     let before = world.observe_articulated(defender);
-    let mut previous = world.observe_articulated(attacker).weapons[1].expect("configured sword");
+    let mut previous = world.observe_articulated(attacker).weapons[limb as usize]
+        .expect("configured sword");
     let mut answer = StrikeMeasurement {
         contact_tick: None, previous_weapon: previous, requested_weapon: previous,
         tip_delta: Vec3::ZERO, hilt_delta: Vec3::ZERO, contact_point: None,
@@ -256,7 +287,7 @@ pub(crate) fn measure_case_schedule(
         for id in world.pending_decisions().to_vec() {
             let obs = world.observe_articulated(id);
             let submitted = if id == attacker {
-                command(&obs, defender, follow, height, strike_reach, strike_effort)
+                command(&obs, defender, limb, follow, height, strike_reach, strike_effort)
             }
                 else { neutral_articulated_command(&obs) };
             match world.submit_articulated_v1(id, submitted) {
@@ -271,13 +302,14 @@ pub(crate) fn measure_case_schedule(
             max_energy_excess_raw = max_energy_excess_raw.max(
                 resolution.energy.after_raw.saturating_sub(resolution.energy.before_raw));
         }
-        let requested = world.observe_articulated(attacker).weapons[1].expect("attached sword");
+        let requested = world.observe_articulated(attacker).weapons[limb as usize]
+            .expect("attached sword");
         answer.previous_weapon = previous;
         answer.requested_weapon = requested;
         answer.tip_delta = requested.tip - previous.tip;
         answer.hilt_delta = requested.hilt - previous.hilt;
         if let Some(row) = world.contact_resolutions().iter().find(|row| {
-            attributed_sword_body(row, attacker, defender)
+            attributed_sword_body(row, attacker, defender, limb)
         }) {
             let after = world.observe_articulated(defender);
             answer.contact_tick = Some(world.tick());
@@ -302,9 +334,9 @@ pub(crate) fn measure_case_schedule(
             answer.wound_after_raw = raw_parts(after.wound_fraction);
             answer.blood_after_raw = after.blood_fraction.raw();
             answer.weapon_body_facts = world.contact_resolutions().iter()
-                .filter(|row| attributed_sword_body(row, attacker, defender)).count() as u32;
+                .filter(|row| attributed_sword_body(row, attacker, defender, limb)).count() as u32;
             answer.competing_facts = world.contact_resolutions().iter()
-                .filter(|row| !attributed_sword_body(row, attacker, defender)).count() as u32;
+                .filter(|row| !attributed_sword_body(row, attacker, defender, limb)).count() as u32;
             let anatomy = sim::fighter_anatomy();
             let yaw = attacker_before.body_yaw;
             let side = -anatomy.shoulder_half_width;
@@ -475,9 +507,22 @@ fn mapped_point(plain: Vec3, mirror: Vec3) -> bool {
         && (plain.z.raw() - mirror.z.raw()).abs() <= 1
 }
 
-fn mirrored_pair(rows: [MechanicalRow; 2]) -> bool {
+fn reflected_slot(slot: u8) -> u8 {
+    match slot { 0 => 1, 1 => 0, _ => slot }
+}
+
+fn mapped_key(key: (EntityId, u8, EntityId, u8, ContactKind), anatomical: bool)
+    -> (EntityId, u8, EntityId, u8, ContactKind)
+{
+    if anatomical { (key.0, reflected_slot(key.1), key.2, reflected_slot(key.3), key.4) }
+    else { key }
+}
+
+fn mirrored_pair(rows: [MechanicalRow; 2], anatomical: bool) -> bool {
     let [plain, mirror] = rows;
-    plain.eligible && mirror.eligible && plain.key == mirror.key && plain.region == mirror.region
+    plain.eligible && mirror.eligible
+        && plain.key.map(|key| mapped_key(key, anatomical)) == mirror.key
+        && plain.region == mirror.region
         && plain.dissipated_raw == mirror.dissipated_raw
         && plain.toi_raw.zip(mirror.toi_raw).is_some_and(|(a, b)| (a - b).abs() <= 1)
         && plain.point.zip(mirror.point).is_some_and(|(a, b)| mapped_point(a, b))
@@ -517,7 +562,7 @@ fn select_robust(rows: &[RobustMechanicalPair]) -> Option<usize> {
     })
 }
 
-fn execute_cases_with(cases: &[MechanicalCase], mut measure: impl FnMut(
+fn execute_cases_with(cases: &[MechanicalCase], anatomical: bool, mut measure: impl FnMut(
     MechanicalCase, bool, i32, i32) -> (MechanicalRow, DamageSidecar),
 ) -> StrikeCorpusAudit {
     let mut audit = StrikeCorpusAudit::default();
@@ -538,7 +583,7 @@ fn execute_cases_with(cases: &[MechanicalCase], mut measure: impl FnMut(
             }
         }
         audit.local_rows.extend(local.iter().copied());
-        if local.chunks_exact(2).all(|pair| mirrored_pair([pair[0], pair[1]])) {
+        if local.chunks_exact(2).all(|pair| mirrored_pair([pair[0], pair[1]], anatomical)) {
             let worst = local.iter().map(|row| row.dissipated_raw).min().unwrap_or(0);
             audit.robust.push(RobustMechanicalPair { centre: case, rows: local,
                                                      worst_dissipated_raw: worst });
@@ -551,7 +596,7 @@ fn execute_cases_with(cases: &[MechanicalCase], mut measure: impl FnMut(
 #[cfg(test)]
 fn execute_corpus_with(measure: impl FnMut(MechanicalCase, bool, i32, i32)
                        -> (MechanicalRow, DamageSidecar)) -> StrikeCorpusAudit {
-    execute_cases_with(&declared_central_cases(), measure)
+    execute_cases_with(&declared_central_cases(), false, measure)
 }
 
 const STRIKE_CORPUS_SHARDS: usize = 4;
@@ -565,7 +610,7 @@ fn append_audit(whole: &mut StrikeCorpusAudit, mut shard: StrikeCorpusAudit) {
     whole.robust.append(&mut shard.robust);
 }
 
-fn execute_corpus_sharded_with<M>(measure: M) -> StrikeCorpusAudit
+fn execute_corpus_sharded_with<M>(anatomical: bool, measure: M) -> StrikeCorpusAudit
 where M: Fn(MechanicalCase, bool, i32, i32) -> (MechanicalRow, DamageSidecar) + Sync
 {
     let cases = declared_central_cases();
@@ -578,7 +623,7 @@ where M: Fn(MechanicalCase, bool, i32, i32) -> (MechanicalRow, DamageSidecar) + 
             workers.push(std::thread::Builder::new()
                 .name(format!("smart39-strike-corpus-{shard}"))
                 .stack_size(STRIKE_CORPUS_STACK_BYTES)
-                .spawn_scoped(scope, move || execute_cases_with(cases, measure))
+                .spawn_scoped(scope, move || execute_cases_with(cases, anatomical, measure))
                 .expect("could not start a bounded strike-corpus shard"));
         }
         // Chunks are contiguous ordinal ranges. Joining in creation order is
@@ -593,11 +638,23 @@ where M: Fn(MechanicalCase, bool, i32, i32) -> (MechanicalRow, DamageSidecar) + 
 }
 
 pub(crate) fn run_predeclared_strike_corpus() -> StrikeCorpusAudit {
-    execute_corpus_sharded_with(|case, mirrored, strike_delta, reach_delta| {
+    execute_corpus_sharded_with(false, |case, mirrored, strike_delta, reach_delta| {
         let strike_ticks = (case.strike_ticks as i32 + strike_delta) as u32;
         let measured = measure_case_schedule(StrongCase { seed: 0, mirrored,
             target_anatomy: case.target_anatomy, approach_offset: case.approach_offset },
             Fx::ONE, case.chamber_ticks, strike_ticks, Fx::from_raw(case.reach_raw + reach_delta));
+        (selection_row(case, mirrored, strike_delta, reach_delta, measured),
+         damage_sidecar(measured))
+    })
+}
+
+pub(crate) fn run_predeclared_anatomical_mirror_corpus() -> StrikeCorpusAudit {
+    execute_corpus_sharded_with(true, |case, mirrored, strike_delta, reach_delta| {
+        let strike_ticks = (case.strike_ticks as i32 + strike_delta) as u32;
+        let measured = measure_case_schedule_with(StrongCase { seed: 0, mirrored,
+            target_anatomy: case.target_anatomy, approach_offset: case.approach_offset },
+            Fx::ONE, case.chamber_ticks, strike_ticks, Fx::from_raw(case.reach_raw + reach_delta),
+            MirrorGrammar::AnatomicalHandSwap);
         (selection_row(case, mirrored, strike_delta, reach_delta, measured),
          damage_sidecar(measured))
     })
@@ -611,7 +668,18 @@ fn checksum_word(hash: &mut u64, word: u64) {
 }
 
 pub(crate) fn strike_corpus_checksum(audit: &StrikeCorpusAudit) -> u64 {
+    strike_corpus_checksum_with(audit, MirrorGrammar::SpatialRightHand)
+}
+
+pub(crate) fn anatomical_mirror_corpus_checksum(audit: &StrikeCorpusAudit) -> u64 {
+    strike_corpus_checksum_with(audit, MirrorGrammar::AnatomicalHandSwap)
+}
+
+fn strike_corpus_checksum_with(audit: &StrikeCorpusAudit, grammar: MirrorGrammar) -> u64 {
     let mut hash = 0xcbf2_9ce4_8422_2325;
+    if grammar == MirrorGrammar::AnatomicalHandSwap {
+        checksum_word(&mut hash, grammar as u64);
+    }
     for value in INTERIOR_CHAMBER_TICKS { checksum_word(&mut hash, value as u64); }
     for value in INTERIOR_STRIKE_TICKS { checksum_word(&mut hash, value as u64); }
     for value in INTERIOR_REACH_TARGETS_RAW { checksum_word(&mut hash, value as u64); }
@@ -643,6 +711,24 @@ pub(crate) fn strike_corpus_checksum(audit: &StrikeCorpusAudit) -> u64 {
 mod tests {
     use super::*;
 
+    fn anatomical_case(mirrored: bool) -> StrongCase {
+        StrongCase { seed: 0, mirrored, target_anatomy: AnatomyChoice::Brute,
+            approach_offset: Vec2::new(Fx::from_ratio(-5, 2), Fx::from_int(-1)) }
+    }
+
+    fn reflect_point(value: Vec3) -> Vec3 {
+        Vec3::new(value.x, Fx::from_int(16) - value.y, value.z)
+    }
+
+    fn reflect_vector(value: Vec3) -> Vec3 { Vec3::new(value.x, -value.y, value.z) }
+
+    fn shield_corners(pose: sim::ShieldPose) -> [Vec3; 4] {
+        let front = pose.centre + pose.normal * (pose.thickness / Fx::from_int(2));
+        let left = Vec3::new(-pose.normal.y, pose.normal.x, Fx::ZERO);
+        let side = left * pose.half_width; let up = Vec3::Z * pose.half_height;
+        [front - side - up, front + side - up, front + side + up, front - side + up]
+    }
+
     fn synthetic_row(case: MechanicalCase, mirrored: bool, eligible: bool,
                      dissipated_raw: u64) -> MechanicalRow {
         MechanicalRow { case, strike_delta: 0, reach_delta_raw: 0, mirrored, eligible,
@@ -657,6 +743,110 @@ mod tests {
                                Fx::ZERO),
             dissipated_raw, refusals: 0, solver_rejections: 0, cap_hits: 0,
             energy_excess_raw: 0 }
+    }
+
+    fn anatomical_synthetic_row(case: MechanicalCase, mirrored: bool, eligible: bool,
+                                dissipated_raw: u64) -> MechanicalRow {
+        let mut row = synthetic_row(case, mirrored, eligible, dissipated_raw);
+        if mirrored {
+            row.key = row.key.map(|key| mapped_key(key, true));
+        }
+        row
+    }
+
+    #[test]
+    fn anatomical_mirror_swaps_every_hand_binding_and_preserves_item_specs() {
+        let plain = config_for_ticks(anatomical_case(false), 40,
+            MirrorGrammar::AnatomicalHandSwap);
+        let mirror = config_for_ticks(anatomical_case(true), 40,
+            MirrorGrammar::AnatomicalHandSwap);
+        for fighter in 0..2 {
+            assert_eq!(plain.fighters[fighter].hands[0], mirror.fighters[fighter].hands[1]);
+            assert_eq!(plain.fighters[fighter].hands[1], mirror.fighters[fighter].hands[0]);
+            assert_eq!(plain.fighters[fighter].anatomy, mirror.fighters[fighter].anatomy);
+        }
+        assert_eq!(plain.max_ticks, mirror.max_ticks);
+        assert_eq!(plain.fighters[0].spawn.x, mirror.fighters[0].spawn.x);
+        assert_eq!(plain.fighters[0].spawn.y + mirror.fighters[0].spawn.y,
+                   Fx::from_int(16));
+    }
+
+    #[test]
+    fn anatomical_mirror_maps_spawn_yaw_hands_weapon_and_shield_exactly() {
+        let plain_world = World::new(&scenario_for_ticks_with(anatomical_case(false), 40,
+            MirrorGrammar::AnatomicalHandSwap), 0);
+        let mirror_world = World::new(&scenario_for_ticks_with(anatomical_case(true), 40,
+            MirrorGrammar::AnatomicalHandSwap), 0);
+        for faction in [Faction::Heroes, Faction::Monsters] {
+            let plain_id = plain_world.alive_ids(faction)[0];
+            let mirror_id = mirror_world.alive_ids(faction)[0];
+            let plain = plain_world.observe_articulated(plain_id);
+            let mirror = mirror_world.observe_articulated(mirror_id);
+            assert_eq!(reflect_point(plain.body_position), mirror.body_position);
+            assert_eq!(plain.body_yaw, mirror.body_yaw);
+            assert_eq!(reflect_point(plain.arms[0].hand), mirror.arms[1].hand);
+            assert_eq!(reflect_point(plain.arms[1].hand), mirror.arms[0].hand);
+            assert_eq!(plain.arms[0].equipment, mirror.arms[1].equipment);
+            assert_eq!(plain.arms[1].equipment, mirror.arms[0].equipment);
+            for (a, b) in [(0, 1), (1, 0)] {
+                match (plain.weapons[a], mirror.weapons[b]) {
+                    (Some(left), Some(right)) => {
+                        assert_eq!(reflect_point(left.hilt), right.hilt);
+                        assert_eq!(reflect_point(left.tip), right.tip);
+                        assert_eq!(left.radius, right.radius);
+                    }
+                    (None, None) => {}
+                    pair => panic!("weapon reflection mismatch: {pair:?}"),
+                }
+            }
+            assert_eq!(plain.shield.present, mirror.shield.present);
+            if plain.shield.present {
+                assert_eq!(reflect_point(plain.shield.centre), mirror.shield.centre);
+                assert_eq!(reflect_vector(plain.shield.normal), mirror.shield.normal);
+            }
+            assert_eq!((plain.shield.half_width, plain.shield.half_height),
+                       (mirror.shield.half_width, mirror.shield.half_height));
+            let plain_pose = plain_world.articulated_pose(plain_id).unwrap();
+            let mirror_pose = mirror_world.articulated_pose(mirror_id).unwrap();
+            if let (Some(a), Some(b)) = (plain_pose.shield, mirror_pose.shield) {
+                let a = shield_corners(a).map(reflect_point);
+                let b = shield_corners(b);
+                assert_eq!([a[0], a[1], a[2], a[3]], [b[1], b[0], b[3], b[2]]);
+            }
+        }
+    }
+
+    #[test]
+    fn anatomical_mirror_commands_left_with_the_negated_right_arm_schedule() {
+        let world = World::new(&scenario_for_ticks_with(anatomical_case(false), 40,
+            MirrorGrammar::AnatomicalHandSwap), 0);
+        let id = world.alive_ids(Faction::Heroes)[0];
+        let foe = world.alive_ids(Faction::Monsters)[0];
+        let obs = world.observe_articulated(id);
+        let plain_angles = schedule_bearings(Angle::from_raw(1_731), false);
+        let mirror_angles = schedule_bearings(Angle::from_raw(1_731u16.wrapping_neg()), true);
+        for (plain_angle, mirror_angle) in [plain_angles.0, plain_angles.1]
+            .into_iter().zip([mirror_angles.0, mirror_angles.1]) {
+            let plain = command(&obs, foe, LimbSlot::RightArm, plain_angle,
+                CombatHeight::MID, Fx::from_raw(50_000), Fx::ONE);
+            let mirror = command(&obs, foe, LimbSlot::LeftArm, mirror_angle,
+                CombatHeight::MID, Fx::from_raw(50_000), Fx::ONE);
+            assert_eq!(mirror.arms[0].bearing.raw(), plain.arms[1].bearing.raw().wrapping_neg());
+            assert_eq!((mirror.arms[0].height, mirror.arms[0].reach, mirror.arms[0].effort),
+                       (plain.arms[1].height, plain.arms[1].reach, plain.arms[1].effort));
+            assert_eq!(plain.arms[0], neutral_articulated_command(&obs).arms[0]);
+            assert_eq!(mirror.arms[1], neutral_articulated_command(&obs).arms[1]);
+        }
+    }
+
+    #[test]
+    fn anatomical_mirror_maps_contact_key_limb_slots_without_swapping_entities() {
+        let a = EntityId::new(2, 3); let b = EntityId::new(7, 11);
+        let right_body = (a, LimbSlot::RightArm as u8, b, BODY_SLOT,
+                          ContactKind::WeaponBody);
+        assert_eq!(mapped_key(right_body, true),
+            (a, LimbSlot::LeftArm as u8, b, BODY_SLOT, ContactKind::WeaponBody));
+        assert_ne!(mapped_key(right_body, true), right_body);
     }
 
     #[test]
@@ -699,13 +889,111 @@ mod tests {
         };
         let serial = execute_corpus_with(&measure);
         let serial_visits = visits.swap(0, Ordering::Relaxed);
-        let sharded = execute_corpus_sharded_with(&measure);
+        let sharded = execute_corpus_sharded_with(false, &measure);
         assert_eq!(visits.load(Ordering::Relaxed), serial_visits);
         assert_eq!(sharded, serial);
         assert_eq!(strike_corpus_checksum(&sharded), strike_corpus_checksum(&serial));
         assert!(sharded.central_rows.windows(2)
             .all(|rows| (rows[0].case.ordinal, rows[0].mirrored)
                 <= (rows[1].case.ordinal, rows[1].mirrored)));
+    }
+
+    fn synthetic_anatomical_audit(eligible: &[u32]) -> StrikeCorpusAudit {
+        execute_corpus_sharded_with(true, |case, mirrored, strike_delta, reach_delta_raw| {
+            let mut row = anatomical_synthetic_row(case, mirrored,
+                eligible.contains(&case.ordinal), 100 + case.ordinal as u64);
+            row.strike_delta = strike_delta;
+            row.reach_delta_raw = reach_delta_raw;
+            (row, DamageSidecar { cut_raw: u64::MAX - case.ordinal as u64,
+                thrust_raw: mirrored as u64, pressure_raw: reach_delta_raw as u64,
+                integrity_loss_raw: strike_delta })
+        })
+    }
+
+    #[test]
+    fn anatomical_mirror_reuses_all_7560_central_orientations_without_early_exit() {
+        let audit = synthetic_anatomical_audit(&[4, 17]);
+        assert_eq!(audit.central_rows.len(), 7_560);
+        assert_eq!(audit.local_rows.len(), 36);
+        assert_eq!(audit.robust.len(), 2);
+        assert_eq!(audit.central_rows.first().unwrap().case.ordinal, 0);
+        assert_eq!(audit.central_rows.last().unwrap().case.ordinal, 3_779);
+    }
+
+    #[test]
+    fn anatomical_local_freeze_has_eighteen_orientations_for_every_eligible_pair() {
+        let audit = synthetic_anatomical_audit(&[1, 2, 3]);
+        assert_eq!(audit.local_rows.len(), 3 * 18);
+        for rows in audit.local_rows.chunks_exact(18) {
+            let got: Vec<_> = rows.iter().map(|row|
+                (row.strike_delta, row.reach_delta_raw, row.mirrored)).collect();
+            let expected: Vec<_> = STRIKE_TICK_DELTAS.into_iter().flat_map(|strike|
+                REACH_DELTAS_RAW.into_iter().flat_map(move |reach|
+                    [false, true].map(move |mirror| (strike, reach, mirror)))).collect();
+            assert_eq!(got, expected);
+        }
+    }
+
+    #[test]
+    fn anatomical_pair_mapping_swaps_only_held_contact_slots() {
+        let case = declared_central_cases()[0];
+        let plain = anatomical_synthetic_row(case, false, true, 9);
+        let mirror = anatomical_synthetic_row(case, true, true, 9);
+        assert!(mirrored_pair([plain, mirror], true));
+        assert!(!mirrored_pair([plain, mirror], false));
+        assert_eq!(plain.key.unwrap().0, mirror.key.unwrap().0);
+        assert_eq!(plain.key.unwrap().2, mirror.key.unwrap().2);
+        assert_eq!(plain.key.unwrap().3, BODY_SLOT);
+        assert_eq!(mirror.key.unwrap().3, BODY_SLOT);
+    }
+
+    #[test]
+    fn anatomical_selection_is_maximin_dissipation_then_duration_then_ordinal() {
+        mechanical_ranking_uses_worst_case_dissipation_then_duration_then_ordinal();
+    }
+
+    #[test]
+    fn anatomical_selection_is_unchanged_by_contradictory_damage_sidecars() {
+        contradictory_damage_sidecars_cannot_change_mechanical_selection();
+    }
+
+    #[test]
+    fn smart39_and_smart40_differ_only_in_the_declared_mirror_grammar() {
+        for case in declared_central_cases() {
+            let plain39 = config_for_ticks(StrongCase { mirrored: false, seed: 0,
+                target_anatomy: case.target_anatomy, approach_offset: case.approach_offset },
+                case.chamber_ticks + case.strike_ticks, MirrorGrammar::SpatialRightHand);
+            let plain40 = config_for_ticks(StrongCase { mirrored: false, seed: 0,
+                target_anatomy: case.target_anatomy, approach_offset: case.approach_offset },
+                case.chamber_ticks + case.strike_ticks, MirrorGrammar::AnatomicalHandSwap);
+            assert_eq!(plain39, plain40);
+            let mirrored = StrongCase { mirrored: true, seed: 0,
+                target_anatomy: case.target_anatomy, approach_offset: case.approach_offset };
+            let old = config_for_ticks(mirrored, case.chamber_ticks + case.strike_ticks,
+                MirrorGrammar::SpatialRightHand);
+            let new = config_for_ticks(mirrored, case.chamber_ticks + case.strike_ticks,
+                MirrorGrammar::AnatomicalHandSwap);
+            assert_eq!(old.max_ticks, new.max_ticks);
+            for fighter in 0..2 {
+                assert_eq!(old.fighters[fighter].anatomy, new.fighters[fighter].anatomy);
+                assert_eq!(old.fighters[fighter].spawn, new.fighters[fighter].spawn);
+                assert_eq!(old.fighters[fighter].hands[0], new.fighters[fighter].hands[1]);
+                assert_eq!(old.fighters[fighter].hands[1], new.fighters[fighter].hands[0]);
+            }
+            assert_eq!(attacking_limb(mirrored, MirrorGrammar::SpatialRightHand),
+                       LimbSlot::RightArm);
+            assert_eq!(attacking_limb(mirrored, MirrorGrammar::AnatomicalHandSwap),
+                       LimbSlot::LeftArm);
+        }
+        let empty = StrikeCorpusAudit::default();
+        assert_ne!(strike_corpus_checksum(&empty), anatomical_mirror_corpus_checksum(&empty));
+    }
+
+    #[test]
+    #[ignore = "bounded Smart40 anatomical-mirror audit; use release CLI"]
+    fn select_the_predeclared_anatomical_mirror_corpus() {
+        let audit = run_predeclared_anatomical_mirror_corpus();
+        assert_eq!(audit.central_rows.len(), 7_560);
     }
 
     #[test]

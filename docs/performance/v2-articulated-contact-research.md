@@ -54,6 +54,19 @@ diagnosis is either behavior-neutral shared plumbing or behind the disabled
   The frozen audit checksum is `2f550f772c7a08e0`. The all-one-sided result supports
   a geometry diagnosis: keeping the anatomical right limb and asymmetric loadout
   unchanged while reflecting space was not a physical symmetry.
+- Smart40 tested that diagnosis without changing the domain, response law,
+  eligibility, tolerances, or selection: its mirror swapped left/right limbs and all
+  reflected hand bindings, so the plain Hero's right sword/left shield became a left
+  sword/right shield and the Brute's right club became a left club. The complete
+  four-shard audit still found 57 eligible plain individuals and **zero eligible
+  mirror individuals**, zero local runs, zero robust pairs, and no selection. Its
+  internal timer read `3,832,944` ms and the command reported `3,836.5` seconds. The
+  overlapping predicate counters were missing/attribution `5,792`, crossing `7,138`,
+  reach `6,940`, motion `6,935`, impulse `6,033`, dissipation `6,233`, refusal `0`,
+  solver `3,309`, cap `0`, energy `0`, and alpha `5,792`; the audit checksum was
+  `3e8c6246190b6b28`. The anatomical-mirror hypothesis is therefore refuted under
+  this exact corpus. No local or damage result was read, and no successor transform
+  has been declared.
 - A full-domain actual-projector normal probe sampled 27 scalar words and 101 unique
   component projections. The adjacent envelopes jumped from `[-4,-4]` to `[-4,2]`
   with no restitution-valid root: `NormalGap`.

@@ -1,10 +1,12 @@
 # Smart AI 40 -- anatomical planar-mirror corpus
 
-**Status:** ready to implement; no Smart40 measurement has been run. Smart39 stopped
-with all 57 eligible central individuals on its plain side. This successor declares
-one correction before another audit: a planar reflection swaps anatomical left and
-right, so it must swap limbs and their loadout as well as world-space Y. Existing
-registered-pin movement and new-pin budgets are zero.
+**Status:** stopped and refuted at checkpoint B on 2026-08-13. The complete release
+audit evaluated all 7,560 central orientations in `3,832,944` ms; the enclosing
+command reported `3,836.5` seconds. It found 57 eligible plain individuals and zero
+eligible mirror individuals, hence zero local runs, zero robust pairs, and no
+selection. Swapping anatomical limbs and reflected loadouts did not restore physical
+symmetry. Checkpoint C did not run. Existing registered-pin movement and new-pin
+budgets remained zero.
 
 [Smart39](smart-ai-39-ordinary-strike-corpus.md#measured-result----stopped) kept the
 Hero's sword in `RightArm`, its shield in `LeftArm`, and the Brute's club in
@@ -177,6 +179,27 @@ pair exists, stop and preserve the complete failure without changing the mirror,
 domain, law, tolerance, or damage exclusion. If every eligible row remains on one
 side, this symmetry diagnosis is refuted; do not add another transform inside this
 session.
+
+### Measured result -- stopped and refuted
+
+The exact four-shard audit completed all 7,560 central orientations. Its internal
+timer reported `elapsed_ms=3832944`; the command wall report was `3,836.5` seconds.
+It found `eligible_plain=57`, `eligible_mirror=0`, `local_runs=0`,
+`robust_pairs=0`, and `selected=none`. The overlapping predicate counters were:
+
+```text
+missing_or_attribution=5792  crossing=7138  reach=6940  motion=6935
+impulse=6033                 dissipation=6233
+refusal=0                    solver=3309     cap=0       energy=0
+alpha=5792
+checksum=3e8c6246190b6b28
+```
+
+The counters are independent predicate failures and therefore do not sum to the
+corpus size. The result is the plan's named refutation: the corrected anatomical
+reflection left every eligible central row on the plain side. The declared stop path
+ran before any local or outcome measurement. No mirror, grid, tolerance, law, or
+selection key was changed after seeing it, and no successor is declared here.
 
 ## Checkpoint C -- literal sim gate after selection only
 
