@@ -1,10 +1,13 @@
 # Smart AI 38 -- bounded lifted normal and circular-Coulomb solver
 
-**Status:** proposed feature-only successor to Smart36/37. Do not begin this
-session until the full `cartesian-recoil` trajectory/lifecycle suite, replay, and
-native/wasm digest in
+**Status:** proposed feature-only successor to Smart36/37. Checkpoints A and B
+may begin once the full `cartesian-recoil` trajectory/lifecycle suite and the
+non-boundary replay proof in
 [`smart-ai-36-exact-lifted-trajectories.md`](smart-ai-36-exact-lifted-trajectories.md)
-are green.
+are green. Checkpoint E's ordinary wall/cap replay is blocked on the stronger
+response this session supplies: after B, complete that replay and register its
+native/wasm exact-state digest before beginning C or D. This is an explicit
+dependency split, not permission to omit the checkpoint-E boundary row.
 
 Smart36 makes an exact response trial authoritative, but it deliberately keeps the
 old point-mass proposal from
@@ -314,9 +317,11 @@ finished; they still explain why policy promotion is gated.
 
 At the time this plan was written, `EXACT_TRAJECTORY_STATE_DIGEST` was still
 unregistered. Its first native/wasm agreement and one-time registration belong to
-Smart36 checkpoint E and are a prerequisite to this session, not a pin this session
-may create or silently substitute for. If it is still absent, stop before checkpoint
-A. Once Smart36 registers it, Smart38 treats it as fixed with the pins below.
+Smart36 checkpoint E and are not a pin this session may create or silently
+substitute for. Because the ordinary boundary row requires Smart38's stronger
+response, A and B may run while it is absent; stop after B, complete checkpoint E,
+and register that digest before C. Once registered, Smart38 treats it as fixed with
+the pins below.
 
 **Existing registered pin movement budget: zero.** In particular, `LAB_HASH`,
 `ROOM_HASH`, `ARTICULATED_COMMAND_HASH`, `ARTICULATED_STREAM_DIGEST`,

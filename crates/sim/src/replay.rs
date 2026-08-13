@@ -399,6 +399,129 @@ mod tests {
         assert!(weapon_body_rows > 0, "the fixture never produced a weapon/body contact");
     }
 
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn exact_trajectory_live_rerun_and_replay_match_every_tick_and_breakpoint() {
+        use crate::RecoilExternalEnergy;
+
+        // This is the captured chamber-to-strike command geometry, translated
+        // to the south wall. The 2026-08-12 run measured two contact groups,
+        // both exact remainder classes and a later ordinary release. Its body
+        // response was only 0.0291 raw units/tick, so even at the legal wall
+        // coordinate it did not cross the integer endpoint and cannot honestly
+        // claim checkpoint E's wall/cap half before Smart38 strengthens the
+        // response law.
+        let mut config = crate::DuelConfigV1::shipped();
+        let wall_side = Fx::from_ratio(45, 100);
+        config.fighters[0].spawn = Vec2::new(Fx::from_int(10), wall_side);
+        config.fighters[0].hands[1].as_mut().unwrap().geometry =
+            crate::EquipmentGeometry::Segment {
+                length: Fx::from_int(2), radius: Fx::from_ratio(1, 25),
+            };
+        config.fighters[1].spawn = Vec2::new(Fx::from_ratio(631, 50), wall_side);
+        config.fighters[1].anatomy = crate::AnatomyChoice::Fighter;
+        config.max_ticks = 100;
+        let scenario = Scenario::duel_from(&config).unwrap();
+        let fighter = EntityId::new(0, 0);
+        let brute = EntityId::new(1, 0);
+        let arm = |bearing: Angle, reach: Fx, effort: Fx| ArmTarget {
+            bearing, height: CombatHeight::MID, reach, effort,
+        };
+        let held = |yaw: Angle, arms: [ArmTarget; 2], grips| crate::ArticulatedCommandV1 {
+            move_dir: Vec2::ZERO, body_yaw: yaw, intent: crate::Intent::Hold, arms, grips,
+        };
+        let tucked = Fx::from_ratio(1, 4);
+        let command_at = |tick, id| if id == fighter {
+            held(Angle::ZERO, [
+                arm(Angle::ZERO, tucked, Fx::ZERO),
+                arm(if tick < 48 { Angle::from_raw(49_152) } else { Angle::ZERO },
+                    Fx::ONE, Fx::ONE),
+            ], if tick == 95 {
+                [GripRequest::Keep, GripRequest::Release]
+            } else {
+                [GripRequest::Keep; 2]
+            })
+        } else {
+            held(Angle::HALF, [
+                arm(Angle::HALF, tucked, Fx::ONE),
+                arm(Angle::HALF, tucked, Fx::ONE),
+            ], [GripRequest::Keep; 2])
+        };
+
+        let mut first = World::new(&scenario, 1000);
+        let mut second = World::new(&scenario, 1000);
+        let mut replay = Replay::new(&scenario, 1000);
+        let mut groups = 0usize;
+        let mut momentum_remainder = false;
+        let mut position_remainder = false;
+        let mut release = false;
+        for tick in 0..100 {
+            for id in [fighter, brute] {
+                let requested = command_at(tick, id);
+                let stored = match first.submit_articulated_v1(id, requested) {
+                    SubmitArticulatedOutcome::Stored { command, .. } => command,
+                    outcome => panic!("live articulated command was not stored: {outcome:?}"),
+                };
+                let rerun = match second.submit_articulated_v1(id, requested) {
+                    SubmitArticulatedOutcome::Stored { command, .. } => command,
+                    outcome => panic!("rerun articulated command was not stored: {outcome:?}"),
+                };
+                assert_eq!(rerun, stored, "stored command diverged at tick {tick}");
+                replay.record_submitted(tick, id, SubmittedCommand::Articulated(stored));
+            }
+            first.step();
+            second.step();
+            groups += first.contact_resolutions().iter()
+                .map(|row| row.group_ordinal).max().map_or(0, |last| last as usize + 1);
+            for id in [fighter, brute] {
+                let (has_momentum, has_position) = first
+                    .exact_trajectory_remainder_test_view(id).unwrap();
+                momentum_remainder |= has_momentum;
+                position_remainder |= has_position;
+            }
+            for row in first.exact_external_energy() {
+                release |= row.reason == RecoilExternalEnergy::RELEASE;
+            }
+            assert_eq!((second.state_digest().domain, second.state_digest().schema,
+                        second.state_digest().value),
+                       (first.state_digest().domain, first.state_digest().schema,
+                        first.state_digest().value),
+                "live digest diverged at tick {}", tick + 1);
+            assert_eq!(second.contact_resolutions(), first.contact_resolutions(),
+                "live resolutions diverged at tick {}", tick + 1);
+            assert_eq!(second.exact_external_energy(), first.exact_external_energy(),
+                "live external ledger diverged at tick {}", tick + 1);
+            for id in [fighter, brute] {
+                assert_eq!(second.articulated_pose_test_view(id), first.articulated_pose_test_view(id),
+                    "live pose or grips diverged at tick {}", tick + 1);
+                assert_eq!(second.anatomy_test_view(id), first.anatomy_test_view(id),
+                    "live anatomy diverged at tick {}", tick + 1);
+            }
+
+            replay.finish(tick + 1);
+            let played = replay.play_until(tick + 1);
+            assert_eq!((played.state_digest().domain, played.state_digest().schema,
+                        played.state_digest().value),
+                       (first.state_digest().domain, first.state_digest().schema,
+                        first.state_digest().value),
+                "replay digest diverged at tick {}", tick + 1);
+            assert_eq!(played.contact_resolutions(), first.contact_resolutions(),
+                "replay resolutions diverged at tick {}", tick + 1);
+            assert_eq!(played.exact_external_energy(), first.exact_external_energy(),
+                "replay external ledger diverged at tick {}", tick + 1);
+            for id in [fighter, brute] {
+                assert_eq!(played.articulated_pose_test_view(id), first.articulated_pose_test_view(id),
+                    "replay pose or grips diverged at tick {}", tick + 1);
+                assert_eq!(played.anatomy_test_view(id), first.anatomy_test_view(id),
+                    "replay anatomy diverged at tick {}", tick + 1);
+            }
+        }
+        assert!(groups >= 2, "the fixture crossed only {groups} contact groups");
+        assert!(momentum_remainder, "the fixture produced no exact momentum remainder");
+        assert!(position_remainder, "the fixture produced no exact position remainder");
+        assert!(release, "the ordinary release cleared no retained response");
+    }
+
     #[test]
     fn equal_tick_submissions_replay_in_insertion_order_without_chaining_grips() {
         let scenario = Scenario::articulated_duel();

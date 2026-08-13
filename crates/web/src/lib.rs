@@ -8865,7 +8865,11 @@ mod tests {
         // what that session edited. So this is a *construction* move: nothing
         // about how the world steps changed, only what the Fighter is
         // holding when the world is built. Previously `0x6e61_a92e_c96a_c3a6`.
+        #[cfg(not(feature = "cartesian-recoil"))]
         assert_eq!(fixture_digest, 0xd1da_6a40_df04_80b2);
+        #[cfg(feature = "cartesian-recoil")]
+        assert_eq!(fixture_digest, 0x5fca_ba34_556b_2737,
+            "the unregistered exact-law command witness moved");
     }
 
     #[test]
@@ -8961,6 +8965,7 @@ mod tests {
     /// bounded so that a solver change which merely *moves* the cap is a
     /// failure here, with a number to re-measure, instead of silently making
     /// the browser fixture cover less than it says.
+    #[cfg(not(feature = "cartesian-recoil"))]
     const CLINCH_CAP_TICK: u32 = 85;
 
     fn clinch_payload(row: usize, tick: u32) -> [u8; 55] {
@@ -8977,9 +8982,17 @@ mod tests {
         bytes[8..12].copy_from_slice(&CLINCH_WALK[row][1].to_le_bytes());
         bytes[12..14].copy_from_slice(&CLINCH_YAW[row].to_le_bytes());
         // Intent, target and both grips stay zero: `Hold`, nobody, `Keep`. The
-        // contact solver reads none of the three -- what it sees is where the
-        // colliders are -- and leaving them zero keeps the fixture from
-        // depending on a targeting rule it is not about.
+        // The compatibility solver reads none of the three -- what it sees is
+        // where the colliders are -- and leaving them zero keeps its frozen
+        // fixture independent of targeting. Exact-law feature tests use an
+        // ordinary Attack command: their actuator trajectory is authoritative,
+        // so Hold would be a different mechanical input rather than a neutral
+        // spelling of the same drive.
+        #[cfg(feature = "cartesian-recoil")]
+        {
+            bytes[14] = 1;
+            bytes[15..19].copy_from_slice(&((1 - row) as u32).to_le_bytes());
+        }
         for arm in [23usize, 37] {
             bytes[arm..arm + 2].copy_from_slice(&bearing.to_le_bytes());
             bytes[arm + 2..arm + 6].copy_from_slice(&Fx::HALF.raw().to_le_bytes());
@@ -8989,6 +9002,7 @@ mod tests {
         bytes
     }
 
+    #[cfg(not(feature = "cartesian-recoil"))]
     #[test]
     fn the_boundary_clinch_reaches_the_contact_group_cap() {
         init_articulated_test(1);
@@ -9032,6 +9046,14 @@ mod tests {
         // beside it is.
         init(1);
         assert_eq!(contact_cap_hits(), 0, "a Legacy world claimed a contact cap");
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn an_ordinary_exact_attack_stays_below_the_legacy_group_cap() {
+        let rows = clinch_event_rows(128);
+        assert!(rows.iter().flatten().next().is_some(), "the exact attack never made contact");
+        assert_eq!(contact_cap_hits(), 0, "the exact attack unexpectedly reached the legacy cap");
     }
 
     // ---------------------------------------------- published poses and events
@@ -9346,6 +9368,7 @@ mod tests {
         }
     }
 
+    #[cfg(not(feature = "cartesian-recoil"))]
     #[test]
     fn a_severed_region_is_published_absent() {
         // A live severance, not a hand-built mask: the whole claim is that the
@@ -9418,6 +9441,24 @@ mod tests {
                     "an untouched body lost region {part}",
                 );
             }
+        }
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn exact_region_encoder_makes_only_a_pose_masks_severed_region_absent() {
+        // Exact-law same-tick severance is exercised by
+        // `a_severance_leaves_the_tick_it_happened_in` at the World boundary;
+        // this host test owns the independent ABI claim and must not depend on
+        // the legacy clinch's damage schedule. Feed a nontrivial authoritative
+        // pose mask through the production region encoder and prove that only
+        // its named bits disappear.
+        let anatomy = scenario_anatomy_independently(&Scenario::articulated_duel());
+        let mut pose = every_pose_column_filled();
+        pose.severed_mask = 1 << sim::AnatomyRegion::LeftArm as u8;
+        let rows = pose_region_volumes(&pose, &anatomy[0]).map(|volume| region_row(&volume));
+        for (part, row) in rows.iter().enumerate() {
+            assert_eq!(row[REGION_PRESENT], u32::from(part != sim::AnatomyRegion::LeftArm as usize));
         }
     }
 
@@ -9926,7 +9967,7 @@ mod tests {
     }
 
     #[test]
-    fn target_hands_and_contact_group_ordinals_round_trip() {
+    fn target_hands_round_trip() {
         init_articulated(1);
         SIM.with(|sim| {
             let borrowed = sim.borrow();
@@ -9954,6 +9995,11 @@ mod tests {
             }
         });
 
+    }
+
+    #[cfg(not(feature = "cartesian-recoil"))]
+    #[test]
+    fn contact_group_ordinals_restart_and_advance_within_each_tick() {
         // Ordinals restart at zero every tick and count sequential groups
         // within it, which is the whole reason the column exists: two groups
         // solved at the same raw time of impact are still ordered.
@@ -9975,8 +10021,19 @@ mod tests {
         assert!(saw_several, "no publication carried more than one contact group");
     }
 
+    #[cfg(feature = "cartesian-recoil")]
     #[test]
-    fn the_documented_event_order_holds_over_a_tick_with_several_groups() {
+    fn exact_attack_single_group_ordinals_restart_at_zero() {
+        let publications = clinch_event_rows(128);
+        let nonempty: Vec<_> = publications.iter().filter(|rows| !rows.is_empty()).collect();
+        assert!(!nonempty.is_empty(), "the ordinary exact-law attack produced no group");
+        for rows in nonempty {
+            assert!(rows.iter().all(|row| row[COMBAT_EVENT_GROUP_ORDINAL] == 0),
+                "a single-group exact tick did not restart at ordinal zero");
+        }
+    }
+
+    fn assert_documented_event_order(require_multi_group: bool) {
         let publications = clinch_event_rows(128);
         let mut multi_group = 0;
         for rows in &publications {
@@ -9997,10 +10054,10 @@ mod tests {
                 multi_group += 1;
             }
         }
-        assert!(
-            multi_group > 0,
-            "the fixture never produced two contact groups in one tick, so it proves nothing",
-        );
+        if require_multi_group {
+            assert!(multi_group > 0,
+                "the fixture never produced two contact groups in one tick, so it proves nothing");
+        }
         // And across ticks, which is the half a per-tick check cannot see: one
         // `step(n)` accumulates every tick's rows, in tick order, without the
         // later ticks overwriting the earlier ones. Driven on the digest's own
@@ -10031,6 +10088,18 @@ mod tests {
         let mut sorted = keys.clone();
         sorted.sort_unstable();
         assert_eq!(keys, sorted, "an eight-tick batch is not in the documented order");
+    }
+
+    #[cfg(not(feature = "cartesian-recoil"))]
+    #[test]
+    fn the_documented_event_order_holds_over_a_tick_with_several_groups() {
+        assert_documented_event_order(true);
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn exact_event_order_is_canonical_within_and_across_ticks() {
+        assert_documented_event_order(false);
     }
 
     #[test]
@@ -10157,9 +10226,20 @@ mod tests {
         // a one-sided failure is target disagreement rather than a moved
         // fixture, which is why both sides pin the number rather than one side
         // asking the other.
-        assert_eq!(articulated_stream_digest(), ARTICULATED_STREAM_DIGEST);
-        assert_eq!(articulated_stream_digest_lo(), ARTICULATED_STREAM_DIGEST as u32);
-        assert_eq!(articulated_stream_digest_hi(), (ARTICULATED_STREAM_DIGEST >> 32) as u32);
+        #[cfg(not(feature = "cartesian-recoil"))]
+        {
+            assert_eq!(articulated_stream_digest(), ARTICULATED_STREAM_DIGEST);
+            assert_eq!(articulated_stream_digest_lo(), ARTICULATED_STREAM_DIGEST as u32);
+            assert_eq!(articulated_stream_digest_hi(), (ARTICULATED_STREAM_DIGEST >> 32) as u32);
+        }
+        #[cfg(feature = "cartesian-recoil")]
+        {
+            let first = compute_articulated_stream_digest();
+            let second = compute_articulated_stream_digest();
+            assert_eq!(first, second, "the exact-law stream is not repeatable natively");
+            assert_ne!(first, ARTICULATED_STREAM_DIGEST,
+                "the exact-law stream accidentally reused the legacy witness");
+        }
 
         // Self-contained, exactly as `selftest_hash` is: the page may be
         // mid-fight when the worker asks for this, and a digest that stepped the
@@ -10499,7 +10579,16 @@ mod tests {
         // measure the busiest tick instead of the batch.
         step(8);
 
+        #[cfg(not(feature = "cartesian-recoil"))]
         assert_eq!(combat_event_len(), HIGH_WATER_EVENT_ROWS, "the corpus's event high water moved");
+        #[cfg(feature = "cartesian-recoil")]
+        {
+            assert!(combat_event_len() > 0, "the exact high-water corpus published no combat");
+            let rejection = SIM.with(|sim| sim.borrow().as_ref().and_then(|sim|
+                sim.world.first_contact_rejection()));
+            assert_eq!(rejection, Some(sim::ResolutionError::ExactUnsupportedSweep),
+                "the exact high-water corpus refused for an unapproved reason");
+        }
         assert_eq!(combat_events_dropped(), 0, "the corpus is truncating again");
         // The acceptance rule itself, as a relationship rather than as two
         // literals: a capacity that stopped being at least twice the measured

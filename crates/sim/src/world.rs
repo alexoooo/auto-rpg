@@ -2289,6 +2289,27 @@ impl World {
         })
     }
 
+    #[cfg(all(test, feature = "cartesian-recoil"))]
+    pub(crate) fn exact_trajectory_remainder_test_view(&self, id: EntityId)
+        -> Option<(bool, bool)>
+    {
+        let owner = self.exact_owners.get(self.resolve(id)?)?.as_ref()?;
+        let mut momentum = owner.common_response.momentum.iter()
+            .any(|word| word.remainder != 0);
+        let mut position = owner.common_response.at_group.iter()
+            .any(|word| word.remainder != 0);
+        for held in owner.held_response.iter().flatten() {
+            momentum |= held.affine.momentum.iter().any(|word| word.remainder != 0);
+            position |= held.affine.at_group.iter().any(|word| word.remainder != 0);
+        }
+        Some((momentum, position))
+    }
+
+    #[cfg(all(test, feature = "cartesian-recoil"))]
+    pub(crate) fn anatomy_test_view(&self, id: EntityId) -> Option<AnatomyState> {
+        self.wounds.get(self.resolve(id)?).copied()
+    }
+
     /// The floor plan. Read-only: a level change is a new [`World`].
     pub fn dungeon(&self) -> &Dungeon {
         &self.dungeon

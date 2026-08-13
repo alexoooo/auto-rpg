@@ -141,6 +141,17 @@ Cap semantics are also decided: roll back only the current uncommitted group imp
 to the last-safe snapshot. Preserve response committed by earlier groups; never zero
 the whole response history.
 
+Checkpoint E's ordinary-command replay proof is now partial rather than implied.
+The captured 48-tick chamber-to-strike fixture, translated to the south wall, matched
+two live runs and replay at every tick across digest, exact trajectory authority,
+resolutions, anatomy, grips, and the exact external ledger. It produced two contact
+groups, nonzero momentum and position remainders, and an ordinary later release. It
+did not produce a wall or cap reconciliation: the measured body answer at the wall
+was only 0.0291 raw units/tick, too small to move the integer endpoint through the
+boundary. The separate wall proof still has to inject a finalized exact group for
+that reason. Do not call checkpoint E complete until Smart38 supplies an ordinary
+boundary-crossing response; do not weaken the gate or poison World state to claim it.
+
 ## Verification and pin budget
 
 The next session must begin with focused compilation because the current feature tree

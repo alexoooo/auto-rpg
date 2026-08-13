@@ -67,7 +67,17 @@ pub struct ProposedContact {
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum ResolutionError {
     ColliderIndex, EnergyNumerator, ResolutionCount, Mass, Projector, DuplicateIdentity,
-    ExactScan, ExactResponsePending, ExactLifecyclePending, ExactEnergyEnvelope,
+    ExactScan, ExactUnsupportedSweep, ExactResponsePending, ExactLifecyclePending,
+    ExactEnergyEnvelope,
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn exact_scan_error(error: crate::combat::contact::ExactScanReject) -> ResolutionError {
+    match error {
+        crate::combat::contact::ExactScanReject::UnsupportedExactSweep =>
+            ResolutionError::ExactUnsupportedSweep,
+        _ => ResolutionError::ExactScan,
+    }
 }
 
 pub fn proposed_impulse(
@@ -759,7 +769,7 @@ impl ContactKinematics for ExactKinematics<'_> {
         &mut self, colliders: &[ContactCollider], scratch: &mut ContactCollectionScratch,
     ) -> Result<(), ResolutionError> {
         scan_exact_candidates_into(self.trajectories, self.owners, colliders, scratch)
-            .map_err(|_| ResolutionError::ExactScan)
+            .map_err(exact_scan_error)
     }
 
     fn advance_to(&mut self, _colliders: &mut [ContactCollider], _global: u32, _time: u32) {
@@ -773,7 +783,7 @@ impl ContactKinematics for ExactKinematics<'_> {
         scratch: &mut ContactCollectionScratch,
     ) -> Result<Option<ContactFact>, ResolutionError> {
         exact_contact_at_pose(self.trajectories, self.owners, colliders, a, b, time, scratch)
-            .map_err(|_| ResolutionError::ExactScan)
+            .map_err(exact_scan_error)
     }
 
     fn finish(&mut self, colliders: &mut [ContactCollider]) -> Result<(), ResolutionError> {
@@ -791,7 +801,7 @@ impl ContactKinematics for ExactKinematics<'_> {
         let row = self.trajectories.get(index).ok_or(ResolutionError::ColliderIndex)?;
         let owner = self.owners.get(row.owner_index).ok_or(ResolutionError::ColliderIndex)?;
         Ok(colliders[index].velocity
-            + exact_response_velocity(row, owner).map_err(|_| ResolutionError::ExactScan)?)
+            + exact_response_velocity(row, owner).map_err(exact_scan_error)?)
     }
 
     fn resolve_group<P: ContactTrialProjector>(
@@ -919,7 +929,7 @@ impl ContactKinematics for ExactKinematics<'_> {
         _fact: ContactFact, time: u32, scratch: &mut ContactCollectionScratch,
     ) -> Result<Vec3, ResolutionError> {
         let fact = exact_contact_at_pose(self.trajectories, self.owners,
-            colliders, a, b, time, scratch).map_err(|_| ResolutionError::ExactScan)?
+            colliders, a, b, time, scratch).map_err(exact_scan_error)?
             .ok_or(ResolutionError::ExactScan)?;
         Ok(fact.velocity_b - fact.velocity_a)
     }
