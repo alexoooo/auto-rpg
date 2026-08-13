@@ -13,6 +13,8 @@ use sim::{AnatomyChoice, ArmTarget, ArticulatedCommandV1, BodyPart, CombatHeight
 use sim::{ExactContactGroupDiagnostic, ExactContactKeyDiagnostic};
 #[cfg(feature = "cartesian-recoil")]
 use sim::ExactWideToiDiagnostic;
+#[cfg(feature = "cartesian-recoil")]
+use sim::ExactCompatibilitySweepDiagnostic;
 
 pub(crate) const CHAMBER_TICKS: u32 = 28;
 pub(crate) const STRIKE_TICKS: u32 = 28;
@@ -846,6 +848,22 @@ visits={:?}:steps={:?}:count={}:root={}:feature={}:comparison={:?}",
 }
 
 #[cfg(feature = "cartesian-recoil")]
+fn mapped_compatibility_sweep(rows: &[Option<ExactCompatibilitySweepDiagnostic>; 16],
+                              mirror: bool) -> Vec<String> {
+    rows.iter().flatten().map(|row| {
+        let a_slot = if mirror { reflected_slot(row.key.a_slot) } else { row.key.a_slot };
+        let b_slot = if mirror { reflected_slot(row.key.b_slot) } else { row.key.b_slot };
+        let mut points = row.points_raw;
+        if mirror { for point in &mut points[..row.point_count as usize] {
+            point[1] = Fx::from_int(16).raw() - point[1];
+        } }
+        format!("{:?}:{}:{:?}:{}:{:?}:region={}:primitive={:?}:points={:?}:radii={:?}:toi={}",
+            row.key.a, a_slot, row.key.b, b_slot, row.key.kind, row.region, row.primitive,
+            &points[..row.point_count as usize], row.radii_raw, row.accepted_toi_raw)
+    }).collect()
+}
+
+#[cfg(feature = "cartesian-recoil")]
 fn group_boundary_difference(plain: &[ExactContactGroupDiagnostic],
                              mirror: &[ExactContactGroupDiagnostic]) -> Option<String> {
     if plain.len() != mirror.len() {
@@ -857,6 +875,9 @@ plain_reject=none mirror_reject=none", tick, plain.len(), mirror.len()));
     for (left, right) in plain.iter().zip(mirror) {
         let boundaries = [
             ("ordinal", left.group_ordinal.to_string(), right.group_ordinal.to_string()),
+            ("compatibility_sweep", format!("{:?}", mapped_compatibility_sweep(
+                 &left.compatibility_sweep, false)), format!("{:?}",
+                 mapped_compatibility_sweep(&right.compatibility_sweep, true))),
             ("wide_toi", format!("{:?}", mapped_wide_toi(&left.wide_toi, false)),
              format!("{:?}", mapped_wide_toi(&right.wide_toi, true))),
             ("selected_time", left.selected_time_raw.to_string(), right.selected_time_raw.to_string()),

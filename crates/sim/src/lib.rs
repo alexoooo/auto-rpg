@@ -111,7 +111,8 @@ pub use combat::resolution::{contact_behavior_corpus, ResolutionError, CONTACT_E
 #[cfg(feature = "cartesian-recoil")]
 pub use combat::resolution::{ExactContactGroupDiagnostic, ExactContactKeyDiagnostic,
     ExactContactRejectPhase, ExactContactRejectionDiagnostic, ExactSolveGroupRejectDetail,
-    ExactWideComparisonDiagnostic, ExactWidePrimitiveDiagnostic, ExactWideToiDiagnostic};
+    ExactWideComparisonDiagnostic, ExactWidePrimitiveDiagnostic, ExactWideToiDiagnostic,
+    ExactCompatibilityPrimitiveDiagnostic, ExactCompatibilitySweepDiagnostic};
 /// The contact capacity vocabulary, which the browser needs even though the
 /// solver stays private: the host reserves the high water before it hands the
 /// page a pointer, and has to be able to say which count refused.

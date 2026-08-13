@@ -116,6 +116,23 @@ diagnosis is either behavior-neutral shared plumbing or behind the disabled
   `38127|38111` selected-time mismatch was unchanged. The wide premise was refuted,
   no primitive oracle or fix ran, the actuator was reverted cleanly, and no pin or
   corpus ran.
+- Smart47 localized the compatibility fallback to one literal reflected
+  segment/segment sweep: the same production primitive returned TOI `38127` plain
+  and `38111` mirrored. Re-expressing both inputs about a shared origin did not change
+  either answer, so absolute world-coordinate origin is not the explanation. It
+  stopped before a fix or pin measurement, reverted the temporary actuator mutation
+  cleanly, and ran no corpus.
+- Smart48 found the first internal mismatch at iteration 1, entry time `37379`:
+  interpolated endpoint `[0].y` was plain `452236` versus mapped mirror `452237`.
+  `Fx::lerp` rounded `+1180*37379 -> +673` but `-1180*37379 -> -674`; closest point A
+  and distance followed, while speed was equal at `8144`. Direct and shared-origin
+  TOIs remained `38127|38111`. No fix, pin measurement, or corpus ran, and the
+  temporary actuator mutation was reverted cleanly.
+- Smart49's narrow odd-symmetric sweep interpolation made the direct TOI
+  `38127|38127`, and the ordinal-1536 trace mapped through tick 32. The first later
+  difference was `tick=33 phase=PostStepPose pair=right.hand.y 451340|451341`, with
+  `cause=none|none`. The temporary actuator and geometry changes/tests were reverted
+  cleanly per the stop; no pin measurement or full corpus ran.
 - A full-domain actual-projector normal probe sampled 27 scalar words and 101 unique
   component projections. The adjacent envelopes jumped from `[-4,-4]` to `[-4,2]`
   with no restitution-valid root: `NormalGap`.

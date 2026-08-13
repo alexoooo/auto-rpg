@@ -103,6 +103,19 @@ pub struct ExactWideToiDiagnostic {
     pub comparison: ExactWideComparisonDiagnostic,
 }
 
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ExactCompatibilityPrimitiveDiagnostic { SweptSegmentSegment, SweptSegmentRectangle }
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct ExactCompatibilitySweepDiagnostic {
+    pub key: ContactKey, pub region: u8,
+    pub primitive: ExactCompatibilityPrimitiveDiagnostic,
+    pub points_raw: [[i32; 3]; 12], pub point_count: u8,
+    pub radii_raw: [i32; 2], pub accepted_toi_raw: u32,
+}
+
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct ContactFact {
     pub key: ContactKey,
@@ -213,6 +226,8 @@ pub(crate) struct Candidate {
     pub(crate) fact: ContactFact, distance_sq: Fx, feature: u8,
     #[cfg(feature = "cartesian-recoil")]
     pub(crate) wide_toi: Option<ExactWideToiDiagnostic>,
+    #[cfg(feature = "cartesian-recoil")]
+    pub(crate) compatibility_sweep: Option<ExactCompatibilitySweepDiagnostic>,
 }
 
 /// Candidate storage for one scan. It deliberately holds candidates rather
@@ -2875,8 +2890,12 @@ fn segment_segment_candidate(
         Vec3::lerp(ah0, ah1, t), Vec3::lerp(at0, at1, t),
         Vec3::lerp(bh0, bh1, t), Vec3::lerp(bt0, bt1, t),
     );
-    Some(make_candidate(a, b, ContactKind::WeaponWeapon, toi, closest.a, closest.b,
-                        closest.distance_sq, 0, NO_REGION))
+    let mut candidate = make_candidate(a, b, ContactKind::WeaponWeapon, toi, closest.a, closest.b,
+                                       closest.distance_sq, 0, NO_REGION);
+    #[cfg(feature = "cartesian-recoil")]
+    { candidate.compatibility_sweep = Some(compatibility_segment_diagnostic(candidate.fact.key,
+        NO_REGION, ah0, at0, ah1, at1, ar, bh0, bt0, bh1, bt1, br, toi)); }
+    Some(candidate)
 }
 
 fn segment_shield_candidate(
@@ -2896,8 +2915,19 @@ fn segment_shield_candidate(
         Vec3::lerp(previous_hilt, requested_hilt, t),
         Vec3::lerp(previous_tip, requested_tip, t), face,
     );
-    Some(make_candidate(weapon, shield, ContactKind::WeaponShield, toi,
-                        closest.a, closest.b, closest.distance_sq, closest.feature, NO_REGION))
+    let mut candidate = make_candidate(weapon, shield, ContactKind::WeaponShield, toi,
+                        closest.a, closest.b, closest.distance_sq, closest.feature, NO_REGION);
+    #[cfg(feature = "cartesian-recoil")]
+    { candidate.compatibility_sweep = Some(ExactCompatibilitySweepDiagnostic {
+        key: candidate.fact.key, region: NO_REGION,
+        primitive: ExactCompatibilityPrimitiveDiagnostic::SweptSegmentRectangle,
+        points_raw: [previous_hilt, previous_tip, requested_hilt, requested_tip,
+                     previous[0], previous[1], previous[2], previous[3],
+                     requested[0], requested[1], requested[2], requested[3]].map(point_raw),
+        point_count: 12,
+        radii_raw: [radius.raw(), 0], accepted_toi_raw: toi.get().raw() as u32,
+    }); }
+    Some(candidate)
 }
 
 /// One weapon against a whole body: sweep all five volumes and publish the one
@@ -2947,8 +2977,14 @@ fn segment_body_candidate(
                    medial_distance_sq(midpoint(closest.a, closest.b), lower, upper).raw(),
                    at as u8);
         if best.as_ref().is_some_and(|(chosen, _)| *chosen <= key) { continue; }
-        best = Some((key, make_candidate(weapon, body, ContactKind::WeaponBody, toi,
-                                         closest.a, closest.b, closest.distance_sq, 0, at as u8)));
+        let mut candidate = make_candidate(weapon, body, ContactKind::WeaponBody, toi,
+                                           closest.a, closest.b, closest.distance_sq, 0, at as u8);
+        #[cfg(feature = "cartesian-recoil")]
+        { candidate.compatibility_sweep = Some(compatibility_segment_diagnostic(
+            candidate.fact.key, at as u8, previous_hilt, previous_tip,
+            requested_hilt, requested_tip, radius, part.previous_lower, part.previous_upper,
+            part.requested_lower, part.requested_upper, part.radius, toi)); }
+        best = Some((key, candidate));
     }
     best.map(|(_, candidate)| candidate)
 }
@@ -2977,7 +3013,25 @@ fn make_candidate(
         feature,
         #[cfg(feature = "cartesian-recoil")]
         wide_toi: None,
+        #[cfg(feature = "cartesian-recoil")]
+        compatibility_sweep: None,
     }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn point_raw(value: Vec3) -> [i32; 3] { [value.x.raw(), value.y.raw(), value.z.raw()] }
+
+#[cfg(feature = "cartesian-recoil")]
+fn compatibility_segment_diagnostic(key: ContactKey, region: u8,
+    a0: Vec3, a1: Vec3, a2: Vec3, a3: Vec3, ar: Fx,
+    b0: Vec3, b1: Vec3, b2: Vec3, b3: Vec3, br: Fx, toi: TimeOfImpact,
+) -> ExactCompatibilitySweepDiagnostic {
+    ExactCompatibilitySweepDiagnostic { key, region,
+        primitive: ExactCompatibilityPrimitiveDiagnostic::SweptSegmentSegment,
+        points_raw: [a0, a1, a2, a3, b0, b1, b2, b3,
+                     Vec3::ZERO, Vec3::ZERO, Vec3::ZERO, Vec3::ZERO].map(point_raw),
+        point_count: 8,
+        radii_raw: [ar.raw(), br.raw()], accepted_toi_raw: toi.get().raw() as u32 }
 }
 
 fn midpoint(a: Vec3, b: Vec3) -> Vec3 {
@@ -3801,6 +3855,38 @@ mod tests {
         elastic(ContactCollider { entity: EntityId::new(2, 0), faction: Faction::Monsters,
             slot: 0, mass: Fx::ONE, surface: surface(), velocity: Vec3::ZERO, velocity_offset: Vec3::ZERO, present: true,
             shape: ContactShape::Shield { previous: face, requested: face } })
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn compatibility_provenance_carries_every_input_to_each_production_primitive() {
+        let weapon = elastic(segment(0, Faction::Heroes, Vec3::X, -Vec3::X,
+                                     -Vec3::X * Fx::TWO));
+        let shield = shield_at_origin();
+        let shield_candidate = candidate(&weapon, &shield).expect("the fixture crosses the shield");
+        let diagnostic = shield_candidate.compatibility_sweep
+            .expect("the compatibility branch must publish its primitive inputs");
+        let ContactShape::Segment { previous_hilt, previous_tip, requested_hilt,
+                                    requested_tip, .. } = weapon.shape else { unreachable!() };
+        let ContactShape::Shield { previous, requested } = shield.shape else { unreachable!() };
+        let expected = [previous_hilt, previous_tip, requested_hilt, requested_tip,
+                        previous[0], previous[1], previous[2], previous[3],
+                        requested[0], requested[1], requested[2], requested[3]].map(point_raw);
+        assert_eq!(diagnostic.primitive,
+                   ExactCompatibilityPrimitiveDiagnostic::SweptSegmentRectangle);
+        assert_eq!(diagnostic.point_count, 12);
+        assert_eq!(diagnostic.points_raw, expected);
+
+        let other = elastic(segment(1, Faction::Monsters, -Vec3::X, Vec3::X,
+                                    Vec3::X * Fx::TWO));
+        let segment_candidate = candidate(&weapon, &other)
+            .expect("the fixture's two segments cross");
+        let segment_diagnostic = segment_candidate.compatibility_sweep
+            .expect("the compatibility branch must publish its primitive inputs");
+        assert_eq!(segment_diagnostic.primitive,
+                   ExactCompatibilityPrimitiveDiagnostic::SweptSegmentSegment);
+        assert_eq!(segment_diagnostic.point_count, 8);
+        assert_eq!(segment_diagnostic.points_raw[8..], [[0; 3]; 4]);
     }
 
     /// Drive rows through the production driver; report the resolutions and

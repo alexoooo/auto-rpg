@@ -1,10 +1,13 @@
 # Smart AI 47 -- compatibility-sweep reflection
 
-**Status:** ready to implement; written before Smart47 code or measurement. Smart46
-proved tick 32 uses the zero-response compatibility detector, not wide exact
-geometry. This session identifies the exact legacy collider pair/region and `fx`
-swept primitive producing `38127|38111`, then restores exact reflection equivariance
-without changing tolerance, conservative-advance bounds, or solver policy.
+**Status:** stopped on 2026-08-13 after localization, before a fix. The temporary
+two-Y reproduction identified the exact compatibility segment/segment pair and
+literal reflected detector inputs; the production primitive returned plain TOI
+`38127` and mirror TOI `38111`. Translating both cases to a shared origin left the
+mismatch unchanged, refuting large world-coordinate origin as the cause. Per the
+diagnostic stop, no geometry fix, pin measurement/update, or corpus ran, and the
+actuator was reverted cleanly. Smart48 owns internal closest-points/conservative-step
+provenance only.
 
 ## A -- name the compatibility primitive
 

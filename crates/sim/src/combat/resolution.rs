@@ -16,7 +16,8 @@ use crate::combat::contact::{exact_contact_at_pose, exact_response_velocity,
                              scan_exact_candidates_into};
 #[cfg(feature = "cartesian-recoil")]
 pub use crate::combat::contact::{ExactWideComparisonDiagnostic, ExactWidePrimitiveDiagnostic,
-                                 ExactWideToiDiagnostic};
+    ExactWideToiDiagnostic, ExactCompatibilityPrimitiveDiagnostic,
+    ExactCompatibilitySweepDiagnostic};
 #[cfg(feature = "cartesian-recoil")]
 use crate::combat::trajectory::{advance_exact, apply_exact_group, ExactContactTrajectory,
                                 ExactOwnerTrajectory, FixedExactOwners, FloorReaction};
@@ -138,6 +139,7 @@ pub struct ExactContactGroupDiagnostic {
     pub mapped_member_keys: [Option<ExactContactKeyDiagnostic>; 16],
     pub recomputed_keys: [Option<ExactContactKeyDiagnostic>; 16],
     pub wide_toi: [Option<ExactWideToiDiagnostic>; 16],
+    pub compatibility_sweep: [Option<ExactCompatibilitySweepDiagnostic>; 16],
 }
 
 #[cfg(feature = "cartesian-recoil")]
@@ -147,8 +149,35 @@ impl Default for ExactContactGroupDiagnostic {
             mapped_time_members: 0, recomputed_facts: 0, closure_entities: 0,
             closure_rows: 0, driver_contacts: 0, lifted_contacts: 0, output_rows: 0,
             reject: None, mapped_member_keys: [None; 16], recomputed_keys: [None; 16],
-            wide_toi: [None; 16] }
+            wide_toi: [None; 16], compatibility_sweep: [None; 16] }
     }
+}
+
+/// Diagnostics have a fixed public bound, but keeping every group's full
+/// provenance inline made `World` large enough to exhaust Rust's test-thread
+/// stack. Build the fixed-length backing directly on the heap once; the driver
+/// only overwrites rows and therefore still allocates nothing after reserve.
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone)]
+struct ExactContactGroupDiagnosticRows(Box<[ExactContactGroupDiagnostic]>);
+
+#[cfg(feature = "cartesian-recoil")]
+impl Default for ExactContactGroupDiagnosticRows {
+    fn default() -> Self {
+        Self(core::iter::repeat(ExactContactGroupDiagnostic::default())
+            .take(MAX_CONTACT_GROUPS_PER_TICK as usize).collect::<Vec<_>>().into_boxed_slice())
+    }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+impl core::ops::Deref for ExactContactGroupDiagnosticRows {
+    type Target = [ExactContactGroupDiagnostic];
+    fn deref(&self) -> &Self::Target { &self.0 }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+impl core::ops::DerefMut for ExactContactGroupDiagnosticRows {
+    fn deref_mut(&mut self) -> &mut Self::Target { &mut self.0 }
 }
 
 #[cfg(feature = "cartesian-recoil")]
@@ -721,7 +750,7 @@ pub struct ContactTickScratch {
     #[cfg(feature = "cartesian-recoil")]
     exact_reject_key: Option<ContactKey>,
     #[cfg(feature = "cartesian-recoil")]
-    exact_group_diagnostics: [ExactContactGroupDiagnostic; MAX_CONTACT_GROUPS_PER_TICK as usize],
+    exact_group_diagnostics: ExactContactGroupDiagnosticRows,
     #[cfg(feature = "cartesian-recoil")]
     exact_group_diagnostics_len: usize,
     #[cfg(feature = "cartesian-recoil")]
@@ -1218,13 +1247,13 @@ fn solve_contact_tick_with<P: ContactTrialProjector, K: ContactKinematics>(
         #[cfg(feature = "cartesian-recoil")]
         {
             let at = groups as usize;
-            scratch.exact_group_diagnostics[at] = ExactContactGroupDiagnostic {
+            if let Some(row) = scratch.exact_group_diagnostics.get_mut(at) {
+            *row = ExactContactGroupDiagnostic {
                 tick: scratch.exact_diagnostic_tick, group_ordinal: groups,
                 selected_time_raw: time,
                 scan_candidates: scratch.collection.candidates().len() as u32,
                 mapped_time_members: members as u32, ..ExactContactGroupDiagnostic::default()
             };
-            let row = &mut scratch.exact_group_diagnostics[at];
             for candidate in scratch.collection.candidates() {
                 if suppressed(basis, &candidate.fact, global, &scratch.suppressed) { continue; }
                 if candidate_global_time(basis, global, candidate.fact) != time { continue; }
@@ -1232,9 +1261,11 @@ fn solve_contact_tick_with<P: ContactTrialProjector, K: ContactKinematics>(
                 if let Some(key_at) = key_at {
                     row.mapped_member_keys[key_at] = Some(candidate.fact.key.into());
                     row.wide_toi[key_at] = candidate.wide_toi;
+                    row.compatibility_sweep[key_at] = candidate.compatibility_sweep;
                 }
             }
             scratch.exact_group_diagnostics_len = at + 1;
+            }
         }
 
         // No ordinal left, or a simultaneous set too large to resolve as one
@@ -2036,6 +2067,8 @@ pub(crate) mod tests {
             assert!(row.scan_candidates >= row.mapped_time_members);
             assert_eq!(row.mapped_member_keys.iter().flatten().count() as u32,
                        row.mapped_time_members.min(16));
+            assert_eq!(row.compatibility_sweep.iter().flatten().count(),
+                       row.mapped_member_keys.iter().flatten().count());
             assert_eq!(row.recomputed_keys.iter().flatten().count(), row.recomputed_facts as usize);
             assert!(row.closure_rows >= row.closure_entities);
             assert_eq!(row.driver_contacts, row.lifted_contacts);
@@ -2049,10 +2082,12 @@ pub(crate) mod tests {
     fn group_provenance_is_fixed_bounded_unhashed_and_cleared_each_tick() {
         let mut scratch = ContactTickScratch::default();
         assert_eq!(scratch.exact_group_diagnostics.len(), MAX_CONTACT_GROUPS_PER_TICK as usize);
+        let retained = scratch.exact_group_diagnostics.as_ptr();
         scratch.exact_group_diagnostics_len = 1;
         scratch.exact_group_diagnostics[0].tick = 11;
         scratch.begin_exact_diagnostics(12);
         assert!(scratch.exact_group_diagnostics().is_empty());
+        assert_eq!(scratch.exact_group_diagnostics.as_ptr(), retained);
         assert_eq!(scratch.exact_diagnostic_tick, 12);
     }
 

@@ -399,6 +399,112 @@ fn swept_segment_segment_audited(
     })
 }
 
+#[cfg(test)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+struct SweepIterationDiagnostic {
+    index: usize,
+    entry_time_raw: i32,
+    endpoints: [Vec3; 4],
+    closest_branch: u8,
+    closest_parameters: [[i128; 2]; 4],
+    closest_a: Vec3,
+    closest_b: Vec3,
+    delta: Vec3,
+    distance_sq_raw: i32,
+    distance_raw: i32,
+    radius_raw: i32,
+    separation_raw: i32,
+    speed_raw: i32,
+    quotient: i64,
+    remaining_raw: i32,
+    advance_raw: i32,
+    exit_time_raw: i32,
+    decision: u8,
+}
+
+#[cfg(test)]
+fn closest_points_test_diagnostic(a0: Vec3, a1: Vec3, b0: Vec3, b1: Vec3)
+    -> (ClosestPoints, u8, [[i128; 2]; 4])
+{
+    let u = RawVec3::of(a1).sub(RawVec3::of(a0));
+    let v = RawVec3::of(b1).sub(RawVec3::of(b0));
+    let w = RawVec3::of(a0).sub(RawVec3::of(b0));
+    let aa = u.dot(u); let bb = u.dot(v); let cc = v.dot(v);
+    let dd = u.dot(w); let ee = v.dot(w);
+    let den = aa * cc - bb * bb;
+    let (branch, words) = if aa == 0 && cc == 0 {
+        (1, [[0, 1]; 4])
+    } else if aa == 0 {
+        (2, [[0, 1], [ee, cc], [0, 1], [Ratio::new(ee, cc).clamped().num,
+                                         Ratio::new(ee, cc).clamped().den]])
+    } else if cc == 0 {
+        (3, [[-dd, aa], [0, 1], [Ratio::new(-dd, aa).clamped().num,
+                                  Ratio::new(-dd, aa).clamped().den], [0, 1]])
+    } else {
+        let raw_s = Ratio::new(bb * ee - cc * dd, den);
+        let raw_t = Ratio::new(aa * ee - bb * dd, den);
+        let s = raw_s.clamped();
+        let first_t = if s.num == raw_s.num && s.den == raw_s.den { raw_t }
+                      else { linear_ratio(bb, s, ee, cc) };
+        let t = first_t.clamped();
+        let final_s = if s.num == raw_s.num && s.den == raw_s.den
+            && t.num == first_t.num && t.den == first_t.den { raw_s }
+            else { linear_ratio(bb, t, -dd, aa) }.clamped();
+        let final_t = linear_ratio(bb, final_s, ee, cc).clamped();
+        (4, [[raw_s.num, raw_s.den], [raw_t.num, raw_t.den],
+             [final_s.num, final_s.den], [final_t.num, final_t.den]])
+    };
+    (closest_points_on_segments(a0, a1, b0, b1), branch, words)
+}
+
+#[cfg(test)]
+fn swept_segment_segment_iteration_trace(
+    a0: Vec3, a1: Vec3, a2: Vec3, a3: Vec3, radius_a: Fx,
+    b0: Vec3, b1: Vec3, b2: Vec3, b3: Vec3, radius_b: Fx,
+) -> (Option<TimeOfImpact>, [Option<SweepIterationDiagnostic>; SWEEP_ADVANCES]) {
+    let ad0 = a2 - a0; let ad1 = a3 - a1;
+    let bd0 = b2 - b0; let bd1 = b3 - b1;
+    let speed = (ad0 - bd0).length().max((ad0 - bd1).length())
+        .max((ad1 - bd0).length()).max((ad1 - bd1).length());
+    let radius = radius_a + radius_b;
+    let mut rows = [None; SWEEP_ADVANCES];
+    let mut time = Fx::ZERO;
+    for index in 0..SWEEP_ADVANCES {
+        let endpoints = [Vec3::lerp(a0, a2, time), Vec3::lerp(a1, a3, time),
+                         Vec3::lerp(b0, b2, time), Vec3::lerp(b1, b3, time)];
+        let (closest, closest_branch, closest_parameters) = closest_points_test_diagnostic(
+            endpoints[0], endpoints[1], endpoints[2], endpoints[3]);
+        let delta = closest.a - closest.b;
+        let distance = closest.a.distance(closest.b);
+        let separation = distance - radius;
+        if separation <= Fx::ZERO {
+            rows[index] = Some(SweepIterationDiagnostic { index,
+                entry_time_raw: time.raw(), endpoints, closest_a: closest.a,
+                closest_branch, closest_parameters,
+                closest_b: closest.b, delta, distance_sq_raw: closest.distance_sq.raw(),
+                distance_raw: distance.raw(), radius_raw: radius.raw(),
+                separation_raw: separation.raw(), speed_raw: speed.raw(),
+                exit_time_raw: time.raw(), decision: 1, ..Default::default() });
+            return (Some(TimeOfImpact::new_clamped(time)), rows);
+        }
+        let quotient = ((separation.raw() as i64) << FRAC_BITS) / speed.raw() as i64;
+        let remaining = Fx::ONE - time;
+        let advance_raw = quotient.max(1).min(remaining.raw() as i64) as i32;
+        let exit = time + Fx::from_raw(advance_raw);
+        rows[index] = Some(SweepIterationDiagnostic { index,
+            entry_time_raw: time.raw(), endpoints, closest_a: closest.a,
+            closest_branch, closest_parameters,
+            closest_b: closest.b, delta, distance_sq_raw: closest.distance_sq.raw(),
+            distance_raw: distance.raw(), radius_raw: radius.raw(),
+            separation_raw: separation.raw(), speed_raw: speed.raw(), quotient,
+            remaining_raw: remaining.raw(), advance_raw, exit_time_raw: exit.raw(),
+            decision: if exit == Fx::ONE { 2 } else { 0 } });
+        time = exit;
+        if time == Fx::ONE { return (None, rows); }
+    }
+    (Some(TimeOfImpact::new_clamped(time)), rows)
+}
+
 pub fn closest_points_segment_rectangle(
     segment0: Vec3,
     segment1: Vec3,
@@ -1056,6 +1162,85 @@ fn raw_distance_sq(a: Vec3, b: Vec3) -> i128 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn tick_32_pair() -> ([Vec3; 8], Fx, Fx) {
+        let point = |raw: [i32; 3]| Vec3::new(Fx::from_raw(raw[0]),
+            Fx::from_raw(raw[1]), Fx::from_raw(raw[2]));
+        ([[678151,451563,26213], [799703,500607,26213],
+          [677638,452743,26213], [796458,508077,26213],
+          [786432,524288,0], [786432,524288,52428],
+          [786432,524288,0], [786432,524288,52428]].map(point),
+         Fx::from_raw(2621), Fx::from_raw(19660))
+    }
+
+    fn reflect_tick_32(points: [Vec3; 8]) -> [Vec3; 8] {
+        points.map(|point| Vec3::new(point.x,
+            Fx::from_raw(1_048_576 - point.y.raw()), point.z))
+    }
+
+    fn sweep(points: [Vec3; 8], ar: Fx, br: Fx) -> TimeOfImpact {
+        swept_segment_segment(points[0], points[1], points[2], points[3], ar,
+            points[4], points[5], points[6], points[7], br).unwrap()
+    }
+
+    #[test]
+    fn tick_32_literal_pair_retains_the_38127_38111_baseline() {
+        let (plain, ar, br) = tick_32_pair();
+        let mirror = reflect_tick_32(plain);
+        assert_eq!((sweep(plain, ar, br).get().raw(), sweep(mirror, ar, br).get().raw()),
+                   (38_127, 38_111));
+        let plain_key = (0u32, 1u8, 1u32, u8::MAX, 2u8, 4u8);
+        let mirror_key = (0u32, 0u8, 1u32, u8::MAX, 2u8, 4u8);
+        let mapped_mirror_key = (mirror_key.0, 1 - mirror_key.1, mirror_key.2,
+                                 mirror_key.3, mirror_key.4, mirror_key.5);
+        assert_eq!(plain_key, mapped_mirror_key,
+                   "mapping swaps the held slot 0->1 and preserves body/kind/region");
+    }
+
+    #[test]
+    fn shared_origin_does_not_remove_the_tick_32_toi_mismatch() {
+        let (plain, ar, br) = tick_32_pair();
+        let mirror = reflect_tick_32(plain);
+        let relative = |points: [Vec3; 8]| {
+            let origin = points[0]; points.map(|point| point - origin)
+        };
+        assert_eq!((sweep(relative(plain), ar, br).get().raw(),
+                    sweep(relative(mirror), ar, br).get().raw()), (38_127, 38_111));
+    }
+
+    #[test]
+    fn tick_32_iteration_trace_names_the_first_nonreflecting_internal_word() {
+        let (plain, ar, br) = tick_32_pair();
+        let mirror = reflect_tick_32(plain);
+        let traced = |p: [Vec3; 8]| swept_segment_segment_iteration_trace(
+            p[0], p[1], p[2], p[3], ar, p[4], p[5], p[6], p[7], br);
+        let (_, left) = traced(plain); let (_, right) = traced(mirror);
+        assert_eq!(left[0].unwrap().entry_time_raw, 0);
+        assert_eq!(left[1].unwrap().entry_time_raw, 37_379);
+        for point in 0..4 {
+            assert_eq!(left[0].unwrap().endpoints[point].y.raw()
+                     + right[0].unwrap().endpoints[point].y.raw(), 1_048_576);
+        }
+        let plain_y = left[1].unwrap().endpoints[0].y.raw();
+        let mapped_mirror_y = 1_048_576 - right[1].unwrap().endpoints[0].y.raw();
+        eprintln!("first divergence: iteration=1 field=endpoints[0].y plain={} mapped_mirror={}",
+                  plain_y, mapped_mirror_y);
+        assert_eq!((plain_y, mapped_mirror_y), (452_236, 452_237));
+        assert_eq!((left[1].unwrap().distance_raw, right[1].unwrap().distance_raw),
+                   (22_372, 22_371));
+    }
+
+    #[test]
+    fn iteration_provenance_is_fixed_bounded_and_does_not_change_the_answer() {
+        let (plain, ar, br) = tick_32_pair();
+        let (answer, rows) = swept_segment_segment_iteration_trace(
+            plain[0], plain[1], plain[2], plain[3], ar,
+            plain[4], plain[5], plain[6], plain[7], br);
+        assert_eq!(rows.len(), SWEEP_ADVANCES);
+        let visited: Vec<_> = rows.iter().flatten().map(|row| row.index).collect();
+        assert_eq!(visited, (0..visited.len()).collect::<Vec<_>>());
+        assert_eq!(answer, Some(sweep(plain, ar, br)));
+    }
 
     fn p(x: i32, y: i32, z: i32) -> Vec3 { Vec3::from_ints(x, y, z) }
 
