@@ -5,6 +5,9 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[features]
+cartesian-recoil = ["sim/cartesian-recoil"]
+
 [dependencies]
 fx = { path = "../fx" }
 sim = { path = "../sim", features = ["lab-calibration"] }

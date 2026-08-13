@@ -375,6 +375,9 @@ cargo test -p sim
 cargo test -p sim --features cartesian-recoil
 cargo test
 
+cargo check -p lab --features cartesian-recoil
+cargo run --release -p lab --features cartesian-recoil -- tactical-mechanics --quick
+
 cargo test -p web
 cargo test -p web --features cartesian-recoil
 cargo build --release --target wasm32-unknown-unknown -p web

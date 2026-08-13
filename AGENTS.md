@@ -91,6 +91,9 @@ cargo run --release -p lab -- articulated --seeds 400 --mirrored  # the v2-17 ga
 cargo run --release -p lab -- articulated --seeds 400 --mirrored --policy windmill
 cargo run --release -p lab -- articulated --seeds 400 --mirrored --attack-moves
 
+# Feature-only exact mechanics use the same lab commands and harness:
+cargo run --release -p lab --features cartesian-recoil -- tactical-mechanics --quick
+
 cargo run --release -p lab -- learn-probe train --spec v2-probe
 cargo run --release -p lab -- learn-probe evaluate --checkpoint checkpoints/v2-probe.ckpt
 
