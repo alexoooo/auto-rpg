@@ -44,6 +44,16 @@ diagnosis is either behavior-neutral shared plumbing or behind the disabled
   contacts, `2_338` interior contacts, `1_669` uniquely attributed contacts, and
   `312` individually eligible rows, but **zero eligible mirror pairs**. No robust
   calibration fixture was selected.
+- Smart39 reran that exact 7,560-orientation grid through the bounded lifted solver,
+  in four canonical ordinal shards. The release audit took `5,286.6` seconds. It
+  found 57 eligible individuals, **all `mirrored=false`**, zero eligible pairs, zero
+  local runs, zero robust pairs, and no selection. Its predicate counters were
+  missing/attribution `5,462`, crossing `7,176`, reach `5,602`, motion `5,462`,
+  impulse `5,991`, dissipation `6,066`, refusal `0`, solver `3,347`, cap `0`, energy
+  `0`, and alpha `5,462`; they overlap and therefore do not sum to the corpus size.
+  The frozen audit checksum is `2f550f772c7a08e0`. The all-one-sided result supports
+  a geometry diagnosis: keeping the anatomical right limb and asymmetric loadout
+  unchanged while reflecting space was not a physical symmetry.
 - A full-domain actual-projector normal probe sampled 27 scalar words and 101 unique
   component projections. The adjacent envelopes jumped from `[-4,-4]` to `[-4,2]`
   with no restitution-valid root: `NormalGap`.

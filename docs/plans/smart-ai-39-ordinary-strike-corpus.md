@@ -1,9 +1,13 @@
 # Smart AI 39 -- predeclared ordinary-strike corpus
 
-**Status:** ready to implement. This declaration was revised before any Smart39
-measurement was run. Smart38's failed centre and first neighbour remain evidence;
-this session does not edit their bytes, tolerances, solver bounds, or recorded
-failure. Existing registered-pin movement and new-pin budgets are both zero.
+**Status:** stopped at checkpoint A on 2026-08-13. The exact four-shard release
+audit completed in `5,286.6` seconds. It evaluated all 7,560 central orientations,
+found 57 eligible individuals -- every one `mirrored=false` -- and therefore found
+zero eligible central pairs, zero local runs, zero robust pairs, and no selection.
+No damage was read for selection and checkpoints B/C did not run. Smart38's failed
+centre and first neighbour remain evidence; this session did not edit their bytes,
+tolerances, solver bounds, or recorded failure. Existing registered-pin movement and
+new-pin budgets remained zero.
 
 [Smart38 checkpoint C](smart-ai-38-bounded-lifted-coulomb-solver.md#checkpoint-c----retained-strike-and-robust-mirrored-mechanical-gate)
 stopped exactly where its declaration required. This successor does not invent a
@@ -67,6 +71,13 @@ anatomy, approach offset, then mirror. This is
 `7 * 6 * 5 * 2 * 9 * 2 = 7_560` oriented runs, or 3,780 mirrored central pairs.
 Run every one and collect rejection counts. Remove the old `'grid` early exit:
 neither the first eligible individual nor the first eligible pair ends the run.
+The first serial implementation measured more than two hours without completing and
+was terminated by the command ceiling before emitting a row. The production audit
+therefore uses exactly four contiguous ordinal shards on named 16 MiB host threads,
+then merges them into the canonical ordinal/mirror order above before any local run,
+ranking, or checksum. A serial-versus-sharded synthetic equality test is mandatory;
+thread completion order must be unobservable. This is an execution correction made
+without seeing corpus data, not a domain or selection change.
 
 ### Mirror and central eligibility
 
@@ -83,9 +94,12 @@ uniquely attributed right-sword/body contact, the published crossing exists, con
 reach lies inclusively between `ONE/4 + 1_024` and `ONE - 1_024`, arm velocity plus
 hilt and tip deltas are nonzero, selected impulse and physical dissipated energy are
 nonzero, and command refusals, exact-solver rejections, competing facts, cap hits,
-and energy increase are all zero. Revalidate restitution and the circular Coulomb
-cone through Smart38's feature-only law helper rather than inferring validity merely
-from publication.
+and energy increase are all zero, and the published lifted group alpha is exactly
+`65_536`. Smart38 validates restitution and the circular Coulomb cone simultaneously
+before it can publish such a row; its law helpers remain private because the exact
+post-response rationals are not part of Lab's ABI. The solver's independent
+frictionless, static/sliding, coupled-final-recheck, and deliberate-refusal tests own
+that proof. Do not duplicate it from the row's rounded public velocities.
 
 Convert a central or local run immediately into a selection-only row. It may contain
 case literals, mapped contact identity/region/TOI/point/normal/impulse, physical
@@ -113,8 +127,9 @@ complete result rather than making traversal order an accidental selector.
 
 A pair is robust only when all eighteen local sides satisfy the central mechanical
 predicate and every plain/mirror pair has the same mapped `ContactKey` and region,
-exact physical dissipated energy, TOI within one raw word, and point, normal, and
-impulse mapped by `(x,y,z) -> (x,-y,z)` within one raw word per component. These
+exact physical dissipated energy, TOI within one raw word, absolute contact point
+mapped by `(x,y,z) -> (x,16-y,z)`, and normal and impulse mapped by
+`(x,y,z) -> (x,-y,z)`, all within one raw word per component. These
 tolerances are frozen here and cannot widen after a result.
 
 Evaluate the complete central grid and all local cases belonging to every eligible
@@ -158,6 +173,26 @@ If no robust pair exists, stop. Record all mechanical rejection counts here and 
 [`v2-articulated-contact-research.md`](../performance/v2-articulated-contact-research.md)
 without adding an input, changing a tolerance, stopping early, or falling back to a
 damaging individual row. A later plan may declare a different domain.
+
+### Measured result -- stopped
+
+The four-shard run completed in `5,286.6` seconds and merged all 7,560 central
+orientations into canonical order. It reported `eligible_individuals=57`, all on the
+plain (`mirrored=false`) side; hence `eligible_pairs=0`, `local_runs=0`,
+`robust_pairs=0`, and `selected=none`. The audit counters were:
+
+```text
+missing_or_attribution=5462  crossing=7176  reach=5602  motion=5462
+impulse=5991                 dissipation=6066
+refusal=0                    solver=3347     cap=0       energy=0
+alpha=5462
+checksum=2f550f772c7a08e0
+```
+
+These are predicate counters over the fixed audit rather than mutually exclusive
+failure buckets, so they need not sum to 7,560. The result triggered the declared
+stop path before any local neighbourhood or outcome evidence. Checkpoints B and C
+below are retained as the unexecuted contract, not as work this session completed.
 
 ## Checkpoint B -- literal eighteen-case sim gate
 

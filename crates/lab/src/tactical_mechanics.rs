@@ -243,12 +243,73 @@ pub(crate) fn tactical_mechanics(args: &Args) {
         seed: 0, mirrored: false, target_anatomy: AnatomyChoice::Fighter,
         approach_offset: strong_strike::APPROACH_OFFSETS[4],
     };
+    if args.flag("strike-corpus") {
+        if args.flag("quick") || args.flag("calibration") || args.flag("held-out")
+            || args.text("write").is_some() {
+            eprintln!("tactical-mechanics --strike-corpus accepts no other mode or input");
+            return;
+        }
+        // The executor owns four named 16 MiB workers. The caller only merges
+        // their retained rows, so MSVC's 1 MiB main stack never holds a World.
+        let audit = strong_strike::run_predeclared_strike_corpus();
+        println!("kind,ordinal,chamber,strike,strike_delta,reach,reach_delta,target,offset_x,offset_y,mirrored,eligible,failure_mask,dissipated,refusals,solver_rejections,cap_hits,energy_excess");
+        let print_row = |kind: &str, row: &strong_strike::MechanicalRow| {
+            println!("{},{},{},{},{},{},{},{:?},{},{},{},{},{},{},{},{},{},{}", kind,
+                row.case.ordinal, row.case.chamber_ticks, row.case.strike_ticks,
+                row.strike_delta, row.case.reach_raw, row.reach_delta_raw,
+                row.case.target_anatomy, row.case.approach_offset.x.raw(),
+                row.case.approach_offset.y.raw(), row.mirrored, row.eligible,
+                row.failure_mask, row.dissipated_raw, row.refusals,
+                row.solver_rejections, row.cap_hits,
+                row.energy_excess_raw);
+        };
+        for row in &audit.central_rows { print_row("central", row); }
+        for row in &audit.local_rows { print_row("local", row); }
+        let failures = [
+            ("missing_contact", strong_strike::FAILURE_MISSING_CONTACT),
+            ("attribution", strong_strike::FAILURE_ATTRIBUTION),
+            ("crossing", strong_strike::FAILURE_CROSSING),
+            ("reach", strong_strike::FAILURE_REACH),
+            ("motion", strong_strike::FAILURE_MOTION),
+            ("impulse", strong_strike::FAILURE_IMPULSE),
+            ("dissipation", strong_strike::FAILURE_DISSIPATION),
+            ("refusal", strong_strike::FAILURE_REFUSAL),
+            ("solver", strong_strike::FAILURE_SOLVER),
+            ("cap", strong_strike::FAILURE_CAP),
+            ("energy", strong_strike::FAILURE_ENERGY),
+            ("alpha", strong_strike::FAILURE_ALPHA),
+        ];
+        for (name, bit) in failures {
+            println!("central_rejection,{},{}", name,
+                audit.central_rows.iter().filter(|row| row.failure_mask & bit != 0).count());
+        }
+        for (at, pair) in audit.robust.iter().enumerate() {
+            println!("robust ordinal={} worst_dissipated={} duration={} ranking_ordinal={} chamber={} strike={} reach={} target={:?} offset=({}, {})",
+                pair.centre.ordinal, pair.worst_dissipated_raw,
+                pair.centre.chamber_ticks + pair.centre.strike_ticks,
+                pair.centre.ordinal, pair.centre.chamber_ticks, pair.centre.strike_ticks,
+                pair.centre.reach_raw, pair.centre.target_anatomy,
+                pair.centre.approach_offset.x.raw(), pair.centre.approach_offset.y.raw());
+            if audit.selected == Some(at) {
+                println!("selected ordinal={} chamber={} strike={} reach={} target={:?} offset=({}, {}) worst_dissipated={}",
+                    pair.centre.ordinal, pair.centre.chamber_ticks, pair.centre.strike_ticks,
+                    pair.centre.reach_raw, pair.centre.target_anatomy,
+                    pair.centre.approach_offset.x.raw(), pair.centre.approach_offset.y.raw(),
+                    pair.worst_dissipated_raw);
+                for row in &pair.rows { print_row("selected-local", row); }
+            }
+        }
+        println!("strike-corpus central_oriented={} local_oriented={} robust_pairs={} selected={:?} checksum={:016x}",
+            audit.central_rows.len(), audit.local_rows.len(), audit.robust.len(), audit.selected,
+            strong_strike::strike_corpus_checksum(&audit));
+        return;
+    }
     if args.flag("calibration") || args.flag("held-out") {
         run_corpus(args);
         return;
     }
     if !args.flag("quick") {
-        eprintln!("tactical-mechanics expects --quick, --calibration, or --held-out");
+        eprintln!("tactical-mechanics expects --quick, --calibration, --held-out, or --strike-corpus");
         return;
     }
     let before = strong_strike::measure_case(quick, Fx::ONE);

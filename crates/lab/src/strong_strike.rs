@@ -12,6 +12,12 @@ use sim::{AnatomyChoice, ArmTarget, ArticulatedCommandV1, BodyPart, CombatHeight
 
 pub(crate) const CHAMBER_TICKS: u32 = 28;
 pub(crate) const STRIKE_TICKS: u32 = 28;
+pub(crate) const INTERIOR_CHAMBER_TICKS: [u32; 7] = [8, 12, 16, 20, 24, 28, 32];
+pub(crate) const INTERIOR_STRIKE_TICKS: [u32; 6] = [12, 16, 20, 24, 28, 32];
+pub(crate) const INTERIOR_REACH_TARGETS_RAW: [i32; 5] =
+    [32_768, 40_960, 49_152, 57_344, 61_440];
+pub(crate) const STRIKE_TICK_DELTAS: [i32; 3] = [-1, 0, 1];
+pub(crate) const REACH_DELTAS_RAW: [i32; 3] = [-256, 0, 256];
 const INTERIOR_REACH_MARGIN_RAW: i32 = 1_024;
 const ATTACKER_SPAWN: Vec2 = Vec2::new(Fx::from_int(10), Fx::from_int(8));
 // Arm 3/4 plus the configured 2-unit sword reaches 2.75. At 2.62 the body
@@ -61,6 +67,10 @@ pub(crate) struct StrikeMeasurement {
     pub contact_reach_raw: Option<i32>, pub contact_arm_velocity: Vec3,
     pub observed_contact_region: Option<RegionVolume>,
     pub refusals: u32, pub solver_rejections: u32, pub max_energy_excess_raw: u64,
+    pub contact_key: Option<(EntityId, u8, EntityId, u8, ContactKind)>,
+    pub toi_raw: Option<i32>, pub normal: Vec3, pub impulse_on_a: Vec3,
+    pub group_alpha_raw: Option<u32>,
+    pub cap_hits: u32,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -152,6 +162,17 @@ fn command(obs: &sim::ArticulatedObservation, opponent: EntityId, bearing: Angle
     command
 }
 
+fn schedule_bearings(bearing: Angle, mirrored: bool) -> (Angle, Angle) {
+    let eighth = Angle::QUARTER.raw() / 2;
+    if mirrored {
+        (Angle::from_raw(bearing.raw().wrapping_add(eighth)),
+         Angle::from_raw(bearing.raw().wrapping_sub(eighth)))
+    } else {
+        (Angle::from_raw(bearing.raw().wrapping_sub(eighth)),
+         Angle::from_raw(bearing.raw().wrapping_add(eighth)))
+    }
+}
+
 fn raw_parts(values: [Fx; BodyPart::COUNT]) -> [i32; BodyPart::COUNT] { values.map(Fx::raw) }
 
 fn attributed_sword_body(row: &sim::ContactResolution, attacker: EntityId, defender: EntityId)
@@ -165,7 +186,7 @@ fn attributed_sword_body(row: &sim::ContactResolution, attacker: EntityId, defen
     )
 }
 
-fn measure_case_schedule(
+pub(crate) fn measure_case_schedule(
     case: StrongCase, strike_effort: Fx, chamber_ticks: u32, strike_ticks: u32,
     strike_reach: Fx,
 ) -> StrikeMeasurement {
@@ -187,14 +208,7 @@ fn measure_case_schedule(
         .clamp(Fx::ZERO, Fx::ONE).raw();
     let height = CombatHeight::try_from_raw(height_raw)
         .expect("the observed target region produces a bounded command height");
-    let eighth = Angle::QUARTER.raw() / 2;
-    let (chamber, follow) = if case.mirrored {
-        (Angle::from_raw(bearing.raw().wrapping_add(eighth)),
-         Angle::from_raw(bearing.raw().wrapping_sub(eighth)))
-    } else {
-        (Angle::from_raw(bearing.raw().wrapping_sub(eighth)),
-         Angle::from_raw(bearing.raw().wrapping_add(eighth)))
-    };
+    let (chamber, follow) = schedule_bearings(bearing, case.mirrored);
     let mut refusals = 0u32;
     let mut max_energy_excess_raw = 0u64;
 
@@ -232,6 +246,9 @@ fn measure_case_schedule(
         contact_reach_raw: None, contact_arm_velocity: Vec3::ZERO,
         observed_contact_region: None,
         refusals: 0, solver_rejections: 0, max_energy_excess_raw: 0,
+        contact_key: None, toi_raw: None, normal: Vec3::ZERO, impulse_on_a: Vec3::ZERO,
+        group_alpha_raw: None,
+        cap_hits: 0,
     };
 
     for _ in 0..strike_ticks {
@@ -265,6 +282,11 @@ fn measure_case_schedule(
             let after = world.observe_articulated(defender);
             answer.contact_tick = Some(world.tick());
             answer.contact_point = Some(row.fact.point);
+            answer.contact_key = Some((row.fact.key.a, row.fact.key.a_slot, row.fact.key.b,
+                                       row.fact.key.b_slot, row.fact.key.kind));
+            answer.toi_raw = Some(row.fact.toi.get().raw());
+            answer.normal = row.fact.normal; answer.impulse_on_a = row.impulse.on_a;
+            answer.group_alpha_raw = Some(row.group_alpha_raw);
             answer.velocity_a = row.fact.velocity_a; answer.velocity_b = row.fact.velocity_b;
             answer.region = BodyPart::ALL.get(row.fact.region as usize).copied();
             answer.observed_contact_region = answer.region.and_then(|part| {
@@ -299,8 +321,23 @@ fn measure_case_schedule(
     }
     answer.refusals = refusals;
     answer.solver_rejections = world.contact_solver_rejections();
+    answer.cap_hits = world.contact_cap_hits();
     answer.max_energy_excess_raw = max_energy_excess_raw;
     answer
+}
+
+pub(crate) fn interior_contact(row: StrikeMeasurement) -> bool {
+    let reach = row.contact_reach_raw.unwrap_or(i32::MIN);
+    row.contact_tick.is_some() && row.weapon_body_facts == 1 && row.competing_facts == 0
+        && observed_crossing(row)
+        && reach >= Fx::from_ratio(1, 4).raw() + INTERIOR_REACH_MARGIN_RAW
+        && reach <= Fx::ONE.raw() - INTERIOR_REACH_MARGIN_RAW
+        && row.contact_arm_velocity != Vec3::ZERO
+        && row.hilt_delta != Vec3::ZERO && row.tip_delta != Vec3::ZERO
+        && row.impulse_on_a != Vec3::ZERO && row.energy_dissipated_raw != 0
+        && row.group_alpha_raw == Some(65_536)
+        && row.refusals == 0 && row.solver_rejections == 0 && row.cap_hits == 0
+        && row.max_energy_excess_raw == 0
 }
 
 pub(crate) fn measure_case(case: StrongCase, strike_effort: Fx) -> StrikeMeasurement {
@@ -340,24 +377,389 @@ pub(crate) fn strong_strike() {
     print_measurement("held-control", measure(Fx::ZERO));
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) struct MechanicalCase {
+    pub ordinal: u32, pub chamber_ticks: u32, pub strike_ticks: u32, pub reach_raw: i32,
+    pub target_anatomy: AnatomyChoice, pub approach_offset: Vec2,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) struct MechanicalRow {
+    pub case: MechanicalCase, pub strike_delta: i32, pub reach_delta_raw: i32,
+    pub mirrored: bool, pub eligible: bool, pub failure_mask: u16,
+    pub key: Option<(EntityId, u8, EntityId, u8, ContactKind)>, pub region: Option<BodyPart>,
+    pub toi_raw: Option<i32>, pub point: Option<Vec3>, pub normal: Vec3, pub impulse: Vec3,
+    pub dissipated_raw: u64, pub refusals: u32, pub solver_rejections: u32,
+    pub cap_hits: u32, pub energy_excess_raw: u64,
+}
+
+pub(crate) const FAILURE_MISSING_CONTACT: u16 = 1 << 0;
+pub(crate) const FAILURE_ATTRIBUTION: u16 = 1 << 1;
+pub(crate) const FAILURE_CROSSING: u16 = 1 << 2;
+pub(crate) const FAILURE_REACH: u16 = 1 << 3;
+pub(crate) const FAILURE_MOTION: u16 = 1 << 4;
+pub(crate) const FAILURE_IMPULSE: u16 = 1 << 5;
+pub(crate) const FAILURE_DISSIPATION: u16 = 1 << 6;
+pub(crate) const FAILURE_REFUSAL: u16 = 1 << 7;
+pub(crate) const FAILURE_SOLVER: u16 = 1 << 8;
+pub(crate) const FAILURE_CAP: u16 = 1 << 9;
+pub(crate) const FAILURE_ENERGY: u16 = 1 << 10;
+pub(crate) const FAILURE_ALPHA: u16 = 1 << 11;
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) struct DamageSidecar {
+    pub cut_raw: u64, pub thrust_raw: u64, pub pressure_raw: u64,
+    pub integrity_loss_raw: i32,
+}
+
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub(crate) struct RobustMechanicalPair {
+    pub centre: MechanicalCase, pub rows: Vec<MechanicalRow>, pub worst_dissipated_raw: u64,
+}
+
+#[derive(Default, PartialEq, Eq, Debug)]
+pub(crate) struct StrikeCorpusAudit {
+    pub central_rows: Vec<MechanicalRow>, pub local_rows: Vec<MechanicalRow>,
+    pub central_damage: Vec<DamageSidecar>, pub local_damage: Vec<DamageSidecar>,
+    pub robust: Vec<RobustMechanicalPair>, pub selected: Option<usize>,
+}
+
+fn failure_mask(row: StrikeMeasurement) -> u16 {
+    let reach = row.contact_reach_raw.unwrap_or(i32::MIN);
+    let mut mask = 0;
+    if row.contact_tick.is_none() { mask |= FAILURE_MISSING_CONTACT; }
+    if row.weapon_body_facts != 1 || row.competing_facts != 0 { mask |= FAILURE_ATTRIBUTION; }
+    if !observed_crossing(row) { mask |= FAILURE_CROSSING; }
+    if reach < Fx::from_ratio(1, 4).raw() + INTERIOR_REACH_MARGIN_RAW
+        || reach > Fx::ONE.raw() - INTERIOR_REACH_MARGIN_RAW { mask |= FAILURE_REACH; }
+    if row.contact_arm_velocity == Vec3::ZERO || row.hilt_delta == Vec3::ZERO
+        || row.tip_delta == Vec3::ZERO { mask |= FAILURE_MOTION; }
+    if row.impulse_on_a == Vec3::ZERO { mask |= FAILURE_IMPULSE; }
+    if row.energy_dissipated_raw == 0 { mask |= FAILURE_DISSIPATION; }
+    if row.refusals != 0 { mask |= FAILURE_REFUSAL; }
+    if row.solver_rejections != 0 { mask |= FAILURE_SOLVER; }
+    if row.cap_hits != 0 { mask |= FAILURE_CAP; }
+    if row.max_energy_excess_raw != 0 { mask |= FAILURE_ENERGY; }
+    if row.group_alpha_raw != Some(65_536) { mask |= FAILURE_ALPHA; }
+    mask
+}
+
+fn selection_row(case: MechanicalCase, mirrored: bool, strike_delta: i32,
+                 reach_delta_raw: i32, row: StrikeMeasurement) -> MechanicalRow {
+    let failures = failure_mask(row);
+    debug_assert_eq!(failures == 0, interior_contact(row));
+    MechanicalRow { case, strike_delta, reach_delta_raw, mirrored,
+        eligible: failures == 0, failure_mask: failures, key: row.contact_key,
+        region: row.region, toi_raw: row.toi_raw, point: row.contact_point, normal: row.normal,
+        impulse: row.impulse_on_a, dissipated_raw: row.energy_dissipated_raw,
+        refusals: row.refusals, solver_rejections: row.solver_rejections,
+        cap_hits: row.cap_hits, energy_excess_raw: row.max_energy_excess_raw }
+}
+
+pub(crate) fn damage_sidecar(row: StrikeMeasurement) -> DamageSidecar {
+    let integrity_loss_raw = row.region.map(|part| row.integrity_before_raw[part as usize]
+        .saturating_sub(row.integrity_after_raw[part as usize])).unwrap_or(0);
+    DamageSidecar { cut_raw: row.cut_raw, thrust_raw: row.thrust_raw,
+        pressure_raw: row.pressure_raw, integrity_loss_raw }
+}
+
+fn mapped_vec(plain: Vec3, mirror: Vec3) -> bool {
+    (plain.x.raw() - mirror.x.raw()).abs() <= 1
+        && (plain.y.raw() + mirror.y.raw()).abs() <= 1
+        && (plain.z.raw() - mirror.z.raw()).abs() <= 1
+}
+
+fn mapped_point(plain: Vec3, mirror: Vec3) -> bool {
+    (plain.x.raw() - mirror.x.raw()).abs() <= 1
+        && (plain.y.raw() + mirror.y.raw() - Fx::from_int(16).raw()).abs() <= 1
+        && (plain.z.raw() - mirror.z.raw()).abs() <= 1
+}
+
+fn mirrored_pair(rows: [MechanicalRow; 2]) -> bool {
+    let [plain, mirror] = rows;
+    plain.eligible && mirror.eligible && plain.key == mirror.key && plain.region == mirror.region
+        && plain.dissipated_raw == mirror.dissipated_raw
+        && plain.toi_raw.zip(mirror.toi_raw).is_some_and(|(a, b)| (a - b).abs() <= 1)
+        && plain.point.zip(mirror.point).is_some_and(|(a, b)| mapped_point(a, b))
+        && mapped_vec(plain.normal, mirror.normal) && mapped_vec(plain.impulse, mirror.impulse)
+}
+
+fn declared_central_cases() -> Vec<MechanicalCase> {
+    let mut rows = Vec::with_capacity(3_780); let mut ordinal = 0u32;
+    for chamber_ticks in INTERIOR_CHAMBER_TICKS {
+        for strike_ticks in INTERIOR_STRIKE_TICKS {
+            for reach_raw in INTERIOR_REACH_TARGETS_RAW {
+                for target_anatomy in [AnatomyChoice::Fighter, AnatomyChoice::Brute] {
+                    for approach_offset in APPROACH_OFFSETS {
+                        rows.push(MechanicalCase { ordinal, chamber_ticks, strike_ticks, reach_raw,
+                            target_anatomy, approach_offset });
+                        ordinal += 1;
+                    }
+                }
+            }
+        }
+    }
+    rows
+}
+
+fn better_pair(left: &RobustMechanicalPair, right: &RobustMechanicalPair) -> bool {
+    left.worst_dissipated_raw > right.worst_dissipated_raw
+        || (left.worst_dissipated_raw == right.worst_dissipated_raw
+            && (left.centre.chamber_ticks + left.centre.strike_ticks,
+                left.centre.ordinal)
+                < (right.centre.chamber_ticks + right.centre.strike_ticks,
+                   right.centre.ordinal))
+}
+
+fn select_robust(rows: &[RobustMechanicalPair]) -> Option<usize> {
+    rows.iter().enumerate().fold(None, |best, (at, row)| match best {
+        None => Some(at), Some(old) if better_pair(row, &rows[old]) => Some(at), _ => best,
+    })
+}
+
+fn execute_cases_with(cases: &[MechanicalCase], mut measure: impl FnMut(
+    MechanicalCase, bool, i32, i32) -> (MechanicalRow, DamageSidecar),
+) -> StrikeCorpusAudit {
+    let mut audit = StrikeCorpusAudit::default();
+    for &case in cases {
+        let measured = [false, true].map(|mirrored| measure(case, mirrored, 0, 0));
+        let pair = measured.map(|row| row.0);
+        audit.central_rows.extend(pair);
+        audit.central_damage.extend(measured.map(|row| row.1));
+        if !pair.into_iter().all(|row| row.eligible) { continue; }
+        let mut local = Vec::with_capacity(18);
+        for strike_delta in STRIKE_TICK_DELTAS {
+            for reach_delta in REACH_DELTAS_RAW {
+                for mirrored in [false, true] {
+                    let measured = measure(case, mirrored, strike_delta, reach_delta);
+                    local.push(measured.0);
+                    audit.local_damage.push(measured.1);
+                }
+            }
+        }
+        audit.local_rows.extend(local.iter().copied());
+        if local.chunks_exact(2).all(|pair| mirrored_pair([pair[0], pair[1]])) {
+            let worst = local.iter().map(|row| row.dissipated_raw).min().unwrap_or(0);
+            audit.robust.push(RobustMechanicalPair { centre: case, rows: local,
+                                                     worst_dissipated_raw: worst });
+        }
+    }
+    audit.selected = select_robust(&audit.robust);
+    audit
+}
+
+#[cfg(test)]
+fn execute_corpus_with(measure: impl FnMut(MechanicalCase, bool, i32, i32)
+                       -> (MechanicalRow, DamageSidecar)) -> StrikeCorpusAudit {
+    execute_cases_with(&declared_central_cases(), measure)
+}
+
+const STRIKE_CORPUS_SHARDS: usize = 4;
+const STRIKE_CORPUS_STACK_BYTES: usize = 16 * 1024 * 1024;
+
+fn append_audit(whole: &mut StrikeCorpusAudit, mut shard: StrikeCorpusAudit) {
+    whole.central_rows.append(&mut shard.central_rows);
+    whole.local_rows.append(&mut shard.local_rows);
+    whole.central_damage.append(&mut shard.central_damage);
+    whole.local_damage.append(&mut shard.local_damage);
+    whole.robust.append(&mut shard.robust);
+}
+
+fn execute_corpus_sharded_with<M>(measure: M) -> StrikeCorpusAudit
+where M: Fn(MechanicalCase, bool, i32, i32) -> (MechanicalRow, DamageSidecar) + Sync
+{
+    let cases = declared_central_cases();
+    let shard_len = cases.len().div_ceil(STRIKE_CORPUS_SHARDS);
+    let mut whole = StrikeCorpusAudit::default();
+    std::thread::scope(|scope| {
+        let mut workers = Vec::with_capacity(STRIKE_CORPUS_SHARDS);
+        for (shard, cases) in cases.chunks(shard_len).enumerate() {
+            let measure = &measure;
+            workers.push(std::thread::Builder::new()
+                .name(format!("smart39-strike-corpus-{shard}"))
+                .stack_size(STRIKE_CORPUS_STACK_BYTES)
+                .spawn_scoped(scope, move || execute_cases_with(cases, measure))
+                .expect("could not start a bounded strike-corpus shard"));
+        }
+        // Chunks are contiguous ordinal ranges. Joining in creation order is
+        // therefore the canonical serial order regardless of completion order.
+        for worker in workers {
+            append_audit(&mut whole, worker.join()
+                .expect("a bounded strike-corpus shard panicked"));
+        }
+    });
+    whole.selected = select_robust(&whole.robust);
+    whole
+}
+
+pub(crate) fn run_predeclared_strike_corpus() -> StrikeCorpusAudit {
+    execute_corpus_sharded_with(|case, mirrored, strike_delta, reach_delta| {
+        let strike_ticks = (case.strike_ticks as i32 + strike_delta) as u32;
+        let measured = measure_case_schedule(StrongCase { seed: 0, mirrored,
+            target_anatomy: case.target_anatomy, approach_offset: case.approach_offset },
+            Fx::ONE, case.chamber_ticks, strike_ticks, Fx::from_raw(case.reach_raw + reach_delta));
+        (selection_row(case, mirrored, strike_delta, reach_delta, measured),
+         damage_sidecar(measured))
+    })
+}
+
+fn checksum_word(hash: &mut u64, word: u64) {
+    for byte in word.to_le_bytes() {
+        *hash ^= byte as u64;
+        *hash = hash.wrapping_mul(0x100_0000_01b3);
+    }
+}
+
+pub(crate) fn strike_corpus_checksum(audit: &StrikeCorpusAudit) -> u64 {
+    let mut hash = 0xcbf2_9ce4_8422_2325;
+    for value in INTERIOR_CHAMBER_TICKS { checksum_word(&mut hash, value as u64); }
+    for value in INTERIOR_STRIKE_TICKS { checksum_word(&mut hash, value as u64); }
+    for value in INTERIOR_REACH_TARGETS_RAW { checksum_word(&mut hash, value as u64); }
+    for value in STRIKE_TICK_DELTAS { checksum_word(&mut hash, value as u64); }
+    for value in REACH_DELTAS_RAW { checksum_word(&mut hash, value as u64); }
+    for value in APPROACH_OFFSETS {
+        checksum_word(&mut hash, value.x.raw() as u64);
+        checksum_word(&mut hash, value.y.raw() as u64);
+    }
+    if let Some(selected) = audit.selected {
+        for row in &audit.robust[selected].rows {
+            checksum_word(&mut hash, row.case.ordinal as u64);
+            checksum_word(&mut hash, row.strike_delta as u64);
+            checksum_word(&mut hash, row.reach_delta_raw as u64);
+            checksum_word(&mut hash, row.mirrored as u64);
+            checksum_word(&mut hash, row.dissipated_raw);
+            checksum_word(&mut hash, row.toi_raw.unwrap_or(i32::MIN) as u64);
+            for value in [row.point.unwrap_or(Vec3::ZERO), row.normal, row.impulse] {
+                checksum_word(&mut hash, value.x.raw() as u64);
+                checksum_word(&mut hash, value.y.raw() as u64);
+                checksum_word(&mut hash, value.z.raw() as u64);
+            }
+        }
+    }
+    hash
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    const INTERIOR_CHAMBER_TICKS: [u32; 7] = [8, 12, 16, 20, 24, 28, 32];
-    const INTERIOR_STRIKE_TICKS: [u32; 6] = [12, 16, 20, 24, 28, 32];
-    const INTERIOR_REACH_TARGETS_RAW: [i32; 5] = [32_768, 40_960, 49_152, 57_344, 61_440];
+    fn synthetic_row(case: MechanicalCase, mirrored: bool, eligible: bool,
+                     dissipated_raw: u64) -> MechanicalRow {
+        MechanicalRow { case, strike_delta: 0, reach_delta_raw: 0, mirrored, eligible,
+            failure_mask: if eligible { 0 } else { FAILURE_MISSING_CONTACT },
+            key: Some((EntityId::new(0, 0), 1, EntityId::new(1, 0), BODY_SLOT,
+                       ContactKind::WeaponBody)), region: Some(BodyPart::Legs), toi_raw: Some(7),
+            point: Some(Vec3::new(Fx::from_raw(3),
+                                  Fx::from_int(8) + Fx::from_raw(if mirrored { -4 } else { 4 }),
+                                  Fx::from_raw(5))),
+            normal: Vec3::new(Fx::ONE, Fx::from_raw(if mirrored { -2 } else { 2 }), Fx::ZERO),
+            impulse: Vec3::new(Fx::from_raw(-9), Fx::from_raw(if mirrored { -3 } else { 3 }),
+                               Fx::ZERO),
+            dissipated_raw, refusals: 0, solver_rejections: 0, cap_hits: 0,
+            energy_excess_raw: 0 }
+    }
 
-    fn interior_contact(row: StrikeMeasurement) -> bool {
-        let reach = row.contact_reach_raw.unwrap_or(i32::MIN);
-        row.contact_tick.is_some() && row.weapon_body_facts == 1 && row.competing_facts == 0
-            && observed_crossing(row)
-            && reach >= Fx::from_ratio(1, 4).raw() + INTERIOR_REACH_MARGIN_RAW
-            && reach <= Fx::ONE.raw() - INTERIOR_REACH_MARGIN_RAW
-            && row.contact_arm_velocity != Vec3::ZERO
-            && row.hilt_delta != Vec3::ZERO && row.tip_delta != Vec3::ZERO
-            && row.refusals == 0 && row.solver_rejections == 0
-            && row.max_energy_excess_raw == 0
+    #[test]
+    fn the_existing_grid_has_7560_oriented_runs_and_no_early_exit() {
+        let eligible = [4u32, 17u32]; let mut visits = 0usize;
+        let audit = execute_corpus_with(|case, mirrored, _, _| {
+            visits += 1;
+            (synthetic_row(case, mirrored, eligible.contains(&case.ordinal), 10),
+             DamageSidecar { cut_raw: visits as u64, thrust_raw: 0, pressure_raw: 0,
+                             integrity_loss_raw: 0 })
+        });
+        assert_eq!(audit.central_rows.len(), 7_560);
+        assert_eq!(audit.local_rows.len(), eligible.len() * 18);
+        assert_eq!(audit.central_damage.len(), audit.central_rows.len());
+        assert_eq!(audit.local_damage.len(), audit.local_rows.len());
+        assert_eq!(visits, 7_560 + eligible.len() * 18);
+        assert_eq!(audit.robust.len(), eligible.len());
+    }
+
+    #[test]
+    fn four_fixed_shards_preserve_serial_rows_selection_and_checksum() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+
+        let visits = AtomicUsize::new(0);
+        let measure = |case: MechanicalCase, mirrored: bool,
+                       strike_delta: i32, reach_delta_raw: i32| {
+            visits.fetch_add(1, Ordering::Relaxed);
+            let eligible = matches!(case.ordinal, 4 | 17 | 3_779);
+            let mut row = synthetic_row(case, mirrored, eligible,
+                100 + case.ordinal as u64);
+            row.strike_delta = strike_delta;
+            row.reach_delta_raw = reach_delta_raw;
+            let sidecar = DamageSidecar {
+                cut_raw: case.ordinal as u64,
+                thrust_raw: strike_delta as u64,
+                pressure_raw: reach_delta_raw as u64,
+                integrity_loss_raw: i32::from(mirrored),
+            };
+            (row, sidecar)
+        };
+        let serial = execute_corpus_with(&measure);
+        let serial_visits = visits.swap(0, Ordering::Relaxed);
+        let sharded = execute_corpus_sharded_with(&measure);
+        assert_eq!(visits.load(Ordering::Relaxed), serial_visits);
+        assert_eq!(sharded, serial);
+        assert_eq!(strike_corpus_checksum(&sharded), strike_corpus_checksum(&serial));
+        assert!(sharded.central_rows.windows(2)
+            .all(|rows| (rows[0].case.ordinal, rows[0].mirrored)
+                <= (rows[1].case.ordinal, rows[1].mirrored)));
+    }
+
+    #[test]
+    fn the_strong_strike_mirror_negates_both_schedule_bearings() {
+        let bearing = Angle::from_raw(1_731);
+        let plain = schedule_bearings(bearing, false);
+        let mirror = schedule_bearings(Angle::from_raw(bearing.raw().wrapping_neg()), true);
+        assert_eq!(mirror.0.raw(), plain.0.raw().wrapping_neg());
+        assert_eq!(mirror.1.raw(), plain.1.raw().wrapping_neg());
+    }
+
+    #[test]
+    fn the_local_freeze_is_strike_ticks_by_reach_and_has_eighteen_orientations() {
+        let got: Vec<_> = STRIKE_TICK_DELTAS.into_iter().flat_map(|strike|
+            REACH_DELTAS_RAW.into_iter().flat_map(move |reach|
+                [false, true].into_iter().map(move |mirror| (strike, reach, mirror)))).collect();
+        assert_eq!(got.len(), 18);
+        assert_eq!(&got[..4], &[(-1, -256, false), (-1, -256, true),
+                               (-1, 0, false), (-1, 0, true)]);
+        assert_eq!(got[17], (1, 256, true));
+    }
+
+    #[test]
+    fn mechanical_ranking_uses_worst_case_dissipation_then_duration_then_ordinal() {
+        let case = |ordinal, chamber, strike| MechanicalCase { ordinal,
+            chamber_ticks: chamber, strike_ticks: strike, reach_raw: 40_960,
+            target_anatomy: AnatomyChoice::Fighter, approach_offset: APPROACH_OFFSETS[0] };
+        let pair = |centre, loss| RobustMechanicalPair { centre, rows: Vec::new(),
+            worst_dissipated_raw: loss };
+        let rows = [pair(case(0, 8, 12), 9), pair(case(9, 32, 32), 10),
+                    pair(case(4, 8, 12), 10), pair(case(3, 8, 12), 10)];
+        assert_eq!(select_robust(&rows), Some(3));
+    }
+
+    #[test]
+    fn contradictory_damage_sidecars_cannot_change_mechanical_selection() {
+        let case = |ordinal| MechanicalCase { ordinal, chamber_ticks: 8, strike_ticks: 12,
+            reach_raw: 40_960, target_anatomy: AnatomyChoice::Fighter,
+            approach_offset: APPROACH_OFFSETS[0] };
+        let rows = [RobustMechanicalPair { centre: case(0), rows: Vec::new(),
+            worst_dissipated_raw: 10 }, RobustMechanicalPair { centre: case(1), rows: Vec::new(),
+            worst_dissipated_raw: 9 }];
+        let damage = [DamageSidecar { cut_raw: 0, thrust_raw: 0, pressure_raw: 0,
+            integrity_loss_raw: 0 }, DamageSidecar { cut_raw: u64::MAX, thrust_raw: u64::MAX,
+            pressure_raw: u64::MAX, integrity_loss_raw: i32::MAX }];
+        assert_ne!(damage[0], damage[1]);
+        assert_eq!(select_robust(&rows), Some(0));
+    }
+
+    #[test]
+    #[ignore = "bounded Smart39 corpus selection; use the release CLI for evidence"]
+    fn select_the_predeclared_ordinary_strike_corpus() {
+        let audit = run_predeclared_strike_corpus();
+        assert_eq!(audit.central_rows.len(), 7_560);
     }
 
     #[test]

@@ -115,10 +115,12 @@ fn usage() {
           control through the production World, printing raw pose kinematics,
           contact energy channels and before/after anatomy facts.
 
-  tactical-mechanics --quick
+  tactical-mechanics --quick|--strike-corpus
           Brackets the tactical controller between byte-equal strong-strike
           references on their exact fixed scenario. Diagnostic only: the
           parameterized calibration and held-out corpus is not implemented.
+          --strike-corpus runs the complete predeclared Smart39 mechanics-only
+          grid and every eligible pair's eighteen local orientations.
 
   trace   --seed N --policy composed|windmill|tactical|learned --attack-moves --mirrored
           --ticks N --out PATH
