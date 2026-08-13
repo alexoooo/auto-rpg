@@ -328,6 +328,29 @@ impl WideRational4096 {
                          self.denominator.checked_mul(other.denominator)?)
     }
 
+    /// Add without paying twice for a denominator already present in the
+    /// accumulator. This is intentionally only divisibility, not reduction:
+    /// tick arithmetic does not run a GCD, and genuinely independent factors
+    /// still consume the fixed envelope in their declared entity order.
+    pub(crate) fn checked_add_divisible(self, other: Self) -> Option<Self> {
+        if let Some((scale, remainder)) = self.denominator.div_rem(other.denominator) {
+            if remainder.is_zero() {
+                let right = other.numerator.checked_mul(
+                    SignedWide4096::from_parts(false, scale))?;
+                return Self::from_words(self.numerator.checked_add(right)?, self.denominator);
+            }
+        }
+        if let Some((scale, remainder)) = other.denominator.div_rem(self.denominator) {
+            if remainder.is_zero() {
+                let left = self.numerator.checked_mul(
+                    SignedWide4096::from_parts(false, scale))?;
+                return Self::from_words(left.checked_add(other.numerator)?, other.denominator);
+            }
+        }
+        self.checked_add(other)
+    }
+
+
     pub(crate) fn checked_sub(self, other: Self) -> Option<Self> {
         self.checked_add(other.checked_neg()?)
     }

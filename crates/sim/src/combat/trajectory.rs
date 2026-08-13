@@ -183,7 +183,7 @@ impl FixedExactOwners {
         Ok(())
     }
 
-    fn get(&self, at: usize) -> Result<ExactOwnerTrajectory, ExactTrajectoryReject> {
+    pub(crate) fn get(&self, at: usize) -> Result<ExactOwnerTrajectory, ExactTrajectoryReject> {
         self.rows.get(at).and_then(|row| *row).ok_or(ExactTrajectoryReject::WrongIdentity)
     }
 
@@ -449,14 +449,20 @@ fn advance_affine(mut value: ExactAffine3, scale: i128, next_group_raw: u32)
         let momentum = scale.checked_mul(value.momentum[axis].velocity_raw as i128)
             .and_then(|word| word.checked_add(value.momentum[axis].remainder))
             .ok_or(ExactTrajectoryReject::Arithmetic)?;
-        let numerator = denominator.checked_mul(value.at_group[axis].raw as i128)
-            .and_then(|word| word.checked_add(value.at_group[axis].remainder))
-            .and_then(|word| momentum.checked_mul(dt as i128)
-                .and_then(|step| word.checked_add(step))).ok_or(ExactTrajectoryReject::Arithmetic)?;
-        let quotient = numerator / denominator;
-        value.at_group[axis].raw = i32::try_from(quotient)
+        // The whole position is already the quotient. Multiplying it back by
+        // the fixed lattice denominator merely to divide it out again made a
+        // valid shipped 92-bit endpoint overflow `i128`. Advance the fractional
+        // numerator, fold only its carry into the quotient, and retain the
+        // signed remainder. This is the same Euclidean identity without the
+        // artificial wide product.
+        let fractional = momentum.checked_mul(dt as i128)
+            .and_then(|step| value.at_group[axis].remainder.checked_add(step))
+            .ok_or(ExactTrajectoryReject::Arithmetic)?;
+        let carry = i32::try_from(fractional / denominator)
             .map_err(|_| ExactTrajectoryReject::Arithmetic)?;
-        value.at_group[axis].remainder = numerator % denominator;
+        value.at_group[axis].raw = value.at_group[axis].raw.checked_add(carry)
+            .ok_or(ExactTrajectoryReject::Arithmetic)?;
+        value.at_group[axis].remainder = fractional % denominator;
     }
     value.group_time_raw = next_group_raw;
     validate_affine(value, scale)?;
@@ -514,6 +520,17 @@ fn find_row(rows: &[ExactContactTrajectory], entity: EntityId, slot: u8)
 fn validate_rows(
     rows: &[ExactContactTrajectory], owners: &[ExactOwnerTrajectory],
 ) -> Result<(), ExactTrajectoryReject> {
+    validate_exact_rows(rows, owners)
+}
+
+/// Validate identities and trajectory grammar without evaluating a pose.
+///
+/// The fixed lattice may be wider than the research evaluator's `i128`
+/// intermediate even though every stored word is valid. The production wide
+/// detector needs the grammar check independently from that narrower evaluator.
+pub(crate) fn validate_exact_rows(
+    rows: &[ExactContactTrajectory], owners: &[ExactOwnerTrajectory],
+) -> Result<(), ExactTrajectoryReject> {
     for (at, owner) in owners.iter().enumerate() {
         validate_owner(*owner)?;
         if owners[..at].iter().any(|other| other.entity == owner.entity) {
@@ -521,11 +538,27 @@ fn validate_rows(
         }
     }
     for at in 0..rows.len() {
-        if rows[..at].iter().any(|other| other.entity == rows[at].entity && other.slot == rows[at].slot) {
+        if rows[..at].iter().any(|other| other.entity == rows[at].entity
+            && other.slot == rows[at].slot) {
             return Err(ExactTrajectoryReject::DuplicateIdentity);
         }
-        let owner = owners.get(rows[at].owner_index).ok_or(ExactTrajectoryReject::WrongIdentity)?;
-        evaluate_exact(&rows[at], owner, owner.common_response.group_time_raw)?;
+        validate_row_shape(&rows[at])?;
+        let owner = owners.get(rows[at].owner_index)
+            .ok_or(ExactTrajectoryReject::WrongIdentity)?;
+        if rows[at].entity != owner.entity { return Err(ExactTrajectoryReject::WrongIdentity); }
+        match (rows[at].kind, rows[at].held_index, rows[at].equipment_spec) {
+            (GeneralizedKind::Body, None, None) if rows[at].slot == BODY_SLOT
+                && rows[at].mass_raw == owner.body_mass_raw => {}
+            (GeneralizedKind::Equipment, Some(held), Some(spec)) => {
+                let tagged = owner.held_response.get(held).and_then(|row| *row)
+                    .ok_or(ExactTrajectoryReject::InactiveState)?;
+                if tagged.slot != rows[at].slot || tagged.spec_id != spec
+                    || tagged.affine.mass_raw != rows[at].mass_raw {
+                    return Err(ExactTrajectoryReject::SpecIdentity);
+                }
+            }
+            _ => return Err(ExactTrajectoryReject::WrongIdentity),
+        }
     }
     Ok(())
 }

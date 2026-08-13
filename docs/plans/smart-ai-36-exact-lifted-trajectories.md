@@ -46,10 +46,13 @@ breakpoint remains `55_704`, with `9_832` raw tick units remaining.
 
 Use checked signed rational words. Denominators are positive and canonical; quotient
 and remainder use Rust's toward-zero division and have matching signs. Scalar
-trajectory integration and energy remain checked `i128`. Contact predicates may use
-one reviewed, inline 4,096-bit word whose fixed ceiling belongs to the expression
-envelope: safe Rust, 128 little-endian `u32` limbs, no allocation, and identical
-native/wasm operations. This is not permission for arbitrary precision. No float,
+trajectory integration remains checked `i128`. Contact predicates and ephemeral
+multi-owner energy aggregation may use one reviewed, inline 4,096-bit word whose
+fixed ceiling belongs to the expression envelope: safe Rust, 128 little-endian `u32`
+limbs, no allocation, and identical native/wasm operations. The energy amendment is
+measured rather than speculative: cross-multiplying shipped owners' independent
+77--96-bit denominators overflowed `i128` after each per-owner term succeeded. The
+wide word is scratch only and never state, hash, replay, or ABI. This is not permission for arbitrary precision. No float,
 GCD reduction loop, heap-backed bigint, saturation, or host-dependent wide operation
 is allowed.
 
@@ -394,7 +397,9 @@ Replace the feature path's floored closure-energy decision with checked rational
 energy from the exact owner state, but reuse `finalize_projected_group`'s attribution,
 weighting, channels, resolution ordering, and anatomy hook. Extend its caller-owned
 scratch rather than allocating per group. Positive exact loss with zero physical
-weight is refused before mutation.
+weight is refused before mutation. Stream per-owner signed deltas in deterministic
+entity order through the fixed 4,096-bit scratch, then sign-check and floor the total
+once. Crossing that envelope is the named atomic `ExactEnergyEnvelope` refusal.
 
 Lifecycle transitions reuse session 25's measured reasons but operate on exact state:
 release, replacement, severance, cap, wall, `Both`, and reuse snapshot before state,

@@ -1,10 +1,12 @@
 # Smart AI 37 -- wide detector handoff
 
-**Status:** next-session handoff. Smart36 has implemented trajectory authority through
-exact World construction, grouped response staging, and atomic precommit, but D4 is
-not complete and the feature build is not ready for promotion or a visible-fight
-claim. The immediate blocker is routing the new fixed-width exact geometry through
-the production nonzero detector without narrowing an intermediate back to `i128`.
+**Status:** active implementation handoff. Smart36 has implemented trajectory authority
+through exact World construction, grouped response staging, and atomic precommit, but
+D4 is not complete and the feature build is not ready for promotion or a visible-fight
+claim. Segment/segment, segment/body, and segment/shield now reach the fixed-width
+detector without narrowing through the old `i128` pose evaluator. Pairs outside the
+detector's historical primitive domain remain ignored under nonzero response. The
+immediate blocker is the old `i128` advancement/finalization path.
 
 This file records the working-tree boundary on 2026-08-12. Read
 [`smart-ai-36-exact-lifted-trajectories.md`](smart-ai-36-exact-lifted-trajectories.md)
@@ -59,17 +61,24 @@ cargo test -p sim wide_segment_selection_is_invariant_to_common_origin_and_scale
 git diff --check
 ```
 
-The last wide-agent compile reached a clean default test-build boundary and
-`git diff --check` was green. There has been no final full workspace or final feature
-suite after the fixed-lattice and partial wide-detector edits. The wrap-up run of
-`node tools/check_docs.js` is red with 21 stale source-line anchors: the new
-`world.rs` and `resolution.rs` declarations shifted the existing documentation links.
-That mechanical anchor repair is owed before this branch can be called green; the
-checker did not report a missing document or an unrecorded authority claim.
+The direct wide evaluator now composes motor, common, and held coordinates as
+`WideRational4096`; a real World-built Fighter row proves the old evaluator overflows
+on the shipped 92-bit lattice while the wide scan and frozen recomputation agree.
+Wide homogeneous shield face plus four-edge selection, maintained affine-rectangle
+validation, certified advancement, and a translated `1 / 2^92` shield control are
+also green. `ExactWideScratch` retains the five segment and seven rectangle candidates,
+and capacity reporting includes exact staging plus both wide buffers.
+
+The 2026-08-12 feature-suite checkpoint after wide scan, recomputation, final pose
+publication, zero-finish rebasing, and fixture-envelope repair is 549 passed, 8
+failed, 1 ignored. No construction failure remains. The eight failures are now
+contact/lifecycle expectations and downstream no-contact assertions; the exact
+hash-row-width mirror is green without changing its golden. This is progress
+evidence, not a promotion gate. Default hashes remain unauthorized to move.
 
 ## Incomplete code in the working tree
 
-`crates/sim/src/combat/contact.rs` contains draft wide helpers for:
+`crates/sim/src/combat/contact.rs` now contains routed wide helpers for:
 
 - wide point/radius/distance/L1/floor/publication;
 - wide exact response velocity;
@@ -77,34 +86,26 @@ checker did not report a missing document or an unrecorded authority claim.
 - one-raw relative speed bounds and safe steps;
 - draft `wide_sweep_segments` and `wide_sweep_segment_body`.
 
-They compile but are deliberately **not dispatched**. Production nonzero exact scan
-and `exact_contact_at_pose` still use the older `i128` path. Do not describe the wide
-detector as authoritative until routing and all controls below are green.
+They are dispatched for nonzero segment/segment, segment/body, and segment/shield
+pairs in both scan and `exact_contact_at_pose`. Budget exhaustion refuses by name,
+and candidate storage is retained rather than placed in a large per-call stack array.
 
-Before routing, fix `wide_sweep_segment_body`: exhausting all 96 advances for one
-region currently falls through as no contact; it must return the named `Budget`
-refusal. The wide frozen candidate selection also uses an inline
-`[Option<WideSegmentClosest>; 5]`; it allocates no heap but remains stack-heavy. The
-planned reusable `ExactWideScratch` has not landed.
-
-Wide shield face/edge predicates have not been implemented. The old `i128` shield
-research path remains, but it is not sufficient for arbitrary accepted 96-bit
-lattices.
+A full World row set also contains body/body, body/shield, and shield/shield pairs.
+The compatibility detector has never emitted candidates for them: body separation is
+a distinct World phase, and the other two combinations are not contact primitives.
+The exact dispatcher now preserves that same pair domain instead of turning an
+ignored pair into an atomic refusal merely because another pair produced response.
 
 ## Exact next implementation order
 
-1. Fix the wide body-region budget result.
-2. Route nonzero segment/segment and segment/body scan plus frozen-pose recomputation
-   through the wide helpers without narrowing any projected point, distance, speed,
-   or safe-step intermediate to `i128`.
-3. Add and pass the real shipped 92-bit World scan/recompute test, subraw and budget
-   atomic refusals, retained-capacity/scratch test, and a 4,096-bit overflow refusal.
-   Mutate origin/scale cancellation and require the 92-bit test to fail.
-4. Introduce reusable fixed wide scratch and measure native plus wasm stack use before
-   adding shield arithmetic.
-5. Implement homogeneous wide segment/shield face and edge predicates plus maintained
-   rectangle validation; rerun every exact detector and zero-response corpus control.
-6. Only after the wide detector is green, resume D4b lifecycle energy and D4c/D4d
+1. Repair the remaining feature fixtures inside the deliberate 96-bit construction
+   envelope and distinguish stale no-contact expectations from lifecycle defects.
+2. Measure native plus wasm stack use for the retained wide scratch. The storage is
+   reusable now, but the repository still has no stack-measurement harness.
+3. Rerun every exact detector and zero-response corpus control, then the full feature
+   suite. The unfiltered shipped World scan, frozen recomputation, wide final pose
+   publication, and detector-level 4,096-bit atomic refusal are now green.
+4. Resume D4b lifecycle energy and D4c/D4d
    finalization/cap/wall work. Do not start the response solver or policy work first.
 
 ## D4 energy contract already decided
@@ -121,6 +122,20 @@ body-Z impulse rejected by the floor has zero allocatable damage. Exact accepted
 contact loss stays rational until the legacy anatomy boundary, where it is converted
 once with `floor(loss)`; do not subtract independently floored endpoint energies.
 Positive loss with zero accepted physical weight refuses before mutation.
+
+The attempted direct D4 finalizer exposed one additional arithmetic requirement and
+was rolled back rather than leaving feature combat unable to resolve. Per-owner
+physical energy can include every motor/common/held cross term in checked `i128`,
+but a multi-owner closure cannot combine absolute rationals by cross-multiplying
+their independent 77--96-bit construction scales: the denominator product exceeds
+`i128` on shipped World rows. That measurement amends the earlier `i128`-only energy
+rule: compute per-owner before/after deltas first, stream them in entity order through
+the existing fixed 4,096-bit scratch, then sign-check and floor the total once. The
+word remains ephemeral -- no state, hash, replay, ABI, heap, GCD, or saturation --
+and overflow is the named atomic `ExactEnergyEnvelope` refusal. The envelope gate is
+42 worst-case 96-bit terms accepted and 43 refused, while 64 smaller terms remain
+legal. Do not independently floor endpoints or restore the rolled-back absolute-energy
+accumulator.
 
 Cap semantics are also decided: roll back only the current uncommitted group impulse
 to the last-safe snapshot. Preserve response committed by earlier groups; never zero
@@ -143,10 +158,10 @@ node tools/check_docs.js
 git diff --check
 ```
 
-Repair the 21 stale `world.rs`/`resolution.rs` line anchors reported by
-`node tools/check_docs.js` before relying on that command. The 2026-08-12 wrap-up
-state was: no Cargo or Rust compiler process, clean `git diff --check`, red docs
-inventory solely for those shifted anchors.
+The original 21 stale `world.rs`/`resolution.rs` anchors were repaired mechanically.
+Run `node tools/check_docs.js` again after every subsequent source insertion; this
+session's detector and scratch additions moved several of the repaired declarations
+again before the final pass.
 
 Before final integration, rebuild `-p web` for `wasm32-unknown-unknown` with the same
 feature set and run `node --test tools/wasm_check.js`.

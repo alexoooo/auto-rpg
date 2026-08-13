@@ -159,3 +159,5 @@ pub use scenario::{
 pub use world::{Outcome, ShotView, Snapshot, SpawnError, UnitView, World, WorldBuildError};
 #[cfg(feature = "cartesian-recoil")]
 pub use world::ExactLatticeEnvelope;
+#[cfg(feature = "cartesian-recoil")]
+pub use world::{ExactExternalEnergyRow, RecoilExternalEnergy};

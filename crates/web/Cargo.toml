@@ -12,6 +12,9 @@ license.workspace = true
 # `cargo test` rather than only by opening a page.
 crate-type = ["cdylib", "rlib"]
 
+[features]
+cartesian-recoil = ["sim/cartesian-recoil"]
+
 [dependencies]
 fx = { path = "../fx" }
 sim = { path = "../sim" }

@@ -10601,6 +10601,8 @@ mod tests {
         println!("commands refused:     {refused}");
         println!("ticks refused:        {}", SIM.with(|sim|
             sim.borrow().as_ref().map_or(0, |sim| sim.world.contact_solver_rejections())));
+        println!("first refusal:        {:?}", SIM.with(|sim|
+            sim.borrow().as_ref().and_then(|sim| sim.world.first_contact_rejection())));
         println!("combat_event_len:     {}", combat_event_len());
         println!("combat_events_dropped:{}", combat_events_dropped());
         println!("combat_event_capacity:{}", combat_event_capacity());

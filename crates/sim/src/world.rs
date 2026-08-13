@@ -22,6 +22,10 @@ use crate::combat::contact::{contact_bounds, medial_point, try_reserve_exact,
                              ContactResolution, ContactShape,
                              ContactSolverState, RegionSweep, BODY_SLOT,
                              MAX_CONTACT_FACTS_PER_GROUP, MAX_CONTACT_RESOLUTIONS_PER_TICK};
+#[cfg(feature = "cartesian-recoil")]
+use crate::combat::contact::{wide_evaluated_shape_quotient, WideEvaluatedContactShape};
+#[cfg(feature = "cartesian-recoil")]
+use crate::combat::contact::wide_rebase_owner_tick;
 #[cfg(all(test, feature = "cartesian-recoil"))]
 use crate::combat::contact::{exact_contact_at_pose, scan_exact_candidates_into};
 use crate::combat::geometry;
@@ -30,11 +34,10 @@ use crate::combat::resolution::{self, ContactTickScratch, ContactTrialProjector,
 #[cfg(feature = "cartesian-recoil")]
 use crate::combat::trajectory::{ExactAffine3, ExactContactTrajectory, ExactHeldResponse,
                                 ExactMotorBounds, ExactMotorPoint, ExactOwnerTrajectory,
-                                ExactMomentum, ExactPosition, ExactTrajectoryReject, MotorShape,
-                                EvaluatedContactShape, evaluate_exact, exact_held_velocity,
-                                exact_point_quotient};
+                                ExactMomentum, ExactPosition, ExactTrajectoryReject, FloorReaction, MotorShape,
+                                exact_held_velocity};
 #[cfg(all(test, feature = "cartesian-recoil"))]
-use crate::combat::trajectory::{advance_exact, apply_exact_group};
+use crate::combat::trajectory::{advance_exact, apply_exact_group, evaluate_exact};
 use crate::{EquipmentGeometry, EquipmentSpecId};
 use fx::{Angle, Fx, Hash64, Rng, Vec2, Vec3};
 
@@ -87,6 +90,22 @@ fn hash_exact_owners(h: &mut Hash64, owners: &[Option<ExactOwnerTrajectory>]) {
     }
 }
 
+#[cfg(feature = "cartesian-recoil")]
+fn hash_exact_external_energy(h: &mut Hash64, rows: &[ExactExternalEnergyRow]) {
+    let write_i128 = |h: &mut Hash64, value: i128| {
+        h.write_u64(value as u128 as u64);
+        h.write_u64((value as u128 >> 64) as u64);
+    };
+    h.write_u32(rows.len() as u32);
+    for row in rows {
+        row.entity.hash_into(h);
+        h.write_u8(row.lane);
+        h.write_u8(row.reason);
+        write_i128(h, row.signed_numerator);
+        write_i128(h, row.denominator);
+    }
+}
+
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Outcome {
     HeroesWin,
@@ -115,6 +134,18 @@ impl RecoilExternalEnergy {
     pub const SEVERANCE: u8 = 4;
     pub const CAP: u8 = 8;
     pub const WALL: u8 = 16;
+    pub const FLOOR: u8 = 32;
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct ExactExternalEnergyRow {
+    pub entity: EntityId,
+    /// `0` is the body, `1` the left limb, and `2` the right limb.
+    pub lane: u8,
+    pub reason: u8,
+    pub signed_numerator: i128,
+    pub denominator: i128,
 }
 
 impl Outcome {
@@ -446,9 +477,10 @@ struct Impulse {
 
 /// Retained contact state for an Articulated world.
 ///
-/// Only `state` is authoritative: ArticulatedV1 hashing writes its `cap_hits`
-/// and nothing else in here. The scratch and the published resolutions are
-/// evidence, which is why the whole struct sits outside `legacy_core_hash`.
+/// `state` and the feature-only exact external-energy rows are authoritative:
+/// ArticulatedV1 hashing writes `cap_hits` and those reconciliation rows. The
+/// remaining scratch and published resolutions are evidence, which is why the
+/// whole struct sits outside `legacy_core_hash`.
 ///
 /// Reserved once against the allocated-slot high water, for the same reason
 /// `nav_queue` is held on the world rather than allocated per rebuild: this
@@ -488,6 +520,13 @@ struct ContactRuntime {
     exact_commit: Vec<ExactCommitRow>,
     #[cfg(feature = "cartesian-recoil")]
     recoil_external: Vec<[RecoilExternalEnergy; 2]>,
+    #[cfg(feature = "cartesian-recoil")]
+    floor_reactions: Vec<FloorReaction>,
+    /// This tick's exact external reconciliation. Unlike contact resolutions,
+    /// these rows explain authoritative state replaced by a lifecycle or
+    /// boundary constraint, so replay comparison and the feature hash own them.
+    #[cfg(feature = "cartesian-recoil")]
+    exact_external_energy: Vec<ExactExternalEnergyRow>,
     /// How many ticks the solver refused, cumulative.
     ///
     /// **The only external witness that a group was rejected**, and it exists
@@ -531,6 +570,8 @@ impl ContactRuntime {
         try_reserve_exact(&mut self.recoil_external, high_water)?;
         #[cfg(feature = "cartesian-recoil")]
         {
+            try_reserve_exact(&mut self.floor_reactions, MAX_CONTACT_RESOLUTIONS_PER_TICK)?;
+            try_reserve_exact(&mut self.exact_external_energy, MAX_CONTACT_RESOLUTIONS_PER_TICK)?;
             try_reserve_exact(&mut self.exact_trajectories, bounds.collider_bound)?;
             try_reserve_exact(&mut self.exact_owners, high_water)?;
             try_reserve_exact(&mut self.exact_commit, high_water)?;
@@ -1464,6 +1505,11 @@ impl World {
         let i = self.resolve(entity)?;
         let limb = match limb { LimbSlot::LeftArm => 0, LimbSlot::RightArm => 1 };
         self.contact.as_ref()?.recoil_external.get(i).map(|row| row[limb])
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    pub fn exact_external_energy(&self) -> &[ExactExternalEnergyRow] {
+        self.contact.as_ref().map_or(&[], |contact| contact.exact_external_energy.as_slice())
     }
 
     /// Every retained contact capacity, for the no-growth proofs. Capacity is
@@ -4519,6 +4565,7 @@ impl World {
                 #[cfg(feature = "cartesian-recoil")]
                 {
                     hash_exact_owners(&mut h, &self.exact_owners);
+                    hash_exact_external_energy(&mut h, self.exact_external_energy());
                 }
                 crate::StateDigest {
                     domain: crate::HashDomain::ArticulatedV1,
@@ -4807,8 +4854,9 @@ impl World {
         };
         let before = energy(before_body, before_c);
         let after = energy(after_body, after_c);
+        let entity = self.id_of(i);
         let Some(contact) = self.contact.as_mut() else { return };
-        Self::record_recoil_external_in(contact, i, limb, reason, before, after);
+        Self::record_recoil_external_in(contact, entity, i, limb, reason, before, after);
     }
 
     #[cfg(feature = "cartesian-recoil")]
@@ -4821,7 +4869,8 @@ impl World {
     }
 
     #[cfg(feature = "cartesian-recoil")]
-    fn record_recoil_external_in(contact: &mut ContactRuntime, i: usize, limb: usize,
+    fn record_recoil_external_in(contact: &mut ContactRuntime, entity: EntityId,
+                                 i: usize, limb: usize,
                                  reason: u8, before: i128, after: i128) {
         if i >= contact.recoil_external.len() { return; }
         let ledger = &mut contact.recoil_external[i][limb];
@@ -4831,6 +4880,12 @@ impl World {
         } else {
             ledger.supplied_numerator += after - before;
         }
+        contact.exact_external_energy.push(ExactExternalEnergyRow {
+            entity, lane: limb as u8 + 1, reason,
+            signed_numerator: after.checked_sub(before)
+                .expect("bounded external energy difference"),
+            denominator: 2i128 * 65_536 * 65_536,
+        });
     }
 
     #[cfg(feature = "cartesian-recoil")]
@@ -4992,6 +5047,8 @@ impl World {
         {
             contact.recoil_external.clear();
             contact.recoil_external.resize(self.alive.len(), [RecoilExternalEnergy::default(); 2]);
+            contact.floor_reactions.clear();
+            contact.exact_external_energy.clear();
         }
         for i in 0..self.alive.len() {
             contact.entry.push(TickEntry {
@@ -5062,7 +5119,7 @@ impl World {
         contact.credit.resize(wounds.len(), Fx::ZERO);
         self.build_contact_colliders(&contact.entry, &mut contact.colliders, &wounds);
         #[cfg(feature = "cartesian-recoil")]
-        if let Err(cause) = build_exact_contact_trajectories(self, &mut contact) {
+        if let Err(cause) = build_exact_contact_trajectories(self, &mut contact, &wounds) {
             wounds.clear();
             wounds.extend_from_slice(&contact.anatomy_entry);
             self.wounds = wounds;
@@ -5086,12 +5143,12 @@ impl World {
         let solved = {
             let ContactRuntime { state, scratch, colliders, resolutions, entry, bodies,
                                  credit, deltas, fact_loss, exact_trajectories,
-                                 exact_owners, .. } = &mut contact;
+                                 exact_owners, floor_reactions, .. } = &mut contact;
             let mut projector = ContactProjector {
                 world: self, entry, bodies, wounds: &mut wounds, credit, deltas, fact_loss,
             };
             resolution::solve_exact_contact_tick(colliders, exact_trajectories,
-                exact_owners, &mut projector, state, resolutions, scratch)
+                exact_owners, floor_reactions, &mut projector, state, resolutions, scratch)
         };
         #[cfg(feature = "cartesian-recoil")]
         let solved = match solved {
@@ -5107,7 +5164,17 @@ impl World {
                 #[cfg(not(feature = "cartesian-recoil"))]
                 self.commit_contact(&mut contact);
                 #[cfg(feature = "cartesian-recoil")]
-                self.commit_exact_contact(&mut contact);
+                {
+                    for reaction in &contact.floor_reactions {
+                        contact.exact_external_energy.push(ExactExternalEnergyRow {
+                            entity: reaction.entity, lane: 0,
+                            reason: RecoilExternalEnergy::FLOOR,
+                            signed_numerator: reaction.energy_change.numerator,
+                            denominator: reaction.energy_change.denominator,
+                        });
+                    }
+                    self.commit_exact_contact(&mut contact);
+                }
                 self.contact = Some(contact);
                 self.release_severed_grips();
                 return;
@@ -5153,8 +5220,27 @@ impl World {
                 continue;
             }
             #[cfg(feature = "cartesian-recoil")]
-            let next_exact = self.prepare_zero_response_grip_transition(i, pair)
-                .expect("nonzero exact response reached severance without lifecycle energy");
+            let next_exact = {
+                let current = self.exact_owners[i]
+                    .expect("live articulated body has no exact owner");
+                let expected = self.exact_owner_for_grips(i, pair, current.common_scale);
+                // A severance present at contact entry had to shed its held
+                // exact row in the tentative owner before that owner could be
+                // rebased without a collider. The World grip deliberately did
+                // not change with it: this successful path is the transaction's
+                // commit. Recognise that staged identity instead of asking the
+                // old-grip validator to manufacture the same transition twice.
+                let already_staged = current.common_scale == expected.common_scale
+                    && current.body_mass_raw == expected.body_mass_raw
+                    && current.common_response.mass_raw == expected.common_response.mass_raw
+                    && current.held_response.iter().zip(expected.held_response).all(|(got, want)|
+                        got.map(|row| (row.slot, row.spec_id, row.affine.mass_raw))
+                            == want.map(|row| (row.slot, row.spec_id, row.affine.mass_raw)));
+                if already_staged { current } else {
+                    self.prepare_zero_response_grip_transition(i, pair)
+                        .expect("nonzero exact response reached severance without lifecycle energy")
+                }
+            };
             for limb in 0..2 {
                 if self.grips[i][limb].equipment_slot == pair[limb] { continue; }
                 #[cfg(feature = "cartesian-recoil")]
@@ -5251,45 +5337,56 @@ impl World {
             let body_at = contact.exact_trajectories.iter().position(|row|
                 row.entity == owner.entity && matches!(row.motor, MotorShape::Body { .. }))
                 .ok_or(ResolutionError::ColliderIndex)?;
-            let EvaluatedContactShape::Body { origin, .. } = evaluate_exact(
+            let WideEvaluatedContactShape::Body { origin } = wide_evaluated_shape_quotient(
                 &contact.exact_trajectories[body_at], owner, 65_536)
                 .map_err(|_| ResolutionError::ExactScan)? else {
                     return Err(ResolutionError::ExactScan);
                 };
-            let origin = exact_point_quotient(origin).map_err(|_| ResolutionError::ExactScan)?;
             let position = Vec2::new(origin.x, origin.y);
-            if !self.is_walkable(position, self.radius[i]) {
-                return Err(ResolutionError::ExactLifecyclePending);
-            }
             let mut arms = [None; 2];
+            let capped = contact.scratch.capped_entities().contains(&owner.entity);
             for limb in 0..2 {
                 let Some(at) = contact.exact_trajectories.iter().position(|row|
                     row.entity == owner.entity && row.held_index == Some(limb)) else { continue };
-                let absolute_hand = match evaluate_exact(&contact.exact_trajectories[at], owner, 65_536)
+                let absolute_hand = match wide_evaluated_shape_quotient(
+                    &contact.exact_trajectories[at], owner, 65_536)
                     .map_err(|_| ResolutionError::ExactScan)? {
-                    EvaluatedContactShape::Segment { hilt, .. } =>
-                        exact_point_quotient(hilt).map_err(|_| ResolutionError::ExactScan)?,
-                    EvaluatedContactShape::Shield { corners } => {
+                    WideEvaluatedContactShape::Segment { hilt, .. } => hilt,
+                    WideEvaluatedContactShape::Shield { corners } => {
                         let pose = self.shield_pose[i].ok_or(ResolutionError::ColliderIndex)?;
-                        midpoint3(exact_point_quotient(corners[0])
-                            .map_err(|_| ResolutionError::ExactScan)?,
-                                  exact_point_quotient(corners[2])
-                            .map_err(|_| ResolutionError::ExactScan)?)
+                        midpoint3(corners[0], corners[2])
                             - pose.normal * (pose.thickness / Fx::from_int(2))
                     }
                     _ => return Err(ResolutionError::ExactScan),
                 };
                 let hand = absolute_hand - origin;
+                let direct = contact.resolutions.iter().any(|resolution| {
+                    let key = resolution.fact.key;
+                    (key.a == owner.entity && key.a_slot as usize == limb
+                        && resolution.impulse.on_a != Vec3::ZERO)
+                    || (key.b == owner.entity && key.b_slot as usize == limb
+                        && resolution.impulse.on_b != Vec3::ZERO)
+                });
+                if hand == self.arms[i][limb].hand && !contact.entry[i].clamped[limb]
+                    && !capped && !direct { continue }
                 arms[limb] = Some(ExactArmCommit {
                     hand,
                     linear_velocity: hand - contact.entry[i].arms[limb].hand,
                     post_contact_com_velocity: exact_held_velocity(*owner, limb)
                         .map_err(|_| ResolutionError::ExactScan)?,
+                    replace_recoil: self.exact_owners[i]
+                        .and_then(|before| before.held_response[limb])
+                        .map_or(true, |before| before.affine.momentum
+                            != owner.held_response[limb].unwrap().affine.momentum),
                 });
             }
             contact.exact_commit.push(ExactCommitRow {
-                entity: owner.entity, owner: *owner, position,
-                velocity: position - contact.entry[i].pos, arms,
+                entity: owner.entity,
+                owner: wide_rebase_owner_tick(&contact.exact_trajectories, *owner)
+                    .map_err(|_| ResolutionError::ExactScan)?,
+                position,
+                velocity: position - contact.entry[i].pos,
+                body_moved: position != self.pos[i], arms,
             });
         }
         Ok(())
@@ -5297,21 +5394,96 @@ impl World {
 
     #[cfg(feature = "cartesian-recoil")]
     fn commit_exact_contact(&mut self, contact: &mut ContactRuntime) {
-        for row in &contact.exact_commit {
+        for at in 0..contact.exact_commit.len() {
+            let row = contact.exact_commit[at];
             let i = self.resolve(row.entity).expect("preflighted exact owner");
-            self.pos[i] = row.position;
-            self.vel[i] = row.velocity;
-            self.exact_owners[i] = Some(row.owner);
+            let solved_velocity = row.velocity;
+            if row.body_moved {
+                // Exact contact still ends at an ordinary World position. Its
+                // endpoint therefore owes the same swept wall settlement as
+                // legacy knockback; refusing here discards a valid contact,
+                // while assigning the endpoint directly leaves it in stone.
+                self.vel[i] = solved_velocity;
+                self.move_body(i, row.position);
+            }
+            let settled_velocity = if row.body_moved { self.vel[i] } else { solved_velocity };
+            let mut owner = row.owner;
+            let clipped = [settled_velocity.x != solved_velocity.x,
+                           settled_velocity.y != solved_velocity.y];
+            for axis in 0..2 {
+                if !clipped[axis] { continue }
+                let delta = if axis == 0 {
+                    settled_velocity.x - solved_velocity.x
+                } else {
+                    settled_velocity.y - solved_velocity.y
+                };
+                owner.common_response.momentum[axis].velocity_raw = owner.common_response
+                    .momentum[axis].velocity_raw.checked_add(delta.raw())
+                    .expect("bounded wall response overflowed exact momentum");
+                // The wall's answer is an integer Fx boundary. Retaining the
+                // solver's subraw overshoot would put the exact row infinitesimally
+                // through that boundary again on the next tick.
+                owner.common_response.at_group[axis].remainder = 0;
+            }
             for limb in 0..2 {
-                let Some(staged) = row.arms[limb] else { continue };
+                let Some(mut staged) = row.arms[limb] else { continue };
+                if clipped[0] || clipped[1] {
+                    staged.replace_recoil = true;
+                    let before = staged.post_contact_com_velocity;
+                    staged.post_contact_com_velocity = actuator::settle_post_contact_com(
+                        before, solved_velocity, settled_velocity);
+                    staged.linear_velocity = actuator::settle_post_contact_com(
+                        staged.linear_velocity, solved_velocity, settled_velocity);
+                    if let Some(held) = owner.held_response[limb].as_mut() {
+                        if clipped[0] {
+                            held.affine.momentum[0] = ExactMomentum {
+                                velocity_raw: staged.post_contact_com_velocity.x.raw(), remainder: 0,
+                            };
+                        }
+                        if clipped[1] {
+                            held.affine.momentum[1] = ExactMomentum {
+                                velocity_raw: staged.post_contact_com_velocity.y.raw(), remainder: 0,
+                            };
+                        }
+                    }
+                    if let Some(collider) = contact.colliders.iter().find(|candidate|
+                        candidate.entity == row.entity && candidate.slot as usize == limb
+                            && !matches!(candidate.shape, ContactShape::Body { .. })) {
+                        let before_n = Self::recoil_energy_numerator(collider.mass,
+                            Vec3::new(solved_velocity.x, solved_velocity.y, Fx::ZERO), before);
+                        let after_n = Self::recoil_energy_numerator(collider.mass,
+                            Vec3::new(settled_velocity.x, settled_velocity.y, Fx::ZERO),
+                            staged.post_contact_com_velocity);
+                        Self::record_recoil_external_in(contact, row.entity, i, limb,
+                            RecoilExternalEnergy::WALL, before_n, after_n);
+                    }
+                }
                 let arm = &mut self.arms[i][limb];
                 arm.previous_hand = contact.entry[i].arms[limb].hand;
                 arm.hand = staged.hand;
                 arm.linear_velocity = staged.linear_velocity;
-                arm.post_contact_com_velocity = staged.post_contact_com_velocity;
-                arm.post_contact_active = staged.post_contact_com_velocity != Vec3::ZERO;
+                if staged.replace_recoil {
+                    arm.post_contact_com_velocity = staged.post_contact_com_velocity;
+                    arm.post_contact_active = staged.post_contact_com_velocity != Vec3::ZERO;
+                }
                 contact.entry[i].contact_overrode[limb] = true;
             }
+            // A `Both` item owns one exact held row, on the right. The left is
+            // pose derived from that owner and must be rebuilt after the owner
+            // commits; mirroring only in the actuator leaves it at the
+            // pre-contact pose. This writes no second lattice or energy row,
+            // and `mirror_two_handed` deliberately clears the nonowning recoil.
+            if row.arms[1].is_some() && self.two_handed(i) {
+                let anatomy = self.combat_specs.as_ref().expect("articulated combat specs")
+                    .anatomy(self.articulated_anatomy[i].expect("articulated anatomy"))
+                    .expect("validated articulated anatomy").clone();
+                let right = self.arms[i][1];
+                actuator::mirror_two_handed(
+                    &mut self.arms[i][0], right, &anatomy, self.body_yaw[i].angle,
+                );
+                contact.entry[i].contact_overrode[0] = true;
+            }
+            self.exact_owners[i] = Some(owner);
             if row.arms.iter().any(Option::is_some) {
                 self.shield_pose[i] = self.derive_shield_pose(i);
             }
@@ -5387,7 +5559,7 @@ impl World {
                     if before != Vec3::ZERO {
                         let before_n = Self::recoil_energy_numerator(row.mass, body.velocity, before);
                         let after_n = Self::recoil_energy_numerator(row.mass, body.velocity, Vec3::ZERO);
-                        Self::record_recoil_external_in(contact, i, limb,
+                        Self::record_recoil_external_in(contact, entity, i, limb,
                             RecoilExternalEnergy::CAP, before_n, after_n);
                     }
                 } else if direct {
@@ -5448,7 +5620,7 @@ impl World {
                             Vec3::new(solved_velocity.x, solved_velocity.y, Fx::ZERO), before);
                         let after_n = Self::recoil_energy_numerator(row.mass,
                             Vec3::new(settled_velocity.x, settled_velocity.y, Fx::ZERO), after);
-                        Self::record_recoil_external_in(contact, i, limb,
+                        Self::record_recoil_external_in(contact, entity, i, limb,
                             RecoilExternalEnergy::WALL, before_n, after_n);
                     }
                 }
@@ -6609,11 +6781,30 @@ impl Nearest {
 
 #[cfg(feature = "cartesian-recoil")]
 fn build_exact_contact_trajectories(
-    world: &World, contact: &mut ContactRuntime,
+    world: &World, contact: &mut ContactRuntime, anatomy_state: &[AnatomyState],
 ) -> Result<(), ResolutionError> {
     contact.exact_owners.clear();
     for owner in &world.exact_owners {
-        if let Some(owner) = owner { contact.exact_owners.push(*owner); }
+        let Some(owner) = owner else { continue };
+        let i = world.resolve(owner.entity).ok_or(ResolutionError::ColliderIndex)?;
+        let wounds = anatomy_state.get(i).ok_or(ResolutionError::ColliderIndex)?;
+        let severed = [!wounds.present(BodyPart::LeftArm),
+                       !wounds.present(BodyPart::RightArm)];
+        let mut grips = world.grips[i].map(|grip| grip.equipment_slot);
+        if world.two_handed(i) && (severed[0] || severed[1]) {
+            grips = [None; 2];
+        } else {
+            for limb in 0..2 {
+                if severed[limb] { grips[limb] = None; }
+            }
+        }
+        let staged = if grips == world.grips[i].map(|grip| grip.equipment_slot) {
+            *owner
+        } else {
+            world.prepare_zero_response_grip_transition(i, grips)
+                .map_err(|_| ResolutionError::ExactLifecyclePending)?
+        };
+        contact.exact_owners.push(staged);
     }
     let motor_point = |previous: Vec3, requested: Vec3| ExactMotorPoint {
         at_tick_start_raw: [previous.x.raw(), previous.y.raw(), previous.z.raw()],
@@ -6671,6 +6862,7 @@ struct ExactArmCommit {
     hand: Vec3,
     linear_velocity: Vec3,
     post_contact_com_velocity: Vec3,
+    replace_recoil: bool,
 }
 
 #[cfg(feature = "cartesian-recoil")]
@@ -6680,6 +6872,7 @@ struct ExactCommitRow {
     owner: ExactOwnerTrajectory,
     position: Vec2,
     velocity: Vec2,
+    body_moved: bool,
     arms: [Option<ExactArmCommit>; 2],
 }
 
@@ -7366,7 +7559,7 @@ mod tests {
         world.record_contact_locomotion();
         let mut contact = world.contact.take().expect("articulated contact state");
         world.build_contact_colliders(&contact.entry, &mut contact.colliders, &world.wounds);
-        build_exact_contact_trajectories(world, &mut contact).unwrap();
+        build_exact_contact_trajectories(world, &mut contact, &world.wounds).unwrap();
         contact
     }
 
@@ -7386,21 +7579,75 @@ mod tests {
                                .map(|row| row.spec_id));
             }
         }
+        assert_eq!(contact.exact_owners[0].common_scale, 1_283_938_665_662_054_400);
+        assert!(contact.exact_trajectories.iter().any(|row| {
+            matches!(row.motor, MotorShape::Segment { .. })
+                && evaluate_exact(row, &contact.exact_owners[row.owner_index], 65_536)
+                    == Err(ExactTrajectoryReject::Arithmetic)
+        }), "the shipped 92-bit lattice no longer distinguishes the wide evaluator");
+        assert!(contact.exact_trajectories.iter().any(|row|
+            matches!(row.motor, MotorShape::Body { .. })), "the World fixture has no body row");
+        assert!(contact.exact_trajectories.iter().any(|row|
+            matches!(row.motor, MotorShape::Shield { .. })), "the World fixture has no shield row");
+        contact.exact_owners[0].common_response.momentum[0].velocity_raw = 1;
         let mut scratch = crate::combat::contact::ContactCollectionScratch::default();
         scratch.try_reserve(64).unwrap();
-        scan_exact_candidates_into(&contact.exact_trajectories, &contact.exact_owners,
-            &contact.colliders, &mut scratch).unwrap();
-        let candidate = scratch.candidates().first()
-            .expect("the exact World fixture did not scan a contact").fact;
-        let a = contact.exact_trajectories.iter().position(|row|
-            row.entity == candidate.key.a && row.slot == candidate.key.a_slot).unwrap();
-        let b = contact.exact_trajectories.iter().position(|row|
-            row.entity == candidate.key.b && row.slot == candidate.key.b_slot).unwrap();
-        let recomputed = exact_contact_at_pose(&contact.exact_trajectories,
-            &contact.exact_owners, &contact.colliders, a, b,
-            candidate.toi.get().raw() as u32).unwrap().expect("frozen exact contact");
-        assert_eq!((recomputed.key, recomputed.toi, recomputed.region),
-                   (candidate.key, candidate.toi, candidate.region));
+        if let Err(reject) = scan_exact_candidates_into(&contact.exact_trajectories,
+            &contact.exact_owners, &contact.colliders, &mut scratch) {
+            for a in 0..contact.exact_trajectories.len() {
+                for b in a + 1..contact.exact_trajectories.len() {
+                    let left = contact.exact_trajectories[a];
+                    let right = contact.exact_trajectories[b];
+                    if !left.present || !right.present || left.entity == right.entity
+                        || left.faction == right.faction { continue; }
+                    let rows = [left, right];
+                    let compatibility = [contact.colliders[a], contact.colliders[b]];
+                    if let Err(pair_reject) = scan_exact_candidates_into(&rows,
+                        &contact.exact_owners, &compatibility, &mut scratch) {
+                        panic!("full World scan refused {reject:?}; pair {a}/{b} {:?}/{:?} refused {pair_reject:?}",
+                               left.motor, right.motor);
+                    }
+                }
+            }
+            panic!("full World scan refused {reject:?}, but no isolated pair did");
+        }
+        let candidates: Vec<_> = scratch.candidates().iter().map(|row| row.fact).collect();
+        assert!(!candidates.is_empty(), "the exact World fixture did not scan a contact");
+        for candidate in candidates {
+            let a = contact.exact_trajectories.iter().position(|row|
+                row.entity == candidate.key.a && row.slot == candidate.key.a_slot).unwrap();
+            let b = contact.exact_trajectories.iter().position(|row|
+                row.entity == candidate.key.b && row.slot == candidate.key.b_slot).unwrap();
+            let recomputed = exact_contact_at_pose(&contact.exact_trajectories,
+                &contact.exact_owners, &contact.colliders, a, b,
+                candidate.toi.get().raw() as u32, &mut scratch)
+                .unwrap().expect("frozen exact contact");
+            assert_eq!((recomputed.key, recomputed.toi, recomputed.region),
+                       (candidate.key, candidate.toi, candidate.region));
+        }
+        let mut ignored = [false; 3];
+        for a in 0..contact.exact_trajectories.len() {
+            for b in a + 1..contact.exact_trajectories.len() {
+                let left = &contact.exact_trajectories[a];
+                let right = &contact.exact_trajectories[b];
+                if !left.present || !right.present || left.entity == right.entity
+                    || left.faction == right.faction { continue; }
+                let inert = match (&left.motor, &right.motor) {
+                    (MotorShape::Body { .. }, MotorShape::Body { .. }) => Some(0),
+                    (MotorShape::Body { .. }, MotorShape::Shield { .. })
+                    | (MotorShape::Shield { .. }, MotorShape::Body { .. }) => Some(1),
+                    (MotorShape::Shield { .. }, MotorShape::Shield { .. }) => Some(2),
+                    _ => None,
+                };
+                let Some(kind) = inert else { continue };
+                ignored[kind] = true;
+                assert_eq!(exact_contact_at_pose(&contact.exact_trajectories,
+                    &contact.exact_owners, &contact.colliders, a, b, 65_536, &mut scratch),
+                    Ok(None), "an ignored World pair became detector authority");
+            }
+        }
+        assert!(ignored[0] && ignored[1],
+                "the unfiltered fixture missed its body/body or body/shield inert pair");
     }
 
     #[cfg(feature = "cartesian-recoil")]
@@ -7432,17 +7679,18 @@ mod tests {
         let (entity, slot) = (fact.key.a, fact.key.a_slot);
         let i = world.resolve(entity).unwrap();
         let owner = world.exact_owners[i].expect("committed exact owner");
+        let finished_owner = *contact.exact_owners.iter().find(|row| row.entity == entity).unwrap();
         let before_owner = before.exact_owners[i].unwrap();
-        assert_eq!(owner.common_response.group_time_raw, 65_536);
+        assert_eq!(owner.common_response.group_time_raw, 0);
         assert!(owner.held_response.iter().flatten()
-            .all(|held| held.affine.group_time_raw == 65_536));
+            .all(|held| held.affine.group_time_raw == 0));
         let exact_row = contact.exact_trajectories.iter().find(|row|
             row.entity == entity && row.slot == slot).unwrap();
         if slot == BODY_SLOT {
             assert_ne!(owner.common_response.momentum, before_owner.common_response.momentum);
-            let EvaluatedContactShape::Body { origin, .. } = evaluate_exact(
-                exact_row, &owner, 65_536).unwrap() else { panic!("body row changed shape") };
-            let endpoint = exact_point_quotient(origin).unwrap();
+            let WideEvaluatedContactShape::Body { origin: endpoint } =
+                wide_evaluated_shape_quotient(exact_row, &finished_owner, 65_536).unwrap()
+                else { panic!("body row changed shape") };
             assert_eq!(world.pos[i], Vec2::new(endpoint.x, endpoint.y));
             assert_eq!(world.vel[i], world.pos[i] - before.pos[i]);
         } else {
@@ -7451,20 +7699,20 @@ mod tests {
                        before_owner.held_response[limb].unwrap().affine.momentum);
             let body_row = contact.exact_trajectories.iter().find(|row|
                 row.entity == entity && matches!(row.motor, MotorShape::Body { .. })).unwrap();
-            let EvaluatedContactShape::Body { origin, .. } = evaluate_exact(
-                body_row, &owner, 65_536).unwrap() else { panic!("owner body changed shape") };
-            let absolute_hand = match evaluate_exact(exact_row, &owner, 65_536).unwrap() {
-                EvaluatedContactShape::Segment { hilt, .. } => exact_point_quotient(hilt).unwrap(),
-                EvaluatedContactShape::Shield { corners } => {
+            let WideEvaluatedContactShape::Body { origin } =
+                wide_evaluated_shape_quotient(body_row, &finished_owner, 65_536).unwrap()
+                else { panic!("owner body changed shape") };
+            let absolute_hand = match wide_evaluated_shape_quotient(
+                exact_row, &finished_owner, 65_536).unwrap() {
+                WideEvaluatedContactShape::Segment { hilt, .. } => hilt,
+                WideEvaluatedContactShape::Shield { corners } => {
                     let pose = before.shield_pose[i].unwrap();
-                    midpoint3(exact_point_quotient(corners[0]).unwrap(),
-                              exact_point_quotient(corners[2]).unwrap())
+                    midpoint3(corners[0], corners[2])
                         - pose.normal * (pose.thickness / Fx::from_int(2))
                 }
                 _ => panic!("held row changed shape"),
             };
-            assert_eq!(world.arms[i][limb].hand,
-                       absolute_hand - exact_point_quotient(origin).unwrap());
+            assert_eq!(world.arms[i][limb].hand, absolute_hand - origin);
             assert_eq!(world.arms[i][limb].linear_velocity,
                        world.arms[i][limb].hand - before.arms[i][limb].hand);
         }
@@ -7488,18 +7736,21 @@ mod tests {
         let seeded = contact.exact_owners[owner_at];
         let row = contact.exact_trajectories.iter().find(|row|
             row.entity == seeded.entity && row.held_index == Some(1)).unwrap();
-        let EvaluatedContactShape::Segment { hilt, .. } = evaluate_exact(
-            row, &seeded, 65_536).unwrap() else { panic!("seeded weapon stopped being a segment") };
+        let WideEvaluatedContactShape::Segment { hilt, .. } =
+            wide_evaluated_shape_quotient(row, &seeded, 65_536).unwrap()
+            else { panic!("seeded weapon stopped being a segment") };
         let body = contact.exact_trajectories.iter().find(|row|
             row.entity == seeded.entity && matches!(row.motor, MotorShape::Body { .. })).unwrap();
-        let EvaluatedContactShape::Body { origin, .. } = evaluate_exact(
-            body, &seeded, 65_536).unwrap() else { panic!("seeded owner stopped being a body") };
-        let expected_hand = exact_point_quotient(hilt).unwrap()
-            - exact_point_quotient(origin).unwrap();
+        let WideEvaluatedContactShape::Body { origin } =
+            wide_evaluated_shape_quotient(body, &seeded, 65_536).unwrap()
+            else { panic!("seeded owner stopped being a body") };
+        let expected_hand = hilt - origin;
 
         world.stage_exact_contact(&mut contact).unwrap();
+        let rebased = contact.exact_commit.iter().find(|row| row.entity == seeded.entity)
+            .unwrap().owner;
         world.commit_exact_contact(&mut contact);
-        assert_eq!(world.exact_owners[0], Some(seeded));
+        assert_eq!(world.exact_owners[0], Some(rebased));
         assert_eq!(world.arms[0][1].hand, expected_hand);
         assert_eq!(world.exact_owners[0].unwrap().held_response[1].unwrap().affine
             .momentum[0].remainder, 5);
@@ -7511,9 +7762,9 @@ mod tests {
         world.record_contact_locomotion();
         let mut next = world.contact.take().unwrap();
         world.build_contact_colliders(&next.entry, &mut next.colliders, &world.wounds);
-        build_exact_contact_trajectories(&world, &mut next).unwrap();
+        build_exact_contact_trajectories(&world, &mut next, &world.wounds).unwrap();
         assert_eq!(next.exact_owners.iter().find(|owner| owner.entity == seeded.entity),
-                   Some(&seeded));
+                   Some(&rebased));
     }
 
     #[cfg(feature = "cartesian-recoil")]
@@ -8379,6 +8630,13 @@ mod tests {
         let part = world.wounds[1].parts[region as usize];
         assert!(!part.severed, "a body with eight units of integrity lost a region");
         assert!(part.integrity < Fx::from_int(8), "the blow took nothing off");
+        // The exact path sums the physical owner and held rows before its one
+        // public floor. The legacy path deliberately retains the generalized
+        // row transfer it shipped with, so this fixture pins both laws rather
+        // than pretending their independently rounded losses are identical.
+        #[cfg(feature = "cartesian-recoil")]
+        assert_eq!(part.integrity, Fx::from_raw(348_800));
+        #[cfg(not(feature = "cartesian-recoil"))]
         assert_eq!(part.integrity, Fx::from_int(8) - Fx::from_raw(344_064));
         assert!(world.contact_resolutions().iter().all(|row| !row.severed),
                 "a wounding blow that severed nothing said it had");
@@ -8428,6 +8686,13 @@ mod tests {
         let incoming: u64 = hard.contact_resolutions().iter()
             .map(|row| row.cut_raw + row.thrust_raw).sum();
         let deflected: u64 = hard.contact_resolutions().iter().map(|row| row.deflected_raw).sum();
+        // Exact recoil floors the complete physical energy change once; the
+        // legacy resolver floors its generalized transfer. Armour receives
+        // the incident budget produced by the selected law, and the two
+        // literal pairs make an accidental cross-wiring visible.
+        #[cfg(feature = "cartesian-recoil")]
+        assert_eq!((incoming, deflected), (1_828, 1_624));
+        #[cfg(not(feature = "cartesian-recoil"))]
         assert_eq!((incoming, deflected), (3_584, 3_185));
         assert!(deflected < incoming, "the plate deflected the whole incident budget");
         assert!(hard.wounds[1].parts[region as usize].severed,
@@ -8552,6 +8817,12 @@ mod tests {
         // taking the remainder is what closes that gap -- so a change to either
         // the proportion or the remainder rule moves one of these numbers even
         // when the sum above still holds.
+        // The exact feature allocates the one physical, floor-once loss; the
+        // legacy path keeps its established generalized-row loss. Both still
+        // exercise the same proportional-share and final-remainder rule.
+        #[cfg(feature = "cartesian-recoil")]
+        assert_eq!((sword.raw(), club.raw()), (2_951_191, 194_537));
+        #[cfg(not(feature = "cartesian-recoil"))]
         assert_eq!((sword.raw(), club.raw()), (2_753_037, 392_691));
     }
 
@@ -8588,6 +8859,11 @@ mod tests {
         // and a group that severs an arm could leave its weapon swinging
         // through the rest of the same tick unnoticed.
         let mut scenario = fragile_scenario(&[1]);
+        // The shipped club's mass is coprime enough with the Brute/shield
+        // ownership totals to put this test-only pairing outside the 96-bit
+        // construction envelope. 146_237 is the nearest larger raw mass whose
+        // carried configurations stay inside it (at 84 bits).
+        scenario.combat_specs.as_mut().unwrap().equipment[2].mass = Fx::from_raw(146_237);
         scenario.units[1].articulated.as_mut().unwrap().equipment = [Some(3), Some(2)];
         scenario.units[1].loadout = Loadout::pair(ActionKind::Club, ActionKind::Shield);
         let mut world = World::new(&scenario, 1000);
@@ -8597,7 +8873,8 @@ mod tests {
 
         let severed: Vec<BodyPart> = BodyPart::ALL.into_iter()
             .filter(|part| !world.wounds[1].present(*part)).collect();
-        assert_eq!(severed.len(), 1, "the blow did not take exactly one region");
+        assert_eq!(severed.len(), 1, "the blow did not take exactly one region: {:?}",
+                   world.first_contact_rejection());
         let contact = world.contact.as_ref().expect("articulated contact state");
         let body = contact.colliders.iter().find(|row| row.entity == EntityId::new(1, 0)
             && matches!(row.shape, ContactShape::Body { .. })).expect("a body row");
@@ -9150,6 +9427,7 @@ mod tests {
         world.build_contact_colliders(&contact.entry, &mut colliders, &wounds);
 
         let mut blades = 0;
+        let mut swinging = 0;
         for row in &colliders {
             let i = world.resolve(row.entity).expect("a live collider row");
             let ContactShape::Segment { previous_hilt, previous_tip,
@@ -9166,7 +9444,17 @@ mod tests {
                 + world.arms[i][limb].linear_velocity;
             let item = world.equipment_in_grip(i, limb).expect("a held item");
             let swing = (requested_tip - previous_tip) - (requested_hilt - previous_hilt);
-            assert_ne!(swing, Vec3::ZERO, "the fixture's blade is not swinging");
+
+            // The clinch carries two segment rows, and the defender's retained
+            // blade can legitimately be still on the tick the attacking blade
+            // resolves. It remains part of the population check below, but it
+            // cannot prove where a *moving* blade is sampled.
+            if swing == Vec3::ZERO {
+                assert_eq!(row.velocity, hand,
+                           "a still blade grew a centre-of-mass velocity offset");
+                blades += 1;
+                continue;
+            }
 
             assert_eq!(row.velocity, hand + swing * item.balance,
                        "the blade is not sampled at `balance` along its own swing");
@@ -9177,8 +9465,10 @@ mod tests {
             // exactly the hand velocity the entry clamp made legal.
             assert_eq!(row.velocity - row.velocity_offset, hand);
             blades += 1;
+            swinging += 1;
         }
         assert!(blades > 0, "the fixture built no segment row to sample");
+        assert!(swinging > 0, "the fixture built no swinging segment row to sample");
     }
 
     #[test]
@@ -9263,8 +9553,9 @@ mod tests {
                   else { GeneralizedKind::Equipment },
             mass: row.mass, velocity: row.velocity, velocity_offset: row.velocity_offset,
         }).collect();
-        let held = rows.iter().find(|row| row.kind == GeneralizedKind::Equipment)
-            .copied().expect("the fixture built no equipment row to project");
+        let held = rows.iter().find(|row| {
+            row.kind == GeneralizedKind::Equipment && row.velocity_offset != Vec3::ZERO
+        }).copied().expect("the fixture built no swinging equipment row to project");
         // The second premise, and it is new: this row's velocity is sampled at
         // its blade's centre of mass, so the identity below is being asked of a
         // number that is *not* the hand's. A fixture whose blade happened to be
@@ -10747,7 +11038,7 @@ mod tests {
 
     #[cfg(feature = "cartesian-recoil")]
     #[test]
-    fn retained_world_commit_activates_only_the_direct_sword_and_next_tick_reconciles() {
+    fn retained_world_commit_preserves_the_direct_swords_exact_recoil_and_next_tick_reconciles() {
         let (mut world, contact, _, fact, _, _, _) = directional_captured_strike();
         let source = world.resolve(fact.key.a).unwrap();
         let target = world.resolve(fact.key.b).unwrap();
@@ -10760,9 +11051,11 @@ mod tests {
                          world.arms[target][1].post_contact_com_velocity);
         world.contact = Some(contact);
         world.resolve_contact();
-        assert!(world.arms[source][source_limb].post_contact_active,
-                "direct equipment response did not activate COM recoil");
-        assert_ne!(world.arms[source][source_limb].post_contact_com_velocity, Vec3::ZERO);
+        let exact_recoil = world.exact_owners[source].unwrap().held_response[source_limb]
+            .unwrap().affine.momentum;
+        assert!(exact_recoil.iter().any(|word|
+            word.velocity_raw != 0 || word.remainder != 0),
+            "direct equipment response did not retain exact COM recoil");
         assert_eq!((world.arms[target][1].post_contact_active,
                     world.arms[target][1].post_contact_com_velocity), body_only,
                    "body-only translation cleared or replaced held COM recoil");
@@ -10771,14 +11064,14 @@ mod tests {
                     entry.linear_velocity.x.raw(), entry.linear_velocity.y.raw(),
                     entry.linear_velocity.z.raw(), entry.post_contact_com_velocity.x.raw(),
                     entry.post_contact_com_velocity.y.raw(), entry.post_contact_com_velocity.z.raw()),
-                   (49_112, -18_087, 29_491, 113, 2_172, 0, 191, 3_689, 0));
+                   (49_111, -18_114, 29_491, 112, 2_145, 0, -147, -2_829, 0));
         world.drive_articulated_arms(actuator::ARM_BEARING_MAX_SPEED_RAW,
                                      actuator::ARM_BEARING_ACCEL_RAW);
         let next = world.arms[source][source_limb];
         assert_eq!((next.hand.x.raw(), next.hand.y.raw(), next.hand.z.raw(),
                     next.post_contact_com_velocity.x.raw(), next.post_contact_com_velocity.y.raw(),
                     next.post_contact_com_velocity.z.raw(), next.fatigue.raw(), next.work_residue.raw()),
-                   (49_201, -14_500, 29_491, 89, 3_587, 0, 20, 163));
+                   (49_040, -22_754, 29_491, -45, -2_727, 0, 22, 1));
         assert!(next.hand != entry.hand || next.post_contact_com_velocity != entry.post_contact_com_velocity,
                 "active COM recoil was ignored on the next actuator tick");
         assert!(next.fatigue >= entry.fatigue);
@@ -10831,6 +11124,18 @@ mod tests {
         let ledger = world.recoil_external_energy(id, LimbSlot::RightArm).unwrap();
         assert_eq!((ledger.reason_mask, ledger.dissipated_numerator, ledger.supplied_numerator),
                    (RecoilExternalEnergy::RELEASE, 1_137_696, 0));
+        assert_eq!(world.exact_external_energy(), &[ExactExternalEnergyRow {
+            entity: id, lane: 2, reason: RecoilExternalEnergy::RELEASE,
+            signed_numerator: -1_137_696,
+            denominator: 2i128 * 65_536 * 65_536,
+        }]);
+        let release_hash = world.state_digest();
+        world.contact.as_mut().unwrap().exact_external_energy[0].reason =
+            RecoilExternalEnergy::REPLACEMENT;
+        assert_ne!(world.state_digest().value, release_hash.value,
+                   "the external reconciliation row was absent from the feature hash");
+        world.contact.as_mut().unwrap().exact_external_energy[0].reason =
+            RecoilExternalEnergy::RELEASE;
 
         let mut free_left = world.neutral_articulated(0);
         free_left.grips = [GripRequest::Release, GripRequest::Keep];
@@ -10852,6 +11157,25 @@ mod tests {
         assert_eq!(ledger.dissipated_numerator, 1_137_696 + 349_026_222_342_144);
         assert_eq!((world.grips[0][1].equipment_slot, world.arms[0][1].post_contact_active,
                     world.arms[0][1].post_contact_com_velocity), (Some(1), false, Vec3::ZERO));
+
+        world.retain_contact_entry();
+        assert!(world.exact_external_energy().is_empty(),
+                "last tick's authoritative reconciliation survived the tick boundary");
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn cap_reconciliation_uses_the_same_exact_signed_row_grammar() {
+        let mut world = World::new(&Scenario::articulated_duel(), 0);
+        world.retain_contact_entry();
+        let entity = world.id_of(0);
+        let mut contact = world.contact.take().unwrap();
+        World::record_recoil_external_in(&mut contact, entity, 0, 1,
+            RecoilExternalEnergy::CAP, 17, 5);
+        assert_eq!(contact.exact_external_energy, vec![ExactExternalEnergyRow {
+            entity, lane: 2, reason: RecoilExternalEnergy::CAP,
+            signed_numerator: -12, denominator: 2i128 * 65_536 * 65_536,
+        }]);
     }
 
     #[cfg(feature = "cartesian-recoil")]
@@ -11710,137 +12034,181 @@ mod tests {
             Err(CartesianMotorReject::Overflow));
     }
 
+    #[cfg(feature = "cartesian-recoil")]
     #[test]
     fn wall_settlement_never_increases_entity_closure_energy() {
-        // A fighter pinned against the east wall with a brute walking its club
-        // into him: the impulse is due east and has nowhere to go. Poses are
-        // set on the columns rather than coaxed out of the actuator, because
-        // what is under test is the settlement and a fixture that had to turn a
-        // body around first would stop testing it the day a yaw rate moved.
+        // Retain one real club/body fact, then give its finalized exact row an
+        // eastward impulse at the wall. The old thirty-tick command fixture
+        // stopped reaching this boundary once exact response persisted across
+        // ticks; its final assertion measured the actuator rather than the
+        // settlement it named.
         let mut world = clinch_world();
-        let fighter = Fx::from_int(24) - world.radius[0];
-        world.pos[0] = Vec2::new(fighter, Fx::from_int(8));
-        // 1.8625 west, which puts the club's tip a fifth of a unit short of the
-        // fighter's axis: close enough to overlap the 0.41 radius sum, far
-        // enough that the tip is the closest feature and the normal is exactly
-        // east.
-        world.pos[1] = Vec2::new(fighter - Fx::from_ratio(149, 80),
-                                 Fx::from_int(8) - Fx::from_ratio(3, 10));
+        let wall_side = Fx::from_int(24) - world.radius[1];
+        world.pos[1] = Vec2::new(wall_side, Fx::from_int(8));
+        world.pos[0] = Vec2::new(wall_side - Fx::from_ratio(3, 2), Fx::from_int(8));
         world.body_yaw[0].angle = Angle::ZERO;
         world.body_yaw[1].angle = Angle::ZERO;
+        brace_weapon(&mut world, 0);
+        let mut contact = exact_contact_fixture(&mut world);
+        let mut scan = crate::combat::contact::ContactCollectionScratch::default();
+        scan.try_reserve(64).unwrap();
+        scan_exact_candidates_into(&contact.exact_trajectories, &contact.exact_owners,
+            &contact.colliders, &mut scan).unwrap();
+        let fighter_id = world.id_of(1);
+        let facts: Vec<_> = scan.candidates().iter().map(|row| row.fact).collect();
+        let fact = facts.iter().copied().find(|fact|
+            (fact.key.a == fighter_id && fact.key.a_slot == BODY_SLOT)
+                || (fact.key.b == fighter_id && fact.key.b_slot == BODY_SLOT))
+            .unwrap_or_else(|| panic!("the retained club never contacted the wall-side body: {facts:?}"));
+        let east = Vec3::new(Fx::from_int(2), Fx::ZERO, Fx::ZERO);
+        let on_a = if fact.key.a == fighter_id { east } else { -east };
+        let resolution = ContactResolution { group_ordinal: 0,
+            group_alpha_raw: fact.toi.get().raw() as u32, fact,
+            impulse: crate::combat::contact::ContactImpulse {
+                key: fact.key, on_a, on_b: -on_a,
+            }, energy: Default::default(), cut_raw: 0, thrust_raw: 0, pressure_raw: 0,
+            deflected_raw: 0, severed: false };
+        let applied = apply_exact_group(&contact.exact_trajectories, &contact.exact_owners,
+            &[resolution], fact.toi.get().raw() as u32).unwrap();
+        applied.owners.copy_into(&mut contact.exact_owners).unwrap();
+        let finished = advance_exact(&contact.exact_owners, 65_536).unwrap();
+        finished.copy_into(&mut contact.exact_owners).unwrap();
+        contact.resolutions.push(resolution);
+        // Retain one held row so the wall's removal is named in the external
+        // equipment ledger as well as visible in the body endpoint.
+        contact.entry[1].clamped[1] = true;
+        world.stage_exact_contact(&mut contact).unwrap();
 
-        let mut walking = reaching_command(Angle::ZERO, Fx::from_ratio(1, 4));
-        walking.move_dir = Vec2::X;
-        walking.arms = [ArmTarget { bearing: Angle::ZERO, height: crate::CombatHeight::MID,
-                                    reach: Fx::from_ratio(1, 4), effort: Fx::ZERO }; 2];
-        let mut clipped = 0usize;
-        for _ in 0..30 {
-            world.submit_articulated_v1(EntityId::new(1, 0), walking);
-            world.step();
-            let contact = world.contact.as_ref().expect("articulated contact state");
-            if world.contact_resolutions().is_empty() { continue; }
+        let closure = |world: &World, contact: &ContactRuntime, solved: bool| {
+            contact.colliders.iter().map(|collider| {
+                let i = world.resolve(collider.entity).unwrap();
+                let staged = contact.exact_commit.iter().find(|row|
+                    row.entity == collider.entity).unwrap();
+                let body = if solved {
+                    Vec3::new(staged.velocity.x, staged.velocity.y, Fx::ZERO)
+                } else { Vec3::new(world.vel[i].x, world.vel[i].y, Fx::ZERO) };
+                let velocity = if matches!(collider.shape, ContactShape::Body { .. }) { body }
+                    else {
+                        let limb = collider.slot as usize;
+                        let relative = if solved { staged.arms[limb]
+                            .map_or(world.arms[i][limb].linear_velocity, |arm| arm.linear_velocity) }
+                            else { world.arms[i][limb].linear_velocity };
+                        body + relative
+                    };
+                GeneralizedCollider { entity: collider.entity, slot: collider.slot,
+                    kind: if matches!(collider.shape, ContactShape::Body { .. }) {
+                        GeneralizedKind::Body } else { GeneralizedKind::Equipment },
+                    mass: collider.mass, velocity, velocity_offset: Vec3::ZERO }
+            }).collect::<Vec<_>>()
+        };
+        let before = closure(&world, &contact, true);
+        assert!(before.iter().any(|row| row.entity == fighter_id
+            && row.kind == GeneralizedKind::Body && row.velocity.x > Fx::ZERO),
+            "the retained strike did not cross the wall");
+        world.commit_exact_contact(&mut contact);
+        let after = closure(&world, &contact, false);
+        let before_energy = crate::combat::resolution::closure_energy(&before).unwrap();
+        let after_energy = crate::combat::resolution::closure_energy(&after).unwrap();
+        assert!(after_energy <= before_energy,
+            "wall settlement added energy: {before_energy} -> {after_energy}");
+        assert_eq!((world.pos[1].x, world.vel[1].x), (wall_side, Fx::ZERO));
+        let ledger = contact.recoil_external[1][1];
+        assert_eq!(ledger.reason_mask, RecoilExternalEnergy::WALL);
+        assert!(ledger.dissipated_numerator > 0 && ledger.supplied_numerator == 0);
+        let exact = contact.exact_external_energy.last().copied().unwrap();
+        assert_eq!((exact.entity, exact.lane, exact.reason, exact.denominator),
+                   (fighter_id, 2, RecoilExternalEnergy::WALL,
+                    2i128 * 65_536 * 65_536));
+        assert!(exact.signed_numerator < 0);
 
-            // The solver's answer, and then the world it was committed onto.
-            // Settlement is the only step between them that may remove energy,
-            // and the contract requires that it never add any.
-            // Both sides are read at the *hand*, which is the whole of what
-            // settlement can touch: `commit_contact_row` zeroes a wall-clipped
-            // component of `body + arm.linear_velocity`, and a held segment's
-            // centre-of-mass offset is a property of the swing that the wall
-            // moves rigidly and cannot add to. Comparing the sampled velocities
-            // instead would fold a constant into both sides and let a sign
-            // between the two report an increase the wall never made.
-            let solved = |contact: &ContactRuntime| -> Vec<GeneralizedCollider> {
-                contact.colliders.iter().map(|row| GeneralizedCollider {
-                    entity: row.entity, slot: row.slot,
-                    kind: if matches!(row.shape, ContactShape::Body { .. }) { GeneralizedKind::Body }
-                          else { GeneralizedKind::Equipment },
-                    mass: row.mass, velocity: row.velocity - row.velocity_offset,
-                    velocity_offset: Vec3::ZERO,
-                }).collect()
-            };
-            let before = solved(contact);
-            let after: Vec<GeneralizedCollider> = before.iter().map(|row| {
-                let i = world.resolve(row.entity).expect("a live contact row");
-                let body = Vec3::new(world.vel[i].x, world.vel[i].y, Fx::ZERO);
-                GeneralizedCollider {
-                    velocity: match row.kind {
-                        GeneralizedKind::Body => body,
-                        GeneralizedKind::Equipment => body + world.arms[i][row.slot as usize].linear_velocity,
-                    },
-                    ..*row
-                }
-            }).collect();
-            let (before_energy, after_energy) = (
-                crate::combat::resolution::closure_energy(&before).expect("bounded closure"),
-                crate::combat::resolution::closure_energy(&after).expect("bounded closure"),
-            );
-            assert!(after_energy <= before_energy,
-                "wall settlement added energy: {before_energy} -> {after_energy}");
-
-            if before.iter().any(|row| row.kind == GeneralizedKind::Body
-                && row.entity.index == 0 && row.velocity.x > Fx::ZERO)
-                && world.vel[0].x == Fx::ZERO
-            {
-                clipped += 1;
-                // The wall's share reaches the held colliders too, or the
-                // fighter's own sword would keep travelling east through the
-                // masonry its owner just stopped against.
-                for limb in 0..2 {
-                    assert_eq!(world.vel[0].x + world.arms[0][limb].linear_velocity.x, Fx::ZERO,
-                        "a held collider kept the component the wall took");
-                }
-            }
-        }
-        assert!(clipped > 0, "the fixture never drove a contacted body into the wall");
+        world.contact = Some(contact);
+        world.retain_contact_entry();
+        world.record_contact_locomotion();
+        let mut next = world.contact.take().unwrap();
+        world.build_contact_colliders(&next.entry, &mut next.colliders, &world.wounds);
+        build_exact_contact_trajectories(&world, &mut next, &world.wounds)
+            .expect("wall reconciliation left an invalid next exact state");
     }
 
     #[test]
     fn both_has_one_right_owned_collider_and_mirrors_after_contact() {
-        // The club, rebound to both hands. Nothing in the shipped table is
-        // two-handed yet, and `validate_equipment` refuses a two-handed shield,
-        // so a segment is the only thing this proof can be written against.
-        let mut scenario = Scenario::articulated_duel();
-        scenario.units[0].spawn = Vec2::from_ints(10, 8);
-        scenario.units[1].spawn = Vec2::new(Fx::from_ratio(23, 2), Fx::from_int(8));
-        let table = scenario.combat_specs.as_mut().expect("articulated combat specs");
-        table.equipment[2].binding = crate::GripBinding::Both;
-        let mut world = World::new(&scenario, 1000);
-        assert!(world.two_handed(1), "the brute is not holding the club in both hands");
+        // Reuse the retained directional strike's measured placement and
+        // chamber, but make its sword two-handed. Bracing a straight segment
+        // did not close in this geometry; the captured sweep does, at positive
+        // time, and therefore proves the ownership rule against a real hit.
+        let mut config = crate::DuelConfigV1::shipped();
+        config.fighters[0].spawn = Vec2::from_ints(10, 8);
+        config.fighters[0].hands[0] = None;
+        config.fighters[0].hands[1].as_mut().unwrap().geometry = crate::EquipmentGeometry::Segment {
+            length: Fx::from_int(2), radius: Fx::from_ratio(1, 25),
+        };
+        config.fighters[1].spawn = Vec2::new(Fx::from_ratio(631, 50), Fx::from_int(8));
+        config.fighters[1].anatomy = crate::AnatomyChoice::Fighter;
+        config.max_ticks = 96;
+        let mut scenario = Scenario::duel_from(&config).unwrap();
+        let sword = scenario.units[0].articulated.unwrap().equipment.into_iter()
+            .flatten().next().unwrap();
+        scenario.combat_specs.as_mut().unwrap().equipment.iter_mut()
+            .find(|row| row.id == sword).unwrap().binding = crate::GripBinding::Both;
+        let mut world = World::new(&scenario, 0);
+        assert!(world.two_handed(0), "the fighter is not holding its sword in both hands");
 
-        // The control: the same brute, alone, so its arms carry the actuator's
-        // answer and nothing else.
-        let mut alone = World::new(&scenario, 1000);
-        alone.pos[0] = Vec2::from_ints(60, 8);
-
-        for _ in 0..40 {
-            for target in [&mut world, &mut alone] {
-                target.submit_articulated_v1(EntityId::new(0, 0), reaching_command(Angle::ZERO, Fx::ONE));
-                target.submit_articulated_v1(EntityId::new(1, 0), reaching_command(Angle::HALF, Fx::ONE));
-                target.step();
-            }
-            let contact = world.contact.as_ref().expect("articulated contact state");
-            let owned: Vec<u8> = contact.colliders.iter()
-                .filter(|row| row.entity.index == 1 && !matches!(row.shape, ContactShape::Body { .. }))
-                .map(|row| row.slot).collect();
-            assert_eq!(owned, vec![1], "a `Both` item emitted other than one right-owned collider");
-            assert!(!world.contact_resolutions().iter().any(|row| {
-                (row.fact.key.a.index == 1 && row.fact.key.a_slot == 0)
-                    || (row.fact.key.b.index == 1 && row.fact.key.b_slot == 0)
-            }), "the mirrored left arm was keyed as a collider");
+        let (attacker, defender) = (world.id_of(0), world.id_of(1));
+        let yaw = world.body_yaw[0].angle;
+        let chamber = Angle::from_raw(yaw.raw().wrapping_sub(Angle::QUARTER.raw()));
+        let strike = |world: &World, bearing| {
+            let mut command = world.neutral_articulated(0);
+            command.intent = Intent::Attack(defender);
+            command.arms[1] = ArmTarget { bearing, height: crate::CombatHeight::LOW,
+                                          reach: Fx::ONE, effort: Fx::ONE };
+            command
+        };
+        for _ in 0..48 {
+            world.submit_articulated_v1(attacker, strike(&world, chamber));
+            world.submit_articulated_v1(defender, world.neutral_articulated(1));
+            world.step();
         }
+        let mut hit = false;
+        for _ in 0..48 {
+            world.submit_articulated_v1(attacker, strike(&world, yaw));
+            world.submit_articulated_v1(defender, world.neutral_articulated(1));
+            world.step();
+            if world.contact_resolutions().iter().any(|row|
+                row.fact.key.kind == ContactKind::WeaponBody) {
+                hit = true;
+                break;
+            }
+        }
+        assert!(hit, "the two-handed captured strike lost its weapon/body contact");
+        let contact = world.contact.as_ref().expect("articulated contact state");
+        let owned: Vec<u8> = contact.colliders.iter()
+            .filter(|row| row.entity.index == 0 && !matches!(row.shape, ContactShape::Body { .. }))
+            .map(|row| row.slot).collect();
+        assert_eq!(owned, vec![1], "a `Both` item emitted other than one right-owned collider");
+        assert!(!world.contact_resolutions().iter().any(|row| {
+            (row.fact.key.a.index == 0 && row.fact.key.a_slot == 0)
+                || (row.fact.key.b.index == 0 && row.fact.key.b_slot == 0)
+        }), "the mirrored left arm was keyed as a collider");
 
-        // Contact moved the owner, and the mirror followed it. The control is
-        // what makes the first half of that non-vacuous: without it, "the left
-        // arm mirrors the right" is equally true of a tick that resolved
-        // nothing, because the actuator mirrors it too.
-        assert_ne!(world.arms[1][1].hand, alone.arms[1][1].hand,
-            "contact never moved the two-handed owner");
+        // A direct held response names the non-vacuous contact move; mirroring
+        // alone would also be true of an actuator-only tick.
+        #[cfg(feature = "cartesian-recoil")]
+        assert!(world.arms[0][1].post_contact_active,
+                "the contact did not activate the two-handed owner");
         let anatomy = world.combat_specs.as_ref().unwrap()
-            .anatomy(world.articulated_anatomy[1].unwrap()).unwrap().clone();
-        let mut expected = world.arms[1][0];
-        actuator::mirror_two_handed(&mut expected, world.arms[1][1], &anatomy, world.body_yaw[1].angle);
-        assert_eq!(world.arms[1][0], expected, "the left arm was left on its pre-contact mirror");
+            .anatomy(world.articulated_anatomy[0].unwrap()).unwrap().clone();
+        let mut expected = world.arms[0][0];
+        actuator::mirror_two_handed(&mut expected, world.arms[0][1], &anatomy, world.body_yaw[0].angle);
+        assert_eq!(world.arms[0][0], expected, "the left arm was left on its pre-contact mirror");
+        #[cfg(feature = "cartesian-recoil")]
+        assert_eq!((world.arms[0][0].post_contact_com_velocity,
+                    world.arms[0][0].post_contact_active), (Vec3::ZERO, false),
+                   "the nonowning mirror retained a second recoil response");
+        #[cfg(feature = "cartesian-recoil")]
+        let owner = world.exact_owners[0].expect("the contacted owner lost its exact state");
+        #[cfg(feature = "cartesian-recoil")]
+        assert!(owner.held_response[0].is_none() && owner.held_response[1].is_some(),
+                "a two-handed contact grew a second held response row");
     }
 
     // ------------------------------------------------------------- published pose
@@ -12078,6 +12446,7 @@ mod tests {
             // monster in a fighter's body is legal and validated: it is the row
             // unit 0 already carries.
             if step == 0 {
+                unit.kind = scenario.units[0].kind;
                 unit.articulated = scenario.units[0].articulated;
                 // The loadout has to move with it: construction validates that
                 // the two agree slot for slot.
@@ -12830,6 +13199,8 @@ mod tests {
         let mut bytes = anatomy_suffix_bytes(world);
         #[cfg(feature = "cartesian-recoil")]
         for owner in &world.exact_owners {
+            bytes.extend_from_slice(&owner.map_or(0, |row| row.common_scale).to_le_bytes());
+            bytes.extend_from_slice(&owner.map_or(0, |row| row.common_response.mass_raw).to_le_bytes());
             let append_affine = |bytes: &mut Vec<u8>, affine: Option<&ExactAffine3>| {
                 for axis in 0..3 {
                     let (velocity_raw, momentum_remainder, position_raw, position_remainder) =
@@ -12851,6 +13222,18 @@ mod tests {
                 bytes.push(held.is_some() as u8);
                 bytes.extend_from_slice(&held.map_or(0, |row| row.spec_id).to_le_bytes());
                 append_affine(&mut bytes, held.map(|row| &row.affine));
+            }
+        }
+        #[cfg(feature = "cartesian-recoil")]
+        {
+            let external = world.exact_external_energy();
+            bytes.extend_from_slice(&(external.len() as u32).to_le_bytes());
+            for row in external {
+                bytes.extend_from_slice(&row.entity.index.to_le_bytes());
+                bytes.extend_from_slice(&row.entity.generation.to_le_bytes());
+                bytes.push(row.lane); bytes.push(row.reason);
+                bytes.extend_from_slice(&row.signed_numerator.to_le_bytes());
+                bytes.extend_from_slice(&row.denominator.to_le_bytes());
             }
         }
         bytes
@@ -12890,7 +13273,7 @@ mod tests {
         #[cfg(not(feature = "cartesian-recoil"))]
         assert_eq!(rows.len(), base.alive.len() * crate::anatomy::ANATOMY_HASH_ROW_BYTES);
         #[cfg(feature = "cartesian-recoil")]
-        assert_eq!(rows.len(), base.alive.len() * (crate::anatomy::ANATOMY_HASH_ROW_BYTES + 222));
+        assert_eq!(rows.len(), base.alive.len() * (crate::anatomy::ANATOMY_HASH_ROW_BYTES + 386) + 4);
         let actuator_tail = unwind(base.state_digest().value, 0, &rows);
         assert_eq!(unwind(bumped.state_digest().value, 1, &rows), actuator_tail,
                    "cap_hits and the authoritative rows are not the digest's tail");
@@ -13366,7 +13749,10 @@ mod tests {
         let digest = base.state_digest().value;
 
         let mut changed = base_scenario.clone();
-        changed.combat_specs.as_mut().unwrap().equipment[0].mass += Fx::from_raw(1);
+        // This probe is about immutable spec bytes, not construction refusal.
+        // A one-raw mass perturbation makes the exact ownership totals coprime
+        // enough to leave the deliberate 96-bit lattice envelope.
+        changed.combat_specs.as_mut().unwrap().equipment[0].balance += Fx::from_raw(1);
         let changed_world = World::new(&changed, 1);
         assert_eq!(changed_world.state_hash(), legacy_core);
         assert_ne!(changed_world.state_digest().value, digest);
