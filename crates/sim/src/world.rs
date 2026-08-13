@@ -8656,7 +8656,9 @@ mod tests {
         // row transfer it shipped with, so this fixture pins both laws rather
         // than pretending their independently rounded losses are identical.
         #[cfg(feature = "cartesian-recoil")]
-        assert_eq!(part.integrity, Fx::from_raw(348_800));
+        // Smart38's lifted restitution/cone gate measures raw integrity
+        // 292064: a raw 232224 floor-once physical loss from the eight-sweep solve.
+        assert_eq!(part.integrity, Fx::from_raw(292_064));
         #[cfg(not(feature = "cartesian-recoil"))]
         assert_eq!(part.integrity, Fx::from_int(8) - Fx::from_raw(344_064));
         assert!(world.contact_resolutions().iter().all(|row| !row.severed),
@@ -8710,9 +8712,10 @@ mod tests {
         // Exact recoil floors the complete physical energy change once; the
         // legacy resolver floors its generalized transfer. Armour receives
         // the incident budget produced by the selected law, and the two
-        // literal pairs make an accidental cross-wiring visible.
+        // literal pairs make an accidental cross-wiring visible. The lifted
+        // restitution/cone choice moves the physical floor-once incident loss.
         #[cfg(feature = "cartesian-recoil")]
-        assert_eq!((incoming, deflected), (1_828, 1_624));
+        assert_eq!((incoming, deflected), (2_419, 2_149));
         #[cfg(not(feature = "cartesian-recoil"))]
         assert_eq!((incoming, deflected), (3_584, 3_185));
         assert!(deflected < incoming, "the plate deflected the whole incident budget");
@@ -8840,9 +8843,10 @@ mod tests {
         // when the sum above still holds.
         // The exact feature allocates the one physical, floor-once loss; the
         // legacy path keeps its established generalized-row loss. Both still
-        // exercise the same proportional-share and final-remainder rule.
+        // exercise the same proportional-share and final-remainder rule. The
+        // lifted restitution/cone choice moves that physical floor-once loss.
         #[cfg(feature = "cartesian-recoil")]
-        assert_eq!((sword.raw(), club.raw()), (2_951_191, 194_537));
+        assert_eq!((sword.raw(), club.raw()), (2_782_916, 362_812));
         #[cfg(not(feature = "cartesian-recoil"))]
         assert_eq!((sword.raw(), club.raw()), (2_753_037, 392_691));
     }
@@ -9699,6 +9703,170 @@ mod tests {
         }).collect();
         (world, contact, rows, fact, old_proposal, owned_proposal,
          row_a.surface.friction.min(row_b.surface.friction))
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[derive(Clone, PartialEq, Eq, Debug)]
+    struct OrdinaryLiftedStrikeMeasurement {
+        row: ContactResolution,
+        dissipated_raw: u64,
+        anatomy: AnatomyState,
+        integrity_loss_raw: i32,
+        remainders_after: (bool, bool),
+        remainders_next: (bool, bool),
+        refusal: Option<ResolutionError>,
+        cap_hits: u32,
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+    enum LiftedStrikeProvenance { OrdinarySubmittedCommands, DirectPoseOrExactState }
+
+    #[cfg(feature = "cartesian-recoil")]
+    fn require_ordinary_strike_provenance(source: LiftedStrikeProvenance)
+        -> Result<(), &'static str>
+    {
+        if source != LiftedStrikeProvenance::OrdinarySubmittedCommands {
+            return Err("Smart38-C refuses direct pose or exact-state strike fixtures");
+        }
+        Ok(())
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    fn measure_ordinary_lifted_strike(mirrored: bool, bearing_delta: i32, reach_delta: i32)
+        -> Result<OrdinaryLiftedStrikeMeasurement, &'static str>
+    {
+        require_ordinary_strike_provenance(LiftedStrikeProvenance::OrdinarySubmittedCommands)?;
+        // These are the declared Smart38-C corpus bytes. They are deliberately
+        // assembled before the first world is stepped, so a result cannot tune
+        // its own command geometry.
+        const PERTURBATIONS: [(i32, i32); 9] = [
+            (-1, -1), (-1, 0), (-1, 1),
+            (0, -1),  (0, 0),  (0, 1),
+            (1, -1),  (1, 0),  (1, 1),
+        ];
+        if !PERTURBATIONS.contains(&(bearing_delta, reach_delta)) {
+            return Err("strike measurement accepted a result-selected perturbation");
+        }
+        let mut config = crate::DuelConfigV1::shipped();
+        config.fighters[1].anatomy = crate::AnatomyChoice::Fighter;
+        let target = Vec2::new(Fx::from_raw(819_200), Fx::from_int(8));
+        config.fighters[1].spawn = target;
+        config.fighters[0].spawn = target + Vec2::new(Fx::from_raw(-163_840), Fx::ZERO);
+        config.max_ticks = 57;
+        let mut world = World::new(&Scenario::duel_from(&config).map_err(|_| "invalid corpus")?, 0);
+        let (attacker, defender) = (world.id_of(0), world.id_of(1));
+        let sign = if mirrored { -1 } else { 1 };
+        let reach = Fx::from_raw(Fx::ONE.raw().checked_add(reach_delta)
+            .ok_or("reach perturbation overflow")?);
+        let command = |world: &World, bearing_raw: i32| {
+            let mut row = world.neutral_articulated(0);
+            row.intent = Intent::Attack(defender);
+            row.arms[1] = ArmTarget { bearing: Angle::from_raw(
+                (sign * bearing_raw + bearing_delta) as u16),
+                height: crate::CombatHeight::LOW, reach, effort: Fx::ONE };
+            row
+        };
+        let before = world.anatomy_test_view(defender).ok_or("missing target anatomy")?;
+        let before_integrity: i32 = before.parts.iter().map(|part| part.integrity.raw()).sum();
+        let mut found = None;
+        for tick in 0..56 {
+            let bearing = if tick < 28 { -8_192 } else { 8_192 };
+            if !matches!(world.submit_articulated_v1(attacker, command(&world, bearing)),
+                         SubmitArticulatedOutcome::Stored { .. }) {
+                return Err("ordinary attacking command was not stored");
+            }
+            if !matches!(world.submit_articulated_v1(defender, world.neutral_articulated(1)),
+                         SubmitArticulatedOutcome::Stored { .. }) {
+                return Err("ordinary target command was not stored");
+            }
+            world.step();
+            let rows: Vec<_> = world.contact_resolutions().iter().copied().filter(|row|
+                row.fact.key.kind == ContactKind::WeaponBody
+                    && row.fact.key.a == attacker && row.fact.key.a_slot == 1
+                    && row.fact.key.b == defender).collect();
+            if rows.len() > 1 { return Err("attacking weapon acquired competing body contacts"); }
+            if let Some(row) = rows.first().copied() { found = Some(row); break; }
+        }
+        let row = found.ok_or("declared strike produced no attributed WeaponBody contact")?;
+        if row.fact.toi.get() <= Fx::ZERO || row.fact.toi.get() >= Fx::ONE {
+            return Err("strike TOI was not interior");
+        }
+        if row.impulse.on_a == Vec3::ZERO { return Err("lifted strike selected zero impulse"); }
+        let refusal = world.first_contact_rejection();
+        let cap_hits = world.contact_cap_hits();
+        if refusal.is_some() || cap_hits != 0 { return Err("solver refusal or group cap preceded damage"); }
+        let remainders_after = world.exact_trajectory_remainder_test_view(attacker)
+            .ok_or("missing exact remainder view")?;
+        let anatomy = world.anatomy_test_view(defender).ok_or("missing post anatomy")?;
+        let after_integrity: i32 = anatomy.parts.iter().map(|part| part.integrity.raw()).sum();
+        let dissipated_raw = world.contact_resolutions().iter()
+            .map(|row| row.energy.dissipated_raw).sum();
+        world.submit_articulated_v1(attacker, command(&world, 8_192));
+        world.submit_articulated_v1(defender, world.neutral_articulated(1));
+        world.step();
+        let remainders_next = world.exact_trajectory_remainder_test_view(attacker)
+            .ok_or("missing following exact remainder view")?;
+        Ok(OrdinaryLiftedStrikeMeasurement { row, dissipated_raw, anatomy,
+            integrity_loss_raw: before_integrity - after_integrity, remainders_after,
+            remainders_next, refusal, cap_hits })
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    #[ignore = "Smart38-C frozen ordinary corpus produced no attributed WeaponBody contact"]
+    fn retained_strike_is_selected_by_mechanics_and_then_records_a_wound() {
+        let measured = measure_ordinary_lifted_strike(false, 0, 0)
+            .expect("the frozen central Smart38-C strike failed its mechanical gate");
+        assert!(measured.remainders_after.0 && measured.remainders_after.1,
+                "commit retained neither exact remainder class");
+        assert!(measured.remainders_next.0 && measured.remainders_next.1,
+                "the following tick erased an exact remainder class");
+        assert!(measured.row.cut_raw > 0 || measured.row.thrust_raw > 0,
+                "mechanically selected strike produced no sharp outcome");
+        assert!(measured.integrity_loss_raw > 0,
+                "damage was read only after mechanics, but the selected row wounded nothing");
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    #[ignore = "Smart38-C frozen ordinary corpus produced no attributed WeaponBody contact"]
+    fn ordinary_command_strike_and_eighteen_neighbours_pass_the_mirrored_gate() {
+        const PERTURBATIONS: [(i32, i32); 9] = [
+            (-1, -1), (-1, 0), (-1, 1),
+            (0, -1),  (0, 0),  (0, 1),
+            (1, -1),  (1, 0),  (1, 1),
+        ];
+        let mut positive = [false; 2];
+        for perturbation in PERTURBATIONS {
+            let plain = measure_ordinary_lifted_strike(false, perturbation.0, perturbation.1)
+                .unwrap_or_else(|why| panic!("plain {perturbation:?}: {why}"));
+            let mirror = measure_ordinary_lifted_strike(true, perturbation.0, perturbation.1)
+                .unwrap_or_else(|why| panic!("mirror {perturbation:?}: {why}"));
+            assert_eq!(plain.row.fact.key, mirror.row.fact.key, "mapped key {perturbation:?}");
+            assert_eq!(plain.row.fact.region, mirror.row.fact.region, "region {perturbation:?}");
+            assert!((plain.row.fact.toi.get().raw() - mirror.row.fact.toi.get().raw()).abs() <= 1,
+                    "TOI {perturbation:?}");
+            let q = plain.row.impulse.on_a; let m = mirror.row.impulse.on_a;
+            assert!((q.x.raw() - m.x.raw()).abs() <= 1
+                && (q.y.raw() + m.y.raw()).abs() <= 1
+                && (q.z.raw() - m.z.raw()).abs() <= 1, "impulse {perturbation:?}");
+            assert_eq!(plain.dissipated_raw, mirror.dissipated_raw, "energy {perturbation:?}");
+            assert_eq!(plain.anatomy, mirror.anatomy, "anatomy {perturbation:?}");
+            positive[0] |= (plain.row.cut_raw > 0 || plain.row.thrust_raw > 0)
+                && plain.integrity_loss_raw > 0;
+            positive[1] |= (mirror.row.cut_raw > 0 || mirror.row.thrust_raw > 0)
+                && mirror.integrity_loss_raw > 0;
+        }
+        assert_eq!(positive, [true; 2], "one mirrored side produced no positive sharp outcome");
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn mirrored_gate_rejects_a_direct_pose_or_exact_state_fixture() {
+        assert_eq!(require_ordinary_strike_provenance(
+            LiftedStrikeProvenance::DirectPoseOrExactState),
+            Err("Smart38-C refuses direct pose or exact-state strike fixtures"));
     }
 
     #[test]
@@ -11081,18 +11249,20 @@ mod tests {
                     world.arms[target][1].post_contact_com_velocity), body_only,
                    "body-only translation cleared or replaced held COM recoil");
         let entry = world.arms[source][source_limb];
+        // Smart38's lifted restitution/cone selection is the physical impulse
+        // retained here; the second tuple pins its ordinary next-tick reconciliation.
         assert_eq!((entry.hand.x.raw(), entry.hand.y.raw(), entry.hand.z.raw(),
                     entry.linear_velocity.x.raw(), entry.linear_velocity.y.raw(),
                     entry.linear_velocity.z.raw(), entry.post_contact_com_velocity.x.raw(),
                     entry.post_contact_com_velocity.y.raw(), entry.post_contact_com_velocity.z.raw()),
-                   (49_111, -18_114, 29_491, 112, 2_145, 0, -147, -2_829, 0));
+                   (49_097, -18_377, 29_491, 98, 1_882, 0, -240, -4_581, 0));
         world.drive_articulated_arms(actuator::ARM_BEARING_MAX_SPEED_RAW,
                                      actuator::ARM_BEARING_ACCEL_RAW);
         let next = world.arms[source][source_limb];
         assert_eq!((next.hand.x.raw(), next.hand.y.raw(), next.hand.z.raw(),
                     next.post_contact_com_velocity.x.raw(), next.post_contact_com_velocity.y.raw(),
                     next.post_contact_com_velocity.z.raw(), next.fatigue.raw(), next.work_residue.raw()),
-                   (49_040, -22_754, 29_491, -45, -2_727, 0, 22, 1));
+                   (48_933, -24_769, 29_491, -138, -4_479, 0, 22, 1));
         assert!(next.hand != entry.hand || next.post_contact_com_velocity != entry.post_contact_com_velocity,
                 "active COM recoil was ignored on the next actuator tick");
         assert!(next.fatigue >= entry.fatigue);

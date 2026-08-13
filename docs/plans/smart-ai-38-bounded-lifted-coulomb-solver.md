@@ -1,13 +1,18 @@
 # Smart AI 38 -- bounded lifted normal and circular-Coulomb solver
 
-**Status:** proposed feature-only successor to Smart36/37. Checkpoints A and B
-may begin once the full `cartesian-recoil` trajectory/lifecycle suite and the
+**Status:** checkpoints A and B are complete and green on 2026-08-13. Checkpoint C
+is blocked by its frozen mechanical corpus: the central ordinary-command strike
+and first literal neighbour `(-1,-1)` produced no attributed WeaponBody contact
+in the declared 28 chamber plus 28 follow ticks. No corpus byte or bound was
+retuned after that measurement. The full
+`cartesian-recoil` trajectory/lifecycle suite and the
 non-boundary replay proof in
 [`smart-ai-36-exact-lifted-trajectories.md`](smart-ai-36-exact-lifted-trajectories.md)
-are green. Checkpoint E's ordinary wall/cap replay is blocked on the stronger
-response this session supplies: after B, complete that replay and register its
-native/wasm exact-state digest before beginning C or D. This is an explicit
-dependency split, not permission to omit the checkpoint-E boundary row.
+are green. Checkpoint E's ordinary wall/cap replay remains blocked: B supplies the
+stronger law, but its unchanged stream accepts one breakpoint and then correctly
+refuses an energy-raising winner. Complete the replacement ordinary corpus and
+register its native/wasm exact-state digest before D. This is an explicit dependency
+split, not permission to omit the checkpoint-E boundary row.
 
 Smart36 makes an exact response trial authoritative, but it deliberately keeps the
 old point-mass proposal from
@@ -105,7 +110,9 @@ pub(crate) struct LiftedContact {
 pub(crate) struct LiftedSolverScratch {
     impulses: Vec<LiftedImpulse>,
     trial_rows: Vec<ContactResolution>,
+    trial_velocities: Vec<[WideRational4096; 3]>,
     candidates: Vec<LiftedCandidate>,
+    normal_candidates: Vec<LiftedCandidate>,
     trial_owners: Option<FixedExactOwners>,
 }
 
@@ -205,9 +212,12 @@ only exact response momentum changes. A trial derives relative velocities from
 velocity fields.
 
 Extend [`ContactTickScratch`](../../crates/sim/src/combat/resolution.rs#L581) with one
-retained `LiftedSolverScratch`. `try_reserve` reserves 16 impulses, 16 published rows,
-and 96 candidates before World allocation completes; capacity reporting includes all
-three `Vec`s. `FixedExactOwners` stays inline. No candidate, trial, cone comparison,
+retained `LiftedSolverScratch`. `try_reserve` reserves 16 impulses, 42 published rows,
+16 rational trial-velocity rows, 96 candidates, and 96 retained normal candidates
+before World allocation completes; capacity reporting includes all five `Vec`s. The
+two rational/candidate buffers moved off the native test stack after the first full B
+run produced `STATUS_STACK_OVERFLOW`; retaining them is mechanics correctness, not
+merely a test optimisation. `FixedExactOwners` stays inline. No candidate, trial, cone comparison,
 or score may allocate after warm-up. A refusal leaves owners, colliders, resolutions,
 anatomy, external ledger, and retained capacities byte-identical. The exact tick
 remains whole-tick atomic on every refusal, including its current group-cap refusal:
@@ -215,6 +225,14 @@ remains whole-tick atomic on every refusal, including its current group-cap refu
 restores anatomy and clears resolutions. Candidate trials inside one group also
 rebuild from the frozen group entry and never leak a partial trial. Preserving earlier
 groups across an exact cap would be a separate lifecycle contract change.
+
+The unchanged checkpoint-E ordinary command stream now yields one accepted group and
+then a named payloadless `ExactSolver` refusal: the lexicographically selected later
+candidate raises exact physical energy, so the law refuses it instead of resurrecting
+a lower-ranked candidate. Live run, rerun, and replay still match every tick and
+retain both remainder classes plus ordinary release. Checkpoint C must supply the
+predeclared robust command corpus and restore at least two accepted breakpoints before
+checkpoint E or the exact-state digest can be called complete.
 
 Add `ResolutionError::ExactSolver(LiftedSolverReject)` only if the enum remains
 crate-private end to end; otherwise add one named `ExactSolver` outer error and retain

@@ -516,7 +516,9 @@ mod tests {
                     "replay anatomy diverged at tick {}", tick + 1);
             }
         }
-        assert!(groups >= 2, "the fixture crossed only {groups} contact groups");
+        assert!(groups >= 1, "the fixture crossed no accepted contact group");
+        assert_eq!(first.first_contact_rejection(), Some(crate::ResolutionError::ExactSolver),
+                   "the lifted energy refusal stopped being public and payloadless");
         assert!(momentum_remainder, "the fixture produced no exact momentum remainder");
         assert!(position_remainder, "the fixture produced no exact position remainder");
         assert!(release, "the ordinary release cleared no retained response");

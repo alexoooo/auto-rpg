@@ -19,6 +19,9 @@ use crate::combat::trajectory::{advance_exact, apply_exact_group, ExactContactTr
                                 ExactOwnerTrajectory, FixedExactOwners, FloorReaction};
 #[cfg(feature = "cartesian-recoil")]
 use crate::combat::wide::WideRational4096;
+#[cfg(feature = "cartesian-recoil")]
+use crate::combat::lifted_solver::{solve_lifted_group, LiftedContact, LiftedSolverReject,
+                                  LiftedSolverScratch};
 use crate::combat::spec::{AnatomyRegion, SurfaceSpec};
 use crate::{EntityId, Faction};
 use fx::{Fx, TimeOfImpact, Vec3};
@@ -64,11 +67,21 @@ pub struct ProposedContact {
     pub channel: Option<WeaponBodyChannel>,
 }
 
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Copy)]
+struct DriverContact { fact: ContactFact, a_collider: usize, b_collider: usize,
+                       channel: Option<WeaponBodyChannel> }
+
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum ResolutionError {
     ColliderIndex, EnergyNumerator, ResolutionCount, Mass, Projector, DuplicateIdentity,
     ExactScan, ExactUnsupportedSweep, ExactResponsePending, ExactLifecyclePending,
-    ExactEnergyEnvelope,
+    ExactEnergyEnvelope, ExactSolver,
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn exact_solver_error(_error: LiftedSolverReject) -> ResolutionError {
+    ResolutionError::ExactSolver
 }
 
 #[cfg(feature = "cartesian-recoil")]
@@ -603,6 +616,12 @@ pub struct ContactTickScratch {
     old_velocities: Vec<Vec3>,
     #[cfg(feature = "cartesian-recoil")]
     motor_velocities: Vec<[i32; 3]>,
+    #[cfg(feature = "cartesian-recoil")]
+    driver_contacts: Vec<DriverContact>,
+    #[cfg(feature = "cartesian-recoil")]
+    lifted_contacts: Vec<LiftedContact>,
+    #[cfg(feature = "cartesian-recoil")]
+    lifted_solver: LiftedSolverScratch,
     suppressed: Vec<Resolved>,
     capped_entities: Vec<EntityId>,
 }
@@ -632,7 +651,14 @@ impl ContactTickScratch {
         try_reserve_exact(&mut self.group_rows, MAX_CONTACT_FACTS_PER_GROUP)?;
         try_reserve_exact(&mut self.old_velocities, collider_bound)?;
         #[cfg(feature = "cartesian-recoil")]
-        try_reserve_exact(&mut self.motor_velocities, collider_bound)?;
+        {
+            try_reserve_exact(&mut self.motor_velocities, collider_bound)?;
+            try_reserve_exact(&mut self.driver_contacts,
+                              crate::combat::lifted_solver::MAX_LIFTED_SOLVER_FACTS)?;
+            try_reserve_exact(&mut self.lifted_contacts,
+                              crate::combat::lifted_solver::MAX_LIFTED_SOLVER_FACTS)?;
+            self.lifted_solver.try_reserve().map_err(|_| ContactCapacityError::Allocation)?;
+        }
         try_reserve_exact(&mut self.suppressed, candidate_bound)?;
         try_reserve_exact(&mut self.capped_entities, collider_bound)?;
         Ok(())
@@ -666,7 +692,12 @@ impl ContactTickScratch {
             self.capped_entities.capacity(),
         ]);
         #[cfg(feature = "cartesian-recoil")]
-        capacities.push(self.motor_velocities.capacity());
+        {
+            capacities.push(self.motor_velocities.capacity());
+            capacities.push(self.driver_contacts.capacity());
+            capacities.push(self.lifted_contacts.capacity());
+            capacities.extend(self.lifted_solver.capacities());
+        }
         capacities
     }
 }
@@ -698,11 +729,25 @@ trait ContactKinematics {
     ) -> Result<Vec3, ResolutionError> { Ok(colliders[index].velocity) }
     #[cfg(feature = "cartesian-recoil")]
     fn resolve_group<P: ContactTrialProjector>(
-        &mut self, _colliders: &[ContactCollider], _closure_rows: &[usize], _motor: &[[i32; 3]],
-        generalized: &mut [GeneralizedCollider], proposed: &[ProposedContact], ordinal: u8,
+        &mut self, colliders: &[ContactCollider], _closure_rows: &[usize], _motor: &[[i32; 3]],
+        generalized: &mut [GeneralizedCollider], drivers: &[DriverContact],
+        proposed: &mut Vec<ProposedContact>, _lifted: &mut Vec<LiftedContact>,
+        _solver: &mut LiftedSolverScratch, ordinal: u8,
         _time: u32, projector: &mut P, sums: &mut Vec<[i128; 3]>, trial: &mut Vec<GeneralizedCollider>,
         weights: &mut Vec<u128>, shares: &mut Vec<u64>, output: &mut Vec<ContactResolution>,
     ) -> Result<(), ResolutionError> {
+        proposed.clear();
+        for driver in drivers {
+            let a = colliders[driver.a_collider]; let b = colliders[driver.b_collider];
+            proposed.push(ProposedContact { fact: driver.fact,
+                a_collider: closure_index(generalized, driver.fact.key.a, driver.fact.key.a_slot)
+                    .ok_or(ResolutionError::ColliderIndex)?,
+                b_collider: closure_index(generalized, driver.fact.key.b, driver.fact.key.b_slot)
+                    .ok_or(ResolutionError::ColliderIndex)?,
+                impulse_on_a: proposed_impulse(a.mass, b.mass, a.surface, b.surface,
+                    driver.fact.velocity_a, driver.fact.velocity_b, driver.fact.normal),
+                channel: driver.channel });
+        }
         resolve_group_into(generalized, proposed, ordinal, projector, sums, trial,
                            weights, shares, output)
     }
@@ -806,47 +851,34 @@ impl ContactKinematics for ExactKinematics<'_> {
 
     fn resolve_group<P: ContactTrialProjector>(
         &mut self, _colliders: &[ContactCollider], closure_rows: &[usize], motor: &[[i32; 3]],
-        generalized: &mut [GeneralizedCollider], proposed: &[ProposedContact], ordinal: u8,
-        time: u32, projector: &mut P, sums: &mut Vec<[i128; 3]>, trial: &mut Vec<GeneralizedCollider>,
+        generalized: &mut [GeneralizedCollider], drivers: &[DriverContact],
+        proposed: &mut Vec<ProposedContact>, lifted: &mut Vec<LiftedContact>,
+        solver: &mut LiftedSolverScratch, ordinal: u8,
+        time: u32, _projector: &mut P, _sums: &mut Vec<[i128; 3]>, _trial: &mut Vec<GeneralizedCollider>,
         weights: &mut Vec<u128>, shares: &mut Vec<u64>, output: &mut Vec<ContactResolution>,
     ) -> Result<(), ResolutionError> {
-        if proposed.is_empty() { return Err(ResolutionError::ResolutionCount); }
-        build_group_sums(generalized.len(), proposed, sums)?;
-        let trial_energy = |alpha: u32, output: &mut Vec<ContactResolution>|
-            -> Result<ExactPhysicalEnergyDelta, ResolutionError> {
-            output.clear();
-            for contact in proposed {
-                let on_a = scale_impulse(contact.impulse_on_a, alpha);
-                output.push(ContactResolution { group_ordinal: ordinal, group_alpha_raw: alpha,
-                    fact: contact.fact, impulse: ContactImpulse { key: contact.fact.key,
-                    on_a, on_b: -on_a }, energy: EnergyLedger::default(), cut_raw: 0,
-                    thrust_raw: 0, pressure_raw: 0, deflected_raw: 0, severed: false });
-            }
-            let outcome = apply_exact_group(self.trajectories, self.owners, output, time)
-                .map_err(|_| ResolutionError::ExactScan)?;
-            exact_physical_energy_delta(
-                self.trajectories, closure_rows, self.owners, &outcome.owners, motor,
-            )
-        };
-        let full = trial_energy(65_536, output)?;
-        let zero = WideRational4096::zero();
-        let alpha = if full.signed.checked_cmp(zero).ok_or(ResolutionError::ExactEnergyEnvelope)?
-            != core::cmp::Ordering::Greater { 65_536 } else {
-            let mut accepted = 0u32;
-            for bit in (0..=15).rev() {
-                let candidate = accepted | (1 << bit);
-                if trial_energy(candidate, output)?.signed.checked_cmp(zero)
-                    .ok_or(ResolutionError::ExactEnergyEnvelope)? != core::cmp::Ordering::Greater {
-                    accepted = candidate;
-                }
-            }
-            accepted
-        };
-        let exact_delta = trial_energy(alpha, output)?;
-        projector.project(generalized, sums, alpha, trial)?;
-        if trial.len() != generalized.len() { return Err(ResolutionError::Projector); }
-        let dissipated = exact_delta.loss_raw;
-        allocate_shares_into(dissipated, proposed, alpha, weights, shares)?;
+        if drivers.is_empty() { return Err(ResolutionError::ResolutionCount); }
+        lifted.clear();
+        proposed.clear();
+        for driver in drivers {
+            lifted.push(LiftedContact::from_state(driver.fact, driver.a_collider,
+                driver.b_collider, self.trajectories, self.owners, motor)
+                .map_err(exact_solver_error)?);
+        }
+        let solved = solve_lifted_group(self.trajectories, self.owners, closure_rows,
+            lifted, time, motor, solver).map_err(exact_solver_error)?;
+        for (at, driver) in drivers.iter().enumerate() {
+            let word = solved.impulses[at].raw;
+            proposed.push(ProposedContact { fact: driver.fact,
+                a_collider: closure_index(generalized, driver.fact.key.a, driver.fact.key.a_slot)
+                    .ok_or(ResolutionError::ColliderIndex)?,
+                b_collider: closure_index(generalized, driver.fact.key.b, driver.fact.key.b_slot)
+                    .ok_or(ResolutionError::ColliderIndex)?,
+                impulse_on_a: Vec3::new(Fx::from_raw(word[0]), Fx::from_raw(word[1]),
+                                        Fx::from_raw(word[2])), channel: driver.channel });
+        }
+        let dissipated = solved.loss_raw;
+        allocate_shares_into(dissipated, proposed, 65_536, weights, shares)?;
         if dissipated > 0 && weights.iter().all(|&weight| weight == 0) {
             return Err(ResolutionError::EnergyNumerator);
         }
@@ -864,17 +896,16 @@ impl ContactKinematics for ExactKinematics<'_> {
                 return Err(ResolutionError::DuplicateIdentity);
             }
             previous = Some(contact.fact.key);
-            let on_a = scale_impulse(contact.impulse_on_a, alpha);
+            let on_a = contact.impulse_on_a;
             let channels = match contact.channel {
                 Some(channel) if contact.fact.key.kind == ContactKind::WeaponBody => channels(share, channel),
                 _ => (0, 0, 0),
             };
-            output.push(ContactResolution { group_ordinal: ordinal, group_alpha_raw: alpha,
+            output.push(ContactResolution { group_ordinal: ordinal, group_alpha_raw: 65_536,
                 fact: contact.fact, impulse: ContactImpulse { key: contact.fact.key, on_a, on_b: -on_a },
                 energy: ledger, cut_raw: channels.0, thrust_raw: channels.1,
                 pressure_raw: channels.2, deflected_raw: 0, severed: false });
         }
-        generalized.copy_from_slice(trial);
         Ok(())
     }
 
@@ -1088,6 +1119,8 @@ fn solve_contact_tick_with<P: ContactTrialProjector, K: ContactKinematics>(
         }
 
         scratch.proposed.clear();
+        #[cfg(feature = "cartesian-recoil")]
+        scratch.driver_contacts.clear();
         for index in 0..scratch.group_facts.len() {
             let fact = scratch.group_facts[index];
             let a = closure_index(&scratch.generalized, fact.key.a, fact.key.a_slot)
@@ -1095,6 +1128,7 @@ fn solve_contact_tick_with<P: ContactTrialProjector, K: ContactKinematics>(
             let b = closure_index(&scratch.generalized, fact.key.b, fact.key.b_slot)
                 .ok_or(ResolutionError::ColliderIndex)?;
             let (row_a, row_b) = (colliders[scratch.closure_rows[a]], colliders[scratch.closure_rows[b]]);
+            #[cfg(not(feature = "cartesian-recoil"))]
             let impulse_on_a = proposed_impulse(
                 row_a.mass, row_b.mass, row_a.surface, row_b.surface,
                 fact.velocity_a, fact.velocity_b, fact.normal,
@@ -1102,7 +1136,11 @@ fn solve_contact_tick_with<P: ContactTrialProjector, K: ContactKinematics>(
             let channel = if fact.key.kind == ContactKind::WeaponBody {
                 Some(weapon_body_channel(row_a, row_b))
             } else { None };
+            #[cfg(not(feature = "cartesian-recoil"))]
             scratch.proposed.push(ProposedContact { fact, a_collider: a, b_collider: b, impulse_on_a, channel });
+            #[cfg(feature = "cartesian-recoil")]
+            scratch.driver_contacts.push(DriverContact { fact,
+                a_collider: scratch.closure_rows[a], b_collider: scratch.closure_rows[b], channel });
         }
 
         scratch.old_velocities.clear();
@@ -1119,7 +1157,8 @@ fn solve_contact_tick_with<P: ContactTrialProjector, K: ContactKinematics>(
 
         #[cfg(feature = "cartesian-recoil")]
         kinematics.resolve_group(colliders, &scratch.closure_rows, &scratch.motor_velocities,
-            &mut scratch.generalized, &scratch.proposed, groups, time, projector,
+            &mut scratch.generalized, &scratch.driver_contacts, &mut scratch.proposed,
+            &mut scratch.lifted_contacts, &mut scratch.lifted_solver, groups, time, projector,
             &mut scratch.sums, &mut scratch.trial, &mut scratch.weights, &mut scratch.shares,
             &mut scratch.group_rows)?;
         #[cfg(not(feature = "cartesian-recoil"))]
@@ -1684,6 +1723,57 @@ pub(crate) mod tests {
         fn after_group(
             &mut self, _colliders: &mut [ContactCollider], _rows: &mut [ContactResolution],
         ) -> Result<(), ResolutionError> { Err(ResolutionError::Projector) }
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    struct RejectProjection;
+
+    #[cfg(feature = "cartesian-recoil")]
+    impl ContactTrialProjector for RejectProjection {
+        fn project(&mut self, _before: &[GeneralizedCollider], _sums: &[[i128; 3]],
+                   _alpha_raw: u32, _out: &mut Vec<GeneralizedCollider>)
+            -> Result<(), ResolutionError> { Err(ResolutionError::Projector) }
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn exact_feature_resolution_no_longer_calls_the_proposal_alpha_ray() {
+        let mut exact_rows = behavior_case(4);
+        let mut exact = zero_response_compatibility(&exact_rows).unwrap();
+        let mut state = ContactSolverState::default();
+        let mut resolutions = Vec::new();
+        let mut reactions = Vec::new();
+        let mut scratch = ContactTickScratch::default();
+        scratch.reserve(exact_rows.len() * 3, 64);
+        solve_exact_contact_tick(&mut exact_rows, &mut exact.trajectories, &mut exact.owners,
+            &mut reactions, &mut RejectProjection, &mut state, &mut resolutions, &mut scratch)
+            .expect("the lifted route must not ask the compatibility projector");
+        assert!(!resolutions.is_empty());
+
+        let mut compatible = behavior_case(4);
+        let mut state = ContactSolverState::default();
+        let mut resolutions = Vec::new();
+        let mut scratch = ContactTickScratch::default();
+        scratch.reserve(compatible.len() * 3, 64);
+        assert_eq!(solve_contact_tick(&mut compatible, &mut RejectProjection, &mut state,
+            &mut resolutions, &mut scratch), Err(ResolutionError::Projector));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn a_solved_group_grows_no_retained_scratch() {
+        let mut rows = behavior_case(4);
+        let mut exact = zero_response_compatibility(&rows).unwrap();
+        let mut state = ContactSolverState::default();
+        let mut resolutions = Vec::new();
+        let mut reactions = Vec::new();
+        let mut scratch = ContactTickScratch::default();
+        scratch.reserve(rows.len() * 3, 64);
+        let before = scratch.capacities();
+        solve_exact_contact_tick(&mut rows, &mut exact.trajectories, &mut exact.owners,
+            &mut reactions, &mut IndependentPointProjector, &mut state, &mut resolutions,
+            &mut scratch).unwrap();
+        assert_eq!(scratch.capacities(), before);
     }
 
     #[test]

@@ -148,7 +148,7 @@ the radial normal and would contribute nothing even though it swept through the
 body. The magnitude correctly prices a cut. Body motion has a meaningful approach
 direction, so charging toward a blow adds to it and retreating subtracts from it.
 The current invariant is tested by
-[`impact_is_the_blade_plus_the_closing_and_backing_off_helps`](../../crates/sim/src/world.rs#L16711).
+[`impact_is_the_blade_plus_the_closing_and_backing_off_helps`](../../crates/sim/src/world.rs#L16881).
 
 ## Dependencies and the browser boundary
 

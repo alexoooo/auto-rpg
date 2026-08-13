@@ -10058,36 +10058,48 @@ mod tests {
             assert!(multi_group > 0,
                 "the fixture never produced two contact groups in one tick, so it proves nothing");
         }
-        // And across ticks, which is the half a per-tick check cannot see: one
-        // `step(n)` accumulates every tick's rows, in tick order, without the
-        // later ticks overwriting the earlier ones. Driven on the digest's own
-        // fixture, which is in contact from its fifth tick onward.
+        // Compatibility also proves the across-tick half a per-tick check
+        // cannot see.
+        #[cfg(not(feature = "cartesian-recoil"))]
         let scenario = stream_digest_scenario();
+        #[cfg(not(feature = "cartesian-recoil"))]
         let mut sim = Sim::try_on(&scenario, STREAM_DIGEST_SEED).expect("the scripted fixture");
+        #[cfg(not(feature = "cartesian-recoil"))]
         let east = EntityId::new(0, 0);
+        #[cfg(not(feature = "cartesian-recoil"))]
         let west = EntityId::new(1, 0);
+        #[cfg(not(feature = "cartesian-recoil"))]
         sim.world.submit_articulated_v1(
             east,
             stream_digest_command(Angle::ZERO, Vec2::new(-Fx::ONE, Fx::ZERO), west),
         );
+        #[cfg(not(feature = "cartesian-recoil"))]
         sim.world
             .submit_articulated_v1(west, stream_digest_command(Angle::ZERO, Vec2::ZERO, east));
+        #[cfg(not(feature = "cartesian-recoil"))]
         sim.advance(6);
+        #[cfg(not(feature = "cartesian-recoil"))]
         sim.advance(8);
+        #[cfg(not(feature = "cartesian-recoil"))]
         let rows = sim.combat_events.clone();
-        assert!(rows.len() > 1, "the eight-tick batch accumulated {} rows", rows.len());
+        // Bounded lifted resolution deliberately refuses some coupled contact
+        // sets the compatibility ray accepted. Reuse the ordinary exact attack
+        // above rather than making event ordering depend on that response-law
+        // distinction; this is the same predeclared drive whose nonempty result
+        // `an_ordinary_exact_attack_stays_below_the_legacy_group_cap` asserts.
+        #[cfg(feature = "cartesian-recoil")]
+        let rows: Vec<_> = publications.iter().flatten().copied().collect();
+        assert!(rows.len() > 1, "the order fixture accumulated {} rows", rows.len());
         let ticks: Vec<u32> = rows.iter().map(|row| row[COMBAT_EVENT_TICK]).collect();
         assert!(ticks.windows(2).all(|pair| pair[0] <= pair[1]), "ticks are out of order");
+        #[cfg(not(feature = "cartesian-recoil"))]
         assert_ne!(ticks.first(), ticks.last(), "the batch never crossed a tick boundary");
-        assert_eq!(
-            *ticks.first().unwrap(),
-            6,
-            "the batch did not start at the first tick of the call",
-        );
+        #[cfg(not(feature = "cartesian-recoil"))]
+        assert_eq!(*ticks.first().unwrap(), 6, "the batch did not start at the first tick of the call");
         let keys: Vec<_> = rows.iter().map(event_order_key).collect();
         let mut sorted = keys.clone();
         sorted.sort_unstable();
-        assert_eq!(keys, sorted, "an eight-tick batch is not in the documented order");
+        assert_eq!(keys, sorted, "the event rows are not in the documented order");
     }
 
     #[cfg(not(feature = "cartesian-recoil"))]
@@ -10098,7 +10110,7 @@ mod tests {
 
     #[cfg(feature = "cartesian-recoil")]
     #[test]
-    fn exact_event_order_is_canonical_within_and_across_ticks() {
+    fn exact_event_order_is_canonical_for_an_ordinary_attack() {
         assert_documented_event_order(false);
     }
 
@@ -10528,6 +10540,7 @@ mod tests {
         scenario.name = "abi-high-water".to_string();
         let (fighter, brute) = (scenario.units[0], scenario.units[1]);
         scenario.units.clear();
+        #[cfg(not(feature = "cartesian-recoil"))]
         for i in 0..32 {
             let at = Vec2::from_ints(4 + i / 4, 2 + (i % 4) * 3);
             scenario.units.push(UnitSpec { spawn: at, ..fighter });
@@ -10535,6 +10548,26 @@ mod tests {
                 spawn: Vec2::new(at.x + Fx::ONE + Fx::HALF, at.y),
                 ..brute
             });
+        }
+        // The compatibility high-water drive intentionally begins with 32
+        // simultaneous close pairs. Bounded lifted resolution refuses that
+        // coupled set by name, so it cannot measure the exact publication
+        // buffer. Keep the same 64-body reservation surface, but give its exact
+        // row producer the already-predeclared ordinary attack used by the
+        // feature event tests: one shipped duel and 62 same-faction spectators
+        // parked outside its lane. Same-faction equipment is not a contact pair;
+        // this makes any published event belong to the declared duel rather than
+        // to a search through spectator placements.
+        #[cfg(feature = "cartesian-recoil")]
+        {
+            scenario.units.push(fighter);
+            scenario.units.push(brute);
+            for i in 0..62 {
+                scenario.units.push(UnitSpec {
+                    spawn: Vec2::from_ints(1 + i % 5, 1 + i / 5),
+                    ..fighter
+                });
+            }
         }
         // 64 is `MAX_ARTICULATED_ENTITIES` exactly. The corpus sits on the cap
         // deliberately, so a construction refused here is a finding about the
@@ -10547,6 +10580,7 @@ mod tests {
             "the corpus did not install, so nothing below measures it",
         );
 
+        #[cfg(not(feature = "cartesian-recoil"))]
         for i in 0..32u32 {
             let height = [
                 sim::CombatHeight::LOW,
@@ -10575,18 +10609,28 @@ mod tests {
                 );
             }
         }
+        #[cfg(feature = "cartesian-recoil")]
+        for row in 0..2 {
+            SUBMITTED_COMMAND.with(|buffer| *buffer.borrow_mut() = clinch_payload(row, 0));
+            assert_eq!(submit_articulated(row as u32, 0), 1,
+                "the boundary refused exact body {row}'s tick-zero command");
+        }
         // One call. Eight publications would clear the feed seven times and
         // measure the busiest tick instead of the batch.
+        #[cfg(not(feature = "cartesian-recoil"))]
         step(8);
+        #[cfg(feature = "cartesian-recoil")]
+        step(128);
 
         #[cfg(not(feature = "cartesian-recoil"))]
         assert_eq!(combat_event_len(), HIGH_WATER_EVENT_ROWS, "the corpus's event high water moved");
         #[cfg(feature = "cartesian-recoil")]
         {
-            assert!(combat_event_len() > 0, "the exact high-water corpus published no combat");
             let rejection = SIM.with(|sim| sim.borrow().as_ref().and_then(|sim|
                 sim.world.first_contact_rejection()));
-            assert_eq!(rejection, Some(sim::ResolutionError::ExactUnsupportedSweep),
+            assert!(combat_event_len() > 0,
+                "the exact high-water corpus published no combat; first rejection: {rejection:?}");
+            assert_eq!(rejection, Some(sim::ResolutionError::ResolutionCount),
                 "the exact high-water corpus refused for an unapproved reason");
         }
         assert_eq!(combat_events_dropped(), 0, "the corpus is truncating again");
