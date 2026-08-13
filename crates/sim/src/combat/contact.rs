@@ -387,6 +387,17 @@ fn scan_detector_into(
                     .ok_or(ExactScanReject::CompatibilityIdentity)?;
                 let owner_b = owners.get(b.owner_index)
                     .ok_or(ExactScanReject::CompatibilityIdentity)?;
+                // Every supported primitive is affine between the current
+                // group boundary and the tick end. Its endpoint AABB is
+                // therefore an exact enclosure of the whole swept volume.
+                // Rejecting disjoint boxes here is more than an optimization:
+                // distant high-water pairs must not spend the fixed wide
+                // predicate envelope merely to prove what their first-order
+                // bounds already prove.
+                if exact_pair_has_swept_aabb(a, b)
+                    && wide_swept_aabbs_are_disjoint(a, owner_a, b, owner_b)? {
+                    continue;
+                }
                 let candidate = match (&a.motor, &b.motor) {
                     (MotorShape::Segment { .. }, MotorShape::Shield { .. }) =>
                         wide_sweep_segment_shield(a, owner_a, b, owner_b,
@@ -706,12 +717,15 @@ fn wide_point(value: ExactPoint) -> Result<WidePoint, ExactScanReject> {
 #[cfg(any(test, feature = "cartesian-recoil"))]
 fn wide_add(a: WideRational4096, b: WideRational4096)
     -> Result<WideRational4096, ExactScanReject>
-{ a.checked_add(b).ok_or(ExactScanReject::ArithmeticEnvelope) }
+{ a.checked_add_divisible(b).ok_or(ExactScanReject::ArithmeticEnvelope) }
 
 #[cfg(any(test, feature = "cartesian-recoil"))]
 fn wide_sub(a: WideRational4096, b: WideRational4096)
     -> Result<WideRational4096, ExactScanReject>
-{ a.checked_sub(b).ok_or(ExactScanReject::ArithmeticEnvelope) }
+{
+    a.checked_add_divisible(b.checked_neg().ok_or(ExactScanReject::ArithmeticEnvelope)?)
+        .ok_or(ExactScanReject::ArithmeticEnvelope)
+}
 
 #[cfg(any(test, feature = "cartesian-recoil"))]
 fn wide_mul(a: WideRational4096, b: WideRational4096)
@@ -1303,6 +1317,163 @@ fn wide_body_region_at_time(row: &ExactContactTrajectory, owner: &ExactOwnerTraj
 }
 
 #[cfg(any(test, feature = "cartesian-recoil"))]
+#[derive(Clone, Copy)]
+struct WideSweptAabbPoints {
+    points: [WidePoint; AnatomyRegion::COUNT * 4],
+    len: usize,
+    radius_raw: i32,
+}
+
+#[cfg(any(test, feature = "cartesian-recoil"))]
+impl WideSweptAabbPoints {
+    fn new() -> Self {
+        Self {
+            points: [WidePoint([WideRational4096::zero(); 3]); AnatomyRegion::COUNT * 4],
+            len: 0,
+            radius_raw: 0,
+        }
+    }
+
+    fn push(&mut self, point: WidePoint) -> Result<(), ExactScanReject> {
+        let slot = self.points.get_mut(self.len)
+            .ok_or(ExactScanReject::CompatibilityIdentity)?;
+        *slot = point;
+        self.len += 1;
+        Ok(())
+    }
+}
+
+#[cfg(any(test, feature = "cartesian-recoil"))]
+fn exact_pair_has_swept_aabb(a: &ExactContactTrajectory, b: &ExactContactTrajectory) -> bool {
+    matches!((&a.motor, &b.motor),
+        (MotorShape::Segment { .. }, MotorShape::Segment { .. })
+        | (MotorShape::Segment { .. }, MotorShape::Shield { .. })
+        | (MotorShape::Shield { .. }, MotorShape::Segment { .. })
+        | (MotorShape::Segment { .. }, MotorShape::Body { .. })
+        | (MotorShape::Body { .. }, MotorShape::Segment { .. }))
+}
+
+#[cfg(any(test, feature = "cartesian-recoil"))]
+fn wide_swept_aabb_points(row: &ExactContactTrajectory, owner: &ExactOwnerTrajectory,
+                          start: u32, end: u32)
+    -> Result<WideSweptAabbPoints, ExactScanReject>
+{
+    let mut out = WideSweptAabbPoints::new();
+    match row.motor {
+        MotorShape::Segment { radius_raw, .. } => {
+            let (h0, t0, _) = wide_segment_at_time(row, owner, start)?;
+            let (h1, t1, _) = wide_segment_at_time(row, owner, end)?;
+            for point in [h0, t0, h1, t1] { out.push(point)?; }
+            out.radius_raw = radius_raw;
+        }
+        MotorShape::Shield { .. } => {
+            let first = wide_shield_at_time(row, owner, start)?;
+            let last = wide_shield_at_time(row, owner, end)?;
+            for point in first.into_iter().chain(last) { out.push(point)?; }
+        }
+        MotorShape::Body { parts, .. } => {
+            for region in 0..AnatomyRegion::COUNT {
+                if !parts[region].present { continue; }
+                let Some((l0, u0, radius_raw)) =
+                    wide_body_region_at_time(row, owner, region, start)? else { continue };
+                let Some((l1, u1, _)) =
+                    wide_body_region_at_time(row, owner, region, end)? else { continue };
+                for point in [l0, u0, l1, u1] { out.push(point)?; }
+                out.radius_raw = out.radius_raw.max(radius_raw);
+            }
+        }
+    }
+    Ok(out)
+}
+
+#[cfg(any(test, feature = "cartesian-recoil"))]
+fn wide_aabb_points_are_disjoint(left: &WideSweptAabbPoints,
+                                 right: &WideSweptAabbPoints)
+    -> Result<bool, ExactScanReject>
+{
+    if left.len == 0 || right.len == 0 { return Ok(true); }
+    let origin = left.points[0];
+    let mut left_min = [WideRational4096::zero(); 3];
+    let mut left_max = left_min;
+    let first_right = wide_vector_sub(right.points[0], origin)?;
+    let mut right_min = first_right;
+    let mut right_max = first_right;
+    for point in &left.points[1..left.len] {
+        let relative = wide_vector_sub(*point, origin)?;
+        for axis in 0..3 {
+            if wide_cmp(relative[axis], left_min[axis])? == Ordering::Less {
+                left_min[axis] = relative[axis];
+            }
+            if wide_cmp(relative[axis], left_max[axis])? == Ordering::Greater {
+                left_max[axis] = relative[axis];
+            }
+        }
+    }
+    for point in &right.points[1..right.len] {
+        let relative = wide_vector_sub(*point, origin)?;
+        for axis in 0..3 {
+            if wide_cmp(relative[axis], right_min[axis])? == Ordering::Less {
+                right_min[axis] = relative[axis];
+            }
+            if wide_cmp(relative[axis], right_max[axis])? == Ordering::Greater {
+                right_max[axis] = relative[axis];
+            }
+        }
+    }
+    let radius = wide_radius(left.radius_raw.checked_add(right.radius_raw)
+        .ok_or(ExactScanReject::ArithmeticEnvelope)?)?;
+    for axis in 0..3 {
+        let right_gap = wide_sub(right_min[axis], left_max[axis])?;
+        if wide_cmp(right_gap, radius)? == Ordering::Greater { return Ok(true); }
+        let left_gap = wide_sub(left_min[axis], right_max[axis])?;
+        if wide_cmp(left_gap, radius)? == Ordering::Greater { return Ok(true); }
+    }
+    Ok(false)
+}
+
+#[cfg(any(test, feature = "cartesian-recoil"))]
+fn wide_swept_aabbs_are_disjoint(a: &ExactContactTrajectory, ao: &ExactOwnerTrajectory,
+                                  b: &ExactContactTrajectory, bo: &ExactOwnerTrajectory)
+    -> Result<bool, ExactScanReject>
+{
+    let start = ao.common_response.group_time_raw;
+    wide_swept_aabbs_are_disjoint_during(a, ao, b, bo, start, 65_536)
+}
+
+#[cfg(any(test, feature = "cartesian-recoil"))]
+fn wide_swept_aabbs_are_disjoint_during(
+    a: &ExactContactTrajectory, ao: &ExactOwnerTrajectory,
+    b: &ExactContactTrajectory, bo: &ExactOwnerTrajectory, start: u32, end: u32,
+) -> Result<bool, ExactScanReject> {
+    let left = wide_swept_aabb_points(a, ao, start, end)?;
+    let right = wide_swept_aabb_points(b, bo, start, end)?;
+    wide_aabb_points_are_disjoint(&left, &right)
+}
+
+#[cfg(any(test, feature = "cartesian-recoil"))]
+fn wide_segment_body_region_aabbs_are_disjoint_during(
+    weapon: &ExactContactTrajectory, wo: &ExactOwnerTrajectory,
+    body: &ExactContactTrajectory, bo: &ExactOwnerTrajectory,
+    region: usize, start: u32, end: u32,
+) -> Result<bool, ExactScanReject> {
+    let mut segment = wide_swept_aabb_points(weapon, wo, start, end)?;
+    let mut part = WideSweptAabbPoints::new();
+    let Some((l0, u0, radius_raw)) =
+        wide_body_region_at_time(body, bo, region, start)? else { return Ok(true) };
+    let Some((l1, u1, _)) =
+        wide_body_region_at_time(body, bo, region, end)? else { return Ok(true) };
+    for point in [l0, u0, l1, u1] { part.push(point)?; }
+    part.radius_raw = radius_raw;
+    // Keep this assignment explicit: it guards against accidentally using a
+    // whole-body radius when this proof is the one-region zero-step escape.
+    let MotorShape::Segment { radius_raw, .. } = weapon.motor else {
+        return Err(ExactScanReject::UnsupportedExactSweep)
+    };
+    segment.radius_raw = radius_raw;
+    wide_aabb_points_are_disjoint(&segment, &part)
+}
+
+#[cfg(any(test, feature = "cartesian-recoil"))]
 fn wide_segment_body_at_time(weapon: &ExactContactTrajectory, weapon_owner: &ExactOwnerTrajectory,
     body: &ExactContactTrajectory, body_owner: &ExactOwnerTrajectory, region: usize, time: u32,
     scratch: &mut ExactWideScratch)
@@ -1494,12 +1665,18 @@ fn wide_sweep_segment_body(weapon: &ExactContactTrajectory, wo: &ExactOwnerTraje
 {
     let mut winner: Option<(u32, usize, WideSegmentClosest, WideRational4096)> = None;
     for region in 0..AnatomyRegion::COUNT {
+        let group = wo.common_response.group_time_raw;
+        if wide_segment_body_region_aabbs_are_disjoint_during(
+            weapon, wo, body, bo, region, group, 65_536)? {
+            continue;
+        }
         let speed = wide_segment_body_speed(weapon, wo, body, bo, region)?;
-        let mut time = wo.common_response.group_time_raw; let mut found = None;
+        let mut time = group; let mut found = None;
         let mut proved_separate = false;
         for _ in 0..96 {
             let Some((closest, rr, medial)) = wide_segment_body_at_time(
-                weapon, wo, body, bo, region, time, scratch)? else { proved_separate = true; break };
+                weapon, wo, body, bo, region, time, scratch)?
+                else { proved_separate = true; break };
             let radius = wide_radius(rr)?;
             if wide_cmp(closest.distance_sq, wide_mul(radius, radius)?)? != Ordering::Greater {
                 found = Some((time, closest, medial)); break;
@@ -1512,7 +1689,17 @@ fn wide_sweep_segment_body(weapon: &ExactContactTrajectory, wo: &ExactOwnerTraje
                     weapon, wo, body, bo, region, next, scratch)? else { break };
                 let r = wide_radius(rr)?;
                 if wide_cmp(adjacent.distance_sq, wide_mul(r, r)?)? == Ordering::Greater {
-                    return Err(ExactScanReject::UnsupportedExactSweep);
+                    // Endpoint separation alone cannot exclude a sub-raw
+                    // enter-and-exit. The two affine swept AABBs can: if they
+                    // are disjoint across this one-word interval, every point
+                    // of both capsules is separated on at least one axis.
+                    // Otherwise keep the named refusal -- the interval may
+                    // contain a contact the integer-time detector cannot
+                    // publish exactly.
+                    if !wide_segment_body_region_aabbs_are_disjoint_during(
+                        weapon, wo, body, bo, region, time, next)? {
+                        return Err(ExactScanReject::UnsupportedExactSweep);
+                    }
                 }
                 time = next;
             } else { time += step.min(65_536 - time); }
@@ -2842,6 +3029,18 @@ mod tests {
     }
 
     #[test]
+    fn repeated_wide_denominators_are_reused_without_a_gcd_or_envelope_growth() {
+        let denominator = 1i128 << 96;
+        let term = WideRational4096::new(1, denominator).unwrap();
+        let mut total = WideRational4096::zero();
+        let terms = MAX_ARTICULATED_ENTITIES * AnatomyRegion::COUNT * 4 - 1;
+        for _ in 0..terms {
+            total = wide_add(total, term).unwrap();
+        }
+        assert_eq!(total.as_i128_pair(), Some((terms as i128, denominator)));
+    }
+
+    #[test]
     fn exact_frozen_segment_features_match_a_tiny_exhaustive_rational_oracle() {
         use crate::combat::trajectory::ExactRational;
         let mut scratch = ExactWideScratch::default(); scratch.try_reserve().unwrap();
@@ -3123,8 +3322,13 @@ mod tests {
             .at_group[2].raw = Fx::ONE.raw();
         let mut scratch = ContactCollectionScratch::default();
         scratch.try_reserve(1).unwrap();
-        assert_eq!(scan_exact_candidates_into(&exact.trajectories, &exact.owners, &rows,
-                                              &mut scratch), Err(ExactScanReject::Budget));
+        // The production dispatcher now proves these distant swept boxes
+        // disjoint before narrowphase. Call the primitive directly: this test
+        // owns its certified-advancement budget, not dispatcher routing.
+        assert!(matches!(wide_sweep_segments(
+            &exact.trajectories[0], &exact.owners[0],
+            &exact.trajectories[1], &exact.owners[1], &rows[0], &rows[1],
+            &mut scratch.exact_wide), Err(ExactScanReject::Budget)));
     }
 
     #[test]
@@ -3204,6 +3408,97 @@ mod tests {
                                               &mut scratch),
                    Err(ExactScanReject::UnsupportedExactSweep));
         assert_eq!(candidate_bytes(&scratch), before);
+    }
+
+    #[test]
+    fn a_disjoint_one_word_segment_body_interval_closes_the_zero_step_proof() {
+        let rows = [
+            segment(0, Faction::Heroes, Vec3::Y * Fx::EPSILON,
+                    Vec3::Y * Fx::EPSILON, Vec3::ZERO),
+            coincident_body(1, Faction::Monsters, Vec3::ZERO),
+        ];
+        let mut exact = zero_response_compatibility(&rows).unwrap();
+        // The X response makes the L1 speed bound much larger than the one-raw
+        // Y clearance, so certified advancement initially floors to zero. The
+        // complete affine interval remains Y-disjoint and is therefore a
+        // proof of absence, not the enter-and-exit refusal owned next door.
+        exact.owners[0].common_response.momentum[0].velocity_raw = 100;
+        let mut scratch = ContactCollectionScratch::default();
+        scratch.try_reserve(2).unwrap();
+        scan_exact_candidates_into(&exact.trajectories, &exact.owners, &rows,
+                                   &mut scratch).unwrap();
+        assert!(scratch.candidates().is_empty());
+    }
+
+    #[test]
+    fn swept_aabb_rejects_far_misses_but_keeps_crossings_for_every_wide_primitive() {
+        let base = Vec3::from_ints(20_000, 0, 0);
+        let point = segment(0, Faction::Heroes, base, base, Vec3::ZERO);
+        let far_point = segment(1, Faction::Monsters, base + Vec3::Y * Fx::TWO,
+                                base + Vec3::Y * Fx::TWO, Vec3::ZERO);
+        let crossing = segment(1, Faction::Monsters, base - Vec3::X, base + Vec3::X,
+                               Vec3::X * Fx::TWO);
+        let far_body = coincident_body(1, Faction::Monsters, base + Vec3::Y * Fx::TWO);
+        let touching_body = coincident_body(1, Faction::Monsters, base);
+        let translate = |point: Vec3| point + base;
+        let make_shield = |offset: Vec3| {
+            let face = shield_face().map(|point| translate(point) + offset);
+            ContactCollider {
+                entity: EntityId::new(1, 0), faction: Faction::Monsters, slot: 0,
+                mass: Fx::ONE, surface: surface(), velocity: Vec3::ZERO,
+                velocity_offset: Vec3::ZERO, present: true,
+                shape: ContactShape::Shield { previous: face, requested: face },
+            }
+        };
+        let pairs = [
+            ([point, far_point], true),
+            ([point, crossing], false),
+            ([point, far_body], true),
+            ([point, touching_body], false),
+            ([point, make_shield(Vec3::Y * Fx::TWO)], true),
+            ([point, make_shield(Vec3::ZERO)], false),
+        ];
+        for (rows, disjoint) in pairs {
+            let mut exact = zero_response_compatibility(&rows).unwrap();
+            // A common one-raw translation selects the wide branch without
+            // changing the literal relative geometry.
+            for owner in &mut exact.owners {
+                owner.common_response.momentum[0].velocity_raw = 1;
+            }
+            assert_eq!(wide_swept_aabbs_are_disjoint(
+                &exact.trajectories[0], &exact.owners[0],
+                &exact.trajectories[1], &exact.owners[1]).unwrap(), disjoint);
+            let mut scratch = ContactCollectionScratch::default();
+            scratch.try_reserve(2).unwrap();
+            scan_exact_candidates_into(&exact.trajectories, &exact.owners, &rows,
+                                       &mut scratch).unwrap();
+            assert_eq!(scratch.candidates().is_empty(), disjoint);
+        }
+    }
+
+    #[test]
+    fn sixty_four_body_high_water_skips_distant_wide_pairs_and_keeps_the_literal_hit() {
+        let mut rows = Vec::new();
+        rows.push(segment(0, Faction::Heroes, Vec3::ZERO, Vec3::ZERO, Vec3::ZERO));
+        rows.push(segment(1, Faction::Monsters, Vec3::ZERO, Vec3::ZERO, Vec3::ZERO));
+        for entity in 2..MAX_ARTICULATED_ENTITIES as u32 {
+            let at = Vec3::from_ints(100 + entity as i32 * 100,
+                                     if entity % 2 == 0 { 100 } else { -100 }, 0);
+            rows.push(segment(entity,
+                if entity % 2 == 0 { Faction::Heroes } else { Faction::Monsters },
+                at, at, Vec3::ZERO));
+        }
+        let mut exact = zero_response_compatibility(&rows).unwrap();
+        for owner in &mut exact.owners {
+            owner.common_response.momentum[0].velocity_raw = 1;
+        }
+        let mut scratch = ContactCollectionScratch::default();
+        scratch.try_reserve(MAX_ARTICULATED_ENTITIES).unwrap();
+        scan_exact_candidates_into(&exact.trajectories, &exact.owners, &rows,
+                                   &mut scratch).unwrap();
+        assert!(!scratch.candidates().is_empty());
+        assert!(scratch.candidates().iter().any(|row|
+            row.fact.key.a.index == 0 && row.fact.key.b.index == 1));
     }
 
     #[test]
