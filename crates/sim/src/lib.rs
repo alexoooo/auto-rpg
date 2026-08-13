@@ -166,3 +166,5 @@ pub use world::{Outcome, ShotView, Snapshot, SpawnError, UnitView, World, WorldB
 pub use world::ExactLatticeEnvelope;
 #[cfg(feature = "cartesian-recoil")]
 pub use world::{ExactExternalEnergyRow, RecoilExternalEnergy};
+#[cfg(feature = "cartesian-recoil")]
+pub use world::PostContactProvenanceDiagnostic;

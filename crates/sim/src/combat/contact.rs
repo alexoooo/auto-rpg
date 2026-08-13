@@ -1202,6 +1202,32 @@ pub(crate) fn wide_evaluated_shape_quotient(
     }
 }
 
+#[cfg(feature = "cartesian-recoil")]
+pub(crate) fn wide_evaluated_relative_anchor_words(
+    body: &ExactContactTrajectory, held: &ExactContactTrajectory,
+    owner: &ExactOwnerTrajectory, time: u32,
+) -> Result<[i128; 39], ExactScanReject> {
+    let MotorShape::Body { origin, .. } = body.motor else {
+        return Err(ExactScanReject::ArithmeticEnvelope);
+    };
+    let MotorShape::Segment { hilt, .. } = held.motor else {
+        return Err(ExactScanReject::ArithmeticEnvelope);
+    };
+    let origin = wide_evaluated_point(origin, body, owner, time)?;
+    let hilt = wide_evaluated_point(hilt, held, owner, time)?;
+    let mut out = [0; 39];
+    for axis in 0..3 {
+        for (base, value) in [(axis * 4, origin.0[axis]),
+                              (12 + axis * 4, hilt.0[axis]),
+                              (24 + axis * 4, wide_sub(hilt.0[axis], origin.0[axis])?)] {
+            let (n, d) = value.as_i128_pair().ok_or(ExactScanReject::ArithmeticEnvelope)?;
+            out[base..base + 4].copy_from_slice(&[n, d, n / d, n % d]);
+        }
+        out[36 + axis] = out[12 + axis * 4 + 2] - out[axis * 4 + 2];
+    }
+    Ok(out)
+}
+
 #[cfg(any(test, feature = "cartesian-recoil"))]
 fn exact_position_from_scaled(numerator: i128, denominator: i128)
     -> Result<ExactPosition, ExactScanReject>

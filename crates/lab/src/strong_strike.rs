@@ -942,6 +942,72 @@ fn crossing_rows(previous_weapon: SegmentPose, requested_weapon: SegmentPose,
 fn trace_case_1536() -> MechanicalCase { declared_central_cases()[1536] }
 
 #[cfg(feature = "cartesian-recoil")]
+fn post_contact_provenance_difference(plain: &World, mirror: &World) -> Option<String> {
+    let reflected = |limb: u8| if limb == 0 { 1 } else { 0 };
+    for left in plain.post_contact_provenance() {
+        if left.tick < 33 { continue }
+        let Some(right) = mirror.post_contact_provenance().iter().find(|row|
+            row.entity == left.entity && row.limb == reflected(left.limb)) else {
+            return Some(format!("tick={} stage=actuator_exit entity={:?} limb={} field=row\nplain=present mirror=missing",
+                                left.tick, left.entity, left.limb));
+        };
+        // The actuator exit is the equality control: hand and recoil vectors
+        // are already body-relative here, so Y negates rather than reflecting
+        // about the arena plane.
+        for (at, field) in [(9, "hand.x"), (10, "hand.y"), (11, "hand.z"),
+                            (12, "linear_velocity.x"), (13, "linear_velocity.y"),
+                            (14, "linear_velocity.z"), (17, "recoil.x"),
+                            (18, "recoil.y"), (19, "recoil.z")] {
+            let expected = if matches!(at, 10 | 13 | 18) { -right.post_arm_raw[at] }
+                           else { right.post_arm_raw[at] };
+            if left.post_arm_raw[at] != expected {
+                return Some(format!("tick={} stage=actuator_exit entity={:?} limb={} field={}\nplain={} mirror={}",
+                    left.tick, left.entity, left.limb, field, left.post_arm_raw[at],
+                    right.post_arm_raw[at]));
+            }
+        }
+        let a = &left.stage_exact_raw;
+        let b = &right.stage_exact_raw;
+        if a.iter().all(|word| *word == 0) || b.iter().all(|word| *word == 0) { continue }
+        for (base, stage) in [(0, "body_origin"), (12, "hilt")]
+        {
+            for axis in 0..3 {
+                for word in 0..4 {
+                    let at = base + axis * 4 + word;
+                    // Exact owner geometry is body-relative; the arena-plane
+                    // reflection has already been consumed by the body row.
+                    let expected = if axis == 1 && word != 1 { -b[at] } else { b[at] };
+                    if a[at] != expected {
+                        return Some(format!("tick={} stage=stage_exact_contact entity={:?} limb={} field={}.{}.{:?}\nplain={} mirror={}",
+                            left.tick, left.entity, left.limb, stage, ["x", "y", "z"][axis],
+                            ["numerator", "denominator", "quotient", "remainder"][word],
+                            a[at], b[at]));
+                    }
+                }
+            }
+        }
+        for axis in 0..3 {
+            for word in 0..4 {
+                let at = 24 + axis * 4 + word;
+                let expected = if axis == 1 && word != 1 { -b[at] } else { b[at] };
+                if a[at] != expected {
+                    return Some(format!("tick={} stage=stage_exact_contact entity={:?} limb={} field=relative.{}.{:?}\nplain={} mirror={}",
+                        left.tick, left.entity, left.limb, ["x", "y", "z"][axis],
+                        ["numerator", "denominator", "quotient", "remainder"][word], a[at], b[at]));
+                }
+            }
+            let at = 36 + axis;
+            let expected = if axis == 1 { -b[at] } else { b[at] };
+            if a[at] != expected {
+                return Some(format!("tick={} stage=stage_exact_contact entity={:?} limb={} field=published_relative.{}\nplain={} mirror={}",
+                    left.tick, left.entity, left.limb, ["x", "y", "z"][axis], a[at], b[at]));
+            }
+        }
+    }
+    None
+}
+
+#[cfg(feature = "cartesian-recoil")]
 fn mirror_trace_1536_inner() -> String {
     let case = trace_case_1536();
     let cases = [false, true].map(|mirrored| StrongCase { seed: 0, mirrored,
@@ -1016,6 +1082,9 @@ fn mirror_trace_1536_inner() -> String {
         if let Some(diff) = group_boundary_difference(
             worlds[0].exact_contact_group_diagnostics(),
             worlds[1].exact_contact_group_diagnostics()) {
+            return diff;
+        }
+        if let Some(diff) = post_contact_provenance_difference(&worlds[0], &worlds[1]) {
             return diff;
         }
         let post = [0, 1].map(|at| (worlds[at].articulated_pose(ids[at].0).unwrap(),

@@ -2,7 +2,7 @@
 
 **Purpose:** Preserve the rationale, measured corrections, and trade-offs behind the current combat model.
 **Status:** current
-**Canonical source:** [`World` combat phases](../../crates/sim/src/world.rs#L2530), [`Hand`](../../crates/sim/src/hand.rs#L181), and [`rules`](../../crates/sim/src/rules.rs#L1)
+**Canonical source:** [`World` combat phases](../../crates/sim/src/world.rs#L2572), [`Hand`](../../crates/sim/src/hand.rs#L181), and [`rules`](../../crates/sim/src/rules.rs#L1)
 **Update when:** Limb state, action roles, collision, damage, recoil, perception, recovery, regeneration, or timeout design changes.
 
 This document explains why the mechanics have their current shape. Exact enum
@@ -56,7 +56,7 @@ That was the wrong interval: contact comes after the telegraph, partway through
 the strike. Live-world measurements showed much more response time than the
 windup alone implied. The corrected tuning lets slow attacks be answered by a
 deliberate swap while fast attacks demand an already-held answer. The paired
-world tests near [`a_club_can_be_answered_by_swapping_to_a_guard`](../../crates/sim/src/world.rs#L17255)
+world tests near [`a_club_can_be_answered_by_swapping_to_a_guard`](../../crates/sim/src/world.rs#L17374)
 own that behavioral constraint.
 
 ### What this cost, honestly
@@ -398,7 +398,7 @@ anchors whose wording did not become standalone headings here:
 - Limb phases and transition rationale: [`hand.rs`](../../crates/sim/src/hand.rs#L92)
 - Action roles and registry: [`action.rs`](../../crates/sim/src/action.rs#L28)
 - Loadout mutation: [`loadout.rs`](../../crates/sim/src/loadout.rs#L18)
-- Tick ordering and combat resolution: [`world.rs`](../../crates/sim/src/world.rs#L2530)
+- Tick ordering and combat resolution: [`world.rs`](../../crates/sim/src/world.rs#L2572)
 - Damage, blocking, regeneration, and recovery constants: [`rules.rs`](../../crates/sim/src/rules.rs#L39)
 - Duelist spacing and stance decisions: [`duelist.rs`](../../crates/policy/src/duelist.rs#L1)
-- Termination outcome: [`World::timeout`](../../crates/sim/src/world.rs#L4208)
+- Termination outcome: [`World::timeout`](../../crates/sim/src/world.rs#L4250)

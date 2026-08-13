@@ -23,7 +23,8 @@ use crate::combat::contact::{contact_bounds, medial_point, try_reserve_exact,
                              ContactSolverState, RegionSweep, BODY_SLOT,
                              MAX_CONTACT_FACTS_PER_GROUP, MAX_CONTACT_RESOLUTIONS_PER_TICK};
 #[cfg(feature = "cartesian-recoil")]
-use crate::combat::contact::{wide_evaluated_shape_quotient, WideEvaluatedContactShape};
+use crate::combat::contact::{wide_evaluated_relative_anchor_words,
+                             wide_evaluated_shape_quotient, WideEvaluatedContactShape};
 #[cfg(feature = "cartesian-recoil")]
 use crate::combat::contact::wide_rebase_owner_tick;
 #[cfg(all(test, feature = "cartesian-recoil"))]
@@ -529,6 +530,8 @@ struct ContactRuntime {
     /// boundary constraint, so replay comparison and the feature hash own them.
     #[cfg(feature = "cartesian-recoil")]
     exact_external_energy: Vec<ExactExternalEnergyRow>,
+    #[cfg(feature = "cartesian-recoil")]
+    post_contact_provenance: Vec<PostContactProvenanceDiagnostic>,
     /// How many ticks the solver refused, cumulative.
     ///
     /// **The only external witness that a group was rejected**, and it exists
@@ -581,6 +584,7 @@ impl ContactRuntime {
             try_reserve_exact(&mut self.exact_trajectories, bounds.collider_bound)?;
             try_reserve_exact(&mut self.exact_owners, high_water)?;
             try_reserve_exact(&mut self.exact_commit, high_water)?;
+            try_reserve_exact(&mut self.post_contact_provenance, high_water.saturating_mul(2))?;
         }
         self.high_water = high_water;
         Ok(())
@@ -1074,6 +1078,39 @@ pub enum WorldBuildError {
 }
 
 #[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct PostContactProvenanceDiagnostic {
+    pub tick: u32, pub entity: EntityId, pub limb: u8,
+    pub pre_arm_raw: [i32; 20], pub post_arm_raw: [i32; 20],
+    pub target_raw: [i32; 4], pub authority_raw: i32,
+    pub pre_active: bool, pub post_active: bool,
+    /// body, hilt, direct relative: xyz * (numerator, denominator, quotient,
+    /// remainder), followed by published quotient(hilt)-quotient(origin).
+    pub stage_exact_raw: [i128; 39],
+}
+
+#[cfg(feature = "cartesian-recoil")]
+impl Default for PostContactProvenanceDiagnostic {
+    fn default() -> Self {
+        Self { tick: 0, entity: EntityId::new(0, 0), limb: 0,
+            pre_arm_raw: [0; 20], post_arm_raw: [0; 20], target_raw: [0; 4],
+            authority_raw: 0, pre_active: false, post_active: false,
+            stage_exact_raw: [0; 39] }
+    }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn post_contact_arm_words(arm: ArmState) -> [i32; 20] {
+    [arm.bearing.raw() as i32, arm.bearing_speed_turns.raw(), arm.height.raw(),
+     arm.height_speed.raw(), arm.reach.raw(), arm.reach_speed.raw(),
+     arm.previous_hand.x.raw(), arm.previous_hand.y.raw(), arm.previous_hand.z.raw(),
+     arm.hand.x.raw(), arm.hand.y.raw(), arm.hand.z.raw(),
+     arm.linear_velocity.x.raw(), arm.linear_velocity.y.raw(), arm.linear_velocity.z.raw(),
+     arm.fatigue.raw(), arm.work_residue.raw(), arm.post_contact_com_velocity.x.raw(),
+     arm.post_contact_com_velocity.y.raw(), arm.post_contact_com_velocity.z.raw()]
+}
+
+#[cfg(feature = "cartesian-recoil")]
 fn exact_rejection_diagnostic(
     tick: u32, phase: ExactContactRejectPhase, cause: ResolutionError,
     key: Option<crate::combat::contact::ContactKey>,
@@ -1526,6 +1563,11 @@ impl World {
     {
         self.contact.as_ref().map_or(&[], |contact|
             contact.scratch.exact_group_diagnostics())
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    pub fn post_contact_provenance(&self) -> &[PostContactProvenanceDiagnostic] {
+        self.contact.as_ref().map_or(&[], |contact| contact.post_contact_provenance.as_slice())
     }
 
     #[cfg(feature = "cartesian-recoil")]
@@ -5025,6 +5067,8 @@ impl World {
     fn drive_articulated_arms(&mut self, bearing_max_speed_raw: i32, bearing_accel_raw: i32) {
         for i in 0..self.alive.len() {
             if !self.alive[i] { continue; }
+            #[cfg(feature = "cartesian-recoil")]
+            let provenance_entry = self.arms[i];
             let command = self.articulated_command[i].unwrap_or_else(|| self.neutral_articulated(i));
             let anatomy = self.combat_specs.as_ref().expect("articulated combat specs")
                 .anatomy(self.articulated_anatomy[i].expect("articulated anatomy"))
@@ -5076,6 +5120,24 @@ impl World {
                           self.arm_authority[i][1]);
                 }
             }
+            #[cfg(feature = "cartesian-recoil")]
+            if let Some(contact) = self.contact.as_mut() {
+                for limb in 0..2 {
+                    let target = command.arms[limb];
+                    contact.post_contact_provenance.push(PostContactProvenanceDiagnostic {
+                        tick: self.tick + 1,
+                        entity: EntityId::new(i as u32, self.generation[i]), limb: limb as u8,
+                        pre_arm_raw: post_contact_arm_words(provenance_entry[limb]),
+                        post_arm_raw: post_contact_arm_words(self.arms[i][limb]),
+                        target_raw: [target.bearing.raw() as i32, target.height.raw(),
+                                     target.reach.raw(), target.effort.raw()],
+                        authority_raw: self.arm_authority[i][limb].raw(),
+                        pre_active: provenance_entry[limb].post_contact_active,
+                        post_active: self.arms[i][limb].post_contact_active,
+                        stage_exact_raw: [0; 39],
+                    });
+                }
+            }
         }
     }
 
@@ -5092,6 +5154,8 @@ impl World {
     /// need a second mapping, and a mapping is what a reused slot breaks.
     fn retain_contact_entry(&mut self) {
         let Some(mut contact) = self.contact.take() else { return };
+        #[cfg(feature = "cartesian-recoil")]
+        contact.post_contact_provenance.clear();
         contact.resolutions.clear();
         contact.entry.clear();
         #[cfg(feature = "cartesian-recoil")]
@@ -5187,6 +5251,7 @@ impl World {
         contact.scratch.begin_exact_diagnostics(self.tick());
         #[cfg(feature = "cartesian-recoil")]
         if let Err(cause) = build_exact_contact_trajectories(self, &mut contact, &wounds) {
+            contact.post_contact_provenance.clear();
             wounds.clear();
             wounds.extend_from_slice(&contact.anatomy_entry);
             self.wounds = wounds;
@@ -5264,6 +5329,8 @@ impl World {
                 return;
             }
             Err(cause) => {
+                #[cfg(feature = "cartesian-recoil")]
+                contact.post_contact_provenance.clear();
                 // Restored into the vector that was taken, not into the empty
                 // husk `mem::take` left behind: the husk has no capacity, and
                 // refilling it would allocate on the one path whose far end is
@@ -5431,7 +5498,7 @@ impl World {
     /// the contract's "with no fact and no entry clamp they are the saved
     /// requested World rows byte-for-byte" would be false.
     #[cfg(feature = "cartesian-recoil")]
-    fn stage_exact_contact(&self, contact: &mut ContactRuntime) -> Result<(), ResolutionError> {
+    fn stage_exact_contact(&mut self, contact: &mut ContactRuntime) -> Result<(), ResolutionError> {
         contact.exact_commit.clear();
         for owner in &contact.exact_owners {
             if owner.common_response.group_time_raw != 65_536
@@ -5454,6 +5521,15 @@ impl World {
             for limb in 0..2 {
                 let Some(at) = contact.exact_trajectories.iter().position(|row|
                     row.entity == owner.entity && row.held_index == Some(limb)) else { continue };
+                if matches!(contact.exact_trajectories[at].motor, MotorShape::Segment { .. }) {
+                    let exact_stage = wide_evaluated_relative_anchor_words(
+                        &contact.exact_trajectories[body_at], &contact.exact_trajectories[at],
+                        owner, 65_536).map_err(|_| ResolutionError::ExactScan)?;
+                    if let Some(row) = contact.post_contact_provenance.iter_mut().find(|row|
+                        row.entity == owner.entity && row.limb as usize == limb) {
+                        row.stage_exact_raw = exact_stage;
+                    }
+                }
                 let absolute_hand = match wide_evaluated_shape_quotient(
                     &contact.exact_trajectories[at], owner, 65_536)
                     .map_err(|_| ResolutionError::ExactScan)? {
@@ -7667,6 +7743,49 @@ mod tests {
         world.build_contact_colliders(&contact.entry, &mut contact.colliders, &world.wounds);
         build_exact_contact_trajectories(world, &mut contact, &world.wounds).unwrap();
         contact
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn post_contact_provenance_captures_absolute_and_relative_exact_commit_words() {
+        let mut world = clinch_world();
+        brace_weapon(&mut world, 0);
+        let mut contact = exact_contact_fixture(&mut world);
+        let finished = advance_exact(&contact.exact_owners, 65_536).unwrap();
+        finished.copy_into(&mut contact.exact_owners).unwrap();
+        let held = contact.exact_trajectories.iter().find(|row|
+            matches!(row.motor, MotorShape::Segment { .. })).copied()
+            .expect("fixture has no held segment");
+        contact.post_contact_provenance.push(PostContactProvenanceDiagnostic {
+            entity: held.entity, limb: held.held_index.unwrap() as u8, ..Default::default()
+        });
+        world.stage_exact_contact(&mut contact).unwrap();
+        let words = contact.post_contact_provenance[0].stage_exact_raw;
+        for base in [0, 12, 24] {
+            for axis in 0..3 {
+                let at = base + axis * 4;
+                assert!(words[at + 1] > 0);
+                assert_eq!(words[at] / words[at + 1], words[at + 2]);
+                assert_eq!(words[at] % words[at + 1], words[at + 3]);
+            }
+        }
+        for axis in 0..3 {
+            assert_eq!(words[36 + axis], words[12 + axis * 4 + 2] - words[axis * 4 + 2]);
+        }
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn post_contact_provenance_retains_its_capacity_and_pointer_across_ticks() {
+        let mut world = clinch_world();
+        let mut contact = world.contact.take().unwrap();
+        let capacity = contact.post_contact_provenance.capacity();
+        contact.post_contact_provenance.push(PostContactProvenanceDiagnostic::default());
+        let pointer = contact.post_contact_provenance.as_ptr();
+        contact.post_contact_provenance.clear();
+        contact.post_contact_provenance.push(PostContactProvenanceDiagnostic::default());
+        assert_eq!(contact.post_contact_provenance.capacity(), capacity);
+        assert_eq!(contact.post_contact_provenance.as_ptr(), pointer);
     }
 
     #[cfg(feature = "cartesian-recoil")]

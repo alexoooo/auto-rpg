@@ -128,11 +128,14 @@ diagnosis is either behavior-neutral shared plumbing or behind the disabled
   and distance followed, while speed was equal at `8144`. Direct and shared-origin
   TOIs remained `38127|38111`. No fix, pin measurement, or corpus ran, and the
   temporary actuator mutation was reverted cleanly.
-- Smart49's narrow odd-symmetric sweep interpolation made the direct TOI
-  `38127|38127`, and the ordinal-1536 trace mapped through tick 32. The first later
-  difference was `tick=33 phase=PostStepPose pair=right.hand.y 451340|451341`, with
-  `cause=none|none`. The temporary actuator and geometry changes/tests were reverted
-  cleanly per the stop; no pin measurement or full corpus ran.
+- Smart49's direct reflected TOI is `38127|38127`. A fresh complete reproduction with
+  both actuator Y products and all four swept-segment endpoint interpolations
+  corrected returned `ticks=49 phase=none`. This supersedes the earlier tick-33
+  one-raw report: that run was mid-edit, with the first endpoint still using
+  `Vec3::lerp`, and later witness edits compounded it. Smart50's staged response,
+  commit, recoil, actuator, and pose provenance also mapped exactly across all 49
+  ticks, so there is no post-contact defect. The temporary repairs were reverted;
+  no pin measurement or full corpus ran.
 - A full-domain actual-projector normal probe sampled 27 scalar words and 101 unique
   component projections. The adjacent envelopes jumped from `[-4,-4]` to `[-4,2]`
   with no restitution-valid root: `NormalGap`.
