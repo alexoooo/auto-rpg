@@ -32,6 +32,8 @@ use crate::combat::geometry;
 use crate::combat::resolution::{self, ContactTickScratch, ContactTrialProjector,
                                 GeneralizedCollider, GeneralizedKind, ResolutionError};
 #[cfg(feature = "cartesian-recoil")]
+use crate::combat::resolution::{ExactContactRejectPhase, ExactContactRejectionDiagnostic};
+#[cfg(feature = "cartesian-recoil")]
 use crate::combat::trajectory::{ExactAffine3, ExactContactTrajectory, ExactHeldResponse,
                                 ExactMotorBounds, ExactMotorPoint, ExactOwnerTrajectory,
                                 ExactMomentum, ExactPosition, ExactTrajectoryReject, FloorReaction, MotorShape,
@@ -548,6 +550,10 @@ struct ContactRuntime {
     /// go and look at, and by the time anybody reads the count the tick that
     /// would have said is thousands of ticks gone.
     first_rejection: Option<ResolutionError>,
+    /// Feature-only evidence for the first exact refusal.  It is deliberately
+    /// beside the unhashed counter rather than in `ContactSolverState`.
+    #[cfg(feature = "cartesian-recoil")]
+    first_exact_rejection: Option<ExactContactRejectionDiagnostic>,
     /// The high water every vector above is reserved for. A request at or below
     /// it is a no-op, which is exactly what makes reusing a dead slot free.
     high_water: usize,
@@ -1067,6 +1073,15 @@ pub enum WorldBuildError {
     ExactLattice(ExactLatticeEnvelope),
 }
 
+#[cfg(feature = "cartesian-recoil")]
+fn exact_rejection_diagnostic(
+    tick: u32, phase: ExactContactRejectPhase, cause: ResolutionError,
+    key: Option<crate::combat::contact::ContactKey>,
+) -> ExactContactRejectionDiagnostic {
+    ExactContactRejectionDiagnostic { tick, phase, cause, key: key.map(|key|
+        (key.a, key.a_slot, key.b, key.b_slot, key.kind)) }
+}
+
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum SpawnError {
     CombatSpec(CombatSpecError),
@@ -1496,6 +1511,21 @@ impl World {
     /// Why the first refused tick was refused, if any was.
     pub fn first_contact_rejection(&self) -> Option<ResolutionError> {
         self.contact.as_ref().and_then(|contact| contact.first_rejection)
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    pub fn first_exact_contact_rejection(&self)
+        -> Option<ExactContactRejectionDiagnostic>
+    {
+        self.contact.as_ref().and_then(|contact| contact.first_exact_rejection)
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    pub fn exact_contact_group_diagnostics(&self)
+        -> &[crate::ExactContactGroupDiagnostic]
+    {
+        self.contact.as_ref().map_or(&[], |contact|
+            contact.scratch.exact_group_diagnostics())
     }
 
     #[cfg(feature = "cartesian-recoil")]
@@ -5138,15 +5168,41 @@ impl World {
         contact.anatomy_entry.extend_from_slice(&wounds);
         contact.credit.clear();
         contact.credit.resize(wounds.len(), Fx::ZERO);
+        #[cfg(feature = "cartesian-recoil")]
+        let exact_entry = {
+            const N: usize = crate::combat::contact::MAX_ARTICULATED_ENTITIES;
+            let mut owners = [None; N];
+            let mut trajectories = [None; N * 3];
+            for (at, row) in contact.exact_owners.iter().enumerate() {
+                owners[at] = Some(*row);
+            }
+            for (at, row) in contact.exact_trajectories.iter().enumerate() {
+                trajectories[at] = Some(*row);
+            }
+            (contact.exact_owners.len(), owners,
+             contact.exact_trajectories.len(), trajectories)
+        };
         self.build_contact_colliders(&contact.entry, &mut contact.colliders, &wounds);
+        #[cfg(feature = "cartesian-recoil")]
+        contact.scratch.begin_exact_diagnostics(self.tick());
         #[cfg(feature = "cartesian-recoil")]
         if let Err(cause) = build_exact_contact_trajectories(self, &mut contact, &wounds) {
             wounds.clear();
             wounds.extend_from_slice(&contact.anatomy_entry);
             self.wounds = wounds;
             contact.resolutions.clear();
+            contact.exact_owners.clear();
+            contact.exact_owners.extend(exact_entry.1[..exact_entry.0].iter().flatten().copied());
+            contact.exact_trajectories.clear();
+            contact.exact_trajectories.extend(
+                exact_entry.3[..exact_entry.2].iter().flatten().copied());
+            contact.exact_commit.clear();
+            contact.floor_reactions.clear();
+            contact.exact_external_energy.clear();
             contact.rejections = contact.rejections.saturating_add(1);
             contact.first_rejection.get_or_insert(cause);
+            contact.first_exact_rejection.get_or_insert(exact_rejection_diagnostic(
+                self.tick(), ExactContactRejectPhase::BuildTrajectories, cause, None));
             self.contact = Some(contact);
             return;
         }
@@ -5173,8 +5229,15 @@ impl World {
         };
         #[cfg(feature = "cartesian-recoil")]
         let solved = match solved {
-            Ok(groups) => self.stage_exact_contact(&mut contact).map(|()| groups),
-            Err(cause) => Err(cause),
+            Ok(groups) => {
+                contact.scratch.exact_context_for_world(
+                    ExactContactRejectPhase::StageCommit, None);
+                self.stage_exact_contact(&mut contact).map(|()| groups)
+            }
+            Err(failure) => {
+                contact.scratch.exact_context_for_world(failure.phase, failure.key);
+                Err(failure.cause)
+            }
         };
         match solved {
             Ok(_) => {
@@ -5209,10 +5272,32 @@ impl World {
                 wounds.extend_from_slice(&contact.anatomy_entry);
                 self.wounds = wounds;
                 contact.resolutions.clear();
+                #[cfg(feature = "cartesian-recoil")]
+                {
+                    contact.exact_owners.clear();
+                    contact.exact_owners.extend(
+                        exact_entry.1[..exact_entry.0].iter().flatten().copied());
+                    contact.exact_trajectories.clear();
+                    contact.exact_trajectories.extend(
+                        exact_entry.3[..exact_entry.2].iter().flatten().copied());
+                    contact.exact_commit.clear();
+                    contact.floor_reactions.clear();
+                    contact.exact_external_energy.clear();
+                    contact.credit.fill(Fx::ZERO);
+                    contact.deltas.clear();
+                    contact.fact_loss.clear();
+                    contact.bodies.clear();
+                }
                 // Counted here and nowhere else, because this line is the one
                 // that makes the rejection invisible from outside.
                 contact.rejections = contact.rejections.saturating_add(1);
                 contact.first_rejection.get_or_insert(cause);
+                #[cfg(feature = "cartesian-recoil")]
+                {
+                    let (phase, key) = contact.scratch.exact_rejection_context();
+                    contact.first_exact_rejection.get_or_insert(exact_rejection_diagnostic(
+                        self.tick(), phase, cause, key));
+                }
             }
         }
         self.contact = Some(contact);
@@ -13482,6 +13567,37 @@ mod tests {
         assert_ne!(wider_tail, actuator_tail, "a third actuator row hashed nothing");
         assert_eq!(unwind(wider_bumped.state_digest().value, 1, &wider_rows), wider_tail,
                    "cap_hits was written once per slot");
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn rejection_provenance_changes_no_hash_publication_or_retained_capacity() {
+        let scenario = Scenario::articulated_duel();
+        let base = World::new(&scenario, 1);
+        let mut witnessed = base.clone();
+        let capacities = witnessed.contact_capacities();
+        let key = (witnessed.id_of(0), LimbSlot::RightArm as u8,
+                   witnessed.id_of(1), BODY_SLOT, ContactKind::WeaponBody);
+        witnessed.contact.as_mut().unwrap().first_exact_rejection = Some(
+            ExactContactRejectionDiagnostic { tick: 17,
+                phase: ExactContactRejectPhase::SolveGroup,
+                cause: ResolutionError::ExactSolver, key: Some(key) });
+        assert_eq!(witnessed.state_hash(), base.state_hash());
+        assert_eq!((witnessed.state_digest().domain, witnessed.state_digest().schema,
+                    witnessed.state_digest().value),
+                   (base.state_digest().domain, base.state_digest().schema,
+                    base.state_digest().value));
+        assert_eq!(witnessed.contact_resolutions(), base.contact_resolutions());
+        assert_eq!(witnessed.exact_external_energy(), base.exact_external_energy());
+        assert_eq!(witnessed.contact_capacities(), capacities);
+        assert_eq!(witnessed.first_exact_contact_rejection().unwrap().key, Some(key));
+
+        let later = ExactContactRejectionDiagnostic { tick: 18,
+            phase: ExactContactRejectPhase::StageCommit,
+            cause: ResolutionError::ExactScan, key: None };
+        witnessed.contact.as_mut().unwrap().first_exact_rejection.get_or_insert(later);
+        assert_ne!(witnessed.first_exact_contact_rejection(), Some(later),
+                   "a later distinct refusal replaced the first diagnostic");
     }
 
     #[test]

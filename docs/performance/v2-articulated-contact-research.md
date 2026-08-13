@@ -80,6 +80,42 @@ diagnosis is either behavior-neutral shared plumbing or behind the disabled
   to 109 but restored no mirrored eligibility, so the bearing-only hypothesis is
   refuted for this corpus. No local or damage result was read, and no successor has
   been declared.
+- Smart42 repaired two Lab witnesses (mirror reach/motion now read the attributed
+  left limb, and crossing uses ground-truth moving region geometry) and added
+  feature-only first-rejection provenance. Its only measurement was the source-41
+  ordinal-1536 pair. `Config`, `Command`, and `PreStepPose` mapped exactly; the first
+  divergence was tick 1 `PostStepPose`, `right.hand.y 442259|442260`, with causes
+  `none|none`. The asymmetry therefore begins as a one-raw actuator fixed-point
+  reflection bias before contact. No full audit or damage measurement ran.
+- Smart43 confirmed the local correction but stopped at its zero-pin firewall. Making
+  the two actuator Y products odd-symmetric passed the focused tests, then the default
+  native web test moved `ARTICULATED_STREAM_DIGEST` from `0xf7d3a9c73aa59981`
+  (`17857803620601665921`) to `0x078dcf03bbd5ed88`
+  (`544318744924908936`). The actuator source and tests were fully reverted; no
+  ordinal-1536 trace or full corpus ran. The movement proves the shipped twenty-tick
+  pose/event/region stream reaches the corrected arithmetic and must be reviewed as
+  an owned values-pin change rather than hidden as a mirror-only repair.
+- Smart44 restored that two-Y fix and its focused actuator tests passed, but the
+  required ordinal-1536 trace found a later asymmetry before any pin measurement.
+  The first difference was tick 33 `PostStepPose`, `right.hand.x 678247|677638`;
+  rejection provenance was `none|mirror tick=32 phase=SolveGroup
+  cause=ResolutionCount key=None`. Per the predeclared stop, no native/wasm digest
+  comparison or pin update ran. Production and tests were fully reverted and the old
+  default web digest is green again. This makes the tick-32 group/count boundary the
+  next diagnostic subject; it is not evidence for widening a solver bound.
+- Smart45 temporarily restored the same two-Y reproduction and found the earliest
+  tick-32 group-0 boundary: `selected_time_raw` was plain `38127` and mirror `38111`.
+  The plain rejection was `None`; the mirror detail was `EmptyDriverSet`. The
+  16-raw TOI asymmetry is therefore already present in exact scan/geometry root
+  selection, before recomputation or the lifted solver. All five focused provenance
+  diagnostics passed, the actuator mutation was reverted cleanly, and no pin or full
+  corpus ran.
+- Smart46 found no wide-detector row: provenance was `CompatibilityFallback` under
+  the temporary two-Y reproduction. Exact response was provably zero, so the exact
+  dispatcher correctly routed through `scan_compatibility_candidates_into`; the
+  `38127|38111` selected-time mismatch was unchanged. The wide premise was refuted,
+  no primitive oracle or fix ran, the actuator was reverted cleanly, and no pin or
+  corpus ran.
 - A full-domain actual-projector normal probe sampled 27 scalar words and 101 unique
   component projections. The adjacent envelopes jumped from `[-4,-4]` to `[-4,2]`
   with no restitution-valid root: `NormalGap`.

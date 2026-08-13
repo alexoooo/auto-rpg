@@ -15,6 +15,9 @@ use crate::combat::contact::{
 use crate::combat::contact::{exact_contact_at_pose, exact_response_velocity,
                              scan_exact_candidates_into};
 #[cfg(feature = "cartesian-recoil")]
+pub use crate::combat::contact::{ExactWideComparisonDiagnostic, ExactWidePrimitiveDiagnostic,
+                                 ExactWideToiDiagnostic};
+#[cfg(feature = "cartesian-recoil")]
 use crate::combat::trajectory::{advance_exact, apply_exact_group, ExactContactTrajectory,
                                 ExactOwnerTrajectory, FixedExactOwners, FloorReaction};
 #[cfg(feature = "cartesian-recoil")]
@@ -79,9 +82,100 @@ pub enum ResolutionError {
     ExactEnergyEnvelope, ExactSolver,
 }
 
+/// Where the feature-only exact contact path first refused a tick.
+///
+/// Evidence rather than authority: this vocabulary is not hashed, recorded, or
+/// published through the browser ABI.  It exists so an empty resolution stream
+/// can still name the operation that refused it.
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ExactContactRejectPhase {
+    BuildTrajectories, Preflight, Scan, Recompute, Closure, SolveGroup,
+    ApplyGroup, Lifecycle, Finish, StageCommit,
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct ExactContactRejectionDiagnostic {
+    pub tick: u32,
+    pub phase: ExactContactRejectPhase,
+    pub cause: ResolutionError,
+    /// Present only when the refusing operation owned one unambiguous fact.
+    /// A coupled group does not accuse its first sorted row by convenience.
+    pub key: Option<(EntityId, u8, EntityId, u8, ContactKind)>,
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct ExactContactKeyDiagnostic {
+    pub a: EntityId, pub a_slot: u8, pub b: EntityId, pub b_slot: u8,
+    pub kind: ContactKind,
+}
+
+#[cfg(feature = "cartesian-recoil")]
+impl From<ContactKey> for ExactContactKeyDiagnostic {
+    fn from(key: ContactKey) -> Self {
+        Self { a: key.a, a_slot: key.a_slot, b: key.b, b_slot: key.b_slot, kind: key.kind }
+    }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ExactSolveGroupRejectDetail {
+    EmptyDriverSet, LiftedIdentity, LiftedFactEnvelope, LiftedRowEnvelope,
+    LiftedCandidateEnvelope, LiftedImpulseEnvelope, LiftedArithmeticEnvelope,
+    LiftedNoRestitutionCandidate, LiftedNoDissipativeCandidate,
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct ExactContactGroupDiagnostic {
+    pub tick: u32, pub group_ordinal: u8, pub selected_time_raw: u32,
+    pub scan_candidates: u32, pub mapped_time_members: u32,
+    pub recomputed_facts: u8, pub closure_entities: u8, pub closure_rows: u8,
+    pub driver_contacts: u8, pub lifted_contacts: u8, pub output_rows: u8,
+    pub reject: Option<ExactSolveGroupRejectDetail>,
+    pub mapped_member_keys: [Option<ExactContactKeyDiagnostic>; 16],
+    pub recomputed_keys: [Option<ExactContactKeyDiagnostic>; 16],
+    pub wide_toi: [Option<ExactWideToiDiagnostic>; 16],
+}
+
+#[cfg(feature = "cartesian-recoil")]
+impl Default for ExactContactGroupDiagnostic {
+    fn default() -> Self {
+        Self { tick: 0, group_ordinal: 0, selected_time_raw: 0, scan_candidates: 0,
+            mapped_time_members: 0, recomputed_facts: 0, closure_entities: 0,
+            closure_rows: 0, driver_contacts: 0, lifted_contacts: 0, output_rows: 0,
+            reject: None, mapped_member_keys: [None; 16], recomputed_keys: [None; 16],
+            wide_toi: [None; 16] }
+    }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) struct ExactContactFailure {
+    pub cause: ResolutionError,
+    pub phase: ExactContactRejectPhase,
+    pub key: Option<ContactKey>,
+}
+
 #[cfg(feature = "cartesian-recoil")]
 fn exact_solver_error(_error: LiftedSolverReject) -> ResolutionError {
     ResolutionError::ExactSolver
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn lifted_reject_detail(error: LiftedSolverReject) -> ExactSolveGroupRejectDetail {
+    match error {
+        LiftedSolverReject::Identity => ExactSolveGroupRejectDetail::LiftedIdentity,
+        LiftedSolverReject::FactEnvelope => ExactSolveGroupRejectDetail::LiftedFactEnvelope,
+        LiftedSolverReject::RowEnvelope => ExactSolveGroupRejectDetail::LiftedRowEnvelope,
+        LiftedSolverReject::CandidateEnvelope => ExactSolveGroupRejectDetail::LiftedCandidateEnvelope,
+        LiftedSolverReject::ImpulseEnvelope => ExactSolveGroupRejectDetail::LiftedImpulseEnvelope,
+        LiftedSolverReject::ArithmeticEnvelope => ExactSolveGroupRejectDetail::LiftedArithmeticEnvelope,
+        LiftedSolverReject::NoRestitutionCandidate => ExactSolveGroupRejectDetail::LiftedNoRestitutionCandidate,
+        LiftedSolverReject::NoDissipativeCandidate => ExactSolveGroupRejectDetail::LiftedNoDissipativeCandidate,
+    }
 }
 
 #[cfg(feature = "cartesian-recoil")]
@@ -622,11 +716,52 @@ pub struct ContactTickScratch {
     lifted_contacts: Vec<LiftedContact>,
     #[cfg(feature = "cartesian-recoil")]
     lifted_solver: LiftedSolverScratch,
+    #[cfg(feature = "cartesian-recoil")]
+    exact_reject_phase: Option<ExactContactRejectPhase>,
+    #[cfg(feature = "cartesian-recoil")]
+    exact_reject_key: Option<ContactKey>,
+    #[cfg(feature = "cartesian-recoil")]
+    exact_group_diagnostics: [ExactContactGroupDiagnostic; MAX_CONTACT_GROUPS_PER_TICK as usize],
+    #[cfg(feature = "cartesian-recoil")]
+    exact_group_diagnostics_len: usize,
+    #[cfg(feature = "cartesian-recoil")]
+    exact_diagnostic_tick: u32,
     suppressed: Vec<Resolved>,
     capped_entities: Vec<EntityId>,
 }
 
 impl ContactTickScratch {
+    #[cfg(feature = "cartesian-recoil")]
+    pub(crate) fn begin_exact_diagnostics(&mut self, tick: u32) {
+        self.exact_group_diagnostics_len = 0;
+        self.exact_diagnostic_tick = tick;
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    pub(crate) fn exact_group_diagnostics(&self) -> &[ExactContactGroupDiagnostic] {
+        &self.exact_group_diagnostics[..self.exact_group_diagnostics_len]
+    }
+    #[cfg(feature = "cartesian-recoil")]
+    fn exact_context(&mut self, phase: ExactContactRejectPhase, key: Option<ContactKey>) {
+        self.exact_reject_phase = Some(phase);
+        self.exact_reject_key = key;
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    pub(crate) fn exact_rejection_context(&self)
+        -> (ExactContactRejectPhase, Option<ContactKey>)
+    {
+        (self.exact_reject_phase.unwrap_or(ExactContactRejectPhase::Preflight),
+         self.exact_reject_key)
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    pub(crate) fn exact_context_for_world(
+        &mut self, phase: ExactContactRejectPhase, key: Option<ContactKey>,
+    ) {
+        self.exact_context(phase, key);
+    }
+
     /// `collider_bound` is `n*3` and `candidate_bound` is `pairs*16` for the
     /// allocated-slot high water `n`. Every other bound in here is a frozen
     /// constant rather than the caller's to choose, so it is not a parameter:
@@ -735,6 +870,7 @@ trait ContactKinematics {
         _solver: &mut LiftedSolverScratch, ordinal: u8,
         _time: u32, projector: &mut P, sums: &mut Vec<[i128; 3]>, trial: &mut Vec<GeneralizedCollider>,
         weights: &mut Vec<u128>, shares: &mut Vec<u64>, output: &mut Vec<ContactResolution>,
+        _diagnostic: &mut ExactContactGroupDiagnostic,
     ) -> Result<(), ResolutionError> {
         proposed.clear();
         for driver in drivers {
@@ -856,17 +992,25 @@ impl ContactKinematics for ExactKinematics<'_> {
         solver: &mut LiftedSolverScratch, ordinal: u8,
         time: u32, _projector: &mut P, _sums: &mut Vec<[i128; 3]>, _trial: &mut Vec<GeneralizedCollider>,
         weights: &mut Vec<u128>, shares: &mut Vec<u64>, output: &mut Vec<ContactResolution>,
+        diagnostic: &mut ExactContactGroupDiagnostic,
     ) -> Result<(), ResolutionError> {
-        if drivers.is_empty() { return Err(ResolutionError::ResolutionCount); }
+        if drivers.is_empty() {
+            diagnostic.reject = Some(ExactSolveGroupRejectDetail::EmptyDriverSet);
+            return Err(ResolutionError::ResolutionCount);
+        }
         lifted.clear();
         proposed.clear();
         for driver in drivers {
             lifted.push(LiftedContact::from_state(driver.fact, driver.a_collider,
                 driver.b_collider, self.trajectories, self.owners, motor)
-                .map_err(exact_solver_error)?);
+                .map_err(|error| { diagnostic.reject = Some(lifted_reject_detail(error));
+                                   exact_solver_error(error) })?);
         }
+        diagnostic.lifted_contacts = lifted.len() as u8;
         let solved = solve_lifted_group(self.trajectories, self.owners, closure_rows,
-            lifted, time, motor, solver).map_err(exact_solver_error)?;
+            lifted, time, motor, solver).map_err(|error| {
+                diagnostic.reject = Some(lifted_reject_detail(error)); exact_solver_error(error)
+            })?;
         for (at, driver) in drivers.iter().enumerate() {
             let word = solved.impulses[at].raw;
             proposed.push(ProposedContact { fact: driver.fact,
@@ -906,6 +1050,7 @@ impl ContactKinematics for ExactKinematics<'_> {
                 energy: ledger, cut_raw: channels.0, thrust_raw: channels.1,
                 pressure_raw: channels.2, deflected_raw: 0, severed: false });
         }
+        diagnostic.output_rows = output.len() as u8;
         Ok(())
     }
 
@@ -987,25 +1132,31 @@ pub(crate) fn solve_exact_contact_tick<P: ContactTrialProjector>(
     owners: &mut Vec<ExactOwnerTrajectory>, floor_reactions: &mut Vec<FloorReaction>,
     projector: &mut P, state: &mut ContactSolverState,
     resolutions: &mut Vec<ContactResolution>, scratch: &mut ContactTickScratch,
-) -> Result<u8, ResolutionError> {
+) -> Result<u8, ExactContactFailure> {
+    scratch.exact_context(ExactContactRejectPhase::Preflight, None);
+    let failed = |cause, scratch: &ContactTickScratch| {
+        let (phase, key) = scratch.exact_rejection_context();
+        ExactContactFailure { cause, phase, key }
+    };
     const MAX_EXACT_TRAJECTORIES: usize = crate::combat::contact::MAX_ARTICULATED_ENTITIES * 3;
     if trajectories.len() > MAX_EXACT_TRAJECTORIES {
-        return Err(ResolutionError::ExactScan);
+        return Err(failed(ResolutionError::ExactScan, scratch));
     }
     let mut trajectory_entry = [None; MAX_EXACT_TRAJECTORIES];
     for (at, row) in trajectories.iter().enumerate() { trajectory_entry[at] = Some(*row); }
-    let entry = FixedExactOwners::from_slice(owners).map_err(|_| ResolutionError::ExactScan)?;
+    let entry = FixedExactOwners::from_slice(owners)
+        .map_err(|_| failed(ResolutionError::ExactScan, scratch))?;
     floor_reactions.clear();
     let result = solve_contact_tick_with(colliders, projector, state, resolutions, scratch,
         &mut ExactKinematics { trajectories, owners, floor_reactions });
     if result.is_err() {
         floor_reactions.clear();
-        entry.copy_into(owners).map_err(|_| ResolutionError::ExactScan)?;
+        entry.copy_into(owners).map_err(|_| failed(ResolutionError::ExactScan, scratch))?;
         for (row, saved) in trajectories.iter_mut().zip(trajectory_entry) {
-            *row = saved.ok_or(ResolutionError::ExactScan)?;
+            *row = saved.ok_or_else(|| failed(ResolutionError::ExactScan, scratch))?;
         }
     }
-    result
+    result.map_err(|cause| failed(cause, scratch))
 }
 
 fn solve_contact_tick_with<P: ContactTrialProjector, K: ContactKinematics>(
@@ -1040,6 +1191,8 @@ fn solve_contact_tick_with<P: ContactTrialProjector, K: ContactKinematics>(
 
     loop {
         let basis = kinematics.time_basis();
+        #[cfg(feature = "cartesian-recoil")]
+        scratch.exact_context(ExactContactRejectPhase::Scan, None);
         kinematics.scan(colliders, &mut scratch.collection)?;
         forget_closing_keys(basis, global, &mut scratch.suppressed,
                             scratch.collection.candidates());
@@ -1047,6 +1200,8 @@ fn solve_contact_tick_with<P: ContactTrialProjector, K: ContactKinematics>(
         let Some(time) = earliest_group_time(
             basis, global, scratch.collection.candidates(), &scratch.suppressed)
         else {
+            #[cfg(feature = "cartesian-recoil")]
+            scratch.exact_context(ExactContactRejectPhase::Finish, None);
             kinematics.finish(colliders)?;
             return Ok(groups);
         };
@@ -1059,6 +1214,28 @@ fn solve_contact_tick_with<P: ContactTrialProjector, K: ContactKinematics>(
         // asks for and what a test on local equality would miss.
         let members = count_group_members(
             basis, global, time, scratch.collection.candidates(), &scratch.suppressed)?;
+
+        #[cfg(feature = "cartesian-recoil")]
+        {
+            let at = groups as usize;
+            scratch.exact_group_diagnostics[at] = ExactContactGroupDiagnostic {
+                tick: scratch.exact_diagnostic_tick, group_ordinal: groups,
+                selected_time_raw: time,
+                scan_candidates: scratch.collection.candidates().len() as u32,
+                mapped_time_members: members as u32, ..ExactContactGroupDiagnostic::default()
+            };
+            let row = &mut scratch.exact_group_diagnostics[at];
+            for candidate in scratch.collection.candidates() {
+                if suppressed(basis, &candidate.fact, global, &scratch.suppressed) { continue; }
+                if candidate_global_time(basis, global, candidate.fact) != time { continue; }
+                let key_at = row.mapped_member_keys.iter().position(Option::is_none);
+                if let Some(key_at) = key_at {
+                    row.mapped_member_keys[key_at] = Some(candidate.fact.key.into());
+                    row.wide_toi[key_at] = candidate.wide_toi;
+                }
+            }
+            scratch.exact_group_diagnostics_len = at + 1;
+        }
 
         // No ordinal left, or a simultaneous set too large to resolve as one
         // system. Neither is truncation: no prefix of a group is privileged.
@@ -1075,6 +1252,8 @@ fn solve_contact_tick_with<P: ContactTrialProjector, K: ContactKinematics>(
             let fact = scratch.collection.candidates()[index].fact;
             if suppressed(basis, &fact, global, &scratch.suppressed) { continue; }
             if candidate_global_time(basis, global, fact) != time { continue; }
+            #[cfg(feature = "cartesian-recoil")]
+            scratch.exact_context(ExactContactRejectPhase::Recompute, Some(fact.key));
             let a = collider_index(colliders, fact.key.a, fact.key.a_slot)
                 .ok_or(ResolutionError::ColliderIndex)?;
             let b = collider_index(colliders, fact.key.b, fact.key.b_slot)
@@ -1091,6 +1270,23 @@ fn solve_contact_tick_with<P: ContactTrialProjector, K: ContactKinematics>(
         scratch.group_facts.sort_unstable_by_key(|fact| fact.key);
         scratch.group_facts.dedup_by_key(|fact| fact.key);
 
+        #[cfg(feature = "cartesian-recoil")]
+        {
+            let row = &mut scratch.exact_group_diagnostics[groups as usize];
+            row.recomputed_facts = scratch.group_facts.len() as u8;
+            for (at, fact) in scratch.group_facts.iter().take(16).enumerate() {
+                row.recomputed_keys[at] = Some(fact.key.into());
+            }
+        }
+
+        #[cfg(feature = "cartesian-recoil")]
+        {
+            let key = if scratch.group_facts.len() == 1 {
+                Some(scratch.group_facts[0].key)
+            } else { None };
+            scratch.exact_context(ExactContactRejectPhase::Closure, key);
+        }
+
         // Whole-entity closure. A body impulse drags every collider that body
         // holds, so that equipment's kinetic energy has to be inside the ledger
         // even when it carries no fact of its own -- otherwise the group could
@@ -1104,6 +1300,13 @@ fn solve_contact_tick_with<P: ContactTrialProjector, K: ContactKinematics>(
         scratch.closure_rows.clear();
         for (index, row) in colliders.iter().enumerate() {
             if scratch.closure_entities.contains(&row.entity) { scratch.closure_rows.push(index); }
+        }
+
+        #[cfg(feature = "cartesian-recoil")]
+        {
+            let row = &mut scratch.exact_group_diagnostics[groups as usize];
+            row.closure_entities = scratch.closure_entities.len() as u8;
+            row.closure_rows = scratch.closure_rows.len() as u8;
         }
 
         scratch.generalized.clear();
@@ -1143,6 +1346,10 @@ fn solve_contact_tick_with<P: ContactTrialProjector, K: ContactKinematics>(
                 a_collider: scratch.closure_rows[a], b_collider: scratch.closure_rows[b], channel });
         }
 
+        #[cfg(feature = "cartesian-recoil")]
+        { scratch.exact_group_diagnostics[groups as usize].driver_contacts =
+              scratch.driver_contacts.len() as u8; }
+
         scratch.old_velocities.clear();
         #[cfg(feature = "cartesian-recoil")]
         scratch.motor_velocities.clear();
@@ -1156,11 +1363,17 @@ fn solve_contact_tick_with<P: ContactTrialProjector, K: ContactKinematics>(
         }
 
         #[cfg(feature = "cartesian-recoil")]
+        {
+        let key = if scratch.group_facts.len() == 1 {
+            Some(scratch.group_facts[0].key)
+        } else { None };
+        scratch.exact_context(ExactContactRejectPhase::SolveGroup, key);
         kinematics.resolve_group(colliders, &scratch.closure_rows, &scratch.motor_velocities,
             &mut scratch.generalized, &scratch.driver_contacts, &mut scratch.proposed,
             &mut scratch.lifted_contacts, &mut scratch.lifted_solver, groups, time, projector,
             &mut scratch.sums, &mut scratch.trial, &mut scratch.weights, &mut scratch.shares,
-            &mut scratch.group_rows)?;
+            &mut scratch.group_rows, &mut scratch.exact_group_diagnostics[groups as usize])?;
+        }
         #[cfg(not(feature = "cartesian-recoil"))]
         resolve_group_into(
             &mut scratch.generalized, &scratch.proposed, groups, projector,
@@ -1173,12 +1386,26 @@ fn solve_contact_tick_with<P: ContactTrialProjector, K: ContactKinematics>(
         // helper agrees on every positive delta and disagrees by one raw unit
         // on negative ones, which is exactly the byte the behavioral corpus
         // pins in case 2.
+        #[cfg(feature = "cartesian-recoil")]
+        {
+            let key = if scratch.group_facts.len() == 1 {
+                Some(scratch.group_facts[0].key)
+            } else { None };
+            scratch.exact_context(ExactContactRejectPhase::ApplyGroup, key);
+        }
         kinematics.apply_group(colliders, &scratch.closure_rows, &scratch.old_velocities,
                                &scratch.generalized, &scratch.group_rows, time)?;
 
         // The group is settled: hand it to the projector before the next scan
         // sees the colliders, so a severance can take an arm out of the tick it
         // happened in rather than the one after.
+        #[cfg(feature = "cartesian-recoil")]
+        {
+            let key = if scratch.group_facts.len() == 1 {
+                Some(scratch.group_facts[0].key)
+            } else { None };
+            scratch.exact_context(ExactContactRejectPhase::Lifecycle, key);
+        }
         projector.after_group(colliders, &mut scratch.group_rows)?;
 
         // Eight groups of at most 512 rows fit the 4,096 ceiling exactly, so
@@ -1194,6 +1421,8 @@ fn solve_contact_tick_with<P: ContactTrialProjector, K: ContactKinematics>(
         // pre-group ones the fact carries.
         for index in 0..scratch.group_facts.len() {
             let fact = scratch.group_facts[index];
+            #[cfg(feature = "cartesian-recoil")]
+            scratch.exact_context(ExactContactRejectPhase::Recompute, Some(fact.key));
             let a = collider_index(colliders, fact.key.a, fact.key.a_slot)
                 .ok_or(ResolutionError::ColliderIndex)?;
             let b = collider_index(colliders, fact.key.b, fact.key.b_slot)
@@ -1208,6 +1437,13 @@ fn solve_contact_tick_with<P: ContactTrialProjector, K: ContactKinematics>(
         // lifecycle change is nevertheless accepted before the next scan, so
         // later groups see the region or held row as absent without making the
         // group that caused the removal impossible to record.
+        #[cfg(feature = "cartesian-recoil")]
+        {
+            let key = if scratch.group_facts.len() == 1 {
+                Some(scratch.group_facts[0].key)
+            } else { None };
+            scratch.exact_context(ExactContactRejectPhase::Lifecycle, key);
+        }
         kinematics.accept_lifecycle(colliders)?;
         global = time;
         groups += 1;
@@ -1737,6 +1973,112 @@ pub(crate) mod tests {
 
     #[cfg(feature = "cartesian-recoil")]
     #[test]
+    fn empty_recomputed_group_is_named_empty_driver_set_not_a_count_envelope() {
+        let mut trajectories = Vec::new();
+        let mut owners = Vec::new();
+        let mut reactions = Vec::new();
+        let mut kinematics = ExactKinematics { trajectories: &mut trajectories,
+            owners: &mut owners, floor_reactions: &mut reactions };
+        let mut generalized = Vec::new();
+        let mut proposed = Vec::new();
+        let mut lifted = Vec::new();
+        let mut solver = LiftedSolverScratch::default();
+        let mut sums = Vec::new();
+        let mut trial = Vec::new();
+        let mut weights = Vec::new();
+        let mut shares = Vec::new();
+        let mut output = Vec::new();
+        let mut diagnostic = ExactContactGroupDiagnostic::default();
+        let result = kinematics.resolve_group(&[], &[], &[], &mut generalized, &[],
+            &mut proposed, &mut lifted, &mut solver, 0, 0,
+            &mut IndependentPointProjector, &mut sums, &mut trial, &mut weights,
+            &mut shares, &mut output, &mut diagnostic);
+        assert_eq!(result, Err(ResolutionError::ResolutionCount));
+        assert_eq!(diagnostic.reject, Some(ExactSolveGroupRejectDetail::EmptyDriverSet));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn lifted_reject_variants_survive_the_public_diagnostic_mapping() {
+        let cases = [
+            (LiftedSolverReject::Identity, ExactSolveGroupRejectDetail::LiftedIdentity),
+            (LiftedSolverReject::FactEnvelope, ExactSolveGroupRejectDetail::LiftedFactEnvelope),
+            (LiftedSolverReject::RowEnvelope, ExactSolveGroupRejectDetail::LiftedRowEnvelope),
+            (LiftedSolverReject::CandidateEnvelope, ExactSolveGroupRejectDetail::LiftedCandidateEnvelope),
+            (LiftedSolverReject::ImpulseEnvelope, ExactSolveGroupRejectDetail::LiftedImpulseEnvelope),
+            (LiftedSolverReject::ArithmeticEnvelope, ExactSolveGroupRejectDetail::LiftedArithmeticEnvelope),
+            (LiftedSolverReject::NoRestitutionCandidate,
+             ExactSolveGroupRejectDetail::LiftedNoRestitutionCandidate),
+            (LiftedSolverReject::NoDissipativeCandidate,
+             ExactSolveGroupRejectDetail::LiftedNoDissipativeCandidate),
+        ];
+        for (private, public) in cases { assert_eq!(lifted_reject_detail(private), public); }
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn group_provenance_counts_the_production_rows_at_each_boundary() {
+        let mut rows = behavior_case(4);
+        let mut exact = zero_response_compatibility(&rows).unwrap();
+        let mut state = ContactSolverState::default();
+        let mut resolutions = Vec::new();
+        let mut reactions = Vec::new();
+        let mut scratch = ContactTickScratch::default();
+        scratch.reserve(rows.len() * 3, 64);
+        scratch.begin_exact_diagnostics(37);
+        solve_exact_contact_tick(&mut rows, &mut exact.trajectories, &mut exact.owners,
+            &mut reactions, &mut IndependentPointProjector, &mut state, &mut resolutions,
+            &mut scratch).unwrap();
+        let diagnostic = scratch.exact_group_diagnostics();
+        assert!(!diagnostic.is_empty());
+        for (ordinal, row) in diagnostic.iter().enumerate() {
+            assert_eq!((row.tick, row.group_ordinal), (37, ordinal as u8));
+            assert!(row.scan_candidates >= row.mapped_time_members);
+            assert_eq!(row.mapped_member_keys.iter().flatten().count() as u32,
+                       row.mapped_time_members.min(16));
+            assert_eq!(row.recomputed_keys.iter().flatten().count(), row.recomputed_facts as usize);
+            assert!(row.closure_rows >= row.closure_entities);
+            assert_eq!(row.driver_contacts, row.lifted_contacts);
+            assert_eq!(row.output_rows, resolutions.iter()
+                .filter(|output| output.group_ordinal == row.group_ordinal).count() as u8);
+        }
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn group_provenance_is_fixed_bounded_unhashed_and_cleared_each_tick() {
+        let mut scratch = ContactTickScratch::default();
+        assert_eq!(scratch.exact_group_diagnostics.len(), MAX_CONTACT_GROUPS_PER_TICK as usize);
+        scratch.exact_group_diagnostics_len = 1;
+        scratch.exact_group_diagnostics[0].tick = 11;
+        scratch.begin_exact_diagnostics(12);
+        assert!(scratch.exact_group_diagnostics().is_empty());
+        assert_eq!(scratch.exact_diagnostic_tick, 12);
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn rejected_group_provenance_survives_whole_tick_rollback() {
+        let mut rows = behavior_case(4);
+        let mut exact = zero_response_compatibility(&rows).unwrap();
+        let mut state = ContactSolverState::default();
+        let mut resolutions = Vec::new();
+        let mut reactions = Vec::new();
+        let mut scratch = ContactTickScratch::default();
+        scratch.reserve(rows.len() * 3, 64);
+        scratch.begin_exact_diagnostics(19);
+        let failure = solve_exact_contact_tick(&mut rows, &mut exact.trajectories,
+            &mut exact.owners, &mut reactions, &mut RejectAfterGroup, &mut state,
+            &mut resolutions, &mut scratch).unwrap_err();
+        assert_eq!(failure.phase, ExactContactRejectPhase::Lifecycle);
+        let evidence = scratch.exact_group_diagnostics();
+        assert_eq!(evidence.len(), 1);
+        assert_eq!(evidence[0].tick, 19);
+        assert!(evidence[0].driver_contacts > 0);
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
     fn exact_feature_resolution_no_longer_calls_the_proposal_alpha_ray() {
         let mut exact_rows = behavior_case(4);
         let mut exact = zero_response_compatibility(&exact_rows).unwrap();
@@ -1843,14 +2185,68 @@ pub(crate) mod tests {
         let mut floor_reactions = Vec::new();
         let mut scratch = ContactTickScratch::default();
         scratch.reserve(rows.len(), 64);
-        assert!(solve_exact_contact_tick(&mut rows, &mut exact.trajectories, &mut exact.owners,
+        let capacities = scratch.capacities();
+        let failure = solve_exact_contact_tick(&mut rows, &mut exact.trajectories, &mut exact.owners,
             &mut floor_reactions, &mut RejectAfterGroup, &mut state, &mut resolutions,
-            &mut scratch).is_err());
+            &mut scratch).expect_err("the single group was not refused");
         assert_eq!(rows, before);
         assert_eq!(exact.owners, before_owners);
         assert_eq!(exact.trajectories, before_trajectories);
         assert_eq!(state, before_state);
         assert!(resolutions.is_empty());
+        assert_eq!((failure.phase, failure.cause),
+                   (ExactContactRejectPhase::Lifecycle, ResolutionError::Projector));
+        assert!(failure.key.is_some(), "the one-fact refusal lost its canonical contact key");
+        assert_eq!(scratch.capacities(), capacities,
+                   "recording rejection evidence changed retained capacity");
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn coupled_rejection_context_does_not_accuse_the_first_sorted_contact() {
+        let mut fixture = None;
+        for case_id in 0..=6 {
+            let rows = behavior_case(case_id);
+            let exact = zero_response_compatibility(&rows).unwrap();
+            let mut scan = ContactCollectionScratch::default();
+            scan.try_reserve(64).unwrap();
+            scan_exact_candidates_into(&exact.trajectories, &exact.owners, &rows, &mut scan)
+                .unwrap();
+            let Some(first) = scan.candidates().first() else { continue };
+            let time = first.fact.toi.get().raw();
+            if scan.candidates().iter().filter(|row| row.fact.toi.get().raw() == time).count() > 1 {
+                fixture = Some((rows, exact)); break;
+            }
+        }
+        let (mut rows, mut exact) = fixture.expect("behavior corpus has no coupled exact group");
+        let mut state = ContactSolverState::default();
+        let mut resolutions = Vec::new();
+        let mut reactions = Vec::new();
+        let mut scratch = ContactTickScratch::default();
+        scratch.reserve(rows.len() * 3, 64);
+        let failure = solve_exact_contact_tick(&mut rows, &mut exact.trajectories,
+            &mut exact.owners, &mut reactions, &mut RejectAfterGroup, &mut state,
+            &mut resolutions, &mut scratch).expect_err("coupled group was not refused");
+        assert_eq!((failure.phase, failure.cause, failure.key),
+                   (ExactContactRejectPhase::Lifecycle, ResolutionError::Projector, None));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn exact_scan_refusal_names_scan_without_a_contact_key() {
+        let mut rows = behavior_case(4);
+        let mut exact = zero_response_compatibility(&rows).unwrap();
+        exact.trajectories[0].owner_index = exact.owners.len();
+        let mut state = ContactSolverState::default();
+        let mut resolutions = Vec::new();
+        let mut reactions = Vec::new();
+        let mut scratch = ContactTickScratch::default();
+        scratch.reserve(rows.len() * 3, 64);
+        let failure = solve_exact_contact_tick(&mut rows, &mut exact.trajectories,
+            &mut exact.owners, &mut reactions, &mut IndependentPointProjector, &mut state,
+            &mut resolutions, &mut scratch).expect_err("malformed scan was accepted");
+        assert_eq!((failure.phase, failure.cause, failure.key),
+                   (ExactContactRejectPhase::Scan, ResolutionError::ExactScan, None));
     }
 
     #[cfg(feature = "cartesian-recoil")]

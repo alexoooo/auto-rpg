@@ -108,6 +108,10 @@ pub use combat::actuator::{ArmCalibration, PRODUCTION_ARM_CALIBRATION};
 /// expected to move, and the failure mode of a second copy in a viewer is a
 /// picture that keeps agreeing with an argument the code stopped making.
 pub use combat::resolution::{contact_behavior_corpus, ResolutionError, CONTACT_ENERGY_FLOOR};
+#[cfg(feature = "cartesian-recoil")]
+pub use combat::resolution::{ExactContactGroupDiagnostic, ExactContactKeyDiagnostic,
+    ExactContactRejectPhase, ExactContactRejectionDiagnostic, ExactSolveGroupRejectDetail,
+    ExactWideComparisonDiagnostic, ExactWidePrimitiveDiagnostic, ExactWideToiDiagnostic};
 /// The contact capacity vocabulary, which the browser needs even though the
 /// solver stays private: the host reserves the high water before it hands the
 /// page a pointer, and has to be able to say which count refused.

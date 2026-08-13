@@ -243,6 +243,22 @@ pub(crate) fn tactical_mechanics(args: &Args) {
         seed: 0, mirrored: false, target_anatomy: AnatomyChoice::Fighter,
         approach_offset: strong_strike::APPROACH_OFFSETS[4],
     };
+    if args.flag("mirror-trace-1536") {
+        let override_named = ["seed", "ordinal", "tolerance", "strike-delta", "reach-delta"]
+            .into_iter().any(|key| args.flag(key) || args.text(key).is_some());
+        if args.flag("quick") || args.flag("calibration") || args.flag("held-out")
+            || args.flag("strike-corpus") || args.flag("anatomical-mirror-corpus")
+            || args.flag("noise-free-mirror-corpus") || args.text("write").is_some()
+            || override_named {
+            eprintln!("tactical-mechanics --mirror-trace-1536 accepts no other input");
+            return;
+        }
+        #[cfg(feature = "cartesian-recoil")]
+        println!("{}", strong_strike::mirror_trace_1536());
+        #[cfg(not(feature = "cartesian-recoil"))]
+        eprintln!("tactical-mechanics --mirror-trace-1536 requires --features cartesian-recoil");
+        return;
+    }
     if args.flag("strike-corpus") || args.flag("anatomical-mirror-corpus")
         || args.flag("noise-free-mirror-corpus") {
         let anatomical = args.flag("anatomical-mirror-corpus");
@@ -326,7 +342,7 @@ pub(crate) fn tactical_mechanics(args: &Args) {
         return;
     }
     if !args.flag("quick") {
-        eprintln!("tactical-mechanics expects --quick, --calibration, --held-out, --strike-corpus, --anatomical-mirror-corpus, or --noise-free-mirror-corpus");
+        eprintln!("tactical-mechanics expects --quick, --calibration, --held-out, --strike-corpus, --anatomical-mirror-corpus, --noise-free-mirror-corpus, or --mirror-trace-1536");
         return;
     }
     let before = strong_strike::measure_case(quick, Fx::ONE);

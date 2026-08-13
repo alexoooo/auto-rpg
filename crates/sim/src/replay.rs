@@ -455,6 +455,7 @@ mod tests {
         let mut momentum_remainder = false;
         let mut position_remainder = false;
         let mut release = false;
+        let mut first_exact_rejection = None;
         for tick in 0..100 {
             for id in [fighter, brute] {
                 let requested = command_at(tick, id);
@@ -471,6 +472,12 @@ mod tests {
             }
             first.step();
             second.step();
+            if first_exact_rejection.is_none() {
+                first_exact_rejection = first.first_exact_contact_rejection();
+            }
+            assert_eq!(second.first_exact_contact_rejection(),
+                       first.first_exact_contact_rejection(),
+                       "live rejection provenance diverged at tick {}", tick + 1);
             groups += first.contact_resolutions().iter()
                 .map(|row| row.group_ordinal).max().map_or(0, |last| last as usize + 1);
             for id in [fighter, brute] {
@@ -509,6 +516,9 @@ mod tests {
                 "replay resolutions diverged at tick {}", tick + 1);
             assert_eq!(played.exact_external_energy(), first.exact_external_energy(),
                 "replay external ledger diverged at tick {}", tick + 1);
+            assert_eq!(played.first_exact_contact_rejection(),
+                       first.first_exact_contact_rejection(),
+                       "replay rejection provenance diverged at tick {}", tick + 1);
             for id in [fighter, brute] {
                 assert_eq!(played.articulated_pose_test_view(id), first.articulated_pose_test_view(id),
                     "replay pose or grips diverged at tick {}", tick + 1);
@@ -519,6 +529,16 @@ mod tests {
         assert!(groups >= 1, "the fixture crossed no accepted contact group");
         assert_eq!(first.first_contact_rejection(), Some(crate::ResolutionError::ExactSolver),
                    "the lifted energy refusal stopped being public and payloadless");
+        let diagnostic = first.first_exact_contact_rejection()
+            .expect("the exact refusal had no feature-only provenance");
+        assert_eq!(diagnostic.cause, crate::ResolutionError::ExactSolver);
+        assert_eq!(diagnostic.phase, crate::ExactContactRejectPhase::SolveGroup);
+        assert_eq!(diagnostic.tick, 80);
+        assert_eq!(diagnostic.key, Some((fighter, crate::LimbSlot::RightArm as u8,
+                                        brute, crate::combat::contact::BODY_SLOT,
+                                        crate::ContactKind::WeaponBody)));
+        assert_eq!(Some(diagnostic), first_exact_rejection,
+                   "a later refusal replaced the first diagnostic");
         assert!(momentum_remainder, "the fixture produced no exact momentum remainder");
         assert!(position_remainder, "the fixture produced no exact position remainder");
         assert!(release, "the ordinary release cleared no retained response");

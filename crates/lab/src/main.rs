@@ -115,7 +115,7 @@ fn usage() {
           control through the production World, printing raw pose kinematics,
           contact energy channels and before/after anatomy facts.
 
-  tactical-mechanics --quick|--strike-corpus|--anatomical-mirror-corpus|--noise-free-mirror-corpus
+  tactical-mechanics --quick|--strike-corpus|--anatomical-mirror-corpus|--noise-free-mirror-corpus|--mirror-trace-1536
           Brackets the tactical controller between byte-equal strong-strike
           references on their exact fixed scenario. Diagnostic only: the
           parameterized calibration and held-out corpus is not implemented.
@@ -125,6 +125,8 @@ fn usage() {
           attacking limb, schedule, and contact-key reflection.
           --noise-free-mirror-corpus retains that grammar and derives the
           Smart41 schedule from its declared spawn offset rather than perception.
+          --mirror-trace-1536 runs only Smart41 central ordinal 1536 and its
+          anatomical mirror, stopping at their first tick/phase/field divergence.
 
   trace   --seed N --policy composed|windmill|tactical|learned --attack-moves --mirrored
           --ticks N --out PATH

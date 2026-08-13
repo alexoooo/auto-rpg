@@ -9,6 +9,10 @@ use policy::neutral_articulated_command;
 use sim::{AnatomyChoice, ArmTarget, ArticulatedCommandV1, BodyPart, CombatHeight,
           ContactKind, DuelConfigV1, EntityId, EquipmentGeometry, Faction, Intent, Scenario,
           LimbSlot, RegionVolume, SegmentPose, SubmitArticulatedOutcome, World, BODY_SLOT};
+#[cfg(feature = "cartesian-recoil")]
+use sim::{ExactContactGroupDiagnostic, ExactContactKeyDiagnostic};
+#[cfg(feature = "cartesian-recoil")]
+use sim::ExactWideToiDiagnostic;
 
 pub(crate) const CHAMBER_TICKS: u32 = 28;
 pub(crate) const STRIKE_TICKS: u32 = 28;
@@ -79,11 +83,18 @@ pub(crate) struct StrikeMeasurement {
     pub weapon_body_facts: u32, pub competing_facts: u32,
     pub contact_reach_raw: Option<i32>, pub contact_arm_velocity: Vec3,
     pub observed_contact_region: Option<RegionVolume>,
+    pub crossing_oracle: Option<CrossingOracle>,
     pub refusals: u32, pub solver_rejections: u32, pub max_energy_excess_raw: u64,
     pub contact_key: Option<(EntityId, u8, EntityId, u8, ContactKind)>,
     pub toi_raw: Option<i32>, pub normal: Vec3, pub impulse_on_a: Vec3,
     pub group_alpha_raw: Option<u32>,
     pub cap_hits: u32,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) struct CrossingOracle {
+    pub previous: RegionVolume,
+    pub requested: RegionVolume,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -133,12 +144,39 @@ pub(crate) fn meaningful_strike_validity(
 }
 
 fn observed_crossing(row: StrikeMeasurement) -> bool {
-    row.observed_contact_region.map(|region| region.present && swept_segment_segment(
+    row.crossing_oracle.map(|oracle| oracle.previous.present && oracle.requested.present
+        && swept_segment_segment(
         row.previous_weapon.hilt, row.previous_weapon.tip,
         row.requested_weapon.hilt, row.requested_weapon.tip,
         row.previous_weapon.radius.max(row.requested_weapon.radius),
-        region.lower, region.upper, region.lower, region.upper, region.radius,
+        oracle.previous.lower, oracle.previous.upper,
+        oracle.requested.lower, oracle.requested.upper,
+        oracle.previous.radius.max(oracle.requested.radius),
     ).is_some()).unwrap_or(false)
+}
+
+fn ground_truth_region(pose: sim::ArticulatedPose, anatomy: &sim::BodyAnatomySpec,
+                       part: BodyPart) -> RegionVolume {
+    let hands = pose.arms.map(|arm| arm.hand - pose.body);
+    let present = core::array::from_fn(|at| pose.severed_mask & (1 << at) == 0);
+    sim::body_region_volumes(pose.body, anatomy, pose.body_yaw, hands, present)[part as usize]
+}
+
+fn attacking_reach_motion(observation: &sim::ArticulatedObservation, limb: LimbSlot)
+    -> (i32, Vec3)
+{
+    let anatomy = sim::fighter_anatomy();
+    let limb_index = limb as usize;
+    let side = if limb == LimbSlot::LeftArm { anatomy.shoulder_half_width }
+        else { -anatomy.shoulder_half_width };
+    let yaw = observation.body_yaw;
+    let shoulder = observation.body_position + Vec3::new(
+        -yaw.sin() * side, yaw.cos() * side, anatomy.shoulder_height,
+    );
+    let hand = observation.arms[limb_index].hand;
+    let planar = Vec2::new(hand.x - shoulder.x, hand.y - shoulder.y);
+    ((planar.length() / observation.arm_length).raw(),
+     observation.arms[limb_index].velocity)
 }
 
 fn config_for_ticks(case: StrongCase, max_ticks: u32, grammar: MirrorGrammar) -> DuelConfigV1 {
@@ -232,6 +270,8 @@ fn measure_case_schedule_with(case: StrongCase, strike_effort: Fx, chamber_ticks
     strike_ticks: u32, strike_reach: Fx, grammar: MirrorGrammar,
     bearing_source: ScheduleBearingSource) -> StrikeMeasurement {
     let scenario = scenario_for_ticks_with(case, chamber_ticks + strike_ticks, grammar);
+    let defender_anatomy = scenario.combat_specs.as_ref().expect("configured combat specs")
+        .anatomy(2).expect("configured defender anatomy").clone();
     let mut world = World::new(&scenario, case.seed);
     let attacker = world.alive_ids(Faction::Heroes)[0];
     let defender = world.alive_ids(Faction::Monsters)[0];
@@ -289,7 +329,7 @@ fn measure_case_schedule_with(case: StrongCase, strike_effort: Fx, chamber_ticks
         blood_before_raw: before.blood_fraction.raw(), blood_after_raw: before.blood_fraction.raw(),
         weapon_body_facts: 0, competing_facts: 0,
         contact_reach_raw: None, contact_arm_velocity: Vec3::ZERO,
-        observed_contact_region: None,
+        observed_contact_region: None, crossing_oracle: None,
         refusals: 0, solver_rejections: 0, max_energy_excess_raw: 0,
         contact_key: None, toi_raw: None, normal: Vec3::ZERO, impulse_on_a: Vec3::ZERO,
         group_alpha_raw: None,
@@ -298,6 +338,7 @@ fn measure_case_schedule_with(case: StrongCase, strike_effort: Fx, chamber_ticks
 
     for _ in 0..strike_ticks {
         let attacker_before = world.observe_articulated(attacker);
+        let defender_before = world.articulated_pose(defender).expect("live defender pose");
         for id in world.pending_decisions().to_vec() {
             let obs = world.observe_articulated(id);
             let submitted = if id == attacker {
@@ -312,6 +353,7 @@ fn measure_case_schedule_with(case: StrongCase, strike_effort: Fx, chamber_ticks
             }
         }
         let _ = world.step();
+        let defender_requested = world.articulated_pose(defender).expect("live defender pose");
         for resolution in world.contact_resolutions() {
             max_energy_excess_raw = max_energy_excess_raw.max(
                 resolution.energy.after_raw.saturating_sub(resolution.energy.before_raw));
@@ -335,9 +377,9 @@ fn measure_case_schedule_with(case: StrongCase, strike_effort: Fx, chamber_ticks
             answer.group_alpha_raw = Some(row.group_alpha_raw);
             answer.velocity_a = row.fact.velocity_a; answer.velocity_b = row.fact.velocity_b;
             answer.region = BodyPart::ALL.get(row.fact.region as usize).copied();
-            answer.observed_contact_region = answer.region.and_then(|part| {
-                attacker_before.opponents().iter().find(|foe| foe.id == defender)
-                    .map(|foe| foe.regions[part as usize])
+            answer.crossing_oracle = answer.region.map(|part| CrossingOracle {
+                previous: ground_truth_region(defender_before, &defender_anatomy, part),
+                requested: ground_truth_region(defender_requested, &defender_anatomy, part),
             });
             answer.energy_before_raw = row.energy.before_raw;
             answer.energy_after_raw = row.energy.after_raw;
@@ -351,16 +393,9 @@ fn measure_case_schedule_with(case: StrongCase, strike_effort: Fx, chamber_ticks
                 .filter(|row| attributed_sword_body(row, attacker, defender, limb)).count() as u32;
             answer.competing_facts = world.contact_resolutions().iter()
                 .filter(|row| !attributed_sword_body(row, attacker, defender, limb)).count() as u32;
-            let anatomy = sim::fighter_anatomy();
-            let yaw = attacker_before.body_yaw;
-            let side = -anatomy.shoulder_half_width;
-            let shoulder = attacker_before.body_position + Vec3::new(
-                -yaw.sin() * side, yaw.cos() * side, anatomy.shoulder_height,
-            );
-            let planar = Vec2::new(attacker_before.arms[1].hand.x - shoulder.x,
-                                   attacker_before.arms[1].hand.y - shoulder.y);
-            answer.contact_reach_raw = Some((planar.length() / attacker_before.arm_length).raw());
-            answer.contact_arm_velocity = attacker_before.arms[1].velocity;
+            let (reach, motion) = attacking_reach_motion(&attacker_before, limb);
+            answer.contact_reach_raw = Some(reach);
+            answer.contact_arm_velocity = motion;
             break;
         }
         previous = requested;
@@ -559,6 +594,459 @@ fn declared_central_cases() -> Vec<MechanicalCase> {
         }
     }
     rows
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, PartialEq, Eq, Debug)]
+struct TraceField { name: String, value: String }
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, PartialEq, Eq, Debug)]
+struct TraceDifference {
+    tick: u32, phase: &'static str, field: String,
+    plain: String, mirror: String, plain_cause: String, mirror_cause: String,
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn trace_difference(tick: u32, phase: &'static str, plain: &[TraceField], mirror: &[TraceField],
+                    plain_cause: String, mirror_cause: String) -> Option<TraceDifference> {
+    let count = plain.len().max(mirror.len());
+    for at in 0..count {
+        let left = plain.get(at);
+        let right = mirror.get(at);
+        if left != right {
+            return Some(TraceDifference {
+                tick, phase,
+                field: left.map(|row| row.name.clone()).or_else(|| right.map(|row| row.name.clone()))
+                    .unwrap_or_else(|| "count".into()),
+                plain: left.map(|row| row.value.clone()).unwrap_or_else(|| "missing".into()),
+                mirror: right.map(|row| row.value.clone()).unwrap_or_else(|| "missing".into()),
+                plain_cause, mirror_cause,
+            });
+        }
+    }
+    None
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn trace_field(name: impl Into<String>, value: impl ToString) -> TraceField {
+    TraceField { name: name.into(), value: value.to_string() }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn point_rows(prefix: &'static str, value: Vec3, mapped_mirror: bool) -> [TraceField; 3] {
+    let y = if mapped_mirror { Fx::from_int(16).raw() - value.y.raw() } else { value.y.raw() };
+    [trace_field(format!("{prefix}.x"), value.x.raw()),
+     trace_field(format!("{prefix}.y"), y),
+     trace_field(format!("{prefix}.z"), value.z.raw())]
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn vector_rows(prefix: &'static str, value: Vec3, mapped_mirror: bool) -> [TraceField; 3] {
+    [trace_field(format!("{prefix}.x"), value.x.raw()),
+     trace_field(format!("{prefix}.y"), if mapped_mirror { -value.y.raw() } else { value.y.raw() }),
+     trace_field(format!("{prefix}.z"), value.z.raw())]
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn shield_corners(shield: sim::ShieldPose) -> [Vec3; 4] {
+    let front = shield.centre + shield.normal * (shield.thickness / Fx::from_int(2));
+    let side = Vec3::new(-shield.normal.y, shield.normal.x, Fx::ZERO) * shield.half_width;
+    let up = Vec3::Z * shield.half_height;
+    [front - side - up, front + side - up, front + side + up, front - side + up]
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn mapped_angle_raw(angle: Angle, mapped_mirror: bool) -> u16 {
+    if mapped_mirror { angle.raw().wrapping_neg() } else { angle.raw() }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn pose_rows(pose: sim::ArticulatedPose, mapped_mirror: bool) -> Vec<TraceField> {
+    let mut rows = Vec::new();
+    rows.extend(point_rows("body", pose.body, mapped_mirror));
+    rows.push(trace_field("body_yaw", mapped_angle_raw(pose.body_yaw, mapped_mirror)));
+    rows.extend(vector_rows("body_velocity", pose.body_velocity, mapped_mirror));
+    for plain_slot in 0..2 {
+        let slot = if mapped_mirror { 1 - plain_slot } else { plain_slot };
+        let arm = pose.arms[slot];
+        rows.extend(point_rows(if plain_slot == 0 { "left.hand" } else { "right.hand" },
+                               arm.hand, mapped_mirror));
+        rows.extend(vector_rows(if plain_slot == 0 { "left.velocity" } else { "right.velocity" },
+                                arm.velocity, mapped_mirror));
+        rows.extend(point_rows(if plain_slot == 0 { "left.target" } else { "right.target" },
+                               arm.target_hand, mapped_mirror));
+        rows.push(trace_field(if plain_slot == 0 { "left.fatigue" } else { "right.fatigue" },
+                              arm.fatigue.raw()));
+        let weapon = pose.weapons[slot];
+        rows.push(trace_field(if plain_slot == 0 { "left.weapon.present" }
+                              else { "right.weapon.present" }, weapon.is_some()));
+        if let Some(weapon) = weapon {
+            rows.extend(point_rows(if plain_slot == 0 { "left.weapon.hilt" }
+                                   else { "right.weapon.hilt" }, weapon.hilt, mapped_mirror));
+            rows.extend(point_rows(if plain_slot == 0 { "left.weapon.tip" }
+                                   else { "right.weapon.tip" }, weapon.tip, mapped_mirror));
+            rows.push(trace_field(if plain_slot == 0 { "left.weapon.radius" }
+                                  else { "right.weapon.radius" }, weapon.radius.raw()));
+        }
+    }
+    rows.push(trace_field("shield.present", pose.shield.is_some()));
+    if let Some(shield) = pose.shield {
+        rows.extend(point_rows("shield.centre", shield.centre, mapped_mirror));
+        rows.extend(vector_rows("shield.normal", shield.normal, mapped_mirror));
+        rows.push(trace_field("shield.half_width", shield.half_width.raw()));
+        rows.push(trace_field("shield.half_height", shield.half_height.raw()));
+        rows.push(trace_field("shield.thickness", shield.thickness.raw()));
+        let corners = shield_corners(shield);
+        let order = if mapped_mirror { [1, 0, 3, 2] } else { [0, 1, 2, 3] };
+        for (plain_at, at) in order.into_iter().enumerate() {
+            rows.extend(point_rows(match plain_at {
+                0 => "shield.corner0", 1 => "shield.corner1",
+                2 => "shield.corner2", _ => "shield.corner3",
+            }, corners[at], mapped_mirror));
+        }
+    }
+    for plain_at in 0..BodyPart::COUNT {
+        let at = if mapped_mirror {
+            match plain_at { 2 => 3, 3 => 2, _ => plain_at }
+        } else { plain_at };
+        rows.push(trace_field(TRACE_INTEGRITY_NAMES[plain_at], pose.integrity_fraction[at].raw()));
+    }
+    let severed_mask = if mapped_mirror {
+        (pose.severed_mask & !((1 << 2) | (1 << 3)))
+            | ((pose.severed_mask & (1 << 2)) << 1)
+            | ((pose.severed_mask & (1 << 3)) >> 1)
+    } else { pose.severed_mask };
+    rows.push(trace_field("severed_mask", severed_mask));
+    rows.push(trace_field("equipment_mask", if mapped_mirror {
+        (pose.equipment_mask & !3) | ((pose.equipment_mask & 1) << 1)
+            | ((pose.equipment_mask & 2) >> 1)
+    } else { pose.equipment_mask }));
+    rows
+}
+
+#[cfg(feature = "cartesian-recoil")]
+const TRACE_INTEGRITY_NAMES: [&str; BodyPart::COUNT] = [
+    "integrity.head", "integrity.torso", "integrity.left_arm",
+    "integrity.right_arm", "integrity.legs",
+];
+
+#[cfg(feature = "cartesian-recoil")]
+fn command_rows(command: ArticulatedCommandV1, mapped_mirror: bool) -> Vec<TraceField> {
+    let mut rows = vec![
+        trace_field("move.x", command.move_dir.x.raw()),
+        trace_field("move.y", if mapped_mirror { -command.move_dir.y.raw() }
+                    else { command.move_dir.y.raw() }),
+        trace_field("body_yaw", mapped_angle_raw(command.body_yaw, mapped_mirror)),
+        trace_field("intent", format!("{:?}", command.intent)),
+    ];
+    for plain_slot in 0..2 {
+        let slot = if mapped_mirror { 1 - plain_slot } else { plain_slot };
+        let arm = command.arms[slot];
+        let prefix = if plain_slot == 0 { "left" } else { "right" };
+        rows.push(trace_field(if prefix == "left" { "left.bearing" } else { "right.bearing" },
+                              mapped_angle_raw(arm.bearing, mapped_mirror)));
+        rows.push(trace_field(if prefix == "left" { "left.height" } else { "right.height" },
+                              arm.height.raw()));
+        rows.push(trace_field(if prefix == "left" { "left.reach" } else { "right.reach" },
+                              arm.reach.raw()));
+        rows.push(trace_field(if prefix == "left" { "left.effort" } else { "right.effort" },
+                              arm.effort.raw()));
+        rows.push(trace_field(if prefix == "left" { "left.grip" } else { "right.grip" },
+                              format!("{:?}", command.grips[slot])));
+    }
+    rows
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn resolution_rows(rows_in: &[sim::ContactResolution], mapped_mirror: bool) -> Vec<TraceField> {
+    let mut rows = vec![trace_field("resolution.count", rows_in.len())];
+    let mut ordered = rows_in.to_vec();
+    ordered.sort_by_key(|row| {
+        let key = row.fact.key;
+        (key.a, if mapped_mirror { reflected_slot(key.a_slot) } else { key.a_slot },
+         key.b, if mapped_mirror { reflected_slot(key.b_slot) } else { key.b_slot }, key.kind)
+    });
+    for row in &ordered {
+        let key = row.fact.key;
+        let a_slot = if mapped_mirror { reflected_slot(key.a_slot) } else { key.a_slot };
+        let b_slot = if mapped_mirror { reflected_slot(key.b_slot) } else { key.b_slot };
+        rows.push(trace_field("resolution.key", format!("{:?}:{}:{:?}:{}:{:?}",
+            key.a, a_slot, key.b, b_slot, key.kind)));
+        rows.push(trace_field("resolution.toi", row.fact.toi.get().raw()));
+        rows.push(trace_field("resolution.alpha", row.group_alpha_raw));
+        rows.push(trace_field("resolution.region", if mapped_mirror {
+            match row.fact.region { 2 => 3, 3 => 2, other => other }
+        } else { row.fact.region }));
+        rows.extend(point_rows("resolution.point", row.fact.point, mapped_mirror));
+        rows.extend(vector_rows("resolution.normal", row.fact.normal, mapped_mirror));
+        rows.extend(vector_rows("resolution.velocity_a", row.fact.velocity_a, mapped_mirror));
+        rows.extend(vector_rows("resolution.velocity_b", row.fact.velocity_b, mapped_mirror));
+        rows.extend(vector_rows("resolution.impulse_a", row.impulse.on_a, mapped_mirror));
+        rows.extend(vector_rows("resolution.impulse_b", row.impulse.on_b, mapped_mirror));
+        rows.push(trace_field("resolution.energy.before", row.energy.before_raw));
+        rows.push(trace_field("resolution.energy.after", row.energy.after_raw));
+        rows.push(trace_field("resolution.energy.dissipated", row.energy.dissipated_raw));
+    }
+    rows
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn rejection_text(world: &World, mapped_mirror: bool) -> String {
+    match world.first_exact_contact_rejection() {
+        None => "none".into(),
+        Some(row) => {
+            let key = row.key.map(|key| mapped_key(key, mapped_mirror));
+            format!("tick={};phase={:?};cause={:?};key={:?}", row.tick, row.phase, row.cause, key)
+        }
+    }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn rejection_rows(world: &World, mapped_mirror: bool) -> Vec<TraceField> {
+    let diagnostic = world.first_exact_contact_rejection();
+    vec![
+        trace_field("rejection.count", world.contact_solver_rejections()),
+        trace_field("rejection.tick", diagnostic.map(|row| row.tick.to_string())
+                    .unwrap_or_else(|| "none".into())),
+        trace_field("rejection.phase", diagnostic.map(|row| format!("{:?}", row.phase))
+                    .unwrap_or_else(|| "none".into())),
+        trace_field("rejection.cause", diagnostic.map(|row| format!("{:?}", row.cause))
+                    .unwrap_or_else(|| "none".into())),
+        trace_field("rejection.key", diagnostic.and_then(|row| row.key)
+                    .map(|key| format!("{:?}", mapped_key(key, mapped_mirror)))
+                    .unwrap_or_else(|| "none".into())),
+    ]
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn mapped_group_keys(keys: &[Option<ExactContactKeyDiagnostic>; 16], mirror: bool) -> Vec<String> {
+    let mut rows: Vec<_> = keys.iter().flatten().map(|key| {
+        let a_slot = if mirror { reflected_slot(key.a_slot) } else { key.a_slot };
+        let b_slot = if mirror { reflected_slot(key.b_slot) } else { key.b_slot };
+        (key.a, a_slot, key.b, b_slot, key.kind)
+    }).collect();
+    rows.sort_unstable();
+    rows.into_iter().map(|row| format!("{:?}:{}:{:?}:{}:{:?}",
+        row.0, row.1, row.2, row.3, row.4)).collect()
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn mapped_wide_toi(rows: &[Option<ExactWideToiDiagnostic>; 16], mirror: bool) -> Vec<String> {
+    rows.iter().flatten().map(|row| {
+        let a_slot = if mirror { reflected_slot(row.key.a_slot) } else { row.key.a_slot };
+        let b_slot = if mirror { reflected_slot(row.key.b_slot) } else { row.key.b_slot };
+        format!("{:?}:{}:{:?}:{}:{:?}:region={}:primitive={:?}:interval={}..{}:\
+visits={:?}:steps={:?}:count={}:root={}:feature={}:comparison={:?}",
+            row.key.a, a_slot, row.key.b, b_slot, row.key.kind, row.region, row.primitive,
+            row.interval_start_raw, row.interval_end_raw, row.visited_times_raw,
+            row.safe_steps_raw, row.visit_count, row.accepted_root_raw,
+            row.closest_feature, row.comparison)
+    }).collect()
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn group_boundary_difference(plain: &[ExactContactGroupDiagnostic],
+                             mirror: &[ExactContactGroupDiagnostic]) -> Option<String> {
+    if plain.len() != mirror.len() {
+        let tick = plain.first().map(|row| row.tick)
+            .or_else(|| mirror.first().map(|row| row.tick)).unwrap_or(0);
+        return Some(format!("tick={} group=none boundary=groups plain={} mirror={}\n\
+plain_reject=none mirror_reject=none", tick, plain.len(), mirror.len()));
+    }
+    for (left, right) in plain.iter().zip(mirror) {
+        let boundaries = [
+            ("ordinal", left.group_ordinal.to_string(), right.group_ordinal.to_string()),
+            ("wide_toi", format!("{:?}", mapped_wide_toi(&left.wide_toi, false)),
+             format!("{:?}", mapped_wide_toi(&right.wide_toi, true))),
+            ("selected_time", left.selected_time_raw.to_string(), right.selected_time_raw.to_string()),
+            ("scan_candidates", left.scan_candidates.to_string(), right.scan_candidates.to_string()),
+            ("mapped_time_members", left.mapped_time_members.to_string(), right.mapped_time_members.to_string()),
+            ("mapped_member_keys", format!("{:?}", mapped_group_keys(&left.mapped_member_keys, false)),
+             format!("{:?}", mapped_group_keys(&right.mapped_member_keys, true))),
+            ("recomputed_facts", left.recomputed_facts.to_string(), right.recomputed_facts.to_string()),
+            ("recomputed_keys", format!("{:?}", mapped_group_keys(&left.recomputed_keys, false)),
+             format!("{:?}", mapped_group_keys(&right.recomputed_keys, true))),
+            ("closure_entities", left.closure_entities.to_string(), right.closure_entities.to_string()),
+            ("closure_rows", left.closure_rows.to_string(), right.closure_rows.to_string()),
+            ("driver_contacts", left.driver_contacts.to_string(), right.driver_contacts.to_string()),
+            ("lifted_contacts", left.lifted_contacts.to_string(), right.lifted_contacts.to_string()),
+            ("output_rows", left.output_rows.to_string(), right.output_rows.to_string()),
+            ("reject", format!("{:?}", left.reject), format!("{:?}", right.reject)),
+        ];
+        for (boundary, plain_value, mirror_value) in boundaries {
+            if plain_value != mirror_value {
+                return Some(format!("tick={} group={} boundary={} plain={} mirror={}\n\
+plain_reject={:?} mirror_reject={:?}", left.tick, left.group_ordinal, boundary,
+                    plain_value, mirror_value, left.reject, right.reject));
+            }
+        }
+    }
+    None
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn crossing_rows(previous_weapon: SegmentPose, requested_weapon: SegmentPose,
+                 previous_region: RegionVolume, requested_region: RegionVolume,
+                 mapped_mirror: bool) -> Vec<TraceField> {
+    let mut rows = Vec::new();
+    rows.extend(point_rows("crossing.previous.lower", previous_region.lower, mapped_mirror));
+    rows.extend(point_rows("crossing.previous.upper", previous_region.upper, mapped_mirror));
+    rows.extend(point_rows("crossing.requested.lower", requested_region.lower, mapped_mirror));
+    rows.extend(point_rows("crossing.requested.upper", requested_region.upper, mapped_mirror));
+    rows.push(trace_field("crossing.previous.radius", previous_region.radius.raw()));
+    rows.push(trace_field("crossing.requested.radius", requested_region.radius.raw()));
+    let crossed = observed_crossing(StrikeMeasurement {
+        contact_tick: None, previous_weapon, requested_weapon,
+        tip_delta: Vec3::ZERO, hilt_delta: Vec3::ZERO, contact_point: None,
+        velocity_a: Vec3::ZERO, velocity_b: Vec3::ZERO, region: None,
+        energy_before_raw: 0, energy_after_raw: 0, energy_dissipated_raw: 0,
+        cut_raw: 0, thrust_raw: 0, pressure_raw: 0, deflected_raw: 0,
+        integrity_before_raw: [0; BodyPart::COUNT], integrity_after_raw: [0; BodyPart::COUNT],
+        wound_before_raw: [0; BodyPart::COUNT], wound_after_raw: [0; BodyPart::COUNT],
+        blood_before_raw: 0, blood_after_raw: 0, weapon_body_facts: 0, competing_facts: 0,
+        contact_reach_raw: None, contact_arm_velocity: Vec3::ZERO,
+        observed_contact_region: None,
+        crossing_oracle: Some(CrossingOracle { previous: previous_region,
+                                               requested: requested_region }),
+        refusals: 0, solver_rejections: 0, max_energy_excess_raw: 0,
+        contact_key: None, toi_raw: None, normal: Vec3::ZERO, impulse_on_a: Vec3::ZERO,
+        group_alpha_raw: None, cap_hits: 0,
+    });
+    rows.push(trace_field("crossing.result", crossed));
+    rows
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn trace_case_1536() -> MechanicalCase { declared_central_cases()[1536] }
+
+#[cfg(feature = "cartesian-recoil")]
+fn mirror_trace_1536_inner() -> String {
+    let case = trace_case_1536();
+    let cases = [false, true].map(|mirrored| StrongCase { seed: 0, mirrored,
+        target_anatomy: case.target_anatomy, approach_offset: case.approach_offset });
+    let max_ticks = case.chamber_ticks + case.strike_ticks + 1;
+    let configs = cases.map(|case| config_for_ticks(case, max_ticks,
+                                                    MirrorGrammar::AnatomicalHandSwap));
+    let mut mapped = configs[1];
+    for fighter in &mut mapped.fighters {
+        fighter.spawn.y = Fx::from_int(16) - fighter.spawn.y;
+        fighter.hands.swap(0, 1);
+    }
+    if configs[0] != mapped {
+        return "tick=0 phase=Config pair=config.bytes=plain|mirror\ncause=none|none".into();
+    }
+    let scenarios = configs.map(|config| Scenario::duel_from(&config)
+        .expect("the ordinal-1536 trace duel is legal"));
+    let anatomies = scenarios.each_ref().map(|scenario| scenario.combat_specs.as_ref()
+        .expect("configured combat specs").anatomy(2).expect("defender anatomy").clone());
+    let mut worlds = [World::new(&scenarios[0], 0), World::new(&scenarios[1], 0)];
+    let ids = worlds.each_ref().map(|world| (world.alive_ids(Faction::Heroes)[0],
+                                              world.alive_ids(Faction::Monsters)[0]));
+    let limbs = [LimbSlot::RightArm, LimbSlot::LeftArm];
+    let bearings = cases.map(declared_schedule_bearing);
+    let heights = [0, 1].map(|at| {
+        let shown = worlds[at].observe_articulated(ids[at].0);
+        let foe = shown.opponents().first().expect("the target is observed");
+        let region = foe.regions[BodyPart::Legs as usize];
+        CombatHeight::try_from_raw((((region.lower.z + region.upper.z) / Fx::from_int(2)
+            - foe.body_position.z) / shown.standing_height).clamp(Fx::ZERO, Fx::ONE).raw())
+            .expect("bounded command height")
+    });
+
+    for tick_index in 0..max_ticks {
+        let pre = [0, 1].map(|at| (worlds[at].articulated_pose(ids[at].0).unwrap(),
+                                    worlds[at].articulated_pose(ids[at].1).unwrap()));
+        let phase_bearings = [0, 1].map(|at| {
+            let pair = schedule_bearings(bearings[at], cases[at].mirrored);
+            if tick_index < case.chamber_ticks { pair.0 } else { pair.1 }
+        });
+        let commands = [0, 1].map(|at| {
+            let attacker_obs = worlds[at].observe_articulated(ids[at].0);
+            let defender_obs = worlds[at].observe_articulated(ids[at].1);
+            (command(&attacker_obs, ids[at].1, limbs[at], phase_bearings[at], heights[at],
+                     if tick_index < case.chamber_ticks { Fx::ONE }
+                     else { Fx::from_raw(case.reach_raw) }, Fx::ONE),
+             neutral_articulated_command(&defender_obs))
+        });
+        for actor in 0..2 {
+            let plain_command = if actor == 0 { commands[0].0 } else { commands[0].1 };
+            let mirror_command = if actor == 0 { commands[1].0 } else { commands[1].1 };
+            let plain = command_rows(plain_command, false);
+            let mirror = command_rows(mirror_command, true);
+            if let Some(diff) = trace_difference(tick_index, "Command", &plain, &mirror,
+                                                 "none".into(), "none".into()) {
+                return format_trace_difference(diff);
+            }
+        }
+        for entity in 0..2 {
+            let plain = pose_rows(if entity == 0 { pre[0].0 } else { pre[0].1 }, false);
+            let mirror = pose_rows(if entity == 0 { pre[1].0 } else { pre[1].1 }, true);
+            if let Some(diff) = trace_difference(tick_index, "PreStepPose", &plain, &mirror,
+                                                 "none".into(), "none".into()) {
+                return format_trace_difference(diff);
+            }
+        }
+        for at in 0..2 {
+            let _ = worlds[at].submit_articulated_v1(ids[at].0, commands[at].0);
+            let _ = worlds[at].submit_articulated_v1(ids[at].1, commands[at].1);
+            let _ = worlds[at].step();
+        }
+        if let Some(diff) = group_boundary_difference(
+            worlds[0].exact_contact_group_diagnostics(),
+            worlds[1].exact_contact_group_diagnostics()) {
+            return diff;
+        }
+        let post = [0, 1].map(|at| (worlds[at].articulated_pose(ids[at].0).unwrap(),
+                                     worlds[at].articulated_pose(ids[at].1).unwrap()));
+        for entity in 0..2 {
+            let plain = pose_rows(if entity == 0 { post[0].0 } else { post[0].1 }, false);
+            let mirror = pose_rows(if entity == 0 { post[1].0 } else { post[1].1 }, true);
+            if let Some(diff) = trace_difference(worlds[0].tick(), "PostStepPose", &plain, &mirror,
+                rejection_text(&worlds[0], false), rejection_text(&worlds[1], true)) {
+                return format_trace_difference(diff);
+            }
+        }
+        if let Some(diff) = trace_difference(worlds[0].tick(), "Resolution",
+            &resolution_rows(worlds[0].contact_resolutions(), false),
+            &resolution_rows(worlds[1].contact_resolutions(), true),
+            rejection_text(&worlds[0], false), rejection_text(&worlds[1], true)) {
+            return format_trace_difference(diff);
+        }
+        if let Some(diff) = trace_difference(worlds[0].tick(), "Rejection",
+            &rejection_rows(&worlds[0], false), &rejection_rows(&worlds[1], true),
+            rejection_text(&worlds[0], false), rejection_text(&worlds[1], true)) {
+            return format_trace_difference(diff);
+        }
+        let crossing = [0, 1].map(|at| {
+            let previous_region = ground_truth_region(pre[at].1, &anatomies[at], BodyPart::Legs);
+            let requested_region = ground_truth_region(post[at].1, &anatomies[at], BodyPart::Legs);
+            let previous_weapon = pre[at].0.weapons[limbs[at] as usize].unwrap();
+            let requested_weapon = post[at].0.weapons[limbs[at] as usize].unwrap();
+            crossing_rows(previous_weapon, requested_weapon, previous_region, requested_region,
+                          at == 1)
+        });
+        if let Some(diff) = trace_difference(worlds[0].tick(), "CrossingOracle",
+            &crossing[0], &crossing[1], rejection_text(&worlds[0], false),
+            rejection_text(&worlds[1], true)) {
+            return format_trace_difference(diff);
+        }
+    }
+    format!("ticks={} phase=none", max_ticks)
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn format_trace_difference(diff: TraceDifference) -> String {
+    format!("tick={} phase={} pair={}:{}|{}\ncause={}|{}", diff.tick, diff.phase,
+            diff.field, diff.plain, diff.mirror, diff.plain_cause, diff.mirror_cause)
+}
+
+#[cfg(feature = "cartesian-recoil")]
+pub(crate) fn mirror_trace_1536() -> String {
+    std::thread::Builder::new().name("smart42-mirror-trace-1536".into())
+        .stack_size(STRIKE_CORPUS_STACK_BYTES).spawn(mirror_trace_1536_inner)
+        .expect("could not start the bounded ordinal-1536 trace")
+        .join().expect("the bounded ordinal-1536 trace panicked")
 }
 
 fn better_pair(left: &RobustMechanicalPair, right: &RobustMechanicalPair) -> bool {
@@ -1388,10 +1876,12 @@ mod tests {
         strong.weapon_body_facts = 1;
         strong.competing_facts = 0;
         let point = strong.requested_weapon.tip;
-        strong.observed_contact_region = Some(RegionVolume {
+        let region = RegionVolume {
             lower: point, upper: point, radius: strong.requested_weapon.radius,
             present: true,
-        });
+        };
+        strong.observed_contact_region = Some(region);
+        strong.crossing_oracle = Some(CrossingOracle { previous: region, requested: region });
         strong.energy_before_raw = 400;
         strong.energy_after_raw = 250;
         strong.energy_dissipated_raw = 150;
@@ -1399,6 +1889,82 @@ mod tests {
         strong.integrity_before_raw[BodyPart::Legs as usize] = Fx::ONE.raw();
         strong.integrity_after_raw[BodyPart::Legs as usize] = Fx::ONE.raw() - 1;
         (strong, measure(Fx::ZERO))
+    }
+
+    #[test]
+    fn mirrored_reach_and_motion_are_read_from_the_attributed_left_weapon_limb() {
+        let case = ordinal_strong_case(1_536, true);
+        let world = World::new(&scenario_for_ticks_with(case, 48,
+            MirrorGrammar::AnatomicalHandSwap), 0);
+        let hero = world.alive_ids(Faction::Heroes)[0];
+        let mut shown = world.observe_articulated(hero);
+        let left_velocity = Vec3::new(Fx::from_raw(17), Fx::from_raw(-23), Fx::from_raw(5));
+        let right_velocity = Vec3::new(Fx::from_raw(91), Fx::from_raw(73), Fx::from_raw(11));
+        shown.arms[0].velocity = left_velocity;
+        shown.arms[1].velocity = right_velocity;
+        let left = attacking_reach_motion(&shown, LimbSlot::LeftArm);
+        let right = attacking_reach_motion(&shown, LimbSlot::RightArm);
+        assert_eq!(left.1, left_velocity);
+        assert_eq!(right.1, right_velocity);
+        assert_ne!(left, right, "the two limb witnesses did not distinguish the old literal");
+    }
+
+    #[test]
+    fn swapping_only_the_neutral_right_arm_cannot_change_mirrored_eligibility() {
+        let case = ordinal_strong_case(1_536, true);
+        let world = World::new(&scenario_for_ticks_with(case, 48,
+            MirrorGrammar::AnatomicalHandSwap), 0);
+        let hero = world.alive_ids(Faction::Heroes)[0];
+        let shown = world.observe_articulated(hero);
+        let before = attacking_reach_motion(&shown, LimbSlot::LeftArm);
+        let mut changed = shown;
+        changed.arms[1].hand += Vec3::from_ints(4, -3, 2);
+        changed.arms[1].velocity = Vec3::from_ints(9, 8, 7);
+        assert_eq!(attacking_reach_motion(&changed, LimbSlot::LeftArm), before);
+    }
+
+    fn moving_crossing_fixture() -> StrikeMeasurement {
+        let (mut row, _) = visibly_meaningful_fixture();
+        let hit = row.requested_weapon.tip;
+        let far = hit + Vec3::from_ints(0, 8, 0);
+        let previous = RegionVolume { lower: far, upper: far,
+            radius: row.requested_weapon.radius, present: true };
+        let requested = RegionVolume { lower: hit, upper: hit,
+            radius: row.requested_weapon.radius, present: true };
+        row.crossing_oracle = Some(CrossingOracle { previous, requested });
+        row
+    }
+
+    #[test]
+    fn noise_free_crossing_uses_ground_truth_previous_and_requested_region_geometry() {
+        let row = moving_crossing_fixture();
+        assert!(observed_crossing(row));
+        assert_ne!(row.crossing_oracle.unwrap().previous,
+                   row.crossing_oracle.unwrap().requested);
+    }
+
+    #[test]
+    fn opponent_perception_noise_cannot_change_the_crossing_oracle() {
+        let row = moving_crossing_fixture();
+        let mut noised = row;
+        noised.observed_contact_region = Some(RegionVolume {
+            lower: Vec3::from_ints(100, 100, 100),
+            upper: Vec3::from_ints(101, 101, 101), radius: Fx::ZERO, present: false,
+        });
+        assert_eq!(observed_crossing(row), observed_crossing(noised));
+        assert_eq!(row.crossing_oracle, noised.crossing_oracle);
+    }
+
+    #[test]
+    fn deleting_the_requested_region_motion_breaks_the_crossing_fixture() {
+        let row = moving_crossing_fixture();
+        assert!(observed_crossing(row));
+        let mut static_region = row;
+        let previous = static_region.crossing_oracle.unwrap().previous;
+        static_region.crossing_oracle = Some(CrossingOracle {
+            previous, requested: previous,
+        });
+        assert!(!observed_crossing(static_region));
     }
 
     #[test]
@@ -1426,8 +1992,11 @@ mod tests {
         let mut ambiguous = strong; ambiguous.competing_facts = 1;
         assert!(!meaningful_strike_validity(ambiguous, held).passes());
         let mut uncrossed = strong;
-        uncrossed.observed_contact_region = uncrossed.observed_contact_region.map(|mut region| {
-            region.lower.x += Fx::from_int(10); region.upper.x += Fx::from_int(10); region
+        uncrossed.crossing_oracle = uncrossed.crossing_oracle.map(|mut oracle| {
+            for region in [&mut oracle.previous, &mut oracle.requested] {
+                region.lower.x += Fx::from_int(10); region.upper.x += Fx::from_int(10);
+            }
+            oracle
         });
         assert!(!meaningful_strike_validity(uncrossed, held).passes());
         let mut active_control = held;
@@ -1435,5 +2004,81 @@ mod tests {
         assert!(!meaningful_strike_validity(strong, active_control).passes());
         let mut refused = strong; refused.refusals = 1;
         assert!(!meaningful_strike_validity(refused, held).passes());
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn ordinal_1536_trace_uses_source_41_and_zero_local_deltas() {
+        let case = trace_case_1536();
+        assert_eq!(case.ordinal, 1536);
+        let plain = StrongCase { seed: 0, mirrored: false,
+            target_anatomy: case.target_anatomy, approach_offset: case.approach_offset };
+        let mirror = StrongCase { mirrored: true, ..plain };
+        assert_eq!(declared_schedule_bearing(plain).raw().wrapping_neg(),
+                   declared_schedule_bearing(mirror).raw());
+        assert_eq!(case.strike_ticks as i32, case.strike_ticks as i32 + 0);
+        assert_eq!(case.reach_raw, case.reach_raw + 0);
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn trace_comparison_stops_at_the_first_phase_and_first_mapped_field() {
+        let plain = [trace_field("command.bearing", 7), trace_field("later", 1)];
+        let mirror = [trace_field("command.bearing", 8), trace_field("later", 2)];
+        let difference = trace_difference(3, "Command", &plain, &mirror,
+            "later plain rejection".into(), "later mirror rejection".into()).unwrap();
+        assert_eq!(difference.phase, "Command");
+        assert_eq!(difference.field, "command.bearing");
+        assert_eq!(difference.plain, "7");
+        assert_eq!(difference.mirror, "8");
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn trace_maps_left_right_slots_points_vectors_and_shield_winding_exactly() {
+        let point = Vec3::new(Fx::from_raw(11), Fx::from_raw(17), Fx::from_raw(23));
+        let reflected_point = Vec3::new(point.x, Fx::from_int(16) - point.y, point.z);
+        assert_eq!(point_rows("point", point, false),
+                   point_rows("point", reflected_point, true));
+        let vector = Vec3::new(Fx::from_raw(5), Fx::from_raw(-9), Fx::from_raw(13));
+        let reflected_vector = Vec3::new(vector.x, -vector.y, vector.z);
+        assert_eq!(vector_rows("shield.normal", vector, false),
+                   vector_rows("shield.normal", reflected_vector, true));
+        let plain_shield = sim::ShieldPose { centre: point, normal: Vec3::X,
+            half_width: Fx::from_raw(31), half_height: Fx::from_raw(37),
+            thickness: Fx::from_raw(41) };
+        let mirror_shield = sim::ShieldPose { centre: reflected_point,
+            normal: Vec3::X, ..plain_shield };
+        let plain_corners = shield_corners(plain_shield);
+        let mirror_corners = shield_corners(mirror_shield);
+        for (plain_at, mirror_at) in [1, 0, 3, 2].into_iter().enumerate() {
+            assert_eq!(point_rows("corner", plain_corners[plain_at], false),
+                       point_rows("corner", mirror_corners[mirror_at], true));
+        }
+        assert_eq!(reflected_slot(LimbSlot::LeftArm as u8), LimbSlot::RightArm as u8);
+        assert_eq!(reflected_slot(LimbSlot::RightArm as u8), LimbSlot::LeftArm as u8);
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn trace_reports_exact_rejection_phase_pair_and_cause_instead_of_empty_rows() {
+        let plain = [trace_field("rejection.count", 0),
+                     trace_field("rejection.diagnostic", "none")];
+        let mirror_cause = "tick=19;phase=SolveGroup;cause=ExactSolver;key=None";
+        let mirror = [trace_field("rejection.count", 1),
+                      trace_field("rejection.diagnostic", mirror_cause)];
+        let difference = trace_difference(19, "Rejection", &plain, &mirror,
+            "none".into(), mirror_cause.into()).unwrap();
+        let printed = format_trace_difference(difference);
+        assert!(printed.contains("phase=Rejection pair=rejection.count:0|1"));
+        assert!(printed.contains("phase=SolveGroup;cause=ExactSolver;key=None"));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn trace_never_runs_more_than_one_plain_mirror_pair() {
+        let case = trace_case_1536();
+        let traced = [false, true].map(|mirrored| (case.ordinal, mirrored, 0i32, 0i32));
+        assert_eq!(traced, [(1536, false, 0, 0), (1536, true, 0, 0)]);
     }
 }

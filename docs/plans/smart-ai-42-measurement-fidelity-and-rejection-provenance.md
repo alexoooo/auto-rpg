@@ -1,12 +1,11 @@
 # Smart AI 42 -- measurement fidelity and rejection provenance
 
-**Status:** ready to implement; no Smart42 measurement has been run. This is a
-focused diagnostic session, not another 7,560-run audit. Smart41 removed observation
-noise from the command bearing and still found 109 eligible plain rows and zero
-eligible mirrors. Inspection then found two ways the Lab measurement can report that
-comparison incorrectly, plus one blind spot that turns an exact refusal into an
-anonymous empty tick. Repair those three witnesses and trace one predeclared pair
-before deciding whether mechanics or another corpus run is warranted.
+**Status:** complete on 2026-08-13. Checkpoints A/B repaired the Lab witness and added
+feature-only exact rejection provenance. The sole authorized ordinal-1536 trace first
+diverged at tick 1, phase `PostStepPose`: `right.hand.y 442259|442260`, with causes
+`none|none`. `Config`, `Command`, and `PreStepPose` mapped exactly. The first cause
+is therefore a one-raw actuator fixed-point reflection bias before contact, not the
+detector, lifted solver, or rejection handling. No full corpus ran and no pin moved.
 
 Smart42 changes no contact law, solver bound, command domain, mirror grammar, damage
 rule, policy, hash, replay encoding, or browser ABI. Existing registered-pin movement
@@ -262,6 +261,18 @@ Only then may a later plan choose one of three paths:
 Do not declare or run a full audit, solver retune, corpus expansion, or policy
 calibration inside Smart42. A trace that finds no divergence is evidence about one
 predeclared pair, not permission to call the 7,560-run gate passed.
+
+### Recorded decision
+
+```text
+tick=1 phase=PostStepPose pair=right.hand.y 442259|442260
+cause=none|none
+```
+
+Configuration, submitted commands, and entry poses agreed first, so this one-raw
+post-step hand difference is the earliest cause. Later missing contacts and solver
+refusals are consequences, not competing explanations. Smart43 is the narrow
+actuator-reflection successor; another full audit remains unauthorized.
 
 ## Pin budget and verification
 

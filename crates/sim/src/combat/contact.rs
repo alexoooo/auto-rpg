@@ -80,6 +80,29 @@ pub struct ContactKey {
     pub kind: ContactKind,
 }
 
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ExactWidePrimitiveDiagnostic {
+    CompatibilityFallback, SegmentSegment, SegmentShield, SegmentBodyRegion,
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ExactWideComparisonDiagnostic {
+    DistanceLessThanOrEqualRadiusSquared, EarliestTimeThenMedialThenRegion,
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct ExactWideToiDiagnostic {
+    pub key: ContactKey, pub region: u8,
+    pub primitive: ExactWidePrimitiveDiagnostic,
+    pub interval_start_raw: u32, pub interval_end_raw: u32,
+    pub visited_times_raw: [u32; 8], pub safe_steps_raw: [u32; 8],
+    pub visit_count: u8, pub accepted_root_raw: u32, pub closest_feature: u8,
+    pub comparison: ExactWideComparisonDiagnostic,
+}
+
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct ContactFact {
     pub key: ContactKey,
@@ -186,7 +209,11 @@ pub struct ContactCollider {
 }
 
 #[derive(Clone, Copy)]
-pub(crate) struct Candidate { pub(crate) fact: ContactFact, distance_sq: Fx, feature: u8 }
+pub(crate) struct Candidate {
+    pub(crate) fact: ContactFact, distance_sq: Fx, feature: u8,
+    #[cfg(feature = "cartesian-recoil")]
+    pub(crate) wide_toi: Option<ExactWideToiDiagnostic>,
+}
 
 /// Candidate storage for one scan. It deliberately holds candidates rather
 /// than facts: a scan sees every pair that contacts anywhere in the remaining
@@ -331,7 +358,20 @@ fn scan_compatibility_candidates_into(
             let b = &colliders[j];
             if !a.present || !b.present { continue; }
             if a.entity == b.entity || a.faction == b.faction { continue; }
-            if let Some(candidate) = candidate(a, b) { scratch.candidates.push(candidate); }
+            #[allow(unused_mut)] // Mutated only by the feature-only diagnostic below.
+            if let Some(mut candidate) = candidate(a, b) {
+                #[cfg(feature = "cartesian-recoil")]
+                { candidate.wide_toi = Some(ExactWideToiDiagnostic {
+                    key: candidate.fact.key, region: candidate.fact.region,
+                    primitive: ExactWidePrimitiveDiagnostic::CompatibilityFallback,
+                    interval_start_raw: 0, interval_end_raw: 65_536,
+                    visited_times_raw: [0; 8], safe_steps_raw: [0; 8], visit_count: 0,
+                    accepted_root_raw: candidate.fact.toi.get().raw() as u32,
+                    closest_feature: candidate.feature,
+                    comparison: ExactWideComparisonDiagnostic::DistanceLessThanOrEqualRadiusSquared,
+                }); }
+                scratch.candidates.push(candidate);
+            }
         }
     }
     // Unstable, and that is not a determinism hole: `sort_unstable` only
@@ -690,6 +730,25 @@ struct WideSegmentClosest {
 struct ExactWideScratch {
     segment_candidates: Vec<WideSegmentClosest>,
     rectangle_candidates: Vec<WideSegmentClosest>,
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Copy, Default)]
+struct ExactWideVisitTrace {
+    times: [u32; 8], steps: [u32; 8], count: u8,
+}
+
+#[cfg(feature = "cartesian-recoil")]
+impl ExactWideVisitTrace {
+    fn visit(&mut self, time: u32) {
+        let at = (self.count as usize).min(7);
+        if self.count >= 8 { self.times.copy_within(1..8, 0); }
+        self.times[at] = time; self.count = self.count.saturating_add(1);
+    }
+    fn step(&mut self, step: u32) {
+        let at = (self.count.saturating_sub(1) as usize).min(7);
+        self.steps[at] = step;
+    }
 }
 
 #[cfg(any(test, feature = "cartesian-recoil"))]
@@ -1592,10 +1651,18 @@ fn wide_sweep_segments(a: &ExactContactTrajectory, ao: &ExactOwnerTrajectory,
             let mut pa = *ca; let mut pb = *cb;
             pa.velocity += wide_response_velocity(a, ao)?; pb.velocity += wide_response_velocity(b, bo)?;
             let distance = closest.distance_sq.trunc_i128().ok_or(ExactScanReject::ArithmeticEnvelope)? >> 16;
-            return Ok(Some(make_candidate(&pa, &pb, ContactKind::WeaponWeapon,
+            let mut candidate = make_candidate(&pa, &pb, ContactKind::WeaponWeapon,
                 TimeOfImpact::new_clamped(Fx::from_raw(time as i32)), wide_point_to_vec3(closest.a)?,
                 wide_point_to_vec3(closest.b)?, Fx::from_raw(i32::try_from(distance)
-                    .map_err(|_| ExactScanReject::ArithmeticEnvelope)?), closest.feature, NO_REGION)));
+                    .map_err(|_| ExactScanReject::ArithmeticEnvelope)?), closest.feature, NO_REGION);
+            #[cfg(feature = "cartesian-recoil")]
+            { candidate.wide_toi = Some(ExactWideToiDiagnostic { key: candidate.fact.key,
+                region: NO_REGION, primitive: ExactWidePrimitiveDiagnostic::SegmentSegment,
+                interval_start_raw: ao.common_response.group_time_raw, interval_end_raw: 65_536,
+                visited_times_raw: [0; 8], safe_steps_raw: [0; 8], visit_count: 0,
+                accepted_root_raw: time, closest_feature: closest.feature,
+                comparison: ExactWideComparisonDiagnostic::DistanceLessThanOrEqualRadiusSquared }); }
+            return Ok(Some(candidate));
         }
         if time == 65_536 || speed.numerator.is_zero() { return Ok(None); }
         let step = wide_safe_step(closest, radius, speed)?;
@@ -1633,12 +1700,20 @@ fn wide_sweep_segment_shield(segment: &ExactContactTrajectory, so: &ExactOwnerTr
             ph.velocity += wide_response_velocity(shield, ho)?;
             let distance = closest.distance_sq.trunc_i128()
                 .ok_or(ExactScanReject::ArithmeticEnvelope)? >> 16;
-            return Ok(Some(make_candidate(&ps, &ph, ContactKind::WeaponShield,
+            let mut candidate = make_candidate(&ps, &ph, ContactKind::WeaponShield,
                 TimeOfImpact::new_clamped(Fx::from_raw(time as i32)),
                 wide_point_to_vec3(closest.a)?, wide_point_to_vec3(closest.b)?,
                 Fx::from_raw(i32::try_from(distance)
                     .map_err(|_| ExactScanReject::ArithmeticEnvelope)?),
-                closest.feature, NO_REGION)));
+                closest.feature, NO_REGION);
+            #[cfg(feature = "cartesian-recoil")]
+            { candidate.wide_toi = Some(ExactWideToiDiagnostic { key: candidate.fact.key,
+                region: NO_REGION, primitive: ExactWidePrimitiveDiagnostic::SegmentShield,
+                interval_start_raw: so.common_response.group_time_raw, interval_end_raw: 65_536,
+                visited_times_raw: [0; 8], safe_steps_raw: [0; 8], visit_count: 0,
+                accepted_root_raw: time, closest_feature: closest.feature,
+                comparison: ExactWideComparisonDiagnostic::DistanceLessThanOrEqualRadiusSquared }); }
+            return Ok(Some(candidate));
         }
         if time == 65_536 || speed.numerator.is_zero() { return Ok(None); }
         let step = wide_safe_step(closest, radius, speed)?;
@@ -1664,6 +1739,8 @@ fn wide_sweep_segment_body(weapon: &ExactContactTrajectory, wo: &ExactOwnerTraje
     -> Result<Option<Candidate>, ExactScanReject>
 {
     let mut winner: Option<(u32, usize, WideSegmentClosest, WideRational4096)> = None;
+    #[cfg(feature = "cartesian-recoil")]
+    let mut winner_trace = ExactWideVisitTrace::default();
     for region in 0..AnatomyRegion::COUNT {
         let group = wo.common_response.group_time_raw;
         if wide_segment_body_region_aabbs_are_disjoint_during(
@@ -1672,8 +1749,12 @@ fn wide_sweep_segment_body(weapon: &ExactContactTrajectory, wo: &ExactOwnerTraje
         }
         let speed = wide_segment_body_speed(weapon, wo, body, bo, region)?;
         let mut time = group; let mut found = None;
+        #[cfg(feature = "cartesian-recoil")]
+        let mut trace = ExactWideVisitTrace::default();
         let mut proved_separate = false;
         for _ in 0..96 {
+            #[cfg(feature = "cartesian-recoil")]
+            trace.visit(time);
             let Some((closest, rr, medial)) = wide_segment_body_at_time(
                 weapon, wo, body, bo, region, time, scratch)?
                 else { proved_separate = true; break };
@@ -1683,6 +1764,8 @@ fn wide_sweep_segment_body(weapon: &ExactContactTrajectory, wo: &ExactOwnerTraje
             }
             if time == 65_536 || speed.numerator.is_zero() { proved_separate = true; break; }
             let step = wide_safe_step(closest, radius, speed)?;
+            #[cfg(feature = "cartesian-recoil")]
+            trace.step(step);
             if step == 0 {
                 let next = time + 1;
                 let Some((adjacent, rr, _)) = wide_segment_body_at_time(
@@ -1712,17 +1795,32 @@ fn wide_sweep_segment_body(weapon: &ExactContactTrajectory, wo: &ExactOwnerTraje
                     || (time == old_time && (wide_cmp(medial, old_medial)? == Ordering::Less
                         || (wide_cmp(medial, old_medial)? == Ordering::Equal && region < old_region))),
             };
-            if replace { winner = Some((time, region, closest, medial)); }
+            if replace {
+                winner = Some((time, region, closest, medial));
+                #[cfg(feature = "cartesian-recoil")]
+                { winner_trace = trace; }
+            }
         }
     }
     let Some((time, region, closest, _)) = winner else { return Ok(None) };
     let mut pw = *cw; let mut pb = *cb;
     pw.velocity += wide_response_velocity(weapon, wo)?; pb.velocity += wide_response_velocity(body, bo)?;
     let distance = closest.distance_sq.trunc_i128().ok_or(ExactScanReject::ArithmeticEnvelope)? >> 16;
-    Ok(Some(make_candidate(&pw, &pb, ContactKind::WeaponBody,
+    let mut candidate = make_candidate(&pw, &pb, ContactKind::WeaponBody,
         TimeOfImpact::new_clamped(Fx::from_raw(time as i32)), wide_point_to_vec3(closest.a)?,
         wide_point_to_vec3(closest.b)?, Fx::from_raw(i32::try_from(distance)
-            .map_err(|_| ExactScanReject::ArithmeticEnvelope)?), 0, region as u8)))
+            .map_err(|_| ExactScanReject::ArithmeticEnvelope)?), 0, region as u8);
+    #[cfg(feature = "cartesian-recoil")]
+    { candidate.wide_toi = Some(ExactWideToiDiagnostic {
+        key: candidate.fact.key, region: region as u8,
+        primitive: ExactWidePrimitiveDiagnostic::SegmentBodyRegion,
+        interval_start_raw: wo.common_response.group_time_raw, interval_end_raw: 65_536,
+        visited_times_raw: winner_trace.times, safe_steps_raw: winner_trace.steps,
+        visit_count: winner_trace.count, accepted_root_raw: time,
+        closest_feature: closest.feature,
+        comparison: ExactWideComparisonDiagnostic::EarliestTimeThenMedialThenRegion,
+    }); }
+    Ok(Some(candidate))
 }
 
 #[cfg(any(test, feature = "cartesian-recoil"))]
@@ -2877,6 +2975,8 @@ fn make_candidate(
         },
         distance_sq,
         feature,
+        #[cfg(feature = "cartesian-recoil")]
+        wide_toi: None,
     }
 }
 
