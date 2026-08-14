@@ -1,8 +1,9 @@
 # Smart articulated combat -- handoff and roadmap
 
 **Status:** exact feature mechanics through Smart120 and Smart127's ordinary
-body-wall lifecycle witness are committed and verified. Smart122/123 digest
-registration remains next; generalized Tactical competence also remains below gate.
+body-wall lifecycle witness are committed and verified. Smart122 registered the
+trajectory transcript at `0x83051e8c6b4ef20f`; Smart123/124 remain next, and
+generalized Tactical competence remains below gate.
 
 This topic began with an Arena fight in which learned and tactical fighters moved but
 rarely produced useful attacks. The UI truth problem was repaired and intentional
@@ -63,17 +64,17 @@ has the body `WALL` row at tick 45 and the release at tick 54 with live/live/rep
 equality through tick 56.
 
 That closes the lifecycle witness, not the authority topic. Smart122's exact-
-trajectory digest and Smart123's lifted-Coulomb digest remain unmeasured and
-unregistered; Smart124 remains after them. After authority closure, rerun the
+trajectory digest is registered. Smart123's lifted-Coulomb digest remains unmeasured
+and unregistered, with Smart124 after it. After authority closure, rerun the
 ordinary Tactical evidence before reconsidering learning or `v2-18`.
 
 ## Next-session order
 
-1. Execute [Smart122](smart-ai-122-register-exact-trajectory-digest.md),
-   [Smart123](smart-ai-123-register-lifted-coulomb-digest.md), and
-   [Smart124](smart-ai-124-close-exact-contact-authority.md) in order.
+1. Smart122 is complete at `0x83051e8c6b4ef20f`; execute
+   [Smart123](smart-ai-123-register-lifted-coulomb-digest.md), followed by
+   [Smart124](smart-ai-124-close-exact-contact-authority.md).
 2. Preserve the ordinary defender-body `WALL` witness and its focused mutation proof
-   while registering both feature digests.
+   while registering the remaining feature digest.
 3. Rerun matched Tactical/control evidence, then the 95/100 held-out competence gate.
    The retained baseline is `21/100` strict and `55/100` outcome-only.
 4. Train/promote only after the mechanics and competence gates pass. Reopen the final
@@ -97,7 +98,8 @@ ordinary Tactical evidence before reconsidering learning or `v2-18`.
 
 The retained feature work moves no default legacy golden. The expected
 `ARTICULATED_STREAM_DIGEST` feature-mechanics movement is paired across Rust and wasm;
-the exact-trajectory and lifted-Coulomb digests remain deliberately unregistered.
+the exact-trajectory digest is registered and the lifted-Coulomb digest remains
+deliberately unregistered.
 Eventual promotion is a separate decision. It is expected to change the
 articulated authoritative state hash grammar and may move
 `ARTICULATED_COMMAND_HASH`/`ARTICULATED_STREAM_DIGEST`; it must not move legacy hashes,

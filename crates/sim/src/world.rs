@@ -2392,8 +2392,8 @@ impl World {
         })
     }
 
-    #[cfg(all(test, feature = "cartesian-recoil"))]
-    pub(crate) fn exact_trajectory_remainder_test_view(&self, id: EntityId)
+    #[cfg(feature = "cartesian-recoil")]
+    pub(crate) fn exact_trajectory_remainder_view(&self, id: EntityId)
         -> Option<(bool, bool)>
     {
         let owner = self.exact_owners.get(self.resolve(id)?)?.as_ref()?;
@@ -2406,6 +2406,41 @@ impl World {
             position |= held.affine.at_group.iter().any(|word| word.remainder != 0);
         }
         Some((momentum, position))
+    }
+
+    /// Corrupts one real retained remainder so the digest test can demonstrate
+    /// that authority, rather than only its summary witness, is load-bearing.
+    #[cfg(all(test, feature = "cartesian-recoil"))]
+    pub(crate) fn mutate_exact_owner_remainder_for_test(&mut self) -> bool {
+        for owner in self.exact_owners.iter_mut().flatten() {
+            for word in &mut owner.common_response.momentum {
+                if word.remainder != 0 {
+                    word.remainder ^= 1;
+                    return true;
+                }
+            }
+            for word in &mut owner.common_response.at_group {
+                if word.remainder != 0 {
+                    word.remainder ^= 1;
+                    return true;
+                }
+            }
+            for held in owner.held_response.iter_mut().flatten() {
+                for word in &mut held.affine.momentum {
+                    if word.remainder != 0 {
+                        word.remainder ^= 1;
+                        return true;
+                    }
+                }
+                for word in &mut held.affine.at_group {
+                    if word.remainder != 0 {
+                        word.remainder ^= 1;
+                        return true;
+                    }
+                }
+            }
+        }
+        false
     }
 
     #[cfg(all(test, feature = "cartesian-recoil"))]
@@ -10922,7 +10957,7 @@ mod tests {
         let refusal = world.first_contact_rejection();
         let cap_hits = world.contact_cap_hits();
         if refusal.is_some() || cap_hits != 0 { return Err("solver refusal or group cap preceded damage"); }
-        let remainders_after = world.exact_trajectory_remainder_test_view(attacker)
+        let remainders_after = world.exact_trajectory_remainder_view(attacker)
             .ok_or("missing exact remainder view")?;
         let anatomy = world.anatomy_test_view(defender).ok_or("missing post anatomy")?;
         let after_integrity: i32 = anatomy.parts.iter().map(|part| part.integrity.raw()).sum();
@@ -10931,7 +10966,7 @@ mod tests {
         world.submit_articulated_v1(attacker, command(&world, 8_192));
         world.submit_articulated_v1(defender, world.neutral_articulated(1));
         world.step();
-        let remainders_next = world.exact_trajectory_remainder_test_view(attacker)
+        let remainders_next = world.exact_trajectory_remainder_view(attacker)
             .ok_or("missing following exact remainder view")?;
         Ok(OrdinaryLiftedStrikeMeasurement { row, dissipated_raw, anatomy,
             integrity_loss_raw: before_integrity - after_integrity, remainders_after,

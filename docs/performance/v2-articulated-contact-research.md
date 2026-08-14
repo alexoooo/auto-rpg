@@ -653,9 +653,10 @@ WeaponBody group at ticks 45/46, both exact remainder classes through tick 56, a
 defender body-lane `WALL` row at tick 45 with `-9_986_235_012 / 8_589_934_592`, and
 the independent right-hand release at tick 54 with
 `-1_073_625_268_272 / 8_589_934_592`. Two live runs and recorded replay agree at
-every tick, with zero refusal and cap. The exact-trajectory and lifted-Coulomb digest
-registrations remain deliberately unmeasured; that is the remaining portability
-closure, not a missing World adapter.
+every tick, with zero refusal and cap. Smart122 registered that replayed trajectory
+transcript at `0x83051e8c6b4ef20f`, with native MSVC and wasm32 integration agreement.
+The lifted-Coulomb digest remains deliberately unmeasured; that is the remaining
+portability closure, not a missing World adapter.
 
 ## Decisions and next boundary
 
@@ -664,9 +665,9 @@ fitting, or damage-selected search. Each was rejected by an exact counterexample
 Do not train or promote the tactical/learned policy while the mechanical corpus lacks
 a robust mirrored productive strike.
 
-The remaining mechanics sequence is explicit in the live plans: register the exact
-trajectory/replay digest, register the lifted-Coulomb solver/corpus digest, then close
-the feature authority documentation. Those sessions must preserve the default hash
+The remaining mechanics sequence is explicit in the live plans: register the
+lifted-Coulomb solver/corpus digest, then close the feature authority documentation.
+Those sessions must preserve the default hash
 grammar and prove fresh native/wasm agreement. Completion permits a new policy gate;
 it does not itself authorize feature promotion, learning, `ARTICULATED_HASH`, or
 `v2-18`.
@@ -745,8 +746,9 @@ the experiment stopped and its temporary code was reverted. The retained log is
 `target/smart121-east-wall.log`, SHA-256
 `25B3D423C3425DA0BC6D11FD0113ECB7F8E1D313521B01D03F76EA861DC648B3`.
 This is replay/remainder/release evidence, not the missing Smart36 checkpoint-E
-boundary proof. `EXACT_TRAJECTORY_STATE_DIGEST` and
-`LIFTED_COULOMB_SOLVER_DIGEST` remain unmeasured and unregistered pending a reviewed
+boundary proof. `EXACT_TRAJECTORY_STATE_DIGEST` is registered at
+`0x83051e8c6b4ef20f` from the ordinary north-wall witness.
+`LIFTED_COULOMB_SOLVER_DIGEST` remains unmeasured and unregistered pending a reviewed
 lifecycle classification.
 
 The reviewed successor classified the absence rather than retuning the strike. The

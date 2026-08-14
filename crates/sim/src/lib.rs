@@ -52,6 +52,8 @@ mod combat;
 mod command;
 mod dungeon;
 mod entity;
+#[cfg(feature = "cartesian-recoil")]
+mod exact_diagnostics;
 mod event;
 mod hand;
 mod hash_domain;
@@ -139,6 +141,8 @@ pub use combat::contact::{
 pub use combat::geometry::{body_region_volumes, RegionVolume, SegmentPose};
 pub use dungeon::{Cardinal, Door, Dungeon, Level, Rect, Torch, CORRIDOR, DOOR, OPEN, WALL};
 pub use entity::{EntityId, Faction, Body};
+#[cfg(feature = "cartesian-recoil")]
+pub use exact_diagnostics::exact_trajectory_state_digest;
 pub use event::Event;
 pub use hand::{Hand, Swing};
 pub use hash_domain::{DigestCompareError, HashDomain, StateDigest};

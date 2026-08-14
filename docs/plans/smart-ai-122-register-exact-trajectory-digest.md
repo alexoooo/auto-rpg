@@ -1,9 +1,10 @@
 # Smart AI 122 -- register the exact trajectory state digest
 
-**Status:** planned and unblocked by the retained ordinary north-wall replay in
-`crates/sim/src/replay.rs`. No digest value has been measured or registered. The
-value remains deliberately `TBD`; execute this registration from that reviewed
-fixture rather than the rejected east-wall premise recorded in the performance log.
+**Status:** complete. Native and wasm integration verification passed, and both
+targets answered
+`EXACT_TRAJECTORY_STATE_DIGEST = 0x83051e8c6b4ef20f`, measured from the retained
+ordinary north-wall replay rather than the rejected east-wall premise recorded in
+the performance log.
 
 This session closes the remaining feature-only trajectory portability pin. It does
 not move an existing pin or make exact diagnostics part of the frame, replay or
@@ -35,21 +36,24 @@ u64 seed = 0
 u32 recorded tick count
 
 per tick, ascending:
-  u32 tick
+  u32 post-step tick; its commands carry the preceding submitted tick
   u32 submitted-command count
   per stored command, entity order:
-    u32 entity index, u32 generation, u16 schema, u16 payload length, payload bytes
+    u32 entity index, u32 generation, u16 schema, u8 kind, u8 reserved,
+    u16 payload length, payload bytes
   u8 state digest domain, u16 state digest schema, u64 state digest value
   u32 contact cap hits
-  first exact refusal: u8 presence, then outer cause/phase/detail/key words
+  first exact refusal: u8 presence, then u8 cause, u8 phase, u32 refusing tick,
+                       u8 key presence, then key words
+  first lifted group reject: u8 presence, then u8 detail
   u32 resolution count
   each resolution in production order:
-    group ordinal, alpha
-    complete ContactKey identities/slots/kind, region, TOI
-    point, normal, velocity A/B as signed raw XYZ
-    impulse A/B as signed raw XYZ
-    energy before/after/dissipated
-    cut, thrust, pressure, deflected, severed
+    u8 group ordinal, u32 alpha
+    complete ContactKey: u32+u32 identities, u8 slots/kind, u8 region, u32 TOI
+    point, normal, velocity A/B as signed raw i32 XYZ
+    impulse A/B as signed raw i32 XYZ
+    u64 energy before/after/dissipated
+    u64 cut, thrust, pressure, deflected, u8 severed
   u32 exact external row count
   each row: entity identity, lane, reason, i128 signed numerator LE,
             i128 denominator LE
@@ -63,9 +67,11 @@ explicit resolution and external rows make the evidence grammar independently
 reviewable. Do not hash scratch capacities, pointers, wall time or diagnostics that
 do not affect the named first refusal.
 
-Add tests proving that changing one stored command byte, owner remainder, external
-reason, selected impulse or refusal code changes the digest. A second identical run
-must not change it.
+Tests prove that changing one stored command byte, a real retained owner remainder,
+an external reason, a selected impulse or each refusal word changes the digest. A
+second identical run does not change it. The first-refusal type has no detail field;
+V1 therefore writes the lifted group-reject detail as a separately tagged section
+rather than inventing a zero word.
 
 ## B -- feature-only web boundary and paired pin
 
@@ -107,5 +113,13 @@ node tools/check_docs.js
 git diff --check
 ```
 
-Record both values, artifact paths, byte lengths, full SHA-256, memory pages before/
-first/second call and test logs. Expected existing pin moves are zero.
+The verified feature artifact at
+`target/wasm32-unknown-unknown/release/web.wasm` was 1,012,971 bytes with SHA-256
+`8C8546CD60DADA2F5F8948A01288900DA267E69886DD0CA8A0B395669ECCA472`. Its diagnostic
+warm-up/first/second page receipt was `29/165/165`; the second read neither grew
+memory nor detached an installed pose view. The default artifact was 655,770 bytes,
+SHA-256 `190B95523B666D69D023FCEBD32D271AE44318EB103AAD46CF020F7BBE452DD0`,
+and exported neither half. Focused sim and web tests, both workspaces, and both direct
+`wasm_check.js` modes passed; each wasm run reported 29/29 passing. The default was
+rebuilt and checked again last, leaving the shipped artifact on disk. Expected
+existing pin moves were zero and none moved.

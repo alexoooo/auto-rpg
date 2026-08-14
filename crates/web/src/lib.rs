@@ -6548,6 +6548,46 @@ pub extern "C" fn articulated_stream_digest_hi() -> u32 {
     (articulated_stream_digest() >> 32) as u32
 }
 
+#[cfg(feature = "cartesian-recoil")]
+thread_local! {
+    /// This diagnostic builds three worlds and replays fifty-six prefixes. It
+    /// therefore belongs in warm-up, and exactly one computation per module is
+    /// part of the browser contract rather than an optimization detail.
+    static EXACT_TRAJECTORY_STATE_DIGEST_VALUE: Cell<Option<u64>> = const { Cell::new(None) };
+    #[cfg(test)]
+    static EXACT_TRAJECTORY_STATE_DIGEST_COMPUTES: Cell<u32> = const { Cell::new(0) };
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn exact_trajectory_state_digest() -> u64 {
+    EXACT_TRAJECTORY_STATE_DIGEST_VALUE.with(|slot| match slot.get() {
+        Some(value) => value,
+        None => {
+            #[cfg(test)]
+            EXACT_TRAJECTORY_STATE_DIGEST_COMPUTES.with(|count| count.set(count.get() + 1));
+            let value = sim::exact_trajectory_state_digest();
+            slot.set(Some(value));
+            value
+        }
+    })
+}
+
+/// Low half of the feature-only exact trajectory portability digest.
+#[cfg(feature = "cartesian-recoil")]
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn exact_trajectory_state_digest_lo() -> u32 {
+    exact_trajectory_state_digest() as u32
+}
+
+/// High half of [`exact_trajectory_state_digest_lo`].
+#[cfg(feature = "cartesian-recoil")]
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn exact_trajectory_state_digest_hi() -> u32 {
+    (exact_trajectory_state_digest() >> 32) as u32
+}
+
 // ---------------------------------------------------------------- behaviour
 //
 // The whole reason a policy is choosable at runtime: "stats are wired into the
@@ -10394,6 +10434,26 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn exact_trajectory_state_digest_is_paired_cached_and_self_contained() {
+        EXACT_TRAJECTORY_STATE_DIGEST_VALUE.with(|slot| slot.set(None));
+        EXACT_TRAJECTORY_STATE_DIGEST_COMPUTES.with(|count| count.set(0));
+        init(4);
+        step(12);
+        let before = (tick(), state_hash(), frame_len(), pose_len(), combat_event_len());
+        let measured = u64::from(exact_trajectory_state_digest_lo())
+            | (u64::from(exact_trajectory_state_digest_hi()) << 32);
+        assert_eq!(measured, EXACT_TRAJECTORY_STATE_DIGEST,
+            "EXACT_TRAJECTORY_STATE_DIGEST moved: {measured:#018x}");
+        assert_eq!(exact_trajectory_state_digest_lo(), measured as u32);
+        assert_eq!(exact_trajectory_state_digest_hi(), (measured >> 32) as u32);
+        EXACT_TRAJECTORY_STATE_DIGEST_COMPUTES.with(|count| assert_eq!(count.get(), 1,
+            "the split and repeated reads recomputed the exact trajectory fixture"));
+        assert_eq!((tick(), state_hash(), frame_len(), pose_len(), combat_event_len()), before,
+            "the exact trajectory diagnostic disturbed the installed sim");
+    }
+
     #[test]
     fn wasm_exports_match_layout_stride_capacity_and_drop_fields() {
         // **The ten numbers are transcribed from the reference, not read off
@@ -10939,6 +10999,11 @@ mod tests {
     /// fight golden moved with it, which is the signature of a layout move and
     /// the opposite of the three before it.
     const ARTICULATED_STREAM_DIGEST: u64 = 0xdbbd_86fe_dd61_c4c7;
+
+    /// The north-wall stored-command lifecycle, paired with the feature-only
+    /// wasm exports and registered in `docs/reference/hashes.md`.
+    #[cfg(feature = "cartesian-recoil")]
+    const EXACT_TRAJECTORY_STATE_DIGEST: u64 = 0x8305_1e8c_6b4e_f20f;
 
     /// FNV-1a-64 over the logits `checkpoints/v2-probe.ckpt` produces on
     /// `learn_core`'s fixed observation corpus, prefix `ARPG-LEARNED-V1`.

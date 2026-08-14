@@ -19,7 +19,7 @@ that remains.
 | work | state | dependency | hash expectation |
 |---|---|---|---|
 | [Representative Fighter and Brute rigs](v2-18-combatant-integration.md) | not started | a passed articulated mechanical gate | presentation-only: every legacy and articulated pin unchanged |
-| [Smart articulated combat](smart-ai-00-overview.md) | exact feature mechanics and the ordinary body-wall witness are retained and verified; digest closure remains | [Smart122](smart-ai-122-register-exact-trajectory-digest.md), [Smart123](smart-ai-123-register-lifted-coulomb-digest.md), then [Smart124](smart-ai-124-close-exact-contact-authority.md) | no `ARTICULATED_HASH`; both feature digests remain unregistered and `v2-18` remains blocked |
+| [Smart articulated combat](smart-ai-00-overview.md) | exact feature mechanics and the ordinary body-wall witness are retained and verified; the trajectory digest is registered | [Smart123](smart-ai-123-register-lifted-coulomb-digest.md), then [Smart124](smart-ai-124-close-exact-contact-authority.md) | no `ARTICULATED_HASH`; the lifted-Coulomb digest remains unregistered and `v2-18` remains blocked |
 | Controlled Robust Strike | retained and visibly verified as a feature-only demonstration; standard production stays default | durable evidence is in the [tactical policy record](../performance/smart-ai-tactical-policy.md#controlled-strong-strike-reference) | no existing pin moves |
 | [Articulated contact research record](../performance/v2-articulated-contact-research.md) | durable evidence | exact retained-contact findings and rejected response/state hypotheses formerly spread across Smart AI sessions 01--34 | evidence only; no authority |
 | [Hierarchical combat learning](hierarchical-ai-00-overview.md) | proposed research successor | first prove that fixed `(loadout, strategy)` options have context-dependent headroom on a mechanically productive corpus | native research moves no pins; promotion is separately gated |
@@ -115,8 +115,9 @@ accepted strike, both exact remainder classes, and the later ordinary release al
 appeared. The defender-body `RecoilExternalEnergy::WALL` row did not. That missing
 ordinary boundary witness is now closed: measurement showed that the stopped
 fixture's response moved away from the east wall, and the unchanged stream produced
-the body row at the response-aligned north wall. The trajectory and lifted-Coulomb
-digests remain unmeasured and unregistered, so authority closure is still blocked.
+the body row at the response-aligned north wall. The trajectory digest is registered
+at `0x83051e8c6b4ef20f`; the lifted-Coulomb digest remains unmeasured and unregistered,
+so authority closure is still blocked.
 None of this reopens `v2-18` or creates
 `ARTICULATED_HASH` by existence.
 
