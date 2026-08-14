@@ -19,7 +19,7 @@ that remains.
 | work | state | dependency | hash expectation |
 |---|---|---|---|
 | [Representative Fighter and Brute rigs](v2-18-combatant-integration.md) | not started | a passed articulated mechanical gate | presentation-only: every legacy and articulated pin unchanged |
-| [Smart articulated combat](smart-ai-00-overview.md) | exact feature mechanics, the ordinary body-wall lifecycle and both feature digests are retained and verified | [Smart124](smart-ai-124-close-exact-contact-authority.md) | no `ARTICULATED_HASH`; authority prose still must close and `v2-18` remains blocked |
+| [Smart articulated combat](smart-ai-00-overview.md) | exact feature mechanics, the ordinary body-wall lifecycle, both feature digests and their authority references are complete | rerun matched ordinary Tactical/control evidence | no `ARTICULATED_HASH`; generalized competence and `v2-18` remain blocked |
 | Controlled Robust Strike | retained and visibly verified as a feature-only demonstration; standard production stays default | durable evidence is in the [tactical policy record](../performance/smart-ai-tactical-policy.md#controlled-strong-strike-reference) | no existing pin moves |
 | [Articulated contact research record](../performance/v2-articulated-contact-research.md) | durable evidence | exact retained-contact findings and rejected response/state hypotheses formerly spread across Smart AI sessions 01--34 | evidence only; no authority |
 | [Hierarchical combat learning](hierarchical-ai-00-overview.md) | proposed research successor | first prove that fixed `(loadout, strategy)` options have context-dependent headroom on a mechanically productive corpus | native research moves no pins; promotion is separately gated |
@@ -35,15 +35,17 @@ group membership, response provenance, quotient normalization, and retained solv
 scratch through Smart120. Its recorded native and feature-wasm receipts agree, and
 the feature artifact runs twice without second-call memory growth. Smart117 also
 retains a controlled Robust Strike Arena preset and two visible-browser receipts.
-These are verified results in Git history, still behind the disabled feature.
+These are verified results in Git history, still behind the opt-in, non-default
+feature.
 
 They do not promote the feature build. The earlier Smart117 memory receipt ran
 before the feature artifact was built and therefore exercised the default wasm left
 on disk. A fresh feature run exposed a compatibility-only clinch fixture, an exact
 lattice refusal for a picker-valid configuration, and no death in the old learned
-index fixture. Standard `npm run dev` and `npm run build` remain default until the
-authority sessions close and those browser-boundary obligations have honest feature
-owners.
+index fixture. The paired digest exports now have honest feature owners at the browser
+boundary. They do not discharge the clinch, picker-valid refusal or learned-index
+fixture results above. Standard `npm run dev` and `npm run build` still remain
+default: authority closure was not a feature-promotion decision.
 
 They do not establish generalized policy competence. Smart115 measured `21/100`
 strict zero-refusal body decisions and `55/100` outcome-only. Smart125's attempted
@@ -118,8 +120,10 @@ fixture's response moved away from the east wall, and the unchanged stream produ
 the body row at the response-aligned north wall. Smart122 registers that later
 wall/remainder/release lifecycle at `0x83051e8c6b4ef20f`. Smart123 separately
 registers the eighteen terminal-at-first-contact source-41 solver cases at
-`0x83cd7bb2b73aeb9e`. Smart124's canonical authority prose remains, so authority
-closure is still incomplete.
+`0x83cd7bb2b73aeb9e`. Their mechanics, ownership and re-record paths now live in the
+canonical solver and hash references. Exact-contact authority closure is
+complete; ordinary Tactical competence, feature promotion and the representative
+mechanical gate are not.
 None of this reopens `v2-18` or creates
 `ARTICULATED_HASH` by existence.
 

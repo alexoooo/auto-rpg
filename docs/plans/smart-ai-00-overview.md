@@ -3,8 +3,8 @@
 **Status:** exact feature mechanics through Smart120 and Smart127's ordinary
 body-wall lifecycle witness are committed and verified. Smart122 registered the
 trajectory transcript at `0x83051e8c6b4ef20f`, and Smart123 registered the
-terminal source-41 solver corpus at `0x83cd7bb2b73aeb9e`. Smart124 remains next, and
-generalized Tactical competence remains below gate.
+terminal source-41 solver corpus at `0x83cd7bb2b73aeb9e`. Their canonical authority
+documentation is complete. Generalized Tactical competence remains below gate.
 
 This topic began with an Arena fight in which learned and tactical fighters moved but
 rarely produced useful attacks. The UI truth problem was repaired and intentional
@@ -50,9 +50,10 @@ live in [combat design](../design/combat.md).
 - Smart115 measured generalized Tactical at `21/100` strict zero-refusal body
   decisions and `55/100` outcome-only. Smart125's attempted recertification regressed
   the unchanged outcome corpus to `49/100` and was fully reverted.
-- All exact mechanics remain behind the disabled `cartesian-recoil` feature. No
-  default authority, `ARTICULATED_HASH`, training promotion, or v2-18 rig work is
-  authorized. These retained results are now committed behind the disabled feature.
+- All exact mechanics remain behind the opt-in, non-default `cartesian-recoil`
+  feature. No exact-path default authority, `ARTICULATED_HASH`, training promotion,
+  or v2-18 rig work is authorized. These retained results are committed behind the
+  opt-in feature.
 
 ## What remains
 
@@ -67,20 +68,20 @@ equality through tick 56.
 That closes the lifecycle witness. Smart122's exact-trajectory digest registers the
 later wall/remainder/release transcript. Smart123 separately registers source-41's
 eighteen mechanics cases at their first qualifying contact; extending those cases by
-one tick is not its lifecycle grammar. Smart124 still owns the authority-document
-closure. After that, rerun ordinary Tactical evidence before reconsidering learning
-or `v2-18`.
+one tick is not its lifecycle grammar. The authority documents are now closed without
+promoting the feature. Rerun ordinary Tactical evidence before reconsidering
+learning or `v2-18`.
 
 ## Next-session order
 
-1. Smart122 is complete at `0x83051e8c6b4ef20f` and Smart123 at
-   `0x83cd7bb2b73aeb9e`; execute
-   [Smart124](smart-ai-124-close-exact-contact-authority.md).
+1. Rerun matched ordinary Tactical/control evidence against the retained exact
+   mechanics. The baseline is `21/100` strict and `55/100` outcome-only; Smart125's
+   attempted correction fell to `49/100` outcome-only and was reverted.
 2. Preserve the ordinary defender-body `WALL` lifecycle witness separately from the
    terminal-at-first-contact source-41 solver corpus.
-3. Rerun matched Tactical/control evidence, then the 95/100 held-out competence gate.
-   The retained baseline is `21/100` strict and `55/100` outcome-only.
-4. Train/promote only after the mechanics and competence gates pass. Reopen the final
+3. Open the unchanged 95/100 held-out competence gate only if the matched evidence
+   justifies it.
+4. Train/promote only after the competence gate passes. Reopen the final
    v2 articulated gate and `v2-18` last.
 
 ## Hard constraints
@@ -92,8 +93,9 @@ or `v2-18`.
 - Do not select mechanics by wound/damage outcome.
 - Do not claim full XYZ symmetry while the body/common Z floor constraint exists;
   only held-relative Z is supported.
-- Do not enable `cartesian-recoil`, change default hash grammar, or re-record pins
-  before authority closure.
+- Do not enable `cartesian-recoil` by default, change default hash grammar, or
+  re-record either exact pin without its registered owner path. Authority closure is
+  not feature-promotion authority.
 - Do not create `ARTICULATED_HASH` until native direct run, native replay, wasm replay,
   and visible review pass the revised mechanical gate.
 
@@ -123,6 +125,6 @@ git diff --check
 
 Because `crates/sim` changed, the final integration handoff also rebuilds `-p web` for
 `wasm32-unknown-unknown` both with and without `cartesian-recoil`, and runs the matching
-native/wasm equality checks. Both digest registrations are complete; another
-held-out policy run remains unauthorized until Smart124 closes their authority
-documentation.
+native/wasm equality checks. Both digest registrations and their authority documents
+are complete. The next authorized work is matched ordinary Tactical/control evidence,
+not training, default promotion or the held-out gate by assumption.

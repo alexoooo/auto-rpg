@@ -350,9 +350,10 @@ commit that finishes the topic (see `iso-*` in the history of `docs/plans`).
 
 The live roadmap is [`docs/plans/v2-00-overview.md`](docs/plans/v2-00-overview.md).
 Completed sessions are retired rather than kept as a progress ledger. The remaining
-numbered work is `v2-18`, still blocked on the mechanical gate, plus the Smart AI
-122--124 digest/authority closure sequence. Durable results from closed sessions
-belong in architecture, design, reference, or performance docs.
+numbered work is `v2-18`, still blocked on the mechanical gate. The Smart AI exact
+mechanics digest/authority sequence is complete; its next work is matched ordinary
+Tactical/control evidence, not training or promotion. Durable results from closed
+sessions belong in architecture, design, reference, or performance docs.
 
 ## Gotchas that have already cost time
 

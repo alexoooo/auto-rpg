@@ -12,6 +12,14 @@ those stages; its numbers, rejected explanations, and successor ledger live in
 [`v2-articulated-gate.md`](../performance/v2-articulated-gate.md). No
 `ARTICULATED_HASH` exists.
 
+A later fixed `Robust Strike (controlled)` feature preset has two visible runs with a
+qualifying contact and wound. It is deliberately outside this gate: it supplies no
+800-trial generalized result, worker evidence JSON, blinded 15-clip classification or
+foreground frame-time measurement. The exact feature mechanics and their two paired
+digests are current in the [contact solver contract](contact-solver.md#feature-gated-exact-trajectory-and-response-authority),
+but their existence neither passes this proposed gate nor creates
+`ARTICULATED_HASH`.
+
 ## Canonical fixture and stop rule
 
 `Scenario::articulated_duel()` is named `articulated-duel-v1`, uses

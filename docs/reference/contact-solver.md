@@ -8,11 +8,13 @@
 This is the canonical deterministic contract for the purpose-built XYZ contact
 solver. Legacy combat does not construct its state or call it.
 
-The disabled `cartesian-recoil` and test-only helpers are not a second current
-contract. They preserve candidate response, recoil, and lifted-remainder experiments
-whose outcomes are summarized in the
+The standard build uses the rounded resolver documented below. Under the opt-in
+`cartesian-recoil` feature, the retained exact trajectory and lifted-response path is
+the authority for the same supported hostile WeaponWeapon, WeaponShield and
+WeaponBody domain. That is a current feature contract, not a test-only experiment;
+it remains absent from the default artifact and is not authorization to promote the
+feature. The measurements and rejected predecessors are preserved in the
 [articulated contact research record](../performance/v2-articulated-contact-research.md).
-None authorizes a production response or changes the public rows below.
 
 ## Contract
 
@@ -633,9 +635,9 @@ row is not replaced by a held row: a naked body crosses the same boundary, while
 carried item contributes a distinct physical energy term. Smart127's ordinary
 56-command north-wall replay reaches the body row at tick 45, then the independent
 right-hand release row at tick 54, with two live runs and replay equal through the
-horizon. These lifecycle rows remain feature-only diagnostics pending the separately
-registered Smart122/123 digests; they are not group loss, injury, or a claim that the
-feature is default authority.
+horizon. These lifecycle rows are covered by Smart122's feature-only trajectory
+digest; Smart123's solver corpus stops at first contact and does not claim them. They
+are not group loss, injury, or a claim that the feature is default authority.
 
 The arm poses are fixed against the *solver's* body origin, before settlement moves it.
 A wall push is rigid: it must carry body and arms together, and measuring the relative
@@ -705,6 +707,73 @@ and must revisit this paragraph.
 `persistent_zero_time_contacts_do_not_livelock` measures all three routes: the
 separating repeat, a suppressed pair surviving an unrelated intervening group staged
 off-axis, and the truncating-impulse family at closing 1, 3, 7, 9, and 65,535 raw.
+
+## Feature-gated exact trajectory and response authority
+
+With `cartesian-recoil`, every supported hostile segment/segment,
+segment/shield and segment/body pair is scanned from the retained exact owner and
+collider trajectories. Swept AABBs are exact conservative exclusions; the wide
+segment primitives then own contact membership, time, key, region and ordering. The
+rounded compatibility scan still runs so an accepted row may carry its old primitive
+inputs as optional provenance. It is diagnostic only: an exact contact need not have
+a compatibility witness, and the rounded set neither admits nor vetoes an exact row.
+The same exact evaluator reconstructs the fact at the chosen group boundary and
+feeds commit, so scan, recomputation and mutation cannot silently exchange authority.
+
+The compatibility route is bounded rather than catch-all. A standard World caller
+with no response column enters `ZeroResponseCompatibility` directly. An exact helper
+outside the feature may route to that rounded scan only after preflight proves every
+response word is zero. Missing, duplicate or ambiguous owner/collider identity, or
+any malformed exact grammar, refuses instead of falling back. Under
+`cartesian-recoil`, preflight still validates the grammar but every supported hostile
+WW/WS/WB pair stays on exact authority; the compatibility scan beside it contributes
+only the optional provenance above.
+
+The response is a bounded integer search in lifted owner state. A candidate must
+satisfy the unilateral normal direction, restitution inequality and one circular
+Coulomb cone per fact. Candidates compare lexicographically by total tangential slip,
+normal restitution overshoot, squared impulse magnitude, then the ordered signed XYZ
+impulse words. The fixed envelopes are 16 facts, 42 physical rows, eight sweeps and
+96 lifts per visit. Every trial starts from the pre-group owners; after the visits,
+the selected words are applied together and all facts are validated simultaneously.
+There is no damage or wound input to eligibility or score.
+
+The simultaneous trial computes the complete physical energy delta in the exact
+owner coordinates. A positive delta refuses the group as
+`NoDissipativeCandidate`. An accepted non-positive delta is converted to public loss
+once, by flooring the complete physical result rather than separately flooring owner
+or fact shares; only then may the ordinary allocator produce cut, thrust, pressure,
+deflection and anatomy changes. The named mutation proof removes the normal response
+and selected-score checks independently and fails before the damage reader, which is
+what makes this ordering measured rather than descriptive.
+
+Momentum and position-integration remainders remain authoritative feature state.
+Release, replacement, severance, contact-cap, floor and wall changes write separate
+exact external-energy rows rather than being folded into contact-group loss. The
+World retains entry copies of anatomy, exact owners and trajectories. Any exact scan,
+solve, lifecycle or staged-commit refusal restores those entries, clears resolutions,
+credit, deltas, floor reactions and external rows, and publishes only the counted
+refusal and its first-cause diagnostic; no partial pose, wound or energy result
+escapes. Contact-cap handling likewise freezes at the last safe group under the
+existing cap contract rather than committing an unvalidated ninth group.
+
+The exact owners, wide geometry work and lifted solver scratch are retained across
+ticks and allocated before the phase. The native/wasm stack audit records a 422,384
+byte active feature call chain, and both feature digests are cached at the browser
+boundary without second-call memory growth. They have separate jobs:
+
+- `EXACT_TRAJECTORY_STATE_DIGEST = 0x83051e8c6b4ef20f` pins Smart122's 56-tick
+  ordinary north-wall trajectory, replay, remainder, wall and later-release
+  lifecycle.
+- `LIFTED_COULOMB_SOLVER_DIGEST = 0x83cd7bb2b73aeb9e` pins Smart123's eighteen
+  source-41 cases, each stopped at its first qualifying contact, including the solver
+  row, post-contact state, anatomy and refusal grammar.
+
+Their split exports are absent from the default wasm. Native/wasm agreement makes
+them portability and grammar pins; neither is the unregistered feature stream
+receipt, `ARTICULATED_HASH`, a default-response promotion, or evidence that ordinary
+Tactical passes its generalized competence gate. Their owner and re-record rules are
+in the [golden registry](hashes.md#golden-registry).
 
 ## Impulses and exact energy rule
 

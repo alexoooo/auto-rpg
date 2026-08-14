@@ -13,6 +13,13 @@ solver-rejection diagnostic, the projector correction, and centre-of-mass sampli
 for held segments. It stopped before the worker fixtures, evidence artifact, visible
 review, or final pin. **The gate did not pass and `ARTICULATED_HASH` does not exist.**
 
+Smart117 later recorded two semantically identical visible runs of the fixed
+`Robust Strike (controlled)` feature preset. That is useful visual/semantic evidence
+for one mechanics-selected attack, not the worker artifact, blinded 15-clip review,
+foreground frame-time measurement or generalized Tactical corpus this gate requires.
+It therefore corrects any broad claim that no articulated strike has visible evidence
+without changing this gate's failed result.
+
 Reproduce the current corpora with:
 
 ```powershell
@@ -106,8 +113,10 @@ equal-period clocks; per-run phase randomisation belongs to the evaluation harne
 
 - Pose classification still lacks the effort measurement needed to distinguish
   holding a shield from holding it up.
-- The portable stream digest uses a large fixed stack buffer. Move it off the stack
-  before increasing publication capacity again.
+- The portable stream digest used a large fixed stack buffer. The retained exact
+  work later moved to heap-owned scratch and measured a 422,384-byte active feature
+  call chain; the warning remains historical provenance for any future publication
+  capacity increase.
 - The dependency audit's directory exclusion deserves the same adversarial fixture
   discipline as the documentation audit; source-text guards fail open.
 
@@ -130,10 +139,17 @@ zero raw over the trace, reconstructed shield corners agreed with fixed-point ge
 within 2.6 raw, presence flags matched collider construction, and each frame carried
 the same tick's contacts and health.
 
-## Recommended order
+## Recommendation at the failed gate
 
-First measure the arm slew ceiling, because it bounds what the downstream calibration
+The recommendation at this stop was to measure the arm slew ceiling first, because it
+bounds what the downstream calibration
 knobs can express. Then choose whether to repair closing velocity or revise the
 representative roster scale, re-derive the per-episode energy floor, and amend the gate
 criteria before recording fixtures. The current browser arena is the visual tool for
 checking each hypothesis; the deleted development-only trace page is not a gate.
+
+The exact-contact successor has since retained and registered its feature-only
+trajectory/lifecycle and lifted-Coulomb mechanics. That supersedes the missing-response
+part of this order, not the failed representative corpus or its invalid thresholds.
+Ordinary matched Tactical evidence is next; a revised full gate still needs declared
+criteria, its own artifacts and visible review before `ARTICULATED_HASH` can exist.

@@ -15,10 +15,10 @@ also translated the target owner's held rows. The alpha search could therefore r
 to the input energy without producing the intended restitution or wound allocation.
 
 No default response promotion has been authorized. The exact trajectory, detector,
-lifted response, lifecycle accounting, and replay path now exist behind the disabled
-`cartesian-recoil` feature; behavior-neutral reflection repairs are shared. Both
-feature-only portability digests are registered. No ABI or legacy golden moved, and
-`ARTICULATED_HASH` still does not exist.
+lifted response, lifecycle accounting, and replay path now exist behind the opt-in,
+non-default `cartesian-recoil` feature; behavior-neutral reflection repairs are
+shared. Both feature-only portability digests are registered. No ABI or legacy golden
+moved, and `ARTICULATED_HASH` still does not exist.
 
 ## Facts that survived the investigation
 
@@ -618,7 +618,8 @@ feature-only portability digests are registered. No ABI or legacy golden moved, 
 
 ## What is retained but remains off
 
-The disabled `cartesian-recoil` work establishes useful seams without promoting them:
+The opt-in, non-default `cartesian-recoil` path establishes the following retained
+mechanics without promoting them:
 
 - exact contact finalization, TOI remaining-fraction endpoint mapping, allocator and
   `after_group` composition. Finalization and endpoint mapping validate every row
@@ -669,12 +670,12 @@ fitting, or damage-selected search. Each was rejected by an exact counterexample
 Do not train or promote the tactical/learned policy while the mechanical corpus lacks
 a robust mirrored productive strike.
 
-The remaining mechanics sequence is explicit in the live plans: Smart122 and
-Smart123 registered the trajectory and lifted-Coulomb solver/corpus digests; Smart124
-now closes the feature authority documentation. Both registrations preserved the
-default hash grammar and passed fresh native/wasm agreement. Documentation closure
-permits a new policy gate; it does not itself authorize feature promotion, learning,
-`ARTICULATED_HASH`, or `v2-18`.
+The exact-mechanics authority sequence is complete: Smart122 and Smart123 registered
+the trajectory and lifted-Coulomb solver/corpus digests, and the canonical solver and
+hash references now own their mechanics and re-record paths. Both registrations
+preserved the default hash grammar and passed fresh native/wasm agreement. This
+closure permits a new policy gate; it does not itself authorize feature promotion,
+learning, `ARTICULATED_HASH`, or `v2-18`.
 
 Smart101 completed the deferred paired default pin audit after the exact wasm stack
 repairs. With the old constants still installed, native MSVC and a fresh default wasm
@@ -797,6 +798,9 @@ bytes, SHA-256
 `D294A4A56C56FB89E2DA86556AAD449197F3A1502E3AFE9A1C12EA6BE0935F0B`, with memory
 pages `165/259/259`, and the feature checker passed `30/30` without second-call
 growth. No existing pin moved, the feature stream receipt remained unregistered,
-and `ARTICULATED_HASH` remained absent. Smart124 is the remaining authority-document
-closure; neither receipt promotes the feature or establishes generalized Tactical
-competence.
+and `ARTICULATED_HASH` remained absent. The retained mechanics, digest roles and
+re-record rules now live in the canonical solver and hash references. That
+closes exact-contact authority documentation; it does not promote the feature or
+establish generalized Tactical competence. The next evidence boundary is an ordinary
+matched Tactical/control rerun followed, only if it warrants one, by the unchanged
+95/100 held-out competence gate.
