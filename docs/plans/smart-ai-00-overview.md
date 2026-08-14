@@ -1,7 +1,8 @@
 # Smart articulated combat -- handoff and roadmap
 
-**Status:** mechanics blocked at an exact trajectory boundary; one live
-implementation plan remains.
+**Status:** exact feature mechanics through Smart120 and Smart127's ordinary
+body-wall lifecycle witness are committed and verified. Smart122/123 digest
+registration remains next; generalized Tactical competence also remains below gate.
 
 This topic began with an Arena fight in which learned and tactical fighters moved but
 rarely produced useful attacks. The UI truth problem was repaired and intentional
@@ -10,10 +11,10 @@ produced no body decisions. Training, browser promotion, the final v2 gate, and
 `ARTICULATED_HASH` were therefore not authorized.
 
 The subsequent work established that this is not just a policy-quality problem. The
-current integer articulated contact response loses the exact relationship among
-impulse, projected owner motion, TOI endpoint motion, friction, and damage. Thirty-four
-session plans were used as a research ledger while that failure was narrowed. They
-have now been retired: durable measurements live in the
+integer articulated contact response lost the exact relationship among impulse,
+projected owner motion, TOI endpoint motion, friction, and damage. The research was
+then carried into a feature-gated exact mechanics implementation through Smart120.
+Durable measurements live in the
 [articulated contact research record](../performance/v2-articulated-contact-research.md),
 the current runtime contract remains in the
 [contact solver reference](../reference/contact-solver.md), and design consequences
@@ -27,57 +28,54 @@ live in [combat design](../design/combat.md).
   contract exists, but the behavioral competence gate failed. No checkpoint was
   trained or promoted.
 - Contact ownership, finalization, allocation, anatomy `after_group`, TOI endpoint
-  mapping, and several feature-gated recoil seams were made directly testable.
+  mapping, and feature-gated recoil seams are directly testable.
 - Exact measurements rejected local-mass alpha tuning, imported normal brackets,
   static/sliding claims for the frozen ray, black-box Jacobian fitting, and an affine
   integer Cartesian projector.
-- A test-only lifted coordinate carrying signed momentum and position-integration
-  remainders passes scalar, one-/two-held owner, and bounded XYZ arithmetic gates.
+- A lifted coordinate carrying signed momentum and position-integration remainders
+  passes scalar, one-/two-held owner, and bounded XYZ arithmetic gates.
   It preserves exact impulse words, interval composition, complete rational energy
   cross terms, sign mirror, planar X/Y permutation, and held-relative Z.
-- The first attempted World adapter was rejected before it could create a second
-  authority. With mass `196_608` and momentum `262_144`, tick-one position `1`
-  carries remainder `4_294_967_296`; after another half tick the lifted trajectory
-  exposes position `2`, while the existing integer endpoint sweep from `1 -> 2`
-  still exposes `1`. The feature test
-  `lifted_toi_position_can_cross_before_the_integer_endpoint_sweep` pins this exact
-  endpoint/TOI mismatch. No lifted World row or commit state landed.
-- All of this remains behind tests or the disabled `cartesian-recoil` feature. No
-  production authority, default state/hash layout, ABI, Lab calibration, or golden
-  re-record was authorized.
+- Smart36--120 retain exact trajectory evaluation, wide segment geometry, certified
+  group membership, response provenance, quotient normalization, and heap-retained
+  solver scratch through scan, recomputation, and commit. The recorded feature-native
+  and wasm digests agree at `0xa6835666303601d2`; two fresh wasm instances run the
+  digest twice without second-call growth, and the measured active stack chain is
+  422,384 bytes.
+- Smart117 retains the named `Robust Strike (controlled)` Arena preset. Two visible
+  runs reproduced its qualifying contact and wound. It is a fixed demonstration,
+  not a generalized Tactical default.
+- Smart115 measured generalized Tactical at `21/100` strict zero-refusal body
+  decisions and `55/100` outcome-only. Smart125's attempted recertification regressed
+  the unchanged outcome corpus to `49/100` and was fully reverted.
+- All exact mechanics remain behind the disabled `cartesian-recoil` feature. No
+  default authority, `ARTICULATED_HASH`, training promotion, or v2-18 rig work is
+  authorized. These retained results are now committed behind the disabled feature.
 
 ## What remains
 
-The arithmetic proof is not yet a simulation lifecycle, and it cannot be grafted onto
-the current integer endpoint sweep. The successor must preserve the independently
-rotating motor paths of bodies, segment hilts/tips, and shield corners while adding
-one exact owner/held response translation. One evaluator must serve contact scan,
-recomputation, and commit; otherwise the exact ledger becomes an invisible second
-simulation while gameplay still uses rounded state. The first authoritative World
-field must land together with canonical hashing, replay, and native/wasm proof.
+Smart121's frozen east-wall replay produced the accepted strike, both exact remainder
+classes, the ordinary release, and equality across two live runs and replay, but no
+defender-body `WALL` row. Smart127 preserved that failure, classified the response as
+west/north, added the missing body-lane accounting at the real clip, and translated
+the unchanged command stream to the response-aligned north wall. The successor now
+has the body `WALL` row at tick 45 and the release at tick 54 with live/live/replay
+equality through tick 56.
 
-After that lifecycle passes, a separate bounded solver must establish a real
-multi-contact normal plus circular-Coulomb response over the lifted state. Only then
-may the project rerun the retained strike, find a robust mirrored ordinary-command
-fixture, calibrate the tactical corpus, reconsider learning, and finally reopen
-`v2-18`.
+That closes the lifecycle witness, not the authority topic. Smart122's exact-
+trajectory digest and Smart123's lifted-Coulomb digest remain unmeasured and
+unregistered; Smart124 remains after them. After authority closure, rerun the
+ordinary Tactical evidence before reconsidering learning or `v2-18`.
 
 ## Next-session order
 
-1. Resume from the [Smart AI 37 wide-detector handoff](smart-ai-37-wide-detector-handoff.md)
-   and finish [Smart AI 36 -- exact lifted trajectories](smart-ai-36-exact-lifted-trajectories.md).
-   Keep it feature/test-only. The immediate task is routing the reviewed fixed-wide
-   segment/segment and segment/body helpers without narrowing, then implementing the
-   wide shield path. It must use one exact geometry evaluator in scan, recomputation,
-   and commit, and stop rather than reconstruct a remainder from published integer
-   endpoints.
-2. If it passes, write one bounded lifted-state normal/Coulomb solver plan. Candidate
-   selection may use response mechanics only; damage is evidence after selection.
-3. Require a robust mirrored ordinary-command strike before any Lab calibration. The
-   previous 7,560-case sweep found 312 eligible individuals and zero eligible mirror
-   pairs.
-4. Rerun matched tactical/control evidence, then the 95/100 held-out competence gate.
-5. Train/promote only after the mechanics and competence gates pass. Reopen the final
+1. Retain [Smart127](smart-ai-127-body-wall-authority.md)'s ordinary defender-body
+   `WALL` witness and its focused mutation proof through the integration gates.
+2. Execute Smart122--124's digest registration and exact-contact authority closure
+   in order; neither digest exists yet.
+3. Rerun matched Tactical/control evidence, then the 95/100 held-out competence gate.
+   The retained baseline is `21/100` strict and `55/100` outcome-only.
+4. Train/promote only after the mechanics and competence gates pass. Reopen the final
    v2 articulated gate and `v2-18` last.
 
 ## Hard constraints
@@ -90,15 +88,16 @@ fixture, calibrate the tactical corpus, reconsider learning, and finally reopen
 - Do not claim full XYZ symmetry while the body/common Z floor constraint exists;
   only held-relative Z is supported.
 - Do not enable `cartesian-recoil`, change default hash grammar, or re-record pins
-  inside the lifecycle checkpoint.
+  before authority closure.
 - Do not create `ARTICULATED_HASH` until native direct run, native replay, wasm replay,
   and visible review pass the revised mechanical gate.
 
 ## Pin budget
 
-Smart36 moves no existing pin and adds at most one feature-only diagnostic digest,
-after native/wasm agreement. Eventual promotion is a separate decision. It is
-expected to change the
+The retained feature work moves no default legacy golden. The expected
+`ARTICULATED_STREAM_DIGEST` feature-mechanics movement is paired across Rust and wasm;
+the exact-trajectory and lifted-Coulomb digests remain deliberately unregistered.
+Eventual promotion is a separate decision. It is expected to change the
 articulated authoritative state hash grammar and may move
 `ARTICULATED_COMMAND_HASH`/`ARTICULATED_STREAM_DIGEST`; it must not move legacy hashes,
 the public frame/pose/region/event layouts, the replay command codec,
@@ -107,16 +106,16 @@ the public frame/pose/region/event layouts, the replay command codec,
 
 ## Handoff verification
 
-The current bounded checkpoint is owned by these commands:
+The committed feature chain is rechecked with:
 
 ```powershell
-cargo test -p sim --features cartesian-recoil lifted_ -- --nocapture
-cargo test -p sim
-cargo test -p sim --features cartesian-recoil
+cargo test
+cargo test --workspace --features cartesian-recoil
 node tools/check_docs.js
 git diff --check
 ```
 
 Because `crates/sim` changed, the final integration handoff also rebuilds `-p web` for
-`wasm32-unknown-unknown` and runs `node --test tools/wasm_check.js`. No Lab or held-out
-run is meaningful before Smart36 and the later response solver pass.
+`wasm32-unknown-unknown` both with and without `cartesian-recoil`, and runs the matching
+native/wasm equality checks. Digest registration and another held-out policy run are
+not authorized before Smart122--124 closure.

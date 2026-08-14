@@ -19,8 +19,8 @@ that remains.
 | work | state | dependency | hash expectation |
 |---|---|---|---|
 | [Representative Fighter and Brute rigs](v2-18-combatant-integration.md) | not started | a passed articulated mechanical gate | presentation-only: every legacy and articulated pin unchanged |
-| [Smart articulated combat](smart-ai-00-overview.md) | mechanics blocked; arithmetic research consolidated | exact contact research rejected scalar/local response repairs and reached a passing test-only lifted XYZ state | no production authority, training, promotion, or `ARTICULATED_HASH` |
-| [Exact lifted trajectories](smart-ai-36-exact-lifted-trajectories.md) | next implementation checkpoint | preserve rotating motor endpoints plus exact owner/held response translation in one scan/recompute/commit evaluator, then carry it through lifecycle accounting, hashing, replay, and native/wasm equality | feature/test-only; no existing pin moves and at most one new feature-only diagnostic digest |
+| [Smart articulated combat](smart-ai-00-overview.md) | exact feature mechanics through Smart120 and Smart127's body-wall witness retained and verified; digest closure remains | Smart127 closes Smart121's missing ordinary defender-body `WALL` row without changing its stopped east-wall evidence | no `ARTICULATED_HASH`; Smart122/123 remain unregistered and Smart124/`v2-18` remain blocked |
+| [Controlled Robust Strike](smart-ai-117-controlled-robust-strike-arena-preset.md) | retained and visibly verified as a feature-only demonstration; standard production stays default | a named Arena demonstration of source-41 ordinal 3144, not a generalized Tactical default | no existing pin moves |
 | [Articulated contact research record](../performance/v2-articulated-contact-research.md) | durable evidence | exact retained-contact findings and rejected response/state hypotheses formerly spread across Smart AI sessions 01--34 | evidence only; no authority |
 | [Hierarchical combat learning](hierarchical-ai-00-overview.md) | proposed research successor | first prove that fixed `(loadout, strategy)` options have context-dependent headroom on a mechanically productive corpus | native research moves no pins; promotion is separately gated |
 | Visible browser evidence | blocked on a person using a foreground tab | follow the [arena matrix](../performance/v2-arena-matrix.md) and remaining [room matrix](../performance/v2-room-matrix.md) slots | no hashes move |
@@ -29,14 +29,28 @@ that remains.
 mechanical model whose representative gate still times out in nearly every fight
 would turn an unresolved foundation into asset sunk cost.
 
-The smart-combat successor narrowed the failure without clearing it. Faster actuator
-candidates and contact-floor rebilling were both rejected by measurement. The
-tactical controller deliberately names and crosses opponent regions, but its 20-fight
-moving diagnostic produced zero body decisions before every run reached tick 3,600.
-The V2 learning contract exists only as an opt-in native seam; that contract did not
-authorize training a target whose behavioral gate failed. Sessions 08 and 09 therefore
-closed without training, checkpoint installation, final-gate implementation, or a new
-golden.
+The smart-combat successor has advanced beyond the old Smart36 handoff. The committed
+feature chain now carries exact lifted trajectories, segment geometry, certified
+group membership, response provenance, quotient normalization, and retained solver
+scratch through Smart120. Its recorded native and feature-wasm receipts agree, and
+the feature artifact runs twice without second-call memory growth. Smart117 also
+retains a controlled Robust Strike Arena preset and two visible-browser receipts.
+These are verified results in Git history, still behind the disabled feature.
+
+They do not promote the feature build. The earlier Smart117 memory receipt ran
+before the feature artifact was built and therefore exercised the default wasm left
+on disk. A fresh feature run exposed a compatibility-only clinch fixture, an exact
+lattice refusal for a picker-valid configuration, and no death in the old learned
+index fixture. Standard `npm run dev` and `npm run build` remain default until the
+authority sessions close and those browser-boundary obligations have honest feature
+owners.
+
+They do not establish generalized policy competence. Smart115 measured `21/100`
+strict zero-refusal body decisions and `55/100` outcome-only. Smart125's attempted
+recertification fell to `49/100` outcome-only and was fully reverted. The controlled
+preset is deliberately a fixed demonstration, not evidence that ordinary Tactical
+selects the same attack from observations. Training, browser promotion, the final v2
+gate, `ARTICULATED_HASH`, and `v2-18` therefore remain unauthorized.
 
 The learning result authorizes revision only. It does not authorize scale, search,
 browser training, GPU evaluation, or a Lab workbench. Hierarchy now has a separate
@@ -87,17 +101,26 @@ A successor must amend those criteria before recording fixtures or evidence. It 
 not create `ARTICULATED_HASH` until native direct run, native replay, wasm replay, and
 the visible review all pass the revised contract.
 
-The current mechanics successor is
-[exact lifted trajectories](smart-ai-36-exact-lifted-trajectories.md). The completed
+The exact mechanics implementation described by the old
+[Smart36 plan](smart-ai-36-exact-lifted-trajectories.md) is now retained through
+[Smart120](smart-ai-120-retained-lifted-trial-owners.md). The completed
 [contact research record](../performance/v2-articulated-contact-research.md) traces
 why local impulse tuning, scalar/projector searches, and an integer affine Cartesian
-model were rejected, and what the test-only lifted XYZ arithmetic now proves. The
-first World adapter was also rejected: a carried position remainder can cross an
-integer contact boundary at half tick while the current integer endpoint sweep cannot
-see it. Smart36 must make the rotating motor trajectory plus exact response
-translation the single geometry consumed by scan, recomputation, and commit, and land
-hash/replay/native-wasm proof with its first authoritative field. It does not reopen
-`v2-18` or create `ARTICULATED_HASH` by existence.
+model were rejected. The retained feature path carries exact trajectory and response
+state through scan, recomputation, commit, replay, and native/wasm comparison without
+making it default authority.
+
+[Smart121](smart-ai-121-ordinary-wall-replay.md) then tested the remaining lifecycle
+boundary with a frozen 56-tick ordinary-command replay. Live/live/replay matched; the
+accepted strike, both exact remainder classes, and the later ordinary release all
+appeared. The defender-body `RecoilExternalEnergy::WALL` row did not. That missing
+ordinary boundary witness is now closed by
+[Smart127](smart-ai-127-body-wall-authority.md): measurement showed that the stopped
+fixture's response moved away from the east wall, and the unchanged stream produced
+the body row at the response-aligned north wall. Smart122's trajectory digest and
+Smart123's lifted-Coulomb digest remain unmeasured and unregistered, so Smart124's
+authority-closure claim is still blocked. None of this reopens `v2-18` or creates
+`ARTICULATED_HASH` by existence.
 
 ## Verification
 

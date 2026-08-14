@@ -1,12 +1,11 @@
 # Smart AI 49 -- odd-symmetric sweep interpolation
 
-**Status:** complete on corrected reproduction, 2026-08-13. A fresh run with both
-actuator Y products and all four swept-segment endpoint interpolations corrected
-returned `ticks=49 phase=none`. The earlier tick-33 report came from a mid-edit run
-where the first endpoint still used `Vec3::lerp`, compounded by later witness edits;
-it is not a production defect. The direct TOI remains `38127|38127`. All temporary
-repairs were reverted, and no pin measurement/update or full corpus ran. Smart51
-jointly owns landing the two proven repairs.
+**Status:** direct repair proven, full-trace claim withdrawn on 2026-08-13. All four
+endpoint corrections make the direct reflected TOI `38127|38127`. The later
+`ticks=49 phase=none` run was a false green: Smart50's extra fallible wide evaluation
+could fail staging and suppress the contact whose aftermath the trace needed to see.
+With that diagnostic removed, the joint repairs still diverge at tick 33. No pin or
+corpus ran.
 
 ## A -- narrow production repair
 

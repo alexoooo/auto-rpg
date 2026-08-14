@@ -1,10 +1,11 @@
 # Smart AI 51 -- land exact reflection
 
-**Status:** ready to implement; written before Smart51 code or measurement. Two
-independently diagnosed rounding repairs together make the source-41 ordinal-1536
-plain/mirror schedule exact for all 49 ticks. Smart51 lands them as one authoritative
-behavior change, proves native/wasm agreement, owns only its predeclared pin moves,
-and then reruns the unchanged 7,560-orientation Smart41 corpus.
+**Status:** stopped at checkpoint B on 2026-08-13. The permanent checkpoint-A repairs
+landed, but with all behavior-changing Smart50 diagnostics removed the focused trace
+is red at `tick=33 phase=PostStepPose pair=right.hand.y 451340|451341`, with
+`cause=none|none`. The earlier phase-none witness suppressed the contact by failing
+an extra diagnostic wide evaluation. Per the stop, no pin measurement/update or
+7,560-case corpus ran. Smart52 owns a non-authoritative diagnosis.
 
 ## A -- land exactly the two proven repairs
 

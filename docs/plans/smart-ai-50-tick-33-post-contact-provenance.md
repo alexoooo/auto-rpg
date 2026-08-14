@@ -1,11 +1,12 @@
 # Smart AI 50 -- tick-33 post-contact provenance
 
-**Status:** complete with no divergence on 2026-08-13. On a clean reproduction with
-both actuator Y products and all four geometry endpoint interpolations corrected,
-every staged exact-response, commit, recoil, actuator, and published-pose field mapped
-exactly through the complete 49-tick schedule: `ticks=49 phase=none`. There is no
-tick-33 post-contact defect to assign. The earlier one-raw report was an incomplete
-temporary edit, not evidence against the joint repair. No pin or corpus ran.
+**Status:** invalidated and fully removed on 2026-08-13. The apparent
+`ticks=49 phase=none` was a false green: Smart50 performed an additional fallible wide
+evaluation on the production path; when it failed, staging refused and suppressed
+the contact under diagnosis. After removing every Smart50 runtime diagnostic, the
+joint Smart51-A repairs reproduce the original red result:
+`tick=33 phase=PostStepPose pair=right.hand.y 451340|451341`, `cause=none|none`.
+No Smart50 provenance row is evidence. No pin or corpus ran.
 
 ## A -- one bounded staged diagnostic
 

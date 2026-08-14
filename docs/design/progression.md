@@ -126,5 +126,5 @@ This is now the durable destination for the former
 - Pure dungeon construction: [`Scenario::dungeon`](../../crates/sim/src/scenario.rs#L391)
 - Browser progression fields: [`Sim`](../../crates/web/src/lib.rs#L1786)
 - Portal opening and arming: [`Sim::open_the_way_out`](../../crates/web/src/lib.rs#L2477)
-- Descent and hero persistence: [`Sim::descend`](../../crates/web/src/lib.rs#L2666)
-- Browser tick integration: [`Sim::advance`](../../crates/web/src/lib.rs#L2933)
+- Descent and hero persistence: [`Sim::descend`](../../crates/web/src/lib.rs#L2709)
+- Browser tick integration: [`Sim::advance`](../../crates/web/src/lib.rs#L2976)
