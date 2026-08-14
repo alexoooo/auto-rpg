@@ -48,6 +48,7 @@ import {
   bodyColours, contactColour, drawScene, elevationCamera, planCamera, type Options,
 } from "../fight/view.js";
 import { ArenaClient, ArenaRefused } from "../runtime/arena-client.js";
+import { robustStrikeArenaConfig } from "../runtime/arena-config.js";
 import { createSimWorker } from "../runtime/sim-worker.js";
 import {
   arenaConfigOf, checkpointCopy, missingRecording, pickerControls, populatePolicies, readMatchup,
@@ -278,6 +279,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
   const spanInput = element<HTMLInputElement>(container, "span");
   const azimuthInput = element<HTMLInputElement>(container, "azimuth");
   const fightButton = element<HTMLButtonElement>(container, "fight");
+  const presetInput = element<HTMLSelectElement>(container, "arena-preset");
   const pickerMessage = element<HTMLElement>(container, "picker-message");
   const modeTexture = element<HTMLButtonElement>(container, "mode-texture");
   const modeGeometry = element<HTMLButtonElement>(container, "mode-geometry");
@@ -327,6 +329,47 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
   let arena: ArenaClient | null = null;
   /** One token per [Run selected fight]. Only the newest press may write to the panels. */
   let fightAttempt = 0;
+
+  const controlledPreset = (): boolean => presetInput.value === "robust-strike";
+
+  function setPickerValue(id: string, value: string): void {
+    element<HTMLInputElement | HTMLSelectElement>(container, id).value = value;
+  }
+
+  function selectControlledPreset(): void {
+    setPickerValue("a-anatomy", "fighter");
+    setPickerValue("a-left", "shield");
+    setPickerValue("a-right", "sword");
+    setPickerValue("a-policy", "tactical");
+    setPickerValue("b-anatomy", "brute");
+    setPickerValue("b-left", "empty");
+    setPickerValue("b-right", "club");
+    setPickerValue("b-policy", "neutral");
+    setPickerValue("arena-seed", "0");
+    for (const control of pickerControls(container)) {
+      if (control instanceof HTMLInputElement || control instanceof HTMLSelectElement) {
+        control.disabled = true;
+      }
+    }
+  }
+
+  function selectCustomFight(): void {
+    for (const control of pickerControls(container)) {
+      if (control instanceof HTMLInputElement || control instanceof HTMLSelectElement) {
+        control.disabled = false;
+      }
+    }
+    setPickerValue("a-anatomy", "fighter");
+    setPickerValue("a-left", "shield");
+    setPickerValue("a-right", "sword");
+    setPickerValue("b-anatomy", "brute");
+    setPickerValue("b-left", "empty");
+    setPickerValue("b-right", "club");
+    setPickerValue("arena-seed", "3");
+    populatePolicies(container, "composed", "composed");
+    setPickerValue("a-policy", "composed");
+    setPickerValue("b-policy", "composed");
+  }
 
   // ---------------------------------------------------------------- the panels
 
@@ -587,6 +630,10 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
       pickerMessage.textContent = verdict.refusal;
       return;
     }
+    if (controlledPreset()) {
+      pickerMessage.textContent = "Controlled demonstration: Tactical code 5 uses a Fighter shield and 2-unit sword from (9.5, 7) against the neutral Brute at (12, 8). It targets Legs with a 28 + 28 command schedule and stops on the certified impact at frame 53.";
+      return;
+    }
     // **Every sentence here is recomputed from the live controls**, and none of
     // it is remembered from the last [Run selected fight] or the last load. A remembered
     // sentence is one that goes on naming a policy nobody has selected: the
@@ -749,7 +796,8 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
     status.textContent = "Recording...";
     const started = performance.now();
     try {
-      const fight = await arena.run(arenaConfigOf(matchup), (ticksDone, ticksTotal) => {
+      const config = controlledPreset() ? robustStrikeArenaConfig() : arenaConfigOf(matchup);
+      const fight = await arena.run(config, (ticksDone, ticksTotal) => {
         if (!current()) return;
         status.textContent = `Recording... tick ${ticksDone} of ${ticksTotal}`;
       });
@@ -1007,6 +1055,11 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
   } else {
     status.textContent = "Run a fight.";
   }
+  presetInput.addEventListener("change", () => {
+    if (controlledPreset()) selectControlledPreset();
+    else selectCustomFight();
+    refreshPicker();
+  });
 
   return {
     dispose(): void {

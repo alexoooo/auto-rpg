@@ -201,8 +201,9 @@ for the whole scrubbing session.
 | `health` | `i32` | two raw `Fx` a frame: the Heroes' and the Monsters' health fraction |
 
 **The index is mandatory and is the point.** `pose_len` is one per *live* articulated
-body, so a fighter dying takes it from 2 to 1 — the shipped learned fighter kills the
-Brute at tick 3,339 on seed 3 — and a reader computing `tick * 2 * POSE_STRIDE`
+body, so a fighter dying takes it from 2 to 1 — the default-mechanics windmill control
+kills the Brute at tick 1,260 on seed 3 — and a reader computing
+`tick * 2 * POSE_STRIDE`
 silently misaligns from exactly the frame anybody opened the page to look at. The
 region section is read against the pose count for the same reason: a skipped body
 shifts every row after it.

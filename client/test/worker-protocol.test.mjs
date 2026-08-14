@@ -1012,7 +1012,7 @@ test("the_worker_source_alone_instantiates_wasm_and_the_shell_page_boots_the_stu
 test("vite_dev_serves_the_studio_shell_its_game_route_and_the_wasm_from_the_web_root", async () => {
   const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8"));
   assert.equal(manifest.scripts.dev,
-    "cargo build --release --target wasm32-unknown-unknown -p web && vite");
+    "cargo build --release --target wasm32-unknown-unknown -p web && node node_modules/vite/bin/vite.js");
   const { createServer } = await import("vite");
   const server = await createServer({
     configFile: path.join(ROOT, "vite.config.ts"),

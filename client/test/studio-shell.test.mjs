@@ -597,6 +597,48 @@ test("tactical_is_policy_code_five_in_rust_config_and_the_picker", () => {
   assert.equal(picker.arenaConfigOf(matchup({ policy: "tactical" })).fighters[0].policy, 5);
 });
 
+test("robust strike is an explicit controlled preset with exact ordinal 3144 bytes", () => {
+  const config = CONFIG.robustStrikeArenaConfig();
+  const bytes = CONFIG.encodeArenaConfig(config);
+  const view = new DataView(bytes.buffer);
+  assert.equal(bytes.length, 120);
+  assert.deepEqual([config.seed, config.maxTicks], [0, 53]);
+  assert.deepEqual([view.getUint8(9), view.getUint8(65)], [5, 0]);
+  assert.deepEqual([view.getInt32(12, true), view.getInt32(16, true)], [622592, 458752]);
+  assert.deepEqual([view.getInt32(68, true), view.getInt32(72, true)], [786432, 524288]);
+  assert.equal(view.getInt32(52, true), 131072);
+  assert.equal(SHELL_HTML.includes("Robust Strike (controlled)"), true);
+});
+
+test("leaving the robust strike preset restores the ordinary composed arena", async () => {
+  const harness = installDom();
+  try {
+    const { mount } = await import(compiled("client/src/arena/arena.js"));
+    const container = harness.container();
+    const handle = await mount(container, new URLSearchParams());
+    const preset = container.querySelector("#arena-preset");
+    preset.value = "robust-strike";
+    for (const entry of harness.listenersOn(preset, "change")) entry.listener({ target: preset });
+    assert.equal(container.querySelector("#a-policy").value, "tactical");
+    assert.equal(container.querySelector("#b-policy").value, "neutral");
+    assert.equal(container.querySelector("#arena-seed").value, "0");
+    assert.equal(container.querySelector("#a-policy").disabled, true);
+    assert.match(container.querySelector("#picker-message").textContent,
+      /Controlled demonstration: Tactical code 5.*neutral Brute.*Legs.*28 \+ 28 command schedule.*frame 53/);
+
+    preset.value = "custom";
+    for (const entry of harness.listenersOn(preset, "change")) entry.listener({ target: preset });
+    assert.deepEqual([container.querySelector("#a-policy").value,
+      container.querySelector("#b-policy").value], ["composed", "composed"]);
+    assert.equal(container.querySelector("#arena-seed").value, "3");
+    assert.equal(container.querySelector("#a-policy").disabled, false);
+    await handle.dispose();
+    harness.dropSubtree(container);
+  } finally {
+    harness.restore();
+  }
+});
+
 test("a_plain_arena_opens_without_fetching_a_recording", async () => {
   const harness = installDom();
   try {

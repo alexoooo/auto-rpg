@@ -222,8 +222,8 @@ const CLINCH_YAW = [0x0f74, 0x8f74];
 const CLINCH_WALK = [[58_976, 23_506], [-58_976, -23_506]];
 const CLINCH_SWEEP = 8_192;
 const CLINCH_PHASE_TICKS = 4;
-const CLINCH_CAP_TICK = 85;
-// Comfortably past 85 and still bounded: a drive that stopped clinching should
+const CLINCH_CAP_TICK = 89;
+// Comfortably past 89 and still bounded: a drive that stopped clinching should
 // fail this fixture, not hang the suite inside it.
 const CLINCH_BUDGET = 128;
 
@@ -339,7 +339,7 @@ function contactWarmup(wasm, abi, seed, guard = null) {
   // it allocates here or nowhere. Reaching it needs no export the boundary
   // lacks -- v2-11's `submit_articulated` steers an articulated row, and two
   // duel rows walked into each other with their arms sweeping reach the cap on
-  // tick 85. (The blocker recorded here through v2-15 said otherwise. It was
+  // tick 89. (The blocker recorded here through v2-15 said otherwise. It was
   // reading the plan's next steering export as the only one, and missed the one
   // already on the wall.)
   const capTick = driveToContactCap(wasm, checked);
@@ -707,7 +707,7 @@ function articulatedStress(wasm, abi, seed, guard = null) {
   //
   // The duel, because the clinch is measured against it: two rows walked into
   // each other with their arms sweeping spend every contact group ordinal on
-  // tick 85, and that tick is the one shape whose scratch use is maximal.
+  // tick 89, and that tick is the one shape whose scratch use is maximal.
   // `init_articulated`'s room cannot be driven there -- its second body is
   // wherever the generator put it -- so the fixture switches worlds rather than
   // steering blind.
@@ -1105,43 +1105,43 @@ test("arena_start_allocates_within_the_warm_set", async () => {
 
 test("the_index_survives_a_death", async () => {
   const wasm = instantiate();
-  // The one fight in the repository that is known to end in a kill:
-  // v2-ui-08 measured the learned fighter killing the Brute at tick 3,339 on
-  // seed 3, and `a_learned_fight_in_wasm_matches_the_same_fight_in_lab` is what
-  // says that is `lab`'s fight and not merely this module's.
-  const config = liveConfig({ heroes: "learned", monsters: "windmill", seed: 3 });
-  const checkpoint = new Uint8Array(fs.readFileSync(CHECKPOINT));
-  const recording = await recordLive(wasm, config, { checkpoint });
+  // A current default-mechanics kill rather than the learned checkpoint's old
+  // v2-ui-08 outcome. The windmill control drives both sides here, matching
+  // `lab trace --policy windmill --seed 3`: native and wasm both end on tick
+  // 1,260 with the Fighter standing. Keeping a real death is load-bearing -- a
+  // timeout has two pose rows in every frame and cannot test this index seam.
+  const deathTick = 1_260;
+  const config = liveConfig({ heroes: "windmill", monsters: "windmill", seed: 3 });
+  const recording = await recordLive(wasm, config);
 
-  assert.equal(recording.ticks, 3_339, "the learned fighter's kill tick moved");
+  assert.equal(recording.ticks, deathTick, "the windmill control's kill tick moved");
   assert.equal(recording.outcome, "HeroesWin");
   assert.equal(recording.timedOut, false);
   assert.equal(recording.recordingTruncated, false);
-  assert.equal(recording.frameCount, 3_340);
-  assert.equal(recording.checkpoint,
-    "7a05fc8c76ad47858ac69f770d595fa556b1bfb81dbf7d62ced831e751e26b6c");
+  assert.equal(recording.frameCount, deathTick + 1);
+  assert.equal(recording.checkpoint, null);
 
   const source = new LiveFightSource(recording);
-  assert.equal(source.frameCount(), 3_340);
+  assert.equal(source.frameCount(), deathTick + 1);
   // Two bodies until the kill and one after it, which is what `pose_len` means:
   // one per **live** articulated body.
-  assert.equal(source.frameAt(3_338).poses.length, 2);
-  assert.equal(source.frameAt(3_339).poses.length, 1);
-  assert.equal(source.frameAt(3_339).poses[0].id[0], 0, "the Fighter is the survivor");
-  assert.deepEqual(source.frameAt(3_339).health, [65_536, 0]);
+  assert.equal(source.frameAt(deathTick - 1).poses.length, 2);
+  assert.equal(source.frameAt(deathTick).poses.length, 1);
+  assert.equal(source.frameAt(deathTick).poses[0].id[0], 0, "the Fighter is the survivor");
+  assert.deepEqual(source.frameAt(deathTick).health, [65_536, 0]);
 
   // **The index, as an assertion rather than as a comment.** This is the
   // arithmetic a reader without one would do; after the kill it lands on a row
   // that belongs to a different tick entirely, so deleting the index cannot
   // leave this test passing.
   const index = new Uint32Array(recording.index);
-  const start = index[3_339 * RECORDER.RECORDING_INDEX_STRIDE + RECORDER.INDEX_POSE_START];
-  assert.equal(start, 3_339 * 2, "the death is the first frame to go short of two rows");
+  const start = index[deathTick * RECORDER.RECORDING_INDEX_STRIDE + RECORDER.INDEX_POSE_START];
+  assert.equal(start, deathTick * 2, "the death is the first frame to go short of two rows");
   const poses = new Uint32Array(recording.poses);
-  assert.equal(poses.length / recording.poseStride, 3_339 * 2 + 1,
+  assert.equal(poses.length / recording.poseStride, deathTick * 2 + 1,
     "a whole fight's pose rows are two a tick until the kill and one on it");
-  assert.equal(index[3_339 * RECORDER.RECORDING_INDEX_STRIDE + RECORDER.INDEX_POSE_COUNT], 1);
-  assert.equal(index[3_339 * RECORDER.RECORDING_INDEX_STRIDE + RECORDER.INDEX_REGION_COUNT], 5);
+  assert.equal(index[deathTick * RECORDER.RECORDING_INDEX_STRIDE + RECORDER.INDEX_POSE_COUNT], 1);
+  assert.equal(index[deathTick * RECORDER.RECORDING_INDEX_STRIDE + RECORDER.INDEX_REGION_COUNT], 5);
   // Every frame carries the tick it was published at, and the region section
   // covers exactly its own poses.
   for (let frame = 0; frame < source.frameCount(); frame += 1) {

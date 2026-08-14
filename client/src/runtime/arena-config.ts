@@ -209,6 +209,29 @@ export interface ArenaConfig {
   readonly seed: number;
 }
 
+/** Smart101 ordinal 3144, exposed only as an explicitly controlled demo. */
+export function robustStrikeArenaConfig(): ArenaConfig {
+  const longSword: ConfiguredHand = { ...HAND_ITEMS.sword, a: 2 * ONE_RAW };
+  return {
+    seed: 0,
+    maxTicks: 53,
+    fighters: [
+      {
+        anatomy: ANATOMY_CODES.fighter,
+        policy: 5,
+        spawn: { x: 622_592, y: 458_752 },
+        hands: [HAND_ITEMS.shield, longSword],
+      },
+      {
+        anatomy: ANATOMY_CODES.brute,
+        policy: 0,
+        spawn: { x: 786_432, y: 524_288 },
+        hands: [HAND_ITEMS.empty, HAND_ITEMS.club],
+      },
+    ],
+  };
+}
+
 function writeHand(view: DataView, at: number, hand: ConfiguredHand): void {
   view.setUint8(at, hand.code);
   if (hand.code === EMPTY_HAND_CODE) {
