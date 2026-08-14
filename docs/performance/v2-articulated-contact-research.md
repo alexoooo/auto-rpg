@@ -16,8 +16,9 @@ to the input energy without producing the intended restitution or wound allocati
 
 No default response promotion has been authorized. The exact trajectory, detector,
 lifted response, lifecycle accounting, and replay path now exist behind the disabled
-`cartesian-recoil` feature; behavior-neutral reflection repairs are shared. No ABI or
-legacy golden moved, and `ARTICULATED_HASH` still does not exist.
+`cartesian-recoil` feature; behavior-neutral reflection repairs are shared. Both
+feature-only portability digests are registered. No ABI or legacy golden moved, and
+`ARTICULATED_HASH` still does not exist.
 
 ## Facts that survived the investigation
 
@@ -655,8 +656,11 @@ the independent right-hand release at tick 54 with
 `-1_073_625_268_272 / 8_589_934_592`. Two live runs and recorded replay agree at
 every tick, with zero refusal and cap. Smart122 registered that replayed trajectory
 transcript at `0x83051e8c6b4ef20f`, with native MSVC and wasm32 integration agreement.
-The lifted-Coulomb digest remains deliberately unmeasured; that is the remaining
-portability closure, not a missing World adapter.
+Smart123 separately registered the lifted-Coulomb solver corpus at
+`0x83cd7bb2b73aeb9e`. Unlike Smart122's 56-tick lifecycle transcript, each of its
+eighteen source-41 cases terminates at the first qualifying contact. Continuing the
+controlled fixture admits the already-recorded later refusal, so a `+1` lifecycle
+tick is deliberately not part of that solver grammar.
 
 ## Decisions and next boundary
 
@@ -665,12 +669,12 @@ fitting, or damage-selected search. Each was rejected by an exact counterexample
 Do not train or promote the tactical/learned policy while the mechanical corpus lacks
 a robust mirrored productive strike.
 
-The remaining mechanics sequence is explicit in the live plans: register the
-lifted-Coulomb solver/corpus digest, then close the feature authority documentation.
-Those sessions must preserve the default hash
-grammar and prove fresh native/wasm agreement. Completion permits a new policy gate;
-it does not itself authorize feature promotion, learning, `ARTICULATED_HASH`, or
-`v2-18`.
+The remaining mechanics sequence is explicit in the live plans: Smart122 and
+Smart123 registered the trajectory and lifted-Coulomb solver/corpus digests; Smart124
+now closes the feature authority documentation. Both registrations preserved the
+default hash grammar and passed fresh native/wasm agreement. Documentation closure
+permits a new policy gate; it does not itself authorize feature promotion, learning,
+`ARTICULATED_HASH`, or `v2-18`.
 
 Smart101 completed the deferred paired default pin audit after the exact wasm stack
 repairs. With the old constants still installed, native MSVC and a fresh default wasm
@@ -748,8 +752,9 @@ the experiment stopped and its temporary code was reverted. The retained log is
 This is replay/remainder/release evidence, not the missing Smart36 checkpoint-E
 boundary proof. `EXACT_TRAJECTORY_STATE_DIGEST` is registered at
 `0x83051e8c6b4ef20f` from the ordinary north-wall witness.
-`LIFTED_COULOMB_SOLVER_DIGEST` remains unmeasured and unregistered pending a reviewed
-lifecycle classification.
+At Smart121's stop, `LIFTED_COULOMB_SOLVER_DIGEST` remained unmeasured pending a
+reviewed lifecycle classification. Smart123 has since registered it from the
+terminal-at-first-contact corpus; it does not absorb this later lifecycle record.
 
 The reviewed successor classified the absence rather than retuning the strike. The
 east-wall response was west/north, so east settlement was structurally behind the
@@ -759,4 +764,39 @@ solved-to-settled clip. Translating the unchanged source-41 geometry to the
 response-aligned north wall yields the tick-45 body row and closes the ordinary
 lifecycle witness with a demonstrated mutation: suppressing only the body append
 makes the real wall-commit test red while settlement and the held row remain green.
-The two feature-only digests remain unregistered and are the next work.
+That statement was the Smart127 handoff. Smart122 subsequently registered the
+ordinary lifecycle transcript and Smart123 the terminal source-41 solver corpus.
+
+## Registered exact-mechanics receipts
+
+Smart122's 56-tick north-wall direct/rerun/replay transcript registered
+`EXACT_TRAJECTORY_STATE_DIGEST = 0x83051e8c6b4ef20f`. It owns the accepted strike,
+both retained remainder classes, body-wall external row, later ordinary release and
+their replayed states. The feature wasm was 1,012,971 bytes, SHA-256
+`8C8546CD60DADA2F5F8948A01288900DA267E69886DD0CA8A0B395669ECCA472`, with memory
+pages `29/165/165`; both wasm modes passed `29/29`, the final default artifact was
+655,770 bytes with SHA-256
+`190B95523B666D69D023FCEBD32D271AE44318EB103AAD46CF020F7BBE452DD0`, and no existing
+pin moved.
+
+Smart123 registered `LIFTED_COULOMB_SOLVER_DIGEST = 0x83cd7bb2b73aeb9e` over the
+source-41 ordinal-3144 neighbourhood in literal strike/reach/mirror order. All
+eighteen ordinary-command cases terminated at their first qualifying WeaponBody/Legs
+contact and matched direct, rerun and recorded replay. Each carried an interior TOI,
+nonzero opposing impulse, full alpha, physical dissipation 278, both exact remainder
+classes in the post-contact state, matching mirrored anatomy, and zero refusal/cap;
+damage was read only after the mechanical row passed. The policy and sim command
+receipts also agreed.
+
+The named response mutation proved the ordering rather than merely reporting it.
+Bypassing the normal/restitution check made the test fail at selected-score
+classification before damage; independently bypassing selected-score equality made
+the reader reach damage. Restoring both checks returned the proof to green. Native
+debug and release agreed with the fresh feature wasm. That artifact was 1,059,211
+bytes, SHA-256
+`D294A4A56C56FB89E2DA86556AAD449197F3A1502E3AFE9A1C12EA6BE0935F0B`, with memory
+pages `165/259/259`, and the feature checker passed `30/30` without second-call
+growth. No existing pin moved, the feature stream receipt remained unregistered,
+and `ARTICULATED_HASH` remained absent. Smart124 is the remaining authority-document
+closure; neither receipt promotes the feature or establishes generalized Tactical
+competence.

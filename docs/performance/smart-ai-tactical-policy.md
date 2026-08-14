@@ -248,9 +248,9 @@ replay matched every tick. The defender body produced no `WALL` external row, so
 predeclared gate stopped and the temporary branch was reverted. Receipt:
 `target/smart121-east-wall.log`, SHA-256
 `25B3D423C3425DA0BC6D11FD0113ECB7F8E1D313521B01D03F76EA861DC648B3`.
-The result does not weaken the controlled Arena demonstration, but it also does not
-authorize either missing feature-only digest registration. Both remain blocked on a
-reviewed classification of the absent ordinary wall reaction.
+The result does not weaken the controlled Arena demonstration. At Smart121's stop it
+also did not authorize either then-missing feature-only digest registration; both
+were blocked on a reviewed classification of the absent ordinary wall reaction.
 
 That classification is now complete. The retained response points west/north, away
 from the stopped east-wall fixture, and the commit path previously accounted for
@@ -258,8 +258,10 @@ held wall energy without a distinct body row. Body lane 0 now records the body m
 at the same solved-to-settled clip while held lanes remain separate. The unchanged
 schedule at the response-aligned north wall produces the body row at tick 45, release
 at tick 54, both remainder classes, zero refusal/cap, and live/live/replay equality
-through tick 56. This closes the lifecycle witness but does not register either
-feature digest or promote Tactical.
+through tick 56. This closes the lifecycle witness but did not itself register either
+feature digest or promote Tactical. Smart122 later registered that lifecycle
+transcript, while Smart123 registered a separate terminal-at-first-contact source-41
+solver corpus; neither result promotes Tactical.
 
 Smart125 then tested one ordinary-policy correction independently of that lifecycle
 blocker: at the Chamber-to-Commit boundary it reran the existing deterministic plan

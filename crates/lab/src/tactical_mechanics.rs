@@ -456,7 +456,7 @@ mod tests {
 
     #[cfg(feature = "cartesian-recoil")]
     #[test]
-    fn ordinal_3144_stationary_brute_replays_all_eighteen_local_cases() {
+    fn ordinary_command_strike_and_eighteen_neighbours_pass_the_mirrored_gate() {
         let offset = fx::Vec2::new(Fx::from_raw(-163_840), Fx::from_raw(-65_536));
         let mut rows = 0;
         for strike_delta in strong_strike::STRIKE_TICK_DELTAS {
@@ -479,15 +479,48 @@ mod tests {
                     ).is_some(), "delta ({strike_delta},{reach_delta}) mirror={mirrored} did not cross");
                     assert_eq!((measured.weapon_body_facts, measured.competing_facts), (1, 0));
                     assert!(measured.contact_tick.is_some());
-                    assert!(measured.energy_dissipated_raw > 0);
+                    assert_eq!(measured.contact_key.map(|key| (key.0, key.1, key.2, key.3, key.4)),
+                        Some((EntityId::new(0, 0), if mirrored { 0 } else { 1 },
+                              EntityId::new(1, 0), sim::BODY_SLOT, ContactKind::WeaponBody)));
+                    assert_eq!(measured.region, Some(BodyPart::Legs));
+                    assert!(measured.toi_raw.is_some_and(|toi| toi > 0 && toi < Fx::ONE.raw()));
+                    assert_ne!(measured.impulse_on_a, fx::Vec3::ZERO);
+                    assert_eq!(measured.group_alpha_raw, Some(65_536));
+                    assert_eq!(measured.energy_dissipated_raw, 278);
                     assert_eq!((measured.refusals, measured.solver_rejections,
                                 measured.cap_hits, measured.max_energy_excess_raw),
                                (0, 0, 0, 0));
+                    assert_eq!(strong_strike::source_41_policy_command_receipt(
+                        strike_delta, reach_delta, mirrored),
+                        sim::lifted_coulomb_command_receipt(strike_delta, reach_delta, mirrored),
+                        "stored command receipt delta ({strike_delta},{reach_delta}) mirror={mirrored}");
                     rows += 1;
                 }
             }
         }
         assert_eq!(rows, 18);
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn retained_strike_is_selected_by_mechanics_and_then_records_a_wound() {
+        let measured = strong_strike::measure_noise_free_case_schedule(
+            strong_strike::StrongCase { seed: 0, mirrored: false,
+                target_anatomy: AnatomyChoice::Brute,
+                approach_offset: fx::Vec2::new(Fx::from_raw(-163_840), Fx::from_raw(-65_536)) },
+            28, Fx::from_raw(61_440));
+        assert_eq!((measured.weapon_body_facts, measured.competing_facts,
+                    measured.energy_dissipated_raw), (1, 0, 278));
+        assert_ne!(measured.impulse_on_a, fx::Vec3::ZERO,
+            "mechanics must select a response before damage is inspected");
+        assert_eq!((measured.refusals, measured.solver_rejections,
+                    measured.cap_hits, measured.max_energy_excess_raw), (0, 0, 0, 0));
+        let damaged = measured.cut_raw > 0 || measured.thrust_raw > 0;
+        let wounded = measured.integrity_after_raw != measured.integrity_before_raw
+            || measured.wound_after_raw != measured.wound_before_raw
+            || measured.blood_after_raw != measured.blood_before_raw;
+        assert!(damaged && wounded,
+            "the mechanically selected central strike recorded no wound");
     }
 
     #[test]

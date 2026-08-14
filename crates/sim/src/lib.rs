@@ -142,7 +142,8 @@ pub use combat::geometry::{body_region_volumes, RegionVolume, SegmentPose};
 pub use dungeon::{Cardinal, Door, Dungeon, Level, Rect, Torch, CORRIDOR, DOOR, OPEN, WALL};
 pub use entity::{EntityId, Faction, Body};
 #[cfg(feature = "cartesian-recoil")]
-pub use exact_diagnostics::exact_trajectory_state_digest;
+pub use exact_diagnostics::{exact_trajectory_state_digest, lifted_coulomb_command_receipt,
+                            lifted_coulomb_solver_digest};
 pub use event::Event;
 pub use hand::{Hand, Swing};
 pub use hash_domain::{DigestCompareError, HashDomain, StateDigest};

@@ -1,10 +1,9 @@
 //! Fixed-envelope grammar for the lifted contact solver.
 //!
 //! This module owns integer impulse words and exact comparisons only. The
-//! production resolver is deliberately not a caller until the bounded visit
-//! algorithm lands; making the grammar independently executable keeps the
-//! circular cone and its refusal boundaries reviewable before they can move a
-//! fight.
+//! production exact resolver calls the bounded visit algorithm below; keeping
+//! the grammar independently executable makes the circular cone and its
+//! refusal boundaries reviewable without making damage part of selection.
 
 #![allow(dead_code)]
 
@@ -485,9 +484,7 @@ fn component_lifts(
     Ok(())
 }
 
-/// Checkpoint A deliberately refuses production use. Checkpoint B replaces
-/// this sentinel with the fixed eight-sweep driver and routes ExactKinematics
-/// to it in the same change.
+/// Run the fixed eight-sweep lifted search used by ExactKinematics.
 pub(crate) fn solve_lifted_group(
     trajectories: &[ExactContactTrajectory], owners: &[ExactOwnerTrajectory],
     physical_rows: &[usize], facts: &[LiftedContact], time_raw: u32,
@@ -838,6 +835,77 @@ mod tests {
                                          &mut scratch).unwrap();
         assert!(circular_cone(facts[0], sliding.impulses[0]).unwrap());
         assert!(sliding.impulses[0].raw[1] < 0);
+    }
+
+    #[test]
+    fn removing_normal_or_friction_response_breaks_the_gate_before_damage_is_read() {
+        use core::cell::Cell;
+
+        #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+        enum GateExit { Constraints, SelectedScore, Damage }
+
+        fn mechanics_gate(
+            rows: &[ExactContactTrajectory], owners: &[ExactOwnerTrajectory],
+            facts: &[LiftedContact], motor: &[[i32; 3]], selected: LiftedImpulse,
+            selected_score: CandidateScore, candidate: LiftedImpulse,
+            scratch: &mut LiftedSolverScratch,
+        ) -> (GateExit, bool) {
+            let damage_read = Cell::new(false);
+            trial(rows, owners, facts, &[candidate], 0, motor,
+                  &mut scratch.trial_rows, &mut scratch.trial_velocities,
+                  &mut scratch.trajectory_work).unwrap();
+            if !constraints_hold(facts[0], candidate, scratch.trial_velocities[0]).unwrap() {
+                return (GateExit::Constraints, damage_read.get());
+            }
+            let candidate_score = score(facts, &scratch.trial_velocities, &[candidate])
+                .unwrap();
+            if compare_score(candidate_score, &[candidate], selected_score, &[selected])
+                .unwrap() != Ordering::Equal {
+                return (GateExit::SelectedScore, damage_read.get());
+            }
+            damage_read.set(true);
+            (GateExit::Damage, damage_read.get())
+        }
+
+        let mut scratch = LiftedSolverScratch::default(); scratch.try_reserve().unwrap();
+        let (rows, owners, facts, motor) = analytic_pair(0, 0);
+        let normal = solve_lifted_group(&rows, &owners, &[0, 1], &facts, 0, &motor,
+                                        &mut scratch).unwrap().impulses[0];
+        trial(&rows, &owners, &facts, &[normal], 0, &motor,
+              &mut scratch.trial_rows, &mut scratch.trial_velocities,
+              &mut scratch.trajectory_work).unwrap();
+        let normal_score = score(&facts, &scratch.trial_velocities, &[normal]).unwrap();
+        assert_eq!(mechanics_gate(&rows, &owners, &facts, &motor, normal, normal_score,
+                                  normal, &mut scratch), (GateExit::Damage, true));
+        let mut no_normal = normal; no_normal.raw[0] = 0;
+        trial(&rows, &owners, &facts, &[no_normal], 0, &motor,
+              &mut scratch.trial_rows, &mut scratch.trial_velocities,
+              &mut scratch.trajectory_work).unwrap();
+        assert!(!constraints_hold(facts[0], no_normal, scratch.trial_velocities[0]).unwrap());
+        assert_eq!(mechanics_gate(&rows, &owners, &facts, &motor, normal, normal_score,
+                                  no_normal, &mut scratch), (GateExit::Constraints, false));
+
+        let (rows, owners, facts, motor) = analytic_pair(65_536, 16_384);
+        let friction = solve_lifted_group(&rows, &owners, &[0, 1], &facts, 0, &motor,
+                                          &mut scratch).unwrap().impulses[0];
+        assert_ne!(friction.raw[1], 0);
+        trial(&rows, &owners, &facts, &[friction], 0, &motor,
+              &mut scratch.trial_rows, &mut scratch.trial_velocities,
+              &mut scratch.trajectory_work).unwrap();
+        let friction_score = score(&facts, &scratch.trial_velocities, &[friction]).unwrap();
+        assert_eq!(mechanics_gate(&rows, &owners, &facts, &motor, friction, friction_score,
+                                  friction, &mut scratch), (GateExit::Damage, true));
+        let mut no_friction = friction; no_friction.raw[1] = 0;
+        trial(&rows, &owners, &facts, &[no_friction], 0, &motor,
+              &mut scratch.trial_rows, &mut scratch.trial_velocities,
+              &mut scratch.trajectory_work).unwrap();
+        assert!(constraints_hold(facts[0], no_friction, scratch.trial_velocities[0]).unwrap());
+        let no_friction_score = score(&facts, &scratch.trial_velocities, &[no_friction]).unwrap();
+        assert_eq!(compare_score(no_friction_score, &[no_friction], friction_score, &[friction])
+                   .unwrap(), Ordering::Greater);
+        assert_eq!(mechanics_gate(&rows, &owners, &facts, &motor, friction, friction_score,
+                                  no_friction, &mut scratch),
+                   (GateExit::SelectedScore, false));
     }
 
     #[test]

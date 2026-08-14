@@ -95,6 +95,7 @@ const ARTICULATED_COMMAND_HASH = CARTESIAN_RECOIL
   : 0xd1da6a40df0480b2n;
 const COMBAT_GEOMETRY_HASH = 0x9d15344883cf6e9cn;
 const EXACT_TRAJECTORY_STATE_DIGEST = 0x83051e8c6b4ef20fn;
+const LIFTED_COULOMB_SOLVER_DIGEST = 0x83cd7bb2b73aeb9en;
 
 // The frame header, as the client reads it.
 const HEADER_LEN = 15;
@@ -559,6 +560,39 @@ test("the exact trajectory digest is feature-only, paired and cached", () => {
     "the exact trajectory diagnostic disturbed the installed sim",
   );
   console.log(`exact trajectory memory pages ${pagesBefore}/${pagesAfterFirst}/${pagesAfterSecond}`);
+});
+
+test("the lifted Coulomb solver digest is feature-only, paired and cached", () => {
+  const names = ["lifted_coulomb_solver_digest_lo", "lifted_coulomb_solver_digest_hi"];
+  if (!CARTESIAN_RECOIL) {
+    for (const name of names) {
+      assert.equal(wasm[name], undefined, `default web.wasm unexpectedly exports ${name}()`);
+    }
+    return;
+  }
+  for (const name of names) {
+    assert.equal(typeof wasm[name], "function", `exact web.wasm does not export ${name}()`);
+  }
+  wasm.init(4); wasm.step(12);
+  const installed = [u32(wasm.tick()), stateHash(), u32(wasm.frame_len()), u32(wasm.pose_len()),
+    u32(wasm.combat_event_len())];
+  const pagesBefore = wasm.memory.buffer.byteLength / WASM_PAGE;
+  const first = hash64(wasm.lifted_coulomb_solver_digest_lo(),
+    wasm.lifted_coulomb_solver_digest_hi());
+  const pagesAfterFirst = wasm.memory.buffer.byteLength / WASM_PAGE;
+  const held = new Uint8Array(wasm.memory.buffer, u32(wasm.pose_ptr()), 4);
+  const second = hash64(wasm.lifted_coulomb_solver_digest_lo(),
+    wasm.lifted_coulomb_solver_digest_hi());
+  const pagesAfterSecond = wasm.memory.buffer.byteLength / WASM_PAGE;
+  assert.equal(first, LIFTED_COULOMB_SOLVER_DIGEST);
+  assert.equal(second, first, "the cached lifted solver digest changed on its second read");
+  assert.equal(pagesAfterSecond, pagesAfterFirst,
+    "the second lifted solver digest read grew linear memory");
+  assert.equal(held.byteLength, 4, "the second lifted solver read detached an installed pose view");
+  assert.deepEqual([u32(wasm.tick()), stateHash(), u32(wasm.frame_len()), u32(wasm.pose_len()),
+    u32(wasm.combat_event_len())], installed,
+    "the lifted solver diagnostic disturbed the installed sim");
+  console.log(`lifted solver digest 0x${first.toString(16).padStart(16, "0")} memory pages ${pagesBefore}/${pagesAfterFirst}/${pagesAfterSecond}`);
 });
 
 test("the selftest hash is the number the lab prints natively", () => {

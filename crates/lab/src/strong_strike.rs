@@ -5,6 +5,8 @@
 //! reported fact comes back through published poses, resolutions, or anatomy.
 
 use fx::{swept_segment_segment, Angle, Fx, Vec2, Vec3};
+#[cfg(feature = "cartesian-recoil")]
+use fx::Hash64;
 use policy::{neutral_articulated_command, robust_strike_schedule_command};
 use sim::{AnatomyChoice, ArmTarget, ArticulatedCommandV1, BodyPart, CombatHeight,
           ContactKind, DuelConfigV1, EntityId, EquipmentGeometry, Faction, Intent, Scenario,
@@ -15,6 +17,62 @@ use sim::{ExactContactGroupDiagnostic, ExactContactKeyDiagnostic};
 use sim::ExactWideToiDiagnostic;
 #[cfg(feature = "cartesian-recoil")]
 use sim::ExactCompatibilitySweepDiagnostic;
+
+#[cfg(feature = "cartesian-recoil")]
+pub(crate) fn source_41_policy_command_receipt(strike_delta: i32, reach_delta: i32,
+                                                mirrored: bool) -> u64 {
+    let case = StrongCase { seed: 0, mirrored, target_anatomy: AnatomyChoice::Brute,
+                            approach_offset: Vec2::new(Fx::from_raw(-163_840), Fx::from_raw(-65_536)) };
+    let ticks = (56i32 + strike_delta) as u32;
+    let scenario = scenario_for_ticks_with(case, ticks, MirrorGrammar::AnatomicalHandSwap);
+    let mut world = World::new(&scenario, 0);
+    let attacker = world.alive_ids(Faction::Heroes)[0];
+    let defender = world.alive_ids(Faction::Monsters)[0];
+    let limb = attacking_limb(case, MirrorGrammar::AnatomicalHandSwap);
+    let shown = world.observe_articulated(attacker);
+    let foe = shown.opponents().first().expect("source-41 target");
+    let region = foe.regions[BodyPart::Legs as usize];
+    let local_height = (region.lower.z + region.upper.z) / Fx::from_int(2) - foe.body_position.z;
+    let height = CombatHeight::try_from_raw(
+        (local_height / shown.standing_height).clamp(Fx::ZERO, Fx::ONE).raw())
+        .expect("source-41 height");
+    let mut records = Vec::new();
+    for tick in 0..ticks {
+        for id in world.pending_decisions().to_vec() {
+            let obs = world.observe_articulated(id);
+            let command = if id == attacker {
+                robust_strike_schedule_command(&obs, defender, limb,
+                    case.approach_offset, height, tick, CHAMBER_TICKS,
+                    Fx::from_raw(61_440 + reach_delta), mirrored)
+            } else { neutral_articulated_command(&obs) };
+            match world.submit_articulated_v1(id, command) {
+                SubmitArticulatedOutcome::Stored { command, rejection: None } => {
+                    records.push((tick, id, command));
+                }
+                _ => panic!("source-41 policy command was not stored"),
+            }
+        }
+        world.step();
+        if world.contact_resolutions().iter().any(|row|
+            attributed_sword_body(row, attacker, defender, limb)) { break; }
+    }
+    source_41_receipt(scenario.fingerprint(), &records)
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn source_41_receipt(fingerprint: u64,
+                     records: &[(u32, EntityId, ArticulatedCommandV1)]) -> u64 {
+    let mut hash = Hash64::new();
+    hash.write_bytes(b"ARPG-LIFTED-COMMANDS-V1"); hash.write_u16(1);
+    hash.write_u64(fingerprint); hash.write_u32(records.len() as u32);
+    for &(tick, id, command) in records {
+        hash.write_u32(tick); hash.write_u32(id.index); hash.write_u32(id.generation);
+        hash.write_u16(sim::SUBMITTED_COMMAND_LAYOUT_VERSION); hash.write_u8(1); hash.write_u8(0);
+        hash.write_u16(sim::ARTICULATED_PAYLOAD_BYTES as u16);
+        hash.write_bytes(&command.payload_bytes());
+    }
+    hash.finish()
+}
 
 pub(crate) const CHAMBER_TICKS: u32 = 28;
 pub(crate) const STRIKE_TICKS: u32 = 28;
@@ -351,7 +409,7 @@ fn measure_case_schedule_with(case: StrongCase, strike_effort: Fx, chamber_ticks
         cap_hits: 0,
     };
 
-    for strike_tick in 0..strike_ticks {
+    'strike: for strike_tick in 0..strike_ticks {
         let attacker_before = world.observe_articulated(attacker);
         let defender_before = world.articulated_pose(defender).expect("live defender pose");
         for id in world.pending_decisions().to_vec() {
@@ -417,7 +475,7 @@ fn measure_case_schedule_with(case: StrongCase, strike_effort: Fx, chamber_ticks
             let (reach, motion) = attacking_reach_motion(&attacker_before, limb);
             answer.contact_reach_raw = Some(reach);
             answer.contact_arm_velocity = motion;
-            break;
+            break 'strike;
         }
         previous = requested;
     }

@@ -1,9 +1,9 @@
 # Smart AI 123 -- close and register the lifted Coulomb solver gate
 
-**Status:** planned after Smart122. The retained ordinary north-wall replay closed
-the missing boundary authority, but no solver digest value has been measured or
-registered; `LIFTED_COULOMB_SOLVER_DIGEST` remains `TBD`. Do not run the pin
-registration independently of the prerequisite trajectory digest.
+**Status:** complete. Native debug and release, direct/rerun/replay, and a fresh
+feature wasm all agreed at
+`LIFTED_COULOMB_SOLVER_DIGEST = 0x83cd7bb2b73aeb9e`. Smart122's prerequisite
+trajectory digest remains `0x83051e8c6b4ef20f`; no existing pin moved.
 
 This session adds the one missing named response mutation proof and registers the
 feature-only solver/corpus grammar retained in the contact research record. It does
@@ -72,8 +72,14 @@ total                      18
 Each case must use stored ordinary commands and compare direct, rerun and recorded
 replay before hashing the replay. Require all 18 eligible, mapped keys/regions,
 identical physical dissipation `278`, nonzero impulse, interior TOI, zero refusal/cap,
-both exact remainder classes after commit and the next tick, and matching anatomy.
-Damage is outcome evidence after the mechanical checks.
+both exact remainder classes in the qualifying post-commit state, and matching
+anatomy. Damage is outcome evidence after the mechanical checks.
+
+This supersedes the planned `+1` lifecycle clause. The retained source-41 witness
+terminates at its first qualifying contact, as the Smart117/118 evidence and Lab
+measurement do; continuing it one tick admits the already-recorded `ExactSolver`
+refusal and is not part of this corpus. Smart122 separately owns the ordinary
+post-contact lifecycle and boundary replay authority.
 
 Hash this exact order:
 
@@ -91,10 +97,11 @@ for each of 18 cases in the order above:
   contact tick, mapped key, kind, region, TOI
   exact point, normal, velocity A/B and selected impulse A/B
   group alpha and energy before/after/dissipated
-  post-commit and next-tick state digests
+  post-commit state digest
   exact external rows, anatomy words, cap and refusal code
 
-fixed ordered refusal-code table tail
+fixed ordered `ResolutionError`, `ExactContactRejectPhase`, and
+`ExactSolveGroupRejectDetail` code-table tails, each preceded by its `u32` length
 ```
 
 Include damage words only after the selected mechanical row. Do not hash candidate
@@ -135,3 +142,20 @@ node --test tools/wasm_check.js
 node tools/check_docs.js
 git diff --check
 ```
+
+The named mechanics-before-damage proof passed restored. Bypassing the normal /
+restitution constraint made it fail at `SelectedScore` rather than the expected
+`Constraints`, with damage unread; independently bypassing selected-score equality
+made it reach `Damage` with the reader set rather than stop at `SelectedScore`.
+Restoring both checks returned the focused test to green.
+
+All eighteen terminal-at-first-contact source-41 cases passed with direct, rerun and
+recorded replay equality, and the Lab policy command receipt equalled the sim
+diagnostic receipt. Native debug and release printed the registered value above. The
+fresh feature artifact was 1,059,211 bytes with SHA-256
+`D294A4A56C56FB89E2DA86556AAD449197F3A1502E3AFE9A1C12EA6BE0935F0B`; its digest
+warm-up/first/second memory-page receipt was `165/259/259`, and the feature checker
+passed `30/30`. The second read did not grow memory. The existing default stream,
+geometry, contact behavior, ABI/replay/command/learned and trajectory pins were
+unchanged, the feature stream receipt remained unregistered, and
+`ARTICULATED_HASH` remained absent.

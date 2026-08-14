@@ -6556,6 +6556,9 @@ thread_local! {
     static EXACT_TRAJECTORY_STATE_DIGEST_VALUE: Cell<Option<u64>> = const { Cell::new(None) };
     #[cfg(test)]
     static EXACT_TRAJECTORY_STATE_DIGEST_COMPUTES: Cell<u32> = const { Cell::new(0) };
+    static LIFTED_COULOMB_SOLVER_DIGEST_VALUE: Cell<Option<u64>> = const { Cell::new(None) };
+    #[cfg(test)]
+    static LIFTED_COULOMB_SOLVER_DIGEST_COMPUTES: Cell<u32> = const { Cell::new(0) };
 }
 
 #[cfg(feature = "cartesian-recoil")]
@@ -6586,6 +6589,35 @@ pub extern "C" fn exact_trajectory_state_digest_lo() -> u32 {
 #[no_mangle]
 pub extern "C" fn exact_trajectory_state_digest_hi() -> u32 {
     (exact_trajectory_state_digest() >> 32) as u32
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn lifted_coulomb_solver_digest() -> u64 {
+    LIFTED_COULOMB_SOLVER_DIGEST_VALUE.with(|slot| match slot.get() {
+        Some(value) => value,
+        None => {
+            #[cfg(test)]
+            LIFTED_COULOMB_SOLVER_DIGEST_COMPUTES.with(|count| count.set(count.get() + 1));
+            let value = sim::lifted_coulomb_solver_digest();
+            slot.set(Some(value)); value
+        }
+    })
+}
+
+/// Low half of the feature-only lifted Coulomb solver digest.
+#[cfg(feature = "cartesian-recoil")]
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn lifted_coulomb_solver_digest_lo() -> u32 {
+    lifted_coulomb_solver_digest() as u32
+}
+
+/// High half of [`lifted_coulomb_solver_digest_lo`].
+#[cfg(feature = "cartesian-recoil")]
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn lifted_coulomb_solver_digest_hi() -> u32 {
+    (lifted_coulomb_solver_digest() >> 32) as u32
 }
 
 // ---------------------------------------------------------------- behaviour
@@ -10454,6 +10486,26 @@ mod tests {
             "the exact trajectory diagnostic disturbed the installed sim");
     }
 
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn lifted_coulomb_solver_digest_is_paired_cached_and_self_contained() {
+        LIFTED_COULOMB_SOLVER_DIGEST_VALUE.with(|slot| slot.set(None));
+        LIFTED_COULOMB_SOLVER_DIGEST_COMPUTES.with(|count| count.set(0));
+        init(4); step(12);
+        let before = (tick(), state_hash(), frame_len(), pose_len(), combat_event_len());
+        let measured = u64::from(lifted_coulomb_solver_digest_lo())
+            | (u64::from(lifted_coulomb_solver_digest_hi()) << 32);
+        assert_eq!(measured, LIFTED_COULOMB_SOLVER_DIGEST,
+            "LIFTED_COULOMB_SOLVER_DIGEST moved: {measured:#018x}");
+        assert_eq!(measured, sim::lifted_coulomb_solver_digest());
+        assert_eq!(lifted_coulomb_solver_digest_lo(), measured as u32);
+        assert_eq!(lifted_coulomb_solver_digest_hi(), (measured >> 32) as u32);
+        LIFTED_COULOMB_SOLVER_DIGEST_COMPUTES.with(|count| assert_eq!(count.get(), 1,
+            "the split and repeated reads recomputed the lifted solver fixture"));
+        assert_eq!((tick(), state_hash(), frame_len(), pose_len(), combat_event_len()), before,
+            "the lifted solver diagnostic disturbed the installed sim");
+    }
+
     #[test]
     fn wasm_exports_match_layout_stride_capacity_and_drop_fields() {
         // **The ten numbers are transcribed from the reference, not read off
@@ -11004,6 +11056,11 @@ mod tests {
     /// wasm exports and registered in `docs/reference/hashes.md`.
     #[cfg(feature = "cartesian-recoil")]
     const EXACT_TRAJECTORY_STATE_DIGEST: u64 = 0x8305_1e8c_6b4e_f20f;
+
+    /// The terminal source-41 lifted Coulomb solver corpus, paired with the
+    /// feature-only wasm exports and registered in `docs/reference/hashes.md`.
+    #[cfg(feature = "cartesian-recoil")]
+    const LIFTED_COULOMB_SOLVER_DIGEST: u64 = 0x83cd_7bb2_b73a_eb9e;
 
     /// FNV-1a-64 over the logits `checkpoints/v2-probe.ckpt` produces on
     /// `learn_core`'s fixed observation corpus, prefix `ARPG-LEARNED-V1`.

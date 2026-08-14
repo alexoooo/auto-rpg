@@ -2,7 +2,8 @@
 
 **Status:** exact feature mechanics through Smart120 and Smart127's ordinary
 body-wall lifecycle witness are committed and verified. Smart122 registered the
-trajectory transcript at `0x83051e8c6b4ef20f`; Smart123/124 remain next, and
+trajectory transcript at `0x83051e8c6b4ef20f`, and Smart123 registered the
+terminal source-41 solver corpus at `0x83cd7bb2b73aeb9e`. Smart124 remains next, and
 generalized Tactical competence remains below gate.
 
 This topic began with an Arena fight in which learned and tactical fighters moved but
@@ -63,18 +64,20 @@ the unchanged command stream to the response-aligned north wall. The successor n
 has the body `WALL` row at tick 45 and the release at tick 54 with live/live/replay
 equality through tick 56.
 
-That closes the lifecycle witness, not the authority topic. Smart122's exact-
-trajectory digest is registered. Smart123's lifted-Coulomb digest remains unmeasured
-and unregistered, with Smart124 after it. After authority closure, rerun the
-ordinary Tactical evidence before reconsidering learning or `v2-18`.
+That closes the lifecycle witness. Smart122's exact-trajectory digest registers the
+later wall/remainder/release transcript. Smart123 separately registers source-41's
+eighteen mechanics cases at their first qualifying contact; extending those cases by
+one tick is not its lifecycle grammar. Smart124 still owns the authority-document
+closure. After that, rerun ordinary Tactical evidence before reconsidering learning
+or `v2-18`.
 
 ## Next-session order
 
-1. Smart122 is complete at `0x83051e8c6b4ef20f`; execute
-   [Smart123](smart-ai-123-register-lifted-coulomb-digest.md), followed by
+1. Smart122 is complete at `0x83051e8c6b4ef20f` and Smart123 at
+   `0x83cd7bb2b73aeb9e`; execute
    [Smart124](smart-ai-124-close-exact-contact-authority.md).
-2. Preserve the ordinary defender-body `WALL` witness and its focused mutation proof
-   while registering the remaining feature digest.
+2. Preserve the ordinary defender-body `WALL` lifecycle witness separately from the
+   terminal-at-first-contact source-41 solver corpus.
 3. Rerun matched Tactical/control evidence, then the 95/100 held-out competence gate.
    The retained baseline is `21/100` strict and `55/100` outcome-only.
 4. Train/promote only after the mechanics and competence gates pass. Reopen the final
@@ -98,8 +101,8 @@ ordinary Tactical evidence before reconsidering learning or `v2-18`.
 
 The retained feature work moves no default legacy golden. The expected
 `ARTICULATED_STREAM_DIGEST` feature-mechanics movement is paired across Rust and wasm;
-the exact-trajectory digest is registered and the lifted-Coulomb digest remains
-deliberately unregistered.
+the exact-trajectory and lifted-Coulomb digests are registered at
+`0x83051e8c6b4ef20f` and `0x83cd7bb2b73aeb9e` respectively.
 Eventual promotion is a separate decision. It is expected to change the
 articulated authoritative state hash grammar and may move
 `ARTICULATED_COMMAND_HASH`/`ARTICULATED_STREAM_DIGEST`; it must not move legacy hashes,
@@ -120,5 +123,6 @@ git diff --check
 
 Because `crates/sim` changed, the final integration handoff also rebuilds `-p web` for
 `wasm32-unknown-unknown` both with and without `cartesian-recoil`, and runs the matching
-native/wasm equality checks. Digest registration and another held-out policy run are
-not authorized before Smart122--124 closure.
+native/wasm equality checks. Both digest registrations are complete; another
+held-out policy run remains unauthorized until Smart124 closes their authority
+documentation.
