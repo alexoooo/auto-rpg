@@ -1,24 +1,26 @@
 # Smart AI 122 -- register the exact trajectory state digest
 
-**Status:** planned and unblocked by Smart127's ordinary body-wall receipt. No digest
-value has been measured or registered. The value remains deliberately `TBD`; execute
-this registration from the reviewed Smart127 fixture rather than the stopped
-Smart121 east-wall premise.
+**Status:** planned and unblocked by the retained ordinary north-wall replay in
+`crates/sim/src/replay.rs`. No digest value has been measured or registered. The
+value remains deliberately `TBD`; execute this registration from that reviewed
+fixture rather than the rejected east-wall premise recorded in the performance log.
 
-This session closes Smart36's missing feature-only portability pin. It does not move
-an existing pin or make exact diagnostics part of the frame, replay or publication
-ABI.
+This session closes the remaining feature-only trajectory portability pin. It does
+not move an existing pin or make exact diagnostics part of the frame, replay or
+publication ABI.
 
 ## A -- one authoritative grammar
 
-In the Smart121 shared diagnostic module, add:
+Refactor the existing
+`ordinary_exact_trajectory_crosses_a_wall_and_replays_every_authoritative_word`
+fixture into a crate-private feature-gated diagnostic runner, then add:
 
 ```rust
 #[cfg(feature = "cartesian-recoil")]
 pub fn exact_trajectory_state_digest() -> u64;
 ```
 
-The function reruns the exact Smart121 stored-command fixture. It must first prove
+The function reruns that exact stored-command fixture. It must first prove
 live/rerun/replay equality and every required wall/remainder/release witness, then
 hash the replayed stream. It exposes only `u64`; exact owner and remainder types stay
 crate-private.

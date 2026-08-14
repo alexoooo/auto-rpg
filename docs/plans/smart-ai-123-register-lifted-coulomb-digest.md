@@ -1,12 +1,13 @@
 # Smart AI 123 -- close and register the lifted Coulomb solver gate
 
-**Status:** planned after Smart122. Smart127 closed the missing ordinary boundary
-authority, but no solver digest value has been measured or registered;
-`LIFTED_COULOMB_SOLVER_DIGEST` remains `TBD`. Do not run the pin registration
-independently of the prerequisite trajectory digest.
+**Status:** planned after Smart122. The retained ordinary north-wall replay closed
+the missing boundary authority, but no solver digest value has been measured or
+registered; `LIFTED_COULOMB_SOLVER_DIGEST` remains `TBD`. Do not run the pin
+registration independently of the prerequisite trajectory digest.
 
 This session adds the one missing named response mutation proof and registers the
-feature-only Smart38 solver/corpus grammar. It does not rerun the 7,560-case search,
+feature-only solver/corpus grammar retained in the contact research record. It does
+not rerun the 7,560-case search,
 retune policy, select by damage or move an existing pin.
 
 ## A -- the missing mechanics-before-damage mutation
@@ -32,7 +33,7 @@ A local `Cell<bool>` damage reader runs only after constraints and exact selecte
 score match. Baseline reaches it; both mutations leave it false. Bypass each check
 independently and observe this named test fail, then restore.
 
-Delete or clearly supersede the two obsolete ignored Smart38 corpus tests in
+Delete or clearly supersede the two obsolete ignored pre-lifted corpus tests in
 [`crates/sim/src/world.rs`](../../crates/sim/src/world.rs). Add exact-name live wrappers
 in [`crates/lab/src/tactical_mechanics.rs`](../../crates/lab/src/tactical_mechanics.rs):
 
@@ -47,12 +48,12 @@ damage enter eligibility/selection.
 
 ## B -- fixed solver digest grammar
 
-Add a feature-only `sim::lifted_coulomb_solver_digest() -> u64` in the Smart121/122
-diagnostic module. It exposes no solver scratch or private exact row. Avoid a
-`sim -> policy` edge: either extract only the already-frozen command constructor to a
-lower sim helper and prove policy/Lab command bytes unchanged, or keep a concise sim
-diagnostic constructor and add an exact command-receipt equality test against the
-policy runner.
+Add a feature-only `sim::lifted_coulomb_solver_digest() -> u64` beside the diagnostic
+runner introduced by Smart122. It exposes no solver scratch or private exact row.
+Avoid a `sim -> policy` edge: either extract only the already-frozen command
+constructor to a lower sim helper and prove policy/Lab command bytes unchanged, or
+keep a concise sim diagnostic constructor and add an exact command-receipt equality
+test against the policy runner.
 
 Run only source-41 ordinal 3144's frozen robust neighbourhood:
 

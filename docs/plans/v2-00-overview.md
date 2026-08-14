@@ -19,8 +19,8 @@ that remains.
 | work | state | dependency | hash expectation |
 |---|---|---|---|
 | [Representative Fighter and Brute rigs](v2-18-combatant-integration.md) | not started | a passed articulated mechanical gate | presentation-only: every legacy and articulated pin unchanged |
-| [Smart articulated combat](smart-ai-00-overview.md) | exact feature mechanics through Smart120 and Smart127's body-wall witness retained and verified; digest closure remains | Smart127 closes Smart121's missing ordinary defender-body `WALL` row without changing its stopped east-wall evidence | no `ARTICULATED_HASH`; Smart122/123 remain unregistered and Smart124/`v2-18` remain blocked |
-| [Controlled Robust Strike](smart-ai-117-controlled-robust-strike-arena-preset.md) | retained and visibly verified as a feature-only demonstration; standard production stays default | a named Arena demonstration of source-41 ordinal 3144, not a generalized Tactical default | no existing pin moves |
+| [Smart articulated combat](smart-ai-00-overview.md) | exact feature mechanics and the ordinary body-wall witness are retained and verified; digest closure remains | [Smart122](smart-ai-122-register-exact-trajectory-digest.md), [Smart123](smart-ai-123-register-lifted-coulomb-digest.md), then [Smart124](smart-ai-124-close-exact-contact-authority.md) | no `ARTICULATED_HASH`; both feature digests remain unregistered and `v2-18` remains blocked |
+| Controlled Robust Strike | retained and visibly verified as a feature-only demonstration; standard production stays default | durable evidence is in the [tactical policy record](../performance/smart-ai-tactical-policy.md#controlled-strong-strike-reference) | no existing pin moves |
 | [Articulated contact research record](../performance/v2-articulated-contact-research.md) | durable evidence | exact retained-contact findings and rejected response/state hypotheses formerly spread across Smart AI sessions 01--34 | evidence only; no authority |
 | [Hierarchical combat learning](hierarchical-ai-00-overview.md) | proposed research successor | first prove that fixed `(loadout, strategy)` options have context-dependent headroom on a mechanically productive corpus | native research moves no pins; promotion is separately gated |
 | Visible browser evidence | blocked on a person using a foreground tab | follow the [arena matrix](../performance/v2-arena-matrix.md) and remaining [room matrix](../performance/v2-room-matrix.md) slots | no hashes move |
@@ -101,25 +101,23 @@ A successor must amend those criteria before recording fixtures or evidence. It 
 not create `ARTICULATED_HASH` until native direct run, native replay, wasm replay, and
 the visible review all pass the revised contract.
 
-The exact mechanics implementation described by the old
-[Smart36 plan](smart-ai-36-exact-lifted-trajectories.md) is now retained through
-[Smart120](smart-ai-120-retained-lifted-trial-owners.md). The completed
+The exact mechanics implementation is now retained through trajectory, solver, and
+wasm-stack closure. The completed
 [contact research record](../performance/v2-articulated-contact-research.md) traces
 why local impulse tuning, scalar/projector searches, and an integer affine Cartesian
 model were rejected. The retained feature path carries exact trajectory and response
 state through scan, recomputation, commit, replay, and native/wasm comparison without
 making it default authority.
 
-[Smart121](smart-ai-121-ordinary-wall-replay.md) then tested the remaining lifecycle
-boundary with a frozen 56-tick ordinary-command replay. Live/live/replay matched; the
+The frozen east-wall experiment then tested the remaining lifecycle boundary with a
+56-tick ordinary-command replay. Live/live/replay matched; the
 accepted strike, both exact remainder classes, and the later ordinary release all
 appeared. The defender-body `RecoilExternalEnergy::WALL` row did not. That missing
-ordinary boundary witness is now closed by
-[Smart127](smart-ai-127-body-wall-authority.md): measurement showed that the stopped
+ordinary boundary witness is now closed: measurement showed that the stopped
 fixture's response moved away from the east wall, and the unchanged stream produced
-the body row at the response-aligned north wall. Smart122's trajectory digest and
-Smart123's lifted-Coulomb digest remain unmeasured and unregistered, so Smart124's
-authority-closure claim is still blocked. None of this reopens `v2-18` or creates
+the body row at the response-aligned north wall. The trajectory and lifted-Coulomb
+digests remain unmeasured and unregistered, so authority closure is still blocked.
+None of this reopens `v2-18` or creates
 `ARTICULATED_HASH` by existence.
 
 ## Verification

@@ -2,7 +2,7 @@
 
 **Purpose:** Preserve the measurements and rejected mechanics hypotheses that led from the failed smart-combat gate to the current lifted-state work.
 **Status:** current
-**Canonical source:** feature-gated and test-only fixtures in `crates/sim/src/combat/resolution.rs` and `crates/sim/src/world.rs`.
+**Canonical source:** feature-gated mechanics and fixtures in `crates/sim/src/combat/{contact,lifted_solver,resolution,trajectory,wide}.rs`, `crates/sim/src/world.rs`, and `crates/sim/src/replay.rs`.
 **Update when:** The retained contact, generalized response model, lifted state, or mechanical-gate decision changes.
 
 ## Outcome
@@ -14,10 +14,10 @@ a mechanics defect: a local two-row impulse was evaluated through a projector th
 also translated the target owner's held rows. The alpha search could therefore return
 to the input energy without producing the intended restitution or wound allocation.
 
-No production response repair has been authorized. Everything added after that
-diagnosis is either behavior-neutral shared plumbing or behind the disabled
-`cartesian-recoil` feature/test boundary. No default hash or ABI moved, and
-`ARTICULATED_HASH` still does not exist.
+No default response promotion has been authorized. The exact trajectory, detector,
+lifted response, lifecycle accounting, and replay path now exist behind the disabled
+`cartesian-recoil` feature; behavior-neutral reflection repairs are shared. No ABI or
+legacy golden moved, and `ARTICULATED_HASH` still does not exist.
 
 ## Facts that survived the investigation
 
@@ -615,7 +615,7 @@ diagnosis is either behavior-neutral shared plumbing or behind the disabled
   The mass-weighted exposed change is three words for four supplied. This is a state
   precision issue, not a search-radius issue.
 
-## What was built but remains off
+## What is retained but remains off
 
 The disabled `cartesian-recoil` work establishes useful seams without promoting them:
 
@@ -632,25 +632,30 @@ The disabled `cartesian-recoil` work establishes useful seams without promoting 
   refused while held-relative Z remains supported. Sign mirror and planar X/Y
   permutation are exact in the bounded fixtures.
 
-These tests prove arithmetic and plumbing, not a World-ready authoritative state.
-They do not yet define initialization, grip transfer, contact commit, collision
-geometry, actuator work, clear accounting, hashing, replay, or wasm agreement for the
-lifted remainders.
+The first World adapter was rejected on an exact trajectory counterexample rather
+than rounded into service. For mass `196_608` and momentum `262_144`, tick-one
+position `1` carries remainder `4_294_967_296`; another half tick exposes position
+`2`, while interpolation over published integer endpoints still exposes `1`. The
+retained implementation resolves that boundary by summing rotating motor geometry
+with exact response translation in one evaluator used by scan, recomputation, and
+commit.
 
-The first attempted World adapter stopped on an exact trajectory counterexample
-instead of rounding it away. For mass `196_608` and momentum `262_144`, tick-one
-position `1` carries position remainder `4_294_967_296`. Integrating another
-`32_768` raw time exposes position `2` with zero remainder. The existing fixed-point
-endpoint interpolation from public positions `1 -> 2` still exposes `1` at that
-time and reaches `2` only at `65_536`. The feature test
-`lifted_toi_position_can_cross_before_the_integer_endpoint_sweep` makes this failure
-load-bearing. No provisional lifted row or commit adapter survived it.
+The feature path now includes exact owner advancement, retained wide segment
+geometry, certified group membership, lifted normal/circular-Coulomb selection,
+grip-release and boundary accounting, state hashing, and ordinary-command replay.
+Its retained wasm call chain is 422,384 bytes with 626,192 bytes of stack headroom;
+feature native and two fresh wasm instances agree at the unregistered stream receipt
+`0xa6835666303601d2`, with memory pages `23/77/77` on both calls.
 
-The earlier recoil prototype appends a fixed active tag and COM XYZ words to the
-**feature-only** state hash and canonicalizes inactive values to zero. Reset energy is
-recorded in an unhashed diagnostic ledger. Actual cap, wall, and anatomy-driven
-severance end-to-end fixtures are still missing; the presence of helper-level
-accounting is not lifecycle proof.
+The ordinary north-wall replay supplies the lifecycle proof that the stopped
+east-wall fixture could not. The unchanged 56-command strike produces the accepted
+WeaponBody group at ticks 45/46, both exact remainder classes through tick 56, a
+defender body-lane `WALL` row at tick 45 with `-9_986_235_012 / 8_589_934_592`, and
+the independent right-hand release at tick 54 with
+`-1_073_625_268_272 / 8_589_934_592`. Two live runs and recorded replay agree at
+every tick, with zero refusal and cap. The exact-trajectory and lifted-Coulomb digest
+registrations remain deliberately unmeasured; that is the remaining portability
+closure, not a missing World adapter.
 
 ## Decisions and next boundary
 
@@ -659,14 +664,11 @@ fitting, or damage-selected search. Each was rejected by an exact counterexample
 Do not train or promote the tactical/learned policy while the mechanical corpus lacks
 a robust mirrored productive strike.
 
-The next session is the single live plan in `docs/plans`: preserve each body's,
-segment's, and shield's rotating motor trajectory while adding exact owner/held
-response translation, and make their sum the one geometry evaluator used by scan,
-recomputation, and commit. Its first authoritative World field must land with exact
-TOI integration, lifecycle accounting, fixed hash grammar, replay, and native/wasm
-agreement. Failure returns to a wider authoritative precision/layout decision.
-Passing it only permits a later bounded multi-contact normal plus circular-Coulomb
-solver; it does not itself authorize mechanics, Lab calibration, learning, or
+The remaining mechanics sequence is explicit in the live plans: register the exact
+trajectory/replay digest, register the lifted-Coulomb solver/corpus digest, then close
+the feature authority documentation. Those sessions must preserve the default hash
+grammar and prove fresh native/wasm agreement. Completion permits a new policy gate;
+it does not itself authorize feature promotion, learning, `ARTICULATED_HASH`, or
 `v2-18`.
 
 Smart101 completed the deferred paired default pin audit after the exact wasm stack
@@ -746,3 +748,13 @@ This is replay/remainder/release evidence, not the missing Smart36 checkpoint-E
 boundary proof. `EXACT_TRAJECTORY_STATE_DIGEST` and
 `LIFTED_COULOMB_SOLVER_DIGEST` remain unmeasured and unregistered pending a reviewed
 lifecycle classification.
+
+The reviewed successor classified the absence rather than retuning the strike. The
+east-wall response was west/north, so east settlement was structurally behind the
+motion; production also had no body-lane wall-energy append, only held lanes. The
+commit path now records body lane 0 separately from held lanes 1/2 at the same
+solved-to-settled clip. Translating the unchanged source-41 geometry to the
+response-aligned north wall yields the tick-45 body row and closes the ordinary
+lifecycle witness with a demonstrated mutation: suppressing only the body append
+makes the real wall-commit test red while settlement and the held row remain green.
+The two feature-only digests remain unregistered and are the next work.

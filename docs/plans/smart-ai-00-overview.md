@@ -69,10 +69,11 @@ ordinary Tactical evidence before reconsidering learning or `v2-18`.
 
 ## Next-session order
 
-1. Retain [Smart127](smart-ai-127-body-wall-authority.md)'s ordinary defender-body
-   `WALL` witness and its focused mutation proof through the integration gates.
-2. Execute Smart122--124's digest registration and exact-contact authority closure
-   in order; neither digest exists yet.
+1. Execute [Smart122](smart-ai-122-register-exact-trajectory-digest.md),
+   [Smart123](smart-ai-123-register-lifted-coulomb-digest.md), and
+   [Smart124](smart-ai-124-close-exact-contact-authority.md) in order.
+2. Preserve the ordinary defender-body `WALL` witness and its focused mutation proof
+   while registering both feature digests.
 3. Rerun matched Tactical/control evidence, then the 95/100 held-out competence gate.
    The retained baseline is `21/100` strict and `55/100` outcome-only.
 4. Train/promote only after the mechanics and competence gates pass. Reopen the final

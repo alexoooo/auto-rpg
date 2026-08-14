@@ -252,6 +252,15 @@ The result does not weaken the controlled Arena demonstration, but it also does 
 authorize either missing feature-only digest registration. Both remain blocked on a
 reviewed classification of the absent ordinary wall reaction.
 
+That classification is now complete. The retained response points west/north, away
+from the stopped east-wall fixture, and the commit path previously accounted for
+held wall energy without a distinct body row. Body lane 0 now records the body mass
+at the same solved-to-settled clip while held lanes remain separate. The unchanged
+schedule at the response-aligned north wall produces the body row at tick 45, release
+at tick 54, both remainder classes, zero refusal/cap, and live/live/replay equality
+through tick 56. This closes the lifecycle witness but does not register either
+feature digest or promote Tactical.
+
 Smart125 then tested one ordinary-policy correction independently of that lifecycle
 blocker: at the Chamber-to-Commit boundary it reran the existing deterministic plan
 choice against the current observation before issuing the first Commit command. Its
@@ -267,10 +276,12 @@ No retained stdout log or SHA was reported.
 More contacts did not buy more body outcomes, so the recertification is a measured
 regression rather than a promotion candidate. Its production branch and focused
 tests were fully reverted, the prior policy suite returned to 140 unit tests green,
-and the controlled Robust Strike preset remained unchanged. Smart126 may diagnose
-whether `choose_plan` certified a hypothetical new chamber-to-commit sweep while the
-runtime immediately executed only observed-blade-to-commit; it may not retune policy
-from the result.
+and the controlled Robust Strike preset remained unchanged. One unresolved policy
+hypothesis remains durable: `choose_plan` may certify a hypothetical new
+chamber-to-commit sweep while the runtime immediately executes only
+observed-blade-to-commit. Any successor must measure those two sweeps separately and
+predeclare its acceptance rule; the failed recertification does not authorize a
+retune.
 
 ## Controlled strong-strike reference
 
