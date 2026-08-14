@@ -19,6 +19,12 @@
 //
 //     cargo build --release --target wasm32-unknown-unknown -p web
 //
+// The shipped exact-law artifact is checked with the same complete suite by
+// naming its build mode explicitly:
+//
+//     $env:ARPG_CARTESIAN_RECOIL='1'
+//     node --test tools/wasm_check.js
+//
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -27,7 +33,13 @@ const { test } = require("node:test");
 
 const ROOT = path.join(__dirname, "..");
 const WASM = path.join(ROOT, "target", "wasm32-unknown-unknown", "release", "web.wasm");
+const recoilMode = process.env.ARPG_CARTESIAN_RECOIL;
+if (recoilMode !== undefined && recoilMode !== "0" && recoilMode !== "1") {
+  throw new Error("ARPG_CARTESIAN_RECOIL must be 0, 1 or unset");
+}
+const CARTESIAN_RECOIL = recoilMode === "1";
 const BUILD = ["cargo", "build", "--release", "--target", "wasm32-unknown-unknown", "-p", "web"];
+if (CARTESIAN_RECOIL) BUILD.push("--features", "cartesian-recoil");
 
 // Both recorded from the native build and pinned again in crates/web/src/lib.rs,
 // so a change in the sim's behaviour fails there as well as here. That pairing
@@ -75,7 +87,12 @@ const BOW_HASH = 0x4a1157735d305e9fn;
 // `0x6e61a92ec96ac3a6`, and *because* the probe is unstepped: the shield pose
 // is derived at spawn and the digest carries its `half_width` and
 // `half_height`, both of which that session shrank to a quarter.
-const ARTICULATED_COMMAND_HASH = 0xd1da6a40df0480b2n;
+// Exact recoil changes these published articulated values and no registered
+// browser golden. Keeping the switch beside the two witnesses makes adding a
+// third difference a source-visible contract change rather than a hidden skip.
+const ARTICULATED_COMMAND_HASH = CARTESIAN_RECOIL
+  ? 0x5fcaba34556b2737n
+  : 0xd1da6a40df0480b2n;
 const COMBAT_GEOMETRY_HASH = 0x9d15344883cf6e9cn;
 
 // The frame header, as the client reads it.
@@ -856,7 +873,9 @@ const SEVERED_MASK_BITS = 5;
 // Nothing in the sim moved and no fight golden moved with it, which is what a
 // layout move looks like from this side of the wall and the opposite of the
 // three before it.
-const ARTICULATED_STREAM_DIGEST = 0xf7d3a9c73aa59981n;
+const ARTICULATED_STREAM_DIGEST = CARTESIAN_RECOIL
+  ? 0xa6835666303601d2n
+  : 0xdbbd86fedd61c4c7n;
 
 // The live pose rows, copied out. Words and not floats: every published column
 // is a `u32`, and the signed ones are two's-complement raw bits.

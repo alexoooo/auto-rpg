@@ -11,6 +11,16 @@ use core::cmp::Ordering;
 
 const LIMBS: usize = 128;
 const BITS: u32 = (LIMBS * 32) as u32;
+pub(crate) const WIDE_RATIONAL_WORK_SLOTS: usize = 8;
+
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct PositiveRationalCmpWork {
+    words: [UnsignedWide4096; 10],
+}
+
+impl Default for PositiveRationalCmpWork {
+    fn default() -> Self { Self { words: [UnsignedWide4096::ZERO; 10] } }
+}
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) struct UnsignedWide4096 {
@@ -176,6 +186,193 @@ impl UnsignedWide4096 {
         while used != 0 && self.limbs[used - 1] == 0 { used -= 1; }
         self.used = used as u8;
     }
+}
+
+fn unsigned_add_into(a: &UnsignedWide4096, b: &UnsignedWide4096,
+                     out: &mut UnsignedWide4096) -> bool {
+    *out = UnsignedWide4096::ZERO;
+    let count = a.used.max(b.used) as usize; let mut carry = 0u64;
+    for at in 0..count {
+        let word = a.limbs[at] as u64 + b.limbs[at] as u64 + carry;
+        out.limbs[at] = word as u32; carry = word >> 32;
+    }
+    if carry != 0 {
+        if count == LIMBS { return false; }
+        out.limbs[count] = carry as u32; out.used = (count + 1) as u8;
+    } else { out.used = count as u8; out.canonicalize(); }
+    true
+}
+
+fn unsigned_sub_into(a: &UnsignedWide4096, b: &UnsignedWide4096,
+                     out: &mut UnsignedWide4096) -> bool {
+    if a < b { return false; }
+    *out = UnsignedWide4096::ZERO; let mut borrow = 0u64;
+    for at in 0..a.used as usize {
+        let left = a.limbs[at] as u64; let right = b.limbs[at] as u64 + borrow;
+        out.limbs[at] = left.wrapping_sub(right) as u32; borrow = (left < right) as u64;
+    }
+    if borrow != 0 { return false; }
+    out.used = a.used; out.canonicalize(); true
+}
+
+fn unsigned_mul_into(a: &UnsignedWide4096, b: &UnsignedWide4096,
+                     out: &mut UnsignedWide4096) -> bool {
+    *out = UnsignedWide4096::ZERO;
+    if a.is_zero() || b.is_zero() { return true; }
+    if a.bit_len().checked_add(b.bit_len()).is_none_or(|bits| bits > BITS + 1) { return false; }
+    for i in 0..a.used as usize {
+        let mut carry = 0u64;
+        for j in 0..b.used as usize {
+            let at = i + j;
+            if at >= LIMBS { if a.limbs[i] != 0 && b.limbs[j] != 0 { return false; } continue; }
+            let word = a.limbs[i] as u64 * b.limbs[j] as u64
+                + out.limbs[at] as u64 + carry;
+            out.limbs[at] = word as u32; carry = word >> 32;
+        }
+        let at = i + b.used as usize;
+        if carry != 0 { if at >= LIMBS || out.limbs[at] != 0 { return false; }
+            out.limbs[at] = carry as u32; }
+    }
+    out.used = ((a.used as usize + b.used as usize).min(LIMBS)) as u8;
+    out.canonicalize(); true
+}
+
+fn unsigned_shr_into(a: &UnsignedWide4096, shift: u32, out: &mut UnsignedWide4096) {
+    *out = UnsignedWide4096::ZERO;
+    if shift >= BITS || a.is_zero() { return; }
+    let words = (shift / 32) as usize; let bits = shift % 32;
+    if words >= a.used as usize { return; }
+    for source in words..a.used as usize {
+        let target = source - words; out.limbs[target] |= a.limbs[source] >> bits;
+        if bits != 0 && source + 1 < a.used as usize {
+            out.limbs[target] |= a.limbs[source + 1] << (32 - bits);
+        }
+    }
+    out.used = (a.used as usize - words) as u8; out.canonicalize();
+}
+
+fn unsigned_shl_into(a: &UnsignedWide4096, shift: u32,
+                     out: &mut UnsignedWide4096) -> bool {
+    *out = UnsignedWide4096::ZERO;
+    if a.is_zero() { return true; }
+    if shift >= BITS || a.bit_len().checked_add(shift).is_none_or(|bits| bits > BITS) {
+        return false;
+    }
+    let words = (shift / 32) as usize; let bits = shift % 32;
+    for at in 0..a.used as usize {
+        let target = at + words; out.limbs[target] |= a.limbs[at] << bits;
+        if bits != 0 && target + 1 < LIMBS {
+            out.limbs[target + 1] |= a.limbs[at] >> (32 - bits);
+        }
+    }
+    out.used = ((a.bit_len() + shift + 31) / 32) as u8; out.canonicalize(); true
+}
+
+fn unsigned_div_rem_into(
+    value: &UnsignedWide4096, divisor: &UnsignedWide4096,
+    quotient: &mut UnsignedWide4096, remainder: &mut UnsignedWide4096,
+    aligned: &mut UnsignedWide4096, stage: &mut UnsignedWide4096,
+) -> bool {
+    if divisor.is_zero() { return false; }
+    *quotient = UnsignedWide4096::ZERO; *remainder = UnsignedWide4096::ZERO;
+    if value < divisor { *remainder = *value; return true; }
+    *remainder = *value;
+    let top = remainder.bit_len() - divisor.bit_len();
+    for shift in (0..=top).rev() {
+        if !unsigned_shl_into(divisor, shift, aligned) { return false; }
+        if &*remainder >= aligned {
+            if !unsigned_sub_into(remainder, aligned, stage) { return false; }
+            core::mem::swap(remainder, stage);
+            let at = (shift / 32) as usize;
+            quotient.limbs[at] |= 1 << (shift % 32);
+            quotient.used = quotient.used.max((at + 1) as u8);
+        }
+    }
+    quotient.canonicalize(); true
+}
+
+fn signed_from_parts_into(negative: bool, magnitude: &UnsignedWide4096,
+                          out: &mut SignedWide4096) {
+    out.negative = negative && !magnitude.is_zero(); out.magnitude = *magnitude;
+}
+
+fn signed_neg_into(value: &SignedWide4096, out: &mut SignedWide4096) {
+    signed_from_parts_into(!value.negative, &value.magnitude, out);
+}
+
+fn signed_add_into(a: &SignedWide4096, b: &SignedWide4096,
+                   magnitude: &mut UnsignedWide4096, out: &mut SignedWide4096) -> bool {
+    if a.negative == b.negative {
+        if !unsigned_add_into(&a.magnitude, &b.magnitude, magnitude) { return false; }
+        signed_from_parts_into(a.negative, magnitude, out); return true;
+    }
+    match a.magnitude.cmp(&b.magnitude) {
+        Ordering::Less => { if !unsigned_sub_into(&b.magnitude, &a.magnitude, magnitude) { return false; }
+            signed_from_parts_into(b.negative, magnitude, out); }
+        Ordering::Equal => *out = SignedWide4096::ZERO,
+        Ordering::Greater => { if !unsigned_sub_into(&a.magnitude, &b.magnitude, magnitude) { return false; }
+            signed_from_parts_into(a.negative, magnitude, out); }
+    }
+    true
+}
+
+fn signed_mul_into(a: &SignedWide4096, b: &SignedWide4096,
+                   magnitude: &mut UnsignedWide4096, out: &mut SignedWide4096) -> bool {
+    if !unsigned_mul_into(&a.magnitude, &b.magnitude, magnitude) { return false; }
+    signed_from_parts_into(a.negative != b.negative, magnitude, out); true
+}
+
+fn canonicalize_rational_slot(
+    result: &mut [WideRational4096], scratch: &mut WideRational4096,
+) -> bool {
+    if result[0].denominator.is_zero() { return false; }
+    if result[0].numerator.is_zero() {
+        result[0].numerator.negative = false;
+        result[0].numerator.magnitude = UnsignedWide4096::ZERO;
+        result[0].denominator = UnsignedWide4096::ONE;
+        return true;
+    }
+    let shift = result[0].numerator.trailing_zeros()
+        .min(result[0].denominator.trailing_zeros());
+    unsigned_shr_into(&result[0].numerator.magnitude, shift, &mut scratch.numerator.magnitude);
+    scratch.numerator.negative = result[0].numerator.negative;
+    unsigned_shr_into(&result[0].denominator, shift, &mut scratch.denominator);
+    result[0].numerator = scratch.numerator;
+    result[0].denominator = scratch.denominator;
+    true
+}
+
+fn unsigned_to_u128_ref(value: &UnsignedWide4096) -> Option<u128> {
+    if value.bit_len() > 128 { return None; }
+    let mut out = 0u128;
+    for at in (0..value.used as usize).rev() { out = (out << 32) | value.limbs[at] as u128; }
+    Some(out)
+}
+
+fn multiply_rational_parts_into(
+    left_num: &SignedWide4096, left_den: &UnsignedWide4096,
+    right_num: &SignedWide4096, right_den: &UnsignedWide4096,
+    work: &mut [WideRational4096; 7], out: &mut WideRational4096,
+) -> bool {
+    let cross_left = left_num.trailing_zeros().min(right_den.trailing_zeros());
+    let cross_right = right_num.trailing_zeros().min(left_den.trailing_zeros());
+    unsigned_shr_into(&left_num.magnitude, cross_left, &mut work[0].denominator);
+    signed_from_parts_into(left_num.negative, &work[0].denominator, &mut work[0].numerator);
+    unsigned_shr_into(right_den, cross_left, &mut work[1].denominator);
+    unsigned_shr_into(&right_num.magnitude, cross_right, &mut work[2].denominator);
+    signed_from_parts_into(right_num.negative, &work[2].denominator, &mut work[2].numerator);
+    unsigned_shr_into(left_den, cross_right, &mut work[3].denominator);
+    let (result, tail) = work.split_at_mut(1);
+    let (inputs, output) = tail.split_at_mut(3);
+    if !signed_mul_into(&result[0].numerator, &inputs[1].numerator,
+                        &mut output[0].denominator, &mut output[0].numerator) { return false; }
+    let (den_input, den_output) = output.split_at_mut(1);
+    if !unsigned_mul_into(&inputs[2].denominator, &inputs[0].denominator,
+                          &mut den_output[0].denominator) { return false; }
+    result[0].numerator = den_input[0].numerator;
+    result[0].denominator = den_output[0].denominator;
+    if !canonicalize_rational_slot(result, &mut den_output[1]) { return false; }
+    *out = result[0]; true
 }
 
 impl Ord for UnsignedWide4096 {
@@ -383,6 +580,121 @@ impl WideRational4096 {
         Some(left.cmp(&right))
     }
 
+    pub(crate) fn checked_neg_into(
+        &self, work: &mut [Self; WIDE_RATIONAL_WORK_SLOTS], out: &mut Self,
+    ) -> bool {
+        signed_neg_into(&self.numerator, &mut work[0].numerator);
+        work[0].denominator = self.denominator;
+        *out = work[0]; true
+    }
+
+    pub(crate) fn checked_add_divisible_into(
+        &self, rhs: &Self, work: &mut [Self; WIDE_RATIONAL_WORK_SLOTS], out: &mut Self,
+    ) -> bool {
+        if self.denominator == rhs.denominator {
+            let (stage, rest) = work.split_at_mut(1);
+            if !signed_add_into(&self.numerator, &rhs.numerator,
+                                &mut rest[0].denominator, &mut stage[0].numerator) { return false; }
+            stage[0].denominator = self.denominator;
+            if !canonicalize_rational_slot(stage, &mut rest[1]) { return false; }
+            *out = stage[0]; return true;
+        }
+        macro_rules! try_divisible {
+          ($large:expr, $small:expr, $left:expr, $right:expr) => {{
+            let (large, small, left, right) = ($large, $small, $left, $right);
+            let (q, tail) = work.split_at_mut(1); let (r, tail) = tail.split_at_mut(1);
+            let (aligned, tail) = tail.split_at_mut(1); let (stage, tail) = tail.split_at_mut(1);
+            if !unsigned_div_rem_into(large, small, &mut q[0].denominator,
+                &mut r[0].denominator, &mut aligned[0].denominator,
+                &mut stage[0].denominator) { return false; }
+            if r[0].denominator.is_zero() {
+                let (scale, remaining) = tail.split_at_mut(1);
+                signed_from_parts_into(false, &q[0].denominator, &mut scale[0].numerator);
+                let (product, _) = remaining.split_at_mut(1);
+                if !signed_mul_into(right, &scale[0].numerator,
+                    &mut aligned[0].denominator, &mut product[0].numerator) { return false; }
+                if !signed_add_into(left, &product[0].numerator,
+                    &mut stage[0].denominator, &mut q[0].numerator) { return false; }
+                q[0].denominator = *large;
+                if !canonicalize_rational_slot(q, &mut remaining[1]) { return false; }
+                *out = q[0]; return true;
+            }
+          }};
+        }
+        try_divisible!(&self.denominator, &rhs.denominator, &self.numerator, &rhs.numerator);
+        try_divisible!(&rhs.denominator, &self.denominator, &rhs.numerator, &self.numerator);
+        let (left, tail) = work.split_at_mut(1); let (right, tail) = tail.split_at_mut(1);
+        let (den, tail) = tail.split_at_mut(1); let (result, tail) = tail.split_at_mut(1);
+        signed_from_parts_into(false, &rhs.denominator, &mut tail[0].numerator);
+        if !signed_mul_into(&self.numerator, &tail[0].numerator,
+                            &mut tail[1].denominator, &mut left[0].numerator) { return false; }
+        signed_from_parts_into(false, &self.denominator, &mut tail[0].numerator);
+        if !signed_mul_into(&rhs.numerator, &tail[0].numerator,
+                            &mut tail[1].denominator, &mut right[0].numerator) { return false; }
+        if !signed_add_into(&left[0].numerator, &right[0].numerator,
+                            &mut tail[0].denominator, &mut result[0].numerator) { return false; }
+        if !unsigned_mul_into(&self.denominator, &rhs.denominator, &mut den[0].denominator) {
+            return false;
+        }
+        result[0].denominator = den[0].denominator;
+        if !canonicalize_rational_slot(result, &mut tail[0]) { return false; }
+        *out = result[0]; true
+    }
+
+    pub(crate) fn checked_mul_into(
+        &self, rhs: &Self, work: &mut [Self; WIDE_RATIONAL_WORK_SLOTS], out: &mut Self,
+    ) -> bool {
+        let (mul, _) = work.split_at_mut(7);
+        let Ok(mul) = <&mut [Self; 7]>::try_from(mul) else { return false };
+        multiply_rational_parts_into(&self.numerator, &self.denominator,
+            &rhs.numerator, &rhs.denominator, mul, out)
+    }
+
+    pub(crate) fn checked_div_into(
+        &self, rhs: &Self, work: &mut [Self; WIDE_RATIONAL_WORK_SLOTS], out: &mut Self,
+    ) -> bool {
+        if rhs.numerator.is_zero() { return false; }
+        let (mul, reciprocal) = work.split_at_mut(7);
+        let Ok(mul) = <&mut [Self; 7]>::try_from(mul) else { return false };
+        reciprocal[0].numerator.negative = rhs.numerator.negative;
+        reciprocal[0].numerator.magnitude = rhs.denominator;
+        reciprocal[0].denominator = rhs.numerator.magnitude;
+        multiply_rational_parts_into(&self.numerator, &self.denominator,
+            &reciprocal[0].numerator, &reciprocal[0].denominator, mul, out)
+    }
+
+    pub(crate) fn checked_cmp_into(
+        &self, rhs: &Self, work: &mut [Self; WIDE_RATIONAL_WORK_SLOTS], out: &mut Ordering,
+    ) -> bool {
+        signed_from_parts_into(false, &rhs.denominator, &mut work[2].numerator);
+        let (left, tail) = work.split_at_mut(1);
+        if !signed_mul_into(&self.numerator, &tail[1].numerator,
+                            &mut tail[2].denominator, &mut left[0].numerator) { return false; }
+        signed_from_parts_into(false, &self.denominator, &mut tail[1].numerator);
+        let (right, scale_and_scratch) = tail.split_at_mut(1);
+        if !signed_mul_into(&rhs.numerator, &scale_and_scratch[0].numerator,
+                            &mut scale_and_scratch[1].denominator,
+                            &mut right[0].numerator) { return false; }
+        *out = left[0].numerator.cmp(&tail[0].numerator); true
+    }
+
+    pub(crate) fn trunc_i128_into(
+        &self, work: &mut [Self; WIDE_RATIONAL_WORK_SLOTS], out: &mut i128,
+    ) -> bool {
+        let (q, tail) = work.split_at_mut(1); let (r, tail) = tail.split_at_mut(1);
+        let (aligned, stage) = tail.split_at_mut(1);
+        if !unsigned_div_rem_into(&self.numerator.magnitude, &self.denominator,
+            &mut q[0].denominator, &mut r[0].denominator,
+            &mut aligned[0].denominator, &mut stage[0].denominator) { return false; }
+        let Some(magnitude) = unsigned_to_u128_ref(&q[0].denominator) else { return false };
+        let value = if self.numerator.negative {
+            if magnitude == 1u128 << 127 { i128::MIN }
+            else { let Ok(word) = i128::try_from(magnitude) else { return false };
+                   let Some(word) = word.checked_neg() else { return false }; word }
+        } else { let Ok(word) = i128::try_from(magnitude) else { return false }; word };
+        *out = value; true
+    }
+
     pub(crate) fn trunc_i128(self) -> Option<i128> {
         let denominator = SignedWide4096::from_parts(false, self.denominator);
         self.numerator.div_rem(denominator)?.0.to_i128()
@@ -403,9 +715,281 @@ impl WideRational4096 {
     }
 }
 
+pub(crate) fn checked_cmp_positive_into(
+    left: &WideRational4096, right: &WideRational4096,
+    work: &mut PositiveRationalCmpWork, out: &mut Ordering,
+) -> bool {
+    if left.numerator.is_negative() || left.numerator.is_zero()
+        || right.numerator.is_negative() || right.numerator.is_zero()
+        || left.denominator.is_zero() || right.denominator.is_zero() {
+        return false;
+    }
+    work.words[0] = left.numerator.abs(); work.words[1] = left.denominator;
+    work.words[2] = right.numerator.abs(); work.words[3] = right.denominator;
+    let mut inverted = false;
+    for _ in 0..8192 {
+        let [ln, ld, rn, rd, lq, lr, rq, rr, aligned, stage] = &mut work.words;
+        if !unsigned_div_rem_into(ln, ld, lq, lr, aligned, stage) { return false; }
+        if !unsigned_div_rem_into(rn, rd, rq, rr, aligned, stage) { return false; }
+        if *lq != *rq {
+            *out = if inverted { (*rq).cmp(&*lq) } else { (*lq).cmp(&*rq) };
+            return true;
+        }
+        match (lr.is_zero(), rr.is_zero()) {
+            (true, true) => { *out = Ordering::Equal; return true; }
+            (true, false) => {
+                *out = if inverted { Ordering::Greater } else { Ordering::Less };
+                return true;
+            }
+            (false, true) => {
+                *out = if inverted { Ordering::Less } else { Ordering::Greater };
+                return true;
+            }
+            (false, false) => {
+                *ln = *ld; *ld = *lr; *rn = *rd; *rd = *rr;
+                inverted = !inverted;
+            }
+        }
+    }
+    false
+}
+
+
+#[cfg(test)]
+#[inline(never)]
+fn borrowed_neg_driver(a: &WideRational4096,
+    work: &mut [WideRational4096; WIDE_RATIONAL_WORK_SLOTS], out: &mut WideRational4096) -> bool {
+    a.checked_neg_into(work, out)
+}
+#[cfg(test)]
+#[inline(never)]
+fn borrowed_add_driver(a: &WideRational4096, b: &WideRational4096,
+    work: &mut [WideRational4096; WIDE_RATIONAL_WORK_SLOTS], out: &mut WideRational4096) -> bool {
+    a.checked_add_divisible_into(b, work, out)
+}
+#[cfg(test)]
+#[inline(never)]
+fn borrowed_mul_driver(a: &WideRational4096, b: &WideRational4096,
+    work: &mut [WideRational4096; WIDE_RATIONAL_WORK_SLOTS], out: &mut WideRational4096) -> bool {
+    a.checked_mul_into(b, work, out)
+}
+#[cfg(test)]
+#[inline(never)]
+fn borrowed_div_driver(a: &WideRational4096, b: &WideRational4096,
+    work: &mut [WideRational4096; WIDE_RATIONAL_WORK_SLOTS], out: &mut WideRational4096) -> bool {
+    a.checked_div_into(b, work, out)
+}
+#[cfg(test)]
+#[inline(never)]
+fn borrowed_cmp_driver(a: &WideRational4096, b: &WideRational4096,
+    work: &mut [WideRational4096; WIDE_RATIONAL_WORK_SLOTS], out: &mut Ordering) -> bool {
+    a.checked_cmp_into(b, work, out)
+}
+#[cfg(test)]
+#[inline(never)]
+fn borrowed_trunc_driver(a: &WideRational4096,
+    work: &mut [WideRational4096; WIDE_RATIONAL_WORK_SLOTS], out: &mut i128) -> bool {
+    a.trunc_i128_into(work, out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn positive_cmp(a: WideRational4096, b: WideRational4096) -> Ordering {
+        let mut work = PositiveRationalCmpWork::default();
+        let mut out = Ordering::Equal;
+        assert!(checked_cmp_positive_into(&a, &b, &mut work, &mut out));
+        out
+    }
+
+    #[test]
+    fn positive_rational_compare_matches_cross_products_when_they_fit() {
+        for an in 1..24 { for ad in 1..19 { for bn in 1..21 { for bd in 1..17 {
+            let a = WideRational4096::new(an, ad).unwrap();
+            let b = WideRational4096::new(bn, bd).unwrap();
+            assert_eq!(positive_cmp(a, b), (an * bd).cmp(&(bn * ad)));
+        } } } }
+    }
+
+    #[test]
+    fn positive_rational_compare_orders_the_smart113_4201_bit_products() {
+        let odd = |bit: u32| UnsignedWide4096::ONE.checked_shl(bit).unwrap()
+            .checked_add(UnsignedWide4096::ONE).unwrap();
+        let left = WideRational4096::from_words(
+            SignedWide4096::from_parts(false, odd(2206)), odd(2150)).unwrap();
+        let right = WideRational4096::from_words(
+            SignedWide4096::from_parts(false, odd(2049)), odd(1993)).unwrap();
+        assert_eq!((left.numerator.bit_len(), left.denominator.bit_len(),
+                    right.numerator.bit_len(), right.denominator.bit_len()),
+                   (2207, 2151, 2050, 1994));
+        assert_eq!(left.checked_cmp(right), None,
+                   "the generic cross-products must retain their 4096-bit refusal");
+        assert_eq!(positive_cmp(left, right), Ordering::Greater);
+    }
+
+    #[test]
+    fn positive_rational_compare_handles_integral_equal_and_inverted_steps() {
+        assert_eq!(positive_cmp(WideRational4096::new(3, 2).unwrap(),
+                                WideRational4096::new(4, 3).unwrap()), Ordering::Greater);
+        assert_eq!(positive_cmp(WideRational4096::new(8, 4).unwrap(),
+                                WideRational4096::new(2, 1).unwrap()), Ordering::Equal);
+        assert_eq!(positive_cmp(WideRational4096::new(1, 3).unwrap(),
+                                WideRational4096::new(1, 2).unwrap()), Ordering::Less);
+    }
+
+    #[test]
+    fn positive_rational_compare_refuses_nonpositive_inputs_atomically() {
+        let mut work = PositiveRationalCmpWork::default();
+        let mut out = Ordering::Greater;
+        assert!(!checked_cmp_positive_into(&WideRational4096::zero(),
+            &WideRational4096::one(), &mut work, &mut out));
+        assert_eq!(out, Ordering::Greater);
+        assert!(!checked_cmp_positive_into(&WideRational4096::new(-1, 2).unwrap(),
+            &WideRational4096::one(), &mut work, &mut out));
+        assert_eq!(out, Ordering::Greater);
+    }
+
+    fn rational_matrix() -> [WideRational4096; 12] {
+        let mut rows = [WideRational4096::zero(), WideRational4096::one(),
+            WideRational4096::new(-1, 1).unwrap(), WideRational4096::new(3, 9).unwrap(),
+            WideRational4096::new(-7, 3).unwrap(), WideRational4096::new(i128::MAX, 1).unwrap(),
+            WideRational4096::new(i128::MIN, 1).unwrap(),
+            WideRational4096::zero(), WideRational4096::zero(), WideRational4096::zero(),
+            WideRational4096::zero(), WideRational4096::zero()];
+        for (at, bit) in [31, 32, 33, 4094, 4095].into_iter().enumerate() {
+            rows[7 + at] = WideRational4096::from_words(
+                SignedWide4096::from_parts(false, UnsignedWide4096::ONE.checked_shl(bit).unwrap()),
+                UnsignedWide4096::ONE).unwrap();
+        }
+        rows
+    }
+
+    #[test]
+    fn borrowed_wide_rational_primitives_match_every_old_branch_and_refusal() {
+        let rows = rational_matrix();
+        for a in &rows { for b in &rows {
+            let mut work = [WideRational4096::zero(); WIDE_RATIONAL_WORK_SLOTS];
+            let mut output = WideRational4096::new(19, 7).unwrap();
+            let old = (*a).checked_add_divisible(*b);
+            let ok = borrowed_add_driver(a, b, &mut work, &mut output);
+            assert_eq!((ok, ok.then_some(output)), (old.is_some(), old), "add {a:?} {b:?}");
+            output = WideRational4096::new(19, 7).unwrap();
+            let old = (*a).checked_mul(*b);
+            let ok = borrowed_mul_driver(a, b, &mut work, &mut output);
+            assert_eq!((ok, ok.then_some(output)), (old.is_some(), old), "mul {a:?} {b:?}");
+            output = WideRational4096::new(19, 7).unwrap();
+            let old = (*a).checked_div(*b);
+            let ok = borrowed_div_driver(a, b, &mut work, &mut output);
+            assert_eq!((ok, ok.then_some(output)), (old.is_some(), old), "div {a:?} {b:?}");
+            let mut order = Ordering::Equal; let old = (*a).checked_cmp(*b);
+            let ok = borrowed_cmp_driver(a, b, &mut work, &mut order);
+            assert_eq!((ok, ok.then_some(order)), (old.is_some(), old), "cmp {a:?} {b:?}");
+        } }
+        for a in &rows {
+            let mut work = [WideRational4096::zero(); WIDE_RATIONAL_WORK_SLOTS];
+            let mut output = WideRational4096::new(19, 7).unwrap();
+            assert!(borrowed_neg_driver(a, &mut work, &mut output));
+            assert_eq!(Some(output), (*a).checked_neg());
+            let mut integer = 17; let old = (*a).trunc_i128();
+            let ok = borrowed_trunc_driver(a, &mut work, &mut integer);
+            assert_eq!((ok, ok.then_some(integer)), (old.is_some(), old));
+        }
+    }
+
+    #[test]
+    fn borrowed_add_canonicalizes_zero_and_nonzero_in_every_branch() {
+        let rows = [
+            ((-7, 3), (7, 3), (0, 1)), ((1, 3), (1, 3), (2, 3)),
+            ((1, 4), (1, 4), (1, 2)), ((-21, 9), (7, 3), (0, 1)),
+            ((1, 9), (1, 3), (4, 9)), ((7, 3), (-21, 9), (0, 1)),
+            ((1, 3), (1, 9), (4, 9)), ((1, 3), (1, 5), (8, 15)),
+            ((-1, 3), (1, 5), (-2, 15)),
+        ];
+        for (left, right, expected) in rows {
+            let a = WideRational4096::new(left.0, left.1).unwrap();
+            let b = WideRational4096::new(right.0, right.1).unwrap();
+            let mut work = [WideRational4096::zero(); WIDE_RATIONAL_WORK_SLOTS];
+            let mut out = WideRational4096::new(19, 7).unwrap();
+            assert!(a.checked_add_divisible_into(&b, &mut work, &mut out));
+            assert_eq!(out, WideRational4096::new(expected.0, expected.1).unwrap(),
+                       "{left:?} + {right:?}");
+            assert_eq!(out, a.checked_add_divisible(b).unwrap());
+        }
+    }
+
+    #[test]
+    fn borrowed_add_matches_old_words_refusals_and_atomic_output() {
+        let rows = rational_matrix();
+        let dirty = WideRational4096::from_words(SignedWide4096::from_parts(false,
+            UnsignedWide4096::ONE.checked_shl(4095).unwrap()), UnsignedWide4096::ONE).unwrap();
+        let sentinel = WideRational4096::new(19, 7).unwrap();
+        let mut work = [dirty; WIDE_RATIONAL_WORK_SLOTS];
+        for a in &rows { for b in &rows {
+            let old = (*a).checked_add_divisible(*b); let mut out = sentinel;
+            let ok = a.checked_add_divisible_into(b, &mut work, &mut out);
+            assert_eq!((ok, ok.then_some(out)), (old.is_some(), old), "{a:?} + {b:?}");
+            if !ok { assert_eq!(out, sentinel); }
+        }}
+        let top = dirty; let mut out = sentinel;
+        assert!(!top.checked_add_divisible_into(&top, &mut work, &mut out));
+        assert_eq!(out, sentinel);
+    }
+
+
+    #[test]
+    fn borrowed_wide_rational_outputs_are_atomic_on_every_failure() {
+        let top = WideRational4096::from_words(SignedWide4096::from_parts(false,
+            UnsignedWide4096::ONE.checked_shl(4095).unwrap()), UnsignedWide4096::ONE).unwrap();
+        let zero = WideRational4096::zero(); let sentinel = WideRational4096::new(19, 7).unwrap();
+        let mut work = [WideRational4096::zero(); WIDE_RATIONAL_WORK_SLOTS];
+        let mut output = sentinel;
+        assert!(!top.checked_mul_into(&top, &mut work, &mut output)); assert_eq!(output, sentinel);
+        assert!(!top.checked_add_divisible_into(&top, &mut work, &mut output));
+        assert_eq!(output, sentinel);
+        assert!(!top.checked_div_into(&zero, &mut work, &mut output)); assert_eq!(output, sentinel);
+    }
+
+    #[test]
+    fn borrowed_wide_rational_work_is_fixed_and_reusable_without_stale_words() {
+        let mut work = [WideRational4096::zero(); WIDE_RATIONAL_WORK_SLOTS];
+        let mut output = WideRational4096::zero();
+        for _ in 0..3 {
+            assert!(WideRational4096::new(7, 3).unwrap().checked_mul_into(
+                &WideRational4096::new(-9, 14).unwrap(), &mut work, &mut output));
+            assert_eq!(output, WideRational4096::new(7, 3).unwrap()
+                .checked_mul(WideRational4096::new(-9, 14).unwrap()).unwrap());
+        }
+        assert_eq!(work.len(), WIDE_RATIONAL_WORK_SLOTS);
+    }
+
+    #[test]
+    fn borrowed_division_keeps_reciprocal_in_slot_seven_without_aggregate_copies() {
+        let a = WideRational4096::new(-35, 18).unwrap();
+        let b = WideRational4096::new(-14, 15).unwrap();
+        let mut work = [WideRational4096::from_words(SignedWide4096::from_parts(false,
+            UnsignedWide4096::ONE.checked_shl(4095).unwrap()), UnsignedWide4096::ONE).unwrap();
+            WIDE_RATIONAL_WORK_SLOTS];
+        let sentinel = WideRational4096::new(19, 7).unwrap(); let mut output = sentinel;
+        let old = a.checked_div(b).unwrap();
+        assert!(a.checked_div_into(&b, &mut work, &mut output));
+        assert_eq!(output, old);
+        assert_eq!(work[7].numerator.negative, b.numerator.negative);
+        assert_eq!(work[7].numerator.magnitude, b.denominator);
+        assert_eq!(work[7].denominator, b.numerator.magnitude);
+        output = sentinel;
+        assert!(a.checked_div_into(&b, &mut work, &mut output));
+        assert_eq!(output, old);
+        let zero = WideRational4096::zero(); output = sentinel;
+        assert!(!a.checked_div_into(&zero, &mut work, &mut output));
+        assert_eq!(output, sentinel);
+    }
+
+    #[test]
+    fn borrowed_wide_rational_primitives_allocate_nothing() {
+        assert_eq!(core::mem::size_of::<[WideRational4096; WIDE_RATIONAL_WORK_SLOTS]>(),
+                   core::mem::size_of::<WideRational4096>() * WIDE_RATIONAL_WORK_SLOTS);
+    }
 
     #[test]
     fn signed_small_domain_matches_i32_arithmetic_and_toward_zero_division() {

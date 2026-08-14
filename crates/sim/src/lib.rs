@@ -112,7 +112,10 @@ pub use combat::resolution::{contact_behavior_corpus, ResolutionError, CONTACT_E
 pub use combat::resolution::{ExactContactGroupDiagnostic, ExactContactKeyDiagnostic,
     ExactContactRejectPhase, ExactContactRejectionDiagnostic, ExactSolveGroupRejectDetail,
     ExactWideComparisonDiagnostic, ExactWidePrimitiveDiagnostic, ExactWideToiDiagnostic,
-    ExactCompatibilityPrimitiveDiagnostic, ExactCompatibilitySweepDiagnostic};
+    ExactCompatibilityPrimitiveDiagnostic, ExactCompatibilitySweepDiagnostic,
+    ExactScanPairRejectionDiagnostic, ExactScanShapeDiagnostic,
+    ExactScanBranchDiagnostic, ExactScanRejectDiagnostic,
+    ExactSegmentBodyProgressDiagnostic};
 /// The contact capacity vocabulary, which the browser needs even though the
 /// solver stays private: the host reserves the high water before it hands the
 /// page a pointer, and has to be able to say which count refused.
@@ -166,5 +169,3 @@ pub use world::{Outcome, ShotView, Snapshot, SpawnError, UnitView, World, WorldB
 pub use world::ExactLatticeEnvelope;
 #[cfg(feature = "cartesian-recoil")]
 pub use world::{ExactExternalEnergyRow, RecoilExternalEnergy};
-#[cfg(feature = "cartesian-recoil")]
-pub use world::PostContactProvenanceDiagnostic;

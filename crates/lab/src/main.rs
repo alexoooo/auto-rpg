@@ -25,7 +25,7 @@ use args::Args;
 use evolve::{describe, evolve, Arena, EvolveConfig};
 use fitness::{fitness, Summary, Tally};
 use trace::{FightTrace, TraceRun};
-use fx::{Fx, Vec2};
+use fx::{Fx, Hash64, Vec2};
 use policy::{
     run, script_digest, ArmRoles, ArticulatedPolicy, ClosingAttackControlPolicy, PolicyKind,
     RunConfig, RunResult, ScriptedArticulatedPolicy, TacticalArticulatedPolicy,
@@ -1082,6 +1082,222 @@ fn articulated_trials(
         .collect()
 }
 
+const TACTICAL_COMPETENCE_SEEDS: u64 = 50;
+const TACTICAL_COMPETENCE_TICKS: u32 = 1_800;
+const TACTICAL_COMPETENCE_THRESHOLD: usize = 95;
+
+/// The competence receipt is a frozen experiment, not another configurable
+/// articulated run. A rejected spelling is named before any world is built so
+/// a command that looks like the gate can never silently measure another one.
+fn competence_override(args: &Args) -> Option<&'static str> {
+    [
+        "seed", "seeds", "ticks", "policy", "opponent", "attack-moves",
+        "threshold", "mirrored", "threads", "seed-zero-only",
+    ]
+    .into_iter()
+    .find(|key| args.flag(key) || args.text(key).is_some())
+}
+
+fn competence_seeds() -> Vec<u64> {
+    (0..TACTICAL_COMPETENCE_SEEDS).collect()
+}
+
+fn counts_as_body_decision(timed_out: bool) -> bool {
+    !timed_out
+}
+
+fn competence_passes(body_decisions: usize, refused: u64, solver_rejections: u64) -> bool {
+    body_decisions >= TACTICAL_COMPETENCE_THRESHOLD
+        && refused == 0
+        && solver_rejections == 0
+}
+
+fn competence_digest(rows: &[ArticulatedTrial]) -> u64 {
+    let mut hash = Hash64::new();
+    hash.write_bytes(b"ARPG-TACTICAL-COMPETENCE-V1");
+    for row in rows {
+        hash.write_u64(row.seed);
+        hash.write_u64(row.digest);
+    }
+    hash.finish()
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Debug)]
+struct FirstCompetenceRejection {
+    mirrored: bool,
+    tick_before: u32, tick_after: u32,
+    rejection_before: u32, rejection_after: u32,
+    exact: Option<sim::ExactContactRejectionDiagnostic>,
+    pair: Option<sim::ExactScanPairRejectionDiagnostic>,
+    policy: [Option<policy::StrikeDiagnostics>; 2],
+    offered: [Option<sim::ArticulatedCommandV1>; 2],
+    stored: [Option<sim::ArticulatedCommandV1>; 2],
+    decision_calls: [u32; 2], steps: u32,
+    command_digest: u64,
+    state: StateDigest,
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn first_competence_rejection(mut scenario: Scenario, mirrored: bool)
+    -> Option<FirstCompetenceRejection>
+{
+    scenario.max_ticks = TACTICAL_COMPETENCE_TICKS;
+    let mut world = World::new(&scenario, 0);
+    let heroes = world.alive_ids(Faction::Heroes);
+    let mut policies = [TacticalArticulatedPolicy::default(),
+                        TacticalArticulatedPolicy::default()];
+    policies[0].reset(); policies[1].reset();
+    let mut stream = Vec::new();
+    let mut latest_policy = [None; 2];
+    let mut latest_offered = [None; 2];
+    let mut latest_stored = [None; 2];
+    let mut decision_calls = [0u32; 2];
+    let mut steps = 0u32;
+    while world.outcome().is_none() && world.tick() < TACTICAL_COMPETENCE_TICKS {
+        for id in world.pending_decisions().to_vec() {
+            let side = usize::from(!heroes.contains(&id));
+            let observation = world.observe_articulated(id);
+            let command = policies[side].decide(&observation);
+            decision_calls[side] += 1;
+            latest_policy[side] = Some(policies[side].diagnostics());
+            latest_offered[side] = Some(command);
+            match world.submit_articulated_v1(id, command) {
+                SubmitArticulatedOutcome::Stored { command, rejection } => {
+                    assert!(rejection.is_none(), "Smart103 recorded zero command refusals");
+                    stream.push(SubmittedCommandRecord { tick: world.tick(), entity: id,
+                        command: SubmittedCommand::Articulated(command) });
+                    latest_stored[side] = Some(command);
+                }
+                SubmitArticulatedOutcome::NotStored(rejection) =>
+                    panic!("Smart103 command unexpectedly refused: {rejection:?}"),
+            }
+        }
+        let tick_before = world.tick();
+        let rejection_before = world.contact_solver_rejections();
+        let _ = world.step();
+        steps += 1;
+        let rejection_after = world.contact_solver_rejections();
+        if rejection_after > rejection_before {
+            return Some(FirstCompetenceRejection {
+                mirrored, tick_before, tick_after: world.tick(),
+                rejection_before, rejection_after,
+                exact: world.first_exact_contact_rejection(),
+                pair: world.exact_scan_pair_rejection(),
+                policy: latest_policy, offered: latest_offered, stored: latest_stored,
+                decision_calls, steps,
+                command_digest: script_digest(&stream), state: world.state_digest(),
+            });
+        }
+    }
+    None
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn run_competence_rejection_provenance() {
+    let canonical = first_competence_rejection(Scenario::articulated_duel(), false);
+    let mirrored = first_competence_rejection(mirrored_articulated_duel(), true);
+    for row in [canonical, mirrored] {
+        match row {
+            Some(row) => {
+                println!("orientation={} tick={}->{} rejections={}->{}",
+                    if row.mirrored { "mirrored" } else { "canonical" },
+                    row.tick_before, row.tick_after, row.rejection_before, row.rejection_after);
+                println!("exact={:?}", row.exact);
+                println!("pair={:?}", row.pair);
+                println!("policy={:?}", row.policy);
+                println!("offered={:?}", row.offered);
+                println!("stored={:?}", row.stored);
+                println!("calls decisions={:?} steps={}", row.decision_calls, row.steps);
+                println!("receipts command=0x{:016x} state={:?}/{}/0x{:016x}",
+                    row.command_digest, row.state.domain, row.state.schema, row.state.value);
+            }
+            None => println!("orientation=no-rejection"),
+        }
+    }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn run_tactical_competence_gate() {
+    let seeds = competence_seeds();
+    let mut canonical_scenario = Scenario::articulated_duel();
+    canonical_scenario.max_ticks = TACTICAL_COMPETENCE_TICKS;
+    let mut mirrored_scenario = mirrored_articulated_duel();
+    mirrored_scenario.max_ticks = TACTICAL_COMPETENCE_TICKS;
+
+    let started = Instant::now();
+    let canonical = articulated_trials(
+        &canonical_scenario, &seeds, default_threads(), Script::Tactical);
+    let mirrored = articulated_trials(
+        &mirrored_scenario, &seeds, default_threads(), Script::Tactical);
+    let elapsed = started.elapsed();
+    let all: Vec<&ArticulatedTrial> = canonical.iter().chain(mirrored.iter()).collect();
+
+    let canonical_body = canonical.iter().filter(|row| counts_as_body_decision(row.timed_out)).count();
+    let mirrored_body = mirrored.iter().filter(|row| counts_as_body_decision(row.timed_out)).count();
+    let body_decisions = canonical_body + mirrored_body;
+    let mut outcomes = [0usize; 5];
+    let mut contacts = 0u64;
+    let mut kinds = [0u64; 3];
+    let mut refused = 0u64;
+    let mut solver_rejections = 0u64;
+    let mut worst_decision_tick = 0u32;
+    for row in all {
+        let outcome = match row.outcome {
+            Outcome::HeroesWin => 0,
+            Outcome::MonstersWin => 1,
+            Outcome::MutualDestruction => 2,
+            Outcome::Decision(_) => 3,
+            Outcome::Draw => 4,
+        };
+        outcomes[outcome] += 1;
+        contacts += row.contacts;
+        for kind in 0..kinds.len() {
+            kinds[kind] += row.kinds[kind];
+        }
+        refused += row.rejected as u64;
+        solver_rejections += row.solver_rejections as u64;
+        if counts_as_body_decision(row.timed_out) {
+            worst_decision_tick = worst_decision_tick.max(row.ticks);
+        }
+    }
+
+    println!(
+        "tactical competence: seeds 0..{} x 2 orientations = {} trials, tick cap {}, threshold {}/100",
+        TACTICAL_COMPETENCE_SEEDS, canonical.len() + mirrored.len(),
+        TACTICAL_COMPETENCE_TICKS, TACTICAL_COMPETENCE_THRESHOLD,
+    );
+    println!(
+        "body decisions: {canonical_body}/50 canonical, {mirrored_body}/50 mirrored, {body_decisions}/100 total"
+    );
+    println!(
+        "outcomes: {} fighter, {} brute, {} mutual, {} points, {} draw",
+        outcomes[0], outcomes[1], outcomes[2], outcomes[3], outcomes[4],
+    );
+    println!(
+        "contacts: {contacts} total, {} weapon/weapon, {} weapon/shield, {} weapon/body",
+        kinds[ContactKind::WeaponWeapon as usize],
+        kinds[ContactKind::WeaponShield as usize],
+        kinds[ContactKind::WeaponBody as usize],
+    );
+    println!(
+        "authority: worst body-decision tick {worst_decision_tick}, {refused} refused submissions, {solver_rejections} solver-rejected ticks"
+    );
+    println!(
+        "command receipts: canonical 0x{:016x}, mirrored 0x{:016x}",
+        competence_digest(&canonical), competence_digest(&mirrored),
+    );
+    println!("wall: {} ms", elapsed.as_millis());
+    println!(
+        "{}",
+        if competence_passes(body_decisions, refused, solver_rejections) {
+            "pass"
+        } else {
+            "revise"
+        }
+    );
+}
+
 /// The scripted mechanical measurement, and **only** the measurement.
 ///
 /// It prints no verdict and asserts no threshold, which is the whole design of
@@ -1097,6 +1313,28 @@ fn articulated_trials(
 /// apart, so both controls run through this same loop and print the same
 /// columns.
 fn articulated(args: &Args) {
+    if args.flag("competence-rejection-provenance") {
+        if let Some(key) = competence_override(args) {
+            eprintln!("articulated --competence-rejection-provenance accepts no --{key} override");
+            std::process::exit(2);
+        }
+        #[cfg(feature = "cartesian-recoil")]
+        run_competence_rejection_provenance();
+        #[cfg(not(feature = "cartesian-recoil"))]
+        eprintln!("articulated --competence-rejection-provenance requires --features cartesian-recoil");
+        return;
+    }
+    if args.flag("competence-gate") {
+        if let Some(key) = competence_override(args) {
+            eprintln!("articulated --competence-gate accepts no --{key} override");
+            std::process::exit(2);
+        }
+        #[cfg(feature = "cartesian-recoil")]
+        run_tactical_competence_gate();
+        #[cfg(not(feature = "cartesian-recoil"))]
+        eprintln!("articulated --competence-gate requires --features cartesian-recoil");
+        return;
+    }
     let count = args.u32("seeds", 400) as u64;
     let threads = args.usize("threads", default_threads());
     let seeds: Vec<u64> = if args.flag("seed-zero-only") {
@@ -1638,6 +1876,160 @@ fn trace_fight(args: &Args) {
 mod tests {
     use super::*;
 
+    #[cfg(feature = "cartesian-recoil")]
+    #[derive(Clone, PartialEq, Eq, Debug)]
+    struct Smart116ControlReceipt {
+        mirrored: bool,
+        attempts: u32,
+        stored: u32,
+        decisions: [u32; 2],
+        steps: u32,
+        final_tick: u32,
+        solver_rejections: u32,
+        exact: Option<sim::ExactContactRejectionDiagnostic>,
+        pair: Option<sim::ExactScanPairRejectionDiagnostic>,
+        command_digest: u64,
+        state_domain: sim::HashDomain,
+        state_schema: u16,
+        state_value: u64,
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    fn smart116_control(mut scenario: Scenario, mirrored: bool) -> Smart116ControlReceipt {
+        // These are the two retired Smart103/106 refusal boundaries, not a
+        // competence run. Canonical has a separately owned later solver
+        // refusal, so extending this receipt to 1,800 would conflate laws.
+        let limit = if mirrored { 111 } else { 211 };
+        scenario.max_ticks = limit;
+        let mut world = World::new(&scenario, 0);
+        let heroes = world.alive_ids(Faction::Heroes);
+        let mut policies = [TacticalArticulatedPolicy::default(),
+                            TacticalArticulatedPolicy::default()];
+        policies[0].reset(); policies[1].reset();
+        let mut stream = Vec::new();
+        let mut attempts = 0u32; let mut stored = 0u32;
+        let mut decisions = [0u32; 2]; let mut steps = 0u32;
+        while world.outcome().is_none() && world.tick() < limit {
+            for id in world.pending_decisions().to_vec() {
+                let side = usize::from(!heroes.contains(&id));
+                let command = policies[side].decide(&world.observe_articulated(id));
+                attempts += 1; decisions[side] += 1;
+                match world.submit_articulated_v1(id, command) {
+                    SubmitArticulatedOutcome::Stored { command: accepted, rejection } => {
+                        assert!(rejection.is_none());
+                        assert_eq!(accepted, command);
+                        stored += 1;
+                        stream.push(SubmittedCommandRecord { tick: world.tick(), entity: id,
+                            command: SubmittedCommand::Articulated(accepted) });
+                    }
+                    SubmitArticulatedOutcome::NotStored(rejection) =>
+                        panic!("Smart116 command unexpectedly refused: {rejection:?}"),
+                }
+            }
+            let _ = world.step(); steps += 1;
+        }
+        let state = world.state_digest();
+        Smart116ControlReceipt {
+            mirrored, attempts, stored, decisions, steps, final_tick: world.tick(),
+            solver_rejections: world.contact_solver_rejections(),
+            exact: world.first_exact_contact_rejection(),
+            pair: world.exact_scan_pair_rejection(),
+            command_digest: script_digest(&stream),
+            state_domain: state.domain, state_schema: state.schema, state_value: state.value,
+        }
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    fn smart116_serial_controls() -> &'static [Smart116ControlReceipt; 2] {
+        static ROWS: std::sync::OnceLock<[Smart116ControlReceipt; 2]> =
+            std::sync::OnceLock::new();
+        ROWS.get_or_init(|| [
+            smart116_control(Scenario::articulated_duel(), false),
+            smart116_control(mirrored_articulated_duel(), true),
+        ])
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn old_smart103_and_smart106_boundaries_now_complete_without_refusal_or_diagnostics() {
+        let rows = smart116_serial_controls();
+        assert_eq!((rows[0].steps, rows[1].steps), (211, 111));
+        assert!(rows.iter().all(|row| row.solver_rejections == 0
+            && row.exact.is_none() && row.pair.is_none()));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn tactical_control_submits_every_command_and_steps_each_tick_once() {
+        for row in smart116_serial_controls() {
+            assert_eq!(row.attempts, row.stored);
+            assert_eq!(row.attempts, row.decisions[0] + row.decisions[1]);
+            assert_eq!(row.steps, row.final_tick);
+            assert!(row.command_digest != 0 && row.state_value != 0);
+        }
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn tactical_control_receipts_ignore_thread_completion_order() {
+        let canonical = std::thread::spawn(||
+            smart116_control(Scenario::articulated_duel(), false));
+        let mirrored = std::thread::spawn(||
+            smart116_control(mirrored_articulated_duel(), true));
+        assert_eq!([canonical.join().unwrap(), mirrored.join().unwrap()],
+                   *smart116_serial_controls());
+    }
+
+    #[test]
+    fn tactical_competence_is_exactly_fifty_mirrored_seed_pairs() {
+        let seeds = competence_seeds();
+        assert_eq!(seeds.len(), 50);
+        assert_eq!((seeds.first(), seeds.last()), (Some(&0), Some(&49)));
+        assert_eq!(seeds.len() * 2, 100);
+        assert_eq!(TACTICAL_COMPETENCE_TICKS, 1_800);
+    }
+
+    #[test]
+    fn a_points_decision_at_tick_1800_does_not_count_as_a_body_decision() {
+        // `measure_articulated_matchup` records this bit before `World::timeout`
+        // turns the score into `Outcome::Decision`; the outcome name therefore
+        // cannot accidentally make a clock decision count as a body decision.
+        assert!(!counts_as_body_decision(true));
+        assert!(counts_as_body_decision(false));
+        assert_eq!(TACTICAL_COMPETENCE_TICKS, 1_800);
+    }
+
+    #[test]
+    fn competence_gate_refuses_every_measurement_changing_override() {
+        for (key, value) in [
+            ("seed", Some("3")), ("seeds", Some("50")),
+            ("ticks", Some("1800")), ("policy", Some("tactical")),
+            ("opponent", Some("brute")), ("attack-moves", None),
+            ("threshold", Some("95")), ("mirrored", None),
+            ("threads", Some("1")), ("seed-zero-only", None),
+        ] {
+            let mut tokens = vec!["articulated".to_string(), "--competence-gate".to_string(),
+                                  format!("--{key}")];
+            if let Some(value) = value {
+                tokens.push(value.to_string());
+            }
+            let args = Args::parse(tokens);
+            assert_eq!(competence_override(&args), Some(key), "--{key}");
+        }
+        let gate = Args::parse(vec!["articulated".into(), "--competence-gate".into()]);
+        assert_eq!(competence_override(&gate), None);
+    }
+
+    #[test]
+    fn competence_gate_threshold_is_95_of_100_and_cannot_round_down() {
+        assert!(!competence_passes(94, 0, 0));
+        assert!(competence_passes(95, 0, 0));
+        assert!(competence_passes(100, 0, 0));
+        assert!(!competence_passes(100, 1, 0));
+        assert!(!competence_passes(100, 0, 1));
+        assert_eq!(TACTICAL_COMPETENCE_THRESHOLD, 95);
+    }
+
     #[test]
     fn a_traced_run_is_the_run_the_gate_measured() {
         // The recorder is an observer and the fight must not be able to tell it
@@ -1969,16 +2361,17 @@ mod tests {
         assert_eq!(composed.digest, script_digest(&replay.submitted_entries));
     }
 
+    #[cfg(not(feature = "cartesian-recoil"))]
     #[test]
-    fn a_zero_energy_excess_is_only_evidence_while_the_solver_refuses_nothing() {
+    fn zero_created_energy_excess_and_intentional_refusals_are_separate_evidence() {
         // **The correction this command exists to record, and it is not
         // hypothetical.** `max_energy_excess` is computed over published rows;
         // a group that creates energy is precisely a group whose rows
         // `World::resolve_contact` deletes before anyone can publish them. So
         // the field cannot report anything but zero, and until this test was
         // written that zero was on its way into a committed evidence artifact
-        // as proof of soundness. The two numbers only mean anything together,
-        // which is why they are asserted together and reported side by side.
+        // as proof of soundness. The rejection cause is therefore pinned beside
+        // it instead of treating every refusal as evidence of created energy.
         //
         // Written first as `solver_rejections > 0`, because that was the state
         // of the tree: the fixture refused roughly two hundred of its 3,600
@@ -1988,18 +2381,24 @@ mod tests {
         // map at every alpha including zero, and the drift read as created
         // energy -- and this assertion is its gate, inverted rather than
         // deleted so that the direction it was inverted from stays on the
-        // record. A refusal reappearing here is a projector defect and not a
-        // threshold to relax.
+        // record. Smart102 then separated that law from the windmill's one
+        // intentional `EnergyNumerator` refusal: its two-contact group loses one
+        // raw unit while both allocation weights are zero, so refusing is the
+        // only honest result. Composed and closing do not reach that boundary.
         for script in [Script::Composed, Script::Windmill, Script::ClosingAttacks] {
             let trial = measure_articulated(&Scenario::articulated_duel(), 5, script);
             assert!(trial.contacts > 0, "{}: nothing touched", script.name());
             assert_eq!(trial.max_energy_excess, 0, "{}", script.name());
+            let expected = match script {
+                Script::Windmill => (1, Some(sim::ResolutionError::EnergyNumerator)),
+                Script::Composed | Script::ClosingAttacks => (0, None),
+                Script::Tactical => unreachable!("the tactical script is not this control"),
+            };
             assert_eq!(
-                trial.solver_rejections, 0,
-                "{}: the solver refused a tick, so the zero above audits nothing",
+                (trial.solver_rejections, trial.first_rejection), expected,
+                "{}: the refusal count and its law changed independently",
                 script.name()
             );
-            assert_eq!(trial.first_rejection, None, "{}", script.name());
         }
     }
 }

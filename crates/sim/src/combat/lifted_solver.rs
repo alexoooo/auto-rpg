@@ -11,8 +11,8 @@
 use core::cmp::Ordering;
 
 use crate::combat::contact::{ContactFact, ContactResolution};
-use crate::combat::trajectory::{apply_exact_group, ExactAffine3, ExactContactTrajectory,
-    ExactOwnerTrajectory, FixedExactOwners};
+use crate::combat::trajectory::{apply_exact_group_into, ExactAffine3, ExactContactTrajectory,
+    ExactOwnerTrajectory, ExactTrajectoryWork, MAX_EXACT_OWNERS};
 use crate::combat::resolution::{exact_physical_energy_delta, ExactPhysicalEnergyDelta};
 use crate::combat::contact::{ContactImpulse, EnergyLedger};
 use fx::{Fx, Vec3};
@@ -89,20 +89,38 @@ struct LiftedCandidate {
     score: CandidateScore,
 }
 
-#[derive(Clone)]
 pub(crate) struct LiftedSolverScratch {
     impulses: Vec<LiftedImpulse>,
     trial_rows: Vec<ContactResolution>,
     trial_velocities: Vec<[WideRational4096; 3]>,
     candidates: Vec<LiftedCandidate>,
     normal_candidates: Vec<LiftedCandidate>,
-    trial_owners: Option<FixedExactOwners>,
+    trajectory_work: ExactTrajectoryWork,
+    accepted_owner_stage: Vec<ExactOwnerTrajectory>,
 }
 
 impl Default for LiftedSolverScratch {
     fn default() -> Self {
         Self { impulses: Vec::new(), trial_rows: Vec::new(), trial_velocities: Vec::new(),
-               candidates: Vec::new(), normal_candidates: Vec::new(), trial_owners: None }
+               candidates: Vec::new(), normal_candidates: Vec::new(),
+               trajectory_work: ExactTrajectoryWork::default(), accepted_owner_stage: Vec::new() }
+    }
+}
+
+impl Clone for LiftedSolverScratch {
+    fn clone(&self) -> Self {
+        let mut cloned = Self::default();
+        cloned.try_reserve().expect("cloning reserved lifted scratch must reserve its bounds");
+        cloned.impulses.extend_from_slice(&self.impulses);
+        cloned.trial_rows.extend_from_slice(&self.trial_rows);
+        cloned.trial_velocities.extend_from_slice(&self.trial_velocities);
+        cloned.candidates.extend_from_slice(&self.candidates);
+        cloned.normal_candidates.extend_from_slice(&self.normal_candidates);
+        cloned.trajectory_work = self.trajectory_work.clone();
+        cloned.trajectory_work.try_reserve()
+            .expect("cloning exact trajectory work must reserve its bounds");
+        cloned.accepted_owner_stage.extend_from_slice(&self.accepted_owner_stage);
+        cloned
     }
 }
 
@@ -118,12 +136,17 @@ impl LiftedSolverScratch {
                    LiftedSolverReject::CandidateEnvelope)?;
         reserve_to(&mut self.normal_candidates, LIFTED_LIFTS_PER_VISIT,
                    LiftedSolverReject::CandidateEnvelope)?;
+        self.trajectory_work.try_reserve().map_err(|_| LiftedSolverReject::RowEnvelope)?;
+        reserve_to(&mut self.accepted_owner_stage, MAX_EXACT_OWNERS,
+                   LiftedSolverReject::RowEnvelope)?;
         Ok(())
     }
 
-    pub(crate) fn capacities(&self) -> [usize; 5] {
+    pub(crate) fn capacities(&self) -> [usize; 9] {
         [self.impulses.capacity(), self.trial_rows.capacity(), self.trial_velocities.capacity(),
-         self.candidates.capacity(), self.normal_candidates.capacity()]
+         self.candidates.capacity(), self.normal_candidates.capacity(),
+         self.trajectory_work.capacities()[0], self.trajectory_work.capacities()[1],
+         self.trajectory_work.capacities()[2], self.accepted_owner_stage.capacity()]
     }
 
     pub(crate) fn selected_rows(&self) -> &[ContactResolution] { &self.trial_rows }
@@ -190,7 +213,8 @@ fn trial(
     contacts: &[LiftedContact], impulses: &[LiftedImpulse], time_raw: u32,
     motor: &[[i32; 3]], rows: &mut Vec<ContactResolution>,
     velocities: &mut Vec<[WideRational4096; 3]>,
-) -> Result<FixedExactOwners, LiftedSolverReject> {
+    work: &mut ExactTrajectoryWork,
+) -> Result<(), LiftedSolverReject> {
     rows.clear();
     for (contact, impulse) in contacts.iter().zip(impulses) {
         let on_a = Vec3::new(Fx::from_raw(impulse.raw[0]), Fx::from_raw(impulse.raw[1]),
@@ -200,22 +224,22 @@ fn trial(
                 on_a, on_b: -on_a }, energy: EnergyLedger::default(), cut_raw: 0,
             thrust_raw: 0, pressure_raw: 0, deflected_raw: 0, severed: false });
     }
-    let outcome = apply_exact_group(trajectories, owners, rows, time_raw)
+    apply_exact_group_into(trajectories, owners, rows, time_raw, work)
         .map_err(|_| LiftedSolverReject::ArithmeticEnvelope)?;
     velocities.clear();
     for (at, contact) in contacts.iter().enumerate() {
         let a = trajectories[contact.a_trajectory];
         let b = trajectories[contact.b_trajectory];
-        let va = response_velocity(a, outcome.owners.get(a.owner_index)
-            .map_err(|_| LiftedSolverReject::Identity)?, motor[contact.a_trajectory])?;
-        let vb = response_velocity(b, outcome.owners.get(b.owner_index)
-            .map_err(|_| LiftedSolverReject::Identity)?, motor[contact.b_trajectory])?;
+        let va = response_velocity(a, *work.owner_stage.get(a.owner_index)
+            .ok_or(LiftedSolverReject::Identity)?, motor[contact.a_trajectory])?;
+        let vb = response_velocity(b, *work.owner_stage.get(b.owner_index)
+            .ok_or(LiftedSolverReject::Identity)?, motor[contact.b_trajectory])?;
         let mut relative = [WideRational4096::zero(); 3];
         for axis in 0..3 { relative[axis] = sub(vb[axis], va[axis])?; }
         if at != velocities.len() { return Err(LiftedSolverReject::Identity); }
         velocities.push(relative);
     }
-    Ok(outcome.owners)
+    Ok(())
 }
 
 fn constraints_hold(contact: LiftedContact, impulse: LiftedImpulse,
@@ -223,15 +247,15 @@ fn constraints_hold(contact: LiftedContact, impulse: LiftedImpulse,
     Ok(circular_cone(contact, impulse)? && restitution_holds(contact, velocity)?)
 }
 
-fn retain_dissipative_trial(energy: ExactPhysicalEnergyDelta, owners: FixedExactOwners,
-                            scratch: &mut LiftedSolverScratch)
+fn retain_dissipative_trial(energy: ExactPhysicalEnergyDelta, scratch: &mut LiftedSolverScratch)
     -> Result<(), LiftedSolverReject>
 {
     if energy.signed.checked_cmp(WideRational4096::zero())
         .ok_or(LiftedSolverReject::ArithmeticEnvelope)? == Ordering::Greater {
         return Err(LiftedSolverReject::NoDissipativeCandidate);
     }
-    scratch.trial_owners = Some(owners);
+    core::mem::swap(&mut scratch.trajectory_work.owner_stage,
+                    &mut scratch.accepted_owner_stage);
     Ok(())
 }
 
@@ -509,7 +533,8 @@ pub(crate) fn solve_lifted_group(
                     attempt[visit] = word;
                     match trial(trajectories, owners, facts,
                         &attempt[..facts.len()], time_raw, motor_velocities,
-                        &mut scratch.trial_rows, &mut scratch.trial_velocities) {
+                        &mut scratch.trial_rows, &mut scratch.trial_velocities,
+                        &mut scratch.trajectory_work) {
                         Ok(_) => {}
                         Err(LiftedSolverReject::ArithmeticEnvelope) => {
                             high = mid; continue 'normal_search;
@@ -537,7 +562,8 @@ pub(crate) fn solve_lifted_group(
                     attempt[visit] = word;
                     match trial(trajectories, owners, facts,
                         &attempt[..facts.len()], time_raw, motor_velocities,
-                        &mut scratch.trial_rows, &mut scratch.trial_velocities) {
+                        &mut scratch.trial_rows, &mut scratch.trial_velocities,
+                        &mut scratch.trajectory_work) {
                         Ok(_) => {}
                         Err(LiftedSolverReject::ArithmeticEnvelope) => continue,
                         Err(error) => return Err(error),
@@ -569,7 +595,8 @@ pub(crate) fn solve_lifted_group(
             // remains the sole admissibility test.
             trial(trajectories, owners, facts,
                 &selected[..facts.len()], time_raw, motor_velocities,
-                &mut scratch.trial_rows, &mut scratch.trial_velocities)?;
+                &mut scratch.trial_rows, &mut scratch.trial_velocities,
+                &mut scratch.trajectory_work)?;
             let n = [facts[visit].fact.normal.x.raw(), facts[visit].fact.normal.y.raw(),
                      facts[visit].fact.normal.z.raw()];
             let n2 = dot_i32(n, n)?;
@@ -600,7 +627,8 @@ pub(crate) fn solve_lifted_group(
                     let mut attempt = selected; attempt[visit] = word;
                     match trial(trajectories, owners, facts,
                         &attempt[..facts.len()], time_raw, motor_velocities,
-                        &mut scratch.trial_rows, &mut scratch.trial_velocities) {
+                        &mut scratch.trial_rows, &mut scratch.trial_velocities,
+                        &mut scratch.trajectory_work) {
                         Ok(_) => {}
                         Err(LiftedSolverReject::ArithmeticEnvelope) => {
                             zero_high = mid; continue 'zero_search;
@@ -649,7 +677,8 @@ pub(crate) fn solve_lifted_group(
                     let mut attempt = selected; attempt[visit] = word;
                     match trial(trajectories, owners, facts,
                         &attempt[..facts.len()], time_raw, motor_velocities,
-                        &mut scratch.trial_rows, &mut scratch.trial_velocities) {
+                        &mut scratch.trial_rows, &mut scratch.trial_velocities,
+                        &mut scratch.trajectory_work) {
                         Ok(_) => {}
                         Err(LiftedSolverReject::ArithmeticEnvelope) => continue,
                         Err(error) => return Err(error),
@@ -673,16 +702,18 @@ pub(crate) fn solve_lifted_group(
         }
     }
 
-    let final_owners = trial(trajectories, owners, facts, &selected[..facts.len()], time_raw,
-        motor_velocities, &mut scratch.trial_rows, &mut scratch.trial_velocities)?;
+    trial(trajectories, owners, facts, &selected[..facts.len()], time_raw,
+        motor_velocities, &mut scratch.trial_rows, &mut scratch.trial_velocities,
+        &mut scratch.trajectory_work)?;
     for at in 0..facts.len() {
         if !constraints_hold(facts[at], selected[at], scratch.trial_velocities[at])? {
             return Err(LiftedSolverReject::NoRestitutionCandidate);
         }
     }
     let energy = exact_physical_energy_delta(trajectories, physical_rows, owners,
-        &final_owners, motor_velocities).map_err(|_| LiftedSolverReject::ArithmeticEnvelope)?;
-    retain_dissipative_trial(energy, final_owners, scratch)?;
+        &scratch.trajectory_work.owner_stage, motor_velocities)
+        .map_err(|_| LiftedSolverReject::ArithmeticEnvelope)?;
+    retain_dissipative_trial(energy, scratch)?;
     Ok(LiftedGroup { impulses: selected, len: facts.len(),
         signed_energy_delta: energy.signed, loss_raw: energy.loss_raw })
 }
@@ -784,11 +815,13 @@ mod tests {
         let impulse = solved.impulses[0].raw;
         assert!(impulse[0] < 0 && impulse[1] == 0 && impulse[2] == 0);
         trial(&rows, &owners, &facts, &solved.impulses[..1], 0, &motor,
-              &mut scratch.trial_rows, &mut scratch.trial_velocities).unwrap();
+              &mut scratch.trial_rows, &mut scratch.trial_velocities,
+              &mut scratch.trajectory_work).unwrap();
         assert!(restitution_holds(facts[0], scratch.trial_velocities[0]).unwrap());
         let mut predecessor = solved.impulses[0]; predecessor.raw[0] += 1;
         trial(&rows, &owners, &facts, &[predecessor], 0, &motor,
-              &mut scratch.trial_rows, &mut scratch.trial_velocities).unwrap();
+              &mut scratch.trial_rows, &mut scratch.trial_velocities,
+              &mut scratch.trajectory_work).unwrap();
         assert!(!restitution_holds(facts[0], scratch.trial_velocities[0]).unwrap());
     }
 
@@ -808,19 +841,121 @@ mod tests {
     }
 
     #[test]
-    fn an_energy_increasing_selection_refuses_without_owner_or_capacity_mutation() {
+    fn a_positive_energy_trial_leaves_the_prior_accepted_owner_stage_unchanged() {
         let entity = EntityId::new(9, 0);
-        let prior = FixedExactOwners::from_slice(&[owner(entity, false)]).unwrap();
-        let candidate = FixedExactOwners::from_slice(&[owner(EntityId::new(10, 0), false)])
-            .unwrap();
         let mut scratch = LiftedSolverScratch::default(); scratch.try_reserve().unwrap();
-        scratch.trial_owners = Some(prior.clone());
+        scratch.accepted_owner_stage.push(owner(entity, false));
+        scratch.trajectory_work.owner_stage
+            .push(owner(EntityId::new(10, 0), false));
+        let prior = scratch.accepted_owner_stage.clone();
+        let accepted_pointer = scratch.accepted_owner_stage.as_ptr();
         let capacities = scratch.capacities();
         let increasing = ExactPhysicalEnergyDelta { signed: r(1, 3), loss_raw: 0 };
-        assert_eq!(retain_dissipative_trial(increasing, candidate, &mut scratch),
+        assert_eq!(retain_dissipative_trial(increasing, &mut scratch),
                    Err(LiftedSolverReject::NoDissipativeCandidate));
-        assert_eq!(scratch.trial_owners, Some(prior));
+        assert_eq!(scratch.accepted_owner_stage, prior);
+        assert_eq!(scratch.accepted_owner_stage.as_ptr(), accepted_pointer);
         assert_eq!(scratch.capacities(), capacities);
+    }
+
+    #[test]
+    fn retained_lifted_trial_matches_every_by_value_owner_row_velocity_and_refusal() {
+        use crate::combat::trajectory::apply_exact_group;
+        let (trajectories, owners, facts, motor) = analytic_pair(0, 0);
+        let impulse = LiftedImpulse { raw: [-32_768, 0, 0] };
+        let mut scratch = LiftedSolverScratch::default(); scratch.try_reserve().unwrap();
+        trial(&trajectories, &owners, &facts, &[impulse], 0, &motor,
+              &mut scratch.trial_rows, &mut scratch.trial_velocities,
+              &mut scratch.trajectory_work).unwrap();
+        let old = apply_exact_group(&trajectories, &owners, &scratch.trial_rows, 0).unwrap();
+        assert_eq!(scratch.trajectory_work.owner_stage.len(), owners.len());
+        for at in 0..owners.len() {
+            assert_eq!(scratch.trajectory_work.owner_stage[at], old.owners.get(at).unwrap());
+        }
+        let retained_rows = scratch.trial_rows.clone();
+        let retained_velocities = scratch.trial_velocities.clone();
+        let mut invalid = facts.clone(); invalid[0].fact.toi = TimeOfImpact::ONE;
+        assert_eq!(trial(&trajectories, &owners, &invalid, &[impulse], 0, &motor,
+            &mut scratch.trial_rows, &mut scratch.trial_velocities,
+            &mut scratch.trajectory_work), Err(LiftedSolverReject::ArithmeticEnvelope));
+        assert_eq!(scratch.trial_rows.len(), retained_rows.len());
+        assert_eq!(scratch.trial_velocities, retained_velocities);
+    }
+
+    #[test]
+    fn lifted_acceptance_swaps_owner_vectors_only_after_physical_energy_passes() {
+        let mut scratch = LiftedSolverScratch::default(); scratch.try_reserve().unwrap();
+        let accepted = owner(EntityId::new(20, 0), false);
+        let candidate = owner(EntityId::new(21, 0), false);
+        scratch.accepted_owner_stage.push(accepted);
+        scratch.trajectory_work.owner_stage.push(candidate);
+        let accepted_pointer = scratch.accepted_owner_stage.as_ptr();
+        let working_pointer = scratch.trajectory_work.owner_stage.as_ptr();
+        retain_dissipative_trial(ExactPhysicalEnergyDelta {
+            signed: WideRational4096::zero(), loss_raw: 0,
+        }, &mut scratch).unwrap();
+        assert_eq!(scratch.accepted_owner_stage, [candidate]);
+        assert_eq!(scratch.trajectory_work.owner_stage, [accepted]);
+        assert_eq!(scratch.accepted_owner_stage.as_ptr(), working_pointer);
+        assert_eq!(scratch.trajectory_work.owner_stage.as_ptr(), accepted_pointer);
+    }
+
+    #[test]
+    fn lifted_trial_failure_is_atomic_for_rows_velocities_owners_and_reactions() {
+        let (trajectories, owners, facts, motor) = analytic_pair(0, 0);
+        let mut scratch = LiftedSolverScratch::default(); scratch.try_reserve().unwrap();
+        let impulse = LiftedImpulse { raw: [-32_768, 0, 0] };
+        trial(&trajectories, &owners, &facts, &[impulse], 0, &motor,
+              &mut scratch.trial_rows, &mut scratch.trial_velocities,
+              &mut scratch.trajectory_work).unwrap();
+        scratch.accepted_owner_stage.clone_from(&scratch.trajectory_work.owner_stage);
+        let accepted = scratch.accepted_owner_stage.clone();
+        let accepted_pointer = scratch.accepted_owner_stage.as_ptr();
+        let mut invalid = trajectories.clone(); invalid[0].mass_raw = 0;
+        assert_eq!(trial(&invalid, &owners, &facts, &[impulse], 0, &motor,
+            &mut scratch.trial_rows, &mut scratch.trial_velocities,
+            &mut scratch.trajectory_work), Err(LiftedSolverReject::ArithmeticEnvelope));
+        assert_eq!(scratch.accepted_owner_stage, accepted);
+        assert_eq!(scratch.accepted_owner_stage.as_ptr(), accepted_pointer);
+        assert!(scratch.trajectory_work.owner_stage.is_empty());
+        assert!(scratch.trajectory_work.reaction_stage.is_empty());
+    }
+
+    #[test]
+    fn lifted_scratch_clone_re_reserves_every_empty_and_dirty_stage() {
+        let mut empty = LiftedSolverScratch::default(); empty.try_reserve().unwrap();
+        let empty_caps = empty.capacities();
+        assert_eq!(empty.clone().capacities(), empty_caps);
+        empty.accepted_owner_stage.push(owner(EntityId::new(30, 0), false));
+        empty.trajectory_work.owner_stage.push(owner(EntityId::new(31, 0), false));
+        empty.trajectory_work.reaction_stage.push(crate::combat::trajectory::FloorReaction {
+            entity: EntityId::new(30, 0), group_time_raw: 0, rejected_impulse_raw: 1,
+            energy_change: crate::combat::trajectory::ExactRational {
+                numerator: 0, denominator: 1,
+            },
+        });
+        let dirty = empty.clone();
+        assert_eq!(dirty.capacities(), empty_caps);
+        assert_eq!(dirty.accepted_owner_stage, empty.accepted_owner_stage);
+        assert_eq!(dirty.trajectory_work.owner_stage, empty.trajectory_work.owner_stage);
+        assert_eq!(dirty.trajectory_work.reaction_stage, empty.trajectory_work.reaction_stage);
+    }
+
+    #[test]
+    fn retained_lifted_stages_never_grow_across_two_maximum_groups() {
+        let (trajectories, owners, facts, motor) = analytic_pair(0, 0);
+        let mut scratch = LiftedSolverScratch::default(); scratch.try_reserve().unwrap();
+        let capacities = scratch.capacities();
+        for impulse in [LiftedImpulse { raw: [-32_768, 0, 0] },
+                        LiftedImpulse { raw: [-65_536, 0, 0] }] {
+            trial(&trajectories, &owners, &facts, &[impulse], 0, &motor,
+                  &mut scratch.trial_rows, &mut scratch.trial_velocities,
+                  &mut scratch.trajectory_work).unwrap();
+            retain_dissipative_trial(ExactPhysicalEnergyDelta {
+                signed: WideRational4096::zero(), loss_raw: 0,
+            }, &mut scratch).unwrap();
+            assert_eq!(scratch.capacities(), capacities);
+        }
     }
 
     #[test]
@@ -849,7 +984,8 @@ mod tests {
         let solved = solve_lifted_group(&rows, &owners, &[0, 1, 2], &facts, 0, &motor,
                                         &mut scratch).unwrap();
         trial(&rows, &owners, &facts, &solved.impulses[..solved.len], 0, &motor,
-              &mut scratch.trial_rows, &mut scratch.trial_velocities).unwrap();
+              &mut scratch.trial_rows, &mut scratch.trial_velocities,
+              &mut scratch.trajectory_work).unwrap();
         for at in 0..facts.len() {
             assert!(constraints_hold(facts[at], solved.impulses[at],
                                      scratch.trial_velocities[at]).unwrap());
@@ -978,7 +1114,10 @@ mod tests {
         scratch.try_reserve().unwrap();
         assert!(scratch.capacities()[0] >= 16 && scratch.capacities()[1] >= 42
             && scratch.capacities()[2] >= 16 && scratch.capacities()[3] >= 96
-            && scratch.capacities()[4] >= 96);
+            && scratch.capacities()[4] >= 96 && scratch.capacities()[5] >= MAX_EXACT_OWNERS
+            && scratch.capacities()[6] >= MAX_EXACT_OWNERS
+            && scratch.capacities()[7] >= MAX_EXACT_OWNERS * 3
+            && scratch.capacities()[8] >= MAX_EXACT_OWNERS);
         scratch.impulses.push(LiftedImpulse { raw: [4, 5, 6] });
         scratch.trial_rows.push(ContactResolution { group_ordinal: 0, group_alpha_raw: 0,
             fact: contact([1, 0, 0], 0).fact, impulse: ContactImpulse { key: key(1),

@@ -1,5 +1,5 @@
 use crate::{ArmTarget, BodyAnatomySpec, CombatHeight, EquipmentSpec, Stats};
-use fx::{Angle, Fx, Vec2, Vec3};
+use fx::{mul_div, Angle, Fx, Vec2, Vec3};
 
 pub const BODY_YAW_MAX_SPEED_RAW: i32 = 546;
 pub const BODY_YAW_ACCEL_RAW: i32 = 91;
@@ -102,7 +102,7 @@ pub(crate) fn settle_post_contact_com(c: Vec3, solved_body: Vec2, settled_body: 
 
 pub(crate) fn shoulder(anatomy: &BodyAnatomySpec, yaw: Angle, limb: usize) -> Vec3 {
     let side = if limb == 0 { anatomy.shoulder_half_width } else { -anatomy.shoulder_half_width };
-    Vec3::new(-yaw.sin() * side, yaw.cos() * side, anatomy.shoulder_height)
+    Vec3::new(-yaw.sin() * side, mul_div(yaw.cos(), side, Fx::ONE), anatomy.shoulder_height)
 }
 
 pub(crate) fn hand_position(
@@ -117,7 +117,7 @@ pub(crate) fn hand_position(
     let physical_reach = anatomy.arm_length * reach.max(Fx::from_raw(ARM_MIN_REACH_RAW));
     Vec3::new(
         shoulder.x + bearing.cos() * physical_reach,
-        shoulder.y + bearing.sin() * physical_reach,
+        shoulder.y + mul_div(bearing.sin(), physical_reach, Fx::ONE),
         anatomy.standing_height * Fx::from_raw(height.raw()),
     )
 }
@@ -311,7 +311,12 @@ pub(crate) fn integrate_arm_with_recoil(
         let crate::EquipmentGeometry::Segment { length, .. } = item.geometry else { return None };
         let old = Vec3::new(entry_bearing.cos(), entry_bearing.sin(), Fx::ZERO) * length;
         let new = Vec3::new(state.bearing.cos(), state.bearing.sin(), Fx::ZERO) * length;
-        Some((new - old) * item.balance)
+        let delta = new - old;
+        Some(Vec3::new(
+            mul_div(delta.x, item.balance, Fx::ONE),
+            mul_div(delta.y, item.balance, Fx::ONE),
+            mul_div(delta.z, item.balance, Fx::ONE),
+        ))
     }).unwrap_or(Vec3::ZERO);
     let forward = state.hand;
     let mut next_com = entry_com;
@@ -418,6 +423,21 @@ pub(crate) fn mirror_two_handed(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn actuator_y_products_are_odd_under_reflection() {
+        let anatomy = crate::fighter_anatomy();
+        let yaw = Angle::from_raw(9_001);
+        let bearing = Angle::from_raw(21_845);
+        let left = shoulder(&anatomy, yaw, 0);
+        let right = shoulder(&anatomy, -yaw, 1);
+        assert_eq!(left.y, -right.y);
+        let left_hand = hand_position(&anatomy, yaw, 0, bearing,
+            CombatHeight::MID, Fx::from_ratio(3, 4));
+        let right_hand = hand_position(&anatomy, -yaw, 1, -bearing,
+            CombatHeight::MID, Fx::from_ratio(3, 4));
+        assert_eq!(left_hand.y, -right_hand.y);
+    }
 
     const ACTUATOR_CANDIDATES: [(i32, i32); 4] = [
         (1_092, 182), (2_184, 364), (4_368, 728), (8_736, 1_456),
@@ -543,6 +563,29 @@ mod tests {
 
     #[cfg(feature = "cartesian-recoil")]
     #[test]
+    fn inactive_recoil_and_non_segment_items_are_byte_identical() {
+        let anatomy = crate::fighter_anatomy();
+        let target = ArmTarget { bearing: Angle::from_raw(8_192),
+            height: CombatHeight::HIGH, reach: Fx::from_ratio(3, 4), effort: Fx::ONE };
+        let stats = Stats::new(14, 13, 0, 0, 0);
+        for item in [None, Some(crate::sword()), Some(crate::shield())] {
+            let mut recoil = tucked_arm(hand_position(&anatomy, Angle::ZERO, 1,
+                Angle::ZERO, CombatHeight::MID, Fx::from_raw(ARM_MIN_REACH_RAW)));
+            let mut ordinary = recoil;
+            let recoil_step = integrate_arm_with_recoil(&mut recoil, &anatomy, Angle::ZERO, 1,
+                target, item, stats, Fx::ONE, ARM_BEARING_MAX_SPEED_RAW, ARM_BEARING_ACCEL_RAW);
+            let ordinary_step = integrate_arm_with_rates(&mut ordinary, &anatomy, Angle::ZERO, 1,
+                target, item, stats, Fx::ONE, ARM_BEARING_MAX_SPEED_RAW, ARM_BEARING_ACCEL_RAW);
+            assert_eq!((recoil_step.delta_bearing_speed, recoil_step.delta_height_speed,
+                        recoil_step.delta_reach_speed, recoil_step.idle_at_entry),
+                       (ordinary_step.delta_bearing_speed, ordinary_step.delta_height_speed,
+                        ordinary_step.delta_reach_speed, ordinary_step.idle_at_entry));
+            assert_eq!(recoil, ordinary);
+        }
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
     fn wall_settlement_removes_only_the_clipped_absolute_com_component() {
         let c = Vec3::new(Fx::from_raw(-7), Fx::from_raw(11), Fx::from_raw(13));
         let solved = Vec2::new(Fx::from_raw(19), Fx::from_raw(23));
@@ -607,12 +650,13 @@ mod tests {
         }
         // The measured worst over this grid, pinned rather than loosely bounded
         // so a change in either direction shows up here rather than downstream.
-        // A raw angle unit is 1/65,536 of a turn, so 15 of them is 0.082
-        // degrees; 53 raw of hand movement is 0.0008 of a world unit, against a
+        // Smart51's odd-symmetric shoulder/hand products reduced the measured
+        // maximum from 15/53 to 14/49. A raw angle unit is 1/65,536 of a turn,
+        // so 14 of them is 0.077 degrees; 49 raw of hand movement is 0.0007 of a world unit, against a
         // body radius of about a half. The error is real and it does not
         // accumulate: the caller re-derives the hand from the pose that comes
         // back, so what lands in world state is `again`, not `hand`.
-        assert_eq!((worst_bearing, worst_reach.raw(), worst_hand.raw()), (15, 2, 53));
+        assert_eq!((worst_bearing, worst_reach.raw(), worst_hand.raw()), (14, 2, 49));
 
         // And the clamps. A hand hauled far past the arm's length comes back at
         // full reach rather than as an impossible pose, and one dragged under

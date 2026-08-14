@@ -79,9 +79,10 @@ pub use articulated_script::{
     GUARD_LEAD_TICKS, HEIGHT_TICKS, PHASE_TICKS, SCRIPT_DIGEST_DOMAIN,
 };
 pub use articulated_tactics::{
-    StrikeDiagnostics, StrikePlan, StrikePlanner, StrikerArticulatedPolicy,
+    robust_strike_schedule_command, StrikeDiagnostics, StrikePlan, StrikePlanner, StrikerArticulatedPolicy,
     TacticalArticulatedPolicy, TacticalContextV1, TacticalIntentV1, TacticalPhase,
-    ThreatAssessmentV1, TACTICAL_INTENT_COUNT, TACTICAL_PHASE_COUNT, TACTICAL_POLICY_CODE,
+    ThreatAssessmentV1, ROBUST_STRIKE_HEIGHT, ROBUST_STRIKE_TICKS,
+    TACTICAL_INTENT_COUNT, TACTICAL_PHASE_COUNT, TACTICAL_POLICY_CODE,
 };
 pub use duelist::{DuelistPolicy, DuelistWeights, Stance, DUELIST_GENOME_LEN};
 pub use genome::{PolicySpec, MAX_GENOME_LEN};

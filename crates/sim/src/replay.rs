@@ -401,6 +401,167 @@ mod tests {
 
     #[cfg(feature = "cartesian-recoil")]
     #[test]
+    fn ordinary_exact_trajectory_crosses_a_wall_and_replays_every_authoritative_word() {
+        use crate::{ArmTarget, CombatHeight, GripRequest, Intent, RecoilExternalEnergy,
+                    SubmitArticulatedOutcome};
+        use fx::{Angle, Fx, Vec2};
+
+        // Smart121 put this unchanged strike against the east wall. Measurement
+        // contradicted the premise: its defender response was west and north,
+        // so that boundary was behind the response. The north translation is
+        // selected by that signed mechanics result, not by moving the strike
+        // until it happened to touch something. Timing, reach, anatomy, loadout
+        // and the complete 56-command horizon remain the source-41 row.
+        let mut config = crate::DuelConfigV1::shipped();
+        let target = Vec2::new(Fx::from_int(12),
+            Fx::from_int(16) - crate::Body::Brute.radius());
+        assert_eq!(target.y.raw(), 1_002_701);
+        let offset = Vec2::new(Fx::from_raw(-163_840), Fx::from_raw(-65_536));
+        config.fighters[1].spawn = target;
+        config.fighters[0].spawn = target + offset;
+        config.fighters[0].hands[1].as_mut().unwrap().geometry =
+            crate::EquipmentGeometry::Segment {
+                length: Fx::from_int(2), radius: Fx::from_ratio(1, 25),
+            };
+        config.max_ticks = 56;
+        let scenario = Scenario::duel_from(&config).unwrap();
+        let mut first = World::new(&scenario, 0);
+        let mut second = World::new(&scenario, 0);
+        let mut replay = Replay::new(&scenario, 0);
+        let attacker = EntityId::new(0, 0);
+        let defender = EntityId::new(1, 0);
+        let yaws = [attacker, defender].map(|id|
+            first.articulated_pose_test_view(id).unwrap().body_yaw.angle);
+        let toward = (-offset).angle();
+        let chamber = toward - Angle::from_raw(8_192);
+        let strike = toward + Angle::from_raw(8_192);
+        let neutral = |yaw| {
+            let arm = ArmTarget { bearing: yaw, height: CombatHeight::MID,
+                                  reach: Fx::ZERO, effort: Fx::ZERO };
+            crate::ArticulatedCommandV1 { move_dir: Vec2::ZERO, body_yaw: yaw,
+                intent: Intent::Hold, arms: [arm; 2], grips: [GripRequest::Keep; 2] }
+        };
+        let command_at = |tick, id| {
+            if id == defender { return neutral(yaws[1]); }
+            let mut command = neutral(yaws[0]);
+            if tick < 53 {
+                command.intent = Intent::Attack(defender);
+                command.arms[1] = ArmTarget {
+                    bearing: if tick < 28 { chamber } else { strike },
+                    height: CombatHeight::try_from_raw(16_384).unwrap(),
+                    reach: if tick < 28 { Fx::ONE } else { Fx::from_raw(61_440) },
+                    effort: Fx::ONE,
+                };
+            } else if tick == 53 {
+                command.grips[1] = GripRequest::Release;
+            }
+            command
+        };
+        let mut weapon_body_ticks = Vec::new();
+        let mut momentum_ticks = Vec::new();
+        let mut position_ticks = Vec::new();
+        let mut wall_rows = Vec::new();
+        let mut release_rows = Vec::new();
+        for tick in 0..56 {
+            for id in [attacker, defender] {
+                let requested = command_at(tick, id);
+                let stored = match first.submit_articulated_v1(id, requested) {
+                    SubmitArticulatedOutcome::Stored { command, rejection: None } => command,
+                    outcome => panic!("live command was not stored cleanly at {tick}: {outcome:?}"),
+                };
+                let rerun = match second.submit_articulated_v1(id, requested) {
+                    SubmitArticulatedOutcome::Stored { command, rejection: None } => command,
+                    outcome => panic!("rerun command was not stored cleanly at {tick}: {outcome:?}"),
+                };
+                assert_eq!(rerun, stored, "stored command diverged at tick {tick}");
+                replay.record_submitted(tick, id, SubmittedCommand::Articulated(stored));
+            }
+            first.step();
+            second.step();
+            assert_eq!(first.first_exact_contact_rejection(), None,
+                "exact contact refused at tick {}", tick + 1);
+            assert_eq!(second.first_exact_contact_rejection(), None,
+                "rerun exact contact refused at tick {}", tick + 1);
+            assert_eq!(first.contact_cap_hits(), 0, "contact cap at tick {}", tick + 1);
+            for row in first.contact_resolutions() {
+                if row.fact.key.kind == crate::combat::contact::ContactKind::WeaponBody
+                    && row.fact.key.a == attacker && row.fact.key.a_slot == 1
+                    && row.fact.key.b == defender
+                    && row.fact.region == crate::BodyPart::Legs as u8 {
+                    weapon_body_ticks.push(tick + 1);
+                }
+            }
+            for id in [attacker, defender] {
+                let (momentum, position) = first.exact_trajectory_remainder_test_view(id).unwrap();
+                if momentum && momentum_ticks.last() != Some(&(tick + 1)) {
+                    momentum_ticks.push(tick + 1);
+                }
+                if position && position_ticks.last() != Some(&(tick + 1)) {
+                    position_ticks.push(tick + 1);
+                }
+            }
+            for row in first.exact_external_energy() {
+                if row.entity == defender && row.lane == 0
+                    && row.reason == RecoilExternalEnergy::WALL {
+                    wall_rows.push((tick + 1, *row));
+                }
+                if row.entity == attacker && row.lane == 2
+                    && row.reason == RecoilExternalEnergy::RELEASE {
+                    release_rows.push((tick + 1, *row));
+                }
+            }
+            let live_digest = second.state_digest();
+            let first_digest = first.state_digest();
+            assert_eq!((live_digest.domain, live_digest.schema, live_digest.value),
+                       (first_digest.domain, first_digest.schema, first_digest.value),
+                "live digest diverged at tick {}", tick + 1);
+            assert_eq!(second.contact_resolutions(), first.contact_resolutions(),
+                "live resolutions diverged at tick {}", tick + 1);
+            assert_eq!(second.exact_external_energy(), first.exact_external_energy(),
+                "live ledger diverged at tick {}", tick + 1);
+            for id in [attacker, defender] {
+                assert_eq!(second.articulated_pose_test_view(id), first.articulated_pose_test_view(id),
+                    "live pose or grips diverged at tick {}", tick + 1);
+                assert_eq!(second.anatomy_test_view(id), first.anatomy_test_view(id),
+                    "live anatomy diverged at tick {}", tick + 1);
+            }
+
+            replay.finish(tick + 1);
+            let played = replay.play_until(tick + 1);
+            let replay_digest = played.state_digest();
+            let first_digest = first.state_digest();
+            assert_eq!((replay_digest.domain, replay_digest.schema, replay_digest.value),
+                       (first_digest.domain, first_digest.schema, first_digest.value),
+                "replay digest diverged at tick {}", tick + 1);
+            assert_eq!(played.contact_resolutions(), first.contact_resolutions(),
+                "replay resolutions diverged at tick {}", tick + 1);
+            assert_eq!(played.exact_external_energy(), first.exact_external_energy(),
+                "replay ledger diverged at tick {}", tick + 1);
+            assert_eq!(played.first_exact_contact_rejection(), None,
+                "replay exact contact refused at tick {}", tick + 1);
+            assert_eq!(played.contact_cap_hits(), 0,
+                "replay contact cap at tick {}", tick + 1);
+            for id in [attacker, defender] {
+                assert_eq!(played.articulated_pose_test_view(id), first.articulated_pose_test_view(id),
+                    "replay pose or grips diverged at tick {}", tick + 1);
+                assert_eq!(played.anatomy_test_view(id), first.anatomy_test_view(id),
+                    "replay anatomy diverged at tick {}", tick + 1);
+            }
+        }
+        assert_eq!(weapon_body_ticks, vec![45, 46]);
+        assert_eq!(momentum_ticks, (45..=56).collect::<Vec<_>>());
+        assert_eq!(position_ticks, (45..=56).collect::<Vec<_>>());
+        assert_eq!(wall_rows.first().map(|row| row.0), Some(45));
+        assert_eq!((wall_rows[0].1.signed_numerator, wall_rows[0].1.denominator),
+                   (-9_986_235_012, 8_589_934_592));
+        assert_eq!(release_rows, vec![(54, crate::ExactExternalEnergyRow {
+            entity: attacker, lane: 2, reason: RecoilExternalEnergy::RELEASE,
+            signed_numerator: -1_073_625_268_272, denominator: 8_589_934_592,
+        })]);
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
     fn exact_trajectory_live_rerun_and_replay_match_every_tick_and_breakpoint() {
         use crate::RecoilExternalEnergy;
 

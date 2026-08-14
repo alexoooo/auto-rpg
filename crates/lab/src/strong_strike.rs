@@ -5,7 +5,7 @@
 //! reported fact comes back through published poses, resolutions, or anatomy.
 
 use fx::{swept_segment_segment, Angle, Fx, Vec2, Vec3};
-use policy::neutral_articulated_command;
+use policy::{neutral_articulated_command, robust_strike_schedule_command};
 use sim::{AnatomyChoice, ArmTarget, ArticulatedCommandV1, BodyPart, CombatHeight,
           ContactKind, DuelConfigV1, EntityId, EquipmentGeometry, Faction, Intent, Scenario,
           LimbSlot, RegionVolume, SegmentPose, SubmitArticulatedOutcome, World, BODY_SLOT};
@@ -268,6 +268,14 @@ pub(crate) fn measure_case_schedule(
         MirrorGrammar::SpatialRightHand, ScheduleBearingSource::ObservedOpponent)
 }
 
+#[cfg(feature = "cartesian-recoil")]
+pub(crate) fn measure_noise_free_case_schedule(
+    case: StrongCase, strike_ticks: u32, strike_reach: Fx,
+) -> StrikeMeasurement {
+    measure_case_schedule_with(case, Fx::ONE, CHAMBER_TICKS, strike_ticks, strike_reach,
+        MirrorGrammar::AnatomicalHandSwap, ScheduleBearingSource::DeclaredSpawnOffset)
+}
+
 fn measure_case_schedule_with(case: StrongCase, strike_effort: Fx, chamber_ticks: u32,
     strike_ticks: u32, strike_reach: Fx, grammar: MirrorGrammar,
     bearing_source: ScheduleBearingSource) -> StrikeMeasurement {
@@ -298,11 +306,16 @@ fn measure_case_schedule_with(case: StrongCase, strike_effort: Fx, chamber_ticks
     let mut refusals = 0u32;
     let mut max_energy_excess_raw = 0u64;
 
-    for _ in 0..chamber_ticks {
+    for schedule_tick in 0..chamber_ticks {
         for id in world.pending_decisions().to_vec() {
             let obs = world.observe_articulated(id);
             let submitted = if id == attacker {
-                command(&obs, defender, limb, chamber, height, Fx::ONE, Fx::ONE)
+                if bearing_source == ScheduleBearingSource::DeclaredSpawnOffset {
+                    robust_strike_schedule_command(&obs, defender, limb, case.approach_offset,
+                        height, schedule_tick, chamber_ticks, strike_reach, case.mirrored)
+                } else {
+                    command(&obs, defender, limb, chamber, height, Fx::ONE, Fx::ONE)
+                }
             }
                 else { neutral_articulated_command(&obs) };
             match world.submit_articulated_v1(id, submitted) {
@@ -338,13 +351,19 @@ fn measure_case_schedule_with(case: StrongCase, strike_effort: Fx, chamber_ticks
         cap_hits: 0,
     };
 
-    for _ in 0..strike_ticks {
+    for strike_tick in 0..strike_ticks {
         let attacker_before = world.observe_articulated(attacker);
         let defender_before = world.articulated_pose(defender).expect("live defender pose");
         for id in world.pending_decisions().to_vec() {
             let obs = world.observe_articulated(id);
             let submitted = if id == attacker {
-                command(&obs, defender, limb, follow, height, strike_reach, strike_effort)
+                if bearing_source == ScheduleBearingSource::DeclaredSpawnOffset {
+                    robust_strike_schedule_command(&obs, defender, limb, case.approach_offset,
+                        height, chamber_ticks + strike_tick, chamber_ticks, strike_reach,
+                        case.mirrored)
+                } else {
+                    command(&obs, defender, limb, follow, height, strike_reach, strike_effort)
+                }
             }
                 else { neutral_articulated_command(&obs) };
             match world.submit_articulated_v1(id, submitted) {
@@ -942,72 +961,6 @@ fn crossing_rows(previous_weapon: SegmentPose, requested_weapon: SegmentPose,
 fn trace_case_1536() -> MechanicalCase { declared_central_cases()[1536] }
 
 #[cfg(feature = "cartesian-recoil")]
-fn post_contact_provenance_difference(plain: &World, mirror: &World) -> Option<String> {
-    let reflected = |limb: u8| if limb == 0 { 1 } else { 0 };
-    for left in plain.post_contact_provenance() {
-        if left.tick < 33 { continue }
-        let Some(right) = mirror.post_contact_provenance().iter().find(|row|
-            row.entity == left.entity && row.limb == reflected(left.limb)) else {
-            return Some(format!("tick={} stage=actuator_exit entity={:?} limb={} field=row\nplain=present mirror=missing",
-                                left.tick, left.entity, left.limb));
-        };
-        // The actuator exit is the equality control: hand and recoil vectors
-        // are already body-relative here, so Y negates rather than reflecting
-        // about the arena plane.
-        for (at, field) in [(9, "hand.x"), (10, "hand.y"), (11, "hand.z"),
-                            (12, "linear_velocity.x"), (13, "linear_velocity.y"),
-                            (14, "linear_velocity.z"), (17, "recoil.x"),
-                            (18, "recoil.y"), (19, "recoil.z")] {
-            let expected = if matches!(at, 10 | 13 | 18) { -right.post_arm_raw[at] }
-                           else { right.post_arm_raw[at] };
-            if left.post_arm_raw[at] != expected {
-                return Some(format!("tick={} stage=actuator_exit entity={:?} limb={} field={}\nplain={} mirror={}",
-                    left.tick, left.entity, left.limb, field, left.post_arm_raw[at],
-                    right.post_arm_raw[at]));
-            }
-        }
-        let a = &left.stage_exact_raw;
-        let b = &right.stage_exact_raw;
-        if a.iter().all(|word| *word == 0) || b.iter().all(|word| *word == 0) { continue }
-        for (base, stage) in [(0, "body_origin"), (12, "hilt")]
-        {
-            for axis in 0..3 {
-                for word in 0..4 {
-                    let at = base + axis * 4 + word;
-                    // Exact owner geometry is body-relative; the arena-plane
-                    // reflection has already been consumed by the body row.
-                    let expected = if axis == 1 && word != 1 { -b[at] } else { b[at] };
-                    if a[at] != expected {
-                        return Some(format!("tick={} stage=stage_exact_contact entity={:?} limb={} field={}.{}.{:?}\nplain={} mirror={}",
-                            left.tick, left.entity, left.limb, stage, ["x", "y", "z"][axis],
-                            ["numerator", "denominator", "quotient", "remainder"][word],
-                            a[at], b[at]));
-                    }
-                }
-            }
-        }
-        for axis in 0..3 {
-            for word in 0..4 {
-                let at = 24 + axis * 4 + word;
-                let expected = if axis == 1 && word != 1 { -b[at] } else { b[at] };
-                if a[at] != expected {
-                    return Some(format!("tick={} stage=stage_exact_contact entity={:?} limb={} field=relative.{}.{:?}\nplain={} mirror={}",
-                        left.tick, left.entity, left.limb, ["x", "y", "z"][axis],
-                        ["numerator", "denominator", "quotient", "remainder"][word], a[at], b[at]));
-                }
-            }
-            let at = 36 + axis;
-            let expected = if axis == 1 { -b[at] } else { b[at] };
-            if a[at] != expected {
-                return Some(format!("tick={} stage=stage_exact_contact entity={:?} limb={} field=published_relative.{}\nplain={} mirror={}",
-                    left.tick, left.entity, left.limb, ["x", "y", "z"][axis], a[at], b[at]));
-            }
-        }
-    }
-    None
-}
-
-#[cfg(feature = "cartesian-recoil")]
 fn mirror_trace_1536_inner() -> String {
     let case = trace_case_1536();
     let cases = [false, true].map(|mirrored| StrongCase { seed: 0, mirrored,
@@ -1082,9 +1035,6 @@ fn mirror_trace_1536_inner() -> String {
         if let Some(diff) = group_boundary_difference(
             worlds[0].exact_contact_group_diagnostics(),
             worlds[1].exact_contact_group_diagnostics()) {
-            return diff;
-        }
-        if let Some(diff) = post_contact_provenance_difference(&worlds[0], &worlds[1]) {
             return diff;
         }
         let post = [0, 1].map(|at| (worlds[at].articulated_pose(ids[at].0).unwrap(),

@@ -626,6 +626,17 @@ after the solver, separately dissipative, and absent from group ledgers/injury. 
 test compares closure energy immediately before/after settlement and requires it not
 to increase.
 
+Under `cartesian-recoil`, that settlement also has an exact external-energy row for
+each physical mass whose absolute velocity the wall changes. Lane 0 is the body mass;
+lanes 1 and 2 are the left- and right-owned equipment masses when present. The body
+row is not replaced by a held row: a naked body crosses the same boundary, while a
+carried item contributes a distinct physical energy term. Smart127's ordinary
+56-command north-wall replay reaches the body row at tick 45, then the independent
+right-hand release row at tick 54, with two live runs and replay equal through the
+horizon. These lifecycle rows remain feature-only diagnostics pending the separately
+registered Smart122/123 digests; they are not group loss, injury, or a claim that the
+feature is default authority.
+
 The arm poses are fixed against the *solver's* body origin, before settlement moves it.
 A wall push is rigid: it must carry body and arms together, and measuring the relative
 hand against the settled origin instead would drag the hand out of its socket by exactly
@@ -1053,7 +1064,7 @@ fixture stated here:
   Articulated world so no policy overwrites it, and the stored command persists across
   ticks. The fixture drives both rows into each other from tick-zero constants with
   their arms sweeping an eighth-turn either side of the body bearing, four ticks a
-  phase: first contact on tick 78, every group ordinal spent on tick 85, on all three
+  phase: first contact on tick 78, every group ordinal spent on tick 89, on all three
   seeds it warms. Nothing was swapped and no scenario moved, so
   `ARTICULATED_COMMAND_HASH` is untouched. The drive is a byte table on both sides —
   `crates/web/src/lib.rs`'s `CLINCH_*` constants and
@@ -1061,5 +1072,5 @@ fixture stated here:
   JavaScript builds by hand — because the trajectory is chaotic: a raw unit of
   difference in the walk vector moves the cap tick or loses it, so steering off
   published positions would have pinned the last ulp of the engine running the test.
-  Both targets pin tick 85, so a solver change that merely moves the cap fails with a
+  Both targets pin tick 89, so a solver change that merely moves the cap fails with a
   number to re-measure instead of silently covering less.

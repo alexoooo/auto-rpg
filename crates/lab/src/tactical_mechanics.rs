@@ -454,6 +454,42 @@ fn run_corpus(args: &Args) {
 mod tests {
     use super::*;
 
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn ordinal_3144_stationary_brute_replays_all_eighteen_local_cases() {
+        let offset = fx::Vec2::new(Fx::from_raw(-163_840), Fx::from_raw(-65_536));
+        let mut rows = 0;
+        for strike_delta in strong_strike::STRIKE_TICK_DELTAS {
+            for reach_delta in strong_strike::REACH_DELTAS_RAW {
+                for mirrored in [false, true] {
+                    let measured = strong_strike::measure_noise_free_case_schedule(
+                        strong_strike::StrongCase { seed: 0, mirrored,
+                            target_anatomy: AnatomyChoice::Brute, approach_offset: offset },
+                        (28i32 + strike_delta) as u32,
+                        Fx::from_raw(61_440 + reach_delta));
+                    let oracle = measured.crossing_oracle
+                        .expect("the selected contact must retain both region poses");
+                    assert!(swept_segment_segment(
+                        measured.previous_weapon.hilt, measured.previous_weapon.tip,
+                        measured.requested_weapon.hilt, measured.requested_weapon.tip,
+                        measured.previous_weapon.radius.max(measured.requested_weapon.radius),
+                        oracle.previous.lower, oracle.previous.upper,
+                        oracle.requested.lower, oracle.requested.upper,
+                        oracle.previous.radius.max(oracle.requested.radius),
+                    ).is_some(), "delta ({strike_delta},{reach_delta}) mirror={mirrored} did not cross");
+                    assert_eq!((measured.weapon_body_facts, measured.competing_facts), (1, 0));
+                    assert!(measured.contact_tick.is_some());
+                    assert!(measured.energy_dissipated_raw > 0);
+                    assert_eq!((measured.refusals, measured.solver_rejections,
+                                measured.cap_hits, measured.max_energy_excess_raw),
+                               (0, 0, 0, 0));
+                    rows += 1;
+                }
+            }
+        }
+        assert_eq!(rows, 18);
+    }
+
     #[test]
     fn attribution_requires_the_attacker_weapon_and_the_named_defender_body() {
         let attacker = EntityId::new(0, 0);

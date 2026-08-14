@@ -4,7 +4,7 @@
 //! in raw integer space so saturation and fixed-point rounding cannot choose a
 //! different contact or closest pair on another target.
 
-use crate::{Fx, Hash64, Vec3, FRAC_BITS, ONE_RAW};
+use crate::{mul_div, Fx, Hash64, Vec3, FRAC_BITS, ONE_RAW};
 
 const POINT_LIMIT_RAW: i128 = 256 * ONE_RAW as i128;
 const SHAPE_LIMIT_RAW: i128 = 8 * ONE_RAW as i128;
@@ -12,6 +12,12 @@ const RECTANGLE_EDGE_LIMIT_RAW: i128 = 16 * ONE_RAW as i128;
 const EFFECTIVE_CAPSULE_RADIUS_LIMIT_RAW: i128 = 16 * ONE_RAW as i128;
 const DISPLACEMENT_LIMIT_RAW: i128 = 4 * ONE_RAW as i128;
 const SWEEP_ADVANCES: usize = 96;
+
+fn reflected_lerp(a: Vec3, b: Vec3, t: Fx) -> Vec3 {
+    Vec3::new(a.x + mul_div(b.x - a.x, t, Fx::ONE),
+              a.y + mul_div(b.y - a.y, t, Fx::ONE),
+              a.z + mul_div(b.z - a.z, t, Fx::ONE))
+}
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct TimeOfImpact(Fx);
@@ -392,8 +398,8 @@ fn swept_segment_segment_audited(
         .max((ad1 - bd1).length());
     conservative_sweep_audited(speed, radius_a + radius_b, |t| {
         let closest = closest_points_on_segments(
-            Vec3::lerp(a0, a2, t), Vec3::lerp(a1, a3, t),
-            Vec3::lerp(b0, b2, t), Vec3::lerp(b1, b3, t),
+            reflected_lerp(a0, a2, t), reflected_lerp(a1, a3, t),
+            reflected_lerp(b0, b2, t), reflected_lerp(b1, b3, t),
         );
         closest.a.distance(closest.b)
     })
@@ -470,8 +476,8 @@ fn swept_segment_segment_iteration_trace(
     let mut rows = [None; SWEEP_ADVANCES];
     let mut time = Fx::ZERO;
     for index in 0..SWEEP_ADVANCES {
-        let endpoints = [Vec3::lerp(a0, a2, time), Vec3::lerp(a1, a3, time),
-                         Vec3::lerp(b0, b2, time), Vec3::lerp(b1, b3, time)];
+        let endpoints = [reflected_lerp(a0, a2, time), reflected_lerp(a1, a3, time),
+                         reflected_lerp(b0, b2, time), reflected_lerp(b1, b3, time)];
         let (closest, closest_branch, closest_parameters) = closest_points_test_diagnostic(
             endpoints[0], endpoints[1], endpoints[2], endpoints[3]);
         let delta = closest.a - closest.b;
@@ -1184,11 +1190,11 @@ mod tests {
     }
 
     #[test]
-    fn tick_32_literal_pair_retains_the_38127_38111_baseline() {
+    fn tick_32_reflected_segment_pair_returns_one_exact_toi() {
         let (plain, ar, br) = tick_32_pair();
         let mirror = reflect_tick_32(plain);
         assert_eq!((sweep(plain, ar, br).get().raw(), sweep(mirror, ar, br).get().raw()),
-                   (38_127, 38_111));
+                   (38_127, 38_127));
         let plain_key = (0u32, 1u8, 1u32, u8::MAX, 2u8, 4u8);
         let mirror_key = (0u32, 0u8, 1u32, u8::MAX, 2u8, 4u8);
         let mapped_mirror_key = (mirror_key.0, 1 - mirror_key.1, mirror_key.2,
@@ -1198,18 +1204,18 @@ mod tests {
     }
 
     #[test]
-    fn shared_origin_does_not_remove_the_tick_32_toi_mismatch() {
+    fn shared_origin_preserves_the_exact_tick_32_toi_reflection() {
         let (plain, ar, br) = tick_32_pair();
         let mirror = reflect_tick_32(plain);
         let relative = |points: [Vec3; 8]| {
             let origin = points[0]; points.map(|point| point - origin)
         };
         assert_eq!((sweep(relative(plain), ar, br).get().raw(),
-                    sweep(relative(mirror), ar, br).get().raw()), (38_127, 38_111));
+                    sweep(relative(mirror), ar, br).get().raw()), (38_127, 38_127));
     }
 
     #[test]
-    fn tick_32_iteration_trace_names_the_first_nonreflecting_internal_word() {
+    fn reflected_segment_sweep_iterations_match_word_for_word() {
         let (plain, ar, br) = tick_32_pair();
         let mirror = reflect_tick_32(plain);
         let traced = |p: [Vec3; 8]| swept_segment_segment_iteration_trace(
@@ -1221,13 +1227,30 @@ mod tests {
             assert_eq!(left[0].unwrap().endpoints[point].y.raw()
                      + right[0].unwrap().endpoints[point].y.raw(), 1_048_576);
         }
-        let plain_y = left[1].unwrap().endpoints[0].y.raw();
-        let mapped_mirror_y = 1_048_576 - right[1].unwrap().endpoints[0].y.raw();
-        eprintln!("first divergence: iteration=1 field=endpoints[0].y plain={} mapped_mirror={}",
-                  plain_y, mapped_mirror_y);
-        assert_eq!((plain_y, mapped_mirror_y), (452_236, 452_237));
-        assert_eq!((left[1].unwrap().distance_raw, right[1].unwrap().distance_raw),
-                   (22_372, 22_371));
+        for (plain, mirror) in left.iter().flatten().zip(right.iter().flatten()) {
+            assert_eq!(plain.entry_time_raw, mirror.entry_time_raw);
+            assert_eq!(plain.exit_time_raw, mirror.exit_time_raw);
+            assert_eq!(plain.distance_raw, mirror.distance_raw);
+            assert_eq!(plain.distance_sq_raw, mirror.distance_sq_raw);
+            assert_eq!(plain.separation_raw, mirror.separation_raw);
+            assert_eq!(plain.decision, mirror.decision);
+            for point in 0..4 {
+                assert_eq!(plain.endpoints[point].x, mirror.endpoints[point].x);
+                assert_eq!(plain.endpoints[point].y.raw()
+                         + mirror.endpoints[point].y.raw(), 1_048_576);
+                assert_eq!(plain.endpoints[point].z, mirror.endpoints[point].z);
+            }
+        }
+    }
+
+    #[test]
+    fn reflected_lerp_is_exact_at_plus_minus_1180_times_37379() {
+        let t = Fx::from_raw(37_379);
+        let positive = reflected_lerp(Vec3::ZERO,
+            Vec3::new(Fx::ZERO, Fx::from_raw(1_180), Fx::ZERO), t);
+        let negative = reflected_lerp(Vec3::ZERO,
+            Vec3::new(Fx::ZERO, Fx::from_raw(-1_180), Fx::ZERO), t);
+        assert_eq!((positive.y.raw(), negative.y.raw()), (673, -673));
     }
 
     #[test]

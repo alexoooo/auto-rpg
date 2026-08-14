@@ -201,11 +201,15 @@ measured origin — the Brute's `LeftArm` capsule is
 | Brute `LeftArm`, MID | raw | units | vs resting |
 |---|---:|---:|---:|
 | empty at reach 1/4 (this correction, and the pre-override tuck) | 35,604 | 0.54328 | 1.000x |
-| held out at reach 3/4 (the unconditional pose) | 53,096 | 0.81019 | **1.491x** |
+| held out at reach 3/4 (the unconditional pose) | 53,095 | 0.81017 | **1.491x** |
 
 Half an arm length of extra flesh-grade collider, grown out of the shoulder and into
 the line, for a hand carrying nothing to the place it was being held out to.
 `an_empty_off_hand_does_not_lengthen_the_arm_it_hangs_from` pins both numbers.
+The held-out word was `53,096` before Smart51 replaced the one-sided fixed-point
+multiply with the reflection-safe signed product. The arm command and the geometric
+claim are unchanged; the corrected authoritative endpoint is `53,095`, while the
+empty-hand control remains `35,604`.
 
 **What the corpus says about it is smaller than the plan claimed, and the plan's
 mechanism is refuted.** The last three configurations differ only in the empty

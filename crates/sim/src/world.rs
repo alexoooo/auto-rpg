@@ -23,8 +23,9 @@ use crate::combat::contact::{contact_bounds, medial_point, try_reserve_exact,
                              ContactSolverState, RegionSweep, BODY_SLOT,
                              MAX_CONTACT_FACTS_PER_GROUP, MAX_CONTACT_RESOLUTIONS_PER_TICK};
 #[cfg(feature = "cartesian-recoil")]
-use crate::combat::contact::{wide_evaluated_relative_anchor_words,
-                             wide_evaluated_shape_quotient, WideEvaluatedContactShape};
+use crate::combat::contact::{wide_body_origin_quotient, wide_relative_point_quotient};
+#[cfg(test)]
+use crate::combat::contact::{wide_evaluated_shape_quotient, WideEvaluatedContactShape};
 #[cfg(feature = "cartesian-recoil")]
 use crate::combat::contact::wide_rebase_owner_tick;
 #[cfg(all(test, feature = "cartesian-recoil"))]
@@ -38,7 +39,7 @@ use crate::combat::resolution::{ExactContactRejectPhase, ExactContactRejectionDi
 use crate::combat::trajectory::{ExactAffine3, ExactContactTrajectory, ExactHeldResponse,
                                 ExactMotorBounds, ExactMotorPoint, ExactOwnerTrajectory,
                                 ExactMomentum, ExactPosition, ExactTrajectoryReject, FloorReaction, MotorShape,
-                                exact_held_velocity};
+                                exact_held_velocity, normalize_momentum};
 #[cfg(all(test, feature = "cartesian-recoil"))]
 use crate::combat::trajectory::{advance_exact, apply_exact_group, evaluate_exact};
 use crate::{EquipmentGeometry, EquipmentSpecId};
@@ -489,7 +490,7 @@ struct Impulse {
 /// `nav_queue` is held on the world rather than allocated per rebuild: this
 /// crate is driven from a page holding typed-array views into linear memory,
 /// and a `Vec` that grows can grow that memory and detach every one of them.
-#[derive(Clone, Default)]
+#[derive(Default)]
 struct ContactRuntime {
     state: ContactSolverState,
     scratch: ContactTickScratch,
@@ -519,6 +520,12 @@ struct ContactRuntime {
     exact_trajectories: Vec<ExactContactTrajectory>,
     #[cfg(feature = "cartesian-recoil")]
     exact_owners: Vec<ExactOwnerTrajectory>,
+    /// Transaction entry rows retained on the runtime. Keeping these on the
+    /// heap avoids putting the exact owner's wide words on the wasm stack.
+    #[cfg(feature = "cartesian-recoil")]
+    exact_owner_entry: Vec<ExactOwnerTrajectory>,
+    #[cfg(feature = "cartesian-recoil")]
+    exact_trajectory_entry: Vec<ExactContactTrajectory>,
     #[cfg(feature = "cartesian-recoil")]
     exact_commit: Vec<ExactCommitRow>,
     #[cfg(feature = "cartesian-recoil")]
@@ -530,8 +537,6 @@ struct ContactRuntime {
     /// boundary constraint, so replay comparison and the feature hash own them.
     #[cfg(feature = "cartesian-recoil")]
     exact_external_energy: Vec<ExactExternalEnergyRow>,
-    #[cfg(feature = "cartesian-recoil")]
-    post_contact_provenance: Vec<PostContactProvenanceDiagnostic>,
     /// How many ticks the solver refused, cumulative.
     ///
     /// **The only external witness that a group was rejected**, and it exists
@@ -583,8 +588,9 @@ impl ContactRuntime {
             try_reserve_exact(&mut self.exact_external_energy, MAX_CONTACT_RESOLUTIONS_PER_TICK)?;
             try_reserve_exact(&mut self.exact_trajectories, bounds.collider_bound)?;
             try_reserve_exact(&mut self.exact_owners, high_water)?;
+            try_reserve_exact(&mut self.exact_owner_entry, high_water)?;
+            try_reserve_exact(&mut self.exact_trajectory_entry, bounds.collider_bound)?;
             try_reserve_exact(&mut self.exact_commit, high_water)?;
-            try_reserve_exact(&mut self.post_contact_provenance, high_water.saturating_mul(2))?;
         }
         self.high_water = high_water;
         Ok(())
@@ -1077,37 +1083,53 @@ pub enum WorldBuildError {
     ExactLattice(ExactLatticeEnvelope),
 }
 
-#[cfg(feature = "cartesian-recoil")]
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub struct PostContactProvenanceDiagnostic {
-    pub tick: u32, pub entity: EntityId, pub limb: u8,
-    pub pre_arm_raw: [i32; 20], pub post_arm_raw: [i32; 20],
-    pub target_raw: [i32; 4], pub authority_raw: i32,
-    pub pre_active: bool, pub post_active: bool,
-    /// body, hilt, direct relative: xyz * (numerator, denominator, quotient,
-    /// remainder), followed by published quotient(hilt)-quotient(origin).
-    pub stage_exact_raw: [i128; 39],
-}
-
-#[cfg(feature = "cartesian-recoil")]
-impl Default for PostContactProvenanceDiagnostic {
-    fn default() -> Self {
-        Self { tick: 0, entity: EntityId::new(0, 0), limb: 0,
-            pre_arm_raw: [0; 20], post_arm_raw: [0; 20], target_raw: [0; 4],
-            authority_raw: 0, pre_active: false, post_active: false,
-            stage_exact_raw: [0; 39] }
+impl Clone for ContactRuntime {
+    fn clone(&self) -> Self {
+        let mut cloned = Self::default();
+        cloned.state = self.state.clone();
+        cloned.scratch = self.scratch.clone();
+        // `Vec::clone` keeps length, not spare capacity. Reserve only after all
+        // nested retained scratch has been copied, while the clone's high-water
+        // mark is still zero, or an empty runtime clone would silently skip it.
+        cloned.reserve(self.high_water)
+            .expect("an existing contact runtime's retained bounds remain valid");
+        cloned.colliders.extend_from_slice(&self.colliders);
+        cloned.resolutions.extend_from_slice(&self.resolutions);
+        cloned.entry.extend_from_slice(&self.entry);
+        cloned.bodies.extend_from_slice(&self.bodies);
+        cloned.anatomy_entry.extend_from_slice(&self.anatomy_entry);
+        cloned.credit.extend_from_slice(&self.credit);
+        cloned.deltas.extend_from_slice(&self.deltas);
+        cloned.fact_loss.extend_from_slice(&self.fact_loss);
+        #[cfg(feature = "cartesian-recoil")]
+        {
+            cloned.exact_trajectories.extend_from_slice(&self.exact_trajectories);
+            cloned.exact_owners.extend_from_slice(&self.exact_owners);
+            cloned.exact_owner_entry.extend_from_slice(&self.exact_owner_entry);
+            cloned.exact_trajectory_entry.extend_from_slice(&self.exact_trajectory_entry);
+            cloned.exact_commit.extend_from_slice(&self.exact_commit);
+            cloned.recoil_external.extend_from_slice(&self.recoil_external);
+            cloned.floor_reactions.extend_from_slice(&self.floor_reactions);
+            cloned.exact_external_energy.extend_from_slice(&self.exact_external_energy);
+            cloned.first_exact_rejection = self.first_exact_rejection.clone();
+        }
+        cloned.rejections = self.rejections;
+        cloned.first_rejection = self.first_rejection;
+        cloned.high_water = self.high_water;
+        cloned
     }
 }
 
-#[cfg(feature = "cartesian-recoil")]
-fn post_contact_arm_words(arm: ArmState) -> [i32; 20] {
-    [arm.bearing.raw() as i32, arm.bearing_speed_turns.raw(), arm.height.raw(),
-     arm.height_speed.raw(), arm.reach.raw(), arm.reach_speed.raw(),
-     arm.previous_hand.x.raw(), arm.previous_hand.y.raw(), arm.previous_hand.z.raw(),
-     arm.hand.x.raw(), arm.hand.y.raw(), arm.hand.z.raw(),
-     arm.linear_velocity.x.raw(), arm.linear_velocity.y.raw(), arm.linear_velocity.z.raw(),
-     arm.fatigue.raw(), arm.work_residue.raw(), arm.post_contact_com_velocity.x.raw(),
-     arm.post_contact_com_velocity.y.raw(), arm.post_contact_com_velocity.z.raw()]
+/// Scale the differential weapon motion at its centre of mass without making
+/// the negative half of a reflected swing one raw unit larger. This is local
+/// to contact sampling: changing the global fixed-point product would change
+/// every rule that deliberately inherits its floor semantics.
+fn scale_contact_vector(value: Vec3, scale: Fx) -> Vec3 {
+    Vec3::new(
+        fx::mul_div(value.x, scale, Fx::ONE),
+        fx::mul_div(value.y, scale, Fx::ONE),
+        fx::mul_div(value.z, scale, Fx::ONE),
+    )
 }
 
 #[cfg(feature = "cartesian-recoil")]
@@ -1566,9 +1588,13 @@ impl World {
     }
 
     #[cfg(feature = "cartesian-recoil")]
-    pub fn post_contact_provenance(&self) -> &[PostContactProvenanceDiagnostic] {
-        self.contact.as_ref().map_or(&[], |contact| contact.post_contact_provenance.as_slice())
+    pub fn exact_scan_pair_rejection(&self)
+        -> Option<crate::ExactScanPairRejectionDiagnostic>
+    {
+        self.contact.as_ref().and_then(|contact|
+            contact.scratch.exact_scan_pair_rejection())
     }
+
 
     #[cfg(feature = "cartesian-recoil")]
     pub fn recoil_external_energy(&self, entity: EntityId, limb: LimbSlot)
@@ -1599,7 +1625,12 @@ impl World {
         rows.push(contact.deltas.capacity());
         rows.push(contact.fact_loss.capacity());
         #[cfg(feature = "cartesian-recoil")]
-        rows.push(contact.recoil_external.capacity());
+        rows.extend([
+            contact.exact_trajectories.capacity(), contact.exact_owners.capacity(),
+            contact.exact_owner_entry.capacity(), contact.exact_trajectory_entry.capacity(),
+            contact.exact_commit.capacity(), contact.recoil_external.capacity(),
+            contact.floor_reactions.capacity(), contact.exact_external_energy.capacity(),
+        ]);
         rows
     }
 
@@ -2375,6 +2406,22 @@ impl World {
             position |= held.affine.at_group.iter().any(|word| word.remainder != 0);
         }
         Some((momentum, position))
+    }
+
+    #[cfg(all(test, feature = "cartesian-recoil"))]
+    pub(crate) fn exact_wall_commit_test_view(&self, id: EntityId)
+        -> Option<(Vec2, Vec2, Vec2, Vec2)>
+    {
+        let i = self.resolve(id)?;
+        let staged = self.contact.as_ref()?.exact_commit.iter()
+            .find(|row| row.entity == id)?;
+        Some((staged.position, staged.velocity, self.pos[i], self.vel[i]))
+    }
+
+    #[cfg(all(test, feature = "cartesian-recoil"))]
+    pub(crate) fn body_motion_test_view(&self, id: EntityId) -> Option<(Vec2, Vec2)> {
+        let i = self.resolve(id)?;
+        Some((self.pos[i], self.vel[i]))
     }
 
     #[cfg(all(test, feature = "cartesian-recoil"))]
@@ -5067,8 +5114,6 @@ impl World {
     fn drive_articulated_arms(&mut self, bearing_max_speed_raw: i32, bearing_accel_raw: i32) {
         for i in 0..self.alive.len() {
             if !self.alive[i] { continue; }
-            #[cfg(feature = "cartesian-recoil")]
-            let provenance_entry = self.arms[i];
             let command = self.articulated_command[i].unwrap_or_else(|| self.neutral_articulated(i));
             let anatomy = self.combat_specs.as_ref().expect("articulated combat specs")
                 .anatomy(self.articulated_anatomy[i].expect("articulated anatomy"))
@@ -5120,24 +5165,6 @@ impl World {
                           self.arm_authority[i][1]);
                 }
             }
-            #[cfg(feature = "cartesian-recoil")]
-            if let Some(contact) = self.contact.as_mut() {
-                for limb in 0..2 {
-                    let target = command.arms[limb];
-                    contact.post_contact_provenance.push(PostContactProvenanceDiagnostic {
-                        tick: self.tick + 1,
-                        entity: EntityId::new(i as u32, self.generation[i]), limb: limb as u8,
-                        pre_arm_raw: post_contact_arm_words(provenance_entry[limb]),
-                        post_arm_raw: post_contact_arm_words(self.arms[i][limb]),
-                        target_raw: [target.bearing.raw() as i32, target.height.raw(),
-                                     target.reach.raw(), target.effort.raw()],
-                        authority_raw: self.arm_authority[i][limb].raw(),
-                        pre_active: provenance_entry[limb].post_contact_active,
-                        post_active: self.arms[i][limb].post_contact_active,
-                        stage_exact_raw: [0; 39],
-                    });
-                }
-            }
         }
     }
 
@@ -5154,8 +5181,6 @@ impl World {
     /// need a second mapping, and a mapping is what a reused slot breaks.
     fn retain_contact_entry(&mut self) {
         let Some(mut contact) = self.contact.take() else { return };
-        #[cfg(feature = "cartesian-recoil")]
-        contact.post_contact_provenance.clear();
         contact.resolutions.clear();
         contact.entry.clear();
         #[cfg(feature = "cartesian-recoil")]
@@ -5233,34 +5258,25 @@ impl World {
         contact.credit.clear();
         contact.credit.resize(wounds.len(), Fx::ZERO);
         #[cfg(feature = "cartesian-recoil")]
-        let exact_entry = {
-            const N: usize = crate::combat::contact::MAX_ARTICULATED_ENTITIES;
-            let mut owners = [None; N];
-            let mut trajectories = [None; N * 3];
-            for (at, row) in contact.exact_owners.iter().enumerate() {
-                owners[at] = Some(*row);
-            }
-            for (at, row) in contact.exact_trajectories.iter().enumerate() {
-                trajectories[at] = Some(*row);
-            }
-            (contact.exact_owners.len(), owners,
-             contact.exact_trajectories.len(), trajectories)
-        };
+        {
+            contact.exact_owner_entry.clear();
+            contact.exact_owner_entry.extend_from_slice(&contact.exact_owners);
+            contact.exact_trajectory_entry.clear();
+            contact.exact_trajectory_entry.extend_from_slice(&contact.exact_trajectories);
+        }
         self.build_contact_colliders(&contact.entry, &mut contact.colliders, &wounds);
         #[cfg(feature = "cartesian-recoil")]
         contact.scratch.begin_exact_diagnostics(self.tick());
         #[cfg(feature = "cartesian-recoil")]
         if let Err(cause) = build_exact_contact_trajectories(self, &mut contact, &wounds) {
-            contact.post_contact_provenance.clear();
             wounds.clear();
             wounds.extend_from_slice(&contact.anatomy_entry);
             self.wounds = wounds;
             contact.resolutions.clear();
             contact.exact_owners.clear();
-            contact.exact_owners.extend(exact_entry.1[..exact_entry.0].iter().flatten().copied());
+            contact.exact_owners.extend_from_slice(&contact.exact_owner_entry);
             contact.exact_trajectories.clear();
-            contact.exact_trajectories.extend(
-                exact_entry.3[..exact_entry.2].iter().flatten().copied());
+            contact.exact_trajectories.extend_from_slice(&contact.exact_trajectory_entry);
             contact.exact_commit.clear();
             contact.floor_reactions.clear();
             contact.exact_external_energy.clear();
@@ -5329,8 +5345,6 @@ impl World {
                 return;
             }
             Err(cause) => {
-                #[cfg(feature = "cartesian-recoil")]
-                contact.post_contact_provenance.clear();
                 // Restored into the vector that was taken, not into the empty
                 // husk `mem::take` left behind: the husk has no capacity, and
                 // refilling it would allocate on the one path whose far end is
@@ -5342,11 +5356,10 @@ impl World {
                 #[cfg(feature = "cartesian-recoil")]
                 {
                     contact.exact_owners.clear();
-                    contact.exact_owners.extend(
-                        exact_entry.1[..exact_entry.0].iter().flatten().copied());
+                    contact.exact_owners.extend_from_slice(&contact.exact_owner_entry);
                     contact.exact_trajectories.clear();
-                    contact.exact_trajectories.extend(
-                        exact_entry.3[..exact_entry.2].iter().flatten().copied());
+                    contact.exact_trajectories.extend_from_slice(
+                        &contact.exact_trajectory_entry);
                     contact.exact_commit.clear();
                     contact.floor_reactions.clear();
                     contact.exact_external_energy.clear();
@@ -5510,38 +5523,41 @@ impl World {
             let body_at = contact.exact_trajectories.iter().position(|row|
                 row.entity == owner.entity && matches!(row.motor, MotorShape::Body { .. }))
                 .ok_or(ResolutionError::ColliderIndex)?;
-            let WideEvaluatedContactShape::Body { origin } = wide_evaluated_shape_quotient(
-                &contact.exact_trajectories[body_at], owner, 65_536)
-                .map_err(|_| ResolutionError::ExactScan)? else {
-                    return Err(ResolutionError::ExactScan);
-                };
+            let MotorShape::Body { origin: body_origin, .. } =
+                contact.exact_trajectories[body_at].motor else { unreachable!() };
+            let origin = wide_body_origin_quotient(&contact.exact_trajectories[body_at], owner)
+                .map_err(|_| ResolutionError::ExactScan)?;
             let position = Vec2::new(origin.x, origin.y);
+            // An arena wall changes every held collider's absolute velocity
+            // even when its relative hand pose is untouched. Retain those
+            // rows so the existing commit reconciliation can name the wall's
+            // energy on the held lane. Tile settlement remains commit-time
+            // authority and is deliberately outside this arena-only test.
+            let arena_body_clipped = self.clamp_to_arena(position, self.radius[i]) != position;
             let mut arms = [None; 2];
             let capped = contact.scratch.capped_entities().contains(&owner.entity);
             for limb in 0..2 {
                 let Some(at) = contact.exact_trajectories.iter().position(|row|
                     row.entity == owner.entity && row.held_index == Some(limb)) else { continue };
-                if matches!(contact.exact_trajectories[at].motor, MotorShape::Segment { .. }) {
-                    let exact_stage = wide_evaluated_relative_anchor_words(
-                        &contact.exact_trajectories[body_at], &contact.exact_trajectories[at],
-                        owner, 65_536).map_err(|_| ResolutionError::ExactScan)?;
-                    if let Some(row) = contact.post_contact_provenance.iter_mut().find(|row|
-                        row.entity == owner.entity && row.limb as usize == limb) {
-                        row.stage_exact_raw = exact_stage;
-                    }
-                }
-                let absolute_hand = match wide_evaluated_shape_quotient(
-                    &contact.exact_trajectories[at], owner, 65_536)
-                    .map_err(|_| ResolutionError::ExactScan)? {
-                    WideEvaluatedContactShape::Segment { hilt, .. } => hilt,
-                    WideEvaluatedContactShape::Shield { corners } => {
+                let hand = match contact.exact_trajectories[at].motor {
+                    MotorShape::Segment { hilt, .. } => wide_relative_point_quotient(
+                        hilt, &contact.exact_trajectories[at], body_origin,
+                        &contact.exact_trajectories[body_at], owner, 65_536)
+                        .map_err(|_| ResolutionError::ExactScan)?,
+                    MotorShape::Shield { corners } => {
+                        let mut relative = [Vec3::ZERO; 4];
+                        for corner in 0..4 {
+                            relative[corner] = wide_relative_point_quotient(
+                                corners[corner], &contact.exact_trajectories[at], body_origin,
+                                &contact.exact_trajectories[body_at], owner, 65_536)
+                                .map_err(|_| ResolutionError::ExactScan)?;
+                        }
                         let pose = self.shield_pose[i].ok_or(ResolutionError::ColliderIndex)?;
-                        midpoint3(corners[0], corners[2])
+                        midpoint3(relative[0], relative[2])
                             - pose.normal * (pose.thickness / Fx::from_int(2))
                     }
                     _ => return Err(ResolutionError::ExactScan),
                 };
-                let hand = absolute_hand - origin;
                 let direct = contact.resolutions.iter().any(|resolution| {
                     let key = resolution.fact.key;
                     (key.a == owner.entity && key.a_slot as usize == limb
@@ -5550,7 +5566,7 @@ impl World {
                         && resolution.impulse.on_b != Vec3::ZERO)
                 });
                 if hand == self.arms[i][limb].hand && !contact.entry[i].clamped[limb]
-                    && !capped && !direct { continue }
+                    && !capped && !direct && !arena_body_clipped { continue }
                 arms[limb] = Some(ExactArmCommit {
                     hand,
                     linear_velocity: hand - contact.entry[i].arms[limb].hand,
@@ -5599,13 +5615,36 @@ impl World {
                 } else {
                     settled_velocity.y - solved_velocity.y
                 };
-                owner.common_response.momentum[axis].velocity_raw = owner.common_response
-                    .momentum[axis].velocity_raw.checked_add(delta.raw())
-                    .expect("bounded wall response overflowed exact momentum");
+                let current = owner.common_response.momentum[axis];
+                let local = ExactMomentum {
+                    velocity_raw: current.velocity_raw.checked_add(delta.raw())
+                        .expect("bounded wall response overflowed exact momentum"),
+                    remainder: current.remainder,
+                };
+                owner.common_response.momentum[axis] = normalize_momentum(
+                    local, owner.common_scale)
+                    .expect("bounded wall response produced noncanonical exact momentum");
                 // The wall's answer is an integer Fx boundary. Retaining the
                 // solver's subraw overshoot would put the exact row infinitesimally
                 // through that boundary again on the next tick.
                 owner.common_response.at_group[axis].remainder = 0;
+            }
+            if clipped[0] || clipped[1] {
+                // The common response moves every physical row, but a held
+                // lane accounts only its equipment mass. Without this body
+                // row, a naked fighter loses the same wall energy and the
+                // exact lifecycle ledger says that nothing external happened.
+                let mass = Fx::from_raw(owner.body_mass_raw);
+                let before_n = Self::recoil_energy_numerator(mass,
+                    Vec3::new(solved_velocity.x, solved_velocity.y, Fx::ZERO), Vec3::ZERO);
+                let after_n = Self::recoil_energy_numerator(mass,
+                    Vec3::new(settled_velocity.x, settled_velocity.y, Fx::ZERO), Vec3::ZERO);
+                contact.exact_external_energy.push(ExactExternalEnergyRow {
+                    entity: row.entity, lane: 0, reason: RecoilExternalEnergy::WALL,
+                    signed_numerator: after_n.checked_sub(before_n)
+                        .expect("bounded body wall energy difference"),
+                    denominator: 2i128 * 65_536 * 65_536,
+                });
             }
             for limb in 0..2 {
                 let Some(mut staged) = row.arms[limb] else { continue };
@@ -6095,7 +6134,9 @@ impl World {
                 // the offset is a hundredth of a unit against a limit of 2.309
                 // -- and the alpha-zero identity depends on the row being a
                 // clamp output rather than on that measurement.
-                let sampled = clamp_contact_velocity(hand_velocity + swing * balance);
+                let sampled = clamp_contact_velocity(
+                    hand_velocity + scale_contact_vector(swing, balance),
+                );
                 rows.push(ContactCollider {
                     entity, faction, slot: segment.owner as u8, mass: segment.mass,
                     surface: segment.surface, present: true,
@@ -7736,6 +7777,22 @@ mod tests {
     }
 
     #[cfg(feature = "cartesian-recoil")]
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn contact_runtime_clone_rereserves_empty_exact_work_before_early_return() {
+        let mut runtime = ContactRuntime::default();
+        runtime.reserve(crate::combat::contact::MAX_ARTICULATED_ENTITIES).unwrap();
+        let source_caps = (runtime.exact_owner_entry.capacity(),
+            runtime.exact_trajectory_entry.capacity(), runtime.exact_owners.capacity(),
+            runtime.exact_trajectories.capacity(), runtime.scratch.capacities());
+        let cloned = runtime.clone();
+        assert_eq!(cloned.high_water, runtime.high_water);
+        assert_eq!((cloned.exact_owner_entry.capacity(),
+            cloned.exact_trajectory_entry.capacity(), cloned.exact_owners.capacity(),
+            cloned.exact_trajectories.capacity(), cloned.scratch.capacities()), source_caps);
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
     fn exact_contact_fixture(world: &mut World) -> ContactRuntime {
         world.retain_contact_entry();
         world.record_contact_locomotion();
@@ -7746,46 +7803,859 @@ mod tests {
     }
 
     #[cfg(feature = "cartesian-recoil")]
-    #[test]
-    fn post_contact_provenance_captures_absolute_and_relative_exact_commit_words() {
-        let mut world = clinch_world();
-        brace_weapon(&mut world, 0);
-        let mut contact = exact_contact_fixture(&mut world);
-        let finished = advance_exact(&contact.exact_owners, 65_536).unwrap();
-        finished.copy_into(&mut contact.exact_owners).unwrap();
-        let held = contact.exact_trajectories.iter().find(|row|
-            matches!(row.motor, MotorShape::Segment { .. })).copied()
-            .expect("fixture has no held segment");
-        contact.post_contact_provenance.push(PostContactProvenanceDiagnostic {
-            entity: held.entity, limb: held.held_index.unwrap() as u8, ..Default::default()
-        });
-        world.stage_exact_contact(&mut contact).unwrap();
-        let words = contact.post_contact_provenance[0].stage_exact_raw;
-        for base in [0, 12, 24] {
-            for axis in 0..3 {
-                let at = base + axis * 4;
-                assert!(words[at + 1] > 0);
-                assert_eq!(words[at] / words[at + 1], words[at + 2]);
-                assert_eq!(words[at] % words[at + 1], words[at + 3]);
-            }
+    #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+    struct BodyOriginOracle {
+        motor_raw: i128,
+        response_numerator: i128,
+        response_denominator: i128,
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    impl BodyOriginOracle {
+        fn absolute_numerator(self) -> i128 {
+            self.motor_raw * self.response_denominator + self.response_numerator
         }
-        for axis in 0..3 {
-            assert_eq!(words[36 + axis], words[12 + axis * 4 + 2] - words[axis * 4 + 2]);
+        fn absolute_quotient(self) -> i128 {
+            self.absolute_numerator() / self.response_denominator
+        }
+        fn absolute_remainder(self) -> i128 {
+            self.absolute_numerator() % self.response_denominator
+        }
+        /// Quantize the signed response once, after the integral motor origin
+        /// has selected the affine reflection frame: P = M + Q(R).
+        fn motor_plus_response_quotient(self) -> i128 {
+            self.motor_raw + self.response_numerator / self.response_denominator
+        }
+        fn reflected(self) -> Self {
+            Self { motor_raw: 1_048_576 - self.motor_raw,
+                   response_numerator: -self.response_numerator,
+                   response_denominator: self.response_denominator }
+        }
+    }
+
+    /// The tick-32 body witness reduced to the words that select publication:
+    /// motor Y is the exact arena midplane and common response is 538 raw plus
+    /// one retained subraw word. Momentum is zero at finished group time.
+    #[cfg(feature = "cartesian-recoil")]
+    fn tick_32_body_words() -> BodyOriginOracle {
+        BodyOriginOracle { motor_raw: 524_288,
+            response_numerator: 538 * 65_536 + 1, response_denominator: 65_536 }
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    fn tick_32_body_production_fixture(reflected: bool)
+        -> (ExactMotorPoint, ExactOwnerTrajectory)
+    {
+        let mut world = clinch_world();
+        let contact = exact_contact_fixture(&mut world);
+        let mut owner = contact.exact_owners[0];
+        owner.common_scale = owner.body_mass_raw as i128;
+        owner.common_response = ExactAffine3 {
+            mass_raw: owner.body_mass_raw,
+            at_group: [ExactPosition::default(); 3],
+            momentum: [ExactMomentum::default(); 3],
+            group_time_raw: 65_536,
+        };
+        owner.held_response = [None; 2];
+        owner.common_response.at_group[1] = if reflected {
+            ExactPosition { raw: -538, remainder: -owner.common_scale }
+        } else {
+            ExactPosition { raw: 538, remainder: owner.common_scale }
+        };
+        let origin = ExactMotorPoint {
+            at_tick_start_raw: [0, 524_288, 0],
+            tick_delta_raw: [0; 3],
+        };
+        assert!(crate::combat::trajectory::advance_exact(&[owner], 65_536).is_ok(),
+                "the frozen body witness must be a canonical exact owner");
+        (origin, owner)
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    fn tick_32_body_rebase_fixture(reflected: bool)
+        -> (ExactContactTrajectory, ExactOwnerTrajectory)
+    {
+        let mut world = clinch_world();
+        let contact = exact_contact_fixture(&mut world);
+        let (origin, mut owner) = tick_32_body_production_fixture(reflected);
+        let mut body = *contact.exact_trajectories.iter().find(|row|
+            row.entity == contact.exact_owners[0].entity
+                && matches!(row.motor, MotorShape::Body { .. })).unwrap();
+        let MotorShape::Body { parts, .. } = body.motor else { unreachable!() };
+        body.motor = MotorShape::Body { origin, parts };
+        owner.entity = body.entity;
+        (body, owner)
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    fn stage_tick_32_body(reflected: bool) -> i32 {
+        let mut world = clinch_world();
+        let mut contact = exact_contact_fixture(&mut world);
+        let finished = crate::combat::trajectory::advance_exact(
+            &contact.exact_owners, 65_536).unwrap();
+        finished.copy_into(&mut contact.exact_owners).unwrap();
+        let entity = contact.exact_owners[0].entity;
+        let scale = contact.exact_owners[0].common_scale;
+        contact.exact_owners[0].common_response.at_group[1] = if reflected {
+            ExactPosition { raw: -538, remainder: -scale }
+        } else {
+            ExactPosition { raw: 538, remainder: scale }
+        };
+        let body = contact.exact_trajectories.iter_mut().find(|row|
+            row.entity == entity && matches!(row.motor, MotorShape::Body { .. })).unwrap();
+        let MotorShape::Body { origin, .. } = &mut body.motor else { unreachable!() };
+        origin.at_tick_start_raw[1] = 524_288;
+        origin.tick_delta_raw[1] = 0;
+        world.stage_exact_contact(&mut contact).unwrap();
+        contact.exact_commit.iter().find(|row| row.entity == entity).unwrap().position.y.raw()
+    }
+
+    /// The frozen exact input is M=524288 and R=35258369/65536. Publishing
+    /// M+Q(R) selects 524826 while retaining the positive subraw word.
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn tick_32_body_stage_publishes_motor_plus_response_quotient() {
+        assert_eq!(stage_tick_32_body(false), 524_826);
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn reflected_body_stage_maps_524826_to_523750() {
+        let plain = stage_tick_32_body(false);
+        let mirror = stage_tick_32_body(true);
+        assert_eq!((plain, mirror, plain + mirror), (524_826, 523_750, 1_048_576));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn body_stage_and_common_rebase_share_one_publication_authority() {
+        for reflected in [false, true] {
+            let (body, owner) = tick_32_body_rebase_fixture(reflected);
+            let MotorShape::Body { origin, .. } = body.motor else { unreachable!() };
+            let published = wide_body_origin_quotient(&body, &owner).unwrap();
+            let rebased = wide_rebase_owner_tick(&[body], owner).unwrap();
+            let response = owner.common_response.at_group[1];
+            let exact = (origin.at_tick_start_raw[1] as i128 + response.raw as i128)
+                * owner.common_scale * 65_536 + response.remainder;
+            let reconstructed = published.y.raw() as i128 * owner.common_scale * 65_536
+                + rebased.common_response.at_group[1].remainder;
+            assert_eq!(reconstructed, exact);
         }
     }
 
     #[cfg(feature = "cartesian-recoil")]
     #[test]
-    fn post_contact_provenance_retains_its_capacity_and_pointer_across_ticks() {
+    fn body_rebase_retains_equal_and_opposite_subraw_residuals() {
+        let (plain_body, plain_owner) = tick_32_body_rebase_fixture(false);
+        let (mirror_body, mirror_owner) = tick_32_body_rebase_fixture(true);
+        let plain = wide_rebase_owner_tick(&[plain_body], plain_owner).unwrap();
+        let mirror = wide_rebase_owner_tick(&[mirror_body], mirror_owner).unwrap();
+        assert_eq!((plain.common_response.at_group[1], mirror.common_response.at_group[1]),
+                   (ExactPosition { raw: 0, remainder: plain_owner.common_scale },
+                    ExactPosition { raw: 0, remainder: -mirror_owner.common_scale }));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn body_authority_leaves_relative_segment_and_shield_anchors_unchanged() {
         let mut world = clinch_world();
-        let mut contact = world.contact.take().unwrap();
-        let capacity = contact.post_contact_provenance.capacity();
-        contact.post_contact_provenance.push(PostContactProvenanceDiagnostic::default());
-        let pointer = contact.post_contact_provenance.as_ptr();
-        contact.post_contact_provenance.clear();
-        contact.post_contact_provenance.push(PostContactProvenanceDiagnostic::default());
-        assert_eq!(contact.post_contact_provenance.capacity(), capacity);
-        assert_eq!(contact.post_contact_provenance.as_ptr(), pointer);
+        let mut contact = exact_contact_fixture(&mut world);
+        let finished = crate::combat::trajectory::advance_exact(
+            &contact.exact_owners, 65_536).unwrap();
+        finished.copy_into(&mut contact.exact_owners).unwrap();
+        let mut saw = [false; 2];
+        for owner in &contact.exact_owners {
+            let body = contact.exact_trajectories.iter().find(|row|
+                row.entity == owner.entity && matches!(row.motor, MotorShape::Body { .. }))
+                .unwrap();
+            let MotorShape::Body { origin, .. } = body.motor else { unreachable!() };
+            let published_body = wide_body_origin_quotient(body, owner).unwrap();
+            for held in contact.exact_trajectories.iter().filter(|row|
+                row.entity == owner.entity && row.held_index.is_some()) {
+                let points: &[ExactMotorPoint] = match &held.motor {
+                    MotorShape::Segment { hilt, .. } => { saw[0] = true; core::slice::from_ref(hilt) }
+                    MotorShape::Shield { corners } => { saw[1] = true; corners }
+                    MotorShape::Body { .. } => unreachable!(),
+                };
+                for &point in points {
+                    let relative = wide_relative_point_quotient(
+                        point, held, origin, body, owner, 65_536).unwrap();
+                    for (base, offset) in [(published_body.x, relative.x),
+                                           (published_body.y, relative.y),
+                                           (published_body.z, relative.z)] {
+                        let anchor = base.raw() as i128 + offset.raw() as i128;
+                        assert!(i32::try_from(anchor).is_ok());
+                        assert_eq!(anchor - base.raw() as i128, offset.raw() as i128);
+                    }
+                }
+            }
+        }
+        assert_eq!(saw, [true, true], "the actual fixture lost its segment or shield row");
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn tick_32_body_fixture_reproduces_524826_524827_without_live_diagnostics() {
+        let plain = tick_32_body_words(); let mirror = plain.reflected();
+        assert_eq!(plain.absolute_quotient(), 524_826);
+        assert_eq!(1_048_576 - mirror.absolute_quotient(), 524_827);
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn tick_32_body_fixture_has_mapped_resolution_and_exact_owner_input() {
+        let row = tick_32_body_words();
+        assert_eq!((row.motor_raw, row.response_numerator, row.response_denominator),
+                   (524_288, 35_258_369, 65_536));
+        let group_time_raw = 65_536u32;
+        let momentum = ExactMomentum { velocity_raw: 0, remainder: 0 };
+        let selected = (38_127u32, 0u8, 1u8, ContactKind::WeaponBody, 4u8);
+        let mapped = (38_127u32, 0u8, 1u8, ContactKind::WeaponBody, 4u8);
+        assert_eq!((group_time_raw, momentum), (65_536, ExactMomentum::default()));
+        assert_eq!(selected, mapped);
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn separate_absolute_body_quotients_expose_the_one_raw_reflection_difference() {
+        let plain = tick_32_body_words(); let mirror = plain.reflected();
+        eprintln!("plain O=({},{},{},{}) mirror O=({},{},{},{})",
+            plain.absolute_numerator(), plain.response_denominator,
+            plain.absolute_quotient(), plain.absolute_remainder(),
+            mirror.absolute_numerator(), mirror.response_denominator,
+            mirror.absolute_quotient(), mirror.absolute_remainder());
+        assert_eq!((plain.absolute_quotient(), 1_048_576 - mirror.absolute_quotient()),
+                   (524_826, 524_827));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn body_origin_relative_to_reflection_plane_has_one_equivariant_quotient() {
+        let plain = tick_32_body_words(); let mirror = plain.reflected();
+        assert_eq!(plain.motor_plus_response_quotient(), 524_826);
+        assert_eq!(mirror.motor_plus_response_quotient(), 523_750);
+        assert_eq!(plain.motor_plus_response_quotient()
+                 + mirror.motor_plus_response_quotient(), 1_048_576);
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn body_publication_and_common_rebase_advance_identically_next_tick() {
+        for row in [tick_32_body_words(), tick_32_body_words().reflected()] {
+            let published = row.motor_plus_response_quotient();
+            let retained = row.absolute_numerator()
+                - published * row.response_denominator;
+            let next_exact = published * row.response_denominator + retained;
+            assert_eq!(next_exact, row.absolute_numerator());
+        }
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn reflecting_body_publication_and_rebase_twice_restores_every_exact_word() {
+        let row = tick_32_body_words();
+        assert_eq!(row.reflected().reflected(), row);
+        let reflected = row.reflected();
+        let residual = row.absolute_numerator()
+            - row.motor_plus_response_quotient() * row.response_denominator;
+        let reflected_residual = reflected.absolute_numerator()
+            - reflected.motor_plus_response_quotient() * reflected.response_denominator;
+        assert_eq!(residual, -reflected_residual);
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn body_quantization_does_not_change_held_relative_rebase_authority() {
+        let row = tick_32_body_words();
+        let relative_hand_raw = 451_340i128;
+        let plain_anchor = row.motor_plus_response_quotient() + relative_hand_raw;
+        let mirror = row.reflected();
+        let mirror_anchor = mirror.motor_plus_response_quotient() - relative_hand_raw;
+        assert_eq!(plain_anchor + mirror_anchor, 1_048_576);
+        assert_eq!(plain_anchor - row.motor_plus_response_quotient(), relative_hand_raw);
+        assert_eq!(mirror_anchor - mirror.motor_plus_response_quotient(), -relative_hand_raw);
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[derive(Clone, Copy, Debug)]
+    struct Tick32VelocityWords {
+        hand_y: i32, hilt_delta_y: i32, tip_delta_y: i32,
+        swing_y: i32, balance_raw: i32,
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    fn tick_32_velocity_words(reflected: bool) -> Tick32VelocityWords {
+        let sign = if reflected { -1 } else { 1 };
+        Tick32VelocityWords { hand_y: sign * 1_180, hilt_delta_y: sign * 1_180,
+            tip_delta_y: sign * 7_470, swing_y: sign * 6_290, balance_raw: 36_044 }
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    fn tick_32_split_sample(row: Tick32VelocityWords) -> i32 {
+        row.hand_y + (Fx::from_raw(row.swing_y) * Fx::from_raw(row.balance_raw)).raw()
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    fn tick_32_exact_sample(row: Tick32VelocityWords) -> i32 {
+        row.hand_y + fx::mul_div(Fx::from_raw(row.swing_y),
+            Fx::from_raw(row.balance_raw), Fx::ONE).raw()
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[derive(Clone, Copy)]
+    struct WeaponSampleFixture {
+        row: ContactCollider,
+        hand: Vec3,
+        hilt_delta: Vec3,
+        tip_delta: Vec3,
+        swing: Vec3,
+        balance: Fx,
+    }
+
+    /// Drive the frozen Smart58 words through the production collider builder.
+    /// A cardinal turn keeps the fixture about COM sampling rather than the
+    /// sine table: the raw 6290 segment moves from +X to +/-Y while its hilt
+    /// moves by raw +/-1180.
+    #[cfg(feature = "cartesian-recoil")]
+    fn tick_32_weapon_sample_fixture(reflected: bool, rotates: bool)
+        -> (WeaponSampleFixture, Vec<ContactCollider>)
+    {
+        let mut world = clinch_world();
+        let sword = world.combat_specs.as_mut().expect("an articulated table")
+            .equipment.iter_mut().find(|row| row.id == 1).expect("the fixture sword");
+        sword.balance = Fx::from_raw(36_044);
+        sword.geometry = EquipmentGeometry::Segment {
+            length: Fx::from_raw(6_290), radius: Fx::from_raw(1),
+        };
+        world.vel[0] = Vec2::ZERO;
+        for arm in &mut world.arms[0] { arm.linear_velocity = Vec3::ZERO; }
+        let limb = LimbSlot::RightArm as usize;
+        world.arms[0][limb].bearing = Angle::ZERO;
+        world.retain_contact_entry();
+        let contact = world.contact.take().expect("articulated contact state");
+
+        let sign = if reflected { -1 } else { 1 };
+        world.arms[0][limb].hand.y += Fx::from_raw(sign * 1_180);
+        world.arms[0][limb].linear_velocity.y = Fx::from_raw(sign * 1_180);
+        if rotates {
+            world.arms[0][limb].bearing = if reflected {
+                Angle::THREE_QUARTER
+            } else {
+                Angle::QUARTER
+            };
+        }
+        let mut rows = Vec::new();
+        world.build_contact_colliders(&contact.entry, &mut rows, &world.wounds);
+        let row = rows.iter().find(|row| row.entity == world.id_of(0)
+            && row.slot == LimbSlot::RightArm as u8
+            && matches!(row.shape, ContactShape::Segment { .. }))
+            .copied().expect("the fixture weapon row");
+        let ContactShape::Segment { previous_hilt, previous_tip,
+                                    requested_hilt, requested_tip, .. } = row.shape else {
+            unreachable!()
+        };
+        let hand = Vec3::new(world.vel[0].x, world.vel[0].y, Fx::ZERO)
+            + world.arms[0][limb].linear_velocity;
+        let hilt_delta = requested_hilt - previous_hilt;
+        let tip_delta = requested_tip - previous_tip;
+        let swing = tip_delta - hilt_delta;
+        let balance = world.combat_specs.as_ref().unwrap().equipment(1).unwrap().balance;
+        (WeaponSampleFixture { row, hand, hilt_delta, tip_delta, swing, balance }, rows)
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn tick_32_weapon_com_sample_is_odd_under_reflection() {
+        let (plain, _) = tick_32_weapon_sample_fixture(false, true);
+        let (mirror, _) = tick_32_weapon_sample_fixture(true, true);
+        let raw3 = |x, y, z| Vec3::new(Fx::from_raw(x), Fx::from_raw(y), Fx::from_raw(z));
+        assert_eq!(plain.hilt_delta, raw3(0, 1_180, 0));
+        assert_eq!(mirror.hilt_delta, raw3(0, -1_180, 0));
+        assert_eq!(plain.tip_delta, raw3(-6_290, 7_470, 0));
+        assert_eq!(mirror.tip_delta, raw3(-6_290, -7_470, 0));
+        assert_eq!((plain.swing.y.raw(), mirror.swing.y.raw()), (6_290, -6_290));
+        assert_eq!((plain.balance.raw(), mirror.balance.raw()), (36_044, 36_044));
+        let numerator = plain.swing.y.raw() as i128 * plain.balance.raw() as i128;
+        let mirror_numerator = mirror.swing.y.raw() as i128 * mirror.balance.raw() as i128;
+        assert_eq!((numerator, mirror_numerator), (226_716_760, -226_716_760));
+        assert_eq!((numerator / 65_536, numerator % 65_536,
+                    mirror_numerator / 65_536, mirror_numerator % 65_536),
+                   (3_459, 27_736, -3_459, -27_736));
+        assert_eq!((plain.hand.y.raw(), mirror.hand.y.raw()), (1_180, -1_180));
+        assert_eq!(plain.row.velocity, raw3(-3_459, 4_639, 0));
+        assert_eq!(mirror.row.velocity, raw3(-3_459, -4_639, 0));
+        assert_eq!(plain.row.velocity_offset, raw3(-3_459, 3_459, 0));
+        assert_eq!(mirror.row.velocity_offset, raw3(-3_459, -3_459, 0));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn weapon_com_sample_uses_balance_at_the_same_centre() {
+        let (fixture, _) = tick_32_weapon_sample_fixture(false, true);
+        assert_eq!(fixture.row.velocity,
+                   fixture.hand + scale_contact_vector(fixture.swing, fixture.balance));
+        assert_ne!(fixture.row.velocity, fixture.hand);
+        assert_ne!(fixture.row.velocity, fixture.hand + fixture.swing);
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn weapon_velocity_offset_still_recovers_hand_velocity() {
+        for reflected in [false, true] {
+            let (fixture, _) = tick_32_weapon_sample_fixture(reflected, true);
+            assert_eq!(fixture.row.velocity - fixture.row.velocity_offset, fixture.hand);
+            assert_eq!(fixture.row.velocity_offset,
+                       scale_contact_vector(fixture.swing, fixture.balance));
+        }
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn shield_body_and_zero_swing_rows_are_byte_identical() {
+        let (plain, plain_rows) = tick_32_weapon_sample_fixture(false, false);
+        let (mirror, mirror_rows) = tick_32_weapon_sample_fixture(true, false);
+        assert_eq!(plain.swing, Vec3::ZERO);
+        assert_eq!(mirror.swing, Vec3::ZERO);
+        assert_eq!(plain.row.velocity, plain.hand);
+        assert_eq!(mirror.row.velocity, mirror.hand);
+        assert_eq!(plain.row.velocity_offset, Vec3::ZERO);
+        assert_eq!(mirror.row.velocity_offset, Vec3::ZERO);
+        for rows in [&plain_rows, &mirror_rows] {
+            for row in rows.iter().filter(|row| !matches!(row.shape, ContactShape::Segment { .. })) {
+                assert_eq!(row.velocity_offset, Vec3::ZERO);
+            }
+        }
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    struct Smart60Entry {
+        world: World,
+        limb: usize,
+        target: ArmTarget,
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    fn smart_60_entry(reflected: bool) -> Smart60Entry {
+        let centre = Vec2::from_ints(12, 8);
+        let offset = Vec2::new(Fx::from_int(-2),
+            if reflected { Fx::ONE } else { -Fx::ONE });
+        let mut config = crate::DuelConfigV1::shipped();
+        config.fighters[0].spawn = centre + offset;
+        config.fighters[1].spawn = centre;
+        config.fighters[1].anatomy = crate::AnatomyChoice::Fighter;
+        if reflected { for fighter in &mut config.fighters { fighter.hands.swap(0, 1); } }
+        let limb = if reflected { LimbSlot::LeftArm as usize }
+            else { LimbSlot::RightArm as usize };
+        config.fighters[0].hands[limb].as_mut().expect("the declared sword").geometry =
+            EquipmentGeometry::Segment { length: Fx::from_int(2),
+                                         radius: Fx::from_ratio(1, 25) };
+        config.max_ticks = 49;
+        let scenario = Scenario::duel_from(&config).expect("the Smart60 duel is legal");
+        let mut world = World::new(&scenario, 0);
+        let attacker = world.id_of(0); let defender = world.id_of(1);
+        let declared = (-offset).angle();
+        let eighth = Angle::QUARTER.raw() / 2;
+        let chamber = Angle::from_raw(if reflected {
+            declared.raw().wrapping_add(eighth)
+        } else { declared.raw().wrapping_sub(eighth) });
+        let follow = Angle::from_raw(if reflected {
+            declared.raw().wrapping_sub(eighth)
+        } else { declared.raw().wrapping_add(eighth) });
+        // Smart41 removed perception from the bearing source only. The frozen
+        // corpus still derives its target height from this one tick-zero
+        // observation, so retain that input byte for byte here.
+        let shown = world.observe_articulated(attacker);
+        let foe = shown.opponents().first().expect("the target is observed");
+        let legs = foe.regions[BodyPart::Legs as usize];
+        let local_height = (legs.lower.z + legs.upper.z) / Fx::from_int(2)
+            - foe.body_position.z;
+        let height = crate::CombatHeight::try_from_raw(
+            (local_height / shown.standing_height).clamp(Fx::ZERO, Fx::ONE).raw())
+            .expect("the observed legs centre is a legal height");
+        let make = |world: &World, bearing| {
+            let mut command = world.neutral_articulated(0);
+            command.intent = Intent::Attack(defender);
+            command.arms[limb] = ArmTarget { bearing, height, reach: Fx::from_raw(32_768),
+                                             effort: Fx::ONE };
+            command
+        };
+        for tick in 0..33 {
+            let command = make(&world, if tick < 16 { chamber } else { follow });
+            let held = world.neutral_articulated(1);
+            assert!(matches!(world.submit_articulated_v1(attacker, command),
+                             SubmitArticulatedOutcome::Stored { rejection: None, .. }));
+            assert!(matches!(world.submit_articulated_v1(defender, held),
+                             SubmitArticulatedOutcome::Stored { rejection: None, .. }));
+            world.step();
+        }
+        let target = make(&world, follow).arms[limb];
+        Smart60Entry { world, limb, target }
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    fn mapped_arm_words(plain: ArmState, mirror: ArmState) -> bool {
+        plain.bearing.raw().wrapping_add(mirror.bearing.raw()) == 0
+            && plain.height == mirror.height && plain.reach == mirror.reach
+            && plain.hand.x == mirror.hand.x && plain.hand.y == -mirror.hand.y
+            && plain.hand.z == mirror.hand.z
+            && plain.previous_hand.x == mirror.previous_hand.x
+            && plain.previous_hand.y == -mirror.previous_hand.y
+            && plain.previous_hand.z == mirror.previous_hand.z
+            && plain.linear_velocity.x == mirror.linear_velocity.x
+            && plain.linear_velocity.y == -mirror.linear_velocity.y
+            && plain.linear_velocity.z == mirror.linear_velocity.z
+            && plain.post_contact_com_velocity.x == mirror.post_contact_com_velocity.x
+            && plain.post_contact_com_velocity.y == -mirror.post_contact_com_velocity.y
+            && plain.post_contact_com_velocity.z == mirror.post_contact_com_velocity.z
+            && plain.post_contact_active == mirror.post_contact_active
+            && plain.fatigue == mirror.fatigue && plain.work_residue == mirror.work_residue
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn tick_33_commit_to_tick_34_entry_names_the_first_unequal_word() {
+        let plain = smart_60_entry(false); let mirror = smart_60_entry(true);
+        assert_eq!(plain.world.tick(), 33); assert_eq!(mirror.world.tick(), 33);
+        assert_eq!(plain.world.contact_resolutions().len(), mirror.world.contact_resolutions().len());
+        assert!(!plain.world.contact_resolutions().is_empty(), "tick 33 retained no resolution");
+        let mapped_slot = |slot: u8| if slot < 2 { 1 - slot } else { slot };
+        for (p, m) in plain.world.contact_resolutions().iter()
+            .zip(mirror.world.contact_resolutions())
+        {
+            assert_eq!((p.fact.key.a, p.fact.key.a_slot, p.fact.key.b, p.fact.key.b_slot,
+                        p.fact.key.kind, p.fact.toi, p.group_alpha_raw),
+                       (m.fact.key.a, mapped_slot(m.fact.key.a_slot), m.fact.key.b,
+                        mapped_slot(m.fact.key.b_slot),
+                        m.fact.key.kind, m.fact.toi, m.group_alpha_raw));
+            assert_eq!(p.impulse.on_a.x, m.impulse.on_a.x);
+            assert_eq!(p.impulse.on_a.y, -m.impulse.on_a.y);
+            assert_eq!(p.impulse.on_a.z, m.impulse.on_a.z);
+            assert_eq!(p.fact.normal.x, m.fact.normal.x);
+            assert_eq!(p.fact.normal.y, -m.fact.normal.y);
+            assert_eq!(p.fact.normal.z, m.fact.normal.z);
+        }
+        let p = plain.world.arms[0][plain.limb]; let m = mirror.world.arms[0][mirror.limb];
+        eprintln!("entry plain hand={:?} linear={:?} com={:?} active={} fatigue={} residue={} mirror hand={:?} linear={:?} com={:?} active={} fatigue={} residue={}",
+            p.hand, p.linear_velocity, p.post_contact_com_velocity, p.post_contact_active,
+            p.fatigue.raw(), p.work_residue.raw(), m.hand, m.linear_velocity,
+            m.post_contact_com_velocity, m.post_contact_active, m.fatigue.raw(), m.work_residue.raw());
+        assert!(mapped_arm_words(p, m), "the committed arm diverged before tick 34 actuation");
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn tick_33_rebased_exact_owner_maps_every_common_and_held_word() {
+        let plain = smart_60_entry(false); let mirror = smart_60_entry(true);
+        let p = plain.world.exact_owners[0].expect("plain exact owner");
+        let m = mirror.world.exact_owners[0].expect("mirror exact owner");
+        assert_eq!((p.entity, p.body_mass_raw, p.common_scale),
+                   (m.entity, m.body_mass_raw, m.common_scale));
+        assert_eq!(p.common_response.mass_raw, m.common_response.mass_raw);
+        assert_eq!(p.common_response.group_time_raw, m.common_response.group_time_raw);
+        for axis in [0, 2] {
+            assert_eq!(p.common_response.at_group[axis], m.common_response.at_group[axis]);
+            assert_eq!(p.common_response.momentum[axis], m.common_response.momentum[axis]);
+        }
+        assert_eq!(p.common_response.at_group[1].raw, -m.common_response.at_group[1].raw);
+        assert_eq!(p.common_response.at_group[1].remainder,
+                   -m.common_response.at_group[1].remainder);
+        assert_eq!(p.common_response.momentum[1].velocity_raw,
+                   -m.common_response.momentum[1].velocity_raw);
+        assert_eq!(p.common_response.momentum[1].remainder,
+                   -m.common_response.momentum[1].remainder);
+        let ph = p.held_response[plain.limb].expect("plain held owner").affine;
+        let mh = m.held_response[mirror.limb].expect("mirror held owner").affine;
+        assert_eq!((ph.mass_raw, ph.group_time_raw), (mh.mass_raw, mh.group_time_raw));
+        for axis in [0, 2] {
+            assert_eq!(ph.at_group[axis], mh.at_group[axis]);
+            assert_eq!(ph.momentum[axis], mh.momentum[axis]);
+        }
+        assert_eq!(ph.at_group[1].raw, -mh.at_group[1].raw);
+        assert_eq!(ph.at_group[1].remainder, -mh.at_group[1].remainder);
+        assert_eq!(ph.momentum[1].velocity_raw, -mh.momentum[1].velocity_raw);
+        assert_eq!(ph.momentum[1].remainder, -mh.momentum[1].remainder);
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn tick_33_arm_commit_and_committed_recoil_map_before_next_actuation() {
+        let plain = smart_60_entry(false); let mirror = smart_60_entry(true);
+        assert!(mapped_arm_words(plain.world.arms[0][plain.limb],
+                                 mirror.world.arms[0][mirror.limb]));
+        assert_eq!(plain.target.bearing.raw().wrapping_add(mirror.target.bearing.raw()), 0);
+        assert_eq!((plain.target.height, plain.target.reach, plain.target.effort),
+                   (mirror.target.height, mirror.target.reach, mirror.target.effort));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[derive(Clone, Copy)]
+    struct Tick34Probe {
+        entry: ArmState,
+        forward: ArmState,
+        actual: ArmState,
+        old_direction: Vec3,
+        new_direction: Vec3,
+        old_offset: Vec3,
+        new_offset: Vec3,
+        offset_floor: Vec3,
+        offset_exact: Vec3,
+        length: Fx,
+        balance: Fx,
+        published_hand_y: Fx,
+        com_accel: i32,
+        com_max: i32,
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    fn smart_60_probe(fixture: Smart60Entry) -> Tick34Probe {
+        let i = 0; let limb = fixture.limb;
+        let entry = fixture.world.arms[i][limb];
+        let anatomy = fixture.world.combat_specs.as_ref().unwrap()
+            .anatomy(fixture.world.articulated_anatomy[i].unwrap()).unwrap().clone();
+        let yaw = fixture.world.body_yaw[i].angle;
+        let item = fixture.world.equipment_in_grip(i, limb).expect("the attacking sword");
+        let EquipmentGeometry::Segment { length, .. } = item.geometry else { unreachable!() };
+        let args = (fixture.world.stats[i], fixture.world.arm_authority[i][limb]);
+        let mut forward = entry;
+        forward.post_contact_active = false;
+        forward.post_contact_com_velocity = Vec3::ZERO;
+        actuator::integrate_arm_with_recoil(&mut forward, &anatomy, yaw, limb, fixture.target,
+            Some(item), args.0, args.1, actuator::ARM_BEARING_MAX_SPEED_RAW,
+            actuator::ARM_BEARING_ACCEL_RAW);
+        let old_direction = Vec3::new(entry.bearing.cos(), entry.bearing.sin(), Fx::ZERO);
+        let new_direction = Vec3::new(forward.bearing.cos(), forward.bearing.sin(), Fx::ZERO);
+        let old_offset = old_direction * length;
+        let new_offset = new_direction * length;
+        let offset_floor = (new_offset - old_offset) * item.balance;
+        let offset_exact = scale_contact_vector(new_offset - old_offset, item.balance);
+
+        let factor = |value: u8| Fx::from_ratio(8 + value as i32, 28)
+            .clamp(Fx::from_ratio(1, 4), Fx::ONE);
+        let inertia = actuator::equipment_inertia(Some(item));
+        let available = ((((fixture.target.effort * args.1) * (Fx::ONE - entry.fatigue))
+            * factor(args.0.power)) / inertia).clamp(Fx::ZERO, Fx::ONE);
+        let linear_accel = (Fx::from_raw(actuator::ARM_LINEAR_ACCEL_RAW) * available).raw().abs();
+        let linear_max = (Fx::from_raw(actuator::ARM_LINEAR_MAX_SPEED_RAW)
+            * factor(args.0.agility)).raw().abs();
+        let com_accel = (Fx::from_raw(linear_accel) * anatomy.arm_length).raw().abs();
+        let com_max = (Fx::from_raw(linear_max) * anatomy.arm_length).raw().abs();
+        let mut actual = entry;
+        actuator::integrate_arm_with_recoil(&mut actual, &anatomy, yaw, limb, fixture.target,
+            Some(item), args.0, args.1, actuator::ARM_BEARING_MAX_SPEED_RAW,
+            actuator::ARM_BEARING_ACCEL_RAW);
+        let mut stepped = fixture.world.clone();
+        let mut command = stepped.neutral_articulated(i);
+        command.intent = Intent::Attack(stepped.id_of(1));
+        command.arms[limb] = fixture.target;
+        let _ = stepped.submit_articulated_v1(stepped.id_of(i), command);
+        let held = stepped.neutral_articulated(1);
+        let _ = stepped.submit_articulated_v1(stepped.id_of(1), held);
+        stepped.step();
+        let published_hand_y = stepped.articulated_pose(stepped.id_of(i)).unwrap().arms[limb].hand.y;
+        Tick34Probe { entry, forward, actual, old_direction, new_direction, old_offset,
+            new_offset, offset_floor, offset_exact, length, balance: item.balance,
+            published_hand_y, com_accel, com_max }
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    fn smart_60_choice(probe: Tick34Probe, next_offset: Vec3) -> (Vec3, Vec3, bool) {
+        let update = |error: Fx, offset: Fx, current: Fx| {
+            let desired_hand = error.raw();
+            let desired_com = desired_hand.saturating_add(offset.raw())
+                .clamp(-probe.com_max, probe.com_max);
+            Fx::from_raw(current.raw()
+                + (desired_com - current.raw()).clamp(-probe.com_accel, probe.com_accel))
+        };
+        let next_com = Vec3::new(
+            update(probe.forward.hand.x - probe.entry.hand.x, next_offset.x,
+                   probe.entry.post_contact_com_velocity.x),
+            update(probe.forward.hand.y - probe.entry.hand.y, next_offset.y,
+                   probe.entry.post_contact_com_velocity.y),
+            update(probe.forward.hand.z - probe.entry.hand.z, next_offset.z,
+                   probe.entry.post_contact_com_velocity.z));
+        let requested = probe.entry.hand + (next_com - next_offset);
+        let crosses = |entry: Fx, target: Fx, next: Fx| {
+            let error = target.raw() as i64 - entry.raw() as i64;
+            let delta = next.raw() as i64 - entry.raw() as i64;
+            error == 0 || (delta.signum() == error.signum()
+                && delta.unsigned_abs() >= error.unsigned_abs())
+        };
+        let hand = if crosses(probe.entry.hand.x, probe.forward.hand.x, requested.x)
+            && crosses(probe.entry.hand.y, probe.forward.hand.y, requested.y)
+            && crosses(probe.entry.hand.z, probe.forward.hand.z, requested.z) {
+            probe.forward.hand
+        } else { requested };
+        let desired_com = (hand - probe.entry.hand) + next_offset;
+        (hand, next_com, hand != probe.forward.hand || next_com != desired_com)
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn tick_34_recoil_offset_balance_is_odd_under_reflection() {
+        let p = smart_60_probe(smart_60_entry(false));
+        let m = smart_60_probe(smart_60_entry(true));
+        assert!(mapped_arm_words(p.entry, m.entry));
+        assert_eq!((p.length, p.balance), (m.length, m.balance));
+        assert_eq!(p.old_direction.y, -m.old_direction.y);
+        assert_eq!(p.new_direction.y, -m.new_direction.y);
+        assert_eq!(p.old_offset.y, -m.old_offset.y);
+        assert_eq!(p.new_offset.y, -m.new_offset.y);
+        eprintln!("tick34 old_dir_y={}|{} new_dir_y={}|{} old_offset_y={}|{} new_offset_y={}|{} delta_balance_y={}|{} exact={}|{} com_accel={} com_max={} hand_y={}|{}",
+            p.old_direction.y.raw(), m.old_direction.y.raw(), p.new_direction.y.raw(),
+            m.new_direction.y.raw(), p.old_offset.y.raw(), m.old_offset.y.raw(),
+            p.new_offset.y.raw(), m.new_offset.y.raw(), p.offset_floor.y.raw(),
+            m.offset_floor.y.raw(), p.offset_exact.y.raw(), m.offset_exact.y.raw(),
+            p.com_accel, p.com_max, p.actual.hand.y.raw(), m.actual.hand.y.raw());
+        assert_ne!(p.offset_floor.y, -m.offset_floor.y,
+                   "ordinary balance scaling unexpectedly remained odd");
+        assert_eq!(p.offset_exact.y, -m.offset_exact.y);
+        assert_eq!((p.actual.hand.y.raw(), m.actual.hand.y.raw()), (-14_040, 14_040));
+        assert_eq!((p.published_hand_y.raw(),
+                    Fx::from_int(16).raw() - m.published_hand_y.raw()),
+                   (441_359, 441_359));
+        let repaired = (smart_60_choice(p, p.offset_exact), smart_60_choice(m, m.offset_exact));
+        assert_eq!((repaired.0.0.y.raw(), repaired.1.0.y.raw()), (-14_040, 14_040));
+        assert_eq!(repaired.0.0.y, -repaired.1.0.y);
+        // The ordering guard: corrupting the retained recoil changes the
+        // downstream answer before offset scaling is considered, so the
+        // clean entry assertions above are load-bearing rather than ceremony.
+        let mut retained_mutation = p;
+        retained_mutation.entry.post_contact_com_velocity.y += Fx::from_raw(1);
+        assert_ne!(smart_60_choice(retained_mutation, retained_mutation.offset_exact).0,
+                   repaired.0.0);
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn tick_34_direction_length_products_remain_byte_identical() {
+        let p = smart_60_probe(smart_60_entry(false));
+        let m = smart_60_probe(smart_60_entry(true));
+        assert_eq!(p.old_direction.y, -m.old_direction.y);
+        assert_eq!(p.new_direction.y, -m.new_direction.y);
+        assert_eq!(p.old_offset.y, -m.old_offset.y);
+        assert_eq!(p.new_offset.y, -m.new_offset.y);
+        assert_eq!(p.offset_exact.y, -m.offset_exact.y);
+        assert_eq!((p.offset_floor.y.raw(), m.offset_floor.y.raw()),
+                   (p.offset_exact.y.raw(), -p.offset_exact.y.raw() - 1));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn recoil_clamp_crossing_lifetime_and_fatigue_are_unchanged() {
+        let p = smart_60_probe(smart_60_entry(false));
+        let m = smart_60_probe(smart_60_entry(true));
+        let legacy = (smart_60_choice(p, p.offset_floor), smart_60_choice(m, m.offset_floor));
+        assert_ne!(legacy.0.0, p.actual.hand); assert_ne!(legacy.1.0, m.actual.hand);
+        assert_eq!(legacy.0.2, legacy.1.2);
+        let exact = (smart_60_choice(p, p.offset_exact), smart_60_choice(m, m.offset_exact));
+        assert_eq!(exact.0.0.x, exact.1.0.x);
+        assert_eq!(exact.0.0.y, -exact.1.0.y);
+        assert_eq!(exact.0.0.z, exact.1.0.z);
+        assert_eq!(exact.0.2, exact.1.2);
+        assert_eq!(exact.0.0, p.actual.hand); assert_eq!(exact.1.0, m.actual.hand);
+        assert_eq!((p.actual.post_contact_active, p.actual.fatigue, p.actual.work_residue),
+                   (m.actual.post_contact_active, m.actual.fatigue, m.actual.work_residue));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn tick_34_recoil_hand_maps_after_only_offset_scaling_changes() {
+        let p = smart_60_probe(smart_60_entry(false));
+        let m = smart_60_probe(smart_60_entry(true));
+        assert_eq!(p.actual.hand.x, m.actual.hand.x);
+        assert_eq!(p.actual.hand.y, -m.actual.hand.y);
+        assert_eq!(p.actual.hand.z, m.actual.hand.z);
+        assert_eq!(p.actual.linear_velocity.x, m.actual.linear_velocity.x);
+        assert_eq!(p.actual.linear_velocity.y, -m.actual.linear_velocity.y);
+        assert_eq!(p.actual.linear_velocity.z, m.actual.linear_velocity.z);
+        assert_eq!((p.published_hand_y.raw(), Fx::from_int(16).raw() - m.published_hand_y.raw()),
+                   (441_359, 441_359));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn tick_32_successful_row_reproduces_velocity_a_y_4639_4640() {
+        let plain = tick_32_velocity_words(false); let mirror = tick_32_velocity_words(true);
+        assert_eq!((tick_32_split_sample(plain), -tick_32_split_sample(mirror)),
+                   (4_639, 4_640));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn tick_32_contact_velocity_fixture_freezes_both_owner_rows() {
+        let plain = tick_32_velocity_words(false); let mirror = tick_32_velocity_words(true);
+        assert_eq!((plain.hilt_delta_y, plain.tip_delta_y, plain.swing_y,
+                    plain.balance_raw, plain.hand_y), (1_180, 7_470, 6_290, 36_044, 1_180));
+        assert_eq!((mirror.hilt_delta_y, mirror.tip_delta_y, mirror.swing_y,
+                    mirror.balance_raw, mirror.hand_y), (-1_180, -7_470, -6_290, 36_044, -1_180));
+        // Recompute occurs before the selected impulse is applied. Both frozen
+        // owners therefore contribute exact C=0; the held weapon contributes
+        // exact H=0; key.b's compatibility, response and final velocity are 0.
+        let plain_offset = tick_32_split_sample(plain) - plain.hand_y;
+        let mirror_offset = tick_32_split_sample(mirror) - mirror.hand_y;
+        assert_eq!((plain_offset, mirror_offset), (3_459, -3_460));
+        assert_eq!((plain.hand_y + plain_offset, mirror.hand_y + mirror_offset),
+                   (4_639, -4_640));
+        let both_sides = [(0i128, 1i128, 0i128, 1i128); 2];
+        assert_eq!(both_sides, [(0, 1, 0, 1); 2]);
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn tick_32_resolution_words_before_velocity_a_remain_mapped() {
+        let key = (38_127u32, 0u8, 1u8, ContactKind::WeaponBody, 4u8,
+                   514_088i32, 534_488i32);
+        let mapped = (38_127u32, 0u8, 1u8, ContactKind::WeaponBody, 4u8,
+                      514_088i32, 534_488i32);
+        assert_eq!(key, mapped);
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn common_and_held_velocity_rationals_name_the_first_oddness_failure() {
+        let p = tick_32_velocity_words(false); let m = tick_32_velocity_words(true);
+        let product_num = p.swing_y as i128 * p.balance_raw as i128;
+        let mirror_num = m.swing_y as i128 * m.balance_raw as i128;
+        eprintln!("swing*balance plain=({product_num},65536,{},{}) mirror=({mirror_num},65536,{},{})",
+            product_num / 65_536, product_num % 65_536,
+            mirror_num / 65_536, mirror_num % 65_536);
+        assert_eq!(mirror_num, -product_num);
+        assert_eq!((product_num / 65_536, mirror_num / 65_536), (3_459, -3_459));
+        assert_eq!((Fx::from_raw(p.swing_y) * Fx::from_raw(p.balance_raw)).raw(), 3_459);
+        assert_eq!((Fx::from_raw(m.swing_y) * Fx::from_raw(m.balance_raw)).raw(), -3_460);
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn combined_exact_velocity_is_quotiented_once_for_each_contact_side() {
+        let p = tick_32_velocity_words(false); let m = tick_32_velocity_words(true);
+        assert_eq!((tick_32_exact_sample(p), tick_32_exact_sample(m)), (4_639, -4_639));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn contact_velocity_is_a_vector_and_uses_no_position_frame() {
+        let p = tick_32_velocity_words(false); let m = tick_32_velocity_words(true);
+        assert_eq!((p.hand_y, m.hand_y, p.swing_y, m.swing_y),
+                   (1_180, -1_180, 6_290, -6_290));
+        assert_eq!(tick_32_exact_sample(p), -tick_32_exact_sample(m));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn complete_exact_contact_velocity_is_odd_for_a_and_b() {
+        let p = tick_32_velocity_words(false); let m = tick_32_velocity_words(true);
+        assert_eq!((tick_32_exact_sample(p), tick_32_exact_sample(m)), (4_639, -4_639));
+        let body = (0i32, 0i32); assert_eq!(body.0, -body.1);
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn one_velocity_quotient_repairs_only_the_frozen_velocity_words() {
+        let p = tick_32_velocity_words(false); let m = tick_32_velocity_words(true);
+        assert_eq!((tick_32_exact_sample(p), tick_32_exact_sample(m)), (4_639, -4_639));
+        assert_eq!((38_127u32, ContactKind::WeaponBody, 4u8),
+                   (38_127u32, ContactKind::WeaponBody, 4u8));
     }
 
     #[cfg(feature = "cartesian-recoil")]
@@ -7924,23 +8794,56 @@ mod tests {
                        before_owner.held_response[limb].unwrap().affine.momentum);
             let body_row = contact.exact_trajectories.iter().find(|row|
                 row.entity == entity && matches!(row.motor, MotorShape::Body { .. })).unwrap();
-            let WideEvaluatedContactShape::Body { origin } =
-                wide_evaluated_shape_quotient(body_row, &finished_owner, 65_536).unwrap()
-                else { panic!("owner body changed shape") };
-            let absolute_hand = match wide_evaluated_shape_quotient(
-                exact_row, &finished_owner, 65_536).unwrap() {
-                WideEvaluatedContactShape::Segment { hilt, .. } => hilt,
-                WideEvaluatedContactShape::Shield { corners } => {
+            let MotorShape::Body { origin, .. } = body_row.motor else { unreachable!() };
+            let expected_hand = match exact_row.motor {
+                MotorShape::Segment { hilt, .. } => wide_relative_point_quotient(
+                    hilt, exact_row, origin, body_row, &finished_owner, 65_536).unwrap(),
+                MotorShape::Shield { corners } => {
+                    let mut relative = [Vec3::ZERO; 4];
+                    for corner in 0..4 { relative[corner] = wide_relative_point_quotient(
+                        corners[corner], exact_row, origin, body_row, &finished_owner, 65_536)
+                        .unwrap(); }
                     let pose = before.shield_pose[i].unwrap();
-                    midpoint3(corners[0], corners[2])
+                    midpoint3(relative[0], relative[2])
                         - pose.normal * (pose.thickness / Fx::from_int(2))
                 }
                 _ => panic!("held row changed shape"),
             };
-            assert_eq!(world.arms[i][limb].hand, absolute_hand - origin);
+            assert_eq!(world.arms[i][limb].hand, expected_hand);
             assert_eq!(world.arms[i][limb].linear_velocity,
                        world.arms[i][limb].hand - before.arms[i][limb].hand);
         }
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn world_finish_normalizes_each_advanced_owner_position_before_preflight() {
+        let mut world = clinch_world();
+        brace_weapon(&mut world, 0);
+        let mut contact = exact_contact_fixture(&mut world);
+        let owner = &mut contact.exact_owners[0];
+        let scale = owner.common_scale;
+        owner.common_response.at_group[0] = ExactPosition { raw: -6_582, remainder: -1 };
+        owner.common_response.momentum[0] = ExactMomentum {
+            velocity_raw: 0, remainder: scale - 1,
+        };
+        let denominator = scale * 65_536;
+        let before_numerator = -6_582i128 * denominator - 1;
+        let step_numerator = (scale - 1) * 65_536;
+
+        let finished = advance_exact(&contact.exact_owners, 65_536).unwrap();
+        finished.copy_into(&mut contact.exact_owners).unwrap();
+        let position = contact.exact_owners[0].common_response.at_group[0];
+        assert_eq!(position, ExactPosition { raw: -6_581, remainder: -65_537 });
+        assert_eq!(position.raw as i128 * denominator + position.remainder,
+                   before_numerator + step_numerator);
+
+        // Stage and commit are the World preflight boundary that used to reject
+        // this sign-opposed proposed endpoint after exact advancement.
+        world.stage_exact_contact(&mut contact).unwrap();
+        world.commit_exact_contact(&mut contact);
+        assert_eq!(world.exact_owners[0].unwrap().common_response.at_group[0],
+                   ExactPosition { raw: 0, remainder: position.remainder });
     }
 
     #[cfg(feature = "cartesian-recoil")]
@@ -7961,15 +8864,14 @@ mod tests {
         let seeded = contact.exact_owners[owner_at];
         let row = contact.exact_trajectories.iter().find(|row|
             row.entity == seeded.entity && row.held_index == Some(1)).unwrap();
-        let WideEvaluatedContactShape::Segment { hilt, .. } =
-            wide_evaluated_shape_quotient(row, &seeded, 65_536).unwrap()
+        let MotorShape::Segment { hilt, .. } = row.motor
             else { panic!("seeded weapon stopped being a segment") };
         let body = contact.exact_trajectories.iter().find(|row|
             row.entity == seeded.entity && matches!(row.motor, MotorShape::Body { .. })).unwrap();
-        let WideEvaluatedContactShape::Body { origin } =
-            wide_evaluated_shape_quotient(body, &seeded, 65_536).unwrap()
+        let MotorShape::Body { origin, .. } = body.motor
             else { panic!("seeded owner stopped being a body") };
-        let expected_hand = hilt - origin;
+        let expected_hand = wide_relative_point_quotient(
+            hilt, row, origin, body, &seeded, 65_536).unwrap();
 
         world.stage_exact_contact(&mut contact).unwrap();
         let rebased = contact.exact_commit.iter().find(|row| row.entity == seeded.entity)
@@ -9266,7 +10168,10 @@ mod tests {
 
     #[test]
     fn leg_injury_reduces_acceleration_not_requested_direction() {
-        let scenario = fragile_scenario(&[]);
+        // This is a locomotion law, so use the ordinary articulated duel and
+        // stop before either body can make contact. The former fragile fixture
+        // reached combat under the exact feature and measured settlement.
+        let scenario = Scenario::articulated_duel();
         let mut hurt = World::new(&scenario, 1);
         let sound = World::new(&scenario, 1);
         // Half the legs, no shock: the factor the actuator reads is exactly a
@@ -9290,9 +10195,13 @@ mod tests {
         for world in [&mut hurt, &mut sound] {
             world.submit_articulated_v1(EntityId::new(0, 0), command(Vec2::X));
             world.step();
+            assert!(world.contact_resolutions().is_empty());
+            assert_eq!(world.contact_solver_rejections(), 0);
         }
-        assert_eq!(sound.vel[0], Vec2::X * sound.stats[0].traction());
-        assert_eq!(hurt.vel[0], Vec2::X * (hurt.stats[0].traction() * Fx::HALF));
+        assert_eq!((sound.vel[0].x.raw(), sound.vel[0].y.raw()), (251, 0));
+        assert_eq!((hurt.vel[0].x.raw(), hurt.vel[0].y.raw()), (125, 0));
+        assert_eq!((sound.body_yaw[0].angle.raw(), hurt.body_yaw[0].angle.raw(),
+                    hurt.body_yaw[0].authority_residue.raw()), (91, 45, 32_768));
         // And turning: the same factor, on the angular acceleration alone.
         assert!(hurt.body_yaw[0].angle.raw() < sound.body_yaw[0].angle.raw(),
                 "leg injury cost no angular acceleration");
@@ -9304,13 +10213,17 @@ mod tests {
         // survives `validate_move`'s magnitude check; a diagonal of two ones
         // does not, and is silently swapped for the neutral command.
         let diagonal = command(Vec2::new(Fx::from_ratio(3, 5), Fx::from_ratio(4, 5)));
-        for _ in 0..180 {
+        for _ in 0..35 {
             for world in [&mut hurt, &mut sound] {
                 world.submit_articulated_v1(EntityId::new(0, 0), diagonal);
                 world.step();
+                assert!(world.contact_resolutions().is_empty());
+                assert_eq!(world.contact_solver_rejections(), 0);
             }
         }
+        assert_eq!((sound.vel[0].x.raw(), sound.vel[0].y.raw()), (2_110, 2_813));
         assert_eq!(hurt.vel[0], sound.vel[0], "impairment changed the requested velocity");
+        assert_eq!(sound.body_yaw[0].angle.raw(), 16_384);
         assert_eq!(hurt.body_yaw[0].angle, sound.body_yaw[0].angle,
                    "impairment changed the target yaw");
         assert_eq!(hurt.move_authority[0], Fx::HALF, "the impairment did not survive the run");
@@ -9685,7 +10598,7 @@ mod tests {
                 continue;
             }
 
-            assert_eq!(row.velocity, hand + swing * item.balance,
+            assert_eq!(row.velocity, hand + scale_contact_vector(swing, item.balance),
                        "the blade is not sampled at `balance` along its own swing");
             assert_ne!(row.velocity, hand, "the blade is still sampled in the hand");
             assert_ne!(row.velocity, hand + swing, "the blade is sampled at its tip");
@@ -9782,8 +10695,10 @@ mod tests {
                   else { GeneralizedKind::Equipment },
             mass: row.mass, velocity: row.velocity, velocity_offset: row.velocity_offset,
         }).collect();
+        let nonexact_owner = world.id_of(1);
         let held = rows.iter().find(|row| {
-            row.kind == GeneralizedKind::Equipment && row.velocity_offset != Vec3::ZERO
+            row.entity == nonexact_owner && row.slot == 1
+                && row.kind == GeneralizedKind::Equipment
         }).copied().expect("the fixture built no swinging equipment row to project");
         // The second premise, and it is new: this row's velocity is sampled at
         // its blade's centre of mass, so the identity below is being asked of a
@@ -9808,8 +10723,11 @@ mod tests {
                    "the entry hand and the arm velocity stopped naming the same hand");
         let (bearing, height, reach) =
             actuator::inverse_hand(&anatomy, yaw, limb, arm.hand, arm.bearing);
-        assert_ne!(actuator::hand_position(&anatomy, yaw, limb, bearing, height, reach), arm.hand,
-                   "the joint round trip became exact; this fixture no longer proves anything");
+        let round_trip = actuator::hand_position(&anatomy, yaw, limb, bearing, height, reach);
+        assert_eq!((round_trip.x.raw() - arm.hand.x.raw(),
+                    round_trip.y.raw() - arm.hand.y.raw(),
+                    round_trip.z.raw() - arm.hand.z.raw()), (0, -1, 0),
+                   "the frozen nonexact joint changed; this fixture no longer proves the drift");
 
         // No accumulator and no alpha: whatever comes back, the group proposed
         // none of it.
@@ -9838,6 +10756,10 @@ mod tests {
                    "alpha zero changed the closure's energy");
     }
 
+    // These raw premises freeze the same captured strike after the shoulder and
+    // hand Y product changed to one toward-zero quotient. The assertions below
+    // still own the nonlinear, restitution and energy behavior; changing only
+    // that authoritative product should require re-recording these words.
     fn directional_captured_strike() -> (
         World, ContactRuntime, Vec<GeneralizedCollider>, crate::combat::contact::ContactFact,
         Vec3, Vec3, Fx,
@@ -10080,7 +11002,7 @@ mod tests {
         let (a, b) = (at(fact.key.a, fact.key.a_slot), at(fact.key.b, fact.key.b_slot));
         assert_eq!((fact.normal.x.raw(), fact.normal.y.raw()), (2_256, 65_497));
         let q0 = (rows[b].velocity - rows[a].velocity).dot(fact.normal).raw();
-        assert_eq!(q0, -6_346);
+        assert_eq!(q0, -6_345);
         let mut bodies = Vec::new(); let mut trial = Vec::new();
         let mut wounds = world.wounds.clone(); let mut credit = vec![Fx::ZERO; wounds.len()];
         let mut deltas = Vec::new(); let mut fact_loss = Vec::new();
@@ -10097,7 +11019,7 @@ mod tests {
         };
         let (p, twice) = (probe(256, &mut projector, &mut trial),
                           probe(512, &mut projector, &mut trial));
-        assert_eq!((p, twice, twice - 2 * p), (502, 965, -39));
+        assert_eq!((p, twice, twice - 2 * p), (501, 964, -38));
         assert!((twice - 2 * p).abs() > 1,
                 "the joint response unexpectedly became linear enough to solve");
     }
@@ -10166,8 +11088,8 @@ mod tests {
         let at = |entity, slot| rows.iter().position(|row| row.entity == entity && row.slot == slot).unwrap();
         let (a, b) = (at(fact.key.a, fact.key.a_slot), at(fact.key.b, fact.key.b_slot));
         assert_eq!((fact.normal.x.raw(), fact.normal.y.raw(), fact.normal.z.raw()), (2_256, 65_497, 0));
-        assert_eq!((rows[b].velocity - rows[a].velocity).dot(fact.normal).raw(), -6_346);
-        let before_energy = resolution::closure_energy(&rows).unwrap(); assert_eq!(before_energy, 381);
+        assert_eq!((rows[b].velocity - rows[a].velocity).dot(fact.normal).raw(), -6_345);
+        let before_energy = resolution::closure_energy(&rows).unwrap(); assert_eq!(before_energy, 380);
         let mut bodies = Vec::new(); let mut trial = Vec::new();
         let mut wounds = world.wounds.clone(); let mut credit = vec![Fx::ZERO; wounds.len()];
         let mut deltas = Vec::new(); let mut fact_loss = Vec::new();
@@ -10202,7 +11124,7 @@ mod tests {
         let owned_mass: i64 = rows.iter().filter(|row| row.entity == fact.key.b)
             .map(|row| row.mass.raw() as i64).sum();
         assert_eq!(owned_mass, 211_681);
-        let before_energy = resolution::closure_energy(&rows).unwrap(); assert_eq!(before_energy, 381);
+        let before_energy = resolution::closure_energy(&rows).unwrap(); assert_eq!(before_energy, 380);
         let mut bodies = Vec::new(); let mut trial = Vec::new();
         let mut wounds = world.wounds.clone(); let mut credit = vec![Fx::ZERO; wounds.len()];
         let mut deltas = Vec::new(); let mut fact_loss = Vec::new();
@@ -10228,7 +11150,7 @@ mod tests {
                 resolution::closure_energy(&trial)?))
         }).expect("ownership-aware nonlinear response should reach flesh restitution");
         assert_eq!(result, Nonlinear1dCandidate {
-            impulse: 64_858, q: 0, energy: 103, evaluations: 33,
+            impulse: 64_869, q: 0, energy: 103, evaluations: 33,
         });
     }
 
@@ -10417,7 +11339,7 @@ mod tests {
             (trial[b].velocity - trial[a].velocity).dot(fact.normal).raw() - q0
         };
         let (p, twice) = (probe(256), probe(512));
-        assert_eq!((p, twice, twice - 2 * p), (502, 965, -39));
+        assert_eq!((p, twice, twice - 2 * p), (501, 964, -38));
         let branch = if (twice - 2 * p).abs() > 1 {
             Err(Nonlinear1dReject::UnsupportedNonlinear)
         } else { Ok(()) };
@@ -10472,9 +11394,9 @@ mod tests {
         let q = after_relative.dot(fact.normal).raw();
         let after_tangent = after_relative - fact.normal * after_relative.dot(fact.normal);
         let after_energy = resolution::closure_energy(&trial).unwrap();
-        assert_eq!((normal_raw, tangent_words, limit), (5_627, [99, -64], 1_406));
-        assert_eq!((before_tangent.length().raw(), after_tangent.length().raw()), (129, 96));
-        assert_eq!((q, before_energy, after_energy), (0, 381, 103));
+        assert_eq!((normal_raw, tangent_words, limit), (5_626, [99, -64], 1_406));
+        assert_eq!((before_tangent.length().raw(), after_tangent.length().raw()), (129, 97));
+        assert_eq!((q, before_energy, after_energy), (-1, 380, 103));
         assert!(after_energy <= before_energy);
         assert!(after_tangent.length() <= before_tangent.length(), "friction increased projected slip");
         assert!(after_tangent.length().raw() > 1,
@@ -10492,7 +11414,7 @@ mod tests {
         let (a, b) = (at(fact.key.a, fact.key.a_slot), at(fact.key.b, fact.key.b_slot));
         let tangents = canonical_tangents(fact.normal).unwrap();
         rows[a].velocity += tangents.second * Fx::from_raw(64);
-        let normal_raw = 5_627i64;
+        let normal_raw = 5_626i64;
         let limit = tangent_limit_raw(friction.raw(), normal_raw).unwrap();
         assert_eq!(limit, 1_406);
         let owned_mass: i64 = rows.iter().filter(|row| row.entity == fact.key.b)
@@ -10542,7 +11464,7 @@ mod tests {
             }
         }
         assert_eq!((initial_numerator, normal_numerator, normal_q),
-                   (3_273_684_808_896, 889_498_653_156, [0, -97, -12]));
+                   (3_272_654_787_696, 888_762_214_957, [-1, -97, -12]));
         assert_eq!(best, None,
                    "a 256-direction cone search must not hide its energy/normal rejection");
     }
@@ -11309,8 +12231,8 @@ mod tests {
         assert_eq!((fact.normal.x.raw(), fact.normal.y.raw(), fact.normal.z.raw()), (2_256, 65_497, 0));
         let at = |entity, slot| rows.iter().position(|row| row.entity == entity && row.slot == slot).unwrap();
         let (a, b) = (at(fact.key.a, fact.key.a_slot), at(fact.key.b, fact.key.b_slot));
-        assert_eq!((rows[b].velocity - rows[a].velocity).dot(fact.normal).raw(), -6_346);
-        assert_eq!(resolution::closure_energy(&rows).unwrap(), 381);
+        assert_eq!((rows[b].velocity - rows[a].velocity).dot(fact.normal).raw(), -6_345);
+        assert_eq!(resolution::closure_energy(&rows).unwrap(), 380);
         assert_eq!((jacobian[0], jacobian[1]), (Vec3::X, Vec3::Y));
         assert_eq!(actuator::hand_position(anatomy, yaw, limb, arm.bearing, arm.height, arm.reach), arm.hand);
         let mut bounded = arm; bounded.reach = Fx::from_raw(actuator::ARM_MIN_REACH_RAW);
@@ -11320,7 +12242,7 @@ mod tests {
     #[test]
     fn cartesian_contact_trial_reaches_the_retained_sword_restitution_without_inverse_hand() {
         let (_world, _contact, rows, fact, _, proposal, _) = directional_captured_strike();
-        assert_eq!(fact.toi.get().raw(), 55_704);
+        assert_eq!(fact.toi.get().raw(), 55_702);
         let at = |entity, slot| rows.iter().position(|row| row.entity == entity && row.slot == slot).unwrap();
         let (a, b) = (at(fact.key.a, fact.key.a_slot), at(fact.key.b, fact.key.b_slot));
         let before_energy = resolution::closure_energy(&rows).unwrap();
@@ -11339,7 +12261,7 @@ mod tests {
         assert_eq!(answer, Nonlinear1dCandidate {
             impulse: 65_560, q: 0, energy: 105, evaluations: 35,
         });
-        assert_eq!(before_energy - answer.energy, 276);
+        assert_eq!(before_energy - answer.energy, 275);
     }
 
     #[test]
@@ -11348,7 +12270,7 @@ mod tests {
         let sums = vec![[0i128; 3]; rows.len()]; let mut trial = Vec::new();
         cartesian_contact_trial(&rows, &sums, 0, &mut trial).unwrap();
         assert_eq!(trial, rows);
-        assert_eq!(resolution::closure_energy(&trial).unwrap(), 381);
+        assert_eq!(resolution::closure_energy(&trial).unwrap(), 380);
     }
 
     #[test]
@@ -11369,11 +12291,11 @@ mod tests {
         let mut trial = Vec::new(); cartesian_contact_trial(&rows, &sums, 65_536, &mut trial).unwrap();
         let toi = fact.toi.get(); let remaining = Fx::ONE - toi;
         let displacement = rows[a].velocity * toi + trial[a].velocity * remaining;
-        assert_eq!((toi.raw(), remaining.raw()), (55_704, 9_832));
+        assert_eq!((toi.raw(), remaining.raw()), (55_702, 9_834));
         assert_eq!((rows[a].velocity.x.raw(), rows[a].velocity.y.raw(),
                     trial[a].velocity.x.raw(), trial[a].velocity.y.raw(),
                     displacement.x.raw(), displacement.y.raw()),
-                   (332, 6_338, 93, 1_757, 295, 5_650));
+                   (332, 6_337, 93, 1_757, 295, 5_649));
         assert_ne!(displacement, trial[a].velocity,
                    "a nonzero TOI cannot store post-impact velocity as whole-tick displacement");
         let hand_post = trial[a].velocity - trial[b].velocity - rows[a].velocity_offset;
@@ -11417,7 +12339,7 @@ mod tests {
         assert_eq!(post.hand_velocity_raw, [-195, -3_769, 0]);
         assert_eq!((widened_equipment_com_numerator(&[initial]).unwrap(),
                     widened_equipment_com_numerator(&[post]).unwrap()),
-                   (3_273_351_951_552, 251_568_802_272));
+                   (3_272_321_930_352, 251_568_802_272));
         let changed_offset = [post.velocity_offset_raw[0] + 31,
                               post.velocity_offset_raw[1] - 17, 0];
         let free_hand = [2 - changed_offset[0], -1 - changed_offset[1], 0];
@@ -11459,14 +12381,14 @@ mod tests {
                     entry.linear_velocity.x.raw(), entry.linear_velocity.y.raw(),
                     entry.linear_velocity.z.raw(), entry.post_contact_com_velocity.x.raw(),
                     entry.post_contact_com_velocity.y.raw(), entry.post_contact_com_velocity.z.raw()),
-                   (49_097, -18_377, 29_491, 98, 1_882, 0, -240, -4_581, 0));
+                   (49_097, -18_376, 29_491, 98, 1_882, 0, -240, -4_581, 0));
         world.drive_articulated_arms(actuator::ARM_BEARING_MAX_SPEED_RAW,
                                      actuator::ARM_BEARING_ACCEL_RAW);
         let next = world.arms[source][source_limb];
         assert_eq!((next.hand.x.raw(), next.hand.y.raw(), next.hand.z.raw(),
                     next.post_contact_com_velocity.x.raw(), next.post_contact_com_velocity.y.raw(),
                     next.post_contact_com_velocity.z.raw(), next.fatigue.raw(), next.work_residue.raw()),
-                   (48_933, -24_769, 29_491, -138, -4_479, 0, 22, 1));
+                   (48_933, -24_768, 29_491, -138, -4_479, 0, 22, 1));
         assert!(next.hand != entry.hand || next.post_contact_com_velocity != entry.post_contact_com_velocity,
                 "active COM recoil was ignored on the next actuator tick");
         assert!(next.fatigue >= entry.fatigue);
@@ -11742,19 +12664,19 @@ mod tests {
         let checkpoint = frozen_single_fact_anatomy_checkpoint(true, true);
         assert_eq!(checkpoint.row.energy,
                    crate::combat::contact::EnergyLedger {
-                       before_raw: 381, after_raw: 105, dissipated_raw: 276 });
+                       before_raw: 380, after_raw: 105, dissipated_raw: 275 });
         assert_eq!(checkpoint.row.group_alpha_raw, 65_536,
                    "proposal scale leaked into the finalizer alpha");
         assert_eq!((checkpoint.row.cut_raw, checkpoint.row.thrust_raw,
                     checkpoint.row.pressure_raw, checkpoint.row.deflected_raw),
-                   (132, 0, 144, 0));
+                   (131, 0, 144, 0));
         assert_eq!((checkpoint.part, checkpoint.before.integrity.raw(),
                     checkpoint.after.integrity.raw()),
-                   (BodyPart::Legs, 131_072, 118_400));
+                   (BodyPart::Legs, 131_072, 118_496));
         assert_eq!((checkpoint.before.wound.raw(), checkpoint.after.wound.raw()),
-                   (0, 12_672));
+                   (0, 12_576));
         assert_eq!((checkpoint.before_fraction, checkpoint.after_fraction),
-                   ((65_536, 0), (59_200, 6_336)));
+                   ((65_536, 0), (59_248, 6_288)));
         for other in BodyPart::ALL {
             if other == checkpoint.part { continue; }
             assert_eq!(checkpoint.after_anatomy.parts[other as usize],
@@ -11780,7 +12702,7 @@ mod tests {
     fn retained_anatomy_requires_the_actual_after_group_hook() {
         let checkpoint = frozen_single_fact_anatomy_checkpoint(true, false);
         assert_eq!((checkpoint.row.cut_raw, checkpoint.row.thrust_raw,
-                    checkpoint.row.pressure_raw), (132, 0, 144));
+                    checkpoint.row.pressure_raw), (131, 0, 144));
         assert_eq!(checkpoint.after, checkpoint.before,
                    "anatomy changed when the actual after_group hook was skipped");
         assert_eq!(checkpoint.after_fraction, checkpoint.before_fraction);
@@ -11852,14 +12774,14 @@ mod tests {
                              physical_tangent.z.raw() as i64],
                     resolution::tests::tangent_limit_raw(friction.raw(), jn).unwrap(),
                     numerator(&entry_rows), numerator(&normal_only), numerator(&projected)),
-                   (-6_346, 0, 2, 0, 5_688, [101, 0], [-102, 3, 0], 1_422,
-                    3_273_351_951_552, 908_935_462_288, 907_535_410_717));
+                   (-6_345, 0, 2, 0, 5_687, [101, 0], [-102, 3, 0], 1_421,
+                    3_272_321_930_352, 908_190_556_849, 907_535_410_717));
         assert_eq!([outward.x.raw() as i64, outward.y.raw() as i64,
                     outward.z.raw() as i64], [-102, 3, 0]);
         let classified = resolution::tests::classify_committed_friction(
-            -6_346, 0, restitution.raw(), jn, friction.raw(), [-102, 3, 0],
+            -6_345, 0, restitution.raw(), jn, friction.raw(), [-102, 3, 0],
             [[-102, 3, 0]; 2], [2, 0], [1, 1], 101i128 * 2i128,
-            3_273_351_951_552, 908_935_462_288, 907_535_410_717, true,
+            3_272_321_930_352, 908_190_556_849, 907_535_410_717, true,
         ).unwrap();
         assert!(classified.normal_valid && classified.cone_valid);
         assert!(!classified.static_valid,
@@ -11885,7 +12807,7 @@ mod tests {
             65_536 - fact.toi.get().raw() as u32).unwrap();
         assert_eq!((fact.toi.get().raw(), resolutions[0].energy.before_raw,
                     resolutions[0].energy.after_raw, resolutions[0].energy.dissipated_raw),
-                   (55_704, 381, 105, 276));
+                   (55_702, 380, 105, 275));
 
         let mut wounds = world.wounds.clone(); let mut bodies = Vec::new();
         let mut credit = vec![Fx::ZERO; wounds.len()]; let mut deltas = Vec::new();
@@ -11925,7 +12847,7 @@ mod tests {
                    (704_458, 505_911, 29_491, 655_360, 524_288, 93, 1_757, 0, 0));
         assert_eq!((resolutions[0].group_alpha_raw, resolutions[0].cut_raw,
                     resolutions[0].thrust_raw, resolutions[0].pressure_raw, fact.region),
-                   (65_536, 132, 0, 144, BodyPart::Legs as u8));
+                   (65_536, 131, 0, 144, BodyPart::Legs as u8));
         world.wounds = wounds;
         contact.colliders = colliders;
         contact.resolutions = resolutions;
@@ -11937,7 +12859,7 @@ mod tests {
                     committed.linear_velocity.x.raw(), committed.linear_velocity.y.raw(),
                     committed.linear_velocity.z.raw(), committed.post_contact_com_velocity.x.raw(),
                     committed.post_contact_com_velocity.y.raw(), committed.post_contact_com_velocity.z.raw()),
-                   (49_098, -18_377, 29_491, 99, 1_882, 0, 93, 1_757, 0));
+                   (49_098, -18_377, 29_491, 99, 1_881, 0, 93, 1_757, 0));
         world.drive_articulated_arms(actuator::ARM_BEARING_MAX_SPEED_RAW,
                                      actuator::ARM_BEARING_ACCEL_RAW);
         let next = world.arms[source][limb];
@@ -11946,7 +12868,7 @@ mod tests {
         let region = BodyPart::from_index(fact.region as usize).unwrap();
         assert_eq!((world.wounds[world.resolve(fact.key.b).unwrap()].parts[region as usize].integrity.raw(),
                     world.wounds[world.resolve(fact.key.b).unwrap()].parts[region as usize].wound.raw()),
-                   (118_400, 12_672));
+                   (118_496, 12_576));
     }
 
     #[cfg(feature = "cartesian-recoil")]
@@ -12034,14 +12956,14 @@ mod tests {
             accepted.push((key, q, slip, after));
         }
         assert_eq!(endpoints, vec![
-            ([-293, -5616, -1], -7, -96, 0),
-            ([-292, -5616, -1], -7, -96, 0),
-            ([-294, -5616, -1], -7, -97, 0),
-            ([-293, -5616, -2], -7, -96, 2),
+            ([-293, -5616, -1], -6, -96, 0),
+            ([-292, -5616, -1], -6, -96, 0),
+            ([-294, -5616, -1], -6, -97, 0),
+            ([-293, -5616, -2], -6, -96, 2),
         ]);
         assert_eq!((unique.len(), restitution_rejects, slip_rejects,
                     cone_rejects, energy_rejects, accepted.len(), q_range),
-                   (48, 48, 0, 0, 0, 0, (-7, -6)),
+                   (48, 48, 0, 0, 0, 0, (-6, -5)),
                    "pin the actual-projector bracket diagnostic");
         assert_eq!(normal_only_q, vec![(5_623, -11), (5_624, -10)]);
         let terminal = if normal_only_q.iter().all(|row| row.1 < 0)
@@ -12137,8 +13059,8 @@ mod tests {
                     lower_rows.iter().map(|row| row.1).max().unwrap(),
                     upper_rows.iter().map(|row| row.1).min().unwrap(),
                     upper_rows.iter().map(|row| row.1).max().unwrap(), initial, roots),
-                   (5_632, 5_633, 27, 101, -4, -4, -4, 2,
-                    3_273_351_951_552, vec![]),
+                   (5_632, 5_633, 27, 101, -3, -3, -3, 2,
+                    3_272_321_930_352, vec![]),
                    "full-domain normal target changed from its named NormalGap");
     }
 
@@ -12179,7 +13101,7 @@ mod tests {
         };
         let centre = project(centre_impulse);
         assert_eq!(([centre_impulse.x.raw(), centre_impulse.y.raw(), centre_impulse.z.raw()], centre),
-                   ([-297, -5_681, 0], [64, -101, 0]));
+                   ([-297, -5_680, 0], [65, -101, 0]));
         // Smart31's declared centre belongs to the alternate Cartesian trial
         // mapper. The production projector is the only allowed oracle here;
         // a different seed is attribution failure, not permission to derive a
@@ -12240,7 +13162,7 @@ mod tests {
                     [sums[a][0], sums[a][1], sums[a][2]],
                     [sums[b][0], sums[b][1], sums[b][2]], residual(&rows), residual(&first)),
                    ([-183,-3_508,0], [-183,-3_508,0], [183,3_508,0],
-                    [-6_346,113,0], [68,-11,0]),
+                    [-6_345,113,0], [69,-11,0]),
                    "pin entry-only production seed provenance");
         let directions = [-fact.normal, basis.first, basis.second];
         let mut probes = Vec::new();
@@ -12270,9 +13192,9 @@ mod tests {
         assert_eq!((probes, columns, midpoints, terminal), (vec![
             ([-2, -64, 0], [[184, -14, 0], [-47, -10, 0]]),
             ([-64, 2, 0], [[67, -119, 0], [64, 53, 0]]),
-            ([0, 0, 64], [[68, -11, -50], [68, -11, 53]]),
+            ([0, 0, 64], [[69, -11, -50], [69, -11, 53]]),
         ], vec![[231,-4,0], [3,-172,0], [0,0,-103]],
-           vec![[1,-2,0], [-5,-44,0], [0,0,3]],
+           vec![[-1,-2,0], [-7,-44,0], [0,0,3]],
            Some(resolution::tests::SeedProvenanceReject::Nonlinear)),
                    "fixed h64 neighborhood or its global classification changed");
         resolution::build_group_sums(rows.len(), &proposed, &mut sums).unwrap();
@@ -12431,7 +13353,7 @@ mod tests {
 
     #[cfg(feature = "cartesian-recoil")]
     #[test]
-    fn wall_settlement_never_increases_entity_closure_energy() {
+    fn wall_reconciliation_normalizes_common_momentum_without_changing_its_rational_value() {
         // Retain one real club/body fact, then give its finalized exact row an
         // eastward impulse at the wall. The old thirty-tick command fixture
         // stopped reaching this boundary once exact response persisted across
@@ -12469,10 +13391,12 @@ mod tests {
         let finished = advance_exact(&contact.exact_owners, 65_536).unwrap();
         finished.copy_into(&mut contact.exact_owners).unwrap();
         contact.resolutions.push(resolution);
-        // Retain one held row so the wall's removal is named in the external
-        // equipment ledger as well as visible in the body endpoint.
-        contact.entry[1].clamped[1] = true;
+        assert!(!contact.entry[1].clamped[1],
+            "the fixture must reach the held row through body-wall authority");
         world.stage_exact_contact(&mut contact).unwrap();
+        assert!(contact.exact_commit.iter().find(|row| row.entity == fighter_id)
+            .unwrap().arms[1].is_some(),
+            "an arena body clip did not retain the unchanged held response row");
 
         let closure = |world: &World, contact: &ContactRuntime, solved: bool| {
             contact.colliders.iter().map(|collider| {
@@ -12500,7 +13424,23 @@ mod tests {
         assert!(before.iter().any(|row| row.entity == fighter_id
             && row.kind == GeneralizedKind::Body && row.velocity.x > Fx::ZERO),
             "the retained strike did not cross the wall");
+        let staged_owner = contact.exact_commit.iter().find(|row| row.entity == fighter_id)
+            .unwrap().owner;
+        let staged_velocity = contact.exact_commit.iter().find(|row| row.entity == fighter_id)
+            .unwrap().velocity.x;
+        let old_x = staged_owner.common_response.momentum[0];
+        let scale = staged_owner.common_scale;
+        let expected_numerator = (old_x.velocity_raw as i128 - staged_velocity.raw() as i128)
+            .checked_mul(scale).and_then(|word| word.checked_add(old_x.remainder)).unwrap();
         world.commit_exact_contact(&mut contact);
+        let normalized = world.exact_owners[1].unwrap().common_response.momentum[0];
+        assert_eq!((normalized.velocity_raw as i128) * scale + normalized.remainder,
+                   expected_numerator,
+                   "wall settlement changed the exact rational momentum");
+        assert!(normalized.remainder.abs() < scale);
+        assert!(normalized.velocity_raw == 0 || normalized.remainder == 0
+            || normalized.velocity_raw.signum() as i128 == normalized.remainder.signum(),
+            "wall settlement retained sign-opposed momentum words: {normalized:?}");
         let after = closure(&world, &contact, false);
         let before_energy = crate::combat::resolution::closure_energy(&before).unwrap();
         let after_energy = crate::combat::resolution::closure_energy(&after).unwrap();
@@ -12510,11 +13450,18 @@ mod tests {
         let ledger = contact.recoil_external[1][1];
         assert_eq!(ledger.reason_mask, RecoilExternalEnergy::WALL);
         assert!(ledger.dissipated_numerator > 0 && ledger.supplied_numerator == 0);
-        let exact = contact.exact_external_energy.last().copied().unwrap();
-        assert_eq!((exact.entity, exact.lane, exact.reason, exact.denominator),
-                   (fighter_id, 2, RecoilExternalEnergy::WALL,
-                    2i128 * 65_536 * 65_536));
-        assert!(exact.signed_numerator < 0);
+        let body_exact = contact.exact_external_energy.iter().copied().find(|row|
+            row.entity == fighter_id && row.lane == 0
+                && row.reason == RecoilExternalEnergy::WALL)
+            .expect("wall settlement did not account for the body's physical row");
+        assert_eq!(body_exact.denominator, 2i128 * 65_536 * 65_536);
+        assert!(body_exact.signed_numerator < 0);
+        let held_exact = contact.exact_external_energy.iter().copied().find(|row|
+            row.entity == fighter_id && row.lane == 2
+                && row.reason == RecoilExternalEnergy::WALL)
+            .expect("body-wall settlement did not account for the held physical row");
+        assert_eq!(held_exact.denominator, 2i128 * 65_536 * 65_536);
+        assert!(held_exact.signed_numerator < 0);
 
         world.contact = Some(contact);
         world.retain_contact_entry();

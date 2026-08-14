@@ -22,7 +22,8 @@ use fx::{
 #[cfg(any(test, feature = "cartesian-recoil"))]
 use core::cmp::Ordering;
 #[cfg(any(test, feature = "cartesian-recoil"))]
-use crate::combat::wide::WideRational4096;
+use crate::combat::wide::{checked_cmp_positive_into, PositiveRationalCmpWork,
+                          WideRational4096};
 
 #[cfg(any(test, feature = "cartesian-recoil"))]
 const EXACT_NUMERATOR_LIMIT: u128 = 1u128 << 94;
@@ -114,6 +115,65 @@ pub struct ExactCompatibilitySweepDiagnostic {
     pub primitive: ExactCompatibilityPrimitiveDiagnostic,
     pub points_raw: [[i32; 3]; 12], pub point_count: u8,
     pub radii_raw: [i32; 2], pub accepted_toi_raw: u32,
+}
+
+/// The exact pair whose ordinary scan branch returned the tick's first error.
+/// Diagnostic only: copied from the already-running pair loop before its
+/// `Err` is propagated, never consulted by contact selection or resolution.
+#[cfg(any(test, feature = "cartesian-recoil"))]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct ExactScanPairRejectionDiagnostic {
+    pub a_index: usize, pub b_index: usize,
+    pub a_entity: EntityId, pub b_entity: EntityId,
+    pub a_slot: u8, pub b_slot: u8,
+    pub a_shape: ExactScanShapeDiagnostic, pub b_shape: ExactScanShapeDiagnostic,
+    pub a_present: bool, pub b_present: bool,
+    pub a_owner: usize, pub b_owner: usize,
+    pub group_time_raw: u32,
+    pub aabb_supported: bool, pub aabb_disjoint: Option<bool>,
+    pub branch: ExactScanBranchDiagnostic,
+    pub reject: ExactScanRejectDiagnostic,
+    pub segment_body: Option<ExactSegmentBodyProgressDiagnostic>,
+}
+
+#[cfg(any(test, feature = "cartesian-recoil"))]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct ExactSegmentBodyProgressDiagnostic {
+    pub region: u8, pub visit: u8, pub time_raw: u32,
+    pub speed: Option<(i128, i128)>,
+    pub closest_a: [Option<(i128, i128)>; 3],
+    pub closest_b: [Option<(i128, i128)>; 3],
+    pub closest_feature: u8,
+    pub distance_sq: Option<(i128, i128)>,
+    pub radius: Option<(i128, i128)>, pub radius_sq: Option<(i128, i128)>,
+    pub separation: Option<(i128, i128)>, pub l1_delta: Option<(i128, i128)>,
+    pub safe_denominator: Option<(i128, i128)>,
+    pub safe_quotient: Option<(i128, i128)>,
+    pub floor_step: u32, pub applied_advance: u32,
+    pub adjacent_time_raw: u32,
+    pub adjacent_distance_sq: Option<(i128, i128)>,
+    pub adjacent_radius: Option<(i128, i128)>,
+    pub adjacent_radius_sq: Option<(i128, i128)>,
+    pub current_separated: bool, pub adjacent_separated: bool,
+    pub interval_aabb_disjoint: bool,
+}
+
+#[cfg(any(test, feature = "cartesian-recoil"))]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ExactScanShapeDiagnostic { Body, Segment, Shield }
+
+#[cfg(any(test, feature = "cartesian-recoil"))]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ExactScanBranchDiagnostic {
+    SweptAabb, SegmentSegment, SegmentShield, SegmentBody,
+}
+
+
+#[cfg(any(test, feature = "cartesian-recoil"))]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ExactScanRejectDiagnostic {
+    ArithmeticEnvelope, Budget, CompatibilityIdentity, Trajectory,
+    UnsupportedExactSweep,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -227,8 +287,19 @@ pub(crate) struct Candidate {
     #[cfg(feature = "cartesian-recoil")]
     pub(crate) wide_toi: Option<ExactWideToiDiagnostic>,
     #[cfg(feature = "cartesian-recoil")]
+    wide_medial: Option<WideRational4096>,
+    #[cfg(feature = "cartesian-recoil")]
     pub(crate) compatibility_sweep: Option<ExactCompatibilitySweepDiagnostic>,
 }
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+struct CertifiedSelection { time_raw: u32, key: ContactKey, region: u8,
+                            medial: WideRational4096 }
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+struct CertifiedProvenance { key: ContactKey, time_raw: u32,
+                             wide_toi: ExactWideToiDiagnostic,
+                             compatibility_sweep: Option<ExactCompatibilitySweepDiagnostic> }
 
 /// Candidate storage for one scan. It deliberately holds candidates rather
 /// than facts: a scan sees every pair that contacts anywhere in the remaining
@@ -240,8 +311,14 @@ pub struct ContactCollectionScratch {
     candidates: Vec<Candidate>,
     #[cfg(any(test, feature = "cartesian-recoil"))]
     exact_staging: Vec<Candidate>,
+    #[cfg(feature = "cartesian-recoil")]
+    certified_selections: Vec<CertifiedSelection>,
+    #[cfg(feature = "cartesian-recoil")]
+    certified_provenance: Vec<CertifiedProvenance>,
     #[cfg(any(test, feature = "cartesian-recoil"))]
     exact_wide: ExactWideScratch,
+    #[cfg(feature = "cartesian-recoil")]
+    first_pair_rejection: Option<ExactScanPairRejectionDiagnostic>,
 }
 
 impl ContactCollectionScratch {
@@ -249,6 +326,9 @@ impl ContactCollectionScratch {
         try_reserve_exact(&mut self.candidates, candidate_bound)?;
         #[cfg(any(test, feature = "cartesian-recoil"))]
         try_reserve_exact(&mut self.exact_staging, candidate_bound)?;
+        #[cfg(feature = "cartesian-recoil")]
+        { try_reserve_exact(&mut self.certified_selections, candidate_bound)?;
+          try_reserve_exact(&mut self.certified_provenance, candidate_bound)?; }
         #[cfg(any(test, feature = "cartesian-recoil"))]
         self.exact_wide.try_reserve()?;
         Ok(())
@@ -256,14 +336,45 @@ impl ContactCollectionScratch {
 
     pub(crate) fn candidates(&self) -> &[Candidate] { &self.candidates }
 
+    #[cfg(feature = "cartesian-recoil")]
+    pub(crate) fn first_pair_rejection(&self) -> Option<ExactScanPairRejectionDiagnostic> {
+        self.first_pair_rejection
+    }
+
+
     #[cfg(test)]
     pub(crate) fn candidate_capacity(&self) -> usize { self.candidates.capacity() }
 
-    #[cfg(test)]
-    pub(crate) fn capacities(&self) -> [usize; 4] {
-        [self.candidates.capacity(), self.exact_staging.capacity(),
-         self.exact_wide.segment_candidates.capacity(),
-         self.exact_wide.rectangle_candidates.capacity()]
+    #[cfg(all(test, feature = "cartesian-recoil"))]
+    pub(crate) fn capacities(&self) -> Vec<usize> {
+        vec![self.candidates.capacity(), self.exact_staging.capacity(),
+             self.certified_selections.capacity(), self.certified_provenance.capacity(),
+             self.exact_wide.segment.arithmetic.capacity(),
+             self.exact_wide.segment.scalar.capacity(),
+             self.exact_wide.segment.point.capacity(),
+             self.exact_wide.segment.vector.capacity(),
+             self.exact_wide.segment.candidate.capacity(),
+             self.exact_wide.segment.committed.capacity(),
+             self.exact_wide.rectangle_candidates.capacity(),
+             self.exact_wide.aabb_left.capacity(), self.exact_wide.aabb_right.capacity(),
+             self.exact_wide.segment_body_separation.nodes.capacity(),
+             self.exact_wide.segment_body_separation.points.capacity(),
+             self.exact_wide.segment_body_separation.corners.capacity(),
+             self.exact_wide.segment_body_separation.axes.capacity(),
+             self.exact_wide.segment_body_separation.scalar.capacity()]
+    }
+
+    #[cfg(all(test, not(feature = "cartesian-recoil")))]
+    pub(crate) fn capacities(&self) -> Vec<usize> {
+        vec![self.candidates.capacity(), self.exact_staging.capacity(),
+             self.exact_wide.segment.arithmetic.capacity(),
+             self.exact_wide.segment.scalar.capacity(),
+             self.exact_wide.segment.point.capacity(),
+             self.exact_wide.segment.vector.capacity(),
+             self.exact_wide.segment.candidate.capacity(),
+             self.exact_wide.segment.committed.capacity(),
+             self.exact_wide.rectangle_candidates.capacity(),
+             self.exact_wide.aabb_left.capacity(), self.exact_wide.aabb_right.capacity()]
     }
 }
 
@@ -427,10 +538,44 @@ fn scan_detector_into(
         }
         #[cfg(any(test, feature = "cartesian-recoil"))]
         DetectorInput::Exact { trajectories, owners } => {
-            let nonzero = preflight_exact_compatibility(trajectories, owners, colliders)?;
-            if !nonzero {
+            #[cfg(feature = "cartesian-recoil")]
+            { scratch.first_pair_rejection = None; }
+            #[cfg(not(feature = "cartesian-recoil"))]
+            {
+                let nonzero = preflight_exact_compatibility(trajectories, owners, colliders)?;
+                if !nonzero {
+                    scan_compatibility_candidates_into(colliders, scratch);
+                    return Ok(());
+                }
+            }
+            #[cfg(feature = "cartesian-recoil")]
+            preflight_exact_compatibility(trajectories, owners, colliders)?;
+            #[cfg(feature = "cartesian-recoil")]
+            {
+                let pairs = trajectories.len().checked_mul(trajectories.len().saturating_sub(1))
+                    .and_then(|value| value.checked_div(2))
+                    .ok_or(ExactScanReject::CompatibilityIdentity)?;
+                if scratch.candidates.capacity() < pairs || scratch.exact_staging.capacity() < pairs
+                    || scratch.certified_selections.capacity() < pairs
+                    || scratch.certified_provenance.capacity() < pairs
+                    || scratch.exact_wide.segment.arithmetic.len() != SEGMENT_ARITHMETIC_CAP
+                    || scratch.exact_wide.segment.scalar.len() != SEGMENT_SCALAR_CAP
+                    || scratch.exact_wide.segment.point.len() != SEGMENT_POINT_CAP
+                    || scratch.exact_wide.segment.vector.len() != SEGMENT_VECTOR_CAP
+                    || scratch.exact_wide.segment.candidate.len() != SEGMENT_CANDIDATE_CAP
+                    || scratch.exact_wide.segment.committed.len() != 1
+                    || scratch.exact_wide.rectangle_candidates.capacity() < 7
+                    || scratch.exact_wide.aabb_left.capacity() < AnatomyRegion::COUNT * 4
+                    || scratch.exact_wide.aabb_right.capacity() < AnatomyRegion::COUNT * 4 {
+                    return Err(ExactScanReject::CompatibilityIdentity);
+                }
+                scratch.certified_selections.clear();
+                scratch.certified_provenance.clear();
+                // This scan contributes optional diagnostic history only.
+                // Exact trajectory pairs below own membership and ordering:
+                // an accepted response can create a later contact absent from
+                // this rounded compatibility witness set.
                 scan_compatibility_candidates_into(colliders, scratch);
-                return Ok(());
             }
             scratch.exact_staging.clear();
             for i in 0..trajectories.len() { for j in i + 1..trajectories.len() {
@@ -449,50 +594,152 @@ fn scan_detector_into(
                 // distant high-water pairs must not spend the fixed wide
                 // predicate envelope merely to prove what their first-order
                 // bounds already prove.
-                if exact_pair_has_swept_aabb(a, b)
-                    && wide_swept_aabbs_are_disjoint(a, owner_a, b, owner_b)? {
+                let aabb_supported = exact_pair_has_swept_aabb(a, b);
+                let aabb_disjoint = if aabb_supported {
+                    match wide_swept_aabbs_are_disjoint(
+                        a, owner_a, b, owner_b, &mut scratch.exact_wide,
+                    ) {
+                        Ok(disjoint) => Some(disjoint),
+                        Err(reject) => {
+                            #[cfg(feature = "cartesian-recoil")]
+                            { scratch.first_pair_rejection = Some(ExactScanPairRejectionDiagnostic {
+                                a_index: i, b_index: j, a_entity: a.entity, b_entity: b.entity,
+                                a_slot: a.slot, b_slot: b.slot,
+                                a_shape: scan_shape_diagnostic(&a.motor),
+                                b_shape: scan_shape_diagnostic(&b.motor),
+                                a_present: a.present, b_present: b.present,
+                                a_owner: a.owner_index, b_owner: b.owner_index,
+                                group_time_raw: owner_a.common_response.group_time_raw,
+                                aabb_supported, aabb_disjoint: None,
+                                branch: ExactScanBranchDiagnostic::SweptAabb,
+                                reject: scan_reject_diagnostic(reject),
+                                segment_body: None,
+                            }); }
+                            return Err(reject);
+                        }
+                    }
+                } else { None };
+                if aabb_disjoint == Some(true) {
                     continue;
                 }
-                let candidate = match (&a.motor, &b.motor) {
+                let (branch, candidate) = match (&a.motor, &b.motor) {
                     (MotorShape::Segment { .. }, MotorShape::Shield { .. }) =>
+                        (ExactScanBranchDiagnostic::SegmentShield,
                         wide_sweep_segment_shield(a, owner_a, b, owner_b,
                                                   &colliders[i], &colliders[j],
-                                                  &mut scratch.exact_wide)?,
+                                                  &mut scratch.exact_wide)),
                     (MotorShape::Shield { .. }, MotorShape::Segment { .. }) =>
+                        (ExactScanBranchDiagnostic::SegmentShield,
                         wide_sweep_segment_shield(b, owner_b, a, owner_a,
                                                   &colliders[j], &colliders[i],
-                                                  &mut scratch.exact_wide)?,
+                                                  &mut scratch.exact_wide)),
                     (MotorShape::Segment { .. }, MotorShape::Body { .. }) =>
+                        (ExactScanBranchDiagnostic::SegmentBody,
                         wide_sweep_segment_body(a, owner_a, b, owner_b,
                                                 &colliders[i], &colliders[j],
-                                                &mut scratch.exact_wide)?,
+                                                &mut scratch.exact_wide)),
                     (MotorShape::Body { .. }, MotorShape::Segment { .. }) =>
+                        (ExactScanBranchDiagnostic::SegmentBody,
                         wide_sweep_segment_body(b, owner_b, a, owner_a,
                                                 &colliders[j], &colliders[i],
-                                                &mut scratch.exact_wide)?,
+                                                &mut scratch.exact_wide)),
                     (MotorShape::Segment { .. }, MotorShape::Segment { .. }) if
                         (a.entity, a.slot) <= (b.entity, b.slot) =>
+                        (ExactScanBranchDiagnostic::SegmentSegment,
                         wide_sweep_segments(a, owner_a, b, owner_b,
                                             &colliders[i], &colliders[j],
-                                            &mut scratch.exact_wide)?,
+                                            &mut scratch.exact_wide)),
                     (MotorShape::Segment { .. }, MotorShape::Segment { .. }) =>
+                        (ExactScanBranchDiagnostic::SegmentSegment,
                         wide_sweep_segments(b, owner_b, a, owner_a,
                                             &colliders[j], &colliders[i],
-                                            &mut scratch.exact_wide)?,
+                                            &mut scratch.exact_wide)),
                     // Body/body separation is a distinct World phase, and
                     // body/shield plus shield/shield have never been contact
                     // primitives. The exact branch owns the same pair domain
                     // as `candidate`; a response word does not turn an ignored
                     // collider pairing into a new kind of contact.
-                    _ => None,
+                    _ => continue,
+                };
+                let candidate = match candidate {
+                    Ok(candidate) => candidate,
+                    Err(reject) => {
+                        #[cfg(feature = "cartesian-recoil")]
+                        { scratch.first_pair_rejection = Some(ExactScanPairRejectionDiagnostic {
+                            a_index: i, b_index: j, a_entity: a.entity, b_entity: b.entity,
+                            a_slot: a.slot, b_slot: b.slot,
+                            a_shape: scan_shape_diagnostic(&a.motor),
+                            b_shape: scan_shape_diagnostic(&b.motor),
+                            a_present: a.present, b_present: b.present,
+                            a_owner: a.owner_index, b_owner: b.owner_index,
+                            group_time_raw: owner_a.common_response.group_time_raw,
+                            aabb_supported, aabb_disjoint,
+                            branch, reject: scan_reject_diagnostic(reject),
+                            segment_body: scratch.exact_wide.segment_body_rejection,
+                        }); }
+                        return Err(reject);
+                    }
                 };
                 if let Some(candidate) = candidate { scratch.exact_staging.push(candidate); }
             } }
             scratch.exact_staging.sort_unstable_by_key(
                 |row| (row.fact.key, row.fact.toi, row.distance_sq, row.feature));
             scratch.exact_staging.dedup_by_key(|row| row.fact.key);
-            core::mem::swap(&mut scratch.candidates, &mut scratch.exact_staging);
-            Ok(())
+            #[cfg(feature = "cartesian-recoil")]
+            {
+                for candidate in &scratch.exact_staging {
+                    let time_raw = candidate.fact.toi.get().raw() as u32;
+                    let wide_toi = candidate.wide_toi
+                        .ok_or(ExactScanReject::CompatibilityIdentity)?;
+                    let compatibility_sweep = scratch.candidates.iter()
+                        .find(|row| row.fact.key == candidate.fact.key)
+                        .and_then(|row| row.compatibility_sweep);
+                    scratch.certified_selections.push(CertifiedSelection { time_raw,
+                        key: candidate.fact.key, region: candidate.fact.region,
+                        medial: candidate.wide_medial.unwrap_or_else(WideRational4096::zero) });
+                    scratch.certified_provenance.push(CertifiedProvenance { time_raw,
+                        key: candidate.fact.key, wide_toi, compatibility_sweep });
+                }
+                scratch.certified_selections.sort_unstable_by_key(|row| (row.time_raw, row.key));
+                scratch.certified_provenance.sort_unstable_by_key(|row| (row.time_raw, row.key));
+                if scratch.certified_selections.len() != scratch.certified_provenance.len()
+                    || scratch.certified_selections.iter().zip(&scratch.certified_provenance)
+                        .any(|(selection, evidence)| (selection.key, selection.time_raw)
+                            != (evidence.key, evidence.time_raw)) {
+                    return Err(ExactScanReject::CompatibilityIdentity);
+                }
+                scratch.candidates.clear();
+                for at in 0..scratch.certified_selections.len() {
+                    let selection = scratch.certified_selections[at];
+                    let evidence = scratch.certified_provenance[at];
+                    let _medial_is_selection_authority = selection.medial;
+                    let identity = |row: &ContactCollider| (row.entity,
+                        if matches!(row.shape, ContactShape::Body { .. }) { BODY_SLOT }
+                        else { row.slot });
+                    let a = colliders.iter().position(|row|
+                        identity(row) == (selection.key.a, selection.key.a_slot))
+                        .ok_or(ExactScanReject::CompatibilityIdentity)?;
+                    let b = colliders.iter().position(|row|
+                        identity(row) == (selection.key.b, selection.key.b_slot))
+                        .ok_or(ExactScanReject::CompatibilityIdentity)?;
+                    let fact = exact_contact_at_pose(trajectories, owners, colliders,
+                        a, b, selection.time_raw, scratch)?
+                        .ok_or(ExactScanReject::CompatibilityIdentity)?;
+                    if fact.key != selection.key || fact.region != selection.region {
+                        return Err(ExactScanReject::CompatibilityIdentity);
+                    }
+                    scratch.candidates.push(Candidate { fact,
+                        distance_sq: Fx::ZERO, feature: 0, wide_toi: Some(evidence.wide_toi),
+                        wide_medial: Some(selection.medial),
+                        compatibility_sweep: evidence.compatibility_sweep });
+                }
+                return Ok(());
+            }
+            #[cfg(not(feature = "cartesian-recoil"))]
+            {
+                core::mem::swap(&mut scratch.candidates, &mut scratch.exact_staging);
+                Ok(())
+            }
         }
         #[cfg(not(any(test, feature = "cartesian-recoil")))]
         DetectorInput::_Lifetime(_) => unreachable!(),
@@ -521,6 +768,26 @@ pub(crate) enum ExactScanReject {
     #[cfg(any(test, feature = "cartesian-recoil"))]
     Trajectory(ExactTrajectoryReject),
     UnsupportedExactSweep,
+}
+
+#[cfg(any(test, feature = "cartesian-recoil"))]
+fn scan_shape_diagnostic(shape: &MotorShape) -> ExactScanShapeDiagnostic {
+    match shape {
+        MotorShape::Body { .. } => ExactScanShapeDiagnostic::Body,
+        MotorShape::Segment { .. } => ExactScanShapeDiagnostic::Segment,
+        MotorShape::Shield { .. } => ExactScanShapeDiagnostic::Shield,
+    }
+}
+
+#[cfg(any(test, feature = "cartesian-recoil"))]
+fn scan_reject_diagnostic(reject: ExactScanReject) -> ExactScanRejectDiagnostic {
+    match reject {
+        ExactScanReject::ArithmeticEnvelope => ExactScanRejectDiagnostic::ArithmeticEnvelope,
+        ExactScanReject::Budget => ExactScanRejectDiagnostic::Budget,
+        ExactScanReject::CompatibilityIdentity => ExactScanRejectDiagnostic::CompatibilityIdentity,
+        ExactScanReject::Trajectory(_) => ExactScanRejectDiagnostic::Trajectory,
+        ExactScanReject::UnsupportedExactSweep => ExactScanRejectDiagnostic::UnsupportedExactSweep,
+    }
 }
 
 #[cfg(any(test, feature = "cartesian-recoil"))]
@@ -723,6 +990,7 @@ struct ExactSegmentClosest {
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 struct WidePoint([WideRational4096; 3]);
 
+
 #[cfg(any(test, feature = "cartesian-recoil"))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum WideEvaluatedContactShape {
@@ -741,10 +1009,397 @@ struct WideSegmentClosest {
 }
 
 #[cfg(any(test, feature = "cartesian-recoil"))]
+const SEGMENT_ARITHMETIC_CAP: usize = 8;
+#[cfg(any(test, feature = "cartesian-recoil"))]
+const SEGMENT_SCALAR_CAP: usize = 16;
+#[cfg(any(test, feature = "cartesian-recoil"))]
+const SEGMENT_POINT_CAP: usize = 10;
+#[cfg(any(test, feature = "cartesian-recoil"))]
+const SEGMENT_VECTOR_CAP: usize = 3;
+#[cfg(any(test, feature = "cartesian-recoil"))]
+const SEGMENT_CANDIDATE_CAP: usize = 5;
+
+#[cfg(any(test, feature = "cartesian-recoil"))]
+fn segment_arithmetic(rows: &mut Vec<WideRational4096>)
+    -> &mut [WideRational4096; SEGMENT_ARITHMETIC_CAP]
+{
+    rows.as_mut_slice().try_into().unwrap()
+}
+
+#[cfg(any(test, feature = "cartesian-recoil"))]
+#[derive(Clone, Default)]
+struct SegmentWorkState {
+    arithmetic: Vec<WideRational4096>,
+    scalar: Vec<WideRational4096>,
+    point: Vec<WidePoint>,
+    vector: Vec<[WideRational4096; 3]>,
+    candidate: Vec<WideSegmentClosest>,
+    committed: Vec<WideSegmentClosest>,
+    candidate_count: u8,
+    winner: u8,
+}
+
+#[cfg(any(test, feature = "cartesian-recoil"))]
+impl SegmentWorkState {
+    fn try_reserve(&mut self) -> Result<(), ContactCapacityError> {
+        try_reserve_exact(&mut self.arithmetic, SEGMENT_ARITHMETIC_CAP)?;
+        try_reserve_exact(&mut self.scalar, SEGMENT_SCALAR_CAP)?;
+        try_reserve_exact(&mut self.point, SEGMENT_POINT_CAP)?;
+        try_reserve_exact(&mut self.vector, SEGMENT_VECTOR_CAP)?;
+        try_reserve_exact(&mut self.candidate, SEGMENT_CANDIDATE_CAP)?;
+        try_reserve_exact(&mut self.committed, 1)?;
+        let zero = WideRational4096::zero();
+        self.arithmetic.resize(SEGMENT_ARITHMETIC_CAP, zero);
+        self.scalar.resize(SEGMENT_SCALAR_CAP, zero);
+        self.point.resize(SEGMENT_POINT_CAP, WidePoint([zero; 3]));
+        self.vector.resize(SEGMENT_VECTOR_CAP, [zero; 3]);
+        let row = WideSegmentClosest { a: WidePoint([zero; 3]), b: WidePoint([zero; 3]),
+                                      distance_sq: zero, feature: 255 };
+        self.candidate.resize(SEGMENT_CANDIDATE_CAP, row);
+        self.committed.resize(1, row);
+        Ok(())
+    }
+
+    fn sub_point_into(&mut self, source: &WidePoint, origin: &WidePoint, output: usize)
+        -> Result<(), ExactScanReject>
+    {
+        for axis in 0..3 {
+            if !origin.0[axis].checked_neg_into(
+                    segment_arithmetic(&mut self.arithmetic), &mut self.scalar[13]) {
+                return Err(ExactScanReject::ArithmeticEnvelope);
+            }
+            if !source.0[axis].checked_add_divisible_into(&self.scalar[13],
+                    segment_arithmetic(&mut self.arithmetic), &mut self.point[output].0[axis]) {
+                return Err(ExactScanReject::ArithmeticEnvelope);
+            }
+        }
+        Ok(())
+    }
+
+    fn vector_sub_into(&mut self, left: usize, right: usize, output: usize)
+        -> Result<(), ExactScanReject>
+    {
+        for axis in 0..3 {
+            if !self.point[right].0[axis].checked_neg_into(
+                    segment_arithmetic(&mut self.arithmetic), &mut self.scalar[13]) {
+                return Err(ExactScanReject::ArithmeticEnvelope);
+            }
+            if !self.point[left].0[axis].checked_add_divisible_into(&self.scalar[13],
+                    segment_arithmetic(&mut self.arithmetic), &mut self.vector[output][axis]) {
+                return Err(ExactScanReject::ArithmeticEnvelope);
+            }
+        }
+        Ok(())
+    }
+
+    fn dot_into(&mut self, left: usize, right: usize, output: usize)
+        -> Result<(), ExactScanReject>
+    {
+        self.scalar[output] = WideRational4096::zero();
+        for axis in 0..3 {
+            if !self.vector[left][axis].checked_mul_into(&self.vector[right][axis],
+                    segment_arithmetic(&mut self.arithmetic), &mut self.scalar[14]) {
+                return Err(ExactScanReject::ArithmeticEnvelope);
+            }
+            let (input, result) = self.scalar.split_at_mut(15);
+            if !input[output].checked_add_divisible_into(&input[14],
+                    segment_arithmetic(&mut self.arithmetic), &mut result[0]) {
+                return Err(ExactScanReject::ArithmeticEnvelope);
+            }
+            input[output] = result[0];
+        }
+        Ok(())
+    }
+
+    fn mul_scalar(&mut self, left: usize, right: usize, output: usize)
+        -> Result<(), ExactScanReject>
+    {
+        let (before, after) = self.scalar.split_at_mut(output);
+        let (out, tail) = after.split_first_mut().unwrap();
+        let left_ref = if left < output { &before[left] } else { &tail[left - output - 1] };
+        let right_ref = if right < output { &before[right] } else { &tail[right - output - 1] };
+        if !left_ref.checked_mul_into(right_ref, segment_arithmetic(&mut self.arithmetic), out) {
+            return Err(ExactScanReject::ArithmeticEnvelope);
+        }
+        Ok(())
+    }
+
+    fn scalar_sub_into(&mut self, left: usize, right: usize, output: usize)
+        -> Result<(), ExactScanReject>
+    {
+        let right_value = self.scalar[right];
+        if !right_value.checked_neg_into(
+                segment_arithmetic(&mut self.arithmetic), &mut self.scalar[13]) {
+            return Err(ExactScanReject::ArithmeticEnvelope);
+        }
+        let left_value = self.scalar[left];
+        let negated = self.scalar[13];
+        if !left_value.checked_add_divisible_into(
+                &negated, segment_arithmetic(&mut self.arithmetic), &mut self.scalar[output]) {
+            return Err(ExactScanReject::ArithmeticEnvelope);
+        }
+        Ok(())
+    }
+
+    fn scalar_div_into(&mut self, left: usize, right: usize, output: usize)
+        -> Result<(), ExactScanReject>
+    {
+        let left_value = self.scalar[left];
+        let right_value = self.scalar[right];
+        if !left_value.checked_div_into(&right_value,
+                segment_arithmetic(&mut self.arithmetic), &mut self.scalar[output]) {
+            return Err(ExactScanReject::ArithmeticEnvelope);
+        }
+        Ok(())
+    }
+
+    fn point_at_into(&mut self, base: usize, vector: usize, parameter: usize, output: usize)
+        -> Result<(), ExactScanReject>
+    {
+        for axis in 0..3 {
+            let parameter_value = self.scalar[parameter];
+            if !self.vector[vector][axis].checked_mul_into(&parameter_value,
+                    segment_arithmetic(&mut self.arithmetic), &mut self.scalar[14]) {
+                return Err(ExactScanReject::ArithmeticEnvelope);
+            }
+            let (input, staged) = self.point.split_at_mut(output);
+            if !input[base].0[axis].checked_add_divisible_into(&self.scalar[14],
+                    segment_arithmetic(&mut self.arithmetic), &mut staged[0].0[axis]) {
+                return Err(ExactScanReject::ArithmeticEnvelope);
+            }
+        }
+        Ok(())
+    }
+
+    fn candidate_into(&mut self, a: usize, b: usize, slot: usize, feature: u8)
+        -> Result<(), ExactScanReject>
+    {
+        self.scalar[9] = WideRational4096::zero();
+        for axis in 0..3 {
+            if !self.point[b].0[axis].checked_neg_into(
+                    segment_arithmetic(&mut self.arithmetic), &mut self.scalar[13]) {
+                return Err(ExactScanReject::ArithmeticEnvelope);
+            }
+            let (difference, negated) = self.scalar.split_at_mut(13);
+            if !self.point[a].0[axis].checked_add_divisible_into(&negated[0],
+                    segment_arithmetic(&mut self.arithmetic), &mut difference[12]) {
+                return Err(ExactScanReject::ArithmeticEnvelope);
+            }
+            let (difference, product) = self.scalar.split_at_mut(14);
+            if !difference[12].checked_mul_into(&difference[12],
+                    segment_arithmetic(&mut self.arithmetic), &mut product[0]) {
+                return Err(ExactScanReject::ArithmeticEnvelope);
+            }
+            let (input, result) = self.scalar.split_at_mut(15);
+            if !input[9].checked_add_divisible_into(&input[14],
+                    segment_arithmetic(&mut self.arithmetic), &mut result[0]) {
+                return Err(ExactScanReject::ArithmeticEnvelope);
+            }
+            input[9] = result[0];
+        }
+        for axis in 0..3 {
+            self.candidate[slot].a.0[axis] = self.point[a].0[axis];
+            self.candidate[slot].b.0[axis] = self.point[b].0[axis];
+        }
+        self.candidate[slot].distance_sq = self.scalar[9];
+        self.candidate[slot].feature = feature;
+        self.candidate_count = (slot + 1) as u8;
+        Ok(())
+    }
+
+    fn candidate_cmp(&mut self, left: u8, right: u8, out: &mut Ordering)
+        -> Result<(), ExactScanReject>
+    {
+        let rows = &self.candidate;
+        if !rows[left as usize].distance_sq.checked_cmp_into(
+                &rows[right as usize].distance_sq,
+                segment_arithmetic(&mut self.arithmetic), out) {
+            return Err(ExactScanReject::ArithmeticEnvelope);
+        }
+        if *out != Ordering::Equal { return Ok(()); }
+        for axis in 0..3 {
+            if !rows[left as usize].a.0[axis].checked_cmp_into(
+                    &rows[right as usize].a.0[axis],
+                    segment_arithmetic(&mut self.arithmetic), out) {
+                return Err(ExactScanReject::ArithmeticEnvelope);
+            }
+            if *out != Ordering::Equal { return Ok(()); }
+        }
+        for axis in 0..3 {
+            if !rows[left as usize].b.0[axis].checked_cmp_into(
+                    &rows[right as usize].b.0[axis],
+                    segment_arithmetic(&mut self.arithmetic), out) {
+                return Err(ExactScanReject::ArithmeticEnvelope);
+            }
+            if *out != Ordering::Equal { return Ok(()); }
+        }
+        *out = rows[left as usize].feature.cmp(&rows[right as usize].feature);
+        Ok(())
+    }
+
+    #[inline(always)]
+    fn project_endpoint(&mut self, point: usize, base: usize, vector: usize,
+                        square: usize, feature: u8, point_is_a: bool)
+        -> Result<(), ExactScanReject>
+    {
+        self.vector_sub_into(point, base, 2)?;
+        self.dot_into(2, vector, 10)?;
+        if self.scalar[square].numerator.is_zero() {
+            self.scalar[11] = WideRational4096::zero();
+        } else { self.scalar_div_into(10, square, 11)?; }
+        let mut order = Ordering::Equal;
+        if !self.scalar[11].checked_cmp_into(&WideRational4096::zero(),
+                segment_arithmetic(&mut self.arithmetic), &mut order) {
+            return Err(ExactScanReject::ArithmeticEnvelope);
+        }
+        if order == Ordering::Less { self.scalar[11] = WideRational4096::zero(); }
+        if !self.scalar[11].checked_cmp_into(&WideRational4096::one(),
+                segment_arithmetic(&mut self.arithmetic), &mut order) {
+            return Err(ExactScanReject::ArithmeticEnvelope);
+        }
+        if order == Ordering::Greater { self.scalar[11] = WideRational4096::one(); }
+        self.point_at_into(base, vector, 11, 9)?;
+        let slot = self.candidate_count as usize;
+        let (a, b) = if point_is_a { (point, 9) } else { (9, point) };
+        self.scalar[9] = WideRational4096::zero();
+        for axis in 0..3 {
+            if !self.point[b].0[axis].checked_neg_into(
+                    segment_arithmetic(&mut self.arithmetic), &mut self.scalar[13]) {
+                return Err(ExactScanReject::ArithmeticEnvelope);
+            }
+            let (difference, negated) = self.scalar.split_at_mut(13);
+            if !self.point[a].0[axis].checked_add_divisible_into(
+                    &negated[0], segment_arithmetic(&mut self.arithmetic), &mut difference[12]) {
+                return Err(ExactScanReject::ArithmeticEnvelope);
+            }
+            let (difference, product) = self.scalar.split_at_mut(14);
+            if !difference[12].checked_mul_into(
+                    &difference[12], segment_arithmetic(&mut self.arithmetic), &mut product[0]) {
+                return Err(ExactScanReject::ArithmeticEnvelope);
+            }
+            let (input, result) = self.scalar.split_at_mut(15);
+            if !input[9].checked_add_divisible_into(
+                    &input[14], segment_arithmetic(&mut self.arithmetic), &mut result[0]) {
+                return Err(ExactScanReject::ArithmeticEnvelope);
+            }
+            input[9] = result[0];
+        }
+        for axis in 0..3 {
+            self.candidate[slot].a.0[axis] = self.point[a].0[axis];
+            self.candidate[slot].b.0[axis] = self.point[b].0[axis];
+        }
+        self.candidate[slot].distance_sq = self.scalar[9];
+        self.candidate[slot].feature = feature;
+        self.candidate_count = (slot + 1) as u8;
+        Ok(())
+    }
+
+    #[inline(never)]
+    fn segment_work_points_into(&mut self, a0: &WidePoint, a1: &WidePoint,
+                                b0: &WidePoint, b1: &WidePoint)
+        -> Result<(), ExactScanReject>
+    {
+        if self.arithmetic.len() != SEGMENT_ARITHMETIC_CAP
+            || self.scalar.len() != SEGMENT_SCALAR_CAP
+            || self.point.len() != SEGMENT_POINT_CAP
+            || self.vector.len() != SEGMENT_VECTOR_CAP
+            || self.candidate.len() != SEGMENT_CANDIDATE_CAP
+            || self.committed.len() != 1 {
+            return Err(ExactScanReject::ArithmeticEnvelope);
+        }
+        self.sub_point_into(a0, a0, 0)?;
+        self.sub_point_into(a1, a0, 1)?;
+        self.sub_point_into(b0, a0, 2)?;
+        self.sub_point_into(b1, a0, 3)?;
+        self.vector_sub_into(1, 0, 0)?;
+        self.vector_sub_into(3, 2, 1)?;
+        self.vector_sub_into(0, 2, 2)?;
+        self.dot_into(0, 0, 0)?;
+        self.dot_into(0, 1, 1)?;
+        self.dot_into(1, 1, 2)?;
+        self.dot_into(0, 2, 3)?;
+        self.dot_into(1, 2, 4)?;
+        self.candidate_count = 0;
+        if !self.scalar[0].numerator.is_zero() && !self.scalar[2].numerator.is_zero() {
+            self.mul_scalar(0, 2, 10)?;
+            self.mul_scalar(1, 1, 11)?;
+            self.scalar_sub_into(10, 11, 5)?;
+            if !self.scalar[5].numerator.is_zero() {
+                self.mul_scalar(1, 4, 10)?;
+                self.mul_scalar(2, 3, 11)?;
+                self.scalar_sub_into(10, 11, 12)?;
+                self.scalar_div_into(12, 5, 6)?;
+                self.mul_scalar(0, 4, 10)?;
+                self.mul_scalar(1, 3, 11)?;
+                self.scalar_sub_into(10, 11, 12)?;
+                self.scalar_div_into(12, 5, 7)?;
+                let mut order = Ordering::Equal;
+                let mut interior = true;
+                self.scalar[14] = WideRational4096::zero();
+                self.scalar[15] = WideRational4096::one();
+                for parameter in [6, 7] {
+                    if !self.scalar[parameter].checked_cmp_into(&self.scalar[14],
+                            segment_arithmetic(&mut self.arithmetic), &mut order) {
+                        return Err(ExactScanReject::ArithmeticEnvelope);
+                    }
+                    interior &= order != Ordering::Less;
+                    if !self.scalar[parameter].checked_cmp_into(&self.scalar[15],
+                            segment_arithmetic(&mut self.arithmetic), &mut order) {
+                        return Err(ExactScanReject::ArithmeticEnvelope);
+                    }
+                    interior &= order != Ordering::Greater;
+                }
+                if interior {
+                    self.point_at_into(0, 0, 6, 8)?;
+                    self.point_at_into(2, 1, 7, 9)?;
+                    self.candidate_into(8, 9, 0, 0)?;
+                }
+            }
+        }
+        self.project_endpoint(0, 2, 1, 2, 1, true)?;
+        self.project_endpoint(1, 2, 1, 2, 2, true)?;
+        self.project_endpoint(2, 0, 0, 0, 3, false)?;
+        self.project_endpoint(3, 0, 0, 0, 4, false)?;
+        let mut winner = 0u8;
+        for at in 1..self.candidate_count {
+            let mut order = Ordering::Equal;
+            self.candidate_cmp(at, winner, &mut order)?;
+            if order == Ordering::Less { winner = at; }
+        }
+        self.winner = winner;
+        for axis in 0..3 {
+            if !a0.0[axis].checked_add_divisible_into(
+                    &self.candidate[winner as usize].a.0[axis],
+                    segment_arithmetic(&mut self.arithmetic), &mut self.point[8].0[axis]) {
+                return Err(ExactScanReject::ArithmeticEnvelope);
+            }
+            if !a0.0[axis].checked_add_divisible_into(
+                    &self.candidate[winner as usize].b.0[axis],
+                    segment_arithmetic(&mut self.arithmetic), &mut self.point[9].0[axis]) {
+                return Err(ExactScanReject::ArithmeticEnvelope);
+            }
+        }
+        for axis in 0..3 {
+            self.committed[0].a.0[axis] = self.point[8].0[axis];
+            self.committed[0].b.0[axis] = self.point[9].0[axis];
+        }
+        self.committed[0].distance_sq = self.candidate[winner as usize].distance_sq;
+        self.committed[0].feature = self.candidate[winner as usize].feature;
+        Ok(())
+    }
+}
+
+#[cfg(any(test, feature = "cartesian-recoil"))]
 #[derive(Clone, Default)]
 struct ExactWideScratch {
-    segment_candidates: Vec<WideSegmentClosest>,
+    segment: SegmentWorkState,
+    #[cfg(feature = "cartesian-recoil")]
+    segment_body_separation: SegmentBodySeparationWork,
     rectangle_candidates: Vec<WideSegmentClosest>,
+    aabb_left: Vec<WidePoint>,
+    aabb_right: Vec<WidePoint>,
+    #[cfg(feature = "cartesian-recoil")]
+    segment_body_rejection: Option<ExactSegmentBodyProgressDiagnostic>,
 }
 
 #[cfg(feature = "cartesian-recoil")]
@@ -769,9 +1424,60 @@ impl ExactWideVisitTrace {
 #[cfg(any(test, feature = "cartesian-recoil"))]
 impl ExactWideScratch {
     fn try_reserve(&mut self) -> Result<(), ContactCapacityError> {
-        try_reserve_exact(&mut self.segment_candidates, 5)?;
-        try_reserve_exact(&mut self.rectangle_candidates, 7)
+        self.segment.try_reserve()?;
+        try_reserve_exact(&mut self.rectangle_candidates, 7)?;
+        try_reserve_exact(&mut self.aabb_left, AnatomyRegion::COUNT * 4)?;
+        try_reserve_exact(&mut self.aabb_right, AnatomyRegion::COUNT * 4)?;
+        #[cfg(feature = "cartesian-recoil")]
+        self.segment_body_separation.try_reserve()?;
+        Ok(())
     }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+struct SeparationNode { lo: u32, hi: u32, depth: u8 }
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Default)]
+struct SegmentBodySeparationWork {
+    nodes: Vec<SeparationNode>,
+    points: Vec<WidePoint>,
+    corners: Vec<[WideRational4096; 3]>,
+    axes: Vec<[WideRational4096; 3]>,
+    scalar: Vec<WideRational4096>,
+    positive_cmp: PositiveRationalCmpWork,
+}
+
+#[cfg(feature = "cartesian-recoil")]
+impl Clone for SegmentBodySeparationWork {
+    fn clone(&self) -> Self {
+        // Scratch has no semantic state. In particular, cloning an empty Vec
+        // normally loses its spare capacity, so a derived Clone would make the
+        // first certified interval after a World snapshot allocate again.
+        let mut cloned = Self::default();
+        cloned.try_reserve().expect("the source already owns the fixed certificate bounds");
+        cloned
+    }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+impl SegmentBodySeparationWork {
+    fn try_reserve(&mut self) -> Result<(), ContactCapacityError> {
+        try_reserve_exact(&mut self.nodes, 17)?;
+        try_reserve_exact(&mut self.points, 8)?;
+        try_reserve_exact(&mut self.corners, 8)?;
+        try_reserve_exact(&mut self.axes, 4)?;
+        try_reserve_exact(&mut self.scalar, 32)?;
+        let zero = WideRational4096::zero();
+        self.points.resize(8, WidePoint([zero; 3]));
+        self.corners.resize(8, [zero; 3]);
+        self.scalar.resize(32, zero);
+        self.nodes.clear(); self.axes.clear();
+        Ok(())
+    }
+
+    fn clear_stages(&mut self) { self.nodes.clear(); self.axes.clear(); }
 }
 
 #[cfg(any(test, feature = "cartesian-recoil"))]
@@ -901,17 +1607,24 @@ fn wide_candidate_cmp(a: WideSegmentClosest, b: WideSegmentClosest)
 }
 
 #[cfg(any(test, feature = "cartesian-recoil"))]
+fn wide_segment_segment_points_into(a0: &WidePoint, a1: &WidePoint,
+                                    b0: &WidePoint, b1: &WidePoint,
+                                    scratch: &mut ExactWideScratch)
+    -> Result<(), ExactScanReject>
+{
+    scratch.segment.segment_work_points_into(a0, a1, b0, b1)
+}
+
+#[cfg(test)]
 fn wide_segment_segment_points(a0: WidePoint, a1: WidePoint, b0: WidePoint, b1: WidePoint,
                                scratch: &mut ExactWideScratch)
     -> Result<WideSegmentClosest, ExactScanReject>
 {
-    // Subtracting one pair origin before the dot products removes any common
-    // response translation exactly. The remaining rational operations retain
-    // their scale symbolically inside the fixed word.
-    wide_segment_segment_points_from_origin(a0, a1, b0, b1, a0, scratch)
+    wide_segment_segment_points_into(&a0, &a1, &b0, &b1, scratch)?;
+    Ok(scratch.segment.committed[0])
 }
 
-#[cfg(any(test, feature = "cartesian-recoil"))]
+#[cfg(test)]
 fn wide_segment_segment_points_from_origin(
     a0: WidePoint, a1: WidePoint, b0: WidePoint, b1: WidePoint, origin: WidePoint,
     scratch: &mut ExactWideScratch,
@@ -924,7 +1637,7 @@ fn wide_segment_segment_points_from_origin(
     let w = wide_vector_sub(a0, b0)?;
     let aa = wide_dot(u, u)?; let bb = wide_dot(u, v)?; let cc = wide_dot(v, v)?;
     let dd = wide_dot(u, w)?; let ee = wide_dot(v, w)?;
-    scratch.segment_candidates.clear();
+    let mut candidates = Vec::with_capacity(5);
     if !aa.numerator.is_zero() && !cc.numerator.is_zero() {
         let determinant = wide_sub(wide_mul(aa, cc)?, wide_mul(bb, bb)?)?;
         if !determinant.numerator.is_zero() {
@@ -934,7 +1647,7 @@ fn wide_segment_segment_points_from_origin(
                 && wide_cmp(s, WideRational4096::one())? != Ordering::Greater
                 && wide_cmp(t, WideRational4096::zero())? != Ordering::Less
                 && wide_cmp(t, WideRational4096::one())? != Ordering::Greater {
-                scratch.segment_candidates.push(wide_segment_candidate(
+                candidates.push(wide_segment_candidate(
                     wide_point_at(a0, u, s)?, wide_point_at(b0, v, t)?, 0)?);
             }
         }
@@ -947,13 +1660,13 @@ fn wide_segment_segment_points_from_origin(
             wide_clamp_unit(wide_div(wide_dot(wide_vector_sub(point, base)?, axis)?, square)?)?
         };
         let projected = wide_point_at(base, axis, parameter)?;
-        scratch.segment_candidates.push(if point_is_a {
+        candidates.push(if point_is_a {
             wide_segment_candidate(point, projected, (at + 1) as u8)?
         } else { wide_segment_candidate(projected, point, (at + 1) as u8)? });
     }
-    let mut candidates = scratch.segment_candidates.iter().copied();
-    let mut winner = candidates.next().ok_or(ExactScanReject::ArithmeticEnvelope)?;
-    for candidate in candidates {
+    let mut rows = candidates.into_iter();
+    let mut winner = rows.next().ok_or(ExactScanReject::ArithmeticEnvelope)?;
+    for candidate in rows {
         if wide_candidate_cmp(candidate, winner)? == Ordering::Less { winner = candidate; }
     }
     // Restore the subtracted origin only after feature selection. Distances and
@@ -1027,7 +1740,8 @@ fn wide_segment_rectangle_points(a0: WidePoint, a1: WidePoint,
         (rectangle[0], rectangle[3]), (rectangle[1], rectangle[2]),
         (rectangle[0], rectangle[1]), (rectangle[3], rectangle[2]),
     ].into_iter().enumerate() {
-        let mut edge = wide_segment_segment_points(a0, a1, b0, b1, scratch)?;
+        wide_segment_segment_points_into(&a0, &a1, &b0, &b1, scratch)?;
+        let mut edge = scratch.segment.committed[0];
         edge.feature = (at + 3) as u8; scratch.rectangle_candidates.push(edge);
     }
     let mut candidates = scratch.rectangle_candidates.iter().copied();
@@ -1045,8 +1759,9 @@ fn wide_segment_segment_at_pose(a0: ExactPoint, a1: ExactPoint, b0: ExactPoint, 
                                 scratch: &mut ExactWideScratch)
     -> Result<WideSegmentClosest, ExactScanReject>
 {
-    wide_segment_segment_points(wide_point(a0)?, wide_point(a1)?, wide_point(b0)?, wide_point(b1)?,
-                                scratch)
+    let (a0, a1, b0, b1) = (wide_point(a0)?, wide_point(a1)?, wide_point(b0)?, wide_point(b1)?);
+    wide_segment_segment_points_into(&a0, &a1, &b0, &b1, scratch)?;
+    Ok(scratch.segment.committed[0])
 }
 
 #[cfg(any(test, feature = "cartesian-recoil"))]
@@ -1088,6 +1803,107 @@ fn wide_midpoint(a: WidePoint, b: WidePoint) -> Result<WidePoint, ExactScanRejec
         wide_mul(wide_add(a.0[1], b.0[1])?, half)?,
         wide_mul(wide_add(a.0[2], b.0[2])?, half)?,
     ]))
+}
+
+#[cfg(any(test, feature = "cartesian-recoil"))]
+fn wide_owner_motor_frame(
+    trajectories: &[ExactContactTrajectory], canonical_a: &ExactContactTrajectory,
+) -> Result<[i32; 3], ExactScanReject> {
+    for row in trajectories {
+        if (row.owner_index == canonical_a.owner_index && row.entity != canonical_a.entity)
+            || (row.entity == canonical_a.entity && row.owner_index != canonical_a.owner_index) {
+            return Err(ExactScanReject::CompatibilityIdentity);
+        }
+    }
+
+    let mut canonical = None;
+    let mut body_origin = None;
+    let mut owned_rows = 0usize;
+    for row in trajectories.iter().filter(|row| row.owner_index == canonical_a.owner_index) {
+        owned_rows += 1;
+        if row.entity == canonical_a.entity && row.slot == canonical_a.slot {
+            if canonical.is_some() { return Err(ExactScanReject::CompatibilityIdentity); }
+            canonical = Some(row);
+        }
+        match row.motor {
+            MotorShape::Body { origin, .. } => {
+                if body_origin.is_some() || row.kind != GeneralizedKind::Body
+                    || row.slot != BODY_SLOT || row.held_index.is_some()
+                    || row.equipment_spec.is_some() || !row.present {
+                    return Err(ExactScanReject::CompatibilityIdentity);
+                }
+                body_origin = Some(origin.at_tick_start_raw);
+            }
+            MotorShape::Segment { .. } | MotorShape::Shield { .. } => {
+                if row.kind != GeneralizedKind::Equipment || row.slot >= 2
+                    || row.held_index != Some(row.slot as usize)
+                    || row.equipment_spec.is_none() {
+                    return Err(ExactScanReject::CompatibilityIdentity);
+                }
+            }
+        }
+    }
+    let canonical = canonical.ok_or(ExactScanReject::CompatibilityIdentity)?;
+    let MotorShape::Segment { hilt, .. } = canonical.motor else {
+        return Err(ExactScanReject::CompatibilityIdentity);
+    };
+    if canonical.kind != GeneralizedKind::Equipment || canonical.slot >= 2
+        || canonical.held_index != Some(canonical.slot as usize)
+        || canonical.equipment_spec.is_none() || !canonical.present {
+        return Err(ExactScanReject::CompatibilityIdentity);
+    }
+    if let Some(origin) = body_origin { return Ok(origin); }
+    if owned_rows != 1 { return Err(ExactScanReject::CompatibilityIdentity); }
+    Ok(hilt.at_tick_start_raw)
+}
+
+#[cfg(any(test, feature = "cartesian-recoil"))]
+fn wide_point_in_frame(point: &WidePoint, frame_raw: [i32; 3])
+    -> Result<Vec3, ExactScanReject>
+{
+    let mut raw = [0; 3];
+    for axis in 0..3 {
+        let frame = WideRational4096::new(frame_raw[axis] as i128, 1)
+            .ok_or(ExactScanReject::ArithmeticEnvelope)?;
+        let offset = wide_sub(point.0[axis], frame)?
+            .trunc_i128().ok_or(ExactScanReject::ArithmeticEnvelope)?;
+        raw[axis] = i32::try_from((frame_raw[axis] as i128).checked_add(offset)
+            .ok_or(ExactScanReject::ArithmeticEnvelope)?)
+            .map_err(|_| ExactScanReject::ArithmeticEnvelope)?;
+    }
+    Ok(Vec3::new(Fx::from_raw(raw[0]), Fx::from_raw(raw[1]), Fx::from_raw(raw[2])))
+}
+
+#[cfg(any(test, feature = "cartesian-recoil"))]
+fn wide_midpoint_in_frame(a: &WidePoint, b: &WidePoint, frame_raw: [i32; 3])
+    -> Result<Vec3, ExactScanReject>
+{
+    let half = WideRational4096::new(2, 1).ok_or(ExactScanReject::ArithmeticEnvelope)?;
+    let mut raw = [0; 3];
+    for axis in 0..3 {
+        let frame = WideRational4096::new(frame_raw[axis] as i128, 1)
+            .ok_or(ExactScanReject::ArithmeticEnvelope)?;
+        let relative = wide_div(wide_add(wide_sub(a.0[axis], frame)?,
+                                         wide_sub(b.0[axis], frame)?)?, half)?;
+        let offset = relative.trunc_i128().ok_or(ExactScanReject::ArithmeticEnvelope)?;
+        raw[axis] = i32::try_from((frame_raw[axis] as i128).checked_add(offset)
+            .ok_or(ExactScanReject::ArithmeticEnvelope)?)
+            .map_err(|_| ExactScanReject::ArithmeticEnvelope)?;
+    }
+    Ok(Vec3::new(Fx::from_raw(raw[0]), Fx::from_raw(raw[1]), Fx::from_raw(raw[2])))
+}
+
+#[cfg(any(test, feature = "cartesian-recoil"))]
+fn make_wide_candidate(
+    a: &ContactCollider, b: &ContactCollider, kind: ContactKind, toi: TimeOfImpact,
+    point_a: &WidePoint, point_b: &WidePoint, frame_raw: [i32; 3],
+    distance_sq: Fx, feature: u8, region: u8,
+) -> Result<Candidate, ExactScanReject> {
+    let mut candidate = make_candidate(a, b, kind, toi,
+        wide_point_in_frame(point_a, frame_raw)?, wide_point_in_frame(point_b, frame_raw)?,
+        distance_sq, feature, region);
+    candidate.fact.point = wide_midpoint_in_frame(point_a, point_b, frame_raw)?;
+    Ok(candidate)
 }
 
 #[cfg(any(test, feature = "cartesian-recoil"))]
@@ -1202,30 +2018,43 @@ pub(crate) fn wide_evaluated_shape_quotient(
     }
 }
 
-#[cfg(feature = "cartesian-recoil")]
-pub(crate) fn wide_evaluated_relative_anchor_words(
-    body: &ExactContactTrajectory, held: &ExactContactTrajectory,
-    owner: &ExactOwnerTrajectory, time: u32,
-) -> Result<[i128; 39], ExactScanReject> {
-    let MotorShape::Body { origin, .. } = body.motor else {
-        return Err(ExactScanReject::ArithmeticEnvelope);
-    };
-    let MotorShape::Segment { hilt, .. } = held.motor else {
-        return Err(ExactScanReject::ArithmeticEnvelope);
-    };
-    let origin = wide_evaluated_point(origin, body, owner, time)?;
-    let hilt = wide_evaluated_point(hilt, held, owner, time)?;
-    let mut out = [0; 39];
-    for axis in 0..3 {
-        for (base, value) in [(axis * 4, origin.0[axis]),
-                              (12 + axis * 4, hilt.0[axis]),
-                              (24 + axis * 4, wide_sub(hilt.0[axis], origin.0[axis])?)] {
-            let (n, d) = value.as_i128_pair().ok_or(ExactScanReject::ArithmeticEnvelope)?;
-            out[base..base + 4].copy_from_slice(&[n, d, n / d, n % d]);
-        }
-        out[36 + axis] = out[12 + axis * 4 + 2] - out[axis * 4 + 2];
+/// Publish an integral body motor in its own affine reflection frame. The
+/// common response is the only non-integral term here; quantizing it before
+/// translation makes the signed remainder odd under reflection.
+#[cfg(any(test, feature = "cartesian-recoil"))]
+pub(crate) fn wide_body_origin_quotient(
+    body: &ExactContactTrajectory, owner: &ExactOwnerTrajectory,
+) -> Result<Vec3, ExactScanReject> {
+    if body.entity != owner.entity || body.held_index.is_some() {
+        return Err(ExactScanReject::CompatibilityIdentity);
     }
-    Ok(out)
+    let MotorShape::Body { origin, .. } = body.motor else {
+        return Err(ExactScanReject::CompatibilityIdentity);
+    };
+    let mut raw = [0; 3];
+    for axis in 0..3 {
+        let motor = motor_end_raw(origin, axis)?;
+        let response = wide_response_coordinate(
+            owner.common_response, owner.common_scale, axis, 65_536)?
+            .trunc_i128().ok_or(ExactScanReject::ArithmeticEnvelope)?;
+        raw[axis] = i32::try_from(motor.checked_add(response)
+            .ok_or(ExactScanReject::ArithmeticEnvelope)?)
+            .map_err(|_| ExactScanReject::ArithmeticEnvelope)?;
+    }
+    Ok(Vec3::new(Fx::from_raw(raw[0]), Fx::from_raw(raw[1]), Fx::from_raw(raw[2])))
+}
+
+#[cfg(any(test, feature = "cartesian-recoil"))]
+pub(crate) fn wide_relative_point_quotient(
+    held_point: ExactMotorPoint, held_row: &ExactContactTrajectory,
+    body_origin: ExactMotorPoint, body_row: &ExactContactTrajectory,
+    owner: &ExactOwnerTrajectory, time: u32,
+) -> Result<Vec3, ExactScanReject> {
+    let held = wide_evaluated_point(held_point, held_row, owner, time)?;
+    let body = wide_evaluated_point(body_origin, body_row, owner, time)?;
+    let mut relative = [WideRational4096::zero(); 3];
+    for axis in 0..3 { relative[axis] = wide_sub(held.0[axis], body.0[axis])?; }
+    wide_point_to_vec3(WidePoint(relative))
 }
 
 #[cfg(any(test, feature = "cartesian-recoil"))]
@@ -1251,10 +2080,8 @@ fn exact_gcd(mut a: i128, mut b: i128) -> i128 {
     a.abs()
 }
 
-/// Rebase a finished owner against the integer endpoint geometry published to
-/// World for the next tick. Truncation belongs to the absolute endpoint, so
-/// this must be derived here rather than by independently zeroing affine
-/// quotients.
+/// Rebase a finished owner against the same motor-frame body word and relative
+/// held geometry published to World for the next tick.
 #[cfg(any(test, feature = "cartesian-recoil"))]
 pub(crate) fn wide_rebase_owner_tick(
     trajectories: &[ExactContactTrajectory], owner: ExactOwnerTrajectory,
@@ -1268,8 +2095,7 @@ pub(crate) fn wide_rebase_owner_tick(
         && matches!(row.motor, MotorShape::Body { .. }))
         .ok_or(ExactScanReject::CompatibilityIdentity)?;
     let MotorShape::Body { origin, .. } = body.motor else { unreachable!() };
-    let exact_body = wide_evaluated_point(origin, body, &owner, 65_536)?;
-    let published_body = wide_point_to_vec3(exact_body)?;
+    let published_body = wide_body_origin_quotient(body, &owner)?;
     let published_body_raw = [published_body.x.raw(), published_body.y.raw(), published_body.z.raw()];
     let common_den = owner.common_scale.checked_mul(65_536)
         .ok_or(ExactScanReject::ArithmeticEnvelope)?;
@@ -1297,8 +2123,16 @@ pub(crate) fn wide_rebase_owner_tick(
             MotorShape::Shield { corners } => corners[0],
             MotorShape::Body { .. } => return Err(ExactScanReject::CompatibilityIdentity),
         };
-        let exact = wide_evaluated_point(anchor, row, &owner, 65_536)?;
-        let published = wide_point_to_vec3(exact)?;
+        let relative = wide_relative_point_quotient(
+            anchor, row, origin, body, &owner, 65_536)?;
+        let checked_axis = |body: Fx, relative: Fx| i32::try_from(
+            (body.raw() as i128).checked_add(relative.raw() as i128)
+                .ok_or(ExactScanReject::ArithmeticEnvelope)?)
+            .map(Fx::from_raw).map_err(|_| ExactScanReject::ArithmeticEnvelope);
+        let published = Vec3::new(
+            checked_axis(published_body.x, relative.x)?,
+            checked_axis(published_body.y, relative.y)?,
+            checked_axis(published_body.z, relative.z)?);
         let published_raw = [published.x.raw(), published.y.raw(), published.z.raw()];
         let held_den = (held.affine.mass_raw as i128).checked_mul(65_536)
             .ok_or(ExactScanReject::ArithmeticEnvelope)?;
@@ -1418,29 +2252,20 @@ fn wide_body_region_at_time(row: &ExactContactTrajectory, owner: &ExactOwnerTraj
 
 #[cfg(any(test, feature = "cartesian-recoil"))]
 #[derive(Clone, Copy)]
-struct WideSweptAabbPoints {
-    points: [WidePoint; AnatomyRegion::COUNT * 4],
-    len: usize,
+struct WideSweptAabbView<'a> {
+    points: &'a [WidePoint],
     radius_raw: i32,
 }
 
 #[cfg(any(test, feature = "cartesian-recoil"))]
-impl WideSweptAabbPoints {
-    fn new() -> Self {
-        Self {
-            points: [WidePoint([WideRational4096::zero(); 3]); AnatomyRegion::COUNT * 4],
-            len: 0,
-            radius_raw: 0,
-        }
+fn push_wide_aabb_point(out: &mut Vec<WidePoint>, point: WidePoint)
+    -> Result<(), ExactScanReject>
+{
+    if out.len() == AnatomyRegion::COUNT * 4 || out.len() == out.capacity() {
+        return Err(ExactScanReject::CompatibilityIdentity);
     }
-
-    fn push(&mut self, point: WidePoint) -> Result<(), ExactScanReject> {
-        let slot = self.points.get_mut(self.len)
-            .ok_or(ExactScanReject::CompatibilityIdentity)?;
-        *slot = point;
-        self.len += 1;
-        Ok(())
-    }
+    out.push(point);
+    Ok(())
 }
 
 #[cfg(any(test, feature = "cartesian-recoil"))]
@@ -1454,22 +2279,26 @@ fn exact_pair_has_swept_aabb(a: &ExactContactTrajectory, b: &ExactContactTraject
 }
 
 #[cfg(any(test, feature = "cartesian-recoil"))]
-fn wide_swept_aabb_points(row: &ExactContactTrajectory, owner: &ExactOwnerTrajectory,
-                          start: u32, end: u32)
-    -> Result<WideSweptAabbPoints, ExactScanReject>
+fn fill_wide_swept_aabb_points(
+    out: &mut Vec<WidePoint>, row: &ExactContactTrajectory, owner: &ExactOwnerTrajectory,
+    start: u32, end: u32,
+) -> Result<i32, ExactScanReject>
 {
-    let mut out = WideSweptAabbPoints::new();
+    out.clear();
+    let mut maximum_radius_raw = 0;
     match row.motor {
         MotorShape::Segment { radius_raw, .. } => {
             let (h0, t0, _) = wide_segment_at_time(row, owner, start)?;
             let (h1, t1, _) = wide_segment_at_time(row, owner, end)?;
-            for point in [h0, t0, h1, t1] { out.push(point)?; }
-            out.radius_raw = radius_raw;
+            for point in [h0, t0, h1, t1] { push_wide_aabb_point(out, point)?; }
+            maximum_radius_raw = radius_raw;
         }
         MotorShape::Shield { .. } => {
             let first = wide_shield_at_time(row, owner, start)?;
             let last = wide_shield_at_time(row, owner, end)?;
-            for point in first.into_iter().chain(last) { out.push(point)?; }
+            for point in first.into_iter().chain(last) {
+                push_wide_aabb_point(out, point)?;
+            }
         }
         MotorShape::Body { parts, .. } => {
             for region in 0..AnatomyRegion::COUNT {
@@ -1478,27 +2307,27 @@ fn wide_swept_aabb_points(row: &ExactContactTrajectory, owner: &ExactOwnerTrajec
                     wide_body_region_at_time(row, owner, region, start)? else { continue };
                 let Some((l1, u1, _)) =
                     wide_body_region_at_time(row, owner, region, end)? else { continue };
-                for point in [l0, u0, l1, u1] { out.push(point)?; }
-                out.radius_raw = out.radius_raw.max(radius_raw);
+                for point in [l0, u0, l1, u1] { push_wide_aabb_point(out, point)?; }
+                maximum_radius_raw = maximum_radius_raw.max(radius_raw);
             }
         }
     }
-    Ok(out)
+    Ok(maximum_radius_raw)
 }
 
 #[cfg(any(test, feature = "cartesian-recoil"))]
-fn wide_aabb_points_are_disjoint(left: &WideSweptAabbPoints,
-                                 right: &WideSweptAabbPoints)
+fn wide_aabb_points_are_disjoint(left: WideSweptAabbView<'_>,
+                                 right: WideSweptAabbView<'_>)
     -> Result<bool, ExactScanReject>
 {
-    if left.len == 0 || right.len == 0 { return Ok(true); }
+    if left.points.is_empty() || right.points.is_empty() { return Ok(true); }
     let origin = left.points[0];
     let mut left_min = [WideRational4096::zero(); 3];
     let mut left_max = left_min;
     let first_right = wide_vector_sub(right.points[0], origin)?;
     let mut right_min = first_right;
     let mut right_max = first_right;
-    for point in &left.points[1..left.len] {
+    for point in &left.points[1..] {
         let relative = wide_vector_sub(*point, origin)?;
         for axis in 0..3 {
             if wide_cmp(relative[axis], left_min[axis])? == Ordering::Less {
@@ -1509,7 +2338,7 @@ fn wide_aabb_points_are_disjoint(left: &WideSweptAabbPoints,
             }
         }
     }
-    for point in &right.points[1..right.len] {
+    for point in &right.points[1..] {
         let relative = wide_vector_sub(*point, origin)?;
         for axis in 0..3 {
             if wide_cmp(relative[axis], right_min[axis])? == Ordering::Less {
@@ -1533,44 +2362,53 @@ fn wide_aabb_points_are_disjoint(left: &WideSweptAabbPoints,
 
 #[cfg(any(test, feature = "cartesian-recoil"))]
 fn wide_swept_aabbs_are_disjoint(a: &ExactContactTrajectory, ao: &ExactOwnerTrajectory,
-                                  b: &ExactContactTrajectory, bo: &ExactOwnerTrajectory)
+                                  b: &ExactContactTrajectory, bo: &ExactOwnerTrajectory,
+                                  scratch: &mut ExactWideScratch)
     -> Result<bool, ExactScanReject>
 {
     let start = ao.common_response.group_time_raw;
-    wide_swept_aabbs_are_disjoint_during(a, ao, b, bo, start, 65_536)
+    wide_swept_aabbs_are_disjoint_during(a, ao, b, bo, start, 65_536, scratch)
 }
 
 #[cfg(any(test, feature = "cartesian-recoil"))]
 fn wide_swept_aabbs_are_disjoint_during(
     a: &ExactContactTrajectory, ao: &ExactOwnerTrajectory,
     b: &ExactContactTrajectory, bo: &ExactOwnerTrajectory, start: u32, end: u32,
+    scratch: &mut ExactWideScratch,
 ) -> Result<bool, ExactScanReject> {
-    let left = wide_swept_aabb_points(a, ao, start, end)?;
-    let right = wide_swept_aabb_points(b, bo, start, end)?;
-    wide_aabb_points_are_disjoint(&left, &right)
+    let ExactWideScratch { aabb_left: left, aabb_right: right, .. } = scratch;
+    let left_radius = fill_wide_swept_aabb_points(left, a, ao, start, end)?;
+    let right_radius = fill_wide_swept_aabb_points(right, b, bo, start, end)?;
+    wide_aabb_points_are_disjoint(
+        WideSweptAabbView { points: left.as_slice(), radius_raw: left_radius },
+        WideSweptAabbView { points: right.as_slice(), radius_raw: right_radius },
+    )
 }
 
 #[cfg(any(test, feature = "cartesian-recoil"))]
 fn wide_segment_body_region_aabbs_are_disjoint_during(
     weapon: &ExactContactTrajectory, wo: &ExactOwnerTrajectory,
     body: &ExactContactTrajectory, bo: &ExactOwnerTrajectory,
-    region: usize, start: u32, end: u32,
+    region: usize, start: u32, end: u32, scratch: &mut ExactWideScratch,
 ) -> Result<bool, ExactScanReject> {
-    let mut segment = wide_swept_aabb_points(weapon, wo, start, end)?;
-    let mut part = WideSweptAabbPoints::new();
-    let Some((l0, u0, radius_raw)) =
+    let ExactWideScratch { aabb_left: segment, aabb_right: part, .. } = scratch;
+    let segment_radius = fill_wide_swept_aabb_points(segment, weapon, wo, start, end)?;
+    part.clear();
+    let Some((l0, u0, body_radius_raw)) =
         wide_body_region_at_time(body, bo, region, start)? else { return Ok(true) };
     let Some((l1, u1, _)) =
         wide_body_region_at_time(body, bo, region, end)? else { return Ok(true) };
-    for point in [l0, u0, l1, u1] { part.push(point)?; }
-    part.radius_raw = radius_raw;
+    for point in [l0, u0, l1, u1] { push_wide_aabb_point(part, point)?; }
     // Keep this assignment explicit: it guards against accidentally using a
     // whole-body radius when this proof is the one-region zero-step escape.
-    let MotorShape::Segment { radius_raw, .. } = weapon.motor else {
+    let MotorShape::Segment { radius_raw: segment_radius_raw, .. } = weapon.motor else {
         return Err(ExactScanReject::UnsupportedExactSweep)
     };
-    segment.radius_raw = radius_raw;
-    wide_aabb_points_are_disjoint(&segment, &part)
+    debug_assert_eq!(segment_radius, segment_radius_raw);
+    wide_aabb_points_are_disjoint(
+        WideSweptAabbView { points: segment.as_slice(), radius_raw: segment_radius_raw },
+        WideSweptAabbView { points: part.as_slice(), radius_raw: body_radius_raw },
+    )
 }
 
 #[cfg(any(test, feature = "cartesian-recoil"))]
@@ -1582,7 +2420,8 @@ fn wide_segment_body_at_time(weapon: &ExactContactTrajectory, weapon_owner: &Exa
     let (hilt, tip, wr) = wide_segment_at_time(weapon, weapon_owner, time)?;
     let Some((lower, upper, br)) = wide_body_region_at_time(body, body_owner, region, time)?
         else { return Ok(None) };
-    let closest = wide_segment_segment_points(hilt, tip, lower, upper, scratch)?;
+    wide_segment_segment_points_into(&hilt, &tip, &lower, &upper, scratch)?;
+    let closest = scratch.segment.committed[0];
     // `closest.b` is the projection of `closest.a` onto the convex body
     // medial segment. Every point between that pair has the same projection,
     // so the midpoint's medial distance is exactly one quarter of the pair's
@@ -1686,7 +2525,8 @@ fn wide_sweep_segments(a: &ExactContactTrajectory, ao: &ExactOwnerTrajectory,
     for _ in 0..96 {
         let (a0, a1, ar) = wide_segment_at_time(a, ao, time)?;
         let (b0, b1, br) = wide_segment_at_time(b, bo, time)?;
-        let closest = wide_segment_segment_points(a0, a1, b0, b1, scratch)?;
+        wide_segment_segment_points_into(&a0, &a1, &b0, &b1, scratch)?;
+        let closest = scratch.segment.committed[0];
         let radius = wide_radius(ar.checked_add(br).ok_or(ExactScanReject::ArithmeticEnvelope)?)?;
         if wide_cmp(closest.distance_sq, wide_mul(radius, radius)?)? != Ordering::Greater {
             let mut pa = *ca; let mut pb = *cb;
@@ -1711,7 +2551,8 @@ fn wide_sweep_segments(a: &ExactContactTrajectory, ao: &ExactOwnerTrajectory,
             let next = time + 1;
             let (a0, a1, ar) = wide_segment_at_time(a, ao, next)?;
             let (b0, b1, br) = wide_segment_at_time(b, bo, next)?;
-            let adjacent = wide_segment_segment_points(a0, a1, b0, b1, scratch)?;
+            wide_segment_segment_points_into(&a0, &a1, &b0, &b1, scratch)?;
+            let adjacent = scratch.segment.committed[0];
             let r = wide_radius(ar.checked_add(br).ok_or(ExactScanReject::ArithmeticEnvelope)?)?;
             if wide_cmp(adjacent.distance_sq, wide_mul(r, r)?)? == Ordering::Greater {
                 return Err(ExactScanReject::UnsupportedExactSweep);
@@ -1773,19 +2614,208 @@ fn wide_sweep_segment_shield(segment: &ExactContactTrajectory, so: &ExactOwnerTr
     Err(ExactScanReject::Budget)
 }
 
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum SegmentBodySeparation { Separated, Unresolved }
+
+#[cfg(feature = "cartesian-recoil")]
+fn wide_lerp_point(a: WidePoint, b: WidePoint, u: WideRational4096)
+    -> Result<WidePoint, ExactScanReject>
+{
+    Ok(WidePoint([
+        wide_add(a.0[0], wide_mul(wide_sub(b.0[0], a.0[0])?, u)?)?,
+        wide_add(a.0[1], wide_mul(wide_sub(b.0[1], a.0[1])?, u)?)?,
+        wide_add(a.0[2], wide_mul(wide_sub(b.0[2], a.0[2])?, u)?)?,
+    ]))
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn separation_axis_sign(mut axis: [WideRational4096; 3])
+    -> Result<Option<[WideRational4096; 3]>, ExactScanReject>
+{
+    for word in axis {
+        match wide_cmp(word, WideRational4096::zero())? {
+            Ordering::Less => {
+                for value in &mut axis {
+                    *value = value.checked_neg().ok_or(ExactScanReject::ArithmeticEnvelope)?;
+                }
+                return Ok(Some(axis));
+            }
+            Ordering::Greater => return Ok(Some(axis)),
+            Ordering::Equal => {}
+        }
+    }
+    Ok(None)
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn segment_body_separation_node(
+    weapon: &ExactContactTrajectory, wo: &ExactOwnerTrajectory,
+    body: &ExactContactTrajectory, bo: &ExactOwnerTrajectory, region: usize,
+    time: u32, node: SeparationNode, segment: &mut SegmentWorkState,
+    work: &mut SegmentBodySeparationWork, radius_sq: WideRational4096,
+) -> Result<bool, ExactScanReject> {
+    work.axes.clear();
+    let (sh, st, _) = wide_segment_at_time(weapon, wo, time)?;
+    let (fh, ft, _) = wide_segment_at_time(weapon, wo, time + 1)?;
+    let Some((sl, su, _)) = wide_body_region_at_time(body, bo, region, time)? else { return Ok(true) };
+    let Some((fl, fu, _)) = wide_body_region_at_time(body, bo, region, time + 1)? else { return Ok(true) };
+    for endpoint in 0..2 {
+        let numerator = if endpoint == 0 { node.lo } else { node.hi };
+        let u = WideRational4096::new(numerator as i128, 1i128 << node.depth)
+            .ok_or(ExactScanReject::ArithmeticEnvelope)?;
+        let base = endpoint * 4;
+        work.points[base] = wide_lerp_point(sh, fh, u)?;
+        work.points[base + 1] = wide_lerp_point(st, ft, u)?;
+        work.points[base + 2] = wide_lerp_point(sl, fl, u)?;
+        work.points[base + 3] = wide_lerp_point(su, fu, u)?;
+        segment.segment_work_points_into(&work.points[base], &work.points[base + 1],
+            &work.points[base + 2], &work.points[base + 3])?;
+        let closest = segment.committed[0];
+        let separation = match wide_vector_sub(closest.a, closest.b)
+            .and_then(separation_axis_sign) {
+            Ok(value) => value,
+            Err(reject) => return Err(reject),
+        };
+        let weapon_axis = wide_vector_sub(work.points[base + 1], work.points[base])?;
+        let body_axis = wide_vector_sub(work.points[base + 3], work.points[base + 2])?;
+        let cross = match wide_cross(weapon_axis, body_axis).and_then(separation_axis_sign) {
+            Ok(value) => value,
+            Err(reject) => return Err(reject),
+        };
+        for axis in [separation, cross].into_iter().flatten() {
+            if !work.axes.contains(&axis) {
+                if work.axes.len() == 4 { return Err(ExactScanReject::ArithmeticEnvelope); }
+                work.axes.push(axis);
+            }
+        }
+    }
+    let mut corner = 0;
+    for endpoint in 0..2 {
+        let base = endpoint * 4;
+        for weapon_at in 0..2 { for body_at in 2..4 {
+            work.corners[corner] = match wide_vector_sub(
+                work.points[base + weapon_at], work.points[base + body_at]) {
+                Ok(value) => value,
+                Err(reject) => return Err(reject),
+            };
+            corner += 1;
+        } }
+    }
+    for axis_at in 0..work.axes.len() {
+        let axis = work.axes[axis_at];
+        let mut positive = true; let mut negative = true;
+        let mut least: Option<WideRational4096> = None;
+        for corner_at in 0..8 {
+            let projection = match wide_dot(work.corners[corner_at], axis) {
+                Ok(value) => value,
+                Err(reject) => return Err(reject),
+            };
+            let order = match wide_cmp(projection, WideRational4096::zero()) {
+                Ok(value) => value,
+                Err(reject) => return Err(reject),
+            };
+            positive &= order == Ordering::Greater; negative &= order == Ordering::Less;
+            let absolute = if order == Ordering::Less {
+                projection.checked_neg().ok_or(ExactScanReject::ArithmeticEnvelope)?
+            } else { projection };
+            let is_least = if let Some(old) = least {
+                match wide_cmp(absolute, old) {
+                    Ok(order) => order == Ordering::Less,
+                    Err(reject) => return Err(reject),
+                }
+            } else { true };
+            if is_least {
+                least = Some(absolute);
+            }
+        }
+        if !(positive || negative) { continue; }
+        let p = least.ok_or(ExactScanReject::ArithmeticEnvelope)?;
+        let left = match wide_mul(p, p) {
+            Ok(value) => value,
+            Err(reject) => return Err(reject),
+        };
+        let axis_sq = match wide_dot(axis, axis) {
+            Ok(value) => value,
+            Err(reject) => return Err(reject),
+        };
+        let right = match wide_mul(radius_sq, axis_sq) {
+            Ok(value) => value,
+            Err(reject) => return Err(reject),
+        };
+        let mut margin = Ordering::Equal;
+        if wide_cmp(right, WideRational4096::zero())? == Ordering::Equal {
+            margin = wide_cmp(left, right)?;
+        } else if !checked_cmp_positive_into(
+            &left, &right, &mut work.positive_cmp, &mut margin,
+        ) {
+            return Err(ExactScanReject::ArithmeticEnvelope);
+        }
+        if margin == Ordering::Greater { return Ok(true); }
+    }
+    Ok(false)
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn segment_body_separation_inner(
+    weapon: &ExactContactTrajectory, wo: &ExactOwnerTrajectory,
+    body: &ExactContactTrajectory, bo: &ExactOwnerTrajectory, region: usize,
+    time: u32, radius: WideRational4096, scratch: &mut ExactWideScratch,
+) -> Result<SegmentBodySeparation, ExactScanReject> {
+    let ExactWideScratch { segment, segment_body_separation: work, .. } = scratch;
+    if work.nodes.capacity() < 17 || work.points.len() != 8 || work.corners.len() != 8
+        || work.axes.capacity() < 4 || work.scalar.len() != 32 {
+        return Err(ExactScanReject::ArithmeticEnvelope);
+    }
+    work.nodes.push(SeparationNode { lo: 0, hi: 1, depth: 0 });
+    let radius_sq = wide_mul(radius, radius)?;
+    let mut visited = 0u32;
+    while let Some(node) = work.nodes.pop() {
+        visited += 1;
+        if visited > 131_071 { return Ok(SegmentBodySeparation::Unresolved); }
+        let separated = match segment_body_separation_node(weapon, wo, body, bo, region, time,
+            node, segment, work, radius_sq) {
+            Ok(value) => value,
+            Err(reject) => return Err(reject),
+        };
+        if separated { continue; }
+        if node.depth == 16 { return Ok(SegmentBodySeparation::Unresolved); }
+        let middle = node.lo + node.hi;
+        if work.nodes.len() + 2 > 17 { return Err(ExactScanReject::ArithmeticEnvelope); }
+        work.nodes.push(SeparationNode { lo: middle, hi: node.hi * 2, depth: node.depth + 1 });
+        work.nodes.push(SeparationNode { lo: node.lo * 2, hi: middle, depth: node.depth + 1 });
+    }
+    Ok(SegmentBodySeparation::Separated)
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn segment_body_separation(
+    weapon: &ExactContactTrajectory, wo: &ExactOwnerTrajectory,
+    body: &ExactContactTrajectory, bo: &ExactOwnerTrajectory, region: usize,
+    time: u32, radius: WideRational4096, scratch: &mut ExactWideScratch,
+) -> Result<SegmentBodySeparation, ExactScanReject> {
+    scratch.segment_body_separation.clear_stages();
+    let answer = segment_body_separation_inner(
+        weapon, wo, body, bo, region, time, radius, scratch);
+    scratch.segment_body_separation.clear_stages();
+    answer
+}
+
 #[cfg(any(test, feature = "cartesian-recoil"))]
 fn wide_sweep_segment_body(weapon: &ExactContactTrajectory, wo: &ExactOwnerTrajectory,
     body: &ExactContactTrajectory, bo: &ExactOwnerTrajectory,
     cw: &ContactCollider, cb: &ContactCollider, scratch: &mut ExactWideScratch)
     -> Result<Option<Candidate>, ExactScanReject>
 {
+    #[cfg(feature = "cartesian-recoil")]
+    { scratch.segment_body_rejection = None; }
     let mut winner: Option<(u32, usize, WideSegmentClosest, WideRational4096)> = None;
     #[cfg(feature = "cartesian-recoil")]
     let mut winner_trace = ExactWideVisitTrace::default();
     for region in 0..AnatomyRegion::COUNT {
         let group = wo.common_response.group_time_raw;
         if wide_segment_body_region_aabbs_are_disjoint_during(
-            weapon, wo, body, bo, region, group, 65_536)? {
+            weapon, wo, body, bo, region, group, 65_536, scratch)? {
             continue;
         }
         let speed = wide_segment_body_speed(weapon, wo, body, bo, region)?;
@@ -1793,14 +2823,15 @@ fn wide_sweep_segment_body(weapon: &ExactContactTrajectory, wo: &ExactOwnerTraje
         #[cfg(feature = "cartesian-recoil")]
         let mut trace = ExactWideVisitTrace::default();
         let mut proved_separate = false;
-        for _ in 0..96 {
+        for visit in 0..96 {
             #[cfg(feature = "cartesian-recoil")]
             trace.visit(time);
             let Some((closest, rr, medial)) = wide_segment_body_at_time(
                 weapon, wo, body, bo, region, time, scratch)?
                 else { proved_separate = true; break };
             let radius = wide_radius(rr)?;
-            if wide_cmp(closest.distance_sq, wide_mul(radius, radius)?)? != Ordering::Greater {
+            let radius_sq = wide_mul(radius, radius)?;
+            if wide_cmp(closest.distance_sq, radius_sq)? != Ordering::Greater {
                 found = Some((time, closest, medial)); break;
             }
             if time == 65_536 || speed.numerator.is_zero() { proved_separate = true; break; }
@@ -1812,7 +2843,8 @@ fn wide_sweep_segment_body(weapon: &ExactContactTrajectory, wo: &ExactOwnerTraje
                 let Some((adjacent, rr, _)) = wide_segment_body_at_time(
                     weapon, wo, body, bo, region, next, scratch)? else { break };
                 let r = wide_radius(rr)?;
-                if wide_cmp(adjacent.distance_sq, wide_mul(r, r)?)? == Ordering::Greater {
+                let adjacent_radius_sq = wide_mul(r, r)?;
+                if wide_cmp(adjacent.distance_sq, adjacent_radius_sq)? == Ordering::Greater {
                     // Endpoint separation alone cannot exclude a sub-raw
                     // enter-and-exit. The two affine swept AABBs can: if they
                     // are disjoint across this one-word interval, every point
@@ -1820,8 +2852,52 @@ fn wide_sweep_segment_body(weapon: &ExactContactTrajectory, wo: &ExactOwnerTraje
                     // Otherwise keep the named refusal -- the interval may
                     // contain a contact the integer-time detector cannot
                     // publish exactly.
-                    if !wide_segment_body_region_aabbs_are_disjoint_during(
-                        weapon, wo, body, bo, region, time, next)? {
+                    let interval_disjoint = wide_segment_body_region_aabbs_are_disjoint_during(
+                        weapon, wo, body, bo, region, time, next, scratch)?;
+                    if !interval_disjoint {
+                        #[cfg(feature = "cartesian-recoil")]
+                        if segment_body_separation(
+                            weapon, wo, body, bo, region, time, radius, scratch)?
+                            == SegmentBodySeparation::Separated {
+                            time = next;
+                            continue;
+                        }
+                        #[cfg(feature = "cartesian-recoil")]
+                        {
+                            let delta = wide_vector_sub(closest.a, closest.b).ok();
+                            let d = delta.and_then(|word| wide_l1(word).ok());
+                            let separation = wide_sub(closest.distance_sq, radius_sq).ok();
+                            let safe_denominator = d.and_then(|d| wide_add(d, radius).ok())
+                                .and_then(|sum| wide_mul(sum, speed).ok());
+                            let safe_quotient = separation.zip(safe_denominator)
+                                .and_then(|(n, d)| wide_div(n, d).ok());
+                            let point_words = |point: WidePoint| [
+                                point.0[0].as_i128_pair(), point.0[1].as_i128_pair(),
+                                point.0[2].as_i128_pair(),
+                            ];
+                            scratch.segment_body_rejection = Some(
+                                ExactSegmentBodyProgressDiagnostic {
+                                    region: region as u8, visit: visit as u8, time_raw: time,
+                                    speed: speed.as_i128_pair(), closest_a: point_words(closest.a),
+                                    closest_b: point_words(closest.b),
+                                    closest_feature: closest.feature,
+                                    distance_sq: closest.distance_sq.as_i128_pair(),
+                                    radius: radius.as_i128_pair(),
+                                    radius_sq: radius_sq.as_i128_pair(),
+                                    separation: separation.and_then(|v| v.as_i128_pair()),
+                                    l1_delta: d.and_then(|v| v.as_i128_pair()),
+                                    safe_denominator: safe_denominator.and_then(|v| v.as_i128_pair()),
+                                    safe_quotient: safe_quotient.and_then(|v| v.as_i128_pair()),
+                                    floor_step: step,
+                                    applied_advance: step.min(65_536 - time),
+                                    adjacent_time_raw: next,
+                                    adjacent_distance_sq: adjacent.distance_sq.as_i128_pair(),
+                                    adjacent_radius: r.as_i128_pair(),
+                                    adjacent_radius_sq: adjacent_radius_sq.as_i128_pair(),
+                                    current_separated: true, adjacent_separated: true,
+                                    interval_aabb_disjoint: interval_disjoint,
+                                });
+                        }
                         return Err(ExactScanReject::UnsupportedExactSweep);
                     }
                 }
@@ -1843,7 +2919,7 @@ fn wide_sweep_segment_body(weapon: &ExactContactTrajectory, wo: &ExactOwnerTraje
             }
         }
     }
-    let Some((time, region, closest, _)) = winner else { return Ok(None) };
+    let Some((time, region, closest, medial)) = winner else { return Ok(None) };
     let mut pw = *cw; let mut pb = *cb;
     pw.velocity += wide_response_velocity(weapon, wo)?; pb.velocity += wide_response_velocity(body, bo)?;
     let distance = closest.distance_sq.trunc_i128().ok_or(ExactScanReject::ArithmeticEnvelope)? >> 16;
@@ -1852,7 +2928,8 @@ fn wide_sweep_segment_body(weapon: &ExactContactTrajectory, wo: &ExactOwnerTraje
         wide_point_to_vec3(closest.b)?, Fx::from_raw(i32::try_from(distance)
             .map_err(|_| ExactScanReject::ArithmeticEnvelope)?), 0, region as u8);
     #[cfg(feature = "cartesian-recoil")]
-    { candidate.wide_toi = Some(ExactWideToiDiagnostic {
+    { candidate.wide_medial = Some(medial);
+      candidate.wide_toi = Some(ExactWideToiDiagnostic {
         key: candidate.fact.key, region: region as u8,
         primitive: ExactWidePrimitiveDiagnostic::SegmentBodyRegion,
         interval_start_raw: wo.common_response.group_time_raw, interval_end_raw: 65_536,
@@ -2174,25 +3251,32 @@ pub(crate) fn exact_contact_at_pose(
             }
             match chosen {
                 None => None,
-                Some((region, closest, _)) => Some(make_candidate(&published_left, &published_right,
-                    ContactKind::WeaponBody, toi, wide_point_to_vec3(closest.a)?,
-                    wide_point_to_vec3(closest.b)?, Fx::ZERO, 0, region as u8)),
+                Some((region, closest, _)) => Some(make_wide_candidate(
+                    &published_left, &published_right, ContactKind::WeaponBody, toi,
+                    &closest.a, &closest.b, wide_owner_motor_frame(trajectories, left)?,
+                    Fx::ZERO, 0, region as u8)?),
             }
         }
         (MotorShape::Body { .. }, MotorShape::Segment { .. }) => {
             return exact_contact_at_pose(trajectories, owners, compatibility, b, a, time, scratch);
         }
         (MotorShape::Segment { .. }, MotorShape::Segment { .. }) => {
+            if (right.entity, right.slot) < (left.entity, left.slot) {
+                return exact_contact_at_pose(
+                    trajectories, owners, compatibility, b, a, time, scratch);
+            }
             let (a0, a1, ar) = wide_segment_at_time(left, owner_left, time)?;
             let (b0, b1, br) = wide_segment_at_time(right, owner_right, time)?;
-            let closest = wide_segment_segment_points(a0, a1, b0, b1,
-                                                       &mut scratch.exact_wide)?;
+            wide_segment_segment_points_into(&a0, &a1, &b0, &b1,
+                                              &mut scratch.exact_wide)?;
+            let closest = &scratch.exact_wide.segment.committed[0];
             let radius = wide_radius(ar.checked_add(br).ok_or(ExactScanReject::ArithmeticEnvelope)?)?;
             if wide_cmp(closest.distance_sq, wide_mul(radius, radius)?)? == Ordering::Greater {
                 None
-            } else { Some(make_candidate(&published_left, &published_right,
-                ContactKind::WeaponWeapon, toi, wide_point_to_vec3(closest.a)?,
-                wide_point_to_vec3(closest.b)?, Fx::ZERO, closest.feature, NO_REGION)) }
+            } else { Some(make_wide_candidate(&published_left, &published_right,
+                ContactKind::WeaponWeapon, toi, &closest.a, &closest.b,
+                wide_owner_motor_frame(trajectories, left)?,
+                Fx::ZERO, closest.feature, NO_REGION)?) }
         }
         (MotorShape::Segment { .. }, MotorShape::Shield { .. }) => {
             let (hilt, tip, radius_raw) = wide_segment_at_time(left, owner_left, time)?;
@@ -2202,9 +3286,10 @@ pub(crate) fn exact_contact_at_pose(
             let radius = wide_radius(radius_raw)?;
             if wide_cmp(closest.distance_sq, wide_mul(radius, radius)?)? == Ordering::Greater {
                 None
-            } else { Some(make_candidate(&published_left, &published_right,
-                ContactKind::WeaponShield, toi, wide_point_to_vec3(closest.a)?,
-                wide_point_to_vec3(closest.b)?, Fx::ZERO, closest.feature, NO_REGION)) }
+            } else { Some(make_wide_candidate(&published_left, &published_right,
+                ContactKind::WeaponShield, toi, &closest.a, &closest.b,
+                wide_owner_motor_frame(trajectories, left)?,
+                Fx::ZERO, closest.feature, NO_REGION)?) }
         }
         (MotorShape::Shield { .. }, MotorShape::Segment { .. }) => {
             return exact_contact_at_pose(trajectories, owners, compatibility, b, a, time, scratch);
@@ -3040,6 +4125,8 @@ fn make_candidate(
         #[cfg(feature = "cartesian-recoil")]
         wide_toi: None,
         #[cfg(feature = "cartesian-recoil")]
+        wide_medial: None,
+        #[cfg(feature = "cartesian-recoil")]
         compatibility_sweep: None,
     }
 }
@@ -3127,6 +4214,523 @@ mod tests {
     use super::*;
     use crate::combat::spec::Material;
 
+    type FrozenWidePoint = [(i128, i128); 3];
+
+    #[derive(Clone, Copy)]
+    struct FrozenSeparationInterval {
+        endpoints: [[FrozenWidePoint; 4]; 2],
+        radius: i128,
+    }
+
+    #[derive(Debug)]
+    struct SeparationCertificate {
+        nodes: u32,
+        leaves: u32,
+        deepest: u8,
+        axis_fingerprint: u64,
+        margin_fingerprint: u64,
+    }
+
+    fn smart108_point(words: FrozenWidePoint) -> WidePoint {
+        WidePoint(words.map(|(n, d)| WideRational4096::new(n, d).unwrap()))
+    }
+
+    fn smart108_lerp(a: WidePoint, b: WidePoint, u: WideRational4096)
+        -> Result<WidePoint, ExactScanReject>
+    {
+        let delta = wide_vector_sub(b, a)?;
+        wide_point_at(a, delta, u)
+    }
+
+    fn smart108_points(frozen: &FrozenSeparationInterval, numerator: u32, depth: u8)
+        -> Result<[WidePoint; 4], ExactScanReject>
+    {
+        let denominator = 1i128 << depth;
+        let u = WideRational4096::new(numerator as i128, denominator).unwrap();
+        let start = frozen.endpoints[0].map(smart108_point);
+        let finish = frozen.endpoints[1].map(smart108_point);
+        Ok(core::array::from_fn(|at| smart108_lerp(start[at], finish[at], u).unwrap()))
+    }
+
+    fn smart108_axis_sign(axis: [WideRational4096; 3])
+        -> Result<Option<[WideRational4096; 3]>, ExactScanReject>
+    {
+        let zero = WideRational4096::zero();
+        for word in axis {
+            match wide_cmp(word, zero)? {
+                Ordering::Less => return Ok(Some(axis.map(|v| v.checked_neg().unwrap()))),
+                Ordering::Greater => return Ok(Some(axis)),
+                Ordering::Equal => {}
+            }
+        }
+        Ok(None)
+    }
+
+    fn smart108_mix(mut hash: u64, value: u64) -> u64 {
+        hash ^= value;
+        hash.wrapping_mul(0x100000001b3)
+    }
+
+    fn smart108_word_fingerprint(word: WideRational4096) -> u64 {
+        // Equality of the full fixed-envelope words remains the authority. This
+        // compact receipt only makes a changed certificate easy to name.
+        let text = format!("{:?}", word);
+        text.bytes().fold(0xcbf29ce484222325, |hash, byte|
+            smart108_mix(hash, byte as u64))
+    }
+
+    fn smart108_node_axes(points: [[WidePoint; 4]; 2], scratch: &mut ExactWideScratch)
+        -> Result<Vec<[WideRational4096; 3]>, ExactScanReject>
+    {
+        let mut axes = Vec::with_capacity(4);
+        for endpoint in points {
+            wide_segment_segment_points_into(
+                &endpoint[0], &endpoint[1], &endpoint[2], &endpoint[3], scratch)?;
+            let closest = scratch.segment.committed[0];
+            let separation = smart108_axis_sign(wide_vector_sub(closest.a, closest.b)?)?;
+            let weapon = wide_vector_sub(endpoint[1], endpoint[0])?;
+            let body = wide_vector_sub(endpoint[3], endpoint[2])?;
+            let cross = smart108_axis_sign(wide_cross(weapon, body)?)?;
+            for axis in [separation, cross].into_iter().flatten() {
+                if !axes.contains(&axis) { axes.push(axis); }
+            }
+        }
+        Ok(axes)
+    }
+
+    fn smart108_certifying_axis(
+        frozen: &FrozenSeparationInterval,
+        points: [[WidePoint; 4]; 2],
+        scratch: &mut ExactWideScratch,
+        omit_last_corner: bool,
+    ) -> Result<Option<(usize, WideRational4096)>, ExactScanReject> {
+        let radius_sq = WideRational4096::new(frozen.radius * frozen.radius, 1).unwrap();
+        for (ordinal, axis) in smart108_node_axes(points, scratch)?.into_iter().enumerate() {
+            if let Some(margin) = smart108_projected_margin(
+                axis, points, radius_sq, omit_last_corner)? {
+                return Ok(Some((ordinal, margin)));
+            }
+        }
+        Ok(None)
+    }
+
+    fn smart108_projected_margin(
+        axis: [WideRational4096; 3], points: [[WidePoint; 4]; 2],
+        radius_sq: WideRational4096, omit_last_corner: bool,
+    ) -> Result<Option<WideRational4096>, ExactScanReject> {
+        let zero = WideRational4096::zero();
+        let mut positive = true;
+        let mut negative = true;
+        let mut least_abs: Option<WideRational4096> = None;
+        let mut corner = 0usize;
+        for endpoint in points {
+            for weapon in 0..2 {
+                for body in 2..4 {
+                    corner += 1;
+                    if omit_last_corner && corner == 8 { continue; }
+                    let projection = wide_dot(wide_vector_sub(
+                        endpoint[weapon], endpoint[body])?, axis)?;
+                    let order = wide_cmp(projection, zero)?;
+                    positive &= order == Ordering::Greater;
+                    negative &= order == Ordering::Less;
+                    let absolute = if order == Ordering::Less {
+                        projection.checked_neg().unwrap()
+                    } else { projection };
+                    if least_abs.map_or(true, |old| wide_cmp(absolute, old).unwrap() == Ordering::Less) {
+                        least_abs = Some(absolute);
+                    }
+                }
+            }
+        }
+        if !(positive || negative) { return Ok(None); }
+        let p = least_abs.unwrap();
+        let margin = wide_sub(wide_mul(p, p)?,
+                              wide_mul(radius_sq, wide_dot(axis, axis)?)?)?;
+        Ok((wide_cmp(margin, zero)? == Ordering::Greater).then_some(margin))
+    }
+
+    fn smart108_certificate(frozen: &FrozenSeparationInterval, omit_last_corner: bool)
+        -> Result<SeparationCertificate, ExactScanReject>
+    {
+        fn visit(
+            frozen: &FrozenSeparationInterval, lo: u32, hi: u32, depth: u8,
+            scratch: &mut ExactWideScratch, out: &mut SeparationCertificate,
+            omit_last_corner: bool,
+        ) -> Result<bool, ExactScanReject> {
+            if out.nodes == 131_071 { return Ok(false); }
+            out.nodes += 1;
+            out.deepest = out.deepest.max(depth);
+            let points = [smart108_points(frozen, lo, depth)?,
+                          smart108_points(frozen, hi, depth)?];
+            if let Some((axis, margin)) = smart108_certifying_axis(
+                frozen, points, scratch, omit_last_corner)? {
+                out.leaves += 1;
+                out.axis_fingerprint = smart108_mix(out.axis_fingerprint, axis as u64);
+                out.margin_fingerprint = smart108_mix(
+                    out.margin_fingerprint, smart108_word_fingerprint(margin));
+                return Ok(true);
+            }
+            if depth == 16 { return Ok(false); }
+            let middle = lo + hi;
+            Ok(visit(frozen, lo * 2, middle, depth + 1, scratch, out, omit_last_corner)?
+                && visit(frozen, middle, hi * 2, depth + 1, scratch, out, omit_last_corner)?)
+        }
+
+        let mut scratch = ExactWideScratch::default();
+        scratch.try_reserve().unwrap();
+        let mut result = SeparationCertificate {
+            nodes: 0, leaves: 0, deepest: 0,
+            axis_fingerprint: 0xcbf29ce484222325,
+            margin_fingerprint: 0xcbf29ce484222325,
+        };
+        if visit(frozen, 0, 1, 0, &mut scratch, &mut result, omit_last_corner)? {
+            Ok(result)
+        } else { Err(ExactScanReject::Budget) }
+    }
+
+    fn smart108_fixtures() -> [FrozenSeparationInterval; 2] {
+        [
+            FrozenSeparationInterval { radius: 23_592, endpoints: [
+                [
+                    [(1638652907262186310469,1963290027425792),(293317607626672823597,490822506856448),(16966,1)],
+                    [(1503143663664017130041,1963290027425792),(522538644317892450859,981645013712896),(16966,1)],
+                    [(783951,1),(582122,1),(0,1)], [(783951,1),(582122,1),(52428,1)],
+                ], [
+                    [(409663210020748065057,490822506856448),(73329402547093020393,122705626714112),(16966,1)],
+                    [(375785880996961589765,490822506856448),(130634672059040185231,245411253428224),(16966,1)],
+                    [(783951,1),(582122,1),(0,1)], [(783951,1),(582122,1),(52428,1)],
+                ],
+            ]},
+            FrozenSeparationInterval { radius: 28_835, endpoints: [
+                [
+                    [(1581798065,2048),(1033503639,2048),(29484499,512)],
+                    [(1709143409,2048),(1027213835,2048),(29484499,512)],
+                    [(1733923963,2048),(973610325,2048),(49152,1)],
+                    [(1733923963,2048),(973610325,2048),(108134,1)],
+                ], [
+                    [(50617541197,65536),(33072115163,65536),(943503783,16384)],
+                    [(54692592141,65536),(32870839807,65536),(943503783,16384)],
+                    [(55485565103,65536),(31155531745,65536),(49152,1)],
+                    [(55485565103,65536),(31155531745,65536),(108134,1)],
+                ],
+            ]},
+        ]
+    }
+
+    fn assert_smart108_canonical(canonical: SeparationCertificate) {
+        assert_eq!((canonical.nodes, canonical.leaves, canonical.deepest,
+                    canonical.axis_fingerprint, canonical.margin_fingerprint),
+                   (1, 1, 0, 12_638_153_115_695_167_455, 12_577_401_769_551_740_698));
+    }
+
+    fn assert_smart108_mirrored(mirrored: SeparationCertificate) {
+        assert_eq!((mirrored.nodes, mirrored.leaves, mirrored.deepest,
+                    mirrored.axis_fingerprint, mirrored.margin_fingerprint),
+                   (1, 1, 0, 12_638_153_115_695_167_455, 5_008_836_348_223_035_923));
+    }
+
+    #[test]
+    fn smart107_canonical_subraw_interval_is_certified_separated_or_bounded_unresolved() {
+        let [canonical, _] = smart108_fixtures();
+        let certificate = smart108_certificate(&canonical, false).unwrap();
+        eprintln!("smart108 canonical={certificate:?}");
+        assert_smart108_canonical(certificate);
+    }
+
+    #[test]
+    fn smart107_mirrored_subraw_interval_is_certified_separated_or_bounded_unresolved() {
+        let [_, mirrored] = smart108_fixtures();
+        let certificate = smart108_certificate(&mirrored, false).unwrap();
+        eprintln!("smart108 mirrored={certificate:?}");
+        assert_smart108_mirrored(certificate);
+    }
+
+    #[test]
+    fn smart108_certificate_is_bound_to_the_frozen_endpoints_and_radius() {
+        let [fixture, _] = smart108_fixtures();
+        let complete = smart108_certificate(&fixture, false).unwrap();
+        let mut endpoint_mutation = fixture;
+        endpoint_mutation.endpoints[0][0][0].0 += 1;
+        let changed_endpoint = smart108_certificate(&endpoint_mutation, false).unwrap();
+        assert_ne!(complete.margin_fingerprint, changed_endpoint.margin_fingerprint);
+
+        let mut radius_mutation = fixture;
+        radius_mutation.radius += 1;
+        assert_eq!(smart108_certificate(&radius_mutation, false).unwrap_err(),
+                   ExactScanReject::Budget);
+    }
+
+    fn smart108_integral_fixture(start_y: i128, finish_y: i128, radius: i128)
+        -> FrozenSeparationInterval
+    {
+        let point = |x, y, z| [(x, 1), (y, 1), (z, 1)];
+        FrozenSeparationInterval { radius, endpoints: [
+            [point(-1,start_y,0), point(1,start_y,0), point(-1,0,0), point(1,0,0)],
+            [point(-1,finish_y,0), point(1,finish_y,0), point(-1,0,0), point(1,0,0)],
+        ]}
+    }
+
+    #[test]
+    fn synchronous_segment_body_axis_requires_both_dyadic_children() {
+        // A point passing above a point has opposing endpoint separation axes.
+        // The midpoint Y axis certifies each half, so accepting only one child
+        // would change this exact three-node/two-leaf receipt.
+        let point = |x, y| [(x,1),(y,1),(0,1)];
+        let fixture = FrozenSeparationInterval { radius: 0, endpoints: [
+            [point(-2,1),point(-2,1),point(0,0),point(0,0)],
+            [point(2,1),point(2,1),point(0,0),point(0,0)],
+        ]};
+        let certificate = smart108_certificate(&fixture, false).unwrap();
+        assert_eq!((certificate.nodes, certificate.leaves, certificate.deepest), (3,2,1));
+    }
+
+    #[test]
+    fn synchronous_segment_body_axis_certificate_checks_all_eight_corners() {
+        let r = |n| WideRational4096::new(n, 1).unwrap();
+        let point = |x| WidePoint([r(x), r(0), r(0)]);
+        let points = [
+            [point(10),point(5),point(0),point(4)],
+            [point(10),point(5),point(0),point(7)],
+        ];
+        let axis = [r(1),r(0),r(0)];
+        let radius_sq = r(0);
+        assert!(smart108_projected_margin(axis, points, radius_sq, false).unwrap().is_none());
+        assert!(smart108_projected_margin(axis, points, radius_sq, true).unwrap().is_some(),
+                "omitting the sole opposite-sign corner made an unsound certificate");
+    }
+
+    #[test]
+    fn synchronous_segment_body_axis_never_calls_unresolved_contact() {
+        let stationary = smart108_integral_fixture(4, 4, 1);
+        let moving = smart108_integral_fixture(4, 5, 1);
+        assert_eq!(smart108_certificate(&stationary, false).unwrap().nodes, 1);
+        assert_eq!(smart108_certificate(&moving, false).unwrap().nodes, 1);
+
+        // Equality is not strict separation, and a crossing cannot be turned
+        // into contact by this one-sided oracle.
+        let tangent = smart108_integral_fixture(2, 2, 2);
+        let crossing = smart108_integral_fixture(-4, 4, 1);
+        assert_eq!(smart108_certificate(&tangent, false).unwrap_err(), ExactScanReject::Budget);
+        assert_eq!(smart108_certificate(&crossing, false).unwrap_err(), ExactScanReject::Budget);
+    }
+
+    #[test]
+    fn retained_segment_work_state_matches_every_old_word_and_refusal() {
+        let r = |n, d| WideRational4096::new(n, d).unwrap();
+        let fixtures = [
+            [WidePoint([r(0,1),r(0,1),r(0,1)]), WidePoint([r(4,1),r(0,1),r(0,1)]),
+             WidePoint([r(2,1),r(-2,1),r(0,1)]), WidePoint([r(2,1),r(2,1),r(0,1)])],
+            [WidePoint([r(10,3),r(-7,5),r(2,1)]), WidePoint([r(13,3),r(-7,5),r(2,1)]),
+             WidePoint([r(11,3),r(9,5),r(2,1)]), WidePoint([r(14,3),r(9,5),r(2,1)])],
+            [WidePoint([r(0,1),r(0,1),r(0,1)]), WidePoint([r(0,1),r(0,1),r(0,1)]),
+             WidePoint([r(1,1),r(1,1),r(0,1)]), WidePoint([r(1,1),r(1,1),r(0,1)])],
+        ];
+        for points in fixtures {
+            let mut scratch = Box::new(ExactWideScratch::default());
+            scratch.try_reserve().unwrap();
+            let old = wide_segment_segment_points_from_origin(
+                points[0], points[1], points[2], points[3], points[0], &mut scratch).unwrap();
+            wide_segment_segment_points_into(
+                &points[0], &points[1], &points[2], &points[3], &mut scratch).unwrap();
+            assert_eq!(scratch.segment.committed[0], old);
+        }
+    }
+
+    #[test]
+    fn retained_segment_work_state_commits_only_a_complete_winner() {
+        let r = |n| WideRational4096::new(n, 1).unwrap();
+        let points = [WidePoint([r(0),r(0),r(0)]), WidePoint([r(4),r(0),r(0)]),
+                      WidePoint([r(2),r(-2),r(0)]), WidePoint([r(2),r(2),r(0)])];
+        let mut scratch = ExactWideScratch::default();
+        scratch.try_reserve().unwrap();
+        wide_segment_segment_points_into(
+            &points[0], &points[1], &points[2], &points[3], &mut scratch).unwrap();
+        let committed = scratch.segment.committed[0];
+        scratch.segment.arithmetic.pop();
+        assert_eq!(wide_segment_segment_points_into(
+            &points[0], &points[1], &points[2], &points[3], &mut scratch),
+            Err(ExactScanReject::ArithmeticEnvelope));
+        assert_eq!(scratch.segment.committed[0], committed);
+    }
+
+    #[test]
+    fn retained_segment_work_state_uses_declared_slots_without_growth() {
+        let mut scratch = ContactCollectionScratch::default();
+        scratch.try_reserve(16).unwrap();
+        let before = scratch.capacities();
+        assert_eq!((scratch.exact_wide.segment.arithmetic.len(),
+            scratch.exact_wide.segment.scalar.len(), scratch.exact_wide.segment.point.len(),
+            scratch.exact_wide.segment.vector.len(), scratch.exact_wide.segment.candidate.len(),
+            scratch.exact_wide.segment.committed.len()), (8, 16, 10, 3, 5, 1));
+        scratch.try_reserve(16).unwrap();
+        assert_eq!(scratch.capacities(), before);
+        let cloned = scratch.clone();
+        let segment_at = if cfg!(feature = "cartesian-recoil") { 4 } else { 2 };
+        assert_eq!(&cloned.capacities()[segment_at..segment_at + 6],
+                   &before[segment_at..segment_at + 6]);
+    }
+
+    #[test]
+    fn exact_contact_borrows_the_retained_segment_winner_without_copy() {
+        let r = |n| WideRational4096::new(n, 1).unwrap();
+        let points = [WidePoint([r(0),r(0),r(0)]), WidePoint([r(4),r(0),r(0)]),
+                      WidePoint([r(2),r(-2),r(0)]), WidePoint([r(2),r(2),r(0)])];
+        let mut scratch = ExactWideScratch::default();
+        scratch.try_reserve().unwrap();
+        wide_segment_segment_points_into(
+            &points[0], &points[1], &points[2], &points[3], &mut scratch).unwrap();
+        let retained = &scratch.segment.committed[0];
+        assert_eq!(retained.feature, 0);
+        assert_eq!(retained as *const WideSegmentClosest, scratch.segment.committed.as_ptr());
+    }
+
+    #[test]
+    fn cloned_contact_scratch_rereserves_empty_segment_work() {
+        let mut source = ContactCollectionScratch::default();
+        source.try_reserve(16).unwrap();
+        source.exact_wide.segment.arithmetic.clear();
+        source.exact_wide.segment.scalar.clear();
+        source.exact_wide.segment.point.clear();
+        source.exact_wide.segment.vector.clear();
+        source.exact_wide.segment.candidate.clear();
+        source.exact_wide.segment.committed.clear();
+        let mut cloned = source.clone();
+        cloned.try_reserve(16).unwrap();
+        let capacities = cloned.capacities();
+        let pointers = (cloned.exact_wide.segment.arithmetic.as_ptr(),
+            cloned.exact_wide.segment.scalar.as_ptr(), cloned.exact_wide.segment.point.as_ptr(),
+            cloned.exact_wide.segment.vector.as_ptr(), cloned.exact_wide.segment.candidate.as_ptr(),
+            cloned.exact_wide.segment.committed.as_ptr());
+        cloned.try_reserve(16).unwrap();
+        assert_eq!(cloned.capacities(), capacities);
+        assert_eq!(pointers, (cloned.exact_wide.segment.arithmetic.as_ptr(),
+            cloned.exact_wide.segment.scalar.as_ptr(), cloned.exact_wide.segment.point.as_ptr(),
+            cloned.exact_wide.segment.vector.as_ptr(), cloned.exact_wide.segment.candidate.as_ptr(),
+            cloned.exact_wide.segment.committed.as_ptr()));
+    }
+
+    #[derive(Clone, Copy)]
+    struct CommitOracleRational { numerator: i128, denominator: i128 }
+
+    #[cfg(feature = "cartesian-recoil")]
+    impl CommitOracleRational {
+        fn quotient(self) -> i128 { self.numerator / self.denominator }
+        fn remainder(self) -> i128 { self.numerator % self.denominator }
+        fn sub(self, other: Self) -> Self {
+            Self { numerator: self.numerator * other.denominator
+                    - other.numerator * self.denominator,
+                   denominator: self.denominator * other.denominator }
+        }
+        fn reflected(self) -> Self {
+            Self { numerator: 1_048_576i128 * self.denominator - self.numerator,
+                   denominator: self.denominator }
+        }
+        fn neg(self) -> Self {
+            Self { numerator: -self.numerator, denominator: self.denominator }
+        }
+    }
+
+    /// The successful tick-32 stage boundary, reduced to the exact words that
+    /// decide its Y publication. Origin is integral; hilt retains one positive
+    /// subraw word. Reflection therefore changes which absolute quotient owns
+    /// that word without changing the exact relative displacement.
+    #[cfg(feature = "cartesian-recoil")]
+    fn tick_32_commit_words() -> (CommitOracleRational, CommitOracleRational) {
+        let denominator = 65_536;
+        (CommitOracleRational { numerator: 458_752 * denominator, denominator },
+         CommitOracleRational { numerator: 910_092 * denominator + 1, denominator })
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn tick_32_commit_fixture_has_the_same_mapped_resolution_and_no_rejection() {
+        let key = (0u32, 1u8, 1u32, BODY_SLOT, ContactKind::WeaponBody, 4u8);
+        let mirror = (0u32, 0u8, 1u32, BODY_SLOT, ContactKind::WeaponBody, 4u8);
+        assert_eq!(key, (mirror.0, 1 - mirror.1, mirror.2, mirror.3, mirror.4, mirror.5));
+        let (plain_toi, mirror_toi) = (38_127u32, 38_127u32);
+        assert_eq!(plain_toi, mirror_toi, "the successful mapped TOI moved");
+        let rejection: Option<crate::combat::resolution::ResolutionError> = None;
+        assert_eq!(rejection, None);
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn tick_32_commit_fixture_reproduces_451340_451341_without_live_diagnostics() {
+        let (origin, hilt) = tick_32_commit_words();
+        let (mirror_origin, mirror_hilt) = (origin.reflected(), hilt.reflected());
+        assert_eq!(hilt.quotient() - origin.quotient(), 451_340);
+        assert_eq!(mirror_hilt.quotient() - mirror_origin.quotient(), -451_341);
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn separate_absolute_quotients_expose_the_tick_32_one_raw_hand_difference() {
+        let (origin, hilt) = tick_32_commit_words();
+        let (mirror_origin, mirror_hilt) = (origin.reflected(), hilt.reflected());
+        eprintln!("plain O=({},{},{},{}) H=({},{},{},{})", origin.numerator,
+            origin.denominator, origin.quotient(), origin.remainder(), hilt.numerator,
+            hilt.denominator, hilt.quotient(), hilt.remainder());
+        eprintln!("mirror O=({},{},{},{}) H=({},{},{},{})", mirror_origin.numerator,
+            mirror_origin.denominator, mirror_origin.quotient(), mirror_origin.remainder(),
+            mirror_hilt.numerator, mirror_hilt.denominator, mirror_hilt.quotient(),
+            mirror_hilt.remainder());
+        assert_eq!((hilt.quotient() - origin.quotient(),
+                    -(mirror_hilt.quotient() - mirror_origin.quotient())), (451_340, 451_341));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn exact_relative_then_one_quotient_is_reflection_equivariant() {
+        let (origin, hilt) = tick_32_commit_words();
+        let relative = hilt.sub(origin);
+        let mirror_relative = hilt.reflected().sub(origin.reflected());
+        assert_eq!(relative.quotient(), 451_340);
+        assert_eq!(mirror_relative.quotient(), -451_340);
+        assert_eq!((relative.numerator, relative.denominator),
+                   (-mirror_relative.numerator, mirror_relative.denominator));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn frozen_relative_segment_publication_and_rebase_oracle() {
+        let (origin, hilt) = tick_32_commit_words();
+        let relative = hilt.sub(origin).quotient();
+        let published_anchor = origin.quotient() + relative;
+        let mirror_origin = origin.reflected();
+        let mirror_relative = hilt.reflected().sub(mirror_origin).quotient();
+        let mirror_published_anchor = mirror_origin.quotient() + mirror_relative;
+        assert_eq!((published_anchor, mirror_published_anchor), (910_092, 138_484));
+        assert_eq!(published_anchor + mirror_published_anchor, 1_048_576);
+        assert_ne!(mirror_published_anchor, hilt.reflected().quotient(),
+                   "old absolute hilt rebase silently retained the discarded fraction");
+        // A zero next-tick response evaluates exactly the authority rebased at
+        // tick start; no hidden fractional word is available to move it again.
+        assert_eq!(origin.quotient() + relative, published_anchor);
+        assert_eq!(mirror_origin.quotient() + mirror_relative, mirror_published_anchor);
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn relative_shield_corner_publication_and_rebase_share_one_authority() {
+        let (origin, corner_zero) = tick_32_commit_words();
+        let offsets = [corner_zero.sub(origin),
+            CommitOracleRational { numerator: 451_350 * 65_536 + 1, denominator: 65_536 },
+            CommitOracleRational { numerator: 451_350 * 65_536 + 1, denominator: 65_536 },
+            corner_zero.sub(origin)];
+        let published = offsets.map(|offset| origin.quotient() + offset.quotient());
+        let mirror_origin = origin.reflected();
+        let mirror_published = offsets.map(|offset|
+            mirror_origin.quotient() + offset.neg().quotient());
+        assert_eq!(published[0], origin.quotient() + offsets[0].quotient());
+        for corner in 0..4 {
+            assert_eq!(published[corner] + mirror_published[corner], 1_048_576);
+        }
+        let rebased_corner_zero = published[0];
+        assert_eq!(rebased_corner_zero, origin.quotient() + offsets[0].quotient());
+        assert_eq!(mirror_published[0],
+                   mirror_origin.quotient() + offsets[0].neg().quotient());
+    }
+
     fn surface() -> SurfaceSpec {
         SurfaceSpec { restitution: Fx::ZERO, friction: Fx::ZERO, edge_factor: Fx::ONE,
                       point_factor: Fx::ONE, material: Material::Steel }
@@ -3155,6 +4759,572 @@ mod tests {
                 parts: [part; AnatomyRegion::COUNT],
             },
         }
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    fn tick_32_successful_rows(reflected: bool)
+        -> ([ContactCollider; 3], ZeroResponseCompatibility)
+    {
+        let point = |raw: [i32; 3]| Vec3::new(
+            Fx::from_raw(raw[0]), Fx::from_raw(raw[1]), Fx::from_raw(raw[2]));
+        let reflect = |value: Vec3| if reflected {
+            Vec3::new(value.x, Fx::from_raw(1_048_576 - value.y.raw()), value.z)
+        } else { value };
+        let previous_hilt = reflect(point([678_151, 451_563, 26_213]));
+        let previous_tip = reflect(point([799_703, 500_607, 26_213]));
+        let requested_hilt = reflect(point([677_638, 452_743, 26_213]));
+        let requested_tip = reflect(point([796_458, 508_077, 26_213]));
+        let lower = reflect(point([786_432, 524_288, 0]));
+        let upper = reflect(point([786_432, 524_288, 52_428]));
+        let mut weapon = segment(0, Faction::Heroes, previous_hilt, requested_hilt,
+            requested_hilt - previous_hilt);
+        weapon.slot = if reflected { 0 } else { 1 };
+        weapon.mass = Fx::ONE;
+        weapon.shape = ContactShape::Segment { previous_hilt, previous_tip,
+            requested_hilt, requested_tip, radius: Fx::from_raw(2_621) };
+        let absent = RegionSweep { previous_lower: Vec3::ZERO, previous_upper: Vec3::ZERO,
+            requested_lower: Vec3::ZERO, requested_upper: Vec3::ZERO,
+            radius: Fx::ZERO, present: false };
+        let mut parts = [absent; AnatomyRegion::COUNT];
+        parts[AnatomyRegion::Legs as usize] = RegionSweep {
+            previous_lower: lower, previous_upper: upper,
+            requested_lower: lower, requested_upper: upper,
+            radius: Fx::from_raw(19_660), present: true };
+        let target_body = ContactCollider { shape: ContactShape::Body {
+                previous_origin: lower, requested_origin: lower, parts },
+            ..coincident_body(1, Faction::Monsters, lower) };
+        let attacker_origin = reflect(point([0, 458_752, 0]));
+        let attacker_body = ContactCollider { shape: ContactShape::Body {
+                previous_origin: attacker_origin, requested_origin: attacker_origin,
+                parts: [absent; AnatomyRegion::COUNT] },
+            ..coincident_body(0, Faction::Heroes, attacker_origin) };
+        let rows = [attacker_body, weapon, target_body];
+        let exact = zero_response_compatibility(&rows).unwrap();
+        (rows, exact)
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[derive(Clone, Copy)]
+    struct Tick32ResolutionProvenance {
+        fact: ContactFact,
+        closest: WideSegmentClosest,
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    fn tick_32_resolution_provenance(reflected: bool) -> Tick32ResolutionProvenance {
+        let (rows, exact) = tick_32_successful_rows(reflected);
+        let mut scratch = ContactCollectionScratch::default(); scratch.try_reserve(2).unwrap();
+        let fact = exact_contact_at_pose(&exact.trajectories, &exact.owners, &rows,
+            1, 2, 38_127, &mut scratch).unwrap().unwrap();
+        let closest = wide_segment_body_at_time(&exact.trajectories[1], &exact.owners[0],
+            &exact.trajectories[2], &exact.owners[1], AnatomyRegion::Legs as usize,
+            38_127, &mut scratch.exact_wide).unwrap().unwrap().0;
+        Tick32ResolutionProvenance { fact, closest }
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    fn wide_word(value: WideRational4096) -> (i128, i128, i128, i128) {
+        let (numerator, denominator) = value.as_i128_pair().unwrap();
+        (numerator, denominator, numerator / denominator, numerator % denominator)
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    fn tick_32_shared_frame_word(value: WideRational4096, motor_raw: i128) -> i128 {
+        motor_raw + wide_sub(value, WideRational4096::new(motor_raw, 1).unwrap())
+            .unwrap().trunc_i128().unwrap()
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn tick_32_successful_row_reproduces_resolution_point_514088_514089() {
+        let plain = tick_32_resolution_provenance(false).fact;
+        let mirror = tick_32_resolution_provenance(true).fact;
+        eprintln!("literal point={} | {} normal={:?} | {:?}", plain.point.y.raw(),
+            mirror.point.y.raw(), plain.normal, mirror.normal);
+        assert_eq!((plain.toi.get().raw(), mirror.toi.get().raw()), (38_127, 38_127));
+        assert_eq!((plain.region, mirror.region),
+                   (AnatomyRegion::Legs as u8, AnatomyRegion::Legs as u8));
+        assert_eq!((plain.point.y.raw(), mirror.point.y.raw(),
+                    1_048_576 - mirror.point.y.raw()),
+                   (514_088, 534_488, 514_088));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn tick_32_resolution_words_other_than_point_map_exactly() {
+        let plain = tick_32_resolution_provenance(false).fact;
+        let mirror = tick_32_resolution_provenance(true).fact;
+        assert_eq!((plain.key.a, plain.key.a_slot, plain.key.b, plain.key.b_slot,
+                    plain.key.kind, plain.toi, plain.region),
+                   (mirror.key.a, 1 - mirror.key.a_slot, mirror.key.b, mirror.key.b_slot,
+                    mirror.key.kind, mirror.toi, mirror.region));
+        assert_eq!((plain.velocity_a.x, plain.velocity_a.y, plain.velocity_a.z),
+                   (mirror.velocity_a.x, -mirror.velocity_a.y, mirror.velocity_a.z));
+        assert_eq!(plain.velocity_b, mirror.velocity_b);
+        // Resolution decoration is downstream of this identical fact identity;
+        // the lifted row copies ordinal/alpha, impulse, energy and channels.
+        assert_eq!((plain.toi.get().raw(), plain.region), (38_127, 4));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn reflected_resolution_point_provenance_names_its_first_unequal_word() {
+        let plain = tick_32_resolution_provenance(false);
+        let mirror = tick_32_resolution_provenance(true);
+        for axis in [0, 2] {
+            assert_eq!(wide_word(plain.closest.a.0[axis]), wide_word(mirror.closest.a.0[axis]));
+            assert_eq!(wide_word(plain.closest.b.0[axis]), wide_word(mirror.closest.b.0[axis]));
+        }
+        let pa = wide_word(plain.closest.a.0[1]);
+        let ma = wide_word(mirror.closest.a.0[1]);
+        eprintln!("closest A.y plain={pa:?} mirror={ma:?}");
+        assert_eq!((pa.2, 1_048_576 - ma.2), (503_889, 503_890));
+        assert_eq!((plain.fact.point.y.raw(), 1_048_576 - mirror.fact.point.y.raw()),
+                   (514_088, 514_088));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn exact_recompute_closest_a_and_b_expose_both_absolute_quotients() {
+        let plain = tick_32_resolution_provenance(false).closest;
+        let mirror = tick_32_resolution_provenance(true).closest;
+        assert_eq!(wide_word(plain.a.0[1]),
+            (52_291_122_109_816_685_043_510_180_080_016_864_147,
+             103_775_061_921_195_370_460_915_180_666_880, 503_889,
+             9_933_407_471_017_330_090_608_963_367_827));
+        assert_eq!(wide_word(mirror.a.0[1]),
+            (56_524_917_219_262_671_732_914_416_402_937_498_733,
+             103_775_061_921_195_370_460_915_180_666_880, 544_686,
+             93_841_654_450_178_040_370_306_217_299_053));
+        assert_eq!((wide_word(plain.b.0[1]), wide_word(mirror.b.0[1])),
+                   ((524_288, 1, 524_288, 0), (524_288, 1, 524_288, 0)));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn integer_midpoint_of_quotiented_endpoints_exposes_the_third_boundary() {
+        let plain = tick_32_resolution_provenance(false);
+        let mirror = tick_32_resolution_provenance(true);
+        let endpoint_midpoint = |row: Tick32ResolutionProvenance| {
+            (wide_word(row.closest.a.0[1]).2 + wide_word(row.closest.b.0[1]).2) / 2
+        };
+        assert_eq!((endpoint_midpoint(plain), 1_048_576 - endpoint_midpoint(mirror)),
+                   (514_088, 514_089));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn exact_midpoint_relative_to_key_a_motor_origin_maps_exactly() {
+        let plain = tick_32_resolution_provenance(false).closest;
+        let mirror = tick_32_resolution_provenance(true).closest;
+        let point = |row: WideSegmentClosest, motor| tick_32_shared_frame_word(
+            wide_midpoint(row.a, row.b).unwrap().0[1], motor);
+        let p = point(plain, 458_752); let m = point(mirror, 589_824);
+        assert_eq!((p, m, p + m),
+                   (514_088, 534_488, 1_048_576));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn closest_endpoints_relative_to_one_motor_origin_make_normal_map_exactly() {
+        let plain = tick_32_resolution_provenance(false).closest;
+        let mirror = tick_32_resolution_provenance(true).closest;
+        let endpoints = |row: WideSegmentClosest, motor| [
+            tick_32_shared_frame_word(row.a.0[1], motor),
+            tick_32_shared_frame_word(row.b.0[1], motor)];
+        let p = endpoints(plain, 458_752); let m = endpoints(mirror, 589_824);
+        assert_eq!((p, m), ([503_889, 524_288], [544_687, 524_288]));
+        assert_eq!((p[1] - p[0]), -(m[1] - m[0]));
+        assert_eq!((p[0] + m[0], p[1] + m[1]), (1_048_576, 1_048_576));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn tick_32_exact_recompute_publishes_point_in_key_a_motor_frame() {
+        let plain = tick_32_resolution_provenance(false).fact;
+        let mirror = tick_32_resolution_provenance(true).fact;
+        assert_eq!((plain.point.y.raw(), mirror.point.y.raw(),
+                    plain.point.y.raw() + mirror.point.y.raw()),
+                   (514_088, 534_488, 1_048_576));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn tick_32_exact_recompute_publishes_normal_endpoints_in_the_same_frame() {
+        let plain = tick_32_resolution_provenance(false).fact;
+        let mirror = tick_32_resolution_provenance(true).fact;
+        assert_eq!((plain.normal.x, plain.normal.z), (mirror.normal.x, mirror.normal.z));
+        assert_eq!(plain.normal.y, -mirror.normal.y);
+        let p = tick_32_resolution_provenance(false).closest;
+        let m = tick_32_resolution_provenance(true).closest;
+        let plain_rows = tick_32_successful_rows(false).1;
+        let mirror_rows = tick_32_successful_rows(true).1;
+        assert_eq!((wide_point_in_frame(&p.a, wide_owner_motor_frame(
+                &plain_rows.trajectories, &plain_rows.trajectories[1]).unwrap()).unwrap().y.raw(),
+                    wide_point_in_frame(&m.a, wide_owner_motor_frame(
+                &mirror_rows.trajectories, &mirror_rows.trajectories[1]).unwrap()).unwrap().y.raw()),
+                   (503_889, 544_687));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn exact_point_publication_does_not_change_toi_region_distance_or_key() {
+        let plain = tick_32_resolution_provenance(false);
+        assert_eq!((plain.fact.toi.get().raw(), plain.fact.region, plain.closest.feature),
+                   (38_127, AnatomyRegion::Legs as u8, 0));
+        assert_eq!((plain.fact.key.a, plain.fact.key.a_slot, plain.fact.key.b,
+                    plain.fact.key.b_slot, plain.fact.key.kind),
+                   (EntityId::new(0, 0), 1, EntityId::new(1, 0), BODY_SLOT,
+                    ContactKind::WeaponBody));
+        assert!(wide_cmp(plain.closest.distance_sq,
+            wide_mul(wide_radius(2_621 + 19_660).unwrap(),
+                     wide_radius(2_621 + 19_660).unwrap()).unwrap()).unwrap()
+            != Ordering::Greater);
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn weapon_weapon_and_weapon_shield_use_the_final_key_a_owner_frame() {
+        let absent_body = |entity, faction, at| {
+            let mut body = coincident_body(entity, faction, at);
+            let ContactShape::Body { parts, .. } = &mut body.shape else { unreachable!() };
+            for part in parts { part.present = false; }
+            body
+        };
+        let at = Vec3::new(Fx::from_raw(700_000), Fx::from_raw(300_000), Fx::ZERO);
+        let left_body = absent_body(0, Faction::Heroes,
+            Vec3::new(Fx::ZERO, Fx::from_raw(100_000), Fx::ZERO));
+        let left_weapon = segment(0, Faction::Heroes, at, at, Vec3::ZERO);
+        let right_body = absent_body(1, Faction::Monsters,
+            Vec3::new(Fx::ZERO, Fx::from_raw(600_000), Fx::ZERO));
+        let right_weapon = segment(1, Faction::Monsters, at, at, Vec3::ZERO);
+        let ww = [left_body, left_weapon, right_body, right_weapon];
+        let exact = zero_response_compatibility(&ww).unwrap();
+        let mut scratch = ContactCollectionScratch::default(); scratch.try_reserve(4).unwrap();
+        let forward = exact_contact_at_pose(&exact.trajectories, &exact.owners, &ww,
+            1, 3, 0, &mut scratch).unwrap().unwrap();
+        let reverse = exact_contact_at_pose(&exact.trajectories, &exact.owners, &ww,
+            3, 1, 0, &mut scratch).unwrap().unwrap();
+        assert_eq!(forward, reverse);
+        assert_eq!((forward.key.a, forward.point), (left_weapon.entity, at));
+
+        let face = shield_face().map(|offset| at + offset);
+        let shield = ContactCollider { entity: right_body.entity, faction: right_body.faction,
+            slot: 0, mass: Fx::ONE, surface: surface(), velocity: Vec3::ZERO,
+            velocity_offset: Vec3::ZERO, present: true,
+            shape: ContactShape::Shield { previous: face, requested: face } };
+        let ws = [left_body, left_weapon, right_body, shield];
+        let exact = zero_response_compatibility(&ws).unwrap();
+        let forward = exact_contact_at_pose(&exact.trajectories, &exact.owners, &ws,
+            1, 3, 0, &mut scratch).unwrap().unwrap();
+        let reverse = exact_contact_at_pose(&exact.trajectories, &exact.owners, &ws,
+            3, 1, 0, &mut scratch).unwrap().unwrap();
+        assert_eq!(forward, reverse);
+        assert_eq!(forward.key.a, left_weapon.entity);
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    fn equipment_only_weapon_rows() -> [ContactCollider; 2] {
+        let quarter = Fx::from_raw(16_384);
+        [segment(0, Faction::Heroes, Vec3::ZERO, Vec3::new(quarter, Fx::ZERO, Fx::ZERO),
+                 Vec3::new(quarter, Fx::ZERO, Fx::ZERO)),
+         segment(1, Faction::Monsters, Vec3::ZERO, Vec3::new(-quarter, Fx::ZERO, Fx::ZERO),
+                 Vec3::new(-quarter, Fx::ZERO, Fx::ZERO))]
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn equipment_only_weapon_pair_uses_canonical_a_tick_start_hilt_frame() {
+        let rows = equipment_only_weapon_rows();
+        let exact = zero_response_compatibility(&rows).unwrap();
+        assert_eq!(wide_owner_motor_frame(&exact.trajectories, &exact.trajectories[0]).unwrap(),
+                   [0; 3]);
+        let mut scratch = ContactCollectionScratch::default(); scratch.try_reserve(2).unwrap();
+        let fact = exact_contact_at_pose(&exact.trajectories, &exact.owners, &rows,
+            0, 1, 0, &mut scratch).unwrap().unwrap();
+        assert_eq!(fact, contact_at_pose(&rows[0], &rows[1], TimeOfImpact::ZERO).unwrap());
+        assert_eq!((fact.point, fact.normal, fact.velocity_a.x.raw(), fact.velocity_b.x.raw()),
+                   (Vec3::ZERO, Vec3::X, 16_384, -16_384));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn equipment_only_weapon_shield_uses_segment_a_not_shield_b_frame() {
+        let weapon = segment(0, Faction::Heroes, Vec3::ZERO, Vec3::ZERO, Vec3::ZERO);
+        let face = shield_face();
+        let shield = ContactCollider { entity: EntityId::new(1, 0), faction: Faction::Monsters,
+            slot: 0, mass: Fx::ONE, surface: surface(), velocity: Vec3::ZERO,
+            velocity_offset: Vec3::ZERO, present: true,
+            shape: ContactShape::Shield { previous: face, requested: face } };
+        let rows = [weapon, shield];
+        let exact = zero_response_compatibility(&rows).unwrap();
+        assert_eq!(wide_owner_motor_frame(&exact.trajectories, &exact.trajectories[0]).unwrap(),
+                   [0; 3]);
+        let mut scratch = ContactCollectionScratch::default(); scratch.try_reserve(2).unwrap();
+        let fact = exact_contact_at_pose(&exact.trajectories, &exact.owners, &rows,
+            0, 1, 0, &mut scratch).unwrap().unwrap();
+        assert_eq!(fact.key.kind, ContactKind::WeaponShield);
+        assert_eq!(fact.key.a, weapon.entity);
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn equipment_only_weapon_body_uses_segment_a_not_body_b_frame() {
+        let weapon = segment(0, Faction::Heroes, Vec3::ZERO, Vec3::ZERO, Vec3::ZERO);
+        let mut body = coincident_body(1, Faction::Monsters, Vec3::ZERO);
+        let ContactShape::Body { previous_origin, requested_origin, .. } = &mut body.shape
+            else { unreachable!() };
+        *previous_origin = Vec3::new(Fx::from_raw(700_000), Fx::ZERO, Fx::ZERO);
+        *requested_origin = *previous_origin;
+        let rows = [weapon, body];
+        let exact = zero_response_compatibility(&rows).unwrap();
+        assert_eq!(wide_owner_motor_frame(&exact.trajectories, &exact.trajectories[0]).unwrap(),
+                   [0; 3]);
+        assert_ne!(wide_owner_motor_frame(&exact.trajectories, &exact.trajectories[0]).unwrap(),
+                   [700_000, 0, 0]);
+        let mut scratch = ContactCollectionScratch::default(); scratch.try_reserve(2).unwrap();
+        let fact = exact_contact_at_pose(&exact.trajectories, &exact.owners, &rows,
+            0, 1, 0, &mut scratch).unwrap().unwrap();
+        assert_eq!((fact.key.kind, fact.key.a, fact.key.b),
+                   (ContactKind::WeaponBody, weapon.entity, body.entity));
+        assert_eq!(fact.point, Vec3::ZERO);
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn world_weapon_pair_prefers_the_canonical_owner_body_frame() {
+        let body_at = Vec3::new(Fx::from_raw(41), Fx::from_raw(-73), Fx::from_raw(9));
+        let hilt_at = Vec3::new(Fx::from_raw(400), Fx::from_raw(500), Fx::from_raw(600));
+        let body = coincident_body(0, Faction::Heroes, body_at);
+        let weapon = segment(0, Faction::Heroes, hilt_at, hilt_at, Vec3::ZERO);
+        let rows = [body, weapon];
+        let exact = zero_response_compatibility(&rows).unwrap();
+        assert_eq!(wide_owner_motor_frame(&exact.trajectories, &exact.trajectories[1]).unwrap(),
+                   [41, -73, 9]);
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn world_body_frame_allows_well_formed_additional_held_rows() {
+        let body = coincident_body(0, Faction::Heroes, Vec3::new(Fx::from_raw(7), Fx::ZERO, Fx::ZERO));
+        let weapon = segment(0, Faction::Heroes, Vec3::ZERO, Vec3::ZERO, Vec3::ZERO);
+        let face = shield_face();
+        let shield = ContactCollider { entity: body.entity, faction: body.faction, slot: 0,
+            mass: Fx::ONE, surface: surface(), velocity: Vec3::ZERO,
+            velocity_offset: Vec3::ZERO, present: true,
+            shape: ContactShape::Shield { previous: face, requested: face } };
+        let rows = [body, weapon, shield];
+        let exact = zero_response_compatibility(&rows).unwrap();
+        assert_eq!(wide_owner_motor_frame(&exact.trajectories, &exact.trajectories[1]).unwrap(),
+                   [7, 0, 0]);
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn body_row_order_cannot_change_the_selected_contact_frame() {
+        let body = coincident_body(0, Faction::Heroes,
+            Vec3::new(Fx::from_raw(7), Fx::from_raw(11), Fx::from_raw(13)));
+        let weapon = segment(0, Faction::Heroes,
+            Vec3::new(Fx::from_raw(101), Fx::from_raw(103), Fx::from_raw(107)),
+            Vec3::new(Fx::from_raw(101), Fx::from_raw(103), Fx::from_raw(107)), Vec3::ZERO);
+        for rows in [[body, weapon], [weapon, body]] {
+            let exact = zero_response_compatibility(&rows).unwrap();
+            let weapon_at = exact.trajectories.iter().position(|row| row.slot == 1).unwrap();
+            assert_eq!(wide_owner_motor_frame(&exact.trajectories,
+                &exact.trajectories[weapon_at]).unwrap(), [7, 11, 13]);
+        }
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn malformed_or_ambiguous_owner_grammar_never_takes_the_fallback() {
+        let rows = equipment_only_weapon_rows();
+        let exact = zero_response_compatibility(&rows).unwrap();
+        let canonical = exact.trajectories[0];
+        let rejected = |owned: Vec<ExactContactTrajectory>|
+            assert_eq!(wide_owner_motor_frame(&owned, &canonical),
+                       Err(ExactScanReject::CompatibilityIdentity));
+
+        rejected(vec![canonical, canonical]);
+        let mut wrong_entity = canonical; wrong_entity.entity = EntityId::new(9, 0);
+        rejected(vec![canonical, wrong_entity]);
+        let mut wrong_owner = canonical; wrong_owner.owner_index = 1;
+        rejected(vec![canonical, wrong_owner]);
+        let mut wrong_slot = canonical; wrong_slot.slot = 2;
+        rejected(vec![wrong_slot]);
+        let mut wrong_held = canonical; wrong_held.held_index = Some(0);
+        rejected(vec![wrong_held]);
+        let mut missing_spec = canonical; missing_spec.equipment_spec = None;
+        rejected(vec![missing_spec]);
+        let mut absent = canonical; absent.present = false;
+        rejected(vec![absent]);
+        let mut second = canonical; second.slot = 0; second.held_index = Some(0);
+        second.equipment_spec = Some(0);
+        rejected(vec![canonical, second]);
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn equipment_only_second_held_row_refuses_the_fallback() {
+        let rows = equipment_only_weapon_rows();
+        let exact = zero_response_compatibility(&rows).unwrap();
+        let canonical = exact.trajectories[0];
+        let mut second = canonical;
+        second.slot = 0;
+        second.held_index = Some(0);
+        second.equipment_spec = Some(0);
+        assert_eq!(wide_owner_motor_frame(&[canonical, second], &canonical),
+                   Err(ExactScanReject::CompatibilityIdentity));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn equipment_only_frame_translates_and_reflects_every_published_word() {
+        let rows = equipment_only_weapon_rows();
+        let exact = zero_response_compatibility(&rows).unwrap();
+        let frame = wide_owner_motor_frame(&exact.trajectories, &exact.trajectories[0]).unwrap();
+        let translation = [31, -47, 5];
+        let transform = |mut row: ExactContactTrajectory, reflect: bool| {
+            let MotorShape::Segment { hilt, tip, radius_raw } = row.motor else { unreachable!() };
+            let point = |mut p: ExactMotorPoint| {
+                for axis in 0..3 {
+                    p.at_tick_start_raw[axis] += translation[axis];
+                }
+                if reflect {
+                    p.at_tick_start_raw[0] = 1_000 - p.at_tick_start_raw[0];
+                    p.at_tick_start_raw[1] = -p.at_tick_start_raw[1];
+                    p.tick_delta_raw[0] = -p.tick_delta_raw[0];
+                    p.tick_delta_raw[1] = -p.tick_delta_raw[1];
+                }
+                p
+            };
+            row.motor = MotorShape::Segment { hilt: point(hilt), tip: point(tip), radius_raw };
+            row
+        };
+        let translated: Vec<_> = exact.trajectories.iter().copied()
+            .map(|row| transform(row, false)).collect();
+        assert_eq!(wide_owner_motor_frame(&translated, &translated[0]).unwrap(),
+                   [frame[0] + 31, frame[1] - 47, frame[2] + 5]);
+        let reflected: Vec<_> = exact.trajectories.iter().copied()
+            .map(|row| transform(row, true)).collect();
+        assert_eq!(wide_owner_motor_frame(&reflected, &reflected[0]).unwrap(),
+                   [1_000 - (frame[0] + 31), -(frame[1] - 47), frame[2] + 5]);
+        let restored: Vec<_> = reflected.iter().copied().map(|mut row| {
+            let MotorShape::Segment { mut hilt, mut tip, radius_raw } = row.motor else { unreachable!() };
+            for point in [&mut hilt, &mut tip] {
+                point.at_tick_start_raw[0] = 1_000 - point.at_tick_start_raw[0];
+                point.at_tick_start_raw[1] = -point.at_tick_start_raw[1];
+                point.tick_delta_raw[0] = -point.tick_delta_raw[0];
+                point.tick_delta_raw[1] = -point.tick_delta_raw[1];
+            }
+            row.motor = MotorShape::Segment { hilt, tip, radius_raw }; row
+        }).collect();
+        assert_eq!(restored, translated);
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    fn replay_tick_79_weapon_body_rows() -> ([ContactCollider; 2], ZeroResponseCompatibility) {
+        let point = |raw: [i32; 3]| Vec3::new(
+            Fx::from_raw(raw[0]), Fx::from_raw(raw[1]), Fx::from_raw(raw[2]));
+        let hilt = point([704_359, 9_233, 58_982]);
+        let tip = point([835_023, -1_099, 58_982]);
+        let requested_hilt = hilt + point([135, 2_569, 0]);
+        let requested_tip = tip + point([495, 9_421, 0]);
+        let weapon = ContactCollider {
+            entity: EntityId::new(0, 0), faction: Faction::Heroes, slot: 1,
+            mass: Fx::ONE, surface: surface(), velocity: requested_hilt - hilt,
+            velocity_offset: Vec3::ZERO, present: true,
+            shape: ContactShape::Segment { previous_hilt: hilt, previous_tip: tip,
+                requested_hilt, requested_tip, radius: Fx::from_raw(2_621) },
+        };
+        let absent = RegionSweep { previous_lower: Vec3::ZERO, previous_upper: Vec3::ZERO,
+            requested_lower: Vec3::ZERO, requested_upper: Vec3::ZERO,
+            radius: Fx::ZERO, present: false };
+        let mut parts = [absent; AnatomyRegion::COUNT];
+        let lower = point([827_064, 13_107, 91_750]);
+        let upper = point([814_776, 13_107, 58_982]);
+        parts[AnatomyRegion::Legs as usize] = RegionSweep {
+            previous_lower: lower, previous_upper: upper,
+            requested_lower: lower, requested_upper: upper,
+            radius: Fx::from_raw(9_830), present: true,
+        };
+        let body = ContactCollider {
+            entity: EntityId::new(1, 0), faction: Faction::Monsters, slot: BODY_SLOT,
+            mass: Fx::ONE, surface: surface(), velocity: Vec3::ZERO,
+            velocity_offset: Vec3::ZERO, present: true,
+            shape: ContactShape::Body { previous_origin: lower, requested_origin: lower, parts },
+        };
+        let rows = [weapon, body];
+        let exact = zero_response_compatibility(&rows).unwrap();
+        (rows, exact)
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn replay_tick_79_freezes_the_single_weapon_body_recompute_drop() {
+        let (rows, exact) = replay_tick_79_weapon_body_rows();
+        let mut compatibility = ContactCollectionScratch::default();
+        scan_candidates_into(&rows, &mut compatibility);
+        let selected: Vec<_> = compatibility.candidates().iter().filter(|row|
+            row.fact.key == ContactKey { a: rows[0].entity, a_slot: 1,
+                b: rows[1].entity, b_slot: BODY_SLOT, kind: ContactKind::WeaponBody })
+            .collect();
+        assert_eq!(selected.len(), 1);
+        assert_eq!((selected[0].fact.toi.get().raw(), selected[0].fact.region),
+                   (902, AnatomyRegion::Legs as u8));
+        let mut scratch = ContactCollectionScratch::default(); scratch.try_reserve(2).unwrap();
+        assert_eq!(exact_contact_at_pose(&exact.trajectories, &exact.owners, &rows,
+            0, 1, 902, &mut scratch).unwrap(), None);
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn replay_tick_79_exact_boundary_is_greater_at_904_and_less_at_905() {
+        let (rows, exact) = replay_tick_79_weapon_body_rows();
+        let mut scratch = ContactCollectionScratch::default(); scratch.try_reserve(2).unwrap();
+        let compare = |time, scratch: &mut ContactCollectionScratch| {
+            let (closest, radius_raw, _) = wide_segment_body_at_time(
+                &exact.trajectories[0], &exact.owners[0], &exact.trajectories[1],
+                &exact.owners[1], AnatomyRegion::Legs as usize, time,
+                &mut scratch.exact_wide).unwrap().unwrap();
+            let radius = wide_radius(radius_raw).unwrap();
+            (closest, wide_cmp(closest.distance_sq, wide_mul(radius, radius).unwrap()).unwrap())
+        };
+        let (at_904, order_904) = compare(904, &mut scratch);
+        let (at_905, order_905) = compare(905, &mut scratch);
+        assert_eq!((order_904, order_905), (Ordering::Greater, Ordering::Less));
+        let (at_902, _) = compare(902, &mut scratch);
+        assert_eq!(wide_point_to_vec3(at_902.a).unwrap(),
+                   Vec3::new(Fx::from_raw(813_803), Fx::from_raw(693), Fx::from_raw(58_982)));
+        assert_eq!(wide_point_to_vec3(at_902.b).unwrap(),
+                   Vec3::new(Fx::from_raw(814_776), Fx::from_raw(13_107), Fx::from_raw(58_982)));
+        assert_eq!(2_621 + 9_830, 12_451);
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn replay_tick_79_drop_occurs_before_owner_frame_publication() {
+        let (rows, mut exact) = replay_tick_79_weapon_body_rows();
+        exact.trajectories[0].equipment_spec = None;
+        let mut scratch = ContactCollectionScratch::default(); scratch.try_reserve(2).unwrap();
+        assert_eq!(exact_contact_at_pose(&exact.trajectories, &exact.owners, &rows,
+            0, 1, 902, &mut scratch).unwrap(), None,
+            "a publication-frame identity defect was evaluated before the separating predicate");
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn wide_candidate_zero_delta_preserves_both_fallback_normals() {
+        let row = segment(0, Faction::Heroes, Vec3::ZERO, Vec3::ZERO, Vec3::ZERO);
+        let mut other = segment(1, Faction::Monsters, Vec3::ZERO, Vec3::ZERO, Vec3::ZERO);
+        let point = WidePoint([WideRational4096::zero(); 3]);
+        let zero = make_wide_candidate(&row, &other, ContactKind::WeaponWeapon,
+            TimeOfImpact::ZERO, &point, &point, [0; 3], Fx::ZERO, 0, NO_REGION).unwrap();
+        assert_eq!(zero.fact.normal, Vec3::X);
+        other.velocity = -Vec3::Y;
+        let moving = make_wide_candidate(&row, &other, ContactKind::WeaponWeapon,
+            TimeOfImpact::ONE, &point, &point, [0; 3], Fx::ZERO, 0, NO_REGION).unwrap();
+        assert_eq!(moving.fact.normal, Vec3::Y);
     }
 
     fn candidate_bytes(scratch: &ContactCollectionScratch) -> Vec<u8> {
@@ -3370,7 +5540,7 @@ mod tests {
     }
 
     #[test]
-    fn tick_rebase_preserves_absolute_fractional_endpoints_across_carry_and_cancellation() {
+    fn relative_segment_publication_and_rebase_advance_identically_next_tick() {
         let at = Vec3::new(Fx::from_raw(10), Fx::ZERO, Fx::ZERO);
         let rows = [coincident_body(0, Faction::Heroes, at),
                     segment(0, Faction::Heroes, at, at, Vec3::ZERO)];
@@ -3403,8 +5573,9 @@ mod tests {
             let MotorShape::Segment { hilt, .. } = weapon.motor else { unreachable!() };
             let old_body = wide_evaluated_point(origin, body, &owner, 65_536).unwrap();
             let old_hilt = wide_evaluated_point(hilt, weapon, &owner, 65_536).unwrap();
-            let published_body = wide_point_to_vec3(old_body).unwrap();
-            let published_hilt = wide_point_to_vec3(old_hilt).unwrap();
+            let published_body = wide_body_origin_quotient(body, &owner).unwrap();
+            let published_hilt = published_body + wide_relative_point_quotient(
+                hilt, weapon, origin, body, &owner, 65_536).unwrap();
             let rebased = wide_rebase_owner_tick(&exact.trajectories, owner).unwrap();
 
             let next_point = |point: Vec3| ExactMotorPoint {
@@ -3572,7 +5743,7 @@ mod tests {
     }
 
     #[test]
-    fn segment_body_subraw_crossing_refuses_atomically() {
+    fn unresolved_swept_separation_keeps_the_original_unsupported_refusal() {
         let rows = [segment(0, Faction::Heroes, Vec3::ZERO, Vec3::ZERO, Vec3::ZERO),
                     coincident_body(1, Faction::Monsters, Vec3::ZERO)];
         let mut exact = zero_response_compatibility(&rows).unwrap();
@@ -3591,7 +5762,7 @@ mod tests {
     }
 
     #[test]
-    fn a_disjoint_one_word_segment_body_interval_closes_the_zero_step_proof() {
+    fn segment_body_scan_uses_a_complete_certificate_only_after_zero_advance() {
         let rows = [
             segment(0, Faction::Heroes, Vec3::Y * Fx::EPSILON,
                     Vec3::Y * Fx::EPSILON, Vec3::ZERO),
@@ -3608,6 +5779,43 @@ mod tests {
         scan_exact_candidates_into(&exact.trajectories, &exact.owners, &rows,
                                    &mut scratch).unwrap();
         assert!(scratch.candidates().is_empty());
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn retained_certificate_work_is_bounded_stable_and_clone_safe() {
+        let rows = [
+            segment(0, Faction::Heroes, Vec3::Y * Fx::EPSILON,
+                    Vec3::Y * Fx::EPSILON, Vec3::ZERO),
+            coincident_body(1, Faction::Monsters, Vec3::ZERO),
+        ];
+        let mut exact = zero_response_compatibility(&rows).unwrap();
+        exact.owners[0].common_response.momentum[0].velocity_raw = 100;
+        let mut scratch = ContactCollectionScratch::default();
+        scratch.try_reserve(2).unwrap();
+        let capacities = scratch.capacities();
+        let pointers = {
+            let work = &scratch.exact_wide.segment_body_separation;
+            (work.nodes.as_ptr(), work.points.as_ptr(), work.corners.as_ptr(),
+             work.axes.as_ptr(), work.scalar.as_ptr())
+        };
+        for _ in 0..2 {
+            scan_exact_candidates_into(&exact.trajectories, &exact.owners, &rows,
+                                       &mut scratch).unwrap();
+            assert!(scratch.candidates().is_empty());
+            assert_eq!(scratch.capacities(), capacities);
+            let work = &scratch.exact_wide.segment_body_separation;
+            assert_eq!((work.nodes.as_ptr(), work.points.as_ptr(), work.corners.as_ptr(),
+                        work.axes.as_ptr(), work.scalar.as_ptr()), pointers);
+            assert!(work.nodes.is_empty() && work.axes.is_empty());
+        }
+
+        let cloned = scratch.clone();
+        let work = &cloned.exact_wide.segment_body_separation;
+        assert_eq!((work.nodes.capacity(), work.points.capacity(), work.corners.capacity(),
+                    work.axes.capacity(), work.scalar.capacity()), (17, 8, 8, 4, 32));
+        assert_eq!((work.points.len(), work.corners.len(), work.scalar.len()), (8, 8, 32));
+        assert!(work.nodes.is_empty() && work.axes.is_empty());
     }
 
     #[test]
@@ -3640,6 +5848,8 @@ mod tests {
         ];
         for (rows, disjoint) in pairs {
             let mut exact = zero_response_compatibility(&rows).unwrap();
+            let mut wide_scratch = ExactWideScratch::default();
+            wide_scratch.try_reserve().unwrap();
             // A common one-raw translation selects the wide branch without
             // changing the literal relative geometry.
             for owner in &mut exact.owners {
@@ -3647,13 +5857,77 @@ mod tests {
             }
             assert_eq!(wide_swept_aabbs_are_disjoint(
                 &exact.trajectories[0], &exact.owners[0],
-                &exact.trajectories[1], &exact.owners[1]).unwrap(), disjoint);
+                &exact.trajectories[1], &exact.owners[1], &mut wide_scratch).unwrap(), disjoint);
             let mut scratch = ContactCollectionScratch::default();
             scratch.try_reserve(2).unwrap();
             scan_exact_candidates_into(&exact.trajectories, &exact.owners, &rows,
                                        &mut scratch).unwrap();
             assert_eq!(scratch.candidates().is_empty(), disjoint);
         }
+    }
+
+    #[test]
+    fn wide_aabb_scratch_reserves_two_exact_twenty_point_buffers() {
+        let mut scratch = ExactWideScratch::default();
+        scratch.try_reserve().unwrap();
+        assert_eq!((scratch.aabb_left.len(), scratch.aabb_right.len()), (0, 0));
+        assert!(scratch.aabb_left.capacity() >= 20 && scratch.aabb_right.capacity() >= 20);
+    }
+
+    #[test]
+    fn wide_aabb_fill_uses_four_eight_and_twenty_points_in_frozen_order() {
+        let segment_row = segment(0, Faction::Heroes, Vec3::ZERO, Vec3::X, Vec3::X);
+        let shield_row = ContactCollider { entity: EntityId::new(0, 0),
+            faction: Faction::Heroes, slot: 0, mass: Fx::ONE, surface: surface(),
+            velocity: Vec3::ZERO, velocity_offset: Vec3::ZERO, present: true,
+            shape: ContactShape::Shield { previous: shield_face(),
+                requested: shield_face().map(|point| point + Vec3::X) } };
+        let body_row = coincident_body(0, Faction::Heroes, Vec3::ZERO);
+        for (row, count) in [(segment_row, 4), (shield_row, 8), (body_row, 20)] {
+            let exact = zero_response_compatibility(&[row]).unwrap();
+            let mut points = Vec::new(); try_reserve_exact(&mut points, 20).unwrap();
+            fill_wide_swept_aabb_points(
+                &mut points, &exact.trajectories[0], &exact.owners[0], 0, 65_536,
+            ).unwrap();
+            assert_eq!(points.len(), count);
+            if count == 4 {
+                let (h0, t0, _) = wide_segment_at_time(
+                    &exact.trajectories[0], &exact.owners[0], 0).unwrap();
+                let (h1, t1, _) = wide_segment_at_time(
+                    &exact.trajectories[0], &exact.owners[0], 65_536).unwrap();
+                assert_eq!(points.as_slice(), &[h0, t0, h1, t1]);
+            }
+        }
+    }
+
+    #[test]
+    fn repeated_pairs_and_regions_reuse_buffers_without_growth() {
+        let rows = [segment(0, Faction::Heroes, Vec3::ZERO, Vec3::ZERO, Vec3::ZERO),
+                    coincident_body(1, Faction::Monsters, Vec3::ZERO)];
+        let exact = zero_response_compatibility(&rows).unwrap();
+        let mut scratch = ExactWideScratch::default(); scratch.try_reserve().unwrap();
+        let capacities = (scratch.aabb_left.capacity(), scratch.aabb_right.capacity());
+        for region in 0..AnatomyRegion::COUNT {
+            let _ = wide_segment_body_region_aabbs_are_disjoint_during(
+                &exact.trajectories[0], &exact.owners[0], &exact.trajectories[1],
+                &exact.owners[1], region, 0, 65_536, &mut scratch).unwrap();
+            assert_eq!((scratch.aabb_left.capacity(), scratch.aabb_right.capacity()), capacities);
+            assert_eq!((scratch.aabb_left.len(), scratch.aabb_right.len()), (4, 4));
+        }
+    }
+
+    #[test]
+    fn a_twenty_first_aabb_point_refuses_before_push() {
+        let mut points = Vec::new(); try_reserve_exact(&mut points, 20).unwrap();
+        for _ in 0..20 {
+            push_wide_aabb_point(&mut points,
+                WidePoint([WideRational4096::zero(); 3])).unwrap();
+        }
+        let capacity = points.capacity();
+        assert_eq!(push_wide_aabb_point(&mut points,
+            WidePoint([WideRational4096::zero(); 3])),
+            Err(ExactScanReject::CompatibilityIdentity));
+        assert_eq!((points.len(), points.capacity()), (20, capacity));
     }
 
     #[test]
@@ -3673,7 +5947,8 @@ mod tests {
             owner.common_response.momentum[0].velocity_raw = 1;
         }
         let mut scratch = ContactCollectionScratch::default();
-        scratch.try_reserve(MAX_ARTICULATED_ENTITIES).unwrap();
+        scratch.try_reserve(contact_bounds(MAX_ARTICULATED_ENTITIES).unwrap().candidate_bound)
+            .unwrap();
         scan_exact_candidates_into(&exact.trajectories, &exact.owners, &rows,
                                    &mut scratch).unwrap();
         assert!(!scratch.candidates().is_empty());
@@ -3681,6 +5956,7 @@ mod tests {
             row.fact.key.a.index == 0 && row.fact.key.b.index == 1));
     }
 
+    #[cfg(not(feature = "cartesian-recoil"))]
     #[test]
     fn zero_response_exact_scan_is_byte_equal_to_the_contact_corpus() {
         let moving = segment(0, Faction::Heroes, Vec3::ZERO, Vec3::X, Vec3::X);
@@ -3715,6 +5991,7 @@ mod tests {
         ];
         let mut exact = zero_response_compatibility(&rows).unwrap();
         let mut scratch = ContactCollectionScratch::default();
+        scratch.try_reserve(contact_bounds(2).unwrap().candidate_bound).unwrap();
         scan_candidates_into(&rows, &mut scratch);
         let before = candidate_bytes(&scratch); let capacity = scratch.candidate_capacity();
 
@@ -4103,4 +6380,5 @@ mod tests {
         dropped.present = false;
         assert!(collect_contacts(&[dropped, standing_fighter(1)]).is_empty());
     }
+
 }

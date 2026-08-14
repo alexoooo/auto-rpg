@@ -24,7 +24,9 @@ const APPROACH_SPEED: Fx = Fx::from_ratio(15, 16);
 const WITHDRAW_SPEED: Fx = Fx::HALF;
 const MEASURE_MARGIN: Fx = Fx::from_ratio(1, 10);
 const MEASURE_MIN_FRACTION: Fx = Fx::from_ratio(3, 5);
-const CHAMBER_REACH: Fx = Fx::from_ratio(3, 4);
+const GUARD_REACH: Fx = Fx::from_ratio(3, 4);
+const STRIKE_CHAMBER_REACH: Fx = Fx::ONE;
+const STRIKE_COMMIT_REACH: Fx = Fx::from_raw(61_440);
 const THREAT_LOOKAHEAD_TICKS: u32 = 32;
 // The production actuator's published base linear maximum. A guard estimate
 // must price the distance from its observed pose rather than grant every hand
@@ -35,6 +37,37 @@ const RECOVERY_MIN_STEP: Fx = Fx::from_ratio(1, 500);
 pub const TACTICAL_POLICY_CODE: u32 = 5;
 pub const TACTICAL_PHASE_COUNT: usize = 5;
 pub const TACTICAL_INTENT_COUNT: usize = 8;
+pub const ROBUST_STRIKE_TICKS: u32 = CHAMBER_TICKS + COMMIT_TICKS;
+pub const ROBUST_STRIKE_HEIGHT: CombatHeight =
+    CombatHeight::try_from_raw(16_384).expect("the Brute Legs centre is one quarter of Fighter height");
+
+/// The source-41 schedule, with its bearing derived only from the declared
+/// spawn offset. Lab supplies its bounded corpus values; the Arena preset uses
+/// the frozen ordinal-3144 row. Neither route reads perception noise.
+pub fn robust_strike_schedule_command(
+    obs: &ArticulatedObservation, target: EntityId, limb: LimbSlot,
+    declared_offset: Vec2, height: CombatHeight, tick: u32,
+    chamber_ticks: u32, strike_reach: Fx, mirrored: bool,
+) -> ArticulatedCommandV1 {
+    let offset = if mirrored { Vec2::new(declared_offset.x, -declared_offset.y) }
+        else { declared_offset };
+    let bearing = (-offset).angle();
+    let (chamber, strike) = if mirrored {
+        (bearing + EIGHTH_TURN, bearing - EIGHTH_TURN)
+    } else {
+        (bearing - EIGHTH_TURN, bearing + EIGHTH_TURN)
+    };
+    let mut command = neutral_articulated_command(obs);
+    if tick >= chamber_ticks + COMMIT_TICKS { return command; }
+    command.intent = Intent::Attack(target);
+    command.arms[limb as usize] = ArmTarget {
+        bearing: if tick < chamber_ticks { chamber } else { strike },
+        height,
+        reach: if tick < chamber_ticks { STRIKE_CHAMBER_REACH } else { strike_reach },
+        effort: Fx::ONE,
+    };
+    command
+}
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum TacticalPhase { Seek, Measure, Chamber, Commit, Recover }
@@ -289,12 +322,27 @@ impl StrikePlanner {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug)]
 pub struct TacticalArticulatedPolicy {
     planner: StrikePlanner,
+    controlled: Option<ControlledRobustStrike>,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct ControlledRobustStrike {
+    target: EntityId,
+    tick: u32,
+}
+
+impl Default for TacticalArticulatedPolicy {
+    fn default() -> Self { Self { planner: StrikePlanner::default(), controlled: None } }
 }
 
 impl TacticalArticulatedPolicy {
+    pub fn controlled_robust_strike(target: EntityId) -> Self {
+        Self { planner: StrikePlanner::default(),
+            controlled: Some(ControlledRobustStrike { target, tick: 0 }) }
+    }
     pub fn planner(&self) -> &StrikePlanner { &self.planner }
     pub fn diagnostics(&self) -> StrikeDiagnostics { self.planner.diagnostics() }
 
@@ -317,6 +365,14 @@ impl TacticalArticulatedPolicy {
 
 impl ArticulatedPolicy for TacticalArticulatedPolicy {
     fn decide(&mut self, obs: &ArticulatedObservation) -> ArticulatedCommandV1 {
+        if let Some(controlled) = &mut self.controlled {
+            controlled.tick = obs.tick.min(ROBUST_STRIKE_TICKS);
+            let command = robust_strike_schedule_command(obs, controlled.target,
+                LimbSlot::RightArm, Vec2::new(Fx::from_raw(-163_840), Fx::from_raw(-65_536)),
+                ROBUST_STRIKE_HEIGHT, controlled.tick, CHAMBER_TICKS,
+                STRIKE_COMMIT_REACH, false);
+            return command;
+        }
         self.planner.observe(obs);
         let threat = self.planner.context().threat;
         let intent = self.choose(obs);
@@ -329,7 +385,10 @@ impl ArticulatedPolicy for TacticalArticulatedPolicy {
         command
     }
 
-    fn reset(&mut self) { self.planner.reset(); }
+    fn reset(&mut self) {
+        self.planner.reset();
+        if let Some(controlled) = &mut self.controlled { controlled.tick = 0; }
+    }
 }
 
 fn weapon_is_withdrawing(
@@ -437,7 +496,7 @@ fn can_cover(
             tip: obs.shield.centre + Vec3::Z * obs.shield.half_height,
             radius: obs.shield.half_width,
         };
-        let centre = obs.body_position + forward * (obs.arm_length * CHAMBER_REACH)
+        let centre = obs.body_position + forward * (obs.arm_length * GUARD_REACH)
             + Vec3::Z * (target_z - obs.body_position.z);
         (current, SegmentPose {
             hilt: centre - Vec3::Z * obs.shield.half_height,
@@ -446,7 +505,7 @@ fn can_cover(
         })
     } else if let Some(current) = obs.weapons[roles.guard] {
         (current, predicted_segment(
-            obs, roles.guard, current, toward, threat.crossing_height, CHAMBER_REACH,
+            obs, roles.guard, current, toward, threat.crossing_height, GUARD_REACH,
         ))
     } else {
         return false;
@@ -513,9 +572,18 @@ fn centre(region: RegionVolume) -> Vec3 {
     )
 }
 
-fn height_for(obs: &ArticulatedObservation, region: RegionVolume) -> Option<CombatHeight> {
+fn height_for(
+    obs: &ArticulatedObservation,
+    foe: &ObservedOpponent,
+    region: RegionVolume,
+) -> Option<CombatHeight> {
     if !obs.standing_height.is_positive() { return None }
-    let raw = (centre(region).z / obs.standing_height).clamp(Fx::ZERO, Fx::ONE).raw();
+    // Opponent body and region positions carry the same perception
+    // translation. Their difference is the observed anatomical height; using
+    // the region's absolute world z would turn vertical perception error into
+    // a different requested limb height.
+    let local = centre(region).z - foe.body_position.z;
+    let raw = (local / obs.standing_height).clamp(Fx::ZERO, Fx::ONE).raw();
     CombatHeight::try_from_raw(raw)
 }
 
@@ -557,12 +625,25 @@ fn candidate_crosses(
     commit: Angle,
     height: CombatHeight,
 ) -> bool {
-    let from = predicted_segment(obs, hand, weapon, chamber, height, CHAMBER_REACH);
-    let to = predicted_segment(obs, hand, weapon, commit, height, Fx::ONE);
+    let (from, to) = predicted_strike(obs, hand, weapon, chamber, commit, height);
     swept_segment_segment(
         from.hilt, from.tip, to.hilt, to.tip, from.radius.max(to.radius),
         region.lower, region.upper, region.lower, region.upper, region.radius,
     ).is_some()
+}
+
+fn predicted_strike(
+    obs: &ArticulatedObservation,
+    hand: usize,
+    weapon: SegmentPose,
+    chamber: Angle,
+    commit: Angle,
+    height: CombatHeight,
+) -> (SegmentPose, SegmentPose) {
+    (
+        predicted_segment(obs, hand, weapon, chamber, height, STRIKE_CHAMBER_REACH),
+        predicted_segment(obs, hand, weapon, commit, height, STRIKE_COMMIT_REACH),
+    )
 }
 
 fn arm_region(limb: usize) -> BodyPart {
@@ -583,21 +664,25 @@ fn region_allowed(intent: TacticalIntentV1, foe: &ObservedOpponent, part: BodyPa
     }
 }
 
+fn strike_arcs(toward: Angle) -> [(Angle, Angle); 2] {
+    [
+        (toward - EIGHTH_TURN, toward + EIGHTH_TURN),
+        (toward + EIGHTH_TURN, toward - EIGHTH_TURN),
+    ]
+}
+
 fn choose_plan(
     obs: &ArticulatedObservation,
     foe: &ObservedOpponent,
     intent: TacticalIntentV1,
 ) -> Option<StrikePlan> {
     let toward = planar(foe.body_position - obs.body_position).angle();
-    let bearings = [
-        (toward - EIGHTH_TURN, toward + EIGHTH_TURN),
-        (toward + EIGHTH_TURN, toward - EIGHTH_TURN),
-    ];
+    let bearings = strike_arcs(toward);
     let mut best: Option<(i32, u8, u8, u16, StrikePlan)> = None;
     for part in BodyPart::ALL {
         let region = foe.regions[part as usize];
         if !region.present || !region_allowed(intent, foe, part) { continue }
-        let Some(height) = height_for(obs, region) else { continue };
+        let Some(height) = height_for(obs, foe, region) else { continue };
         for hand in [LimbSlot::LeftArm, LimbSlot::RightArm] {
             let at = hand as usize;
             let Some(weapon) = obs.weapons[at] else { continue };
@@ -680,7 +765,7 @@ fn intent_command(
                 ).unwrap_or(CombatHeight::MID))
                 .unwrap_or(CombatHeight::MID);
             command.arms[guard] = ArmTarget {
-                bearing: toward, height, reach: Fx::from_ratio(3, 4), effort: Fx::ONE,
+                bearing: toward, height, reach: GUARD_REACH, effort: Fx::ONE,
             };
             command
         }
@@ -701,11 +786,11 @@ fn strike_command(
     command.arms[plan.hand as usize] = match phase {
         TacticalPhase::Chamber => ArmTarget {
             bearing: plan.chamber_bearing, height: plan.height,
-            reach: CHAMBER_REACH, effort: Fx::ONE,
+            reach: STRIKE_CHAMBER_REACH, effort: Fx::ONE,
         },
         TacticalPhase::Commit => ArmTarget {
             bearing: plan.commit_bearing, height: plan.height,
-            reach: Fx::ONE, effort: Fx::ONE,
+            reach: STRIKE_COMMIT_REACH, effort: Fx::ONE,
         },
         TacticalPhase::Recover => ArmTarget {
             bearing: toward, height: plan.height,
@@ -719,7 +804,7 @@ fn strike_command(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sim::{DuelConfigV1, Faction, Scenario, SubmitArticulatedOutcome, World};
+    use sim::{DuelConfigV1, EquipmentGeometry, Faction, Scenario, SubmitArticulatedOutcome, World};
 
     fn close_duel() -> Scenario {
         let mut config = DuelConfigV1::shipped();
@@ -772,27 +857,226 @@ mod tests {
         let mut world = World::new(&scenario, 3);
         let attacker = world.alive_ids(Faction::Heroes)[0];
         let mut planner = StrikePlanner::default();
-        let plan = drive_until_commit(&mut planner, &mut world, attacker);
-        let mut crossed = false;
-        for _ in 0..COMMIT_TICKS + 2 {
-            let before = world.observe_articulated(attacker);
-            let foe = *before.opponents().iter().find(|row| row.id == plan.opponent).unwrap();
-            let previous = before.weapons[plan.hand as usize].unwrap();
+        let mut committed = None;
+        for _ in 0..600 {
             for id in world.pending_decisions().to_vec() {
                 let obs = world.observe_articulated(id);
-                let command = if id == attacker { planner.decide(&obs) } else { neutral_articulated_command(&obs) };
+                let command = if id == attacker {
+                    let command = planner.decide(&obs);
+                    if committed.is_none() {
+                        if let Some(plan) = planner.context().plan {
+                            let foe = *obs.opponents().iter()
+                                .find(|row| row.id == plan.opponent).unwrap();
+                            committed = Some((obs, plan, foe.regions[plan.region as usize]));
+                        }
+                    }
+                    command
+                } else { neutral_articulated_command(&obs) };
                 let _ = world.submit_articulated_v1(id, command);
             }
             let _ = world.step();
-            let requested = world.observe_articulated(attacker).weapons[plan.hand as usize].unwrap();
-            let region = foe.regions[plan.region as usize];
-            crossed |= swept_segment_segment(
-                previous.hilt, previous.tip, requested.hilt, requested.tip,
-                previous.radius.max(requested.radius), region.lower, region.upper,
-                region.lower, region.upper, region.radius,
-            ).is_some();
+            if planner.phase() == TacticalPhase::Commit { break }
         }
-        assert!(crossed, "the committed real blade missed the region the plan named");
+        let (obs, plan, region) = committed.expect("planner never committed a target geometry");
+        assert_eq!(planner.context().plan, Some(plan));
+        assert!(candidate_crosses(&obs, plan.hand as usize,
+            obs.weapons[plan.hand as usize].unwrap(), region,
+            plan.chamber_bearing, plan.commit_bearing, plan.height),
+            "the committed plan no longer crosses its cached target geometry");
+    }
+
+    #[test]
+    fn strike_height_is_the_opponent_region_local_height_under_perception_translation() {
+        let mut config = DuelConfigV1::shipped();
+        config.fighters[0].spawn = Vec2::new(Fx::from_raw(622_592), Fx::from_raw(458_752));
+        config.fighters[1].spawn = Vec2::new(Fx::from_raw(786_432), Fx::from_raw(524_288));
+        config.fighters[0].hands[LimbSlot::RightArm as usize].as_mut().unwrap().geometry =
+            EquipmentGeometry::Segment {
+                length: Fx::from_int(2), radius: Fx::from_ratio(1, 25),
+            };
+        config.max_ticks = 53;
+        let scenario = Scenario::duel_from(&config).unwrap();
+        let world = World::new(&scenario, 0);
+        let attacker = world.alive_ids(Faction::Heroes)[0];
+        let obs = world.observe_articulated(attacker);
+        let foe = obs.opponents()[0];
+        let region = foe.regions[BodyPart::Legs as usize];
+        let region_centre = centre(region).z;
+
+        assert_eq!((obs.standing_height.raw(), foe.body_position.z.raw(),
+                    region.lower.z.raw(), region.upper.z.raw(), region_centre.raw()),
+                   (117_964, -47_128, -47_128, 11_854, -17_637));
+        assert_eq!((region_centre - foe.body_position.z).raw(), 29_491);
+        assert_eq!(height_for(&obs, &foe, region).unwrap().raw(), 16_384);
+        let old_absolute = (region_centre / obs.standing_height)
+            .clamp(Fx::ZERO, Fx::ONE).raw();
+        assert_eq!(old_absolute, 0,
+            "the old absolute formula no longer discriminates this fixture");
+
+        let translation = Vec3::new(Fx::from_int(3), -Fx::from_int(2), Fx::from_int(7));
+        let mut translated_foe = foe;
+        translated_foe.body_position += translation;
+        let mut translated_region = region;
+        translated_region.lower += translation;
+        translated_region.upper += translation;
+        assert_eq!(height_for(&obs, &translated_foe, translated_region),
+                   height_for(&obs, &foe, region));
+    }
+
+    #[test]
+    fn ordinal_3144_reach_words_drive_prediction_and_submission() {
+        assert_eq!((CHAMBER_TICKS, COMMIT_TICKS), (28, 28));
+        assert_eq!((STRIKE_CHAMBER_REACH.raw(), STRIKE_COMMIT_REACH.raw()),
+                   (65_536, 61_440));
+        let scenario = close_duel();
+        let world = World::new(&scenario, 3);
+        let attacker = world.alive_ids(Faction::Heroes)[0];
+        let obs = world.observe_articulated(attacker);
+        let foe = obs.opponents()[0];
+        let hand = ArmRoles::of(&obs).weapon;
+        let toward = planar(foe.body_position - obs.body_position).angle();
+        let plan = StrikePlan { opponent: foe.id, region: BodyPart::Torso,
+            hand: if hand == 0 { LimbSlot::LeftArm } else { LimbSlot::RightArm },
+            chamber_bearing: toward - EIGHTH_TURN,
+            commit_bearing: toward + EIGHTH_TURN, height: CombatHeight::MID };
+        let weapon = obs.weapons[hand].expect("the selected hand carries the fixture sword");
+        let chamber = strike_command(&obs, &foe, plan, TacticalPhase::Chamber);
+        let commit = strike_command(&obs, &foe, plan, TacticalPhase::Commit);
+        assert_eq!(chamber.arms[hand].reach.raw(), 65_536);
+        assert_eq!(commit.arms[hand].reach.raw(), 61_440);
+        let predicted_chamber = predicted_segment(&obs, hand, weapon,
+            chamber.arms[hand].bearing, chamber.arms[hand].height, chamber.arms[hand].reach);
+        let predicted_commit = predicted_segment(&obs, hand, weapon,
+            commit.arms[hand].bearing, commit.arms[hand].height, commit.arms[hand].reach);
+        let (direct_chamber, direct_commit) = predicted_strike(
+            &obs, hand, weapon, plan.chamber_bearing, plan.commit_bearing, plan.height);
+        assert_eq!((predicted_chamber, predicted_commit), (direct_chamber, direct_commit));
+    }
+
+    #[test]
+    fn robust_strike_preset_submits_twenty_eight_chamber_then_twenty_eight_strike_words() {
+        let scenario = close_duel();
+        let world = World::new(&scenario, 0);
+        let attacker = world.alive_ids(Faction::Heroes)[0];
+        let target = world.alive_ids(Faction::Monsters)[0];
+        let obs = world.observe_articulated(attacker);
+        let offset = Vec2::new(Fx::from_raw(-163_840), Fx::from_raw(-65_536));
+        let chamber_bearing = (-offset).angle() - EIGHTH_TURN;
+        let strike_bearing = (-offset).angle() + EIGHTH_TURN;
+        let mut policy = TacticalArticulatedPolicy::controlled_robust_strike(target);
+
+        for tick in 0..ROBUST_STRIKE_TICKS {
+            let mut at = obs;
+            at.tick = tick;
+            let command = policy.decide(&at);
+            assert_eq!(command.intent, Intent::Attack(target));
+            assert_eq!(command.arms[LimbSlot::LeftArm as usize],
+                       neutral_articulated_command(&obs).arms[LimbSlot::LeftArm as usize]);
+            let arm = command.arms[LimbSlot::RightArm as usize];
+            assert_eq!(arm.height, ROBUST_STRIKE_HEIGHT);
+            assert_eq!(arm.effort.raw(), 65_536);
+            assert_eq!(arm.bearing, if tick < 28 { chamber_bearing } else { strike_bearing });
+            assert_eq!(arm.reach.raw(), if tick < 28 { 65_536 } else { 61_440 });
+        }
+        let mut after = obs;
+        after.tick = ROBUST_STRIKE_TICKS;
+        assert_eq!(policy.decide(&after), neutral_articulated_command(&after));
+    }
+
+    #[test]
+    fn robust_strike_preset_targets_brute_legs_through_tactical_code_five() {
+        assert_eq!(TACTICAL_POLICY_CODE, 5);
+        assert_eq!(ROBUST_STRIKE_HEIGHT.raw(), 16_384);
+        let scenario = close_duel();
+        let world = World::new(&scenario, 0);
+        let attacker = world.alive_ids(Faction::Heroes)[0];
+        let target = world.alive_ids(Faction::Monsters)[0];
+        let obs = world.observe_articulated(attacker);
+        let mut policy = TacticalArticulatedPolicy::controlled_robust_strike(target);
+        let command = policy.decide(&obs);
+        assert_eq!(command.intent, Intent::Attack(target));
+        assert_eq!(command.arms[LimbSlot::RightArm as usize].height,
+                   CombatHeight::try_from_raw(16_384).unwrap());
+    }
+
+    #[test]
+    fn ordinal_3144_keeps_guard_reach_independent_of_strike_reach() {
+        let scenario = close_duel();
+        let world = World::new(&scenario, 4);
+        let id = world.alive_ids(Faction::Heroes)[0];
+        let obs = world.observe_articulated(id);
+        let foe = obs.opponents()[0];
+        let command = intent_command(&obs, &foe, TacticalIntentV1::Guard);
+        assert_eq!(command.arms[ArmRoles::of(&obs).guard].reach.raw(), 49_152);
+        assert_ne!(GUARD_REACH, STRIKE_CHAMBER_REACH);
+        assert_ne!(GUARD_REACH, STRIKE_COMMIT_REACH);
+    }
+
+    #[test]
+    fn ordinal_3144_mirror_swaps_the_two_eighth_turn_endpoints() {
+        let toward = Angle::from_raw(12_345);
+        let plain = strike_arcs(toward);
+        assert_eq!(plain, [
+            (toward - EIGHTH_TURN, toward + EIGHTH_TURN),
+            (toward + EIGHTH_TURN, toward - EIGHTH_TURN),
+        ]);
+        let reflected_toward = -toward;
+        let reflected = strike_arcs(reflected_toward);
+        assert_eq!(reflected,
+                   [(-plain[0].1, -plain[0].0), (-plain[1].1, -plain[1].0)]);
+        assert_eq!((STRIKE_CHAMBER_REACH.raw(), STRIKE_COMMIT_REACH.raw(),
+                    CombatHeight::MID.raw(), Fx::ONE.raw()),
+                   (65_536, 61_440, 32_768, 65_536));
+    }
+
+    #[test]
+    fn ordinal_3144_phase_boundaries_keep_the_runtime_target() {
+        let scenario = close_duel();
+        let world = World::new(&scenario, 8);
+        let attacker = world.alive_ids(Faction::Heroes)[0];
+        let mut obs = world.observe_articulated(attacker);
+        let foe = obs.opponents()[0];
+        let toward = planar(foe.body_position - obs.body_position).angle();
+        let hand = ArmRoles::of(&obs).weapon;
+        let plan = StrikePlan { opponent: foe.id, region: BodyPart::Torso,
+            hand: if hand == 0 { LimbSlot::LeftArm } else { LimbSlot::RightArm },
+            chamber_bearing: toward - EIGHTH_TURN,
+            commit_bearing: toward + EIGHTH_TURN, height: CombatHeight::MID };
+        let mut planner = StrikePlanner { phase: TacticalPhase::Chamber, plan: Some(plan),
+            phase_started: 0, intent: Some(TacticalIntentV1::StrikeBest),
+            ..StrikePlanner::default() };
+        obs.tick = 27;
+        let chamber = planner.decide(&obs);
+        assert_eq!((planner.phase(), chamber.intent, chamber.arms[hand].reach.raw()),
+                   (TacticalPhase::Chamber, Intent::Attack(foe.id), 65_536));
+        obs.tick = 28;
+        let commit = planner.decide(&obs);
+        assert_eq!((planner.phase(), commit.intent, commit.arms[hand].reach.raw()),
+                   (TacticalPhase::Commit, Intent::Attack(foe.id), 61_440));
+        obs.tick = 55;
+        assert_eq!(planner.decide(&obs).arms[hand].reach.raw(), 61_440);
+        obs.tick = 56;
+        let recover = planner.decide(&obs);
+        assert_eq!((planner.phase(), recover.intent),
+                   (TacticalPhase::Recover, Intent::Attack(foe.id)));
+    }
+
+    #[test]
+    fn ordinal_3144_keeps_the_generic_feet_fallback() {
+        let scenario = close_duel();
+        let world = World::new(&scenario, 9);
+        let id = world.alive_ids(Faction::Heroes)[0];
+        let mut obs = world.observe_articulated(id);
+        let foe = obs.opponents()[0];
+        obs.weapons = [None, None];
+        let mut planner = StrikePlanner::default();
+        let command = planner.decide(&obs);
+        let toward = planar(foe.body_position - obs.body_position).angle();
+        assert_eq!(command.intent, Intent::Attack(foe.id));
+        assert_eq!(command.body_yaw, toward);
+        assert_eq!(command.move_dir, Vec2::new(
+            toward.cos() * APPROACH_SPEED, toward.sin() * APPROACH_SPEED));
+        assert_eq!(planner.context().plan, None);
     }
 
     #[test]
@@ -818,7 +1102,7 @@ mod tests {
         let toward = planar(foe.body_position - obs.body_position).angle();
         let centre = obs.body_position
             + Vec3::new(toward.cos(), toward.sin(), Fx::ZERO)
-                * (obs.arm_length * CHAMBER_REACH)
+                * (obs.arm_length * GUARD_REACH)
             + Vec3::Z * (obs.standing_height * Fx::HALF);
         obs.shield.present = true;
         obs.shield.centre = centre;

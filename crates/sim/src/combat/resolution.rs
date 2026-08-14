@@ -17,10 +17,13 @@ use crate::combat::contact::{exact_contact_at_pose, exact_response_velocity,
 #[cfg(feature = "cartesian-recoil")]
 pub use crate::combat::contact::{ExactWideComparisonDiagnostic, ExactWidePrimitiveDiagnostic,
     ExactWideToiDiagnostic, ExactCompatibilityPrimitiveDiagnostic,
-    ExactCompatibilitySweepDiagnostic};
+    ExactCompatibilitySweepDiagnostic, ExactScanPairRejectionDiagnostic,
+    ExactScanShapeDiagnostic, ExactScanBranchDiagnostic, ExactScanRejectDiagnostic,
+    ExactSegmentBodyProgressDiagnostic};
 #[cfg(feature = "cartesian-recoil")]
-use crate::combat::trajectory::{advance_exact, apply_exact_group, ExactContactTrajectory,
-                                ExactOwnerTrajectory, FixedExactOwners, FloorReaction};
+use crate::combat::trajectory::{advance_exact_into, apply_exact_group_into, ExactContactTrajectory,
+                                ExactOwnerTrajectory, ExactTrajectoryWork,
+                                FloorReaction};
 #[cfg(feature = "cartesian-recoil")]
 use crate::combat::wide::WideRational4096;
 #[cfg(feature = "cartesian-recoil")]
@@ -335,10 +338,10 @@ fn exact_physical_row_energy(
 #[cfg(feature = "cartesian-recoil")]
 pub(crate) fn exact_physical_energy_delta(
     trajectories: &[ExactContactTrajectory], physical_rows: &[usize],
-    before: &[ExactOwnerTrajectory], after: &FixedExactOwners,
+    before: &[ExactOwnerTrajectory], after: &[ExactOwnerTrajectory],
     motor_velocity_raw: &[[i32; 3]],
 ) -> Result<ExactPhysicalEnergyDelta, ResolutionError> {
-    if motor_velocity_raw.len() != trajectories.len() || before.len() != after.as_slice().len() {
+    if motor_velocity_raw.len() != trajectories.len() || before.len() != after.len() {
         return Err(ResolutionError::ExactEnergyEnvelope);
     }
     let mut signed = WideRational4096::zero();
@@ -360,10 +363,10 @@ pub(crate) fn exact_physical_energy_delta(
         }
         active_owner = Some(row.owner_index);
         let old = before.get(row.owner_index).ok_or(ResolutionError::ExactEnergyEnvelope)?;
-        let new = after.get(row.owner_index).map_err(|_| ResolutionError::ExactEnergyEnvelope)?;
+        let new = after.get(row.owner_index).ok_or(ResolutionError::ExactEnergyEnvelope)?;
         if old.entity != new.entity { return Err(ResolutionError::ExactEnergyEnvelope); }
         let old_energy = exact_physical_row_energy(row, old, motor_velocity_raw[at])?;
-        let new_energy = exact_physical_row_energy(row, &new, motor_velocity_raw[at])?;
+        let new_energy = exact_physical_row_energy(row, new, motor_velocity_raw[at])?;
         owner_delta = exact_energy_add(owner_delta, new_energy.checked_sub(old_energy)
             .ok_or(ResolutionError::ExactEnergyEnvelope)?)?;
     }
@@ -755,6 +758,12 @@ pub struct ContactTickScratch {
     exact_group_diagnostics_len: usize,
     #[cfg(feature = "cartesian-recoil")]
     exact_diagnostic_tick: u32,
+    #[cfg(feature = "cartesian-recoil")]
+    exact_trajectory_work: ExactTrajectoryWork,
+    #[cfg(feature = "cartesian-recoil")]
+    exact_solve_owner_entry: Vec<ExactOwnerTrajectory>,
+    #[cfg(feature = "cartesian-recoil")]
+    exact_solve_trajectory_entry: Vec<ExactContactTrajectory>,
     suppressed: Vec<Resolved>,
     capped_entities: Vec<EntityId>,
 }
@@ -769,6 +778,13 @@ impl ContactTickScratch {
     #[cfg(feature = "cartesian-recoil")]
     pub(crate) fn exact_group_diagnostics(&self) -> &[ExactContactGroupDiagnostic] {
         &self.exact_group_diagnostics[..self.exact_group_diagnostics_len]
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    pub(crate) fn exact_scan_pair_rejection(&self)
+        -> Option<crate::combat::contact::ExactScanPairRejectionDiagnostic>
+    {
+        self.collection.first_pair_rejection()
     }
     #[cfg(feature = "cartesian-recoil")]
     fn exact_context(&mut self, phase: ExactContactRejectPhase, key: Option<ContactKey>) {
@@ -822,6 +838,12 @@ impl ContactTickScratch {
             try_reserve_exact(&mut self.lifted_contacts,
                               crate::combat::lifted_solver::MAX_LIFTED_SOLVER_FACTS)?;
             self.lifted_solver.try_reserve().map_err(|_| ContactCapacityError::Allocation)?;
+            self.exact_trajectory_work.try_reserve()
+                .map_err(|_| ContactCapacityError::Allocation)?;
+            try_reserve_exact(&mut self.exact_solve_owner_entry,
+                              crate::combat::contact::MAX_ARTICULATED_ENTITIES)?;
+            try_reserve_exact(&mut self.exact_solve_trajectory_entry,
+                              crate::combat::contact::MAX_ARTICULATED_ENTITIES * 3)?;
         }
         try_reserve_exact(&mut self.suppressed, candidate_bound)?;
         try_reserve_exact(&mut self.capped_entities, collider_bound)?;
@@ -861,6 +883,9 @@ impl ContactTickScratch {
             capacities.push(self.driver_contacts.capacity());
             capacities.push(self.lifted_contacts.capacity());
             capacities.extend(self.lifted_solver.capacities());
+            capacities.extend(self.exact_trajectory_work.capacities());
+            capacities.push(self.exact_solve_owner_entry.capacity());
+            capacities.push(self.exact_solve_trajectory_entry.capacity());
         }
         capacities
     }
@@ -969,6 +994,7 @@ struct ExactKinematics<'a> {
     trajectories: &'a mut [ExactContactTrajectory],
     owners: &'a mut Vec<ExactOwnerTrajectory>,
     floor_reactions: &'a mut Vec<FloorReaction>,
+    work: &'a mut ExactTrajectoryWork,
 }
 
 #[cfg(feature = "cartesian-recoil")]
@@ -1001,8 +1027,12 @@ impl ContactKinematics for ExactKinematics<'_> {
         // the compatibility rows motor-only lets the existing World commit
         // finish an otherwise untouched tick without manufacturing response.
         finish_all(colliders);
-        let finished = advance_exact(self.owners, 65_536).map_err(|_| ResolutionError::ExactScan)?;
-        finished.copy_into(self.owners).map_err(|_| ResolutionError::ExactScan)
+        advance_exact_into(self.owners, 65_536, &mut self.work.owner_stage)
+            .map_err(|_| ResolutionError::ExactScan)?;
+        self.owners.clear();
+        self.owners.extend_from_slice(&self.work.owner_stage);
+        self.work.owner_stage.clear();
+        Ok(())
     }
 
     fn generalized_velocity(
@@ -1088,12 +1118,17 @@ impl ContactKinematics for ExactKinematics<'_> {
         _old_velocities: &[Vec3], _projected: &[GeneralizedCollider],
         rows: &[ContactResolution], time: u32,
     ) -> Result<(), ResolutionError> {
-        let staged = apply_exact_group(self.trajectories, self.owners, rows, time)
+        apply_exact_group_into(self.trajectories, self.owners, rows, time, self.work)
             .map_err(|_| ResolutionError::ExactScan)?;
-        for reaction in staged.floor_reactions.as_slice() {
-            self.floor_reactions.push(reaction.ok_or(ResolutionError::ExactScan)?);
+        if self.floor_reactions.len() + self.work.reaction_stage.len()
+                > self.floor_reactions.capacity() {
+            return Err(ResolutionError::ExactScan);
         }
-        staged.owners.copy_into(self.owners).map_err(|_| ResolutionError::ExactScan)
+        self.floor_reactions.extend_from_slice(&self.work.reaction_stage);
+        self.owners.clear();
+        self.owners.extend_from_slice(&self.work.owner_stage);
+        self.work.owner_stage.clear();
+        Ok(())
     }
 
     fn accept_lifecycle(
@@ -1171,19 +1206,24 @@ pub(crate) fn solve_exact_contact_tick<P: ContactTrialProjector>(
     if trajectories.len() > MAX_EXACT_TRAJECTORIES {
         return Err(failed(ResolutionError::ExactScan, scratch));
     }
-    let mut trajectory_entry = [None; MAX_EXACT_TRAJECTORIES];
-    for (at, row) in trajectories.iter().enumerate() { trajectory_entry[at] = Some(*row); }
-    let entry = FixedExactOwners::from_slice(owners)
-        .map_err(|_| failed(ResolutionError::ExactScan, scratch))?;
+    if scratch.exact_solve_trajectory_entry.capacity() < trajectories.len()
+        || scratch.exact_solve_owner_entry.capacity() < owners.len() {
+        return Err(failed(ResolutionError::ExactScan, scratch));
+    }
+    scratch.exact_solve_trajectory_entry.clear();
+    scratch.exact_solve_trajectory_entry.extend_from_slice(trajectories);
+    scratch.exact_solve_owner_entry.clear();
+    scratch.exact_solve_owner_entry.extend_from_slice(owners);
     floor_reactions.clear();
+    let mut trajectory_work = core::mem::take(&mut scratch.exact_trajectory_work);
     let result = solve_contact_tick_with(colliders, projector, state, resolutions, scratch,
-        &mut ExactKinematics { trajectories, owners, floor_reactions });
+        &mut ExactKinematics { trajectories, owners, floor_reactions,
+                               work: &mut trajectory_work });
+    scratch.exact_trajectory_work = trajectory_work;
     if result.is_err() {
         floor_reactions.clear();
-        entry.copy_into(owners).map_err(|_| failed(ResolutionError::ExactScan, scratch))?;
-        for (row, saved) in trajectories.iter_mut().zip(trajectory_entry) {
-            *row = saved.ok_or_else(|| failed(ResolutionError::ExactScan, scratch))?;
-        }
+        owners.clear(); owners.extend_from_slice(&scratch.exact_solve_owner_entry);
+        trajectories.copy_from_slice(&scratch.exact_solve_trajectory_entry);
     }
     result.map_err(|cause| failed(cause, scratch))
 }
@@ -1289,11 +1329,19 @@ fn solve_contact_tick_with<P: ContactTrialProjector, K: ContactKinematics>(
                 .ok_or(ResolutionError::ColliderIndex)?;
             let b = collider_index(colliders, fact.key.b, fact.key.b_slot)
                 .ok_or(ResolutionError::ColliderIndex)?;
-            if let Some(recomputed) = kinematics.recompute(
+            let recomputed = kinematics.recompute(
                 colliders, a, b, time, &mut scratch.collection,
-            )? {
+            )?;
+            #[cfg(feature = "cartesian-recoil")]
+            {
+                let recomputed = recomputed.ok_or(ResolutionError::ExactScan)?;
+                if recomputed.key != fact.key || recomputed.region != fact.region {
+                    return Err(ResolutionError::ExactScan);
+                }
                 scratch.group_facts.push(recomputed);
             }
+            #[cfg(not(feature = "cartesian-recoil"))]
+            if let Some(recomputed) = recomputed { scratch.group_facts.push(recomputed); }
         }
         // Unstable for the same reason as the candidate scan: one member per
         // key, so the key is a strict total order and the stable sort would only
@@ -1862,6 +1910,9 @@ pub(crate) mod tests {
     use crate::combat::contact::{
         scan_exact_candidates_into, zero_response_compatibility, BODY_SLOT, ContactKey,
     };
+    #[cfg(feature = "cartesian-recoil")]
+    use crate::combat::contact::{exact_contact_at_pose, ExactScanReject,
+        ExactWideComparisonDiagnostic, ExactWideToiDiagnostic};
     use crate::combat::spec::Material;
     use crate::EntityId;
     use fx::{Angle, Hash64, TimeOfImpact};
@@ -1914,15 +1965,15 @@ pub(crate) mod tests {
         before[0].common_response.momentum[0].remainder = 49_152;
         before[1].common_response.momentum[0].remainder = 49_152;
         after[2].common_response.momentum[0].remainder = 16_384;
-        let fixed_after = FixedExactOwners::from_slice(&after).unwrap();
-        let delta = exact_physical_energy_delta(&rows, &[0, 1, 2], &before, &fixed_after,
+        let delta = exact_physical_energy_delta(&rows, &[0, 1, 2], &before,
+                                                &after,
                                                 &[[0; 3]; 3]).unwrap();
         assert_eq!(delta.signed.as_i128_pair(), Some((-2_621_457, 2_097_152)));
         assert_eq!(delta.loss_raw, 1);
         let independently_floored = rows.iter().enumerate().map(|(at, row)| {
             let old = exact_physical_row_energy(row, &before[at], [0; 3])
                 .unwrap().trunc_i128().unwrap();
-            let new = exact_physical_row_energy(row, &fixed_after.get(at).unwrap(), [0; 3])
+            let new = exact_physical_row_energy(row, &after[at], [0; 3])
                 .unwrap().trunc_i128().unwrap();
             new - old
         }).sum::<i128>();
@@ -2008,8 +2059,10 @@ pub(crate) mod tests {
         let mut trajectories = Vec::new();
         let mut owners = Vec::new();
         let mut reactions = Vec::new();
+        let mut work = ExactTrajectoryWork::default();
+        work.try_reserve().unwrap();
         let mut kinematics = ExactKinematics { trajectories: &mut trajectories,
-            owners: &mut owners, floor_reactions: &mut reactions };
+            owners: &mut owners, floor_reactions: &mut reactions, work: &mut work };
         let mut generalized = Vec::new();
         let mut proposed = Vec::new();
         let mut lifted = Vec::new();
@@ -2067,8 +2120,11 @@ pub(crate) mod tests {
             assert!(row.scan_candidates >= row.mapped_time_members);
             assert_eq!(row.mapped_member_keys.iter().flatten().count() as u32,
                        row.mapped_time_members.min(16));
-            assert_eq!(row.compatibility_sweep.iter().flatten().count(),
+            assert_eq!(row.wide_toi.iter().flatten().count(),
                        row.mapped_member_keys.iter().flatten().count());
+            assert!(row.compatibility_sweep.iter().flatten().count()
+                    <= row.mapped_member_keys.iter().flatten().count(),
+                    "optional compatibility evidence outnumbered exact members");
             assert_eq!(row.recomputed_keys.iter().flatten().count(), row.recomputed_facts as usize);
             assert!(row.closure_rows >= row.closure_entities);
             assert_eq!(row.driver_contacts, row.lifted_contacts);
@@ -2153,6 +2209,7 @@ pub(crate) mod tests {
         assert_eq!(scratch.capacities(), before);
     }
 
+    #[cfg(not(feature = "cartesian-recoil"))]
     #[test]
     fn zero_response_exact_scan_is_byte_equal_to_every_behavior_case() {
         for case_id in 0..=6 {
@@ -2160,6 +2217,11 @@ pub(crate) mod tests {
             let exact = zero_response_compatibility(&rows).unwrap();
             let mut legacy = ContactCollectionScratch::default();
             let mut compatible = ContactCollectionScratch::default();
+            // Smart94's direct certification prototype consumes the retained
+            // wide buffers even when the production proven-zero dispatcher
+            // legitimately stays on compatibility geometry. Keep the direct
+            // oracle honest about that caller-owned precondition.
+            compatible.try_reserve(64).unwrap();
             scan_candidates_into(&rows, &mut legacy);
             scan_exact_candidates_into(&exact.trajectories, &exact.owners, &rows,
                                        &mut compatible).unwrap();
@@ -2171,6 +2233,210 @@ pub(crate) mod tests {
             };
             assert_eq!(serialize(&compatible), serialize(&legacy), "behavior case {case_id}");
         }
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn exact_domain_contains_every_supported_hostile_pair_not_only_compatibility_members() {
+        for case_id in 0..=6 {
+            let rows = behavior_case(case_id);
+            let exact = zero_response_compatibility(&rows).unwrap();
+            let mut domain = ContactCollectionScratch::default();
+            scan_candidates_into(&rows, &mut domain);
+            let domain_keys: Vec<_> = domain.candidates().iter().map(|row| row.fact.key).collect();
+            let mut certified = ContactCollectionScratch::default();
+            certified.try_reserve(64).unwrap();
+            scan_exact_candidates_into(&exact.trajectories, &exact.owners, &rows,
+                                       &mut certified).unwrap();
+            let certified_keys: Vec<_> = certified.candidates().iter()
+                .map(|row| row.fact.key).collect();
+            assert!(domain_keys.iter().all(|key| certified_keys.contains(key)),
+                    "behavior case {case_id} lost a supported compatibility key");
+            for at in 0..certified.candidates().len() {
+                let candidate = certified.candidates()[at];
+                let evidence = candidate.wide_toi.expect("exact time lacked parallel evidence");
+                assert_eq!(evidence.accepted_root_raw,
+                           candidate.fact.toi.get().raw() as u32);
+                let a = collider_index(&rows, candidate.fact.key.a, candidate.fact.key.a_slot)
+                    .unwrap();
+                let b = collider_index(&rows, candidate.fact.key.b, candidate.fact.key.b_slot)
+                    .unwrap();
+                let canonical = exact_contact_at_pose(&exact.trajectories, &exact.owners,
+                    &rows, a, b, evidence.accepted_root_raw, &mut certified).unwrap().unwrap();
+                assert_eq!(candidate.fact, canonical,
+                           "behavior case {case_id} published a sweep witness");
+            }
+        }
+    }
+
+    #[test]
+    fn explicit_compatibility_input_still_returns_the_legacy_candidate_bytes() {
+        for case_id in 0..=6 {
+            let rows = behavior_case(case_id);
+            let mut expected = ContactCollectionScratch::default();
+            let mut actual = ContactCollectionScratch::default();
+            scan_candidates_into(&rows, &mut expected);
+            scan_candidates_into(&rows, &mut actual);
+            let serialize = |scratch: &ContactCollectionScratch| {
+                let mut bytes = Vec::new();
+                put_u32(&mut bytes, scratch.candidates().len() as u32);
+                for candidate in scratch.candidates() { write_fact(&mut bytes, candidate.fact); }
+                bytes
+            };
+            assert_eq!(serialize(&actual), serialize(&expected), "behavior case {case_id}");
+        }
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+    struct AuditCertifiedSelection {
+        time_raw: u32, key: ContactKey, region: u8,
+        medial_order_only: u32,
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+    struct AuditCertifiedProvenance {
+        key: ContactKey, time_raw: u32, wide_toi: ExactWideToiDiagnostic,
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    fn audit_selection_and_provenance(
+        scratch: &ContactCollectionScratch,
+    ) -> Result<(Vec<AuditCertifiedSelection>, Vec<AuditCertifiedProvenance>), ExactScanReject> {
+        if scratch.candidate_capacity() < 64 { return Err(ExactScanReject::CompatibilityIdentity); }
+        let mut selections = Vec::new();
+        let mut provenance = Vec::new();
+        for candidate in scratch.candidates() {
+            let time_raw = candidate.fact.toi.get().raw() as u32;
+            selections.push(AuditCertifiedSelection { time_raw, key: candidate.fact.key,
+                region: candidate.fact.region, medial_order_only: 0 });
+            provenance.push(AuditCertifiedProvenance { key: candidate.fact.key, time_raw,
+                wide_toi: candidate.wide_toi.ok_or(ExactScanReject::CompatibilityIdentity)? });
+        }
+        selections.sort_unstable_by_key(|row| (row.time_raw, row.key));
+        provenance.sort_unstable_by_key(|row| (row.time_raw, row.key));
+        if selections.len() != provenance.len() || selections.iter().zip(&provenance)
+            .any(|(selection, evidence)| (selection.key, selection.time_raw)
+                != (evidence.key, evidence.time_raw)) {
+            return Err(ExactScanReject::CompatibilityIdentity);
+        }
+        Ok((selections, provenance))
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn every_zero_response_behavior_case_has_a_complete_exact_grammar_inventory() {
+        for case_id in 0..=6 {
+            let rows = behavior_case(case_id);
+            let exact = zero_response_compatibility(&rows).unwrap();
+            let mut scan = ContactCollectionScratch::default();
+            scan.try_reserve(64).unwrap();
+            scan_exact_candidates_into(&exact.trajectories, &exact.owners, &rows,
+                                       &mut scan).unwrap();
+            let (selection, evidence) = audit_selection_and_provenance(&scan).unwrap();
+            assert_eq!(selection.len(), evidence.len(), "behavior case {case_id}");
+            assert!(selection.iter().all(|row| exact.trajectories.iter().any(|trajectory|
+                trajectory.entity == row.key.a && trajectory.slot == row.key.a_slot)
+                && exact.trajectories.iter().any(|trajectory|
+                    trajectory.entity == row.key.b && trajectory.slot == row.key.b_slot)),
+                "behavior case {case_id} has an unresolved candidate key");
+        }
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn zero_response_direct_audit_requires_the_declared_scratch_reservation() {
+        let rows = behavior_case(4);
+        let exact = zero_response_compatibility(&rows).unwrap();
+        let mut unreserved = ContactCollectionScratch::default();
+        assert_eq!(scan_exact_candidates_into(&exact.trajectories, &exact.owners, &rows,
+                                              &mut unreserved),
+                   Err(ExactScanReject::CompatibilityIdentity));
+        let mut reserved = ContactCollectionScratch::default();
+        reserved.try_reserve(64).unwrap();
+        scan_exact_candidates_into(&exact.trajectories, &exact.owners, &rows,
+                                   &mut reserved).unwrap();
+        assert!(audit_selection_and_provenance(&reserved).is_ok());
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    fn project_audit_provenance(
+        diagnostic: &mut ExactContactGroupDiagnostic,
+        selection: AuditCertifiedSelection, evidence: Option<AuditCertifiedProvenance>,
+    ) -> Result<(), ExactScanReject> {
+        diagnostic.mapped_member_keys[0] = None;
+        diagnostic.wide_toi[0] = None;
+        let evidence = evidence.ok_or(ExactScanReject::CompatibilityIdentity)?;
+        if (selection.key, selection.time_raw) != (evidence.key, evidence.time_raw) {
+            return Err(ExactScanReject::CompatibilityIdentity);
+        }
+        diagnostic.mapped_member_keys[0] = Some(selection.key.into());
+        diagnostic.wide_toi[0] = Some(evidence.wide_toi);
+        Ok(())
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn certified_wide_toi_provenance_is_parallel_to_not_inside_selection() {
+        let rows = behavior_case(4);
+        let exact = zero_response_compatibility(&rows).unwrap();
+        let mut scan = ContactCollectionScratch::default(); scan.try_reserve(64).unwrap();
+        scan_exact_candidates_into(&exact.trajectories, &exact.owners, &rows,
+                                   &mut scan).unwrap();
+        let (selection, evidence) = audit_selection_and_provenance(&scan).unwrap();
+        assert_eq!((selection.len(), evidence.len()), (1, 1));
+        assert_eq!((selection[0].key, selection[0].time_raw),
+                   (evidence[0].key, evidence[0].time_raw));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn provenance_poison_cannot_change_time_key_fact_or_suppression() {
+        let rows = behavior_case(4);
+        let exact = zero_response_compatibility(&rows).unwrap();
+        let mut scan = ContactCollectionScratch::default(); scan.try_reserve(64).unwrap();
+        scan_exact_candidates_into(&exact.trajectories, &exact.owners, &rows,
+                                   &mut scan).unwrap();
+        let (selection, mut evidence) = audit_selection_and_provenance(&scan).unwrap();
+        let selected = selection[0];
+        let mut pose = ContactCollectionScratch::default(); pose.try_reserve(64).unwrap();
+        let canonical = exact_contact_at_pose(&exact.trajectories, &exact.owners, &rows,
+            0, 1, selected.time_raw, &mut pose).unwrap().unwrap();
+        let suppression_before = suppressed(ContactTimeBasis::AbsoluteTick, &canonical,
+                                             selected.time_raw, &[]);
+        evidence[0].wide_toi.accepted_root_raw ^= 0xffff;
+        evidence[0].wide_toi.closest_feature ^= 0xff;
+        evidence[0].wide_toi.visited_times_raw = [u32::MAX; 8];
+        evidence[0].wide_toi.comparison = ExactWideComparisonDiagnostic::EarliestTimeThenMedialThenRegion;
+        let canonical_after = exact_contact_at_pose(&exact.trajectories, &exact.owners, &rows,
+            0, 1, selected.time_raw, &mut pose).unwrap().unwrap();
+        assert_eq!((selected, canonical_after, suppressed(ContactTimeBasis::AbsoluteTick,
+            &canonical_after, selected.time_raw, &[])),
+                   (selection[0], canonical, suppression_before));
+        let mut diagnostic = ExactContactGroupDiagnostic::default();
+        project_audit_provenance(&mut diagnostic, selected, Some(evidence[0])).unwrap();
+        assert_eq!(diagnostic.wide_toi[0], Some(evidence[0].wide_toi));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn refusal_or_rescan_cannot_publish_stale_or_partial_wide_toi() {
+        let rows = behavior_case(4);
+        let exact = zero_response_compatibility(&rows).unwrap();
+        let mut scan = ContactCollectionScratch::default(); scan.try_reserve(64).unwrap();
+        scan_exact_candidates_into(&exact.trajectories, &exact.owners, &rows,
+                                   &mut scan).unwrap();
+        let (selection, evidence) = audit_selection_and_provenance(&scan).unwrap();
+        let mut diagnostic = ExactContactGroupDiagnostic::default();
+        assert_eq!(project_audit_provenance(&mut diagnostic, selection[0], None),
+                   Err(ExactScanReject::CompatibilityIdentity));
+        assert!(diagnostic.mapped_member_keys[0].is_none() && diagnostic.wide_toi[0].is_none());
+        project_audit_provenance(&mut diagnostic, selection[0], Some(evidence[0])).unwrap();
+        let mut stale = evidence[0]; stale.time_raw += 1;
+        assert_eq!(project_audit_provenance(&mut diagnostic, selection[0], Some(stale)),
+                   Err(ExactScanReject::CompatibilityIdentity));
+        assert!(diagnostic.mapped_member_keys[0].is_none() && diagnostic.wide_toi[0].is_none());
     }
 
     #[test]
@@ -2219,7 +2485,10 @@ pub(crate) mod tests {
         let mut resolutions = Vec::new();
         let mut floor_reactions = Vec::new();
         let mut scratch = ContactTickScratch::default();
-        scratch.reserve(rows.len(), 64);
+        // Smart89 lets this fixture reach its one exact group instead of
+        // refusing during publication, so reserve the same bounded trial
+        // width the production tick uses before measuring rollback growth.
+        scratch.reserve(rows.len() * 3, 64);
         let capacities = scratch.capacities();
         let failure = solve_exact_contact_tick(&mut rows, &mut exact.trajectories, &mut exact.owners,
             &mut floor_reactions, &mut RejectAfterGroup, &mut state, &mut resolutions,
@@ -2329,8 +2598,10 @@ pub(crate) mod tests {
             energy: EnergyLedger::default(), cut_raw: 0, thrust_raw: 0, pressure_raw: 0,
             deflected_raw: 0, severed: false };
         let mut reactions = Vec::with_capacity(4);
+        let mut work = ExactTrajectoryWork::default();
+        work.try_reserve().unwrap();
         let mut kinematics = ExactKinematics { trajectories: &mut exact.trajectories,
-            owners: &mut exact.owners, floor_reactions: &mut reactions };
+            owners: &mut exact.owners, floor_reactions: &mut reactions, work: &mut work };
         kinematics.apply_group(&mut [], &[], &[], &[], &[row], fact.toi.get().raw() as u32)
             .unwrap();
         assert_eq!(reactions.len(), 1);
@@ -2354,6 +2625,24 @@ pub(crate) mod tests {
         assert!(output.is_empty());
         assert_eq!(finalize_projected_group(&mut before, &projected, &[], 0, 65_536,
             &mut weights, &mut shares, &mut output), Err(ResolutionError::ResolutionCount));
+    }
+
+    #[test]
+    fn finalized_resolution_preserves_the_canonical_fact_geometry() {
+        let mut before = vec![state(0, Vec3::X), state(1, -Vec3::X)];
+        let projected = before.clone();
+        let mut canonical = fact(0, 1, ContactKind::WeaponWeapon, 38_127, 65_536, -65_536);
+        canonical.point = Vec3::new(Fx::from_raw(514_088), Fx::from_raw(534_488),
+                                    Fx::from_raw(26_213));
+        canonical.normal = Vec3::new(Fx::from_raw(-26_352), Fx::from_raw(59_997), Fx::ZERO);
+        let contact = ProposedContact { fact: canonical, a_collider: 0, b_collider: 1,
+            impulse_on_a: Vec3::ZERO, channel: None };
+        let mut weights = Vec::new(); let mut shares = Vec::new(); let mut output = Vec::new();
+        finalize_projected_group(&mut before, &projected, &[contact], 3, 32_768,
+            &mut weights, &mut shares, &mut output).unwrap();
+        assert_eq!(output.len(), 1);
+        assert_eq!((output[0].fact.point, output[0].fact.normal),
+                   (canonical.point, canonical.normal));
     }
 
     #[test]

@@ -19,7 +19,7 @@ use crate::{EntityId, Faction};
 use fx::{Fx, Vec3};
 
 const TICK_RAW: i128 = 65_536;
-const MAX_EXACT_OWNERS: usize = MAX_ARTICULATED_ENTITIES;
+pub(crate) const MAX_EXACT_OWNERS: usize = MAX_ARTICULATED_ENTITIES;
 const MAX_FLOOR_REACTIONS: usize = MAX_ARTICULATED_ENTITIES;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
@@ -27,6 +27,52 @@ pub(crate) struct ExactPosition { pub(crate) raw: i32, pub(crate) remainder: i12
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub(crate) struct ExactMomentum { pub(crate) velocity_raw: i32, pub(crate) remainder: i128 }
+
+pub(crate) fn normalize_momentum(
+    momentum: ExactMomentum, scale: i128,
+) -> Result<ExactMomentum, ExactTrajectoryReject> {
+    if scale <= 0 { return Err(ExactTrajectoryReject::Mass); }
+    let numerator = scale.checked_mul(momentum.velocity_raw as i128)
+        .and_then(|value| value.checked_add(momentum.remainder))
+        .ok_or(ExactTrajectoryReject::Arithmetic)?;
+    let velocity_raw = i32::try_from(numerator / scale)
+        .map_err(|_| ExactTrajectoryReject::Arithmetic)?;
+    let normalized = ExactMomentum { velocity_raw, remainder: numerator % scale };
+    if normalized.remainder.unsigned_abs() >= scale as u128
+        || (normalized.velocity_raw > 0 && normalized.remainder < 0)
+        || (normalized.velocity_raw < 0 && normalized.remainder > 0) {
+        return Err(ExactTrajectoryReject::NonCanonical);
+    }
+    Ok(normalized)
+}
+
+fn normalize_position(
+    mut position: ExactPosition, scale: i128,
+) -> Result<ExactPosition, ExactTrajectoryReject> {
+    if scale <= 0 { return Err(ExactTrajectoryReject::Mass); }
+    let denominator = scale.checked_mul(TICK_RAW)
+        .ok_or(ExactTrajectoryReject::Arithmetic)?;
+    if position.remainder.unsigned_abs() >= denominator as u128 {
+        return Err(ExactTrajectoryReject::NonCanonical);
+    }
+    if position.raw > 0 && position.remainder < 0 {
+        position.raw = position.raw.checked_sub(1)
+            .ok_or(ExactTrajectoryReject::Arithmetic)?;
+        position.remainder = position.remainder.checked_add(denominator)
+            .ok_or(ExactTrajectoryReject::Arithmetic)?;
+    } else if position.raw < 0 && position.remainder > 0 {
+        position.raw = position.raw.checked_add(1)
+            .ok_or(ExactTrajectoryReject::Arithmetic)?;
+        position.remainder = position.remainder.checked_sub(denominator)
+            .ok_or(ExactTrajectoryReject::Arithmetic)?;
+    }
+    if position.remainder.unsigned_abs() >= denominator as u128
+        || (position.raw > 0 && position.remainder < 0)
+        || (position.raw < 0 && position.remainder > 0) {
+        return Err(ExactTrajectoryReject::NonCanonical);
+    }
+    Ok(position)
+}
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) struct ExactAffine3 {
@@ -218,6 +264,28 @@ impl FixedFloorReactions {
 pub(crate) struct ExactImpulseOutcome {
     pub(crate) owners: FixedExactOwners,
     pub(crate) floor_reactions: FixedFloorReactions,
+}
+
+#[derive(Clone, Default)]
+pub(crate) struct ExactTrajectoryWork {
+    pub(crate) owner_stage: Vec<ExactOwnerTrajectory>,
+    pub(crate) reaction_stage: Vec<FloorReaction>,
+    impulse_stage: Vec<[i128; 3]>,
+}
+
+impl ExactTrajectoryWork {
+    pub(crate) fn try_reserve(&mut self) -> Result<(), ExactTrajectoryReject> {
+        self.owner_stage.try_reserve_exact(MAX_EXACT_OWNERS.saturating_sub(self.owner_stage.len()))
+            .map_err(|_| ExactTrajectoryReject::Capacity)?;
+        self.reaction_stage.try_reserve_exact(MAX_FLOOR_REACTIONS.saturating_sub(self.reaction_stage.len()))
+            .map_err(|_| ExactTrajectoryReject::Capacity)?;
+        self.impulse_stage.try_reserve_exact((MAX_EXACT_OWNERS * 3).saturating_sub(self.impulse_stage.len()))
+            .map_err(|_| ExactTrajectoryReject::Capacity)
+    }
+
+    pub(crate) fn capacities(&self) -> [usize; 3] {
+        [self.owner_stage.capacity(), self.reaction_stage.capacity(), self.impulse_stage.capacity()]
+    }
 }
 
 fn validate_coordinate(
@@ -464,6 +532,9 @@ fn advance_affine(mut value: ExactAffine3, scale: i128, next_group_raw: u32)
             .ok_or(ExactTrajectoryReject::Arithmetic)?;
         value.at_group[axis].remainder = fractional % denominator;
     }
+    for axis in 0..3 {
+        value.at_group[axis] = normalize_position(value.at_group[axis], scale)?;
+    }
     value.group_time_raw = next_group_raw;
     validate_affine(value, scale)?;
     Ok(value)
@@ -484,6 +555,27 @@ pub(crate) fn advance_exact(
         out.set(at, next)?;
     }
     Ok(out)
+}
+
+pub(crate) fn advance_exact_into(
+    owners: &[ExactOwnerTrajectory], next_group_raw: u32,
+    output: &mut Vec<ExactOwnerTrajectory>,
+) -> Result<(), ExactTrajectoryReject> {
+    if owners.len() > MAX_EXACT_OWNERS || output.capacity() < owners.len() {
+        return Err(ExactTrajectoryReject::Capacity);
+    }
+    output.clear();
+    for owner in owners {
+        validate_owner(*owner)?;
+        let mut next = *owner;
+        next.common_response = advance_affine(owner.common_response, owner.common_scale, next_group_raw)?;
+        for held in next.held_response.iter_mut().flatten() {
+            held.affine = advance_affine(held.affine, held.affine.mass_raw as i128, next_group_raw)?;
+        }
+        validate_owner(next)?;
+        output.push(next);
+    }
+    Ok(())
 }
 
 fn apply_impulse_axis(
@@ -630,6 +722,44 @@ fn apply_row_impulse(
     output.set(row.owner_index, owner)
 }
 
+fn apply_row_impulse_into(
+    output: &mut [ExactOwnerTrajectory], row: ExactContactTrajectory, impulse: [i64; 3],
+    reactions: &mut Vec<FloorReaction>,
+) -> Result<(), ExactTrajectoryReject> {
+    let owner = output.get_mut(row.owner_index).ok_or(ExactTrajectoryReject::WrongIdentity)?;
+    match (row.kind, row.held_index) {
+        (GeneralizedKind::Body, None) => {
+            for axis in 0..2 {
+                owner.common_response = apply_impulse_axis(
+                    owner.common_response, owner.common_scale, axis, impulse[axis])?;
+            }
+            if impulse[2] != 0 {
+                if reactions.len() == reactions.capacity() { return Err(ExactTrajectoryReject::Capacity); }
+                let rejected = (impulse[2] as i128).checked_mul(TICK_RAW)
+                    .ok_or(ExactTrajectoryReject::Arithmetic)?;
+                reactions.push(FloorReaction { entity: owner.entity,
+                    group_time_raw: owner.common_response.group_time_raw,
+                    rejected_impulse_raw: impulse[2], energy_change: checked_rational(
+                        rejected.checked_mul(rejected).and_then(|square| square.checked_neg())
+                            .ok_or(ExactTrajectoryReject::Arithmetic)?,
+                        (owner.common_response.mass_raw as i128).checked_mul(2)
+                            .ok_or(ExactTrajectoryReject::Arithmetic)?)? });
+            }
+        }
+        (GeneralizedKind::Equipment, Some(held_at)) => {
+            let mut held = owner.held_response.get(held_at).and_then(|held| *held)
+                .ok_or(ExactTrajectoryReject::InactiveState)?;
+            for axis in 0..3 {
+                held.affine = apply_impulse_axis(
+                    held.affine, held.affine.mass_raw as i128, axis, impulse[axis])?;
+            }
+            owner.held_response[held_at] = Some(held);
+        }
+        _ => return Err(ExactTrajectoryReject::WrongIdentity),
+    }
+    validate_owner(*owner)
+}
+
 pub(crate) fn apply_exact_impulse(
     rows: &[ExactContactTrajectory], owners: &[ExactOwnerTrajectory], fact: ContactFact,
     impulse_on_a: [i64; 3],
@@ -694,9 +824,172 @@ pub(crate) fn apply_exact_group(
     Ok(ExactImpulseOutcome { owners: output, floor_reactions })
 }
 
+pub(crate) fn apply_exact_group_into(
+    rows: &[ExactContactTrajectory], owners: &[ExactOwnerTrajectory],
+    resolutions: &[ContactResolution], group_time: u32, work: &mut ExactTrajectoryWork,
+) -> Result<(), ExactTrajectoryReject> {
+    work.owner_stage.clear(); work.reaction_stage.clear(); work.impulse_stage.clear();
+    if rows.len() > work.impulse_stage.capacity() || owners.len() > work.owner_stage.capacity() {
+        return Err(ExactTrajectoryReject::Capacity);
+    }
+    validate_rows(rows, owners)?;
+    if resolutions.is_empty() { return Err(ExactTrajectoryReject::FactPair); }
+    work.impulse_stage.resize(rows.len(), [0; 3]);
+    for resolution in resolutions {
+        if resolution.fact.toi.get().raw() < 0
+            || resolution.fact.toi.get().raw() as u32 != group_time {
+            return Err(ExactTrajectoryReject::DescendingTime);
+        }
+        let a = find_row(rows, resolution.fact.key.a, resolution.fact.key.a_slot)?;
+        let b = find_row(rows, resolution.fact.key.b, resolution.fact.key.b_slot)?;
+        validate_fact_pair(resolution.fact, rows[a], rows[b])?;
+        for (at, impulse) in [(a, resolution.impulse.on_a), (b, resolution.impulse.on_b)] {
+            for (axis, raw) in [impulse.x.raw(), impulse.y.raw(), impulse.z.raw()]
+                .into_iter().enumerate() {
+                work.impulse_stage[at][axis] = work.impulse_stage[at][axis]
+                    .checked_add(raw as i128).ok_or(ExactTrajectoryReject::Arithmetic)?;
+            }
+        }
+    }
+    advance_exact_into(owners, group_time, &mut work.owner_stage)?;
+    for at in 0..rows.len() {
+        let impulse = [i64::try_from(work.impulse_stage[at][0]).map_err(|_| ExactTrajectoryReject::Arithmetic)?,
+            i64::try_from(work.impulse_stage[at][1]).map_err(|_| ExactTrajectoryReject::Arithmetic)?,
+            i64::try_from(work.impulse_stage[at][2]).map_err(|_| ExactTrajectoryReject::Arithmetic)?];
+        if impulse != [0; 3] {
+            apply_row_impulse_into(&mut work.owner_stage, rows[at], impulse,
+                                   &mut work.reaction_stage)?;
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn position_normalization_preserves_the_exact_numerator() {
+        let scale = 17i128; let denominator = scale * TICK_RAW;
+        for before in [
+            ExactPosition { raw: -8, remainder: 31 },
+            ExactPosition { raw: 8, remainder: -31 },
+        ] {
+            let after = normalize_position(before, scale).unwrap();
+            assert_eq!(denominator * (after.raw as i128 - before.raw as i128)
+                + after.remainder - before.remainder, 0);
+        }
+    }
+
+    #[test]
+    fn position_normalization_repairs_the_smart113_finish_word() {
+        let scale = 1_283_938_665_662_054_400i128;
+        assert_eq!(normalize_position(ExactPosition {
+            raw: -6_582, remainder: 14_911_755_380_925_766_041_600,
+        }, scale).unwrap(), ExactPosition {
+            raw: -6_581, remainder: -69_232_449_011_902_631_116_800,
+        });
+    }
+
+    #[test]
+    fn position_normalization_keeps_canonical_zero_and_mirrored_words_exact() {
+        for word in [ExactPosition::default(),
+            ExactPosition { raw: 7, remainder: 3 },
+            ExactPosition { raw: -7, remainder: -3 },
+            ExactPosition { raw: 0, remainder: -3 }] {
+            assert_eq!(normalize_position(word, 11), Ok(word));
+        }
+        assert_eq!(normalize_position(ExactPosition { raw: 7, remainder: -3 }, 11),
+            Ok(ExactPosition { raw: 6, remainder: 720_893 }));
+        assert_eq!(normalize_position(ExactPosition { raw: -7, remainder: 3 }, 11),
+            Ok(ExactPosition { raw: -6, remainder: -720_893 }));
+    }
+
+    #[test]
+    fn position_normalization_refuses_scale_denominator_and_i32_overflow_atomically() {
+        assert_eq!(normalize_position(ExactPosition::default(), 0),
+            Err(ExactTrajectoryReject::Mass));
+        assert_eq!(normalize_position(ExactPosition::default(), i128::MAX),
+            Err(ExactTrajectoryReject::Arithmetic));
+        assert_eq!(normalize_position(ExactPosition { raw: 1, remainder: 65_536 }, 1),
+            Err(ExactTrajectoryReject::NonCanonical));
+    }
+
+    #[test]
+    fn momentum_normalization_preserves_the_exact_numerator() {
+        let scale = 1_283_938_665_662_054_400i128;
+        let before = ExactMomentum {
+            velocity_raw: -4_281,
+            remainder: 522_941_925_551_308_800,
+        };
+        let after = normalize_momentum(before, scale).unwrap();
+        assert_eq!(after, ExactMomentum {
+            velocity_raw: -4_280,
+            remainder: -760_996_740_110_745_600,
+        });
+        assert_eq!(scale * before.velocity_raw as i128 + before.remainder,
+                   scale * after.velocity_raw as i128 + after.remainder);
+    }
+
+    #[test]
+    fn momentum_normalization_canonicalizes_both_opposed_signs() {
+        let positive = normalize_momentum(ExactMomentum {
+            velocity_raw: 13_220,
+            remainder: -27_462_693_414,
+        }, 59_914_856_794).unwrap();
+        assert_eq!(positive, ExactMomentum {
+            velocity_raw: 13_219,
+            remainder: 32_452_163_380,
+        });
+
+        let negative = normalize_momentum(ExactMomentum {
+            velocity_raw: -13_220,
+            remainder: 27_462_693_414,
+        }, 59_914_856_794).unwrap();
+        assert_eq!(negative, ExactMomentum {
+            velocity_raw: -13_219,
+            remainder: -32_452_163_380,
+        });
+    }
+
+    #[test]
+    fn momentum_normalization_keeps_canonical_and_zero_words_exact() {
+        for momentum in [
+            ExactMomentum::default(),
+            ExactMomentum { velocity_raw: 7, remainder: 3 },
+            ExactMomentum { velocity_raw: -7, remainder: -3 },
+            ExactMomentum { velocity_raw: 0, remainder: -3 },
+        ] {
+            assert_eq!(normalize_momentum(momentum, 11), Ok(momentum));
+        }
+    }
+
+    #[test]
+    fn momentum_normalization_refuses_bad_scale_overflow_and_i32_quotient() {
+        assert_eq!(normalize_momentum(ExactMomentum::default(), 0),
+                   Err(ExactTrajectoryReject::Mass));
+        assert_eq!(normalize_momentum(ExactMomentum {
+            velocity_raw: 2, remainder: 0,
+        }, i128::MAX), Err(ExactTrajectoryReject::Arithmetic));
+        assert_eq!(normalize_momentum(ExactMomentum {
+            velocity_raw: i32::MAX, remainder: 2,
+        }, 2), Err(ExactTrajectoryReject::Arithmetic));
+    }
+
+    #[test]
+    fn fixed_exact_owner_capacity_and_row_size_are_frozen_explanatory_controls() {
+        eprintln!("owner={} option={} rows={} fixed={}",
+            core::mem::size_of::<ExactOwnerTrajectory>(),
+            core::mem::size_of::<Option<ExactOwnerTrajectory>>(),
+            core::mem::size_of::<[Option<ExactOwnerTrajectory>; MAX_EXACT_OWNERS]>(),
+            core::mem::size_of::<FixedExactOwners>());
+        assert_eq!(MAX_EXACT_OWNERS, MAX_ARTICULATED_ENTITIES);
+        assert_eq!((core::mem::size_of::<ExactOwnerTrajectory>(),
+                    core::mem::size_of::<Option<ExactOwnerTrajectory>>(),
+                    core::mem::size_of::<[Option<ExactOwnerTrajectory>; MAX_EXACT_OWNERS]>(),
+                    core::mem::size_of::<FixedExactOwners>()),
+                   (720, 720, 46_080, 46_096));
+    }
     use crate::combat::contact::{ContactKey, ContactKind};
     use crate::combat::spec::Material;
     use fx::{Fx, TimeOfImpact, Vec3};
@@ -769,6 +1062,86 @@ mod tests {
     fn assert_rational(value: ExactRational, numerator: i128, denominator: i128) {
         assert_eq!(value.numerator.checked_mul(denominator),
                    numerator.checked_mul(value.denominator));
+    }
+
+    #[test]
+    fn advance_exact_into_matches_every_old_owner_word_and_refusal() {
+        let entities = [EntityId::new(1, 0), EntityId::new(2, 0)];
+        let owners = [owner(entities[0]), owner(entities[1])];
+        let mut output = Vec::new();
+        output.try_reserve_exact(MAX_EXACT_OWNERS).unwrap();
+        for count in [0usize, 1, 2] {
+            for time in [0u32, 31_337, 65_536] {
+                let expected = advance_exact(&owners[..count], time);
+                let actual = advance_exact_into(&owners[..count], time, &mut output);
+                assert_eq!(actual, expected.as_ref().map(|_| ()).map_err(|error| *error));
+                if let Ok(expected) = expected {
+                    let expected = expected.as_slice().iter().flatten().copied()
+                        .collect::<Vec<_>>();
+                    assert_eq!(output, expected);
+                }
+            }
+        }
+        let sixty_four = (0..MAX_EXACT_OWNERS).map(|at|
+            owner(EntityId::new((at + 1) as u32, 0))).collect::<Vec<_>>();
+        let expected = advance_exact(&sixty_four, 65_536).unwrap();
+        advance_exact_into(&sixty_four, 65_536, &mut output).unwrap();
+        assert_eq!(output, expected.as_slice().iter().flatten().copied()
+            .collect::<Vec<_>>());
+        let mut descending = owners[0];
+        descending.common_response.group_time_raw = 1;
+        assert_eq!(advance_exact_into(&[descending], 0, &mut output),
+                   Err(ExactTrajectoryReject::DescendingTime));
+        assert!(output.is_empty());
+    }
+
+    #[test]
+    fn apply_exact_group_into_matches_every_old_owner_reaction_and_refusal() {
+        let a = EntityId::new(1, 0); let b = EntityId::new(2, 0);
+        let owners = [owner(a), owner(b)];
+        let trajectories = [segment_row(a, 0), body_row(b, 1)];
+        let rows = [resolution(weapon_body_fact(a, b),
+                               Vec3::new(Fx::from_raw(17), Fx::from_raw(-9), Fx::from_raw(3)))];
+        let expected = apply_exact_group(&trajectories, &owners, &rows, 0).unwrap();
+        let mut work = ExactTrajectoryWork::default();
+        work.try_reserve().unwrap();
+        apply_exact_group_into(&trajectories, &owners, &rows, 0, &mut work).unwrap();
+        assert_eq!(work.owner_stage, expected.owners.as_slice().iter().flatten()
+            .copied().collect::<Vec<_>>());
+        assert_eq!(work.reaction_stage, expected.floor_reactions.as_slice().iter().flatten()
+            .copied().collect::<Vec<_>>());
+        let capacities = work.capacities();
+        apply_exact_group_into(&trajectories, &owners, &rows, 0, &mut work).unwrap();
+        assert_eq!(work.capacities(), capacities);
+    }
+
+    #[test]
+    fn exact_group_staging_is_atomic_for_owners_and_floor_reactions() {
+        let a = EntityId::new(1, 0); let b = EntityId::new(2, 0);
+        let owners = [owner(a), owner(b)];
+        let trajectories = [segment_row(a, 0), body_row(b, 1)];
+        let rows = [resolution(weapon_body_fact(a, b), Vec3::X)];
+        let mut work = ExactTrajectoryWork::default();
+        assert_eq!(apply_exact_group_into(&trajectories, &owners, &rows, 0, &mut work),
+                   Err(ExactTrajectoryReject::Capacity));
+        assert!(work.owner_stage.is_empty());
+        assert!(work.reaction_stage.is_empty());
+        assert!(work.impulse_stage.is_empty());
+        assert_eq!(owners, [owner(a), owner(b)]);
+    }
+
+    #[test]
+    fn exact_owner_workspaces_reserve_once_and_never_grow() {
+        let mut work = ExactTrajectoryWork::default();
+        work.try_reserve().unwrap();
+        let capacities = work.capacities();
+        let owners = (0..MAX_EXACT_OWNERS).map(|at|
+            owner(EntityId::new((at + 1) as u32, 0))).collect::<Vec<_>>();
+        advance_exact_into(&owners, 65_536, &mut work.owner_stage).unwrap();
+        work.reaction_stage.clear();
+        work.impulse_stage.clear();
+        advance_exact_into(&owners, 65_536, &mut work.owner_stage).unwrap();
+        assert_eq!(work.capacities(), capacities);
     }
 
     #[test]

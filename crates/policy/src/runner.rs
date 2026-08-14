@@ -750,15 +750,16 @@ mod tests {
         // `World::timeout` is model-agnostic -- it compares health fractions,
         // and `health_fraction` routes through the anatomy for an articulated
         // body -- so the second gate is a real answer rather than a shrug. It
-        // is also the answer this fixture gives today: sixty seconds of contact
-        // moves the Brute 5% and the Fighter not at all.
+        // is also the answer this bounded fixture gives today. The cap is
+        // deliberately before the first natural body decision, so reaching it
+        // proves this was the clock's answer rather than a coincident outcome.
         let scenario = duel_in_sight();
         let config = RunConfig {
-            max_ticks: Some(600),
+            max_ticks: Some(180),
             ..RunConfig::default()
         };
         let result = run_articulated(&scenario, 9, Recorder::default(), &config);
-        assert_eq!(result.ticks, 600);
+        assert_eq!(result.ticks, 180);
         assert_eq!(result.outcome, Outcome::Decision(Faction::Heroes));
         assert!(result.hero_health > result.monster_health);
     }

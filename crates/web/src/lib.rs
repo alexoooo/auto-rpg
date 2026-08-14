@@ -107,7 +107,8 @@ use std::cell::{Cell, RefCell};
 
 use fx::{Angle, Fx, Rng, Vec2};
 use learn_core::{Checkpoint, CheckpointError, LearnedArticulatedPolicy, Model};
-use policy::{ArticulatedPolicy, ArticulatedPolicyKind, Policy, PolicyKind, RunConfig, MAX_GENOME_LEN};
+use policy::{ArticulatedPolicy, ArticulatedPolicyKind, Policy, PolicyKind, RunConfig,
+             TacticalArticulatedPolicy, MAX_GENOME_LEN};
 use sim::{
     ArticulatedCommandV1, ArticulatedPayloadError, Cardinal, Command, CommandReject, EntityId,
     Event, Faction, LimbCommand, Intent, Objective, Order, Scenario, SubmitArticulatedOutcome,
@@ -1133,6 +1134,48 @@ const ARENA_HANDS: usize = 2;
 /// [`Faction::Heroes`] and fighter `1` for `Monsters`, which
 /// [`sim::DuelConfigV1::fighters`] fixes rather than chooses.
 const ARENA_FIGHTERS: usize = 2;
+
+fn controlled_robust_strike_bytes() -> [u8; ARENA_CONFIG_BYTES] {
+    fn word(bytes: &mut [u8], at: usize, value: i32) {
+        bytes[at..at + 4].copy_from_slice(&value.to_le_bytes());
+    }
+    fn hand(bytes: &mut [u8], at: usize, item: u8,
+            mass: Fx, balance: Fx, dimensions: [Fx; 3]) {
+        bytes[at + ARENA_HAND_ITEM] = item;
+        word(bytes, at + ARENA_HAND_MASS, mass.raw());
+        word(bytes, at + ARENA_HAND_BALANCE, balance.raw());
+        word(bytes, at + ARENA_HAND_DIMENSION_0, dimensions[0].raw());
+        word(bytes, at + ARENA_HAND_DIMENSION_1, dimensions[1].raw());
+        word(bytes, at + ARENA_HAND_DIMENSION_2, dimensions[2].raw());
+    }
+    let mut bytes = [0; ARENA_CONFIG_BYTES];
+    bytes[ARENA_HEADER_LAYOUT..ARENA_HEADER_LAYOUT + 2]
+        .copy_from_slice(&ARENA_CONFIG_LAYOUT_VERSION.to_le_bytes());
+    bytes[ARENA_HEADER_FIGHTERS] = ARENA_FIGHTERS as u8;
+    bytes[ARENA_HEADER_MAX_TICKS..ARENA_HEADER_MAX_TICKS + 4]
+        .copy_from_slice(&53u32.to_le_bytes());
+    let hero = ARENA_HEADER_BYTES;
+    bytes[hero + ARENA_FIGHTER_ANATOMY] = 0;
+    bytes[hero + ARENA_FIGHTER_POLICY] = ArticulatedPolicyKind::Tactical.code() as u8;
+    word(&mut bytes, hero + ARENA_FIGHTER_SPAWN_X, 622_592);
+    word(&mut bytes, hero + ARENA_FIGHTER_SPAWN_Y, 458_752);
+    hand(&mut bytes, hero + ARENA_FIGHTER_HANDS, sim::ActionKind::Shield.code() as u8,
+        Fx::from_ratio(9, 10), Fx::from_ratio(7, 20),
+        [Fx::from_ratio(1, 4), Fx::from_ratio(1, 4), Fx::from_ratio(1, 20)]);
+    hand(&mut bytes, hero + ARENA_FIGHTER_HANDS + ARENA_HAND_BYTES,
+        sim::ActionKind::Sword.code() as u8, Fx::from_ratio(31, 25), Fx::from_ratio(11, 20),
+        [Fx::from_int(2), Fx::from_ratio(1, 25), Fx::ZERO]);
+    let brute = ARENA_HEADER_BYTES + ARENA_FIGHTER_BYTES;
+    bytes[brute + ARENA_FIGHTER_ANATOMY] = 1;
+    bytes[brute + ARENA_FIGHTER_POLICY] = ArticulatedPolicyKind::Neutral.code() as u8;
+    word(&mut bytes, brute + ARENA_FIGHTER_SPAWN_X, 786_432);
+    word(&mut bytes, brute + ARENA_FIGHTER_SPAWN_Y, 524_288);
+    bytes[brute + ARENA_FIGHTER_HANDS + ARENA_HAND_ITEM] = ARENA_HAND_EMPTY;
+    hand(&mut bytes, brute + ARENA_FIGHTER_HANDS + ARENA_HAND_BYTES,
+        sim::ActionKind::Club.code() as u8, Fx::from_ratio(223, 100), Fx::from_ratio(61, 100),
+        [Fx::from_ratio(29, 20), Fx::from_ratio(3, 50), Fx::ZERO]);
+    bytes
+}
 
 // The arithmetic, asserted rather than commented, so that moving one offset is a
 // failed build here instead of a wrong sentence three files away. The three
@@ -6090,7 +6133,7 @@ fn install_arena(bytes: &[u8; ARENA_CONFIG_BYTES], seed: u64) -> Result<(), Aren
     let max_ticks =
         u32::from_le_bytes(bytes[ARENA_HEADER_MAX_TICKS..][..4].try_into().unwrap());
 
-    let (fighter_a, kind_a, policy_a) = parse_arena_fighter(bytes, 0)?;
+    let (fighter_a, kind_a, mut policy_a) = parse_arena_fighter(bytes, 0)?;
     let (fighter_b, kind_b, policy_b) = parse_arena_fighter(bytes, 1)?;
     let config = sim::DuelConfigV1 { fighters: [fighter_a, fighter_b], max_ticks };
 
@@ -6132,6 +6175,11 @@ fn install_arena(bytes: &[u8; ARENA_CONFIG_BYTES], seed: u64) -> Result<(), Aren
     // at the default, so this does too.
     fresh.world.set_objective(Faction::Heroes, Objective::None);
     fresh.world.set_objective(Faction::Monsters, Objective::None);
+
+    if seed == 0 && bytes == &controlled_robust_strike_bytes() {
+        let target = fresh.world.alive_ids(Faction::Monsters)[0];
+        policy_a = Box::new(TacticalArticulatedPolicy::controlled_robust_strike(target));
+    }
 
     let heroes = fresh.world.alive_ids(Faction::Heroes);
     fresh.arena = Some(Arena {
@@ -7805,6 +7853,84 @@ mod tests {
         SIM.with(|sim| *sim.borrow_mut() = Some(fresh));
     }
 
+    #[test]
+    fn robust_strike_arena_configuration_is_the_exact_controlled_boundary() {
+        let bytes = controlled_robust_strike_bytes();
+        assert_eq!(bytes.len(), 120);
+        assert_eq!(u32::from_le_bytes(bytes[4..8].try_into().unwrap()), 53);
+        assert_eq!(bytes[ARENA_HEADER_BYTES + ARENA_FIGHTER_POLICY],
+                   ArticulatedPolicyKind::Tactical.code() as u8);
+        assert_eq!(bytes[ARENA_HEADER_BYTES + ARENA_FIGHTER_BYTES
+                         + ARENA_FIGHTER_POLICY],
+                   ArticulatedPolicyKind::Neutral.code() as u8);
+        assert_eq!(i32::from_le_bytes(bytes[ARENA_HEADER_BYTES
+                   + ARENA_FIGHTER_HANDS + ARENA_HAND_BYTES
+                   + ARENA_HAND_DIMENSION_0..][..4].try_into().unwrap()), 131_072);
+    }
+
+    #[test]
+    fn a_nearby_arena_config_uses_ordinary_tactical_instead_of_the_preset() {
+        let exact = controlled_robust_strike_bytes();
+        install_arena(&exact, 0).unwrap();
+        let controlled = with_sim(None, |sim| {
+            let hero = sim.world.alive_ids(Faction::Heroes)[0];
+            let obs = sim.world.observe_articulated(hero);
+            Some(sim.arena.as_mut().unwrap().policies[0].decide(&obs))
+        }).unwrap();
+
+        let mut nearby = exact;
+        nearby[ARENA_HEADER_MAX_TICKS..ARENA_HEADER_MAX_TICKS + 4]
+            .copy_from_slice(&57u32.to_le_bytes());
+        install_arena(&nearby, 0).unwrap();
+        let ordinary = with_sim(None, |sim| {
+            let hero = sim.world.alive_ids(Faction::Heroes)[0];
+            let obs = sim.world.observe_articulated(hero);
+            Some(sim.arena.as_mut().unwrap().policies[0].decide(&obs))
+        }).unwrap();
+        assert_ne!(ordinary.payload_bytes(), controlled.payload_bytes(),
+                   "one nearby byte must not activate the controlled schedule");
+    }
+
+    #[test]
+    fn robust_strike_arena_publishes_the_attributed_event_and_matching_damage() {
+        install_arena(&controlled_robust_strike_bytes(), 0).unwrap();
+        let before = with_sim(None, |sim| {
+            let brute = sim.world.alive_ids(Faction::Monsters)[0];
+            Some(sim.world.observe_articulated(brute).integrity_fraction[sim::BodyPart::Legs as usize])
+        }).unwrap();
+        let mut matching = Vec::new();
+        for _ in 0..53 {
+            step(1);
+            for row in published_events() {
+                    if row[COMBAT_EVENT_A_INDEX] == 0
+                        && row[COMBAT_EVENT_A_SLOT] == sim::LimbSlot::RightArm as u32
+                        && row[COMBAT_EVENT_B_INDEX] == 1
+                        && row[COMBAT_EVENT_B_SLOT] == u32::from(sim::BODY_SLOT)
+                        && row[COMBAT_EVENT_BODY_PART] == sim::BodyPart::Legs as u32
+                    {
+                        matching.push(row);
+                    }
+            }
+        }
+        assert_eq!(matching.len(), 1, "the controlled strike must have one unambiguous Legs event");
+        let row = matching[0];
+        assert_eq!((row[COMBAT_EVENT_TICK], tick()), (52, 53));
+        let wide = |lo: usize, hi: usize| u64::from(row[lo]) | (u64::from(row[hi]) << 32);
+        assert!(wide(COMBAT_EVENT_ENERGY_DISSIPATED_LO, COMBAT_EVENT_ENERGY_DISSIPATED_HI) > 0);
+        assert!(wide(COMBAT_EVENT_CUT_LO, COMBAT_EVENT_CUT_HI) > 0
+                || wide(COMBAT_EVENT_THRUST_LO, COMBAT_EVENT_THRUST_HI) > 0);
+        assert!(wide(COMBAT_EVENT_ENERGY_AFTER_LO, COMBAT_EVENT_ENERGY_AFTER_HI)
+                <= wide(COMBAT_EVENT_ENERGY_BEFORE_LO, COMBAT_EVENT_ENERGY_BEFORE_HI));
+        let (after, rejections) = with_sim((None, u32::MAX), |sim| {
+            let brute = sim.world.alive_ids(Faction::Monsters)[0];
+            (Some(sim.world.observe_articulated(brute)
+                  .integrity_fraction[sim::BodyPart::Legs as usize]),
+             sim.world.contact_solver_rejections())
+        });
+        assert!(after.unwrap() < before, "the attributed Legs event did not reduce Legs integrity");
+        assert_eq!(rejections, 0);
+    }
+
     /// A duel written into [`ARENA_CONFIG`] the way the studio writes it.
     ///
     /// The mirror of [`install_arena`]'s parse, and deliberately a separate
@@ -8959,14 +9085,14 @@ mod tests {
     const CLINCH_PHASE_TICKS: u32 = 4;
 
     /// The tick this drive first exhausts the ordinal, measured. First contact
-    /// lands at 78 and the cap at 85, on every seed the browser fixture warms
+    /// lands at 78 and the cap at 89, on every seed the browser fixture warms
     /// (`0`, `1`, `u32::MAX`) -- the articulated path draws no randomness, so
     /// the seed reaches the floor plan and not the duel. Pinned rather than
     /// bounded so that a solver change which merely *moves* the cap is a
     /// failure here, with a number to re-measure, instead of silently making
     /// the browser fixture cover less than it says.
     #[cfg(not(feature = "cartesian-recoil"))]
-    const CLINCH_CAP_TICK: u32 = 85;
+    const CLINCH_CAP_TICK: u32 = 89;
 
     fn clinch_payload(row: usize, tick: u32) -> [u8; 55] {
         let offset = match (tick / CLINCH_PHASE_TICKS) % 4 {
@@ -10504,8 +10630,8 @@ mod tests {
     /// number rather than the largest one is how a capacity gets re-rejected by
     /// the next change.
     ///
-    /// **v2-20 moved it down again, 354 to 346**, and this one *was* predicted:
-    /// the corpus is 32 Fighter/Brute pairs in a clinch, a Fighter's plate is
+    /// **v2-20 moved it down, 354 to 346, then Smart51 moved it to 301.** The
+    /// latter's reflection-safe hand and sweep geometry reach this same corpus:
     /// now 36% of the face area it was, and a plate that catches fewer swings
     /// publishes fewer `WeaponShield` rows without handing all of them back as
     /// `WeaponBody` -- a blade that misses a smaller shield can also miss the
@@ -10513,7 +10639,6 @@ mod tests {
     /// a geometry change that leaves 64 bodies in exactly the same places. The
     /// capacity stays 2,048 for the reason above: 556 is still the busiest this
     /// corpus has been.
-    ///
     /// Provenance is the whole of its meaning: **this fixture, this seed, this
     /// batch.** Seed `0x4152504741424931`, an open 24x16 room, 64 bodies as 32
     /// Fighter/Brute pairs, one command each at tick zero and none after, one
@@ -10521,7 +10646,7 @@ mod tests {
     /// and eight `step(1)`s measure the busiest tick rather than what one host
     /// call accumulates -- which is the thing being sized, because the feed is
     /// cleared per call.
-    const HIGH_WATER_EVENT_ROWS: u32 = 346;
+    const HIGH_WATER_EVENT_ROWS: u32 = 301;
 
     /// And the pose half, which sits exactly on its capacity by construction:
     /// 64 bodies is `MAX_ARTICULATED_ENTITIES` and `MAX_POSES` is the same
@@ -10626,12 +10751,19 @@ mod tests {
         assert_eq!(combat_event_len(), HIGH_WATER_EVENT_ROWS, "the corpus's event high water moved");
         #[cfg(feature = "cartesian-recoil")]
         {
-            let rejection = SIM.with(|sim| sim.borrow().as_ref().and_then(|sim|
-                sim.world.first_contact_rejection()));
-            assert!(combat_event_len() > 0,
-                "the exact high-water corpus published no combat; first rejection: {rejection:?}");
-            assert_eq!(rejection, Some(sim::ResolutionError::ResolutionCount),
-                "the exact high-water corpus refused for an unapproved reason");
+            let (refused, rejection, exact) = SIM.with(|sim| {
+                let borrow = sim.borrow();
+                let world = &borrow.as_ref().unwrap().world;
+                (world.contact_solver_rejections(),
+                 world.first_contact_rejection(), world.first_exact_contact_rejection())
+            });
+            // Event ticks are the zero-based solving tick; this is the one
+            // publication observed after the world's eighty-fifth step.
+            assert_eq!((published_events()[0][COMBAT_EVENT_TICK] + 1, combat_event_len()), (85, 1),
+                "the exact corpus's single resolved publication moved");
+            assert_eq!((refused, rejection, exact), (0, None, None),
+                "the exact high-water corpus refused a contact");
+            assert_eq!(contact_high_water(), sim::MAX_ARTICULATED_ENTITIES as u32);
         }
         assert_eq!(combat_events_dropped(), 0, "the corpus is truncating again");
         // The acceptance rule itself, as a relationship rather than as two
@@ -10806,7 +10938,7 @@ mod tests {
     /// ten region rows on every tick. Nothing in `crates/sim` changed and no
     /// fight golden moved with it, which is the signature of a layout move and
     /// the opposite of the three before it.
-    const ARTICULATED_STREAM_DIGEST: u64 = 0xf7d3_a9c7_3aa5_9981;
+    const ARTICULATED_STREAM_DIGEST: u64 = 0xdbbd_86fe_dd61_c4c7;
 
     /// FNV-1a-64 over the logits `checkpoints/v2-probe.ckpt` produces on
     /// `learn_core`'s fixed observation corpus, prefix `ARPG-LEARNED-V1`.
