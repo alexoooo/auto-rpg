@@ -1,8 +1,9 @@
 # Smart AI 128 -- matched stationary Tactical calibration
 
-**Status:** measurement implementation complete and verified; the two calibration
-receipts have not yet been collected. This session repairs and reruns the stationary
-matched strong-reference/Tactical calibration against the retained
+**Status:** the bounded measurement collector is implemented and verified; the two
+calibration receipts have not yet been collected. The first serial run reached its
+external command timeout without producing an artifact. This session now reruns the
+stationary matched strong-reference/Tactical calibration against the retained
 `cartesian-recoil` mechanics. It does not run the moving 100-fight competence gate,
 open the held-out seed range, change either controller, promote the feature, or create
 a pin.
@@ -17,17 +18,32 @@ At the start of this session the harness was not yet an adequate recorder for th
 rerun. Its durable
 [post-mechanics contract](../performance/smart-ai-matched-tactical.md#post-mechanics-rerun-contract)
 required cap, temporally coherent attribution and anatomy evidence that the old
-[`TacticalRow`](../../crates/lab/src/tactical_mechanics.rs#L39) and its CSV did not
+[`TacticalRow`](../../crates/lab/src/tactical_mechanics.rs#L40) and its CSV did not
 fully carry; `--held-out` printed structural validity rather than the documented
 productivity decision; and the Lab help still called calibration unimplemented. The
 implementation below now repairs those seams and passed the focused mutation-backed
 tests, `cargo test`, the full feature workspace, the documentation checker and the
 diff checker before any calibration was run. Existing registered pins moved zero.
 
+## Operational non-result
+
+At clean source commit `a2ad795`, the first evidence command was:
+
+```powershell
+cargo run --release -p lab --features cartesian-recoil -- tactical-mechanics --calibration --write target/smart128-calibration-a.csv
+```
+
+The attached process reached its external 1,800.0-second timeout and returned exit
+status 124. It printed no final stdout summary and produced no CSV or retained log,
+so it supplies no Tactical count, validity count, productivity rate or receipt. This
+was not a World tick-limit outcome and says nothing about any fight's `Outcome`; it
+says only that the serial collector did not finish within the process budget. Do not
+reconstruct a partial result or cite this attempt as calibration evidence.
+
 ## A -- freeze the corpus and the four matched arms
 
 Keep the existing iterator in
-[`corpus_cases`](../../crates/lab/src/tactical_mechanics.rs#L358) byte-for-byte in
+[`corpus_cases`](../../crates/lab/src/tactical_mechanics.rs#L600) byte-for-byte in
 meaning and order:
 
 ```text
@@ -69,7 +85,7 @@ the output.
 
 ## B -- make every validity claim observable
 
-Extend [`TacticalRow`](../../crates/lab/src/tactical_mechanics.rs#L39) and the CSV row
+Extend [`TacticalRow`](../../crates/lab/src/tactical_mechanics.rs#L40) and the CSV row
 with the fields needed to decide the declared grammar:
 
 ```rust
@@ -88,7 +104,7 @@ Both first-contact counts are frozen from the same resolution slice on the first
 that contains an attributed fact. `first_contact_attributed_facts` uses the existing
 `belongs_to` identity/hand/region predicate; `first_contact_competing_facts` counts
 every other published resolution row on that tick, matching
-[`StrikeMeasurement::competing_facts`](../../crates/lab/src/strong_strike.rs#L471).
+[`StrikeMeasurement::competing_facts`](../../crates/lab/src/strong_strike.rs#L143).
 Do not reduce either count to a boolean, update one count on a later tick, or count a
 later contact as if it competed in the selected resolution slice. Keep
 `waterfall.weapon_body_facts` as the separate cumulative count over the complete
@@ -176,6 +192,51 @@ refusals before work begins. `--summary-write` mirrors the deterministic bytes p
 to stdout and changes no measurement input; do not add a measurement-changing
 override.
 
+### Bounded collector correction
+
+Parallelize complete matched cells only. Build the same 900-case descriptor once,
+including its canonical ordinal, then divide its contiguous ranges across exactly
+four named scoped workers:
+
+```rust
+const CALIBRATION_SHARDS: usize = 4;
+const CALIBRATION_STACK_BYTES: usize = 16 * 1024 * 1024;
+
+struct IndexedCalibrationCase { ordinal: usize, case: strong_strike::StrongCase }
+
+fn collect_calibration_cases_with<M>(
+    cases: &[IndexedCalibrationCase],
+    measure: &M,
+) -> Result<Vec<CalibrationRow>, CalibrationCollectionError>
+where
+    M: Fn(IndexedCalibrationCase) -> CalibrationRow + Sync;
+```
+
+Use `cases.len().div_ceil(CALIBRATION_SHARDS)` and workers named
+`smart128-tactical-calibration-{shard}`. Give each worker a 16 MiB stack, matching the
+existing exact strike-corpus executor. A worker maps its contiguous slice in slice
+order; one call measures all four fresh Worlds in the fixed
+`strong-before -> held -> Tactical -> strong-after` order. Never distribute the four
+arms of one cell across workers.
+
+Join every successfully started worker explicitly and append shard vectors in worker
+creation order, regardless of completion order. Do not sort after collection: sorting
+could hide a missing, duplicated or displaced descriptor. Before rendering, require
+exactly 900 rows and `row.ordinal == index` for every row.
+
+Return a named `WorkerStart { shard, .. }` or `WorkerPanic { shard }` error rather
+than accepting a partial shard. If a start fails, stop spawning and still join every
+worker already started. If any worker panics, join the rest, discard all shard output,
+and return the refusal. CSV and summary bytes are constructed only from `Ok(rows)`;
+neither output file is opened or written before collection and ordinal validation
+succeed. The CLI refusal names the shard and says that no artifact was written.
+
+The production worker count is not configurable. Reject `--threads` by name and do
+not read CPU count or an environment override. Four workers and their stack size are
+measurement implementation constants: bounded memory, the same exact-contact stack
+allowance already used by `strong_strike`, and deterministic scheduling-independent
+bytes.
+
 ## C -- tests must defend the reporter
 
 Add these exact tests beside the harness:
@@ -189,6 +250,10 @@ Add these exact tests beside the harness:
 #[test] fn productivity_keeps_all_nine_hundred_rows_in_its_denominator() {}
 #[test] fn calibration_csv_has_a_fixed_header_order_and_final_newline() {}
 #[test] fn incompatible_tactical_mechanics_modes_are_refused_by_name() {}
+#[test] fn bounded_calibration_matches_serial_rows_and_order_on_a_small_corpus() {}
+#[test] fn calibration_completion_order_cannot_reorder_the_descriptor() {}
+#[test] fn bounded_calibration_measures_every_cell_exactly_once() {}
+#[test] fn a_panicked_calibration_worker_is_a_named_refusal_and_writes_nothing() {}
 ```
 
 Construct classification tests from small value fixtures rather than rerunning the
@@ -209,6 +274,15 @@ require the full fixed header/row column count, exact named-field placement and 
 newline. Independently bypass both valueless output-option refusals and the summary
 byte writer and observe their named tests fail before restoring them.
 
+The bounded-collector tests use a small descriptor and a cheap injected measurement,
+not real Worlds. Compare the complete serial and parallel row vectors. Use a barrier
+or channel, never a sleep, to make a later shard finish before the first while the
+merged rows remain canonical. Count calls by ordinal and require each exactly once.
+Inject one worker panic and require the named error plus zero writer calls. As mutation
+proofs, reverse creation-order append and observe the equivalence/order test fail;
+then swallow a panic or replace its shard with an empty vector and observe the
+panic/once tests fail. Restore both mutations before any corpus run.
+
 Keep the existing cross-cutting tests for bracket identity, seed-range disjointness,
 identity attribution and unattributed anatomy changes. Do not weaken the retained
 source-41, exact-trajectory or lifted-solver tests to make this reporter green.
@@ -219,11 +293,14 @@ cargo test -p lab --features cartesian-recoil structural_validity -- --nocapture
 cargo test -p lab --features cartesian-recoil held_validity -- --nocapture
 cargo test -p lab --features cartesian-recoil productivity -- --nocapture
 cargo test -p lab --features cartesian-recoil calibration_csv -- --nocapture
+cargo test -p lab --features cartesian-recoil bounded_calibration -- --nocapture
+cargo test -p lab --features cartesian-recoil calibration_completion_order -- --nocapture
+cargo test -p lab --features cartesian-recoil panicked_calibration_worker -- --nocapture
 ```
 
-Commit the measurement implementation green before collecting evidence. The source
-commit in the evidence record is that clean commit, not a later documentation commit
-and not a dirty tree.
+Commit the bounded collector and measurement implementation green before collecting
+evidence. The source commit in the evidence record is that new clean commit, not
+`a2ad795`, a later documentation commit or a dirty tree.
 
 ## D -- run twice and decide without opening held-out work
 
@@ -250,10 +327,14 @@ and is not part of the deterministic summary. A mismatch is `invalid-nondetermin
 stops before interpretation.
 
 One calibration is 900 cells times four 56-tick Worlds, at most 201,600 World steps.
-Smart125's 180,000-step moving gate took 286,636 ms on this laptop. Budget roughly
-5--15 minutes per exact calibration and 10--30 minutes for the pair, but record the
-actual times rather than treating that estimate as a limit. Do not detach the runs or
-launch a second Cargo process concurrently.
+The serial run demonstrated that these stationary exact-contact steps are not
+comparable to Smart125's moving-gate ticks, so its earlier 5--15 minute estimate is
+superseded. With the bounded four-worker collector, expect 10--30 minutes per run and
+20--60 minutes for the pair. Give each attached process a fixed 3,600-second external
+timeout. Run A and B sequentially from the same new clean collector commit; never
+detach them or launch both Cargo processes concurrently. Record actual wall time. A
+timeout is another operational failure with no result, not permission to change the
+worker count or corpus.
 
 ### Structural decision
 

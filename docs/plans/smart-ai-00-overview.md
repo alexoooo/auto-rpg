@@ -70,8 +70,10 @@ later wall/remainder/release transcript. Smart123 separately registers source-41
 eighteen mechanics cases at their first qualifying contact; extending those cases by
 one tick is not its lifecycle grammar. The authority documents are now closed without
 promoting the feature. [Smart128](smart-ai-128-matched-tactical-calibration.md) is the
-active stationary matched Tactical/control calibration; it must stop before held-out
-or moving competence work if any structural row is invalid.
+active stationary matched Tactical/control calibration. Its serial evidence attempt
+timed out without an artifact; the fixed bounded collector is pending before the
+pair is rerun. It must stop before held-out or moving competence work if collection
+fails or any structural row is invalid.
 
 ## Next-session order
 

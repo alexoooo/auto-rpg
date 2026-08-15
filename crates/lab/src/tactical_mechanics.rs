@@ -13,8 +13,14 @@ use sim::{
 };
 
 const CALIBRATION_SEEDS: core::ops::Range<u64> = 0..25;
-const CALIBRATION_CASES: usize = 25 * 2 * 2 * strong_strike::APPROACH_OFFSETS.len();
+const CALIBRATION_CASES: usize = 900;
 const HELD_OUT_SEEDS: core::ops::Range<u64> = 900_000..900_100;
+const HELD_OUT_CASES: usize = 3_600;
+// One worker owns all four runs in a matched cell. Four fixed shards match the
+// existing evidence executor, while the large stacks keep a World off MSVC's
+// 1 MiB main stack without making host core count part of the receipt.
+const CALIBRATION_WORKERS: usize = 4;
+const CALIBRATION_STACK_BYTES: usize = 16 * 1024 * 1024;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 struct Waterfall {
@@ -444,6 +450,10 @@ const TACTICAL_MODES: [&str; 7] = [
 ];
 
 fn incompatible_mode_refusal(args: &Args) -> Option<String> {
+    if args.flag("threads") || args.text("threads").is_some() {
+        return Some("tactical-mechanics --threads is refused; worker count is fixed at 4"
+            .to_string());
+    }
     for key in ["write", "summary-write"] {
         if args.flag(key) {
             return Some(format!("tactical-mechanics --{key} requires PATH"));
@@ -597,7 +607,7 @@ fn corpus_cases(seeds: core::ops::Range<u64>) -> impl Iterator<Item = strong_str
     }))
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 struct CalibrationRow {
     case: strong_strike::StrongCase,
     before: strong_strike::StrikeMeasurement,
@@ -605,6 +615,131 @@ struct CalibrationRow {
     tactical: TacticalRow,
     structural: StructuralValidity,
     productivity: TacticalProductivity,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+struct IndexedCase {
+    ordinal: usize,
+    case: strong_strike::StrongCase,
+}
+
+#[derive(PartialEq, Eq, Debug)]
+enum CalibrationCollectError {
+    WorkerStart { shard: usize },
+    WorkerPanic { shard: usize },
+    InvalidDescriptor { expected_len: usize, actual_len: usize,
+        at: usize, ordinal: Option<usize> },
+}
+
+impl core::fmt::Display for CalibrationCollectError {
+    fn fmt(&self, out: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::WorkerStart { shard } => write!(out,
+                "tactical-mechanics calibration shard={shard} could not start; no artifact was written"),
+            Self::WorkerPanic { shard } => write!(out,
+                "tactical-mechanics calibration shard={shard} panicked; no artifact was written"),
+            Self::InvalidDescriptor { expected_len, actual_len, at, ordinal } => write!(out,
+                "tactical-mechanics calibration shard=none descriptors invalid: expected_len={expected_len} actual_len={actual_len} at={at} ordinal={ordinal:?}; no artifact was written"),
+        }
+    }
+}
+
+fn indexed_cases(seeds: core::ops::Range<u64>) -> Vec<IndexedCase> {
+    corpus_cases(seeds).enumerate().map(|(ordinal, case)| IndexedCase { ordinal, case }).collect()
+}
+
+fn validate_indexed_values<T>(cases: &[IndexedCase], rows: &[(usize, strong_strike::StrongCase, T)])
+    -> Result<(), CalibrationCollectError>
+{
+    if rows.len() != cases.len() {
+        return Err(CalibrationCollectError::InvalidDescriptor {
+            expected_len: cases.len(), actual_len: rows.len(),
+            at: cases.len().min(rows.len()), ordinal: rows.get(cases.len()).map(|row| row.0),
+        });
+    }
+    for (at, (case, row)) in cases.iter().zip(rows).enumerate() {
+        if case.ordinal != at || row.0 != at || row.1 != case.case {
+            return Err(CalibrationCollectError::InvalidDescriptor {
+                expected_len: cases.len(), actual_len: rows.len(), at,
+                ordinal: Some(if case.ordinal != at { case.ordinal } else { row.0 }),
+            });
+        }
+    }
+    Ok(())
+}
+
+fn collect_indexed_cases_with<T, M>(cases: &[IndexedCase], measure: M)
+    -> Result<Vec<T>, CalibrationCollectError>
+where T: Send, M: Fn(IndexedCase) -> (strong_strike::StrongCase, T) + Sync
+{
+    collect_indexed_cases_with_expected(cases, cases.len(), measure)
+}
+
+fn collect_indexed_cases_with_expected<T, M>(cases: &[IndexedCase], expected_len: usize, measure: M)
+    -> Result<Vec<T>, CalibrationCollectError>
+where T: Send, M: Fn(IndexedCase) -> (strong_strike::StrongCase, T) + Sync
+{
+    if cases.len() != expected_len {
+        return Err(CalibrationCollectError::InvalidDescriptor {
+            expected_len, actual_len: cases.len(), at: cases.len().min(expected_len),
+            ordinal: cases.get(expected_len).map(|case| case.ordinal),
+        });
+    }
+    if cases.is_empty() { return Ok(Vec::new()); }
+    for (at, case) in cases.iter().enumerate() {
+        if case.ordinal != at {
+            return Err(CalibrationCollectError::InvalidDescriptor {
+                expected_len: cases.len(), actual_len: cases.len(), at,
+                ordinal: Some(case.ordinal),
+            });
+        }
+    }
+    let shard_len = cases.len().div_ceil(CALIBRATION_WORKERS);
+    let indexed = std::thread::scope(|scope| {
+        let mut workers = Vec::with_capacity(CALIBRATION_WORKERS);
+        for (shard, cases) in cases.chunks(shard_len).enumerate() {
+            let measure = &measure;
+            match std::thread::Builder::new()
+                .name(format!("smart128-tactical-calibration-{shard}"))
+                .stack_size(CALIBRATION_STACK_BYTES)
+                .spawn_scoped(scope, move || cases.iter().copied()
+                    .map(|case| {
+                        let (returned_case, row) = measure(case);
+                        (case.ordinal, returned_case, row)
+                    }).collect::<Vec<_>>()) {
+                Ok(worker) => workers.push((shard, worker)),
+                Err(_) => {
+                    for (_, worker) in workers { let _ = worker.join(); }
+                    return Err(CalibrationCollectError::WorkerStart { shard });
+                }
+            }
+        }
+        let mut rows = Vec::with_capacity(cases.len());
+        let mut first_panic = None;
+        // Completion order is deliberately irrelevant. Creation order is the
+        // descriptor order, and validation refuses drift instead of sorting it.
+        for (shard, worker) in workers {
+            match worker.join() {
+                Ok(mut shard_rows) => rows.append(&mut shard_rows),
+                Err(_) if first_panic.is_none() => {
+                    first_panic = Some(CalibrationCollectError::WorkerPanic { shard });
+                }
+                Err(_) => {}
+            }
+        }
+        match first_panic { Some(error) => Err(error), None => Ok(rows) }
+    })?;
+    validate_indexed_values(cases, &indexed)?;
+    Ok(indexed.into_iter().map(|(_, _, row)| row).collect())
+}
+
+fn collect_matched_rows(seeds: core::ops::Range<u64>, expected_len: usize)
+    -> Result<Vec<CalibrationRow>, CalibrationCollectError>
+{
+    let cases = indexed_cases(seeds);
+    collect_indexed_cases_with_expected(&cases, expected_len, |case| {
+        let row = measure_matched_row(case.case); (row.case, row)
+    })
 }
 
 fn measure_matched_row(case: strong_strike::StrongCase) -> CalibrationRow {
@@ -760,10 +895,6 @@ fn calibration_csv_row(row: &CalibrationRow) -> String {
     answer
 }
 
-fn structurally_valid_case(case: strong_strike::StrongCase) -> bool {
-    measure_matched_row(case).structural.passes()
-}
-
 #[derive(Clone, Copy, Default)]
 struct CalibrationSummary {
     cases: u32, structural_invalid: u32, bracket_drift: u32,
@@ -831,21 +962,22 @@ fn write_summary(path: &str, summary: &str) -> std::io::Result<()> {
     std::fs::write(path, summary.as_bytes())
 }
 
-fn run_corpus(args: &Args) {
-    let held_out = args.flag("held-out");
-    if held_out {
-        let calibration_invalid = corpus_cases(CALIBRATION_SEEDS)
-            .filter(|case| !structurally_valid_case(*case)).count();
-        if calibration_invalid != 0 {
-            eprintln!("held-out refused: calibration has {calibration_invalid} structural validity failures");
-            std::process::exit(2);
-        }
-    }
-    let seeds = if held_out { HELD_OUT_SEEDS } else { CALIBRATION_SEEDS };
+fn collect_then_render_with<C, R>(collect: C, render: R)
+    -> Result<(), CalibrationCollectError>
+where C: FnOnce() -> Result<Vec<CalibrationRow>, CalibrationCollectError>,
+      R: FnOnce(Vec<CalibrationRow>)
+{
+    let rows = collect()?;
+    render(rows);
+    Ok(())
+}
+
+fn render_corpus(args: &Args, seeds: core::ops::Range<u64>, held_out: bool,
+                 rows: Vec<CalibrationRow>) {
     let mut csv = String::from(CALIBRATION_CSV_HEADER);
     let mut summaries = [CalibrationSummary::default(); 5];
-    for case in corpus_cases(seeds.clone()) {
-        let row = measure_matched_row(case);
+    for row in rows {
+        let case = row.case;
         summaries[0].observe(&row);
         let split = 1 + usize::from(case.mirrored) * 2
             + usize::from(case.target_anatomy == AnatomyChoice::Brute);
@@ -856,8 +988,7 @@ fn run_corpus(args: &Args) {
         std::fs::write(path, csv.as_bytes()).unwrap_or_else(|error| panic!("could not write {path}: {error}"));
     }
     let mut summary = format!("tactical-mechanics calibration seeds={}..{} expected_cases={}\n",
-        seeds.start, seeds.end, if held_out { 100 * 2 * 2 * strong_strike::APPROACH_OFFSETS.len() }
-            else { CALIBRATION_CASES });
+        seeds.start, seeds.end, if held_out { HELD_OUT_CASES } else { CALIBRATION_CASES });
     summary.push_str(&summary_line("total", summaries[0]));
     summary.push_str(&summary_line("mirror=false,target=fighter", summaries[1]));
     summary.push_str(&summary_line("mirror=false,target=brute", summaries[2]));
@@ -874,6 +1005,31 @@ fn run_corpus(args: &Args) {
     if let Some(path) = args.text("summary-write") {
         write_summary(path, &summary)
             .unwrap_or_else(|error| panic!("could not write {path}: {error}"));
+    }
+}
+
+fn run_corpus(args: &Args) {
+    let held_out = args.flag("held-out");
+    if held_out {
+        let calibration = match collect_matched_rows(CALIBRATION_SEEDS, CALIBRATION_CASES) {
+            Ok(rows) => rows,
+            Err(error) => { eprintln!("{error}"); return; }
+        };
+        let calibration_invalid = calibration.iter()
+            .filter(|row| !row.structural.passes()).count();
+        if calibration_invalid != 0 {
+            eprintln!("held-out refused: calibration has {calibration_invalid} structural validity failures");
+            std::process::exit(2);
+        }
+    }
+    let seeds = if held_out { HELD_OUT_SEEDS } else { CALIBRATION_SEEDS };
+    let expected_len = if held_out { HELD_OUT_CASES } else { CALIBRATION_CASES };
+    let collect_seeds = seeds.clone();
+    if let Err(error) = collect_then_render_with(
+        || collect_matched_rows(collect_seeds, expected_len),
+        |rows| render_corpus(args, seeds, held_out, rows),
+    ) {
+        eprintln!("{error}");
     }
 }
 
@@ -904,6 +1060,10 @@ mod tests {
     fn matched_calibration_is_exactly_nine_hundred_ordered_cells() {
         let cases: Vec<_> = corpus_cases(CALIBRATION_SEEDS).collect();
         assert_eq!(cases.len(), CALIBRATION_CASES);
+        assert_eq!(CALIBRATION_CASES,
+            25 * 2 * 2 * strong_strike::APPROACH_OFFSETS.len());
+        assert_eq!(HELD_OUT_CASES,
+            100 * 2 * 2 * strong_strike::APPROACH_OFFSETS.len());
         let mut at = 0;
         for seed in 0..25 {
             for mirrored in [false, true] {
@@ -916,6 +1076,161 @@ mod tests {
                 }
             }
         }
+    }
+
+    fn synthetic_indexed_cases(count: usize) -> Vec<IndexedCase> {
+        corpus_cases(0..1).take(count).enumerate()
+            .map(|(ordinal, case)| IndexedCase { ordinal, case }).collect()
+    }
+
+    #[test]
+    fn four_fixed_calibration_workers_preserve_serial_order_after_reverse_completion() {
+        use std::sync::{Condvar, Mutex};
+
+        let cases = synthetic_indexed_cases(CALIBRATION_WORKERS);
+        let turn = Mutex::new(0usize); let ready = Condvar::new();
+        let completion = Mutex::new(Vec::new());
+        let rows = collect_indexed_cases_with(&cases, |case| {
+            let name = std::thread::current().name().unwrap().to_string();
+            let shard: usize = name.rsplit('-').next().unwrap().parse().unwrap();
+            let wanted = CALIBRATION_WORKERS - 1 - shard;
+            let mut at = turn.lock().unwrap();
+            while *at != wanted { at = ready.wait(at).unwrap(); }
+            completion.lock().unwrap().push(shard);
+            *at += 1; ready.notify_all();
+            (case.case, case.ordinal)
+        }).unwrap();
+        assert_eq!(completion.into_inner().unwrap(), vec![3, 2, 1, 0]);
+        assert_eq!(rows, (0..CALIBRATION_WORKERS).collect::<Vec<_>>());
+    }
+
+    #[test]
+    fn every_calibration_descriptor_is_measured_once_and_missing_rows_are_invalid() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+
+        let cases = synthetic_indexed_cases(8);
+        let visits: Vec<_> = (0..cases.len()).map(|_| AtomicUsize::new(0)).collect();
+        let rows = collect_indexed_cases_with(&cases, |case| {
+            visits[case.ordinal].fetch_add(1, Ordering::Relaxed);
+            (case.case, case.ordinal)
+        }).unwrap();
+        assert_eq!(rows.len(), cases.len());
+        assert!(visits.iter().all(|visits| visits.load(Ordering::Relaxed) == 1));
+        let missing = vec![(0, cases[0].case, ()), (1, cases[1].case, ()),
+            (3, cases[3].case, ())];
+        assert!(matches!(validate_indexed_values(&cases[..4], &missing),
+            Err(CalibrationCollectError::InvalidDescriptor { .. })));
+
+        let attempted = AtomicUsize::new(0);
+        let short = collect_indexed_cases_with_expected(&cases[..7], 8, |case| {
+            attempted.fetch_add(1, Ordering::Relaxed); (case.case, case.ordinal)
+        });
+        assert!(matches!(short, Err(CalibrationCollectError::InvalidDescriptor { .. })));
+        assert_eq!(attempted.load(Ordering::Relaxed), 0,
+            "a wrong production descriptor count must fail before spawning");
+
+        let displaced = collect_indexed_cases_with(&cases, |case| {
+            let returned = cases[(case.ordinal + 1) % cases.len()].case;
+            (returned, case.ordinal)
+        });
+        assert!(matches!(displaced,
+            Err(CalibrationCollectError::InvalidDescriptor { .. })));
+        let duplicated = collect_indexed_cases_with(&cases, |case| {
+            (cases[0].case, case.ordinal)
+        });
+        assert!(matches!(duplicated,
+            Err(CalibrationCollectError::InvalidDescriptor { .. })));
+    }
+
+    #[test]
+    fn calibration_uses_four_named_sixteen_mebibyte_workers() {
+        use std::collections::BTreeSet;
+        use std::sync::Mutex;
+
+        assert_eq!(CALIBRATION_WORKERS, 4);
+        assert_eq!(CALIBRATION_STACK_BYTES, 16 * 1024 * 1024);
+        let names = Mutex::new(BTreeSet::new());
+        collect_indexed_cases_with(&synthetic_indexed_cases(8), |case| {
+            names.lock().unwrap().insert(
+                std::thread::current().name().unwrap().to_string());
+            (case.case, ())
+        }).unwrap();
+        assert_eq!(names.into_inner().unwrap(), [
+            "smart128-tactical-calibration-0".to_string(),
+            "smart128-tactical-calibration-1".to_string(),
+            "smart128-tactical-calibration-2".to_string(),
+            "smart128-tactical-calibration-3".to_string(),
+        ].into_iter().collect());
+    }
+
+    #[test]
+    fn a_panicking_calibration_worker_is_a_named_error_before_reporting() {
+        let cases = synthetic_indexed_cases(8);
+        let result = collect_indexed_cases_with(&cases, |case| {
+            if case.ordinal == 4 { panic!("synthetic worker failure"); }
+            (case.case, case.ordinal)
+        });
+        assert_eq!(result, Err(CalibrationCollectError::WorkerPanic { shard: 2 }));
+    }
+
+    #[test]
+    fn a_failed_calibration_collection_writes_no_artifact() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+
+        let csv_written = AtomicBool::new(false);
+        let summary_written = AtomicBool::new(false);
+        let result = collect_then_render_with(
+            || Err(CalibrationCollectError::WorkerPanic { shard: 3 }),
+            |_| {
+                csv_written.store(true, Ordering::Relaxed);
+                summary_written.store(true, Ordering::Relaxed);
+            });
+        assert_eq!(result, Err(CalibrationCollectError::WorkerPanic { shard: 3 }));
+        assert!(!csv_written.load(Ordering::Relaxed));
+        assert!(!summary_written.load(Ordering::Relaxed));
+        for error in [
+            CalibrationCollectError::WorkerStart { shard: 1 },
+            CalibrationCollectError::WorkerPanic { shard: 2 },
+            CalibrationCollectError::InvalidDescriptor { expected_len: 8,
+                actual_len: 7, at: 7, ordinal: None },
+        ] {
+            let message = error.to_string();
+            assert!(message.contains("shard="));
+            assert!(message.contains("no artifact was written"));
+        }
+    }
+
+    #[test]
+    fn an_empty_calibration_plan_needs_no_worker() {
+        let rows = collect_indexed_cases_with::<usize, _>(&[],
+            |case| (case.case, case.ordinal)).unwrap();
+        assert!(rows.is_empty());
+    }
+
+    #[test]
+    fn a_dimension_covering_matched_subset_is_identical_serial_and_parallel() {
+        let cases = [
+            strong_strike::StrongCase { seed: 0, mirrored: false,
+                target_anatomy: AnatomyChoice::Fighter,
+                approach_offset: strong_strike::APPROACH_OFFSETS[0] },
+            strong_strike::StrongCase { seed: 0, mirrored: false,
+                target_anatomy: AnatomyChoice::Brute,
+                approach_offset: strong_strike::APPROACH_OFFSETS[2] },
+            strong_strike::StrongCase { seed: 1, mirrored: true,
+                target_anatomy: AnatomyChoice::Fighter,
+                approach_offset: strong_strike::APPROACH_OFFSETS[6] },
+            strong_strike::StrongCase { seed: 1, mirrored: true,
+                target_anatomy: AnatomyChoice::Brute,
+                approach_offset: strong_strike::APPROACH_OFFSETS[8] },
+        ];
+        let indexed: Vec<_> = cases.into_iter().enumerate()
+            .map(|(ordinal, case)| IndexedCase { ordinal, case }).collect();
+        let serial: Vec<_> = cases.into_iter().map(measure_matched_row).collect();
+        let parallel = collect_indexed_cases_with(&indexed,
+            |case| { let row = measure_matched_row(case.case); (row.case, row) }).unwrap();
+        assert_eq!(parallel, serial);
+        assert_eq!(parallel.iter().map(calibration_csv_row).collect::<String>(),
+            serial.iter().map(calibration_csv_row).collect::<String>());
     }
 
     #[test]
@@ -1180,6 +1495,19 @@ mod tests {
             "--held-out".to_string(), "--summary-write".to_string()]);
         assert_eq!(incompatible_mode_refusal(&args).as_deref(), Some(
             "tactical-mechanics --summary-write requires PATH"));
+    }
+
+    #[test]
+    fn tactical_mechanics_refuses_a_threads_override_by_name() {
+        for tail in [vec!["--threads".to_string()],
+            vec!["--threads".to_string(), "8".to_string()]] {
+            let mut tokens = vec!["tactical-mechanics".to_string(),
+                "--calibration".to_string()];
+            tokens.extend(tail);
+            let args = Args::parse(tokens);
+            assert_eq!(incompatible_mode_refusal(&args).as_deref(), Some(
+                "tactical-mechanics --threads is refused; worker count is fixed at 4"));
+        }
     }
 
     #[test]
