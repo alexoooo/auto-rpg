@@ -13,6 +13,19 @@ const LIMBS: usize = 128;
 const BITS: u32 = (LIMBS * 32) as u32;
 pub(crate) const WIDE_RATIONAL_WORK_SLOTS: usize = 8;
 
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) struct WideWordCopy {
+    pub(crate) negative: bool,
+    pub(crate) used: u8,
+    pub(crate) limbs: [u32; LIMBS],
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) struct WideRationalCopy {
+    pub(crate) numerator: WideWordCopy,
+    pub(crate) denominator: WideWordCopy,
+}
+
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct PositiveRationalCmpWork {
     words: [UnsignedWide4096; 10],
@@ -495,6 +508,16 @@ pub(crate) struct WideRational4096 {
 }
 
 impl WideRational4096 {
+    pub(crate) fn copy_words(self) -> WideRationalCopy {
+        WideRationalCopy {
+            numerator: WideWordCopy { negative: self.numerator.negative,
+                used: self.numerator.magnitude.used,
+                limbs: self.numerator.magnitude.limbs },
+            denominator: WideWordCopy { negative: false, used: self.denominator.used,
+                limbs: self.denominator.limbs },
+        }
+    }
+
     pub(crate) fn new(numerator: i128, denominator: i128) -> Option<Self> {
         if denominator <= 0 { return None; }
         Self::from_words(SignedWide4096::from_i128(numerator),

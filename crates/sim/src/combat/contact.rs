@@ -21,9 +21,11 @@ use fx::{
 };
 #[cfg(any(test, feature = "cartesian-recoil"))]
 use core::cmp::Ordering;
+#[cfg(all(test, feature = "cartesian-recoil"))]
+use core::sync::atomic::{AtomicU64, Ordering as AtomicOrdering};
 #[cfg(any(test, feature = "cartesian-recoil"))]
 use crate::combat::wide::{checked_cmp_positive_into, PositiveRationalCmpWork,
-                          WideRational4096};
+                          WideRational4096, WideRationalCopy};
 
 #[cfg(any(test, feature = "cartesian-recoil"))]
 const EXACT_NUMERATOR_LIMIT: u128 = 1u128 << 94;
@@ -180,6 +182,94 @@ pub struct ExactSegmentBodyVisitDiagnostic {
 
 #[cfg(feature = "cartesian-recoil")]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct ExactWideWordDiagnostic {
+    pub negative: bool, pub used: u8, pub limbs: [u32; 128],
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct ExactWideRationalDiagnostic {
+    pub numerator: ExactWideWordDiagnostic,
+    pub denominator: ExactWideWordDiagnostic,
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ExactPairAabbSideDiagnostic { A, B }
+
+#[cfg(any(test, feature = "cartesian-recoil"))]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ExactPairAabbPointSourceDiagnostic {
+    SegmentHilt, SegmentTip, BodyLower, BodyUpper,
+}
+
+#[cfg(any(test, feature = "cartesian-recoil"))]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ExactPairAabbEndpointDiagnostic { Start, End }
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct ExactPairAabbPointDiagnostic {
+    pub side: ExactPairAabbSideDiagnostic, pub ordinal: u8,
+    pub source: ExactPairAabbPointSourceDiagnostic, pub region: Option<u8>,
+    pub endpoint: ExactPairAabbEndpointDiagnostic,
+    pub coordinate: [ExactWideRationalDiagnostic; 3],
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ExactPairAabbAxisDiagnostic { X, Y, Z }
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ExactPairAabbComparisonDiagnostic { Less, Equal, Greater }
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct ExactPairAabbBoundRowDiagnostic {
+    pub axis: ExactPairAabbAxisDiagnostic,
+    pub left_min: ExactWideRationalDiagnostic, pub left_max: ExactWideRationalDiagnostic,
+    pub right_min: ExactWideRationalDiagnostic, pub right_max: ExactWideRationalDiagnostic,
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct ExactPairAabbGapRowDiagnostic {
+    pub axis: ExactPairAabbAxisDiagnostic,
+    pub right_gap: ExactWideRationalDiagnostic,
+    pub right_comparison: ExactPairAabbComparisonDiagnostic,
+    pub left_gap: Option<ExactWideRationalDiagnostic>,
+    pub left_comparison: Option<ExactPairAabbComparisonDiagnostic>,
+    pub disjoint: bool,
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ExactPairAabbTerminalDiagnostic {
+    Overlap, Disjoint, Reject(ExactScanRejectDiagnostic),
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ExactPairAabbRecorderInvalidDiagnostic {
+    Capacity, Cardinality, Lifecycle, Overflow, WordCopy,
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct ExactPairAabbDiagnostic<'a> {
+    pub start_raw: u32, pub end_raw: u32,
+    pub a_radius_raw: Option<i32>, pub b_radius_raw: Option<i32>,
+    pub combined_radius: Option<ExactWideRationalDiagnostic>,
+    pub terminal: ExactPairAabbTerminalDiagnostic,
+    pub recorder_invalid: Option<ExactPairAabbRecorderInvalidDiagnostic>,
+    pub points: &'a [ExactPairAabbPointDiagnostic],
+    pub bounds: &'a [ExactPairAabbBoundRowDiagnostic],
+    pub gaps: &'a [ExactPairAabbGapRowDiagnostic],
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct ExactSegmentBodyPairDiagnostic<'a> {
     pub a_entity: EntityId, pub b_entity: EntityId,
     pub a_slot: u8, pub b_slot: u8,
@@ -191,6 +281,7 @@ pub struct ExactSegmentBodyPairDiagnostic<'a> {
     pub result: ExactSegmentBodyPairResultDiagnostic,
     pub regions: &'a [ExactSegmentBodyRegionDiagnostic],
     pub visits: &'a [ExactSegmentBodyVisitDiagnostic],
+    pub pair_aabb: Option<ExactPairAabbDiagnostic<'a>>,
 }
 
 #[cfg(feature = "cartesian-recoil")]
@@ -368,6 +459,12 @@ struct CertifiedProvenance { key: ContactKey, time_raw: u32,
 
 #[cfg(feature = "cartesian-recoil")]
 const EXACT_SEGMENT_BODY_VISIT_CAP: usize = AnatomyRegion::COUNT * 96;
+#[cfg(feature = "cartesian-recoil")]
+const EXACT_PAIR_AABB_POINT_CAP: usize = AnatomyRegion::COUNT * 4 + 4;
+#[cfg(feature = "cartesian-recoil")]
+const EXACT_PAIR_AABB_AXIS_CAP: usize = 3;
+#[cfg(all(test, feature = "cartesian-recoil"))]
+static EXACT_DIAGNOSTIC_MUTATION_RECEIPT: AtomicU64 = AtomicU64::new(1);
 
 // This opt-in recorder lives only in reusable contact scratch. It cannot enter
 // authoritative state, replay, selection, or resolution; every registered pin
@@ -384,6 +481,178 @@ pub(crate) enum ExactSegmentBodyTestMutation {
     DuplicateEncounter,
     RefuseCapacity,
     RouteRecorderIntoResult,
+    ClearActiveOnRequest,
+    RefuseOccupiedActive,
+    AllowSecondPending,
+    PendingReplacesActive,
+    RetainOldActiveDespitePending,
+    AabbRecorderCapacity,
+    RouteAabbRecorderIntoResult,
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ExactTargetMode { SegmentBody, PairAabb }
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Default)]
+struct ExactPairAabbState {
+    start_raw: u32, end_raw: u32,
+    a_radius_raw: Option<i32>, b_radius_raw: Option<i32>,
+    combined_radius: Option<ExactWideRationalDiagnostic>,
+    terminal: Option<ExactPairAabbTerminalDiagnostic>,
+    recorder_invalid: Option<ExactPairAabbRecorderInvalidDiagnostic>,
+    points: Vec<ExactPairAabbPointDiagnostic>,
+    bounds: Vec<ExactPairAabbBoundRowDiagnostic>,
+    gaps: Vec<ExactPairAabbGapRowDiagnostic>,
+}
+
+#[cfg(feature = "cartesian-recoil")]
+impl ExactPairAabbState {
+    fn try_reserve(&mut self) -> Result<(), ContactCapacityError> {
+        try_reserve_exact(&mut self.points, EXACT_PAIR_AABB_POINT_CAP)?;
+        try_reserve_exact(&mut self.bounds, EXACT_PAIR_AABB_AXIS_CAP)?;
+        try_reserve_exact(&mut self.gaps, EXACT_PAIR_AABB_AXIS_CAP)
+    }
+
+    fn clear(&mut self) {
+        self.start_raw = 0; self.end_raw = 0;
+        self.a_radius_raw = None; self.b_radius_raw = None;
+        self.combined_radius = None; self.terminal = None; self.recorder_invalid = None;
+        self.points.clear(); self.bounds.clear(); self.gaps.clear();
+    }
+
+    fn diagnostic(&self) -> Option<ExactPairAabbDiagnostic<'_>> {
+        Some(ExactPairAabbDiagnostic { start_raw: self.start_raw, end_raw: self.end_raw,
+            a_radius_raw: self.a_radius_raw, b_radius_raw: self.b_radius_raw,
+            combined_radius: self.combined_radius, terminal: self.terminal?,
+            recorder_invalid: self.recorder_invalid, points: &self.points,
+            bounds: &self.bounds, gaps: &self.gaps })
+    }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn exact_wide_rational_diagnostic(value: WideRational4096) -> ExactWideRationalDiagnostic {
+    let WideRationalCopy { numerator, denominator } = value.copy_words();
+    ExactWideRationalDiagnostic {
+        numerator: ExactWideWordDiagnostic { negative: numerator.negative,
+            used: numerator.used, limbs: numerator.limbs },
+        denominator: ExactWideWordDiagnostic { negative: denominator.negative,
+            used: denominator.used, limbs: denominator.limbs },
+    }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+struct ExactPairAabbRecorder<'a> {
+    state: &'a mut ExactPairAabbState,
+    #[cfg(test)]
+    test_mutation: ExactSegmentBodyTestMutation,
+    #[cfg(test)]
+    test_mutation_receipt: u64,
+    #[cfg(test)]
+    test_mutation_fired: &'a mut u64,
+}
+
+#[cfg(feature = "cartesian-recoil")]
+impl ExactPairAabbRecorder<'_> {
+    fn invalidate(&mut self, invalid: ExactPairAabbRecorderInvalidDiagnostic) {
+        if self.state.recorder_invalid.is_none() { self.state.recorder_invalid = Some(invalid); }
+    }
+
+    fn begin(&mut self, start_raw: u32, end_raw: u32) {
+        self.state.start_raw = start_raw; self.state.end_raw = end_raw;
+    }
+
+    fn point(&mut self, side: ExactPairAabbSideDiagnostic,
+             source: ExactPairAabbPointSourceDiagnostic, region: Option<u8>,
+             endpoint: ExactPairAabbEndpointDiagnostic, point: WidePoint) {
+        #[cfg(test)]
+        if self.test_mutation == ExactSegmentBodyTestMutation::AabbRecorderCapacity {
+            *self.test_mutation_fired = self.test_mutation_receipt;
+            self.invalidate(ExactPairAabbRecorderInvalidDiagnostic::Capacity); return
+        }
+        if self.state.points.len() >= EXACT_PAIR_AABB_POINT_CAP {
+            self.invalidate(ExactPairAabbRecorderInvalidDiagnostic::Capacity); return
+        }
+        let ordinal = self.state.points.iter().filter(|row| row.side == side).count();
+        let Ok(ordinal) = u8::try_from(ordinal) else {
+            self.invalidate(ExactPairAabbRecorderInvalidDiagnostic::Overflow); return
+        };
+        self.state.points.push(ExactPairAabbPointDiagnostic { side, ordinal, source, region,
+            endpoint, coordinate: point.0.map(exact_wide_rational_diagnostic) });
+    }
+
+    fn radius(&mut self, side: ExactPairAabbSideDiagnostic, radius_raw: i32) {
+        match side {
+            ExactPairAabbSideDiagnostic::A => self.state.a_radius_raw = Some(radius_raw),
+            ExactPairAabbSideDiagnostic::B => self.state.b_radius_raw = Some(radius_raw),
+        }
+    }
+
+    fn bounds(&mut self, left_min: [WideRational4096; 3], left_max: [WideRational4096; 3],
+              right_min: [WideRational4096; 3], right_max: [WideRational4096; 3]) {
+        for axis in 0..3 {
+            if self.state.bounds.len() >= EXACT_PAIR_AABB_AXIS_CAP {
+                self.invalidate(ExactPairAabbRecorderInvalidDiagnostic::Capacity); return
+            }
+            self.state.bounds.push(ExactPairAabbBoundRowDiagnostic {
+                axis: exact_pair_aabb_axis(axis),
+                left_min: exact_wide_rational_diagnostic(left_min[axis]),
+                left_max: exact_wide_rational_diagnostic(left_max[axis]),
+                right_min: exact_wide_rational_diagnostic(right_min[axis]),
+                right_max: exact_wide_rational_diagnostic(right_max[axis]),
+            });
+        }
+    }
+
+    fn combined_radius(&mut self, radius: WideRational4096) {
+        self.state.combined_radius = Some(exact_wide_rational_diagnostic(radius));
+    }
+
+    fn gap(&mut self, axis: usize, right_gap: WideRational4096,
+           right_comparison: Ordering, left: Option<(WideRational4096, Ordering)>,
+           disjoint: bool) {
+        if self.state.gaps.len() >= EXACT_PAIR_AABB_AXIS_CAP {
+            self.invalidate(ExactPairAabbRecorderInvalidDiagnostic::Capacity); return
+        }
+        self.state.gaps.push(ExactPairAabbGapRowDiagnostic { axis: exact_pair_aabb_axis(axis),
+            right_gap: exact_wide_rational_diagnostic(right_gap),
+            right_comparison: exact_pair_aabb_comparison(right_comparison),
+            left_gap: left.map(|row| exact_wide_rational_diagnostic(row.0)),
+            left_comparison: left.map(|row| exact_pair_aabb_comparison(row.1)), disjoint });
+    }
+
+    fn finish_left_gap(&mut self, axis: usize, left_gap: WideRational4096,
+                       left_comparison: Ordering, disjoint: bool) {
+        let Some(row) = self.state.gaps.last_mut() else {
+            self.invalidate(ExactPairAabbRecorderInvalidDiagnostic::Lifecycle); return
+        };
+        if row.axis != exact_pair_aabb_axis(axis) || row.left_gap.is_some() {
+            self.invalidate(ExactPairAabbRecorderInvalidDiagnostic::Lifecycle); return
+        }
+        row.left_gap = Some(exact_wide_rational_diagnostic(left_gap));
+        row.left_comparison = Some(exact_pair_aabb_comparison(left_comparison));
+        row.disjoint = disjoint;
+    }
+
+    fn terminal(&mut self, terminal: ExactPairAabbTerminalDiagnostic) {
+        if self.state.terminal.replace(terminal).is_some() {
+            self.invalidate(ExactPairAabbRecorderInvalidDiagnostic::Lifecycle);
+        }
+    }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn exact_pair_aabb_axis(axis: usize) -> ExactPairAabbAxisDiagnostic {
+    [ExactPairAabbAxisDiagnostic::X, ExactPairAabbAxisDiagnostic::Y,
+     ExactPairAabbAxisDiagnostic::Z][axis]
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn exact_pair_aabb_comparison(order: Ordering) -> ExactPairAabbComparisonDiagnostic {
+    match order { Ordering::Less => ExactPairAabbComparisonDiagnostic::Less,
+        Ordering::Equal => ExactPairAabbComparisonDiagnostic::Equal,
+        Ordering::Greater => ExactPairAabbComparisonDiagnostic::Greater }
 }
 
 #[cfg(feature = "cartesian-recoil")]
@@ -400,28 +669,37 @@ struct ExactSegmentBodyPairHeader {
 #[cfg(feature = "cartesian-recoil")]
 #[derive(Default)]
 struct ExactSegmentBodyTargetState {
-    requested: Option<ExactSegmentBodyDiagnosticTarget>,
-    active: Option<ExactSegmentBodyDiagnosticTarget>,
+    requested_mode: Option<ExactTargetMode>,
+    requested_target: Option<ExactSegmentBodyDiagnosticTarget>,
+    active_mode: Option<ExactTargetMode>,
+    active_target: Option<ExactSegmentBodyDiagnosticTarget>,
     encounter_count: u32,
     pair: Option<ExactSegmentBodyPairHeader>,
     regions: Vec<ExactSegmentBodyRegionDiagnostic>,
     visits: Vec<ExactSegmentBodyVisitDiagnostic>,
+    pair_aabb: ExactPairAabbState,
     invalid: bool,
     #[cfg(test)]
     test_mutation: ExactSegmentBodyTestMutation,
     #[cfg(test)]
-    test_mutation_fired: bool,
+    test_mutation_receipt: u64,
+    #[cfg(test)]
+    test_mutation_fired: u64,
 }
 
 #[cfg(feature = "cartesian-recoil")]
 impl Clone for ExactSegmentBodyTargetState {
     fn clone(&self) -> Self {
         let mut cloned = Self {
-            requested: self.requested, active: self.active,
+            requested_mode: self.requested_mode, requested_target: self.requested_target,
+            active_mode: self.active_mode, active_target: self.active_target,
             encounter_count: self.encounter_count, pair: self.pair.clone(),
-            regions: self.regions.clone(), visits: self.visits.clone(), invalid: self.invalid,
+            regions: self.regions.clone(), visits: self.visits.clone(),
+            pair_aabb: self.pair_aabb.clone(), invalid: self.invalid,
             #[cfg(test)]
             test_mutation: self.test_mutation,
+            #[cfg(test)]
+            test_mutation_receipt: self.test_mutation_receipt,
             #[cfg(test)]
             test_mutation_fired: self.test_mutation_fired,
         };
@@ -434,37 +712,74 @@ impl Clone for ExactSegmentBodyTargetState {
 impl ExactSegmentBodyTargetState {
     fn try_reserve(&mut self) -> Result<(), ContactCapacityError> {
         try_reserve_exact(&mut self.regions, AnatomyRegion::COUNT)?;
-        try_reserve_exact(&mut self.visits, EXACT_SEGMENT_BODY_VISIT_CAP)
+        try_reserve_exact(&mut self.visits, EXACT_SEGMENT_BODY_VISIT_CAP)?;
+        self.pair_aabb.try_reserve()
     }
 
-    fn request(&mut self, target: ExactSegmentBodyDiagnosticTarget) -> bool {
+    fn request(&mut self, mode: ExactTargetMode,
+               target: ExactSegmentBodyDiagnosticTarget) -> bool {
         #[cfg(test)]
         if self.test_mutation == ExactSegmentBodyTestMutation::RefuseCapacity {
-            self.test_mutation_fired = true; return false
+            self.test_mutation_fired = self.test_mutation_receipt; return false
         }
-        if self.requested.is_some() || self.regions.capacity() < AnatomyRegion::COUNT
-            || self.visits.capacity() < EXACT_SEGMENT_BODY_VISIT_CAP { return false; }
-        self.requested = Some(target); true
+        #[cfg(test)]
+        if self.active_mode.is_some()
+            && self.test_mutation == ExactSegmentBodyTestMutation::RefuseOccupiedActive {
+            self.test_mutation_fired = self.test_mutation_receipt; return false
+        }
+        #[cfg(test)]
+        if self.test_mutation == ExactSegmentBodyTestMutation::ClearActiveOnRequest {
+            self.test_mutation_fired = self.test_mutation_receipt;
+            self.active_mode = None; self.active_target = None;
+        }
+        let occupied = self.requested_mode.is_some();
+        #[cfg(test)]
+        let occupied = if occupied
+            && self.test_mutation == ExactSegmentBodyTestMutation::AllowSecondPending {
+            self.test_mutation_fired = self.test_mutation_receipt; false
+        } else { occupied };
+        if occupied || self.regions.capacity() < AnatomyRegion::COUNT
+            || self.visits.capacity() < EXACT_SEGMENT_BODY_VISIT_CAP
+            || self.pair_aabb.points.capacity() < EXACT_PAIR_AABB_POINT_CAP
+            || self.pair_aabb.bounds.capacity() < EXACT_PAIR_AABB_AXIS_CAP
+            || self.pair_aabb.gaps.capacity() < EXACT_PAIR_AABB_AXIS_CAP { return false; }
+        #[cfg(test)]
+        if self.test_mutation == ExactSegmentBodyTestMutation::PendingReplacesActive {
+            self.test_mutation_fired = self.test_mutation_receipt;
+            self.active_mode = Some(mode); self.active_target = Some(target);
+        }
+        self.requested_mode = Some(mode); self.requested_target = Some(target); true
     }
 
     fn begin_tick(&mut self) {
         #[cfg(test)]
-        if self.requested.is_none()
+        if self.requested_mode.is_none()
             && self.test_mutation == ExactSegmentBodyTestMutation::RetainAcrossTick {
-            self.test_mutation_fired = true; return
+            self.test_mutation_fired = self.test_mutation_receipt; return
         }
-        self.active = self.requested.take();
+        #[cfg(test)]
+        if self.requested_mode.is_some()
+            && self.test_mutation == ExactSegmentBodyTestMutation::RetainOldActiveDespitePending {
+            self.test_mutation_fired = self.test_mutation_receipt;
+            self.requested_mode = None; self.requested_target = None; return
+        }
+        self.active_mode = self.requested_mode.take();
+        self.active_target = self.requested_target.take();
         self.encounter_count = 0; self.pair = None;
-        self.regions.clear(); self.visits.clear(); self.invalid = false;
+        self.regions.clear(); self.visits.clear(); self.pair_aabb.clear(); self.invalid = false;
     }
 
     #[cfg(test)]
     fn set_test_mutation(&mut self, mutation: ExactSegmentBodyTestMutation) {
-        self.test_mutation = mutation; self.test_mutation_fired = false;
+        self.test_mutation = mutation;
+        self.test_mutation_receipt = EXACT_DIAGNOSTIC_MUTATION_RECEIPT
+            .fetch_add(1, AtomicOrdering::Relaxed);
+        self.test_mutation_fired = 0;
     }
 
-    fn diagnostic(&self) -> Option<ExactSegmentBodyTargetDiagnostic<'_>> {
-        let target = self.active?;
+    fn diagnostic(&self, mode: ExactTargetMode) -> Option<ExactSegmentBodyTargetDiagnostic<'_>> {
+        if self.active_mode != Some(mode) { return None }
+        let target = self.active_target?;
         let ranges_valid = self.regions.iter().all(|row|
             row.visit_start.checked_add(row.visit_count as usize)
                 .is_some_and(|end| end <= self.visits.len()));
@@ -479,6 +794,7 @@ impl ExactSegmentBodyTargetState {
             pair_aabb_supported: header.pair_aabb_supported,
             pair_aabb_disjoint: header.pair_aabb_disjoint,
             result: header.result, regions: &self.regions, visits: &self.visits,
+            pair_aabb: (mode == ExactTargetMode::PairAabb).then(|| self.pair_aabb.diagnostic()).flatten(),
         });
         Some(ExactSegmentBodyTargetDiagnostic { target, encounter_count: self.encounter_count,
                                                 pair })
@@ -493,7 +809,9 @@ struct ExactSegmentBodyTargetRows<'a> {
     #[cfg(test)]
     test_mutation: ExactSegmentBodyTestMutation,
     #[cfg(test)]
-    test_mutation_fired: &'a mut bool,
+    test_mutation_receipt: u64,
+    #[cfg(test)]
+    test_mutation_fired: &'a mut u64,
 }
 
 #[cfg(feature = "cartesian-recoil")]
@@ -507,7 +825,7 @@ impl ExactSegmentBodyTargetRows<'_> {
         #[cfg(test)]
         if self.test_mutation == ExactSegmentBodyTestMutation::DropVisit
             && self.visits.len() == 8 {
-            *self.test_mutation_fired = true; return None
+            *self.test_mutation_fired = self.test_mutation_receipt; return None
         }
         if self.visits.len() == EXACT_SEGMENT_BODY_VISIT_CAP {
             *self.invalid = true; return None
@@ -562,7 +880,12 @@ impl ContactCollectionScratch {
     #[cfg(feature = "cartesian-recoil")]
     pub(crate) fn request_segment_body_target(&mut self,
         target: ExactSegmentBodyDiagnosticTarget) -> bool
-    { self.segment_body_target.request(target) }
+    { self.segment_body_target.request(ExactTargetMode::SegmentBody, target) }
+
+    #[cfg(feature = "cartesian-recoil")]
+    pub(crate) fn request_segment_body_pair_aabb_target(&mut self,
+        target: ExactSegmentBodyDiagnosticTarget) -> bool
+    { self.segment_body_target.request(ExactTargetMode::PairAabb, target) }
 
     #[cfg(feature = "cartesian-recoil")]
     pub(crate) fn begin_segment_body_target_tick(&mut self) {
@@ -572,7 +895,12 @@ impl ContactCollectionScratch {
     #[cfg(feature = "cartesian-recoil")]
     pub(crate) fn segment_body_target_diagnostic(&self)
         -> Option<ExactSegmentBodyTargetDiagnostic<'_>>
-    { self.segment_body_target.diagnostic() }
+    { self.segment_body_target.diagnostic(ExactTargetMode::SegmentBody) }
+
+    #[cfg(feature = "cartesian-recoil")]
+    pub(crate) fn segment_body_pair_aabb_diagnostic(&self)
+        -> Option<ExactSegmentBodyTargetDiagnostic<'_>>
+    { self.segment_body_target.diagnostic(ExactTargetMode::PairAabb) }
 
     #[cfg(all(test, feature = "cartesian-recoil"))]
     pub(crate) fn set_segment_body_test_mutation(&mut self,
@@ -582,7 +910,9 @@ impl ContactCollectionScratch {
 
     #[cfg(all(test, feature = "cartesian-recoil"))]
     pub(crate) fn segment_body_test_mutation_fired(&self) -> bool {
-        self.segment_body_target.test_mutation_fired
+        self.segment_body_target.test_mutation_receipt != 0
+            && self.segment_body_target.test_mutation_fired
+                == self.segment_body_target.test_mutation_receipt
     }
 
     #[cfg(feature = "cartesian-recoil")]
@@ -591,7 +921,7 @@ impl ContactCollectionScratch {
         b: &ExactContactTrajectory) -> bool
     {
         let Some((key, orientation)) = segment_body_target_key(a, b) else { return false };
-        let Some(target) = self.segment_body_target.active else { return false };
+        let Some(target) = self.segment_body_target.active_target else { return false };
         if target.a_index != i || target.b_index != j
             || target.key.a != key.a || target.key.a_slot != key.a_slot
             || target.key.b != key.b || target.key.b_slot != key.b_slot
@@ -604,7 +934,8 @@ impl ContactCollectionScratch {
             #[cfg(test)]
             if self.segment_body_target.test_mutation
                 == ExactSegmentBodyTestMutation::DuplicateEncounter {
-                self.segment_body_target.test_mutation_fired = true;
+                self.segment_body_target.test_mutation_fired =
+                    self.segment_body_target.test_mutation_receipt;
             } else { return false }
             #[cfg(not(test))]
             return false
@@ -635,7 +966,8 @@ impl ContactCollectionScratch {
         if self.segment_body_target.test_mutation == ExactSegmentBodyTestMutation::SwapVisits
             && self.segment_body_target.visits.len() > 8 {
             self.segment_body_target.visits.swap(7, 8);
-            self.segment_body_target.test_mutation_fired = true;
+            self.segment_body_target.test_mutation_fired =
+                self.segment_body_target.test_mutation_receipt;
         }
     }
 
@@ -661,7 +993,10 @@ impl ContactCollectionScratch {
              self.exact_wide.segment_body_separation.axes.capacity(),
              self.exact_wide.segment_body_separation.scalar.capacity(),
              self.segment_body_target.regions.capacity(),
-             self.segment_body_target.visits.capacity()]
+             self.segment_body_target.visits.capacity(),
+             self.segment_body_target.pair_aabb.points.capacity(),
+             self.segment_body_target.pair_aabb.bounds.capacity(),
+             self.segment_body_target.pair_aabb.gaps.capacity()]
     }
 
     #[cfg(all(test, not(feature = "cartesian-recoil")))]
@@ -915,9 +1250,34 @@ fn scan_detector_into(
                 // bounds already prove.
                 let aabb_supported = exact_pair_has_swept_aabb(a, b);
                 let aabb_disjoint = if aabb_supported {
-                    match wide_swept_aabbs_are_disjoint(
+                    #[cfg(feature = "cartesian-recoil")]
+                    let mut aabb_recorder = (target_claimed
+                        && scratch.segment_body_target.active_mode == Some(ExactTargetMode::PairAabb))
+                        .then(|| ExactPairAabbRecorder {
+                            state: &mut scratch.segment_body_target.pair_aabb,
+                            #[cfg(test)]
+                            test_mutation: scratch.segment_body_target.test_mutation,
+                            #[cfg(test)]
+                            test_mutation_receipt:
+                                scratch.segment_body_target.test_mutation_receipt,
+                            #[cfg(test)]
+                            test_mutation_fired:
+                                &mut scratch.segment_body_target.test_mutation_fired,
+                        });
+                    #[allow(unused_mut)]
+                    let mut aabb_result = wide_swept_aabbs_are_disjoint(
                         a, owner_a, b, owner_b, &mut scratch.exact_wide,
-                    ) {
+                        #[cfg(feature = "cartesian-recoil")] aabb_recorder.as_mut(),
+                    );
+                    #[cfg(all(test, feature = "cartesian-recoil"))]
+                    { drop(aabb_recorder);
+                      if target_claimed && scratch.segment_body_target.test_mutation
+                          == ExactSegmentBodyTestMutation::RouteAabbRecorderIntoResult {
+                          scratch.segment_body_target.test_mutation_fired =
+                              scratch.segment_body_target.test_mutation_receipt;
+                          aabb_result = Err(ExactScanReject::CompatibilityIdentity);
+                      } }
+                    match aabb_result {
                         Ok(disjoint) => Some(disjoint),
                         Err(reject) => {
                             #[cfg(feature = "cartesian-recoil")]
@@ -969,6 +1329,9 @@ fn scan_detector_into(
                                 #[cfg(test)]
                                 test_mutation: scratch.segment_body_target.test_mutation,
                                 #[cfg(test)]
+                                test_mutation_receipt:
+                                    scratch.segment_body_target.test_mutation_receipt,
+                                #[cfg(test)]
                                 test_mutation_fired:
                                     &mut scratch.segment_body_target.test_mutation_fired,
                             });
@@ -987,6 +1350,9 @@ fn scan_detector_into(
                                 invalid: &mut scratch.segment_body_target.invalid,
                                 #[cfg(test)]
                                 test_mutation: scratch.segment_body_target.test_mutation,
+                                #[cfg(test)]
+                                test_mutation_receipt:
+                                    scratch.segment_body_target.test_mutation_receipt,
                                 #[cfg(test)]
                                 test_mutation_fired:
                                     &mut scratch.segment_body_target.test_mutation_fired,
@@ -1040,7 +1406,8 @@ fn scan_detector_into(
                 #[cfg(all(test, feature = "cartesian-recoil"))]
                 let candidate = if target_claimed && scratch.segment_body_target.test_mutation
                     == ExactSegmentBodyTestMutation::RouteRecorderIntoResult {
-                    scratch.segment_body_target.test_mutation_fired = true; None
+                    scratch.segment_body_target.test_mutation_fired =
+                        scratch.segment_body_target.test_mutation_receipt; None
                 } else { candidate };
                 #[cfg(feature = "cartesian-recoil")]
                 scratch.finish_segment_body_target_pair(target_claimed, aabb_supported,
@@ -2649,6 +3016,8 @@ fn exact_pair_has_swept_aabb(a: &ExactContactTrajectory, b: &ExactContactTraject
 fn fill_wide_swept_aabb_points(
     out: &mut Vec<WidePoint>, row: &ExactContactTrajectory, owner: &ExactOwnerTrajectory,
     start: u32, end: u32,
+    #[cfg(feature = "cartesian-recoil")] side: ExactPairAabbSideDiagnostic,
+    #[cfg(feature = "cartesian-recoil")] mut recorder: Option<&mut ExactPairAabbRecorder<'_>>,
 ) -> Result<i32, ExactScanReject>
 {
     out.clear();
@@ -2657,7 +3026,21 @@ fn fill_wide_swept_aabb_points(
         MotorShape::Segment { radius_raw, .. } => {
             let (h0, t0, _) = wide_segment_at_time(row, owner, start)?;
             let (h1, t1, _) = wide_segment_at_time(row, owner, end)?;
-            for point in [h0, t0, h1, t1] { push_wide_aabb_point(out, point)?; }
+            for (point, source, endpoint) in [
+                (h0, ExactPairAabbPointSourceDiagnostic::SegmentHilt,
+                    ExactPairAabbEndpointDiagnostic::Start),
+                (t0, ExactPairAabbPointSourceDiagnostic::SegmentTip,
+                    ExactPairAabbEndpointDiagnostic::Start),
+                (h1, ExactPairAabbPointSourceDiagnostic::SegmentHilt,
+                    ExactPairAabbEndpointDiagnostic::End),
+                (t1, ExactPairAabbPointSourceDiagnostic::SegmentTip,
+                    ExactPairAabbEndpointDiagnostic::End)] {
+                push_wide_aabb_point(out, point)?;
+                #[cfg(feature = "cartesian-recoil")]
+                if let Some(rows) = recorder.as_deref_mut() {
+                    rows.point(side, source, None, endpoint, point);
+                }
+            }
             maximum_radius_raw = radius_raw;
         }
         MotorShape::Shield { .. } => {
@@ -2674,7 +3057,21 @@ fn fill_wide_swept_aabb_points(
                     wide_body_region_at_time(row, owner, region, start)? else { continue };
                 let Some((l1, u1, _)) =
                     wide_body_region_at_time(row, owner, region, end)? else { continue };
-                for point in [l0, u0, l1, u1] { push_wide_aabb_point(out, point)?; }
+                for (point, source, endpoint) in [
+                    (l0, ExactPairAabbPointSourceDiagnostic::BodyLower,
+                        ExactPairAabbEndpointDiagnostic::Start),
+                    (u0, ExactPairAabbPointSourceDiagnostic::BodyUpper,
+                        ExactPairAabbEndpointDiagnostic::Start),
+                    (l1, ExactPairAabbPointSourceDiagnostic::BodyLower,
+                        ExactPairAabbEndpointDiagnostic::End),
+                    (u1, ExactPairAabbPointSourceDiagnostic::BodyUpper,
+                        ExactPairAabbEndpointDiagnostic::End)] {
+                    push_wide_aabb_point(out, point)?;
+                    #[cfg(feature = "cartesian-recoil")]
+                    if let Some(rows) = recorder.as_deref_mut() {
+                        rows.point(side, source, Some(region as u8), endpoint, point);
+                    }
+                }
                 maximum_radius_raw = maximum_radius_raw.max(radius_raw);
             }
         }
@@ -2684,7 +3081,9 @@ fn fill_wide_swept_aabb_points(
 
 #[cfg(any(test, feature = "cartesian-recoil"))]
 fn wide_aabb_points_are_disjoint(left: WideSweptAabbView<'_>,
-                                 right: WideSweptAabbView<'_>)
+                                 right: WideSweptAabbView<'_>,
+                                 #[cfg(feature = "cartesian-recoil")]
+                                 mut recorder: Option<&mut ExactPairAabbRecorder<'_>>)
     -> Result<bool, ExactScanReject>
 {
     if left.points.is_empty() || right.points.is_empty() { return Ok(true); }
@@ -2716,13 +3115,36 @@ fn wide_aabb_points_are_disjoint(left: WideSweptAabbView<'_>,
             }
         }
     }
+    #[cfg(feature = "cartesian-recoil")]
+    if let Some(rows) = recorder.as_deref_mut() {
+        rows.bounds(left_min, left_max, right_min, right_max);
+    }
     let radius = wide_radius(left.radius_raw.checked_add(right.radius_raw)
         .ok_or(ExactScanReject::ArithmeticEnvelope)?)?;
+    #[cfg(feature = "cartesian-recoil")]
+    if let Some(rows) = recorder.as_deref_mut() { rows.combined_radius(radius); }
     for axis in 0..3 {
         let right_gap = wide_sub(right_min[axis], left_max[axis])?;
-        if wide_cmp(right_gap, radius)? == Ordering::Greater { return Ok(true); }
+        let right_comparison = wide_cmp(right_gap, radius)?;
+        if right_comparison == Ordering::Greater {
+            #[cfg(feature = "cartesian-recoil")]
+            if let Some(rows) = recorder.as_deref_mut() {
+                rows.gap(axis, right_gap, right_comparison, None, true);
+            }
+            return Ok(true)
+        }
+        #[cfg(feature = "cartesian-recoil")]
+        if let Some(rows) = recorder.as_deref_mut() {
+            rows.gap(axis, right_gap, right_comparison, None, false);
+        }
         let left_gap = wide_sub(left_min[axis], right_max[axis])?;
-        if wide_cmp(left_gap, radius)? == Ordering::Greater { return Ok(true); }
+        let left_comparison = wide_cmp(left_gap, radius)?;
+        let disjoint = left_comparison == Ordering::Greater;
+        #[cfg(feature = "cartesian-recoil")]
+        if let Some(rows) = recorder.as_deref_mut() {
+            rows.finish_left_gap(axis, left_gap, left_comparison, disjoint);
+        }
+        if disjoint { return Ok(true); }
     }
     Ok(false)
 }
@@ -2730,11 +3152,14 @@ fn wide_aabb_points_are_disjoint(left: WideSweptAabbView<'_>,
 #[cfg(any(test, feature = "cartesian-recoil"))]
 fn wide_swept_aabbs_are_disjoint(a: &ExactContactTrajectory, ao: &ExactOwnerTrajectory,
                                   b: &ExactContactTrajectory, bo: &ExactOwnerTrajectory,
-                                  scratch: &mut ExactWideScratch)
+                                  scratch: &mut ExactWideScratch,
+                                  #[cfg(feature = "cartesian-recoil")]
+                                  recorder: Option<&mut ExactPairAabbRecorder<'_>>)
     -> Result<bool, ExactScanReject>
 {
     let start = ao.common_response.group_time_raw;
-    wide_swept_aabbs_are_disjoint_during(a, ao, b, bo, start, 65_536, scratch)
+    wide_swept_aabbs_are_disjoint_during(a, ao, b, bo, start, 65_536, scratch,
+        #[cfg(feature = "cartesian-recoil")] recorder)
 }
 
 #[cfg(any(test, feature = "cartesian-recoil"))]
@@ -2742,14 +3167,40 @@ fn wide_swept_aabbs_are_disjoint_during(
     a: &ExactContactTrajectory, ao: &ExactOwnerTrajectory,
     b: &ExactContactTrajectory, bo: &ExactOwnerTrajectory, start: u32, end: u32,
     scratch: &mut ExactWideScratch,
+    #[cfg(feature = "cartesian-recoil")]
+    mut recorder: Option<&mut ExactPairAabbRecorder<'_>>,
 ) -> Result<bool, ExactScanReject> {
+    #[cfg(feature = "cartesian-recoil")]
+    if let Some(rows) = recorder.as_deref_mut() { rows.begin(start, end); }
     let ExactWideScratch { aabb_left: left, aabb_right: right, .. } = scratch;
-    let left_radius = fill_wide_swept_aabb_points(left, a, ao, start, end)?;
-    let right_radius = fill_wide_swept_aabb_points(right, b, bo, start, end)?;
+    let result = (|| {
+    let left_radius = fill_wide_swept_aabb_points(left, a, ao, start, end,
+        #[cfg(feature = "cartesian-recoil")] ExactPairAabbSideDiagnostic::A,
+        #[cfg(feature = "cartesian-recoil")] recorder.as_deref_mut())?;
+    #[cfg(feature = "cartesian-recoil")]
+    if let Some(rows) = recorder.as_deref_mut() {
+        rows.radius(ExactPairAabbSideDiagnostic::A, left_radius);
+    }
+    let right_radius = fill_wide_swept_aabb_points(right, b, bo, start, end,
+        #[cfg(feature = "cartesian-recoil")] ExactPairAabbSideDiagnostic::B,
+        #[cfg(feature = "cartesian-recoil")] recorder.as_deref_mut())?;
+    #[cfg(feature = "cartesian-recoil")]
+    if let Some(rows) = recorder.as_deref_mut() {
+        rows.radius(ExactPairAabbSideDiagnostic::B, right_radius);
+    }
     wide_aabb_points_are_disjoint(
         WideSweptAabbView { points: left.as_slice(), radius_raw: left_radius },
         WideSweptAabbView { points: right.as_slice(), radius_raw: right_radius },
-    )
+        #[cfg(feature = "cartesian-recoil")] recorder.as_deref_mut())
+    })();
+    #[cfg(feature = "cartesian-recoil")]
+    if let Some(rows) = recorder.as_deref_mut() {
+        rows.terminal(match result { Ok(true) => ExactPairAabbTerminalDiagnostic::Disjoint,
+            Ok(false) => ExactPairAabbTerminalDiagnostic::Overlap,
+            Err(reject) => ExactPairAabbTerminalDiagnostic::Reject(
+                scan_reject_diagnostic(reject)) });
+    }
+    result
 }
 
 #[cfg(any(test, feature = "cartesian-recoil"))]
@@ -2759,7 +3210,9 @@ fn wide_segment_body_region_aabbs_are_disjoint_during(
     region: usize, start: u32, end: u32, scratch: &mut ExactWideScratch,
 ) -> Result<bool, ExactScanReject> {
     let ExactWideScratch { aabb_left: segment, aabb_right: part, .. } = scratch;
-    let segment_radius = fill_wide_swept_aabb_points(segment, weapon, wo, start, end)?;
+    let segment_radius = fill_wide_swept_aabb_points(segment, weapon, wo, start, end,
+        #[cfg(feature = "cartesian-recoil")] ExactPairAabbSideDiagnostic::A,
+        #[cfg(feature = "cartesian-recoil")] None)?;
     part.clear();
     let Some((l0, u0, body_radius_raw)) =
         wide_body_region_at_time(body, bo, region, start)? else { return Ok(true) };
@@ -2775,6 +3228,7 @@ fn wide_segment_body_region_aabbs_are_disjoint_during(
     wide_aabb_points_are_disjoint(
         WideSweptAabbView { points: segment.as_slice(), radius_raw: segment_radius_raw },
         WideSweptAabbView { points: part.as_slice(), radius_raw: body_radius_raw },
+        #[cfg(feature = "cartesian-recoil")] None,
     )
 }
 
@@ -5814,6 +6268,332 @@ mod tests {
     }
 
     #[cfg(feature = "cartesian-recoil")]
+    fn smart132_scan(rows: &[ContactCollider; 2], exact: &ZeroResponseCompatibility,
+        mutation: ExactSegmentBodyTestMutation)
+        -> (Result<(), ExactScanReject>, ContactCollectionScratch)
+    {
+        let mut scratch = ContactCollectionScratch::default(); scratch.try_reserve(2).unwrap();
+        scratch.set_segment_body_test_mutation(mutation);
+        assert!(scratch.request_segment_body_pair_aabb_target(smart131_target(rows)));
+        scratch.begin_segment_body_target_tick();
+        let result = scan_exact_candidates_into(&exact.trajectories, &exact.owners, rows,
+                                                &mut scratch);
+        (result, scratch)
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn the_pair_aabb_target_records_points_bounds_and_the_actual_early_exit() {
+        let mut saw_right_exit = false; let mut saw_left_exit = false;
+        for (y, expected) in [(500, ExactPairAabbTerminalDiagnostic::Overlap),
+                              (500_000, ExactPairAabbTerminalDiagnostic::Disjoint),
+                              (-500_000, ExactPairAabbTerminalDiagnostic::Disjoint)] {
+            let (rows, exact) = smart131_rows(100_000, y);
+            let (_, scratch) = smart132_scan(&rows, &exact, ExactSegmentBodyTestMutation::None);
+            let target = scratch.segment_body_pair_aabb_diagnostic().unwrap();
+            assert_eq!(target.encounter_count, 1);
+            let aabb = target.pair.unwrap().pair_aabb.unwrap();
+            assert_eq!(aabb.terminal, expected); assert_eq!(aabb.recorder_invalid, None);
+            let body_points = match rows[1].shape { ContactShape::Body { parts, .. } =>
+                parts.iter().filter(|part| part.present).count() * 4, _ => unreachable!() };
+            assert_eq!(aabb.points.len(), 4 + body_points); assert_eq!(aabb.bounds.len(), 3);
+            assert!(!aabb.gaps.is_empty() && aabb.gaps.len() <= 3);
+            for (at, gap) in aabb.gaps.iter().enumerate() {
+                assert_eq!(gap.axis, exact_pair_aabb_axis(at));
+                assert_eq!(gap.left_gap.is_none(),
+                           gap.right_comparison == ExactPairAabbComparisonDiagnostic::Greater);
+                assert_eq!(gap.left_comparison.is_none(), gap.left_gap.is_none());
+            }
+            assert_eq!(aabb.points[0].source, ExactPairAabbPointSourceDiagnostic::SegmentHilt);
+            assert_eq!(aabb.points[1].source, ExactPairAabbPointSourceDiagnostic::SegmentTip);
+            assert_eq!(aabb.points[2].endpoint, ExactPairAabbEndpointDiagnostic::End);
+            assert_eq!(aabb.points[4].source, ExactPairAabbPointSourceDiagnostic::BodyLower);
+            for region in aabb.points[4..].chunks_exact(4) {
+                assert_eq!(region.iter().map(|row| (row.source, row.endpoint)).collect::<Vec<_>>(),
+                    vec![(ExactPairAabbPointSourceDiagnostic::BodyLower,
+                          ExactPairAabbEndpointDiagnostic::Start),
+                         (ExactPairAabbPointSourceDiagnostic::BodyUpper,
+                          ExactPairAabbEndpointDiagnostic::Start),
+                         (ExactPairAabbPointSourceDiagnostic::BodyLower,
+                          ExactPairAabbEndpointDiagnostic::End),
+                         (ExactPairAabbPointSourceDiagnostic::BodyUpper,
+                          ExactPairAabbEndpointDiagnostic::End)]);
+            }
+            if expected == ExactPairAabbTerminalDiagnostic::Overlap {
+                assert_eq!(aabb.gaps.len(), 3);
+                assert!(aabb.gaps.iter().all(|row| !row.disjoint));
+            } else {
+                assert!(aabb.gaps[..aabb.gaps.len() - 1].iter().all(|row|
+                    !row.disjoint
+                        && row.right_comparison != ExactPairAabbComparisonDiagnostic::Greater
+                        && row.left_comparison != Some(ExactPairAabbComparisonDiagnostic::Greater)));
+                let last = aabb.gaps.last().unwrap(); assert!(last.disjoint);
+                if last.right_comparison == ExactPairAabbComparisonDiagnostic::Greater {
+                    saw_right_exit = true;
+                    assert_eq!((last.left_gap, last.left_comparison), (None, None));
+                } else { saw_left_exit = true;
+                    assert_eq!(last.left_comparison,
+                               Some(ExactPairAabbComparisonDiagnostic::Greater)); }
+            }
+        }
+        assert!(saw_right_exit && saw_left_exit);
+
+        let (mut rows, _) = smart131_rows(100_000, 500);
+        if let ContactShape::Body { parts, .. } = &mut rows[1].shape {
+            for part in parts { part.present = false; }
+        }
+        let exact = zero_response_compatibility(&rows).unwrap();
+        let (_, scratch) = smart132_scan(&rows, &exact, ExactSegmentBodyTestMutation::None);
+        let aabb = scratch.segment_body_pair_aabb_diagnostic().unwrap()
+            .pair.unwrap().pair_aabb.unwrap();
+        assert_eq!(aabb.terminal, ExactPairAabbTerminalDiagnostic::Disjoint);
+        assert_eq!((aabb.points.len(), aabb.bounds.len(), aabb.gaps.len()), (4, 0, 0));
+        assert_eq!(aabb.combined_radius, None);
+
+        let segment_row = segment(0, Faction::Heroes, Vec3::ZERO, Vec3::X, Vec3::X);
+        let mut body_row = coincident_body(1, Faction::Monsters, Vec3::ZERO);
+        let absent = AnatomyRegion::COUNT / 2;
+        if let ContactShape::Body { parts, .. } = &mut body_row.shape {
+            for part in parts.iter_mut() { part.present = true; }
+            parts[absent].present = false;
+        }
+        let labelled_rows = [segment_row, body_row];
+        let labelled_exact = zero_response_compatibility(&labelled_rows).unwrap();
+        let (_, labelled) = smart132_scan(&labelled_rows, &labelled_exact,
+                                          ExactSegmentBodyTestMutation::None);
+        let points = labelled.segment_body_pair_aabb_diagnostic().unwrap()
+            .pair.unwrap().pair_aabb.unwrap().points;
+        let mut expected = vec![
+            (ExactPairAabbSideDiagnostic::A, 0,
+             ExactPairAabbPointSourceDiagnostic::SegmentHilt, None,
+             ExactPairAabbEndpointDiagnostic::Start),
+            (ExactPairAabbSideDiagnostic::A, 1,
+             ExactPairAabbPointSourceDiagnostic::SegmentTip, None,
+             ExactPairAabbEndpointDiagnostic::Start),
+            (ExactPairAabbSideDiagnostic::A, 2,
+             ExactPairAabbPointSourceDiagnostic::SegmentHilt, None,
+             ExactPairAabbEndpointDiagnostic::End),
+            (ExactPairAabbSideDiagnostic::A, 3,
+             ExactPairAabbPointSourceDiagnostic::SegmentTip, None,
+             ExactPairAabbEndpointDiagnostic::End),
+        ];
+        let mut ordinal = 0u8;
+        for region in 0..AnatomyRegion::COUNT { if region != absent {
+            for (source, endpoint) in [
+                (ExactPairAabbPointSourceDiagnostic::BodyLower,
+                 ExactPairAabbEndpointDiagnostic::Start),
+                (ExactPairAabbPointSourceDiagnostic::BodyUpper,
+                 ExactPairAabbEndpointDiagnostic::Start),
+                (ExactPairAabbPointSourceDiagnostic::BodyLower,
+                 ExactPairAabbEndpointDiagnostic::End),
+                (ExactPairAabbPointSourceDiagnostic::BodyUpper,
+                 ExactPairAabbEndpointDiagnostic::End)] {
+                expected.push((ExactPairAabbSideDiagnostic::B, ordinal, source,
+                               Some(region as u8), endpoint));
+                ordinal += 1;
+            }
+        } }
+        assert_eq!(points.iter().map(|row| (row.side, row.ordinal, row.source,
+            row.region, row.endpoint)).collect::<Vec<_>>(), expected);
+
+        let (rows, exact) = smart131_rows(100_000, 500_000);
+        let (_, mut owned) = smart132_scan(&rows, &exact, ExactSegmentBodyTestMutation::None);
+        let first = owned.segment_body_pair_aabb_diagnostic().unwrap()
+            .pair.unwrap().pair_aabb.unwrap().points.to_vec();
+        let reversed_rows = [rows[1], rows[0]];
+        let reversed_trajectories = [exact.trajectories[1], exact.trajectories[0]];
+        scan_exact_candidates_into(&reversed_trajectories, &exact.owners, &reversed_rows,
+                                   &mut owned).unwrap();
+        let duplicate = owned.segment_body_pair_aabb_diagnostic().unwrap();
+        assert_eq!(duplicate.encounter_count, 2);
+        assert_eq!(duplicate.pair.unwrap().pair_aabb.unwrap().points, first);
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn the_pair_aabb_target_is_tick_local_bounded_and_inert() {
+        let (rows, exact) = smart131_rows(100_000, 500_000);
+        let (plain_result, plain) = smart131_scan(&rows, &exact, true,
+                                                  ExactSegmentBodyTestMutation::None);
+        let (recorded_result, recorded) = smart132_scan(&rows, &exact,
+                                                        ExactSegmentBodyTestMutation::None);
+        assert_eq!(plain_result, recorded_result);
+        assert_eq!(candidate_bytes(&plain), candidate_bytes(&recorded));
+        assert_eq!(plain.first_pair_rejection, recorded.first_pair_rejection);
+        assert_eq!(plain.exact_wide.segment_body_rejection,
+                   recorded.exact_wide.segment_body_rejection);
+        let baseline = smart131_owned(plain.segment_body_target_diagnostic().unwrap());
+        assert_eq!(smart131_owned(recorded.segment_body_pair_aabb_diagnostic().unwrap()), baseline);
+        let capacities = recorded.capacities();
+        assert!(capacities[20] >= 24 && capacities[21] >= 3 && capacities[22] >= 3);
+        let cloned = recorded.clone();
+        assert_eq!(cloned.segment_body_pair_aabb_diagnostic(),
+                   recorded.segment_body_pair_aabb_diagnostic());
+        let recorded_terminal = recorded.segment_body_pair_aabb_diagnostic().unwrap()
+            .pair.unwrap().pair_aabb.unwrap().terminal;
+
+        let mut bounded = ContactCollectionScratch::default(); bounded.try_reserve(2).unwrap();
+        let before_step = bounded.capacities();
+        assert!(bounded.request_segment_body_pair_aabb_target(smart131_target(&rows)));
+        bounded.begin_segment_body_target_tick();
+        scan_exact_candidates_into(&exact.trajectories, &exact.owners, &rows,
+                                   &mut bounded).unwrap();
+        assert_eq!(bounded.capacities(), before_step,
+                   "the reserved recorder must not grow during the authoritative step");
+
+        let (mutated_result, mutated) = smart132_scan(&rows, &exact,
+            ExactSegmentBodyTestMutation::RouteAabbRecorderIntoResult);
+        assert!(mutated.segment_body_test_mutation_fired());
+        assert_ne!((mutated_result, candidate_bytes(&mutated), mutated.first_pair_rejection,
+                    smart131_owned(mutated.segment_body_pair_aabb_diagnostic().unwrap())),
+                   (plain_result, candidate_bytes(&plain), plain.first_pair_rejection,
+                    baseline.clone()),
+                   "routing recorder presence into the result must make inertness red");
+
+        let (capacity_result, capacity) = smart132_scan(&rows, &exact,
+            ExactSegmentBodyTestMutation::AabbRecorderCapacity);
+        assert!(capacity.segment_body_test_mutation_fired());
+        assert_eq!((capacity_result, candidate_bytes(&capacity)),
+                   (plain_result, candidate_bytes(&plain)));
+        assert_eq!(capacity.first_pair_rejection, plain.first_pair_rejection);
+        assert_eq!(capacity.exact_wide.segment_body_rejection,
+                   plain.exact_wide.segment_body_rejection);
+        assert_eq!(smart131_owned(capacity.segment_body_pair_aabb_diagnostic().unwrap()), baseline);
+        let aabb = capacity.segment_body_pair_aabb_diagnostic().unwrap()
+            .pair.unwrap().pair_aabb.unwrap();
+        assert_eq!(aabb.terminal, recorded_terminal);
+        assert_eq!(aabb.recorder_invalid, Some(ExactPairAabbRecorderInvalidDiagnostic::Capacity));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn a_completed_pair_aabb_view_can_coexist_with_one_pending_next_tick_request() {
+        let (rows, exact) = smart131_rows(100_000, 500_000);
+        let (_, mut scratch) = smart132_scan(&rows, &exact, ExactSegmentBodyTestMutation::None);
+        let completed = scratch.segment_body_pair_aabb_diagnostic().unwrap();
+        let completed_owned = (completed.target, completed.encounter_count,
+            completed.pair.unwrap().pair_aabb.unwrap().points.to_vec());
+        let capacities_before_request = scratch.capacities();
+        assert!(scratch.request_segment_body_target(smart131_target(&rows)));
+        assert_eq!(scratch.capacities(), capacities_before_request,
+                   "requesting immediately before a step must allocate nothing");
+        let still_active = scratch.segment_body_pair_aabb_diagnostic().unwrap();
+        assert_eq!((still_active.target, still_active.encounter_count,
+                    still_active.pair.unwrap().pair_aabb.unwrap().points.to_vec()), completed_owned);
+        assert_eq!(scratch.segment_body_target_diagnostic(), None);
+        let cloned = scratch.clone();
+        assert_eq!(cloned.segment_body_pair_aabb_diagnostic(),
+                   scratch.segment_body_pair_aabb_diagnostic());
+        assert!(!scratch.request_segment_body_pair_aabb_target(smart131_target(&rows)));
+        scratch.begin_segment_body_target_tick();
+        assert!(scratch.segment_body_target_diagnostic().is_some());
+        assert_eq!(scratch.segment_body_pair_aabb_diagnostic(), None);
+        assert!(scratch.request_segment_body_pair_aabb_target(smart131_target(&rows)));
+        assert!(!scratch.request_segment_body_target(smart131_target(&rows)));
+        scratch.begin_segment_body_target_tick();
+        scan_exact_candidates_into(&exact.trajectories, &exact.owners, &rows,
+                                   &mut scratch).unwrap();
+        assert!(scratch.segment_body_pair_aabb_diagnostic().unwrap().pair.is_some());
+
+        for mutation in [ExactSegmentBodyTestMutation::ClearActiveOnRequest,
+                         ExactSegmentBodyTestMutation::RefuseOccupiedActive,
+                         ExactSegmentBodyTestMutation::AllowSecondPending,
+                         ExactSegmentBodyTestMutation::PendingReplacesActive] {
+            let (_, mut changed) = smart132_scan(&rows, &exact, ExactSegmentBodyTestMutation::None);
+            changed.set_segment_body_test_mutation(mutation);
+            let first = changed.request_segment_body_target(smart131_target(&rows));
+            let second = changed.request_segment_body_pair_aabb_target(smart131_target(&rows));
+            assert!(changed.segment_body_test_mutation_fired());
+            let lifecycle_ok = changed.segment_body_pair_aabb_diagnostic().is_some()
+                && first && !second;
+            assert!(!lifecycle_ok, "each requested/active mutation must make lifecycle red");
+        }
+
+        let target = smart131_target(&rows);
+        let mut owner = crate::combat::resolution::ContactTickScratch::default();
+        owner.reserve(2, 2);
+        assert!(owner.request_exact_segment_body_pair_aabb_target(target));
+        owner.begin_exact_diagnostics(10);
+        assert!(owner.exact_segment_body_pair_aabb_diagnostic().is_some());
+        assert!(owner.request_exact_segment_body_target(target));
+        assert!(owner.exact_segment_body_pair_aabb_diagnostic().is_some());
+        assert_eq!(owner.exact_segment_body_target_diagnostic(), None);
+        assert!(!owner.request_exact_segment_body_pair_aabb_target(target));
+        let mut owner_clone = owner.clone();
+        assert_eq!(owner_clone.exact_segment_body_pair_aabb_diagnostic(),
+                   owner.exact_segment_body_pair_aabb_diagnostic());
+        owner.begin_exact_diagnostics(11); owner_clone.begin_exact_diagnostics(11);
+        assert_eq!(owner_clone.exact_segment_body_target_diagnostic(),
+                   owner.exact_segment_body_target_diagnostic());
+        assert!(owner.exact_segment_body_target_diagnostic().is_some());
+        assert!(owner.request_exact_segment_body_pair_aabb_target(target));
+        assert!(!owner.request_exact_segment_body_target(target));
+        owner.begin_exact_diagnostics(12);
+        assert!(owner.exact_segment_body_pair_aabb_diagnostic().is_some());
+        owner.begin_exact_diagnostics(13);
+        assert_eq!(owner.exact_segment_body_pair_aabb_diagnostic(), None,
+                   "a tick with no pending request expires the old active view");
+
+        let mut retained = crate::combat::resolution::ContactTickScratch::default();
+        retained.reserve(2, 2);
+        assert!(retained.request_exact_segment_body_pair_aabb_target(target));
+        retained.begin_exact_diagnostics(20);
+        retained.set_segment_body_test_mutation(
+            ExactSegmentBodyTestMutation::RetainOldActiveDespitePending);
+        assert!(retained.request_exact_segment_body_target(target));
+        retained.begin_exact_diagnostics(21);
+        assert!(retained.segment_body_test_mutation_fired());
+        assert!(retained.exact_segment_body_pair_aabb_diagnostic().is_some());
+        assert_eq!(retained.exact_segment_body_target_diagnostic(), None,
+            "retaining old active despite a pending replacement must make lifecycle red");
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn the_pair_aabb_words_round_trip_without_truncation() {
+        let mut value = WideRational4096::one();
+        for _ in 0..160 { value = wide_add(value, value).unwrap(); }
+        let copied = exact_wide_rational_diagnostic(value);
+        assert!(copied.numerator.used > 4);
+        assert_ne!(copied.numerator.limbs[5], 0);
+        assert_eq!(copied.denominator.used, 1);
+        assert_eq!(copied.denominator.limbs[0], 1);
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn an_authoritative_pair_aabb_reject_is_not_a_recorder_failure() {
+        let (rows, mut exact) = smart131_rows(100_000, 500);
+        let MotorShape::Segment { ref mut radius_raw, .. } = exact.trajectories[0].motor else {
+            panic!("fixture segment changed")
+        };
+        *radius_raw = i32::MAX;
+        let mut scratch = ExactWideScratch::default(); scratch.try_reserve().unwrap();
+        let mut state = ExactPairAabbState::default(); state.try_reserve().unwrap();
+        let mut fired = 0;
+        let mut recorder = ExactPairAabbRecorder { state: &mut state,
+            test_mutation: ExactSegmentBodyTestMutation::None,
+            test_mutation_receipt: 1,
+            test_mutation_fired: &mut fired };
+        let result = wide_swept_aabbs_are_disjoint(&exact.trajectories[0], &exact.owners[0],
+            &exact.trajectories[1], &exact.owners[1], &mut scratch, Some(&mut recorder));
+        assert_eq!(result, Err(ExactScanReject::ArithmeticEnvelope));
+        assert_eq!(state.terminal, Some(ExactPairAabbTerminalDiagnostic::Reject(
+            ExactScanRejectDiagnostic::ArithmeticEnvelope)));
+        assert_eq!(state.recorder_invalid, None);
+
+        let exact = zero_response_compatibility(&rows).unwrap();
+        let (result, recorded) = smart132_scan(&rows, &exact,
+            ExactSegmentBodyTestMutation::AabbRecorderCapacity);
+        assert!(result.is_ok());
+        let aabb = recorded.segment_body_pair_aabb_diagnostic().unwrap()
+            .pair.unwrap().pair_aabb.unwrap();
+        assert!(matches!(aabb.terminal, ExactPairAabbTerminalDiagnostic::Overlap
+            | ExactPairAabbTerminalDiagnostic::Disjoint));
+        assert_eq!(aabb.recorder_invalid, Some(ExactPairAabbRecorderInvalidDiagnostic::Capacity));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
     fn smart131_trace_is_complete(diagnostic: ExactSegmentBodyTargetDiagnostic<'_>) -> bool {
         let Some(pair) = diagnostic.pair else { return diagnostic.encounter_count == 0 };
         pair.regions.len() <= AnatomyRegion::COUNT
@@ -5826,6 +6606,32 @@ mod tests {
                     && pair.visits[region.visit_start..end].iter().enumerate().all(|(at, visit)|
                         visit.region == region.region && visit.ordinal as usize == at)
             })
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[derive(Clone, PartialEq, Eq, Debug)]
+    struct Smart131OwnedEvidence {
+        target: ExactSegmentBodyDiagnosticTarget,
+        encounter_count: u32,
+        identity: Option<(EntityId, EntityId, u8, u8, usize, usize,
+            ExactScanShapeDiagnostic, ExactScanShapeDiagnostic, ContactKind,
+            ExactSegmentBodyOrientationDiagnostic)>,
+        control: Option<(u32, bool, Option<bool>, ExactSegmentBodyPairResultDiagnostic)>,
+        regions: Vec<ExactSegmentBodyRegionDiagnostic>,
+        visits: Vec<ExactSegmentBodyVisitDiagnostic>,
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    fn smart131_owned(diagnostic: ExactSegmentBodyTargetDiagnostic<'_>) -> Smart131OwnedEvidence {
+        let identity = diagnostic.pair.map(|pair| (pair.a_entity, pair.b_entity,
+            pair.a_slot, pair.b_slot, pair.a_owner, pair.b_owner, pair.a_shape, pair.b_shape,
+            pair.kind, pair.orientation));
+        let control = diagnostic.pair.map(|pair| (pair.group_time_raw,
+            pair.pair_aabb_supported, pair.pair_aabb_disjoint, pair.result));
+        Smart131OwnedEvidence { target: diagnostic.target,
+            encounter_count: diagnostic.encounter_count, identity, control,
+            regions: diagnostic.pair.map_or_else(Vec::new, |pair| pair.regions.to_vec()),
+            visits: diagnostic.pair.map_or_else(Vec::new, |pair| pair.visits.to_vec()) }
     }
 
     #[cfg(feature = "cartesian-recoil")]
@@ -5848,9 +6654,11 @@ mod tests {
         assert_eq!(cloned.segment_body_target_diagnostic(),
                    scratch.segment_body_target_diagnostic());
         let cloned_capacities = cloned.capacities();
-        assert!(cloned_capacities[cloned_capacities.len() - 2] >= AnatomyRegion::COUNT);
-        assert!(cloned_capacities[cloned_capacities.len() - 1]
-            >= EXACT_SEGMENT_BODY_VISIT_CAP);
+        assert!(cloned_capacities[18] >= AnatomyRegion::COUNT);
+        assert!(cloned_capacities[19] >= EXACT_SEGMENT_BODY_VISIT_CAP);
+        assert!(cloned_capacities[20] >= EXACT_PAIR_AABB_POINT_CAP);
+        assert!(cloned_capacities[21] >= EXACT_PAIR_AABB_AXIS_CAP);
+        assert!(cloned_capacities[22] >= EXACT_PAIR_AABB_AXIS_CAP);
 
         let mut pending = ContactCollectionScratch::default(); pending.try_reserve(2).unwrap();
         assert!(pending.request_segment_body_target(smart131_target(&rows)));
@@ -6540,7 +7348,8 @@ mod tests {
             }
             assert_eq!(wide_swept_aabbs_are_disjoint(
                 &exact.trajectories[0], &exact.owners[0],
-                &exact.trajectories[1], &exact.owners[1], &mut wide_scratch).unwrap(), disjoint);
+                &exact.trajectories[1], &exact.owners[1], &mut wide_scratch,
+                #[cfg(feature = "cartesian-recoil")] None).unwrap(), disjoint);
             let mut scratch = ContactCollectionScratch::default();
             scratch.try_reserve(2).unwrap();
             scan_exact_candidates_into(&exact.trajectories, &exact.owners, &rows,
@@ -6571,6 +7380,8 @@ mod tests {
             let mut points = Vec::new(); try_reserve_exact(&mut points, 20).unwrap();
             fill_wide_swept_aabb_points(
                 &mut points, &exact.trajectories[0], &exact.owners[0], 0, 65_536,
+                #[cfg(feature = "cartesian-recoil")] ExactPairAabbSideDiagnostic::A,
+                #[cfg(feature = "cartesian-recoil")] None,
             ).unwrap();
             assert_eq!(points.len(), count);
             if count == 4 {

@@ -18953,11 +18953,25 @@ impl World {
             contact.scratch.request_exact_segment_body_target(target))
     }
 
+    pub fn request_exact_segment_body_pair_aabb_diagnostic(
+        &mut self, target: crate::ExactSegmentBodyDiagnosticTarget) -> bool
+    {
+        self.contact.as_mut().is_some_and(|contact|
+            contact.scratch.request_exact_segment_body_pair_aabb_target(target))
+    }
+
     pub fn exact_segment_body_target_diagnostic(&self)
         -> Option<crate::ExactSegmentBodyTargetDiagnostic<'_>>
     {
         self.contact.as_ref().and_then(|contact|
             contact.scratch.exact_segment_body_target_diagnostic())
+    }
+
+    pub fn exact_segment_body_pair_aabb_diagnostic(&self)
+        -> Option<crate::ExactSegmentBodyTargetDiagnostic<'_>>
+    {
+        self.contact.as_ref().and_then(|contact|
+            contact.scratch.exact_segment_body_pair_aabb_diagnostic())
     }
 }
 
@@ -18979,6 +18993,17 @@ mod smart131_world_forwarding_test {
         assert!(world.request_exact_segment_body_pair_diagnostic(target));
         world.step();
         assert!(world.exact_segment_body_target_diagnostic().is_some());
+        world.step();
+        assert_eq!(world.exact_segment_body_target_diagnostic(), None);
+        assert!(world.request_exact_segment_body_pair_aabb_diagnostic(target));
+        world.step();
+        assert!(world.exact_segment_body_pair_aabb_diagnostic().is_some());
+        assert_eq!(world.exact_segment_body_target_diagnostic(), None);
+        assert!(world.request_exact_segment_body_pair_diagnostic(target));
+        assert!(world.exact_segment_body_pair_aabb_diagnostic().is_some());
+        world.step();
+        assert!(world.exact_segment_body_target_diagnostic().is_some());
+        assert_eq!(world.exact_segment_body_pair_aabb_diagnostic(), None);
         world.step();
         assert_eq!(world.exact_segment_body_target_diagnostic(), None);
     }

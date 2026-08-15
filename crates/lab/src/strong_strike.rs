@@ -19,6 +19,13 @@ use sim::{ExactSegmentBodyDiagnosticTarget, ExactSegmentBodyOrientationDiagnosti
           ExactSegmentBodyRegionTerminalDiagnostic, ExactSegmentBodyVisitDiagnostic,
           ExactScanRejectDiagnostic, ExactScanShapeDiagnostic};
 #[cfg(feature = "cartesian-recoil")]
+use sim::{ExactPairAabbAxisDiagnostic, ExactPairAabbBoundRowDiagnostic,
+          ExactPairAabbComparisonDiagnostic, ExactPairAabbEndpointDiagnostic,
+          ExactPairAabbGapRowDiagnostic, ExactPairAabbPointDiagnostic,
+          ExactPairAabbPointSourceDiagnostic, ExactPairAabbRecorderInvalidDiagnostic,
+          ExactPairAabbSideDiagnostic, ExactPairAabbTerminalDiagnostic,
+          ExactWideRationalDiagnostic, ExactWideWordDiagnostic};
+#[cfg(feature = "cartesian-recoil")]
 use sim::ExactWideToiDiagnostic;
 #[cfg(feature = "cartesian-recoil")]
 use sim::ExactCompatibilitySweepDiagnostic;
@@ -531,6 +538,10 @@ pub(crate) const ORDINAL_31_STACK_BYTES: usize = 16 * 1024 * 1024;
 pub(crate) const SMART131_WORKER_NAME: &str = "smart131-ordinal31-tick46-scan";
 #[cfg(feature = "cartesian-recoil")]
 pub(crate) const SMART131_STACK_BYTES: usize = 16 * 1024 * 1024;
+#[cfg(feature = "cartesian-recoil")]
+pub(crate) const SMART132_WORKER_NAME: &str = "smart132-ordinal31-tick46-pair-aabb";
+#[cfg(feature = "cartesian-recoil")]
+pub(crate) const SMART132_STACK_BYTES: usize = 16 * 1024 * 1024;
 
 #[cfg(feature = "cartesian-recoil")]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -2050,6 +2061,866 @@ fn cached_ordinal_31_tick46_scan() -> &'static Ordinal31Tick46Scan {
     static TRACE: std::sync::OnceLock<Ordinal31Tick46Scan> = std::sync::OnceLock::new();
     TRACE.get_or_init(|| build_ordinal_31_tick46_scan(ScanMutation::None)
         .expect("the frozen ordinal 31 tick 46 scan must validate"))
+}
+
+// Smart132 owns these copies in Lab. The Sim view remains a one-tick borrow and
+// replay is deliberately never armed, so no diagnostic state enters a replay.
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, PartialEq, Eq, Debug)]
+struct PairAabbOwned {
+    start_raw: u32, end_raw: u32,
+    a_radius_raw: Option<i32>, b_radius_raw: Option<i32>,
+    combined_radius: Option<ExactWideRationalDiagnostic>,
+    terminal: ExactPairAabbTerminalDiagnostic,
+    recorder_invalid: Option<ExactPairAabbRecorderInvalidDiagnostic>,
+    points: Vec<ExactPairAabbPointDiagnostic>,
+    bounds: Vec<ExactPairAabbBoundRowDiagnostic>,
+    gaps: Vec<ExactPairAabbGapRowDiagnostic>,
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Debug)]
+struct PairAabbRun {
+    arm: ProvenanceArm, rows: Vec<ScanCommandRow>, snapshot: ProvenanceSnapshot,
+    containing: ScanPairOwned, aabb: PairAabbOwned, solver_delta: u32, contact: bool,
+    max_energy_excess_raw: u64, requested_receipt: u64, stored_receipt: u64,
+    replay_receipt: u64,
+}
+
+#[cfg(feature = "cartesian-recoil")]
+impl PairAabbRun {
+    fn equals_excluding_aabb(&self, other: &Self) -> bool {
+        self.rows.len() == other.rows.len()
+            && self.rows.iter().zip(&other.rows).all(|(a, b)|
+                a.tick == b.tick && a.pending == b.pending && a.commands == b.commands
+                && a.state_after.compare(b.state_after) == Ok(true)
+                && a.solver_before == b.solver_before && a.solver_after == b.solver_after)
+            && self.snapshot.equals(&other.snapshot) && self.containing == other.containing
+            && self.solver_delta == other.solver_delta && self.contact == other.contact
+            && self.max_energy_excess_raw == other.max_energy_excess_raw
+            && self.requested_receipt == other.requested_receipt
+            && self.stored_receipt == other.stored_receipt
+            && self.replay_receipt == other.replay_receipt
+    }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, PartialEq, Eq, Debug)]
+struct PairAabbDifference {
+    scope: &'static str, field: &'static str, side: Option<ExactPairAabbSideDiagnostic>,
+    point: Option<u8>, axis: Option<ExactPairAabbAxisDiagnostic>,
+    reference: String, held: String,
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Debug)]
+struct Ordinal31Tick46PairAabb {
+    reference_before: PairAabbRun, held: PairAabbRun, reference_after: PairAabbRun,
+    difference: PairAabbDifference,
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum PairAabbMutation {
+    None,
+    #[cfg(test)] CorruptRerunPointWord,
+    #[cfg(test)] DropRerunPoint,
+    #[cfg(test)] ReorderRerunPoints,
+    #[cfg(test)] AlterRerunPointSource,
+    #[cfg(test)] CorruptRerunBound,
+    #[cfg(test)] CorruptRerunGap,
+    #[cfg(test)] DropRerunBound,
+    #[cfg(test)] ReorderRerunBounds,
+    #[cfg(test)] DropRerunGap,
+    #[cfg(test)] ReorderRerunGaps,
+    #[cfg(test)] ContinueAfterSeparation,
+    #[cfg(test)] RemoveReplaySubmission,
+    #[cfg(test)] ReorderReplaySubmission,
+    #[cfg(test)] Horizon47,
+    #[cfg(test)] WrongTarget,
+    #[cfg(test)] NextPair,
+    #[cfg(test)] SuppressHeldDisjoint,
+    #[cfg(test)] RejectAsRecorderInvalid,
+    #[cfg(test)] InjectRecorderInvalid,
+    #[cfg(test)] StaleFirstDifference,
+}
+
+#[cfg(all(feature = "cartesian-recoil", test))]
+fn pair_aabb_mutation_bit(mutation: PairAabbMutation) -> u64 {
+    match mutation {
+        PairAabbMutation::None => 0,
+        PairAabbMutation::CorruptRerunPointWord => 1 << 0,
+        PairAabbMutation::DropRerunPoint => 1 << 1,
+        PairAabbMutation::ReorderRerunPoints => 1 << 2,
+        PairAabbMutation::AlterRerunPointSource => 1 << 3,
+        PairAabbMutation::CorruptRerunBound => 1 << 4,
+        PairAabbMutation::CorruptRerunGap => 1 << 5,
+        PairAabbMutation::DropRerunBound => 1 << 6,
+        PairAabbMutation::ReorderRerunBounds => 1 << 7,
+        PairAabbMutation::DropRerunGap => 1 << 8,
+        PairAabbMutation::ReorderRerunGaps => 1 << 9,
+        PairAabbMutation::ContinueAfterSeparation => 1 << 10,
+        PairAabbMutation::RemoveReplaySubmission => 1 << 11,
+        PairAabbMutation::ReorderReplaySubmission => 1 << 12,
+        PairAabbMutation::Horizon47 => 1 << 13,
+        PairAabbMutation::WrongTarget => 1 << 14,
+        PairAabbMutation::NextPair => 1 << 15,
+        PairAabbMutation::SuppressHeldDisjoint => 1 << 16,
+        PairAabbMutation::RejectAsRecorderInvalid => 1 << 17,
+        PairAabbMutation::InjectRecorderInvalid => 1 << 18,
+        PairAabbMutation::StaleFirstDifference => 1 << 19,
+    }
+}
+
+#[cfg(all(feature = "cartesian-recoil", test))]
+fn mark_pair_aabb_mutation(mutation: PairAabbMutation) {
+    pair_aabb_mutation_receipt().fetch_or(pair_aabb_mutation_bit(mutation),
+                                          std::sync::atomic::Ordering::SeqCst);
+}
+
+#[cfg(all(feature = "cartesian-recoil", test))]
+fn pair_aabb_mutation_fired(mutation: PairAabbMutation) -> bool {
+    pair_aabb_mutation_receipt().load(std::sync::atomic::Ordering::SeqCst)
+        & pair_aabb_mutation_bit(mutation) != 0
+}
+
+#[cfg(all(feature = "cartesian-recoil", test))]
+fn pair_aabb_mutation_receipt() -> &'static std::sync::atomic::AtomicU64 {
+    static FIRED: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    &FIRED
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn copy_pair_aabb_target(world: &World) -> Result<(ScanPairOwned, PairAabbOwned), String> {
+    let view = world.exact_segment_body_pair_aabb_diagnostic()
+        .ok_or("smart132 tick 46 pair-AABB diagnostic was not armed")?;
+    if view.encounter_count != 1 {
+        return Err(format!("smart132 target encounter count was {}", view.encounter_count));
+    }
+    if view.target != smart131_target() {
+        return Err("smart132 target identity drifted before copy".into());
+    }
+    let pair = view.pair.ok_or("smart132 target was not encountered")?;
+    let aabb = pair.pair_aabb.ok_or("smart132 pair-AABB extension was absent")?;
+    let containing = ScanPairOwned {
+        target: view.target, encounter_count: view.encounter_count,
+        a_entity: pair.a_entity, b_entity: pair.b_entity,
+        a_slot: pair.a_slot, b_slot: pair.b_slot, a_owner: pair.a_owner, b_owner: pair.b_owner,
+        a_shape: pair.a_shape, b_shape: pair.b_shape, kind: pair.kind,
+        orientation: pair.orientation, group_time_raw: pair.group_time_raw,
+        pair_aabb_supported: pair.pair_aabb_supported,
+        pair_aabb_disjoint: pair.pair_aabb_disjoint, result: pair.result,
+        region_count: pair.regions.len(), visit_count: pair.visits.len(),
+        regions: pair.regions.to_vec(), visits: pair.visits.to_vec(),
+    };
+    Ok((containing, PairAabbOwned { start_raw: aabb.start_raw, end_raw: aabb.end_raw,
+        a_radius_raw: aabb.a_radius_raw, b_radius_raw: aabb.b_radius_raw,
+        combined_radius: aabb.combined_radius, terminal: aabb.terminal,
+        recorder_invalid: aabb.recorder_invalid, points: aabb.points.to_vec(),
+        bounds: aabb.bounds.to_vec(), gaps: aabb.gaps.to_vec() }))
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn mutate_copied_pair_aabb(value: &mut PairAabbOwned, mutation: PairAabbMutation)
+    -> Result<(), String>
+{
+    #[cfg(test)]
+    match mutation {
+        PairAabbMutation::CorruptRerunPointWord => {
+            mark_pair_aabb_mutation(mutation);
+            value.points.get_mut(0).ok_or("point-word mutation found no point")?
+                .coordinate[0].numerator.limbs[0] ^= 1;
+        }
+        PairAabbMutation::DropRerunPoint => {
+            mark_pair_aabb_mutation(mutation); value.points.pop();
+        }
+        PairAabbMutation::ReorderRerunPoints => {
+            mark_pair_aabb_mutation(mutation);
+            if value.points.len() < 2 { return Err("point reorder found fewer than two rows".into()); }
+            value.points.swap(0, 1);
+        }
+        PairAabbMutation::AlterRerunPointSource => {
+            mark_pair_aabb_mutation(mutation);
+            let row = value.points.get_mut(0).ok_or("source mutation found no point")?;
+            row.source = ExactPairAabbPointSourceDiagnostic::SegmentTip;
+        }
+        PairAabbMutation::CorruptRerunBound => {
+            mark_pair_aabb_mutation(mutation);
+            value.bounds.get_mut(0).ok_or("bound mutation found no row")?
+                .left_min.numerator.limbs[0] ^= 1;
+        }
+        PairAabbMutation::CorruptRerunGap => {
+            mark_pair_aabb_mutation(mutation);
+            let row = value.gaps.get_mut(0).ok_or("gap mutation found no row")?;
+            row.right_comparison = match row.right_comparison {
+                ExactPairAabbComparisonDiagnostic::Less => ExactPairAabbComparisonDiagnostic::Equal,
+                _ => ExactPairAabbComparisonDiagnostic::Less,
+            };
+        }
+        PairAabbMutation::DropRerunBound => { mark_pair_aabb_mutation(mutation); value.bounds.pop(); }
+        PairAabbMutation::ReorderRerunBounds => {
+            mark_pair_aabb_mutation(mutation); value.bounds.swap(0, 1);
+        }
+        PairAabbMutation::DropRerunGap => { mark_pair_aabb_mutation(mutation); value.gaps.pop(); }
+        PairAabbMutation::ReorderRerunGaps => {
+            mark_pair_aabb_mutation(mutation);
+            if value.gaps.len() < 2 { return Err("gap reorder found fewer than two rows".into()); }
+            value.gaps.swap(0, 1);
+        }
+        PairAabbMutation::ContinueAfterSeparation => {
+            mark_pair_aabb_mutation(mutation);
+            let row = *value.gaps.last().ok_or("continued-gap mutation found no row")?;
+            value.gaps.push(row);
+        }
+        PairAabbMutation::SuppressHeldDisjoint => {
+            mark_pair_aabb_mutation(mutation); value.terminal = ExactPairAabbTerminalDiagnostic::Overlap;
+        }
+        PairAabbMutation::RejectAsRecorderInvalid => {
+            mark_pair_aabb_mutation(mutation);
+            value.terminal = ExactPairAabbTerminalDiagnostic::Overlap;
+            value.recorder_invalid = Some(ExactPairAabbRecorderInvalidDiagnostic::Lifecycle);
+        }
+        PairAabbMutation::InjectRecorderInvalid => {
+            mark_pair_aabb_mutation(mutation);
+            value.recorder_invalid = Some(ExactPairAabbRecorderInvalidDiagnostic::Capacity);
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn run_tick46_pair_aabb_arm(arm: ProvenanceArm, effort: Fx, mutation: PairAabbMutation)
+    -> Result<PairAabbRun, String>
+{
+    const HORIZON: u32 = 46;
+    let case = ordinal_31_case();
+    let scenario = scenario_for_ticks_with(case, CHAMBER_TICKS + STRIKE_TICKS,
+                                             MirrorGrammar::SpatialRightHand);
+    if scenario.fingerprint() != ORDINAL_31_FINGERPRINT {
+        return Err(format!("smart132 ordinal 31 fingerprint drifted: {}", scenario.fingerprint()));
+    }
+    let mut worlds = [World::new(&scenario, case.seed), World::new(&scenario, case.seed)];
+    let contexts = [provenance_schedule_context(&worlds[0], case),
+                    provenance_schedule_context(&worlds[1], case)];
+    if contexts[0] != contexts[1] { return Err("smart132 setup diverged".into()); }
+    let (attacker, defender, limb, height, chamber, follow) = contexts[0];
+    let mut replay = sim::Replay::new(&scenario, case.seed);
+    let mut requested_records: [Vec<(u32, EntityId, ArticulatedCommandV1)>; 2] =
+        [Vec::new(), Vec::new()];
+    let mut stored_records: [Vec<(u32, EntityId, ArticulatedCommandV1)>; 2] =
+        [Vec::new(), Vec::new()];
+    let mut expected_replay = Vec::new();
+    let mut rows = Vec::with_capacity(HORIZON as usize);
+    let mut target_copy = None;
+    let mut max_energy_excess_raw = 0;
+    let mut limit = HORIZON;
+    #[cfg(test)]
+    if mutation == PairAabbMutation::Horizon47 {
+        mark_pair_aabb_mutation(mutation); limit = 47;
+    }
+    for schedule_tick in 0..limit {
+        let pending = worlds[0].pending_decisions().to_vec();
+        if pending != worlds[1].pending_decisions() {
+            return Err(format!("smart132 pending lists diverged at {schedule_tick}"));
+        }
+        let solver_before = worlds[0].contact_solver_rejections();
+        let mut commands = Vec::with_capacity(pending.len());
+        for &id in &pending {
+            let requested: Vec<_> = worlds.iter().map(|world| {
+                let obs = world.observe_articulated(id);
+                if id == attacker {
+                    scheduled_attacker_command(&obs, defender, limb, case, height, schedule_tick,
+                        CHAMBER_TICKS, Fx::ONE, effort, chamber, follow,
+                        ScheduleBearingSource::ObservedOpponent)
+                } else { neutral_articulated_command(&obs) }
+            }).collect();
+            let mut stored = [None, None];
+            for at in 0..2 {
+                requested_records[at].push((schedule_tick, id, requested[at]));
+                stored[at] = match worlds[at].submit_articulated_v1(id, requested[at]) {
+                    SubmitArticulatedOutcome::Stored { command, rejection: None } => Some(command),
+                    other => return Err(format!("smart132 submission refused at {schedule_tick}: {other:?}")),
+                };
+                stored_records[at].push((schedule_tick, id, stored[at].expect("stored command")));
+            }
+            if requested[0] != requested[1] || stored[0] != stored[1]
+                || stored[0] != Some(requested[0])
+            { return Err(format!("smart132 requested/stored commands diverged at {schedule_tick}")); }
+            let stored = stored[0].expect("checked stored command");
+            let submitted = sim::SubmittedCommand::Articulated(stored);
+            expected_replay.push(sim::SubmittedCommandRecord { tick: schedule_tick,
+                entity: id, command: submitted });
+            replay.record_submitted(schedule_tick, id, submitted);
+            commands.push(ProvenanceCommand { entity: id, requested: requested[0], stored });
+        }
+        if schedule_tick == 45 {
+            if worlds.iter().any(|world| world.tick() != 45) {
+                return Err("smart132 target was not armed immediately before 45 -> 46".into());
+            }
+            let mut target = smart131_target();
+            #[cfg(test)]
+            if mutation == PairAabbMutation::WrongTarget {
+                mark_pair_aabb_mutation(mutation); target.b_index = 4;
+            }
+            #[cfg(test)]
+            if mutation == PairAabbMutation::NextPair {
+                mark_pair_aabb_mutation(mutation);
+                target.a_index = 0; target.b_index = 4;
+                target.key.a = EntityId::new(1, 0); target.key.a_slot = 1;
+                target.key.b = EntityId::new(0, 0); target.key.b_slot = BODY_SLOT;
+            }
+            for world in &mut worlds {
+                if !world.request_exact_segment_body_pair_aabb_diagnostic(target) {
+                    return Err("smart132 target request was refused".into());
+                }
+            }
+        }
+        worlds[0].step(); worlds[1].step();
+        if worlds[0].state_digest().compare(worlds[1].state_digest()) != Ok(true) {
+            return Err(format!("smart132 live/rerun state diverged at {}", worlds[0].tick()));
+        }
+        if worlds[0].tick() == HORIZON {
+            let left = copy_pair_aabb_target(&worlds[0])?;
+            let mut right = copy_pair_aabb_target(&worlds[1])?;
+            mutate_copied_pair_aabb(&mut right.1, mutation)?;
+            validate_pair_aabb(&left.0, &left.1)?; validate_pair_aabb(&right.0, &right.1)?;
+            if left != right { return Err("smart132 live/rerun pair-AABB evidence diverged".into()); }
+            target_copy = Some(left);
+        }
+        let snapshot = provenance_snapshot(&worlds[0], attacker, defender);
+        let tick_excess = snapshot.resolutions.iter().map(|row|
+            row.energy.after_raw.saturating_sub(row.energy.before_raw)).max().unwrap_or(0);
+        max_energy_excess_raw = max_energy_excess_raw.max(tick_excess);
+        rows.push(ScanCommandRow { tick: schedule_tick, pending, commands,
+            state_after: snapshot.digest, solver_before,
+            solver_after: snapshot.solver_rejections });
+    }
+    if worlds[0].tick() != HORIZON {
+        return Err(format!("smart132 tick 46 is the only diagnostic horizon; actual={}", worlds[0].tick()));
+    }
+    #[cfg(test)]
+    if mutation == PairAabbMutation::RemoveReplaySubmission {
+        mark_pair_aabb_mutation(mutation); replay.submitted_entries.remove(0);
+    }
+    #[cfg(test)]
+    if mutation == PairAabbMutation::ReorderReplaySubmission {
+        mark_pair_aabb_mutation(mutation); replay.submitted_entries.swap(0, 1);
+    }
+    if !replay_records_equal(&replay.submitted_entries, &expected_replay) {
+        return Err("smart132 replay submission receipt was missing or reordered".into());
+    }
+    let actual_replay: Result<Vec<_>, _> = replay.submitted_entries.iter().map(|row| match row.command {
+        sim::SubmittedCommand::Articulated(command) => Ok((row.tick, row.entity, command)),
+        _ => Err("smart132 replay contained a legacy command"),
+    }).collect();
+    let actual_replay = actual_replay.map_err(str::to_string)?;
+    replay.finish(HORIZON);
+    let played = replay.play_until(HORIZON);
+    let live = provenance_snapshot(&worlds[0], attacker, defender);
+    let rerun = provenance_snapshot(&worlds[1], attacker, defender);
+    let played = provenance_snapshot(&played, attacker, defender);
+    if !live.equals(&rerun) || !live.equals(&played) {
+        return Err("smart132 live, rerun, and single replay snapshots diverged".into());
+    }
+    if requested_records[0] != requested_records[1] || stored_records[0] != stored_records[1] {
+        return Err("smart132 independent command vectors diverged".into());
+    }
+    let (containing, mut aabb) = target_copy.ok_or("smart132 target evidence was not copied")?;
+    #[cfg(test)]
+    if mutation == PairAabbMutation::SuppressHeldDisjoint && arm == ProvenanceArm::Held {
+        mutate_copied_pair_aabb(&mut aabb, mutation)?;
+    }
+    #[cfg(test)]
+    if mutation == PairAabbMutation::RejectAsRecorderInvalid && arm != ProvenanceArm::Held {
+        aabb.terminal = ExactPairAabbTerminalDiagnostic::Reject(ExactScanRejectDiagnostic::Budget);
+        mutate_copied_pair_aabb(&mut aabb, mutation)?;
+    }
+    #[cfg(test)]
+    if mutation == PairAabbMutation::InjectRecorderInvalid {
+        mutate_copied_pair_aabb(&mut aabb, mutation)?;
+    }
+    let contact = live.resolutions.iter().any(|row| attributed_sword_body(row, attacker, defender, limb));
+    let solver_delta = rows.last().map(|row|
+        row.solver_after.saturating_sub(row.solver_before)).unwrap_or(0);
+    Ok(PairAabbRun { arm, rows, snapshot: live, containing, aabb, solver_delta,
+        contact, max_energy_excess_raw,
+        requested_receipt: source_41_receipt(ORDINAL_31_FINGERPRINT, &requested_records[0]),
+        stored_receipt: source_41_receipt(ORDINAL_31_FINGERPRINT, &stored_records[0]),
+        replay_receipt: source_41_receipt(ORDINAL_31_FINGERPRINT, &actual_replay) })
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn validate_wide_word(word: &ExactWideWordDiagnostic, denominator: bool) -> Result<(), String> {
+    let used = word.used as usize;
+    if used > word.limbs.len() || word.limbs[used..].iter().any(|limb| *limb != 0)
+        || (used != 0 && word.limbs[used - 1] == 0)
+        || (used == 0 && word.negative) || (denominator && (word.negative || used == 0))
+    { return Err("smart132 malformed wide word".into()); }
+    Ok(())
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn validate_wide(value: &ExactWideRationalDiagnostic) -> Result<(), String> {
+    validate_wide_word(&value.numerator, false)?;
+    validate_wide_word(&value.denominator, true)
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn validate_pair_aabb(containing: &ScanPairOwned, aabb: &PairAabbOwned) -> Result<(), String> {
+    validate_scan_pair(containing)?;
+    if !containing.pair_aabb_supported {
+        return Err("smart132 target did not enter the supported pair-AABB path".into());
+    }
+    if aabb.start_raw != containing.group_time_raw || aabb.end_raw != Fx::ONE.raw() as u32 {
+        return Err("smart132 pair-AABB window drifted from group-time -> 65536".into());
+    }
+    if aabb.recorder_invalid.is_some() {
+        return Err("smart132 recorder-invalid pair-AABB evidence was refused".into());
+    }
+    let reject = matches!(aabb.terminal, ExactPairAabbTerminalDiagnostic::Reject(_));
+    if aabb.points.len() > 24 || aabb.bounds.len() > 3 || aabb.gaps.len() > 3 {
+        return Err("smart132 pair-AABB evidence exceeded its fixed bound".into());
+    }
+    let a_count = aabb.points.iter().take_while(|row| row.side == ExactPairAabbSideDiagnostic::A).count();
+    if aabb.points[..a_count].iter().any(|row| row.side != ExactPairAabbSideDiagnostic::A)
+        || aabb.points[a_count..].iter().any(|row| row.side != ExactPairAabbSideDiagnostic::B)
+    { return Err("smart132 point sides were not A then B".into()); }
+    for (side, rows) in [(ExactPairAabbSideDiagnostic::A, &aabb.points[..a_count]),
+                         (ExactPairAabbSideDiagnostic::B, &aabb.points[a_count..])] {
+        for (ordinal, row) in rows.iter().enumerate() {
+            if row.side != side || row.ordinal as usize != ordinal {
+                return Err("smart132 point ordinal/order drifted".into());
+            }
+            for coordinate in &row.coordinate { validate_wide(coordinate)?; }
+        }
+        if side == ExactPairAabbSideDiagnostic::A {
+            let expected = [
+                (ExactPairAabbPointSourceDiagnostic::SegmentHilt, ExactPairAabbEndpointDiagnostic::Start),
+                (ExactPairAabbPointSourceDiagnostic::SegmentTip, ExactPairAabbEndpointDiagnostic::Start),
+                (ExactPairAabbPointSourceDiagnostic::SegmentHilt, ExactPairAabbEndpointDiagnostic::End),
+                (ExactPairAabbPointSourceDiagnostic::SegmentTip, ExactPairAabbEndpointDiagnostic::End),
+            ];
+            if ((!reject && rows.len() != 4) || (reject && rows.len() > 4))
+                || rows.iter().zip(expected).any(|(row, (source, endpoint))|
+                row.source != source || row.endpoint != endpoint || row.region.is_some())
+            { return Err("smart132 segment point semantic order drifted".into()); }
+        } else {
+            if rows.len() > 20 || (!reject && rows.len() % 4 != 0) {
+                return Err("smart132 body point cardinality drifted".into());
+            }
+            let mut previous_region = None;
+            for group in rows.chunks(4) {
+                let region = group[0].region.ok_or("smart132 body point region was missing")?;
+                if region as usize >= BodyPart::COUNT {
+                    return Err("smart132 body point region was out of range".into());
+                }
+                if previous_region.is_some_and(|previous| previous >= region)
+                    || group.iter().any(|row| row.region != Some(region))
+                { return Err("smart132 body region point order drifted".into()); }
+                let expected = [
+                    (ExactPairAabbPointSourceDiagnostic::BodyLower, ExactPairAabbEndpointDiagnostic::Start),
+                    (ExactPairAabbPointSourceDiagnostic::BodyUpper, ExactPairAabbEndpointDiagnostic::Start),
+                    (ExactPairAabbPointSourceDiagnostic::BodyLower, ExactPairAabbEndpointDiagnostic::End),
+                    (ExactPairAabbPointSourceDiagnostic::BodyUpper, ExactPairAabbEndpointDiagnostic::End),
+                ];
+                if group.iter().zip(expected).any(|(row, (source, endpoint))|
+                    row.source != source || row.endpoint != endpoint)
+                { return Err("smart132 body point semantic order drifted".into()); }
+                previous_region = Some(region);
+            }
+        }
+    }
+    let sides_empty = a_count == 0 || a_count == aabb.points.len();
+    if reject {
+        if sides_empty {
+            if !aabb.bounds.is_empty() || aabb.combined_radius.is_some() || !aabb.gaps.is_empty() {
+                return Err("smart132 rejected empty-side transcript crossed an unexecuted stage".into());
+            }
+        } else if aabb.bounds.is_empty() {
+            if aabb.combined_radius.is_some() || !aabb.gaps.is_empty() {
+                return Err("smart132 rejected pre-bounds transcript crossed an unexecuted stage".into());
+            }
+        } else if aabb.bounds.len() != 3 {
+            return Err("smart132 rejected bounds transcript was not an all-axis prefix".into());
+        } else if aabb.combined_radius.is_none() && !aabb.gaps.is_empty() {
+            return Err("smart132 rejected gap transcript preceded combined radius".into());
+        }
+    } else if sides_empty {
+        if aabb.terminal != ExactPairAabbTerminalDiagnostic::Disjoint || !aabb.bounds.is_empty()
+            || !aabb.gaps.is_empty() || aabb.combined_radius.is_some()
+        { return Err("smart132 empty-side AABB grammar drifted".into()); }
+    } else {
+        if aabb.bounds.len() != 3 || aabb.combined_radius.is_none()
+                || aabb.a_radius_raw.is_none() || aabb.b_radius_raw.is_none() {
+            return Err("smart132 nonempty AABB omitted bounds or combined radius".into());
+        }
+    }
+    if !sides_empty {
+        if aabb.a_radius_raw.is_some_and(|raw| raw < 0) || aabb.b_radius_raw.is_some_and(|raw| raw < 0) {
+            return Err("smart132 pair-AABB side radius was negative".into());
+        }
+        for (ordinal, row) in aabb.bounds.iter().enumerate() {
+            let expected = [ExactPairAabbAxisDiagnostic::X, ExactPairAabbAxisDiagnostic::Y,
+                            ExactPairAabbAxisDiagnostic::Z][ordinal];
+            if row.axis != expected { return Err("smart132 bound order drifted".into()); }
+            for value in [&row.left_min, &row.left_max, &row.right_min, &row.right_max] {
+                validate_wide(value)?;
+            }
+        }
+        if let Some(radius) = &aabb.combined_radius { validate_wide(radius)?; }
+        for (ordinal, row) in aabb.gaps.iter().enumerate() {
+            let expected = [ExactPairAabbAxisDiagnostic::X, ExactPairAabbAxisDiagnostic::Y,
+                            ExactPairAabbAxisDiagnostic::Z][ordinal];
+            if row.axis != expected { return Err("smart132 gap order drifted".into()); }
+            validate_wide(&row.right_gap)?;
+            if let Some(value) = &row.left_gap { validate_wide(value)?; }
+            if reject && row.disjoint {
+                return Err("smart132 rejected gap prefix contained a completed separation".into());
+            }
+            if row.right_comparison == ExactPairAabbComparisonDiagnostic::Greater {
+                if reject || row.left_gap.is_some() || row.left_comparison.is_some() || !row.disjoint {
+                    return Err("smart132 right-gap early-exit grammar drifted".into());
+                }
+            } else if row.left_gap.is_none() || row.left_comparison.is_none() {
+                if !reject || ordinal + 1 != aabb.gaps.len() || row.left_gap.is_some()
+                    || row.left_comparison.is_some() || row.disjoint {
+                    return Err("smart132 executed left gap was missing".into());
+                }
+            } else if row.disjoint
+                != (row.left_comparison == Some(ExactPairAabbComparisonDiagnostic::Greater)) {
+                return Err("smart132 left-gap comparison did not equal its disjoint result".into());
+            }
+            if ordinal + 1 != aabb.gaps.len() && row.disjoint {
+                return Err("smart132 rows continued after a separating axis".into());
+            }
+        }
+        match aabb.terminal {
+            ExactPairAabbTerminalDiagnostic::Overlap => {
+                if aabb.gaps.len() != 3 || aabb.gaps.iter().any(|row| row.disjoint) {
+                    return Err("smart132 overlap did not execute three nonseparating gaps".into());
+                }
+            }
+            ExactPairAabbTerminalDiagnostic::Disjoint => {
+                if !aabb.gaps.last().is_some_and(|row| row.disjoint) {
+                    return Err("smart132 disjoint terminal lacked a final separating gap".into());
+                }
+            }
+            ExactPairAabbTerminalDiagnostic::Reject(_) => {}
+        }
+    }
+    Ok(())
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn wide_word_atom(word: &ExactWideWordDiagnostic, signed: bool) -> String {
+    let sign = if signed { if word.negative { "-" } else { "+" } } else { "" };
+    if word.used == 0 { return format!("{sign}0:none"); }
+    let limbs = word.limbs[..word.used as usize].iter()
+        .map(|limb| format!("{limb:08x}")).collect::<Vec<_>>().join(",");
+    format!("{sign}{}:{limbs}", word.used)
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn wide_atom(value: &ExactWideRationalDiagnostic) -> String {
+    format!("{}/{}", wide_word_atom(&value.numerator, true),
+            wide_word_atom(&value.denominator, false))
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn pair_aabb_side_name(value: ExactPairAabbSideDiagnostic) -> &'static str {
+    match value { ExactPairAabbSideDiagnostic::A => "a", ExactPairAabbSideDiagnostic::B => "b" }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn pair_aabb_axis_name(value: ExactPairAabbAxisDiagnostic) -> &'static str {
+    match value { ExactPairAabbAxisDiagnostic::X => "x", ExactPairAabbAxisDiagnostic::Y => "y",
+                  ExactPairAabbAxisDiagnostic::Z => "z" }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn pair_aabb_source_name(value: ExactPairAabbPointSourceDiagnostic) -> &'static str {
+    match value {
+        ExactPairAabbPointSourceDiagnostic::SegmentHilt => "segment_hilt",
+        ExactPairAabbPointSourceDiagnostic::SegmentTip => "segment_tip",
+        ExactPairAabbPointSourceDiagnostic::BodyLower => "body_lower",
+        ExactPairAabbPointSourceDiagnostic::BodyUpper => "body_upper",
+    }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn pair_aabb_endpoint_name(value: ExactPairAabbEndpointDiagnostic) -> &'static str {
+    match value { ExactPairAabbEndpointDiagnostic::Start => "start",
+                  ExactPairAabbEndpointDiagnostic::End => "end" }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn pair_aabb_comparison_name(value: ExactPairAabbComparisonDiagnostic) -> &'static str {
+    match value { ExactPairAabbComparisonDiagnostic::Less => "less",
+                  ExactPairAabbComparisonDiagnostic::Equal => "equal",
+                  ExactPairAabbComparisonDiagnostic::Greater => "greater" }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn pair_aabb_terminal_name(value: ExactPairAabbTerminalDiagnostic) -> String {
+    match value {
+        ExactPairAabbTerminalDiagnostic::Overlap => "overlap".into(),
+        ExactPairAabbTerminalDiagnostic::Disjoint => "disjoint".into(),
+        ExactPairAabbTerminalDiagnostic::Reject(reject) => format!("reject:{}", scan_reject_name(reject)),
+    }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+const PAIR_AABB_FIELD_ORDER: [&str; 22] = [
+    "start_raw", "end_raw", "a_point_count", "point_source", "point_region",
+    "point_endpoint", "point_x", "point_y", "point_z", "a_radius_raw",
+    "b_point_count", "point_source", "point_region", "point_endpoint", "point_x",
+    "point_y", "point_z", "b_radius_raw", "bound_left_min", "bound_left_max",
+    "bound_right_min", "bound_right_max",
+];
+
+#[cfg(feature = "cartesian-recoil")]
+const PAIR_AABB_TAIL_FIELD_ORDER: [&str; 6] = [
+    "combined_radius", "right_gap", "right_comparison", "left_gap",
+    "left_comparison", "gap_disjoint",
+];
+
+#[cfg(feature = "cartesian-recoil")]
+const PAIR_AABB_FIELD_VOCABULARY: [&str; 22] = [
+    "start_raw", "end_raw", "a_point_count", "point_source", "point_region",
+    "point_endpoint", "point_x", "point_y", "point_z", "a_radius_raw",
+    "b_point_count", "b_radius_raw", "bound_left_min", "bound_left_max",
+    "bound_right_min", "bound_right_max", "combined_radius", "right_gap",
+    "right_comparison", "left_gap", "left_comparison", "gap_disjoint",
+];
+
+#[cfg(feature = "cartesian-recoil")]
+fn first_pair_aabb_difference(reference_pair: &ScanPairOwned, reference: &PairAabbOwned,
+                              held_pair: &ScanPairOwned, held: &PairAabbOwned)
+    -> Result<PairAabbDifference, String>
+{
+    let different = |scope, field, side, point, axis, reference: String, held: String| {
+        if reference == held { None } else { Some(PairAabbDifference {
+            scope, field, side, point, axis, reference, held }) }
+    };
+    macro_rules! field { ($scope:expr, $field:expr, $side:expr, $point:expr, $axis:expr,
+                          $left:expr, $right:expr) => {
+        if !PAIR_AABB_FIELD_ORDER.contains(&$field)
+            && !PAIR_AABB_TAIL_FIELD_ORDER.contains(&$field) {
+            return Err("smart132 comparator used an undeclared field token".into());
+        }
+        if let Some(value) = different($scope, $field, $side, $point, $axis,
+                                       $left, $right) { return Ok(value); }
+    } }
+    field!("window", "start_raw", None, None, None, atom(reference.start_raw), atom(held.start_raw));
+    field!("window", "end_raw", None, None, None, atom(reference.end_raw), atom(held.end_raw));
+    for side in [ExactPairAabbSideDiagnostic::A, ExactPairAabbSideDiagnostic::B] {
+        let left: Vec<_> = reference.points.iter().filter(|row| row.side == side).collect();
+        let right: Vec<_> = held.points.iter().filter(|row| row.side == side).collect();
+        let count_field = if side == ExactPairAabbSideDiagnostic::A { "a_point_count" }
+            else { "b_point_count" };
+        field!("control", count_field, Some(side), None, None, atom(left.len()), atom(right.len()));
+        for (a, b) in left.iter().zip(right) {
+            field!("point", "point_source", Some(side), Some(a.ordinal), None,
+                pair_aabb_source_name(a.source).into(), pair_aabb_source_name(b.source).into());
+            field!("point", "point_region", Some(side), Some(a.ordinal), None,
+                option_atom(a.region), option_atom(b.region));
+            field!("point", "point_endpoint", Some(side), Some(a.ordinal), None,
+                pair_aabb_endpoint_name(a.endpoint).into(), pair_aabb_endpoint_name(b.endpoint).into());
+            for (axis, field_name) in [(0, "point_x"), (1, "point_y"), (2, "point_z")] {
+                field!("point", field_name, Some(side), Some(a.ordinal), None,
+                    wide_atom(&a.coordinate[axis]), wide_atom(&b.coordinate[axis]));
+            }
+        }
+        let (left_radius, right_radius, radius_field) = if side == ExactPairAabbSideDiagnostic::A {
+            (reference.a_radius_raw, held.a_radius_raw, "a_radius_raw")
+        } else { (reference.b_radius_raw, held.b_radius_raw, "b_radius_raw") };
+        field!("radius", radius_field, Some(side), None, None,
+            option_atom(left_radius), option_atom(right_radius));
+    }
+    if reference.bounds.len() != held.bounds.len() {
+        return Err("smart132-incomplete-aabb-transcript".into());
+    }
+    for (a, b) in reference.bounds.iter().zip(&held.bounds) {
+        if a.axis != b.axis { return Err("smart132-incomplete-aabb-transcript".into()); }
+        for (name, left, right) in [
+            ("bound_left_min", &a.left_min, &b.left_min),
+            ("bound_left_max", &a.left_max, &b.left_max),
+            ("bound_right_min", &a.right_min, &b.right_min),
+            ("bound_right_max", &a.right_max, &b.right_max)] {
+            field!("bound", name, None, None, Some(a.axis), wide_atom(left), wide_atom(right));
+        }
+    }
+    field!("radius", "combined_radius", None, None, None,
+        reference.combined_radius.as_ref().map(wide_atom).unwrap_or_else(|| "none".into()),
+        held.combined_radius.as_ref().map(wide_atom).unwrap_or_else(|| "none".into()));
+    for (a, b) in reference.gaps.iter().zip(&held.gaps) {
+        if a.axis != b.axis { return Err("smart132-incomplete-aabb-transcript".into()); }
+        field!("gap", "right_gap", None, None, Some(a.axis), wide_atom(&a.right_gap), wide_atom(&b.right_gap));
+        field!("gap", "right_comparison", None, None, Some(a.axis),
+            pair_aabb_comparison_name(a.right_comparison).into(), pair_aabb_comparison_name(b.right_comparison).into());
+        field!("gap", "left_gap", None, None, Some(a.axis),
+            a.left_gap.as_ref().map(wide_atom).unwrap_or_else(|| "none".into()),
+            b.left_gap.as_ref().map(wide_atom).unwrap_or_else(|| "none".into()));
+        field!("gap", "left_comparison", None, None, Some(a.axis),
+            a.left_comparison.map(pair_aabb_comparison_name).unwrap_or("none").into(),
+            b.left_comparison.map(pair_aabb_comparison_name).unwrap_or("none").into());
+        field!("gap", "gap_disjoint", None, None, Some(a.axis), atom(a.disjoint), atom(b.disjoint));
+    }
+    if reference.gaps.len() != held.gaps.len() || reference.terminal != held.terminal {
+        return Err("smart132-incomplete-aabb-transcript".into());
+    }
+    if reference_pair.result != held_pair.result {
+        return Err("smart132-incomplete-aabb-transcript".into());
+    }
+    Err("smart132 pair-AABB transcripts had no differing field".into())
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn validate_pair_aabb_trace(trace: &Ordinal31Tick46PairAabb) -> Result<(), String> {
+    let runs = [&trace.reference_before, &trace.held, &trace.reference_after];
+    for run in runs {
+        if run.rows.len() != 46 || run.rows.last().map(|row| row.tick) != Some(45) {
+            return Err("smart132 tick 46 is the only diagnostic horizon".into());
+        }
+        validate_pair_aabb(&run.containing, &run.aabb)?;
+        if run.snapshot.cap_hits != 0 || run.max_energy_excess_raw != 0 || run.contact
+            || !run.snapshot.groups.is_empty()
+        { return Err("smart132 frozen cap, energy, contact, or group guard failed".into()); }
+        if run.requested_receipt != run.stored_receipt || run.stored_receipt != run.replay_receipt {
+            return Err("smart132 command receipts diverged".into());
+        }
+    }
+    if !trace.reference_before.equals_excluding_aabb(&trace.reference_after)
+        || trace.reference_before.aabb != trace.reference_after.aabb
+    { return Err("smart132 reference brackets diverged".into()); }
+    if trace.reference_before.snapshot.solver_rejections != 7
+        || trace.reference_before.solver_delta != 1
+        || trace.held.snapshot.solver_rejections != 6 || trace.held.solver_delta != 0
+    { return Err("smart132 frozen solver boundary drifted".into()); }
+    if trace.reference_before.containing.region_count != 2
+        || trace.reference_before.containing.visit_count != 96
+        || trace.reference_before.containing.result
+            != ExactSegmentBodyPairResultDiagnostic::Reject(ExactScanRejectDiagnostic::Budget)
+        || trace.reference_before.containing.pair_aabb_disjoint != Some(false)
+        || trace.held.containing.region_count != 0 || trace.held.containing.visit_count != 0
+        || trace.held.containing.result != ExactSegmentBodyPairResultDiagnostic::PairAabbDisjoint
+        || trace.held.containing.pair_aabb_disjoint != Some(true)
+        || trace.reference_before.aabb.terminal != ExactPairAabbTerminalDiagnostic::Overlap
+        || trace.held.aabb.terminal != ExactPairAabbTerminalDiagnostic::Disjoint
+    { return Err("smart132 source boundary mismatch".into()); }
+    let recomputed = first_pair_aabb_difference(&trace.reference_before.containing,
+        &trace.reference_before.aabb, &trace.held.containing, &trace.held.aabb)?;
+    if recomputed != trace.difference {
+        return Err("smart132 stored first difference did not match the validated transcript".into());
+    }
+    Ok(())
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn build_ordinal_31_tick46_pair_aabb(mutation: PairAabbMutation)
+    -> Result<Ordinal31Tick46PairAabb, String>
+{
+    let reference_before = run_tick46_pair_aabb_arm(ProvenanceArm::ReferenceBefore, Fx::ONE, mutation)?;
+    let held = run_tick46_pair_aabb_arm(ProvenanceArm::Held, Fx::ZERO, mutation)?;
+    let reference_after = run_tick46_pair_aabb_arm(ProvenanceArm::ReferenceAfter, Fx::ONE, mutation)?;
+    let difference = first_pair_aabb_difference(&reference_before.containing,
+        &reference_before.aabb, &held.containing, &held.aabb)?;
+    let trace = Ordinal31Tick46PairAabb { reference_before, held, reference_after, difference };
+    validate_pair_aabb_trace(&trace)?;
+    Ok(trace)
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn write_pair_aabb_block(out: &mut String, run: &PairAabbRun) {
+    use core::fmt::Write;
+    let name = pair_run_name(run.arm);
+    let pair = &run.containing; let aabb = &run.aabb;
+    let a_count = aabb.points.iter().filter(|row| row.side == ExactPairAabbSideDiagnostic::A).count();
+    let b_count = aabb.points.len() - a_count;
+    writeln!(out, "pair_aabb run={} a_index={} b_index={} encounter_count={} a_entity={} a_slot={} a_owner={} b_entity={} b_slot={} b_owner={} kind={} a_shape={} b_shape={} orientation={} start_raw={} end_raw={} a_point_count={} b_point_count={} bound_count={} gap_count={} terminal={} recorder_invalid=none",
+        name, pair.target.a_index, pair.target.b_index, pair.encounter_count,
+        entity_text(pair.a_entity), pair.a_slot, pair.a_owner, entity_text(pair.b_entity),
+        pair.b_slot, pair.b_owner, contact_kind_name(pair.kind), scan_shape_name(pair.a_shape),
+        scan_shape_name(pair.b_shape), segment_body_orientation_name(pair.orientation),
+        aabb.start_raw, aabb.end_raw, a_count, b_count, aabb.bounds.len(), aabb.gaps.len(),
+        pair_aabb_terminal_name(aabb.terminal)).unwrap();
+    for side in [ExactPairAabbSideDiagnostic::A, ExactPairAabbSideDiagnostic::B] {
+        for point in aabb.points.iter().filter(|row| row.side == side) {
+            writeln!(out, "point run={} side={} ordinal={} source={} region={} endpoint={} x={} y={} z={}",
+                name, pair_aabb_side_name(side), point.ordinal, pair_aabb_source_name(point.source),
+                option_atom(point.region), pair_aabb_endpoint_name(point.endpoint),
+                wide_atom(&point.coordinate[0]), wide_atom(&point.coordinate[1]),
+                wide_atom(&point.coordinate[2])).unwrap();
+        }
+        let radius = if side == ExactPairAabbSideDiagnostic::A { aabb.a_radius_raw }
+            else { aabb.b_radius_raw };
+        writeln!(out, "side_radius run={} side={} value={}", name,
+            pair_aabb_side_name(side), option_atom(radius)).unwrap();
+    }
+    for (ordinal, row) in aabb.bounds.iter().enumerate() {
+        writeln!(out, "bound run={} ordinal={} axis={} left_min={} left_max={} right_min={} right_max={}",
+            name, ordinal, pair_aabb_axis_name(row.axis), wide_atom(&row.left_min),
+            wide_atom(&row.left_max), wide_atom(&row.right_min), wide_atom(&row.right_max)).unwrap();
+    }
+    writeln!(out, "combined_radius run={} value={}", name,
+        aabb.combined_radius.as_ref().map(wide_atom).unwrap_or_else(|| "none".into())).unwrap();
+    for (ordinal, row) in aabb.gaps.iter().enumerate() {
+        writeln!(out, "gap run={} ordinal={} axis={} right_gap={} right_comparison={} left_gap={} left_comparison={} disjoint={}",
+            name, ordinal, pair_aabb_axis_name(row.axis), wide_atom(&row.right_gap),
+            pair_aabb_comparison_name(row.right_comparison),
+            row.left_gap.as_ref().map(wide_atom).unwrap_or_else(|| "none".into()),
+            row.left_comparison.map(pair_aabb_comparison_name).unwrap_or("none"), row.disjoint).unwrap();
+    }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn render_tick46_pair_aabb(trace: &Ordinal31Tick46PairAabb) -> Result<String, String> {
+    use core::fmt::Write;
+    validate_pair_aabb_trace(trace)?;
+    let mut out = String::new();
+    writeln!(out, "smart132-ordinal31-tick46-pair-aabb-control-v1").unwrap();
+    writeln!(out, "descriptor ordinal=31 seed=0 mirrored=true target=brute offset_x_raw=-163840 offset_y_raw=0 fingerprint=3796840901852190123 chamber_ticks=28 strike_ticks=28 reach_raw=65536").unwrap();
+    writeln!(out, "smart131_source sha256=8ba428ecace7dba5f281c879c8ceaec907d8b5f9a504f67fc8d28b53811bde7e bytes=18433 lines=208 first_scope=aabb_control first_field=pair_region_count reference=2 held=0").unwrap();
+    let runs = [&trace.reference_before, &trace.held, &trace.reference_after];
+    for run in runs {
+        writeln!(out, "horizon run={} tick_after=46 solver_count={} solver_delta={} contact=false cap_hits=0 max_energy_excess_raw=0 requested_receipt={:016x} stored_receipt={:016x} replay_receipt={:016x} state_domain={} state_schema={} state_value={:016x}",
+            pair_run_name(run.arm), run.snapshot.solver_rejections, run.solver_delta,
+            run.requested_receipt, run.stored_receipt, run.replay_receipt,
+            hash_domain_name(run.snapshot.digest.domain), run.snapshot.digest.schema,
+            run.snapshot.digest.value).unwrap();
+    }
+    for run in runs { write_pair_aabb_block(&mut out, run); }
+    let difference = &trace.difference;
+    writeln!(out, "first_aabb_difference scope={} field={} side={} point={} axis={} reference={} held={}",
+        difference.scope, difference.field,
+        difference.side.map(pair_aabb_side_name).unwrap_or("none"), option_atom(difference.point),
+        difference.axis.map(pair_aabb_axis_name).unwrap_or("none"),
+        difference.reference, difference.held).unwrap();
+    writeln!(out, "source_boundary reference_pair_aabb_disjoint=false reference_regions=2 reference_visits=96 held_pair_aabb_disjoint=true held_regions=0 held_visits=0").unwrap();
+    writeln!(out, "decision=diagnostic-only").unwrap();
+    let expected = 21 + runs.iter().map(|run| run.aabb.points.len()
+        + run.aabb.bounds.len() + run.aabb.gaps.len()).sum::<usize>();
+    if out.lines().count() != expected || !out.ends_with('\n') || !out.is_ascii() {
+        return Err(format!("smart132 artifact grammar/cardinality drifted: expected {expected}, actual {}", out.lines().count()));
+    }
+    Ok(out)
+}
+
+#[cfg(feature = "cartesian-recoil")]
+pub(crate) fn ordinal_31_tick_46_pair_aabb_artifact() -> Result<String, String> {
+    #[cfg(test)]
+    { return render_tick46_pair_aabb(cached_ordinal_31_tick46_pair_aabb()); }
+    #[cfg(not(test))]
+    build_ordinal_31_tick46_pair_aabb(PairAabbMutation::None)
+        .and_then(|trace| render_tick46_pair_aabb(&trace))
+}
+
+#[cfg(all(feature = "cartesian-recoil", test))]
+fn cached_ordinal_31_tick46_pair_aabb() -> &'static Ordinal31Tick46PairAabb {
+    static TRACE: std::sync::OnceLock<Ordinal31Tick46PairAabb> = std::sync::OnceLock::new();
+    TRACE.get_or_init(|| build_ordinal_31_tick46_pair_aabb(PairAabbMutation::None)
+        .expect("the frozen Smart132 trace must validate"))
 }
 
 pub(crate) fn measure(strike_effort: Fx) -> StrikeMeasurement {
@@ -3653,6 +4524,136 @@ mod tests {
     }
 
     #[cfg(feature = "cartesian-recoil")]
+    fn synthetic_wide(raw: u32) -> ExactWideRationalDiagnostic {
+        let mut numerator = [0; 128]; numerator[0] = raw;
+        let mut denominator = [0; 128]; denominator[0] = 1;
+        ExactWideRationalDiagnostic {
+            numerator: ExactWideWordDiagnostic { negative: false,
+                used: if raw == 0 { 0 } else { 1 }, limbs: numerator },
+            denominator: ExactWideWordDiagnostic { negative: false, used: 1, limbs: denominator },
+        }
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    fn synthetic_pair_aabb(group_time_raw: u32, overlap: bool, differing_x: bool)
+        -> PairAabbOwned
+    {
+        let mut points = Vec::new();
+        for (ordinal, (source, endpoint)) in [
+            (ExactPairAabbPointSourceDiagnostic::SegmentHilt, ExactPairAabbEndpointDiagnostic::Start),
+            (ExactPairAabbPointSourceDiagnostic::SegmentTip, ExactPairAabbEndpointDiagnostic::Start),
+            (ExactPairAabbPointSourceDiagnostic::SegmentHilt, ExactPairAabbEndpointDiagnostic::End),
+            (ExactPairAabbPointSourceDiagnostic::SegmentTip, ExactPairAabbEndpointDiagnostic::End),
+        ].into_iter().enumerate() {
+            let x = if differing_x && ordinal == 0 { 2 } else { 1 };
+            points.push(ExactPairAabbPointDiagnostic { side: ExactPairAabbSideDiagnostic::A,
+                ordinal: ordinal as u8, source, region: None, endpoint,
+                coordinate: [synthetic_wide(x), synthetic_wide(1), synthetic_wide(1)] });
+        }
+        let mut ordinal = 0;
+        for region in [0, 2] {
+            for (source, endpoint) in [
+                (ExactPairAabbPointSourceDiagnostic::BodyLower, ExactPairAabbEndpointDiagnostic::Start),
+                (ExactPairAabbPointSourceDiagnostic::BodyUpper, ExactPairAabbEndpointDiagnostic::Start),
+                (ExactPairAabbPointSourceDiagnostic::BodyLower, ExactPairAabbEndpointDiagnostic::End),
+                (ExactPairAabbPointSourceDiagnostic::BodyUpper, ExactPairAabbEndpointDiagnostic::End),
+            ] {
+                points.push(ExactPairAabbPointDiagnostic { side: ExactPairAabbSideDiagnostic::B,
+                    ordinal, source, region: Some(region), endpoint,
+                    coordinate: [synthetic_wide(1), synthetic_wide(1), synthetic_wide(1)] });
+                ordinal += 1;
+            }
+        }
+        let axes = [ExactPairAabbAxisDiagnostic::X, ExactPairAabbAxisDiagnostic::Y,
+                    ExactPairAabbAxisDiagnostic::Z];
+        let bounds = axes.map(|axis| ExactPairAabbBoundRowDiagnostic { axis,
+            left_min: synthetic_wide(1), left_max: synthetic_wide(1),
+            right_min: synthetic_wide(1), right_max: synthetic_wide(1) }).to_vec();
+        let gaps = if overlap {
+            axes.map(|axis| ExactPairAabbGapRowDiagnostic { axis,
+                right_gap: synthetic_wide(1),
+                right_comparison: ExactPairAabbComparisonDiagnostic::Equal,
+                left_gap: Some(synthetic_wide(1)),
+                left_comparison: Some(ExactPairAabbComparisonDiagnostic::Equal),
+                disjoint: false }).to_vec()
+        } else { vec![ExactPairAabbGapRowDiagnostic { axis: ExactPairAabbAxisDiagnostic::X,
+            right_gap: synthetic_wide(1),
+            right_comparison: ExactPairAabbComparisonDiagnostic::Greater,
+            left_gap: None, left_comparison: None, disjoint: true }] };
+        PairAabbOwned { start_raw: group_time_raw, end_raw: 65_536,
+            a_radius_raw: Some(1), b_radius_raw: Some(2),
+            combined_radius: Some(synthetic_wide(1)),
+            terminal: if overlap { ExactPairAabbTerminalDiagnostic::Overlap }
+                else { ExactPairAabbTerminalDiagnostic::Disjoint },
+            recorder_invalid: None, points, bounds, gaps }
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    fn synthetic_pair_aabb_trace() -> Ordinal31Tick46PairAabb {
+        let mut trace = cached_ordinal_31_tick46_pair_aabb().clone();
+        trace.reference_before.aabb = synthetic_pair_aabb(
+            trace.reference_before.containing.group_time_raw, true, false);
+        trace.reference_after.aabb = trace.reference_before.aabb.clone();
+        trace.held.aabb = synthetic_pair_aabb(trace.held.containing.group_time_raw, false, true);
+        trace.difference = first_pair_aabb_difference(&trace.reference_before.containing,
+            &trace.reference_before.aabb, &trace.held.containing, &trace.held.aabb).unwrap();
+        trace
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    fn synthetic_pair_aabb_expected_bytes() -> String {
+        use core::fmt::Write;
+        const ONE: &str = "+1:00000001/1:00000001";
+        const TWO: &str = "+1:00000002/1:00000001";
+        let mut out = String::new();
+        writeln!(out, "smart132-ordinal31-tick46-pair-aabb-control-v1").unwrap();
+        writeln!(out, "descriptor ordinal=31 seed=0 mirrored=true target=brute offset_x_raw=-163840 offset_y_raw=0 fingerprint=3796840901852190123 chamber_ticks=28 strike_ticks=28 reach_raw=65536").unwrap();
+        writeln!(out, "smart131_source sha256=8ba428ecace7dba5f281c879c8ceaec907d8b5f9a504f67fc8d28b53811bde7e bytes=18433 lines=208 first_scope=aabb_control first_field=pair_region_count reference=2 held=0").unwrap();
+        for line in [
+            "horizon run=reference_before tick_after=46 solver_count=7 solver_delta=1 contact=false cap_hits=0 max_energy_excess_raw=0 requested_receipt=68380c01b08a4bba stored_receipt=68380c01b08a4bba replay_receipt=68380c01b08a4bba state_domain=articulated_v1 state_schema=1 state_value=b103c18d16641a9f",
+            "horizon run=held tick_after=46 solver_count=6 solver_delta=0 contact=false cap_hits=0 max_energy_excess_raw=0 requested_receipt=f1cbac3ada86d1b5 stored_receipt=f1cbac3ada86d1b5 replay_receipt=f1cbac3ada86d1b5 state_domain=articulated_v1 state_schema=1 state_value=602273fa3b8cc80c",
+            "horizon run=reference_after tick_after=46 solver_count=7 solver_delta=1 contact=false cap_hits=0 max_energy_excess_raw=0 requested_receipt=68380c01b08a4bba stored_receipt=68380c01b08a4bba replay_receipt=68380c01b08a4bba state_domain=articulated_v1 state_schema=1 state_value=b103c18d16641a9f",
+        ] { writeln!(out, "{line}").unwrap(); }
+        for (run, held) in [("reference_before", false), ("held", true),
+                            ("reference_after", false)] {
+            writeln!(out, "pair_aabb run={run} a_index=1 b_index=3 encounter_count=1 a_entity=0:0 a_slot=1 a_owner=0 b_entity=1:0 b_slot=255 b_owner=1 kind=weapon_body a_shape=segment b_shape=body orientation=segment_body start_raw=0 end_raw=65536 a_point_count=4 b_point_count=8 bound_count=3 gap_count={} terminal={} recorder_invalid=none",
+                if held { 1 } else { 3 }, if held { "disjoint" } else { "overlap" }).unwrap();
+            for (ordinal, (source, endpoint)) in [
+                ("segment_hilt", "start"), ("segment_tip", "start"),
+                ("segment_hilt", "end"), ("segment_tip", "end")].into_iter().enumerate()
+            {
+                let x = if held && ordinal == 0 { TWO } else { ONE };
+                writeln!(out, "point run={run} side=a ordinal={ordinal} source={source} region=none endpoint={endpoint} x={x} y={ONE} z={ONE}").unwrap();
+            }
+            writeln!(out, "side_radius run={run} side=a value=1").unwrap();
+            let mut ordinal = 0;
+            for region in [0, 2] {
+                for (source, endpoint) in [("body_lower", "start"), ("body_upper", "start"),
+                                           ("body_lower", "end"), ("body_upper", "end")] {
+                    writeln!(out, "point run={run} side=b ordinal={ordinal} source={source} region={region} endpoint={endpoint} x={ONE} y={ONE} z={ONE}").unwrap();
+                    ordinal += 1;
+                }
+            }
+            writeln!(out, "side_radius run={run} side=b value=2").unwrap();
+            for (ordinal, axis) in ["x", "y", "z"].into_iter().enumerate() {
+                writeln!(out, "bound run={run} ordinal={ordinal} axis={axis} left_min={ONE} left_max={ONE} right_min={ONE} right_max={ONE}").unwrap();
+            }
+            writeln!(out, "combined_radius run={run} value={ONE}").unwrap();
+            if held {
+                writeln!(out, "gap run={run} ordinal=0 axis=x right_gap={ONE} right_comparison=greater left_gap=none left_comparison=none disjoint=true").unwrap();
+            } else {
+                for (ordinal, axis) in ["x", "y", "z"].into_iter().enumerate() {
+                    writeln!(out, "gap run={run} ordinal={ordinal} axis={axis} right_gap={ONE} right_comparison=equal left_gap={ONE} left_comparison=equal disjoint=false").unwrap();
+                }
+            }
+        }
+        writeln!(out, "first_aabb_difference scope=point field=point_x side=a point=0 axis=none reference={ONE} held={TWO}").unwrap();
+        writeln!(out, "source_boundary reference_pair_aabb_disjoint=false reference_regions=2 reference_visits=96 held_pair_aabb_disjoint=true held_regions=0 held_visits=0").unwrap();
+        writeln!(out, "decision=diagnostic-only").unwrap();
+        out
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
     #[test]
     fn ordinal_1536_trace_uses_source_41_and_zero_local_deltas() {
         let case = trace_case_1536();
@@ -4058,5 +5059,312 @@ decision=diagnostic-only\n";
             "the complete synthetic artifact obeys 12 + regions + visits");
         assert_eq!(&complete[..fixed_header.len()], fixed_header);
         assert_eq!(&complete[complete.len() - fixed_tail.len()..], fixed_tail);
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn ordinal_31_tick_46_pair_aabb_reproduces_the_smart131_boundary() {
+        let trace = cached_ordinal_31_tick46_pair_aabb();
+        assert_eq!((trace.reference_before.solver_delta,
+                    trace.reference_before.snapshot.solver_rejections,
+                    trace.held.solver_delta, trace.held.snapshot.solver_rejections),
+                   (1, 7, 0, 6));
+        assert_eq!((trace.reference_before.containing.region_count,
+                    trace.reference_before.containing.visit_count,
+                    trace.reference_before.containing.pair_aabb_disjoint),
+                   (2, 96, Some(false)));
+        assert_eq!((trace.held.containing.region_count, trace.held.containing.visit_count,
+                    trace.held.containing.pair_aabb_disjoint), (0, 0, Some(true)));
+        assert_eq!(trace.reference_before.aabb.terminal, ExactPairAabbTerminalDiagnostic::Overlap);
+        assert_eq!(trace.held.aabb.terminal, ExactPairAabbTerminalDiagnostic::Disjoint);
+        let wrong = run_tick46_pair_aabb_arm(ProvenanceArm::Held, Fx::ZERO,
+            PairAabbMutation::WrongTarget).expect_err("the wrong target must not satisfy admission");
+        assert!(pair_aabb_mutation_fired(PairAabbMutation::WrongTarget));
+        assert!(wrong.contains("encounter count was 0"), "{wrong}");
+        let next = run_tick46_pair_aabb_arm(ProvenanceArm::Held, Fx::ZERO,
+            PairAabbMutation::NextPair).expect_err("the next real pair must not satisfy admission");
+        assert!(pair_aabb_mutation_fired(PairAabbMutation::NextPair));
+        assert!(next.contains("target identity drifted"), "{next}");
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn ordinal_31_tick_46_pair_aabb_is_the_only_diagnostic_horizon() {
+        let trace = cached_ordinal_31_tick46_pair_aabb();
+        for run in [&trace.reference_before, &trace.held, &trace.reference_after] {
+            assert_eq!(run.rows.len(), 46); assert_eq!(run.rows.last().unwrap().tick, 45);
+        }
+        let error = run_tick46_pair_aabb_arm(ProvenanceArm::Held, Fx::ZERO,
+            PairAabbMutation::Horizon47).expect_err("horizon 47 must be refused");
+        assert!(pair_aabb_mutation_fired(PairAabbMutation::Horizon47));
+        assert!(error.contains("only diagnostic horizon"), "{error}");
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn ordinal_31_tick_46_pair_aabb_reference_brackets_match() {
+        let trace = cached_ordinal_31_tick46_pair_aabb();
+        assert!(trace.reference_before.equals_excluding_aabb(&trace.reference_after));
+        assert_eq!(trace.reference_before.aabb, trace.reference_after.aabb);
+        for mutation in [PairAabbMutation::CorruptRerunPointWord,
+            PairAabbMutation::DropRerunPoint, PairAabbMutation::ReorderRerunPoints,
+            PairAabbMutation::AlterRerunPointSource, PairAabbMutation::CorruptRerunBound,
+            PairAabbMutation::CorruptRerunGap, PairAabbMutation::DropRerunBound,
+            PairAabbMutation::ReorderRerunBounds, PairAabbMutation::DropRerunGap,
+            PairAabbMutation::ReorderRerunGaps, PairAabbMutation::ContinueAfterSeparation]
+        {
+            let mut damaged = trace.reference_after.aabb.clone();
+            let result = mutate_copied_pair_aabb(&mut damaged, mutation)
+                .and_then(|()| validate_pair_aabb(&trace.reference_after.containing, &damaged));
+            assert!(pair_aabb_mutation_fired(mutation), "{mutation:?}");
+            assert!(result.is_err() || damaged != trace.reference_before.aabb,
+                "{mutation:?} left the bracket equal");
+        }
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn ordinal_31_tick_46_pair_aabb_live_rerun_and_single_replay_match() {
+        let trace = cached_ordinal_31_tick46_pair_aabb();
+        for run in [&trace.reference_before, &trace.held, &trace.reference_after] {
+            assert_eq!(run.requested_receipt, run.stored_receipt);
+            assert_eq!(run.stored_receipt, run.replay_receipt);
+            assert!(run.snapshot.digest.compare(run.rows.last().unwrap().state_after) == Ok(true));
+        }
+        for mutation in [PairAabbMutation::RemoveReplaySubmission,
+                         PairAabbMutation::ReorderReplaySubmission] {
+            let error = run_tick46_pair_aabb_arm(ProvenanceArm::Held, Fx::ZERO, mutation)
+                .expect_err("damaging the actual Replay must fail its independent vector");
+            assert!(pair_aabb_mutation_fired(mutation));
+            assert!(error.contains("missing or reordered"), "{error}");
+        }
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn ordinal_31_tick_46_pair_aabb_names_the_first_difference() {
+        let trace = cached_ordinal_31_tick46_pair_aabb();
+        assert_eq!(first_pair_aabb_difference(&trace.reference_before.containing,
+            &trace.reference_before.aabb, &trace.held.containing, &trace.held.aabb),
+                   Ok(trace.difference.clone()));
+        assert!(["window", "control", "point", "radius", "bound", "gap"]
+            .contains(&trace.difference.scope));
+        assert_eq!((trace.difference.scope, trace.difference.field, trace.difference.side,
+                    trace.difference.point, trace.difference.axis),
+                   ("point", "point_x", Some(ExactPairAabbSideDiagnostic::A), Some(0), None));
+        assert_eq!(PAIR_AABB_FIELD_VOCABULARY, [
+            "start_raw", "end_raw", "a_point_count", "point_source", "point_region",
+            "point_endpoint", "point_x", "point_y", "point_z", "a_radius_raw",
+            "b_point_count", "b_radius_raw", "bound_left_min", "bound_left_max",
+            "bound_right_min", "bound_right_max", "combined_radius", "right_gap",
+            "right_comparison", "left_gap", "left_comparison", "gap_disjoint"]);
+        assert_eq!(PAIR_AABB_FIELD_ORDER.len() + PAIR_AABB_TAIL_FIELD_ORDER.len(), 28,
+            "the execution sequence repeats the six point fields for side B");
+        let synthetic = synthetic_pair_aabb_trace();
+        validate_pair_aabb_trace(&synthetic).unwrap();
+        assert_eq!((synthetic.difference.scope, synthetic.difference.field,
+                    synthetic.difference.side, synthetic.difference.point),
+                   ("point", "point_x", Some(ExactPairAabbSideDiagnostic::A), Some(0)));
+        let complete = render_tick46_pair_aabb(&synthetic).unwrap();
+        assert_eq!(complete.as_bytes(), synthetic_pair_aabb_expected_bytes().as_bytes(),
+            "the complete typed synthetic artifact is one fixed ASCII byte snapshot");
+        assert_eq!(complete.lines().count(), 21 + 36 + 9 + 7,
+            "the typed skipped-region fixture obeys 21 + points + bounds + gaps");
+        assert_eq!(complete.lines().filter(|line| line.contains(" side=b ")
+            && line.contains(" region=1 ")).count(), 0,
+            "the typed body fixture must really skip its middle region");
+        assert_eq!(complete.lines().filter(|line| line.starts_with("gap run=held ")).count(), 1);
+        assert!(complete.contains("gap run=held ordinal=0 axis=x right_gap=+1:00000001/1:00000001 right_comparison=greater left_gap=none left_comparison=none disjoint=true\n"));
+        assert_eq!(complete.lines().filter(|line| line.starts_with("gap run=reference_before ")).count(), 3);
+        assert!(complete.starts_with("smart132-ordinal31-tick46-pair-aabb-control-v1\n")
+            && complete.ends_with("decision=diagnostic-only\n") && complete.is_ascii());
+
+        let mut tier = synthetic.reference_before.aabb.clone();
+        tier.start_raw = tier.start_raw.wrapping_add(1);
+        tier.points[0].source = ExactPairAabbPointSourceDiagnostic::SegmentTip;
+        assert_eq!(first_pair_aabb_difference(&synthetic.reference_before.containing,
+            &synthetic.reference_before.aabb, &synthetic.held.containing, &tier).unwrap().field,
+            "start_raw");
+        tier = synthetic.reference_before.aabb.clone();
+        tier.points[0].source = ExactPairAabbPointSourceDiagnostic::SegmentTip;
+        tier.points[0].coordinate[0] = synthetic_wide(9);
+        assert_eq!(first_pair_aabb_difference(&synthetic.reference_before.containing,
+            &synthetic.reference_before.aabb, &synthetic.held.containing, &tier).unwrap().field,
+            "point_source");
+        tier = synthetic.reference_before.aabb.clone();
+        tier.bounds[0].left_min = synthetic_wide(9); tier.gaps[0].right_gap = synthetic_wide(9);
+        assert_eq!(first_pair_aabb_difference(&synthetic.reference_before.containing,
+            &synthetic.reference_before.aabb, &synthetic.held.containing, &tier).unwrap().field,
+            "bound_left_min");
+        tier = synthetic.reference_before.aabb.clone();
+        tier.combined_radius = Some(synthetic_wide(9)); tier.gaps[0].right_gap = synthetic_wide(9);
+        assert_eq!(first_pair_aabb_difference(&synthetic.reference_before.containing,
+            &synthetic.reference_before.aabb, &synthetic.held.containing, &tier).unwrap().field,
+            "combined_radius");
+
+        macro_rules! ordered_field {
+            ($field:literal, $change:expr) => {{
+                let mut changed = synthetic.reference_before.aabb.clone();
+                $change(&mut changed);
+                let found = first_pair_aabb_difference(&synthetic.reference_before.containing,
+                    &synthetic.reference_before.aabb, &synthetic.reference_before.containing,
+                    &changed).unwrap();
+                assert_eq!(found.field, $field, "registered comparison order for {}", $field);
+            }}
+        }
+        ordered_field!("start_raw", |row: &mut PairAabbOwned| row.start_raw += 1);
+        ordered_field!("end_raw", |row: &mut PairAabbOwned| row.end_raw -= 1);
+        ordered_field!("a_point_count", |row: &mut PairAabbOwned| { row.points.remove(3); });
+        ordered_field!("point_source", |row: &mut PairAabbOwned|
+            row.points[0].source = ExactPairAabbPointSourceDiagnostic::SegmentTip);
+        ordered_field!("point_region", |row: &mut PairAabbOwned| row.points[0].region = Some(0));
+        ordered_field!("point_endpoint", |row: &mut PairAabbOwned|
+            row.points[0].endpoint = ExactPairAabbEndpointDiagnostic::End);
+        ordered_field!("point_x", |row: &mut PairAabbOwned| row.points[0].coordinate[0] = synthetic_wide(9));
+        ordered_field!("point_y", |row: &mut PairAabbOwned| row.points[0].coordinate[1] = synthetic_wide(9));
+        ordered_field!("point_z", |row: &mut PairAabbOwned| row.points[0].coordinate[2] = synthetic_wide(9));
+        ordered_field!("a_radius_raw", |row: &mut PairAabbOwned| row.a_radius_raw = Some(9));
+        ordered_field!("b_point_count", |row: &mut PairAabbOwned| { row.points.pop(); });
+        for (offset, field) in [(0, "point_source"), (1, "point_region"),
+            (2, "point_endpoint"), (3, "point_x"), (4, "point_y"), (5, "point_z")]
+        {
+            let mut changed = synthetic.reference_before.aabb.clone();
+            let point = &mut changed.points[4];
+            match offset {
+                0 => point.source = ExactPairAabbPointSourceDiagnostic::BodyUpper,
+                1 => point.region = Some(2),
+                2 => point.endpoint = ExactPairAabbEndpointDiagnostic::End,
+                axis => point.coordinate[axis - 3] = synthetic_wide(9),
+            }
+            let found = first_pair_aabb_difference(&synthetic.reference_before.containing,
+                &synthetic.reference_before.aabb, &synthetic.reference_before.containing,
+                &changed).unwrap();
+            assert_eq!((found.field, found.side), (field, Some(ExactPairAabbSideDiagnostic::B)));
+        }
+        ordered_field!("b_radius_raw", |row: &mut PairAabbOwned| row.b_radius_raw = Some(9));
+        ordered_field!("bound_left_min", |row: &mut PairAabbOwned| row.bounds[0].left_min = synthetic_wide(9));
+        ordered_field!("bound_left_max", |row: &mut PairAabbOwned| row.bounds[0].left_max = synthetic_wide(9));
+        ordered_field!("bound_right_min", |row: &mut PairAabbOwned| row.bounds[0].right_min = synthetic_wide(9));
+        ordered_field!("bound_right_max", |row: &mut PairAabbOwned| row.bounds[0].right_max = synthetic_wide(9));
+        ordered_field!("combined_radius", |row: &mut PairAabbOwned| row.combined_radius = Some(synthetic_wide(9)));
+        ordered_field!("right_gap", |row: &mut PairAabbOwned| row.gaps[0].right_gap = synthetic_wide(9));
+        ordered_field!("right_comparison", |row: &mut PairAabbOwned|
+            row.gaps[0].right_comparison = ExactPairAabbComparisonDiagnostic::Less);
+        ordered_field!("left_gap", |row: &mut PairAabbOwned| row.gaps[0].left_gap = Some(synthetic_wide(9)));
+        ordered_field!("left_comparison", |row: &mut PairAabbOwned|
+            row.gaps[0].left_comparison = Some(ExactPairAabbComparisonDiagnostic::Less));
+        ordered_field!("gap_disjoint", |row: &mut PairAabbOwned| row.gaps[0].disjoint = true);
+        let ordered_tokens: Vec<_> = PAIR_AABB_FIELD_ORDER.into_iter()
+            .chain(PAIR_AABB_TAIL_FIELD_ORDER).collect();
+        for first in 0..ordered_tokens.len() {
+            let mut changed = synthetic.reference_before.aabb.clone();
+            for at in first..ordered_tokens.len() {
+                match at {
+                    0 => changed.start_raw += 1,
+                    1 => changed.end_raw -= 1,
+                    2 => changed.points[4].side = ExactPairAabbSideDiagnostic::A,
+                    3 => changed.points[0].source = ExactPairAabbPointSourceDiagnostic::SegmentTip,
+                    4 => changed.points[0].region = Some(0),
+                    5 => changed.points[0].endpoint = ExactPairAabbEndpointDiagnostic::End,
+                    6..=8 => changed.points[0].coordinate[at - 6] = synthetic_wide(9),
+                    9 => changed.a_radius_raw = Some(9),
+                    10 => { changed.points.pop(); }
+                    11 => changed.points[4].source = ExactPairAabbPointSourceDiagnostic::BodyUpper,
+                    12 => changed.points[4].region = Some(2),
+                    13 => changed.points[4].endpoint = ExactPairAabbEndpointDiagnostic::End,
+                    14..=16 => changed.points[4].coordinate[at - 14] = synthetic_wide(9),
+                    17 => changed.b_radius_raw = Some(9),
+                    18 => changed.bounds[0].left_min = synthetic_wide(9),
+                    19 => changed.bounds[0].left_max = synthetic_wide(9),
+                    20 => changed.bounds[0].right_min = synthetic_wide(9),
+                    21 => changed.bounds[0].right_max = synthetic_wide(9),
+                    22 => changed.combined_radius = Some(synthetic_wide(9)),
+                    23 => changed.gaps[0].right_gap = synthetic_wide(9),
+                    24 => changed.gaps[0].right_comparison = ExactPairAabbComparisonDiagnostic::Less,
+                    25 => changed.gaps[0].left_gap = Some(synthetic_wide(9)),
+                    26 => changed.gaps[0].left_comparison = Some(ExactPairAabbComparisonDiagnostic::Less),
+                    27 => changed.gaps[0].disjoint = true,
+                    _ => unreachable!(),
+                }
+            }
+            let found = first_pair_aabb_difference(&synthetic.reference_before.containing,
+                &synthetic.reference_before.aabb, &synthetic.reference_before.containing,
+                &changed).unwrap();
+            assert_eq!(found.field, ordered_tokens[first],
+                "simultaneous mutation from registered position {first}");
+        }
+
+        let mut different_result = synthetic.reference_before.containing.clone();
+        different_result.result = ExactSegmentBodyPairResultDiagnostic::NoCandidate;
+        let incomplete = first_pair_aabb_difference(&synthetic.reference_before.containing,
+            &synthetic.reference_before.aabb, &different_result,
+            &synthetic.reference_before.aabb).unwrap_err();
+        assert_eq!(incomplete, "smart132-incomplete-aabb-transcript");
+        let mut shorter_gaps = synthetic.reference_before.aabb.clone(); shorter_gaps.gaps.pop();
+        assert_eq!(first_pair_aabb_difference(&synthetic.reference_before.containing,
+            &synthetic.reference_before.aabb, &synthetic.reference_before.containing,
+            &shorter_gaps).unwrap_err(), "smart132-incomplete-aabb-transcript");
+        let mut changed_terminal = synthetic.reference_before.aabb.clone();
+        changed_terminal.terminal = ExactPairAabbTerminalDiagnostic::Disjoint;
+        assert_eq!(first_pair_aabb_difference(&synthetic.reference_before.containing,
+            &synthetic.reference_before.aabb, &synthetic.reference_before.containing,
+            &changed_terminal).unwrap_err(), "smart132-incomplete-aabb-transcript");
+
+        for (stage, reject) in [ExactScanRejectDiagnostic::ArithmeticEnvelope,
+            ExactScanRejectDiagnostic::Budget, ExactScanRejectDiagnostic::CompatibilityIdentity,
+            ExactScanRejectDiagnostic::Trajectory, ExactScanRejectDiagnostic::UnsupportedExactSweep]
+            .into_iter().enumerate()
+        {
+            let mut run = synthetic.reference_before.clone();
+            run.aabb.terminal = ExactPairAabbTerminalDiagnostic::Reject(reject);
+            match stage {
+                0 => { run.aabb.points.clear(); run.aabb.a_radius_raw = None;
+                       run.aabb.b_radius_raw = None; run.aabb.bounds.clear();
+                       run.aabb.combined_radius = None; run.aabb.gaps.clear(); }
+                1 => { run.aabb.bounds.clear(); run.aabb.combined_radius = None;
+                       run.aabb.gaps.clear(); }
+                2 => { run.aabb.combined_radius = None; run.aabb.gaps.clear(); }
+                3 => { run.aabb.gaps.truncate(1); }
+                _ => { run.aabb.gaps.truncate(2); run.aabb.gaps[1].left_gap = None;
+                       run.aabb.gaps[1].left_comparison = None; }
+            }
+            validate_pair_aabb(&run.containing, &run.aabb).unwrap();
+            let mut rendered = String::new(); write_pair_aabb_block(&mut rendered, &run);
+            assert!(rendered.lines().next().unwrap().contains(&format!(
+                " terminal=reject:{} recorder_invalid=none", scan_reject_name(reject))));
+        }
+        let mut impossible_reject = synthetic.held.clone();
+        impossible_reject.aabb.terminal = ExactPairAabbTerminalDiagnostic::Reject(
+            ExactScanRejectDiagnostic::ArithmeticEnvelope);
+        assert!(validate_pair_aabb(&impossible_reject.containing, &impossible_reject.aabb)
+            .unwrap_err().contains("completed separation"));
+        let mut stale = synthetic.clone();
+        mark_pair_aabb_mutation(PairAabbMutation::StaleFirstDifference);
+        stale.difference.field = "point_y";
+        let stale_error = validate_pair_aabb_trace(&stale).unwrap_err();
+        assert!(pair_aabb_mutation_fired(PairAabbMutation::StaleFirstDifference));
+        assert!(stale_error.contains("stored first difference"), "{stale_error}");
+        let mut malformed = trace.reference_before.aabb.clone();
+        malformed.recorder_invalid = Some(ExactPairAabbRecorderInvalidDiagnostic::WordCopy);
+        assert!(validate_pair_aabb(&trace.reference_before.containing, &malformed)
+            .unwrap_err().contains("recorder-invalid"));
+        for mutation in [PairAabbMutation::SuppressHeldDisjoint,
+                         PairAabbMutation::RejectAsRecorderInvalid,
+                         PairAabbMutation::InjectRecorderInvalid] {
+            let mut damaged = if mutation == PairAabbMutation::SuppressHeldDisjoint {
+                trace.held.aabb.clone()
+            } else { trace.reference_before.aabb.clone() };
+            if mutation == PairAabbMutation::RejectAsRecorderInvalid {
+                damaged.terminal = ExactPairAabbTerminalDiagnostic::Reject(ExactScanRejectDiagnostic::Budget);
+            }
+            mutate_copied_pair_aabb(&mut damaged, mutation).unwrap();
+            assert!(pair_aabb_mutation_fired(mutation));
+            assert!(validate_pair_aabb(if mutation == PairAabbMutation::SuppressHeldDisjoint {
+                &trace.held.containing
+            } else { &trace.reference_before.containing }, &damaged).is_err()
+                || damaged != if mutation == PairAabbMutation::SuppressHeldDisjoint {
+                    trace.held.aabb.clone()
+                } else { trace.reference_before.aabb.clone() });
+        }
     }
 }
