@@ -13,9 +13,10 @@ use sim::{
 };
 
 const CALIBRATION_SEEDS: core::ops::Range<u64> = 0..25;
+const CALIBRATION_CASES: usize = 25 * 2 * 2 * strong_strike::APPROACH_OFFSETS.len();
 const HELD_OUT_SEEDS: core::ops::Range<u64> = 900_000..900_100;
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 struct Waterfall {
     commits: u32,
     crossings: u32,
@@ -29,7 +30,7 @@ struct Waterfall {
     body_decisions: u32,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 struct TacticalRow {
     scenario_fingerprint: u64,
     seed: u64,
@@ -38,6 +39,14 @@ struct TacticalRow {
     intended_hand: Option<LimbSlot>,
     first_cross_tick: Option<u32>,
     first_contact_tick: Option<u32>,
+    first_contact_cross_tick: Option<u32>,
+    first_contact_region: Option<BodyPart>,
+    first_contact_hand: Option<LimbSlot>,
+    first_contact_attributed_facts: u32,
+    first_contact_competing_facts: u32,
+    first_contact_dissipated_raw: u64,
+    first_contact_cut_or_thrust_raw: u64,
+    first_contact_matching_integrity_loss_raw: i32,
     peak_tip_speed_raw: i32,
     peak_normal_closing_raw: i32,
     peak_energy_before_raw: u64,
@@ -45,15 +54,110 @@ struct TacticalRow {
     cut_raw: u64,
     thrust_raw: u64,
     pressure_raw: u64,
-    integrity_loss_raw: i32,
-    wound_gain_raw: i32,
+    integrity_loss_raw: [i32; BodyPart::COUNT],
+    wound_gain_raw: [i32; BodyPart::COUNT],
+    blood_loss_raw: i32,
     unattributed_anatomy_changes: u32,
     decision_tick: Option<u32>,
     outcome: Option<Outcome>,
     refusals: u32,
     solver_rejections: u32,
+    cap_hits: u32,
     max_energy_excess_raw: u64,
     waterfall: Waterfall,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+struct RunLegality {
+    refusals: u32,
+    solver_rejections: u32,
+    cap_hits: u32,
+    max_energy_excess_raw: u64,
+}
+
+impl RunLegality {
+    fn passes(self) -> bool {
+        self.refusals == 0 && self.solver_rejections == 0 && self.cap_hits == 0
+            && self.max_energy_excess_raw == 0
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+struct StructuralValidity {
+    bracket_equal: bool,
+    reference_unique: bool,
+    reference_crossed: bool,
+    held_inert: bool,
+    held_legal: bool,
+    reference_legal: bool,
+    tactical_legal: bool,
+}
+
+impl StructuralValidity {
+    fn passes(self) -> bool {
+        self.bracket_equal && self.reference_unique && self.reference_crossed
+            && self.held_inert && self.held_legal && self.reference_legal
+            && self.tactical_legal
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+struct TacticalProductivity {
+    unique_crossing_contact_with_dissipation: bool,
+    cut_or_thrust_with_matching_integrity_loss: bool,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+struct FirstContactEvidence {
+    tick: u32,
+    cross_tick: Option<u32>,
+    region: Option<BodyPart>,
+    hand: Option<LimbSlot>,
+    attributed_facts: u32,
+    competing_facts: u32,
+    dissipated_raw: u64,
+    cut_or_thrust_raw: u64,
+    matching_integrity_loss_raw: i32,
+}
+
+fn freeze_first_contact(
+    frozen: &mut Option<FirstContactEvidence>, candidate: FirstContactEvidence,
+) -> bool {
+    if frozen.is_none() && candidate.attributed_facts > 0 {
+        *frozen = Some(candidate); true
+    } else { false }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+struct HeldControlEvidence {
+    contact: bool, weapon_body_facts: u32, competing_facts: u32,
+    energy_before_raw: u64, dissipated_raw: u64,
+    cut_raw: u64, thrust_raw: u64, pressure_raw: u64,
+    integrity_loss_raw: [i32; BodyPart::COUNT],
+    wound_gain_raw: [i32; BodyPart::COUNT],
+    blood_loss_raw: i32,
+}
+
+impl HeldControlEvidence {
+    fn from_measurement(row: strong_strike::StrikeMeasurement) -> Self {
+        Self { contact: row.contact_tick.is_some(), weapon_body_facts: row.weapon_body_facts,
+            competing_facts: row.competing_facts, energy_before_raw: row.energy_before_raw,
+            dissipated_raw: row.energy_dissipated_raw, cut_raw: row.cut_raw,
+            thrust_raw: row.thrust_raw, pressure_raw: row.pressure_raw,
+            integrity_loss_raw: core::array::from_fn(|at|
+                row.integrity_before_raw[at] - row.integrity_after_raw[at]),
+            wound_gain_raw: core::array::from_fn(|at|
+                row.wound_after_raw[at] - row.wound_before_raw[at]),
+            blood_loss_raw: row.blood_before_raw - row.blood_after_raw }
+    }
+
+    fn is_inert(self) -> bool {
+        !self.contact && self.weapon_body_facts == 0 && self.competing_facts == 0
+            && self.energy_before_raw == 0 && self.dissipated_raw == 0
+            && self.cut_raw == 0 && self.thrust_raw == 0 && self.pressure_raw == 0
+            && self.integrity_loss_raw == [0; BodyPart::COUNT]
+            && self.wound_gain_raw == [0; BodyPart::COUNT] && self.blood_loss_raw == 0
+    }
 }
 
 fn weapon(obs: &ArticulatedObservation, hand: Option<LimbSlot>) -> Option<SegmentPose> {
@@ -86,10 +190,62 @@ fn belongs_to_fields(
         && b == defender && b_slot == sim::BODY_SLOT
 }
 
-fn tactical_valid(row: &TacticalRow) -> bool {
-    row.refusals == 0 && row.solver_rejections == 0 && row.max_energy_excess_raw == 0
-        && row.unattributed_anatomy_changes == 0
-        && (row.first_contact_tick.is_none() || row.first_cross_tick.is_some())
+fn strike_legality(row: strong_strike::StrikeMeasurement) -> RunLegality {
+    RunLegality { refusals: row.refusals, solver_rejections: row.solver_rejections,
+        cap_hits: row.cap_hits, max_energy_excess_raw: row.max_energy_excess_raw }
+}
+
+fn tactical_legality(row: &TacticalRow) -> RunLegality {
+    RunLegality { refusals: row.refusals, solver_rejections: row.solver_rejections,
+        cap_hits: row.cap_hits, max_energy_excess_raw: row.max_energy_excess_raw }
+}
+
+fn tactical_is_legal(row: &TacticalRow) -> bool {
+    tactical_legality(row).passes() && row.unattributed_anatomy_changes == 0
+        && match row.first_contact_tick {
+            None => true,
+            Some(contact) => row.first_contact_cross_tick.is_some_and(|cross| cross <= contact),
+        }
+}
+
+fn structural_validity(
+    before: strong_strike::StrikeMeasurement, held: strong_strike::StrikeMeasurement,
+    tactical: &TacticalRow, after: strong_strike::StrikeMeasurement,
+) -> StructuralValidity {
+    let reference = strong_strike::meaningful_strike_validity(before, held);
+    structural_from_fields(before == after, before.contact_tick.is_some()
+            && before.weapon_body_facts == 1 && before.competing_facts == 0,
+        reference.observed_crossing, HeldControlEvidence::from_measurement(held).is_inert(),
+        strike_legality(held), strike_legality(before), tactical)
+}
+
+fn structural_from_fields(
+    bracket_equal: bool, reference_unique: bool, reference_crossed: bool,
+    held_inert: bool, held: RunLegality, reference: RunLegality, tactical: &TacticalRow,
+) -> StructuralValidity {
+    StructuralValidity { bracket_equal, reference_unique, reference_crossed, held_inert,
+        held_legal: held.passes(), reference_legal: reference.passes(),
+        tactical_legal: tactical_is_legal(tactical) }
+}
+
+fn productivity_passes_denominator(cases: u32, crossing: u32, damage: u32) -> bool {
+    cases != 0 && crossing * 100 >= cases * 95 && damage * 100 >= cases * 90
+}
+
+fn tactical_productivity(row: &TacticalRow) -> TacticalProductivity {
+    let crossing_precedes_contact = match row.first_contact_tick {
+        Some(contact) => row.first_contact_cross_tick.is_some_and(|cross| cross <= contact),
+        None => false,
+    };
+    TacticalProductivity {
+        unique_crossing_contact_with_dissipation: crossing_precedes_contact
+            && row.first_contact_attributed_facts == 1
+            && row.first_contact_competing_facts == 0
+            && row.first_contact_dissipated_raw > 0,
+        cut_or_thrust_with_matching_integrity_loss:
+            row.first_contact_cut_or_thrust_raw > 0
+                && row.first_contact_matching_integrity_loss_raw > 0,
+    }
 }
 
 fn normal_closing(row: &sim::ContactResolution) -> Fx {
@@ -108,7 +264,8 @@ fn measure_tactical(case: strong_strike::StrongCase) -> TacticalRow {
     let mut was_committed = false;
     let mut previous_weapon = None;
     let mut first_cross_tick = None;
-    let mut first_contact_tick = None;
+    let mut first_contact = None;
+    let mut crossing_ticks = [None; BodyPart::COUNT * 2];
     let mut peak_tip_speed_raw = 0;
     let mut peak_normal_closing_raw = 0;
     let mut peak_energy_before_raw = 0;
@@ -116,8 +273,9 @@ fn measure_tactical(case: strong_strike::StrongCase) -> TacticalRow {
     let mut cut_raw = 0u64;
     let mut thrust_raw = 0u64;
     let mut pressure_raw = 0u64;
-    let mut integrity_loss_raw = 0;
-    let mut wound_gain_raw = 0;
+    let mut integrity_loss_raw = [0; BodyPart::COUNT];
+    let mut wound_gain_raw = [0; BodyPart::COUNT];
+    let mut blood_loss_raw = 0;
     let mut unattributed_anatomy_changes = 0;
     let mut refusals = 0;
     let mut max_energy_excess_raw = 0;
@@ -160,23 +318,52 @@ fn measure_tactical(case: strong_strike::StrongCase) -> TacticalRow {
                     .map(|foe| foe.regions[part as usize])),
             ) {
                 peak_tip_speed_raw = peak_tip_speed_raw.max((current.tip - previous.tip).length().raw());
-                if crosses(previous, current, region) && first_cross_tick.is_none() {
-                    first_cross_tick = Some(world.tick()); waterfall.crossings += 1;
+                if crosses(previous, current, region) {
+                    if first_cross_tick.is_none() { first_cross_tick = Some(world.tick()); }
+                    if let (Some(hand), Some(part)) = (intended_hand, intended_region) {
+                        let crossing = &mut crossing_ticks[
+                            hand as usize * BodyPart::COUNT + part as usize];
+                        if crossing.is_none() {
+                            *crossing = Some(world.tick()); waterfall.crossings += 1;
+                        }
+                    }
                 }
             }
         }
         previous_weapon = after;
 
-        let integrity_before = intended_region.map(|part| defender_before.integrity_fraction[part as usize]);
-        let wound_before = intended_region.map(|part| defender_before.wound_fraction[part as usize]);
         let mut matching_cut_or_thrust = false;
+        let attributed_on_tick = match (intended_hand, intended_region) {
+            (Some(hand), Some(region)) if was_committed => world.contact_resolutions().iter()
+                .filter(|row| belongs_to(row, attacker, defender, hand, region)).count() as u32,
+            _ => 0,
+        };
+        let mut contact_this_tick = None;
+        if first_contact.is_none() && attributed_on_tick > 0 {
+            let mut candidate = FirstContactEvidence { tick: world.tick(),
+                region: intended_region, hand: intended_hand,
+                attributed_facts: attributed_on_tick,
+                competing_facts: world.contact_resolutions().len() as u32 - attributed_on_tick,
+                ..FirstContactEvidence::default() };
+            if let (Some(hand), Some(region)) = (intended_hand, intended_region) {
+                candidate.cross_tick = crossing_ticks[
+                    hand as usize * BodyPart::COUNT + region as usize];
+                for row in world.contact_resolutions().iter()
+                    .filter(|row| belongs_to(row, attacker, defender, hand, region)) {
+                    candidate.dissipated_raw = candidate.dissipated_raw
+                        .saturating_add(row.energy.dissipated_raw);
+                    candidate.cut_or_thrust_raw = candidate.cut_or_thrust_raw
+                        .saturating_add(row.cut_raw).saturating_add(row.thrust_raw);
+                }
+            }
+            contact_this_tick = Some(candidate);
+        }
         for row in world.contact_resolutions() {
             max_energy_excess_raw = max_energy_excess_raw.max(
                 row.energy.after_raw.saturating_sub(row.energy.before_raw));
             let (Some(hand), Some(region)) = (intended_hand, intended_region) else { continue };
             if !was_committed || !belongs_to(row, attacker, defender, hand, region) { continue; }
             waterfall.weapon_body_facts += 1;
-            first_contact_tick.get_or_insert(world.tick());
             let closing = normal_closing(row);
             peak_normal_closing_raw = peak_normal_closing_raw.max(closing.raw());
             waterfall.positive_closing += u32::from(closing.is_positive());
@@ -191,39 +378,52 @@ fn measure_tactical(case: strong_strike::StrongCase) -> TacticalRow {
             matching_cut_or_thrust |= row.cut_raw + row.thrust_raw > 0;
             cut_raw += row.cut_raw; thrust_raw += row.thrust_raw; pressure_raw += row.pressure_raw;
         }
-        if let Some(part) = intended_region {
+        for part in BodyPart::ALL {
             let at = part as usize;
-            if let Some(before) = integrity_before {
-                let loss = (before - defender_after.integrity_fraction[at]).raw().max(0);
-                if loss > 0 {
-                    if matching_cut_or_thrust {
-                        waterfall.integrity_losses += 1; integrity_loss_raw += loss;
-                    } else {
-                        unattributed_anatomy_changes += 1;
-                    }
-                }
+            let attributed = intended_region == Some(part) && matching_cut_or_thrust;
+            let loss = (defender_before.integrity_fraction[at]
+                - defender_after.integrity_fraction[at]).raw().max(0);
+            let gain = (defender_after.wound_fraction[at]
+                - defender_before.wound_fraction[at]).raw().max(0);
+            integrity_loss_raw[at] += loss;
+            wound_gain_raw[at] += gain;
+            if loss > 0 {
+                if attributed { waterfall.integrity_losses += 1; }
+                else { unattributed_anatomy_changes += 1; }
             }
-            if let Some(before) = wound_before {
-                let gain = (defender_after.wound_fraction[at] - before).raw().max(0);
-                if gain > 0 {
-                    if matching_cut_or_thrust {
-                        waterfall.open_wounds += 1; wound_gain_raw += gain;
-                    } else {
-                        unattributed_anatomy_changes += 1;
-                    }
-                }
+            if contact_this_tick.is_some_and(|contact| contact.region == Some(part)) {
+                contact_this_tick.as_mut().unwrap().matching_integrity_loss_raw = loss;
             }
+            if gain > 0 {
+                if attributed { waterfall.open_wounds += 1; }
+                else { unattributed_anatomy_changes += 1; }
+            }
+        }
+        blood_loss_raw += (defender_before.blood_fraction
+            - defender_after.blood_fraction).raw().max(0);
+        if let Some(contact) = contact_this_tick {
+            let _ = freeze_first_contact(&mut first_contact, contact);
         }
     }
     waterfall.body_decisions = u32::from(world.outcome().is_some() && world.tick() < scenario.max_ticks);
+    let contact = first_contact.unwrap_or_default();
     TacticalRow {
         scenario_fingerprint: fingerprint, seed: case.seed, mirrored: case.mirrored, intended_region,
-        intended_hand, first_cross_tick, first_contact_tick, peak_tip_speed_raw,
+        intended_hand, first_cross_tick,
+        first_contact_tick: first_contact.map(|_| contact.tick),
+        first_contact_cross_tick: contact.cross_tick,
+        first_contact_region: contact.region, first_contact_hand: contact.hand,
+        peak_tip_speed_raw, first_contact_attributed_facts: contact.attributed_facts,
+        first_contact_competing_facts: contact.competing_facts,
+        first_contact_dissipated_raw: contact.dissipated_raw,
+        first_contact_cut_or_thrust_raw: contact.cut_or_thrust_raw,
+        first_contact_matching_integrity_loss_raw: contact.matching_integrity_loss_raw,
         peak_normal_closing_raw, peak_energy_before_raw, peak_dissipated_raw,
-        cut_raw, thrust_raw, pressure_raw, integrity_loss_raw, wound_gain_raw,
+        cut_raw, thrust_raw, pressure_raw, integrity_loss_raw, wound_gain_raw, blood_loss_raw,
         unattributed_anatomy_changes,
         decision_tick: world.outcome().map(|_| world.tick()), outcome: world.outcome(),
         refusals, solver_rejections: world.contact_solver_rejections(),
+        cap_hits: world.contact_cap_hits(),
         max_energy_excess_raw,
         waterfall,
     }
@@ -238,7 +438,39 @@ fn print_reference(name: &str, row: strong_strike::StrikeMeasurement) {
         core::array::from_fn::<_, { BodyPart::COUNT }, _>(|i| row.wound_after_raw[i] - row.wound_before_raw[i]));
 }
 
+const TACTICAL_MODES: [&str; 7] = [
+    "quick", "calibration", "held-out", "strike-corpus",
+    "anatomical-mirror-corpus", "noise-free-mirror-corpus", "mirror-trace-1536",
+];
+
+fn incompatible_mode_refusal(args: &Args) -> Option<String> {
+    for key in ["write", "summary-write"] {
+        if args.flag(key) {
+            return Some(format!("tactical-mechanics --{key} requires PATH"));
+        }
+    }
+    let selected: Vec<&str> = TACTICAL_MODES.into_iter()
+        .filter(|mode| args.flag(mode)).collect();
+    if selected.len() > 1 {
+        return Some(format!("tactical-mechanics modes are incompatible: --{}",
+            selected.join(" and --")));
+    }
+    if (["write", "summary-write"].into_iter()
+        .any(|key| args.flag(key) || args.text(key).is_some()))
+        && !args.flag("calibration") && !args.flag("held-out") {
+        let key = if args.flag("write") || args.text("write").is_some() {
+            "write"
+        } else { "summary-write" };
+        return Some(format!("tactical-mechanics --{key} requires --calibration or --held-out"));
+    }
+    None
+}
+
 pub(crate) fn tactical_mechanics(args: &Args) {
+    if let Some(refusal) = incompatible_mode_refusal(args) {
+        eprintln!("{refusal}");
+        return;
+    }
     let quick = strong_strike::StrongCase {
         seed: 0, mirrored: false, target_anatomy: AnatomyChoice::Fighter,
         approach_offset: strong_strike::APPROACH_OFFSETS[4],
@@ -365,16 +597,238 @@ fn corpus_cases(seeds: core::ops::Range<u64>) -> impl Iterator<Item = strong_str
     }))
 }
 
-fn structurally_valid_case(case: strong_strike::StrongCase) -> bool {
+#[derive(Clone, Copy)]
+struct CalibrationRow {
+    case: strong_strike::StrongCase,
+    before: strong_strike::StrikeMeasurement,
+    held: strong_strike::StrikeMeasurement,
+    tactical: TacticalRow,
+    structural: StructuralValidity,
+    productivity: TacticalProductivity,
+}
+
+fn measure_matched_row(case: strong_strike::StrongCase) -> CalibrationRow {
     let before = strong_strike::measure_case(case, Fx::ONE);
     let held = strong_strike::measure_case(case, Fx::ZERO);
     let tactical = measure_tactical(case);
     let after = strong_strike::measure_case(case, Fx::ONE);
-    let reference = strong_strike::meaningful_strike_validity(before, held);
-    let tactical_valid = tactical_valid(&tactical);
-    before == after && reference.uniquely_attributed_contact
-        && reference.observed_crossing && reference.held_control_inert
-        && reference.legal_runs && tactical_valid
+    CalibrationRow { case, before, held, tactical,
+        structural: structural_validity(before, held, &tactical, after),
+        productivity: tactical_productivity(&tactical) }
+}
+
+fn anatomy_name(value: AnatomyChoice) -> &'static str {
+    match value { AnatomyChoice::Fighter => "fighter", AnatomyChoice::Brute => "brute" }
+}
+
+fn part_name(value: Option<BodyPart>) -> &'static str {
+    match value { None => "none", Some(BodyPart::Head) => "head",
+        Some(BodyPart::Torso) => "torso", Some(BodyPart::LeftArm) => "left_arm",
+        Some(BodyPart::RightArm) => "right_arm", Some(BodyPart::Legs) => "legs" }
+}
+
+fn hand_name(value: Option<LimbSlot>) -> &'static str {
+    match value { None => "none", Some(LimbSlot::LeftArm) => "left_arm",
+        Some(LimbSlot::RightArm) => "right_arm" }
+}
+
+fn outcome_name(value: Option<Outcome>) -> &'static str {
+    match value { None => "none", Some(Outcome::HeroesWin) => "heroes_win",
+        Some(Outcome::MonstersWin) => "monsters_win",
+        Some(Outcome::MutualDestruction) => "mutual_destruction",
+        Some(Outcome::Decision(Faction::Heroes)) => "decision_heroes",
+        Some(Outcome::Decision(Faction::Monsters)) => "decision_monsters",
+        Some(Outcome::Draw) => "draw" }
+}
+
+const CALIBRATION_CSV_HEADER: &str = concat!(
+    "fingerprint,seed,mirrored,target,offset_x_raw,offset_y_raw,",
+    "bracket_equal,reference_unique,reference_crossed,held_inert,held_legal,reference_legal,tactical_legal,",
+    "productive_unique_crossing_contact_dissipation,productive_cut_or_thrust_matching_integrity,",
+    "reference_contact_tick,reference_region,reference_weapon_body_facts,reference_competing_facts,reference_tip_speed_raw,",
+    "reference_energy_before_raw,reference_dissipated_raw,reference_cut_raw,reference_thrust_raw,reference_pressure_raw,",
+    "reference_integrity_loss_head_raw,reference_integrity_loss_torso_raw,reference_integrity_loss_left_arm_raw,",
+    "reference_integrity_loss_right_arm_raw,reference_integrity_loss_legs_raw,",
+    "reference_wound_gain_head_raw,reference_wound_gain_torso_raw,reference_wound_gain_left_arm_raw,",
+    "reference_wound_gain_right_arm_raw,reference_wound_gain_legs_raw,reference_blood_loss_raw,",
+    "reference_refusals,reference_solver_rejections,reference_cap_hits,reference_energy_excess_raw,",
+    "held_contact_tick,held_weapon_body_facts,held_competing_facts,held_energy_before_raw,held_dissipated_raw,",
+    "held_cut_raw,held_thrust_raw,held_pressure_raw,held_integrity_loss_head_raw,held_integrity_loss_torso_raw,",
+    "held_integrity_loss_left_arm_raw,held_integrity_loss_right_arm_raw,held_integrity_loss_legs_raw,",
+    "held_wound_gain_head_raw,held_wound_gain_torso_raw,held_wound_gain_left_arm_raw,",
+    "held_wound_gain_right_arm_raw,held_wound_gain_legs_raw,held_blood_loss_raw,",
+    "held_refusals,held_solver_rejections,held_cap_hits,held_energy_excess_raw,",
+    "tactical_intended_region,tactical_intended_hand,tactical_first_cross_tick,tactical_first_contact_tick,",
+    "tactical_first_contact_cross_tick,tactical_first_contact_region,tactical_first_contact_hand,",
+    "tactical_first_contact_attributed_facts,tactical_first_contact_competing_facts,",
+    "tactical_first_contact_dissipated_raw,tactical_first_contact_cut_or_thrust_raw,",
+    "tactical_first_contact_matching_integrity_loss_raw,tactical_peak_tip_speed_raw,",
+    "tactical_peak_normal_closing_raw,tactical_peak_energy_before_raw,tactical_peak_dissipated_raw,",
+    "tactical_cut_raw,tactical_thrust_raw,tactical_pressure_raw,",
+    "tactical_integrity_loss_head_raw,tactical_integrity_loss_torso_raw,tactical_integrity_loss_left_arm_raw,",
+    "tactical_integrity_loss_right_arm_raw,tactical_integrity_loss_legs_raw,",
+    "tactical_wound_gain_head_raw,tactical_wound_gain_torso_raw,tactical_wound_gain_left_arm_raw,",
+    "tactical_wound_gain_right_arm_raw,tactical_wound_gain_legs_raw,tactical_blood_loss_raw,",
+    "tactical_unattributed_anatomy_changes,tactical_decision_tick,tactical_outcome,tactical_refusals,",
+    "tactical_solver_rejections,tactical_cap_hits,tactical_energy_excess_raw,",
+    "commits,crossings,weapon_body_facts,positive_closing,dissipated_groups,above_floor,cut_or_thrust,",
+    "integrity_losses,open_wounds,body_decisions\n");
+
+fn optional_u32(value: Option<u32>) -> String {
+    value.map(|number| number.to_string()).unwrap_or_else(|| "none".to_string())
+}
+
+fn anatomy_delta_csv_fields(row: strong_strike::StrikeMeasurement) -> Vec<String> {
+    let mut fields: Vec<String> = (0..BodyPart::COUNT).map(|at|
+        (row.integrity_before_raw[at] - row.integrity_after_raw[at]).to_string()).collect();
+    fields.extend((0..BodyPart::COUNT).map(|at|
+        (row.wound_after_raw[at] - row.wound_before_raw[at]).to_string()));
+    fields.push((row.blood_before_raw - row.blood_after_raw).to_string());
+    fields
+}
+
+fn tactical_csv_fields(tactical: TacticalRow) -> Vec<String> {
+    let mut fields = vec![
+        part_name(tactical.intended_region).to_string(), hand_name(tactical.intended_hand).to_string(),
+        optional_u32(tactical.first_cross_tick), optional_u32(tactical.first_contact_tick),
+        optional_u32(tactical.first_contact_cross_tick),
+        part_name(tactical.first_contact_region).to_string(),
+        hand_name(tactical.first_contact_hand).to_string(),
+        tactical.first_contact_attributed_facts.to_string(),
+        tactical.first_contact_competing_facts.to_string(),
+        tactical.first_contact_dissipated_raw.to_string(),
+        tactical.first_contact_cut_or_thrust_raw.to_string(),
+        tactical.first_contact_matching_integrity_loss_raw.to_string(),
+        tactical.peak_tip_speed_raw.to_string(),
+        tactical.peak_normal_closing_raw.to_string(), tactical.peak_energy_before_raw.to_string(),
+        tactical.peak_dissipated_raw.to_string(), tactical.cut_raw.to_string(),
+        tactical.thrust_raw.to_string(), tactical.pressure_raw.to_string(),
+    ];
+    fields.extend(tactical.integrity_loss_raw.into_iter().map(|value| value.to_string()));
+    fields.extend(tactical.wound_gain_raw.into_iter().map(|value| value.to_string()));
+    fields.extend([
+        tactical.blood_loss_raw.to_string(), tactical.unattributed_anatomy_changes.to_string(),
+        optional_u32(tactical.decision_tick), outcome_name(tactical.outcome).to_string(),
+        tactical.refusals.to_string(), tactical.solver_rejections.to_string(),
+        tactical.cap_hits.to_string(), tactical.max_energy_excess_raw.to_string(),
+        tactical.waterfall.commits.to_string(), tactical.waterfall.crossings.to_string(),
+        tactical.waterfall.weapon_body_facts.to_string(), tactical.waterfall.positive_closing.to_string(),
+        tactical.waterfall.dissipated_groups.to_string(), tactical.waterfall.above_floor.to_string(),
+        tactical.waterfall.cut_or_thrust.to_string(), tactical.waterfall.integrity_losses.to_string(),
+        tactical.waterfall.open_wounds.to_string(), tactical.waterfall.body_decisions.to_string(),
+    ]);
+    fields
+}
+
+fn calibration_csv_row(row: &CalibrationRow) -> String {
+    let tactical = row.tactical;
+    let structural = row.structural;
+    let productivity = row.productivity;
+    let mut fields = vec![
+        tactical.scenario_fingerprint.to_string(), row.case.seed.to_string(),
+        row.case.mirrored.to_string(), anatomy_name(row.case.target_anatomy).to_string(),
+        row.case.approach_offset.x.raw().to_string(), row.case.approach_offset.y.raw().to_string(),
+        structural.bracket_equal.to_string(), structural.reference_unique.to_string(),
+        structural.reference_crossed.to_string(), structural.held_inert.to_string(),
+        structural.held_legal.to_string(), structural.reference_legal.to_string(),
+        structural.tactical_legal.to_string(),
+        productivity.unique_crossing_contact_with_dissipation.to_string(),
+        productivity.cut_or_thrust_with_matching_integrity_loss.to_string(),
+        optional_u32(row.before.contact_tick), part_name(row.before.region).to_string(),
+        row.before.weapon_body_facts.to_string(),
+        row.before.competing_facts.to_string(), row.before.tip_delta.length().raw().to_string(),
+        row.before.energy_before_raw.to_string(), row.before.energy_dissipated_raw.to_string(),
+        row.before.cut_raw.to_string(), row.before.thrust_raw.to_string(), row.before.pressure_raw.to_string(),
+    ];
+    fields.extend(anatomy_delta_csv_fields(row.before));
+    fields.extend([
+        row.before.refusals.to_string(), row.before.solver_rejections.to_string(),
+        row.before.cap_hits.to_string(), row.before.max_energy_excess_raw.to_string(),
+        optional_u32(row.held.contact_tick), row.held.weapon_body_facts.to_string(),
+        row.held.competing_facts.to_string(), row.held.energy_before_raw.to_string(),
+        row.held.energy_dissipated_raw.to_string(), row.held.cut_raw.to_string(),
+        row.held.thrust_raw.to_string(), row.held.pressure_raw.to_string(),
+    ]);
+    fields.extend(anatomy_delta_csv_fields(row.held));
+    fields.extend([
+        row.held.refusals.to_string(), row.held.solver_rejections.to_string(),
+        row.held.cap_hits.to_string(), row.held.max_energy_excess_raw.to_string(),
+    ]);
+    fields.extend(tactical_csv_fields(tactical));
+    let mut answer = fields.join(",");
+    answer.push('\n');
+    answer
+}
+
+fn structurally_valid_case(case: strong_strike::StrongCase) -> bool {
+    measure_matched_row(case).structural.passes()
+}
+
+#[derive(Clone, Copy, Default)]
+struct CalibrationSummary {
+    cases: u32, structural_invalid: u32, bracket_drift: u32,
+    reference_missing: u32, reference_ambiguous: u32, reference_uncrossed: u32,
+    held_inertness_invalid: u32, held_refusal: u32, held_solver: u32, held_cap: u32,
+    held_energy: u32, reference_refusal: u32, reference_solver: u32, reference_cap: u32,
+    reference_energy: u32, tactical_refusal: u32, tactical_solver: u32, tactical_cap: u32,
+    tactical_energy: u32, tactical_unattributed: u32, tactical_cross_order: u32,
+    reference_meaningful: u32, tactical_cross_contact_dissipation: u32,
+    tactical_damage_integrity: u32,
+}
+
+impl CalibrationSummary {
+    fn observe(&mut self, row: &CalibrationRow) {
+        let s = row.structural;
+        self.cases += 1;
+        self.structural_invalid += u32::from(!s.passes());
+        self.bracket_drift += u32::from(!s.bracket_equal);
+        self.reference_missing += u32::from(row.before.weapon_body_facts == 0);
+        self.reference_ambiguous += u32::from(row.before.weapon_body_facts > 1
+            || row.before.competing_facts > 0);
+        self.reference_uncrossed += u32::from(!s.reference_crossed);
+        self.held_inertness_invalid += u32::from(!s.held_inert);
+        self.held_refusal += u32::from(row.held.refusals != 0);
+        self.held_solver += u32::from(row.held.solver_rejections != 0);
+        self.held_cap += u32::from(row.held.cap_hits != 0);
+        self.held_energy += u32::from(row.held.max_energy_excess_raw != 0);
+        self.reference_refusal += u32::from(row.before.refusals != 0);
+        self.reference_solver += u32::from(row.before.solver_rejections != 0);
+        self.reference_cap += u32::from(row.before.cap_hits != 0);
+        self.reference_energy += u32::from(row.before.max_energy_excess_raw != 0);
+        self.tactical_refusal += u32::from(row.tactical.refusals != 0);
+        self.tactical_solver += u32::from(row.tactical.solver_rejections != 0);
+        self.tactical_cap += u32::from(row.tactical.cap_hits != 0);
+        self.tactical_energy += u32::from(row.tactical.max_energy_excess_raw != 0);
+        self.tactical_unattributed += u32::from(row.tactical.unattributed_anatomy_changes != 0);
+        self.tactical_cross_order += u32::from(match row.tactical.first_contact_tick {
+            None => false,
+            Some(contact) => !row.tactical.first_contact_cross_tick
+                .is_some_and(|cross| cross <= contact),
+        });
+        self.reference_meaningful += u32::from(
+            strong_strike::meaningful_strike_validity(row.before, row.held).passes());
+        self.tactical_cross_contact_dissipation += u32::from(
+            row.productivity.unique_crossing_contact_with_dissipation);
+        self.tactical_damage_integrity += u32::from(
+            row.productivity.cut_or_thrust_with_matching_integrity_loss);
+    }
+}
+
+fn summary_line(label: &str, summary: CalibrationSummary) -> String {
+    format!("group={label} cases={} structural_invalid={} bracket_drift={} reference_missing={} reference_ambiguous={} reference_uncrossed={} held_inertness_invalid={} held_illegal_submission={} held_illegal_solver={} held_illegal_cap={} held_illegal_energy={} reference_illegal_refusal={} reference_illegal_solver={} reference_illegal_cap={} reference_illegal_energy={} tactical_illegal_refusal={} tactical_illegal_solver={} tactical_illegal_cap={} tactical_illegal_energy={} tactical_illegal_unattributed={} tactical_illegal_cross_order={} reference_meaningful_strikes={} tactical_unique_crossing_contact_dissipation={} tactical_cut_or_thrust_matching_integrity={}\n",
+        summary.cases, summary.structural_invalid, summary.bracket_drift,
+        summary.reference_missing, summary.reference_ambiguous, summary.reference_uncrossed,
+        summary.held_inertness_invalid, summary.held_refusal, summary.held_solver,
+        summary.held_cap, summary.held_energy, summary.reference_refusal,
+        summary.reference_solver, summary.reference_cap, summary.reference_energy,
+        summary.tactical_refusal, summary.tactical_solver, summary.tactical_cap,
+        summary.tactical_energy, summary.tactical_unattributed, summary.tactical_cross_order,
+        summary.reference_meaningful, summary.tactical_cross_contact_dissipation,
+        summary.tactical_damage_integrity)
+}
+
+fn write_summary(path: &str, summary: &str) -> std::io::Result<()> {
+    std::fs::write(path, summary.as_bytes())
 }
 
 fn run_corpus(args: &Args) {
@@ -388,71 +842,358 @@ fn run_corpus(args: &Args) {
         }
     }
     let seeds = if held_out { HELD_OUT_SEEDS } else { CALIBRATION_SEEDS };
-    let mut csv = String::from("fingerprint,seed,mirrored,target,offset_x_raw,offset_y_raw,reference_equal,reference_contact,reference_cross,reference_tip_speed_raw,reference_energy_raw,reference_dissipated_raw,reference_cut_raw,reference_thrust_raw,reference_integrity_loss_raw,held_control_inert,reference_legal,reference_refusals,reference_solver_rejections,reference_energy_excess_raw,meaningful_strike,tactical_cross,tactical_contact,tactical_tip_speed_raw,tactical_energy_raw,tactical_dissipated_raw,tactical_cut_raw,tactical_thrust_raw,tactical_integrity_loss_raw,refusals,solver_rejections,energy_excess_raw\n");
-    let mut cases = 0u32;
-    let mut invalid = 0u32;
-    let mut reference_contacts = 0u32;
-    let mut tactical_contacts = 0u32;
-    let mut bracket_drift = 0u32;
-    let mut reference_missing = 0u32;
-    let mut reference_ambiguous = 0u32;
-    let mut tactical_invalid = 0u32;
-    let mut held_control_invalid = 0u32;
-    let mut meaningful_strikes = 0u32;
+    let mut csv = String::from(CALIBRATION_CSV_HEADER);
+    let mut summaries = [CalibrationSummary::default(); 5];
     for case in corpus_cases(seeds.clone()) {
-        let before = strong_strike::measure_case(case, Fx::ONE);
-        let held = strong_strike::measure_case(case, Fx::ZERO);
-        let tactical = measure_tactical(case);
-        let after = strong_strike::measure_case(case, Fx::ONE);
-        let equal = before == after;
-        let strike_validity = strong_strike::meaningful_strike_validity(before, held);
-        let reference_valid = strike_validity.uniquely_attributed_contact
-            && strike_validity.observed_crossing && strike_validity.held_control_inert
-            && strike_validity.legal_runs;
-        let tactical_valid = tactical_valid(&tactical);
-        let valid = equal && reference_valid && tactical_valid;
-        invalid += u32::from(!valid);
-        bracket_drift += u32::from(!equal);
-        reference_missing += u32::from(before.weapon_body_facts == 0);
-        reference_ambiguous += u32::from(before.weapon_body_facts > 1 || before.competing_facts > 0);
-        tactical_invalid += u32::from(!tactical_valid);
-        held_control_invalid += u32::from(!strike_validity.held_control_inert);
-        meaningful_strikes += u32::from(strike_validity.passes());
-        reference_contacts += u32::from(before.contact_tick.is_some());
-        tactical_contacts += u32::from(tactical.first_contact_tick.is_some());
-        cases += 1;
-        let target = match case.target_anatomy { AnatomyChoice::Fighter => "fighter", AnatomyChoice::Brute => "brute" };
-        let reference_integrity_loss = before.region.map(|part|
-            before.integrity_before_raw[part as usize]
-                .saturating_sub(before.integrity_after_raw[part as usize])).unwrap_or(0);
-        csv.push_str(&format!("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n",
-            tactical.scenario_fingerprint, case.seed, case.mirrored, target,
-            case.approach_offset.x.raw(), case.approach_offset.y.raw(), equal,
-            before.contact_tick.is_some(), strike_validity.observed_crossing,
-            before.tip_delta.length().raw(), before.energy_before_raw,
-            before.energy_dissipated_raw, before.cut_raw, before.thrust_raw,
-            reference_integrity_loss, strike_validity.held_control_inert, strike_validity.legal_runs,
-            before.refusals, before.solver_rejections, before.max_energy_excess_raw,
-            strike_validity.passes(),
-            tactical.first_cross_tick.is_some(), tactical.first_contact_tick.is_some(),
-            tactical.peak_tip_speed_raw, tactical.peak_energy_before_raw,
-            tactical.peak_dissipated_raw, tactical.cut_raw, tactical.thrust_raw,
-            tactical.integrity_loss_raw, tactical.refusals,
-            tactical.solver_rejections, tactical.max_energy_excess_raw));
+        let row = measure_matched_row(case);
+        summaries[0].observe(&row);
+        let split = 1 + usize::from(case.mirrored) * 2
+            + usize::from(case.target_anatomy == AnatomyChoice::Brute);
+        summaries[split].observe(&row);
+        csv.push_str(&calibration_csv_row(&row));
     }
     if let Some(path) = args.text("write") {
         std::fs::write(path, csv.as_bytes()).unwrap_or_else(|error| panic!("could not write {path}: {error}"));
     }
-    println!("tactical-mechanics calibration seeds={}..{} cases={} invalid={} bracket_drift={} reference_missing={} reference_ambiguous={} held_control_invalid={} tactical_invalid={} reference_contacts={} meaningful_strikes={} tactical_contacts={} decision={}",
-        seeds.start, seeds.end, cases, invalid, bracket_drift, reference_missing,
-        reference_ambiguous, held_control_invalid, tactical_invalid, reference_contacts,
-        meaningful_strikes, tactical_contacts,
-        if invalid == 0 { "valid-calibration" } else { "invalid-stop-before-held-out" });
+    let mut summary = format!("tactical-mechanics calibration seeds={}..{} expected_cases={}\n",
+        seeds.start, seeds.end, if held_out { 100 * 2 * 2 * strong_strike::APPROACH_OFFSETS.len() }
+            else { CALIBRATION_CASES });
+    summary.push_str(&summary_line("total", summaries[0]));
+    summary.push_str(&summary_line("mirror=false,target=fighter", summaries[1]));
+    summary.push_str(&summary_line("mirror=false,target=brute", summaries[2]));
+    summary.push_str(&summary_line("mirror=true,target=fighter", summaries[3]));
+    summary.push_str(&summary_line("mirror=true,target=brute", summaries[4]));
+    summary.push_str(&format!("decision={}\n", if summaries[0].structural_invalid == 0 {
+        if productivity_passes_denominator(summaries[0].cases,
+            summaries[0].tactical_cross_contact_dissipation,
+            summaries[0].tactical_damage_integrity) {
+            "calibration-pass-plan-held-out"
+        } else { "revise" }
+    } else { "invalid-stop-before-held-out" }));
+    print!("{summary}");
+    if let Some(path) = args.text("summary-write") {
+        write_summary(path, &summary)
+            .unwrap_or_else(|error| panic!("could not write {path}: {error}"));
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn legal() -> RunLegality {
+        RunLegality { refusals: 0, solver_rejections: 0, cap_hits: 0,
+            max_energy_excess_raw: 0 }
+    }
+
+    fn productive_tactical() -> TacticalRow {
+        let mut integrity = [0; BodyPart::COUNT];
+        integrity[BodyPart::Legs as usize] = 1;
+        TacticalRow { intended_region: Some(BodyPart::Legs), intended_hand: Some(LimbSlot::RightArm),
+            first_cross_tick: Some(1), first_contact_tick: Some(2),
+            first_contact_cross_tick: Some(1), first_contact_region: Some(BodyPart::Legs),
+            first_contact_hand: Some(LimbSlot::RightArm),
+            first_contact_attributed_facts: 1, first_contact_competing_facts: 0,
+            first_contact_dissipated_raw: 1, first_contact_cut_or_thrust_raw: 1,
+            first_contact_matching_integrity_loss_raw: 1,
+            peak_dissipated_raw: 1, cut_raw: 1, integrity_loss_raw: integrity,
+            ..TacticalRow::default() }
+    }
+
+    #[test]
+    fn matched_calibration_is_exactly_nine_hundred_ordered_cells() {
+        let cases: Vec<_> = corpus_cases(CALIBRATION_SEEDS).collect();
+        assert_eq!(cases.len(), CALIBRATION_CASES);
+        let mut at = 0;
+        for seed in 0..25 {
+            for mirrored in [false, true] {
+                for target_anatomy in [AnatomyChoice::Fighter, AnatomyChoice::Brute] {
+                    for approach_offset in strong_strike::APPROACH_OFFSETS {
+                        assert_eq!(cases[at], strong_strike::StrongCase {
+                            seed, mirrored, target_anatomy, approach_offset });
+                        at += 1;
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn structural_validity_rejects_each_refusal_cap_energy_and_attribution_failure() {
+        let tactical = productive_tactical();
+        let classify = |held, reference, tactical: &TacticalRow| structural_from_fields(
+            true, true, true, true, held, reference, tactical);
+        assert!(classify(legal(), legal(), &tactical).passes());
+        for field in 0..4 {
+            let mut bad = legal();
+            match field { 0 => bad.refusals = 1, 1 => bad.solver_rejections = 1,
+                2 => bad.cap_hits = 1, _ => bad.max_energy_excess_raw = 1 }
+            assert!(!classify(bad, legal(), &tactical).passes());
+            assert!(!classify(legal(), bad, &tactical).passes());
+        }
+        let mut bad = tactical;
+        bad.unattributed_anatomy_changes = 1;
+        assert!(!classify(legal(), legal(), &bad).passes());
+        for field in 0..4 {
+            let mut bad = tactical;
+            match field { 0 => bad.refusals = 1, 1 => bad.solver_rejections = 1,
+                2 => bad.cap_hits = 1, _ => bad.max_energy_excess_raw = 1 }
+            assert!(!classify(legal(), legal(), &bad).passes());
+        }
+        assert!(!structural_from_fields(false, true, true, true, legal(), legal(), &tactical).passes());
+        assert!(!structural_from_fields(true, false, true, true, legal(), legal(), &tactical).passes());
+        assert!(!structural_from_fields(true, true, false, true, legal(), legal(), &tactical).passes());
+        assert!(!structural_from_fields(true, true, true, false, legal(), legal(), &tactical).passes());
+    }
+
+    #[test]
+    fn held_validity_reads_contact_energy_caps_and_anatomy_without_short_circuiting() {
+        let inert = HeldControlEvidence::default();
+        assert!(inert.is_inert());
+        let mutations: [fn(&mut HeldControlEvidence); 11] = [
+            |row| row.contact = true, |row| row.weapon_body_facts = 1,
+            |row| row.competing_facts = 1, |row| row.energy_before_raw = 1,
+            |row| row.dissipated_raw = 1, |row| row.cut_raw = 1,
+            |row| row.thrust_raw = 1, |row| row.pressure_raw = 1,
+            |row| row.integrity_loss_raw[BodyPart::Head as usize] = 1,
+            |row| row.wound_gain_raw[BodyPart::Torso as usize] = 1,
+            |row| row.blood_loss_raw = 1,
+        ];
+        for mutate in mutations {
+            let mut bad = inert; mutate(&mut bad); assert!(!bad.is_inert());
+        }
+        let mut reversed = inert;
+        reversed.integrity_loss_raw[BodyPart::Head as usize] = -1;
+        assert!(!reversed.is_inert());
+        let mut reversed = inert;
+        reversed.wound_gain_raw[BodyPart::Torso as usize] = -1;
+        assert!(!reversed.is_inert());
+        let mut reversed = inert;
+        reversed.blood_loss_raw = -1;
+        assert!(!reversed.is_inert());
+        for field in 0..4 {
+            let mut bad = legal();
+            match field { 0 => bad.refusals = 1, 1 => bad.solver_rejections = 1,
+                2 => bad.cap_hits = 1, _ => bad.max_energy_excess_raw = 1 }
+            assert!(!bad.passes());
+        }
+        let mut row = TacticalRow::default();
+        row.integrity_loss_raw[BodyPart::Head as usize] = 7;
+        row.wound_gain_raw[BodyPart::Torso as usize] = 8;
+        row.unattributed_anatomy_changes = 2;
+        row.blood_loss_raw = 9;
+        let fields = tactical_csv_fields(row);
+        assert!(fields.iter().any(|field| field == "7"));
+        assert!(fields.iter().any(|field| field == "8"));
+        assert!(fields.iter().any(|field| field == "2"));
+        assert!(fields.iter().any(|field| field == "9"));
+    }
+
+    #[test]
+    fn a_crossing_after_first_contact_is_structurally_illegal() {
+        let mut tactical = productive_tactical();
+        tactical.first_cross_tick = Some(1);
+        tactical.first_contact_tick = Some(2);
+        tactical.first_contact_cross_tick = Some(3);
+        assert!(!structural_from_fields(true, true, true, true, legal(), legal(), &tactical)
+            .tactical_legal);
+        tactical.first_contact_cross_tick = Some(2);
+        assert!(structural_from_fields(true, true, true, true, legal(), legal(), &tactical)
+            .tactical_legal);
+    }
+
+    #[test]
+    fn productivity_does_not_count_pressure_or_an_unmatched_integrity_loss() {
+        let row = productive_tactical();
+        let productive = tactical_productivity(&row);
+        assert!(productive.unique_crossing_contact_with_dissipation);
+        assert!(productive.cut_or_thrust_with_matching_integrity_loss);
+        let mut bad = row; bad.first_contact_dissipated_raw = 0;
+        assert!(!tactical_productivity(&bad).unique_crossing_contact_with_dissipation);
+        let mut bad = row; bad.first_contact_competing_facts = 1;
+        assert!(!tactical_productivity(&bad).unique_crossing_contact_with_dissipation);
+        let mut pressure = row; pressure.first_contact_cut_or_thrust_raw = 0;
+        pressure.cut_raw = 99; pressure.pressure_raw = 99;
+        assert!(!tactical_productivity(&pressure).cut_or_thrust_with_matching_integrity_loss);
+        let mut unmatched = row;
+        unmatched.first_contact_matching_integrity_loss_raw = 0;
+        unmatched.integrity_loss_raw[BodyPart::Head as usize] = 1;
+        assert!(!tactical_productivity(&unmatched).cut_or_thrust_with_matching_integrity_loss);
+    }
+
+    #[test]
+    fn later_contacts_cannot_rewrite_or_supply_first_contact_productivity() {
+        let original = FirstContactEvidence { tick: 2, cross_tick: Some(1),
+            region: Some(BodyPart::Legs), hand: Some(LimbSlot::RightArm),
+            attributed_facts: 1, competing_facts: 0, dissipated_raw: 1,
+            cut_or_thrust_raw: 1, matching_integrity_loss_raw: 1 };
+        let later_candidate = FirstContactEvidence { tick: 9, cross_tick: Some(9),
+            region: Some(BodyPart::Head), hand: Some(LimbSlot::LeftArm),
+            attributed_facts: 1, competing_facts: 4, dissipated_raw: 999,
+            cut_or_thrust_raw: 999, matching_integrity_loss_raw: 999 };
+        let mut frozen = None;
+        assert!(freeze_first_contact(&mut frozen, original));
+        assert!(!freeze_first_contact(&mut frozen, later_candidate));
+        assert_eq!(frozen, Some(original));
+
+        let first = productive_tactical();
+        let expected = tactical_productivity(&first);
+        let mut later = first;
+        later.intended_region = Some(BodyPart::Head);
+        later.intended_hand = Some(LimbSlot::LeftArm);
+        later.first_cross_tick = Some(9);
+        later.peak_dissipated_raw = 999;
+        later.cut_raw = 999;
+        later.integrity_loss_raw[BodyPart::Head as usize] = 999;
+        later.waterfall.weapon_body_facts = 9;
+        assert_eq!(tactical_productivity(&later), expected);
+
+        let mut failed_first = later;
+        failed_first.first_contact_competing_facts = 1;
+        failed_first.first_contact_dissipated_raw = 0;
+        failed_first.first_contact_cut_or_thrust_raw = 0;
+        failed_first.first_contact_matching_integrity_loss_raw = 0;
+        let productivity = tactical_productivity(&failed_first);
+        assert!(!productivity.unique_crossing_contact_with_dissipation);
+        assert!(!productivity.cut_or_thrust_with_matching_integrity_loss);
+    }
+
+    #[test]
+    fn productivity_keeps_all_nine_hundred_rows_in_its_denominator() {
+        assert!(!productivity_passes_denominator(CALIBRATION_CASES as u32, 1, 1));
+        assert!(productivity_passes_denominator(CALIBRATION_CASES as u32, 855, 810));
+        assert!(!productivity_passes_denominator(CALIBRATION_CASES as u32, 854, 810));
+        assert!(!productivity_passes_denominator(CALIBRATION_CASES as u32, 855, 809));
+    }
+
+    #[test]
+    fn calibration_csv_has_a_fixed_header_order_and_final_newline() {
+        assert!(CALIBRATION_CSV_HEADER.ends_with('\n'));
+        let columns: Vec<_> = CALIBRATION_CSV_HEADER.trim_end().split(',').collect();
+        assert_eq!(&columns[0..6], &["fingerprint", "seed", "mirrored", "target",
+            "offset_x_raw", "offset_y_raw"]);
+        assert_eq!(&columns[columns.len() - 10..], &["commits", "crossings",
+            "weapon_body_facts", "positive_closing", "dissipated_groups", "above_floor",
+            "cut_or_thrust", "integrity_losses", "open_wounds", "body_decisions"]);
+        for name in ["tactical_integrity_loss_head_raw", "tactical_integrity_loss_torso_raw",
+            "tactical_integrity_loss_left_arm_raw", "tactical_integrity_loss_right_arm_raw",
+            "tactical_integrity_loss_legs_raw", "tactical_wound_gain_head_raw",
+            "tactical_wound_gain_torso_raw", "tactical_wound_gain_left_arm_raw",
+            "tactical_wound_gain_right_arm_raw", "tactical_wound_gain_legs_raw",
+            "tactical_blood_loss_raw"] {
+            assert!(columns.contains(&name));
+        }
+        let mut hash = 0xcbf29ce484222325u64;
+        for byte in CALIBRATION_CSV_HEADER.bytes() {
+            hash ^= byte as u64; hash = hash.wrapping_mul(0x100000001b3);
+        }
+        assert_eq!(hash, 0xc4107a3a0fb9ee79,
+            "the complete fixed header, including order and spelling, moved");
+
+        let case = strong_strike::StrongCase { seed: 0, mirrored: false,
+            target_anatomy: AnatomyChoice::Fighter,
+            approach_offset: strong_strike::APPROACH_OFFSETS[4] };
+        let mut row = measure_matched_row(case);
+        row.before.region = Some(BodyPart::Head);
+        row.before.integrity_before_raw = [100; BodyPart::COUNT];
+        row.before.integrity_after_raw = [99, 98, 97, 96, 95];
+        row.before.wound_before_raw = [0; BodyPart::COUNT];
+        row.before.wound_after_raw = [6, 7, 8, 9, 10];
+        row.before.blood_before_raw = 100; row.before.blood_after_raw = 89;
+        row.held.integrity_before_raw = [200; BodyPart::COUNT];
+        row.held.integrity_after_raw = [188, 187, 186, 185, 184];
+        row.held.wound_before_raw = [0; BodyPart::COUNT];
+        row.held.wound_after_raw = [17, 18, 19, 20, 21];
+        row.held.blood_before_raw = 200; row.held.blood_after_raw = 178;
+        row.tactical.integrity_loss_raw = [23, 24, 25, 26, 27];
+        row.tactical.wound_gain_raw = [28, 29, 30, 31, 32];
+        row.tactical.blood_loss_raw = 33;
+        row.tactical.unattributed_anatomy_changes = 34;
+        row.tactical.first_contact_cross_tick = Some(35);
+        row.tactical.first_contact_region = Some(BodyPart::Legs);
+        row.tactical.first_contact_hand = Some(LimbSlot::RightArm);
+        row.tactical.first_contact_dissipated_raw = 36;
+        row.tactical.first_contact_cut_or_thrust_raw = 37;
+        row.tactical.first_contact_matching_integrity_loss_raw = 38;
+        let csv = calibration_csv_row(&row);
+        assert!(csv.ends_with('\n'));
+        assert_eq!(csv.bytes().filter(|byte| *byte == b'\n').count(), 1);
+        let values: Vec<_> = csv.trim_end().split(',').collect();
+        assert_eq!(columns.len(), values.len());
+        for (name, expected) in [
+            ("reference_region", "head"),
+            ("reference_integrity_loss_head_raw", "1"),
+            ("reference_integrity_loss_legs_raw", "5"),
+            ("reference_wound_gain_head_raw", "6"),
+            ("reference_wound_gain_legs_raw", "10"),
+            ("reference_blood_loss_raw", "11"),
+            ("held_integrity_loss_head_raw", "12"),
+            ("held_integrity_loss_legs_raw", "16"),
+            ("held_wound_gain_head_raw", "17"),
+            ("held_wound_gain_legs_raw", "21"),
+            ("held_blood_loss_raw", "22"),
+            ("tactical_integrity_loss_head_raw", "23"),
+            ("tactical_integrity_loss_legs_raw", "27"),
+            ("tactical_wound_gain_head_raw", "28"),
+            ("tactical_wound_gain_legs_raw", "32"),
+            ("tactical_blood_loss_raw", "33"),
+            ("tactical_unattributed_anatomy_changes", "34"),
+            ("tactical_first_contact_cross_tick", "35"),
+            ("tactical_first_contact_region", "legs"),
+            ("tactical_first_contact_hand", "right_arm"),
+            ("tactical_first_contact_dissipated_raw", "36"),
+            ("tactical_first_contact_cut_or_thrust_raw", "37"),
+            ("tactical_first_contact_matching_integrity_loss_raw", "38"),
+        ] {
+            let at = columns.iter().position(|column| *column == name).unwrap();
+            assert_eq!(values[at], expected, "CSV field {name}");
+        }
+    }
+
+    #[test]
+    fn incompatible_tactical_mechanics_modes_are_refused_by_name() {
+        let args = Args::parse(vec!["tactical-mechanics".to_string(),
+            "--quick".to_string(), "--calibration".to_string()]);
+        assert_eq!(incompatible_mode_refusal(&args).as_deref(), Some(
+            "tactical-mechanics modes are incompatible: --quick and --calibration"));
+        let args = Args::parse(vec!["tactical-mechanics".to_string(),
+            "--quick".to_string(), "--write".to_string(), "out.csv".to_string()]);
+        assert_eq!(incompatible_mode_refusal(&args).as_deref(), Some(
+            "tactical-mechanics --write requires --calibration or --held-out"));
+        let args = Args::parse(vec!["tactical-mechanics".to_string(),
+            "--quick".to_string(), "--summary-write".to_string(), "summary.txt".to_string()]);
+        assert_eq!(incompatible_mode_refusal(&args).as_deref(), Some(
+            "tactical-mechanics --summary-write requires --calibration or --held-out"));
+        let args = Args::parse(vec!["tactical-mechanics".to_string(),
+            "--calibration".to_string(), "--write".to_string(), "rows.csv".to_string(),
+            "--summary-write".to_string(), "summary.txt".to_string()]);
+        assert_eq!(incompatible_mode_refusal(&args), None);
+    }
+
+    #[test]
+    fn valueless_tactical_mechanics_output_options_are_refused_by_name() {
+        let args = Args::parse(vec!["tactical-mechanics".to_string(),
+            "--calibration".to_string(), "--write".to_string()]);
+        assert_eq!(incompatible_mode_refusal(&args).as_deref(), Some(
+            "tactical-mechanics --write requires PATH"));
+        let args = Args::parse(vec!["tactical-mechanics".to_string(),
+            "--held-out".to_string(), "--summary-write".to_string()]);
+        assert_eq!(incompatible_mode_refusal(&args).as_deref(), Some(
+            "tactical-mechanics --summary-write requires PATH"));
+    }
+
+    #[test]
+    fn summary_write_preserves_the_printed_deterministic_bytes() {
+        let mut summary = String::from("tactical-mechanics calibration seeds=0..25 expected_cases=900\n");
+        summary.push_str(&summary_line("total", CalibrationSummary::default()));
+        summary.push_str("decision=invalid-stop-before-held-out\n");
+        let path = std::env::temp_dir().join(
+            format!("smart128-summary-seam-{}.txt", std::process::id()));
+        write_summary(path.to_str().unwrap(), &summary)
+            .expect("write deterministic summary receipt");
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), summary);
+        std::fs::remove_file(&path).expect("remove summary seam fixture");
+    }
 
     #[cfg(feature = "cartesian-recoil")]
     #[test]
@@ -558,7 +1299,7 @@ mod tests {
     }
 
     #[test]
-    fn matched_rows_share_scenario_seed_mirror_target_and_offset() {
+    fn matched_rows_share_fingerprint_seed_mirror_anatomy_and_offset() {
         let case = strong_strike::StrongCase { seed: 0, mirrored: false,
             target_anatomy: AnatomyChoice::Fighter, approach_offset: strong_strike::APPROACH_OFFSETS[4] };
         let row = measure_tactical(case);
@@ -578,9 +1319,9 @@ mod tests {
         row.first_contact_tick = None;
         row.first_cross_tick = None;
         row.unattributed_anatomy_changes = 0;
-        assert!(tactical_valid(&row));
+        assert!(tactical_is_legal(&row));
         row.unattributed_anatomy_changes = 1;
-        assert!(!tactical_valid(&row));
+        assert!(!tactical_is_legal(&row));
     }
 
     #[test]

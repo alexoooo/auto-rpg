@@ -194,12 +194,14 @@ pub(crate) fn meaningful_strike_validity(
         held_control_inert: held.contact_tick.is_none() && held.weapon_body_facts == 0
             && held.competing_facts == 0 && held.energy_before_raw == 0
             && held.energy_dissipated_raw == 0 && held.cut_raw == 0 && held.thrust_raw == 0
+            && held.pressure_raw == 0
             && held.integrity_before_raw == held.integrity_after_raw
             && held.wound_before_raw == held.wound_after_raw
             && held.blood_before_raw == held.blood_after_raw,
         legal_runs: strong.refusals == 0 && strong.solver_rejections == 0
-            && strong.max_energy_excess_raw == 0 && held.refusals == 0
-            && held.solver_rejections == 0 && held.max_energy_excess_raw == 0,
+            && strong.cap_hits == 0 && strong.max_energy_excess_raw == 0
+            && held.refusals == 0 && held.solver_rejections == 0
+            && held.cap_hits == 0 && held.max_energy_excess_raw == 0,
     }
 }
 
@@ -528,8 +530,8 @@ fn print_measurement(name: &str, row: StrikeMeasurement) {
         row.contact_reach_raw.map(|raw| raw.to_string()).unwrap_or_else(|| "none".to_string()),
         xyz(row.contact_arm_velocity));
     println!("geometric_crossing={}", observed_crossing(row));
-    println!("refusals={} solver_rejections={} max_energy_excess_raw={}",
-        row.refusals, row.solver_rejections, row.max_energy_excess_raw);
+    println!("refusals={} solver_rejections={} cap_hits={} max_energy_excess_raw={}",
+        row.refusals, row.solver_rejections, row.cap_hits, row.max_energy_excess_raw);
 }
 
 pub(crate) fn strong_strike() {

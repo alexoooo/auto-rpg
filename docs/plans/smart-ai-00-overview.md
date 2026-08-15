@@ -69,14 +69,16 @@ That closes the lifecycle witness. Smart122's exact-trajectory digest registers 
 later wall/remainder/release transcript. Smart123 separately registers source-41's
 eighteen mechanics cases at their first qualifying contact; extending those cases by
 one tick is not its lifecycle grammar. The authority documents are now closed without
-promoting the feature. Rerun ordinary Tactical evidence before reconsidering
-learning or `v2-18`.
+promoting the feature. [Smart128](smart-ai-128-matched-tactical-calibration.md) is the
+active stationary matched Tactical/control calibration; it must stop before held-out
+or moving competence work if any structural row is invalid.
 
 ## Next-session order
 
-1. Rerun matched ordinary Tactical/control evidence against the retained exact
-   mechanics. The baseline is `21/100` strict and `55/100` outcome-only; Smart125's
-   attempted correction fell to `49/100` outcome-only and was reverted.
+1. Execute [Smart128](smart-ai-128-matched-tactical-calibration.md) against the
+   retained exact mechanics. The baseline is `21/100` strict and `55/100`
+   outcome-only; Smart125's attempted correction fell to `49/100` outcome-only and
+   was reverted.
 2. Preserve the ordinary defender-body `WALL` lifecycle witness separately from the
    terminal-at-first-contact source-41 solver corpus.
 3. Open the unchanged 95/100 held-out competence gate only if the matched evidence

@@ -19,7 +19,7 @@ that remains.
 | work | state | dependency | hash expectation |
 |---|---|---|---|
 | [Representative Fighter and Brute rigs](v2-18-combatant-integration.md) | not started | a passed articulated mechanical gate | presentation-only: every legacy and articulated pin unchanged |
-| [Smart articulated combat](smart-ai-00-overview.md) | exact feature mechanics, the ordinary body-wall lifecycle, both feature digests and their authority references are complete | rerun matched ordinary Tactical/control evidence | no `ARTICULATED_HASH`; generalized competence and `v2-18` remain blocked |
+| [Smart articulated combat](smart-ai-00-overview.md) | exact feature mechanics, the ordinary body-wall lifecycle, both feature digests and their authority references are complete | [Smart128 stationary matched calibration](smart-ai-128-matched-tactical-calibration.md) | no `ARTICULATED_HASH`; generalized competence and `v2-18` remain blocked |
 | Controlled Robust Strike | retained and visibly verified as a feature-only demonstration; standard production stays default | durable evidence is in the [tactical policy record](../performance/smart-ai-tactical-policy.md#controlled-strong-strike-reference) | no existing pin moves |
 | [Articulated contact research record](../performance/v2-articulated-contact-research.md) | durable evidence | exact retained-contact findings and rejected response/state hypotheses formerly spread across Smart AI sessions 01--34 | evidence only; no authority |
 | [Hierarchical combat learning](hierarchical-ai-00-overview.md) | proposed research successor | first prove that fixed `(loadout, strategy)` options have context-dependent headroom on a mechanically productive corpus | native research moves no pins; promotion is separately gated |
