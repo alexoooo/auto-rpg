@@ -4,7 +4,8 @@
 body-wall lifecycle witness are committed and verified. Smart122 registered the
 trajectory transcript at `0x83051e8c6b4ef20f`, and Smart123 registered the
 terminal source-41 solver corpus at `0x83cd7bb2b73aeb9e`. Their canonical authority
-documentation is complete. Generalized Tactical competence remains below gate.
+documentation is complete. Smart128's matched stationary calibration stopped with
+688/900 structural failures. Generalized Tactical competence remains below gate.
 
 This topic began with an Arena fight in which learned and tactical fighters moved but
 rarely produced useful attacks. The UI truth problem was repaired and intentional
@@ -50,6 +51,10 @@ live in [combat design](../design/combat.md).
 - Smart115 measured generalized Tactical at `21/100` strict zero-refusal body
   decisions and `55/100` outcome-only. Smart125's attempted recertification regressed
   the unchanged outcome corpus to `49/100` and was fully reverted.
+- Smart128's exact-mechanics calibration reproduced byte-identically across two
+  bounded runs but stopped at `688/900` structural failures. Its held-out stationary
+  range and the moving competence gate were not run; the durable counts and receipts
+  are in [matched tactical mechanics](../performance/smart-ai-matched-tactical.md#exact-mechanics-rerun).
 - All exact mechanics remain behind the opt-in, non-default `cartesian-recoil`
   feature. No exact-path default authority, `ARTICULATED_HASH`, training promotion,
   or v2-18 rig work is authorized. These retained results are committed behind the
@@ -69,22 +74,21 @@ That closes the lifecycle witness. Smart122's exact-trajectory digest registers 
 later wall/remainder/release transcript. Smart123 separately registers source-41's
 eighteen mechanics cases at their first qualifying contact; extending those cases by
 one tick is not its lifecycle grammar. The authority documents are now closed without
-promoting the feature. [Smart128](smart-ai-128-matched-tactical-calibration.md) is the
-active stationary matched Tactical/control calibration. Its serial evidence attempt
-timed out without an artifact; the fixed bounded collector is pending before the
-pair is rerun. It must stop before held-out or moving competence work if collection
-fails or any structural row is invalid.
+promoting the feature. The completed stationary matched Tactical/control calibration
+stopped before held-out work: reference missing/crossing failures, held/reference
+solver rejections and Tactical solver/attribution failures were all present. Diagnose a
+single frozen failure class under a new plan before proposing any correction.
 
 ## Next-session order
 
-1. Execute [Smart128](smart-ai-128-matched-tactical-calibration.md) against the
-   retained exact mechanics. The baseline is `21/100` strict and `55/100`
-   outcome-only; Smart125's attempted correction fell to `49/100` outcome-only and
-   was reverted.
+1. Plan a bounded diagnosis from Smart128's frozen matched rows. Do not tune against
+   the calibration or choose a subset after measurement. The moving baseline remains
+   `21/100` strict and `55/100` outcome-only; Smart125's attempted correction fell to
+   `49/100` outcome-only and was reverted.
 2. Preserve the ordinary defender-body `WALL` lifecycle witness separately from the
    terminal-at-first-contact source-41 solver corpus.
-3. Open the unchanged 95/100 held-out competence gate only if the matched evidence
-   justifies it.
+3. Open the unchanged 95/100 held-out competence gate only after a future matched
+   calibration reaches zero structural failures and its frozen evidence justifies it.
 4. Train/promote only after the competence gate passes. Reopen the final
    v2 articulated gate and `v2-18` last.
 
@@ -130,5 +134,6 @@ git diff --check
 Because `crates/sim` changed, the final integration handoff also rebuilds `-p web` for
 `wasm32-unknown-unknown` both with and without `cartesian-recoil`, and runs the matching
 native/wasm equality checks. Both digest registrations and their authority documents
-are complete. The next authorized work is matched ordinary Tactical/control evidence,
-not training, default promotion or the held-out gate by assumption.
+are complete. Matched ordinary Tactical/control evidence is now frozen at its
+structural stop. The next authorized work is diagnosis and planning, not tuning,
+training, default promotion or the held-out gate by assumption.

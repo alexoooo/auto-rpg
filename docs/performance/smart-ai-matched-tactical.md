@@ -5,7 +5,8 @@
 **Canonical source:** `crates/lab/src/tactical_mechanics.rs` and `crates/lab/src/strong_strike.rs`.
 **Update when:** The strong reference, tactical controller, matched scenarios, or contact-to-anatomy waterfall changes.
 
-**Measured:** 2026-08-12, native MSVC x86-64 release build.
+**Measured:** 2026-08-12 under default mechanics; rerun 2026-08-14 under
+`cartesian-recoil`, native MSVC x86-64 Windows release build.
 
 ## Method
 
@@ -81,12 +82,90 @@ these rows authorizes a mechanics response change.
 
 The Lab harness now records reference dissipation, cut, thrust, matching-region
 integrity loss, observed crossing, and held-control validity alongside the tactical
-waterfall. The next calibration must have zero structural validity failures before the
-held-out seed range can be opened. A visibly meaningful sword result requires at least
-95% uniquely attributed crossings/contacts with nonzero dissipation and at least 90%
-positive cut-or-thrust with matching regional integrity loss. Pressure is reported but
-does not count as damage; open wound remains separate because thrust need not create
-one. The paired held control must remain entirely inert, and both strong-reference
-brackets must remain byte-identical.
-The held-out command reruns the 900-case structural calibration itself and exits 2 on
-any failure, so a stale prior CSV cannot authorize the decision set.
+waterfall. Smart128 required zero structural validity failures before the held-out
+seed range could open. A visibly meaningful sword result required at least 95%
+uniquely attributed crossings/contacts with nonzero dissipation and at least 90%
+positive cut-or-thrust with matching regional integrity loss. Pressure was reported
+but did not count as damage; open wound remained separate because thrust need not
+create one. The paired held control had to remain entirely inert, and both
+strong-reference brackets had to remain byte-identical.
+
+The rerun below stopped structurally. The held-out command still reruns the 900-case
+structural calibration itself and exits 2 on any failure, so neither this failed
+calibration nor a stale prior CSV can authorize the decision set.
+
+## Exact-mechanics rerun
+
+Smart128 ran from source commit
+`7813de079e237f613ec59c4ef38aeee8b399742f` on native MSVC x86-64 Windows with
+`cartesian-recoil`. Its fixed four-worker collector retained the same 900-case order
+and the same four fresh Worlds per case. The two evidence commands differed only in
+their output names:
+
+```powershell
+cargo run --release -p lab --features cartesian-recoil -- tactical-mechanics --calibration --write target/smart128-calibration-a.csv --summary-write target/smart128-calibration-a.log
+cargo run --release -p lab --features cartesian-recoil -- tactical-mechanics --calibration --write target/smart128-calibration-b.csv --summary-write target/smart128-calibration-b.log
+```
+
+Both CSVs are byte-identical: 309,770 bytes, 901 lines, SHA-256
+`6e892f830c915d86ab88980832dc9daf82921c44842f9cc6b2d41de88c813a8a`.
+Both summaries are byte-identical: 3,407 bytes, 7 lines, SHA-256
+`1a5c905437276800b4ce1d7866f836ee315ede0f726da9354cd9694cb0a15afe`.
+Run A reached its complete artifacts about 40 minutes 51 seconds after invocation;
+the orchestration path did not preserve its direct process exit. Run B exited zero in
+1,593.3 seconds. Complete equal artifacts, rather than the unavailable A exit, are
+the determinism receipt.
+
+The earlier serial attempt at commit `a2ad795` used:
+
+```powershell
+cargo run --release -p lab --features cartesian-recoil -- tactical-mechanics --calibration --write target/smart128-calibration-a.csv --summary-write target/smart128-calibration-a.log
+```
+
+It reached its external timeout at 1,800.0 seconds with exit status 124 and produced
+no final summary, CSV or retained log. It therefore supplied no Tactical or validity
+counts. That was an operational process timeout, not a World tick-limit outcome. The
+old 5--15 minute estimate is superseded: the completed bounded runs took 26 minutes
+33.3 seconds and about 40 minutes 51 seconds. A future identical rerun should budget
+at least 45 minutes per process while retaining the 3,600-second hard timeout.
+
+### Frozen result
+
+The summaries agreed on `invalid-stop-before-held-out`: 688 of 900 rows had at least
+one structural failure. Brackets drifted in zero rows; ambiguity was also zero in
+every split. Every submission-refusal, cap-hit and energy-excess count was zero for
+held, reference and Tactical arms. The remaining exact structural counts were:
+
+| split | cases | invalid | reference missing | reference uncrossed | held inertness invalid | held solver | reference solver | Tactical solver | Tactical unattributed | Tactical cross-order |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| total | 900 | 688 | 482 | 515 | 14 | 198 | 198 | 230 | 70 | 36 |
+| canonical / Fighter | 225 | 188 | 130 | 155 | 3 | 25 | 25 | 53 | 21 | 11 |
+| canonical / Brute | 225 | 173 | 130 | 130 | 0 | 50 | 50 | 62 | 14 | 7 |
+| mirrored / Fighter | 225 | 173 | 119 | 124 | 5 | 75 | 75 | 53 | 21 | 11 |
+| mirrored / Brute | 225 | 154 | 103 | 106 | 6 | 48 | 48 | 62 | 14 | 7 |
+
+These are per-cause row counts, not disjoint partitions. Categories overlap within
+and across the reference, held and Tactical arms and must not be summed to reconstruct
+the 688-row invalid union.
+
+The separately reported productivity sidecars were:
+
+| split | reference meaningful | Tactical unique crossing/contact/dissipation | Tactical cut-or-thrust plus matching integrity |
+|---|---:|---:|---:|
+| total | 268 | 140 | 152 |
+| canonical / Fighter | 62 | 30 | 34 |
+| canonical / Brute | 50 | 40 | 42 |
+| mirrored / Fighter | 74 | 30 | 34 |
+| mirrored / Brute | 82 | 40 | 42 |
+
+These numerators are not pass rates: the predeclared contract permits productivity
+interpretation only after structural invalidity reaches zero. It did not, so no
+productivity verdict or threshold comparison is valid. The failures also cross the
+reference, held and Tactical arms, so this result does not select a policy retune or
+a mechanics change.
+
+The held-out stationary range and moving 100-fight competence gate were not run. No
+registered hash moved, `ARTICULATED_HASH` remains absent, and neither feature
+promotion nor training is authorized. The next work is a separately planned diagnosis
+of the frozen missing/crossing, held/reference solver and Tactical attribution
+failures; it is not tuning against these 900 rows.
