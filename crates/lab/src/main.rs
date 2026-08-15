@@ -50,7 +50,12 @@ fn main() {
         "strike-corpus" => strike_corpus::strike_corpus(&args),
         "strong-strike" => strong_strike::strong_strike(),
         "tactical-mechanics" => {
-            if tactical_mechanics::ordinal_31_tick_46_pair_aabb_requested(&args) {
+            if tactical_mechanics::ordinal_31_tick_46_segment_hilt_start_x_requested(&args) {
+                if let Err(error) = tactical_mechanics::ordinal_31_tick_46_segment_hilt_start_x_mode(&args) {
+                    eprintln!("{error}");
+                    std::process::exit(2);
+                }
+            } else if tactical_mechanics::ordinal_31_tick_46_pair_aabb_requested(&args) {
                 if let Err(error) = tactical_mechanics::ordinal_31_tick_46_pair_aabb_mode(&args) {
                     eprintln!("{error}");
                     std::process::exit(2);
@@ -132,7 +137,7 @@ fn usage() {
           control through the production World, printing raw pose kinematics,
           contact energy channels and before/after anatomy facts.
 
-  tactical-mechanics --quick|--calibration|--held-out|--strike-corpus|--anatomical-mirror-corpus|--noise-free-mirror-corpus|--mirror-trace-1536|--ordinal-31-provenance|--ordinal-31-tick-46-scan|--ordinal-31-tick-46-pair-aabb
+  tactical-mechanics --quick|--calibration|--held-out|--strike-corpus|--anatomical-mirror-corpus|--noise-free-mirror-corpus|--mirror-trace-1536|--ordinal-31-provenance|--ordinal-31-tick-46-scan|--ordinal-31-tick-46-pair-aabb|--ordinal-31-tick-46-segment-hilt-start-x
           Brackets the tactical controller between byte-equal strong-strike
           references on their exact fixed scenario. --calibration runs the
           frozen 900-cell matched corpus and --write PATH records its fixed CSV.
@@ -153,6 +158,8 @@ fn usage() {
           reference/held/reference tick-46 segment/body scan-budget transcript.
           --ordinal-31-tick-46-pair-aabb --write PATH runs the fixed Smart132
           reference/held/reference tick-46 exact swept-pair-AABB transcript.
+          --ordinal-31-tick-46-segment-hilt-start-x --write PATH runs the fixed
+          Smart133 reference/held/reference point-X operand transcript.
 
   trace   --seed N --policy composed|windmill|tactical|learned --attack-moves --mirrored
           --ticks N --out PATH

@@ -4,6 +4,35 @@
 This session diagnoses one exact word already frozen by Smart132. It changes no
 mechanics, policy, calibration, gate, feature default or registered hash.
 
+**In-progress handoff (2026-08-15; uncommitted):** implementation is present in the
+seven authorized Sim/Lab files on clean-plan authority
+`682b05cac6cf23a3f9e13845702654dfcfcbfa6f`, but it is intentionally not committed
+or production-run. Sim has one observer-parametric authoritative arithmetic path,
+the 42-event diagnostic/lifecycle, exact reject prefixes and focused Smart131/132/133
+regressions green. Lab has the O(T) three-arm harness, full source SHA check,
+non-narrowing wide validation, candidate/witness comparator, strict CLI/worker and
+atomic writer. The latest focused commands were green:
+
+```text
+cargo test -p sim --features cartesian-recoil segment_hilt_start_x
+cargo test -p sim --features cartesian-recoil an_operand_recorder_failure_does_not_change_the_authoritative_scan_result
+cargo test -p lab --features cartesian-recoil ordinal_31_tick_46_segment_hilt_start_x -- --test-threads=1
+cargo test -p lab ordinal_31_tick_46_segment_hilt_start_x
+```
+
+The final Lab feature filter passed `7/7` in `19.70` seconds; the default refusal
+filter passed `1/1`. Deliberately swapping candidate ordinals `0/2` made the named
+first-operand test red, and removing the post-race no-replace check made the atomic
+test red; both were restored. An independent review had raised six blockers: exact
+Smart132 SHA authority, coherent all-candidate/all-witness mutation receipts, an
+independent full 138-line byte oracle, full-width rather than `i128`-narrowed
+validation, validation before comparison, and true destination-race plus worker
+failure seams. Repairs for all six are in the working tree and the focused filters
+are green, but the final read-only re-review was interrupted for shutdown before it
+returned. Resume by reviewing those six repairs; do not run broad, wasm, production
+or evidence A/B until that review is CLEAR. No Cargo, Rust, or Lab process was active
+when this handoff was written.
+
 ## Question and immutable authority
 
 Smart132 A and B were produced from source commit

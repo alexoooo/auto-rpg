@@ -6,6 +6,8 @@
 
 use crate::{EntityId, Faction};
 use crate::combat::spec::{AnatomyRegion, SurfaceSpec};
+#[cfg(feature = "cartesian-recoil")]
+use crate::combat::spec::EquipmentSpecId;
 #[cfg(any(test, feature = "cartesian-recoil"))]
 use crate::combat::resolution::GeneralizedKind;
 #[cfg(any(test, feature = "cartesian-recoil"))]
@@ -180,13 +182,13 @@ pub struct ExactSegmentBodyVisitDiagnostic {
     pub safe_step_raw: Option<u32>,
 }
 
-#[cfg(feature = "cartesian-recoil")]
+#[cfg(any(test, feature = "cartesian-recoil"))]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct ExactWideWordDiagnostic {
     pub negative: bool, pub used: u8, pub limbs: [u32; 128],
 }
 
-#[cfg(feature = "cartesian-recoil")]
+#[cfg(any(test, feature = "cartesian-recoil"))]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct ExactWideRationalDiagnostic {
     pub numerator: ExactWideWordDiagnostic,
@@ -253,6 +255,82 @@ pub enum ExactPairAabbTerminalDiagnostic {
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum ExactPairAabbRecorderInvalidDiagnostic {
     Capacity, Cardinality, Lifecycle, Overflow, WordCopy,
+}
+
+#[cfg(any(test, feature = "cartesian-recoil"))]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ExactPointXEventRoleDiagnostic { OperandCandidate, DerivedWitness, Terminal }
+
+#[cfg(any(test, feature = "cartesian-recoil"))]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ExactPointXEventScopeDiagnostic { Motor, Common, Combine, Held, Final }
+
+#[cfg(any(test, feature = "cartesian-recoil"))]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ExactPointXEventFieldDiagnostic {
+    StartRaw, DeltaRaw, StepNumerator, Value, Scale, AtGroupRaw,
+    AtGroupRemainder, RemainderDenominator, VelocityRaw, ScaledVelocity,
+    MomentumRemainder, Momentum, TravelTimeRaw, TravelNumerator,
+    TravelDenominator, MassRaw, Terminal,
+}
+
+#[cfg(any(test, feature = "cartesian-recoil"))]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ExactPointXEventStageDiagnostic {
+    Input, Cast, Subtract, CheckedProduct, CheckedAdd, RationalStart,
+    RationalStep, RationalPosition, RationalRemainder, RationalTravel,
+    AddStartStep, AddPositionRemainder, AddTravel, AddMotorCommon,
+    AddAfterCommonHeld, Terminal,
+}
+
+#[cfg(any(test, feature = "cartesian-recoil"))]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ExactPointXEventAtomDiagnostic {
+    I32(i32), U32(u32), I128(i128), Wide(ExactWideRationalDiagnostic),
+    TerminalSuccess, TerminalReject(ExactScanRejectDiagnostic),
+}
+
+#[cfg(any(test, feature = "cartesian-recoil"))]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct ExactPointXEventDiagnostic {
+    pub ordinal: u8, pub role: ExactPointXEventRoleDiagnostic,
+    pub scope: ExactPointXEventScopeDiagnostic,
+    pub field: ExactPointXEventFieldDiagnostic,
+    pub stage: ExactPointXEventStageDiagnostic,
+    pub atom: ExactPointXEventAtomDiagnostic,
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct ExactPointXAdmissionDiagnostic {
+    pub side: ExactPairAabbSideDiagnostic, pub ordinal: u8,
+    pub source: ExactPairAabbPointSourceDiagnostic, pub region: Option<u8>,
+    pub endpoint: ExactPairAabbEndpointDiagnostic, pub axis: ExactPairAabbAxisDiagnostic,
+    pub row_entity: EntityId, pub row_slot: u8, pub owner_index: usize,
+    pub held_index: usize, pub held_slot: u8, pub held_spec: EquipmentSpecId,
+    pub time_raw: u32, pub common_group_time_raw: u32, pub held_group_time_raw: u32,
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ExactPointXRecorderInvalidDiagnostic {
+    Capacity, Cardinality, Lifecycle, Overflow, WordCopy,
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct ExactSegmentHiltStartXDiagnostic<'a> {
+    pub admission: ExactPointXAdmissionDiagnostic,
+    pub events: &'a [ExactPointXEventDiagnostic],
+    pub recorder_invalid: Option<ExactPointXRecorderInvalidDiagnostic>,
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct ExactSegmentHiltStartXTargetDiagnostic<'a> {
+    pub target: ExactSegmentBodyDiagnosticTarget, pub encounter_count: u32,
+    pub pair: Option<ExactSegmentBodyPairDiagnostic<'a>>,
+    pub point_x: Option<ExactSegmentHiltStartXDiagnostic<'a>>,
 }
 
 #[cfg(feature = "cartesian-recoil")]
@@ -463,6 +541,8 @@ const EXACT_SEGMENT_BODY_VISIT_CAP: usize = AnatomyRegion::COUNT * 96;
 const EXACT_PAIR_AABB_POINT_CAP: usize = AnatomyRegion::COUNT * 4 + 4;
 #[cfg(feature = "cartesian-recoil")]
 const EXACT_PAIR_AABB_AXIS_CAP: usize = 3;
+#[cfg(feature = "cartesian-recoil")]
+const EXACT_POINT_X_EVENT_CAP: usize = 42;
 #[cfg(all(test, feature = "cartesian-recoil"))]
 static EXACT_DIAGNOSTIC_MUTATION_RECEIPT: AtomicU64 = AtomicU64::new(1);
 
@@ -488,11 +568,47 @@ pub(crate) enum ExactSegmentBodyTestMutation {
     RetainOldActiveDespitePending,
     AabbRecorderCapacity,
     RouteAabbRecorderIntoResult,
+    PointXRecorderCapacity,
+    RoutePointXRecorderIntoResult,
+    PointXCorruptEvent(u8),
+    PointXDropEvent,
+    PointXSwapEvents,
+    PointXWrongAdmission,
+    PointXRejectMotorGuard,
+    PointXRejectCommonScale,
+    PointXRejectCommonDescending,
+    PointXRejectHeldScale,
+    PointXRejectHeldDescending,
+    PointXRejectFinalAdd,
 }
 
 #[cfg(feature = "cartesian-recoil")]
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum ExactTargetMode { SegmentBody, PairAabb }
+enum ExactTargetMode { SegmentBody, PairAabb, SegmentHiltStartX }
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Default)]
+struct ExactPointXState {
+    admission: Option<ExactPointXAdmissionDiagnostic>,
+    events: Vec<ExactPointXEventDiagnostic>,
+    recorder_invalid: Option<ExactPointXRecorderInvalidDiagnostic>,
+}
+
+#[cfg(feature = "cartesian-recoil")]
+impl ExactPointXState {
+    fn try_reserve(&mut self) -> Result<(), ContactCapacityError> {
+        try_reserve_exact(&mut self.events, EXACT_POINT_X_EVENT_CAP)
+    }
+
+    fn clear(&mut self) {
+        self.admission = None; self.events.clear(); self.recorder_invalid = None;
+    }
+
+    fn diagnostic(&self) -> Option<ExactSegmentHiltStartXDiagnostic<'_>> {
+        Some(ExactSegmentHiltStartXDiagnostic { admission: self.admission?,
+            events: &self.events, recorder_invalid: self.recorder_invalid })
+    }
+}
 
 #[cfg(feature = "cartesian-recoil")]
 #[derive(Clone, Default)]
@@ -531,7 +647,7 @@ impl ExactPairAabbState {
     }
 }
 
-#[cfg(feature = "cartesian-recoil")]
+#[cfg(any(test, feature = "cartesian-recoil"))]
 fn exact_wide_rational_diagnostic(value: WideRational4096) -> ExactWideRationalDiagnostic {
     let WideRationalCopy { numerator, denominator } = value.copy_words();
     ExactWideRationalDiagnostic {
@@ -543,8 +659,107 @@ fn exact_wide_rational_diagnostic(value: WideRational4096) -> ExactWideRationalD
 }
 
 #[cfg(feature = "cartesian-recoil")]
+struct ExactPointXRecorder<'a> {
+    state: &'a mut ExactPointXState,
+    #[cfg(test)] test_mutation: ExactSegmentBodyTestMutation,
+    #[cfg(test)] test_mutation_receipt: u64,
+    #[cfg(test)] test_mutation_fired: &'a mut u64,
+}
+
+#[cfg(feature = "cartesian-recoil")]
+impl ExactPointXRecorder<'_> {
+    fn invalidate(&mut self, invalid: ExactPointXRecorderInvalidDiagnostic) {
+        if self.state.recorder_invalid.is_none() { self.state.recorder_invalid = Some(invalid); }
+    }
+
+    #[allow(unused_mut)]
+    fn begin(&mut self, mut admission: ExactPointXAdmissionDiagnostic) {
+        #[cfg(test)]
+        if self.test_mutation == ExactSegmentBodyTestMutation::PointXWrongAdmission {
+            *self.test_mutation_fired = self.test_mutation_receipt;
+            admission.axis = ExactPairAabbAxisDiagnostic::Y;
+        }
+        if self.state.admission.replace(admission).is_some() || !self.state.events.is_empty() {
+            self.invalidate(ExactPointXRecorderInvalidDiagnostic::Lifecycle);
+        }
+    }
+
+    fn event(&mut self, role: ExactPointXEventRoleDiagnostic,
+             scope: ExactPointXEventScopeDiagnostic, field: ExactPointXEventFieldDiagnostic,
+             stage: ExactPointXEventStageDiagnostic, atom: ExactPointXEventAtomDiagnostic) {
+        #[cfg(test)]
+        if self.test_mutation == ExactSegmentBodyTestMutation::PointXRecorderCapacity {
+            *self.test_mutation_fired = self.test_mutation_receipt;
+            self.invalidate(ExactPointXRecorderInvalidDiagnostic::Capacity); return
+        }
+        if self.state.events.len() >= EXACT_POINT_X_EVENT_CAP {
+            self.invalidate(ExactPointXRecorderInvalidDiagnostic::Capacity); return
+        }
+        let Ok(ordinal) = u8::try_from(self.state.events.len()) else {
+            self.invalidate(ExactPointXRecorderInvalidDiagnostic::Overflow); return
+        };
+        let derived_role = if stage == ExactPointXEventStageDiagnostic::Terminal {
+            ExactPointXEventRoleDiagnostic::Terminal
+        } else if matches!(ordinal, 0 | 2 | 6 | 7 | 9 | 12 | 14 | 23 | 25 | 27 | 30 | 32) {
+            ExactPointXEventRoleDiagnostic::OperandCandidate
+        } else { ExactPointXEventRoleDiagnostic::DerivedWitness };
+        if role != derived_role {
+            self.invalidate(ExactPointXRecorderInvalidDiagnostic::Cardinality);
+        }
+        self.state.events.push(ExactPointXEventDiagnostic {
+            ordinal, role: derived_role, scope, field, stage, atom,
+        });
+    }
+
+    fn terminal(&mut self, result: &Result<WideRational4096, ExactScanReject>) {
+        self.event(ExactPointXEventRoleDiagnostic::Terminal,
+            ExactPointXEventScopeDiagnostic::Final, ExactPointXEventFieldDiagnostic::Terminal,
+            ExactPointXEventStageDiagnostic::Terminal, match result {
+                Ok(_) => ExactPointXEventAtomDiagnostic::TerminalSuccess,
+                Err(reject) => ExactPointXEventAtomDiagnostic::TerminalReject(
+                    scan_reject_diagnostic(*reject)),
+            });
+        #[cfg(test)]
+        match self.test_mutation {
+            ExactSegmentBodyTestMutation::PointXCorruptEvent(at) => {
+                if let Some(row) = self.state.events.get_mut(at as usize) {
+                    *self.test_mutation_fired = self.test_mutation_receipt;
+                    row.atom = match row.atom {
+                        ExactPointXEventAtomDiagnostic::I32(value) =>
+                            ExactPointXEventAtomDiagnostic::I32(value.wrapping_add(1)),
+                        ExactPointXEventAtomDiagnostic::U32(value) =>
+                            ExactPointXEventAtomDiagnostic::U32(value.wrapping_add(1)),
+                        ExactPointXEventAtomDiagnostic::I128(value) =>
+                            ExactPointXEventAtomDiagnostic::I128(value.wrapping_add(1)),
+                        ExactPointXEventAtomDiagnostic::Wide(mut value) => {
+                            value.numerator.negative = !value.numerator.negative;
+                            ExactPointXEventAtomDiagnostic::Wide(value)
+                        }
+                        terminal => terminal,
+                    };
+                }
+            }
+            ExactSegmentBodyTestMutation::PointXDropEvent => {
+                if self.state.events.len() > 1 {
+                    *self.test_mutation_fired = self.test_mutation_receipt;
+                    self.state.events.remove(1);
+                }
+            }
+            ExactSegmentBodyTestMutation::PointXSwapEvents => {
+                if self.state.events.len() > 2 {
+                    *self.test_mutation_fired = self.test_mutation_receipt;
+                    self.state.events.swap(1, 2);
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+#[cfg(feature = "cartesian-recoil")]
 struct ExactPairAabbRecorder<'a> {
     state: &'a mut ExactPairAabbState,
+    point_x: Option<ExactPointXRecorder<'a>>,
     #[cfg(test)]
     test_mutation: ExactSegmentBodyTestMutation,
     #[cfg(test)]
@@ -678,6 +893,7 @@ struct ExactSegmentBodyTargetState {
     regions: Vec<ExactSegmentBodyRegionDiagnostic>,
     visits: Vec<ExactSegmentBodyVisitDiagnostic>,
     pair_aabb: ExactPairAabbState,
+    point_x: ExactPointXState,
     invalid: bool,
     #[cfg(test)]
     test_mutation: ExactSegmentBodyTestMutation,
@@ -685,6 +901,8 @@ struct ExactSegmentBodyTargetState {
     test_mutation_receipt: u64,
     #[cfg(test)]
     test_mutation_fired: u64,
+    #[cfg(test)]
+    point_x_test_mutation_fired: u64,
 }
 
 #[cfg(feature = "cartesian-recoil")]
@@ -695,13 +913,16 @@ impl Clone for ExactSegmentBodyTargetState {
             active_mode: self.active_mode, active_target: self.active_target,
             encounter_count: self.encounter_count, pair: self.pair.clone(),
             regions: self.regions.clone(), visits: self.visits.clone(),
-            pair_aabb: self.pair_aabb.clone(), invalid: self.invalid,
+            pair_aabb: self.pair_aabb.clone(), point_x: self.point_x.clone(),
+            invalid: self.invalid,
             #[cfg(test)]
             test_mutation: self.test_mutation,
             #[cfg(test)]
             test_mutation_receipt: self.test_mutation_receipt,
             #[cfg(test)]
             test_mutation_fired: self.test_mutation_fired,
+            #[cfg(test)]
+            point_x_test_mutation_fired: self.point_x_test_mutation_fired,
         };
         cloned.try_reserve().expect("cloning already-reserved diagnostic scratch");
         cloned
@@ -713,7 +934,7 @@ impl ExactSegmentBodyTargetState {
     fn try_reserve(&mut self) -> Result<(), ContactCapacityError> {
         try_reserve_exact(&mut self.regions, AnatomyRegion::COUNT)?;
         try_reserve_exact(&mut self.visits, EXACT_SEGMENT_BODY_VISIT_CAP)?;
-        self.pair_aabb.try_reserve()
+        self.pair_aabb.try_reserve()?; self.point_x.try_reserve()
     }
 
     fn request(&mut self, mode: ExactTargetMode,
@@ -742,7 +963,8 @@ impl ExactSegmentBodyTargetState {
             || self.visits.capacity() < EXACT_SEGMENT_BODY_VISIT_CAP
             || self.pair_aabb.points.capacity() < EXACT_PAIR_AABB_POINT_CAP
             || self.pair_aabb.bounds.capacity() < EXACT_PAIR_AABB_AXIS_CAP
-            || self.pair_aabb.gaps.capacity() < EXACT_PAIR_AABB_AXIS_CAP { return false; }
+            || self.pair_aabb.gaps.capacity() < EXACT_PAIR_AABB_AXIS_CAP
+            || self.point_x.events.capacity() < EXACT_POINT_X_EVENT_CAP { return false; }
         #[cfg(test)]
         if self.test_mutation == ExactSegmentBodyTestMutation::PendingReplacesActive {
             self.test_mutation_fired = self.test_mutation_receipt;
@@ -766,7 +988,8 @@ impl ExactSegmentBodyTargetState {
         self.active_mode = self.requested_mode.take();
         self.active_target = self.requested_target.take();
         self.encounter_count = 0; self.pair = None;
-        self.regions.clear(); self.visits.clear(); self.pair_aabb.clear(); self.invalid = false;
+        self.regions.clear(); self.visits.clear(); self.pair_aabb.clear(); self.point_x.clear();
+        self.invalid = false;
     }
 
     #[cfg(test)]
@@ -774,7 +997,7 @@ impl ExactSegmentBodyTargetState {
         self.test_mutation = mutation;
         self.test_mutation_receipt = EXACT_DIAGNOSTIC_MUTATION_RECEIPT
             .fetch_add(1, AtomicOrdering::Relaxed);
-        self.test_mutation_fired = 0;
+        self.test_mutation_fired = 0; self.point_x_test_mutation_fired = 0;
     }
 
     fn diagnostic(&self, mode: ExactTargetMode) -> Option<ExactSegmentBodyTargetDiagnostic<'_>> {
@@ -794,10 +1017,19 @@ impl ExactSegmentBodyTargetState {
             pair_aabb_supported: header.pair_aabb_supported,
             pair_aabb_disjoint: header.pair_aabb_disjoint,
             result: header.result, regions: &self.regions, visits: &self.visits,
-            pair_aabb: (mode == ExactTargetMode::PairAabb).then(|| self.pair_aabb.diagnostic()).flatten(),
+            pair_aabb: (mode != ExactTargetMode::SegmentBody)
+                .then(|| self.pair_aabb.diagnostic()).flatten(),
         });
         Some(ExactSegmentBodyTargetDiagnostic { target, encounter_count: self.encounter_count,
                                                 pair })
+    }
+
+    fn point_x_diagnostic(&self) -> Option<ExactSegmentHiltStartXTargetDiagnostic<'_>> {
+        if self.active_mode != Some(ExactTargetMode::SegmentHiltStartX) { return None }
+        let containing = self.diagnostic(ExactTargetMode::SegmentHiltStartX)?;
+        Some(ExactSegmentHiltStartXTargetDiagnostic { target: containing.target,
+            encounter_count: containing.encounter_count, pair: containing.pair,
+            point_x: self.point_x.diagnostic() })
     }
 }
 
@@ -888,6 +1120,11 @@ impl ContactCollectionScratch {
     { self.segment_body_target.request(ExactTargetMode::PairAabb, target) }
 
     #[cfg(feature = "cartesian-recoil")]
+    pub(crate) fn request_segment_hilt_start_x_target(&mut self,
+        target: ExactSegmentBodyDiagnosticTarget) -> bool
+    { self.segment_body_target.request(ExactTargetMode::SegmentHiltStartX, target) }
+
+    #[cfg(feature = "cartesian-recoil")]
     pub(crate) fn begin_segment_body_target_tick(&mut self) {
         self.segment_body_target.begin_tick();
     }
@@ -902,6 +1139,11 @@ impl ContactCollectionScratch {
         -> Option<ExactSegmentBodyTargetDiagnostic<'_>>
     { self.segment_body_target.diagnostic(ExactTargetMode::PairAabb) }
 
+    #[cfg(feature = "cartesian-recoil")]
+    pub(crate) fn segment_hilt_start_x_diagnostic(&self)
+        -> Option<ExactSegmentHiltStartXTargetDiagnostic<'_>>
+    { self.segment_body_target.point_x_diagnostic() }
+
     #[cfg(all(test, feature = "cartesian-recoil"))]
     pub(crate) fn set_segment_body_test_mutation(&mut self,
         mutation: ExactSegmentBodyTestMutation) {
@@ -911,8 +1153,10 @@ impl ContactCollectionScratch {
     #[cfg(all(test, feature = "cartesian-recoil"))]
     pub(crate) fn segment_body_test_mutation_fired(&self) -> bool {
         self.segment_body_target.test_mutation_receipt != 0
-            && self.segment_body_target.test_mutation_fired
-                == self.segment_body_target.test_mutation_receipt
+            && (self.segment_body_target.test_mutation_fired
+                    == self.segment_body_target.test_mutation_receipt
+                || self.segment_body_target.point_x_test_mutation_fired
+                    == self.segment_body_target.test_mutation_receipt)
     }
 
     #[cfg(feature = "cartesian-recoil")]
@@ -996,7 +1240,8 @@ impl ContactCollectionScratch {
              self.segment_body_target.visits.capacity(),
              self.segment_body_target.pair_aabb.points.capacity(),
              self.segment_body_target.pair_aabb.bounds.capacity(),
-             self.segment_body_target.pair_aabb.gaps.capacity()]
+             self.segment_body_target.pair_aabb.gaps.capacity(),
+             self.segment_body_target.point_x.events.capacity()]
     }
 
     #[cfg(all(test, not(feature = "cartesian-recoil")))]
@@ -1251,19 +1496,24 @@ fn scan_detector_into(
                 let aabb_supported = exact_pair_has_swept_aabb(a, b);
                 let aabb_disjoint = if aabb_supported {
                     #[cfg(feature = "cartesian-recoil")]
+                    let active_mode = scratch.segment_body_target.active_mode;
+                    #[cfg(feature = "cartesian-recoil")]
                     let mut aabb_recorder = (target_claimed
-                        && scratch.segment_body_target.active_mode == Some(ExactTargetMode::PairAabb))
-                        .then(|| ExactPairAabbRecorder {
-                            state: &mut scratch.segment_body_target.pair_aabb,
-                            #[cfg(test)]
-                            test_mutation: scratch.segment_body_target.test_mutation,
-                            #[cfg(test)]
-                            test_mutation_receipt:
-                                scratch.segment_body_target.test_mutation_receipt,
-                            #[cfg(test)]
-                            test_mutation_fired:
-                                &mut scratch.segment_body_target.test_mutation_fired,
-                        });
+                        && active_mode != Some(ExactTargetMode::SegmentBody)).then(|| {
+                        let target = &mut scratch.segment_body_target;
+                        ExactPairAabbRecorder {
+                            state: &mut target.pair_aabb,
+                            point_x: (active_mode == Some(ExactTargetMode::SegmentHiltStartX))
+                                .then(|| ExactPointXRecorder { state: &mut target.point_x,
+                                    #[cfg(test)] test_mutation: target.test_mutation,
+                                    #[cfg(test)] test_mutation_receipt: target.test_mutation_receipt,
+                                    #[cfg(test)] test_mutation_fired:
+                                        &mut target.point_x_test_mutation_fired }),
+                            #[cfg(test)] test_mutation: target.test_mutation,
+                            #[cfg(test)] test_mutation_receipt: target.test_mutation_receipt,
+                            #[cfg(test)] test_mutation_fired: &mut target.test_mutation_fired,
+                        }
+                    });
                     #[allow(unused_mut)]
                     let mut aabb_result = wide_swept_aabbs_are_disjoint(
                         a, owner_a, b, owner_b, &mut scratch.exact_wide,
@@ -1274,6 +1524,11 @@ fn scan_detector_into(
                       if target_claimed && scratch.segment_body_target.test_mutation
                           == ExactSegmentBodyTestMutation::RouteAabbRecorderIntoResult {
                           scratch.segment_body_target.test_mutation_fired =
+                              scratch.segment_body_target.test_mutation_receipt;
+                          aabb_result = Err(ExactScanReject::CompatibilityIdentity);
+                      } else if target_claimed && scratch.segment_body_target.test_mutation
+                          == ExactSegmentBodyTestMutation::RoutePointXRecorderIntoResult {
+                          scratch.segment_body_target.point_x_test_mutation_fired =
                               scratch.segment_body_target.test_mutation_receipt;
                           aabb_result = Err(ExactScanReject::CompatibilityIdentity);
                       } }
@@ -2673,39 +2928,274 @@ fn wide_response_velocity(row: &ExactContactTrajectory, owner: &ExactOwnerTrajec
 fn wide_motor_coordinate(point: ExactMotorPoint, axis: usize, time: u32)
     -> Result<WideRational4096, ExactScanReject>
 {
-    if time > 65_536 { return Err(ExactScanReject::Trajectory(ExactTrajectoryReject::TimePastTick)); }
-    let start = WideRational4096::new(point.at_tick_start_raw[axis] as i128, 1)
-        .ok_or(ExactScanReject::ArithmeticEnvelope)?;
-    let step = WideRational4096::new(
-        (point.tick_delta_raw[axis] as i128).checked_mul(time as i128)
-            .ok_or(ExactScanReject::ArithmeticEnvelope)?, 65_536)
-        .ok_or(ExactScanReject::ArithmeticEnvelope)?;
-    wide_add(start, step)
+    wide_motor_coordinate_core(point, axis, time, &mut ())
 }
 
 #[cfg(any(test, feature = "cartesian-recoil"))]
 fn wide_response_coordinate(value: ExactAffine3, scale: i128, axis: usize, time: u32)
     -> Result<WideRational4096, ExactScanReject>
 {
+    wide_response_coordinate_core(value, scale, axis, time,
+        ExactPointXEventScopeDiagnostic::Common, &mut ())
+}
+
+#[cfg(any(test, feature = "cartesian-recoil"))]
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ExactPointXRejectSeam {
+    MotorGuard, CommonScale, CommonDescending, HeldScale, HeldDescending, FinalAdd,
+}
+
+#[cfg(any(test, feature = "cartesian-recoil"))]
+trait ExactPointXObserver {
+    fn event(&mut self, role: ExactPointXEventRoleDiagnostic,
+             scope: ExactPointXEventScopeDiagnostic, field: ExactPointXEventFieldDiagnostic,
+             stage: ExactPointXEventStageDiagnostic, atom: ExactPointXEventAtomDiagnostic);
+    fn reject(&mut self, _seam: ExactPointXRejectSeam) -> Result<(), ExactScanReject> { Ok(()) }
+}
+
+#[cfg(any(test, feature = "cartesian-recoil"))]
+impl ExactPointXObserver for () {
+    fn event(&mut self, _role: ExactPointXEventRoleDiagnostic,
+             _scope: ExactPointXEventScopeDiagnostic, _field: ExactPointXEventFieldDiagnostic,
+             _stage: ExactPointXEventStageDiagnostic, _atom: ExactPointXEventAtomDiagnostic) {}
+}
+
+#[cfg(feature = "cartesian-recoil")]
+impl ExactPointXObserver for ExactPointXRecorder<'_> {
+    fn event(&mut self, role: ExactPointXEventRoleDiagnostic,
+             scope: ExactPointXEventScopeDiagnostic, field: ExactPointXEventFieldDiagnostic,
+             stage: ExactPointXEventStageDiagnostic, atom: ExactPointXEventAtomDiagnostic) {
+        ExactPointXRecorder::event(self, role, scope, field, stage, atom)
+    }
+
+    fn reject(&mut self, seam: ExactPointXRejectSeam) -> Result<(), ExactScanReject> {
+        #[cfg(not(test))]
+        let _ = seam;
+        #[cfg(test)]
+        {
+            let mutation = match seam {
+                ExactPointXRejectSeam::MotorGuard =>
+                    ExactSegmentBodyTestMutation::PointXRejectMotorGuard,
+                ExactPointXRejectSeam::CommonScale =>
+                    ExactSegmentBodyTestMutation::PointXRejectCommonScale,
+                ExactPointXRejectSeam::CommonDescending =>
+                    ExactSegmentBodyTestMutation::PointXRejectCommonDescending,
+                ExactPointXRejectSeam::HeldScale =>
+                    ExactSegmentBodyTestMutation::PointXRejectHeldScale,
+                ExactPointXRejectSeam::HeldDescending =>
+                    ExactSegmentBodyTestMutation::PointXRejectHeldDescending,
+                ExactPointXRejectSeam::FinalAdd =>
+                    ExactSegmentBodyTestMutation::PointXRejectFinalAdd,
+            };
+            if self.test_mutation == mutation {
+                *self.test_mutation_fired = self.test_mutation_receipt;
+                return Err(ExactScanReject::ArithmeticEnvelope)
+            }
+        }
+        Ok(())
+    }
+}
+
+#[cfg(any(test, feature = "cartesian-recoil"))]
+fn wide_motor_coordinate_core<O: ExactPointXObserver>(point: ExactMotorPoint, axis: usize,
+    time: u32, recorder: &mut O)
+    -> Result<WideRational4096, ExactScanReject>
+{
+    recorder.reject(ExactPointXRejectSeam::MotorGuard)?;
+    if time > 65_536 { return Err(ExactScanReject::Trajectory(ExactTrajectoryReject::TimePastTick)); }
+    let start_raw = point.at_tick_start_raw[axis];
+    recorder.event(ExactPointXEventRoleDiagnostic::OperandCandidate,
+        ExactPointXEventScopeDiagnostic::Motor, ExactPointXEventFieldDiagnostic::StartRaw,
+        ExactPointXEventStageDiagnostic::Input, ExactPointXEventAtomDiagnostic::I32(start_raw));
+    let start = WideRational4096::new(start_raw as i128, 1)
+        .ok_or(ExactScanReject::ArithmeticEnvelope)?;
+    recorder.event(ExactPointXEventRoleDiagnostic::DerivedWitness,
+        ExactPointXEventScopeDiagnostic::Motor, ExactPointXEventFieldDiagnostic::Value,
+        ExactPointXEventStageDiagnostic::RationalStart,
+        ExactPointXEventAtomDiagnostic::Wide(exact_wide_rational_diagnostic(start)));
+    let delta_raw = point.tick_delta_raw[axis];
+    recorder.event(ExactPointXEventRoleDiagnostic::OperandCandidate,
+        ExactPointXEventScopeDiagnostic::Motor, ExactPointXEventFieldDiagnostic::DeltaRaw,
+        ExactPointXEventStageDiagnostic::Input, ExactPointXEventAtomDiagnostic::I32(delta_raw));
+    let step_numerator = (delta_raw as i128).checked_mul(time as i128)
+        .ok_or(ExactScanReject::ArithmeticEnvelope)?;
+    recorder.event(ExactPointXEventRoleDiagnostic::DerivedWitness,
+        ExactPointXEventScopeDiagnostic::Motor, ExactPointXEventFieldDiagnostic::StepNumerator,
+        ExactPointXEventStageDiagnostic::CheckedProduct,
+        ExactPointXEventAtomDiagnostic::I128(step_numerator));
+    let step = WideRational4096::new(step_numerator, 65_536)
+        .ok_or(ExactScanReject::ArithmeticEnvelope)?;
+    recorder.event(ExactPointXEventRoleDiagnostic::DerivedWitness,
+        ExactPointXEventScopeDiagnostic::Motor, ExactPointXEventFieldDiagnostic::Value,
+        ExactPointXEventStageDiagnostic::RationalStep,
+        ExactPointXEventAtomDiagnostic::Wide(exact_wide_rational_diagnostic(step)));
+    let value = wide_add(start, step)?;
+    recorder.event(ExactPointXEventRoleDiagnostic::DerivedWitness,
+        ExactPointXEventScopeDiagnostic::Motor, ExactPointXEventFieldDiagnostic::Value,
+        ExactPointXEventStageDiagnostic::AddStartStep,
+        ExactPointXEventAtomDiagnostic::Wide(exact_wide_rational_diagnostic(value)));
+    Ok(value)
+}
+
+#[cfg(any(test, feature = "cartesian-recoil"))]
+fn wide_response_coordinate_core<O: ExactPointXObserver>(value: ExactAffine3, scale: i128,
+    axis: usize, time: u32, scope: ExactPointXEventScopeDiagnostic, recorder: &mut O)
+    -> Result<WideRational4096, ExactScanReject>
+{
+    if scope == ExactPointXEventScopeDiagnostic::Common {
+        recorder.event(ExactPointXEventRoleDiagnostic::OperandCandidate, scope,
+            ExactPointXEventFieldDiagnostic::Scale, ExactPointXEventStageDiagnostic::Input,
+            ExactPointXEventAtomDiagnostic::I128(scale));
+    }
+    recorder.reject(if scope == ExactPointXEventScopeDiagnostic::Common {
+        ExactPointXRejectSeam::CommonScale } else { ExactPointXRejectSeam::HeldScale })?;
     if scale <= 0 { return Err(ExactScanReject::ArithmeticEnvelope); }
+    recorder.reject(if scope == ExactPointXEventScopeDiagnostic::Common {
+        ExactPointXRejectSeam::CommonDescending } else {
+        ExactPointXRejectSeam::HeldDescending })?;
     if time < value.group_time_raw {
         return Err(ExactScanReject::Trajectory(ExactTrajectoryReject::DescendingTime));
     }
     if time > 65_536 { return Err(ExactScanReject::Trajectory(ExactTrajectoryReject::TimePastTick)); }
-    let position = WideRational4096::new(value.at_group[axis].raw as i128, 1)
+    let at_group_raw = value.at_group[axis].raw;
+    recorder.event(ExactPointXEventRoleDiagnostic::OperandCandidate, scope,
+        ExactPointXEventFieldDiagnostic::AtGroupRaw, ExactPointXEventStageDiagnostic::Input,
+        ExactPointXEventAtomDiagnostic::I32(at_group_raw));
+    let position = WideRational4096::new(at_group_raw as i128, 1)
         .ok_or(ExactScanReject::ArithmeticEnvelope)?;
-    let remainder = WideRational4096::new(value.at_group[axis].remainder,
-        scale.checked_mul(65_536).ok_or(ExactScanReject::ArithmeticEnvelope)?)
+    recorder.event(ExactPointXEventRoleDiagnostic::DerivedWitness, scope,
+        ExactPointXEventFieldDiagnostic::Value, ExactPointXEventStageDiagnostic::RationalPosition,
+        ExactPointXEventAtomDiagnostic::Wide(exact_wide_rational_diagnostic(position)));
+    let at_group_remainder = value.at_group[axis].remainder;
+    recorder.event(ExactPointXEventRoleDiagnostic::OperandCandidate, scope,
+        ExactPointXEventFieldDiagnostic::AtGroupRemainder, ExactPointXEventStageDiagnostic::Input,
+        ExactPointXEventAtomDiagnostic::I128(at_group_remainder));
+    let remainder_denominator = scale.checked_mul(65_536)
         .ok_or(ExactScanReject::ArithmeticEnvelope)?;
-    let momentum = scale.checked_mul(value.momentum[axis].velocity_raw as i128)
-        .and_then(|word| word.checked_add(value.momentum[axis].remainder))
+    recorder.event(ExactPointXEventRoleDiagnostic::DerivedWitness, scope,
+        ExactPointXEventFieldDiagnostic::RemainderDenominator,
+        ExactPointXEventStageDiagnostic::CheckedProduct,
+        ExactPointXEventAtomDiagnostic::I128(remainder_denominator));
+    let remainder = WideRational4096::new(at_group_remainder, remainder_denominator)
         .ok_or(ExactScanReject::ArithmeticEnvelope)?;
-    let travel = WideRational4096::new(
-        momentum.checked_mul((time - value.group_time_raw) as i128)
-            .ok_or(ExactScanReject::ArithmeticEnvelope)?,
-        scale.checked_mul(65_536).ok_or(ExactScanReject::ArithmeticEnvelope)?)
+    recorder.event(ExactPointXEventRoleDiagnostic::DerivedWitness, scope,
+        ExactPointXEventFieldDiagnostic::Value, ExactPointXEventStageDiagnostic::RationalRemainder,
+        ExactPointXEventAtomDiagnostic::Wide(exact_wide_rational_diagnostic(remainder)));
+    let velocity_raw = value.momentum[axis].velocity_raw;
+    recorder.event(ExactPointXEventRoleDiagnostic::OperandCandidate, scope,
+        ExactPointXEventFieldDiagnostic::VelocityRaw, ExactPointXEventStageDiagnostic::Input,
+        ExactPointXEventAtomDiagnostic::I32(velocity_raw));
+    let scaled_velocity = scale.checked_mul(velocity_raw as i128)
         .ok_or(ExactScanReject::ArithmeticEnvelope)?;
-    wide_add(wide_add(position, remainder)?, travel)
+    recorder.event(ExactPointXEventRoleDiagnostic::DerivedWitness, scope,
+        ExactPointXEventFieldDiagnostic::ScaledVelocity,
+        ExactPointXEventStageDiagnostic::CheckedProduct,
+        ExactPointXEventAtomDiagnostic::I128(scaled_velocity));
+    let momentum_remainder = value.momentum[axis].remainder;
+    recorder.event(ExactPointXEventRoleDiagnostic::OperandCandidate, scope,
+        ExactPointXEventFieldDiagnostic::MomentumRemainder, ExactPointXEventStageDiagnostic::Input,
+        ExactPointXEventAtomDiagnostic::I128(momentum_remainder));
+    let momentum = scaled_velocity.checked_add(momentum_remainder)
+        .ok_or(ExactScanReject::ArithmeticEnvelope)?;
+    recorder.event(ExactPointXEventRoleDiagnostic::DerivedWitness, scope,
+        ExactPointXEventFieldDiagnostic::Momentum, ExactPointXEventStageDiagnostic::CheckedAdd,
+        ExactPointXEventAtomDiagnostic::I128(momentum));
+    let travel_time_raw = time - value.group_time_raw;
+    recorder.event(ExactPointXEventRoleDiagnostic::DerivedWitness, scope,
+        ExactPointXEventFieldDiagnostic::TravelTimeRaw, ExactPointXEventStageDiagnostic::Subtract,
+        ExactPointXEventAtomDiagnostic::U32(travel_time_raw));
+    let travel_numerator = momentum.checked_mul(travel_time_raw as i128)
+        .ok_or(ExactScanReject::ArithmeticEnvelope)?;
+    recorder.event(ExactPointXEventRoleDiagnostic::DerivedWitness, scope,
+        ExactPointXEventFieldDiagnostic::TravelNumerator,
+        ExactPointXEventStageDiagnostic::CheckedProduct,
+        ExactPointXEventAtomDiagnostic::I128(travel_numerator));
+    let travel_denominator = scale.checked_mul(65_536)
+        .ok_or(ExactScanReject::ArithmeticEnvelope)?;
+    recorder.event(ExactPointXEventRoleDiagnostic::DerivedWitness, scope,
+        ExactPointXEventFieldDiagnostic::TravelDenominator,
+        ExactPointXEventStageDiagnostic::CheckedProduct,
+        ExactPointXEventAtomDiagnostic::I128(travel_denominator));
+    let travel = WideRational4096::new(travel_numerator, travel_denominator)
+        .ok_or(ExactScanReject::ArithmeticEnvelope)?;
+    recorder.event(ExactPointXEventRoleDiagnostic::DerivedWitness, scope,
+        ExactPointXEventFieldDiagnostic::Value, ExactPointXEventStageDiagnostic::RationalTravel,
+        ExactPointXEventAtomDiagnostic::Wide(exact_wide_rational_diagnostic(travel)));
+    let position_remainder = wide_add(position, remainder)?;
+    recorder.event(ExactPointXEventRoleDiagnostic::DerivedWitness, scope,
+        ExactPointXEventFieldDiagnostic::Value,
+        ExactPointXEventStageDiagnostic::AddPositionRemainder,
+        ExactPointXEventAtomDiagnostic::Wide(exact_wide_rational_diagnostic(position_remainder)));
+    let result = wide_add(position_remainder, travel)?;
+    recorder.event(ExactPointXEventRoleDiagnostic::DerivedWitness, scope,
+        ExactPointXEventFieldDiagnostic::Value, ExactPointXEventStageDiagnostic::AddTravel,
+        ExactPointXEventAtomDiagnostic::Wide(exact_wide_rational_diagnostic(result)));
+    Ok(result)
+}
+
+#[cfg(any(test, feature = "cartesian-recoil"))]
+fn wide_evaluated_coordinate_core<O: ExactPointXObserver>(point: ExactMotorPoint,
+    owner: &ExactOwnerTrajectory, held: Option<ExactHeldResponse>, axis: usize, time: u32,
+    recorder: &mut O) -> Result<WideRational4096, ExactScanReject>
+{
+    let motor = wide_motor_coordinate_core(point, axis, time, recorder)?;
+    let common = wide_response_coordinate_core(owner.common_response,
+        owner.common_scale, axis, time, ExactPointXEventScopeDiagnostic::Common, recorder)?;
+    let after_common = wide_add(motor, common)?;
+    recorder.event(ExactPointXEventRoleDiagnostic::DerivedWitness,
+        ExactPointXEventScopeDiagnostic::Combine, ExactPointXEventFieldDiagnostic::Value,
+        ExactPointXEventStageDiagnostic::AddMotorCommon,
+        ExactPointXEventAtomDiagnostic::Wide(exact_wide_rational_diagnostic(after_common)));
+    let Some(held) = held else { return Ok(after_common) };
+    recorder.event(ExactPointXEventRoleDiagnostic::OperandCandidate,
+        ExactPointXEventScopeDiagnostic::Held, ExactPointXEventFieldDiagnostic::MassRaw,
+        ExactPointXEventStageDiagnostic::Input,
+        ExactPointXEventAtomDiagnostic::I32(held.affine.mass_raw));
+    let held_scale = held.affine.mass_raw as i128;
+    recorder.event(ExactPointXEventRoleDiagnostic::DerivedWitness,
+        ExactPointXEventScopeDiagnostic::Held, ExactPointXEventFieldDiagnostic::Scale,
+        ExactPointXEventStageDiagnostic::Cast, ExactPointXEventAtomDiagnostic::I128(held_scale));
+    let held_value = wide_response_coordinate_core(held.affine, held_scale, axis, time,
+        ExactPointXEventScopeDiagnostic::Held, recorder)?;
+    recorder.reject(ExactPointXRejectSeam::FinalAdd)?;
+    let result = wide_add(after_common, held_value)?;
+    recorder.event(ExactPointXEventRoleDiagnostic::DerivedWitness,
+        ExactPointXEventScopeDiagnostic::Final, ExactPointXEventFieldDiagnostic::Value,
+        ExactPointXEventStageDiagnostic::AddAfterCommonHeld,
+        ExactPointXEventAtomDiagnostic::Wide(exact_wide_rational_diagnostic(result)));
+    Ok(result)
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn wide_evaluated_point_recording_hilt_start_x(point: ExactMotorPoint,
+    row: &ExactContactTrajectory, owner: &ExactOwnerTrajectory, time: u32,
+    recorder: &mut ExactPointXRecorder<'_>) -> Result<WidePoint, ExactScanReject>
+{
+    let Some(held_index) = row.held_index else {
+        recorder.invalidate(ExactPointXRecorderInvalidDiagnostic::Cardinality);
+        return wide_evaluated_point(point, row, owner, time)
+    };
+    let Some(held) = owner.held_response.get(held_index).and_then(|held| *held) else {
+        recorder.invalidate(ExactPointXRecorderInvalidDiagnostic::Cardinality);
+        return wide_evaluated_point(point, row, owner, time)
+    };
+    recorder.begin(ExactPointXAdmissionDiagnostic {
+        side: ExactPairAabbSideDiagnostic::A, ordinal: 0,
+        source: ExactPairAabbPointSourceDiagnostic::SegmentHilt, region: None,
+        endpoint: ExactPairAabbEndpointDiagnostic::Start, axis: ExactPairAabbAxisDiagnostic::X,
+        row_entity: row.entity, row_slot: row.slot, owner_index: row.owner_index,
+        held_index, held_slot: held.slot, held_spec: held.spec_id, time_raw: time,
+        common_group_time_raw: owner.common_response.group_time_raw,
+        held_group_time_raw: held.affine.group_time_raw,
+    });
+    let x = wide_evaluated_coordinate_core(point, owner, Some(held), 0, time, recorder);
+    recorder.terminal(&x);
+    let x = x?;
+    let mut out = [x; 3];
+    for axis in 1..3 {
+        out[axis] = wide_evaluated_coordinate_core(point, owner, Some(held), axis, time, &mut ())?;
+    }
+    Ok(WidePoint(out))
 }
 
 #[cfg(any(test, feature = "cartesian-recoil"))]
@@ -2717,12 +3207,7 @@ fn wide_evaluated_point(point: ExactMotorPoint, row: &ExactContactTrajectory,
         .and_then(|held| *held);
     let mut out = [WideRational4096::zero(); 3];
     for axis in 0..3 {
-        out[axis] = wide_add(wide_motor_coordinate(point, axis, time)?,
-            wide_response_coordinate(owner.common_response, owner.common_scale, axis, time)?)?;
-        if let Some(held) = held {
-            out[axis] = wide_add(out[axis], wide_response_coordinate(
-                held.affine, held.affine.mass_raw as i128, axis, time)?)?;
-        }
+        out[axis] = wide_evaluated_coordinate_core(point, owner, held, axis, time, &mut ())?;
     }
     Ok(WidePoint(out))
 }
@@ -3023,8 +3508,18 @@ fn fill_wide_swept_aabb_points(
     out.clear();
     let mut maximum_radius_raw = 0;
     match row.motor {
-        MotorShape::Segment { radius_raw, .. } => {
-            let (h0, t0, _) = wide_segment_at_time(row, owner, start)?;
+        MotorShape::Segment { hilt, tip, radius_raw } => {
+            #[cfg(feature = "cartesian-recoil")]
+            let h0 = if side == ExactPairAabbSideDiagnostic::A {
+                if let Some(point_x) = recorder.as_deref_mut()
+                    .and_then(|rows| rows.point_x.as_mut()) {
+                    wide_evaluated_point_recording_hilt_start_x(
+                        hilt, row, owner, start, point_x)?
+                } else { wide_evaluated_point(hilt, row, owner, start)? }
+            } else { wide_evaluated_point(hilt, row, owner, start)? };
+            #[cfg(not(feature = "cartesian-recoil"))]
+            let h0 = wide_evaluated_point(hilt, row, owner, start)?;
+            let t0 = wide_evaluated_point(tip, row, owner, start)?;
             let (h1, t1, _) = wide_segment_at_time(row, owner, end)?;
             for (point, source, endpoint) in [
                 (h0, ExactPairAabbPointSourceDiagnostic::SegmentHilt,
@@ -6282,6 +6777,495 @@ mod tests {
     }
 
     #[cfg(feature = "cartesian-recoil")]
+    fn smart133_scan(rows: &[ContactCollider; 2], exact: &ZeroResponseCompatibility,
+        mutation: ExactSegmentBodyTestMutation)
+        -> (Result<(), ExactScanReject>, ContactCollectionScratch)
+    {
+        let mut scratch = ContactCollectionScratch::default(); scratch.try_reserve(2).unwrap();
+        scratch.set_segment_body_test_mutation(mutation);
+        assert!(scratch.request_segment_hilt_start_x_target(smart131_target(rows)));
+        scratch.begin_segment_body_target_tick();
+        let result = scan_exact_candidates_into(&exact.trajectories, &exact.owners, rows,
+                                                &mut scratch);
+        (result, scratch)
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    fn point_x_success_is_valid(diagnostic: ExactSegmentHiltStartXDiagnostic<'_>) -> Option<()> {
+        use ExactPointXEventAtomDiagnostic as Atom;
+        use ExactPointXEventFieldDiagnostic as Field;
+        use ExactPointXEventRoleDiagnostic as Role;
+        use ExactPointXEventScopeDiagnostic as Scope;
+        use ExactPointXEventStageDiagnostic as Stage;
+        let expected = [
+            (Role::OperandCandidate, Scope::Motor, Field::StartRaw, Stage::Input),
+            (Role::DerivedWitness, Scope::Motor, Field::Value, Stage::RationalStart),
+            (Role::OperandCandidate, Scope::Motor, Field::DeltaRaw, Stage::Input),
+            (Role::DerivedWitness, Scope::Motor, Field::StepNumerator, Stage::CheckedProduct),
+            (Role::DerivedWitness, Scope::Motor, Field::Value, Stage::RationalStep),
+            (Role::DerivedWitness, Scope::Motor, Field::Value, Stage::AddStartStep),
+            (Role::OperandCandidate, Scope::Common, Field::Scale, Stage::Input),
+            (Role::OperandCandidate, Scope::Common, Field::AtGroupRaw, Stage::Input),
+            (Role::DerivedWitness, Scope::Common, Field::Value, Stage::RationalPosition),
+            (Role::OperandCandidate, Scope::Common, Field::AtGroupRemainder, Stage::Input),
+            (Role::DerivedWitness, Scope::Common, Field::RemainderDenominator, Stage::CheckedProduct),
+            (Role::DerivedWitness, Scope::Common, Field::Value, Stage::RationalRemainder),
+            (Role::OperandCandidate, Scope::Common, Field::VelocityRaw, Stage::Input),
+            (Role::DerivedWitness, Scope::Common, Field::ScaledVelocity, Stage::CheckedProduct),
+            (Role::OperandCandidate, Scope::Common, Field::MomentumRemainder, Stage::Input),
+            (Role::DerivedWitness, Scope::Common, Field::Momentum, Stage::CheckedAdd),
+            (Role::DerivedWitness, Scope::Common, Field::TravelTimeRaw, Stage::Subtract),
+            (Role::DerivedWitness, Scope::Common, Field::TravelNumerator, Stage::CheckedProduct),
+            (Role::DerivedWitness, Scope::Common, Field::TravelDenominator, Stage::CheckedProduct),
+            (Role::DerivedWitness, Scope::Common, Field::Value, Stage::RationalTravel),
+            (Role::DerivedWitness, Scope::Common, Field::Value, Stage::AddPositionRemainder),
+            (Role::DerivedWitness, Scope::Common, Field::Value, Stage::AddTravel),
+            (Role::DerivedWitness, Scope::Combine, Field::Value, Stage::AddMotorCommon),
+            (Role::OperandCandidate, Scope::Held, Field::MassRaw, Stage::Input),
+            (Role::DerivedWitness, Scope::Held, Field::Scale, Stage::Cast),
+            (Role::OperandCandidate, Scope::Held, Field::AtGroupRaw, Stage::Input),
+            (Role::DerivedWitness, Scope::Held, Field::Value, Stage::RationalPosition),
+            (Role::OperandCandidate, Scope::Held, Field::AtGroupRemainder, Stage::Input),
+            (Role::DerivedWitness, Scope::Held, Field::RemainderDenominator, Stage::CheckedProduct),
+            (Role::DerivedWitness, Scope::Held, Field::Value, Stage::RationalRemainder),
+            (Role::OperandCandidate, Scope::Held, Field::VelocityRaw, Stage::Input),
+            (Role::DerivedWitness, Scope::Held, Field::ScaledVelocity, Stage::CheckedProduct),
+            (Role::OperandCandidate, Scope::Held, Field::MomentumRemainder, Stage::Input),
+            (Role::DerivedWitness, Scope::Held, Field::Momentum, Stage::CheckedAdd),
+            (Role::DerivedWitness, Scope::Held, Field::TravelTimeRaw, Stage::Subtract),
+            (Role::DerivedWitness, Scope::Held, Field::TravelNumerator, Stage::CheckedProduct),
+            (Role::DerivedWitness, Scope::Held, Field::TravelDenominator, Stage::CheckedProduct),
+            (Role::DerivedWitness, Scope::Held, Field::Value, Stage::RationalTravel),
+            (Role::DerivedWitness, Scope::Held, Field::Value, Stage::AddPositionRemainder),
+            (Role::DerivedWitness, Scope::Held, Field::Value, Stage::AddTravel),
+            (Role::DerivedWitness, Scope::Final, Field::Value, Stage::AddAfterCommonHeld),
+            (Role::Terminal, Scope::Final, Field::Terminal, Stage::Terminal),
+        ];
+        if diagnostic.admission.side != ExactPairAabbSideDiagnostic::A
+            || diagnostic.admission.ordinal != 0
+            || diagnostic.admission.source != ExactPairAabbPointSourceDiagnostic::SegmentHilt
+            || diagnostic.admission.region.is_some()
+            || diagnostic.admission.endpoint != ExactPairAabbEndpointDiagnostic::Start
+            || diagnostic.admission.axis != ExactPairAabbAxisDiagnostic::X
+            || diagnostic.admission.row_slot as usize != diagnostic.admission.held_index
+            || diagnostic.admission.held_slot as usize != diagnostic.admission.held_index
+            || diagnostic.recorder_invalid.is_some() || diagnostic.events.len() != expected.len()
+            || diagnostic.events.iter().zip(expected).enumerate().any(|(at, (row, tuple))|
+                row.ordinal as usize != at
+                    || (row.role, row.scope, row.field, row.stage) != tuple)
+            || diagnostic.events[41].atom != Atom::TerminalSuccess { return None }
+        let i32_at = |at: usize| match diagnostic.events[at].atom {
+            Atom::I32(value) => Some(value), _ => None };
+        let i128_at = |at: usize| match diagnostic.events[at].atom {
+            Atom::I128(value) => Some(value), _ => None };
+        let wide = |value| Atom::Wide(exact_wide_rational_diagnostic(value));
+        let time = diagnostic.admission.time_raw;
+        let start = WideRational4096::new(i32_at(0)? as i128, 1)?;
+        if diagnostic.events[1].atom != wide(start) { return None }
+        let step_numerator = (i32_at(2)? as i128).checked_mul(time as i128)?;
+        if diagnostic.events[3].atom != Atom::I128(step_numerator) { return None }
+        let step = WideRational4096::new(step_numerator, 65_536)?;
+        if diagnostic.events[4].atom != wide(step) { return None }
+        let motor = wide_add(start, step).ok()?;
+        if diagnostic.events[5].atom != wide(motor) { return None }
+        let response = |base: usize, scale: i128, group_time: u32|
+            -> Option<WideRational4096> {
+            let position = WideRational4096::new(i32_at(base)? as i128, 1)?;
+            if diagnostic.events[base + 1].atom != wide(position) { return None }
+            let remainder_denominator = scale.checked_mul(65_536)?;
+            if diagnostic.events[base + 3].atom != Atom::I128(remainder_denominator) { return None }
+            let remainder = WideRational4096::new(i128_at(base + 2)?, remainder_denominator)?;
+            if diagnostic.events[base + 4].atom != wide(remainder) { return None }
+            let scaled_velocity = scale.checked_mul(i32_at(base + 5)? as i128)?;
+            if diagnostic.events[base + 6].atom != Atom::I128(scaled_velocity) { return None }
+            let momentum = scaled_velocity.checked_add(i128_at(base + 7)?)?;
+            if diagnostic.events[base + 8].atom != Atom::I128(momentum) { return None }
+            let travel_time = time.checked_sub(group_time)?;
+            if diagnostic.events[base + 9].atom != Atom::U32(travel_time) { return None }
+            let travel_numerator = momentum.checked_mul(travel_time as i128)?;
+            if diagnostic.events[base + 10].atom != Atom::I128(travel_numerator) { return None }
+            if diagnostic.events[base + 11].atom != Atom::I128(remainder_denominator) { return None }
+            let travel = WideRational4096::new(travel_numerator, remainder_denominator)?;
+            if diagnostic.events[base + 12].atom != wide(travel) { return None }
+            let position_remainder = wide_add(position, remainder).ok()?;
+            if diagnostic.events[base + 13].atom != wide(position_remainder) { return None }
+            let value = wide_add(position_remainder, travel).ok()?;
+            if diagnostic.events[base + 14].atom != wide(value) { return None }
+            Some(value)
+        };
+        let common = response(7, i128_at(6)?, diagnostic.admission.common_group_time_raw)?;
+        let after_common = wide_add(motor, common).ok()?;
+        if diagnostic.events[22].atom != wide(after_common) { return None }
+        let held_scale = i32_at(23)? as i128;
+        if diagnostic.events[24].atom != Atom::I128(held_scale) { return None }
+        let held = response(25, held_scale, diagnostic.admission.held_group_time_raw)?;
+        let final_value = wide_add(after_common, held).ok()?;
+        (diagnostic.events[40].atom == wide(final_value)).then_some(())
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn the_segment_hilt_start_x_target_records_the_actual_operand_chain() {
+        let (rows, exact) = smart131_rows(100_000, 500);
+        let (_, scratch) = smart133_scan(&rows, &exact, ExactSegmentBodyTestMutation::None);
+        let target = scratch.segment_hilt_start_x_diagnostic().unwrap();
+        assert_eq!(target.encounter_count, 1);
+        let point_x = target.point_x.unwrap();
+        assert_eq!((point_x.admission.side, point_x.admission.ordinal,
+            point_x.admission.source, point_x.admission.region, point_x.admission.endpoint,
+            point_x.admission.axis), (ExactPairAabbSideDiagnostic::A, 0,
+            ExactPairAabbPointSourceDiagnostic::SegmentHilt, None,
+            ExactPairAabbEndpointDiagnostic::Start, ExactPairAabbAxisDiagnostic::X));
+        point_x_success_is_valid(point_x).expect("all witnesses recompute from the inputs");
+        let candidate_ordinals = point_x.events.iter().filter(|row|
+            row.role == ExactPointXEventRoleDiagnostic::OperandCandidate)
+            .map(|row| row.ordinal).collect::<Vec<_>>();
+        assert_eq!(candidate_ordinals, vec![0, 2, 6, 7, 9, 12, 14, 23, 25, 27, 30, 32]);
+
+        for at in candidate_ordinals {
+            let (_, changed) = smart133_scan(&rows, &exact,
+                ExactSegmentBodyTestMutation::PointXCorruptEvent(at));
+            assert!(changed.segment_body_test_mutation_fired(), "candidate mutation {at} did not fire");
+            assert_ne!(changed.segment_hilt_start_x_diagnostic().unwrap().point_x.unwrap()
+                .events[at as usize].atom, point_x.events[at as usize].atom);
+        }
+
+        for at in [1, 3, 4, 5, 8, 10, 11, 13, 15, 16, 17, 18, 19, 20, 21, 22,
+                   24, 26, 28, 29, 31, 33, 34, 35, 36, 37, 38, 39, 40] {
+            let (_, changed) = smart133_scan(&rows, &exact,
+                ExactSegmentBodyTestMutation::PointXCorruptEvent(at));
+            assert!(changed.segment_body_test_mutation_fired(), "derived mutation {at} did not fire");
+            assert!(point_x_success_is_valid(changed.segment_hilt_start_x_diagnostic()
+                .unwrap().point_x.unwrap()).is_none(), "derived mutation {at} stayed valid");
+        }
+        for mutation in [ExactSegmentBodyTestMutation::PointXDropEvent,
+                         ExactSegmentBodyTestMutation::PointXSwapEvents] {
+            let (_, changed) = smart133_scan(&rows, &exact, mutation);
+            assert!(changed.segment_body_test_mutation_fired());
+            assert!(point_x_success_is_valid(changed.segment_hilt_start_x_diagnostic()
+                .unwrap().point_x.unwrap()).is_none());
+        }
+        let (_, wrong) = smart133_scan(&rows, &exact,
+            ExactSegmentBodyTestMutation::PointXWrongAdmission);
+        assert!(wrong.segment_body_test_mutation_fired());
+        assert_eq!(wrong.segment_hilt_start_x_diagnostic().unwrap().point_x.unwrap()
+            .admission.axis, ExactPairAabbAxisDiagnostic::Y);
+        assert!(point_x_success_is_valid(wrong.segment_hilt_start_x_diagnostic()
+            .unwrap().point_x.unwrap()).is_none());
+
+        let mut owner = exact.owners[0];
+        owner.common_response.at_group[0] = ExactPosition { raw: 7, remainder: 11 };
+        owner.common_response.momentum[0] = ExactMomentum { velocity_raw: 3, remainder: 13 };
+        owner.common_response.group_time_raw = 17;
+        let held_index = exact.trajectories[0].held_index.unwrap();
+        let mut held = owner.held_response[held_index].unwrap();
+        held.affine.at_group[0] = ExactPosition { raw: -5, remainder: -19 };
+        held.affine.momentum[0] = ExactMomentum { velocity_raw: -2, remainder: -23 };
+        held.affine.group_time_raw = 29;
+        owner.held_response[held_index] = Some(held);
+        let MotorShape::Segment { hilt, .. } = exact.trajectories[0].motor else { unreachable!() };
+        let mut state = ExactPointXState::default(); state.try_reserve().unwrap();
+        let mut fired = 0;
+        let mut recorder = ExactPointXRecorder { state: &mut state,
+            test_mutation: ExactSegmentBodyTestMutation::None,
+            test_mutation_receipt: 1, test_mutation_fired: &mut fired };
+        wide_evaluated_point_recording_hilt_start_x(hilt, &exact.trajectories[0],
+            &owner, 1_234, &mut recorder).unwrap();
+        point_x_success_is_valid(state.diagnostic().unwrap())
+            .expect("nonzero motor, common and held witnesses recompute independently");
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn the_segment_hilt_start_x_final_word_equals_the_pair_aabb_point_word() {
+        let (rows, exact) = smart131_rows(100_000, 500);
+        let (_, scratch) = smart133_scan(&rows, &exact, ExactSegmentBodyTestMutation::None);
+        let target = scratch.segment_hilt_start_x_diagnostic().unwrap();
+        let pair = target.pair.unwrap();
+        let aabb = pair.pair_aabb.unwrap();
+        let point_x = target.point_x.unwrap();
+        assert_eq!(point_x.events[40].atom,
+            ExactPointXEventAtomDiagnostic::Wide(aabb.points[0].coordinate[0]));
+        assert_eq!(point_x.events[41].atom, ExactPointXEventAtomDiagnostic::TerminalSuccess);
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn an_operand_recorder_failure_does_not_change_the_authoritative_scan_result() {
+        let (rows, mut exact) = smart131_rows(100_000, 500);
+        exact.owners[0].common_scale = 0;
+        let MotorShape::Segment { hilt, .. } = exact.trajectories[0].motor else { unreachable!() };
+        let mut state = ExactPointXState::default(); state.try_reserve().unwrap();
+        let mut fired = 0;
+        let mut recorder = ExactPointXRecorder { state: &mut state,
+            test_mutation: ExactSegmentBodyTestMutation::None,
+            test_mutation_receipt: 1, test_mutation_fired: &mut fired };
+        let result = wide_evaluated_point_recording_hilt_start_x(hilt,
+            &exact.trajectories[0], &exact.owners[0], 0, &mut recorder);
+        assert_eq!(result, Err(ExactScanReject::ArithmeticEnvelope));
+        assert_eq!(state.events.len(), 8);
+        assert_eq!(state.events[6].atom, ExactPointXEventAtomDiagnostic::I128(0));
+        assert_eq!(state.events[7].atom, ExactPointXEventAtomDiagnostic::TerminalReject(
+            ExactScanRejectDiagnostic::ArithmeticEnvelope));
+        assert_eq!(state.events[7].ordinal, 7);
+
+        let mut denominator_owner = exact.owners[0];
+        denominator_owner.common_scale = i128::MAX;
+        let mut denominator_state = ExactPointXState::default(); denominator_state.try_reserve().unwrap();
+        let mut denominator_fired = 0;
+        let mut denominator_recorder = ExactPointXRecorder { state: &mut denominator_state,
+            test_mutation: ExactSegmentBodyTestMutation::None,
+            test_mutation_receipt: 2, test_mutation_fired: &mut denominator_fired };
+        let denominator_result = wide_evaluated_point_recording_hilt_start_x(hilt,
+            &exact.trajectories[0], &denominator_owner, 0, &mut denominator_recorder);
+        assert_eq!(denominator_result, Err(ExactScanReject::ArithmeticEnvelope));
+        assert_eq!(denominator_state.events.len(), 11);
+        assert_eq!(denominator_state.events[10].atom,
+            ExactPointXEventAtomDiagnostic::TerminalReject(
+                ExactScanRejectDiagnostic::ArithmeticEnvelope));
+
+        let mut held_owner = exact.owners[0];
+        let held_index = exact.trajectories[0].held_index.unwrap();
+        held_owner.held_response[held_index].as_mut().unwrap().affine.mass_raw = 0;
+        held_owner.common_scale = 1;
+        let mut held_state = ExactPointXState::default(); held_state.try_reserve().unwrap();
+        let mut held_fired = 0;
+        let mut held_recorder = ExactPointXRecorder { state: &mut held_state,
+            test_mutation: ExactSegmentBodyTestMutation::None,
+            test_mutation_receipt: 3, test_mutation_fired: &mut held_fired };
+        let held_result = wide_evaluated_point_recording_hilt_start_x(hilt,
+            &exact.trajectories[0], &held_owner, 0, &mut held_recorder);
+        assert_eq!(held_result, Err(ExactScanReject::ArithmeticEnvelope));
+        assert_eq!(held_state.events.len(), 26);
+        assert_eq!(held_state.events[25].atom,
+            ExactPointXEventAtomDiagnostic::TerminalReject(
+                ExactScanRejectDiagnostic::ArithmeticEnvelope));
+
+        struct RejectAt<'a, O> { inner: &'a mut O, seam: ExactPointXRejectSeam, fired: bool }
+        impl<O: ExactPointXObserver> ExactPointXObserver for RejectAt<'_, O> {
+            fn event(&mut self, role: ExactPointXEventRoleDiagnostic,
+                     scope: ExactPointXEventScopeDiagnostic,
+                     field: ExactPointXEventFieldDiagnostic,
+                     stage: ExactPointXEventStageDiagnostic,
+                     atom: ExactPointXEventAtomDiagnostic) {
+                self.inner.event(role, scope, field, stage, atom)
+            }
+            fn reject(&mut self, seam: ExactPointXRejectSeam)
+                -> Result<(), ExactScanReject>
+            {
+                if seam == self.seam { self.fired = true;
+                    Err(ExactScanReject::ArithmeticEnvelope) } else { Ok(()) }
+            }
+        }
+        let exact = zero_response_compatibility(&rows).unwrap();
+        let owner = &exact.owners[0];
+        let held = owner.held_response[exact.trajectories[0].held_index.unwrap()];
+        let MotorShape::Segment { hilt, .. } = exact.trajectories[0].motor else { unreachable!() };
+        for (mutation, seam, expected_len) in [
+            (ExactSegmentBodyTestMutation::PointXRejectMotorGuard,
+             ExactPointXRejectSeam::MotorGuard, 1),
+            (ExactSegmentBodyTestMutation::PointXRejectCommonScale,
+             ExactPointXRejectSeam::CommonScale, 8),
+            (ExactSegmentBodyTestMutation::PointXRejectCommonDescending,
+             ExactPointXRejectSeam::CommonDescending, 8),
+            (ExactSegmentBodyTestMutation::PointXRejectHeldScale,
+             ExactPointXRejectSeam::HeldScale, 26),
+            (ExactSegmentBodyTestMutation::PointXRejectHeldDescending,
+             ExactPointXRejectSeam::HeldDescending, 26),
+            (ExactSegmentBodyTestMutation::PointXRejectFinalAdd,
+             ExactPointXRejectSeam::FinalAdd, 41),
+        ] {
+            let mut ordinary_sink = ();
+            let mut ordinary = RejectAt { inner: &mut ordinary_sink, seam, fired: false };
+            let ordinary_result = wide_evaluated_coordinate_core(hilt, owner, held, 0, 0,
+                                                                  &mut ordinary);
+            assert!(ordinary.fired);
+            let mut state = ExactPointXState::default(); state.try_reserve().unwrap();
+            let receipt = EXACT_DIAGNOSTIC_MUTATION_RECEIPT.fetch_add(1,
+                std::sync::atomic::Ordering::SeqCst);
+            let mut fired = 0;
+            let mut recorder = ExactPointXRecorder { state: &mut state,
+                test_mutation: mutation, test_mutation_receipt: receipt,
+                test_mutation_fired: &mut fired };
+            let recorded_result = wide_evaluated_point_recording_hilt_start_x(hilt,
+                &exact.trajectories[0], owner, 0, &mut recorder).map(|point| point.0[0]);
+            assert_eq!(recorded_result, ordinary_result,
+                "the recorder and ordinary wrapper must observe the same authoritative reject");
+            assert_eq!(fired, receipt); assert_eq!(state.events.len(), expected_len);
+            assert_eq!(state.events.last().unwrap().ordinal as usize, expected_len - 1);
+            assert!(matches!(state.events.last().unwrap().atom,
+                ExactPointXEventAtomDiagnostic::TerminalReject(
+                    ExactScanRejectDiagnostic::ArithmeticEnvelope)));
+            assert_eq!(state.events.iter().filter(|row| row.role
+                == ExactPointXEventRoleDiagnostic::Terminal).count(), 1);
+        }
+
+        let (plain_result, plain) = smart133_scan(&rows, &exact,
+            ExactSegmentBodyTestMutation::None);
+        let (capacity_result, capacity) = smart133_scan(&rows, &exact,
+            ExactSegmentBodyTestMutation::PointXRecorderCapacity);
+        assert!(capacity.segment_body_test_mutation_fired());
+        assert_eq!((capacity_result, candidate_bytes(&capacity), capacity.first_pair_rejection),
+                   (plain_result, candidate_bytes(&plain), plain.first_pair_rejection));
+        assert_eq!(smart131_owned(capacity.segment_hilt_start_x_diagnostic().unwrap()
+            .pair.map(|pair| ExactSegmentBodyTargetDiagnostic {
+                target: capacity.segment_hilt_start_x_diagnostic().unwrap().target,
+                encounter_count: capacity.segment_hilt_start_x_diagnostic().unwrap().encounter_count,
+                pair: Some(pair) }).unwrap()),
+            smart131_owned(plain.segment_hilt_start_x_diagnostic().unwrap()
+            .pair.map(|pair| ExactSegmentBodyTargetDiagnostic {
+                target: plain.segment_hilt_start_x_diagnostic().unwrap().target,
+                encounter_count: plain.segment_hilt_start_x_diagnostic().unwrap().encounter_count,
+                pair: Some(pair) }).unwrap()));
+        assert_eq!(capacity.segment_hilt_start_x_diagnostic().unwrap().point_x.unwrap()
+            .recorder_invalid, Some(ExactPointXRecorderInvalidDiagnostic::Capacity));
+
+        let (routed_result, routed) = smart133_scan(&rows, &exact,
+            ExactSegmentBodyTestMutation::RoutePointXRecorderIntoResult);
+        assert!(routed.segment_body_test_mutation_fired());
+        assert_ne!(routed_result, plain_result,
+            "routing recorder presence into the authoritative result must make inertness red");
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn the_segment_hilt_start_x_target_is_tick_local_bounded_and_inert() {
+        let (rows, exact) = smart131_rows(100_000, 500);
+        let (aabb_result, aabb) = smart132_scan(&rows, &exact,
+            ExactSegmentBodyTestMutation::None);
+        let (point_result, mut point) = smart133_scan(&rows, &exact,
+            ExactSegmentBodyTestMutation::None);
+        assert_eq!(point_result, aabb_result);
+        assert_eq!(candidate_bytes(&point), candidate_bytes(&aabb));
+        assert_eq!(point.first_pair_rejection, aabb.first_pair_rejection);
+        assert_eq!(point.exact_wide.segment_body_rejection,
+                   aabb.exact_wide.segment_body_rejection);
+        let point_view = point.segment_hilt_start_x_diagnostic().unwrap();
+        let aabb_view = aabb.segment_body_pair_aabb_diagnostic().unwrap();
+        assert_eq!(smart131_owned(ExactSegmentBodyTargetDiagnostic { target: point_view.target,
+            encounter_count: point_view.encounter_count, pair: point_view.pair }),
+            smart131_owned(aabb_view));
+        assert_eq!(point_view.pair.unwrap().pair_aabb, aabb_view.pair.unwrap().pair_aabb);
+        let capacities = point.capacities(); assert!(capacities[23] >= EXACT_POINT_X_EVENT_CAP);
+        let before_request = point.capacities();
+        assert!(point.request_segment_hilt_start_x_target(smart131_target(&rows)));
+        assert_eq!(point.capacities(), before_request);
+        assert!(point.segment_hilt_start_x_diagnostic().is_some());
+        assert!(!point.request_segment_body_pair_aabb_target(smart131_target(&rows)));
+        let cloned = point.clone();
+        assert_eq!(cloned.segment_hilt_start_x_diagnostic(), point.segment_hilt_start_x_diagnostic());
+        point.begin_segment_body_target_tick();
+        assert!(point.segment_hilt_start_x_diagnostic().is_some());
+        point.begin_segment_body_target_tick();
+        assert_eq!(point.segment_hilt_start_x_diagnostic(), None);
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn a_completed_segment_hilt_start_x_view_can_coexist_with_one_pending_request() {
+        let (rows, exact) = smart131_rows(100_000, 500);
+        let (_, mut scratch) = smart133_scan(&rows, &exact, ExactSegmentBodyTestMutation::None);
+        let completed = scratch.segment_hilt_start_x_diagnostic().unwrap();
+        let completed_events = completed.point_x.unwrap().events.to_vec();
+        assert!(scratch.request_segment_body_target(smart131_target(&rows)));
+        assert_eq!(scratch.segment_hilt_start_x_diagnostic().unwrap()
+            .point_x.unwrap().events, completed_events);
+        assert!(!scratch.request_segment_body_pair_aabb_target(smart131_target(&rows)));
+        assert!(!scratch.request_segment_hilt_start_x_target(smart131_target(&rows)));
+        let cloned = scratch.clone();
+        assert_eq!(cloned.segment_hilt_start_x_diagnostic(),
+                   scratch.segment_hilt_start_x_diagnostic());
+        scratch.begin_segment_body_target_tick();
+        assert!(scratch.segment_body_target_diagnostic().is_some());
+        assert_eq!(scratch.segment_hilt_start_x_diagnostic(), None);
+
+        for first in [ExactTargetMode::SegmentBody, ExactTargetMode::PairAabb,
+                      ExactTargetMode::SegmentHiltStartX] {
+            for second in [ExactTargetMode::SegmentBody, ExactTargetMode::PairAabb,
+                           ExactTargetMode::SegmentHiltStartX] {
+                let mut pending = ContactCollectionScratch::default(); pending.try_reserve(2).unwrap();
+                let request = |scratch: &mut ContactCollectionScratch, mode| match mode {
+                    ExactTargetMode::SegmentBody =>
+                        scratch.request_segment_body_target(smart131_target(&rows)),
+                    ExactTargetMode::PairAabb =>
+                        scratch.request_segment_body_pair_aabb_target(smart131_target(&rows)),
+                    ExactTargetMode::SegmentHiltStartX =>
+                        scratch.request_segment_hilt_start_x_target(smart131_target(&rows)),
+                };
+                assert!(request(&mut pending, first));
+                assert!(!request(&mut pending, second));
+            }
+        }
+
+        let make_active = |mode| -> ContactCollectionScratch { match mode {
+            ExactTargetMode::SegmentBody => smart131_scan(&rows, &exact, true,
+                ExactSegmentBodyTestMutation::None).1,
+            ExactTargetMode::PairAabb => smart132_scan(&rows, &exact,
+                ExactSegmentBodyTestMutation::None).1,
+            ExactTargetMode::SegmentHiltStartX => smart133_scan(&rows, &exact,
+                ExactSegmentBodyTestMutation::None).1,
+        } };
+        let request = |scratch: &mut ContactCollectionScratch, mode| match mode {
+            ExactTargetMode::SegmentBody =>
+                scratch.request_segment_body_target(smart131_target(&rows)),
+            ExactTargetMode::PairAabb =>
+                scratch.request_segment_body_pair_aabb_target(smart131_target(&rows)),
+            ExactTargetMode::SegmentHiltStartX =>
+                scratch.request_segment_hilt_start_x_target(smart131_target(&rows)),
+        };
+        let signature = |scratch: &ContactCollectionScratch| (
+            scratch.segment_body_target_diagnostic().is_some(),
+            scratch.segment_body_pair_aabb_diagnostic().is_some(),
+            scratch.segment_hilt_start_x_diagnostic().is_some());
+        let modes = [ExactTargetMode::SegmentBody, ExactTargetMode::PairAabb,
+                     ExactTargetMode::SegmentHiltStartX];
+        for active in modes { for pending in modes { if active != pending {
+            let second = modes.into_iter().find(|mode| *mode != active && *mode != pending).unwrap();
+            for mutation in [ExactSegmentBodyTestMutation::ClearActiveOnRequest,
+                             ExactSegmentBodyTestMutation::RefuseOccupiedActive,
+                             ExactSegmentBodyTestMutation::AllowSecondPending,
+                             ExactSegmentBodyTestMutation::PendingReplacesActive,
+                             ExactSegmentBodyTestMutation::RetainOldActiveDespitePending] {
+                let mut baseline = make_active(active);
+                let baseline_first = request(&mut baseline, pending);
+                let baseline_second = request(&mut baseline, second);
+                let baseline_before = signature(&baseline);
+                baseline.begin_segment_body_target_tick();
+                let baseline_after = signature(&baseline);
+
+                let mut changed = make_active(active);
+                changed.set_segment_body_test_mutation(mutation);
+                let changed_first = request(&mut changed, pending);
+                let changed_second = request(&mut changed, second);
+                let changed_before = signature(&changed);
+                changed.begin_segment_body_target_tick();
+                let changed_after = signature(&changed);
+                assert!(changed.segment_body_test_mutation_fired(),
+                    "every ordered cross-mode lifecycle mutation must fire");
+                assert_ne!((changed_first, changed_second, changed_before, changed_after),
+                           (baseline_first, baseline_second, baseline_before, baseline_after),
+                    "every ordered cross-mode lifecycle mutation must make the proof red");
+            }
+        } } }
+
+        let mut consecutive = ContactCollectionScratch::default(); consecutive.try_reserve(2).unwrap();
+        assert!(consecutive.request_segment_hilt_start_x_target(smart131_target(&rows)));
+        consecutive.begin_segment_body_target_tick();
+        scan_exact_candidates_into(&exact.trajectories, &exact.owners, &rows,
+                                   &mut consecutive).unwrap();
+        assert_eq!(consecutive.segment_hilt_start_x_diagnostic().unwrap()
+            .point_x.unwrap().events.len(), EXACT_POINT_X_EVENT_CAP);
+        assert!(consecutive.request_segment_hilt_start_x_target(smart131_target(&rows)));
+        consecutive.begin_segment_body_target_tick();
+        scan_exact_candidates_into(&exact.trajectories, &exact.owners, &rows,
+                                   &mut consecutive).unwrap();
+        assert_eq!(consecutive.segment_hilt_start_x_diagnostic().unwrap()
+            .point_x.unwrap().events.len(), EXACT_POINT_X_EVENT_CAP);
+        consecutive.begin_segment_body_target_tick();
+        assert_eq!(consecutive.segment_hilt_start_x_diagnostic(), None);
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
     #[test]
     fn the_pair_aabb_target_records_points_bounds_and_the_actual_early_exit() {
         let mut saw_right_exit = false; let mut saw_left_exit = false;
@@ -6571,7 +7555,7 @@ mod tests {
         let mut scratch = ExactWideScratch::default(); scratch.try_reserve().unwrap();
         let mut state = ExactPairAabbState::default(); state.try_reserve().unwrap();
         let mut fired = 0;
-        let mut recorder = ExactPairAabbRecorder { state: &mut state,
+        let mut recorder = ExactPairAabbRecorder { state: &mut state, point_x: None,
             test_mutation: ExactSegmentBodyTestMutation::None,
             test_mutation_receipt: 1,
             test_mutation_fired: &mut fired };

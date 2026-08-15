@@ -25,7 +25,12 @@ pub use crate::combat::contact::{ExactWideComparisonDiagnostic, ExactWidePrimiti
     ExactPairAabbPointDiagnostic, ExactPairAabbAxisDiagnostic,
     ExactPairAabbComparisonDiagnostic, ExactPairAabbBoundRowDiagnostic,
     ExactPairAabbGapRowDiagnostic, ExactPairAabbTerminalDiagnostic,
-    ExactPairAabbRecorderInvalidDiagnostic, ExactPairAabbDiagnostic};
+    ExactPairAabbRecorderInvalidDiagnostic, ExactPairAabbDiagnostic,
+    ExactPointXEventRoleDiagnostic, ExactPointXEventScopeDiagnostic,
+    ExactPointXEventFieldDiagnostic, ExactPointXEventStageDiagnostic,
+    ExactPointXEventAtomDiagnostic, ExactPointXEventDiagnostic,
+    ExactPointXAdmissionDiagnostic, ExactPointXRecorderInvalidDiagnostic,
+    ExactSegmentHiltStartXDiagnostic, ExactSegmentHiltStartXTargetDiagnostic};
 #[cfg(feature = "cartesian-recoil")]
 use crate::combat::trajectory::{advance_exact_into, apply_exact_group_into, ExactContactTrajectory,
                                 ExactOwnerTrajectory, ExactTrajectoryWork,
@@ -5428,6 +5433,10 @@ impl ContactTickScratch {
         target: crate::combat::contact::ExactSegmentBodyDiagnosticTarget) -> bool
     { self.collection.request_segment_body_pair_aabb_target(target) }
 
+    pub(crate) fn request_exact_segment_hilt_start_x_target(&mut self,
+        target: crate::combat::contact::ExactSegmentBodyDiagnosticTarget) -> bool
+    { self.collection.request_segment_hilt_start_x_target(target) }
+
     pub(crate) fn exact_segment_body_target_diagnostic(&self)
         -> Option<crate::combat::contact::ExactSegmentBodyTargetDiagnostic<'_>>
     { self.collection.segment_body_target_diagnostic() }
@@ -5435,6 +5444,10 @@ impl ContactTickScratch {
     pub(crate) fn exact_segment_body_pair_aabb_diagnostic(&self)
         -> Option<crate::combat::contact::ExactSegmentBodyTargetDiagnostic<'_>>
     { self.collection.segment_body_pair_aabb_diagnostic() }
+
+    pub(crate) fn exact_segment_hilt_start_x_diagnostic(&self)
+        -> Option<crate::combat::contact::ExactSegmentHiltStartXTargetDiagnostic<'_>>
+    { self.collection.segment_hilt_start_x_diagnostic() }
 
     #[cfg(test)]
     pub(crate) fn set_segment_body_test_mutation(&mut self,

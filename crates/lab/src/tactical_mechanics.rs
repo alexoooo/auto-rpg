@@ -444,12 +444,137 @@ fn print_reference(name: &str, row: strong_strike::StrikeMeasurement) {
         core::array::from_fn::<_, { BodyPart::COUNT }, _>(|i| row.wound_after_raw[i] - row.wound_before_raw[i]));
 }
 
-const TACTICAL_MODES: [&str; 10] = [
+const TACTICAL_MODES: [&str; 11] = [
     "quick", "calibration", "held-out", "strike-corpus",
     "anatomical-mirror-corpus", "noise-free-mirror-corpus", "mirror-trace-1536",
     "ordinal-31-provenance", "ordinal-31-tick-46-scan",
     "ordinal-31-tick-46-pair-aabb",
+    "ordinal-31-tick-46-segment-hilt-start-x",
 ];
+
+fn ordinal_31_tick_46_segment_hilt_start_x_refusal(args: &Args) -> Option<String> {
+    const MODE: &str = "ordinal-31-tick-46-segment-hilt-start-x";
+    if args.positionals().len() != 1 || args.command() != "tactical-mechanics" {
+        let offending = args.positionals().get(1).map(String::as_str).unwrap_or("positional input");
+        return Some(format!("tactical-mechanics --{MODE} refuses {offending}"));
+    }
+    let flags = args.flags().iter().filter(|key| key.as_str() == MODE).count();
+    if args.pairs().iter().any(|(key, _)| key == MODE) {
+        return Some(format!("tactical-mechanics --{MODE} is a flag and accepts no value"));
+    }
+    if flags != 1 { return Some(format!("tactical-mechanics --{MODE} must be named exactly once")); }
+    if let Some(key) = args.flags().iter().find(|key| key.as_str() != MODE) {
+        if key == "write" { return Some(format!("tactical-mechanics --{MODE} --write requires PATH")); }
+        return Some(format!("tactical-mechanics --{MODE} refuses --{key}"));
+    }
+    if let Some((key, _)) = args.pairs().iter().find(|(key, _)| key != "write") {
+        return Some(format!("tactical-mechanics --{MODE} refuses --{key}"));
+    }
+    let writes: Vec<_> = args.pairs().iter().filter(|(key, _)| key == "write")
+        .map(|(_, value)| value.as_str()).collect();
+    if writes.len() != 1 || writes[0].is_empty() {
+        return Some(format!("tactical-mechanics --{MODE} requires exactly one --write PATH"));
+    }
+    None
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn write_ordinal_31_tick_46_segment_hilt_start_x(path: &str, bytes: &[u8])
+    -> Result<(), String> {
+    #[cfg(test)]
+    { return write_ordinal_31_tick_46_segment_hilt_start_x_with(path, bytes, None); }
+    #[cfg(not(test))]
+    { write_ordinal_31_tick_46_segment_hilt_start_x_with(path, bytes) }
+}
+
+#[cfg(test)]
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum PointXWriteFailure { Open, Write, Flush, DestinationAppeared, Rename }
+
+#[cfg(feature = "cartesian-recoil")]
+fn write_ordinal_31_tick_46_segment_hilt_start_x_with(path: &str, bytes: &[u8],
+    #[cfg(test)] failure: Option<PointXWriteFailure>) -> Result<(), String> {
+    use std::io::Write;
+    const MODE: &str = "ordinal-31-tick-46-segment-hilt-start-x";
+    let destination = std::path::Path::new(path);
+    let temporary = std::path::PathBuf::from(format!("{path}.tmp"));
+    if destination.exists() { return Err(format!("tactical-mechanics --{MODE} refuses existing destination {path}")); }
+    if temporary.exists() { return Err(format!("tactical-mechanics --{MODE} refuses existing temporary {}", temporary.display())); }
+    let mut created = false;
+    let result = (|| -> std::io::Result<()> {
+        #[cfg(test)] if failure == Some(PointXWriteFailure::Open) {
+            return Err(std::io::Error::other("injected open failure")); }
+        let mut file = std::fs::OpenOptions::new().write(true).create_new(true).open(&temporary)?;
+        created = true;
+        #[cfg(test)] if failure == Some(PointXWriteFailure::Write) {
+            return Err(std::io::Error::other("injected write failure")); }
+        file.write_all(bytes)?;
+        #[cfg(test)] if failure == Some(PointXWriteFailure::Flush) {
+            return Err(std::io::Error::other("injected flush failure")); }
+        file.flush()?; drop(file);
+        if destination.exists() { return Err(std::io::Error::new(
+            std::io::ErrorKind::AlreadyExists, "destination appeared before publication")); }
+        #[cfg(test)] if failure == Some(PointXWriteFailure::DestinationAppeared) {
+            std::fs::write(destination, b"external-sentinel")?; }
+        if destination.exists() { return Err(std::io::Error::new(
+            std::io::ErrorKind::AlreadyExists, "destination appeared before publication")); }
+        #[cfg(test)] if failure == Some(PointXWriteFailure::Rename) {
+            return Err(std::io::Error::other("injected rename failure")); }
+        std::fs::rename(&temporary, destination)
+    })();
+    if let Err(error) = result {
+        if created { let _ = std::fs::remove_file(&temporary); }
+        return Err(format!("tactical-mechanics --{MODE} could not publish {path}: {error}; no artifact was written"));
+    }
+    Ok(())
+}
+
+pub(crate) fn ordinal_31_tick_46_segment_hilt_start_x_requested(args: &Args) -> bool {
+    args.flag("ordinal-31-tick-46-segment-hilt-start-x")
+        || args.text("ordinal-31-tick-46-segment-hilt-start-x").is_some()
+}
+
+pub(crate) fn ordinal_31_tick_46_segment_hilt_start_x_mode(args: &Args) -> Result<(), String> {
+    #[cfg(test)]
+    { return ordinal_31_tick_46_segment_hilt_start_x_mode_with(args, None); }
+    #[cfg(not(test))]
+    { ordinal_31_tick_46_segment_hilt_start_x_mode_with(args) }
+}
+
+#[cfg(test)]
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum PointXWorkerFailure { Start, Panic }
+
+fn ordinal_31_tick_46_segment_hilt_start_x_mode_with(args: &Args,
+    #[cfg(test)] worker_failure: Option<PointXWorkerFailure>) -> Result<(), String> {
+    const MODE: &str = "ordinal-31-tick-46-segment-hilt-start-x";
+    if let Some(refusal) = ordinal_31_tick_46_segment_hilt_start_x_refusal(args) { return Err(refusal); }
+    #[cfg(not(feature = "cartesian-recoil"))]
+    { return Err(format!("tactical-mechanics --{MODE} requires --features cartesian-recoil; no artifact was written")); }
+    #[cfg(feature = "cartesian-recoil")]
+    {
+        let path = args.text("write").expect("validated write path");
+        #[cfg(test)]
+        if worker_failure == Some(PointXWorkerFailure::Start) {
+            return Err(format!("tactical-mechanics --{MODE} worker start failed: injected; no artifact was written"));
+        }
+        let worker = std::thread::Builder::new()
+            .name(strong_strike::SMART133_WORKER_NAME.into())
+            .stack_size(strong_strike::SMART133_STACK_BYTES)
+            .spawn(move || {
+                #[cfg(test)]
+                if worker_failure == Some(PointXWorkerFailure::Panic) { panic!("injected worker panic"); }
+                strong_strike::ordinal_31_tick_46_segment_hilt_start_x_artifact()
+            })
+            .map_err(|error| format!("tactical-mechanics --{MODE} worker start failed: {error}; no artifact was written"))?;
+        let artifact = match worker.join() {
+            Ok(Ok(artifact)) => artifact,
+            Ok(Err(error)) => return Err(format!("tactical-mechanics --{MODE} verification failed: {error}; no artifact was written")),
+            Err(_) => return Err(format!("tactical-mechanics --{MODE} worker panicked; no artifact was written")),
+        };
+        write_ordinal_31_tick_46_segment_hilt_start_x(path, artifact.as_bytes())
+    }
+}
 
 fn ordinal_31_tick_46_pair_aabb_refusal(args: &Args) -> Option<String> {
     const MODE: &str = "ordinal-31-tick-46-pair-aabb";
@@ -2379,5 +2504,79 @@ boundary.held.group index=0 tick=4\n";
         assert_eq!(std::fs::read(&path).unwrap(), b"external-sentinel");
         assert!(!std::path::Path::new(&temporary).exists());
         std::fs::remove_file(&path).unwrap();
+    }
+
+    #[test]
+    fn ordinal_31_tick_46_segment_hilt_start_x_refuses_every_measurement_override() {
+        const MODE: &str = "ordinal-31-tick-46-segment-hilt-start-x";
+        let valid = Args::parse(vec!["tactical-mechanics".into(), format!("--{MODE}"),
+            "--write".into(), "trace.txt".into()]);
+        assert_eq!(ordinal_31_tick_46_segment_hilt_start_x_refusal(&valid), None);
+        for option in TACTICAL_MODES.into_iter().filter(|mode| *mode != MODE).chain([
+            "seed", "seeds", "ordinal", "target", "offset", "offset-x", "offset-y",
+            "ticks", "horizon", "tick", "chamber", "strike", "reach", "effort",
+            "mirrored", "threads", "summary-write", "unknown"]) {
+            for tail in [vec![format!("--{option}")], vec![format!("--{option}"), "1".into()]] {
+                let mut tokens = vec!["tactical-mechanics".into(), format!("--{MODE}"),
+                    "--write".into(), "trace.txt".into()]; tokens.extend(tail);
+                let refusal = ordinal_31_tick_46_segment_hilt_start_x_refusal(&Args::parse(tokens))
+                    .unwrap_or_else(|| panic!("--{option} was accepted"));
+                assert!(refusal.contains(&format!("--{option}")));
+            }
+        }
+        for tokens in [
+            vec!["tactical-mechanics", "--ordinal-31-tick-46-segment-hilt-start-x"],
+            vec!["tactical-mechanics", "--ordinal-31-tick-46-segment-hilt-start-x", "--write"],
+            vec!["tactical-mechanics", "--ordinal-31-tick-46-segment-hilt-start-x", "value", "--write", "x"],
+            vec!["tactical-mechanics", "--ordinal-31-tick-46-segment-hilt-start-x", "--write", "a", "--write", "b"],
+        ] {
+            assert!(ordinal_31_tick_46_segment_hilt_start_x_refusal(&Args::parse(
+                tokens.into_iter().map(str::to_string).collect())).is_some());
+        }
+        #[cfg(feature = "cartesian-recoil")]
+        assert_eq!((strong_strike::SMART133_WORKER_NAME, strong_strike::SMART133_STACK_BYTES),
+                   ("smart133-ordinal31-tick46-segment-hilt-start-x", 16 * 1024 * 1024));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn ordinal_31_tick_46_segment_hilt_start_x_artifact_is_byte_identical_and_atomic() {
+        let artifact = strong_strike::ordinal_31_tick_46_segment_hilt_start_x_artifact().unwrap();
+        let repeated = strong_strike::ordinal_31_tick_46_segment_hilt_start_x_artifact().unwrap();
+        assert_eq!(artifact.as_bytes(), repeated.as_bytes());
+        assert_eq!(artifact.lines().count(), 138);
+        assert!(artifact.starts_with("smart133-ordinal31-tick46-segment-hilt-start-x-v1\n")
+            && artifact.ends_with('\n') && artifact.is_ascii() && !artifact.contains('\r'));
+        let stem = std::env::temp_dir().join(format!("smart133-atomic-{}-{:?}",
+            std::process::id(), std::thread::current().id()));
+        let path = stem.to_string_lossy().into_owned(); let temporary = format!("{path}.tmp");
+        assert!(!std::path::Path::new(&path).exists() && !std::path::Path::new(&temporary).exists());
+        write_ordinal_31_tick_46_segment_hilt_start_x(&path, artifact.as_bytes()).unwrap();
+        assert_eq!(std::fs::read(&path).unwrap(), artifact.as_bytes());
+        assert!(!std::path::Path::new(&temporary).exists());
+        assert!(write_ordinal_31_tick_46_segment_hilt_start_x(&path, b"replacement").is_err());
+        assert_eq!(std::fs::read(&path).unwrap(), artifact.as_bytes());
+        std::fs::remove_file(&path).unwrap();
+        for failure in [PointXWriteFailure::Open, PointXWriteFailure::Write,
+                        PointXWriteFailure::Flush, PointXWriteFailure::Rename] {
+            assert!(write_ordinal_31_tick_46_segment_hilt_start_x_with(
+                &path, artifact.as_bytes(), Some(failure)).is_err());
+            assert!(!std::path::Path::new(&path).exists()
+                && !std::path::Path::new(&temporary).exists());
+        }
+        assert!(write_ordinal_31_tick_46_segment_hilt_start_x_with(&path,
+            artifact.as_bytes(), Some(PointXWriteFailure::DestinationAppeared)).is_err());
+        assert_eq!(std::fs::read(&path).unwrap(), b"external-sentinel");
+        assert!(!std::path::Path::new(&temporary).exists()); std::fs::remove_file(&path).unwrap();
+        let args = Args::parse(vec!["tactical-mechanics".into(),
+            "--ordinal-31-tick-46-segment-hilt-start-x".into(), "--write".into(), path.clone()]);
+        for failure in [PointXWorkerFailure::Start, PointXWorkerFailure::Panic] {
+            let error = ordinal_31_tick_46_segment_hilt_start_x_mode_with(&args, Some(failure))
+                .expect_err("the injected worker failure must refuse publication");
+            assert!(error.contains(if failure == PointXWorkerFailure::Start {
+                "worker start failed" } else { "worker panicked" }));
+            assert!(!std::path::Path::new(&path).exists()
+                && !std::path::Path::new(&temporary).exists());
+        }
     }
 }

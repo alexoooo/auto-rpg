@@ -26,6 +26,11 @@ use sim::{ExactPairAabbAxisDiagnostic, ExactPairAabbBoundRowDiagnostic,
           ExactPairAabbSideDiagnostic, ExactPairAabbTerminalDiagnostic,
           ExactWideRationalDiagnostic, ExactWideWordDiagnostic};
 #[cfg(feature = "cartesian-recoil")]
+use sim::{ExactPointXAdmissionDiagnostic, ExactPointXEventAtomDiagnostic,
+          ExactPointXEventDiagnostic, ExactPointXEventFieldDiagnostic,
+          ExactPointXEventRoleDiagnostic, ExactPointXEventScopeDiagnostic,
+          ExactPointXEventStageDiagnostic, ExactPointXRecorderInvalidDiagnostic};
+#[cfg(feature = "cartesian-recoil")]
 use sim::ExactWideToiDiagnostic;
 #[cfg(feature = "cartesian-recoil")]
 use sim::ExactCompatibilitySweepDiagnostic;
@@ -140,6 +145,7 @@ impl StrongCase {
             approach_offset: ATTACKER_SPAWN - TARGET_SPAWN,
         }
     }
+
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -542,6 +548,10 @@ pub(crate) const SMART131_STACK_BYTES: usize = 16 * 1024 * 1024;
 pub(crate) const SMART132_WORKER_NAME: &str = "smart132-ordinal31-tick46-pair-aabb";
 #[cfg(feature = "cartesian-recoil")]
 pub(crate) const SMART132_STACK_BYTES: usize = 16 * 1024 * 1024;
+#[cfg(feature = "cartesian-recoil")]
+pub(crate) const SMART133_WORKER_NAME: &str = "smart133-ordinal31-tick46-segment-hilt-start-x";
+#[cfg(feature = "cartesian-recoil")]
+pub(crate) const SMART133_STACK_BYTES: usize = 16 * 1024 * 1024;
 
 #[cfg(feature = "cartesian-recoil")]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -2079,6 +2089,14 @@ struct PairAabbOwned {
 }
 
 #[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, PartialEq, Eq, Debug)]
+struct PointXOwned {
+    admission: ExactPointXAdmissionDiagnostic,
+    events: Vec<ExactPointXEventDiagnostic>,
+    recorder_invalid: Option<ExactPointXRecorderInvalidDiagnostic>,
+}
+
+#[cfg(feature = "cartesian-recoil")]
 #[derive(Clone, Debug)]
 struct PairAabbRun {
     arm: ProvenanceArm, rows: Vec<ScanCommandRow>, snapshot: ProvenanceSnapshot,
@@ -2221,6 +2239,39 @@ fn copy_pair_aabb_target(world: &World) -> Result<(ScanPairOwned, PairAabbOwned)
 }
 
 #[cfg(feature = "cartesian-recoil")]
+fn copy_segment_hilt_start_x_target(world: &World)
+    -> Result<(ScanPairOwned, PairAabbOwned, PointXOwned), String>
+{
+    let view = world.exact_segment_hilt_start_x_diagnostic()
+        .ok_or("smart133 tick 46 segment-hilt start-X diagnostic was not armed")?;
+    if view.encounter_count != 1 || view.target != smart131_target() {
+        return Err("smart133-source-boundary-mismatch".into());
+    }
+    let pair = view.pair.ok_or("smart133 target was not encountered")?;
+    let aabb = pair.pair_aabb.ok_or("smart133 pair-AABB source boundary was absent")?;
+    let point_x = view.point_x.ok_or("smart133 operand stream was absent")?;
+    let containing = ScanPairOwned {
+        target: view.target, encounter_count: view.encounter_count,
+        a_entity: pair.a_entity, b_entity: pair.b_entity,
+        a_slot: pair.a_slot, b_slot: pair.b_slot, a_owner: pair.a_owner, b_owner: pair.b_owner,
+        a_shape: pair.a_shape, b_shape: pair.b_shape, kind: pair.kind,
+        orientation: pair.orientation, group_time_raw: pair.group_time_raw,
+        pair_aabb_supported: pair.pair_aabb_supported,
+        pair_aabb_disjoint: pair.pair_aabb_disjoint, result: pair.result,
+        region_count: pair.regions.len(), visit_count: pair.visits.len(),
+        regions: pair.regions.to_vec(), visits: pair.visits.to_vec(),
+    };
+    Ok((containing, PairAabbOwned { start_raw: aabb.start_raw, end_raw: aabb.end_raw,
+        a_radius_raw: aabb.a_radius_raw, b_radius_raw: aabb.b_radius_raw,
+        combined_radius: aabb.combined_radius, terminal: aabb.terminal,
+        recorder_invalid: aabb.recorder_invalid, points: aabb.points.to_vec(),
+        bounds: aabb.bounds.to_vec(), gaps: aabb.gaps.to_vec() }, PointXOwned {
+        admission: point_x.admission, events: point_x.events.to_vec(),
+        recorder_invalid: point_x.recorder_invalid,
+    }))
+}
+
+#[cfg(feature = "cartesian-recoil")]
 fn mutate_copied_pair_aabb(value: &mut PairAabbOwned, mutation: PairAabbMutation)
     -> Result<(), String>
 {
@@ -2290,8 +2341,9 @@ fn mutate_copied_pair_aabb(value: &mut PairAabbOwned, mutation: PairAabbMutation
 }
 
 #[cfg(feature = "cartesian-recoil")]
-fn run_tick46_pair_aabb_arm(arm: ProvenanceArm, effort: Fx, mutation: PairAabbMutation)
-    -> Result<PairAabbRun, String>
+fn run_tick46_pair_aabb_arm(arm: ProvenanceArm, effort: Fx, mutation: PairAabbMutation,
+                            point_x_mode: bool)
+    -> Result<(PairAabbRun, Option<PointXOwned>), String>
 {
     const HORIZON: u32 = 46;
     let case = ordinal_31_case();
@@ -2313,6 +2365,7 @@ fn run_tick46_pair_aabb_arm(arm: ProvenanceArm, effort: Fx, mutation: PairAabbMu
     let mut expected_replay = Vec::new();
     let mut rows = Vec::with_capacity(HORIZON as usize);
     let mut target_copy = None;
+    let mut point_x_copy = None;
     let mut max_energy_excess_raw = 0;
     let mut limit = HORIZON;
     #[cfg(test)]
@@ -2371,7 +2424,10 @@ fn run_tick46_pair_aabb_arm(arm: ProvenanceArm, effort: Fx, mutation: PairAabbMu
                 target.key.b = EntityId::new(0, 0); target.key.b_slot = BODY_SLOT;
             }
             for world in &mut worlds {
-                if !world.request_exact_segment_body_pair_aabb_diagnostic(target) {
+                let accepted = if point_x_mode {
+                    world.request_exact_segment_hilt_start_x_diagnostic(target)
+                } else { world.request_exact_segment_body_pair_aabb_diagnostic(target) };
+                if !accepted {
                     return Err("smart132 target request was refused".into());
                 }
             }
@@ -2381,12 +2437,22 @@ fn run_tick46_pair_aabb_arm(arm: ProvenanceArm, effort: Fx, mutation: PairAabbMu
             return Err(format!("smart132 live/rerun state diverged at {}", worlds[0].tick()));
         }
         if worlds[0].tick() == HORIZON {
-            let left = copy_pair_aabb_target(&worlds[0])?;
-            let mut right = copy_pair_aabb_target(&worlds[1])?;
+            let (left, mut right, left_point, right_point) = if point_x_mode {
+                let left = copy_segment_hilt_start_x_target(&worlds[0])?;
+                let right = copy_segment_hilt_start_x_target(&worlds[1])?;
+                ((left.0, left.1), (right.0, right.1), Some(left.2), Some(right.2))
+            } else {
+                (copy_pair_aabb_target(&worlds[0])?, copy_pair_aabb_target(&worlds[1])?,
+                 None, None)
+            };
             mutate_copied_pair_aabb(&mut right.1, mutation)?;
             validate_pair_aabb(&left.0, &left.1)?; validate_pair_aabb(&right.0, &right.1)?;
             if left != right { return Err("smart132 live/rerun pair-AABB evidence diverged".into()); }
+            if left_point != right_point {
+                return Err("smart133 live/rerun operand evidence diverged".into());
+            }
             target_copy = Some(left);
+            point_x_copy = left_point;
         }
         let snapshot = provenance_snapshot(&worlds[0], attacker, defender);
         let tick_excess = snapshot.resolutions.iter().map(|row|
@@ -2443,11 +2509,11 @@ fn run_tick46_pair_aabb_arm(arm: ProvenanceArm, effort: Fx, mutation: PairAabbMu
     let contact = live.resolutions.iter().any(|row| attributed_sword_body(row, attacker, defender, limb));
     let solver_delta = rows.last().map(|row|
         row.solver_after.saturating_sub(row.solver_before)).unwrap_or(0);
-    Ok(PairAabbRun { arm, rows, snapshot: live, containing, aabb, solver_delta,
+    Ok((PairAabbRun { arm, rows, snapshot: live, containing, aabb, solver_delta,
         contact, max_energy_excess_raw,
         requested_receipt: source_41_receipt(ORDINAL_31_FINGERPRINT, &requested_records[0]),
         stored_receipt: source_41_receipt(ORDINAL_31_FINGERPRINT, &stored_records[0]),
-        replay_receipt: source_41_receipt(ORDINAL_31_FINGERPRINT, &actual_replay) })
+        replay_receipt: source_41_receipt(ORDINAL_31_FINGERPRINT, &actual_replay) }, point_x_copy))
 }
 
 #[cfg(feature = "cartesian-recoil")]
@@ -2821,9 +2887,11 @@ fn validate_pair_aabb_trace(trace: &Ordinal31Tick46PairAabb) -> Result<(), Strin
 fn build_ordinal_31_tick46_pair_aabb(mutation: PairAabbMutation)
     -> Result<Ordinal31Tick46PairAabb, String>
 {
-    let reference_before = run_tick46_pair_aabb_arm(ProvenanceArm::ReferenceBefore, Fx::ONE, mutation)?;
-    let held = run_tick46_pair_aabb_arm(ProvenanceArm::Held, Fx::ZERO, mutation)?;
-    let reference_after = run_tick46_pair_aabb_arm(ProvenanceArm::ReferenceAfter, Fx::ONE, mutation)?;
+    let reference_before = run_tick46_pair_aabb_arm(ProvenanceArm::ReferenceBefore,
+        Fx::ONE, mutation, false)?.0;
+    let held = run_tick46_pair_aabb_arm(ProvenanceArm::Held, Fx::ZERO, mutation, false)?.0;
+    let reference_after = run_tick46_pair_aabb_arm(ProvenanceArm::ReferenceAfter,
+        Fx::ONE, mutation, false)?.0;
     let difference = first_pair_aabb_difference(&reference_before.containing,
         &reference_before.aabb, &held.containing, &held.aabb)?;
     let trace = Ordinal31Tick46PairAabb { reference_before, held, reference_after, difference };
@@ -2921,6 +2989,672 @@ fn cached_ordinal_31_tick46_pair_aabb() -> &'static Ordinal31Tick46PairAabb {
     static TRACE: std::sync::OnceLock<Ordinal31Tick46PairAabb> = std::sync::OnceLock::new();
     TRACE.get_or_init(|| build_ordinal_31_tick46_pair_aabb(PairAabbMutation::None)
         .expect("the frozen Smart132 trace must validate"))
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum PointAtomKind { I32, U32, I128, Wide, Success }
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Copy)]
+struct PointEventSpec {
+    role: ExactPointXEventRoleDiagnostic, scope: ExactPointXEventScopeDiagnostic,
+    field: ExactPointXEventFieldDiagnostic, stage: ExactPointXEventStageDiagnostic,
+    atom: PointAtomKind,
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn point_event_specs() -> [PointEventSpec; 42] {
+    use ExactPointXEventFieldDiagnostic as F;
+    use ExactPointXEventRoleDiagnostic as R;
+    use ExactPointXEventScopeDiagnostic as C;
+    use ExactPointXEventStageDiagnostic as S;
+    use PointAtomKind as A;
+    [
+        PointEventSpec { role:R::OperandCandidate, scope:C::Motor, field:F::StartRaw, stage:S::Input, atom:A::I32 },
+        PointEventSpec { role:R::DerivedWitness, scope:C::Motor, field:F::Value, stage:S::RationalStart, atom:A::Wide },
+        PointEventSpec { role:R::OperandCandidate, scope:C::Motor, field:F::DeltaRaw, stage:S::Input, atom:A::I32 },
+        PointEventSpec { role:R::DerivedWitness, scope:C::Motor, field:F::StepNumerator, stage:S::CheckedProduct, atom:A::I128 },
+        PointEventSpec { role:R::DerivedWitness, scope:C::Motor, field:F::Value, stage:S::RationalStep, atom:A::Wide },
+        PointEventSpec { role:R::DerivedWitness, scope:C::Motor, field:F::Value, stage:S::AddStartStep, atom:A::Wide },
+        PointEventSpec { role:R::OperandCandidate, scope:C::Common, field:F::Scale, stage:S::Input, atom:A::I128 },
+        PointEventSpec { role:R::OperandCandidate, scope:C::Common, field:F::AtGroupRaw, stage:S::Input, atom:A::I32 },
+        PointEventSpec { role:R::DerivedWitness, scope:C::Common, field:F::Value, stage:S::RationalPosition, atom:A::Wide },
+        PointEventSpec { role:R::OperandCandidate, scope:C::Common, field:F::AtGroupRemainder, stage:S::Input, atom:A::I128 },
+        PointEventSpec { role:R::DerivedWitness, scope:C::Common, field:F::RemainderDenominator, stage:S::CheckedProduct, atom:A::I128 },
+        PointEventSpec { role:R::DerivedWitness, scope:C::Common, field:F::Value, stage:S::RationalRemainder, atom:A::Wide },
+        PointEventSpec { role:R::OperandCandidate, scope:C::Common, field:F::VelocityRaw, stage:S::Input, atom:A::I32 },
+        PointEventSpec { role:R::DerivedWitness, scope:C::Common, field:F::ScaledVelocity, stage:S::CheckedProduct, atom:A::I128 },
+        PointEventSpec { role:R::OperandCandidate, scope:C::Common, field:F::MomentumRemainder, stage:S::Input, atom:A::I128 },
+        PointEventSpec { role:R::DerivedWitness, scope:C::Common, field:F::Momentum, stage:S::CheckedAdd, atom:A::I128 },
+        PointEventSpec { role:R::DerivedWitness, scope:C::Common, field:F::TravelTimeRaw, stage:S::Subtract, atom:A::U32 },
+        PointEventSpec { role:R::DerivedWitness, scope:C::Common, field:F::TravelNumerator, stage:S::CheckedProduct, atom:A::I128 },
+        PointEventSpec { role:R::DerivedWitness, scope:C::Common, field:F::TravelDenominator, stage:S::CheckedProduct, atom:A::I128 },
+        PointEventSpec { role:R::DerivedWitness, scope:C::Common, field:F::Value, stage:S::RationalTravel, atom:A::Wide },
+        PointEventSpec { role:R::DerivedWitness, scope:C::Common, field:F::Value, stage:S::AddPositionRemainder, atom:A::Wide },
+        PointEventSpec { role:R::DerivedWitness, scope:C::Common, field:F::Value, stage:S::AddTravel, atom:A::Wide },
+        PointEventSpec { role:R::DerivedWitness, scope:C::Combine, field:F::Value, stage:S::AddMotorCommon, atom:A::Wide },
+        PointEventSpec { role:R::OperandCandidate, scope:C::Held, field:F::MassRaw, stage:S::Input, atom:A::I32 },
+        PointEventSpec { role:R::DerivedWitness, scope:C::Held, field:F::Scale, stage:S::Cast, atom:A::I128 },
+        PointEventSpec { role:R::OperandCandidate, scope:C::Held, field:F::AtGroupRaw, stage:S::Input, atom:A::I32 },
+        PointEventSpec { role:R::DerivedWitness, scope:C::Held, field:F::Value, stage:S::RationalPosition, atom:A::Wide },
+        PointEventSpec { role:R::OperandCandidate, scope:C::Held, field:F::AtGroupRemainder, stage:S::Input, atom:A::I128 },
+        PointEventSpec { role:R::DerivedWitness, scope:C::Held, field:F::RemainderDenominator, stage:S::CheckedProduct, atom:A::I128 },
+        PointEventSpec { role:R::DerivedWitness, scope:C::Held, field:F::Value, stage:S::RationalRemainder, atom:A::Wide },
+        PointEventSpec { role:R::OperandCandidate, scope:C::Held, field:F::VelocityRaw, stage:S::Input, atom:A::I32 },
+        PointEventSpec { role:R::DerivedWitness, scope:C::Held, field:F::ScaledVelocity, stage:S::CheckedProduct, atom:A::I128 },
+        PointEventSpec { role:R::OperandCandidate, scope:C::Held, field:F::MomentumRemainder, stage:S::Input, atom:A::I128 },
+        PointEventSpec { role:R::DerivedWitness, scope:C::Held, field:F::Momentum, stage:S::CheckedAdd, atom:A::I128 },
+        PointEventSpec { role:R::DerivedWitness, scope:C::Held, field:F::TravelTimeRaw, stage:S::Subtract, atom:A::U32 },
+        PointEventSpec { role:R::DerivedWitness, scope:C::Held, field:F::TravelNumerator, stage:S::CheckedProduct, atom:A::I128 },
+        PointEventSpec { role:R::DerivedWitness, scope:C::Held, field:F::TravelDenominator, stage:S::CheckedProduct, atom:A::I128 },
+        PointEventSpec { role:R::DerivedWitness, scope:C::Held, field:F::Value, stage:S::RationalTravel, atom:A::Wide },
+        PointEventSpec { role:R::DerivedWitness, scope:C::Held, field:F::Value, stage:S::AddPositionRemainder, atom:A::Wide },
+        PointEventSpec { role:R::DerivedWitness, scope:C::Held, field:F::Value, stage:S::AddTravel, atom:A::Wide },
+        PointEventSpec { role:R::DerivedWitness, scope:C::Final, field:F::Value, stage:S::AddAfterCommonHeld, atom:A::Wide },
+        PointEventSpec { role:R::Terminal, scope:C::Final, field:F::Terminal, stage:S::Terminal, atom:A::Success },
+    ]
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Copy, PartialEq, Eq)]
+struct SmallRat { numerator: i128, denominator: i128 }
+
+#[cfg(feature = "cartesian-recoil")]
+fn small_gcd(mut a: u128, mut b: u128) -> u128 {
+    while b != 0 { let next = a % b; a = b; b = next; } a.max(1)
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn small_rat(numerator: i128, denominator: i128) -> Result<SmallRat, String> {
+    if denominator <= 0 { return Err("smart133-incomplete-operand-transcript".into()); }
+    let gcd = small_gcd(numerator.unsigned_abs(), denominator as u128) as i128;
+    Ok(SmallRat { numerator: numerator / gcd, denominator: denominator / gcd })
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn small_add(a: SmallRat, b: SmallRat) -> Result<SmallRat, String> {
+    small_rat(a.numerator.checked_mul(b.denominator)
+        .and_then(|left| b.numerator.checked_mul(a.denominator)
+            .and_then(|right| left.checked_add(right)))
+        .ok_or("smart133-incomplete-operand-transcript")?,
+        a.denominator.checked_mul(b.denominator)
+            .ok_or("smart133-incomplete-operand-transcript")?)
+}
+
+#[cfg(all(feature = "cartesian-recoil", test))]
+fn small_word_diagnostic(value: i128) -> ExactWideWordDiagnostic {
+    let mut limbs = [0u32; 128]; let mut magnitude = value.unsigned_abs(); let mut used = 0u8;
+    while magnitude != 0 { limbs[used as usize] = magnitude as u32;
+        magnitude >>= 32; used += 1; }
+    ExactWideWordDiagnostic { negative: value < 0, used, limbs }
+}
+
+#[cfg(all(feature = "cartesian-recoil", test))]
+fn small_wide_diagnostic(value: SmallRat) -> ExactWideRationalDiagnostic {
+    ExactWideRationalDiagnostic { numerator: small_word_diagnostic(value.numerator),
+        denominator: small_word_diagnostic(value.denominator) }
+}
+
+#[cfg(all(feature = "cartesian-recoil", test))]
+fn recompute_point_witnesses(point: &mut PointXOwned) -> Result<(), String> {
+    let e = &mut point.events; let time = point.admission.time_raw as i128;
+    let motor_start = small_rat(point_i32(&e[0])? as i128, 1)?;
+    e[1].atom = ExactPointXEventAtomDiagnostic::Wide(small_wide_diagnostic(motor_start));
+    let motor_numerator = (point_i32(&e[2])? as i128).checked_mul(time)
+        .ok_or("smart133-incomplete-operand-transcript")?;
+    e[3].atom = ExactPointXEventAtomDiagnostic::I128(motor_numerator);
+    let motor_step = small_rat(motor_numerator, 65_536)?;
+    e[4].atom = ExactPointXEventAtomDiagnostic::Wide(small_wide_diagnostic(motor_step));
+    let motor = small_add(motor_start, motor_step)?;
+    e[5].atom = ExactPointXEventAtomDiagnostic::Wide(small_wide_diagnostic(motor));
+    fn response(e: &mut [ExactPointXEventDiagnostic], at: usize, scale: i128,
+                group_time: u32, time: u32) -> Result<SmallRat, String> {
+        let position = small_rat(point_i32(&e[at])? as i128, 1)?;
+        e[at+1].atom = ExactPointXEventAtomDiagnostic::Wide(small_wide_diagnostic(position));
+        let denominator = scale.checked_mul(65_536).ok_or("smart133-incomplete-operand-transcript")?;
+        e[at+3].atom = ExactPointXEventAtomDiagnostic::I128(denominator);
+        let remainder = small_rat(point_i128(&e[at+2])?, denominator)?;
+        e[at+4].atom = ExactPointXEventAtomDiagnostic::Wide(small_wide_diagnostic(remainder));
+        let scaled = scale.checked_mul(point_i32(&e[at+5])? as i128)
+            .ok_or("smart133-incomplete-operand-transcript")?;
+        e[at+6].atom = ExactPointXEventAtomDiagnostic::I128(scaled);
+        let momentum = scaled.checked_add(point_i128(&e[at+7])?)
+            .ok_or("smart133-incomplete-operand-transcript")?;
+        e[at+8].atom = ExactPointXEventAtomDiagnostic::I128(momentum);
+        let travel_time = time.checked_sub(group_time).ok_or("smart133-incomplete-operand-transcript")?;
+        e[at+9].atom = ExactPointXEventAtomDiagnostic::U32(travel_time);
+        let travel_numerator = momentum.checked_mul(travel_time as i128)
+            .ok_or("smart133-incomplete-operand-transcript")?;
+        e[at+10].atom = ExactPointXEventAtomDiagnostic::I128(travel_numerator);
+        e[at+11].atom = ExactPointXEventAtomDiagnostic::I128(denominator);
+        let travel = small_rat(travel_numerator, denominator)?;
+        e[at+12].atom = ExactPointXEventAtomDiagnostic::Wide(small_wide_diagnostic(travel));
+        let position_remainder = small_add(position, remainder)?;
+        e[at+13].atom = ExactPointXEventAtomDiagnostic::Wide(small_wide_diagnostic(position_remainder));
+        let result = small_add(position_remainder, travel)?;
+        e[at+14].atom = ExactPointXEventAtomDiagnostic::Wide(small_wide_diagnostic(result));
+        Ok(result)
+    }
+    let common_scale = point_i128(&e[6])?;
+    let common = response(e, 7, common_scale, point.admission.common_group_time_raw,
+                          point.admission.time_raw)?;
+    let after_common = small_add(motor, common)?;
+    e[22].atom = ExactPointXEventAtomDiagnostic::Wide(small_wide_diagnostic(after_common));
+    let held_scale = point_i32(&e[23])? as i128;
+    e[24].atom = ExactPointXEventAtomDiagnostic::I128(held_scale);
+    let held = response(e, 25, held_scale, point.admission.held_group_time_raw,
+                        point.admission.time_raw)?;
+    let final_value = small_add(after_common, held)?;
+    e[40].atom = ExactPointXEventAtomDiagnostic::Wide(small_wide_diagnostic(final_value));
+    Ok(())
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn point_i32(row: &ExactPointXEventDiagnostic) -> Result<i32, String> { match row.atom {
+    ExactPointXEventAtomDiagnostic::I32(value) => Ok(value),
+    _ => Err("smart133-incomplete-operand-transcript".into()),
+} }
+#[cfg(feature = "cartesian-recoil")]
+fn point_u32(row: &ExactPointXEventDiagnostic) -> Result<u32, String> { match row.atom {
+    ExactPointXEventAtomDiagnostic::U32(value) => Ok(value),
+    _ => Err("smart133-incomplete-operand-transcript".into()),
+} }
+#[cfg(feature = "cartesian-recoil")]
+fn point_i128(row: &ExactPointXEventDiagnostic) -> Result<i128, String> { match row.atom {
+    ExactPointXEventAtomDiagnostic::I128(value) => Ok(value),
+    _ => Err("smart133-incomplete-operand-transcript".into()),
+} }
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, PartialEq, Eq)]
+struct BigSigned { negative: bool, limbs: Vec<u32> }
+
+#[cfg(feature = "cartesian-recoil")]
+impl BigSigned {
+    fn normalize(mut self) -> Self { while self.limbs.last() == Some(&0) { self.limbs.pop(); }
+        if self.limbs.is_empty() { self.negative = false; } self }
+    fn from_i128(value: i128) -> Self {
+        let mut magnitude = value.unsigned_abs(); let mut limbs = Vec::new();
+        while magnitude != 0 { limbs.push(magnitude as u32); magnitude >>= 32; }
+        Self { negative: value < 0, limbs }.normalize()
+    }
+    fn from_word(value: &ExactWideWordDiagnostic) -> Result<Self, String> {
+        validate_wide_word(value, false)
+            .map_err(|_| "smart133-incomplete-operand-transcript".to_string())?;
+        Ok(Self { negative: value.negative,
+            limbs: value.limbs[..value.used as usize].to_vec() }.normalize())
+    }
+    fn cmp_mag(&self, other: &Self) -> core::cmp::Ordering {
+        self.limbs.len().cmp(&other.limbs.len()).then_with(||
+            self.limbs.iter().rev().cmp(other.limbs.iter().rev()))
+    }
+    fn add_mag(a: &[u32], b: &[u32]) -> Vec<u32> {
+        let mut out = Vec::with_capacity(a.len().max(b.len()) + 1); let mut carry = 0u64;
+        for at in 0..a.len().max(b.len()) { let sum = a.get(at).copied().unwrap_or(0) as u64
+            + b.get(at).copied().unwrap_or(0) as u64 + carry;
+            out.push(sum as u32); carry = sum >> 32; }
+        if carry != 0 { out.push(carry as u32); } out
+    }
+    fn sub_mag(a: &[u32], b: &[u32]) -> Vec<u32> {
+        let mut out = Vec::with_capacity(a.len()); let mut borrow = 0i64;
+        for at in 0..a.len() { let value = a[at] as i64
+            - b.get(at).copied().unwrap_or(0) as i64 - borrow;
+            if value < 0 { out.push((value + (1i64 << 32)) as u32); borrow = 1; }
+            else { out.push(value as u32); borrow = 0; } }
+        out
+    }
+    fn add(&self, other: &Self) -> Self {
+        if self.negative == other.negative { return Self { negative: self.negative,
+            limbs: Self::add_mag(&self.limbs, &other.limbs) }.normalize(); }
+        match self.cmp_mag(other) {
+            core::cmp::Ordering::Greater | core::cmp::Ordering::Equal => Self {
+                negative: self.negative, limbs: Self::sub_mag(&self.limbs, &other.limbs) }.normalize(),
+            core::cmp::Ordering::Less => Self { negative: other.negative,
+                limbs: Self::sub_mag(&other.limbs, &self.limbs) }.normalize(),
+        }
+    }
+    fn mul(&self, other: &Self) -> Self {
+        let mut out = vec![0u32; self.limbs.len() + other.limbs.len()];
+        for (i, &a) in self.limbs.iter().enumerate() { let mut carry = 0u64;
+            for (j, &b) in other.limbs.iter().enumerate() { let at = i + j;
+                let value = out[at] as u64 + (a as u64) * (b as u64) + carry;
+                out[at] = value as u32; carry = value >> 32; }
+            let mut at = i + other.limbs.len();
+            while carry != 0 { if at == out.len() { out.push(0); }
+                let value = out[at] as u64 + carry; out[at] = value as u32;
+                carry = value >> 32; at += 1; }
+        }
+        Self { negative: self.negative ^ other.negative, limbs: out }.normalize()
+    }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn big_rat(value: &ExactWideRationalDiagnostic) -> Result<(BigSigned, BigSigned), String> {
+    validate_wide(value).map_err(|_| "smart133-incomplete-operand-transcript".to_string())?;
+    Ok((BigSigned::from_word(&value.numerator)?, BigSigned::from_word(&value.denominator)?))
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn wide_equals_scalar(value: &ExactWideRationalDiagnostic, numerator: i128,
+                      denominator: i128) -> Result<bool, String> {
+    let (n, d) = big_rat(value)?;
+    Ok(n.mul(&BigSigned::from_i128(denominator))
+        == BigSigned::from_i128(numerator).mul(&d))
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn wide_add_is(a: &ExactWideRationalDiagnostic, b: &ExactWideRationalDiagnostic,
+               result: &ExactWideRationalDiagnostic) -> Result<bool, String> {
+    let (an, ad) = big_rat(a)?; let (bn, bd) = big_rat(b)?; let (rn, rd) = big_rat(result)?;
+    Ok(an.mul(&bd).add(&bn.mul(&ad)).mul(&rd) == rn.mul(&ad.mul(&bd)))
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn point_wide(row: &ExactPointXEventDiagnostic) -> Result<&ExactWideRationalDiagnostic, String> {
+    match &row.atom { ExactPointXEventAtomDiagnostic::Wide(value) => Ok(value),
+        _ => Err("smart133-incomplete-operand-transcript".into()) }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn validate_point_x(containing: &ScanPairOwned, aabb: &PairAabbOwned,
+                    point: &PointXOwned) -> Result<(), String> {
+    let admission = point.admission;
+    if containing.target != smart131_target() || containing.encounter_count != 1
+        || admission.side != ExactPairAabbSideDiagnostic::A || admission.ordinal != 0
+        || admission.source != ExactPairAabbPointSourceDiagnostic::SegmentHilt
+        || admission.region.is_some() || admission.endpoint != ExactPairAabbEndpointDiagnostic::Start
+        || admission.axis != ExactPairAabbAxisDiagnostic::X
+        || admission.row_entity != EntityId::new(0, 0) || admission.row_slot != 1
+        || admission.owner_index != 0 || admission.held_index != 1 || admission.held_slot != 1
+        || admission.held_spec != 1 || admission.time_raw != 0
+        || admission.common_group_time_raw != 0 || admission.held_group_time_raw != 0
+    { return Err("smart133-source-boundary-mismatch".into()); }
+    if point.recorder_invalid.is_some() || point.events.len() != 42 {
+        return Err("smart133-incomplete-operand-transcript".into());
+    }
+    let specs = point_event_specs();
+    for (ordinal, (row, spec)) in point.events.iter().zip(specs).enumerate() {
+        let atom_ok = matches!((spec.atom, &row.atom),
+            (PointAtomKind::I32, ExactPointXEventAtomDiagnostic::I32(_))
+            | (PointAtomKind::U32, ExactPointXEventAtomDiagnostic::U32(_))
+            | (PointAtomKind::I128, ExactPointXEventAtomDiagnostic::I128(_))
+            | (PointAtomKind::Wide, ExactPointXEventAtomDiagnostic::Wide(_))
+            | (PointAtomKind::Success, ExactPointXEventAtomDiagnostic::TerminalSuccess));
+        if row.ordinal as usize != ordinal || row.role != spec.role || row.scope != spec.scope
+            || row.field != spec.field || row.stage != spec.stage || !atom_ok {
+            return Err("smart133-incomplete-operand-transcript".into());
+        }
+        if let ExactPointXEventAtomDiagnostic::Wide(value) = &row.atom {
+            validate_wide(value).map_err(|_| "smart133-incomplete-operand-transcript".to_string())?;
+        }
+    }
+    let e = &point.events; let time = admission.time_raw as i128;
+    if !wide_equals_scalar(point_wide(&e[1])?, point_i32(&e[0])? as i128, 1)? {
+        return Err("smart133-incomplete-operand-transcript".into()); }
+    let motor_numerator = (point_i32(&e[2])? as i128).checked_mul(time)
+        .ok_or("smart133-incomplete-operand-transcript")?;
+    if point_i128(&e[3])? != motor_numerator { return Err("smart133-incomplete-operand-transcript".into()); }
+    if !wide_equals_scalar(point_wide(&e[4])?, motor_numerator, 65_536)?
+        || !wide_add_is(point_wide(&e[1])?, point_wide(&e[4])?, point_wide(&e[5])?)? {
+        return Err("smart133-incomplete-operand-transcript".into()); }
+    fn response(e: &[ExactPointXEventDiagnostic], at: usize, scale: i128,
+                group_time: u32, time: u32) -> Result<(), String> {
+        if !wide_equals_scalar(point_wide(&e[at + 1])?, point_i32(&e[at])? as i128, 1)? {
+            return Err("smart133-incomplete-operand-transcript".into()); }
+        let remainder_denominator = scale.checked_mul(65_536)
+            .ok_or("smart133-incomplete-operand-transcript")?;
+        if point_i128(&e[at + 3])? != remainder_denominator {
+            return Err("smart133-incomplete-operand-transcript".into());
+        }
+        if !wide_equals_scalar(point_wide(&e[at + 4])?, point_i128(&e[at + 2])?,
+                               remainder_denominator)? {
+            return Err("smart133-incomplete-operand-transcript".into()); }
+        let scaled = scale.checked_mul(point_i32(&e[at + 5])? as i128)
+            .ok_or("smart133-incomplete-operand-transcript")?;
+        if point_i128(&e[at + 6])? != scaled { return Err("smart133-incomplete-operand-transcript".into()); }
+        let momentum = scaled.checked_add(point_i128(&e[at + 7])?)
+            .ok_or("smart133-incomplete-operand-transcript")?;
+        if point_i128(&e[at + 8])? != momentum { return Err("smart133-incomplete-operand-transcript".into()); }
+        let travel_time = time.checked_sub(group_time)
+            .ok_or("smart133-incomplete-operand-transcript")?;
+        if point_u32(&e[at + 9])? != travel_time { return Err("smart133-incomplete-operand-transcript".into()); }
+        let travel_numerator = momentum.checked_mul(travel_time as i128)
+            .ok_or("smart133-incomplete-operand-transcript")?;
+        if point_i128(&e[at + 10])? != travel_numerator
+            || point_i128(&e[at + 11])? != remainder_denominator {
+            return Err("smart133-incomplete-operand-transcript".into());
+        }
+        if !wide_equals_scalar(point_wide(&e[at + 12])?, travel_numerator,
+                               remainder_denominator)? {
+            return Err("smart133-incomplete-operand-transcript".into());
+        }
+        if !wide_add_is(point_wide(&e[at + 1])?, point_wide(&e[at + 4])?,
+                        point_wide(&e[at + 13])?)?
+            || !wide_add_is(point_wide(&e[at + 13])?, point_wide(&e[at + 12])?,
+                            point_wide(&e[at + 14])?)? {
+            return Err("smart133-incomplete-operand-transcript".into()); }
+        Ok(())
+    }
+    let common_scale = point_i128(&e[6])?;
+    response(e, 7, common_scale, admission.common_group_time_raw, admission.time_raw)?;
+    if !wide_add_is(point_wide(&e[5])?, point_wide(&e[21])?, point_wide(&e[22])?)? {
+        return Err("smart133-incomplete-operand-transcript".into()); }
+    let held_scale = point_i32(&e[23])? as i128;
+    if point_i128(&e[24])? != held_scale { return Err("smart133-incomplete-operand-transcript".into()); }
+    response(e, 25, held_scale, admission.held_group_time_raw, admission.time_raw)?;
+    if !wide_add_is(point_wide(&e[22])?, point_wide(&e[39])?, point_wide(&e[40])?)? {
+        return Err("smart133-incomplete-operand-transcript".into()); }
+    let source = aabb.points.iter().find(|row| row.side == ExactPairAabbSideDiagnostic::A
+        && row.ordinal == 0).ok_or("smart133-source-boundary-mismatch")?;
+    if source.coordinate[0] != *point_wide(&e[40])? {
+        return Err("smart133-incomplete-operand-transcript".into());
+    }
+    Ok(())
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, PartialEq, Eq, Debug)]
+struct PointDifference { ordinal: u8, atom: PointAtomKind,
+    reference: ExactPointXEventAtomDiagnostic, held: ExactPointXEventAtomDiagnostic }
+
+#[cfg(feature = "cartesian-recoil")]
+fn first_point_difference(reference: &PointXOwned, held: &PointXOwned)
+    -> Result<PointDifference, String> {
+    let specs = point_event_specs();
+    if reference.events.len() != specs.len() || held.events.len() != specs.len() {
+        return Err("smart133-incomplete-operand-transcript".into());
+    }
+    for ordinal in [0usize, 2, 6, 7, 9, 12, 14, 23, 25, 27, 30, 32] {
+        if reference.events[ordinal].atom != held.events[ordinal].atom {
+            return Ok(PointDifference { ordinal: ordinal as u8, atom: specs[ordinal].atom,
+                reference: reference.events[ordinal].atom,
+                held: held.events[ordinal].atom });
+        }
+    }
+    Err("smart133-incomplete-operand-transcript".into())
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Debug)]
+struct PointXRun { base: PairAabbRun, point: PointXOwned }
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Debug)]
+struct Ordinal31Tick46PointX { reference_before: PointXRun, held: PointXRun,
+    reference_after: PointXRun, difference: PointDifference }
+
+#[cfg(feature = "cartesian-recoil")]
+fn smart133_sha256(bytes: &[u8]) -> String {
+    const K: [u32; 64] = [
+        0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
+        0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
+        0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
+        0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
+        0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
+        0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
+        0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
+        0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2,
+    ];
+    let mut padded = bytes.to_vec(); let bit_len = (bytes.len() as u64) * 8;
+    padded.push(0x80); while padded.len() % 64 != 56 { padded.push(0); }
+    padded.extend_from_slice(&bit_len.to_be_bytes());
+    let mut h = [0x6a09e667u32,0xbb67ae85,0x3c6ef372,0xa54ff53a,
+                 0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];
+    for chunk in padded.chunks_exact(64) {
+        let mut w = [0u32; 64];
+        for (at, word) in chunk.chunks_exact(4).enumerate() {
+            w[at] = u32::from_be_bytes([word[0],word[1],word[2],word[3]]);
+        }
+        for at in 16..64 {
+            let s0 = w[at-15].rotate_right(7) ^ w[at-15].rotate_right(18) ^ (w[at-15] >> 3);
+            let s1 = w[at-2].rotate_right(17) ^ w[at-2].rotate_right(19) ^ (w[at-2] >> 10);
+            w[at] = w[at-16].wrapping_add(s0).wrapping_add(w[at-7]).wrapping_add(s1);
+        }
+        let [mut a,mut b,mut c,mut d,mut e,mut f,mut g,mut hh] = h;
+        for at in 0..64 {
+            let s1=e.rotate_right(6)^e.rotate_right(11)^e.rotate_right(25);
+            let ch=(e&f)^(!e&g); let t1=hh.wrapping_add(s1).wrapping_add(ch)
+                .wrapping_add(K[at]).wrapping_add(w[at]);
+            let s0=a.rotate_right(2)^a.rotate_right(13)^a.rotate_right(22);
+            let maj=(a&b)^(a&c)^(b&c); let t2=s0.wrapping_add(maj);
+            hh=g; g=f; f=e; e=d.wrapping_add(t1); d=c; c=b; b=a; a=t1.wrapping_add(t2);
+        }
+        for (state, value) in h.iter_mut().zip([a,b,c,d,e,f,g,hh]) {
+            *state = state.wrapping_add(value);
+        }
+    }
+    h.iter().map(|word| format!("{word:08x}")).collect()
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn validate_point_trace(trace: &Ordinal31Tick46PointX) -> Result<(), String> {
+    let source_difference = first_pair_aabb_difference(&trace.reference_before.base.containing,
+        &trace.reference_before.base.aabb, &trace.held.base.containing, &trace.held.base.aabb)?;
+    let source = Ordinal31Tick46PairAabb { reference_before: trace.reference_before.base.clone(),
+        held: trace.held.base.clone(), reference_after: trace.reference_after.base.clone(),
+        difference: source_difference };
+    validate_pair_aabb_trace(&source).map_err(|_| "smart133-source-boundary-mismatch".to_string())?;
+    let source_bytes = render_tick46_pair_aabb(&source)
+        .map_err(|_| "smart133-source-boundary-mismatch".to_string())?;
+    if source_bytes.len() != 19_525 || source_bytes.lines().count() != 109
+        || smart133_sha256(source_bytes.as_bytes())
+            != "aeb7364bb8d93ba2ad907628c83819b43745d6b67281c9377cede1f6d817078a" {
+        return Err("smart133-source-boundary-mismatch".into());
+    }
+    for run in [&trace.reference_before, &trace.held, &trace.reference_after] {
+        validate_point_x(&run.base.containing, &run.base.aabb, &run.point)?;
+    }
+    if !trace.reference_before.base.equals_excluding_aabb(&trace.reference_after.base)
+        || trace.reference_before.base.aabb != trace.reference_after.base.aabb
+        || trace.reference_before.point != trace.reference_after.point {
+        return Err("smart133 reference brackets diverged".into());
+    }
+    let recomputed = first_point_difference(&trace.reference_before.point, &trace.held.point)?;
+    if recomputed != trace.difference { return Err("smart133-incomplete-operand-transcript".into()); }
+    Ok(())
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn build_ordinal_31_tick46_point_x() -> Result<Ordinal31Tick46PointX, String> {
+    let run = |arm, effort| -> Result<PointXRun, String> {
+        let (base, point) = run_tick46_pair_aabb_arm(arm, effort,
+            PairAabbMutation::None, true)?;
+        Ok(PointXRun { base, point: point.ok_or("smart133 operand evidence was not copied")? })
+    };
+    let reference_before = run(ProvenanceArm::ReferenceBefore, Fx::ONE)?;
+    let held = run(ProvenanceArm::Held, Fx::ZERO)?;
+    let reference_after = run(ProvenanceArm::ReferenceAfter, Fx::ONE)?;
+    let source_difference = first_pair_aabb_difference(&reference_before.base.containing,
+        &reference_before.base.aabb, &held.base.containing, &held.base.aabb)?;
+    validate_pair_aabb_trace(&Ordinal31Tick46PairAabb {
+        reference_before: reference_before.base.clone(), held: held.base.clone(),
+        reference_after: reference_after.base.clone(), difference: source_difference,
+    }).map_err(|_| "smart133-source-boundary-mismatch".to_string())?;
+    for run in [&reference_before, &held, &reference_after] {
+        validate_point_x(&run.base.containing, &run.base.aabb, &run.point)?;
+    }
+    let difference = first_point_difference(&reference_before.point, &held.point)?;
+    let trace = Ordinal31Tick46PointX { reference_before, held, reference_after, difference };
+    validate_point_trace(&trace)?; Ok(trace)
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn point_role_name(value: ExactPointXEventRoleDiagnostic) -> &'static str { match value {
+    ExactPointXEventRoleDiagnostic::OperandCandidate => "operand_candidate",
+    ExactPointXEventRoleDiagnostic::DerivedWitness => "derived_witness",
+    ExactPointXEventRoleDiagnostic::Terminal => "terminal",
+} }
+#[cfg(feature = "cartesian-recoil")]
+fn point_scope_name(value: ExactPointXEventScopeDiagnostic) -> &'static str { match value {
+    ExactPointXEventScopeDiagnostic::Motor => "motor", ExactPointXEventScopeDiagnostic::Common => "common",
+    ExactPointXEventScopeDiagnostic::Combine => "combine", ExactPointXEventScopeDiagnostic::Held => "held",
+    ExactPointXEventScopeDiagnostic::Final => "final",
+} }
+#[cfg(feature = "cartesian-recoil")]
+fn point_field_name(value: ExactPointXEventFieldDiagnostic) -> &'static str { match value {
+    ExactPointXEventFieldDiagnostic::StartRaw => "start_raw", ExactPointXEventFieldDiagnostic::DeltaRaw => "delta_raw",
+    ExactPointXEventFieldDiagnostic::StepNumerator => "step_numerator", ExactPointXEventFieldDiagnostic::Value => "value",
+    ExactPointXEventFieldDiagnostic::Scale => "scale", ExactPointXEventFieldDiagnostic::AtGroupRaw => "at_group_raw",
+    ExactPointXEventFieldDiagnostic::AtGroupRemainder => "at_group_remainder",
+    ExactPointXEventFieldDiagnostic::RemainderDenominator => "remainder_denominator",
+    ExactPointXEventFieldDiagnostic::VelocityRaw => "velocity_raw", ExactPointXEventFieldDiagnostic::ScaledVelocity => "scaled_velocity",
+    ExactPointXEventFieldDiagnostic::MomentumRemainder => "momentum_remainder", ExactPointXEventFieldDiagnostic::Momentum => "momentum",
+    ExactPointXEventFieldDiagnostic::TravelTimeRaw => "travel_time_raw", ExactPointXEventFieldDiagnostic::TravelNumerator => "travel_numerator",
+    ExactPointXEventFieldDiagnostic::TravelDenominator => "travel_denominator", ExactPointXEventFieldDiagnostic::MassRaw => "mass_raw",
+    ExactPointXEventFieldDiagnostic::Terminal => "terminal",
+} }
+#[cfg(feature = "cartesian-recoil")]
+fn point_stage_name(value: ExactPointXEventStageDiagnostic) -> &'static str { match value {
+    ExactPointXEventStageDiagnostic::Input => "input", ExactPointXEventStageDiagnostic::Cast => "cast",
+    ExactPointXEventStageDiagnostic::Subtract => "subtract", ExactPointXEventStageDiagnostic::CheckedProduct => "checked_product",
+    ExactPointXEventStageDiagnostic::CheckedAdd => "checked_add", ExactPointXEventStageDiagnostic::RationalStart => "rational_start",
+    ExactPointXEventStageDiagnostic::RationalStep => "rational_step", ExactPointXEventStageDiagnostic::RationalPosition => "rational_position",
+    ExactPointXEventStageDiagnostic::RationalRemainder => "rational_remainder", ExactPointXEventStageDiagnostic::RationalTravel => "rational_travel",
+    ExactPointXEventStageDiagnostic::AddStartStep => "add_start_step",
+    ExactPointXEventStageDiagnostic::AddPositionRemainder => "add_position_remainder",
+    ExactPointXEventStageDiagnostic::AddTravel => "add_travel", ExactPointXEventStageDiagnostic::AddMotorCommon => "add_motor_common",
+    ExactPointXEventStageDiagnostic::AddAfterCommonHeld => "add_after_common_held",
+    ExactPointXEventStageDiagnostic::Terminal => "terminal",
+} }
+#[cfg(feature = "cartesian-recoil")]
+fn point_atom(value: &ExactPointXEventAtomDiagnostic) -> String { match value {
+    ExactPointXEventAtomDiagnostic::I32(value) => format!("i32:{value}"),
+    ExactPointXEventAtomDiagnostic::U32(value) => format!("u32:{value}"),
+    ExactPointXEventAtomDiagnostic::I128(value) => format!("i128:{value}"),
+    ExactPointXEventAtomDiagnostic::Wide(value) => format!("wide:{}", wide_atom(value)),
+    ExactPointXEventAtomDiagnostic::TerminalSuccess => "enum:success".into(),
+    ExactPointXEventAtomDiagnostic::TerminalReject(value) =>
+        format!("enum:reject:{}", scan_reject_name(*value)),
+} }
+
+#[cfg(feature = "cartesian-recoil")]
+fn render_tick46_point_x(trace: &Ordinal31Tick46PointX) -> Result<String, String> {
+    use core::fmt::Write;
+    validate_point_trace(trace)?;
+    let mut out = String::new();
+    writeln!(out, "smart133-ordinal31-tick46-segment-hilt-start-x-v1").unwrap();
+    writeln!(out, "descriptor ordinal=31 seed=0 mirrored=true target=brute offset_x_raw=-163840 offset_y_raw=0 fingerprint=3796840901852190123 chamber_ticks=28 strike_ticks=28 reach_raw=65536").unwrap();
+    writeln!(out, "smart132_source commit=02815f841a5831bd5747ffd813b1965f9ee73a01 sha256=aeb7364bb8d93ba2ad907628c83819b43745d6b67281c9377cede1f6d817078a bytes=19525 lines=109 first_scope=point first_field=point_x side=a point=0 source=segment_hilt region=none endpoint=start reference=+1:c0345d08/1:000013d7 held=+1:c2daa358/1:000013d7").unwrap();
+    let runs = [&trace.reference_before, &trace.held, &trace.reference_after];
+    for run in runs {
+        writeln!(out, "horizon run={} tick_after=46 solver_count={} solver_delta={} contact=false cap_hits=0 max_energy_excess_raw=0 requested_receipt={:016x} stored_receipt={:016x} replay_receipt={:016x} state_domain={} state_schema={} state_value={:016x}",
+            pair_run_name(run.base.arm), run.base.snapshot.solver_rejections, run.base.solver_delta,
+            run.base.requested_receipt, run.base.stored_receipt, run.base.replay_receipt,
+            hash_domain_name(run.base.snapshot.digest.domain), run.base.snapshot.digest.schema,
+            run.base.snapshot.digest.value).unwrap();
+    }
+    for run in runs {
+        let a = run.point.admission; let name = pair_run_name(run.base.arm);
+        writeln!(out, "admission run={} a_index=1 b_index=3 encounter_count=1 entity={} slot={} owner_index={} held_index={} held_slot={} held_spec={} side=a point=0 source=segment_hilt region=none endpoint=start axis=x time_raw={} common_group_time_raw={} held_group_time_raw={}",
+            name, entity_text(a.row_entity), a.row_slot, a.owner_index, a.held_index,
+            a.held_slot, a.held_spec, a.time_raw, a.common_group_time_raw,
+            a.held_group_time_raw).unwrap();
+        for row in &run.point.events {
+            writeln!(out, "event run={} ordinal={} role={} scope={} field={} stage={} atom={}",
+                name, row.ordinal, point_role_name(row.role), point_scope_name(row.scope),
+                point_field_name(row.field), point_stage_name(row.stage), point_atom(&row.atom)).unwrap();
+        }
+    }
+    let row = &trace.reference_before.point.events[trace.difference.ordinal as usize];
+    let atom_kind = match trace.difference.atom { PointAtomKind::I32 => "i32",
+        PointAtomKind::I128 => "i128", _ => return Err("smart133-incomplete-operand-transcript".into()) };
+    writeln!(out, "first_operand_difference role=operand_candidate scope={} field={} stage=input atom_kind={} reference={} held={}",
+        point_scope_name(row.scope), point_field_name(row.field), atom_kind,
+        point_atom(&trace.difference.reference), point_atom(&trace.difference.held)).unwrap();
+    writeln!(out, "source_boundary smart132_reference=+1:c0345d08/1:000013d7 smart132_held=+1:c2daa358/1:000013d7 reference_pair_result=reject:budget held_pair_result=pair_aabb_disjoint reference_regions=2 reference_visits=96 held_regions=0 held_visits=0").unwrap();
+    writeln!(out, "decision=diagnostic-only").unwrap();
+    if out.lines().count() != 138 || !out.ends_with('\n') || !out.is_ascii() {
+        return Err("smart133 artifact grammar/cardinality drifted".into());
+    }
+    Ok(out)
+}
+
+#[cfg(feature = "cartesian-recoil")]
+pub(crate) fn ordinal_31_tick_46_segment_hilt_start_x_artifact() -> Result<String, String> {
+    #[cfg(test)]
+    { return render_tick46_point_x(cached_ordinal_31_tick46_point_x()); }
+    #[cfg(not(test))]
+    build_ordinal_31_tick46_point_x().and_then(|trace| render_tick46_point_x(&trace))
+}
+
+#[cfg(all(feature = "cartesian-recoil", test))]
+fn independently_assembled_point(source: &PointXOwned) -> PointXOwned {
+    let specs = point_event_specs();
+    let mut events = Vec::with_capacity(specs.len());
+    for (ordinal, spec) in specs.into_iter().enumerate() {
+        let atom = source.events[ordinal].atom;
+        events.push(ExactPointXEventDiagnostic { ordinal: ordinal as u8, role: spec.role,
+            scope: spec.scope, field: spec.field, stage: spec.stage, atom });
+    }
+    PointXOwned { admission: source.admission, events, recorder_invalid: None }
+}
+
+#[cfg(all(feature = "cartesian-recoil", test))]
+fn independently_assembled_point_trace(source: &Ordinal31Tick46PointX) -> Ordinal31Tick46PointX {
+    let mut trace = source.clone();
+    trace.reference_before.point = independently_assembled_point(&source.reference_before.point);
+    trace.held.point = independently_assembled_point(&source.held.point);
+    trace.reference_after.point = independently_assembled_point(&source.reference_after.point);
+    trace.difference = first_point_difference(&trace.reference_before.point, &trace.held.point)
+        .expect("independent fixture must retain the frozen candidate difference");
+    trace
+}
+
+#[cfg(all(feature = "cartesian-recoil", test))]
+fn independently_rendered_point_artifact(trace: &Ordinal31Tick46PointX) -> String {
+    use core::fmt::Write;
+    let mut out = String::new();
+    writeln!(out, "smart133-ordinal31-tick46-segment-hilt-start-x-v1").unwrap();
+    writeln!(out, "descriptor ordinal=31 seed=0 mirrored=true target=brute offset_x_raw=-163840 offset_y_raw=0 fingerprint=3796840901852190123 chamber_ticks=28 strike_ticks=28 reach_raw=65536").unwrap();
+    writeln!(out, "smart132_source commit=02815f841a5831bd5747ffd813b1965f9ee73a01 sha256=aeb7364bb8d93ba2ad907628c83819b43745d6b67281c9377cede1f6d817078a bytes=19525 lines=109 first_scope=point first_field=point_x side=a point=0 source=segment_hilt region=none endpoint=start reference=+1:c0345d08/1:000013d7 held=+1:c2daa358/1:000013d7").unwrap();
+    let runs = [&trace.reference_before, &trace.held, &trace.reference_after];
+    for run in runs { writeln!(out, "horizon run={} tick_after=46 solver_count={} solver_delta={} contact=false cap_hits=0 max_energy_excess_raw=0 requested_receipt={:016x} stored_receipt={:016x} replay_receipt={:016x} state_domain={} state_schema={} state_value={:016x}",
+        pair_run_name(run.base.arm), run.base.snapshot.solver_rejections, run.base.solver_delta,
+        run.base.requested_receipt, run.base.stored_receipt, run.base.replay_receipt,
+        hash_domain_name(run.base.snapshot.digest.domain), run.base.snapshot.digest.schema,
+        run.base.snapshot.digest.value).unwrap(); }
+    for run in runs {
+        let a = run.point.admission; let name = pair_run_name(run.base.arm);
+        writeln!(out, "admission run={} a_index=1 b_index=3 encounter_count=1 entity={} slot={} owner_index={} held_index={} held_slot={} held_spec={} side=a point=0 source=segment_hilt region=none endpoint=start axis=x time_raw={} common_group_time_raw={} held_group_time_raw={}",
+            name, entity_text(a.row_entity), a.row_slot, a.owner_index, a.held_index,
+            a.held_slot, a.held_spec, a.time_raw, a.common_group_time_raw,
+            a.held_group_time_raw).unwrap();
+        for row in &run.point.events { writeln!(out,
+            "event run={} ordinal={} role={} scope={} field={} stage={} atom={}", name,
+            row.ordinal, point_role_name(row.role), point_scope_name(row.scope),
+            point_field_name(row.field), point_stage_name(row.stage), point_atom(&row.atom)).unwrap(); }
+    }
+    let row = &trace.reference_before.point.events[trace.difference.ordinal as usize];
+    let atom_kind = match trace.difference.atom { PointAtomKind::I32 => "i32",
+        PointAtomKind::I128 => "i128", _ => unreachable!() };
+    writeln!(out, "first_operand_difference role=operand_candidate scope={} field={} stage=input atom_kind={} reference={} held={}",
+        point_scope_name(row.scope), point_field_name(row.field), atom_kind,
+        point_atom(&trace.difference.reference), point_atom(&trace.difference.held)).unwrap();
+    writeln!(out, "source_boundary smart132_reference=+1:c0345d08/1:000013d7 smart132_held=+1:c2daa358/1:000013d7 reference_pair_result=reject:budget held_pair_result=pair_aabb_disjoint reference_regions=2 reference_visits=96 held_regions=0 held_visits=0").unwrap();
+    writeln!(out, "decision=diagnostic-only").unwrap();
+    out
+}
+
+#[cfg(all(feature = "cartesian-recoil", test))]
+fn cached_ordinal_31_tick46_point_x() -> &'static Ordinal31Tick46PointX {
+    static TRACE: std::sync::OnceLock<Ordinal31Tick46PointX> = std::sync::OnceLock::new();
+    TRACE.get_or_init(|| build_ordinal_31_tick46_point_x()
+        .expect("the frozen Smart133 trace must validate"))
+}
+
+#[cfg(all(feature = "cartesian-recoil", test))]
+fn point_mutation_receipt() -> &'static std::sync::atomic::AtomicU64 {
+    static FIRED: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0); &FIRED
+}
+
+#[cfg(all(feature = "cartesian-recoil", test))]
+fn fire_point_mutation(bit: usize) {
+    point_mutation_receipt().fetch_or(1u64 << bit, std::sync::atomic::Ordering::SeqCst);
+}
+
+#[cfg(all(feature = "cartesian-recoil", test))]
+fn point_mutation_fired(bit: usize) -> bool {
+    point_mutation_receipt().load(std::sync::atomic::Ordering::SeqCst) & (1u64 << bit) != 0
 }
 
 pub(crate) fn measure(strike_effort: Fx) -> StrikeMeasurement {
@@ -5078,11 +5812,11 @@ decision=diagnostic-only\n";
         assert_eq!(trace.reference_before.aabb.terminal, ExactPairAabbTerminalDiagnostic::Overlap);
         assert_eq!(trace.held.aabb.terminal, ExactPairAabbTerminalDiagnostic::Disjoint);
         let wrong = run_tick46_pair_aabb_arm(ProvenanceArm::Held, Fx::ZERO,
-            PairAabbMutation::WrongTarget).expect_err("the wrong target must not satisfy admission");
+            PairAabbMutation::WrongTarget, false).expect_err("the wrong target must not satisfy admission");
         assert!(pair_aabb_mutation_fired(PairAabbMutation::WrongTarget));
         assert!(wrong.contains("encounter count was 0"), "{wrong}");
         let next = run_tick46_pair_aabb_arm(ProvenanceArm::Held, Fx::ZERO,
-            PairAabbMutation::NextPair).expect_err("the next real pair must not satisfy admission");
+            PairAabbMutation::NextPair, false).expect_err("the next real pair must not satisfy admission");
         assert!(pair_aabb_mutation_fired(PairAabbMutation::NextPair));
         assert!(next.contains("target identity drifted"), "{next}");
     }
@@ -5095,7 +5829,7 @@ decision=diagnostic-only\n";
             assert_eq!(run.rows.len(), 46); assert_eq!(run.rows.last().unwrap().tick, 45);
         }
         let error = run_tick46_pair_aabb_arm(ProvenanceArm::Held, Fx::ZERO,
-            PairAabbMutation::Horizon47).expect_err("horizon 47 must be refused");
+            PairAabbMutation::Horizon47, false).expect_err("horizon 47 must be refused");
         assert!(pair_aabb_mutation_fired(PairAabbMutation::Horizon47));
         assert!(error.contains("only diagnostic horizon"), "{error}");
     }
@@ -5133,7 +5867,7 @@ decision=diagnostic-only\n";
         }
         for mutation in [PairAabbMutation::RemoveReplaySubmission,
                          PairAabbMutation::ReorderReplaySubmission] {
-            let error = run_tick46_pair_aabb_arm(ProvenanceArm::Held, Fx::ZERO, mutation)
+            let error = run_tick46_pair_aabb_arm(ProvenanceArm::Held, Fx::ZERO, mutation, false)
                 .expect_err("damaging the actual Replay must fail its independent vector");
             assert!(pair_aabb_mutation_fired(mutation));
             assert!(error.contains("missing or reordered"), "{error}");
@@ -5366,5 +6100,151 @@ decision=diagnostic-only\n";
                     trace.held.aabb.clone()
                 } else { trace.reference_before.aabb.clone() });
         }
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn ordinal_31_tick_46_segment_hilt_start_x_reproduces_the_smart132_boundary() {
+        let trace = cached_ordinal_31_tick46_point_x(); validate_point_trace(trace).unwrap();
+        assert_eq!(wide_atom(&trace.reference_before.base.aabb.points[0].coordinate[0]),
+                   "+1:c0345d08/1:000013d7");
+        assert_eq!(wide_atom(&trace.held.base.aabb.points[0].coordinate[0]),
+                   "+1:c2daa358/1:000013d7");
+        assert_eq!((trace.reference_before.base.containing.region_count,
+                    trace.reference_before.base.containing.visit_count,
+                    trace.held.base.containing.region_count,
+                    trace.held.base.containing.visit_count), (2, 96, 0, 0));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn ordinal_31_tick_46_segment_hilt_start_x_is_the_only_diagnostic_horizon() {
+        for run in [&cached_ordinal_31_tick46_point_x().reference_before,
+                    &cached_ordinal_31_tick46_point_x().held,
+                    &cached_ordinal_31_tick46_point_x().reference_after] {
+            assert_eq!((run.base.rows.len(), run.base.rows.last().unwrap().tick,
+                        run.point.events.len()), (46, 45, 42));
+        }
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn ordinal_31_tick_46_segment_hilt_start_x_reference_brackets_match() {
+        let trace = cached_ordinal_31_tick46_point_x();
+        assert!(trace.reference_before.base.equals_excluding_aabb(&trace.reference_after.base));
+        assert_eq!(trace.reference_before.base.aabb, trace.reference_after.base.aabb);
+        assert_eq!(trace.reference_before.point, trace.reference_after.point);
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn ordinal_31_tick_46_segment_hilt_start_x_live_rerun_and_single_replay_match() {
+        for run in [&cached_ordinal_31_tick46_point_x().reference_before,
+                    &cached_ordinal_31_tick46_point_x().held,
+                    &cached_ordinal_31_tick46_point_x().reference_after] {
+            assert_eq!(run.base.requested_receipt, run.base.stored_receipt);
+            assert_eq!(run.base.stored_receipt, run.base.replay_receipt);
+        }
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn ordinal_31_tick_46_segment_hilt_start_x_names_the_first_operand_difference() {
+        let trace = cached_ordinal_31_tick46_point_x(); assert_eq!(trace.difference.ordinal, 0);
+        let artifact = render_tick46_point_x(trace).unwrap();
+        assert!(artifact.contains(
+            "first_operand_difference role=operand_candidate scope=motor field=start_raw stage=input atom_kind=i32 "));
+        let independent = independently_assembled_point_trace(trace);
+        for (source, rebuilt) in trace.reference_before.point.events.iter()
+            .zip(&independent.reference_before.point.events) {
+            assert_eq!(source, rebuilt, "independent witness differs at ordinal {}", source.ordinal);
+        }
+        for run in [&independent.reference_before, &independent.held, &independent.reference_after] {
+            validate_point_x(&run.base.containing, &run.base.aabb, &run.point)
+                .unwrap_or_else(|error| panic!("independent {:?}: {error}", run.base.arm));
+        }
+        validate_point_trace(&independent).unwrap();
+        let expected = independently_rendered_point_artifact(&independent);
+        assert_eq!(expected.lines().count(), 138);
+        assert_eq!(artifact.as_bytes(), expected.as_bytes(),
+            "the complete typed three-arm fixture is one exact 138-line ASCII snapshot");
+        for (ordinal, spec) in point_event_specs().into_iter().enumerate() {
+            let atom = match spec.atom { PointAtomKind::I32 => "i32:", PointAtomKind::U32 => "u32:",
+                PointAtomKind::I128 => "i128:", PointAtomKind::Wide => "wide:",
+                PointAtomKind::Success => "enum:success" };
+            assert!(expected.contains(&format!(
+                "event run=reference_before ordinal={ordinal} role={} scope={} field={} stage={} atom={atom}",
+                point_role_name(spec.role), point_scope_name(spec.scope),
+                point_field_name(spec.field), point_stage_name(spec.stage))));
+        }
+        let candidates = [0usize, 2, 6, 7, 9, 12, 14, 23, 25, 27, 30, 32];
+        for (candidate_index, &at) in candidates.iter().enumerate() {
+            for all_later in [false, true] {
+                let mut changed = trace.reference_before.point.clone();
+                for &ordinal in candidates.iter().filter(|&&ordinal|
+                    ordinal == at || (all_later && ordinal > at)) {
+                    match &mut changed.events[ordinal].atom {
+                        ExactPointXEventAtomDiagnostic::I32(value) => {
+                            let replacement = if ordinal == 23 { if *value == 1 { 2 } else { 1 } }
+                                else if *value == 0 { 1 } else { 0 };
+                            *value = replacement;
+                        }
+                        ExactPointXEventAtomDiagnostic::I128(value) => {
+                            let replacement = if ordinal == 6 { if *value == 1 { 2 } else { 1 } }
+                                else if *value == 0 { 1 } else { 0 };
+                            *value = replacement;
+                        }
+                        _ => panic!("candidate fixture used a non-scalar atom"),
+                    }
+                }
+                recompute_point_witnesses(&mut changed).unwrap_or_else(|error| panic!(
+                    "candidate recompute {at} all_later={all_later}: {error}"));
+                let receipt_bit = if all_later { 12 + candidate_index } else { candidate_index };
+                fire_point_mutation(receipt_bit);
+                let mut changed_aabb = trace.reference_before.base.aabb.clone();
+                changed_aabb.points[0].coordinate[0] = match changed.events[40].atom {
+                    ExactPointXEventAtomDiagnostic::Wide(value) => value,
+                    _ => unreachable!(),
+                };
+                validate_point_x(&trace.reference_before.base.containing, &changed_aabb,
+                                 &changed).unwrap_or_else(|error| panic!(
+                    "candidate {at} all_later={all_later}: {error}"));
+                let difference = first_point_difference(&trace.reference_before.point,
+                                                        &changed).unwrap();
+                assert_eq!(difference.ordinal as usize, at);
+                assert!(point_mutation_fired(receipt_bit));
+            }
+        }
+        for (witness_index, at) in [1usize, 3, 4, 5, 8, 10, 11, 13, 15, 16, 17, 18, 19, 20,
+                   21, 22, 24, 26, 28, 29, 31, 33, 34, 35, 36, 37, 38, 39, 40]
+                   .into_iter().enumerate() {
+            let mut damaged = trace.clone();
+            match &mut damaged.held.point.events[at].atom {
+                ExactPointXEventAtomDiagnostic::I128(value) => *value = value.wrapping_add(1),
+                ExactPointXEventAtomDiagnostic::U32(value) => *value = value.wrapping_add(1),
+                ExactPointXEventAtomDiagnostic::Wide(value) => value.numerator.limbs[0] ^= 1,
+                _ => panic!("derived fixture used a non-derived atom"),
+            }
+            fire_point_mutation(24 + witness_index);
+            assert_eq!(validate_point_trace(&damaged).unwrap_err(),
+                       "smart133-incomplete-operand-transcript");
+            assert!(point_mutation_fired(24 + witness_index));
+        }
+        let mut stale = trace.clone(); stale.difference.ordinal = 2;
+        assert_eq!(validate_point_trace(&stale).unwrap_err(),
+                   "smart133-incomplete-operand-transcript");
+        let mut huge = ExactWideRationalDiagnostic {
+            numerator: ExactWideWordDiagnostic { negative: false, used: 5, limbs: [0; 128] },
+            denominator: ExactWideWordDiagnostic { negative: false, used: 1, limbs: [0; 128] },
+        };
+        huge.numerator.limbs[4] = 1; huge.denominator.limbs[0] = 1;
+        let mut doubled = huge; doubled.numerator.limbs[4] = 2;
+        assert!(wide_add_is(&huge, &huge, &doubled).unwrap(),
+            "independent witness validation must not narrow a five-limb word to i128");
+        assert_eq!(smart133_sha256(b"abc"),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+        let mut short = trace.reference_before.point.clone(); short.events.pop();
+        assert_eq!(first_point_difference(&short, &trace.held.point).unwrap_err(),
+                   "smart133-incomplete-operand-transcript");
     }
 }
