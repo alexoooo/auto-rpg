@@ -43,7 +43,8 @@ so the contact rows cannot support a competence claim. Worst body-decision tick 
 zero. Command receipts were canonical `0x5e7de3dce75ff4ce` and mirrored
 `0x0bc82fd274009158`; wall time was 181,143 ms and the final decision was `revise`.
 No stdout log/SHA was retained. The threshold and selected schedule remain frozen;
-the next work is first-rejection provenance, not retuning or Arena promotion.
+at that stop the next work was first-rejection provenance, not retuning or Arena
+promotion. The subsequent provenance sessions below supersede that handoff.
 
 Smart106 then captured the first seed-0 rejection in both orientations without an
 extra decision or step. Canonical refuses across tick `210 -> 211` on collider pair

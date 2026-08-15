@@ -806,8 +806,9 @@ matched Tactical/control rerun followed, only if it warrants one, by the unchang
 95/100 held-out competence gate. That rerun has since stopped structurally in Smart128;
 Smart129 found controlled-arm count asymmetry, and Smart130 localized its earliest row
 to a tick-46 reference first rejected segment/body scan pair returning `budget` while held's public
-rejected-pair diagnostic was absent, without establishing causality. The active
-successor is the frozen region/visit transcript
-diagnosis recorded in the
-[matched Tactical evidence](smart-ai-matched-tactical.md#frozen-ordinal-31-arm-provenance),
+rejected-pair diagnostic was absent, without establishing causality. Smart131's
+bounded transcript found reference entering two regions and held exiting at the
+pair-AABB control with zero. The active successor is the frozen swept-AABB
+operand/axis diagnosis recorded in the
+[matched Tactical evidence](smart-ai-matched-tactical.md#frozen-ordinal-31-tick-46-pair-transcript),
 not held-out competence, budget widening or a mechanics correction.

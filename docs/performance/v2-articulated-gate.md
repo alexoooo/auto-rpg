@@ -154,7 +154,9 @@ part of this order, not the failed representative corpus or its invalid threshol
 Ordinary matched Tactical evidence has since stopped structurally. Smart130 localized
 the earliest controlled-arm solver-count difference to tick 46, where the reference
 first rejected segment/body scan pair reports `budget` and held's public rejected-pair diagnostic is
-absent; this is neither a contact-cap hit nor a causal mechanics result. The next work is only the frozen
-[region/visit transcript diagnosis](smart-ai-matched-tactical.md#frozen-ordinal-31-arm-provenance).
+absent; this is neither a contact-cap hit nor a causal mechanics result. Smart131 then
+found the earlier bounded-path distinction: reference entered two region rows while
+held exited `pair_aabb_disjoint` with none. The next work is only the frozen
+[pair-AABB operand/control diagnosis](smart-ai-matched-tactical.md#frozen-ordinal-31-tick-46-pair-transcript).
 A revised full gate still needs declared criteria, its own artifacts and visible review
 before `ARTICULATED_HASH` can exist.

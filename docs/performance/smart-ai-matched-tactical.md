@@ -167,9 +167,8 @@ a mechanics change.
 
 The held-out stationary range and moving 100-fight competence gate were not run. No
 registered hash moved, `ARTICULATED_HASH` remains absent, and neither feature
-promotion nor training is authorized. The next work is a separately planned diagnosis
-of the frozen missing/crossing, held/reference solver and Tactical attribution
-failures; it is not tuning against these 900 rows.
+promotion nor training is authorized. The separately planned diagnosis of the frozen
+held/reference solver counts follows; it is not tuning against these 900 rows.
 
 ## Frozen shared-solver diagnosis
 
@@ -219,11 +218,9 @@ different rejection counts on nine rows. The arms also differ in commanded effor
 but this offline count comparison does not establish that effort caused the
 difference, identify a first rejection, or authorize a mechanics change.
 
-The next work is a separately preregistered arm-asymmetry provenance session beginning
-at earliest canonical mismatch ordinal 31. It must name the first held/reference
-divergence before proposing any correction. Smart129 performed no instrumentation,
-mechanics or policy change, Tactical tuning, held-out run or moving competence gate.
-No registered pin moved.
+That successor has now been completed through the pair-level control boundary recorded
+below. Smart129 itself performed no instrumentation, mechanics or policy change,
+Tactical tuning, held-out run or moving competence gate. No registered pin moved.
 
 ## Frozen ordinal-31 arm provenance
 
@@ -275,7 +272,71 @@ timeout, a demonstrated defect or permission to widen the 96-visit bound.
 The preregistered Smart130 decision is a solver-delta/count boundary at tick 46. It
 does not establish that the effort difference at tick 36 caused the state difference
 at tick 37 or the later solver difference, and it does not identify which bounded
-segment/body region or visit exhausted the scan. The only authorized successor is a
-separately preregistered diagnosis of that frozen tick-46 pair and its scan-budget
-transcript. No mechanics change, budget widening, Tactical tuning, held-out run,
-competence gate, feature promotion, training or registered-pin movement is authorized.
+segment/body region or visit exhausted the scan. Smart131 performed the separately
+preregistered diagnosis of that frozen pair; its result follows. No mechanics change,
+budget widening, Tactical tuning, held-out run, competence gate, feature promotion,
+training or registered-pin movement was authorized.
+
+## Frozen ordinal-31 tick-46 pair transcript
+
+Smart131 ran from clean source commit
+`315cf8a989b0d3d32bd9be33f7da8ad13ae715a3`. The two fixed commands were:
+
+```powershell
+cargo run --release -p lab --features cartesian-recoil -- tactical-mechanics --ordinal-31-tick-46-scan --write target/smart131-ordinal31-tick46-A.txt
+cargo run --release -p lab --features cartesian-recoil -- tactical-mechanics --ordinal-31-tick-46-scan --write target/smart131-ordinal31-tick46-B.txt
+```
+
+A exited zero in `110.230` seconds, including a `33.40`-second release build; B
+exited zero in `74.502` seconds against the built binary. Both program stdout streams
+were empty. Cargo's warnings and build/run status were the only stderr. The artifacts
+are byte-identical ASCII, LF-only and final-newline-terminated: `18,433` bytes,
+`208` lines and SHA-256
+`8ba428ecace7dba5f281c879c8ceaec907d8b5f9a504f67fc8d28b53811bde7e`.
+Neither sibling temporary remained. Their grammar is
+`smart131-ordinal31-tick46-scan-budget-v1`; its line count closes exactly as
+`12 + 4 region rows + 192 visit rows = 208`.
+
+The descriptor and inherited boundary are unchanged: ordinal `31`, seed `0`, mirrored
+`true`, target `Brute`, offset raw `(-163840,0)`, fingerprint
+`3796840901852190123`, chamber/strike `28/28`, reach raw `65536`; first command,
+state and solver-boundary ticks `36/37/46`; reference delta/count `1/7` and held
+`0/6`. The artifact carries Smart130's source SHA-256
+`9369e84bd9913b66d303df81f911c5fa3b96ff2ad5b4af38635f0f5d43421731`.
+
+| run | solver delta/count | requested = stored = replay receipt | state digest | pair result | regions / visits |
+|---|---:|---|---|---|---:|
+| reference before | `1 / 7` | `68380c01b08a4bba` | `articulated_v1:1:b103c18d16641a9f` | `reject:budget` | `2 / 96` |
+| held | `0 / 6` | `f1cbac3ada86d1b5` | `articulated_v1:1:602273fa3b8cc80c` | `pair_aabb_disjoint` | `0 / 0` |
+| reference after | `1 / 7` | `68380c01b08a4bba` | `articulated_v1:1:b103c18d16641a9f` | `reject:budget` | `2 / 96` |
+
+All three horizons are post-step tick `46`, with no attributed contact, zero cap hits
+and zero positive energy excess. Every run encountered the frozen pair exactly once:
+indexes `1:3`, Hero `0:0` slot `1` owner `0` against Brute `1:0` body slot `255`
+owner `1`, `weapon_body`, segment/body orientation, group time raw `0`, and supported
+pair AABB. Reference's pair AABB was not disjoint. Region `0` was AABB-disjoint with
+no visits; region `1` had speed
+`736076486784412761/9971550049295597568`, retained all `96` visits and terminated
+`reject:budget`. Its first visit was time raw `0`, safe step raw `4088`; its last was
+time raw `45901`, safe step raw `2`. The reference-after block is identical. Held's
+pair AABB was disjoint, so it produced no region or visit row and returned
+`pair_aabb_disjoint`.
+
+The registered first difference is exactly:
+
+```text
+first_transcript_difference scope=aabb_control field=pair_region_count region=none visit=none reference=2 held=0
+```
+
+The source boundary still names reference's first rejected pair as
+`1:3:0:0:1:1:0:255:weapon_body:segment_body:budget`, held's as `none`, and both
+completed group counts as zero. The artifact decision is `diagnostic-only`.
+
+This localizes the differing path before any shared region or visit comparison. It
+does not show that tick-36 effort caused the pair AABBs to differ, prove either arm
+wrong, or make the reference budget a defect. The only authorized successor is a
+separately preregistered transcript of the frozen pair's swept-AABB inputs, bounds,
+gaps and actual axis early exit. It may name the first differing control operand; it
+may not widen the 96-visit bound, change contact mechanics, tune Tactical, inspect
+held-out rows, run the competence gate, train or promote the feature. No registered
+pin moved.

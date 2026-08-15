@@ -8,6 +8,8 @@ documentation is complete. Smart128's matched stationary calibration stopped wit
 688/900 structural failures. Smart129 found identical held/reference solver-positive
 sets but unequal per-row rejection counts on nine mirrored rows. Smart130 localized
 the first unequal count to a common-prefix tick-46 segment/body scan-budget boundary.
+Smart131 found the bounded path diverges earlier inside that pair: reference enters
+two region rows while held exits at the pair swept-AABB control with zero.
 Generalized Tactical competence remains below gate.
 
 This topic began with an Arena fight in which learned and tactical fighters moved but
@@ -69,6 +71,15 @@ live in [combat design](../design/combat.md).
   diagnostic, and both group
   counts were zero. The byte-identical receipts and noncausal boundary are in the
   [ordinal-31 provenance record](../performance/smart-ai-matched-tactical.md#frozen-ordinal-31-arm-provenance).
+- Smart131 reproduced the same tick-46 bracket from source commit
+  `315cf8a989b0d3d32bd9be33f7da8ad13ae715a3`, with
+  byte-identical A/B artifacts of `18,433` bytes, `208` lines and SHA-256
+  `8ba428ecace7dba5f281c879c8ceaec907d8b5f9a504f67fc8d28b53811bde7e`.
+  Reference entered regions `0` and `1` and retained `96` visits before `budget`;
+  held returned `pair_aabb_disjoint` with zero regions and visits. Its registered
+  first difference is `scope=aabb_control field=pair_region_count reference=2 held=0`,
+  a diagnostic boundary rather than a cause or correction. The full receipt is in the
+  [tick-46 pair transcript](../performance/smart-ai-matched-tactical.md#frozen-ordinal-31-tick-46-pair-transcript).
 - All exact mechanics remain behind the opt-in, non-default `cartesian-recoil`
   feature. No exact-path default authority, `ARTICULATED_HASH`, training promotion,
   or v2-18 rig work is authorized. These retained results are committed behind the
@@ -98,14 +109,16 @@ difference, and tick 46 is the first solver delta/count difference. At tick 46 t
 reference first rejected segment/body scan pair reports `budget`, held reports no
 rejected-pair diagnostic and
 both group counts are zero. This is not a causal chain, and scan `budget` is not the
-zero contact-cap counter. The active
-[Smart131 plan](smart-ai-131-ordinal-31-tick-46-scan-budget.md) freezes that exact pair
-and asks which bounded region/visit transcript first differs. It proposes no correction.
+zero contact-cap counter. Smart131 froze that exact pair and found the first bounded
+transcript difference before any comparable region/visit row: reference entered two
+regions, while held's swept pair AABB was disjoint and entered none. The active
+[Smart132 plan](smart-ai-132-ordinal-31-tick-46-pair-aabb-control.md) asks only which
+pair-AABB operand or actual axis comparison first differs. It proposes no correction.
 
 ## Next-session order
 
-1. Execute [Smart131](smart-ai-131-ordinal-31-tick-46-scan-budget.md), the bounded
-   region/visit transcript diagnosis for Smart130's frozen tick-46 segment/body pair.
+1. Execute [Smart132](smart-ai-132-ordinal-31-tick-46-pair-aabb-control.md), the
+   swept-AABB operand and actual axis-early-exit diagnosis for Smart131's frozen pair.
    Do not widen the 96-visit budget, infer causality from ticks 36/37/46, tune against
    the calibration or choose another descriptor. The moving baseline remains `21/100`
    strict and `55/100` outcome-only; Smart125's attempted correction fell to `49/100`
