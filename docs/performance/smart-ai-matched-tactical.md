@@ -5,8 +5,9 @@
 **Canonical source:** `crates/lab/src/tactical_mechanics.rs` and `crates/lab/src/strong_strike.rs`.
 **Update when:** The strong reference, tactical controller, matched scenarios, or contact-to-anatomy waterfall changes.
 
-**Measured:** 2026-08-12 under default mechanics; rerun 2026-08-14 under
-`cartesian-recoil`, native MSVC x86-64 Windows release build.
+**Measured:** 2026-08-12 under default mechanics; rerun 2026-08-14 and ordinal-31
+provenance 2026-08-15 under `cartesian-recoil`, native MSVC x86-64 Windows release
+build.
 
 ## Method
 
@@ -223,3 +224,58 @@ at earliest canonical mismatch ordinal 31. It must name the first held/reference
 divergence before proposing any correction. Smart129 performed no instrumentation,
 mechanics or policy change, Tactical tuning, held-out run or moving competence gate.
 No registered pin moved.
+
+## Frozen ordinal-31 arm provenance
+
+Smart130 traced only Smart129's earliest unequal-count descriptor: ordinal `31`, seed
+`0`, mirrored `true`, target `Brute`, approach offset raw `(-163840,0)`, scenario
+fingerprint `3796840901852190123`. The unchanged source authority was
+`e7b09120ca0974267e1d4ca04261922453cea30f`; the timeout-only documentation descendant
+used for evidence was `d5aa344506627ee84c2083a37ce94117e4fa06dc` and has no source,
+tool or manifest difference from that authority.
+
+The first A attempt reached its original 600.073-second wrapper limit with exit `124`,
+no program decision, no final or temporary artifact, and no B run. That was an
+operational non-result. The final preregistered 1,800-second A and B commands were:
+
+```powershell
+cargo run --release -p lab --features cartesian-recoil -- tactical-mechanics --ordinal-31-provenance --write target/smart130-ordinal31-A.txt
+cargo run --release -p lab --features cartesian-recoil -- tactical-mechanics --ordinal-31-provenance --write target/smart130-ordinal31-B.txt
+```
+
+A exited zero in 1,365.6 seconds and B exited zero in 1,366.8 seconds. Their artifacts
+are byte-identical ASCII, LF-only and final-newline-terminated: 812,295 bytes, 9,837 lines, SHA-256
+`9369e84bd9913b66d303df81f911c5fa3b96ff2ad5b4af38635f0f5d43421731`.
+Neither sibling temporary remained. Both reproduce the reference/held/reference
+bracket exactly:
+
+| run | solver rejections | attributed contact | terminal tick | refusal / cap / energy excess |
+|---|---:|---|---:|---:|
+| reference before | 7 | yes | 47 | 0 / 0 / 0 |
+| held | 6 | no | 56 | 0 / 0 / 0 |
+| reference after | 7 | yes | 47 | 0 / 0 / 0 |
+
+The strike phase begins at tick 28, but the attacker is not pending on ticks 28--35.
+The first requested and stored command difference is therefore tick 36, where only
+the attacker's right-arm effort changes from raw `65536` to `0`. The first state-digest
+difference is tick 37. The preregistered common-prefix boundary is post-step tick 46,
+while both arms remain active and before either has attributed contact: reference has
+solver delta `1` and cumulative count `7`; held has delta `0` and cumulative count `6`.
+
+The focused tick-46 diagnostics must be read with their lifetimes intact. Both arms'
+`first_exact_contact_rejection` are cumulative rows naming tick 1, phase `solve_group`,
+cause `exact_solver`, and key `0:0:1:1:0:255:weapon_body`; they are not the tick-46
+event. At tick 46 the reference's tick-local first rejected scan pair is segment/body,
+`a_index=1`, `b_index=3`, Hero `0:0` slot `1` against Brute `1:0` body slot `255`,
+and it rejects with `budget`. Held has no tick-local scan-pair rejection. Both arms
+publish zero completed group diagnostics. `budget` here is the bounded segment/body
+scan result; it is not `contact_cap_hits`, which remains zero, the earlier wrapper
+timeout, a demonstrated defect or permission to widen the 96-visit bound.
+
+The preregistered Smart130 decision is a solver-delta/count boundary at tick 46. It
+does not establish that the effort difference at tick 36 caused the state difference
+at tick 37 or the later solver difference, and it does not identify which bounded
+segment/body region or visit exhausted the scan. The only authorized successor is a
+separately preregistered diagnosis of that frozen tick-46 pair and its scan-budget
+transcript. No mechanics change, budget widening, Tactical tuning, held-out run,
+competence gate, feature promotion, training or registered-pin movement is authorized.

@@ -803,4 +803,11 @@ re-record rules now live in the canonical solver and hash references. That
 closes exact-contact authority documentation; it does not promote the feature or
 establish generalized Tactical competence. The next evidence boundary is an ordinary
 matched Tactical/control rerun followed, only if it warrants one, by the unchanged
-95/100 held-out competence gate.
+95/100 held-out competence gate. That rerun has since stopped structurally in Smart128;
+Smart129 found controlled-arm count asymmetry, and Smart130 localized its earliest row
+to a tick-46 reference first rejected segment/body scan pair returning `budget` while held's public
+rejected-pair diagnostic was absent, without establishing causality. The active
+successor is the frozen region/visit transcript
+diagnosis recorded in the
+[matched Tactical evidence](smart-ai-matched-tactical.md#frozen-ordinal-31-arm-provenance),
+not held-out competence, budget widening or a mechanics correction.

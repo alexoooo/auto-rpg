@@ -6,8 +6,9 @@ trajectory transcript at `0x83051e8c6b4ef20f`, and Smart123 registered the
 terminal source-41 solver corpus at `0x83cd7bb2b73aeb9e`. Their canonical authority
 documentation is complete. Smart128's matched stationary calibration stopped with
 688/900 structural failures. Smart129 found identical held/reference solver-positive
-sets but unequal per-row rejection counts on nine mirrored rows. Generalized Tactical
-competence remains below gate.
+sets but unequal per-row rejection counts on nine mirrored rows. Smart130 localized
+the first unequal count to a common-prefix tick-46 segment/body scan-budget boundary.
+Generalized Tactical competence remains below gate.
 
 This topic began with an Arena fight in which learned and tactical fighters moved but
 rarely produced useful attacks. The UI truth problem was repaired and intentional
@@ -61,6 +62,13 @@ live in [combat design](../design/combat.md).
   zero positive in only one arm, and nine mirrored rows with unequal positive counts.
   The decision is `controlled-arm-solver-asymmetry`, not a causal or tuning result;
   its receipts are in the [shared-solver diagnosis](../performance/smart-ai-matched-tactical.md#frozen-shared-solver-diagnosis).
+- Smart130 reproduced ordinal 31 as reference/held/reference `7/6/7`, with first
+  effort-only input difference at tick 36, first state difference at tick 37 and the
+  first solver delta/count difference at tick 46. The reference tick-local first
+  rejected segment/body scan pair returned `budget`; held had no rejected-pair
+  diagnostic, and both group
+  counts were zero. The byte-identical receipts and noncausal boundary are in the
+  [ordinal-31 provenance record](../performance/smart-ai-matched-tactical.md#frozen-ordinal-31-arm-provenance).
 - All exact mechanics remain behind the opt-in, non-default `cartesian-recoil`
   feature. No exact-path default authority, `ARTICULATED_HASH`, training promotion,
   or v2-18 rig work is authorized. These retained results are committed behind the
@@ -84,22 +92,24 @@ promoting the feature. The completed stationary matched Tactical/control calibra
 stopped before held-out work: reference missing/crossing failures, held/reference
 solver rejections and Tactical solver/attribution failures were all present.
 The frozen shared-solver diagnosis found count asymmetry without naming its cause.
-The active [Smart130 plan](smart-ai-130-ordinal-31-arm-asymmetry.md) begins at earliest
-canonical mismatch ordinal 31 and preserves each arm's original Smart128 terminal
-rule while naming the first common-prefix solver-delta difference or the earlier
-terminal boundary. Its focused pre-production check corrected the input premise:
-strike phase starts at tick 28, but there is no attacker submission through tick 35;
-the first requested/stored difference is right-arm effort at tick 36. That correction
-is not a mechanics result. Smart130 proposes no correction.
+Smart130 then named the first common-prefix boundary without extending either original
+terminal: tick 36 is the first effort-only input difference, tick 37 is the first state
+difference, and tick 46 is the first solver delta/count difference. At tick 46 the
+reference first rejected segment/body scan pair reports `budget`, held reports no
+rejected-pair diagnostic and
+both group counts are zero. This is not a causal chain, and scan `budget` is not the
+zero contact-cap counter. The active
+[Smart131 plan](smart-ai-131-ordinal-31-tick-46-scan-budget.md) freezes that exact pair
+and asks which bounded region/visit transcript first differs. It proposes no correction.
 
 ## Next-session order
 
-1. Execute [Smart130](smart-ai-130-ordinal-31-arm-asymmetry.md), the bounded
-   live/rerun/replay provenance for Smart129's earliest canonical mismatch. Do not
-   extend the reference past its original contact terminal, tune against the
-   calibration or choose another descriptor after measurement. The moving baseline
-   remains `21/100` strict and `55/100` outcome-only; Smart125's attempted correction
-   fell to `49/100` outcome-only and was reverted.
+1. Execute [Smart131](smart-ai-131-ordinal-31-tick-46-scan-budget.md), the bounded
+   region/visit transcript diagnosis for Smart130's frozen tick-46 segment/body pair.
+   Do not widen the 96-visit budget, infer causality from ticks 36/37/46, tune against
+   the calibration or choose another descriptor. The moving baseline remains `21/100`
+   strict and `55/100` outcome-only; Smart125's attempted correction fell to `49/100`
+   outcome-only and was reverted.
 2. Preserve the ordinary defender-body `WALL` lifecycle witness separately from the
    terminal-at-first-contact source-41 solver corpus.
 3. Open the unchanged 95/100 held-out competence gate only after a future matched

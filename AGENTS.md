@@ -351,9 +351,11 @@ commit that finishes the topic (see `iso-*` in the history of `docs/plans`).
 The live roadmap is [`docs/plans/v2-00-overview.md`](docs/plans/v2-00-overview.md).
 Completed sessions are retired rather than kept as a progress ledger. The remaining
 numbered work is `v2-18`, still blocked on the mechanical gate. The Smart AI exact
-mechanics digest/authority sequence is complete; its next work is matched ordinary
-Tactical/control evidence, not training or promotion. Durable results from closed
-sessions belong in architecture, design, reference, or performance docs.
+mechanics digest/authority sequence is complete; matched ordinary Tactical/control
+evidence has localized its first controlled-arm solver-count boundary to ordinal 31,
+tick 46. Its next work is the frozen segment/body scan-budget transcript diagnosis,
+not a budget widening, mechanics change, training or promotion. Durable results from
+closed sessions belong in architecture, design, reference, or performance docs.
 
 ## Gotchas that have already cost time
 

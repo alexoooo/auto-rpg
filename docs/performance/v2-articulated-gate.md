@@ -151,5 +151,10 @@ checking each hypothesis; the deleted development-only trace page is not a gate.
 The exact-contact successor has since retained and registered its feature-only
 trajectory/lifecycle and lifted-Coulomb mechanics. That supersedes the missing-response
 part of this order, not the failed representative corpus or its invalid thresholds.
-Ordinary matched Tactical evidence is next; a revised full gate still needs declared
-criteria, its own artifacts and visible review before `ARTICULATED_HASH` can exist.
+Ordinary matched Tactical evidence has since stopped structurally. Smart130 localized
+the earliest controlled-arm solver-count difference to tick 46, where the reference
+first rejected segment/body scan pair reports `budget` and held's public rejected-pair diagnostic is
+absent; this is neither a contact-cap hit nor a causal mechanics result. The next work is only the frozen
+[region/visit transcript diagnosis](smart-ai-matched-tactical.md#frozen-ordinal-31-arm-provenance).
+A revised full gate still needs declared criteria, its own artifacts and visible review
+before `ARTICULATED_HASH` can exist.
