@@ -117,7 +117,7 @@ pub use combat::resolution::{ExactContactGroupDiagnostic, ExactContactKeyDiagnos
     ExactCompatibilityPrimitiveDiagnostic, ExactCompatibilitySweepDiagnostic,
     ExactScanPairRejectionDiagnostic, ExactScanShapeDiagnostic,
     ExactScanBranchDiagnostic, ExactScanRejectDiagnostic,
-    ExactSegmentBodyProgressDiagnostic};
+    ExactSegmentBodyProgressDiagnostic, ExactSegmentBodyDiagnosticTarget, ExactSegmentBodyOrientationDiagnostic, ExactSegmentBodyPairDiagnostic, ExactSegmentBodyPairResultDiagnostic, ExactSegmentBodyRegionDiagnostic, ExactSegmentBodyRegionTerminalDiagnostic, ExactSegmentBodyTargetDiagnostic, ExactSegmentBodyVisitDiagnostic};
 /// The contact capacity vocabulary, which the browser needs even though the
 /// solver stays private: the host reserves the high water before it hands the
 /// page a pointer, and has to be able to say which count refused.

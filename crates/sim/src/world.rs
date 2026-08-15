@@ -1572,6 +1572,7 @@ impl World {
         self.contact.as_ref().and_then(|contact| contact.first_rejection)
     }
 
+
     #[cfg(feature = "cartesian-recoil")]
     pub fn first_exact_contact_rejection(&self)
         -> Option<ExactContactRejectionDiagnostic>
@@ -1594,7 +1595,6 @@ impl World {
         self.contact.as_ref().and_then(|contact|
             contact.scratch.exact_scan_pair_rejection())
     }
-
 
     #[cfg(feature = "cartesian-recoil")]
     pub fn recoil_external_energy(&self, entity: EntityId, limb: LimbSlot)
@@ -18942,4 +18942,44 @@ fn post_contact_hash_bytes(arm: ArmState) -> [u8; 13] {
     bytes[5..9].copy_from_slice(&arm.post_contact_com_velocity.y.raw().to_le_bytes());
     bytes[9..13].copy_from_slice(&arm.post_contact_com_velocity.z.raw().to_le_bytes());
     bytes
+}
+
+#[cfg(feature = "cartesian-recoil")]
+impl World {
+    pub fn request_exact_segment_body_pair_diagnostic(
+        &mut self, target: crate::ExactSegmentBodyDiagnosticTarget) -> bool
+    {
+        self.contact.as_mut().is_some_and(|contact|
+            contact.scratch.request_exact_segment_body_target(target))
+    }
+
+    pub fn exact_segment_body_target_diagnostic(&self)
+        -> Option<crate::ExactSegmentBodyTargetDiagnostic<'_>>
+    {
+        self.contact.as_ref().and_then(|contact|
+            contact.scratch.exact_segment_body_target_diagnostic())
+    }
+}
+
+#[cfg(all(test, feature = "cartesian-recoil"))]
+mod smart131_world_forwarding_test {
+    use super::*;
+
+    #[test]
+    fn the_segment_body_target_world_api_forwards_one_step_lifecycle() {
+        let mut world = World::new(&Scenario::articulated_duel(), 1);
+        let target = crate::ExactSegmentBodyDiagnosticTarget {
+            key: crate::ExactContactKeyDiagnostic {
+                a: EntityId::new(0, 0), a_slot: 1,
+                b: EntityId::new(1, 0), b_slot: crate::BODY_SLOT,
+                kind: crate::ContactKind::WeaponBody,
+            },
+            a_index: 1, b_index: 3,
+        };
+        assert!(world.request_exact_segment_body_pair_diagnostic(target));
+        world.step();
+        assert!(world.exact_segment_body_target_diagnostic().is_some());
+        world.step();
+        assert_eq!(world.exact_segment_body_target_diagnostic(), None);
+    }
 }

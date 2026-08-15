@@ -14,6 +14,11 @@ use sim::{AnatomyChoice, ArmTarget, ArticulatedCommandV1, BodyPart, CombatHeight
 #[cfg(feature = "cartesian-recoil")]
 use sim::{ExactContactGroupDiagnostic, ExactContactKeyDiagnostic};
 #[cfg(feature = "cartesian-recoil")]
+use sim::{ExactSegmentBodyDiagnosticTarget, ExactSegmentBodyOrientationDiagnostic,
+          ExactSegmentBodyPairResultDiagnostic, ExactSegmentBodyRegionDiagnostic,
+          ExactSegmentBodyRegionTerminalDiagnostic, ExactSegmentBodyVisitDiagnostic,
+          ExactScanRejectDiagnostic, ExactScanShapeDiagnostic};
+#[cfg(feature = "cartesian-recoil")]
 use sim::ExactWideToiDiagnostic;
 #[cfg(feature = "cartesian-recoil")]
 use sim::ExactCompatibilitySweepDiagnostic;
@@ -522,6 +527,10 @@ const ORDINAL_31_FIRST_SUBMITTED_EFFORT_TICK: u32 = 36;
 pub(crate) const ORDINAL_31_WORKER_NAME: &str = "smart130-ordinal31-provenance";
 #[cfg(feature = "cartesian-recoil")]
 pub(crate) const ORDINAL_31_STACK_BYTES: usize = 16 * 1024 * 1024;
+#[cfg(feature = "cartesian-recoil")]
+pub(crate) const SMART131_WORKER_NAME: &str = "smart131-ordinal31-tick46-scan";
+#[cfg(feature = "cartesian-recoil")]
+pub(crate) const SMART131_STACK_BYTES: usize = 16 * 1024 * 1024;
 
 #[cfg(feature = "cartesian-recoil")]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -1388,6 +1397,659 @@ fn cached_ordinal_31_trace() -> &'static Ordinal31Provenance {
     static TRACE: std::sync::OnceLock<Ordinal31Provenance> = std::sync::OnceLock::new();
     TRACE.get_or_init(|| build_ordinal_31_provenance(ProvenanceMutation::None)
         .expect("the frozen ordinal 31 trace must validate"))
+}
+
+// Smart131 observes one already-selected exact pair. These rows are Lab-owned
+// copies because Sim's feature-only view is deliberately borrowed for one tick.
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, PartialEq, Eq, Debug)]
+struct ScanPairOwned {
+    target: ExactSegmentBodyDiagnosticTarget, encounter_count: u32,
+    a_entity: EntityId, b_entity: EntityId, a_slot: u8, b_slot: u8,
+    a_owner: usize, b_owner: usize,
+    a_shape: ExactScanShapeDiagnostic, b_shape: ExactScanShapeDiagnostic,
+    kind: ContactKind, orientation: ExactSegmentBodyOrientationDiagnostic,
+    group_time_raw: u32, pair_aabb_supported: bool,
+    pair_aabb_disjoint: Option<bool>, result: ExactSegmentBodyPairResultDiagnostic,
+    region_count: usize, visit_count: usize,
+    regions: Vec<ExactSegmentBodyRegionDiagnostic>,
+    visits: Vec<ExactSegmentBodyVisitDiagnostic>,
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Debug)]
+struct ScanCommandRow {
+    tick: u32, pending: Vec<EntityId>, commands: Vec<ProvenanceCommand>,
+    state_after: sim::StateDigest, solver_before: u32, solver_after: u32,
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Debug)]
+struct ScanRun {
+    arm: ProvenanceArm, rows: Vec<ScanCommandRow>, snapshot: ProvenanceSnapshot,
+    target: ScanPairOwned, solver_delta: u32, contact: bool,
+    max_energy_excess_raw: u64, requested_receipt: u64, stored_receipt: u64,
+    replay_receipt: u64,
+}
+
+#[cfg(feature = "cartesian-recoil")]
+impl ScanRun {
+    fn equals(&self, other: &Self) -> bool {
+        self.rows.len() == other.rows.len()
+            && self.rows.iter().zip(&other.rows).all(|(a, b)|
+                a.tick == b.tick && a.pending == b.pending && a.commands == b.commands
+                && a.state_after.compare(b.state_after) == Ok(true)
+                && a.solver_before == b.solver_before && a.solver_after == b.solver_after)
+            && self.snapshot.equals(&other.snapshot) && self.target == other.target
+            && self.solver_delta == other.solver_delta && self.contact == other.contact
+            && self.max_energy_excess_raw == other.max_energy_excess_raw
+            && self.requested_receipt == other.requested_receipt
+            && self.stored_receipt == other.stored_receipt
+            && self.replay_receipt == other.replay_receipt
+    }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, PartialEq, Eq, Debug)]
+struct ScanDifference {
+    scope: &'static str, field: &'static str,
+    region: Option<u8>, visit: Option<u8>, reference: String, held: String,
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Debug)]
+struct Ordinal31Tick46Scan {
+    reference_before: ScanRun, held: ScanRun, reference_after: ScanRun,
+    difference: ScanDifference,
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ScanMutation {
+    None,
+    #[cfg(test)] CorruptRerunVisit,
+    #[cfg(test)] RemoveReplaySubmission,
+    #[cfg(test)] ReorderReplaySubmission,
+    #[cfg(test)] Horizon47,
+    #[cfg(test)] WrongTarget,
+    #[cfg(test)] NextSegmentBodyPair,
+    #[cfg(test)] SuppressReferenceBudget,
+    #[cfg(test)] AlterHeldResult,
+}
+
+#[cfg(all(feature = "cartesian-recoil", test))]
+fn scan_mutation_bit(mutation: ScanMutation) -> u32 {
+    match mutation {
+        ScanMutation::None => 0,
+        ScanMutation::CorruptRerunVisit => 1 << 0,
+        ScanMutation::RemoveReplaySubmission => 1 << 1,
+        ScanMutation::ReorderReplaySubmission => 1 << 2,
+        ScanMutation::Horizon47 => 1 << 3,
+        ScanMutation::WrongTarget => 1 << 4,
+        ScanMutation::NextSegmentBodyPair => 1 << 5,
+        ScanMutation::SuppressReferenceBudget => 1 << 6,
+        ScanMutation::AlterHeldResult => 1 << 7,
+    }
+}
+
+#[cfg(all(feature = "cartesian-recoil", test))]
+fn mark_scan_mutation(mutation: ScanMutation) {
+    scan_mutation_receipt().fetch_or(scan_mutation_bit(mutation),
+                                     std::sync::atomic::Ordering::SeqCst);
+}
+
+#[cfg(all(feature = "cartesian-recoil", test))]
+fn scan_mutation_fired(mutation: ScanMutation) -> bool {
+    scan_mutation_receipt().load(std::sync::atomic::Ordering::SeqCst)
+        & scan_mutation_bit(mutation) != 0
+}
+
+#[cfg(all(feature = "cartesian-recoil", test))]
+fn scan_mutation_receipt() -> &'static std::sync::atomic::AtomicU32 {
+    static FIRED: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+    &FIRED
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn smart131_target() -> ExactSegmentBodyDiagnosticTarget {
+    ExactSegmentBodyDiagnosticTarget {
+        key: ExactContactKeyDiagnostic { a: EntityId::new(0, 0), a_slot: 1,
+            b: EntityId::new(1, 0), b_slot: BODY_SLOT, kind: ContactKind::WeaponBody },
+        a_index: 1, b_index: 3,
+    }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn copy_scan_target(world: &World) -> Result<ScanPairOwned, String> {
+    let view = world.exact_segment_body_target_diagnostic()
+        .ok_or("tick 46 target diagnostic was not armed")?;
+    if view.encounter_count != 1 {
+        return Err(format!("tick 46 target encounter count was {}", view.encounter_count));
+    }
+    if view.target != smart131_target() {
+        return Err("tick 46 diagnostic request encountered_count=1 but was not the frozen target admission".into());
+    }
+    let pair = view.pair.ok_or("tick 46 target was not encountered")?;
+    Ok(ScanPairOwned {
+        target: view.target, encounter_count: view.encounter_count,
+        a_entity: pair.a_entity, b_entity: pair.b_entity,
+        a_slot: pair.a_slot, b_slot: pair.b_slot,
+        a_owner: pair.a_owner, b_owner: pair.b_owner,
+        a_shape: pair.a_shape, b_shape: pair.b_shape, kind: pair.kind,
+        orientation: pair.orientation, group_time_raw: pair.group_time_raw,
+        pair_aabb_supported: pair.pair_aabb_supported,
+        pair_aabb_disjoint: pair.pair_aabb_disjoint, result: pair.result,
+        region_count: pair.regions.len(), visit_count: pair.visits.len(),
+        regions: pair.regions.to_vec(), visits: pair.visits.to_vec(),
+    })
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn replay_records_equal(actual: &[sim::SubmittedCommandRecord],
+    expected: &[sim::SubmittedCommandRecord]) -> bool
+{
+    actual.len() == expected.len() && actual.iter().zip(expected).all(|(a, b)|
+        a.tick == b.tick && a.entity == b.entity && match (a.command, b.command) {
+            (sim::SubmittedCommand::Articulated(left),
+             sim::SubmittedCommand::Articulated(right)) =>
+                left.payload_bytes() == right.payload_bytes(),
+            _ => false,
+        })
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn run_tick46_arm(arm: ProvenanceArm, effort: Fx, mutation: ScanMutation)
+    -> Result<ScanRun, String>
+{
+    const HORIZON: u32 = 46;
+    let case = ordinal_31_case();
+    let scenario = scenario_for_ticks_with(case, CHAMBER_TICKS + STRIKE_TICKS,
+                                             MirrorGrammar::SpatialRightHand);
+    if scenario.fingerprint() != ORDINAL_31_FINGERPRINT {
+        return Err(format!("ordinal 31 fingerprint drifted: {}", scenario.fingerprint()));
+    }
+    let mut worlds = [World::new(&scenario, case.seed), World::new(&scenario, case.seed)];
+    let contexts = [provenance_schedule_context(&worlds[0], case),
+                    provenance_schedule_context(&worlds[1], case)];
+    if contexts[0] != contexts[1] { return Err("tick 46 setup diverged".into()); }
+    let (attacker, defender, limb, height, chamber, follow) = contexts[0];
+    let mut replay = sim::Replay::new(&scenario, case.seed);
+    let mut requested_records = Vec::new();
+    let mut stored_records = Vec::new();
+    let mut expected_replay = Vec::new();
+    let mut rows = Vec::with_capacity(HORIZON as usize);
+    let mut target_copies = None;
+    let mut max_energy_excess_raw = 0;
+    let mut limit = HORIZON;
+    #[cfg(test)]
+    if mutation == ScanMutation::Horizon47 { mark_scan_mutation(mutation); limit = 47; }
+    for schedule_tick in 0..limit {
+        let pending = worlds[0].pending_decisions().to_vec();
+        if pending != worlds[1].pending_decisions() {
+            return Err(format!("tick 46 pending lists diverged at {schedule_tick}"));
+        }
+        let solver_before = worlds[0].contact_solver_rejections();
+        let mut commands = Vec::with_capacity(pending.len());
+        for &id in &pending {
+            let requested: Vec<_> = worlds.iter().map(|world| {
+                let obs = world.observe_articulated(id);
+                if id == attacker {
+                    scheduled_attacker_command(&obs, defender, limb, case, height, schedule_tick,
+                        CHAMBER_TICKS, Fx::ONE, effort, chamber, follow,
+                        ScheduleBearingSource::ObservedOpponent)
+                } else { neutral_articulated_command(&obs) }
+            }).collect();
+            if requested[0] != requested[1] {
+                return Err(format!("tick 46 requested commands diverged at {schedule_tick}"));
+            }
+            let mut stored = [None, None];
+            for at in 0..2 {
+                stored[at] = match worlds[at].submit_articulated_v1(id, requested[at]) {
+                    SubmitArticulatedOutcome::Stored { command, rejection: None } => Some(command),
+                    other => return Err(format!("tick 46 submission refused at {schedule_tick}: {other:?}")),
+                };
+            }
+            if stored[0] != stored[1] || stored[0] != Some(requested[0]) {
+                return Err(format!("tick 46 stored commands diverged at {schedule_tick}"));
+            }
+            let stored = stored[0].expect("checked stored command");
+            requested_records.push((schedule_tick, id, requested[0]));
+            stored_records.push((schedule_tick, id, stored));
+            let submitted = sim::SubmittedCommand::Articulated(stored);
+            expected_replay.push(sim::SubmittedCommandRecord { tick: schedule_tick,
+                entity: id, command: submitted });
+            replay.record_submitted(schedule_tick, id, submitted);
+            commands.push(ProvenanceCommand { entity: id, requested: requested[0], stored });
+        }
+        if schedule_tick == 45 {
+            if worlds.iter().any(|world| world.tick() != 45) {
+                return Err("tick 46 target was not armed immediately before 45 -> 46".into());
+            }
+            let mut target = smart131_target();
+            #[cfg(test)]
+            if mutation == ScanMutation::WrongTarget {
+                mark_scan_mutation(mutation); target.b_index = 4;
+            }
+            #[cfg(test)]
+            if mutation == ScanMutation::NextSegmentBodyPair {
+                mark_scan_mutation(mutation);
+                target.a_index = 0; target.b_index = 4;
+                target.key.a = EntityId::new(1, 0); target.key.a_slot = 1;
+                target.key.b = EntityId::new(0, 0); target.key.b_slot = BODY_SLOT;
+            }
+            for world in &mut worlds {
+                if !world.request_exact_segment_body_pair_diagnostic(target) {
+                    return Err("tick 46 target request was refused".into());
+                }
+            }
+        }
+        worlds[0].step(); worlds[1].step();
+        if worlds[0].state_digest().compare(worlds[1].state_digest()) != Ok(true) {
+            return Err(format!("tick 46 live/rerun state diverged at {}", worlds[0].tick()));
+        }
+        if worlds[0].tick() == HORIZON {
+            let left = copy_scan_target(&worlds[0])?;
+            let mut right = copy_scan_target(&worlds[1])?;
+            #[cfg(test)]
+            if mutation == ScanMutation::CorruptRerunVisit {
+                mark_scan_mutation(mutation);
+                let row = right.visits.first_mut().ok_or("visit mutation found no visit")?;
+                row.time_raw = row.time_raw.wrapping_add(1);
+            }
+            #[cfg(test)]
+            if mutation == ScanMutation::AlterHeldResult && arm == ProvenanceArm::Held {
+                mark_scan_mutation(mutation);
+                right.result = ExactSegmentBodyPairResultDiagnostic::Candidate;
+            }
+            if left != right { return Err("tick 46 live/rerun target transcripts diverged".into()); }
+            target_copies = Some(left);
+        }
+        let snapshot = provenance_snapshot(&worlds[0], attacker, defender);
+        let tick_excess = snapshot.resolutions.iter().map(|row|
+            row.energy.after_raw.saturating_sub(row.energy.before_raw)).max().unwrap_or(0);
+        max_energy_excess_raw = max_energy_excess_raw.max(tick_excess);
+        rows.push(ScanCommandRow { tick: schedule_tick, pending, commands,
+            state_after: snapshot.digest, solver_before,
+            solver_after: snapshot.solver_rejections });
+    }
+    if worlds[0].tick() != HORIZON {
+        return Err(format!("tick 46 is the only diagnostic horizon; actual={}", worlds[0].tick()));
+    }
+    #[cfg(test)]
+    if mutation == ScanMutation::RemoveReplaySubmission {
+        mark_scan_mutation(mutation); replay.submitted_entries.remove(0);
+    }
+    #[cfg(test)]
+    if mutation == ScanMutation::ReorderReplaySubmission {
+        mark_scan_mutation(mutation); replay.submitted_entries.swap(0, 1);
+    }
+    if !replay_records_equal(&replay.submitted_entries, &expected_replay) {
+        return Err("tick 46 replay submission receipt was missing or reordered".into());
+    }
+    let replay_records: Result<Vec<_>, _> = replay.submitted_entries.iter().map(|row| match row.command {
+        sim::SubmittedCommand::Articulated(command) => Ok((row.tick, row.entity, command)),
+        _ => Err("tick 46 replay contained a legacy command"),
+    }).collect();
+    let replay_records = replay_records.map_err(str::to_string)?;
+    replay.finish(HORIZON);
+    let played = replay.play_until(HORIZON);
+    let live = provenance_snapshot(&worlds[0], attacker, defender);
+    let rerun = provenance_snapshot(&worlds[1], attacker, defender);
+    let played = provenance_snapshot(&played, attacker, defender);
+    if !live.equals(&rerun) || !live.equals(&played) {
+        return Err("tick 46 live, rerun, and single replay snapshots diverged".into());
+    }
+    let mut target = target_copies.ok_or("tick 46 target evidence was not copied")?;
+    #[cfg(test)]
+    if mutation == ScanMutation::SuppressReferenceBudget && arm != ProvenanceArm::Held {
+        mark_scan_mutation(mutation);
+        target.result = ExactSegmentBodyPairResultDiagnostic::NoCandidate;
+    }
+    let contact = live.resolutions.iter().any(|row| attributed_sword_body(row, attacker, defender, limb));
+    let solver_delta = rows.last().map(|row|
+        row.solver_after.saturating_sub(row.solver_before)).unwrap_or(0);
+    Ok(ScanRun { arm, rows, solver_delta,
+        contact, max_energy_excess_raw, requested_receipt: source_41_receipt(
+            ORDINAL_31_FINGERPRINT, &requested_records), stored_receipt: source_41_receipt(
+            ORDINAL_31_FINGERPRINT, &stored_records), replay_receipt: source_41_receipt(
+            ORDINAL_31_FINGERPRINT, &replay_records), snapshot: live, target })
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn validate_scan_pair(pair: &ScanPairOwned) -> Result<(), String> {
+    if pair.target != smart131_target() || pair.encounter_count != 1
+        || pair.a_entity != pair.target.key.a || pair.a_slot != pair.target.key.a_slot
+        || pair.b_entity != pair.target.key.b || pair.b_slot != pair.target.key.b_slot
+        || pair.kind != ContactKind::WeaponBody
+        || pair.a_owner != 0 || pair.b_owner != 1
+        || pair.a_shape != ExactScanShapeDiagnostic::Segment
+        || pair.b_shape != ExactScanShapeDiagnostic::Body
+        || pair.orientation != ExactSegmentBodyOrientationDiagnostic::SegmentBody
+    { return Err("tick 46 target admission drifted".into()); }
+    if pair.region_count != pair.regions.len() || pair.visit_count != pair.visits.len()
+        || pair.regions.len() > BodyPart::COUNT || pair.visits.len() > BodyPart::COUNT * 96 {
+        return Err("tick 46 transcript exceeded its fixed bound".into());
+    }
+    let mut visit_start = 0;
+    for (ordinal, region) in pair.regions.iter().enumerate() {
+        if region.visit_start != visit_start || region.region as usize != ordinal
+            || region.visit_count as usize > 96
+        { return Err("tick 46 region transcript cardinality/order drifted".into()); }
+        let end = visit_start.checked_add(region.visit_count as usize)
+            .ok_or("tick 46 visit cardinality overflow")?;
+        let visits = pair.visits.get(visit_start..end)
+            .ok_or("tick 46 visit range was incomplete")?;
+        for (at, visit) in visits.iter().enumerate() {
+            if visit.region != region.region || visit.ordinal as usize != at {
+                return Err("tick 46 visit transcript order drifted".into());
+            }
+        }
+        if let Some((_, denominator)) = region.speed {
+            if denominator <= 0 { return Err("tick 46 speed denominator was not positive".into()); }
+        }
+        visit_start = end;
+    }
+    if visit_start != pair.visits.len() {
+        return Err("tick 46 pair visit count did not equal region sums".into());
+    }
+    Ok(())
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn atom<T: core::fmt::Display>(value: T) -> String { value.to_string() }
+
+#[cfg(feature = "cartesian-recoil")]
+fn option_atom<T: core::fmt::Display>(value: Option<T>) -> String {
+    value.map(atom).unwrap_or_else(|| "none".into())
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn ratio_atom(value: Option<(i128, i128)>) -> String {
+    value.map(|(numerator, denominator)| format!("{numerator}/{denominator}"))
+        .unwrap_or_else(|| "none".into())
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn segment_body_orientation_name(value: ExactSegmentBodyOrientationDiagnostic) -> &'static str {
+    match value { ExactSegmentBodyOrientationDiagnostic::SegmentBody => "segment_body",
+        ExactSegmentBodyOrientationDiagnostic::BodySegment => "body_segment" }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn region_terminal_name(value: ExactSegmentBodyRegionTerminalDiagnostic) -> String {
+    match value {
+        ExactSegmentBodyRegionTerminalDiagnostic::AabbDisjoint => "aabb_disjoint".into(),
+        ExactSegmentBodyRegionTerminalDiagnostic::ProvedSeparate => "proved_separate".into(),
+        ExactSegmentBodyRegionTerminalDiagnostic::Candidate => "candidate".into(),
+        ExactSegmentBodyRegionTerminalDiagnostic::Reject(error) =>
+            format!("reject:{}", scan_reject_name(error)),
+    }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn pair_result_name(value: ExactSegmentBodyPairResultDiagnostic) -> String {
+    match value {
+        ExactSegmentBodyPairResultDiagnostic::PairAabbDisjoint => "pair_aabb_disjoint".into(),
+        ExactSegmentBodyPairResultDiagnostic::Candidate => "candidate".into(),
+        ExactSegmentBodyPairResultDiagnostic::NoCandidate => "no_candidate".into(),
+        ExactSegmentBodyPairResultDiagnostic::Reject(error) =>
+            format!("reject:{}", scan_reject_name(error)),
+    }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn first_scan_difference_unchecked(reference: &ScanPairOwned, held: &ScanPairOwned)
+    -> Result<ScanDifference, String>
+{
+    if reference.target != smart131_target() || held.target != smart131_target() {
+        return Err("tick 46 target identity differed before transcript comparison".into());
+    }
+    let diff = |scope, field, region, visit, left: String, right: String| {
+        if left == right { None } else { Some(ScanDifference { scope, field, region, visit,
+            reference: left, held: right }) }
+    };
+    macro_rules! pair { ($field:literal, $left:expr, $right:expr) => {
+        if let Some(row) = diff("aabb_control", $field, None, None, $left, $right) { return Ok(row); }
+    } }
+    pair!("pair_region_count", atom(reference.region_count), atom(held.region_count));
+    pair!("pair_visit_count", atom(reference.visit_count), atom(held.visit_count));
+    if reference.regions.len() != held.regions.len() {
+        return Err("tick 46 region cardinality was invalid before comparison".into());
+    }
+    let region_pairs: Vec<_> = reference.regions.iter().zip(&held.regions).collect();
+    macro_rules! regions { ($field:literal, $left:expr, $right:expr) => {
+        for (left, right) in &region_pairs {
+            if let Some(row) = diff("region", $field, Some(left.region), None,
+                                    $left(left), $right(right)) { return Ok(row); }
+        }
+    } }
+    regions!("region_aabb_disjoint", |row: &&ExactSegmentBodyRegionDiagnostic| option_atom(row.aabb_disjoint),
+                                      |row: &&ExactSegmentBodyRegionDiagnostic| option_atom(row.aabb_disjoint));
+    regions!("region_speed", |row: &&ExactSegmentBodyRegionDiagnostic| ratio_atom(row.speed),
+                              |row: &&ExactSegmentBodyRegionDiagnostic| ratio_atom(row.speed));
+    regions!("region_visit_count", |row: &&ExactSegmentBodyRegionDiagnostic| atom(row.visit_count),
+                                    |row: &&ExactSegmentBodyRegionDiagnostic| atom(row.visit_count));
+    let mut visit_pairs = Vec::new();
+    for (left, right) in &region_pairs {
+        let left_end = left.visit_start.saturating_add(left.visit_count as usize);
+        let right_end = right.visit_start.saturating_add(right.visit_count as usize);
+        let left_rows = reference.visits.get(left.visit_start..left_end);
+        let right_rows = held.visits.get(right.visit_start..right_end);
+        if left_rows.is_none() || right_rows.is_none() {
+            return Err("tick 46 visit range/cardinality was invalid before comparison".into());
+        }
+        let left_rows = left_rows.expect("checked visit range");
+        let right_rows = right_rows.expect("checked visit range");
+        if left_rows.len() != right_rows.len() {
+            return Err("tick 46 visit cardinality differed after validation".into());
+        }
+        visit_pairs.extend(left_rows.iter().zip(right_rows).map(|(a, b)| (left.region, a, b)));
+    }
+    macro_rules! visits { ($field:literal, $left:expr, $right:expr) => {
+        for (region, left, right) in &visit_pairs {
+            if let Some(row) = diff("visit", $field, Some(*region), Some(left.ordinal),
+                                    $left(left), $right(right)) { return Ok(row); }
+        }
+    } }
+    visits!("visit_time_raw", |row: &&ExactSegmentBodyVisitDiagnostic| atom(row.time_raw),
+                               |row: &&ExactSegmentBodyVisitDiagnostic| atom(row.time_raw));
+    visits!("visit_safe_step_raw", |row: &&ExactSegmentBodyVisitDiagnostic| option_atom(row.safe_step_raw),
+                                    |row: &&ExactSegmentBodyVisitDiagnostic| option_atom(row.safe_step_raw));
+    macro_rules! terminals { ($field:literal, $left:expr, $right:expr) => {
+        for (left, right) in &region_pairs {
+            if let Some(row) = diff("terminal", $field, Some(left.region), None,
+                                    $left(left), $right(right)) { return Ok(row); }
+        }
+    } }
+    terminals!("region_terminal", |row: &&ExactSegmentBodyRegionDiagnostic| region_terminal_name(row.terminal),
+                                   |row: &&ExactSegmentBodyRegionDiagnostic| region_terminal_name(row.terminal));
+    terminals!("accepted_time_raw", |row: &&ExactSegmentBodyRegionDiagnostic| option_atom(row.accepted_time_raw),
+                                     |row: &&ExactSegmentBodyRegionDiagnostic| option_atom(row.accepted_time_raw));
+    terminals!("accepted_feature", |row: &&ExactSegmentBodyRegionDiagnostic| option_atom(row.accepted_feature),
+                                    |row: &&ExactSegmentBodyRegionDiagnostic| option_atom(row.accepted_feature));
+    if reference.result != held.result {
+        return Err("tick 46 pair result differed after every recorded transcript field agreed".into());
+    }
+    Err("tick 46 target transcripts had no differing field".into())
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn first_scan_difference(reference: &ScanPairOwned, held: &ScanPairOwned)
+    -> Result<ScanDifference, String>
+{
+    validate_scan_pair(reference)?; validate_scan_pair(held)?;
+    if reference.target != held.target || reference.a_entity != held.a_entity
+        || reference.b_entity != held.b_entity || reference.a_slot != held.a_slot
+        || reference.b_slot != held.b_slot || reference.a_owner != held.a_owner
+        || reference.b_owner != held.b_owner || reference.a_shape != held.a_shape
+        || reference.b_shape != held.b_shape || reference.kind != ContactKind::WeaponBody
+        || held.kind != ContactKind::WeaponBody || reference.orientation != held.orientation
+    { return Err("tick 46 pair identity/admission controls differed before dynamic comparison".into()); }
+    first_scan_difference_unchecked(reference, held)
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn frozen_reference_scan(value: Option<sim::ExactScanPairRejectionDiagnostic>) -> bool {
+    let Some(row) = value else { return false; };
+    row.a_index == 1 && row.b_index == 3
+        && row.a_entity == EntityId::new(0, 0) && row.a_slot == 1
+        && row.b_entity == EntityId::new(1, 0) && row.b_slot == BODY_SLOT
+        && row.a_shape == ExactScanShapeDiagnostic::Segment
+        && row.b_shape == ExactScanShapeDiagnostic::Body
+        && row.branch == sim::ExactScanBranchDiagnostic::SegmentBody
+        && row.reject == ExactScanRejectDiagnostic::Budget
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn validate_tick46_scan(trace: &Ordinal31Tick46Scan) -> Result<(), String> {
+    let runs = [&trace.reference_before, &trace.held, &trace.reference_after];
+    for run in runs {
+        if run.rows.len() != 46 || run.rows.last().map(|row| row.tick) != Some(45) {
+            return Err("tick 46 is the only diagnostic horizon".into());
+        }
+        validate_scan_pair(&run.target)?;
+        if run.snapshot.cap_hits != 0 || run.max_energy_excess_raw != 0 || run.contact
+            || !run.snapshot.groups.is_empty()
+        { return Err("tick 46 cap, energy, contact, or group guard failed".into()); }
+        if run.requested_receipt != run.stored_receipt
+            || run.stored_receipt != run.replay_receipt
+        { return Err("tick 46 command receipts diverged".into()); }
+    }
+    if !trace.reference_before.equals(&trace.reference_after) {
+        return Err("tick 46 reference brackets diverged".into());
+    }
+    if trace.reference_before.snapshot.solver_rejections != 7
+        || trace.reference_before.solver_delta != 1
+        || trace.held.snapshot.solver_rejections != 6 || trace.held.solver_delta != 0
+    { return Err("tick 46 frozen solver boundary drifted".into()); }
+    if !frozen_reference_scan(trace.reference_before.snapshot.scan_pair_rejection)
+        || trace.held.snapshot.scan_pair_rejection.is_some()
+        || !frozen_reference_scan(trace.reference_after.snapshot.scan_pair_rejection)
+    { return Err("tick 46 frozen rejected-pair boundary drifted".into()); }
+    if trace.reference_before.target.result
+        != ExactSegmentBodyPairResultDiagnostic::Reject(ExactScanRejectDiagnostic::Budget)
+        || trace.reference_after.target.result
+        != ExactSegmentBodyPairResultDiagnostic::Reject(ExactScanRejectDiagnostic::Budget)
+    { return Err("tick 46 reference target did not reject with budget".into()); }
+    let references = &trace.reference_before.rows;
+    let held = &trace.held.rows;
+    let command_difference = references.iter().zip(held).find(|(a, b)| a.commands != b.commands)
+        .map(|(a, _)| a.tick);
+    if command_difference != Some(36) {
+        return Err(format!("tick 46 first command difference drifted: {command_difference:?}"));
+    }
+    let row36 = references.iter().zip(held).find(|(a, _)| a.tick == 36)
+        .ok_or("tick 36 command row was missing")?;
+    let left = ProvenanceTick { tick_before: 36, tick_after: 37,
+        pending: row36.0.pending.clone(), commands: row36.0.commands.clone(),
+        state_before: row36.0.state_after, state_after: row36.0.state_after,
+        contact: false, terminal: false, solver_before: 0, solver_after: 0,
+        solver_delta: 0, cap_before: 0, cap_after: 0, resolutions: Vec::new(),
+        first_rejection: None, first_exact_rejection: None, scan_pair_rejection: None,
+        groups: Vec::new(), external_energy: Vec::new(), tick_energy_excess_raw: 0,
+        cumulative_energy_excess_raw: 0,
+        attacker_observation: trace.reference_before.snapshot.attacker_observation,
+        defender_observation: trace.reference_before.snapshot.defender_observation,
+        attacker_pose: trace.reference_before.snapshot.attacker_pose,
+        defender_pose: trace.reference_before.snapshot.defender_pose };
+    let mut right = left.clone(); right.pending = row36.1.pending.clone();
+    right.commands = row36.1.commands.clone();
+    if !only_effort_differs(&left, &right)
+        || references.iter().filter(|row| (28..36).contains(&row.tick))
+            .any(|row| row.commands.iter().any(|command| command.entity == EntityId::new(0, 0)))
+        || row36.0.pending != vec![EntityId::new(0, 0), EntityId::new(1, 0)]
+    { return Err("tick 36 pending/effort-only command guard failed".into()); }
+    let first_state = references.iter().zip(held)
+        .find(|(a, b)| a.state_after.compare(b.state_after) != Ok(true)).map(|(a, _)| a.tick + 1);
+    if first_state != Some(37) { return Err(format!("first state difference drifted: {first_state:?}")); }
+    Ok(())
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn build_ordinal_31_tick46_scan(mutation: ScanMutation) -> Result<Ordinal31Tick46Scan, String> {
+    let reference_before = run_tick46_arm(ProvenanceArm::ReferenceBefore, Fx::ONE, mutation)?;
+    let held = run_tick46_arm(ProvenanceArm::Held, Fx::ZERO, mutation)?;
+    let reference_after = run_tick46_arm(ProvenanceArm::ReferenceAfter, Fx::ONE, mutation)?;
+    let difference = first_scan_difference(&reference_before.target, &held.target)?;
+    let trace = Ordinal31Tick46Scan { reference_before, held, reference_after, difference };
+    validate_tick46_scan(&trace)?;
+    Ok(trace)
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn pair_run_name(arm: ProvenanceArm) -> &'static str { provenance_arm_name(arm) }
+
+#[cfg(feature = "cartesian-recoil")]
+fn write_tick46_pair_block(out: &mut String, run_name: &str, pair: &ScanPairOwned) {
+    use core::fmt::Write;
+    writeln!(out, "pair run={} a_index={} b_index={} encounter_count={} a_entity={} a_slot={} a_owner={} b_entity={} b_slot={} b_owner={} kind={} a_shape={} b_shape={} orientation={} group_time_raw={} pair_aabb_supported={} pair_aabb_disjoint={} result={} region_count={} visit_count={}",
+        run_name, pair.target.a_index, pair.target.b_index, pair.encounter_count,
+        entity_text(pair.a_entity), pair.a_slot, pair.a_owner, entity_text(pair.b_entity),
+        pair.b_slot, pair.b_owner, contact_kind_name(pair.kind), scan_shape_name(pair.a_shape),
+        scan_shape_name(pair.b_shape), segment_body_orientation_name(pair.orientation),
+        pair.group_time_raw, pair.pair_aabb_supported, option_atom(pair.pair_aabb_disjoint),
+        pair_result_name(pair.result), pair.region_count, pair.visit_count).unwrap();
+    for (ordinal, region) in pair.regions.iter().enumerate() {
+        writeln!(out, "region run={} ordinal={} region={} aabb_disjoint={} speed={} visit_start={} visit_count={} terminal={} accepted_time_raw={} accepted_feature={}",
+            run_name, ordinal, region.region, option_atom(region.aabb_disjoint),
+            ratio_atom(region.speed), region.visit_start, region.visit_count,
+            region_terminal_name(region.terminal), option_atom(region.accepted_time_raw),
+            option_atom(region.accepted_feature)).unwrap();
+        for visit in &pair.visits[region.visit_start..
+                region.visit_start + region.visit_count as usize] {
+            writeln!(out, "visit run={} region={} ordinal={} time_raw={} safe_step_raw={}",
+                run_name, visit.region, visit.ordinal, visit.time_raw,
+                option_atom(visit.safe_step_raw)).unwrap();
+        }
+    }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn render_tick46_scan(trace: &Ordinal31Tick46Scan) -> Result<String, String> {
+    use core::fmt::Write;
+    validate_tick46_scan(trace)?;
+    let mut out = String::new();
+    writeln!(out, "smart131-ordinal31-tick46-scan-budget-v1").unwrap();
+    writeln!(out, "descriptor ordinal=31 seed=0 mirrored=true target=brute offset_x_raw=-163840 offset_y_raw=0 fingerprint=3796840901852190123 chamber_ticks=28 strike_ticks=28 reach_raw=65536").unwrap();
+    writeln!(out, "smart130_source sha256=9369e84bd9913b66d303df81f911c5fa3b96ff2ad5b4af38635f0f5d43421731 first_command_difference=36 first_state_difference=37 boundary_tick=46 reference_delta=1 reference_count=7 held_delta=0 held_count=6").unwrap();
+    let runs = [&trace.reference_before, &trace.held, &trace.reference_after];
+    for run in runs {
+        writeln!(out, "horizon run={} tick_after=46 solver_count={} solver_delta={} contact=false cap_hits=0 max_energy_excess_raw=0 requested_receipt={:016x} stored_receipt={:016x} replay_receipt={:016x} state_domain={} state_schema={} state_value={:016x}",
+            pair_run_name(run.arm), run.snapshot.solver_rejections, run.solver_delta,
+            run.requested_receipt, run.stored_receipt, run.replay_receipt,
+            hash_domain_name(run.snapshot.digest.domain), run.snapshot.digest.schema,
+            run.snapshot.digest.value).unwrap();
+    }
+    for run in runs {
+        write_tick46_pair_block(&mut out, pair_run_name(run.arm), &run.target);
+    }
+    let difference = &trace.difference;
+    writeln!(out, "first_transcript_difference scope={} field={} region={} visit={} reference={} held={}",
+        difference.scope, difference.field, option_atom(difference.region),
+        option_atom(difference.visit), difference.reference, difference.held).unwrap();
+    writeln!(out, "source_boundary reference_first_rejected_pair=1:3:0:0:1:1:0:255:weapon_body:segment_body:budget held_first_rejected_pair=none reference_group_count=0 held_group_count=0").unwrap();
+    writeln!(out, "decision=diagnostic-only").unwrap();
+    let expected = 12 + runs.iter().map(|run|
+        run.target.regions.len() + run.target.visits.len()).sum::<usize>();
+    if out.lines().count() != expected || !out.ends_with('\n') || !out.is_ascii() {
+        return Err("tick 46 artifact grammar/cardinality drifted".into());
+    }
+    Ok(out)
+}
+
+#[cfg(feature = "cartesian-recoil")]
+pub(crate) fn ordinal_31_tick_46_scan_artifact() -> Result<String, String> {
+    #[cfg(test)]
+    { return render_tick46_scan(cached_ordinal_31_tick46_scan()); }
+    #[cfg(not(test))]
+    build_ordinal_31_tick46_scan(ScanMutation::None).and_then(|trace| render_tick46_scan(&trace))
+}
+
+#[cfg(all(feature = "cartesian-recoil", test))]
+fn cached_ordinal_31_tick46_scan() -> &'static Ordinal31Tick46Scan {
+    static TRACE: std::sync::OnceLock<Ordinal31Tick46Scan> = std::sync::OnceLock::new();
+    TRACE.get_or_init(|| build_ordinal_31_tick46_scan(ScanMutation::None)
+        .expect("the frozen ordinal 31 tick 46 scan must validate"))
 }
 
 pub(crate) fn measure(strike_effort: Fx) -> StrikeMeasurement {
@@ -3208,5 +3870,193 @@ mod tests {
                 .expect_err("a damaged replay receipt must be refused");
             assert!(error.contains("replay submission receipt missing or reordered"));
         }
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn ordinal_31_tick_46_reproduces_the_smart130_boundary() {
+        let trace = cached_ordinal_31_tick46_scan();
+        assert_eq!((trace.reference_before.solver_delta,
+                    trace.reference_before.snapshot.solver_rejections,
+                    trace.held.solver_delta, trace.held.snapshot.solver_rejections),
+                   (1, 7, 0, 6));
+        assert!(!trace.reference_before.contact && !trace.held.contact);
+        assert!(frozen_reference_scan(trace.reference_before.snapshot.scan_pair_rejection));
+        assert_eq!(trace.held.snapshot.scan_pair_rejection, None);
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn ordinal_31_tick_46_is_the_only_diagnostic_horizon() {
+        let trace = cached_ordinal_31_tick46_scan();
+        for run in [&trace.reference_before, &trace.held, &trace.reference_after] {
+            assert_eq!(run.rows.len(), 46);
+            assert_eq!(run.rows.last().unwrap().tick, 45);
+        }
+        let error = run_tick46_arm(ProvenanceArm::Held, Fx::ZERO, ScanMutation::Horizon47)
+            .expect_err("a post-step 47 diagnostic must be refused");
+        assert!(scan_mutation_fired(ScanMutation::Horizon47));
+        assert!(error.contains("only diagnostic horizon"), "{error}");
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn ordinal_31_tick_46_target_is_the_frozen_reference_first_rejected_pair() {
+        let trace = cached_ordinal_31_tick46_scan();
+        for run in [&trace.reference_before, &trace.held, &trace.reference_after] {
+            assert_eq!(run.target.target, smart131_target());
+            assert_eq!(run.target.encounter_count, 1);
+        }
+        let mut duplicate = trace.clone();
+        duplicate.held.target.encounter_count = 2;
+        assert!(validate_tick46_scan(&duplicate).unwrap_err().contains("admission"));
+        let missing = run_tick46_arm(ProvenanceArm::Held, Fx::ZERO, ScanMutation::WrongTarget)
+            .expect_err("arming the wrong target must leave the frozen target unencountered");
+        assert!(missing.contains("encounter count was 0"), "{missing}");
+        assert!(scan_mutation_fired(ScanMutation::WrongTarget));
+        let next = run_tick46_arm(ProvenanceArm::Held, Fx::ZERO,
+                                  ScanMutation::NextSegmentBodyPair)
+            .expect_err("the next held-segment/body pair must not satisfy the frozen admission");
+        assert!(next.contains("encountered_count=1")
+            && next.contains("frozen target admission"), "{next}");
+        assert!(scan_mutation_fired(ScanMutation::NextSegmentBodyPair));
+        let budget = build_ordinal_31_tick46_scan(ScanMutation::SuppressReferenceBudget)
+            .expect_err("suppressing the reference Budget result must be refused");
+        assert!(budget.contains("reference target did not reject with budget"), "{budget}");
+        assert!(scan_mutation_fired(ScanMutation::SuppressReferenceBudget));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn ordinal_31_tick_46_reference_brackets_match() {
+        let trace = cached_ordinal_31_tick46_scan();
+        assert!(trace.reference_before.equals(&trace.reference_after));
+        let mut damaged = trace.clone();
+        let visit = damaged.reference_after.target.visits.first_mut()
+            .expect("the reference budget path has retained visits");
+        visit.time_raw = visit.time_raw.wrapping_add(1);
+        assert!(!damaged.reference_before.equals(&damaged.reference_after));
+        let error = run_tick46_arm(ProvenanceArm::ReferenceBefore, Fx::ONE,
+                                   ScanMutation::CorruptRerunVisit)
+            .expect_err("corrupting a copied rerun visit must be refused");
+        assert!(error.contains("target transcripts diverged"), "{error}");
+        assert!(scan_mutation_fired(ScanMutation::CorruptRerunVisit));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn ordinal_31_tick_46_live_rerun_and_single_replay_match() {
+        let trace = cached_ordinal_31_tick46_scan();
+        for run in [&trace.reference_before, &trace.held, &trace.reference_after] {
+            assert_eq!(run.requested_receipt, run.stored_receipt);
+            assert_eq!(run.stored_receipt, run.replay_receipt);
+            assert!(run.snapshot.digest.compare(run.rows.last().unwrap().state_after) == Ok(true));
+        }
+        let command = trace.held.rows[0].commands[0].stored;
+        let expected = vec![sim::SubmittedCommandRecord { tick: 0,
+            entity: trace.held.rows[0].commands[0].entity,
+            command: sim::SubmittedCommand::Articulated(command) }];
+        assert!(replay_records_equal(&expected, &expected));
+        assert!(!replay_records_equal(&[], &expected));
+        let mut reordered = expected.clone();
+        reordered.push(sim::SubmittedCommandRecord { tick: 0,
+            entity: EntityId::new(1, 0), command: sim::SubmittedCommand::Articulated(command) });
+        reordered.swap(0, 1);
+        assert!(!replay_records_equal(&reordered, &expected));
+        for mutation in [ScanMutation::RemoveReplaySubmission,
+                         ScanMutation::ReorderReplaySubmission] {
+            let error = run_tick46_arm(ProvenanceArm::Held, Fx::ZERO, mutation)
+                .expect_err("damaging the actual Replay must fail the independent receipt");
+            assert!(error.contains("missing or reordered"), "{error}");
+            assert!(scan_mutation_fired(mutation));
+        }
+        let error = run_tick46_arm(ProvenanceArm::Held, Fx::ZERO,
+                                   ScanMutation::AlterHeldResult)
+            .expect_err("altering the held rerun result must fail copied-evidence equality");
+        assert!(error.contains("target transcripts diverged"), "{error}");
+        assert!(scan_mutation_fired(ScanMutation::AlterHeldResult));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn ordinal_31_tick_46_segment_body_transcripts_name_the_first_difference() {
+        let trace = cached_ordinal_31_tick46_scan();
+        assert_eq!(first_scan_difference(&trace.reference_before.target, &trace.held.target),
+                   Ok(trace.difference.clone()));
+        assert!(["aabb_control", "region", "visit", "terminal"]
+            .contains(&trace.difference.scope));
+        let mut damaged = trace.reference_before.target.clone();
+        let visit = damaged.visits.first_mut().expect("the budget path has retained visits");
+        visit.time_raw = visit.time_raw.wrapping_add(1);
+        let difference = first_scan_difference(&trace.reference_before.target, &damaged).unwrap();
+        assert_eq!((difference.scope, difference.field), ("visit", "visit_time_raw"));
+
+        let mut fixture = trace.reference_before.target.clone();
+        fixture.a_owner = 0; fixture.b_owner = 1; fixture.group_time_raw = 9;
+        fixture.pair_aabb_supported = true; fixture.pair_aabb_disjoint = Some(false);
+        fixture.result = ExactSegmentBodyPairResultDiagnostic::NoCandidate;
+        fixture.regions = vec![ExactSegmentBodyRegionDiagnostic { region: 0,
+            aabb_disjoint: Some(false), speed: Some((3, 4)), visit_start: 0,
+            visit_count: 9, terminal: ExactSegmentBodyRegionTerminalDiagnostic::ProvedSeparate,
+            accepted_time_raw: None, accepted_feature: None }];
+        fixture.visits = (0..9).map(|ordinal| ExactSegmentBodyVisitDiagnostic {
+            region: 0, ordinal, time_raw: ordinal as u32,
+            safe_step_raw: if ordinal == 8 { None } else { Some(10 + ordinal as u32) },
+        }).collect();
+        fixture.region_count = 1; fixture.visit_count = 9;
+        validate_scan_pair(&fixture).unwrap();
+        let populated = fixture.clone();
+        fixture.visits[8].time_raw = 9;
+        let mut rendered = String::new();
+        write_tick46_pair_block(&mut rendered, "held", &fixture);
+        let expected = "pair run=held a_index=1 b_index=3 encounter_count=1 a_entity=0:0 a_slot=1 a_owner=0 b_entity=1:0 b_slot=255 b_owner=1 kind=weapon_body a_shape=segment b_shape=body orientation=segment_body group_time_raw=9 pair_aabb_supported=true pair_aabb_disjoint=false result=no_candidate region_count=1 visit_count=9\n\
+region run=held ordinal=0 region=0 aabb_disjoint=false speed=3/4 visit_start=0 visit_count=9 terminal=proved_separate accepted_time_raw=none accepted_feature=none\n\
+visit run=held region=0 ordinal=0 time_raw=0 safe_step_raw=10\n\
+visit run=held region=0 ordinal=1 time_raw=1 safe_step_raw=11\n\
+visit run=held region=0 ordinal=2 time_raw=2 safe_step_raw=12\n\
+visit run=held region=0 ordinal=3 time_raw=3 safe_step_raw=13\n\
+visit run=held region=0 ordinal=4 time_raw=4 safe_step_raw=14\n\
+visit run=held region=0 ordinal=5 time_raw=5 safe_step_raw=15\n\
+visit run=held region=0 ordinal=6 time_raw=6 safe_step_raw=16\n\
+visit run=held region=0 ordinal=7 time_raw=7 safe_step_raw=17\n\
+visit run=held region=0 ordinal=8 time_raw=9 safe_step_raw=none\n";
+        assert_eq!(rendered, expected);
+        fixture.regions.clear(); fixture.visits.clear();
+        fixture.region_count = 0; fixture.visit_count = 0;
+        fixture.pair_aabb_disjoint = Some(true);
+        fixture.result = ExactSegmentBodyPairResultDiagnostic::PairAabbDisjoint;
+        let synthetic_difference = first_scan_difference(&populated, &{
+            let mut held = populated.clone(); held.visits[8].time_raw = 9; held
+        }).unwrap();
+        assert_eq!((synthetic_difference.scope, synthetic_difference.field,
+                    synthetic_difference.reference.as_str(), synthetic_difference.held.as_str()),
+                   ("visit", "visit_time_raw", "8", "9"));
+        let mut disjoint = String::new();
+        write_tick46_pair_block(&mut disjoint, "reference_before", &fixture);
+        let expected_disjoint = "pair run=reference_before a_index=1 b_index=3 encounter_count=1 a_entity=0:0 a_slot=1 a_owner=0 b_entity=1:0 b_slot=255 b_owner=1 kind=weapon_body a_shape=segment b_shape=body orientation=segment_body group_time_raw=9 pair_aabb_supported=true pair_aabb_disjoint=true result=pair_aabb_disjoint region_count=0 visit_count=0\n";
+        assert_eq!(disjoint, expected_disjoint);
+        let mixed_difference = first_scan_difference(&fixture, &populated).unwrap();
+        assert_eq!((mixed_difference.scope, mixed_difference.field,
+                    mixed_difference.reference.as_str(), mixed_difference.held.as_str()),
+                   ("aabb_control", "pair_region_count", "0", "1"));
+        let mut after = String::new();
+        write_tick46_pair_block(&mut after, "reference_after", &fixture);
+        let expected_after = expected_disjoint.replace("reference_before", "reference_after");
+        assert_eq!(after, expected_after);
+        let fixed_header = "smart131-ordinal31-tick46-scan-budget-v1\n\
+descriptor ordinal=31 seed=0 mirrored=true target=brute offset_x_raw=-163840 offset_y_raw=0 fingerprint=3796840901852190123 chamber_ticks=28 strike_ticks=28 reach_raw=65536\n\
+smart130_source sha256=9369e84bd9913b66d303df81f911c5fa3b96ff2ad5b4af38635f0f5d43421731 first_command_difference=36 first_state_difference=37 boundary_tick=46 reference_delta=1 reference_count=7 held_delta=0 held_count=6\n\
+horizon run=reference_before tick_after=46 solver_count=7 solver_delta=1 contact=false cap_hits=0 max_energy_excess_raw=0 requested_receipt=0000000000000001 stored_receipt=0000000000000001 replay_receipt=0000000000000001 state_domain=articulated_v1 state_schema=1 state_value=0000000000000002\n\
+horizon run=held tick_after=46 solver_count=6 solver_delta=0 contact=false cap_hits=0 max_energy_excess_raw=0 requested_receipt=0000000000000003 stored_receipt=0000000000000003 replay_receipt=0000000000000003 state_domain=articulated_v1 state_schema=1 state_value=0000000000000004\n\
+horizon run=reference_after tick_after=46 solver_count=7 solver_delta=1 contact=false cap_hits=0 max_energy_excess_raw=0 requested_receipt=0000000000000001 stored_receipt=0000000000000001 replay_receipt=0000000000000001 state_domain=articulated_v1 state_schema=1 state_value=0000000000000002\n";
+        let fixed_tail = "first_transcript_difference scope=aabb_control field=pair_region_count region=none visit=none reference=0 held=1\n\
+source_boundary reference_first_rejected_pair=1:3:0:0:1:1:0:255:weapon_body:segment_body:budget held_first_rejected_pair=none reference_group_count=0 held_group_count=0\n\
+decision=diagnostic-only\n";
+        let complete = [fixed_header, expected_disjoint, expected, &expected_after, fixed_tail].concat();
+        assert!(complete.is_ascii() && complete.ends_with('\n'));
+        assert_eq!(complete.lines().count(), 22,
+            "the complete synthetic artifact obeys 12 + regions + visits");
+        assert_eq!(&complete[..fixed_header.len()], fixed_header);
+        assert_eq!(&complete[complete.len() - fixed_tail.len()..], fixed_tail);
     }
 }

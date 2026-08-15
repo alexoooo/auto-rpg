@@ -50,7 +50,12 @@ fn main() {
         "strike-corpus" => strike_corpus::strike_corpus(&args),
         "strong-strike" => strong_strike::strong_strike(),
         "tactical-mechanics" => {
-            if tactical_mechanics::ordinal_31_provenance_requested(&args) {
+            if tactical_mechanics::ordinal_31_tick_46_scan_requested(&args) {
+                if let Err(error) = tactical_mechanics::ordinal_31_tick_46_scan_mode(&args) {
+                    eprintln!("{error}");
+                    std::process::exit(2);
+                }
+            } else if tactical_mechanics::ordinal_31_provenance_requested(&args) {
                 if let Err(error) = tactical_mechanics::ordinal_31_provenance_mode(&args) {
                     eprintln!("{error}");
                     std::process::exit(2);
@@ -122,7 +127,7 @@ fn usage() {
           control through the production World, printing raw pose kinematics,
           contact energy channels and before/after anatomy facts.
 
-  tactical-mechanics --quick|--calibration|--held-out|--strike-corpus|--anatomical-mirror-corpus|--noise-free-mirror-corpus|--mirror-trace-1536|--ordinal-31-provenance
+  tactical-mechanics --quick|--calibration|--held-out|--strike-corpus|--anatomical-mirror-corpus|--noise-free-mirror-corpus|--mirror-trace-1536|--ordinal-31-provenance|--ordinal-31-tick-46-scan
           Brackets the tactical controller between byte-equal strong-strike
           references on their exact fixed scenario. --calibration runs the
           frozen 900-cell matched corpus and --write PATH records its fixed CSV.
@@ -139,6 +144,8 @@ fn usage() {
           anatomical mirror, stopping at their first tick/phase/field divergence.
           --ordinal-31-provenance --write PATH runs the fixed Smart130
           reference/held/reference live-rerun-replay trace on one named worker.
+          --ordinal-31-tick-46-scan --write PATH runs the fixed Smart131
+          reference/held/reference tick-46 segment/body scan-budget transcript.
 
   trace   --seed N --policy composed|windmill|tactical|learned --attack-moves --mirrored
           --ticks N --out PATH

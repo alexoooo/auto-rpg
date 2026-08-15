@@ -136,6 +136,71 @@ pub struct ExactScanPairRejectionDiagnostic {
     pub segment_body: Option<ExactSegmentBodyProgressDiagnostic>,
 }
 
+/// One opt-in segment/body pair to observe during the next exact contact tick.
+/// Diagnostic only: matching this value never changes pair membership or ordering.
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct ExactSegmentBodyDiagnosticTarget {
+    pub key: crate::combat::resolution::ExactContactKeyDiagnostic,
+    pub a_index: usize, pub b_index: usize,
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ExactSegmentBodyOrientationDiagnostic { SegmentBody, BodySegment }
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ExactSegmentBodyPairResultDiagnostic {
+    PairAabbDisjoint, Candidate, NoCandidate, Reject(ExactScanRejectDiagnostic),
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ExactSegmentBodyRegionTerminalDiagnostic {
+    AabbDisjoint, ProvedSeparate, Candidate, Reject(ExactScanRejectDiagnostic),
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct ExactSegmentBodyRegionDiagnostic {
+    pub region: u8, pub aabb_disjoint: Option<bool>,
+    pub speed: Option<(i128, i128)>,
+    pub visit_start: usize, pub visit_count: u8,
+    pub terminal: ExactSegmentBodyRegionTerminalDiagnostic,
+    pub accepted_time_raw: Option<u32>, pub accepted_feature: Option<u8>,
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct ExactSegmentBodyVisitDiagnostic {
+    pub region: u8, pub ordinal: u8, pub time_raw: u32,
+    pub safe_step_raw: Option<u32>,
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct ExactSegmentBodyPairDiagnostic<'a> {
+    pub a_entity: EntityId, pub b_entity: EntityId,
+    pub a_slot: u8, pub b_slot: u8,
+    pub a_owner: usize, pub b_owner: usize,
+    pub a_shape: ExactScanShapeDiagnostic, pub b_shape: ExactScanShapeDiagnostic,
+    pub kind: ContactKind, pub orientation: ExactSegmentBodyOrientationDiagnostic,
+    pub group_time_raw: u32,
+    pub pair_aabb_supported: bool, pub pair_aabb_disjoint: Option<bool>,
+    pub result: ExactSegmentBodyPairResultDiagnostic,
+    pub regions: &'a [ExactSegmentBodyRegionDiagnostic],
+    pub visits: &'a [ExactSegmentBodyVisitDiagnostic],
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct ExactSegmentBodyTargetDiagnostic<'a> {
+    pub target: ExactSegmentBodyDiagnosticTarget,
+    pub encounter_count: u32,
+    pub pair: Option<ExactSegmentBodyPairDiagnostic<'a>>,
+}
+
 #[cfg(any(test, feature = "cartesian-recoil"))]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct ExactSegmentBodyProgressDiagnostic {
@@ -301,6 +366,156 @@ struct CertifiedProvenance { key: ContactKey, time_raw: u32,
                              wide_toi: ExactWideToiDiagnostic,
                              compatibility_sweep: Option<ExactCompatibilitySweepDiagnostic> }
 
+#[cfg(feature = "cartesian-recoil")]
+const EXACT_SEGMENT_BODY_VISIT_CAP: usize = AnatomyRegion::COUNT * 96;
+
+// This opt-in recorder lives only in reusable contact scratch. It cannot enter
+// authoritative state, replay, selection, or resolution; every registered pin
+// therefore has a movement budget of zero for this diagnostic stage.
+
+#[cfg(all(test, feature = "cartesian-recoil"))]
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) enum ExactSegmentBodyTestMutation {
+    #[default]
+    None,
+    RetainAcrossTick,
+    DropVisit,
+    SwapVisits,
+    DuplicateEncounter,
+    RefuseCapacity,
+    RouteRecorderIntoResult,
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone)]
+struct ExactSegmentBodyPairHeader {
+    a_entity: EntityId, b_entity: EntityId, a_slot: u8, b_slot: u8,
+    a_owner: usize, b_owner: usize,
+    a_shape: ExactScanShapeDiagnostic, b_shape: ExactScanShapeDiagnostic,
+    kind: ContactKind, orientation: ExactSegmentBodyOrientationDiagnostic,
+    group_time_raw: u32, pair_aabb_supported: bool,
+    pair_aabb_disjoint: Option<bool>, result: ExactSegmentBodyPairResultDiagnostic,
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Default)]
+struct ExactSegmentBodyTargetState {
+    requested: Option<ExactSegmentBodyDiagnosticTarget>,
+    active: Option<ExactSegmentBodyDiagnosticTarget>,
+    encounter_count: u32,
+    pair: Option<ExactSegmentBodyPairHeader>,
+    regions: Vec<ExactSegmentBodyRegionDiagnostic>,
+    visits: Vec<ExactSegmentBodyVisitDiagnostic>,
+    invalid: bool,
+    #[cfg(test)]
+    test_mutation: ExactSegmentBodyTestMutation,
+    #[cfg(test)]
+    test_mutation_fired: bool,
+}
+
+#[cfg(feature = "cartesian-recoil")]
+impl Clone for ExactSegmentBodyTargetState {
+    fn clone(&self) -> Self {
+        let mut cloned = Self {
+            requested: self.requested, active: self.active,
+            encounter_count: self.encounter_count, pair: self.pair.clone(),
+            regions: self.regions.clone(), visits: self.visits.clone(), invalid: self.invalid,
+            #[cfg(test)]
+            test_mutation: self.test_mutation,
+            #[cfg(test)]
+            test_mutation_fired: self.test_mutation_fired,
+        };
+        cloned.try_reserve().expect("cloning already-reserved diagnostic scratch");
+        cloned
+    }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+impl ExactSegmentBodyTargetState {
+    fn try_reserve(&mut self) -> Result<(), ContactCapacityError> {
+        try_reserve_exact(&mut self.regions, AnatomyRegion::COUNT)?;
+        try_reserve_exact(&mut self.visits, EXACT_SEGMENT_BODY_VISIT_CAP)
+    }
+
+    fn request(&mut self, target: ExactSegmentBodyDiagnosticTarget) -> bool {
+        #[cfg(test)]
+        if self.test_mutation == ExactSegmentBodyTestMutation::RefuseCapacity {
+            self.test_mutation_fired = true; return false
+        }
+        if self.requested.is_some() || self.regions.capacity() < AnatomyRegion::COUNT
+            || self.visits.capacity() < EXACT_SEGMENT_BODY_VISIT_CAP { return false; }
+        self.requested = Some(target); true
+    }
+
+    fn begin_tick(&mut self) {
+        #[cfg(test)]
+        if self.requested.is_none()
+            && self.test_mutation == ExactSegmentBodyTestMutation::RetainAcrossTick {
+            self.test_mutation_fired = true; return
+        }
+        self.active = self.requested.take();
+        self.encounter_count = 0; self.pair = None;
+        self.regions.clear(); self.visits.clear(); self.invalid = false;
+    }
+
+    #[cfg(test)]
+    fn set_test_mutation(&mut self, mutation: ExactSegmentBodyTestMutation) {
+        self.test_mutation = mutation; self.test_mutation_fired = false;
+    }
+
+    fn diagnostic(&self) -> Option<ExactSegmentBodyTargetDiagnostic<'_>> {
+        let target = self.active?;
+        let ranges_valid = self.regions.iter().all(|row|
+            row.visit_start.checked_add(row.visit_count as usize)
+                .is_some_and(|end| end <= self.visits.len()));
+        let pair = (!self.invalid && ranges_valid).then_some(()).and(self.pair.as_ref())
+            .map(|header| ExactSegmentBodyPairDiagnostic {
+            a_entity: header.a_entity, b_entity: header.b_entity,
+            a_slot: header.a_slot, b_slot: header.b_slot,
+            a_owner: header.a_owner, b_owner: header.b_owner,
+            a_shape: header.a_shape, b_shape: header.b_shape,
+            kind: header.kind, orientation: header.orientation,
+            group_time_raw: header.group_time_raw,
+            pair_aabb_supported: header.pair_aabb_supported,
+            pair_aabb_disjoint: header.pair_aabb_disjoint,
+            result: header.result, regions: &self.regions, visits: &self.visits,
+        });
+        Some(ExactSegmentBodyTargetDiagnostic { target, encounter_count: self.encounter_count,
+                                                pair })
+    }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+struct ExactSegmentBodyTargetRows<'a> {
+    regions: &'a mut Vec<ExactSegmentBodyRegionDiagnostic>,
+    visits: &'a mut Vec<ExactSegmentBodyVisitDiagnostic>,
+    invalid: &'a mut bool,
+    #[cfg(test)]
+    test_mutation: ExactSegmentBodyTestMutation,
+    #[cfg(test)]
+    test_mutation_fired: &'a mut bool,
+}
+
+#[cfg(feature = "cartesian-recoil")]
+impl ExactSegmentBodyTargetRows<'_> {
+    fn push_region(&mut self, row: ExactSegmentBodyRegionDiagnostic) -> Option<usize> {
+        if self.regions.len() == AnatomyRegion::COUNT { *self.invalid = true; return None }
+        let at = self.regions.len(); self.regions.push(row); Some(at)
+    }
+
+    fn push_visit(&mut self, row: ExactSegmentBodyVisitDiagnostic) -> Option<usize> {
+        #[cfg(test)]
+        if self.test_mutation == ExactSegmentBodyTestMutation::DropVisit
+            && self.visits.len() == 8 {
+            *self.test_mutation_fired = true; return None
+        }
+        if self.visits.len() == EXACT_SEGMENT_BODY_VISIT_CAP {
+            *self.invalid = true; return None
+        }
+        let at = self.visits.len(); self.visits.push(row); Some(at)
+    }
+}
+
 /// Candidate storage for one scan. It deliberately holds candidates rather
 /// than facts: a scan sees every pair that contacts anywhere in the remaining
 /// tick, which at the entity ceiling is 32,256 rows, while a single resolved
@@ -319,6 +534,8 @@ pub struct ContactCollectionScratch {
     exact_wide: ExactWideScratch,
     #[cfg(feature = "cartesian-recoil")]
     first_pair_rejection: Option<ExactScanPairRejectionDiagnostic>,
+    #[cfg(feature = "cartesian-recoil")]
+    segment_body_target: ExactSegmentBodyTargetState,
 }
 
 impl ContactCollectionScratch {
@@ -328,7 +545,8 @@ impl ContactCollectionScratch {
         try_reserve_exact(&mut self.exact_staging, candidate_bound)?;
         #[cfg(feature = "cartesian-recoil")]
         { try_reserve_exact(&mut self.certified_selections, candidate_bound)?;
-          try_reserve_exact(&mut self.certified_provenance, candidate_bound)?; }
+          try_reserve_exact(&mut self.certified_provenance, candidate_bound)?;
+          self.segment_body_target.try_reserve()?; }
         #[cfg(any(test, feature = "cartesian-recoil"))]
         self.exact_wide.try_reserve()?;
         Ok(())
@@ -339,6 +557,86 @@ impl ContactCollectionScratch {
     #[cfg(feature = "cartesian-recoil")]
     pub(crate) fn first_pair_rejection(&self) -> Option<ExactScanPairRejectionDiagnostic> {
         self.first_pair_rejection
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    pub(crate) fn request_segment_body_target(&mut self,
+        target: ExactSegmentBodyDiagnosticTarget) -> bool
+    { self.segment_body_target.request(target) }
+
+    #[cfg(feature = "cartesian-recoil")]
+    pub(crate) fn begin_segment_body_target_tick(&mut self) {
+        self.segment_body_target.begin_tick();
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    pub(crate) fn segment_body_target_diagnostic(&self)
+        -> Option<ExactSegmentBodyTargetDiagnostic<'_>>
+    { self.segment_body_target.diagnostic() }
+
+    #[cfg(all(test, feature = "cartesian-recoil"))]
+    pub(crate) fn set_segment_body_test_mutation(&mut self,
+        mutation: ExactSegmentBodyTestMutation) {
+        self.segment_body_target.set_test_mutation(mutation);
+    }
+
+    #[cfg(all(test, feature = "cartesian-recoil"))]
+    pub(crate) fn segment_body_test_mutation_fired(&self) -> bool {
+        self.segment_body_target.test_mutation_fired
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    fn begin_segment_body_target_pair(&mut self, i: usize, j: usize,
+        a: &ExactContactTrajectory, owner_a: &ExactOwnerTrajectory,
+        b: &ExactContactTrajectory) -> bool
+    {
+        let Some((key, orientation)) = segment_body_target_key(a, b) else { return false };
+        let Some(target) = self.segment_body_target.active else { return false };
+        if target.a_index != i || target.b_index != j
+            || target.key.a != key.a || target.key.a_slot != key.a_slot
+            || target.key.b != key.b || target.key.b_slot != key.b_slot
+            || target.key.kind != key.kind { return false }
+        let Some(count) = self.segment_body_target.encounter_count.checked_add(1) else {
+            self.segment_body_target.invalid = true; return false
+        };
+        self.segment_body_target.encounter_count = count;
+        if count != 1 {
+            #[cfg(test)]
+            if self.segment_body_target.test_mutation
+                == ExactSegmentBodyTestMutation::DuplicateEncounter {
+                self.segment_body_target.test_mutation_fired = true;
+            } else { return false }
+            #[cfg(not(test))]
+            return false
+        }
+        self.segment_body_target.pair = Some(ExactSegmentBodyPairHeader {
+            a_entity: a.entity, b_entity: b.entity, a_slot: a.slot, b_slot: b.slot,
+            a_owner: a.owner_index, b_owner: b.owner_index,
+            a_shape: scan_shape_diagnostic(&a.motor), b_shape: scan_shape_diagnostic(&b.motor),
+            kind: ContactKind::WeaponBody, orientation,
+            group_time_raw: owner_a.common_response.group_time_raw,
+            pair_aabb_supported: false, pair_aabb_disjoint: None,
+            result: ExactSegmentBodyPairResultDiagnostic::NoCandidate,
+        });
+        true
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    fn finish_segment_body_target_pair(&mut self, claimed: bool, supported: bool,
+        disjoint: Option<bool>, result: ExactSegmentBodyPairResultDiagnostic)
+    {
+        if !claimed { return }
+        let header = self.segment_body_target.pair.as_mut()
+            .expect("the first target encounter owns its header");
+        header.pair_aabb_supported = supported;
+        header.pair_aabb_disjoint = disjoint;
+        header.result = result;
+        #[cfg(test)]
+        if self.segment_body_target.test_mutation == ExactSegmentBodyTestMutation::SwapVisits
+            && self.segment_body_target.visits.len() > 8 {
+            self.segment_body_target.visits.swap(7, 8);
+            self.segment_body_target.test_mutation_fired = true;
+        }
     }
 
 
@@ -361,7 +659,9 @@ impl ContactCollectionScratch {
              self.exact_wide.segment_body_separation.points.capacity(),
              self.exact_wide.segment_body_separation.corners.capacity(),
              self.exact_wide.segment_body_separation.axes.capacity(),
-             self.exact_wide.segment_body_separation.scalar.capacity()]
+             self.exact_wide.segment_body_separation.scalar.capacity(),
+             self.segment_body_target.regions.capacity(),
+             self.segment_body_target.visits.capacity()]
     }
 
     #[cfg(all(test, not(feature = "cartesian-recoil")))]
@@ -375,6 +675,23 @@ impl ContactCollectionScratch {
              self.exact_wide.segment.committed.capacity(),
              self.exact_wide.rectangle_candidates.capacity(),
              self.exact_wide.aabb_left.capacity(), self.exact_wide.aabb_right.capacity()]
+    }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn segment_body_target_key(a: &ExactContactTrajectory, b: &ExactContactTrajectory)
+    -> Option<(ContactKey, ExactSegmentBodyOrientationDiagnostic)>
+{
+    match (&a.motor, &b.motor) {
+        (MotorShape::Segment { .. }, MotorShape::Body { .. }) => Some((ContactKey {
+            a: a.entity, a_slot: a.slot, b: b.entity, b_slot: BODY_SLOT,
+            kind: ContactKind::WeaponBody,
+        }, ExactSegmentBodyOrientationDiagnostic::SegmentBody)),
+        (MotorShape::Body { .. }, MotorShape::Segment { .. }) => Some((ContactKey {
+            a: b.entity, a_slot: b.slot, b: a.entity, b_slot: BODY_SLOT,
+            kind: ContactKind::WeaponBody,
+        }, ExactSegmentBodyOrientationDiagnostic::BodySegment)),
+        _ => None,
     }
 }
 
@@ -587,6 +904,8 @@ fn scan_detector_into(
                     .ok_or(ExactScanReject::CompatibilityIdentity)?;
                 let owner_b = owners.get(b.owner_index)
                     .ok_or(ExactScanReject::CompatibilityIdentity)?;
+                #[cfg(feature = "cartesian-recoil")]
+                let target_claimed = scratch.begin_segment_body_target_pair(i, j, a, owner_a, b);
                 // Every supported primitive is affine between the current
                 // group boundary and the tick end. Its endpoint AABB is
                 // therefore an exact enclosure of the whole swept volume.
@@ -602,7 +921,11 @@ fn scan_detector_into(
                         Ok(disjoint) => Some(disjoint),
                         Err(reject) => {
                             #[cfg(feature = "cartesian-recoil")]
-                            { scratch.first_pair_rejection = Some(ExactScanPairRejectionDiagnostic {
+                            { scratch.finish_segment_body_target_pair(target_claimed,
+                                aabb_supported, None,
+                                ExactSegmentBodyPairResultDiagnostic::Reject(
+                                    scan_reject_diagnostic(reject)));
+                              scratch.first_pair_rejection = Some(ExactScanPairRejectionDiagnostic {
                                 a_index: i, b_index: j, a_entity: a.entity, b_entity: b.entity,
                                 a_slot: a.slot, b_slot: b.slot,
                                 a_shape: scan_shape_diagnostic(&a.motor),
@@ -620,6 +943,9 @@ fn scan_detector_into(
                     }
                 } else { None };
                 if aabb_disjoint == Some(true) {
+                    #[cfg(feature = "cartesian-recoil")]
+                    scratch.finish_segment_body_target_pair(target_claimed, aabb_supported,
+                        aabb_disjoint, ExactSegmentBodyPairResultDiagnostic::PairAabbDisjoint);
                     continue;
                 }
                 let (branch, candidate) = match (&a.motor, &b.motor) {
@@ -634,15 +960,43 @@ fn scan_detector_into(
                                                   &colliders[j], &colliders[i],
                                                   &mut scratch.exact_wide)),
                     (MotorShape::Segment { .. }, MotorShape::Body { .. }) =>
-                        (ExactScanBranchDiagnostic::SegmentBody,
-                        wide_sweep_segment_body(a, owner_a, b, owner_b,
-                                                &colliders[i], &colliders[j],
-                                                &mut scratch.exact_wide)),
+                        {
+                            #[cfg(feature = "cartesian-recoil")]
+                            let rows = target_claimed.then(|| ExactSegmentBodyTargetRows {
+                                regions: &mut scratch.segment_body_target.regions,
+                                visits: &mut scratch.segment_body_target.visits,
+                                invalid: &mut scratch.segment_body_target.invalid,
+                                #[cfg(test)]
+                                test_mutation: scratch.segment_body_target.test_mutation,
+                                #[cfg(test)]
+                                test_mutation_fired:
+                                    &mut scratch.segment_body_target.test_mutation_fired,
+                            });
+                            (ExactScanBranchDiagnostic::SegmentBody,
+                            wide_sweep_segment_body(a, owner_a, b, owner_b,
+                                                    &colliders[i], &colliders[j],
+                                                    &mut scratch.exact_wide,
+                                                    #[cfg(feature = "cartesian-recoil")] rows))
+                        },
                     (MotorShape::Body { .. }, MotorShape::Segment { .. }) =>
-                        (ExactScanBranchDiagnostic::SegmentBody,
-                        wide_sweep_segment_body(b, owner_b, a, owner_a,
-                                                &colliders[j], &colliders[i],
-                                                &mut scratch.exact_wide)),
+                        {
+                            #[cfg(feature = "cartesian-recoil")]
+                            let rows = target_claimed.then(|| ExactSegmentBodyTargetRows {
+                                regions: &mut scratch.segment_body_target.regions,
+                                visits: &mut scratch.segment_body_target.visits,
+                                invalid: &mut scratch.segment_body_target.invalid,
+                                #[cfg(test)]
+                                test_mutation: scratch.segment_body_target.test_mutation,
+                                #[cfg(test)]
+                                test_mutation_fired:
+                                    &mut scratch.segment_body_target.test_mutation_fired,
+                            });
+                            (ExactScanBranchDiagnostic::SegmentBody,
+                            wide_sweep_segment_body(b, owner_b, a, owner_a,
+                                                    &colliders[j], &colliders[i],
+                                                    &mut scratch.exact_wide,
+                                                    #[cfg(feature = "cartesian-recoil")] rows))
+                        },
                     (MotorShape::Segment { .. }, MotorShape::Segment { .. }) if
                         (a.entity, a.slot) <= (b.entity, b.slot) =>
                         (ExactScanBranchDiagnostic::SegmentSegment,
@@ -665,7 +1019,10 @@ fn scan_detector_into(
                     Ok(candidate) => candidate,
                     Err(reject) => {
                         #[cfg(feature = "cartesian-recoil")]
-                        { scratch.first_pair_rejection = Some(ExactScanPairRejectionDiagnostic {
+                        { scratch.finish_segment_body_target_pair(target_claimed, aabb_supported,
+                            aabb_disjoint, ExactSegmentBodyPairResultDiagnostic::Reject(
+                                scan_reject_diagnostic(reject)));
+                          scratch.first_pair_rejection = Some(ExactScanPairRejectionDiagnostic {
                             a_index: i, b_index: j, a_entity: a.entity, b_entity: b.entity,
                             a_slot: a.slot, b_slot: b.slot,
                             a_shape: scan_shape_diagnostic(&a.motor),
@@ -680,6 +1037,16 @@ fn scan_detector_into(
                         return Err(reject);
                     }
                 };
+                #[cfg(all(test, feature = "cartesian-recoil"))]
+                let candidate = if target_claimed && scratch.segment_body_target.test_mutation
+                    == ExactSegmentBodyTestMutation::RouteRecorderIntoResult {
+                    scratch.segment_body_target.test_mutation_fired = true; None
+                } else { candidate };
+                #[cfg(feature = "cartesian-recoil")]
+                scratch.finish_segment_body_target_pair(target_claimed, aabb_supported,
+                    aabb_disjoint, if candidate.is_some() {
+                        ExactSegmentBodyPairResultDiagnostic::Candidate
+                    } else { ExactSegmentBodyPairResultDiagnostic::NoCandidate });
                 if let Some(candidate) = candidate { scratch.exact_staging.push(candidate); }
             } }
             scratch.exact_staging.sort_unstable_by_key(
@@ -2804,47 +3171,106 @@ fn segment_body_separation(
 #[cfg(any(test, feature = "cartesian-recoil"))]
 fn wide_sweep_segment_body(weapon: &ExactContactTrajectory, wo: &ExactOwnerTrajectory,
     body: &ExactContactTrajectory, bo: &ExactOwnerTrajectory,
-    cw: &ContactCollider, cb: &ContactCollider, scratch: &mut ExactWideScratch)
+    cw: &ContactCollider, cb: &ContactCollider, scratch: &mut ExactWideScratch,
+    #[cfg(feature = "cartesian-recoil")] mut diagnostic: Option<ExactSegmentBodyTargetRows<'_>>)
     -> Result<Option<Candidate>, ExactScanReject>
 {
     #[cfg(feature = "cartesian-recoil")]
     { scratch.segment_body_rejection = None; }
+    #[cfg(feature = "cartesian-recoil")]
+    macro_rules! target_try {
+        ($expression:expr, $region_at:expr) => {
+            match $expression {
+                Ok(value) => value,
+                Err(reject) => {
+                    if let (Some(rows), Some(at)) = (diagnostic.as_mut(), $region_at) {
+                        rows.regions[at].terminal =
+                            ExactSegmentBodyRegionTerminalDiagnostic::Reject(
+                                scan_reject_diagnostic(reject));
+                    }
+                    return Err(reject);
+                }
+            }
+        };
+    }
+    #[cfg(not(feature = "cartesian-recoil"))]
+    macro_rules! target_try {
+        ($expression:expr, $region_at:expr) => { $expression? };
+    }
     let mut winner: Option<(u32, usize, WideSegmentClosest, WideRational4096)> = None;
     #[cfg(feature = "cartesian-recoil")]
     let mut winner_trace = ExactWideVisitTrace::default();
     for region in 0..AnatomyRegion::COUNT {
         let group = wo.common_response.group_time_raw;
-        if wide_segment_body_region_aabbs_are_disjoint_during(
-            weapon, wo, body, bo, region, group, 65_536, scratch)? {
+        #[cfg(feature = "cartesian-recoil")]
+        let region_at = diagnostic.as_mut().and_then(|rows| rows.push_region(
+            ExactSegmentBodyRegionDiagnostic {
+                region: region as u8, aabb_disjoint: None, speed: None,
+                visit_start: rows.visits.len(), visit_count: 0,
+                terminal: ExactSegmentBodyRegionTerminalDiagnostic::ProvedSeparate,
+                accepted_time_raw: None, accepted_feature: None,
+            }));
+        #[cfg(not(feature = "cartesian-recoil"))]
+        let region_at: Option<usize> = None;
+        let aabb_disjoint = target_try!(wide_segment_body_region_aabbs_are_disjoint_during(
+            weapon, wo, body, bo, region, group, 65_536, scratch), region_at);
+        #[cfg(feature = "cartesian-recoil")]
+        if let (Some(rows), Some(at)) = (diagnostic.as_mut(), region_at) {
+            rows.regions[at].aabb_disjoint = Some(aabb_disjoint);
+        }
+        if aabb_disjoint {
+            #[cfg(feature = "cartesian-recoil")]
+            if let (Some(rows), Some(at)) = (diagnostic.as_mut(), region_at) {
+                rows.regions[at].terminal = ExactSegmentBodyRegionTerminalDiagnostic::AabbDisjoint;
+            }
             continue;
         }
-        let speed = wide_segment_body_speed(weapon, wo, body, bo, region)?;
+        let speed = target_try!(wide_segment_body_speed(weapon, wo, body, bo, region), region_at);
+        #[cfg(feature = "cartesian-recoil")]
+        if let (Some(rows), Some(at)) = (diagnostic.as_mut(), region_at) {
+            rows.regions[at].speed = speed.as_i128_pair();
+        }
         let mut time = group; let mut found = None;
         #[cfg(feature = "cartesian-recoil")]
         let mut trace = ExactWideVisitTrace::default();
         let mut proved_separate = false;
         for visit in 0..96 {
             #[cfg(feature = "cartesian-recoil")]
+            let visit_at = diagnostic.as_mut().and_then(|rows| rows.push_visit(
+                ExactSegmentBodyVisitDiagnostic { region: region as u8,
+                    ordinal: visit as u8, time_raw: time, safe_step_raw: None }));
+            #[cfg(feature = "cartesian-recoil")]
+            if let (Some(rows), Some(at)) = (diagnostic.as_mut(), region_at) {
+                rows.regions[at].visit_count = rows.visits.len()
+                    .saturating_sub(rows.regions[at].visit_start) as u8;
+            }
+            #[cfg(feature = "cartesian-recoil")]
             trace.visit(time);
-            let Some((closest, rr, medial)) = wide_segment_body_at_time(
-                weapon, wo, body, bo, region, time, scratch)?
+            let Some((closest, rr, medial)) = target_try!(wide_segment_body_at_time(
+                weapon, wo, body, bo, region, time, scratch), region_at)
                 else { proved_separate = true; break };
-            let radius = wide_radius(rr)?;
-            let radius_sq = wide_mul(radius, radius)?;
-            if wide_cmp(closest.distance_sq, radius_sq)? != Ordering::Greater {
+            let radius = target_try!(wide_radius(rr), region_at);
+            let radius_sq = target_try!(wide_mul(radius, radius), region_at);
+            if target_try!(wide_cmp(closest.distance_sq, radius_sq), region_at)
+                != Ordering::Greater {
                 found = Some((time, closest, medial)); break;
             }
             if time == 65_536 || speed.numerator.is_zero() { proved_separate = true; break; }
-            let step = wide_safe_step(closest, radius, speed)?;
+            let step = target_try!(wide_safe_step(closest, radius, speed), region_at);
+            #[cfg(feature = "cartesian-recoil")]
+            if let (Some(rows), Some(at)) = (diagnostic.as_mut(), visit_at) {
+                rows.visits[at].safe_step_raw = Some(step);
+            }
             #[cfg(feature = "cartesian-recoil")]
             trace.step(step);
             if step == 0 {
                 let next = time + 1;
-                let Some((adjacent, rr, _)) = wide_segment_body_at_time(
-                    weapon, wo, body, bo, region, next, scratch)? else { break };
-                let r = wide_radius(rr)?;
-                let adjacent_radius_sq = wide_mul(r, r)?;
-                if wide_cmp(adjacent.distance_sq, adjacent_radius_sq)? == Ordering::Greater {
+                let Some((adjacent, rr, _)) = target_try!(wide_segment_body_at_time(
+                    weapon, wo, body, bo, region, next, scratch), region_at) else { break };
+                let r = target_try!(wide_radius(rr), region_at);
+                let adjacent_radius_sq = target_try!(wide_mul(r, r), region_at);
+                if target_try!(wide_cmp(adjacent.distance_sq, adjacent_radius_sq), region_at)
+                    == Ordering::Greater {
                     // Endpoint separation alone cannot exclude a sub-raw
                     // enter-and-exit. The two affine swept AABBs can: if they
                     // are disjoint across this one-word interval, every point
@@ -2852,12 +3278,13 @@ fn wide_sweep_segment_body(weapon: &ExactContactTrajectory, wo: &ExactOwnerTraje
                     // Otherwise keep the named refusal -- the interval may
                     // contain a contact the integer-time detector cannot
                     // publish exactly.
-                    let interval_disjoint = wide_segment_body_region_aabbs_are_disjoint_during(
-                        weapon, wo, body, bo, region, time, next, scratch)?;
+                    let interval_disjoint = target_try!(
+                        wide_segment_body_region_aabbs_are_disjoint_during(
+                            weapon, wo, body, bo, region, time, next, scratch), region_at);
                     if !interval_disjoint {
                         #[cfg(feature = "cartesian-recoil")]
-                        if segment_body_separation(
-                            weapon, wo, body, bo, region, time, radius, scratch)?
+                        if target_try!(segment_body_separation(
+                            weapon, wo, body, bo, region, time, radius, scratch), region_at)
                             == SegmentBodySeparation::Separated {
                             time = next;
                             continue;
@@ -2898,24 +3325,49 @@ fn wide_sweep_segment_body(weapon: &ExactContactTrajectory, wo: &ExactOwnerTraje
                                     interval_aabb_disjoint: interval_disjoint,
                                 });
                         }
+                        #[cfg(feature = "cartesian-recoil")]
+                        if let (Some(rows), Some(at)) = (diagnostic.as_mut(), region_at) {
+                            rows.regions[at].terminal =
+                                ExactSegmentBodyRegionTerminalDiagnostic::Reject(
+                                    ExactScanRejectDiagnostic::UnsupportedExactSweep);
+                        }
                         return Err(ExactScanReject::UnsupportedExactSweep);
                     }
                 }
                 time = next;
             } else { time += step.min(65_536 - time); }
         }
-        if found.is_none() && !proved_separate { return Err(ExactScanReject::Budget); }
+        if found.is_none() && !proved_separate {
+            #[cfg(feature = "cartesian-recoil")]
+            if let (Some(rows), Some(at)) = (diagnostic.as_mut(), region_at) {
+                rows.regions[at].terminal = ExactSegmentBodyRegionTerminalDiagnostic::Reject(
+                    ExactScanRejectDiagnostic::Budget);
+            }
+            return Err(ExactScanReject::Budget);
+        }
         if let Some((time, closest, medial)) = found {
+            #[cfg(feature = "cartesian-recoil")]
+            if let (Some(rows), Some(at)) = (diagnostic.as_mut(), region_at) {
+                rows.regions[at].terminal = ExactSegmentBodyRegionTerminalDiagnostic::Candidate;
+                rows.regions[at].accepted_time_raw = Some(time);
+                rows.regions[at].accepted_feature = Some(closest.feature);
+            }
             let replace = match winner {
                 None => true,
                 Some((old_time, old_region, _, old_medial)) => time < old_time
-                    || (time == old_time && (wide_cmp(medial, old_medial)? == Ordering::Less
-                        || (wide_cmp(medial, old_medial)? == Ordering::Equal && region < old_region))),
+                    || (time == old_time && (target_try!(wide_cmp(medial, old_medial), region_at)
+                        == Ordering::Less || (target_try!(wide_cmp(medial, old_medial), region_at)
+                            == Ordering::Equal && region < old_region))),
             };
             if replace {
                 winner = Some((time, region, closest, medial));
                 #[cfg(feature = "cartesian-recoil")]
                 { winner_trace = trace; }
+            }
+        } else if proved_separate {
+            #[cfg(feature = "cartesian-recoil")]
+            if let (Some(rows), Some(at)) = (diagnostic.as_mut(), region_at) {
+                rows.regions[at].terminal = ExactSegmentBodyRegionTerminalDiagnostic::ProvedSeparate;
             }
         }
     }
@@ -5310,6 +5762,237 @@ mod tests {
         assert_eq!(exact_contact_at_pose(&exact.trajectories, &exact.owners, &rows,
             0, 1, 902, &mut scratch).unwrap(), None,
             "a publication-frame identity defect was evaluated before the separating predicate");
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    fn smart131_rows(x_delta: i32, y_delta: i32)
+        -> ([ContactCollider; 2], ZeroResponseCompatibility)
+    {
+        let (mut rows, _) = replay_tick_79_weapon_body_rows();
+        if let ContactShape::Segment { previous_hilt, requested_hilt,
+            requested_tip, .. } = &mut rows[0].shape {
+            requested_hilt.x += Fx::from_raw(x_delta);
+            requested_tip.x += Fx::from_raw(x_delta);
+            rows[0].velocity = *requested_hilt - *previous_hilt;
+        }
+        if let ContactShape::Body { previous_origin, requested_origin, parts } = &mut rows[1].shape {
+            previous_origin.y += Fx::from_raw(y_delta);
+            requested_origin.y += Fx::from_raw(y_delta);
+            for part in parts { if part.present {
+                part.previous_lower.y += Fx::from_raw(y_delta);
+                part.previous_upper.y += Fx::from_raw(y_delta);
+                part.requested_lower.y += Fx::from_raw(y_delta);
+                part.requested_upper.y += Fx::from_raw(y_delta);
+            } }
+        }
+        let exact = zero_response_compatibility(&rows).unwrap();
+        (rows, exact)
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    fn smart131_target(rows: &[ContactCollider; 2]) -> ExactSegmentBodyDiagnosticTarget {
+        ExactSegmentBodyDiagnosticTarget {
+            key: crate::combat::resolution::ExactContactKeyDiagnostic {
+                a: rows[0].entity, a_slot: rows[0].slot, b: rows[1].entity,
+                b_slot: BODY_SLOT, kind: ContactKind::WeaponBody,
+            }, a_index: 0, b_index: 1,
+        }
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    fn smart131_scan(rows: &[ContactCollider; 2], exact: &ZeroResponseCompatibility,
+        requested: bool, mutation: ExactSegmentBodyTestMutation)
+        -> (Result<(), ExactScanReject>, ContactCollectionScratch)
+    {
+        let mut scratch = ContactCollectionScratch::default(); scratch.try_reserve(2).unwrap();
+        scratch.set_segment_body_test_mutation(mutation);
+        if requested { assert!(scratch.request_segment_body_target(smart131_target(rows))); }
+        scratch.begin_segment_body_target_tick();
+        let result = scan_exact_candidates_into(&exact.trajectories, &exact.owners, rows,
+                                                &mut scratch);
+        (result, scratch)
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    fn smart131_trace_is_complete(diagnostic: ExactSegmentBodyTargetDiagnostic<'_>) -> bool {
+        let Some(pair) = diagnostic.pair else { return diagnostic.encounter_count == 0 };
+        pair.regions.len() <= AnatomyRegion::COUNT
+            && pair.visits.len() <= EXACT_SEGMENT_BODY_VISIT_CAP
+            && pair.regions.iter().all(|region| {
+                let end = region.visit_start + region.visit_count as usize;
+                end <= pair.visits.len()
+                    && (region.terminal != ExactSegmentBodyRegionTerminalDiagnostic::Reject(
+                            ExactScanRejectDiagnostic::Budget) || region.visit_count == 96)
+                    && pair.visits[region.visit_start..end].iter().enumerate().all(|(at, visit)|
+                        visit.region == region.region && visit.ordinal as usize == at)
+            })
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn the_requested_segment_body_pair_trace_is_tick_local_and_bounded() {
+        let (rows, exact) = smart131_rows(100_000, 500);
+        let (_, mut scratch) = smart131_scan(&rows, &exact, true,
+                                             ExactSegmentBodyTestMutation::None);
+        let first = scratch.segment_body_target_diagnostic().unwrap();
+        assert_eq!(first.encounter_count, 1); assert!(smart131_trace_is_complete(first));
+        let first_pair = first.pair.unwrap();
+        let first_identity = (first_pair.a_entity, first_pair.b_entity,
+            first_pair.a_slot, first_pair.b_slot, first_pair.a_owner, first_pair.b_owner,
+            first_pair.a_shape, first_pair.b_shape, first_pair.kind, first_pair.orientation);
+        let first_result = (first_pair.group_time_raw, first_pair.pair_aabb_supported,
+                            first_pair.pair_aabb_disjoint, first_pair.result);
+        let first_regions = first_pair.regions.to_vec();
+        let first_visits = first_pair.visits.to_vec();
+        let cloned = scratch.clone();
+        assert_eq!(cloned.segment_body_target_diagnostic(),
+                   scratch.segment_body_target_diagnostic());
+        let cloned_capacities = cloned.capacities();
+        assert!(cloned_capacities[cloned_capacities.len() - 2] >= AnatomyRegion::COUNT);
+        assert!(cloned_capacities[cloned_capacities.len() - 1]
+            >= EXACT_SEGMENT_BODY_VISIT_CAP);
+
+        let mut pending = ContactCollectionScratch::default(); pending.try_reserve(2).unwrap();
+        assert!(pending.request_segment_body_target(smart131_target(&rows)));
+        let mut pending_clone = pending.clone();
+        pending.begin_segment_body_target_tick(); pending_clone.begin_segment_body_target_tick();
+        assert_eq!(pending.segment_body_target_diagnostic(),
+                   pending_clone.segment_body_target_diagnostic());
+        assert!(scratch.request_segment_body_target(smart131_target(&rows)));
+        assert!(!scratch.request_segment_body_target(smart131_target(&rows)));
+        scratch.begin_segment_body_target_tick();
+        assert_eq!(scratch.segment_body_target_diagnostic().unwrap().encounter_count, 0);
+        scratch.begin_segment_body_target_tick();
+        assert_eq!(scratch.segment_body_target_diagnostic(), None);
+
+        let mut wrong = smart131_target(&rows); wrong.a_index = 1;
+        let mut unencountered = ContactCollectionScratch::default();
+        unencountered.try_reserve(2).unwrap();
+        assert!(unencountered.request_segment_body_target(wrong));
+        unencountered.begin_segment_body_target_tick();
+        assert_eq!(scan_exact_candidates_into(&exact.trajectories, &exact.owners, &rows,
+                                               &mut unencountered), Ok(()));
+        let missing = unencountered.segment_body_target_diagnostic().unwrap();
+        assert_eq!((missing.encounter_count, missing.pair), (0, None));
+        unencountered.begin_segment_body_target_tick();
+        assert_eq!(unencountered.segment_body_target_diagnostic(), None);
+
+        let mut owner = crate::combat::resolution::ContactTickScratch::default();
+        owner.reserve(2, 2);
+        assert!(owner.request_exact_segment_body_target(smart131_target(&rows)));
+        owner.begin_exact_diagnostics(45);
+        assert_eq!(owner.exact_segment_body_target_diagnostic().unwrap().encounter_count, 0);
+        owner.begin_exact_diagnostics(46);
+        assert_eq!(owner.exact_segment_body_target_diagnostic(), None);
+        owner.set_segment_body_test_mutation(ExactSegmentBodyTestMutation::RetainAcrossTick);
+        assert!(owner.request_exact_segment_body_target(smart131_target(&rows)));
+        owner.begin_exact_diagnostics(47); owner.begin_exact_diagnostics(48);
+        assert!(owner.segment_body_test_mutation_fired());
+        assert!(owner.exact_segment_body_target_diagnostic().is_some(),
+            "bypassing the owning tick reset must make the lifecycle proof red");
+
+        let mut duplicate = ContactCollectionScratch::default(); duplicate.try_reserve(2).unwrap();
+        assert!(duplicate.request_segment_body_target(smart131_target(&rows)));
+        duplicate.begin_segment_body_target_tick();
+        assert_eq!(scan_exact_candidates_into(&exact.trajectories, &exact.owners, &rows,
+                                               &mut duplicate), Ok(()));
+        let second_rows = [rows[1], rows[0]];
+        let second_trajectories = [exact.trajectories[1], exact.trajectories[0]];
+        assert_eq!(scan_exact_candidates_into(&second_trajectories, &exact.owners, &second_rows,
+                                               &mut duplicate), Ok(()));
+        let duplicate_row = duplicate.segment_body_target_diagnostic().unwrap();
+        assert_eq!(duplicate_row.encounter_count, 2);
+        let duplicate_pair = duplicate_row.pair.unwrap();
+        assert_eq!((duplicate_pair.a_entity, duplicate_pair.b_entity,
+            duplicate_pair.a_slot, duplicate_pair.b_slot,
+            duplicate_pair.a_owner, duplicate_pair.b_owner,
+            duplicate_pair.a_shape, duplicate_pair.b_shape,
+            duplicate_pair.kind, duplicate_pair.orientation), first_identity);
+        assert_eq!((duplicate_pair.group_time_raw, duplicate_pair.pair_aabb_supported,
+                    duplicate_pair.pair_aabb_disjoint, duplicate_pair.result), first_result);
+        assert_eq!(duplicate_pair.regions, first_regions);
+        assert_eq!(duplicate_pair.visits, first_visits);
+
+        let mut overwritten = ContactCollectionScratch::default();
+        overwritten.try_reserve(2).unwrap();
+        overwritten.set_segment_body_test_mutation(
+            ExactSegmentBodyTestMutation::DuplicateEncounter);
+        assert!(overwritten.request_segment_body_target(smart131_target(&rows)));
+        overwritten.begin_segment_body_target_tick();
+        assert_eq!(scan_exact_candidates_into(&exact.trajectories, &exact.owners, &rows,
+                                               &mut overwritten), Ok(()));
+        assert_eq!(scan_exact_candidates_into(&second_trajectories, &exact.owners, &second_rows,
+                                               &mut overwritten), Ok(()));
+        assert!(overwritten.segment_body_test_mutation_fired());
+        assert!(overwritten.segment_body_target_diagnostic().unwrap().pair.is_none(),
+            "letting a genuine second encounter overwrite/append must make ownership red");
+
+        let (_, retained) = smart131_scan(&rows, &exact, true,
+                                          ExactSegmentBodyTestMutation::RetainAcrossTick);
+        let mut retained = retained;
+        retained.begin_segment_body_target_tick();
+        assert!(retained.segment_body_test_mutation_fired());
+        assert!(retained.segment_body_target_diagnostic().is_some(),
+                "the deliberate retention mutation must make the tick-local guard red");
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn a_budget_exhaustion_records_its_region_and_all_visits() {
+        let (rows, exact) = smart131_rows(500_000, 8_000);
+        let (result, scratch) = smart131_scan(&rows, &exact, true,
+                                              ExactSegmentBodyTestMutation::None);
+        assert_eq!(result, Err(ExactScanReject::Budget));
+        let diagnostic = scratch.segment_body_target_diagnostic().unwrap();
+        assert!(smart131_trace_is_complete(diagnostic));
+        let pair = diagnostic.pair.unwrap();
+        assert_eq!(pair.result, ExactSegmentBodyPairResultDiagnostic::Reject(
+            ExactScanRejectDiagnostic::Budget));
+        assert_eq!(pair.visits.len(), 96);
+        let budget = pair.regions.iter().find(|row| row.terminal
+            == ExactSegmentBodyRegionTerminalDiagnostic::Reject(
+                ExactScanRejectDiagnostic::Budget)).unwrap();
+        assert_eq!(budget.visit_count, 96);
+        assert_eq!(pair.visits[budget.visit_start].ordinal, 0);
+        assert_eq!(pair.visits[budget.visit_start + 95].ordinal, 95);
+
+        for mutation in [ExactSegmentBodyTestMutation::DropVisit,
+                         ExactSegmentBodyTestMutation::SwapVisits] {
+            let (_, changed) = smart131_scan(&rows, &exact, true, mutation);
+            assert!(changed.segment_body_test_mutation_fired());
+            assert!(!smart131_trace_is_complete(
+                changed.segment_body_target_diagnostic().unwrap()),
+                "dropping or reordering one real retained visit must make the proof red");
+        }
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn recording_a_segment_body_trace_does_not_change_the_scan_result() {
+        let (rows, exact) = smart131_rows(100_000, 500);
+        let (plain_result, plain) = smart131_scan(&rows, &exact, false,
+                                                  ExactSegmentBodyTestMutation::None);
+        let (recorded_result, recorded) = smart131_scan(&rows, &exact, true,
+                                                        ExactSegmentBodyTestMutation::None);
+        let evidence = |scratch: &ContactCollectionScratch| (candidate_bytes(scratch),
+            scratch.first_pair_rejection, scratch.exact_wide.segment_body_rejection);
+        assert_eq!(plain_result, recorded_result);
+        assert_eq!(evidence(&plain), evidence(&recorded));
+
+        let mut refused = ContactCollectionScratch::default(); refused.try_reserve(2).unwrap();
+        refused.set_segment_body_test_mutation(ExactSegmentBodyTestMutation::RefuseCapacity);
+        assert!(!refused.request_segment_body_target(smart131_target(&rows)));
+        assert!(refused.segment_body_test_mutation_fired());
+        refused.begin_segment_body_target_tick();
+        let refused_result = scan_exact_candidates_into(&exact.trajectories, &exact.owners,
+                                                        &rows, &mut refused);
+        assert_eq!((refused_result, evidence(&refused)), (plain_result, evidence(&plain)));
+
+        let (routed_result, routed) = smart131_scan(&rows, &exact, true,
+            ExactSegmentBodyTestMutation::RouteRecorderIntoResult);
+        assert!(routed.segment_body_test_mutation_fired());
+        assert_ne!((routed_result, evidence(&routed)), (plain_result, evidence(&plain)),
+            "routing recorder state into selection must make the inertness proof red");
     }
 
     #[cfg(feature = "cartesian-recoil")]

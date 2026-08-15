@@ -82,7 +82,9 @@ browser ABI. Do not run `cargo fmt`.
 Do not infer a generic scan-order target. Smart130 observed only the reference's
 first *rejected* pair; held's absent rejected-pair row does not prove
 which earlier pair or outer-AABB branch it took. Add a feature-only, diagnostic-only
-target request containing the frozen `ContactKey`, `a_index=1` and `b_index=3`.
+target request containing the frozen public `ExactContactKeyDiagnostic`, `a_index=1`
+and `b_index=3`. Contact collection compares those explicit fields with its private
+`ContactKey`; the API does not expose or re-export that private solver key.
 `World::request_exact_segment_body_pair_diagnostic(target)` arms it for exactly one
 step. Lab sets it immediately before the `45 -> 46` step on the live and rerun Worlds
 only. The request is cleared after that step and is never hashed, replayed, serialized
@@ -95,7 +97,7 @@ implementable shape is:
 
 ```rust
 pub struct ExactSegmentBodyDiagnosticTarget {
-    pub key: ContactKey, pub a_index: usize, pub b_index: usize,
+    pub key: ExactContactKeyDiagnostic, pub a_index: usize, pub b_index: usize,
 }
 
 pub struct ExactSegmentBodyTargetDiagnostic<'a> {
@@ -238,16 +240,17 @@ no writer.
 Compare `reference_before` with held in declaration order, after first requiring
 the two reference brackets byte-for-byte equal as typed data. Compare:
 
-1. pair shapes, kind, orientation, owner indexes, group word, pair-level AABB
-   disposition, region count and total visit count;
-2. region presence/cardinality/order, region index, region AABB disposition, speed
-   ratio and declared visit count;
-3. visit presence/cardinality/order, then every `(ordinal, time, safe_step)` row in
-   chronological execution order;
-4. region terminal, accepted time/feature and finally the pair result.
+1. pair region count and total visit count;
+2. aligned region AABB disposition, speed ratio and declared visit count;
+3. every aligned `(time, safe_step)` visit row in chronological execution order;
+4. region terminal and accepted time/feature. A pair-result difference after all
+   those words agree is a diagnostic contradiction, not a difference field.
 
 Pair identity is an admission guard, not a possible difference: both records must
-match the requested frozen key and indexes before comparison begins. Record exactly
+match the requested frozen key and indexes, shapes, `WeaponBody` kind,
+`segment_body` orientation and frozen owners before comparison begins. Region and
+visit indexes/order/cardinality are likewise validated controls; missing,
+reordered, noncontiguous or declared/actual-mismatched rows are errors. Record exactly
 one `first_transcript_difference` with scope `aabb_control|region|visit|terminal`,
 the fixed field name, region or `none`, visit or `none`, and explicit reference/held
 values. A pair-result difference after every recorded path and terminal field agrees
@@ -312,17 +315,18 @@ terminal `aabb_disjoint|proved_separate|candidate|reject:<reject>`; and scope
 in this comparison order:
 
 ```text
-a_shape|b_shape|kind|orientation|a_owner|b_owner|group_time_raw|pair_aabb_supported|pair_aabb_disjoint|pair_region_count|pair_visit_count|region_missing|region_cardinality|region_order|region_index|region_aabb_disjoint|region_speed|region_visit_count|visit_missing|visit_cardinality|visit_order|visit_ordinal|visit_time_raw|visit_safe_step_raw|region_terminal|accepted_time_raw|accepted_feature|pair_result
+pair_region_count|pair_visit_count|region_aabb_disjoint|region_speed|region_visit_count|visit_time_raw|visit_safe_step_raw|region_terminal|accepted_time_raw|accepted_feature
 ```
 
-The `*_missing` tokens name a row present on only one arm; `*_cardinality` names a
-declared/actual or arm-to-arm length disagreement before indexed comparison; the
-three count tokens carry the explicit pair region total, pair visit total and current
-region visit total. `<atom>` is one no-whitespace grammar token from the corresponding
+The owned-copy validator refuses missing, reordered, noncontiguous or
+declared/actual-mismatched region and visit rows before comparison. Earlier wording
+also assigned first-difference tokens to those impossible post-validation states;
+that was an overconstraint. Pair region/visit counts remain comparable between two
+individually valid arms; aligned row identity is already a validation guard.
+`<atom>` is one no-whitespace grammar token from the corresponding
 field's encoder. Unknown or newly added enum variants are compile errors, not `Debug`
 fallbacks. Reject an internally inconsistent declared length or offset before
-rendering or writing; an arm-to-arm bounded count/missing difference remains an
-explicit first-transcript field.
+rendering or writing.
 
 Do not use `Debug`, map iteration or platform path text. Two independent renders of
 the same typed evidence must be byte-identical, and a synthetic fixture with a
@@ -362,9 +366,12 @@ it before any evidence run:
 - remove and separately reorder one stored replay submission so comparison with the
   independently built expected receipt fails before playback;
 - step to horizon 47;
-- request the wrong key/indexes, separately target the next segment/body pair, and
-  inject a duplicate encounter so the public count is `0`, a different target, and
-  `2` respectively rather than the required `1`;
+- request the wrong key/indexes and separately target the next segment/body pair so
+  Lab observes count `0` and a different count-`1` target respectively. Lab's copied
+  count-`2` mutation tests admission only; genuine duplicate ownership/first-header
+  preservation belongs to Sim's
+  `the_requested_segment_body_pair_trace_is_tick_local_and_bounded` test, which performs
+  two real same-tick matching scans;
 - suppress reference's `Budget` result or alter held's recorded result;
 - inject atomic open, write, flush and rename failures.
 

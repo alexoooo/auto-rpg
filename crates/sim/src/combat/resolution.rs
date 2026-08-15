@@ -19,7 +19,7 @@ pub use crate::combat::contact::{ExactWideComparisonDiagnostic, ExactWidePrimiti
     ExactWideToiDiagnostic, ExactCompatibilityPrimitiveDiagnostic,
     ExactCompatibilitySweepDiagnostic, ExactScanPairRejectionDiagnostic,
     ExactScanShapeDiagnostic, ExactScanBranchDiagnostic, ExactScanRejectDiagnostic,
-    ExactSegmentBodyProgressDiagnostic};
+    ExactSegmentBodyProgressDiagnostic, ExactSegmentBodyDiagnosticTarget, ExactSegmentBodyOrientationDiagnostic, ExactSegmentBodyPairDiagnostic, ExactSegmentBodyPairResultDiagnostic, ExactSegmentBodyRegionDiagnostic, ExactSegmentBodyRegionTerminalDiagnostic, ExactSegmentBodyTargetDiagnostic, ExactSegmentBodyVisitDiagnostic};
 #[cfg(feature = "cartesian-recoil")]
 use crate::combat::trajectory::{advance_exact_into, apply_exact_group_into, ExactContactTrajectory,
                                 ExactOwnerTrajectory, ExactTrajectoryWork,
@@ -771,7 +771,7 @@ pub struct ContactTickScratch {
 impl ContactTickScratch {
     #[cfg(feature = "cartesian-recoil")]
     pub(crate) fn begin_exact_diagnostics(&mut self, tick: u32) {
-        self.exact_group_diagnostics_len = 0;
+        self.exact_group_diagnostics_len = 0; self.collection.begin_segment_body_target_tick();
         self.exact_diagnostic_tick = tick;
     }
 
@@ -786,6 +786,7 @@ impl ContactTickScratch {
     {
         self.collection.first_pair_rejection()
     }
+
     #[cfg(feature = "cartesian-recoil")]
     fn exact_context(&mut self, phase: ExactContactRejectPhase, key: Option<ContactKey>) {
         self.exact_reject_phase = Some(phase);
@@ -5409,4 +5410,24 @@ pub(crate) fn advance_projected_fixture_to_group(
 #[cfg(test)]
 pub(crate) fn finish_projected_fixture(rows: &mut [ContactCollider]) {
     finish_all(rows);
+}
+
+#[cfg(feature = "cartesian-recoil")]
+impl ContactTickScratch {
+    pub(crate) fn request_exact_segment_body_target(&mut self,
+        target: crate::combat::contact::ExactSegmentBodyDiagnosticTarget) -> bool
+    { self.collection.request_segment_body_target(target) }
+
+    pub(crate) fn exact_segment_body_target_diagnostic(&self)
+        -> Option<crate::combat::contact::ExactSegmentBodyTargetDiagnostic<'_>>
+    { self.collection.segment_body_target_diagnostic() }
+
+    #[cfg(test)]
+    pub(crate) fn set_segment_body_test_mutation(&mut self,
+        mutation: crate::combat::contact::ExactSegmentBodyTestMutation)
+    { self.collection.set_segment_body_test_mutation(mutation); }
+
+    #[cfg(test)]
+    pub(crate) fn segment_body_test_mutation_fired(&self) -> bool
+    { self.collection.segment_body_test_mutation_fired() }
 }
