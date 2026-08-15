@@ -808,7 +808,8 @@ Smart129 found controlled-arm count asymmetry, and Smart130 localized its earlie
 to a tick-46 reference first rejected segment/body scan pair returning `budget` while held's public
 rejected-pair diagnostic was absent, without establishing causality. Smart131's
 bounded transcript found reference entering two regions and held exiting at the
-pair-AABB control with zero. The active successor is the frozen swept-AABB
-operand/axis diagnosis recorded in the
-[matched Tactical evidence](smart-ai-matched-tactical.md#frozen-ordinal-31-tick-46-pair-transcript),
-not held-out competence, budget widening or a mechanics correction.
+pair-AABB control with zero. Smart132 localized that control path's first difference
+to the A-side ordinal-0 segment-hilt start-point X operand. The active successor is
+only that operand's provenance, recorded from the
+[matched Tactical evidence](smart-ai-matched-tactical.md#frozen-ordinal-31-tick-46-pair-aabb-control-transcript),
+not held-out competence, a causal claim, budget widening or a mechanics correction.

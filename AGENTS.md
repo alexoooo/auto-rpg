@@ -354,10 +354,12 @@ numbered work is `v2-18`, still blocked on the mechanical gate. The Smart AI exa
 mechanics digest/authority sequence is complete; matched ordinary Tactical/control
 evidence has localized its first controlled-arm solver-count boundary to ordinal 31,
 tick 46. The bounded transcript then found the reference entering two anatomy regions
-while held exited at the pair swept-AABB control with none. Its next work is only the
-frozen pair-AABB operand and axis-early-exit diagnosis, not a budget widening,
-mechanics change, training or promotion. Durable results from closed sessions belong
-in architecture, design, reference, or performance docs.
+while held exited at the pair swept-AABB control with none. The next transcript
+localized the first pair-control difference to the A-side ordinal-0 segment-hilt
+start-point X operand. Its next work is only that frozen point-construction
+provenance, not a causal claim, budget widening, mechanics change, training or
+promotion. Durable results from closed sessions belong in architecture, design,
+reference, or performance docs.
 
 ## Gotchas that have already cost time
 

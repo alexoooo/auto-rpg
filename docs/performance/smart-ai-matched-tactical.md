@@ -334,9 +334,68 @@ completed group counts as zero. The artifact decision is `diagnostic-only`.
 
 This localizes the differing path before any shared region or visit comparison. It
 does not show that tick-36 effort caused the pair AABBs to differ, prove either arm
-wrong, or make the reference budget a defect. The only authorized successor is a
-separately preregistered transcript of the frozen pair's swept-AABB inputs, bounds,
-gaps and actual axis early exit. It may name the first differing control operand; it
-may not widen the 96-visit bound, change contact mechanics, tune Tactical, inspect
-held-out rows, run the competence gate, train or promote the feature. No registered
-pin moved.
+wrong, or make the reference budget a defect. Smart132 performed the separately
+preregistered swept-AABB operand transcript; its result follows.
+
+## Frozen ordinal-31 tick-46 pair-AABB control transcript
+
+Smart132 ran from clean source commit
+`02815f841a5831bd5747ffd813b1965f9ee73a01`. The fixed commands were:
+
+```powershell
+cargo run --release -p lab --features cartesian-recoil -- tactical-mechanics --ordinal-31-tick-46-pair-aabb --write target/smart132-ordinal31-tick46-A.txt
+cargo run --release -p lab --features cartesian-recoil -- tactical-mechanics --ordinal-31-tick-46-pair-aabb --write target/smart132-ordinal31-tick46-B.txt
+```
+
+A exited zero in `102.613` seconds, including a `36.05`-second release build; B
+exited zero in `69.224` seconds against the cached release binary. The program emitted
+no summary or refusal to stdout. Cargo's warnings and build/run status were the only
+stderr. The artifacts are byte-identical ASCII, LF-only and
+final-newline-terminated: `19,525` bytes, `109` lines and SHA-256
+`aeb7364bb8d93ba2ad907628c83819b43745d6b67281c9377cede1f6d817078a`.
+Neither sibling temporary remained. Their grammar is
+`smart132-ordinal31-tick46-pair-aabb-control-v1`; its cardinality closes exactly as
+`21 + 30 reference-before rows + 28 held rows + 30 reference-after rows = 109`.
+The embedded Smart131 source receipt also rechecks independently at `18,433` bytes,
+`208` lines and SHA-256
+`8ba428ecace7dba5f281c879c8ceaec907d8b5f9a504f67fc8d28b53811bde7e`.
+
+The descriptor, target identity and horizon remain frozen: ordinal `31`, seed `0`,
+mirrored `true`, target `Brute`, offset raw `(-163840,0)`, fingerprint
+`3796840901852190123`, chamber/strike `28/28`, reach raw `65536`, post-step tick
+`46`, indexes `1:3`, Hero `0:0` weapon slot `1` owner `0` against Brute `1:0`
+body slot `255` owner `1`, `weapon_body`, segment/body orientation, group time raw
+`0`. Every run encountered the pair once, recorded no invalid diagnostic state,
+had no contact, cap hit or positive energy excess, and had equal requested, stored
+and Replay receipts:
+
+| run | solver delta/count | receipt | state digest | points A/B | bounds / gaps | AABB terminal |
+|---|---:|---|---|---:|---:|---|
+| reference before | `1 / 7` | `68380c01b08a4bba` | `articulated_v1:1:b103c18d16641a9f` | `4 / 20` | `3 / 3` | `overlap` |
+| held | `0 / 6` | `f1cbac3ada86d1b5` | `articulated_v1:1:602273fa3b8cc80c` | `4 / 20` | `3 / 1` | `disjoint` |
+| reference after | `1 / 7` | `68380c01b08a4bba` | `articulated_v1:1:b103c18d16641a9f` | `4 / 20` | `3 / 3` | `overlap` |
+
+The reference horizon and complete 34-line pair block match their after bracket as
+typed values. The registered first difference is exactly:
+
+```text
+first_aabb_difference scope=point field=point_x side=a point=0 axis=none reference=+1:c0345d08/1:000013d7 held=+1:c2daa358/1:000013d7
+```
+
+That row is the segment-hilt start point (`side=a`, ordinal `0`, region `none`).
+Reference's X, Y and Z gaps are all nonseparating and its pair AABB overlaps. Held's
+first X right gap is
+`+2:756b1818,449c74dd/2:0ff0344b,00008a62`, compares `greater`, leaves the
+unevaluated left gap as `none`, and returns disjoint without visiting Y or Z. Both
+arms nevertheless computed all three bounds and the same combined radius
+`+1:000070a3/1:00000001`. These later rows are consequences retained for audit, not
+alternative first causes.
+
+The artifact decision is `diagnostic-only`. It does not establish that the tick-36
+effort difference caused this point operand, identify which upstream command, pose or
+wide-arithmetic input produced it, prove either arm wrong, or authorize a mechanics
+change. The only successor is a separately preregistered provenance transcript for
+this exact A-side ordinal-0 segment-hilt start-point X operand. The 96-visit bound,
+swept-AABB law, Tactical policy, held-out corpus, competence gate, feature default,
+training and promotion remain untouched. All registered native and browser pins were
+unchanged, and `ARTICULATED_HASH` remains absent.
