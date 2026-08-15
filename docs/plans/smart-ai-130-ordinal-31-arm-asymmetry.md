@@ -22,6 +22,15 @@ The reference strike effort is raw `65536`; the held strike effort is raw `0`.
 There is no neighbouring descriptor, unmirrored control, alternate horizon or
 parameter sweep in this session.
 
+The initial plan incorrectly equated the strike-phase boundary with the first
+submitted strike command and therefore expected the first effort-only difference at
+tick 28. A focused pre-production measurement superseded that premise: the strike
+phase begins at tick 28, but the attacker has no pending decision and submits no
+command on ticks 28--35. At tick 36 the pending list includes attacker and defender,
+and the first requested and stored difference is only the attacker's right-arm
+effort, raw `65536` to `0`. This is an input-schedule correction, not a contact,
+solver or mechanics result.
+
 The frozen Smart128 aggregate must be reproduced before the trace is interpreted:
 
 | run | solver rejections | attributed contact | terminal tick |
@@ -114,9 +123,11 @@ counter, so digest equality never substitutes for the explicit counter compariso
 Compare reference-before with held only while both original schedules are active.
 Predeclare three different boundaries:
 
-1. The first requested/stored command difference must be schedule tick `28`, and on
-   that first differing row only the attacking arm's effort may differ (`65536`
-   versus `0`). This expected input difference is not the solver finding. Later
+1. Ticks `28`--`35` must contain no attacker submission. At tick `36`, the pending
+   list must include attacker and defender and the first requested/stored command
+   difference must change only the attacker's right-arm effort (`65536` versus `0`).
+   The superseded tick-28 assumption confused a phase boundary with a decision-clock
+   boundary. This expected tick-36 input difference is not the solver finding. Later
    command rows remain evidence and are not assumed equal after state diverges.
 2. Report the first authoritative state-digest difference independently.
 3. Compare the per-tick solver-rejection deltas and cumulative counts through the
@@ -194,7 +205,7 @@ difference merely because effort is the first differing input.
 Add these exact Lab tests under `cartesian-recoil`:
 
 - `ordinal_31_is_the_frozen_first_solver_count_mismatch`
-- `ordinal_31_first_command_difference_is_only_strike_effort`
+- `ordinal_31_first_command_difference_is_right_arm_effort_at_tick_36`
 - `ordinal_31_live_rerun_and_replay_match_every_active_tick`
 - `ordinal_31_reproduces_the_reference_held_reference_bracket`
 - `provenance_stops_at_the_first_solver_delta_or_earlier_terminal`

@@ -87,7 +87,10 @@ The frozen shared-solver diagnosis found count asymmetry without naming its caus
 The active [Smart130 plan](smart-ai-130-ordinal-31-arm-asymmetry.md) begins at earliest
 canonical mismatch ordinal 31 and preserves each arm's original Smart128 terminal
 rule while naming the first common-prefix solver-delta difference or the earlier
-terminal boundary. It proposes no correction.
+terminal boundary. Its focused pre-production check corrected the input premise:
+strike phase starts at tick 28, but there is no attacker submission through tick 35;
+the first requested/stored difference is right-arm effort at tick 36. That correction
+is not a mechanics result. Smart130 proposes no correction.
 
 ## Next-session order
 
