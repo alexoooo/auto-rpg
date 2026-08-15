@@ -237,7 +237,7 @@ git diff --check
 
 Commit the clean source and tests before producing evidence. From that one clean
 MSVC x86-64 Windows commit, run the fixed command twice, sequentially, with a
-600-second timeout per run:
+final fixed 1800-second timeout per run:
 
 ```powershell
 cargo run --release -p lab --features cartesian-recoil -- tactical-mechanics --ordinal-31-provenance --write target/smart130-ordinal31-A.txt
@@ -246,9 +246,20 @@ Get-FileHash -Algorithm SHA256 target/smart130-ordinal31-A.txt,target/smart130-o
 ```
 
 Require both exits `0`, byte-identical artifacts, equal SHA-256 values and no sibling
-temporary files. Expected runtime is about 1--5 minutes per run after the release
-build; the fixed timeout is 10 minutes. A timeout is an operational non-result, not
-a World timeout or mechanics result.
+temporary files. The original 600-second bound was too short: evidence A from clean
+source authority `e7b09120ca0974267e1d4ca04261922453cea30f` remained live until the
+wrapper returned exit `124` at 600.073 seconds. Its preflight found no Cargo or Lab
+process and neither final nor sibling temporary path; its postflight found neither
+artifact, the same clean HEAD and no remaining process. It emitted no program
+decision or refusal, B was not run, and the attempt is an operational non-result --
+not a World timeout or mechanics result.
+
+The completed focused trace took 1254.45 seconds and the complete feature Lab gate
+took 1323.4 seconds, superseding the earlier 1--5 minute estimate and supporting the
+final 1800-second bound. Do not extend it again. Restart A and B from one clean
+docs-only descendant of the unchanged source authority above. If A fails or times
+out, publish nothing and do not run B. If B fails or times out, A remains operational
+evidence only and does not authorize a Smart130 decision.
 
 ## Decision boundary and pin budget
 
