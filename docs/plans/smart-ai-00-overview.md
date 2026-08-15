@@ -76,15 +76,17 @@ eighteen mechanics cases at their first qualifying contact; extending those case
 one tick is not its lifecycle grammar. The authority documents are now closed without
 promoting the feature. The completed stationary matched Tactical/control calibration
 stopped before held-out work: reference missing/crossing failures, held/reference
-solver rejections and Tactical solver/attribution failures were all present. Diagnose a
-single frozen failure class under a new plan before proposing any correction.
+solver rejections and Tactical solver/attribution failures were all present.
+[Smart129](smart-ai-129-shared-solver-diagnosis.md) is the active bounded offline
+diagnosis of held/reference solver identity; it precedes any correction proposal.
 
 ## Next-session order
 
-1. Plan a bounded diagnosis from Smart128's frozen matched rows. Do not tune against
-   the calibration or choose a subset after measurement. The moving baseline remains
-   `21/100` strict and `55/100` outcome-only; Smart125's attempted correction fell to
-   `49/100` outcome-only and was reverted.
+1. Execute [Smart129](smart-ai-129-shared-solver-diagnosis.md), the preregistered
+   offline held/reference solver-identity query over Smart128's frozen receipts. Do
+   not tune against the calibration or choose a subset after measurement. The moving
+   baseline remains `21/100` strict and `55/100` outcome-only; Smart125's attempted
+   correction fell to `49/100` outcome-only and was reverted.
 2. Preserve the ordinary defender-body `WALL` lifecycle witness separately from the
    terminal-at-first-contact source-41 solver corpus.
 3. Open the unchanged 95/100 held-out competence gate only after a future matched
