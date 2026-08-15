@@ -14,3 +14,32 @@ target
 **/mutants.out*/
 
 .idea/
+
+# Exact frontend and asset tools are reproducible from the committed manifests.
+node_modules/
+.tools/
+dist/
+.test-build/
+.vite/
+
+# Python is only a host for the deterministic Blender recipe. Import caches are
+# never reviewed generator inputs or outputs.
+__pycache__/
+*.py[cod]
+
+# `lab trace` output. Regenerated from a seed in half a second, eight megabytes
+# a fight, and reviewing one would be reviewing the simulation's own state.
+web/fight*.json
+
+# `lab learn-probe train` scratch. The checkpoint itself *is* committed -- it is
+# fifteen kilobytes, it is what `lab trace --policy learned` needs, and retraining
+# it costs forty-five minutes -- but its console log and the temporary an atomic
+# write leaves behind are not artifacts.
+checkpoints/*.log
+checkpoints/*.partial
+
+# Personal Claude Code settings and the local scripts they call. The project has no
+# checked-in `.claude/settings.json` on purpose: a hook that kills processes is a
+# preference about one machine, not a contract every contributor inherits.
+.claude/settings.local.json
+.claude/local/

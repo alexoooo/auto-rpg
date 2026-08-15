@@ -77,8 +77,11 @@ impl Hunt {
     ) -> Hunt {
         let scenario = Scenario {
             name: "hunt".to_string(),
+            combat_model: sim::CombatModel::Legacy,
+            combat_specs: None,
             dungeon: floor.clone(),
             portal: None,
+            torches: Vec::new(),
             max_ticks: u32::MAX,
             units: vec![hero, quarry],
         };
@@ -200,6 +203,7 @@ fn unit(kind: Body, faction: Faction, loadout: Loadout, spawn: Vec2) -> UnitSpec
         faction,
         stats: kind.base_stats(),
         loadout,
+        articulated: None,
         spawn,
     }
 }

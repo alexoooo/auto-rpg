@@ -1,0 +1,14 @@
+# `emit_abi` writes LF, and `tools/check_abi.js` byte-compares its output against the
+# committed file. Under `core.autocrlf=true` git checks that file out as CRLF, so
+# `npm run check:abi` fails on a clean freshly-checked-out tree -- and fails opaquely,
+# reporting every one of its 221 lines as different while `diff` shows no visible
+# change. Pinning the checkout to LF is what makes the generator and the gate agree.
+#
+# The two states are otherwise mutually exclusive: CRLF gives a clean `git status` and
+# a failing `check:abi`, LF gives a passing `check:abi` and a file git reports as
+# permanently modified. Neither is a tree anybody should have to work in.
+#
+# Deliberately scoped to the one generated file that is compared byte for byte, and not
+# `* text=auto eol=lf`: that renormalises every file in the working tree at once, which
+# is the same enormous unrelated diff AGENTS.md refuses `cargo fmt` for.
+client/src/protocol/abi.generated.ts text eol=lf

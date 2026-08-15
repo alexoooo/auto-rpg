@@ -1,0 +1,22 @@
+[package]
+name = "learn"
+description = "The learning probe: the population optimizer that trains a compact articulated policy, and the corpora it is scored on"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+fx = { path = "../fx" }
+sim = { path = "../sim" }
+policy = { path = "../policy" }
+learn-core = { path = "../learn-core" }
+
+# No sha2, no rand, no rayon, and no ndarray. The workspace has zero external
+# dependencies and `tools/check_deps.js` audits this crate for one. The digest
+# in `learn-core`'s `checkpoint.rs` is a hundred lines of hand-rolled SHA-256
+# for exactly that reason; the argument is on the module rather than repeated
+# here.
+#
+# The arrow to `learn-core` and never back. That crate compiles to
+# `wasm32-unknown-unknown` and is `web`'s dependency; this one uses
+# `std::thread::scope` and a wall clock, and its one host is native `lab`.

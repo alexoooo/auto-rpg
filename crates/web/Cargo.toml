@@ -12,12 +12,28 @@ license.workspace = true
 # `cargo test` rather than only by opening a page.
 crate-type = ["cdylib", "rlib"]
 
+[features]
+cartesian-recoil = ["sim/cartesian-recoil"]
+
 [dependencies]
 fx = { path = "../fx" }
 sim = { path = "../sim" }
 policy = { path = "../policy" }
+# The frozen network, and **not** `learn`. v2-ui-08 split the two precisely so
+# this line could exist: `learn-core` is inference, a checkpoint codec and a
+# fixed action table; `learn` is the trainer, and it uses `std::thread::scope`
+# and a wall clock, neither of which belongs in a `cdylib`.
+#
+# It is the one dependency here that uses floating point. The premise that makes
+# that affordable is unchanged and is the reason it is affordable at all: what
+# crosses out of it is five head indices from an argmax, and
+# `World::submit_articulated_v1` cannot be handed anything else.
+# `LEARNED_INFERENCE_DIGEST` is what keeps the crossing honest between this
+# target and the native one.
+learn-core = { path = "../learn-core" }
 
-# No wasm-bindgen, no js-sys, no web-sys. The workspace's no-dependency rule is
-# what keeps every recorded run in the repository valid across time, and it
-# applies here too: this boundary is a dozen functions passing integers, which
-# is small enough to hand roll and small enough to read in one sitting.
+# No wasm-bindgen, no js-sys, no web-sys. Host and presentation code may use
+# audited exact dependencies, but this boundary does not need one: it is a dozen
+# functions passing integers, small enough to hand roll and read in one sitting.
+# Keeping the boundary local also makes it plain that no host type reaches the
+# authoritative state or either hash domain.

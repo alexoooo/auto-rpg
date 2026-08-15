@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "manifests": [
+    ".node-version",
+    ".npmrc",
+    "Cargo.toml",
+    "Cargo.lock",
+    "crates/fx/Cargo.toml",
+    "crates/lab/Cargo.toml",
+    "crates/learn-core/Cargo.toml",
+    "crates/learn/Cargo.toml",
+    "crates/policy/Cargo.toml",
+    "crates/sim/Cargo.toml",
+    "crates/web/Cargo.toml",
+    "package.json",
+    "package-lock.json",
+    "tools/toolchain.json",
+    "tools/art/manifest.json",
+    "web/assets3d/room_slice.json",
+    "web/assets3d/room_slice.validator.json",
+    "web/assets/manifest.json"
+  ],
+  "node": "22.12.0",
+  "npm": "10.9.0",
+  "typescript": "6.0.3",
+  "vite": "8.1.5",
+  "babylon": "9.18.1",
+  "babylonLoaders": "9.18.1",
+  "babylonGltfInterface": "9.18.1",
+  "blender": "4.5.12",
+  "gltfValidator": "2.0.0-dev.3.10",
+  "downloads": {
+    "nodeWindowsX64Zip": {
+      "fileName": "node-v22.12.0-win-x64.zip",
+      "url": "https://nodejs.org/dist/v22.12.0/node-v22.12.0-win-x64.zip",
+      "archiveSha256": "2b8f2256382f97ad51e29ff71f702961af466c4616393f767455501e6aece9b8",
+      "archiveSha256Source": "https://nodejs.org/dist/v22.12.0/SHASUMS256.txt",
+      "binaryRelativePath": "node.exe",
+      "binarySha256": "b3b117a08ee61efee09e6fd523ab33c0c018da1b570bde08e4fd914dc1170ed6",
+      "localExecutablePath": ".tools/node-v22.12.0/node-v22.12.0-win-x64/node.exe",
+      "localNpmPath": ".tools/node-v22.12.0/node-v22.12.0-win-x64/npm.cmd",
+      "status": "verified"
+    },
+    "blenderWindowsX64Zip": {
+      "fileName": "blender-4.5.12-windows-x64.zip",
+      "url": "https://download.blender.org/release/Blender4.5/blender-4.5.12-windows-x64.zip",
+      "archiveSha256": "317ef64e7a2c3cc79ec810c766ae9828aff865bea78039dc695b3f1118c34b4f",
+      "archiveSha256Source": "https://download.blender.org/release/Blender4.5/blender-4.5.12.sha256",
+      "binaryRelativePath": "blender.exe",
+      "binarySha256": "25bdb2e3f8ed0bac9d51b7a25fbea0f712a8d80346f2efc9dbe24d85e910c310",
+      "localExecutablePath": ".tools/blender-4.5.12/blender-4.5.12-windows-x64/blender.exe",
+      "status": "verified"
+    }
+  }
+}

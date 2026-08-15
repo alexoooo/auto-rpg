@@ -665,12 +665,16 @@ mod tests {
             faction,
             stats: kind.base_stats(),
             loadout,
+            articulated: None,
             spawn,
         };
         let scenario = Scenario {
             name: "standoff".to_string(),
+            combat_model: sim::CombatModel::Legacy,
+            combat_specs: None,
             dungeon,
             portal: None,
+            torches: Vec::new(),
             max_ticks: u32::MAX,
             units: vec![
                 unit(

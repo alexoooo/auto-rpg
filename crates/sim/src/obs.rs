@@ -1,9 +1,12 @@
 use crate::action::{ActionKind, Role};
+use crate::anatomy::BodyPart;
+use crate::combat::geometry::{RegionVolume, SegmentPose};
+use crate::combat::spec::EquipmentSpecId;
 use crate::command::Order;
 use crate::entity::{EntityId, Faction};
 use crate::hand::Hand;
 use crate::rules::MAX_CONTACTS;
-use fx::{Angle, Fx, Vec2};
+use fx::{Angle, Fx, Vec2, Vec3};
 
 /// One perceived unit.
 ///
@@ -211,6 +214,364 @@ pub struct Contact {
     pub action_arc: u16,
 }
 
+// ---------------------------------------------------- the articulated boundary
+//
+// One subject's articulated picture: its own joints exactly, and up to six
+// opponents as limbs and volumes rather than as a radius and a blade angle.
+// It rides inside [`Observation`] rather than replacing it, because the legacy
+// contact block is a live contract with two shipped policies behind it, and a
+// second observation type handed round beside the first is two boundaries to
+// keep honest instead of one.
+//
+// **Every position in these structs is world space.** That is the rule
+// [`crate::ArticulatedPose`] set for published ground truth and the reason it
+// set it applies here unchanged: authoritative arm and shield poses are
+// body-origin-relative because the actuator works in a frame the body carries,
+// the conversion belongs in exactly one place, and adding an origin twice was a
+// real defect class in the contact phase. The *feature vector* is the relative
+// view, and it is relative to one origin for the whole block; see
+// [`Observation::write_features`].
+
+/// How many opponents one articulated observation carries.
+///
+/// The same six as [`MAX_CONTACTS`], written as the alias rather than as a
+/// second literal -- `rules.rs` owns the number, and two sixes that agree by
+/// coincidence are two sixes that can stop agreeing. Note this is a *fixed*
+/// capacity and not [`crate::Stats::tracked_contacts`]: the legacy block
+/// narrows what a dim character can hold in mind, and the articulated block
+/// does not, because its width is a wasm row stride before it is a percept.
+pub const MAX_ARTICULATED_OPPONENTS: usize = MAX_CONTACTS;
+
+/// A shield face as an observer reads it.
+///
+/// Presence sits *inside* the struct rather than in an `Option`, which is the
+/// opposite of what [`crate::ArticulatedPose`] does with the same geometry, and
+/// both are right: a pose is Rust talking to Rust, while this row crosses the
+/// wasm wall at a fixed stride and a fixed row cannot be absent -- only blank.
+///
+/// [`ShieldPose::thickness`] is deliberately not carried. Thickness is a
+/// collision-response term -- it offsets the face the solver builds by half
+/// itself -- and what a defender reads off an enemy shield is the plane it
+/// covers: a centre, a normal, and two extents. A fourth extent nobody can act
+/// on would widen the ABI for nothing.
+///
+/// [`ShieldPose::thickness`]: crate::ShieldPose::thickness
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct ObservedShield {
+    pub present: bool,
+    /// The face centre, world space.
+    pub centre: Vec3,
+    /// Unit outward normal. Frame-independent, so it is carried untouched.
+    pub normal: Vec3,
+    pub half_width: Fx,
+    pub half_height: Fx,
+}
+
+impl ObservedShield {
+    /// No shield. Every extent zero, so a consumer that forgets to test
+    /// `present` draws a degenerate face rather than a plausible wrong one.
+    pub const BLANK: ObservedShield = ObservedShield {
+        present: false,
+        centre: Vec3::ZERO,
+        normal: Vec3::ZERO,
+        half_width: Fx::ZERO,
+        half_height: Fx::ZERO,
+    };
+}
+
+/// One of the subject's own two arms, exactly.
+///
+/// Proprioception is free -- the same rule [`Observation::position`] states --
+/// so nothing in here is blurred, however dim the body is. Perception noise
+/// reaches opponents and nothing else.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct ObservedArm {
+    /// The hand, world space.
+    pub hand: Vec3,
+    /// Where the actuator is trying to put the hand, world space.
+    ///
+    /// The same substitution [`crate::World::articulated_pose`] publishes: a
+    /// slot that has never had a command accepted answers the neutral command
+    /// the arm driver supplies, because that is the pose it is genuinely
+    /// converging on. A zero here would say "chasing the map origin".
+    pub target_hand: Vec3,
+    /// The hand's velocity **relative to the body origin**, world units per
+    /// tick.
+    ///
+    /// The one field in this struct that is not world space, matching
+    /// [`PosedArm::velocity`] exactly -- and it has to match, because the two
+    /// are the same column read twice and a consumer that added the body
+    /// velocity to one and not the other would draw two different hands. The
+    /// absolute velocity is [`ArticulatedObservation::body_velocity`] plus
+    /// this; publishing the sum would throw away the only term a reader cannot
+    /// recover.
+    ///
+    /// [`PosedArm::velocity`]: crate::PosedArm::velocity
+    pub velocity: Vec3,
+    /// Accumulated actuator fatigue, `[0,1]`.
+    pub fatigue: Fx,
+    /// This arm's regional integrity remaining, `[0,1]`.
+    pub integrity_fraction: Fx,
+    pub severed: bool,
+    /// Which immutable equipment row this grip holds, or `None` for an empty
+    /// hand. Categorical and exact: what is in a hand is legible at a glance,
+    /// which is the argument [`Contact::action`] already makes.
+    ///
+    /// **A two-handed item appears in both arms**, which is the one place a
+    /// published equipment fact does not follow the one-collider ownership
+    /// rule. It is the truth of the grip -- both hands are on the haft, and
+    /// both grip capability bits say so -- while
+    /// [`ArticulatedObservation::LEFT_WEAPON`] and the drawn geometry answer
+    /// the different question of which arm owns the collider.
+    pub equipment: Option<EquipmentSpecId>,
+}
+
+impl ObservedArm {
+    pub const BLANK: ObservedArm = ObservedArm {
+        hand: Vec3::ZERO,
+        target_hand: Vec3::ZERO,
+        velocity: Vec3::ZERO,
+        fatigue: Fx::ZERO,
+        integrity_fraction: Fx::ZERO,
+        severed: false,
+        equipment: None,
+    };
+}
+
+/// One perceived opponent, as limbs and volumes.
+///
+/// Everything geometric in here has been displaced by the observer's perception
+/// noise, and displaced *rigidly*: the body position and velocity carry their
+/// own error, and every region, weapon and shield keeps its exact local shape
+/// and rides along on the same displacement. A per-point error would shear a
+/// body into disconnected parts, which is not what bad eyesight does and is not
+/// something a defender could learn to fight.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct ObservedOpponent {
+    /// Full identity, exact. An unused row carries [`EntityId::NONE`], which is
+    /// what [`ObservedOpponent::present`] reads: no hidden identity may enter a
+    /// row nobody is standing in.
+    pub id: EntityId,
+    /// The body origin, world space, as measured. Z is the floor.
+    pub body_position: Vec3,
+    /// World units per tick, as measured.
+    pub body_velocity: Vec3,
+    /// Exact. A body's bearing is its whole silhouette; what a dim fighter gets
+    /// wrong is where the body *is*, on the argument [`Contact::limb_swing`]
+    /// already makes about the difference between seeing and reading.
+    pub body_yaw: Angle,
+    /// The five swept volumes in [`BodyPart`] order, world space. The head is
+    /// the degenerate capsule with `lower == upper` -- the reference's "head
+    /// sphere" -- rather than a second shape that could disagree with the one
+    /// the contact phase sweeps.
+    pub regions: [RegionVolume; BodyPart::COUNT],
+    /// The held segment in each grip, world space, indexed like
+    /// [`ArticulatedObservation::arms`]. A two-handed item fills the **right**
+    /// slot only, which is the ownership the contact phase and the pose row
+    /// both use: one item is one collider.
+    pub weapons: [Option<SegmentPose>; 2],
+    pub shield: ObservedShield,
+    /// Bit `part as u8` per severed region. Categorical and exact: a missing
+    /// arm is not a subtle cue.
+    pub severed_mask: u8,
+    /// **Ticks until this opponent arrives, saturating at one.**
+    ///
+    /// A one-tick imminence signal and not a countdown: the reference's
+    /// `clamp(distance / closing_speed, 0, 1)` divides world units by world
+    /// units per tick, so anything further away than one tick of closing reads
+    /// exactly one, and the number only becomes informative inside the last
+    /// stride. Zero is "already here". A receding or stationary pair is one.
+    pub contact_timing: Fx,
+}
+
+impl ObservedOpponent {
+    /// An empty row: no identity, no geometry, and a timing of zero rather than
+    /// the "nothing is closing" one, because a blank row must write blank
+    /// features and the feature writer skips it entirely.
+    pub const BLANK: ObservedOpponent = ObservedOpponent {
+        id: EntityId::NONE,
+        body_position: Vec3::ZERO,
+        body_velocity: Vec3::ZERO,
+        body_yaw: Angle::ZERO,
+        regions: [RegionVolume {
+            lower: Vec3::ZERO,
+            upper: Vec3::ZERO,
+            radius: Fx::ZERO,
+            present: false,
+        }; BodyPart::COUNT],
+        weapons: [None; 2],
+        shield: ObservedShield::BLANK,
+        severed_mask: 0,
+        contact_timing: Fx::ZERO,
+    };
+
+    /// Whether anybody is standing in this row.
+    ///
+    /// Read off the identity rather than off a parallel flag, so a row cannot
+    /// be present and anonymous or absent and named.
+    #[inline]
+    pub fn present(&self) -> bool {
+        !self.id.is_none()
+    }
+}
+
+/// What one articulated body knows when it decides.
+///
+/// The articulated twin of [`Observation`], and the same promise: if a policy
+/// needs something that is not in here, it cannot have it. The difference is
+/// what a decision is *about*. A legacy contact is a disc with a blade angle
+/// and the question is where to stand; an articulated opponent is five volumes
+/// and two blades and the question is which of them to put steel into.
+///
+/// Subject state is exact and opponent state is measured; see
+/// [`ObservedOpponent`]. Every categorical fact on both sides -- identity,
+/// equipment, severance, [`ArticulatedObservation::capabilities`] -- is exact,
+/// because those are the facts a glance settles.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct ArticulatedObservation {
+    pub tick: u32,
+    /// The subject, or [`EntityId::NONE`] for a blank observation. See
+    /// [`ArticulatedObservation::present`].
+    pub subject: EntityId,
+    /// What this body can currently do, as a bit mask. See the eight associated
+    /// constants below for the bit order and the rule behind each one.
+    pub capabilities: u32,
+    /// The body origin, world space, exact. Z is the floor.
+    pub body_position: Vec3,
+    pub body_yaw: Angle,
+    /// World units per tick, exact.
+    pub body_velocity: Vec3,
+    /// Index 0 is [`LimbSlot::LeftArm`](crate::LimbSlot::LeftArm), 1 is
+    /// [`LimbSlot::RightArm`](crate::LimbSlot::RightArm) -- the discriminant
+    /// order the immutable spec bytes froze.
+    pub arms: [ObservedArm; 2],
+    pub shield: ObservedShield,
+    pub blood_fraction: Fx,
+    pub shock: Fx,
+    /// Structural integrity remaining, per region, in [`BodyPart`] order.
+    pub integrity_fraction: [Fx; BodyPart::COUNT],
+    /// Open wound carried, per region, over the same regional maximum.
+    pub wound_fraction: [Fx; BodyPart::COUNT],
+    /// Bit `part as u8` set for each severed region.
+    pub severed_mask: u8,
+    /// How many of [`ArticulatedObservation::opponents`] are filled, nearest
+    /// first.
+    pub opponent_count: u8,
+    pub opponents: [ObservedOpponent; MAX_ARTICULATED_OPPONENTS],
+    /// Immutable body dimensions needed to reason about reach. These are
+    /// outward views of the subject's anatomy row; they are deliberately not
+    /// columns in the legacy feature vector.
+    pub standing_height: Fx,
+    pub arm_length: Fx,
+    pub hand_radius: Fx,
+    /// The subject's held segments in world space. Indexed like [`Self::arms`]
+    /// and following the same one-collider ownership rule as opponent weapons.
+    pub weapons: [Option<SegmentPose>; 2],
+}
+
+impl ArticulatedObservation {
+    /// **The body can translate.** Set unless the legs are severed.
+    ///
+    /// Categorical, and the alternative was rejected rather than overlooked:
+    /// `move_authority` is the number the actuator actually multiplies by, it
+    /// is `integrity * (1 - shock)`, and a bit reading `move_authority > 0`
+    /// would flip on and off as shock crossed one. The reference calls these
+    /// bits noise-free, and a product of two continuous terms is not. What is
+    /// lost is "my legs are ruined but attached", and that is not lost at all:
+    /// the legs' integrity fraction is feature 53 and shock is feature 48, so a
+    /// policy that wants the graded answer already has both terms.
+    pub const MOVEMENT: u32 = 1 << 0;
+    /// **The body can turn.** The same legs, and today the same bit value.
+    ///
+    /// `settle_anatomy` writes one legs factor into both `move_authority` and
+    /// `turn_authority` -- "one factor, written twice", because translation and
+    /// turning share the legs and the contract deliberately does not give them
+    /// separate pools yet. Two bits rather than one because the reference
+    /// reserves the split, and a mask that collapsed them would have to widen
+    /// (and renumber every bit above it) on the day they diverge.
+    pub const TURNING: u32 = 1 << 1;
+    /// **The left grip holds something.** `GripState::equipment_slot.is_some()`.
+    ///
+    /// Occupancy rather than "the arm is intact", and the two are not a
+    /// trade-off: `apply_articulated_grips` clears the grip of a severed arm
+    /// every tick, so an occupied grip *entails* a present arm and this bit
+    /// carries strictly more. Severance on its own is already published twice
+    /// over ([`ObservedArm::severed`] and [`ArticulatedObservation::severed_mask`]),
+    /// and a capability bit that restated it would be the only bit in the mask
+    /// saying nothing new.
+    pub const LEFT_GRIP: u32 = 1 << 2;
+    /// **The right grip holds something.** See [`ArticulatedObservation::LEFT_GRIP`].
+    pub const RIGHT_GRIP: u32 = 1 << 3;
+    /// **A weapon swings from the left hand**: the left grip holds an item with
+    /// segment geometry, under the pose row's ownership rule -- so a two-handed
+    /// item clears this bit and sets the right one instead. Read off the drawn
+    /// geometry rather than off the grip, so a set bit and a published weapon
+    /// cannot disagree.
+    pub const LEFT_WEAPON: u32 = 1 << 4;
+    /// **A weapon swings from the right hand.** See
+    /// [`ArticulatedObservation::LEFT_WEAPON`].
+    pub const RIGHT_WEAPON: u32 = 1 << 5;
+    /// **A shield is held**, in either hand. One bit and not two, because the
+    /// shield pose the sim derives is one face however many grips are on it.
+    pub const SHIELD: u32 = 1 << 6;
+    /// **The held item binds both hands.** The fact that makes the off hand
+    /// unavailable: on a two-handed grip the left arm is mirrored off the right
+    /// every tick and has no command of its own, so a policy that issued one
+    /// would be talking to nobody.
+    pub const TWO_HANDED: u32 = 1 << 7;
+
+    /// An observation of nothing: no subject, no opponents, no geometry.
+    ///
+    /// What a Legacy world, a stale identity and a corpse all answer, and what
+    /// [`Observation::blank`] fills. The subject is [`EntityId::NONE`] rather
+    /// than a zeroed handle because a zeroed handle names slot 0 generation 0 --
+    /// a live fighter in every fixture in the repository -- and "blank" has to
+    /// be a value no live body can take.
+    pub const BLANK: ArticulatedObservation = ArticulatedObservation {
+        tick: 0,
+        subject: EntityId::NONE,
+        capabilities: 0,
+        body_position: Vec3::ZERO,
+        body_yaw: Angle::ZERO,
+        body_velocity: Vec3::ZERO,
+        arms: [ObservedArm::BLANK; 2],
+        shield: ObservedShield::BLANK,
+        blood_fraction: Fx::ZERO,
+        shock: Fx::ZERO,
+        integrity_fraction: [Fx::ZERO; BodyPart::COUNT],
+        wound_fraction: [Fx::ZERO; BodyPart::COUNT],
+        severed_mask: 0,
+        opponent_count: 0,
+        opponents: [ObservedOpponent::BLANK; MAX_ARTICULATED_OPPONENTS],
+        standing_height: Fx::ZERO,
+        arm_length: Fx::ZERO,
+        hand_radius: Fx::ZERO,
+        weapons: [None; 2],
+    };
+
+    /// Whether this observation describes a body at all.
+    ///
+    /// There is no `present` column: the identity is the flag, exactly as it is
+    /// for [`ObservedOpponent`], so a present-but-anonymous observation cannot
+    /// be constructed.
+    #[inline]
+    pub fn present(&self) -> bool {
+        !self.subject.is_none()
+    }
+
+    /// The filled opponent rows, nearest first.
+    #[inline]
+    pub fn opponents(&self) -> &[ObservedOpponent] {
+        &self.opponents[..self.opponent_count as usize]
+    }
+
+    /// Whether every bit in `mask` is set. `obs.can(ArticulatedObservation::SHIELD)`.
+    #[inline]
+    pub fn can(&self, mask: u32) -> bool {
+        self.capabilities & mask == mask
+    }
+}
+
 /// Everything an agent knows when it decides.
 ///
 /// This is the *entire* input side of the agent boundary. If a policy needs
@@ -357,6 +718,20 @@ pub struct Observation {
     /// in the way -- it says "nearly there" to a character with a room to walk
     /// round.
     pub nav_distance: Fx,
+
+    /// The articulated picture, or [`ArticulatedObservation::BLANK`] on a
+    /// Legacy world.
+    ///
+    /// **Last, and it stays last.** Its feature block is appended at index
+    /// [`LEGACY_FEATURE_COUNT`] and everything below that index is frozen
+    /// against weights that do not exist yet but will; a field inserted above
+    /// this one costs nothing, and a feature inserted above the block costs a
+    /// training run. Keeping the struct order and the vector order the same is
+    /// what makes that easy to see.
+    ///
+    /// Blank on a Legacy world rather than absent, so the vector has one width
+    /// and one meaning whichever model a scenario picked.
+    pub articulated: ArticulatedObservation,
 }
 
 /// Values per contact in the feature vector: direction (2), range, health,
@@ -404,10 +779,80 @@ const FEATURES_PER_CONTACT: usize = 21 + Role::COUNT + crate::hand::Swing::COUNT
 const SELF_FEATURES: usize =
     11 + 4 + crate::hand::Swing::COUNT + 3 + 2 * ActionKind::COUNT + 1;
 
+/// Width of indices `0..450`: everything the vector held before the articulated
+/// block was appended, and the prefix that must stay byte-identical.
+///
+/// Named rather than left implicit because "the legacy prefix" is now a thing
+/// tests have to talk about, and a test that writes `450` by hand is a test
+/// that agrees with itself.
+pub const LEGACY_FEATURE_COUNT: usize =
+    SELF_FEATURES + Order::COUNT + 2 + (MAX_CONTACTS * FEATURES_PER_CONTACT) * 2 + 4 + 3;
+
+/// Values per arm in the articulated self block: hand relative XYZ, target-hand
+/// relative XYZ, velocity XYZ, fatigue, integrity fraction, severed.
+const ARTICULATED_ARM_FEATURES: usize = 3 + 3 + 3 + 1 + 1 + 1;
+
+/// Values per published shield face: present, relative centre XYZ, normal XYZ,
+/// two half-extents. One shape, written twice -- once for the subject and once
+/// per opponent -- so the two cannot drift apart.
+const ARTICULATED_SHIELD_FEATURES: usize = 1 + 3 + 3 + 2;
+
+/// Values per opponent capsule: relative lower XYZ, relative upper XYZ, radius.
+///
+/// The head does not use this: it is the degenerate volume whose two endpoints
+/// coincide, so it writes one point and a radius and saves the six components
+/// that would be an exact copy of the other three.
+const ARTICULATED_VOLUME_FEATURES: usize = 3 + 3 + 1;
+
+/// Values per opponent weapon: relative hilt XYZ, relative tip XYZ. No radius,
+/// unlike a capsule -- a blade's thickness is not something a defender reads at
+/// range, and the four regional radii already say how big the body is.
+const ARTICULATED_WEAPON_FEATURES: usize = 3 + 3;
+
+/// The subject's own block: present; eight capability bits; yaw cosine/sine;
+/// body velocity XYZ; two arms; a shield; blood fraction and shock; then
+/// integrity, wound and severed, five apiece in [`BodyPart`] order.
+///
+/// No weapon endpoints, and that is the reference's choice rather than an
+/// omission: a fighter's own blade is derivable from its own hand and its own
+/// equipment row, both of which are here, while an opponent's is not derivable
+/// from anything -- which is why the opponent row carries twelve columns of it.
+pub const ARTICULATED_SELF_FEATURES: usize = 1
+    + 8
+    + 2
+    + 3
+    + 2 * ARTICULATED_ARM_FEATURES
+    + ARTICULATED_SHIELD_FEATURES
+    + 2
+    + 3 * BodyPart::COUNT;
+
+/// One opponent row: present; relative body position and velocity XYZ; yaw
+/// cosine/sine; the head point and radius; four capsules in [`BodyPart`] order;
+/// both weapons; a shield; five severed bits; contact timing.
+pub const ARTICULATED_OPPONENT_FEATURES: usize = 1
+    + 3
+    + 3
+    + 2
+    + (3 + 1)
+    + 4 * ARTICULATED_VOLUME_FEATURES
+    + 2 * ARTICULATED_WEAPON_FEATURES
+    + ARTICULATED_SHIELD_FEATURES
+    + BodyPart::COUNT
+    + 1;
+
+/// Width of the appended articulated block: one self run, then six opponent
+/// rows whether or not anybody is standing in them.
+///
+/// Fixed width rather than packed, for the reason the legacy contact slots are:
+/// a vector whose width depended on how much the observer perceived would make
+/// "how much do I perceive" a thing the network had to infer from the shape of
+/// its own input instead of reading it off the zeros.
+pub const ARTICULATED_FEATURE_COUNT: usize =
+    ARTICULATED_SELF_FEATURES + MAX_ARTICULATED_OPPONENTS * ARTICULATED_OPPONENT_FEATURES;
+
 /// Width of the flattened feature vector produced by
 /// [`Observation::write_features`].
-pub const FEATURE_COUNT: usize =
-    SELF_FEATURES + Order::COUNT + 2 + (MAX_CONTACTS * FEATURES_PER_CONTACT) * 2 + 4 + 3;
+pub const FEATURE_COUNT: usize = LEGACY_FEATURE_COUNT + ARTICULATED_FEATURE_COUNT;
 
 /// Bumped whenever the layout of [`Observation::write_features`] changes shape
 /// or meaning.
@@ -502,8 +947,23 @@ pub const FEATURE_COUNT: usize =
 /// Not a missing input, a missing *concept* -- the same argument version 9's
 /// loadout block makes.
 ///
+/// Version 12 is the articulated body, and it is the first bump that adds
+/// nothing to indices `0..450`. The 472 new slots are appended whole
+/// ([`ARTICULATED_FEATURE_COUNT`]) and a Legacy world fills every one of them
+/// with zero, so a version-11 vector is a version-12 vector with the tail cut
+/// off.
+///
+/// The bump is still real rather than bookkeeping, on the argument version 7
+/// makes about missing *concepts*. Every earlier layout described an opponent
+/// as a disc with a blade bearing, so the only spatial question a policy could
+/// ask was how far away it was. An articulated fight is five volumes and two
+/// blades per body, and "which region is exposed" is not a harder version of
+/// "how far away is it" -- it is a question the old vector has no slot for at
+/// all. A network trained on version 11 does not read version 12 badly; it
+/// reads the first 450 columns exactly as before and cannot see the fight.
+///
 /// Paid now, while there are still no weights.
-pub const FEATURE_LAYOUT_VERSION: u32 = 11;
+pub const FEATURE_LAYOUT_VERSION: u32 = 12;
 
 /// Speed, in world units per tick, that normalises to `1` in the feature
 /// vector. Comfortably above any archetype's top speed, so it is the knockback
@@ -581,6 +1041,7 @@ impl Observation {
             // "No route", which is what an observation of an empty battlefield
             // should say. Zero would read as "you have arrived".
             nav_distance: Fx::MAX,
+            articulated: ArticulatedObservation::BLANK,
         }
     }
 
@@ -888,7 +1349,625 @@ impl Observation {
         out[i + 2] = (self.nav_distance / self.sight_range).clamp(Fx::ZERO, Fx::ONE);
         i += 3;
 
+        debug_assert_eq!(i, LEGACY_FEATURE_COUNT, "the frozen prefix changed width");
+        i = self.write_articulated_features(out, i);
+
         debug_assert_eq!(i, FEATURE_COUNT);
         FEATURE_COUNT
     }
+
+    /// The appended articulated block, 472 wide, starting at
+    /// [`LEGACY_FEATURE_COUNT`]. Returns the cursor past it.
+    ///
+    /// **One frame for the whole block, and it is the subject's body
+    /// position.** Every position in here -- the subject's own hands, its
+    /// shield, every opponent's body, and every capsule, hilt, tip and shield
+    /// centre those opponents carry -- is that point subtracted off, then
+    /// divided by sight range. The alternative, a per-body frame that put an
+    /// opponent's arm relative to its own torso, reads more natural and is
+    /// useless: the question an articulated fighter asks is "is my blade near
+    /// their head", and that is a subtraction of two features, which is only
+    /// meaningful if the two share an origin. It is also why the divisor is
+    /// shared. Normalising the subject's own arm by an arm length and the
+    /// opponent's body by sight range would make the same displacement two
+    /// different numbers depending on which slot it landed in.
+    ///
+    /// The cost of one shared divisor is that the subject's own geometry is
+    /// small: an arm reaches about half a unit and the dimmest eye in the game
+    /// sees six, so the self block lives in the middle tenth of the range. That
+    /// is a scale a linear layer absorbs for free, and `Fx` has sixteen
+    /// fractional bits, so a 0.03 feature still carries eleven bits of it.
+    ///
+    /// **Divisors.** Lengths use [`Observation::sight_range`], which is the
+    /// divisor the legacy block already uses for contact range and wall
+    /// clearance (`6.0 + 0.6 * perception` world units, `Stats::sight_range`) --
+    /// and it is the right bound by construction, because an opponent further
+    /// away than sight range is not in the observation. Radii and shield
+    /// extents divide by it too, so "how wide is that torso" and "how far is it
+    /// from my hand" are comparable without learning a conversion. Velocities
+    /// use [`SPEED_SCALE`], the same 0.25 units per tick the legacy velocity
+    /// pairs use, which matters more here than there: the absolute hand
+    /// velocity is the body velocity plus the arm's, and that sum is only a sum
+    /// if both terms are on one scale.
+    ///
+    /// Every quotient is clamped to `-1..=1`, which keeps the block inside the
+    /// vector's invariant even when perception noise pushes a measured body
+    /// past the sight range that admitted it.
+    fn write_articulated_features(&self, out: &mut [Fx], from: usize) -> usize {
+        let block = from;
+        let art = &self.articulated;
+        if !art.present() {
+            // Nothing to write: `write_features` zero-filled the buffer and a
+            // blank block is 472 zeros. The block is not free to a Legacy world
+            // even so -- the zero fill is twice as wide and `Observation` is
+            // 3228 bytes against 1196 -- and `lab bench` measures it; see
+            // `docs/reference/articulated-abi.md`.
+            return block + ARTICULATED_FEATURE_COUNT;
+        }
+
+        // Guarded the way the `Goto` heading above is guarded, and for the same
+        // reason: a hand-built observation may carry a sight range of anything,
+        // and dividing a world-space displacement by a fraction is how a
+        // feature leaves the interval.
+        let sight = self.sight_range.max(Fx::ONE);
+        let origin = art.body_position;
+        let span = |v: Fx| (v / sight).clamp(-Fx::ONE, Fx::ONE);
+        let rate = |v: Fx| (v / SPEED_SCALE).clamp(-Fx::ONE, Fx::ONE);
+        let flag = |b: bool| if b { Fx::ONE } else { Fx::ZERO };
+        // A world-space point, moved into the subject's frame and scaled.
+        let point = |out: &mut [Fx], at: usize, p: Vec3| {
+            let d = p - origin;
+            out[at] = span(d.x);
+            out[at + 1] = span(d.y);
+            out[at + 2] = span(d.z);
+        };
+
+        let mut i = block;
+        out[i] = Fx::ONE;
+        i += 1;
+        // The capability mask, bit by bit in bit order. Eight scalars rather
+        // than one packed number, on the argument the phase block is one-hot
+        // for: a mask read as an integer asks a network to learn that 3 sits
+        // between 2 and 4, and these bits are not on a scale at all.
+        for bit in 0..8 {
+            out[i + bit] = flag(art.capabilities & (1 << bit) != 0);
+        }
+        i += 8;
+        out[i] = art.body_yaw.cos();
+        out[i + 1] = art.body_yaw.sin();
+        i += 2;
+        out[i] = rate(art.body_velocity.x);
+        out[i + 1] = rate(art.body_velocity.y);
+        out[i + 2] = rate(art.body_velocity.z);
+        i += 3;
+
+        // Left arm then right, twelve apiece and identical in shape, so a
+        // network learns one arm and applies it twice.
+        for (limb, arm) in art.arms.iter().enumerate() {
+            let base = i + limb * ARTICULATED_ARM_FEATURES;
+            point(out, base, arm.hand);
+            point(out, base + 3, arm.target_hand);
+            // Body-relative already, so it is scaled and not re-based. Adding
+            // the body velocity here would publish the absolute hand velocity
+            // and lose the only term the vector does not otherwise carry.
+            out[base + 6] = rate(arm.velocity.x);
+            out[base + 7] = rate(arm.velocity.y);
+            out[base + 8] = rate(arm.velocity.z);
+            out[base + 9] = arm.fatigue;
+            out[base + 10] = arm.integrity_fraction;
+            out[base + 11] = flag(arm.severed);
+        }
+        i += 2 * ARTICULATED_ARM_FEATURES;
+
+        if art.shield.present {
+            out[i] = Fx::ONE;
+            point(out, i + 1, art.shield.centre);
+            // Frame-independent and already a unit vector: neither re-based nor
+            // scaled, exactly as the pose row carries it.
+            out[i + 4] = art.shield.normal.x;
+            out[i + 5] = art.shield.normal.y;
+            out[i + 6] = art.shield.normal.z;
+            out[i + 7] = span(art.shield.half_width);
+            out[i + 8] = span(art.shield.half_height);
+        }
+        i += ARTICULATED_SHIELD_FEATURES;
+
+        // Every fraction below is clamped to `[0,1]` at its source in
+        // `anatomy`, so none of them is re-clamped here.
+        out[i] = art.blood_fraction;
+        out[i + 1] = art.shock;
+        i += 2;
+        for part in 0..BodyPart::COUNT {
+            out[i + part] = art.integrity_fraction[part];
+            out[i + BodyPart::COUNT + part] = art.wound_fraction[part];
+            out[i + 2 * BodyPart::COUNT + part] = flag(art.severed_mask & (1 << part) != 0);
+        }
+        i += 3 * BodyPart::COUNT;
+        debug_assert_eq!(i, block + ARTICULATED_SELF_FEATURES);
+
+        for slot in 0..MAX_ARTICULATED_OPPONENTS {
+            let base = i + slot * ARTICULATED_OPPONENT_FEATURES;
+            let foe = &art.opponents[slot];
+            // An empty row is 68 zeros and nothing else. It must be: the row
+            // is the only place a hidden identity could reach a policy, and
+            // "blank" has to mean blank in the vector as well as in the struct.
+            if !foe.present() {
+                continue;
+            }
+            out[base] = Fx::ONE;
+            point(out, base + 1, foe.body_position);
+            out[base + 4] = rate(foe.body_velocity.x);
+            out[base + 5] = rate(foe.body_velocity.y);
+            out[base + 6] = rate(foe.body_velocity.z);
+            out[base + 7] = foe.body_yaw.cos();
+            out[base + 8] = foe.body_yaw.sin();
+
+            // The head is the degenerate capsule, so it writes its single point
+            // and its radius; the other four write both endpoints. An absent
+            // region writes zeros rather than the capsule the actuator last
+            // left there, because a severed arm's stale volume is a limb the
+            // observer cannot see and a network would learn to swing at it.
+            let head = base + 9;
+            let capsules = head + 3 + 1;
+            let region = &foe.regions[BodyPart::Head as usize];
+            if region.present {
+                point(out, head, region.lower);
+                out[head + 3] = span(region.radius);
+            }
+            for (at, part) in
+                [BodyPart::Torso, BodyPart::LeftArm, BodyPart::RightArm, BodyPart::Legs]
+                    .iter()
+                    .enumerate()
+            {
+                let region = &foe.regions[*part as usize];
+                if !region.present {
+                    continue;
+                }
+                let volume = capsules + at * ARTICULATED_VOLUME_FEATURES;
+                point(out, volume, region.lower);
+                point(out, volume + 3, region.upper);
+                out[volume + 6] = span(region.radius);
+            }
+
+            let weapons = capsules + 4 * ARTICULATED_VOLUME_FEATURES;
+            for limb in 0..2 {
+                let Some(segment) = foe.weapons[limb] else { continue };
+                let at = weapons + limb * ARTICULATED_WEAPON_FEATURES;
+                point(out, at, segment.hilt);
+                point(out, at + 3, segment.tip);
+            }
+
+            let shield = weapons + 2 * ARTICULATED_WEAPON_FEATURES;
+            if foe.shield.present {
+                out[shield] = Fx::ONE;
+                point(out, shield + 1, foe.shield.centre);
+                out[shield + 4] = foe.shield.normal.x;
+                out[shield + 5] = foe.shield.normal.y;
+                out[shield + 6] = foe.shield.normal.z;
+                out[shield + 7] = span(foe.shield.half_width);
+                out[shield + 8] = span(foe.shield.half_height);
+            }
+
+            let severed = shield + ARTICULATED_SHIELD_FEATURES;
+            for part in 0..BodyPart::COUNT {
+                out[severed + part] = flag(foe.severed_mask & (1 << part) != 0);
+            }
+            out[severed + BodyPart::COUNT] = foe.contact_timing;
+            debug_assert_eq!(
+                severed + BodyPart::COUNT + 1,
+                base + ARTICULATED_OPPONENT_FEATURES
+            );
+        }
+        i += MAX_ARTICULATED_OPPONENTS * ARTICULATED_OPPONENT_FEATURES;
+
+        debug_assert_eq!(i, block + ARTICULATED_FEATURE_COUNT);
+        i
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A displacement whose three components are all non-zero and all
+    /// different, so a writer that transposed two of them fails.
+    fn point(k: i32) -> Vec3 {
+        Vec3::new(
+            Fx::from_ratio(k, 10),
+            Fx::from_ratio(k + 1, 10),
+            Fx::from_ratio(k + 2, 10),
+        )
+    }
+
+    /// The same, scaled to a velocity that survives division by
+    /// [`SPEED_SCALE`] without hitting the clamp -- a saturated column cannot
+    /// show that it moved, which is what the index test needs it to do.
+    fn drift(k: i32) -> Vec3 {
+        point(k) * Fx::from_ratio(1, 16)
+    }
+
+    /// Small enough that a velocity column nudged by it stays off the clamp.
+    const NUDGE: Fx = Fx::from_ratio(1, 64);
+
+    /// An observation whose articulated block cannot legally contain a zero.
+    ///
+    /// Every column is fed a value that survives its own divisor -- the
+    /// smallest here is a tenth of a unit over a sight range of six, which is
+    /// still eleven hundred raw units -- so "this feature is zero" and "the
+    /// writer never touched this feature" become the same statement.
+    fn every_column_filled() -> Observation {
+        let origin = Vec3::from_ints(3, 4, 0);
+        let yaw = Angle::from_degrees(30);
+        let shield = |centre: Vec3| ObservedShield {
+            present: true,
+            centre,
+            normal: Vec3::new(Fx::from_ratio(3, 5), Fx::from_ratio(4, 5), Fx::from_ratio(1, 2)),
+            half_width: Fx::from_ratio(1, 2),
+            half_height: Fx::from_ratio(3, 4),
+        };
+        let arm = |k: i32| ObservedArm {
+            hand: origin + point(k),
+            target_hand: origin + point(k + 3),
+            velocity: drift(k + 6),
+            fatigue: Fx::from_ratio(1, 3),
+            integrity_fraction: Fx::from_ratio(2, 3),
+            // True on both arms: the flag is a column like any other, and a
+            // healthy fixture would leave two of the 472 unproven.
+            severed: true,
+            equipment: Some(1),
+        };
+        let foe = |slot: i32| ObservedOpponent {
+            id: EntityId::new(slot as u32 + 1, 0),
+            body_position: origin + point(slot * 9 + 1),
+            body_velocity: drift(slot + 2),
+            body_yaw: yaw,
+            regions: core::array::from_fn(|part| RegionVolume {
+                lower: origin + point(slot * 9 + part as i32 + 2),
+                upper: origin + point(slot * 9 + part as i32 + 3),
+                radius: Fx::from_ratio(part as i32 + 1, 10),
+                present: true,
+            }),
+            weapons: core::array::from_fn(|limb| {
+                Some(SegmentPose {
+                    hilt: origin + point(slot * 9 + limb as i32 + 4),
+                    tip: origin + point(slot * 9 + limb as i32 + 5),
+                    radius: Fx::from_ratio(1, 20),
+                })
+            }),
+            shield: shield(origin + point(slot * 9 + 6)),
+            severed_mask: 0b1_1111,
+            contact_timing: Fx::from_ratio(1, 2),
+        };
+
+        let mut obs = Observation::blank(
+            7,
+            EntityId::new(0, 0),
+            Faction::Heroes,
+            Vec2::from_ints(3, 4),
+            Order::Hold,
+        );
+        obs.sight_range = Fx::from_int(6);
+        obs.articulated = ArticulatedObservation {
+            tick: 7,
+            subject: EntityId::new(0, 0),
+            capabilities: 0xff,
+            body_position: origin,
+            body_yaw: yaw,
+            body_velocity: drift(1),
+            arms: [arm(1), arm(11)],
+            shield: shield(origin + point(21)),
+            blood_fraction: Fx::from_ratio(4, 5),
+            shock: Fx::from_ratio(1, 4),
+            integrity_fraction: core::array::from_fn(|p| Fx::from_ratio(p as i32 + 1, 8)),
+            wound_fraction: core::array::from_fn(|p| Fx::from_ratio(p as i32 + 1, 9)),
+            severed_mask: 0b1_1111,
+            opponent_count: MAX_ARTICULATED_OPPONENTS as u8,
+            opponents: core::array::from_fn(|slot| foe(slot as i32)),
+            standing_height: Fx::from_int(2),
+            arm_length: Fx::from_ratio(3, 4),
+            hand_radius: Fx::from_ratio(1, 10),
+            weapons: [
+                Some(SegmentPose { hilt: origin + point(31), tip: origin + point(32), radius: Fx::from_ratio(1, 25) }),
+                None,
+            ],
+        };
+        obs
+    }
+
+    #[test]
+    fn articulated_features_have_one_documented_width() {
+        // The reference's rows, summed here from its own numbers rather than
+        // from the crate's part constants. A test that adds up the same terms
+        // the code adds up is a test that agrees with itself; these are the
+        // widths written down in `docs/reference/articulated-abi.md`, read off
+        // its index tables. Blood and shock share a row there and are two terms
+        // here, which is the only place the two enumerations differ.
+        let documented_self: usize = 1 + 8 + 2 + 3 + 12 + 12 + 9 + 1 + 1 + 5 + 5 + 5;
+        let documented_opponent: usize = 1 + 3 + 3 + 2 + 4 + 7 + 7 + 7 + 7 + 6 + 6 + 9 + 5 + 1;
+        assert_eq!((documented_self, documented_opponent), (64, 68));
+        assert_eq!(ARTICULATED_SELF_FEATURES, documented_self);
+        assert_eq!(ARTICULATED_OPPONENT_FEATURES, documented_opponent);
+        assert_eq!(
+            ARTICULATED_FEATURE_COUNT,
+            documented_self + MAX_ARTICULATED_OPPONENTS * documented_opponent
+        );
+        assert_eq!(
+            (LEGACY_FEATURE_COUNT, ARTICULATED_FEATURE_COUNT, FEATURE_COUNT),
+            (450, 472, 922)
+        );
+        assert_eq!(FEATURE_LAYOUT_VERSION, 12);
+
+        // And the third number: what the writer actually reaches. Every column
+        // of the block is fed something that cannot round to zero, so a slot
+        // the walk skips shows up here, and a slot it double-books shows up in
+        // the cursor assertions inside `write_articulated_features`.
+        let obs = every_column_filled();
+        let mut out = vec![Fx::ZERO; FEATURE_COUNT];
+        assert_eq!(obs.write_features(&mut out), FEATURE_COUNT);
+        for (k, v) in out[LEGACY_FEATURE_COUNT..].iter().enumerate() {
+            let named = if k < ARTICULATED_SELF_FEATURES {
+                format!("self {k}")
+            } else {
+                let row = k - ARTICULATED_SELF_FEATURES;
+                format!(
+                    "opponent {} column {}",
+                    row / ARTICULATED_OPPONENT_FEATURES,
+                    row % ARTICULATED_OPPONENT_FEATURES
+                )
+            };
+            assert!(!v.is_zero(), "articulated feature {k} ({named}) was never written");
+        }
+    }
+
+    #[test]
+    fn a_blank_articulated_block_writes_four_hundred_and_seventy_two_zeroes() {
+        let obs = Observation::blank(
+            0,
+            EntityId::new(0, 0),
+            Faction::Heroes,
+            Vec2::ZERO,
+            Order::Hold,
+        );
+        assert!(!obs.articulated.present(), "a blank observation claimed a subject");
+        // Pre-dirtied, including three words past the end: a writer that
+        // stopped short leaves nines inside the block, and one that ran long
+        // clears the guard.
+        let mut out = vec![Fx::from_int(9); FEATURE_COUNT + 3];
+        assert_eq!(obs.write_features(&mut out), FEATURE_COUNT);
+        assert_eq!(
+            out[LEGACY_FEATURE_COUNT..FEATURE_COUNT].iter().filter(|v| v.is_zero()).count(),
+            ARTICULATED_FEATURE_COUNT,
+            "a blank articulated block wrote a value"
+        );
+        assert_eq!(&out[FEATURE_COUNT..], &[Fx::from_int(9); 3], "the writer ran past its width");
+    }
+
+    #[test]
+    fn an_unused_opponent_row_writes_sixty_eight_zeroes() {
+        // The reference's "no hidden identity or geometry enters an unused
+        // row", put through the writer rather than asserted on the constant.
+        // A blank `ObservedOpponent` sitting in the struct proves nothing on
+        // its own; what matters is that the 68 columns behind it stay zero
+        // while the filled rows beside them do not.
+        let mut obs = every_column_filled();
+        obs.articulated.opponent_count = 2;
+        for slot in 2..MAX_ARTICULATED_OPPONENTS {
+            obs.articulated.opponents[slot] = ObservedOpponent::BLANK;
+        }
+        let mut out = vec![Fx::ZERO; FEATURE_COUNT];
+        obs.write_features(&mut out);
+
+        let row = |slot: usize| {
+            let base = LEGACY_FEATURE_COUNT
+                + ARTICULATED_SELF_FEATURES
+                + slot * ARTICULATED_OPPONENT_FEATURES;
+            &out[base..base + ARTICULATED_OPPONENT_FEATURES]
+        };
+        for slot in 0..2 {
+            assert!(row(slot).iter().all(|v| !v.is_zero()), "filled row {slot} has a hole");
+        }
+        for slot in 2..MAX_ARTICULATED_OPPONENTS {
+            assert!(row(slot).iter().all(|v| v.is_zero()), "unused row {slot} carried a value");
+        }
+        assert_eq!(obs.articulated.opponents().len(), 2);
+        assert_eq!(ObservedOpponent::BLANK.id, EntityId::NONE, "blank is not the never-resolving handle");
+    }
+
+    /// One perturbation and the block offsets it is allowed to move.
+    ///
+    /// A perturbation rather than a list of expected values, because the
+    /// question the index table answers is *which column moves when this field
+    /// moves*, and that is the question a transposition gets wrong. Comparing
+    /// values instead would need a second copy of every divisor in the test,
+    /// which would then agree with the code by construction.
+    struct Column {
+        named: String,
+        expect: core::ops::Range<usize>,
+        nudge: Box<dyn Fn(&mut ArticulatedObservation)>,
+    }
+
+    fn column(
+        named: &str,
+        expect: core::ops::Range<usize>,
+        nudge: impl Fn(&mut ArticulatedObservation) + 'static,
+    ) -> Column {
+        Column { named: named.to_string(), expect, nudge: Box::new(nudge) }
+    }
+
+    /// Every column of the block, one perturbation each, against the index
+    /// table in `docs/reference/articulated-abi.md`.
+    ///
+    /// Each capability bit and each XYZ component gets its own row, so a
+    /// swapped pair *inside* a documented row fails as loudly as a swapped row.
+    /// The one field deliberately absent is `body_position`: it is the frame
+    /// origin, so moving it moves every relative column at once and would say
+    /// nothing about where any of them live.
+    fn documented_columns() -> Vec<Column> {
+        // Row three, because a stride error that is a multiple of the row width
+        // still lands on row zero. The first and last rows are checked for the
+        // stride itself at the end.
+        const ROW: usize = 3;
+        let base = ARTICULATED_SELF_FEATURES + ROW * ARTICULATED_OPPONENT_FEATURES;
+        let at = |offset: usize, width: usize| base + offset..base + offset + width;
+
+        let mut columns = vec![
+            column("self present", 0..ARTICULATED_FEATURE_COUNT, |a| a.subject = EntityId::NONE),
+            column("self yaw", 9..11, |a| a.body_yaw = Angle::from_degrees(200)),
+            column("self velocity x", 11..12, |a| a.body_velocity.x += NUDGE),
+            column("self velocity y", 12..13, |a| a.body_velocity.y += NUDGE),
+            column("self velocity z", 13..14, |a| a.body_velocity.z += NUDGE),
+            column("self shield present", 38..47, |a| a.shield.present = false),
+            column("self shield centre x", 39..40, |a| a.shield.centre.x += Fx::ONE),
+            column("self shield centre y", 40..41, |a| a.shield.centre.y += Fx::ONE),
+            column("self shield centre z", 41..42, |a| a.shield.centre.z += Fx::ONE),
+            column("self shield normal x", 42..43, |a| a.shield.normal.x = -a.shield.normal.x),
+            column("self shield normal y", 43..44, |a| a.shield.normal.y = -a.shield.normal.y),
+            column("self shield normal z", 44..45, |a| a.shield.normal.z = -a.shield.normal.z),
+            column("self shield half width", 45..46, |a| a.shield.half_width = Fx::ZERO),
+            column("self shield half height", 46..47, |a| a.shield.half_height = Fx::ZERO),
+            column("self blood", 47..48, |a| a.blood_fraction = Fx::ZERO),
+            column("self shock", 48..49, |a| a.shock = Fx::ZERO),
+            column("foe present", at(0, ARTICULATED_OPPONENT_FEATURES), |a| a.opponents[ROW].id = EntityId::NONE),
+            column("foe body x", at(1, 1), |a| a.opponents[ROW].body_position.x += Fx::ONE),
+            column("foe body y", at(2, 1), |a| a.opponents[ROW].body_position.y += Fx::ONE),
+            column("foe body z", at(3, 1), |a| a.opponents[ROW].body_position.z += Fx::ONE),
+            column("foe velocity x", at(4, 1), |a| a.opponents[ROW].body_velocity.x += NUDGE),
+            column("foe velocity y", at(5, 1), |a| a.opponents[ROW].body_velocity.y += NUDGE),
+            column("foe velocity z", at(6, 1), |a| a.opponents[ROW].body_velocity.z += NUDGE),
+            column("foe yaw", at(7, 2), |a| a.opponents[ROW].body_yaw = Angle::from_degrees(200)),
+            column("foe head x", at(9, 1), |a| a.opponents[ROW].regions[0].lower.x += Fx::ONE),
+            column("foe head y", at(10, 1), |a| a.opponents[ROW].regions[0].lower.y += Fx::ONE),
+            column("foe head z", at(11, 1), |a| a.opponents[ROW].regions[0].lower.z += Fx::ONE),
+            column("foe head radius", at(12, 1), |a| a.opponents[ROW].regions[0].radius = Fx::ZERO),
+            column("foe head absent", at(9, 4), |a| a.opponents[ROW].regions[0].present = false),
+            // The head writes `lower` and never `upper`, which is what makes it
+            // the degenerate volume rather than a capsule with three wasted
+            // columns. Nothing may move.
+            column("foe head upper", at(0, 0), |a| a.opponents[ROW].regions[0].upper.x += Fx::ONE),
+            column("foe left hilt x", at(41, 1), |a| a.opponents[ROW].weapons[0].as_mut().expect("a weapon").hilt.x += Fx::ONE),
+            column("foe left tip x", at(44, 1), |a| a.opponents[ROW].weapons[0].as_mut().expect("a weapon").tip.x += Fx::ONE),
+            column("foe left weapon absent", at(41, 6), |a| a.opponents[ROW].weapons[0] = None),
+            column("foe right hilt x", at(47, 1), |a| a.opponents[ROW].weapons[1].as_mut().expect("a weapon").hilt.x += Fx::ONE),
+            column("foe right tip x", at(50, 1), |a| a.opponents[ROW].weapons[1].as_mut().expect("a weapon").tip.x += Fx::ONE),
+            column("foe right weapon absent", at(47, 6), |a| a.opponents[ROW].weapons[1] = None),
+            column("foe shield present", at(53, 9), |a| a.opponents[ROW].shield.present = false),
+            column("foe shield centre x", at(54, 1), |a| a.opponents[ROW].shield.centre.x += Fx::ONE),
+            column("foe shield normal x", at(57, 1), |a| a.opponents[ROW].shield.normal.x = -a.opponents[ROW].shield.normal.x),
+            column("foe shield half width", at(60, 1), |a| a.opponents[ROW].shield.half_width = Fx::ZERO),
+            column("foe shield half height", at(61, 1), |a| a.opponents[ROW].shield.half_height = Fx::ZERO),
+            column("foe timing", at(67, 1), |a| a.opponents[ROW].contact_timing = Fx::ZERO),
+            // The stride, at both ends. A row width wrong by anything at all
+            // puts the last row's last column somewhere other than 471.
+            column("first row timing",
+                   ARTICULATED_SELF_FEATURES + 67..ARTICULATED_SELF_FEATURES + 68,
+                   |a| a.opponents[0].contact_timing = Fx::ZERO),
+            column("last row timing",
+                   ARTICULATED_FEATURE_COUNT - 1..ARTICULATED_FEATURE_COUNT,
+                   |a| a.opponents[5].contact_timing = Fx::ZERO),
+        ];
+
+        // Clearing a capability bit is the only single-column perturbation
+        // available: setting one would need a bit the fixture leaves clear, and
+        // it sets all eight.
+        for bit in 0..8usize {
+            columns.push(column(&format!("capability bit {bit}"), 1 + bit..2 + bit,
+                                move |a| a.capabilities &= !(1u32 << bit)));
+        }
+        for (limb, run) in [(0usize, 14usize), (1, 26)] {
+            columns.push(column(&format!("arm {limb} hand x"), run..run + 1, move |a| a.arms[limb].hand.x += Fx::ONE));
+            columns.push(column(&format!("arm {limb} hand y"), run + 1..run + 2, move |a| a.arms[limb].hand.y += Fx::ONE));
+            columns.push(column(&format!("arm {limb} hand z"), run + 2..run + 3, move |a| a.arms[limb].hand.z += Fx::ONE));
+            columns.push(column(&format!("arm {limb} target x"), run + 3..run + 4, move |a| a.arms[limb].target_hand.x += Fx::ONE));
+            columns.push(column(&format!("arm {limb} target y"), run + 4..run + 5, move |a| a.arms[limb].target_hand.y += Fx::ONE));
+            columns.push(column(&format!("arm {limb} target z"), run + 5..run + 6, move |a| a.arms[limb].target_hand.z += Fx::ONE));
+            columns.push(column(&format!("arm {limb} velocity x"), run + 6..run + 7, move |a| a.arms[limb].velocity.x += NUDGE));
+            columns.push(column(&format!("arm {limb} velocity y"), run + 7..run + 8, move |a| a.arms[limb].velocity.y += NUDGE));
+            columns.push(column(&format!("arm {limb} velocity z"), run + 8..run + 9, move |a| a.arms[limb].velocity.z += NUDGE));
+            columns.push(column(&format!("arm {limb} fatigue"), run + 9..run + 10, move |a| a.arms[limb].fatigue = Fx::ZERO));
+            columns.push(column(&format!("arm {limb} integrity"), run + 10..run + 11, move |a| a.arms[limb].integrity_fraction = Fx::ZERO));
+            columns.push(column(&format!("arm {limb} severed"), run + 11..run + 12, move |a| a.arms[limb].severed = false));
+        }
+        for part in 0..BodyPart::COUNT {
+            columns.push(column(&format!("self integrity {part}"), 49 + part..50 + part,
+                                move |a| a.integrity_fraction[part] = Fx::ZERO));
+            columns.push(column(&format!("self wound {part}"), 54 + part..55 + part,
+                                move |a| a.wound_fraction[part] = Fx::ZERO));
+            columns.push(column(&format!("self severed {part}"), 59 + part..60 + part,
+                                move |a| a.severed_mask &= !(1u8 << part)));
+            columns.push(column(&format!("foe severed {part}"), at(62 + part, 1),
+                                move |a| a.opponents[ROW].severed_mask &= !(1u8 << part)));
+        }
+        // Torso, both arms, legs: the four capsules, seven columns apiece, in
+        // `BodyPart` order after the head.
+        for (part, offset) in [(1usize, 13usize), (2, 20), (3, 27), (4, 34)] {
+            columns.push(column(&format!("foe capsule {part} lower x"), at(offset, 1),
+                                move |a| a.opponents[ROW].regions[part].lower.x += Fx::ONE));
+            columns.push(column(&format!("foe capsule {part} upper x"), at(offset + 3, 1),
+                                move |a| a.opponents[ROW].regions[part].upper.x += Fx::ONE));
+            columns.push(column(&format!("foe capsule {part} radius"), at(offset + 6, 1),
+                                move |a| a.opponents[ROW].regions[part].radius = Fx::ZERO));
+            columns.push(column(&format!("foe capsule {part} absent"), at(offset, 7),
+                                move |a| a.opponents[ROW].regions[part].present = false));
+        }
+        columns
+    }
+
+    #[test]
+    fn articulated_lengths_divide_by_sight_and_velocities_by_speed_scale() {
+        // The index test above deliberately says nothing about *values* -- it
+        // asks which column moves, not what lands in it -- so the two divisors
+        // would survive a rescale unnoticed. This pins them by their
+        // definition rather than by copying the writer: a displacement of
+        // exactly one sight range is exactly one, a velocity of exactly
+        // `SPEED_SCALE` is exactly one, and both clamp rather than overflow.
+        let mut obs = every_column_filled();
+        obs.sight_range = Fx::from_int(6);
+        let sight = obs.sight_range;
+        let origin = obs.articulated.body_position;
+        obs.articulated.arms[0].hand = origin + Vec3::new(sight, sight / 2, -sight * 2);
+        obs.articulated.body_velocity = Vec3::new(SPEED_SCALE, SPEED_SCALE / 4, -SPEED_SCALE * 3);
+        // A radius is a length and divides by the same thing, which is what
+        // makes "how wide is that torso" comparable with "how far away is it".
+        obs.articulated.opponents[0].regions[BodyPart::Head as usize].radius = sight / 4;
+
+        let mut out = vec![Fx::ZERO; FEATURE_COUNT];
+        obs.write_features(&mut out);
+        let block = LEGACY_FEATURE_COUNT;
+        assert_eq!(out[block + 14], Fx::ONE, "one sight range is not one");
+        assert_eq!(out[block + 15], Fx::HALF, "half a sight range is not a half");
+        assert_eq!(out[block + 16], -Fx::ONE, "two sight ranges did not clamp");
+        assert_eq!(out[block + 11], Fx::ONE, "one SPEED_SCALE is not one");
+        assert_eq!(out[block + 12], Fx::from_ratio(1, 4));
+        assert_eq!(out[block + 13], -Fx::ONE, "three SPEED_SCALE did not clamp");
+        assert_eq!(out[block + ARTICULATED_SELF_FEATURES + 12], Fx::from_ratio(1, 4),
+                   "a radius is on a different scale from the point it belongs to");
+    }
+
+    #[test]
+    fn every_articulated_feature_lands_on_its_documented_index() {
+        // The layout is the contract a trained network will be frozen against,
+        // and until a policy reads it nothing else in the suite would notice a
+        // transposition -- no golden hash covers it, because an observation is
+        // not authoritative state. So the index table is asserted directly:
+        // perturb one field, and exactly the offsets the reference names move.
+        let base = every_column_filled();
+        let mut before = vec![Fx::ZERO; FEATURE_COUNT];
+        base.write_features(&mut before);
+
+        let mut after = vec![Fx::ZERO; FEATURE_COUNT];
+        for Column { named, expect, nudge } in documented_columns() {
+            let mut obs = base.clone();
+            nudge(&mut obs.articulated);
+            obs.write_features(&mut after);
+            let moved: Vec<usize> = (LEGACY_FEATURE_COUNT..FEATURE_COUNT)
+                .filter(|&k| before[k] != after[k])
+                .map(|k| k - LEGACY_FEATURE_COUNT)
+                .collect();
+            assert_eq!(moved, expect.clone().collect::<Vec<_>>(),
+                       "{named} moved the wrong block offsets");
+            assert!(before[..LEGACY_FEATURE_COUNT] == after[..LEGACY_FEATURE_COUNT],
+                    "{named} reached the frozen prefix");
+        }
+    }
+
 }

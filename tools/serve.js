@@ -91,10 +91,15 @@ function resolveRequest(rawUrl) {
   if (decoded.includes(":")) return null; // "/C:/Windows/..." style absolutes
   if (decoded.split("/").includes("..")) return null;
 
+  // `/` is the legacy page and not the studio shell. This server has no bundler,
+  // and `web/index.html` is now a shell whose one script is a TypeScript module
+  // graph -- serving it here would hand a browser a page whose entry point 404s.
+  // The legacy game is four classic scripts and a stylesheet, which is exactly
+  // what this server was written for, so it gets the root.
   const file =
     decoded === WASM_URL
       ? WASM_FILE
-      : path.resolve(WEB_ROOT, "." + (decoded === "/" ? "/index.html" : decoded));
+      : path.resolve(WEB_ROOT, "." + (decoded === "/" ? "/legacy.html" : decoded));
 
   return ROOTS.some((root) => contains(root, file)) ? file : null;
 }

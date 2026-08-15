@@ -261,28 +261,28 @@ pub fn tangential_speed(spin: Fx, radius: Fx) -> Fx {
 
 /// Integer square root, floor semantics, no floats involved.
 ///
-/// Classic restoring bit-by-bit algorithm: exact for the full `u64` range and
-/// identical on every target.
+/// Exact for the full `u64` range and identical on every target -- which is a
+/// claim about the *contract* and not about an implementation, and that is the
+/// whole reason this can be `u64::isqrt` rather than the hand-rolled restoring
+/// bit-search it used to be. "The largest `r` with `r*r <= n`" names exactly one
+/// number for every input; there is no rounding mode to disagree about, no float
+/// anywhere in the u64 path, and nothing a target could do differently.
+/// `isqrt_matches_perfect_squares` pins that contract from this side, and
+/// `tools/wasm_check.js` pins it from wasm32.
+///
+/// **It is worth caring which one runs.** This is the sim's hottest primitive:
+/// every `Vec2::length`, so every range check, every raycast, every separation
+/// -- and the bit-search was some sixty iterations of a branchy loop where the
+/// intrinsic is a handful. Swapping it was worth 28% of the carved bench's whole
+/// tick, with `LAB_HASH` and all four browser goldens unmoved, which is what
+/// "exact" is supposed to mean.
+///
+/// `u64::isqrt` is stable from Rust 1.84, which is the only thing this swap
+/// costs: the workspace pins no MSRV, so that is now the oldest toolchain that
+/// will build it.
+#[inline]
 pub fn isqrt64(n: u64) -> u64 {
-    if n == 0 {
-        return 0;
-    }
-    let mut x = n;
-    let mut c: u64 = 0;
-    let mut d: u64 = 1u64 << 62;
-    while d > x {
-        d >>= 2;
-    }
-    while d != 0 {
-        if x >= c + d {
-            x -= c + d;
-            c = (c >> 1) + d;
-        } else {
-            c >>= 1;
-        }
-        d >>= 2;
-    }
-    c
+    n.isqrt()
 }
 
 impl Add for Fx {
@@ -512,6 +512,19 @@ mod tests {
             }
         }
         assert_eq!(isqrt64(u64::MAX), 4_294_967_295);
+        // The contract itself, across the whole exponent range and not only the
+        // small end: `isqrt64` is now a library call, so what this file owes the
+        // sim is the *property* -- the largest `r` with `r*r <= n` -- rather
+        // than a walk through one particular algorithm. A boundary is the only
+        // place a floor square root can be wrong, so every boundary reachable
+        // by doubling is checked from both sides.
+        let mut r = 1u64;
+        while r <= 1 << 31 {
+            assert_eq!(isqrt64(r * r), r, "isqrt({})", r * r);
+            assert_eq!(isqrt64(r * r - 1), r - 1, "isqrt({})", r * r - 1);
+            assert_eq!(isqrt64(r * r + r), r, "isqrt({})", r * r + r);
+            r <<= 1;
+        }
     }
 
     #[test]

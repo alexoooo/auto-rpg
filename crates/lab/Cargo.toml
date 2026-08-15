@@ -5,10 +5,27 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[features]
+cartesian-recoil = ["sim/cartesian-recoil"]
+
 [dependencies]
 fx = { path = "../fx" }
-sim = { path = "../sim" }
+sim = { path = "../sim", features = ["lab-calibration"] }
 policy = { path = "../policy" }
+# The one host `learn` is allowed to have, and this is the edge v2-19 said would
+# land when `lab learn-probe` did. It must never appear in `crates/web` -- and
+# the reason this comment used to give for that was wrong twice over. `learn`
+# *does* compile to wasm32: `std::thread::scope` and `std::time::Instant` build
+# for that target and trap at runtime, measured 2026-08-11. And a learned weight
+# *does* cross the wasm wall now, because v2-ui-08 split the inference half out
+# as `learn-core` and `crates/web` depends on it.
+#
+# The rule survives with a better reason. What may not ship in a `cdylib` is the
+# trainer: threads and a wall clock behind `pub extern "C"` are runtime traps in
+# an artifact a page loads, and nothing in this crate's dependency is on any
+# decision path. `learn-core` is the half that crosses, and
+# `LEARNED_INFERENCE_DIGEST` is what keeps the crossing honest across targets.
+learn = { path = "../learn" }
 
 # No rayon, no clap. Parallelism is `std::thread::scope` and argument parsing
 # is forty lines, which keeps the whole workspace buildable offline and free of

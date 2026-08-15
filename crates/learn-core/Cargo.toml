@@ -1,0 +1,21 @@
+[package]
+name = "learn-core"
+description = "Frozen inference: the compact feature slice, the small MLP, the action table, and the checkpoint codec"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+fx = { path = "../fx" }
+sim = { path = "../sim" }
+policy = { path = "../policy" }
+
+# No sha2, no rand, no rayon, and no ndarray -- `learn`'s manifest said this
+# first and the audit follows the code: `tools/check_deps.js` holds this crate
+# to workspace paths only, exactly as it holds `learn`. The hand-rolled SHA-256
+# in `checkpoint.rs` is what that rule costs and the module says why.
+#
+# This crate is `web`'s dependency and therefore compiles to
+# `wasm32-unknown-unknown`, which is a harder constraint than the one above and
+# is the reason the split exists: no threads, no clock, and no filesystem on
+# any path a browser can reach. See the crate header.
