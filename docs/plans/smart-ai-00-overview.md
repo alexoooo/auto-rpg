@@ -5,7 +5,9 @@ body-wall lifecycle witness are committed and verified. Smart122 registered the
 trajectory transcript at `0x83051e8c6b4ef20f`, and Smart123 registered the
 terminal source-41 solver corpus at `0x83cd7bb2b73aeb9e`. Their canonical authority
 documentation is complete. Smart128's matched stationary calibration stopped with
-688/900 structural failures. Generalized Tactical competence remains below gate.
+688/900 structural failures. Smart129 found identical held/reference solver-positive
+sets but unequal per-row rejection counts on nine mirrored rows. Generalized Tactical
+competence remains below gate.
 
 This topic began with an Arena fight in which learned and tactical fighters moved but
 rarely produced useful attacks. The UI truth problem was repaired and intentional
@@ -55,6 +57,10 @@ live in [combat design](../design/combat.md).
   bounded runs but stopped at `688/900` structural failures. Its held-out stationary
   range and the moving competence gate were not run; the durable counts and receipts
   are in [matched tactical mechanics](../performance/smart-ai-matched-tactical.md#exact-mechanics-rerun).
+- Smart129's frozen offline query found `198` rows positive in both controlled arms,
+  zero positive in only one arm, and nine mirrored rows with unequal positive counts.
+  The decision is `controlled-arm-solver-asymmetry`, not a causal or tuning result;
+  its receipts are in the [shared-solver diagnosis](../performance/smart-ai-matched-tactical.md#frozen-shared-solver-diagnosis).
 - All exact mechanics remain behind the opt-in, non-default `cartesian-recoil`
   feature. No exact-path default authority, `ARTICULATED_HASH`, training promotion,
   or v2-18 rig work is authorized. These retained results are committed behind the
@@ -77,16 +83,17 @@ one tick is not its lifecycle grammar. The authority documents are now closed wi
 promoting the feature. The completed stationary matched Tactical/control calibration
 stopped before held-out work: reference missing/crossing failures, held/reference
 solver rejections and Tactical solver/attribution failures were all present.
-[Smart129](smart-ai-129-shared-solver-diagnosis.md) is the active bounded offline
-diagnosis of held/reference solver identity; it precedes any correction proposal.
+The frozen shared-solver diagnosis found count asymmetry without naming its cause.
+The next plan must begin at earliest canonical mismatch ordinal 31 and establish the
+first held/reference provenance divergence before proposing any correction.
 
 ## Next-session order
 
-1. Execute [Smart129](smart-ai-129-shared-solver-diagnosis.md), the preregistered
-   offline held/reference solver-identity query over Smart128's frozen receipts. Do
-   not tune against the calibration or choose a subset after measurement. The moving
-   baseline remains `21/100` strict and `55/100` outcome-only; Smart125's attempted
-   correction fell to `49/100` outcome-only and was reverted.
+1. Write a bounded arm-asymmetry provenance plan for Smart129's earliest canonical
+   mismatch, ordinal 31. Do not tune against the calibration or choose a subset after
+   measurement. The moving baseline remains `21/100` strict and `55/100`
+   outcome-only; Smart125's attempted correction fell to `49/100` outcome-only and
+   was reverted.
 2. Preserve the ordinary defender-body `WALL` lifecycle witness separately from the
    terminal-at-first-contact source-41 solver corpus.
 3. Open the unchanged 95/100 held-out competence gate only after a future matched

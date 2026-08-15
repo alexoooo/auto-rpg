@@ -169,3 +169,57 @@ registered hash moved, `ARTICULATED_HASH` remains absent, and neither feature
 promotion nor training is authorized. The next work is a separately planned diagnosis
 of the frozen missing/crossing, held/reference solver and Tactical attribution
 failures; it is not tuning against these 900 rows.
+
+## Frozen shared-solver diagnosis
+
+Smart129 queried only the frozen structural columns from both byte-identical Smart128
+receipts. The receipt source remained
+`7813de079e237f613ec59c4ef38aeee8b399742f`; the offline tool and its synthetic
+fixture tests were committed at
+`00dca02a5bf6595fda1d5eab46e739ece08dca67`. Both commands exited zero:
+
+```powershell
+node tools/diagnose_smart128.js --out-prefix target/smart129-shared-solver-a
+node tools/diagnose_smart128.js --out-prefix target/smart129-shared-solver-b
+```
+
+The text artifacts are byte-identical at 6,959 bytes and 68 lines, SHA-256
+`727ede9d613b5ca4f2ba4d7d8fa4c7718081a77db0671c2eb92485ae4bb69261`.
+The JSON artifacts are byte-identical at 12,268 bytes and 511 lines, SHA-256
+`941fc978a77020afa0b3de9152598f31c3658fb65c9cc05523f5481666409f0b`.
+No sibling temporary file remained after either atomic publication. Both reports
+record 900 rows, zero bracket drift, zero descriptor mismatch and descriptor-set
+digest `530884e14f49d5f91e35faced7c3735373535032d69804db44137cc4f2326dcd`.
+
+The preregistered solver-presence table is exact:
+
+| reference solver-positive | held solver-positive | rows |
+|---|---|---:|
+| false | false | 702 |
+| false | true | 0 |
+| true | false | 0 |
+| true | true | 198 |
+
+The positive row sets are therefore identical. The stronger per-row count vector is
+not: ordinals `31, 205, 457, 466, 538, 718, 745, 790, 853` have unequal positive
+counts. All nine mismatches are mirrored; four target Fighter and five target Brute.
+One uses offset raw `(-163840,0)` and eight use `(-131072,0)`. Their seed marginals
+are `0:1, 5:1, 12:2, 14:1, 19:1, 20:1, 21:1, 23:1`. Every other seed has zero
+unequal rows.
+
+Among the 198 shared solver-positive rows, the fixed intersections were 124 reference
+missing, 124 reference uncrossed, 11 held non-inert, 122 Tactical solver-positive,
+14 Tactical unattributed-positive and 12 Tactical cross-order. These categories
+overlap and are not causes or a partition.
+
+The preregistered decision is `controlled-arm-solver-asymmetry`. It means only that
+the controlled arms reach the same solver-positive descriptor set while accumulating
+different rejection counts on nine rows. The arms also differ in commanded effort,
+but this offline count comparison does not establish that effort caused the
+difference, identify a first rejection, or authorize a mechanics change.
+
+The next work is a separately preregistered arm-asymmetry provenance session beginning
+at earliest canonical mismatch ordinal 31. It must name the first held/reference
+divergence before proposing any correction. Smart129 performed no instrumentation,
+mechanics or policy change, Tactical tuning, held-out run or moving competence gate.
+No registered pin moved.
