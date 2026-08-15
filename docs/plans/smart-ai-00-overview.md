@@ -84,16 +84,19 @@ promoting the feature. The completed stationary matched Tactical/control calibra
 stopped before held-out work: reference missing/crossing failures, held/reference
 solver rejections and Tactical solver/attribution failures were all present.
 The frozen shared-solver diagnosis found count asymmetry without naming its cause.
-The next plan must begin at earliest canonical mismatch ordinal 31 and establish the
-first held/reference provenance divergence before proposing any correction.
+The active [Smart130 plan](smart-ai-130-ordinal-31-arm-asymmetry.md) begins at earliest
+canonical mismatch ordinal 31 and preserves each arm's original Smart128 terminal
+rule while naming the first common-prefix solver-delta difference or the earlier
+terminal boundary. It proposes no correction.
 
 ## Next-session order
 
-1. Write a bounded arm-asymmetry provenance plan for Smart129's earliest canonical
-   mismatch, ordinal 31. Do not tune against the calibration or choose a subset after
-   measurement. The moving baseline remains `21/100` strict and `55/100`
-   outcome-only; Smart125's attempted correction fell to `49/100` outcome-only and
-   was reverted.
+1. Execute [Smart130](smart-ai-130-ordinal-31-arm-asymmetry.md), the bounded
+   live/rerun/replay provenance for Smart129's earliest canonical mismatch. Do not
+   extend the reference past its original contact terminal, tune against the
+   calibration or choose another descriptor after measurement. The moving baseline
+   remains `21/100` strict and `55/100` outcome-only; Smart125's attempted correction
+   fell to `49/100` outcome-only and was reverted.
 2. Preserve the ordinary defender-body `WALL` lifecycle witness separately from the
    terminal-at-first-contact source-41 solver corpus.
 3. Open the unchanged 95/100 held-out competence gate only after a future matched
