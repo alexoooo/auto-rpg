@@ -215,7 +215,8 @@ Add these exact Lab tests under `cartesian-recoil`:
 - `ordinal_31_provenance_artifact_is_byte_identical_and_atomic`
 
 Use a test-only mutation enum at the trace/comparison seam. At minimum, show the
-named tests red when (a) one solver delta is suppressed, (b) one stored replay
+named tests red when (a) one copied solver-rejection event is suppressed coherently
+from both its tick delta and cumulative count evidence, (b) one stored replay
 submission is removed, and (c) the comparison is allowed to pass the earlier
 terminal. Also mutate one tick-local group diagnostic and prove the live/rerun/replay
 equality check fails. Restore every mutation before the production build; a passing
@@ -229,7 +230,7 @@ Run the focused gates, then the complete feature Lab gate and documentation chec
 cargo test -p lab --features cartesian-recoil ordinal_31
 cargo test -p lab --features cartesian-recoil provenance
 cargo test -p lab --features cartesian-recoil
-cargo test -p sim --features cartesian-recoil exact_trajectory_live_rerun_and_replay_match_every_tick
+cargo test -p sim --features cartesian-recoil exact_trajectory_live_rerun_and_replay_match_every_tick_and_breakpoint
 node tools/check_docs.js
 git diff --check
 ```

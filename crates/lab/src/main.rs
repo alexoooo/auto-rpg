@@ -49,7 +49,14 @@ fn main() {
         "articulated" => articulated(&args),
         "strike-corpus" => strike_corpus::strike_corpus(&args),
         "strong-strike" => strong_strike::strong_strike(),
-        "tactical-mechanics" => tactical_mechanics::tactical_mechanics(&args),
+        "tactical-mechanics" => {
+            if tactical_mechanics::ordinal_31_provenance_requested(&args) {
+                if let Err(error) = tactical_mechanics::ordinal_31_provenance_mode(&args) {
+                    eprintln!("{error}");
+                    std::process::exit(2);
+                }
+            } else { tactical_mechanics::tactical_mechanics(&args); }
+        }
         "trace" => trace_fight(&args),
         "learn-probe" => learn_probe::learn_probe(&args),
         "" | "help" => usage(),
@@ -115,7 +122,7 @@ fn usage() {
           control through the production World, printing raw pose kinematics,
           contact energy channels and before/after anatomy facts.
 
-  tactical-mechanics --quick|--calibration|--held-out|--strike-corpus|--anatomical-mirror-corpus|--noise-free-mirror-corpus|--mirror-trace-1536
+  tactical-mechanics --quick|--calibration|--held-out|--strike-corpus|--anatomical-mirror-corpus|--noise-free-mirror-corpus|--mirror-trace-1536|--ordinal-31-provenance
           Brackets the tactical controller between byte-equal strong-strike
           references on their exact fixed scenario. --calibration runs the
           frozen 900-cell matched corpus and --write PATH records its fixed CSV.
@@ -130,6 +137,8 @@ fn usage() {
           Smart41 schedule from its declared spawn offset rather than perception.
           --mirror-trace-1536 runs only Smart41 central ordinal 1536 and its
           anatomical mirror, stopping at their first tick/phase/field divergence.
+          --ordinal-31-provenance --write PATH runs the fixed Smart130
+          reference/held/reference live-rerun-replay trace on one named worker.
 
   trace   --seed N --policy composed|windmill|tactical|learned --attack-moves --mirrored
           --ticks N --out PATH

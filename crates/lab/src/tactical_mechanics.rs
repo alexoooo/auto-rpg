@@ -444,10 +444,142 @@ fn print_reference(name: &str, row: strong_strike::StrikeMeasurement) {
         core::array::from_fn::<_, { BodyPart::COUNT }, _>(|i| row.wound_after_raw[i] - row.wound_before_raw[i]));
 }
 
-const TACTICAL_MODES: [&str; 7] = [
+const TACTICAL_MODES: [&str; 8] = [
     "quick", "calibration", "held-out", "strike-corpus",
     "anatomical-mirror-corpus", "noise-free-mirror-corpus", "mirror-trace-1536",
+    "ordinal-31-provenance",
 ];
+
+fn ordinal_31_provenance_refusal(args: &Args) -> Option<String> {
+    if args.positionals().len() != 1 || args.command() != "tactical-mechanics" {
+        let offending = args.positionals().get(1).map(String::as_str).unwrap_or("positional input");
+        return Some(format!("tactical-mechanics --ordinal-31-provenance refuses {offending}"));
+    }
+    let mode_flags = args.flags().iter().filter(|key| key.as_str() == "ordinal-31-provenance").count();
+    let mode_pairs = args.pairs().iter().filter(|(key, _)| key == "ordinal-31-provenance").count();
+    if mode_pairs != 0 {
+        return Some("tactical-mechanics --ordinal-31-provenance is a flag and accepts no value".into());
+    }
+    if mode_flags != 1 {
+        return Some("tactical-mechanics --ordinal-31-provenance must be named exactly once".into());
+    }
+    if let Some(key) = args.flags().iter().find(|key| key.as_str() != "ordinal-31-provenance") {
+        if key == "write" {
+            return Some("tactical-mechanics --ordinal-31-provenance --write requires PATH".into());
+        }
+        return Some(format!("tactical-mechanics --ordinal-31-provenance refuses --{key}"));
+    }
+    if let Some((key, _)) = args.pairs().iter().find(|(key, _)| key != "write") {
+        return Some(format!("tactical-mechanics --ordinal-31-provenance refuses --{key}"));
+    }
+    let writes: Vec<&str> = args.pairs().iter().filter(|(key, _)| key == "write")
+        .map(|(_, value)| value.as_str()).collect();
+    if writes.len() != 1 || writes[0].is_empty() {
+        return Some("tactical-mechanics --ordinal-31-provenance requires exactly one --write PATH".into());
+    }
+    None
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn write_ordinal_31_provenance(path: &str, bytes: &[u8]) -> Result<(), String> {
+    #[cfg(test)]
+    { return write_ordinal_31_provenance_with(path, bytes, None); }
+    #[cfg(not(test))]
+    { write_ordinal_31_provenance_with(path, bytes) }
+}
+
+#[cfg(all(feature = "cartesian-recoil", test))]
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ProvenanceWriteFailure { Open, Write, Flush, Rename }
+
+#[cfg(feature = "cartesian-recoil")]
+fn write_ordinal_31_provenance_with(path: &str, bytes: &[u8],
+    #[cfg(test)] failure: Option<ProvenanceWriteFailure>) -> Result<(), String>
+{
+    use std::io::Write;
+    let destination = std::path::Path::new(path);
+    let temporary = std::path::PathBuf::from(format!("{path}.tmp"));
+    if destination.exists() {
+        return Err(format!("tactical-mechanics --ordinal-31-provenance refuses existing destination {path}"));
+    }
+    if temporary.exists() {
+        return Err(format!("tactical-mechanics --ordinal-31-provenance refuses existing temporary {}",
+            temporary.display()));
+    }
+    let mut created_temporary = false;
+    let result = (|| -> std::io::Result<()> {
+        #[cfg(test)]
+        if failure == Some(ProvenanceWriteFailure::Open) {
+            return Err(std::io::Error::other("injected open failure"));
+        }
+        let mut file = std::fs::OpenOptions::new().write(true).create_new(true).open(&temporary)?;
+        created_temporary = true;
+        #[cfg(test)]
+        if failure == Some(ProvenanceWriteFailure::Write) {
+            return Err(std::io::Error::other("injected write failure"));
+        }
+        file.write_all(bytes)?;
+        #[cfg(test)]
+        if failure == Some(ProvenanceWriteFailure::Flush) {
+            return Err(std::io::Error::other("injected flush failure"));
+        }
+        file.flush()?;
+        drop(file);
+        if destination.exists() {
+            return Err(std::io::Error::new(std::io::ErrorKind::AlreadyExists,
+                "destination appeared before publication"));
+        }
+        #[cfg(test)]
+        if failure == Some(ProvenanceWriteFailure::Rename) {
+            return Err(std::io::Error::other("injected rename failure"));
+        }
+        std::fs::rename(&temporary, destination)
+    })();
+    if let Err(error) = result {
+        if created_temporary { let _ = std::fs::remove_file(&temporary); }
+        return Err(format!("tactical-mechanics --ordinal-31-provenance could not publish {path}: {error}; no artifact was written"));
+    }
+    Ok(())
+}
+
+pub(crate) fn ordinal_31_provenance_requested(args: &Args) -> bool {
+    args.flag("ordinal-31-provenance") || args.text("ordinal-31-provenance").is_some()
+}
+
+pub(crate) fn ordinal_31_provenance_mode(args: &Args) -> Result<(), String> {
+    if let Some(refusal) = ordinal_31_provenance_refusal(args) {
+        return Err(refusal);
+    }
+    #[cfg(not(feature = "cartesian-recoil"))]
+    {
+        return Err("tactical-mechanics --ordinal-31-provenance requires --features cartesian-recoil; no artifact was written".into());
+    }
+    #[cfg(feature = "cartesian-recoil")]
+    {
+        let path = args.text("write").expect("validated write path");
+        let worker = match std::thread::Builder::new()
+            .name(strong_strike::ORDINAL_31_WORKER_NAME.into())
+            .stack_size(strong_strike::ORDINAL_31_STACK_BYTES)
+            .spawn(strong_strike::ordinal_31_provenance_artifact)
+        {
+            Ok(worker) => worker,
+            Err(error) => {
+                return Err(format!("tactical-mechanics --ordinal-31-provenance worker start failed: {error}; no artifact was written"));
+            }
+        };
+        let artifact = match worker.join() {
+            Ok(Ok(artifact)) => artifact,
+            Ok(Err(error)) => {
+                return Err(format!("tactical-mechanics --ordinal-31-provenance verification failed: {error}; no artifact was written"));
+            }
+            Err(_) => {
+                return Err("tactical-mechanics --ordinal-31-provenance worker panicked; no artifact was written".into());
+            }
+        };
+        write_ordinal_31_provenance(path, artifact.as_bytes())?;
+        Ok(())
+    }
+}
 
 fn incompatible_mode_refusal(args: &Args) -> Option<String> {
     if args.flag("threads") || args.text("threads").is_some() {
@@ -584,7 +716,7 @@ pub(crate) fn tactical_mechanics(args: &Args) {
         return;
     }
     if !args.flag("quick") {
-        eprintln!("tactical-mechanics expects --quick, --calibration, --held-out, --strike-corpus, --anatomical-mirror-corpus, --noise-free-mirror-corpus, or --mirror-trace-1536");
+        eprintln!("tactical-mechanics expects --quick, --calibration, --held-out, --strike-corpus, --anatomical-mirror-corpus, --noise-free-mirror-corpus, --mirror-trace-1536, or --ordinal-31-provenance --write PATH");
         return;
     }
     let before = strong_strike::measure_case(quick, Fx::ONE);
@@ -1660,5 +1792,147 @@ mod tests {
         assert_eq!(row.solver_rejections, 0);
         assert!(row.waterfall.weapon_body_facts >= row.waterfall.cut_or_thrust);
         assert_eq!(row.unattributed_anatomy_changes, 0);
+    }
+
+    #[test]
+    fn ordinal_31_provenance_refuses_every_measurement_override() {
+        let valid = Args::parse(vec!["tactical-mechanics".into(),
+            "--ordinal-31-provenance".into(), "--write".into(), "trace.txt".into()]);
+        assert_eq!(ordinal_31_provenance_refusal(&valid), None);
+        #[cfg(not(feature = "cartesian-recoil"))]
+        assert_eq!(ordinal_31_provenance_mode(&valid),
+            Err("tactical-mechanics --ordinal-31-provenance requires --features cartesian-recoil; no artifact was written".into()));
+
+        for option in ["quick", "calibration", "held-out", "strike-corpus",
+            "anatomical-mirror-corpus", "noise-free-mirror-corpus", "mirror-trace-1536",
+            "seed", "seeds", "ordinal", "tolerance", "strike-delta", "reach-delta",
+            "ticks", "chamber", "strike", "reach", "effort", "mirrored",
+            "threads", "summary-write", "unknown"]
+        {
+            for tail in [vec![format!("--{option}")],
+                         vec![format!("--{option}"), "1".into()]] {
+                let mut tokens = vec!["tactical-mechanics".into(),
+                    "--ordinal-31-provenance".into(), "--write".into(), "trace.txt".into()];
+                tokens.extend(tail);
+                let refusal = ordinal_31_provenance_refusal(&Args::parse(tokens))
+                    .unwrap_or_else(|| panic!("--{option} was accepted"));
+                assert!(refusal.contains(&format!("--{option}")), "{refusal}");
+            }
+        }
+        for tokens in [
+            vec!["tactical-mechanics", "--ordinal-31-provenance"],
+            vec!["tactical-mechanics", "--ordinal-31-provenance", "--write"],
+            vec!["tactical-mechanics", "--ordinal-31-provenance", "value", "--write", "trace.txt"],
+            vec!["tactical-mechanics", "--ordinal-31-provenance", "--ordinal-31-provenance",
+                 "--write", "trace.txt"],
+            vec!["tactical-mechanics", "--ordinal-31-provenance", "--write", "a",
+                 "--write", "b"],
+            vec!["tactical-mechanics", "--ordinal-31-provenance", "--write", "trace.txt", "extra"],
+        ] {
+            let args = Args::parse(tokens.iter().map(|token| (*token).to_string()).collect());
+            assert!(ordinal_31_provenance_refusal(&args).is_some(), "{tokens:?}");
+        }
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    fn assert_boundary_diagnostic_grammar(artifact: &str, arm: &str) {
+        let lines = artifact.lines().collect::<Vec<_>>();
+        let scan_prefix = format!("boundary.{arm}.scan_pair");
+        let scans = lines.iter().filter(|line| **line == format!("{scan_prefix}=none")
+                || line.starts_with(&format!("{scan_prefix} ")))
+            .copied().collect::<Vec<_>>();
+        assert_eq!(scans.len(), 1, "{arm} must have exactly one labelled scan header");
+        assert!(scans[0] == format!("{scan_prefix}=none")
+            || scans[0].starts_with(&format!("{scan_prefix} a_index=")), "{}", scans[0]);
+
+        let count_prefix = format!("boundary.{arm}.group_count=");
+        let counts = lines.iter().filter_map(|line| line.strip_prefix(&count_prefix))
+            .collect::<Vec<_>>();
+        assert_eq!(counts.len(), 1, "{arm} must have exactly one labelled group count");
+        let count = counts[0].parse::<usize>().expect("the group count must be an integer");
+        let group_prefix = format!("boundary.{arm}.group index=");
+        assert_eq!(lines.iter().filter(|line| line.starts_with(&group_prefix)).count(), count,
+            "{arm} group count must equal its labelled group rows");
+
+        let exact_prefix = format!("boundary.{arm}.first_exact_rejection");
+        let exact = lines.iter().filter(|line| line.starts_with(&exact_prefix))
+            .copied().collect::<Vec<_>>();
+        assert_eq!(exact.len(), 1, "{arm} must have exactly one exact-first diagnostic");
+        assert!(exact[0] == format!("{exact_prefix}=none")
+            || exact[0].starts_with(&format!("{exact_prefix} tick=")), "{}", exact[0]);
+
+        let generic_prefix = format!("boundary_arm label={arm} ");
+        let generic = lines.iter().filter(|line| line.starts_with(&generic_prefix))
+            .copied().collect::<Vec<_>>();
+        assert_eq!(generic.len(), 1, "{arm} must have exactly one generic-first diagnostic");
+        assert!(generic[0].contains(" first_rejection="), "{}", generic[0]);
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn ordinal_31_boundary_diagnostic_grammar_is_arm_labelled_and_counted() {
+        let empty = "boundary_arm label=reference solver_delta=0 solver_after=0 first_rejection=none\n\
+boundary.reference.first_exact_rejection=none\n\
+boundary.reference.scan_pair=none\n\
+boundary.reference.group_count=0\n";
+        assert_boundary_diagnostic_grammar(empty, "reference");
+        let populated = "boundary_arm label=held solver_delta=1 solver_after=2 first_rejection=arithmetic_envelope\n\
+boundary.held.first_exact_rejection tick=4 phase=solve_group cause=arithmetic_envelope key=none\n\
+boundary.held.scan_pair a_index=0\n\
+boundary.held.scan_pair.segment_body=none\n\
+boundary.held.group_count=1\n\
+boundary.held.group index=0 tick=4\n";
+        assert_boundary_diagnostic_grammar(populated, "held");
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn ordinal_31_provenance_artifact_is_byte_identical_and_atomic() {
+        let artifact = strong_strike::ordinal_31_provenance_artifact()
+            .expect("the frozen trace must render");
+        let repeated = strong_strike::ordinal_31_provenance_artifact()
+            .expect("the repeated frozen trace must render");
+        assert_eq!(artifact.as_bytes(), repeated.as_bytes());
+        assert!(artifact.starts_with("smart130-ordinal31-arm-provenance-v1\n"));
+        assert!(artifact.ends_with('\n'));
+        assert!(!artifact.contains('\r'));
+        assert!(artifact.contains("state_before=articulated_v1:"));
+        assert!(artifact.contains("hint_left=idle") || artifact.contains("hint_left=chasing")
+            || artifact.contains("hint_left=braced") || artifact.contains("hint_left=contact")
+            || artifact.contains("hint_left=recoiling") || artifact.contains("hint_left=severed"));
+        assert_boundary_diagnostic_grammar(&artifact, "reference");
+        assert_boundary_diagnostic_grammar(&artifact, "held");
+
+        let stem = std::env::temp_dir().join(format!(
+            "smart130-atomic-{}-{:?}", std::process::id(), std::thread::current().id()));
+        let path = stem.to_string_lossy().into_owned();
+        let temporary = format!("{path}.tmp");
+        assert!(!std::path::Path::new(&path).exists());
+        assert!(!std::path::Path::new(&temporary).exists());
+        write_ordinal_31_provenance(&path, artifact.as_bytes()).expect("atomic publication");
+        assert_eq!(std::fs::read(&path).unwrap(), artifact.as_bytes());
+        assert!(!std::path::Path::new(&temporary).exists());
+        let refusal = write_ordinal_31_provenance(&path, b"replacement")
+            .expect_err("an existing final must not be replaced");
+        assert!(refusal.contains("refuses existing destination"));
+        assert_eq!(std::fs::read(&path).unwrap(), artifact.as_bytes());
+        std::fs::remove_file(&path).unwrap();
+
+        std::fs::write(&temporary, b"sentinel").unwrap();
+        let refusal = write_ordinal_31_provenance(&path, artifact.as_bytes())
+            .expect_err("an existing temporary must not be replaced");
+        assert!(refusal.contains("refuses existing temporary"));
+        assert!(!std::path::Path::new(&path).exists());
+        assert_eq!(std::fs::read(&temporary).unwrap(), b"sentinel");
+        std::fs::remove_file(&temporary).unwrap();
+
+        for failure in [ProvenanceWriteFailure::Open, ProvenanceWriteFailure::Write,
+                        ProvenanceWriteFailure::Flush, ProvenanceWriteFailure::Rename] {
+            let refusal = write_ordinal_31_provenance_with(&path, artifact.as_bytes(), Some(failure))
+                .expect_err("an injected publication failure must be refused");
+            assert!(refusal.contains("no artifact was written"));
+            assert!(!std::path::Path::new(&path).exists());
+            assert!(!std::path::Path::new(&temporary).exists());
+        }
     }
 }

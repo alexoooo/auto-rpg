@@ -299,6 +299,22 @@ fn schedule_bearings(bearing: Angle, mirrored: bool) -> (Angle, Angle) {
     }
 }
 
+fn scheduled_attacker_command(
+    obs: &sim::ArticulatedObservation, defender: EntityId, limb: LimbSlot,
+    case: StrongCase, height: CombatHeight, schedule_tick: u32, chamber_ticks: u32,
+    strike_reach: Fx, strike_effort: Fx, chamber: Angle, follow: Angle,
+    bearing_source: ScheduleBearingSource,
+) -> ArticulatedCommandV1 {
+    if bearing_source == ScheduleBearingSource::DeclaredSpawnOffset {
+        robust_strike_schedule_command(obs, defender, limb, case.approach_offset,
+            height, schedule_tick, chamber_ticks, strike_reach, case.mirrored)
+    } else if schedule_tick < chamber_ticks {
+        command(obs, defender, limb, chamber, height, Fx::ONE, Fx::ONE)
+    } else {
+        command(obs, defender, limb, follow, height, strike_reach, strike_effort)
+    }
+}
+
 fn declared_schedule_bearing(case: StrongCase) -> Angle {
     let offset = if case.mirrored {
         Vec2::new(case.approach_offset.x, -case.approach_offset.y)
@@ -370,12 +386,8 @@ fn measure_case_schedule_with(case: StrongCase, strike_effort: Fx, chamber_ticks
         for id in world.pending_decisions().to_vec() {
             let obs = world.observe_articulated(id);
             let submitted = if id == attacker {
-                if bearing_source == ScheduleBearingSource::DeclaredSpawnOffset {
-                    robust_strike_schedule_command(&obs, defender, limb, case.approach_offset,
-                        height, schedule_tick, chamber_ticks, strike_reach, case.mirrored)
-                } else {
-                    command(&obs, defender, limb, chamber, height, Fx::ONE, Fx::ONE)
-                }
+                scheduled_attacker_command(&obs, defender, limb, case, height, schedule_tick,
+                    chamber_ticks, strike_reach, strike_effort, chamber, follow, bearing_source)
             }
                 else { neutral_articulated_command(&obs) };
             match world.submit_articulated_v1(id, submitted) {
@@ -417,13 +429,9 @@ fn measure_case_schedule_with(case: StrongCase, strike_effort: Fx, chamber_ticks
         for id in world.pending_decisions().to_vec() {
             let obs = world.observe_articulated(id);
             let submitted = if id == attacker {
-                if bearing_source == ScheduleBearingSource::DeclaredSpawnOffset {
-                    robust_strike_schedule_command(&obs, defender, limb, case.approach_offset,
-                        height, chamber_ticks + strike_tick, chamber_ticks, strike_reach,
-                        case.mirrored)
-                } else {
-                    command(&obs, defender, limb, follow, height, strike_reach, strike_effort)
-                }
+                scheduled_attacker_command(&obs, defender, limb, case, height,
+                    chamber_ticks + strike_tick, chamber_ticks, strike_reach, strike_effort,
+                    chamber, follow, bearing_source)
             }
                 else { neutral_articulated_command(&obs) };
             match world.submit_articulated_v1(id, submitted) {
@@ -504,6 +512,882 @@ pub(crate) fn interior_contact(row: StrikeMeasurement) -> bool {
 
 pub(crate) fn measure_case(case: StrongCase, strike_effort: Fx) -> StrikeMeasurement {
     measure_case_schedule(case, strike_effort, CHAMBER_TICKS, STRIKE_TICKS, Fx::ONE)
+}
+
+#[cfg(feature = "cartesian-recoil")]
+const ORDINAL_31_FINGERPRINT: u64 = 3_796_840_901_852_190_123;
+#[cfg(feature = "cartesian-recoil")]
+const ORDINAL_31_FIRST_SUBMITTED_EFFORT_TICK: u32 = 36;
+#[cfg(feature = "cartesian-recoil")]
+pub(crate) const ORDINAL_31_WORKER_NAME: &str = "smart130-ordinal31-provenance";
+#[cfg(feature = "cartesian-recoil")]
+pub(crate) const ORDINAL_31_STACK_BYTES: usize = 16 * 1024 * 1024;
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum ProvenanceArm { ReferenceBefore, Held, ReferenceAfter }
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum ProvenanceBoundary {
+    SolverDelta { tick: u32 },
+    TerminalBeforeSolverDelta { arm: ProvenanceArm, tick: u32 },
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum ProvenanceMutation {
+    None,
+    #[cfg(test)] SuppressOneSolverRejection,
+    #[cfg(test)] RemoveReplaySubmission,
+    #[cfg(test)] ReorderReplaySubmission,
+    #[cfg(test)] PassEarlierTerminal,
+    #[cfg(test)] CorruptTickLocalGroup,
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, PartialEq, Eq, Debug)]
+struct ProvenanceCommand {
+    entity: EntityId,
+    requested: ArticulatedCommandV1,
+    stored: ArticulatedCommandV1,
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Debug)]
+struct ProvenanceSnapshot {
+    digest: sim::StateDigest,
+    solver_rejections: u32,
+    cap_hits: u32,
+    resolutions: Vec<sim::ContactResolution>,
+    first_rejection: Option<sim::ResolutionError>,
+    first_exact_rejection: Option<sim::ExactContactRejectionDiagnostic>,
+    scan_pair_rejection: Option<sim::ExactScanPairRejectionDiagnostic>,
+    groups: Vec<sim::ExactContactGroupDiagnostic>,
+    external_energy: Vec<sim::ExactExternalEnergyRow>,
+    attacker_observation: sim::ArticulatedObservation,
+    defender_observation: sim::ArticulatedObservation,
+    attacker_pose: sim::ArticulatedPose,
+    defender_pose: sim::ArticulatedPose,
+}
+
+#[cfg(feature = "cartesian-recoil")]
+impl ProvenanceSnapshot {
+    fn equals(&self, other: &Self) -> bool {
+        self.digest.compare(other.digest) == Ok(true)
+            && self.solver_rejections == other.solver_rejections
+            && self.cap_hits == other.cap_hits
+            && self.resolutions == other.resolutions
+            && self.first_rejection == other.first_rejection
+            && self.first_exact_rejection == other.first_exact_rejection
+            && self.scan_pair_rejection == other.scan_pair_rejection
+            && self.groups == other.groups
+            && self.external_energy == other.external_energy
+            && self.attacker_observation == other.attacker_observation
+            && self.defender_observation == other.defender_observation
+            && self.attacker_pose == other.attacker_pose
+            && self.defender_pose == other.defender_pose
+    }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Debug)]
+struct ProvenanceTick {
+    tick_before: u32, tick_after: u32,
+    pending: Vec<EntityId>, commands: Vec<ProvenanceCommand>,
+    state_before: sim::StateDigest, state_after: sim::StateDigest,
+    contact: bool, terminal: bool,
+    solver_before: u32, solver_after: u32, solver_delta: u32,
+    cap_before: u32, cap_after: u32,
+    resolutions: Vec<sim::ContactResolution>,
+    first_rejection: Option<sim::ResolutionError>,
+    first_exact_rejection: Option<sim::ExactContactRejectionDiagnostic>,
+    scan_pair_rejection: Option<sim::ExactScanPairRejectionDiagnostic>,
+    groups: Vec<sim::ExactContactGroupDiagnostic>,
+    external_energy: Vec<sim::ExactExternalEnergyRow>,
+    tick_energy_excess_raw: u64, cumulative_energy_excess_raw: u64,
+    attacker_observation: sim::ArticulatedObservation,
+    defender_observation: sim::ArticulatedObservation,
+    attacker_pose: sim::ArticulatedPose,
+    defender_pose: sim::ArticulatedPose,
+}
+
+#[cfg(feature = "cartesian-recoil")]
+impl ProvenanceTick {
+    fn equals(&self, other: &Self) -> bool {
+        self.tick_before == other.tick_before && self.tick_after == other.tick_after
+            && self.pending == other.pending && self.commands == other.commands
+            && self.state_before.compare(other.state_before) == Ok(true)
+            && self.state_after.compare(other.state_after) == Ok(true)
+            && self.contact == other.contact && self.terminal == other.terminal
+            && self.solver_before == other.solver_before
+            && self.solver_after == other.solver_after && self.solver_delta == other.solver_delta
+            && self.cap_before == other.cap_before && self.cap_after == other.cap_after
+            && self.resolutions == other.resolutions && self.first_rejection == other.first_rejection
+            && self.first_exact_rejection == other.first_exact_rejection
+            && self.scan_pair_rejection == other.scan_pair_rejection
+            && self.groups == other.groups && self.external_energy == other.external_energy
+            && self.tick_energy_excess_raw == other.tick_energy_excess_raw
+            && self.cumulative_energy_excess_raw == other.cumulative_energy_excess_raw
+            && self.attacker_observation == other.attacker_observation
+            && self.defender_observation == other.defender_observation
+            && self.attacker_pose == other.attacker_pose
+            && self.defender_pose == other.defender_pose
+    }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Debug)]
+struct ProvenanceRun {
+    arm: ProvenanceArm, rows: Vec<ProvenanceTick>, solver_rejections: u32,
+    contact_tick: Option<u32>, terminal_tick: u32, refusals: u32, cap_hits: u32,
+    max_energy_excess_raw: u64,
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[derive(Clone, Debug)]
+struct Ordinal31Provenance {
+    case: StrongCase, fingerprint: u64,
+    reference_before: ProvenanceRun, held: ProvenanceRun, reference_after: ProvenanceRun,
+    first_command_difference: u32, first_state_difference: Option<u32>,
+    boundary: ProvenanceBoundary,
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn ordinal_31_case() -> StrongCase {
+    StrongCase { seed: 0, mirrored: true, target_anatomy: AnatomyChoice::Brute,
+        approach_offset: Vec2::new(Fx::from_raw(-163_840), Fx::ZERO) }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn provenance_snapshot(world: &World, attacker: EntityId, defender: EntityId)
+    -> ProvenanceSnapshot
+{
+    ProvenanceSnapshot {
+        digest: world.state_digest(), solver_rejections: world.contact_solver_rejections(),
+        cap_hits: world.contact_cap_hits(), resolutions: world.contact_resolutions().to_vec(),
+        first_rejection: world.first_contact_rejection(),
+        first_exact_rejection: world.first_exact_contact_rejection(),
+        scan_pair_rejection: world.exact_scan_pair_rejection(),
+        groups: world.exact_contact_group_diagnostics().to_vec(),
+        external_energy: world.exact_external_energy().to_vec(),
+        attacker_observation: world.observe_articulated(attacker),
+        defender_observation: world.observe_articulated(defender),
+        attacker_pose: world.articulated_pose(attacker).expect("ordinal 31 attacker pose"),
+        defender_pose: world.articulated_pose(defender).expect("ordinal 31 defender pose"),
+    }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn provenance_schedule_context(world: &World, case: StrongCase)
+    -> (EntityId, EntityId, LimbSlot, CombatHeight, Angle, Angle)
+{
+    let attacker = world.alive_ids(Faction::Heroes)[0];
+    let defender = world.alive_ids(Faction::Monsters)[0];
+    let limb = attacking_limb(case, MirrorGrammar::SpatialRightHand);
+    let shown = world.observe_articulated(attacker);
+    let foe = shown.opponents().first().expect("ordinal 31 target observation");
+    let bearing = Vec2::new(foe.body_position.x - shown.body_position.x,
+                            foe.body_position.y - shown.body_position.y).angle();
+    let region = foe.regions[BodyPart::Legs as usize];
+    let local_height = (region.lower.z + region.upper.z) / Fx::from_int(2)
+        - foe.body_position.z;
+    let height = CombatHeight::try_from_raw(
+        (local_height / shown.standing_height).clamp(Fx::ZERO, Fx::ONE).raw())
+        .expect("ordinal 31 command height");
+    let (chamber, follow) = schedule_bearings(bearing, case.mirrored);
+    (attacker, defender, limb, height, chamber, follow)
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn run_provenance_arm(arm: ProvenanceArm, effort: Fx, mutation: ProvenanceMutation)
+    -> Result<ProvenanceRun, String>
+{
+    let case = ordinal_31_case();
+    let scenario = scenario_for_ticks_with(case, CHAMBER_TICKS + STRIKE_TICKS,
+                                             MirrorGrammar::SpatialRightHand);
+    if scenario.fingerprint() != ORDINAL_31_FINGERPRINT {
+        return Err(format!("ordinal 31 fingerprint drifted: {}", scenario.fingerprint()));
+    }
+    let mut worlds = [World::new(&scenario, case.seed), World::new(&scenario, case.seed)];
+    let contexts = [provenance_schedule_context(&worlds[0], case),
+                    provenance_schedule_context(&worlds[1], case)];
+    if contexts[0] != contexts[1] { return Err("ordinal 31 setup diverged".into()); }
+    let (attacker, defender, limb, height, chamber, follow) = contexts[0];
+    let mut replay = sim::Replay::new(&scenario, case.seed);
+    let mut expected_replay = Vec::new();
+    let mut rows = Vec::with_capacity((CHAMBER_TICKS + STRIKE_TICKS) as usize);
+    let mut cumulative_energy_excess_raw = 0;
+    let mut contact_tick = None;
+    let mut corrupted_group = false;
+    for schedule_tick in 0..CHAMBER_TICKS + STRIKE_TICKS {
+        let pending = worlds[0].pending_decisions().to_vec();
+        if pending != worlds[1].pending_decisions() {
+            return Err(format!("pending lists diverged at tick {schedule_tick}"));
+        }
+        let state_before = worlds[0].state_digest();
+        if state_before.compare(worlds[1].state_digest()) != Ok(true) {
+            return Err(format!("live and rerun state diverged before tick {schedule_tick}"));
+        }
+        let solver_before = worlds[0].contact_solver_rejections();
+        let cap_before = worlds[0].contact_cap_hits();
+        let mut commands = Vec::with_capacity(pending.len());
+        for &id in &pending {
+            let requested: Vec<_> = worlds.iter().map(|world| {
+                let obs = world.observe_articulated(id);
+                if id == attacker {
+                    scheduled_attacker_command(&obs, defender, limb, case, height, schedule_tick,
+                        CHAMBER_TICKS, Fx::ONE, effort, chamber, follow,
+                        ScheduleBearingSource::ObservedOpponent)
+                } else { neutral_articulated_command(&obs) }
+            }).collect();
+            if requested[0] != requested[1] {
+                return Err(format!("requested commands diverged at tick {schedule_tick}"));
+            }
+            let mut stored = [None, None];
+            for at in 0..2 {
+                stored[at] = match worlds[at].submit_articulated_v1(id, requested[at]) {
+                    SubmitArticulatedOutcome::Stored { command, rejection: None } => Some(command),
+                    other => return Err(format!("submission refused at tick {schedule_tick}: {other:?}")),
+                };
+            }
+            if stored[0] != stored[1] || stored[0] != Some(requested[0]) {
+                return Err(format!("stored commands diverged at tick {schedule_tick}"));
+            }
+            let stored = stored[0].expect("checked stored command");
+            #[cfg(test)]
+            let remove = mutation == ProvenanceMutation::RemoveReplaySubmission
+                && schedule_tick == 0 && id == attacker;
+            #[cfg(not(test))]
+            let remove = false;
+            expected_replay.push((schedule_tick, id, stored));
+            if !remove {
+                replay.record_submitted(schedule_tick, id, sim::SubmittedCommand::Articulated(stored));
+            }
+            commands.push(ProvenanceCommand { entity: id, requested: requested[0], stored });
+        }
+        #[cfg(test)]
+        if mutation == ProvenanceMutation::ReorderReplaySubmission && schedule_tick == 0
+            && replay.submitted_entries.len() >= 2
+        {
+            replay.submitted_entries.swap(0, 1);
+        }
+        let replay_intact = replay.submitted_entries.len() == expected_replay.len()
+            && replay.submitted_entries.iter().zip(&expected_replay).all(|(actual, expected)| {
+                actual.tick == expected.0 && actual.entity == expected.1
+                    && actual.command == sim::SubmittedCommand::Articulated(expected.2)
+            });
+        if !replay_intact {
+            return Err(format!("replay submission receipt missing or reordered at tick {schedule_tick}"));
+        }
+        let tick_before = worlds[0].tick();
+        let _ = worlds[0].step(); let _ = worlds[1].step();
+        let tick_after = worlds[0].tick();
+        let live = provenance_snapshot(&worlds[0], attacker, defender);
+        let mut rerun = provenance_snapshot(&worlds[1], attacker, defender);
+        #[cfg(test)]
+        if mutation == ProvenanceMutation::CorruptTickLocalGroup && !corrupted_group
+            && !rerun.groups.is_empty()
+        {
+            rerun.groups[0].tick = rerun.groups[0].tick.saturating_add(1);
+            corrupted_group = true;
+        }
+        if !live.equals(&rerun) {
+            return Err(format!("live and rerun snapshots diverged at tick {tick_after}"));
+        }
+        replay.finish(tick_after);
+        let played_world = replay.play_until(tick_after);
+        let played = provenance_snapshot(&played_world, attacker, defender);
+        if !live.equals(&played) {
+            return Err(format!("live and replay snapshots diverged at tick {tick_after}"));
+        }
+        // Smart128's arm measurement begins contact attribution with the strike phase;
+        // chamber contacts are setup evidence, not the measured terminal.
+        let contact = schedule_tick >= CHAMBER_TICKS && live.resolutions.iter().any(|row|
+            attributed_sword_body(row, attacker, defender, limb));
+        if contact { contact_tick = Some(tick_after); }
+        let tick_energy_excess_raw = live.resolutions.iter().map(|row|
+            row.energy.after_raw.saturating_sub(row.energy.before_raw)).max().unwrap_or(0);
+        if schedule_tick >= CHAMBER_TICKS {
+            cumulative_energy_excess_raw = cumulative_energy_excess_raw.max(tick_energy_excess_raw);
+        }
+        let terminal = contact || tick_after == CHAMBER_TICKS + STRIKE_TICKS;
+        rows.push(ProvenanceTick {
+            tick_before, tick_after, pending: pending.clone(), commands,
+            state_before, state_after: live.digest, contact, terminal,
+            solver_before, solver_after: live.solver_rejections,
+            solver_delta: live.solver_rejections.saturating_sub(solver_before),
+            cap_before, cap_after: live.cap_hits, resolutions: live.resolutions.clone(),
+            first_rejection: live.first_rejection,
+            first_exact_rejection: live.first_exact_rejection,
+            scan_pair_rejection: live.scan_pair_rejection,
+            groups: live.groups.clone(), external_energy: live.external_energy.clone(),
+            tick_energy_excess_raw, cumulative_energy_excess_raw,
+            attacker_observation: live.attacker_observation,
+            defender_observation: live.defender_observation,
+            attacker_pose: live.attacker_pose, defender_pose: live.defender_pose,
+        });
+        if terminal { break; }
+    }
+    #[cfg(test)]
+    if mutation == ProvenanceMutation::CorruptTickLocalGroup && !corrupted_group {
+        return Err("tick-local group mutation found no group".into());
+    }
+    replay.finish(worlds[0].tick());
+    let final_played = replay.play();
+    if !provenance_snapshot(&worlds[0], attacker, defender)
+        .equals(&provenance_snapshot(&final_played, attacker, defender))
+    {
+        return Err("final live and replay snapshots diverged".into());
+    }
+    Ok(ProvenanceRun { arm, rows, solver_rejections: worlds[0].contact_solver_rejections(),
+        contact_tick, terminal_tick: worlds[0].tick(), refusals: 0,
+        cap_hits: worlds[0].contact_cap_hits(), max_energy_excess_raw: cumulative_energy_excess_raw })
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn only_effort_differs(reference: &ProvenanceTick, held: &ProvenanceTick) -> bool {
+    if reference.pending != held.pending || reference.commands.len() != held.commands.len() {
+        return false;
+    }
+    let limb = LimbSlot::RightArm as usize;
+    let mut saw = false;
+    for (left, right) in reference.commands.iter().zip(&held.commands) {
+        if left.entity != right.entity { return false; }
+        for (a, b) in [(left.requested, right.requested), (left.stored, right.stored)] {
+            if a == b { continue; }
+            if a.arms[limb].effort != Fx::ONE
+                || b.arms[limb].effort != Fx::ZERO { return false; }
+            let mut restored = b; restored.arms[limb].effort = a.arms[limb].effort;
+            if restored != a { return false; }
+            saw = true;
+        }
+    }
+    saw
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn compare_provenance(reference: &ProvenanceRun, held: &ProvenanceRun,
+    mutation: ProvenanceMutation) -> Result<(u32, Option<u32>, ProvenanceBoundary), String>
+{
+    let first_command_difference = reference.rows.iter().zip(&held.rows)
+        .find(|(left, right)| left.commands != right.commands)
+        .map(|(left, _)| left.tick_before).ok_or("commands never differed")?;
+    let command_row = reference.rows.iter().zip(&held.rows)
+        .find(|(left, _)| left.tick_before == first_command_difference)
+        .ok_or("missing first command row")?;
+    if first_command_difference != ORDINAL_31_FIRST_SUBMITTED_EFFORT_TICK
+        || !only_effort_differs(command_row.0, command_row.1)
+    {
+        return Err(format!("first submitted command difference was not effort-only at tick {ORDINAL_31_FIRST_SUBMITTED_EFFORT_TICK}: actual_tick={first_command_difference} reference={:?} held={:?}",
+            command_row.0.commands, command_row.1.commands));
+    }
+    let first_state_difference = reference.rows.iter().zip(&held.rows)
+        .find(|(left, right)| left.state_after.compare(right.state_after) != Ok(true))
+        .map(|(left, _)| left.tick_after);
+    let evidence = reference.rows.iter().zip(&held.rows).map(|(left, right)|
+        (left.tick_after, left.solver_delta, right.solver_delta,
+         left.solver_after, right.solver_after, left.terminal, right.terminal)).collect();
+    let boundary = select_provenance_boundary(mutate_boundary_evidence(evidence, mutation))?;
+    Ok((first_command_difference, first_state_difference, boundary))
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn mutate_boundary_evidence(mut rows: Vec<(u32, u32, u32, u32, u32, bool, bool)>,
+    mutation: ProvenanceMutation) -> Vec<(u32, u32, u32, u32, u32, bool, bool)>
+{
+    #[cfg(test)]
+    if mutation == ProvenanceMutation::SuppressOneSolverRejection {
+        if let Some(at) = rows.iter().position(|row| row.1 != row.2 || row.3 != row.4) {
+            let suppress_reference = rows[at].1 > rows[at].2 || rows[at].3 > rows[at].4;
+            if suppress_reference {
+                rows[at].1 = rows[at].1.saturating_sub(1);
+                for row in &mut rows[at..] { row.3 = row.3.saturating_sub(1); }
+            } else {
+                rows[at].2 = rows[at].2.saturating_sub(1);
+                for row in &mut rows[at..] { row.4 = row.4.saturating_sub(1); }
+            }
+        }
+    }
+    #[cfg(test)]
+    if mutation == ProvenanceMutation::PassEarlierTerminal {
+        if let Some(row) = rows.iter_mut().find(|row| row.5 || row.6) {
+            row.5 = false; row.6 = false;
+        }
+    }
+    rows
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn select_provenance_boundary(rows: impl IntoIterator<
+    Item = (u32, u32, u32, u32, u32, bool, bool)>) -> Result<ProvenanceBoundary, String>
+{
+    for (tick, reference_delta, held_delta, reference_after, held_after,
+         reference_terminal, held_terminal) in rows {
+        let different = reference_delta != held_delta || reference_after != held_after;
+        if different {
+            return Ok(ProvenanceBoundary::SolverDelta { tick });
+        }
+        if reference_terminal || held_terminal {
+            return Ok(ProvenanceBoundary::TerminalBeforeSolverDelta {
+                arm: if reference_terminal { ProvenanceArm::ReferenceBefore }
+                     else { ProvenanceArm::Held }, tick,
+            });
+        }
+    }
+    Err("no solver delta or earlier terminal boundary".into())
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn build_ordinal_31_provenance(mutation: ProvenanceMutation)
+    -> Result<Ordinal31Provenance, String>
+{
+    let reference_before = run_provenance_arm(ProvenanceArm::ReferenceBefore, Fx::ONE, mutation)?;
+    let held = run_provenance_arm(ProvenanceArm::Held, Fx::ZERO, mutation)?;
+    let reference_after = run_provenance_arm(ProvenanceArm::ReferenceAfter, Fx::ONE, mutation)?;
+    let expected = |run: &ProvenanceRun, solver, contact, terminal|
+        run.solver_rejections == solver && run.contact_tick == contact && run.terminal_tick == terminal
+        && run.refusals == 0 && run.cap_hits == 0 && run.max_energy_excess_raw == 0
+        && run.rows.iter().all(|row| row.tick_energy_excess_raw == 0);
+    if !expected(&reference_before, 7, Some(47), 47)
+        || !expected(&held, 6, None, 56)
+        || !expected(&reference_after, 7, Some(47), 47)
+    {
+        return Err(format!("ordinal 31 aggregate guard failed: reference-before={:?} held={:?} reference-after={:?}",
+            (reference_before.solver_rejections, reference_before.contact_tick,
+             reference_before.terminal_tick, reference_before.refusals, reference_before.cap_hits,
+             reference_before.max_energy_excess_raw),
+            (held.solver_rejections, held.contact_tick, held.terminal_tick, held.refusals,
+             held.cap_hits, held.max_energy_excess_raw),
+            (reference_after.solver_rejections, reference_after.contact_tick,
+             reference_after.terminal_tick, reference_after.refusals, reference_after.cap_hits,
+             reference_after.max_energy_excess_raw)));
+    }
+    if reference_before.rows.len() != reference_after.rows.len()
+        || reference_before.rows.iter().zip(&reference_after.rows).any(|(a, b)|
+            !a.equals(b))
+    {
+        return Err("ordinal 31 reference brackets drifted".into());
+    }
+    let expected_pending = [EntityId::new(0, 0), EntityId::new(1, 0)];
+    for run in [&reference_before, &held, &reference_after] {
+        if run.rows.iter().filter(|row| (28..36).contains(&row.tick_before))
+            .any(|row| row.commands.iter().any(|command| command.entity == expected_pending[0]))
+        {
+            return Err("ordinal 31 attacker unexpectedly submitted on ticks 28..35".into());
+        }
+        let tick_36 = run.rows.iter().find(|row| row.tick_before == 36)
+            .ok_or("ordinal 31 is missing tick 36")?;
+        if tick_36.pending != expected_pending {
+            return Err(format!("ordinal 31 tick 36 pending order drifted: {:?}", tick_36.pending));
+        }
+    }
+    let (first_command_difference, first_state_difference, boundary) =
+        compare_provenance(&reference_before, &held, mutation)?;
+    Ok(Ordinal31Provenance { case: ordinal_31_case(), fingerprint: ORDINAL_31_FINGERPRINT,
+        reference_before, held, reference_after, first_command_difference,
+        first_state_difference, boundary })
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn hex_payload(command: ArticulatedCommandV1) -> String {
+    let mut out = String::with_capacity(sim::ARTICULATED_PAYLOAD_BYTES * 2);
+    for byte in command.payload_bytes() { use core::fmt::Write; write!(out, "{byte:02x}").unwrap(); }
+    out
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn provenance_arm_name(arm: ProvenanceArm) -> &'static str {
+    match arm { ProvenanceArm::ReferenceBefore => "reference_before",
+        ProvenanceArm::Held => "held", ProvenanceArm::ReferenceAfter => "reference_after" }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn provenance_boundary_kind(boundary: ProvenanceBoundary) -> &'static str {
+    match boundary { ProvenanceBoundary::SolverDelta { .. } =>
+        "first_solver_delta_or_cumulative_count_delta",
+        ProvenanceBoundary::TerminalBeforeSolverDelta { .. } =>
+            "terminal-boundary-before-solver-divergence" }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn contact_kind_name(kind: ContactKind) -> &'static str {
+    match kind { ContactKind::WeaponWeapon => "weapon_weapon",
+        ContactKind::WeaponShield => "weapon_shield", ContactKind::WeaponBody => "weapon_body" }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn resolution_error_name(error: sim::ResolutionError) -> &'static str {
+    use sim::ResolutionError::*;
+    match error { ColliderIndex => "collider_index", EnergyNumerator => "energy_numerator",
+        ResolutionCount => "resolution_count", Mass => "mass", Projector => "projector",
+        DuplicateIdentity => "duplicate_identity", ExactScan => "exact_scan",
+        ExactUnsupportedSweep => "exact_unsupported_sweep",
+        ExactResponsePending => "exact_response_pending",
+        ExactLifecyclePending => "exact_lifecycle_pending",
+        ExactEnergyEnvelope => "exact_energy_envelope", ExactSolver => "exact_solver" }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn reject_phase_name(phase: sim::ExactContactRejectPhase) -> &'static str {
+    use sim::ExactContactRejectPhase::*;
+    match phase { BuildTrajectories => "build_trajectories", Preflight => "preflight",
+        Scan => "scan", Recompute => "recompute", Closure => "closure",
+        SolveGroup => "solve_group", ApplyGroup => "apply_group", Lifecycle => "lifecycle",
+        Finish => "finish", StageCommit => "stage_commit" }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn entity_text(id: EntityId) -> String { format!("{}:{}", id.index, id.generation) }
+
+#[cfg(feature = "cartesian-recoil")]
+fn vec3_text(value: Vec3) -> String {
+    format!("{}:{}:{}", value.x.raw(), value.y.raw(), value.z.raw())
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn hash_domain_name(value: sim::HashDomain) -> &'static str {
+    match value { sim::HashDomain::LegacyV1 => "legacy_v1",
+        sim::HashDomain::ArticulatedV1 => "articulated_v1" }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn animation_hint_name(value: sim::AnimationHint) -> &'static str {
+    match value { sim::AnimationHint::Idle => "idle", sim::AnimationHint::Chasing => "chasing",
+        sim::AnimationHint::Braced => "braced", sim::AnimationHint::Contact => "contact",
+        sim::AnimationHint::Recoiling => "recoiling", sim::AnimationHint::Severed => "severed" }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn write_exact_rejection(out: &mut String, label: &str,
+    value: Option<sim::ExactContactRejectionDiagnostic>)
+{
+    use core::fmt::Write;
+    match value {
+        None => writeln!(out, "{label}=none").unwrap(),
+        Some(row) => {
+            let key = row.key.map(|(a, a_slot, b, b_slot, kind)| format!("{}:{}:{}:{}:{}",
+                entity_text(a), a_slot, entity_text(b), b_slot, contact_kind_name(kind)))
+                .unwrap_or_else(|| "none".into());
+            writeln!(out, "{label} tick={} phase={} cause={} key={}", row.tick,
+                reject_phase_name(row.phase), resolution_error_name(row.cause), key).unwrap();
+        }
+    }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn write_observation(out: &mut String, label: &str, row: sim::ArticulatedObservation) {
+    use core::fmt::Write;
+    writeln!(out, "observation label={label} tick={} subject={} capabilities={} body={} yaw_raw={} body_velocity={} blood_raw={} shock_raw={} severed_mask={} opponent_count={}",
+        row.tick, entity_text(row.subject), row.capabilities, vec3_text(row.body_position),
+        row.body_yaw.raw(), vec3_text(row.body_velocity), row.blood_fraction.raw(),
+        row.shock.raw(), row.severed_mask, row.opponent_count).unwrap();
+    for (at, arm) in row.arms.into_iter().enumerate() {
+        writeln!(out, "observation.arm label={label} index={at} hand={} target={} velocity={} fatigue_raw={} integrity_raw={} severed={} equipment={}",
+            vec3_text(arm.hand), vec3_text(arm.target_hand), vec3_text(arm.velocity),
+            arm.fatigue.raw(), arm.integrity_fraction.raw(), arm.severed,
+            arm.equipment.map(|v| v.to_string()).unwrap_or_else(|| "none".into())).unwrap();
+    }
+    for at in 0..BodyPart::COUNT {
+        writeln!(out, "observation.anatomy label={label} region={at} integrity_raw={} wound_raw={}",
+            row.integrity_fraction[at].raw(), row.wound_fraction[at].raw()).unwrap();
+    }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn write_pose(out: &mut String, label: &str, row: sim::ArticulatedPose) {
+    use core::fmt::Write;
+    writeln!(out, "pose label={label} id={} body={} yaw_raw={} body_velocity={} blood_raw={} shock_raw={} severed_mask={} equipment_mask={}",
+        entity_text(row.id), vec3_text(row.body), row.body_yaw.raw(), vec3_text(row.body_velocity),
+        row.blood_fraction.raw(), row.shock.raw(), row.severed_mask, row.equipment_mask).unwrap();
+    for (at, arm) in row.arms.into_iter().enumerate() {
+        writeln!(out, "pose.arm label={label} index={at} hand={} target={} velocity={} fatigue_raw={}",
+            vec3_text(arm.hand), vec3_text(arm.target_hand), vec3_text(arm.velocity),
+            arm.fatigue.raw()).unwrap();
+    }
+    for at in 0..BodyPart::COUNT {
+        writeln!(out, "pose.anatomy label={label} region={at} integrity_raw={} wound_raw={}",
+            row.integrity_fraction[at].raw(), row.wound_fraction[at].raw()).unwrap();
+    }
+    for (at, weapon) in row.weapons.into_iter().enumerate() {
+        match weapon {
+            None => writeln!(out, "pose.weapon label={label} index={at} value=none").unwrap(),
+            Some(weapon) => writeln!(out,
+                "pose.weapon label={label} index={at} hilt={} tip={} radius_raw={}",
+                vec3_text(weapon.hilt), vec3_text(weapon.tip), weapon.radius.raw()).unwrap(),
+        }
+    }
+    match row.shield {
+        None => writeln!(out, "pose.shield label={label} value=none").unwrap(),
+        Some(shield) => writeln!(out,
+            "pose.shield label={label} centre={} normal={} half_width_raw={} half_height_raw={} thickness_raw={}",
+            vec3_text(shield.centre), vec3_text(shield.normal), shield.half_width.raw(),
+            shield.half_height.raw(), shield.thickness.raw()).unwrap(),
+    }
+    let intent = match row.intent { Intent::Hold => "hold".into(), Intent::Flee => "flee".into(),
+        Intent::Attack(id) => format!("attack:{}", entity_text(id)) };
+    writeln!(out, "pose.control label={label} intent={intent} hint_left={} hint_right={}",
+        animation_hint_name(row.hints[0]), animation_hint_name(row.hints[1])).unwrap();
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn scan_shape_name(value: sim::ExactScanShapeDiagnostic) -> &'static str {
+    match value { sim::ExactScanShapeDiagnostic::Body => "body",
+        sim::ExactScanShapeDiagnostic::Segment => "segment",
+        sim::ExactScanShapeDiagnostic::Shield => "shield" }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn scan_branch_name(value: sim::ExactScanBranchDiagnostic) -> &'static str {
+    match value { sim::ExactScanBranchDiagnostic::SweptAabb => "swept_aabb",
+        sim::ExactScanBranchDiagnostic::SegmentSegment => "segment_segment",
+        sim::ExactScanBranchDiagnostic::SegmentShield => "segment_shield",
+        sim::ExactScanBranchDiagnostic::SegmentBody => "segment_body" }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn scan_reject_name(value: sim::ExactScanRejectDiagnostic) -> &'static str {
+    match value { sim::ExactScanRejectDiagnostic::ArithmeticEnvelope => "arithmetic_envelope",
+        sim::ExactScanRejectDiagnostic::Budget => "budget",
+        sim::ExactScanRejectDiagnostic::CompatibilityIdentity => "compatibility_identity",
+        sim::ExactScanRejectDiagnostic::Trajectory => "trajectory",
+        sim::ExactScanRejectDiagnostic::UnsupportedExactSweep => "unsupported_exact_sweep" }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn ratio_text(value: Option<(i128, i128)>) -> String {
+    value.map(|(n, d)| format!("{n}/{d}")).unwrap_or_else(|| "none".into())
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn write_scan_pair(out: &mut String, value: Option<sim::ExactScanPairRejectionDiagnostic>) {
+    use core::fmt::Write;
+    let Some(row) = value else { writeln!(out, "scan_pair=none").unwrap(); return; };
+    writeln!(out, "scan_pair a_index={} b_index={} a_entity={} b_entity={} a_slot={} b_slot={} a_shape={} b_shape={} a_present={} b_present={} a_owner={} b_owner={} group_time_raw={} aabb_supported={} aabb_disjoint={} branch={} reject={}",
+        row.a_index, row.b_index, entity_text(row.a_entity), entity_text(row.b_entity),
+        row.a_slot, row.b_slot, scan_shape_name(row.a_shape), scan_shape_name(row.b_shape),
+        row.a_present, row.b_present, row.a_owner, row.b_owner, row.group_time_raw,
+        row.aabb_supported, row.aabb_disjoint.map(|v| v.to_string()).unwrap_or_else(|| "none".into()),
+        scan_branch_name(row.branch), scan_reject_name(row.reject)).unwrap();
+    match row.segment_body {
+        None => writeln!(out, "scan_pair.segment_body=none").unwrap(),
+        Some(detail) => {
+            writeln!(out, "scan_pair.segment_body region={} visit={} time_raw={} speed={} closest_feature={} distance_sq={} radius={} radius_sq={} separation={} l1_delta={} safe_denominator={} safe_quotient={} floor_step={} applied_advance={} adjacent_time_raw={} adjacent_distance_sq={} adjacent_radius={} adjacent_radius_sq={} current_separated={} adjacent_separated={} interval_aabb_disjoint={}",
+                detail.region, detail.visit, detail.time_raw, ratio_text(detail.speed),
+                detail.closest_feature, ratio_text(detail.distance_sq), ratio_text(detail.radius),
+                ratio_text(detail.radius_sq), ratio_text(detail.separation), ratio_text(detail.l1_delta),
+                ratio_text(detail.safe_denominator), ratio_text(detail.safe_quotient), detail.floor_step,
+                detail.applied_advance, detail.adjacent_time_raw, ratio_text(detail.adjacent_distance_sq),
+                ratio_text(detail.adjacent_radius), ratio_text(detail.adjacent_radius_sq),
+                detail.current_separated, detail.adjacent_separated,
+                detail.interval_aabb_disjoint).unwrap();
+            for at in 0..3 {
+                writeln!(out, "scan_pair.segment_body.closest index={at} a={} b={}",
+                    ratio_text(detail.closest_a[at]), ratio_text(detail.closest_b[at])).unwrap();
+            }
+        }
+    }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn write_resolution(out: &mut String, at: usize, row: sim::ContactResolution) {
+    use core::fmt::Write;
+    writeln!(out, "resolution index={at} group_ordinal={} group_alpha_raw={} key={}:{}:{}:{}:{} toi_raw={} region={} point={} normal={} velocity_a={} velocity_b={} impulse_a={} impulse_b={} energy_before={} energy_after={} dissipated={} cut={} thrust={} pressure={} deflected={} severed={}",
+        row.group_ordinal, row.group_alpha_raw, entity_text(row.fact.key.a), row.fact.key.a_slot,
+        entity_text(row.fact.key.b), row.fact.key.b_slot, contact_kind_name(row.fact.key.kind),
+        row.fact.toi.get().raw(), row.fact.region, vec3_text(row.fact.point), vec3_text(row.fact.normal),
+        vec3_text(row.fact.velocity_a), vec3_text(row.fact.velocity_b), vec3_text(row.impulse.on_a),
+        vec3_text(row.impulse.on_b), row.energy.before_raw, row.energy.after_raw,
+        row.energy.dissipated_raw, row.cut_raw, row.thrust_raw, row.pressure_raw,
+        row.deflected_raw, row.severed).unwrap();
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn exact_key_text(value: sim::ExactContactKeyDiagnostic) -> String {
+    format!("{}:{}:{}:{}:{}", entity_text(value.a), value.a_slot, entity_text(value.b),
+        value.b_slot, contact_kind_name(value.kind))
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn group_reject_name(value: sim::ExactSolveGroupRejectDetail) -> &'static str {
+    use sim::ExactSolveGroupRejectDetail::*;
+    match value { EmptyDriverSet => "empty_driver_set", LiftedIdentity => "lifted_identity",
+        LiftedFactEnvelope => "lifted_fact_envelope", LiftedRowEnvelope => "lifted_row_envelope",
+        LiftedCandidateEnvelope => "lifted_candidate_envelope",
+        LiftedImpulseEnvelope => "lifted_impulse_envelope",
+        LiftedArithmeticEnvelope => "lifted_arithmetic_envelope",
+        LiftedNoRestitutionCandidate => "lifted_no_restitution_candidate",
+        LiftedNoDissipativeCandidate => "lifted_no_dissipative_candidate" }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn wide_primitive_name(value: sim::ExactWidePrimitiveDiagnostic) -> &'static str {
+    use sim::ExactWidePrimitiveDiagnostic::*;
+    match value { CompatibilityFallback => "compatibility_fallback",
+        SegmentSegment => "segment_segment", SegmentShield => "segment_shield",
+        SegmentBodyRegion => "segment_body_region" }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn wide_comparison_name(value: sim::ExactWideComparisonDiagnostic) -> &'static str {
+    match value {
+        sim::ExactWideComparisonDiagnostic::DistanceLessThanOrEqualRadiusSquared =>
+            "distance_lte_radius_squared",
+        sim::ExactWideComparisonDiagnostic::EarliestTimeThenMedialThenRegion =>
+            "earliest_time_then_medial_then_region",
+    }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn compatibility_primitive_name(value: sim::ExactCompatibilityPrimitiveDiagnostic)
+    -> &'static str
+{
+    match value { sim::ExactCompatibilityPrimitiveDiagnostic::SweptSegmentSegment =>
+        "swept_segment_segment",
+        sim::ExactCompatibilityPrimitiveDiagnostic::SweptSegmentRectangle =>
+        "swept_segment_rectangle" }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn write_group(out: &mut String, at: usize, row: &sim::ExactContactGroupDiagnostic) {
+    use core::fmt::Write;
+    writeln!(out, "group index={at} tick={} ordinal={} selected_time_raw={} scan_candidates={} mapped_time_members={} recomputed_facts={} closure_entities={} closure_rows={} driver_contacts={} lifted_contacts={} output_rows={} reject={}",
+        row.tick, row.group_ordinal, row.selected_time_raw, row.scan_candidates,
+        row.mapped_time_members, row.recomputed_facts, row.closure_entities, row.closure_rows,
+        row.driver_contacts, row.lifted_contacts, row.output_rows,
+        row.reject.map(group_reject_name).unwrap_or("none")).unwrap();
+    for slot in 0..16 {
+        writeln!(out, "group.key group={at} slot={slot} mapped={} recomputed={}",
+            row.mapped_member_keys[slot].map(exact_key_text).unwrap_or_else(|| "none".into()),
+            row.recomputed_keys[slot].map(exact_key_text).unwrap_or_else(|| "none".into())).unwrap();
+        match row.wide_toi[slot] {
+            None => writeln!(out, "group.wide group={at} slot={slot} value=none").unwrap(),
+            Some(wide) => {
+                writeln!(out, "group.wide group={at} slot={slot} key={}:{}:{}:{}:{} region={} primitive={} interval_start={} interval_end={} visit_count={} accepted_root={} closest_feature={} comparison={}",
+                    entity_text(wide.key.a), wide.key.a_slot, entity_text(wide.key.b),
+                    wide.key.b_slot, contact_kind_name(wide.key.kind), wide.region,
+                    wide_primitive_name(wide.primitive), wide.interval_start_raw,
+                    wide.interval_end_raw, wide.visit_count, wide.accepted_root_raw,
+                    wide.closest_feature, wide_comparison_name(wide.comparison)).unwrap();
+                for visit in 0..8 { writeln!(out,
+                    "group.wide.visit group={at} slot={slot} index={visit} time_raw={} safe_step_raw={}",
+                    wide.visited_times_raw[visit], wide.safe_steps_raw[visit]).unwrap(); }
+            }
+        }
+        match row.compatibility_sweep[slot] {
+            None => writeln!(out, "group.compatibility group={at} slot={slot} value=none").unwrap(),
+            Some(sweep) => {
+                writeln!(out, "group.compatibility group={at} slot={slot} key={}:{}:{}:{}:{} region={} primitive={} point_count={} radius0={} radius1={} accepted_toi_raw={}",
+                    entity_text(sweep.key.a), sweep.key.a_slot, entity_text(sweep.key.b),
+                    sweep.key.b_slot, contact_kind_name(sweep.key.kind), sweep.region,
+                    compatibility_primitive_name(sweep.primitive), sweep.point_count,
+                    sweep.radii_raw[0], sweep.radii_raw[1], sweep.accepted_toi_raw).unwrap();
+                for point in 0..12 { writeln!(out,
+                    "group.compatibility.point group={at} slot={slot} index={point} x={} y={} z={}",
+                    sweep.points_raw[point][0], sweep.points_raw[point][1],
+                    sweep.points_raw[point][2]).unwrap(); }
+            }
+        }
+    }
+}
+
+#[cfg(feature = "cartesian-recoil")]
+fn render_provenance(trace: &Ordinal31Provenance) -> String {
+    use core::fmt::Write;
+    let mut out = String::new();
+    writeln!(out, "smart130-ordinal31-arm-provenance-v1").unwrap();
+    writeln!(out, "descriptor ordinal=31 seed={} mirrored={} target=brute offset_x_raw={} offset_y_raw={}",
+        trace.case.seed, trace.case.mirrored, trace.case.approach_offset.x.raw(),
+        trace.case.approach_offset.y.raw()).unwrap();
+    writeln!(out, "scenario_fingerprint={}", trace.fingerprint).unwrap();
+    writeln!(out, "schedule chamber_ticks=28 strike_ticks=28 first_submitted_effort_tick=36 reach_raw=65536 reference_effort_raw=65536 held_effort_raw=0").unwrap();
+    for run in [&trace.reference_before, &trace.held, &trace.reference_after] {
+        let run_name = provenance_arm_name(run.arm);
+        writeln!(out, "run={} solver_rejections={} contact_tick={} terminal_tick={} refusals={} cap_hits={} max_energy_excess_raw={}",
+            run_name, run.solver_rejections, run.contact_tick.map(|v| v.to_string()).unwrap_or_else(|| "none".into()),
+            run.terminal_tick, run.refusals, run.cap_hits, run.max_energy_excess_raw).unwrap();
+        for row in &run.rows {
+            writeln!(out, "tick run={} before={} after={} terminal={} contact={} solver_before={} solver_after={} solver_delta={} cap_before={} cap_after={} energy_excess_tick={} energy_excess_cumulative={}",
+                run_name, row.tick_before, row.tick_after, row.terminal, row.contact,
+                row.solver_before, row.solver_after, row.solver_delta, row.cap_before,
+                row.cap_after, row.tick_energy_excess_raw, row.cumulative_energy_excess_raw).unwrap();
+            write!(out, "pending count={}", row.pending.len()).unwrap();
+            for id in &row.pending { write!(out, " entity={}", entity_text(*id)).unwrap(); }
+            out.push('\n');
+            for command in &row.commands {
+                writeln!(out, "command entity={}:{} requested={} stored={} receipt=stored",
+                    command.entity.index, command.entity.generation, hex_payload(command.requested),
+                    hex_payload(command.stored)).unwrap();
+            }
+            writeln!(out, "state_before={}:{}:{} state_after={}:{}:{}",
+                hash_domain_name(row.state_before.domain), row.state_before.schema, row.state_before.value,
+                hash_domain_name(row.state_after.domain), row.state_after.schema, row.state_after.value).unwrap();
+            writeln!(out, "resolution_count={}", row.resolutions.len()).unwrap();
+            for (at, resolution) in row.resolutions.iter().copied().enumerate() {
+                write_resolution(&mut out, at, resolution);
+            }
+            writeln!(out, "first_rejection={}", row.first_rejection
+                .map(resolution_error_name).unwrap_or("none")).unwrap();
+            write_exact_rejection(&mut out, "first_exact_rejection", row.first_exact_rejection);
+            write_scan_pair(&mut out, row.scan_pair_rejection);
+            writeln!(out, "group_count={}", row.groups.len()).unwrap();
+            for (at, group) in row.groups.iter().enumerate() { write_group(&mut out, at, group); }
+            writeln!(out, "external_energy_count={}", row.external_energy.len()).unwrap();
+            for (at, energy) in row.external_energy.iter().enumerate() {
+                writeln!(out, "external_energy index={at} entity={} lane={} reason={} signed_numerator={} denominator={}",
+                    entity_text(energy.entity), energy.lane, energy.reason,
+                    energy.signed_numerator, energy.denominator).unwrap();
+            }
+            write_observation(&mut out, "attacker", row.attacker_observation);
+            write_observation(&mut out, "defender", row.defender_observation);
+            write_pose(&mut out, "attacker", row.attacker_pose);
+            write_pose(&mut out, "defender", row.defender_pose);
+        }
+    }
+    writeln!(out, "first_command_difference_tick={}", trace.first_command_difference).unwrap();
+    writeln!(out, "first_state_difference_tick={}", trace.first_state_difference
+        .map(|v| v.to_string()).unwrap_or_else(|| "none".into())).unwrap();
+    match trace.boundary {
+        ProvenanceBoundary::SolverDelta { tick } =>
+            writeln!(out, "boundary kind={} tick={tick}",
+                provenance_boundary_kind(trace.boundary)).unwrap(),
+        ProvenanceBoundary::TerminalBeforeSolverDelta { arm, tick } =>
+            writeln!(out, "boundary kind={} arm={} tick={tick}",
+                provenance_boundary_kind(trace.boundary), provenance_arm_name(arm)).unwrap(),
+    }
+    let boundary_tick = match trace.boundary { ProvenanceBoundary::SolverDelta { tick }
+        | ProvenanceBoundary::TerminalBeforeSolverDelta { tick, .. } => tick };
+    let reference = trace.reference_before.rows.iter().find(|row| row.tick_after == boundary_tick).unwrap();
+    let held = trace.held.rows.iter().find(|row| row.tick_after == boundary_tick).unwrap();
+    for (label, row) in [("reference", reference), ("held", held)] {
+        writeln!(out, "boundary_arm label={label} solver_delta={} solver_after={} first_rejection={}",
+            row.solver_delta, row.solver_after,
+            row.first_rejection.map(resolution_error_name).unwrap_or("none")).unwrap();
+        write_exact_rejection(&mut out, &format!("boundary.{label}.first_exact_rejection"),
+                              row.first_exact_rejection);
+        let mut diagnostic = String::new();
+        write_scan_pair(&mut diagnostic, row.scan_pair_rejection);
+        writeln!(diagnostic, "group_count={}", row.groups.len()).unwrap();
+        for (at, group) in row.groups.iter().enumerate() { write_group(&mut diagnostic, at, group); }
+        for line in diagnostic.lines() { writeln!(out, "boundary.{label}.{line}").unwrap(); }
+    }
+    assert!(out.is_ascii(), "Smart130 artifact grammar is ASCII");
+    out
+}
+
+#[cfg(feature = "cartesian-recoil")]
+pub(crate) fn ordinal_31_provenance_artifact() -> Result<String, String> {
+    #[cfg(test)]
+    { return Ok(render_provenance(cached_ordinal_31_trace())); }
+    #[cfg(not(test))]
+    build_ordinal_31_provenance(ProvenanceMutation::None).map(|trace| render_provenance(&trace))
+}
+
+#[cfg(all(feature = "cartesian-recoil", test))]
+fn cached_ordinal_31_trace() -> &'static Ordinal31Provenance {
+    static TRACE: std::sync::OnceLock<Ordinal31Provenance> = std::sync::OnceLock::new();
+    TRACE.get_or_init(|| build_ordinal_31_provenance(ProvenanceMutation::None)
+        .expect("the frozen ordinal 31 trace must validate"))
 }
 
 pub(crate) fn measure(strike_effort: Fx) -> StrikeMeasurement {
@@ -2180,5 +3064,149 @@ mod tests {
         let case = trace_case_1536();
         let traced = [false, true].map(|mirrored| (case.ordinal, mirrored, 0i32, 0i32));
         assert_eq!(traced, [(1536, false, 0, 0), (1536, true, 0, 0)]);
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    fn ordinal_31_trace() -> &'static Ordinal31Provenance {
+        cached_ordinal_31_trace()
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn ordinal_31_is_the_frozen_first_solver_count_mismatch() {
+        let case = ordinal_31_case();
+        let ordinal = (((case.seed as usize * 2 + usize::from(case.mirrored)) * 2 + 1) *
+            APPROACH_OFFSETS.len()) + APPROACH_OFFSETS.iter()
+                .position(|offset| *offset == case.approach_offset).unwrap();
+        assert_eq!(ordinal, 31, "the sole frozen descriptor moved in canonical enumeration");
+        assert_eq!(case, StrongCase { seed: 0, mirrored: true,
+            target_anatomy: AnatomyChoice::Brute,
+            approach_offset: Vec2::new(Fx::from_raw(-163_840), Fx::ZERO) });
+        let trace = ordinal_31_trace();
+        assert_eq!(trace.fingerprint, ORDINAL_31_FINGERPRINT);
+        assert_eq!((trace.reference_before.solver_rejections,
+                    trace.held.solver_rejections,
+                    trace.reference_after.solver_rejections), (7, 6, 7));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn ordinal_31_first_command_difference_is_right_arm_effort_at_tick_36() {
+        let trace = ordinal_31_trace();
+        let reference = &trace.reference_before.rows;
+        let held = &trace.held.rows;
+        let rows = reference.iter().zip(held.iter())
+            .find(|(reference, held)| reference.commands != held.commands).unwrap();
+        assert_eq!(CHAMBER_TICKS, 28, "the requested schedule phase transition moved");
+        for run in [&reference, &held] {
+            assert!(run.iter().filter(|row| (28..36).contains(&row.tick_before))
+                .all(|row| row.commands.iter().all(|command| command.entity.index != 0)),
+                "the attacker submitted while it was not pending on ticks 28..35");
+        }
+        assert_eq!(rows.0.tick_before, ORDINAL_31_FIRST_SUBMITTED_EFFORT_TICK,
+            "pending={:?} reference={:?} held={:?}",
+            rows.0.pending, rows.0.commands, rows.1.commands);
+        assert_eq!(rows.0.pending, [EntityId::new(0, 0), EntityId::new(1, 0)]);
+        assert_eq!(rows.1.pending, rows.0.pending);
+        assert!(only_effort_differs(rows.0, rows.1));
+        assert!(reference.iter().zip(held.iter()).take(ORDINAL_31_FIRST_SUBMITTED_EFFORT_TICK as usize)
+            .all(|(reference, held)| reference.commands == held.commands));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn ordinal_31_live_rerun_and_replay_match_every_active_tick() {
+        let trace = ordinal_31_trace();
+        assert_eq!((trace.reference_before.rows.len(), trace.held.rows.len(),
+                    trace.reference_after.rows.len()), (47, 56, 47));
+        for run in [&trace.reference_before, &trace.held, &trace.reference_after] {
+            assert_eq!(run.rows.first().map(|row| (row.tick_before, row.tick_after)), Some((0, 1)));
+            assert_eq!(run.rows.last().map(|row| row.tick_after), Some(run.terminal_tick));
+            assert!(run.rows.iter().enumerate().all(|(at, row)|
+                row.tick_before == at as u32 && row.tick_after == at as u32 + 1));
+        }
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn ordinal_31_reproduces_the_reference_held_reference_bracket() {
+        let trace = ordinal_31_trace();
+        assert_eq!((trace.reference_before.contact_tick, trace.reference_before.terminal_tick,
+                    trace.reference_before.refusals, trace.reference_before.cap_hits,
+                    trace.reference_before.max_energy_excess_raw), (Some(47), 47, 0, 0, 0));
+        assert_eq!((trace.held.contact_tick, trace.held.terminal_tick, trace.held.refusals,
+                    trace.held.cap_hits, trace.held.max_energy_excess_raw),
+                   (None, 56, 0, 0, 0));
+        assert_eq!((trace.reference_after.contact_tick, trace.reference_after.terminal_tick,
+                    trace.reference_after.refusals, trace.reference_after.cap_hits,
+                    trace.reference_after.max_energy_excess_raw), (Some(47), 47, 0, 0, 0));
+        assert!(trace.reference_before.rows.iter().zip(&trace.reference_after.rows)
+            .all(|(before, after)| before.equals(after)));
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn provenance_stops_at_the_first_solver_delta_or_earlier_terminal() {
+        let measured_shape = vec![(45, 0, 0, 6, 6, false, false),
+                                  (46, 1, 0, 7, 6, false, false),
+                                  (47, 0, 0, 7, 6, true, false)];
+        let actual = select_provenance_boundary(measured_shape).unwrap();
+        assert_eq!(actual, ProvenanceBoundary::SolverDelta { tick: 46 });
+        let cumulative_only = vec![(12, 0, 0, 5, 4, false, false)];
+        assert_eq!(select_provenance_boundary(cumulative_only),
+            Ok(ProvenanceBoundary::SolverDelta { tick: 12 }),
+            "a cumulative-count mismatch is a solver boundary even when tick deltas match");
+        let delta_only = vec![(13, 1, 0, 5, 5, false, false)];
+        assert_eq!(select_provenance_boundary(delta_only),
+            Ok(ProvenanceBoundary::SolverDelta { tick: 13 }),
+            "a tick-delta mismatch is a solver boundary even when cumulative counts match");
+        let solver_at_terminal = vec![(46, 0, 0, 6, 6, false, false),
+                                      (47, 1, 0, 7, 6, true, false),
+                                      (48, 0, 0, 7, 6, false, false)];
+        assert_eq!(select_provenance_boundary(solver_at_terminal.clone()),
+            Ok(ProvenanceBoundary::SolverDelta { tick: 47 }));
+        let suppressed = mutate_boundary_evidence(solver_at_terminal,
+            ProvenanceMutation::SuppressOneSolverRejection);
+        assert_eq!(suppressed, [(46, 0, 0, 6, 6, false, false),
+                                (47, 0, 0, 6, 6, true, false),
+                                (48, 0, 0, 6, 6, false, false)],
+            "the removed event must stay removed from every later cumulative count");
+        assert_eq!(select_provenance_boundary(suppressed),
+            Ok(ProvenanceBoundary::TerminalBeforeSolverDelta {
+                arm: ProvenanceArm::ReferenceBefore, tick: 47 }),
+            "suppressing one copied rejection event must change both delta and cumulative evidence");
+        let terminal = vec![(46, 0, 0, 6, 6, false, false),
+                            (47, 0, 0, 6, 6, true, false),
+                            (48, 1, 0, 7, 6, false, false)];
+        assert_eq!(select_provenance_boundary(terminal.clone()),
+            Ok(ProvenanceBoundary::TerminalBeforeSolverDelta {
+                arm: ProvenanceArm::ReferenceBefore, tick: 47 }));
+        assert_eq!(provenance_boundary_kind(ProvenanceBoundary::TerminalBeforeSolverDelta {
+            arm: ProvenanceArm::ReferenceBefore, tick: 47 }),
+            "terminal-boundary-before-solver-divergence");
+        assert_eq!(select_provenance_boundary(mutate_boundary_evidence(terminal,
+                    ProvenanceMutation::PassEarlierTerminal)),
+            Ok(ProvenanceBoundary::SolverDelta { tick: 48 }),
+            "passing the earlier terminal must expose the forbidden later delta");
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn tick_local_exact_diagnostics_are_copied_before_the_next_step() {
+        let error = run_provenance_arm(ProvenanceArm::ReferenceBefore, Fx::ONE,
+                                       ProvenanceMutation::CorruptTickLocalGroup)
+            .expect_err("altering one copied group must break live/rerun equality");
+        assert!(error.contains("snapshots diverged"), "{error}");
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    fn provenance_refuses_a_missing_or_reordered_replay_submission() {
+        for mutation in [ProvenanceMutation::RemoveReplaySubmission,
+                         ProvenanceMutation::ReorderReplaySubmission] {
+            let error = build_ordinal_31_provenance(mutation)
+                .expect_err("a damaged replay receipt must be refused");
+            assert!(error.contains("replay submission receipt missing or reordered"));
+        }
     }
 }
