@@ -78,8 +78,9 @@ disjoint causes.
 
 Do not parse or branch on productivity booleans, outcome, decision, waterfall,
 energy, contact channels, integrity, wound or blood columns. A poison fixture changes
-all forbidden values while holding permitted columns fixed and must produce
-byte-identical output.
+all forbidden values while holding permitted columns fixed and must produce a
+byte-identical diagnostic payload excluding input-receipt metadata, because changed
+input bytes necessarily change the receipt SHA embedded in the full report.
 
 ## Predeclared output
 
@@ -112,7 +113,11 @@ referenceOnly, heldOnly, equalPositiveCounts, unequalPositiveCounts
 The identity section reports both set equality and the stronger vector equality
 across all 900 rows. The 2x2 and every marginal must sum to its declared denominator.
 Any bracket drift, descriptor error, impossible integer/boolean/optional field, or
-table-sum mismatch is `invalid-schema-order-stop` and writes neither output.
+table-sum mismatch is `invalid-schema-order-stop` and writes neither output. Refuse an
+existing final or sibling temporary path. Write both complete renderings to temporary
+siblings, then rename them to their final names. Any write or rename failure must
+remove every temporary and final created by that invocation and return a named
+refusal, so a reader can never mistake a half-pair or stale mixed pair for the result.
 
 ## Tests and mutation proof
 
@@ -127,14 +132,15 @@ test("mirror anatomy offset and seed marginals keep canonical order", () => {});
 test("shared solver intersections overlap and retain their labels", () => {});
 test("productivity outcome channel and damage columns cannot affect diagnosis", () => {});
 test("a refused diagnosis writes no artifact", () => {});
+test("a diagnosis publishes both artifacts or cleans the whole pair", () => {});
 test("text and json output are byte identical on repeat", () => {});
 ```
 
 Make the tests red, one mutation at a time, by comparing only set membership and
 ignoring unequal positive counts; swapping held and reference axes; sorting offsets
 lexically; treating shared intersections as a partition; accepting one altered input
-receipt; and reading one poisoned forbidden column. Restore every mutation before
-analysis.
+receipt; reading one poisoned forbidden column; and retaining the first final after a
+second-rename failure. Restore every mutation before analysis.
 
 ```powershell
 node --test tools/diagnose_smart128.test.js
