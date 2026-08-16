@@ -109,6 +109,7 @@ node --test tools/wasm_check.js                   # wasm must equal native
 node tools/check_docs.js                          # documentation links, anchors and authority
 node tools/check_deps.js                          # no crate may reach a registry or a git source
 node --test tools/check_deps.test.js              # and the fixture that guards that audit
+node tools/validate_assets.js web/assets3d/room_slice.glb   # the room asset against its pinned hashes
 
 npm run dev                                       # builds release wasm, Vite serves the studio
 node tools/serve.js                               # legacy Canvas page only
@@ -195,6 +196,16 @@ Notes that will otherwise cost you a build:
   `tools/check_deps.test.js` covers, left it red at 13 pass and 2 fail, and did not find
   out until a review — because neither command was on any list in this file. Both are
   above now. Run them when you touch a manifest or the audited set.
+- **A line-ending setting can corrupt an asset, and it reads as a corrupt asset.** On
+  a second machine `#/game` stopped with `representative room asset failed during
+  sidecar hash`. Nothing was wrong with the asset: that machine had
+  `core.autocrlf=true`, `web/assets3d/room_slice.json` is ordinary JSON, and git
+  rewrote its one trailing newline on checkout — 5,384 bytes to 5,385, and
+  `b15c44c4…` to `a693f0d9…`. The GLB beside it was fine, because a NUL at offset 5
+  makes git treat it as binary, so the failure lands on the *text* member of a set
+  whose other members verify. `.gitattributes` now pins both asset JSONs to LF and
+  says why. **Check `git config --get core.autocrlf` before believing an asset is
+  damaged**, and run `validate_assets.js` above, which is the gate that names it.
 - **Do not run `cargo fmt`.** The tree is deliberately not rustfmt-clean — 222
   divergences across 25 files, most of them hand-formatted for readability. Running it
   produces an enormous unrelated diff. Match the surrounding style by hand.

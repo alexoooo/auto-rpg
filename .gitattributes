@@ -8,10 +8,33 @@
 # a failing `check:abi`, LF gives a passing `check:abi` and a file git reports as
 # permanently modified. Neither is a tree anybody should have to work in.
 #
-# Deliberately scoped to the one generated file that is compared byte for byte, and not
+# Deliberately scoped to the files that are compared byte for byte, and not
 # `* text=auto eol=lf`: that renormalises every file in the working tree at once, which
 # is the same enormous unrelated diff AGENTS.md refuses `cargo fmt` for.
+#
+# **The scoping principle was right and the list was short by two**, which cost
+# somebody an afternoon on 2026-08-15. This file said "the one generated file" and
+# meant it; but the representative room's sidecar and validator are *also* compared
+# byte for byte -- by SHA-256, from `client/src/render/room-asset.generated.ts` -- and
+# they are ordinary JSON, so `core.autocrlf=true` rewrote them on checkout and `#/game`
+# stopped with `representative room asset failed during sidecar hash`. The sidecar
+# holds a single trailing newline: 5,384 bytes became 5,385 and
+# `b15c44c4...` became `a693f0d9...`. One byte.
+#
+# The GLB beside them was never at risk and that is the tell worth remembering -- it
+# carries a NUL at offset 5, so git detects it as binary and leaves it alone. The
+# failure lands on the *text* member of a set whose other members look fine, which is
+# why it reads as a corrupt asset rather than as a checkout setting.
+#
+# So the rule for adding to this list: if anything compares a file's bytes or hashes
+# its contents, it belongs here the day that comparison is written. `binary` on the
+# two payloads is belt and braces -- git's own detection already covers them -- but it
+# states the intent rather than relying on a heuristic about byte 5.
 client/src/protocol/abi.generated.ts text eol=lf
+web/assets3d/room_slice.json          text eol=lf
+web/assets3d/room_slice.validator.json text eol=lf
+web/assets3d/room_slice.glb           binary
+checkpoints/*.ckpt                    binary
 
 # Vite verifies these generated room records byte-for-byte against SHA-256 values
 # in tools/art/manifest.json. A Windows CRLF checkout changes the bytes while Git
