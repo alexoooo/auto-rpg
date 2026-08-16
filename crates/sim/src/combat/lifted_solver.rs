@@ -221,7 +221,7 @@ fn trial(
         rows.push(ContactResolution { group_ordinal: 0, group_alpha_raw: 65_536,
             fact: contact.fact, impulse: ContactImpulse { key: contact.fact.key,
                 on_a, on_b: -on_a }, energy: EnergyLedger::default(), cut_raw: 0,
-            thrust_raw: 0, pressure_raw: 0, deflected_raw: 0, severed: false });
+            thrust_raw: 0, crush_raw: 0, pressure_raw: 0, deflected_raw: 0, severed: false });
     }
     apply_exact_group_into(trajectories, owners, rows, time_raw, work)
         .map_err(|_| LiftedSolverReject::ArithmeticEnvelope)?;
@@ -1190,13 +1190,13 @@ mod tests {
         scratch.trial_rows.push(ContactResolution { group_ordinal: 0, group_alpha_raw: 0,
             fact: contact([1, 0, 0], 0).fact, impulse: ContactImpulse { key: key(1),
                 on_a: Vec3::ZERO, on_b: Vec3::ZERO }, energy: EnergyLedger::default(),
-            cut_raw: 0, thrust_raw: 0, pressure_raw: 0, deflected_raw: 0, severed: false });
+            cut_raw: 0, thrust_raw: 0, crush_raw: 0, pressure_raw: 0, deflected_raw: 0, severed: false });
         assert_eq!(scratch.begin(16, 42), Ok(()));
         scratch.impulses.push(LiftedImpulse { raw: [4, 5, 6] });
         scratch.trial_rows.push(ContactResolution { group_ordinal: 0, group_alpha_raw: 0,
             fact: contact([1, 0, 0], 0).fact, impulse: ContactImpulse { key: key(1),
                 on_a: Vec3::ZERO, on_b: Vec3::ZERO }, energy: EnergyLedger::default(),
-            cut_raw: 0, thrust_raw: 0, pressure_raw: 0, deflected_raw: 0, severed: false });
+            cut_raw: 0, thrust_raw: 0, crush_raw: 0, pressure_raw: 0, deflected_raw: 0, severed: false });
         assert_eq!(scratch.begin(17, 42), Err(LiftedSolverReject::FactEnvelope));
         assert_eq!(scratch.impulses, [LiftedImpulse { raw: [4, 5, 6] }]);
         assert_eq!(scratch.trial_rows.len(), 1);

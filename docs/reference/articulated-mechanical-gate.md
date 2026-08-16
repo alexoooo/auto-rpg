@@ -137,6 +137,49 @@ still sit at 90 degrees or worse. A static off hand narrows this defect by 2.2x;
 does not dissolve it, and the underlying incoherence between `centre` and `normal` is
 still there to be fixed on its own terms.
 
+### Amendment, 2026-08-16: fixed on its own terms, and the weld lifted
+
+The paragraph above ends by naming what was left undone, and it is now done. Both
+distributions above are kept as measured; neither is deleted, because they are the
+evidence for why the weld existed.
+
+`World::derive_shield_pose` takes the plate's `normal` from **the bearing of the arm
+that carries it** rather than from `body_yaw`. The incoherence the two distributions
+measure is not narrowed, it is removed at its source, and the statement about it is now
+a closed form rather than a histogram: `normal` and `hand - shoulder` are the same
+rotation applied to the same reach vector, so the angle between them is **exactly zero
+at every bearing, every reach and every tick**, including the 17.4% of ticks where the
+contact commit writes the hand directly -- because `derive_shield_pose` then reads the
+achieved bearing too. `the_shield_normal_follows_the_arm_that_holds_it` in
+`crates/sim/src/world.rs` bounds that from both sides.
+
+The 23.96 degree figure survives with a different meaning. Measured against the **body
+origin** rather than the shoulder, the residual is the shoulder's own lateral offset,
+`atan((1/4) / (3/4 * 3/4))` for a Fighter at `GUARD_REACH` -- the same number, no longer
+a special case of standing still but a constant of the anatomy, and never edge-on.
+`the_intercept_model_agrees_with_the_derived_plate_at_a_nonzero_guard_bearing` in
+`crates/policy/src/articulated_tactics.rs` pins that the residual does not vary with the
+guard bearing, and measures it at 0.2500 world units -- the Fighter's
+`shoulder_half_width` exactly.
+
+**A full re-measure of the 2.86M-sample histogram was not run**, and the reason is that
+the quantity it sampled is now identically zero by construction rather than a
+distribution with a median; a histogram of zeros would be weaker evidence than the
+two-sided test, not stronger. The body-origin residual remains worth sampling if anyone
+wants the distribution of *that*, which no session has yet needed.
+
+With the sim half done, `crates/policy/src/articulated_script.rs` gives the guard its
+bearing back, tracking the threat inside `GUARD_ARC` -- an eighth turn either side of
+the commanded yaw, clamped and never wrapped, falling back to the yaw exactly when
+nothing is visible. The arc is chosen on the plate's geometry: at a quarter turn the
+plate is edge-on to a frontal attack, past a quarter it faces behind the body, so an
+eighth keeps at least `cos(45 deg)` of its width projected against the threat.
+
+The learned action vocabulary was **not** freed. `crates/learn-core/src/model.rs` keeps
+its own welded `off_hand`, because those four columns are what
+`LEARNED_INFERENCE_DIGEST` is taken over and the shipped checkpoint was scored against a
+guard that held the body's facing; freeing it there is a re-score, not a re-record.
+
 **Reach 3/4 and effort 1/2 both hold station without leaning on a limit.** Reach lives
 in `[ARM_MIN_REACH_RAW, 1]`, so three quarters is clear of both ends and a hand that
 contact shoves is chased back rather than clamped. Effort is deliberately not zero:
@@ -345,8 +388,8 @@ session measured at roughly 35x short.
 
 The command-stream digest is FNV-1a-64 prefixed by ASCII `ARPG-SCRIPT-V1`. For each
 accepted or safe-fallback stored command feed little-endian tick, subject index,
-subject generation, then the canonical 51-byte articulated payload from
-[`articulated-command-v1.md`](articulated-command-v1.md#canonical-51-byte-articulated-payload).
+subject generation, then the canonical 53-byte articulated payload from
+[`articulated-command-v1.md`](articulated-command-v1.md#canonical-53-byte-articulated-payload).
 Include the record count as a final `u32`. This digest always describes one run's
 stored command stream; the evidence fixture's `scriptDigest` is specifically the
 canonical seed-zero/original run, not a source-code digest. Replay evidence is a
@@ -400,6 +443,113 @@ Anatomy families are Head, Torso, Arms (left/right combined), and Legs. Across e
 primary tick, `max(0, ledger.after-ledger.before)` must be exactly raw zero, stream
 digest equality must hold, and `contact_cap_hits` must be zero. The dedicated cap
 fixture is excluded from that last aggregate and must increment exactly once.
+
+## Two-handed club corpus, 2026-08-16
+
+Combat arms 02 coupled two-handed torque: the driving arm overcomes half the
+inertia and the two arms split one fatigue bill (see
+[articulated actuators](articulated-actuators.md)). Measured on
+`lab articulated --seeds 100 --mirrored --attack-moves`, 200 paired trials.
+
+**The control is exact, and it is what makes the comparison readable.**
+`--b-two-handed off` builds the duel through `Scenario::duel_from` under the name
+`configured-duel-v1` rather than running the fixture, and its corpus is
+*byte-identical* to the fixture's -- same 29 kills, same 497,433 resolutions, same
+144 severances. So the scenario rename contributes nothing and the whole delta
+below is the grip. It also independently confirms that the configured builder
+reproduces the fixture's arrangement rather than merely resembling it.
+
+| | one-handed Brute | two-handed Brute |
+|---|---:|---:|
+| Fighter end health, mean | 0.9906 | 0.9885 |
+| Brute end health, mean | 0.4989 | **0.5271** |
+| Severances | 144 | 110 |
+| Decided by a body | 14.5% | 8.5% |
+| Fighter wins | 200/200 | 200/200 |
+| Resolutions | 497,433 | 485,277 |
+| Weapon/shield share | 22.28% | 20.78% |
+
+**It is a real benefit and it is not enough, and both halves are the result.** The
+Brute survives measurably better -- `0.4989` to `0.5271`, about 5.6% more health
+left -- and costs the Fighter slightly more. But it does not change who wins: the
+Fighter still takes every one of the 200 trials, canonical and mirrored. Fights
+also became *less* decisive, not more: severances fell 144 to 110 and body
+decisions 14.5% to 8.5%, because a Brute that swings faster and tires half as
+quickly spends more of the fight alive and moving.
+
+### The same corpus after the guard arm was freed, 2026-08-16
+
+Identical invocation, `--seeds 100 --mirrored --hero-policy attack-moves
+--monster-policy attack-moves --b-two-handed on`, with the guard bearing free inside
+`GUARD_ARC` and the plate's normal following its arm:
+
+| | two-handed Brute, welded guard | two-handed Brute, free guard |
+|---|---:|---:|
+| Fighter end health, mean | 0.9885 | 0.9907 |
+| Brute end health, mean | **0.5271** | 0.5009 |
+| Severances | 110 | **137** |
+| Decided by a body | 8.5% | **13.0%** |
+| Fighter wins | 200/200 | 200/200 |
+| Resolutions | 485,277 | 436,553 |
+| Weapon/shield share | 20.78% | 20.24% |
+
+**It reversed the decisiveness loss and did not move the outcome.** Body decisions rose
+8.5% to 13.0% and severances 110 to 137, recovering past the one-handed baseline's 14.5%
+and 144 in kind if not in full -- a guard that turns to meet the threat also turns its
+own arm capsule into the line, and a plate that faces where it sits stops being a
+free-standing wall the sweep slides along. The Brute gives back about half the health
+session 02 won it (`0.5271` to `0.5009`), which is the honest cost of both sides getting
+the better guard rather than one.
+
+Who wins is unchanged: 200/200 to the Fighter, canonical and mirrored, as in every
+configuration measured since session 02. **Three constraints have now been lifted -- arm
+authority, plate avoidance, and guard coherence -- and none of them moved that number.**
+What remains untested is closure energy per blow, which is where the next session should
+look rather than at a fourth control input.
+
+This is the corpus the Brute policy is to be written against, and it says the
+remaining deficit is not arm authority. The overview's ranking put the shield at
+22.28% of resolutions second and the 18-tick decision cadence third; the coupling
+cancelled the first cause and those two are what is left. The divisor was chosen
+from the inertia comparison and **not** tuned against any of these numbers, per
+`AGENTS.md`'s standing rule not to select mechanics by wound outcome.
+
+## Shield-avoidance corpus, 2026-08-16
+
+Combat arms 03 answered the paragraph above by writing a policy that beats the
+plate: `openings` (code 6) ranks candidate strikes by whether the opponent's shield
+already covers the swept path before ranking them by distance. Measured on
+`lab articulated --seeds 100 --mirrored --b-two-handed on` with the asymmetric
+matchup that session added, 200 paired trials per row.
+
+| Fighter | Brute | Fighter hp | Brute hp | Fighter kills | Brute kills | decided | severances | weapon/shield |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| attack-moves | attack-moves | 0.9885 | 0.5271 | 17 | 0 | 8.5% | 110 | 20.78% |
+| attack-moves | tactical | 0.9980 | 0.6089 | 12 | 0 | 6.0% | 51 | 9.68% |
+| attack-moves | openings | 0.9978 | 0.5866 | 19 | 0 | 9.5% | 70 | 8.70% |
+| tactical | tactical | 0.9985 | 0.5272 | 13 | 0 | 6.5% | 152 | 9.33% |
+| openings | openings | 0.9980 | 0.5863 | 7 | 0 | 3.5% | 170 | 8.71% |
+| openings | attack-moves | 0.9928 | 0.6209 | 5 | 0 | 2.5% | 187 | 13.60% |
+
+**The plate was beaten and it changed nothing.** Against the same `attack-moves`
+Fighter, moving the Brute from `tactical` to `openings` cuts the weapon/shield share
+from 9.68% to 8.70%, and symmetrically from 9.33% to 8.71% -- the policy finds the
+hole it was written to find. The Fighter's end health stays inside
+`0.9885`-`0.9985` across every row, the Brute records **zero kills in all six**, and
+the extra aggression is paid out of the Brute's own health.
+
+**So the shield was not the binding constraint, and neither is the policy.** The
+ranking in `docs/plans/combat-arms-00-overview.md` put arm authority first and the
+shield second; session 02 cancelled the first and this corpus cancels the second
+without the outcome following either time. What is left is closure energy per blow:
+`attack-moves` is the most *lethal* script on either body (17 kills against 13 and 7)
+while producing the fewest severances, so fewer harder commits beat more
+better-aimed ones. That is the same scale gap this document records above, reached
+from a third direction.
+
+`SHIELD_COVER_MARGIN` was fixed at an eighth -- half the shipped plate's quarter
+half-width -- before the first run and not revisited, on the same rule the divisor
+above was chosen under.
 
 ## Windmill comparison
 

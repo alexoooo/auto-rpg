@@ -1,12 +1,10 @@
-import { Color3 } from "@babylonjs/core/Maths/math.color.js";
-import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
-import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js";
 import "@babylonjs/core/Meshes/instancedMesh.js";
-import type { InstancedMesh } from "@babylonjs/core/Meshes/instancedMesh.js";
-import type { Mesh } from "@babylonjs/core/Meshes/mesh.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import type { ShadowGenerator } from "@babylonjs/core/Lights/Shadows/shadowGenerator.js";
 import type { RendererDebugRegistry } from "./debug.js";
+import {
+  buildFigure, buildFigureSources, poseFigure, type Figure, type FigureSources,
+} from "./figure.js";
 import type { PresentationSnapshot, PresentationUnit } from "./presentation.js";
 import { decideUnitPresence, type PresenceDecision } from "./visibility.js";
 
@@ -17,7 +15,7 @@ export type ActorRegistryCounts = Readonly<{
 
 type ActorNode = {
   readonly key: string;
-  readonly mesh: InstancedMesh;
+  readonly figure: Figure;
   shadow: boolean;
 };
 
@@ -27,7 +25,7 @@ export class ActorPresentation {
   readonly #scene: Scene;
   readonly #debug: RendererDebugRegistry;
   readonly #shadows: ShadowGenerator | null;
-  readonly #sources = new Map<string, Mesh>();
+  readonly #sources = new Map<string, FigureSources>();
   readonly #nodes = new Map<string, ActorNode>();
   readonly #labels = new Set<string>();
   readonly #effects = new Set<string>();
@@ -61,8 +59,14 @@ export class ActorPresentation {
   }
 
   counts(): ActorRegistryCounts {
+    let meshes = 0;
+    let shadows = 0;
+    for (const node of this.#nodes.values()) {
+      meshes += node.figure.parts.length;
+      if (node.shadow) shadows += node.figure.parts.length;
+    }
     return Object.freeze({
-      meshes: this.#nodes.size, shadows: [...this.#nodes.values()].filter((node) => node.shadow).length,
+      meshes, shadows,
       labels: this.#labels.size, effects: this.#effects.size, audio: this.#audio.size,
       picking: this.#picking.size, debug: this.#debugRecords.size,
     });
@@ -84,35 +88,26 @@ export class ActorPresentation {
 
   dispose(): void {
     this.reset();
-    for (const source of this.#sources.values()) {
-      source.material?.dispose();
-      source.dispose();
-    }
+    for (const source of this.#sources.values()) source.dispose();
     this.#sources.clear();
     this.#debug.removeOwner("actors");
   }
 
-  #source(unit: PresentationUnit): Mesh {
+  #sourcesFor(unit: PresentationUnit): FigureSources {
     const key = sourceKey(unit);
     const old = this.#sources.get(key);
     if (old !== undefined) return old;
-    const source = MeshBuilder.CreateCylinder(`actor-source:${key}`, {
-      height: 1, diameter: 1, tessellation: unit.kind === 2 ? 8 : 12,
-    }, this.#scene);
-    const material = new StandardMaterial(`actor-material:${key}`, this.#scene);
-    material.diffuseColor = unit.faction === 0 ? new Color3(0.2, 0.55, 0.95) : new Color3(0.75, 0.25, 0.18);
-    material.specularColor = Color3.Black();
-    source.material = material;
-    source.isVisible = false;
-    source.isPickable = false;
-    this.#sources.set(key, source);
-    return source;
+    const sources = buildFigureSources(this.#scene, key, unit.faction);
+    this.#sources.set(key, sources);
+    return sources;
   }
 
   #create(unit: PresentationUnit): ActorNode {
-    const mesh = this.#source(unit).createInstance(`actor:${unit.key}`);
-    mesh.metadata = Object.freeze({ presentationKind: "unit", entityKey: unit.key });
-    const node = { key: unit.key, mesh, shadow: false };
+    const figure = buildFigure(this.#scene, this.#sourcesFor(unit), `actor:${unit.key}`, unit.kind);
+    for (const part of figure.parts) {
+      part.metadata = Object.freeze({ presentationKind: "unit", entityKey: unit.key });
+    }
+    const node = { key: unit.key, figure, shadow: false };
     this.#nodes.set(unit.key, node);
     return node;
   }
@@ -126,21 +121,19 @@ export class ActorPresentation {
    * 2D authority `fight/view.ts` draws `+y` up the screen while this page's,
    * `web/main.js`, draws `+y` down; the two conventions differ by a reflection,
    * so the two renderers must too. Neither is wrong and neither may be copied
-   * into the other's page. A cylinder has no chirality, which is why nothing
-   * here ever exposed the difference and why the arena, whose bodies carry a
-   * shield in one named hand, did on its first frame. The domains and the
-   * argument are recorded in `docs/architecture/browser-runtime.md`.
+   * into the other's page. The old cylinder had no chirality, so nothing here
+   * ever exposed the difference; the figure does -- its main arm is a named
+   * hand -- and `figure.ts` states which local axis is the anatomical left and
+   * why. The domains and the argument are recorded in
+   * `docs/architecture/browser-runtime.md`.
    */
   #pose(node: ActorNode, unit: PresentationUnit): void {
-    const diameter = Math.max(0.01, unit.radius * 2);
-    node.mesh.position.set(unit.x, unit.radius, unit.y);
-    node.mesh.scaling.set(diameter, diameter, diameter);
-    node.mesh.rotation.set(0, -unit.facing, 0);
+    poseFigure(node.figure, unit);
   }
 
   #applyPresence(node: ActorNode, decision: PresenceDecision): void {
-    node.mesh.setEnabled(decision.render);
-    node.mesh.isPickable = decision.pick;
+    node.figure.root.setEnabled(decision.render);
+    for (const part of node.figure.parts) part.isPickable = decision.pick;
     this.#toggle(this.#labels, node.key, decision.label);
     this.#toggle(this.#effects, node.key, decision.effect);
     this.#toggle(this.#audio, node.key, decision.audio);
@@ -148,15 +141,24 @@ export class ActorPresentation {
     this.#toggle(this.#debugRecords, node.key, decision.debug);
     const shadow = decision.shadow && this.#shadows !== null;
     if (shadow !== node.shadow) {
-      if (shadow) this.#shadows?.addShadowCaster(node.mesh);
-      else this.#shadows?.removeShadowCaster(node.mesh);
+      for (const part of node.figure.parts) {
+        if (shadow) this.#shadows?.addShadowCaster(part);
+        else this.#shadows?.removeShadowCaster(part);
+      }
       node.shadow = shadow;
     }
   }
 
   #retire(node: ActorNode): void {
-    if (node.shadow) this.#shadows?.removeShadowCaster(node.mesh);
-    node.mesh.dispose();
+    if (node.shadow) {
+      for (const part of node.figure.parts) this.#shadows?.removeShadowCaster(part);
+    }
+    // Disposing the root disposes the whole hierarchy -- every named joint and
+    // every part instance -- which is what keeps a many-mesh figure's
+    // retirement the same one call the cylinder's was. A leaked part per death
+    // would be a slow leak nothing else names, so the registry test counts
+    // live meshes against the per-kind part table.
+    node.figure.root.dispose(false);
     this.#nodes.delete(node.key);
     this.#labels.delete(node.key);
     this.#effects.delete(node.key);
@@ -172,10 +174,12 @@ export class ActorPresentation {
 
   #publishCounts(): void {
     const counts = this.counts();
+    let sourceMeshes = 0;
+    for (const source of this.#sources.values()) sourceMeshes += source.meshes.size;
     this.#debug.replaceOwnerCounts("actors", {
-      scene: { meshes: this.#sources.size, instances: counts.meshes, shadowCasters: counts.shadows },
+      scene: { meshes: sourceMeshes, instances: counts.meshes, shadowCasters: counts.shadows },
       visibility: {
-        units: counts.meshes, effects: counts.effects, audio: counts.audio,
+        units: this.#nodes.size, effects: counts.effects, audio: counts.audio,
         picking: counts.picking, debug: counts.debug,
       },
     });

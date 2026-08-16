@@ -179,9 +179,24 @@ travels. The old dimensions are reserved as a *tall shield* archetype and are no
 calibration to restore. `sim::combat::spec::the_plate_leaves_a_different_hole_at_every_guard_height`
 derives the coverage tables from these rows.
 
+**`material` became load-bearing on 2026-08-16, and no byte moved.** It had been
+written into every digest and read by nothing. `Material::crush_factor` now gives the
+blunt conversion the weapon/body channel bills on whatever the edge and the point
+declined -- `Flesh` 0, `Steel` 7/8, `Wood` 3/4 -- which is why a club can wound at all.
+Before that, `club`'s `edge=0` above meant a swing routed its entire share into
+`pressure`, a column no anatomy has ever read: **a swung club could not injure anybody
+at any speed, by construction.** The coefficient hangs off `Material` rather than
+sitting beside `edge` and `point` because those two are shape (a steel sword and a
+steel shield disagree about both) while crushing is stiffness, and because a fifth
+`SurfaceSpec` field would have widened the 17-byte leaf and the 195/40/44-byte rows and
+dragged in a schema bump for no distinction the roster can express. See
+[contact solver](contact-solver.md) for the formula.
+
 Editing any dimension here changes `Scenario::fingerprint`, because the immutable spec
 table is part of the fingerprint stream. `articulated-duel-v1` went from
-`0x2a6cc9678c08730d` to `0x068d05fcada1027b` for exactly this edit.
+`0x2a6cc9678c08730d` to `0x068d05fcada1027b` for exactly this edit. A *material's*
+coefficient is not such a dimension: it is a constant behind the enum rather than a
+written field, so `crush_factor` changing moves no fingerprint and no spec digest.
 
 ## Runtime construction: `Scenario::duel_from`
 
@@ -238,14 +253,18 @@ A hand item carries `action`, `mass`, `balance` and `geometry` and no `SurfaceSp
 surface is a measured material rather than a dimension, so it is copied from the
 shipped row for the same `ActionKind`.
 
-**`GripBinding::Both` is not expressible through `duel_from`.** The binding comes from
-a hand index with two values, so every row a `DuelConfigV1` can build binds `Left` or
-`Right`. The variant stays live everywhere else — `resolved_equipment` puts a `Both` id
-on both arms, `grip_valid_for_arm` demands both grips name the same slot, and
-`validate_equipment` refuses a `Both` shield — and all three are reachable from a
-hand-written spec row. A two-handed grip is one item occupying two hands rather than a
-third value of a hand index, so offering it would need a different shape for
-`DuelFighterV1::hands` and a rule for what the second arm is doing.
+**`GripBinding::Both` is expressible through `DuelFighterV1::two_handed`** (since
+combat-arms-01), a flag beside the hand array rather than a third value of the hand
+index, because a two-handed grip is one item occupying two hands. It turns the right
+hand's `Right` into `Both`; the rule for the second arm is the actuator's standing
+one — the left arm is the mirror and is not independently commandable. Every refusal
+it can need already existed and is reached rather than restated: `validate_equipment`
+refuses a `Both` shield, `validate_bindings` refuses `Both` beside a second carried
+item, and the one rule `duel_from` adds itself is that the flag over an empty right
+hand is a `GripConflict`, because no validator ever sees a binding with no row to sit
+on. `a_two_handed_club_is_expressible_from_a_duel_config` is the test that the whole
+path — flag to `Both` row to right-limb ownership to the left arm carrying no
+collider — holds from a configuration.
 
 **`duel_from` is one of two gates, and the other one owns `spawn`.** It calls
 `validate_construction`, which checks the table: schema, id order, every dimension

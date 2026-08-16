@@ -8,8 +8,10 @@ export type OrthographicBounds = Readonly<{ left: number; right: number; top: nu
 export type CameraPan = Readonly<{ x: number; y: number }>;
 
 export const MIN_CAMERA_ZOOM = 0.5;
-// Twelve keeps roughly six vertical tiles visible in the shipped 48 x 32 room:
-// close enough to read an exchange without letting the camera lose the floor.
+// Twelve keeps roughly six and a half vertical tiles visible in the 48 x 32
+// stress fixture ((48 + 32) / 12) and about nine and a half in the 68 x 45
+// dungeon ((68 + 45) / 12): close enough to read an exchange without letting
+// the camera lose the floor.
 export const MAX_CAMERA_ZOOM = 12;
 
 const positive = (label: string, value: number): number => {

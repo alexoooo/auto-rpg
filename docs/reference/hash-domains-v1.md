@@ -109,8 +109,9 @@ bump or the explicit golden re-record path.
 
 The value `1` in the v2-10 prefix is
 `ARTICULATED_COMMAND_SCHEMA_RESERVED`; it declares the next block's grammar but does
-not make replay command schema 1 acceptable early. V2-11 defines
-`SUBMITTED_COMMAND_LAYOUT_VERSION = 1` and asserts the constants are equal before it
+not make an articulated replay command schema acceptable early. V2-11 defined
+`SUBMITTED_COMMAND_LAYOUT_VERSION = 1`, now `2` since the release verb widened the
+payload, and asserts the constants are equal before it
 turns that codec dispatch arm on.
 
 Every phase adds a structural coverage test that starts from a valid state, mutates

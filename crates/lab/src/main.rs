@@ -27,7 +27,8 @@ use fitness::{fitness, Summary, Tally};
 use trace::{FightTrace, TraceRun};
 use fx::{Fx, Hash64, Vec2};
 use policy::{
-    run, script_digest, ArmRoles, ArticulatedPolicy, ClosingAttackControlPolicy, PolicyKind,
+    run, script_digest, ArmRoles, ArticulatedPolicy, ClosingAttackControlPolicy,
+    OpeningsArticulatedPolicy, PolicyKind,
     RunConfig, RunResult, ScriptedArticulatedPolicy, TacticalArticulatedPolicy,
     WindmillArticulatedPolicy,
 };
@@ -166,6 +167,8 @@ fn usage() {
           --checkpoint PATH --opponent P --phase-random   (--policy learned only)
           --fighter-a fighter|brute            --fighter-b fighter|brute
           --a-left  sword|shield|club|empty    --a-right ...  (and the b twins)
+          --a-two-handed on|off                (and the b twin; needs a full
+          right hand and an empty left one)
           --a-shield-half-width R --a-shield-half-height R
           --a-weapon-length R --a-weapon-mass R            (and the b twins)
           Writes one articulated fight to JSON so it can be watched frame by
@@ -698,6 +701,7 @@ enum Script {
     Windmill,
     ClosingAttacks,
     Tactical,
+    Openings,
 }
 
 impl Script {
@@ -708,6 +712,7 @@ impl Script {
             Script::Windmill => Box::new(WindmillArticulatedPolicy),
             Script::ClosingAttacks => Box::new(ClosingAttackControlPolicy),
             Script::Tactical => Box::new(TacticalArticulatedPolicy::default()),
+            Script::Openings => Box::new(OpeningsArticulatedPolicy::default()),
         }
     }
 
@@ -717,6 +722,7 @@ impl Script {
             Script::Windmill => "the windmill control",
             Script::ClosingAttacks => "the composed script with closing attacks (control)",
             Script::Tactical => "the tactical policy",
+            Script::Openings => "the openings policy",
         }
     }
 
@@ -730,6 +736,7 @@ impl Script {
             Script::Windmill => "windmill",
             Script::ClosingAttacks => "attack-moves",
             Script::Tactical => "tactical",
+            Script::Openings => "openings",
         }
     }
 }
@@ -749,6 +756,7 @@ fn script_from(args: &Args) -> Script {
             ("composed", Script::Composed),
             ("windmill", Script::Windmill),
             ("tactical", Script::Tactical),
+            ("openings", Script::Openings),
         ],
     ) {
         Script::Composed if args.flag("attack-moves") => Script::ClosingAttacks,
@@ -760,8 +768,120 @@ fn script_from(args: &Args) -> Script {
             eprintln!("--attack-moves edits the composed script; tactical decides its own feet");
             std::process::exit(2);
         }
+        Script::Openings if args.flag("attack-moves") => {
+            eprintln!("--attack-moves edits the composed script; openings decides its own feet");
+            std::process::exit(2);
+        }
         chosen => chosen,
     }
+}
+
+/// The two asymmetric keys, spelled once.
+///
+/// Separate from [`DUEL_KEYS`] because they describe *who is driving* rather than
+/// what is being driven: a matchup is legal over the pinned fixture, which no
+/// duel key is.
+const MATCHUP_KEYS: [&str; 2] = ["hero-policy", "monster-policy"];
+
+/// The script vocabulary the asymmetric keys accept, which is
+/// [`Script::token`]'s own list rather than `--policy`'s.
+///
+/// `--policy` cannot spell `attack-moves` -- it is reached by `--attack-moves`
+/// editing the composed script, because for that flag the two really are one
+/// choice. Here they are not: a matchup names a driver per side, and a side
+/// wanting the closing-attack control has no second flag to reach it with.
+const MATCHUP_SCRIPTS: [(&str, Script); 5] = [
+    ("composed", Script::Composed),
+    ("windmill", Script::Windmill),
+    ("attack-moves", Script::ClosingAttacks),
+    ("tactical", Script::Tactical),
+    ("openings", Script::Openings),
+];
+
+/// Which script drives each side.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+struct Matchup {
+    heroes: Script,
+    monsters: Script,
+}
+
+/// A bare script *is* the symmetric matchup, so every caller that always ran one
+/// control on both sides keeps saying so in one word.
+impl From<Script> for Matchup {
+    fn from(script: Script) -> Matchup {
+        Matchup::symmetric(script)
+    }
+}
+
+impl Matchup {
+    /// One script on both sides, which is what every symmetric corpus is.
+    fn symmetric(script: Script) -> Matchup {
+        Matchup { heroes: script, monsters: script }
+    }
+
+    fn is_symmetric(self) -> bool {
+        self.heroes == self.monsters
+    }
+
+    /// The headline, which says "x" once when both sides are the same and
+    /// "x against y" when they are not -- so that a symmetric run's output is
+    /// unchanged from before this existed and a reader never has to notice the
+    /// feature to read the old corpus.
+    fn name(self) -> String {
+        if self.is_symmetric() {
+            self.heroes.name().to_string()
+        } else {
+            format!("{} against {}", self.heroes.name(), self.monsters.name())
+        }
+    }
+}
+
+/// The matchup the flags add up to, or the sentence the run should be refused
+/// with.
+///
+/// **Returned rather than printed-and-exited**, on exactly the discipline
+/// [`duel_config_from`] states: a key that cannot be honoured has to stop the run
+/// rather than be dropped from it, and a test can only assert a refusal it can
+/// hold. `an_asymmetric_matchup_runs_a_different_policy_on_each_side` and
+/// `a_valueless_matchup_key_is_refused_rather_than_running_one_script_on_both`
+/// are what hold these.
+fn matchup_from(args: &Args) -> Result<Matchup, String> {
+    // The `Args::parse` trap `duel_config_from` documents at length, and it bites
+    // harder here: a demoted `--hero-policy` leaves a *symmetric* run wearing the
+    // header of an asymmetric one, which is the corpus silently answering a
+    // different question than the operator asked.
+    if let Some(key) = MATCHUP_KEYS.iter().find(|key| args.flag(key)) {
+        return Err(format!(
+            "--{key} names the script driving one side and needs a value: it was given none"
+        ));
+    }
+    // `--matchup a:b` is the spelling the plan that asked for this feature
+    // offered as an alternative, and `Args` drops a key it does not know rather
+    // than complaining. Dropping this one leaves a symmetric run wearing an
+    // asymmetric header -- the same failure the demotion above is refused for --
+    // so the spelling that was never implemented is refused by name instead of
+    // being ignored. It is named here rather than in a general unknown-key rule
+    // because only this key silently changes what is being measured.
+    if args.flag("matchup") || args.text("matchup").is_some() {
+        return Err(format!(
+            "--matchup is not a key this build has: name each side with {}",
+            MATCHUP_KEYS.map(|key| format!("--{key}")).join(" and ")
+        ));
+    }
+    let base = script_from(args);
+    let mut matchup = Matchup::symmetric(base);
+    for (key, side) in MATCHUP_KEYS.into_iter().zip([true, false]) {
+        let Some(name) = args.text(key) else { continue };
+        let Some((_, script)) = MATCHUP_SCRIPTS.iter().find(|(token, _)| *token == name) else {
+            let vocabulary: Vec<&str> = MATCHUP_SCRIPTS.iter().map(|(token, _)| *token).collect();
+            return Err(format!(
+                "--{key} does not know the script \"{name}\": it takes {}",
+                vocabulary.join(", ")
+            ));
+        };
+        if side { matchup.heroes = *script } else { matchup.monsters = *script }
+    }
+    Ok(matchup)
 }
 
 /// The pinned fixture reflected across `y = 8`.
@@ -893,8 +1013,12 @@ struct ArticulatedTrial {
 }
 
 /// Drives one seed to its stop and records what the mechanics did.
-fn measure_articulated(scenario: &Scenario, seed: u64, script: Script) -> ArticulatedTrial {
-    measure_articulated_traced(scenario, seed, script, None)
+fn measure_articulated(
+    scenario: &Scenario,
+    seed: u64,
+    matchup: impl Into<Matchup>,
+) -> ArticulatedTrial {
+    measure_articulated_traced(scenario, seed, matchup, None)
 }
 
 /// The same run with a frame recorder optionally hung off it.
@@ -908,11 +1032,12 @@ fn measure_articulated(scenario: &Scenario, seed: u64, script: Script) -> Articu
 fn measure_articulated_traced(
     scenario: &Scenario,
     seed: u64,
-    script: Script,
+    matchup: impl Into<Matchup>,
     recorder: Option<&mut FightTrace>,
 ) -> ArticulatedTrial {
-    let mut heroes = script.policy();
-    let mut monsters = script.policy();
+    let matchup = matchup.into();
+    let mut heroes = matchup.heroes.policy();
+    let mut monsters = matchup.monsters.policy();
     measure_articulated_matchup(scenario, seed, heroes.as_mut(), monsters.as_mut(), recorder)
 }
 
@@ -1091,8 +1216,9 @@ fn articulated_trials(
     scenario: &Scenario,
     seeds: &[u64],
     threads: usize,
-    script: Script,
+    matchup: impl Into<Matchup>,
 ) -> Vec<ArticulatedTrial> {
+    let matchup = matchup.into();
     let mut slots: Vec<Option<ArticulatedTrial>> = vec![None; seeds.len()];
     if seeds.is_empty() {
         return Vec::new();
@@ -1103,7 +1229,7 @@ fn articulated_trials(
         for (chunk_seeds, out) in seeds.chunks(chunk).zip(slots.chunks_mut(chunk)) {
             scope.spawn(move || {
                 for (i, &seed) in chunk_seeds.iter().enumerate() {
-                    out[i] = Some(measure_articulated(scenario, seed, script));
+                    out[i] = Some(measure_articulated(scenario, seed, matchup));
                 }
             });
         }
@@ -1123,9 +1249,13 @@ const TACTICAL_COMPETENCE_THRESHOLD: usize = 95;
 /// articulated run. A rejected spelling is named before any world is built so
 /// a command that looks like the gate can never silently measure another one.
 fn competence_override(args: &Args) -> Option<&'static str> {
+    // The asymmetric keys join this list for exactly the reason the rest are on
+    // it: the receipt is a frozen experiment over one script on both sides, and
+    // a matchup is a measurement-changing override however legal it is elsewhere.
     [
         "seed", "seeds", "ticks", "policy", "opponent", "attack-moves",
         "threshold", "mirrored", "threads", "seed-zero-only",
+        "hero-policy", "monster-policy",
     ]
     .into_iter()
     .find(|key| args.flag(key) || args.text(key).is_some())
@@ -1376,11 +1506,39 @@ fn articulated(args: &Args) {
         (0..count).collect()
     };
 
-    let original = Scenario::articulated_duel();
-    let mirror = mirrored_articulated_duel();
+    // The fixture unless a picker flag was given, on exactly `trace`'s terms and
+    // through exactly its refusals -- combat arms 02 predeclared a corpus
+    // measurement of a two-handed Brute and `articulated` had no way to describe
+    // one, so the corpus could not answer the question the session was asked.
+    // `duel_config_from` returning `None` keeps an unflagged run byte-identical
+    // to what it produced before, which is what lets the pinned baselines in
+    // `docs/reference/articulated-mechanical-gate.md` still be compared against.
+    let described = duel_config_from(args).unwrap_or_else(|sentence| {
+        eprintln!("{sentence}");
+        std::process::exit(2);
+    });
+    let (original, mirror) = match &described {
+        None => (Scenario::articulated_duel(), mirrored_articulated_duel()),
+        Some(config) => {
+            let built = Scenario::duel_from(config).unwrap_or_else(|error| {
+                eprintln!("the described duel is not a legal one: {error:?}");
+                std::process::exit(2);
+            });
+            let mut reflected = built.clone();
+            mirror_spawns(&mut reflected);
+            (built, reflected)
+        }
+    };
     let mirrored = args.flag("mirrored");
 
-    let script = script_from(args);
+    // The matchup, on `duel_config_from`'s terms: returned rather than
+    // printed-and-exited, and refused by name. An unflagged run resolves to one
+    // script on both sides, which is what every pinned baseline in
+    // `docs/reference/articulated-mechanical-gate.md` was measured under.
+    let matchup = matchup_from(args).unwrap_or_else(|sentence| {
+        eprintln!("{sentence}");
+        std::process::exit(2);
+    });
 
     println!(
         "{} seeds x {} orientation{} = {} trials of {} under {}",
@@ -1389,7 +1547,7 @@ fn articulated(args: &Args) {
         if mirrored { "s" } else { "" },
         seeds.len() * if mirrored { 2 } else { 1 },
         original.name,
-        script.name()
+        matchup.name()
     );
     println!(
         "fixture   0x{:016x} canonical, 0x{:016x} mirrored across y={}",
@@ -1399,9 +1557,9 @@ fn articulated(args: &Args) {
     );
 
     let started = Instant::now();
-    let canonical = articulated_trials(&original, &seeds, threads, script);
+    let canonical = articulated_trials(&original, &seeds, threads, matchup);
     let reflected = if mirrored {
-        articulated_trials(&mirror, &seeds, threads, script)
+        articulated_trials(&mirror, &seeds, threads, matchup)
     } else {
         Vec::new()
     };
@@ -1645,6 +1803,14 @@ const HAND_ITEMS: [(&str, Option<sim::ActionKind>); 4] = [
     ("empty", None),
 ];
 
+/// Whether the right-hand item is gripped by both hands.
+///
+/// `on`/`off` rather than a bare flag, because a bare `--a-two-handed` is
+/// exactly the valueless trap `duel_config_from`'s first refusal exists for --
+/// a boolean spelled as a flag could never be told apart from a key that lost
+/// its value.
+const TWO_HANDED: [(&str, bool); 2] = [("on", true), ("off", false)];
+
 /// Every key that turns `trace` from a run of the pinned fixture into a run of
 /// a described duel.
 ///
@@ -1655,10 +1821,10 @@ const HAND_ITEMS: [(&str, Option<sim::ActionKind>); 4] = [
 /// builds the same table and the same unit rows -- and nearly right is the
 /// failure mode that would be hardest to notice, because only the scenario name
 /// and therefore the fingerprint would move.
-const DUEL_KEYS: [&str; 14] = [
-    "fighter-a", "a-left", "a-right",
+const DUEL_KEYS: [&str; 16] = [
+    "fighter-a", "a-left", "a-right", "a-two-handed",
     "a-shield-half-width", "a-shield-half-height", "a-weapon-length", "a-weapon-mass",
-    "fighter-b", "b-left", "b-right",
+    "fighter-b", "b-left", "b-right", "b-two-handed",
     "b-shield-half-width", "b-shield-half-height", "b-weapon-length", "b-weapon-mass",
 ];
 
@@ -1706,6 +1872,27 @@ fn duel_config_from(args: &Args) -> Result<Option<DuelConfigV1>, String> {
                 sim::HandItemV1::shipped(action).expect("every hand item has a shipped row")
             });
         }
+        // The grip, honoured or refused before any binding is written. Both
+        // refusals exist for the same reason the dimension ones below do: `on`
+        // over an empty right hand or a full left one edits nothing the sim
+        // will accept, and dropping it silently would run a fight other than
+        // the one the flag described.
+        let grip_key = format!("{side}-two-handed");
+        let two_handed = args.choice(&grip_key, fighter.two_handed, &TWO_HANDED);
+        if two_handed && fighter.hands[1].is_none() {
+            return Err(format!(
+                "--{grip_key} grips the right-hand item with both hands, and fighter {side}'s \
+                 right hand is empty: put a weapon in it with --{side}-right, or drop the key"
+            ));
+        }
+        if two_handed && fighter.hands[0].is_some() {
+            return Err(format!(
+                "--{grip_key} is one item occupying two hands, and fighter {side}'s left hand \
+                 is full: empty it with --{side}-left empty, or drop the key"
+            ));
+        }
+        fighter.two_handed = two_handed;
+
         let (mut weapons, mut plates) = (0, 0);
         for item in fighter.hands.iter_mut().flatten() {
             match &mut item.geometry {
@@ -1759,7 +1946,8 @@ fn refuse_duel(error: sim::CombatSpecError) -> ! {
         sim::CombatSpecError::NoEquipment =>
             "a fighter with both hands empty has no rule to run: give it something in one of them",
         sim::CombatSpecError::GripConflict =>
-            "those two items cannot be held at once -- two shields is the usual way to ask for it",
+            "those two items cannot be held at once -- two shields, or a two-handed grip on a \
+             shield, are the usual ways to ask for it",
         sim::CombatSpecError::Dimension =>
             "a dimension is off the table's scale: lengths and half-extents in [0, 8], mass in (0, 8]",
         sim::CombatSpecError::UnknownAction =>
@@ -1832,12 +2020,20 @@ fn trace_fight(args: &Args) {
         );
         digest = Some(checkpoint.digest());
     } else {
-        let script = script_from(args);
-        hero_policy = script.policy();
-        monster_policy = script.policy();
-        hero_token = script.token().to_string();
-        monster_token = script.token().to_string();
-        headline = script.name().to_string();
+        // The same matchup `articulated` resolves, so that a corpus row and the
+        // trace a reader opens to look at it are the same fight. A trace is the
+        // one place an asymmetric fight was already watchable -- through
+        // `--policy learned --opponent` -- and this is that door widened to the
+        // scripts rather than a second one cut beside it.
+        let matchup = matchup_from(args).unwrap_or_else(|sentence| {
+            eprintln!("{sentence}");
+            std::process::exit(2);
+        });
+        hero_policy = matchup.heroes.policy();
+        monster_policy = matchup.monsters.policy();
+        hero_token = matchup.heroes.token().to_string();
+        monster_token = matchup.monsters.token().to_string();
+        headline = matchup.name();
         digest = None;
     }
 
@@ -2125,6 +2321,12 @@ mod tests {
                 _ if key.ends_with("-left") || key.ends_with("-right") => {
                     format!("trace --{key} club")
                 }
+                // The grip needs a full right hand and an empty left one, and
+                // fighter a's shipped left hand carries the plate.
+                _ if key.ends_with("-two-handed") => {
+                    let side = &key[..1];
+                    format!("trace --{side}-left empty --{key} on")
+                }
                 _ if key.contains("shield") => {
                     let side = &key[..1];
                     format!("trace --{side}-left shield --{key} 0.3")
@@ -2176,6 +2378,132 @@ mod tests {
             duel_config_from(&traced_args("trace --b-left shield --b-shield-half-width 0.5")),
             Ok(Some(_))
         ));
+    }
+
+    #[test]
+    fn a_valueless_two_handed_flag_is_refused_rather_than_running_the_fixture() {
+        // The `Args::parse` trap, asserted by sentence: a bare `--a-two-handed`
+        // is demoted to a flag, and the run it would silently produce is the
+        // pinned fixture wearing the operator's intent.
+        for line in ["trace --a-two-handed --seed 3", "trace --b-two-handed"] {
+            let refusal = duel_config_from(&traced_args(line)).expect_err(line);
+            assert!(refusal.contains("-two-handed"), "the refusal must name the key: {refusal}");
+            assert!(refusal.contains("needs a value"), "{refusal}");
+        }
+
+        // The honoured form, bounding the refusal from the other side: the
+        // Brute's right hand holds the club and its left is empty, so `on` is
+        // legal, lands on that side alone, and reaches the table as `Both`.
+        let config = duel_config_from(&traced_args("trace --b-two-handed on"))
+            .expect("a legal line").expect("a described duel");
+        assert!(config.fighters[1].two_handed, "the grip did not land");
+        assert!(!config.fighters[0].two_handed, "the grip leaked across sides");
+        let scenario = Scenario::duel_from(&config).expect("a legal duel");
+        let club = scenario.combat_specs.as_ref().expect("a table").equipment.iter()
+            .find(|row| row.action == sim::ActionKind::Club).expect("the club row");
+        assert_eq!(club.binding, sim::GripBinding::Both);
+
+        // And the two grips that cannot be honoured, refused by name.
+        let empty_right = duel_config_from(
+            &traced_args("trace --a-right empty --a-two-handed on"),
+        ).expect_err("a grip on an empty right hand");
+        assert!(empty_right.contains("--a-two-handed"), "{empty_right}");
+        assert!(empty_right.contains("right hand is empty"), "{empty_right}");
+        let full_left = duel_config_from(&traced_args("trace --a-two-handed on"))
+            .expect_err("a grip beside a carried plate");
+        assert!(full_left.contains("--a-two-handed"), "{full_left}");
+        assert!(full_left.contains("left hand is full"), "{full_left}");
+        // `off` is a value, not a request: the shipped arrangement stays legal.
+        assert!(matches!(
+            duel_config_from(&traced_args("trace --a-two-handed off")),
+            Ok(Some(_))
+        ));
+    }
+
+    #[test]
+    fn an_asymmetric_matchup_runs_a_different_policy_on_each_side() {
+        // **The claim is about the fight, not about the parse.** A flag that
+        // resolved correctly and then installed one script on both sides anyway
+        // is precisely the harness gap this exists to close, and it would pass
+        // any assertion about `matchup.heroes`. So the two sides' submitted
+        // command streams are compared instead: if a different policy really is
+        // driving each side, they cannot agree.
+        let matchup = matchup_from(&traced_args(
+            "articulated --hero-policy attack-moves --monster-policy openings",
+        )).expect("a legal matchup");
+        assert_eq!(matchup.heroes, Script::ClosingAttacks);
+        assert_eq!(matchup.monsters, Script::Openings);
+        assert!(!matchup.is_symmetric());
+
+        let scenario = Scenario::articulated_duel();
+        let asymmetric = measure_articulated(&scenario, 3, matchup);
+        let symmetric = measure_articulated(&scenario, 3, Script::ClosingAttacks);
+        assert_ne!(
+            asymmetric.digest, symmetric.digest,
+            "the asymmetric matchup produced the same command stream as one script on both sides",
+        );
+
+        // And a run with neither key is exactly the symmetric one, which is what
+        // lets every pinned baseline still be compared against. `--policy`'s own
+        // vocabulary cannot spell `attack-moves` -- it is reached by the flag
+        // that edits the composed script -- so this is the pairing that says an
+        // unflagged line still resolves to one script on both sides.
+        let unflagged = matchup_from(&traced_args("articulated --policy windmill"))
+            .expect("a legal line");
+        assert!(unflagged.is_symmetric());
+        assert_eq!(
+            measure_articulated(&scenario, 3, unflagged).digest,
+            measure_articulated(&scenario, 3, Script::Windmill).digest,
+            "an unflagged run stopped reproducing the corpus it was pinned against",
+        );
+    }
+
+    #[test]
+    fn a_valueless_matchup_key_is_refused_rather_than_running_one_script_on_both() {
+        // The `Args::parse` trap again, and it bites harder here than on a duel
+        // key: a demoted `--hero-policy` leaves a *symmetric* corpus wearing the
+        // header of an asymmetric one, so the run answers a different question
+        // than the operator asked and nothing in the output says so.
+        for line in [
+            "articulated --hero-policy --seeds 4",
+            "articulated --monster-policy",
+        ] {
+            let refusal = matchup_from(&traced_args(line)).expect_err(line);
+            assert!(refusal.contains("-policy"), "the refusal must name the key: {refusal}");
+            assert!(refusal.contains("needs a value"), "{refusal}");
+        }
+
+        // A well-formed value that names no script, refused with the vocabulary
+        // rather than with a number.
+        let unknown = matchup_from(&traced_args("articulated --hero-policy neutral"))
+            .expect_err("neutral is not a lab script");
+        assert!(unknown.contains("--hero-policy"), "{unknown}");
+        assert!(unknown.contains("neutral"), "{unknown}");
+        assert!(unknown.contains("openings"), "the refusal must list what it takes: {unknown}");
+
+        // The frozen competence receipt refuses both keys by name, on the same
+        // ground it refuses `--policy`: a matchup is a measurement-changing
+        // override however legal it is elsewhere.
+        for key in MATCHUP_KEYS {
+            let args = traced_args(&format!("articulated --competence-gate --{key} openings"));
+            assert_eq!(competence_override(&args), Some(key));
+        }
+
+        // `--matchup a:b` is a spelling this build never had. `Args` drops an
+        // unknown key silently, so without a refusal it runs symmetrically and
+        // says nothing -- the same failure as the demotion above, reached by a
+        // different route. Both the valued and the bare form are refused, and
+        // the refusal names the keys that do exist rather than only complaining.
+        for line in ["articulated --matchup openings:attack-moves", "articulated --matchup"] {
+            let refusal = matchup_from(&traced_args(line)).expect_err(line);
+            assert!(refusal.contains("--matchup"), "the refusal must name the key: {refusal}");
+            assert!(refusal.contains("--hero-policy") && refusal.contains("--monster-policy"),
+                    "the refusal must name what to use instead: {refusal}");
+        }
+
+        // And the control: a run with no matchup key at all is still the
+        // symmetric one, so the refusal above cannot be firing on everything.
+        assert!(matchup_from(&traced_args("articulated --seeds 4")).is_ok());
     }
 
     #[test]
@@ -2430,7 +2758,16 @@ mod tests {
         // Seed 14 keeps an actual refusal under the assertion, and keeping one
         // is the point: the inverted gate below is only meaningful while some
         // fixture still exercises a refusal it could get wrong.
-        for script in [Script::Composed, Script::Windmill, Script::ClosingAttacks] {
+        // **2026-08-16 brought the windmill's refusal back onto seed 5.**
+        // Freeing the guard bearing, and taking the plate's normal from the arm
+        // that carries it, put that script back onto the degenerate two-contact
+        // group Smart134 had moved it off -- one tick, `EnergyNumerator`, the
+        // same law and the same count Smart102 described. So seed 5 now pins
+        // both halves directly: two scripts that never reach the boundary and
+        // one that reaches it exactly once. That is a stronger statement than
+        // the uniform zero it replaces, and it is the shape this assertion had
+        // before Smart134, not a new one.
+        for script in [Script::Composed, Script::ClosingAttacks] {
             let trial = measure_articulated(&Scenario::articulated_duel(), 5, script);
             assert!(trial.contacts > 0, "{}: nothing touched", script.name());
             assert_eq!(trial.max_energy_excess, 0, "{}", script.name());
@@ -2440,12 +2777,32 @@ mod tests {
                 script.name()
             );
         }
+        let windmill = measure_articulated(&Scenario::articulated_duel(), 5, Script::Windmill);
+        assert!(windmill.contacts > 0, "windmill: nothing touched");
+        assert_eq!(windmill.max_energy_excess, 0, "windmill");
+        assert_eq!(
+            (windmill.solver_rejections, windmill.first_rejection),
+            (1, Some(sim::ResolutionError::EnergyNumerator)),
+            "the windmill's intentional refusal changed count or law",
+        );
+        // **Seed 14 and seed 5 swapped roles on 2026-08-16.** This seed was
+        // added by Smart134 because its doubled arm rates moved the intentional
+        // refusal off seed 5 and something still had to exercise one. Freeing
+        // the guard bearing moved a refusal back onto seed 5's windmill and off
+        // this one, so the duty has returned to where Smart102 left it and this
+        // seed is now the ordinary case.
+        //
+        // It is kept rather than deleted, because "a second seed also refuses
+        // nothing" is a weaker claim than the one above but not a worthless one:
+        // the pair is what says the zero is a property of the solver and not of
+        // one seed. The retained-refusal half is the windmill assertion above,
+        // and the inverted gate stays meaningful only while that one stands.
         let refusing = measure_articulated(&Scenario::articulated_duel(), 14, Script::Composed);
         assert_eq!(refusing.max_energy_excess, 0, "a refused tick still created energy");
         assert_eq!(
             (refusing.solver_rejections, refusing.first_rejection),
-            (1, Some(sim::ResolutionError::EnergyNumerator)),
-            "the retained intentional refusal changed count or law",
+            (0, None),
+            "the second ordinary seed changed count or law",
         );
     }
 }

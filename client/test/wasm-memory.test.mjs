@@ -222,12 +222,23 @@ const CLINCH_YAW = [0x0f74, 0x8f74];
 const CLINCH_WALK = [[58_976, 23_506], [-58_976, -23_506]];
 const CLINCH_SWEEP = 8_192;
 const CLINCH_PHASE_TICKS = 4;
-const CLINCH_CAP_TICK = 89;
-// Comfortably past 89 and still bounded: a drive that stopped clinching should
+// Re-recorded 89 -> 85 on 2026-08-16: Smart134 doubled the arm bearing rates,
+// and the Rust owner (`CLINCH_CAP_TICK` in crates/web/src/lib.rs) moved with
+// them while this mirror was missed.
+// Re-recorded 85 -> 88 on 2026-08-16: freeing the shield normal to follow its
+// arm made the old two-arm sweep spin the plate's facing and stop capping
+// entirely, so the sweep is now the weapon arm's alone and the ordinal is
+// exhausted three ticks later. The Rust owner is `CLINCH_CAP_TICK` in
+// crates/web/src/lib.rs.
+const CLINCH_CAP_TICK = 88;
+// Comfortably past 88 and still bounded: a drive that stopped clinching should
 // fail this fixture, not hang the suite inside it.
 const CLINCH_BUDGET = 128;
 
-const SUBMITTED_COMMAND_BYTES = 55;
+// 57 since payload layout 2 appended one release verb per arm; 55 before it.
+// The two new bytes sit after both grips, so every offset this file writes is
+// unmoved and only the length and the version changed.
+const SUBMITTED_COMMAND_BYTES = 57;
 const HALF_RAW = 0x8000;
 const ONE_RAW = 0x1_0000;
 
@@ -237,14 +248,19 @@ function clinchPayload(row, tick) {
   const bearing = (CLINCH_YAW[row] + offset) & 0xffff;
   const bytes = new Uint8Array(SUBMITTED_COMMAND_BYTES);
   const view = new DataView(bytes.buffer);
-  view.setUint16(0, 1, true); // SUBMITTED_COMMAND_LAYOUT_VERSION
+  view.setUint16(0, 2, true); // SUBMITTED_COMMAND_LAYOUT_VERSION
   bytes[2] = 1; // an articulated command; byte 3 stays the reserved zero
   view.setInt32(4, CLINCH_WALK[row][0], true);
   view.setInt32(8, CLINCH_WALK[row][1], true);
   view.setUint16(12, CLINCH_YAW[row], true);
   // Intent, target and both grips stay zero: `Hold`, nobody, `Keep`.
+  // The sweep is the weapon arm's; the guard arm holds the body bearing. It
+  // swept both until 2026-08-16, when the shield normal began following the arm
+  // that carries it -- after which sweeping the guard spins the plate's facing
+  // by an eighth turn every four ticks and the drive never caps at all. Mirrors
+  // `clinch_payload` in crates/web/src/lib.rs, which argues it at length.
   for (const arm of [23, 37]) {
-    view.setUint16(arm, bearing, true);
+    view.setUint16(arm, arm === 23 ? CLINCH_YAW[row] : bearing, true);
     view.setInt32(arm + 2, HALF_RAW, true); // CombatHeight::MID
     view.setInt32(arm + 6, ONE_RAW, true); // full reach
     view.setInt32(arm + 10, ONE_RAW, true); // full effort
@@ -402,7 +418,15 @@ test("the_browser_contact_warmup_does_not_grow_wasm_memory", () => {
   // its nav fields and its fog -- before it replaces the world, and a floor's
   // footprint depends on its seed. None of that is what this test is about, and
   // warming it out of the way is what keeps the subject the reservation.
-  for (let round = 1; round <= 9; round++) {
+  // **Twenty rounds since 2026-08-16, re-measured because the crush channel
+  // moved the settling point rather than the footprint.** Traced page counts
+  // per round: 224 from round one, flat through round eleven, a single step to
+  // 248 at round twelve, then 248 unchanged through round forty. Nine rounds
+  // therefore left the fixture one step short of settled, and the growth
+  // surfaced in a *guarded* cycle -- which reads as a leak and is not one:
+  // twenty-nine consecutive rounds at 248 is the evidence it converges. Twenty
+  // is the settling round plus two thirds again as margin.
+  for (let round = 1; round <= 20; round++) {
     for (const seed of seeds) contactWarmup(wasm, abi, seed);
   }
 
@@ -950,7 +974,8 @@ const CHECKPOINT = path.join(root, "checkpoints", "v2-probe.ckpt");
 
 /** The picker's own vocabulary, as the arena route will assemble it. */
 function liveConfig({ heroes = "composed", monsters = "composed", seed = 3,
-  hands = [["shield", "sword"], ["empty", "club"]], anatomies = [0, 1] } = {}) {
+  hands = [["shield", "sword"], ["empty", "club"]], twoHanded = [false, false],
+  anatomies = [0, 1] } = {}) {
   const policy = (name) => {
     const code = CONFIG.policyCodeOf(name);
     assert.notEqual(code, null, `${name} is not an articulated policy code`);
@@ -962,6 +987,7 @@ function liveConfig({ heroes = "composed", monsters = "composed", seed = 3,
       policy: policy(name),
       spawn: CONFIG.SHIPPED_SPAWNS[side],
       hands: [CONFIG.HAND_ITEMS[hands[side][0]], CONFIG.HAND_ITEMS[hands[side][1]]],
+      twoHanded: twoHanded[side],
     })),
     maxTicks: CONFIG.ARENA_MAX_TICKS,
     seed,
@@ -1043,8 +1069,16 @@ test("arena_start_allocates_within_the_warm_set", async () => {
   // three, `cycle 2, warmUp(7)` grows linear memory and detaches every retained
   // view. `init_articulated` builds a whole generated floor -- nav fields and fog
   // -- before it replaces the world, and a different seed is a different floor.
-  round();
-  round();
+  // **Eight rounds since 2026-08-16, and the count now matters as much as the
+  // arrangements do.** Traced page counts per round: 225 from round one, flat
+  // through round three, a single step to 249 at round four, then 249 unchanged
+  // through round twelve. Two rounds therefore stopped short of settled and the
+  // growth surfaced at `cycle 2, warmUp(3)`. The sibling fixture above moved the
+  // same way in the same commit -- 224 to 248 at its round twelve -- so this is
+  // one allocator step of about 24 pages arriving later than it used to, not two
+  // independent leaks: nine and twenty-nine flat rounds respectively are what
+  // say so. Eight is the settling round doubled.
+  for (let r = 1; r <= 8; r += 1) round();
 
   const shape = publicationShape(wasm, abi);
   const articulated = articulatedShape(wasm, abi);
@@ -1108,9 +1142,16 @@ test("the_index_survives_a_death", async () => {
   // A current default-mechanics kill rather than the learned checkpoint's old
   // v2-ui-08 outcome. The windmill control drives both sides here, matching
   // `lab trace --policy windmill --seed 3`: native and wasm both end on tick
-  // 1,260 with the Fighter standing. Keeping a real death is load-bearing -- a
+  // 3,012 with the Fighter standing. Re-measured three times on 2026-08-16:
+  // 1,260 -> 2,620 after Smart134 doubled the arm bearing rates; 2,620 -> 947
+  // once the guard bearing was freed and the plate's normal began following the
+  // arm that carries it; then 947 -> 3,012 when the crush channel gave blunt
+  // energy somewhere to go. The last one lengthens the fight rather than
+  // shortening it, which is the crush channel behaving as designed: it costs
+  // integrity and opens no bleeding wound, so both sides take real damage
+  // without starting a bleed clock. Keeping a real death is load-bearing -- a
   // timeout has two pose rows in every frame and cannot test this index seam.
-  const deathTick = 1_260;
+  const deathTick = 3_012;
   const config = liveConfig({ heroes: "windmill", monsters: "windmill", seed: 3 });
   const recording = await recordLive(wasm, config);
 
@@ -1128,7 +1169,15 @@ test("the_index_survives_a_death", async () => {
   assert.equal(source.frameAt(deathTick - 1).poses.length, 2);
   assert.equal(source.frameAt(deathTick).poses.length, 1);
   assert.equal(source.frameAt(deathTick).poses[0].id[0], 0, "the Fighter is the survivor");
-  assert.deepEqual(source.frameAt(deathTick).health, [65_536, 0]);
+  // The survivor is no longer untouched: `lab trace --policy windmill --seed 3`
+  // reports "3012 ticks, a body decided it / HeroesWin, hero 0.8098 monster
+  // 0.0000, 779 contacts, 3 severances" natively on 2026-08-16, and 0.8098 is
+  // exactly 53_072/65_536. Re-recorded alongside the death tick above -- both
+  // moved for the same reason, and native and wasm agree on both. The series so
+  // far: 65_536, then 65_408, then 64_240, now 53_072. The survivor keeps losing
+  // more of its health as the model gets better at spending energy on bodies,
+  // which is the direction every change in this topic was aiming at.
+  assert.deepEqual(source.frameAt(deathTick).health, [53_072, 0]);
 
   // **The index, as an assertion rather than as a comment.** This is the
   // arithmetic a reader without one would do; after the kill it lands on a row

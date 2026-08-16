@@ -63,6 +63,7 @@ use policy::{
 };
 use sim::{
     ArmTarget, ArticulatedCommandV1, ArticulatedObservation, BodyPart, CombatHeight, GripRequest,
+    ReleaseRequest,
     Intent, SegmentPose,
 };
 
@@ -840,15 +841,30 @@ fn weapon_arm(obs: &ArticulatedObservation) -> usize {
 /// is the one place a learned policy has an edge available to it that the script
 /// structurally cannot have.
 ///
-/// Everything else is v2-20's shape unchanged and the reasons are that
-/// function's: the bearing is welded to the commanded yaw because
-/// `World::derive_shield_pose` takes the plate's normal from body yaw and its
-/// centre from the hand, so a free bearing presents the plate edge-on to the
-/// attack its position implies it covers; the effort is a half because a
-/// zero-effort arm cannot return to a pose contact took it out of; and the reach
-/// is three quarters with something in the hand and a quarter without, because
-/// an empty hand held out lengthens the arm capsule rather than parking a guard
-/// in front of anything.
+/// The effort is a half because a zero-effort arm cannot return to a pose
+/// contact took it out of; and the reach is three quarters with something in the
+/// hand and a quarter without, because an empty hand held out lengthens the arm
+/// capsule rather than parking a guard in front of anything. Both reasons are
+/// that function's and both still hold.
+///
+/// **The bearing is welded here and is no longer welded there, and that
+/// divergence is deliberate.** It used to be welded on both sides for one shared
+/// reason: `World::derive_shield_pose` took the plate's normal from body yaw and
+/// its centre from the hand, so a free bearing presented the plate edge-on to
+/// the attack its position implied it covered. That defect was fixed on
+/// 2026-08-16 -- the normal now comes off the carrying arm's own bearing -- and
+/// `articulated_script::off_hand` accordingly lets the guard track the threat
+/// inside a bounded arc.
+///
+/// This copy does **not** follow it, because this one is not a style choice: the
+/// off arm's four columns are part of the frozen learned action vocabulary that
+/// `LEARNED_INFERENCE_DIGEST` is taken over, and the shipped checkpoint was
+/// scored against a guard that held the body's facing. Freeing it here would not
+/// be a re-record of that pin but a re-score of the checkpoint behind it, which
+/// is a training decision and not a mechanical one. Whoever takes that decision
+/// should free this column and re-score in the same change, and
+/// `the_action_table_is_the_scripts_own_vocabulary` states in its own body which
+/// columns the two functions still share.
 ///
 /// Built here rather than by calling into `policy` because that function is
 /// private. A local copy pinned by a test is cheaper than widening `policy`'s
@@ -953,6 +969,13 @@ pub fn compose(obs: &ArticulatedObservation, action: LearnedActionV1) -> Articul
         intent,
         arms,
         grips: [GripRequest::Keep; 2],
+        // **Not an action head, and this is the line that says so.** The frozen
+        // action layout is what `LEARNED_INFERENCE_DIGEST` is taken over, and
+        // the shipped checkpoint was scored against it. Giving the network a
+        // release verb to choose is a re-score, not a re-record; until some
+        // session pays for that, the learned policy holds like every other
+        // command builder in the tree.
+        releases: [ReleaseRequest::Keep; 2],
     }
 }
 
@@ -1478,12 +1501,39 @@ mod tests {
             [CombatHeight::LOW, CombatHeight::MID, CombatHeight::HIGH],
             "the sample ticks stopped covering all three guard heights",
         );
+        // **Three of the four columns are shared; the bearing is not, since
+        // 2026-08-16.** The script's guard now tracks the threat inside a
+        // bounded arc while this copy stays welded to the commanded yaw,
+        // because this one is the frozen learned action vocabulary and freeing
+        // it is a re-score rather than a re-record -- `off_hand`'s doc comment
+        // above argues that at length.
+        //
+        // These fixtures put the opponent due east of a body facing east, so
+        // the threat offset is zero and the two functions still agree on all
+        // four columns here. That agreement is a property of the fixture and
+        // not of the code, so it is asserted as a whole-target equality *and*
+        // the divergence is proved separately below -- otherwise an off-axis
+        // fixture would one day break this line and read as drift when it is
+        // the intended difference.
         for tick in samples {
             let held = scripted_articulated_command(&fighter_facing(tick)).arms[0];
             assert_eq!(held, off_hand(Angle::ZERO, guard_clock(tick), true), "tick {tick}");
             let empty = scripted_articulated_command(&brute_facing(tick)).arms[0];
             assert_eq!(empty, off_hand(Angle::ZERO, guard_clock(tick), false), "tick {tick}");
         }
+        // The threat is straight ahead in these fixtures, which is what makes
+        // the four-column equality above hold. Stated as an assertion so that
+        // moving the fixture opponent fails here, at the reason, rather than
+        // there, at the symptom.
+        let ahead = fighter_facing(0);
+        assert_eq!(
+            Vec2::new(
+                ahead.opponents[0].body_position.x - ahead.body_position.x,
+                ahead.opponents[0].body_position.y - ahead.body_position.y,
+            ).angle(),
+            Angle::ZERO,
+            "the shared-column equality above holds only while the threat is due east",
+        );
         // ...and the height is free, which is the whole experiment.
         assert_ne!(
             off_hand(Angle::ZERO, CombatHeight::HIGH, true),

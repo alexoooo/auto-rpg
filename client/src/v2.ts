@@ -414,9 +414,13 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
                 throw error;
               }
             },
+            // The stress fixture keeps zoom one and no follow: its recorded
+            // captures are comparable only because the camera never moves.
             createReviewCamera: (scene, canvas, bounds) =>
               roomModules[2].createRoomReviewCamera(scene, canvas, bounds,
-                roomReviewMode ? { initialFixedZoom: 1.6 } : {}),
+                roomReviewMode ? { initialFixedZoom: 1.6 }
+                  : stressMode ? {}
+                    : { initialFixedZoom: roomModules[2].GAME_INITIAL_FIXED_ZOOM, followHero: true }),
             reviewCameraFree: initialRoomCameraFree,
           });
         },

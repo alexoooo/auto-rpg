@@ -81,7 +81,7 @@ reallocate its own address. That matters because growing wasm linear memory deta
 JavaScript typed arrays, and a moving `Vec` at this boundary would turn an otherwise
 valid view into stale memory.
 
-A fifth fixed array is inward-only: the 55-byte versioned submitted-command
+A fifth fixed array is inward-only: the 57-byte versioned submitted-command
 scratch buffer. The host writes and drops its short-lived view before calling the
 submit export; Rust copies the complete buffer before validation or mutation. It
 does not change the frame layout or any publication revision.
@@ -283,9 +283,9 @@ that evidence.
 
 ## Source anchors
 
-- Fixed publication pools: [`thread_local!`](../../crates/web/src/lib.rs#L1511)
-- Packed frame writer: [`Sim::write_frame`](../../crates/web/src/lib.rs#L4133)
-- Hand-written wasm exports: [`init`](../../crates/web/src/lib.rs#L4966)
+- Fixed publication pools: [`thread_local!`](../../crates/web/src/lib.rs#L1534)
+- Packed frame writer: [`Sim::write_frame`](../../crates/web/src/lib.rs#L4157)
+- Hand-written wasm exports: [`init`](../../crates/web/src/lib.rs#L5006)
 - Worker adapter and atomic scalar phase: [`readPublication`](../../client/src/runtime/sim.worker.ts#L81)
 - Pure protocol host: [`SimWorkerHost`](../../client/src/runtime/sim-worker-host.ts#L55)
 - Main-thread lease owner: [`SimClient`](../../client/src/runtime/sim-client.ts#L122)

@@ -28,8 +28,15 @@ def mesh_bounds(obj):
     ]
 
 
+# Instance counts of the 48 x 32 stress fixture. The client synthesizes each
+# corner/tee tile from two crossing wall_straight runs (chooseRoomWall in
+# client/src/render/room-environment.ts), so wall_straight carries 184 while
+# wall_inside/wall_outside stay authored in the kit but place zero instances;
+# their capacities are kept so the estimate still covers reverting that
+# decision. The committed sidecar's residency block predates this table and
+# refreshes at the next authored build.
 INSTANCE_CAPACITIES = {
-    "floor_a": 768, "floor_b": 768, "wall_straight": 160,
+    "floor_a": 768, "floor_b": 768, "wall_straight": 184,
     "wall_inside": 4, "wall_outside": 8, "wall_end": 4,
     "door_frame": 2, "door_leaf": 2, "torch_bracket": 8,
     "decal_rubble": 4, "decal_root": 4, "prop_barrel": 4,

@@ -13,9 +13,14 @@ export const ROOM_STRESS_WARMUP_MS = 30_000;
 export const ROOM_STRESS_SAMPLE_MS = 120_000;
 export const ROOM_STRESS_MAP_SHA256 = "1262c7dc5eb359a06db10a06c85e2782237b226e423a903f72441f1dfde18e6c" as const;
 
+// Wall counts are instances, not solid tiles: the 4 corners and 8 tees/crosses
+// each synthesize two crossing `wall_straight` runs (see `chooseRoomWall`), so
+// 160 straight-run tiles become 160 + 2 * (4 + 8) = 184 straight instances and
+// the authored corner pieces place zero. `tools/art/export.py` carries the same
+// numbers as instance capacities for the residency estimate.
 export const ROOM_STRESS_PIECE_COUNTS = Object.freeze({
   floor_a: 768, floor_b: 768,
-  wall_straight: 160, wall_inside: 4, wall_outside: 8, wall_end: 4,
+  wall_straight: 184, wall_inside: 0, wall_outside: 0, wall_end: 4,
   door_frame: 2, door_leaf: 2, torch_bracket: 8,
   decal_rubble: 4, decal_root: 4, prop_barrel: 4,
 });

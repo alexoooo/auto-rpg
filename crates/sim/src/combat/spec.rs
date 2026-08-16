@@ -41,6 +41,68 @@ impl AnatomyRegion {
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Material { Flesh = 0, Steel = 1, Wood = 2 }
 
+impl Material {
+    /// How much of a blow's *declined* energy this material drives into tissue
+    /// as crushing, in `[0,1]`.
+    ///
+    /// # Why this is a material and not a surface field
+    ///
+    /// [`SurfaceSpec::edge_factor`] and [`SurfaceSpec::point_factor`] are
+    /// **shape**: they ask whether the thing has an edge and whether it has a
+    /// point, and a steel sword and a steel shield disagree about both while
+    /// being the same steel. Crushing asks the opposite question -- how much of
+    /// a blow the thing passes on instead of soaking up in its own deformation
+    /// -- and that is stiffness, which is exactly what `Material` names. So the
+    /// coefficient hangs here, on the field every surface already carries, and
+    /// **no byte moves**: `write_surface` has always written `material`, so the
+    /// spec-table digest, the `articulated-duel-v1` fingerprint and the replay
+    /// codec's `BODY_ANATOMY_SPEC_V1_BYTES` are all untouched by this. A field
+    /// beside `point_factor` would have cost all three plus a schema bump, and
+    /// bought no distinction the roster can express.
+    ///
+    /// This is also the first mechanical meaning `Material` has ever had. It was
+    /// written into every digest and read by nothing.
+    ///
+    /// # The numbers
+    ///
+    /// Only a **segment** ever reaches the weapon/body channel -- `ContactKey`
+    /// builds `WeaponBody` from `Segment` against `Body` and nothing else, and
+    /// `channels` sends a non-segment straight to pressure through
+    /// `zero_length`. So of the four shipped surfaces only the sword's and the
+    /// club's can act, and the sword's is inert for a separate reason given
+    /// below.
+    ///
+    /// - **Wood, 3/4.** A club is a purpose-built blunt weapon: the roster's
+    ///   heaviest item at `223/100` against the sword's `31/25`, with its mass
+    ///   furthest forward at a `balance` of `61/100` against `11/20`. Crushing
+    ///   is the whole of its design intent, so it passes on most of what its
+    ///   absent edge could not cut. Not all of it: wood is compliant, and the
+    ///   club is the springiest surface shipped at a `restitution` of `1/4`,
+    ///   twice either steel item's `1/8`.
+    /// - **Steel, 7/8.** Stiffer than wood, so it soaks up less of the blow
+    ///   itself. **Unobservable on the shipped roster**, and deliberately so:
+    ///   the sword's edge and point are both `1`, which claims the entire
+    ///   available budget and leaves nothing to decline, and the shield is not a
+    ///   segment. It is set for the axis it names rather than for an effect it
+    ///   has today, so that a steel blunt weapon -- a mace -- lands above a
+    ///   wooden one when somebody adds it.
+    /// - **Flesh, 0.** A body is never the weapon side of a weapon/body pair, so
+    ///   this is unreachable. Zero states that, where any other number would
+    ///   imply that walking into somebody is an attack.
+    ///
+    /// What is *not* modelled is concentration: a club head and a flat plank of
+    /// the same wood crush alike here, because the channel carries no contact
+    /// area. `edge_factor` and `point_factor` are the only concentration terms
+    /// the model has, and neither describes a blunt face.
+    pub const fn crush_factor(self) -> Fx {
+        match self {
+            Material::Flesh => Fx::ZERO,
+            Material::Steel => r(7, 8),
+            Material::Wood => r(3, 4),
+        }
+    }
+}
+
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct SurfaceSpec {
     pub restitution: Fx,

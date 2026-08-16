@@ -162,7 +162,8 @@
   <template id="route-game">
     <div class="route-game">
       <h1>v2 worker boundary</h1>
-      <p>The worker-owned simulation is rendered through the v2 procedural GPU greybox.
+      <p>The worker-owned simulation is rendered through the authored representative
+        room kit; the procedural greybox remains available at <code>?room=procedural</code>.
         Backend selection and the complete disclosed-state registry are shown below.</p>
       <canvas id="greybox" width="1280" height="720" aria-label="Procedural game view"></canvas>
       <p id="interaction-hint" class="legacy-link">Interactive controls become available after startup.</p>
@@ -257,6 +258,7 @@
               <option value="club">Club</option>
             </select>
           </label>
+          <label>two-handed <input id="a-two-handed" type="checkbox"></label>
           <label>policy <select id="a-policy"></select></label>
         </div>
         <div class="picker-row monster">
@@ -283,6 +285,7 @@
               <option value="club" selected>Club</option>
             </select>
           </label>
+          <label>two-handed <input id="b-two-handed" type="checkbox"></label>
           <label>policy <select id="b-policy"></select></label>
           <label>seed <input id="arena-seed" type="number" min="0" max="4294967295" value="3"></label>
           <button id="fight" type="button">Run selected fight</button>

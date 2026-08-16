@@ -79,6 +79,7 @@ export const POLICIES: readonly PolicyOption[] = [
   { code: "attack-moves", label: "attack-moves", live: true },
   { code: "learned", label: "learned (fetches a checkpoint)", live: true, fetches: "/checkpoints/v2-probe.ckpt" },
   { code: "tactical", label: "tactical", live: true },
+  { code: "openings", label: "openings (aims off the shield)", live: true },
 ];
 
 export type PolicyCode = string;
@@ -98,6 +99,13 @@ export interface SideChoice {
   readonly anatomy: AnatomyCode;
   readonly left: HandCode;
   readonly right: HandCode;
+  /**
+   * The right hand's item held in both hands, `GripBinding::Both`. The rules
+   * about which pairings exist are the module's, restated by `review` so the
+   * refusal arrives before the button is pressed: a full right hand, an empty
+   * left one, and never a shield.
+   */
+  readonly twoHanded: boolean;
   readonly policy: PolicyCode;
 }
 
@@ -137,6 +145,39 @@ export function review(matchup: Matchup, mode: FightMode): Review {
           + `carries something, and validate_rows refuses an articulated row whose first `
           + `equipment slot is empty against it. Give ${label} a sword, a shield or a club in `
           + `one hand.`,
+        notes: [],
+      };
+    }
+  }
+
+  // The three grips the simulation refuses, said here so the refusal names a
+  // control rather than arriving as an `arena_start` reason byte after the
+  // button. The rules are `Scenario::duel_from`'s and its validators', not this
+  // file's: a grip needs a right-hand item to sit on, `validate_bindings`
+  // refuses `Both` beside a second carried item, and `validate_equipment`
+  // refuses a `Both` plate.
+  for (const [label, side] of sides(matchup)) {
+    if (!side.twoHanded) continue;
+    if (side.right === "empty") {
+      return {
+        refusal: `${label} is set two-handed with an empty right hand, and a grip needs an item `
+          + `to sit on: give ${label} a sword or a club in the right hand, or untick two-handed.`,
+        notes: [],
+      };
+    }
+    if (side.right === "shield") {
+      return {
+        refusal: `${label} is set two-handed on a shield, and a plate cannot be gripped in both `
+          + `hands: validate_equipment refuses a Both-bound shield as a grip conflict. Put a `
+          + `sword or a club in the right hand, or untick two-handed.`,
+        notes: [],
+      };
+    }
+    if (side.left !== "empty") {
+      return {
+        refusal: `${label} is set two-handed while its left hand carries ${side.left}, and a `
+          + `two-handed grip is one item occupying two hands: validate_bindings refuses Both `
+          + `beside a second carried item. Empty ${label}'s left hand, or untick two-handed.`,
         notes: [],
       };
     }
@@ -199,6 +240,7 @@ export function arenaConfigOf(matchup: Matchup): ArenaConfig {
       policy,
       spawn: SHIPPED_SPAWNS[index],
       hands: [HAND_ITEMS[side.left], HAND_ITEMS[side.right]] as const,
+      twoHanded: side.twoHanded,
     };
   };
   return {
@@ -248,12 +290,24 @@ export function resolveRecording(matchup: Matchup): Recording | null {
 }
 
 /**
+ * The scripts `lab` can put on one named side.
+ *
+ * `neutral` is absent on purpose: it is an `ArticulatedPolicyKind` the browser
+ * can select and **not** a `lab` script, so a command naming it would exit 2.
+ * The list mirrors `MATCHUP_SCRIPTS` in `crates/lab/src/main.rs`.
+ */
+const TRACEABLE_SCRIPTS: readonly string[] = [
+  "composed", "windmill", "attack-moves", "tactical", "openings",
+];
+
+/**
  * The `lab trace` command that would record this pairing, or null if none does.
  *
- * `lab trace --policy` puts **one script on both sides** -- that is what makes a
- * scripted trace a control -- and only `--policy learned` takes an `--opponent`.
- * So most mixed pairings have no command at all, and saying so is more useful
- * than printing one that exits 2.
+ * `--policy` still puts **one script on both sides** -- that is what makes a
+ * scripted trace a control -- but `--hero-policy`/`--monster-policy` name a
+ * driver per side, so a mixed scripted pairing now has a command where it used
+ * to have none. `--policy learned` keeps its own `--opponent` spelling, which is
+ * the older and narrower door to the same asymmetry.
  */
 export function recordingCommand(matchup: Matchup): string | null {
   const a = matchup.a.policy;
@@ -262,10 +316,10 @@ export function recordingCommand(matchup: Matchup): string | null {
   if (a === "learned" && (b === "composed" || b === "windmill" || b === "attack-moves")) {
     return `${base} --policy learned --checkpoint checkpoints/v2-probe.ckpt --opponent ${b}`;
   }
-  if (a !== b) return null;
-  if (a === "composed" || a === "windmill" || a === "tactical") return `${base} --policy ${a}`;
+  if (!TRACEABLE_SCRIPTS.includes(a) || !TRACEABLE_SCRIPTS.includes(b)) return null;
+  if (a !== b) return `${base} --hero-policy ${a} --monster-policy ${b}`;
   if (a === "attack-moves") return `${base} --policy composed --attack-moves`;
-  return null;
+  return `${base} --policy ${a}`;
 }
 
 /** What to say when no recording matches the controls, naming what would make one. */
@@ -274,9 +328,9 @@ export function missingRecording(matchup: Matchup): string {
     + `${matchup.b.policy} on Fighter B`;
   const command = recordingCommand(matchup);
   if (command === null) {
-    return `${pairing}, and no lab trace command produces one: --policy takes composed, `
-      + `windmill, tactical or learned, --attack-moves edits composed, and it runs one policy on both `
-      + `sides unless the policy is learned. Press Run selected fight to run this pairing live instead.`;
+    return `${pairing}, and no lab trace command produces one: --hero-policy and `
+      + `--monster-policy take ${TRACEABLE_SCRIPTS.join(", ")}, and neutral is a browser policy `
+      + `rather than a lab script. Press Run selected fight to run this pairing live instead.`;
   }
   const pair = matchup.a.policy === matchup.b.policy
     ? matchup.a.policy
@@ -290,28 +344,38 @@ export interface RecordedSide {
   readonly anatomy: string;
   readonly left: string;
   readonly right: string;
+  readonly twoHanded: boolean;
 }
 
 /**
  * What a recorded body actually brought, from the trace's own body header.
  *
- * `GripBinding::Both` fills both hands with the one item, which is why this is a
- * loop over `carried` and not two lookups.
+ * `GripBinding::Both` is one item on the right hand plus the flag -- the same
+ * three values the picker's own controls read -- rather than the item copied
+ * into both hands, which is what this used to answer and what made a recorded
+ * two-handed club incomparable with the controls that describe one.
  */
 export function recordedLoadout(body: BodyInfo): RecordedSide {
   let left = "empty";
   let right = "empty";
+  let twoHanded = false;
   for (const item of body.carried) {
     if (item === null) continue;
     const action = item.action.toLowerCase();
-    if (item.binding === "Left" || item.binding === "Both") left = action;
-    if (item.binding === "Right" || item.binding === "Both") right = action;
+    if (item.binding === "Left") left = action;
+    if (item.binding === "Right") right = action;
+    if (item.binding === "Both") {
+      right = action;
+      twoHanded = true;
+    }
   }
-  return { anatomy: body.kind.toLowerCase(), left, right };
+  return { anatomy: body.kind.toLowerCase(), left, right, twoHanded };
 }
 
 function describeSide(label: string, side: RecordedSide): string {
-  return `${label} is a ${side.anatomy} holding ${side.left} left and ${side.right} right`;
+  return side.twoHanded
+    ? `${label} is a ${side.anatomy} holding ${side.right} in both hands`
+    : `${label} is a ${side.anatomy} holding ${side.left} left and ${side.right} right`;
 }
 
 /**
@@ -330,7 +394,7 @@ export function recordingMismatch(matchup: Matchup, header: FightHeader): string
     if (body === undefined) return;
     const recorded = recordedLoadout(body);
     if (recorded.anatomy === side.anatomy && recorded.left === side.left
-      && recorded.right === side.right) {
+      && recorded.right === side.right && recorded.twoHanded === side.twoHanded) {
       return;
     }
     differing.push(describeSide(label, recorded));
@@ -367,6 +431,12 @@ function select(root: HTMLElement, id: string): HTMLSelectElement {
   return found;
 }
 
+function checkbox(root: HTMLElement, id: string): HTMLInputElement {
+  const found = root.querySelector(`#${id}`);
+  if (!(found instanceof HTMLInputElement)) throw new Error(`#${id} is missing from the picker`);
+  return found;
+}
+
 /** Fill `#a-policy` and `#b-policy`, since the template deliberately leaves them empty. */
 export function populatePolicies(root: HTMLElement, heroes: string, monsters: string): void {
   for (const [id, chosen] of [["a-policy", heroes], ["b-policy", monsters]] as const) {
@@ -396,6 +466,7 @@ export function readMatchup(root: HTMLElement): Matchup {
     anatomy: code(ANATOMIES, select(root, `${prefix}-anatomy`).value, `${prefix}-anatomy`),
     left: code(HANDS, select(root, `${prefix}-left`).value, `${prefix}-left`),
     right: code(HANDS, select(root, `${prefix}-right`).value, `${prefix}-right`),
+    twoHanded: checkbox(root, `${prefix}-two-handed`).checked,
     policy: select(root, `${prefix}-policy`).value,
   });
   const seedInput = root.querySelector("#arena-seed");
@@ -406,8 +477,8 @@ export function readMatchup(root: HTMLElement): Matchup {
 /** Every control the picker owns, for one `addEventListener` sweep. */
 export function pickerControls(root: HTMLElement): readonly HTMLElement[] {
   const ids = [
-    "a-anatomy", "a-left", "a-right", "a-policy",
-    "b-anatomy", "b-left", "b-right", "b-policy", "arena-seed",
+    "a-anatomy", "a-left", "a-right", "a-two-handed", "a-policy",
+    "b-anatomy", "b-left", "b-right", "b-two-handed", "b-policy", "arena-seed",
   ];
   return ids.map((id) => {
     const found = root.querySelector(`#${id}`);

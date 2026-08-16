@@ -259,7 +259,7 @@ impl Replay {
 mod tests {
     use super::*;
     use crate::{
-        ArmTarget, CombatHeight, GripRequest, Scenario, SubmitArticulatedOutcome,
+        ArmTarget, CombatHeight, GripRequest, ReleaseRequest, Scenario, SubmitArticulatedOutcome,
     };
     use fx::{Angle, Fx, Vec2};
 
@@ -276,6 +276,7 @@ mod tests {
             intent: crate::Intent::Hold,
             arms: [arm; 2],
             grips: [GripRequest::Keep; 2],
+            releases: [ReleaseRequest::Keep; 2],
         }
     }
 
@@ -409,7 +410,7 @@ mod tests {
         };
         let held = |yaw: Angle, arms: [ArmTarget; 2]| crate::ArticulatedCommandV1 {
             move_dir: Vec2::ZERO, body_yaw: yaw, intent: crate::Intent::Hold,
-            arms, grips: [GripRequest::Keep; 2],
+            arms, grips: [GripRequest::Keep; 2], releases: [ReleaseRequest::Keep; 2],
         };
         let orders = [
             (fighter, held(Angle::ZERO, [
@@ -492,6 +493,7 @@ mod tests {
         };
         let held = |yaw: Angle, arms: [ArmTarget; 2], grips| crate::ArticulatedCommandV1 {
             move_dir: Vec2::ZERO, body_yaw: yaw, intent: crate::Intent::Hold, arms, grips,
+            releases: [ReleaseRequest::Keep; 2],
         };
         let tucked = Fx::from_ratio(1, 4);
         let command_at = |tick, id| if id == fighter {

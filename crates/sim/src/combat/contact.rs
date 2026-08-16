@@ -443,6 +443,9 @@ pub struct ContactResolution {
     pub energy: EnergyLedger,
     pub cut_raw: u64,
     pub thrust_raw: u64,
+    /// Blunt energy, and the third column that wounds. `pressure_raw` is what
+    /// is left after all three, and still wounds nothing.
+    pub crush_raw: u64,
     pub pressure_raw: u64,
     pub deflected_raw: u64,
     pub severed: bool,

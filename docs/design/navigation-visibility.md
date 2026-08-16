@@ -2,7 +2,7 @@
 
 **Purpose:** Explain why the floor, routing, sight, orders, and browser route have their current shapes.
 **Status:** current
-**Canonical source:** [`Dungeon`](../../crates/sim/src/dungeon.rs#L102), [`World::observe`](../../crates/sim/src/world.rs#L1815), and the policy order adapters ([utility](../../crates/policy/src/utility.rs#L511), [duelist](../../crates/policy/src/duelist.rs#L685))
+**Canonical source:** [`Dungeon`](../../crates/sim/src/dungeon.rs#L102), [`World::observe`](../../crates/sim/src/world.rs#L1831), and the policy order adapters ([utility](../../crates/policy/src/utility.rs#L511), [duelist](../../crates/policy/src/duelist.rs#L685))
 **Update when:** Floor representation, collision, routing, visibility, order semantics, or route ownership changes.
 
 ## The floor plan
@@ -129,8 +129,8 @@ browser-host convenience queue over that channel, not simulation state and not a
 per-unit order system. The wasm host advances waypoints, drops unreachable or stalled
 legs, clears the queue on a plain click, focus change, death, swap, or descent, and
 uses fixed capacity so route editing cannot grow wasm memory while JavaScript holds
-typed-array views. The queue implementation begins at [`Sim::route`](../../crates/web/src/lib.rs#L2067)
-and its exports at [`route_clear`](../../crates/web/src/lib.rs#L5368).
+typed-array views. The queue implementation begins at [`Sim::route`](../../crates/web/src/lib.rs#L2091)
+and its exports at [`route_clear`](../../crates/web/src/lib.rs#L5408).
 
 The leg test runs in Rust once per simulation tick. One animation frame may hand
 `Sim::advance` up to eight catch-up ticks, so a page-side arrival test would overshoot

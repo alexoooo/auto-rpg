@@ -76,9 +76,10 @@ stopped. The other two terms are unchanged.
 
 ## Armor and wound transfer
 
-V2-14 supplies `cut_raw`, `thrust_raw`, and `pressure_raw` as `u64` 16.16 energy
-raws; v2-15 never narrows them to `Fx`. Let `incoming = cut_raw + thrust_raw` with
-checked `u64` addition (the resolution-share invariant proves it fits). Define
+V2-14 supplies `cut_raw`, `thrust_raw`, `crush_raw` and `pressure_raw` as `u64` 16.16
+energy raws; v2-15 never narrows them to `Fx`. Let
+`incoming = cut_raw + thrust_raw + crush_raw` with checked `u64` addition (the
+resolution-share invariant proves it fits). Define
 `fraction(value,f) = floor((value as u128)*(f.raw as u128)/65_536)`, returning a
 checked `u64`. The outward region normal is from the chosen medial
 point to contact; degenerate uses body-forward. Let
@@ -97,23 +98,26 @@ The multiplier 96 is the same physical `Fx::from_int(96)` whose raw representati
 is `6_291_456`; fixed-point scales cancel, so no extra 65,536 enters the raw product.
 Only after the widened product, clamp integrity loss to the pre-group integrity raw
 and narrow that final value to `Fx`; clamp the new wound raw to its immutable regional
-maximum before narrowing. Pressure remains `u64` and changes no anatomy.
+maximum before narrowing. Pressure remains `u64` and changes no anatomy: it is the
+energy floor plus whatever rounding the three-way split left, and it is the only
+channel that wounds nothing.
 The exact ledger extension is
 `incoming = deflected + absorbed + penetrating`; armor never adds energy.
 
 **Integrity takes the whole loss; a wound is the cutting share of it.** Structure is
 damaged by everything that gets through, but only an edge leaves an open surface to
-bleed from, so the wound gain is the loss split in the incident cut/thrust ratio:
+bleed from, so the wound gain is the loss split in the incident cut ratio:
 
 ```text
 wound_gain = floor(loss_raw * cut_raw / incoming)
 ```
 
-with checked `u128` products and division. The thrust share is the remainder rather
-than a second division, so the two are exactly the loss and no rounding escapes into
-either column -- and it is thrust that carries the remainder because thrust is the
-column nothing downstream reads. A pure thrust opens no wound and therefore starts no
-bleed clock; a pure cut opens one worth the whole loss.
+with checked `u128` products and division. The non-cutting share is the remainder
+rather than a second division, so the two are exactly the loss and no rounding escapes
+into either column -- and it is the remainder that carries it because nothing
+downstream reads the non-cutting columns separately. A pure thrust opens no wound and
+therefore starts no bleed clock; **a pure crush opens none either, for the same
+reason**; a pure cut opens one worth the whole loss.
 
 Every fact in one time group reads one immutable pre-group anatomy snapshot.
 Accumulate integrity loss, wound gain, blood/shock effects, and severance flags by

@@ -12,6 +12,7 @@
 // same rule `fight/trace.ts` states for the 2D panels.
 
 import { interpolateAngle } from "../render/interpolation.js";
+import type { RigClip } from "../render/rig-names.js";
 import {
   add, at, scale, shieldCorners, sub,
   type Arm, type Pose, type Region, type Segment, type ShieldFace, type V3,
@@ -526,48 +527,17 @@ export function threeQuarterPlacement(
  * published_points` reads this list against the plan's own code block, so a name
  * that drifts on one side fails on the other.
  *
- * The three order-sensitive facts, written down because a list of strings hides
- * them: `RIG_REGIONS` is in `regionNames` order, so `RIG_REGIONS[i]` is the node
- * for `pose.regions[i]`; `arm_left`/`hand_left` are limb 0 and `arm_right`/
- * `hand_right` limb 1, which is `LimbSlot`'s own order; and `RIG_NODES` concatenates
- * the four lists in the order v2-18's own block lists them, which is what the test
- * compares.
+ * **The lists live in `render/rig-names.ts` and are re-exported, not copied.**
+ * The `#/game` procedural figure hangs its meshes off the same names, and the
+ * arena may not be imported by the greybox nor import worker-shaped modules, so
+ * the shared names sit in that neutral, Babylon-free module -- this file's own
+ * contract is "no Babylon in it", which is why the lists are not re-exported
+ * from the hierarchy builder (`render/rig-nodes.ts`). See the names module for
+ * the three order-sensitive facts the lists carry.
  */
-export const RIG_BONES = Object.freeze([
-  "root", "pelvis", "torso", "head", "arm_left", "hand_left", "arm_right", "hand_right",
-] as const);
-
-export const RIG_SOCKETS = Object.freeze([
-  "socket_weapon_left", "socket_weapon_right", "socket_shield",
-] as const);
-
-/** In `regionNames` order: head, torso, leftArm, rightArm, legs. */
-export const RIG_REGIONS = Object.freeze([
-  "region_head", "region_torso", "region_left_arm", "region_right_arm", "region_legs",
-] as const);
-
-/**
- * The four clip slots, of which this session can honestly select two.
- *
- * `idle` and `walk` are chosen from published body speed, so they are the two the
- * velocity-driven gait can reach. **`stagger` and `fall` are left empty and are
- * never selected**, because v2-18's rule is that reactions begin only from events
- * and this session wires no event into the proxy: a stagger picked off a threshold
- * on published `shock` would be a reaction this page invented, and `shock` over
- * the three recordings' 21083 poses peaks at 0.021 world units with a 99th
- * percentile of 0.000, so any threshold worth drawing would fire on nothing or on
- * noise -- a hundredth of a unit is a twentieth of a torso. The slots exist
- * anyway, so that the session which starts a reaction from an event finds the node
- * already named, already parented and already checked.
- */
-export const RIG_CLIPS = Object.freeze(["idle", "walk", "stagger", "fall"] as const);
-
-export type RigClip = (typeof RIG_CLIPS)[number];
-
-/** Every node name, in the order v2-18 lists them. */
-export const RIG_NODES: readonly string[] = Object.freeze([
-  ...RIG_BONES, ...RIG_SOCKETS, ...RIG_REGIONS, ...RIG_CLIPS,
-]);
+export {
+  RIG_BONES, RIG_CLIPS, RIG_NODES, RIG_REGIONS, RIG_SOCKETS, type RigClip,
+} from "../render/rig-names.js";
 
 // ------------------------------------------------------- the invented quantities
 

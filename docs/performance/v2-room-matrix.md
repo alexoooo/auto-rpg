@@ -28,23 +28,41 @@ this decision does not claim the ultimate painted-art target.
 | CSS/backing size and render scale | 1920 x 1080; scale 1 |
 | Fixture | `v2-room-slice-1`; seed `1592594996`; 48 x 32; 64 bodies; eight torches plus one directional light; no training workers; all-visible performance disclosure |
 | `ROOM_STRESS_MAP_SHA256` | `1262c7dc5eb359a06db10a06c85e2782237b226e423a903f72441f1dfde18e6c` for the exact 1,536 committed map bytes mirrored by fixture source, manifest, sidecar, matrix, and tests |
-| Exact fixed piece counts and capacities | 1,536 floors (floor_a 768, floor_b 768); wall_straight 160; wall_inside 4; wall_outside 8; wall_end 4; door_frame 2; door_leaf 2; torch_bracket 8; decal_rubble 4; decal_root 4; prop_barrel 4 |
+| Exact fixed piece counts and capacities | 1,536 floors (floor_a 768, floor_b 768); wall_straight 184; wall_inside 0; wall_outside 0; wall_end 4; door_frame 2; door_leaf 2; torch_bracket 8; decal_rubble 4; decal_root 4; prop_barrel 4. Wall counts are instances: the 4 corner and 8 tee/cross tiles each lay two crossing straight runs, and the authored corner pieces stay in the kit unused. The committed sidecar's residency estimate (instances 222,208 bytes) predates the 184 capacity and refreshes at the next authored build |
 
 ## Automated contract record
 
 The exact validator, toolchain, build-delivery, loader, visibility, topology,
 fixture, camera, fallback, reset, loss, and disposal tests named by v2-09 are green.
-The render contract suite passes 53 of 53 tests, including real Babylon NullEngine
+The render contract suite passes 83 of 83 tests, including real Babylon NullEngine
 source/instance evaluation, exact live role counts, semantic picks, no-op revision
 reconciliation, socket transforms, camera input cleanup, and partial-construction
 rollback. Source-text assertions do not replace these semantic tests.
 
-General wall topology uses disclosed solid neighbours only: east/west straight walls
-use quarter turn 0 and north/south straight walls quarter turn 1. Role counts remain
-160/4/8/4 and the map hash is unchanged. Every current torch has a non-pickable,
-non-shadow emissive socket sphere and capped warm point light; stress diagnostics now
-record eight effects and 20 draws (12 source groups plus eight flames), with the same
-nine lights. Reset/disposal removes the flame meshes and shared material.
+General wall topology reads the four-neighbourhood with one fog concession: an
+undisclosed neighbour counts as solid for a drawn wall's piece choice, and never
+becomes a drawn tile itself, so runs at the exploration frontier no longer break
+into `wall_end` stubs. East/west straight runs use quarter turn 0 and north/south
+runs quarter turn 1. Every multi-neighbour wall tile is synthesized from
+`wall_straight` alone -- one centreline run per solid axis, so corners, tees and
+crosses lay two crossing runs -- because the authored corner pieces put their arms
+on the tile edges where a neighbouring run sits on the centreline, which was the
+recorded join failure; the decision and its reversal path are commented at
+`chooseRoomWall`, and the arena restatement mirrors it over all 84 ring tiles.
+Stub rotations remain axis-derived. Wall instance counts are 184/0/0/4 over the
+same 176 solid tiles and the map hash is unchanged. Every current torch has a
+non-pickable, non-shadow emissive socket sphere and capped warm point light; stress
+diagnostics now record eight effects and 18 draws (10 source groups plus eight
+flames), with the same nine lights. Reset/disposal removes the flame meshes and
+shared material.
+
+The unit markers on the playable route are procedural figures rather than cylinders
+(2026-08-16): each body is a fixed per-kind set of primitive meshes hanging off the
+v2-18 joint names shared with the arena proxy through `render/rig-names.ts`, driven
+by the published frame row (limb bearing/reach, swing phase, stride clock, velocity)
+with client-side legs documented as derived presentation. The contract test
+`the_procedural_figure_carries_the_v2_18_joint_names_and_published_fields_drive_it`
+pins the joint list, the exact blade segment, the walk gating, and radius scaling.
 
 The build record must also prove that the glTF loader is a lazy dynamic chunk absent
 from modulepreloads and the initial static import closure, and that ordinary and
@@ -87,12 +105,17 @@ environment accents. The ultimate target remains
 for this replacement review but does not complete the ultimate painted-art direction;
 neither image is a generator or runtime input.
 
-The current debug-only API is
-`createRoomReviewCamera(scene, canvas, bounds)`, returning `resetFixed()`,
+The current API is
+`createRoomReviewCamera(scene, canvas, bounds, options)`, returning `resetFixed()`,
 `setFree(bool)`, and idempotent `dispose()`. Fixed mode owns the committed isometric
 pose. Free mode uses a bounded Babylon ArcRotateCamera attached only to the active
 canvas; it is excluded from performance and normal gameplay and removes every input
-and observer on reset or disposal.
+and observer on reset or disposal. The playable game route additionally passes
+`followHero: true`, which exposes a `follow(x, z)` the render loop feeds with the
+faction-0 unit each frame: a dead-zone camera window (`FOLLOW_DEAD_ZONE_FRACTION`)
+that pans only the excess, is suspended by a user drag until the hero itself walks
+away, and is absent -- not merely inert -- on the stress and compact-review
+fixtures so their captures cannot drift.
 
 The exact review query is `roomCamera=fixed|free`, valid only with
 `room=representative`; absent means fixed. The review control toggles the same API,
@@ -103,7 +126,7 @@ but every performance capture requires fixed mode and rejects free mode.
 | Stone modeling | fail | fail | Repetition at 48 x 32 reads as a dense mass rather than a composed room. |
 | Material response | fail | fail | Stone and wood are too dark to separate reliably from the playfield. |
 | Fixture-origin light | fail | fail | Torch accents do not establish readable local hierarchy. |
-| Join coherence | fail | fail | Floor and wall roles are not legible at the fixed review scale. |
+| Join coherence | pending re-review | pending re-review | The recorded failure's mechanical cause -- edge-aligned corner arms that cannot meet centreline runs -- is closed by synthesizing corners/tees from crossing straight runs (2026-08-16); the visible confirmation is owed to a person at a foreground tab and is not claimed here. |
 | Depth readability | fail | fail | The authored room collapses into broad dark/purple regions. |
 | Silhouette contrast | fail | fail | Bright unit markers dominate while room silhouettes recede. |
 
@@ -133,8 +156,9 @@ markers. Its camera uses the explicit 16 x 10 snapshot bounds. Playable authored
 uses clear `[0.012, 0.016, 0.032, 1]`, exposure `1.34`, contrast `1.16`, a
 non-shadow hemispheric fill with diffuse `[0.68, 0.60, 0.50]`, ground
 `[0.08, 0.065, 0.055]`, intensity `0.58`, and initial/reset fixed zoom
-`1.6`; ordinary/stress zoom starts at `1`, with bounded fixed-camera wheel zoom
-through `12`. At 16:9, orthographic top/bottom are
+`1.6`; stress zoom starts at `1` and the ordinary game route at
+`GAME_INITIAL_FIXED_ZOOM = 8` (14.125 vertical tiles of the 68 x 45 dungeon), with
+bounded fixed-camera wheel zoom through `12`. At 16:9, orthographic top/bottom are
 `+/-8.125`, all four ground corners keep at least 20 CSS pixels of margin, and the
 room spans at least 60% of both axes. The existing 48 x 32
 `?stress=room` fixture, nine lights, map hash, and performance thresholds remain

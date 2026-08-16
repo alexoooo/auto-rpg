@@ -70,6 +70,7 @@ import { Mesh } from "@babylonjs/core/Meshes/mesh.js";
 import { PBRMaterial } from "@babylonjs/core/Materials/PBR/pbrMaterial.js";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
+import { buildRigNodes } from "../render/rig-nodes.js";
 import { VertexBuffer } from "@babylonjs/core/Buffers/buffer.js";
 import { VertexData } from "@babylonjs/core/Meshes/mesh.vertexData.js";
 import { Matrix, Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
@@ -827,36 +828,20 @@ export class ArenaContent {
   #rigFor(body: number): BodyRig {
     const existing = this.#rigs.get(body);
     if (existing !== undefined) return existing;
-    const nodes = new Map<string, TransformNode>();
-    const make = (name: string, parent: TransformNode | null): TransformNode => {
-      const node = new TransformNode(`arena:${body}:${name}`, this.#scene);
-      node.rotationQuaternion = Quaternion.Identity();
-      if (parent !== null) node.parent = parent;
-      nodes.set(name, node);
-      return node;
-    };
-    // The parent chain v2-18's rigs will carry. `pelvis` under `root` rather
-    // than beside it because a rig's root is the placement and the pelvis is the
-    // first bone; the arms hang off `torso` because a shoulder rides the chest.
-    const root = make("root", null);
-    const pelvis = make("pelvis", root);
-    const torso = make("torso", pelvis);
-    make("head", torso);
-    for (const limb of [0, 1] as const) {
-      const arm = make(limb === 0 ? "arm_left" : "arm_right", torso);
-      const hand = make(limb === 0 ? "hand_left" : "hand_right", arm);
-      make(limb === 0 ? "socket_weapon_left" : "socket_weapon_right", hand);
-    }
-    // **Parented to `root` and re-parented to its holder every tick.** An
-    // authored rig would nail this socket to one hand, and on all 10542 published
-    // poses of the three fixtures the holder is limb 0 -- but which hand holds it
-    // is a published fact here (`shieldLimb` matches the plate's centre to a hand
-    // to the raw unit) rather than an authoring decision, so it is read rather
-    // than assumed. `root` is where it waits when no hand is at the centre.
-    make("socket_shield", root);
-    for (const region of RIG_REGIONS) make(region, root);
-    for (const clip of RIG_CLIPS) make(clip, root);
-    const rig = Object.freeze({ body, nodes, root });
+    // The parent chain v2-18's rigs will carry, built by the shared
+    // `render/rig-nodes.ts` builder so this proxy and the `#/game` procedural
+    // figure cannot drift apart on the one seam an authored rig will plug
+    // into. The region and clip slots ride along as the arena's extras.
+    //
+    // `socket_shield` comes out parented to `root` and is re-parented to its
+    // holder every tick: an authored rig would nail the socket to one hand,
+    // and on all 10542 published poses of the three fixtures the holder is
+    // limb 0 -- but which hand holds it is a published fact here (`shieldLimb`
+    // matches the plate's centre to a hand to the raw unit) rather than an
+    // authoring decision, so it is read rather than assumed. `root` is where
+    // it waits when no hand is at the centre.
+    const built = buildRigNodes(this.#scene, `arena:${body}:`, [...RIG_REGIONS, ...RIG_CLIPS]);
+    const rig = Object.freeze({ body, nodes: built.nodes, root: built.root });
     this.#rigs.set(body, rig);
     return rig;
   }

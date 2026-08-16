@@ -35,6 +35,7 @@ const GUARD_LINEAR_SPEED: Fx = Fx::from_raw(1_638);
 const RECOVERY_MIN_STEP: Fx = Fx::from_ratio(1, 500);
 
 pub const TACTICAL_POLICY_CODE: u32 = 5;
+pub const OPENINGS_POLICY_CODE: u32 = 6;
 pub const TACTICAL_PHASE_COUNT: usize = 5;
 pub const TACTICAL_INTENT_COUNT: usize = 8;
 pub const ROBUST_STRIKE_TICKS: u32 = CHAMBER_TICKS + COMMIT_TICKS;
@@ -167,6 +168,7 @@ pub struct StrikePlanner {
     threat: Option<ThreatAssessmentV1>,
     threat_crossing: Option<SegmentPose>,
     opponent_recovering: bool,
+    scoring: PlanScoring,
 }
 
 impl Default for StrikePlanner {
@@ -174,12 +176,21 @@ impl Default for StrikePlanner {
         Self {
             phase: TacticalPhase::Seek, plan: None, phase_started: 0, intent: None,
             previous: None, observed_tick: None, threat: None, threat_crossing: None,
-            opponent_recovering: false,
+            opponent_recovering: false, scoring: PlanScoring::NearestRegion,
         }
     }
 }
 
 impl StrikePlanner {
+    /// The same planner ranking its candidates the other way.
+    ///
+    /// A constructor rather than a setter, because the scoring rule is not
+    /// something a fight changes its mind about mid-way -- and `reset()` returns
+    /// the planner to `Default`, which would silently drop a set one.
+    pub fn scoring(scoring: PlanScoring) -> Self {
+        Self { scoring, ..Self::default() }
+    }
+
     pub fn phase(&self) -> TacticalPhase { self.phase }
 
     pub fn context(&self) -> TacticalContextV1 {
@@ -242,7 +253,15 @@ impl StrikePlanner {
         self.context()
     }
 
-    pub fn reset(&mut self) { *self = Self::default(); }
+    /// Clears the fight and keeps the wiring.
+    ///
+    /// `scoring` survives because it is configuration and not state: a policy
+    /// that ranked openings before a reset is the same policy afterwards, and
+    /// `reset` is called between seeds by every corpus runner. Restoring
+    /// `Default` wholesale would quietly demote the second seed onwards to
+    /// nearest-region, which is a corpus measuring a policy nobody selected.
+    /// `an_openings_planner_keeps_its_scoring_across_a_reset` holds it.
+    pub fn reset(&mut self) { *self = Self { scoring: self.scoring, ..Self::default() }; }
 
     pub fn decide(&mut self, obs: &ArticulatedObservation) -> ArticulatedCommandV1 {
         self.decide_with_intent(obs, TacticalIntentV1::StrikeBest)
@@ -284,7 +303,7 @@ impl StrikePlanner {
             {
                 return intent_command(obs, foe, intent);
             }
-            if let Some(plan) = choose_plan(obs, foe, intent) {
+            if let Some(plan) = choose_plan(obs, foe, intent, self.scoring) {
                 if in_measure(obs, foe, plan.hand) {
                     self.plan = Some(plan);
                     self.phase = TacticalPhase::Chamber;
@@ -391,6 +410,82 @@ impl ArticulatedPolicy for TacticalArticulatedPolicy {
     }
 }
 
+/// A striker that aims where the guard is not.
+///
+/// Written for the Brute, and named for what it does rather than for who carries
+/// it: nothing here reads an anatomy. It differs from
+/// [`TacticalArticulatedPolicy`] in exactly two places, and both are answers to
+/// measurements rather than preferences.
+///
+/// **It scores candidates by plate coverage first.** The tactical planner ranks
+/// by nearest region centre and never reads `foe.shield`, while the plate
+/// accounts for 22.28% of all resolutions on the two-handed corpus. Blocking is
+/// purely geometric -- there is no block roll and no shield stat, only "was the
+/// plate in the swept path" -- so a quarter-by-quarter plate leaves a different
+/// hole at every guard height, and the hole is a thing a policy can aim at.
+///
+/// **It takes the whole body on a withdrawal, not the weapon arm.** Tactical
+/// answers `opponent_recovering` with [`TacticalIntentV1::StrikeWeaponArm`],
+/// which restricts the candidates to the two arm regions. During a withdrawal
+/// the guard is out of position and the torso and head are reachable, so
+/// narrowing to an arm spends the best opening in the fight on the smallest
+/// target on the body.
+///
+/// Its footwork, phases, threat assessment and guard are the planner's unchanged.
+/// This is a scoring policy, not a second controller, and the diff being two
+/// decisions wide is what makes the corpus difference attributable to them.
+#[derive(Clone, Copy, Debug)]
+pub struct OpeningsArticulatedPolicy {
+    planner: StrikePlanner,
+}
+
+impl Default for OpeningsArticulatedPolicy {
+    fn default() -> Self {
+        Self { planner: StrikePlanner::scoring(PlanScoring::UncoveredRegion) }
+    }
+}
+
+impl OpeningsArticulatedPolicy {
+    pub fn planner(&self) -> &StrikePlanner { &self.planner }
+    pub fn diagnostics(&self) -> StrikeDiagnostics { self.planner.diagnostics() }
+
+    fn choose(&self, obs: &ArticulatedObservation) -> TacticalIntentV1 {
+        if let Some(threat) = self.planner.context().threat {
+            let crossing = self.planner.threat_crossing
+                .expect("a threat carries its predicted crossing");
+            if can_cover(obs, threat, crossing) {
+                TacticalIntentV1::Guard
+            } else {
+                evade_intent(obs, crossing)
+            }
+        } else {
+            // `opponent_recovering` is deliberately *not* branched on. Tactical
+            // narrows to the weapon arm here; this policy wants the same whole
+            // body it always wants, and the withdrawal is already worth more to
+            // it because a withdrawn guard is a plate that covers less -- which
+            // its scoring reads directly rather than through a proxy intent.
+            TacticalIntentV1::StrikeBest
+        }
+    }
+}
+
+impl ArticulatedPolicy for OpeningsArticulatedPolicy {
+    fn decide(&mut self, obs: &ArticulatedObservation) -> ArticulatedCommandV1 {
+        self.planner.observe(obs);
+        let threat = self.planner.context().threat;
+        let intent = self.choose(obs);
+        let mut command = self.planner.decide_with_intent(obs, intent);
+        if intent == TacticalIntentV1::Guard {
+            if let Some(threat) = threat {
+                command.arms[ArmRoles::of(obs).guard].height = threat.crossing_height;
+            }
+        }
+        command
+    }
+
+    fn reset(&mut self) { self.planner.reset(); }
+}
+
 fn weapon_is_withdrawing(
     foe: &ObservedOpponent,
     previous: PreviousOpponent,
@@ -474,6 +569,31 @@ fn assess_threat(
     best.map(|row| (row.2, row.3))
 }
 
+/// Where the guard's plate would sit if its arm bore `bearing` at
+/// [`GUARD_REACH`], with its face centre at `target_z`.
+///
+/// **The body axis stands in for the shoulder**, exactly as [`predicted_segment`]
+/// does and for the same stated reason: shoulder width is deliberately absent
+/// from the observation. `World::derive_shield_pose` puts the plate's centre
+/// *at the hand*, and the hand is the shoulder plus the reach vector, so this
+/// prediction is wrong by exactly the shoulder's own offset from the body
+/// origin -- a body-frame constant that **does not depend on `bearing` at all**,
+/// because prediction and hand both rotate the same reach vector about points
+/// that differ by that fixed offset.
+///
+/// That invariance is what makes freeing the guard bearing safe for this model
+/// rather than merely untested. Before 2026-08-16 the guard was welded to body
+/// yaw and this function was only ever asked about one bearing, so nothing
+/// established that its error was bearing-independent;
+/// `the_intercept_model_agrees_with_the_derived_plate_at_a_nonzero_guard_bearing`
+/// is that missing guard.
+fn predicted_plate_centre(
+    obs: &ArticulatedObservation, bearing: Angle, target_z: Fx,
+) -> Vec3 {
+    Vec3::new(bearing.cos(), bearing.sin(), Fx::ZERO) * (obs.arm_length * GUARD_REACH)
+        + Vec3::new(obs.body_position.x, obs.body_position.y, target_z)
+}
+
 fn can_cover(
     obs: &ArticulatedObservation,
     threat: ThreatAssessmentV1,
@@ -488,16 +608,13 @@ fn can_cover(
     let toward = planar(foe.body_position - obs.body_position).angle();
     let target_z = obs.body_position.z
         + obs.standing_height * Fx::from_raw(threat.crossing_height.raw());
-    let forward = Vec3::new(toward.cos(), toward.sin(), Fx::ZERO);
-
     let (current, target) = if obs.shield.present {
         let current = SegmentPose {
             hilt: obs.shield.centre - Vec3::Z * obs.shield.half_height,
             tip: obs.shield.centre + Vec3::Z * obs.shield.half_height,
             radius: obs.shield.half_width,
         };
-        let centre = obs.body_position + forward * (obs.arm_length * GUARD_REACH)
-            + Vec3::Z * (target_z - obs.body_position.z);
+        let centre = predicted_plate_centre(obs, toward, target_z);
         (current, SegmentPose {
             hilt: centre - Vec3::Z * obs.shield.half_height,
             tip: centre + Vec3::Z * obs.shield.half_height,
@@ -671,14 +788,103 @@ fn strike_arcs(toward: Angle) -> [(Angle, Angle); 2] {
     ]
 }
 
+/// How a planner ranks the candidate strikes it has already found.
+///
+/// A separate axis from [`TacticalIntentV1`], which decides *which regions are
+/// allowed*: this decides which of the allowed ones is worth taking. Splitting
+/// them is what lets a second policy change the choice without changing the
+/// vocabulary the learned action layout is defined over -- the intents are a
+/// scored head in `learn-core`, and adding one there is a re-score.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub enum PlanScoring {
+    /// The nearest region centre wins. What the tactical policy has always done,
+    /// and what every pinned tactical measurement was taken under.
+    #[default]
+    NearestRegion,
+    /// The nearest region centre the opponent's plate does **not** already
+    /// cover, falling back to the nearest covered one when the guard leaves no
+    /// hole at all.
+    ///
+    /// A preference and not a filter, deliberately. A filter would make a body
+    /// that is fully covered produce no plan at all, and `decide_with_intent`
+    /// answers a missing plan by walking forward -- so a perfect guard would
+    /// turn the attacker into a pacifist rather than into an attacker with a
+    /// worse option.
+    UncoveredRegion,
+}
+
+/// How much the plate is grown before asking whether it covers a candidate.
+///
+/// The shipped shield is a quarter by a quarter (`shield()` in
+/// `crates/sim/src/combat/spec.rs`), so an eighth is half its half-width: a
+/// candidate that clears the plate by less than half its own radius is treated
+/// as covered, because the guard is a moving target and the observation of it is
+/// perception-noised. Larger, and every region reads as covered on a body that is
+/// merely facing you; smaller, and the margin does not survive one tick of guard
+/// motion.
+const SHIELD_COVER_MARGIN: Fx = Fx::from_ratio(1, 8);
+
+/// The plate as a capsule the swept-segment test can take.
+///
+/// Exactly the shape [`can_cover`] builds from the same three published numbers,
+/// and shared with it for that reason: two readings of one plate that disagreed
+/// would let a policy dodge a guard it had just decided it could not beat.
+///
+/// **It reads the plate's centre and extents and deliberately not its normal**,
+/// so the plate is modelled as a vertical capsule rather than the oriented
+/// rectangle `segment_shield_candidate` actually sweeps. That was exact enough
+/// to ignore while the normal was welded to body yaw and a policy facing its
+/// opponent always saw the plate broadside. Since 2026-08-16 the normal follows
+/// the carrying arm, so it is worth stating why the approximation survives:
+/// `articulated_script::GUARD_ARC` bounds a scripted guard to an eighth turn off
+/// its body, and this file's own `Guard` bears straight at the threat, so on
+/// every policy in the tree the plate is at worst 45 degrees oblique and never
+/// edge-on. A capsule of the plate's half-width is then an **over**-estimate of
+/// what it covers, which makes `candidate_covered` conservative -- it may call a
+/// region covered that a glancing blow would reach, and will not call one open
+/// that the plate would stop. A future policy that swung its guard past a
+/// quarter turn would break that and owes this function the real rectangle.
+fn shield_capsule(shield: sim::ObservedShield, margin: Fx) -> SegmentPose {
+    SegmentPose {
+        hilt: shield.centre - Vec3::Z * shield.half_height,
+        tip: shield.centre + Vec3::Z * shield.half_height,
+        radius: shield.half_width + margin,
+    }
+}
+
+/// Whether the plate stands in the way of the sweep this candidate would make.
+///
+/// The same swept test `candidate_crosses` uses against the region, against the
+/// plate instead -- so "the shield gets there first" is answered by the geometry
+/// that will actually answer it during the contact phase, rather than by an angle
+/// heuristic that would drift from the solver.
+fn candidate_covered(
+    obs: &ArticulatedObservation,
+    foe: &ObservedOpponent,
+    hand: usize,
+    weapon: SegmentPose,
+    chamber: Angle,
+    commit: Angle,
+    height: CombatHeight,
+) -> bool {
+    if !foe.shield.present { return false }
+    let plate = shield_capsule(foe.shield, SHIELD_COVER_MARGIN);
+    let (from, to) = predicted_strike(obs, hand, weapon, chamber, commit, height);
+    swept_segment_segment(
+        from.hilt, from.tip, to.hilt, to.tip, from.radius.max(to.radius),
+        plate.hilt, plate.tip, plate.hilt, plate.tip, plate.radius,
+    ).is_some()
+}
+
 fn choose_plan(
     obs: &ArticulatedObservation,
     foe: &ObservedOpponent,
     intent: TacticalIntentV1,
+    scoring: PlanScoring,
 ) -> Option<StrikePlan> {
     let toward = planar(foe.body_position - obs.body_position).angle();
     let bearings = strike_arcs(toward);
-    let mut best: Option<(i32, u8, u8, u16, StrikePlan)> = None;
+    let mut best: Option<(u8, i32, u8, u8, u16, StrikePlan)> = None;
     for part in BodyPart::ALL {
         let region = foe.regions[part as usize];
         if !region.present || !region_allowed(intent, foe, part) { continue }
@@ -688,20 +894,30 @@ fn choose_plan(
             let Some(weapon) = obs.weapons[at] else { continue };
             for (chamber, commit) in bearings {
                 if !candidate_crosses(obs, at, weapon, region, chamber, commit, height) { continue }
+                // Leading the key rather than weighting the distance: a covered
+                // candidate loses to every uncovered one however close it is,
+                // and the old ordering decides among equals untouched. A weight
+                // would need a rate to convert plate-crossings into world units
+                // and there is no honest one.
+                let covered = match scoring {
+                    PlanScoring::NearestRegion => 0,
+                    PlanScoring::UncoveredRegion => u8::from(
+                        candidate_covered(obs, foe, at, weapon, chamber, commit, height)),
+                };
                 let score = centre(region).distance(obs.body_position).raw();
                 let plan = StrikePlan {
                     opponent: foe.id, region: part, hand,
                     chamber_bearing: chamber, commit_bearing: commit, height,
                 };
-                let key = (score, part as u8, hand as u8, commit.raw(), plan);
-                if best.map(|old| (key.0, key.1, key.2, key.3)
-                    < (old.0, old.1, old.2, old.3)).unwrap_or(true) {
+                let key = (covered, score, part as u8, hand as u8, commit.raw(), plan);
+                if best.map(|old| (key.0, key.1, key.2, key.3, key.4)
+                    < (old.0, old.1, old.2, old.3, old.4)).unwrap_or(true) {
                     best = Some(key);
                 }
             }
         }
     }
-    best.map(|row| row.4)
+    best.map(|row| row.5)
 }
 
 fn in_measure(obs: &ArticulatedObservation, foe: &ObservedOpponent, hand: LimbSlot) -> bool {
@@ -812,6 +1028,64 @@ mod tests {
         config.fighters[1].spawn = Vec2::from_ints(12, 8);
         Scenario::duel_from(&config).unwrap()
     }
+
+    /// The guard the intercept model never had: its predicted plate position,
+    /// checked against the plate `World::derive_shield_pose` actually produces,
+    /// at a **non-zero** guard bearing.
+    ///
+    /// The claim is not that the prediction is exact -- it deliberately uses the
+    /// body axis for the shoulder -- but that its error is the shoulder's fixed
+    /// body-frame offset and is therefore **the same at every bearing**. That is
+    /// what says freeing the guard bearing did not quietly make this model
+    /// worse. Before the bearing was freed the guard was welded to body yaw and
+    /// this function was only ever asked about one bearing, so nothing checked
+    /// it.
+    #[test]
+    fn the_intercept_model_agrees_with_the_derived_plate_at_a_nonzero_guard_bearing() {
+        let scenario = close_duel();
+        let fighter = EntityId::new(0, 0);
+
+        // The commanded reach is `GUARD_REACH`, matching what the prediction
+        // assumes; a different reach would confound the offset under test.
+        let error_at = |bearing: Angle| {
+            let mut world = World::new(&scenario, 17);
+            let mut command = neutral_articulated_command(&world.observe_articulated(fighter));
+            command.arms[0] = ArmTarget {
+                bearing, height: CombatHeight::MID, reach: GUARD_REACH, effort: Fx::ONE,
+            };
+            let _ = world.submit_articulated_v1(fighter, command);
+            for _ in 0..400 { world.step(); }
+            let obs = world.observe_articulated(fighter);
+            assert!(obs.shield.present, "the fighter must be carrying the plate");
+            let predicted = predicted_plate_centre(&obs, bearing, obs.shield.centre.z);
+            obs.shield.centre - predicted
+        };
+
+        let straight = error_at(Angle::ZERO);
+        let turned = error_at(GUARD_ARC_UNDER_TEST);
+
+        // The error is a body-frame constant: same vector at both bearings.
+        // An implementation that predicted from the wrong reach, or that let
+        // the bearing leak into the shoulder term, would fail here.
+        let drift = (turned - straight).length();
+        assert!(drift <= Fx::from_ratio(1, 64),
+            "the intercept model's error moved with the guard bearing: \
+             straight {straight:?}, turned {turned:?}, drift {drift:?}");
+
+        // And it is genuinely a shoulder-sized offset rather than zero, so the
+        // assertion above cannot be satisfied by a prediction that happens to
+        // be exact and therefore proves nothing about the omitted geometry.
+        assert!(straight.length() > Fx::ZERO,
+            "the prediction became exact; this test no longer bounds the omitted shoulder");
+        assert!(straight.length() <= Fx::ONE,
+            "the omitted shoulder offset is larger than a whole world unit");
+    }
+
+    /// A bearing inside the script's guard arc, written here rather than
+    /// imported because `articulated_script::GUARD_ARC` is private to that
+    /// module. An eighth turn is what it holds; this test only needs *a*
+    /// non-zero bearing the guard can actually reach.
+    const GUARD_ARC_UNDER_TEST: Angle = Angle::from_raw(8_192);
 
     fn threat_pair(step: Fx, lateral: Fx) -> (ArticulatedObservation, ArticulatedObservation) {
         let scenario = close_duel();
@@ -1267,7 +1541,8 @@ mod tests {
         let mut planner = StrikePlanner::default();
         let (obs, plan) = loop {
             let obs = world.observe_articulated(attacker);
-            if let Some(plan) = choose_plan(&obs, &obs.opponents()[0], TacticalIntentV1::StrikeBest) {
+            if let Some(plan) = choose_plan(&obs, &obs.opponents()[0], TacticalIntentV1::StrikeBest,
+                PlanScoring::NearestRegion) {
                 break (obs, plan);
             }
             for id in world.pending_decisions().to_vec() {
@@ -1297,7 +1572,8 @@ mod tests {
                 region.upper.y = axis - region.upper.y;
             }
         }
-        let reflected = choose_plan(&mirrored, &mirrored.opponents()[0], TacticalIntentV1::StrikeBest).unwrap();
+        let reflected = choose_plan(&mirrored, &mirrored.opponents()[0],
+            TacticalIntentV1::StrikeBest, PlanScoring::NearestRegion).unwrap();
         assert_eq!((reflected.region, reflected.hand, reflected.height), (plan.region, plan.hand, plan.height));
         // The raw-bearing final tie break is deliberately global rather than
         // handed: on a line lying exactly on the mirror axis it may reverse
@@ -1316,7 +1592,8 @@ mod tests {
         for part in BodyPart::ALL { obs.opponents[0].regions[part as usize].present = part == BodyPart::Head; }
         obs.opponents[0].regions[BodyPart::Head as usize].lower.z = Fx::from_int(20);
         obs.opponents[0].regions[BodyPart::Head as usize].upper.z = Fx::from_int(20);
-        assert!(choose_plan(&obs, &obs.opponents()[0], TacticalIntentV1::StrikeBest).is_none());
+        assert!(choose_plan(&obs, &obs.opponents()[0], TacticalIntentV1::StrikeBest,
+                PlanScoring::NearestRegion).is_none());
     }
 
     #[test]
@@ -1364,5 +1641,163 @@ mod tests {
         assert_eq!(command.move_dir,
             Vec2::new(obs.body_yaw.cos(), obs.body_yaw.sin()) * APPROACH_SPEED);
         assert_eq!(command.intent, Intent::Hold);
+    }
+
+    /// A body with a plate parked over one named region and nowhere near
+    /// another, so "covered" and "uncovered" are facts about this fixture rather
+    /// than about whichever way the fight happened to turn.
+    ///
+    /// The plate is placed **on** the region centre it is meant to cover, at the
+    /// shipped quarter-by-quarter extents, so the sweep that reaches that region
+    /// cannot avoid it.
+    fn plated_at(part: BodyPart) -> (ArticulatedObservation, ObservedOpponent) {
+        // Inside measure, unlike `close_duel`: at two tiles apart no candidate
+        // crosses anything at all, so every plate question would be answered
+        // vacuously. `zz`-free proof that this matters is the fixture assertion
+        // in the test below, which fails loudly on a fixture nothing reaches.
+        let mut config = DuelConfigV1::shipped();
+        config.fighters[0].spawn = Vec2::from_ints(10, 8);
+        config.fighters[1].spawn = Vec2::new(Fx::from_ratio(111, 10), Fx::from_int(8));
+        let scenario = Scenario::duel_from(&config).unwrap();
+        let world = World::new(&scenario, 5);
+        let attacker = world.alive_ids(Faction::Heroes)[0];
+        let obs = world.observe_articulated(attacker);
+        let mut foe = obs.opponents()[0];
+        foe.shield.present = true;
+        foe.shield.centre = centre(foe.regions[part as usize]);
+        foe.shield.normal = Vec3::X;
+        foe.shield.half_width = Fx::from_ratio(1, 4);
+        foe.shield.half_height = Fx::from_ratio(1, 4);
+        (obs, foe)
+    }
+
+    #[test]
+    fn an_openings_planner_avoids_the_region_the_plate_already_covers() {
+        // **The mechanical claim**, stated without hard-coding the fixture's
+        // geometry: whatever the nearest-region rule would take, putting the
+        // plate on it must make the openings rule take something else.
+        //
+        // Derived rather than asserted, because which region is nearest is a
+        // fact about spawn positions and anatomy rows that a future fixture
+        // tweak would silently invert -- and a test that then quietly compared
+        // two identical answers would still pass.
+        let (obs, bare) = plated_at(BodyPart::Torso);
+        let mut bare = bare;
+        bare.shield = sim::ObservedShield::BLANK;
+
+        // With no plate the two rules must agree exactly: the difference below
+        // is then the plate and not the rewrite.
+        let nearest = choose_plan(&obs, &bare, TacticalIntentV1::StrikeBest,
+            PlanScoring::NearestRegion).expect("a reachable region");
+        assert_eq!(
+            Some(nearest),
+            choose_plan(&obs, &bare, TacticalIntentV1::StrikeBest, PlanScoring::UncoveredRegion),
+            "the two scorings disagree on a body carrying no plate",
+        );
+
+        let (_, covered_foe) = plated_at(nearest.region);
+        assert!(
+            candidate_covered_anywhere(&obs, &covered_foe, nearest.region),
+            "the fixture's plate does not cover {:?}, so this test proves nothing",
+            nearest.region,
+        );
+        let openings = choose_plan(&obs, &covered_foe, TacticalIntentV1::StrikeBest,
+            PlanScoring::UncoveredRegion).expect("a reachable region");
+        assert_ne!(openings.region, nearest.region,
+            "the openings scoring took the region the plate covers anyway");
+        assert!(
+            !candidate_covered_anywhere(&obs, &covered_foe, openings.region),
+            "the openings scoring moved to {:?}, which the plate also covers",
+            openings.region,
+        );
+
+        // And the nearest-region rule is unmoved by the very same plate, which
+        // is what says this is a scoring change and not a geometry change.
+        assert_eq!(
+            choose_plan(&obs, &covered_foe, TacticalIntentV1::StrikeBest,
+                PlanScoring::NearestRegion).map(|plan| plan.region),
+            Some(nearest.region),
+            "the plate moved what nearest-region chooses, so the control is not a control",
+        );
+    }
+
+    /// Whether *any* candidate sweep at this region is covered, which is the
+    /// question the fixture assertion above needs and `choose_plan` asks per
+    /// candidate.
+    fn candidate_covered_anywhere(
+        obs: &ArticulatedObservation,
+        foe: &ObservedOpponent,
+        part: BodyPart,
+    ) -> bool {
+        let toward = planar(foe.body_position - obs.body_position).angle();
+        let region = foe.regions[part as usize];
+        let Some(height) = height_for(obs, foe, region) else { return false };
+        for hand in [LimbSlot::LeftArm, LimbSlot::RightArm] {
+            let at = hand as usize;
+            let Some(weapon) = obs.weapons[at] else { continue };
+            for (chamber, commit) in strike_arcs(toward) {
+                if candidate_crosses(obs, at, weapon, region, chamber, commit, height)
+                    && candidate_covered(obs, foe, at, weapon, chamber, commit, height)
+                {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    #[test]
+    fn a_fully_covered_body_still_produces_a_plan_rather_than_a_pacifist() {
+        // The reason the scoring is a preference and not a filter. A plate large
+        // enough to cover everything must not turn the attacker into a body that
+        // walks forward for ever -- `decide_with_intent` answers a missing plan
+        // with footwork, so a filter would read as "the guard is so good the
+        // attacker gave up", which is a bug wearing the costume of a tactic.
+        let (obs, mut foe) = plated_at(BodyPart::Torso);
+        foe.shield.half_width = Fx::from_int(4);
+        foe.shield.half_height = Fx::from_int(4);
+        let plan = choose_plan(&obs, &foe, TacticalIntentV1::StrikeBest,
+            PlanScoring::UncoveredRegion);
+        assert!(plan.is_some(), "a fully covered body produced no plan at all");
+    }
+
+    #[test]
+    fn an_openings_planner_keeps_its_scoring_across_a_reset() {
+        // `reset` is called between every seed by every corpus runner, and it
+        // used to be `*self = Self::default()`. Restoring the default wholesale
+        // would demote seed two onwards to nearest-region, so the corpus would
+        // measure a policy nobody selected and the first seed would be the only
+        // honest row in it.
+        let mut planner = StrikePlanner::scoring(PlanScoring::UncoveredRegion);
+        assert_eq!(planner.scoring, PlanScoring::UncoveredRegion);
+        planner.reset();
+        assert_eq!(planner.scoring, PlanScoring::UncoveredRegion,
+            "reset dropped the scoring rule the policy was built with");
+
+        // And the policy that owns one resets the same way.
+        let mut policy = OpeningsArticulatedPolicy::default();
+        assert_eq!(policy.planner.scoring, PlanScoring::UncoveredRegion);
+        ArticulatedPolicy::reset(&mut policy);
+        assert_eq!(policy.planner.scoring, PlanScoring::UncoveredRegion);
+
+        // The tactical policy is untouched by all of this, which is what makes
+        // its pinned measurements still its own.
+        let mut tactical = TacticalArticulatedPolicy::default();
+        assert_eq!(tactical.planner.scoring, PlanScoring::NearestRegion);
+        ArticulatedPolicy::reset(&mut tactical);
+        assert_eq!(tactical.planner.scoring, PlanScoring::NearestRegion);
+    }
+
+    #[test]
+    fn the_tactical_policy_is_unchanged_by_the_openings_scoring() {
+        // The control. `PlanScoring::NearestRegion` must be the identity on the
+        // path every pinned tactical number was measured under, so a plate in
+        // the way changes nothing about what tactical decides.
+        let (obs, foe) = plated_at(BodyPart::Torso);
+        let mut tactical = TacticalArticulatedPolicy::default();
+        let mut planner = StrikePlanner::default();
+        let mut scoped = obs;
+        scoped.opponents[0] = foe;
+        assert_eq!(tactical.decide(&scoped), planner.decide(&scoped));
     }
 }

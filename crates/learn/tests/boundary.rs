@@ -235,5 +235,23 @@ fn a_zeroed_network_is_a_fighter_and_not_a_statue() {
     };
     let result = run_articulated(&Scenario::articulated_duel(), 1, &mut policy, &config);
     assert_eq!(result.rejected, 0);
+    // **"Not a statue" is the claim, and both laws now answer it the same way:
+    // the fight runs its 600-tick clock.**
+    //
+    // The two disagreed for one day. Session 04 freed the guard bearing and took
+    // the plate's normal from the arm carrying it, which changed what a zeroed
+    // network's LOW guard intercepts and ended the exact-law fight on a body at
+    // 148. Combat-arms-05 then gave blunt force a wounding channel, and the
+    // exact-law fight went back to its clock -- not because less damage happens
+    // but because more does: a severed region leaves the geometry, so changing
+    // *which* regions come off and *when* changes every sweep after it. Damage
+    // is not a passive readout of this simulation, and a fight ending later is
+    // not evidence of a weaker blow.
+    //
+    // Still pinned exactly rather than loosened to `<= 600`, because a fight
+    // that stopped in its opening ticks would satisfy an inequality and is
+    // exactly the degenerate generation-zero this test exists to catch. The
+    // lower bound is the part that says so independently of the pin.
+    assert!(result.ticks > 64, "a zeroed network stopped fighting almost at once");
     assert_eq!(result.ticks, 600, "the fight should have run its clock");
 }

@@ -227,6 +227,74 @@ pub(crate) fn equipment_inertia(item: Option<EquipmentSpec>) -> Fx {
     }
 }
 
+/// How much of the gripped item's inertia two hands take off the driving arm.
+///
+/// **Not an arbitrary constant.** [`equipment_inertia`] gives the shipped Club
+/// `2.23 * (1/4 + 0.61) = 1.918` against the Sword's `1.24 * (1/4 + 0.55) =
+/// 0.992`, and [`arm_available`] divides acceleration by it -- so a one-handed
+/// Club accelerates at about half a Sword's rate, with nothing anywhere to
+/// compensate. Halving lands the Club at `0.959`, within a hair of the Sword's
+/// `0.992`: a two-handed Club accelerates about as well as a one-handed Sword,
+/// which is the entire claim this number makes. It is chosen from that
+/// comparison and from no fight outcome -- `AGENTS.md`'s standing rule is not to
+/// select mechanics by wound outcome.
+pub const TWO_HANDED_INERTIA_DIVISOR: i32 = 2;
+
+/// How many fatigue accounts split one item's work on a two-handed grip.
+///
+/// The arms that share an item share its cost. Before this each arm was billed
+/// the whole of the same work, which was not a decision anybody made: the mirror
+/// was written before anyone asked what it should cost.
+pub const TWO_HANDED_FATIGUE_SHARES: i32 = 2;
+
+/// How many arms drive the gripped item this tick.
+///
+/// The two levers a two-handed grip pulls, and it pulls no others: the inertia
+/// the driving arm overcomes, and how that arm's work is billed. Ownership, the
+/// authoritative target, and whose effort, fatigue, stats and authority are read
+/// are all unchanged and all still the right arm's --
+/// `a_two_handed_trajectory_uses_right_authority_effort_and_target_only` in
+/// `crates/sim/src/world.rs` is the standing proof of the half that did not move.
+///
+/// [`Grip::OneHanded`] is **inert by construction**: both methods below return
+/// their argument untouched. That is what lets every one-handed caller keep its
+/// signature and stay provably unaffected, and it is what
+/// `a_one_handed_grip_is_unchanged_by_the_two_handed_term` asserts from outside.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) enum Grip {
+    /// One arm on the haft: every one-handed item, and an empty hand.
+    OneHanded,
+    /// Both arms on one haft -- a [`crate::GripBinding::Both`] row.
+    TwoHanded,
+}
+
+impl Grip {
+    /// The inertia the driving arm actually works against.
+    ///
+    /// The `1/4` floor is [`equipment_inertia`]'s own, reapplied after the
+    /// division because that floor is the bare arm and a second hand on the haft
+    /// does not make the arm weightless. It is unreachable for the shipped
+    /// equipment, whose halved inertia stays above `1/4`.
+    fn driven_inertia(self, inertia: Fx) -> Fx {
+        match self {
+            Grip::OneHanded => inertia,
+            Grip::TwoHanded => Fx::from_raw(inertia.raw() / TWO_HANDED_INERTIA_DIVISOR)
+                .max(Fx::from_ratio(1, 4)),
+        }
+    }
+
+    /// This arm's share of one item's work.
+    ///
+    /// Each account keeps its own `work_residue`, so two halves rejoin to within
+    /// one raw unit of the undivided bill rather than exactly.
+    fn share_work(self, work: Fx) -> Fx {
+        match self {
+            Grip::OneHanded => work,
+            Grip::TwoHanded => Fx::from_raw(work.raw() / TWO_HANDED_FATIGUE_SHARES),
+        }
+    }
+}
+
 fn stat_factor(value: u8) -> Fx {
     Fx::from_ratio(8 + value as i32, 28).clamp(Fx::from_ratio(1, 4), Fx::ONE)
 }
@@ -240,11 +308,16 @@ fn chase(error: i32, speed: i32, max_speed: i32, acceleration: i32) -> (i32, i32
 
 fn arm_available(
     state: ArmState, target: ArmTarget, item: Option<EquipmentSpec>, stats: Stats, authority: Fx,
+    grip: Grip,
 ) -> (Fx, Fx) {
     let inertia = equipment_inertia(item);
     let power = stat_factor(stats.power);
-    let available = ((((target.effort * authority) * (Fx::ONE - state.fatigue)) * power) / inertia)
+    let available = ((((target.effort * authority) * (Fx::ONE - state.fatigue)) * power)
+        / grip.driven_inertia(inertia))
         .clamp(Fx::ZERO, Fx::ONE);
+    // The **undivided** inertia goes back to the caller, because that is what
+    // bills fatigue: the two-handed divisor is an acceleration term and is
+    // deliberately not also a discount on the work.
     (inertia, available)
 }
 
@@ -260,14 +333,39 @@ pub(crate) fn integrate_arm_with_rates(
     bearing_max_speed_raw: i32,
     bearing_accel_raw: i32,
 ) -> ArmStep {
+    integrate_arm_for_grip(
+        state, anatomy, yaw, limb, target, item, stats, authority,
+        bearing_max_speed_raw, bearing_accel_raw, Grip::OneHanded,
+    )
+}
+
+/// [`integrate_arm_with_rates`] for an arm that may be sharing its item.
+///
+/// The one-handed entry point above is this with [`Grip::OneHanded`], which is
+/// inert, so every existing caller keeps both its signature and its behaviour.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn integrate_arm_for_grip(
+    state: &mut ArmState,
+    anatomy: &BodyAnatomySpec,
+    yaw: Angle,
+    limb: usize,
+    target: ArmTarget,
+    item: Option<EquipmentSpec>,
+    stats: Stats,
+    authority: Fx,
+    bearing_max_speed_raw: i32,
+    bearing_accel_raw: i32,
+    grip: Grip,
+) -> ArmStep {
     let (step, inertia, _, _) = integrate_arm_unbilled(
         state, anatomy, yaw, limb, target, item, stats, authority,
-        bearing_max_speed_raw, bearing_accel_raw,
+        bearing_max_speed_raw, bearing_accel_raw, grip,
     );
-    bill_fatigue(state, inertia, target.effort, step);
+    bill_fatigue_for_grip(state, inertia, target.effort, step, grip);
     step
 }
 
+#[allow(clippy::too_many_arguments)]
 fn integrate_arm_unbilled(
     state: &mut ArmState,
     anatomy: &BodyAnatomySpec,
@@ -279,6 +377,7 @@ fn integrate_arm_unbilled(
     authority: Fx,
     bearing_max_speed_raw: i32,
     bearing_accel_raw: i32,
+    grip: Grip,
 ) -> (ArmStep, Fx, i32, i32) {
     let reach_target = target.reach.clamp(Fx::from_raw(ARM_MIN_REACH_RAW), Fx::ONE);
     let bearing_error = target.bearing.delta(state.bearing);
@@ -290,7 +389,7 @@ fn integrate_arm_unbilled(
     let idle_at_entry = bearing_error == 0 && height_error == 0 && reach_error == 0
         && entry_bearing_speed == 0 && entry_height_speed == 0 && entry_reach_speed == 0;
 
-    let (inertia, available) = arm_available(*state, target, item, stats, authority);
+    let (inertia, available) = arm_available(*state, target, item, stats, authority, grip);
     let agility = stat_factor(stats.agility);
     let bearing_accel = (Fx::from_raw(bearing_accel_raw) * available).raw().abs();
     let linear_accel = (Fx::from_raw(ARM_LINEAR_ACCEL_RAW) * available).raw().abs();
@@ -328,13 +427,28 @@ pub(crate) fn integrate_arm_with_recoil(
     target: ArmTarget, item: Option<EquipmentSpec>, stats: Stats, authority: Fx,
     bearing_max_speed_raw: i32, bearing_accel_raw: i32,
 ) -> ArmStep {
+    integrate_arm_with_recoil_for_grip(
+        state, anatomy, yaw, limb, target, item, stats, authority,
+        bearing_max_speed_raw, bearing_accel_raw, Grip::OneHanded,
+    )
+}
+
+/// [`integrate_arm_with_recoil`] for an arm that may be sharing its item. The
+/// one-handed entry point above is this with the inert [`Grip::OneHanded`].
+#[cfg(feature = "cartesian-recoil")]
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn integrate_arm_with_recoil_for_grip(
+    state: &mut ArmState, anatomy: &BodyAnatomySpec, yaw: Angle, limb: usize,
+    target: ArmTarget, item: Option<EquipmentSpec>, stats: Stats, authority: Fx,
+    bearing_max_speed_raw: i32, bearing_accel_raw: i32, grip: Grip,
+) -> ArmStep {
     let entry_bearing = state.bearing;
     let entry_hand = state.hand;
     let entry_com = state.post_contact_com_velocity;
     let was_active = state.post_contact_active;
     let (step, inertia, com_accel, com_max) = integrate_arm_unbilled(
         state, anatomy, yaw, limb, target, item, stats, authority,
-        bearing_max_speed_raw, bearing_accel_raw,
+        bearing_max_speed_raw, bearing_accel_raw, grip,
     );
     let next_offset = item.and_then(|item| {
         let crate::EquipmentGeometry::Segment { length, .. } = item.geometry else { return None };
@@ -377,17 +491,24 @@ pub(crate) fn integrate_arm_with_recoil(
         state.post_contact_com_velocity = if state.post_contact_active { next_com } else { Vec3::ZERO };
     }
     bill_fatigue_with_com_delta(state, inertia, target.effort, step,
-        if was_active { next_com - entry_com } else { Vec3::ZERO }, anatomy.arm_length);
+        if was_active { next_com - entry_com } else { Vec3::ZERO }, anatomy.arm_length, grip);
     step
 }
 
 pub(crate) fn bill_fatigue(state: &mut ArmState, inertia: Fx, effort: Fx, step: ArmStep) {
-    bill_fatigue_with_com_delta(state, inertia, effort, step, Vec3::ZERO, Fx::ONE);
+    bill_fatigue_with_com_delta(state, inertia, effort, step, Vec3::ZERO, Fx::ONE, Grip::OneHanded);
+}
+
+/// [`bill_fatigue`] for an arm that shares its item's work with another.
+pub(crate) fn bill_fatigue_for_grip(
+    state: &mut ArmState, inertia: Fx, effort: Fx, step: ArmStep, grip: Grip,
+) {
+    bill_fatigue_with_com_delta(state, inertia, effort, step, Vec3::ZERO, Fx::ONE, grip);
 }
 
 fn bill_fatigue_with_com_delta(
     state: &mut ArmState, inertia: Fx, effort: Fx, step: ArmStep,
-    delta_com_velocity: Vec3, arm_length: Fx,
+    delta_com_velocity: Vec3, arm_length: Fx, grip: Grip,
 ) {
     if step.idle_at_entry && delta_com_velocity == Vec3::ZERO {
         state.fatigue = Fx::from_raw((state.fatigue.raw() - FATIGUE_RECOVERY_RAW).max(0));
@@ -400,7 +521,10 @@ fn bill_fatigue_with_com_delta(
         else { Fx::MAX };
     let sum = (step.delta_bearing_speed.abs() + step.delta_height_speed.abs())
         + step.delta_reach_speed.abs() + normalized_com;
-    let work = ((inertia * inertia) * effort) * sum;
+    // The share is taken on the finished work rather than on any of its factors,
+    // so a one-handed bill is bit-identical to what it was and a shared one is
+    // exactly half of it before the residue arithmetic below.
+    let work = grip.share_work(((inertia * inertia) * effort) * sum);
     let accumulated = work.raw() as i64 + state.work_residue.raw() as i64;
     let increment = accumulated / FATIGUE_WORK_SCALE_RAW as i64;
     let residue = accumulated - increment * FATIGUE_WORK_SCALE_RAW as i64;
@@ -476,7 +600,7 @@ mod tests {
         state: ArmState, target: ArmTarget, item: Option<EquipmentSpec>, stats: Stats,
         authority: Fx, arm_length: Fx,
     ) -> (i32, i32) {
-        let (_, available) = arm_available(state, target, item, stats, authority);
+        let (_, available) = arm_available(state, target, item, stats, authority, Grip::OneHanded);
         let acceleration = ((Fx::from_raw(ARM_LINEAR_ACCEL_RAW) * available) * arm_length).raw().abs();
         let maximum = ((Fx::from_raw(ARM_LINEAR_MAX_SPEED_RAW) * stat_factor(stats.agility))
             * arm_length).raw().abs();
@@ -498,11 +622,13 @@ mod tests {
             idle_at_entry: false };
         let inertia = Fx::from_ratio(3, 4); let effort = Fx::from_ratio(7, 8);
         bill_fatigue(&mut ordinary, inertia, effort, step);
-        bill_fatigue_with_com_delta(&mut extended, inertia, effort, step, Vec3::ZERO, Fx::ONE);
+        bill_fatigue_with_com_delta(&mut extended, inertia, effort, step, Vec3::ZERO, Fx::ONE,
+            Grip::OneHanded);
         assert_eq!(extended, ordinary);
         let mut ordinary_idle = ordinary; let mut extended_idle = ordinary;
         bill_fatigue(&mut ordinary_idle, inertia, effort, idle_step());
-        bill_fatigue_with_com_delta(&mut extended_idle, inertia, effort, idle_step(), Vec3::ZERO, Fx::ONE);
+        bill_fatigue_with_com_delta(&mut extended_idle, inertia, effort, idle_step(), Vec3::ZERO,
+            Fx::ONE, Grip::OneHanded);
         assert_eq!(extended_idle, ordinary_idle);
         assert_eq!((ordinary.fatigue.raw(), ordinary.work_residue.raw()), (778, 23));
         assert_eq!((ordinary_idle.fatigue.raw(), ordinary_idle.work_residue.raw()), (774, 23));
@@ -515,7 +641,8 @@ mod tests {
             reach: Fx::ONE, effort: Fx::from_ratio(3, 4) };
         let stats = Stats::new(12, 16, 0, 0, 0);
         let sword = Some(crate::sword());
-        let (_, available) = arm_available(state, target, sword, stats, Fx::from_ratio(2, 3));
+        let (_, available) =
+            arm_available(state, target, sword, stats, Fx::from_ratio(2, 3), Grip::OneHanded);
         let expected = ((((target.effort * Fx::from_ratio(2, 3))
             * (Fx::ONE - state.fatigue)) * stat_factor(stats.power))
             / equipment_inertia(sword)).clamp(Fx::ZERO, Fx::ONE);
@@ -547,18 +674,21 @@ mod tests {
             idle_at_entry: false };
         let arm_length = crate::fighter_anatomy().arm_length;
         bill_fatigue_with_com_delta(&mut arm, Fx::from_raw(16_384), Fx::ONE, step,
-            Vec3::new(Fx::from_raw(205), Fx::from_raw(-102), Fx::from_raw(51)), arm_length);
+            Vec3::new(Fx::from_raw(205), Fx::from_raw(-102), Fx::from_raw(51)), arm_length,
+            Grip::OneHanded);
         assert_eq!((arm.fatigue.raw(), arm.work_residue.raw()), (101, 11));
         let mut scalar_idle = tucked_arm(Vec3::ZERO);
         scalar_idle.fatigue = Fx::from_raw(100); scalar_idle.work_residue = Fx::from_raw(255);
         bill_fatigue_with_com_delta(&mut scalar_idle, Fx::ONE, Fx::ONE, idle_step(),
-            Vec3::new(Fx::from_raw(10), Fx::from_raw(-20), Fx::from_raw(30)), Fx::ONE);
+            Vec3::new(Fx::from_raw(10), Fx::from_raw(-20), Fx::from_raw(30)), Fx::ONE,
+            Grip::OneHanded);
         assert_eq!((scalar_idle.fatigue.raw(), scalar_idle.work_residue.raw()), (101, 59),
                    "scalar idle recovered instead of billing active COM reconciliation");
         let mut zero_effort = tucked_arm(Vec3::ZERO);
         zero_effort.fatigue = Fx::from_raw(100); zero_effort.work_residue = Fx::from_raw(255);
         bill_fatigue_with_com_delta(&mut zero_effort, Fx::ONE, Fx::ZERO, step,
-            Vec3::new(Fx::from_raw(10), Fx::from_raw(-20), Fx::from_raw(30)), Fx::ONE);
+            Vec3::new(Fx::from_raw(10), Fx::from_raw(-20), Fx::from_raw(30)), Fx::ONE,
+            Grip::OneHanded);
         assert_eq!((zero_effort.fatigue.raw(), zero_effort.work_residue.raw()), (100, 255));
     }
 
@@ -567,9 +697,137 @@ mod tests {
         let mut arms = [tucked_arm(Vec3::ZERO); 2];
         arms[0].fatigue = Fx::from_raw(17); arms[0].work_residue = Fx::from_raw(19);
         bill_fatigue_with_com_delta(&mut arms[1], Fx::ONE, Fx::ONE, idle_step(),
-            Vec3::new(Fx::from_raw(256), Fx::ZERO, Fx::ZERO), Fx::ONE);
+            Vec3::new(Fx::from_raw(256), Fx::ZERO, Fx::ZERO), Fx::ONE, Grip::OneHanded);
         assert_eq!((arms[0].fatigue.raw(), arms[0].work_residue.raw()), (17, 19));
         assert_eq!((arms[1].fatigue.raw(), arms[1].work_residue.raw()), (1, 0));
+    }
+
+    /// The first tick's bearing advance from rest, which is the acceleration
+    /// term with nothing else in it: `tucked_arm` starts at bearing zero with
+    /// zero speed, so the step is `chase`'s first acceleration clamp.
+    fn first_bearing_step(item: Option<EquipmentSpec>, grip: Grip) -> i32 {
+        let anatomy = crate::fighter_anatomy();
+        let stats = Stats::new(12, 12, 0, 0, 0);
+        let target = ArmTarget { bearing: Angle::QUARTER, height: CombatHeight::MID,
+            reach: Fx::ONE, effort: Fx::ONE };
+        let mut arm = tucked_arm(Vec3::ZERO);
+        assert_eq!(arm.bearing.raw(), 0, "the fixture no longer starts from rest at zero");
+        let _ = integrate_arm_for_grip(&mut arm, &anatomy, Angle::ZERO, 1, target, item, stats,
+            Fx::ONE, ARM_BEARING_MAX_SPEED_RAW, ARM_BEARING_ACCEL_RAW, grip);
+        arm.bearing.raw() as i32
+    }
+
+    #[test]
+    fn a_two_handed_grip_accelerates_the_club_like_a_one_handed_sword() {
+        // **The claim [`TWO_HANDED_INERTIA_DIVISOR`] is chosen to make**, bounded
+        // from both sides rather than as "faster than one-handed" -- a one-sided
+        // bound here is satisfied by a factor of a thousand.
+        //
+        // `equipment_inertia` gives the Club `1.918` and the Sword `0.992` and
+        // `arm_available` divides by it, so a one-handed Club must come in far
+        // under a Sword and a two-handed Club must land beside it. Halved, the
+        // Club is `0.959` against the Sword's `0.992`, which is 3.4% *more*
+        // available acceleration and not less -- so the band is deliberately
+        // asymmetric, and a symmetric one would be claiming the wrong thing.
+        let sword = first_bearing_step(Some(crate::sword()), Grip::OneHanded);
+        let club_one = first_bearing_step(Some(crate::club()), Grip::OneHanded);
+        let club_two = first_bearing_step(Some(crate::club()), Grip::TwoHanded);
+        assert!(sword > 0 && club_one > 0 && club_two > 0,
+            "a fixture that does not move cannot bound an acceleration: \
+             sword {sword}, club one-handed {club_one}, club two-handed {club_two}");
+
+        // Within [0.95, 1.10] of the Sword: the stated fraction.
+        assert!(club_two * 100 >= sword * 95 && club_two * 100 <= sword * 110,
+            "a two-handed Club left the Sword's band: club two-handed {club_two}, \
+             sword {sword}, ratio {}%", club_two * 100 / sword);
+
+        // **The teeth.** The same band must reject the one-handed Club, or the
+        // assertion above is measuring nothing: it is the handicap this session
+        // exists to cancel.
+        assert!(club_one * 100 < sword * 95,
+            "a one-handed Club is already inside the Sword's band, so the band \
+             cannot be evidence of the coupling: club {club_one}, sword {sword}");
+        assert!(club_two > club_one, "two hands did not accelerate the Club at all");
+    }
+
+    #[test]
+    fn a_two_handed_grip_bills_one_arm_of_fatigue_and_not_two() {
+        // One item's work billed once across the pair, against the same work
+        // billed to a single arm. The two shares carry their own residues, so
+        // they rejoin to within one raw unit rather than exactly, which the
+        // contract says in as many words.
+        let step = ArmStep { delta_bearing_speed: Fx::from_raw(120),
+            delta_height_speed: Fx::from_raw(60), delta_reach_speed: Fx::from_raw(30),
+            idle_at_entry: false };
+        let inertia = equipment_inertia(Some(crate::club()));
+        let ticks = 64;
+        let bill = |grip: Grip| {
+            let mut arm = tucked_arm(Vec3::ZERO);
+            for _ in 0..ticks { bill_fatigue_for_grip(&mut arm, inertia, Fx::ONE, step, grip); }
+            arm
+        };
+        let alone = bill(Grip::OneHanded);
+        let left = bill(Grip::TwoHanded);
+        let right = bill(Grip::TwoHanded);
+        assert!(alone.fatigue.raw() > 0, "the fixture billed no fatigue to compare");
+
+        // Equal halves, which is what keeps the two accounts identical at world
+        // level -- `a_two_handed_target_mirrors_the_off_hand` asserts that.
+        assert_eq!(left.fatigue, right.fatigue);
+        let shared = left.fatigue.raw() + right.fatigue.raw();
+        assert!((shared - alone.fatigue.raw()).abs() <= 1,
+            "the pair's summed fatigue is not one arm's bill: shared {shared}, \
+             one-handed {}", alone.fatigue.raw());
+
+        // **The teeth.** Billing each arm in full -- what this session replaced --
+        // sums to twice the bill, and must fail the bound above.
+        let doubled = alone.fatigue.raw() * 2;
+        assert!((doubled - alone.fatigue.raw()).abs() > 1,
+            "the old whole-bill-to-each behaviour would satisfy the bound above, \
+             so the bound is not evidence of the sharing");
+        assert!(shared < doubled, "the pair still pays more than one arm's work");
+    }
+
+    #[test]
+    fn a_one_handed_grip_is_unchanged_by_the_two_handed_term() {
+        // **The scoping control.** Both levers are the identity on
+        // `Grip::OneHanded`, so no one-handed path anywhere can move, and the
+        // one-handed entry points are that value applied to the shared body.
+        for value in [Fx::from_ratio(1, 4), Fx::from_ratio(31, 25), Fx::from_ratio(223, 100),
+                      Fx::ONE, Fx::from_raw(1), Fx::ZERO] {
+            assert_eq!(Grip::OneHanded.driven_inertia(value), value, "the divisor is not inert");
+            assert_eq!(Grip::OneHanded.share_work(value), value, "the share is not inert");
+        }
+
+        // Bounded on the other side: the two-handed value must actually move,
+        // or both levers are wired to nothing.
+        let club = equipment_inertia(Some(crate::club()));
+        assert_eq!(Grip::TwoHanded.driven_inertia(club),
+            Fx::from_raw(club.raw() / TWO_HANDED_INERTIA_DIVISOR));
+        assert!(Grip::TwoHanded.driven_inertia(club) < club);
+        assert!(Grip::TwoHanded.share_work(club) < club);
+
+        // The bare-arm floor survives the division. An empty hand's `1/4` is the
+        // arm itself, and a second hand does not make the arm weightless.
+        let bare = equipment_inertia(None);
+        assert_eq!(Grip::TwoHanded.driven_inertia(bare), bare,
+            "the two-handed divisor cut below the bare-arm floor");
+
+        // And the whole integration agrees through both entry points.
+        let anatomy = crate::fighter_anatomy();
+        let stats = Stats::new(12, 12, 0, 0, 0);
+        let target = ArmTarget { bearing: Angle::QUARTER, height: CombatHeight::HIGH,
+            reach: Fx::ONE, effort: Fx::from_ratio(3, 4) };
+        let (mut plain, mut explicit) = (tucked_arm(Vec3::ZERO), tucked_arm(Vec3::ZERO));
+        for _ in 0..8 {
+            let _ = integrate_arm_with_rates(&mut plain, &anatomy, Angle::ZERO, 1, target,
+                Some(crate::club()), stats, Fx::ONE,
+                ARM_BEARING_MAX_SPEED_RAW, ARM_BEARING_ACCEL_RAW);
+            let _ = integrate_arm_for_grip(&mut explicit, &anatomy, Angle::ZERO, 1, target,
+                Some(crate::club()), stats, Fx::ONE,
+                ARM_BEARING_MAX_SPEED_RAW, ARM_BEARING_ACCEL_RAW, Grip::OneHanded);
+        }
+        assert_eq!(plain, explicit, "the one-handed entry point stopped agreeing with OneHanded");
     }
 
     #[cfg(feature = "cartesian-recoil")]

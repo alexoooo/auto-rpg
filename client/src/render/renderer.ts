@@ -60,6 +60,7 @@ export type RendererCameraOwner = Readonly<{
   setFree(free: boolean): void;
   pan?(dxPixels: number, dyPixels: number): void;
   zoom?(delta: number): void;
+  follow?(x: number, z: number): void;
   resize?(): void;
   dispose(): void;
 }>;
@@ -287,7 +288,14 @@ export class GreyboxRenderer {
   readonly #render = (): void => {
     if (!this.#running || this.#disposed || this.#handle.terminal) return;
     const sample = this.#timeline.sample(this.#now());
-    if (sample !== null) this.#actors.acceptSnapshot(sample.snapshot);
+    if (sample !== null) {
+      this.#actors.acceptSnapshot(sample.snapshot);
+      if (this.#reviewCamera?.follow !== undefined) {
+        // Faction 0 is the hero; AGENTS.md guarantees exactly one.
+        const hero = sample.snapshot.units.find((unit) => unit.faction === 0);
+        if (hero !== undefined) this.#reviewCamera.follow(hero.x, hero.y);
+      }
+    }
     this.#scene.render();
     const debug = this.#debug.snapshot();
     this.#frameMetrics = {

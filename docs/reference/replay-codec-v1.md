@@ -135,7 +135,7 @@ arithmetic before allocation; an ordinary exceeded documented cap is
 |---:|---:|---|---|
 | 0 | 4 | magic | ASCII `ARPG` |
 | 4 | 2 | codec version | `1` |
-| 6 | 2 | command schema | `0` for v2-10 legacy records; `1` from v2-11 |
+| 6 | 2 | command schema | `0` for v2-10 legacy records; `2` for articulated records, and `1` is retired |
 | 8 | 1 | hash domain | `0` LegacyV1; `1` ArticulatedV1 |
 | 9 | 1 | flags | `0`; every bit is reserved |
 | 10 | 2 | hash schema | `1` |
@@ -160,7 +160,7 @@ v2-11 adds exactly the payload owned by
 [Articulated command V1](articulated-command-v1.md#coordinate-and-scalar-rules):
 
 ```text
-command schema 1, ArticulatedV1 (1), hash schema 1, CombatModel::Articulated (1)
+command schema 2, ArticulatedV1 (1), hash schema 1, CombatModel::Articulated (1)
 ```
 
 Every other tuple is `CommandModelMismatch`, even when each number is independently

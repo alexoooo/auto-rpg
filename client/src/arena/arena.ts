@@ -336,6 +336,13 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
     element<HTMLInputElement | HTMLSelectElement>(container, id).value = value;
   }
 
+  /** The two-handed checkboxes carry state in `checked`, not `value`. */
+  function clearTwoHanded(): void {
+    for (const id of ["a-two-handed", "b-two-handed"]) {
+      element<HTMLInputElement>(container, id).checked = false;
+    }
+  }
+
   function selectControlledPreset(): void {
     setPickerValue("a-anatomy", "fighter");
     setPickerValue("a-left", "shield");
@@ -346,6 +353,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
     setPickerValue("b-right", "club");
     setPickerValue("b-policy", "neutral");
     setPickerValue("arena-seed", "0");
+    clearTwoHanded();
     for (const control of pickerControls(container)) {
       if (control instanceof HTMLInputElement || control instanceof HTMLSelectElement) {
         control.disabled = true;
@@ -366,6 +374,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
     setPickerValue("b-left", "empty");
     setPickerValue("b-right", "club");
     setPickerValue("arena-seed", "3");
+    clearTwoHanded();
     populatePolicies(container, "attack-moves", "attack-moves");
     setPickerValue("a-policy", "attack-moves");
     setPickerValue("b-policy", "attack-moves");

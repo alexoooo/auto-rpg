@@ -143,6 +143,94 @@ column, the plate is one quarter by one quarter, and a half-step guard lead reac
 six of the nine attack/guard height pairs. The other three remain unreachable under
 equal-period clocks; per-run phase randomisation belongs to the evaluation harness.
 
+### A swung club cannot wound, and that is an identity, 2026-08-16
+
+Measured after two interventions each moved its own mechanism and left the outcome
+unchanged: session 02 halved the club's effective inertia (Brute health 0.4989 ->
+0.5271) and session 03 gave it a policy that aims off the plate (weapon/shield share
+9.68% -> 8.70%). **The Brute recorded zero kills in all six configurations, and the
+Fighter's end health never left 0.9885-0.9985 under any pairing.**
+
+The cause is structural rather than statistical. `channels` in
+`crates/sim/src/combat/resolution.rs` scales the transverse component by the **weapon's
+own** `edge_factor`, and `club()` in `crates/sim/src/combat/spec.rs` carries
+`edge_factor: Fx::ZERO` against the sword's `Fx::ONE`. A swing is transverse motion, so
+a club's whole allocated share becomes `pressure` -- and `pressure` reaches no anatomy:
+`ContactProjector` bills `incoming = cut_raw + thrust_raw`, and the string does not
+appear in `crates/sim/src/anatomy.rs` at all. The club's only wounding channel is axial,
+at `point_factor` one half.
+
+**So neither arm authority nor the shield was ever the Brute's binding constraint**, and
+the deficit ranking that named them is wrong at its head. Both experiments were
+delivering more transverse club energy into a channel multiplied by zero.
+
+The answer is *not* to make a wooden club cut. It is that blunt force has no
+representation: the model already separates integrity loss from bleeding through
+`cut_share`, so "damage without a bleeding wound" is an established shape that crushing
+fits exactly. The shipped rule and its coefficients are
+`Material::crush_factor` in `crates/sim/src/combat/spec.rs`, with the formula in
+[contact solver](../reference/contact-solver.md) and the wound split in
+[anatomy and health](../reference/anatomy-health.md#armor-and-wound-transfer); the
+session that landed it also recorded the sword-side trap, which is that a blade's
+`pressure` is identically `CONTACT_ENERGY_FLOOR`, so billing crush on the share rather
+than on what the edge and point declined would have been a larger change to the sword
+than to the club.
+
+#### Resolved the same day: the club can wound, and the fight changed
+
+`Material::crush_factor` bills the energy the edge and the point declined -- `Wood`
+three quarters, `Steel` seven eighths, `Flesh` zero -- and `incoming` becomes
+`cut + thrust + crush`. Billing it on the *declined* remainder rather than on the share
+is what keeps the energy floor a floor and leaves a blade exactly unchanged.
+
+On `lab articulated --seeds 100 --mirrored --attack-moves --b-two-handed on`, against
+the session-04 baseline of Fighter `0.9907` / Brute `0.5009` / 0 Brute kills / 13.0%
+decided / 137 severances:
+
+| | before | after |
+|---|---:|---:|
+| Fighter end health | 0.9907 | **0.8575** |
+| Brute end health | 0.5009 | 0.5281 |
+| Brute kills | **0** | **2** |
+| Fighter kills | -- | 20 |
+| Fighter wins | 200/200 | **191/200** |
+| decided by a body | 13.0% | 11.0% |
+| severances | 137 | 116 |
+
+Both predeclared bar conditions are met: the Brute-kills column stops being zero, and
+the Fighter's end health leaves the `0.9885-0.9985` band it had never left in any
+measured configuration. The Brute wins nine trials, which is the first time it has won
+any. Under the plain composed script the effect is larger still -- 6 Brute kills
+against 1 Fighter kill, both bodies ending near `0.76`.
+
+Neither number was tuned against: the coefficients come from the stiffness argument in
+`Material::crush_factor` and were fixed before the corpus was run.
+
+Note the two counts that went **down**: severances `137 -> 116` and body decisions
+`13.0% -> 11.0%`. That is not a regression hiding in a win. Crush costs integrity and
+opens no bleeding wound -- `cut_share` scales the wound by the cut fraction, and a
+club's cut is structurally zero -- so a club now removes a body's structure without
+starting its bleed clock, and both fighters spend longer alive while taking real damage.
+The legacy surface is unmoved at `59.5%` on `duel --seeds 400`.
+
+Two corrections to numbers quoted elsewhere, both established in the same measurement:
+
+- **"Roughly 35x short" is a speed ratio, and the damage law consumes `v^2`.** In the
+  quantity actually billed the gap is nearer 1,200x, and the flat 144-raw floor is
+  subtracted *after* the squaring -- so below about 0.07 units/tick of closure the
+  damage is exactly zero rather than merely small. That threshold shape, not a smooth
+  shortfall, is why the model is bimodal between a windmill deciding 96.5% and
+  `attack-moves` deciding 8.5%.
+- **The gap is stale as well as mis-stated.** It was recorded on 2026-08-10 and nobody
+  re-measured it after the 2026-08-15 slew doubling. By mean blade-tip speed the ratio
+  is now roughly 20x for the windmill and 29x for the composed script.
+
+The windmill/composed split itself is an **arrival** result, not an aim result: the
+composed arm is commanded at full effort in four of twelve phases and its bearing step
+is exactly zero on 68.6% of ticks, against the windmill's full reach and full effort
+every tick. Widening the commanded arc and avoiding the plate were both tested and both
+failed to move the outcome, which is the signature this reading predicts.
+
 ### Gate hygiene
 
 - `contact_cap_hits == 0` is unreachable as posed and became less reachable as

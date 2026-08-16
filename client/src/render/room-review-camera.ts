@@ -11,6 +11,25 @@ import {
 const FREE_ALPHA = -Math.PI / 4;
 const FREE_BETA = Math.PI / 3;
 
+// The playable `#/game` starting zoom. The worker's dungeon is 68 x 45 tiles,
+// so `fixedIsometricBounds` reads (68 + 45) / zoom tiles of vertical view:
+// eight shows 14.125 of them -- close enough to read the hero's swing with a
+// room's worth of floor around it -- where the default of one showed 113 for a
+// 45-tile map, roughly 2.5x over-framed. Only the ordinary game route passes
+// this; the stress and compact-review fixtures keep their own committed zooms
+// so recorded captures stay comparable.
+export const GAME_INITIAL_FIXED_ZOOM = 8;
+
+// The hero may roam this fraction of each orthographic half-extent, measured
+// along the camera's screen axes on the ground plane, before the fixed camera
+// pans -- and the pan restores exactly the excess, so the camera moves at the
+// hero's own speed once the hero rides the zone edge, which keeps the follow
+// frame-rate independent where a per-frame easing fraction would not be. At
+// 0.35 the hero reaches about a third of the way toward a screen edge before
+// the camera responds: enough to read intent without letting the hero near
+// the edge of the view.
+export const FOLLOW_DEAD_ZONE_FRACTION = 0.35;
+
 export type RoomReviewCamera = Readonly<{
   readonly camera: Camera;
   readonly free: boolean;
@@ -18,11 +37,12 @@ export type RoomReviewCamera = Readonly<{
   setFree(free: boolean): void;
   pan(dxPixels: number, dyPixels: number): void;
   zoom(delta: number): void;
+  follow?(x: number, z: number): void;
   resize(): void;
   dispose(): void;
 }>;
 
-export type RoomReviewCameraOptions = Readonly<{ initialFixedZoom?: number }>;
+export type RoomReviewCameraOptions = Readonly<{ initialFixedZoom?: number; followHero?: boolean }>;
 
 export function createRoomReviewCamera(
   scene: Scene, canvas: HTMLCanvasElement, bounds: ArenaBounds, options: RoomReviewCameraOptions = {},
@@ -41,6 +61,12 @@ export function createRoomReviewCamera(
   let fixed: FreeCamera;
   let free = false;
   let disposed = false;
+  // A drag hands the view to the user: the follow stays quiet until the hero
+  // itself walks out of a dead-zone-sized region around where it stood when
+  // the drag happened, so a camera the user parked never gets yanked back by
+  // a stationary hero.
+  let dragSuspended = false;
+  let followAnchor: CameraPan | null = null;
 
   const aspect = (): number => Math.max(1, canvas.clientWidth) / Math.max(1, canvas.clientHeight);
   const createFixed = (): FreeCamera => {
@@ -78,12 +104,62 @@ export function createRoomReviewCamera(
     if (!free) scene.activeCamera = fixed;
     previous.dispose();
   };
+  // The follow's per-frame path: reposition the one live camera rather than
+  // constructing a replacement sixty times a second. `replaceFixed` stays the
+  // route for the discrete calls that change more than the pan.
+  const moveFixedTo = (next: CameraPan): void => {
+    pan = next;
+    const distance = Math.max(bounds.width, bounds.height);
+    fixed.position.set(pan.x - distance, distance, pan.y - distance);
+    fixed.setTarget(new Vector3(pan.x, 0, pan.y));
+  };
+  const follow = (x: number, z: number): void => {
+    if (disposed || free || !Number.isFinite(x) || !Number.isFinite(z)) return;
+    const vertical = fixed.orthoTop ?? 0;
+    const horizontal = fixed.orthoRight ?? 0;
+    if (vertical <= 0 || horizontal <= 0) return;
+    // The allowances are fractions of the orthographic half-extents, measured
+    // by projecting the hero's world offset onto the screen axes' ground
+    // directions. The vertical one ignores the isometric foreshortening of
+    // ground offsets, so the on-screen zone is slightly taller than the
+    // fraction says -- a dead zone needs no more precision than that.
+    const allowedUp = vertical * FOLLOW_DEAD_ZONE_FRACTION;
+    const allowedRight = horizontal * FOLLOW_DEAD_ZONE_FRACTION;
+    if (dragSuspended) {
+      dragSuspended = false;
+      followAnchor = Object.freeze({ x, y: z });
+      return;
+    }
+    if (followAnchor !== null) {
+      if (Math.hypot(x - followAnchor.x, z - followAnchor.y) <= allowedUp) return;
+      followAnchor = null;
+    }
+    const screenRight = fixed.getDirection(Vector3.Right());
+    const screenUp = fixed.getDirection(Vector3.Up());
+    const rightLength = Math.hypot(screenRight.x, screenRight.z) || 1;
+    const upLength = Math.hypot(screenUp.x, screenUp.z) || 1;
+    const rightX = screenRight.x / rightLength, rightZ = screenRight.z / rightLength;
+    const upX = screenUp.x / upLength, upZ = screenUp.z / upLength;
+    const offsetRight = (x - pan.x) * rightX + (z - pan.y) * rightZ;
+    const offsetUp = (x - pan.x) * upX + (z - pan.y) * upZ;
+    // Restore exactly the excess beyond the zone: the hero is pushed back to
+    // the zone edge, never centred, so a stationary hero causes no creep.
+    const excessRight = offsetRight - Math.min(allowedRight, Math.max(-allowedRight, offsetRight));
+    const excessUp = offsetUp - Math.min(allowedUp, Math.max(-allowedUp, offsetUp));
+    if (excessRight === 0 && excessUp === 0) return;
+    moveFixedTo(clampCameraPan(bounds, {
+      x: pan.x + rightX * excessRight + upX * excessUp,
+      y: pan.y + rightZ * excessRight + upZ * excessUp,
+    }));
+  };
   const resetFixed = (): void => {
     if (disposed) return;
     orbit.detachControl();
     free = false;
     pan = Object.freeze({ x: centre.x, y: centre.z });
     fixedZoom = initialFixedZoom;
+    dragSuspended = false;
+    followAnchor = null;
     orbit.alpha = FREE_ALPHA;
     orbit.beta = FREE_BETA;
     orbit.radius = fixedRadius;
@@ -116,8 +192,11 @@ export function createRoomReviewCamera(
         x: pan.x + (-dxPixels * screenRight.x / rightLength + dyPixels * screenUp.x / upLength) * scale / fixedZoom,
         y: pan.y + (-dxPixels * screenRight.z / rightLength + dyPixels * screenUp.z / upLength) * scale / fixedZoom,
       });
+      dragSuspended = true;
+      followAnchor = null;
       replaceFixed();
     },
+    ...(options.followHero === true ? { follow } : {}),
     zoom(delta: number): void {
       if (disposed || free || !Number.isFinite(delta)) return;
       fixedZoom = clampCameraZoom(fixedZoom * Math.exp(-delta * 0.001));

@@ -79,9 +79,10 @@ pub use articulated_script::{
     GUARD_LEAD_TICKS, HEIGHT_TICKS, PHASE_TICKS, SCRIPT_DIGEST_DOMAIN,
 };
 pub use articulated_tactics::{
-    robust_strike_schedule_command, StrikeDiagnostics, StrikePlan, StrikePlanner, StrikerArticulatedPolicy,
+    robust_strike_schedule_command, OpeningsArticulatedPolicy, PlanScoring, StrikeDiagnostics,
+    StrikePlan, StrikePlanner, StrikerArticulatedPolicy,
     TacticalArticulatedPolicy, TacticalContextV1, TacticalIntentV1, TacticalPhase,
-    ThreatAssessmentV1, ROBUST_STRIKE_HEIGHT, ROBUST_STRIKE_TICKS,
+    ThreatAssessmentV1, OPENINGS_POLICY_CODE, ROBUST_STRIKE_HEIGHT, ROBUST_STRIKE_TICKS,
     TACTICAL_INTENT_COUNT, TACTICAL_PHASE_COUNT, TACTICAL_POLICY_CODE,
 };
 pub use duelist::{DuelistPolicy, DuelistWeights, Stance, DUELIST_GENOME_LEN};
@@ -422,16 +423,22 @@ pub enum ArticulatedPolicyKind {
     Learned,
     /// The observation-driven seek, defence and region-targeted strike controller.
     Tactical,
+    /// [`Tactical`] ranking its candidates by what the opponent's plate does not
+    /// cover, rather than by which region centre is nearest.
+    ///
+    /// [`Tactical`]: ArticulatedPolicyKind::Tactical
+    Openings,
 }
 
 impl ArticulatedPolicyKind {
-    pub const ALL: [ArticulatedPolicyKind; 6] = [
+    pub const ALL: [ArticulatedPolicyKind; 7] = [
         ArticulatedPolicyKind::Neutral,
         ArticulatedPolicyKind::Composed,
         ArticulatedPolicyKind::Windmill,
         ArticulatedPolicyKind::AttackMoves,
         ArticulatedPolicyKind::Learned,
         ArticulatedPolicyKind::Tactical,
+        ArticulatedPolicyKind::Openings,
     ];
 
     pub const fn code(self) -> u32 {
@@ -442,6 +449,7 @@ impl ArticulatedPolicyKind {
             ArticulatedPolicyKind::AttackMoves => 3,
             ArticulatedPolicyKind::Learned => 4,
             ArticulatedPolicyKind::Tactical => TACTICAL_POLICY_CODE,
+            ArticulatedPolicyKind::Openings => OPENINGS_POLICY_CODE,
         }
     }
 
@@ -453,6 +461,7 @@ impl ArticulatedPolicyKind {
             3 => Some(ArticulatedPolicyKind::AttackMoves),
             4 => Some(ArticulatedPolicyKind::Learned),
             TACTICAL_POLICY_CODE => Some(ArticulatedPolicyKind::Tactical),
+            OPENINGS_POLICY_CODE => Some(ArticulatedPolicyKind::Openings),
             _ => None,
         }
     }
@@ -463,10 +472,13 @@ impl ArticulatedPolicyKind {
 
     /// The name the studio and `lab` label this policy with.
     ///
-    /// `lab articulated`'s own `--policy` vocabulary is `composed`, `windmill`
-    /// and `neutral`, and these are those words: an arena fight and a gate
-    /// corpus that ran the same script should not be describable in two
-    /// vocabularies.
+    /// `lab articulated`'s own `--policy` vocabulary is `composed`, `windmill`,
+    /// `tactical` and `openings`, and these are those words: an arena fight and
+    /// a gate corpus that ran the same script should not be describable in two
+    /// vocabularies. `attack-moves` is reachable there as `--attack-moves` over
+    /// the composed script rather than as a `--policy` arm, and by name through
+    /// `--hero-policy`/`--monster-policy`; `neutral` is not accepted by `lab` at
+    /// all, and this comment claimed for some time that it was.
     pub const fn name(self) -> &'static str {
         match self {
             ArticulatedPolicyKind::Neutral => "neutral",
@@ -475,6 +487,7 @@ impl ArticulatedPolicyKind {
             ArticulatedPolicyKind::AttackMoves => "attack-moves",
             ArticulatedPolicyKind::Learned => "learned",
             ArticulatedPolicyKind::Tactical => "tactical",
+            ArticulatedPolicyKind::Openings => "openings",
         }
     }
 
@@ -492,6 +505,7 @@ impl ArticulatedPolicyKind {
             ArticulatedPolicyKind::AttackMoves => Some(Box::new(ClosingAttackControlPolicy)),
             ArticulatedPolicyKind::Learned => None,
             ArticulatedPolicyKind::Tactical => Some(Box::new(TacticalArticulatedPolicy::default())),
+            ArticulatedPolicyKind::Openings => Some(Box::new(OpeningsArticulatedPolicy::default())),
         }
     }
 }
@@ -536,8 +550,10 @@ mod tests {
         assert_eq!(ArticulatedPolicyKind::AttackMoves.code(), 3);
         assert_eq!(ArticulatedPolicyKind::Learned.code(), 4);
         assert_eq!(ArticulatedPolicyKind::Tactical.code(), 5);
+        assert_eq!(ArticulatedPolicyKind::Openings.code(), 6);
         assert_eq!(ArticulatedPolicyKind::from_code(5), Some(ArticulatedPolicyKind::Tactical));
-        assert_eq!(ArticulatedPolicyKind::from_code(6), None);
+        assert_eq!(ArticulatedPolicyKind::from_code(6), Some(ArticulatedPolicyKind::Openings));
+        assert_eq!(ArticulatedPolicyKind::from_code(7), None);
         for kind in ArticulatedPolicyKind::ALL {
             assert_eq!(ArticulatedPolicyKind::from_code(kind.code()), Some(kind));
             assert_eq!(ArticulatedPolicyKind::from_name(kind.name()), Some(kind));

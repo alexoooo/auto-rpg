@@ -90,12 +90,26 @@ const BOW_HASH = 0x4a1157735d305e9fn;
 // Exact recoil changes these published articulated values and no registered
 // browser golden. Keeping the switch beside the two witnesses makes adding a
 // third difference a source-visible contract change rather than a hidden skip.
+// Both halves moved on 2026-08-16 when the submitted payload widened from 51 to
+// 53 bytes for the release verb: `state_digest` writes every stored command's
+// payload, so the fixture's one command contributes two more bytes even though
+// both verbs are `Keep`. Default was `0xd1da6a40df0480b2`.
 const ARTICULATED_COMMAND_HASH = CARTESIAN_RECOIL
-  ? 0x5fcaba34556b2737n
-  : 0xd1da6a40df0480b2n;
+  ? 0x8d92c50f3a16ebcen
+  : 0x28dca7e757a1ba3fn;
 const COMBAT_GEOMETRY_HASH = 0x9d15344883cf6e9cn;
-const EXACT_TRAJECTORY_STATE_DIGEST = 0x83051e8c6b4ef20fn;
-const LIFTED_COULOMB_SOLVER_DIGEST = 0x83cd7bb2b73aeb9en;
+// Both moved on 2026-08-16 with the release verb. They are stored-command
+// fixtures, and `exact_diagnostics.rs` writes the payload *width* as a `u16`
+// alongside the payload bytes, so widening the payload reaches them twice over
+// before their embedded state digests move for a third reason.
+// Were `0x83051e8c6b4ef20f` and `0x83cd7bb2b73aeb9e`.
+const EXACT_TRAJECTORY_STATE_DIGEST = 0x88e6ea929b8d4305n;
+const LIFTED_COULOMB_SOLVER_DIGEST = 0x8dc443385973a5c8n;
+// A four-byte envelope and a 53-byte payload. Written out rather than derived,
+// because this file exists to disagree with Rust when Rust is wrong: the export
+// is asserted against this number, so computing it the way the export computes
+// it would assert nothing. It was 55 through payload layout 1.
+const SUBMITTED_COMMAND_BYTES = 57;
 
 // The frame header, as the client reads it.
 const HEADER_LEN = 15;
@@ -610,16 +624,24 @@ test("the selftest hash is the number the lab prints natively", () => {
 
 test("the articulated command scratch matches Rust and stores atomically", () => {
   wasm.init_articulated_test(1);
-  assert.equal(wasm.submitted_command_len(), 55);
-  assert.equal(wasm.submitted_command_layout_version(), 1);
+  // 57 and layout 2 since the release verb landed: two bytes appended to a
+  // payload that was already fully packed. Rewritten here rather than
+  // re-recorded -- this file is the independent reconstruction of the same
+  // fixture `crates/web/src/lib.rs` writes, and a mirror copied from the thing
+  // it mirrors checks nothing.
+  assert.equal(wasm.submitted_command_len(), SUBMITTED_COMMAND_BYTES);
+  assert.equal(wasm.submitted_command_layout_version(), 2);
   const fixture = Uint8Array.from([
-    0x01,0x00,0x01,0x00, 0x01,0x00,0x00,0x00, 0xfe,0xff,0xff,0xff,
+    0x02,0x00,0x01,0x00, 0x01,0x00,0x00,0x00, 0xfe,0xff,0xff,0xff,
     0x34,0x12,0x01, 0x44,0x33,0x22,0x11, 0x88,0x77,0x66,0x55,
     0x45,0x23, 0x00,0x40,0x00,0x00, 0x03,0x00,0x00,0x00,
     0x04,0x00,0x00,0x00, 0x56,0x34, 0x00,0xc0,0x00,0x00,
     0x05,0x00,0x00,0x00, 0x06,0x00,0x00,0x00, 0x02,0x01,0x01,0x00,
+    0x00,0x01,
   ]);
-  new Uint8Array(wasm.memory.buffer, u32(wasm.submitted_command_ptr()), 55).set(fixture);
+  assert.equal(fixture.length, SUBMITTED_COMMAND_BYTES, "the fixture is not a whole command");
+  new Uint8Array(wasm.memory.buffer, u32(wasm.submitted_command_ptr()),
+                 SUBMITTED_COMMAND_BYTES).set(fixture);
   assert.equal(u32(wasm.submit_articulated(0, 0)), 1, "valid command was not stored verbatim");
   assert.equal(wasm.state_digest_domain(), 1);
   assert.equal(wasm.state_digest_schema(), 1);
@@ -629,7 +651,8 @@ test("the articulated command scratch matches Rust and stores atomically", () =>
   const malformed = fixture.slice();
   malformed[10 + 4] = 9; // intent tag at payload offset 10
   malformed.set([0x01, 0x00, 0x01, 0x00], 4); // also numerically out of range: syntax wins
-  new Uint8Array(wasm.memory.buffer, u32(wasm.submitted_command_ptr()), 55).set(malformed);
+  new Uint8Array(wasm.memory.buffer, u32(wasm.submitted_command_ptr()),
+                 SUBMITTED_COMMAND_BYTES).set(malformed);
   assert.equal(u32(wasm.submit_articulated(0, 0)), 1 << 8, "mixed malformed/range input stored a fallback");
   assert.equal(hash64(wasm.state_digest_lo(), wasm.state_digest_hi()), measured, "NotStored mutated state");
   console.log(`articulated     ${hex(measured)}  == native command fixture`);
@@ -1938,6 +1961,9 @@ test("a death and a replacement replay the way native recorded them", () => {
 // `crates/web`'s ARENA_* offsets, mirrored. The module asserts its own
 // arithmetic with `const _`; these are what a page computes from the reference.
 const ARENA_CONFIG_BYTES = 120;
+// `2` since combat-arms-01 claimed the hand block's byte 1 for the two-handed
+// grip; layout `1` promised that byte was zero.
+const ARENA_CONFIG_LAYOUT_VERSION = 2;
 const ARENA_HEADER_BYTES = 8;
 const ARENA_FIGHTER_BYTES = 56;
 const ARENA_HAND_BYTES = 22;
@@ -1946,6 +1972,7 @@ const ARENA_WHOLE_CONFIG = 255;
 // Reason codes, from crates/web/src/lib.rs.
 const ARENA_UNKNOWN_LAYOUT = 1;
 const ARENA_WRONG_FIGHTER_COUNT = 2;
+const ARENA_NONCANONICAL = 3;
 const ARENA_UNKNOWN_ANATOMY = 4;
 const ARENA_NO_EQUIPMENT = 24;
 // v2-ui-08's, and it replaced `ARENA_POLICY_UNAVAILABLE` (7) as the answer a
@@ -1995,7 +2022,7 @@ const shippedArena = () => ({
 function arenaBytes(config) {
   const bytes = new Uint8Array(ARENA_CONFIG_BYTES);
   const words = new DataView(bytes.buffer);
-  words.setUint16(0, 1, true);
+  words.setUint16(0, ARENA_CONFIG_LAYOUT_VERSION, true);
   bytes[2] = config.fighters.length;
   words.setUint32(4, config.maxTicks, true);
   config.fighters.forEach((fighter, index) => {
@@ -2011,6 +2038,8 @@ function arenaBytes(config) {
       words.setInt32(at + 6, hand.balance, true);
       hand.dims.forEach((value, word) => words.setInt32(at + 10 + word * 4, value, true));
     });
+    // Byte 1 of the right hand block: the two-handed grip marker.
+    if (fighter.twoHanded) bytes[base + 12 + ARENA_HAND_BYTES + 1] = 1;
   });
   return bytes;
 }
@@ -2039,7 +2068,8 @@ test("a configured duel runs inside the module and refuses by name", () => {
     assert.equal(typeof wasm[name], "function", `web.wasm does not export ${name}()`);
   }
   assert.equal(u32(wasm.arena_config_len()), ARENA_CONFIG_BYTES, "arena_config_len");
-  assert.equal(u32(wasm.arena_config_layout_version()), 1, "arena_config_layout_version");
+  assert.equal(u32(wasm.arena_config_layout_version()), ARENA_CONFIG_LAYOUT_VERSION,
+    "arena_config_layout_version");
   assert.ok(u32(wasm.arena_config_ptr()) > 0, "the arena buffer is at address zero");
 
   // A legacy world knows nothing about any of this, which is the half of the
@@ -2102,7 +2132,9 @@ test("a configured duel runs inside the module and refuses by name", () => {
   // Refusals, and the standing fight none of them may touch.
   const standing = { hash: stateHash(), tick: u32(wasm.tick()), print: arenaFingerprint() };
   const refusals = [
-    ["an unknown layout", (bytes) => { bytes[0] = 2; },
+    // `1` is the retired layout whose hand byte was reserved-zero -- refused
+    // rather than grandfathered, because this build reads that byte as a grip.
+    ["an unknown layout", (bytes) => { bytes[0] = 1; },
       { reason: ARENA_UNKNOWN_LAYOUT, fighter: ARENA_WHOLE_CONFIG, slot: ARENA_WHOLE_CONFIG }],
     ["a wrong fighter count", (bytes) => { bytes[2] = 3; },
       { reason: ARENA_WRONG_FIGHTER_COUNT, fighter: ARENA_WHOLE_CONFIG, slot: ARENA_WHOLE_CONFIG }],
@@ -2122,6 +2154,12 @@ test("a configured duel runs inside the module and refuses by name", () => {
       assert.equal(u32(wasm.checkpoint_installed()), 0, "a network is already installed");
       bytes[ARENA_HEADER_BYTES + 1] = LEARNED;
     }, { reason: ARENA_NO_CHECKPOINT, fighter: 0, slot: LEARNED }],
+    // The two-handed marker anywhere but a full right hand: on the Fighter's
+    // left hand block, byte 1. The legal placement is asserted below, where a
+    // two-handed club installs and fights.
+    ["a two-handed marker on the left hand", (bytes) => {
+      bytes[ARENA_HEADER_BYTES + 12 + 1] = 1;
+    }, { reason: ARENA_NONCANONICAL, fighter: 0, slot: 0 }],
   ];
   for (const [what, edit, expected] of refusals) {
     const bytes = arenaBytes(swapped);
@@ -2142,15 +2180,28 @@ test("a configured duel runs inside the module and refuses by name", () => {
   wasm.step(1);
   assert.equal(u32(wasm.tick()), standing.tick, "a settled arena stepped past its limit");
 
-  // Still usable after five refusals, which is what the fail-closed shape exists
+  // Still usable after six refusals, which is what the fail-closed shape exists
   // for: a bad slider value is a message rather than a reload.
   const shorter = shippedArena();
   shorter.maxTicks = 30;
   stageArena(arenaBytes(shorter));
   assert.equal(arenaResult(wasm.arena_start(11)).outcome, 1, "the instance stopped taking fights");
+  const shorterPrint = arenaFingerprint();
   assert.equal(u32(wasm.tick()), 0);
   wasm.step(10);
   assert.equal(u32(wasm.tick()), 10);
+
+  // The marker's legal placement: the Brute's club gripped in both hands
+  // installs, fingerprints differently from the same configuration one-handed
+  // -- the grip reaches the row's binding byte -- and fights.
+  const gripped = shippedArena();
+  gripped.maxTicks = 30;
+  gripped.fighters[1].twoHanded = true;
+  stageArena(arenaBytes(gripped));
+  assert.equal(arenaResult(wasm.arena_start(11)).outcome, 1, "a two-handed club was refused");
+  assert.notEqual(arenaFingerprint(), shorterPrint, "the grip did not reach the fingerprint");
+  wasm.step(30);
+  assert.equal(u32(wasm.tick()), 30);
   console.log(`arena          ${config.maxTicks} ticks, fingerprint ${hex(fingerprint)}`);
 
   // And back to a legacy world, so nothing after this inherits an arena.
@@ -2493,7 +2544,21 @@ test("a learned fighter runs a configured duel inside the module", () => {
   assert.equal(u32(wasm.arena_policy(1)), WINDMILL);
 
   wasm.step(3_600);
-  assert.equal(u32(wasm.tick()), config.maxTicks, "the arena did not stop at its own limit");
+  // **Decided at 259 rather than exhausted at 300, re-recorded 2026-08-16.**
+  // Freeing the guard bearing, and taking the plate's normal from the arm that
+  // carries it, changed what this fight's shield intercepts: it now ends on a
+  // body instead of running out its own clock. Bounded from both sides, because
+  // the claim this line carries is "it runs the fight rather than standing
+  // still" -- a duel that reached the limit again and one that stopped in the
+  // opening ticks would both satisfy a one-sided bound and neither is this.
+  // The paired native spelling is
+  // `a_learned_fight_in_wasm_matches_the_same_fight_in_lab` in crates/web.
+  const stopped = u32(wasm.tick());
+  assert.equal(stopped, 259, "the learned duel no longer ends where it did");
+  assert.ok(
+    stopped > 32 && stopped < config.maxTicks,
+    "the learned duel either stood still or ran out the clock instead of being decided",
+  );
   assert.ok(u32(wasm.combat_event_len()) > 0, "the learned fight resolved no contact");
   const fought = stateHash();
 

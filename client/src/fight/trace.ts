@@ -111,6 +111,18 @@ export interface Contact {
   readonly groupDissipated: number;
   readonly cut: number;
   readonly thrust: number;
+  /**
+   * Everything the edge and the point did not take.
+   *
+   * **Not purely inert, and the name is older than the mechanic.** Since
+   * combat-arms-05 the sim splits this remainder again, into a *crushing*
+   * channel that wounds and a residual that does not, and the event layout has
+   * three channel words rather than four -- so what arrives here is
+   * `crush + pressure`. A wooden club's whole blow is in this number and it
+   * does real damage; a blade's is the energy floor and does none. The two
+   * cannot be told apart from the published words alone, which is a known gap
+   * and a layout change to close.
+   */
   readonly pressure: number;
   readonly deflected: number;
   readonly severed: boolean;
@@ -120,10 +132,12 @@ export interface Contact {
  * The energy this one contact was allocated out of its group's dissipation.
  *
  * **The only quantity `CONTACT_ENERGY_FLOOR` is charged against.** `channels()`
- * deducts the floor from this share and splits what is left between cut and
- * thrust, returning `(cut, thrust, share - cut - thrust)` -- so the three
- * published channels sum back to it exactly. Zero for weapon-weapon and
- * weapon-shield rows, which have no wound channel and pay no floor.
+ * deducts the floor from this share and splits what is left between cut,
+ * thrust and crush, and the publisher folds crush back into `pressure` -- so
+ * the three published channels still sum back to the share exactly, which is
+ * what makes this function correct and what keeps a crushing blow's ring the
+ * size the blow actually was. Zero for weapon-weapon and weapon-shield rows,
+ * which have no wound channel and pay no floor.
  */
 export function share(contact: Contact): number {
   return contact.cut + contact.thrust + contact.pressure;

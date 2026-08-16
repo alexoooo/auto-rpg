@@ -128,7 +128,10 @@ pub(crate) fn held_segment_colliders(
 /// world units. That was the whole of the arena proxy's worst agreement gap
 /// before it was fixed there. `n.z` is zero on every published plate *by
 /// construction*: `World::derive_shield_pose` writes the normal as
-/// `Vec3::new(yaw.cos(), yaw.sin(), Fx::ZERO)`. A `z` component would not cost
+/// `Vec3::new(bearing.cos(), bearing.sin(), Fx::ZERO)`, where `bearing` is the
+/// carrying arm's -- it was `body_yaw`'s until 2026-08-16, and the planar
+/// property this paragraph depends on is the same either way, because both are
+/// an `Angle` and neither has a vertical part. A `z` component would not cost
 /// this face its shape -- `left` zeroes `z` and `up` is `Vec3::Z`, so `side`
 /// and `up` stay perpendicular whatever `n.z` is and the corners stay a
 /// rectangle -- it would leave the *published* normal disagreeing with the

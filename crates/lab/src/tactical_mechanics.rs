@@ -378,10 +378,14 @@ fn measure_tactical(case: strong_strike::StrongCase) -> TacticalRow {
             waterfall.dissipated_groups += u32::from(row.energy.dissipated_raw > 0);
             // ContactResolution does not publish the pre-floor allocated share.
             // A positive channel sum is the first observable post-floor stage.
-            let channels = row.cut_raw + row.thrust_raw + row.pressure_raw;
+            let channels = row.cut_raw + row.thrust_raw + row.crush_raw + row.pressure_raw;
             waterfall.above_floor += u32::from(channels > 0);
-            waterfall.cut_or_thrust += u32::from(row.cut_raw + row.thrust_raw > 0);
-            matching_cut_or_thrust |= row.cut_raw + row.thrust_raw > 0;
+            // Crush joins the wounding count because it *is* one: it reaches
+            // anatomy through the same `incoming` the other two do. Leaving it
+            // out would report every club blow as having converted nothing.
+            waterfall.cut_or_thrust +=
+                u32::from(row.cut_raw + row.thrust_raw + row.crush_raw > 0);
+            matching_cut_or_thrust |= row.cut_raw + row.thrust_raw + row.crush_raw > 0;
             cut_raw += row.cut_raw; thrust_raw += row.thrust_raw; pressure_raw += row.pressure_raw;
         }
         for part in BodyPart::ALL {

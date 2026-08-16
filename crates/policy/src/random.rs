@@ -8,6 +8,7 @@ use crate::{ArticulatedPolicy, Policy};
 use fx::{Fx, Rng, Vec2};
 use sim::{
     ArmTarget, ArticulatedCommandV1, ArticulatedObservation, CombatHeight, Command, GripRequest,
+    ReleaseRequest,
     Intent, LimbCommand, Observation,
 };
 
@@ -53,6 +54,7 @@ pub fn neutral_articulated_command(obs: &ArticulatedObservation) -> ArticulatedC
         intent: Intent::Hold,
         arms: [arm; 2],
         grips: [GripRequest::Keep; 2],
+        releases: [ReleaseRequest::Keep; 2],
     }
 }
 

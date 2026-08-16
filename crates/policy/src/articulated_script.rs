@@ -98,6 +98,17 @@
 //! normal-versus-centre defect that the same doc comment measures. Read it
 //! there.
 //!
+//! # The guard got its bearing back too (2026-08-16)
+//!
+//! **Two columns now, because the blocker was removed rather than accepted.**
+//! The paragraph above is kept as written because its reasoning was correct
+//! about the model it was written against; what changed is the model.
+//! `World::derive_shield_pose` now takes the plate's normal from the carrying
+//! arm's own bearing, so centre and facing cannot come apart, and the reason
+//! `bearing` was the one column that could not be spent no longer holds. The
+//! guard tracks the threat inside [`GUARD_ARC`] of the commanded yaw and falls
+//! back to the yaw exactly when nothing is visible.
+//!
 //! Two consequences for the reading above, and both are corrections to the
 //! subtractions it lists:
 //!
@@ -131,6 +142,7 @@ use crate::ArticulatedPolicy;
 use fx::{Angle, Fx, Hash64, Vec2};
 use sim::{
     ArmTarget, ArticulatedCommandV1, ArticulatedObservation, CombatHeight, GripRequest, Intent,
+    ReleaseRequest,
     SubmittedCommand, SubmittedCommandRecord,
 };
 
@@ -220,6 +232,21 @@ pub const GUARD_LEAD_TICKS: u32 = HEIGHT_TICKS / 2;
 pub const EIGHTH_TURN: Angle = Angle::from_raw(8_192);
 
 /// The three ordinary heights, in the order `(tick / 90) % 3` walks them.
+/// How far the guard bearing may leave the body's own facing, either way.
+///
+/// **Chosen on the plate's geometry, not on a corpus.** Since 2026-08-16
+/// `World::derive_shield_pose` takes the normal from this bearing, so the arc is
+/// exactly how far the plate may turn away from the direction the body faces.
+/// At a quarter turn the plate would be edge-on to a frontal attack -- which is
+/// the 1.84%-of-ticks defect the old weld existed to prevent -- and past a
+/// quarter it would face behind the body. So the arc must be strictly less than
+/// a quarter, and an eighth is where this file already puts an arc it has to
+/// choose: it keeps `cos(45 deg)`, about 0.707, of the plate's width projected
+/// against a frontal attack, and it can never be edge-on.
+///
+/// `a_bodiless_guard_arc_is_clamped_rather_than_wrapped` bounds both ends.
+const GUARD_ARC: Angle = EIGHTH_TURN;
+
 const HEIGHTS: [CombatHeight; 3] = [CombatHeight::LOW, CombatHeight::MID, CombatHeight::HIGH];
 
 const QUARTER: Fx = Fx::from_ratio(1, 4);
@@ -373,17 +400,19 @@ fn tucked(body_yaw: Angle) -> ArmTarget {
 /// is what says the three settings answer three different attacks rather than
 /// being three spellings of one.
 ///
-/// **Height and not bearing, and the asymmetry is the whole reason only one
-/// column moved.** Freeing `bearing` would reintroduce the
-/// `derive_shield_pose` defect measured two paragraphs down -- median 32
-/// degrees between the plate's normal and the hand that carries it, 1.84% of
-/// ticks edge-on -- because the plate's normal is read off body yaw and its
-/// centre off the hand, so a hand free to swing left and right comes apart from
-/// its own facing. Freeing height cannot do that, because height does not enter
-/// the normal at all: `derive_shield_pose` builds it as `(cos yaw, sin yaw, 0)`,
-/// which has no z term to disagree with a hand that went up. The two columns
-/// are not two instances of the same risk, and that is why this one is free and
-/// that one is welded.
+/// **Height came back in v2-20; bearing came back on 2026-08-16, and only
+/// because the defect that blocked it was fixed at its source.** This paragraph
+/// used to argue that `bearing` could never be freed, because the plate's normal
+/// was read off body yaw while its centre was read off the hand -- so a hand free
+/// to swing came apart from its own facing, median 32 degrees, 1.84% of ticks
+/// edge-on. That argument was sound about the model it described and is now
+/// obsolete about this one: `World::derive_shield_pose` takes the normal from
+/// the carrying arm's own bearing, so `centre` and `normal` are two readings of
+/// one arm and cannot disagree.
+///
+/// The height argument below is untouched and still stands on its own terms;
+/// what has gone is the claim that the two columns carry different risk. They no
+/// longer do, so the off arm now spends two.
 ///
 /// **The wire format does not move.** [`ArticulatedCommandV1`] still carries
 /// both arms, `CommandField` still names its Left columns, the payload is still
@@ -392,27 +421,33 @@ fn tucked(body_yaw: Angle) -> ArmTarget {
 /// by editing one function -- and the slot has to keep existing anyway, because
 /// a two-handed grip mirrors the right arm into it.
 ///
-/// **Body frame, so `bearing` is the yaw this command asks for.** The same rule
-/// [`tucked`] follows and for a stronger version of the same reason: a pose
-/// anchored to a world bearing would swing across the chest every time the body
-/// turned, which is exactly the motion the player is being relieved of. Against
-/// the commanded yaw the hand is rigid to the torso and phase 10's eighth-turn
-/// takes it around with the shoulders.
+/// **Body frame, so the arc is measured from the yaw this command asks for.**
+/// The same rule [`tucked`] follows and for a stronger version of the same
+/// reason: a pose anchored to a world bearing would swing across the chest every
+/// time the body turned, which is exactly the motion the player is being
+/// relieved of. The *centre* of the arc is the commanded yaw, so the hand is
+/// still rigid to the torso whenever the threat is straight ahead, and phase
+/// 10's eighth-turn still takes it around with the shoulders.
 ///
-/// **The bearing is the body's own facing, and that choice is the shield's.**
-/// `World::derive_shield_pose` takes the plate's `centre` from the holding
-/// arm's hand and its `normal` from `self.body_yaw[i].angle`, with nothing
-/// tying the two together -- position follows the arm, facing follows the
-/// torso. An arm reaching sideways therefore leaves the plate edge-on to the
-/// attack its position implies it covers, and the defect is not hypothetical:
-/// over the composed corpus's 2.86M shield samples the angle between the plate
-/// normal and the hand's offset from the body origin ran the entire 0..180
-/// degree range, median 32, 1.84% of ticks at 90 degrees or worse. A static off
-/// hand only dissolves that if the pose it holds *agrees* with body yaw, which
-/// is why this bearing is not free: at `bearing == body_yaw` the hand sits at a
-/// fixed forward reach plus the shoulder's fixed lateral half-width, so the
-/// angle collapses to `atan(1/4 / (3/4 * 3/4))` -- 23.96 degrees for a Fighter,
-/// a constant, and never edge-on.
+/// **The bearing tracks the threat inside [`GUARD_ARC`], and that choice is the
+/// shield's.** It was welded to `body_yaw` until 2026-08-16, for a reason worth
+/// keeping on the page rather than deleting: `World::derive_shield_pose` used to
+/// take the plate's `centre` from the holding arm's hand and its `normal` from
+/// `self.body_yaw[i].angle`, with nothing tying the two together, so an arm
+/// reaching sideways left the plate edge-on to the attack its position implied
+/// it covered. The defect was never hypothetical -- over the composed corpus's
+/// 2.86M shield samples the angle between the plate normal and the hand's offset
+/// from the body origin ran the entire 0..180 degree range, median 32, 1.84% of
+/// ticks at 90 degrees or worse -- and welding was the cheap half of the cure:
+/// at `bearing == body_yaw` the angle collapses to `atan(1/4 / (3/4 * 3/4))`,
+/// 23.96 degrees for a Fighter, a constant, and never edge-on.
+///
+/// The expensive half is done now. The normal comes off this same bearing, so
+/// the plate faces where its arm points at every offset in the arc, and the
+/// residual against the *body origin* is only the shoulder's fixed lateral
+/// half-width -- the same 23.96 degrees, no longer a special case of standing
+/// still. That is what makes a moving guard coherent rather than merely wider,
+/// and it is why the two halves are one change.
 ///
 /// **Effort one half either way, chosen to hold station without leaning on a
 /// limit.** `integrate_arm` scales acceleration by effort, so a zero-effort arm
@@ -468,13 +503,36 @@ fn tucked(body_yaw: Angle) -> ArmTarget {
 /// interesting. The empty hand carries the height for the same reason it
 /// carries the effort: the pose is one rule, and the hand only chooses the
 /// reach.
-fn off_hand(body_yaw: Angle, guard: CombatHeight, holding: bool) -> ArmTarget {
+fn off_hand(
+    body_yaw: Angle, threat: Option<Angle>, guard: CombatHeight, holding: bool,
+) -> ArmTarget {
     ArmTarget {
-        bearing: body_yaw,
+        bearing: guard_bearing(body_yaw, threat),
         height: guard,
         reach: if holding { THREE_QUARTERS } else { QUARTER },
         effort: Fx::HALF,
     }
+}
+
+/// The guard's bearing: the threat, held inside [`GUARD_ARC`] of the body.
+///
+/// **Clamped and never wrapped.** `Angle::delta` answers the shortest signed
+/// difference in `-32768..=32767`, so a threat directly behind arrives as a
+/// half turn and is clamped to one arc end rather than folded back to a small
+/// offset that would point the plate at nothing. A guard that wrapped would
+/// swing across the chest to cover an attack coming from behind it, which is
+/// worse than not covering it.
+///
+/// **Nothing visible means the body's own facing, exactly.** Not "the arc
+/// centred on a bearing to nobody": with no opponent there is no threat to
+/// track, and the honest pose is the one this function returned unconditionally
+/// before the bearing was freed -- which also makes the change provably inert on
+/// a body with no opponent.
+fn guard_bearing(body_yaw: Angle, threat: Option<Angle>) -> Angle {
+    let Some(threat) = threat else { return body_yaw };
+    let arc = GUARD_ARC.raw() as i32;
+    let offset = threat.delta(body_yaw).clamp(-arc, arc);
+    body_yaw + Angle::from_raw(offset as u16)
 }
 
 /// A world XY step of `magnitude` along `bearing`.
@@ -827,7 +885,13 @@ pub fn scripted_articulated_command_with(
     // edge v2-19 hands to a learned policy, and it is why that session is
     // blocked on this one.
     let off = 1 - roles.weapon;
-    arms[off] = off_hand(phase.body_yaw, guard_height, obs.arms[off].equipment.is_some());
+    // The threat is read from the same selected opponent every other bearing in
+    // this file reads, and it is `None` exactly when the phase table above also
+    // declined to invent geometry for a fight with nobody in it.
+    let threat = obs.opponents().first().is_some().then(|| bearing_to(obs));
+    arms[off] = off_hand(
+        phase.body_yaw, threat, guard_height, obs.arms[off].equipment.is_some(),
+    );
 
     ArticulatedCommandV1 {
         move_dir: phase.move_dir,
@@ -835,6 +899,10 @@ pub fn scripted_articulated_command_with(
         intent,
         arms,
         grips: [GripRequest::Keep; 2],
+        // None of the scripts in this file carries a bow, and a script that
+        // asked to loose while holding a blade would be asking for nothing.
+        // The verb belongs to whichever policy gets a ranged loadout first.
+        releases: [ReleaseRequest::Keep; 2],
     }
 }
 
@@ -895,7 +963,14 @@ pub fn windmill_articulated_command(obs: &ArticulatedObservation) -> Articulated
     let mut arms = [tucked(toward); 2];
     arms[roles.weapon] = weapon;
     let off = 1 - roles.weapon;
-    arms[off] = off_hand(toward, guard_height, obs.arms[off].equipment.is_some());
+    // Same guard rule as the composed script's, threat included, for the reason
+    // above: the control's claim is that it edits the weapon arm and nothing
+    // else. Here `toward` is already the bearing to the opponent, so the arc
+    // offset is zero and this is the body's own facing anyway -- but reading it
+    // through the same function keeps that a fact about the geometry rather than
+    // a second guard rule that happens to agree today.
+    let threat = obs.opponents().first().is_some().then(|| bearing_to(obs));
+    arms[off] = off_hand(toward, threat, guard_height, obs.arms[off].equipment.is_some());
 
     ArticulatedCommandV1 {
         move_dir: heading(toward, APPROACH_SPEED),
@@ -903,6 +978,7 @@ pub fn windmill_articulated_command(obs: &ArticulatedObservation) -> Articulated
         intent,
         arms,
         grips: [GripRequest::Keep; 2],
+        releases: [ReleaseRequest::Keep; 2],
     }
 }
 
@@ -1096,7 +1172,8 @@ mod tests {
         // which is the guard height a stump is given here for the same reason
         // it is given a reach: the rule is one rule and the hand only chooses
         // the reach.
-        assert_eq!(cutting.arms[1], off_hand(cutting.body_yaw, CombatHeight::MID, false));
+        assert_eq!(cutting.arms[1],
+            off_hand(cutting.body_yaw, threat_of(&maimed), CombatHeight::MID, false));
         assert_eq!(cutting.arms[1].reach, QUARTER);
 
         // Losing the shield arm instead leaves the ordinary answer: no shield to
@@ -1145,12 +1222,18 @@ mod tests {
         let empty = |yaw, height| arm(yaw, height, QUARTER, half);
         // All three heights on both branches, so a pose that quietly ignored
         // its argument would fail here rather than only in a corpus.
-        assert_eq!(held(east, low), off_hand(east, low, true));
-        assert_eq!(held(east, mid), off_hand(east, mid, true));
-        assert_eq!(held(east + EIGHTH_TURN, high), off_hand(east + EIGHTH_TURN, high, true));
-        assert_eq!(empty(east, high), off_hand(east, high, false));
-        assert_eq!(empty(east, mid), off_hand(east, mid, false));
-        assert_eq!(empty(east + EIGHTH_TURN, low), off_hand(east + EIGHTH_TURN, low, false));
+        // `None` threat throughout: this table is the *pose* transcription, and
+        // with nothing visible the bearing is the commanded yaw exactly, which
+        // is what these rows were written against. The bearing column's own
+        // behaviour is `a_bodiless_guard_arc_is_clamped_rather_than_wrapped`.
+        assert_eq!(held(east, low), off_hand(east, None, low, true));
+        assert_eq!(held(east, mid), off_hand(east, None, mid, true));
+        assert_eq!(held(east + EIGHTH_TURN, high),
+            off_hand(east + EIGHTH_TURN, None, high, true));
+        assert_eq!(empty(east, high), off_hand(east, None, high, false));
+        assert_eq!(empty(east, mid), off_hand(east, None, mid, false));
+        assert_eq!(empty(east + EIGHTH_TURN, low),
+            off_hand(east + EIGHTH_TURN, None, low, false));
         // The empty pose is the tuck's reach at the static hand's effort, and
         // that reach is the joint's own floor. Both halves are load-bearing:
         // the first is what keeps an idle arm's collider the length the
@@ -1253,7 +1336,18 @@ mod tests {
                     let command = scripted_articulated_command(&obs);
                     let at = format!("{body} phase {phase} tick {tick}");
                     let guard = if at_end { guards[phase as usize].1 } else { guards[phase as usize].0 };
-                    let left = if body == "fighter" { held(yaw, guard) } else { empty(yaw, guard) };
+                    // **The off arm bears `east` in every row, including phase
+                    // 10 where the body yaw does not.** Written as the literal
+                    // rather than from `yaw`, because that one divergence is
+                    // the whole of what freeing the guard bearing did: these
+                    // fixtures put the opponent due east, phase 10 turns the
+                    // body by an eighth and `GUARD_ARC` is an eighth, so the
+                    // guard sits exactly on its arc end and stays on the
+                    // opponent instead of riding the shoulders around. Before
+                    // 2026-08-16 this read `yaw` and phase 10 was the only row
+                    // that changed when it stopped.
+                    let left =
+                        if body == "fighter" { held(east, guard) } else { empty(east, guard) };
                     assert_eq!(command.body_yaw, yaw, "{at}: yaw");
                     assert_eq!(command.arms[0], left, "{at}: left arm");
                     assert_eq!(command.arms[1], right, "{at}: right arm");
@@ -1302,7 +1396,8 @@ mod tests {
                 // wrote by hand.
                 assert_eq!(
                     command.arms[0],
-                    off_hand(command.body_yaw, guard_clock(tick), true),
+                    off_hand(command.body_yaw, threat_of(&fighter_facing(tick)),
+                        guard_clock(tick), true),
                     "tick {tick}: the off arm"
                 );
                 if !matches!(phase, 3 | 4 | 5 | 7 | 8) {
@@ -1310,6 +1405,56 @@ mod tests {
                 }
             }
         }
+    }
+
+    /// The threat the production path feeds [`off_hand`], recomputed from an
+    /// observation so an expectation cannot quietly assume the welded bearing.
+    ///
+    /// Load-bearing at phase 10, whose commanded yaw is an eighth turn off the
+    /// line to the opponent -- exactly [`GUARD_ARC`] -- so that is the one row
+    /// where a guard that tracked nothing and a guard that tracks the threat
+    /// give different answers.
+    fn threat_of(obs: &ArticulatedObservation) -> Option<Angle> {
+        obs.opponents().first().is_some().then(|| bearing_to(obs))
+    }
+
+    /// [`GUARD_ARC`] bounded at both ends, and clamped rather than wrapped.
+    ///
+    /// "Bodiless" is the no-opponent case: with nothing visible there is no
+    /// threat to track and the guard must return the body's own facing
+    /// **exactly**, which is what makes freeing the bearing provably inert on a
+    /// body fighting nobody.
+    #[test]
+    fn a_bodiless_guard_arc_is_clamped_rather_than_wrapped() {
+        let yaw = Angle::from_raw(10_000);
+        let arc = GUARD_ARC.raw() as i32;
+
+        // Bodiless: exactly the yaw, not an arc centred on a bearing to nobody.
+        assert_eq!(guard_bearing(yaw, None), yaw);
+
+        // Inside the arc, the threat is tracked exactly, both ways.
+        let near_left = yaw + Angle::from_raw(4_096);
+        assert_eq!(guard_bearing(yaw, Some(near_left)), near_left);
+        let near_right = yaw - Angle::from_raw(4_096);
+        assert_eq!(guard_bearing(yaw, Some(near_right)), near_right);
+
+        // Both ends clamp, to opposite arc ends rather than to one shared
+        // answer -- which is what a wrap or a sign error would give.
+        let clamped_left = guard_bearing(yaw, Some(yaw + Angle::QUARTER));
+        let clamped_right = guard_bearing(yaw, Some(yaw - Angle::QUARTER));
+        assert_eq!(clamped_left.delta(yaw), arc);
+        assert_eq!(clamped_right.delta(yaw), -arc);
+        assert_ne!(clamped_left, clamped_right);
+
+        // A threat directly behind is the wrap trap: it must clamp to an arc
+        // end, never fold back to a small offset near the body's own facing.
+        assert_eq!(guard_bearing(yaw, Some(yaw + Angle::HALF)).delta(yaw).abs(), arc,
+            "a threat behind the body folded back inside the arc instead of clamping");
+
+        // The arc is strictly inside a quarter turn, which is the property that
+        // keeps the plate off edge-on now that the normal follows this bearing.
+        assert!(GUARD_ARC.raw() < Angle::QUARTER.raw(),
+            "an arc at or past a quarter turn puts the plate edge-on to a frontal attack");
     }
 
     #[test]
@@ -1335,7 +1480,7 @@ mod tests {
                 let selected = guard_clock(tick);
                 assert_eq!(
                     command.arms[0],
-                    off_hand(command.body_yaw, selected, false),
+                    off_hand(command.body_yaw, threat_of(&brute_facing(tick)), selected, false),
                     "tick {tick}: a Brute has nothing in its left hand to name"
                 );
                 // And "nothing to name" is the whole of why it rests where it
@@ -1345,7 +1490,7 @@ mod tests {
                 // reason to carry.
                 assert_ne!(
                     command.arms[0],
-                    off_hand(command.body_yaw, selected, true),
+                    off_hand(command.body_yaw, threat_of(&brute_facing(tick)), selected, true),
                     "tick {tick}: an empty hand held a guard's reach"
                 );
             }
@@ -1392,7 +1537,14 @@ mod tests {
                         // pair below is therefore both arms at MID, which is
                         // also what they were before v2-20 gave the pose a
                         // height at all.
-                        command.arms[0] = off_hand(command.body_yaw, CombatHeight::MID, holding);
+                        // `None` threat, so the guard holds the body's facing:
+                        // this measurement is about the reach column, and a
+                        // bearing that tracked the opponent would put the two
+                        // runs' capsules at different bearings on the tick the
+                        // number is read -- the same confound the height note
+                        // above avoids.
+                        command.arms[0] =
+                            off_hand(command.body_yaw, None, CombatHeight::MID, holding);
                     }
                     let _ = world.submit_articulated_v1(id, command);
                 }
@@ -1639,7 +1791,9 @@ mod tests {
             // guarding on a different schedule would make the difference
             // between the corpora a difference of two things.
             let selected = guard_clock(tick);
-            assert_eq!(command.arms[0], off_hand(command.body_yaw, selected, true), "tick {tick}");
+            assert_eq!(command.arms[0],
+                off_hand(command.body_yaw, threat_of(&fighter_facing(tick)), selected, true),
+                "tick {tick}");
             // Height, reach and effort and not the bearing: both poses ride
             // their own command's yaw, and the windmill never turns off the
             // line while the script's phase 10 does. That divergence is phase
@@ -1654,7 +1808,9 @@ mod tests {
             // does: a windmill whose empty off arm stayed out while the
             // script's tucked would be a comparison of two changes.
             let brute = windmill_articulated_command(&brute_facing(tick));
-            assert_eq!(brute.arms[0], off_hand(brute.body_yaw, selected, false), "brute tick {tick}");
+            assert_eq!(brute.arms[0],
+                off_hand(brute.body_yaw, threat_of(&brute_facing(tick)), selected, false),
+                "brute tick {tick}");
             assert_eq!(command.intent, Intent::Attack(EntityId::new(1, 0)), "tick {tick}");
             assert!(command.move_dir.x > Fx::ZERO, "tick {tick}: the windmill backed off");
         }

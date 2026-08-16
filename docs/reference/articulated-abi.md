@@ -230,24 +230,25 @@ depending on which slot it landed in.
 ## Word representation and submitted command
 
 Every new pose/event wasm buffer is `[u32]`. The submitted-command scratch is the
-exact `[u8; 55]` owned by v2-11, not a word buffer. Unsigned stream values are direct. `Fx` and signed values
+exact `[u8; 57]` owned by v2-11, not a word buffer. Unsigned stream values are direct. `Fx` and signed values
 are their two's-complement raw `i32` bits reinterpreted as `u32`; `Angle` and TOI raw
 values are widened to `u32`. Booleans are zero or one. Entity identity is always two
 words: index then generation. Lengths and capacities below count rows, strides count
 32-bit words.
 
-Submitted commands reuse the exact 55-byte buffer, byte offsets, canonical payload,
+Submitted commands reuse the exact 57-byte buffer, byte offsets, canonical payload,
 validation, and rejection behavior in
-[`articulated-command-v1.md`](articulated-command-v1.md#fifty-five-byte-wasm-action-buffer).
-V2-16 does not introduce a second command encoding.
+[`articulated-command-v1.md`](articulated-command-v1.md#fifty-seven-byte-wasm-action-buffer).
+V2-16 does not introduce a second command encoding. The buffer was 55 bytes until the
+release verb appended one byte per arm to the payload.
 
 Exports are:
 
 ```text
 init_articulated(seed:u32) -> void
 submitted_command_ptr() -> u32
-submitted_command_len() -> u32              // 55 bytes
-submitted_command_layout_version() -> u32   // 1
+submitted_command_len() -> u32              // 57 bytes
+submitted_command_layout_version() -> u32   // 2
 submit_articulated(index:u32, generation:u32) -> u32
 ```
 
@@ -326,6 +327,11 @@ separate from `PolicyKind` because the two seams share no code space:
 | 2 | `windmill` | `WindmillArticulatedPolicy` |
 | 3 | `attack-moves` | `ClosingAttackControlPolicy` |
 | 4 | `learned` | `learn_core::LearnedArticulatedPolicy`, over the installed checkpoint |
+| 5 | `tactical` | `TacticalArticulatedPolicy` |
+| 6 | `openings` | `OpeningsArticulatedPolicy` |
+
+Codes 5 and 6 were shipping and selectable in the browser for some time before
+this table named them; it listed 0-4 and never mentioned `tactical` at all.
 
 Code 4 was named and refused rather than omitted, so that the session splitting
 an inference-only crate out of `crates/learn` would be purely additive. It was,
@@ -521,12 +527,12 @@ detachable view for no gain", and the distinction is the cross-field rule: a
 route is two scalars with none, a loadout is forty with seven.
 
 Little-endian throughout; every dimension is an `i32` raw 16.16, which is the
-[submitted command](articulated-command-v1.md#fifty-five-byte-wasm-action-buffer)'s
+[submitted command](articulated-command-v1.md#fifty-seven-byte-wasm-action-buffer)'s
 grammar and not a second one.
 
 | Buffer offset | Width | Field |
 |---:|---:|---|
-| 0 | 2 | layout version `1` |
+| 0 | 2 | layout version `2` |
 | 2 | 1 | fighter count, must be `2` |
 | 3 | 1 | reserved, must be zero |
 | 4 | 4 | `max_ticks` `u32` |
@@ -550,7 +556,7 @@ Each 22-byte hand block:
 | Block offset | Width | Field |
 |---:|---:|---|
 | 0 | 1 | `ActionKind::code`, or `255` for an empty hand |
-| 1 | 1 | reserved, must be zero |
+| 1 | 1 | two-handed grip: `1` on a full right hand binds its item `Both`; zero everywhere else |
 | 2 | 4 | mass raw |
 | 6 | 4 | balance raw |
 | 10 | 4 | segment length, or shield half-width |
@@ -560,18 +566,26 @@ Each 22-byte hand block:
 `1+1+2+4+4+2*22 = 56` and `8 + 2*56 = 120`, asserted with `const _` beside the
 offsets. The hand index sets the item's `GripBinding`, which is the whole
 mechanism that makes a blade in the left hand expressible; the discriminants are
-pinned by `left_and_right_limb_slots_have_stable_discriminants`. The geometry
-*kind* is derived from the action rather than carried, so the block is 22 bytes
-and not 23. **Noncanonical ignored payloads are rejected**, which is the
-submitted command's rule applied to the wider buffer: reserved bytes, a
-segment's third dimension word and every word of an empty hand must be zero.
+pinned by `left_and_right_limb_slots_have_stable_discriminants`. The two-handed
+byte turns the right hand's `Right` into `Both` -- the right arm owns the grip
+and the left arm mirrors, which is why the marker is refused on the left block,
+on an empty hand and above `1`. Layout `1` reserved that byte as zero, and
+claiming it is what bumped the version: a version-1 writer's promise about the
+byte no longer holds, so version-1 buffers are refused rather than reread. The
+geometry *kind* is derived from the action rather than carried, so the block is
+22 bytes and not 23. **Noncanonical ignored payloads are rejected**, which is
+the submitted command's rule applied to the wider buffer: reserved bytes, a
+segment's third dimension word, every word of an empty hand and every illegal
+placement of the two-handed marker must be zero. A two-handed grip beside a
+second carried item is canonical *bytes* and a refused *table*: it parses, and
+`validate_bindings` answers `GripConflict` (`23`) by name.
 
 Exports are:
 
 ```text
 arena_config_ptr() -> u32
 arena_config_len() -> u32               // 120
-arena_config_layout_version() -> u32    // 1
+arena_config_layout_version() -> u32    // 2
 arena_start(seed:u32) -> u32
 arena_fingerprint_lo() -> u32
 arena_fingerprint_hi() -> u32
@@ -1011,6 +1025,18 @@ checks that over a fixture that produces several groups in one tick, and it hold
 | 30 | BodyPart, or `0xffff_ffff` when absent |
 | 31 | severance flag |
 
+**The pressure pair carries `crush + pressure`.** The sim splits the non-cut,
+non-thrust remainder once more -- into a crushing channel that reaches anatomy and a
+residual that reaches nothing -- and this layout has three channel words rather than
+four, so the publisher folds the two together. The reason is the invariant rather than
+laziness: `cut + thrust + pressure` is how every consumer recovers the allocated share,
+and both the 2D contact ring and the arena's contact sphere are sized from it, so
+publishing the smaller residual would draw a crushing blow smaller than it was while
+reporting a cut and a thrust of zero. The cost is that a club's blow and an inert graze
+are indistinguishable from these words alone. Splitting them means appending `crush` at
+words 32/33 -- which keeps this prefix byte-identical, the shape v2-ui-06 used -- and
+moves `ARTICULATED_STREAM_DIGEST` and its five mirrors, so it is its own session.
+
 `ContactResolution::group_alpha_raw` and `ContactImpulse` are deliberately absent: the
 alpha is a solver search result and the impulse is already implied by the velocities
 and the energy ledger. Both are appends if a consumer ever needs them. The `a_slot`,
@@ -1061,7 +1087,7 @@ publication, or it counts every contact once per intervening export. `step(0)` c
 the feed, which is the same rule seen from the other end.
 
 The three static arrays cost 16,896, 262,144 and 10,240 bytes respectively, for
-289,280 bytes excluding thread-local wrapper bookkeeping. The 55-byte command buffer
+289,280 bytes excluding thread-local wrapper bookkeeping. The 57-byte command buffer
 belongs to v2-11 and is not charged again, and neither are the 120-byte
 configuration buffer or v2-ui-08's 32,768-byte checkpoint staging buffer and its
 32-byte digest — those are *input* and are charged where they are declared. The

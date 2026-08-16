@@ -1047,6 +1047,13 @@ test("vite_dev_serves_the_studio_shell_its_game_route_and_the_wasm_from_the_web_
     assert.deepEqual([...magic], [0x00, 0x61, 0x73, 0x6d]);
   } finally {
     await server.close();
+    // `server.close()` does not reap the config-file watcher on Vite 8.1.5:
+    // measured 2026-08-16, two `FSEventWrap` handles survive it and only once a
+    // module has been transformed, which is why the plain HTML fetch above does
+    // not show it. Node then runs every test green and never exits, which reads
+    // as a hung suite rather than a leak. Closing the watcher explicitly is the
+    // whole fix; drop it when Vite reaps its own.
+    await server.watcher.close();
   }
 });
 
@@ -1059,13 +1066,14 @@ test("vite_dev_serves_the_studio_shell_its_game_route_and_the_wasm_from_the_web_
 
 const arenaConfig = ({
   policies = [1, 2], hands = [["shield", "sword"], ["empty", "club"]],
-  anatomies = [0, 1], seed = 3, maxTicks = 16,
+  twoHanded = [false, false], anatomies = [0, 1], seed = 3, maxTicks = 16,
 } = {}) => ({
   fighters: [0, 1].map((side) => ({
     anatomy: anatomies[side],
     policy: policies[side],
     spawn: CONFIG.SHIPPED_SPAWNS[side],
     hands: [CONFIG.HAND_ITEMS[hands[side][0]], CONFIG.HAND_ITEMS[hands[side][1]]],
+    twoHanded: twoHanded[side],
   })),
   maxTicks,
   seed,
@@ -1110,10 +1118,21 @@ test("the_arena_configuration_round_trips_through_its_own_bytes", () => {
   assert.equal(emptyHand[0], CONFIG.EMPTY_HAND_CODE);
   assert.deepEqual([...emptyHand.subarray(1)], new Array(21).fill(0));
   // A length or a layout this build does not know is refused rather than read.
+  // `1` is the retired layout whose hand byte was reserved-zero, and reading it
+  // under today's rules would misread that byte as a grip.
   assert.equal(CONFIG.decodeArenaConfig(bytes.subarray(0, 119), 3), null);
   const wrongLayout = Uint8Array.from(bytes);
-  new DataView(wrongLayout.buffer).setUint16(0, 2, true);
+  new DataView(wrongLayout.buffer).setUint16(0, 1, true);
   assert.equal(CONFIG.decodeArenaConfig(wrongLayout, 3), null);
+
+  // The grip round-trips beside everything else: byte 1 of the right hand
+  // block, and only on the side that asked for it.
+  const gripped = arenaConfig({ hands: [["shield", "sword"], ["empty", "club"]],
+    twoHanded: [false, true] });
+  const grippedBytes = CONFIG.encodeArenaConfig(gripped);
+  assert.equal(grippedBytes[8 + 56 + 12 + 22 + 1], 1);
+  assert.equal(grippedBytes[8 + 12 + 22 + 1], 0);
+  assert.deepEqual(CONFIG.decodeArenaConfig(grippedBytes, gripped.seed), gripped);
 });
 
 test("the_shipped_arrangement_carries_the_dimensions_the_spec_document_states", () => {

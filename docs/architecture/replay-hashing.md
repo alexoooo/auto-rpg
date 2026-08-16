@@ -93,7 +93,7 @@ the hash stream and must be reviewed against the repository's golden hashes.
 `World::state_digest` carries domain, schema, and value. LegacyV1 schema 1 wraps
 the unchanged state hash. The non-legacy schema 1 uses its tagged prefix and the
 legacy core digest followed by the allocated-slot stored-command block. Each
-present command contributes its variant tag and canonical 51-byte payload; dead
+present command contributes its variant tag and canonical 53-byte payload; dead
 allocated slots retain the value and reused slots clear it. The suffix then writes
 the exact scenario combat-spec extension, followed for every allocated entity slot
 by anatomy, carrying-slot IDs, and resolved left/right bindings. Dead slots retain
@@ -111,10 +111,10 @@ not replace the final typed state-digest comparison.
 - Record types, recorder methods, integrity check, and playback order:
   [`Replay`](../../crates/sim/src/replay.rs#L64)
 - Durable codec and mandatory playback validation:
-  [`ReplayEnvelope`](../../crates/sim/src/codec.rs#L160)
+  [`ReplayEnvelope`](../../crates/sim/src/codec.rs#L175)
 - Scenario fields and current fingerprint byte stream:
   [`Scenario::fingerprint`](../../crates/sim/src/scenario.rs#L452)
-- Live state hash byte stream: [`World::state_hash`](../../crates/sim/src/world.rs#L4517)
+- Live state hash byte stream: [`World::state_hash`](../../crates/sim/src/world.rs#L4524)
 - Hash primitive: [`crates/fx/src/hash.rs`](../../crates/fx/src/hash.rs)
 - Harness recording and final comparison tests:
   [`crates/policy/src/runner.rs`](../../crates/policy/src/runner.rs)

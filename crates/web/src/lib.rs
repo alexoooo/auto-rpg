@@ -821,7 +821,7 @@ pub const POSE_SEVERED_MASK: usize = 61;
 /// [`sim::ArticulatedPose::equipment_mask`] reads off its own geometry, so a
 /// set bit and a zeroed hilt/tip pair cannot disagree.
 pub const POSE_EQUIPMENT_MASK: usize = 62;
-/// The stored command's intent, in the frozen wire ordinals the 55-byte
+/// The stored command's intent, in the frozen wire ordinals the submitted
 /// command payload already froze: Hold `0`, Attack `1`, Flee `2`.
 pub const POSE_INTENT: usize = 63;
 pub const POSE_LEFT_HINT: usize = 64;
@@ -999,8 +999,9 @@ pub const COMBAT_EVENT_NO_BODY_PART: u32 = u32::MAX;
 ///
 /// Written out as the arithmetic rather than as `289_280` so that a stride or a
 /// capacity moving is a failed assertion here and not a stale comment: the
-/// reference charges v2-16 and v2-ui-06 exactly these bytes, and the 55-byte
-/// command scratch belongs to v2-11 and is not charged again.
+/// reference charges v2-16 and v2-ui-06 exactly these bytes, and the
+/// [`SUBMITTED_COMMAND_BYTES`] scratch belongs to v2-11 and is not charged
+/// again.
 ///
 /// It was 49,664 while [`MAX_COMBAT_EVENTS`] was the provisional 256, and
 /// 147,968 while it was 1024. The measurements that rejected each of those are
@@ -1061,18 +1062,23 @@ const _: () = assert!(
 //               [4..8] max_ticks
 //     fighter   [0] anatomy, [1] policy, [2..4] reserved,
 //               [4..8] spawn x, [8..12] spawn y, then two hand blocks
-//     hand      [0] item, [1] reserved, then mass, balance and three
-//               dimension words
+//     hand      [0] item, [1] two-handed grip (right hand only), then mass,
+//               balance and three dimension words
 // ```
 //
 // Every dimension is an `i32` raw 16.16 and every multi-byte field is
 // little-endian, which is [`submit_articulated`]'s grammar and not a second one.
 
 /// Bytes `0..2` of [`ARENA_CONFIG`], and its sole layout field.
-pub const ARENA_CONFIG_LAYOUT_VERSION: u16 = 1;
+///
+/// `2` since combat-arms-01: layout `1` required every hand block's byte `1` to
+/// be zero, and that byte now carries the two-handed grip on the right hand --
+/// a byte that stops being reserved is a layout change, not a free bit, because
+/// a version-1 writer's promise about it no longer holds.
+pub const ARENA_CONFIG_LAYOUT_VERSION: u16 = 2;
 
-/// An item code, a reserved byte, and five 16.16 words: mass, balance, and three
-/// dimensions.
+/// An item code, the two-handed grip byte, and five 16.16 words: mass, balance,
+/// and three dimensions.
 ///
 /// Three dimension words rather than two because a shield is the widest shape in
 /// the table -- `half_width`, `half_height`, `thickness` -- and a fixed stride is
@@ -1107,7 +1113,14 @@ const ARENA_FIGHTER_SPAWN_Y: usize = 8;
 const ARENA_FIGHTER_HANDS: usize = 12;
 
 const ARENA_HAND_ITEM: usize = 0;
-const ARENA_HAND_RESERVED: usize = 1;
+/// `1` to grip this hand's item with both hands, else `0`.
+///
+/// Only the **right** hand's byte may be `1`, and only over an item: the right
+/// arm owns a `Both` grip (`canonical_grip_pair`'s rule), so a marker on the
+/// left block or on an empty hand describes nothing and is refused as
+/// noncanonical, exactly as any other value above `1` is. Reserved-zero under
+/// layout `1`, which is why claiming it was a layout version bump.
+const ARENA_HAND_TWO_HANDED: usize = 1;
 const ARENA_HAND_MASS: usize = 2;
 const ARENA_HAND_BALANCE: usize = 6;
 /// Segment length, or a shield's half-width.
@@ -1254,8 +1267,9 @@ pub const ARENA_UNKNOWN_LAYOUT: u8 = 1;
 /// the studio assumes two, so widening this is additive -- which is exactly why
 /// the count is a field and not a constant nobody wrote down.
 pub const ARENA_WRONG_FIGHTER_COUNT: u8 = 2;
-/// A reserved byte, or a dimension word this item's geometry does not have, is
-/// not zero.
+/// A reserved byte, a dimension word this item's geometry does not have, or a
+/// two-handed grip byte that describes nothing -- on the left hand, on an empty
+/// hand, or above `1` -- is not zero.
 ///
 /// `submit_articulated`'s rule, applied to the wider buffer: noncanonical
 /// ignored payloads are rejected. An ignored word is a place for a
@@ -1508,10 +1522,20 @@ const _: () = assert!(
 /// perfectly good framing version.
 pub const CHECKPOINT_NO_DETAIL: u16 = u16::MAX;
 
+/// The submitted-command scratch: a four-byte envelope -- layout version, the
+/// command kind, one reserved zero -- and then the payload.
+///
+/// **Derived rather than written out.** It was the literal `55` in six places
+/// until layout 2 widened the payload, and six literals is six chances to move
+/// five of them. `submitted_command_len` is the exported half of this number and
+/// now cannot disagree with it.
+pub const SUBMITTED_COMMAND_BYTES: usize = 4 + ARTICULATED_PAYLOAD_BYTES;
+
 thread_local! {
     static SIM: RefCell<Option<Sim>> = const { RefCell::new(None) };
     static FRAME: RefCell<[f32; FRAME_MAX]> = const { RefCell::new([0.0; FRAME_MAX]) };
-    static SUBMITTED_COMMAND: RefCell<[u8; 55]> = const { RefCell::new([0; 55]) };
+    static SUBMITTED_COMMAND: RefCell<[u8; SUBMITTED_COMMAND_BYTES]> =
+        const { RefCell::new([0; SUBMITTED_COMMAND_BYTES]) };
     /// The duel the page is describing, judged whole by [`arena_start`]. See the
     /// section above for why this is a buffer where a route is three scalars.
     static ARENA_CONFIG: RefCell<[u8; ARENA_CONFIG_BYTES]> =
@@ -4715,8 +4739,24 @@ fn combat_event_row(tick: u32, row: &sim::ContactResolution) -> [u32; COMBAT_EVE
     out[COMBAT_EVENT_CUT_LO..=COMBAT_EVENT_CUT_HI].copy_from_slice(&u64_words(row.cut_raw));
     out[COMBAT_EVENT_THRUST_LO..=COMBAT_EVENT_THRUST_HI]
         .copy_from_slice(&u64_words(row.thrust_raw));
+    // **The published pressure column is `crush + pressure`, not `pressure`.**
+    // combat-arms-05 split a fourth channel out of what used to be the whole
+    // non-cut, non-thrust remainder, and the event layout has three channel
+    // words rather than four. Publishing only `pressure_raw` would break the
+    // one invariant every consumer of these words relies on -- `client/src/
+    // fight/trace.ts::share` sums the three to recover the allocated share, and
+    // both the 2D ring and the arena's contact sphere are sized from it -- so a
+    // crushing blow would draw *smaller* than it is while reporting a cut and a
+    // thrust of zero, which is to say it would look like nothing happened. That
+    // is the opposite of what giving a club a wounding channel was for.
+    //
+    // The cost of keeping the sum exact is that the browser cannot yet tell a
+    // crushing blow from an inert graze. Splitting it is a layout change --
+    // append `crush` at words 32/33, which keeps this prefix byte-identical the
+    // way v2-ui-06 did -- and it moves `ARTICULATED_STREAM_DIGEST` plus five
+    // mirrors, so it is its own session rather than a rider on this one.
     out[COMBAT_EVENT_PRESSURE_LO..=COMBAT_EVENT_PRESSURE_HI]
-        .copy_from_slice(&u64_words(row.pressure_raw));
+        .copy_from_slice(&u64_words(row.crush_raw + row.pressure_raw));
     out[COMBAT_EVENT_DEFLECTED_LO..=COMBAT_EVENT_DEFLECTED_HI]
         .copy_from_slice(&u64_words(row.deflected_raw));
     out[COMBAT_EVENT_BODY_PART] = if fact.region == sim::NO_REGION {
@@ -5632,7 +5672,7 @@ pub extern "C" fn submitted_command_ptr() -> u32 {
 
 #[allow(unsafe_code)]
 #[no_mangle]
-pub const extern "C" fn submitted_command_len() -> u32 { 55 }
+pub const extern "C" fn submitted_command_len() -> u32 { SUBMITTED_COMMAND_BYTES as u32 }
 
 #[allow(unsafe_code)]
 #[no_mangle]
@@ -5648,7 +5688,7 @@ pub extern "C" fn submit_articulated(entity_index: u32, entity_generation: u32) 
     if layout != SUBMITTED_COMMAND_LAYOUT_VERSION || bytes[2] != 1 || bytes[3] != 0 {
         return submit_result(0, 1, 0, 0);
     }
-    let payload: &[u8; ARTICULATED_PAYLOAD_BYTES] = bytes[4..55].try_into().unwrap();
+    let payload: &[u8; ARTICULATED_PAYLOAD_BYTES] = bytes[4..SUBMITTED_COMMAND_BYTES].try_into().unwrap();
     let id = EntityId::new(entity_index, entity_generation);
     with_sim(submit_result(0, 3, 0, 0), |sim| {
         if sim.world.combat_model() != sim::CombatModel::Articulated {
@@ -5984,7 +6024,8 @@ fn build_articulated_policy(
         | ArticulatedPolicyKind::Composed
         | ArticulatedPolicyKind::Windmill
         | ArticulatedPolicyKind::AttackMoves
-        | ArticulatedPolicyKind::Tactical => {
+        | ArticulatedPolicyKind::Tactical
+        | ArticulatedPolicyKind::Openings => {
             Err(ArenaRefusal::policy(ARENA_POLICY_UNAVAILABLE, index, kind.code()))
         }
     }
@@ -6233,12 +6274,16 @@ fn parse_arena_fighter(
     policy.reset();
 
     let mut hands = [None, None];
+    let mut two_handed = false;
     for hand in 0..ARENA_HANDS {
-        hands[hand] = parse_arena_hand(bytes, index, hand)?;
+        let (item, both) = parse_arena_hand(bytes, index, hand)?;
+        hands[hand] = item;
+        two_handed |= both;
     }
     let fighter = sim::DuelFighterV1 {
         anatomy,
         hands,
+        two_handed,
         spawn: Vec2::new(
             Fx::from_raw(at(ARENA_FIGHTER_SPAWN_X)),
             Fx::from_raw(at(ARENA_FIGHTER_SPAWN_Y)),
@@ -6247,7 +6292,8 @@ fn parse_arena_fighter(
     Ok((fighter, kind, policy))
 }
 
-/// One hand block, or `None` for an empty hand.
+/// One hand block -- the item, or `None` for an empty hand, and whether it is
+/// gripped by both hands.
 ///
 /// **The geometry *kind* is derived from the action rather than carried**, which
 /// is what makes the block twenty-two bytes instead of twenty-three: a shield is
@@ -6262,28 +6308,38 @@ fn parse_arena_hand(
     bytes: &[u8; ARENA_CONFIG_BYTES],
     index: usize,
     hand: usize,
-) -> Result<Option<sim::HandItemV1>, ArenaRefusal> {
+) -> Result<(Option<sim::HandItemV1>, bool), ArenaRefusal> {
     let base = ARENA_HEADER_BYTES + index * ARENA_FIGHTER_BYTES
         + ARENA_FIGHTER_HANDS + hand * ARENA_HAND_BYTES;
     let word = |offset: usize| {
         Fx::from_raw(i32::from_le_bytes(bytes[base + offset..][..4].try_into().unwrap()))
     };
-    if bytes[base + ARENA_HAND_RESERVED] != 0 {
-        return Err(ArenaRefusal::hand(ARENA_NONCANONICAL, index, hand));
-    }
+    // The one byte with a rule per hand: `1` marks a two-handed grip, the
+    // right hand is the only one that may carry it (the right arm owns a `Both`
+    // grip), and everything else is noncanonical exactly as it was when the
+    // whole byte was reserved.
+    let two_handed = match (hand, bytes[base + ARENA_HAND_TWO_HANDED]) {
+        (_, 0) => false,
+        (hand, 1) if hand == sim::LimbSlot::RightArm as usize => true,
+        _ => return Err(ArenaRefusal::hand(ARENA_NONCANONICAL, index, hand)),
+    };
     let code = bytes[base + ARENA_HAND_ITEM];
     let (mass, balance) = (word(ARENA_HAND_MASS), word(ARENA_HAND_BALANCE));
     let dimensions =
         [word(ARENA_HAND_DIMENSION_0), word(ARENA_HAND_DIMENSION_1), word(ARENA_HAND_DIMENSION_2)];
     if code == ARENA_HAND_EMPTY {
-        // Every word an empty hand does not have. An empty hand whose leftover
-        // dimensions still read a sword's is a buffer somebody changed a dropdown
-        // on and did not finish writing, and it is much cheaper to say so here
-        // than to have a reader wonder later which of the two the fight used.
-        if mass != Fx::ZERO || balance != Fx::ZERO || dimensions.iter().any(|&v| v != Fx::ZERO) {
+        // Every word an empty hand does not have -- including a grip marker,
+        // which would be both hands gripping nothing. An empty hand whose
+        // leftover dimensions still read a sword's is a buffer somebody changed
+        // a dropdown on and did not finish writing, and it is much cheaper to
+        // say so here than to have a reader wonder later which of the two the
+        // fight used.
+        if two_handed || mass != Fx::ZERO || balance != Fx::ZERO
+            || dimensions.iter().any(|&v| v != Fx::ZERO)
+        {
             return Err(ArenaRefusal::hand(ARENA_NONCANONICAL, index, hand));
         }
-        return Ok(None);
+        return Ok((None, false));
     }
     let action = sim::ActionKind::from_code(u32::from(code))
         .ok_or(ArenaRefusal::hand(ARENA_UNKNOWN_ITEM, index, hand))?;
@@ -6299,7 +6355,7 @@ fn parse_arena_hand(
         }
         sim::EquipmentGeometry::Segment { length: dimensions[0], radius: dimensions[1] }
     };
-    Ok(Some(sim::HandItemV1 { action, mass, balance, geometry }))
+    Ok((Some(sim::HandItemV1 { action, mass, balance, geometry }), two_handed))
 }
 
 /// Which refusal a spec error is.
@@ -7732,6 +7788,13 @@ fn stream_digest_command(
         intent: Intent::Attack(target),
         arms: [arm; 2],
         grips: [sim::GripRequest::Keep; 2],
+        // `Keep`, and it has to stay `Keep`: this fixture drives
+        // `ARTICULATED_STREAM_DIGEST`, whose whole claim is that it reads
+        // published words rather than submitted ones. A `Loose` here would not
+        // move that number today -- nothing publishes the verb until step 5 --
+        // and relying on that is how a fixture quietly stops testing what it
+        // was built for.
+        releases: [sim::ReleaseRequest::Keep; 2],
     }
 }
 
@@ -8095,6 +8158,9 @@ mod tests {
                         bytes[at + ARENA_HAND_ITEM] = ARENA_HAND_EMPTY;
                         continue;
                     };
+                    if hand == sim::LimbSlot::RightArm as usize && fighter.two_handed {
+                        bytes[at + ARENA_HAND_TWO_HANDED] = 1;
+                    }
                     bytes[at + ARENA_HAND_ITEM] = item.action.code() as u8;
                     bytes[at + ARENA_HAND_MASS..][..4]
                         .copy_from_slice(&item.mass.raw().to_le_bytes());
@@ -8195,7 +8261,7 @@ mod tests {
             bytes.fill(0);
             bytes[0..2].copy_from_slice(&SUBMITTED_COMMAND_LAYOUT_VERSION.to_le_bytes());
             bytes[2] = 1;
-            bytes[4..55].copy_from_slice(&command.payload_bytes());
+            bytes[4..SUBMITTED_COMMAND_BYTES].copy_from_slice(&command.payload_bytes());
         });
     }
 
@@ -8260,7 +8326,9 @@ mod tests {
         // writes down are the numbers a caller would compute.
         assert_ne!(arena_config_ptr(), 0);
         assert_eq!(arena_config_len(), 120);
-        assert_eq!(arena_config_layout_version(), 1);
+        // `2` since combat-arms-01 claimed the hand block's byte 1 for the
+        // two-handed grip; layout 1 promised that byte was zero.
+        assert_eq!(arena_config_layout_version(), 2);
         assert_eq!(ARENA_HEADER_BYTES, 8);
         assert_eq!(ARENA_FIGHTER_BYTES, 56);
         assert_eq!(ARENA_HAND_BYTES, 22);
@@ -8306,6 +8374,56 @@ mod tests {
     }
 
     #[test]
+    fn a_two_handed_config_round_trips_through_the_arena_buffer() {
+        // Write, read back, and compare the typed value rather than the bytes:
+        // the parser is the marker's one consumer, so the claim worth having is
+        // that what it hands `duel_from` is the configuration that was staged.
+        let mut config = sim::DuelConfigV1::shipped();
+        config.fighters[1].two_handed = true;
+        let kinds = [ArticulatedPolicyKind::Composed, ArticulatedPolicyKind::Windmill];
+        write_arena_config(&config, kinds);
+        let fighters = ARENA_CONFIG.with(|buffer| {
+            let bytes = *buffer.borrow();
+            [
+                parse_arena_fighter(&bytes, 0).expect("fighter 0 parses").0,
+                parse_arena_fighter(&bytes, 1).expect("fighter 1 parses").0,
+            ]
+        });
+        assert_eq!(fighters, config.fighters);
+        assert!(fighters[1].two_handed && !fighters[0].two_handed,
+            "the marker landed on the wrong side");
+
+        // And the whole path takes it: the fight installs, its fingerprint is
+        // the grip's own, and it is a different fight from the one-handed club
+        // on the same seed. The mirror drives the left arm instead of the
+        // windmill script, so the **articulated** digest has to move; the
+        // legacy `hash()` deliberately is not asserted, because two fighters
+        // still walking toward each other are legacy-identical and the arms
+        // live in the articulated block.
+        config.max_ticks = 120;
+        write_arena_config(&config, kinds);
+        assert_eq!(arena_start(3) & 0xff, 1, "a two-handed club was refused");
+        step(120);
+        let gripped = (state_digest().value, arena_fingerprint());
+        let mut single = config;
+        single.fighters[1].two_handed = false;
+        write_arena_config(&single, kinds);
+        assert_eq!(arena_start(3) & 0xff, 1);
+        step(120);
+        assert_ne!(arena_fingerprint(), gripped.1, "the grip did not reach the fingerprint");
+        assert_ne!(state_digest().value, gripped.0, "the grip changed nothing about the fight");
+
+        // A second item beside the grip is a named refusal rather than a byte
+        // error: the marker itself is canonical, the *pair* is the conflict,
+        // and `validate_bindings` is the rule that says so.
+        let mut conflicted = config;
+        conflicted.fighters[1].hands[0] =
+            Some(sim::HandItemV1::shipped(sim::ActionKind::Shield).expect("a shipped shield"));
+        write_arena_config(&conflicted, kinds);
+        assert_eq!(arena_start(3), ArenaRefusal::whole(ARENA_GRIP_CONFLICT).packed());
+    }
+
+    #[test]
     fn a_scripted_arena_fight_in_wasm_matches_the_same_fight_in_lab() {
         // **The test that says the ported loop is the loop.** Same
         // configuration, same seed, same two policies -- one fight driven
@@ -8338,8 +8456,22 @@ mod tests {
             the_lab_loop(&scenario, 3, kinds),
             "the arena's fight is not the lab's fight"
         );
-        // And it was a fight rather than three hundred quiet ticks.
-        assert_eq!(arena_state().2, config.max_ticks);
+        // And it was a fight rather than three hundred quiet ticks. **The two
+        // laws diverged here on 2026-08-16 and converged again the same day.**
+        // The exact law briefly ended this fight on a body at 229, once the
+        // plate's normal began following the arm that carries it; the crush
+        // channel then took it back to the clock, because crushing costs
+        // integrity and opens no bleeding wound, so both bodies absorb more
+        // before either falls. Both laws run the configuration's clock out
+        // again, so the split is gone rather than re-recorded. The equality
+        // against `the_lab_loop` above is what says the two spellings of the
+        // loop still agree, and it has not moved on either law through any of
+        // it.
+        assert!(arena_state().2 > 32, "the arena went quiet almost immediately");
+        assert_eq!(arena_state().2, config.max_ticks,
+                   "the arena fight no longer runs its configured clock");
+        // One row per **live** articulated body, which is what `pose_len` means.
+        // Both fights reach the clock with both fighters standing.
         assert_eq!(pose_len(), 2, "an arena publishes one pose row per fighter");
         assert!(combat_event_len() > 0, "three hundred ticks resolved no contact");
     }
@@ -8406,9 +8538,11 @@ mod tests {
         // `the_arena_configuration_buffer_is_the_documented_layout`, which
         // asserts the mapping over the whole enum instead.
 
-        // 1. An unknown layout, from both of its two causes.
+        // 1. An unknown layout, from both of its two causes. `1` is the retired
+        // version whose hand byte was reserved-zero -- refused rather than
+        // grandfathered, because this build would read its promise differently.
         write_arena_config(&config, kinds);
-        poke_arena_config(ARENA_HEADER_LAYOUT, 2);
+        poke_arena_config(ARENA_HEADER_LAYOUT, 1);
         assert_eq!(arena_start(9), ArenaRefusal::whole(ARENA_UNKNOWN_LAYOUT).packed());
         write_arena_config(&config, kinds);
         poke_arena_config(ARENA_HEADER_RESERVED, 1);
@@ -8423,8 +8557,23 @@ mod tests {
         write_arena_config(&config, kinds);
         poke_arena_config(ARENA_HEADER_BYTES + ARENA_FIGHTER_RESERVED + 1, 1);
         assert_eq!(arena_start(9), ArenaRefusal::fighter(ARENA_NONCANONICAL, 0).packed());
+        // A two-handed marker where it describes nothing: on the left hand,
+        // and above `1` on the right. `1` on the Brute's full right hand is
+        // deliberately absent here -- that byte is now the legal two-handed
+        // grip, and `a_two_handed_config_round_trips_through_the_arena_buffer`
+        // is the test that says so.
         write_arena_config(&config, kinds);
-        poke_arena_config(arena_hand_at(1, 1) + ARENA_HAND_RESERVED, 1);
+        poke_arena_config(arena_hand_at(0, 0) + ARENA_HAND_TWO_HANDED, 1);
+        assert_eq!(arena_start(9), ArenaRefusal::hand(ARENA_NONCANONICAL, 0, 0).packed());
+        write_arena_config(&config, kinds);
+        poke_arena_config(arena_hand_at(1, 1) + ARENA_HAND_TWO_HANDED, 2);
+        assert_eq!(arena_start(9), ArenaRefusal::hand(ARENA_NONCANONICAL, 1, 1).packed());
+        // And on an empty right hand: both hands gripping nothing.
+        let club = sim::HandItemV1::shipped(sim::ActionKind::Club).expect("a shipped club");
+        let mut left_handed_club = config;
+        left_handed_club.fighters[1].hands = [Some(club), None];
+        write_arena_config(&left_handed_club, kinds);
+        poke_arena_config(arena_hand_at(1, 1) + ARENA_HAND_TWO_HANDED, 1);
         assert_eq!(arena_start(9), ArenaRefusal::hand(ARENA_NONCANONICAL, 1, 1).packed());
         write_arena_config(&config, kinds);
         // The Brute's empty left hand, with a dimension left behind in it.
@@ -8553,10 +8702,17 @@ mod tests {
         }
 
         // "Named" is a different answer from "unknown", which is the whole
-        // reason the code is held rather than left free: `6` is a number nobody
+        // reason the code is held rather than left free: `7` is a number nobody
         // has heard of and `4` is a fighter waiting for its weights.
+        //
+        // **This sentinel moves every time a code is appended**, and that is the
+        // append-only registry working rather than a nuisance: it was `6` until
+        // `openings` took that code, and a test still poking `6` would have gone
+        // on asserting "unknown" about a policy that builds. Keep it one past
+        // the last registered code.
         write_arena_config(&config, [ArticulatedPolicyKind::Composed; 2]);
-        poke_arena_config(ARENA_HEADER_BYTES + ARENA_FIGHTER_POLICY, 6);
+        assert_eq!(ArticulatedPolicyKind::from_code(7), None, "7 is no longer the free code");
+        poke_arena_config(ARENA_HEADER_BYTES + ARENA_FIGHTER_POLICY, 7);
         assert_eq!(arena_start(3), ArenaRefusal::fighter(ARENA_UNKNOWN_POLICY, 0).packed());
 
         // And with a network in hand the same twenty bytes are taken, which is
@@ -9044,8 +9200,12 @@ mod tests {
     #[test]
     fn articulated_wasm_scratch_is_fixed_and_submission_is_atomic() {
         assert_ne!(submitted_command_ptr(), 0);
-        assert_eq!(submitted_command_len(), 55);
-        assert_eq!(submitted_command_layout_version(), 1);
+        // 57 since layout 2 appended one release verb per arm; 55 before it.
+        // Spelled as a literal rather than as `SUBMITTED_COMMAND_BYTES` because
+        // this is the exported boundary number a JavaScript caller reads, and a
+        // test that computes it the same way the export does asserts nothing.
+        assert_eq!(submitted_command_len(), 57);
+        assert_eq!(submitted_command_layout_version(), 2);
         let arm = sim::ArmTarget {
             bearing: Angle::QUARTER,
             height: sim::CombatHeight::MID,
@@ -9058,6 +9218,7 @@ mod tests {
             intent: Intent::Hold,
             arms: [arm; 2],
             grips: [sim::GripRequest::Keep; 2],
+            releases: [sim::ReleaseRequest::Keep; 2],
         };
         init(1);
         write_submitted(command);
@@ -9098,12 +9259,19 @@ mod tests {
         assert_eq!(after, before, "reserved-byte rejection mutated the world");
 
         init_articulated_test(1);
-        let fixture: [u8; 55] = [
-            0x01,0x00,0x01,0x00, 0x01,0x00,0x00,0x00, 0xfe,0xff,0xff,0xff,
+        // Rewritten for layout 2, byte for byte beside its twin in
+        // `crates/sim/src/command.rs`. The leading `0x02` is the layout version
+        // and the trailing `0x00,0x01` are the two release verbs -- the left arm
+        // keeps, the right looses -- which is the only asymmetric pair in here
+        // and therefore the only one that catches a writer filling both from one
+        // arm.
+        let fixture: [u8; 57] = [
+            0x02,0x00,0x01,0x00, 0x01,0x00,0x00,0x00, 0xfe,0xff,0xff,0xff,
             0x34,0x12,0x01, 0x44,0x33,0x22,0x11, 0x88,0x77,0x66,0x55,
             0x45,0x23, 0x00,0x40,0x00,0x00, 0x03,0x00,0x00,0x00,
             0x04,0x00,0x00,0x00, 0x56,0x34, 0x00,0xc0,0x00,0x00,
             0x05,0x00,0x00,0x00, 0x06,0x00,0x00,0x00, 0x02,0x01,0x01,0x00,
+            0x00,0x01,
         ];
         SUBMITTED_COMMAND.with(|buffer| *buffer.borrow_mut() = fixture);
         assert_eq!(submit_articulated(0, 0), 1);
@@ -9123,10 +9291,23 @@ mod tests {
         // what that session edited. So this is a *construction* move: nothing
         // about how the world steps changed, only what the Fighter is
         // holding when the world is built. Previously `0x6e61_a92e_c96a_c3a6`.
+        //
+        // **Moved again by articulated-bow step 1, and this one is a layout
+        // move where the three before it were construction or values moves.**
+        // The payload gained one `ReleaseRequest` byte per arm, 51 to 53, and
+        // `World::state_digest` writes `payload_bytes()` for every stored
+        // command -- so this fixture's single stored command puts two more
+        // bytes into the stream. Both verbs are `Keep` here, which is precisely
+        // what makes it a layout move rather than a values one: the two bytes
+        // are zero and the number moves anyway, because their presence is the
+        // change. Predicted off this fixture in writing before the gate ran.
+        // Previously `0xd1da_6a40_df04_80b2`.
         #[cfg(not(feature = "cartesian-recoil"))]
-        assert_eq!(fixture_digest, 0xd1da_6a40_df04_80b2);
+        assert_eq!(fixture_digest, 0x28dc_a7e7_57a1_ba3f);
         #[cfg(feature = "cartesian-recoil")]
-        assert_eq!(fixture_digest, 0x5fca_ba34_556b_2737,
+        // Moved with its default-law twin above, and by the same two bytes.
+        // Previously `0x5fca_ba34_556b_2737`.
+        assert_eq!(fixture_digest, 0x8d92_c50f_3a16_ebce,
             "the unregistered exact-law command witness moved");
     }
 
@@ -9233,17 +9414,25 @@ mod tests {
     /// road. The later *first* contact is not a slower fight: the drive's phase
     /// clock is unchanged, and an arm that finishes its reach sooner also
     /// withdraws sooner.
+    ///
+    /// **Moved from 85 to 88 on 2026-08-16, and by a drive change rather than a
+    /// solver change.** Freeing the shield normal to follow its arm made this
+    /// fixture's two-arm sweep spin the plate's facing, which stopped it capping
+    /// at all; the sweep is now the weapon arm's alone, for the reason
+    /// `clinch_payload` gives, and the ordinal is exhausted three ticks later.
     #[cfg(not(feature = "cartesian-recoil"))]
-    const CLINCH_CAP_TICK: u32 = 85;
+    const CLINCH_CAP_TICK: u32 = 88;
 
-    fn clinch_payload(row: usize, tick: u32) -> [u8; 55] {
+    fn clinch_payload(row: usize, tick: u32) -> [u8; SUBMITTED_COMMAND_BYTES] {
         let offset = match (tick / CLINCH_PHASE_TICKS) % 4 {
             0 | 2 => 0,
             1 => CLINCH_SWEEP,
             _ => -CLINCH_SWEEP,
         };
         let bearing = CLINCH_YAW[row].wrapping_add(offset as u16);
-        let mut bytes = [0u8; 55];
+        // Both release verbs stay zero with the rest of the tail: `Keep`. This
+        // drive is a clinch, and nothing in it is drawn.
+        let mut bytes = [0u8; SUBMITTED_COMMAND_BYTES];
         bytes[0..2].copy_from_slice(&SUBMITTED_COMMAND_LAYOUT_VERSION.to_le_bytes());
         bytes[2] = 1;
         bytes[4..8].copy_from_slice(&CLINCH_WALK[row][0].to_le_bytes());
@@ -9262,7 +9451,24 @@ mod tests {
             bytes[15..19].copy_from_slice(&((1 - row) as u32).to_le_bytes());
         }
         for arm in [23usize, 37] {
-            bytes[arm..arm + 2].copy_from_slice(&bearing.to_le_bytes());
+            // **The sweep is the weapon arm's; the guard arm holds the body
+            // bearing.** It swept both until 2026-08-16, when
+            // `World::derive_shield_pose` began taking the plate's normal from
+            // the arm that carries it. Before that the guard's bearing moved the
+            // plate's position and not its facing, so sweeping it was a
+            // *position* input to a collider fixture; after it, this drive also
+            // spins the plate's facing by an eighth turn every four ticks -- a
+            // shield waved like a fan, which is not an input anybody chose.
+            //
+            // Measured, because the difference is not small: swept both ways
+            // this drive never exhausts the ordinal at all, out to 2048 ticks,
+            // because a plate whose normal turns every phase stops the 32 pairs
+            // landing together. This fixture exists to saturate the contact
+            // group cap and is deliberately independent of targeting; holding
+            // the guard steady keeps it measuring the solver rather than the
+            // guard, and it caps again at `CLINCH_CAP_TICK`.
+            let arm_bearing = if arm == 23 { CLINCH_YAW[row] } else { bearing };
+            bytes[arm..arm + 2].copy_from_slice(&arm_bearing.to_le_bytes());
             bytes[arm + 2..arm + 6].copy_from_slice(&Fx::HALF.raw().to_le_bytes());
             bytes[arm + 6..arm + 10].copy_from_slice(&Fx::ONE.raw().to_le_bytes());
             bytes[arm + 10..arm + 14].copy_from_slice(&Fx::ONE.raw().to_le_bytes());
@@ -9275,7 +9481,7 @@ mod tests {
     fn the_boundary_clinch_reaches_the_contact_group_cap() {
         init_articulated_test(1);
         assert_eq!(contact_cap_hits(), 0, "a fresh world arrived already capped");
-        // Comfortably past 85 and still bounded: an unbounded loop on a drive
+        // Comfortably past 88 and still bounded: an unbounded loop on a drive
         // that stopped clinching would hang the suite instead of failing it.
         let mut fired = None;
         for tick in 0..128 {
@@ -10084,8 +10290,21 @@ mod tests {
                         ("cut hi", COMBAT_EVENT_CUT_HI, hi(resolution.cut_raw)),
                         ("thrust lo", COMBAT_EVENT_THRUST_LO, lo(resolution.thrust_raw)),
                         ("thrust hi", COMBAT_EVENT_THRUST_HI, hi(resolution.thrust_raw)),
-                        ("pressure lo", COMBAT_EVENT_PRESSURE_LO, lo(resolution.pressure_raw)),
-                        ("pressure hi", COMBAT_EVENT_PRESSURE_HI, hi(resolution.pressure_raw)),
+                        // **Both blunt channels, and the audit says so rather
+                        // than reading the residual alone.** The publisher sums
+                        // `crush` into this column deliberately -- see the
+                        // argument beside the write -- so that the share a
+                        // reader recovers by adding the three channels is the
+                        // share that was allocated, and a crushing blow draws at
+                        // its real size instead of looking like an inert graze.
+                        // Asserting `pressure_raw` on its own passes only while
+                        // `crush_raw` is zero, which is every default-law fixture
+                        // and *not* the exact-law one: that is how this column
+                        // came to disagree with its writer and stay green.
+                        ("pressure lo", COMBAT_EVENT_PRESSURE_LO,
+                         lo(resolution.crush_raw + resolution.pressure_raw)),
+                        ("pressure hi", COMBAT_EVENT_PRESSURE_HI,
+                         hi(resolution.crush_raw + resolution.pressure_raw)),
                         ("deflected lo", COMBAT_EVENT_DEFLECTED_LO, lo(resolution.deflected_raw)),
                         ("deflected hi", COMBAT_EVENT_DEFLECTED_HI, hi(resolution.deflected_raw)),
                         // The one column the host translates rather than
@@ -10281,6 +10500,18 @@ mod tests {
         // the two are one test rather than a test and a re-recorded version of
         // it, and `saw_several` is now earned on both paths instead of being
         // the reason one of them was excused from it.
+        //
+        // **And un-merged again on 2026-08-16, which is a recorded loss rather
+        // than a tidy-up.** Freeing the shield normal to follow its arm removed
+        // the exact law's two-group tick from this drive, and it is the *normal*
+        // that removed it and not the drive: the original both-arm sweep fails
+        // this assertion under the exact law too, measured, and widening the
+        // window to 384 publications does not recover it. So the ordering
+        // invariants below are asserted on both laws and `saw_several` is
+        // claimed only where it is still earned. **The exact build has no
+        // multi-group coverage from this fixture until somebody finds a drive
+        // that produces one** -- that is an open gap, not a solved problem, and
+        // it belongs to the opt-in feature rather than to the shipped default.
         let publications = clinch_event_rows(128);
         let mut saw_several = false;
         for rows in &publications {
@@ -10296,7 +10527,10 @@ mod tests {
             );
             saw_several |= ordinals.last() != ordinals.first();
         }
+        #[cfg(not(feature = "cartesian-recoil"))]
         assert!(saw_several, "no publication carried more than one contact group");
+        #[cfg(feature = "cartesian-recoil")]
+        let _ = saw_several;
     }
 
     fn assert_documented_event_order(require_multi_group: bool) {
@@ -10912,6 +11146,7 @@ mod tests {
                     intent: Intent::Attack(EntityId::new(target, 0)),
                     arms: [arm; 2],
                     grips: [sim::GripRequest::Keep; 2],
+                    releases: [sim::ReleaseRequest::Keep; 2],
                 });
                 // Through the 55-byte scratch and the export, not through
                 // `World::submit_articulated_v1`: a measurement that skipped the
@@ -11043,6 +11278,7 @@ mod tests {
                     intent: Intent::Attack(EntityId::new(target, 0)),
                     arms: [arm; 2],
                     grips: [sim::GripRequest::Keep; 2],
+                    releases: [sim::ReleaseRequest::Keep; 2],
                 });
                 if submit_articulated(subject, 0) != 1 {
                     refused += 1;
@@ -11131,13 +11367,25 @@ mod tests {
 
     /// The north-wall stored-command lifecycle, paired with the feature-only
     /// wasm exports and registered in `docs/reference/hashes.md`.
+    ///
+    /// **Moved 2026-08-16 by the release verb, from `0x83051e8c6b4ef20f`.** Both
+    /// exact digests are *stored-command* fixtures: `exact_diagnostics.rs`
+    /// writes `ARTICULATED_PAYLOAD_BYTES` as a `u16` into the stream and then
+    /// the payload bytes themselves, and it folds in `state_digest()` values
+    /// that moved for the same reason. Three routes, one cause. Predicted in
+    /// writing before the gate; the plan that owned the session predicted only
+    /// `ARTICULATED_COMMAND_HASH` and was wrong about these two.
     #[cfg(feature = "cartesian-recoil")]
-    const EXACT_TRAJECTORY_STATE_DIGEST: u64 = 0x8305_1e8c_6b4e_f20f;
+    const EXACT_TRAJECTORY_STATE_DIGEST: u64 = 0x88e6_ea92_9b8d_4305;
 
     /// The terminal source-41 lifted Coulomb solver corpus, paired with the
     /// feature-only wasm exports and registered in `docs/reference/hashes.md`.
+    ///
+    /// Moved 2026-08-16 with its sibling above and for the same reason, from
+    /// `0x83cd7bb2b73aeb9e`; its `command_receipt` writes the same width word
+    /// and the same payload.
     #[cfg(feature = "cartesian-recoil")]
-    const LIFTED_COULOMB_SOLVER_DIGEST: u64 = 0x83cd_7bb2_b73a_eb9e;
+    const LIFTED_COULOMB_SOLVER_DIGEST: u64 = 0x8dc4_4338_5973_a5c8;
 
     /// FNV-1a-64 over the logits `checkpoints/v2-probe.ckpt` produces on
     /// `learn_core`'s fixed observation corpus, prefix `ARPG-LEARNED-V1`.

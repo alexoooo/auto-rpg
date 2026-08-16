@@ -48,10 +48,19 @@ type SpatialInstance = Readonly<{
 
 const tileIndex = (cols: number, tx: number, ty: number): number => ty * cols + tx;
 
-function knownSolid(snapshot: PresentationSnapshot, tx: number, ty: number): boolean {
+/**
+ * Fog never becomes a drawn tile; it may complete a drawn tile's topology.
+ * An undisclosed neighbour counts as solid for the piece choice only, so a
+ * wall at the exploration boundary reads as a run rather than a 0.62-long
+ * `wall_end` stub whose gaps track the frontier instead of the map. The
+ * undisclosed tile itself still draws nothing: `acceptSnapshot` skips every
+ * tile whose visibility is not 1 or 2. Off-map stays open -- counting it solid
+ * would turn the outer ring's straights into tees.
+ */
+function topologySolid(snapshot: PresentationSnapshot, tx: number, ty: number): boolean {
   if (tx < 0 || ty < 0 || tx >= snapshot.mapCols || ty >= snapshot.mapRows) return false;
   const at = tileIndex(snapshot.mapCols, tx, ty);
-  return snapshot.vis[at] !== 0 && snapshot.map[at] === MAP_SOLID;
+  return snapshot.vis[at] === 0 || snapshot.map[at] === MAP_SOLID;
 }
 
 export function chooseRoomFloor(seed: number, tx: number, ty: number): "floor_a" | "floor_b" {
@@ -59,23 +68,38 @@ export function chooseRoomFloor(seed: number, tx: number, ty: number): "floor_a"
   return (Math.imul(value, 0xc2b2ae35) >>> 0) & 1 ? "floor_b" : "floor_a";
 }
 
-/** Only disclosed solid neighbours connect; fog never becomes inferred topology. */
-export function chooseRoomWall(snapshot: PresentationSnapshot, tx: number, ty: number): RoomWallSelection {
+export function chooseRoomWall(snapshot: PresentationSnapshot, tx: number, ty: number): readonly RoomWallSelection[] {
   const solid = [
-    knownSolid(snapshot, tx, ty - 1), knownSolid(snapshot, tx + 1, ty),
-    knownSolid(snapshot, tx, ty + 1), knownSolid(snapshot, tx - 1, ty),
+    topologySolid(snapshot, tx, ty - 1), topologySolid(snapshot, tx + 1, ty),
+    topologySolid(snapshot, tx, ty + 1), topologySolid(snapshot, tx - 1, ty),
   ] as const;
   const neighbours = solid.reduce((sum, value) => sum + (value ? 1 : 0), 0);
-  const found = solid.findIndex(Boolean);
-  const first: 0 | 1 | 2 | 3 = found < 0 ? 0 : found as 0 | 1 | 2 | 3;
-  if (neighbours === 2 && ((solid[0] && solid[2]) || (solid[1] && solid[3]))) {
-    // The authored straight source runs along local X. East/west solid
-    // neighbours therefore need zero rotation; north/south needs a quarter.
-    return Object.freeze({ piece: "wall_straight", quarterTurns: solid[1] ? 0 : 1 });
+  if (neighbours <= 1) {
+    // A stub (`wall_end`) is a centred 0.62 x 0.18 bar along local X touching
+    // no tile edge, so only its axis is expressive: keep zero beside an
+    // east/west neighbour or in isolation, and take one quarter beside
+    // north/south. A full straight here would overshoot half a tile into open
+    // floor on the side with no wall at all.
+    return Object.freeze([Object.freeze({ piece: "wall_end", quarterTurns: solid[0] || solid[2] ? 1 : 0 } as const)]);
   }
-  if (neighbours === 2) return Object.freeze({ piece: "wall_inside", quarterTurns: first });
-  if (neighbours >= 3) return Object.freeze({ piece: "wall_outside", quarterTurns: first });
-  return Object.freeze({ piece: "wall_end", quarterTurns: first });
+  // Every multi-neighbour tile is synthesized from `wall_straight` alone: one
+  // centreline run per solid axis. The authored `wall_inside`/`wall_outside`
+  // corner and tee pieces put their arms on the **tile edges** (`tools/art/
+  // room.py`: x/z in [0.32, 0.50]) where a neighbouring straight runs on the
+  // **centreline** (z in [-0.09, 0.09]), so an authored corner arm can never
+  // meet the run it turns into -- the "Join coherence | fail" the room matrix
+  // records. Two crossing centreline runs close every join by construction,
+  // at the cost of a half-tile overshoot past an L's outer side -- the same
+  // overshoot the authored corner's own full-length run already had. The
+  // authored corner pieces stay in the kit unused, so the decision reverses
+  // by deleting this comment and the branch under it.
+  //
+  // The straight source runs along local X: east/west neighbours take zero
+  // turns, north/south one quarter.
+  const runs: RoomWallSelection[] = [];
+  if (solid[1] || solid[3]) runs.push(Object.freeze({ piece: "wall_straight", quarterTurns: 0 } as const));
+  if (solid[0] || solid[2]) runs.push(Object.freeze({ piece: "wall_straight", quarterTurns: 1 } as const));
+  return Object.freeze(runs);
 }
 
 export class RoomEnvironmentPresentation {
@@ -194,9 +218,15 @@ export class RoomEnvironmentPresentation {
         this.#add(this.#geometry, `${semanticKey}:floor`, semanticKey,
           chooseRoomFloor(this.#seed, tx, ty), tx, ty, 0, current, false, current);
         if (map === MAP_SOLID) {
-          const wall = chooseRoomWall(snapshot, tx, ty);
-          this.#add(this.#geometry, `${semanticKey}:wall`, semanticKey,
-            wall.piece, tx, ty, wall.quarterTurns, current, false, false);
+          const walls = chooseRoomWall(snapshot, tx, ty);
+          for (const wall of walls) {
+            // A synthesized corner/tee is two runs on one tile; the axis suffix
+            // keeps the instance keys distinct while a one-piece tile keeps the
+            // bare `:wall` key its tests and pick paths always had.
+            const suffix = walls.length === 1 ? "" : wall.quarterTurns === 0 ? ":x" : ":z";
+            this.#add(this.#geometry, `${semanticKey}:wall${suffix}`, semanticKey,
+              wall.piece, tx, ty, wall.quarterTurns, current, false, false);
+          }
         }
       }
       this.#geometryRevision = geometryRevision;

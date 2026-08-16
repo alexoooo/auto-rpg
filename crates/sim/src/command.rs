@@ -1,8 +1,11 @@
 use crate::entity::EntityId;
 use fx::{Angle, Fx, Hash64, Vec2};
 
-pub const SUBMITTED_COMMAND_LAYOUT_VERSION: u16 = 1;
-pub const ARTICULATED_PAYLOAD_BYTES: usize = 51;
+pub const SUBMITTED_COMMAND_LAYOUT_VERSION: u16 = 2;
+/// Was 51 through layout 1. The two bytes appended are one [`ReleaseRequest`]
+/// per arm; the payload was already fully packed, so a verb costs a byte and a
+/// layout version and there was never a spare bit to put it in.
+pub const ARTICULATED_PAYLOAD_BYTES: usize = 53;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct CombatHeight(Fx);
@@ -38,6 +41,50 @@ pub struct ArmTarget {
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum GripRequest { Keep, Release, EquipSlot(u8) }
 
+/// Whether an arm is asking to **loose** what it has drawn -- an arrow, and
+/// later anything else that leaves the hand under tension.
+///
+/// **Named `Loose` and deliberately not `Release`**, because
+/// [`GripRequest::Release`] already means "drop what you are holding" and sits
+/// two fields away in the same struct. Two verbs called release, one of which
+/// throws an arrow and the other of which puts the bow on the floor, is a trap
+/// for the next reader and eventually for the next policy. `Loose` is also the
+/// word the repository already uses for this: `EVENT_LOOSE` has been the frame
+/// ABI's archer's-release row since long before this command could express one.
+///
+/// **This is a level, and the mechanic is an edge.** The command says what the
+/// arm is asking for on this tick, and a policy that asks forever is asking on
+/// every tick; [`ReleaseRequest::looses`] is the transition, and it is the only
+/// thing a consumer should read. That mirrors [`Strike::None`] re-arming the
+/// legacy hand, and it is the reason the rule lives here rather than being left
+/// for step 3 to invent -- a level consumed as a level fires an arrow every tick
+/// it is held.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
+pub enum ReleaseRequest {
+    /// Hold whatever is drawn. The default, and what every command that predates
+    /// layout 2 means.
+    #[default]
+    Keep,
+    /// Loose on this tick, if the arm has something drawn to loose.
+    Loose,
+}
+
+impl ReleaseRequest {
+    /// The **edge**: true only on the tick a held request becomes a loosed one.
+    ///
+    /// Asking to loose on a hundred consecutive ticks looses once, on the first.
+    /// A consumer that tests `current == Loose` instead of calling this empties
+    /// a quiver in under two seconds, which is exactly the bug this function
+    /// exists to make hard to write.
+    pub const fn looses(previous: ReleaseRequest, current: ReleaseRequest) -> bool {
+        matches!((previous, current), (ReleaseRequest::Keep, ReleaseRequest::Loose))
+    }
+
+    const fn wire(self) -> u8 {
+        match self { ReleaseRequest::Keep => 0, ReleaseRequest::Loose => 1 }
+    }
+}
+
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct ArticulatedCommandV1 {
     pub move_dir: Vec2,
@@ -45,6 +92,15 @@ pub struct ArticulatedCommandV1 {
     pub intent: Intent,
     pub arms: [ArmTarget; 2],
     pub grips: [GripRequest; 2],
+    /// Per arm rather than per body, and the alternative was measured against
+    /// this one rather than assumed away: a single body-level flag is one byte
+    /// cheaper and a two-handed bow is held by both arms anyway. It loses
+    /// because a *binding* is not a body state -- [`crate::GripBinding::Both`]
+    /// already says which arms hold an item, and the obvious second consumer of
+    /// this verb is a one-handed thrown weapon, where "which hand let go" is the
+    /// whole question. Widening a wire contract later costs another layout
+    /// version; carrying two bytes now does not.
+    pub releases: [ReleaseRequest; 2],
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
@@ -79,6 +135,11 @@ pub enum ArticulatedPayloadError {
     UnknownGrip { arm: LimbSlot, value: u8 },
     NonCanonicalIntent,
     NonCanonicalGrip(LimbSlot),
+    /// A release byte that is neither `Keep` nor `Loose`. Names the arm and the
+    /// value, like [`ArticulatedPayloadError::UnknownGrip`], because a refusal
+    /// that says only "invalid" leaves the caller guessing which of two arms it
+    /// got wrong.
+    UnknownRelease { arm: LimbSlot, value: u8 },
     OutOfRange(CommandField),
 }
 
@@ -100,6 +161,12 @@ impl ArticulatedCommandV1 {
         write_arm(&mut out, 33, self.arms[1]);
         write_grip(&mut out, 47, self.grips[0]);
         write_grip(&mut out, 49, self.grips[1]);
+        // Appended at the end so the fifty-one bytes above keep the offsets
+        // every reader of layout 1 already knows. That does not make the change
+        // compatible -- the width is in the digest and the layout version is
+        // bumped -- it makes the diff readable.
+        out[51] = self.releases[0].wire();
+        out[52] = self.releases[1].wire();
         out
     }
 
@@ -122,6 +189,8 @@ impl ArticulatedCommandV1 {
             intent,
             arms: [read_arm(bytes, 19, true)?, read_arm(bytes, 33, false)?],
             grips: [read_grip(bytes, 47, LimbSlot::LeftArm)?, read_grip(bytes, 49, LimbSlot::RightArm)?],
+            releases: [read_release(bytes, 51, LimbSlot::LeftArm)?,
+                       read_release(bytes, 52, LimbSlot::RightArm)?],
         })
     }
 
@@ -136,6 +205,12 @@ impl ArticulatedCommandV1 {
         }
         let _ = read_grip(bytes, 47, LimbSlot::LeftArm)?;
         let _ = read_grip(bytes, 49, LimbSlot::RightArm)?;
+        // Structural, like the grips beside it: a release byte this build does
+        // not know is refused here rather than at `from_payload_bytes`, so the
+        // boundary's cheap structure check answers it too and a malformed
+        // command never reaches the range check.
+        let _ = read_release(bytes, 51, LimbSlot::LeftArm)?;
+        let _ = read_release(bytes, 52, LimbSlot::RightArm)?;
         Ok(())
     }
 }
@@ -184,6 +259,13 @@ fn write_grip(out: &mut [u8], at: usize, grip: GripRequest) {
 }
 fn read_grip(bytes: &[u8], at: usize, arm: LimbSlot) -> Result<GripRequest, ArticulatedPayloadError> {
     match bytes[at] { 0 if bytes[at+1] == 0 => Ok(GripRequest::Keep), 1 if bytes[at+1] == 0 => Ok(GripRequest::Release), 2 => Ok(GripRequest::EquipSlot(bytes[at+1])), 0 | 1 => Err(ArticulatedPayloadError::NonCanonicalGrip(arm)), value => Err(ArticulatedPayloadError::UnknownGrip { arm, value }) }
+}
+fn read_release(bytes: &[u8], at: usize, arm: LimbSlot) -> Result<ReleaseRequest, ArticulatedPayloadError> {
+    match bytes[at] {
+        0 => Ok(ReleaseRequest::Keep),
+        1 => Ok(ReleaseRequest::Loose),
+        value => Err(ArticulatedPayloadError::UnknownRelease { arm, value }),
+    }
 }
 fn put_u16(out: &mut [u8], at: usize, value: u16) { out[at..at+2].copy_from_slice(&value.to_le_bytes()); }
 fn put_u32(out: &mut [u8], at: usize, value: u32) { out[at..at+4].copy_from_slice(&value.to_le_bytes()); }
@@ -594,6 +676,10 @@ mod tests {
                 ArmTarget { bearing: Angle::from_raw(0x3456), height: CombatHeight::HIGH, reach: Fx::from_raw(5), effort: Fx::from_raw(6) },
             ],
             grips: [GripRequest::EquipSlot(1), GripRequest::Release],
+            // Asymmetric on purpose: a writer that filled both release bytes
+            // from one arm, or a reader that read one twice, passes a fixture
+            // where the two agree.
+            releases: [ReleaseRequest::Keep, ReleaseRequest::Loose],
         }
     }
 
@@ -607,21 +693,73 @@ mod tests {
     }
 
     #[test]
-    fn articulated_command_v1_matches_the_documented_55_byte_fixture() {
+    fn articulated_command_v1_matches_the_documented_57_byte_fixture() {
+        // **Rewritten for layout 2, not re-recorded.** The first four bytes are
+        // the envelope -- layout version, the articulated kind, one reserved
+        // zero -- and the fifty-three after them are the payload. Two bytes
+        // longer than layout 1's fifty-five, and the two are the release verbs
+        // at the end; every other offset is where it was, which is what makes
+        // this diff checkable by eye against the reference table.
         let payload = articulated_fixture().payload_bytes();
-        let mut actual = [0u8; 55];
-        actual[0..2].copy_from_slice(&1u16.to_le_bytes());
+        let mut actual = [0u8; 57];
+        actual[0..2].copy_from_slice(&SUBMITTED_COMMAND_LAYOUT_VERSION.to_le_bytes());
         actual[2] = 1;
         actual[4..].copy_from_slice(&payload);
-        let expected: [u8; 55] = [
-            0x01,0x00,0x01,0x00, 0x01,0x00,0x00,0x00, 0xfe,0xff,0xff,0xff,
+        let expected: [u8; 57] = [
+            0x02,0x00,0x01,0x00, 0x01,0x00,0x00,0x00, 0xfe,0xff,0xff,0xff,
             0x34,0x12,0x01, 0x44,0x33,0x22,0x11, 0x88,0x77,0x66,0x55,
             0x45,0x23, 0x00,0x40,0x00,0x00, 0x03,0x00,0x00,0x00,
             0x04,0x00,0x00,0x00, 0x56,0x34, 0x00,0xc0,0x00,0x00,
             0x05,0x00,0x00,0x00, 0x06,0x00,0x00,0x00, 0x02,0x01,0x01,0x00,
+            0x00,0x01,
         ];
         assert_eq!(actual, expected);
         assert_eq!(ArticulatedCommandV1::from_payload_bytes(&payload), Ok(articulated_fixture()));
+    }
+
+    #[test]
+    fn an_out_of_range_release_verb_is_refused_by_name() {
+        // The refusal names the arm and the value, so a caller that got one of
+        // two arms wrong is told which. Both arms are driven, because a decoder
+        // that read byte 51 twice would refuse the left arm's value while
+        // reporting the right arm's slot.
+        let base = articulated_fixture().payload_bytes();
+        for (at, arm) in [(51, LimbSlot::LeftArm), (52, LimbSlot::RightArm)] {
+            let mut bad = base;
+            bad[at] = 9;
+            let expected = ArticulatedPayloadError::UnknownRelease { arm, value: 9 };
+            assert_eq!(ArticulatedCommandV1::validate_payload_structure(&bad), Err(expected),
+                       "byte {at} was not refused as {arm:?}'s release");
+            assert_eq!(ArticulatedCommandV1::from_payload_bytes(&bad), Err(expected));
+        }
+        // And the two legal values are not refused, or the assertion above
+        // would pass on a decoder that refused everything.
+        for value in 0..=1u8 {
+            let mut fine = base;
+            fine[51] = value;
+            fine[52] = value;
+            assert!(ArticulatedCommandV1::validate_payload_structure(&fine).is_ok(),
+                    "release verb {value} was refused");
+        }
+    }
+
+    #[test]
+    fn a_held_release_looses_once_rather_than_every_tick() {
+        // **The edge, asserted before anything consumes it.** Step 3 spawns an
+        // arrow from this transition; if it read the level instead it would
+        // spawn one every tick the request was held, which is the whole reason
+        // this rule is written down at the command layer now.
+        use ReleaseRequest::{Keep, Loose};
+        let held = [Keep, Loose, Loose, Loose, Keep, Loose, Keep];
+        let loosed = held.windows(2).filter(|pair| ReleaseRequest::looses(pair[0], pair[1])).count();
+        assert_eq!(loosed, 2, "a held request loosed once per tick instead of once per draw");
+
+        // The four transitions spelled out, so a rule inverted in one direction
+        // cannot be hidden by a sequence that happens to average out.
+        assert!(ReleaseRequest::looses(Keep, Loose), "the draw did not loose");
+        assert!(!ReleaseRequest::looses(Loose, Loose), "a held loose fired twice");
+        assert!(!ReleaseRequest::looses(Loose, Keep), "letting go of the button loosed");
+        assert!(!ReleaseRequest::looses(Keep, Keep), "an idle arm loosed");
     }
 
     #[test]

@@ -116,8 +116,10 @@ right, then rotates by body yaw into body-origin-relative coordinates whose axes
 are parallel to the world axes. Body-left is
 `(-sin(yaw), cos(yaw), 0)`. The desired hand is the rotated shoulder plus
 `(cos(target.bearing), sin(target.bearing), 0)` times reach, with its `z`
-replaced by mapped height. Body yaw moves the shoulders and shield normal; it
-does not silently rewrite an absolute arm target.
+replaced by mapped height. Body yaw moves the shoulders, and so moves both the
+hand and the plate that hangs off it; it does not silently rewrite an absolute
+arm target, and since 2026-08-16 it does not set the shield normal either -- that
+comes from the arm's own bearing, under "Grip changes" below.
 
 `ArmState.hand`, `ArmState.previous_hand`, actuator target-hand positions, and
 `ShieldPose.centre` all use that same space: they are relative to the
@@ -153,12 +155,21 @@ FATIGUE_RECOVERY_RAW = 4            # per idle tick
 
 For the gripped equipment, define inertia
 `max(1/4, mass * (1/4 + balance))`; an empty hand uses inertia `1/4`.
+
+**The arm drives against `driven_inertia`, which a two-handed grip halves.** On a
+`Both` grip `driven_inertia = max(1/4, inertia / 2)`; on every one-handed grip
+`driven_inertia = inertia` exactly, so the divisor is inert wherever one arm
+holds the item. The floor is reapplied after the division because `1/4` is the
+arm's own inertia and a second hand on the haft does not make the arm weightless.
+It is unreachable for the shipped equipment, whose halved inertia stays above
+`1/4`.
+
 Define `power = (8 + stats.power) / 28` and
 `agility = (8 + stats.agility) / 28`, both clamped `[1/4,1]`.
 Available acceleration is
 
 ```text
-effort * arm_authority[limb] * (1 - fatigue) * power / inertia
+effort * arm_authority[limb] * (1 - fatigue) * power / driven_inertia
 ```
 
 clamped `[0,1]`, multiplied by the relevant base acceleration. Maximum speed is
@@ -167,21 +178,31 @@ truncation. Requested effort scales acceleration/torque only; it never changes
 the desired position.
 
 The grouping is normative because `Fx` truncates: `inertia = max(1/4,
-mass * (1/4 + balance))`; `power = clamp(Fx::from_ratio(8 + stats.power, 28),
+mass * (1/4 + balance))`; `driven_inertia = max(1/4, inertia / 2)` on a `Both`
+grip and `inertia` on every other; `power = clamp(Fx::from_ratio(8 + stats.power, 28),
 1/4, 1)` and likewise for agility; `available = clamp(((((effort *
-arm_authority[limb]) * (1 - fatigue)) * power) / inertia), 0, 1)`;
+arm_authority[limb]) * (1 - fatigue)) * power) / driven_inertia), 0, 1)`;
 `acceleration = base_acceleration * available`; and `max_speed = base_max_speed *
 agility`. Evaluate exactly left to right inside the shown parentheses. Reachable
 products must not saturate.
 
 Positive work for a moving arm is
 `inertia * inertia * effort * (abs(delta_bearing_speed) + abs(delta_height_speed) +
-abs(delta_reach_speed))`. Add `work.raw + work_residue.raw`, divide by 256 with
+abs(delta_reach_speed))`, using the **undivided** `inertia`: the two-handed
+divisor above buys acceleration and does not additionally make the item cheaper
+to swing. Add `work.raw + work_residue.raw`, divide by 256 with
 truncation, add that raw amount to fatigue, and retain the remainder in
 `work_residue`; clamp fatigue to `[0,1]`. On a tick where all three target errors
 and speeds are zero, fatigue decreases by raw `4` and residue is unchanged.
 This formula makes a heavier otherwise-identical item fatigue sooner and never
 changes its mass.
+
+**A two-handed grip bills that work once and splits it.** Each of the two fatigue
+accounts is billed `work / 2` rather than the whole of it, so two arms sharing one
+item share its cost instead of each paying it in full. The split is applied to the
+work term alone; idle recovery is per-arm and unshared, and each account keeps its
+own `work_residue`, so the two halves rejoin to within the truncation of a single
+raw unit rather than exactly.
 
 For each scalar, save the stored speed at tick entry, perform chase, step, and
 target snap, then define `delta_speed = final_stored_speed - entry_speed`. Thus a
@@ -239,8 +260,8 @@ the single authoritative target and the left-arm target is ignored after validat
 The right arm follows the ordinary controller. After it advances, set left bearing
 raw to `2 * body_yaw.raw - right_bearing.raw` with `u16` wrapping, negate right
 bearing speed, and copy right height/reach and their speeds. Both fatigue controllers
-are billed independently using the same right-target deltas and the shared item
-inertia. For geometry let `f=(cos(yaw),sin(yaw),0)`,
+are billed from the same right-target deltas and the shared item inertia, each for
+half the work. For geometry let `f=(cos(yaw),sin(yaw),0)`,
 `l=(-sin(yaw),cos(yaw),0)`, and `d=right_hand-right_shoulder`; then
 `left_hand=left_shoulder + f*dot(d,f) - l*dot(d,l) + (0,0,d.z)`.
 This makes two-handed geometry deterministic without averaging contradictory
@@ -252,24 +273,58 @@ scalars with the documented mirror and derive the mirrored left hand from the
 saved old left hand. Each `linear_velocity` is its own new hand minus its own
 saved previous hand; the forced left mirror may therefore be a larger one-tick
 displacement than an independently actuated hand. Both fatigue accounts use the
-right arm's entry-to-final scalar speed deltas and the shared inertia. The shared
+right arm's entry-to-final scalar speed deltas and the shared inertia, each billed
+half the work. The shared
 trajectory uses the right arm's effort, fatigue, stats, and
-`arm_authority[RightArm]`; left authority does not alter a `Both` trajectory in
-v2-13, but remains authoritative and affects the left controller whenever the
-arms are independent. A later impairment rule that couples two-handed torque
-must amend this contract before changing that behavior.
+`arm_authority[RightArm]`; left authority does not alter a `Both` trajectory,
+but remains authoritative and affects the left controller whenever the
+arms are independent.
+
+**The impairment rule this contract reserved now exists, and it couples torque
+rather than authority.** v2-13 recorded that "a later impairment rule that couples
+two-handed torque must amend this contract before changing that behavior"; combat
+arms 02 is that rule, and this paragraph is the amendment it owed. It halves
+`driven_inertia` for the driving arm and halves each arm's fatigue bill, and it
+changes nothing else: not which arm owns the trajectory, not which target is
+authoritative, not whose effort, fatigue, stats or authority are read. Left
+authority is still ignored by a `Both` trajectory, so the reserved sentence is
+amended rather than deleted -- what moved is the magnitude, not the ownership, and
+`a_two_handed_trajectory_uses_right_authority_effort_and_target_only` remains the
+standing proof of the half that did not move.
 
 Grip changes apply before arm integration. A shield consumes its arm's bearing,
 height, reach, and effort like any other item. Its pose is derived after the arm:
 
 ```text
 centre = gripping hand
-normal = (cos(body_yaw), sin(body_yaw), 0)
+normal = (cos(arm.bearing), sin(arm.bearing), 0)
 half_width/half_height/thickness = immutable shield geometry
 ```
 
-The arm target cannot add an orbit offset to the normal. Releasing the shield
-sets `shield_pose` to `None` that tick. A two-handed item and shield can never
+**The normal follows the arm that carries the plate, and this is an amendment.**
+Until 2026-08-16 it read `(cos(body_yaw), sin(body_yaw), 0)` and this paragraph
+said the arm target could not add an orbit offset to it. That rule made the
+plate's *position* follow the hand while its *facing* followed the torso, with
+nothing tying the two together, so an arm reaching sideways left the plate
+edge-on to the attack its position implied it covered. Measured over the composed
+corpus's 2.86M shield samples, the angle between the normal and the hand's offset
+from the body origin ran the whole 0--180 degree range, median 32 degrees, 1.84%
+of ticks at 90 degrees or worse. Taking the normal from the same bearing that
+placed the hand removes the disagreement at its source: `centre` and `normal` are
+now two readings of one arm rather than one reading each of two bodies. Because
+the arm's bearing is what positions the hand, `normal` and `hand - shoulder` are
+parallel by construction, and the residual angle against the *body origin* is
+only the shoulder's fixed lateral half-width.
+
+Body yaw still moves the shoulder, and therefore still moves the plate, but it no
+longer sets the plate's facing on its own. Where a command holds
+`arm.bearing == body_yaw` -- which is what
+`crates/policy/src/articulated_script.rs` did unconditionally before this
+amendment, and what it still does when nothing is visible -- the derived normal is
+identical to the old rule, so the change is inert on every pose that already
+agreed with its body.
+
+Releasing the shield sets `shield_pose` to `None` that tick. A two-handed item and shield can never
 coexist because command validation rejects the transaction.
 Shield derivation inspects both resulting grips in left-then-right order and
 continues past an empty or non-shield left grip; a test-only right-bound shield
@@ -389,5 +444,7 @@ Yaw and movement are zero and the left hand is empty.
   its first normalized height increase is at most raw `273`.
 - With identical stats, target, and effort, the Club inertia is greater than
   Sword inertia and its fatigue after 120 non-idle ticks is strictly greater.
-- At yaw quarter-turn, a held shield normal is exactly `(0,1,0)` within the
-  sine table's exact cardinal values, regardless of its arm bearing.
+- At an arm bearing of a quarter-turn, a held shield normal is exactly `(0,1,0)`
+  within the sine table's exact cardinal values, whatever the body yaw is. Before
+  2026-08-16 this vector read the other way round -- quarter-turn of *yaw*,
+  regardless of *bearing* -- which is the amendment recorded under "Grip changes".

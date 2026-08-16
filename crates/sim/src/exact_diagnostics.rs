@@ -7,7 +7,7 @@
 use crate::{AnatomyChoice, AnatomyState, ArmTarget, ArticulatedCommandV1, Body, BodyPart,
             CombatHeight, ContactKind, ContactResolution, DuelConfigV1, EntityId,
             EquipmentGeometry, GripRequest, HashDomain, Intent, LimbSlot,
-            RecoilExternalEnergy, Replay, ResolutionError, Scenario,
+            RecoilExternalEnergy, ReleaseRequest, Replay, ResolutionError, Scenario,
             SubmitArticulatedOutcome, SubmittedCommand, World,
             ARTICULATED_PAYLOAD_BYTES, SUBMITTED_COMMAND_LAYOUT_VERSION};
 use fx::{Angle, Fx, Hash64, Vec2, Vec3};
@@ -189,7 +189,8 @@ fn digest_with(mutation: DigestMutation) -> Option<u64> {
         let arm = ArmTarget { bearing: yaw, height: CombatHeight::MID,
                               reach: Fx::ZERO, effort: Fx::ZERO };
         ArticulatedCommandV1 { move_dir: Vec2::ZERO, body_yaw: yaw,
-            intent: Intent::Hold, arms: [arm; 2], grips: [GripRequest::Keep; 2] }
+            intent: Intent::Hold, arms: [arm; 2], grips: [GripRequest::Keep; 2],
+            releases: [ReleaseRequest::Keep; 2] }
     };
     let command_at = |tick, id| {
         if id == defender { return neutral(yaws[1]); }
@@ -456,7 +457,8 @@ fn neutral_command(obs: &crate::ArticulatedObservation) -> ArticulatedCommandV1 
     let arm = ArmTarget { bearing: obs.body_yaw, height: CombatHeight::MID,
                           reach: Fx::ZERO, effort: Fx::ZERO };
     ArticulatedCommandV1 { move_dir: Vec2::ZERO, body_yaw: obs.body_yaw,
-        intent: Intent::Hold, arms: [arm; 2], grips: [GripRequest::Keep; 2] }
+        intent: Intent::Hold, arms: [arm; 2], grips: [GripRequest::Keep; 2],
+        releases: [ReleaseRequest::Keep; 2] }
 }
 
 fn lifted_command(world: &World, id: EntityId, attacker: EntityId, defender: EntityId,

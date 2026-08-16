@@ -378,7 +378,7 @@ function syntheticTrace() {
   };
 }
 
-const side = (overrides = {}) => ({ anatomy: "fighter", left: "shield", right: "sword", policy: "composed", ...overrides });
+const side = (overrides = {}) => ({ anatomy: "fighter", left: "shield", right: "sword", twoHanded: false, policy: "composed", ...overrides });
 const matchup = (a = {}, b = {}, seed = 3) => ({ a: side(a), b: side(b), seed });
 
 // ----------------------------------------------------------------- the shell's routing
@@ -436,6 +436,45 @@ test("the_picker_refuses_an_empty_handed_fighter_by_naming_the_rust_that_forbids
     }
   }
   assert.equal(picker.review(matchup({ left: "empty" }, { right: "empty" }), "live").refusal, null);
+});
+
+test("the_picker_refuses_the_grips_the_simulation_refuses_and_encodes_the_legal_one", () => {
+  // The three refusals restate `Scenario::duel_from` and its validators, so
+  // each must name the rule and the control -- and the legal grip must survive
+  // review, reach the config, and round-trip through the 120 bytes.
+  // The left hand carries the sword so the earlier empty-handed refusal does
+  // not answer first -- what is empty here is specifically the hand the grip
+  // names.
+  const emptyRight = picker.review(
+    matchup({}, { left: "sword", right: "empty", twoHanded: true }), "live");
+  assert.match(emptyRight.refusal, /^Fighter B is set two-handed with an empty right hand/);
+  const plate = picker.review(
+    matchup({ left: "empty", right: "shield", twoHanded: true }), "live");
+  assert.match(plate.refusal, /^Fighter A is set two-handed on a shield/);
+  assert.match(plate.refusal, /validate_equipment/);
+  const fullLeft = picker.review(matchup({ twoHanded: true }), "live");
+  assert.match(fullLeft.refusal, /^Fighter A is set two-handed while its left hand carries shield/);
+  assert.match(fullLeft.refusal, /validate_bindings/);
+
+  // The legal grip: club in the right hand, left empty. Reviewed clean,
+  // carried into the config, and written into byte 1 of the right hand block
+  // -- offset 8 + 56 + 12 + 22 + 1 = 99 for fighter B -- where decode finds it.
+  const legal = matchup({}, { left: "empty", right: "club", twoHanded: true });
+  assert.deepEqual(picker.review(legal, "live"), { refusal: null, notes: [] });
+  const config = picker.arenaConfigOf(legal);
+  assert.equal(config.fighters[1].twoHanded, true);
+  assert.equal(config.fighters[0].twoHanded, false);
+  const bytes = CONFIG.encodeArenaConfig(config);
+  assert.equal(bytes[99], 1, "the marker missed the right hand block");
+  assert.equal(bytes[8 + 12 + 1], 0, "the marker leaked onto fighter A");
+  const decoded = CONFIG.decodeArenaConfig(bytes, config.seed);
+  assert.equal(decoded.fighters[1].twoHanded, true);
+  assert.equal(decoded.fighters[0].twoHanded, false);
+
+  // The recording header spells it the way `lab trace` does: one carried slot,
+  // bound Both, and no mirrored second copy.
+  assert.deepEqual(CONFIG.carriedOf(config.fighters[1]),
+    [{ hand: CONFIG.HAND_ITEMS.club, binding: "Both" }, null]);
 });
 
 test("learned_runs_live_and_is_noted_once_because_it_is_the_one_policy_that_fetches", () => {
@@ -522,13 +561,26 @@ test("a_recording_command_exists_only_where_lab_trace_could_actually_produce_one
   assert.equal(command("learned", "windmill", 11),
     "cargo run --release -p lab -- trace --seed 11 --policy learned "
       + "--checkpoint checkpoints/v2-probe.ckpt --opponent windmill");
-  // One script on both sides unless the policy is learned, so a mixed pairing
-  // has no command at all -- and `neutral` has none in either direction.
-  assert.equal(command("composed", "windmill"), null);
+  // A mixed *scripted* pairing now has a command, which it did not before
+  // combat-arms 03. `--policy` still installs one script on both sides -- that
+  // is what makes a scripted trace a control -- but `--hero-policy` and
+  // `--monster-policy` name a driver per side, so the corpus and the trace a
+  // reader opens to look at it can be the same fight.
+  assert.equal(command("composed", "windmill"),
+    "cargo run --release -p lab -- trace --seed 3 --hero-policy composed --monster-policy windmill");
+  assert.equal(command("openings", "attack-moves", 5),
+    "cargo run --release -p lab -- trace --seed 5 --hero-policy openings --monster-policy attack-moves");
+  assert.equal(command("openings", "openings"),
+    "cargo run --release -p lab -- trace --seed 3 --policy openings");
+  // `learned` keeps its own narrower spelling and is not a matchup arm, so a
+  // pairing that puts it on the second side still has no command.
   assert.equal(command("composed", "learned"), null);
+  assert.equal(command("learned", "learned"), null);
+  // And `neutral` has none in either direction: it is an `ArticulatedPolicyKind`
+  // the browser can select and not a `lab` script, so naming it would exit 2.
   assert.equal(command("neutral", "neutral"), null);
   assert.equal(command("learned", "neutral"), null);
-  assert.equal(command("learned", "learned"), null);
+  assert.equal(command("neutral", "composed"), null);
 });
 
 test("a_missing_recording_names_the_command_that_would_make_one_or_says_none_would", () => {
@@ -554,25 +606,34 @@ test("a_missing_recording_names_the_command_that_would_make_one_or_says_none_wou
 test("a_recorded_loadout_reads_both_hands_out_of_the_body_header", () => {
   const trace = syntheticTrace();
   assert.deepEqual(picker.recordedLoadout(trace.bodies[0]),
-    { anatomy: "fighter", left: "shield", right: "sword" });
-  // `GripBinding::Both` fills both hands with the one item, which is why the
-  // implementation is a loop and not two lookups.
+    { anatomy: "fighter", left: "shield", right: "sword", twoHanded: false });
+  // `GripBinding::Both` is one item on the right hand plus the flag -- the
+  // same values the controls read -- and specifically not the item copied
+  // into both hands, which is what this used to assert and what made a
+  // recorded two-handed club incomparable with the controls describing one.
   assert.deepEqual(picker.recordedLoadout(trace.bodies[1]),
-    { anatomy: "brute", left: "club", right: "club" });
+    { anatomy: "brute", left: "empty", right: "club", twoHanded: true });
   assert.deepEqual(picker.recordedLoadout({ ...trace.bodies[0], carried: [null, null] }),
-    { anatomy: "fighter", left: "empty", right: "empty" });
+    { anatomy: "fighter", left: "empty", right: "empty", twoHanded: false });
 });
 
 test("a_recording_mismatch_describes_what_is_on_screen_rather_than_what_was_picked", () => {
   const { frames: _frames, schema: _schema, ...header } = syntheticTrace();
   const picked = matchup({ anatomy: "fighter", left: "shield", right: "sword" },
-    { anatomy: "brute", left: "club", right: "club" }, header.seed);
+    { anatomy: "brute", left: "empty", right: "club", twoHanded: true }, header.seed);
   assert.equal(picker.recordingMismatch(picked, header), null);
 
   const wrongHand = picker.recordingMismatch(matchup({ left: "club" },
-    { anatomy: "brute", left: "club", right: "club" }, header.seed), header);
+    { anatomy: "brute", left: "empty", right: "club", twoHanded: true }, header.seed), header);
   assert.match(wrongHand, /Fighter A is a fighter holding shield left and sword right/);
   assert.doesNotMatch(wrongHand, /Fighter B/);
+
+  // The grip is part of the loadout: the same hands without the flag is a
+  // different fighter, and the description says the recorded one is two-handed.
+  const wrongGrip = picker.recordingMismatch(matchup({},
+    { anatomy: "brute", left: "empty", right: "club", twoHanded: false }, header.seed), header);
+  assert.match(wrongGrip, /Fighter B is a brute holding club in both hands/);
+  assert.doesNotMatch(wrongGrip, /Fighter A/);
   // Was `/v2-ui-07/`, for the reason above: the way out of a mismatch is now the
   // button rather than a session that had not landed.
   assert.match(wrongHand, /Press Run selected fight to run the one they describe/);
@@ -610,7 +671,7 @@ test("robust strike is an explicit controlled preset with exact ordinal 3144 byt
   assert.equal(SHELL_HTML.includes("Robust Strike (controlled)"), true);
 });
 
-test("leaving the robust strike preset restores the ordinary composed arena", async () => {
+test("leaving the robust strike preset restores the ordinary attack-moves arena", async () => {
   const harness = installDom();
   try {
     const { mount } = await import(compiled("client/src/arena/arena.js"));
@@ -628,8 +689,11 @@ test("leaving the robust strike preset restores the ordinary composed arena", as
 
     preset.value = "custom";
     for (const entry of harness.listenersOn(preset, "change")) entry.listener({ target: preset });
+    // `attack-moves`, not `composed`: the custom default moved when the plain
+    // composed script was measured to convert almost none of the doubled arm
+    // rates -- the argument sits on `populatePolicies` in `arena.ts`.
     assert.deepEqual([container.querySelector("#a-policy").value,
-      container.querySelector("#b-policy").value], ["composed", "composed"]);
+      container.querySelector("#b-policy").value], ["attack-moves", "attack-moves"]);
     assert.equal(container.querySelector("#arena-seed").value, "3");
     assert.equal(container.querySelector("#a-policy").disabled, false);
     await handle.dispose();

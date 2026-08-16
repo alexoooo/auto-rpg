@@ -1051,7 +1051,7 @@ mod tests {
                 key: fact.key, on_a: impulse, on_b: -impulse,
             }, energy: crate::combat::contact::EnergyLedger {
                 before_raw: 0, after_raw: 0, dissipated_raw: 0,
-            }, cut_raw: 0, thrust_raw: 0, pressure_raw: 0,
+            }, cut_raw: 0, thrust_raw: 0, crush_raw: 0, pressure_raw: 0,
             deflected_raw: 0, severed: false }
     }
 

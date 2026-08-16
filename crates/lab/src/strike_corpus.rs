@@ -593,10 +593,13 @@ fn measure_contact_energy_case(
         if committed {
             for row in world.contact_resolutions().iter()
                 .filter(|row| attacker_contact(row, attacker, intended_hand)) {
+                // The allocated share is all four columns, and the wounding
+                // part of it is all three that reach `incoming` -- crush
+                // included, or a club reads as having converted nothing.
                 facts.push((world.tick(), row.group_ordinal, offline_key(row),
                             row.energy.before_raw,
-                            row.cut_raw + row.thrust_raw + row.pressure_raw,
-                            row.cut_raw + row.thrust_raw));
+                            row.cut_raw + row.thrust_raw + row.crush_raw + row.pressure_raw,
+                            row.cut_raw + row.thrust_raw + row.crush_raw));
             }
         }
         if completed_sweep { break; }

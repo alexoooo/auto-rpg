@@ -1,6 +1,6 @@
 use crate::command::{
     ArticulatedCommandV1, ArticulatedPayloadError, Command, GripRequest, Intent, LimbCommand,
-    Objective, Order, Strike, SubmittedCommand, ARTICULATED_PAYLOAD_BYTES,
+    Objective, Order, ReleaseRequest, Strike, SubmittedCommand, ARTICULATED_PAYLOAD_BYTES,
     SUBMITTED_COMMAND_LAYOUT_VERSION,
 };
 use crate::combat::spec::{
@@ -26,7 +26,12 @@ use fx::{Angle, Fx, Hash64, Vec2};
 pub const REPLAY_CODEC_VERSION: u16 = 2;
 pub const REPLAY_CODEC_VERSION_V1: u16 = 1;
 pub const LEGACY_COMMAND_SCHEMA: u16 = 0;
-pub const ARTICULATED_COMMAND_SCHEMA_RESERVED: u16 = 1;
+/// Was 1 through payload layout 1. It is the envelope's declared command
+/// schema, and the assertion below is what makes it the layout version rather
+/// than a number that merely started out equal to it -- a payload widening that
+/// left this behind would write envelopes claiming a schema whose width they do
+/// not have.
+pub const ARTICULATED_COMMAND_SCHEMA_RESERVED: u16 = 2;
 const _: () = assert!(ARTICULATED_COMMAND_SCHEMA_RESERVED == SUBMITTED_COMMAND_LAYOUT_VERSION);
 
 pub const MAX_REPLAY_ENVELOPE_BYTES: usize = 16_777_216;
@@ -42,7 +47,9 @@ pub const MAX_OBJECTIVE_RECORDS: usize = 65_536;
 const HEADER_BYTES: usize = 40;
 const LEGACY_COMMAND_BYTES: usize = 37;
 const SUBMITTED_LEGACY_COMMAND_BYTES: usize = 38;
-const ARTICULATED_COMMAND_BYTES: usize = 64;
+/// Tick, entity index, entity generation, the kind byte, and the payload:
+/// `4 + 4 + 4 + 1 + ARTICULATED_PAYLOAD_BYTES`. Was 64 while the payload was 51.
+const ARTICULATED_COMMAND_BYTES: usize = 13 + ARTICULATED_PAYLOAD_BYTES;
 const ORDER_BYTES: usize = 14;
 const OBJECTIVE_BYTES: usize = 6;
 
@@ -106,6 +113,14 @@ pub enum ReplayField {
     OrderPayload,
     ObjectiveFaction,
     ObjectiveKind,
+    /// A release verb byte that is neither `Keep` nor `Loose`.
+    ///
+    /// Appended here rather than filed next to [`ReplayField::CommandGrip`]
+    /// where it reads better. Nothing serializes these discriminants today, so
+    /// the tidier placement would almost certainly be harmless -- but "almost
+    /// certainly harmless" is not a reason to renumber a diagnostic that
+    /// several crates match on, and appending costs one comment.
+    CommandRelease,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -1380,6 +1395,10 @@ fn payload_decode_error(error: ArticulatedPayloadError) -> ReplayDecodeError {
             ReplayDecodeError::NonCanonicalField(ReplayField::CommandIntentTarget),
         ArticulatedPayloadError::NonCanonicalGrip(_) =>
             ReplayDecodeError::NonCanonicalField(ReplayField::CommandGrip),
+        ArticulatedPayloadError::UnknownRelease { value, .. } => ReplayDecodeError::UnknownDiscriminant {
+            field: ReplayField::CommandRelease,
+            value: value as u32,
+        },
         ArticulatedPayloadError::OutOfRange(_) =>
             ReplayDecodeError::InvalidField(ReplayField::ArticulatedCommand),
     }
@@ -1634,6 +1653,10 @@ mod tests {
                 intent: Intent::Hold,
                 arms: [arm; 2],
                 grips: [GripRequest::Keep; 2],
+                // Asymmetric so the round trip below actually covers the two
+                // bytes layout 2 added. Both `Keep` would leave them zero, and
+                // a codec that dropped them entirely would still pass.
+                releases: [ReleaseRequest::Keep, ReleaseRequest::Loose],
             }
         ));
         replay.finish(1);
@@ -1654,7 +1677,7 @@ mod tests {
         let bytes = envelope.encode().unwrap();
         let start = stream_start(&bytes);
         assert_eq!(u32::from_le_bytes(bytes[start..start + 4].try_into().unwrap()), 1);
-        let mut expected = [0u8; 64];
+        let mut expected = [0u8; ARTICULATED_COMMAND_BYTES];
         expected[12] = 1;
         expected[21..23].copy_from_slice(&Angle::QUARTER.raw().to_le_bytes());
         expected[32..34].copy_from_slice(&Angle::QUARTER.raw().to_le_bytes());
@@ -1665,11 +1688,40 @@ mod tests {
         expected[48..52].copy_from_slice(&CombatHeight::MID.raw().to_le_bytes());
         expected[52..56].copy_from_slice(&Fx::HALF.raw().to_le_bytes());
         expected[56..60].copy_from_slice(&Fx::ONE.raw().to_le_bytes());
-        assert_eq!(&bytes[start + 4..start + 68], &expected);
+        // The two release verbs close the record, at `13 + 51` and `13 + 52`.
+        // The left arm keeps and stays zero; the right looses.
+        expected[64] = 0;
+        expected[65] = 1;
+        assert_eq!(&bytes[start + 4..start + 4 + ARTICULATED_COMMAND_BYTES], &expected);
         let decoded = ReplayEnvelope::decode(&bytes).unwrap();
         assert_eq!(decoded.replay.submitted_entries, envelope.replay.submitted_entries);
         assert!(decoded.replay.entries.is_empty());
         assert!(decoded.play().is_ok());
+    }
+
+    #[test]
+    fn a_loose_verb_round_trips_through_the_replay_codec() {
+        // The typed value rather than the bytes: the fixture above already pins
+        // where they sit, and what this has to say is that a replay carries the
+        // verb rather than reconstructing a default. A codec that dropped the
+        // two bytes would decode `Keep, Keep` and the byte assertion alone
+        // would not notice, because it reads the *encoded* buffer.
+        for releases in [[ReleaseRequest::Keep, ReleaseRequest::Keep],
+                         [ReleaseRequest::Keep, ReleaseRequest::Loose],
+                         [ReleaseRequest::Loose, ReleaseRequest::Keep],
+                         [ReleaseRequest::Loose, ReleaseRequest::Loose]] {
+            let mut envelope = articulated_envelope();
+            let SubmittedCommand::Articulated(mut command) =
+                envelope.replay.submitted_entries[0].command else { panic!("not articulated") };
+            command.releases = releases;
+            envelope.replay.submitted_entries[0].command = SubmittedCommand::Articulated(command);
+            let bytes = envelope.encode().unwrap();
+            let decoded = ReplayEnvelope::decode(&bytes).unwrap();
+            let SubmittedCommand::Articulated(back) =
+                decoded.replay.submitted_entries[0].command else { panic!("not articulated") };
+            assert_eq!(back.releases, releases, "the replay lost the release verbs");
+            assert_eq!(back, command, "the replay changed something else too");
+        }
     }
 
     #[test]
@@ -2287,12 +2339,22 @@ mod tests {
         let mut bad = base.clone();
         bad[4..6].copy_from_slice(&3u16.to_le_bytes());
         assert_eq!(decode_error(&bad), ReplayDecodeError::UnknownCodecVersion(3));
+        // **The articulated schema, whatever number it currently is.** This
+        // scenario is Legacy, so declaring the articulated command schema over
+        // it is a model mismatch rather than an unknown schema. Written through
+        // the constant because the two arms below swapped numbers when the
+        // payload widened -- 1 was the articulated schema and 2 was unknown;
+        // now 2 is the schema and 1 is a retired one -- and a test that spells
+        // them out is a test that has to be edited every time, by someone who
+        // may reach for whichever edit makes it pass.
         let mut bad = base.clone();
-        bad[6..8].copy_from_slice(&1u16.to_le_bytes());
+        bad[6..8].copy_from_slice(&ARTICULATED_COMMAND_SCHEMA_RESERVED.to_le_bytes());
         assert_eq!(decode_error(&bad), ReplayDecodeError::CommandModelMismatch);
+        let retired = ARTICULATED_COMMAND_SCHEMA_RESERVED - 1;
+        assert_ne!(retired, LEGACY_COMMAND_SCHEMA, "the retired schema is the legacy one");
         let mut bad = base.clone();
-        bad[6..8].copy_from_slice(&2u16.to_le_bytes());
-        assert_eq!(decode_error(&bad), ReplayDecodeError::UnknownCommandSchema(2));
+        bad[6..8].copy_from_slice(&retired.to_le_bytes());
+        assert_eq!(decode_error(&bad), ReplayDecodeError::UnknownCommandSchema(retired));
         let mut bad = base.clone();
         bad[8] = 9;
         assert_eq!(decode_error(&bad), ReplayDecodeError::UnknownHashDomain(9));

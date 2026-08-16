@@ -73,6 +73,10 @@ pub struct WeaponBodyChannel {
     pub weapon_relative_velocity: Vec3,
     pub edge_factor: Fx,
     pub point_factor: Fx,
+    /// Blunt conversion, from the weapon's [`crate::combat::spec::Material`].
+    /// Unlike its two neighbours this is not a shape term; see
+    /// `Material::crush_factor` for why it hangs off the material instead.
+    pub crush_factor: Fx,
     pub zero_length: bool,
 }
 
@@ -602,9 +606,9 @@ pub(crate) fn finalize_projected_group(
     output.clear();
     for (contact, &share) in contacts.iter().zip(shares.iter()) {
         let on_a = scale_impulse(contact.impulse_on_a, alpha_raw);
-        let (cut_raw, thrust_raw, pressure_raw) = match contact.channel {
+        let (cut_raw, thrust_raw, crush_raw, pressure_raw) = match contact.channel {
             Some(channel) if contact.fact.key.kind == ContactKind::WeaponBody => channels(share, channel),
-            _ => (0, 0, 0),
+            _ => (0, 0, 0, 0),
         };
         output.push(ContactResolution {
             group_ordinal,
@@ -614,6 +618,7 @@ pub(crate) fn finalize_projected_group(
             energy: ledger,
             cut_raw,
             thrust_raw,
+            crush_raw,
             pressure_raw,
             deflected_raw: 0,
             severed: false,
@@ -711,8 +716,35 @@ pub fn allocate_weighted_into(
     Ok(())
 }
 
-pub fn channels(share: u64, channel: WeaponBodyChannel) -> (u64, u64, u64) {
-    if channel.zero_length { return (0, 0, share); }
+/// Split one allocated share into `(cut, thrust, crush, pressure)`.
+///
+/// The first two are directional: the blow's energy is divided between the
+/// weapon's axis and everything perpendicular to it, and each half is then
+/// scaled by whether the weapon has the shape to exploit it -- a point for the
+/// axial half, an edge for the transverse one.
+///
+/// **Crush is what those two declined.** A sword has both shapes and claims the
+/// whole budget, so it declines nothing and crushes nothing. A club has no edge,
+/// so a swing -- which is almost entirely transverse -- declines almost
+/// everything, and that is the energy a blunt weapon is *for*. Billing crush on
+/// the remainder rather than on the budget is what keeps the three channels a
+/// partition instead of three helpings of the same energy.
+///
+/// Two properties follow from taking the remainder rather than the share, and
+/// both are load-bearing:
+///
+/// - **The floor still bites.** `declined` is measured against `available`,
+///   which already has [`CONTACT_ENERGY_FLOOR`] withheld, so the 144 raw cannot
+///   come back as crush. Billing crush on `share - cut - thrust` would have
+///   handed it straight back and quietly retired the floor.
+/// - **A weapon that already converts is untouched.** Where `edge` and `point`
+///   are both one the two floor divisions sum to `available` or one less, so
+///   `declined` is 0 or 1 and any factor below one floors it to zero crush.
+///   `a_sword_is_not_made_stronger_by_the_crush_channel` asserts that as an
+///   equality rather than a tolerance, and it is why the behaviour corpus --
+///   whose every surface is edge one, point one -- cannot move.
+pub fn channels(share: u64, channel: WeaponBodyChannel) -> (u64, u64, u64, u64) {
+    if channel.zero_length { return (0, 0, 0, share); }
     let axial = channel.weapon_relative_velocity.dot(channel.weapon_axis).max(Fx::ZERO);
     let axial_sq = axial.raw() as u128 * axial.raw() as u128;
     let velocity = channel.weapon_relative_velocity;
@@ -721,7 +753,7 @@ pub fn channels(share: u64, channel: WeaponBodyChannel) -> (u64, u64, u64) {
         + velocity.z.raw() as i128 * velocity.z.raw() as i128;
     let transverse_sq = (total_sq - axial_sq as i128).max(0) as u128;
     let denominator = axial_sq + transverse_sq;
-    if denominator == 0 { return (0, 0, share); }
+    if denominator == 0 { return (0, 0, 0, share); }
     let available = share.saturating_sub(CONTACT_ENERGY_FLOOR);
     let thrust_base = available as u128 * axial_sq / denominator;
     let cut_base = available as u128 * transverse_sq / denominator;
@@ -734,7 +766,12 @@ pub fn channels(share: u64, channel: WeaponBodyChannel) -> (u64, u64, u64) {
     let factor = |value: Fx| value.raw().clamp(0, 65_536) as u128;
     let thrust = (thrust_base * factor(channel.point_factor) / 65_536) as u64;
     let cut = (cut_base * factor(channel.edge_factor) / 65_536) as u64;
-    (cut, thrust, share - cut - thrust)
+    // Both scaled channels are at most their base and the bases sum to at most
+    // `available`, so this subtraction is the same guarded shape as the one
+    // below it and cannot underflow either.
+    let declined = available - thrust - cut;
+    let crush = (declined as u128 * factor(channel.crush_factor) / 65_536) as u64;
+    (cut, thrust, crush, share - cut - thrust - crush)
 }
 
 #[derive(Clone, Default)]
@@ -1114,12 +1151,12 @@ impl ContactKinematics for ExactKinematics<'_> {
             let on_a = contact.impulse_on_a;
             let channels = match contact.channel {
                 Some(channel) if contact.fact.key.kind == ContactKind::WeaponBody => channels(share, channel),
-                _ => (0, 0, 0),
+                _ => (0, 0, 0, 0),
             };
             output.push(ContactResolution { group_ordinal: ordinal, group_alpha_raw: 65_536,
                 fact: contact.fact, impulse: ContactImpulse { key: contact.fact.key, on_a, on_b: -on_a },
                 energy: ledger, cut_raw: channels.0, thrust_raw: channels.1,
-                pressure_raw: channels.2, deflected_raw: 0, severed: false });
+                crush_raw: channels.2, pressure_raw: channels.3, deflected_raw: 0, severed: false });
         }
         diagnostic.output_rows = output.len() as u8;
         Ok(())
@@ -1653,6 +1690,7 @@ fn weapon_body_channel(weapon: ContactCollider, body: ContactCollider) -> Weapon
     };
     WeaponBodyChannel { weapon_axis: axis, weapon_relative_velocity: weapon.velocity - body.velocity,
                         edge_factor: weapon.surface.edge_factor, point_factor: weapon.surface.point_factor,
+                        crush_factor: weapon.surface.material.crush_factor(),
                         zero_length }
 }
 
@@ -2607,8 +2645,8 @@ pub(crate) mod tests {
         let impulse = Vec3::new(Fx::ZERO, Fx::ZERO, Fx::ONE);
         let row = ContactResolution { group_ordinal: 0, group_alpha_raw: 65_536, fact,
             impulse: ContactImpulse { key: fact.key, on_a: impulse, on_b: -impulse },
-            energy: EnergyLedger::default(), cut_raw: 0, thrust_raw: 0, pressure_raw: 0,
-            deflected_raw: 0, severed: false };
+            energy: EnergyLedger::default(), cut_raw: 0, thrust_raw: 0, crush_raw: 0,
+            pressure_raw: 0, deflected_raw: 0, severed: false };
         let mut reactions = Vec::with_capacity(4);
         let mut work = ExactTrajectoryWork::default();
         work.try_reserve().unwrap();
@@ -3140,37 +3178,133 @@ pub(crate) mod tests {
         let total = u64::from(u32::MAX) + 1;
         assert_eq!(allocate_weighted(total, &[1]), vec![total]);
         let row = WeaponBodyChannel { weapon_axis: Vec3::X, weapon_relative_velocity: Vec3::ZERO,
-                                      edge_factor: Fx::ONE, point_factor: Fx::ONE, zero_length: true };
-        assert_eq!(channels(total, row), (0, 0, total));
+                                      edge_factor: Fx::ONE, point_factor: Fx::ONE,
+                                      crush_factor: Fx::ONE, zero_length: true };
+        assert_eq!(channels(total, row), (0, 0, 0, total));
 
         // The zero-length row above returns before any widened arithmetic runs,
         // so on its own it cannot prove the products stay `u64`. Drive a real
         // decomposition of the same above-`u32` share: purely axial, so the
         // whole of it above the 144 floor has to survive in thrust.
         let axial = WeaponBodyChannel { weapon_relative_velocity: Vec3::X, zero_length: false, ..row };
-        assert_eq!(channels(total, axial), (0, total - CONTACT_ENERGY_FLOOR, CONTACT_ENERGY_FLOOR));
+        assert_eq!(channels(total, axial), (0, total - CONTACT_ENERGY_FLOOR, 0, CONTACT_ENERGY_FLOOR));
 
-        // A factor above one would drive `share - cut - thrust` negative and
-        // panic on the subtraction, in release too. `validate_surface` cannot
-        // produce one, but this allocator is public and takes a raw surface.
+        // A factor above one would drive `share - cut - thrust - crush` negative
+        // and panic on the subtraction, in release too. `validate_surface`
+        // cannot produce one, but this allocator is public and takes a raw
+        // surface. All three factors are clamped, and crush needs its own case
+        // because it is billed on what the other two declined: with an edge and
+        // a point of one there is nothing left for it to overrun.
         let unbounded = WeaponBodyChannel { edge_factor: Fx::from_int(8),
                                             point_factor: Fx::from_int(8), ..axial };
-        assert_eq!(channels(total, unbounded), (0, total - CONTACT_ENERGY_FLOOR, CONTACT_ENERGY_FLOOR));
+        assert_eq!(channels(total, unbounded), (0, total - CONTACT_ENERGY_FLOOR, 0, CONTACT_ENERGY_FLOOR));
         let transverse = WeaponBodyChannel { weapon_relative_velocity: Vec3::Y, ..unbounded };
-        let (cut, thrust, pressure) = channels(1_000, transverse);
-        assert_eq!((cut, thrust), (856, 0));
+        let (cut, thrust, crush, pressure) = channels(1_000, transverse);
+        assert_eq!((cut, thrust, crush), (856, 0, 0));
         assert_eq!(pressure, 144);
+
+        // Shapeless and above-one crush: everything is declined, so an
+        // unclamped factor would claim more than the budget holds.
+        let blunt = WeaponBodyChannel { edge_factor: Fx::ZERO, point_factor: Fx::ZERO,
+                                        crush_factor: Fx::from_int(8), ..transverse };
+        assert_eq!(channels(total, blunt), (0, 0, total - CONTACT_ENERGY_FLOOR, CONTACT_ENERGY_FLOOR));
+    }
+
+    #[test]
+    fn a_sword_is_not_made_stronger_by_the_crush_channel() {
+        // The trap this session was written around. A blade's `pressure` is
+        // identically `CONTACT_ENERGY_FLOOR`, so a crush channel billed on the
+        // *share* rather than on what the edge and point declined would have
+        // handed every sword contact a constant bonus on every tick it touched
+        // -- including the 99.5% that carry no cut at all. That is a far larger
+        // change to the blade than to the club it was meant for.
+        //
+        // **The tolerance is zero, not "small".** With `edge` and `point` both
+        // one, `thrust_base + cut_base` is `available` or one less -- the two
+        // floor divisions share a numerator that sums to `available` exactly --
+        // so at most one raw unit is ever declined, and `1 * f / 65_536` floors
+        // to zero for every factor below one. Steel's `7/8` is below one. This
+        // is also why the behaviour corpus cannot move: every surface in it is
+        // edge one, point one.
+        let steel = crate::sword().surface;
+        assert_eq!((steel.edge_factor, steel.point_factor), (Fx::ONE, Fx::ONE),
+                   "the shipped blade stopped claiming the whole budget");
+        for share in [145u64, 200, 1_000, 16_384, 1_000_000, u64::from(u32::MAX) + 1] {
+            for velocity in [Vec3::X, Vec3::Y, Vec3::new(Fx::ONE, Fx::ONE, Fx::ZERO),
+                             Vec3::new(Fx::ONE, Fx::from_ratio(1, 3), Fx::from_ratio(2, 7))] {
+                let channel = WeaponBodyChannel {
+                    weapon_axis: Vec3::X, weapon_relative_velocity: velocity,
+                    edge_factor: steel.edge_factor, point_factor: steel.point_factor,
+                    crush_factor: steel.material.crush_factor(), zero_length: false };
+                let (cut, thrust, crush, pressure) = channels(share, channel);
+                assert_eq!(crush, 0, "a blade declined enough to crush with at share {share}");
+                assert_eq!(cut + thrust + crush + pressure, share);
+                assert!(pressure <= CONTACT_ENERGY_FLOOR + 1,
+                        "a blade's pressure is the floor plus at most one unit of rounding");
+            }
+        }
+    }
+
+    #[test]
+    fn the_three_channels_still_sum_to_the_allocated_share() {
+        // Four columns now, and the partition is unchanged: `channels` never
+        // creates a raw unit and never lets the floor wound. Billing crush on
+        // the remainder rather than on the share is what buys both -- the
+        // second assertion is the one that would fail if crush were ever
+        // computed from `share - cut - thrust`, because the 144 the floor
+        // withholds would come straight back.
+        for surface in [crate::sword().surface, crate::club().surface, crate::shield().surface] {
+            for share in [0u64, 1, 143, 144, 145, 1_000, 65_536, u64::from(u32::MAX) + 1] {
+                for velocity in [Vec3::ZERO, Vec3::X, Vec3::Y,
+                                 Vec3::new(Fx::ONE, Fx::from_ratio(1, 3), Fx::from_ratio(2, 7))] {
+                    for zero_length in [false, true] {
+                        let channel = WeaponBodyChannel {
+                            weapon_axis: Vec3::X, weapon_relative_velocity: velocity,
+                            edge_factor: surface.edge_factor, point_factor: surface.point_factor,
+                            crush_factor: surface.material.crush_factor(), zero_length };
+                        let (cut, thrust, crush, pressure) = channels(share, channel);
+                        assert_eq!(cut + thrust + crush + pressure, share,
+                                   "the split stopped being a partition at share {share}");
+                        assert!(pressure >= share.min(CONTACT_ENERGY_FLOOR),
+                                "the floor was converted into a wound at share {share}");
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_zero_length_segment_still_sends_everything_to_pressure() {
+        // Both early returns predate crush and have to keep their meaning now
+        // that pressure is no longer the inert column. A segment with no
+        // direction has no axis to split about, so there is no honest way to
+        // call any of its energy a cut, a thrust *or* a crush -- and a blunt
+        // weapon is exactly the case where letting it through would look
+        // reasonable.
+        let club = crate::club().surface;
+        let channel = WeaponBodyChannel {
+            weapon_axis: Vec3::ZERO, weapon_relative_velocity: Vec3::Y,
+            edge_factor: club.edge_factor, point_factor: club.point_factor,
+            crush_factor: club.material.crush_factor(), zero_length: true };
+        assert_eq!(channels(10_000, channel), (0, 0, 0, 10_000));
+        // The other early return: a still weapon has a zero denominator, and
+        // dividing the budget by it is undefined rather than blunt.
+        let still = WeaponBodyChannel { weapon_axis: Vec3::X,
+                                        weapon_relative_velocity: Vec3::ZERO,
+                                        zero_length: false, ..channel };
+        assert_eq!(channels(10_000, still), (0, 0, 0, 10_000));
     }
 
     #[test]
     fn transverse_motion_records_cut_and_axial_motion_records_thrust() {
         let transverse = WeaponBodyChannel { weapon_axis: Vec3::X, weapon_relative_velocity: Vec3::Y,
-                                             edge_factor: Fx::ONE, point_factor: Fx::ONE, zero_length: false };
+                                             edge_factor: Fx::ONE, point_factor: Fx::ONE,
+                                             crush_factor: Fx::ZERO, zero_length: false };
         let axial = WeaponBodyChannel { weapon_axis: Vec3::X, weapon_relative_velocity: Vec3::X,
                                        ..transverse };
-        let (cut, thrust, _) = channels(16_384, transverse);
+        let (cut, thrust, _, _) = channels(16_384, transverse);
         assert!(cut > thrust);
-        let (cut, thrust, _) = channels(16_384, axial);
+        let (cut, thrust, _, _) = channels(16_384, axial);
         assert!(thrust > cut);
     }
 
@@ -3191,7 +3325,8 @@ pub(crate) mod tests {
             };
             let row = ContactResolution { group_ordinal: 0, group_alpha_raw: 65_536, fact: f,
                 impulse: ContactImpulse { key: f.key, on_a: Vec3::ZERO, on_b: Vec3::ZERO }, energy: zero,
-                cut_raw: 0, thrust_raw: 0, pressure_raw: 0, deflected_raw: 0, severed: false };
+                cut_raw: 0, thrust_raw: 0, crush_raw: 0, pressure_raw: 0,
+                deflected_raw: 0, severed: false };
             all.push((tick as u32 + 1, row));
         }
         let ticks = [(0, &[][..], 0), (all[0].0, core::slice::from_ref(&all[0].1), 0),

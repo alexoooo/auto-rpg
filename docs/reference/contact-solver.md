@@ -65,6 +65,7 @@ pub struct ContactResolution {
     pub energy: EnergyLedger,
     pub cut_raw: u64,
     pub thrust_raw: u64,
+    pub crush_raw: u64,
     pub pressure_raw: u64,
     pub deflected_raw: u64,
     pub severed: bool,
@@ -842,17 +843,33 @@ transverse_sq = max(0, sum(weapon_rv_component.raw^2)-axial_sq)
 available = share.saturating_sub(144)
 thrust = floor(floor(available*axial_sq/(axial_sq+transverse_sq))*point_factor.raw/65_536)
 cut = floor(floor(available*transverse_sq/(axial_sq+transverse_sq))*edge_factor.raw/65_536)
-pressure = share-thrust-cut
+crush = floor((available-thrust-cut)*crush_factor.raw/65_536)
+pressure = share-thrust-cut-crush
 ```
 
+**Crush is billed on what the edge and the point declined, not on the share**, and the
+two properties that follow are load-bearing. The energy floor still bites, because
+`available` has already had it withheld — billing crush on `share-thrust-cut` would
+hand the 144 straight back and retire the floor. And a weapon that already converts is
+untouched: where `edge` and `point` are both one the two floor divisions sum to
+`available` or one less, so at most one raw unit is ever declined and any factor below
+one floors it to zero.
+
+`crush_factor` is **not** a `SurfaceSpec` field. It comes from the surface's
+`Material`, because unlike its two neighbours it is a stiffness term rather than a
+shape term — a steel sword and a steel shield disagree about edge and point while being
+the same steel. See `Material::crush_factor` for the coefficients and for why this
+moves no serialized byte.
+
 A zero denominator puts the whole share in pressure. `pressure` is a subtraction, and
-it stays nonnegative only while both factors are at most one: `thrust_base+cut_base`
+it stays nonnegative only while every factor is at most one: `thrust_base+cut_base`
 is bounded by `available`, but scaling each by a factor above 65,536 can push their
-sum past `share`. `validate_surface` bounds all four coefficients to `[0,1]`, so no
-spec-built surface can do it — but the channel allocator is public and takes a raw
-`SurfaceSpec`, so it clamps each factor to `[0,65_536]` rather than assuming the
-invariant. Unclamped, `point_factor=2` panics on any share above 288 in release too,
-since the workspace keeps overflow checks on. Channels remain `u64`; no proof here
+sum past `share`. `validate_surface` bounds the four spec-built coefficients to `[0,1]`
+and `Material::crush_factor` is a constant below one, so no spec-built surface can do
+it — but the channel allocator is public and takes a raw `SurfaceSpec`, so it clamps
+each factor to `[0,65_536]` rather than assuming the invariant. Unclamped,
+`point_factor=2` panics on any share above 288 in release too, since the workspace
+keeps overflow checks on. Channels remain `u64`; no proof here
 permits narrowing them to `Fx` or one ABI word, and
 [`anatomy-health.md`](anatomy-health.md#armor-and-wound-transfer) consumes them at
 that width. The solver itself still mutates no health: it publishes the channels and
@@ -981,7 +998,16 @@ resolution count, group count, and cap hits as `u32`. For every resolution write
 Finally write each final `x_raw,vx_raw` as `i32` bits in label order. `severed` is
 omitted: no fixture in this corpus has an anatomy behind its colliders, so the
 default `after_group` leaves it false throughout, and `deflected_raw` stays zero for
-the same reason. The literal is exactly 3,548 bytes with digest
+the same reason. **`crush_raw` is omitted on a different argument, and it is a
+deliberate choice rather than an oversight.** Every surface in the case table is
+`edge_factor` one and `point_factor` one, which is precisely the configuration that
+declines at most one raw unit and therefore crushes exactly zero -- so the column
+would be a run of zeros, and adding it would move a digest that `tools/wasm_check.js`
+rebuilds byte by byte in JavaScript for no information at all. **Add it the moment a
+case varies either factor**, because from that moment the corpus stops covering a
+live channel. That the digest is genuinely sensitive to this is not assumed: billing
+crush on the share rather than on the remainder was tried during combat-arms-05 and
+case 6's `pressure` moved from 144 to 18, failing this pin. The literal is exactly 3,548 bytes with digest
 `0x587b0259e877105a`. This corpus, unlike the independent 591-byte format-only pin,
 covers every production resolution field active in the solver and a nonzero widened
 weapon/body channel row.

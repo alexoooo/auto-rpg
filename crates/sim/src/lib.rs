@@ -75,7 +75,7 @@ pub use codec::{
 pub use command::{
     ArmTarget, ArticulatedCommandV1, ArticulatedPayloadError, CombatHeight, Command,
     CommandField, CommandReject, GripRequest, Intent, LimbCommand, LimbSlot, Objective, Order,
-    Strike, SubmitArticulatedOutcome, SubmittedCommand, ARTICULATED_PAYLOAD_BYTES,
+    ReleaseRequest, Strike, SubmitArticulatedOutcome, SubmittedCommand, ARTICULATED_PAYLOAD_BYTES,
     SUBMITTED_COMMAND_LAYOUT_VERSION,
 };
 pub use combat::spec::{

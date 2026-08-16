@@ -34,12 +34,25 @@ clockwise, so an exact half turn (`-32_768`) always chooses clockwise.
 | `SubmittedCommand` | Legacy `0`, Articulated `1` |
 | `LimbSlot` | LeftArm `0`, RightArm `1` |
 | `GripRequest` | Keep `0`, Release `1`, EquipSlot `2` |
+| `ReleaseRequest` | Keep `0`, Loose `1` |
 | `Intent` | Hold `0`, Attack `1`, Flee `2` |
 
 An `ArmTarget` is bearing `Angle`, height `CombatHeight`, reach `Fx`, effort `Fx` in
 that order. `ArticulatedCommandV1` is move x/y, body yaw, intent, left arm, right arm,
-left grip, right grip. Array position—not a redundant encoded limb byte—identifies
-the arm.
+left grip, right grip, left release, right release. Array position—not a redundant
+encoded limb byte—identifies the arm.
+
+`ReleaseRequest` is **not** a second grip release. `GripRequest::Release` drops what
+the hand holds; `ReleaseRequest::Loose` asks a drawn weapon to let its missile go, and
+the two sit two fields apart, so they are named apart. `Loose` is the word the frame
+ABI's `EVENT_LOOSE` has always used for it.
+
+**It is a level, and the mechanic it feeds is an edge.** A command says what the arm
+asks for on that tick, and a policy that asks forever asks on every tick.
+`ReleaseRequest::looses(previous, current)` is the transition, and it is the only form
+a consumer may read; reading the level fires once per tick for as long as it is held.
+Nothing consumes the verb yet — it is submitted, hashed and replayed, and no world
+acts on it.
 
 Grip requests mean desired binding transition, not proof of current equipment.
 `EquipSlot` accepts only slot `0` or populated slot `1`. Both arms may request the
@@ -52,9 +65,11 @@ right-arm target is authoritative and the left target remains encoded and hashed
 but is not actuated; v2-13 mirrors the off hand by the exact rule in
 [Articulated actuators](articulated-actuators.md#grip-transactions-and-shield-pose).
 
-## Canonical 51-byte articulated payload
+## Canonical 53-byte articulated payload
 
-The replay and wasm layouts share this payload:
+The replay and wasm layouts share this payload. It was 51 bytes through layout
+version `1`; layout `2` appends the two release verbs at offsets 51 and 52 and moves
+nothing above them.
 
 | Payload offset | Width | Field |
 |---:|---:|---|
@@ -76,49 +91,56 @@ The replay and wasm layouts share this payload:
 | 48 | 1 | left grip slot payload |
 | 49 | 1 | right grip tag |
 | 50 | 1 | right grip slot payload |
+| 51 | 1 | left release verb |
+| 52 | 1 | right release verb |
 
 Hold and Flee require zero target index and generation. Attack retains the exact
 submitted generational identity; a target that later fails to resolve is ordinary
 total simulation behavior. Keep and Release require a zero slot payload. EquipSlot
-requires its requested slot byte. Noncanonical ignored payloads are rejected.
+requires its requested slot byte. A release verb is `0` or `1`; any other value is
+refused by arm and value, exactly as an unknown grip tag is. Noncanonical ignored
+payloads are rejected.
 
-## Command-schema-1 replay records
+## Command-schema-2 replay records
 
 Each record starts with tick `u32`, subject index `u32`, subject generation `u32`,
 then SubmittedCommand tag `u8`.
 
 - tag `0` is followed by the 25-byte legacy command payload from
   `replay-codec-v1.md`, for 38 bytes total;
-- tag `1` is followed by the 51-byte articulated payload above, for 64 bytes total.
+- tag `1` is followed by the 53-byte articulated payload above, for 66 bytes total.
 
-The v2-11 envelope tuple permits tag `1` only because command schema 1 is paired
-with an Articulated scenario. The tag-0 grammar is specified so the SubmittedCommand
-layout is complete, but a schema-1 articulated replay containing it is a model
-mismatch. Schema 0 remains the 37-byte untagged legacy record and is never
+The envelope tuple permits tag `1` only because the articulated command schema is
+paired with an Articulated scenario. That schema is `2` since the release verb landed
+and was `1` before it; `ARTICULATED_COMMAND_SCHEMA_RESERVED` is asserted equal to
+`SUBMITTED_COMMAND_LAYOUT_VERSION` at compile time, so the two cannot drift. Schema
+`1` is retired and is now refused as unknown. The tag-0 grammar is specified so the
+SubmittedCommand layout is complete, but an articulated-schema replay containing it is
+a model mismatch. Schema 0 remains the 37-byte untagged legacy record and is never
 reinterpreted as this format.
 
-## Fifty-five-byte wasm action buffer
+## Fifty-seven-byte wasm action buffer
 
 The wasm input buffer is:
 
 | Buffer offset | Width | Field |
 |---:|---:|---|
-| 0 | 2 | submitted-command layout version `1` |
+| 0 | 2 | submitted-command layout version `2` |
 | 2 | 1 | SubmittedCommand tag `1` |
 | 3 | 1 | reserved, must be zero |
-| 4 | 51 | articulated payload |
+| 4 | 53 | articulated payload |
 
-The boundary owns a fixed `[u8; 55]` scratch array and exports:
+The boundary owns a fixed `[u8; 57]` scratch array and exports:
 
 ```text
 submitted_command_ptr() -> u32
-submitted_command_len() -> u32                 // 55
-submitted_command_layout_version() -> u32      // 1
+submitted_command_len() -> u32                 // 57
+submitted_command_layout_version() -> u32      // 2
 submit_articulated(entity_index: u32, entity_generation: u32) -> u32
 ```
 
-The host obtains a fresh 55-byte view, writes it, drops the view, then calls submit.
-Submit first copies all 55 bytes into a local value, verifies
+The host obtains a fresh 57-byte view, writes it, drops the view, then calls submit.
+Submit first copies all 57 bytes into a local value, verifies
 layout/tag/reserved-byte/canonical payload, and only then mutates `World`. Unknown
 layout, legacy tag, or noncanonical bytes fail before mutation. Pointer and length
 are transport facts, never Rust struct size or alignment.
@@ -156,7 +178,12 @@ Validation order is normative:
 4. movement x, movement y, then squared magnitude;
 5. left height, reach, effort;
 6. right height, reach, effort;
-7. left grip slot, then right grip slot.
+7. left grip slot, then right grip slot;
+8. left release verb, then right release verb.
+
+Steps 7 and 8 are structural rather than numeric: a grip tag or a release verb this
+build does not know is refused before any range check, which is why an unknown release
+byte cannot be reported as an out-of-range field.
 
 The first failure chooses the diagnostic. Unknown layout, wrong model, and stale
 subject return `NotStored` and mutate/record nothing. A range or missing-equipment
@@ -179,7 +206,12 @@ left and right bearing       current authoritative facing/yaw
 left and right height        MID (raw 32,768)
 left and right reach/effort  raw 0
 left and right grip          Keep
+left and right release       Keep
 ```
+
+A neutral command holds rather than looses. That is the command a slot falls back to
+when nobody has submitted one, so a `Loose` there would fire on behalf of every silent
+policy.
 
 `SubmitArticulatedOutcome::Stored` returns the exact command stored, whether original
 or fallback. A replay recorder records only that returned command. Rejection reason

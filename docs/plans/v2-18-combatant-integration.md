@@ -7,6 +7,47 @@ equipment, regions, wounds, and severance follow the frozen pose/event contract.
 
 **Golden expectation:** no legacy or articulated hash moves; presentation only.
 
+## Amendment, 2026-08-16: partially discharged, and unblocked
+
+Two things changed under this plan and it is amended rather than replaced.
+
+**Its dependency is closer than it was.** `v2-17`'s mechanical gate failed on, among
+other things, "fewer than 10% of trials reach the clock" measured at 99.0%. Smart134
+doubled the arm bearing slew ceiling and the windmill control now reaches the clock in
+3.5% of duels -- the first configuration to clear that criterion. The gate as a whole
+is still unpassed; its other criteria and its thresholds still need the amendment
+`docs/performance/v2-articulated-gate.md` calls for. But this plan's blocker is no
+longer "the model cannot end a fight".
+
+**Its visible half is being delivered without the assets.**
+[`room-view-02-corner-joins-and-figure.md`](room-view-02-corner-joins-and-figure.md)
+replaces the `#/game` cylinder with a **procedural** figure assembled from primitives
+and driven by published fields, using the semantic joint names listed below so that an
+authored rig is a drop-in replacement rather than a rewrite. That session therefore
+discharges the *player-facing* result -- a character with arms that move because the
+simulation moved them -- and leaves this plan owning what only an artist can deliver:
+authored Fighter and Brute meshes, the `combatants.glb` asset contract, the locomotion
+clips, and the calibration gates below.
+
+Two constraints that session establishes and this one inherits:
+
+- **The joint names are the seam.** `root/pelvis/torso/head`, `arm_*`, `hand_*`,
+  `socket_weapon_*`, `socket_shield` already exist as a `TransformNode` hierarchy in
+  the Arena, and the procedural figure reuses them. Keep the list below identical.
+- **`room-assets.ts` cannot load a character.** Its URLs are module constants, it pins
+  three SHA-256 values, it demands an exact mesh and material name closure, and it
+  **requires zero skeletons and zero animations** -- which rejects a rigged body by
+  construction. A sibling loader is needed; its fetch, byte-cap, magic-number and hash
+  scaffolding is the reusable part.
+
+`#/game` also has no articulated pose to drive a rig from -- every dungeon scenario
+sets `articulated: None`, and only `Scenario::articulated_duel` carries joints. An
+authored rig on that route is driven by the same legacy limb fields the procedural
+figure uses. A rig driven by *pose rows*, as this plan's asset contract describes, is
+`#/arena` today and `#/game` only if a future session gives the dungeon articulated
+units -- which is a mechanics decision, not a presentation one, and is not authorized
+here.
+
 ## Asset contract
 
 Extend `tools/art/build_slice.py` with `fighter` and `brute` targets and commit

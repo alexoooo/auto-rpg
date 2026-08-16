@@ -133,20 +133,23 @@ export function arenaFloor(tx: number, ty: number): Extract<RoomPieceName, "floo
 }
 export function arenaWall(
   tx: number, ty: number, tiles: ArenaTiles,
-): Readonly<{ piece: RoomPieceName; quarterTurns: 0 | 1 | 2 | 3 }> {
+): readonly Readonly<{ piece: RoomPieceName; quarterTurns: 0 | 1 | 2 | 3 }>[] {
   const solid = [
     onRing(tx, ty - 1, tiles), onRing(tx + 1, ty, tiles),
     onRing(tx, ty + 1, tiles), onRing(tx - 1, ty, tiles),
   ] as const;
   const neighbours = solid.reduce((sum, value) => sum + (value ? 1 : 0), 0);
-  const found = solid.findIndex(Boolean);
-  const first: 0 | 1 | 2 | 3 = found < 0 ? 0 : found as 0 | 1 | 2 | 3;
-  if (neighbours === 2 && ((solid[0] && solid[2]) || (solid[1] && solid[3]))) {
-    return Object.freeze({ piece: "wall_straight", quarterTurns: solid[1] ? 0 : 1 } as const);
+  if (neighbours <= 1) {
+    return Object.freeze([Object.freeze({ piece: "wall_end", quarterTurns: solid[0] || solid[2] ? 1 : 0 } as const)]);
   }
-  if (neighbours === 2) return Object.freeze({ piece: "wall_inside", quarterTurns: first });
-  if (neighbours >= 3) return Object.freeze({ piece: "wall_outside", quarterTurns: first });
-  return Object.freeze({ piece: "wall_end", quarterTurns: first });
+  // The synthesized-run rule, restated from `chooseRoomWall`: every
+  // multi-neighbour tile is one centreline `wall_straight` per solid axis,
+  // because the authored corner arms sit on tile edges and cannot meet a
+  // neighbouring centreline run.
+  const runs: Readonly<{ piece: RoomPieceName; quarterTurns: 0 | 1 | 2 | 3 }>[] = [];
+  if (solid[1] || solid[3]) runs.push(Object.freeze({ piece: "wall_straight", quarterTurns: 0 } as const));
+  if (solid[0] || solid[2]) runs.push(Object.freeze({ piece: "wall_straight", quarterTurns: 1 } as const));
+  return Object.freeze(runs);
 }
 
 export class ArenaEnvironment {
@@ -403,8 +406,9 @@ export class ArenaEnvironment {
         const z = ty + 0.5 - WALL_MARGIN - depth;
         this.#place(room, arenaFloor(tx, ty), x, z, 0, false);
         if (!onRing(tx, ty, tiles)) continue;
-        const wall = arenaWall(tx, ty, tiles);
-        this.#place(room, wall.piece, x, z, wall.quarterTurns, true);
+        for (const wall of arenaWall(tx, ty, tiles)) {
+          this.#place(room, wall.piece, x, z, wall.quarterTurns, true);
+        }
       }
     }
   }
@@ -413,7 +417,9 @@ export class ArenaEnvironment {
     x: number, z: number, quarterTurns: number, caster: boolean): void {
     const source = room.pieces.get(piece);
     if (source === undefined) return;
-    const mesh = source.createInstance(`arena-room:${piece}:${x}:${z}`);
+    // The quarter turns are in the name because a synthesized corner is two
+    // instances of the same piece on the same tile.
+    const mesh = source.createInstance(`arena-room:${piece}:${x}:${z}:${quarterTurns}`);
     mesh.position.set(x, 0, z);
     mesh.rotation.y = quarterTurns * QUARTER_TURN;
     mesh.isPickable = false;

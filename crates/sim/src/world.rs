@@ -1,6 +1,6 @@
 use crate::command::{
     validate_articulated, ArmTarget, ArticulatedCommandV1, Command, CommandReject, GripRequest,
-    Intent, LimbSlot, Objective, Order, SubmitArticulatedOutcome,
+    Intent, LimbSlot, Objective, Order, ReleaseRequest, SubmitArticulatedOutcome,
 };
 use crate::action::{ActionKind, ActionSpec, Role};
 use crate::dungeon::{Cardinal, Door, Dungeon};
@@ -790,7 +790,14 @@ impl ContactTrialProjector for ContactProjector<'_> {
             let before = self.wounds[target].parts[part as usize];
             if before.severed { continue; }
 
+            // The three wounding channels. `pressure_raw` is deliberately not
+            // among them: it is the floor plus whatever rounding the split left,
+            // and it has never touched anatomy. `crush_raw` is new and is the
+            // reason a club can hurt anybody at all -- a swing is transverse
+            // motion, and a club has no edge, so before this its entire blow
+            // landed in `pressure_raw` and did nothing at any speed.
             let incoming = row.cut_raw.checked_add(row.thrust_raw)
+                .and_then(|sum| sum.checked_add(row.crush_raw))
                 .ok_or(ResolutionError::EnergyNumerator)?;
             let square = anatomy::squareness(
                 row.fact.velocity_a - row.fact.velocity_b,
@@ -4851,6 +4858,10 @@ impl World {
             intent: Intent::Hold,
             arms: [arm; 2],
             grips: [GripRequest::Keep; 2],
+            // A neutral command holds; it does not loose. This is what a slot
+            // falls back to when nobody has submitted a command, so a `Loose`
+            // here would fire on behalf of every silent policy.
+            releases: [ReleaseRequest::Keep; 2],
         }
     }
 
@@ -4981,10 +4992,31 @@ impl World {
             let Some(id) = self.articulated_carried[i].get(slot as usize).copied().flatten() else { continue };
             let Some(item) = table.equipment(id) else { continue };
             if let crate::EquipmentGeometry::Shield { half_width, half_height, thickness } = item.geometry {
-                let yaw = self.body_yaw[i].angle;
+                // **Centre and normal are two readings of one arm.** The bearing
+                // here is the same one `actuator::hand_position` used to place
+                // the hand this pose is centred on, so `normal` and
+                // `hand - shoulder` are parallel by construction and a plate can
+                // no longer face somewhere its position does not imply.
+                //
+                // It read `body_yaw` until 2026-08-16, and the disagreement that
+                // produced was measured rather than assumed: over the composed
+                // corpus's 2.86M shield samples the angle between the normal and
+                // the hand's offset from the body origin ran the whole 0..180
+                // degree range, median 32 degrees, with 1.84% of ticks edge-on.
+                // `crates/policy/src/articulated_script.rs` answered that by
+                // welding the commanded guard bearing to body yaw, which made
+                // the two agree by never letting the arm move; this makes them
+                // agree by construction instead, which is what lets the guard
+                // arm have its bearing back.
+                //
+                // Inert wherever `bearing == body_yaw`, which is every pose the
+                // old rule already agreed with -- including both bodies at
+                // spawn, where `initialize_articulated_pose` tucks each arm at
+                // `Angle::ZERO`.
+                let bearing = self.arms[i][limb].bearing;
                 return Some(ShieldPose {
                     centre: self.arms[i][limb].hand,
-                    normal: Vec3::new(yaw.cos(), yaw.sin(), Fx::ZERO),
+                    normal: Vec3::new(bearing.cos(), bearing.sin(), Fx::ZERO),
                     half_width, half_height, thickness,
                 });
             }
@@ -5252,15 +5284,25 @@ impl World {
             if both {
                 self.arms[i][0].previous_hand = self.arms[i][0].hand;
                 #[cfg(not(feature = "cartesian-recoil"))]
-                let step = actuator::integrate_arm_with_rates(
+                let step = actuator::integrate_arm_for_grip(
                     &mut self.arms[i][1], &anatomy, yaw, 1, command.arms[1], right_item,
                     self.stats[i], self.arm_authority[i][1], bearing_max_speed_raw, bearing_accel_raw,
+                    actuator::Grip::TwoHanded,
                 );
                 #[cfg(feature = "cartesian-recoil")]
-                let step = drive(&mut self.arms[i][1], 1, command.arms[1], right_item,
-                                 self.arm_authority[i][1]);
-                actuator::bill_fatigue(
-                    &mut self.arms[i][0], actuator::equipment_inertia(right_item), command.arms[1].effort, step,
+                let step = actuator::integrate_arm_with_recoil_for_grip(
+                    &mut self.arms[i][1], &anatomy, yaw, 1, command.arms[1], right_item,
+                    self.stats[i], self.arm_authority[i][1], bearing_max_speed_raw, bearing_accel_raw,
+                    actuator::Grip::TwoHanded,
+                );
+                // The off arm is billed the same work from the same right-arm
+                // deltas, and both bills are halves: one item's work, split
+                // across the two arms that share it, rather than charged whole
+                // to each. Equal halves also keep the two accounts identical,
+                // which `a_two_handed_target_mirrors_the_off_hand` asserts.
+                actuator::bill_fatigue_for_grip(
+                    &mut self.arms[i][0], actuator::equipment_inertia(right_item),
+                    command.arms[1].effort, step, actuator::Grip::TwoHanded,
                 );
                 let right = self.arms[i][1];
                 actuator::mirror_two_handed(&mut self.arms[i][0], right, &anatomy, yaw);
@@ -7248,6 +7290,7 @@ mod tests {
             intent: Intent::Hold,
             arms: [arm; 2],
             grips: [GripRequest::Keep; 2],
+            releases: [ReleaseRequest::Keep; 2],
         }
     }
 
@@ -7834,6 +7877,48 @@ mod tests {
         assert_eq!((sword_world.arms[0][1].fatigue.raw(), sword_world.arms[0][1].work_residue.raw()), (115, 67));
         assert_eq!((club_world.arms[0][1].fatigue.raw(), club_world.arms[0][1].work_residue.raw()), (377, 119));
         assert!(club_world.arms[0][1].fatigue > sword_world.arms[0][1].fatigue);
+    }
+
+    #[test]
+    fn a_two_handed_club_is_expressible_from_a_duel_config() {
+        // The whole point of combat-arms-01: everything `both_scenario()` hand
+        // writes into the spec table is reachable from `DuelConfigV1`, so a
+        // browser picker and `lab trace` can build the fighter the fixture
+        // proves. The claims are the fixture's own: right limb ownership, no
+        // left collider, one segment, and the world's `two_handed` answer.
+        let mut config = crate::DuelConfigV1::shipped();
+        config.fighters[1].two_handed = true;
+        let scenario = Scenario::duel_from(&config).expect("a two-handed club");
+        let table = scenario.combat_specs.as_ref().expect("a table");
+        assert_eq!(
+            table.equipment.iter().map(|row| (row.action, row.binding)).collect::<Vec<_>>(),
+            [
+                (ActionKind::Sword, crate::GripBinding::Right),
+                (ActionKind::Shield, crate::GripBinding::Left),
+                (ActionKind::Club, crate::GripBinding::Both),
+            ],
+            "only the club's binding moved, and it moved to Both"
+        );
+
+        let world = World::try_new(&scenario, 3).expect("a world the config opens");
+        assert!(world.two_handed(1), "the Brute did not spawn two-handed");
+        assert!(!world.two_handed(0), "the flag leaked onto the other fighter");
+        // Both grips name the club's single carrying slot, right arm owning.
+        assert_eq!(world.grips[1], [GripState { equipment_slot: Some(0) }; 2]);
+        assert_eq!(
+            world.equipment_in_grip(1, 1).map(|item| item.binding),
+            Some(crate::GripBinding::Both)
+        );
+        // One collider and one segment: the left arm carries neither, exactly
+        // as the geometry phase's `Both` skip promises.
+        let carried = scenario.units[1].articulated.expect("an articulated row").equipment;
+        let colliders = geometry::held_segment_colliders(
+            Vec3::ZERO, Vec3::ZERO, world.arms[1], world.arms[1], world.grips[1], carried,
+            |id| table.equipment(id).copied(),
+        );
+        assert!(colliders[0].is_none(), "the mirrored left arm grew its own collider");
+        let right = colliders[1].expect("the right arm sweeps the club");
+        assert_eq!(right.owner, crate::LimbSlot::RightArm);
     }
 
     fn both_scenario() -> Scenario {
@@ -8897,8 +8982,8 @@ mod tests {
         let resolution = ContactResolution { group_ordinal: 0, group_alpha_raw: 65_536, fact,
             impulse: crate::combat::contact::ContactImpulse {
                 key: fact.key, on_a: impulse, on_b: -impulse,
-            }, energy: Default::default(), cut_raw: 0, thrust_raw: 0, pressure_raw: 0,
-            deflected_raw: 0, severed: false };
+            }, energy: Default::default(), cut_raw: 0, thrust_raw: 0, crush_raw: 0,
+            pressure_raw: 0, deflected_raw: 0, severed: false };
         let applied = apply_exact_group(&contact.exact_trajectories, &contact.exact_owners,
             &[resolution], fact.toi.get().raw() as u32).unwrap();
         applied.owners.copy_into(&mut contact.exact_owners).unwrap();
@@ -9516,23 +9601,102 @@ mod tests {
     }
 
     #[test]
-    fn a_shield_normal_follows_body_yaw_and_cannot_orbit() {
+    /// Replaces `a_shield_normal_follows_body_yaw_and_cannot_orbit`, which
+    /// asserted the opposite of this and was the standing proof of the defect
+    /// rather than of a rule. Bounded from both sides on purpose: re-recording
+    /// the old assertion's expected vector would have left a test that passes
+    /// whether or not the normal tracks anything.
+    #[test]
+    fn the_shield_normal_follows_the_arm_that_holds_it() {
         let scenario = Scenario::articulated_duel();
-        let mut world = World::new(&scenario, 1);
         let fighter = EntityId::new(0, 0);
-        let mut command = world.neutral_articulated(0);
+
+        // Side one: an arm that agrees with its body is EXACTLY body yaw, so
+        // every pose the old rule got right is untouched.
+        let mut agreed = World::new(&scenario, 1);
+        let mut command = agreed.neutral_articulated(0);
         command.body_yaw = Angle::QUARTER;
-        command.arms[0].bearing = Angle::HALF;
+        command.arms[0].bearing = Angle::QUARTER;
         command.arms[0].effort = Fx::ONE;
-        let _ = world.submit_articulated_v1(fighter, command);
-        for _ in 0..100 {
-            world.step();
-            if world.body_yaw[0].angle == Angle::QUARTER { break; }
+        let _ = agreed.submit_articulated_v1(fighter, command);
+        for _ in 0..200 {
+            agreed.step();
+            if agreed.body_yaw[0].angle == Angle::QUARTER
+                && agreed.arms[0][0].bearing == Angle::QUARTER { break; }
         }
-        assert_eq!(world.body_yaw[0].angle, Angle::QUARTER);
-        let shield = world.shield_pose[0].unwrap();
-        assert_eq!(shield.normal, Vec3::new(Fx::ZERO, Fx::ONE, Fx::ZERO));
-        assert_ne!(world.arms[0][0].bearing, world.body_yaw[0].angle);
+        assert_eq!(agreed.body_yaw[0].angle, Angle::QUARTER);
+        assert_eq!(agreed.arms[0][0].bearing, Angle::QUARTER);
+        assert_eq!(agreed.shield_pose[0].unwrap().normal,
+            Vec3::new(Fx::ZERO, Fx::ONE, Fx::ZERO),
+            "a guard that agrees with its body must derive the body's own normal");
+
+        // Side two: an arm that disagrees derives the ARM's normal, not the
+        // body's and not something between them. The old rule answered
+        // `(0,1,0)` here; the midpoint of the two bearings would answer a
+        // diagonal. Both are excluded by an exact equality against the arm.
+        let mut swung = World::new(&scenario, 1);
+        let mut command = swung.neutral_articulated(0);
+        command.body_yaw = Angle::QUARTER;
+        command.arms[0].bearing = Angle::ZERO;
+        command.arms[0].effort = Fx::ONE;
+        let _ = swung.submit_articulated_v1(fighter, command);
+        for _ in 0..200 {
+            swung.step();
+            if swung.body_yaw[0].angle == Angle::QUARTER
+                && swung.arms[0][0].bearing == Angle::ZERO { break; }
+        }
+        assert_eq!(swung.body_yaw[0].angle, Angle::QUARTER);
+        assert_eq!(swung.arms[0][0].bearing, Angle::ZERO,
+            "the guard arm did not reach the commanded bearing to be measured at");
+        let normal = swung.shield_pose[0].unwrap().normal;
+        assert_eq!(normal, Vec3::new(Fx::ONE, Fx::ZERO, Fx::ZERO),
+            "the plate must face along its own arm, not along the torso");
+        assert_ne!(normal, agreed.shield_pose[0].unwrap().normal,
+            "two guards at one body yaw and different bearings must not share a normal");
+    }
+
+    /// The mechanical claim behind freeing the guard bearing: the plate the
+    /// contact phase actually sweeps moves when the bearing does.
+    ///
+    /// Asserted on the swept **face** rather than on `ShieldPose`, because the
+    /// face is what `segment_shield_candidate` takes and a pose that moved
+    /// without moving its corners would be a publication change dressed up as a
+    /// mechanical one. Under the old rule the two faces here were identical.
+    #[test]
+    fn a_freed_guard_bearing_moves_the_plate_the_solver_sweeps() {
+        let scenario = Scenario::articulated_duel();
+        let fighter = EntityId::new(0, 0);
+        let face_at = |bearing: Angle| {
+            let mut world = World::new(&scenario, 1);
+            let mut command = world.neutral_articulated(0);
+            command.arms[0].bearing = bearing;
+            command.arms[0].effort = Fx::ONE;
+            let _ = world.submit_articulated_v1(fighter, command);
+            for _ in 0..200 {
+                world.step();
+                if world.arms[0][0].bearing == bearing { break; }
+            }
+            assert_eq!(world.arms[0][0].bearing, bearing,
+                "the guard never reached the commanded bearing");
+            let pose = world.shield_pose[0].expect("the fighter carries the plate");
+            (pose, crate::combat::geometry::shield_face(
+                Vec3::new(world.pos[0].x, world.pos[0].y, Fx::ZERO), pose))
+        };
+
+        let (straight_pose, straight) = face_at(Angle::ZERO);
+        let (turned_pose, turned) = face_at(Angle::QUARTER);
+
+        assert_ne!(straight_pose.normal, turned_pose.normal,
+            "the plate's facing did not follow its arm");
+        assert_ne!(straight.corners, turned.corners,
+            "the solver would sweep the same four corners at two guard bearings");
+        // And it is the facing that moved them, not only the hand: the normals
+        // are the two exact cardinals, so this cannot pass on a rounding
+        // difference in the centre alone.
+        assert_eq!(straight_pose.normal, Vec3::new(Fx::ONE, Fx::ZERO, Fx::ZERO));
+        assert_eq!(turned_pose.normal, Vec3::new(Fx::ZERO, Fx::ONE, Fx::ZERO));
+        assert_eq!(straight.normal, straight_pose.normal);
+        assert_eq!(turned.normal, turned_pose.normal);
     }
 
     #[test]
@@ -9796,6 +9960,127 @@ mod tests {
             .find(|row| row.fact.key.kind == ContactKind::WeaponBody)
             .expect("the braced fixture reached no body").fact.region;
         (world, region)
+    }
+
+    /// [`fragile_scenario`] with the fighter's sword swapped for the brute's
+    /// club, so the difference from a `braced_thrust` run is the weapon.
+    ///
+    /// Built this way rather than by bracing the brute's own club because the
+    /// two are not comparable: the brute stands east and spawns facing east, so
+    /// its braced club points away from the fight and grazes an arm for seven
+    /// raw units. Swapping the weapon on the *known* fixture isolates the
+    /// surface, which is the whole question here.
+    ///
+    /// **The off-hand shield goes with it, and that is forced rather than
+    /// chosen.** Under `cartesian-recoil` the exact lattice takes an LCM over
+    /// every equipment combination a unit could hold and refuses a denominator
+    /// wider than 96 bits, and this fighter carrying club *and* plate is over
+    /// that line: it builds under the default law and returns
+    /// `ExactLattice(EndpointDenominator)` under the exact one. The shipped
+    /// roster never pairs them -- the brute carries its club alone -- so the
+    /// envelope had never been asked the question before this fixture asked it.
+    /// Dropping the plate keeps one fixture true under both laws, at the cost of
+    /// the comparison being "club instead of sword, and no off hand" rather than
+    /// the surface alone. Nothing here reads the off hand: the weapon is braced
+    /// and driven into a body, and the plate hangs on the other arm.
+    fn club_armed(fragile: &[usize]) -> Scenario {
+        let mut scenario = fragile_scenario(fragile);
+        scenario.units[0].articulated.as_mut().expect("articulated fighter").equipment =
+            [Some(3), None];
+        scenario.units[0].loadout = crate::Loadout {
+            primary: crate::ActionKind::Club, secondary: None,
+        };
+        // The club is a half unit longer than the sword it replaces -- `29/20`
+        // against `19/20` -- so at `fragile_scenario`'s spacing it is already
+        // through the brute when the tick starts. A pair that overlaps at tick
+        // start resolves at time zero, where v2-14's normal rule has no geometry
+        // to read, and the contact dissipates exactly nothing; `resolve_closing`
+        // moves no position, so nothing later recovers it. Backing the brute off
+        // by the difference restores the geometry `braced_thrust` was built for
+        // and keeps the weapon the only variable.
+        scenario.units[1].spawn = Vec2::new(Fx::from_int(12), Fx::from_int(8));
+        scenario
+    }
+
+    #[test]
+    fn a_swung_club_wounds_a_body_it_reaches() {
+        // **The claim this session exists for, and it was false before it.**
+        // `club().surface.edge_factor` is zero and `channels` reads the factors
+        // off the weapon, so every unit of a club's energy that was not axial
+        // landed in `pressure` -- a column `ContactProjector` has never billed.
+        // The club could not wound at any speed, and no policy or arm rate was
+        // ever going to change that.
+        // First the swing itself, on the shipped club's own surface: a swing is
+        // transverse motion, and a club has no edge, so before this session
+        // every raw unit of it landed in `pressure` -- the one column
+        // `ContactProjector` has never billed.
+        let club = crate::club().surface;
+        let swing = resolution::WeaponBodyChannel {
+            weapon_axis: Vec3::X, weapon_relative_velocity: Vec3::Y,
+            edge_factor: club.edge_factor, point_factor: club.point_factor,
+            crush_factor: club.material.crush_factor(), zero_length: false };
+        let (cut, thrust, crush, pressure) = resolution::channels(10_144, swing);
+        assert_eq!((cut, thrust), (0, 0), "a wooden club cut or stabbed somebody");
+        assert_eq!((crush, pressure), (7_500, 2_644),
+                   "a swing declines its whole budget, and three quarters of it crushes");
+
+        // Then the same claim through the real pipeline, where it has to survive
+        // the solver, the allocator and the armour transfer to reach anatomy.
+        let (world, region) = braced_thrust(&club_armed(&[1]));
+        let row = world.contact_resolutions().iter()
+            .find(|row| row.fact.key.kind == ContactKind::WeaponBody)
+            .expect("the club-armed fixture reached no body");
+        let share = row.cut_raw + row.thrust_raw + row.crush_raw + row.pressure_raw;
+        assert_eq!(row.cut_raw, 0, "a wooden club cut somebody");
+        assert!(row.crush_raw > 0, "the club's blow still reached no wounding channel");
+        // Bounded against the share it was actually allocated rather than
+        // against a recorded constant, so this survives the solver's energy
+        // scale moving under it. This contact is braced and axial, so the point
+        // takes half and the club declines the other half.
+        let available = share - resolution::CONTACT_ENERGY_FLOOR.min(share);
+        assert_eq!(row.crush_raw, (available - row.thrust_raw) * 3 / 4,
+                   "crush is three quarters of what the club declined");
+        assert!(row.crush_raw * 4 > available,
+                "the blunt channel took less than a quarter of what was available");
+
+        // And it reached anatomy, which is what `pressure` never did.
+        let part = world.wounds[1].parts[region as usize];
+        let maximum = world.anatomy_spec(1).unwrap().integrity_maxima[region as usize];
+        assert!(part.integrity < maximum, "the club's crush never became an integrity loss");
+    }
+
+    #[test]
+    fn a_swung_club_opens_no_bleeding_wound() {
+        // The design decision as an assertion. Crushing costs integrity and
+        // leaves no bleeding wound, exactly as a pure thrust already did --
+        // `cut_share` scales the wound by the *cut* fraction of `incoming`, and
+        // a club's cut is structurally zero. This is why the answer to a club
+        // that cannot hurt anybody was a blunt channel and not a cutting club:
+        // an `edge_factor` above zero would have opened bleeding wounds with a
+        // lump of wood.
+        let (world, region) = braced_thrust(&club_armed(&[1]));
+        let crush: u64 = world.contact_resolutions().iter().map(|row| row.crush_raw).sum();
+        assert!(crush > 0, "the fixture stopped crushing, so it cannot answer this");
+        let part = world.wounds[1].parts[region as usize];
+        let maximum = world.anatomy_spec(1).unwrap().integrity_maxima[region as usize];
+        assert!(part.integrity < maximum, "the fixture stopped wounding at all");
+        assert_eq!(part.wound, Fx::ZERO, "a club opened a bleeding wound");
+
+        // **The control, and it is about the club rather than about a fixture
+        // that never bleeds.** Put a blade through the same swing: it cuts where
+        // the club could not, and `cut_share` turns that cut into a wound. So
+        // the zero above is the club's own missing edge and not a dead rule.
+        let sword = crate::sword().surface;
+        let swing = |surface: crate::SurfaceSpec| resolution::WeaponBodyChannel {
+            weapon_axis: Vec3::X, weapon_relative_velocity: Vec3::Y,
+            edge_factor: surface.edge_factor, point_factor: surface.point_factor,
+            crush_factor: surface.material.crush_factor(), zero_length: false };
+        let (blade_cut, _, blade_crush, _) = resolution::channels(10_144, swing(sword));
+        assert!(blade_cut > 0 && blade_crush == 0, "the blade control stopped cutting");
+        let (club_cut, _, club_crush, _) = resolution::channels(10_144, swing(crate::club().surface));
+        assert!(club_cut == 0 && club_crush > 0, "the club control stopped crushing");
+        assert!(anatomy::cut_share(anatomy::integrity_loss_raw(blade_cut), blade_cut, blade_cut) > 0,
+                "a cut stopped opening a bleeding wound");
     }
 
     #[test]
@@ -10075,6 +10360,14 @@ mod tests {
         blunt.id = 4;
         blunt.surface.edge_factor = Fx::ZERO;
         blunt.surface.point_factor = Fx::ZERO;
+        // **A surface that converts nothing at all**, which since combat-arms-05
+        // takes three zeros rather than two: energy the edge and the point
+        // decline is no longer inert, it is crushed, and crush comes off the
+        // material. `Flesh` is the roster's zero and is used here for that
+        // number and not as a claim about what the thing is made of -- a steel
+        // bar with no edge and no point genuinely should crush, which is exactly
+        // why leaving this at `Steel` stopped the fixture meaning what it says.
+        blunt.surface.material = crate::combat::spec::Material::Flesh;
         scenario.combat_specs.as_mut().unwrap().equipment.push(blunt);
         scenario.units[0].articulated.as_mut().unwrap().equipment = [Some(1), None];
         scenario.units[0].loadout = Loadout::single(ActionKind::Sword);
@@ -10131,10 +10424,19 @@ mod tests {
         // legacy path keeps its established generalized-row loss. Both still
         // exercise the same proportional-share and final-remainder rule. The
         // lifted restitution/cone choice moves that physical floor-once loss.
+        //
+        // Re-recorded on 2026-08-16 by combat-arms-05, and the *sum* is the
+        // reason this is a re-record rather than a regression: it is unmoved at
+        // `3_145_728` in both laws, because the body lost exactly what it lost.
+        // What moved is the split -- the club used to convert only its axial
+        // half and now crushes what its absent edge declines, so it takes a
+        // larger share of the same loss and the sword takes correspondingly
+        // less. Previously `(2_753_037, 392_691)` and `(2_782_916, 362_812)`.
         #[cfg(feature = "cartesian-recoil")]
-        assert_eq!((sword.raw(), club.raw()), (2_782_916, 362_812));
+        assert_eq!((sword.raw(), club.raw()), (2_561_356, 584_372));
         #[cfg(not(feature = "cartesian-recoil"))]
-        assert_eq!((sword.raw(), club.raw()), (2_753_037, 392_691));
+        assert_eq!((sword.raw(), club.raw()), (2_517_442, 628_286));
+        assert_eq!(sword.raw() + club.raw(), 3_145_728, "the body lost a different amount");
     }
 
     #[test]
@@ -10147,12 +10449,15 @@ mod tests {
         let world = two_on_one(true, ActionKind::Sword, 4);
         let rows: Vec<_> = world.contact_resolutions().iter()
             .filter(|row| row.fact.key.kind == ContactKind::WeaponBody)
-            .map(|row| (row.fact.key.a.index, row.fact.region, row.cut_raw + row.thrust_raw,
-                        row.severed))
+            .map(|row| (row.fact.key.a.index, row.fact.region,
+                        row.cut_raw + row.thrust_raw + row.crush_raw, row.severed))
             .collect();
         assert_eq!(rows.len(), 2, "the fixture stopped putting two blades in one body");
         assert_eq!(rows[0].1, rows[1].1, "the two blows chose different regions");
         assert_eq!((rows[0].0, rows[1].0), (0, 2));
+        // All three wounding channels, not two: crush is one of them since
+        // combat-arms-05, and summing only the old pair would let a blow that
+        // crushed its way through the region still be called blunt.
         assert!(rows[0].2 > 0 && rows[1].2 == 0, "the blunt blade carried a wounding channel");
         assert_eq!((rows[0].3, rows[1].3), (true, false),
                    "severance was reported by the blade that did nothing");
@@ -10294,6 +10599,7 @@ mod tests {
             arms: [ArmTarget { bearing: Angle::QUARTER, height: crate::CombatHeight::HIGH,
                                reach: Fx::ONE, effort: Fx::ONE }; 2],
             grips: [GripRequest::Keep; 2],
+            releases: [ReleaseRequest::Keep; 2],
         };
         let before = world.arms[0][1];
         world.submit_articulated_v1(world.id_of(0), swing);
@@ -10366,6 +10672,7 @@ mod tests {
             arms: [ArmTarget { bearing: Angle::ZERO, height: crate::CombatHeight::MID,
                                reach: Fx::from_ratio(1, 4), effort: Fx::ZERO }; 2],
             grips: [GripRequest::Keep; 2],
+            releases: [ReleaseRequest::Keep; 2],
         };
         let mut sound = sound;
         // Along an axis first, where the arithmetic is exact and the claim can
@@ -10654,6 +10961,7 @@ mod tests {
             move_dir: Vec2::ZERO, body_yaw: yaw, intent: Intent::Hold,
             arms: [arm(Fx::from_ratio(1, 4)), arm(reach)],
             grips: [GripRequest::Keep; 2],
+            releases: [ReleaseRequest::Keep; 2],
         }
     }
 
@@ -12674,9 +12982,11 @@ mod tests {
             weapon_relative_velocity: weapon.velocity - body.velocity,
             edge_factor: weapon.surface.edge_factor,
             point_factor: weapon.surface.point_factor,
+            crush_factor: weapon.surface.material.crush_factor(),
             zero_length: previous_tip == previous_hilt,
         };
-        let (cut_raw, thrust_raw, pressure_raw) = resolution::channels(allocated[0], channel);
+        let (cut_raw, thrust_raw, crush_raw, pressure_raw) =
+            resolution::channels(allocated[0], channel);
         let mut resolutions = vec![ContactResolution {
             group_ordinal: 0,
             // `65_560` scaled the frozen proposal before it entered this row.
@@ -12691,7 +13001,7 @@ mod tests {
                 after_raw: if allocate_response { after_energy } else { before_energy },
                 dissipated_raw: allocated[0],
             },
-            cut_raw, thrust_raw, pressure_raw, deflected_raw: 0, severed: false,
+            cut_raw, thrust_raw, crush_raw, pressure_raw, deflected_raw: 0, severed: false,
         }];
 
         let mut wounds = world.wounds.clone();
@@ -12864,6 +13174,7 @@ mod tests {
                 weapon_axis: (previous_tip - previous_hilt).normalized_or_zero(),
                 weapon_relative_velocity: weapon.velocity - body.velocity,
                 edge_factor: weapon.surface.edge_factor, point_factor: weapon.surface.point_factor,
+                crush_factor: weapon.surface.material.crush_factor(),
                 zero_length: previous_tip == previous_hilt,
             }) }];
         let mut weights = Vec::new(); let mut shares = Vec::new(); let mut resolutions = Vec::new();
@@ -13285,10 +13596,14 @@ mod tests {
             weapon_relative_velocity: weapon.velocity - body.velocity,
             edge_factor: weapon.surface.edge_factor,
             point_factor: weapon.surface.point_factor,
+            crush_factor: weapon.surface.material.crush_factor(),
             zero_length: previous_tip == previous_hilt,
         };
+        // A sword, so the edge claims the whole budget and the crush column is
+        // zero rather than small: `132 + 0 == 276 - 144` exactly leaves nothing
+        // declined. The blunt channel is inert on a blade by construction.
         let split = resolution::channels(276, channel);
-        assert_eq!(split, (132, 0, 144));
+        assert_eq!(split, (132, 0, 0, 144));
     }
 
     #[test]
@@ -13450,8 +13765,8 @@ mod tests {
             group_alpha_raw: fact.toi.get().raw() as u32, fact,
             impulse: crate::combat::contact::ContactImpulse {
                 key: fact.key, on_a, on_b: -on_a,
-            }, energy: Default::default(), cut_raw: 0, thrust_raw: 0, pressure_raw: 0,
-            deflected_raw: 0, severed: false };
+            }, energy: Default::default(), cut_raw: 0, thrust_raw: 0, crush_raw: 0,
+            pressure_raw: 0, deflected_raw: 0, severed: false };
         let applied = apply_exact_group(&contact.exact_trajectories, &contact.exact_owners,
             &[resolution], fact.toi.get().raw() as u32).unwrap();
         applied.owners.copy_into(&mut contact.exact_owners).unwrap();

@@ -124,18 +124,26 @@ pub struct DuelFighterV1 {
     /// whole mechanism that makes "a sword in the left hand" expressible at all
     /// -- `resolved_equipment` places an item by its `GripBinding` and never by
     /// its carrying-slot index, and the shipped `sword()` binds `Right`.
-    ///
-    /// **[`GripBinding::Both`] is therefore not expressible here**, and that is
-    /// worth writing down because the rest of the table behaves as though it
-    /// were: `resolved_equipment` has a live `Both` arm that puts one id on both
-    /// arms, `grip_valid_for_arm` has one that demands both grips name the same
-    /// slot, and `validate_equipment` refuses a `Both` shield specifically. All
-    /// three are reachable from a hand-written spec row and none of them is
-    /// reachable from a `DuelConfigV1`, because a two-handed grip is not a third
-    /// value of a hand index -- it is one item occupying two hands, which would
-    /// need a different shape here and a rule for what the second arm is doing.
-    /// Nobody has measured that fight, so the builder does not offer it.
     pub hands: [Option<HandItemV1>; 2],
+    /// The right hand's item is gripped by both hands: its row binds
+    /// [`GripBinding::Both`] instead of `Right`.
+    ///
+    /// A flag beside the array rather than a third value of the hand index,
+    /// because a two-handed grip is not a hand -- it is one item occupying two
+    /// hands. The rule for what the second arm is doing is the actuator's
+    /// standing one: **the left arm is the mirror**, driven by
+    /// `mirror_two_handed` from the right arm's committed state, and it is not
+    /// independently commandable -- a submitted left-arm target on a two-handed
+    /// fighter is encoded and hashed but never actuated, exactly as
+    /// `docs/reference/articulated-command-v1.md` specifies.
+    ///
+    /// Every refusal it can need already exists and is reached rather than
+    /// restated: a plate cannot bind `Both` (`validate_equipment`), and `Both`
+    /// beside a second carried item is a grip conflict (`validate_bindings`).
+    /// The one rule [`Scenario::duel_from`] adds itself is that the flag with an
+    /// empty right hand is a grip conflict too, because no validator ever sees a
+    /// binding that has no row to sit on.
+    pub two_handed: bool,
     /// Where this fighter stands.
     ///
     /// **The one field here with no bound of its own.** Every dimension above
@@ -197,11 +205,13 @@ impl DuelConfigV1 {
                         Some(item(ActionKind::Shield)),
                         Some(item(ActionKind::Sword)),
                     ],
+                    two_handed: false,
                     spawn: Vec2::from_ints(7, 6),
                 },
                 DuelFighterV1 {
                     anatomy: AnatomyChoice::Brute,
                     hands: [None, Some(item(ActionKind::Club))],
+                    two_handed: false,
                     spawn: Vec2::from_ints(17, 10),
                 },
             ],
@@ -291,10 +301,11 @@ impl Scenario {
     ///
     /// # What is derived rather than chosen
     ///
-    /// `binding` comes from the hand index and the [`Loadout`] comes from the
-    /// carrying slots, so `item.action == loadout.slot(n)` holds by construction
-    /// and [`CombatSpecError::LoadoutMismatch`] is unreachable from any knob
-    /// here. The surface comes from the shipped row for the item's action. What
+    /// `binding` comes from the hand index -- `Right` becoming `Both` when the
+    /// fighter is [`DuelFighterV1::two_handed`] -- and the [`Loadout`] comes
+    /// from the carrying slots, so `item.action == loadout.slot(n)` holds by
+    /// construction and [`CombatSpecError::LoadoutMismatch`] is unreachable
+    /// from any knob here. The surface comes from the shipped row for the item's action. What
     /// a caller is left holding is the set of numbers that are genuinely
     /// dimensions.
     ///
@@ -316,6 +327,18 @@ impl Scenario {
             let anatomy_id = index as AnatomySpecId + 1;
             anatomies.push(fighter.anatomy.row(anatomy_id));
 
+            // A two-handed grip with nothing in the right hand is refused here
+            // and not left to `validate_rows`, because no `Both` row is ever
+            // written for it -- the flag would silently mean "one-handed", and
+            // a configuration that runs as something other than what it says is
+            // the exact failure the noncanonical-buffer rule exists to prevent.
+            // `GripConflict` rather than a new variant: both hands were asked
+            // to grip a slot that holds nothing, and the error set is mapped
+            // onto wasm failure codes one crate away.
+            if fighter.two_handed && fighter.hands[1].is_none() {
+                return Err(CombatSpecError::GripConflict);
+            }
+
             let order = carrying_order(&fighter.hands);
             let mut carried: [Option<EquipmentSpecId>; 2] = [None; 2];
             let mut actions: [Option<ActionKind>; 2] = [None; 2];
@@ -330,8 +353,14 @@ impl Scenario {
                     mass: item.mass,
                     balance: item.balance,
                     geometry: item.geometry,
+                    // `Both` is written even when the left hand is also full:
+                    // `validate_bindings` is the rule that refuses that pair by
+                    // name, and pre-empting it here would leave the refusal a
+                    // dead branch nothing can reach from a configuration.
                     binding: if hand == LimbSlot::LeftArm as usize {
                         GripBinding::Left
+                    } else if fighter.two_handed {
+                        GripBinding::Both
                     } else {
                         GripBinding::Right
                     },
@@ -427,7 +456,7 @@ mod tests {
 
     /// A fighter holding one thing in one hand, at the origin.
     fn holding(anatomy: AnatomyChoice, hands: [Option<HandItemV1>; 2]) -> DuelFighterV1 {
-        DuelFighterV1 { anatomy, hands, spawn: Vec2::from_ints(7, 6) }
+        DuelFighterV1 { anatomy, hands, two_handed: false, spawn: Vec2::from_ints(7, 6) }
     }
 
     fn duel(a: DuelFighterV1, b: DuelFighterV1) -> DuelConfigV1 {
@@ -681,6 +710,16 @@ mod tests {
             "one raw unit of blade did not reach the fingerprint"
         );
 
+        // The grip is part of the fight's identity too: the flag reaches the
+        // row's binding byte, which `write_equipment` hashes.
+        let mut gripped = base;
+        gripped.fighters[1].two_handed = true;
+        assert_ne!(
+            Scenario::duel_from(&gripped).expect("a two-handed club").fingerprint(),
+            first.fingerprint(),
+            "the two-handed grip did not reach the fingerprint"
+        );
+
         // And the order of the two fighters is part of it: the same two fighters
         // on opposite sides is a different fight, not the same one relabelled.
         let mut swapped = base;
@@ -760,6 +799,58 @@ mod tests {
             "a nine-unit mass"
         );
         assert!(Scenario::duel_from(&with(segment(Fx::from_int(8)), Fx::from_int(8))).is_ok());
+    }
+
+    #[test]
+    fn a_two_handed_shield_is_refused_by_name() {
+        // `validate_equipment`'s standing rule -- a plate cannot bind `Both` --
+        // reached for the first time from a configuration rather than from a
+        // hand-written spec row. Bounded from the other side by the club: the
+        // same flag on a segment is a legal table.
+        let mut config = duel(
+            holding(AnatomyChoice::Fighter, [None, Some(item(ActionKind::Shield))]),
+            holding(AnatomyChoice::Brute, [None, Some(item(ActionKind::Club))]),
+        );
+        config.fighters[0].two_handed = true;
+        assert_eq!(Scenario::duel_from(&config), Err(CombatSpecError::GripConflict));
+
+        config.fighters[0].hands[1] = Some(item(ActionKind::Club));
+        let scenario = Scenario::duel_from(&config).expect("a two-handed club validates");
+        assert_eq!(scenario.combat_specs.as_ref().expect("a table").equipment[0].binding,
+            GripBinding::Both);
+    }
+
+    #[test]
+    fn a_second_carried_item_beside_a_two_handed_grip_is_refused_by_name() {
+        // `validate_bindings` refuses `Both` beside any second item, and
+        // `duel_from` deliberately writes the conflicting pair rather than
+        // pre-empting it -- this is the test that the refusal is reachable from
+        // a configuration at all. Both sides bounded: dropping the second item
+        // makes the same flag legal.
+        let mut config = duel(
+            holding(AnatomyChoice::Brute,
+                [Some(item(ActionKind::Shield)), Some(item(ActionKind::Club))]),
+            holding(AnatomyChoice::Brute, [None, Some(item(ActionKind::Club))]),
+        );
+        config.fighters[0].two_handed = true;
+        assert_eq!(Scenario::duel_from(&config), Err(CombatSpecError::GripConflict));
+
+        config.fighters[0].hands[0] = None;
+        assert!(Scenario::duel_from(&config).is_ok(), "the grip alone was the conflict");
+    }
+
+    #[test]
+    fn a_two_handed_grip_on_an_empty_right_hand_is_refused() {
+        // The one refusal `duel_from` owns itself: no row is ever written for
+        // this flag, so no validator downstream would see it and the flag would
+        // silently mean "one-handed". The left hand holding something does not
+        // rescue it -- the flag names the right hand specifically.
+        let mut config = duel(
+            holding(AnatomyChoice::Fighter, [Some(item(ActionKind::Sword)), None]),
+            holding(AnatomyChoice::Brute, [None, Some(item(ActionKind::Club))]),
+        );
+        config.fighters[0].two_handed = true;
+        assert_eq!(Scenario::duel_from(&config), Err(CombatSpecError::GripConflict));
     }
 
     #[test]

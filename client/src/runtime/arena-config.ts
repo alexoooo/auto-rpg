@@ -57,7 +57,11 @@ export function fx(numerator: number, denominator: number): number {
 export const ONE_RAW = 1 << 16;
 
 export const ARENA_CONFIG_BYTES = 120;
-export const ARENA_CONFIG_LAYOUT_VERSION = 1;
+/**
+ * `2` since combat-arms-01: layout `1` required every hand block's byte 1 to be
+ * zero, and that byte now carries the two-handed grip on the right hand.
+ */
+export const ARENA_CONFIG_LAYOUT_VERSION = 2;
 /** `ARENA_FIGHTERS`. The buffer refuses any other count, and so does this file. */
 export const ARENA_FIGHTERS = 2;
 const FIGHTER_BLOCK_BYTES = 56;
@@ -81,7 +85,7 @@ export const ARENA_MAX_TICKS = 60 * 60;
  * by the same sentence. Index is the code, so the array position is load-bearing.
  */
 export const ARENA_POLICY_NAMES = [
-  "neutral", "composed", "windmill", "attack-moves", "learned", "tactical",
+  "neutral", "composed", "windmill", "attack-moves", "learned", "tactical", "openings",
 ] as const;
 export type ArenaPolicyName = (typeof ARENA_POLICY_NAMES)[number];
 
@@ -199,6 +203,13 @@ export interface ArenaFighterConfig {
   readonly anatomy: number;
   /** Hand 0 is `LimbSlot::LeftArm`, hand 1 is `RightArm`. The index sets the binding. */
   readonly hands: readonly [ConfiguredHand, ConfiguredHand];
+  /**
+   * The right hand's item is gripped by both hands: its binding becomes
+   * `Both` instead of `Right`, the right arm owns it and the left arm mirrors.
+   * Legal only over a full right hand, an empty left one and a non-shield --
+   * the module refuses everything else by name.
+   */
+  readonly twoHanded: boolean;
   readonly policy: number;
   readonly spawn: { readonly x: number; readonly y: number };
 }
@@ -221,12 +232,14 @@ export function robustStrikeArenaConfig(): ArenaConfig {
         policy: 5,
         spawn: { x: 622_592, y: 458_752 },
         hands: [HAND_ITEMS.shield, longSword],
+        twoHanded: false,
       },
       {
         anatomy: ANATOMY_CODES.brute,
         policy: 0,
         spawn: { x: 786_432, y: 524_288 },
         hands: [HAND_ITEMS.empty, HAND_ITEMS.club],
+        twoHanded: false,
       },
     ],
   };
@@ -286,6 +299,10 @@ export function encodeArenaConfig(config: ArenaConfig): Uint8Array {
     view.setInt32(base + 8, fighter.spawn.y, true);
     writeHand(view, base + 12, fighter.hands[0]);
     writeHand(view, base + 12 + HAND_BLOCK_BYTES, fighter.hands[1]);
+    // Byte 1 of the right hand block: the two-handed grip marker. Written only
+    // as a `1`, because the zero is already there and a literal zero would read
+    // as though it could be something else.
+    if (fighter.twoHanded) view.setUint8(base + 12 + HAND_BLOCK_BYTES + 1, 1);
   });
   return bytes;
 }
@@ -317,6 +334,7 @@ export function decodeArenaConfig(bytes: Uint8Array, seed: number): ArenaConfig 
       policy: view.getUint8(base + 1),
       spawn: { x: view.getInt32(base + 4, true), y: view.getInt32(base + 8, true) },
       hands: [readHand(view, base + 12), readHand(view, base + 12 + HAND_BLOCK_BYTES)],
+      twoHanded: view.getUint8(base + 12 + HAND_BLOCK_BYTES + 1) === 1,
     };
   };
   return {
@@ -329,7 +347,7 @@ export function decodeArenaConfig(bytes: Uint8Array, seed: number): ArenaConfig 
 /** One carrying slot: the hand item and the `GripBinding` its hand index sets. */
 export interface CarriedSlot {
   readonly hand: ConfiguredHand;
-  readonly binding: "Left" | "Right";
+  readonly binding: "Left" | "Right" | "Both";
 }
 
 /**
@@ -343,6 +361,16 @@ export interface CarriedSlot {
  * `[shield, sword]`, which is the shipped fixture's own arrangement.
  */
 export function carriedOf(fighter: ArenaFighterConfig): readonly (CarriedSlot | null)[] {
+  // A two-handed grip is one item in one carrying slot, bound `Both` -- which
+  // is exactly what `lab trace` writes for a `Both` spec row, and the whole
+  // reason the recording header of a live two-handed fight is comparable with a
+  // traced one. The left hand is empty by the module's own refusal, so the
+  // second slot is honestly null rather than a mirrored copy.
+  if (fighter.twoHanded) {
+    return fighter.hands[1].code === EMPTY_HAND_CODE
+      ? [null, null]
+      : [{ hand: fighter.hands[1], binding: "Both" }, null];
+  }
   const held: readonly (CarriedSlot | null)[] = [
     fighter.hands[0].code === EMPTY_HAND_CODE ? null : { hand: fighter.hands[0], binding: "Left" },
     fighter.hands[1].code === EMPTY_HAND_CODE ? null : { hand: fighter.hands[1], binding: "Right" },
@@ -370,7 +398,8 @@ export const ARENA_REFUSALS: Readonly<Record<number, string>> = {
   0: "no refusal",
   1: "the module does not know this configuration layout",
   2: "the configuration does not carry exactly two fighters",
-  3: "a reserved byte or an empty hand's dimension word was not zero",
+  3: "a reserved byte, an empty hand's dimension word, or a two-handed marker "
+    + "off a full right hand was not zero",
   4: "unknown anatomy code",
   5: "unknown item code",
   6: "unknown policy code",
