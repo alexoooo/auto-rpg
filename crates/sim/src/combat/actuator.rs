@@ -3,8 +3,37 @@ use fx::{mul_div, Angle, Fx, Vec2, Vec3};
 
 pub const BODY_YAW_MAX_SPEED_RAW: i32 = 546;
 pub const BODY_YAW_ACCEL_RAW: i32 = 91;
-pub const ARM_BEARING_MAX_SPEED_RAW: i32 = 1_092;
-pub const ARM_BEARING_ACCEL_RAW: i32 = 182;
+/// How fast an arm may slew its bearing, and how hard it may accelerate into it.
+///
+/// **Doubled from `1_092`/`182` on 2026-08-15, and the pair moves together**
+/// because the ladder that measured it varied them together -- an acceleration
+/// that cannot reach the new ceiling inside a phase would have bought nothing.
+///
+/// Session 04 measured this exact candidate and parked it: it took wounding rows
+/// from 6 in 3,600 to 860, and was refused because a "tunnelling" counter rose
+/// from 64 to 68. That counter turned out to hold no defect at all. Split into
+/// its two halves it is a benign neighbouring-region hit (66 of 66 rows cross a
+/// real region) plus a false positive of the corpus's own crossing test (372 of
+/// 372 rows are crossings under the solver's inputs), and the half that grew
+/// with slew grew because the harness sweeps the contact-*clamped* blade pose
+/// rather than the requested one. See the
+/// [calibration record](../../../../docs/performance/smart-ai-actuator-calibration.md).
+///
+/// What it buys, on `articulated --seeds 100 --mirrored`: the windmill control
+/// goes from 3.0% of fights decided by a body to 96.5%, which is the first
+/// configuration ever to clear the mechanical gate's "fewer than 10% reach the
+/// clock" criterion. The composed script barely moves, and that is a script
+/// defect rather than a mechanics one -- it commands `effort: Fx::ZERO` on eight
+/// of twelve phases and arrives inside the other four, so it spends 68.6% of its
+/// ticks with a bearing step of exactly zero and cannot use a ceiling it never
+/// reaches.
+///
+/// **Do not read this as a tuning knob.** It is a rate ceiling, and the measured
+/// shape is that speed only pays while the blade is on the line: widening the
+/// commanded arc to +-3/8 of a turn *lowered* decided fights below baseline even
+/// though it raised tip speed.
+pub const ARM_BEARING_MAX_SPEED_RAW: i32 = 2_184;
+pub const ARM_BEARING_ACCEL_RAW: i32 = 364;
 pub const ARM_LINEAR_MAX_SPEED_RAW: i32 = 1_638;
 pub const ARM_LINEAR_ACCEL_RAW: i32 = 273;
 pub const ARM_MIN_REACH_RAW: i32 = 16_384;

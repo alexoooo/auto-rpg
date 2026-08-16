@@ -39,6 +39,35 @@ The final pre-guard corpus contained 800 trials per condition:
 | composed efficiency at least 6/5 of windmill | composed decided **8** of 800; windmill decided **20** |
 | side advantage at most 20 of 400 | 1; this passed but the threshold has little statistical margin |
 
+### The clock criterion is met, 2026-08-15
+
+`articulated --seeds 100 --mirrored` (200 trials), before and after Smart134 doubled
+`ARM_BEARING_MAX_SPEED_RAW`/`ARM_BEARING_ACCEL_RAW`:
+
+| script | reached the clock, old pair | reached the clock, doubled | severances | Brute end health |
+|---|---:|---:|---:|---:|
+| composed | 98.0% | 98.0% | 16 -> 76 | 0.928 -> 0.727 |
+| composed + closing footwork | 95.5% | **85.5%** | 20 -> 144 | 0.843 -> 0.499 |
+| windmill | 97.0% | **3.5%** | 31 -> 471 | 0.694 -> 0.013 |
+
+**The windmill control clears "fewer than 10% reach the clock" outright**, which no
+configuration in this document had ever done. This is the paired half of
+`ARTICULATED_STREAM_DIGEST`'s sixth move; see its
+[registry row](../reference/hashes.md#golden-registry).
+
+Three things this does **not** license. It is one criterion of four, and the other
+three are unretested here -- cap hits are 2,545 for the windmill and 7,885 for
+composed, nowhere near the zero the old table demanded, and that criterion was already
+recorded as unreachable. It is **one-sided**: the Fighter ends every doubled variant
+above `0.959` and takes 193 kills to nil, so what passes the clock is an execution
+rather than the exchange a representative gate wants. And the criterion is met by the
+*control*, not by the composed script, which converts almost none of the same increase
+-- it commands `effort: Fx::ZERO` on eight of twelve phases and arrives inside the
+other four, so it spends 68.6% of its ticks with a bearing step of exactly zero. The
+mechanism and the measured phase-length response are in the
+[tactical policy record](smart-ai-tactical-policy.md). The gate criteria still need the
+amendment this document's findings call for before any of this becomes a pass.
+
 A weapon/body contact closed at a median of roughly **113 raw** against the legacy
 `IMPACT_THRESHOLD` of **3,932**. The centre-of-mass correction improved the scale
 from roughly 59x short to roughly 35x short, but the model still could not end a
@@ -58,6 +87,20 @@ shield and guard corpus is retained in the
 3. The first stationary-swordsman result was a script artifact: the composed attack
    phases command zero foot movement, while a walking body contributes more closing
    energy than an arm at its present slew ceiling.
+
+   **Superseded 2026-08-15, and the second clause is now false.** Splitting blade-tip
+   travel into the arm's own contribution and the body's translation (mean raw/tick,
+   Fighter) shows the arm term leading wherever the arm is actually driven: windmill
+   `2,864` arm against `1,581` body at the old ceiling, `4,733` against `2,621` at the
+   doubled one. The claim only ever described the *composed* script's arm, which is
+   idle two thirds of the time -- a statement about the script, not about the ceiling.
+   The two are separate channels, and the body term barely responds to slew at all
+   (`615` to `774` planted). As a delta the old claim was roughly right at the old
+   ceiling -- restoring the feet bought about as much whole-fight tip speed as
+   doubling the ceiling -- but even then the doubling was worth twice as much damage
+   (Brute end health `-0.212` against `-0.108`). The two effects are super-additive,
+   each roughly twice as large in the other's presence, which is the cross term in
+   `(v_body + v_arm)^2` behaving as it should.
 4. The solver silently rejected **188,654 ticks**, 6.5% of one corpus, before alpha
    zero was restored as the identity for the world projector. Rejection rolled back
    the whole contact phase. Current corpora report zero rejections.

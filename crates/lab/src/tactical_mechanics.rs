@@ -221,7 +221,7 @@ fn structural_validity(
     let reference = strong_strike::meaningful_strike_validity(before, held);
     structural_from_fields(before == after, before.contact_tick.is_some()
             && before.weapon_body_facts == 1 && before.competing_facts == 0,
-        reference.observed_crossing, HeldControlEvidence::from_measurement(held).is_inert(),
+        reference.swept_crossing, HeldControlEvidence::from_measurement(held).is_inert(),
         strike_legality(held), strike_legality(before), tactical)
 }
 

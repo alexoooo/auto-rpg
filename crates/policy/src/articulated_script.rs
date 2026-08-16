@@ -635,6 +635,19 @@ pub fn scripted_articulated_command_with(
             body_yaw: toward,
             attack: true,
             guard: None,
+            // **Three quarters, and it is not free to change.** Measured on
+            // 2026-08-15: full reach here takes the planted script from 2.0% to
+            // 5.0% of duels decided and severances from 76 to 108, and is
+            // neutral once the feet close. It was tried and reverted anyway,
+            // because this reach is not only a script value -- `Posture::Chamber`
+            // in `learn-core`'s model is *defined* as "three quarters out" and is
+            // one of the five learned action heads. Raising it either moves
+            // `LEARNED_INFERENCE_DIGEST` and owes a re-score of the probe
+            // checkpoint, or collapses `Chamber` and `Commit` into the same
+            // `(reach, effort, attack)` triple and leaves the model two actions
+            // it cannot tell apart. See the tactical policy record for the full
+            // dose-response sweep and for why phase length -- the larger lever --
+            // is coupled the same way through `CYCLE_TICKS`.
             weapon: Some(strike(chamber, THREE_QUARTERS)),
         },
         4 => Phase {

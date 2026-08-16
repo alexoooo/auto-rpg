@@ -4,10 +4,15 @@
 This session diagnoses one exact word already frozen by Smart132. It changes no
 mechanics, policy, calibration, gate, feature default or registered hash.
 
-**In-progress handoff (2026-08-15; uncommitted):** implementation is present in the
-seven authorized Sim/Lab files on clean-plan authority
-`682b05cac6cf23a3f9e13845702654dfcfcbfa6f`, but it is intentionally not committed
-or production-run. Sim has one observer-parametric authoritative arithmetic path,
+**Committed, and this plan is paused (corrected 2026-08-15):** the handoff describing
+this implementation as intentionally uncommitted is stale. Commit
+`32bef221888d90d2c178a96692e46ec7d3c5d550` carries all nine files -- the seven
+authorized Sim/Lab sources, this plan, and one `hashes.md` line-anchor refresh -- on
+top of the stated clean-plan authority `682b05cac6cf23a3f9e13845702654dfcfcbfa6f`,
+and `main` is clean at the merge `55393d6`. The pre-commit gate this section asked
+the next session to hold was therefore passed by the commit rather than by the
+review, and nothing was production-run: there is no Smart133 source commit of
+record, no A/B pair, and no artifact. Sim has one observer-parametric authoritative arithmetic path,
 the 42-event diagnostic/lifecycle, exact reject prefixes and focused Smart131/132/133
 regressions green. Lab has the O(T) three-arm harness, full source SHA check,
 non-narrowing wide validation, candidate/witness comparator, strict CLI/worker and
@@ -29,9 +34,21 @@ independent full 138-line byte oracle, full-width rather than `i128`-narrowed
 validation, validation before comparison, and true destination-race plus worker
 failure seams. Repairs for all six are in the working tree and the focused filters
 are green, but the final read-only re-review was interrupted for shutdown before it
-returned. Resume by reviewing those six repairs; do not run broad, wasm, production
-or evidence A/B until that review is CLEAR. No Cargo, Rust, or Lab process was active
-when this handoff was written.
+returned. Whoever resumes this plan starts by reviewing those six repairs, and runs
+no broad, wasm, production or evidence A/B pass until that review is CLEAR.
+
+**Two things then paused it, and neither withdraws it.** The build host lost its MSVC
+linker, so nothing in the workspace compiles here at all: `cargo test -p fx --no-run`
+fails with `linker link.exe not found`, `wasm32-unknown-unknown` is not an installed
+target, and there is no `web.wasm` or `target/release` binary to fall back on. Every
+gate and evidence command below is therefore unrunnable until Build Tools with the
+C++ workload are installed. And the owner redirected the topic on 2026-08-15: the
+goal is an articulated fight that lands visible blows in the browser, which this plan
+by its own charter cannot produce -- it renders `decision=diagnostic-only`, and each
+of its stop branches preregisters a further provenance session. The active work is
+[Smart134](smart-ai-134-arm-slew-and-region-attribution.md). This plan keeps its
+frozen authority, its commands and its stop branches exactly as written for whoever
+returns to it.
 
 ## Question and immutable authority
 

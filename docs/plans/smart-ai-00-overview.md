@@ -13,7 +13,17 @@ two region rows while held exits at the pair swept-AABB control with zero.
 Smart132 then found the first swept-AABB operand difference at the A-side ordinal-0
 segment-hilt start-point X coordinate. [Smart133](smart-ai-133-ordinal-31-tick-46-segment-hilt-start-x.md)
 is the bounded provenance successor for that one operand; it carries no mechanics
-authority.
+authority. It is committed as `32bef22` but was never reviewed, gated or
+production-run, and it is now **paused**.
+
+The active session is
+[Smart134](smart-ai-134-arm-slew-and-region-attribution.md), which returns this topic
+to making a blow land. Session 04 measured the only lever that moved wounding rows in
+the right direction -- doubling arm bearing slew took 6 wounding rows to 860 of 3,600
+-- and parked it because "tunnelling" rose from 64 to 68. That counter adds two
+unlike facts together: hitting a region other than the one the plan named, and making
+a contact the corpus's own swept test cannot account for. Only the second is a
+defect. Smart134 splits them and re-decides against a predeclared rule.
 Generalized Tactical competence remains below gate.
 
 This topic began with an Arena fight in which learned and tactical fighters moved but
@@ -133,18 +143,25 @@ differs for that exact value. It proposes no correction.
 
 ## Next-session order
 
-1. Execute [Smart133](smart-ai-133-ordinal-31-tick-46-segment-hilt-start-x.md), the
-   operand-provenance diagnosis for Smart132's frozen A-side ordinal-0 segment-hilt
-   start-point X value.
-   Do not widen the 96-visit budget, infer causality from ticks 36/37/46, tune against
-   the calibration or choose another descriptor. The moving baseline remains `21/100`
-   strict and `55/100` outcome-only; Smart125's attempted correction fell to `49/100`
+1. Execute [Smart134](smart-ai-134-arm-slew-and-region-attribution.md): split
+   `tunnelling` into wrong-region and unexplained rows, re-read the session-04
+   actuator table against its predeclared rule, and move the arm-slew pair only if
+   the unexplained bucket stays flat. Stage 1 moves no pin; stage 2 is expected to
+   move `ARTICULATED_STREAM_DIGEST` paired across Rust and wasm and no legacy golden.
+   Do not widen the 96-visit budget, infer causality from ticks 36/37/46, or select
+   the constant by wound count. The moving baseline remains `21/100` strict and
+   `55/100` outcome-only; Smart125's attempted correction fell to `49/100`
    outcome-only and was reverted.
-2. Preserve the ordinary defender-body `WALL` lifecycle witness separately from the
+2. [Smart133](smart-ai-133-ordinal-31-tick-46-segment-hilt-start-x.md) is paused, not
+   withdrawn. Whoever resumes it starts from the six review repairs its handoff names
+   and reads its charter first: it renders `decision=diagnostic-only` and every stop
+   branch preregisters a further provenance session. Smart134's unexplained bucket is
+   what would make that work load-bearing again.
+3. Preserve the ordinary defender-body `WALL` lifecycle witness separately from the
    terminal-at-first-contact source-41 solver corpus.
-3. Open the unchanged 95/100 held-out competence gate only after a future matched
+4. Open the unchanged 95/100 held-out competence gate only after a future matched
    calibration reaches zero structural failures and its frozen evidence justifies it.
-4. Train/promote only after the competence gate passes. Reopen the final
+5. Train/promote only after the competence gate passes. Reopen the final
    v2 articulated gate and `v2-18` last.
 
 ## Hard constraints

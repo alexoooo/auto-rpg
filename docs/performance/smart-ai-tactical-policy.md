@@ -240,6 +240,36 @@ in the Arena. It does not alter the honest generalized result: `21/100` strict a
 `55/100` outcome-only remain below the frozen 95/100 competence gate, so Tactical is
 not promoted as the ordinary Arena default.
 
+**Correction, 2026-08-15: that blow is now 3.8x weaker and nothing went red.**
+Re-measured through the release wasm at the same preset bytes, the fingerprint is
+still `0x82012ef80cd9be11`, the event is still raw tick 52 on published frame 53, the
+region is still Legs and the pressure channel is still `145`. Everything else moved:
+
+| | Smart117/118 | 2026-08-15 |
+|---|---:|---:|
+| group energy | `346 -> 68` | `346 -> 166` |
+| dissipated / allocated share | 278 | 180 |
+| cut | 133 | 35 |
+| Brute Legs integrity | 0.94 | 0.983 |
+| visible wound | 0.06 | 0.017 |
+
+The incoming closure energy is unchanged, so this is not the striker missing or
+arriving slower: **the projector now leaves more energy in the pair**, the allocated
+share falls with it, and `available = share - CONTACT_ENERGY_FLOOR` turns a 134-unit
+cut budget into a 36-unit one. Which commit did it is not yet identified; the ledger
+region of `resolution.rs` was last restructured by `aa9dfaf`, and that refactor is a
+candidate rather than a finding.
+
+**How it stayed invisible is the more useful half.**
+`robust_strike_arena_publishes_the_attributed_event_and_matching_damage` asserted
+`dissipated > 0`, `cut > 0 || thrust > 0`, `after <= before` and "integrity fell" --
+four one-sided bounds, every one of them satisfied by a blow getting four times
+weaker. This is the failure mode AGENTS.md names: a bound from one side is satisfied
+by a range far wider than the decision it was protecting. That test now pins the exact
+published ledger `(346, 166, 180, 35, 0, 145)` from both sides, and the pin was
+confirmed to fail on a one-unit change before it was accepted. The row above is what
+it pins to; moving it means naming the mechanic that moved it.
+
 Smart121 then translated the same ordinal-3144 ordinary schedule to the east wall to
 close the older exact-lifecycle replay requirement. Its accepted WeaponBody receipt
 was `45/46`; both exact remainder classes survived ticks 45 through 56, and the
@@ -285,6 +315,97 @@ chamber-to-commit sweep while the runtime immediately executes only
 observed-blade-to-commit. Any successor must measure those two sweeps separately and
 predeclare its acceptance rule; the failed recertification does not authorize a
 retune.
+
+## Why the composed script cannot use a faster arm
+
+Measured 2026-08-15 over 359,068 Fighter weapon-arm ticks, 100 mirrored trials, when
+the bearing ceiling doubled. It is the `21/100` competence result seen from the
+mechanics side, and it has a single cause with two halves.
+
+**Eight of twelve phases command `effort: Fx::ZERO`.** `arm_available` multiplies
+commanded effort into `available`, and `bearing_accel = ARM_BEARING_ACCEL_RAW *
+available`, so at zero effort the acceleration is zero and `chase` returns the entry
+speed unchanged: the arm coasts once and then cannot move. The composed script asks
+for full effort on the weapon arm in phases 3, 4, 7 and 8 only -- `tucked` in seven
+others and `rest` in one.
+
+**On the four phases it does swing, arrival ends the swing rather than the ceiling.**
+A phase is 30 ticks and the largest commanded travel is a quarter turn, which at the
+old ceiling took `546 x 30 = 16,380` against a 16,384-raw target -- critically timed.
+Doubling the ceiling let the same arc finish in half a phase, so the arm spent the
+remainder parked:
+
+| Fighter weapon arm, per tick | composed 1x | composed 2x | windmill 1x | windmill 2x |
+|---|---:|---:|---:|---:|
+| mean commanded effort | 0.321 | 0.328 | 0.993 | 0.971 |
+| mean commanded reach | 0.427 | 0.430 | 0.995 | 0.978 |
+| bearing step exactly zero | 64.0% | **68.6%** | 21.8% | 32.1% |
+| arrived (zero bearing error) | 4.8% | **8.5%** | -- | 7.3% |
+| mean blade-tip speed raw | 1,510 | 1,821 | 3,405 | 5,904 |
+
+**Doubling the ceiling made the composed arm less often at its cap and more often
+parked**, which is why its decided-fight rate did not move. The windmill chases a
+target it can never reach -- `|bearing error| >= 8,192` on half its ticks -- so it is
+speed-capped every tick and the whole profile rises with the cap, mean step `248.8` to
+`423.8`. Fatigue explains none of it anywhere; it never exceeds `0.04`.
+
+Contact *opportunity* is not the problem. The composed script is within three units of
+the Brute on 81.9% of ticks and resolves 1,732 weapon/body rows per fight, more per
+tick than the windmill at 2x. **99.5% of them carry zero cut and thrust**: it touches
+the Brute constantly, below the energy floor, with a parked blade at 43% extension.
+
+**The measured lever is phase length, and only phase length.** One edit at a time
+against the reference script, decided fights at 2x: `PHASE_TICKS` 30 gives 3%, 20
+gives 8%, 15 gives 28%, and 15 with closing footwork gives 59%. A monotone
+dose-response is the signature of an arrival-limited swing. Two negative results
+matter more than that curve:
+
+- **Widening the commanded arc does not work and a lot of it is actively worse.**
+  Chamber and commit at `+-3/8` of a turn decided 2%, *below* the 3% baseline, despite
+  a higher tip speed. A follow-through alone was also worse than baseline.
+- **The highest tip speed in the whole sweep decided only 10%.** So speed is not the
+  lever; speed *while the blade is on the line* is, and anything that moves the blade
+  off `toward` trades the gain away.
+
+### Both candidate repairs are coupled to the learned model, and that is the finding
+
+The chamber reach looked like the cheap one and is not. Raising phase 3 from three
+quarters to full reach was implemented and measured on the shipped command --
+**planted composed goes from 2.0% to 5.0% of duels decided and severances from 76 to
+108, and it is neutral once the feet close** (14.5% to 14.0%, severances 144 to 150) --
+and then reverted, because `Posture::Chamber` in `learn-core`'s model is *defined* as
+"three quarters out, full effort, attacking" and is one of the five learned action
+heads. Raising it either moves `LEARNED_INFERENCE_DIGEST` and owes a re-score, or
+collapses `Chamber` and `Commit` into the same `(reach, effort, attack)` triple and
+leaves the model two actions it cannot tell apart.
+`the_action_table_is_the_scripts_own_vocabulary` is what caught it, which is what that
+test exists for.
+
+So the two levers are coupled by two different routes -- phase length through
+`CYCLE_TICKS`'s clock feature, chamber reach through the posture action head -- and
+**there is no zero-cost repair to this script.** Any real fix to composed is a
+learned-layout change that owes a checkpoint re-score against the recorded mean return
+`88.922`, and should be planned as one rather than discovered halfway through. The
+measured sweep above is what it should be planned from.
+
+`PHASE_TICKS = 20` is the clean point rather than 15. `Stats::decision_period` is 12
+for a Fighter and **18 for a Brute**, so at 15 the Brute's decision period exceeds a
+phase and it drops phases -- part of that 28% is the Brute getting worse rather than
+the Fighter getting better, visible as Fighter end health rising to 0.9880. At 20 the
+Fighter's end health is essentially unchanged.
+
+Changing it is not free and is not a script-local edit. `PHASE_TICKS` is shared with
+the windmill control, which alternates on `(tick / PHASE_TICKS) % 2`, so a
+composed-only change needs its own constant. `CYCLE_TICKS` is additionally a **learned
+model input** -- a feature is built as `(tick % CYCLE_TICKS) * 65536 / CYCLE_TICKS` and
+pinned at 360 -- so touching it moves `LEARNED_INFERENCE_DIGEST` and owes a re-score of
+`checkpoints/v2-probe.ckpt` against its recorded mean return `88.922`. `ARPG-SCRIPT-V1`
+moves for every corpus. No other registered golden is reachable from a script change.
+
+**And part of the level defect is inherent.** A cadence that guards and rests spends
+ticks not swinging, and four attack phases against the windmill's twelve is a 3x duty
+handicap that no re-timing removes. That handicap is what the guard buys. A composed
+script should not be expected to reach the windmill's 96.5%.
 
 ## Controlled strong-strike reference
 

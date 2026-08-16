@@ -7984,15 +7984,75 @@ mod tests {
                     }
             }
         }
+        // **One row in the default build, two under `cartesian-recoil`, and
+        // the second one is not a second blow.** The exact law resolves the
+        // same swing and then publishes a resting contact on the next tick,
+        // `3153 -> 3153` with nothing dissipated and nothing cut, which is the
+        // blade lying against the leg it has already opened. It is asserted
+        // below rather than filtered out, because "the extra row carries no
+        // energy" is the whole of the reason one row and two rows are the same
+        // demonstration -- a filter would have hidden a genuine second blow
+        // just as effectively.
+        #[cfg(not(feature = "cartesian-recoil"))]
         assert_eq!(matching.len(), 1, "the controlled strike must have one unambiguous Legs event");
-        let row = matching[0];
-        assert_eq!((row[COMBAT_EVENT_TICK], tick()), (52, 53));
-        let wide = |lo: usize, hi: usize| u64::from(row[lo]) | (u64::from(row[hi]) << 32);
-        assert!(wide(COMBAT_EVENT_ENERGY_DISSIPATED_LO, COMBAT_EVENT_ENERGY_DISSIPATED_HI) > 0);
-        assert!(wide(COMBAT_EVENT_CUT_LO, COMBAT_EVENT_CUT_HI) > 0
-                || wide(COMBAT_EVENT_THRUST_LO, COMBAT_EVENT_THRUST_HI) > 0);
-        assert!(wide(COMBAT_EVENT_ENERGY_AFTER_LO, COMBAT_EVENT_ENERGY_AFTER_HI)
-                <= wide(COMBAT_EVENT_ENERGY_BEFORE_LO, COMBAT_EVENT_ENERGY_BEFORE_HI));
+        #[cfg(feature = "cartesian-recoil")]
+        assert_eq!(matching.len(), 2,
+            "the exact law's controlled strike must be one blow and one resting row");
+        assert_eq!((matching[0][COMBAT_EVENT_TICK], tick()), (45, 53));
+        let wide = |row: [u32; COMBAT_EVENT_STRIDE], lo: usize, hi: usize|
+            u64::from(row[lo]) | (u64::from(row[hi]) << 32);
+        let ledger = |row: [u32; COMBAT_EVENT_STRIDE]| (
+            wide(row, COMBAT_EVENT_ENERGY_BEFORE_LO, COMBAT_EVENT_ENERGY_BEFORE_HI),
+            wide(row, COMBAT_EVENT_ENERGY_AFTER_LO, COMBAT_EVENT_ENERGY_AFTER_HI),
+            wide(row, COMBAT_EVENT_ENERGY_DISSIPATED_LO, COMBAT_EVENT_ENERGY_DISSIPATED_HI),
+            wide(row, COMBAT_EVENT_CUT_LO, COMBAT_EVENT_CUT_HI),
+            wide(row, COMBAT_EVENT_THRUST_LO, COMBAT_EVENT_THRUST_HI),
+            wide(row, COMBAT_EVENT_PRESSURE_LO, COMBAT_EVENT_PRESSURE_HI),
+        );
+        // **The exact ledger, and it is pinned from both sides on purpose.**
+        // These four assertions used to read `dissipated > 0`, `cut > 0 ||
+        // thrust > 0` and `after <= before`, and a range that wide cannot
+        // defend the thing the preset exists to demonstrate: between the
+        // Smart117/118 measurement and 2026-08-15 the same fingerprint, tick,
+        // region and pressure went from `346 -> 68` with cut 133 to
+        // `346 -> 166` with cut 35 -- the allocated share fell from 278 to 180
+        // and the visible wound with it, from 6% of the Brute's legs to 1.7% --
+        // and every one of those one-sided bounds stayed green through it.
+        // A blow getting 3.8x weaker is exactly what this test is for.
+        //
+        // So these are a pin and not a bound. If one moves, say which mechanic
+        // moved it and re-record the row in the tactical policy record with it;
+        // do not widen the assertion back into a range.
+        //
+        // Moved once already, by Smart134's doubled arm bearing rates, and the
+        // pin did its job in both directions within one session: it caught the
+        // silent 3.8x loss above, then measured the repair. Incoming group
+        // energy went 346 to 1,274 and cut went 35 to 508, so the demonstration
+        // is now four times the blow it was when it was first recorded rather
+        // than a quarter of it, and the contact lands at tick 45 instead of 52.
+        // `pressure` is 145 through all three recordings because it is the
+        // residue `share - cut - thrust` against a 144-raw floor, so it reads as
+        // the floor plus rounding no matter how hard the blow is -- which is
+        // exactly why it is the one channel that proves nothing on its own.
+        //
+        // **The two builds get a row each, and the pair is the interesting
+        // part.** The default response law allocates 655 of the same 1,274 raw
+        // and the exact one 985; the exact law cuts 840 where the default cuts
+        // 508. Same fingerprint, same tick, same region, same incoming energy,
+        // and the shipping preset lands a half-again harder blow under the
+        // feature -- which is a fact about the two laws rather than about
+        // either recording, and the reason to pin both rather than to gate one
+        // out and read the other as "the" ledger.
+        #[cfg(not(feature = "cartesian-recoil"))]
+        assert_eq!(ledger(matching[0]), (1274, 619, 655, 508, 2, 145),
+            "the controlled strike's published energy ledger moved");
+        #[cfg(feature = "cartesian-recoil")]
+        assert_eq!(ledger(matching[0]), (1274, 289, 985, 840, 0, 145),
+            "the controlled strike's published energy ledger moved");
+        #[cfg(feature = "cartesian-recoil")]
+        assert_eq!((matching[1][COMBAT_EVENT_TICK], ledger(matching[1])),
+            (46, (3153, 3153, 0, 0, 0, 0)),
+            "the exact law's second Legs row stopped being an inert resting contact");
         let (after, rejections) = with_sim((None, u32::MAX), |sim| {
             let brute = sim.world.alive_ids(Faction::Monsters)[0];
             (Some(sim.world.observe_articulated(brute)
@@ -9156,15 +9216,25 @@ mod tests {
     const CLINCH_SWEEP: i32 = 8_192;
     const CLINCH_PHASE_TICKS: u32 = 4;
 
-    /// The tick this drive first exhausts the ordinal, measured. First contact
-    /// lands at 78 and the cap at 89, on every seed the browser fixture warms
-    /// (`0`, `1`, `u32::MAX`) -- the articulated path draws no randomness, so
-    /// the seed reaches the floor plan and not the duel. Pinned rather than
-    /// bounded so that a solver change which merely *moves* the cap is a
-    /// failure here, with a number to re-measure, instead of silently making
-    /// the browser fixture cover less than it says.
+    /// The tick this drive first exhausts the ordinal, measured, on every seed
+    /// the browser fixture warms (`0`, `1`, `u32::MAX`) -- the articulated path
+    /// draws no randomness, so the seed reaches the floor plan and not the duel.
+    /// Pinned rather than bounded so that a solver change which merely *moves*
+    /// the cap is a failure here, with a number to re-measure, instead of
+    /// silently making the browser fixture cover less than it says.
+    ///
+    /// **Smart134 moved it from 89 to 85 by doubling the arm bearing rates**,
+    /// and the interesting half is that the gap closed rather than the number
+    /// falling. First contact used to land at 78 and the cap eleven ticks later
+    /// at 89; both now land on 85 together. A faster arm brings all 32 pairs
+    /// onto the same tick instead of letting them stagger in, so the ordinal is
+    /// exhausted by the first contact rather than by an accumulating clinch --
+    /// which is still exactly what this fixture exists to reach, by a shorter
+    /// road. The later *first* contact is not a slower fight: the drive's phase
+    /// clock is unchanged, and an arm that finishes its reach sooner also
+    /// withdraws sooner.
     #[cfg(not(feature = "cartesian-recoil"))]
-    const CLINCH_CAP_TICK: u32 = 89;
+    const CLINCH_CAP_TICK: u32 = 85;
 
     fn clinch_payload(row: usize, tick: u32) -> [u8; 55] {
         let offset = match (tick / CLINCH_PHASE_TICKS) % 4 {
@@ -10195,12 +10265,22 @@ mod tests {
 
     }
 
-    #[cfg(not(feature = "cartesian-recoil"))]
     #[test]
     fn contact_group_ordinals_restart_and_advance_within_each_tick() {
         // Ordinals restart at zero every tick and count sequential groups
         // within it, which is the whole reason the column exists: two groups
         // solved at the same raw time of impact are still ordered.
+        //
+        // **Both builds since 2026-08-15, and the merge is the finding.** This
+        // used to be the compatibility half of a pair, beside a feature-only
+        // `exact_attack_single_group_ordinals_restart_at_zero` that asserted
+        // every exact ordinal was zero -- true only because the exact drive had
+        // never produced two groups in one tick. Smart134's doubled arm bearing
+        // rates gave it one, on publication 86, ordinals `[0, 1]`; the weaker
+        // assertion went red and the stronger one below passes unchanged. So
+        // the two are one test rather than a test and a re-recorded version of
+        // it, and `saw_several` is now earned on both paths instead of being
+        // the reason one of them was excused from it.
         let publications = clinch_event_rows(128);
         let mut saw_several = false;
         for rows in &publications {
@@ -10217,18 +10297,6 @@ mod tests {
             saw_several |= ordinals.last() != ordinals.first();
         }
         assert!(saw_several, "no publication carried more than one contact group");
-    }
-
-    #[cfg(feature = "cartesian-recoil")]
-    #[test]
-    fn exact_attack_single_group_ordinals_restart_at_zero() {
-        let publications = clinch_event_rows(128);
-        let nonempty: Vec<_> = publications.iter().filter(|rows| !rows.is_empty()).collect();
-        assert!(!nonempty.is_empty(), "the ordinary exact-law attack produced no group");
-        for rows in nonempty {
-            assert!(rows.iter().all(|row| row[COMBAT_EVENT_GROUP_ORDINAL] == 0),
-                "a single-group exact tick did not restart at ordinal zero");
-        }
     }
 
     fn assert_documented_event_order(require_multi_group: bool) {
@@ -10751,6 +10819,15 @@ mod tests {
     /// a geometry change that leaves 64 bodies in exactly the same places. The
     /// capacity stays 2,048 for the reason above: 556 is still the busiest this
     /// corpus has been.
+    ///
+    /// **Smart134 moved it down again, 301 to 249, doubling the arm bearing
+    /// rates.** Down is the direction the 354 move already explained and for the
+    /// same mechanism: a faster arm proposes a larger impulse, pairs that are
+    /// pushed apart harder stop re-resolving the same key on consecutive ticks,
+    /// and 64 bodies in a permanent clinch publish fewer rows rather than more.
+    /// Worth stating because the intuition runs the other way -- "faster arms,
+    /// busier fight, more rows" is what a reader predicts here, and this corpus
+    /// has now contradicted it twice. The capacity is still 2,048 against 556.
     /// Provenance is the whole of its meaning: **this fixture, this seed, this
     /// batch.** Seed `0x4152504741424931`, an open 24x16 room, 64 bodies as 32
     /// Fighter/Brute pairs, one command each at tick zero and none after, one
@@ -10758,7 +10835,7 @@ mod tests {
     /// and eight `step(1)`s measure the busiest tick rather than what one host
     /// call accumulates -- which is the thing being sized, because the feed is
     /// cleared per call.
-    const HIGH_WATER_EVENT_ROWS: u32 = 301;
+    const HIGH_WATER_EVENT_ROWS: u32 = 249;
 
     /// And the pose half, which sits exactly on its capacity by construction:
     /// 64 bodies is `MAX_ARTICULATED_ENTITIES` and `MAX_POSES` is the same
@@ -11050,7 +11127,7 @@ mod tests {
     /// ten region rows on every tick. Nothing in `crates/sim` changed and no
     /// fight golden moved with it, which is the signature of a layout move and
     /// the opposite of the three before it.
-    const ARTICULATED_STREAM_DIGEST: u64 = 0xdbbd_86fe_dd61_c4c7;
+    const ARTICULATED_STREAM_DIGEST: u64 = 0x2fac_2969_32b9_7439;
 
     /// The north-wall stored-command lifecycle, paired with the feature-only
     /// wasm exports and registered in `docs/reference/hashes.md`.

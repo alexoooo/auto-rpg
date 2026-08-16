@@ -8,7 +8,7 @@ use fx::{swept_segment_segment, Angle, Fx, Vec2, Vec3};
 #[cfg(feature = "cartesian-recoil")]
 use fx::Hash64;
 use policy::{neutral_articulated_command, robust_strike_schedule_command};
-use sim::{AnatomyChoice, ArmTarget, ArticulatedCommandV1, BodyPart, CombatHeight,
+use sim::{AnatomyChoice, ArmCalibration, ArmTarget, ArticulatedCommandV1, BodyPart, CombatHeight,
           ContactKind, DuelConfigV1, EntityId, EquipmentGeometry, Faction, Intent, Scenario,
           LimbSlot, RegionVolume, SegmentPose, SubmitArticulatedOutcome, World, BODY_SLOT};
 #[cfg(feature = "cartesian-recoil")]
@@ -34,6 +34,44 @@ use sim::{ExactPointXAdmissionDiagnostic, ExactPointXEventAtomDiagnostic,
 use sim::ExactWideToiDiagnostic;
 #[cfg(feature = "cartesian-recoil")]
 use sim::ExactCompatibilitySweepDiagnostic;
+
+/// The arm slew ceiling and acceleration the frozen fixtures below were
+/// captured at, supplied through [`World::step_with_arm_calibration`] and
+/// [`sim::Replay::play_until_with_arm_calibration`].
+///
+/// Frozen here rather than read from `sim` for the reason
+/// `exact_diagnostics::CAPTURED_ARM_RATES` gives at length about its own copy
+/// of this pair: the slew rate is in none of these fixtures' claims, it only
+/// decides *which tick of a swing happens to touch*, and every one of them is
+/// a transcript of one named tick sequence. Doubling the pair on 2026-08-15
+/// did not disprove a word of them; it aimed them at a different tick. The
+/// same blade arrived hard enough to dissipate 985 raw where the frozen
+/// mechanics row dissipates 278, and the ordinal-31 bracket lost the tick its
+/// entire provenance argument is about.
+///
+/// **`source_41_policy_command_receipt` is pinned with them, and that is the
+/// point rather than a side effect.** Its whole claim is that Lab's
+/// policy-owned source-41 schedule and `sim::lifted_coulomb_command_receipt`
+/// build the *same* schedule byte for byte. `sim` pins its half to this exact
+/// pair and its comment names this seam as the one Lab must pin to match;
+/// leaving this half on production would have left that comparison green while
+/// it compared two different schedules, which is the shape of guard this
+/// repository has shipped three times.
+///
+/// **What is pinned is a frozen transcript, not a grammar and not a corpus.**
+/// The source-41 measurement and the ordinal-31 provenance runs freeze ticks,
+/// counts and receipts, so they pin; the Smart39 and Smart40 observed-opponent
+/// corpora freeze nothing outside themselves and go on measuring whatever
+/// ships, which is what a calibration table is for. `measure_case_schedule_with`
+/// reads the line off its declared bearing source so a later call site cannot
+/// join the frozen half by forgetting an argument.
+///
+/// What still moves these fixtures is a change to the contact solver, the
+/// command grammar or the fixed-point arithmetic under them, which is what
+/// they exist to catch.
+pub(crate) const CAPTURED_ARM_CALIBRATION: ArmCalibration = ArmCalibration {
+    bearing_max_speed_raw: 1_092, bearing_accel_raw: 182,
+};
 
 #[cfg(feature = "cartesian-recoil")]
 pub(crate) fn source_41_policy_command_receipt(strike_delta: i32, reach_delta: i32,
@@ -69,7 +107,7 @@ pub(crate) fn source_41_policy_command_receipt(strike_delta: i32, reach_delta: i
                 _ => panic!("source-41 policy command was not stored"),
             }
         }
-        world.step();
+        world.step_with_arm_calibration(CAPTURED_ARM_CALIBRATION);
         if world.contact_resolutions().iter().any(|row|
             attributed_sword_body(row, attacker, defender, limb)) { break; }
     }
@@ -151,6 +189,17 @@ impl StrongCase {
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) struct StrikeMeasurement {
     pub contact_tick: Option<u32>, pub previous_weapon: SegmentPose, pub requested_weapon: SegmentPose,
+    /// The sweep the tick's contact phase was asked about, straight from
+    /// [`World::swept_weapon`], as `(previous, requested)`.
+    ///
+    /// **`requested_weapon` above is not this, and the difference is the whole
+    /// reason this field exists.** That one is read back after `World::step`,
+    /// so on a tick that touched something it is the *contact-solved* blade --
+    /// the commit writes the solved endpoint onto the arm -- and a swept test
+    /// built from it sweeps a shorter arc than the blade asked for. Both are
+    /// kept because they answer different questions: the observed pair is what
+    /// the arm did, and this pair is what the solver judged.
+    pub swept_weapon: Option<(SegmentPose, SegmentPose)>,
     pub tip_delta: Vec3, pub hilt_delta: Vec3, pub contact_point: Option<Vec3>,
     pub velocity_a: Vec3, pub velocity_b: Vec3, pub region: Option<BodyPart>,
     pub energy_before_raw: u64, pub energy_after_raw: u64, pub energy_dissipated_raw: u64,
@@ -169,6 +218,15 @@ pub(crate) struct StrikeMeasurement {
     pub cap_hits: u32,
 }
 
+/// The contacted region's own swept volume for the tick, from
+/// [`World::swept_regions`].
+///
+/// Both halves have been wrong here in turn, and the corrections are worth
+/// keeping. It read `ObservedOpponent::regions` first, which is built at the
+/// *measured* origin and so sat 80,000-96,000 raw from the body. It then read
+/// the true [`sim::ArticulatedPose`] at both ends of the tick, which fixed the
+/// noise and left the sweep rebuilt rather than read. This reads the row the
+/// solver swept, which is the only version that cannot disagree with it.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) struct CrossingOracle {
     pub previous: RegionVolume,
@@ -178,7 +236,7 @@ pub(crate) struct CrossingOracle {
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) struct MeaningfulStrikeValidity {
     pub uniquely_attributed_contact: bool,
-    pub observed_crossing: bool,
+    pub swept_crossing: bool,
     pub dissipated_energy: bool,
     pub damaging_channel: bool,
     pub matching_integrity_loss: bool,
@@ -188,7 +246,7 @@ pub(crate) struct MeaningfulStrikeValidity {
 
 impl MeaningfulStrikeValidity {
     pub fn passes(self) -> bool {
-        self.uniquely_attributed_contact && self.observed_crossing
+        self.uniquely_attributed_contact && self.swept_crossing
             && self.dissipated_energy && self.damaging_channel
             && self.matching_integrity_loss && self.held_control_inert && self.legal_runs
     }
@@ -204,7 +262,7 @@ pub(crate) fn meaningful_strike_validity(
     MeaningfulStrikeValidity {
         uniquely_attributed_contact: strong.contact_tick.is_some()
             && strong.weapon_body_facts == 1 && strong.competing_facts == 0,
-        observed_crossing: observed_crossing(strong),
+        swept_crossing: swept_crossing(strong),
         dissipated_energy: strong.energy_dissipated_raw > 0
             && strong.energy_after_raw < strong.energy_before_raw,
         damaging_channel: strong.cut_raw.saturating_add(strong.thrust_raw) > 0,
@@ -223,18 +281,39 @@ pub(crate) fn meaningful_strike_validity(
     }
 }
 
-fn observed_crossing(row: StrikeMeasurement) -> bool {
-    row.crossing_oracle.map(|oracle| oracle.previous.present && oracle.requested.present
+/// Did the blade cross the region the solver attributed the blow to?
+///
+/// **Both sides are the sweep the contact phase was handed**, and neither may
+/// be rebuilt from a post-step reading. `commit_contact_row` writes the solved
+/// endpoint back onto the arm, so the weapon an observation publishes after
+/// `World::step` is the blade *after* the clamp: on the fixture this file
+/// pins, its requested tip sits 1,807 raw short of the one the solver judged,
+/// which is 9% of the leg's 19,660-raw radius and enough to turn a sweep that
+/// penetrates by 984 raw into one that misses by 822. That is a measurement of
+/// the reader, not of the physics, and it is the reason this asks
+/// [`World::swept_weapon`] instead.
+///
+/// No sweep, no answer: a row the sim published nothing for is not evidence of
+/// a miss, and saying `false` here is the conservative reading -- the callers
+/// all treat `true` as the thing that must be earned.
+fn swept_crossing(row: StrikeMeasurement) -> bool {
+    let (Some((previous, requested)), Some(oracle)) = (row.swept_weapon, row.crossing_oracle)
+        else { return false };
+    oracle.previous.present && oracle.requested.present
         && swept_segment_segment(
-        row.previous_weapon.hilt, row.previous_weapon.tip,
-        row.requested_weapon.hilt, row.requested_weapon.tip,
-        row.previous_weapon.radius.max(row.requested_weapon.radius),
+        previous.hilt, previous.tip,
+        requested.hilt, requested.tip,
+        previous.radius.max(requested.radius),
         oracle.previous.lower, oracle.previous.upper,
         oracle.requested.lower, oracle.requested.upper,
         oracle.previous.radius.max(oracle.requested.radius),
-    ).is_some()).unwrap_or(false)
+    ).is_some()
 }
 
+/// A body region rebuilt from a true pose, for the one reader that has no tick
+/// to ask: the mirror trace compares two worlds a step apart and needs the
+/// region at a pose it names rather than the one a contact swept.
+#[cfg(feature = "cartesian-recoil")]
 fn ground_truth_region(pose: sim::ArticulatedPose, anatomy: &sim::BodyAnatomySpec,
                        part: BodyPart) -> RegionVolume {
     let hands = pose.arms.map(|arm| arm.hand - pose.body);
@@ -374,8 +453,14 @@ fn measure_case_schedule_with(case: StrongCase, strike_effort: Fx, chamber_ticks
     strike_ticks: u32, strike_reach: Fx, grammar: MirrorGrammar,
     bearing_source: ScheduleBearingSource) -> StrikeMeasurement {
     let scenario = scenario_for_ticks_with(case, chamber_ticks + strike_ticks, grammar);
-    let defender_anatomy = scenario.combat_specs.as_ref().expect("configured combat specs")
-        .anatomy(2).expect("configured defender anatomy").clone();
+    // Source-41 is the pinned grammar and the observed-opponent corpora are
+    // not; `CAPTURED_ARM_CALIBRATION` says why. Read off the declared source
+    // rather than passed in, so that a later call site cannot reach the frozen
+    // corpus at a rate `crates/sim` is not pinned to by forgetting an argument.
+    let calibration = match bearing_source {
+        ScheduleBearingSource::ObservedOpponent => sim::PRODUCTION_ARM_CALIBRATION,
+        ScheduleBearingSource::DeclaredSpawnOffset => CAPTURED_ARM_CALIBRATION,
+    };
     let mut world = World::new(&scenario, case.seed);
     let attacker = world.alive_ids(Faction::Heroes)[0];
     let defender = world.alive_ids(Faction::Monsters)[0];
@@ -415,7 +500,7 @@ fn measure_case_schedule_with(case: StrongCase, strike_effort: Fx, chamber_ticks
                 SubmitArticulatedOutcome::NotStored(_) => refusals += 1,
             }
         }
-        let _ = world.step();
+        let _ = world.step_with_arm_calibration(calibration);
     }
 
     let before = world.observe_articulated(defender);
@@ -423,6 +508,7 @@ fn measure_case_schedule_with(case: StrongCase, strike_effort: Fx, chamber_ticks
         .expect("configured sword");
     let mut answer = StrikeMeasurement {
         contact_tick: None, previous_weapon: previous, requested_weapon: previous,
+        swept_weapon: None,
         tip_delta: Vec3::ZERO, hilt_delta: Vec3::ZERO, contact_point: None,
         velocity_a: Vec3::ZERO, velocity_b: Vec3::ZERO, region: None,
         energy_before_raw: 0, energy_after_raw: 0, energy_dissipated_raw: 0,
@@ -443,7 +529,6 @@ fn measure_case_schedule_with(case: StrongCase, strike_effort: Fx, chamber_ticks
 
     'strike: for strike_tick in 0..strike_ticks {
         let attacker_before = world.observe_articulated(attacker);
-        let defender_before = world.articulated_pose(defender).expect("live defender pose");
         for id in world.pending_decisions().to_vec() {
             let obs = world.observe_articulated(id);
             let submitted = if id == attacker {
@@ -459,8 +544,7 @@ fn measure_case_schedule_with(case: StrongCase, strike_effort: Fx, chamber_ticks
                 SubmitArticulatedOutcome::NotStored(_) => refusals += 1,
             }
         }
-        let _ = world.step();
-        let defender_requested = world.articulated_pose(defender).expect("live defender pose");
+        let _ = world.step_with_arm_calibration(calibration);
         for resolution in world.contact_resolutions() {
             max_energy_excess_raw = max_energy_excess_raw.max(
                 resolution.energy.after_raw.saturating_sub(resolution.energy.before_raw));
@@ -469,6 +553,7 @@ fn measure_case_schedule_with(case: StrongCase, strike_effort: Fx, chamber_ticks
             .expect("attached sword");
         answer.previous_weapon = previous;
         answer.requested_weapon = requested;
+        answer.swept_weapon = world.swept_weapon(attacker, limb);
         answer.tip_delta = requested.tip - previous.tip;
         answer.hilt_delta = requested.hilt - previous.hilt;
         if let Some(row) = world.contact_resolutions().iter().find(|row| {
@@ -484,10 +569,11 @@ fn measure_case_schedule_with(case: StrongCase, strike_effort: Fx, chamber_ticks
             answer.group_alpha_raw = Some(row.group_alpha_raw);
             answer.velocity_a = row.fact.velocity_a; answer.velocity_b = row.fact.velocity_b;
             answer.region = BodyPart::ALL.get(row.fact.region as usize).copied();
-            answer.crossing_oracle = answer.region.map(|part| CrossingOracle {
-                previous: ground_truth_region(defender_before, &defender_anatomy, part),
-                requested: ground_truth_region(defender_requested, &defender_anatomy, part),
-            });
+            answer.crossing_oracle = answer.region.zip(world.swept_regions(defender))
+                .map(|(part, regions)| {
+                    let (previous, requested) = regions[part as usize];
+                    CrossingOracle { previous, requested }
+                });
             answer.energy_before_raw = row.energy.before_raw;
             answer.energy_after_raw = row.energy.after_raw;
             answer.energy_dissipated_raw = row.energy.dissipated_raw;
@@ -517,7 +603,7 @@ fn measure_case_schedule_with(case: StrongCase, strike_effort: Fx, chamber_ticks
 pub(crate) fn interior_contact(row: StrikeMeasurement) -> bool {
     let reach = row.contact_reach_raw.unwrap_or(i32::MIN);
     row.contact_tick.is_some() && row.weapon_body_facts == 1 && row.competing_facts == 0
-        && observed_crossing(row)
+        && swept_crossing(row)
         && reach >= Fx::from_ratio(1, 4).raw() + INTERIOR_REACH_MARGIN_RAW
         && reach <= Fx::ONE.raw() - INTERIOR_REACH_MARGIN_RAW
         && row.contact_arm_velocity != Vec3::ZERO
@@ -811,7 +897,8 @@ fn run_provenance_arm(arm: ProvenanceArm, effort: Fx, mutation: ProvenanceMutati
             return Err(format!("replay submission receipt missing or reordered at tick {schedule_tick}"));
         }
         let tick_before = worlds[0].tick();
-        let _ = worlds[0].step(); let _ = worlds[1].step();
+        let _ = worlds[0].step_with_arm_calibration(CAPTURED_ARM_CALIBRATION);
+        let _ = worlds[1].step_with_arm_calibration(CAPTURED_ARM_CALIBRATION);
         let tick_after = worlds[0].tick();
         let live = provenance_snapshot(&worlds[0], attacker, defender);
         let mut rerun = provenance_snapshot(&worlds[1], attacker, defender);
@@ -826,7 +913,8 @@ fn run_provenance_arm(arm: ProvenanceArm, effort: Fx, mutation: ProvenanceMutati
             return Err(format!("live and rerun snapshots diverged at tick {tick_after}"));
         }
         replay.finish(tick_after);
-        let played_world = replay.play_until(tick_after);
+        let played_world = replay.play_until_with_arm_calibration(
+            tick_after, CAPTURED_ARM_CALIBRATION);
         let played = provenance_snapshot(&played_world, attacker, defender);
         if !live.equals(&played) {
             return Err(format!("live and replay snapshots diverged at tick {tick_after}"));
@@ -864,7 +952,8 @@ fn run_provenance_arm(arm: ProvenanceArm, effort: Fx, mutation: ProvenanceMutati
         return Err("tick-local group mutation found no group".into());
     }
     replay.finish(worlds[0].tick());
-    let final_played = replay.play();
+    let final_played = replay.play_until_with_arm_calibration(
+        worlds[0].tick(), CAPTURED_ARM_CALIBRATION);
     if !provenance_snapshot(&worlds[0], attacker, defender)
         .equals(&provenance_snapshot(&final_played, attacker, defender))
     {
@@ -1664,7 +1753,8 @@ fn run_tick46_arm(arm: ProvenanceArm, effort: Fx, mutation: ScanMutation)
                 }
             }
         }
-        worlds[0].step(); worlds[1].step();
+        worlds[0].step_with_arm_calibration(CAPTURED_ARM_CALIBRATION);
+        worlds[1].step_with_arm_calibration(CAPTURED_ARM_CALIBRATION);
         if worlds[0].state_digest().compare(worlds[1].state_digest()) != Ok(true) {
             return Err(format!("tick 46 live/rerun state diverged at {}", worlds[0].tick()));
         }
@@ -1713,7 +1803,7 @@ fn run_tick46_arm(arm: ProvenanceArm, effort: Fx, mutation: ScanMutation)
     }).collect();
     let replay_records = replay_records.map_err(str::to_string)?;
     replay.finish(HORIZON);
-    let played = replay.play_until(HORIZON);
+    let played = replay.play_until_with_arm_calibration(HORIZON, CAPTURED_ARM_CALIBRATION);
     let live = provenance_snapshot(&worlds[0], attacker, defender);
     let rerun = provenance_snapshot(&worlds[1], attacker, defender);
     let played = provenance_snapshot(&played, attacker, defender);
@@ -2432,7 +2522,8 @@ fn run_tick46_pair_aabb_arm(arm: ProvenanceArm, effort: Fx, mutation: PairAabbMu
                 }
             }
         }
-        worlds[0].step(); worlds[1].step();
+        worlds[0].step_with_arm_calibration(CAPTURED_ARM_CALIBRATION);
+        worlds[1].step_with_arm_calibration(CAPTURED_ARM_CALIBRATION);
         if worlds[0].state_digest().compare(worlds[1].state_digest()) != Ok(true) {
             return Err(format!("smart132 live/rerun state diverged at {}", worlds[0].tick()));
         }
@@ -2482,7 +2573,7 @@ fn run_tick46_pair_aabb_arm(arm: ProvenanceArm, effort: Fx, mutation: PairAabbMu
     }).collect();
     let actual_replay = actual_replay.map_err(str::to_string)?;
     replay.finish(HORIZON);
-    let played = replay.play_until(HORIZON);
+    let played = replay.play_until_with_arm_calibration(HORIZON, CAPTURED_ARM_CALIBRATION);
     let live = provenance_snapshot(&worlds[0], attacker, defender);
     let rerun = provenance_snapshot(&worlds[1], attacker, defender);
     let played = provenance_snapshot(&played, attacker, defender);
@@ -3680,7 +3771,7 @@ fn print_measurement(name: &str, row: StrikeMeasurement) {
     println!("contact_reach_raw={} contact_arm_velocity_raw={}",
         row.contact_reach_raw.map(|raw| raw.to_string()).unwrap_or_else(|| "none".to_string()),
         xyz(row.contact_arm_velocity));
-    println!("geometric_crossing={}", observed_crossing(row));
+    println!("geometric_crossing={}", swept_crossing(row));
     println!("refusals={} solver_rejections={} cap_hits={} max_energy_excess_raw={}",
         row.refusals, row.solver_rejections, row.cap_hits, row.max_energy_excess_raw);
 }
@@ -3742,7 +3833,7 @@ fn failure_mask(row: StrikeMeasurement) -> u16 {
     let mut mask = 0;
     if row.contact_tick.is_none() { mask |= FAILURE_MISSING_CONTACT; }
     if row.weapon_body_facts != 1 || row.competing_facts != 0 { mask |= FAILURE_ATTRIBUTION; }
-    if !observed_crossing(row) { mask |= FAILURE_CROSSING; }
+    if !swept_crossing(row) { mask |= FAILURE_CROSSING; }
     if reach < Fx::from_ratio(1, 4).raw() + INTERIOR_REACH_MARGIN_RAW
         || reach > Fx::ONE.raw() - INTERIOR_REACH_MARGIN_RAW { mask |= FAILURE_REACH; }
     if row.contact_arm_velocity == Vec3::ZERO || row.hilt_delta == Vec3::ZERO
@@ -4147,8 +4238,14 @@ fn crossing_rows(previous_weapon: SegmentPose, requested_weapon: SegmentPose,
     rows.extend(point_rows("crossing.requested.upper", requested_region.upper, mapped_mirror));
     rows.push(trace_field("crossing.previous.radius", previous_region.radius.raw()));
     rows.push(trace_field("crossing.requested.radius", requested_region.radius.raw()));
-    let crossed = observed_crossing(StrikeMeasurement {
+    // The pair this trace was handed, named twice: `swept_crossing` reads the
+    // swept field and this row has no tick behind it to ask for one. The two
+    // stay the same value here on purpose -- the transcript compares a plain
+    // world against its mirror, so what it needs is the same question asked of
+    // both, not the solver's own geometry.
+    let crossed = swept_crossing(StrikeMeasurement {
         contact_tick: None, previous_weapon, requested_weapon,
+        swept_weapon: Some((previous_weapon, requested_weapon)),
         tip_delta: Vec3::ZERO, hilt_delta: Vec3::ZERO, contact_point: None,
         velocity_a: Vec3::ZERO, velocity_b: Vec3::ZERO, region: None,
         energy_before_raw: 0, energy_after_raw: 0, energy_dissipated_raw: 0,
@@ -4241,7 +4338,11 @@ fn mirror_trace_1536_inner() -> String {
         for at in 0..2 {
             let _ = worlds[at].submit_articulated_v1(ids[at].0, commands[at].0);
             let _ = worlds[at].submit_articulated_v1(ids[at].1, commands[at].1);
-            let _ = worlds[at].step();
+            // Source-41 grammar, so source-41's pinned pair; see
+            // `CAPTURED_ARM_CALIBRATION`. A transcript that named a different
+            // arm rate from the corpus it explains would be evidence about a
+            // fight the corpus never ran.
+            let _ = worlds[at].step_with_arm_calibration(CAPTURED_ARM_CALIBRATION);
         }
         if let Some(diff) = group_boundary_difference(
             worlds[0].exact_contact_group_diagnostics(),
@@ -5040,7 +5141,7 @@ mod tests {
                                 row.contact_reach_raw, row.contact_arm_velocity.x.raw(),
                                 row.contact_arm_velocity.y.raw(), row.contact_arm_velocity.z.raw(),
                                 row.hilt_delta.length().raw(), row.tip_delta.length().raw(),
-                                row.weapon_body_facts, row.competing_facts, observed_crossing(row),
+                                row.weapon_body_facts, row.competing_facts, swept_crossing(row),
                                 row.refusals == 0 && row.solver_rejections == 0
                                     && row.max_energy_excess_raw == 0);
                         }
@@ -5107,9 +5208,52 @@ mod tests {
                 "the public-observation swing itself was weakened");
         if strong.contact_tick.is_some() {
             assert_eq!((strong.weapon_body_facts, strong.competing_facts), (1, 0));
-            assert!(observed_crossing(strong));
+            assert!(swept_crossing(strong));
         }
         assert_eq!((control.contact_tick, control.energy_before_raw), (None, 0));
+    }
+
+    /// The oracle must read the blade the solver judged, and this fixture is
+    /// one where the two answer differently.
+    ///
+    /// That is the whole of the 2026-08-15 repair. `commit_contact_row` writes
+    /// the contact-solved endpoint back onto the arm, so the weapon an
+    /// observation publishes after `World::step` is the blade after the clamp:
+    /// here its requested tip is 1,807 raw short of the one the sweep was built
+    /// from, against a leg region of radius 19,660. That is 9% of the radius and
+    /// it is the difference between a sweep that penetrates by 984 raw and one
+    /// that misses by 822 -- which is exactly how
+    /// `the_strong_sword_reaches_the_target_at_tip_speed` came to fail on a
+    /// blow the solver had resolved as a hit.
+    ///
+    /// **The substitution below is default-build only, and the measurement
+    /// says why rather than the cfg claiming it.** Under `cartesian-recoil`
+    /// the same tick of the same fixture clamps by 693 raw instead of 1,807 --
+    /// that law hands the arm a hand it has already reconciled, so there is
+    /// less left for the commit to take back -- and 693 raw does not pull this
+    /// sweep out of a 19,660-raw leg. So the two readings agree there and the
+    /// fixture cannot separate them. Everything that does not depend on the
+    /// separation is asserted in both builds; the one line that does is gated,
+    /// rather than widened into a bound both builds satisfy by accident.
+    #[test]
+    fn the_crossing_oracle_reads_the_swept_blade_and_not_the_committed_one() {
+        let row = measure(Fx::ONE);
+        let (_, swept) = row.swept_weapon.expect("the measured tick published its sweep");
+        assert!(row.contact_tick.is_some() && swept_crossing(row));
+        let gap = (swept.tip - row.requested_weapon.tip).length().raw();
+        assert!(gap > 0, "the commit clamped nothing here, so there are not two blades to read");
+        #[cfg(not(feature = "cartesian-recoil"))]
+        {
+            let committed = StrikeMeasurement {
+                swept_weapon: Some((row.previous_weapon, row.requested_weapon)), ..row
+            };
+            assert!(!swept_crossing(committed),
+                    "the committed blade crossed too, so this fixture cannot tell the two apart");
+        }
+        let region_radius = row.crossing_oracle.expect("a contacted region").previous.radius.raw();
+        assert!(gap * 10 < region_radius,
+                "a {gap}-raw clamp against a {region_radius}-raw region is no longer the \
+                 near-miss this test was written about");
     }
 
     #[test]
@@ -5126,9 +5270,13 @@ mod tests {
         strong.region = Some(BodyPart::Legs);
         strong.weapon_body_facts = 1;
         strong.competing_facts = 0;
-        let point = strong.requested_weapon.tip;
+        // Built on the *swept* blade, because that is the pair the oracle reads.
+        // Hanging it off the observed one would leave a fixture that agrees with
+        // the oracle by luck and stops the day the clamp moves.
+        let swept = strong.swept_weapon.expect("the measured tick published its sweep").1;
+        let point = swept.tip;
         let region = RegionVolume {
-            lower: point, upper: point, radius: strong.requested_weapon.radius,
+            lower: point, upper: point, radius: swept.radius,
             present: true,
         };
         strong.observed_contact_region = Some(region);
@@ -5176,12 +5324,13 @@ mod tests {
 
     fn moving_crossing_fixture() -> StrikeMeasurement {
         let (mut row, _) = visibly_meaningful_fixture();
-        let hit = row.requested_weapon.tip;
+        let swept = row.swept_weapon.expect("the measured tick published its sweep").1;
+        let hit = swept.tip;
         let far = hit + Vec3::from_ints(0, 8, 0);
         let previous = RegionVolume { lower: far, upper: far,
-            radius: row.requested_weapon.radius, present: true };
+            radius: swept.radius, present: true };
         let requested = RegionVolume { lower: hit, upper: hit,
-            radius: row.requested_weapon.radius, present: true };
+            radius: swept.radius, present: true };
         row.crossing_oracle = Some(CrossingOracle { previous, requested });
         row
     }
@@ -5189,7 +5338,7 @@ mod tests {
     #[test]
     fn noise_free_crossing_uses_ground_truth_previous_and_requested_region_geometry() {
         let row = moving_crossing_fixture();
-        assert!(observed_crossing(row));
+        assert!(swept_crossing(row));
         assert_ne!(row.crossing_oracle.unwrap().previous,
                    row.crossing_oracle.unwrap().requested);
     }
@@ -5202,20 +5351,20 @@ mod tests {
             lower: Vec3::from_ints(100, 100, 100),
             upper: Vec3::from_ints(101, 101, 101), radius: Fx::ZERO, present: false,
         });
-        assert_eq!(observed_crossing(row), observed_crossing(noised));
+        assert_eq!(swept_crossing(row), swept_crossing(noised));
         assert_eq!(row.crossing_oracle, noised.crossing_oracle);
     }
 
     #[test]
     fn deleting_the_requested_region_motion_breaks_the_crossing_fixture() {
         let row = moving_crossing_fixture();
-        assert!(observed_crossing(row));
+        assert!(swept_crossing(row));
         let mut static_region = row;
         let previous = static_region.crossing_oracle.unwrap().previous;
         static_region.crossing_oracle = Some(CrossingOracle {
             previous, requested: previous,
         });
-        assert!(!observed_crossing(static_region));
+        assert!(!swept_crossing(static_region));
     }
 
     #[test]

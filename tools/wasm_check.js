@@ -948,7 +948,7 @@ const SEVERED_MASK_BITS = 5;
 // three before it.
 const ARTICULATED_STREAM_DIGEST = CARTESIAN_RECOIL
   ? 0xa6835666303601d2n
-  : 0xdbbd86fedd61c4c7n;
+  : 0x2fac296932b97439n;
 
 // The live pose rows, copied out. Words and not floats: every published column
 // is a `u32`, and the signed ones are two's-complement raw bits.
@@ -2065,10 +2065,22 @@ test("a configured duel runs inside the module and refuses by name", () => {
   assert.notEqual(fingerprint, 0n, "the installed configuration has no fingerprint");
 
   // One call for the whole fight, which is what a recorder does. The arena stops
-  // itself on the configuration's tick limit, so the overshoot has to be inert.
+  // itself -- on the configuration's tick limit, or earlier on a decision -- so
+  // the overshoot has to be inert either way.
+  //
+  // **The two builds stop for different reasons and that is the point.** This
+  // read `config.maxTicks` for both until Smart134 doubled the arm bearing
+  // rates, after which the exact build's fighters reach a body decision at 164
+  // and stop there. The old assertion could not tell "ran its limit" from
+  // "stopped", so it failed on a fight that ended *better*. Pinning the real
+  // stopping tick per build keeps both halves: the default still proves the
+  // limit clamps a 3,600-tick overshoot, and the exact build now proves a
+  // decision ends the arena before its limit. A `<= maxTicks` bound would have
+  // been satisfied by either and by an arena that stopped on tick one.
+  const STOPS_AT = CARTESIAN_RECOIL ? 164 : config.maxTicks;
   wasm.step(3_600);
-  assert.equal(u32(wasm.tick()), config.maxTicks, "the arena did not stop at its own limit");
-  assert.ok(u32(wasm.combat_event_len()) > 0, "three hundred ticks resolved no contact");
+  assert.equal(u32(wasm.tick()), STOPS_AT, "the arena did not stop where it should");
+  assert.ok(u32(wasm.combat_event_len()) > 0, "the whole fight resolved no contact");
   const fought = stateHash();
 
   // The same bytes twice is the same fight, and a different pairing is not.

@@ -725,6 +725,17 @@ mod tests {
         // than to wait for the game to be balanced.
         // `an_articulated_run_that_outlives_the_clock_is_scored_on_points`
         // covers the shipped fixture as it actually behaves today.
+        //
+        // **The last clause of that paragraph stopped being true on
+        // 2026-08-15 and is kept because it is the measurement it was.**
+        // Smart134's doubled arm bearing rates made the shipped anatomy
+        // lethal: `duel_in_sight` at seed 9 now ends on tick 511 with the
+        // Fighter winning in the default build, and on tick 125 with the
+        // Fighter *dead* under `cartesian-recoil`. The paper monster stays --
+        // shrinking the anatomy is still the way to make this test about the
+        // reaper rather than about how hard the game happens to hit this
+        // month, which is exactly what a fixture that ends on tick 511 for
+        // reasons of its own would stop being.
         let mut scenario = duel_in_sight();
         let table = scenario.combat_specs.as_mut().expect("the articulated fixture has specs");
         let brute = table.anatomies.iter_mut().find(|row| row.id == 2).expect("the brute anatomy");
@@ -753,13 +764,31 @@ mod tests {
         // is also the answer this bounded fixture gives today. The cap is
         // deliberately before the first natural body decision, so reaching it
         // proves this was the clock's answer rather than a coincident outcome.
+        //
+        // **90 and not 180, since 2026-08-15**, and the cap moved rather than
+        // the claim. Smart134's doubled arm bearing rates gave this fixture a
+        // natural body decision it did not have: under `cartesian-recoil` the
+        // Fighter now *dies* on tick 125, so a 180-tick clock stopped being a
+        // clock at all here and the two assertions below both failed -- which
+        // is exactly the failure the sentence above predicted and wanted. The
+        // fixture is unchanged; only the clock it outlives moved.
+        //
+        // The number is bounded from both sides by the assertions themselves,
+        // which is the point of choosing it with room rather than shaving it.
+        // From above by the earliest natural decision either build reaches:
+        // 125 under `cartesian-recoil` and 511 in the default build, where the
+        // Fighter wins instead. Past either one, `outcome` stops being
+        // `Decision` and this is no longer a test about the clock. From below
+        // by the health comparison: the two fractions have to have separated
+        // by the cap or the third assertion is deciding a tie, and they
+        // separate before tick 40 in both builds.
         let scenario = duel_in_sight();
         let config = RunConfig {
-            max_ticks: Some(180),
+            max_ticks: Some(90),
             ..RunConfig::default()
         };
         let result = run_articulated(&scenario, 9, Recorder::default(), &config);
-        assert_eq!(result.ticks, 180);
+        assert_eq!(result.ticks, 90);
         assert_eq!(result.outcome, Outcome::Decision(Faction::Heroes));
         assert!(result.hero_health > result.monster_health);
     }

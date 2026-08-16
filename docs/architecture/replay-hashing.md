@@ -114,7 +114,7 @@ not replace the final typed state-digest comparison.
   [`ReplayEnvelope`](../../crates/sim/src/codec.rs#L160)
 - Scenario fields and current fingerprint byte stream:
   [`Scenario::fingerprint`](../../crates/sim/src/scenario.rs#L452)
-- Live state hash byte stream: [`World::state_hash`](../../crates/sim/src/world.rs#L4438)
+- Live state hash byte stream: [`World::state_hash`](../../crates/sim/src/world.rs#L4517)
 - Hash primitive: [`crates/fx/src/hash.rs`](../../crates/fx/src/hash.rs)
 - Harness recording and final comparison tests:
   [`crates/policy/src/runner.rs`](../../crates/policy/src/runner.rs)

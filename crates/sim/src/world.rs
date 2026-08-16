@@ -30,7 +30,7 @@ use crate::combat::contact::{wide_evaluated_shape_quotient, WideEvaluatedContact
 use crate::combat::contact::wide_rebase_owner_tick;
 #[cfg(all(test, feature = "cartesian-recoil"))]
 use crate::combat::contact::{exact_contact_at_pose, scan_exact_candidates_into};
-use crate::combat::geometry;
+use crate::combat::geometry::{self, RegionVolume, SegmentPose};
 use crate::combat::resolution::{self, ContactTickScratch, ContactTrialProjector,
                                 GeneralizedCollider, GeneralizedKind, ResolutionError};
 #[cfg(feature = "cartesian-recoil")]
@@ -495,6 +495,20 @@ struct ContactRuntime {
     state: ContactSolverState,
     scratch: ContactTickScratch,
     colliders: Vec<ContactCollider>,
+    /// `colliders` as the builder left them, before the driver advanced any of
+    /// them.
+    ///
+    /// It exists because `colliders` is the driver's working set and not a
+    /// record of the question: `advance_to` walks the rows forward to each
+    /// group's mapped time in place, and `finish_all` lands them on the answer.
+    /// A reader who wants the sweep the solver was asked about therefore cannot
+    /// have it from `colliders` at any time after the solve -- previous and
+    /// requested have collapsed onto the same pose, and a limb severed mid-tick
+    /// reads `present: false` as though it had never been swept at all. That
+    /// copy is what [`World::swept_weapon`] and [`World::swept_regions`]
+    /// publish, and it is the only reason this vector exists: nothing in the
+    /// tick reads it.
+    swept: Vec<ContactCollider>,
     resolutions: Vec<ContactResolution>,
     entry: Vec<TickEntry>,
     /// One row per body in the trial closure, so an equipment row can read the
@@ -573,6 +587,7 @@ impl ContactRuntime {
         let bounds = contact_bounds(high_water)?;
         self.scratch.try_reserve(bounds.collider_bound, bounds.candidate_bound)?;
         try_reserve_exact(&mut self.colliders, bounds.collider_bound)?;
+        try_reserve_exact(&mut self.swept, bounds.collider_bound)?;
         try_reserve_exact(&mut self.resolutions, MAX_CONTACT_RESOLUTIONS_PER_TICK)?;
         try_reserve_exact(&mut self.entry, high_water)?;
         try_reserve_exact(&mut self.bodies, high_water)?;
@@ -1094,6 +1109,7 @@ impl Clone for ContactRuntime {
         cloned.reserve(self.high_water)
             .expect("an existing contact runtime's retained bounds remain valid");
         cloned.colliders.extend_from_slice(&self.colliders);
+        cloned.swept.extend_from_slice(&self.swept);
         cloned.resolutions.extend_from_slice(&self.resolutions);
         cloned.entry.extend_from_slice(&self.entry);
         cloned.bodies.extend_from_slice(&self.bodies);
@@ -1540,6 +1556,64 @@ impl World {
         self.contact.as_ref().map_or(&[], |contact| contact.resolutions.as_slice())
     }
 
+    /// The sweep this tick's contact phase was asked about, for one held
+    /// segment: `(previous, requested)`.
+    ///
+    /// This is the question, and [`World::contact_resolutions`] is the answer.
+    /// The distinction is worth a published accessor because the two are easy
+    /// to confuse and expensive to confuse: an observer reading the weapon pose
+    /// back after [`World::step`] gets the *contact-solved* blade, since
+    /// `commit_contact_row` writes the solved endpoint onto the arm, so a
+    /// swept test rebuilt from an observation sweeps a shorter arc than the
+    /// blade requested and answers "no crossing" about a tick the solver
+    /// resolved as a hit. Three lab oracles were wrong that way at once.
+    ///
+    /// A [`SegmentPose`] pair rather than the collider row, because the row is
+    /// the contact phase's business and the pose is already published: this
+    /// hands a reader the geometry and none of the solver's vocabulary.
+    ///
+    /// `None` when the entity was not articulated, held no segment in that hand,
+    /// or when no tick has run. It is matched against the snapshot's own
+    /// `EntityId` rather than resolved against the live columns on purpose: the
+    /// question is about a body as the tick found it, and a body killed by that
+    /// tick's own contact would otherwise stop being able to answer for the
+    /// blow that killed it.
+    pub fn swept_weapon(&self, id: EntityId, limb: LimbSlot) -> Option<(SegmentPose, SegmentPose)> {
+        let slot = limb as u8;
+        self.contact.as_ref()?.swept.iter().find_map(|row| {
+            if row.entity != id || row.slot != slot { return None }
+            let ContactShape::Segment { previous_hilt, previous_tip,
+                                        requested_hilt, requested_tip, radius } = row.shape
+                else { return None };
+            Some((SegmentPose { hilt: previous_hilt, tip: previous_tip, radius },
+                  SegmentPose { hilt: requested_hilt, tip: requested_tip, radius }))
+        })
+    }
+
+    /// The five region sweeps this tick's contact phase was asked about, each
+    /// as its `(previous, requested)` volume. The companion to
+    /// [`World::swept_weapon`], and it exists for the same reason: a region
+    /// rebuilt from a post-step pose is one endpoint of the sweep, not the
+    /// sweep, and a region rebuilt from an *observation* is not even that --
+    /// perception noise displaces it by more than a body's width.
+    ///
+    /// Indexed by [`BodyPart`], which is the same order the collider builder
+    /// filled and the same order [`crate::body_region_volumes`] returns.
+    pub fn swept_regions(&self, id: EntityId)
+        -> Option<[(RegionVolume, RegionVolume); BodyPart::COUNT]>
+    {
+        self.contact.as_ref()?.swept.iter().find_map(|row| {
+            if row.entity != id { return None }
+            let ContactShape::Body { parts, .. } = row.shape else { return None };
+            Some(parts.map(|part| (
+                RegionVolume { lower: part.previous_lower, upper: part.previous_upper,
+                               radius: part.radius, present: part.present },
+                RegionVolume { lower: part.requested_lower, upper: part.requested_upper,
+                               radius: part.radius, present: part.present },
+            )))
+        })
+    }
+
     /// How many ticks have exhausted the group cap. Hashed; zero in Legacy.
     pub fn contact_cap_hits(&self) -> u32 {
         self.contact.as_ref().map_or(0, |contact| contact.state.cap_hits)
@@ -1617,6 +1691,7 @@ impl World {
         let Some(contact) = self.contact.as_ref() else { return Vec::new() };
         let mut rows = contact.scratch.capacities();
         rows.push(contact.colliders.capacity());
+        rows.push(contact.swept.capacity());
         rows.push(contact.resolutions.capacity());
         rows.push(contact.entry.capacity());
         rows.push(contact.bodies.capacity());
@@ -2676,7 +2751,11 @@ impl World {
         )
     }
 
-    fn step_with_arm_rates(
+    // `pub(crate)` rather than private because a frozen fixture is not always
+    // in this file: `exact_diagnostics` and `replay`'s exact tests capture a
+    // configuration too, and each of them has to pin the arm rate it was
+    // measured at for the same reason `CAPTURED_ARM_RATES` gives below.
+    pub(crate) fn step_with_arm_rates(
         &mut self, bearing_max_speed_raw: i32, bearing_accel_raw: i32,
     ) -> &[Event] {
         #[cfg(test)]
@@ -5305,6 +5384,14 @@ impl World {
             contact.exact_trajectory_entry.extend_from_slice(&contact.exact_trajectories);
         }
         self.build_contact_colliders(&contact.entry, &mut contact.colliders, &wounds);
+        // Here and nowhere later. Every line below this one is entitled to move
+        // the rows -- the driver advances them to each mapped time and severance
+        // switches them off inside the tick -- so a snapshot taken after the
+        // solve would answer a different question from the one the solver was
+        // asked, and would answer it in the shape of the one it was.
+        let ContactRuntime { swept, colliders, .. } = &mut contact;
+        swept.clear();
+        swept.extend_from_slice(colliders);
         #[cfg(feature = "cartesian-recoil")]
         contact.scratch.begin_exact_diagnostics(self.tick());
         #[cfg(feature = "cartesian-recoil")]
@@ -7733,8 +7820,19 @@ mod tests {
                 world.step();
             }
         }
-        assert_eq!((sword_world.arms[0][1].fatigue.raw(), sword_world.arms[0][1].work_residue.raw()), (92, 76));
-        assert_eq!((club_world.arms[0][1].fatigue.raw(), club_world.arms[0][1].work_residue.raw()), (302, 138));
+        // Recorded under the shipped arm rates on purpose, unlike
+        // `directional_captured_strike`: what this test is about is the work
+        // the *production* actuator bills, so a rate pinned here would stop it
+        // measuring the thing it names. Doubling the bearing pair on
+        // 2026-08-15 moved both rows -- sword `(92, 76)` and club `(302, 138)`
+        // -- which is what the actuator contract's speed-driven work term says
+        // a higher ceiling should do over the same 120 ticks. The claim
+        // survives the move and gets wider, not narrower: the fatigue gap went
+        // from 210 to 262 raw. Both sides are pinned exactly so that a
+        // change which raised sword fatigue to meet the club's would be caught
+        // by the recordings even though the inequality below still held.
+        assert_eq!((sword_world.arms[0][1].fatigue.raw(), sword_world.arms[0][1].work_residue.raw()), (115, 67));
+        assert_eq!((club_world.arms[0][1].fatigue.raw(), club_world.arms[0][1].work_residue.raw()), (377, 119));
         assert!(club_world.arms[0][1].fatigue > sword_world.arms[0][1].fatigue);
     }
 
@@ -8326,7 +8424,7 @@ mod tests {
                              SubmitArticulatedOutcome::Stored { rejection: None, .. }));
             assert!(matches!(world.submit_articulated_v1(defender, held),
                              SubmitArticulatedOutcome::Stored { rejection: None, .. }));
-            world.step();
+            world.step_with_arm_rates(CAPTURED_ARM_RATES.0, CAPTURED_ARM_RATES.1);
         }
         let target = make(&world, follow).arms[limb];
         Smart60Entry { world, limb, target }
@@ -8460,8 +8558,7 @@ mod tests {
         forward.post_contact_active = false;
         forward.post_contact_com_velocity = Vec3::ZERO;
         actuator::integrate_arm_with_recoil(&mut forward, &anatomy, yaw, limb, fixture.target,
-            Some(item), args.0, args.1, actuator::ARM_BEARING_MAX_SPEED_RAW,
-            actuator::ARM_BEARING_ACCEL_RAW);
+            Some(item), args.0, args.1, CAPTURED_ARM_RATES.0, CAPTURED_ARM_RATES.1);
         let old_direction = Vec3::new(entry.bearing.cos(), entry.bearing.sin(), Fx::ZERO);
         let new_direction = Vec3::new(forward.bearing.cos(), forward.bearing.sin(), Fx::ZERO);
         let old_offset = old_direction * length;
@@ -8481,8 +8578,7 @@ mod tests {
         let com_max = (Fx::from_raw(linear_max) * anatomy.arm_length).raw().abs();
         let mut actual = entry;
         actuator::integrate_arm_with_recoil(&mut actual, &anatomy, yaw, limb, fixture.target,
-            Some(item), args.0, args.1, actuator::ARM_BEARING_MAX_SPEED_RAW,
-            actuator::ARM_BEARING_ACCEL_RAW);
+            Some(item), args.0, args.1, CAPTURED_ARM_RATES.0, CAPTURED_ARM_RATES.1);
         let mut stepped = fixture.world.clone();
         let mut command = stepped.neutral_articulated(i);
         command.intent = Intent::Attack(stepped.id_of(1));
@@ -8490,7 +8586,7 @@ mod tests {
         let _ = stepped.submit_articulated_v1(stepped.id_of(i), command);
         let held = stepped.neutral_articulated(1);
         let _ = stepped.submit_articulated_v1(stepped.id_of(1), held);
-        stepped.step();
+        stepped.step_with_arm_rates(CAPTURED_ARM_RATES.0, CAPTURED_ARM_RATES.1);
         let published_hand_y = stepped.articulated_pose(stepped.id_of(i)).unwrap().arms[limb].hand.y;
         Tick34Probe { entry, forward, actual, old_direction, new_direction, old_offset,
             new_offset, offset_floor, offset_exact, length, balance: item.balance,
@@ -9764,6 +9860,50 @@ mod tests {
                 "a severed region answered a sweep");
     }
 
+    /// [`World::swept_weapon`] and [`World::swept_regions`] publish the question
+    /// the contact phase was asked, and `colliders` after a solve is its answer.
+    ///
+    /// Both ways of confusing the two have already been written by somebody.
+    /// `advance_to` walks the driver's rows to each mapped time and `finish_all`
+    /// lands them, so previous and requested end the tick on one pose and a
+    /// sweep read off them has no extent left; and pass three of the wound
+    /// application switches a region off inside the tick that severed it, so
+    /// the same reader is told the blade swept a body that had no such region.
+    /// The fixture below produces both conditions at once, which is why it is
+    /// the one this test uses.
+    #[test]
+    fn the_published_sweep_is_the_question_and_not_the_solver_s_own_answer() {
+        let scenario = fragile_scenario(&[1]);
+        let mut world = World::new(&scenario, 1000);
+        brace_weapon(&mut world, 0);
+        resolve_advancing(&mut world, &[(1, -Fx::ONE)]);
+        let defender = EntityId::new(1, 0);
+        let region = world.contact_resolutions().iter()
+            .find(|row| row.fact.key.kind == ContactKind::WeaponBody && row.severed)
+            .expect("the advancing fixture severed no region").fact.region as usize;
+
+        let live = world.contact.as_ref().expect("an articulated contact runtime")
+            .colliders.iter().copied()
+            .find(|row| row.entity == defender && matches!(row.shape, ContactShape::Body { .. }))
+            .expect("the defender's live body row");
+        let ContactShape::Body { parts: solved, previous_origin, requested_origin } = live.shape
+            else { unreachable!() };
+        assert!(!solved[region].present,
+                "the fixture left the severed region switched on, so the check below is vacuous");
+        assert_eq!(previous_origin, requested_origin,
+                   "the fixture left the live rows unadvanced, so the check below is vacuous");
+
+        let published = world.swept_regions(defender).expect("the tick published its body sweep");
+        let (before, after) = published[region];
+        assert!(before.present && after.present,
+                "the accessor answered from the driver's rows rather than from the snapshot");
+        assert_ne!(before.lower, after.lower,
+                   "the published region sweep has no extent, so it is an advanced row");
+        // And the snapshot is this tick's, not a retained copy of an earlier
+        // one: its entry end is where the body started this tick.
+        assert_eq!(before.lower.z, after.lower.z, "a region swept vertically");
+    }
+
     /// Take one arm off a live articulated body, the way a group that emptied
     /// its integrity does, and run the tick that acts on it.
     ///
@@ -10753,6 +10893,15 @@ mod tests {
         // built. If it ever starts holding exactly, this fixture stops proving
         // anything and the drift argument in `project` wants re-measuring
         // rather than deleting.
+        //
+        // The exact word is a recording of where this clinch's arm ends up, and
+        // it is deliberately read at the shipped arm rates rather than pinned:
+        // the drift is the joint map's, but which pose it is sampled at is the
+        // actuator's, so a rate frozen here would answer about a pose the game
+        // no longer reaches. Doubling the bearing pair on 2026-08-15 moved it
+        // from `(0, -1, 0)` to `(0, -5, 0)`, which is the premise holding
+        // harder rather than failing: the round trip is still not exact, and by
+        // more than it was.
         let i = world.resolve(held.entity).expect("a live equipment row");
         let limb = held.slot as usize;
         let anatomy = world.combat_specs.as_ref().expect("articulated combat specs")
@@ -10766,7 +10915,7 @@ mod tests {
         let round_trip = actuator::hand_position(&anatomy, yaw, limb, bearing, height, reach);
         assert_eq!((round_trip.x.raw() - arm.hand.x.raw(),
                     round_trip.y.raw() - arm.hand.y.raw(),
-                    round_trip.z.raw() - arm.hand.z.raw()), (0, -1, 0),
+                    round_trip.z.raw() - arm.hand.z.raw()), (0, -5, 0),
                    "the frozen nonexact joint changed; this fixture no longer proves the drift");
 
         // No accumulator and no alpha: whatever comes back, the group proposed
@@ -10796,6 +10945,42 @@ mod tests {
                    "alpha zero changed the closure's energy");
     }
 
+    /// The arm slew ceiling and acceleration the captured strikes were taken at.
+    ///
+    /// Frozen here rather than read from `actuator`, and that is the whole
+    /// point of the pair existing. The tests below assert exact raw words about
+    /// *one* articulated configuration -- a normal of `(2_256, 65_497)`, a
+    /// closing quotient of `-6_345`, a time of impact of `55_702`. None of them
+    /// is about how fast an arm may slew; the slew rate only decides which tick
+    /// of the swing happens to touch, and therefore which configuration gets
+    /// frozen. Reading the production constants here made every one of those
+    /// words re-aim whenever somebody tuned the actuator, which is not a frozen
+    /// capture at all: doubling the pair on 2026-08-15 moved twelve of them at
+    /// once, and three of those read *each other's* captured words -- `64_858`
+    /// scales the proposal, which is where `5_626` came from, which is where
+    /// `(99, -64)` came from -- so re-recording would have meant re-deriving a
+    /// consistent chain by hand rather than reading an output back. One link in
+    /// that chain, `bounded_sliding_friction_rejects_the_actual_articulated_cone`,
+    /// asserts a *property* of the triple rather than its value, and a hand-fitted
+    /// replacement triple is exactly the shape of edit that leaves such a test
+    /// green while it stops proving anything.
+    ///
+    /// So the fixture pins the rates it was measured at. A future actuator
+    /// change moves nothing here, and every argument below stays about the
+    /// solver. What would still move these words is a change to the contact
+    /// solver, the joint map or the fixed-point arithmetic under them, which is
+    /// what they exist to catch.
+    ///
+    /// `smart_60_entry` and `smart_60_probe` *above* read it for the same
+    /// reason and were repaired the same day: their tick-33 entry and tick-34
+    /// recoil words -- `(-14_040, 14_040)`, `441_359` -- name one tick of one
+    /// swing, so the doubled pair did not disprove them, it aimed them at a
+    /// different tick. `crates/sim/src/exact_diagnostics.rs` carries the only
+    /// other copy of this pair -- for the two exact digests and `replay`'s
+    /// south-wall transcript, which are outside this `#[cfg(test)]` module and
+    /// so cannot read this one.
+    const CAPTURED_ARM_RATES: (i32, i32) = (1_092, 182);
+
     // These raw premises freeze the same captured strike after the shoulder and
     // hand Y product changed to one toward-zero quotient. The assertions below
     // still own the nonlinear, restitution and energy behavior; changing only
@@ -10823,15 +11008,17 @@ mod tests {
                                           reach: Fx::ONE, effort: Fx::ONE };
             command
         };
+        let (max_speed, accel) = CAPTURED_ARM_RATES;
         for _ in 0..48 {
             world.submit_articulated_v1(attacker, strike(&world, chamber));
-            world.submit_articulated_v1(defender, world.neutral_articulated(1)); world.step();
+            world.submit_articulated_v1(defender, world.neutral_articulated(1));
+            world.step_with_arm_rates(max_speed, accel);
         }
         let mut before = None;
         for _ in 0..48 {
             world.submit_articulated_v1(attacker, strike(&world, yaw));
             world.submit_articulated_v1(defender, world.neutral_articulated(1));
-            let saved = world.clone(); world.step();
+            let saved = world.clone(); world.step_with_arm_rates(max_speed, accel);
             if world.contact_resolutions().iter().any(|row| row.fact.key.kind == ContactKind::WeaponBody) {
                 before = Some(saved); break;
             }
@@ -10840,7 +11027,7 @@ mod tests {
         world.events.clear(); world.expire_unanswered_decisions(); world.retain_contact_entry();
         world.apply_articulated_movement(); world.record_contact_locomotion(); world.separate();
         world.drive_body_yaw(); world.apply_articulated_grips();
-        world.drive_articulated_arms(actuator::ARM_BEARING_MAX_SPEED_RAW, actuator::ARM_BEARING_ACCEL_RAW);
+        world.drive_articulated_arms(max_speed, accel);
         world.derive_articulated_geometry(); world.clamp_contact_entry();
         let contact = world.contact.take().unwrap();
         let mut colliders = Vec::new();
@@ -12258,8 +12445,13 @@ mod tests {
                     entry.linear_velocity.z.raw(), entry.post_contact_com_velocity.x.raw(),
                     entry.post_contact_com_velocity.y.raw(), entry.post_contact_com_velocity.z.raw()),
                    (49_097, -18_376, 29_491, 98, 1_882, 0, -240, -4_581, 0));
-        world.drive_articulated_arms(actuator::ARM_BEARING_MAX_SPEED_RAW,
-                                     actuator::ARM_BEARING_ACCEL_RAW);
+        // The capture's own rates, not the production pair: the tick pinned
+        // below is the one after the tick this fixture froze, and reading the
+        // live constants here would let an actuator tuning move a word that is
+        // supposed to be about recoil reconciliation. It is not a rate the arm
+        // is currently against -- the words hold at both -- which is exactly
+        // why the dependency was invisible and worth removing.
+        world.drive_articulated_arms(CAPTURED_ARM_RATES.0, CAPTURED_ARM_RATES.1);
         let next = world.arms[source][source_limb];
         assert_eq!((next.hand.x.raw(), next.hand.y.raw(), next.hand.z.raw(),
                     next.post_contact_com_velocity.x.raw(), next.post_contact_com_velocity.y.raw(),
@@ -12736,8 +12928,7 @@ mod tests {
                     committed.linear_velocity.z.raw(), committed.post_contact_com_velocity.x.raw(),
                     committed.post_contact_com_velocity.y.raw(), committed.post_contact_com_velocity.z.raw()),
                    (49_098, -18_377, 29_491, 99, 1_881, 0, 93, 1_757, 0));
-        world.drive_articulated_arms(actuator::ARM_BEARING_MAX_SPEED_RAW,
-                                     actuator::ARM_BEARING_ACCEL_RAW);
+        world.drive_articulated_arms(CAPTURED_ARM_RATES.0, CAPTURED_ARM_RATES.1);
         let next = world.arms[source][limb];
         assert_ne!((committed.hand, committed.post_contact_com_velocity),
                    (next.hand, next.post_contact_com_velocity));

@@ -14,6 +14,49 @@ use fx::{Angle, Fx, Hash64, Vec2, Vec3};
 
 const TICKS: u32 = 56;
 
+/// The arm slew ceiling and acceleration the exact fixtures were captured at.
+///
+/// It drives both digests below and `replay`'s south-wall live/rerun/replay
+/// transcript, a different scenario measured at the same pair, which is why
+/// that one can freeze a tick number -- 80 -- for its first exact refusal.
+///
+/// Frozen here rather than read from `combat::actuator`, for the reason
+/// `CAPTURED_ARM_RATES` in `crates/sim/src/world.rs` gives at length: the slew
+/// rate does not appear in either digest, it only decides *which tick of a
+/// swing happens to touch*, and all three of these fixtures are transcripts of
+/// one named tick sequence. Neither pin's registry row lists the actuator among
+/// its owners -- `EXACT_TRAJECTORY_STATE_DIGEST` is owned by the fixture, the
+/// stored-command grammar, exact owner/lifecycle state, the resolution grammar
+/// or this digest grammar, and `LIFTED_COULOMB_SOLVER_DIGEST` by the lifted
+/// law, bounds or score, the source-41 fixture, order or command grammar, or
+/// this grammar -- so an actuator move must reach neither.
+///
+/// Reading the production pair here did not merely re-aim them; it made both
+/// **inert**, which is worse, because an inert digest returns the `0` sentinel
+/// and a registry pin that has stopped computing looks exactly like a fixture
+/// that never ran. Doubling the pair on 2026-08-15 landed the north-wall strike
+/// seven ticks early -- the weapon/body witness went from ticks `[45, 46]` to
+/// `[38, 39]`, the remainder window opened at 38 instead of 45, and the two
+/// rational witnesses keyed to a tick each (the defender's tick-45 wall row and
+/// the attacker's tick-54 release row) were never seen -- so `digest_with`
+/// refused. The lifted neighbourhood stayed on its feet and lost its mechanics
+/// gate instead: the same blade arrived hard enough to dissipate 985 raw where
+/// the frozen row dissipates 278.
+///
+/// What still moves these digests is a change to the exact solver, the contact
+/// grammar, the stored-command layout or the fixed-point arithmetic under them,
+/// which is what they exist to catch.
+///
+/// **`raw_lifted_command_receipt` is pinned with them, and that is deliberate
+/// rather than incidental.** It is the exported half of a cross-check against
+/// Lab's policy-owned source-41 schedule, and its whole claim is that the two
+/// build the *same* schedule byte for byte. Pinning the digest's constructor
+/// and leaving the exported receipt on the production pair would have left that
+/// comparison green while it compared two different schedules -- the shape of
+/// guard this repository has shipped three times. Lab's side has the
+/// `lab-calibration` seam for exactly this and must pin to match.
+pub(crate) const CAPTURED_ARM_RATES: (i32, i32) = (1_092, 182);
+
 #[derive(Clone, Copy, PartialEq, Eq, Default)]
 struct DigestMutation {
     command_byte: bool,
@@ -184,6 +227,7 @@ fn digest_with(mutation: DigestMutation) -> Option<u64> {
     let mut weapon_body_ticks = Vec::new();
     let mut momentum_ticks = Vec::new();
     let mut position_ticks = Vec::new();
+    let (max_speed, accel) = CAPTURED_ARM_RATES;
 
     for tick in 0..TICKS {
         for id in [attacker, defender] {
@@ -201,11 +245,11 @@ fn digest_with(mutation: DigestMutation) -> Option<u64> {
             if rerun != stored { return None; }
             replay.record_submitted(tick, id, SubmittedCommand::Articulated(stored));
         }
-        first.step();
-        if verify_reproduction { second.step(); }
+        first.step_with_arm_rates(max_speed, accel);
+        if verify_reproduction { second.step_with_arm_rates(max_speed, accel); }
         replay.finish(tick + 1);
         let mut played = if verify_reproduction {
-            replay.play_until(tick + 1)
+            replay.play_until_with_arm_rates(tick + 1, max_speed, accel)
         } else {
             first.clone()
         };
@@ -479,7 +523,7 @@ fn raw_lifted_command_receipt(strike_delta: i32, reach_delta: i32, mirrored: boo
             };
             replay.record_submitted(tick, id, SubmittedCommand::Articulated(stored));
         }
-        world.step();
+        world.step_with_arm_rates(CAPTURED_ARM_RATES.0, CAPTURED_ARM_RATES.1);
         let limb = if mirrored { LimbSlot::LeftArm } else { LimbSlot::RightArm };
         if world.contact_resolutions().iter().any(|row| row.fact.key.kind == ContactKind::WeaponBody
             && row.fact.key.a == attacker && row.fact.key.a_slot == limb as u8
@@ -527,7 +571,9 @@ fn lifted_case_with_provenance(strike_delta: i32, reach_delta: i32, mirrored: bo
             if stored != rerun { #[cfg(test)] eprintln!("lifted command mismatch tick {tick}"); return None; }
             replay.record_submitted(tick, id, SubmittedCommand::Articulated(stored));
         }
-        first.step(); second.step(); replay.finish(tick + 1);
+        first.step_with_arm_rates(CAPTURED_ARM_RATES.0, CAPTURED_ARM_RATES.1);
+        second.step_with_arm_rates(CAPTURED_ARM_RATES.0, CAPTURED_ARM_RATES.1);
+        replay.finish(tick + 1);
         if state_words(&first) != state_words(&second)
             || first.contact_resolutions() != second.contact_resolutions()
             || first.exact_contact_group_diagnostics() != second.exact_contact_group_diagnostics()
@@ -559,7 +605,8 @@ fn lifted_case_with_provenance(strike_delta: i32, reach_delta: i32, mirrored: bo
         return None;
     };
     let Some((direct_post, rerun_post)) = post else { return None };
-    let played_post = replay.play_until(contact_tick);
+    let played_post = replay.play_until_with_arm_rates(contact_tick,
+        CAPTURED_ARM_RATES.0, CAPTURED_ARM_RATES.1);
     for live in [&direct_post, &rerun_post] {
         let played = &played_post;
         if state_words(live) != state_words(played)

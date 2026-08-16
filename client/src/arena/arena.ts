@@ -366,9 +366,9 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
     setPickerValue("b-left", "empty");
     setPickerValue("b-right", "club");
     setPickerValue("arena-seed", "3");
-    populatePolicies(container, "composed", "composed");
-    setPickerValue("a-policy", "composed");
-    setPickerValue("b-policy", "composed");
+    populatePolicies(container, "attack-moves", "attack-moves");
+    setPickerValue("a-policy", "attack-moves");
+    setPickerValue("b-policy", "attack-moves");
   }
 
   // ---------------------------------------------------------------- the panels
@@ -871,7 +871,16 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
     go(frameAtClick(loaded.series, chart, event.clientX));
   });
 
-  populatePolicies(container, "composed", "composed");
+  // **`attack-moves` rather than `composed`, since 2026-08-15.** Both are the
+  // twelve-phase script; the difference is that this one's four attack phases
+  // move the feet. The plain script was the default until the arm bearing rates
+  // doubled and it turned out to convert almost none of the increase -- it
+  // commands zero effort on eight of twelve phases and arrives inside the other
+  // four, so it spends 68.6% of its ticks with the blade stopped, and it decides
+  // 2.0% of duels where closing footwork decides 14.5% and takes the Brute to
+  // half health. A first look at this page should not open on the one script
+  // measured to be worst at landing a blow.
+  populatePolicies(container, "attack-moves", "attack-moves");
   for (const control of pickerControls(container)) {
     control.addEventListener("change", refreshPicker);
   }

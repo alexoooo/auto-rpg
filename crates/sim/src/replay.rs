@@ -150,6 +150,28 @@ impl Replay {
     }
 
     pub fn play_until(&self, ticks: u32) -> World {
+        self.play_until_with_arm_rates(
+            ticks,
+            crate::combat::actuator::ARM_BEARING_MAX_SPEED_RAW,
+            crate::combat::actuator::ARM_BEARING_ACCEL_RAW,
+        )
+    }
+
+    /// Playback for a fixture that froze words about one arm configuration.
+    ///
+    /// A replay reproduces a *recorded* run, so it has to be driven at the rate
+    /// that run was driven at. The live half of such a fixture pins its rates
+    /// through [`World::step_with_arm_rates`]; without the matching seam here
+    /// the live and replayed halves would disagree the moment somebody tuned
+    /// the actuator, and the fixture would report that as a replay divergence
+    /// rather than as the actuator change it is. Private, with
+    /// [`Replay::play_until_with_arm_calibration`] below as the one way past
+    /// it: raw rates are this crate's own spelling, and a caller that has to
+    /// name two loose integers has two chances to name a pair no live half
+    /// used.
+    pub(crate) fn play_until_with_arm_rates(
+        &self, ticks: u32, bearing_max_speed_raw: i32, bearing_accel_raw: i32,
+    ) -> World {
         let mut world = World::new(&self.scenario, self.seed);
         let mut next_command = 0;
         let mut next_submitted = 0;
@@ -199,10 +221,37 @@ impl Replay {
                 }
                 next_submitted += 1;
             }
-            world.step();
+            world.step_with_arm_rates(bearing_max_speed_raw, bearing_accel_raw);
         }
 
         world
+    }
+
+    /// The Lab-visible half of the seam above, paired with
+    /// [`World::step_with_arm_calibration`].
+    ///
+    /// The sentence this comment used to carry -- *nothing outside this crate
+    /// records a run at anything but the production pair* -- stopped being true
+    /// on 2026-08-15, and the way it stopped is the reason this exists. Lab's
+    /// frozen strike fixtures record a run and then replay it as their own
+    /// check, so pinning only their live half would have made an actuator
+    /// change arrive as "live and replay disagree" -- the one sentence a
+    /// live-versus-replay comparison must never be able to say by accident.
+    /// Behind `lab-calibration` and taking an [`ArmCalibration`] rather than
+    /// two integers for the same reasons the stepping seam does: nothing that
+    /// ships records a run at anything but the production pair, and the pair
+    /// travels as one value so the two halves cannot be given different ones.
+    ///
+    /// [`ArmCalibration`]: crate::ArmCalibration
+    #[cfg(feature = "lab-calibration")]
+    pub fn play_until_with_arm_calibration(
+        &self, ticks: u32, calibration: crate::ArmCalibration,
+    ) -> World {
+        self.play_until_with_arm_rates(
+            ticks,
+            calibration.bearing_max_speed_raw,
+            calibration.bearing_accel_raw,
+        )
     }
 }
 
@@ -410,6 +459,14 @@ mod tests {
     fn exact_trajectory_live_rerun_and_replay_match_every_tick_and_breakpoint() {
         use crate::RecoilExternalEnergy;
 
+        // The arm rates this transcript was captured at, pinned for the reason
+        // `exact_diagnostics::CAPTURED_ARM_RATES` gives: tick 80 below is the
+        // tick a swing of *this* speed first refuses on, so reading the
+        // production ceiling here would re-aim a frozen tick number every time
+        // somebody tuned the actuator. Doubling the pair on 2026-08-15 moved it
+        // to 65, which is the same swing arriving early and not a solver change.
+        let rates = crate::exact_diagnostics::CAPTURED_ARM_RATES;
+
         // This is the captured chamber-to-strike command geometry, translated
         // to the south wall. The 2026-08-12 run measured two contact groups,
         // both exact remainder classes and a later ordinary release. Its body
@@ -476,8 +533,8 @@ mod tests {
                 assert_eq!(rerun, stored, "stored command diverged at tick {tick}");
                 replay.record_submitted(tick, id, SubmittedCommand::Articulated(stored));
             }
-            first.step();
-            second.step();
+            first.step_with_arm_rates(rates.0, rates.1);
+            second.step_with_arm_rates(rates.0, rates.1);
             if first_exact_rejection.is_none() {
                 first_exact_rejection = first.first_exact_contact_rejection();
             }
@@ -512,7 +569,7 @@ mod tests {
             }
 
             replay.finish(tick + 1);
-            let played = replay.play_until(tick + 1);
+            let played = replay.play_until_with_arm_rates(tick + 1, rates.0, rates.1);
             assert_eq!((played.state_digest().domain, played.state_digest().schema,
                         played.state_digest().value),
                        (first.state_digest().domain, first.state_digest().schema,

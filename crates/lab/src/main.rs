@@ -2418,20 +2418,34 @@ mod tests {
         // intentional `EnergyNumerator` refusal: its two-contact group loses one
         // raw unit while both allocation weights are zero, so refusing is the
         // only honest result. Composed and closing do not reach that boundary.
+        // Smart134's doubled arm bearing rates moved the intentional refusal off
+        // this seed. It is not gone -- across 100 mirrored seeds the windmill
+        // still refuses 12 ticks and the composed script 14, every one of them
+        // `EnergyNumerator` -- but seed 5 no longer reaches the degenerate group
+        // on any script, so pinning `(1, EnergyNumerator)` here would now pin the
+        // absence of the thing this assertion exists to describe.
+        //
+        // So it is pinned in two places instead of one, because the two halves
+        // are different claims. Seed 5 says the ordinary case refuses nothing.
+        // Seed 14 keeps an actual refusal under the assertion, and keeping one
+        // is the point: the inverted gate below is only meaningful while some
+        // fixture still exercises a refusal it could get wrong.
         for script in [Script::Composed, Script::Windmill, Script::ClosingAttacks] {
             let trial = measure_articulated(&Scenario::articulated_duel(), 5, script);
             assert!(trial.contacts > 0, "{}: nothing touched", script.name());
             assert_eq!(trial.max_energy_excess, 0, "{}", script.name());
-            let expected = match script {
-                Script::Windmill => (1, Some(sim::ResolutionError::EnergyNumerator)),
-                Script::Composed | Script::ClosingAttacks => (0, None),
-                Script::Tactical => unreachable!("the tactical script is not this control"),
-            };
             assert_eq!(
-                (trial.solver_rejections, trial.first_rejection), expected,
+                (trial.solver_rejections, trial.first_rejection), (0, None),
                 "{}: the refusal count and its law changed independently",
                 script.name()
             );
         }
+        let refusing = measure_articulated(&Scenario::articulated_duel(), 14, Script::Composed);
+        assert_eq!(refusing.max_energy_excess, 0, "a refused tick still created energy");
+        assert_eq!(
+            (refusing.solver_rejections, refusing.first_rejection),
+            (1, Some(sim::ResolutionError::EnergyNumerator)),
+            "the retained intentional refusal changed count or law",
+        );
     }
 }
