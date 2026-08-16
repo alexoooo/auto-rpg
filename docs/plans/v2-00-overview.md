@@ -14,13 +14,18 @@ not pass, no `ARTICULATED_HASH` was created, and the learning probe closed `revi
 rather than `expand`. Those outcomes, not the old session sequence, define the work
 that remains.
 
+**Picking this up cold?** Start with
+[`HANDOFF-2026-08-16.md`](HANDOFF-2026-08-16.md): what landed, what is next in order,
+the traps that have already cost time, and the pin-prediction method the last five
+sessions arrived at the hard way.
+
 ## Live work
 
 | work | state | dependency | hash expectation |
 |---|---|---|---|
-| [Room view](room-view-00-overview.md) | planned, two sessions | none; entirely `client/` and `web/` | none can move -- no `crates/` file is touched |
-| [Combat arms](combat-arms-00-overview.md) | planned, four sessions | the two-handed coupling gates the Brute policy, not the reverse | `ARTICULATED_STREAM_DIGEST` in session 02, plus `ARTICULATED_COMMAND_HASH` in session 04; no legacy pin and no fixture row |
-| [Articulated bow](articulated-bow-00-overview.md) | planned, staged | after combat arms; consumes its two-handed grip | several, predicted per step; `BOW_HASH` and `LAB_HASH` must **not** move, and either moving is a failure of the isolation |
+| [Room view](room-view-00-overview.md) | **complete, 2026-08-16.** Both sessions landed; corner/tee/stub rotations are pair-derived, the fog frontier is topology-only, `#/game` follows the hero at zoom 8, wall joins are synthesized from crossing straights, and the cylinder is a procedural figure on the `v2-18` joint names | none | **none moved**, as promised -- no `crates/` file was touched |
+| [Combat arms](combat-arms-00-overview.md) | **complete, 2026-08-16.** Five sessions, not four: 01 grip, 02 coupling, 03 Brute policy, 04 free guard arm, and an unplanned 05 that found why 02 and 03 both failed | 05 was written after 03's result and is the one that moved the outcome | **none moved, in any of the five.** This row originally predicted two and both predictions were wrong; see the overview's note on reading a prediction off the fixture |
+| [Articulated bow](articulated-bow-00-overview.md) | **step 1 of five landed 2026-08-16**; steps 2-5 not started | after combat arms; consumes its two-handed grip | step 1 moved `ARTICULATED_COMMAND_HASH` (a different value under each law) and both feature-only exact digests, all predicted beforehand. `BOW_HASH` and `LAB_HASH` did **not** move and must not; either moving is a failure of the isolation |
 | [Representative Fighter and Brute rigs](v2-18-combatant-integration.md) | partially discharged; asset half outstanding | the gate's clock criterion is now cleared; [room view 02](room-view-02-corner-joins-and-figure.md) delivers the visible result procedurally | presentation-only: every legacy and articulated pin unchanged |
 | [Smart articulated combat](smart-ai-134-arm-slew-and-region-attribution.md) | **Smart134 landed.** The arm bearing pair doubled to `2_184`/`364`; the windmill control now decides 96.5% of duels against 3.0%, clearing the gate's clock criterion for the first time. [Smart133](smart-ai-133-ordinal-31-tick-46-segment-hilt-start-x.md) is paused, not withdrawn | the composed script is still the bottleneck and both its candidate repairs are coupled to the learned action layout; plan that separately rather than tuning it in passing | `ARTICULATED_STREAM_DIGEST` moved once, paired and predicted; no other pin moved and none was re-recorded. The remaining three gate criteria, generalized competence and `v2-18` are still open |
 | Controlled Robust Strike | retained and visibly verified as a feature-only demonstration; standard production stays default | durable evidence is in the [tactical policy record](../performance/smart-ai-tactical-policy.md#controlled-strong-strike-reference) | no existing pin moves |
@@ -105,6 +110,20 @@ thresholds cannot simply be rerun:
 A successor must amend those criteria before recording fixtures or evidence. It must
 not create `ARTICULATED_HASH` until native direct run, native replay, wasm replay, and
 the visible review all pass the revised contract.
+
+**Two of those five bullets are now stale, 2026-08-16.** The clock criterion was cleared
+by Smart134's arm-slew doubling, and the energy-scale bullet is wrong twice over: "35x"
+is a *speed* ratio while the damage law consumes `v^2`, so the billed gap is nearer
+1,200x, and the number was recorded on 2026-08-10 and never re-measured after the
+doubling. More importantly the shortfall was never the whole story --
+`club().surface.edge_factor` is zero and `pressure` reached no anatomy, so a swung club
+could not injure anybody **at any speed, by construction**. Blunt force now has a
+representation and the representative fight has changed character: the Fighter's end
+health falls to `0.8575` from a band it had never left, and the Brute wins nine trials
+in two hundred having previously won none. The full derivation, the corrected
+arithmetic and the ranked levers are in
+[gate evidence](../performance/v2-articulated-gate.md). None of this passes the gate or
+creates `ARTICULATED_HASH`; it removes the reason the gate could not be approached.
 
 The exact mechanics implementation is now retained through trajectory, solver, and
 wasm-stack closure. The completed

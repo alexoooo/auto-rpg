@@ -1,6 +1,18 @@
 # Room view -- overview
 
-**Status:** planned, not started. Two sessions, client-only.
+**Status:** **complete, 2026-08-16. Both sessions landed and every gate is green.** Two
+sessions, client-only, and **no registered pin moved**, as the topic promised.
+
+What shipped: pair-derived corner, tee and stub rotations; a fog frontier that counts
+undisclosed neighbours for topology without ever drawing one; `#/game` at zoom 8 with a
+dead-zone hero follow; every multi-neighbour wall tile synthesized from crossing
+`wall_straight` runs so joins close by construction; and a procedural warrior figure
+driven by published fields through the `v2-18` joint names.
+
+**One obligation is still owed to a person at a foreground tab**: the visible review
+rows in `docs/performance/v2-room-matrix.md` are `fail`/`pending re-review` and were
+deliberately not marked passed. An automated tab is always `visibilityState: "hidden"`,
+which stops `requestAnimationFrame`, so no agent can discharge them.
 
 The `#/game` room and the character in it are below the standard the rest of the
 project holds itself to: wall runs that read as disconnected along the explored edge,

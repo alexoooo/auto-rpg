@@ -1,8 +1,17 @@
 # Articulated bow -- overview
 
-**Status:** planned, not started. The largest of the requested features, and the only
-one that is a **new subsystem** rather than an extension. Sequenced after
-[combat arms](combat-arms-00-overview.md).
+**Status:** **step 1 of five landed 2026-08-16; steps 2-5 not started.** The largest of
+the requested features, and the only one that is a **new subsystem** rather than an
+extension. Sequenced after [combat arms](combat-arms-00-overview.md), which is complete.
+
+[Step 1](articulated-bow-01-release-verb.md) put a per-arm `ReleaseRequest::{Keep,
+Loose}` in `ArticulatedCommandV1`, took the payload 51 -> 53 bytes and the layout
+version 1 -> 2, and moved **three registered digests across four recorded values**
+(`ARTICULATED_COMMAND_HASH` carries a different one under each law) -- every one
+predicted in writing before the gate, and none of them a legacy pin. **Nothing consumes
+the verb yet**, which is the deliverable:
+a layout change and a new mechanic in one commit would leave nobody able to tell which
+moved a number.
 
 A two-handed bow that shoots arrows which fly, and that hits a head differently from a
 leg.

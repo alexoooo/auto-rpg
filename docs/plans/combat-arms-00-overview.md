@@ -1,7 +1,13 @@
 # Combat arms -- overview
 
-**Status:** planned, not started. Four sessions in `crates/sim`, `crates/policy`,
-`crates/web` and `client/`.
+**Status:** **complete, 2026-08-16. All five sessions landed and every gate is green.**
+Five sessions in `crates/sim`, `crates/policy`, `crates/web`, `crates/lab` and
+`client/` -- the fifth was not planned and exists because sessions 02 and 03 both
+failed; see the corrected ranking below.
+
+**The topic's result in one line:** the Fighter's end health left the `0.9885-0.9985`
+band it had never left in any measured configuration, falling to `0.8575`, and the Brute
+took its first kills and its first nine wins in 200 trials.
 
 Three asks that turn out to be one topic: a two-handed club that genuinely uses both
 hands, a Brute that can fight the `attack-moves` Fighter, and a shield arm that moves
@@ -77,17 +83,31 @@ two-handed torque must amend this contract before changing that behavior."*
 | 03 | [`combat-arms-03-brute-policy.md`](combat-arms-03-brute-policy.md) | **landed: none, as predicted.** The asymmetric matchup and the `openings` policy (code 6) shipped; its **predeclared target was missed** and the miss is the finding -- beating the plate moved the shield's share of resolutions from 9.68% to 8.70% and the Fighter's end health not at all |
 | 04 | [`combat-arms-04-free-guard-arm.md`](combat-arms-04-free-guard-arm.md) | **landed: none.** This table predicted both and both were wrong, for session 02's reason a second time: the command digest is taken against an **unstepped** world whose only shielded body spawns at yaw zero with a tucked arm, and the stream fixture holds every bearing at zero by design. The shield normal now follows the arm that carries it, and the guard tracks the threat inside `GUARD_ARC` |
 
+| 05 | [`combat-arms-05-blunt-damage.md`](combat-arms-05-blunt-damage.md) | **landed: none.** Unplanned, and the session that actually moved the outcome. Predicted the four spec-table pins; **none moved**, because the implementation put `crush_factor` behind `Material` as a `const fn` rather than adding a fifth `SurfaceSpec` field, which keeps the hashed surface leaf and the spec rows exactly as they were |
+
 01 before 02 because expressing the grip and changing what it does are two different
 claims and must be separable in the history. 02 before 03 for the reason above. 04 is
 independent of all three and is sequenced last only because it is the one that reopens
-a decision the project already measured and settled.
+a decision the project already measured and settled. 05 was written after 03's result
+and could have come first, had anyone known.
+
+**Five sessions, five pin predictions, four of them wrong** -- and all four wrong in the
+same direction and for the same reason: they were read off the subsystem being edited
+instead of off what the fixture actually exercises. Every one of them predicted a move
+that could not happen. The bow's step 1 is the first correct prediction in the effort,
+and it was correct because it traced each digest to the line that writes the changed
+value. Treat that as the method, not as a flourish.
 
 ## Constants introduced
 
 - a two-handed inertia divisor in `arm_available` (session 02);
 - `SHIELD_COVER_MARGIN`, the shield-coverage margin used when choosing a target
   region (session 03);
-- a bounded arc for the freed guard bearing (session 04).
+- a bounded arc for the freed guard bearing (session 04);
+- `Material::crush_factor` -- `Flesh` 0, `Steel` 7/8, `Wood` 3/4 (session 05). It hangs
+  off the material rather than the surface because blunt conversion is stiffness, which
+  is what `Material` names and which had no mechanical meaning at all until then despite
+  being written into every digest.
 
 Each gets its provenance and a test bounding it from **both** sides.
 
