@@ -12,3 +12,11 @@
 # `* text=auto eol=lf`: that renormalises every file in the working tree at once, which
 # is the same enormous unrelated diff AGENTS.md refuses `cargo fmt` for.
 client/src/protocol/abi.generated.ts text eol=lf
+
+# Vite verifies these generated room records byte-for-byte against SHA-256 values
+# in tools/art/manifest.json. A Windows CRLF checkout changes the bytes while Git
+# still reports a clean tree, so keep the reviewed artifacts in their generated LF
+# form for the same reason as the ABI above.
+tools/art/manifest.json text eol=lf
+web/assets3d/room_slice.json text eol=lf
+web/assets3d/room_slice.validator.json text eol=lf
