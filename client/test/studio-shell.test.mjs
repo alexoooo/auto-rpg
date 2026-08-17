@@ -481,7 +481,7 @@ test("weapon_slots_take_slot_authority_before_sending_the_request", () => {
 });
 
 test("weapon_slots_use_authored_art_instead_of_platform_emoji", () => {
-  const shell = fs.readFileSync(SHELL_HTML, "utf8");
+  const shell = SHELL_HTML;
   assert.ok(shell.includes('id="slot-1" class="equipment-slot"'));
   assert.ok(shell.includes('id="slot-2" class="equipment-slot"'));
   assert.equal((shell.match(/<svg class="slot-art"/g) ?? []).length, 2);

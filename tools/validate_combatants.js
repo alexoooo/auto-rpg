@@ -380,7 +380,7 @@ async function validateCombatantAsset(options) {
   const errors = messages.filter(({ severity }) => severity === 0);
   const warnings = messages.filter(({ severity }) => severity === 1);
   if (errors.length || warnings.length) {
-    throw new Error(`gltf-validator reported ${errors.length} errors and ${warnings.length} warnings: ${messages.map(({ code }) => code).join(", ")}`);
+    throw new Error(`gltf-validator reported ${errors.length} errors and ${warnings.length} warnings: ${messages.map(({ code, pointer, message }) => `${code} ${pointer}: ${message}`).join(" | ")}`);
   }
   const buildManifest = { ...manifest };
   delete buildManifest.outputs;

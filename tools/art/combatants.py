@@ -226,10 +226,23 @@ def _finish_mesh(obj, name, parent, material, position=(0, 0, 0), rotation=(0, 0
         for loop_index in polygon.loop_indices:
             co = obj.data.vertices[obj.data.loops[loop_index].vertex_index].co
             if planar:
-                u = (co.x - min(xs)) / x_span
+                # A single front projection gives every bevel/side wall zero
+                # UV area. Blender then exports a zero tangent for those faces,
+                # which is invalid glTF and also erases their baked grain. Pick
+                # the projection plane from each face's dominant normal.
+                normal = polygon.normal
+                if abs(normal.y) >= max(abs(normal.x), abs(normal.z)):
+                    u = (co.x - min(xs)) / x_span
+                    v = (co.z - min(zs)) / z_span
+                elif abs(normal.x) >= abs(normal.z):
+                    u = (co.y - min(ys)) / y_span
+                    v = (co.z - min(zs)) / z_span
+                else:
+                    u = (co.x - min(xs)) / x_span
+                    v = (co.y - min(ys)) / y_span
             else:
                 u = (math.atan2(co.y, co.x) + math.pi) / (2 * math.pi)
-            v = (co.z - min(zs)) / z_span
+                v = (co.z - min(zs)) / z_span
             uv.data[loop_index].uv = (origin_x + u * 0.42, origin_y + v * 0.42)
     # The glTF tangent exporter rejects n-gons before it triangulates its own
     # payload.  Apply the same deterministic triangulation to every LOD here so
@@ -746,9 +759,6 @@ def _fighter(manifest, materials, nodes=None, lod="high"):
                                 materials["equipment_dark_steel"], shield_inner, 0.035,
                                 max(7, detail["radial"] // 3), (0, 0, -0.035), 0.012,
                                 detail["bevel"]),
-            _sphere(name("shield") + "__boss", nodes["socket_shield"],
-                    materials["equipment_dark_steel"], 0.105, (0, 0.02, -0.15),
-                    scale=(1.0, 1.0, 0.52), subdivisions=detail["sphere"]),
         ])
     add(_join_semantic(name("shield"), shield_parts))
     sword_parts = [
