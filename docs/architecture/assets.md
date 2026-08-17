@@ -88,12 +88,13 @@ and renderer-boundary proof even when authored meshes hang from the same present
 identities.
 
 Physical dungeon objects are a separate renderer-owned path over
-`DUNGEON_OBJECT_V1`. Doors, torch assemblies, barrels, pottery, webs, water, and break
-debris are layered renderer-owned `Babylon.js` geometry and are not authoritative
-state; stable publication identity keeps them out of the pinned room GLB.
-Sparse blood, vines, loose bricks, and spiderwebs are
-bounded deterministic dressing: they have no pick, collision, Worker, replay, or hash
-representation.
+`DUNGEON_OBJECT_V1`. Doors, torch assemblies, and water are layered renderer-owned
+`Babylon.js` geometry and are not authoritative state; stable publication identity
+keeps them out of the pinned room GLB. Barrel, pottery, web, and atlas-card proxy
+presentations are deliberately excluded from the live cutaway after visible review
+showed a pale quadrilateral and orange dome; their publication rows remain untouched.
+Sparse rubble is bounded deterministic dressing with no pick, collision, Worker,
+replay, or hash representation.
 
 The representative route dynamically imports the pinned room loader only after the
 engine and Scene exist. It validates the root-hosted room `GLB` and semantic sidecar before
@@ -115,11 +116,12 @@ is the minimum replacement threshold for readability;
 reaching that parity does not complete the ultimate art direction. The initial room
 art decision is `replace` in the [room matrix](../performance/v2-room-matrix.md#visible-review-record).
 
-The generator-v2 vertex-color kit and generator-v3 textured box-wall kit are
-superseded reproducible intermediates. The current generator-v4 kit crops the pinned
-concept material atlas into embedded floor and wall textures, retains deterministic
-`COLOR_0` modulation, and builds coursed masonry while preserving semantic names
-and pivots. The game treats solid cells as volume and gives every disclosed
+The generator-v2 through generator-v5 kits are superseded reproducible intermediates.
+Current generator v6 crops the pinned concept-material atlas into twelve deterministic
+896-square albedo/normal/ORM embeds, retains `COLOR_0` modulation, and builds coursed
+1/2/3/5/8-cell masonry modules while preserving semantic names and pivots. The
+separate pinned 1,254-square VFX/decal atlas and 314-square flame crop are exact
+root-hosted runtime members and Vite build outputs. The game treats solid cells as volume and gives every disclosed
 solid-to-open side a stable cell-plus-cardinal-side instance, then caps each solid
 with inset stone coping. Camera and visibility bands do not enter the wall key;
 neighbour disclosure reconciles new sides around retained instances. A local

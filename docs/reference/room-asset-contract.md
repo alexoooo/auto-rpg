@@ -6,10 +6,11 @@
 **Update when:** The room manifest schema, semantic kit, coordinate rules, reproducibility authority, budgets, disclosure mapping, or loader lifecycle changes.
 
 The pinned room GLB, semantic sidecar, validator report, generated trust pins, lazy
-loader, instance presentation, and review camera are current. Generator v5 replaces
-the refuted v4 presentation with seamless floor edges, a concept-directed generated
-atlas, stable four-sided walls, and recognizable layered torch fixtures. Its
-automated asset gates are complete; foreground performance remains open.
+loader, instance presentation, and review camera are current. Generator v6 adds
+tile-frequency 1, 2, 3, 5, and 8-cell masonry modules, four deterministic floor
+sources, four painterly surface roles, and authored runtime flame/decal textures.
+Its automated asset gates and current-source correctness capture are complete;
+foreground performance remains open.
 
 Runtime presentation adds no new pinned asset member: stable wall-face instances gain
 masonry depth, opaque non-pickable roof blocks cover each VIS 0 cell, and bounded dark
@@ -19,36 +20,40 @@ ease to 22% alpha and return using the same identity; camera quadrant never owns
 topology. Because these are renderer-created meshes, the GLB, sidecar, validator, and
 generated trust pins do not move.
 
-Physical doors, torches, barrels, pottery, webs, and water now consume the separate
+Physical doors, torches, and water consume the separate
 [`DUNGEON_OBJECT_V1`](dungeon-object-abi.md) publication. They are renderer-created
 layered geometry, so this room GLB and its pins still do not move. Door leaves use a
 real hinge and published pressure/open state; torches retain full-cardinal wall yaw
-and close the backplate, support, bowl, cross-plane flame, and local light around one
-socket. Physical prop break edges dispose intact art and preserve the publication
-identity as debris. VIS 0/1 owns none of their mesh, light, pick, effect, or shadow
+and close the backplate, support, bowl, authored sprite flame, and local light around
+one socket. Barrel, pottery, and web proxy presentation is deliberately excluded:
+visible review found that those stand-ins read as a displaced pale quadrilateral and
+orange dome. VIS 0/1 owns none of the remaining mesh, light, pick, effect, or shadow
 presence.
 
 <!-- DOC_CONTRACT: room-asset-manifest -->
 ## Manifest semantics
 
 The current `tools/art/manifest.json` is schema version 1 and the sole generator
-input. It records `generatorVersion: 5`, repository license `MIT`, the exact Blender
+input. It records `generatorVersion: 6`, repository license `MIT`, the exact Blender
 version and binary SHA-256, seed `1592594996`, unit `meter`, tile size 1, right-handed
 axes, canonical decimal-string tolerance `"0.00001"`, export flags, budgets, material parameters, geometry
 dimensions, semantic grammar, exact `allowedValidatorWarnings: []`, and expected
 output hashes.
 
-Generator version 5 owns deterministic style `painted-cathedral-v3`. Every
+Generator version 6 owns deterministic style `painted-cathedral-v4`. Every
 exported mesh retains one CORNER-domain `room_style` color attribute; glTF carries
 it as normalized `UNSIGNED_SHORT` `VEC4` `COLOR_0`. The checked 1,254 x
-1,254 `tools/art/textures/concept-material-atlas-v2.png` source has SHA-256
-`5f09f791ce9d97d0ed72f708baede576d6960db50d33af7d3008d16783e61e36`.
-The generator selects floor quadrant `[0,1]` and wall quadrant `[1,1]`, then
-produces periodic 512 x 512 sRGB, repeat-wrapped embeds with 32 edge pixels, linear
-magnification, and mipmapped linear minification. Their embedded SHA-256 values are
-`0c49b0bc9241e70fc53207e28d62be30ca3787529cf5f93befbe821b98f3654a` and
-`bbf4ae43f1564aaa5754eb23ee7869eaf581fb979a970c802a1a43f4a9b9e075`.
-No external image URI or runtime texture request is permitted. Warm umber value
+1,254 `tools/art/textures/concept-material-atlas-v3.png` source has SHA-256
+`e03c9acaee58bb007a4ecadd9a0e9e74405f13bbb136f028587aaf38db223c4c`.
+The generator selects floor, overburden, wall, and wood quadrants, then produces
+periodic 896 x 896 sRGB albedo, normal, and ORM embeds for all four roles with 48
+edge pixels, repeat wrap, linear magnification, and mipmapped linear minification.
+Those twelve images are embedded in the GLB. Two separately pinned runtime PNGs
+are also members of the delivered asset set: the 1,254-square 4 x 4 VFX/decal atlas
+(`5b4678491211029b9ac5117fc2cda645d4790ac1df4c6922013a5cd37e665e46`)
+and its 314-square transparent flame crop
+(`6820c6c8111cd3d4640d68122f553d86c08ae53fe6f29ee7c109bf76a8019d4d`).
+Vite serves and copies only those reviewed runtime texture paths. Warm umber value
 separation, high roughness, a dedicated cooler `woodEnd` response for barrel caps, and restrained metal response keep the room subordinate
 to combatants; `COLOR_0` remains deterministic modulation rather than a hidden
 per-instance correction. Four fitted courses of individually separated stones replace
@@ -58,13 +63,16 @@ collision/debug bounds, pivots, or placement.
 The exact unique piece set is:
 
 ```text
-floor_a floor_b wall_straight wall_inside wall_outside wall_end
+floor_a floor_b floor_c floor_d
+wall_straight wall_run_2 wall_run_3 wall_run_5 wall_run_8
+wall_inside wall_outside wall_end
 door_frame door_leaf torch_bracket decal_rubble decal_root prop_barrel
 ```
 
 Each piece has one mesh node named `ROOM_<piece>`. The only socket is the empty node
 `SOCKET_torch_flame`, parented to `ROOM_torch_bracket`. Exported materials are
-restricted to `floor_current`, `stone_current`, `wood_current`, and `metal_current`;
+restricted to `floor_current`, `stone_current`, `wood_current`,
+`overburden_current`, and `metal_current`;
 the manifest also defines the generator-only `emissive_flame` specification.
 `stone_remembered` is a runtime
 clone material rather than a baked material on each stone mesh.
@@ -118,10 +126,10 @@ The current generated identities are:
 
 | Identity | SHA-256 |
 |---|---|
-| canonical build inputs | `593d4c43e4ce399d426c8bbd0641122e9c4901a3f2dfe6c5b85fedd8759cd4cf` |
-| semantic sidecar | `4a6ec372cef32fb5b13311d0b9f0ddd8f59d99da602e550ccf885da2a0fcf064` |
-| room GLB | `b8819b6e4c46fe4483448f6f936d17cc9f62b43814fed9beb77ff216af67cf06` |
-| canonical validator report | `05a00c444bea02557561816c4c5d0c05a0dee8b17a8b19c88618cfaeeb807721` |
+| canonical build inputs | `52296f2178324c57387e47a6a4a717f138051288768e9805e778781ba5975b9f` |
+| semantic sidecar | `021363e6f4857fcdca39718a4779ee432dbc309bb156ef311f2004192052e62d` |
+| room GLB | `7d1a2c4b9ea3483f4c4461b72430144c6dca21f5e6bd024bafa1fdcb4bccc139` |
+| canonical validator report | `0157a21f928f21159d612179684f8b1ffe5813e684b2f6df294816e0e5516189` |
 | 1,536-byte runtime stress map | `a20ba5f64ef55bd7716c2a7cf17f3065619876d1ded2e81b05199b5282222907` |
 
 `.gitignore` owns `__pycache__/` and `*.py[cod]`. Both generation modes must leave no
@@ -154,22 +162,25 @@ unique bufferView bytes used by vertex or index attributes
 + 1024 * 1024 * 4 shadow-map bytes
 ```
 
-The fixed instance capacities are floor_a 768, floor_b 768, wall_straight 363
-(188 stable faces plus 175 coping instances), wall_inside 0, wall_outside 0, wall_end 0,
+The fixed residency capacities total 1,929 instances: 1,536 floor-source slots,
+wall_straight 363 (188 stable faces plus 175 coping instances), wall_inside 0,
+wall_outside 0, wall_end 0,
 door_frame 2, door_leaf 6, torch_bracket 10, decal_rubble 4, decal_root 4, and
 prop_barrel 4. The estimate uses
 capacity rather than live count and must be no larger than 268,435,456 bytes. The
-texture term counts both embedded 512 x 512 RGBA images with the documented mip
-factor. Engine overhead and source JavaScript are
+texture term counts twelve decoded 896 x 896 RGBA images with the documented mip
+factor. Engine overhead, runtime PNG residency, and source JavaScript are
 reported separately; browser performance JSON continues to record unavailable GPU
 residency rather than relabeling this offline estimate.
 
-The checked artifacts contain 13 nodes, 12 meshes, four materials, 2,784 vertices,
-and 1,404 triangles. The GLB is 1,060,408 bytes and the sidecar is 5,321 bytes, for a
-validated 1,065,729-byte payload. Its offline estimate is 119,568 source-buffer bytes,
-246,912 double-buffered instance bytes, 2,097,152 decoded-texture bytes, and
-4,194,304 shadow-map bytes, totaling 6,657,936 bytes. Validator 2.0.0-dev.3.10 reports zero
-errors, zero warnings, zero hints, and four informational messages; the
+The checked artifacts contain 19 nodes, 18 meshes, five materials, 8,307 vertices,
+and 4,128 triangles. The GLB is 15,821,160 bytes and the sidecar is 7,395 bytes,
+for a validated 15,828,555-byte payload. Its offline estimate is 489,600
+source-buffer bytes, 246,912 double-buffered instance bytes, 38,535,168
+decoded-texture bytes, and 4,194,304 shadow-map bytes, totaling 43,465,984 bytes.
+The complete shipped runtime asset set is 64,520,583 bytes. That leaves 2,588,281 bytes
+under the 67,108,864-byte compressed-asset cap. Validator 2.0.0-dev.3.10 reports zero
+errors, zero warnings, zero hints, and fourteen informational messages; the
 allowed warning list remains exactly empty.
 
 The validator CLI accepts exactly three positional paths in this order: GLB,
@@ -218,13 +229,13 @@ remain valid kit roles for the arena's separate synthetic centreline ring, but t
 game stress capacities are zero.
 
 The room's upper-right directional key retains direction
-`[-0.45, -1, -0.35]` and mount `[12, 24, 16]`, with generator-v5 diffuse
+`[-0.45, -1, -0.35]` and mount `[12, 24, 16]`, with generator-v6 diffuse
 `[1, 0.68, 0.42]`, specular `[0.36, 0.23, 0.15]`, and intensity `1.6`.
-Every disclosed current torch adds deterministic tapered outer and core flames at
-its exact authored sconce socket. Their identity-derived phase animates only scale
-and emissive presentation. Both are non-pickable and non-shadow-casting and use orange
-emissive color `[1, 0.32, 0.025]`, and is removed with its material on reset,
-disclosure loss, or disposal. Its capped point light uses diffuse
+Every disclosed current torch adds an authored transparent flame plane, bright core,
+and soft halo at its exact sconce socket. Their identity-derived phase animates only
+scale and emissive presentation. All are non-pickable and non-shadow-casting, and
+are removed with their materials on reset, disclosure loss, or disposal. The capped
+point light uses diffuse
 `[1, 0.25, 0.045]`, specular `[0.42, 0.18, 0.055]`, intensity `4`, and
 range `11.5`. Each flame contributes one effect and one procedural draw group,
 making stress disclosure 27 draws (eleven live room source groups plus sixteen flame layers)
@@ -297,9 +308,15 @@ with the asset. Only snapshot-authorized classic instances are spatial presence.
 
 ## Visual review contract
 
-The current generated kit and runtime are mechanically authoritative. The styling
-revision responds to the first visible `replace` decision, but is not itself a
-painted-art pass. The minimum replacement threshold is the readable hierarchy of the
+The current generated kit and runtime are mechanically authoritative. The accepted
+current-source correctness frame is
+[concept-production World](../performance/evidence/2026-08-concept-production-world.png),
+1534 x 889, SHA-256
+`12e905bfd83e16d94b7b11d2f1055a95ae4f6d1651558a7656c1b4b73ff1197f`.
+It records an assembled Fighter, delivered authored flames, no proxy quad/dome, and
+a closed Systems drawer. It is not visible-rAF evidence. Compared with the concept,
+flames remain oversized/overbright, masonry and floors darker/flatter, and dressing
+sparse. The minimum replacement threshold is the readable hierarchy of the
 preserved [legacy renderer reference](../performance/evidence/2026-08-08-legacy-renderer-reference.png),
 SHA-256 `ef249c666d7c4eabb775dc32fbe943076454e2d26db88967b690df0a3ab05260`:
 a bounded dark playfield, legible floor structure and depth, restrained environment
@@ -315,11 +332,14 @@ snapshot has a perimeter-only 48 solid tiles around a 14 x 8 open interior, two
 doors showing open and shut states, four torches, four each of barrels, rubble, and
 roots, and eight unit markers. The camera derives bounds from that 16 x 10 snapshot.
 The playable authored route and compact review use clear `[0.012, 0.016, 0.032, 1]`, image-processing exposure
-`1.34`/contrast `1.16`, and one non-shadow hemispheric fill with diffuse
-`[0.68, 0.60, 0.50]`, ground `[0.08, 0.065, 0.055]`, and intensity `0.58`;
+`1.64`/contrast `1.06`, and one non-shadow hemispheric fill with diffuse
+`[0.50, 0.52, 0.56]`, ground `[0.035, 0.04, 0.05]`, and intensity `0.48`;
 the fixed 48 x 32 stress fixture retains its dimensions, population, and nine-light contract; its
 map/topology identity is the revised boundary-enclosure fixture. This route is
-mechanically current. The 2026-08-09 review accepted generator v3's material response, fixture-origin light, join coherence, depth readability, and silhouette contrast at minimum legacy parity. Generator v5 does not inherit that visible approval; its deterministic static QA is complete and its visible-browser review remains the acceptance authority.
+mechanically current. The 2026-08-09 review accepted generator v3's material response,
+fixture-origin light, join coherence, depth readability, and silhouette contrast at
+minimum legacy parity. Generator v6 supersedes it with the correctness frame above;
+foreground rAF performance remains a separate human-visible measurement.
 
 Compact review alone injects initial/reset fixed zoom `1.6`; ordinary and 48 x 32
 stress cameras retain zoom `1`. At 16:9, the tested compact orthographic top/bottom

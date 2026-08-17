@@ -7,34 +7,35 @@
 
 The room pipeline and its automated asset gates are current. The first visible art
 review recorded `replace`; generator v3 then earned minimum legacy parity on
-2026-08-09. Generator v5 supersedes that artifact with coursed masonry and
-concept-atlas materials. It does not inherit v3's visible approval: a new visible
-review and foreground performance capture remain pending.
+2026-08-09. Generator v6 supersedes that artifact with tile-frequency modular
+masonry, four floor sources, twelve painterly texture embeds, and pinned runtime
+VFX textures. Current-source correctness evidence is complete; foreground rAF
+performance remains pending.
 
 ## Artifact and environment record
 
 | Field | Required record |
 |---|---|
-| Manifest file, GLB, sidecar, and Blender binary hashes | GLB `b8819b6e4c46fe4483448f6f936d17cc9f62b43814fed9beb77ff216af67cf06`; sidecar `4a6ec372cef32fb5b13311d0b9f0ddd8f59d99da602e550ccf885da2a0fcf064`; validator `05a00c444bea02557561816c4c5d0c05a0dee8b17a8b19c88618cfaeeb807721`; Blender binary `25bdb2e3f8ed0bac9d51b7a25fbea0f712a8d80346f2efc9dbe24d85e910c310` |
-| `buildInputsSha256` over canonical manifest JSON with `outputs` omitted | `593d4c43e4ce399d426c8bbd0641122e9c4901a3f2dfe6c5b85fedd8759cd4cf`; excludes the complete `outputs` object |
-| Current texture style | generator version 5; `painted-cathedral-v3`; floor and wall quadrants from checked 1,254 x 1,254 atlas `5f09f791ce9d97d0ed72f708baede576d6960db50d33af7d3008d16783e61e36`; deterministic 512 x 512 periodic embeds `0c49b0bc9241e70fc53207e28d62be30ca3787529cf5f93befbe821b98f3654a` and `bbf4ae43f1564aaa5754eb23ee7869eaf581fb979a970c802a1a43f4a9b9e075`; CORNER `room_style` remains normalized `UNSIGNED_SHORT` `VEC4` `COLOR_0` |
+| Manifest file, GLB, sidecar, and Blender binary hashes | GLB `7d1a2c4b9ea3483f4c4461b72430144c6dca21f5e6bd024bafa1fdcb4bccc139`; sidecar `021363e6f4857fcdca39718a4779ee432dbc309bb156ef311f2004192052e62d`; validator `0157a21f928f21159d612179684f8b1ffe5813e684b2f6df294816e0e5516189`; Blender binary `25bdb2e3f8ed0bac9d51b7a25fbea0f712a8d80346f2efc9dbe24d85e910c310` |
+| `buildInputsSha256` over canonical manifest JSON with `outputs` omitted | `52296f2178324c57387e47a6a4a717f138051288768e9805e778781ba5975b9f`; excludes the complete `outputs` object |
+| Current texture style | generator version 6; `painted-cathedral-v4`; four quadrants from checked 1,254 x 1,254 atlas `e03c9acaee58bb007a4ecadd9a0e9e74405f13bbb136f028587aaf38db223c4c`; twelve deterministic 896 x 896 albedo/normal/ORM embeds; runtime VFX atlas `5b4678491211029b9ac5117fc2cda645d4790ac1df4c6922013a5cd37e665e46` and flame crop `6820c6c8111cd3d4640d68122f553d86c08ae53fe6f29ee7c109bf76a8019d4d`; CORNER `room_style` remains normalized `UNSIGNED_SHORT` `VEC4` `COLOR_0` |
 | Generated TypeScript trust pins | `ROOM_FIXTURE_ID = v2-room-slice-1`; all four artifact/build hashes above are compiled into `ROOM_BUILD_INPUTS_SHA256`, `ROOM_SIDECAR_SHA256`, `ROOM_GLB_SHA256`, and `ROOM_VALIDATOR_SHA256` |
-| Validator report | committed third artifact; validator 2.0.0-dev.3.10; 13 nodes, 12 meshes, four materials, 2,784 vertices, 1,404 triangles |
-| Payload and deterministic offline residency components | GLB 1,060,408 + sidecar 5,321 = 1,065,729 payload bytes; source 119,568 + instances 246,912 + decoded textures 2,097,152 + shadow map 4,194,304 = 6,657,936 estimated bytes |
-| Validator error/warning counts and allowlist | zero errors, zero warnings, zero hints, four informational unused-UV messages; `allowedValidatorWarnings: []` |
+| Validator report | committed third artifact; validator 2.0.0-dev.3.10; 19 nodes, 18 meshes, five materials, 8,307 vertices, 4,128 triangles |
+| Payload and deterministic offline residency components | GLB 15,821,160 + sidecar 7,395 = 15,828,555 payload bytes; source 489,600 + instances 246,912 + decoded textures 38,535,168 + shadow map 4,194,304 = 43,465,984 estimated bytes. Complete shipped room/combatant/VFX bytes are 64,520,583, leaving 2,588,281 below 67,108,864. |
+| Validator error/warning counts and allowlist | zero errors, zero warnings, zero hints, fourteen informational messages; `allowedValidatorWarnings: []` |
 | OS, CPU, GPU, driver, browser, power | pending foreground capture |
 | Requested/selected backend and full diagnostics | pending foreground capture |
 | Performance URL | `?stress=room&room=representative&renderer=auto\|webgl2` as appropriate |
 | CSS/backing size and render scale | 1920 x 1080; scale 1 |
 | Fixture | `v2-room-slice-1`; seed `1592594996`; 48 x 32; 64 bodies; eight torches plus one directional light; no training workers; all-visible performance disclosure |
 | `ROOM_STRESS_MAP_SHA256` | `a20ba5f64ef55bd7716c2a7cf17f3065619876d1ded2e81b05199b5282222907` for the exact 1,536 committed map bytes mirrored by fixture source, manifest, sidecar, matrix, and tests |
-| Exact fixed piece counts and capacities | 1,536 floors (floor_a 768, floor_b 768); wall_straight 363 (188 stable faces + 175 coping); wall_inside 0; wall_outside 0; wall_end 0; door_frame 2; door_leaf 6; torch_bracket 10 (eight torches + two shut-door straps); decal_rubble 4; decal_root 4; prop_barrel 4. The exact 1,929-instance closure requires 246,912 double-buffered instance bytes; this capacity-only sidecar movement is subsumed by the visual-recovery authored asset regeneration. |
+| Exact fixed piece counts and capacities | Stress floors are floor_a 388, floor_b 368, floor_c 416, floor_d 364. Residency reserves 1,536 floor-source slots; wall_straight 363 (188 stable faces + 175 coping); wall_inside/outside/end 0; door_frame 2; door_leaf 6; torch_bracket 10; decal_rubble/root/prop_barrel 4 each. The exact 1,929-instance capacity closure is 246,912 double-buffered bytes. Root and barrel rows remain fixture census only and are excluded from live presentation. |
 
 ## Automated contract record
 
 The exact validator, toolchain, build-delivery, loader, visibility, topology,
 fixture, camera, fallback, reset, loss, and disposal tests named by v2-09 are green.
-The render contract suite passes 114 of 114 tests, including real Babylon NullEngine
+The render contract suite passes 125 of 125 tests, including real Babylon NullEngine
 source/instance evaluation, exact live role counts, semantic picks, no-op revision
 reconciliation, socket transforms, camera input cleanup, and partial-construction
 rollback. Source-text assertions do not replace these semantic tests.
@@ -109,6 +110,16 @@ explicit room-phase exception.
 
 ## Visible review record
 
+The final current-source correctness capture is
+[concept-production World](evidence/2026-08-concept-production-world.png), 1534 x
+889, SHA-256
+`12e905bfd83e16d94b7b11d2f1055a95ae4f6d1651558a7656c1b4b73ff1197f`.
+It records an assembled Fighter, visible authored flame sprites, a closed Systems
+drawer, and removal of the pale proxy quadrilateral/orange dome. This supersedes
+the earlier correctness candidates below, but is not visible-rAF evidence. Honest
+remaining gaps against `CONCEPT.png` are oversized/overbright flames, darker and
+flatter wall/floor response, and sparse dressing.
+
 The 2026-08-17 integrated recovery candidate is preserved as
 [World](evidence/2026-08-17-visual-recovery-world.png), SHA-256
 `7ae64678cba5a80496931480f8c7ba66c4c1fcafe55954159821ead990ebe413`,
@@ -169,8 +180,9 @@ proceed. The 2026-08-17 screenshots supersede that minimum-parity decision: curr
 status is `replace`, and no performance or art waiver exists.
 
 The generator-v2 vertex-color artifact is a superseded intermediate produced before
-the preserved textured legacy reference was available. Generator v3 is the texture-inclusive minimum-parity predecessor. Generator v5 is
-the current deterministic candidate and does not inherit that visible approval.
+the preserved textured legacy reference was available. Generator v3 is the
+texture-inclusive minimum-parity predecessor. Generator v6 is the current
+deterministic artifact and owns the correctness evidence above.
 
 The current compact review query family is
 `/#/game?review=room&room=representative&backend=auto|webgl2&roomCamera=fixed|free`.

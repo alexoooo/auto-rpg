@@ -274,7 +274,7 @@ test("inside_facing_torches_close_socket_light_and_all_four_cardinal_faces", asy
   harness.scene.dispose(); harness.engine.dispose();
 });
 
-test("physical_props_keep_identity_break_on_state_edge_and_obey_fog_and_fallback", async () => {
+test("proxy_props_are_excluded_while_supported_water_keeps_identity_and_obeys_fog", async () => {
   const harness = await roomObjectHarness();
   const props = Object.freeze([
     dungeonObject({ key: "object:10", kind: ABI.DUNGEON_OBJECT_BARREL, identity: 10 }),
@@ -287,17 +287,16 @@ test("physical_props_keep_identity_break_on_state_edge_and_obey_fog_and_fallback
     map: Object.freeze(new Array(5).fill(ABI.MAP_OPEN)), vis: Object.freeze(new Array(5).fill(2)),
     dungeonObjects: props });
   harness.objects.acceptSnapshot(world, 0);
-  assert.deepEqual(harness.objects.keys(), ["object:10", "object:11", "object:12", "object:13"]);
-  const root = harness.scene.getTransformNodeByName("room-object:object:10:root");
-  const body = harness.scene.getMeshByName("room-object:object:10:barrel:body");
+  assert.deepEqual(harness.objects.keys(), ["object:13"],
+    "barrel, pottery, and web proxy sources stay out of the live cutaway");
+  const root = harness.scene.getTransformNodeByName("room-object:object:13:root");
+  const body = harness.scene.getMeshByName("room-object:object:13:water:surface");
   assert.ok(root && body && body.isPickable);
   harness.objects.acceptSnapshot(snapshot({ ...world, tick: 2, dungeonObjectRevision: 2,
-    dungeonObjects: Object.freeze([dungeonObject({ key: "object:10", kind: ABI.DUNGEON_OBJECT_BARREL,
-      identity: 10, stateFlags: 1, hp: 0 })]) }), 10);
-  assert.equal(body.isDisposed(), true, "the break edge disposes intact physical art once");
-  assert.equal(harness.scene.getTransformNodeByName("room-object:object:10:root"), root);
-  assert.equal(harness.scene.meshes.filter((mesh) => mesh.name.startsWith(
-    "room-object:object:10:debris:")).length, 5);
+    dungeonObjects: Object.freeze([dungeonObject({ key: "object:13", kind: ABI.DUNGEON_OBJECT_WATER,
+      identity: 13, x: 3.5 })]) }), 10);
+  assert.equal(harness.scene.getTransformNodeByName("room-object:object:13:root"), root);
+  assert.equal(harness.scene.getMeshByName("room-object:object:13:water:surface"), body);
   harness.objects.acceptSnapshot(snapshot({ ...world, tick: 3, visRevision: 2,
     vis: Object.freeze(new Array(5).fill(0)) }), 20);
   assert.deepEqual(harness.objects.keys(), []);
@@ -1894,14 +1893,16 @@ test("the_fixed_room_stress_fixture_has_the_named_asset_hash_population_and_piec
   const room = new roomEnvironment.RoomEnvironmentPresentation(scene, debug, await fakeRoomAsset(scene));
   room.acceptSnapshot(fixture);
   // 1536 floors + 175 solid-cell caps + 35 packed modules spanning all 188
-  // stable boundary faces. Furniture contributes 27 presentation instances.
-  assert.deepEqual(room.counts(), { geometry: 1746, furniture: 22, instances: 1773,
-    lights: 9, shadowCasters: 1773, triangles: room.counts().triangles });
-  assert.equal(debug.snapshot().draws, 43,
-    "four floor treatments, packed facade sources, fixtures, and layered flames remain exact draw owners");
+  // stable boundary faces. The four root cards and four barrel proxies remain
+  // fixture census rows but are excluded from live presentation; rubble stays.
+  assert.deepEqual(room.counts(), { geometry: 1746, furniture: 14, instances: 1765,
+    lights: 9, shadowCasters: 1765, triangles: room.counts().triangles });
+  assert.equal(debug.snapshot().draws, 41,
+    "root-card and barrel proxy groups are absent; the remaining authored sources and flames stay exact draw owners");
   assert.equal(debug.snapshot().visibility.effects, 24,
     "eight torches each own an outer flame, bright core, and soft halo");
-  assert.equal(debug.snapshot().visibility.picking, 1558);
+  assert.equal(debug.snapshot().visibility.picking, 1550,
+    "excluded root-card and barrel proxies create neither visible nor picking presence");
   const before = scene.meshes.filter((mesh) => mesh.name.startsWith("room:") && mesh.sourceMesh);
   room.acceptSnapshot(Object.freeze({ ...fixture, tick: 1 }));
   assert.deepEqual(scene.meshes.filter((mesh) => mesh.name.startsWith("room:") && mesh.sourceMesh), before);
@@ -1940,10 +1941,10 @@ test("the_compact_room_review_fixture_is_not_the_performance_stress_fixture", as
   const room = new roomEnvironment.RoomEnvironmentPresentation(scene, debug, await fakeRoomAsset(scene));
   room.acceptSnapshot(fixture);
   // 160 floors + 48 solid-cell caps + six packed modules spanning all 42 stable boundary faces.
-  // The two framed doors use six plank modules and two shut-leaf straps, so 18
-  // semantic furniture rows intentionally occupy 26 presentation instances.
-  assert.deepEqual(room.counts(), { geometry: 214, furniture: 18, instances: 237,
-    lights: 5, shadowCasters: 237, triangles: room.counts().triangles });
+  // The root cards and barrel proxies remain review census rows but are not
+  // presented in the cutaway, removing the eight placeholder-looking instances.
+  assert.deepEqual(room.counts(), { geometry: 214, furniture: 10, instances: 229,
+    lights: 5, shadowCasters: 229, triangles: room.counts().triangles });
   assert.equal(scene.lights.length, 6, "review fill is separate from the room key and four torches");
   assert.deepEqual([scene.clearColor.r, scene.clearColor.g, scene.clearColor.b, scene.clearColor.a],
     [0.012, 0.016, 0.032, 1]);

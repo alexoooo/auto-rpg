@@ -17,6 +17,7 @@ longer sample — and do not compare moving scenes as independent runs.
 - [Combat-mechanics sweeps and rejected alternatives, migrated 2026-08](evidence/2026-08-combat-mechanics.md)
 - [v2 procedural greybox Canvas2D, WebGPU, and WebGL2 diagnostic evidence, 2026-08-08](evidence/2026-08-08-v2-greybox.md)
 - [v2 representative room automated record and pending manual evidence](evidence/2026-08-room-slice.md)
+- [concept-production World correctness frame, 2026-08-17](evidence/2026-08-concept-production-world.png)
 - [v2 arena foreground matrix — frame times, visual judgements, and by-hand checks owed to a person](v2-arena-matrix.md)
 - [v2 articulated actuator deterministic sweep](v2-actuator-sweep.md)
 - [v2 articulated mechanical gate result and open ledger](v2-articulated-gate.md)

@@ -5,7 +5,9 @@
 **Canonical source:** the [room matrix](../v2-room-matrix.md#artifact-and-environment-record) and current [room asset contract](../../reference/room-asset-contract.md#manifest-semantics)
 **Update when:** An artifact, raw capture, fixed-view screenshot, review result, or owner decision is recorded.
 
-The generator-v5 room pipeline and automated artifact are current. Its concept-directed masonry, stable topology, layered fixtures, and atlas revision have automated validation. The initial visible
+The generator-v6 room pipeline and automated artifact are current. Its modular
+masonry, stable topology, layered fixtures, painterly embeds, and runtime VFX
+textures have automated validation. The initial visible
 art review ended in an owner `replace` decision. After the replacement work, the
 owner accepted minimum legacy parity on 2026-08-09 and chose `pass/proceed`; the
 2026-08-17 owner screenshots supersede that decision with `replace` for the current
@@ -16,20 +18,18 @@ ultimate painted-art direction.
 ## Method and provenance
 
 The automated artifact identities are build inputs
-`593d4c43e4ce399d426c8bbd0641122e9c4901a3f2dfe6c5b85fedd8759cd4cf`, GLB
-`b8819b6e4c46fe4483448f6f936d17cc9f62b43814fed9beb77ff216af67cf06`, sidecar
-`4a6ec372cef32fb5b13311d0b9f0ddd8f59d99da602e550ccf885da2a0fcf064`, validator
-`05a00c444bea02557561816c4c5d0c05a0dee8b17a8b19c88618cfaeeb807721`, and room map
+`52296f2178324c57387e47a6a4a717f138051288768e9805e778781ba5975b9f`, GLB
+`7d1a2c4b9ea3483f4c4461b72430144c6dca21f5e6bd024bafa1fdcb4bccc139`, sidecar
+`021363e6f4857fcdca39718a4779ee432dbc309bb156ef311f2004192052e62d`, validator
+`0157a21f928f21159d612179684f8b1ffe5813e684b2f6df294816e0e5516189`, and room map
 `a20ba5f64ef55bd7716c2a7cf17f3065619876d1ded2e81b05199b5282222907`.
 The pinned Blender binary remains
 `25bdb2e3f8ed0bac9d51b7a25fbea0f712a8d80346f2efc9dbe24d85e910c310`.
 
-Generator version 5 uses deterministic style `painted-cathedral-v3`. Its floor
-and wall quadrants come from the checked 1,254 x 1,254 concept-material atlas,
-SHA-256 `5f09f791ce9d97d0ed72f708baede576d6960db50d33af7d3008d16783e61e36`,
-and produce deterministic 512 x 512 embeds
-`0c49b0bc9241e70fc53207e28d62be30ca3787529cf5f93befbe821b98f3654a` and
-`bbf4ae43f1564aaa5754eb23ee7869eaf581fb979a970c802a1a43f4a9b9e075`.
+Generator version 6 uses deterministic style `painted-cathedral-v4`. Its four
+surface quadrants come from the checked 1,254 x 1,254 concept-material atlas,
+SHA-256 `e03c9acaee58bb007a4ecadd9a0e9e74405f13bbb136f028587aaf38db223c4c`,
+and produce twelve deterministic 896 x 896 albedo/normal/ORM embeds.
 Four fitted, irregular courses replace each former box-wall source while retaining
 the exact semantic names and pivots. The game-facing straight source is a flush,
 uncapped, one-tile facade whose courses repeat without stretching; the inside/L,
@@ -38,10 +38,10 @@ outside/T, and capped-end footprints remain for the arena's synthetic ring. Thei
 `[0.14, 0.11, 0.085]`, roughness `0.90`, separate top/side modulation, and a
 cooler `woodEnd` response for barrel caps. CORNER-domain
 `room_style` remains normalized `UNSIGNED_SHORT` `VEC4` `COLOR_0`.
-The artifact is 2,784 vertices and 1,404 triangles. Offline residency components
-are 119,568 source-buffer, 246,912 instance, 2,097,152 decoded-texture, and
-4,194,304 shadow-map bytes, totaling 6,657,936 bytes. The GLB is 1,060,408 bytes
-and sidecar 5,321 bytes, totaling 1,065,729 payload bytes.
+The artifact is 8,307 vertices and 4,128 triangles. Offline residency components
+are 489,600 source-buffer, 246,912 instance, 38,535,168 decoded-texture, and
+4,194,304 shadow-map bytes, totaling 43,465,984 bytes. The GLB is 15,821,160 bytes
+and sidecar 7,395 bytes, totaling 15,828,555 payload bytes.
 
 This supersedes the generator-v3 `readable-stone-v1` artifact accepted at minimum
 legacy parity on 2026-08-09. That measurement remains instructive: its tile textures
@@ -66,9 +66,9 @@ cleared before semantic quarter turns. Contiguous door records group into one
 architectural aperture instead of repeating a full frame per tile. Eight sockets
 each own tapered outer and core flame layers, adding sixteen effects; the stress
 route records 27 draws without changing the nine-light count.
-Validator 2.0.0-dev.3.10 reports zero errors, warnings, and hints, plus four
-informational messages for the 13-node, 12-mesh, four-material,
-2,784-vertex, 1,404-triangle kit.
+Validator 2.0.0-dev.3.10 reports zero errors, warnings, and hints, plus fourteen
+informational messages for the 19-node, 18-mesh, five-material,
+8,307-vertex, 4,128-triangle kit.
 
 Foreground evidence must additionally record machine/browser/driver/power; exact
 room URL, backend and camera; 1920 x 1080 CSS and backing size; fixed fixture;
@@ -87,7 +87,7 @@ Distinguish these artifact classes explicitly:
 ## Automated result
 
 Complete. Offline generation/verification, semantic validation, dependency and
-toolchain checks, TypeScript compilation, lazy delivery/build smokes, and all 114
+toolchain checks, TypeScript compilation, lazy delivery/build smokes, and all 125
 renderer contract tests pass. The runtime exercises the current pinned room through
 the scene-bound lazy loader without weakening visibility or simulation authority.
 

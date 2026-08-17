@@ -1121,7 +1121,7 @@ function checkRoomMatrixScaffold(root, errors) {
     ["WebGL2 threshold", /33\.33 ms/],
     ["Canvas p95 drift threshold", /0\.50 ms/],
     ["Canvas over-33-ms drift threshold", /0\.005/],
-    ["exact floor capacities", /floor_a 768.*floor_b 768/],
+    ["exact floor capacities", /1,536 floor-source slots/],
     ["exact map byte count", /1,536 committed map bytes/],
     ["free-camera API", /createRoomReviewCamera\(scene, canvas, bounds, options\)/],
     ["schema-two build-input identity", /schema 2[\s\S]*buildInputsSha256/i],
