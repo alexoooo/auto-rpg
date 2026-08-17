@@ -1,10 +1,10 @@
 import type { AnimationGroup } from "@babylonjs/core/Animations/animationGroup.js";
-import { PBRMaterial } from "@babylonjs/core/Materials/PBR/pbrMaterial.js";
-import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import type { Mesh } from "@babylonjs/core/Meshes/mesh.js";
 import type { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
 import { Matrix, Quaternion } from "@babylonjs/core/Maths/math.vector.js";
-import type { CombatantArchetypeContract, CombatantKind } from "./combatant-asset-contract.js";
+import type {
+  CombatantArchetypeContract, CombatantKind, CombatantLod,
+} from "./combatant-asset-contract.js";
 import type { CombatantAsset } from "./combatant-assets.js";
 
 export type CombatantDress = Readonly<{
@@ -12,14 +12,29 @@ export type CombatantDress = Readonly<{
   contract: CombatantArchetypeContract;
   root: TransformNode;
   nodes: ReadonlyMap<string, TransformNode>;
+  lods: ReadonlyMap<CombatantLod, ReadonlyMap<string, Mesh>>;
   meshes: ReadonlyMap<string, Mesh>;
+  readonly activeLod: CombatantLod;
+  allMeshes: readonly Mesh[];
   clips: ReadonlyMap<string, AnimationGroup>;
+  setLod(lod: CombatantLod): void;
+  setSemanticEnabled(semantic: string, enabled: boolean): void;
   sampleClip(semantic: "idle" | "walk" | "stagger" | "fall", phase: number): void;
   setStandingHeight(height: number): void;
   setEnabled(enabled: boolean): void;
   dispose(): void;
   readonly disposed: boolean;
 }>;
+
+export const COMBATANT_HIGH_LOD_MIN_PIXELS = 160;
+export const COMBATANT_MID_LOD_MIN_PIXELS = 64;
+
+/** Select a bounded dress by its current projected standing height. */
+export function combatantLodForProjectedHeight(projectedHeight: number): CombatantLod {
+  if (projectedHeight >= COMBATANT_HIGH_LOD_MIN_PIXELS) return "high";
+  if (projectedHeight >= COMBATANT_MID_LOD_MIN_PIXELS) return "mid";
+  return "low";
+}
 
 export type CombatantMeshRole =
   | "head" | "torso" | "legs" | "arm_left" | "arm_right" | "weapon" | "shield";
@@ -42,44 +57,6 @@ export function combatantMeshRole(semantic: string): CombatantMeshRole {
 }
 
 const COPY_INVERSE = new Quaternion();
-
-type FighterSurface = Readonly<{
-  albedo: readonly [number, number, number];
-  emissive: readonly [number, number, number];
-  metallic: number;
-  roughness: number;
-}>;
-
-const fighterSurface = (
-  albedo: FighterSurface["albedo"], emissive: FighterSurface["emissive"],
-  metallic: number, roughness: number,
-): FighterSurface => Object.freeze({ albedo, emissive, metallic, roughness });
-
-const FIGHTER_SURFACES: Readonly<Record<string, FighterSurface>> = Object.freeze({
-  combatant_burgundy: fighterSurface([0.34, 0.12, 0.07], [0.030, 0.008, 0.003], 0.0, 0.80),
-  combatant_dark_steel: fighterSurface([0.20, 0.23, 0.28], [0.035, 0.040, 0.050], 0.72, 0.43),
-  combatant_leather: fighterSurface([0.27, 0.15, 0.075], [0.010, 0.004, 0.001], 0.0, 0.76),
-  combatant_skin: fighterSurface([0.62, 0.43, 0.28], [0.040, 0.024, 0.012], 0.0, 0.72),
-  combatant_steel: fighterSurface([0.48, 0.51, 0.55], [0.045, 0.050, 0.060], 0.76, 0.36),
-});
-
-const FIGHTER_SEMANTIC_SURFACES: Readonly<Record<string, FighterSurface>> = Object.freeze({
-  torso_breastplate: fighterSurface([0.43, 0.46, 0.50], [0.040, 0.046, 0.055], 0.76, 0.38),
-  head_visor: fighterSurface([0.18, 0.21, 0.26], [0.009, 0.011, 0.016], 0.68, 0.46),
-  pauldron_left: fighterSurface([0.40, 0.43, 0.47], [0.036, 0.041, 0.050], 0.75, 0.40),
-  pauldron_right: fighterSurface([0.40, 0.43, 0.47], [0.036, 0.041, 0.050], 0.75, 0.40),
-  hand_left: fighterSurface([0.23, 0.25, 0.28], [0.006, 0.007, 0.009], 0.75, 0.40),
-  hand_right: fighterSurface([0.23, 0.25, 0.28], [0.006, 0.007, 0.009], 0.75, 0.40),
-  shield: fighterSurface([0.31, 0.35, 0.39], [0.032, 0.040, 0.050], 0.68, 0.48),
-  sword: fighterSurface([0.64, 0.67, 0.71], [0.060, 0.066, 0.078], 0.82, 0.29),
-});
-
-function applyFighterSurface(material: PBRMaterial, surface: FighterSurface): void {
-  material.albedoColor.copyFromFloats(...surface.albedo);
-  material.emissiveColor.copyFromFloats(...surface.emissive);
-  material.metallic = surface.metallic;
-  material.roughness = surface.roughness;
-}
 
 /** Copy the already-authoritative named rig into a skinned authored dress. */
 export function copyCombatantRigPose(
@@ -152,9 +129,9 @@ export function instantiateCombatantDress(
   const descendants = [outer, ...outer.getDescendants(false)] as TransformNode[];
   const byName = new Map(descendants.map((node) => [node.name, node]));
   const nodes = new Map<string, TransformNode>();
-  const meshes = new Map<string, Mesh>();
+  const lods = new Map<CombatantLod, ReadonlyMap<string, Mesh>>();
+  const allMeshes: Mesh[] = [];
   const clips = new Map<string, AnimationGroup>();
-  const ownedMaterials: PBRMaterial[] = [];
   let semanticRoot: TransformNode | null = null;
   try {
     for (const row of source.contract.nodes) {
@@ -162,32 +139,28 @@ export function instantiateCombatantDress(
       if (node === undefined) throw new Error("combatant " + kind + " clone lacks " + row.semantic);
       nodes.set(row.semantic, node);
     }
-    for (const row of source.contract.meshes) {
-      const mesh = byName.get(clonePrefix + row.node) as Mesh | undefined;
-      if (mesh === undefined || typeof mesh.getTotalVertices !== "function") {
-        throw new Error("combatant " + kind + " clone lacks mesh " + row.semantic);
-      }
-      mesh.isVisible = true;
-      mesh.isPickable = false;
-      mesh.receiveShadows = true;
+    for (const lod of source.contract.lods) {
+      const meshes = new Map<string, Mesh>();
+      for (const row of lod.meshes) {
+        const mesh = byName.get(clonePrefix + row.node) as Mesh | undefined;
+        if (mesh === undefined || typeof mesh.getTotalVertices !== "function") {
+          throw new Error("combatant " + kind + " clone lacks " + lod.level + " mesh " + row.semantic);
+        }
+        mesh.isVisible = true;
+        mesh.isPickable = false;
+        mesh.receiveShadows = true;
       // The mesh stays at the loader closure's origin while its cloned
       // skeleton follows the published rig. Babylon otherwise frustum-culls
       // against that stale bind-pose box: the camera can be centred on the
       // hero while every dressed mesh is rejected somewhere else in the
       // room. Keeping this small, bounded dress closure active is the honest
       // alternative to pretending the loader-origin bounds followed bones.
-      mesh.alwaysSelectAsActiveMesh = true;
-      if (kind === "fighter") {
-        const surface = FIGHTER_SEMANTIC_SURFACES[row.semantic] ?? FIGHTER_SURFACES[row.materialRole];
-        const material = mesh.material?.clone(clonePrefix + row.node + ":surface");
-        if (!(material instanceof PBRMaterial) || surface === undefined) {
-          throw new Error("combatant fighter material role drifted: " + row.materialRole);
-        }
-        mesh.material = material;
-        ownedMaterials.push(material);
-        applyFighterSurface(material, surface);
+        mesh.alwaysSelectAsActiveMesh = true;
+        mesh.setEnabled(false);
+        meshes.set(row.semantic, mesh);
+        allMeshes.push(mesh);
       }
-      meshes.set(row.semantic, mesh);
+      lods.set(lod.level, meshes);
     }
     for (const row of source.contract.clips) {
       const group = entries.animationGroups.find(({ name }) => name === clonePrefix + row.animation);
@@ -200,14 +173,41 @@ export function instantiateCombatantDress(
     semanticRoot.setEnabled(true);
     outer.setEnabled(false);
   } catch (error) {
-    for (const material of ownedMaterials) material.dispose(false, false);
     entries.dispose();
     throw error;
   }
   let disposed = false;
-  return Object.freeze({
+  let enabled = false;
+  let activeLod: CombatantLod = "high";
+  const semanticEnabled = new Map<string, boolean>(
+    source.contract.lods[0]?.meshes.map(({ semantic }) => [semantic, true] as const) ?? [],
+  );
+  const applyMeshState = (): void => {
+    for (const [level, meshes] of lods) for (const [semantic, mesh] of meshes) {
+      mesh.setEnabled(enabled && level === activeLod && (semanticEnabled.get(semantic) ?? false));
+    }
+  };
+  const dress: CombatantDress = {
     kind, contract: source.contract, root: semanticRoot,
-    nodes, meshes, clips,
+    nodes, lods, get meshes(): ReadonlyMap<string, Mesh> {
+      return lods.get(activeLod) ?? new Map();
+    },
+    get activeLod(): CombatantLod { return activeLod; },
+    allMeshes: Object.freeze(allMeshes), clips,
+    setLod(lod: CombatantLod): void {
+      if (disposed || lod === activeLod) return;
+      if (!lods.has(lod)) throw new Error("combatant " + kind + " lacks " + lod + " LOD");
+      activeLod = lod;
+      applyMeshState();
+    },
+    setSemanticEnabled(semantic: string, visible: boolean): void {
+      if (disposed) return;
+      if (!semanticEnabled.has(semantic)) {
+        throw new Error("combatant " + kind + " lacks mesh semantic " + semantic);
+      }
+      semanticEnabled.set(semantic, visible);
+      applyMeshState();
+    },
     sampleClip(semantic: "idle" | "walk" | "stagger" | "fall", phase: number): void {
       if (disposed) return;
       const group = clips.get(semantic);
@@ -230,16 +230,19 @@ export function instantiateCombatantDress(
       outer.scaling.setAll(Math.max(0.0001, height) / source.contract.height);
       outer.computeWorldMatrix(true);
     },
-    setEnabled(enabled: boolean): void {
-      if (!disposed) outer.setEnabled(enabled);
+    setEnabled(visible: boolean): void {
+      if (disposed) return;
+      enabled = visible;
+      outer.setEnabled(visible);
+      applyMeshState();
     },
     dispose(): void {
       if (disposed) return;
       disposed = true;
       for (const group of clips.values()) group.stop();
       entries.dispose();
-      for (const material of ownedMaterials) material.dispose(false, false);
     },
     get disposed(): boolean { return disposed; },
-  });
+  };
+  return Object.freeze(dress);
 }

@@ -180,7 +180,8 @@ pub use rules::{
 pub use scenario::{
     CombatModel, Scenario, ScenarioFingerprintError, UnitSpec, DUNGEON_COLS, DUNGEON_ROWS,
 };
-pub use world::{ArticulatedProjectileView, Outcome, ShotView, Snapshot, SpawnError, UnitView, World, WorldBuildError};
+pub use world::{ArticulatedProjectileView, DungeonObjectKind, DungeonObjectView, Outcome, ShotView,
+                Snapshot, SpawnError, UnitView, World, WorldBuildError};
 #[cfg(feature = "cartesian-recoil")]
 pub use world::ExactLatticeEnvelope;
 #[cfg(feature = "cartesian-recoil")]

@@ -27,6 +27,12 @@ function extent(mesh, axis) {
   return mesh.bounds.max[axis] - mesh.bounds.min[axis];
 }
 
+function lodMeshes(archetypeValue, level = "mid") {
+  const lod = archetypeValue.lods.find((value) => value.level === level);
+  assert.ok(lod, `missing ${archetypeValue.kind} ${level} LOD`);
+  return lod.meshes;
+}
+
 function nodeWorld(archetypeValue, semantic, cache = new Map()) {
   if (cache.has(semantic)) return cache.get(semantic);
   const node = archetypeValue.nodes.find((value) => value.semantic === semantic);
@@ -40,7 +46,7 @@ function nodeWorld(archetypeValue, semantic, cache = new Map()) {
 }
 
 function posedBounds(archetypeValue, meshSemantic, boneSemantic) {
-  const mesh = archetypeValue.meshes.find((value) => value.semantic === meshSemantic);
+  const mesh = lodMeshes(archetypeValue).find((value) => value.semantic === meshSemantic);
   assert.ok(mesh, `missing mesh ${meshSemantic}`);
   const origin = nodeWorld(archetypeValue, boneSemantic);
   return {
@@ -74,8 +80,8 @@ test("every_combatant_mesh_is_bound_to_one_exact_sixteen_bone_skin", () => {
     assert.notEqual(skinIndex, -1);
     assert.equal(parsed.gltf.skins[skinIndex].joints.length, 16);
     const meshes = parsed.gltf.nodes.filter(({ name }) =>
-      name.startsWith(archetype.nodePrefix + "mesh_"));
-    assert.ok(meshes.length >= 16);
+      name.startsWith(archetype.nodePrefix + "lod_"));
+    assert.equal(meshes.length, archetype.lods.reduce((sum, lod) => sum + lod.meshes.length, 0));
     assert.ok(meshes.every(({ skin }) => skin === skinIndex));
   }
 });
@@ -92,7 +98,8 @@ test("a_changed_bone_closure_or_validator_warning_is_refused", async () => {
   assert.throws(() => validateManifest({ ...manifest, export: { ...manifest.export, skins: false } }),
     /export contract/);
   const unskinned = { ...parsed, gltf: structuredClone(parsed.gltf) };
-  delete unskinned.gltf.nodes.find(({ name }) => name === "FIGHTER_mesh_pelvis_skirt").skin;
+  delete unskinned.gltf.nodes.find(({ name }) =>
+    name === "FIGHTER_lod_high_mesh_pelvis_skirt").skin;
   assert.throws(() => validateSemanticClosure(unskinned,
     parseCombatantSidecar(fs.readFileSync(SIDECAR)), manifest), /not bound/);
   const duplicate = { ...parsed, gltf: structuredClone(parsed.gltf) };
@@ -120,6 +127,53 @@ test("two_clean_pinned_combatant_exports_are_byte_identical", () => {
   assert.match(run.stdout, /combatant asset verified: [0-9a-f]{64}/);
 });
 
+test("fighter_and_brute_lods_preserve_rig_socket_and_region_closure", () => {
+  const manifest = JSON.parse(fs.readFileSync(MANIFEST, "utf8"));
+  const sidecar = parseCombatantSidecar(fs.readFileSync(SIDECAR));
+  const levels = ["high", "mid", "low"];
+  const budgets = {
+    fighter: { high: 45_000, mid: 14_000, low: 3_000 },
+    brute: { high: 55_000, mid: 18_000, low: 4_000 },
+  };
+  for (const kind of ["fighter", "brute"]) {
+    const declared = manifest.archetypes.find((value) => value.kind === kind);
+    const exported = sidecar.archetypes.find((value) => value.kind === kind);
+    assert.deepEqual(declared.lods.map(({ level }) => level), levels);
+    assert.deepEqual(exported.lods.map(({ level }) => level), levels);
+    for (const lod of exported.lods) {
+      assert.deepEqual(lod.meshes.map(({ semantic }) => semantic), declared.meshNames,
+        kind + " " + lod.level + " semantic mesh closure");
+      assert.ok(lod.meshes.reduce((sum, mesh) => sum + mesh.triangleCount, 0) <=
+        budgets[kind][lod.level], kind + " " + lod.level + " exceeds its triangle budget");
+    }
+    assert.deepEqual(exported.skeleton.bones.map((name) => name.slice(exported.nodePrefix.length)),
+      ["root", "pelvis", "torso", "head", "arm_left", "hand_left", "socket_weapon_left",
+        "arm_right", "hand_right", "socket_weapon_right", "socket_shield",
+        "region_head", "region_torso", "region_left_arm", "region_right_arm", "region_legs"]);
+    assert.deepEqual(exported.nodes.filter(({ semantic }) =>
+      semantic.startsWith("socket_") || semantic.startsWith("region_")).map(({ semantic }) => semantic),
+    ["socket_weapon_left", "socket_weapon_right", "socket_shield",
+      "region_head", "region_torso", "region_left_arm", "region_right_arm", "region_legs"]);
+  }
+});
+
+test("the_game_camera_reads_head_hands_feet_and_equipment_at_100_pixels", () => {
+  const sidecar = parseCombatantSidecar(fs.readFileSync(SIDECAR));
+  for (const kind of ["fighter", "brute"]) {
+    const value = sidecar.archetypes.find((archetypeValue) => archetypeValue.kind === kind);
+    const mid = value.lods.find(({ level }) => level === "mid");
+    const pixels = (semantic, axis) =>
+      extent(mid.meshes.find((mesh) => mesh.semantic === semantic), axis) / value.height * 100;
+    const names = kind === "fighter"
+      ? ["head_helmet", "hand_left", "hand_right", "boot_left", "boot_right", "shield", "sword"]
+      : ["head", "hand_left", "hand_right", "boot_left", "boot_right", "club"];
+    for (const semantic of names) {
+      assert.ok(Math.max(pixels(semantic, 0), pixels(semantic, 1)) >= 5,
+        kind + " " + semantic + " is unreadable at 100 pixels");
+    }
+  }
+});
+
 test("fighter_and_brute_bounds_have_human_proportions_and_distinct_silhouettes", () => {
   const fighter = archetype("fighter");
   const brute = archetype("brute");
@@ -128,8 +182,8 @@ test("fighter_and_brute_bounds_have_human_proportions_and_distinct_silhouettes",
     const right = value.nodes.find((node) => node.semantic === "arm_right").translation[0];
     return right - left;
   };
-  const fighterHelmet = fighter.meshes.find((mesh) => mesh.semantic === "head_helmet");
-  const bruteHead = brute.meshes.find((mesh) => mesh.semantic === "head");
+  const fighterHelmet = lodMeshes(fighter).find((mesh) => mesh.semantic === "head_helmet");
+  const bruteHead = lodMeshes(brute).find((mesh) => mesh.semantic === "head");
   assert.ok(shoulderWidth(fighter) >= 0.72 && shoulderWidth(fighter) <= 0.86);
   assert.ok(shoulderWidth(brute) >= 1.02 && shoulderWidth(brute) <= 1.20);
   assert.ok(extent(fighterHelmet, 1) >= 0.38 && extent(bruteHead, 1) >= 0.50);
@@ -139,7 +193,7 @@ test("fighter_and_brute_bounds_have_human_proportions_and_distinct_silhouettes",
   shoulderMutation.archetypes[0].nodes.find((node) => node.semantic === "arm_left").translation[0] = -0.20;
   assert.throws(() => validateCombatantPresentation(shoulderMutation), /shoulder proportions/);
   const headMutation = parseCombatantSidecar(fs.readFileSync(SIDECAR));
-  const helmet = headMutation.archetypes[0].meshes.find((mesh) => mesh.semantic === "head_helmet");
+  const helmet = lodMeshes(headMutation.archetypes[0]).find((mesh) => mesh.semantic === "head_helmet");
   helmet.bounds.max[1] = helmet.bounds.min[1] + 0.20;
   assert.throws(() => validateCombatantPresentation(headMutation), /head height/);
 });
@@ -147,14 +201,14 @@ test("fighter_and_brute_bounds_have_human_proportions_and_distinct_silhouettes",
 test("weapon_and_shield_have_minimum_projected_area_at_gameplay_scale", () => {
   const fighter = archetype("fighter");
   const brute = archetype("brute");
-  const sword = fighter.meshes.find((mesh) => mesh.semantic === "sword");
-  const shield = fighter.meshes.find((mesh) => mesh.semantic === "shield");
-  const club = brute.meshes.find((mesh) => mesh.semantic === "club");
+  const sword = lodMeshes(fighter).find((mesh) => mesh.semantic === "sword");
+  const shield = lodMeshes(fighter).find((mesh) => mesh.semantic === "shield");
+  const club = lodMeshes(brute).find((mesh) => mesh.semantic === "club");
   assert.ok(extent(sword, 0) * extent(sword, 1) >= 0.075, "the sword is line-thin");
   assert.ok(extent(shield, 0) * extent(shield, 1) >= 0.48, "the shield loses its broad read");
   assert.ok(extent(club, 0) * extent(club, 1) >= 0.26, "the club has no heavy striking head");
   const shieldMutation = parseCombatantSidecar(fs.readFileSync(SIDECAR));
-  const changedShield = shieldMutation.archetypes[0].meshes.find((mesh) => mesh.semantic === "shield");
+  const changedShield = lodMeshes(shieldMutation.archetypes[0]).find((mesh) => mesh.semantic === "shield");
   changedShield.bounds.max[0] = changedShield.bounds.min[0] + 0.20;
   assert.throws(() => validateCombatantPresentation(shieldMutation), /shield projected area/);
 });
@@ -203,7 +257,7 @@ test("the_40_pixel_shrink_test_distinguishes_fighter_from_brute", () => {
   const fighter = archetype("fighter");
   const brute = archetype("brute");
   const pixels = (value, mesh, axis) =>
-    extent(value.meshes.find((part) => part.semantic === mesh), axis) / value.height * 40;
+    extent(lodMeshes(value, "low").find((part) => part.semantic === mesh), axis) / value.height * 40;
   assert.ok(pixels(fighter, "sword", 0) >= 2.0, "the Fighter sword vanishes at 40 px");
   assert.ok(pixels(fighter, "shield", 0) >= 14.0, "the Fighter shield loses its class silhouette");
   assert.ok(pixels(brute, "club", 0) >= 5.0, "the Brute club loses its class silhouette");

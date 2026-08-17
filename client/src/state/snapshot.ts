@@ -1,7 +1,8 @@
 import {
+  DUNGEON_OBJECT_LAYOUT_VERSION, DUNGEON_OBJECT_OFFSET, DUNGEON_OBJECT_STRIDE,
   EVENT_STRIDE, FOCUS_NONE, FRAME_LAYOUT_VERSION, FRAME_MAX, FRAME_OFFSET, FURNITURE_MAX,
   FURNITURE_OFFSET, FURNITURE_STRIDE, HEADER_LEN, MAP_MAX, MAP_OFFSET,
-  MAX_EVENTS, MAX_SHOTS, MAX_UNITS, SHOT_STRIDE, SNAPSHOT_BUFFER_BYTES,
+  MAX_DUNGEON_OBJECTS, MAX_EVENTS, MAX_SHOTS, MAX_UNITS, SHOT_STRIDE, SNAPSHOT_BUFFER_BYTES,
   UNIT_STRIDE, VIS_OFFSET,
 } from "../protocol/abi.generated.js";
 import {
@@ -27,8 +28,10 @@ const EVENT_OTHER_INDEX = 5;
 export type LegacyPublication = {
   frameLayoutVersion: number; headerLength: number; unitStride: number;
   shotStride: number; eventStride: number; furnitureStride: number;
-  frame: Float32Array; map: Uint8Array; vis: Uint8Array; furniture: Uint8Array;
+  dungeonObjectLayoutVersion: number; dungeonObjectStride: number;
+  frame: Float32Array; map: Uint8Array; vis: Uint8Array; furniture: Uint8Array; dungeonObjects: Uint32Array;
   frameLength: number; mapLength: number; visLength: number; furnitureLength: number;
+  dungeonObjectLength: number; dungeonObjectsDropped: number;
   mapCols: number; mapRows: number; mapTileSizeMilli: number;
   mapRevision: number; visRevision: number; furnitureRevision: number;
   focusEntityIndex: number; focusEntityGeneration: number;
@@ -39,7 +42,7 @@ export type FilteredPublication = Omit<SnapshotMessage,
   "coalescedSnapshots" | "coalescedSnapshotsSaturated" | "bufferId" | "leaseToken" |
   "poolAllocationsTotal" | "buffersFree" | "buffersOutstanding" | "queuedCommands" | "buffer">;
 
-const arraysEqual = (a: Uint8Array, b: Uint8Array): boolean => {
+const arraysEqual = (a: ArrayLike<number>, b: ArrayLike<number>): boolean => {
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
   return true;
@@ -60,19 +63,23 @@ export class SnapshotFilterState {
   private rememberedMap = new Uint8Array(MAP_MAX).fill(MAP_UNKNOWN);
   private previousMap = new Uint8Array(0);
   private previousFurniture = new Uint8Array(0);
+  private previousDungeonObjects = new Uint32Array(0);
   private previousVis = new Uint8Array(0);
   private mapRevision = 0;
   private visRevision = 0;
   private furnitureRevision = 0;
+  private dungeonObjectRevision = 0;
 
   reset(): void {
     this.rememberedMap.fill(MAP_UNKNOWN);
     this.previousMap = new Uint8Array(0);
     this.previousFurniture = new Uint8Array(0);
+    this.previousDungeonObjects = new Uint32Array(0);
     this.previousVis = new Uint8Array(0);
     this.mapRevision = 0;
     this.visRevision = 0;
     this.furnitureRevision = 0;
+    this.dungeonObjectRevision = 0;
   }
 
   filter(publication: LegacyPublication, target: ArrayBuffer): FilteredPublication {
@@ -155,6 +162,19 @@ export class SnapshotFilterState {
     const furnitureBytes = Uint8Array.from(visibleFurniture);
     new Uint8Array(target, FURNITURE_OFFSET, furnitureBytes.length).set(furnitureBytes);
 
+    const visibleDungeonObjects: number[] = [];
+    for (let row = 0; row < publication.dungeonObjectLength; row++) {
+      const at = row * DUNGEON_OBJECT_STRIDE;
+      const x = numberAt(publication.dungeonObjects, at + 3) | 0;
+      const y = numberAt(publication.dungeonObjects, at + 4) | 0;
+      if (!tileVisible(x / 65536, y / 65536)) continue;
+      for (let column = 0; column < DUNGEON_OBJECT_STRIDE; column++) {
+        visibleDungeonObjects.push(numberAt(publication.dungeonObjects, at + column));
+      }
+    }
+    const dungeonObjectWords = Uint32Array.from(visibleDungeonObjects);
+    new Uint32Array(target, DUNGEON_OBJECT_OFFSET, dungeonObjectWords.length).set(dungeonObjectWords);
+
     const mapMoved = this.previousMap.length === 0
       ? filteredMap.some((value) => value !== MAP_UNKNOWN)
       : !arraysEqual(filteredMap, this.previousMap);
@@ -165,6 +185,10 @@ export class SnapshotFilterState {
     if (!arraysEqual(furnitureBytes, this.previousFurniture)) {
       this.furnitureRevision = nextRevision(this.furnitureRevision);
       this.previousFurniture = furnitureBytes.slice();
+    }
+    if (!arraysEqual(dungeonObjectWords, this.previousDungeonObjects)) {
+      this.dungeonObjectRevision = nextRevision(this.dungeonObjectRevision);
+      this.previousDungeonObjects = dungeonObjectWords.slice();
     }
     const filteredVis = publication.vis.subarray(0, publication.visLength);
     const visMoved = this.previousVis.length === 0
@@ -179,12 +203,17 @@ export class SnapshotFilterState {
       frameLayoutVersion: FRAME_LAYOUT_VERSION, headerLength: HEADER_LEN,
       unitStride: UNIT_STRIDE, shotStride: SHOT_STRIDE, eventStride: EVENT_STRIDE,
       furnitureStride: FURNITURE_STRIDE, frameLength: outputAt,
+      dungeonObjectLayoutVersion: DUNGEON_OBJECT_LAYOUT_VERSION,
+      dungeonObjectStride: DUNGEON_OBJECT_STRIDE,
       mapLength, visLength: publication.visLength,
       furnitureLength: furnitureBytes.length / FURNITURE_STRIDE,
+      dungeonObjectLength: dungeonObjectWords.length / DUNGEON_OBJECT_STRIDE,
+      dungeonObjectsDropped: publication.dungeonObjectsDropped,
       mapCols: publication.mapCols, mapRows: publication.mapRows,
       mapTileSizeMilli: publication.mapTileSizeMilli,
       mapRevision: this.mapRevision, visRevision: this.visRevision,
       furnitureRevision: this.furnitureRevision,
+      dungeonObjectRevision: this.dungeonObjectRevision,
     };
   }
 }
@@ -192,16 +221,21 @@ export class SnapshotFilterState {
 export function validateLegacyPublication(value: LegacyPublication): void {
   if (value.frameLayoutVersion !== FRAME_LAYOUT_VERSION || value.headerLength !== HEADER_LEN
     || value.unitStride !== UNIT_STRIDE || value.shotStride !== SHOT_STRIDE
-    || value.eventStride !== EVENT_STRIDE || value.furnitureStride !== FURNITURE_STRIDE) {
+    || value.eventStride !== EVENT_STRIDE || value.furnitureStride !== FURNITURE_STRIDE
+    || value.dungeonObjectLayoutVersion !== DUNGEON_OBJECT_LAYOUT_VERSION
+    || value.dungeonObjectStride !== DUNGEON_OBJECT_STRIDE) {
     throw new RangeError("legacy wasm ABI disagrees with generated ABI");
   }
   const integerFields = [value.frameLength, value.mapLength, value.visLength, value.furnitureLength,
+    value.dungeonObjectLength, value.dungeonObjectsDropped,
     value.mapCols, value.mapRows, value.mapTileSizeMilli, value.mapRevision, value.visRevision, value.furnitureRevision,
     value.focusEntityIndex, value.focusEntityGeneration];
   if (!integerFields.every((field) => isU32(field))) throw new RangeError("publication metadata is not u32");
   if (value.mapTileSizeMilli === 0 || value.mapCols * value.mapRows !== value.mapLength
     || value.mapLength !== value.visLength || value.mapLength > MAP_MAX) throw new RangeError("map/VIS shape is invalid");
   if (value.furnitureLength > FURNITURE_MAX || value.furniture.length < value.furnitureLength * FURNITURE_STRIDE) throw new RangeError("furniture length is invalid");
+  if (value.dungeonObjectLength > MAX_DUNGEON_OBJECTS
+    || value.dungeonObjects.length < value.dungeonObjectLength * DUNGEON_OBJECT_STRIDE) throw new RangeError("dungeon object length is invalid");
   if (value.frameLength < HEADER_LEN || value.frameLength > FRAME_MAX || value.frame.length < value.frameLength) throw new RangeError("frame length is invalid");
   for (let i = 0; i < value.frameLength; i++) if (!Number.isFinite(value.frame[i])) throw new RangeError("frame contains a non-finite value");
   const units = numberAt(value.frame, HEADER_UNIT_COUNT);
@@ -216,7 +250,7 @@ export function validateLegacyPublication(value: LegacyPublication): void {
 }
 
 export type SnapshotView = {
-  frame: Float32Array; map: Uint8Array; vis: Uint8Array; furniture: Uint8Array;
+  frame: Float32Array; map: Uint8Array; vis: Uint8Array; furniture: Uint8Array; dungeonObjects: Uint32Array;
   entityKey(row: number): string;
 };
 
@@ -229,12 +263,16 @@ export function parseSnapshot(message: SnapshotMessage): SnapshotView {
     || message.buffer.byteLength !== SNAPSHOT_BUFFER_BYTES
     || message.frameLayoutVersion !== FRAME_LAYOUT_VERSION || message.headerLength !== HEADER_LEN
     || message.unitStride !== UNIT_STRIDE || message.shotStride !== SHOT_STRIDE
-    || message.eventStride !== EVENT_STRIDE || message.furnitureStride !== FURNITURE_STRIDE) {
+    || message.eventStride !== EVENT_STRIDE || message.furnitureStride !== FURNITURE_STRIDE
+    || message.dungeonObjectLayoutVersion !== DUNGEON_OBJECT_LAYOUT_VERSION
+    || message.dungeonObjectStride !== DUNGEON_OBJECT_STRIDE) {
     throw new RangeError("snapshot ABI metadata is invalid");
   }
   const ints = [message.epoch, message.tick, message.lastAppliedSequence, message.coalescedSnapshots,
     message.leaseToken, message.frameLength, message.mapLength, message.visLength, message.furnitureLength,
+    message.dungeonObjectLength, message.dungeonObjectsDropped,
     message.mapCols, message.mapRows, message.mapTileSizeMilli, message.mapRevision, message.visRevision, message.furnitureRevision,
+    message.dungeonObjectRevision,
     message.poolAllocationsTotal, message.buffersFree, message.buffersOutstanding, message.queuedCommands];
   if (!ints.every((field) => isU32(field)) || message.epoch === 0 || message.leaseToken === 0
     || (message.bufferId !== 0 && message.bufferId !== 1 && message.bufferId !== 2)
@@ -243,7 +281,8 @@ export function parseSnapshot(message: SnapshotMessage): SnapshotView {
     || message.buffersFree + message.buffersOutstanding !== 3 || message.queuedCommands > 256
     || message.frameLength < HEADER_LEN || message.frameLength > FRAME_MAX
     || message.mapLength !== message.visLength || message.mapLength !== message.mapCols * message.mapRows
-    || message.mapLength > MAP_MAX || message.furnitureLength > FURNITURE_MAX || message.mapTileSizeMilli === 0) {
+    || message.mapLength > MAP_MAX || message.furnitureLength > FURNITURE_MAX
+    || message.dungeonObjectLength > MAX_DUNGEON_OBJECTS || message.mapTileSizeMilli === 0) {
     throw new RangeError("snapshot shape metadata is invalid");
   }
   const frame = new Float32Array(message.buffer, FRAME_OFFSET, message.frameLength);
@@ -259,8 +298,10 @@ export function parseSnapshot(message: SnapshotMessage): SnapshotView {
   const map = new Uint8Array(message.buffer, MAP_OFFSET, message.mapLength);
   const vis = new Uint8Array(message.buffer, VIS_OFFSET, message.visLength);
   const furniture = new Uint8Array(message.buffer, FURNITURE_OFFSET, message.furnitureLength * FURNITURE_STRIDE);
+  const dungeonObjects = new Uint32Array(message.buffer, DUNGEON_OBJECT_OFFSET,
+    message.dungeonObjectLength * DUNGEON_OBJECT_STRIDE);
   return {
-    frame, map, vis, furniture,
+    frame, map, vis, furniture, dungeonObjects,
     entityKey(row: number): string {
       if (!Number.isInteger(row) || row < 0 || row >= units) throw new RangeError("unit row is out of bounds");
       const at = HEADER_LEN + row * UNIT_STRIDE;

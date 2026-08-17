@@ -348,6 +348,12 @@ pub struct World {
     /// [`World::state_hash`] can write the column straight down.
     doors: Vec<DoorState>,
 
+    /// Physical dungeon dressing. Kept outside `Dungeon`: tiles answer where
+    /// ground exists, while these rows have durability and may become inert.
+    /// Generated only for the shipped carved level, so flat combat fixtures
+    /// allocate and hash no prop state at all.
+    dungeon_props: Vec<DungeonPropState>,
+
     /// One route field per faction **per door capability**, indexed
     /// `[faction][opens_doors as usize]`. See [`Nav`].
     ///
@@ -377,6 +383,7 @@ pub struct World {
     blows: Vec<Blow>,
     pierces: Vec<Pierce>,
     impulses: Vec<Impulse>,
+    prop_impacts: Vec<PropImpact>,
     start_pos: Vec<Vec2>,
     /// Where each sword blade was before this tick's motion, so
     /// [`World::resolve_swings`] can sweep the segment rather than sample it.
@@ -414,6 +421,46 @@ struct DoorState {
     /// that brushes past a door on twenty separate occasions does not eventually
     /// open it by accident.
     pressed: u16,
+}
+
+/// Stable object kinds shared with the browser's `DUNGEON_OBJECT_V1` rows.
+#[repr(u32)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
+pub enum DungeonObjectKind {
+    Door = 1,
+    Torch = 2,
+    Barrel = 3,
+    Pottery = 4,
+    Web = 5,
+    Water = 6,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+struct DungeonPropState {
+    identity: u32,
+    kind: DungeonObjectKind,
+    position: Vec2,
+    yaw: Angle,
+    half_extents: Vec2,
+    hp: Fx,
+    max_hp: Fx,
+    broken: bool,
+}
+
+/// Read-only authoritative object state. Presentation may interpolate or dress
+/// this row, but may never feed a transform back into the simulation.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct DungeonObjectView {
+    pub kind: DungeonObjectKind,
+    pub identity: u32,
+    pub state_flags: u32,
+    pub position: Vec2,
+    pub yaw: Angle,
+    pub half_extents: Vec2,
+    pub hp: Fx,
+    pub max_hp: Fx,
+    pub progress: Fx,
+    pub material_code: u32,
 }
 
 /// Tile distances from one faction's objective, and what they were built for.
@@ -481,6 +528,22 @@ struct Pierce {
     blocked: bool,
     at: Vec2,
     shove: Vec2,
+}
+
+/// A prop hit collected against the tick-start snapshot and applied in a
+/// canonical order. Time of impact is first so simultaneous weapons cannot
+/// make destruction depend on entity allocation order.
+#[derive(Clone, Copy)]
+struct PropImpact {
+    toi: Fx,
+    prop: usize,
+    attacker: EntityId,
+    amount: Fx,
+}
+
+fn sort_prop_impacts(impacts: &mut [PropImpact], props: &[DungeonPropState]) {
+    impacts.sort_by_key(|impact|
+        (impact.toi, props[impact.prop].identity, impact.attacker));
 }
 
 /// A change to a hand's motion, likewise deferred.
@@ -1391,6 +1454,75 @@ fn check_contact_envelope(
     Ok(())
 }
 
+/// Deterministic dressing placement, deliberately independent of the dungeon
+/// generator's RNG stream. Adding a prop therefore cannot move a wall, door,
+/// spawn, or subsequent floor. A candidate has a complete open 3x3
+/// neighbourhood, so a blocking prop always has a route around it.
+fn generate_dungeon_props(scenario: &Scenario, seed: u64) -> Vec<DungeonPropState> {
+    if scenario.combat_model != crate::CombatModel::Legacy
+        || !scenario.dungeon.carved()
+        || scenario.dungeon.cols() != crate::DUNGEON_COLS
+        || scenario.dungeon.rows() != crate::DUNGEON_ROWS
+    {
+        return Vec::new();
+    }
+    let mut props = Vec::with_capacity(40);
+    let mut identity = 0u32;
+    'rows: for ty in 1..scenario.dungeon.rows() as i32 - 1 {
+        for tx in 1..scenario.dungeon.cols() as i32 - 1 {
+            if props.len() == 40 { break 'rows; }
+            let mut clear = true;
+            for dy in -1..=1 {
+                for dx in -1..=1 {
+                    clear &= scenario.dungeon.tile(tx + dx, ty + dy) == crate::OPEN;
+                }
+            }
+            if !clear { continue; }
+            let centre = Dungeon::tile_centre(tx, ty);
+            if scenario.units.iter().any(|unit| (unit.spawn - centre).length() < Fx::from_int(3)) {
+                continue;
+            }
+            let mut z = scenario.dungeon.fingerprint()
+                ^ seed.rotate_left(17)
+                ^ (tx as u64).wrapping_mul(0x9e37_79b9_7f4a_7c15)
+                ^ (ty as u64).wrapping_mul(0xbf58_476d_1ce4_e5b9);
+            z ^= z >> 30;
+            z = z.wrapping_mul(0xbf58_476d_1ce4_e5b9);
+            z ^= z >> 27;
+            z = z.wrapping_mul(0x94d0_49bb_1331_11eb);
+            z ^= z >> 31;
+            if z % 31 != 0 { continue; }
+            let kind = match (z >> 8) & 15 {
+                0..=3 => DungeonObjectKind::Barrel,
+                4..=7 => DungeonObjectKind::Pottery,
+                8..=11 => DungeonObjectKind::Web,
+                _ => DungeonObjectKind::Water,
+            };
+            let (half, hp) = match kind {
+                DungeonObjectKind::Barrel => (Fx::from_ratio(38, 100), Fx::from_int(3)),
+                DungeonObjectKind::Pottery => (Fx::from_ratio(22, 100), Fx::ONE),
+                DungeonObjectKind::Web => (Fx::from_ratio(65, 100), Fx::from_int(2)),
+                DungeonObjectKind::Water => (Fx::from_ratio(90, 100), Fx::ZERO),
+                _ => continue,
+            };
+            let ox = Fx::from_ratio(((z >> 16) as i32 & 255) - 128, 1024);
+            let oy = Fx::from_ratio(((z >> 24) as i32 & 255) - 128, 1024);
+            props.push(DungeonPropState {
+                identity,
+                kind,
+                position: centre + Vec2::new(ox, oy),
+                yaw: Angle::from_raw((z >> 32) as u16),
+                half_extents: Vec2::new(half, half),
+                hp,
+                max_hp: hp,
+                broken: false,
+            });
+            identity += 1;
+        }
+    }
+    props
+}
+
 impl World {
     /// Panicking constructor, kept source-compatible. It validates through the
     /// typed form and so still refuses before allocating anything.
@@ -1521,6 +1653,7 @@ impl World {
                     pressed: 0,
                 })
                 .collect(),
+            dungeon_props: generate_dungeon_props(scenario, seed),
             nav: [
                 [Nav::default(), Nav::default()],
                 [Nav::default(), Nav::default()],
@@ -1530,6 +1663,7 @@ impl World {
             blows: Vec::new(),
             pierces: Vec::new(),
             impulses: Vec::new(),
+            prop_impacts: Vec::with_capacity(64),
             start_pos: Vec::with_capacity(n),
             blade_was: Vec::with_capacity(n),
             blade_p: Vec::with_capacity(n),
@@ -2327,6 +2461,23 @@ impl World {
         }
     }
 
+    /// Turns one live legacy body without translating it.
+    ///
+    /// This is the narrow host-control counterpart to World::submit. It does
+    /// not invent a second command or enter replay serialization: the web host
+    /// integrates its held turn input at the fixed simulation cadence, then
+    /// records the resulting legacy facing in the same authoritative column
+    /// movement already writes. Articulated worlds and stale handles refuse it,
+    /// so this cannot bypass their body-yaw actuator.
+    pub fn face_legacy(&mut self, id: EntityId, facing: Angle) {
+        if self.combat_model != crate::CombatModel::Legacy {
+            return;
+        }
+        if let Some(i) = self.resolve(id).filter(|&i| self.alive[i]) {
+            self.facing[i] = facing;
+        }
+    }
+
     /// Sets a faction's standing order. This is the player's whole input
     /// channel; it lands in every observation of that faction from the next
     /// decision onward.
@@ -2634,6 +2785,63 @@ impl World {
         self.doors.iter().map(|d| (d.door, d.open))
     }
 
+    /// Door authority including sustained-push progress for a physical leaf.
+    pub fn door_objects(&self) -> impl ExactSizeIterator<Item = DungeonObjectView> + '_ {
+        self.doors.iter().enumerate().map(|(identity, state)| {
+            let mut lo_x = i32::MAX;
+            let mut hi_x = i32::MIN;
+            let mut lo_y = i32::MAX;
+            let mut hi_y = i32::MIN;
+            for &cell in state.door.cells() {
+                let (tx, ty) = self.dungeon.tile_at(cell);
+                lo_x = lo_x.min(tx); hi_x = hi_x.max(tx);
+                lo_y = lo_y.min(ty); hi_y = hi_y.max(ty);
+            }
+            let horizontal = hi_x != lo_x;
+            DungeonObjectView {
+                kind: DungeonObjectKind::Door,
+                identity: identity as u32,
+                state_flags: u32::from(state.open),
+                position: Vec2::new(
+                    Fx::from_ratio(lo_x + hi_x + 1, 2),
+                    Fx::from_ratio(lo_y + hi_y + 1, 2),
+                ),
+                yaw: Angle::from_raw(if horizontal { 0 } else { 16_384 }),
+                half_extents: if horizontal {
+                    Vec2::new(Fx::from_ratio(hi_x - lo_x + 1, 2), Fx::from_ratio(1, 10))
+                } else {
+                    Vec2::new(Fx::from_ratio(1, 10), Fx::from_ratio(hi_y - lo_y + 1, 2))
+                },
+                hp: Fx::ZERO,
+                max_hp: Fx::ZERO,
+                progress: Fx::from_ratio(state.pressed as i32, rules::DOOR_TICKS as i32),
+                material_code: 1,
+            }
+        })
+    }
+
+    /// Physical props in stable identity order, including broken tombstones.
+    pub fn dungeon_objects(&self) -> impl ExactSizeIterator<Item = DungeonObjectView> + '_ {
+        self.dungeon_props.iter().map(|prop| DungeonObjectView {
+            kind: prop.kind,
+            identity: prop.identity,
+            state_flags: u32::from(prop.broken),
+            position: prop.position,
+            yaw: prop.yaw,
+            half_extents: prop.half_extents,
+            hp: prop.hp,
+            max_hp: prop.max_hp,
+            progress: Fx::ZERO,
+            material_code: match prop.kind {
+                DungeonObjectKind::Barrel => 2,
+                DungeonObjectKind::Pottery => 3,
+                DungeonObjectKind::Web => 4,
+                DungeonObjectKind::Water => 5,
+                _ => 0,
+            },
+        })
+    }
+
     /// Whether a body of this radius can stand here without overlapping
     /// masonry -- or the outside, which [`Dungeon::solid`] reports as masonry
     /// too, so this covers the arena boundary without a second test.
@@ -2851,6 +3059,7 @@ impl World {
                 #[cfg(test)]
                 if self.phase_trace_enabled { self.phase_trace.push("legacy swings"); }
                 self.resolve_swings();
+                self.resolve_dungeon_prop_swings();
                 #[cfg(test)]
                 if self.phase_trace_enabled { self.phase_trace.push("recoil"); }
                 self.apply_recoil();
@@ -3023,7 +3232,8 @@ impl World {
             // multiply is the identity for the whole current roster and moves no
             // hash -- it is here so that landing `Run` is a one-row edit to the
             // registry rather than a change to the movement rule.
-            let want = dir * self.stats[i].move_speed() * self.action_of(i).spec().move_bonus;
+            let want = dir * self.stats[i].move_speed() * self.action_of(i).spec().move_bonus
+                * self.dungeon_slow_at(self.pos[i]);
             let change = (want - self.vel[i]).clamp_length(self.stats[i].traction());
             self.vel[i] += change;
             self.move_body(i, self.pos[i] + self.vel[i]);
@@ -3589,6 +3799,56 @@ impl World {
         self.apply_impulses();
     }
 
+    /// Applies legacy weapon damage to physical props. The body-damage pass is
+    /// intentionally left unchanged: props are a separate energy sink, not a
+    /// fourth combat contact kind.
+    fn resolve_dungeon_prop_swings(&mut self) {
+        if self.dungeon_props.is_empty() { return; }
+        self.prop_impacts.clear();
+        for i in 0..self.alive.len() {
+            if !self.alive[i] || !self.limb[i].swing.is_live() { continue; }
+            let (base, tip) = match self.blade(i) { Some(segment) => segment, None => continue };
+            let (was_base, was_tip) = self.blade_was[i].unwrap_or((base, tip));
+            let action = self.action_of(i).spec();
+            let speed = self.arm(i).spec.length * self.limb[i].spin.abs() + self.vel[i].length();
+            let amount = rules::blow_damage(
+                action.mass,
+                speed,
+                rules::power_multiplier(self.stats[i].power),
+            );
+            if !amount.is_positive() { continue; }
+            let mut first: Option<(Fx, usize)> = None;
+            for (prop_index, prop) in self.dungeon_props.iter().enumerate() {
+                if prop.broken || !prop.max_hp.is_positive() { continue; }
+                let radius = prop.half_extents.x.max(prop.half_extents.y);
+                let Some(hit) = fx::swept_segment_circle(
+                    was_base, was_tip, base, tip,
+                    prop.position, prop.position, radius,
+                ) else { continue; };
+                if first.is_none_or(|(toi, best)| (hit.t, prop.identity) <
+                    (toi, self.dungeon_props[best].identity)) {
+                    first = Some((hit.t, prop_index));
+                }
+            }
+            if let Some((toi, prop)) = first {
+                self.prop_impacts.push(PropImpact {
+                    toi, prop, attacker: self.id_of(i), amount,
+                });
+            }
+        }
+        sort_prop_impacts(&mut self.prop_impacts, &self.dungeon_props);
+        for impact in &self.prop_impacts {
+            let prop = &mut self.dungeon_props[impact.prop];
+            if prop.broken { continue; }
+            prop.hp -= impact.amount;
+            if !prop.hp.is_positive() {
+                prop.hp = Fx::ZERO;
+                prop.broken = true;
+            }
+        }
+        self.prop_impacts.clear();
+    }
+
     /// Flies every arrow one tick, and resolves whatever it met.
     ///
     /// The twin of [`World::resolve_swings`] and deliberately shaped like it,
@@ -3607,6 +3867,7 @@ impl World {
             return;
         }
         self.pierces.clear();
+        self.prop_impacts.clear();
 
         // ---- pass 1: read-only
         for k in 0..self.shot_alive.len() {
@@ -3653,6 +3914,32 @@ impl World {
             } else {
                 None
             };
+            let mut first_prop: Option<(Fx, usize)> = None;
+            for (prop_index, prop) in self.dungeon_props.iter().enumerate() {
+                if prop.broken || !prop.max_hp.is_positive() { continue; }
+                let radius = prop.half_extents.x.max(prop.half_extents.y);
+                let Some(hit) = fx::segment_circle(was, now, prop.position, radius) else {
+                    continue;
+                };
+                if first_prop.is_none_or(|(toi, best)| (hit.t, prop.identity) <
+                    (toi, self.dungeon_props[best].identity)) {
+                    first_prop = Some((hit.t, prop_index));
+                }
+            }
+            if let Some((toi, prop)) = first_prop {
+                let body_t = first.map(|row| row.0);
+                if wall.is_none_or(|wall_t| toi <= wall_t)
+                    && body_t.is_none_or(|target_t| toi <= target_t)
+                {
+                    let amount = rules::blow_damage(
+                        self.shot_mass[k], self.shot_vel[k].length(), self.shot_power[k]);
+                    self.prop_impacts.push(PropImpact {
+                        toi, prop, attacker: self.shot_owner[k], amount,
+                    });
+                    self.reap_shot(k);
+                    continue;
+                }
+            }
             let struck = match first {
                 Some((t, j, at)) if wall.is_none_or(|w| t <= w) => Some((j, at)),
                 _ => None,
@@ -3708,6 +3995,18 @@ impl World {
                 shove: self.shot_shove(k, j, blocked),
             });
         }
+
+        sort_prop_impacts(&mut self.prop_impacts, &self.dungeon_props);
+        for impact in &self.prop_impacts {
+            let prop = &mut self.dungeon_props[impact.prop];
+            if prop.broken { continue; }
+            prop.hp -= impact.amount;
+            if !prop.hp.is_positive() {
+                prop.hp = Fx::ZERO;
+                prop.broken = true;
+            }
+        }
+        self.prop_impacts.clear();
 
         // ---- pass 2: apply, in ascending shot order
         for p in 0..self.pierces.len() {
@@ -4712,6 +5011,21 @@ impl World {
             h.write_u32(self.doors.len() as u32);
             for door in &self.doors {
                 h.write_u16(door.pressed);
+            }
+        }
+        if !self.dungeon_props.is_empty() {
+            h.write_u32(self.dungeon_props.len() as u32);
+            for prop in &self.dungeon_props {
+                h.write_u32(prop.identity);
+                h.write_u32(prop.kind as u32);
+                h.write_i32(prop.position.x.raw());
+                h.write_i32(prop.position.y.raw());
+                h.write_u16(prop.yaw.raw());
+                h.write_i32(prop.half_extents.x.raw());
+                h.write_i32(prop.half_extents.y.raw());
+                h.write_i32(prop.hp.raw());
+                h.write_i32(prop.max_hp.raw());
+                h.write_bool(prop.broken);
             }
         }
         for order in self.orders {
@@ -7102,6 +7416,50 @@ impl World {
         self.pos[i] = clamped;
         if self.dungeon.carved() {
             self.resolve_tiles(i);
+            self.resolve_dungeon_props(i);
+        }
+    }
+
+    fn dungeon_slow_at(&self, p: Vec2) -> Fx {
+        let mut scale = Fx::ONE;
+        for prop in &self.dungeon_props {
+            if prop.broken || !matches!(prop.kind, DungeonObjectKind::Web | DungeonObjectKind::Water) {
+                continue;
+            }
+            let radius = prop.half_extents.x.max(prop.half_extents.y);
+            if (p - prop.position).length() <= radius {
+                let candidate = match prop.kind {
+                    DungeonObjectKind::Web => Fx::from_ratio(65, 100),
+                    DungeonObjectKind::Water => Fx::from_ratio(80, 100),
+                    _ => Fx::ONE,
+                };
+                scale = scale.min(candidate);
+            }
+        }
+        scale
+    }
+
+    fn resolve_dungeon_props(&mut self, i: usize) {
+        for prop in &self.dungeon_props {
+            if prop.broken || !matches!(prop.kind, DungeonObjectKind::Barrel | DungeonObjectKind::Pottery) {
+                continue;
+            }
+            let combined = self.radius[i] + prop.half_extents.x.max(prop.half_extents.y);
+            let delta = self.pos[i] - prop.position;
+            let distance = delta.length();
+            if distance >= combined {
+                continue;
+            }
+            let normal = if distance.is_zero() {
+                Vec2::from_angle(Angle::from_raw(prop.identity as u16))
+            } else {
+                delta.normalize()
+            };
+            self.pos[i] = prop.position + normal * combined;
+            let inward = self.vel[i].dot(normal);
+            if inward < Fx::ZERO {
+                self.vel[i] -= normal * inward;
+            }
         }
     }
 
@@ -19996,5 +20354,117 @@ mod articulated_projectile_tests {
         assert_eq!(world.articulated_projectile_slot(first_id), None);
         assert_eq!(world.articulated_projectile_slot(reused_id), Some(reused_slot));
         assert_eq!(reused_view.generation, reused_id.generation);
+    }
+
+    #[test]
+    fn generated_dungeon_objects_are_deterministic_clear_and_bounded() {
+        let scenario = Scenario::dungeon(17, 0, UnitSpec {
+            kind: Body::Fighter,
+            faction: Faction::Heroes,
+            stats: Body::Fighter.base_stats(),
+            loadout: Body::Fighter.default_loadout(),
+            articulated: None,
+            spawn: Vec2::ZERO,
+        });
+        let a = World::new(&scenario, 17);
+        let b = World::new(&scenario, 17);
+        assert_eq!(a.dungeon_props, b.dungeon_props);
+        assert_eq!(a.dungeon_props.len(), 21, "seed-17 placement census drifted");
+        assert!(a.dungeon_props.len() <= 40);
+        for prop in &a.dungeon_props {
+            let (tx, ty) = Dungeon::tile_of(prop.position);
+            for dy in -1..=1 {
+                for dx in -1..=1 {
+                    assert_eq!(a.dungeon.tile(tx + dx, ty + dy), crate::OPEN,
+                        "blocking dressing at identity {} cut the route", prop.identity);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn flat_fights_allocate_and_hash_no_dungeon_object_state() {
+        let a = World::new(&Scenario::duel(), 1);
+        let mut b = a.clone();
+        assert!(a.dungeon_props.is_empty());
+        assert_eq!(a.state_hash(), b.state_hash());
+        b.dungeon_props.clear();
+        assert_eq!(a.state_hash(), b.state_hash());
+    }
+
+    fn test_prop(kind: DungeonObjectKind, at: Vec2, half: Fx, hp: Fx) -> DungeonPropState {
+        DungeonPropState {
+            identity: 7,
+            kind,
+            position: at,
+            yaw: Angle::ZERO,
+            half_extents: Vec2::new(half, half),
+            hp,
+            max_hp: hp,
+            broken: false,
+        }
+    }
+
+    #[test]
+    fn web_and_water_slow_by_their_exact_authored_fractions() {
+        let mut world = World::new(&Scenario::duel(), 1);
+        let at = world.pos[0];
+        world.dungeon_props = vec![test_prop(
+            DungeonObjectKind::Water, at, Fx::ONE, Fx::ZERO,
+        )];
+        assert_eq!(world.dungeon_slow_at(at), Fx::from_ratio(80, 100));
+        world.dungeon_props.push(test_prop(
+            DungeonObjectKind::Web, at, Fx::ONE, Fx::from_int(2),
+        ));
+        assert_eq!(world.dungeon_slow_at(at), Fx::from_ratio(65, 100));
+        world.dungeon_props[1].broken = true;
+        assert_eq!(world.dungeon_slow_at(at), Fx::from_ratio(80, 100));
+    }
+
+    #[test]
+    fn broken_blocking_props_leave_a_stable_non_colliding_tombstone() {
+        let mut world = World::new(&Scenario::duel(), 1);
+        let start = world.pos[0];
+        world.dungeon_props = vec![test_prop(
+            DungeonObjectKind::Barrel, start, Fx::from_ratio(38, 100), Fx::from_int(3),
+        )];
+        let before = world.state_hash();
+        world.resolve_dungeon_props(0);
+        assert_ne!(world.pos[0], start);
+        world.dungeon_props[0].hp = Fx::ZERO;
+        world.dungeon_props[0].broken = true;
+        assert_ne!(world.state_hash(), before);
+        world.pos[0] = start;
+        world.resolve_dungeon_props(0);
+        assert_eq!(world.pos[0], start);
+        assert_eq!(world.dungeon_objects().count(), 1, "destruction removed stable identity");
+    }
+
+    #[test]
+    fn simultaneous_prop_hits_sort_by_time_identity_then_attacker() {
+        let mut props = vec![
+            test_prop(DungeonObjectKind::Barrel, Vec2::ZERO, Fx::HALF, Fx::ONE),
+            test_prop(DungeonObjectKind::Pottery, Vec2::X, Fx::HALF, Fx::ONE),
+        ];
+        props[0].identity = 12;
+        props[1].identity = 4;
+        let mut impacts = [
+            PropImpact { toi: Fx::HALF, prop: 0,
+                attacker: EntityId { index: 8, generation: 1 }, amount: Fx::ONE },
+            PropImpact { toi: Fx::HALF, prop: 1,
+                attacker: EntityId { index: 9, generation: 1 }, amount: Fx::ONE },
+            PropImpact { toi: Fx::HALF, prop: 1,
+                attacker: EntityId { index: 2, generation: 1 }, amount: Fx::ONE },
+            PropImpact { toi: Fx::from_ratio(1, 4), prop: 0,
+                attacker: EntityId { index: 10, generation: 1 }, amount: Fx::ONE },
+        ];
+        sort_prop_impacts(&mut impacts, &props);
+        assert_eq!(impacts.map(|impact|
+            (impact.toi, props[impact.prop].identity, impact.attacker.index)), [
+            (Fx::from_ratio(1, 4), 12, 10),
+            (Fx::HALF, 4, 2),
+            (Fx::HALF, 4, 9),
+            (Fx::HALF, 12, 8),
+        ]);
     }
 }

@@ -420,8 +420,8 @@ test("parse_route_falls_back_to_the_main_screen_and_hands_the_query_on_untouched
 
 test("the_game_route_gives_the_dungeon_the_stage_and_keeps_instruments_in_reach", () => {
   const template = /<template id="route-game">([\s\S]*?)<\/template>/.exec(SHELL_HTML)?.[1] ?? "";
-  assert.match(template, /<section class="game-stage" aria-labelledby="game-title">/);
-  assert.match(template, /<h1 id="game-title">Dungeon expedition<\/h1>/);
+  assert.match(template, /<section class="game-stage" aria-label="Dungeon expedition">/);
+  assert.doesNotMatch(template, /game-heading|id="game-title"|World \/ expedition/);
   assert.doesNotMatch(template, /The worker-owned simulation, inside the authored representative room\./,
     "the playable route must not put a marketing description over the world");
   assert.match(template, /<div class="game-state" aria-label="Party status">/);
@@ -438,7 +438,8 @@ test("the_game_route_gives_the_dungeon_the_stage_and_keeps_instruments_in_reach"
 
   for (const id of ["greybox", "interaction-hint", "room-camera-toggle", "party-health",
     "party-health-bar", "seed", "reset", "pause",
-    "goto-x", "goto-y", "goto", "withdraw", "spawn", "diagnostic-hold-buffers",
+    "slot-1", "slot-2", "control-movement", "control-action", "control-aim", "respawn",
+    "spawn-kind", "spawn-primary", "spawn-secondary", "withdraw", "spawn", "diagnostic-hold-buffers",
     "diagnostic-release-buffers", "performance-start", "performance-download", "performance-progress",
     "performance-status", "status", "error", "diagnostics"]) {
     assert.equal(template.match(new RegExp(`id="${id}"`, "g"))?.length, 1,
@@ -454,6 +455,38 @@ test("the_game_route_keeps_fps_visible_outside_the_systems_drawer", () => {
   assert.ok(fps >= 0 && view >= 0 && drawer >= 0 && fps < drawer && view < drawer,
     "player instruments must remain visible when Systems and capture is closed");
   assert.match(template, /<output id="game-fps"[^>]*>-- FPS \/ -- ms worst<\/output>/);
+});
+
+test("the_game_hud_keeps_performance_and_modes_above_the_world", () => {
+  const template = /<template id="route-game">([\s\S]*?)<\/template>/.exec(SHELL_HTML)?.[1] ?? "";
+  const systems = template.indexOf('class="game-instruments"');
+  for (const id of ["game-fps", "game-view-mode", "control-movement", "control-action", "control-aim"]) {
+    assert.ok(template.indexOf('id="' + id + '"') < systems, "#" + id + " must remain outside Systems");
+  }
+  assert.doesNotMatch(template, /id="goto-x"|id="goto-y"/);
+});
+
+test("tank_controls_are_hero_relative_and_key_release_sends_zero", () => {
+  const source = fs.readFileSync(path.join(ROOT, "client", "src", "input", "greybox-input.ts"), "utf8");
+  assert.match(source, /forward \/ length/);
+  assert.match(source, /right \/ length/);
+  assert.match(source, /window\.addEventListener\("keyup"/);
+  assert.match(source, /#keys\.delete\(key\)[\s\S]*?#sendLive\(0\)/);
+});
+
+test("weapon_slots_take_slot_authority_before_sending_the_request", () => {
+  const source = fs.readFileSync(path.join(ROOT, "client", "src", "v2.ts"), "utf8");
+  assert.match(source, /setControlMask\(acceptedControlMask \| 4\)/);
+  assert.match(source, /selectSlot: \(slot\)[\s\S]*?selectWeapon\(slot\)/);
+});
+
+test("weapon_slots_use_authored_art_instead_of_platform_emoji", () => {
+  const shell = fs.readFileSync(SHELL_HTML, "utf8");
+  assert.ok(shell.includes('id="slot-1" class="equipment-slot"'));
+  assert.ok(shell.includes('id="slot-2" class="equipment-slot"'));
+  assert.equal((shell.match(/<svg class="slot-art"/g) ?? []).length, 2);
+  assert.equal(shell.includes("🛡") || shell.includes("⚔"), false,
+    "weapon art must not regress to platform emoji");
 });
 
 test("g_cycles_the_game_view_and_the_button_names_the_active_mode", () => {

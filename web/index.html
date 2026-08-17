@@ -103,40 +103,30 @@
       background:
         linear-gradient(180deg, rgba(7, 6, 5, .62) 0%, transparent 11%, transparent 74%, rgba(7, 6, 5, .74) 100%),
         linear-gradient(90deg, rgba(7, 6, 5, .42) 0%, transparent 18%, transparent 82%, rgba(7, 6, 5, .2) 100%); }
-    .game-heading, .game-state, .game-command-deck, .game-stage-footer, .game-stage #error {
+    .game-state, .game-command-deck, .game-performance, .game-stage-footer, .game-stage #error {
       position: absolute; z-index: 2; }
-    .game-heading { top: clamp(.55rem, 1vw, .85rem); left: clamp(.65rem, 1.2vw, 1rem);
-      display: flex; align-items: center; gap: .5rem; padding: .38rem .55rem;
-      border: 1px solid var(--studio-panel-line); border-radius: .25rem;
-      border-left-color: rgba(232, 180, 92, .62); background: var(--studio-scrim);
-      box-shadow: var(--studio-bevel), inset 3px 0 rgba(232, 180, 92, .12), 0 .3rem 1rem rgba(0, 0, 0, .28);
-      text-shadow: 0 2px 12px #000; pointer-events: none; }
-    .route-game .game-heading .game-kicker { margin: 0; color: var(--studio-amber);
-      font: 600 .56rem/1 ui-monospace, Consolas, monospace; letter-spacing: .16em; text-transform: uppercase; }
-    .route-game .game-heading h1 { margin: 0; padding-left: .5rem; border-left: 1px solid var(--studio-panel-line);
-      color: #ddd1b8; font: 600 .68rem/1 ui-monospace, Consolas, monospace;
-      letter-spacing: .1em; text-transform: uppercase; }
     .game-state { left: clamp(.65rem, 1.2vw, 1rem); bottom: clamp(.65rem, 1.2vw, 1rem);
       width: min(13.5rem, calc(100% - 1.3rem)); display: grid; gap: .32rem; padding: .48rem .58rem;
       border: 1px solid var(--studio-panel-line); border-radius: .3rem;
       border-top-color: rgba(232, 180, 92, .5); background: var(--studio-scrim);
       box-shadow: var(--studio-bevel), inset 0 -1px rgba(0, 0, 0, .65), 0 .35rem 1.2rem rgba(0, 0, 0, .34); }
     .game-vitals { display: flex; align-items: baseline; justify-content: space-between; gap: .65rem; }
+    .game-vitals #respawn { padding: .18rem .38rem; font-size: .62rem; }
     .game-vitals > span { color: var(--studio-faint); font: .6rem/1 ui-monospace, Consolas, monospace;
       letter-spacing: .15em; text-transform: uppercase; }
     .route-game #party-health { color: #ddd1b8; font: 600 .68rem/1 ui-monospace, Consolas, monospace; }
     .route-game #party-health-bar { width: 100%; height: .28rem; border: 0; accent-color: var(--studio-amber); }
     .route-game .game-state #status { color: var(--studio-cyan); font-size: .68rem; line-height: 1.25; }
-    .game-live-instruments { display: flex; align-items: center; justify-content: space-between;
-      gap: .4rem; padding-top: .28rem; border-top: 1px solid var(--studio-panel-line); }
+    .game-performance { top: .7rem; left: 50%; transform: translateX(-50%);
+      padding: .35rem .55rem; background: var(--studio-scrim); border: 1px solid var(--studio-panel-line); }
     .route-game #game-fps { color: var(--studio-faint); font: .6rem/1 ui-monospace, Consolas, monospace;
       font-variant-numeric: tabular-nums; white-space: nowrap; }
     .route-game #game-view-mode { padding: .22rem .42rem; border-color: var(--studio-panel-line);
       background: #100d0a; color: var(--studio-cyan); font-size: .66rem; }
     .route-game #game-view-mode::after { content: "  [G]"; color: var(--studio-faint); }
-    .game-command-deck { left: 50%; bottom: clamp(.65rem, 1.2vw, 1rem);
+    .game-command-deck { right: clamp(.65rem, 1.2vw, 1rem); bottom: clamp(.65rem, 1.2vw, 1rem);
       display: flex; flex-wrap: wrap; justify-content: center; gap: .45rem;
-      max-width: calc(100% - 31rem); transform: translateX(-50%); }
+      max-width: calc(100% - 31rem); }
     .route-game .game-command-deck fieldset { min-width: 0; margin: 0; padding: .42rem .55rem .55rem;
       border-color: var(--studio-panel-line); border-radius: .35rem;
       border-top-color: rgba(232, 180, 92, .42); background: var(--studio-scrim);
@@ -151,6 +141,16 @@
     .route-game .game-command-deck button { padding: .3rem .5rem; border-color: var(--studio-panel-line);
       background: #100d0a; font-size: .72rem; }
     .route-game .game-command-deck button:hover { color: var(--studio-cyan); border-color: var(--studio-cyan); }
+    .route-game .game-command-deck .equipment-slot { display: inline-flex; align-items: center; gap: .38rem;
+      min-width: 6.8rem; padding: .24rem .48rem .24rem .3rem; text-align: left; }
+    .equipment-slot .slot-art { width: 1.65rem; height: 1.65rem; flex: 0 0 auto;
+      filter: drop-shadow(0 2px 2px #000); }
+    .equipment-slot[aria-pressed="true"] .slot-art { filter:
+      drop-shadow(0 0 3px rgba(127, 166, 189, .72)) drop-shadow(0 2px 2px #000); }
+    .slot-art .iron { fill: #77766f; stroke: #c2b89f; stroke-width: 1.2; }
+    .slot-art .iron-dark { fill: #292b2b; stroke: #847d6e; stroke-width: 1.1; }
+    .slot-art .leather { fill: #563423; stroke: #a06a3f; stroke-width: 1; }
+    .slot-art .edge { fill: #c8c3b4; }
     .game-stage-footer { top: clamp(.55rem, 1vw, .85rem); right: clamp(.65rem, 1.2vw, 1rem);
       max-width: min(34rem, 48%); display: flex; align-items: center; justify-content: flex-end; gap: .5rem; }
     .route-game .game-stage-footer p { margin: 0; color: var(--studio-dim); font-size: .68rem;
@@ -160,7 +160,7 @@
     .route-game .game-stage #error { top: 3.4rem; right: clamp(.65rem, 1.2vw, 1rem);
       max-width: min(32rem, 60%); min-height: 0; color: var(--studio-red); font-size: .75rem; text-align: right; }
     .game-support { position: absolute; z-index: 3; right: clamp(.65rem, 1.2vw, 1rem);
-      bottom: clamp(.65rem, 1.2vw, 1rem); width: min(48rem, calc(100% - 1.3rem));
+      top: 3.4rem; width: min(48rem, calc(100% - 1.3rem));
       display: flex; justify-content: flex-end; pointer-events: none; }
     .route-game .game-route-note { margin: 0; padding: .65rem .75rem 0; color: var(--studio-faint);
       font-size: .72rem; text-align: left; }
@@ -204,7 +204,6 @@
     @media (max-width: 620px) {
       #studio-route { display: none; }
       .game-stage { min-height: 45rem; }
-      .game-heading { top: .55rem; left: .55rem; }
       .game-state { left: .55rem; bottom: 8rem; }
       .game-command-deck { left: .55rem; right: .55rem; bottom: .55rem;
         max-width: none; transform: none; flex-direction: column; }
@@ -309,51 +308,61 @@
 
   <template id="route-game">
     <div class="route-game">
-      <section class="game-stage" aria-labelledby="game-title">
+      <section class="game-stage" aria-label="Dungeon expedition">
         <canvas id="greybox" width="1280" height="720" aria-label="Procedural game view"></canvas>
         <div class="game-stage-shade" aria-hidden="true"></div>
-
-        <header class="game-heading">
-          <p class="game-kicker">World / expedition</p>
-          <h1 id="game-title">Dungeon expedition</h1>
-        </header>
 
         <div class="game-state" aria-label="Party status">
           <div class="game-vitals">
             <span>Party health</span>
             <output id="party-health">-- / --</output>
+            <button id="respawn" data-sim-control type="button" hidden>Respawn</button>
           </div>
           <progress id="party-health-bar" max="1" value="0" aria-label="Party health"></progress>
           <output id="status" aria-live="polite">Starting worker&hellip;</output>
-          <div class="game-live-instruments">
-            <output id="game-fps" aria-label="Frame rate">-- FPS / -- ms worst</output>
-            <button id="game-view-mode" type="button" aria-pressed="false" disabled>World</button>
-          </div>
         </div>
+        <div class="game-performance"><output id="game-fps" aria-label="Frame rate">-- FPS / -- ms worst</output></div>
 
         <aside class="game-command-deck" aria-label="Expedition controls">
           <fieldset>
-            <legend>Run</legend>
+            <legend>Equipment</legend>
             <div class="controls">
-              <label>Seed <input id="seed" type="number" min="0" max="4294967295" value="1"></label>
-              <button id="reset" data-sim-control type="button">Reset</button>
-              <button id="pause" data-sim-control type="button">Pause</button>
+              <button id="slot-1" class="equipment-slot" data-sim-control type="button" aria-pressed="true">
+                <svg class="slot-art-broken" viewBox="0 0 32 32" aria-hidden="true">
+                  <path class="iron-dark" d="M16 2 27 6v9c0 7-4.3 11.7-11 15C9.3 26.7 5 22 5 15V6Z"/>
+                  <path class="iron" d="M16 5.2 23.8 8v7c0 5.2-3 8.8-7.8 11.5C11.2 23.8 8.2 20.2 8.2 15V8Z"/>
+                  <path class="leather" d="M15 5.7h2v20h-2z"/>
+                  <circle class="edge" cx="16" cy="15" r="3.1"/>
+                  <path class="iron-dark" d="M9 10.4 16 7l7 3.4v2L16 9l-7 3.4z"/>
+                </svg>
+                <span>Shield [1]</span>
+              </button>
+              <button id="slot-2" class="equipment-slot" data-sim-control type="button" aria-pressed="false">
+                <svg class="slot-art" viewBox="0 0 32 32" aria-hidden="true">
+                  <path class="iron" d="m21.8 2.5 5.7 2.2-14.8 18.1-3.6-3.6z"/>
+                  <path class="edge" d="m22.4 4.5 2.5 1-13.5 15.8-.9-.9z"/>
+                  <path class="iron-dark" d="m7.1 17.2 7.7 7.7-2.3 2.3-7.7-7.7z"/>
+                  <path class="leather" d="m8.7 24.2 2.4 2.4-4.5 4.5-2.4-2.4z"/>
+                  <circle class="edge" cx="5.1" cy="30" r="1.3"/>
+                </svg>
+                <span>Sword [2]</span>
+              </button>
             </div>
           </fieldset>
           <fieldset>
-            <legend>Order</legend>
+            <legend>Control</legend>
             <div class="controls">
-              <label>X <input id="goto-x" type="number" value="1000"></label>
-              <label>Y <input id="goto-y" type="number" value="1000"></label>
-              <button id="goto" data-sim-control type="button">Goto</button>
-              <button id="withdraw" data-sim-control type="button">Withdraw</button>
-              <button id="spawn" data-sim-control type="button">Spawn</button>
+              <button id="pause" data-sim-control type="button">Pause</button>
+              <button id="control-movement" data-sim-control type="button" aria-pressed="false">Movement</button>
+              <button id="control-action" data-sim-control type="button" aria-pressed="false">Action</button>
+              <button id="control-aim" data-sim-control type="button" aria-pressed="true">Aim</button>
             </div>
           </fieldset>
         </aside>
 
         <div class="game-stage-footer">
           <p id="interaction-hint">Interactive controls become available after startup.</p>
+          <button id="game-view-mode" type="button" aria-pressed="false" disabled>World</button>
           <button id="room-camera-toggle" type="button" hidden>Use free camera</button>
         </div>
         <output id="error" aria-live="assertive"></output>
@@ -366,6 +375,18 @@
             <code>?room=procedural</code> for the procedural diagnostic, or
             <a href="/legacy.html">open the legacy Canvas page</a>.</p>
           <div class="game-instrument-grid">
+            <fieldset>
+              <legend>Simulation</legend>
+              <div class="controls">
+                <label>Seed <input id="seed" type="number" min="0" max="4294967295" value="1"></label>
+                <button id="reset" data-sim-control type="button">Reset</button>
+                <button id="withdraw" data-sim-control type="button">Withdraw</button>
+                <label>Body/stats <select id="spawn-kind"><option value="2">Brute</option><option value="1">Fighter</option></select></label>
+                <label>Primary <select id="spawn-primary"><option value="0">Sword</option><option value="1">Shield</option><option value="255">Empty</option></select></label>
+                <label>Secondary <select id="spawn-secondary"><option value="255">Empty</option><option value="0">Sword</option><option value="1">Shield</option></select></label>
+                <button id="spawn" data-sim-control type="button">Spawn enemy</button>
+              </div>
+            </fieldset>
             <fieldset>
               <legend>Buffer exhaustion diagnostic</legend>
               <p>Retain the next three distinct snapshot leases. The worker keeps acknowledging

@@ -28,7 +28,8 @@ export const GAME_INITIAL_FIXED_ZOOM = 11.5;
 // 0.35 the hero reaches about a third of the way toward a screen edge before
 // the camera responds: enough to read intent without letting the hero near
 // the edge of the view.
-export const FOLLOW_DEAD_ZONE_FRACTION = 0.35;
+export const FOLLOW_DEAD_ZONE_FRACTION = 0.08;
+export const FOLLOW_DAMPING = 0.22;
 
 export type RoomReviewCamera = Readonly<{
   readonly camera: Camera;
@@ -68,6 +69,7 @@ export function createRoomReviewCamera(
   let dragSuspended = false;
   let followAnchor: CameraPan | null = null;
   let hasFollowSample = false;
+  let previousFollow: CameraPan | null = null;
 
   const aspect = (): number => Math.max(1, canvas.clientWidth) / Math.max(1, canvas.clientHeight);
   const createFixed = (): FreeCamera => {
@@ -129,7 +131,10 @@ export function createRoomReviewCamera(
     // Bounds centre is not composition centre: the generated dungeon often
     // discloses one room near an edge of the 68 x 45 allocation. Put the first
     // published hero at frame centre, then use the stable dead zone below.
-    if (!hasFollowSample && !dragSuspended) {
+    const teleported = !dragSuspended && previousFollow !== null &&
+      Math.hypot(x - previousFollow.x, z - previousFollow.y) > Math.max(4, Math.min(bounds.width, bounds.height) * 0.25);
+    previousFollow = Object.freeze({ x, y: z });
+    if ((!hasFollowSample && !dragSuspended) || teleported) {
       hasFollowSample = true;
       moveFixedTo(clampCameraPan(bounds, { x, y: z }));
       return;
@@ -158,8 +163,8 @@ export function createRoomReviewCamera(
     const excessUp = offsetUp - Math.min(allowedUp, Math.max(-allowedUp, offsetUp));
     if (excessRight === 0 && excessUp === 0) return;
     moveFixedTo(clampCameraPan(bounds, {
-      x: pan.x + rightX * excessRight + upX * excessUp,
-      y: pan.y + rightZ * excessRight + upZ * excessUp,
+      x: pan.x + (rightX * excessRight + upX * excessUp) * FOLLOW_DAMPING,
+      y: pan.y + (rightZ * excessRight + upZ * excessUp) * FOLLOW_DAMPING,
     }));
   };
   const resetFixed = (): void => {
@@ -171,6 +176,7 @@ export function createRoomReviewCamera(
     dragSuspended = false;
     followAnchor = null;
     hasFollowSample = false;
+    previousFollow = null;
     orbit.alpha = FREE_ALPHA;
     orbit.beta = FREE_BETA;
     orbit.radius = fixedRadius;

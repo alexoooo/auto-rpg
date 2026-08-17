@@ -41,17 +41,21 @@ rollback. Source-text assertions do not replace these semantic tests.
 
 The playable route again exposes the observational comparison instruments used for
 visual recovery: a 500 ms FPS/worst-rAF chip outside the Systems drawer and one
-World/Tactical renderer mode selected by button or `G`. Automated contracts prove
-that Tactical retains VIS 1 and VIS 2 topology, swaps authored bodies for readable
-procedural geometry, hides room furniture/flames, and restores the same mesh and
-shadow identities in World. These are correctness gates only; automated hidden-tab
+six renderer-owned view modes selected by the mode control or `G`/Shift+G. Automated
+contracts prove that Geometry retains VIS 1 and VIS 2 topology, swaps authored bodies
+for readable procedural geometry, hides room furniture/flames, and restores the same
+mesh and shadow identities in World. Top Down, First Person, Free, and Dev reuse that
+same Scene, Worker, snapshot, and identity registry. These are correctness gates only; automated hidden-tab
 timing remains inadmissible for the foreground performance slots below.
 
 The game room now treats MAP_SOLID as masonry volume. Every disclosed solid-to-open
 interface has one stable cell-plus-side face, including singleton and positive-axis
-sides. Visibility changes reconcile those instances in place; local hero occlusion
-lowers one overlapping near face without changing topology. Remembered masonry stays
-opaque while remembered floors recede. Published door cells suppress ordinary faces and contiguous collinear
+sides. Visibility changes reconcile those instances in place; each facade has runtime
+masonry depth and meets dark overburden. Opaque non-disclosing roof blocks cover VIS 0
+cells, while a bounded ground and cliff skirt fills the outside frame. Local hero
+occlusion eases only overlapping near faces to 22% alpha and restores the same object
+without changing topology. Remembered masonry stays opaque while remembered floors
+recede. Published door cells suppress ordinary faces and contiguous collinear
 records become one span: singleton doors keep one frame, while wider doors have a
 continuous lintel, endpoint jambs, and shut leaves or an open gap. Imported glTF
 quaternions are cleared before game and arena quarter turns. Named mutation-proven

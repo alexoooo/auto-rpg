@@ -3,6 +3,7 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
+const crypto = require("node:crypto");
 const validator = require("gltf-validator");
 const {
   assertFiniteDeep, canonicalBytes, parseGlb, sha256, validateUriPolicy,
@@ -25,10 +26,16 @@ const BONES = Object.freeze([
   "arm_right", "hand_right", "socket_weapon_right", "socket_shield",
   "region_head", "region_torso", "region_left_arm", "region_right_arm", "region_legs",
 ]);
-const MATERIALS = Object.freeze([
+const MATERIAL_ROLES = Object.freeze([
   "combatant_bone", "combatant_burgundy", "combatant_dark_steel", "combatant_hide",
   "combatant_leather", "combatant_skin", "combatant_steel",
 ]);
+const MATERIALS = Object.freeze([
+  "fighter_burgundy", "fighter_dark_steel", "fighter_leather", "fighter_skin",
+  "fighter_steel", "brute_bone", "brute_hide", "brute_leather", "brute_skin",
+  "equipment_dark_steel", "equipment_hide", "equipment_steel",
+]);
+const LODS = Object.freeze(["high", "mid", "low"]);
 
 function stable(value) {
   if (Array.isArray(value)) return value.map(stable);
@@ -53,7 +60,7 @@ function parseCombatantSidecar(bytes) {
   const value = JSON.parse(buffer.toString("utf8"));
   exactKeys(value, ["schemaVersion", "fixtureId", "buildInputsSha256", "glbSha256", "coordinates",
     "semanticNames", "archetypes", "counts", "estimatedGpuResidency", "payloadBytes"], "combatant sidecar");
-  if (value.schemaVersion !== 1 || value.fixtureId !== "v2-combatants-1" ||
+  if (value.schemaVersion !== 2 || value.fixtureId !== "v2-combatants-2" ||
       !SHA256.test(value.buildInputsSha256) || !SHA256.test(value.glbSha256) ||
       JSON.stringify(value.semanticNames) !== JSON.stringify(SEMANTICS) ||
       !Array.isArray(value.archetypes) || value.archetypes.length !== 2) {
@@ -67,22 +74,30 @@ function parseCombatantSidecar(bytes) {
   exactKeys(value.estimatedGpuResidency, ["sourceBufferBytes", "decodedTextureBytes", "totalBytes"],
     "combatant sidecar residency");
   for (const archetype of value.archetypes) {
-    exactKeys(archetype, ["kind", "height", "nodePrefix", "skeleton", "nodes", "meshes", "clips"],
+    exactKeys(archetype, ["kind", "height", "nodePrefix", "skeleton", "nodes", "lods", "clips"],
       `combatant sidecar ${archetype.kind}`);
     if (!KINDS.includes(archetype.kind) || !Number.isFinite(archetype.height) || archetype.height <= 0 ||
         archetype.nodePrefix !== `${archetype.kind.toUpperCase()}_` ||
         !Array.isArray(archetype.nodes) || archetype.nodes.length !== SEMANTICS.length ||
-        !Array.isArray(archetype.meshes) || !Array.isArray(archetype.clips) ||
+        !Array.isArray(archetype.lods) || archetype.lods.length !== LODS.length ||
+        !Array.isArray(archetype.clips) ||
         archetype.clips.length !== CLIPS.length) throw new Error("combatant archetype shape is invalid");
     exactKeys(archetype.skeleton, ["node", "skin", "bones"], `${archetype.kind} skeleton`);
     for (const node of archetype.nodes) {
       exactKeys(node, ["semantic", "node", "parent", "translation", "rotation", "scale"],
         `${archetype.kind} semantic node`);
     }
-    for (const mesh of archetype.meshes) {
-      exactKeys(mesh, ["semantic", "node", "parent", "materialRole", "primitiveCount",
-        "vertexCount", "triangleCount", "bounds"], `${archetype.kind} mesh`);
-      exactKeys(mesh.bounds, ["min", "max"], `${archetype.kind} mesh bounds`);
+    for (const [lodIndex, lod] of archetype.lods.entries()) {
+      exactKeys(lod, ["level", "maxTriangles", "meshes"], `${archetype.kind} LOD`);
+      if (lod.level !== LODS[lodIndex] || !Number.isSafeInteger(lod.maxTriangles) ||
+          lod.maxTriangles <= 0 || !Array.isArray(lod.meshes)) {
+        throw new Error("combatant LOD shape is invalid");
+      }
+      for (const mesh of lod.meshes) {
+        exactKeys(mesh, ["semantic", "node", "parent", "material", "materialRole", "primitiveCount",
+          "vertexCount", "triangleCount", "bounds"], `${archetype.kind} ${lod.level} mesh`);
+        exactKeys(mesh.bounds, ["min", "max"], `${archetype.kind} ${lod.level} mesh bounds`);
+      }
     }
     for (const clip of archetype.clips) {
       exactKeys(clip, ["semantic", "animation", "durationSeconds", "looping"],
@@ -104,7 +119,8 @@ function validateCombatantPresentation(sidecar) {
     return result;
   };
   const mesh = (value, semantic) => {
-    const result = value.meshes.find((item) => item.semantic === semantic);
+    const result = value.lods.find(({ level }) => level === "mid")?.meshes
+      .find((item) => item.semantic === semantic);
     if (!result) throw new Error(`combatant presentation has no ${value.kind} ${semantic} mesh`);
     return result;
   };
@@ -145,8 +161,8 @@ function validateCombatantPresentation(sidecar) {
 }
 
 function validateManifest(manifest) {
-  if (manifest.schemaVersion !== 1 || manifest.generatorVersion !== 1 || manifest.license !== "MIT" ||
-      manifest.fixtureId !== "v2-combatants-1" || manifest.generatorSeed !== 3235823838 ||
+  if (manifest.schemaVersion !== 2 || manifest.generatorVersion !== 2 || manifest.license !== "MIT" ||
+      manifest.fixtureId !== "v2-combatants-2" || manifest.generatorSeed !== 3235823838 ||
       manifest.toolchain?.blender !== "4.5.12" ||
       !SHA256.test(manifest.toolchain?.blenderBinarySha256 ?? "") ||
       JSON.stringify(manifest.semanticNames) !== JSON.stringify(SEMANTICS) ||
@@ -162,12 +178,21 @@ function validateManifest(manifest) {
       manifest.export?.skins !== true || manifest.export?.morphs !== false) {
     throw new Error("combatant manifest export contract is invalid");
   }
-  const texture = manifest.texture;
-  if (texture?.path !== "tools/art/textures/concept-material-atlas.png" ||
-      !SHA256.test(texture?.sha256 ?? "") || texture?.mimeType !== "image/png" ||
-      texture?.width !== 1254 || texture?.height !== 1254 ||
-      texture?.embeddedWidth !== 512 || texture?.embeddedHeight !== 512 ||
-      typeof texture?.provenance !== "string" || texture.provenance.length > 160) {
+  const textureSets = [
+    ["fighter", "tools/art/textures/combatant-fighter-albedo-v2.png", 2048],
+    ["brute", "tools/art/textures/combatant-brute-albedo-v2.png", 2048],
+    ["equipment", "tools/art/textures/combatant-equipment-albedo-v2.png", 1024],
+  ];
+  if (!Array.isArray(manifest.textures) || manifest.textures.length !== textureSets.length ||
+      manifest.textures.some((texture, index) => {
+        const [set, path, size] = textureSets[index];
+        return texture?.set !== set || texture?.path !== path ||
+          !SHA256.test(texture?.sha256 ?? "") || texture?.mimeType !== "image/png" ||
+          texture?.width !== 1254 || texture?.height !== 1254 ||
+          texture?.embeddedWidth !== size || texture?.embeddedHeight !== size ||
+          !Array.isArray(texture?.metallicQuadrants) || texture.metallicQuadrants.length !== 4 ||
+          typeof texture?.provenance !== "string" || texture.provenance.length > 160;
+      })) {
     throw new Error("combatant manifest texture contract is invalid");
   }
   if (JSON.stringify(Object.keys(manifest.materials ?? {}).sort()) !== JSON.stringify([...MATERIALS].sort())) {
@@ -180,7 +205,10 @@ function validateManifest(manifest) {
   for (const archetype of manifest.archetypes) {
     if (archetype.nodePrefix !== `${archetype.kind.toUpperCase()}_` ||
         !Array.isArray(archetype.meshNames) || archetype.meshNames.length < 16 ||
-        new Set(archetype.meshNames).size !== archetype.meshNames.length) {
+        new Set(archetype.meshNames).size !== archetype.meshNames.length ||
+        !Array.isArray(archetype.lods) || archetype.lods.length !== LODS.length ||
+        archetype.lods.some((lod, index) => lod.level !== LODS[index] ||
+          !Number.isSafeInteger(lod.maxTriangles) || lod.maxTriangles <= 0)) {
       throw new Error(`combatant manifest ${archetype.kind} mesh closure is invalid`);
     }
   }
@@ -218,7 +246,9 @@ function validateSemanticClosure(parsed, sidecar, manifest) {
   for (const archetype of manifest.archetypes) {
     expected.add(archetype.nodePrefix + "armature");
     for (const semantic of SEMANTICS) expected.add(archetype.nodePrefix + semantic);
-    for (const mesh of archetype.meshNames) expected.add(archetype.nodePrefix + "mesh_" + mesh);
+    for (const lod of LODS) for (const mesh of archetype.meshNames) {
+      expected.add(archetype.nodePrefix + "lod_" + lod + "_mesh_" + mesh);
+    }
   }
   if (names.length !== expected.size || names.some((name) => !expected.has(name))) {
     throw new Error(`combatant GLB node closure drifted: ${names.filter((name) => !expected.has(name)).join(",")}`);
@@ -227,12 +257,19 @@ function validateSemanticClosure(parsed, sidecar, manifest) {
   if (materialNames.length !== MATERIALS.length ||
       materialNames.some((name) => !MATERIALS.includes(name)) ||
       new Set(materialNames).size !== materialNames.length) throw new Error("combatant material closure drifted");
-  if ((gltf.images ?? []).length !== 1 || gltf.images[0].uri !== undefined ||
-      gltf.images[0].mimeType !== "image/png") throw new Error("combatant atlas must be one embedded PNG");
-  const imageView = gltf.bufferViews[gltf.images[0].bufferView];
-  const imageBytes = parsed.bin.subarray(imageView.byteOffset ?? 0, (imageView.byteOffset ?? 0) + imageView.byteLength);
-  if (imageBytes.readUInt32BE(16) !== 512 || imageBytes.readUInt32BE(20) !== 512) {
-    throw new Error("combatant embedded atlas dimensions drifted");
+  if ((gltf.images ?? []).length !== 9 || gltf.images.some((image) =>
+    image.uri !== undefined || image.mimeType !== "image/png")) {
+    throw new Error("combatant baked maps must be nine embedded PNGs");
+  }
+  const imageDimensions = gltf.images.map((image) => {
+    const imageView = gltf.bufferViews[image.bufferView];
+    const imageBytes = parsed.bin.subarray(imageView.byteOffset ?? 0,
+      (imageView.byteOffset ?? 0) + imageView.byteLength);
+    return [imageBytes.readUInt32BE(16), imageBytes.readUInt32BE(20)];
+  });
+  if (imageDimensions.filter(([width, height]) => width === 2048 && height === 2048).length !== 6 ||
+      imageDimensions.filter(([width, height]) => width === 1024 && height === 1024).length !== 3) {
+    throw new Error("combatant embedded baked-map dimensions drifted");
   }
   const animationNames = (gltf.animations ?? []).map((animation) => animation.name);
   const expectedAnimations = manifest.archetypes.flatMap(({ nodePrefix }) =>
@@ -260,7 +297,7 @@ function validateSemanticClosure(parsed, sidecar, manifest) {
         JSON.stringify(skin.joints.map((index) => gltf.nodes[index]?.name)) !== JSON.stringify(expectedBones)) {
       throw new Error(`combatant ${archetype.kind} skin/bone closure drifted`);
     }
-    for (const node of gltf.nodes.filter(({ name }) => name?.startsWith(archetype.nodePrefix + "mesh_"))) {
+    for (const node of gltf.nodes.filter(({ name }) => name?.startsWith(archetype.nodePrefix + "lod_"))) {
       if (gltf.skins[node.skin]?.name !== archetype.nodePrefix + "armature") {
         throw new Error(`combatant ${archetype.kind} mesh is not bound to its exact skin`);
       }
@@ -276,11 +313,15 @@ function validateSemanticClosure(parsed, sidecar, manifest) {
         JSON.stringify(archetype.skeleton.bones) !== JSON.stringify(
           BONES.map((name) => archetype.nodePrefix + name)) ||
         JSON.stringify(archetype.nodes.map(({ semantic }) => semantic)) !== JSON.stringify(SEMANTICS) ||
-        JSON.stringify(archetype.meshes.map(({ semantic }) => semantic)) !== JSON.stringify(manifestArchetype.meshNames) ||
+        JSON.stringify(archetype.lods.map(({ level }) => level)) !== JSON.stringify(LODS) ||
+        archetype.lods.some((lod, index) =>
+          lod.maxTriangles !== manifestArchetype.lods[index].maxTriangles ||
+          JSON.stringify(lod.meshes.map(({ semantic }) => semantic)) !==
+            JSON.stringify(manifestArchetype.meshNames)) ||
         JSON.stringify(archetype.clips.map(({ semantic }) => semantic)) !== JSON.stringify(CLIPS)) {
       throw new Error(`combatant sidecar ${archetype.kind} semantic closure drifted`);
     }
-    for (const item of [...archetype.nodes, ...archetype.meshes]) {
+    for (const item of [...archetype.nodes, ...archetype.lods.flatMap(({ meshes }) => meshes)]) {
       const index = names.indexOf(item.node);
       if (index < 0 || (parents.get(index) ?? null) !== item.parent) {
         throw new Error(`combatant sidecar ${item.node} parent drifted`);
@@ -320,9 +361,11 @@ async function validateCombatantAsset(options) {
     throw new Error("combatant sidecar aggregate counts drifted");
   }
   const sourceBufferBytes = (parsed.gltf.bufferViews ?? []).reduce((sum, view) => sum + view.byteLength, 0);
+  const decodedTextureBytes = manifest.textures.reduce((sum, texture) =>
+    sum + texture.embeddedWidth * texture.embeddedHeight * 4 * 3, 0);
   const residency = {
-    sourceBufferBytes, decodedTextureBytes: 512 * 512 * 4,
-    totalBytes: sourceBufferBytes + 512 * 512 * 4,
+    sourceBufferBytes, decodedTextureBytes,
+    totalBytes: sourceBufferBytes + decodedTextureBytes,
   };
   if (Object.keys(residency).some((key) => sidecar.estimatedGpuResidency[key] !== residency[key]) ||
       residency.totalBytes > manifest.budgets.estimatedGpuBytes) {
@@ -341,7 +384,13 @@ async function validateCombatantAsset(options) {
   }
   const buildManifest = { ...manifest };
   delete buildManifest.outputs;
-  const buildInputsSha256 = sha256(canonicalBytes(buildManifest));
+  const buildDigest = crypto.createHash("sha256");
+  buildDigest.update(canonicalBytes(buildManifest));
+  for (const name of ["combatants.py", "build_combatants.py"]) {
+    buildDigest.update(Buffer.from(`\0${name}\0`, "ascii"));
+    buildDigest.update(fs.readFileSync(path.join(path.dirname(options.manifest), name)));
+  }
+  const buildInputsSha256 = buildDigest.digest("hex");
   const artifactSha256 = sha256(glbBytes);
   const sidecarSha256 = sha256(sidecarBytes);
   if (sidecar.buildInputsSha256 !== buildInputsSha256 || sidecar.glbSha256 !== artifactSha256 ||
@@ -349,7 +398,7 @@ async function validateCombatantAsset(options) {
     throw new Error("combatant sidecar identity or payload drifted");
   }
   const report = stable({
-    schemaVersion: 1, fixtureId: manifest.fixtureId, validatorVersion: raw.validatorVersion,
+    schemaVersion: 2, fixtureId: manifest.fixtureId, validatorVersion: raw.validatorVersion,
     artifactSha256, sidecarSha256, buildInputsSha256,
     payloadBytes: glbBytes.length + sidecarBytes.length, residency, counts: actualCounts,
     issues: {

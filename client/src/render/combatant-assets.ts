@@ -14,13 +14,13 @@ import {
 import {
   COMBATANT_MAX_PAYLOAD_BYTES, parseCombatantAssetSidecar,
   type CombatantArchetypeContract, type CombatantAssetSidecar, type CombatantKind,
-  type CombatantVector3,
+  type CombatantLod, type CombatantVector3,
 } from "./combatant-asset-contract.js";
 
 const SIDECAR_URL = "/assets3d/combatants.json";
 const GLB_URL = "/assets3d/combatants.glb";
 const MAX_SIDECAR_BYTES = 2 * 1024 * 1024;
-const MAX_GLB_BYTES = 16 * 1024 * 1024;
+const MAX_GLB_BYTES = 64 * 1024 * 1024;
 const SHA256 = /^[0-9a-f]{64}$/;
 const TOLERANCE = 0.00001;
 
@@ -35,7 +35,7 @@ export type CombatantArchetypeAsset = Readonly<{
   root: TransformNode;
   skeleton: Skeleton;
   nodes: ReadonlyMap<string, TransformNode>;
-  meshes: ReadonlyMap<string, Mesh>;
+  lods: ReadonlyMap<CombatantLod, ReadonlyMap<string, Mesh>>;
   clips: ReadonlyMap<string, AnimationGroup>;
 }>;
 
@@ -141,7 +141,8 @@ function validateContainer(container: AssetContainer, sidecar: CombatantAssetSid
   archetypes: ReadonlyMap<CombatantKind, CombatantArchetypeAsset>;
   materials: ReadonlyMap<string, Material>;
 } {
-  const meshContracts = sidecar.archetypes.flatMap(({ meshes }) => meshes);
+  const meshContracts = sidecar.archetypes.flatMap(({ lods }) =>
+    lods.flatMap(({ meshes }) => meshes));
   const nodeContracts = sidecar.archetypes.flatMap(({ nodes }) => nodes);
   exactNames(container.meshes, new Set(["__root__", ...meshContracts.map(({ node }) => node)]), "mesh");
   exactNames(container.transformNodes,
@@ -149,8 +150,9 @@ function validateContainer(container: AssetContainer, sidecar: CombatantAssetSid
       ...sidecar.archetypes.map(({ skeleton }) => skeleton.node)]),
     "transform node");
   exactNames(container.materials, new Set([
-    "combatant_bone", "combatant_burgundy", "combatant_dark_steel", "combatant_hide",
-    "combatant_leather", "combatant_skin", "combatant_steel",
+    "fighter_burgundy", "fighter_dark_steel", "fighter_leather", "fighter_skin",
+    "fighter_steel", "brute_bone", "brute_hide", "brute_leather", "brute_skin",
+    "equipment_dark_steel", "equipment_hide", "equipment_steel",
   ]), "material");
   exactNames(container.animationGroups,
     new Set(sidecar.archetypes.flatMap(({ clips }) => clips.map(({ animation }) => animation))),
@@ -195,27 +197,34 @@ function validateContainer(container: AssetContainer, sidecar: CombatantAssetSid
       }
       nodes.set(nodeContract.semantic, node);
     }
-    const meshes = new Map<string, Mesh>();
-    for (const meshContract of contract.meshes) {
-      const mesh = unique(container.meshes, meshContract.node, `${contract.kind} mesh ${meshContract.semantic}`) as Mesh;
+    const lods = new Map<CombatantLod, ReadonlyMap<string, Mesh>>();
+    for (const lod of contract.lods) {
+      const meshes = new Map<string, Mesh>();
+      for (const meshContract of lod.meshes) {
+        const mesh = unique(container.meshes, meshContract.node,
+          `${contract.kind} ${lod.level} mesh ${meshContract.semantic}`) as Mesh;
       // Babylon reparents a root glTF skinned mesh beneath its armature transform.
       // The sidecar pins the serialized parent separately; this check pins the
       // runtime hierarchy that the renderer actually consumes.
-      if (mesh.parent?.name !== contract.skeleton.node || mesh.material?.name !== meshContract.materialRole ||
+      if (mesh.parent?.name !== contract.skeleton.node || mesh.material?.name !== meshContract.material ||
           mesh.skeleton !== skeleton ||
           mesh.subMeshes?.length !== meshContract.primitiveCount ||
           mesh.getTotalVertices() !== meshContract.vertexCount ||
           mesh.getTotalIndices() !== meshContract.triangleCount * 3) {
-        throw new CombatantAssetLoadError(`${contract.kind} mesh ${meshContract.semantic} geometry/material`);
+        throw new CombatantAssetLoadError(
+          `${contract.kind} ${lod.level} mesh ${meshContract.semantic} geometry/material`);
       }
       const box = mesh.getBoundingInfo().boundingBox;
       if (!vector(box.minimum, meshContract.bounds.min) || !vector(box.maximum, meshContract.bounds.max)) {
-        throw new CombatantAssetLoadError(`${contract.kind} mesh ${meshContract.semantic} bounds`);
+        throw new CombatantAssetLoadError(
+          `${contract.kind} ${lod.level} mesh ${meshContract.semantic} bounds`);
       }
       mesh.isVisible = false;
       mesh.isPickable = false;
       mesh.receiveShadows = false;
       meshes.set(meshContract.semantic, mesh);
+      }
+      lods.set(lod.level, meshes);
     }
     const clips = new Map<string, AnimationGroup>();
     for (const clipContract of contract.clips) {
@@ -229,7 +238,7 @@ function validateContainer(container: AssetContainer, sidecar: CombatantAssetSid
       throw new CombatantAssetLoadError(`${contract.kind} root hierarchy`);
     }
     root.setEnabled(false);
-    archetypes.set(contract.kind, Object.freeze({ contract, root, skeleton, nodes, meshes, clips }));
+    archetypes.set(contract.kind, Object.freeze({ contract, root, skeleton, nodes, lods, clips }));
   }
   return { archetypes, materials };
 }

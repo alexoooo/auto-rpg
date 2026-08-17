@@ -31,6 +31,7 @@ const tsc = spawnSync(process.execPath, [
   "client/src/render/room-asset.generated.ts", "client/src/render/room-asset-contract.ts",
   "client/src/render/room-assets.ts", "client/src/render/room-environment.ts",
   "client/src/render/room-flame.ts",
+  "client/src/render/room-objects.ts",
   "client/src/render/room-material-variants.ts",
   "client/src/render/room-occlusion.ts",
   "client/src/render/room-stress.ts", "client/src/render/room-review.ts", "client/src/render/room-review-camera.ts",
@@ -74,6 +75,7 @@ const roomAssetContract = await load("client/src/render/room-asset-contract.js")
 const roomAssets = await load("client/src/render/room-assets.js");
 const roomEnvironment = await load("client/src/render/room-environment.js");
 const roomFlame = await load("client/src/render/room-flame.js");
+const roomObjects = await load("client/src/render/room-objects.js");
 const roomMaterialVariants = await load("client/src/render/room-material-variants.js");
 const roomOcclusion = await load("client/src/render/room-occlusion.js");
 const roomStress = await load("client/src/render/room-stress.js");
@@ -149,10 +151,11 @@ const packedPublication = ({ epoch = 2, tick = 7, generation = 3, unitCount = 1 
   const map = Uint8Array.of(ABI.MAP_OPEN, ABI.MAP_SOLID);
   const vis = Uint8Array.of(2, 1);
   const furniture = Uint8Array.of(ABI.FURNITURE_DOOR, 1, 0, ABI.FURNITURE_DOOR_OPEN);
+  const dungeonObjects = new Uint32Array(0);
   return {
     message: { epoch, tick, mapCols: 2, mapRows: 1, mapTileSizeMilli: ABI.MAP_TILE_MILLI,
-      mapRevision: 4, visRevision: 5, furnitureRevision: 6 },
-    view: { frame, map, vis, furniture, entityKey: () => "unused" },
+      mapRevision: 4, visRevision: 5, furnitureRevision: 6, dungeonObjectRevision: 7 },
+    view: { frame, map, vis, furniture, dungeonObjects, entityKey: () => "unused" },
   };
 };
 
@@ -170,11 +173,140 @@ const unit = (values = {}) => Object.freeze({
 
 const snapshot = (values = {}) => Object.freeze({
   epoch: 1, tick: 1, mapCols: 3, mapRows: 1, tileSize: 1,
-  mapRevision: 1, visRevision: 1, furnitureRevision: 1,
+  mapRevision: 1, visRevision: 1, furnitureRevision: 1, dungeonObjectRevision: 1,
   map: Object.freeze([255, 0, 1]), vis: Object.freeze([2, 1, 2]),
   units: Object.freeze([]), shots: Object.freeze([]), events: Object.freeze([]),
   furniture: Object.freeze([]),
+  dungeonObjects: Object.freeze([]),
   ...values,
+});
+
+const dungeonObject = (values = {}) => Object.freeze({
+  key: "object:1", kind: ABI.DUNGEON_OBJECT_DOOR, identity: 1, stateFlags: 0,
+  x: 0.5, y: 0.5, yawRaw: 0, halfX: 0.42, halfY: 0.10,
+  hp: 10, maxHp: 10, progress: 0, materialCode: 1,
+  ...values,
+});
+
+const roomObjectHarness = async () => {
+  const { DirectionalLight } = await import("@babylonjs/core/Lights/directionalLight.js");
+  const { ShadowGenerator } = await import("@babylonjs/core/Lights/Shadows/shadowGenerator.js");
+  const { Vector3 } = await import("@babylonjs/core/Maths/math.vector.js");
+  const engine = new NullEngine();
+  const scene = new Scene(engine);
+  const light = new DirectionalLight("object-test-key", new Vector3(-1, -1, -1), scene);
+  const shadows = new ShadowGenerator(128, light);
+  const objects = new roomObjects.RoomObjectPresentation(scene, shadows);
+  return { engine, scene, light, shadows, objects };
+};
+
+test("door_hinge_uses_collision_pivot_and_push_progress_then_opens_over_450ms", async () => {
+  const harness = await roomObjectHarness();
+  const world = snapshot({ mapCols: 1, mapRows: 1, map: Object.freeze([ABI.MAP_OPEN]),
+    vis: Object.freeze([2]), dungeonObjects: Object.freeze([dungeonObject({ progress: 0.5 })]) });
+  harness.objects.acceptSnapshot(world, 0);
+  const root = harness.scene.getTransformNodeByName("room-object:object:1:root");
+  const hinge = harness.scene.getTransformNodeByName("room-object:object:1:door:hinge");
+  const leaf = harness.scene.getMeshByName("room-object:object:1:door:leaf");
+  assert.ok(root && hinge && leaf);
+  assert.equal(hinge.position.x, -0.42);
+  assert.equal(leaf.parent, hinge);
+  assert.equal(leaf.position.x, 0.42);
+  assert.ok(Math.abs(hinge.rotation.y - 0.07) < 1e-12, "published push pressure moves the latch edge");
+  harness.objects.acceptSnapshot(snapshot({ ...world, tick: 2, dungeonObjectRevision: 2,
+    dungeonObjects: Object.freeze([dungeonObject({ stateFlags: 1, progress: 1 })]) }), 100);
+  harness.objects.advanceMotion(325);
+  assert.ok(hinge.rotation.y > 0.07 && hinge.rotation.y < Math.PI / 2);
+  harness.objects.advanceMotion(550);
+  assert.ok(Math.abs(hinge.rotation.y - roomObjects.DOOR_OPEN_ANGLE) < 1e-12);
+  assert.equal(harness.scene.getTransformNodeByName("room-object:object:1:root"), root,
+    "door state changes reuse object identity");
+  harness.objects.reset();
+  harness.objects.acceptSnapshot(snapshot({ ...world, dungeonObjects: Object.freeze([
+    dungeonObject({ stateFlags: 1, progress: 1 }),
+  ]) }), 900);
+  assert.ok(Math.abs(harness.scene.getTransformNodeByName(
+    "room-object:object:1:door:hinge").rotation.y - Math.PI / 2) < 1e-12,
+  "an initially open door starts open");
+  harness.objects.dispose(); harness.shadows.dispose(); harness.light.dispose();
+  harness.scene.dispose(); harness.engine.dispose();
+});
+
+test("inside_facing_torches_close_socket_light_and_all_four_cardinal_faces", async () => {
+  const { Vector3 } = await import("@babylonjs/core/Maths/math.vector.js");
+  const harness = await roomObjectHarness();
+  const torches = Object.freeze([0, 16384, 32768, 49152].map((yawRaw, index) => dungeonObject({
+    key: `object:${index + 1}`, kind: ABI.DUNGEON_OBJECT_TORCH, identity: index + 1,
+    x: index + 0.5, yawRaw, halfX: 0.1, halfY: 0.1,
+  })));
+  harness.objects.acceptSnapshot(snapshot({ mapCols: 4, mapRows: 1,
+    map: Object.freeze(new Array(4).fill(ABI.MAP_OPEN)), vis: Object.freeze(new Array(4).fill(2)),
+    dungeonObjects: torches }), 0);
+  assert.equal(harness.objects.counts().objects, 4);
+  for (const [index, raw] of [0, 16384, 32768, 49152].entries()) {
+    const prefix = `room-object:object:${index + 1}`;
+    const root = harness.scene.getTransformNodeByName(prefix + ":root");
+    const bowl = harness.scene.getMeshByName(prefix + ":torch:bowl");
+    const light = harness.scene.getLightByName(prefix + ":torch:light");
+    assert.ok(root && bowl && light);
+    assert.ok(Math.abs(root.rotation.y + raw / 65536 * Math.PI * 2) < 1e-12);
+    assert.equal(harness.scene.meshes.filter((mesh) => mesh.name.startsWith(prefix + ":torch:flame:")).length, 3);
+    assert.ok(Vector3.Distance(bowl.position, light.position) < 0.45,
+      "the bowl, cross-plane flame, and bounded light share one socket closure");
+  }
+  harness.objects.dispose(); harness.shadows.dispose(); harness.light.dispose();
+  harness.scene.dispose(); harness.engine.dispose();
+});
+
+test("physical_props_keep_identity_break_on_state_edge_and_obey_fog_and_fallback", async () => {
+  const harness = await roomObjectHarness();
+  const props = Object.freeze([
+    dungeonObject({ key: "object:10", kind: ABI.DUNGEON_OBJECT_BARREL, identity: 10 }),
+    dungeonObject({ key: "object:11", kind: ABI.DUNGEON_OBJECT_POTTERY, identity: 11, x: 1.5 }),
+    dungeonObject({ key: "object:12", kind: ABI.DUNGEON_OBJECT_WEB, identity: 12, x: 2.5 }),
+    dungeonObject({ key: "object:13", kind: ABI.DUNGEON_OBJECT_WATER, identity: 13, x: 3.5 }),
+    dungeonObject({ key: "object:14", kind: 99, identity: 14, x: 4.5 }),
+  ]);
+  const world = snapshot({ mapCols: 5, mapRows: 1,
+    map: Object.freeze(new Array(5).fill(ABI.MAP_OPEN)), vis: Object.freeze(new Array(5).fill(2)),
+    dungeonObjects: props });
+  harness.objects.acceptSnapshot(world, 0);
+  assert.deepEqual(harness.objects.keys(), ["object:10", "object:11", "object:12", "object:13"]);
+  const root = harness.scene.getTransformNodeByName("room-object:object:10:root");
+  const body = harness.scene.getMeshByName("room-object:object:10:barrel:body");
+  assert.ok(root && body && body.isPickable);
+  harness.objects.acceptSnapshot(snapshot({ ...world, tick: 2, dungeonObjectRevision: 2,
+    dungeonObjects: Object.freeze([dungeonObject({ key: "object:10", kind: ABI.DUNGEON_OBJECT_BARREL,
+      identity: 10, stateFlags: 1, hp: 0 })]) }), 10);
+  assert.equal(body.isDisposed(), true, "the break edge disposes intact physical art once");
+  assert.equal(harness.scene.getTransformNodeByName("room-object:object:10:root"), root);
+  assert.equal(harness.scene.meshes.filter((mesh) => mesh.name.startsWith(
+    "room-object:object:10:debris:")).length, 5);
+  harness.objects.acceptSnapshot(snapshot({ ...world, tick: 3, visRevision: 2,
+    vis: Object.freeze(new Array(5).fill(0)) }), 20);
+  assert.deepEqual(harness.objects.keys(), []);
+  assert.equal(root.isDisposed(), true);
+  harness.objects.dispose(); harness.shadows.dispose(); harness.light.dispose();
+  harness.scene.dispose(); harness.engine.dispose();
+});
+
+test("room_environment_consumes_object_publication_without_duplicating_legacy_furniture", async () => {
+  const engine = new NullEngine();
+  const scene = new Scene(engine);
+  const debug = new rendererDebug.RendererDebugRegistry();
+  const room = new roomEnvironment.RoomEnvironmentPresentation(scene, debug, await fakeRoomAsset(scene));
+  const torch = dungeonObject({ key: "object:21", kind: ABI.DUNGEON_OBJECT_TORCH,
+    identity: 21, x: 0.5, y: 0.5, yawRaw: 32768 });
+  room.acceptSnapshot(snapshot({ mapCols: 1, mapRows: 1, map: Object.freeze([ABI.MAP_OPEN]),
+    vis: Object.freeze([2]), dungeonObjects: Object.freeze([torch]),
+    furniture: Object.freeze([Object.freeze({ key: `${ABI.FURNITURE_TORCH}:0:0`,
+      kind: ABI.FURNITURE_TORCH, tx: 0, ty: 0, state: ABI.TORCH_FACE_POS_X })]) }));
+  assert.ok(scene.getTransformNodeByName("room-object:object:21:root"));
+  assert.equal(scene.meshes.some((mesh) => mesh.name.startsWith("room:furniture:")), false);
+  assert.deepEqual(room.keys().filter((key) => key.startsWith("object:")), ["object:21"]);
+  assert.equal(room.counts().furniture, 1);
+  assert.equal(room.counts().lights, 2, "one room key and one bounded physical torch light");
+  room.dispose(); scene.dispose(); engine.dispose();
 });
 
 test("interpolation_does_not_mutate_or_reveal_future_snapshots", () => {
@@ -763,7 +895,7 @@ test("faction_cues_and_a_bounded_hero_light_keep_combatants_readable_without_cha
   engine.dispose();
 });
 
-test("the_full_faction_cue_clears_every_supported_authored_floor_and_body_radius", async () => {
+test("the_ground_marker_clears_every_authored_floor_without_depth_clipping", async () => {
   const { NullEngine } = await import("@babylonjs/core/Engines/nullEngine.js");
   const { Scene } = await import("@babylonjs/core/scene.js");
   const engine = new NullEngine({ renderWidth: 64, renderHeight: 64 });
@@ -781,11 +913,16 @@ test("the_full_faction_cue_clears_every_supported_authored_floor_and_body_radius
   for (const body of units) {
     const ring = scene.getMeshByName(`actor:${body.key}:marker:ring`);
     assert.ok(ring);
-    const halfThickness = rendererActors.FACTION_CUE_THICKNESS_RADII * body.radius / 2;
     assert.equal(ring.position.y, rendererActors.factionCueCentreY(body.radius));
-    assert.ok(ring.position.y - halfThickness >=
+    assert.equal(ring.position.y,
+      rendererActors.AUTHORED_FLOOR_MAX_Y + rendererActors.FACTION_CUE_CLEARANCE_EPSILON);
+    assert.ok(ring.position.y >=
       rendererActors.AUTHORED_FLOOR_MAX_Y + rendererActors.FACTION_CUE_CLEARANCE_EPSILON,
     `radius ${body.radius} cue intersects the authored floor`);
+    assert.equal(ring.getBoundingInfo().boundingBox.extendSizeWorld.y, 0,
+      "the marker must be a flat annulus rather than a thick torus");
+    assert.ok(ring.material.zOffset <= -1,
+      "the coplanar marker needs an explicit depth bias instead of extra thickness");
   }
   actors.dispose(); scene.dispose(); engine.dispose();
 });
@@ -1062,7 +1199,7 @@ test("room_instances_need_known_topology_and_current_furniture_disclosure", asyn
   scene.dispose(); engine.dispose();
 });
 
-test("tactical_keeps_published_fog_but_replaces_authored_dress_with_readable_geometry", async () => {
+test("geometry_keeps_published_fog_but_replaces_authored_dress_with_readable_geometry", async () => {
   const engine = new NullEngine();
   const scene = new Scene(engine);
   const debug = new rendererDebug.RendererDebugRegistry();
@@ -1076,9 +1213,9 @@ test("tactical_keeps_published_fog_but_replaces_authored_dress_with_readable_geo
   const dress = scene.meshes.filter((mesh) => mesh.name.startsWith("room:furniture:"));
   assert.equal(topology.length, 2, "VIS 1 and VIS 2 floor topology both exist");
   assert.ok(dress.length > 0);
-  room.setPresentationMode("tactical");
-  assert.ok(topology.every((mesh) => mesh.isEnabled()), "Tactical keeps published fog topology");
-  assert.ok(dress.every((mesh) => !mesh.isEnabled()), "Tactical hides authored room dress");
+  room.setPresentationMode("geometry");
+  assert.ok(topology.every((mesh) => mesh.isEnabled()), "Geometry keeps published fog topology");
+  assert.ok(dress.every((mesh) => !mesh.isEnabled()), "Geometry hides authored room dress");
   room.setPresentationMode("world");
   assert.ok(dress.every((mesh) => mesh.isEnabled()), "World restores the same authored instances");
   room.dispose(); scene.dispose(); engine.dispose();
@@ -1406,6 +1543,60 @@ test("unknown_cells_create_no_wall_face_or_subsystem_presence", async () => {
   room.dispose(); scene.dispose(); engine.dispose();
 });
 
+test("unknown_and_outside_space_are_filled_by_non_disclosing_stone_art", async () => {
+  const engine = new NullEngine(); const scene = new Scene(engine);
+  const room = new roomEnvironment.RoomEnvironmentPresentation(
+    scene, new rendererDebug.RendererDebugRegistry(), await fakeRoomAsset(scene));
+  room.acceptSnapshot(snapshot({ mapCols: 2, mapRows: 2,
+    map: Object.freeze(new Array(4).fill(ABI.MAP_UNKNOWN)),
+    vis: Object.freeze(new Array(4).fill(0)) }));
+  assert.ok(scene.meshes.some((mesh) => mesh.name === "room:overburden:ground"));
+  assert.equal(scene.meshes.filter((mesh) => mesh.name.startsWith("room:overburden:cliff:")).length, 4);
+  const roofs = scene.meshes.filter((mesh) => mesh.name.startsWith("room:overburden:roof:"));
+  assert.equal(roofs.length, 4);
+  assert.ok(roofs.every((mesh) => !mesh.isPickable && mesh.metadata === null));
+  assert.deepEqual(room.counts(), { geometry: 0, furniture: 0, instances: 0,
+    lights: 1, shadowCasters: 0, triangles: 0 });
+  room.dispose(); scene.dispose(); engine.dispose();
+});
+
+test("outer_boundaries_are_thick_masonry_joined_to_overburden", async () => {
+  const engine = new NullEngine(); const scene = new Scene(engine);
+  const room = new roomEnvironment.RoomEnvironmentPresentation(
+    scene, new rendererDebug.RendererDebugRegistry(), await fakeRoomAsset(scene));
+  room.acceptSnapshot(snapshot({ mapCols: 3, mapRows: 3,
+    map: Object.freeze([
+      ABI.MAP_SOLID, ABI.MAP_SOLID, ABI.MAP_SOLID,
+      ABI.MAP_SOLID, ABI.MAP_OPEN, ABI.MAP_SOLID,
+      ABI.MAP_SOLID, ABI.MAP_SOLID, ABI.MAP_SOLID,
+    ]), vis: Object.freeze(new Array(9).fill(2)) }));
+  const faces = scene.meshes.filter((mesh) => mesh.name.includes(":wall-face:"));
+  assert.ok(faces.length === 4 && faces.every((mesh) => mesh.scaling.z >= 3),
+    "thin facade sources become half-tile masonry depth");
+  assert.ok(scene.getMeshByName("room:overburden:ground"));
+  room.dispose(); scene.dispose(); engine.dispose();
+});
+
+test("only_objects_covering_the_hero_fade_and_restore_the_same_identity", async () => {
+  const engine = new NullEngine(); const scene = new Scene(engine);
+  const room = new roomEnvironment.RoomEnvironmentPresentation(
+    scene, new rendererDebug.RendererDebugRegistry(), await fakeRoomAsset(scene));
+  room.acceptSnapshot(snapshot({ mapCols: 2, mapRows: 1,
+    map: Object.freeze([ABI.MAP_SOLID, ABI.MAP_OPEN]), vis: Object.freeze([2, 2]) }));
+  const face = scene.getMeshByName("room:tile:0:0:wall-face:1");
+  assert.ok(face);
+  const project = ({ x, y, z }) => ({ x: x * 100, y: -y * 100, depth: z });
+  for (let frame = 0; frame < 20; frame++) room.updateOcclusion(project, { x: 1, z: 1 });
+  assert.ok(face.instancedBuffers.color.a < 0.3);
+  assert.equal(room.shadowGenerator.getShadowMap()?.renderList?.includes(face), true,
+    "a faded occluder keeps its authored shadow membership");
+  for (let frame = 0; frame < 40; frame++) room.updateOcclusion(project, null);
+  assert.equal(scene.getMeshByName("room:tile:0:0:wall-face:1"), face);
+  assert.ok(face.instancedBuffers.color.a > 0.98);
+  assert.ok(room.shadowGenerator.getShadowMap()?.renderList?.includes(face));
+  room.dispose(); scene.dispose(); engine.dispose();
+});
+
 test("only_a_near_face_overlapping_the_hero_receives_local_cutaway", () => {
   const face = (key, x, depth) => ({ key, corners: [
     { x: x - 0.5, y: 0, z: depth }, { x: x + 0.5, y: 0, z: depth },
@@ -1419,7 +1610,7 @@ test("only_a_near_face_overlapping_the_hero_receives_local_cutaway", () => {
     ["near-elsewhere"], "moving away restores the same first face and cuts only the new overlap");
 });
 
-test("walking_a_disclosure_path_does_not_rebuild_existing_wall_meshes_or_shadow_casters", async () => {
+test("walking_all_four_room_sides_never_removes_or_rebuilds_a_wall", async () => {
   const map = Object.freeze([
     ABI.MAP_SOLID, ABI.MAP_SOLID, ABI.MAP_SOLID,
     ABI.MAP_SOLID, ABI.MAP_OPEN, ABI.MAP_SOLID,
@@ -1811,7 +2002,7 @@ test("the_room_review_camera_is_bounded_resettable_and_dispose_owned", async () 
   scene.dispose(); engine.dispose();
 });
 
-test("the_game_follow_camera_starts_close_and_pans_only_when_the_hero_leaves_the_dead_zone", async () => {
+test("world_camera_follows_inside_the_dead_zone_and_snaps_after_reset", async () => {
   const { NullEngine } = await import("@babylonjs/core/Engines/nullEngine.js");
   const { Scene } = await import("@babylonjs/core/scene.js");
   const canvas = { clientWidth: 1920, clientHeight: 1080,
@@ -1827,7 +2018,8 @@ test("the_game_follow_camera_starts_close_and_pans_only_when_the_hero_leaves_the
   assert.ok(roomReviewCamera.GAME_INITIAL_FIXED_ZOOM > rendererCamera.MIN_CAMERA_ZOOM
     && roomReviewCamera.GAME_INITIAL_FIXED_ZOOM < rendererCamera.MAX_CAMERA_ZOOM,
   "the starting zoom must leave wheel room in both directions");
-  assert.equal(roomReviewCamera.FOLLOW_DEAD_ZONE_FRACTION, 0.35);
+  assert.equal(roomReviewCamera.FOLLOW_DEAD_ZONE_FRACTION, 0.08);
+  assert.equal(roomReviewCamera.FOLLOW_DAMPING, 0.22);
   assert.ok(roomReviewCamera.FOLLOW_DEAD_ZONE_FRACTION > 0
     && roomReviewCamera.FOLLOW_DEAD_ZONE_FRACTION < 1);
   const owner = roomReviewCamera.createRoomReviewCamera(scene, canvas, { width: 68, height: 45 },
@@ -1839,12 +2031,12 @@ test("the_game_follow_camera_starts_close_and_pans_only_when_the_hero_leaves_the
   const centred = target();
   assert.ok(Math.abs(centred.x - 34) < 1e-5 && Math.abs(centred.z - 22.5) < 1e-5);
   // The dead zone, from both sides. The vertical allowance is
-  // orthoTop * fraction = 4.913 * 0.35 = 1.720 world units along the screen-up
-  // ground diagonal (1, 1)/sqrt(2): an offset of (1.2, 1.2) projects to 1.70
-  // and stays free; (2, 2) projects to 2.83 and must pan.
+  // orthoTop * fraction = 4.913 * 0.08 = 0.393 world units along the screen-up
+  // ground diagonal (1, 1)/sqrt(2): a quarter-tile offset stays free, while
+  // two tiles must start the damped pan.
   owner.follow(34, 22.5);
   assert.deepEqual(target().asArray(), centred.asArray(), "a centred hero moves nothing");
-  owner.follow(35.2, 23.7);
+  owner.follow(34.25, 22.75);
   assert.deepEqual(target().asArray(), centred.asArray(), "inside the dead zone nothing moves");
   owner.follow(36, 24.5);
   const panned = target();
@@ -1852,7 +2044,7 @@ test("the_game_follow_camera_starts_close_and_pans_only_when_the_hero_leaves_the
   assert.ok(Math.hypot(panned.x - centred.x, panned.z - centred.z) < Math.hypot(2, 2),
     "the camera stops at the zone edge rather than snapping onto the hero");
   owner.follow(36, 24.5);
-  assert.deepEqual(target().asArray(), panned.asArray(), "a stationary hero causes no creep");
+  assert.notDeepEqual(target().asArray(), panned.asArray(), "damped tracking eases toward its dead-zone edge");
   // A drag suspends the follow until the hero itself leaves a zone-sized
   // region around where it stood when the drag happened.
   owner.pan(120, 40);
@@ -1860,7 +2052,7 @@ test("the_game_follow_camera_starts_close_and_pans_only_when_the_hero_leaves_the
   assert.notDeepEqual(dragged.asArray(), panned.asArray());
   owner.follow(50, 30);
   assert.deepEqual(target().asArray(), dragged.asArray(), "a drag wins over the follow");
-  owner.follow(50.5, 30);
+  owner.follow(50.1, 30);
   assert.deepEqual(target().asArray(), dragged.asArray(), "a hero shuffling in place does not resume");
   owner.follow(56, 30);
   assert.notDeepEqual(target().asArray(), dragged.asArray(), "a hero that walks away resumes the follow");
@@ -2102,7 +2294,12 @@ test("greybox_input_ignores_reset_terminal_and_disposes_pointer_wheel_and_escape
   Object.defineProperty(escape, "key", { value: "Escape" });
   fakeWindow.dispatchEvent(escape);
   await Promise.resolve();
-  assert.deepEqual(commands, [{ kind: "goto", xMilli: 1250, yMilli: 500 }, { kind: "withdraw" }]);
+  assert.deepEqual(commands, [
+    { kind: "goto", xMilli: 1250, yMilli: 500 },
+    { kind: "setInput", moveXMilli: 0, moveYMilli: 0, turnMilli: 0,
+      aimRaw: 0, reachMilli: 0, slot: 0, strike: 0 },
+    { kind: "withdraw" },
+  ]);
   projectionFails = true;
   canvas.dispatchEvent(pointer);
   canvas.dispatchEvent(pointerUp);
@@ -2113,14 +2310,51 @@ test("greybox_input_ignores_reset_terminal_and_disposes_pointer_wheel_and_escape
   canvas.dispatchEvent(pointerUp);
   fakeWindow.dispatchEvent(escape);
   await Promise.resolve();
-  assert.equal(commands.length, 2);
+  assert.equal(commands.length, 3);
   input.dispose();
   blocked = false;
   canvas.dispatchEvent(pointer);
   canvas.dispatchEvent(pointerUp);
   fakeWindow.dispatchEvent(escape);
   await Promise.resolve();
-  assert.equal(commands.length, 2);
+  assert.equal(commands.length, 3);
+  globalThis.window = oldWindow;
+});
+
+test("held_qe_are_persistent_tank_turn_input_and_release_sends_zero", async () => {
+  const oldWindow = globalThis.window;
+  const fakeWindow = new EventTarget();
+  globalThis.window = fakeWindow;
+  class FakeCanvas extends EventTarget {
+    setPointerCapture() {}
+    hasPointerCapture() { return false; }
+    releasePointerCapture() {}
+  }
+  const commands = [];
+  const input = new greyboxInput.GreyboxInput({
+    canvas: new FakeCanvas(), snapshot: () => snapshot(), blocked: () => false,
+    movementEnabled: () => true, projectGround: () => null,
+    submit: async (command) => { commands.push(command); },
+  });
+  const key = (type, value) => {
+    const event = new Event(type, { cancelable: true });
+    Object.defineProperty(event, "key", { value });
+    fakeWindow.dispatchEvent(event);
+  };
+  key("keydown", "q");
+  key("keydown", "w");
+  key("keyup", "q");
+  key("keyup", "w");
+  await Promise.resolve();
+  assert.deepEqual(commands.map((command) => command.turnMilli), [-1000, -1000, 0, 0]);
+  assert.notEqual(commands[1].moveXMilli, 0, "forward remains available while turning");
+  assert.deepEqual(greyboxInput.tankMovement(new Set(["w"])), { x: 1, y: 0 });
+  assert.deepEqual(greyboxInput.tankMovement(new Set(["d"])), { x: 0, y: 1 });
+  input.releaseMovement();
+  await Promise.resolve();
+  assert.deepEqual(commands.at(-1), { kind: "setInput", moveXMilli: 0, moveYMilli: 0,
+    turnMilli: 0, aimRaw: 0, reachMilli: 0, slot: 0, strike: 0 });
+  input.dispose();
   globalThis.window = oldWindow;
 });
 
@@ -2147,7 +2381,7 @@ test("primary_pointer_click_issues_goto_while_primary_drag_moves_the_live_camera
   const scene = new Scene(engine);
   scene.useRightHandedSystem = true;
   const debug = new rendererDebug.RendererDebugRegistry();
-  const passive = { acceptSnapshot() {}, reset() {}, dispose() {} };
+  const passive = { acceptSnapshot() {}, setPresentationMode() {}, reset() {}, dispose() {} };
   const camera = rendererCamera.createFixedIsometricCamera(scene, { width: 10, height: 10 }, 2);
   scene.activeCamera = camera;
   const handle = {
@@ -2281,7 +2515,7 @@ test("representative_room_readiness_waits_for_a_completed_authored_frame_and_tim
   renderer.dispose();
 });
 
-test("free_room_review_blocks_initial_and_toggled_canvas_and_toolbar_commands_until_fixed_restores", async () => {
+test("free_mode_refuses_simulation_commands_and_restores_follow_on_exit", async () => {
   const entrySource = fs.readFileSync(path.join(ROOT, "client", "src", "v2.ts"), "utf8");
   assert.match(entrySource, /const submit = async[\s\S]*roomReviewInteractionBlocked\(renderer\)[\s\S]*application\.command\(command\)/);
   assert.match(entrySource, /blocked: \(\) => syntheticMode \|\| roomReviewInteractionBlocked\(gpu\)/);
@@ -2300,7 +2534,7 @@ test("free_room_review_blocks_initial_and_toggled_canvas_and_toolbar_commands_un
   const engine = new NullEngine({ renderWidth: 200, renderHeight: 100 });
   const scene = new Scene(engine);
   const debug = new rendererDebug.RendererDebugRegistry();
-  const passive = { acceptSnapshot() {}, reset() {}, dispose() {} };
+  const passive = { acceptSnapshot() {}, setPresentationMode() {}, reset() {}, dispose() {} };
   const initialCamera = rendererCamera.createFixedIsometricCamera(scene, { width: 2, height: 1 }, 2);
   const handle = { engine, canvas, terminal: false,
     diagnostics: { requested: "webgl2", selected: "webgl2" }, dispose: () => engine.dispose() };
@@ -2955,7 +3189,7 @@ test("vite_dev_serves_only_the_pinned_runtime_room_assets_with_exact_mime_and_ma
     const combatantSidecar = await fetch(`${origin}/assets3d/combatants.json`);
     assert.equal(combatantSidecar.status, 200);
     assert.equal(combatantSidecar.headers.get("content-type"), "application/json; charset=utf-8");
-    assert.equal((await combatantSidecar.json()).fixtureId, "v2-combatants-1");
+    assert.equal((await combatantSidecar.json()).fixtureId, "v2-combatants-2");
     const validator = await fetch(`${origin}/assets3d/room_slice.validator.json`);
     assert.equal(validator.status, 404, "validator provenance must not be a runtime asset");
     const combatantValidator = await fetch(`${origin}/assets3d/combatants.validator.json`);
@@ -3043,8 +3277,8 @@ test("combatant_sidecar_decoding_refuses_undeclared_fields_and_every_semantic_cl
   const changedClip = structuredClone(source);
   changedClip.archetypes[0].clips[2].animation = "FIGHTER_attack";
   const changedBounds = structuredClone(source);
-  changedBounds.archetypes[0].meshes[0].bounds.min[0] =
-    changedBounds.archetypes[0].meshes[0].bounds.max[0] + 1;
+  changedBounds.archetypes[0].lods[0].meshes[0].bounds.min[0] =
+    changedBounds.archetypes[0].lods[0].meshes[0].bounds.max[0] + 1;
   const malformed = [
     { ...source, undeclared: true },
     { ...source, counts: { ...source.counts, skins: 0 } },
@@ -3081,7 +3315,7 @@ test("combatant_loading_checks_hash_magic_and_declared_bounds_before_calling_bab
     const tooLarge = async (url) => {
       if (!String(url).endsWith(".glb")) return combatantResponse(url);
       return new Response(combatantGlbBytes, { status: 200, headers: {
-        "content-type": "model/gltf-binary", "content-length": String(16 * 1024 * 1024 + 1),
+        "content-type": "model/gltf-binary", "content-length": String(64 * 1024 * 1024 + 1),
       } });
     };
     await assert.rejects(combatantAssets.loadCombatantAsset(scene, new AbortController().signal,
@@ -3120,7 +3354,8 @@ test("the_pinned_combatant_glb_loads_once_as_two_hidden_exact_skinned_archetypes
           "socket_weapon_left", "socket_weapon_right", "socket_shield", "region_head", "region_torso",
           "region_left_arm", "region_right_arm", "region_legs", "idle", "walk", "stagger", "fall"]);
       assert.equal(archetype.root.isEnabled(), false);
-      assert.ok([...archetype.meshes.values()].every((mesh) =>
+      assert.deepEqual([...archetype.lods.keys()], ["high", "mid", "low"]);
+      assert.ok([...archetype.lods.values()].flatMap((meshes) => [...meshes.values()]).every((mesh) =>
         mesh.isVisible === false && mesh.isPickable === false && mesh.skeleton === archetype.skeleton));
     }
     asset.dispose();
@@ -3163,14 +3398,16 @@ test("enabled_combatant_dresses_are_visible_independent_skinned_clones", async (
     assert.notEqual([...firstSkeletons][0], [...secondSkeletons][0],
       "each body must own a cloned skeleton rather than driving the source or its neighbour");
     const materialOf = (dress, semantic) => dress.meshes.get(semantic).material;
-    assert.notEqual(materialOf(first, "head_helmet"), materialOf(second, "head_helmet"),
-      "each Fighter owns its presentation palette rather than recolouring the shared asset");
-    assert.deepEqual(materialOf(first, "head_face").albedoColor.asArray(), [0.62, 0.43, 0.28]);
-    assert.deepEqual(materialOf(first, "head_helmet").albedoColor.asArray(), [0.48, 0.51, 0.55]);
-    assert.deepEqual(materialOf(first, "head_visor").albedoColor.asArray(), [0.18, 0.21, 0.26]);
-    assert.deepEqual(materialOf(first, "torso_breastplate").albedoColor.asArray(), [0.43, 0.46, 0.5]);
-    assert.deepEqual(materialOf(first, "arm_left").albedoColor.asArray(), [0.34, 0.12, 0.07]);
-    assert.deepEqual(materialOf(first, "boot_left").albedoColor.asArray(), [0.27, 0.15, 0.075]);
+    assert.equal(materialOf(first, "head_helmet"), materialOf(second, "head_helmet"),
+      "clones share the immutable baked PBR material instead of recolouring it at runtime");
+    assert.equal(materialOf(first, "head_face").name, "fighter_skin");
+    assert.equal(materialOf(first, "head_helmet").name, "fighter_steel");
+    assert.equal(materialOf(first, "head_visor").name, "fighter_dark_steel");
+    assert.equal(materialOf(first, "torso_breastplate").name, "fighter_steel");
+    assert.equal(materialOf(first, "arm_left").name, "fighter_burgundy");
+    assert.equal(materialOf(first, "boot_left").name, "fighter_leather");
+    assert.match(materialOf(first, "head_helmet").albedoTexture?.name ?? "", /fighter_steel \(Base Color\)/);
+    assert.match(materialOf(first, "head_helmet").bumpTexture?.name ?? "", /fighter_steel \(Normal\)/);
     const pixels = (mesh, bodyPixels, axis) => {
       const box = mesh.getBoundingInfo().boundingBox;
       const span = box.maximum[axis] - box.minimum[axis];
@@ -3204,6 +3441,15 @@ test("enabled_combatant_dresses_are_visible_independent_skinned_clones", async (
   }
 });
 
+test("projected_height_selects_low_mid_and_high_combatant_lods_at_bounded_thresholds", () => {
+  assert.equal(combatantDress.combatantLodForProjectedHeight(0), "low");
+  assert.equal(combatantDress.combatantLodForProjectedHeight(63.999), "low");
+  assert.equal(combatantDress.combatantLodForProjectedHeight(64), "mid");
+  assert.equal(combatantDress.combatantLodForProjectedHeight(159.999), "mid");
+  assert.equal(combatantDress.combatantLodForProjectedHeight(160), "high");
+  assert.equal(combatantDress.combatantLodForProjectedHeight(10_000), "high");
+});
+
 test("game_combatant_load_failure_is_a_procedural_fallback_but_abort_is_terminal", async () => {
   const signal = new AbortController();
   assert.equal(await greyboxRenderer.loadOptionalCombatants(undefined, {}, signal.signal), null);
@@ -3234,15 +3480,18 @@ test("authored_game_dress_falls_back_and_reacts_only_to_published_events_then_fo
       kind: 0, x: 2.5, visible: true, actionRole: 2, slot0Action: 2, slot1Action: 4,
     });
     actors.acceptSnapshot(snapshot({ units: Object.freeze([fighter]) }));
-    const authored = scene.meshes.filter((mesh) => mesh.name.startsWith("actor:1:1:authored:FIGHTER_mesh_"));
-    assert.equal(authored.length, asset.archetypes.get("fighter").contract.meshes.length);
-    assert.ok(authored.every((mesh) => mesh.isPickable),
+    const authored = scene.meshes.filter((mesh) =>
+      mesh.name.startsWith("actor:1:1:authored:FIGHTER_lod_"));
+    assert.equal(authored.length, asset.archetypes.get("fighter").contract.lods
+      .reduce((sum, lod) => sum + lod.meshes.length, 0));
+    const active = authored.filter((mesh) => mesh.name.includes("_lod_low_mesh_"));
+    assert.ok(active.every((mesh) => mesh.isPickable),
       "a currently visible body keeps the same picking contract as its procedural fallback");
-    assert.ok(authored.filter((mesh) => !mesh.name.endsWith("_sword") && !mesh.name.endsWith("_shield"))
+    assert.ok(active.filter((mesh) => !mesh.name.endsWith("_sword") && !mesh.name.endsWith("_shield"))
       .every((mesh) => mesh.isEnabled()), "the enabled dress must show every body mesh");
-    assert.equal(authored.find((mesh) => mesh.name.endsWith("_sword")).isEnabled(), true,
+    assert.equal(active.find((mesh) => mesh.name.endsWith("_sword")).isEnabled(), true,
       "an equipped blade remains a readable carried silhouette between strikes");
-    assert.equal(authored.find((mesh) => mesh.name.endsWith("_shield")).isEnabled(), true,
+    assert.equal(active.find((mesh) => mesh.name.endsWith("_shield")).isEnabled(), true,
       "an equipped shield remains a readable carried silhouette between guards");
     const driverHand = scene.transformNodes.find((node) => node.name === "actor:1:1:hand_right");
     const authoredHand = scene.transformNodes.find(
@@ -3292,7 +3541,7 @@ test("authored_game_dress_falls_back_and_reacts_only_to_published_events_then_fo
   }
 });
 
-test("switching_view_modes_reuses_mesh_identity_and_restores_world_lights_and_shadows", async () => {
+test("first_person_hides_only_self_occluding_dress", async () => {
   const engine = new NullEngine();
   const scene = new Scene(engine);
   const debug = new rendererDebug.RendererDebugRegistry();
@@ -3304,24 +3553,41 @@ test("switching_view_modes_reuses_mesh_identity_and_restores_world_lights_and_sh
     const actors = new rendererActors.ActorPresentation(scene, debug, shadows, asset);
     const fighter = unit({ kind: 0, x: 2.5, visible: true, slot0Action: 2, slot1Action: 4 });
     actors.acceptSnapshot(snapshot({ units: Object.freeze([fighter]) }));
-    const authored = scene.meshes.filter((mesh) => mesh.name.startsWith("actor:1:1:authored:FIGHTER_mesh_"));
+    const authored = scene.meshes.filter((mesh) =>
+      mesh.name.startsWith("actor:1:1:authored:FIGHTER_lod_"));
     const procedural = scene.meshes.filter((mesh) => mesh.name.startsWith("actor:1:1:") &&
       !mesh.name.startsWith("actor:1:1:authored:") && mesh.name !== "actor:1:1:marker:ring");
     const ring = scene.meshes.find((mesh) => mesh.name === "actor:1:1:marker:ring");
     const identities = new Set(scene.meshes);
-    assert.ok(authored.every((mesh) => mesh.isEnabled()));
-    actors.setPresentationMode("tactical");
+    const authoredEnabled = new Set(authored.filter((mesh) => mesh.isEnabled()));
+    assert.ok(authoredEnabled.size > 0);
+    actors.setPresentationMode("geometry");
     assert.ok(authored.every((mesh) => !mesh.isEnabled()));
-    const tacticalEnabled = procedural.filter((mesh) => mesh.isEnabled());
-    assert.ok(tacticalEnabled.length >= 8,
-      `Tactical enables the readable body; got ${tacticalEnabled.map((mesh) => mesh.name)}`);
+    const geometryEnabled = procedural.filter((mesh) => mesh.isEnabled());
+    assert.ok(geometryEnabled.length >= 8,
+      `Geometry enables the readable body; got ${geometryEnabled.map((mesh) => mesh.name)}`);
     assert.equal(ring.isEnabled(), true);
     assert.equal(casters.size, procedural.length);
+    actors.setPresentationMode("first_person");
+    actors.acceptSnapshot(snapshot({ tick: 2, units: Object.freeze([fighter]) }));
+    const high = authored.filter((mesh) => mesh.name.includes("_lod_high_mesh_"));
+    const highEnabled = new Set(high.filter((mesh) => mesh.isEnabled()));
+    const hidden = high.filter((mesh) => !mesh.isEnabled()).filter((mesh) => {
+      const semantic = mesh.name.match(/_mesh_(.+)$/)?.[1] ?? "";
+      return combatantDress.combatantMeshRole(semantic) === "head" ||
+        combatantDress.combatantMeshRole(semantic) === "torso";
+    });
+    assert.ok(hidden.length > 0 && hidden.every((mesh) => {
+      const semantic = mesh.name.match(/_mesh_(.+)$/)?.[1] ?? "";
+      const role = combatantDress.combatantMeshRole(semantic);
+      return role === "head" || role === "torso";
+    }));
+    assert.ok(highEnabled.size > 0, "high-detail arms and equipment remain visible in first person");
     actors.setPresentationMode("world");
-    assert.ok(authored.every((mesh) => mesh.isEnabled()));
+    assert.deepEqual(new Set(authored.filter((mesh) => mesh.isEnabled())), new Set(high));
     assert.ok(procedural.every((mesh) => !mesh.isEnabled()));
     assert.ok([...identities].every((mesh) => scene.meshes.includes(mesh)), "mode switching reuses mesh identity");
-    assert.equal(casters.size, authored.length);
+    assert.equal(casters.size, high.length);
     actors.dispose(); asset.dispose();
   } finally { scene.dispose(); engine.dispose(); }
 });
@@ -3349,11 +3615,12 @@ test("combatant_closure_bounds_and_late_abort_failures_dispose_the_unpublished_c
   await run((container) => container.skeletons.push({ name: "FOREIGN_skeleton", dispose() {} }),
     /skeleton closure/);
   await run((container) => {
-    const mesh = container.meshes.find(({ name }) => name === "FIGHTER_mesh_pelvis_skirt");
+    const mesh = container.meshes.find(({ name }) =>
+      name === "FIGHTER_lod_high_mesh_pelvis_skirt");
     mesh.getBoundingInfo = () => ({ boundingBox: {
       minimum: { x: -99, y: 0, z: 0 }, maximum: { x: 0, y: 0, z: 0 },
     } });
-  }, /mesh pelvis_skirt bounds/);
+  }, /fighter high mesh pelvis_skirt bounds/);
 
   const engine = new NullEngine();
   const scene = new Scene(engine);
@@ -5716,13 +5983,14 @@ test("authored_arena_dress_matches_rig_endpoints_and_only_published_rows_open_re
   const severedFrame = { ...view.frame, poses: severedPoses, contacts: [] };
   content.show({ ...view, frame: severedFrame, next: severedFrame });
   for (const semantic of ["arm_left", "hand_left", "pauldron_left"]) {
-    const mesh = scene.getMeshByName("arena:0:authored:FIGHTER_mesh_" + semantic);
+    const mesh = scene.getMeshByName("arena:0:authored:FIGHTER_lod_high_mesh_" + semantic);
     assert.ok(mesh && !mesh.isEnabled(), "published left-arm severance kept " + semantic);
   }
   assert.equal(marker("stagger").isEnabled(), false,
     "severance state alone cannot synthesize a new stagger event");
 
-  const authoredMeshes = scene.meshes.filter((mesh) => mesh.name.startsWith("arena:0:authored:FIGHTER_mesh_"));
+  const authoredMeshes = scene.meshes.filter((mesh) =>
+    mesh.name.startsWith("arena:0:authored:FIGHTER_lod_"));
   content.setMode("geometry");
   content.redraw();
   assert.ok(authoredMeshes.every((mesh) => !mesh.isEnabled()),
@@ -5759,12 +6027,13 @@ test("the_frame_meter_discards_hidden_time_and_resets_between_route_mounts", () 
   assert.equal(remounted.label, "-- FPS / -- ms worst");
 });
 
-test("world_and_tactical_share_one_scene_worker_snapshot_and_pick_contract", async () => {
-  assert.deepEqual(presentationMode.PRESENTATION_MODES, ["world", "tactical"]);
-  assert.equal(presentationMode.nextPresentationMode("world"), "tactical");
-  assert.equal(presentationMode.nextPresentationMode("tactical"), "world");
+test("the_six_view_modes_share_one_worker_snapshot_and_identity_registry", async () => {
+  assert.deepEqual(presentationMode.PRESENTATION_MODES,
+    ["world", "geometry", "top_down", "first_person", "free", "dev"]);
+  assert.equal(presentationMode.nextPresentationMode("world"), "geometry");
+  assert.equal(presentationMode.nextPresentationMode("world", -1), "dev");
   assert.equal(presentationMode.presentationModeLabel("world"), "World");
-  assert.equal(presentationMode.presentationModeLabel("tactical"), "Tactical");
+  assert.equal(presentationMode.presentationModeLabel("first_person"), "First Person");
   const engine = new NullEngine();
   const scene = new Scene(engine);
   const debug = new rendererDebug.RendererDebugRegistry();
@@ -5789,15 +6058,15 @@ test("world_and_tactical_share_one_scene_worker_snapshot_and_pick_contract", asy
   renderer.acceptSnapshot(world, 0);
   const sceneIdentity = renderer.scene;
   const cameraIdentity = renderer.camera;
-  renderer.setPresentationMode("tactical");
+  renderer.setPresentationMode("geometry");
   assert.equal(renderer.scene, sceneIdentity);
   assert.equal(renderer.camera, cameraIdentity);
-  assert.equal(renderer.presentationMode, "tactical");
+  assert.equal(renderer.presentationMode, "geometry");
   renderer.setPresentationMode("world");
   assert.equal(calls.filter(([, kind]) => kind === "snapshot").length, 2,
     "the one accepted publication goes once to environment and transients only");
   assert.deepEqual(calls.filter(([, kind]) => kind === "mode").map(([name, , mode]) => [name, mode]), [
-    ["actors", "tactical"], ["environment", "tactical"],
+    ["actors", "geometry"], ["environment", "geometry"],
     ["actors", "world"], ["environment", "world"],
   ]);
   renderer.dispose();

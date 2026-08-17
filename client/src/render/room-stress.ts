@@ -123,8 +123,9 @@ export function createRoomStressFixture(): RoomStressFixture {
     renderScale: 1, trainingWorkers: 0, directionalLights: 1, torchLights: 8,
     mapSha256: ROOM_STRESS_MAP_SHA256, pieceCounts: ROOM_STRESS_PIECE_COUNTS, roomDecorations,
     epoch: 1, tick: 0, mapCols: ROOM_STRESS_COLS, mapRows: ROOM_STRESS_ROWS, tileSize: 1,
-    mapRevision: 1, visRevision: 1, furnitureRevision: 1,
+    mapRevision: 1, visRevision: 1, furnitureRevision: 1, dungeonObjectRevision: 1,
     map, vis, units: Object.freeze(Array.from({ length: ROOM_STRESS_POPULATION }, (_, index) => body(index))),
     shots: Object.freeze([]), events: Object.freeze([]), furniture: Object.freeze(rows),
+    dungeonObjects: Object.freeze([]),
   });
 }

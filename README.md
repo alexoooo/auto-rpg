@@ -226,7 +226,9 @@ is still better than a shove.
 
 And you can take over. Three independent switches, `C`, `V` and `X` —
 **Movement**, **Action** and **Aim**: the feet, the choice of what to hold, and
-the attack. WASD steers; the mouse aims the line and **click to cut** — one
+the attack. Mouse click-to-move is the default; direct Movement enables W/S
+forward/back, A/D strafe, and held Q/E turning. The mouse aims the line and
+**click to cut** — one
 click, one attack, with the same windup and the same recovery the AI pays. `1`
 and `2` change what is in your hand, and the swap costs the same ticks it costs
 the AI. Whichever of the three you do not hold, the AI keeps doing — on its own

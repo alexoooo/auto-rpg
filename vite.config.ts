@@ -115,7 +115,7 @@ function generatedCombatantPins(): Record<"fixture" | "buildInputs" | "sidecar" 
     return match[1];
   };
   const fixture = /export const COMBATANT_FIXTURE_ID = "([^"]+)" as const;/.exec(source)?.[1];
-  if (fixture !== "v2-combatants-1") throw new Error("generated combatant fixture identity is invalid");
+  if (fixture !== "v2-combatants-2") throw new Error("generated combatant fixture identity is invalid");
   return { fixture, buildInputs: pin("COMBATANT_BUILD_INPUTS_SHA256"),
     sidecar: pin("COMBATANT_SIDECAR_SHA256"), glb: pin("COMBATANT_GLB_SHA256"),
     validator: pin("COMBATANT_VALIDATOR_SHA256") };
@@ -145,7 +145,7 @@ function verifyCombatantAsset(file: string, kind: "glb" | "sidecar"): void {
     }
   } else {
     const value = JSON.parse(bytes.toString("utf8")) as { schemaVersion?: unknown; fixtureId?: unknown };
-    if (value.schemaVersion !== 1 || value.fixtureId !== "v2-combatants-1") {
+    if (value.schemaVersion !== 2 || value.fixtureId !== "v2-combatants-2") {
       throw new Error("representative combatant sidecar has an invalid schema identity");
     }
   }

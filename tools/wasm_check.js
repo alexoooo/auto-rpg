@@ -53,13 +53,13 @@ const LAB_HASH = 0xfe31370e141ef531n;
 // `Scenario::dungeon`, so the level going from 48x32 to 68x45 is a different
 // floor plan and a different run from tick zero. `LAB_HASH` stayed put, which is
 // how you tell a level change from a rules change.
-const ROOM_HASH = 0x98441a18db7a95can;
+const ROOM_HASH = 0xb8990e0dd2f543bfn;
 
 // `init(1); spawn_monster(3); step(600)`: a whole fight, start to finish. Worth
 // its own number because it reaches arithmetic the walk never does -- the spawn
 // point comes out of `Rng::from_stream` and the committed sine table, and every
 // approach measures a distance through `isqrt64`.
-const BATTLE_HASH = 0x9aafe4bd54560586n;
+const BATTLE_HASH = 0xa68f4a40570b208an;
 
 // `init(1); spawn_monster(2) x3; step(1800); swap_in_hero(1); step(400)`: a
 // fight, a death, a replacement, and the fight the replacement walks into. The
@@ -70,7 +70,7 @@ const BATTLE_HASH = 0x9aafe4bd54560586n;
 // Re-recorded in `world-04`, and the only one of the five that moved there: a
 // replacement now arrives at the spot the last one fell rather than in the
 // clearest room on the floor, and this is the one script with a death in it.
-const SWAP_HASH = 0xf948f5486ee90191n;
+const SWAP_HASH = 0xd2d38c5ad27c3f13n;
 
 // `init(1); set_hero_loadout(0, BOW); spawn_monster(BRUTE); step(1200)`: the
 // only one of these five that ever puts an arrow in the air, and the only
@@ -79,7 +79,7 @@ const SWAP_HASH = 0xf948f5486ee90191n;
 // of every flight, `segment_circle`'s i64-staged dot products, and the
 // saturating multiply in `tangential_speed` at the release. Portable
 // fixed-point is a claim about code that runs.
-const BOW_HASH = 0x4a1157735d305e9fn;
+const BOW_HASH = 0xce5fa25b974e0701n;
 // Moved by v2-14C: ArticulatedV1 hashing gained a global `cap_hits:u32` after
 // the actuator loop, and this probe is unstepped, so the move is four zero
 // bytes and nothing else. Moved again by v2-15, which appended one 61-byte
@@ -532,6 +532,12 @@ test("the boundary exports everything the client calls", () => {
     "furniture_len",
     "furniture_stride",
     "furniture_revision",
+    "dungeon_object_ptr",
+    "dungeon_object_len",
+    "dungeon_object_stride",
+    "dungeon_object_capacity",
+    "dungeon_objects_dropped",
+    "dungeon_object_layout_version",
     "descend",
   ];
   for (const name of exports) {
@@ -901,6 +907,9 @@ const MAX_REGIONS = MAX_POSES * REGIONS_PER_BODY;
 const ARTICULATED_PROJECTILE_LAYOUT_VERSION = 1;
 const ARTICULATED_PROJECTILE_STRIDE = 12;
 const MAX_ARTICULATED_PROJECTILES = 32;
+const DUNGEON_OBJECT_LAYOUT_VERSION = 1;
+const DUNGEON_OBJECT_STRIDE = 12;
+const MAX_DUNGEON_OBJECTS = 512;
 
 // The pose columns this file reads, from the reference's row table.
 const POSE_ENTITY_INDEX = 0;
@@ -1492,7 +1501,7 @@ test("the walk cycle's columns describe the walk", () => {
   // body deterministically -- a `Goto` at its own position still creeps, and a
   // hero left on its own policy walks off to find the monsters `init` spawned.
   wasm.set_control(1);
-  wasm.set_input(0, 0, 0, 0, 0, 0);
+  wasm.set_input(0, 0, 0, 0, 0, 0, 0);
   wasm.step(120);
   const parked = heroRow(frame());
   assert.ok(
@@ -1590,7 +1599,7 @@ test("the player can take the feet, the limb and the choice", () => {
   wasm.set_control(1); // feet
   assert.equal(wasm.control(), 1);
   const before = frame()[HEADER_LEN];
-  wasm.set_input(-1000, 0, 0, 0, 0, 0);
+  wasm.set_input(-1000, 0, 0, 0, 0, 0, 0);
   wasm.step(60);
   // Measured against where it started rather than against a coordinate: the
   // level is carved and generated, so where the hero opens is a fact about the
@@ -1612,7 +1621,7 @@ test("the player can take the feet, the limb and the choice", () => {
   wasm.set_control(2);
   assert.equal(wasm.control(), 2, "taking the limb dragged another bit in with it");
   // Guard due north, attacking nothing.
-  wasm.set_input(0, 0, 16_384, 0, 0, 0);
+  wasm.set_input(0, 0, 16_384, 0, 0, 0, 0);
   wasm.step(120);
   const unit = frame().slice(HEADER_LEN);
   assert.ok(Math.abs(unit[11] - 16_384) < 2_000, `sword ended at ${unit[11]}, not north`);
@@ -1620,7 +1629,7 @@ test("the player can take the feet, the limb and the choice", () => {
 
   // The attack button, and the property the whole swing model exists for: the
   // cut announces itself before it goes live, and the frame says so.
-  wasm.set_input(0, 0, 16_384, 0, 0, 1);
+  wasm.set_input(0, 0, 16_384, 0, 0, 1, 0);
   let sawWindup = false;
   let sawStrike = false;
   for (let i = 0; i < 90; i += 1) {
@@ -1715,6 +1724,38 @@ function furniture(kind) {
   return out;
 }
 
+function dungeonObjects() {
+  const count = u32(wasm.dungeon_object_len());
+  const stride = u32(wasm.dungeon_object_stride());
+  const words = new Uint32Array(
+    wasm.memory.buffer, u32(wasm.dungeon_object_ptr()), count * stride,
+  ).slice();
+  return Array.from({ length: count }, (_, row) =>
+    Array.from(words.slice(row * stride, (row + 1) * stride)));
+}
+
+test("dungeon_object_v1_publishes_stable_ordered_physical_rows", () => {
+  for (const name of [
+    "dungeon_object_ptr", "dungeon_object_len", "dungeon_object_stride",
+    "dungeon_object_capacity", "dungeon_objects_dropped", "dungeon_object_layout_version",
+  ]) assert.equal(typeof wasm[name], "function", `web.wasm does not export ${name}()`);
+  assert.equal(u32(wasm.dungeon_object_layout_version()), DUNGEON_OBJECT_LAYOUT_VERSION);
+  assert.equal(u32(wasm.dungeon_object_stride()), DUNGEON_OBJECT_STRIDE);
+  assert.equal(u32(wasm.dungeon_object_capacity()), MAX_DUNGEON_OBJECTS);
+  wasm.init(1);
+  const rows = dungeonObjects();
+  assert.ok(rows.length > 0, "a generated floor published no physical object rows");
+  assert.equal(u32(wasm.dungeon_objects_dropped()), 0);
+  const kinds = rows.map((row) => row[0]);
+  const firstTorch = kinds.indexOf(2);
+  const firstProp = kinds.findIndex((kind) => kind >= 3);
+  assert.ok(firstTorch > 0 && firstProp > firstTorch, "doors, torches and props are not ordered");
+  assert.ok(rows.slice(0, firstTorch).every((row) => row[1] >>> 28 === 1));
+  assert.ok(rows.slice(firstTorch, firstProp).every((row) => row[1] >>> 28 === 2));
+  assert.ok(rows.slice(firstProp).every((row) => row[1] >>> 28 === 3));
+  assert.ok(rows.every((row) => row.length === 12));
+});
+
 test("the doorways and the torches cross on a buffer the tile bytes cannot carry", () => {
   // The furniture buffer's whole reason for existing, asserted from the page's
   // side. A *shut* door is solid, so `map_ptr` publishes it as a 1 the client
@@ -1803,7 +1844,7 @@ test("the fog is rebuilt when the hero changes tile and at no other time", () =>
   // here is a hero that certainly moves: an ordered walk can be a hero standing
   // still if the destination was where it already was.
   wasm.set_control(1);
-  wasm.set_input(-1000, 0, 0, 0, 0, 0);
+  wasm.set_input(-1000, 0, 0, 0, 0, 0, 0);
   let tile = heroTile();
   let revision = wasm.vis_revision();
   let crossings = 0;

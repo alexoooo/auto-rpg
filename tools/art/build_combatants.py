@@ -13,7 +13,7 @@ import tempfile
 import bpy
 
 from combatants import build_combatant_materials, build_combatants
-from export import canonical_bytes, export_glb, sha256_bytes, write_sidecar
+from export import canonical_bytes, sha256_bytes, write_sidecar
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -23,6 +23,28 @@ OUTPUT_DIR = ROOT / "web" / "assets3d"
 GENERATED_TS = ROOT / "client" / "src" / "render" / "combatant-asset.generated.ts"
 
 
+def _export_combatant_glb(path, flags):
+    # Normal maps without authored tangents force every consumer to synthesize
+    # a basis and make gltf-validator report one warning per primitive.  The
+    # combatant asset owns baked normal maps, so its tangent basis is part of
+    # the authored payload rather than a renderer-specific reconstruction.
+    result = bpy.ops.export_scene.gltf(
+        filepath=str(path), export_format=flags["format"], check_existing=False,
+        export_yup=flags["exportYup"], export_apply=flags["applyModifiers"],
+        use_selection=flags["useSelection"], export_texcoords=True,
+        export_normals=True, export_tangents=True,
+        export_materials=flags["exportMaterials"], export_cameras=False,
+        export_lights=False, export_animations=flags["animations"],
+        export_skins=flags.get("skins", False),
+        export_morph=flags.get("morphs", False), export_extras=True,
+        export_vertex_color=flags.get("vertexColor", "MATERIAL"),
+        export_vertex_color_name=flags.get("vertexColorName", ""),
+        export_all_vertex_colors=flags.get("allVertexColors", False),
+    )
+    if result != {"FINISHED"}:
+        raise RuntimeError(f"glTF export failed: {result}")
+
+
 def _manifest():
     return json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
 
@@ -30,7 +52,15 @@ def _manifest():
 def _input_hash(manifest):
     value = dict(manifest)
     value.pop("outputs", None)
-    return hashlib.sha256(canonical_bytes(value)).hexdigest()
+    digest = hashlib.sha256(canonical_bytes(value))
+    # The recipe is an authored input just as surely as the manifest and source
+    # atlases are. Manifest-only provenance stayed unchanged while geometry and
+    # UV code moved, which made the old build-input pin unable to identify the
+    # artifact it claimed to describe.
+    for name in ("combatants.py", "build_combatants.py"):
+        digest.update(b"\0" + name.encode("ascii") + b"\0")
+        digest.update((SCRIPT_DIR / name).read_bytes())
+    return digest.hexdigest()
 
 
 def _verify_blender(manifest):
@@ -163,34 +193,50 @@ def _sidecar(manifest, source_hash, glb):
                 "rotation": node.get("rotation", [0, 0, 0, 1]),
                 "scale": node.get("scale", [1, 1, 1]),
             })
-        meshes = []
-        for semantic in spec["meshNames"]:
-            node_name = prefix + "mesh_" + semantic
-            index, node = names[node_name]
-            mesh = gltf["meshes"][node["mesh"]]
-            vertices = 0
-            triangles = 0
-            bounds_min = [float("inf")] * 3
-            bounds_max = [float("-inf")] * 3
-            roles = set()
-            for primitive in mesh["primitives"]:
-                position = gltf["accessors"][primitive["attributes"]["POSITION"]]
-                vertices += position["count"]
-                indices = gltf["accessors"][primitive["indices"]]
-                triangles += indices["count"] // 3
-                roles.add(material_names[primitive["material"]])
-                for axis in range(3):
-                    bounds_min[axis] = min(bounds_min[axis], position["min"][axis])
-                    bounds_max[axis] = max(bounds_max[axis], position["max"][axis])
-            if len(roles) != 1:
-                raise RuntimeError(f"combatant mesh {node_name} uses more than one semantic material")
-            vertex_total += vertices
-            triangle_total += triangles
-            meshes.append({
-                "semantic": semantic, "node": node_name, "parent": parents.get(index),
-                "materialRole": next(iter(roles)), "primitiveCount": len(mesh["primitives"]),
-                "vertexCount": vertices, "triangleCount": triangles,
-                "bounds": {"min": bounds_min, "max": bounds_max},
+        lods = []
+        for lod_spec in spec["lods"]:
+            level = lod_spec["level"]
+            meshes = []
+            lod_triangles = 0
+            for semantic in spec["meshNames"]:
+                node_name = prefix + "lod_" + level + "_mesh_" + semantic
+                index, node = names[node_name]
+                mesh = gltf["meshes"][node["mesh"]]
+                vertices = 0
+                triangles = 0
+                bounds_min = [float("inf")] * 3
+                bounds_max = [float("-inf")] * 3
+                roles = set()
+                used_materials = set()
+                for primitive in mesh["primitives"]:
+                    position = gltf["accessors"][primitive["attributes"]["POSITION"]]
+                    vertices += position["count"]
+                    indices = gltf["accessors"][primitive["indices"]]
+                    triangles += indices["count"] // 3
+                    material_name = material_names[primitive["material"]]
+                    used_materials.add(material_name)
+                    roles.add(manifest["materials"][material_name]["role"])
+                    for axis in range(3):
+                        bounds_min[axis] = min(bounds_min[axis], position["min"][axis])
+                        bounds_max[axis] = max(bounds_max[axis], position["max"][axis])
+                if len(roles) != 1 or len(used_materials) != 1:
+                    raise RuntimeError(f"combatant mesh {node_name} uses more than one semantic material")
+                vertex_total += vertices
+                triangle_total += triangles
+                lod_triangles += triangles
+                meshes.append({
+                    "semantic": semantic, "node": node_name, "parent": parents.get(index),
+                    "material": next(iter(used_materials)), "materialRole": next(iter(roles)),
+                    "primitiveCount": len(mesh["primitives"]),
+                    "vertexCount": vertices, "triangleCount": triangles,
+                    "bounds": {"min": bounds_min, "max": bounds_max},
+                })
+            if lod_triangles > lod_spec["maxTriangles"]:
+                raise RuntimeError(
+                    f"combatant {spec['kind']} {level} triangle budget exceeded: "
+                    f"{lod_triangles} > {lod_spec['maxTriangles']}")
+            lods.append({
+                "level": level, "maxTriangles": lod_spec["maxTriangles"], "meshes": meshes,
             })
         clips = []
         animations = {animation.get("name"): animation for animation in gltf.get("animations", [])}
@@ -205,17 +251,18 @@ def _sidecar(manifest, source_hash, glb):
             "kind": spec["kind"], "height": float(spec["height"]),
             "nodePrefix": prefix,
             "skeleton": {"node": armature_name, "skin": armature_name, "bones": bone_nodes},
-            "nodes": semantic_nodes, "meshes": meshes, "clips": clips,
+            "nodes": semantic_nodes, "lods": lods, "clips": clips,
         })
     source_bytes = sum(view["byteLength"] for view in gltf.get("bufferViews", []))
-    texture_bytes = manifest["texture"]["embeddedWidth"] * manifest["texture"]["embeddedHeight"] * 4
+    texture_bytes = sum(spec["embeddedWidth"] * spec["embeddedHeight"] * 4 * 3
+                        for spec in manifest["textures"])
     residency = {
         "sourceBufferBytes": source_bytes,
         "decodedTextureBytes": texture_bytes,
         "totalBytes": source_bytes + texture_bytes,
     }
     result = {
-        "schemaVersion": 1, "fixtureId": manifest["fixtureId"],
+        "schemaVersion": 2, "fixtureId": manifest["fixtureId"],
         "buildInputsSha256": source_hash, "glbSha256": sha256_bytes(Path(glb).read_bytes()),
         "coordinates": manifest["coordinates"], "semanticNames": manifest["semanticNames"],
         "archetypes": archetypes,
@@ -245,7 +292,7 @@ def _build_once(directory, manifest, source_hash):
     glb = directory / "combatants.glb"
     sidecar = directory / "combatants.json"
     report = directory / "combatants.validator.json"
-    export_glb(glb, manifest["export"])
+    _export_combatant_glb(glb, manifest["export"])
     _normalize_skinned_mesh_roots(glb)
     write_sidecar(sidecar, _sidecar(manifest, source_hash, glb))
     _run_validator(glb, sidecar, report)

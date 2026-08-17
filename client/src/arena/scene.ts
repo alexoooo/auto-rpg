@@ -1106,6 +1106,10 @@ export class ArenaContent {
         return false;
       }
     }
+    // The arena publishes first-person and three-quarter cameras together, so
+    // its shared dress keeps the high LOD needed by the two close arm/equipment
+    // views. The game page can select lower LODs from one active camera.
+    dress.setLod("high");
     dress.setEnabled(true);
     const ownCamera = body === 0 || body === 1 ? CAMERA_BITS[body] : 0;
     for (const [semantic, mesh] of dress.meshes) {
@@ -1118,7 +1122,7 @@ export class ArenaContent {
         : role === "weapon" ? pose.weapons.some((weapon) => weapon !== null)
         : pose.shield !== null && (shieldLimb(pose, pose.shield) === null ||
             armDrawn(pose, shieldLimb(pose, pose.shield) ?? 0));
-      mesh.setEnabled(visible);
+      dress.setSemanticEnabled(semantic, visible);
       mesh.isVisible = visible;
       mesh.isPickable = false;
       mesh.layerMask = (role === "head" || role === "torso") ? ALL_CAMERAS & ~ownCamera : ALL_CAMERAS;

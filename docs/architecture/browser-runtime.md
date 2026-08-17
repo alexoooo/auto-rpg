@@ -61,6 +61,16 @@ until that staged state is consumed or applied. The exports are total when calle
 before `init`: an absent world returns a neutral value instead of trapping the wasm
 instance.
 
+The studio opens in mouse-order mode: direct feet are released, no standing order
+means stationary local idle, and a floor click supplies the world-space `Goto` that
+reenables policy navigation. Direct Movement is opt-in. W/S and A/D cross as
+normalized local forward/strafe axes; held Q/E crosses as a signed thousandths turn
+request. The browser owns no duplicate heading: the Rust host integrates 512 raw
+binary-angle units per simulation tick (an exact quarter-turn in 32 ticks), rotates the local axes from authoritative
+legacy facing, and restores that exact facing after movement. Releasing Movement
+submits zero before returning the feet to mouse orders. Equipment buttons and the
+1/2 keys take slot authority before issuing the normal paid swap request.
+
 The authoritative simulation is the `World` held by the browser crate's
 thread-local `Sim`. The browser crate also owns presentation-only traces, flashes,
 run/portal state, route convenience, and visibility memory. Those additions do not
@@ -130,9 +140,13 @@ lease. The exact [message and scheduling contract](../reference/worker-protocol.
 and [snapshot ownership contract](../reference/worker-protocol.md#snapshot-layout-and-buffer-ownership)
 are durable reference authority.
 
-The `#/game` route sends init, reset, pause, advance, goto, withdraw, and spawn requests and
+The `#/game` route sends init, reset, pause, advance, goto, withdraw, spawn,
+control-ownership, and live-input requests and
 displays epoch, tick, sequence, queue, coalescing, buffer ownership, and backend
-counters. During each snapshot callback it synchronously copies the live leased
+counters. Movement ownership defaults on with zero input. Mouse aim defaults on;
+W/S move forward/back, A/D strafe, and Q/E turn relative to hero facing while
+Movement is owned. Primary press/release supplies the attack edge and 1/2 request
+loadout slots. During each snapshot callback it synchronously copies the live leased
 views into renderer-owned immutable presentation records. Babylon sees only those
 copies. The exact [copy boundary](../reference/renderer-contract.md#renderer-owned-snapshot-boundary),
 [presentation identity](../reference/renderer-contract.md#presentation-identity),
@@ -142,12 +156,14 @@ are durable reference authority.
 The route also owns two observational controls that never cross the Worker boundary.
 An always-visible 500 ms rAF meter reports rounded FPS and the worst raw interval in
 the same window; mount and return-to-visible reset it so hidden time is not presented
-as a long frame. `G` and the visible World/Tactical button mutate one renderer owner.
-Tactical retains the same scene, snapshots, fog, picks, commands, pan and zoom bounds,
-uses an orthographic top-down pose, shows the procedural combatant rig and transient
-cues, and hides authored combatant and decorative room dress without disposing them.
-Returning to World restores those same identities, lights, shadow registrations, and
-the fixed/follow camera rather than constructing another renderer or Worker.
+as a long frame. One renderer-owned registry supplies World, Geometry, Top Down,
+First Person, Free, and Dev. `G` cycles forward, Shift+G cycles backward, and the
+selector names any row directly. All six reuse one Scene, Worker, snapshot, and
+presentation identity registry. World and Geometry share an 8% screen dead-zone with
+damped isometric follow; Top Down and Dev use the same camera owner overhead; First
+Person places it at the hero eye and hides only that hero's self-obscuring head and
+torso; Free owns orbit/pan/zoom and refuses simulation commands. Leaving a special
+view restores fixed follow rather than constructing another renderer or Worker.
 
 The procedural scene uses a right-handed `(x, elevation, y)` mapping, a fixed
 isometric camera, instanced known tiles, generational unit meshes, and snapshot-local
@@ -258,8 +274,9 @@ describe the same hero position.
 
 This fog is presentation state derived from the authoritative world. It is absent
 from `World::state_hash`, and headless lab runs do not compute it. World view consumes
-it to hide unknown space and dim remembered space. The GPU and legacy Tactical views
-keep that same fog; legacy Dev alone disables it deliberately. The renderer is not entitled to replace the
+it to hide unknown space and dim remembered space. The GPU World, Geometry, Top Down,
+First Person, and Free modes keep that same fog; Dev alone disables it deliberately.
+The renderer is not entitled to replace the
 published answer with a camera frustum or its own ray cast. The v2 renderer applies
 the same [subsystem presence gate](../reference/renderer-contract.md#visibility-and-subsystem-presence)
 to meshes, shadows, labels, effects, audio, picking, and debug records.
@@ -307,10 +324,21 @@ failure keeps the procedural textured proxy. Neither browser path writes animati
 asset state back into a command, simulation, replay, or hash domain.
 
 The current authored assets pass loader and lifecycle contracts. Stable four-sided
-wall identity now closes the automated topology defect: disclosure retains existing
-face objects and only a projected near face overlapping the hero receives a reversible
-local cutaway. Foreground corner-walk evidence remains owed, so the 2026-08-17 owner
-screenshot remains the last visible wall verdict rather than being silently erased.
+wall identity closes the automated topology defect: disclosure retains existing face
+objects, every face has masonry depth, and it meets a bounded dark ground and cliff
+skirt instead of empty canvas. One opaque, non-pickable roof block covers each VIS 0
+cell and reconciles away only when that cell is published. A projected near face
+overlapping the hero eases to 22% alpha, leaves the shadow set while translucent, and
+restores the same object; no camera quadrant deletes a side. Foreground corner-walk
+evidence remains owed, so the 2026-08-17 owner screenshot remains the last visible
+wall verdict rather than being silently erased.
+The same room owner consumes `DUNGEON_OBJECT_V1`: physical door leaves pivot at their
+published collision hinge, torch yaw covers all four wall faces, and barrel, pottery,
+web, and water state reconciles by stable object identity. A destruction edge retires
+intact art once and replaces it with presentation debris; fog retirement removes its
+mesh, light, pick, shadow, and animation state together. Legacy door/torch furniture
+is suppressed whenever the physical publication is present, preventing duplicate
+objects at one authoritative location.
 The Fighter is still not readable as a person at gameplay scale, the ground cue
 intersects the floor, and torch/material treatment remains schematic and repetitive.
 
@@ -319,8 +347,8 @@ intersects the floor, and torch/material treatment remains schematic and repetit
 - Fixed publication pools: [`thread_local!`](../../crates/web/src/lib.rs#L1573)
 - Packed frame writer: [`Sim::write_frame`](../../crates/web/src/lib.rs#L4208)
 - Hand-written wasm exports: [`init`](../../crates/web/src/lib.rs#L5105)
-- Worker adapter and atomic scalar phase: [`readPublication`](../../client/src/runtime/sim.worker.ts#L81)
+- Worker adapter and atomic scalar phase: [`readPublication`](../../client/src/runtime/sim.worker.ts#L88)
 - Pure protocol host: [`SimWorkerHost`](../../client/src/runtime/sim-worker-host.ts#L55)
 - Main-thread lease owner: [`SimClient`](../../client/src/runtime/sim-client.ts#L122)
-- Greybox unit mapping: [`ActorPresentation.#pose`](../../client/src/render/actors.ts#L256)
+- Greybox unit mapping: [`ActorPresentation.#pose`](../../client/src/render/actors.ts#L304)
 - Arena capsule mapping: [`scenePoint`](../../client/src/arena/geometry.ts#L53)

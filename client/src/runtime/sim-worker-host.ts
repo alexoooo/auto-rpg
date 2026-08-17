@@ -18,6 +18,9 @@ import { recordArenaFight, type ArenaWasmAdapter } from "./arena-recorder.js";
 
 export interface LegacyWasmAdapter {
   init(seed: number): void;
+  setControl(mask: number): void;
+  control(): number;
+  setInput(moveXMilli: number, moveYMilli: number, aimRaw: number, reachMilli: number, slot: number, strike: number, turnMilli: number): void;
   setGoto(xMilli: number, yMilli: number): void;
   clearOrder(): void;
   spawnMonster(kindCode: number, primary: number, secondary: number): number;
@@ -196,6 +199,8 @@ export class SimWorkerHost {
       const wasm = await this.factory();
       if (this.fatal || this.terminated) return;
       wasm.init(seed);
+      wasm.setControl(0);
+      wasm.setInput(0, 0, 0, 0, 0, 0, 0);
       validateLegacyPublication(wasm.readPublication());
       this.wasm = wasm;
       this.gameSession = true;
@@ -305,6 +310,8 @@ export class SimWorkerHost {
     this.filter.reset();
     try {
       this.requireWasm().init(seed);
+      this.requireWasm().setControl(0);
+      this.requireWasm().setInput(0, 0, 0, 0, 0, 0, 0);
       validateLegacyPublication(this.requireWasm().readPublication());
       this.send({ kind: "ready", version: this.version(), requestId, cause: "reset", epoch: this.epoch, tick: this.tick(), paused });
       this.publish();
@@ -377,6 +384,12 @@ export class SimWorkerHost {
     const wasm = this.requireWasm();
     if (command.kind === "goto") return void wasm.setGoto(command.xMilli, command.yMilli);
     if (command.kind === "withdraw") return void wasm.clearOrder();
+    if (command.kind === "setControl") {
+      wasm.setControl(command.mask);
+      return wasm.control() >>> 0;
+    }
+    if (command.kind === "setInput") return void wasm.setInput(command.moveXMilli, command.moveYMilli,
+      command.aimRaw, command.reachMilli, command.slot, command.strike, command.turnMilli);
     return wasm.spawnMonster(command.kindCode, command.primary, command.secondary) >>> 0;
   }
 

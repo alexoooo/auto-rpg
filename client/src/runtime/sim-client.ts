@@ -55,8 +55,10 @@ function decodeWorkerMessage(value: unknown): WorkerMessage | null {
       const integers = [value.tick, value.lastAppliedSequence, value.coalescedSnapshots,
         value.frameLayoutVersion, value.headerLength, value.unitStride, value.shotStride,
         value.eventStride, value.furnitureStride, value.frameLength, value.mapLength,
-        value.visLength, value.furnitureLength, value.mapCols, value.mapRows,
-        value.mapTileSizeMilli, value.mapRevision, value.visRevision, value.furnitureRevision,
+        value.dungeonObjectLayoutVersion, value.dungeonObjectStride,
+        value.visLength, value.furnitureLength, value.dungeonObjectLength, value.dungeonObjectsDropped,
+        value.mapCols, value.mapRows, value.mapTileSizeMilli, value.mapRevision, value.visRevision,
+        value.furnitureRevision, value.dungeonObjectRevision,
         value.poolAllocationsTotal, value.buffersFree, value.buffersOutstanding, value.queuedCommands];
       if (epoch() && isBufferId(value.bufferId) && isU32(value.leaseToken, true)
         && integers.every((field) => isU32(field))

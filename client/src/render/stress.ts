@@ -58,8 +58,8 @@ export function createGreyboxStressFixture(): PresentationSnapshot {
   const furniture = Array.from({ length: GREYBOX_STRESS_TORCH_LIGHTS }, (_, index) => torch(index));
   return frozen({
     epoch: 1, tick: 0, mapCols: GREYBOX_STRESS_COLS, mapRows: GREYBOX_STRESS_ROWS,
-    tileSize: 1, mapRevision: 1, visRevision: 1, furnitureRevision: 1,
+    tileSize: 1, mapRevision: 1, visRevision: 1, furnitureRevision: 1, dungeonObjectRevision: 1,
     map: frozen(map), vis: frozen(vis), units: frozen(units),
-    shots: frozen([]), events: frozen([]), furniture: frozen(furniture),
+    shots: frozen([]), events: frozen([]), furniture: frozen(furniture), dungeonObjects: frozen([]),
   });
 }

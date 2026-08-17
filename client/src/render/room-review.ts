@@ -55,11 +55,11 @@ export function createCompactRoomReviewFixture(): CompactRoomReviewFixture {
   return freeze({
     fixtureId: "v2-room-review-1", epoch: 1, tick: 0,
     mapCols: ROOM_REVIEW_COLS, mapRows: ROOM_REVIEW_ROWS, tileSize: 1,
-    mapRevision: 1, visRevision: 1, furnitureRevision: 1,
+    mapRevision: 1, visRevision: 1, furnitureRevision: 1, dungeonObjectRevision: 1,
     map: freeze(map), vis: freeze(new Array<number>(map.length).fill(2)),
     units: freeze(Array.from({ length: ROOM_REVIEW_UNIT_COUNT }, (_, index) => unit(index))),
     shots: freeze([]), events: freeze([]),
-    furniture: freeze([
+    dungeonObjects: freeze([]), furniture: freeze([
       furniture(FURNITURE_DOOR, 4, 0, FURNITURE_DOOR_OPEN),
       furniture(FURNITURE_DOOR, 11, ROOM_REVIEW_ROWS - 1, FURNITURE_DOOR_SHUT),
       furniture(FURNITURE_TORCH, 1, 1, TORCH_FACE_POS_X),

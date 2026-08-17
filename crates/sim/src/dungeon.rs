@@ -946,19 +946,16 @@ impl Door {
 pub struct Torch {
     pub tx: u16,
     pub ty: u16,
-    /// Which face it is mounted on. **Only [`Cardinal::PosX`] and
-    /// [`Cardinal::PosY`] are ever emitted**: they are the only two the camera
-    /// can see (`wallBlock`, `web/main.js`), and a torch on a hidden face is a
-    /// light with no lamp. [`Dungeon::generate`] asserts it rather than leaving
-    /// it as a convention.
+    /// Which masonry face the bracket is physically mounted on. All four
+    /// cardinals are valid: camera occlusion is presentation, not placement.
     pub face: Cardinal,
 }
 
 /// Wall tiles between torches along a room's ring, counted over the tiles a
 /// torch could actually hang on.
 ///
-/// Four. A room is 6-10 by 5-8, so its two visible walls offer 11 to 18 mounting
-/// tiles between them and this puts three to five torches in a room -- enough
+/// Four. A room is 6-10 by 5-8, so its wall ring offers enough mounting tiles
+/// for several pools without turning every block into a lamp -- enough
 /// that a room is lit from several places at once, which is what makes the
 /// overlap in `world-07` §3 the common case rather than a corner one.
 const TORCH_EVERY: usize = 4;
@@ -1426,14 +1423,10 @@ fn hang_torch(
 /// goldens to say that nothing had changed -- and it is held by this function
 /// taking a finished [`Dungeon`] and nothing else.
 ///
-/// **Only the `+x` and `+y` faces exist, so only two of a room's four walls can
-/// carry a torch.** The camera looks down the `+x`/`+y` diagonal, so a block
-/// shows the page exactly those two faces; the other two are behind it in every
-/// frame. A room's *north* wall presents its `+y` face to the room and its
-/// *west* wall its `+x` face, and those are the two this walks. The south and
-/// east walls front the room with faces the camera never sees, and a torch there
-/// would be a light with no lamp -- so the answer is not to place one and
-/// pretend, it is not to place one.
+/// All four inward room faces are walked. Earlier placement omitted two sides
+/// for one fixed camera, which made a rotated, top-down, or first-person view
+/// reveal lights with no fixtures. The physical mount is now independent of
+/// how a view chooses to fade the wall in front of it.
 ///
 /// Two passes, in this order:
 ///
@@ -1451,7 +1444,7 @@ fn place_torches(dungeon: &Dungeon, rooms: &[Rect], doors: &[Door]) -> Vec<Torch
     let mut torches = Vec::new();
 
     for room in rooms {
-        // Origin, step, length and face of the two rings a torch can hang on.
+        // Origin, step, length and inward face of the complete room ring.
         // Both start at the north-west corner and both are extended over it, so
         // the two walks meet at a tile rather than leaving a gap -- the corner
         // itself never qualifies, since the tile on either side of it is the
@@ -1459,6 +1452,8 @@ fn place_torches(dungeon: &Dungeon, rooms: &[Rect], doors: &[Door]) -> Vec<Torch
         let sides = [
             (room.x - 1, room.y - 1, 1, 0, room.w + 2, Cardinal::PosY),
             (room.x - 1, room.y - 1, 0, 1, room.h + 2, Cardinal::PosX),
+            (room.x - 1, room.y + room.h, 1, 0, room.w + 2, Cardinal::NegY),
+            (room.x + room.w, room.y - 1, 0, 1, room.h + 2, Cardinal::NegX),
         ];
         // One counter for the whole ring walk, and it counts *mountable* tiles
         // rather than tiles: a doorway or a corridor mouth in a wall is a gap
@@ -1492,7 +1487,7 @@ fn place_torches(dungeon: &Dungeon, rooms: &[Rect], doors: &[Door]) -> Vec<Torch
                 // At most one of them ever can: a jamb beside a doorway has the
                 // door on one of these two faces and rock or floor on the other,
                 // and the door is not `OPEN` while the level is being carved.
-                for face in [Cardinal::PosX, Cardinal::PosY] {
+                for face in Cardinal::ALL {
                     if hang_torch(dungeon, &mut taken, &mut torches, nx, ny, face) {
                         break;
                     }
@@ -1501,16 +1496,8 @@ fn place_torches(dungeon: &Dungeon, rooms: &[Rect], doors: &[Door]) -> Vec<Torch
         }
     }
 
-    // Both halves of [`Torch`]'s claim, checked rather than trusted. A torch on
-    // a hidden face draws nothing; a torch on a face `wallBlock` does not emit
-    // draws in mid-air. Neither is visible in a generator test, and both are
-    // one line here.
-    debug_assert!(
-        torches
-            .iter()
-            .all(|t| matches!(t.face, Cardinal::PosX | Cardinal::PosY)),
-        "a torch on a face the camera cannot see"
-    );
+    // Every mount still names a real masonry/open boundary. Whether the camera
+    // currently sees that face is presentation and cannot invalidate the row.
     debug_assert!(
         torches
             .iter()
@@ -2236,7 +2223,7 @@ mod tests {
     }
 
     #[test]
-    fn every_torch_hangs_on_a_wall_face_the_camera_can_see() {
+    fn every_torch_hangs_on_real_masonry_and_all_four_room_faces_are_used() {
         // The two ways a torch can be wrong, and neither shows up in a picture
         // as anything but a missing light. A torch on a `-x` or `-y` face is
         // behind its own block in every frame; a torch whose face looks at
@@ -2244,16 +2231,13 @@ mod tests {
         // page emits a side face exactly where `!solid(neighbour)`. The third
         // is a torch on a *doorway*, which hangs in mid-air the moment somebody
         // opens it.
+        let mut seen = [false; 4];
         for seed in 0..24u64 {
             for depth in 0..2 {
                 let l = level(seed, depth);
                 for t in &l.torches {
                     let (tx, ty) = (i32::from(t.tx), i32::from(t.ty));
-                    assert!(
-                        matches!(t.face, Cardinal::PosX | Cardinal::PosY),
-                        "seed {seed}: a torch at ({tx}, {ty}) faces {:?}",
-                        t.face
-                    );
+                    seen[Cardinal::ALL.iter().position(|&face| face == t.face).unwrap()] = true;
                     assert_eq!(
                         l.dungeon.tile(tx, ty),
                         WALL,
@@ -2268,6 +2252,7 @@ mod tests {
                 }
             }
         }
+        assert_eq!(seen, [true; 4], "torch placement still depends on one camera diagonal");
     }
 
     #[test]
@@ -2296,7 +2281,9 @@ mod tests {
                     let (tx, ty) = (i32::from(t.tx), i32::from(t.ty));
                     let north = ty == room.y - 1 && tx >= room.x - 1 && tx <= room.x + room.w;
                     let west = tx == room.x - 1 && ty >= room.y - 1 && ty <= room.y + room.h;
-                    north || west
+                    let south = ty == room.y + room.h && tx >= room.x - 1 && tx <= room.x + room.w;
+                    let east = tx == room.x + room.w && ty >= room.y - 1 && ty <= room.y + room.h;
+                    north || west || south || east
                 });
                 lit_rooms += usize::from(lit);
             }
@@ -2318,7 +2305,9 @@ mod tests {
                 for room in &l.rooms {
                     let north = ty == room.y - 1 && tx >= room.x - 1 && tx <= room.x + room.w;
                     let west = tx == room.x - 1 && ty >= room.y - 1 && ty <= room.y + room.h;
-                    if north || west {
+                    let south = ty == room.y + room.h && tx >= room.x - 1 && tx <= room.x + room.w;
+                    let east = tx == room.x + room.w && ty >= room.y - 1 && ty <= room.y + room.h;
+                    if north || west || south || east {
                         continue 'torch;
                     }
                 }

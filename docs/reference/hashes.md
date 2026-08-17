@@ -73,10 +73,10 @@ These are the current named pins:
 |---|---:|---|---|
 | `LAB_HASH` | `0xfe31370e141ef531` | [`crates/web/src/lib.rs`](../../crates/web/src/lib.rs#L11836) and [`tools/wasm_check.js`](../../tools/wasm_check.js#L49) | Not re-pinnable. It names its scenario and policy; investigate a move. |
 | `GOLDEN_STATE_HASH` | `0xbe85089325550cf2` | [`crates/sim/tests/determinism.rs`](../../crates/sim/tests/determinism.rs#L353) | `cargo test -p sim --test determinism -- --nocapture golden` |
-| `ROOM_HASH` | `0x98441a18db7a95ca` | [`crates/web/src/lib.rs`](../../crates/web/src/lib.rs#L11895) and [`tools/wasm_check.js`](../../tools/wasm_check.js#L56) | `cargo test -p web -- --ignored --nocapture print_the_golden_hashes` |
-| `BATTLE_HASH` | `0x9aafe4bd54560586` | [`crates/web/src/lib.rs`](../../crates/web/src/lib.rs#L11901) and [`tools/wasm_check.js`](../../tools/wasm_check.js#L62) | Same browser-golden command; update both owners. |
-| `SWAP_HASH` | `0xf948f5486ee90191` | [`crates/web/src/lib.rs`](../../crates/web/src/lib.rs#L11917) and [`tools/wasm_check.js`](../../tools/wasm_check.js#L73) | Same browser-golden command; update both owners. |
-| `BOW_HASH` | `0x4a1157735d305e9f` | [`crates/web/src/lib.rs`](../../crates/web/src/lib.rs#L11922) and [`tools/wasm_check.js`](../../tools/wasm_check.js#L82) | Same browser-golden command; update both owners. |
+| `ROOM_HASH` | `0xb8990e0dd2f543bf` | [`crates/web/src/lib.rs`](../../crates/web/src/lib.rs#L11895) and [`tools/wasm_check.js`](../../tools/wasm_check.js#L56) | `cargo test -p web -- --ignored --nocapture print_the_golden_hashes` |
+| `BATTLE_HASH` | `0xa68f4a40570b208a` | [`crates/web/src/lib.rs`](../../crates/web/src/lib.rs#L11901) and [`tools/wasm_check.js`](../../tools/wasm_check.js#L62) | Same browser-golden command; update both owners. |
+| `SWAP_HASH` | `0xd2d38c5ad27c3f13` | [`crates/web/src/lib.rs`](../../crates/web/src/lib.rs#L11917) and [`tools/wasm_check.js`](../../tools/wasm_check.js#L73) | Same browser-golden command; update both owners. |
+| `BOW_HASH` | `0xce5fa25b974e0701` | [`crates/web/src/lib.rs`](../../crates/web/src/lib.rs#L11922) and [`tools/wasm_check.js`](../../tools/wasm_check.js#L82) | Same browser-golden command; update both owners. |
 
 The browser pins are deliberately duplicated across native Rust tests and the wasm
 checker. If both copies fail after an intentional behavior change, the fixture moved;

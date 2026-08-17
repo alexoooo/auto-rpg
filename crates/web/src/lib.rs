@@ -2,8 +2,8 @@
 //!
 //! One `cdylib`, a hundred and six `extern "C"` functions, and a handful of
 //! packed buffers that JavaScript reads straight out of linear memory -- the
-//! `f32` frame, the `u8` tiles, fog and furniture beside it, and the `u32`
-//! articulated publications beginning at [`pose_ptr`] and ending at
+//! `f32` frame, the `u8` tiles, fog and furniture beside it, the `u32` dungeon
+//! objects at [`dungeon_object_ptr`], and the articulated publications beginning at [`pose_ptr`] and ending at
 //! [`articulated_projectile_ptr`]. No
 //! `wasm-bindgen`, no `js-sys`, nothing generated. The workspace's
 //! no-dependency rule (`DESIGN.md`) is what keeps every recorded run in the
@@ -584,16 +584,46 @@ pub const FURNITURE_TORCH: u8 = 2;
 /// no discriminants and no `as u8` mapping of its own precisely so that a wire
 /// format has to say what it means.
 ///
-/// Only these two are ever emitted -- see [`sim::Torch::face`] -- so the other
-/// two cardinals have no code here at all rather than a code nothing writes.
+/// Only these two are emitted on the legacy furniture channel. Full-cardinal
+/// torch yaw is carried by `DUNGEON_OBJECT_V1`, whose word has room to say it.
 pub const TORCH_FACE_POS_X: u8 = 0;
 pub const TORCH_FACE_POS_Y: u8 = 1;
 
+// ------------------------------------------------------- the dungeon objects
+
+/// `DUNGEON_OBJECT_V1`: one live world object in twelve `u32` words.
+pub const DUNGEON_OBJECT_LAYOUT_VERSION: u32 = 1;
+pub const DUNGEON_OBJECT_STRIDE: usize = 12;
+pub const DUNGEON_OBJECT_KIND: usize = 0;
+pub const DUNGEON_OBJECT_IDENTITY: usize = 1;
+pub const DUNGEON_OBJECT_STATE_FLAGS: usize = 2;
+pub const DUNGEON_OBJECT_X_RAW: usize = 3;
+pub const DUNGEON_OBJECT_Y_RAW: usize = 4;
+pub const DUNGEON_OBJECT_YAW_RAW: usize = 5;
+pub const DUNGEON_OBJECT_HALF_X_RAW: usize = 6;
+pub const DUNGEON_OBJECT_HALF_Y_RAW: usize = 7;
+pub const DUNGEON_OBJECT_HP_RAW: usize = 8;
+pub const DUNGEON_OBJECT_MAX_HP_RAW: usize = 9;
+pub const DUNGEON_OBJECT_PROGRESS_RAW: usize = 10;
+pub const DUNGEON_OBJECT_MATERIAL_CODE: usize = 11;
+pub const DUNGEON_OBJECT_DOOR: u32 = sim::DungeonObjectKind::Door as u32;
+pub const DUNGEON_OBJECT_TORCH: u32 = sim::DungeonObjectKind::Torch as u32;
+pub const DUNGEON_OBJECT_BARREL: u32 = sim::DungeonObjectKind::Barrel as u32;
+pub const DUNGEON_OBJECT_POTTERY: u32 = sim::DungeonObjectKind::Pottery as u32;
+pub const DUNGEON_OBJECT_WEB: u32 = sim::DungeonObjectKind::Web as u32;
+pub const DUNGEON_OBJECT_WATER: u32 = sim::DungeonObjectKind::Water as u32;
+/// 512 rows against 197: the measured legacy-furniture worst case is 157
+/// door/torch rows over 600 generated levels, and prop generation has a hard
+/// 40-row ceiling. The extra headroom keeps a larger future dressing set from
+/// turning the drop counter into an ordinary shipped state.
+pub const MAX_DUNGEON_OBJECTS: usize = 512;
+const DUNGEON_OBJECT_DOOR_ID_BASE: u32 = 0x1000_0000;
+const DUNGEON_OBJECT_TORCH_ID_BASE: u32 = 0x2000_0000;
+const DUNGEON_OBJECT_PROP_ID_BASE: u32 = 0x3000_0000;
+
 /// The state byte for a torch's face. Total over [`sim::Cardinal`] because a
-/// match must be, and the two the generator promises never to emit take the
-/// `+x` face rather than a panic: this is a `cdylib` and a trap here poisons the
-/// instance for the life of the page, and a torch pointing the wrong way is a
-/// picture nobody dies of.
+/// match must be. The negative cases are not written by [`write_furniture`];
+/// their arms keep this helper total because it lives inside a `cdylib`.
 const fn torch_face(face: Cardinal) -> u8 {
     match face {
         Cardinal::PosX | Cardinal::NegX => TORCH_FACE_POS_X,
@@ -1641,6 +1671,10 @@ thread_local! {
     /// byte length, so the page reads the buffer the way it reads the frame's
     /// unit rows and never has to hardcode the width of a record.
     static FURNITURE_LEN: Cell<u32> = const { Cell::new(0) };
+    static DUNGEON_OBJECTS: RefCell<[u32; MAX_DUNGEON_OBJECTS * DUNGEON_OBJECT_STRIDE]> =
+        const { RefCell::new([0; MAX_DUNGEON_OBJECTS * DUNGEON_OBJECT_STRIDE]) };
+    static DUNGEON_OBJECT_LEN: Cell<u32> = const { Cell::new(0) };
+    static DUNGEON_OBJECTS_DROPPED: Cell<u32> = const { Cell::new(0) };
     /// Starts at the header length rather than zero so a client that renders
     /// before it calls `init` reads a well-formed empty frame instead of a
     /// zero-length one.
@@ -2153,6 +2187,9 @@ struct Sim {
     /// one without the other is most of what makes the page teach anything.
     control: u32,
     input_move: Vec2,
+    /// Signed held turn request in [-1, 1]. Integrated here at the fixed
+    /// simulation cadence; JavaScript never owns a second floating heading.
+    input_turn: Fx,
     input_aim: Angle,
     input_reach: Fx,
     /// The attack button. A *button*, not a bearing: the pointer says where to
@@ -2505,6 +2542,7 @@ impl Sim {
             route_mark: Vec2::ZERO,
             control: 0,
             input_move: Vec2::ZERO,
+            input_turn: Fx::ZERO,
             input_aim: Angle::ZERO,
             input_reach: Fx::ZERO,
             input_strike: Strike::None,
@@ -2731,14 +2769,11 @@ impl Sim {
     /// A focus order outlives its quarry by exactly one tick.
     ///
     /// Converted to a `Goto` at the hero's own feet rather than cleared, and the
-    /// difference is the whole of the rule. [`Order::Hold`] is free will, which
-    /// puts the character back on `UtilityPolicy`'s search behaviour -- in an
-    /// empty room a slow drift toward the middle, measured under [`clear_order`]
-    /// -- and that walks it off the ground it has just spent a fight winning.
-    /// What the player asked for by naming that enemy was to be *there*, and a
-    /// `Goto` on the spot is the same thing the page's stand-down expresses, for
-    /// the same reason. Not auto-acquiring the next enemy either: choosing the
-    /// next fight is the player's move, not the module's.
+    /// difference remains useful even though the browser now makes
+    /// `Order::Hold` a stationary mouse idle: a `Goto` on the exact winning
+    /// spot records where the lock resolved rather than merely saying no order
+    /// remains. Not auto-acquiring the next enemy either: choosing the next
+    /// fight is the player's move, not the module's.
     ///
     /// **Per tick and not per frame**, beside [`Sim::follow_route`] and on its
     /// argument: one animation frame is up to eight ticks of catch-up, so a
@@ -3114,15 +3149,24 @@ impl Sim {
                 }
                 let obs = self.world.observe(id);
                 let faction = obs.faction;
-                let command = self.policies[faction.index()].decide(&obs);
+                let mut command = self.policies[faction.index()].decide(&obs);
+                if faction == Faction::Heroes
+                    && matches!(self.world.order(Faction::Heroes), Order::Hold)
+                    && self.world.alive_count(Faction::Monsters) == 0
+                {
+                    // Mouse control is the playable default. With no click to
+                    // honour and nobody hostile to defend against, keep the
+                    // hero local while preserving the policy's limb, slot and
+                    // combat decisions. A live hostile restores policy
+                    // locomotion: Hold means no destination, not no defence.
+                    command.move_dir = Vec2::ZERO;
+                }
                 self.world.submit(id, command);
                 if faction == Faction::Heroes {
                     self.last_decision_tick = self.world.tick();
                 }
             }
-            if let Some(hero) = driven {
-                self.drive_hero(hero);
-            }
+            let manual_facing = driven.and_then(|hero| self.drive_hero(hero).map(|facing| (hero, facing)));
 
             // The events the old loop discarded. There is something worth
             // seeing in them now.
@@ -3309,6 +3353,12 @@ impl Sim {
                         count += 1;
                     }
                 }
+            }
+            if let Some((hero, facing)) = manual_facing {
+                // Legacy movement reports its requested direction as facing.
+                // Manual tank steering is a distinct held request, so restore
+                // its exact fixed-rate result after movement has integrated.
+                self.world.face_legacy(hero, facing);
             }
             // Inside the tick loop and immediately after the step, because this
             // slice is wiped at the top of the next one. `contact_resolutions`
@@ -3769,7 +3819,7 @@ impl Sim {
 
     /// Submits the hero's command for this tick, blending the policy's opinion
     /// with whatever the player is holding.
-    fn drive_hero(&mut self, hero: EntityId) {
+    fn drive_hero(&mut self, hero: EntityId) -> Option<Angle> {
         if self.world.tick() >= self.hero_next_decision {
             let obs = self.world.observe(hero);
             self.cached = self.policies[Faction::Heroes.index()].decide(&obs);
@@ -3778,8 +3828,29 @@ impl Sim {
         }
 
         let mut command = self.cached;
+        let mut manual_facing = None;
         if self.control & CONTROL_FEET != 0 {
-            command.move_dir = self.input_move;
+            // 512 makes a quarter-turn exactly 32 ticks. The binary-angle
+            // cadence therefore has no accumulated remainder for the cardinal
+            // tank headings the controls teach first.
+            const PLAYER_TURN_RAW_PER_TICK: i32 = 512;
+            let delta = (self.input_turn * PLAYER_TURN_RAW_PER_TICK).round_int();
+            if let Some(view) = self.world.view(hero) {
+                let facing = view.facing + Angle::from_raw(delta as u16);
+                manual_facing = Some(facing);
+                if delta != 0 {
+                    self.world.face_legacy(
+                        hero,
+                        facing,
+                    );
+                }
+                let forward = Vec2::from_angle(facing);
+                let right = Vec2::new(-forward.y, forward.x);
+                command.move_dir = (forward * self.input_move.x + right * self.input_move.y)
+                    .clamp_length(Fx::ONE);
+            } else {
+                command.move_dir = Vec2::ZERO;
+            }
         }
         if self.control & CONTROL_SLOT != 0 {
             command.slot = self.input_slot;
@@ -3808,6 +3879,7 @@ impl Sim {
         // `Observation` in and an `Command` out, same as any policy, and the sim
         // still cannot tell which of them wrote it.
         self.world.submit(hero, command);
+        manual_facing
     }
 
     /// Walks one monster into the running room. Answers how many monsters are
@@ -4408,6 +4480,13 @@ fn write_furniture(world: &World, torches: &[Torch]) {
             }
         }
         for torch in torches {
+            // The legacy byte ABI has only the two camera-facing codes it
+            // shipped with. Full-cardinal mounts cross on DUNGEON_OBJECT_V1;
+            // omitting the two unrepresentable rows preserves the old meaning
+            // instead of lying that a -x lamp is mounted on +x.
+            if matches!(torch.face, Cardinal::NegX | Cardinal::NegY) {
+                continue;
+            }
             if count == FURNITURE_MAX {
                 return;
             }
@@ -4423,6 +4502,56 @@ fn write_furniture(world: &World, torches: &[Torch]) {
         }
     });
     FURNITURE_LEN.with(|len| len.set(count as u32));
+}
+
+fn dungeon_object_row(view: sim::DungeonObjectView, identity: u32) -> [u32; DUNGEON_OBJECT_STRIDE] {
+    [view.kind as u32, identity, view.state_flags,
+        view.position.x.raw() as u32, view.position.y.raw() as u32,
+        u32::from(view.yaw.raw()), view.half_extents.x.raw() as u32,
+        view.half_extents.y.raw() as u32, view.hp.raw() as u32,
+        view.max_hp.raw() as u32, view.progress.raw() as u32, view.material_code]
+}
+
+const fn torch_yaw(face: Cardinal) -> Angle {
+    Angle::from_raw(match face {
+        Cardinal::PosX => 0, Cardinal::PosY => 16_384,
+        Cardinal::NegX => 32_768, Cardinal::NegY => 49_152,
+    })
+}
+
+/// Writes doors, then torches, then authoritative props in stable identity order.
+fn write_dungeon_objects(world: &World, torches: &[Torch]) {
+    let total = world.door_objects().len() + torches.len() + world.dungeon_objects().len();
+    let mut count = 0usize;
+    DUNGEON_OBJECTS.with(|rows| {
+        let mut rows = rows.borrow_mut();
+        let mut push = |row: [u32; DUNGEON_OBJECT_STRIDE]| {
+            if count < MAX_DUNGEON_OBJECTS {
+                let at = count * DUNGEON_OBJECT_STRIDE;
+                rows[at..at + DUNGEON_OBJECT_STRIDE].copy_from_slice(&row);
+                count += 1;
+            }
+        };
+        for view in world.door_objects() {
+            push(dungeon_object_row(view, DUNGEON_OBJECT_DOOR_ID_BASE | view.identity));
+        }
+        for (index, torch) in torches.iter().enumerate() {
+            let view = sim::DungeonObjectView {
+                kind: sim::DungeonObjectKind::Torch, identity: index as u32, state_flags: 0,
+                position: Vec2::new(Fx::from_int(i32::from(torch.tx)) + Fx::HALF,
+                    Fx::from_int(i32::from(torch.ty)) + Fx::HALF),
+                yaw: torch_yaw(torch.face),
+                half_extents: Vec2::new(Fx::from_ratio(1, 8), Fx::from_ratio(1, 8)),
+                hp: Fx::ZERO, max_hp: Fx::ZERO, progress: Fx::ZERO, material_code: 6,
+            };
+            push(dungeon_object_row(view, DUNGEON_OBJECT_TORCH_ID_BASE | index as u32));
+        }
+        for view in world.dungeon_objects() {
+            push(dungeon_object_row(view, DUNGEON_OBJECT_PROP_ID_BASE | view.identity));
+        }
+    });
+    DUNGEON_OBJECT_LEN.with(|len| len.set(count as u32));
+    DUNGEON_OBJECTS_DROPPED.with(|dropped| dropped.set(total.saturating_sub(count) as u32));
 }
 
 /// Appends a row unless the frame is already carrying [`MAX_EVENTS`] of them,
@@ -5039,6 +5168,7 @@ fn publish() {
                 .with(|events| write_combat_event_buffer(sim, &mut events.borrow_mut()));
             COMBAT_EVENT_LEN.with(|n| n.set(event_rows));
             COMBAT_EVENTS_DROPPED.with(|n| n.set(events_dropped));
+            write_dungeon_objects(&sim.world, &sim.torches);
             FRAME.with(|frame| sim.write_frame(&mut frame.borrow_mut()))
         }
         // **This arm used to write no header at all**, on the argument that
@@ -5081,6 +5211,9 @@ fn publish() {
             COMBAT_EVENTS.with(|events| events.borrow_mut().fill(0));
             COMBAT_EVENT_LEN.with(|n| n.set(0));
             COMBAT_EVENTS_DROPPED.with(|n| n.set(0));
+            DUNGEON_OBJECTS.with(|objects| objects.borrow_mut().fill(0));
+            DUNGEON_OBJECT_LEN.with(|n| n.set(0));
+            DUNGEON_OBJECTS_DROPPED.with(|n| n.set(0));
             HEADER_LEN
         }
     });
@@ -5456,14 +5589,11 @@ fn focused_entity() -> EntityId {
     })
 }
 
-/// Withdraws the standing order and leaves the hero to its own judgement.
+/// Withdraws the standing order and returns to stationary mouse idle.
 ///
-/// Not a stop button, and the page must not present it as one. `Order::Hold`
-/// with nothing in sight puts the character back on `UtilityPolicy`'s search
-/// behaviour, which in an empty room is a slow drift toward open ground -- the
-/// middle. Measured: released 5.7 units out from centre, back within 0.3 of it
-/// after 900 ticks. Stopping dead where it stands would be a different order
-/// (`Goto` its own position) and a different design decision.
+/// The policy still chooses limb, slot and combat intent. This browser host
+/// suppresses only its locomotion while `Order::Hold` is current, so clearing a
+/// click is now a stop rather than an invitation to wander toward open ground.
 #[allow(unsafe_code)]
 #[no_mangle]
 pub extern "C" fn clear_order() {
@@ -7032,10 +7162,13 @@ pub extern "C" fn control() -> u32 {
 
 /// The player's live input, read on every tick that [`control`] is non-zero.
 ///
-/// Movement arrives as thousandths of a unit vector, the aim as a raw binary
-/// angle (`0..65535`, the same encoding the frame reports facings in, so the
-/// page's `atan2` result never becomes a float on this side), extension as
-/// thousandths, and `slot` as which loadout slot the player wants in hand.
+/// Movement arrives as thousandths of local forward and right axes. The host
+/// rotates them from authoritative facing each tick. `turn_milli` is the signed
+/// held Q/E request in `-1000..=1000`; it is clamped and integrated at the
+/// fixed simulation cadence, so the page owns no duplicate floating heading.
+/// Aim is a raw binary angle (`0..65535`, the same encoding the frame reports
+/// facings in), extension is thousandths, and `slot` names which loadout slot
+/// the player wants in hand.
 ///
 /// `slot` is read only while [`CONTROL_SLOT`] is held, and it is a *request* on
 /// exactly the same terms a policy's is: honoured when the limb is at guard and
@@ -7062,6 +7195,7 @@ pub extern "C" fn set_input(
     reach_milli: i32,
     slot: u32,
     strike: u32,
+    turn_milli: i32,
 ) {
     with_sim((), |sim| {
         sim.input_move = Vec2::new(
@@ -7069,6 +7203,7 @@ pub extern "C" fn set_input(
             Fx::from_ratio(move_y_milli, 1000),
         )
         .clamp_length(Fx::ONE);
+        sim.input_turn = Fx::from_ratio(turn_milli, 1000).clamp(-Fx::ONE, Fx::ONE);
         sim.input_aim = Angle::from_raw(aim_raw as u16);
         sim.input_reach = Fx::from_ratio(reach_milli, 1000).clamp(Fx::ZERO, Fx::ONE);
         // Clamped into the two slots a loadout has. An out-of-range request is
@@ -7270,6 +7405,40 @@ pub extern "C" fn furniture_stride() -> u32 {
 #[no_mangle]
 pub extern "C" fn furniture_revision() -> u32 {
     with_sim(0, |sim| sim.furniture_revision)
+}
+
+// ------------------------------------------------------- the dungeon objects
+
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn dungeon_object_ptr() -> u32 {
+    DUNGEON_OBJECTS.with(|rows| rows.borrow().as_ptr() as u32)
+}
+
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn dungeon_object_len() -> u32 {
+    DUNGEON_OBJECT_LEN.with(Cell::get)
+}
+
+#[allow(unsafe_code)]
+#[no_mangle]
+pub const extern "C" fn dungeon_object_stride() -> u32 { DUNGEON_OBJECT_STRIDE as u32 }
+
+#[allow(unsafe_code)]
+#[no_mangle]
+pub const extern "C" fn dungeon_object_capacity() -> u32 { MAX_DUNGEON_OBJECTS as u32 }
+
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn dungeon_objects_dropped() -> u32 {
+    DUNGEON_OBJECTS_DROPPED.with(Cell::get)
+}
+
+#[allow(unsafe_code)]
+#[no_mangle]
+pub const extern "C" fn dungeon_object_layout_version() -> u32 {
+    DUNGEON_OBJECT_LAYOUT_VERSION
 }
 
 /// Forces the next level and answers the new depth.
@@ -11892,13 +12061,13 @@ mod tests {
     /// runs `Scenario::skirmish` on an uncarved `Dungeon::open(40, 28)` and
     /// cannot reach the generator at all. Four moving together with the lab's
     /// number standing still is *the level*; five moving together is the rules.
-    const ROOM_HASH: u64 = 0x9844_1a18_db7a_95ca;
+    const ROOM_HASH: u64 = 0xb899_0e0d_d2f5_43bf;
 
     /// What `init(1); spawn_monster(3, SLOT_EMPTY, SLOT_EMPTY); step(600)` leaves behind -- a whole
     /// skirmish, start to finish, driven the way the page drives it. Recorded
     /// from a native run, never computed here, and asserted against `web.wasm`
     /// under Node by `tools/wasm_check.js`.
-    const BATTLE_HASH: u64 = 0x9aaf_e4bd_5456_0586;
+    const BATTLE_HASH: u64 = 0xa68f_4a40_570b_208a;
 
     /// What `init(1); spawn_monster(2, SLOT_EMPTY, SLOT_EMPTY) x3; step(1800); swap_in_hero(1, SLOT_EMPTY, SLOT_EMPTY);
     /// step(400)` leaves behind -- a fight, a death, a replacement, and the
@@ -11914,12 +12083,12 @@ mod tests {
     ///
     /// Re-recorded again in `world-05` along with the other three, for the
     /// reason written out on [`ROOM_HASH`]: the level itself changed shape.
-    const SWAP_HASH: u64 = 0xf948_f548_6ee9_0191;
+    const SWAP_HASH: u64 = 0xd2d3_8c5a_d27c_3f13;
 
     // `init(1); swap_in_hero(FIGHTER, Bow, Sword); spawn_monster(BRUTE); step(1200)`:
     // the only one of these that ever puts an arrow in the air, and therefore
     // the only one that pins the projectile arithmetic across targets.
-    const BOW_HASH: u64 = 0x4a11_5773_5d30_5e9f;
+    const BOW_HASH: u64 = 0xce5f_a25b_974e_0701;
 
     /// Prints the four browser goldens in hex, for re-pinning.
     ///
@@ -12105,6 +12274,17 @@ mod tests {
     /// ask the same question the client does.
     fn furniture_of(kind: u8) -> Vec<Vec<u8>> {
         furniture().into_iter().filter(|r| r[0] == kind).collect()
+    }
+
+    fn dungeon_objects() -> Vec<[u32; DUNGEON_OBJECT_STRIDE]> {
+        let count = dungeon_object_len() as usize;
+        DUNGEON_OBJECTS.with(|objects| {
+            let objects = objects.borrow();
+            (0..count).map(|row| {
+                let at = row * DUNGEON_OBJECT_STRIDE;
+                objects[at..at + DUNGEON_OBJECT_STRIDE].try_into().unwrap()
+            }).collect()
+        })
     }
 
     /// The visibility byte of the tile a world point falls in. Named for what it
@@ -12760,7 +12940,7 @@ mod tests {
         set_control(CONTROL_FEET);
         assert_eq!(control(), CONTROL_FEET);
         // Due west, at full speed, for a second.
-        set_input(-1000, 0, 0, 0, 0, 0);
+        set_input(-1000, 0, 0, 0, 0, 0, 0);
         step(60);
         let (x, y) = hero();
         assert!(x < start.0 - 1.0, "walked to ({x}, {y}) from {start:?}");
@@ -12776,11 +12956,94 @@ mod tests {
     }
 
     #[test]
+    fn mouse_default_idles_locally_until_a_goto_exists() {
+        init_quiet(1);
+        let start = hero();
+        step(600);
+        let idle = hero();
+        assert!(
+            (idle.0 - start.0).abs() < 0.05 && (idle.1 - start.1).abs() < 0.05,
+            "an unordered mouse-default hero wandered from {start:?} to {idle:?}"
+        );
+
+        set_goto(20_000, 12_000);
+        step(240);
+        let ordered = hero();
+        assert!(
+            (ordered.0 - idle.0).abs() > 1.0 || (ordered.1 - idle.1).abs() > 1.0,
+            "mouse Goto left the hero idling at {ordered:?}"
+        );
+    }
+
+    #[test]
+    fn mouse_hold_stays_local_for_ten_seconds_but_still_finishes_a_hostile_fight() {
+        init_quiet(1);
+        let start = hero();
+        step(600);
+        let idle = hero();
+        assert!(
+            (idle.0 - start.0).abs() < 0.05 && (idle.1 - start.1).abs() < 0.05,
+            "ten seconds of true idle wandered from {start:?} to {idle:?}"
+        );
+
+        // A separate fresh room keeps this half about local defence rather
+        // than about spawning into a floor whose clear-room exit is already
+        // open after the ten-second idle above.
+        init_quiet(1);
+        spawn_monster(SKITTERER, SLOT_EMPTY, SLOT_EMPTY);
+        let mut closed = false;
+        for _ in 0..120 {
+            step(30);
+            if let (Some(hero), Some(monster)) = (hero_row(), monsters().first()) {
+                closed |= distance(&hero, monster) < 2.0;
+            }
+            if monsters().is_empty() {
+                break;
+            }
+        }
+        assert!(closed, "Hold suppressed local defence while a hostile lived");
+        assert!(monsters().is_empty(), "stationary idle prevented the hostile fight finishing");
+    }
+
+    #[test]
+    fn held_tank_turn_rotates_a_stationary_hero_until_release() {
+        init_quiet(1);
+        let start = hero();
+        set_control(CONTROL_FEET);
+        set_input(0, 0, 0, 0, 0, 0, 1000);
+        step(32);
+        let unit = &frame()[HEADER_LEN..];
+        assert_eq!((unit[0], unit[1]), start, "turning translated the hero");
+        assert_eq!(unit[2], Angle::QUARTER.raw() as f32,
+            "32 ticks of held E were not an exact quarter-turn");
+
+        set_input(0, 0, 0, 0, 0, 0, 0);
+        step(32);
+        let released = &frame()[HEADER_LEN..];
+        assert_eq!(released[2], unit[2], "released E kept turning the hero");
+
+        set_input(0, 0, 0, 0, 0, 0, -1000);
+        step(32);
+        assert_eq!(frame()[HEADER_LEN + 2], 0.0, "held Q did not reverse the same exact rate");
+
+        set_input(0, 0, 0, 0, 0, 0, 1000);
+        step(32);
+        set_input(1000, 0, 0, 0, 0, 0, 0);
+        step(30);
+        let moving = &frame()[HEADER_LEN..];
+        assert_eq!(moving[2], Angle::QUARTER.raw() as f32,
+            "forward movement replaced the exact quarter-turn heading");
+        assert!((moving[0] - start.0).abs() < 0.02,
+            "local forward after a quarter-turn leaked sideways");
+        assert!(moving[1] > start.1, "forward ignored the heading integrated by held E");
+    }
+
+    #[test]
     fn taking_control_of_the_sword_points_it_where_the_player_says() {
         init_quiet(1);
         set_control(CONTROL_LIMB);
         // Guard due north, attacking nothing.
-        set_input(0, 0, 16_384, 0, 0, 0);
+        set_input(0, 0, 16_384, 0, 0, 0, 0);
         step(120);
 
         let unit = &frame()[HEADER_LEN..];
@@ -12794,7 +13057,7 @@ mod tests {
         // The button throws a cut, and the page can see it coming: the phase
         // goes to windup before it goes to strike, and the two are distinct in
         // the frame. This is the whole of what the columns were added for.
-        set_input(0, 0, 16_384, 0, 0, 1);
+        set_input(0, 0, 16_384, 0, 0, 1, 0);
         let mut saw_windup = false;
         let mut saw_strike = false;
         for _ in 0..90 {
@@ -12812,7 +13075,7 @@ mod tests {
 
         // Release the button and the blade goes back to guarding, on the bearing
         // the pointer is now naming.
-        set_input(0, 0, 49_152, 1000, 0, 0);
+        set_input(0, 0, 49_152, 1000, 0, 0, 0);
         step(120);
         let unit = &frame()[HEADER_LEN..];
         assert_eq!(unit[19], 0.0, "the blade never came back to guard");
@@ -12832,7 +13095,7 @@ mod tests {
         // choice with the AI is `the_three_control_bits_are_independent`'s job.
         assert_eq!(control(), CONTROL_LIMB, "the limb bit dragged another one in with it");
         set_control(CONTROL_LIMB | CONTROL_SLOT);
-        set_input(0, 0, 49_152, 1000, 1, 0);
+        set_input(0, 0, 49_152, 1000, 1, 0, 0);
         step(60);
         let unit = &frame()[HEADER_LEN..];
         assert_eq!(unit[24], 1.0, "the player's slot request was not honoured");
@@ -12855,14 +13118,14 @@ mod tests {
         init_quiet(1);
         spawn_monster(2, SLOT_EMPTY, SLOT_EMPTY);
         set_control(CONTROL_FEET);
-        set_input(1000, 0, 0, 0, 0, 0);
+        set_input(1000, 0, 0, 0, 0, 0, 0);
         step(120);
         let sword_under_ai = frame()[HEADER_LEN + 12];
 
         init_quiet(1);
         spawn_monster(2, SLOT_EMPTY, SLOT_EMPTY);
         set_control(CONTROL_LIMB);
-        set_input(1000, 0, 0, 0, 0, 0);
+        set_input(1000, 0, 0, 0, 0, 0, 0);
         step(120);
         let feet_under_ai = frame();
 
@@ -12931,19 +13194,9 @@ mod tests {
     }
 
     #[test]
-    fn clearing_the_order_hands_the_hero_back_to_its_own_judgement() {
-        // Worth being exact about, because "clear the order" reads like "stop"
-        // and it is not. Under `Order::Hold` with nothing in sight the policy
-        // steers for open ground, which is a slow drift toward the middle of
-        // whatever room it is standing in. That is `UtilityPolicy`'s search
-        // behaviour working as designed, not a stale order leaking through this
-        // boundary, and the page has to present it as the character deciding
-        // for itself rather than as a control that did not take.
-        //
-        // Where it drifts *to* is a fact about the room it happens to be in, so
-        // what is asserted is that it stops honouring the click -- it must not
-        // still be closing on it -- rather than a destination this test would
-        // be re-deriving the floor plan to predict.
+    fn clearing_the_order_returns_to_stationary_mouse_idle() {
+        // Clearing a mouse destination stops locomotion but leaves the policy's
+        // limb, slot and combat decisions alive.
         init_quiet(1);
         let (tx, ty) = walkable_near_hero(5.0, 0.45);
         set_goto((tx * 1000.0) as i32, (ty * 1000.0) as i32);
@@ -12954,18 +13207,11 @@ mod tests {
 
         clear_order();
         assert_eq!(frame()[2], 0.0, "order_kind: Hold is discriminant 0");
-        // Slow: `open_ground` is a third of a stride at baseline `wall_fear`,
-        // and it tapers off as the pull it comes from shrinks.
-        step(900);
+        step(600);
         let (back_x, back_y) = hero();
-        println!("released at ({away_x}, {away_y}), drifted to ({back_x}, {back_y})");
         assert!(
-            distance_from_hero(tx, ty) > closed,
-            "still closing on a cancelled click: ({back_x}, {back_y})"
-        );
-        assert!(
-            walkable(back_x, back_y, 0.45),
-            "drifted into the masonry at ({back_x}, {back_y})"
+            (back_x - away_x).abs() < 0.05 && (back_y - away_y).abs() < 0.05,
+            "cleared mouse order wandered from ({away_x}, {away_y}) to ({back_x}, {back_y})"
         );
     }
 
@@ -14152,12 +14398,8 @@ mod tests {
         init_quiet(1);
         assert_eq!(vis_len(), map_len());
 
-        // A hero that genuinely does not move: the feet are the player's and the
-        // player is pressing nothing. `clear_order` would not do -- with nothing
-        // in sight the policy drifts toward open ground, so this would be a race
-        // against the drift crossing a tile.
-        set_control(CONTROL_FEET);
-        set_input(0, 0, 0, 0, 0, 0);
+        // No mouse order is the playable stationary idle.
+        clear_order();
         let standing = hero();
         let revision = vis_revision();
         let bytes = vis_bytes();
@@ -14171,7 +14413,6 @@ mod tests {
         assert_eq!(vis_bytes(), bytes, "the fog changed without saying so");
 
         // And a tile crossing is exactly when it does move.
-        set_control(0);
         let (tx, ty) = walkable_near_hero(4.0, 0.45);
         set_goto((tx * 1000.0) as i32, (ty * 1000.0) as i32);
         step(240);
@@ -14188,6 +14429,43 @@ mod tests {
     }
 
     // ----------------------------------------------------------- the furniture
+
+    #[test]
+    fn dungeon_object_v1_preserves_every_word_and_identity_domain() {
+        let view = sim::DungeonObjectView {
+            kind: sim::DungeonObjectKind::Barrel,
+            identity: 7,
+            state_flags: 3,
+            position: Vec2::new(Fx::from_raw(-11), Fx::from_raw(12)),
+            yaw: Angle::from_raw(13),
+            half_extents: Vec2::new(Fx::from_raw(14), Fx::from_raw(15)),
+            hp: Fx::from_raw(16), max_hp: Fx::from_raw(17),
+            progress: Fx::from_raw(18), material_code: 19,
+        };
+        assert_eq!(dungeon_object_row(view, DUNGEON_OBJECT_PROP_ID_BASE | view.identity), [
+            3, 0x3000_0007, 3, (-11i32) as u32, 12, 13, 14, 15, 16, 17, 18, 19,
+        ]);
+        assert_eq!(dungeon_object_layout_version(), 1);
+        assert_eq!(dungeon_object_stride(), 12);
+        assert_eq!(dungeon_object_capacity(), 512);
+    }
+
+    #[test]
+    fn a_generated_floor_publishes_doors_then_torches_then_props() {
+        init(1);
+        let rows = dungeon_objects();
+        assert!(!rows.is_empty(), "a generated floor published no dungeon objects");
+        assert_eq!(dungeon_objects_dropped(), 0, "the shipped floor exceeded its object ABI");
+        let kinds: Vec<u32> = rows.iter().map(|row| row[DUNGEON_OBJECT_KIND]).collect();
+        let first_torch = kinds.iter().position(|&kind| kind == DUNGEON_OBJECT_TORCH).unwrap();
+        let first_prop = kinds.iter().position(|&kind| kind >= DUNGEON_OBJECT_BARREL).unwrap();
+        assert!(kinds[..first_torch].iter().all(|&kind| kind == DUNGEON_OBJECT_DOOR));
+        assert!(kinds[first_torch..first_prop].iter().all(|&kind| kind == DUNGEON_OBJECT_TORCH));
+        assert!(kinds[first_prop..].iter().all(|&kind| kind >= DUNGEON_OBJECT_BARREL));
+        assert!(rows[..first_torch].iter().all(|row| row[DUNGEON_OBJECT_IDENTITY] >> 28 == 1));
+        assert!(rows[first_torch..first_prop].iter().all(|row| row[DUNGEON_OBJECT_IDENTITY] >> 28 == 2));
+        assert!(rows[first_prop..].iter().all(|row| row[DUNGEON_OBJECT_IDENTITY] >> 28 == 3));
+    }
 
     #[test]
     fn every_doorway_reaches_the_page_as_one_record_a_tile() {
@@ -14260,7 +14538,7 @@ mod tests {
         // *through* the door for a body that opens one and arrive on the far
         // side, which tests the router rather than the doorway.
         set_control(CONTROL_FEET);
-        set_input(1_000, 0, 0, 0, 0, 0);
+        set_input(1_000, 0, 0, 0, 0, 0, 0);
         step(200);
 
         assert_eq!(map_bytes()[ty * cols + tx], 0, "the fighter never opened the door");
@@ -14311,10 +14589,12 @@ mod tests {
     }
 
     #[test]
-    fn every_torch_reaches_the_page_on_the_same_buffer_as_the_doors() {
+    fn legacy_furniture_keeps_only_the_two_torch_faces_it_can_name() {
         // `world-06` promised the next piece of scenery would be a *kind* here
         // and not a third pair of exports. This is that, asserted from the
-        // page's side: one buffer, two kind codes, one stride.
+        // page's side: one buffer, two kind codes, one stride. Full-cardinal
+        // mounts now belong to DUNGEON_OBJECT_V1; this compatibility buffer
+        // keeps only the two meanings its state byte has always named.
         init(1);
         let torches = furniture_of(FURNITURE_TORCH);
         let doors = furniture_of(FURNITURE_DOOR);
@@ -15206,14 +15486,14 @@ mod tests {
         // Chambered due north, attacking nothing. A blade at guard has nothing
         // to announce, and announcing one anyway would put a permanent bubble
         // over every character in the room.
-        set_input(0, 0, 16_384, 0, 0, 0);
+        set_input(0, 0, 16_384, 0, 0, 0, 0);
         step(30);
         assert!(declares().is_empty(), "a blade at guard announced an attack");
 
         // One press, held. `Hand::armed` starts an attack only on a press that
         // follows a release, so everything below is a single cut from windup to
         // recovery -- which is exactly what "once per windup" has to mean.
-        set_input(0, 0, 16_384, 0, 0, 1);
+        set_input(0, 0, 16_384, 0, 0, 1, 0);
         let mut announced: Vec<Vec<f32>> = Vec::new();
         // Where the hero stood on the tick it announced, sampled there rather
         // than read at the end: a declaration is a fact about a moment, and the
@@ -15261,9 +15541,9 @@ mod tests {
         );
 
         // Releasing and pressing again is a second attack, and a second row.
-        set_input(0, 0, 16_384, 0, 0, 0);
+        set_input(0, 0, 16_384, 0, 0, 0, 0);
         step(10);
-        set_input(0, 0, 16_384, 0, 0, 1);
+        set_input(0, 0, 16_384, 0, 0, 1, 0);
         let mut again = 0;
         for _ in 0..90 {
             step(1);

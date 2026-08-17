@@ -37,7 +37,8 @@ before any message has been accepted answers in the version the caller wrote dow
 a malformed message opens no session, so there is no session version to answer in.
 
 Request IDs, epochs, ticks, command
-sequences, targets, seeds, spawn fields, buffer IDs, and lease tokens are checked in
+sequences, targets, seeds, spawn fields, direct-control masks and live-input fields,
+buffer IDs, and lease tokens are checked in
 their declared unsigned domains before use. Epoch, sequence, and lease token reserve
 zero. Goto coordinates are signed `i32`, and elapsed microseconds are nonnegative
 safe integers. Unknown fields are ignored, but missing, fractional, coerced, or
@@ -45,7 +46,10 @@ out-of-range fields fail closed.
 
 Client requests are `init`, `reset`, `setPaused`, `advance`, `command`,
 `returnSnapshot`, and — at V2 only — `arenaStart` and `arenaCancel`. Commands are
-`goto`, `withdraw`, or `spawn`. Worker responses are
+`goto`, `withdraw`, `spawn`, `setControl`, or `setInput`. The control
+request returns the accepted wasm mask in its applied acknowledgement, so the HUD
+does not echo an unaccepted request. Init/reset install Movement ownership plus an
+all-zero input before the first snapshot. Worker responses are
 `ready`, `pauseChanged`, `advanceAck`, `commandAck`, `snapshot`, `bufferReturned`,
 `error`, `terminated`, and — at V2 only — `arenaProgress`, `arenaRejected`, and
 `fightRecording`. The complete field declarations live in
@@ -131,9 +135,10 @@ fail once the client is terminal; diagnostics remain readable.
 
 The worker allocates exactly three `ArrayBuffer` objects during init, permanently
 numbered 0 through 2. Each has the generated `SNAPSHOT_BUFFER_BYTES` capacity and
-four fixed regions: packed frame `f32` elements, map bytes, visibility bytes, and
-furniture records. Live lengths travel with every snapshot: frame length counts
-floats, map and visibility lengths count bytes, and furniture length counts records.
+five fixed regions: packed frame `f32` elements, map bytes, visibility bytes,
+furniture records, and `DUNGEON_OBJECT_V1` words. Live lengths travel with every
+snapshot: frame length counts floats, map and visibility lengths count bytes, and
+furniture and dungeon-object lengths count records.
 All shape, stride, capacity, finiteness, and packed-row equations are checked before a
 consumer view exists.
 
@@ -265,21 +270,21 @@ a kill.
 <!-- DOC_CONTRACT: worker-visibility-filter -->
 ## Visibility filtering
 
-The worker copies all four legacy publications atomically, then filters only the
+The worker copies all five game publications atomically, then filters only the
 client-owned copy. It publishes the full visibility grid. A per-epoch remembered-map
 cache updates true map bytes only where visibility is `2`, retains the previous byte
 at `1`, and publishes `MAP_UNKNOWN` (`255`) at `0`. Hidden true-map changes therefore
 cannot rewrite remembered terrain.
 
 Only unit rows whose legacy `visible` field is nonzero survive. Shots, events, and
-furniture survive only on currently visible tiles. Hidden event actor/other indices
+furniture and dungeon objects survive only on currently visible tiles. Hidden event actor/other indices
 become `-1`. A Focus order's header coordinates survive only when the separate focus
 index and generation identify a surviving visible row; coordinate equality or index
 alone is insufficient. Goto coordinates remain visible because they came from the
 player's own command.
 
 Unit, shot, and event counts and the live frame length are recomputed after filtering.
-Filtered map, visibility, and furniture revisions start at zero per epoch, increment
+Filtered map, visibility, furniture, and dungeon-object revisions start at zero per epoch, increment
 only when the disclosed bytes change, and fail fatally rather than wrap. None of this
 presentation state enters `World`, replay, or a hash domain.
 
@@ -306,12 +311,12 @@ weakest of the three rules. Four links in the tree have that shape. An
 anchor is a hint and not a contract; check the symbol is on the line before quoting
 one.
 
-- Protocol declarations and input decoder: [`messages.ts`](../../client/src/protocol/messages.ts#L1), [`decodeClientMessage`](../../client/src/protocol/messages.ts#L283)
+- Protocol declarations and input decoder: [`messages.ts`](../../client/src/protocol/messages.ts#L1), [`decodeClientMessage`](../../client/src/protocol/messages.ts#L293)
 - Fixed buffer pool: [`FixedBufferPool`](../../client/src/runtime/buffer-pool.ts#L22)
 - Pure worker state machine: [`SimWorkerHost`](../../client/src/runtime/sim-worker-host.ts#L55)
 - Main-thread request and lease owner: [`SimClient`](../../client/src/runtime/sim-client.ts#L122)
 - Snapshot validator and disclosure filter: [`SnapshotFilterState`](../../client/src/state/snapshot.ts#L59)
-- Real wasm adapter: [`readPublication`](../../client/src/runtime/sim.worker.ts#L81)
+- Real wasm adapter: [`readPublication`](../../client/src/runtime/sim.worker.ts#L88)
 - Generated offsets and capacities: [`abi.generated.ts`](../../client/src/protocol/abi.generated.ts#L1)
 - The recording drive and its caps: [`recordArenaFight`](../../client/src/runtime/arena-recorder.ts#L521)
 - The arena's main-thread client and its decoder: [`decodeArenaMessage`](../../client/src/runtime/arena-client.ts#L59)

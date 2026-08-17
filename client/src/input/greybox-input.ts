@@ -10,6 +10,16 @@ import type { PresentationSnapshot } from "../render/presentation.js";
 const I32_MIN = -0x8000_0000;
 const I32_MAX = 0x7fff_ffff;
 const PRIMARY_DRAG_THRESHOLD_PX = 4;
+const RAW_TURN = 65_536;
+
+export function tankMovement(keys: ReadonlySet<string>): Readonly<{ x: number; y: number }> {
+  const forward = Number(keys.has("w")) - Number(keys.has("s"));
+  const right = Number(keys.has("d")) - Number(keys.has("a"));
+  const length = Math.hypot(forward, right);
+  return length > 1
+    ? Object.freeze({ x: forward / length, y: right / length })
+    : Object.freeze({ x: forward, y: right });
+}
 
 export type GroundPoint = Readonly<{ x: number; z: number }>;
 
@@ -37,6 +47,11 @@ export type GreyboxInputOptions = Readonly<{
   blocked: () => boolean;
   projectGround: (event: PointerEvent) => GroundPoint | null;
   submit: (command: LegacyClientCommand) => Promise<unknown>;
+  aimEnabled?: () => boolean;
+  actionEnabled?: () => boolean;
+  movementEnabled?: () => boolean;
+  slot?: () => number;
+  selectSlot?: (slot: number) => void;
   pan?: (dx: number, dy: number) => void;
   zoom?: (delta: number) => void;
   onError?: (error: Error) => void;
@@ -52,6 +67,8 @@ export class GreyboxInput {
   #startY = 0;
   #lastX = 0;
   #lastY = 0;
+  #aimRaw = 0;
+  #keys = new Set<string>();
 
   constructor(options: GreyboxInputOptions) {
     this.#options = options;
@@ -62,10 +79,13 @@ export class GreyboxInput {
     options.canvas.addEventListener("wheel", this.#wheel, { passive: false });
     options.canvas.addEventListener("contextmenu", this.#contextMenu);
     window.addEventListener("keydown", this.#keyDown);
+    window.addEventListener("keyup", this.#keyUp);
+    window.addEventListener("blur", this.#clearLiveInput);
   }
 
   dispose(): void {
     if (this.#disposed) return;
+    this.#clearLiveInput();
     this.#disposed = true;
     const canvas = this.#options.canvas;
     const captureError = this.#clearGesture();
@@ -77,6 +97,8 @@ export class GreyboxInput {
     canvas.removeEventListener("wheel", this.#wheel);
     canvas.removeEventListener("contextmenu", this.#contextMenu);
     window.removeEventListener("keydown", this.#keyDown);
+    window.removeEventListener("keyup", this.#keyUp);
+    window.removeEventListener("blur", this.#clearLiveInput);
   }
 
   readonly #pointerDown = (event: PointerEvent): void => {
@@ -87,6 +109,12 @@ export class GreyboxInput {
         return;
       }
       if (this.#options.blocked()) return;
+      if (event.button === 0 && this.#options.aimEnabled?.()) {
+        event.preventDefault();
+        this.#updateAim(event);
+        this.#sendLive(this.#options.actionEnabled?.() ? 1 : 0);
+        return;
+      }
       if (event.button !== 0 && event.button !== 1 && event.button !== 2) return;
       event.preventDefault();
       this.#pointerId = event.pointerId;
@@ -103,7 +131,9 @@ export class GreyboxInput {
   };
 
   readonly #pointerMove = (event: PointerEvent): void => {
-    if (this.#pointerId !== event.pointerId || this.#disposed) return;
+    if (this.#disposed) return;
+    if (this.#options.aimEnabled?.() && !this.#options.blocked()) this.#updateAim(event);
+    if (this.#pointerId !== event.pointerId) return;
     try {
       if (this.#options.blocked()) {
         const captureError = this.#clearGesture();
@@ -129,6 +159,11 @@ export class GreyboxInput {
   };
 
   readonly #pointerUp = (event: PointerEvent): void => {
+    if (event.button === 0 && this.#options.aimEnabled?.()) {
+      this.#updateAim(event);
+      this.#sendLive(0);
+      return;
+    }
     if (this.#pointerId !== event.pointerId) return;
     try {
       const click = event.type === "pointerup" && this.#button === 0 && !this.#dragging
@@ -163,13 +198,64 @@ export class GreyboxInput {
   readonly #keyDown = (event: KeyboardEvent): void => {
     if (this.#disposed) return;
     try {
-      if (this.#options.blocked() || event.key !== "Escape") return;
+      if (this.#options.blocked()) return;
+      const key = event.key.toLowerCase();
+      if (key === "1" || key === "2") {
+        event.preventDefault();
+        this.#options.selectSlot?.(Number(key) - 1);
+        this.#sendLive(0);
+        return;
+      }
+      if ("wasqed".includes(key) && key.length === 1 && this.#options.movementEnabled?.() !== false) {
+        event.preventDefault();
+        this.#keys.add(key);
+        this.#sendLive(0);
+        return;
+      }
+      if (event.key !== "Escape") return;
       event.preventDefault();
+      this.#clearLiveInput();
       this.#submit(Object.freeze({ kind: "withdraw" as const }));
     } catch (error) {
       this.#failGesture(error);
     }
   };
+
+  readonly #keyUp = (event: KeyboardEvent): void => {
+    const key = event.key.toLowerCase();
+    if (!this.#keys.delete(key)) return;
+    event.preventDefault();
+    this.#sendLive(0);
+  };
+
+  readonly #clearLiveInput = (): void => {
+    this.#keys.clear();
+    this.#sendLive(0);
+  };
+
+  releaseMovement(): void {
+    this.#keys.clear();
+    this.#sendLive(0);
+  }
+
+  #updateAim(event: PointerEvent): void {
+    const point = this.#options.projectGround(event);
+    const hero = this.#options.snapshot()?.units.find((unit) => unit.faction === 0);
+    if (point === null || hero === undefined) return;
+    const turns = Math.atan2(point.z - hero.y, point.x - hero.x) / (Math.PI * 2);
+    this.#aimRaw = Math.round(((turns % 1) + 1) % 1 * RAW_TURN) & 0xffff;
+    this.#sendLive(0);
+  }
+
+  #sendLive(strike: number): void {
+    if (this.#disposed || this.#options.blocked()) return;
+    const move = tankMovement(this.#keys);
+    const turnMilli = (Number(this.#keys.has("e")) - Number(this.#keys.has("q"))) * 1000;
+    this.#submit(Object.freeze({ kind: "setInput" as const,
+      moveXMilli: Math.round(move.x * 1000), moveYMilli: Math.round(move.y * 1000),
+      aimRaw: this.#aimRaw, reachMilli: this.#options.aimEnabled?.() ? 1000 : 0,
+      slot: this.#options.slot?.() ?? 0, strike, turnMilli }));
+  }
 
   readonly #contextMenu = (event: Event): void => {
     if (!this.#disposed) event.preventDefault();

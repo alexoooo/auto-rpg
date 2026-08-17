@@ -1,10 +1,11 @@
 import { RIG_CLIPS, RIG_NODES } from "./rig-names.js";
 
-export const COMBATANT_MAX_PAYLOAD_BYTES = 16_777_216;
-export const COMBATANT_MAX_GPU_BYTES = 67_108_864;
+export const COMBATANT_MAX_PAYLOAD_BYTES = 67_108_864;
+export const COMBATANT_MAX_GPU_BYTES = 201_326_592;
 const MAX_JSON_BYTES = 2 * 1024 * 1024;
 const SHA256 = /^[0-9a-f]{64}$/;
 const KINDS = Object.freeze(["fighter", "brute"] as const);
+const LODS = Object.freeze(["high", "mid", "low"] as const);
 const MATERIALS = Object.freeze([
   "combatant_bone", "combatant_burgundy", "combatant_dark_steel", "combatant_hide",
   "combatant_leather", "combatant_skin", "combatant_steel",
@@ -32,6 +33,7 @@ const MESHES = Object.freeze({
 });
 
 export type CombatantKind = typeof KINDS[number];
+export type CombatantLod = typeof LODS[number];
 export type CombatantMaterialRole = typeof MATERIALS[number];
 export type CombatantVector3 = readonly [number, number, number];
 export type CombatantQuaternion = readonly [number, number, number, number];
@@ -49,11 +51,18 @@ export type CombatantMeshContract = Readonly<{
   semantic: string;
   node: string;
   parent: string | null;
+  material: string;
   materialRole: CombatantMaterialRole;
   primitiveCount: number;
   vertexCount: number;
   triangleCount: number;
   bounds: Readonly<{ min: CombatantVector3; max: CombatantVector3 }>;
+}>;
+
+export type CombatantLodContract = Readonly<{
+  level: CombatantLod;
+  maxTriangles: number;
+  meshes: readonly CombatantMeshContract[];
 }>;
 
 export type CombatantClipContract = Readonly<{
@@ -69,13 +78,13 @@ export type CombatantArchetypeContract = Readonly<{
   nodePrefix: "FIGHTER_" | "BRUTE_";
   skeleton: Readonly<{ node: string; skin: string; bones: readonly string[] }>;
   nodes: readonly CombatantNodeContract[];
-  meshes: readonly CombatantMeshContract[];
+  lods: readonly CombatantLodContract[];
   clips: readonly CombatantClipContract[];
 }>;
 
 export type CombatantAssetSidecar = Readonly<{
-  schemaVersion: 1;
-  fixtureId: "v2-combatants-1";
+  schemaVersion: 2;
+  fixtureId: "v2-combatants-2";
   buildInputsSha256: string;
   glbSha256: string;
   coordinates: Readonly<{
@@ -164,13 +173,16 @@ function parseNode(value: unknown, semantic: string, prefix: string): CombatantN
   });
 }
 
-function parseMesh(value: unknown, semantic: string, prefix: string): CombatantMeshContract {
+function parseMesh(
+  value: unknown, semantic: string, prefix: string, lod: CombatantLod,
+): CombatantMeshContract {
   const label = `combatant mesh ${semantic}`;
   const source = record(value, label);
-  exactKeys(source, ["semantic", "node", "parent", "materialRole", "primitiveCount",
+  exactKeys(source, ["semantic", "node", "parent", "material", "materialRole", "primitiveCount",
     "vertexCount", "triangleCount", "bounds"], label);
-  if (source.semantic !== semantic || source.node !== prefix + "mesh_" + semantic ||
+  if (source.semantic !== semantic || source.node !== prefix + "lod_" + lod + "_mesh_" + semantic ||
       (source.parent !== null && (typeof source.parent !== "string" || !source.parent.startsWith(prefix))) ||
+      typeof source.material !== "string" || source.material.length > 64 ||
       typeof source.materialRole !== "string" ||
       !MATERIALS.includes(source.materialRole as CombatantMaterialRole)) {
     throw new TypeError(`${label} identity drifted`);
@@ -182,6 +194,7 @@ function parseMesh(value: unknown, semantic: string, prefix: string): CombatantM
   if (min.some((item, index) => item > (max[index] ?? item))) throw new TypeError(`${label} bounds are inverted`);
   return Object.freeze({
     semantic, node: source.node as string, parent: source.parent as string | null,
+    material: source.material as string,
     materialRole: source.materialRole as CombatantMaterialRole,
     primitiveCount: count(source.primitiveCount, `${label} primitive count`, 16),
     vertexCount: count(source.vertexCount, `${label} vertex count`, 50_000),
@@ -192,18 +205,18 @@ function parseMesh(value: unknown, semantic: string, prefix: string): CombatantM
 
 function parseArchetype(value: unknown, expectedKind: CombatantKind): CombatantArchetypeContract {
   const source = record(value, `combatant ${expectedKind}`);
-  exactKeys(source, ["kind", "height", "nodePrefix", "skeleton", "nodes", "meshes", "clips"], `combatant ${expectedKind}`);
+  exactKeys(source, ["kind", "height", "nodePrefix", "skeleton", "nodes", "lods", "clips"], `combatant ${expectedKind}`);
   const prefix = expectedKind === "fighter" ? "FIGHTER_" : "BRUTE_";
   if (source.kind !== expectedKind || source.nodePrefix !== prefix ||
       typeof source.height !== "number" || !Number.isFinite(source.height) ||
       source.height < 1 || source.height > 3) throw new TypeError(`combatant ${expectedKind} identity drifted`);
   if (!Array.isArray(source.nodes) || source.nodes.length !== RIG_NODES.length ||
-      !Array.isArray(source.meshes) || source.meshes.length !== MESHES[expectedKind].length ||
+      !Array.isArray(source.lods) || source.lods.length !== LODS.length ||
       !Array.isArray(source.clips) || source.clips.length !== RIG_CLIPS.length) {
     throw new TypeError(`combatant ${expectedKind} semantic arrays drifted`);
   }
   const rawNodes = source.nodes as unknown[];
-  const rawMeshes = source.meshes as unknown[];
+  const rawLods = source.lods as unknown[];
   const rawClips = source.clips as unknown[];
   const skeletonSource = record(source.skeleton, `combatant ${expectedKind} skeleton`);
   exactKeys(skeletonSource, ["node", "skin", "bones"], `combatant ${expectedKind} skeleton`);
@@ -215,8 +228,27 @@ function parseArchetype(value: unknown, expectedKind: CombatantKind): CombatantA
     throw new TypeError(`combatant ${expectedKind} skeleton closure drifted`);
   }
   const nodes = Object.freeze(RIG_NODES.map((semantic, index) => parseNode(rawNodes[index], semantic, prefix)));
-  const meshes = Object.freeze(MESHES[expectedKind].map((semantic, index) =>
-    parseMesh(rawMeshes[index], semantic, prefix)));
+  const lods = Object.freeze(LODS.map((level, lodIndex) => {
+    const lod = record(rawLods[lodIndex], `combatant ${expectedKind} ${level} LOD`);
+    exactKeys(lod, ["level", "maxTriangles", "meshes"], `combatant ${expectedKind} ${level} LOD`);
+    if (lod.level !== level || !Array.isArray(lod.meshes) ||
+        lod.meshes.length !== MESHES[expectedKind].length) {
+      throw new TypeError(`combatant ${expectedKind} ${level} LOD closure drifted`);
+    }
+    const rawMeshes = lod.meshes as unknown[];
+    const maximum = expectedKind === "fighter"
+      ? ({ high: 45_000, mid: 14_000, low: 3_000 } as const)[level]
+      : ({ high: 55_000, mid: 18_000, low: 4_000 } as const)[level];
+    if (lod.maxTriangles !== maximum) {
+      throw new TypeError(`combatant ${expectedKind} ${level} LOD budget drifted`);
+    }
+    const meshes = Object.freeze(MESHES[expectedKind].map((semantic, index) =>
+      parseMesh(rawMeshes[index], semantic, prefix, level)));
+    if (meshes.reduce((sum, mesh) => sum + mesh.triangleCount, 0) > maximum) {
+      throw new TypeError(`combatant ${expectedKind} ${level} LOD exceeds its budget`);
+    }
+    return Object.freeze({ level, maxTriangles: maximum, meshes });
+  }));
   const clips = Object.freeze(RIG_CLIPS.map((semantic, index) => {
     const clip = record(rawClips[index], `combatant ${expectedKind} clip ${semantic}`);
     exactKeys(clip, ["semantic", "animation", "durationSeconds", "looping"],
@@ -236,7 +268,7 @@ function parseArchetype(value: unknown, expectedKind: CombatantKind): CombatantA
     node: skeletonSource.node as string, skin: skeletonSource.skin as string,
     bones: Object.freeze([...expectedBones]),
   });
-  return Object.freeze({ kind: expectedKind, height: source.height, nodePrefix: prefix, skeleton, nodes, meshes, clips });
+  return Object.freeze({ kind: expectedKind, height: source.height, nodePrefix: prefix, skeleton, nodes, lods, clips });
 }
 
 export function parseCombatantAssetSidecar(bytes: Uint8Array): CombatantAssetSidecar {
@@ -252,7 +284,7 @@ export function parseCombatantAssetSidecar(bytes: Uint8Array): CombatantAssetSid
   const source = record(unknown, "combatant sidecar");
   exactKeys(source, ["schemaVersion", "fixtureId", "buildInputsSha256", "glbSha256", "coordinates",
     "semanticNames", "archetypes", "counts", "estimatedGpuResidency", "payloadBytes"], "combatant sidecar");
-  if (source.schemaVersion !== 1 || source.fixtureId !== "v2-combatants-1" ||
+  if (source.schemaVersion !== 2 || source.fixtureId !== "v2-combatants-2" ||
       typeof source.buildInputsSha256 !== "string" || !SHA256.test(source.buildInputsSha256) ||
       typeof source.glbSha256 !== "string" || !SHA256.test(source.glbSha256)) {
     throw new TypeError("combatant sidecar identity is invalid");
@@ -274,19 +306,21 @@ export function parseCombatantAssetSidecar(bytes: Uint8Array): CombatantAssetSid
   const countSource = record(source.counts, "combatant counts");
   exactKeys(countSource, ["nodes", "meshes", "materials", "vertices", "triangles", "animations", "skins"], "combatant counts");
   const counts = Object.freeze({
-    nodes: count(countSource.nodes, "combatant node count", 96),
-    meshes: count(countSource.meshes, "combatant mesh count", 48),
-    materials: count(countSource.materials, "combatant material count", 7),
-    vertices: count(countSource.vertices, "combatant vertex count", 50_000),
-    triangles: count(countSource.triangles, "combatant triangle count", 80_000),
+    nodes: count(countSource.nodes, "combatant node count", 180),
+    meshes: count(countSource.meshes, "combatant mesh count", 135),
+    materials: count(countSource.materials, "combatant material count", 12),
+    vertices: count(countSource.vertices, "combatant vertex count", 220_000),
+    triangles: count(countSource.triangles, "combatant triangle count", 139_000),
     animations: count(countSource.animations, "combatant animation count", 8),
     skins: count(countSource.skins, "combatant skin count", 2),
   });
-  if (counts.nodes !== RIG_NODES.length * 2 + MESHES.fighter.length + MESHES.brute.length + 2 ||
-      counts.meshes !== MESHES.fighter.length + MESHES.brute.length ||
-      counts.materials !== MATERIALS.length || counts.animations !== RIG_CLIPS.length * 2 || counts.skins !== 2 ||
-      counts.vertices !== archetypes.flatMap(({ meshes }) => meshes).reduce((sum, mesh) => sum + mesh.vertexCount, 0) ||
-      counts.triangles !== archetypes.flatMap(({ meshes }) => meshes).reduce((sum, mesh) => sum + mesh.triangleCount, 0)) {
+  const allMeshes = archetypes.flatMap(({ lods }) => lods.flatMap(({ meshes }) => meshes));
+  if (counts.nodes !== RIG_NODES.length * 2 +
+      (MESHES.fighter.length + MESHES.brute.length) * LODS.length + 2 ||
+      counts.meshes !== (MESHES.fighter.length + MESHES.brute.length) * LODS.length ||
+      counts.materials !== 12 || counts.animations !== RIG_CLIPS.length * 2 || counts.skins !== 2 ||
+      counts.vertices !== allMeshes.reduce((sum, mesh) => sum + mesh.vertexCount, 0) ||
+      counts.triangles !== allMeshes.reduce((sum, mesh) => sum + mesh.triangleCount, 0)) {
     throw new TypeError("combatant aggregate counts disagree with semantic rows");
   }
   const gpuSource = record(source.estimatedGpuResidency, "combatant residency");
@@ -296,13 +330,13 @@ export function parseCombatantAssetSidecar(bytes: Uint8Array): CombatantAssetSid
     decodedTextureBytes: count(gpuSource.decodedTextureBytes, "combatant texture bytes"),
     totalBytes: count(gpuSource.totalBytes, "combatant total GPU bytes"),
   });
-  if (residency.decodedTextureBytes !== 512 * 512 * 4 ||
+  if (residency.decodedTextureBytes !== 113_246_208 ||
       residency.totalBytes !== residency.sourceBufferBytes + residency.decodedTextureBytes ||
       residency.totalBytes > COMBATANT_MAX_GPU_BYTES) throw new TypeError("combatant residency contract drifted");
   const payloadBytes = count(source.payloadBytes, "combatant payload bytes", COMBATANT_MAX_PAYLOAD_BYTES);
   if (payloadBytes === 0) throw new TypeError("combatant payload must be nonempty");
   return Object.freeze({
-    schemaVersion: 1, fixtureId: "v2-combatants-1",
+    schemaVersion: 2, fixtureId: "v2-combatants-2",
     buildInputsSha256: text(source.buildInputsSha256, "combatant build-input SHA-256"),
     glbSha256: text(source.glbSha256, "combatant GLB SHA-256"),
     coordinates: Object.freeze({

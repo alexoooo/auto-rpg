@@ -11,6 +11,23 @@ the refuted v4 presentation with seamless floor edges, a concept-directed genera
 atlas, stable four-sided walls, and recognizable layered torch fixtures. Its
 automated asset gates are complete; foreground performance remains open.
 
+Runtime presentation adds no new pinned asset member: stable wall-face instances gain
+masonry depth, opaque non-pickable roof blocks cover each VIS 0 cell, and bounded dark
+ground and cliff meshes fill outside-map screen space. These objects disclose no
+entity, effect, sound, shadow, or pick state. Projected wall faces covering the hero
+ease to 22% alpha and return using the same identity; camera quadrant never owns
+topology. Because these are renderer-created meshes, the GLB, sidecar, validator, and
+generated trust pins do not move.
+
+Physical doors, torches, barrels, pottery, webs, and water now consume the separate
+[`DUNGEON_OBJECT_V1`](dungeon-object-abi.md) publication. They are renderer-created
+layered geometry, so this room GLB and its pins still do not move. Door leaves use a
+real hinge and published pressure/open state; torches retain full-cardinal wall yaw
+and close the backplate, support, bowl, cross-plane flame, and local light around one
+socket. Physical prop break edges dispose intact art and preserve the publication
+identity as debris. VIS 0/1 owns none of their mesh, light, pick, effect, or shadow
+presence.
+
 <!-- DOC_CONTRACT: room-asset-manifest -->
 ## Manifest semantics
 

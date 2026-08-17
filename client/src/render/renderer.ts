@@ -1,5 +1,5 @@
 import type { AbstractEngine } from "@babylonjs/core/Engines/abstractEngine.js";
-import type { Camera } from "@babylonjs/core/Cameras/camera.js";
+import { Camera } from "@babylonjs/core/Cameras/camera.js";
 import { Matrix, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { Viewport } from "@babylonjs/core/Maths/math.viewport.js";
 import type { Scene } from "@babylonjs/core/scene.js";
@@ -67,6 +67,7 @@ export type GreyboxRendererOptions = Readonly<{
 export type RendererCameraOwner = Readonly<{
   camera: Camera;
   readonly free: boolean;
+  resetFixed?(): void;
   setFree(free: boolean): void;
   pan?(dxPixels: number, dyPixels: number): void;
   zoom?(delta: number): void;
@@ -128,6 +129,7 @@ export class GreyboxRenderer {
   #epoch: number | null = null;
   #tick: number | null = null;
   #presentationMode: PresentationMode = "world";
+  #hero: PresentationSnapshot["units"][number] | null = null;
   #running = false;
   #disposed = false;
   #frameMetrics: RendererFrameMetrics = { draws: 0, triangles: 0, lights: 0, shadowCasters: 0 };
@@ -169,28 +171,30 @@ export class GreyboxRenderer {
   setPresentationMode(mode: PresentationMode): void {
     this.#assertLive();
     if (mode === this.#presentationMode) return;
+    const previous = this.#presentationMode;
     this.#presentationMode = mode;
-    if (mode === "tactical" && this.#reviewCamera?.free) this.#reviewCamera.setFree(false);
+    if (this.#reviewCamera !== null) {
+      if (mode === "free") this.#reviewCamera.setFree(true);
+      else if (this.#reviewCamera.free) this.#reviewCamera.setFree(false);
+      else if (previous === "top_down" || previous === "first_person" || previous === "dev") {
+        this.#reviewCamera.resetFixed?.();
+      }
+      this.#camera = this.#reviewCamera.camera;
+      this.#scene.activeCamera = this.#camera;
+    }
     this.#actors.setPresentationMode(mode);
     this.#environment.setPresentationMode?.(mode);
-    if (mode === "world") {
-      if (this.#reviewCamera !== null) {
-        this.#reviewCamera.resize?.();
-        this.#camera = this.#reviewCamera.camera;
-        this.#scene.activeCamera = this.#camera;
-      } else if (this.#arenaKey !== "") this.#replaceCamera(this.#arenaWidth, this.#arenaHeight);
-    } else this.#applyPresentationCamera();
+    this.#applyPresentationCamera();
   }
 
   setReviewCameraFree(free: boolean): void {
     this.#assertLive();
-    if (free && this.#presentationMode === "tactical") {
-      throw new Error("free review camera is unavailable in Tactical view");
+    if (free) {
+      this.setPresentationMode("free");
+      return;
     }
-    if (this.#reviewCamera === null) throw new Error("representative room review camera is unavailable");
-    this.#reviewCamera.setFree(free);
-    this.#camera = this.#reviewCamera.camera;
-    this.#scene.activeCamera = this.#camera;
+    if (this.#presentationMode === "free") this.setPresentationMode("world");
+    else this.#reviewCamera?.setFree(false);
   }
 
   acceptSnapshot(snapshot: PresentationSnapshot, receivedAtMs: number): void {
@@ -223,6 +227,12 @@ export class GreyboxRenderer {
     this.#actors.reset();
     this.#transients.reset();
     this.#environment.reset();
+    this.#reviewCamera?.resetFixed?.();
+    if (this.#reviewCamera !== null) {
+      this.#camera = this.#reviewCamera.camera;
+      this.#scene.activeCamera = this.#camera;
+    }
+    this.#hero = null;
     this.#epoch = null;
     this.#tick = null;
   }
@@ -340,13 +350,14 @@ export class GreyboxRenderer {
     const sample = this.#timeline.sample(this.#now());
     if (sample !== null) {
       this.#actors.acceptSnapshot(sample.snapshot);
+      this.#hero = sample.snapshot.units.find((unit) => unit.faction === 0 && unit.visible) ?? null;
       if (this.#reviewCamera?.follow !== undefined) {
         // Faction 0 is the hero; AGENTS.md guarantees exactly one.
         const hero = sample.snapshot.units.find((unit) => unit.faction === 0);
         if (hero !== undefined) this.#reviewCamera.follow(hero.x, hero.y);
       }
       this.#applyPresentationCamera();
-      const hero = sample.snapshot.units.find((unit) => unit.faction === 0 && unit.visible);
+      const hero = this.#hero;
       this.#camera.getViewMatrix(true);
       const viewport = new Viewport(0, 0,
         this.#handle.engine.getRenderWidth(), this.#handle.engine.getRenderHeight());
@@ -354,7 +365,7 @@ export class GreyboxRenderer {
         const screen = Vector3.Project(new Vector3(point.x, point.y, point.z),
           Matrix.IdentityReadOnly, this.#scene.getTransformMatrix(), viewport);
         return Object.freeze({ x: screen.x, y: screen.y, depth: screen.z });
-      }, hero === undefined ? null : { x: hero.x, z: hero.y });
+      }, hero === null ? null : { x: hero.x, z: hero.y });
     }
     this.#scene.render();
     const debug = this.#debug.snapshot();
@@ -403,16 +414,31 @@ export class GreyboxRenderer {
   }
 
   #applyPresentationCamera(): void {
-    if (this.#presentationMode !== "tactical" || this.#arenaKey === "") return;
+    if (this.#arenaKey === "" || this.#presentationMode === "world" ||
+        this.#presentationMode === "geometry" || this.#presentationMode === "free") return;
     const camera = this.#camera as Camera & {
       getTarget?(): Vector3;
       setTarget?(target: Vector3): void;
       position: Vector3;
     };
-    const target = camera.getTarget?.().clone() ?? new Vector3(this.#panX, 0, this.#panY);
+    const hero = this.#hero;
+    const target = hero === null
+      ? camera.getTarget?.().clone() ?? new Vector3(this.#panX, 0, this.#panY)
+      : new Vector3(hero.x, 0, hero.y);
     target.y = 0;
+    if (this.#presentationMode === "first_person" && hero !== null) {
+      camera.mode = Camera.PERSPECTIVE_CAMERA;
+      camera.minZ = 0.02;
+      camera.fov = Math.PI / 2;
+      const eye = Math.max(1.1, hero.radius * 3.1);
+      camera.position.set(hero.x, eye, hero.y);
+      camera.setTarget?.(new Vector3(
+        hero.x + Math.cos(hero.facing), eye - 0.12, hero.y + Math.sin(hero.facing)));
+      return;
+    }
+    camera.mode = Camera.ORTHOGRAPHIC_CAMERA;
     const distance = Math.max(this.#arenaWidth, this.#arenaHeight);
-    camera.position.set(target.x, distance, target.z);
+    camera.position.set(target.x, distance, target.z + 0.0001);
     camera.setTarget?.(target);
   }
 

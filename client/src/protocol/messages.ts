@@ -36,6 +36,8 @@ export type AdvanceMessage = { kind: "advance"; version: ProtocolVersion; reques
 export type LegacyClientCommand =
   | { kind: "goto"; xMilli: number; yMilli: number }
   | { kind: "withdraw" }
+  | { kind: "setControl"; mask: number }
+  | { kind: "setInput"; moveXMilli: number; moveYMilli: number; aimRaw: number; reachMilli: number; slot: number; strike: number; turnMilli: number }
   | { kind: "spawn"; kindCode: number; primary: number; secondary: number };
 export type CommandMessage = {
   kind: "command"; version: ProtocolVersion; requestId: number; epoch: number;
@@ -99,10 +101,12 @@ export type SnapshotMessage = {
   bufferId: BufferId; leaseToken: number;
   frameLayoutVersion: number; headerLength: number; unitStride: number;
   shotStride: number; eventStride: number; furnitureStride: number;
+  dungeonObjectLayoutVersion: number; dungeonObjectStride: number;
   frameLength: number; mapLength: number; visLength: number;
-  furnitureLength: number; mapCols: number; mapRows: number;
+  furnitureLength: number; dungeonObjectLength: number; dungeonObjectsDropped: number;
+  mapCols: number; mapRows: number;
   mapTileSizeMilli: number; mapRevision: number; visRevision: number;
-  furnitureRevision: number;
+  furnitureRevision: number; dungeonObjectRevision: number;
   poolAllocationsTotal: 3; buffersFree: number; buffersOutstanding: number;
   queuedCommands: number; buffer: ArrayBuffer;
 };
@@ -266,6 +270,14 @@ function requestIdOf(value: Record<string, unknown>): number | null {
 function decodeCommand(value: unknown): LegacyClientCommand | null {
   if (!isRecord(value) || typeof value.kind !== "string") return null;
   if (value.kind === "withdraw") return { kind: "withdraw" };
+  if (value.kind === "setControl" && isU32(value.mask)) return { kind: "setControl", mask: value.mask };
+  if (value.kind === "setInput" && isI32(value.moveXMilli) && isI32(value.moveYMilli)
+      && isU32(value.aimRaw) && isI32(value.reachMilli) && isU32(value.slot) && isU32(value.strike)
+      && isI32(value.turnMilli)) {
+    return { kind: "setInput", moveXMilli: value.moveXMilli, moveYMilli: value.moveYMilli,
+      aimRaw: value.aimRaw, reachMilli: value.reachMilli, slot: value.slot, strike: value.strike,
+      turnMilli: value.turnMilli };
+  }
   if (value.kind === "goto" && isI32(value.xMilli) && isI32(value.yMilli)) {
     return { kind: "goto", xMilli: value.xMilli, yMilli: value.yMilli };
   }

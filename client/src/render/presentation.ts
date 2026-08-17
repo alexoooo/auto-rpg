@@ -1,4 +1,8 @@
 import {
+  DUNGEON_OBJECT_HALF_X_RAW, DUNGEON_OBJECT_HALF_Y_RAW, DUNGEON_OBJECT_HP_RAW,
+  DUNGEON_OBJECT_IDENTITY, DUNGEON_OBJECT_KIND, DUNGEON_OBJECT_MATERIAL_CODE,
+  DUNGEON_OBJECT_MAX_HP_RAW, DUNGEON_OBJECT_PROGRESS_RAW, DUNGEON_OBJECT_STATE_FLAGS,
+  DUNGEON_OBJECT_STRIDE, DUNGEON_OBJECT_X_RAW, DUNGEON_OBJECT_Y_RAW, DUNGEON_OBJECT_YAW_RAW,
   EVENT_ACTOR_INDEX, EVENT_AMOUNT, EVENT_AUX0, EVENT_AUX1, EVENT_KIND, EVENT_OTHER_INDEX,
   EVENT_STRIDE, EVENT_X, EVENT_Y, FURNITURE_KIND, FURNITURE_STATE, FURNITURE_STRIDE,
   FURNITURE_TX, FURNITURE_TY, HEADER_EVENT_COUNT, HEADER_LEN, HEADER_SHOT_COUNT,
@@ -48,17 +52,24 @@ export type PresentationFurniture = Readonly<{
   key: string; kind: number; tx: number; ty: number; state: number;
 }>;
 
+export type PresentationDungeonObject = Readonly<{
+  key: string; kind: number; identity: number; stateFlags: number;
+  x: number; y: number; yawRaw: number; halfX: number; halfY: number;
+  hp: number; maxHp: number; progress: number; materialCode: number;
+}>;
+
 export type PresentationSnapshot = Readonly<{
   epoch: number; tick: number; mapCols: number; mapRows: number; tileSize: number;
-  mapRevision: number; visRevision: number; furnitureRevision: number;
+  mapRevision: number; visRevision: number; furnitureRevision: number; dungeonObjectRevision: number;
   map: readonly number[]; vis: readonly number[];
   units: readonly PresentationUnit[]; shots: readonly PresentationShot[];
   events: readonly PresentationEvent[]; furniture: readonly PresentationFurniture[];
+  dungeonObjects: readonly PresentationDungeonObject[];
 }>;
 
 export type PresentationMetadata = Pick<SnapshotMessage,
   "epoch" | "tick" | "mapCols" | "mapRows" | "mapTileSizeMilli" |
-  "mapRevision" | "visRevision" | "furnitureRevision">;
+  "mapRevision" | "visRevision" | "furnitureRevision" | "dungeonObjectRevision">;
 
 export function copyPresentationSnapshot(message: PresentationMetadata, view: SnapshotView): PresentationSnapshot {
   const frame = view.frame;
@@ -135,12 +146,35 @@ export function copyPresentationSnapshot(message: PresentationMetadata, view: Sn
     }));
   }
 
+  const fixed = (word: number): number => (word | 0) / 65536;
+  const dungeonObjects: PresentationDungeonObject[] = [];
+  for (let row = 0; row * DUNGEON_OBJECT_STRIDE < view.dungeonObjects.length; row++) {
+    const at = row * DUNGEON_OBJECT_STRIDE;
+    const identity = valueAt(view.dungeonObjects, at + DUNGEON_OBJECT_IDENTITY);
+    dungeonObjects.push(frozen({
+      key: `object:${identity}`,
+      kind: valueAt(view.dungeonObjects, at + DUNGEON_OBJECT_KIND), identity,
+      stateFlags: valueAt(view.dungeonObjects, at + DUNGEON_OBJECT_STATE_FLAGS),
+      x: fixed(valueAt(view.dungeonObjects, at + DUNGEON_OBJECT_X_RAW)),
+      y: fixed(valueAt(view.dungeonObjects, at + DUNGEON_OBJECT_Y_RAW)),
+      yawRaw: valueAt(view.dungeonObjects, at + DUNGEON_OBJECT_YAW_RAW),
+      halfX: fixed(valueAt(view.dungeonObjects, at + DUNGEON_OBJECT_HALF_X_RAW)),
+      halfY: fixed(valueAt(view.dungeonObjects, at + DUNGEON_OBJECT_HALF_Y_RAW)),
+      hp: fixed(valueAt(view.dungeonObjects, at + DUNGEON_OBJECT_HP_RAW)),
+      maxHp: fixed(valueAt(view.dungeonObjects, at + DUNGEON_OBJECT_MAX_HP_RAW)),
+      progress: fixed(valueAt(view.dungeonObjects, at + DUNGEON_OBJECT_PROGRESS_RAW)),
+      materialCode: valueAt(view.dungeonObjects, at + DUNGEON_OBJECT_MATERIAL_CODE),
+    }));
+  }
+
   return frozen({
     epoch: message.epoch, tick: message.tick, mapCols: message.mapCols, mapRows: message.mapRows,
     tileSize: message.mapTileSizeMilli / MAP_TILE_MILLI,
     mapRevision: message.mapRevision, visRevision: message.visRevision,
     furnitureRevision: message.furnitureRevision,
+    dungeonObjectRevision: message.dungeonObjectRevision,
     map: frozen(Array.from(view.map)), vis: frozen(Array.from(view.vis)),
     units: frozen(units), shots: frozen(shots), events: frozen(events), furniture: frozen(furniture),
+    dungeonObjects: frozen(dungeonObjects),
   });
 }

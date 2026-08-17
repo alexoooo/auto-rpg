@@ -15,7 +15,7 @@ authorities below, not a progress ledger.
 
 | work | state | dependency | hash expectation |
 |---|---|---|---|
-| [Visual production recovery](visual-recovery-00-overview.md) | planned from the failing 2026-08-17 owner screenshot | stable presentation contracts, authored assets, then foreground acceptance | no simulation hash moves; asset pins move only in declared asset sessions |
+| [Concept production](concept-production-00-overview.md) | active after the owner rejected the visual-recovery result | controls/cameras, filled architecture, production assets, physical objects, then foreground acceptance | session 05 moves only the four generated-dungeon browser hashes; asset sessions move declared asset pins |
 | [Smart articulated combat](smart-ai-00-overview.md) | Smart134 is durable history; [Smart133](smart-ai-133-ordinal-31-tick-46-segment-hilt-start-x.md) remains paused research, not a release prerequisite | any successor needs a separately approved causal question | no production pin moves without a fixture-owned prediction |
 | [Hierarchical combat learning](hierarchical-ai-00-overview.md) | proposed research successor | first prove fixed `(loadout, strategy)` options have context-dependent headroom on a mechanically productive corpus | native research moves no pins; promotion is separately gated |
 | Visible browser evidence | blocked on a person using a foreground tab | follow the [arena matrix](../performance/v2-arena-matrix.md) and [room matrix](../performance/v2-room-matrix.md) | no hashes move |

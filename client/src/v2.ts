@@ -57,6 +57,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
   const status = find<HTMLOutputElement>("status");
   const partyHealth = find<HTMLOutputElement>("party-health");
   const partyHealthBar = find<HTMLProgressElement>("party-health-bar");
+  const respawnButton = find<HTMLButtonElement>("respawn");
   const errorOutput = find<HTMLOutputElement>("error");
   const diagnosticsOutput = find<HTMLPreElement>("diagnostics");
   const pauseButton = find<HTMLButtonElement>("pause");
@@ -75,6 +76,10 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
   const roomCameraButton = find<HTMLButtonElement>("room-camera-toggle");
   const frameMeterOutput = find<HTMLOutputElement>("game-fps");
   const viewModeButton = find<HTMLButtonElement>("game-view-mode");
+  const movementButton = find<HTMLButtonElement>("control-movement");
+  const actionButton = find<HTMLButtonElement>("control-action");
+  const aimButton = find<HTMLButtonElement>("control-aim");
+  const slotButtons = [find<HTMLButtonElement>("slot-1"), find<HTMLButtonElement>("slot-2")] as const;
   // The route's own query, handed down by the shell. `location.search` is empty under
   // hash routing, so reading it here would silently see none of these options.
   const stressParameter = params.get("stress");
@@ -133,6 +138,9 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
   let disposed = false;
   const frameMeter = new GameFrameMeter();
   let presentationMode: PresentationMode = "world";
+  let acceptedControlMask = 0;
+  let aimEnabled = true;
+  let selectedSlot = 0;
   const captureControls = new CaptureControls({
     now: () => performance.now(),
     schedule: (callback, intervalMs) => window.setInterval(callback, intervalMs),
@@ -168,8 +176,8 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
 
   const renderViewMode = (): void => {
     viewModeButton.textContent = presentationModeLabel(presentationMode);
-    viewModeButton.setAttribute("aria-pressed", String(presentationMode === "tactical"));
-    roomCameraButton.disabled = presentationMode === "tactical";
+    viewModeButton.setAttribute("aria-pressed", String(presentationMode !== "world"));
+    roomCameraButton.disabled = presentationMode !== "world" && presentationMode !== "free";
   };
 
   const setPresentationMode = (mode: PresentationMode): void => {
@@ -197,6 +205,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
     if (snapshot === null || snapshot === undefined) {
       partyHealth.value = "-- / --";
       partyHealthBar.value = 0;
+      respawnButton.hidden = true;
       return;
     }
     let health = 0;
@@ -212,6 +221,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
       ? label(Math.max(0, health)) + " / " + label(maximum) : "-- / --";
     partyHealthBar.value = maximum > 0
       ? Math.max(0, Math.min(1, health / maximum)) : 0;
+    respawnButton.hidden = snapshot.units.some((unit) => unit.faction === 0 && unit.hp > 0);
   };
 
   const showError = (error: unknown): void => {
@@ -244,27 +254,64 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
     }
     return application.command(command);
   };
+  const renderLiveControls = (): void => {
+    movementButton.setAttribute("aria-pressed", String((acceptedControlMask & 1) !== 0));
+    actionButton.setAttribute("aria-pressed", String((acceptedControlMask & 6) === 6));
+    aimButton.setAttribute("aria-pressed", String(aimEnabled));
+    slotButtons.forEach((button, slot) =>
+      button.setAttribute("aria-pressed", String(slot === selectedSlot)));
+  };
+  const setControlMask = async (requested: number): Promise<void> => {
+    if (client === null) throw new Error("simulation controls are unavailable");
+    const ack = await client.command({ kind: "setControl", mask: requested });
+    if (ack.status !== "applied" || ack.result === undefined) throw new Error("control mask was not applied");
+    acceptedControlMask = ack.result;
+    if ((acceptedControlMask & 1) === 0) input?.releaseMovement();
+    renderLiveControls();
+  };
+  const selectWeapon = async (slot: number): Promise<void> => {
+    selectedSlot = slot;
+    renderLiveControls();
+    if ((acceptedControlMask & 4) === 0) await setControlMask(acceptedControlMask | 4);
+    await submit({ kind: "setInput", moveXMilli: 0, moveYMilli: 0,
+      aimRaw: 0, reachMilli: aimEnabled ? 1000 : 0, slot, strike: 0, turnMilli: 0 });
+  };
 
   // Route handlers exist before bootstrap can send init to the worker.
   find<HTMLButtonElement>("reset").addEventListener("click", () => {
     run(() => requireApp().reset(integerFrom("seed", 0, 0xffff_ffff), latest?.paused), "Reset complete");
   });
+  respawnButton.addEventListener("click", () => {
+    run(() => requireApp().reset(integerFrom("seed", 0, 0xffff_ffff), false), "Respawned");
+  });
   pauseButton.addEventListener("click", () => {
     const paused = latest?.paused ?? false;
     run(() => requireApp().setPaused(!paused), paused ? "Running" : "Paused");
   });
-  find<HTMLButtonElement>("goto").addEventListener("click", () => {
-    run(() => submit({
-      kind: "goto",
-      xMilli: integerFrom("goto-x", -0x8000_0000, 0x7fff_ffff),
-      yMilli: integerFrom("goto-y", -0x8000_0000, 0x7fff_ffff),
-    }), "Goto applied");
+  movementButton.addEventListener("click", () => {
+    run(() => setControlMask(acceptedControlMask ^ 1), "Movement control changed");
   });
+  actionButton.addEventListener("click", () => {
+    run(() => setControlMask((acceptedControlMask & 6) === 6
+      ? acceptedControlMask & ~6 : acceptedControlMask | 6), "Action control changed");
+  });
+  aimButton.addEventListener("click", () => {
+    aimEnabled = !aimEnabled;
+    renderLiveControls();
+    status.value = aimEnabled ? "Aim enabled" : "Aim disabled";
+  });
+  slotButtons.forEach((button, slot) => button.addEventListener("click", () => {
+    run(() => selectWeapon(slot), "Slot " + (slot + 1) + " selected");
+  }));
   find<HTMLButtonElement>("withdraw").addEventListener("click", () => {
     run(() => submit({ kind: "withdraw" }), "Order cleared");
   });
   find<HTMLButtonElement>("spawn").addEventListener("click", () => {
-    run(() => submit({ kind: "spawn", kindCode: 2, primary: 0, secondary: 255 }), "Spawn applied");
+    run(() => submit({ kind: "spawn",
+      kindCode: integerFrom("spawn-kind", 1, 2),
+      primary: integerFrom("spawn-primary", 0, 255),
+      secondary: integerFrom("spawn-secondary", 0, 255),
+    }), "Enemy spawned");
   });
   roomCameraButton.addEventListener("click", () => {
     try {
@@ -499,6 +546,13 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
               gpu.scene, gpu.camera, gpu.canvas,
             )(event),
             submit: (command) => application.command(command),
+            aimEnabled: () => aimEnabled,
+            actionEnabled: () => (acceptedControlMask & 2) !== 0,
+            movementEnabled: () => (acceptedControlMask & 1) !== 0,
+            slot: () => selectedSlot,
+            selectSlot: (slot) => {
+              run(() => selectWeapon(slot), "Slot " + (slot + 1) + " selected");
+            },
             pan: (dx, dy) => gpu.pan(dx, dy),
             zoom: (delta) => gpu.zoom(delta),
             onError: showError,
@@ -514,6 +568,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
         },
         onError: showError,
       });
+      renderLiveControls();
       activeCanvas = app.renderer.canvas;
       if (representativeRoom && !canvasControl) {
         await (app.renderer as GreyboxRenderer).awaitAuthoredFrame();

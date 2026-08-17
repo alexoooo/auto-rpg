@@ -5,8 +5,10 @@ import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh.js";
 import "@babylonjs/core/Meshes/instancedMesh.js";
 import type { InstancedMesh } from "@babylonjs/core/Meshes/instancedMesh.js";
 import type { Material } from "@babylonjs/core/Materials/material.js";
+import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js";
 import type { Mesh } from "@babylonjs/core/Meshes/mesh.js";
-import { Color3 } from "@babylonjs/core/Maths/math.color.js";
+import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
+import { Color3, Color4 } from "@babylonjs/core/Maths/math.color.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import {
@@ -19,6 +21,7 @@ import type { PresentationMode } from "./presentation-mode.js";
 import { createTorchFlame, type TorchFlamePresentation } from "./room-flame.js";
 import { chooseRoomFloorVariant } from "./room-material-variants.js";
 import { chooseLocalWallCutaways, type RoomProjector } from "./room-occlusion.js";
+import { RoomObjectPresentation } from "./room-objects.js";
 import type { RoomPieceName } from "./room-asset-contract.js";
 import type { RoomAsset } from "./room-assets.js";
 
@@ -287,6 +290,7 @@ export class RoomEnvironmentPresentation {
   readonly #seed: number;
   readonly #key: DirectionalLight;
   readonly #shadows: ShadowGenerator;
+  readonly #objects: RoomObjectPresentation;
   readonly #remembered = new Set<Material>();
   readonly #rememberedSources = new Map<RoomPieceName, Mesh>();
   readonly #wallCapSources = new Map<string, Mesh>();
@@ -295,11 +299,17 @@ export class RoomEnvironmentPresentation {
   readonly #furniture: SpatialInstance[] = [];
   readonly #torchLights: PointLight[] = [];
   readonly #torchFlames: TorchFlamePresentation[] = [];
+  readonly #overburdenMaterial: StandardMaterial;
+  readonly #overburden: Mesh[] = [];
+  readonly #unknownRoof = new Map<string, Mesh>();
+  readonly #occlusionAlpha = new Map<string, number>();
   readonly #shadowCasters = new Set<AbstractMesh>();
   readonly #pickKeys = new Set<string>();
   readonly #furnitureKeys = new Set<string>();
   #geometryRevision = "";
   #furnitureRevision = "";
+  #objectRevision = "";
+  #overburdenRevision = "";
   #mode: PresentationMode = "world";
   #disposed = false;
 
@@ -308,6 +318,9 @@ export class RoomEnvironmentPresentation {
     this.#debug = debug;
     this.#asset = asset;
     this.#seed = fixtureSeed >>> 0;
+    this.#overburdenMaterial = new StandardMaterial("room:overburden-material", scene);
+    this.#overburdenMaterial.diffuseColor = new Color3(0.055, 0.045, 0.038);
+    this.#overburdenMaterial.specularColor = Color3.Black();
     let key: DirectionalLight | null = null;
     let shadows: ShadowGenerator | null = null;
     try {
@@ -319,6 +332,16 @@ export class RoomEnvironmentPresentation {
       tuneSurface(asset.materials.get("stone_current"), new Color3(1, 0.82, 0.64));
       tuneSurface(asset.materials.get("wood_current"), new Color3(0.30, 0.17, 0.09));
       tuneSurface(asset.materials.get("metal_current"), new Color3(0.24, 0.26, 0.30));
+      const wallSource = asset.pieces.get("wall_straight");
+      wallSource?.registerInstancedBuffer("color", 4);
+      const wallMaterial = wallSource?.material as Material & {
+        useVertexColors?: boolean; useVertexAlpha?: boolean; transparencyMode?: number;
+      } | null | undefined;
+      if (wallMaterial !== null && wallMaterial !== undefined) {
+        wallMaterial.useVertexColors = true;
+        wallMaterial.useVertexAlpha = true;
+        wallMaterial.transparencyMode = 2;
+      }
       for (const piece of ["floor_a", "floor_b", "wall_straight", "wall_inside", "wall_outside", "wall_end"] as const) {
         const source = asset.pieces.get(piece);
         const sourceMaterial = source?.material;
@@ -373,10 +396,12 @@ export class RoomEnvironmentPresentation {
       this.#wallCapSources.clear();
       for (const material of this.#remembered) material.dispose();
       this.#remembered.clear();
+      this.#overburdenMaterial.dispose();
       throw error;
     }
     this.#key = key;
     this.#shadows = shadows;
+    this.#objects = new RoomObjectPresentation(scene, shadows);
     this.#publishDebug();
   }
 
@@ -386,6 +411,7 @@ export class RoomEnvironmentPresentation {
     this.#assertLive();
     if (mode === this.#mode) return;
     this.#mode = mode;
+    this.#objects.setPresentationMode(mode);
     this.#applyPresentationMode();
     this.#publishDebug();
   }
@@ -418,12 +444,16 @@ export class RoomEnvironmentPresentation {
       const item = value as Record<string, unknown>;
       return `${String(item.key)}:${String(item.piece)}:${String(item.tx)}:${String(item.ty)}:${String(item.quarterTurns)}`;
     }).join("|") : "";
-    const furnitureRevision = `${geometryRevision}:${snapshot.furnitureRevision}:${decorationRevision}`;
+    const furnitureRevision = `${geometryRevision}:${snapshot.furnitureRevision}:` +
+      `${snapshot.dungeonObjectRevision}:${snapshot.dungeonObjects.length > 0}:${decorationRevision}`;
+    const objectRevision = `${snapshot.epoch}:${snapshot.visRevision}:${snapshot.dungeonObjectRevision}`;
     const geometryChanged = geometryRevision !== this.#geometryRevision;
     const furnitureChanged = furnitureRevision !== this.#furnitureRevision;
-    if (!geometryChanged && !furnitureChanged) return;
+    const objectsChanged = objectRevision !== this.#objectRevision;
+    if (!geometryChanged && !furnitureChanged && !objectsChanged) return;
     if (geometryChanged) {
       this.#clearGeometry();
+      this.#reconcileOverburden(snapshot);
       for (let ty = 0; ty < snapshot.mapRows; ty++) for (let tx = 0; tx < snapshot.mapCols; tx++) {
         const at = tileIndex(snapshot.mapCols, tx, ty);
         const visibility = snapshot.vis[at];
@@ -455,7 +485,10 @@ export class RoomEnvironmentPresentation {
     }
     if (furnitureChanged) {
       this.#clearFurniture();
-      const furniture = [...snapshot.furniture].sort((a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0);
+      const ownsPhysicalObjects = snapshot.dungeonObjects.length > 0;
+      const furniture = snapshot.furniture.filter((item) => !ownsPhysicalObjects ||
+        (item.kind !== FURNITURE_DOOR && item.kind !== FURNITURE_TORCH))
+        .sort((a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0);
       const doorKeys = new Set<string>();
       for (const run of chooseRoomDoorRuns(snapshot)) {
         for (const key of run.keys) doorKeys.add(key);
@@ -465,48 +498,66 @@ export class RoomEnvironmentPresentation {
       this.#addDecorations(snapshot);
       this.#furnitureRevision = furnitureRevision;
     }
+    if (objectsChanged) {
+      this.#objects.acceptSnapshot(snapshot);
+      this.#objectRevision = objectRevision;
+    }
     this.#applyPresentationMode();
     this.#publishDebug();
   }
 
   updateOcclusion(project: RoomProjector, hero: Readonly<{ x: number; z: number }> | null): void {
     this.#assertLive();
+    this.#objects.advanceMotion();
     const entries = [...this.#wallFaces.values()];
     const cutaways = hero === null ? new Set<string>() : chooseLocalWallCutaways(entries.map((entry) => {
       entry.mesh.computeWorldMatrix(true);
       return Object.freeze({ key: entry.key, corners: entry.mesh.getBoundingInfo().boundingBox.vectorsWorld });
     }), hero, project);
     for (const entry of entries) {
-      entry.mesh.scaling.y = ROOM_WALL_HEIGHT / 0.9 * (cutaways.has(entry.key) ? 0.42 : 1);
+      const target = cutaways.has(entry.key) ? 0.22 : 1;
+      const previous = this.#occlusionAlpha.get(entry.key) ?? 1;
+      const eased = target + (previous - target) * 0.72;
+      const alpha = Math.abs(eased - target) < 0.005 ? target : eased;
+      this.#occlusionAlpha.set(entry.key, alpha);
+      entry.mesh.instancedBuffers.color = new Color4(1, 1, 1, alpha);
+      entry.mesh.scaling.y = ROOM_WALL_HEIGHT / 0.9;
     }
   }
 
   counts(): RoomEnvironmentCounts {
     const geometry = this.#geometry.length;
-    const furniture = this.#mode === "world" ? this.#furnitureKeys.size : 0;
+    const fullArt = this.#mode !== "geometry" && this.#mode !== "dev";
+    const furniture = fullArt ? this.#furnitureKeys.size : 0;
     let triangles = 0;
     const topology = [...this.#geometry, ...this.#wallFaces.values()];
-    const visibleEntries = this.#mode === "world" ? [...topology, ...this.#furniture] : topology;
+    const visibleEntries = fullArt ? [...topology, ...this.#furniture] : topology;
     for (const entry of visibleEntries) {
       triangles += this.#asset.sidecar.pieces.find((piece) => piece.name === entry.piece)?.triangleCount ?? 0;
     }
+    const objects = this.#objects.counts();
     return Object.freeze({
-      geometry: geometry + this.#wallFaces.size, furniture, instances: visibleEntries.length,
-      lights: 1 + (this.#mode === "world" ? this.#torchLights.length : 0),
-      shadowCasters: this.#shadowCasters.size, triangles,
+      geometry: geometry + this.#wallFaces.size, furniture: furniture + objects.objects,
+      instances: visibleEntries.length + objects.meshes,
+      lights: 1 + (fullArt ? this.#torchLights.length : 0) + objects.lights,
+      shadowCasters: this.#shadowCasters.size + objects.shadows, triangles: triangles + objects.triangles,
     });
   }
 
   keys(): readonly string[] { return Object.freeze(
-    [...this.#geometry, ...this.#wallFaces.values(), ...this.#furniture].map((entry) => entry.key)); }
+    [...this.#geometry, ...this.#wallFaces.values(), ...this.#furniture].map((entry) => entry.key)
+      .concat(this.#objects.keys())); }
 
   reset(): void {
     this.#assertLive();
     this.#clearGeometry();
     this.#clearWallFaces();
+    this.#clearOverburden();
     this.#clearFurniture();
+    this.#objects.reset();
     this.#geometryRevision = "";
     this.#furnitureRevision = "";
+    this.#objectRevision = "";
     this.#publishDebug();
   }
 
@@ -514,7 +565,9 @@ export class RoomEnvironmentPresentation {
     if (this.#disposed) return;
     this.#clearGeometry();
     this.#clearWallFaces();
+    this.#clearOverburden();
     this.#clearFurniture();
+    this.#objects.dispose();
     this.#shadows.dispose();
     this.#key.dispose();
     for (const source of this.#rememberedSources.values()) source.dispose();
@@ -523,6 +576,7 @@ export class RoomEnvironmentPresentation {
     this.#wallCapSources.clear();
     for (const material of this.#remembered) material.dispose();
     this.#remembered.clear();
+    this.#overburdenMaterial.dispose();
     this.#debug.removeOwner("room-environment");
     this.#disposed = true;
   }
@@ -677,6 +731,64 @@ export class RoomEnvironmentPresentation {
     }
   }
 
+  #reconcileOverburden(snapshot: PresentationSnapshot): void {
+    const revision = `${snapshot.mapCols}:${snapshot.mapRows}:${snapshot.tileSize}`;
+    const tileSize = this.#asset.sidecar.coordinates.tileSize;
+    if (revision !== this.#overburdenRevision) {
+      this.#clearOverburden();
+      const width = snapshot.mapCols * tileSize;
+      const depth = snapshot.mapRows * tileSize;
+      const centreX = width / 2;
+      const centreZ = depth / 2;
+      const margin = Math.max(12, Math.min(width, depth) * 0.42);
+      const ground = MeshBuilder.CreateGround("room:overburden:ground", {
+        width: width + margin * 2, height: depth + margin * 2, subdivisions: 1,
+      }, this.#scene);
+      ground.position.set(centreX, -0.16, centreZ);
+      ground.material = this.#overburdenMaterial;
+      ground.isPickable = false;
+      ground.receiveShadows = true;
+      this.#overburden.push(ground);
+
+      const cliffThickness = Math.max(3.2, tileSize * 3.2);
+      const cliffHeight = 2.4;
+      const addCliff = (side: string, x: number, z: number, cliffWidth: number, cliffDepth: number): void => {
+        const cliff = MeshBuilder.CreateBox(`room:overburden:cliff:${side}`, {
+          width: cliffWidth, height: cliffHeight, depth: cliffDepth,
+        }, this.#scene);
+        cliff.position.set(x, -cliffHeight / 2 - 0.1, z);
+        cliff.material = this.#overburdenMaterial;
+        cliff.isPickable = false;
+        cliff.receiveShadows = true;
+        this.#overburden.push(cliff);
+      };
+      addCliff("north", centreX, -cliffThickness / 2, width + cliffThickness * 2, cliffThickness);
+      addCliff("east", width + cliffThickness / 2, centreZ, cliffThickness, depth);
+      addCliff("south", centreX, depth + cliffThickness / 2, width + cliffThickness * 2, cliffThickness);
+      addCliff("west", -cliffThickness / 2, centreZ, cliffThickness, depth);
+      this.#overburdenRevision = revision;
+    }
+    const wanted = new Set<string>();
+    for (let ty = 0; ty < snapshot.mapRows; ty++) for (let tx = 0; tx < snapshot.mapCols; tx++) {
+      if (snapshot.vis[tileIndex(snapshot.mapCols, tx, ty)] !== 0) continue;
+      const key = `${tx}:${ty}`;
+      wanted.add(key);
+      if (this.#unknownRoof.has(key)) continue;
+      const roof = MeshBuilder.CreateBox(`room:overburden:roof:${key}`, {
+        width: tileSize * 1.06, height: 0.22, depth: tileSize * 1.06,
+      }, this.#scene);
+      roof.position.set((tx + 0.5) * tileSize, 0.01, (ty + 0.5) * tileSize);
+      roof.material = this.#overburdenMaterial;
+      roof.isPickable = false;
+      roof.receiveShadows = false;
+      this.#unknownRoof.set(key, roof);
+    }
+    for (const [key, roof] of this.#unknownRoof) if (!wanted.has(key)) {
+      roof.dispose();
+      this.#unknownRoof.delete(key);
+    }
+  }
+
   #reconcileWallFaces(snapshot: PresentationSnapshot): void {
     const wanted = new Map(chooseRoomWallFaces(snapshot).map((face) => [face.key, face]));
     for (const [key, entry] of this.#wallFaces) if (!wanted.has(key)) {
@@ -695,9 +807,12 @@ export class RoomEnvironmentPresentation {
           "wall_straight", face.tx, face.ty, quarterTurns, true, false, false,
           offsetX, offsetZ);
         mesh.scaling.y = ROOM_WALL_HEIGHT / 0.9;
+        mesh.scaling.z = 3.2;
+        mesh.instancedBuffers.color = new Color4(1, 1, 1, 1);
         entry = created[0];
         if (entry === undefined) throw new Error("room wall face instance was not created");
         this.#wallFaces.set(face.key, entry);
+        this.#occlusionAlpha.set(face.key, 1);
       }
       this.#setWallVisibility(entry, face.visibility);
     }
@@ -766,6 +881,14 @@ export class RoomEnvironmentPresentation {
   #clearWallFaces(): void {
     for (const entry of this.#wallFaces.values()) this.#disposeEntry(entry);
     this.#wallFaces.clear();
+    this.#occlusionAlpha.clear();
+  }
+
+  #clearOverburden(): void {
+    for (const roof of this.#unknownRoof.values()) roof.dispose();
+    this.#unknownRoof.clear();
+    for (const mesh of this.#overburden.splice(0)) mesh.dispose();
+    this.#overburdenRevision = "";
   }
 
   #clearFurniture(): void {
@@ -776,17 +899,22 @@ export class RoomEnvironmentPresentation {
   }
 
   #applyPresentationMode(): void {
-    const world = this.#mode === "world";
-    for (const entry of this.#furniture) entry.mesh.setEnabled(world);
-    for (const flame of this.#torchFlames) for (const mesh of flame.meshes) mesh.setEnabled(world);
-    for (const light of this.#torchLights) light.setEnabled(world);
+    const fullArt = this.#mode !== "geometry" && this.#mode !== "dev";
+    for (const entry of this.#furniture) entry.mesh.setEnabled(fullArt);
+    for (const flame of this.#torchFlames) for (const mesh of flame.meshes) mesh.setEnabled(fullArt);
+    for (const light of this.#torchLights) light.setEnabled(fullArt);
     this.#shadowCasters.clear();
     for (const entry of [...this.#geometry, ...this.#wallFaces.values()]) {
-      if (entry.current) this.#shadowCasters.add(entry.mesh);
+      if (entry.current) {
+        this.#shadowCasters.add(entry.mesh);
+        this.#shadows.addShadowCaster(entry.mesh, false);
+      } else {
+        this.#shadows.removeShadowCaster(entry.mesh, false);
+      }
     }
     for (const entry of this.#furniture) {
       this.#shadows.removeShadowCaster(entry.mesh, false);
-      if (world && entry.current) {
+      if (fullArt && entry.current) {
         this.#shadowCasters.add(entry.mesh);
         this.#shadows.addShadowCaster(entry.mesh, false);
       }
@@ -795,19 +923,22 @@ export class RoomEnvironmentPresentation {
 
   #publishDebug(): void {
     const counts = this.counts();
-    const entries = this.#mode === "world"
+    const fullArt = this.#mode !== "geometry" && this.#mode !== "dev";
+    const entries = fullArt
       ? [...this.#geometry, ...this.#wallFaces.values(), ...this.#furniture]
       : [...this.#geometry, ...this.#wallFaces.values()];
     const sourceGroups = new Set(entries
       .map((entry) => entry.mesh.sourceMesh.name));
-    const flames = this.#mode === "world" ? this.#torchFlames.flatMap((flame) => flame.meshes) : [];
+    const flames = fullArt ? this.#torchFlames.flatMap((flame) => flame.meshes) : [];
     const flameTriangles = flames.reduce((sum, flame) => sum + flame.getTotalIndices() / 3, 0);
+    const objects = this.#objects.counts();
     this.#debug.replaceOwnerCounts("room-environment", {
       scene: { meshes: flames.length, instances: counts.instances,
-        draws: sourceGroups.size + flames.length,
+        draws: sourceGroups.size + flames.length + objects.meshes,
         triangles: counts.triangles + flameTriangles, lights: counts.lights, shadowCasters: counts.shadowCasters },
       visibility: { geometry: counts.geometry, furniture: counts.furniture,
-        effects: flames.length, picking: this.#pickKeys.size, debug: this.#pickKeys.size },
+        effects: flames.length, picking: this.#pickKeys.size + objects.picks,
+        debug: this.#pickKeys.size + objects.picks },
     });
   }
 

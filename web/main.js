@@ -3748,7 +3748,8 @@ function pushInput(state) {
     // the flank a guard is not on is much harder to answer -- but it is a
     // decision that wants its own control, and one the page does not have a
     // spare button for yet.
-    strikeCommand(state.hero)
+    strikeCommand(state.hero),
+    0
   );
 }
 

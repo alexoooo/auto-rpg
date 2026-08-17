@@ -1,17 +1,20 @@
 import { PointLight } from "@babylonjs/core/Lights/pointLight.js";
+import { Camera } from "@babylonjs/core/Cameras/camera.js";
 import "@babylonjs/core/Meshes/instancedMesh.js";
 import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import type { InstancedMesh } from "@babylonjs/core/Meshes/instancedMesh.js";
-import type { Mesh } from "@babylonjs/core/Meshes/mesh.js";
+import { Mesh } from "@babylonjs/core/Meshes/mesh.js";
+import { VertexData } from "@babylonjs/core/Meshes/mesh.vertexData.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import type { ShadowGenerator } from "@babylonjs/core/Lights/Shadows/shadowGenerator.js";
 import { EVENT_DAMAGE, EVENT_DEATH, EVENT_SHOVE } from "../protocol/abi.generated.js";
 import type { RendererDebugRegistry } from "./debug.js";
 import {
-  combatantMeshRole, copyCombatantRigPose, instantiateCombatantDress, type CombatantDress,
+  combatantLodForProjectedHeight, combatantMeshRole, copyCombatantRigPose,
+  instantiateCombatantDress, type CombatantDress,
 } from "./combatant-dress.js";
 import type { CombatantAsset } from "./combatant-assets.js";
 import {
@@ -49,13 +52,58 @@ const ACTION_SHORTSWORD = 7;
 // Keeping this as one shared presentation constant avoids sampling meshes in the
 // per-frame pose path and keeps the cue independent of texture/visibility state.
 export const AUTHORED_FLOOR_MAX_Y = 0.08;
-export const FACTION_CUE_THICKNESS_RADII = 0.11;
 export const FACTION_CUE_CLEARANCE_EPSILON = 0.004;
+export const FACTION_CUE_DEPTH_BIAS = -2;
+const FACTION_CUE_OUTER_RADIUS = 1.35;
+const FACTION_CUE_INNER_RADIUS = 1.27;
+const FACTION_CUE_SEGMENTS = 48;
 
-export function factionCueCentreY(bodyRadius: number): number {
-  return AUTHORED_FLOOR_MAX_Y +
-    FACTION_CUE_THICKNESS_RADII * bodyRadius / 2 +
-    FACTION_CUE_CLEARANCE_EPSILON;
+export function factionCueCentreY(): number {
+  return AUTHORED_FLOOR_MAX_Y + FACTION_CUE_CLEARANCE_EPSILON;
+}
+
+function projectedStandingHeight(scene: Scene, position: Vector3, standingHeight: number): number {
+  const camera = scene.activeCamera;
+  if (camera === null || camera === undefined) return 0;
+  const viewportHeight = scene.getEngine().getRenderHeight() * camera.viewport.height;
+  if (camera.mode === Camera.ORTHOGRAPHIC_CAMERA && camera.orthoTop !== null &&
+      camera.orthoBottom !== null) {
+    return standingHeight / Math.max(0.0001, camera.orthoTop - camera.orthoBottom) * viewportHeight;
+  }
+  const distance = Math.max(0.0001, Vector3.Distance(camera.globalPosition, position));
+  return standingHeight / (2 * distance * Math.tan(camera.fov / 2)) * viewportHeight;
+}
+
+function createGroundMarkerSource(name: string, scene: Scene): Mesh {
+  const positions: number[] = [];
+  const normals: number[] = [];
+  const uvs: number[] = [];
+  const indices: number[] = [];
+  for (let index = 0; index < FACTION_CUE_SEGMENTS; index++) {
+    const angle = index / FACTION_CUE_SEGMENTS * Math.PI * 2;
+    const x = Math.cos(angle);
+    const z = Math.sin(angle);
+    positions.push(x * FACTION_CUE_OUTER_RADIUS, 0, z * FACTION_CUE_OUTER_RADIUS,
+      x * FACTION_CUE_INNER_RADIUS, 0, z * FACTION_CUE_INNER_RADIUS);
+    normals.push(0, 1, 0, 0, 1, 0);
+    uvs.push((x + 1) / 2, (z + 1) / 2, (x + 1) / 2, (z + 1) / 2);
+  }
+  for (let index = 0; index < FACTION_CUE_SEGMENTS; index++) {
+    const next = (index + 1) % FACTION_CUE_SEGMENTS;
+    const outer = index * 2;
+    const inner = outer + 1;
+    const nextOuter = next * 2;
+    const nextInner = nextOuter + 1;
+    indices.push(outer, nextOuter, inner, nextOuter, nextInner, inner);
+  }
+  const mesh = new Mesh(name, scene);
+  const data = new VertexData();
+  data.positions = positions;
+  data.normals = normals;
+  data.uvs = uvs;
+  data.indices = indices;
+  data.applyToMesh(mesh, true);
+  return mesh;
 }
 
 export class ActorPresentation {
@@ -71,6 +119,7 @@ export class ActorPresentation {
   readonly #audio = new Set<string>();
   readonly #picking = new Set<string>();
   readonly #debugRecords = new Set<string>();
+  readonly #firstPersonHidden = new Set<Mesh>();
   #mode: PresentationMode = "world";
 
   constructor(
@@ -127,12 +176,13 @@ export class ActorPresentation {
     }
     this.#mode = mode;
     for (const node of this.#nodes.values()) {
-      node.figure.root.setEnabled(node.dress === null || mode === "tactical");
-      if (mode === "tactical") {
+      const diagnostic = mode === "geometry" || mode === "dev";
+      node.figure.root.setEnabled(node.dress === null || diagnostic);
+      if (diagnostic) {
         for (const part of node.figure.parts) part.setEnabled(true);
         poseFigure(node.figure, node.unit);
       }
-      node.dress?.setEnabled(mode === "world");
+      this.#applyDressMode(node, true);
       for (const part of this.#allBodyParts(node)) part.isPickable = false;
       if (this.#picking.has(node.key)) for (const part of this.#bodyParts(node)) part.isPickable = true;
       if (node.shadow) for (const part of this.#bodyParts(node)) this.#shadows?.addShadowCaster(part);
@@ -178,11 +228,9 @@ export class ActorPresentation {
     material.specularColor = Color3.Black();
     material.disableLighting = true;
     material.alpha = 0.82;
-    const mesh = MeshBuilder.CreateTorus(
-      "actor-marker-source:" + faction + ":ring",
-      { diameter: 2.7, thickness: FACTION_CUE_THICKNESS_RADII, tessellation: 32 },
-      this.#scene,
-    );
+    material.backFaceCulling = false;
+    material.zOffset = FACTION_CUE_DEPTH_BIAS;
+    const mesh = createGroundMarkerSource("actor-marker-source:" + faction + ":ring", this.#scene);
     mesh.material = material;
     mesh.isVisible = false;
     mesh.isPickable = false;
@@ -208,7 +256,7 @@ export class ActorPresentation {
       try {
         dress = instantiateCombatantDress(this.#combatants, kind, `actor:${unit.key}:authored`);
         for (const part of figure.parts) part.setEnabled(false);
-        for (const part of dress.meshes.values()) {
+        for (const part of dress.allMeshes) {
           part.metadata = Object.freeze({ presentationKind: "unit", entityKey: unit.key });
         }
       } catch {
@@ -256,7 +304,7 @@ export class ActorPresentation {
   #pose(node: ActorNode, unit: PresentationUnit, snapshot: PresentationSnapshot): void {
     node.unit = unit;
     poseFigure(node.figure, unit);
-    node.ring.position.set(unit.x, factionCueCentreY(unit.radius), unit.y);
+    node.ring.position.set(unit.x, factionCueCentreY(), unit.y);
     node.ring.scaling.setAll(unit.radius);
     if (node.readabilityLight !== null) {
       const height = unit.radius * figureBodyHeightRadii(unit.kind);
@@ -268,14 +316,32 @@ export class ActorPresentation {
     }
     if (node.dress === null) return;
     const heightInRadii = figureBodyHeightRadii(unit.kind);
+    const standingHeight = unit.radius * heightInRadii;
+    const projected = projectedStandingHeight(
+      this.#scene, new Vector3(unit.x, standingHeight * 0.5, unit.y), standingHeight,
+    );
+    const wantedLod = this.#mode === "first_person"
+      ? "high" : combatantLodForProjectedHeight(projected);
+    if (node.dress.activeLod !== wantedLod) {
+      const authored = this.#mode !== "geometry" && this.#mode !== "dev";
+      if (node.shadow && authored) for (const mesh of node.dress.meshes.values()) {
+        this.#shadows?.removeShadowCaster(mesh);
+      }
+      node.dress.setLod(wantedLod);
+      if (node.shadow && authored) for (const mesh of node.dress.meshes.values()) {
+        this.#shadows?.addShadowCaster(mesh);
+      }
+    }
     node.dress.setEnabled(true);
     const loadout = [unit.slot0Action, unit.slot1Action];
     const armed = loadout.some((action) =>
       action === ACTION_KNIFE || action === ACTION_SWORD || action === ACTION_SHORTSWORD);
     const shielded = loadout.includes(ACTION_SHIELD);
-    for (const [semantic, mesh] of node.dress.meshes) {
+    for (const [semantic] of node.dress.meshes) {
       const role = combatantMeshRole(semantic);
-      mesh.setEnabled(role === "weapon" ? armed : role === "shield" ? shielded : true);
+      node.dress.setSemanticEnabled(
+        semantic, role === "weapon" ? armed : role === "shield" ? shielded : true,
+      );
     }
     const reaction = snapshot.events.some((event) => event.actorIndex === unit.index && event.kind === EVENT_DEATH)
       ? "fall"
@@ -294,8 +360,9 @@ export class ActorPresentation {
   }
 
   #applyPresence(node: ActorNode, decision: PresenceDecision): void {
-    node.figure.root.setEnabled(decision.render && (node.dress === null || this.#mode === "tactical"));
-    node.dress?.setEnabled(decision.render && this.#mode === "world");
+    const diagnostic = this.#mode === "geometry" || this.#mode === "dev";
+    node.figure.root.setEnabled(decision.render && (node.dress === null || diagnostic));
+    this.#applyDressMode(node, decision.render);
     node.ring.setEnabled(decision.render);
     node.readabilityLight?.setEnabled(decision.render);
     for (const part of this.#bodyParts(node)) part.isPickable = decision.pick;
@@ -324,6 +391,9 @@ export class ActorPresentation {
     // retirement the same one call the cylinder's was. A leaked part per death
     // would be a slow leak nothing else names, so the registry test counts
     // live meshes against the per-kind part table.
+    if (node.dress !== null) for (const mesh of node.dress.allMeshes) {
+      this.#firstPersonHidden.delete(mesh);
+    }
     node.dress?.dispose();
     node.figure.root.dispose(false);
     node.ring.dispose();
@@ -341,12 +411,29 @@ export class ActorPresentation {
   }
 
   #bodyParts(node: ActorNode): readonly import("@babylonjs/core/Meshes/abstractMesh.js").AbstractMesh[] {
-    return node.dress === null || this.#mode === "tactical"
+    return node.dress === null || this.#mode === "geometry" || this.#mode === "dev"
       ? node.figure.parts : [...node.dress.meshes.values()];
   }
 
+  #applyDressMode(node: ActorNode, render: boolean): void {
+    if (node.dress === null) return;
+    const authored = this.#mode !== "geometry" && this.#mode !== "dev";
+    if (this.#mode !== "first_person") for (const mesh of node.dress.meshes.values()) {
+      if (this.#firstPersonHidden.delete(mesh)) mesh.setEnabled(true);
+    }
+    node.dress.setEnabled(render && authored);
+    if (!render || !authored || this.#mode !== "first_person" || node.unit.faction !== 0) return;
+    for (const [semantic, mesh] of node.dress.meshes) {
+      const role = combatantMeshRole(semantic);
+      if ((role === "head" || role === "torso") && mesh.isEnabled()) {
+        this.#firstPersonHidden.add(mesh);
+        mesh.setEnabled(false);
+      }
+    }
+  }
+
   #allBodyParts(node: ActorNode): readonly import("@babylonjs/core/Meshes/abstractMesh.js").AbstractMesh[] {
-    return node.dress === null ? node.figure.parts : [...node.figure.parts, ...node.dress.meshes.values()];
+    return node.dress === null ? node.figure.parts : [...node.figure.parts, ...node.dress.allMeshes];
   }
 
   #toggle(registry: Set<string>, key: string, enabled: boolean): void {

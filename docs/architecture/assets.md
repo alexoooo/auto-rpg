@@ -80,10 +80,19 @@ snapshot rather than at an asset-specific correction.
 The v2 renderer creates snapshot-local transients and retains primitive room and unit
 sources as its explicit geometry control and bounded fallback. The default `#/game`
 route attempts the authored room and authored Fighter/Brute first. Unknown geometry
-has no instance; remembered known topology uses a separate material; and current
-furniture exists only while its disclosed record is present. This remains a visibility
+has no disclosed room instance: renderer-owned opaque roof blocks cover VIS 0 cells,
+and bounded ground and cliff geometry fill the outside-map frame. Remembered known
+topology uses a separate material; stable four-sided wall instances add runtime depth;
+and current furniture exists only while its disclosed record is present. This remains a visibility
 and renderer-boundary proof even when authored meshes hang from the same presentation
 identities.
+
+Physical dungeon objects are a separate renderer-owned path over
+`DUNGEON_OBJECT_V1`. Doors, torch assemblies, barrels, pottery, webs, water, and break
+debris are layered Babylon geometry with stable publication identity rather than new
+members of the pinned room GLB. Sparse blood, vines, loose bricks, and spiderwebs are
+bounded deterministic dressing: they have no pick, collision, Worker, replay, or hash
+representation.
 
 The representative route dynamically imports the pinned room loader only after the
 engine and Scene exist. It validates the root-hosted room `GLB` and semantic sidecar before

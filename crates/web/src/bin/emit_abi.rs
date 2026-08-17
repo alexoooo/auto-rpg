@@ -65,14 +65,14 @@ const FRAME_OFFSET: usize = 0;
 const MAP_OFFSET: usize = align4(FRAME_MAX * size_of::<f32>());
 const VIS_OFFSET: usize = MAP_OFFSET + MAP_MAX;
 const FURNITURE_OFFSET: usize = VIS_OFFSET + MAP_MAX;
-// **The snapshot ends at the furniture region, and the three articulated
+const DUNGEON_OBJECT_OFFSET: usize = align4(FURNITURE_OFFSET + FURNITURE_MAX * FURNITURE_STRIDE);
+// **The snapshot ends at the dungeon-object region, and the articulated
 // regions are deliberately not reserved.** v2-ui-07 was named here as the
 // session that would append them; it landed without doing it, and that was the
 // right call -- the recording it built is a channel of its own, transferred
 // whole, and this pool zero-fills, coalesces and has the wrong lifetime to
-// carry one. Reserving them takes this constant from 27,452 to 316,732 --
-// 289,280 bytes on each of three pooled buffers, and a zero-fill 11.5x wider on
-// a buffer `snapshot.ts` clears whole once per filtered publication -- while
+// carry one. Reserving them adds hundreds of kilobytes to each pooled buffer
+// and to the zero-fill `snapshot.ts` performs on every return -- while
 // nothing on the TypeScript side writes or reads a word of any of them. The
 // consumer that would is the *game* path's visibility-filtered articulated
 // copy, and no session owns it; a cost of that shape arrives with its consumer
@@ -81,12 +81,12 @@ const FURNITURE_OFFSET: usize = VIS_OFFSET + MAP_MAX;
 // them. `articulated-abi.md` records the decision beside the formula.
 //
 // **"Region" means two different things in this file and the collision is worth
-// naming.** A *snapshot* region is one of the four blocks below -- frame, map,
-// vis, furniture. An *anatomy* region is one of the five capsules the
+// naming.** A *snapshot* region is one of the five blocks below -- frame, map,
+// vis, furniture, dungeon objects. An *anatomy* region is one of the five capsules the
 // `REGION_*` offsets describe. Nothing here reserves a snapshot region for the
 // anatomy regions, which is the sentence that needs both meanings at once.
 const SNAPSHOT_BUFFER_BYTES: usize =
-    align4(FURNITURE_OFFSET + FURNITURE_MAX * FURNITURE_STRIDE);
+    align4(DUNGEON_OBJECT_OFFSET + MAX_DUNGEON_OBJECTS * DUNGEON_OBJECT_STRIDE * size_of::<u32>());
 
 fn generated() -> String {
     let mut output = String::from(
@@ -104,6 +104,8 @@ fn generated() -> String {
     emit!(SHOT_STRIDE);
     emit!(EVENT_STRIDE);
     emit!(FURNITURE_STRIDE);
+    emit!(DUNGEON_OBJECT_LAYOUT_VERSION);
+    emit!(DUNGEON_OBJECT_STRIDE);
     emit!(POSE_LAYOUT_VERSION);
     emit!(POSE_STRIDE);
     emit!(COMBAT_EVENT_LAYOUT_VERSION);
@@ -120,6 +122,7 @@ fn generated() -> String {
     emit!(FRAME_MAX);
     emit!(MAP_MAX);
     emit!(FURNITURE_MAX);
+    emit!(MAX_DUNGEON_OBJECTS);
     emit!(MAX_POSES);
     emit!(MAX_COMBAT_EVENTS);
     emit!(MAX_REGIONS);
@@ -129,6 +132,7 @@ fn generated() -> String {
     emit!(MAP_OFFSET);
     emit!(VIS_OFFSET);
     emit!(FURNITURE_OFFSET);
+    emit!(DUNGEON_OBJECT_OFFSET);
     emit!(SNAPSHOT_BUFFER_BYTES);
     output.push('\n');
     emit!(HEADER_ARENA_X);
@@ -223,6 +227,25 @@ fn generated() -> String {
     emit!(FURNITURE_DOOR_OPEN);
     emit!(TORCH_FACE_POS_X);
     emit!(TORCH_FACE_POS_Y);
+    output.push('\n');
+    emit!(DUNGEON_OBJECT_KIND);
+    emit!(DUNGEON_OBJECT_IDENTITY);
+    emit!(DUNGEON_OBJECT_STATE_FLAGS);
+    emit!(DUNGEON_OBJECT_X_RAW);
+    emit!(DUNGEON_OBJECT_Y_RAW);
+    emit!(DUNGEON_OBJECT_YAW_RAW);
+    emit!(DUNGEON_OBJECT_HALF_X_RAW);
+    emit!(DUNGEON_OBJECT_HALF_Y_RAW);
+    emit!(DUNGEON_OBJECT_HP_RAW);
+    emit!(DUNGEON_OBJECT_MAX_HP_RAW);
+    emit!(DUNGEON_OBJECT_PROGRESS_RAW);
+    emit!(DUNGEON_OBJECT_MATERIAL_CODE);
+    emit!(DUNGEON_OBJECT_DOOR);
+    emit!(DUNGEON_OBJECT_TORCH);
+    emit!(DUNGEON_OBJECT_BARREL);
+    emit!(DUNGEON_OBJECT_POTTERY);
+    emit!(DUNGEON_OBJECT_WEB);
+    emit!(DUNGEON_OBJECT_WATER);
     output.push('\n');
     emit!(POSE_ENTITY_INDEX);
     emit!(POSE_ENTITY_GENERATION);
@@ -377,17 +400,21 @@ mod tests {
         assert_eq!(MAP_OFFSET % 4, 0);
         assert_eq!(VIS_OFFSET % 4, 0);
         assert_eq!(FURNITURE_OFFSET % 4, 0);
+        assert_eq!(DUNGEON_OBJECT_OFFSET % 4, 0);
         assert_eq!(SNAPSHOT_BUFFER_BYTES % 4, 0);
 
         assert!(MAP_OFFSET >= FRAME_OFFSET + FRAME_MAX * size_of::<f32>());
         assert!(VIS_OFFSET >= MAP_OFFSET + MAP_MAX);
         assert!(FURNITURE_OFFSET >= VIS_OFFSET + MAP_MAX);
         let furniture_end = FURNITURE_OFFSET + FURNITURE_MAX * FURNITURE_STRIDE;
-        assert!(SNAPSHOT_BUFFER_BYTES >= furniture_end);
-        // **Four snapshot regions and no fifth**, which is the half of the name
+        assert!(DUNGEON_OBJECT_OFFSET >= furniture_end);
+        let dungeon_object_end = DUNGEON_OBJECT_OFFSET
+            + MAX_DUNGEON_OBJECTS * DUNGEON_OBJECT_STRIDE * size_of::<u32>();
+        assert!(SNAPSHOT_BUFFER_BYTES >= dungeon_object_end);
+        // **Five consumed snapshot regions and no sixth**, which is the half of the name
         // that would otherwise go quiet -- an assertion that every region fits
         // says nothing about a region reserved for nobody. The buffer ends
-        // within one alignment step of the furniture block, so a pose,
+        // within one alignment step of the dungeon-object block, so a pose,
         // combat-event or anatomy-region block appended here without a consumer
         // fails this line rather than silently widening three pooled buffers and
         // the memset `snapshot.ts` runs once per filtered publication. All three
@@ -398,11 +425,11 @@ mod tests {
         // **v2-ui-06 published the region capsules and deliberately reserved
         // nothing here**, which is what this line is for: the `REGION_*` offsets
         // below are emitted because they are the ABI, and the copy that would
-        // occupy a fifth snapshot region is still somebody else's session.
+        // occupy a sixth snapshot region is still somebody else's session.
         assert!(
-            SNAPSHOT_BUFFER_BYTES < furniture_end + 4,
+            SNAPSHOT_BUFFER_BYTES < dungeon_object_end + 4,
             "the snapshot reserves {} bytes past the last region a consumer reads",
-            SNAPSHOT_BUFFER_BYTES - furniture_end,
+            SNAPSHOT_BUFFER_BYTES - dungeon_object_end,
         );
     }
 
@@ -426,6 +453,13 @@ mod tests {
         ], core::array::from_fn::<_, EVENT_STRIDE, _>(|index| index));
         assert_eq!([FURNITURE_KIND, FURNITURE_TX, FURNITURE_TY, FURNITURE_STATE],
             core::array::from_fn::<_, FURNITURE_STRIDE, _>(|index| index));
+        assert_eq!([
+            DUNGEON_OBJECT_KIND, DUNGEON_OBJECT_IDENTITY, DUNGEON_OBJECT_STATE_FLAGS,
+            DUNGEON_OBJECT_X_RAW, DUNGEON_OBJECT_Y_RAW, DUNGEON_OBJECT_YAW_RAW,
+            DUNGEON_OBJECT_HALF_X_RAW, DUNGEON_OBJECT_HALF_Y_RAW,
+            DUNGEON_OBJECT_HP_RAW, DUNGEON_OBJECT_MAX_HP_RAW,
+            DUNGEON_OBJECT_PROGRESS_RAW, DUNGEON_OBJECT_MATERIAL_CODE,
+        ], core::array::from_fn::<_, DUNGEON_OBJECT_STRIDE, _>(|index| index));
         // The three articulated rows, in the same idiom and for the same reason:
         // an offset list that is exactly `0..STRIDE` has no gap a reader could
         // fall into and no duplicate two columns could share. The ten regional

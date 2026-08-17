@@ -146,12 +146,18 @@ class FakeWasm {
     this.vis = new Uint8Array(16).fill(2);
     this.furniture = new Uint8Array(ABI.FURNITURE_MAX * ABI.FURNITURE_STRIDE);
     this.furnitureLength = 0;
+    this.dungeonObjects = new Uint32Array(ABI.MAX_DUNGEON_OBJECTS * ABI.DUNGEON_OBJECT_STRIDE);
+    this.dungeonObjectLength = 0;
     this.focusEntityIndex = ABI.FOCUS_NONE;
     this.focusEntityGeneration = ABI.FOCUS_NONE;
     this.revision = 1;
     this.trap = false;
+    this.controlMask = 0;
   }
   init(seed) { this.calls.push(["init", seed]); this.now = 0; }
+  setControl(mask) { this.controlMask = mask & 7; this.calls.push(["control", mask]); }
+  control() { return this.controlMask; }
+  setInput(...values) { this.calls.push(["input", ...values]); }
   setGoto(x, y) { this.calls.push(["goto", x, y, this.now]); }
   clearOrder() { this.calls.push(["withdraw", this.now]); }
   spawnMonster(kind, primary, secondary) { this.calls.push(["spawn", kind, primary, secondary, this.now]); return 7; }
@@ -163,9 +169,13 @@ class FakeWasm {
       frameLayoutVersion: ABI.FRAME_LAYOUT_VERSION, headerLength: ABI.HEADER_LEN,
       unitStride: ABI.UNIT_STRIDE, shotStride: ABI.SHOT_STRIDE,
       eventStride: ABI.EVENT_STRIDE, furnitureStride: ABI.FURNITURE_STRIDE,
+      dungeonObjectLayoutVersion: ABI.DUNGEON_OBJECT_LAYOUT_VERSION,
+      dungeonObjectStride: ABI.DUNGEON_OBJECT_STRIDE,
       frame: this.frame, map: this.map, vis: this.vis, furniture: this.furniture,
+      dungeonObjects: this.dungeonObjects,
       frameLength: this.frameLength, mapLength: 16, visLength: 16,
       furnitureLength: this.furnitureLength, mapCols: 4, mapRows: 4,
+      dungeonObjectLength: this.dungeonObjectLength, dungeonObjectsDropped: 0,
       mapTileSizeMilli: 1000, mapRevision: this.revision,
       visRevision: this.revision, furnitureRevision: this.revision,
       focusEntityIndex: this.focusEntityIndex, focusEntityGeneration: this.focusEntityGeneration,
@@ -268,6 +278,10 @@ test("generated_abi_matches_rust_layout", () => {
     "FURNITURE_KIND", "FURNITURE_TX", "FURNITURE_TY", "FURNITURE_STATE",
     "FURNITURE_DOOR", "FURNITURE_TORCH", "FURNITURE_DOOR_SHUT",
     "FURNITURE_DOOR_OPEN", "TORCH_FACE_POS_X", "TORCH_FACE_POS_Y",
+    "DUNGEON_OBJECT_KIND", "DUNGEON_OBJECT_IDENTITY", "DUNGEON_OBJECT_STATE_FLAGS",
+    "DUNGEON_OBJECT_X_RAW", "DUNGEON_OBJECT_Y_RAW", "DUNGEON_OBJECT_YAW_RAW",
+    "DUNGEON_OBJECT_HALF_X_RAW", "DUNGEON_OBJECT_HALF_Y_RAW", "DUNGEON_OBJECT_HP_RAW",
+    "DUNGEON_OBJECT_MAX_HP_RAW", "DUNGEON_OBJECT_PROGRESS_RAW", "DUNGEON_OBJECT_MATERIAL_CODE",
   ];
   for (const name of presentationNames) assert.equal(typeof ABI[name], "number", `${name} is generated`);
   const checker = path.join(ROOT, "tools", "check_abi.js");
@@ -306,6 +320,31 @@ test("init_and_reset_emit_the_exact_lifecycle_messages", async () => {
   assert.deepEqual(wasm.calls.filter((x) => x[0] === "init"), [["init", 4], ["init", 9]]);
   await host.handle(base("reset", 3, { epoch: 1, seed: 1, paused: false }));
   assert.equal(messages(sent, "error").at(-1).code, "invalidMessage");
+});
+
+test("mouse_orders_are_default_and_direct_tank_input_starts_released", async () => {
+  const { wasm } = await harness();
+  assert.deepEqual(wasm.calls.slice(0, 3), [
+    ["init", 4], ["control", 0], ["input", 0, 0, 0, 0, 0, 0, 0],
+  ]);
+});
+
+test("the_worker_forwards_the_signed_turn_channel_without_coercion", async () => {
+  const { host, wasm } = await harness();
+  await host.handle(command(2, 1, 0, { kind: "setInput", moveXMilli: 0, moveYMilli: 0,
+    turnMilli: -1000, aimRaw: 0, reachMilli: 0, slot: 0, strike: 0 }));
+  await host.handle(advance(3, 20_000));
+  assert.deepEqual(wasm.calls.filter((call) => call[0] === "input").at(-1),
+    ["input", 0, 0, 0, 0, 0, 0, -1000]);
+});
+
+test("control_switches_render_wasm_readback_not_requested_state", async () => {
+  const { host, sent, wasm } = await harness();
+  await host.handle(command(2, 1, 0, { kind: "setControl", mask: 0xffff_ffff }));
+  await host.handle(advance(3, 20_000));
+  assert.equal(messages(sent, "commandAck").at(-1).result, 7,
+    "control switches render wasm readback, not requested state");
+  assert.equal(wasm.control(), 7, "the readback, not the requested high bits, is authoritative");
 });
 
 test("initialization_is_single_flight_and_cannot_publish_after_fatal_termination", async () => {
@@ -361,7 +400,7 @@ test("commands_apply_before_stepping_their_target_tick_in_sequence_order", async
   await host.handle(command(2, 1, 0, { kind: "goto", xMilli: -7, yMilli: 8 }));
   await host.handle(command(3, 2, 0, { kind: "spawn", kindCode: 3, primary: 255, secondary: 255 }));
   await host.handle(advance(4, 20_000));
-  assert.deepEqual(wasm.calls.slice(1), [["goto", -7, 8, 0], ["spawn", 3, 255, 255, 0], ["step", 1, 0]]);
+  assert.deepEqual(wasm.calls.slice(3), [["goto", -7, 8, 0], ["spawn", 3, 255, 255, 0], ["step", 1, 0]]);
   const acks = messages(sent, "commandAck");
   assert.deepEqual(acks.map((ack) => [ack.sequence, ack.status, ack.tick]), [[1, "accepted", 0], [2, "accepted", 0], [1, "applied", 0], [2, "applied", 0]]);
   assert.equal(acks.at(-1).result, 7);
@@ -468,11 +507,13 @@ test("the_coalesced_counter_saturates_reports_and_clears_without_wrapping", asyn
   assert.deepEqual([host.diagnostics().coalescedSnapshots, host.diagnostics().coalescedSnapshotsSaturated], [0, false]);
 });
 
-test("a_complete_snapshot_contains_one_atomic_frame_map_vis_and_furniture_publication", async () => {
+test("a_complete_snapshot_contains_one_atomic_frame_map_vis_furniture_and_object_publication", async () => {
   const { host, sent, wasm } = await harness(false);
   wasm.setRows({ units: [unit()] });
   wasm.map.fill(11); wasm.vis.fill(2);
   wasm.furniture.set([1, 1, 1, 7]); wasm.furnitureLength = 1;
+  wasm.dungeonObjects.set([3, 0x3000_0007, 0, 98_304, 98_304, 0, 16_384, 16_384, 65_536, 65_536, 0, 2]);
+  wasm.dungeonObjectLength = 1;
   await host.handle(initMessage());
   const snapshot = messages(sent, "snapshot")[0];
   const view = parseSnapshot(snapshot);
@@ -480,9 +521,11 @@ test("a_complete_snapshot_contains_one_atomic_frame_map_vis_and_furniture_public
   assert.equal(view.map[0], 11);
   assert.equal(view.vis[0], 2);
   assert.deepEqual([...view.furniture], [1, 1, 1, 7]);
+  assert.deepEqual([...view.dungeonObjects], [3, 0x3000_0007, 0, 98_304, 98_304, 0, 16_384, 16_384, 65_536, 65_536, 0, 2]);
   for (const mutation of [
     { ...snapshot, frameLength: 3.5 }, { ...snapshot, mapCols: 99 },
     { ...snapshot, furnitureLength: ABI.FURNITURE_MAX + 1 },
+    { ...snapshot, dungeonObjectLength: ABI.MAX_DUNGEON_OBJECTS + 1 },
   ]) assert.throws(() => parseSnapshot(mutation), RangeError);
 });
 
@@ -492,6 +535,7 @@ test("snapshot_lengths_shapes_and_byte_extents_are_validated_before_views_exist"
   for (const mutation of [
     { frameLength: ABI.FRAME_MAX + 1 }, { mapLength: snapshot.mapLength - 1 },
     { visLength: snapshot.visLength - 1 }, { furnitureLength: ABI.FURNITURE_MAX + 1 },
+    { dungeonObjectLength: ABI.MAX_DUNGEON_OBJECTS + 1 },
     { bufferId: 3 },
     { poolAllocationsTotal: 4 }, { buffersFree: 3 }, { queuedCommands: 257 },
     { coalescedSnapshotsSaturated: 1 },
@@ -512,7 +556,7 @@ test("unused_snapshot_tails_are_zeroed_before_transfer", async () => {
   assert.ok(bytes.subarray(ABI.FURNITURE_OFFSET + reused.furnitureLength * ABI.FURNITURE_STRIDE).every((x) => x === 0));
 });
 
-test("hidden_units_shots_events_and_furniture_do_not_cross_the_worker_boundary", async () => {
+test("hidden_units_shots_events_furniture_and_objects_do_not_cross_the_worker_boundary", async () => {
   const { host, sent, wasm } = await harness(false);
   const shown = unit({ x: 0.5, y: 0.5, index: 1, generation: 4 });
   const hidden = unit({ x: 2.5, y: 2.5, visible: 0, index: 9, generation: 8 });
@@ -525,6 +569,11 @@ test("hidden_units_shots_events_and_furniture_do_not_cross_the_worker_boundary",
   wasm.focusEntityIndex = 9; wasm.focusEntityGeneration = 8;
   wasm.vis.fill(2); wasm.vis[10] = 0;
   wasm.furniture.set([1, 0, 0, 1, 1, 2, 2, 9]); wasm.furnitureLength = 2;
+  wasm.dungeonObjects.set([
+    3, 0x3000_0001, 0, 32_768, 32_768, 0, 16_384, 16_384, 65_536, 65_536, 0, 2,
+    4, 0x3000_0002, 0, 163_840, 163_840, 0, 16_384, 16_384, 65_536, 65_536, 0, 3,
+  ]);
+  wasm.dungeonObjectLength = 2;
   await host.handle(initMessage());
   const snapshot = messages(sent, "snapshot")[0];
   const view = parseSnapshot(snapshot);
@@ -534,6 +583,9 @@ test("hidden_units_shots_events_and_furniture_do_not_cross_the_worker_boundary",
   assert.deepEqual([view.frame[eventAt + 4], view.frame[eventAt + 5]], [1, -1]);
   assert.equal(view.map[10], MAP_UNKNOWN);
   assert.deepEqual([...view.furniture], [1, 0, 0, 1]);
+  assert.deepEqual([...view.dungeonObjects], [
+    3, 0x3000_0001, 0, 32_768, 32_768, 0, 16_384, 16_384, 65_536, 65_536, 0, 2,
+  ]);
   const originalRevision = snapshot.mapRevision;
   await returnSnapshot(host, snapshot);
   wasm.map[1] = 77; wasm.vis[1] = 1;

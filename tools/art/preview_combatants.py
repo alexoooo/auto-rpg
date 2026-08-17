@@ -55,7 +55,7 @@ def _prepare(output):
             obj.location = armature.data.bones[bone_name].head_local + local
             obj.location.x += offset_x
     for obj in bpy.context.scene.objects:
-        obj.hide_render = False
+        obj.hide_render = obj.type == "MESH" and "_lod_high_mesh_" not in obj.name
     bpy.ops.mesh.primitive_plane_add(size=8, location=(0, 0, -0.03))
     ground = bpy.context.object
     ground.name = "review_ground"
@@ -101,13 +101,19 @@ def main():
         _look_at(camera, (0, 0, 1.05))
         scene.render.filepath = str(args.output / f"combatants-turntable-{degrees:03d}.png")
         bpy.ops.render.render(write_still=True)
-    camera.location = (-4.8, -5.6, 4.6)
+    # Match the game view from negative world X/Z. Runtime Z maps to Blender
+    # negative Y, so the corresponding Blender camera sits at positive Y.
+    camera.location = (-4.8, 5.6, 4.6)
     camera.data.ortho_scale = 4.15
     _look_at(camera, (0, 0, 1.12))
     scene.render.resolution_x = 900
     scene.render.resolution_y = 650
-    scene.render.filepath = str(args.output / "combatants-game-camera.png")
-    bpy.ops.render.render(write_still=True)
+    for lod in ("high", "mid", "low"):
+        for obj in scene.objects:
+            if obj.type == "MESH" and "_lod_" in obj.name:
+                obj.hide_render = f"_lod_{lod}_mesh_" not in obj.name
+        scene.render.filepath = str(args.output / f"combatants-game-camera-{lod}.png")
+        bpy.ops.render.render(write_still=True)
 
 
 if __name__ == "__main__":
