@@ -5,19 +5,40 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Auto RPG studio</title>
   <style>
-    :root { color-scheme: dark; font: 15px/1.45 system-ui, sans-serif; background: #11151b; color: #e8edf3; }
-    body { margin: 0; }
-    a { color: #8fb8e8; }
-    .muted { color: #7a8796; }
+    :root {
+      color-scheme: dark;
+      font: 15px/1.45 ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+      background: #0b0a08;
+      color: #c9bfa8;
+      --studio-void: #0b0a08;
+      --studio-panel: #15120e;
+      --studio-panel-line: #312a1e;
+      --studio-ink: #c9bfa8;
+      --studio-dim: #8c8474;
+      --studio-faint: #5c564a;
+      --studio-cyan: #7fa6bd;
+      --studio-red: #c0705e;
+      --studio-amber: #e8b45c;
+      --studio-scrim: rgba(11, 10, 8, .88);
+      --studio-bevel: inset 0 1px 0 rgba(201, 191, 168, .06);
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; background:
+      radial-gradient(80rem 44rem at 50% 18%, #1d1811 0%, transparent 72%), var(--studio-void); }
+    a { color: var(--studio-cyan); }
+    .muted { color: var(--studio-dim); }
 
     /* ---- the shell chrome ---- */
-    #studio-bar { display: flex; gap: .9rem; align-items: baseline; padding: .5rem 1rem;
-      background: #151b23; border-bottom: 1px solid #24303d; position: sticky; top: 0; z-index: 5; }
+    #studio-bar { display: flex; gap: .9rem; align-items: baseline; padding: .45rem 1rem;
+      background: rgba(11, 10, 8, .94); border-bottom: 1px solid var(--studio-panel-line);
+      box-shadow: var(--studio-bevel); position: sticky; top: 0; z-index: 5; }
     #studio-bar a { text-decoration: none; }
-    #studio-title { font-weight: 600; color: #e8edf3; }
-    #studio-route { font-size: .85rem; color: #7a8796; }
-    #studio-error { margin-left: auto; color: #ff9d9d; font-size: .85rem; }
-    #studio-root { padding: 1rem; }
+    #studio-title { font: 600 .9rem/1 ui-serif, Georgia, serif; letter-spacing: .08em;
+      text-transform: uppercase; color: var(--studio-ink); }
+    #studio-route { font: .72rem/1 ui-monospace, Consolas, monospace; letter-spacing: .06em;
+      text-transform: uppercase; color: var(--studio-faint); }
+    #studio-error { margin-left: auto; color: var(--studio-red); font-size: .8rem; }
+    #studio-root { padding: clamp(.45rem, 1.2vw, 1rem); }
 
     /* Shared control chrome. Both routes draw buttons, selects and ranges, and a
        single vocabulary is what makes the two read as one application. Where a
@@ -65,6 +86,102 @@
     .route-game #greybox { display: block; width: 100%; aspect-ratio: 16 / 9; background: #080b0f;
       border: 1px solid #34404d; border-radius: .5rem; touch-action: none; }
     .route-game .legacy-link { font-size: .85rem; }
+
+    /* The authored room is the route, not an illustration above a diagnostics
+       form. The overlays sit at the protected edge of the glass and remain
+       ordinary DOM controls; nothing about this composition enters the renderer. */
+    .route-game { width: min(110rem, 100%); margin: 0 auto; display: grid; gap: .65rem; }
+    .game-stage { position: relative; isolation: isolate; overflow: hidden; aspect-ratio: 16 / 9;
+      min-height: min(38rem, calc(100vh - 5.2rem)); background: var(--studio-void);
+      border: 1px solid var(--studio-panel-line); border-radius: .35rem;
+      box-shadow: var(--studio-bevel), 0 1.5rem 5rem rgba(0, 0, 0, .45); }
+    .route-game #greybox { position: absolute; inset: 0; width: 100%; height: 100%;
+      aspect-ratio: auto; border: 0; border-radius: 0; background: var(--studio-void); }
+    .game-stage-shade { position: absolute; inset: 0; z-index: 1; pointer-events: none;
+      background:
+        linear-gradient(180deg, rgba(7, 6, 5, .76) 0%, transparent 18%, transparent 68%, rgba(7, 6, 5, .78) 100%),
+        linear-gradient(90deg, rgba(7, 6, 5, .58) 0%, transparent 25%, transparent 78%, rgba(7, 6, 5, .28) 100%); }
+    .game-heading, .game-state, .game-command-deck, .game-stage-footer, .game-stage #error {
+      position: absolute; z-index: 2; }
+    .game-heading { top: clamp(.75rem, 1.5vw, 1.35rem); left: clamp(.8rem, 1.7vw, 1.5rem);
+      max-width: 30rem; text-shadow: 0 2px 12px #000; pointer-events: none; }
+    .route-game .game-heading .game-kicker { margin: 0 0 .2rem; color: var(--studio-amber);
+      font: 600 .64rem/1 ui-monospace, Consolas, monospace; letter-spacing: .18em; text-transform: uppercase; }
+    .route-game .game-heading h1 { margin: 0; color: #ddd1b8; font: 600 clamp(1.15rem, 2vw, 1.75rem)/1.1 ui-serif, Georgia, serif;
+      letter-spacing: .035em; }
+    .route-game .game-heading p:not(.game-kicker) { margin: .25rem 0 0; color: var(--studio-dim); font-size: .78rem; }
+    .game-state { top: clamp(.75rem, 1.5vw, 1.35rem); right: clamp(.8rem, 1.7vw, 1.5rem);
+      display: grid; gap: .12rem; justify-items: end; padding: .42rem .62rem;
+      border: 1px solid var(--studio-panel-line); border-radius: .3rem;
+      background: var(--studio-scrim); box-shadow: var(--studio-bevel); }
+    .game-state > span { color: var(--studio-faint); font: .6rem/1 ui-monospace, Consolas, monospace;
+      letter-spacing: .15em; text-transform: uppercase; }
+    .route-game .game-state #status { color: var(--studio-cyan); font-size: .78rem; }
+    .game-command-deck { left: clamp(.7rem, 1.4vw, 1.25rem); bottom: clamp(.75rem, 1.5vw, 1.25rem);
+      display: flex; flex-wrap: wrap; gap: .45rem; max-width: calc(100% - 2rem); }
+    .route-game .game-command-deck fieldset { min-width: 0; margin: 0; padding: .42rem .55rem .55rem;
+      border-color: var(--studio-panel-line); border-radius: .35rem;
+      background: var(--studio-scrim); box-shadow: var(--studio-bevel); }
+    .game-command-deck legend { padding: 0 .25rem; color: var(--studio-faint);
+      font: 600 .6rem/1 ui-monospace, Consolas, monospace; letter-spacing: .14em; text-transform: uppercase; }
+    .route-game .game-command-deck .controls { gap: .35rem; align-items: center; }
+    .route-game .game-command-deck label { grid-template-columns: auto 4.6rem; align-items: center;
+      gap: .3rem; color: var(--studio-dim); font-size: .68rem; }
+    .route-game .game-command-deck input[type="number"] { width: 4.6rem; padding: .25rem .35rem;
+      border-color: var(--studio-panel-line); background: #100d0a; }
+    .route-game .game-command-deck button { padding: .3rem .5rem; border-color: var(--studio-panel-line);
+      background: #100d0a; font-size: .72rem; }
+    .route-game .game-command-deck button:hover { color: var(--studio-cyan); border-color: var(--studio-cyan); }
+    .game-stage-footer { right: clamp(.8rem, 1.7vw, 1.5rem); bottom: clamp(.8rem, 1.7vw, 1.35rem);
+      max-width: min(31rem, 42%); display: flex; align-items: center; justify-content: flex-end; gap: .5rem; }
+    .route-game .game-stage-footer p { margin: 0; color: var(--studio-dim); font-size: .68rem;
+      line-height: 1.35; text-align: right; text-shadow: 0 1px 8px #000; }
+    .route-game .game-stage-footer button { flex: 0 0 auto; padding: .3rem .5rem;
+      border-color: var(--studio-panel-line); background: var(--studio-scrim); font-size: .7rem; }
+    .route-game .game-stage #error { top: 4.25rem; right: clamp(.8rem, 1.7vw, 1.5rem);
+      max-width: min(32rem, 60%); min-height: 0; color: var(--studio-red); font-size: .75rem; text-align: right; }
+    .game-support { display: grid; gap: .5rem; }
+    .route-game .game-route-note { margin: 0; color: var(--studio-faint); font-size: .72rem; text-align: right; }
+    .game-instruments { border: 1px solid var(--studio-panel-line); border-radius: .35rem;
+      background: rgba(21, 18, 14, .82); box-shadow: var(--studio-bevel); }
+    .game-instruments > summary { padding: .55rem .75rem; color: var(--studio-dim); cursor: pointer;
+      font: 600 .68rem/1 ui-monospace, Consolas, monospace; letter-spacing: .12em; text-transform: uppercase; }
+    .game-instruments[open] > summary { border-bottom: 1px solid var(--studio-panel-line); color: var(--studio-cyan); }
+    .game-instrument-grid { display: grid; grid-template-columns: minmax(16rem, .8fr) minmax(22rem, 1.2fr);
+      gap: .65rem; padding: .65rem; }
+    .route-game .game-instrument-grid fieldset { margin: 0; border-color: var(--studio-panel-line); }
+    .route-game .game-instrument-grid p { margin: .2rem 0 .65rem; color: var(--studio-dim); font-size: .76rem; }
+    .game-metadata { display: grid !important; grid-template-columns: repeat(2, minmax(10rem, 1fr)); }
+    .route-game .game-metadata label { display: grid; grid-template-columns: 3.8rem 1fr; align-items: center; }
+    .route-game .game-metadata input[type="text"] { width: 100%; min-width: 0; }
+    .route-game #performance-progress { width: 100%; margin-top: .65rem; accent-color: var(--studio-cyan); }
+    .route-game #performance-status { color: var(--studio-cyan); font-size: .75rem; }
+    .game-diagnostic-readout { grid-column: 1 / -1; min-width: 0; }
+    .game-diagnostic-readout h2 { margin: 0 0 .35rem; color: var(--studio-faint); font-size: .68rem;
+      letter-spacing: .12em; text-transform: uppercase; }
+    .route-game .game-diagnostic-readout pre { max-height: 20rem; margin: 0; overflow: auto;
+      border: 1px solid var(--studio-panel-line); background: #080705; color: var(--studio-dim);
+      font: .7rem/1.45 ui-monospace, Consolas, monospace; }
+
+    @media (max-width: 900px) {
+      .game-stage { aspect-ratio: 4 / 3; min-height: 34rem; }
+      .route-game .game-heading p:not(.game-kicker) { display: none; }
+      .game-stage-footer { bottom: 7.1rem; max-width: calc(100% - 2rem); }
+      .game-stage-footer p { display: none; }
+      .game-instrument-grid { grid-template-columns: 1fr; }
+      .game-diagnostic-readout { grid-column: auto; }
+    }
+
+    @media (max-width: 620px) {
+      #studio-route { display: none; }
+      .game-stage { aspect-ratio: auto; min-height: 42rem; }
+      .game-heading { right: .8rem; }
+      .game-state { top: 4.5rem; left: .8rem; right: auto; justify-items: start; }
+      .game-command-deck { right: .7rem; flex-direction: column; }
+      .game-command-deck fieldset { width: 100%; }
+      .game-stage-footer { bottom: 12.5rem; }
+      .game-metadata { grid-template-columns: 1fr; }
+    }
 
     /* ---- the arena route ---- */
     .route-arena { width: min(110rem, 100%); margin: 0 auto; display: grid; gap: .6rem; }
@@ -161,63 +278,92 @@
 
   <template id="route-game">
     <div class="route-game">
-      <h1>v2 worker boundary</h1>
-      <p>The worker-owned simulation is rendered through the authored representative
-        room kit; the procedural greybox remains available at <code>?room=procedural</code>.
-        Backend selection and the complete disclosed-state registry are shown below.</p>
-      <canvas id="greybox" width="1280" height="720" aria-label="Procedural game view"></canvas>
-      <p id="interaction-hint" class="legacy-link">Interactive controls become available after startup.</p>
-      <button id="room-camera-toggle" type="button" hidden>Use free camera</button>
-      <p class="legacy-link">The Canvas renderer remains separate: <a href="/legacy.html">open the legacy page</a>.</p>
-      <fieldset>
-        <legend>Lifecycle</legend>
-        <div class="controls">
-          <label>Seed <input id="seed" type="number" min="0" max="4294967295" value="1"></label>
-          <button id="reset" data-sim-control type="button">Reset</button>
-          <button id="pause" data-sim-control type="button">Pause</button>
+      <section class="game-stage" aria-labelledby="game-title">
+        <canvas id="greybox" width="1280" height="720" aria-label="Procedural game view"></canvas>
+        <div class="game-stage-shade" aria-hidden="true"></div>
+
+        <header class="game-heading">
+          <p class="game-kicker">World / expedition</p>
+          <h1 id="game-title">Dungeon expedition</h1>
+          <p>The worker-owned simulation, inside the authored representative room.</p>
+        </header>
+
+        <div class="game-state">
+          <span>Simulation</span>
+          <output id="status" aria-live="polite">Starting worker&hellip;</output>
         </div>
-      </fieldset>
-      <fieldset>
-        <legend>Commands</legend>
-        <div class="controls">
-          <label>Goto X <input id="goto-x" type="number" value="1000"></label>
-          <label>Goto Y <input id="goto-y" type="number" value="1000"></label>
-          <button id="goto" data-sim-control type="button">Goto</button>
-          <button id="withdraw" data-sim-control type="button">Withdraw</button>
-          <button id="spawn" data-sim-control type="button">Spawn</button>
+
+        <aside class="game-command-deck" aria-label="Expedition controls">
+          <fieldset>
+            <legend>Run</legend>
+            <div class="controls">
+              <label>Seed <input id="seed" type="number" min="0" max="4294967295" value="1"></label>
+              <button id="reset" data-sim-control type="button">Reset</button>
+              <button id="pause" data-sim-control type="button">Pause</button>
+            </div>
+          </fieldset>
+          <fieldset>
+            <legend>Order</legend>
+            <div class="controls">
+              <label>X <input id="goto-x" type="number" value="1000"></label>
+              <label>Y <input id="goto-y" type="number" value="1000"></label>
+              <button id="goto" data-sim-control type="button">Goto</button>
+              <button id="withdraw" data-sim-control type="button">Withdraw</button>
+              <button id="spawn" data-sim-control type="button">Spawn</button>
+            </div>
+          </fieldset>
+        </aside>
+
+        <div class="game-stage-footer">
+          <p id="interaction-hint">Interactive controls become available after startup.</p>
+          <button id="room-camera-toggle" type="button" hidden>Use free camera</button>
         </div>
-      </fieldset>
-      <fieldset>
-        <legend>Buffer exhaustion diagnostic</legend>
-        <p>Opt in to retain the next three distinct snapshot leases. The worker keeps
-          acknowledging advances while snapshots coalesce; release restores the latest publication.</p>
-        <div class="controls">
-          <button id="diagnostic-hold-buffers" data-sim-control type="button">Hold next three snapshots</button>
-          <button id="diagnostic-release-buffers" data-sim-control type="button" disabled>Release held snapshots</button>
-        </div>
-      </fieldset>
-      <fieldset>
-        <legend>Visible foreground performance capture</legend>
-        <p>Available for the fixed <code>?stress=greybox</code> control and
-          <code>?stress=room&amp;room=representative</code>. Room capture requires the fixed
-          review camera. Starting sets the canvas to the named 1920 &times; 1080 reference size,
-          warms for 30 seconds, then samples for 120 seconds.</p>
-        <div class="controls">
-          <label>OS <input id="perf-os" data-performance-metadata type="text" value="Windows 11 Home 25H2 build 26200.8973"></label>
-          <label>CPU <input id="perf-cpu" data-performance-metadata type="text" value="13th Gen Intel Core i7-13700H"></label>
-          <label>GPU <input id="perf-gpu" data-performance-metadata type="text" value="Intel Iris Xe Graphics"></label>
-          <label>Driver <input id="perf-driver" data-performance-metadata type="text" value="32.0.101.7084"></label>
-          <label>Browser <input id="perf-browser" data-performance-metadata type="text" value="Chrome 151.0.7922.72"></label>
-          <label>Power <input id="perf-power" data-performance-metadata type="text" value="AC / Balanced"></label>
-          <button id="performance-start" type="button" disabled>Start capture</button>
-          <button id="performance-download" type="button" disabled>Download raw JSON</button>
-        </div>
-        <progress id="performance-progress" max="150" value="0" aria-label="Performance capture progress"></progress>
-        <output id="performance-status" aria-live="polite">Idle</output>
-      </fieldset>
-      <output id="status" aria-live="polite">Starting worker&hellip;</output>
-      <output id="error" aria-live="assertive"></output>
-      <pre id="diagnostics">No snapshot yet.</pre>
+        <output id="error" aria-live="assertive"></output>
+      </section>
+
+      <div class="game-support">
+        <p class="game-route-note">The authored room is the production view. Use
+          <code>?room=procedural</code> for the procedural diagnostic, or
+          <a href="/legacy.html">open the legacy Canvas page</a>.</p>
+        <details class="game-instruments">
+          <summary>Systems and capture</summary>
+          <div class="game-instrument-grid">
+            <fieldset>
+              <legend>Buffer exhaustion diagnostic</legend>
+              <p>Retain the next three distinct snapshot leases. The worker keeps acknowledging
+                advances while snapshots coalesce; release restores the latest publication.</p>
+              <div class="controls">
+                <button id="diagnostic-hold-buffers" data-sim-control type="button">Hold next three snapshots</button>
+                <button id="diagnostic-release-buffers" data-sim-control type="button" disabled>Release held snapshots</button>
+              </div>
+            </fieldset>
+            <fieldset>
+              <legend>Visible foreground performance capture</legend>
+              <p>Available for the fixed <code>?stress=greybox</code> control and
+                <code>?stress=room&amp;room=representative</code>. Starting uses the named
+                1920 &times; 1080 surface, warms for 30 seconds, then samples for 120 seconds.</p>
+              <div class="controls game-metadata">
+                <label>OS <input id="perf-os" data-performance-metadata type="text" value="Windows 11 Home 25H2 build 26200.8973"></label>
+                <label>CPU <input id="perf-cpu" data-performance-metadata type="text" value="13th Gen Intel Core i7-13700H"></label>
+                <label>GPU <input id="perf-gpu" data-performance-metadata type="text" value="Intel Iris Xe Graphics"></label>
+                <label>Driver <input id="perf-driver" data-performance-metadata type="text" value="32.0.101.7084"></label>
+                <label>Browser <input id="perf-browser" data-performance-metadata type="text" value="Chrome 151.0.7922.72"></label>
+                <label>Power <input id="perf-power" data-performance-metadata type="text" value="AC / Balanced"></label>
+              </div>
+              <div class="controls">
+                <button id="performance-start" type="button" disabled>Start capture</button>
+                <button id="performance-download" type="button" disabled>Download raw JSON</button>
+              </div>
+              <progress id="performance-progress" max="150" value="0" aria-label="Performance capture progress"></progress>
+              <output id="performance-status" aria-live="polite">Idle</output>
+            </fieldset>
+            <section class="game-diagnostic-readout" aria-labelledby="diagnostic-title">
+              <h2 id="diagnostic-title">Disclosed-state registry</h2>
+              <pre id="diagnostics">No snapshot yet.</pre>
+            </section>
+          </div>
+        </details>
+      </div>
     </div>
   </template>
 

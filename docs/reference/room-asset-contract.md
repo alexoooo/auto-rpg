@@ -6,39 +6,37 @@
 **Update when:** The room manifest schema, semantic kit, coordinate rules, reproducibility authority, budgets, disclosure mapping, or loader lifecycle changes.
 
 The pinned room GLB, semantic sidecar, validator report, generated trust pins, lazy
-loader, instance presentation, and review camera are current. Their automated gates
-are complete. The owner accepted minimum legacy parity on 2026-08-09; the foreground
-performance matrix and ultimate painted-art direction remain open and are not implied
-by this implementation status.
+loader, instance presentation, and review camera are current. Generator v3 earned
+minimum legacy parity on 2026-08-09. Generator v4 replaces that artifact with authored
+coursed masonry and concept-atlas materials; its automated asset gates are complete,
+but a new visible review and the foreground performance matrix remain open.
 
 <!-- DOC_CONTRACT: room-asset-manifest -->
 ## Manifest semantics
 
 The current `tools/art/manifest.json` is schema version 1 and the sole generator
-input. It records `generatorVersion: 3`, repository license `MIT`, the exact Blender
+input. It records `generatorVersion: 4`, repository license `MIT`, the exact Blender
 version and binary SHA-256, seed `1592594996`, unit `meter`, tile size 1, right-handed
 axes, canonical decimal-string tolerance `"0.00001"`, export flags, budgets, material parameters, geometry
 dimensions, semantic grammar, exact `allowedValidatorWarnings: []`, and expected
 output hashes.
 
-Generator version 3 owns deterministic style `readable-stone-v1`. Every exported
-mesh retains one CORNER-domain `room_style`
-color attribute; glTF carries it as normalized `UNSIGNED_SHORT` `VEC4` `COLOR_0`.
-The checked `tools/art/textures/room_floor_albedo.png` and
-`room_wall_albedo.png` inputs are both 1,254 x 1,254 PNGs. Their SHA-256 values are
-respectively
-`8ebbbb618cf748b62a63a950fdc60aaa1e6930eb8ea69d24b97793428f4a3d70` and
-`f456977162d07e8c4ae7dedf17048a83c181854d992876c91fd0b577451ed4cc`.
-The pinned deterministic processor produces periodic 512 x 512 sRGB, repeat-wrapped
-embeds with 32 edge pixels, linear magnification, and mipmapped linear minification.
-Their embedded SHA-256 values are
-`fadbb6d0cd8566f50131bfcd4261f6b54f4596c58372aa22105e34cdf09d358b`
-and `cbe20f9cabf7a15f7e6c406ea4fcec85971c291c22973cf62e3116014f7e9ff3`.
-No external image URI or runtime texture request is permitted.
-`floor_current` and `stone_current` use neutral factors over the floor and wall
-textures, while `COLOR_0` remains deterministic modulation rather than a hidden
-per-instance correction. The owner accepted this current candidate on 2026-08-09 as
-good enough to proceed at the legacy-parity threshold.
+Generator version 4 owns deterministic style `concept-umber-stone-v2`. Every
+exported mesh retains one CORNER-domain `room_style` color attribute; glTF carries
+it as normalized `UNSIGNED_SHORT` `VEC4` `COLOR_0`. The checked 1,254 x
+1,254 `tools/art/textures/concept-material-atlas.png` source has SHA-256
+`037c8588e18d585fd6c50ff4ba8e071459bf88c04aac4c22058a2743673149b6`.
+The generator selects floor quadrant `[0,1]` and wall quadrant `[1,1]`, then
+produces periodic 512 x 512 sRGB, repeat-wrapped embeds with 32 edge pixels, linear
+magnification, and mipmapped linear minification. Their embedded SHA-256 values are
+`a5effbaebebcf0ca1737b4953f53516f6d7274a232f20ccfc8676d854426f9a8` and
+`d01683a26efff554e88162bf00379a2420a95c814d700c0ecc696065a51c130b`.
+No external image URI or runtime texture request is permitted. Warm umber value
+separation, high roughness, and restrained metal response keep the room subordinate
+to combatants; `COLOR_0` remains deterministic modulation rather than a hidden
+per-instance correction. Four fitted courses of individually separated stones replace
+the wall sources' former single-box silhouettes without changing semantic names,
+collision/debug bounds, pivots, or placement.
 
 The exact unique piece set is:
 
@@ -103,10 +101,10 @@ The current generated identities are:
 
 | Identity | SHA-256 |
 |---|---|
-| canonical build inputs | `a8c98a41336f25e67bc635b7251dc4a68fe93e7b3bd72a5f275fba51aee04f74` |
-| semantic sidecar | `b15c44c454a908eaabbe8c19ecc1bd13bd58fd28935a5b4bef7c9583175a0635` |
-| room GLB | `cfd30f7fc7a105e3ad6f181266fb1a2c1f6034a0866208fa71d5fd565b7fdc10` |
-| canonical validator report | `40a93c34e397e59da0c4372e7f68f645e8d66a2ced6e714071465d693eec90f0` |
+| canonical build inputs | `ce82c6fdf4072bb6e9f6c26cc5065451bf52e503d9dd2a6ae03883a7d57640b4` |
+| semantic sidecar | `8db5ea87224b0bdb1d557fb4511357c2f3fa149f9554e2ac8519f2f6ef10fe85` |
+| room GLB | `cb50818c10a954bdea0d7d82aee9d5662bb549b8811f31d7c750f50bc9acd152` |
+| canonical validator report | `c66216640e497fe8c3e6909dc64ce59d59b10c3f4d70d78792a72ceadde1d0b7` |
 | 1,536-byte runtime stress map | `1262c7dc5eb359a06db10a06c85e2782237b226e423a903f72441f1dfde18e6c` |
 
 `.gitignore` owns `__pycache__/` and `*.py[cod]`. Both generation modes must leave no
@@ -139,7 +137,7 @@ unique bufferView bytes used by vertex or index attributes
 + 1024 * 1024 * 4 shadow-map bytes
 ```
 
-The fixed instance capacities are floor_a 768, floor_b 768, wall_straight 160,
+The fixed instance capacities are floor_a 768, floor_b 768, wall_straight 184,
 wall_inside 4, wall_outside 8, wall_end 4, door_frame 2, door_leaf 2,
 torch_bracket 8, decal_rubble 4, decal_root 4, and prop_barrel 4. The estimate uses
 capacity rather than live count and must be no larger than 268,435,456 bytes. The
@@ -148,11 +146,11 @@ factor. Engine overhead and source JavaScript are
 reported separately; browser performance JSON continues to record unavailable GPU
 residency rather than relabeling this offline estimate.
 
-The checked artifacts contain 13 nodes, 12 meshes, four materials, 504 vertices,
-and 272 triangles. The GLB is 943,584 bytes and the sidecar is 5,384 bytes, for a
-validated 948,968-byte payload. Its offline estimate is 21,120 source-buffer bytes,
-222,208 double-buffered instance bytes, 2,097,152 decoded-texture bytes, and
-4,194,304 shadow-map bytes, totaling 6,534,784 bytes. Validator 2.0.0-dev.3.10 reports zero
+The checked artifacts contain 13 nodes, 12 meshes, four materials, 3,000 vertices,
+and 1,520 triangles. The GLB is 1,112,964 bytes and the sidecar is 5,403 bytes, for a
+validated 1,118,367-byte payload. Its offline estimate is 127,440 source-buffer bytes,
+225,280 double-buffered instance bytes, 2,097,152 decoded-texture bytes, and
+4,194,304 shadow-map bytes, totaling 6,644,176 bytes. Validator 2.0.0-dev.3.10 reports zero
 errors, zero warnings, zero hints, and four informational messages; the
 allowed warning list remains exactly empty.
 

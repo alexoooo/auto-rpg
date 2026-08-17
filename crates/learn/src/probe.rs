@@ -355,10 +355,10 @@ fn height_index(height: CombatHeight) -> Option<usize> {
 /// change what it measures.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Mechanics {
-    /// Resolutions by [`ContactKind`]: weapon/weapon, weapon/shield,
+    /// Resolutions by [`ContactKind`]; the appended fourth kind is projectile/body.
     /// weapon/body. **The middle one is "defended contacts"** -- a blade that
     /// met a plate instead of a body.
-    pub kinds: [u64; 3],
+    pub kinds: [u64; 4],
     /// Weapon/body resolutions by the region they landed in, in [`BodyPart`]
     /// order, with a final bucket for [`sim::NO_REGION`].
     ///

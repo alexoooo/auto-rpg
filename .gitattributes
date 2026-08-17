@@ -34,6 +34,9 @@ client/src/protocol/abi.generated.ts text eol=lf
 web/assets3d/room_slice.json          text eol=lf
 web/assets3d/room_slice.validator.json text eol=lf
 web/assets3d/room_slice.glb           binary
+web/assets3d/combatants.json          text eol=lf
+web/assets3d/combatants.validator.json text eol=lf
+web/assets3d/combatants.glb           binary
 checkpoints/*.ckpt                    binary
 
 # Vite verifies these generated room records byte-for-byte against SHA-256 values
@@ -41,5 +44,8 @@ checkpoints/*.ckpt                    binary
 # still reports a clean tree, so keep the reviewed artifacts in their generated LF
 # form for the same reason as the ABI above.
 tools/art/manifest.json text eol=lf
+tools/art/combatants-manifest.json text eol=lf
 web/assets3d/room_slice.json text eol=lf
 web/assets3d/room_slice.validator.json text eol=lf
+web/assets3d/combatants.json text eol=lf
+web/assets3d/combatants.validator.json text eol=lf

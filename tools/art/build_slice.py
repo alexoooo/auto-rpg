@@ -1,7 +1,8 @@
-"""Build or verify the deterministic representative room slice.
+"""Build or verify the deterministic representative authored assets.
 
 Invoke only through the pinned Blender binary:
   blender --background --factory-startup --python tools/art/build_slice.py -- --verify
+  blender --background --factory-startup --python tools/art/build_slice.py -- --target combatants --verify
   blender --background --factory-startup --python tools/art/build_slice.py -- --write
 """
 
@@ -129,10 +130,15 @@ def generated_typescript(manifest, actual):
 
 def main():
     parser = argparse.ArgumentParser(allow_abbrev=False)
+    parser.add_argument("--target", choices=("room", "combatants"), default="room")
     modes = parser.add_mutually_exclusive_group(required=True)
     modes.add_argument("--verify", action="store_true")
     modes.add_argument("--write", action="store_true")
     arguments = parser.parse_args(sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else [])
+    if arguments.target == "combatants":
+        from build_combatants import run
+        run(arguments)
+        return
     manifest = read_manifest()
     verify_blender(manifest)
     source_hash = generator_input_hash(manifest)

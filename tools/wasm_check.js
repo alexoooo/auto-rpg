@@ -416,6 +416,12 @@ test("the boundary exports everything the client calls", () => {
     "region_capacity",
     "regions_dropped",
     "region_layout_version",
+    "articulated_projectile_ptr",
+    "articulated_projectile_len",
+    "articulated_projectile_stride",
+    "articulated_projectile_capacity",
+    "articulated_projectiles_dropped",
+    "articulated_projectile_layout_version",
     // `init`'s room under the articulated model. Its only callers today are the
     // two tests below and client/test/wasm-memory.test.mjs, which warms it
     // because it is the call that reserves 64 rows of contact vectors a Legacy
@@ -884,6 +890,9 @@ const REGION_LAYOUT_VERSION = 1;
 const REGION_STRIDE = 8;
 const REGIONS_PER_BODY = 5;
 const MAX_REGIONS = MAX_POSES * REGIONS_PER_BODY;
+const ARTICULATED_PROJECTILE_LAYOUT_VERSION = 1;
+const ARTICULATED_PROJECTILE_STRIDE = 12;
+const MAX_ARTICULATED_PROJECTILES = 32;
 
 // The pose columns this file reads, from the reference's row table.
 const POSE_ENTITY_INDEX = 0;
@@ -914,7 +923,7 @@ const INTENTS = 3;
 // Five `BodyPart` bits and nothing above them.
 const SEVERED_MASK_BITS = 5;
 
-// FNV-1a-64 over the published pose, combat-event and region words of a scripted
+// FNV-1a-64 over the published pose, combat-event, region and projectile words of a scripted
 // articulated fight, prefixed ASCII `ARPG-STREAM-V1`. The script is
 // `Scenario::articulated_duel()` at seed 1 with the fighter moved to (9,6) and
 // the brute to (7,6), one articulated command submitted to each on tick zero and
@@ -1000,6 +1009,19 @@ function regionRows() {
     Array.from(words.slice(row * REGION_STRIDE, (row + 1) * REGION_STRIDE)));
 }
 
+function articulatedProjectileRows() {
+  const rows = u32(wasm.articulated_projectile_len());
+  const words = new Uint32Array(
+    wasm.memory.buffer,
+    u32(wasm.articulated_projectile_ptr()),
+    rows * ARTICULATED_PROJECTILE_STRIDE,
+  );
+  return Array.from({ length: rows }, (_, row) =>
+    Array.from(words.slice(
+      row * ARTICULATED_PROJECTILE_STRIDE, (row + 1) * ARTICULATED_PROJECTILE_STRIDE,
+    )));
+}
+
 test("wasm_exports_match_layout_stride_capacity_and_drop_fields", () => {
   // **`typeof` first, before a single value is read.** The trap this file
   // documents twice over up in the export list: `undefined >>> 0` is `0` and
@@ -1012,6 +1034,9 @@ test("wasm_exports_match_layout_stride_capacity_and_drop_fields", () => {
     "combat_event_stride", "combat_event_capacity", "combat_events_dropped",
     "combat_event_layout_version", "region_ptr", "region_len", "region_stride",
     "region_capacity", "regions_dropped", "region_layout_version",
+    "articulated_projectile_ptr", "articulated_projectile_len",
+    "articulated_projectile_stride", "articulated_projectile_capacity",
+    "articulated_projectiles_dropped", "articulated_projectile_layout_version",
     "init_articulated",
   ]) {
     assert.equal(typeof wasm[name], "function", `web.wasm does not export ${name}()`);
@@ -1030,10 +1055,25 @@ test("wasm_exports_match_layout_stride_capacity_and_drop_fields", () => {
   assert.equal(u32(wasm.region_layout_version()), REGION_LAYOUT_VERSION, "REGION_LAYOUT_VERSION");
   assert.equal(u32(wasm.region_stride()), REGION_STRIDE, "REGION_STRIDE");
   assert.equal(u32(wasm.region_capacity()), MAX_REGIONS, "MAX_REGIONS");
+  assert.equal(
+    u32(wasm.articulated_projectile_layout_version()),
+    ARTICULATED_PROJECTILE_LAYOUT_VERSION,
+    "ARTICULATED_PROJECTILE_LAYOUT_VERSION",
+  );
+  assert.equal(
+    u32(wasm.articulated_projectile_stride()),
+    ARTICULATED_PROJECTILE_STRIDE,
+    "ARTICULATED_PROJECTILE_STRIDE",
+  );
+  assert.equal(
+    u32(wasm.articulated_projectile_capacity()),
+    MAX_ARTICULATED_PROJECTILES,
+    "MAX_ARTICULATED_PROJECTILES",
+  );
 
-  // A Legacy world publishes none of the three streams, and that is the half of the
+  // A Legacy world publishes none of the four streams, and that is the half of the
   // drop-field assertion that is not vacuous: zero rows *and* zero dropped is a
-  // claim that all three buffers were cleared rather than left holding the last
+  // claim that all four buffers were cleared rather than left holding the last
   // articulated run's rows. A pose row is ground truth about an identity, and
   // `publish` zeroes the buffers as well as the lengths for exactly that reason.
   wasm.init(1);
@@ -1044,6 +1084,10 @@ test("wasm_exports_match_layout_stride_capacity_and_drop_fields", () => {
   assert.equal(u32(wasm.combat_events_dropped()), 0, "a Legacy world dropped a contact row");
   assert.equal(u32(wasm.region_len()), 0, "a Legacy world published a region row");
   assert.equal(u32(wasm.regions_dropped()), 0, "a Legacy world dropped a region row");
+  assert.equal(u32(wasm.articulated_projectile_len()), 0,
+    "a Legacy world published an articulated projectile row");
+  assert.equal(u32(wasm.articulated_projectiles_dropped()), 0,
+    "a Legacy world dropped an articulated projectile row");
 
   // And a fresh articulated world, where the pose buffer is not empty and both
   // drop fields still read zero.
@@ -1066,31 +1110,41 @@ test("wasm_exports_match_layout_stride_capacity_and_drop_fields", () => {
     "the region section does not cover every published pose",
   );
   assert.equal(u32(wasm.regions_dropped()), 0, "a published body carried no capsules");
+  assert.equal(u32(wasm.articulated_projectiles_dropped()), 0,
+    "a fresh articulated world dropped a projectile row");
 
   // Fixed arrays whose addresses never move, which is the one property the
   // worker's typed arrays depend on for the life of the module. Checked against
   // the *capacity* rather than the live length: the arrays are reserved whole at
-  // construction, so a module that placed 289,280 bytes of statics past the end
+  // construction, so a module that placed 290,816 bytes of statics past the end
   // of its own memory would be caught here rather than on the first busy tick.
-  const [poseAt, eventAt, regionAt] =
-    [u32(wasm.pose_ptr()), u32(wasm.combat_event_ptr()), u32(wasm.region_ptr())];
-  assert.ok(poseAt > 0 && eventAt > 0 && regionAt > 0, "a published buffer is at address zero");
-  assert.equal(new Set([poseAt, eventAt, regionAt]).size, 3, "two buffers share an address");
+  const [poseAt, eventAt, regionAt, projectileAt] = [
+    u32(wasm.pose_ptr()), u32(wasm.combat_event_ptr()), u32(wasm.region_ptr()),
+    u32(wasm.articulated_projectile_ptr()),
+  ];
+  assert.ok(poseAt > 0 && eventAt > 0 && regionAt > 0 && projectileAt > 0,
+    "a published buffer is at address zero");
+  assert.equal(new Set([poseAt, eventAt, regionAt, projectileAt]).size, 4,
+    "two buffers share an address");
   assert.equal(poseAt % 4, 0, "the pose buffer is not u32-aligned");
   assert.equal(eventAt % 4, 0, "the combat-event buffer is not u32-aligned");
   assert.equal(regionAt % 4, 0, "the region buffer is not u32-aligned");
+  assert.equal(projectileAt % 4, 0, "the projectile buffer is not u32-aligned");
   const memoryBytes = wasm.memory.buffer.byteLength;
   for (const [name, at, bytes] of [
     ["POSES", poseAt, MAX_POSES * POSE_STRIDE * 4],
     ["COMBAT_EVENTS", eventAt, MAX_COMBAT_EVENTS * COMBAT_EVENT_STRIDE * 4],
     ["REGIONS", regionAt, MAX_REGIONS * REGION_STRIDE * 4],
+    ["ARTICULATED_PROJECTILES", projectileAt,
+      MAX_ARTICULATED_PROJECTILES * ARTICULATED_PROJECTILE_STRIDE * 4],
   ]) {
     assert.ok(at + bytes <= memoryBytes, `${name} runs past the end of linear memory`);
   }
   wasm.step(8);
   assert.deepEqual(
-    [u32(wasm.pose_ptr()), u32(wasm.combat_event_ptr()), u32(wasm.region_ptr())],
-    [poseAt, eventAt, regionAt],
+    [u32(wasm.pose_ptr()), u32(wasm.combat_event_ptr()), u32(wasm.region_ptr()),
+      u32(wasm.articulated_projectile_ptr())],
+    [poseAt, eventAt, regionAt, projectileAt],
     "a published buffer moved across a step",
   );
   assert.equal(
@@ -1101,7 +1155,8 @@ test("wasm_exports_match_layout_stride_capacity_and_drop_fields", () => {
   console.log(
     `articulated abi ${rows} pose rows, ` +
       `${MAX_POSES}x${POSE_STRIDE} + ${MAX_COMBAT_EVENTS}x${COMBAT_EVENT_STRIDE}` +
-      ` + ${MAX_REGIONS}x${REGION_STRIDE} words reserved`,
+      ` + ${MAX_REGIONS}x${REGION_STRIDE}` +
+      ` + ${MAX_ARTICULATED_PROJECTILES}x${ARTICULATED_PROJECTILE_STRIDE} words reserved`,
   );
 });
 
@@ -1112,11 +1167,11 @@ test("native_and_wasm_pose_event_stream_digests_match", () => {
   const measured = hash64(wasm.articulated_stream_digest_lo(), wasm.articulated_stream_digest_hi());
   assert.ok(
     measured === ARTICULATED_STREAM_DIGEST,
-    divergence("The articulated pose/event stream digest", ARTICULATED_STREAM_DIGEST, measured),
+    divergence("The articulated publication stream digest", ARTICULATED_STREAM_DIGEST, measured),
   );
 
   // Cached on first touch, and that is a memory property rather than a
-  // performance one: this is the only allocating call in the pose/event set, so
+  // performance one: this is the only allocating call in the publication set, so
   // a second call that rebuilt its `Sim` would grow linear memory and detach
   // every typed array the page holds. Two calls answering one number is the
   // cheapest witness that the cache is doing its job.

@@ -1256,7 +1256,7 @@ test("a_live_fight_matches_the_traced_fight", async (t) => {
   const checkpoint = new Uint8Array(fs.readFileSync(CHECKPOINT));
   for (const fixture of fixtures) {
     const trace = JSON.parse(fs.readFileSync(fixture.full, "utf8"));
-    assert.equal(trace.schema, "arpg-fight-trace-3",
+    assert.equal(trace.schema, "arpg-fight-trace-4",
       `${fixture.file} is schema ${trace.schema}; re-record it with: ${fixture.command}`);
     // The live fight is built from the trace's own header, so the two are the
     // same configuration by construction rather than by a comment.

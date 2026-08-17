@@ -30,6 +30,8 @@ const tsc = spawnSync(process.execPath, [
   "client/src/render/room-asset.generated.ts", "client/src/render/room-asset-contract.ts",
   "client/src/render/room-assets.ts", "client/src/render/room-environment.ts",
   "client/src/render/room-stress.ts", "client/src/render/room-review.ts", "client/src/render/room-review-camera.ts",
+  "client/src/render/combatant-asset.generated.ts", "client/src/render/combatant-asset-contract.ts",
+  "client/src/render/combatant-assets.ts",
   "client/src/input/greybox-input.ts", "client/src/bootstrap.ts",
   // The arena's scene is a renderer even though it does not live under
   // `render/`: it owns three cameras, a mesh registry and a debug owner, and
@@ -69,6 +71,11 @@ const roomStress = await load("client/src/render/room-stress.js");
 const roomReview = await load("client/src/render/room-review.js");
 const roomReviewCamera = await load("client/src/render/room-review-camera.js");
 const roomGenerated = await load("client/src/render/room-asset.generated.js");
+const combatantAssetContract = await load("client/src/render/combatant-asset-contract.js");
+const combatantAssets = await load("client/src/render/combatant-assets.js");
+const { NullEngine } = await import("@babylonjs/core/Engines/nullEngine.js");
+const { Scene } = await import("@babylonjs/core/scene.js");
+const { LoadAssetContainerAsync } = await import("@babylonjs/core/Loading/sceneLoader.js");
 const arenaGeometry = await load("client/src/arena/geometry.js");
 const arenaScene = await load("client/src/arena/scene.js");
 const arenaEnvironment = await load("client/src/arena/environment.js");
@@ -2353,11 +2360,16 @@ test("vite_build_rewrites_no_hand_written_page_under_web_including_its_own_input
   assert.ok(fs.existsSync(path.join(ROOT, "dist", "index.html")));
   assert.ok(fs.existsSync(path.join(ROOT, "dist", "web.wasm")));
   assert.deepEqual(fs.readdirSync(path.join(ROOT, "dist", "assets3d")).sort(),
-    ["room_slice.glb", "room_slice.json"]);
+    ["combatants.glb", "combatants.json", "room_slice.glb", "room_slice.json"]);
+  assert.deepEqual(fs.readFileSync(path.join(ROOT, "dist", "assets3d", "combatants.glb")),
+    fs.readFileSync(path.join(ROOT, "web", "assets3d", "combatants.glb")));
+  assert.deepEqual(fs.readFileSync(path.join(ROOT, "dist", "assets3d", "combatants.json")),
+    fs.readFileSync(path.join(ROOT, "web", "assets3d", "combatants.json")));
   assert.deepEqual(fs.readFileSync(path.join(ROOT, "dist", "assets3d", "room_slice.glb")),
     fs.readFileSync(path.join(ROOT, "web", "assets3d", "room_slice.glb")));
   assert.deepEqual(fs.readFileSync(path.join(ROOT, "dist", "assets3d", "room_slice.json")),
     fs.readFileSync(path.join(ROOT, "web", "assets3d", "room_slice.json")));
+  assert.equal(fs.existsSync(path.join(ROOT, "dist", "assets3d", "combatants.validator.json")), false);
   assert.equal(fs.existsSync(path.join(ROOT, "dist", "assets3d", "room_slice.validator.json")), false);
   const chunks = chunkGraph.readChunks(path.join(ROOT, "dist", "assets"));
   assert.ok(chunks.size >= 2);
@@ -2441,8 +2453,19 @@ test("vite_dev_serves_only_the_pinned_runtime_room_assets_with_exact_mime_and_ma
     assert.equal(sidecar.status, 200);
     assert.equal(sidecar.headers.get("content-type"), "application/json; charset=utf-8");
     assert.equal((await sidecar.json()).fixtureId, "v2-room-slice-1");
+    const combatantGlb = await fetch(`${origin}/assets3d/combatants.glb`);
+    assert.equal(combatantGlb.status, 200);
+    assert.equal(combatantGlb.headers.get("content-type"), "model/gltf-binary");
+    assert.equal(Buffer.from(await combatantGlb.arrayBuffer()).subarray(0, 4).toString("ascii"), "glTF");
+    const combatantSidecar = await fetch(`${origin}/assets3d/combatants.json`);
+    assert.equal(combatantSidecar.status, 200);
+    assert.equal(combatantSidecar.headers.get("content-type"), "application/json; charset=utf-8");
+    assert.equal((await combatantSidecar.json()).fixtureId, "v2-combatants-1");
     const validator = await fetch(`${origin}/assets3d/room_slice.validator.json`);
     assert.equal(validator.status, 404, "validator provenance must not be a runtime asset");
+    const combatantValidator = await fetch(`${origin}/assets3d/combatants.validator.json`);
+    assert.equal(combatantValidator.status, 404,
+      "combatant validator provenance must not be a runtime asset");
     const validatorFsPath = path.join(ROOT, "web", "assets3d", "room_slice.validator.json")
       .replaceAll("\\", "/");
     const validatorThroughViteFs = await fetch(`${origin}/@fs/${validatorFsPath}`);
@@ -2493,6 +2516,174 @@ test("room_sidecar_runtime_decoding_rejects_every_malformed_or_unbounded_field",
   }
   assert.throws(() => roomAssetContract.parseRoomAssetSidecar(new Uint8Array(4 * 1024 * 1024 + 1)),
     /byte length/);
+});
+
+const combatantSidecarBytes = fs.readFileSync(path.join(ROOT, "web", "assets3d", "combatants.json"));
+const combatantGlbBytes = fs.readFileSync(path.join(ROOT, "web", "assets3d", "combatants.glb"));
+
+function combatantResponse(url, sidecarBytes = combatantSidecarBytes, glbBytes = combatantGlbBytes) {
+  const glb = String(url).endsWith(".glb");
+  const bytes = glb ? glbBytes : sidecarBytes;
+  return new Response(bytes, { status: 200, headers: {
+    "content-type": glb ? "model/gltf-binary" : "application/json",
+    "content-length": String(bytes.byteLength),
+  } });
+}
+
+test("combatant_sidecar_decoding_refuses_undeclared_fields_and_every_semantic_closure_drift", () => {
+  const valid = combatantAssetContract.parseCombatantAssetSidecar(combatantSidecarBytes);
+  assert.deepEqual(valid.archetypes.map(({ kind }) => kind), ["fighter", "brute"]);
+  assert.deepEqual(valid.archetypes.map(({ skeleton }) => skeleton.bones.length), [16, 16]);
+  assert.deepEqual(valid.archetypes.map(({ clips }) => clips.map(({ semantic }) => semantic)),
+    [["idle", "walk", "stagger", "fall"], ["idle", "walk", "stagger", "fall"]]);
+  assert.ok(Object.isFrozen(valid));
+  assert.ok(Object.isFrozen(valid.archetypes[0].skeleton.bones));
+
+  const source = JSON.parse(combatantSidecarBytes);
+  const changedNode = structuredClone(source);
+  [changedNode.archetypes[0].nodes[0], changedNode.archetypes[0].nodes[1]] =
+    [changedNode.archetypes[0].nodes[1], changedNode.archetypes[0].nodes[0]];
+  const changedSkeleton = structuredClone(source);
+  changedSkeleton.archetypes[1].skeleton.bones.pop();
+  const changedClip = structuredClone(source);
+  changedClip.archetypes[0].clips[2].animation = "FIGHTER_attack";
+  const changedBounds = structuredClone(source);
+  changedBounds.archetypes[0].meshes[0].bounds.min[0] =
+    changedBounds.archetypes[0].meshes[0].bounds.max[0] + 1;
+  const malformed = [
+    { ...source, undeclared: true },
+    { ...source, counts: { ...source.counts, skins: 0 } },
+    { ...source, semanticNames: source.semanticNames.slice(1) },
+    changedNode, changedSkeleton, changedClip, changedBounds,
+  ];
+  for (const value of malformed) {
+    assert.throws(() => combatantAssetContract.parseCombatantAssetSidecar(
+      Buffer.from(JSON.stringify(value))), /combatant/);
+  }
+  assert.throws(() => combatantAssetContract.parseCombatantAssetSidecar(
+    new Uint8Array(2 * 1024 * 1024 + 1)), /byte length/);
+});
+
+test("combatant_loading_checks_hash_magic_and_declared_bounds_before_calling_babylon", async () => {
+  const engine = new NullEngine();
+  const scene = new Scene(engine);
+  try {
+    const changedSidecar = Buffer.from(combatantSidecarBytes);
+    changedSidecar[changedSidecar.length - 1] = 0x20;
+    let loaderCalls = 0;
+    await assert.rejects(combatantAssets.loadCombatantAsset(scene, new AbortController().signal,
+      (url) => Promise.resolve(combatantResponse(url, changedSidecar)),
+      async () => { loaderCalls++; throw new Error("must not load"); }), /sidecar hash/);
+    assert.equal(loaderCalls, 0);
+
+    const changedGlb = Buffer.from(combatantGlbBytes);
+    changedGlb[0] = 0;
+    await assert.rejects(combatantAssets.loadCombatantAsset(scene, new AbortController().signal,
+      (url) => Promise.resolve(combatantResponse(url, combatantSidecarBytes, changedGlb)),
+      async () => { loaderCalls++; throw new Error("must not load"); }), /GLB magic/);
+    assert.equal(loaderCalls, 0);
+
+    const tooLarge = async (url) => {
+      if (!String(url).endsWith(".glb")) return combatantResponse(url);
+      return new Response(combatantGlbBytes, { status: 200, headers: {
+        "content-type": "model/gltf-binary", "content-length": String(16 * 1024 * 1024 + 1),
+      } });
+    };
+    await assert.rejects(combatantAssets.loadCombatantAsset(scene, new AbortController().signal,
+      tooLarge, async () => { loaderCalls++; throw new Error("must not load"); }), /declared length/);
+    assert.equal(loaderCalls, 0);
+  } finally {
+    scene.dispose();
+    engine.dispose();
+  }
+});
+
+test("the_pinned_combatant_glb_loads_once_as_two_hidden_exact_skinned_archetypes", async () => {
+  const engine = new NullEngine();
+  const scene = new Scene(engine);
+  let fetches = 0;
+  let loaderCalls = 0;
+  const fetcher = async (url) => { fetches++; return combatantResponse(url); };
+  const loader = async (bytes, target, options) => {
+    loaderCalls++;
+    return LoadAssetContainerAsync(bytes, target, options);
+  };
+  try {
+    const controller = new AbortController();
+    const first = combatantAssets.loadCombatantAsset(scene, controller.signal, fetcher, loader);
+    const second = combatantAssets.loadCombatantAsset(scene, controller.signal, fetcher, loader);
+    assert.equal(first, second, "concurrent callers must share the same in-flight load");
+    const asset = await first;
+    assert.equal(fetches, 2);
+    assert.equal(loaderCalls, 1);
+    assert.deepEqual([...asset.archetypes.keys()], ["fighter", "brute"]);
+    for (const [kind, archetype] of asset.archetypes) {
+      assert.equal(archetype.skeleton.bones.length, 16, `${kind} skeleton closure`);
+      assert.deepEqual([...archetype.clips.keys()], ["idle", "walk", "stagger", "fall"]);
+      assert.deepEqual([...archetype.nodes.keys()],
+        ["root", "pelvis", "torso", "head", "arm_left", "hand_left", "arm_right", "hand_right",
+          "socket_weapon_left", "socket_weapon_right", "socket_shield", "region_head", "region_torso",
+          "region_left_arm", "region_right_arm", "region_legs", "idle", "walk", "stagger", "fall"]);
+      assert.equal(archetype.root.isEnabled(), false);
+      assert.ok([...archetype.meshes.values()].every((mesh) =>
+        mesh.isVisible === false && mesh.isPickable === false && mesh.skeleton === archetype.skeleton));
+    }
+    asset.dispose();
+    asset.dispose();
+    assert.equal(asset.disposed, true);
+  } finally {
+    scene.dispose();
+    engine.dispose();
+  }
+});
+
+test("combatant_closure_bounds_and_late_abort_failures_dispose_the_unpublished_container", async () => {
+  const run = async (mutate, pattern) => {
+    const engine = new NullEngine();
+    const scene = new Scene(engine);
+    let disposals = 0;
+    try {
+      await assert.rejects(combatantAssets.loadCombatantAsset(scene, new AbortController().signal,
+        (url) => Promise.resolve(combatantResponse(url)), async (bytes, target, options) => {
+          const container = await LoadAssetContainerAsync(bytes, target, options);
+          const dispose = container.dispose.bind(container);
+          container.dispose = () => { disposals++; dispose(); };
+          mutate(container);
+          return container;
+        }), pattern);
+      assert.equal(disposals, 1);
+    } finally {
+      scene.dispose();
+      engine.dispose();
+    }
+  };
+  await run((container) => container.skeletons.push({ name: "FOREIGN_skeleton", dispose() {} }),
+    /skeleton closure/);
+  await run((container) => {
+    const mesh = container.meshes.find(({ name }) => name === "FIGHTER_mesh_pelvis_skirt");
+    mesh.getBoundingInfo = () => ({ boundingBox: {
+      minimum: { x: -99, y: 0, z: 0 }, maximum: { x: 0, y: 0, z: 0 },
+    } });
+  }, /mesh pelvis_skirt bounds/);
+
+  const engine = new NullEngine();
+  const scene = new Scene(engine);
+  const controller = new AbortController();
+  let disposals = 0;
+  try {
+    await assert.rejects(combatantAssets.loadCombatantAsset(scene, controller.signal,
+      (url) => Promise.resolve(combatantResponse(url)), async (bytes, target, options) => {
+        const container = await LoadAssetContainerAsync(bytes, target, options);
+        const dispose = container.dispose.bind(container);
+        container.dispose = () => { disposals++; dispose(); };
+        controller.abort();
+        return container;
+      }), /abort/);
+    assert.equal(disposals, 1);
+  } finally {
+    scene.dispose();
+    engine.dispose();
+  }
 });
 
 function fakeRoomContainer(sidecar) {
@@ -2736,7 +2927,8 @@ const arenaHeader = () => ({
   timedOut: true, ticks: 2, maxTicks: 3600, arena: raw(24, 16), frameCount: 3, truncated: false,
   impactThreshold: 3932, contactEnergyFloor: 144,
   regionNames: ["head", "torso", "leftArm", "rightArm", "legs"],
-  hintNames: ["idle"], contactKinds: ["weaponWeapon", "weaponShield", "weaponBody"],
+  hintNames: ["idle"],
+  contactKinds: ["weaponWeapon", "weaponShield", "weaponBody", "projectileBody"],
   bodySlot: 255, noRegion: 255,
   bodies: [0, 1].map((index) => ({
     index, kind: index === 0 ? "Fighter" : "Brute", faction: index === 0 ? "Heroes" : "Monsters",
@@ -2749,7 +2941,10 @@ const arenaHeader = () => ({
 });
 
 const arenaView = (poses, values = {}) => {
-  const frame = { t: values.t ?? 0, poses, contacts: values.rows ?? [], health: [RAW, RAW] };
+  const frame = {
+    t: values.t ?? 0, poses, projectiles: values.projectiles ?? [],
+    contacts: values.rows ?? [], health: [RAW, RAW],
+  };
   return {
     header: arenaHeader(), frame, next: values.next ?? frame, alpha: values.alpha ?? 0,
     focus: values.focus ?? [poses[0].body[0], poses[0].body[1], 0], span: values.span ?? 6 * RAW,
@@ -3445,6 +3640,35 @@ test("sub_tick_blending_lerps_the_published_points_and_never_a_severance", () =>
   assert.deepEqual(arenaGeometry.blendPose(current, vanishing, 0.5).regions[4], current.regions[4]);
 });
 
+test("articulated_arrows_interpolate_by_slot_generation_and_retire_on_mode_and_load", async () => {
+  const { content, scene, engine } = await arenaStageHarness();
+  const projectile = (x, generation = 7) => ({
+    id: [4, generation], owner: [0, 0], position: raw(x, 6, 1),
+    velocity: raw(0.1, 0, 0), radius: raw(0.02)[0], remainingRange: raw(8)[0],
+  });
+  const current = arenaView([arenaPose()], { projectiles: [projectile(7)] });
+  const next = { ...current.frame, t: 1, projectiles: [projectile(9)] };
+  content.show({ ...current, next, alpha: 0.5 });
+  const tipName = "arena:projectile:4:7:upper";
+  const geometryTip = scene.getMeshByName(tipName);
+  assert.ok(Math.abs(absolute(geometryTip)[0] - 8) < 1e-5,
+    "the arrow tip did not interpolate between matching stable identities");
+
+  content.setMode("texture");
+  content.redraw();
+  assert.ok(geometryTip.isDisposed(), "changing dress retained the geometry arrow instance");
+  const texturedTip = scene.getMeshByName(tipName);
+  assert.ok(texturedTip, "changing dress did not rebuild the still-live arrow");
+  content.show(arenaView([arenaPose()], { projectiles: [] }));
+  assert.equal(scene.getMeshByName(tipName), null,
+    "an arrow from the previous loaded fight survived live-key cleanup");
+  assert.ok(texturedTip.isDisposed(), "loading a fight without the arrow retained its texture instance");
+
+  content.dispose();
+  scene.dispose();
+  engine.dispose();
+});
+
 // ------------------------------------------------- the textured proxy (v2-ui-03)
 
 const { Vector3: BabylonVector3 } = await import("@babylonjs/core/Maths/math.vector.js");
@@ -3578,7 +3802,7 @@ function fightViews() {
   const ticks = [...new Set(FIGHT_ROWS.map((row) => row[0]))];
   return ticks.map((tick) => {
     const poses = FIGHT_ROWS.filter((row) => row[0] === tick).map((row) => fightPose(row).pose);
-    const frame = { t: tick, poses, contacts: [], health: [RAW, RAW] };
+    const frame = { t: tick, poses, projectiles: [], contacts: [], health: [RAW, RAW] };
     return {
       tick, poses,
       view: {

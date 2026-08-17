@@ -2,8 +2,9 @@
 //!
 //! One `cdylib`, a hundred and six `extern "C"` functions, and a handful of
 //! packed buffers that JavaScript reads straight out of linear memory -- the
-//! `f32` frame, the `u8` tiles, fog and furniture beside it, and the two `u32`
-//! articulated publications [`pose_ptr`] and [`combat_event_ptr`] hand out. No
+//! `f32` frame, the `u8` tiles, fog and furniture beside it, and the `u32`
+//! articulated publications beginning at [`pose_ptr`] and ending at
+//! [`articulated_projectile_ptr`]. No
 //! `wasm-bindgen`, no `js-sys`, nothing generated. The workspace's
 //! no-dependency rule (`DESIGN.md`) is what keeps every recorded run in the
 //! repository valid across time, and it is not worth suspending for an ABI that
@@ -905,6 +906,35 @@ pub const REGION_RADIUS: usize = 6;
 /// volumes is that the host does not compute them twice.
 pub const REGION_PRESENT: usize = 7;
 
+// ------------------------------------------------ articulated projectiles
+
+/// Version of the articulated-projectile row layout. This is a separate
+/// publication from the legacy frame's four-word shot rows: those are a 2D
+/// presentation of the Legacy model, while these are the authoritative 3D
+/// arrows owned by the articulated runtime.
+pub const ARTICULATED_PROJECTILE_LAYOUT_VERSION: u32 = 1;
+
+/// The articulated runtime uses the simulation's shot cap for its isolated
+/// projectile store. Written through the already-authoritative web constant so
+/// a capacity change cannot leave two browser limits behind.
+pub const MAX_ARTICULATED_PROJECTILES: usize = MAX_SHOTS;
+
+/// Words in one live articulated projectile row.
+pub const ARTICULATED_PROJECTILE_STRIDE: usize = 12;
+
+pub const ARTICULATED_PROJECTILE_SLOT: usize = 0;
+pub const ARTICULATED_PROJECTILE_GENERATION: usize = 1;
+pub const ARTICULATED_PROJECTILE_OWNER_INDEX: usize = 2;
+pub const ARTICULATED_PROJECTILE_OWNER_GENERATION: usize = 3;
+pub const ARTICULATED_PROJECTILE_POSITION_X: usize = 4;
+pub const ARTICULATED_PROJECTILE_POSITION_Y: usize = 5;
+pub const ARTICULATED_PROJECTILE_POSITION_Z: usize = 6;
+pub const ARTICULATED_PROJECTILE_VELOCITY_X: usize = 7;
+pub const ARTICULATED_PROJECTILE_VELOCITY_Y: usize = 8;
+pub const ARTICULATED_PROJECTILE_VELOCITY_Z: usize = 9;
+pub const ARTICULATED_PROJECTILE_RADIUS: usize = 10;
+pub const ARTICULATED_PROJECTILE_REMAINING_RANGE: usize = 11;
+
 /// Version of the combat-event row layout.
 pub const COMBAT_EVENT_LAYOUT_VERSION: u32 = 1;
 
@@ -995,7 +1025,7 @@ pub const COMBAT_EVENT_SEVERED: usize = 31;
 /// index to a reader that had lost track of the width.
 pub const COMBAT_EVENT_NO_BODY_PART: u32 = u32::MAX;
 
-/// The three static arrays cost this much linear memory, once, forever.
+/// The four static arrays cost this much linear memory, once, forever.
 ///
 /// Written out as the arithmetic rather than as `289_280` so that a stride or a
 /// capacity moving is a failed assertion here and not a stale comment: the
@@ -1016,7 +1046,7 @@ pub const COMBAT_EVENT_NO_BODY_PART: u32 = u32::MAX;
 /// [`REGION_PRESENT`], which is what the eighth word buys and what the extra
 /// 1,280 bytes of it cost.
 ///
-/// **What this budget charges is the three published arrays and nothing else,
+/// **What this budget charges is the four published arrays and nothing else,
 /// which is worth stating because it is not the whole of the crate's static
 /// footprint.** [`Sim::anatomy`] is another fixed array -- roughly 15 KB inside
 /// the `SIM` thread-local, one `BodyAnatomySpec` slot per [`MAX_POSES`] -- and
@@ -1026,9 +1056,10 @@ pub const COMBAT_EVENT_NO_BODY_PART: u32 = u32::MAX;
 const _: () = assert!(
     MAX_POSES * POSE_STRIDE * 4
         + MAX_COMBAT_EVENTS * COMBAT_EVENT_STRIDE * 4
-        + MAX_REGIONS * REGION_STRIDE * 4 == 289_280,
+        + MAX_REGIONS * REGION_STRIDE * 4
+        + MAX_ARTICULATED_PROJECTILES * ARTICULATED_PROJECTILE_STRIDE * 4 == 290_816,
     "the articulated publication budget is 16,896 pose bytes plus 262,144 event bytes \
-     plus 10,240 region bytes",
+     plus 10,240 region bytes plus 1,536 projectile bytes",
 );
 
 // ---------------------------------------------------------- the arena config
@@ -1224,7 +1255,7 @@ const _: () = assert!(
 // to that enum has to be thought about here rather than collapsing into
 // whichever arm was convenient.
 //
-// **Twelve of these are reachable from a control and the rest are not, and the
+// **Thirteen of these are reachable from a control and the rest are not, and the
 // split is not the one v2-ui-05 predicted.** The plan named `Fraction`,
 // `Maximum`, `IdOrder`, `MissingReference`, `LoadoutMismatch`,
 // `TooManyAnatomies` and `TooManyEquipment` as slider-reachable. They are not,
@@ -1242,7 +1273,7 @@ const _: () = assert!(
 // Reachable today: unknown layout, wrong fighter count, noncanonical bytes,
 // unknown anatomy, unknown item, unknown policy, a `learned` fighter with no
 // checkpoint loaded, a refused construction, `Dimension`, `GripConflict`,
-// `NoEquipment` and `UnknownAction`.
+// `NoEquipment`, `UnknownAction` and the Bow's one canonical grip.
 //
 // **v2-ui-08 swapped one for another rather than adding one**, and the swap is
 // worth reading. `ARENA_POLICY_UNAVAILABLE` was reachable while `learned` had
@@ -1342,8 +1373,9 @@ pub const ARENA_LOADOUT_MISMATCH: u8 = 22;
 pub const ARENA_GRIP_CONFLICT: u8 = 23;
 /// Both of a fighter's hands are empty.
 pub const ARENA_NO_EQUIPMENT: u8 = 24;
-/// An action with no shipped equipment row -- a bow, a knife, a fist -- and so
-/// no measured surface to copy. Five of the eight actions land here.
+/// An action with no shipped equipment row -- a knife, a fist, a run or the
+/// shortsword -- and so no measured surface to copy. Four of the eight actions
+/// land here; Bow owns a runtime row without changing the hashed fixture table.
 pub const ARENA_UNKNOWN_ACTION: u8 = 25;
 
 /// A fighter asked for `learned` and no checkpoint is installed. The slot byte
@@ -1355,6 +1387,12 @@ pub const ARENA_UNKNOWN_ACTION: u8 = 25;
 /// page has not made yet rather than a value the page wrote down, which is why
 /// it is worth its own number even though both would grey out the same entry.
 pub const ARENA_NO_CHECKPOINT: u8 = 26;
+/// A Bow was not the sole item in the right hand under a two-handed grip.
+///
+/// Appended rather than inserted beside ARENA_NO_EQUIPMENT, because these
+/// bytes cross a worker boundary and the already-shipped refusal meanings do
+/// not move when the sim inserts a more precise enum variant.
+pub const ARENA_BOW_GRIP: u8 = 27;
 
 /// Every reason byte declared above, in one array, so that the claim "every
 /// refusal has its own number" is a failed build rather than a failing test.
@@ -1365,7 +1403,7 @@ pub const ARENA_NO_CHECKPOINT: u8 = 26;
 /// already in use is the other way the mapping stops being injective. This
 /// covers that half at compile time; `the_arena_configuration_buffer_is_the_documented_layout`
 /// covers the half that needs the enum walked.
-const ARENA_REASONS: [u8; 27] = [
+const ARENA_REASONS: [u8; 28] = [
     ARENA_OK, ARENA_UNKNOWN_LAYOUT, ARENA_WRONG_FIGHTER_COUNT, ARENA_NONCANONICAL,
     ARENA_UNKNOWN_ANATOMY, ARENA_UNKNOWN_ITEM, ARENA_UNKNOWN_POLICY, ARENA_POLICY_UNAVAILABLE,
     ARENA_CONSTRUCTION_REFUSED, ARENA_RESERVATION_REFUSED, ARENA_NAME_TOO_LONG,
@@ -1373,6 +1411,7 @@ const ARENA_REASONS: [u8; 27] = [
     ARENA_TOO_MANY_EQUIPMENT, ARENA_ID_ORDER, ARENA_UNKNOWN_SCHEMA, ARENA_DIMENSION,
     ARENA_FRACTION, ARENA_MAXIMUM, ARENA_MISSING_REFERENCE, ARENA_LOADOUT_MISMATCH,
     ARENA_GRIP_CONFLICT, ARENA_NO_EQUIPMENT, ARENA_UNKNOWN_ACTION, ARENA_NO_CHECKPOINT,
+    ARENA_BOW_GRIP,
 ];
 
 /// Pairwise, because twenty-six is small and a sort needs an allocation no
@@ -1640,6 +1679,18 @@ thread_local! {
     /// Rows the last publication could not fit, saturating, on `POSES_DROPPED`'s
     /// terms exactly.
     static REGIONS_DROPPED: Cell<u32> = const { Cell::new(0) };
+    /// Every live articulated arrow, in stable slot order. The row carries its
+    /// own slot generation because a reaped slot may be handed to a later arrow
+    /// while a recorder still holds the earlier frame.
+    static ARTICULATED_PROJECTILES:
+        RefCell<[u32; MAX_ARTICULATED_PROJECTILES * ARTICULATED_PROJECTILE_STRIDE]> =
+        const { RefCell::new(
+            [0; MAX_ARTICULATED_PROJECTILES * ARTICULATED_PROJECTILE_STRIDE]
+        ) };
+    /// How many live rows of `ARTICULATED_PROJECTILES` are published.
+    static ARTICULATED_PROJECTILE_LEN: Cell<u32> = const { Cell::new(0) };
+    /// Rows the cap ate during the last publication, saturating.
+    static ARTICULATED_PROJECTILES_DROPPED: Cell<u32> = const { Cell::new(0) };
     /// Every contact resolution of every tick in the last host call, in
     /// `(tick, toi, group ordinal, key)` order. Fixed for the same reason
     /// `POSES` is.
@@ -4702,6 +4753,27 @@ fn region_row(volume: &sim::RegionVolume) -> [u32; REGION_STRIDE] {
     row
 }
 
+/// One live arrow, copied without deriving presentation geometry. Slot plus
+/// generation is the projectile identity; owner is a full entity identity for
+/// the same reuse reason; every remaining field is the simulation's own fixed-
+/// point state.
+fn articulated_projectile_row(
+    projectile: &sim::ArticulatedProjectileView,
+) -> [u32; ARTICULATED_PROJECTILE_STRIDE] {
+    let mut row = [0u32; ARTICULATED_PROJECTILE_STRIDE];
+    row[ARTICULATED_PROJECTILE_SLOT] = projectile.slot;
+    row[ARTICULATED_PROJECTILE_GENERATION] = projectile.generation;
+    row[ARTICULATED_PROJECTILE_OWNER_INDEX] = projectile.owner.index;
+    row[ARTICULATED_PROJECTILE_OWNER_GENERATION] = projectile.owner.generation;
+    row[ARTICULATED_PROJECTILE_POSITION_X..=ARTICULATED_PROJECTILE_POSITION_Z]
+        .copy_from_slice(&vec3_words(projectile.position));
+    row[ARTICULATED_PROJECTILE_VELOCITY_X..=ARTICULATED_PROJECTILE_VELOCITY_Z]
+        .copy_from_slice(&vec3_words(projectile.velocity));
+    row[ARTICULATED_PROJECTILE_RADIUS] = fx_word(projectile.radius);
+    row[ARTICULATED_PROJECTILE_REMAINING_RANGE] = fx_word(projectile.remaining_range);
+    row
+}
+
 /// One published combat-event row.
 ///
 /// `tick` is the tick that was *integrated*, not the counter after `World::step`
@@ -4887,6 +4959,25 @@ fn write_region_buffer(sim: &Sim, out: &mut [u32; MAX_REGIONS * REGION_STRIDE]) 
     (rows, dropped)
 }
 
+/// Fills the isolated articulated-projectile buffer from the runtime's stable
+/// slot-order iterator and answers `(rows, dropped)`.
+fn write_articulated_projectile_buffer(
+    sim: &Sim,
+    out: &mut [u32; MAX_ARTICULATED_PROJECTILES * ARTICULATED_PROJECTILE_STRIDE],
+) -> (u32, u32) {
+    let mut rows = 0u32;
+    let mut dropped = 0u32;
+    for projectile in sim.world.articulated_projectiles() {
+        push_published_row(
+            out,
+            &mut rows,
+            &mut dropped,
+            &articulated_projectile_row(&projectile),
+        );
+    }
+    (rows, dropped)
+}
+
 /// Copies the accumulated contact rows into the event buffer and answers
 /// `(rows, dropped)`.
 ///
@@ -4939,6 +5030,11 @@ fn publish() {
                 REGIONS.with(|regions| write_region_buffer(sim, &mut regions.borrow_mut()));
             REGION_LEN.with(|n| n.set(region_rows));
             REGIONS_DROPPED.with(|n| n.set(regions_dropped));
+            let (projectile_rows, projectiles_dropped) = ARTICULATED_PROJECTILES.with(
+                |projectiles| write_articulated_projectile_buffer(sim, &mut projectiles.borrow_mut()),
+            );
+            ARTICULATED_PROJECTILE_LEN.with(|n| n.set(projectile_rows));
+            ARTICULATED_PROJECTILES_DROPPED.with(|n| n.set(projectiles_dropped));
             let (event_rows, events_dropped) = COMBAT_EVENTS
                 .with(|events| write_combat_event_buffer(sim, &mut events.borrow_mut()));
             COMBAT_EVENT_LEN.with(|n| n.set(event_rows));
@@ -4970,8 +5066,8 @@ fn publish() {
             // `MAX_COMBAT_EVENTS` was the provisional 256, and the trade comes
             // out the same way at nearly six times the size: this arm runs once
             // per refused install and never inside a frame. It comes out the
-            // same way a third time at 289,280, for the region rows below --
-            // which are ground truth about an identity in the sharper sense of
+            // same way a third time at 290,816, for the region and projectile
+            // rows below -- which are ground truth about an identity in the sharper sense of
             // the two, since a capsule is where a body's head *is*.
             POSES.with(|poses| poses.borrow_mut().fill(0));
             POSE_LEN.with(|n| n.set(0));
@@ -4979,6 +5075,9 @@ fn publish() {
             REGIONS.with(|regions| regions.borrow_mut().fill(0));
             REGION_LEN.with(|n| n.set(0));
             REGIONS_DROPPED.with(|n| n.set(0));
+            ARTICULATED_PROJECTILES.with(|projectiles| projectiles.borrow_mut().fill(0));
+            ARTICULATED_PROJECTILE_LEN.with(|n| n.set(0));
+            ARTICULATED_PROJECTILES_DROPPED.with(|n| n.set(0));
             COMBAT_EVENTS.with(|events| events.borrow_mut().fill(0));
             COMBAT_EVENT_LEN.with(|n| n.set(0));
             COMBAT_EVENTS_DROPPED.with(|n| n.set(0));
@@ -6380,6 +6479,7 @@ fn arena_spec_refusal(error: sim::CombatSpecError) -> ArenaRefusal {
         sim::CombatSpecError::LoadoutMismatch => ARENA_LOADOUT_MISMATCH,
         sim::CombatSpecError::GripConflict => ARENA_GRIP_CONFLICT,
         sim::CombatSpecError::NoEquipment => ARENA_NO_EQUIPMENT,
+        sim::CombatSpecError::BowGrip => ARENA_BOW_GRIP,
         sim::CombatSpecError::UnknownAction => ARENA_UNKNOWN_ACTION,
     })
 }
@@ -6534,6 +6634,45 @@ pub extern "C" fn regions_dropped() -> u32 {
 #[allow(unsafe_code)]
 #[no_mangle]
 pub const extern "C" fn region_layout_version() -> u32 { REGION_LAYOUT_VERSION }
+
+/// Address of the live articulated-projectile buffer. Stable for the life of
+/// the module and authoritative/unfiltered on [`pose_ptr`]'s terms.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn articulated_projectile_ptr() -> u32 {
+    ARTICULATED_PROJECTILES.with(|projectiles| projectiles.borrow().as_ptr() as usize as u32)
+}
+
+/// How many live articulated-projectile rows are published.
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn articulated_projectile_len() -> u32 {
+    ARTICULATED_PROJECTILE_LEN.with(|n| n.get())
+}
+
+#[allow(unsafe_code)]
+#[no_mangle]
+pub const extern "C" fn articulated_projectile_stride() -> u32 {
+    ARTICULATED_PROJECTILE_STRIDE as u32
+}
+
+#[allow(unsafe_code)]
+#[no_mangle]
+pub const extern "C" fn articulated_projectile_capacity() -> u32 {
+    MAX_ARTICULATED_PROJECTILES as u32
+}
+
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn articulated_projectiles_dropped() -> u32 {
+    ARTICULATED_PROJECTILES_DROPPED.with(|n| n.get())
+}
+
+#[allow(unsafe_code)]
+#[no_mangle]
+pub const extern "C" fn articulated_projectile_layout_version() -> u32 {
+    ARTICULATED_PROJECTILE_LAYOUT_VERSION
+}
 
 /// Address of the combat-event buffer. Stable for the life of the module.
 ///
@@ -7798,8 +7937,8 @@ fn stream_digest_command(
     }
 }
 
-/// FNV-1a-64 over the published pose, combat-event and region stream of a
-/// scripted articulated fight.
+/// FNV-1a-64 over the published pose, combat-event, region and projectile
+/// stream of a scripted articulated fight.
 ///
 /// **The portable claim v2-16 makes.** `selftest_hash` proves a *run* is the
 /// same everywhere; this proves the bytes the page reads out of it are, which
@@ -7808,15 +7947,17 @@ fn stream_digest_command(
 /// every world column and still disagree about a word offset, a sign extension
 /// or a narrowed `u64`.
 ///
-/// It goes through [`write_pose_buffer`], [`write_combat_event_buffer`] and
-/// [`write_region_buffer`] -- the same three functions [`publish`] calls --
+/// It goes through [`write_pose_buffer`], [`write_combat_event_buffer`],
+/// [`write_region_buffer`] and [`write_articulated_projectile_buffer`] -- the
+/// same four functions [`publish`] calls --
 /// rather than a second encoder. A digest built by a parallel writer would
 /// prove that two encoders agree and would say nothing about what crosses the
 /// wall.
 ///
 /// Independent of [`init`] and of anything the player has done, exactly as
 /// [`selftest_hash`] is: it builds its own `Sim`, drives it, and throws it away
-/// without touching `SIM`, `FRAME`, `POSES`, `REGIONS` or `COMBAT_EVENTS`. It
+/// without touching `SIM`, `FRAME`, `POSES`, `REGIONS`,
+/// `ARTICULATED_PROJECTILES` or `COMBAT_EVENTS`. It
 /// leaves `MAP`,
 /// `MAP_SHAPE` and `FURNITURE` alone too, and that one is a property of the
 /// *fixture* rather than of this function: `Sim::advance` rewrites both on a
@@ -7860,6 +8001,8 @@ struct StreamPublication<'a> {
     events_dropped: u32,
     regions: &'a [u32],
     regions_dropped: u32,
+    projectiles: &'a [u32],
+    projectiles_dropped: u32,
 }
 
 fn compute_articulated_stream_digest() -> u64 {
@@ -7891,6 +8034,15 @@ fn compute_articulated_stream_digest() -> u64 {
         hash.write_u32((published.regions.len() / REGION_STRIDE) as u32);
         hash.write_u32(published.regions_dropped);
         for &word in published.regions {
+            hash.write_u32(word);
+        }
+        // The projectile section is the fourth append-only tail. Even an empty
+        // tick carries its row count and drop count, so adding the publication
+        // is visible in the portability digest without disturbing the prior
+        // pose/event/region prefix.
+        hash.write_u32((published.projectiles.len() / ARTICULATED_PROJECTILE_STRIDE) as u32);
+        hash.write_u32(published.projectiles_dropped);
+        for &word in published.projectiles {
             hash.write_u32(word);
         }
     });
@@ -7933,10 +8085,10 @@ fn drive_stream_digest_script(mut feed: impl FnMut(StreamPublication)) {
     sim.world
         .submit_articulated_v1(brute, stream_digest_command(Angle::ZERO, Vec2::ZERO, fighter));
 
-    // The three published buffers, built once and reused across the script
+    // The four published buffers, built once and reused across the script
     // rather than allocated per tick: this runs on `wasm32-unknown-unknown`,
     // where a heap that grows detaches whatever the page is holding, and
-    // 289,280 bytes of stack is the cheaper of the two. That was 49,664 while
+    // 290,816 bytes of stack is the cheaper of the two. That was 49,664 while
     // `MAX_COMBAT_EVENTS` was the provisional 256 and 147,968 while it was
     // 1024, and 279,040 before v2-ui-06 added the region rows -- so the frame
     // has grown by 5.8x and the trade is worth restating rather than assuming:
@@ -7949,6 +8101,8 @@ fn drive_stream_digest_script(mut feed: impl FnMut(StreamPublication)) {
     let mut poses = [0u32; MAX_POSES * POSE_STRIDE];
     let mut events = [0u32; MAX_COMBAT_EVENTS * COMBAT_EVENT_STRIDE];
     let mut regions = [0u32; MAX_REGIONS * REGION_STRIDE];
+    let mut projectiles =
+        [0u32; MAX_ARTICULATED_PROJECTILES * ARTICULATED_PROJECTILE_STRIDE];
     for _ in 0..STREAM_DIGEST_TICKS {
         // Read before the step, so the number fed here is the tick that was
         // integrated -- the same tick the event rows below are stamped with,
@@ -7958,6 +8112,8 @@ fn drive_stream_digest_script(mut feed: impl FnMut(StreamPublication)) {
         let (pose_rows, poses_dropped) = write_pose_buffer(&sim, &mut poses);
         let (event_rows, events_dropped) = write_combat_event_buffer(&sim, &mut events);
         let (region_rows, regions_dropped) = write_region_buffer(&sim, &mut regions);
+        let (projectile_rows, projectiles_dropped) =
+            write_articulated_projectile_buffer(&sim, &mut projectiles);
         feed(StreamPublication {
             tick,
             poses: &poses[..pose_rows as usize * POSE_STRIDE],
@@ -7966,6 +8122,9 @@ fn drive_stream_digest_script(mut feed: impl FnMut(StreamPublication)) {
             events_dropped,
             regions: &regions[..region_rows as usize * REGION_STRIDE],
             regions_dropped,
+            projectiles:
+                &projectiles[..projectile_rows as usize * ARTICULATED_PROJECTILE_STRIDE],
+            projectiles_dropped,
         });
     }
 }
@@ -8301,7 +8460,8 @@ mod tests {
             E::MissingReference => E::LoadoutMismatch,
             E::LoadoutMismatch => E::GripConflict,
             E::GripConflict => E::NoEquipment,
-            E::NoEquipment => E::UnknownAction,
+            E::NoEquipment => E::BowGrip,
+            E::BowGrip => E::UnknownAction,
             // The tail, and the one arm a new variant edits: it becomes
             // `E::UnknownAction => E::<new>` and the new variant becomes this.
             E::UnknownAction => return None,
@@ -8354,7 +8514,7 @@ mod tests {
         // in hand -- which is why the list below is walked out of an exhaustive
         // `match` rather than written down. See [`next_spec_error`].
         let spec_errors = every_spec_error();
-        // The eleven that are not a spec error stay written out: they answer to
+        // The twelve that are not a spec error stay written out: they answer to
         // no enum, so a list of them is a list of them, and their distinctness
         // is the compile-time half.
         let mut codes = vec![
@@ -8370,7 +8530,7 @@ mod tests {
         // Not the guard -- the two lines above are -- but the tripwire that says
         // a variant arrived, now that a variant cannot arrive without the walk
         // finding it. Whoever bumps it owes the reference's reason table a row.
-        assert_eq!(spec_errors.len(), 15, "a CombatSpecError variant was added");
+        assert_eq!(spec_errors.len(), 16, "a CombatSpecError variant was added");
     }
 
     #[test]
@@ -8644,15 +8804,23 @@ mod tests {
         write_arena_config(&empty_handed, kinds);
         assert_eq!(arena_start(9), ArenaRefusal::whole(ARENA_NO_EQUIPMENT).packed());
 
-        // 12. An action with no shipped equipment row and therefore no measured
-        // surface. Distinct from case 5: this is an item that exists.
+        // 12. A Bow in the right hand without its canonical two-handed marker.
+        // The action is valid; its grip is the named refusal.
         let mut a_bow = config;
         a_bow.fighters[0].hands[1] =
             Some(sim::HandItemV1 { action: sim::ActionKind::Bow, ..sword });
         write_arena_config(&a_bow, kinds);
+        assert_eq!(arena_start(9), ArenaRefusal::whole(ARENA_BOW_GRIP).packed());
+
+        // 13. An action with no shipped or runtime equipment row and therefore
+        // no measured surface. Distinct from case 5: this is an item that exists.
+        let mut a_knife = config;
+        a_knife.fighters[0].hands[1] =
+            Some(sim::HandItemV1 { action: sim::ActionKind::Knife, ..sword });
+        write_arena_config(&a_knife, kinds);
         assert_eq!(arena_start(9), ArenaRefusal::whole(ARENA_UNKNOWN_ACTION).packed());
 
-        // Sixteen refused calls covering twelve reasons later, the fight that
+        // Seventeen refused calls covering thirteen reasons later, the fight that
         // was running is still running: not one of them touched `SIM`,
         // republished a frame, or moved a tick.
         assert_eq!(
@@ -9621,6 +9789,87 @@ mod tests {
                 })
                 .collect()
         })
+    }
+
+    #[test]
+    fn an_articulated_projectile_row_preserves_both_stable_identities_and_signed_words() {
+        let projectile = sim::ArticulatedProjectileView {
+            slot: 4,
+            generation: 7,
+            owner: EntityId::new(9, 3),
+            position: fx::Vec3::new(Fx::from_int(-2), Fx::HALF, Fx::ONE),
+            velocity: fx::Vec3::new(Fx::from_int(3), Fx::ZERO, -Fx::HALF),
+            radius: Fx::from_ratio(1, 50),
+            remaining_range: Fx::from_int(12),
+        };
+        assert_eq!(articulated_projectile_row(&projectile), [
+            4, 7, 9, 3,
+            Fx::from_int(-2).raw() as u32, Fx::HALF.raw() as u32, Fx::ONE.raw() as u32,
+            Fx::from_int(3).raw() as u32, 0, (-Fx::HALF).raw() as u32,
+            Fx::from_ratio(1, 50).raw() as u32, Fx::from_int(12).raw() as u32,
+        ]);
+    }
+
+    #[test]
+    fn a_configured_bow_publishes_its_live_arrow_with_the_archers_full_identity() {
+        let mut config = sim::DuelConfigV1::shipped();
+        config.max_ticks = 1_200;
+        config.fighters[0].hands = [
+            None,
+            Some(sim::HandItemV1::shipped(sim::ActionKind::Bow)
+                .expect("the configured duel has a runtime Bow row")),
+        ];
+        config.fighters[0].two_handed = true;
+        write_arena_config(
+            &config,
+            [ArticulatedPolicyKind::Composed, ArticulatedPolicyKind::Neutral],
+        );
+        assert_eq!(arena_start(3) & 0xff, 1, "the canonical Bow grip was refused");
+        let owner = POSES.with(|poses| {
+            let words = poses.borrow();
+            [words[POSE_ENTITY_INDEX], words[POSE_ENTITY_GENERATION]]
+        });
+
+        let arm = sim::ArmTarget {
+            bearing: Angle::ZERO,
+            height: sim::CombatHeight::MID,
+            reach: Fx::ZERO,
+            effort: Fx::ZERO,
+        };
+        write_submitted(sim::ArticulatedCommandV1 {
+            move_dir: Vec2::ZERO,
+            body_yaw: Angle::ZERO,
+            intent: Intent::Hold,
+            arms: [arm; 2],
+            grips: [sim::GripRequest::Keep; 2],
+            releases: [sim::ReleaseRequest::Keep, sim::ReleaseRequest::Loose],
+        });
+        assert_eq!(submit_articulated(owner[0], owner[1]), 1,
+            "the explicit right-arm Loose command was refused");
+        // The arena policy normally submits the next command before stepping
+        // and would overwrite this test's edge. Step the authoritative world
+        // once, then call the same publisher every exported mutation calls.
+        with_sim((), |sim| { let _ = sim.world.step(); });
+        publish();
+
+        assert_eq!(articulated_projectile_len(), 1,
+            "the explicit Loose edge was not published as one live arrow");
+        let row = ARTICULATED_PROJECTILES.with(|rows| {
+            let words = rows.borrow();
+            let mut row = [0u32; ARTICULATED_PROJECTILE_STRIDE];
+            row.copy_from_slice(&words[..ARTICULATED_PROJECTILE_STRIDE]);
+            row
+        });
+        assert_eq!(
+            [row[ARTICULATED_PROJECTILE_OWNER_INDEX],
+             row[ARTICULATED_PROJECTILE_OWNER_GENERATION]],
+            owner,
+            "the arrow lost the full identity of the archer that loosed it",
+        );
+        assert_eq!(articulated_projectiles_dropped(), 0);
+        assert!(articulated_projectile_len() <= articulated_projectile_capacity());
+        assert!(row[ARTICULATED_PROJECTILE_RADIUS] != 0);
+        assert!(row[ARTICULATED_PROJECTILE_REMAINING_RANGE] != 0);
     }
 
     /// A scenario's anatomy per spawn slot, resolved the way
@@ -10810,7 +11059,7 @@ mod tests {
 
     #[test]
     fn wasm_exports_match_layout_stride_capacity_and_drop_fields() {
-        // **The ten numbers are transcribed from the reference, not read off
+        // **The twelve numbers are transcribed from the reference, not read off
         // the crate.** `assert_eq!(pose_stride(), POSE_STRIDE)` compares an
         // export against the constant it returns and cannot fail; it looks like
         // a pin and is a tautology. `tools/wasm_check.js` -- which carries this
@@ -10828,6 +11077,12 @@ mod tests {
         assert_eq!(region_layout_version(), 1, "REGION_LAYOUT_VERSION");
         assert_eq!(region_stride(), 8, "REGION_STRIDE");
         assert_eq!(region_capacity(), 320, "MAX_REGIONS");
+        assert_eq!(articulated_projectile_layout_version(), 1,
+            "ARTICULATED_PROJECTILE_LAYOUT_VERSION");
+        assert_eq!(articulated_projectile_stride(), 12,
+            "ARTICULATED_PROJECTILE_STRIDE");
+        assert_eq!(articulated_projectile_capacity(), 32,
+            "MAX_ARTICULATED_PROJECTILES");
         // The two relationships worth asserting rather than transcribing: the
         // pose cap *is* the sim's articulated cap, so a sim that grew its own
         // limit fails here instead of quietly publishing a truncated roster,
@@ -10839,6 +11094,8 @@ mod tests {
             pose_capacity() * sim::AnatomyRegion::COUNT as u32,
             "the region buffer cannot hold five rows for every pose row",
         );
+        assert_eq!(articulated_projectile_capacity(), sim::MAX_SHOTS as u32,
+            "the projectile buffer is narrower than the authoritative store");
 
         // Both drop fields, on both worlds, which the name has always claimed
         // and this test never checked. A Legacy world publishing zero rows is
@@ -10862,14 +11119,26 @@ mod tests {
             (0, 0),
             "a Legacy world published or dropped a region row",
         );
+        assert_eq!(
+            (articulated_projectile_len(), articulated_projectiles_dropped()),
+            (0, 0),
+            "a Legacy world published or dropped an articulated projectile row",
+        );
 
         init_articulated(1);
         assert_ne!(pose_ptr(), 0);
         assert_ne!(combat_event_ptr(), 0);
         assert_ne!(region_ptr(), 0);
+        assert_ne!(articulated_projectile_ptr(), 0);
         assert_ne!(pose_ptr(), combat_event_ptr(), "the two buffers share an address");
         assert_ne!(pose_ptr(), region_ptr(), "the pose and region buffers share an address");
         assert_ne!(combat_event_ptr(), region_ptr(), "two buffers share an address");
+        assert_ne!(pose_ptr(), articulated_projectile_ptr(),
+            "the pose and projectile buffers share an address");
+        assert_ne!(combat_event_ptr(), articulated_projectile_ptr(),
+            "the event and projectile buffers share an address");
+        assert_ne!(region_ptr(), articulated_projectile_ptr(),
+            "the region and projectile buffers share an address");
         assert!(pose_len() > 0, "the articulated room published no bodies");
         assert!(pose_len() <= pose_capacity());
         assert_eq!(poses_dropped(), 0, "the room overflowed a buffer sized to the sim's own cap");
@@ -10879,14 +11148,19 @@ mod tests {
         // A pointer that moved between calls would mean the buffer is not a
         // fixed array, which is the one property a typed array over it depends
         // on.
-        let (poses, events, regions) = (pose_ptr(), combat_event_ptr(), region_ptr());
+        let (poses, events, regions, projectiles) =
+            (pose_ptr(), combat_event_ptr(), region_ptr(), articulated_projectile_ptr());
         step(8);
-        assert_eq!((pose_ptr(), combat_event_ptr(), region_ptr()), (poses, events, regions));
+        assert_eq!(
+            (pose_ptr(), combat_event_ptr(), region_ptr(), articulated_projectile_ptr()),
+            (poses, events, regions, projectiles),
+        );
         assert!(combat_event_len() <= combat_event_capacity());
         assert!(region_len() <= region_capacity());
         assert_eq!(poses_dropped(), 0, "a two-body room overflowed a 64-row pose buffer");
         assert_eq!(combat_events_dropped(), 0, "a two-body room overflowed a 2048-row feed");
         assert_eq!(regions_dropped(), 0, "a room dropped a region row");
+        assert_eq!(articulated_projectiles_dropped(), 0, "a room dropped a projectile row");
     }
 
     #[test]
@@ -10960,10 +11234,10 @@ mod tests {
         assert_eq!(pose_len(), 0);
         assert_eq!(tick(), 0);
 
-        // **The same refusal over an *articulated* world, and the three buffers
-        // read rather than their three lengths.** A Legacy room writes none of
+        // **The same refusal over an *articulated* world, and the four buffers
+        // read rather than their four lengths.** A Legacy room writes none of
         // them, so everything above is a claim about arrays that were already
-        // zero -- and the `fill(0)`s in `publish`'s `None` arm are three lines
+        // zero -- and the `fill(0)`s in `publish`'s `None` arm are four lines
         // no test could tell had been deleted. These rows are ground truth
         // about an identity: a stale one is the previous world's body, its
         // capsules included, sitting in linear memory behind a zero length.
@@ -10974,11 +11248,16 @@ mod tests {
             "the articulated room published nothing for the refusal to wipe",
         );
         install_articulated(&broken, 7);
-        assert_eq!((pose_len(), region_len(), combat_event_len()), (0, 0, 0));
+        assert_eq!(
+            (pose_len(), region_len(), combat_event_len(), articulated_projectile_len()),
+            (0, 0, 0, 0),
+        );
         for (name, zeroed) in [
             ("pose", POSES.with(|rows| rows.borrow().iter().all(|&word| word == 0))),
             ("region", REGIONS.with(|rows| rows.borrow().iter().all(|&word| word == 0))),
             ("combat-event", COMBAT_EVENTS.with(|rows| rows.borrow().iter().all(|&word| word == 0))),
+            ("projectile", ARTICULATED_PROJECTILES.with(
+                |rows| rows.borrow().iter().all(|&word| word == 0))),
         ] {
             assert!(zeroed, "a refused install left the previous world's {name} rows in memory");
         }
@@ -11304,17 +11583,19 @@ mod tests {
         println!("region_capacity:      {}", region_capacity());
     }
 
-    /// The scripted pose, region and combat-event stream, as one number.
+    /// The scripted pose, region, projectile and combat-event stream, as one number.
     ///
     /// The script: [`Scenario::articulated_duel`] at seed 1 with the fighter
     /// moved to `(9,6)` and the brute to `(7,6)`, one attack command each on
     /// tick zero and none after -- the fighter walking due west at full
     /// magnitude, the brute standing still, both asking for the bearing they
     /// already have. Twenty ticks, one publication per tick, digested through
-    /// [`write_pose_buffer`], [`write_combat_event_buffer`] and
-    /// [`write_region_buffer`]. Ticks 0, 1, 2 and 4 carry no contact, ticks 3
+    /// [`write_pose_buffer`], [`write_combat_event_buffer`],
+    /// [`write_region_buffer`] and [`write_articulated_projectile_buffer`].
+    /// Ticks 0, 1, 2 and 4 carry no contact, ticks 3
     /// and 5 carry two rows, and the rest carry one; every tick carries two pose
-    /// rows and ten region rows.
+    /// rows and ten region rows; this sword-and-shield fixture carries zero
+    /// projectile rows but still digests their length and drop words each tick.
     ///
     /// Not a fight golden. It pins the *bytes the page reads*, which is a
     /// different property from `ROOM_HASH`'s and one a hand-rolled ABI can get
@@ -11448,12 +11729,14 @@ mod tests {
                 published.events_dropped,
                 published.regions.len() / REGION_STRIDE,
                 published.regions_dropped,
+                published.projectiles.len() / ARTICULATED_PROJECTILE_STRIDE,
+                published.projectiles_dropped,
             ));
         });
         for row in shape {
             println!(
-                "tick {} poses {} dropped {} events {} dropped {} regions {} dropped {}",
-                row.0, row.1, row.2, row.3, row.4, row.5, row.6,
+                "tick {} poses {} dropped {} events {} dropped {} regions {} dropped {} projectiles {} dropped {}",
+                row.0, row.1, row.2, row.3, row.4, row.5, row.6, row.7, row.8,
             );
         }
     }

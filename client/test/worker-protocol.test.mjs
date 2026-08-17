@@ -52,13 +52,14 @@ const header = () => {
 // two together are the split `snapshot.ts` and `sim.worker.ts` already have.
 class FakeArena {
   constructor({ ticks = 8, deathTick = null, eventsPerTick = 1, startPacked = 1,
-    checkpointPacked = 1, digest = null } = {}) {
+    checkpointPacked = 1, digest = null, projectileAt = null } = {}) {
     this.ticks = ticks;
     this.deathTick = deathTick;
     this.eventsPerTick = eventsPerTick;
     this.startPacked = startPacked;
     this.checkpointPacked = checkpointPacked;
     this.digest = digest;
+    this.projectileAt = projectileAt;
     this.now = 0;
     this.config = null;
     this.warmed = 0;
@@ -105,15 +106,27 @@ class FakeArena {
       regions[row * ABI.REGION_STRIDE + ABI.REGION_PRESENT] = 1;
     }
     const events = new Uint32Array(this.eventsPerTick * ABI.COMBAT_EVENT_STRIDE);
+    const projectileRows = this.projectileAt === this.now ? 1 : 0;
+    const projectiles = new Uint32Array(projectileRows * ABI.ARTICULATED_PROJECTILE_STRIDE);
+    if (projectileRows !== 0) {
+      projectiles[ABI.ARTICULATED_PROJECTILE_SLOT] = 4;
+      projectiles[ABI.ARTICULATED_PROJECTILE_GENERATION] = 7;
+      projectiles[ABI.ARTICULATED_PROJECTILE_OWNER_INDEX] = 0;
+      projectiles[ABI.ARTICULATED_PROJECTILE_OWNER_GENERATION] = 1;
+      projectiles[ABI.ARTICULATED_PROJECTILE_POSITION_X] = 1234;
+      projectiles[ABI.ARTICULATED_PROJECTILE_VELOCITY_X] = 5678;
+      projectiles[ABI.ARTICULATED_PROJECTILE_RADIUS] = 321;
+      projectiles[ABI.ARTICULATED_PROJECTILE_REMAINING_RANGE] = 9999;
+    }
     for (let row = 0; row < this.eventsPerTick; row += 1) {
       events[row * ABI.COMBAT_EVENT_STRIDE + ABI.COMBAT_EVENT_TICK] = this.now;
       events[row * ABI.COMBAT_EVENT_STRIDE + ABI.COMBAT_EVENT_A_INDEX] = row;
     }
     return {
       poseRows: bodies, regionRows: bodies * ABI.REGIONS_PER_BODY,
-      eventRows: this.eventsPerTick,
-      posesDropped: 0, regionsDropped: 0, eventsDropped: 0,
-      poses, regions, events,
+      projectileRows, eventRows: this.eventsPerTick,
+      posesDropped: 0, regionsDropped: 0, projectilesDropped: 0, eventsDropped: 0,
+      poses, regions, projectiles, events,
       alive: bodies === 1 ? [1, 0] : [1, 1],
       health: bodies === 1 ? [65_536, 0] : [65_536, 32_768],
       maxHealth: [65_536, 65_536],
@@ -1179,7 +1192,8 @@ test("an_arena_refusal_reads_its_policy_code_and_not_a_hand_index", () => {
   // the module answers twenty-seven codes rather than one opaque zero.
   const sentences = new Set(Object.values(CONFIG.ARENA_REFUSALS));
   assert.equal(sentences.size, Object.keys(CONFIG.ARENA_REFUSALS).length);
-  assert.equal(Object.keys(CONFIG.ARENA_REFUSALS).length, 27);
+  assert.equal(Object.keys(CONFIG.ARENA_REFUSALS).length, 28);
+  assert.match(CONFIG.ARENA_REFUSALS[27], /bow.*right-hand.*two-handed/i);
 });
 
 test("a_recorded_fight_transfers_its_buffers_and_its_index", async () => {
@@ -1195,14 +1209,15 @@ test("a_recorded_fight_transfers_its_buffers_and_its_index", async () => {
   assert.equal(last.fingerprint, "0x00000000deadbeef");
   assert.equal(last.checkpoint, null);
   assert.equal(arena.warmed, 1, "the allocating calls run once, before any buffer exists");
-  // Every buffer is transferred rather than copied: five of them, in order.
+  // Every buffer is transferred rather than copied: six of them, in order.
   assert.deepEqual(sent.at(-1).transfer,
-    [last.poses, last.regions, last.events, last.index, last.health]);
+    [last.poses, last.regions, last.projectiles, last.events, last.index, last.health]);
   const source = new LiveFightSource(last);
   assert.equal(source.frameCount(), 17);
   for (let frame = 0; frame < source.frameCount(); frame += 1) {
     assert.equal(source.frameAt(frame).t, frame, "the index carries its own tick word");
     assert.equal(source.frameAt(frame).poses.length, 2);
+    assert.equal(source.frameAt(frame).projectiles.length, 0);
     assert.equal(source.frameAt(frame).poses[0].regions.length, ABI.REGIONS_PER_BODY);
   }
   assert.throws(() => source.frameAt(17), /out of range/);
@@ -1245,6 +1260,22 @@ test("the_index_survives_a_death", async () => {
     ABI.REGIONS_PER_BODY);
   // The outcome the module would have answered, from the alive counts alone.
   assert.deepEqual([last.outcome, last.timedOut], ["HeroesWin", false]);
+});
+
+test("a_projectile_row_uses_its_own_index_extent_and_stable_identity", async () => {
+  const { last } = await record(
+    new FakeArena({ ticks: 3, projectileAt: 2 }), arenaConfig({ maxTicks: 3 }),
+  );
+  const source = new LiveFightSource(last);
+  assert.equal(source.frameAt(1).projectiles.length, 0);
+  assert.deepEqual(source.frameAt(2).projectiles, [{
+    id: [4, 7], owner: [0, 1], position: [1234, 0, 0], velocity: [5678, 0, 0],
+    radius: 321, remainingRange: 9999,
+  }]);
+  assert.equal(source.frameAt(3).projectiles.length, 0,
+    "a reaped projectile is retired rather than repeated from the preceding extent");
+  const index = new Uint32Array(last.index);
+  assert.equal(index[2 * RECORDER.RECORDING_INDEX_STRIDE + RECORDER.INDEX_PROJECTILE_COUNT], 1);
 });
 
 test("a_truncated_recording_says_so", async () => {
@@ -1457,11 +1488,15 @@ const recordingMessage = (requestId, over) => ({
   frameCount: 3, recordingTruncated: false, arena: [0, 0],
   poseLayoutVersion: 1, poseStride: ABI.POSE_STRIDE,
   regionLayoutVersion: 1, regionStride: ABI.REGION_STRIDE, regionsPerBody: ABI.REGIONS_PER_BODY,
+  articulatedProjectileLayoutVersion: 1,
+  articulatedProjectileStride: ABI.ARTICULATED_PROJECTILE_STRIDE,
   combatEventLayoutVersion: 1, combatEventStride: ABI.COMBAT_EVENT_STRIDE,
-  posesDropped: 0, regionsDropped: 0, combatEventsDropped: 0,
+  posesDropped: 0, regionsDropped: 0, articulatedProjectilesDropped: 0,
+  combatEventsDropped: 0,
   impactThreshold: 3_932, contactEnergyFloor: 144, bodySlot: 255, noRegion: 4_294_967_295,
   regionNames: [], hintNames: [], contactKinds: [], bodies: [],
-  poses: new ArrayBuffer(0), regions: new ArrayBuffer(0), events: new ArrayBuffer(0),
+  poses: new ArrayBuffer(0), regions: new ArrayBuffer(0), projectiles: new ArrayBuffer(0),
+  events: new ArrayBuffer(0),
   index: new ArrayBuffer(0), health: new ArrayBuffer(0),
   ...over,
 });

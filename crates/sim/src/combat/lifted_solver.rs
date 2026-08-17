@@ -773,7 +773,7 @@ mod tests {
             at_group: [ExactPosition::default(); 3],
             momentum: [ExactMomentum::default(); 3], group_time_raw: 0 };
         let common_scale = if held { 131_072 } else { 65_536 };
-        ExactOwnerTrajectory { entity, body_mass_raw: 65_536, common_scale,
+        ExactOwnerTrajectory { entity, projectile: false, body_mass_raw: 65_536, common_scale,
             common_response: affine(common_scale as i32), held_response: if held {
                 [Some(crate::combat::trajectory::ExactHeldResponse { slot: 0, spec_id: 7,
                     affine: affine(65_536) }), None]

@@ -26,9 +26,10 @@
 // `postMessage` in.
 
 import {
+  ARTICULATED_PROJECTILE_LAYOUT_VERSION, ARTICULATED_PROJECTILE_STRIDE,
   COMBAT_EVENT_BODY_SLOT, COMBAT_EVENT_LAYOUT_VERSION, COMBAT_EVENT_NO_BODY_PART,
   COMBAT_EVENT_STRIDE, HEADER_LEN, HEADER_UNIT_COUNT, MAX_COMBAT_EVENTS,
-  MAX_POSES, MAX_REGIONS, POSE_LAYOUT_VERSION, POSE_STRIDE, REGION_LAYOUT_VERSION,
+  MAX_ARTICULATED_PROJECTILES, MAX_POSES, MAX_REGIONS, POSE_LAYOUT_VERSION, POSE_STRIDE, REGION_LAYOUT_VERSION,
   REGION_STRIDE, REGIONS_PER_BODY, UNIT_FACTION, UNIT_HP, UNIT_MAX_HP, UNIT_STRIDE,
 } from "../protocol/abi.generated.js";
 import type { FightRecordingMessage, RecordedBody, RecordedItem } from "../protocol/messages.js";
@@ -117,7 +118,7 @@ export const RECORDING_EVENT_ROW_CAP = 32_768;
 export const RECORDING_CHUNK_TICKS = 300;
 
 /**
- * Seven words a frame: the tick, then a start and a count for each section.
+ * Nine words a frame: the tick, then a start and a count for each section.
  *
  * **The index is the point of the whole transfer.** `pose_len` is one per *live*
  * articulated body, so a fighter dying takes it from 2 to 1 -- the learned
@@ -131,14 +132,16 @@ export const RECORDING_CHUNK_TICKS = 300;
  * step and stops the moment a step advances nothing -- and "happens to equal" is
  * precisely the kind of arithmetic this index exists to stop a reader doing.
  */
-export const RECORDING_INDEX_STRIDE = 7;
+export const RECORDING_INDEX_STRIDE = 9;
 export const INDEX_TICK = 0;
 export const INDEX_POSE_START = 1;
 export const INDEX_POSE_COUNT = 2;
 export const INDEX_REGION_START = 3;
 export const INDEX_REGION_COUNT = 4;
-export const INDEX_EVENT_START = 5;
-export const INDEX_EVENT_COUNT = 6;
+export const INDEX_PROJECTILE_START = 5;
+export const INDEX_PROJECTILE_COUNT = 6;
+export const INDEX_EVENT_START = 7;
+export const INDEX_EVENT_COUNT = 8;
 
 /**
  * `IMPACT_THRESHOLD` and `CONTACT_ENERGY_FLOOR`, mirrored.
@@ -157,20 +160,25 @@ export const CONTACT_ENERGY_FLOOR = 144;
 /** The name lists the trace carries so a reader owns no copy of a `sim` enum. */
 export const REGION_NAMES = ["head", "torso", "leftArm", "rightArm", "legs"] as const;
 export const HINT_NAMES = ["idle", "chasing", "braced", "contact", "recoiling", "severed"] as const;
-export const CONTACT_KINDS = ["weaponWeapon", "weaponShield", "weaponBody"] as const;
+export const CONTACT_KINDS = [
+  "weaponWeapon", "weaponShield", "weaponBody", "projectileBody",
+] as const;
 
 /** One tick of published ground truth, as the recorder consumes it. */
 export interface ArenaPublication {
   readonly poseRows: number;
   readonly regionRows: number;
   readonly eventRows: number;
+  readonly projectileRows: number;
   readonly posesDropped: number;
   readonly regionsDropped: number;
   readonly eventsDropped: number;
+  readonly projectilesDropped: number;
   /** Live prefixes, freshly viewed. Valid only until the next wasm call. */
   readonly poses: Uint32Array;
   readonly regions: Uint32Array;
   readonly events: Uint32Array;
+  readonly projectiles: Uint32Array;
   /** Alive units per faction, `Faction::index` order. */
   readonly alive: readonly [number, number];
   /** Summed `UnitView::hp` raws over the alive units of each faction. */
@@ -231,6 +239,9 @@ export interface ArenaExports {
   pose_capacity: U32Export; poses_dropped: U32Export; pose_layout_version: U32Export;
   region_ptr: U32Export; region_len: U32Export; region_stride: U32Export;
   region_capacity: U32Export; regions_dropped: U32Export; region_layout_version: U32Export;
+  articulated_projectile_ptr: U32Export; articulated_projectile_len: U32Export;
+  articulated_projectile_stride: U32Export; articulated_projectile_capacity: U32Export;
+  articulated_projectiles_dropped: U32Export; articulated_projectile_layout_version: U32Export;
   combat_event_ptr: U32Export; combat_event_len: U32Export; combat_event_stride: U32Export;
   combat_event_capacity: U32Export; combat_events_dropped: U32Export;
   combat_event_layout_version: U32Export;
@@ -247,6 +258,9 @@ export const ARENA_EXPORTS = [
   "pose_layout_version",
   "region_ptr", "region_len", "region_stride", "region_capacity", "regions_dropped",
   "region_layout_version",
+  "articulated_projectile_ptr", "articulated_projectile_len", "articulated_projectile_stride",
+  "articulated_projectile_capacity", "articulated_projectiles_dropped",
+  "articulated_projectile_layout_version",
   "combat_event_ptr", "combat_event_len", "combat_event_stride",
   "combat_event_capacity", "combat_events_dropped", "combat_event_layout_version",
 ] as const;
@@ -324,6 +338,9 @@ export function createArenaAdapter(wasm: ArenaExports): ArenaWasmAdapter {
       || (wasm.region_layout_version() >>> 0) !== REGION_LAYOUT_VERSION
       || (wasm.region_stride() >>> 0) !== REGION_STRIDE
       || (wasm.region_capacity() >>> 0) !== MAX_REGIONS
+      || (wasm.articulated_projectile_layout_version() >>> 0) !== ARTICULATED_PROJECTILE_LAYOUT_VERSION
+      || (wasm.articulated_projectile_stride() >>> 0) !== ARTICULATED_PROJECTILE_STRIDE
+      || (wasm.articulated_projectile_capacity() >>> 0) !== MAX_ARTICULATED_PROJECTILES
       || (wasm.combat_event_layout_version() >>> 0) !== COMBAT_EVENT_LAYOUT_VERSION
       || (wasm.combat_event_stride() >>> 0) !== COMBAT_EVENT_STRIDE
       || (wasm.combat_event_capacity() >>> 0) !== MAX_COMBAT_EVENTS) {
@@ -378,16 +395,20 @@ export function createArenaAdapter(wasm: ArenaExports): ArenaWasmAdapter {
       const poseRows = wasm.pose_len() >>> 0;
       const regionRows = wasm.region_len() >>> 0;
       const eventRows = wasm.combat_event_len() >>> 0;
+      const projectileRows = wasm.articulated_projectile_len() >>> 0;
       const posesDropped = wasm.poses_dropped() >>> 0;
       const regionsDropped = wasm.regions_dropped() >>> 0;
       const eventsDropped = wasm.combat_events_dropped() >>> 0;
+      const projectilesDropped = wasm.articulated_projectiles_dropped() >>> 0;
       const posePointer = wasm.pose_ptr() >>> 0;
       const regionPointer = wasm.region_ptr() >>> 0;
       const eventPointer = wasm.combat_event_ptr() >>> 0;
+      const projectilePointer = wasm.articulated_projectile_ptr() >>> 0;
       const framePointer = wasm.frame_ptr() >>> 0;
       const frameLength = wasm.frame_len() >>> 0;
       const memory = wasm.memory.buffer;
       if (poseRows > MAX_POSES || eventRows > MAX_COMBAT_EVENTS
+        || projectileRows > MAX_ARTICULATED_PROJECTILES
         || regionRows !== poseRows * REGIONS_PER_BODY) {
         // The length comparison is the reader's protection and not a nicety: a
         // body whose anatomy the host does not hold is skipped and the rows
@@ -398,9 +419,13 @@ export function createArenaAdapter(wasm: ArenaExports): ArenaWasmAdapter {
       const frame = new Float32Array(memory, framePointer, frameLength);
       const aggregates = factionAggregates(frame);
       return {
-        poseRows, regionRows, eventRows, posesDropped, regionsDropped, eventsDropped,
+        poseRows, regionRows, projectileRows, eventRows,
+        posesDropped, regionsDropped, projectilesDropped, eventsDropped,
         poses: new Uint32Array(memory, posePointer, poseRows * POSE_STRIDE),
         regions: new Uint32Array(memory, regionPointer, regionRows * REGION_STRIDE),
+        projectiles: new Uint32Array(
+          memory, projectilePointer, projectileRows * ARTICULATED_PROJECTILE_STRIDE,
+        ),
         events: new Uint32Array(memory, eventPointer, eventRows * COMBAT_EVENT_STRIDE),
         alive: aggregates.alive,
         health: aggregates.health,
@@ -523,6 +548,9 @@ export async function recordArenaFight(
   const frameCap = tickCap + 1;
   const poses = new Uint32Array(frameCap * ARENA_FIGHTERS * POSE_STRIDE);
   const regions = new Uint32Array(frameCap * ARENA_FIGHTERS * REGIONS_PER_BODY * REGION_STRIDE);
+  const projectiles = new Uint32Array(
+    frameCap * MAX_ARTICULATED_PROJECTILES * ARTICULATED_PROJECTILE_STRIDE,
+  );
   const events = new Uint32Array(RECORDING_EVENT_ROW_CAP * COMBAT_EVENT_STRIDE);
   const index = new Uint32Array(frameCap * RECORDING_INDEX_STRIDE);
   const health = new Int32Array(frameCap * 2);
@@ -530,10 +558,12 @@ export async function recordArenaFight(
   let frames = 0;
   let poseRows = 0;
   let regionRows = 0;
+  let projectileRows = 0;
   let eventRows = 0;
   let truncated = false;
   let posesDropped = 0;
   let regionsDropped = 0;
+  let projectilesDropped = 0;
   let eventsDropped = 0;
   let maxHealth: readonly [number, number] = [0, 0];
   let alive: readonly [number, number] = [0, 0];
@@ -550,11 +580,13 @@ export async function recordArenaFight(
     const published = wasm.read();
     if (frames >= frameCap
       || poseRows + published.poseRows > frameCap * ARENA_FIGHTERS
+      || projectileRows + published.projectileRows > frameCap * MAX_ARTICULATED_PROJECTILES
       || eventRows + published.eventRows > RECORDING_EVENT_ROW_CAP) {
       return false;
     }
     poses.set(published.poses, poseRows * POSE_STRIDE);
     regions.set(published.regions, regionRows * REGION_STRIDE);
+    projectiles.set(published.projectiles, projectileRows * ARTICULATED_PROJECTILE_STRIDE);
     events.set(published.events, eventRows * COMBAT_EVENT_STRIDE);
     const at = frames * RECORDING_INDEX_STRIDE;
     index[at + INDEX_TICK] = tick;
@@ -562,10 +594,13 @@ export async function recordArenaFight(
     index[at + INDEX_POSE_COUNT] = published.poseRows;
     index[at + INDEX_REGION_START] = regionRows;
     index[at + INDEX_REGION_COUNT] = published.regionRows;
+    index[at + INDEX_PROJECTILE_START] = projectileRows;
+    index[at + INDEX_PROJECTILE_COUNT] = published.projectileRows;
     index[at + INDEX_EVENT_START] = eventRows;
     index[at + INDEX_EVENT_COUNT] = published.eventRows;
     poseRows += published.poseRows;
     regionRows += published.regionRows;
+    projectileRows += published.projectileRows;
     eventRows += published.eventRows;
     // The maxima come from the first frame, where both bodies are standing.
     // `health_fraction`'s denominator counts a dead body's maximum and a dead
@@ -582,6 +617,7 @@ export async function recordArenaFight(
     arena = published.arena;
     posesDropped += published.posesDropped;
     regionsDropped += published.regionsDropped;
+    projectilesDropped += published.projectilesDropped;
     eventsDropped += published.eventsDropped;
     frames += 1;
     return true;
@@ -636,9 +672,12 @@ export async function recordArenaFight(
       poseLayoutVersion: POSE_LAYOUT_VERSION, poseStride: POSE_STRIDE,
       regionLayoutVersion: REGION_LAYOUT_VERSION, regionStride: REGION_STRIDE,
       regionsPerBody: REGIONS_PER_BODY,
+      articulatedProjectileLayoutVersion: ARTICULATED_PROJECTILE_LAYOUT_VERSION,
+      articulatedProjectileStride: ARTICULATED_PROJECTILE_STRIDE,
       combatEventLayoutVersion: COMBAT_EVENT_LAYOUT_VERSION,
       combatEventStride: COMBAT_EVENT_STRIDE,
-      posesDropped, regionsDropped, combatEventsDropped: eventsDropped,
+      posesDropped, regionsDropped, articulatedProjectilesDropped: projectilesDropped,
+      combatEventsDropped: eventsDropped,
       impactThreshold: IMPACT_THRESHOLD_RAW, contactEnergyFloor: CONTACT_ENERGY_FLOOR,
       // The event row widens `sim::NO_REGION` to a full word so a reader that
       // lost track of the column width cannot mistake it for a region index;
@@ -649,6 +688,9 @@ export async function recordArenaFight(
       bodies: bodiesOf(config),
       poses: poses.buffer.slice(0, poseRows * POSE_STRIDE * 4),
       regions: regions.buffer.slice(0, regionRows * REGION_STRIDE * 4),
+      projectiles: projectiles.buffer.slice(
+        0, projectileRows * ARTICULATED_PROJECTILE_STRIDE * 4,
+      ),
       // Sliced for the same reason the two above are, and it is the one where it
       // matters: the event extent is a measured cap and a shipped fight fills
       // about a tenth of it, so transferring it whole would hand the main thread

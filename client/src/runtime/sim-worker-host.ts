@@ -276,7 +276,8 @@ export class SimWorkerHost {
         requestId: message.requestId, ...result.recording,
       };
       this.send(recording, [
-        recording.poses, recording.regions, recording.events, recording.index, recording.health,
+        recording.poses, recording.regions, recording.projectiles,
+        recording.events, recording.index, recording.health,
       ]);
     } catch (error) {
       if (!this.fatal && !this.terminated) this.error(message.requestId, this.fatalCode(error), true, String(error));

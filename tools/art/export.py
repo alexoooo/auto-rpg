@@ -148,10 +148,11 @@ def export_glb(path, flags):
         "export_texcoords": True, "export_normals": True,
         "export_materials": flags["exportMaterials"], "export_cameras": False,
         "export_lights": False, "export_animations": flags["animations"],
-        "export_skins": False, "export_morph": False, "export_extras": True,
-        "export_vertex_color": flags["vertexColor"],
-        "export_vertex_color_name": flags["vertexColorName"],
-        "export_all_vertex_colors": flags["allVertexColors"],
+        "export_skins": flags.get("skins", False),
+        "export_morph": flags.get("morphs", False), "export_extras": True,
+        "export_vertex_color": flags.get("vertexColor", "MATERIAL"),
+        "export_vertex_color_name": flags.get("vertexColorName", ""),
+        "export_all_vertex_colors": flags.get("allVertexColors", False),
     }
     result = bpy.ops.export_scene.gltf(**kwargs)
     if result != {"FINISHED"}:

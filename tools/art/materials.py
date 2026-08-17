@@ -40,15 +40,30 @@ def _verified_image(root, name, spec, processing):
     if width != spec["width"] or height != spec["height"]:
         raise RuntimeError(f"texture {name} dimensions differ from the manifest")
     source = bpy.data.images.load(str(path), check_existing=False)
-    source.scale(processing["width"], processing["height"])
-    pixels = _periodic_pixels(source.pixels[:], processing["width"], processing["height"],
+    quadrant_x, quadrant_y = spec["sourceQuadrant"]
+    crop_width = width // 2
+    crop_height = height // 2
+    source_pixels = source.pixels[:]
+    cropped_pixels = []
+    for y in range(crop_height):
+        source_y = quadrant_y * crop_height + y
+        for x in range(crop_width):
+            source_x = quadrant_x * crop_width + x
+            offset = (source_y * width + source_x) * 4
+            cropped_pixels.extend(source_pixels[offset:offset + 4])
+    cropped = bpy.data.images.new(f"room_{name}_source", width=crop_width,
+                                  height=crop_height, alpha=True)
+    cropped.pixels[:] = cropped_pixels
+    bpy.data.images.remove(source)
+    cropped.scale(processing["width"], processing["height"])
+    pixels = _periodic_pixels(cropped.pixels[:], processing["width"], processing["height"],
                               processing["periodicEdgePixels"])
     image = bpy.data.images.new(f"room_{name}_albedo", width=processing["width"],
                                 height=processing["height"], alpha=True)
     image.colorspace_settings.name = processing["colourSpace"]
     image.pixels[:] = pixels
     image.pack()
-    bpy.data.images.remove(source)
+    bpy.data.images.remove(cropped)
     return image
 
 

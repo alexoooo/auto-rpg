@@ -143,7 +143,8 @@ route, stays out of `rollupOptions.input` and ships in nothing; `tools/serve.js`
 the Vite dev server both hand it straight out of `web/`.
 
 `#/arena` runs its own fight. It writes a configuration, a Worker of its own records
-the duel in wasm, and the transferred pose, region and combat-event buffers are what
+the duel in wasm, and the transferred pose, region, projectile and combat-event
+buffers are what
 the page scrubs; a recorded `lab trace` file still plays through the same seam when
 one is named by `?trace=`. `npm run view` — Vite with no wasm build — is enough to
 *open* the route, because the Worker is constructed lazily on the first **[Fight]**,
@@ -156,9 +157,10 @@ v2-ui-07 landed the channel.
 The trace is a two-file contract — `crates/lab/src/trace.rs` writes it and
 `client/src/fight/trace.ts` refuses a schema it does not know, on purpose. Change
 one and you change both, and bump `TRACE_SCHEMA` in both. It is at
-`arpg-fight-trace-3`; v2-19 moved it from 2 by replacing the single `script` field
+`arpg-fight-trace-4`; v2-19 moved it from 2 by replacing the single `script` field
 with `heroes`, `monsters` and `checkpoint`, because a learned fight is the first
-one whose two bodies are driven by different things.
+one whose two bodies are driven by different things. The articulated-arrow session
+moved it from 3 by adding each frame's live projectile rows.
 
 `trace` also takes fourteen keys that *describe* a duel instead of running the pinned
 one — the two anatomies, the four hands, and the shield and weapon dimensions.
@@ -291,7 +293,7 @@ client split**: `crates/web/src/lib.rs`, `web/main.js` and `tools/wasm_check.js`
 were the whole of it before `crates/web/src/bin/emit_abi.rs` began generating
 `client/src/protocol/abi.generated.ts` for `client/src/state/snapshot.ts` to read.
 The same handshake applies separately to each of the ABIs beside the frame — the
-pose, region and combat-event publications in
+pose, region, articulated-projectile and combat-event publications in
 [`articulated-abi.md`](docs/reference/articulated-abi.md) — which are not sections
 of the frame and do not move `FRAME_LAYOUT_VERSION`.
 

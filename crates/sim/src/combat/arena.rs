@@ -30,7 +30,7 @@
 use crate::combat::spec::{
     brute_anatomy, club, fighter_anatomy, shield, sword, validate_construction, AnatomySpecId,
     ArticulatedUnitSpecV1, BodyAnatomySpec, CombatSpecError, CombatSpecTableV1, EquipmentGeometry,
-    EquipmentSpec, EquipmentSpecId, GripBinding, COMBAT_SPEC_SCHEMA_V1,
+    EquipmentSpec, EquipmentSpecId, GripBinding, Material, SurfaceSpec, COMBAT_SPEC_SCHEMA_V1,
 };
 use crate::dungeon::Dungeon;
 use crate::entity::{Body, Faction};
@@ -223,14 +223,30 @@ impl DuelConfigV1 {
 /// The shipped equipment row an action takes its surface and its defaults from,
 /// or `None`.
 ///
-/// Three rows and eight actions, so the mapping is partial on purpose; see
-/// [`CombatSpecError::UnknownAction`] for why the missing five are refused
+/// Three fixture rows plus one runtime-only Bow row leave four of eight actions
+/// unsupported; see [`CombatSpecError::UnknownAction`] for why they are refused
 /// rather than approximated.
 fn shipped_row(action: ActionKind) -> Option<EquipmentSpec> {
     match action {
         ActionKind::Sword => Some(sword()),
         ActionKind::Shield => Some(shield()),
         ActionKind::Club => Some(club()),
+        // Runtime-only on purpose. The fixture table remains its hashed three-row contract.
+        ActionKind::Bow => {
+            let action = ActionKind::Bow.spec();
+            Some(EquipmentSpec {
+                id: 4, schema: COMBAT_SPEC_SCHEMA_V1, action: ActionKind::Bow,
+                mass: action.mass, balance: action.balance,
+                geometry: EquipmentGeometry::Segment {
+                    length: Fx::from_ratio(4, 5), radius: Fx::from_ratio(1, 30),
+                },
+                binding: GripBinding::Both,
+                surface: SurfaceSpec {
+                    restitution: Fx::from_ratio(1, 4), friction: Fx::from_ratio(1, 2),
+                    edge_factor: Fx::ZERO, point_factor: Fx::ZERO, material: Material::Wood,
+                },
+            })
+        }
         _ => None,
     }
 }
@@ -327,6 +343,12 @@ impl Scenario {
             let anatomy_id = index as AnatomySpecId + 1;
             anatomies.push(fighter.anatomy.row(anatomy_id));
 
+            let bow_left = fighter.hands[0].is_some_and(|item| item.action == ActionKind::Bow);
+            let bow_right = fighter.hands[1].is_some_and(|item| item.action == ActionKind::Bow);
+            if bow_left || (bow_right && (!fighter.two_handed || fighter.hands[0].is_some())) {
+                return Err(CombatSpecError::BowGrip);
+            }
+
             // A two-handed grip with nothing in the right hand is refused here
             // and not left to `validate_rows`, because no `Both` row is ever
             // written for it -- the flag would silently mean "one-handed", and
@@ -357,7 +379,9 @@ impl Scenario {
                     // `validate_bindings` is the rule that refuses that pair by
                     // name, and pre-empting it here would leave the refusal a
                     // dead branch nothing can reach from a configuration.
-                    binding: if hand == LimbSlot::LeftArm as usize {
+                    binding: if item.action == ActionKind::Bow {
+                        GripBinding::Both
+                    } else if hand == LimbSlot::LeftArm as usize {
                         GripBinding::Left
                     } else if fighter.two_handed {
                         GripBinding::Both
@@ -753,15 +777,36 @@ mod tests {
         // Five of the eight actions have no equipment row and therefore no
         // measured surface. Refused rather than approximated to whichever row
         // looks nearest.
-        let bow = HandItemV1 {
-            action: ActionKind::Bow,
+        let punch = HandItemV1 {
+            action: ActionKind::Punch,
             ..item(ActionKind::Sword)
         };
         let config = duel(
-            holding(AnatomyChoice::Fighter, [None, Some(bow)]),
+            holding(AnatomyChoice::Fighter, [None, Some(punch)]),
             holding(AnatomyChoice::Brute, [None, Some(item(ActionKind::Club))]),
         );
         assert_eq!(Scenario::duel_from(&config), Err(CombatSpecError::UnknownAction));
+    }
+
+    #[test]
+    fn bow_is_runtime_only_and_has_one_canonical_two_handed_grip() {
+        let bow = HandItemV1::shipped(ActionKind::Bow).unwrap();
+        let mut config = duel(
+            holding(AnatomyChoice::Fighter, [None, Some(bow)]),
+            holding(AnatomyChoice::Brute, [None, Some(item(ActionKind::Club))]),
+        );
+        config.fighters[0].two_handed = true;
+        let scenario = Scenario::duel_from(&config).unwrap();
+        let row = scenario.combat_specs.as_ref().unwrap().equipment.iter()
+            .find(|row| row.action == ActionKind::Bow).unwrap();
+        assert_eq!(row.binding, GripBinding::Both);
+        assert_eq!(CombatSpecTableV1::fixtures().equipment.len(), 3);
+
+        config.fighters[0].two_handed = false;
+        assert_eq!(Scenario::duel_from(&config), Err(CombatSpecError::BowGrip));
+        config.fighters[0].hands = [Some(bow), None];
+        config.fighters[0].two_handed = true;
+        assert_eq!(Scenario::duel_from(&config), Err(CombatSpecError::BowGrip));
     }
 
     #[test]

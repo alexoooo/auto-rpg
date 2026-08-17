@@ -5,22 +5,22 @@
 **Canonical source:** this document, the current [room asset contract](../reference/room-asset-contract.md#manifest-semantics), the [renderer contract](../reference/renderer-contract.md#visibility-and-subsystem-presence), and [ADR 0003](../decisions/0003-renderer-outside-sim.md#decision)
 **Update when:** The representative kit, asset hashes, reference machine, evidence method, thresholds, review result, or room-pipeline decision changes.
 
-The room pipeline and its automated gates are current. The first visible art review
-recorded `replace`; after texture, composition, lighting, playable-route, and zoom
-revisions, the owner accepted the current candidate on 2026-08-09 as good enough to
-proceed at the legacy-parity threshold. Foreground performance remains pending, and
-this decision does not claim the ultimate painted-art target.
+The room pipeline and its automated asset gates are current. The first visible art
+review recorded `replace`; generator v3 then earned minimum legacy parity on
+2026-08-09. Generator v4 supersedes that artifact with coursed masonry and
+concept-atlas materials. It does not inherit v3's visible approval: a new visible
+review and foreground performance capture remain pending.
 
 ## Artifact and environment record
 
 | Field | Required record |
 |---|---|
-| Manifest file, GLB, sidecar, and Blender binary hashes | GLB `cfd30f7fc7a105e3ad6f181266fb1a2c1f6034a0866208fa71d5fd565b7fdc10`; sidecar `b15c44c454a908eaabbe8c19ecc1bd13bd58fd28935a5b4bef7c9583175a0635`; validator `40a93c34e397e59da0c4372e7f68f645e8d66a2ced6e714071465d693eec90f0`; Blender binary `25bdb2e3f8ed0bac9d51b7a25fbea0f712a8d80346f2efc9dbe24d85e910c310` |
-| `buildInputsSha256` over canonical manifest JSON with `outputs` omitted | `a8c98a41336f25e67bc635b7251dc4a68fe93e7b3bd72a5f275fba51aee04f74`; excludes the complete `outputs` object |
-| Current texture style | generator version 3; `readable-stone-v1`; checked tile-scale 1,254 x 1,254 source PNGs `8ebbbb618cf748b62a63a950fdc60aaa1e6930eb8ea69d24b97793428f4a3d70` and `f456977162d07e8c4ae7dedf17048a83c181854d992876c91fd0b577451ed4cc`; deterministic 512 x 512 periodic embeds `fadbb6d0cd8566f50131bfcd4261f6b54f4596c58372aa22105e34cdf09d358b` and `cbe20f9cabf7a15f7e6c406ea4fcec85971c291c22973cf62e3116014f7e9ff3`; CORNER `room_style` remains normalized `UNSIGNED_SHORT` `VEC4` `COLOR_0`; owner accepted minimum legacy parity and chose `pass/proceed` on 2026-08-09 |
+| Manifest file, GLB, sidecar, and Blender binary hashes | GLB `cb50818c10a954bdea0d7d82aee9d5662bb549b8811f31d7c750f50bc9acd152`; sidecar `8db5ea87224b0bdb1d557fb4511357c2f3fa149f9554e2ac8519f2f6ef10fe85`; validator `c66216640e497fe8c3e6909dc64ce59d59b10c3f4d70d78792a72ceadde1d0b7`; Blender binary `25bdb2e3f8ed0bac9d51b7a25fbea0f712a8d80346f2efc9dbe24d85e910c310` |
+| `buildInputsSha256` over canonical manifest JSON with `outputs` omitted | `ce82c6fdf4072bb6e9f6c26cc5065451bf52e503d9dd2a6ae03883a7d57640b4`; excludes the complete `outputs` object |
+| Current texture style | generator version 4; `concept-umber-stone-v2`; floor and wall quadrants from checked 1,254 x 1,254 atlas `037c8588e18d585fd6c50ff4ba8e071459bf88c04aac4c22058a2743673149b6`; deterministic 512 x 512 periodic embeds `a5effbaebebcf0ca1737b4953f53516f6d7274a232f20ccfc8676d854426f9a8` and `d01683a26efff554e88162bf00379a2420a95c814d700c0ecc696065a51c130b`; CORNER `room_style` remains normalized `UNSIGNED_SHORT` `VEC4` `COLOR_0`; automated closure is current and a new visible review remains owed |
 | Generated TypeScript trust pins | `ROOM_FIXTURE_ID = v2-room-slice-1`; all four artifact/build hashes above are compiled into `ROOM_BUILD_INPUTS_SHA256`, `ROOM_SIDECAR_SHA256`, `ROOM_GLB_SHA256`, and `ROOM_VALIDATOR_SHA256` |
-| Validator report | committed third artifact; validator 2.0.0-dev.3.10; 13 nodes, 12 meshes, four materials, 504 vertices, 272 triangles |
-| Payload and deterministic offline residency components | GLB 943,584 + sidecar 5,384 = 948,968 payload bytes; source 21,120 + instances 222,208 + decoded textures 2,097,152 + shadow map 4,194,304 = 6,534,784 estimated bytes |
+| Validator report | committed third artifact; validator 2.0.0-dev.3.10; 13 nodes, 12 meshes, four materials, 3,000 vertices, 1,520 triangles |
+| Payload and deterministic offline residency components | GLB 1,112,964 + sidecar 5,403 = 1,118,367 payload bytes; source 127,440 + instances 225,280 + decoded textures 2,097,152 + shadow map 4,194,304 = 6,644,176 estimated bytes |
 | Validator error/warning counts and allowlist | zero errors, zero warnings, zero hints, four informational unused-UV messages; `allowedValidatorWarnings: []` |
 | OS, CPU, GPU, driver, browser, power | pending foreground capture |
 | Requested/selected backend and full diagnostics | pending foreground capture |
@@ -28,7 +28,7 @@ this decision does not claim the ultimate painted-art target.
 | CSS/backing size and render scale | 1920 x 1080; scale 1 |
 | Fixture | `v2-room-slice-1`; seed `1592594996`; 48 x 32; 64 bodies; eight torches plus one directional light; no training workers; all-visible performance disclosure |
 | `ROOM_STRESS_MAP_SHA256` | `1262c7dc5eb359a06db10a06c85e2782237b226e423a903f72441f1dfde18e6c` for the exact 1,536 committed map bytes mirrored by fixture source, manifest, sidecar, matrix, and tests |
-| Exact fixed piece counts and capacities | 1,536 floors (floor_a 768, floor_b 768); wall_straight 184; wall_inside 0; wall_outside 0; wall_end 4; door_frame 2; door_leaf 2; torch_bracket 8; decal_rubble 4; decal_root 4; prop_barrel 4. Wall counts are instances: the 4 corner and 8 tee/cross tiles each lay two crossing straight runs, and the authored corner pieces stay in the kit unused. The committed sidecar's residency estimate (instances 222,208 bytes) predates the 184 capacity and refreshes at the next authored build |
+| Exact fixed piece counts and capacities | 1,536 floors (floor_a 768, floor_b 768); wall_straight 184; wall_inside 0; wall_outside 0; wall_end 4; door_frame 2; door_leaf 2; torch_bracket 8; decal_rubble 4; decal_root 4; prop_barrel 4. Wall counts are instances: the 4 corner and 8 tee/cross tiles each lay two crossing straight runs, and the authored corner pieces stay in the kit unused. The refreshed sidecar budgets the full 184 straight-wall capacity at 225,280 instance bytes |
 
 ## Automated contract record
 

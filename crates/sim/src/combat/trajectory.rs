@@ -19,7 +19,8 @@ use crate::{EntityId, Faction};
 use fx::{Fx, Vec3};
 
 const TICK_RAW: i128 = 65_536;
-pub(crate) const MAX_EXACT_OWNERS: usize = MAX_ARTICULATED_ENTITIES;
+pub(crate) const MAX_EXACT_OWNERS: usize =
+    MAX_ARTICULATED_ENTITIES + crate::rules::MAX_SHOTS;
 const MAX_FLOOR_REACTIONS: usize = MAX_ARTICULATED_ENTITIES;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
@@ -98,6 +99,7 @@ pub(crate) struct ExactMotorBounds {
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) enum MotorShape {
+    Projectile { point: ExactMotorPoint, radius_raw: i32 },
     Body { origin: ExactMotorPoint, parts: [ExactMotorBounds; AnatomyRegion::COUNT] },
     Segment { hilt: ExactMotorPoint, tip: ExactMotorPoint, radius_raw: i32 },
     Shield { corners: [ExactMotorPoint; 4] },
@@ -113,6 +115,7 @@ pub(crate) struct ExactHeldResponse {
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) struct ExactOwnerTrajectory {
     pub(crate) entity: EntityId,
+    pub(crate) projectile: bool,
     pub(crate) body_mass_raw: i32,
     /// Immutable denominator shared by every legal common-mass state of this
     /// owner. Grip lifecycle changes active mass, never this lattice.
@@ -152,6 +155,7 @@ pub(crate) struct EvaluatedMotorBounds {
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) enum EvaluatedContactShape {
+    Projectile { point: ExactPoint, radius_raw: i32 },
     Body { origin: ExactPoint, parts: [EvaluatedMotorBounds; AnatomyRegion::COUNT] },
     Segment { hilt: ExactPoint, tip: ExactPoint, radius_raw: i32 },
     Shield { corners: [ExactPoint; 4] },
@@ -333,8 +337,8 @@ fn validate_owner(owner: ExactOwnerTrajectory) -> Result<(), ExactTrajectoryReje
     if owner.common_response.mass_raw != owner_mass(owner)? {
         return Err(ExactTrajectoryReject::Mass);
     }
-    if owner.common_response.at_group[2] != ExactPosition::default()
-        || owner.common_response.momentum[2] != ExactMomentum::default() {
+    if !owner.projectile && (owner.common_response.at_group[2] != ExactPosition::default()
+        || owner.common_response.momentum[2] != ExactMomentum::default()) {
         return Err(ExactTrajectoryReject::NonCanonicalBodyZ);
     }
     let group = owner.common_response.group_time_raw;
@@ -351,6 +355,12 @@ fn validate_owner(owner: ExactOwnerTrajectory) -> Result<(), ExactTrajectoryReje
 
 fn validate_row_shape(row: &ExactContactTrajectory) -> Result<(), ExactTrajectoryReject> {
     match (row.kind, row.motor) {
+        (GeneralizedKind::Projectile, MotorShape::Projectile { radius_raw, .. }) => {
+            if row.slot == BODY_SLOT || row.held_index.is_some() || row.equipment_spec.is_some()
+                || radius_raw < 0 {
+                return Err(ExactTrajectoryReject::WrongIdentity);
+            }
+        }
         (GeneralizedKind::Body, MotorShape::Body { parts, .. }) => {
             if row.slot != BODY_SLOT || row.held_index.is_some() || row.equipment_spec.is_some() {
                 return Err(ExactTrajectoryReject::WrongIdentity);
@@ -463,6 +473,8 @@ pub(crate) fn evaluate_exact(
     if row.mass_raw <= 0 { return Err(ExactTrajectoryReject::Mass); }
     let common = response_point(owner.common_response, owner.common_scale, global_time_raw)?;
     let held = match (row.kind, row.held_index, row.equipment_spec) {
+        (GeneralizedKind::Projectile, None, None) if row.slot != BODY_SLOT
+            && owner.projectile && row.mass_raw == owner.body_mass_raw => None,
         (GeneralizedKind::Body, None, None) if row.slot == BODY_SLOT
             && row.mass_raw == owner.body_mass_raw => None,
         (GeneralizedKind::Equipment, Some(at), Some(spec)) => {
@@ -476,6 +488,10 @@ pub(crate) fn evaluate_exact(
         _ => return Err(ExactTrajectoryReject::WrongIdentity),
     };
     match row.motor {
+        MotorShape::Projectile { point, radius_raw } =>
+            Ok(EvaluatedContactShape::Projectile {
+                point: translated_motor_point(point, common, None, global_time_raw)?, radius_raw,
+            }),
         MotorShape::Body { origin, parts } => {
             let origin = translated_motor_point(origin, common, None, global_time_raw)?;
             let mut evaluated = [EvaluatedMotorBounds {
@@ -639,6 +655,8 @@ pub(crate) fn validate_exact_rows(
             .ok_or(ExactTrajectoryReject::WrongIdentity)?;
         if rows[at].entity != owner.entity { return Err(ExactTrajectoryReject::WrongIdentity); }
         match (rows[at].kind, rows[at].held_index, rows[at].equipment_spec) {
+            (GeneralizedKind::Projectile, None, None) if rows[at].slot != BODY_SLOT
+                && owner.projectile && rows[at].mass_raw == owner.body_mass_raw => {}
             (GeneralizedKind::Body, None, None) if rows[at].slot == BODY_SLOT
                 && rows[at].mass_raw == owner.body_mass_raw => {}
             (GeneralizedKind::Equipment, Some(held), Some(spec)) => {
@@ -661,6 +679,13 @@ fn validate_fact_pair(
     if !a.present || !b.present { return Err(ExactTrajectoryReject::InactiveState); }
     if a.faction == b.faction || a.entity == b.entity { return Err(ExactTrajectoryReject::FactPair); }
     match (fact.key.kind, a.motor, b.motor) {
+        (ContactKind::ProjectileBody, MotorShape::Projectile { .. }, MotorShape::Body { parts, .. }) => {
+            let region = fact.region as usize;
+            if fact.key.a_slot == BODY_SLOT || fact.key.b_slot != BODY_SLOT
+                || region >= AnatomyRegion::COUNT || !parts[region].present {
+                return Err(ExactTrajectoryReject::FactPair);
+            }
+        }
         (ContactKind::WeaponBody, MotorShape::Segment { .. }, MotorShape::Body { parts, .. }) => {
             let region = fact.region as usize;
             if fact.key.b_slot != BODY_SLOT || region >= AnatomyRegion::COUNT || !parts[region].present {
@@ -686,6 +711,12 @@ fn apply_row_impulse(
 ) -> Result<(), ExactTrajectoryReject> {
     let mut owner = output.get(row.owner_index)?;
     match (row.kind, row.held_index) {
+        (GeneralizedKind::Projectile, None) => {
+            for axis in 0..3 {
+                owner.common_response = apply_impulse_axis(
+                    owner.common_response, owner.common_scale, axis, impulse[axis])?;
+            }
+        }
         (GeneralizedKind::Body, None) => {
             for axis in 0..2 {
                 owner.common_response = apply_impulse_axis(
@@ -728,6 +759,12 @@ fn apply_row_impulse_into(
 ) -> Result<(), ExactTrajectoryReject> {
     let owner = output.get_mut(row.owner_index).ok_or(ExactTrajectoryReject::WrongIdentity)?;
     match (row.kind, row.held_index) {
+        (GeneralizedKind::Projectile, None) => {
+            for axis in 0..3 {
+                owner.common_response = apply_impulse_axis(
+                    owner.common_response, owner.common_scale, axis, impulse[axis])?;
+            }
+        }
         (GeneralizedKind::Body, None) => {
             for axis in 0..2 {
                 owner.common_response = apply_impulse_axis(
@@ -983,12 +1020,12 @@ mod tests {
             core::mem::size_of::<Option<ExactOwnerTrajectory>>(),
             core::mem::size_of::<[Option<ExactOwnerTrajectory>; MAX_EXACT_OWNERS]>(),
             core::mem::size_of::<FixedExactOwners>());
-        assert_eq!(MAX_EXACT_OWNERS, MAX_ARTICULATED_ENTITIES);
+        assert_eq!(MAX_EXACT_OWNERS, MAX_ARTICULATED_ENTITIES + crate::rules::MAX_SHOTS);
         assert_eq!((core::mem::size_of::<ExactOwnerTrajectory>(),
                     core::mem::size_of::<Option<ExactOwnerTrajectory>>(),
                     core::mem::size_of::<[Option<ExactOwnerTrajectory>; MAX_EXACT_OWNERS]>(),
                     core::mem::size_of::<FixedExactOwners>()),
-                   (720, 720, 46_080, 46_096));
+                   (720, 720, 69_120, 69_136));
     }
     use crate::combat::contact::{ContactKey, ContactKind};
     use crate::combat::spec::Material;
@@ -1013,7 +1050,7 @@ mod tests {
     }
 
     fn owner_with_held_mass(entity: EntityId, held_mass_raw: i32) -> ExactOwnerTrajectory {
-        ExactOwnerTrajectory { entity, body_mass_raw: 131_072,
+        ExactOwnerTrajectory { entity, projectile: false, body_mass_raw: 131_072,
             common_scale: (131_072 + held_mass_raw) as i128,
             common_response: zero_affine(131_072 + held_mass_raw),
             held_response: [Some(ExactHeldResponse { slot: 0, spec_id: 7,

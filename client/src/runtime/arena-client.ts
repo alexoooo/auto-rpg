@@ -93,11 +93,15 @@ function decodeArenaMessage(value: unknown): ArenaWorkerMessage | null {
 }
 
 function isRecording(value: Record<string, unknown>): boolean {
-  const buffers = [value.poses, value.regions, value.events, value.index, value.health];
+  const buffers = [
+    value.poses, value.regions, value.projectiles, value.events, value.index, value.health,
+  ];
   const counts = [value.one, value.seed, value.ticks, value.maxTicks, value.frameCount,
     value.poseLayoutVersion, value.poseStride, value.regionLayoutVersion, value.regionStride,
-    value.regionsPerBody, value.combatEventLayoutVersion, value.combatEventStride,
-    value.posesDropped, value.regionsDropped, value.combatEventsDropped,
+    value.regionsPerBody, value.articulatedProjectileLayoutVersion,
+    value.articulatedProjectileStride, value.combatEventLayoutVersion, value.combatEventStride,
+    value.posesDropped, value.regionsDropped, value.articulatedProjectilesDropped,
+    value.combatEventsDropped,
     value.impactThreshold, value.contactEnergyFloor, value.bodySlot, value.noRegion];
   const names = [value.regionNames, value.hintNames, value.contactKinds];
   return value.version === WORKER_PROTOCOL_VERSION && isU32(value.requestId)

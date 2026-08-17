@@ -83,7 +83,9 @@ import "@babylonjs/core/Meshes/instancedMesh.js";
 import type { InstancedMesh } from "@babylonjs/core/Meshes/instancedMesh.js";
 
 import type { FightFrame, FightHeader } from "../fight/source.js";
-import { add, at, length, scale, share, type Pose, type ShieldFace, type V3 } from "../fight/trace.js";
+import {
+  add, at, length, scale, share, type Pose, type Projectile, type ShieldFace, type V3,
+} from "../fight/trace.js";
 import { bodyColours, contactColour } from "../fight/view.js";
 import {
   createRendererEngine, rendererBackendFromSearch,
@@ -563,6 +565,7 @@ export class ArenaContent {
       if (this.#mode === "texture") this.#drawProxy(view.header, pose, posed, live);
       else this.#drawBody(view.header, pose, live);
     }
+    this.#drawProjectiles(view.frame, view.next, view.alpha, live);
     // Contacts are facts about the decided tick and are never blended: a
     // contact half way to existing is not something the simulation resolved.
     // Drawn in both modes and in the same flat kind colours, because a contact
@@ -1129,6 +1132,35 @@ export class ArenaContent {
         add(contact.point, scale(contact.normal, CONTACT_AXIS)), ONE / 36,
       ), ALL_CAMERAS, live);
     });
+  }
+
+  /** Live arrows, interpolated only while the stable slot generation agrees. */
+  #drawProjectiles(
+    frame: FightFrame, next: FightFrame, alpha: number, live: Set<string>,
+  ): void {
+    const arrowPaint = this.#mode === "texture"
+      ? dressed("projectile:arrow", "#9d7448", 0.05, 0.82)
+      : paint("projectile:arrow", "#f1d09a");
+    for (const projectile of frame.projectiles) {
+      const following = next.projectiles.find((other) =>
+        other.id[0] === projectile.id[0] && other.id[1] === projectile.id[1]);
+      const position: V3 = following === undefined ? projectile.position : [
+        projectile.position[0] + (following.position[0] - projectile.position[0]) * alpha,
+        projectile.position[1] + (following.position[1] - projectile.position[1]) * alpha,
+        projectile.position[2] + (following.position[2] - projectile.position[2]) * alpha,
+      ];
+      const speed = length(projectile.velocity);
+      const tail = speed === 0 ? position : add(
+        position, scale(projectile.velocity, -Math.min(0.45 * ONE / speed, 1)),
+      );
+      this.#capsule(
+        `projectile:${projectile.id[0]}:${projectile.id[1]}`,
+        arrowPaint,
+        capsuleParts(tail, position, Math.max(projectile.radius, ONE / 100)),
+        ALL_CAMERAS,
+        live,
+      );
+    }
   }
 
   #capsule(

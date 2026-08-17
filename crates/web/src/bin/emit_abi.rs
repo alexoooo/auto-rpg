@@ -111,6 +111,8 @@ fn generated() -> String {
     emit!(REGION_LAYOUT_VERSION);
     emit!(REGION_STRIDE);
     emit!(REGIONS_PER_BODY);
+    emit!(ARTICULATED_PROJECTILE_LAYOUT_VERSION);
+    emit!(ARTICULATED_PROJECTILE_STRIDE);
     output.push('\n');
     emit!(MAX_UNITS);
     emit!(MAX_SHOTS);
@@ -121,6 +123,7 @@ fn generated() -> String {
     emit!(MAX_POSES);
     emit!(MAX_COMBAT_EVENTS);
     emit!(MAX_REGIONS);
+    emit!(MAX_ARTICULATED_PROJECTILES);
     output.push('\n');
     emit!(FRAME_OFFSET);
     emit!(MAP_OFFSET);
@@ -324,6 +327,19 @@ fn generated() -> String {
     emit!(REGION_UPPER_Z);
     emit!(REGION_RADIUS);
     emit!(REGION_PRESENT);
+    output.push('\n');
+    emit!(ARTICULATED_PROJECTILE_SLOT);
+    emit!(ARTICULATED_PROJECTILE_GENERATION);
+    emit!(ARTICULATED_PROJECTILE_OWNER_INDEX);
+    emit!(ARTICULATED_PROJECTILE_OWNER_GENERATION);
+    emit!(ARTICULATED_PROJECTILE_POSITION_X);
+    emit!(ARTICULATED_PROJECTILE_POSITION_Y);
+    emit!(ARTICULATED_PROJECTILE_POSITION_Z);
+    emit!(ARTICULATED_PROJECTILE_VELOCITY_X);
+    emit!(ARTICULATED_PROJECTILE_VELOCITY_Y);
+    emit!(ARTICULATED_PROJECTILE_VELOCITY_Z);
+    emit!(ARTICULATED_PROJECTILE_RADIUS);
+    emit!(ARTICULATED_PROJECTILE_REMAINING_RANGE);
     output.push_str(
         "\nexport const FOCUS_NONE = 4294967295;\n\
          export const FOCUS_IDENTITY_EXPORTS = [\n\
@@ -467,6 +483,14 @@ mod tests {
             REGION_UPPER_X, REGION_UPPER_Y, REGION_UPPER_Z,
             REGION_RADIUS, REGION_PRESENT,
         ], core::array::from_fn::<_, REGION_STRIDE, _>(|index| index));
+        assert_eq!([
+            ARTICULATED_PROJECTILE_SLOT, ARTICULATED_PROJECTILE_GENERATION,
+            ARTICULATED_PROJECTILE_OWNER_INDEX, ARTICULATED_PROJECTILE_OWNER_GENERATION,
+            ARTICULATED_PROJECTILE_POSITION_X, ARTICULATED_PROJECTILE_POSITION_Y,
+            ARTICULATED_PROJECTILE_POSITION_Z, ARTICULATED_PROJECTILE_VELOCITY_X,
+            ARTICULATED_PROJECTILE_VELOCITY_Y, ARTICULATED_PROJECTILE_VELOCITY_Z,
+            ARTICULATED_PROJECTILE_RADIUS, ARTICULATED_PROJECTILE_REMAINING_RANGE,
+        ], core::array::from_fn::<_, ARTICULATED_PROJECTILE_STRIDE, _>(|index| index));
         // One number under two names, stated once so a consumer reaching for
         // either gets the same five. See `POSE_BODY_PART_COUNT`.
         assert_eq!(REGIONS_PER_BODY, POSE_BODY_PART_COUNT);
@@ -475,6 +499,7 @@ mod tests {
         // is its identity -- so a capacity that could fill first would publish
         // half a body and misalign every row after it.
         assert_eq!(MAX_REGIONS, MAX_POSES * REGIONS_PER_BODY);
+        assert_eq!(MAX_ARTICULATED_PROJECTILES, MAX_SHOTS);
         // The absent-region sentinel is outside every region a `BodyPart` can
         // name, and outside the sim's own `0xff` so a reader that lost the
         // width cannot confuse the two.

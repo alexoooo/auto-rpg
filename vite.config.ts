@@ -45,6 +45,10 @@ const roomRuntimeAssets = Object.freeze([
   { url: "/assets3d/room_slice.glb", file: "room_slice.glb", type: "model/gltf-binary", output: "glb" },
   { url: "/assets3d/room_slice.json", file: "room_slice.json", type: "application/json; charset=utf-8", output: "sidecar" },
 ] as const);
+const combatantRuntimeAssets = Object.freeze([
+  { url: "/assets3d/combatants.glb", file: "combatants.glb", type: "model/gltf-binary", output: "glb" },
+  { url: "/assets3d/combatants.json", file: "combatants.json", type: "application/json; charset=utf-8", output: "sidecar" },
+] as const);
 
 function sha256(file: string): string {
   return createHash("sha256").update(readFileSync(file)).digest("hex");
@@ -68,6 +72,25 @@ function roomManifest() {
   return value as { outputs: Record<string, { path: string; sha256: string }> };
 }
 
+function combatantManifest() {
+  const file = resolve(repositoryRoot, "tools/art/combatants-manifest.json");
+  const value = JSON.parse(readFileSync(file, "utf8")) as {
+    outputs?: Record<string, { path?: string; sha256?: string }>;
+  };
+  for (const asset of combatantRuntimeAssets) {
+    const output = value.outputs?.[asset.output];
+    if (output?.path !== `web/assets3d/${asset.file}` || !/^[0-9a-f]{64}$/.test(output.sha256 ?? "")) {
+      throw new Error(`combatant manifest does not pin ${asset.file}`);
+    }
+  }
+  const validator = value.outputs?.validator;
+  if (validator?.path !== "web/assets3d/combatants.validator.json" ||
+      !/^[0-9a-f]{64}$/.test(validator.sha256 ?? "")) {
+    throw new Error("combatant manifest does not pin combatants.validator.json");
+  }
+  return value as { outputs: Record<string, { path: string; sha256: string }> };
+}
+
 function generatedRoomPins(): Record<"fixture" | "buildInputs" | "sidecar" | "glb" | "validator", string> {
   const source = readFileSync(resolve(clientRoot, "render/room-asset.generated.ts"), "utf8");
   const pin = (name: string): string => {
@@ -82,6 +105,22 @@ function generatedRoomPins(): Record<"fixture" | "buildInputs" | "sidecar" | "gl
     validator: pin("ROOM_VALIDATOR_SHA256") };
 }
 
+function generatedCombatantPins(): Record<"fixture" | "buildInputs" | "sidecar" | "glb" | "validator", string> {
+  const source = readFileSync(resolve(clientRoot, "render/combatant-asset.generated.ts"), "utf8");
+  const pin = (name: string): string => {
+    const match = new RegExp(`export const ${name} = "([0-9a-f]{64})" as const;`).exec(source);
+    if (match?.[1] === undefined || /^0{64}$/.test(match[1])) {
+      throw new Error(`generated combatant pin ${name} is missing`);
+    }
+    return match[1];
+  };
+  const fixture = /export const COMBATANT_FIXTURE_ID = "([^"]+)" as const;/.exec(source)?.[1];
+  if (fixture !== "v2-combatants-1") throw new Error("generated combatant fixture identity is invalid");
+  return { fixture, buildInputs: pin("COMBATANT_BUILD_INPUTS_SHA256"),
+    sidecar: pin("COMBATANT_SIDECAR_SHA256"), glb: pin("COMBATANT_GLB_SHA256"),
+    validator: pin("COMBATANT_VALIDATOR_SHA256") };
+}
+
 function verifyRoomAsset(file: string, kind: "glb" | "sidecar"): void {
   if (!existsSync(file)) throw new Error(`missing representative room asset: ${file}`);
   const bytes = readFileSync(file);
@@ -92,6 +131,22 @@ function verifyRoomAsset(file: string, kind: "glb" | "sidecar"): void {
     const value = JSON.parse(bytes.toString("utf8")) as { schemaVersion?: unknown; fixtureId?: unknown };
     if (value.schemaVersion !== 1 || value.fixtureId !== "v2-room-slice-1") {
       throw new Error("representative room sidecar has an invalid schema identity");
+    }
+  }
+}
+
+function verifyCombatantAsset(file: string, kind: "glb" | "sidecar"): void {
+  if (!existsSync(file)) throw new Error(`missing representative combatant asset: ${file}`);
+  const bytes = readFileSync(file);
+  if (kind === "glb") {
+    if (bytes.length < 12 || bytes.subarray(0, 4).toString("ascii") !== "glTF" ||
+        bytes.readUInt32LE(4) !== 2 || bytes.readUInt32LE(8) !== bytes.length) {
+      throw new Error("representative combatant GLB has invalid magic, version, or length");
+    }
+  } else {
+    const value = JSON.parse(bytes.toString("utf8")) as { schemaVersion?: unknown; fixtureId?: unknown };
+    if (value.schemaVersion !== 1 || value.fixtureId !== "v2-combatants-1") {
+      throw new Error("representative combatant sidecar has an invalid schema identity");
     }
   }
 }
@@ -112,7 +167,8 @@ function wasmArtifactPlugin(): Plugin {
           next();
           return;
         }
-        if (pathname.endsWith("/web/assets3d/room_slice.validator.json")) {
+        if (pathname.endsWith("/web/assets3d/room_slice.validator.json") ||
+            pathname.endsWith("/web/assets3d/combatants.validator.json")) {
           response.statusCode = 404;
           response.end("Room validation evidence is not a runtime asset.\n");
           return;
@@ -138,7 +194,7 @@ function wasmArtifactPlugin(): Plugin {
         response.setHeader("Content-Length", String(statSync(wasmArtifact).size));
         createReadStream(wasmArtifact).pipe(response);
       });
-      for (const asset of roomRuntimeAssets) {
+      for (const asset of [...roomRuntimeAssets, ...combatantRuntimeAssets]) {
         server.middlewares.use(asset.url, (request, response, next) => {
           if (request.url !== undefined && request.url !== "/" && request.url !== "") {
             next();
@@ -147,7 +203,7 @@ function wasmArtifactPlugin(): Plugin {
           const file = resolve(roomAssetRoot, asset.file);
           if (!existsSync(file)) {
             response.statusCode = 404;
-            response.end(`Missing generated room asset ${asset.file}.\n`);
+            response.end(`Missing generated runtime asset ${asset.file}.\n`);
             return;
           }
           response.setHeader("Content-Type", asset.type);
@@ -157,7 +213,7 @@ function wasmArtifactPlugin(): Plugin {
       }
       server.middlewares.use("/assets3d", (_request, response) => {
         response.statusCode = 404;
-        response.end("Unknown runtime room asset.\n");
+        response.end("Unknown runtime authored asset.\n");
       });
       server.middlewares.use(shippedCheckpoint.url, (request, response, next) => {
         if (request.url !== undefined && request.url !== "/" && request.url !== "") {
@@ -189,6 +245,8 @@ function wasmArtifactPlugin(): Plugin {
 
       const manifest = roomManifest();
       const pins = generatedRoomPins();
+      const combatants = combatantManifest();
+      const combatantPins = generatedCombatantPins();
       const roomOutputRoot = resolve(outputRoot, "assets3d");
       mkdirSync(roomOutputRoot, { recursive: true });
       for (const asset of roomRuntimeAssets) {
@@ -200,14 +258,30 @@ function wasmArtifactPlugin(): Plugin {
         }
         copyFileSync(source, resolve(roomOutputRoot, asset.file));
       }
+      for (const asset of combatantRuntimeAssets) {
+        const source = resolve(roomAssetRoot, asset.file);
+        verifyCombatantAsset(source, asset.output);
+        if (sha256(source) !== combatants.outputs[asset.output]?.sha256 ||
+            sha256(source) !== combatantPins[asset.output]) {
+          throw new Error(`representative combatant ${asset.file} differs from its manifest SHA-256`);
+        }
+        copyFileSync(source, resolve(roomOutputRoot, asset.file));
+      }
       const sidecar = JSON.parse(readFileSync(resolve(roomAssetRoot, "room_slice.json"), "utf8")) as {
         fixtureId?: string; buildInputsSha256?: string;
       };
       if (sidecar.fixtureId !== pins.fixture || sidecar.buildInputsSha256 !== pins.buildInputs) {
         throw new Error("representative room sidecar differs from its generated identity pins");
       }
+      const combatantSidecar = JSON.parse(readFileSync(resolve(roomAssetRoot, "combatants.json"), "utf8")) as {
+        fixtureId?: string; buildInputsSha256?: string;
+      };
+      if (combatantSidecar.fixtureId !== combatantPins.fixture ||
+          combatantSidecar.buildInputsSha256 !== combatantPins.buildInputs) {
+        throw new Error("representative combatant sidecar differs from its generated identity pins");
+      }
       const copiedRoomAssets = readdirSync(roomOutputRoot).sort();
-      if (copiedRoomAssets.join(",") !== "room_slice.glb,room_slice.json") {
+      if (copiedRoomAssets.join(",") !== "combatants.glb,combatants.json,room_slice.glb,room_slice.json") {
         throw new Error(`production room asset allowlist drifted: ${copiedRoomAssets.join(", ")}`);
       }
       const checkpoint = resolve(checkpointRoot, shippedCheckpoint.file);
@@ -228,6 +302,12 @@ function wasmArtifactPlugin(): Plugin {
       if (!existsSync(validator) || sha256(validator) !== manifest.outputs.validator?.sha256 ||
           sha256(validator) !== pins.validator) {
         throw new Error("representative room validator report differs from its reviewed pins");
+      }
+      const combatantValidator = resolve(roomAssetRoot, "combatants.validator.json");
+      if (!existsSync(combatantValidator) ||
+          sha256(combatantValidator) !== combatants.outputs.validator?.sha256 ||
+          sha256(combatantValidator) !== combatantPins.validator) {
+        throw new Error("representative combatant validator report differs from its reviewed pins");
       }
 
       const htmlPath = resolve(outputRoot, "index.html");

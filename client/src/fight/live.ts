@@ -42,6 +42,11 @@
 //     `duel_from` copies the dimensions out of the same bytes.
 
 import {
+  ARTICULATED_PROJECTILE_GENERATION, ARTICULATED_PROJECTILE_OWNER_GENERATION,
+  ARTICULATED_PROJECTILE_OWNER_INDEX,
+  ARTICULATED_PROJECTILE_POSITION_X, ARTICULATED_PROJECTILE_RADIUS,
+  ARTICULATED_PROJECTILE_REMAINING_RANGE, ARTICULATED_PROJECTILE_SLOT,
+  ARTICULATED_PROJECTILE_VELOCITY_X,
   COMBAT_EVENT_A_GENERATION, COMBAT_EVENT_A_INDEX, COMBAT_EVENT_A_SLOT,
   COMBAT_EVENT_B_GENERATION, COMBAT_EVENT_B_INDEX, COMBAT_EVENT_B_SLOT,
   COMBAT_EVENT_BODY_PART, COMBAT_EVENT_CUT_LO, COMBAT_EVENT_DEFLECTED_LO,
@@ -61,10 +66,13 @@ import {
 import type { FightRecordingMessage } from "../protocol/messages.js";
 import {
   INDEX_EVENT_COUNT, INDEX_EVENT_START, INDEX_POSE_COUNT, INDEX_POSE_START,
+  INDEX_PROJECTILE_COUNT, INDEX_PROJECTILE_START,
   INDEX_REGION_COUNT, INDEX_REGION_START, INDEX_TICK, RECORDING_INDEX_STRIDE,
 } from "../runtime/arena-recorder.js";
 import type { FightFrame, FightHeader, FightSource } from "./source.js";
-import type { Arm, Contact, EntityKey, Pose, Region, Segment, ShieldFace, V3 } from "./trace.js";
+import type {
+  Arm, Contact, EntityKey, Pose, Projectile, Region, Segment, ShieldFace, V3,
+} from "./trace.js";
 
 /** The transferred recording, minus the protocol envelope. */
 export type Recording = Omit<FightRecordingMessage, "kind" | "version" | "requestId">;
@@ -137,6 +145,7 @@ export class LiveFightSource implements FightSource {
   readonly #poses: Uint32Array;
   readonly #regions: Uint32Array;
   readonly #events: Uint32Array;
+  readonly #projectiles: Uint32Array;
   readonly #index: Uint32Array;
   readonly #health: Int32Array;
   readonly #frames: number;
@@ -144,6 +153,7 @@ export class LiveFightSource implements FightSource {
   readonly #regionStride: number;
   readonly #regionsPerBody: number;
   readonly #eventStride: number;
+  readonly #projectileStride: number;
   readonly #fittings: readonly Fittings[];
 
   constructor(recording: Recording) {
@@ -175,12 +185,14 @@ export class LiveFightSource implements FightSource {
     this.#poses = new Uint32Array(recording.poses);
     this.#regions = new Uint32Array(recording.regions);
     this.#events = new Uint32Array(recording.events);
+    this.#projectiles = new Uint32Array(recording.projectiles);
     this.#index = new Uint32Array(recording.index);
     this.#health = new Int32Array(recording.health);
     this.#poseStride = recording.poseStride;
     this.#regionStride = recording.regionStride;
     this.#regionsPerBody = recording.regionsPerBody;
     this.#eventStride = recording.combatEventStride;
+    this.#projectileStride = recording.articulatedProjectileStride;
     this.#fittings = fittingsOf(this.header);
     // **The exemption is checked and not merely declared.** The arena publishes
     // unfiltered ground truth -- both fighters are the subject, there is no fog,
@@ -218,6 +230,7 @@ export class LiveFightSource implements FightSource {
     const poseRows = rows(this.#poses, this.#poseStride, "pose");
     const regionRows = rows(this.#regions, this.#regionStride, "region");
     const eventRows = rows(this.#events, this.#eventStride, "combat-event");
+    const projectileRows = rows(this.#projectiles, this.#projectileStride, "projectile");
     if (!Number.isInteger(this.#regionsPerBody) || this.#regionsPerBody <= 0) {
       throw new RangeError("a recording publishes no regions per body");
     }
@@ -226,6 +239,8 @@ export class LiveFightSource implements FightSource {
       const extents: readonly (readonly [number, number, number, string])[] = [
         [this.#index[at + INDEX_POSE_START]!, this.#index[at + INDEX_POSE_COUNT]!, poseRows, "pose"],
         [this.#index[at + INDEX_REGION_START]!, this.#index[at + INDEX_REGION_COUNT]!, regionRows, "region"],
+        [this.#index[at + INDEX_PROJECTILE_START]!, this.#index[at + INDEX_PROJECTILE_COUNT]!,
+          projectileRows, "projectile"],
         [this.#index[at + INDEX_EVENT_START]!, this.#index[at + INDEX_EVENT_COUNT]!, eventRows, "combat-event"],
       ];
       for (const [start, count, available, what] of extents) {
@@ -252,6 +267,8 @@ export class LiveFightSource implements FightSource {
     const regionCount = this.#index[at + INDEX_REGION_COUNT]!;
     const eventStart = this.#index[at + INDEX_EVENT_START]!;
     const eventCount = this.#index[at + INDEX_EVENT_COUNT]!;
+    const projectileStart = this.#index[at + INDEX_PROJECTILE_START]!;
+    const projectileCount = this.#index[at + INDEX_PROJECTILE_COUNT]!;
     // Read against the pose count and not assumed, which is the contract
     // `articulated-abi.md` states for the region section: a body the host has no
     // anatomy for is skipped and the rows after it shift, so the comparison is
@@ -265,11 +282,31 @@ export class LiveFightSource implements FightSource {
     }
     const contacts: Contact[] = [];
     for (let row = 0; row < eventCount; row += 1) contacts.push(this.#contactAt(eventStart + row));
+    const projectiles: Projectile[] = [];
+    for (let row = 0; row < projectileCount; row += 1) {
+      projectiles.push(this.#projectileAt(projectileStart + row));
+    }
     return {
       t: this.#index[at + INDEX_TICK]!,
       poses,
+      projectiles,
       contacts,
       health: [this.#health[index * 2]!, this.#health[index * 2 + 1]!],
+    };
+  }
+
+  #projectileAt(row: number): Projectile {
+    const at = row * this.#projectileStride;
+    const words = this.#projectiles;
+    return {
+      id: [words[at + ARTICULATED_PROJECTILE_SLOT]!,
+        words[at + ARTICULATED_PROJECTILE_GENERATION]!] as EntityKey,
+      owner: [words[at + ARTICULATED_PROJECTILE_OWNER_INDEX]!,
+        words[at + ARTICULATED_PROJECTILE_OWNER_GENERATION]!] as EntityKey,
+      position: v3(words, at + ARTICULATED_PROJECTILE_POSITION_X),
+      velocity: v3(words, at + ARTICULATED_PROJECTILE_VELOCITY_X),
+      radius: raw(words, at + ARTICULATED_PROJECTILE_RADIUS),
+      remainingRange: raw(words, at + ARTICULATED_PROJECTILE_REMAINING_RANGE),
     };
   }
 

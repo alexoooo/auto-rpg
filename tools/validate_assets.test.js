@@ -119,9 +119,9 @@ test("payload_and_conservative_gpu_estimates_use_the_documented_formula", () => 
   assert.deepEqual(estimate, {
     sourceBufferBytes: 12,
     decodedTextureBytes: 0,
-    instanceBufferBytes: 222208,
+    instanceBufferBytes: 225280,
     shadowMapBytes: 4194304,
-    totalBytes: 4416524,
+    totalBytes: 4419596,
   });
 });
 
@@ -151,6 +151,25 @@ test("pinned_embedded_albedos_and_vertex_colours_make_floor_and_wall_sources_dis
     return bytes.readUInt32BE(16) === 512 && bytes.readUInt32BE(20) === 512;
   }));
   assert.equal(estimateGpuResidency(parsed.gltf, 2_097_152).decodedTextureBytes, 2_097_152);
+});
+
+test("authored_wall_sources_are_coursed_masonry_with_bounded_detail", () => {
+  const sidecar = parseRoomSidecar(fs.readFileSync(SIDECAR));
+  const manifest = JSON.parse(fs.readFileSync(MANIFEST, "utf8"));
+  const wall = new Map(sidecar.pieces.filter((piece) =>
+    ["wall_straight", "wall_inside", "wall_outside", "wall_end", "door_frame"].includes(piece.name))
+    .map((piece) => [piece.name, piece]));
+  assert.deepEqual([...wall.keys()].sort(),
+    ["door_frame", "wall_end", "wall_inside", "wall_outside", "wall_straight"]);
+  for (const [name, minimum] of Object.entries({
+    wall_straight: 144, wall_inside: 240, wall_outside: 240, wall_end: 96, door_frame: 144,
+  })) {
+    assert.ok(wall.get(name).triangleCount >= minimum,
+      name + " must expose coursing and individual stone silhouettes");
+  }
+  assert.ok(sidecar.counts.triangles >= 1_200, "the kit needs enough geometry to read as masonry");
+  assert.ok(sidecar.counts.triangles <= manifest.budgets.maxTriangles);
+  assert.ok(sidecar.counts.vertices <= manifest.budgets.maxVertices);
 });
 
 test("malformed_glb_chunks_sidecars_hashes_and_duplicate_names_fail_closed", async () => {

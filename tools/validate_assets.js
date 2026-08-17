@@ -18,7 +18,7 @@ const FORMATS = {
 };
 const TOLERANCE = 0.00001;
 const INSTANCE_CAPACITIES = Object.freeze({
-  floor_a: 768, floor_b: 768, wall_straight: 160, wall_inside: 4,
+  floor_a: 768, floor_b: 768, wall_straight: 184, wall_inside: 4,
   wall_outside: 8, wall_end: 4, door_frame: 2, door_leaf: 2,
   torch_bracket: 8, decal_rubble: 4, decal_root: 4, prop_barrel: 4,
 });
@@ -90,7 +90,7 @@ function parseRoomSidecar(bytes) {
 
 function validateBuildManifest(manifest) {
   const decimal = /^-?(?:0|[1-9][0-9]*)\.[0-9]+$/;
-  if (manifest.schemaVersion !== 1 || manifest.generatorVersion !== 3 || manifest.license !== "MIT" ||
+  if (manifest.schemaVersion !== 1 || manifest.generatorVersion !== 4 || manifest.license !== "MIT" ||
       manifest.fixtureId !== "v2-room-slice-1" || manifest.generatorSeed !== 1592594996 ||
       !decimal.test(manifest.tolerance)) throw new Error("room manifest identity is invalid");
   if (manifest.toolchain?.blender !== "4.5.12" || !/^[0-9a-f]{64}$/.test(manifest.toolchain.blenderBinarySha256)) {
@@ -110,7 +110,7 @@ function validateBuildManifest(manifest) {
       manifest.export?.allVertexColors !== false) throw new Error("room manifest export contract is invalid");
   const style = manifest.styling;
   const paletteNames = ["floorA", "floorB", "floorEdge", "neutral", "stoneDetail", "wallSide", "wallTop"];
-  if (style?.id !== "readable-stone-v1" || style?.mode !== "deterministic-vertex-color" ||
+  if (style?.id !== "concept-umber-stone-v2" || style?.mode !== "deterministic-vertex-color" ||
       style?.attribute !== "room_style" || style?.textures !== true || !decimal.test(style?.variation ?? "") ||
       JSON.stringify(Object.keys(style?.palette ?? {}).sort()) !== JSON.stringify(paletteNames)) {
     throw new Error("room manifest styling contract is invalid");
@@ -127,9 +127,13 @@ function validateBuildManifest(manifest) {
   }
   for (const name of textureNames) {
     const texture = manifest.textures[name];
-    if (texture?.path !== `tools/art/textures/room_${name}_albedo.png` ||
+    const expectedQuadrant = name === "floor" ? [0, 1] : [1, 1];
+    if (texture?.path !== "tools/art/textures/concept-material-atlas.png" ||
         !/^[0-9a-f]{64}$/.test(texture?.sha256 ?? "") || texture?.mimeType !== "image/png" ||
-        texture?.width !== 1254 || texture?.height !== 1254) throw new Error(`room manifest texture ${name} is invalid`);
+        texture?.width !== 1254 || texture?.height !== 1254 ||
+        JSON.stringify(texture?.sourceQuadrant) !== JSON.stringify(expectedQuadrant)) {
+      throw new Error(`room manifest texture ${name} is invalid`);
+    }
   }
   const processing = manifest.textureProcessing;
   if (processing?.width !== 512 || processing?.height !== 512 || processing?.periodicEdgePixels !== 32 ||

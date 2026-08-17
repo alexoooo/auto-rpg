@@ -16,8 +16,11 @@
     "package-lock.json",
     "tools/toolchain.json",
     "tools/art/manifest.json",
+    "tools/art/combatants-manifest.json",
     "web/assets3d/room_slice.json",
     "web/assets3d/room_slice.validator.json",
+    "web/assets3d/combatants.json",
+    "web/assets3d/combatants.validator.json",
     "web/assets/manifest.json"
   ],
   "node": "22.12.0",

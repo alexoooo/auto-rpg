@@ -3,6 +3,7 @@ import type { Camera } from "@babylonjs/core/Cameras/camera.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import type { ShadowGenerator } from "@babylonjs/core/Lights/Shadows/shadowGenerator.js";
+import type { CombatantAsset } from "./combatant-assets.js";
 import { SceneInstrumentation } from "@babylonjs/core/Instrumentation/sceneInstrumentation.js";
 import { ActorPresentation } from "./actors.js";
 import { clampCameraPan, clampCameraZoom, createFixedIsometricCamera } from "./camera.js";
@@ -48,6 +49,7 @@ export type GreyboxRendererOptions = Readonly<{
   createEnvironment?: (
     scene: Scene, debug: RendererDebugRegistry, signal: AbortSignal,
   ) => Promise<EnvironmentOwner>;
+  createCombatants?: (scene: Scene, signal: AbortSignal) => Promise<CombatantAsset>;
   createReviewCamera?: (
     scene: Scene, canvas: HTMLCanvasElement, bounds: Readonly<{ width: number; height: number }>,
   ) => RendererCameraOwner;
@@ -89,6 +91,7 @@ export class GreyboxRenderer {
   readonly #environment: EnvironmentOwner;
   readonly #actors: ActorPresentation;
   readonly #transients: TransientPresentation;
+  readonly #combatants: CombatantAsset | null;
   readonly #timeline = new PresentationTimeline();
   readonly #instrumentation: SceneInstrumentation;
   readonly #now: () => number;
@@ -115,6 +118,7 @@ export class GreyboxRenderer {
     environment: EnvironmentOwner,
     actors: ActorPresentation,
     transients: TransientPresentation,
+    combatants: CombatantAsset | null,
     camera: Camera,
     now: () => number = () => performance.now(),
     createReviewCamera?: GreyboxRendererOptions["createReviewCamera"],
@@ -126,6 +130,7 @@ export class GreyboxRenderer {
     this.#environment = environment;
     this.#actors = actors;
     this.#transients = transients;
+    this.#combatants = combatants;
     this.#camera = camera;
     this.#now = now;
     this.#createReviewCamera = createReviewCamera;
@@ -274,6 +279,7 @@ export class GreyboxRenderer {
     this.#disposed = true;
     this.#transients.dispose();
     this.#actors.dispose();
+    this.#combatants?.dispose();
     this.#environment.dispose();
     this.#instrumentation.dispose();
     if (this.#reviewCamera !== null) {
@@ -356,6 +362,7 @@ export async function createGreyboxRenderer(
   let pendingScene: Scene | null = null;
   let pendingEnvironment: EnvironmentOwner | null = null;
   let pendingActors: ActorPresentation | null = null;
+  let pendingCombatants: CombatantAsset | null = null;
   let pendingTransients: TransientPresentation | null = null;
   const environmentAbort = new AbortController();
   const handle = await createRendererEngine(canvas, requested, {
@@ -389,8 +396,19 @@ export async function createGreyboxRenderer(
     if (handle.terminal || environmentAbort.signal.aborted) {
       throw new Error("renderer became terminal during environment initialization");
     }
+    let combatants: CombatantAsset | null = null;
+    if (options.createCombatants !== undefined) {
+      try {
+        combatants = await options.createCombatants(built.scene, environmentAbort.signal);
+      } catch (error) {
+        if (environmentAbort.signal.aborted || handle.terminal) throw error;
+        // Authored bodies are optional presentation. The procedural figures
+        // are deliberately kept live as the bounded load-failure fallback.
+      }
+    }
+    pendingCombatants = combatants;
     const actors = new ActorPresentation(
-      built.scene, built.content.debug, environment.shadowGenerator,
+      built.scene, built.content.debug, environment.shadowGenerator, combatants,
     );
     pendingActors = actors;
     const transients = new TransientPresentation(
@@ -399,18 +417,20 @@ export async function createGreyboxRenderer(
     pendingTransients = transients;
     renderer = new GreyboxRenderer(
       handle, built.scene, built.content.debug, environment,
-      actors, transients, built.content.camera, lifecycle.now,
+      actors, transients, combatants, built.content.camera, lifecycle.now,
       options.createReviewCamera, options.reviewCameraFree ?? false,
     );
     pendingScene = null;
     pendingEnvironment = null;
     pendingActors = null;
+    pendingCombatants = null;
     pendingTransients = null;
     return renderer;
   } catch (error) {
     environmentAbort.abort(error);
     pendingTransients?.dispose();
     pendingActors?.dispose();
+    pendingCombatants?.dispose();
     pendingEnvironment?.dispose();
     pendingScene?.dispose();
     handle.dispose();

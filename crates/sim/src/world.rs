@@ -45,6 +45,10 @@ use crate::combat::trajectory::{advance_exact, apply_exact_group, evaluate_exact
 use crate::{EquipmentGeometry, EquipmentSpecId};
 use fx::{Angle, Fx, Hash64, Rng, Vec2, Vec3};
 
+const ARTICULATED_ARROW_RADIUS: Fx = Fx::from_ratio(1, 50);
+const ARTICULATED_PROJECTILE_INDEX_BASE: u32 = u32::MAX - rules::MAX_SHOTS as u32;
+const ARTICULATED_PROJECTILE_SLOT: u8 = 0x80;
+
 /// The perception-noise stream domain for [`World::observe_articulated`]:
 /// ASCII `ARTOBS1`, frozen by the articulated ABI.
 ///
@@ -247,6 +251,8 @@ pub struct World {
     body_yaw: Vec<BodyYawState>,
     arms: Vec<[ArmState; 2]>,
     grips: Vec<[GripState; 2]>,
+    /// Release edge remembered independently of the submitted command, which persists.
+    articulated_release_was: Vec<[ReleaseRequest; 2]>,
     /// Exact contact response, one row per allocated articulated slot. `None`
     /// is the canonical all-zero inactive row; an active row keeps immutable
     /// equipment identity beside the remainder it owns.
@@ -316,6 +322,19 @@ pub struct World {
     shot_owner: Vec<EntityId>,
     shot_faction: Vec<Faction>,
     shot_free: Vec<u32>,
+
+    // Articulated arrows are deliberately not legacy shots. The legacy hash writes
+    // every shot column wholesale, while this store belongs only to ArticulatedV1.
+    articulated_projectile_alive: Vec<bool>,
+    articulated_projectile_generation: Vec<u32>,
+    articulated_projectile_pos: Vec<Vec3>,
+    articulated_projectile_vel: Vec<Vec3>,
+    articulated_projectile_range: Vec<Fx>,
+    articulated_projectile_radius: Vec<Fx>,
+    articulated_projectile_mass: Vec<Fx>,
+    articulated_projectile_owner: Vec<EntityId>,
+    articulated_projectile_faction: Vec<Faction>,
+    articulated_projectile_free: Vec<u32>,
 
     free: Vec<u32>,
     events: Vec<Event>,
@@ -602,8 +621,8 @@ impl ContactRuntime {
             try_reserve_exact(&mut self.floor_reactions, MAX_CONTACT_RESOLUTIONS_PER_TICK)?;
             try_reserve_exact(&mut self.exact_external_energy, MAX_CONTACT_RESOLUTIONS_PER_TICK)?;
             try_reserve_exact(&mut self.exact_trajectories, bounds.collider_bound)?;
-            try_reserve_exact(&mut self.exact_owners, high_water)?;
-            try_reserve_exact(&mut self.exact_owner_entry, high_water)?;
+            try_reserve_exact(&mut self.exact_owners, high_water + rules::MAX_SHOTS)?;
+            try_reserve_exact(&mut self.exact_owner_entry, high_water + rules::MAX_SHOTS)?;
             try_reserve_exact(&mut self.exact_trajectory_entry, bounds.collider_bound)?;
             try_reserve_exact(&mut self.exact_commit, high_water)?;
         }
@@ -724,6 +743,11 @@ impl ContactTrialProjector for ContactProjector<'_> {
         }
         for (row, sum) in out.iter_mut().zip(sums) {
             if row.kind == GeneralizedKind::Body { continue; }
+            if row.kind == GeneralizedKind::Projectile {
+                let own = resolution::scaled_delta(*sum, alpha_raw, row.mass.raw());
+                row.velocity = clamp_contact_velocity(row.velocity + own);
+                continue;
+            }
             // The closure always carries the owning body of every fact
             // participant, so a missing one is a broken closure and not a case
             // to paper over with the un-translated velocity.
@@ -783,7 +807,8 @@ impl ContactTrialProjector for ContactProjector<'_> {
         // Pass one: measure. Rows arrive in `ContactKey` order and nothing here
         // writes `self.wounds`, so every fact in the group reads the same body.
         for (at, row) in rows.iter_mut().enumerate() {
-            if row.fact.key.kind != ContactKind::WeaponBody { continue; }
+            if !matches!(row.fact.key.kind,
+                ContactKind::WeaponBody | ContactKind::ProjectileBody) { continue; }
             let Some(target) = world.resolve(row.fact.key.b) else { continue };
             let Some(part) = BodyPart::from_index(row.fact.region as usize) else { continue };
             let Some(spec) = world.anatomy_spec(target) else { continue };
@@ -822,7 +847,11 @@ impl ContactTrialProjector for ContactProjector<'_> {
             delta.parts[part as usize].integrity_loss += loss;
             delta.parts[part as usize].wound_gain += Fx::from_raw(wound_raw as i32);
             delta.integrity_loss += loss;
-            if loss.is_positive() { delta.last_attacker = row.fact.key.a; }
+            if loss.is_positive() {
+                delta.last_attacker = world.articulated_projectile_slot(row.fact.key.a)
+                    .map(|slot| world.articulated_projectile_owner[slot])
+                    .unwrap_or(row.fact.key.a);
+            }
         }
 
         // Pass two: apply, once, and hand out credit in `ContactKey` order
@@ -857,14 +886,16 @@ impl ContactTrialProjector for ContactProjector<'_> {
             let mut last = None;
             for (at, row) in rows.iter().enumerate() {
                 if !self.fact_loss[at].is_positive() { continue; }
-                if row.fact.key.kind != ContactKind::WeaponBody { continue; }
+                if !matches!(row.fact.key.kind,
+                    ContactKind::WeaponBody | ContactKind::ProjectileBody) { continue; }
                 if world.resolve(row.fact.key.b) != Some(target) { continue; }
                 total += self.fact_loss[at].raw() as i64;
                 last = Some(at);
             }
             let mut used = 0i64;
             for (at, row) in rows.iter_mut().enumerate() {
-                if row.fact.key.kind != ContactKind::WeaponBody { continue; }
+                if !matches!(row.fact.key.kind,
+                    ContactKind::WeaponBody | ContactKind::ProjectileBody) { continue; }
                 if world.resolve(row.fact.key.b) != Some(target) { continue; }
                 let loss = self.fact_loss[at];
                 // Only a fact that took something off can have severed
@@ -892,9 +923,26 @@ impl ContactTrialProjector for ContactProjector<'_> {
                 // would hand somebody else damage that fact did.
                 used += share;
                 if share <= 0 { continue; }
-                if let Some(source) = world.resolve(row.fact.key.a) {
+                let credited = world.articulated_projectile_slot(row.fact.key.a)
+                    .map(|slot| world.articulated_projectile_owner[slot])
+                    .unwrap_or(row.fact.key.a);
+                if let Some(source) = world.resolve(credited) {
                     self.credit[source] += Fx::from_raw(share as i32);
                 }
+            }
+        }
+
+        // A projectile has one body contact in its lifetime. Hiding its solver
+        // collider here makes that a lifecycle decision owned by the shared
+        // group driver: the next re-sweep cannot resolve the same embedded
+        // point until the per-tick group ceiling is exhausted.
+        for hit in rows.iter().filter(|row|
+            row.fact.key.kind == ContactKind::ProjectileBody)
+        {
+            if let Some(projectile) = colliders.iter_mut().find(|collider|
+                collider.entity == hit.fact.key.a && collider.slot == hit.fact.key.a_slot)
+            {
+                projectile.present = false;
             }
         }
 
@@ -1412,6 +1460,7 @@ impl World {
             body_yaw: Vec::with_capacity(n),
             arms: Vec::with_capacity(n),
             grips: Vec::with_capacity(n),
+            articulated_release_was: Vec::with_capacity(n),
             #[cfg(feature = "cartesian-recoil")]
             exact_owners: if scenario.combat_model == crate::CombatModel::Articulated {
                 Vec::with_capacity(n)
@@ -1444,6 +1493,16 @@ impl World {
             shot_owner: Vec::new(),
             shot_faction: Vec::new(),
             shot_free: Vec::new(),
+            articulated_projectile_alive: Vec::with_capacity(rules::MAX_SHOTS),
+            articulated_projectile_generation: Vec::with_capacity(rules::MAX_SHOTS),
+            articulated_projectile_pos: Vec::with_capacity(rules::MAX_SHOTS),
+            articulated_projectile_vel: Vec::with_capacity(rules::MAX_SHOTS),
+            articulated_projectile_range: Vec::with_capacity(rules::MAX_SHOTS),
+            articulated_projectile_radius: Vec::with_capacity(rules::MAX_SHOTS),
+            articulated_projectile_mass: Vec::with_capacity(rules::MAX_SHOTS),
+            articulated_projectile_owner: Vec::with_capacity(rules::MAX_SHOTS),
+            articulated_projectile_faction: Vec::with_capacity(rules::MAX_SHOTS),
+            articulated_projectile_free: Vec::with_capacity(rules::MAX_SHOTS),
             free: Vec::new(),
             events: Vec::new(),
             pending: Vec::with_capacity(n),
@@ -1750,6 +1809,7 @@ impl World {
                     self.body_yaw.push(BodyYawState { angle: Angle::ZERO, speed_turns: Fx::ZERO, authority_residue: Fx::ZERO });
                     self.arms.push([arm; 2]);
                     self.grips.push([GripState { equipment_slot: None }; 2]);
+                    self.articulated_release_was.push([ReleaseRequest::Keep; 2]);
                     #[cfg(feature = "cartesian-recoil")]
                     self.exact_owners.push(None);
                     self.shield_pose.push(None);
@@ -2835,7 +2895,9 @@ impl World {
                 self.derive_articulated_geometry();
                 #[cfg(test)]
                 if self.phase_trace_enabled { self.phase_trace.push("contact"); }
+                self.loose_articulated_projectiles();
                 self.resolve_contact();
+                self.resolve_articulated_projectiles();
                 #[cfg(test)]
                 if self.phase_trace_enabled { self.phase_trace.push("anatomy"); }
                 self.settle_anatomy();
@@ -4513,6 +4575,21 @@ impl World {
             })
     }
 
+    /// Live articulated arrows in stable slot order.
+    pub fn articulated_projectiles(&self) -> impl Iterator<Item = ArticulatedProjectileView> + '_ {
+        (0..self.articulated_projectile_alive.len())
+            .filter(move |&slot| self.articulated_projectile_alive[slot])
+            .map(move |slot| ArticulatedProjectileView {
+                slot: slot as u32,
+                generation: self.articulated_projectile_generation[slot],
+                owner: self.articulated_projectile_owner[slot],
+                position: self.articulated_projectile_pos[slot],
+                velocity: self.articulated_projectile_vel[slot],
+                radius: self.articulated_projectile_radius[slot],
+                remaining_range: self.articulated_projectile_range[slot],
+            })
+    }
+
     /// Fingerprint of the complete simulation state.
     ///
     /// The legacy-domain state value.
@@ -4811,6 +4888,23 @@ impl World {
                     h.write_i32(self.arm_authority[i][0].raw());
                     h.write_i32(self.arm_authority[i][1].raw());
                 }
+                for releases in &self.articulated_release_was {
+                    h.write_u8(releases[0] as u8);
+                    h.write_u8(releases[1] as u8);
+                }
+                h.write_u32(self.articulated_projectile_alive.len() as u32);
+                for k in 0..self.articulated_projectile_alive.len() {
+                    h.write_bool(self.articulated_projectile_alive[k]);
+                    h.write_u32(self.articulated_projectile_generation[k]);
+                    for point in [self.articulated_projectile_pos[k], self.articulated_projectile_vel[k]] {
+                        h.write_i32(point.x.raw()); h.write_i32(point.y.raw()); h.write_i32(point.z.raw());
+                    }
+                    h.write_i32(self.articulated_projectile_range[k].raw());
+                    h.write_i32(self.articulated_projectile_radius[k].raw());
+                    h.write_i32(self.articulated_projectile_mass[k].raw());
+                    self.articulated_projectile_owner[k].hash_into(&mut h);
+                    h.write_u8(self.articulated_projectile_faction[k].index() as u8);
+                }
                 // One global counter, after the complete actuator loop and
                 // before the anatomy rows. Not per slot: the iteration cap
                 // is a property of the tick, not of any entity in it, and a
@@ -4885,6 +4979,7 @@ impl World {
         }
         self.arms[i] = arms;
         self.grips[i] = grips;
+        self.articulated_release_was[i] = [ReleaseRequest::Keep; 2];
         self.move_authority[i] = Fx::ONE;
         self.turn_authority[i] = Fx::ONE;
         self.arm_authority[i] = [Fx::ONE; 2];
@@ -5069,7 +5164,7 @@ impl World {
             });
         }
         ExactOwnerTrajectory {
-            entity: self.id_of(i),
+            entity: self.id_of(i), projectile: false,
             body_mass_raw: self.mass[i].raw(),
             common_scale,
             common_response: zero_affine(common_mass_raw),
@@ -5325,6 +5420,141 @@ impl World {
                     drive(&mut self.arms[i][1], 1, command.arms[1], right_item,
                           self.arm_authority[i][1]);
                 }
+            }
+        }
+    }
+
+    fn free_articulated_projectile(&mut self) -> Option<usize> {
+        if let Some(slot) = self.articulated_projectile_free.pop() {
+            let slot = slot as usize;
+            self.articulated_projectile_generation[slot] =
+                self.articulated_projectile_generation[slot].wrapping_add(1);
+            return Some(slot);
+        }
+        if self.articulated_projectile_alive.len() >= rules::MAX_SHOTS { return None; }
+        self.articulated_projectile_alive.push(false);
+        self.articulated_projectile_generation.push(0);
+        self.articulated_projectile_pos.push(Vec3::ZERO);
+        self.articulated_projectile_vel.push(Vec3::ZERO);
+        self.articulated_projectile_range.push(Fx::ZERO);
+        self.articulated_projectile_radius.push(Fx::ZERO);
+        self.articulated_projectile_mass.push(Fx::ZERO);
+        self.articulated_projectile_owner.push(EntityId::NONE);
+        self.articulated_projectile_faction.push(Faction::Heroes);
+        Some(self.articulated_projectile_alive.len() - 1)
+    }
+
+    /// Projectile solver identities occupy the 32 indices immediately below
+    /// EntityId::NONE. Articulated bodies are bounded to 64 allocated slots,
+    /// so the namespaces cannot alias; generation still changes on slot reuse.
+    fn articulated_projectile_id(&self, slot: usize) -> EntityId {
+        EntityId::new(ARTICULATED_PROJECTILE_INDEX_BASE + slot as u32,
+                      self.articulated_projectile_generation[slot])
+    }
+
+    fn articulated_projectile_slot(&self, entity: EntityId) -> Option<usize> {
+        let slot = entity.index.checked_sub(ARTICULATED_PROJECTILE_INDEX_BASE)? as usize;
+        (slot < self.articulated_projectile_alive.len()
+            && self.articulated_projectile_alive[slot]
+            && self.articulated_projectile_generation[slot] == entity.generation)
+            .then_some(slot)
+    }
+
+    fn articulated_projectile_requested(&self, slot: usize) -> (Vec3, bool, EntityId) {
+        let previous = self.articulated_projectile_pos[slot];
+        let requested = previous + self.articulated_projectile_vel[slot];
+        let radius = self.articulated_projectile_radius[slot];
+        let mut block = self.dungeon.raycast(
+            Vec2::new(previous.x, previous.y), Vec2::new(requested.x, requested.y),
+        ).map(|time| (time.raw().max(0) as u32, EntityId::NONE));
+        for target in 0..self.alive.len() {
+            if !self.alive[target]
+                || self.faction[target] == self.articulated_projectile_faction[slot] {
+                continue;
+            }
+            let Some(pose) = self.shield_pose[target] else { continue };
+            let body = Vec3::new(self.pos[target].x, self.pos[target].y, Fx::ZERO);
+            let face = geometry::shield_face(body, pose);
+            let Some(toi) = fx::swept_segment_rectangle(
+                previous, previous, requested, requested, radius, face.corners, face.corners,
+            ) else { continue };
+            let time = toi.get().raw().max(0) as u32;
+            let owner = self.id_of(target);
+            block = Some(match block {
+                None => (time, owner),
+                Some((old_time, old_owner)) if time < old_time
+                    || (time == old_time && (old_owner.is_none() || owner < old_owner)) =>
+                    (time, owner),
+                Some(old) => old,
+            });
+        }
+        let Some((block, shielded_body)) = block else {
+            return (requested, false, EntityId::NONE);
+        };
+        let before = Fx::from_raw(block.saturating_sub(1).min(65_536) as i32);
+        (Vec3::lerp(previous, requested, before), true, shielded_body)
+    }
+
+    fn reap_articulated_projectile(&mut self, slot: usize) {
+        if !self.articulated_projectile_alive[slot] { return; }
+        self.articulated_projectile_alive[slot] = false;
+        self.articulated_projectile_free.push(slot as u32);
+    }
+
+    fn loose_articulated_projectiles(&mut self) {
+        for i in 0..self.alive.len() {
+            if !self.alive[i] { continue; }
+            let command = self.articulated_command[i].unwrap_or_else(|| self.neutral_articulated(i));
+            let previous = self.articulated_release_was[i];
+            self.articulated_release_was[i] = command.releases;
+            if !ReleaseRequest::looses(previous[1], command.releases[1]) { continue; }
+            let Some(item) = self.equipment_in_grip(i, LimbSlot::RightArm as usize) else { continue };
+            let both = item.action == ActionKind::Bow && item.binding == crate::GripBinding::Both
+                && self.grips[i][0].equipment_slot.is_some()
+                && self.grips[i][0].equipment_slot == self.grips[i][1].equipment_slot;
+            if !both { continue; }
+            let direction = self.arms[i][1].hand.normalized_or_zero();
+            if direction == Vec3::ZERO { continue; }
+            let Some(slot) = self.free_articulated_projectile() else { continue };
+            let arm = rules::Arm::resolve(ActionKind::Bow.spec(), self.stats[i], self.radius[i]);
+            let origin = Vec3::new(self.pos[i].x, self.pos[i].y, Fx::ZERO) + self.arms[i][1].hand;
+            self.articulated_projectile_alive[slot] = true;
+            self.articulated_projectile_pos[slot] = origin;
+            self.articulated_projectile_vel[slot] = direction * rules::shot_speed(arm);
+            self.articulated_projectile_range[slot] = self.stats[i].sight_range();
+            self.articulated_projectile_radius[slot] = ARTICULATED_ARROW_RADIUS;
+            self.articulated_projectile_mass[slot] = ActionKind::Bow.spec().mass;
+            self.articulated_projectile_owner[slot] = self.id_of(i);
+            self.articulated_projectile_faction[slot] = self.faction[i];
+            self.events.push(Event::Loose {
+                source: self.id_of(i), at: Vec2::new(origin.x, origin.y),
+                line: Vec2::new(direction.x, direction.y).angle(),
+            });
+        }
+    }
+
+    fn resolve_articulated_projectiles(&mut self) {
+        for slot in 0..self.articulated_projectile_alive.len() {
+            if !self.articulated_projectile_alive[slot] { continue; }
+            let entity = self.articulated_projectile_id(slot);
+            let hit = self.contact.as_ref().is_some_and(|contact| contact.resolutions.iter()
+                .any(|row| row.fact.key.kind == ContactKind::ProjectileBody
+                    && row.fact.key.a == entity));
+            if hit {
+                self.reap_articulated_projectile(slot);
+                continue;
+            }
+            let step = self.articulated_projectile_vel[slot];
+            let (now, blocked, _) = self.articulated_projectile_requested(slot);
+            if blocked {
+                self.reap_articulated_projectile(slot);
+                continue;
+            }
+            self.articulated_projectile_range[slot] -= step.length();
+            if !self.articulated_projectile_range[slot].is_positive() {
+                self.reap_articulated_projectile(slot);
+            } else {
+                self.articulated_projectile_pos[slot] = now;
             }
         }
     }
@@ -5683,6 +5913,11 @@ impl World {
     fn stage_exact_contact(&mut self, contact: &mut ContactRuntime) -> Result<(), ResolutionError> {
         contact.exact_commit.clear();
         for owner in &contact.exact_owners {
+            // Projectile owners are solver-lifetime rows only. A body hit
+            // hides the collider at that group boundary and the world reaps
+            // its store row after contact, so there is no tick-end pose to
+            // certify or commit for it.
+            if owner.projectile { continue; }
             if owner.common_response.group_time_raw != 65_536
                 || owner.held_response.iter().flatten()
                     .any(|held| held.affine.group_time_raw != 65_536) {
@@ -6089,6 +6324,7 @@ impl World {
     /// The absolute hand a solved collider row ended on.
     fn collider_hand(&self, i: usize, row: ContactCollider) -> Option<Vec3> {
         match row.shape {
+            ContactShape::Projectile { .. } => None,
             // A held segment's hilt *is* the hand: `segment_pose` builds it as
             // the body origin plus the body-relative hand, and everything the
             // driver does afterwards translates or interpolates both endpoints
@@ -6351,6 +6587,29 @@ impl World {
                     },
                 });
             }
+        }
+        let projectile_surface = crate::SurfaceSpec {
+            restitution: Fx::ZERO, friction: Fx::ZERO, edge_factor: Fx::ZERO,
+            point_factor: Fx::ONE, material: crate::Material::Steel,
+        };
+        for slot in 0..self.articulated_projectile_alive.len() {
+            if !self.articulated_projectile_alive[slot] { continue; }
+            let previous = self.articulated_projectile_pos[slot];
+            let (requested, _, shielded_body) = self.articulated_projectile_requested(slot);
+            rows.push(ContactCollider {
+                entity: self.articulated_projectile_id(slot),
+                faction: self.articulated_projectile_faction[slot],
+                slot: ARTICULATED_PROJECTILE_SLOT,
+                mass: self.articulated_projectile_mass[slot],
+                surface: projectile_surface,
+                velocity: self.articulated_projectile_vel[slot],
+                velocity_offset: Vec3::ZERO,
+                shape: ContactShape::Projectile {
+                    previous, requested, radius: self.articulated_projectile_radius[slot],
+                    shielded_body,
+                },
+                present: true,
+            });
         }
     }
 
@@ -7087,6 +7346,17 @@ pub struct ShotView {
     pub faction: Faction,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct ArticulatedProjectileView {
+    pub slot: u32,
+    pub generation: u32,
+    pub owner: EntityId,
+    pub position: Vec3,
+    pub velocity: Vec3,
+    pub radius: Fx,
+    pub remaining_range: Fx,
+}
+
 #[derive(Clone, Copy, Debug)]
 pub struct UnitView {
     pub id: EntityId,
@@ -7190,13 +7460,36 @@ fn build_exact_contact_trajectories(
                 if severed[limb] { grips[limb] = None; }
             }
         }
-        let staged = if grips == world.grips[i].map(|grip| grip.equipment_slot) {
+        let mut staged = if grips == world.grips[i].map(|grip| grip.equipment_slot) {
             *owner
         } else {
             world.prepare_zero_response_grip_transition(i, grips)
                 .map_err(|_| ResolutionError::ExactLifecyclePending)?
         };
+        // The Bow stave is not a contact collider. Its exact held lane would
+        // otherwise promise a trajectory that cannot exist, and tick-end
+        // rebasing quite correctly refuses that broken owner/row grammar.
+        for limb in 0..2 {
+            if world.equipment_in_grip(i, limb)
+                .is_some_and(|item| item.action == ActionKind::Bow)
+            {
+                staged.held_response[limb] = None;
+            }
+        }
         contact.exact_owners.push(staged);
+    }
+    for slot in 0..world.articulated_projectile_alive.len() {
+        if !world.articulated_projectile_alive[slot] { continue; }
+        let mass_raw = world.articulated_projectile_mass[slot].raw();
+        contact.exact_owners.push(ExactOwnerTrajectory {
+            entity: world.articulated_projectile_id(slot), projectile: true,
+            body_mass_raw: mass_raw, common_scale: mass_raw as i128,
+            common_response: ExactAffine3 {
+                mass_raw, at_group: [ExactPosition::default(); 3],
+                momentum: [ExactMomentum::default(); 3], group_time_raw: 0,
+            },
+            held_response: [None; 2],
+        });
     }
     let motor_point = |previous: Vec3, requested: Vec3| ExactMotorPoint {
         at_tick_start_raw: [previous.x.raw(), previous.y.raw(), previous.z.raw()],
@@ -7210,6 +7503,10 @@ fn build_exact_contact_trajectories(
             .ok_or(ResolutionError::ColliderIndex)?;
         let owner = contact.exact_owners[owner_index];
         let (kind, held_index, equipment_spec, motor) = match row.shape {
+            ContactShape::Projectile { previous, requested, radius, .. } =>
+                (GeneralizedKind::Projectile, None, None, MotorShape::Projectile {
+                    point: motor_point(previous, requested), radius_raw: radius.raw(),
+                }),
             ContactShape::Body { previous_origin, requested_origin, parts } => {
                 let bounds = core::array::from_fn(|at| ExactMotorBounds {
                     lower: motor_point(parts[at].previous_lower, parts[at].requested_lower),
@@ -8196,6 +8493,7 @@ mod tests {
             for held in contact.exact_trajectories.iter().filter(|row|
                 row.entity == owner.entity && row.held_index.is_some()) {
                 let points: &[ExactMotorPoint] = match &held.motor {
+                    MotorShape::Projectile { .. } => unreachable!(),
                     MotorShape::Segment { hilt, .. } => { saw[0] = true; core::slice::from_ref(hilt) }
                     MotorShape::Shield { corners } => { saw[1] = true; corners }
                     MotorShape::Body { .. } => unreachable!(),
@@ -9600,7 +9898,6 @@ mod tests {
             > independent_impaired.arms[0][0].bearing_speed_turns);
     }
 
-    #[test]
     /// Replaces `a_shield_normal_follows_body_yaw_and_cannot_orbit`, which
     /// asserted the opposite of this and was the standing proof of the defect
     /// rather than of a rule. Bounded from both sides on purpose: re-recording
@@ -19537,5 +19834,171 @@ mod smart131_world_forwarding_test {
         world.step();
         assert!(world.exact_segment_body_pair_aabb_diagnostic().is_some());
         assert_eq!(world.exact_segment_hilt_start_x_diagnostic(), None);
+    }
+}
+
+#[cfg(test)]
+mod articulated_projectile_tests {
+    use super::*;
+    use crate::{DuelConfigV1, HandItemV1};
+
+    fn bow_world() -> World {
+        let mut config = DuelConfigV1::shipped();
+        config.fighters[0].hands = [None, HandItemV1::shipped(ActionKind::Bow)];
+        config.fighters[0].two_handed = true;
+        World::new(&Scenario::duel_from(&config).unwrap(), 9)
+    }
+
+    fn seed_arrow(world: &mut World, owner: usize, position: Vec3, velocity: Vec3) -> usize {
+        let slot = world.free_articulated_projectile().unwrap();
+        world.articulated_projectile_alive[slot] = true;
+        world.articulated_projectile_pos[slot] = position;
+        world.articulated_projectile_vel[slot] = velocity;
+        world.articulated_projectile_range[slot] = Fx::from_int(20);
+        world.articulated_projectile_radius[slot] = ARTICULATED_ARROW_RADIUS;
+        world.articulated_projectile_mass[slot] = ActionKind::Bow.spec().mass;
+        world.articulated_projectile_owner[slot] = world.id_of(owner);
+        world.articulated_projectile_faction[slot] = world.faction[owner];
+        slot
+    }
+
+    #[test]
+    fn a_held_right_arm_loose_fires_one_articulated_arrow() {
+        let mut world = bow_world();
+        let legacy = world.state_hash();
+        let articulated = world.state_digest().value;
+        let mut command = world.neutral_articulated(0);
+        command.releases[1] = ReleaseRequest::Loose;
+        world.articulated_command[0] = Some(command);
+        world.loose_articulated_projectiles();
+        assert_eq!(world.articulated_projectiles().count(), 1);
+        let first = world.articulated_projectiles().next().unwrap();
+        assert!(first.velocity.z.is_positive());
+        assert_eq!(world.state_hash(), legacy);
+        assert_ne!(world.state_digest().value, articulated);
+
+        world.loose_articulated_projectiles();
+        assert_eq!(world.articulated_projectiles().count(), 1);
+        command.releases[1] = ReleaseRequest::Keep;
+        world.articulated_command[0] = Some(command);
+        world.loose_articulated_projectiles();
+        command.releases[1] = ReleaseRequest::Loose;
+        world.articulated_command[0] = Some(command);
+        world.loose_articulated_projectiles();
+        assert_eq!(world.articulated_projectiles().count(), 2);
+    }
+
+    #[test]
+    fn an_articulated_arrow_cannot_tunnel_and_names_the_region_it_hit() {
+        for (part, z) in [(BodyPart::Head as usize, Fx::from_ratio(19, 10)),
+                          (BodyPart::Legs as usize, Fx::from_ratio(2, 5))] {
+            let mut world = bow_world();
+            let target = 1;
+            let centre = world.pos[target];
+            let before = world.wounds[target].parts[part].integrity;
+            seed_arrow(&mut world, 0,
+                Vec3::new(centre.x - Fx::ONE, centre.y, z),
+                Vec3::new(Fx::from_int(2), Fx::ZERO, Fx::ZERO));
+            world.retain_contact_entry();
+            world.resolve_contact();
+            world.resolve_articulated_projectiles();
+            #[cfg(not(feature = "cartesian-recoil"))]
+            let row = world.contact_resolutions().iter()
+                .find(|row| row.fact.key.kind == ContactKind::ProjectileBody)
+                .unwrap_or_else(|| panic!("shared solver omitted projectile/body fact: {:?}",
+                    world.contact.as_ref().unwrap().first_rejection));
+            #[cfg(feature = "cartesian-recoil")]
+            let row = world.contact_resolutions().iter()
+                .find(|row| row.fact.key.kind == ContactKind::ProjectileBody)
+                .unwrap_or_else(|| panic!("shared exact solver omitted projectile/body fact: {:?}",
+                    world.contact.as_ref().unwrap().first_exact_rejection));
+            assert_eq!(row.fact.region as usize, part);
+            assert!(world.wounds[target].parts[part].integrity < before);
+            assert_eq!(world.articulated_projectiles().count(), 0);
+        }
+    }
+
+    #[test]
+    fn a_shield_stops_an_articulated_arrow_before_anatomy() {
+        let mut world = bow_world();
+        let target = 0;
+        let owner = 1;
+        let pose = world.shield_pose[target];
+        assert_eq!(pose, None);
+        let mut config = DuelConfigV1::shipped();
+        config.fighters[1].hands = [None, HandItemV1::shipped(ActionKind::Bow)];
+        config.fighters[1].two_handed = true;
+        world = World::new(&Scenario::duel_from(&config).unwrap(), 10);
+        let body = world.pos[target];
+        let shield = world.shield_pose[target].unwrap();
+        let face = geometry::shield_face(
+            Vec3::new(body.x, body.y, Fx::ZERO), shield);
+        let face_centre = midpoint3(face.corners[0], face.corners[2]);
+        let before = world.wounds[target];
+        let slot = seed_arrow(&mut world, owner,
+            face_centre + face.normal * Fx::from_int(2),
+            -face.normal * Fx::from_int(4));
+        assert!(world.articulated_projectile_requested(slot).1,
+            "front-to-back shield sweep was not blocked: face={:?}", face);
+        world.retain_contact_entry();
+        world.resolve_contact();
+        world.resolve_articulated_projectiles();
+        assert_eq!(world.wounds[target], before);
+        assert!(world.contact_resolutions().iter()
+            .all(|row| row.fact.key.kind != ContactKind::ProjectileBody));
+    }
+
+    #[test]
+    fn an_articulated_arrow_outlives_its_owner_without_reassigning_credit() {
+        let mut world = bow_world();
+        let owner = 0;
+        let target = 1;
+        let stale_owner = world.id_of(owner);
+        let centre = world.pos[target];
+        let before = world.wounds[target].parts[BodyPart::Head as usize].integrity;
+        seed_arrow(&mut world, owner,
+            Vec3::new(centre.x - Fx::ONE, centre.y, Fx::from_ratio(19, 10)),
+            Vec3::new(Fx::from_int(2), Fx::ZERO, Fx::ZERO));
+
+        world.wounds[owner].parts[BodyPart::Head as usize].integrity = Fx::ZERO;
+        world.wounds[owner].parts[BodyPart::Head as usize].severed = true;
+        world.reap_dead_articulated();
+        assert_eq!(world.resolve(stale_owner), None);
+
+        world.retain_contact_entry();
+        world.resolve_contact();
+        world.resolve_articulated_projectiles();
+        assert!(world.contact_resolutions().iter()
+            .any(|row| row.fact.key.kind == ContactKind::ProjectileBody));
+        assert!(world.wounds[target].parts[BodyPart::Head as usize].integrity < before);
+        assert_eq!(world.wounds[target].last_attacker, stale_owner);
+        assert_eq!(world.damage_dealt[owner], Fx::ZERO);
+        assert_eq!(world.articulated_projectiles().count(), 0);
+    }
+
+    #[test]
+    fn projectile_identity_is_disjoint_and_generation_stable_across_slot_reuse() {
+        let mut world = bow_world();
+        let first_slot = seed_arrow(&mut world, 0, Vec3::from_ints(8, 8, 1), Vec3::X);
+        let first_id = world.articulated_projectile_id(first_slot);
+        let first_view = world.articulated_projectiles().next().unwrap();
+        assert_eq!(first_view.slot, first_slot as u32);
+        assert_eq!(first_view.generation, first_id.generation);
+        assert!(world.alive_ids(Faction::Heroes).into_iter()
+            .chain(world.alive_ids(Faction::Monsters))
+            .all(|body| body.index < ARTICULATED_PROJECTILE_INDEX_BASE));
+        assert!(first_id.index >= ARTICULATED_PROJECTILE_INDEX_BASE);
+        assert!(first_id.index < EntityId::NONE.index);
+
+        world.reap_articulated_projectile(first_slot);
+        let reused_slot = seed_arrow(&mut world, 0, Vec3::from_ints(9, 8, 1), Vec3::X);
+        let reused_id = world.articulated_projectile_id(reused_slot);
+        let reused_view = world.articulated_projectiles().next().unwrap();
+        assert_eq!(reused_slot, first_slot);
+        assert_eq!(reused_id.index, first_id.index);
+        assert_ne!(reused_id.generation, first_id.generation);
+        assert_eq!(world.articulated_projectile_slot(first_id), None);
+        assert_eq!(world.articulated_projectile_slot(reused_id), Some(reused_slot));
+        assert_eq!(reused_view.generation, reused_id.generation);
     }
 }

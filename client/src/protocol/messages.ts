@@ -213,18 +213,20 @@ export type FightRecordingMessage = {
   /** The three layout versions and strides the buffers were packed with. */
   poseLayoutVersion: number; poseStride: number;
   regionLayoutVersion: number; regionStride: number; regionsPerBody: number;
+  articulatedProjectileLayoutVersion: number; articulatedProjectileStride: number;
   combatEventLayoutVersion: number; combatEventStride: number;
   /** The module's own saturating drop counters, summed over the recording. */
-  posesDropped: number; regionsDropped: number; combatEventsDropped: number;
+  posesDropped: number; regionsDropped: number; articulatedProjectilesDropped: number;
+  combatEventsDropped: number;
   impactThreshold: number; contactEnergyFloor: number;
   bodySlot: number; noRegion: number;
   regionNames: readonly string[]; hintNames: readonly string[]; contactKinds: readonly string[];
   bodies: readonly RecordedBody[];
-  /** `Uint32Array` words: pose rows, region rows, event rows, packed. */
-  poses: ArrayBuffer; regions: ArrayBuffer; events: ArrayBuffer;
+  /** `Uint32Array` words: pose, region, projectile and event rows, packed. */
+  poses: ArrayBuffer; regions: ArrayBuffer; projectiles: ArrayBuffer; events: ArrayBuffer;
   /**
-   * `Uint32Array`, **seven** words a frame: the tick, then a start and a count
-   * for each of the pose, region and event sections. `RECORDING_INDEX_STRIDE`
+   * `Uint32Array`, **nine** words a frame: the tick, then a start and a count
+   * for each of the pose, region, projectile and event sections. `RECORDING_INDEX_STRIDE`
    * owns the number and `INDEX_TICK` owns the word this comment used to omit.
    */
   index: ArrayBuffer;

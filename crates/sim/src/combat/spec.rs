@@ -215,13 +215,18 @@ pub enum CombatSpecError {
     /// same reason. The empty-handed fighter is a configuration the game does
     /// not have, not a gap in the type.
     NoEquipment,
+    /// A Bow was not described as the sole right-hand item under a two-handed
+    /// grip. This names the action-specific rule a caller can correct without guessing:
+    /// the articulated Bow has one authoritative carrying shape.
+    BowGrip,
     /// A hand item named an [`crate::ActionKind`] with no shipped equipment row.
     ///
     /// The row is where a scenario-local item takes its [`SurfaceSpec`] from,
     /// and a surface is a measured material rather than a dimension: there is no
-    /// honest `restitution` for a `Bow`, and inventing one would be inventing
-    /// combat geometry nobody measured. Three actions have rows -- `Sword`,
-    /// `Shield`, `Club` -- and the mapping stays total by refusing the rest
+    /// honest fallback material, and inventing one would be inventing combat
+    /// geometry nobody measured. Four actions have rows -- `Sword`, `Shield`,
+    /// `Club`, and the runtime-only `Bow` -- and the mapping stays total by
+    /// refusing the rest
     /// rather than by falling back to whichever row looks nearest.
     UnknownAction,
 }

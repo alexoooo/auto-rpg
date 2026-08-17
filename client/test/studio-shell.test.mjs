@@ -352,11 +352,11 @@ function syntheticTrace() {
     carried,
   });
   const frame = (t) => ({
-    t, health: [ONE, ONE], contacts: [],
+    t, health: [ONE, ONE], projectiles: [], contacts: [],
     poses: [pose(0, -5 * ONE + t * ONE), pose(1, 5 * ONE)],
   });
   return {
-    schema: "arpg-fight-trace-3", one: ONE, scenario: "duel", mirrored: false,
+    schema: "arpg-fight-trace-4", one: ONE, scenario: "duel", mirrored: false,
     fingerprint: "abc123", seed: 3, heroes: "composed", monsters: "composed",
     checkpoint: null, outcome: "Heroes", timedOut: false, ticks: 2, maxTicks: 3600,
     arena: [48 * ONE, 32 * ONE], frameCount: 3, truncated: false,
@@ -415,6 +415,28 @@ test("parse_route_falls_back_to_the_main_screen_and_hands_the_query_on_untouched
     assert.deepEqual(route("#/nonsense?trace=/fight.json"), ["/", [["trace", "/fight.json"]]]);
   } finally {
     harness.restore();
+  }
+});
+
+test("the_game_route_gives_the_dungeon_the_stage_and_keeps_instruments_in_reach", () => {
+  const template = /<template id="route-game">([\s\S]*?)<\/template>/.exec(SHELL_HTML)?.[1] ?? "";
+  assert.match(template, /<section class="game-stage" aria-labelledby="game-title">/);
+  assert.match(template, /<h1 id="game-title">Dungeon expedition<\/h1>/);
+  assert.match(template, /<aside class="game-command-deck" aria-label="Expedition controls">/);
+  assert.match(template, /<details class="game-instruments">[\s\S]*?<summary>Systems and capture<\/summary>/);
+
+  const canvas = template.indexOf('id="greybox"');
+  const commands = template.indexOf('class="game-command-deck"');
+  const instruments = template.indexOf('class="game-instruments"');
+  assert.ok(canvas >= 0 && canvas < commands && commands < instruments,
+    "the authored view must remain the primary content, ahead of controls and developer instruments");
+
+  for (const id of ["greybox", "interaction-hint", "room-camera-toggle", "seed", "reset", "pause",
+    "goto-x", "goto-y", "goto", "withdraw", "spawn", "diagnostic-hold-buffers",
+    "diagnostic-release-buffers", "performance-start", "performance-download", "performance-progress",
+    "performance-status", "status", "error", "diagnostics"]) {
+    assert.equal(template.match(new RegExp(`id="${id}"`, "g"))?.length, 1,
+      `#${id} must survive the composition exactly once`);
   }
 });
 

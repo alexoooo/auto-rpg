@@ -11,7 +11,7 @@
 // | adapter             | drives                                            |
 // |---------------------|---------------------------------------------------|
 // | `TraceFightSource`  | `loadTrace(url)` over an 8-9 MB JSON              |
-// | `LiveFightSource`   | transferred pose/event buffers from the worker    |
+// | `LiveFightSource`   | transferred pose/event/region/projectile buffers  |
 //
 // Three places the two cannot agree, recorded here so the arena is built
 // knowing about them rather than discovering them:

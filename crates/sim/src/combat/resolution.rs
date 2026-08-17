@@ -33,8 +33,7 @@ pub use crate::combat::contact::{ExactWideComparisonDiagnostic, ExactWidePrimiti
     ExactSegmentHiltStartXDiagnostic, ExactSegmentHiltStartXTargetDiagnostic};
 #[cfg(feature = "cartesian-recoil")]
 use crate::combat::trajectory::{advance_exact_into, apply_exact_group_into, ExactContactTrajectory,
-                                ExactOwnerTrajectory, ExactTrajectoryWork,
-                                FloorReaction};
+                                ExactOwnerTrajectory, ExactTrajectoryWork, FloorReaction};
 #[cfg(feature = "cartesian-recoil")]
 use crate::combat::wide::WideRational4096;
 #[cfg(feature = "cartesian-recoil")]
@@ -45,6 +44,10 @@ use crate::{EntityId, Faction};
 use fx::{Fx, TimeOfImpact, Vec3};
 
 pub const CONTACT_ENERGY_FLOOR: u64 = 144;
+
+const fn damages_body(kind: ContactKind) -> bool {
+    matches!(kind, ContactKind::WeaponBody | ContactKind::ProjectileBody)
+}
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct GeneralizedCollider {
@@ -65,7 +68,7 @@ pub struct GeneralizedCollider {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum GeneralizedKind { Body, Equipment }
+pub enum GeneralizedKind { Body, Equipment, Projectile }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct WeaponBodyChannel {
@@ -310,6 +313,8 @@ fn exact_physical_row_energy(
         return Err(ResolutionError::ExactEnergyEnvelope);
     }
     let held = match row.kind {
+        GeneralizedKind::Projectile if row.held_index.is_none() && owner.projectile
+            && row.mass_raw == owner.body_mass_raw => None,
         GeneralizedKind::Body if row.held_index.is_none() && row.mass_raw == owner.body_mass_raw => None,
         GeneralizedKind::Equipment => {
             let at = row.held_index.ok_or(ResolutionError::ExactEnergyEnvelope)?;
@@ -607,7 +612,7 @@ pub(crate) fn finalize_projected_group(
     for (contact, &share) in contacts.iter().zip(shares.iter()) {
         let on_a = scale_impulse(contact.impulse_on_a, alpha_raw);
         let (cut_raw, thrust_raw, crush_raw, pressure_raw) = match contact.channel {
-            Some(channel) if contact.fact.key.kind == ContactKind::WeaponBody => channels(share, channel),
+            Some(channel) if damages_body(contact.fact.key.kind) => channels(share, channel),
             _ => (0, 0, 0, 0),
         };
         output.push(ContactResolution {
@@ -647,6 +652,8 @@ pub(crate) fn apply_projected_rows(
         let Some(row) = colliders.get(index) else { return Err(ResolutionError::ColliderIndex) };
         let expected_kind = if matches!(row.shape, ContactShape::Body { .. }) {
             GeneralizedKind::Body
+        } else if matches!(row.shape, ContactShape::Projectile { .. }) {
+            GeneralizedKind::Projectile
         } else { GeneralizedKind::Equipment };
         if row.entity != generalized.entity || row.slot != generalized.slot
             || expected_kind != generalized.kind || row.mass != generalized.mass
@@ -1150,7 +1157,7 @@ impl ContactKinematics for ExactKinematics<'_> {
             previous = Some(contact.fact.key);
             let on_a = contact.impulse_on_a;
             let channels = match contact.channel {
-                Some(channel) if contact.fact.key.kind == ContactKind::WeaponBody => channels(share, channel),
+                Some(channel) if damages_body(contact.fact.key.kind) => channels(share, channel),
                 _ => (0, 0, 0, 0),
             };
             output.push(ContactResolution { group_ordinal: ordinal, group_alpha_raw: 65_536,
@@ -1251,7 +1258,8 @@ pub(crate) fn solve_exact_contact_tick<P: ContactTrialProjector>(
         let (phase, key) = scratch.exact_rejection_context();
         ExactContactFailure { cause, phase, key }
     };
-    const MAX_EXACT_TRAJECTORIES: usize = crate::combat::contact::MAX_ARTICULATED_ENTITIES * 3;
+    const MAX_EXACT_TRAJECTORIES: usize =
+        crate::combat::contact::MAX_ARTICULATED_ENTITIES * 3 + crate::rules::MAX_SHOTS;
     if trajectories.len() > MAX_EXACT_TRAJECTORIES {
         return Err(failed(ResolutionError::ExactScan, scratch));
     }
@@ -1291,7 +1299,7 @@ fn solve_contact_tick_with<P: ContactTrialProjector, K: ContactKinematics>(
     // silently *nondeterministic* one. Measured: 13 of 24 row permutations of a
     // three-row duplicate fixture disagreed. The in-place sort's soundness
     // argument is exactly this precondition, so the precondition cannot be
-    // debug-only. `n` is at most 192 and the pair scan below is already
+    // debug-only. `n` is at most 224 and the pair scan below is already
     // quadratic with geometry in the inner loop, so this costs nothing worth
     // measuring.
     for i in 0..colliders.len() {
@@ -1442,8 +1450,11 @@ fn solve_contact_tick_with<P: ContactTrialProjector, K: ContactKinematics>(
             let row = colliders[index];
             scratch.generalized.push(GeneralizedCollider {
                 entity: row.entity, slot: row.slot,
-                kind: if matches!(row.shape, ContactShape::Body { .. }) { GeneralizedKind::Body }
-                      else { GeneralizedKind::Equipment },
+                kind: if matches!(row.shape, ContactShape::Body { .. }) {
+                    GeneralizedKind::Body
+                } else if matches!(row.shape, ContactShape::Projectile { .. }) {
+                    GeneralizedKind::Projectile
+                } else { GeneralizedKind::Equipment },
                 mass: row.mass, velocity: kinematics.generalized_velocity(colliders, index)?,
                 velocity_offset: row.velocity_offset,
             });
@@ -1464,7 +1475,7 @@ fn solve_contact_tick_with<P: ContactTrialProjector, K: ContactKinematics>(
                 row_a.mass, row_b.mass, row_a.surface, row_b.surface,
                 fact.velocity_a, fact.velocity_b, fact.normal,
             );
-            let channel = if fact.key.kind == ContactKind::WeaponBody {
+            let channel = if damages_body(fact.key.kind) {
                 Some(weapon_body_channel(row_a, row_b))
             } else { None };
             #[cfg(not(feature = "cartesian-recoil"))]
@@ -1682,6 +1693,10 @@ fn closure_index(rows: &[GeneralizedCollider], entity: EntityId, slot: u8) -> Op
 
 fn weapon_body_channel(weapon: ContactCollider, body: ContactCollider) -> WeaponBodyChannel {
     let (axis, zero_length) = match weapon.shape {
+        ContactShape::Projectile { .. } => {
+            let axis = weapon.velocity.normalized_or_zero();
+            (axis, axis == Vec3::ZERO)
+        }
         ContactShape::Segment { previous_hilt, previous_tip, .. } => {
             let delta = previous_tip - previous_hilt;
             (delta.normalized_or_zero(), delta == Vec3::ZERO)
@@ -1696,6 +1711,10 @@ fn weapon_body_channel(weapon: ContactCollider, body: ContactCollider) -> Weapon
 
 fn freeze_sweep(mut row: ContactCollider) -> ContactCollider {
     row.shape = match row.shape {
+        ContactShape::Projectile { previous, radius, shielded_body, .. } =>
+            ContactShape::Projectile {
+                previous, requested: previous, radius, shielded_body,
+            },
         ContactShape::Segment { previous_hilt, previous_tip, radius, .. } => ContactShape::Segment {
             previous_hilt, previous_tip, requested_hilt: previous_hilt, requested_tip: previous_tip, radius,
         },
@@ -1716,6 +1735,9 @@ fn advance_all(rows: &mut [ContactCollider], numerator: u32, denominator: u32) {
 
 fn advance_shape(shape: &mut ContactShape, numerator: u32, denominator: u32) {
     match shape {
+        ContactShape::Projectile { previous, requested, .. } => {
+            *previous = interpolate_raw(*previous, *requested, numerator, denominator);
+        }
         ContactShape::Segment { previous_hilt, previous_tip, requested_hilt, requested_tip, .. } => {
             *previous_hilt = interpolate_raw(*previous_hilt, *requested_hilt, numerator, denominator);
             *previous_tip = interpolate_raw(*previous_tip, *requested_tip, numerator, denominator);
@@ -1749,6 +1771,7 @@ fn interpolate_raw(a: Vec3, b: Vec3, numerator: u32, denominator: u32) -> Vec3 {
 
 fn translate_requested(row: &mut ContactCollider, delta: Vec3) {
     match &mut row.shape {
+        ContactShape::Projectile { requested, .. } => *requested += delta,
         ContactShape::Segment { requested_hilt, requested_tip, .. } => { *requested_hilt += delta; *requested_tip += delta; }
         ContactShape::Shield { requested, .. } => for point in requested { *point += delta; },
         ContactShape::Body { requested_origin, parts, .. } => {
@@ -1871,6 +1894,7 @@ pub fn contact_behavior_corpus() -> Result<Vec<u8>, ResolutionError> {
             // zero-length rows where that is also the hilt, so this is one rule
             // rather than a case number smuggled into the serializer.
             let x = match row.shape {
+                ContactShape::Projectile { previous, .. } => previous.x,
                 ContactShape::Segment { previous_tip, .. } => previous_tip.x,
                 ContactShape::Body { previous_origin, .. } => previous_origin.x,
                 ContactShape::Shield { previous, .. } => previous[0].x,
@@ -1993,7 +2017,8 @@ pub(crate) mod tests {
     #[cfg(feature = "cartesian-recoil")]
     fn energy_owner(index: u32, velocity_raw: i32) -> ExactOwnerTrajectory {
         use crate::combat::trajectory::{ExactAffine3, ExactMomentum, ExactPosition};
-        ExactOwnerTrajectory { entity: EntityId::new(index, 0), body_mass_raw: 65_536,
+        ExactOwnerTrajectory { entity: EntityId::new(index, 0), projectile: false,
+            body_mass_raw: 65_536,
             common_scale: 65_536, common_response: ExactAffine3 { mass_raw: 65_536,
                 at_group: [ExactPosition::default(); 3], momentum: [ExactMomentum {
                     velocity_raw, remainder: 0,
@@ -2798,6 +2823,7 @@ pub(crate) mod tests {
         fn finals(&self) -> Vec<(i32, i32)> {
             self.colliders.iter().map(|row| {
                 let x = match row.shape {
+                    ContactShape::Projectile { previous, .. } => previous.x,
                     ContactShape::Segment { previous_tip, .. } => previous_tip.x,
                     ContactShape::Body { previous_origin, .. } => previous_origin.x,
                     ContactShape::Shield { previous, .. } => previous[0].x,

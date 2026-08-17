@@ -962,7 +962,7 @@ struct ArticulatedTrial {
     /// total by an amount nobody can read. Split three ways it is one
     /// subtraction: a smaller plate should take a smaller share and hand the
     /// difference to the body column.
-    kinds: [u64; 3],
+    kinds: [u64; 4],
     /// `[attacker weapon height][defender guard height]`, both as
     /// `[LOW, MID, HIGH]` indices, counted once per ordered pair of deciding
     /// bodies per tick where the attacker's intent is `Attack`.
@@ -1088,7 +1088,7 @@ fn measure_articulated_matchup(
     let mut due: Vec<EntityId> = Vec::new();
     let mut stream: Vec<SubmittedCommandRecord> = Vec::new();
     let mut contacts = 0u64;
-    let mut kinds = [0u64; 3];
+    let mut kinds = [0u64; 4];
     let mut guard_pairs = [[0u64; 3]; 3];
     // One row per body that decided this tick: whether it asked to attack, the
     // height its weapon arm was commanded to, and the height its off arm was
@@ -1401,7 +1401,7 @@ fn run_tactical_competence_gate() {
     let body_decisions = canonical_body + mirrored_body;
     let mut outcomes = [0usize; 5];
     let mut contacts = 0u64;
-    let mut kinds = [0u64; 3];
+    let mut kinds = [0u64; 4];
     let mut refused = 0u64;
     let mut solver_rejections = 0u64;
     let mut worst_decision_tick = 0u32;
@@ -1580,7 +1580,7 @@ fn articulated(args: &Args) {
     let mut decisions = 0usize;
     let mut limits = 0usize;
     let mut contacts = 0u64;
-    let mut kinds = [0u64; 3];
+    let mut kinds = [0u64; 4];
     let mut guard_pairs = [[0u64; 3]; 3];
     let mut cap_hits = 0u64;
     let mut rejected = 0u64;
@@ -1945,6 +1945,8 @@ fn refuse_duel(error: sim::CombatSpecError) -> ! {
     let sentence = match error {
         sim::CombatSpecError::NoEquipment =>
             "a fighter with both hands empty has no rule to run: give it something in one of them",
+        sim::CombatSpecError::BowGrip =>
+            "bow must be the only carried item, in the right hand, with the two-handed grip enabled",
         sim::CombatSpecError::GripConflict =>
             "those two items cannot be held at once -- two shields, or a two-handed grip on a \
              shield, are the usual ways to ask for it",

@@ -509,10 +509,12 @@ const ROOM_GLB_AUTHORITIES = new Set([
   "docs/performance/evidence/2026-08-room-slice.md",
   "docs/decisions/0003-renderer-outside-sim.md",
   "docs/decisions/0003-reversible-presentation-engine.md",
+  "docs/reference/combatant-asset-contract.md",
 ]);
 
 function scopedCurrentRoomGlb(sentence, rel) {
   if (!ROOM_GLB_AUTHORITIES.has(rel)) return false;
+  if (rel === "docs/reference/combatant-asset-contract.md") return true;
   if (/\b(combatant|rig|actor|articulated)\b/i.test(sentence)) return false;
   if ([
     "docs/reference/room-asset-contract.md",

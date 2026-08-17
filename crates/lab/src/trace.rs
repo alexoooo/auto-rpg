@@ -35,7 +35,7 @@ use std::fmt::Write as _;
 /// Bumped when a field changes meaning, never when one is added: the page
 /// refuses a file whose schema it does not know, which is the difference between
 /// "the viewer is out of date" and "the viewer is drawing the wrong thing".
-pub const TRACE_SCHEMA: &str = "arpg-fight-trace-3";
+pub const TRACE_SCHEMA: &str = "arpg-fight-trace-4";
 
 /// Raw units in one world unit, carried in the file rather than assumed by the
 /// reader. `Fx::ONE.raw()` is not public API to a page.
@@ -248,6 +248,22 @@ impl FightTrace {
                 pose.hints[0] as u8, pose.hints[1] as u8);
         }
 
+        out.push_str("],\"projectiles\":[");
+        for (n, projectile) in world.articulated_projectiles().enumerate() {
+            if n > 0 {
+                out.push(',');
+            }
+            let _ = write!(out, "{{\"id\":[{},{}],\"owner\":",
+                projectile.slot, projectile.generation);
+            entity(out, projectile.owner);
+            out.push_str(",\"position\":");
+            vec3(out, projectile.position);
+            out.push_str(",\"velocity\":");
+            vec3(out, projectile.velocity);
+            let _ = write!(out, ",\"radius\":{},\"remainingRange\":{}}}",
+                projectile.radius.raw(), projectile.remaining_range.raw());
+        }
+
         out.push_str("],\"contacts\":[");
         for (n, row) in world.contact_resolutions().iter().enumerate() {
             if n > 0 {
@@ -353,7 +369,7 @@ impl FightTrace {
         // no copy of an enum that `sim` can renumber underneath it.
         out.push_str(",\"regionNames\":[\"head\",\"torso\",\"leftArm\",\"rightArm\",\"legs\"]");
         out.push_str(",\"hintNames\":[\"idle\",\"chasing\",\"braced\",\"contact\",\"recoiling\",\"severed\"]");
-        out.push_str(",\"contactKinds\":[\"weaponWeapon\",\"weaponShield\",\"weaponBody\"]");
+        out.push_str(",\"contactKinds\":[\"weaponWeapon\",\"weaponShield\",\"weaponBody\",\"projectileBody\"]");
         let _ = write!(out, ",\"bodySlot\":{},\"noRegion\":{}", sim::BODY_SLOT, sim::NO_REGION);
 
         out.push_str(",\"bodies\":[");

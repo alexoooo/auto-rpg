@@ -423,6 +423,7 @@ export const ARENA_REFUSALS: Readonly<Record<number, string>> = {
   24: "a fighter carries nothing at all",
   25: "that action has no equipment row to copy",
   26: "no checkpoint is installed, so the learned policy has no weights",
+  27: "a bow must be the sole right-hand item under a two-handed grip",
 };
 
 /** `ARENA_NO_CHECKPOINT`, the one refusal a picker offering `learned` can reach. */

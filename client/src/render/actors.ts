@@ -1,7 +1,12 @@
 import "@babylonjs/core/Meshes/instancedMesh.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import type { ShadowGenerator } from "@babylonjs/core/Lights/Shadows/shadowGenerator.js";
+import { EVENT_DAMAGE, EVENT_DEATH, EVENT_SHOVE } from "../protocol/abi.generated.js";
 import type { RendererDebugRegistry } from "./debug.js";
+import {
+  combatantMeshRole, copyCombatantRigPose, instantiateCombatantDress, type CombatantDress,
+} from "./combatant-dress.js";
+import type { CombatantAsset } from "./combatant-assets.js";
 import {
   buildFigure, buildFigureSources, poseFigure, type Figure, type FigureSources,
 } from "./figure.js";
@@ -16,6 +21,7 @@ export type ActorRegistryCounts = Readonly<{
 type ActorNode = {
   readonly key: string;
   readonly figure: Figure;
+  readonly dress: CombatantDress | null;
   shadow: boolean;
 };
 
@@ -25,6 +31,7 @@ export class ActorPresentation {
   readonly #scene: Scene;
   readonly #debug: RendererDebugRegistry;
   readonly #shadows: ShadowGenerator | null;
+  readonly #combatants: CombatantAsset | null;
   readonly #sources = new Map<string, FigureSources>();
   readonly #nodes = new Map<string, ActorNode>();
   readonly #labels = new Set<string>();
@@ -33,10 +40,14 @@ export class ActorPresentation {
   readonly #picking = new Set<string>();
   readonly #debugRecords = new Set<string>();
 
-  constructor(scene: Scene, debug: RendererDebugRegistry, shadows: ShadowGenerator | null = null) {
+  constructor(
+    scene: Scene, debug: RendererDebugRegistry, shadows: ShadowGenerator | null = null,
+    combatants: CombatantAsset | null = null,
+  ) {
     this.#scene = scene;
     this.#debug = debug;
     this.#shadows = shadows;
+    this.#combatants = combatants;
   }
 
   acceptSnapshot(snapshot: PresentationSnapshot): void {
@@ -52,7 +63,7 @@ export class ActorPresentation {
     for (const { unit, decision } of present.values()) {
       const existing = this.#nodes.get(unit.key);
       const node = existing ?? this.#create(unit);
-      this.#pose(node, unit);
+      this.#pose(node, unit, snapshot);
       this.#applyPresence(node, decision);
     }
     this.#publishCounts();
@@ -62,8 +73,8 @@ export class ActorPresentation {
     let meshes = 0;
     let shadows = 0;
     for (const node of this.#nodes.values()) {
-      meshes += node.figure.parts.length;
-      if (node.shadow) shadows += node.figure.parts.length;
+      meshes += this.#parts(node).length;
+      if (node.shadow) shadows += this.#parts(node).length;
     }
     return Object.freeze({
       meshes, shadows,
@@ -107,7 +118,20 @@ export class ActorPresentation {
     for (const part of figure.parts) {
       part.metadata = Object.freeze({ presentationKind: "unit", entityKey: unit.key });
     }
-    const node = { key: unit.key, figure, shadow: false };
+    let dress: CombatantDress | null = null;
+    const kind = unit.kind === 0 ? "fighter" : unit.kind === 2 ? "brute" : null;
+    if (kind !== null && this.#combatants !== null) {
+      try {
+        dress = instantiateCombatantDress(this.#combatants, kind, `actor:${unit.key}:authored`);
+        for (const part of figure.parts) part.setEnabled(false);
+        for (const part of dress.meshes.values()) {
+          part.metadata = Object.freeze({ presentationKind: "unit", entityKey: unit.key });
+        }
+      } catch {
+        dress = null;
+      }
+    }
+    const node = { key: unit.key, figure, dress, shadow: false };
     this.#nodes.set(unit.key, node);
     return node;
   }
@@ -127,13 +151,32 @@ export class ActorPresentation {
    * why. The domains and the argument are recorded in
    * `docs/architecture/browser-runtime.md`.
    */
-  #pose(node: ActorNode, unit: PresentationUnit): void {
+  #pose(node: ActorNode, unit: PresentationUnit, snapshot: PresentationSnapshot): void {
     poseFigure(node.figure, unit);
+    if (node.dress === null) return;
+    const heightInRadii = unit.kind === 2 ? 2.7 : 3.0;
+    copyCombatantRigPose(node.dress, node.figure.nodes, unit.radius * heightInRadii);
+    node.dress.setEnabled(true);
+    const armed = unit.actionRole !== 2 && unit.limbReach > 0.05;
+    const shielded = unit.actionRole === 1;
+    for (const [semantic, mesh] of node.dress.meshes) {
+      const role = combatantMeshRole(semantic);
+      mesh.setEnabled(role === "weapon" ? armed : role === "shield" ? shielded : true);
+    }
+    const reaction = snapshot.events.some((event) => event.actorIndex === unit.index && event.kind === EVENT_DEATH)
+      ? "fall"
+      : snapshot.events.some((event) => event.actorIndex === unit.index &&
+          (event.kind === EVENT_DAMAGE || event.kind === EVENT_SHOVE)) ? "stagger" : null;
+    const locomotion = Math.hypot(unit.vx, unit.vy) > unit.radius * 0.001 ? "walk" : "idle";
+    for (const clip of ["idle", "walk", "stagger", "fall"] as const) {
+      node.dress.nodes.get(clip)?.setEnabled(clip === (reaction ?? locomotion));
+    }
   }
 
   #applyPresence(node: ActorNode, decision: PresenceDecision): void {
-    node.figure.root.setEnabled(decision.render);
-    for (const part of node.figure.parts) part.isPickable = decision.pick;
+    node.figure.root.setEnabled(node.dress === null && decision.render);
+    node.dress?.setEnabled(decision.render);
+    for (const part of this.#parts(node)) part.isPickable = decision.pick;
     this.#toggle(this.#labels, node.key, decision.label);
     this.#toggle(this.#effects, node.key, decision.effect);
     this.#toggle(this.#audio, node.key, decision.audio);
@@ -141,7 +184,7 @@ export class ActorPresentation {
     this.#toggle(this.#debugRecords, node.key, decision.debug);
     const shadow = decision.shadow && this.#shadows !== null;
     if (shadow !== node.shadow) {
-      for (const part of node.figure.parts) {
+      for (const part of this.#parts(node)) {
         if (shadow) this.#shadows?.addShadowCaster(part);
         else this.#shadows?.removeShadowCaster(part);
       }
@@ -151,13 +194,14 @@ export class ActorPresentation {
 
   #retire(node: ActorNode): void {
     if (node.shadow) {
-      for (const part of node.figure.parts) this.#shadows?.removeShadowCaster(part);
+      for (const part of this.#parts(node)) this.#shadows?.removeShadowCaster(part);
     }
     // Disposing the root disposes the whole hierarchy -- every named joint and
     // every part instance -- which is what keeps a many-mesh figure's
     // retirement the same one call the cylinder's was. A leaked part per death
     // would be a slow leak nothing else names, so the registry test counts
     // live meshes against the per-kind part table.
+    node.dress?.dispose();
     node.figure.root.dispose(false);
     this.#nodes.delete(node.key);
     this.#labels.delete(node.key);
@@ -165,6 +209,10 @@ export class ActorPresentation {
     this.#audio.delete(node.key);
     this.#picking.delete(node.key);
     this.#debugRecords.delete(node.key);
+  }
+
+  #parts(node: ActorNode): readonly import("@babylonjs/core/Meshes/abstractMesh.js").AbstractMesh[] {
+    return node.dress === null ? node.figure.parts : [...node.dress.meshes.values()];
   }
 
   #toggle(registry: Set<string>, key: string, enabled: boolean): void {

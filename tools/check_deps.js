@@ -83,6 +83,9 @@ const TOOL_MANIFESTS = [
 const AUDITED_MANIFEST_PATHS = new Set([
   "web/assets3d/room_slice.json",
   "web/assets3d/room_slice.validator.json",
+  "tools/art/combatants-manifest.json",
+  "web/assets3d/combatants.json",
+  "web/assets3d/combatants.validator.json",
 ]);
 
 function isAuditedManifestPath(relativePath, baseName) {

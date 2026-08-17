@@ -352,6 +352,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
     const canvasModule = canvasControl ? await import("./render/canvas-control.js") : null;
     const rendererModule = canvasControl ? null : await import("./render/renderer.js");
     const inputModule = canvasControl ? null : await import("./input/greybox-input.js");
+    const combatantModule = canvasControl ? null : await import("./render/combatant-assets.js");
     const roomModules = representativeRoom ? await Promise.all([
       import("./render/room-assets.js"),
       import("./render/room-environment.js"),
@@ -390,7 +391,11 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
               terminal(new Error(error.message));
             },
             onCanvasReplaced: (_previous, replacement) => { activeCanvas = replacement; },
-          }, roomModules === null ? {} : {
+          }, {
+            ...(combatantModule === null ? {} : {
+              createCombatants: (scene, signal) => combatantModule.loadCombatantAsset(scene, signal),
+            }),
+            ...(roomModules === null ? {} : {
             createEnvironment: async (scene, debug, signal) => {
               const asset = await roomModules[0].loadRoomAsset(scene, signal);
               const authoredLighting = !stressMode ? roomModules[4].applyAuthoredRoomLighting(scene) : null;
@@ -422,6 +427,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
                   : stressMode ? {}
                     : { initialFixedZoom: roomModules[2].GAME_INITIAL_FIXED_ZOOM, followHero: true }),
             reviewCameraFree: initialRoomCameraFree,
+            }),
           });
         },
         ...(inputModule === null ? {} : { attachInput: (application: V2Application<DisplayRenderer>) => {

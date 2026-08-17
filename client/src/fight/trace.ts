@@ -12,7 +12,7 @@
 // energy above the floor", "did this tip move at all" -- on the integers the
 // simulation actually decided them on.
 
-export const TRACE_SCHEMA = "arpg-fight-trace-3";
+export const TRACE_SCHEMA = "arpg-fight-trace-4";
 
 export type V3 = readonly [number, number, number];
 /** `[index, generation]`, as `EntityId` is spelled on the Rust side. */
@@ -37,6 +37,16 @@ export interface Region {
   readonly upper: V3;
   readonly radius: number;
   readonly present: boolean;
+}
+
+/** One live articulated arrow. Slot plus generation is its stable identity. */
+export interface Projectile {
+  readonly id: EntityKey;
+  readonly owner: EntityKey;
+  readonly position: V3;
+  readonly velocity: V3;
+  readonly radius: number;
+  readonly remainingRange: number;
 }
 
 export interface Arm {
@@ -156,6 +166,7 @@ export function closureSpeed(contact: Contact): number | null {
 export interface Frame {
   readonly t: number;
   readonly poses: readonly Pose[];
+  readonly projectiles: readonly Projectile[];
   readonly contacts: readonly Contact[];
   /** Heroes, then Monsters. */
   readonly health: readonly [number, number];

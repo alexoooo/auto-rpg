@@ -627,11 +627,13 @@ declaration order: `11` MissingTable, `12` UnexpectedTable, `13` UnitPresence,
 `14` TooManyAnatomies, `15` TooManyEquipment, `16` IdOrder, `17` UnknownSchema,
 `18` Dimension, `19` Fraction, `20` Maximum, `21` MissingReference, `22`
 LoadoutMismatch, `23` GripConflict, `24` NoEquipment, `25` UnknownAction, and
-since v2-ui-08 `26` no checkpoint installed. One
+since v2-ui-08 `26` no checkpoint installed. Articulated Bow appends `27`
+BowGrip -- sole right-hand item under a two-handed grip -- rather than inserting
+it beside `NoEquipment` and changing an already-shipped meaning. One
 opaque zero would make a studio say "invalid" for a typo, for an impossibility
 and for a session that has not landed yet.
 
-**Twelve are reachable from a control and the rest are not**, and the split is
+**Thirteen are reachable from a control and the rest are not**, and the split is
 not the one the plan predicted; v2-ui-08 then swapped one of the twelve for
 another rather than adding one. `7` was reachable while the fifth policy code
 had no implementation on this side of the wall. It now has one, so `7` joins the
@@ -990,6 +992,33 @@ articulated body into a world afterwards, so a slot indexes the unit that spawne
 into it. It is a fixed array and not a `Vec` because it is written on a path that
 holds two whole worlds at once; see the memory note below.
 
+## Articulated-projectile rows
+
+`ARTICULATED_PROJECTILE_LAYOUT_VERSION=1`,
+`ARTICULATED_PROJECTILE_STRIDE=12`, and
+`MAX_ARTICULATED_PROJECTILES=MAX_SHOTS=32`. This is a fourth publication, not an
+extension of the legacy frame's four-word `shot` rows: legacy shots are 2D and
+belong to the Legacy model, while these are the articulated runtime's 3D arrows.
+
+| words | field |
+|---:|---|
+| 0..1 | projectile slot and generation |
+| 2..3 | owner entity index and generation |
+| 4..6 | position XYZ |
+| 7..9 | velocity XYZ |
+| 10 | radius |
+| 11 | remaining range |
+
+Only live rows are published, in stable slot order. Liveness is therefore the
+row's presence in a publication; `(slot,generation)` distinguishes a later arrow
+that reuses the same slot, and the owner is a full identity for the same reason.
+All positions, velocities, radii and ranges cross as signed `Fx` raw words.
+
+Exports are `articulated_projectile_ptr`, `articulated_projectile_len`,
+`articulated_projectile_stride`, `articulated_projectile_capacity`,
+`articulated_projectiles_dropped`, and
+`articulated_projectile_layout_version`. The fixed buffer costs 1,536 bytes.
+
 ## Combat-event rows
 
 `COMBAT_EVENT_LAYOUT_VERSION=1`, `MAX_COMBAT_EVENTS=2048`, and
@@ -1086,16 +1115,17 @@ ledger, one impact sound per row — must key on the call that stepped rather th
 publication, or it counts every contact once per intervening export. `step(0)` clears
 the feed, which is the same rule seen from the other end.
 
-The three static arrays cost 16,896, 262,144 and 10,240 bytes respectively, for
-289,280 bytes excluding thread-local wrapper bookkeeping. The 57-byte command buffer
+The four static arrays cost 16,896, 262,144, 10,240 and 1,536 bytes respectively,
+for 290,816 bytes excluding thread-local wrapper bookkeeping. The 57-byte command buffer
 belongs to v2-11 and is not charged again, and neither are the 120-byte
 configuration buffer or v2-ui-08's 32,768-byte checkpoint staging buffer and its
 32-byte digest — those are *input* and are charged where they are declared. The
 checkpoint buffer is the one of the five large enough to notice: it is what took
 the articulated stress fixture from 241 pages to 242. Compile-time assertions use
 `MAX_POSES*POSE_STRIDE*4 + MAX_COMBAT_EVENTS*COMBAT_EVENT_STRIDE*4 +
-MAX_REGIONS*REGION_STRIDE*4`. The region array is v2-ui-06's and is the cheapest of
-the three at 3.7% on top of the two below it.
+MAX_REGIONS*REGION_STRIDE*4 +
+MAX_ARTICULATED_PROJECTILES*ARTICULATED_PROJECTILE_STRIDE*4`. The projectile
+array is the cheapest of the four.
 
 The event half of that was 32,768 bytes while the capacity was the provisional 256 and
 131,072 while it was 1024. The two measurements below moved it, and the 98 KB and then
@@ -1157,14 +1187,15 @@ up the next rejection.
 The raw arrays are authoritative-host views owned by the wasm worker. They must not
 cross to the renderer unfiltered. Before transfer, the worker retains the subject and
 currently visible identities in canonical order, filters events whose geometry would
-reveal an absent identity, and writes a complete snapshot buffer. Pose/event pointer
-stability lasts for the module lifetime.
+reveal an absent identity, and writes a complete snapshot buffer. Pose, event, region
+and projectile pointer stability lasts for the module lifetime.
 
-**The snapshot buffer does not reserve regions for that filtered copy yet, and the
-omission is a decision.** `emit_abi` emits all three layout versions, all three strides,
-all three capacities and all 66 + 32 + 8 column offsets, because those are the ABI and
+**The snapshot buffer does not reserve the four articulated publications for that
+filtered copy yet, and the omission is a decision.** `emit_abi` emits all four layout
+versions, all four strides, all four capacities and all 66 + 32 + 8 + 12 column
+offsets, because those are the ABI and
 the copy is written against them — but `SNAPSHOT_BUFFER_BYTES` still ends at the
-furniture block at 27,452 bytes and four snapshot regions. Reserving the three
+furniture block at 27,452 bytes and four snapshot regions. Reserving the four
 articulated blocks takes it to 316,732 — 289,280 bytes on each of the three pooled
 buffers, and an 11.5x wider zero-fill on a buffer `client/src/state/snapshot.ts` clears
 whole once per *filtered publication* — while nothing on the far side writes or reads a
@@ -1276,13 +1307,15 @@ Use FNV-1a-64 with the constants in the contact contract. Prefix ASCII
 `ARPG-STREAM-V1`. For every tick, including an empty tick, feed little-endian:
 `tick:u32`, pose length, poses dropped, every live pose row word, event length, events
 dropped, every live event row word, region length, regions dropped, every live region
-row word. Tests drive one tick per publication so drop metadata has one meaning. Native
+row word, projectile length, projectiles dropped, every live projectile row word.
+Tests drive one tick per publication so drop metadata has one meaning. Native
 and wasm use identical scripted inputs and bytes; state hashes are not part of this
 digest.
 
 **The region words are appended after the event words rather than beside the pose
-words, and the byte order is append-only for the reason the columns and the codes
-are.** A stream that reordered would move the digest by the same amount an extension
+words, and projectile words are appended after the region words.** The byte order is
+append-only for the reason the columns and the codes are.** A stream that reordered
+would move the digest by the same amount an extension
 does, and the two would be indistinguishable afterwards. Written this way, the
 pose-and-event prefix of every tick is byte-identical to what v2-16 pinned, so
 v2-ui-06's move can be read as the extension it is.
@@ -1290,8 +1323,9 @@ v2-ui-06's move can be read as the extension it is.
 The digest is exported as `articulated_stream_digest_lo()` and
 `articulated_stream_digest_hi()`, on the `selftest_hash` precedent: a self-contained
 scripted drive that builds its own world, digests each publication and throws it away
-without touching `SIM`, `FRAME`, `POSES`, `REGIONS`, `COMBAT_EVENTS`, the tile buffer or
-the furniture buffer. It goes through the **same** three buffer writers `publish` calls
+without touching `SIM`, `FRAME`, `POSES`, `REGIONS`, `ARTICULATED_PROJECTILES`,
+`COMBAT_EVENTS`, the tile buffer or
+the furniture buffer. It goes through the **same** four buffer writers `publish` calls
 rather than a parallel encoder — a digest built by a second writer proves that two
 encoders agree and says nothing about what the page reads. Unlike `selftest_hash` it
 allocates enough to move the heap, so it is cached on first touch and belongs in a
@@ -1321,7 +1355,7 @@ them out of a live publication and re-digest them: the script moves the two spaw
 `init_articulated_test` builds the *unmoved* duel, and no export places a body, so the
 script cannot be driven from across the wall. What the dual pin still buys is the
 whole cross-target claim — the value was recorded natively, and the module recomputes
-it through the same three writers `publish` calls. What one number cannot catch is an
+it through the same four writers `publish` calls. What one number cannot catch is an
 encoder wrong the same way on both targets, so
 `native_and_wasm_pose_event_stream_digests_match` checks the pose row grammar beside
 it, against this document rather than against the module: ascending full identity, the

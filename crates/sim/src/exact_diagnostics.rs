@@ -121,6 +121,7 @@ fn write_contact_kind(hash: &mut Hash64, value: ContactKind) {
         ContactKind::WeaponWeapon => 0,
         ContactKind::WeaponShield => 1,
         ContactKind::WeaponBody => 2,
+        ContactKind::ProjectileBody => 3,
     });
 }
 

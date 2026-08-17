@@ -115,10 +115,11 @@ The current compact 16 x 10 composition route defined by the
 supports fixed and free review on both current GPU backends independently of the unchanged 48 x 32
 performance stress fixture. Current mechanics do not imply an art pass.
 
-> **Proposed by v2 -- not shipped:** The
-> [combatant integration phase](../plans/v2-18-combatant-integration.md) proposes
-> representative combatant and articulated rig GLBs. No current browser path loads those
-> assets, but the node contract they must satisfy is already live and already checked:
+> **Asset contract shipped; scene adoption remains separate:** The
+> [combatant asset contract](../reference/combatant-asset-contract.md#semantic-and-skin-closure)
+> now pins the representative Fighter and Brute rigs, their two real skins, eight
+> cosmetic clips, sidecar, validator, and sibling bounded loader. No current browser
+> scene calls that loader yet, but the node contract it satisfies is already live and checked:
 > the arena's `[Texture]` proxy names its transform nodes and sockets after that phase's
 > list, hangs each one off a published row, and is asserted against the list itself.
 > Landing an authored rig is therefore a change of what hangs under each node rather than

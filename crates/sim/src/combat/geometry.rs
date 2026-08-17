@@ -98,6 +98,8 @@ pub(crate) fn held_segment_colliders(
         let Some(carried_slot) = grips[limb].equipment_slot else { continue };
         let Some(equipment_id) = carried.get(carried_slot as usize).copied().flatten() else { continue };
         let Some(item) = equipment(equipment_id) else { continue };
+        // The stave is posed as a segment, but the projectile is Bow's only attack.
+        if item.action == crate::ActionKind::Bow { continue; }
         if item.binding == GripBinding::Both && limb == LimbSlot::LeftArm as usize {
             continue;
         }

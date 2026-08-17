@@ -149,26 +149,80 @@ def _irregular_flagstone(name, node, material, seed):
     return _finish(obj, name, material, [width, height, depth])
 
 
-def _wall_inside(name, node, material):
-    return _join_boxes(name, node, material, [
-        ((1, 0.9, 0.18), (0, 0.45, 0)),
-        ((0.18, 0.9, 0.41), (-0.41, 0.45, 0.295)),
-    ])
+def _coursed_run(boxes, minimum, maximum, run_axis, seed, courses=4, counts=(4, 5)):
+    """Append fitted masonry blocks without moving the semantic collision hull.
+
+    The small empty seams are visible mortar lines. Every run still reaches its
+    declared extrema, so presentation detail cannot become a second placement
+    contract hidden inside the mesh.
+    """
+    randomizer = random.Random(seed)
+    other_axis = 2 if run_axis == 0 else 0
+    run_min, run_max = minimum[run_axis], maximum[run_axis]
+    other_min, other_max = minimum[other_axis], maximum[other_axis]
+    course_height = (maximum[1] - minimum[1]) / courses
+    horizontal_gap = min(0.016, (run_max - run_min) / 40)
+    vertical_gap = min(0.014, course_height / 10)
+    for course in range(courses):
+        count = counts[course % len(counts)]
+        weights = [0.84 + randomizer.random() * 0.32 for _ in range(count)]
+        weight_total = sum(weights)
+        boundaries = [run_min]
+        consumed = 0
+        for weight in weights[:-1]:
+            consumed += weight
+            boundaries.append(run_min + (run_max - run_min) * consumed / weight_total)
+        boundaries.append(run_max)
+        low_y = minimum[1] + course * course_height + (vertical_gap / 2 if course else 0)
+        high_y = minimum[1] + (course + 1) * course_height - (
+            vertical_gap / 2 if course + 1 < courses else 0
+        )
+        for index in range(count):
+            low_run = boundaries[index] + (horizontal_gap / 2 if index else 0)
+            high_run = boundaries[index + 1] - (horizontal_gap / 2 if index + 1 < count else 0)
+            inset_low = 0 if course == 0 and index == 0 else randomizer.random() * 0.008
+            inset_high = 0 if course == 0 and index == 0 else randomizer.random() * 0.008
+            lows = [minimum[0], low_y, minimum[2]]
+            highs = [maximum[0], high_y, maximum[2]]
+            lows[run_axis], highs[run_axis] = low_run, high_run
+            lows[other_axis], highs[other_axis] = other_min + inset_low, other_max - inset_high
+            size = tuple(highs[axis] - lows[axis] for axis in range(3))
+            centre = tuple((lows[axis] + highs[axis]) / 2 for axis in range(3))
+            boxes.append((size, centre))
 
 
-def _wall_outside(name, node, material):
-    return _join_boxes(name, node, material, [
-        ((1, 0.9, 0.18), (0, 0.45, 0.41)),
-        ((0.18, 0.9, 1), (0.41, 0.45, 0)),
-    ])
+def _coursed_wall(name, node, material, seed):
+    minimum = _numbers(node["bounds"]["min"])
+    maximum = _numbers(node["bounds"]["max"])
+    boxes = []
+    _coursed_run(boxes, minimum, maximum, 0, seed)
+    return _join_boxes(name, node, material, boxes)
 
 
-def _door_frame(name, node, material):
-    return _join_boxes(name, node, material, [
-        ((0.14, 0.92, 0.18), (-0.43, 0.46, 0)),
-        ((0.14, 0.92, 0.18), (0.43, 0.46, 0)),
-        ((0.72, 0.14, 0.18), (0, 0.85, 0)),
-    ])
+def _wall_inside(name, node, material, seed):
+    boxes = []
+    _coursed_run(boxes, [-0.5, 0, -0.09], [0.5, 0.9, 0.09], 0, seed)
+    _coursed_run(boxes, [-0.5, 0, 0.09], [-0.32, 0.9, 0.5], 2, seed ^ 0x1A51,
+                 counts=(2, 3))
+    return _join_boxes(name, node, material, boxes)
+
+
+def _wall_outside(name, node, material, seed):
+    boxes = []
+    _coursed_run(boxes, [-0.5, 0, 0.32], [0.32, 0.9, 0.5], 0, seed)
+    _coursed_run(boxes, [0.32, 0, -0.5], [0.5, 0.9, 0.5], 2, seed ^ 0x0A75)
+    return _join_boxes(name, node, material, boxes)
+
+
+def _door_frame(name, node, material, seed):
+    boxes = []
+    _coursed_run(boxes, [-0.5, 0, -0.09], [-0.36, 0.78, 0.09], 0, seed,
+                 counts=(1,), courses=4)
+    _coursed_run(boxes, [0.36, 0, -0.09], [0.5, 0.78, 0.09], 0, seed ^ 0xD001,
+                 counts=(1,), courses=4)
+    _coursed_run(boxes, [-0.5, 0.78, -0.09], [0.5, 0.92, 0.09], 0, seed ^ 0xD002,
+                 counts=(5,), courses=1)
+    return _join_boxes(name, node, material, boxes)
 
 
 def _door_leaf(name, node, material):
@@ -189,12 +243,16 @@ def build_room(manifest, materials):
             obj = _irregular_flagstone(name, node, material, manifest["generatorSeed"] ^ 0xA1)
         elif name == "ROOM_floor_b":
             obj = _irregular_flagstone(name, node, material, manifest["generatorSeed"] ^ 0xB2)
+        elif name == "ROOM_wall_straight":
+            obj = _coursed_wall(name, node, material, manifest["generatorSeed"] ^ 0x571A)
         elif name == "ROOM_wall_inside":
-            obj = _wall_inside(name, node, material)
+            obj = _wall_inside(name, node, material, manifest["generatorSeed"] ^ 0x1A51)
         elif name == "ROOM_wall_outside":
-            obj = _wall_outside(name, node, material)
+            obj = _wall_outside(name, node, material, manifest["generatorSeed"] ^ 0x0A75)
+        elif name == "ROOM_wall_end":
+            obj = _coursed_wall(name, node, material, manifest["generatorSeed"] ^ 0xE0D0)
         elif name == "ROOM_door_frame":
-            obj = _door_frame(name, node, material)
+            obj = _door_frame(name, node, material, manifest["generatorSeed"] ^ 0xD00F)
         elif name == "ROOM_door_leaf":
             obj = _door_leaf(name, node, material)
         elif name == "ROOM_prop_barrel":

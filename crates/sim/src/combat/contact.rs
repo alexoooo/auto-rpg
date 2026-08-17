@@ -74,7 +74,9 @@ pub const CONTACT_COMPONENT_SPEED_LIMIT: Fx = Fx::from_raw(151_348);
 
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
-pub enum ContactKind { WeaponWeapon = 0, WeaponShield = 1, WeaponBody = 2 }
+pub enum ContactKind {
+    WeaponWeapon = 0, WeaponShield = 1, WeaponBody = 2, ProjectileBody = 3,
+}
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct ContactKey {
@@ -394,12 +396,12 @@ pub struct ExactSegmentBodyProgressDiagnostic {
 
 #[cfg(any(test, feature = "cartesian-recoil"))]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum ExactScanShapeDiagnostic { Body, Segment, Shield }
+pub enum ExactScanShapeDiagnostic { Body, Segment, Shield, Projectile }
 
 #[cfg(any(test, feature = "cartesian-recoil"))]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum ExactScanBranchDiagnostic {
-    SweptAabb, SegmentSegment, SegmentShield, SegmentBody,
+    SweptAabb, SegmentSegment, SegmentShield, SegmentBody, ProjectileBody,
 }
 
 
@@ -470,6 +472,12 @@ pub struct RegionSweep {
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum ContactShape {
+    Projectile {
+        previous: Vec3, requested: Vec3, radius: Fx,
+        /// A plate whose sweep clipped this row. Its own body is occluded even
+        /// where the arm capsule overlaps the plate's deliberately thin proxy.
+        shielded_body: EntityId,
+    },
     Segment {
         previous_hilt: Vec3, previous_tip: Vec3,
         requested_hilt: Vec3, requested_tip: Vec3,
@@ -1314,8 +1322,9 @@ pub struct ContactBounds {
 
 /// Derive the bounds, or say which count refused to fit.
 ///
-/// Everything here is comfortable at the ceiling -- 64 entities make 2,016
-/// pairs, 32,256 candidates and 192 colliders -- so none of these `checked_`
+/// Everything here is comfortable at the ceiling -- 64 entities and 32
+/// projectile rows make 2,016 entity pairs, 34,304 candidates and 224
+/// colliders -- so none of these `checked_`
 /// calls can fail today. They are written anyway because the alternative is a
 /// silent wrap in the one function whose entire job is to bound the solver's
 /// memory, and because the ceiling is a constant somebody will eventually
@@ -1326,8 +1335,12 @@ pub fn contact_bounds(high_water: usize) -> Result<ContactBounds, ContactCapacit
         0 | 1 => 0,
         n => n.checked_mul(n - 1).ok_or(ContactCapacityError::PairCount)? / 2,
     };
-    let candidate_bound = pairs.checked_mul(16).ok_or(ContactCapacityError::CandidateCount)?;
-    let collider_bound = high_water.checked_mul(3).ok_or(ContactCapacityError::ColliderCount)?;
+    let candidate_bound = pairs.checked_mul(16).ok_or(ContactCapacityError::CandidateCount)?
+        .checked_add(high_water.checked_mul(crate::rules::MAX_SHOTS)
+            .ok_or(ContactCapacityError::CandidateCount)?)
+        .ok_or(ContactCapacityError::CandidateCount)?;
+    let collider_bound = high_water.checked_mul(3).ok_or(ContactCapacityError::ColliderCount)?
+        .checked_add(crate::rules::MAX_SHOTS).ok_or(ContactCapacityError::ColliderCount)?;
 
     // Eight groups of at most 512 rows is exactly the resolution ceiling, so
     // this is an invariant and not a live limit -- but it is an invariant that
@@ -1483,6 +1496,18 @@ fn scan_detector_into(
                 if !a.present || !b.present || a.entity == b.entity || a.faction == b.faction {
                     continue;
                 }
+                let shield_occludes_pair = match (&a.motor, &b.motor) {
+                    (MotorShape::Projectile { .. }, MotorShape::Body { .. }) =>
+                        matches!(colliders[i].shape,
+                            ContactShape::Projectile { shielded_body, .. }
+                                if shielded_body == b.entity),
+                    (MotorShape::Body { .. }, MotorShape::Projectile { .. }) =>
+                        matches!(colliders[j].shape,
+                            ContactShape::Projectile { shielded_body, .. }
+                                if shielded_body == a.entity),
+                    _ => false,
+                };
+                if shield_occludes_pair { continue; }
                 let owner_a = owners.get(a.owner_index)
                     .ok_or(ExactScanReject::CompatibilityIdentity)?;
                 let owner_b = owners.get(b.owner_index)
@@ -1567,6 +1592,20 @@ fn scan_detector_into(
                     continue;
                 }
                 let (branch, candidate) = match (&a.motor, &b.motor) {
+                    (MotorShape::Projectile { .. }, MotorShape::Body { .. }) =>
+                        (ExactScanBranchDiagnostic::ProjectileBody,
+                        wide_sweep_segment_body(a, owner_a, b, owner_b,
+                                                &colliders[i], &colliders[j],
+                                                &mut scratch.exact_wide,
+                                                #[cfg(feature = "cartesian-recoil")]
+                                                None)),
+                    (MotorShape::Body { .. }, MotorShape::Projectile { .. }) =>
+                        (ExactScanBranchDiagnostic::ProjectileBody,
+                        wide_sweep_segment_body(b, owner_b, a, owner_a,
+                                                &colliders[j], &colliders[i],
+                                                &mut scratch.exact_wide,
+                                                #[cfg(feature = "cartesian-recoil")]
+                                                None)),
                     (MotorShape::Segment { .. }, MotorShape::Shield { .. }) =>
                         (ExactScanBranchDiagnostic::SegmentShield,
                         wide_sweep_segment_shield(a, owner_a, b, owner_b,
@@ -1765,6 +1804,7 @@ pub(crate) enum ExactScanReject {
 #[cfg(any(test, feature = "cartesian-recoil"))]
 fn scan_shape_diagnostic(shape: &MotorShape) -> ExactScanShapeDiagnostic {
     match shape {
+        MotorShape::Projectile { .. } => ExactScanShapeDiagnostic::Projectile,
         MotorShape::Body { .. } => ExactScanShapeDiagnostic::Body,
         MotorShape::Segment { .. } => ExactScanShapeDiagnostic::Segment,
         MotorShape::Shield { .. } => ExactScanShapeDiagnostic::Shield,
@@ -1986,6 +2026,7 @@ struct WidePoint([WideRational4096; 3]);
 #[cfg(any(test, feature = "cartesian-recoil"))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum WideEvaluatedContactShape {
+    Projectile { point: Vec3 },
     Segment { hilt: Vec3, tip: Vec3 },
     Shield { corners: [Vec3; 4] },
     Body { origin: Vec3 },
@@ -2818,6 +2859,12 @@ fn wide_owner_motor_frame(
             canonical = Some(row);
         }
         match row.motor {
+            MotorShape::Projectile { .. } => {
+                if row.kind != GeneralizedKind::Projectile || row.slot == BODY_SLOT
+                    || row.held_index.is_some() || row.equipment_spec.is_some() {
+                    return Err(ExactScanReject::CompatibilityIdentity);
+                }
+            }
             MotorShape::Body { origin, .. } => {
                 if body_origin.is_some() || row.kind != GeneralizedKind::Body
                     || row.slot != BODY_SLOT || row.held_index.is_some()
@@ -2836,6 +2883,13 @@ fn wide_owner_motor_frame(
         }
     }
     let canonical = canonical.ok_or(ExactScanReject::CompatibilityIdentity)?;
+    if let MotorShape::Projectile { point, .. } = canonical.motor {
+        if canonical.kind != GeneralizedKind::Projectile || !canonical.present
+            || owned_rows != 1 {
+            return Err(ExactScanReject::CompatibilityIdentity);
+        }
+        return Ok(point.at_tick_start_raw);
+    }
     let MotorShape::Segment { hilt, .. } = canonical.motor else {
         return Err(ExactScanReject::CompatibilityIdentity);
     };
@@ -3222,6 +3276,9 @@ pub(crate) fn wide_evaluated_shape_quotient(
     row: &ExactContactTrajectory, owner: &ExactOwnerTrajectory, time: u32,
 ) -> Result<WideEvaluatedContactShape, ExactScanReject> {
     match row.motor {
+        MotorShape::Projectile { point, .. } => Ok(WideEvaluatedContactShape::Projectile {
+            point: wide_point_to_vec3(wide_evaluated_point(point, row, owner, time)?)?,
+        }),
         MotorShape::Segment { hilt, tip, .. } => Ok(WideEvaluatedContactShape::Segment {
             hilt: wide_point_to_vec3(wide_evaluated_point(hilt, row, owner, time)?)?,
             tip: wide_point_to_vec3(wide_evaluated_point(tip, row, owner, time)?)?,
@@ -3341,6 +3398,8 @@ pub(crate) fn wide_rebase_owner_tick(
         let row = trajectories.iter().find(|row| row.entity == owner.entity
             && row.held_index == Some(limb)).ok_or(ExactScanReject::CompatibilityIdentity)?;
         let anchor = match row.motor {
+            MotorShape::Projectile { .. } =>
+                return Err(ExactScanReject::CompatibilityIdentity),
             MotorShape::Segment { hilt, .. } => hilt,
             MotorShape::Shield { corners } => corners[0],
             MotorShape::Body { .. } => return Err(ExactScanReject::CompatibilityIdentity),
@@ -3398,8 +3457,11 @@ pub(crate) fn wide_rebase_owner_tick(
 fn wide_segment_at_time(row: &ExactContactTrajectory, owner: &ExactOwnerTrajectory, time: u32)
     -> Result<(WidePoint, WidePoint, i32), ExactScanReject>
 {
-    let MotorShape::Segment { hilt, tip, radius_raw } = row.motor
-        else { return Err(ExactScanReject::UnsupportedExactSweep) };
+    let (hilt, tip, radius_raw) = match row.motor {
+        MotorShape::Segment { hilt, tip, radius_raw } => (hilt, tip, radius_raw),
+        MotorShape::Projectile { point, radius_raw } => (point, point, radius_raw),
+        _ => return Err(ExactScanReject::UnsupportedExactSweep),
+    };
     Ok((wide_evaluated_point(hilt, row, owner, time)?,
         wide_evaluated_point(tip, row, owner, time)?, radius_raw))
 }
@@ -3497,7 +3559,9 @@ fn exact_pair_has_swept_aabb(a: &ExactContactTrajectory, b: &ExactContactTraject
         | (MotorShape::Segment { .. }, MotorShape::Shield { .. })
         | (MotorShape::Shield { .. }, MotorShape::Segment { .. })
         | (MotorShape::Segment { .. }, MotorShape::Body { .. })
-        | (MotorShape::Body { .. }, MotorShape::Segment { .. }))
+        | (MotorShape::Body { .. }, MotorShape::Segment { .. })
+        | (MotorShape::Projectile { .. }, MotorShape::Body { .. })
+        | (MotorShape::Body { .. }, MotorShape::Projectile { .. }))
 }
 
 #[cfg(any(test, feature = "cartesian-recoil"))]
@@ -3511,6 +3575,11 @@ fn fill_wide_swept_aabb_points(
     out.clear();
     let mut maximum_radius_raw = 0;
     match row.motor {
+        MotorShape::Projectile { point, radius_raw } => {
+            push_wide_aabb_point(out, wide_evaluated_point(point, row, owner, start)?)?;
+            push_wide_aabb_point(out, wide_evaluated_point(point, row, owner, end)?)?;
+            maximum_radius_raw = radius_raw;
+        }
         MotorShape::Segment { hilt, tip, radius_raw } => {
             #[cfg(feature = "cartesian-recoil")]
             let h0 = if side == ExactPairAabbSideDiagnostic::A {
@@ -3719,8 +3788,10 @@ fn wide_segment_body_region_aabbs_are_disjoint_during(
     for point in [l0, u0, l1, u1] { push_wide_aabb_point(part, point)?; }
     // Keep this assignment explicit: it guards against accidentally using a
     // whole-body radius when this proof is the one-region zero-step escape.
-    let MotorShape::Segment { radius_raw: segment_radius_raw, .. } = weapon.motor else {
-        return Err(ExactScanReject::UnsupportedExactSweep)
+    let segment_radius_raw = match weapon.motor {
+        MotorShape::Segment { radius_raw, .. }
+        | MotorShape::Projectile { radius_raw, .. } => radius_raw,
+        _ => return Err(ExactScanReject::UnsupportedExactSweep),
     };
     debug_assert_eq!(segment_radius, segment_radius_raw);
     wide_aabb_points_are_disjoint(
@@ -4327,7 +4398,10 @@ fn wide_sweep_segment_body(weapon: &ExactContactTrajectory, wo: &ExactOwnerTraje
     let mut pw = *cw; let mut pb = *cb;
     pw.velocity += wide_response_velocity(weapon, wo)?; pb.velocity += wide_response_velocity(body, bo)?;
     let distance = closest.distance_sq.trunc_i128().ok_or(ExactScanReject::ArithmeticEnvelope)? >> 16;
-    let mut candidate = make_candidate(&pw, &pb, ContactKind::WeaponBody,
+    let kind = if matches!(weapon.motor, MotorShape::Projectile { .. }) {
+        ContactKind::ProjectileBody
+    } else { ContactKind::WeaponBody };
+    let mut candidate = make_candidate(&pw, &pb, kind,
         TimeOfImpact::new_clamped(Fx::from_raw(time as i32)), wide_point_to_vec3(closest.a)?,
         wide_point_to_vec3(closest.b)?, Fx::from_raw(i32::try_from(distance)
             .map_err(|_| ExactScanReject::ArithmeticEnvelope)?), 0, region as u8);
@@ -4634,7 +4708,8 @@ pub(crate) fn exact_contact_at_pose(
     published_left.velocity += wide_response_velocity(left, owner_left)?;
     published_right.velocity += wide_response_velocity(right, owner_right)?;
     let candidate = match (&left.motor, &right.motor) {
-        (MotorShape::Segment { .. }, MotorShape::Body { .. }) => {
+        (MotorShape::Segment { .. } | MotorShape::Projectile { .. },
+         MotorShape::Body { .. }) => {
             let mut chosen = None;
             for region in 0..AnatomyRegion::COUNT {
                 let Some((closest, radius_raw, medial)) = wide_segment_body_at_time(
@@ -4656,12 +4731,16 @@ pub(crate) fn exact_contact_at_pose(
             match chosen {
                 None => None,
                 Some((region, closest, _)) => Some(make_wide_candidate(
-                    &published_left, &published_right, ContactKind::WeaponBody, toi,
+                    &published_left, &published_right,
+                    if matches!(left.motor, MotorShape::Projectile { .. }) {
+                        ContactKind::ProjectileBody
+                    } else { ContactKind::WeaponBody }, toi,
                     &closest.a, &closest.b, wide_owner_motor_frame(trajectories, left)?,
                     Fx::ZERO, 0, region as u8)?),
             }
         }
-        (MotorShape::Body { .. }, MotorShape::Segment { .. }) => {
+        (MotorShape::Body { .. },
+         MotorShape::Segment { .. } | MotorShape::Projectile { .. }) => {
             return exact_contact_at_pose(trajectories, owners, compatibility, b, a, time, scratch);
         }
         (MotorShape::Segment { .. }, MotorShape::Segment { .. }) => {
@@ -5049,11 +5128,12 @@ pub(crate) fn zero_response_compatibility(
         if owners.iter().any(|owner| owner.entity == row.entity) { continue; }
         let body_mass_raw = colliders.iter().find(|other| other.entity == row.entity
             && matches!(other.shape, ContactShape::Body { .. }))
-            .map_or(Fx::ONE.raw(), |body| body.mass.raw());
+            .map_or(row.mass.raw(), |body| body.mass.raw());
         if body_mass_raw <= 0 { return Err(ExactScanReject::CompatibilityIdentity); }
         let mut held_response = [None; 2];
         for held in colliders.iter().filter(|other| other.entity == row.entity
-            && !matches!(other.shape, ContactShape::Body { .. })) {
+            && matches!(other.shape, ContactShape::Segment { .. } |
+                                      ContactShape::Shield { .. })) {
             let at = held.slot as usize;
             if at >= held_response.len() || held_response[at].is_some() {
                 return Err(ExactScanReject::CompatibilityIdentity);
@@ -5065,7 +5145,8 @@ pub(crate) fn zero_response_compatibility(
         let common_mass = held_response.iter().flatten().try_fold(body_mass_raw, |sum, held|
             sum.checked_add(held.affine.mass_raw)).ok_or(ExactScanReject::CompatibilityIdentity)?;
         owners.push(ExactOwnerTrajectory {
-            entity: row.entity, body_mass_raw, common_scale: common_mass as i128,
+            entity: row.entity, projectile: matches!(row.shape, ContactShape::Projectile { .. }),
+            body_mass_raw, common_scale: common_mass as i128,
             common_response: zero_affine(common_mass),
             held_response,
         });
@@ -5076,6 +5157,10 @@ pub(crate) fn zero_response_compatibility(
         let owner_index = owners.iter().position(|owner| owner.entity == row.entity)
             .ok_or(ExactScanReject::CompatibilityIdentity)?;
         let (kind, held_index, equipment_spec, motor) = match row.shape {
+            ContactShape::Projectile { previous, requested, radius, .. } =>
+                (GeneralizedKind::Projectile, None, None, MotorShape::Projectile {
+                    point: motor_point(previous, requested), radius_raw: radius.raw(),
+                }),
             ContactShape::Body { previous_origin, requested_origin, parts } => {
                 if row.slot != BODY_SLOT { return Err(ExactScanReject::CompatibilityIdentity); }
                 let mut bounds = [ExactMotorBounds {
@@ -5157,6 +5242,10 @@ fn zero_response_shape(row: &ExactContactTrajectory, time: u32)
     -> Result<EvaluatedContactShape, ExactScanReject>
 {
     match row.motor {
+        MotorShape::Projectile { point, radius_raw } =>
+            Ok(EvaluatedContactShape::Projectile {
+                point: zero_response_motor_point(point, time)?, radius_raw,
+            }),
         MotorShape::Segment { hilt, tip, radius_raw } => Ok(EvaluatedContactShape::Segment {
             hilt: zero_response_motor_point(hilt, time)?,
             tip: zero_response_motor_point(tip, time)?, radius_raw,
@@ -5194,6 +5283,11 @@ fn rational_is_raw(point: ExactPoint, value: Vec3) -> bool {
 fn evaluated_matches(row: ContactCollider, at_start: EvaluatedContactShape,
                      at_end: EvaluatedContactShape) -> bool {
     match (row.shape, at_start, at_end) {
+        (ContactShape::Projectile { previous, requested, radius, .. },
+         EvaluatedContactShape::Projectile { point: a, radius_raw: ar },
+         EvaluatedContactShape::Projectile { point: b, radius_raw: br }) =>
+            ar == radius.raw() && br == radius.raw()
+            && rational_is_raw(a, previous) && rational_is_raw(b, requested),
         (ContactShape::Segment { previous_hilt, previous_tip, requested_hilt,
           requested_tip, radius }, EvaluatedContactShape::Segment { hilt: h0, tip: t0,
           radius_raw: r0 }, EvaluatedContactShape::Segment { hilt: h1, tip: t1,
@@ -5303,6 +5397,10 @@ pub(crate) fn contact_at_pose(
     a: &ContactCollider, b: &ContactCollider, toi: TimeOfImpact,
 ) -> Option<ContactFact> {
     let candidate = match (a.shape, b.shape) {
+        (ContactShape::Projectile { .. }, ContactShape::Body { .. }) =>
+            projectile_body_at_pose(a, b, toi),
+        (ContactShape::Body { .. }, ContactShape::Projectile { .. }) =>
+            projectile_body_at_pose(b, a, toi),
         (ContactShape::Segment { .. }, ContactShape::Segment { .. }) => {
             let (first, second) = if (a.entity, a.slot) <= (b.entity, b.slot) { (a, b) } else { (b, a) };
             segment_segment_at_pose(first, second, toi)
@@ -5314,6 +5412,29 @@ pub(crate) fn contact_at_pose(
         _ => None,
     }?;
     Some(candidate.fact)
+}
+
+fn projectile_body_at_pose(
+    projectile: &ContactCollider, body: &ContactCollider, toi: TimeOfImpact,
+) -> Option<Candidate> {
+    let ContactShape::Projectile { previous, shielded_body, .. } =
+        projectile.shape else { return None };
+    if shielded_body == body.entity { return None; }
+    let ContactShape::Body { parts, .. } = body.shape else { return None };
+    let mut best: Option<((i32, i32, u8), Candidate)> = None;
+    for (at, part) in parts.iter().enumerate() {
+        if !part.present { continue; }
+        let closest = closest_points_on_segments(
+            previous, previous, part.previous_lower, part.previous_upper);
+        let point = midpoint(closest.a, closest.b);
+        let key = (closest.distance_sq.raw(),
+                   medial_distance_sq(point, part.previous_lower, part.previous_upper).raw(),
+                   at as u8);
+        if best.as_ref().is_some_and(|(chosen, _)| *chosen <= key) { continue; }
+        best = Some((key, make_candidate(projectile, body, ContactKind::ProjectileBody, toi,
+            closest.a, closest.b, closest.distance_sq, 0, at as u8)));
+    }
+    best.map(|(_, candidate)| candidate)
 }
 
 fn segment_segment_at_pose(a: &ContactCollider, b: &ContactCollider, toi: TimeOfImpact) -> Option<Candidate> {
@@ -5364,6 +5485,10 @@ fn segment_body_at_pose(weapon: &ContactCollider, body: &ContactCollider, toi: T
 
 fn candidate(a: &ContactCollider, b: &ContactCollider) -> Option<Candidate> {
     match (a.shape, b.shape) {
+        (ContactShape::Projectile { .. }, ContactShape::Body { .. }) =>
+            projectile_body_candidate(a, a.shape, b, b.shape),
+        (ContactShape::Body { .. }, ContactShape::Projectile { .. }) =>
+            projectile_body_candidate(b, b.shape, a, a.shape),
         (ContactShape::Segment { .. }, ContactShape::Segment { .. }) => {
             let ((weapon_a, shape_a), (weapon_b, shape_b)) =
                 if (a.entity, a.slot) <= (b.entity, b.slot) { ((a, a.shape), (b, b.shape)) }
@@ -5376,6 +5501,36 @@ fn candidate(a: &ContactCollider, b: &ContactCollider) -> Option<Candidate> {
         (ContactShape::Body { .. }, ContactShape::Segment { .. }) => segment_body_candidate(b, b.shape, a, a.shape),
         _ => None,
     }
+}
+
+fn projectile_body_candidate(
+    projectile: &ContactCollider, point: ContactShape,
+    body: &ContactCollider, capsule: ContactShape,
+) -> Option<Candidate> {
+    let ContactShape::Projectile { previous, requested, radius, shielded_body } =
+        point else { unreachable!() };
+    if shielded_body == body.entity { return None; }
+    let ContactShape::Body { parts, .. } = capsule else { unreachable!() };
+    let mut best: Option<((i32, i32, u8), Candidate)> = None;
+    for (at, part) in parts.iter().enumerate() {
+        if !part.present { continue; }
+        let Some(toi) = swept_segment_segment(
+            previous, previous, requested, requested, radius,
+            part.previous_lower, part.previous_upper,
+            part.requested_lower, part.requested_upper, part.radius,
+        ) else { continue };
+        let t = toi.get();
+        let lower = Vec3::lerp(part.previous_lower, part.requested_lower, t);
+        let upper = Vec3::lerp(part.previous_upper, part.requested_upper, t);
+        let point_at = Vec3::lerp(previous, requested, t);
+        let closest = closest_points_on_segments(point_at, point_at, lower, upper);
+        let key = (t.raw(), medial_distance_sq(midpoint(closest.a, closest.b), lower, upper).raw(),
+                   at as u8);
+        if best.as_ref().is_some_and(|(chosen, _)| *chosen <= key) { continue; }
+        best = Some((key, make_candidate(projectile, body, ContactKind::ProjectileBody, toi,
+            closest.a, closest.b, closest.distance_sq, 0, at as u8)));
+    }
+    best.map(|(_, candidate)| candidate)
 }
 
 /// The point on a capsule's medial segment nearest `point`. A sphere is the
@@ -5520,7 +5675,9 @@ fn make_candidate(
     Candidate {
         fact: ContactFact {
             key: ContactKey { a: a.entity, a_slot: a.slot, b: b.entity,
-                              b_slot: if kind == ContactKind::WeaponBody { BODY_SLOT } else { b.slot }, kind },
+            b_slot: if matches!(kind, ContactKind::WeaponBody | ContactKind::ProjectileBody) {
+                BODY_SLOT
+            } else { b.slot }, kind },
             toi, region, point: midpoint(point_a, point_b), normal,
             velocity_a: a.velocity, velocity_b: b.velocity,
         },
@@ -8063,6 +8220,7 @@ mod tests {
             let mut next = exact.trajectories.clone();
             for row in &mut next {
                 match &mut row.motor {
+                    MotorShape::Projectile { .. } => unreachable!(),
                     MotorShape::Body { origin, .. } => *origin = next_point(published_body),
                     MotorShape::Segment { hilt, tip, .. } => {
                         *hilt = next_point(published_hilt);

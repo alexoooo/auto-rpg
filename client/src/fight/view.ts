@@ -12,7 +12,7 @@
 // raw units to pixels.
 
 import type { FightFrame, FightHeader } from "./source.js";
-import type { Contact, Pose, V3 } from "./trace.js";
+import type { Contact, Pose, Projectile, V3 } from "./trace.js";
 import { at, add, scale, share, shieldCorners } from "./trace.js";
 
 export type ViewKind = "plan" | "elevation";
@@ -337,6 +337,15 @@ function drawContact(
   line(ctx, cam, contact.point, add(contact.point, scale(contact.normal, 0.4)), colour, 1, []);
 }
 
+function drawProjectile(ctx: CanvasRenderingContext2D, cam: Camera, projectile: Projectile): void {
+  const speed = Math.hypot(...projectile.velocity);
+  const tail = speed === 0 ? projectile.position : add(
+    projectile.position, scale(projectile.velocity, -Math.min(0.45 * 65536 / speed, 1)),
+  );
+  line(ctx, cam, tail, projectile.position, "#d7b078", 2, []);
+  dot(ctx, cam, projectile.position, Math.max(1.5, cam.px(projectile.radius)), "#f1d09a");
+}
+
 // The header and one frame, never the whole fight: a view that could reach the
 // frames could reach the *next* frame, and a panel that drew ahead of the tick
 // the transport is parked on would be a picture that lies about the clock.
@@ -355,6 +364,7 @@ export function drawScene(
   for (const pose of ordered) {
     drawPose(ctx, cam, pose, options);
   }
+  for (const projectile of frame.projectiles) drawProjectile(ctx, cam, projectile);
   if (options.showContacts) {
     for (const contact of frame.contacts) {
       drawContact(ctx, cam, fight, contact);

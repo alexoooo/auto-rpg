@@ -1,0 +1,94 @@
+{
+  "schemaVersion": 1,
+  "generatorVersion": 1,
+  "license": "MIT",
+  "fixtureId": "v2-combatants-1",
+  "generatorSeed": 3235823838,
+  "tolerance": "0.00001",
+  "toolchain": {
+    "blender": "4.5.12",
+    "blenderBinarySha256": "25bdb2e3f8ed0bac9d51b7a25fbea0f712a8d80346f2efc9dbe24d85e910c310"
+  },
+  "coordinates": {
+    "sceneHandedness": "right",
+    "upAxis": "+Y",
+    "groundAxes": ["+X", "+Z"],
+    "metresPerUnit": 1
+  },
+  "export": {
+    "format": "GLB",
+    "applyModifiers": true,
+    "exportMaterials": "EXPORT",
+    "exportYup": true,
+    "useSelection": true,
+    "animations": true,
+    "skins": true,
+    "morphs": false
+  },
+  "texture": {
+    "path": "tools/art/textures/concept-material-atlas.png",
+    "sha256": "037c8588e18d585fd6c50ff4ba8e071459bf88c04aac4c22058a2743673149b6",
+    "mimeType": "image/png",
+    "width": 1254,
+    "height": 1254,
+    "embeddedWidth": 512,
+    "embeddedHeight": 512,
+    "provenance": "OpenAI image generation; concept-aligned material study; 2026-08-16"
+  },
+  "budgets": {
+    "payloadBytes": 16777216,
+    "estimatedGpuBytes": 67108864,
+    "maxNodes": 96,
+    "maxMeshes": 48,
+    "maxMaterials": 7,
+    "maxVertices": 50000,
+    "maxTriangles": 80000,
+    "maxAnimations": 8
+  },
+  "semanticNames": [
+    "root", "pelvis", "torso", "head",
+    "arm_left", "hand_left", "arm_right", "hand_right",
+    "socket_weapon_left", "socket_weapon_right", "socket_shield",
+    "region_head", "region_torso", "region_left_arm", "region_right_arm", "region_legs",
+    "idle", "walk", "stagger", "fall"
+  ],
+  "clips": ["idle", "walk", "stagger", "fall"],
+  "materials": {
+    "combatant_bone": { "atlasQuadrant": 0, "baseColor": ["0.72", "0.62", "0.47", "1.0"], "metallic": "0.0", "roughness": "0.78" },
+    "combatant_burgundy": { "atlasQuadrant": 2, "baseColor": ["0.38", "0.055", "0.045", "1.0"], "metallic": "0.0", "roughness": "0.82" },
+    "combatant_dark_steel": { "atlasQuadrant": 3, "baseColor": ["0.10", "0.11", "0.12", "1.0"], "metallic": "0.82", "roughness": "0.39" },
+    "combatant_hide": { "atlasQuadrant": 2, "baseColor": ["0.13", "0.09", "0.065", "1.0"], "metallic": "0.0", "roughness": "0.9" },
+    "combatant_leather": { "atlasQuadrant": 2, "baseColor": ["0.24", "0.095", "0.035", "1.0"], "metallic": "0.0", "roughness": "0.76" },
+    "combatant_skin": { "atlasQuadrant": 1, "baseColor": ["0.38", "0.30", "0.20", "1.0"], "metallic": "0.0", "roughness": "0.74" },
+    "combatant_steel": { "atlasQuadrant": 3, "baseColor": ["0.42", "0.44", "0.45", "1.0"], "metallic": "0.88", "roughness": "0.32" }
+  },
+  "archetypes": [
+    {
+      "kind": "fighter",
+      "nodePrefix": "FIGHTER_",
+      "height": "1.82",
+      "meshNames": [
+        "pelvis_skirt", "pelvis_belt", "torso_cuirass", "torso_breastplate", "torso_cape",
+        "head_face", "head_helmet", "head_visor", "head_plume",
+        "arm_left", "arm_right", "pauldron_left", "pauldron_right", "hand_left", "hand_right",
+        "leg_left", "leg_right", "boot_left", "boot_right", "shield", "sword"
+      ]
+    },
+    {
+      "kind": "brute",
+      "nodePrefix": "BRUTE_",
+      "height": "2.18",
+      "meshNames": [
+        "pelvis_kilt", "pelvis_belt", "torso_hide", "torso_mantle", "torso_buckle",
+        "head", "head_brow", "horn_left", "horn_right", "tusk_left", "tusk_right",
+        "arm_left", "arm_right", "hand_left", "hand_right",
+        "leg_left", "leg_right", "boot_left", "boot_right", "club"
+      ]
+    }
+  ],
+  "outputs": {
+    "glb": { "path": "web/assets3d/combatants.glb", "sha256": "fc97d65b9a94e5b6e4d4fa71feee4a6e3cfedc4586d9f870e0d45484e460c494" },
+    "sidecar": { "path": "web/assets3d/combatants.json", "sha256": "891ffaee0e2c0c9a688e468a428125b27756c6eb8310a839459b47958f4a54e3" },
+    "validator": { "path": "web/assets3d/combatants.validator.json", "sha256": "30efbc643157d3a10ae71d39d0a389e6ae2996e88f09b95f771b497fe23b0eda" }
+  }
+}
