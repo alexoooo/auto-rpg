@@ -102,9 +102,9 @@ The current generated identities are:
 | Identity | SHA-256 |
 |---|---|
 | canonical build inputs | `31cbfe0e8244257084e5d043d0863959b3207c6f28252c8b8faeb36da4d34b9c` |
-| semantic sidecar | `add5604ca244f6825e8fbd968927f6c77e674e110b546e79d3d8f7b1ba82e751` |
+| semantic sidecar | `80fa427558c7e5e0ee13eb127c95d2198dc998ce721af1ed131878a65529b36a` |
 | room GLB | `39dbe61be1dc69f085126002824ce3a92987c1dd166f09b91cd4715722250f42` |
-| canonical validator report | `42f3ec9dfafa0a2185d32f4a8ab28709a46370ae9bd13a35b9fb7b926944e6e4` |
+| canonical validator report | `199b1895559ca697d01c1239c3292b84bfa432aa3d8cd01b6d4e81066cf689e0` |
 | 1,536-byte runtime stress map | `a20ba5f64ef55bd7716c2a7cf17f3065619876d1ded2e81b05199b5282222907` |
 
 `.gitignore` owns `__pycache__/` and `*.py[cod]`. Both generation modes must leave no
@@ -137,9 +137,10 @@ unique bufferView bytes used by vertex or index attributes
 + 1024 * 1024 * 4 shadow-map bytes
 ```
 
-The fixed instance capacities are floor_a 768, floor_b 768, wall_straight 94,
-wall_inside 0, wall_outside 0, wall_end 0, door_frame 2, door_leaf 2,
-torch_bracket 8, decal_rubble 4, decal_root 4, and prop_barrel 4. The estimate uses
+The fixed instance capacities are floor_a 768, floor_b 768, wall_straight 269
+(94 facades plus 175 coping instances), wall_inside 0, wall_outside 0, wall_end 0,
+door_frame 2, door_leaf 6, torch_bracket 10, decal_rubble 4, decal_root 4, and
+prop_barrel 4. The estimate uses
 capacity rather than live count and must be no larger than 268,435,456 bytes. The
 texture term counts both embedded 512 x 512 RGBA images with the documented mip
 factor. Engine overhead and source JavaScript are
@@ -149,8 +150,8 @@ residency rather than relabeling this offline estimate.
 The checked artifacts contain 13 nodes, 12 meshes, four materials, 2,760 vertices,
 and 1,400 triangles. The GLB is 1,104,092 bytes and the sidecar is 5,423 bytes, for a
 validated 1,109,515-byte payload. Its offline estimate is 118,416 source-buffer bytes,
-211,712 double-buffered instance bytes, 2,097,152 decoded-texture bytes, and
-4,194,304 shadow-map bytes, totaling 6,621,584 bytes. Validator 2.0.0-dev.3.10 reports zero
+234,880 double-buffered instance bytes, 2,097,152 decoded-texture bytes, and
+4,194,304 shadow-map bytes, totaling 6,644,752 bytes. Validator 2.0.0-dev.3.10 reports zero
 errors, zero warnings, zero hints, and four informational messages; the
 allowed warning list remains exactly empty.
 
@@ -173,19 +174,21 @@ audio proxies, labels, debug records, and retained instances.
 - VIS 2 permits current topology and disclosed furniture and props. Only current
   disclosed records may contribute lights, shadows, picks, effects, or debug presence.
 
-The game interprets MAP_SOLID cells as masonry volume, not as wall axes. The
-isometric cutaway exposes only disclosed solid-to-open +X and +Y faces, matching the
-camera and the legacy `wallBlock` authority; drawing the hidden -X/-Y faces makes
-an irregular dungeon read as a picket fence. Collinear faces merge into maximal
+The game interprets MAP_SOLID cells as masonry volume, not as wall axes. The fixed
+camera sits at negative X/negative Z, so the isometric cutaway exposes only
+disclosed solid-to-open -X and -Z faces. The rejected positive-axis selector hid
+the far enclosure behind cap-only ribbons and retained the near wall that should be
+cut away. Collinear faces merge into maximal
 runs, then repeat the seamless one-tile `wall_straight` at tile frequency so brick
-scale never stretches. One-edge stair-step fragments remain floor cutaway rather
-than becoming isolated posts. Fog neither creates a face nor counts as an opening.
+Every disclosed solid also carries one inset opaque coping instance at height 1.55;
+remembered coping keeps the same solid silhouette.
 
 The ABI publishes one door record per doorway tile. Presentation groups contiguous
 collinear records of the same state into one architectural span. A one-cell span
 keeps one complete `door_frame`; a wider span repeats a compressed seamless
-masonry lintel, adds jambs only at its endpoints, and uses continuous leaves when
-shut or a true gap when open. Horizontal and vertical spans have exact tests.
+masonry lintel, adds jambs only at its endpoints, and uses three aged-umber plank
+modules per shut tile or a true gap when open. Shut panels carry two iron straps.
+Horizontal and vertical spans have exact tests.
 Imported glTF identity quaternions are cleared before semantic Euler quarter turns;
 otherwise Babylon ignores rotated +Y facades and door spans. The stress fixture's
 175 solid tiles still have a complete 188-face boundary graph for structural
@@ -196,14 +199,14 @@ game stress capacities are zero.
 
 The room's upper-right directional key retains direction
 `[-0.45, -1, -0.35]` and mount `[12, 24, 16]`, with generator-v4 diffuse
-`[1, 0.68, 0.42]`, specular `[0.36, 0.23, 0.15]`, and intensity `1.28`.
-Every disclosed current torch adds a tiny deterministic emissive sphere at its exact
+`[1, 0.68, 0.42]`, specular `[0.36, 0.23, 0.15]`, and intensity `1.6`.
+Every disclosed current torch adds a 0.20-unit deterministic emissive sphere at its exact
 authored socket. The sphere is non-pickable and non-shadow-casting, uses orange
-emissive color `[1, 0.12, 0.015]`, and is removed with its material on reset,
+emissive color `[1, 0.32, 0.025]`, and is removed with its material on reset,
 disclosure loss, or disposal. Its capped point light uses diffuse
-`[1, 0.25, 0.045]`, specular `[0.42, 0.18, 0.055]`, intensity `1.15`, and
-range `8.5`. Each flame contributes one effect and one procedural draw group,
-making stress disclosure 17 draws (nine live room source groups plus eight flames)
+`[1, 0.25, 0.045]`, specular `[0.42, 0.18, 0.055]`, intensity `4`, and
+range `11.5`. Each flame contributes one effect and one procedural draw group,
+making stress disclosure 19 draws (eleven live room source groups plus eight flames)
 without changing the nine-light contract.
 
 Loader roots and hidden source meshes never count as presentation presence.

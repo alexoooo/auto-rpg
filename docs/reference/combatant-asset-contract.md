@@ -5,7 +5,8 @@
 **Canonical source:** this document, `tools/art/combatants-manifest.json`, and the pinned toolchain in `tools/toolchain.json`.
 **Update when:** Combatant names, topology closure, materials, clips, skins, budgets, hashes, or loader failure behavior changes.
 
-The asset and loader contract is current; scene integration remains separate.
+The asset, loader, and game-dress integration are current. Arena anatomy
+detachment remains a separate consumer of the same semantic seam.
 
 ## Semantic and skin closure
 
@@ -78,3 +79,21 @@ failure disposes the unpublished container. Disposing the published asset is
 idempotent and clears its memo entry. Vite serves and copies only
 `combatants.glb` and `combatants.json`; the validator report remains offline
 provenance and is refused by development serving and omitted from production.
+
+## Game dress
+
+`combatant-dress.ts` clones one skeleton closure per visible body. The GLB's
+meshes are deliberately rigid joint-local pieces, so the game clone uses identity
+inverse binds: applying the exported armature-space inverse bind to those already
+local vertices subtracts the bind pose twice and scatters the body. Skinned meshes
+also remain active independent of their loader-origin bounding boxes, because the
+published bones move while those stale boxes do not.
+
+The Fighter clone owns one PBR material per semantic mesh. That bounded clone keeps
+the atlas wear while separating warm face and umber cloth from cool helmet,
+breastplate, limbs, sword, and shield at the game camera's reviewed scale. It does
+not recolour the shared checked asset or another body. Published loadout action
+codes decide whether the carried blade and shield are present; action role decides
+their active pose, not their between-action visibility. All cloned materials,
+equipment meshes, faction cues, and the player-local readability light retire with
+the actor under fog, reset, generation reuse, or disposal.

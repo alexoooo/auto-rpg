@@ -51,6 +51,8 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
   };
 
   const status = find<HTMLOutputElement>("status");
+  const partyHealth = find<HTMLOutputElement>("party-health");
+  const partyHealthBar = find<HTMLProgressElement>("party-health-bar");
   const errorOutput = find<HTMLOutputElement>("error");
   const diagnosticsOutput = find<HTMLPreElement>("diagnostics");
   const pauseButton = find<HTMLButtonElement>("pause");
@@ -164,10 +166,33 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
     }, null, 2);
   };
 
+  const renderPartyHealth = (): void => {
+    const snapshot = app?.latestSnapshot();
+    if (snapshot === null || snapshot === undefined) {
+      partyHealth.value = "-- / --";
+      partyHealthBar.value = 0;
+      return;
+    }
+    let health = 0;
+    let maximum = 0;
+    for (const unit of snapshot.units) {
+      if (unit.faction !== 0) continue;
+      health += unit.hp;
+      maximum += unit.maxHp;
+    }
+    const label = (value: number): string =>
+      Number.isInteger(value) ? String(value) : value.toFixed(1);
+    partyHealth.value = maximum > 0
+      ? label(Math.max(0, health)) + " / " + label(maximum) : "-- / --";
+    partyHealthBar.value = maximum > 0
+      ? Math.max(0, Math.min(1, health / maximum)) : 0;
+  };
+
   const showError = (error: unknown): void => {
     const value = error instanceof Error ? error : new Error(String(error));
     errorOutput.value = value.message;
     status.value = "Stopped";
+    renderPartyHealth();
     renderDiagnostics();
   };
 
@@ -340,6 +365,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
       advanceInFlight = true;
       void client.advance(elapsed).catch(() => undefined).finally(() => { advanceInFlight = false; });
     }
+    renderPartyHealth();
     renderDiagnostics();
     refreshPerformanceStart();
     frameRequest = requestAnimationFrame(advanceFrame);
@@ -489,6 +515,7 @@ export async function mount(container: HTMLElement, params: URLSearchParams): Pr
         : stressKind === "room" ? "Representative room stress fixture ready"
         : stressMode ? "Synthetic GPU greybox ready"
           : representativeRoom ? "Worker and representative room ready" : "Worker and renderer ready";
+    renderPartyHealth();
     renderDiagnostics();
     frameRequest = requestAnimationFrame(advanceFrame);
   };

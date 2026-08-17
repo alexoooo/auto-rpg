@@ -8,7 +8,10 @@ const SHA256 = /^[0-9a-f]{64}$/;
 const MAX_ASSET_JSON_BYTES = 4 * 1024 * 1024;
 export const ROOM_MAX_PAYLOAD_BYTES = 25_165_824;
 export const ROOM_MAX_GPU_BYTES = 268_435_456;
-const ROOM_INSTANCE_BUFFER_BYTES = 211_712;
+// Exact exported instance capacity: 1,835 matrices mirrored for the main and
+// shadow instance buffers. The global ceiling below remains the independent
+// denial boundary; this exact value catches one-sided exporter/runtime drift.
+const ROOM_INSTANCE_BUFFER_BYTES = 234_880;
 const ROOM_SHADOW_MAP_BYTES = 1024 * 1024 * 4;
 export const ROOM_RUNTIME_MAP_SHA256 = "a20ba5f64ef55bd7716c2a7cf17f3065619876d1ded2e81b05199b5282222907" as const;
 

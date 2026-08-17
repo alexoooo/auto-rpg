@@ -422,6 +422,11 @@ test("the_game_route_gives_the_dungeon_the_stage_and_keeps_instruments_in_reach"
   const template = /<template id="route-game">([\s\S]*?)<\/template>/.exec(SHELL_HTML)?.[1] ?? "";
   assert.match(template, /<section class="game-stage" aria-labelledby="game-title">/);
   assert.match(template, /<h1 id="game-title">Dungeon expedition<\/h1>/);
+  assert.doesNotMatch(template, /The worker-owned simulation, inside the authored representative room\./,
+    "the playable route must not put a marketing description over the world");
+  assert.match(template, /<div class="game-state" aria-label="Party status">/);
+  assert.match(template, /<output id="party-health">-- \/ --<\/output>/);
+  assert.match(template, /<progress id="party-health-bar" max="1" value="0" aria-label="Party health"><\/progress>/);
   assert.match(template, /<aside class="game-command-deck" aria-label="Expedition controls">/);
   assert.match(template, /<details class="game-instruments">[\s\S]*?<summary>Systems and capture<\/summary>/);
 
@@ -431,7 +436,8 @@ test("the_game_route_gives_the_dungeon_the_stage_and_keeps_instruments_in_reach"
   assert.ok(canvas >= 0 && canvas < commands && commands < instruments,
     "the authored view must remain the primary content, ahead of controls and developer instruments");
 
-  for (const id of ["greybox", "interaction-hint", "room-camera-toggle", "seed", "reset", "pause",
+  for (const id of ["greybox", "interaction-hint", "room-camera-toggle", "party-health",
+    "party-health-bar", "seed", "reset", "pause",
     "goto-x", "goto-y", "goto", "withdraw", "spawn", "diagnostic-hold-buffers",
     "diagnostic-release-buffers", "performance-start", "performance-download", "performance-progress",
     "performance-status", "status", "error", "diagnostics"]) {

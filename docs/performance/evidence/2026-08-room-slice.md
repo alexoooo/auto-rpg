@@ -17,8 +17,8 @@ forced-backend result, or completion of the ultimate painted-art direction.
 The automated artifact identities are build inputs
 `31cbfe0e8244257084e5d043d0863959b3207c6f28252c8b8faeb36da4d34b9c`, GLB
 `39dbe61be1dc69f085126002824ce3a92987c1dd166f09b91cd4715722250f42`, sidecar
-`add5604ca244f6825e8fbd968927f6c77e674e110b546e79d3d8f7b1ba82e751`, validator
-`42f3ec9dfafa0a2185d32f4a8ab28709a46370ae9bd13a35b9fb7b926944e6e4`, and room map
+`80fa427558c7e5e0ee13eb127c95d2198dc998ce721af1ed131878a65529b36a`, validator
+`199b1895559ca697d01c1239c3292b84bfa432aa3d8cd01b6d4e81066cf689e0`, and room map
 `a20ba5f64ef55bd7716c2a7cf17f3065619876d1ded2e81b05199b5282222907`.
 The pinned Blender binary remains
 `25bdb2e3f8ed0bac9d51b7a25fbea0f712a8d80346f2efc9dbe24d85e910c310`.
@@ -38,8 +38,8 @@ outside/T, and capped-end footprints remain for the arena's synthetic ring. Thei
 cooler `woodEnd` response for barrel caps. CORNER-domain
 `room_style` remains normalized `UNSIGNED_SHORT` `VEC4` `COLOR_0`.
 The artifact is 2,760 vertices and 1,400 triangles. Offline residency components
-are 118,416 source-buffer, 211,712 instance, 2,097,152 decoded-texture, and
-4,194,304 shadow-map bytes, totaling 6,621,584 bytes. The GLB is 1,104,092 bytes
+are 118,416 source-buffer, 234,880 instance, 2,097,152 decoded-texture, and
+4,194,304 shadow-map bytes, totaling 6,644,752 bytes. The GLB is 1,104,092 bytes
 and sidecar 5,423 bytes, totaling 1,109,515 payload bytes.
 
 This supersedes the generator-v3 `readable-stone-v1` artifact accepted at minimum
@@ -57,13 +57,13 @@ for that compact route.
 The compact fixed camera injects zoom `1.6` while ordinary/stress remains `1`; its
 16:9 orthographic top/bottom are `+/-8.125` and automated bounds retain the declared
 20-pixel corner margin and 60% span. The game selector now merges only disclosed
-solid-to-open +X/+Y faces into maximal camera-facing runs. The fixed stress census is
+solid-to-open -X/-Z faces into maximal camera-facing runs. The fixed stress census is
 eight runs and 94 tile-frequency facades; a separate full 188-face boundary graph
 proves the enclosure and true door breaks. One-edge stair steps are floor cutaway,
 remembered masonry remains silhouette-opaque, and imported glTF quaternions are
 cleared before semantic quarter turns. Contiguous door records group into one
 architectural aperture instead of repeating a full frame per tile. Eight socket
-flame meshes add eight effects and the stress route records 17 draws without changing
+flame meshes add eight effects and the stress route records 19 draws without changing
 the nine-light count.
 Validator 2.0.0-dev.3.10 reports zero errors, warnings, and hints, plus four
 informational messages for the 13-node, 12-mesh, four-material,
@@ -94,8 +94,9 @@ the scene-bound lazy loader without weakening visibility or simulation authority
 
 Successive visible `#/game` reloads on 2026-08-16 refuted four intermediate
 closures: solid-centre graphs, all-four-face boundaries, translucent remembered
-masonry combined with ignored imported quaternions, and one complete frame per tile
-of a wide doorway. The current candidate instead uses merged +X/+Y runs, opaque
+masonry combined with ignored imported quaternions, one complete frame per tile
+of a wide doorway, and a positive-axis cutaway that left the far enclosure as
+cap-only ribbons. The current candidate instead uses merged -X/-Z runs, opaque
 remembered wall silhouettes, explicit quaternion clearing in game and arena, and
 grouped doorway spans with one lintel and endpoint jambs. An implementation-tab
 reload reached Worker + representative-room ready and no longer showed the reported

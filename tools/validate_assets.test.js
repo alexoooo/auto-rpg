@@ -119,9 +119,9 @@ test("payload_and_conservative_gpu_estimates_use_the_documented_formula", () => 
   assert.deepEqual(estimate, {
     sourceBufferBytes: 12,
     decodedTextureBytes: 0,
-    instanceBufferBytes: 211712,
+    instanceBufferBytes: 234880,
     shadowMapBytes: 4194304,
-    totalBytes: 4406028,
+    totalBytes: 4429196,
   });
 });
 

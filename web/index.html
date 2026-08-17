@@ -39,6 +39,8 @@
       text-transform: uppercase; color: var(--studio-faint); }
     #studio-error { margin-left: auto; color: var(--studio-red); font-size: .8rem; }
     #studio-root { padding: clamp(.45rem, 1.2vw, 1rem); }
+    body:has(#studio-root > .route-game) { overflow: hidden; }
+    #studio-root:has(> .route-game) { padding: 0; }
 
     /* Shared control chrome. Both routes draw buttons, selects and ranges, and a
        single vocabulary is what makes the two read as one application. Where a
@@ -90,38 +92,48 @@
     /* The authored room is the route, not an illustration above a diagnostics
        form. The overlays sit at the protected edge of the glass and remain
        ordinary DOM controls; nothing about this composition enters the renderer. */
-    .route-game { width: min(110rem, 100%); margin: 0 auto; display: grid; gap: .65rem; }
-    .game-stage { position: relative; isolation: isolate; overflow: hidden; aspect-ratio: 16 / 9;
-      min-height: min(38rem, calc(100vh - 5.2rem)); background: var(--studio-void);
-      border: 1px solid var(--studio-panel-line); border-radius: .35rem;
+    .route-game { position: relative; width: 100%; margin: 0; display: grid; }
+    .game-stage { position: relative; isolation: isolate; overflow: hidden;
+      height: calc(100svh - 1.9rem); min-height: 34rem; background: var(--studio-void);
+      border: 0; border-bottom: 1px solid var(--studio-panel-line);
       box-shadow: var(--studio-bevel), 0 1.5rem 5rem rgba(0, 0, 0, .45); }
     .route-game #greybox { position: absolute; inset: 0; width: 100%; height: 100%;
       aspect-ratio: auto; border: 0; border-radius: 0; background: var(--studio-void); }
     .game-stage-shade { position: absolute; inset: 0; z-index: 1; pointer-events: none;
       background:
-        linear-gradient(180deg, rgba(7, 6, 5, .76) 0%, transparent 18%, transparent 68%, rgba(7, 6, 5, .78) 100%),
-        linear-gradient(90deg, rgba(7, 6, 5, .58) 0%, transparent 25%, transparent 78%, rgba(7, 6, 5, .28) 100%); }
+        linear-gradient(180deg, rgba(7, 6, 5, .62) 0%, transparent 11%, transparent 74%, rgba(7, 6, 5, .74) 100%),
+        linear-gradient(90deg, rgba(7, 6, 5, .42) 0%, transparent 18%, transparent 82%, rgba(7, 6, 5, .2) 100%); }
     .game-heading, .game-state, .game-command-deck, .game-stage-footer, .game-stage #error {
       position: absolute; z-index: 2; }
-    .game-heading { top: clamp(.75rem, 1.5vw, 1.35rem); left: clamp(.8rem, 1.7vw, 1.5rem);
-      max-width: 30rem; text-shadow: 0 2px 12px #000; pointer-events: none; }
-    .route-game .game-heading .game-kicker { margin: 0 0 .2rem; color: var(--studio-amber);
-      font: 600 .64rem/1 ui-monospace, Consolas, monospace; letter-spacing: .18em; text-transform: uppercase; }
-    .route-game .game-heading h1 { margin: 0; color: #ddd1b8; font: 600 clamp(1.15rem, 2vw, 1.75rem)/1.1 ui-serif, Georgia, serif;
-      letter-spacing: .035em; }
-    .route-game .game-heading p:not(.game-kicker) { margin: .25rem 0 0; color: var(--studio-dim); font-size: .78rem; }
-    .game-state { top: clamp(.75rem, 1.5vw, 1.35rem); right: clamp(.8rem, 1.7vw, 1.5rem);
-      display: grid; gap: .12rem; justify-items: end; padding: .42rem .62rem;
+    .game-heading { top: clamp(.55rem, 1vw, .85rem); left: clamp(.65rem, 1.2vw, 1rem);
+      display: flex; align-items: center; gap: .5rem; padding: .38rem .55rem;
+      border: 1px solid var(--studio-panel-line); border-radius: .25rem;
+      border-left-color: rgba(232, 180, 92, .62); background: var(--studio-scrim);
+      box-shadow: var(--studio-bevel), inset 3px 0 rgba(232, 180, 92, .12), 0 .3rem 1rem rgba(0, 0, 0, .28);
+      text-shadow: 0 2px 12px #000; pointer-events: none; }
+    .route-game .game-heading .game-kicker { margin: 0; color: var(--studio-amber);
+      font: 600 .56rem/1 ui-monospace, Consolas, monospace; letter-spacing: .16em; text-transform: uppercase; }
+    .route-game .game-heading h1 { margin: 0; padding-left: .5rem; border-left: 1px solid var(--studio-panel-line);
+      color: #ddd1b8; font: 600 .68rem/1 ui-monospace, Consolas, monospace;
+      letter-spacing: .1em; text-transform: uppercase; }
+    .game-state { left: clamp(.65rem, 1.2vw, 1rem); bottom: clamp(.65rem, 1.2vw, 1rem);
+      width: min(13.5rem, calc(100% - 1.3rem)); display: grid; gap: .32rem; padding: .48rem .58rem;
       border: 1px solid var(--studio-panel-line); border-radius: .3rem;
-      background: var(--studio-scrim); box-shadow: var(--studio-bevel); }
-    .game-state > span { color: var(--studio-faint); font: .6rem/1 ui-monospace, Consolas, monospace;
+      border-top-color: rgba(232, 180, 92, .5); background: var(--studio-scrim);
+      box-shadow: var(--studio-bevel), inset 0 -1px rgba(0, 0, 0, .65), 0 .35rem 1.2rem rgba(0, 0, 0, .34); }
+    .game-vitals { display: flex; align-items: baseline; justify-content: space-between; gap: .65rem; }
+    .game-vitals > span { color: var(--studio-faint); font: .6rem/1 ui-monospace, Consolas, monospace;
       letter-spacing: .15em; text-transform: uppercase; }
-    .route-game .game-state #status { color: var(--studio-cyan); font-size: .78rem; }
-    .game-command-deck { left: clamp(.7rem, 1.4vw, 1.25rem); bottom: clamp(.75rem, 1.5vw, 1.25rem);
-      display: flex; flex-wrap: wrap; gap: .45rem; max-width: calc(100% - 2rem); }
+    .route-game #party-health { color: #ddd1b8; font: 600 .68rem/1 ui-monospace, Consolas, monospace; }
+    .route-game #party-health-bar { width: 100%; height: .28rem; border: 0; accent-color: var(--studio-amber); }
+    .route-game .game-state #status { color: var(--studio-cyan); font-size: .68rem; line-height: 1.25; }
+    .game-command-deck { left: 50%; bottom: clamp(.65rem, 1.2vw, 1rem);
+      display: flex; flex-wrap: wrap; justify-content: center; gap: .45rem;
+      max-width: calc(100% - 31rem); transform: translateX(-50%); }
     .route-game .game-command-deck fieldset { min-width: 0; margin: 0; padding: .42rem .55rem .55rem;
       border-color: var(--studio-panel-line); border-radius: .35rem;
-      background: var(--studio-scrim); box-shadow: var(--studio-bevel); }
+      border-top-color: rgba(232, 180, 92, .42); background: var(--studio-scrim);
+      box-shadow: var(--studio-bevel), inset 0 -1px rgba(0, 0, 0, .65), 0 .35rem 1.2rem rgba(0, 0, 0, .3); }
     .game-command-deck legend { padding: 0 .25rem; color: var(--studio-faint);
       font: 600 .6rem/1 ui-monospace, Consolas, monospace; letter-spacing: .14em; text-transform: uppercase; }
     .route-game .game-command-deck .controls { gap: .35rem; align-items: center; }
@@ -132,20 +144,26 @@
     .route-game .game-command-deck button { padding: .3rem .5rem; border-color: var(--studio-panel-line);
       background: #100d0a; font-size: .72rem; }
     .route-game .game-command-deck button:hover { color: var(--studio-cyan); border-color: var(--studio-cyan); }
-    .game-stage-footer { right: clamp(.8rem, 1.7vw, 1.5rem); bottom: clamp(.8rem, 1.7vw, 1.35rem);
-      max-width: min(31rem, 42%); display: flex; align-items: center; justify-content: flex-end; gap: .5rem; }
+    .game-stage-footer { top: clamp(.55rem, 1vw, .85rem); right: clamp(.65rem, 1.2vw, 1rem);
+      max-width: min(34rem, 48%); display: flex; align-items: center; justify-content: flex-end; gap: .5rem; }
     .route-game .game-stage-footer p { margin: 0; color: var(--studio-dim); font-size: .68rem;
       line-height: 1.35; text-align: right; text-shadow: 0 1px 8px #000; }
     .route-game .game-stage-footer button { flex: 0 0 auto; padding: .3rem .5rem;
       border-color: var(--studio-panel-line); background: var(--studio-scrim); font-size: .7rem; }
-    .route-game .game-stage #error { top: 4.25rem; right: clamp(.8rem, 1.7vw, 1.5rem);
+    .route-game .game-stage #error { top: 3.4rem; right: clamp(.65rem, 1.2vw, 1rem);
       max-width: min(32rem, 60%); min-height: 0; color: var(--studio-red); font-size: .75rem; text-align: right; }
-    .game-support { display: grid; gap: .5rem; }
-    .route-game .game-route-note { margin: 0; color: var(--studio-faint); font-size: .72rem; text-align: right; }
+    .game-support { position: absolute; z-index: 3; right: clamp(.65rem, 1.2vw, 1rem);
+      bottom: clamp(.65rem, 1.2vw, 1rem); width: min(48rem, calc(100% - 1.3rem));
+      display: flex; justify-content: flex-end; pointer-events: none; }
+    .route-game .game-route-note { margin: 0; padding: .65rem .75rem 0; color: var(--studio-faint);
+      font-size: .72rem; text-align: left; }
     .game-instruments { border: 1px solid var(--studio-panel-line); border-radius: .35rem;
-      background: rgba(21, 18, 14, .82); box-shadow: var(--studio-bevel); }
+      background: rgba(21, 18, 14, .96); box-shadow: var(--studio-bevel), 0 .6rem 2rem rgba(0, 0, 0, .45);
+      pointer-events: auto; }
+    .game-instruments:not([open]) { width: max-content; }
+    .game-instruments[open] { width: 100%; max-height: calc(100svh - 5rem); overflow: auto; }
     .game-instruments > summary { padding: .55rem .75rem; color: var(--studio-dim); cursor: pointer;
-      font: 600 .68rem/1 ui-monospace, Consolas, monospace; letter-spacing: .12em; text-transform: uppercase; }
+      font: 600 .62rem/1 ui-monospace, Consolas, monospace; letter-spacing: .12em; text-transform: uppercase; }
     .game-instruments[open] > summary { border-bottom: 1px solid var(--studio-panel-line); color: var(--studio-cyan); }
     .game-instrument-grid { display: grid; grid-template-columns: minmax(16rem, .8fr) minmax(22rem, 1.2fr);
       gap: .65rem; padding: .65rem; }
@@ -163,23 +181,29 @@
       border: 1px solid var(--studio-panel-line); background: #080705; color: var(--studio-dim);
       font: .7rem/1.45 ui-monospace, Consolas, monospace; }
 
-    @media (max-width: 900px) {
-      .game-stage { aspect-ratio: 4 / 3; min-height: 34rem; }
-      .route-game .game-heading p:not(.game-kicker) { display: none; }
-      .game-stage-footer { bottom: 7.1rem; max-width: calc(100% - 2rem); }
+    @media (max-width: 1100px) {
+      .game-state { bottom: 4.8rem; }
+      .game-command-deck { max-width: calc(100% - 1.3rem); }
+      .game-stage-footer { max-width: 45%; }
       .game-stage-footer p { display: none; }
+    }
+
+    @media (max-width: 900px) {
+      .game-stage { min-height: 40rem; }
       .game-instrument-grid { grid-template-columns: 1fr; }
       .game-diagnostic-readout { grid-column: auto; }
     }
 
     @media (max-width: 620px) {
       #studio-route { display: none; }
-      .game-stage { aspect-ratio: auto; min-height: 42rem; }
-      .game-heading { right: .8rem; }
-      .game-state { top: 4.5rem; left: .8rem; right: auto; justify-items: start; }
-      .game-command-deck { right: .7rem; flex-direction: column; }
+      .game-stage { min-height: 45rem; }
+      .game-heading { top: .55rem; left: .55rem; }
+      .game-state { left: .55rem; bottom: 8rem; }
+      .game-command-deck { left: .55rem; right: .55rem; bottom: .55rem;
+        max-width: none; transform: none; flex-direction: column; }
       .game-command-deck fieldset { width: 100%; }
-      .game-stage-footer { bottom: 12.5rem; }
+      .game-stage-footer { top: .55rem; right: .55rem; }
+      .game-support { top: 3.2rem; right: .55rem; bottom: auto; }
       .game-metadata { grid-template-columns: 1fr; }
     }
 
@@ -285,11 +309,14 @@
         <header class="game-heading">
           <p class="game-kicker">World / expedition</p>
           <h1 id="game-title">Dungeon expedition</h1>
-          <p>The worker-owned simulation, inside the authored representative room.</p>
         </header>
 
-        <div class="game-state">
-          <span>Simulation</span>
+        <div class="game-state" aria-label="Party status">
+          <div class="game-vitals">
+            <span>Party health</span>
+            <output id="party-health">-- / --</output>
+          </div>
+          <progress id="party-health-bar" max="1" value="0" aria-label="Party health"></progress>
           <output id="status" aria-live="polite">Starting worker&hellip;</output>
         </div>
 
@@ -322,11 +349,11 @@
       </section>
 
       <div class="game-support">
-        <p class="game-route-note">The authored room is the production view. Use
-          <code>?room=procedural</code> for the procedural diagnostic, or
-          <a href="/legacy.html">open the legacy Canvas page</a>.</p>
         <details class="game-instruments">
           <summary>Systems and capture</summary>
+          <p class="game-route-note">The authored room is the production view. Use
+            <code>?room=procedural</code> for the procedural diagnostic, or
+            <a href="/legacy.html">open the legacy Canvas page</a>.</p>
           <div class="game-instrument-grid">
             <fieldset>
               <legend>Buffer exhaustion diagnostic</legend>

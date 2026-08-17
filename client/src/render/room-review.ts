@@ -76,12 +76,15 @@ export function applyAuthoredRoomLighting(scene: Scene): Readonly<{ dispose(): v
   const previousExposure = scene.imageProcessingConfiguration.exposure;
   const previousContrast = scene.imageProcessingConfiguration.contrast;
   scene.clearColor = new Color4(0.012, 0.016, 0.032, 1);
-  scene.imageProcessingConfiguration.exposure = 1.34;
-  scene.imageProcessingConfiguration.contrast = 1.16;
+  // The key and torches own the warm accents. A restrained neutral-cool fill
+  // and low contrast preserve charcoal shadow detail without flattening those
+  // local pools into uniform ambient brown.
+  scene.imageProcessingConfiguration.exposure = 1.64;
+  scene.imageProcessingConfiguration.contrast = 1.06;
   const fill = new HemisphericLight("authored-room:hemispheric-fill", new Vector3(0, 1, 0), scene);
-  fill.diffuse = new Color3(0.68, 0.60, 0.50);
-  fill.groundColor = new Color3(0.08, 0.065, 0.055);
-  fill.intensity = 0.58;
+  fill.diffuse = new Color3(0.50, 0.52, 0.56);
+  fill.groundColor = new Color3(0.035, 0.04, 0.05);
+  fill.intensity = 0.48;
   return Object.freeze({ dispose: () => {
     fill.dispose();
     scene.clearColor.copyFrom(previousClear);

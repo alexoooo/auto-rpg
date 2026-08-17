@@ -28,14 +28,14 @@ def mesh_bounds(obj):
     ]
 
 
-# Exact instance counts of the 48 x 32 stress fixture. The 188-face complete
-# boundary projects to 94 tile-frequency facade instances on eight merged +X/+Y
-# cutaway runs; the two door records add one visible frame apiece. Keep this mirrored with
-# room-stress.ts and the runtime validator; it is the residency authority.
+# Exact presentation instance counts of the 48 x 32 stress fixture. Its 175
+# solid cells add masonry coping to 94 tile-frequency facades; two door rows use
+# six plank modules, and the shut row adds two iron straps. Keep this mirrored
+# with room-stress.ts and the runtime validator; it is the residency authority.
 INSTANCE_CAPACITIES = {
-    "floor_a": 768, "floor_b": 768, "wall_straight": 94,
+    "floor_a": 768, "floor_b": 768, "wall_straight": 269,
     "wall_inside": 0, "wall_outside": 0, "wall_end": 0,
-    "door_frame": 2, "door_leaf": 2, "torch_bracket": 8,
+    "door_frame": 2, "door_leaf": 6, "torch_bracket": 10,
     "decal_rubble": 4, "decal_root": 4, "prop_barrel": 4,
 }
 

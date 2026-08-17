@@ -358,7 +358,10 @@ export function poseFigure(figure: Figure, unit: PresentationUnit): void {
   const carryRight: Local = [CARRY_ALONG, CARRY_OF_SHOULDER * shoulder, -ARM_SIDE];
   const handPoint: Local = [along, hand, left];
   const carry = swapping ? progress : 0;
-  const reaching = unit.actionRole !== ROLE_MOVE;
+  // Role alone is not an active pose: at reset the chosen strike role can
+  // coexist with zero authoritative reach. Treating that row as a full reach
+  // made the visible Fighter freeze in a rigid T-pose before its first action.
+  const reaching = unit.actionRole !== ROLE_MOVE && unit.limbReach > 0.05 && !swapping;
   const targetRight: Local = reaching
     ? [handPoint[0] + (carryRight[0] - handPoint[0]) * carry,
       handPoint[1] + (carryRight[1] - handPoint[1]) * carry,
@@ -421,12 +424,19 @@ export function poseFigure(figure: Figure, unit: PresentationUnit): void {
   const shield = part("shield");
   const shieldLive = unit.actionRole === ROLE_GUARD && !swapping && activeAction !== SLOT_EMPTY;
   shield.setEnabled(shieldLive);
+  const shieldSocket = node("socket_shield");
   if (shieldLive) {
-    const shieldSocket = node("socket_shield");
     aimNode(shieldSocket, [along * SHIELD_OUT, hand, left * SHIELD_OUT],
       [along * (SHIELD_OUT + 1), hand, left * (SHIELD_OUT + 1)]);
     shield.position.set(0, 0, 0);
     shield.scaling.set(1.1, 0.12, 1.1);
+  } else if (unit.slot0Action === 4 || unit.slot1Action === 4) {
+    // The authored dress keeps equipped gear readable between actions. The
+    // procedural shield itself stays hidden here, but its durable socket
+    // carries the authored plate beside the off hand instead of leaving it at
+    // the actor root until the first guard.
+    shieldSocket.position.set(CARRY_ALONG, CARRY_OF_SHOULDER * shoulder, ARM_SIDE * 1.06);
+    shieldSocket.rotationQuaternion?.copyFromFloats(0, 0, 0, 1);
   }
 }
 

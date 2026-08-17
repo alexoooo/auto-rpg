@@ -109,11 +109,12 @@ The generator-v2 vertex-color kit and generator-v3 textured box-wall kit are
 superseded reproducible intermediates. The current generator-v4 kit crops the pinned
 concept material atlas into embedded floor and wall textures, retains deterministic
 `COLOR_0` modulation, and builds coursed masonry while preserving semantic names
-and pivots. The game treats solid cells as volume: it merges only disclosed +X/+Y
-solid-to-open faces into maximal isometric cutaway runs and repeats the flush
-straight facade at tile frequency. Remembered walls stay opaque, imported glTF
+and pivots. The game treats solid cells as volume: from its negative-X/negative-Z
+camera it merges only disclosed -X/-Z solid-to-open faces into maximal isometric
+cutaway runs, repeats the flush straight facade at tile frequency, and caps each
+solid with inset stone coping. Remembered walls stay opaque, imported glTF
 quaternions are cleared before semantic quarter turns, and per-tile door publications
-group into one lintel/end-jamb span. The arena independently uses the L, T, straight,
+group into one lintel/end-jamb span with modular aged-wood leaves. The arena independently uses the L, T, straight,
 and capped-end roles for its synthetic centreline ring. The kit has closed output
 pins and budgets; visible topology acceptance does not substitute for the owed
 foreground performance review or completion of the painted concept direction.

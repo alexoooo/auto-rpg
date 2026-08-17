@@ -13,12 +13,12 @@ const FREE_BETA = Math.PI / 3;
 
 // The playable `#/game` starting zoom. The worker's dungeon is 68 x 45 tiles,
 // so `fixedIsometricBounds` reads (68 + 45) / zoom tiles of vertical view:
-// eight shows 14.125 of them -- close enough to read the hero's swing with a
+// ten shows 11.3 of them -- close enough to read the hero's swing with a
 // room's worth of floor around it -- where the default of one showed 113 for a
 // 45-tile map, roughly 2.5x over-framed. Only the ordinary game route passes
 // this; the stress and compact-review fixtures keep their own committed zooms
 // so recorded captures stay comparable.
-export const GAME_INITIAL_FIXED_ZOOM = 8;
+export const GAME_INITIAL_FIXED_ZOOM = 10;
 
 // The hero may roam this fraction of each orthographic half-extent, measured
 // along the camera's screen axes on the ground plane, before the fixed camera
@@ -67,6 +67,7 @@ export function createRoomReviewCamera(
   // a stationary hero.
   let dragSuspended = false;
   let followAnchor: CameraPan | null = null;
+  let hasFollowSample = false;
 
   const aspect = (): number => Math.max(1, canvas.clientWidth) / Math.max(1, canvas.clientHeight);
   const createFixed = (): FreeCamera => {
@@ -125,6 +126,15 @@ export function createRoomReviewCamera(
     // fraction says -- a dead zone needs no more precision than that.
     const allowedUp = vertical * FOLLOW_DEAD_ZONE_FRACTION;
     const allowedRight = horizontal * FOLLOW_DEAD_ZONE_FRACTION;
+    // Bounds centre is not composition centre: the generated dungeon often
+    // discloses one room near an edge of the 68 x 45 allocation. Put the first
+    // published hero at frame centre, then use the stable dead zone below.
+    if (!hasFollowSample && !dragSuspended) {
+      hasFollowSample = true;
+      moveFixedTo(clampCameraPan(bounds, { x, y: z }));
+      return;
+    }
+    hasFollowSample = true;
     if (dragSuspended) {
       dragSuspended = false;
       followAnchor = Object.freeze({ x, y: z });
@@ -160,6 +170,7 @@ export function createRoomReviewCamera(
     fixedZoom = initialFixedZoom;
     dragSuspended = false;
     followAnchor = null;
+    hasFollowSample = false;
     orbit.alpha = FREE_ALPHA;
     orbit.beta = FREE_BETA;
     orbit.radius = fixedRadius;

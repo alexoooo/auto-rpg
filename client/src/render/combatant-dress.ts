@@ -1,7 +1,9 @@
 import type { AnimationGroup } from "@babylonjs/core/Animations/animationGroup.js";
+import { PBRMaterial } from "@babylonjs/core/Materials/PBR/pbrMaterial.js";
+import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import type { Mesh } from "@babylonjs/core/Meshes/mesh.js";
 import type { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
-import { Quaternion } from "@babylonjs/core/Maths/math.vector.js";
+import { Matrix, Quaternion } from "@babylonjs/core/Maths/math.vector.js";
 import type { CombatantArchetypeContract, CombatantKind } from "./combatant-asset-contract.js";
 import type { CombatantAsset } from "./combatant-assets.js";
 
@@ -40,6 +42,44 @@ export function combatantMeshRole(semantic: string): CombatantMeshRole {
 }
 
 const COPY_INVERSE = new Quaternion();
+
+type FighterSurface = Readonly<{
+  albedo: readonly [number, number, number];
+  emissive: readonly [number, number, number];
+  metallic: number;
+  roughness: number;
+}>;
+
+const fighterSurface = (
+  albedo: FighterSurface["albedo"], emissive: FighterSurface["emissive"],
+  metallic: number, roughness: number,
+): FighterSurface => Object.freeze({ albedo, emissive, metallic, roughness });
+
+const FIGHTER_SURFACES: Readonly<Record<string, FighterSurface>> = Object.freeze({
+  combatant_burgundy: fighterSurface([0.22, 0.10, 0.07], [0.010, 0.003, 0.002], 0.0, 0.80),
+  combatant_dark_steel: fighterSurface([0.11, 0.13, 0.16], [0.006, 0.008, 0.011], 0.76, 0.40),
+  combatant_leather: fighterSurface([0.18, 0.105, 0.055], [0.006, 0.003, 0.001], 0.0, 0.76),
+  combatant_skin: fighterSurface([0.48, 0.34, 0.23], [0.014, 0.008, 0.004], 0.0, 0.72),
+  combatant_steel: fighterSurface([0.34, 0.37, 0.40], [0.010, 0.012, 0.015], 0.80, 0.32),
+});
+
+const FIGHTER_SEMANTIC_SURFACES: Readonly<Record<string, FighterSurface>> = Object.freeze({
+  torso_breastplate: fighterSurface([0.30, 0.33, 0.36], [0.008, 0.010, 0.013], 0.80, 0.34),
+  head_visor: fighterSurface([0.10, 0.12, 0.15], [0.004, 0.005, 0.008], 0.72, 0.43),
+  pauldron_left: fighterSurface([0.27, 0.30, 0.33], [0.007, 0.009, 0.012], 0.79, 0.36),
+  pauldron_right: fighterSurface([0.27, 0.30, 0.33], [0.007, 0.009, 0.012], 0.79, 0.36),
+  hand_left: fighterSurface([0.23, 0.25, 0.28], [0.006, 0.007, 0.009], 0.75, 0.40),
+  hand_right: fighterSurface([0.23, 0.25, 0.28], [0.006, 0.007, 0.009], 0.75, 0.40),
+  shield: fighterSurface([0.18, 0.21, 0.24], [0.006, 0.008, 0.010], 0.72, 0.45),
+  sword: fighterSurface([0.50, 0.53, 0.57], [0.018, 0.020, 0.024], 0.86, 0.25),
+});
+
+function applyFighterSurface(material: PBRMaterial, surface: FighterSurface): void {
+  material.albedoColor.copyFromFloats(...surface.albedo);
+  material.emissiveColor.copyFromFloats(...surface.emissive);
+  material.metallic = surface.metallic;
+  material.roughness = surface.roughness;
+}
 
 /** Copy the already-authoritative named rig into a skinned authored dress. */
 export function copyCombatantRigPose(
@@ -101,11 +141,20 @@ export function instantiateCombatantDress(
   const skeleton = entries.skeletons[0];
   if (skeleton === undefined) throw new Error("combatant " + kind + " clone lacks its skeleton");
   skeleton.useTextureToStoreBoneMatrices = true;
+  // Each authored mesh is a rigid, joint-local piece weighted wholly to one
+  // semantic bone. Blender exports conventional armature-space inverse binds,
+  // but applying those to joint-local vertices subtracts the bind pose a
+  // second time: boots, torso and head scatter around the floor even though
+  // the linked nodes themselves are exact. The publication supplies the
+  // complete joint transforms, so identity is the correct inverse bind for
+  // this deliberately rigid skin.
+  for (const bone of skeleton.bones) bone.setBindMatrix(Matrix.Identity());
   const descendants = [outer, ...outer.getDescendants(false)] as TransformNode[];
   const byName = new Map(descendants.map((node) => [node.name, node]));
   const nodes = new Map<string, TransformNode>();
   const meshes = new Map<string, Mesh>();
   const clips = new Map<string, AnimationGroup>();
+  const ownedMaterials: PBRMaterial[] = [];
   let semanticRoot: TransformNode | null = null;
   try {
     for (const row of source.contract.nodes) {
@@ -121,6 +170,23 @@ export function instantiateCombatantDress(
       mesh.isVisible = true;
       mesh.isPickable = false;
       mesh.receiveShadows = true;
+      // The mesh stays at the loader closure's origin while its cloned
+      // skeleton follows the published rig. Babylon otherwise frustum-culls
+      // against that stale bind-pose box: the camera can be centred on the
+      // hero while every dressed mesh is rejected somewhere else in the
+      // room. Keeping this small, bounded dress closure active is the honest
+      // alternative to pretending the loader-origin bounds followed bones.
+      mesh.alwaysSelectAsActiveMesh = true;
+      if (kind === "fighter") {
+        const surface = FIGHTER_SEMANTIC_SURFACES[row.semantic] ?? FIGHTER_SURFACES[row.materialRole];
+        const material = mesh.material?.clone(clonePrefix + row.node + ":surface");
+        if (!(material instanceof PBRMaterial) || surface === undefined) {
+          throw new Error("combatant fighter material role drifted: " + row.materialRole);
+        }
+        mesh.material = material;
+        ownedMaterials.push(material);
+        applyFighterSurface(material, surface);
+      }
       meshes.set(row.semantic, mesh);
     }
     for (const row of source.contract.clips) {
@@ -134,6 +200,7 @@ export function instantiateCombatantDress(
     semanticRoot.setEnabled(true);
     outer.setEnabled(false);
   } catch (error) {
+    for (const material of ownedMaterials) material.dispose(false, false);
     entries.dispose();
     throw error;
   }
@@ -171,6 +238,7 @@ export function instantiateCombatantDress(
       disposed = true;
       for (const group of clips.values()) group.stop();
       entries.dispose();
+      for (const material of ownedMaterials) material.dispose(false, false);
     },
     get disposed(): boolean { return disposed; },
   });

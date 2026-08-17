@@ -1,7 +1,8 @@
 # Room view 01 -- corner rotation, the fog frontier, and the camera
 
-**Status: completed 2026-08-16**, except the visible foreground check, which is owed
-to a person at `/#/game` and recorded in the room matrix when it happens.
+**Status: completed and corrected 2026-08-17.** The live default `/#/game` route
+reached worker-and-room ready under WebGPU with a clean current console; the room
+matrix keeps the forced-WebGL2 and foreground frame-time work explicitly pending.
 
 - The rewritten `room_door_torch_socket_and_wall_orientation_use_only_general_semantic_rules`
   went red on all four corner pairs against the old code (`{N,E} at 0 turns lands its
@@ -9,24 +10,28 @@ to a person at `/#/game` and recorded in the room matrix when it happens.
   `{S,W}` 3, derived from the authored spur geometry and mirrored into the arena.
   Stub and tee rotations were also wrong under `findIndex` and are now axis- and
   open-side-derived, pinned the same way.
-- Fog option (i) landed: `topologySolid` counts an undisclosed neighbour as solid for
-  piece choice only; `a_frontier_wall_completes_its_topology_without_drawing_the_fog`
-  went red (`wall_end` where a straight belongs), then green, and the three
-  disclosure-guard tests passed unmodified.
-- Camera: `GAME_INITIAL_FIXED_ZOOM = 8` and `FOLLOW_DEAD_ZONE_FRACTION = 0.35` in
+- The centreline-neighbour model above was subsequently refuted by the shipped room:
+  it reproduced arbitrary solid-cell graphs instead of architectural boundaries.
+  The corrected game renderer extracts disclosed solid-to-open contours, presents
+  only the camera-facing -X/-Z facades, repeats seamless tile-frequency masonry, and
+  gives every disclosed solid an inset raised coping block. Undisclosed cells never
+  create perpendicular arms or presentation instances; remembered facades remain
+  opaque so coursed masonry cannot dissolve into pickets.
+- Camera: `GAME_INITIAL_FIXED_ZOOM = 10` and `FOLLOW_DEAD_ZONE_FRACTION = 0.35` in
   `room-review-camera.ts`, both bounded from both sides in
   `the_game_follow_camera_starts_close_and_pans_only_when_the_hero_leaves_the_dead_zone`.
+  The first disclosed hero sample centres the view before the dead-zone takes over.
   The follow is a hard camera window (pans exactly the excess) rather than a per-frame
   easing fraction, deliberately: the window is frame-rate independent where an easing
   constant is not. It mutates the one live camera (`moveFixedTo`), is suspended by a
   drag until the hero itself walks out of a zone-sized region, and is **absent** on the
   stress/review fixtures so captures cannot drift.
-- Gates: `npx tsc --noEmit` pass; `npm run build` pass; render contract suite 82/82
-  (was 77/82 red-first); `git diff --check` clean. `node tools/check_docs.js` and
-  `studio-shell.test.mjs` each fail only on files owned by the concurrent combat-arms
-  session (`crates/*` anchor drift, picker/arena preset pins); zero of those findings
-  name a file this session touched. Re-run both after that session lands.
-- No `crates/` file was touched; no registered pin can have moved.
+- Gates: `npm run check` pass; render contract suite 101/101; room asset validator
+  12/12 including two clean pinned Blender exports; `node tools/check_docs.js` pass;
+  `git diff --check` clean.
+- No `crates/` file was touched. The GLB and build-input pins did not move; the
+  capacity-only sidecar and validator pins moved with the exact 1,835-instance
+  residency calculation recorded in the room asset contract.
 
 The original plan follows.
 

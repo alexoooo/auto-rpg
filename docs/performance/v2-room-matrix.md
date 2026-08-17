@@ -15,12 +15,12 @@ review and foreground performance capture remain pending.
 
 | Field | Required record |
 |---|---|
-| Manifest file, GLB, sidecar, and Blender binary hashes | GLB `39dbe61be1dc69f085126002824ce3a92987c1dd166f09b91cd4715722250f42`; sidecar `add5604ca244f6825e8fbd968927f6c77e674e110b546e79d3d8f7b1ba82e751`; validator `42f3ec9dfafa0a2185d32f4a8ab28709a46370ae9bd13a35b9fb7b926944e6e4`; Blender binary `25bdb2e3f8ed0bac9d51b7a25fbea0f712a8d80346f2efc9dbe24d85e910c310` |
+| Manifest file, GLB, sidecar, and Blender binary hashes | GLB `39dbe61be1dc69f085126002824ce3a92987c1dd166f09b91cd4715722250f42`; sidecar `80fa427558c7e5e0ee13eb127c95d2198dc998ce721af1ed131878a65529b36a`; validator `199b1895559ca697d01c1239c3292b84bfa432aa3d8cd01b6d4e81066cf689e0`; Blender binary `25bdb2e3f8ed0bac9d51b7a25fbea0f712a8d80346f2efc9dbe24d85e910c310` |
 | `buildInputsSha256` over canonical manifest JSON with `outputs` omitted | `31cbfe0e8244257084e5d043d0863959b3207c6f28252c8b8faeb36da4d34b9c`; excludes the complete `outputs` object |
 | Current texture style | generator version 4; `concept-umber-stone-v2`; floor and wall quadrants from checked 1,254 x 1,254 atlas `037c8588e18d585fd6c50ff4ba8e071459bf88c04aac4c22058a2743673149b6`; deterministic 512 x 512 periodic embeds `a5effbaebebcf0ca1737b4953f53516f6d7274a232f20ccfc8676d854426f9a8` and `d01683a26efff554e88162bf00379a2420a95c814d700c0ecc696065a51c130b`; CORNER `room_style` remains normalized `UNSIGNED_SHORT` `VEC4` `COLOR_0`; automated closure is current and a new visible review remains owed |
 | Generated TypeScript trust pins | `ROOM_FIXTURE_ID = v2-room-slice-1`; all four artifact/build hashes above are compiled into `ROOM_BUILD_INPUTS_SHA256`, `ROOM_SIDECAR_SHA256`, `ROOM_GLB_SHA256`, and `ROOM_VALIDATOR_SHA256` |
 | Validator report | committed third artifact; validator 2.0.0-dev.3.10; 13 nodes, 12 meshes, four materials, 2,760 vertices, 1,400 triangles |
-| Payload and deterministic offline residency components | GLB 1,104,092 + sidecar 5,423 = 1,109,515 payload bytes; source 118,416 + instances 211,712 + decoded textures 2,097,152 + shadow map 4,194,304 = 6,621,584 estimated bytes |
+| Payload and deterministic offline residency components | GLB 1,104,092 + sidecar 5,423 = 1,109,515 payload bytes; source 118,416 + instances 234,880 + decoded textures 2,097,152 + shadow map 4,194,304 = 6,644,752 estimated bytes |
 | Validator error/warning counts and allowlist | zero errors, zero warnings, zero hints, four informational unused-UV messages; `allowedValidatorWarnings: []` |
 | OS, CPU, GPU, driver, browser, power | pending foreground capture |
 | Requested/selected backend and full diagnostics | pending foreground capture |
@@ -28,19 +28,19 @@ review and foreground performance capture remain pending.
 | CSS/backing size and render scale | 1920 x 1080; scale 1 |
 | Fixture | `v2-room-slice-1`; seed `1592594996`; 48 x 32; 64 bodies; eight torches plus one directional light; no training workers; all-visible performance disclosure |
 | `ROOM_STRESS_MAP_SHA256` | `a20ba5f64ef55bd7716c2a7cf17f3065619876d1ded2e81b05199b5282222907` for the exact 1,536 committed map bytes mirrored by fixture source, manifest, sidecar, matrix, and tests |
-| Exact fixed piece counts and capacities | 1,536 floors (floor_a 768, floor_b 768); wall_straight 94; wall_inside 0; wall_outside 0; wall_end 0; door_frame 2; door_leaf 2; torch_bracket 8; decal_rubble 4; decal_root 4; prop_barrel 4. The complete structural boundary remains 188 faces, while eight merged +X/+Y cutaway runs repeat 94 tile-frequency facades and the two singleton doors each use one frame. The sidecar budgets those exact capacities at 211,712 instance bytes |
+| Exact fixed piece counts and capacities | 1,536 floors (floor_a 768, floor_b 768); wall_straight 269 (94 facades + 175 coping); wall_inside 0; wall_outside 0; wall_end 0; door_frame 2; door_leaf 6; torch_bracket 10 (eight torches + two shut-door straps); decal_rubble 4; decal_root 4; prop_barrel 4. The complete structural boundary remains 188 faces, while eight merged -X/-Z cutaway runs repeat 94 tile-frequency facades. The sidecar budgets the exact 1,835-instance closure at 234,880 bytes |
 
 ## Automated contract record
 
 The exact validator, toolchain, build-delivery, loader, visibility, topology,
 fixture, camera, fallback, reset, loss, and disposal tests named by v2-09 are green.
-The render contract suite passes 97 of 97 tests, including real Babylon NullEngine
+The render contract suite passes 101 of 101 tests, including real Babylon NullEngine
 source/instance evaluation, exact live role counts, semantic picks, no-op revision
 reconciliation, socket transforms, camera input cleanup, and partial-construction
 rollback. Source-text assertions do not replace these semantic tests.
 
 The game room now treats MAP_SOLID as masonry volume. It merges the camera-facing
-+X/+Y disclosed solid-to-open interfaces into maximal runs and repeats a seamless
+-X/-Z disclosed solid-to-open interfaces into maximal runs and repeats a seamless
 one-tile facade without stretching brick scale; hidden -X/-Y faces and one-edge
 stair steps never become pickets. Remembered masonry stays opaque while remembered
 floors recede. Published door cells suppress ordinary faces and contiguous collinear
@@ -54,7 +54,7 @@ boundary faces, eight camera-facing runs, 94 facade instances, and two frame
 instances. The arena retains its own one-source-per-tile synthetic centreline ring
 because a fight rectangle does not publish MAP_SOLID/MAP_OPEN architecture. Every current torch has a
 non-pickable, non-shadow emissive socket sphere and capped warm point light; stress
-diagnostics record eight effects and 17 draws (nine live source groups plus eight
+diagnostics record eight effects and 19 draws (eleven live source groups plus eight
 flames), with the same nine lights. Reset/disposal removes the flame meshes and
 shared material.
 
@@ -128,7 +128,7 @@ but every performance capture requires fixed mode and rejects free mode.
 | Stone modeling | fail | fail | Repetition at 48 x 32 reads as a dense mass rather than a composed room. |
 | Material response | fail | fail | Stone and wood are too dark to separate reliably from the playfield. |
 | Fixture-origin light | fail | fail | Torch accents do not establish readable local hierarchy. |
-| Join coherence | pass -- default live route | pending forced-WebGL2 re-review | Successive 2026-08-16 screenshots refuted centreline selection, four-face boundary composition, translucent remembered masonry, ignored glTF quarter turns, and repeated full frames for one multi-tile doorway. The corrected route uses merged +X/+Y cutaway runs, opaque remembered wall silhouettes, explicit quaternion clearing, and grouped doorway spans. An independent owner reload of the default Worker route, including later exploration, accepted continuous current/remembered masonry and the wide doorway with no former pickets or arcades; the console remained clean. This is visible topology acceptance, not rAF or numerical performance evidence. |
+| Join coherence | pass -- default live route | pending forced-WebGL2 re-review | Successive screenshots refuted centreline selection, four-face composition, translucent remembered masonry, ignored glTF quarter turns, repeated full frames, and finally the positive-axis cutaway that left the far enclosure cap-only. The 2026-08-17 accepted route uses camera-correct -X/-Z runs, opaque remembered masonry, explicit quaternion clearing, grouped doorway spans, and inset coping. This is visible topology acceptance, not rAF or numerical performance evidence. |
 | Depth readability | fail | fail | The authored room collapses into broad dark/purple regions. |
 | Silhouette contrast | fail | fail | Bright unit markers dominate while room silhouettes recede. |
 
@@ -155,11 +155,11 @@ It creates no Worker and exposes no performance capture. It is exactly 16 x 10 t
 a perimeter-only 48 solid tiles around a 14 x 8 open interior, two doors showing open
 and shut states, four torches, four each of barrels, rubble, and roots, and eight unit
 markers. Its camera uses the explicit 16 x 10 snapshot bounds. Playable authored-room and compact-review rendering
-uses clear `[0.012, 0.016, 0.032, 1]`, exposure `1.34`, contrast `1.16`, a
-non-shadow hemispheric fill with diffuse `[0.68, 0.60, 0.50]`, ground
-`[0.08, 0.065, 0.055]`, intensity `0.58`, and initial/reset fixed zoom
+uses clear `[0.012, 0.016, 0.032, 1]`, exposure `1.64`, contrast `1.06`, a
+non-shadow hemispheric fill with diffuse `[0.50, 0.52, 0.56]`, ground
+`[0.035, 0.04, 0.05]`, intensity `0.48`, and initial/reset fixed zoom
 `1.6`; stress zoom starts at `1` and the ordinary game route at
-`GAME_INITIAL_FIXED_ZOOM = 8` (14.125 vertical tiles of the 68 x 45 dungeon), with
+`GAME_INITIAL_FIXED_ZOOM = 10` (11.3 vertical tiles of the 68 x 45 dungeon), with
 bounded fixed-camera wheel zoom through `12`. At 16:9, orthographic top/bottom are
 `+/-8.125`, all four ground corners keep at least 20 CSS pixels of margin, and the
 room spans at least 60% of both axes. The 48 x 32 `?stress=room` fixture retains its dimensions, population, nine lights,

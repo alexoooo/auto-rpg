@@ -61,7 +61,7 @@ browser choreography. The named render-contract suite passed 29 of 29 tests on
 | Remembered geometry remains non-current and unknown geometry remains absent | [`remembered_geometry_uses_seen_not_current_visibility`](../../client/test/render-contract.test.mjs#L212) | pass |
 | Fog boundaries and generational identity cannot leak a frame | [`fog_edge_generation_reuse_creates_no_one_frame_leak`](../../client/test/render-contract.test.mjs#L223); [`persistent_units_retire_every_registry_before_a_generation_is_reused`](../../client/test/render-contract.test.mjs#L622) | pass |
 | WebGPU device loss and WebGL context loss are terminal, without fallback | [`context_or_device_loss_disposes_once_and_never_switches_backend`](../../client/test/render-contract.test.mjs#L474); [`terminal_loss_disposes_renderer_content_before_engine_and_client`](../../client/test/render-contract.test.mjs#L538) | pass |
-| Floor picking and primary-drag pan use the live camera and recover gesture ownership | [`primary_pointer_click_issues_goto_while_primary_drag_moves_the_live_camera`](../../client/test/render-contract.test.mjs#L1789); [`greybox_input_keeps_one_pointer_owner_and_recovers_after_throwing_host_callbacks`](../../client/test/render-contract.test.mjs#L2029) | pass |
+| Floor picking and primary-drag pan use the live camera and recover gesture ownership | [`primary_pointer_click_issues_goto_while_primary_drag_moves_the_live_camera`](../../client/test/render-contract.test.mjs#L1962); [`greybox_input_keeps_one_pointer_owner_and_recovers_after_throwing_host_callbacks`](../../client/test/render-contract.test.mjs#L2202) | pass |
 
 ## Manual correctness matrix
 

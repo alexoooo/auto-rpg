@@ -308,5 +308,5 @@ evidence.
 - Worker adapter and atomic scalar phase: [`readPublication`](../../client/src/runtime/sim.worker.ts#L81)
 - Pure protocol host: [`SimWorkerHost`](../../client/src/runtime/sim-worker-host.ts#L55)
 - Main-thread lease owner: [`SimClient`](../../client/src/runtime/sim-client.ts#L122)
-- Greybox unit mapping: [`ActorPresentation.#pose`](../../client/src/render/actors.ts#L154)
+- Greybox unit mapping: [`ActorPresentation.#pose`](../../client/src/render/actors.ts#L217)
 - Arena capsule mapping: [`scenePoint`](../../client/src/arena/geometry.ts#L53)
