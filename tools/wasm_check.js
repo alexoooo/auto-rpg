@@ -2128,20 +2128,32 @@ const arenaResult = (packed) => ({
 const arenaFingerprint = () =>
   hash64(wasm.arena_fingerprint_lo(), wasm.arena_fingerprint_hi());
 
-test("print temporary exact SegmentShield diagnostics", () => {
+test("print temporary exact Segment constructor diagnostics", () => {
   if (!CARTESIAN_RECOIL) return;
-  assert.equal(typeof wasm.exact_segment_shield_debug_word_lo, "function");
-  assert.equal(typeof wasm.exact_segment_shield_debug_word_hi, "function");
   const config = shippedArena();
   stageArena(arenaBytes(config));
   assert.equal(arenaResult(wasm.arena_start(3)).outcome, 1);
-  wasm.step(140);
+  wasm.step(139);
+  wasm.exact_segment_shield_debug_reset();
+  wasm.step(1);
   const words = Array.from({ length: 20 }, (_, at) => hash64(
+    wasm.exact_segment_constructor_debug_word_lo(at),
+    wasm.exact_segment_constructor_debug_word_hi(at),
+  ));
+  console.log("wasm exact Segment constructor debug:", words.map((word) =>
+    "0x" + word.toString(16).padStart(16, "0")));
+  const aabbWords = Array.from({ length: 20 }, (_, at) => hash64(
+    wasm.exact_segment_shield_aabb_debug_word_lo(at),
+    wasm.exact_segment_shield_aabb_debug_word_hi(at),
+  ));
+  console.log("wasm exact Segment AABB debug:", aabbWords.map((word) =>
+    "0x" + word.toString(16).padStart(16, "0")));
+  const sweepWords = Array.from({ length: 20 }, (_, at) => hash64(
     wasm.exact_segment_shield_debug_word_lo(at),
     wasm.exact_segment_shield_debug_word_hi(at),
   ));
-  console.log("wasm exact SegmentShield debug:", words.map((word) =>
-    `0x${word.toString(16).padStart(16, "0")}`));
+  console.log("wasm exact Segment sweep debug:", sweepWords.map((word) =>
+    "0x" + word.toString(16).padStart(16, "0")));
 });
 
 test("a configured duel runs inside the module and refuses by name", () => {

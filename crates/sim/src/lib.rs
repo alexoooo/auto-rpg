@@ -143,6 +143,10 @@ pub use combat::contact::{
     ContactCapacityError, ContactKind, ContactResolution, BODY_SLOT,
     MAX_ARTICULATED_ENTITIES, NO_REGION,
 };
+#[cfg(feature = "cartesian-recoil")]
+pub use combat::contact::{exact_segment_constructor_debug_word,
+                          exact_segment_shield_aabb_debug_word,
+                          exact_segment_shield_debug_reset, exact_segment_shield_debug_word};
 /// The two published shapes out of `geometry`, and nothing else. The pose row
 /// draws exactly a [`SegmentPose`] and the subject-scoped observation carries
 /// exactly a [`RegionVolume`] per region; a parallel struct carrying the same

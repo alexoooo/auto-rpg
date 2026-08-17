@@ -212,7 +212,7 @@ function enforcementFixture() {
   write(root, "docs/performance/v2-room-matrix.md", [
     "# Room matrix", "", "**Purpose:** Record room evidence.", "**Status:** current",
     "**Canonical source:** this document", "**Update when:** Room evidence changes.", "",
-    "## Fixture", "", "`ROOM_STRESS_MAP_SHA256` is `1262c7dc5eb359a06db10a06c85e2782237b226e423a903f72441f1dfde18e6c` for 1,536 committed map bytes.",
+    "## Fixture", "", "`ROOM_STRESS_MAP_SHA256` is `a20ba5f64ef55bd7716c2a7cf17f3065619876d1ded2e81b05199b5282222907` for 1,536 committed map bytes.",
     "Capacities are floor_a 768 and floor_b 768.", "",
     "Validator report is the third artifact. The loader stays outside the initial static import closure, while enabled classic-instance sources remain hidden.", "",
     "## Runs", "", "| Slot | Threshold |", "|---:|---|", "| 1 | Canvas |", "| 2 | 16.67 ms |",
@@ -572,7 +572,7 @@ test("the_room_matrix_cannot_graduate_with_a_placeholder_map_hash", () => {
   const root = enforcementFixture();
   const file = path.join(root, "docs/performance/v2-room-matrix.md");
   fs.writeFileSync(file, fs.readFileSync(file, "utf8")
-    .replace("1262c7dc5eb359a06db10a06c85e2782237b226e423a903f72441f1dfde18e6c", "PENDING_IMPLEMENTATION_LITERAL"));
+    .replace("a20ba5f64ef55bd7716c2a7cf17f3065619876d1ded2e81b05199b5282222907", "PENDING_IMPLEMENTATION_LITERAL"));
   const contract = path.join(root, "docs/reference/room-asset-contract.md");
   fs.writeFileSync(contract, fs.readFileSync(contract, "utf8")
     .replace("**Status:** current", "**Status:** proposed"));

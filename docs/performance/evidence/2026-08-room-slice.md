@@ -85,13 +85,14 @@ the scene-bound lazy loader without weakening visibility or simulation authority
 ## Foreground measurements
 
 A fresh visible `#/game` reload on 2026-08-16 reached Worker + representative-room
-ready with no console warning or error. The reviewer observed continuous long wall
-runs, centre-filled L and T junctions, full capped directional ends, and no repeated
-perpendicular teeth at the fog frontier. That directly closes the screenshot's join
-defect after the selector changed from indiscriminate fog-as-solid to tri-state
-neighbours: fog may continue only the opposite side of one known axis. This is
-foreground topology/readability evidence, not an rAF sample, frame-time measurement,
-or forced-WebGL2 result.
+ready with no console warning or error and confirmed the tri-state selector removed
+fog-created perpendicular teeth. A second screenshot then refuted the broader join
+closure: the stress fixture's arbitrary solid-centre graph still read as unexplained
+gaps, capped columns, and absent architectural corners. Only its cells (12,11) and
+(21,11) were doors; the other apparent openings were not passages. Join coherence is
+therefore reopened until boundary-face composition and true door replacement pass a
+new screenshot. Neither observation is an rAF sample, frame-time measurement, or
+forced-WebGL2 result.
 
 Pending the five ordered captures in the [room matrix](../v2-room-matrix.md#foreground-performance-record),
 including both Canvas drift calculations and the final procedural WebGPU comparison.

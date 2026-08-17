@@ -28,14 +28,14 @@ def mesh_bounds(obj):
     ]
 
 
-# Exact instance counts of the 48 x 32 stress fixture. Every solid tile uses
-# one joined authored wall source: 160 straights, 4 L corners, 8 tees and
-# 4 directional ends. Keep this table mirrored with room-stress.ts and the
-# runtime validator; it is the offline residency authority.
+# Exact instance counts of the 48 x 32 stress fixture. Solid/open interfaces
+# produce 188 edge-aligned wall faces; the two door records replace ordinary
+# faces with two authored frames apiece. Keep this table mirrored with
+# room-stress.ts and the runtime validator; it is the residency authority.
 INSTANCE_CAPACITIES = {
-    "floor_a": 768, "floor_b": 768, "wall_straight": 160,
-    "wall_inside": 4, "wall_outside": 8, "wall_end": 4,
-    "door_frame": 2, "door_leaf": 2, "torch_bracket": 8,
+    "floor_a": 768, "floor_b": 768, "wall_straight": 188,
+    "wall_inside": 0, "wall_outside": 0, "wall_end": 0,
+    "door_frame": 4, "door_leaf": 2, "torch_bracket": 8,
     "decal_rubble": 4, "decal_root": 4, "prop_barrel": 4,
 }
 

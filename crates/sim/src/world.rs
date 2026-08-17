@@ -6507,6 +6507,46 @@ impl World {
             );
             for segment in segments.into_iter().flatten() {
                 let owner = segment.owner as usize;
+                #[cfg(feature = "cartesian-recoil")]
+                if entity.index == 1 && owner == 1 {
+                    let item = equipment(segment.equipment)
+                        .expect("one immutable equipment spec");
+                    let (length, radius) = match item.geometry {
+                        crate::combat::spec::EquipmentGeometry::Segment { length, radius } =>
+                            (length.raw(), radius.raw()),
+                        crate::combat::spec::EquipmentGeometry::Shield { .. } => (0, 0),
+                    };
+                    let pair = |a: i32, b: i32| a as u32 as u64 | (b as u32 as u64) << 32;
+                    let carried_id = |id: Option<crate::combat::spec::EquipmentSpecId>|
+                        id.map_or(u16::MAX, |id| id) as u64;
+                    let grip_slot = |grip: crate::GripState|
+                        grip.equipment_slot.map_or(u8::MAX, |slot| slot) as u64;
+                    crate::combat::contact::exact_segment_constructor_debug_store([
+                        entity.index as u64 | (entity.generation as u64) << 16
+                            | (owner as u64) << 48 | (segment.equipment as u64) << 56,
+                        crate::ActionKind::ALL.iter().position(|&action| action == item.action)
+                            .unwrap_or(usize::MAX) as u64,
+                        pair(length, radius), pair(segment.previous.radius.raw(),
+                            segment.requested.radius.raw()),
+                        carried_id(self.articulated_carried[i][0])
+                            | carried_id(self.articulated_carried[i][1]) << 16,
+                        grip_slot(grips[0]) | grip_slot(grips[1]) << 8,
+                        pair(previous_origin.x.raw(), previous_origin.y.raw()),
+                        pair(requested_origin.x.raw(), requested_origin.y.raw()),
+                        pair(entry.arms[owner].hand.x.raw(), entry.arms[owner].hand.y.raw()),
+                        pair(self.arms[i][owner].hand.x.raw(), self.arms[i][owner].hand.y.raw()),
+                        entry.arms[owner].bearing.raw() as u64
+                            | (self.arms[i][owner].bearing.raw() as u64) << 16,
+                        pair(segment.previous.hilt.x.raw(), segment.previous.hilt.y.raw()),
+                        pair(segment.previous.tip.x.raw(), segment.previous.tip.y.raw()),
+                        pair(segment.requested.hilt.x.raw(), segment.requested.hilt.y.raw()),
+                        pair(segment.requested.tip.x.raw(), segment.requested.tip.y.raw()),
+                        segment.mass.raw() as u32 as u64,
+                        item.mass.raw() as u32 as u64,
+                        item.binding as u8 as u64,
+                        0,
+                    ]);
+                }
                 let hand_velocity = body_velocity + self.arms[i][owner].linear_velocity;
                 // **Sampled at the blade's centre of mass, not in the hand.**
                 // `closure_energy` reads collider *rows* and never contact

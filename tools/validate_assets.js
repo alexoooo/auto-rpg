@@ -18,8 +18,8 @@ const FORMATS = {
 };
 const TOLERANCE = 0.00001;
 const INSTANCE_CAPACITIES = Object.freeze({
-  floor_a: 768, floor_b: 768, wall_straight: 160, wall_inside: 4,
-  wall_outside: 8, wall_end: 4, door_frame: 2, door_leaf: 2,
+  floor_a: 768, floor_b: 768, wall_straight: 188, wall_inside: 0,
+  wall_outside: 0, wall_end: 0, door_frame: 4, door_leaf: 2,
   torch_bracket: 8, decal_rubble: 4, decal_root: 4, prop_barrel: 4,
 });
 
@@ -99,8 +99,8 @@ function validateBuildManifest(manifest) {
   if (manifest.coordinates?.sceneHandedness !== "right" || manifest.coordinates?.upAxis !== "+Y" ||
       JSON.stringify(manifest.coordinates?.groundAxes) !== JSON.stringify(["+X", "+Z"]) ||
       manifest.coordinates?.metresPerUnit !== 1 || manifest.coordinates?.tileSize !== 1) throw new Error("room manifest coordinates are invalid");
-  if (manifest.runtimeFixture?.mapSha256 !== "1262c7dc5eb359a06db10a06c85e2782237b226e423a903f72441f1dfde18e6c" ||
-      manifest.runtimeFixture?.mapBytes !== 1536 || manifest.runtimeFixture?.solidTiles !== 176) {
+  if (manifest.runtimeFixture?.mapSha256 !== "a20ba5f64ef55bd7716c2a7cf17f3065619876d1ded2e81b05199b5282222907" ||
+      manifest.runtimeFixture?.mapBytes !== 1536 || manifest.runtimeFixture?.solidTiles !== 175) {
     throw new Error("room manifest runtime fixture is invalid");
   }
   if (manifest.export?.format !== "GLB" || manifest.export?.applyModifiers !== true ||

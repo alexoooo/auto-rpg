@@ -926,14 +926,17 @@ test("room_instances_need_known_topology_and_current_furniture_disclosure", asyn
     ]),
   }));
   assert.deepEqual(room.keys().filter((key) => key.startsWith("tile:")),
-    ["tile:1:0:floor", "tile:2:0:floor", "tile:2:0:wall"]);
+    ["tile:1:0:floor", "tile:2:0:floor"]);
   assert.deepEqual(room.keys().filter((key) => key.startsWith("furniture:")),
-    [`furniture:${ABI.FURNITURE_DOOR}:2:0:frame`, `furniture:${ABI.FURNITURE_DOOR}:2:0:leaf`]);
+    [`furniture:${ABI.FURNITURE_DOOR}:2:0:frame:0`,
+      `furniture:${ABI.FURNITURE_DOOR}:2:0:frame:1`,
+      `furniture:${ABI.FURNITURE_DOOR}:2:0:leaf`]);
   assert.equal(room.counts().lights, 1);
   assert.equal(debug.snapshot().visibility.furniture, 1);
   const picks = scene.meshes.filter((mesh) => mesh.name.startsWith("room:") && mesh.isPickable);
   assert.deepEqual(picks.map((mesh) => mesh.metadata), [
     { presentationKind: "tile", tx: 2, ty: 0 },
+    { presentationKind: "furniture", furnitureKey: `${ABI.FURNITURE_DOOR}:2:0` },
     { presentationKind: "furniture", furnitureKey: `${ABI.FURNITURE_DOOR}:2:0` },
   ]);
   assert.equal(debug.snapshot().visibility.picking, 2);
@@ -952,8 +955,8 @@ test("remembered_room_tiles_have_no_furniture_light_shadow_pick_or_debug_presenc
       key: `${ABI.FURNITURE_TORCH}:0:0`, kind: ABI.FURNITURE_TORCH, tx: 0, ty: 0,
       state: ABI.TORCH_FACE_POS_X,
     })]) }));
-  assert.deepEqual(room.counts(), { geometry: 2, furniture: 0, instances: 2, lights: 1,
-    shadowCasters: 0, triangles: 24 });
+  assert.deepEqual(room.counts(), { geometry: 1, furniture: 0, instances: 1, lights: 1,
+    shadowCasters: 0, triangles: 12 });
   assert.equal(debug.snapshot().visibility.picking, 0);
   assert.equal(debug.snapshot().visibility.debug, 0);
   assert.ok(scene.meshes.filter((mesh) => mesh.name.startsWith("room:tile:"))
@@ -1082,196 +1085,133 @@ test("concept_light_rigs_are_warm_from_upper_right_restrained_in_fill_and_broad_
   arena.dispose(); arenaScene.dispose(); arenaEngine.dispose();
 });
 
-test("every_room_wall_mask_selects_one_joined_authored_shape_with_directional_caps", async () => {
-  const SIDES = ["N", "E", "S", "W"];
-  const localOpenings = Object.freeze({
-    wall_straight: Object.freeze(["E", "W"]),
-    wall_inside: Object.freeze(["E", "S"]),
-    wall_outside: Object.freeze(["E", "S", "W"]),
-    wall_end: Object.freeze(["E"]),
-  });
-  const rotateSide = (side, quarterTurns) =>
-    SIDES[(SIDES.indexOf(side) - quarterTurns + 4) % 4];
-  const openings = (walls) => new Set(walls.flatMap(({ piece, quarterTurns }) =>
-    localOpenings[piece].map((side) => rotateSide(side, quarterTurns))));
-  const centreWorld = (mask, diagonal = false) => {
-    const map = new Array(9).fill(ABI.MAP_OPEN);
-    map[4] = ABI.MAP_SOLID;
-    const at = [1, 5, 7, 3];
-    for (let bit = 0; bit < 4; bit++) if (mask & 1 << bit) map[at[bit]] = ABI.MAP_SOLID;
-    if (diagonal) map[2] = ABI.MAP_SOLID;
-    return snapshot({ mapCols: 3, mapRows: 3,
-      map: Object.freeze(map), vis: Object.freeze(new Array(9).fill(2)) });
-  };
-  const expected = Object.freeze([
-    [["wall_straight", 0]],
-    [["wall_end", 1]],
-    [["wall_end", 0]],
-    [["wall_inside", 1]],
-    [["wall_end", 3]],
-    [["wall_straight", 1]],
-    [["wall_inside", 0]],
-    [["wall_outside", 1]],
-    [["wall_end", 2]],
-    [["wall_inside", 2]],
-    [["wall_straight", 0]],
-    [["wall_outside", 2]],
-    [["wall_inside", 3]],
-    [["wall_outside", 3]],
-    [["wall_outside", 0]],
-    [["wall_straight", 0], ["wall_straight", 1]],
+test("the_representative_room_is_a_closed_boundary_graph_with_only_published_door_breaks", () => {
+  const fixture = roomStress.createRoomStressFixture();
+  const at = (tx, ty) => fixture.map[ty * fixture.mapCols + tx];
+  assert.deepEqual(fixture.furniture.filter(({ kind }) => kind === ABI.FURNITURE_DOOR)
+    .map(({ tx, ty, state }) => [tx, ty, state]), [
+    [18, 11, ABI.FURNITURE_DOOR_SHUT], [18, 15, ABI.FURNITURE_DOOR_OPEN],
   ]);
-  for (let mask = 0; mask < 16; mask++) {
-    const walls = roomEnvironment.chooseRoomWall(centreWorld(mask), 1, 1);
-    const label = "mask " + mask.toString(2).padStart(4, "0");
-    assert.deepEqual(walls.map(({ piece, quarterTurns }) => [piece, quarterTurns]),
-      expected[mask], label);
-    if (mask === 0) {
-      assert.deepEqual([...openings(walls)].sort(), ["E", "W"],
-        "mask 0000 is the explicit diagnostic straight sentinel");
-      assert.equal(walls.length, 1);
-      continue;
-    }
-    const wanted = new Set(SIDES.filter((_, bit) => mask & 1 << bit));
-    const actual = openings(walls);
-    assert.deepEqual([...actual].sort(), [...wanted].sort(),
-      label + " opens exactly toward its neighbours");
-    assert.equal(4 - actual.size, 4 - wanted.size,
-      label + " caps every exposed direction");
-    if (mask !== 15) assert.equal(walls.length, 1,
-      "every representative topology is one joined authored source");
-  }
-  // Diagonal occupancy is not a cardinal join. In particular the absent
-  // north-east diagonal in the screenshot cannot turn an N+E corner into two
-  // crossing full runs or erase its central masonry.
-  assert.deepEqual(roomEnvironment.chooseRoomWall(centreWorld(3, false), 1, 1),
-    roomEnvironment.chooseRoomWall(centreWorld(3, true), 1, 1));
-  assert.equal(roomEnvironment.chooseRoomFloor(1592594996, 4, 5),
-    roomEnvironment.chooseRoomFloor(1592594996, 4, 5));
-  const { NullEngine } = await import("@babylonjs/core/Engines/nullEngine.js");
-  const { Scene } = await import("@babylonjs/core/scene.js");
-  const engine = new NullEngine(); const scene = new Scene(engine);
-  const debug = new rendererDebug.RendererDebugRegistry();
-  const room = new roomEnvironment.RoomEnvironmentPresentation(scene, debug, await fakeRoomAsset(scene));
-  room.acceptSnapshot(snapshot({ mapCols: 2, mapRows: 1,
-    map: Object.freeze([ABI.MAP_SOLID, ABI.MAP_OPEN]), vis: Object.freeze([2, 2]),
-    furniture: Object.freeze([
-      Object.freeze({ key: `${ABI.FURNITURE_DOOR}:0:0`, kind: ABI.FURNITURE_DOOR,
-        tx: 0, ty: 0, state: ABI.FURNITURE_DOOR_OPEN }),
-      Object.freeze({ key: `${ABI.FURNITURE_TORCH}:1:0`, kind: ABI.FURNITURE_TORCH,
-        tx: 1, ty: 0, state: ABI.TORCH_FACE_POS_Y }),
-    ]) }));
-  const leaf = scene.getMeshByName(`room:furniture:${ABI.FURNITURE_DOOR}:0:0:leaf`);
-  const bracket = scene.getMeshByName(`room:furniture:${ABI.FURNITURE_TORCH}:1:0:bracket`);
-  const light = scene.getLightByName(`room:torch:${ABI.FURNITURE_TORCH}:1:0`);
-  const flame = scene.getMeshByName(`room:torch:${ABI.FURNITURE_TORCH}:1:0:flame`);
-  assert.equal(leaf.rotation.y, Math.PI / 2);
-  assert.equal(bracket.rotation.y, Math.PI / 2);
-  assert.deepEqual([light.position.x, light.position.y, light.position.z], [1.5 - 0.14, 0.48, 0.5]);
-  assert.deepEqual([light.diffuse.r, light.diffuse.g, light.diffuse.b], [1, 0.25, 0.045]);
-  assert.deepEqual([light.specular.r, light.specular.g, light.specular.b], [0.42, 0.18, 0.055]);
-  assert.deepEqual([flame.position.x, flame.position.y, flame.position.z],
-    [light.position.x, light.position.y, light.position.z]);
-  assert.equal(flame.isPickable, false);
-  assert.equal(flame.receiveShadows, false);
-  assert.deepEqual([flame.material.emissiveColor.r, flame.material.emissiveColor.g,
-    flame.material.emissiveColor.b], [1, 0.12, 0.015]);
-  assert.equal(debug.snapshot().visibility.effects, 1);
-  assert.equal(room.shadowGenerator.getShadowMap().renderList.length, room.counts().shadowCasters);
-  room.dispose();
-  assert.equal(flame.isDisposed(), true);
-  assert.equal(scene.getMaterialByName("room:torch-flame-material"), null);
-  scene.dispose(); engine.dispose();
-});
+  assert.equal(at(12, 11), ABI.MAP_OPEN, "the old unexplained left cap is floor");
+  assert.equal(at(20, 13), ABI.MAP_OPEN, "the old orphan east cap is floor");
+  assert.equal(at(15, 14), ABI.MAP_SOLID, "the replacement is a closed rectangular wall ring");
+  assert.deepEqual(roomEnvironment.chooseRoomBoundaryWalls(fixture, 17, 11), [
+    { piece: "wall_straight", quarterTurns: 0, offsetX: 0, offsetZ: -0.5 },
+    { piece: "wall_straight", quarterTurns: 0, offsetX: 0, offsetZ: 0.5 },
+  ], "a top run exposes its two continuous architectural faces");
+  assert.deepEqual(roomEnvironment.chooseRoomBoundaryWalls(fixture, 15, 11), [
+    { piece: "wall_straight", quarterTurns: 0, offsetX: 0, offsetZ: -0.5 },
+    { piece: "wall_straight", quarterTurns: 1, offsetX: -0.5, offsetZ: 0 },
+  ], "the north-west corner closes at one shared grid vertex");
+  assert.deepEqual(roomEnvironment.chooseRoomBoundaryWalls(fixture, 18, 11), [],
+    "a published shut door replaces rather than overlaps its wall faces");
+  assert.deepEqual(roomEnvironment.chooseRoomBoundaryWalls(fixture, 18, 15), [],
+    "a published open door remains an explicit opening rather than floor-edge walls");
 
-test("fog_only_completes_the_opposite_side_of_a_known_single_axis_wall", () => {
-  const centre = (north, east, south, west) => {
-    const neighbours = [north, east, south, west];
-    const map = new Array(9).fill(ABI.MAP_OPEN);
-    const vis = new Array(9).fill(2);
-    map[4] = ABI.MAP_SOLID;
-    for (const [at, state] of [[1, north], [5, east], [7, south], [3, west]]) {
-      if (state === "solid") map[at] = ABI.MAP_SOLID;
-      if (state === "unknown") { map[at] = ABI.MAP_UNKNOWN; vis[at] = 0; }
-    }
-    return snapshot({ mapCols: 3, mapRows: 3,
-      map: Object.freeze(map), vis: Object.freeze(vis) });
+  const endpointDegree = new Map();
+  const addEndpoint = (x, z) => {
+    const key = x + ":" + z;
+    endpointDegree.set(key, (endpointDegree.get(key) ?? 0) + 1);
   };
-  assert.deepEqual(roomEnvironment.chooseRoomWall(
-    centre("unknown", "solid", "unknown", "solid"), 1, 1),
-  [{ piece: "wall_straight", quarterTurns: 0 }],
-  "unknown perpendicular cells never become teeth on a visible E+W run");
-  assert.deepEqual(roomEnvironment.chooseRoomWall(
-    centre("open", "solid", "open", "unknown"), 1, 1),
-  [{ piece: "wall_straight", quarterTurns: 0 }],
-  "one unknown opposite cell may continue a known single-axis run");
-  assert.deepEqual(roomEnvironment.chooseRoomWall(
-    centre("solid", "solid", "unknown", "unknown"), 1, 1),
-  [{ piece: "wall_inside", quarterTurns: 1 }],
-  "unknown cells never promote a known L into a T or cross");
+  let wallFaces = 0;
+  for (let ty = 0; ty < fixture.mapRows; ty++) for (let tx = 0; tx < fixture.mapCols; tx++) {
+    for (const wall of roomEnvironment.chooseRoomBoundaryWalls(fixture, tx, ty)) {
+      wallFaces++;
+      if (wall.quarterTurns === 0) {
+        const z = ty + 0.5 + wall.offsetZ;
+        addEndpoint(tx, z); addEndpoint(tx + 1, z);
+      } else {
+        const x = tx + 0.5 + wall.offsetX;
+        addEndpoint(x, ty); addEndpoint(x, ty + 1);
+      }
+    }
+  }
+  // Each one-tile doorway has a frame on both exposed faces. Those exact
+  // segments close the boundary graph where ordinary wall faces are suppressed.
+  for (const [tx, ty] of [[18, 11], [18, 15]]) {
+    addEndpoint(tx, ty); addEndpoint(tx + 1, ty);
+    addEndpoint(tx, ty + 1); addEndpoint(tx + 1, ty + 1);
+  }
+  assert.equal(wallFaces, 188);
+  assert.deepEqual([...endpointDegree.entries()].filter(([, degree]) => degree !== 2), [],
+    "every visible boundary vertex has degree two: no orphan cap or unexplained gap");
 });
 
-test("a_frontier_wall_completes_its_topology_without_drawing_the_fog", async () => {
-  // The sharpened fog rule, bounded from both sides: an undisclosed cell only
-  // opposite one known neighbour continues that axis, so the exploration
-  // frontier does not create a stub. A disclosed open opposite still ends the
-  // run, and the undisclosed tile itself still draws nothing.
-  const row = (visEast, mapEast = ABI.MAP_UNKNOWN) => snapshot({ mapCols: 3, mapRows: 1,
-    map: Object.freeze([ABI.MAP_SOLID, ABI.MAP_SOLID, mapEast]),
-    vis: Object.freeze([2, 2, visEast]) });
-  assert.deepEqual(roomEnvironment.chooseRoomWall(row(0), 1, 0),
-    [{ piece: "wall_straight", quarterTurns: 0 }]);
-  assert.deepEqual(roomEnvironment.chooseRoomWall(row(2, ABI.MAP_OPEN), 1, 0),
-    [{ piece: "wall_end", quarterTurns: 2 }]);
-  assert.deepEqual(roomEnvironment.chooseRoomWall(snapshot({ mapCols: 1, mapRows: 3,
-    map: Object.freeze([ABI.MAP_SOLID, ABI.MAP_SOLID, ABI.MAP_UNKNOWN]),
-    vis: Object.freeze([2, 2, 0]) }), 0, 1),
-  [{ piece: "wall_straight", quarterTurns: 1 }]);
+test("boundary_faces_require_a_disclosed_solid_open_interface_and_fog_never_draws", () => {
+  const disclosed = snapshot({ mapCols: 3, mapRows: 1,
+    map: Object.freeze([ABI.MAP_SOLID, ABI.MAP_OPEN, ABI.MAP_UNKNOWN]),
+    vis: Object.freeze([2, 2, 0]) });
+  assert.deepEqual(roomEnvironment.chooseRoomBoundaryWalls(disclosed, 0, 0), [
+    { piece: "wall_straight", quarterTurns: 1, offsetX: 0.5, offsetZ: 0 },
+  ]);
+  assert.deepEqual(roomEnvironment.chooseRoomBoundaryWalls(disclosed, 1, 0), []);
+  assert.deepEqual(roomEnvironment.chooseRoomBoundaryWalls(disclosed, 2, 0), []);
+  const frontier = snapshot({ mapCols: 2, mapRows: 1,
+    map: Object.freeze([ABI.MAP_SOLID, ABI.MAP_UNKNOWN]),
+    vis: Object.freeze([2, 0]) });
+  assert.deepEqual(roomEnvironment.chooseRoomBoundaryWalls(frontier, 0, 0), [],
+    "fog neither becomes a wall face nor invents an opening behind it");
+});
+
+test("door_frames_follow_horizontal_and_vertical_runs_and_replace_boundary_faces", async () => {
   const { NullEngine } = await import("@babylonjs/core/Engines/nullEngine.js");
   const { Scene } = await import("@babylonjs/core/scene.js");
   const engine = new NullEngine(); const scene = new Scene(engine);
   const debug = new rendererDebug.RendererDebugRegistry();
-  const room = new roomEnvironment.RoomEnvironmentPresentation(scene, debug, await fakeRoomAsset(scene));
-  room.acceptSnapshot(row(0));
-  assert.deepEqual(room.keys().filter((key) => key.endsWith(":wall")),
-    ["tile:0:0:wall", "tile:1:0:wall"]);
-  assert.equal(room.keys().some((key) => key.startsWith("tile:2:0")), false,
-    "fog may complete one known axis but never becomes a drawn tile");
+  const map = new Array(25).fill(ABI.MAP_OPEN);
+  for (const [tx, ty] of [[0, 1], [2, 1], [3, 1], [3, 3]]) map[ty * 5 + tx] = ABI.MAP_SOLID;
+  const horizontal = Object.freeze({ key: `${ABI.FURNITURE_DOOR}:1:1`,
+    kind: ABI.FURNITURE_DOOR, tx: 1, ty: 1, state: ABI.FURNITURE_DOOR_SHUT });
+  const vertical = Object.freeze({ key: `${ABI.FURNITURE_DOOR}:3:2`,
+    kind: ABI.FURNITURE_DOOR, tx: 3, ty: 2, state: ABI.FURNITURE_DOOR_OPEN });
+  const world = snapshot({ mapCols: 5, mapRows: 5, map: Object.freeze(map),
+    vis: Object.freeze(new Array(25).fill(2)), furniture: Object.freeze([horizontal, vertical]) });
+  assert.deepEqual(roomEnvironment.chooseRoomBoundaryWalls(world, 0, 1)
+    .filter(({ offsetX }) => offsetX === 0.5), [],
+    "the horizontal published door suppresses the neighbouring solid face");
+  assert.deepEqual(roomEnvironment.chooseRoomBoundaryWalls(world, 3, 1)
+    .filter(({ offsetZ }) => offsetZ === 0.5), [],
+    "the vertical published door suppresses the neighbouring solid face");
+  const room = new roomEnvironment.RoomEnvironmentPresentation(
+    scene, debug, await fakeRoomAsset(scene));
+  room.acceptSnapshot(world);
+  const mesh = (door, suffix) => scene.getMeshByName(`room:furniture:${door.key}:${suffix}`);
+  assert.deepEqual(["frame:0", "frame:1"].map((suffix) => {
+    const item = mesh(horizontal, suffix);
+    return [item.position.x, item.position.z, item.rotation.y];
+  }), [[1.5, 1, 0], [1.5, 2, 0]]);
+  assert.equal(mesh(horizontal, "leaf").rotation.y, 0);
+  assert.deepEqual(["frame:0", "frame:1"].map((suffix) => {
+    const item = mesh(vertical, suffix);
+    return [item.position.x, item.position.z, item.rotation.y];
+  }), [[3, 2.5, Math.PI / 2], [4, 2.5, Math.PI / 2]]);
+  assert.equal(mesh(vertical, "leaf").rotation.y, Math.PI,
+    "an open vertical leaf turns one more quarter around its vertical frame");
   room.dispose(); scene.dispose(); engine.dispose();
 });
 
 test("the_fixed_room_stress_fixture_has_the_named_asset_hash_population_and_piece_counts", async () => {
   const { createHash } = await import("node:crypto");
   const fixture = roomStress.createRoomStressFixture();
-  assert.deepEqual([fixture.mapCols, fixture.mapRows, fixture.map.length, fixture.units.length], [48, 32, 1536, 64]);
-  assert.equal(fixture.map.filter((value) => value === ABI.MAP_SOLID).length, 176);
+  assert.deepEqual([fixture.mapCols, fixture.mapRows, fixture.map.length, fixture.units.length],
+    [48, 32, 1536, 64]);
+  assert.equal(fixture.map.filter((value) => value === ABI.MAP_SOLID).length, 175);
   const floors = { floor_a: 0, floor_b: 0 };
+  const walls = { wall_straight: 0, wall_inside: 0, wall_outside: 0, wall_end: 0 };
   for (let ty = 0; ty < fixture.mapRows; ty++) for (let tx = 0; tx < fixture.mapCols; tx++) {
     floors[roomEnvironment.chooseRoomFloor(fixture.generatorSeed, tx, ty)]++;
+    for (const wall of roomEnvironment.chooseRoomBoundaryWalls(fixture, tx, ty)) walls[wall.piece]++;
   }
   assert.deepEqual(floors, { floor_a: 768, floor_b: 768 });
-  // Exact cardinal-mask census: one joined authored source per solid tile --
-  // 160 opposite-neighbour straights, 4 adjacent-neighbour corners, 8 tees,
-  // and 4 directional capped ends. No representative mask is a cross.
-  const walls = { wall_straight: 0, wall_inside: 0, wall_outside: 0, wall_end: 0 };
-  let wallInstances = 0;
-  for (let ty = 0; ty < fixture.mapRows; ty++) for (let tx = 0; tx < fixture.mapCols; tx++) {
-    if (fixture.map[ty * fixture.mapCols + tx] === ABI.MAP_SOLID) {
-      for (const wall of roomEnvironment.chooseRoomWall(fixture, tx, ty)) {
-        walls[wall.piece]++;
-        wallInstances++;
-      }
-    }
-  }
-  assert.deepEqual(walls, { wall_straight: 160, wall_inside: 4, wall_outside: 8, wall_end: 4 });
-  assert.equal(wallInstances, 176);
+  assert.deepEqual(walls, { wall_straight: 188, wall_inside: 0, wall_outside: 0, wall_end: 0 });
   assert.deepEqual(Object.fromEntries(["decal_rubble", "decal_root", "prop_barrel"].map((piece) =>
     [piece, fixture.roomDecorations.filter((item) => item.piece === piece).length])),
     { decal_rubble: 4, decal_root: 4, prop_barrel: 4 });
-  assert.deepEqual(fixture.pieceCounts, { floor_a: 768, floor_b: 768, wall_straight: 160,
-    wall_inside: 4, wall_outside: 8, wall_end: 4, door_frame: 2, door_leaf: 2,
+  assert.deepEqual(fixture.pieceCounts, { floor_a: 768, floor_b: 768, wall_straight: 188,
+    wall_inside: 0, wall_outside: 0, wall_end: 0, door_frame: 4, door_leaf: 2,
     torch_bracket: 8, decal_rubble: 4, decal_root: 4, prop_barrel: 4 });
-  assert.equal(createHash("sha256").update(Buffer.from(fixture.map)).digest("hex"), roomStress.ROOM_STRESS_MAP_SHA256);
+  assert.equal(createHash("sha256").update(Buffer.from(fixture.map)).digest("hex"),
+    roomStress.ROOM_STRESS_MAP_SHA256);
 
   const { NullEngine } = await import("@babylonjs/core/Engines/nullEngine.js");
   const { Scene } = await import("@babylonjs/core/scene.js");
@@ -1279,11 +1219,11 @@ test("the_fixed_room_stress_fixture_has_the_named_asset_hash_population_and_piec
   const debug = new rendererDebug.RendererDebugRegistry();
   const room = new roomEnvironment.RoomEnvironmentPresentation(scene, debug, await fakeRoomAsset(scene));
   room.acceptSnapshot(fixture);
-  // 1536 floors + 176 wall instances; the 24 furniture instances and 22
-  // furniture keys are unchanged. All four authored wall sources are now live.
-  assert.deepEqual(room.counts(), { geometry: 1712, furniture: 22, instances: 1736,
-    lights: 9, shadowCasters: 1736, triangles: room.counts().triangles });
-  assert.equal(debug.snapshot().draws, 20);
+  // 1536 floors + 188 exposed boundary faces. Furniture has 22 semantic
+  // records but 26 instances because each doorway owns two face-aligned frames.
+  assert.deepEqual(room.counts(), { geometry: 1724, furniture: 22, instances: 1750,
+    lights: 9, shadowCasters: 1750, triangles: room.counts().triangles });
+  assert.equal(debug.snapshot().draws, 17);
   assert.equal(debug.snapshot().visibility.effects, 8);
   assert.equal(debug.snapshot().visibility.picking, 1558);
   const before = scene.meshes.filter((mesh) => mesh.name.startsWith("room:") && mesh.sourceMesh);
@@ -1323,10 +1263,10 @@ test("the_compact_room_review_fixture_is_not_the_performance_stress_fixture", as
   const debug = new rendererDebug.RendererDebugRegistry();
   const room = new roomEnvironment.RoomEnvironmentPresentation(scene, debug, await fakeRoomAsset(scene));
   room.acceptSnapshot(fixture);
-  // 160 floors + 48 wall instances: every perimeter tile is one joined
-  // authored source, including the four L corners.
-  assert.deepEqual(room.counts(), { geometry: 208, furniture: 18, instances: 228,
-    lights: 5, shadowCasters: 228, triangles: room.counts().triangles });
+  // 160 floors + 42 exposed boundary faces. The two doorway records
+  // suppress ordinary faces and each contribute two face-aligned frames.
+  assert.deepEqual(room.counts(), { geometry: 202, furniture: 18, instances: 224,
+    lights: 5, shadowCasters: 224, triangles: room.counts().triangles });
   assert.equal(scene.lights.length, 6, "review fill is separate from the room key and four torches");
   assert.deepEqual([scene.clearColor.r, scene.clearColor.g, scene.clearColor.b, scene.clearColor.a],
     [0.012, 0.016, 0.032, 1]);
@@ -4759,50 +4699,28 @@ function roomFetcher(absent = null) {
   };
 }
 
-test("the_arena_room_lays_the_kit_out_by_the_same_rule_the_greybox_does", () => {
-  // **`#/arena` may not import `render/room-environment.ts`.** Its tile codes
-  // come from `protocol/abi.generated.ts`, and
-  // `the_arena_and_the_fight_modules_reach_neither_the_worker_nor_the_wasm` in
-  // `studio-shell.test.mjs` keeps the arena clear of the worker and the wasm ABI
-  // so that `npm run view` is enough to open a recorded fight -- and the import
-  // would drag `RoomEnvironmentPresentation`, its lights and its shadow generator
-  // along with it. So `arenaFloor` and `arenaWall` restate the two rules, and
-  // this is what stops the restatement drifting: both are run against the
-  // greybox's own functions over **every** tile of the grid the arena builds,
-  // rather than over a sample.
+test("the_arena_room_lays_one_closed_joined_source_per_synthetic_ring_tile", () => {
   const tiles = arenaEnvironment.arenaTiles(fightHeader());
   assert.deepEqual(tiles, { cols: 26, rows: 18 });
-  const map = new Array(tiles.cols * tiles.rows).fill(ABI.MAP_OPEN);
-  for (let ty = 0; ty < tiles.rows; ty++) for (let tx = 0; tx < tiles.cols; tx++) {
-    if (tx === 0 || ty === 0 || tx === tiles.cols - 1 || ty === tiles.rows - 1) {
-      map[ty * tiles.cols + tx] = ABI.MAP_SOLID;
-    }
-  }
-  const world = snapshot({ mapCols: tiles.cols, mapRows: tiles.rows,
-    map: Object.freeze(map), vis: Object.freeze(new Array(map.length).fill(2)) });
   let ring = 0;
   let floors = 0;
   const pieces = new Map();
   for (let ty = 0; ty < tiles.rows; ty++) for (let tx = 0; tx < tiles.cols; tx++) {
     floors++;
-    // The kit's own generator seed, so the a/b alternation is the one the room
-    // was authored and reviewed with rather than a second pattern beside it.
     assert.equal(arenaEnvironment.arenaFloor(tx, ty),
       roomEnvironment.chooseRoomFloor(1592594996, tx, ty), `floor ${tx},${ty}`);
-    if (map[ty * tiles.cols + tx] !== ABI.MAP_SOLID) continue;
+    const onRing = tx === 0 || ty === 0 || tx === tiles.cols - 1 || ty === tiles.rows - 1;
+    if (!onRing) continue;
     ring++;
     const mine = arenaEnvironment.arenaWall(tx, ty, tiles);
-    assert.deepEqual(mine, roomEnvironment.chooseRoomWall(world, tx, ty), `tile ${tx},${ty}`);
+    assert.equal(mine.length, 1, `ring tile ${tx},${ty} must be one joined source`);
     for (const wall of mine) pieces.set(wall.piece, (pieces.get(wall.piece) ?? 0) + 1);
   }
   assert.equal(floors, 26 * 18);
   assert.equal(ring, 2 * (26 + 18) - 4);
-  // Both variants are actually used, so a rule that had collapsed to one piece
-  // would fail here rather than pass as "the same answer both ways".
   const variants = new Set(Array.from({ length: tiles.cols * tiles.rows },
     (_, index) => arenaEnvironment.arenaFloor(index % tiles.cols, Math.floor(index / tiles.cols))));
   assert.deepEqual([...variants].sort(), ["floor_a", "floor_b"]);
-  // A rectangle is eighty straight tiles and four joined authored corners.
   assert.deepEqual([...pieces.entries()].sort(),
     [["wall_inside", 4], ["wall_straight", ring - 4]]);
 });

@@ -32,11 +32,6 @@ export type RoomEnvironmentCounts = Readonly<{
   triangles: number;
 }>;
 
-export type RoomWallSelection = Readonly<{
-  piece: Extract<RoomPieceName, "wall_straight" | "wall_inside" | "wall_outside" | "wall_end">;
-  quarterTurns: 0 | 1 | 2 | 3;
-}>;
-
 type SpatialInstance = Readonly<{
   key: string;
   semanticKey: string;
@@ -48,80 +43,73 @@ type SpatialInstance = Readonly<{
 
 const tileIndex = (cols: number, tx: number, ty: number): number => ty * cols + tx;
 
-type TopologyNeighbour = "solid" | "open" | "unknown";
-
-/**
- * Fog never becomes a drawn tile and never invents a perpendicular arm. An
- * unknown cell may only continue the opposite side of one known neighbour,
- * turning a frontier end into the straight run the known axis already implies.
- * Two or more known neighbours determine their own exact L/T/straight shape;
- * promoting those from fog was the narrow-tooth defect caught in browser QA.
- * Off-map and disclosed non-solid cells stay open.
- */
-function topologyNeighbour(
-  snapshot: PresentationSnapshot, tx: number, ty: number,
-): TopologyNeighbour {
-  if (tx < 0 || ty < 0 || tx >= snapshot.mapCols || ty >= snapshot.mapRows) return "open";
-  const at = tileIndex(snapshot.mapCols, tx, ty);
-  if (snapshot.vis[at] === 0) return "unknown";
-  return snapshot.map[at] === MAP_SOLID ? "solid" : "open";
-}
-
 export function chooseRoomFloor(seed: number, tx: number, ty: number): "floor_a" | "floor_b" {
   const value = (seed + Math.imul(tx, 0x9e3779b1) + Math.imul(ty, 0x85ebca6b)) >>> 0;
   return (Math.imul(value, 0xc2b2ae35) >>> 0) & 1 ? "floor_b" : "floor_a";
 }
 
-export function chooseRoomWall(snapshot: PresentationSnapshot, tx: number, ty: number): readonly RoomWallSelection[] {
-  const neighbours = [
-    topologyNeighbour(snapshot, tx, ty - 1), topologyNeighbour(snapshot, tx + 1, ty),
-    topologyNeighbour(snapshot, tx, ty + 1), topologyNeighbour(snapshot, tx - 1, ty),
-  ] as const;
-  let mask = neighbours.reduce(
-    (sum, value, bit) => sum | (value === "solid" ? 1 << bit : 0), 0,
-  );
-  // Only a known single-axis end may borrow its opposite unknown cell. Unknown
-  // perpendiculars never promote a straight to a T or an L to a T/cross.
-  if (mask !== 0 && (mask & (mask - 1)) === 0) {
-    const knownSide = [0, 1, 2, 3].find((bit) => (mask & (1 << bit)) !== 0);
-    if (knownSide !== undefined) {
-      const opposite = (knownSide + 2) % 4;
-      if (neighbours[opposite] === "unknown") mask |= 1 << opposite;
-    }
-  }
-  const one = (
-    piece: RoomWallSelection["piece"], quarterTurns: RoomWallSelection["quarterTurns"],
-  ): readonly RoomWallSelection[] =>
-    Object.freeze([Object.freeze({ piece, quarterTurns })]);
-  // Canonical authored openings before rotation are straight E+W, inside E+S,
-  // outside E+S+W, and end E. Babylon quarter turns rotate those openings
-  // counter-clockwise through the map's N/E/S/W mask. Every representative
-  // supported mask therefore places one joined source; only the synthetic
-  // four-way cross needs two perpendicular full runs. Mask zero does not occur
-  // in either shipped fixture. Its straight is an explicit diagnostic sentinel,
-  // not a claim that an isolated tile is closed; if gameplay gains isolated
-  // solids, the authored kit must gain a fully capped core.
-  switch (mask) {
-    case 0: return one("wall_straight", 0);
-    case 1: return one("wall_end", 1);
-    case 2: return one("wall_end", 0);
-    case 3: return one("wall_inside", 1);
-    case 4: return one("wall_end", 3);
-    case 5: return one("wall_straight", 1);
-    case 6: return one("wall_inside", 0);
-    case 7: return one("wall_outside", 1);
-    case 8: return one("wall_end", 2);
-    case 9: return one("wall_inside", 2);
-    case 10: return one("wall_straight", 0);
-    case 11: return one("wall_outside", 2);
-    case 12: return one("wall_inside", 3);
-    case 13: return one("wall_outside", 3);
-    case 14: return one("wall_outside", 0);
-    default: return Object.freeze([
-      Object.freeze({ piece: "wall_straight", quarterTurns: 0 } as const),
-      Object.freeze({ piece: "wall_straight", quarterTurns: 1 } as const),
-    ]);
-  }
+export type RoomBoundaryWallSelection = Readonly<{
+  piece: "wall_straight";
+  quarterTurns: 0 | 1;
+  offsetX: -0.5 | 0 | 0.5;
+  offsetZ: -0.5 | 0 | 0.5;
+}>;
+
+const inMap = (snapshot: PresentationSnapshot, tx: number, ty: number): boolean =>
+  tx >= 0 && ty >= 0 && tx < snapshot.mapCols && ty < snapshot.mapRows;
+
+function publishedDoorCells(snapshot: PresentationSnapshot): ReadonlySet<string> {
+  return new Set(snapshot.furniture.filter((item) => item.kind === FURNITURE_DOOR &&
+    item.key === `${item.kind}:${item.tx}:${item.ty}` && inMap(snapshot, item.tx, item.ty))
+    .map((item) => `${item.tx}:${item.ty}`));
+}
+
+/**
+ * The map's solid cells are masonry volume, not a graph whose centres are wall
+ * axes. Render only disclosed solid/open interfaces. Adjacent one-tile faces
+ * meet at integer grid vertices, so a corner is closed by construction rather
+ * than by guessing an L/T silhouette from the solid cells behind it.
+ */
+export function chooseRoomBoundaryWalls(
+  snapshot: PresentationSnapshot, tx: number, ty: number,
+): readonly RoomBoundaryWallSelection[] {
+  if (!inMap(snapshot, tx, ty)) return Object.freeze([]);
+  const at = tileIndex(snapshot.mapCols, tx, ty);
+  const doors = publishedDoorCells(snapshot);
+  if ((snapshot.vis[at] !== 1 && snapshot.vis[at] !== 2) ||
+      snapshot.map[at] !== MAP_SOLID || doors.has(`${tx}:${ty}`)) return Object.freeze([]);
+  const open = (x: number, y: number): boolean => {
+    if (!inMap(snapshot, x, y) || doors.has(`${x}:${y}`)) return false;
+    const index = tileIndex(snapshot.mapCols, x, y);
+    return (snapshot.vis[index] === 1 || snapshot.vis[index] === 2) && snapshot.map[index] === MAP_OPEN;
+  };
+  const walls: RoomBoundaryWallSelection[] = [];
+  if (open(tx, ty - 1)) walls.push(Object.freeze({
+    piece: "wall_straight", quarterTurns: 0, offsetX: 0, offsetZ: -0.5,
+  }));
+  if (open(tx + 1, ty)) walls.push(Object.freeze({
+    piece: "wall_straight", quarterTurns: 1, offsetX: 0.5, offsetZ: 0,
+  }));
+  if (open(tx, ty + 1)) walls.push(Object.freeze({
+    piece: "wall_straight", quarterTurns: 0, offsetX: 0, offsetZ: 0.5,
+  }));
+  if (open(tx - 1, ty)) walls.push(Object.freeze({
+    piece: "wall_straight", quarterTurns: 1, offsetX: -0.5, offsetZ: 0,
+  }));
+  return Object.freeze(walls);
+}
+
+function doorQuarterTurns(snapshot: PresentationSnapshot, item: PresentationFurniture): 0 | 1 {
+  const doors = publishedDoorCells(snapshot);
+  const door = (x: number, y: number): boolean => doors.has(`${x}:${y}`);
+  if (door(item.tx - 1, item.ty) || door(item.tx + 1, item.ty)) return 0;
+  if (door(item.tx, item.ty - 1) || door(item.tx, item.ty + 1)) return 1;
+  const solid = (x: number, y: number): boolean => inMap(snapshot, x, y) &&
+    snapshot.map[tileIndex(snapshot.mapCols, x, y)] === MAP_SOLID && !door(x, y);
+  const horizontal = Number(solid(item.tx - 1, item.ty)) + Number(solid(item.tx + 1, item.ty));
+  const vertical = Number(solid(item.tx, item.ty - 1)) + Number(solid(item.tx, item.ty + 1));
+  if (vertical > horizontal) return 1;
+  return 0;
 }
 
 export class RoomEnvironmentPresentation {
@@ -246,14 +234,11 @@ export class RoomEnvironmentPresentation {
         this.#add(this.#geometry, `${semanticKey}:floor`, semanticKey,
           chooseRoomFloor(this.#seed, tx, ty), tx, ty, 0, current, false, current);
         if (map === MAP_SOLID) {
-          const walls = chooseRoomWall(snapshot, tx, ty);
-          for (const wall of walls) {
-            // Only a synthetic four-way cross has two runs on one tile. The
-            // axis suffix keeps those keys distinct while every representative
-            // joined piece keeps the bare `:wall` key used by picks and tests.
-            const suffix = walls.length === 1 ? "" : wall.quarterTurns === 0 ? ":x" : ":z";
-            this.#add(this.#geometry, `${semanticKey}:wall${suffix}`, semanticKey,
-              wall.piece, tx, ty, wall.quarterTurns, current, false, false);
+          for (const wall of chooseRoomBoundaryWalls(snapshot, tx, ty)) {
+            const suffix = `${wall.offsetX}:${wall.offsetZ}`;
+            this.#add(this.#geometry, `${semanticKey}:wall:${suffix}`, semanticKey,
+              wall.piece, tx, ty, wall.quarterTurns, current, false, false,
+              wall.offsetX, wall.offsetZ);
           }
         }
       }
@@ -316,10 +301,16 @@ export class RoomEnvironmentPresentation {
     if (item.kind === FURNITURE_DOOR && (item.state === FURNITURE_DOOR_SHUT || item.state === FURNITURE_DOOR_OPEN)) {
       const semanticKey = `furniture:${item.key}`;
       this.#furnitureKeys.add(semanticKey);
-      this.#add(this.#furniture, `${semanticKey}:frame`, semanticKey,
-        "door_frame", item.tx, item.ty, 0, true, true, true);
+      const turns = doorQuarterTurns(snapshot, item);
+      const frameOffsets = turns === 0
+        ? [[0, -0.5], [0, 0.5]] as const
+        : [[-0.5, 0], [0.5, 0]] as const;
+      for (const [index, [offsetX, offsetZ]] of frameOffsets.entries()) {
+        this.#add(this.#furniture, `${semanticKey}:frame:${index}`, semanticKey,
+          "door_frame", item.tx, item.ty, turns, true, true, true, offsetX, offsetZ);
+      }
       this.#add(this.#furniture, `${semanticKey}:leaf`, semanticKey, "door_leaf", item.tx, item.ty,
-        item.state === FURNITURE_DOOR_OPEN ? 1 : 0, true, true, false);
+        turns + (item.state === FURNITURE_DOOR_OPEN ? 1 : 0), true, true, false);
       return;
     }
     if (item.kind !== FURNITURE_TORCH || (item.state !== TORCH_FACE_POS_X && item.state !== TORCH_FACE_POS_Y)) return;
@@ -377,15 +368,16 @@ export class RoomEnvironmentPresentation {
   }
 
   #add(target: SpatialInstance[], key: string, semanticKey: string, piece: RoomPieceName,
-    tx: number, ty: number, turns: number, current: boolean, furniture: boolean, pickable: boolean): InstancedMesh {
+    tx: number, ty: number, turns: number, current: boolean, furniture: boolean, pickable: boolean,
+    offsetX = 0, offsetZ = 0): InstancedMesh {
     const source = current ? this.#asset.pieces.get(piece) : this.#rememberedSources.get(piece);
     if (source === undefined) throw new Error(`room asset lacks ${piece}`);
     const allowed = this.#asset.sidecar.pieces.find((entry) => entry.name === piece)?.allowedQuarterTurns;
     const quarterTurns = ((turns % 4) + 4) % 4 as 0 | 1 | 2 | 3;
     if (allowed === undefined || !allowed.includes(quarterTurns)) throw new Error(`${piece} rejects quarter turn ${quarterTurns}`);
     const mesh = source.createInstance(`room:${key}`);
-    mesh.position.set((tx + 0.5) * this.#asset.sidecar.coordinates.tileSize, 0,
-      (ty + 0.5) * this.#asset.sidecar.coordinates.tileSize);
+    mesh.position.set((tx + 0.5 + offsetX) * this.#asset.sidecar.coordinates.tileSize, 0,
+      (ty + 0.5 + offsetZ) * this.#asset.sidecar.coordinates.tileSize);
     mesh.rotation.y = quarterTurns * QUARTER_TURN;
     mesh.isVisible = true;
     mesh.isPickable = pickable;

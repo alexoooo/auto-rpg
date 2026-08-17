@@ -103,29 +103,15 @@ const onRing = (tx: number, ty: number, tiles: ArenaTiles): boolean =>
   && (tx === 0 || ty === 0 || tx === tiles.cols - 1 || ty === tiles.rows - 1);
 
 /**
- * Which floor variant a tile takes, and which wall piece stands on the ring.
+ * Which floor variant a tile takes, and which joined wall piece stands on the
+ * arena's synthetic perimeter ring.
  *
- * **`render/room-environment.ts`'s two rules, restated over a rectangle, and
- * neither of them is trusted to stay restated.** The reason they are copied at
- * all is an import boundary that this page is not allowed to cross:
- * `chooseRoomWall` reads a `PresentationSnapshot` whose tile codes come from
- * `protocol/abi.generated.ts`, and
- * `the_arena_and_the_fight_modules_reach_neither_the_worker_nor_the_wasm` in
- * `studio-shell.test.mjs` keeps `#/arena` clear of the worker and the wasm ABI so
- * that `npm run view` -- Vite with no wasm build at all -- is enough to open a
- * recorded fight. Importing either function pulls that module in transitively,
- * and with it the whole `RoomEnvironmentPresentation`, its lights and its
- * shadow generator, into a chunk that wanted three lines of arithmetic.
- *
- * So the pin is the test rather than the import:
- * `the_arena_room_lays_the_kit_out_by_the_same_rule_the_greybox_does` runs the
- * greybox's own `chooseRoomFloor` and `chooseRoomWall` over an equivalent
- * snapshot for **every tile of the grid the arena actually builds** -- 468 floors
- * and 84 walls -- and requires the same piece and the same quarter turn on all of
- * them. A change to either rule that is not mirrored here fails there.
- *
- * The neighbour order below is `chooseRoomWall`'s -- north, east, south, west --
- * because the quarter turns are stated in it.
+ * The floor hash remains identical to the game room's authored floor rule. The
+ * wall rule is intentionally arena-local: a fight header publishes a rectangle,
+ * not MAP_SOLID masonry volume and MAP_OPEN walkable space, so this closed
+ * centreline ring does not use the game's exposed-boundary composition. Keeping
+ * those models distinct prevents an arena layout fixture from redefining the
+ * architecture drawn by #/game.
  */
 export function arenaFloor(tx: number, ty: number): Extract<RoomPieceName, "floor_a" | "floor_b"> {
   const value = (ROOM_FIXTURE_SEED + Math.imul(tx, 0x9e3779b1) + Math.imul(ty, 0x85ebca6b)) >>> 0;
@@ -400,10 +386,10 @@ export class ArenaEnvironment {
    * scene `(x, -z)`, so its rectangle occupies scene `z` in `[-depth, 0]`; the
    * kit is authored `+X`/`+Z` on the ground with its origin at a tile centre.
    * Laying tile `ty` at `z = ty + 0.5 - depth - margin` keeps the kit's own `+z`
-   * pointing the way it was authored -- which is what `chooseRoomWall`'s quarter
-   * turns are stated in -- and lands the whole grid over the arena. Mirroring the
-   * grid instead would turn every authored corner inside out, which is the same
-   * class of bug the arena's own axis mapping exists to avoid.
+   * pointing the way its arena-ring quarter turns are stated and lands the
+   * whole grid over the arena. Mirroring the grid instead would turn every
+   * authored corner inside out, which is the same class of bug the arena's own
+   * axis mapping exists to avoid.
    */
   #authored(tiles: ArenaTiles, depth: number): void {
     const room = this.#room;

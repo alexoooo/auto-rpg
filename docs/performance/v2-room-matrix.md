@@ -126,7 +126,7 @@ but every performance capture requires fixed mode and rejects free mode.
 | Stone modeling | fail | fail | Repetition at 48 x 32 reads as a dense mass rather than a composed room. |
 | Material response | fail | fail | Stone and wood are too dark to separate reliably from the playfield. |
 | Fixture-origin light | fail | fail | Torch accents do not establish readable local hierarchy. |
-| Join coherence | pass on the auto-selected live route | pending forced-WebGL2 re-review | The screenshot reopened this criterion after crossing straights left broken vertical runs, missing L/T junctions, floating end posts, and fog-created perpendicular teeth. On 2026-08-16 a fresh `#/game` reload reached Worker + representative-room ready with no console warning/error; long runs were continuous, L/T centres filled, directional ends full/capped, and the fog teeth absent. This is a topology/readability pass only, not an rAF, frame-time, or forced-backend claim. |
+| Join coherence | fail -- reopened | pending forced-WebGL2 re-review | A second 2026-08-16 screenshot refuted the earlier closure: although local mesh joins and fog teeth were repaired, the stress fixture still composed an arbitrary centreline graph at row 11 x12..21, row 12 x15/x17/x18, row 13 x15..20, and row 14 x15. Only (12,11) and (21,11) were doors; the remaining apparent passages, capped columns, and absent architectural corners were renderer/fixture inventions. Boundary-face composition and true door replacement now own this criterion; no new pass is claimed before another screenshot. |
 | Depth readability | fail | fail | The authored room collapses into broad dark/purple regions. |
 | Silhouette contrast | fail | fail | Bright unit markers dominate while room silhouettes recede. |
 

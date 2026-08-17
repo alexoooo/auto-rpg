@@ -11,16 +11,15 @@ export const ROOM_STRESS_CSS_WIDTH = 1920;
 export const ROOM_STRESS_CSS_HEIGHT = 1080;
 export const ROOM_STRESS_WARMUP_MS = 30_000;
 export const ROOM_STRESS_SAMPLE_MS = 120_000;
-export const ROOM_STRESS_MAP_SHA256 = "1262c7dc5eb359a06db10a06c85e2782237b226e423a903f72441f1dfde18e6c" as const;
+export const ROOM_STRESS_MAP_SHA256 = "a20ba5f64ef55bd7716c2a7cf17f3065619876d1ded2e81b05199b5282222907" as const;
 
-// Exact cardinal-mask census of the committed 48 x 32 map: each of the
-// 176 solid tiles places one joined authored wall source. There are 160
-// opposite-neighbour straights, 4 adjacent-neighbour inside corners, 8 tees,
-// and 4 directional capped ends. The synthetic cross fallback is not reached.
+// Exposed-interface census of the committed 48 x 32 map: 152 faces bound the
+// outer enclosure and 36 bound the closed interior ring after two true doorway
+// cells replace their faces. Each doorway has a frame on both exposed faces.
 export const ROOM_STRESS_PIECE_COUNTS = Object.freeze({
   floor_a: 768, floor_b: 768,
-  wall_straight: 160, wall_inside: 4, wall_outside: 8, wall_end: 4,
-  door_frame: 2, door_leaf: 2, torch_bracket: 8,
+  wall_straight: 188, wall_inside: 0, wall_outside: 0, wall_end: 0,
+  door_frame: 4, door_leaf: 2, torch_bracket: 8,
   decal_rubble: 4, decal_root: 4, prop_barrel: 4,
 });
 
@@ -84,13 +83,18 @@ function fixtureMap(): readonly number[] {
       map[ty * ROOM_STRESS_COLS + tx] = MAP_SOLID;
     }
   }
-  const interior = [
-    [12, 11], [13, 11], [14, 11], [15, 11], [16, 11], [17, 11], [18, 11], [19, 11], [20, 11], [21, 11],
-    [15, 12], [17, 12], [18, 12],
-    [15, 13], [16, 13], [17, 13], [18, 13], [19, 13], [20, 13],
-    [15, 14],
-  ] as const;
-  for (const [tx, ty] of interior) map[ty * ROOM_STRESS_COLS + tx] = MAP_SOLID;
+  // A closed 7 x 5 interior wall ring, not a graph of unexplained posts. The
+  // north door is shut/solid and the south door is open/floor, matching the
+  // live map/furniture ABI rather than drawing an open door over a solid tile.
+  for (let tx = 15; tx <= 21; tx++) {
+    map[11 * ROOM_STRESS_COLS + tx] = MAP_SOLID;
+    map[15 * ROOM_STRESS_COLS + tx] = MAP_SOLID;
+  }
+  for (let ty = 12; ty <= 14; ty++) {
+    map[ty * ROOM_STRESS_COLS + 15] = MAP_SOLID;
+    map[ty * ROOM_STRESS_COLS + 21] = MAP_SOLID;
+  }
+  map[15 * ROOM_STRESS_COLS + 18] = MAP_OPEN;
   return Object.freeze(map);
 }
 
@@ -99,8 +103,8 @@ export function createRoomStressFixture(): RoomStressFixture {
   const vis = Object.freeze(new Array<number>(map.length).fill(2));
   const torches = [[6, 1], [24, 1], [46, 8], [46, 24], [41, 30], [23, 30], [1, 23], [1, 7]] as const;
   const rows: PresentationFurniture[] = [
-    furniture(FURNITURE_DOOR, 12, 11, FURNITURE_DOOR_SHUT),
-    furniture(FURNITURE_DOOR, 21, 11, FURNITURE_DOOR_OPEN),
+    furniture(FURNITURE_DOOR, 18, 11, FURNITURE_DOOR_SHUT),
+    furniture(FURNITURE_DOOR, 18, 15, FURNITURE_DOOR_OPEN),
     ...torches.map(([tx, ty], index) => furniture(FURNITURE_TORCH, tx, ty,
       index % 2 === 0 ? TORCH_FACE_POS_X : TORCH_FACE_POS_Y)),
   ];
@@ -108,7 +112,8 @@ export function createRoomStressFixture(): RoomStressFixture {
   const roomDecorations = Object.freeze(decorationPieces.flatMap((piece, kind) =>
     Array.from({ length: 4 }, (_, index): RoomStressDecoration => Object.freeze({
       key: `${piece}:${index}`, piece,
-      tx: 6 + index * 10, ty: 5 + kind * 5, quarterTurns: (index + kind) % 4 as 0 | 1 | 2 | 3,
+      tx: 6 + index * 10, ty: 5 + kind * 5 + (kind === 2 ? 2 : 0),
+      quarterTurns: (index + kind) % 4 as 0 | 1 | 2 | 3,
     }))));
   return frozen({
     fixtureId: ROOM_STRESS_FIXTURE_ID, generatorSeed: ROOM_STRESS_SEED,

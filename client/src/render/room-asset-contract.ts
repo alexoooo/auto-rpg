@@ -8,9 +8,9 @@ const SHA256 = /^[0-9a-f]{64}$/;
 const MAX_ASSET_JSON_BYTES = 4 * 1024 * 1024;
 export const ROOM_MAX_PAYLOAD_BYTES = 25_165_824;
 export const ROOM_MAX_GPU_BYTES = 268_435_456;
-const ROOM_INSTANCE_BUFFER_BYTES = 222_208;
+const ROOM_INSTANCE_BUFFER_BYTES = 224_000;
 const ROOM_SHADOW_MAP_BYTES = 1024 * 1024 * 4;
-export const ROOM_RUNTIME_MAP_SHA256 = "1262c7dc5eb359a06db10a06c85e2782237b226e423a903f72441f1dfde18e6c" as const;
+export const ROOM_RUNTIME_MAP_SHA256 = "a20ba5f64ef55bd7716c2a7cf17f3065619876d1ded2e81b05199b5282222907" as const;
 
 export type RoomPieceName = typeof PIECE_NAMES[number];
 export type RoomMaterialRole = typeof MATERIAL_ROLES[number];
@@ -61,7 +61,7 @@ export type RoomAssetSidecar = Readonly<{
   runtimeFixture: Readonly<{
     mapSha256: typeof ROOM_RUNTIME_MAP_SHA256;
     mapBytes: 1536;
-    solidTiles: 176;
+    solidTiles: 175;
   }>;
   styling: Readonly<{
     id: "concept-umber-stone-v2";
@@ -245,7 +245,7 @@ export function parseRoomAssetSidecar(bytes: Uint8Array): RoomAssetSidecar {
   const runtimeFixture = Object.freeze({
     mapSha256: literal(runtimeSource.mapSha256, ROOM_RUNTIME_MAP_SHA256, "room sidecar runtime map SHA-256"),
     mapBytes: literal(runtimeSource.mapBytes, 1536, "room sidecar runtime map bytes"),
-    solidTiles: literal(runtimeSource.solidTiles, 176, "room sidecar runtime solid tiles"),
+    solidTiles: literal(runtimeSource.solidTiles, 175, "room sidecar runtime solid tiles"),
   });
   const stylingSource = record(source.styling, "room sidecar styling");
   exactKeys(stylingSource, ["id", "mode", "attribute", "textures"], "room sidecar styling");
