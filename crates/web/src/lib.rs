@@ -6787,6 +6787,20 @@ pub extern "C" fn exact_trajectory_state_digest_hi() -> u32 {
 }
 
 #[cfg(feature = "cartesian-recoil")]
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn exact_segment_shield_debug_word_lo(at: u32) -> u32 {
+    sim::combat::contact::exact_segment_shield_debug_word(at as usize) as u32
+}
+
+#[cfg(feature = "cartesian-recoil")]
+#[allow(unsafe_code)]
+#[no_mangle]
+pub extern "C" fn exact_segment_shield_debug_word_hi(at: u32) -> u32 {
+    (sim::combat::contact::exact_segment_shield_debug_word(at as usize) >> 32) as u32
+}
+
+#[cfg(feature = "cartesian-recoil")]
 fn lifted_coulomb_solver_digest() -> u64 {
     LIFTED_COULOMB_SOLVER_DIGEST_VALUE.with(|slot| match slot.get() {
         Some(value) => value,
@@ -9310,6 +9324,22 @@ mod tests {
         assert_eq!(tick(), 600, "the floor stopped at the previous fight's tick limit");
         step(600);
         assert_eq!(tick(), 1_200);
+    }
+
+    #[cfg(feature = "cartesian-recoil")]
+    #[test]
+    #[ignore]
+    fn print_exact_segment_shield_debug_words() {
+        let mut config = sim::DuelConfigV1::shipped();
+        config.max_ticks = 300;
+        let kinds = [ArticulatedPolicyKind::Composed, ArticulatedPolicyKind::Windmill];
+        write_arena_config(&config, kinds);
+        assert_eq!(arena_start(3) & 0xff, 1);
+        step(140);
+        let words: Vec<u64> = (0..20)
+            .map(sim::combat::contact::exact_segment_shield_debug_word)
+            .collect();
+        println!("native exact SegmentShield debug: {words:#018x?}");
     }
 
     #[test]
